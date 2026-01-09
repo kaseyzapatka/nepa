@@ -1,0 +1,76 @@
+# PROJECT TYPE - CLEAN ENERGY
+# ------------
+carbon capture and sequestration, 
+conventional energy production – nuclear, 
+conventional energy production – other (includes hydroelectric power), 
+renewable energy production – biomass, 
+renewable energy production – energy storage, 
+renewable energy production – geothermal, 
+renewable energy production – hydrokinetic, 
+renewable energy production – hydropower, 
+renewable energy production – other, 
+renewable energy production – solar, 
+renewable energy production – wind, offshore, 
+renewable energy production – wind, onshore, 
+nuclear technology, 
+electricity transmission, 
+utilities (includes gas and electric).
+
+
+# PROJECT TYPE - ALL POSSIBLE 
+# ------------
+Agriculture
+Aviation - Airports and Air Traffic
+Aviation - Commercial Space
+Broadband
+Carbon Capture and Sequestration
+Conventional Energy Production - Coal
+Conventional Energy Production - Land-based Oil & Gas
+Conventional Energy Production - Nuclear
+Conventional Energy Production - Offshore Oil and Gas
+Conventional Energy Production - Other
+Conventional Energy Production - Rural Energy
+Data Storage and Data Management
+Ecosystem Management and Restoration
+Electricity Transmission
+Emergency and Disaster Response
+Habitat Conservation Plan
+High Performance Computing and Advanced Computer Hardware and Software
+Land Development - Housing
+Land Development - Other
+Land Development - Urban
+Land Use or Forest Management Plan
+Laws, Policies, Regulations, and Guidance
+Manufacturing
+Military and Defense
+Mining - Marine Minerals
+Mining - Metals
+Mining - Non-Metallic Minerals
+Nuclear Technology
+Other
+Pipelines
+Ports and Waterways
+Public and Recreational Land Use
+Rangeland Management
+Renewable Energy Production - Biomass
+Renewable Energy Production - Energy Storage
+Renewable Energy Production - Geothermal
+Renewable Energy Production - Hydrokinetic
+Renewable Energy Production - Hydropower
+Renewable Energy Production - Other
+Renewable Energy Production - Solar
+Renewable Energy Production - Wind, Offshore
+Renewable Energy Production - Wind, Onshore
+Research and Development
+Routine Maintenance
+Semiconductors
+Surface Transportation - Bridges
+Surface Transportation - Other
+Surface Transportation - Public Transportation
+Surface Transportation - Railroads
+Threatened and Endangered Species Management
+Utilities (electricity, gas, telecommunications)
+Vegetation and Fuels Management
+Waste Management
+Water Resources - Irrigation and Water Supply
+Water Resources - Other
