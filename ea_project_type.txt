@@ -1,20 +1,27 @@
 # PROJECT TYPE - CLEAN ENERGY
 # ------------
-carbon capture and sequestration, 
-conventional energy production – nuclear, 
-conventional energy production – other (includes hydroelectric power), 
-renewable energy production – biomass, 
-renewable energy production – energy storage, 
-renewable energy production – geothermal, 
-renewable energy production – hydrokinetic, 
-renewable energy production – hydropower, 
-renewable energy production – other, 
-renewable energy production – solar, 
-renewable energy production – wind, offshore, 
-renewable energy production – wind, onshore, 
-nuclear technology, 
-electricity transmission, 
-utilities (includes gas and electric).
+carbon capture and sequestration 
+conventional energy production – nuclear 
+conventional energy production – other (includes hydroelectric power) 
+renewable energy production – biomass 
+renewable energy production – energy storage 
+renewable energy production – geothermal 
+renewable energy production – hydrokinetic 
+renewable energy production – hydropower 
+renewable energy production – other 
+renewable energy production – solar 
+renewable energy production – wind, offshore 
+renewable energy production – wind, onshore 
+nuclear technology 
+electricity transmission 
+utilities (includes gas and electric)
+
+# PROJECT TYPE - FOSSIL ENERGY
+# ------------
+conventional energy production – coal
+conventional energy production - land-based oil & gas
+conventional energy production - rural energy
+pipelines (includes natural gas and oil but may also include carbon and hydrogen)
 
 
 # PROJECT TYPE - ALL POSSIBLE 
