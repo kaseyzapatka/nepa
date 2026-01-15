@@ -127,13 +127,126 @@ def count_energy_tags(project_types):
     return total_count, clean_count, fossil_count
 
 
+def is_utilities_broadband_only(project_types):
+    """
+    Check if project has ONLY Utilities + Broadband tags (no other tags).
+
+    These are likely telecommunications projects, not clean energy.
+
+    Args:
+        project_types: list, array, or string of project type values
+
+    Returns:
+        bool: True if project is Utilities + Broadband only
+    """
+    types_set = get_type_set(project_types)
+
+    if not types_set:
+        return False
+
+    utilities_tag = "utilities (electricity, gas, telecommunications)"
+    broadband_tag = "broadband"
+
+    # Must have utilities
+    if utilities_tag not in types_set:
+        return False
+
+    # Must have broadband
+    if broadband_tag not in types_set:
+        return False
+
+    # Must have ONLY these two tags
+    other_tags = types_set - {utilities_tag, broadband_tag}
+    return len(other_tags) == 0
+
+
+def is_nuclear_tech_only(project_types):
+    """
+    Check if project has Nuclear Technology but NOT Conventional Energy Production - Nuclear.
+
+    These are likely waste management or R&D projects, not power generation.
+
+    Args:
+        project_types: list, array, or string of project type values
+
+    Returns:
+        bool: True if project has Nuclear Technology without nuclear power production
+    """
+    types_set = get_type_set(project_types)
+
+    if not types_set:
+        return False
+
+    nuclear_tech_tag = "nuclear technology"
+    nuclear_production_tag = "conventional energy production - nuclear"
+
+    # Has nuclear technology tag
+    has_nuclear_tech = nuclear_tech_tag in types_set
+
+    # Does NOT have nuclear production tag
+    has_nuclear_production = nuclear_production_tag in types_set
+
+    return has_nuclear_tech and not has_nuclear_production
+
+
+def classify_energy_type_strict(project_types):
+    """
+    Classify a project's energy type using STRICT criteria.
+
+    Excludes borderline cases:
+    - Utilities + Broadband only projects (likely telecom)
+    - Nuclear Technology without Nuclear Production (likely waste/R&D)
+
+    Rules:
+    1. If Utilities + Broadband ONLY -> "Other" (excluded)
+    2. If Nuclear Technology without Nuclear Production -> "Other" (excluded)
+    3. If ANY fossil fuel tag exists -> "Fossil" (fossil takes precedence)
+    4. Else if ANY clean energy tag exists -> "Clean"
+    5. Else -> "Other"
+
+    Args:
+        project_types: list, array, or string of project type values
+
+    Returns:
+        str: "Clean", "Fossil", or "Other"
+    """
+    types_set = get_type_set(project_types)
+
+    if not types_set:
+        return "Other"
+
+    # Exclusion 1: Utilities + Broadband only -> Other
+    if is_utilities_broadband_only(project_types):
+        return "Other"
+
+    # Exclusion 2: Nuclear Technology only (no nuclear production) -> Other
+    if is_nuclear_tech_only(project_types):
+        return "Other"
+
+    # Standard classification logic
+    # Check for fossil fuel tags (takes precedence)
+    has_fossil = bool(types_set & FOSSIL_ENERGY_TYPES)
+    if has_fossil:
+        return "Fossil"
+
+    # Check for clean energy tags
+    has_clean = bool(types_set & CLEAN_ENERGY_TYPES)
+    if has_clean:
+        return "Clean"
+
+    return "Other"
+
+
 def add_energy_columns(df):
     """
     Add all energy classification columns to a projects DataFrame.
 
     Adds columns:
-    - project_energy_type: "Clean", "Fossil", or "Other"
+    - project_energy_type: "Clean", "Fossil", or "Other" (broad definition)
+    - project_energy_type_strict: "Clean", "Fossil", or "Other" (excludes borderline cases)
     - project_energy_type_questions: Boolean flag for manual review
+    - project_is_utilities_broadband_only: Boolean flag for Utilities+Broadband only projects
+    - project_is_nuclear_tech_only: Boolean flag for Nuclear Tech without production
     - project_type_count: Total count of project_type values
     - project_type_count_clean: Count of clean energy tags
     - project_type_count_fossil: Count of fossil fuel tags
@@ -146,11 +259,18 @@ def add_energy_columns(df):
     """
     df = df.copy()
 
-    # Classify energy type
+    # Classify energy type (broad)
     df["project_energy_type"] = df["project_type"].apply(classify_energy_type)
+
+    # Classify energy type (strict - excludes borderline cases)
+    df["project_energy_type_strict"] = df["project_type"].apply(classify_energy_type_strict)
 
     # Flag for manual review
     df["project_energy_type_questions"] = df["project_type"].apply(flag_energy_questions)
+
+    # Specific exclusion flags
+    df["project_is_utilities_broadband_only"] = df["project_type"].apply(is_utilities_broadband_only)
+    df["project_is_nuclear_tech_only"] = df["project_type"].apply(is_nuclear_tech_only)
 
     # Count tags
     counts = df["project_type"].apply(count_energy_tags)
@@ -166,9 +286,9 @@ def add_energy_columns(df):
 # --------------------------
 
 if __name__ == "__main__":
-    # Test cases
+    # Test cases for broad classification
+    # (input, expected_type, expected_flag)
     test_cases = [
-        # (input, expected_type, expected_flag)
         (["Utilities (electricity, gas, telecommunications)"], "Clean", False),
         (["Utilities (electricity, gas, telecommunications)", "Broadband"], "Clean", True),
         (["Renewable Energy Production - Solar"], "Clean", False),
@@ -181,7 +301,7 @@ if __name__ == "__main__":
         ([], "Other", False),
     ]
 
-    print("Testing energy classification...")
+    print("Testing BROAD energy classification...")
     for types, expected_type, expected_flag in test_cases:
         result_type = classify_energy_type(types)
         result_flag = flag_energy_questions(types)
@@ -195,5 +315,33 @@ if __name__ == "__main__":
             print(f"  Expected type: {expected_type}, Got: {result_type}")
         if not flag_ok:
             print(f"  Expected flag: {expected_flag}, Got: {result_flag}")
+
+    # Test cases for strict classification
+    # (input, expected_strict_type)
+    strict_test_cases = [
+        # Utilities + Broadband only -> Other (excluded)
+        (["Utilities (electricity, gas, telecommunications)", "Broadband"], "Other"),
+        # Utilities alone -> Clean (not excluded)
+        (["Utilities (electricity, gas, telecommunications)"], "Clean"),
+        # Utilities + Broadband + Solar -> Clean (has other tag)
+        (["Utilities (electricity, gas, telecommunications)", "Broadband",
+          "Renewable Energy Production - Solar"], "Clean"),
+        # Nuclear Technology alone -> Other (excluded)
+        (["Nuclear Technology"], "Other"),
+        # Nuclear Technology + Nuclear Production -> Clean (not excluded)
+        (["Nuclear Technology", "Conventional Energy Production - Nuclear"], "Clean"),
+        # Regular clean energy -> Clean
+        (["Renewable Energy Production - Solar"], "Clean"),
+        # Fossil -> Fossil
+        (["Conventional Energy Production - Land-based Oil & Gas"], "Fossil"),
+    ]
+
+    print("\nTesting STRICT energy classification...")
+    for types, expected_strict in strict_test_cases:
+        result_strict = classify_energy_type_strict(types)
+        status = "PASS" if result_strict == expected_strict else "FAIL"
+        print(f"{status}: {types}")
+        if result_strict != expected_strict:
+            print(f"  Expected: {expected_strict}, Got: {result_strict}")
 
     print("\nDone.")

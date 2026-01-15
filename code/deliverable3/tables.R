@@ -77,7 +77,7 @@ table1 <- table1 %>%
     `Environmental Impact Statement` = EIS,
     `Categorical Exclusion` = CE
   )
-table1 |> glimpse()
+table1 |> print()
 # Save
 output_file1 <- file.path(output_dir, "table1_by_energy_type.csv")
 write.csv(table1, output_file1, row.names = FALSE)
