@@ -1,5 +1,8 @@
 *.DS*
 *data/
 *documents/
+*admin/
 
 *.csv
+
+*project_overview.md
