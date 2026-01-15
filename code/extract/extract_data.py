@@ -326,6 +326,23 @@ def create_combined_projects():
     print("Adding location columns...")
     combined = add_location_columns(combined)
 
+    # Add document flags (requires loading documents)
+    print("Adding document type flags...")
+    all_documents = []
+    for dataset_type in ["ea", "eis", "ce"]:
+        data = load_processed_data(dataset_type)
+        documents = clean_project_id(data['documents'])
+        all_documents.append(documents)
+    documents_combined = pd.concat(all_documents, ignore_index=True)
+    doc_flags = get_project_document_flags(documents_combined)
+    combined = combined.merge(doc_flags, on='project_id', how='left')
+
+    # Fill missing flags with False/0
+    combined['project_has_decision_doc'] = combined['project_has_decision_doc'].fillna(False)
+    combined['project_has_final_doc'] = combined['project_has_final_doc'].fillna(False)
+    combined['project_has_draft_doc'] = combined['project_has_draft_doc'].fillna(False)
+    combined['project_doc_count'] = combined['project_doc_count'].fillna(0).astype(int)
+
     # Convert complex columns for parquet compatibility
     print("Converting complex columns for parquet...")
     combined = convert_complex_columns_for_parquet(combined)
@@ -343,6 +360,10 @@ def create_combined_projects():
     print(f"\nBy energy type:")
     print(combined['project_energy_type'].value_counts())
     print(f"\nProjects flagged for review: {combined['project_energy_type_questions'].sum():,}")
+    print(f"\nDocument availability:")
+    print(f"  Projects with decision docs: {combined['project_has_decision_doc'].sum():,}")
+    print(f"  Projects with final docs: {combined['project_has_final_doc'].sum():,}")
+    print(f"  Projects with draft docs: {combined['project_has_draft_doc'].sum():,}")
 
     return combined
 
@@ -371,6 +392,81 @@ def create_combined_processes():
     print(f"Saved {len(combined):,} processes to: {output_path}")
 
     return combined
+
+
+# --------------------------
+# DOCUMENT TYPE CLASSIFICATION
+# --------------------------
+
+# Document type categories for filtering timeline extraction
+DOCUMENT_TYPE_CATEGORIES = {
+    'decision': ['ROD', 'FONSI', 'CE'],  # Decision documents - primary source for timelines
+    'final': ['FEIS', 'EA'],              # Final documents (EA can be final)
+    'draft': ['DEIS', 'DEA'],             # Draft documents
+    'other': ['OTHER', ''],               # Other/unknown documents
+}
+
+
+def classify_document_type(doc_type):
+    """
+    Classify a document_type into a category.
+
+    Args:
+        doc_type: The document_type value (e.g., 'ROD', 'FEIS', 'DEIS')
+
+    Returns:
+        str: Category name ('decision', 'final', 'draft', 'other')
+    """
+    if pd.isna(doc_type) or doc_type == '':
+        return 'other'
+
+    doc_type_upper = str(doc_type).upper().strip()
+
+    for category, types in DOCUMENT_TYPE_CATEGORIES.items():
+        if doc_type_upper in types:
+            return category
+
+    return 'other'
+
+
+def add_document_type_category(df):
+    """
+    Add document_type_category column to documents dataframe.
+
+    Args:
+        df: Documents dataframe with document_type column
+
+    Returns:
+        DataFrame with document_type_category column added
+    """
+    df = df.copy()
+    df['document_type_category'] = df['document_type'].apply(classify_document_type)
+    return df
+
+
+def get_project_document_flags(documents_df):
+    """
+    Create project-level flags for document types.
+
+    Args:
+        documents_df: Documents dataframe with project_id and document_type columns
+
+    Returns:
+        DataFrame with project_id and document flag columns
+    """
+    # Ensure document_type_category exists
+    if 'document_type_category' not in documents_df.columns:
+        documents_df = add_document_type_category(documents_df)
+
+    # Group by project and check for each category
+    project_flags = documents_df.groupby('project_id').agg(
+        project_has_decision_doc=('document_type_category', lambda x: 'decision' in x.values),
+        project_has_final_doc=('document_type_category', lambda x: 'final' in x.values),
+        project_has_draft_doc=('document_type_category', lambda x: 'draft' in x.values),
+        project_doc_count=('document_id', 'count'),
+    ).reset_index()
+
+    return project_flags
 
 
 def convert_documents_for_parquet(df):
@@ -418,12 +514,20 @@ def create_combined_documents():
 
     combined = pd.concat(all_documents, ignore_index=True)
 
+    # Add document type category
+    print("Adding document type categories...")
+    combined = add_document_type_category(combined)
+
     # Convert complex columns for parquet compatibility
     combined = convert_documents_for_parquet(combined)
 
     output_path = ANALYSIS_DIR / "documents_combined.parquet"
     combined.to_parquet(output_path)
     print(f"Saved {len(combined):,} documents to: {output_path}")
+
+    # Print document type category stats
+    print("\nDocument type categories:")
+    print(combined['document_type_category'].value_counts())
 
     return combined
 

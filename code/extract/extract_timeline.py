@@ -64,13 +64,27 @@ DATE_CONTEXT_KEYWORDS = {
     'scoping': ['scoping', 'scoping period'],
 }
 
-# Context keywords that indicate a date should be EXCLUDED (law/statute years)
+# Context keywords that indicate a date should be EXCLUDED (law/statute years, references)
 DATE_EXCLUSION_KEYWORDS = [
+    # Law/statute references
     'act of', 'act (', 'policy act', 'preservation act', 'conservation act',
     'management act', 'protection act', 'improvement act', 'reform act',
     'recovery act', 'species act', 'water act', 'air act', 'lands act',
     'flpma', 'nepa', 'nhpa', 'anilca', 'cercla', 'rcra', 'esa', 'cwa', 'caa',
     'statute', 'u.s.c.', 'usc', 'public law', 'p.l.', 'amended in',
+    # Bibliographic references (citations)
+    'accessed', 'retrieved', 'available at', 'http://', 'https://', 'www.',
+    'et al.', 'et al,', 'eds.', 'editor', 'vol.', 'volume', 'pp.', 'pages',
+    'journal', 'publication', 'proceedings', 'report no.', 'technical report',
+    'isbn', 'issn', 'doi:', 'reference', 'cited', 'bibliography',
+]
+
+# Regex patterns that indicate a date is in a citation/reference (Author. Year. format)
+CITATION_PATTERNS = [
+    r'\b[A-Z][a-z]+\.\s*\d{4}\.',  # "Smith. 2005." or "BLM. 2005."
+    r'\b[A-Z]{2,}\.\s*\d{4}\.',     # "EPA. 2010." "USFWS. 2015."
+    r'\(\d{4}\)',                    # "(2005)" - parenthetical citations
+    r'\d{4}[a-z]?\)',               # "2005a)" - lettered citations
 ]
 
 # Month name to number mapping
@@ -127,7 +141,7 @@ def parse_date_match(match, pattern_type):
 
 def should_exclude_date(text, match_start, match_end, window=50):
     """
-    Check if a date should be excluded (e.g., it's a law/statute year).
+    Check if a date should be excluded (e.g., it's a law/statute year or citation).
 
     Args:
         text: Full text
@@ -140,10 +154,17 @@ def should_exclude_date(text, match_start, match_end, window=50):
     """
     start = max(0, match_start - window)
     end = min(len(text), match_end + window)
-    context = text[start:end].lower()
+    context = text[start:end]
+    context_lower = context.lower()
 
+    # Check keyword exclusions
     for keyword in DATE_EXCLUSION_KEYWORDS:
-        if keyword in context:
+        if keyword in context_lower:
+            return True
+
+    # Check citation patterns (case-sensitive for Author. Year. patterns)
+    for pattern in CITATION_PATTERNS:
+        if re.search(pattern, context):
             return True
 
     return False
@@ -229,20 +250,42 @@ def extract_dates_from_text(text):
     return results
 
 
-def build_project_timeline(project_id, pages_df, documents_df):
+# Document type category mapping (same as in extract_data.py)
+DOCUMENT_TYPE_CATEGORIES = {
+    'decision': ['ROD', 'FONSI', 'CE'],  # Decision documents - primary source for timelines
+    'final': ['FEIS', 'EA'],              # Final documents (EA can be final)
+    'draft': ['DEIS', 'DEA'],             # Draft documents
+    'other': ['OTHER', ''],               # Other/unknown documents
+}
+
+
+def classify_document_type(doc_type):
+    """Classify a document_type into a category."""
+    if pd.isna(doc_type) or doc_type == '':
+        return 'other'
+    doc_type_upper = str(doc_type).upper().strip()
+    for category, types in DOCUMENT_TYPE_CATEGORIES.items():
+        if doc_type_upper in types:
+            return category
+    return 'other'
+
+
+def build_project_timeline(project_id, pages_df, documents_df, decision_docs_only=True):
     """
-    Build a timeline for a single project by extracting dates from all documents.
+    Build a timeline for a single project by extracting dates from documents.
 
     Args:
         project_id: Project ID string
         pages_df: DataFrame with page text
         documents_df: DataFrame with document metadata
+        decision_docs_only: If True, prioritize decision documents (ROD, FONSI, CE).
+                           Falls back to final/draft/other if no decision docs found.
 
     Returns:
         dict with timeline information
     """
     # Get documents for this project
-    project_docs = documents_df[documents_df['project_id'] == project_id]
+    project_docs = documents_df[documents_df['project_id'] == project_id].copy()
 
     if project_docs.empty:
         return {
@@ -254,10 +297,32 @@ def build_project_timeline(project_id, pages_df, documents_df):
             'project_year': None,
         }
 
-    all_dates = []
+    # Add document type category if not present
+    if 'document_type_category' not in project_docs.columns:
+        project_docs['document_type_category'] = project_docs['document_type'].apply(classify_document_type)
 
-    # Process each document
-    doc_ids = project_docs['document_id'].tolist()
+    all_dates = []
+    docs_used = []
+
+    # Prioritize document types: decision > final > draft > other
+    if decision_docs_only:
+        priority_order = ['decision', 'final', 'draft', 'other']
+        for doc_category in priority_order:
+            category_docs = project_docs[project_docs['document_type_category'] == doc_category]
+            if not category_docs.empty:
+                # Use this category
+                doc_ids = category_docs['document_id'].tolist()
+                docs_used = doc_category
+                break
+        else:
+            # Fallback to all docs
+            doc_ids = project_docs['document_id'].tolist()
+            docs_used = 'all'
+    else:
+        # Process all documents
+        doc_ids = project_docs['document_id'].tolist()
+        docs_used = 'all'
+
     project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
 
     for _, page in project_pages.iterrows():
@@ -333,16 +398,18 @@ def build_project_timeline(project_id, pages_df, documents_df):
         'project_year': project_year,
         'project_timeline_needs_review': needs_llm_review,
         'project_timeline_review_reasons': review_reasons,
+        'project_timeline_doc_source': docs_used,  # Which doc type was used for extraction
     }
 
 
-def run_timeline_extraction(sample_size=None, clean_energy_only=False):
+def run_timeline_extraction(sample_size=None, clean_energy_only=False, decision_docs_only=True):
     """
     Run timeline extraction for all projects.
 
     Args:
         sample_size: If set, only process this many projects
         clean_energy_only: If True, only process clean energy projects
+        decision_docs_only: If True, prioritize decision documents for extraction
 
     Outputs:
         data/analysis/projects_timeline.parquet
@@ -393,7 +460,7 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False):
                 print(f"  Processing project {idx + 1}/{len(source_projects)}...")
 
             project_id = project['project_id']
-            timeline = build_project_timeline(project_id, pages_df, documents_df)
+            timeline = build_project_timeline(project_id, pages_df, documents_df, decision_docs_only)
             results.append(timeline)
 
     # Create results dataframe
@@ -568,11 +635,13 @@ if __name__ == "__main__":
     parser.add_argument('--run', action='store_true', help='Run full extraction')
     parser.add_argument('--sample', type=int, help='Sample size for testing')
     parser.add_argument('--clean-energy', action='store_true', help='Process clean energy only')
+    parser.add_argument('--all-docs', action='store_true', help='Use all documents (not just decision docs)')
 
     args = parser.parse_args()
 
     if args.run:
         run_timeline_extraction(
             sample_size=args.sample,
-            clean_energy_only=args.clean_energy
+            clean_energy_only=args.clean_energy,
+            decision_docs_only=not args.all_docs
         )

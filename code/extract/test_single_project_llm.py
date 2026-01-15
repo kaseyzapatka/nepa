@@ -35,8 +35,28 @@ ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
 DEFAULT_MODEL = "llama3.2:latest"
 
 
-def get_project_pages(project_id, source, max_pages=15):
-    """Load pages for a project."""
+# Document type category mapping
+DOCUMENT_TYPE_CATEGORIES = {
+    'decision': ['ROD', 'FONSI', 'CE'],
+    'final': ['FEIS', 'EA'],
+    'draft': ['DEIS', 'DEA'],
+    'other': ['OTHER', ''],
+}
+
+
+def classify_document_type(doc_type):
+    """Classify a document_type into a category."""
+    if pd.isna(doc_type) or doc_type == '':
+        return 'other'
+    doc_type_upper = str(doc_type).upper().strip()
+    for category, types in DOCUMENT_TYPE_CATEGORIES.items():
+        if doc_type_upper in types:
+            return category
+    return 'other'
+
+
+def get_project_pages(project_id, source, max_pages=15, decision_docs_only=True):
+    """Load pages for a project, prioritizing decision documents."""
     data_dir = PROCESSED_DIR / source.lower()
 
     docs_df = pd.read_parquet(data_dir / "documents.parquet")
@@ -46,15 +66,31 @@ def get_project_pages(project_id, source, max_pages=15):
         return x.get('value', '') if isinstance(x, dict) else x
 
     docs_df['project_id'] = docs_df['project_id'].apply(extract_id)
+    docs_df['document_type_category'] = docs_df['document_type'].apply(classify_document_type)
 
     project_docs = docs_df[docs_df['project_id'] == project_id]
-    main_docs = project_docs[project_docs['main_document'] == 'YES']
 
-    if main_docs.empty:
-        main_docs = project_docs
+    # Prioritize document types: decision > final > draft > other
+    doc_ids = []
+    docs_used = 'none'
+    if decision_docs_only:
+        for category in ['decision', 'final', 'draft', 'other']:
+            category_docs = project_docs[project_docs['document_type_category'] == category]
+            if not category_docs.empty:
+                doc_ids = category_docs['document_id'].tolist()
+                docs_used = category
+                break
+    else:
+        # Use main documents or all documents
+        main_docs = project_docs[project_docs['main_document'] == 'YES']
+        if main_docs.empty:
+            main_docs = project_docs
+        doc_ids = main_docs['document_id'].tolist()
+        docs_used = 'all'
 
-    doc_ids = main_docs['document_id'].tolist()
     project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
+
+    print(f"  Document source: {docs_used} ({len(doc_ids)} documents)")
 
     return project_pages.head(max_pages)['page_text'].tolist()
 
