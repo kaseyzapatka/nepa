@@ -13,6 +13,7 @@ library(arrow)
 library(tidyverse)
 library(jsonlite)
 library(scales)
+library(zoo)
 
 # --------------------------
 # FILE PATHS

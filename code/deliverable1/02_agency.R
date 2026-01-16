@@ -114,45 +114,19 @@ department_counts %>% print()
 
 
 # --------------------------
-# TABLE 2A: BY LEAD AGENCY (DETAILED)
+# TABLE 2: BY DEPARTMENT (AGENCY COLLAPSED)
 # --------------------------
-
-cat("\nCreating Table 2a: Clean Energy by Lead Agency (Detailed)...\n")
-
-table2a <- create_crosstab(agency_data, "lead_agency")
-
-# Add totals row
-table2a <- add_totals_row(table2a, "lead_agency")
-
-# Rename for clarity
-table2a <- table2a %>%
-  rename(
-    Agency = lead_agency,
-    `Environmental Assessment` = EA,
-    `Environmental Impact Statement` = EIS,
-    `Categorical Exclusion` = CE
-  )
-
-table2a %>% print(n = 50)
-
-# Save
-write_csv(table2a, here(tables_dir, "table2a_by_agency_detailed.csv"))
-cat("  Saved: table2a_by_agency_detailed.csv\n")
-
-
-# --------------------------
-# TABLE 2B: BY DEPARTMENT (COLLAPSED)
-# --------------------------
+# This table collapses lead agency into department for parsimony
 
 cat("\nCreating Table 2b: Clean Energy by Department (Collapsed)...\n")
 
-table2b <- create_crosstab(agency_data, "department")
+table2 <- create_crosstab(agency_data, "department")
 
 # Add totals row
-table2b <- add_totals_row(table2b, "department")
+table2 <- add_totals_row(table2, "department")
 
 # Rename for clarity
-table2b <- table2b %>%
+table2 <- table2 %>%
   rename(
     Department = department,
     `Environmental Assessment` = EA,
@@ -160,11 +134,11 @@ table2b <- table2b %>%
     `Categorical Exclusion` = CE
   )
 
-table2b %>% print(n = 25)
+table2 %>% print(n = 25)
 
 # Save
-write_csv(table2b, here(tables_dir, "table2b_by_department.csv"))
-cat("  Saved: table2b_by_department.csv\n")
+write_csv(table2, here(tables_dir, "table2_by_department.csv"))
+cat("  Saved: table2_by_department.csv\n")
 
 
 # --------------------------

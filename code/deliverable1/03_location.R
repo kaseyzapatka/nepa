@@ -92,6 +92,81 @@ cat("  Saved: table3_by_state.csv\n")
 
 
 # --------------------------
+# TABLE 4: BY STATE & BY COUNTY
+# --------------------------
+
+# A–G: State + County nested crosstab with totals at the top
+table_county_state <- location_data %>%
+  # ---- A. Parse + unnest county JSON ----
+  mutate(
+    project_county = map(
+      project_county,
+      ~ if (.x == "[]" | is.na(.x)) NA_character_ else fromJSON(.x)
+    )
+  ) %>%
+  unnest(project_county, keep_empty = TRUE) %>%
+  
+  # ---- B. Create identifiers + display labels ----
+  mutate(
+    geo_label = if_else(
+      is.na(project_county),
+      project_state,
+      paste0("  \u2514\u2500 ", project_county)   # indented county
+    ),
+    geo_state = project_state,
+    geo_level = if_else(is.na(project_county), "State", "County")
+  ) %>%
+  
+  # ---- C. Crosstab by geography + process type ----
+  count(geo_label, geo_state, geo_level, process_type) %>%
+  pivot_wider(
+    names_from = process_type,
+    values_from = n,
+    values_fill = 0
+  ) %>%
+  
+  # ---- D. Add totals ----
+  mutate(
+    Total = rowSums(across(c(EA, EIS, CE)))
+  ) %>%
+  
+  # ---- E. Order: state first, then counties ----
+  arrange(
+    geo_state,
+    desc(geo_level == "State"),
+    geo_label
+  ) %>%
+  
+  # ---- F. Clean up for output ----
+  select(
+    Geography = geo_label,
+    `Environmental Assessment` = EA,
+    `Environmental Impact Statement` = EIS,
+    `Categorical Exclusion` = CE,
+    Total
+  )
+
+# ---- G. Add grand totals row at the top ----
+grand_totals <- table_county_state %>%
+  summarise(
+    Geography = "TOTAL (All States & Counties)",
+    across(where(is.numeric), sum)
+  )
+
+table_county_state <- bind_rows(grand_totals, table_county_state)
+
+# ---- H. Print + save ----
+table_county_state %>% print(n = 80)
+
+write_csv(
+  table_county_state,
+  here(tables_dir, "table3_by_state_and_county_totals.csv")
+)
+
+cat("  Saved: table3_by_state_and_county_totals_top.csv\n")
+
+
+# --------------------------
 # FIGURES
 # --------------------------
 
