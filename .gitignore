@@ -1,5 +1,14 @@
+# Files to ignore
 *.DS*
+*.csv
+*project_overview.md
+
+# Folders to ignore
 *data/
 *documents/
+*admin/
+*notes/
 
-*.csv
+# Python bytecode
+__pycache__/
+*.pyc

@@ -1,0 +1,28 @@
+# Generation capacity
+# ------------
+
+Clean Energy
+# ------------
+- Carbon capture & sequestration: miles, diameter (pipelines); MWe; tons CO₂
+- Nuclear (conventional): MW, kW, GW
+- Conventional (other incl. hydro): MW, kW, GW
+- Renewables:
+  - Biomass: BTU; MW, kW, GW
+  - Energy storage: MWh, kWh
+  - Geothermal: MW, kW, GW
+  - Hydrokinetic: MW, kW, GW
+  - Hydropower: MW, kW, GW
+  - Solar: MW, kW, GW
+  - Wind (offshore): MW, kW, GW
+  - Wind (onshore): MW, kW, GW
+  - Other: MW, kW, GW (unclear)
+- Nuclear technology (other): varies
+- Electricity transmission: V, kV; MW, kW, GW; miles
+- Utilities (gas & electric): varies
+
+Fossil Fuel
+# ------------
+- Coal: MW, kW, GW
+- Land-based oil & gas: MW, kW, GW
+- Rural energy: MW, kW, GW (varies)
+- Pipelines (oil, gas, carbon, hydrogen): barrels; m³; ft³; MCF; dekatherms
