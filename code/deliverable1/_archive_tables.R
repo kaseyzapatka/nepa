@@ -64,7 +64,7 @@ clean_energy |> glimpse()
 # --------------------------------
 
 type_by_clean <-
-  clean_energy %>% dim()
+  clean_energy %>%
     count(project_type_count, project_type_count_clean) %>%
     group_by(project_type_count) %>%
     mutate(percent = n / sum(n)) %>%
