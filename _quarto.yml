@@ -1,5 +1,15 @@
 project:
+  type: website
   output-dir: docs
+
+website:
+  title: "NEPA"
+  navbar:
+    left:
+      - text: "Project Overview"
+        href: project_overview.qmd
+      - text: "Report 1"
+        href: reports/report01.qmd
 
 format:
   html:
