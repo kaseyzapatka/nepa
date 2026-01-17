@@ -1,0 +1,236 @@
+---
+title: "NEPA Clean Energy Analysis: Progress Report"
+subtitle: "Deliverables 1 & 3"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(here)
+library(knitr)
+library(kableExtra)
+library(readr)
+
+# Paths
+d1_figures <- here("output", "deliverable1", "figures")
+d1_maps <- here("output", "deliverable1", "maps")
+d1_tables <- here("output", "deliverable1", "tables")
+d3_figures <- here("output", "deliverable3", "figures")
+d3_tables <- here("output", "deliverable3", "tables")
+```
+
+## Executive Summary
+
+This report summarizes progress on analyzing NEPA (National Environmental Policy Act) compliance data for clean energy projects. We present findings from two deliverables:
+
+- **Deliverable 1**: Characterizing the clean energy project landscape by technology, lead agency, and geographic location
+- **Deliverable 3**: Analyzing NEPA process types (CE, EA, EIS) across energy classifications
+
+::: {.callout-note}
+## Data Scope
+Analysis covers **26,000+ clean energy projects** extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation).
+:::
+
+---
+
+# Deliverable 1: Clean Energy Project Landscape {#deliverable-1}
+
+## Technology Distribution
+
+How are clean energy projects distributed across technology types?
+
+```{r}
+#| label: fig-technology
+#| fig-cap: "Distribution of clean energy projects by technology type. Projects may have multiple technology tags."
+
+knitr::include_graphics(file.path(d1_figures, "01_clean_energy_bar_chart.png"))
+```
+
+::: {.callout-tip}
+## Key Finding: Technology
+**Transmission and solar dominate** the clean energy NEPA landscape. Transmission projects comprise the largest share, reflecting the infrastructure buildout required to connect renewable generation to load centers. Solar's prominence aligns with its rapid deployment growth over the analysis period.
+:::
+
+---
+
+## Lead Agency Analysis
+
+Which federal agencies are leading clean energy NEPA reviews?
+
+```{r}
+#| label: tbl-agency
+#| tbl-cap: "Clean energy projects by lead federal department and NEPA process type"
+
+read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALSE) |>
+  kable(format.args = list(big.mark = ",")) |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) |>
+  row_spec(nrow(read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALSE)), bold = TRUE)
+```
+
+```{r}
+#| label: fig-departments
+#| fig-cap: "Clean energy projects by lead department"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "06_departments.png"))
+```
+
+```{r}
+#| label: fig-dept-process
+#| fig-cap: "NEPA process type composition by lead department"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "07_dept_process_type.png"))
+```
+
+::: {.callout-tip}
+## Key Finding: Agency
+**DOE dominates** clean energy NEPA reviews (81% of projects), followed by Interior (17%). Notably, DOE processes the vast majority through Categorical Exclusions (96%), while Interior shows more variation across process types. This concentration suggests DOE's loan programs and grid modernization initiatives drive most federal clean energy review activity.
+:::
+
+---
+
+## Geographic Distribution
+
+Where are clean energy projects located?
+
+### State-Level Distribution
+
+```{r}
+#| label: tbl-state
+#| tbl-cap: "Top 15 states by clean energy project count"
+
+read_csv(file.path(d1_tables, "table3_by_state.csv"), show_col_types = FALSE) |>
+  head(16) |>  # Top 15 + header info
+  kable(format.args = list(big.mark = ",")) |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+```
+
+```{r}
+#| label: fig-state-map
+#| fig-cap: "Clean energy projects by state. Alaska and Hawaii repositioned for display."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "09_state_choropleth.png"))
+```
+
+### County-Level Distribution
+
+```{r}
+#| label: fig-county-map
+#| fig-cap: "Clean energy projects by county. Note: County data available for approximately 47% of projects."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "10_county_choropleth.png"))
+```
+
+### Process Type by Location
+
+```{r}
+#| label: fig-dots-map
+#| fig-cap: "Clean energy project locations by NEPA process type. Points placed at county centroids; size indicates project count."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "11_county_dots_process_type.png"))
+```
+
+::: {.callout-tip}
+## Key Finding: Geography
+Clean energy projects concentrate in the **Western states and Southeast nuclear corridor**. South Carolina leads (driven by Savannah River Site activity), followed by Washington, California, and Idaho. The county-level map reveals clustering around major federal facilities and high-resource renewable areas (desert Southwest for solar, Great Plains for wind).
+:::
+
+---
+
+# Deliverable 3: NEPA Process Analysis {#deliverable-3}
+
+## Process Types by Energy Classification
+
+How do NEPA review processes differ across energy types (Clean, Fossil, Other)?
+
+```{r}
+#| label: fig-energy-grouped
+#| fig-cap: "NEPA process type by energy classification"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
+```
+
+```{r}
+#| label: fig-energy-composition
+#| fig-cap: "Composition of NEPA process types within each energy classification"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
+```
+
+::: {.callout-tip}
+## Key Finding: Process Type
+**Clean energy projects use Categorical Exclusions at higher rates** than fossil fuel projects. This likely reflects:
+
+1. Smaller project footprints (rooftop solar, efficiency upgrades)
+2. DOE's programmatic CEs for loan guarantee activities
+3. Routine transmission maintenance and upgrades
+
+Fossil projects show higher EA/EIS rates, consistent with larger environmental footprints requiring more detailed review.
+:::
+
+---
+
+# Work in Progress {#work-in-progress}
+
+## Completed Analysis
+
+| Deliverable | Component | Status |
+|-------------|-----------|--------|
+| D1 | Technology classification | Complete |
+| D1 | Lead agency analysis | Complete |
+| D1 | Geographic mapping (state, county) | Complete |
+| D3 | Process type by energy classification | Complete |
+
+## In Progress
+
+### Generation Capacity Analysis
+
+::: {.callout-warning}
+## Data Limitation: Capacity Variables
+Preliminary exploration of generation capacity fields reveals **substantial missing data**. We are evaluating:
+
+- **Option A**: Subset analysis using only records with capacity data (reduced sample size)
+- **Option B**: Imputation strategies using project type and technology proxies
+- **Option C**: Supplementing with external capacity databases (EIA-860)
+
+*Recommendation*: We suggest discussing the tradeoffs at Thursday's meeting to determine the preferred approach.
+:::
+
+### Timeline Analysis
+
+NEPA review duration analysis requires:
+
+1. Parsing decision dates from document records
+2. Handling projects with multiple decision documents
+3. Defining appropriate start/end date conventions
+
+*Current status*: Data cleaning underway; preliminary results expected next cycle.
+
+---
+
+# Next Steps
+
+1. **Finalize capacity analysis approach** based on funder input
+2. **Complete timeline/duration analysis** for Deliverable 2
+3. **Cross-deliverable synthesis** — connecting technology, agency, and process type findings
+4. **Validation** — spot-check classifications against source documents
+
+---
+
+*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
