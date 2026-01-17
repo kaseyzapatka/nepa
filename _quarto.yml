@@ -1,0 +1,7 @@
+project:
+  output-dir: docs
+
+format:
+  html:
+    embed-resources: true
+    theme: cosmo
