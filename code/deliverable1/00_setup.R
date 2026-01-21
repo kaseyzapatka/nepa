@@ -14,6 +14,7 @@ library(tidyverse)
 library(jsonlite)
 library(scales)
 library(zoo)
+library(googlesheets4)
 
 # --------------------------
 # FILE PATHS
@@ -41,7 +42,9 @@ cat("Clean energy projects:", sum(projects$project_energy_type == "Clean"), "\n\
 
 # Filter to clean energy only
 clean_energy <- projects %>%
-  filter(project_energy_type == "Clean")
+  filter(project_energy_type == "Clean") |> 
+  # remove Utilities + Broadband, Waste Management, or Land Development tags
+  filter(!project_utilities_to_filter_out)
 
 cat("Clean energy dataset ready:", nrow(clean_energy), "projects\n")
 
@@ -124,6 +127,163 @@ add_totals_row <- function(df, group_col_name) {
 }
 
 # --------------------------
+# CATF BRAND THEME
+# --------------------------
+# Clean Air Task Force Brand Guide (November 2018)
+# Colors, typography, and ggplot2 theme for consistent figure styling
+
+# Primary Colors
+catf_dark_blue <- "#0047BB"
+catf_blue <- "#00B5E2"
+
+# Secondary Colors
+catf_magenta <- "#C22A90"
+catf_purple <- "#75246C"
+catf_lime <- "#93D500"
+catf_teal <- "#00AE8D"
+catf_light_blue <- "#8AB7E9"
+catf_navy <- "#002169"
+
+# Named color palette for easy access
+catf_colors <- c(
+  "dark_blue" = "#0047BB",
+  "blue" = "#00B5E2",
+
+  "magenta" = "#C22A90",
+  "purple" = "#75246C",
+  "lime" = "#93D500",
+  "teal" = "#00AE8D",
+  "light_blue" = "#8AB7E9",
+  "navy" = "#002169"
+)
+
+# Categorical color palette (ordered for visual distinction)
+catf_palette <- c(
+  "#0047BB",
+  "#00B5E2",
+
+"#00AE8D",
+  "#93D500",
+  "#C22A90",
+  "#75246C",
+  "#8AB7E9",
+  "#002169"
+)
+
+# Sequential palette (blue gradient)
+catf_sequential <- c("#8AB7E9", "#00B5E2", "#0047BB", "#002169")
+
+# Diverging palette (teal to magenta through blue)
+catf_diverging <- c("#00AE8D", "#00B5E2", "#0047BB", "#75246C", "#C22A90")
+
+#' CATF ggplot2 theme
+#'
+#' A minimal theme based on CATF brand guidelines.
+#' Primary font: Circular Std (fallback: Helvetica, Arial, sans-serif)
+#'
+#' @param base_size Base font size (default 11)
+#' @param base_family Base font family (default "Helvetica")
+#' @return A ggplot2 theme object
+theme_catf <- function(base_size = 11, base_family = "Helvetica") {
+  theme_minimal(base_size = base_size, base_family = base_family) +
+    theme(
+      # Text elements
+      plot.title = element_text(
+        face = "bold",
+        size = rel(1.2),
+        color = catf_navy,
+        margin = margin(b = 10)
+      ),
+      plot.subtitle = element_text(
+        size = rel(0.9),
+        color = catf_dark_blue,
+        margin = margin(b = 10)
+      ),
+      plot.caption = element_text(
+        size = rel(0.8),
+        color = "gray50",
+        hjust = 1
+      ),
+
+      # Axis elements
+      axis.title = element_text(
+        size = rel(0.9),
+        color = catf_navy
+      ),
+      axis.text = element_text(
+        size = rel(0.85),
+        color = "gray30"
+      ),
+      axis.line = element_line(color = "gray70", linewidth = 0.3),
+
+      # Legend
+      legend.title = element_text(
+        face = "bold",
+        size = rel(0.9),
+        color = catf_navy
+      ),
+      legend.text = element_text(
+        size = rel(0.85),
+        color = "gray30"
+      ),
+      legend.position = "bottom",
+      legend.key.size = unit(0.8, "lines"),
+
+      # Panel
+      panel.grid.major = element_line(color = "gray90", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background = element_rect(fill = "white", color = NA),
+
+      # Facets
+      strip.text = element_text(
+        face = "bold",
+        size = rel(0.9),
+        color = catf_navy
+      ),
+      strip.background = element_rect(fill = "gray95", color = NA),
+
+      # Margins
+      plot.margin = margin(15, 15, 10, 10)
+    )
+}
+
+#' CATF discrete color scale
+#'
+#' @param ... Additional arguments passed to scale_color_manual
+#' @return A ggplot2 color scale
+scale_color_catf <- function(...) {
+  scale_color_manual(values = catf_palette, ...)
+}
+
+#' CATF discrete fill scale
+#'
+#' @param ... Additional arguments passed to scale_fill_manual
+#' @return A ggplot2 fill scale
+scale_fill_catf <- function(...) {
+  scale_fill_manual(values = catf_palette, ...)
+}
+
+#' CATF sequential color scale (continuous)
+#'
+#' @param ... Additional arguments passed to scale_color_gradient
+#' @return A ggplot2 color scale
+scale_color_catf_seq <- function(...) {
+  scale_color_gradientn(colors = catf_sequential, ...)
+}
+
+#' CATF sequential fill scale (continuous)
+#'
+#' @param ... Additional arguments passed to scale_fill_gradient
+#' @return A ggplot2 fill scale
+scale_fill_catf_seq <- function(...) {
+  scale_fill_gradientn(colors = catf_sequential, ...)
+}
+
+# Set default theme for session
+theme_set(theme_catf())
+
+# --------------------------
 # SETUP COMPLETE
 # --------------------------
 
@@ -131,3 +291,4 @@ cat("\n=== Setup Complete ===\n")
 cat("Output directories:\n")
 cat("  Tables:", tables_dir, "\n")
 cat("  Figures:", figures_dir, "\n")
+cat("CATF brand theme loaded and set as default\n")
