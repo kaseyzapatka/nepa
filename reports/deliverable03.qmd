@@ -1,0 +1,73 @@
+---
+title: "NEPA Clean Energy Analysis: Deliverable 3"
+subtitle: "NEPA Process Analysis"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(here)
+library(knitr)
+library(kableExtra)
+library(readr)
+
+# Paths
+d3_figures <- here("output", "deliverable3", "figures")
+d3_tables <- here("output", "deliverable3", "tables")
+```
+
+## Executive Summary
+
+This report analyzes NEPA process types (CE, EA, EIS) across energy classifications.
+
+::: {.callout-note}
+## Data Scope
+Analysis covers **26,000+ clean energy projects** extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation).
+:::
+
+---
+
+# Process Types by Energy Classification
+
+How do NEPA review processes differ across energy types (Clean, Fossil, Other)?
+
+```{r}
+#| label: fig-energy-grouped
+#| fig-cap: "NEPA process type by energy classification"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
+```
+
+```{r}
+#| label: fig-energy-composition
+#| fig-cap: "Composition of NEPA process types within each energy classification"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
+```
+
+::: {.callout-tip}
+## Key Finding: Process Type
+**Clean energy projects use Categorical Exclusions at higher rates** than fossil fuel projects. This likely reflects:
+
+1. Smaller project footprints (rooftop solar, efficiency upgrades)
+2. DOE's programmatic CEs for loan guarantee activities
+3. Routine transmission maintenance and upgrades
+
+Fossil projects show higher EA/EIS rates, consistent with larger environmental footprints requiring more detailed review.
+:::
+
+---
+
+*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
