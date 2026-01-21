@@ -49,6 +49,32 @@ projects_with_tags <- clean_energy_parsed %>%
   #select(project_id, project_title, project_type_list)
   select(project_type_list)
 
+
+# --------------------------
+# EXPLORATORY
+# --------------------------
+
+#
+# Utilities only
+# ----------------------------------------
+# There were about 1,623 projects that had some combination of Utilities we didn't want 
+# to count as clean energy
+utilties_only_projects <-
+  projects |> 
+  filter(project_energy_type == "Clean") |> 
+  # remove Utilities + Broadband, Waste Management, or Land Development tags
+  filter(project_utilities_to_filter_out) |> 
+  select(project_title, project_type) |> 
+  glimpse()
+
+# save
+sheet_write(
+  data = utilties_only_projects,
+  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
+  sheet = "utilties_only_projects"
+)
+
+
 # --------------------------
 # TABLE 1: BY TECHNOLOGY (project_type)
 # --------------------------
@@ -265,6 +291,130 @@ cat("  Saved: table6_cooccurrence_projects.csv\n")
 # --------------------------
 # FIGURES
 # --------------------------
+
+# Executive Summary: Projects by Process Type
+clean_energy_summary <- clean_energy %>%
+  count(process_type, name = "projects") %>%
+  mutate(
+    process_type = factor(process_type, 
+                          levels = c("CE", "EA", "EIS"),
+                          labels = c("Categorical Exclusion (CE)", 
+                                     "Environmental Assessment (EA)", 
+                                     "Environmental Impact Statement (EIS)"))
+  )
+
+fig_process_summary <- process_summary %>%
+  ggplot(aes(x = reorder(process_type, projects), y = projects)) +
+  geom_col(fill = catf_dark_blue) +
+  geom_text(aes(label = scales::comma(projects)), vjust = -0.3, size = 3.5) +
+  labs(
+    x = NULL,
+    y = "Number of Projects",
+    title = "Clean Energy Projects by NEPA Process Type"
+  ) +
+  scale_y_continuous(
+    labels = scales::comma,
+    expand = expansion(mult = c(0, 0.12))
+  )
+
+clean_energy_summary
+
+ggsave(
+  filename = here(figures_dir, "00_clean_energy_summary.png"),
+  plot = fig_process_summary,
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+
+
+# Energy Type Breakdown (Clean, Fossil, Other)
+energy_type_summary <- projects %>%
+  count(project_energy_type, name = "projects") %>%
+  mutate(
+    share = projects / sum(projects),
+    project_energy_type = factor(project_energy_type, 
+                                  levels = c("Clean", "Fossil", "Other"))
+  )
+
+fig_energy_type <- energy_type_summary %>%
+  ggplot(aes(x = reorder(project_energy_type, -projects), y = projects, 
+             fill = project_energy_type)) +
+  geom_col() +
+  geom_text(aes(label = paste0(scales::comma(projects), "\n(", 
+                                scales::percent(share, accuracy = 0.1), ")")), 
+            vjust = -0.2, size = 3.5) +
+  labs(
+    x = NULL,
+    y = "Number of Projects",
+    title = "NEPA Projects by Energy Type"
+  ) +
+  scale_y_continuous(
+    labels = scales::comma,
+    expand = expansion(mult = c(0, 0.15))
+  ) +
+  scale_fill_manual(values = c("Clean" = catf_teal, 
+                                "Fossil" = catf_navy, 
+                                "Other" = catf_light_blue)) +
+  theme(legend.position = "none")
+
+fig_energy_type
+
+ggsave(
+  filename = here(figures_dir, "00_energy_type_breakdown.png"),
+  plot = fig_energy_type,
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+
+
+# Energy Type by Process Type (stacked shares)
+energy_process_summary <- projects %>%
+  count(project_energy_type, process_type, name = "projects") %>%
+  group_by(project_energy_type) %>%
+  mutate(
+    share = projects / sum(projects),
+    total = sum(projects)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    project_energy_type = factor(project_energy_type, 
+                                  levels = c("Clean", "Fossil", "Other")),
+    process_type = factor(process_type,
+                          levels = c("EIS", "EA", "CE"),
+                          labels = c("EIS", "EA", "CE"))
+  )
+
+fig_energy_process <- energy_process_summary %>%
+  ggplot(aes(x = project_energy_type, y = share, fill = process_type)) +
+  geom_col(position = "stack") +
+  geom_text(aes(label = scales::percent(share, accuracy = 0.1)),
+            position = position_stack(vjust = 0.5),
+            size = 3.5, color = "white") +
+  labs(
+    x = NULL,
+    y = "Share of Projects",
+    fill = "Process Type",
+    title = "NEPA Process Type Distribution by Energy Category"
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_manual(values = c("CE" = catf_light_blue, 
+                                "EA" = catf_dark_blue, 
+                                "EIS" = catf_navy)) +
+  theme(legend.position = "bottom")
+
+fig_energy_process
+
+ggsave(
+  filename = here(figures_dir, "00_energy_by_process_share.png"),
+  plot = fig_energy_process,
+  width = 8,
+  height = 5,
+  dpi = 300
+)
+
+
 
 # Figure 1: Clean Energy Bar Chart (by technology)
 clean_energy_summary <- clean_energy_parsed %>%
