@@ -4503,8 +4503,12 @@ vertical-align: -.125em;
  <span class="menu-text">Project Overview</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/report01.html" rel target>
- <span class="menu-text">Report 1</span></a>
+    <a class="nav-link" href="../reports/deliverable01.html" rel target>
+ <span class="menu-text">Deliverable 1</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../reports/deliverable03.html" rel target>
+ <span class="menu-text">Deliverable 3</span></a>
   </li>  
 </ul>
             <div class="quarto-navbar-tools ms-auto">
@@ -4604,29 +4608,50 @@ Note: you may need to restart the kernel to use updated packages.</code></pre>
 <section id="project-type" class="level3">
 <h3 class="anchored" data-anchor-id="project-type">Project type</h3>
 <p>Use this feature to determine clean vs fossil energy of each project. The difficulty here will be that many projects have more than one classification – e.g., “Utilities (electricity, gas, telecommunication), Broadband”</p>
-<div class="cell" data-execution_count="72">
+<div class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># view unqiue project type values to see how they match with clean energy criteria</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>projects[<span class="st">&quot;project_type&quot;</span>].explode().unique()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>array([&#39;Utilities (electricity, gas, telecommunications)&#39;, &#39;Broadband&#39;,
-       &#39;Conventional Energy Production - Land-based Oil &amp; Gas&#39;, &#39;Pipelines&#39;, &#39;Routine Maintenance&#39;,
-       &#39;Mining - Non-Metallic Minerals&#39;, &#39;Public and Recreational Land Use&#39;, &#39;Ecosystem Management and Restoration&#39;,
-       &#39;Vegetation and Fuels Management&#39;, &#39;Threatened and Endangered Species Management&#39;,
-       &#39;Water Resources - Irrigation and Water Supply&#39;, &#39;Agriculture&#39;, &#39;Rangeland Management&#39;, &#39;Electricity Transmission&#39;,
-       &#39;Surface Transportation - Other&#39;, &#39;Land Use or Forest Management Plan&#39;, &#39;Waste Management&#39;, &#39;Mining - Metals&#39;,
-       &#39;Water Resources - Other&#39;, &#39;Conventional Energy Production - Coal&#39;, &#39;Laws, Policies, Regulations, and Guidance&#39;,
-       &#39;Land Development - Other&#39;, &#39;Ports and Waterways&#39;, &#39;Research and Development&#39;,
-       &#39;Renewable Energy Production - Hydropower&#39;, &#39;Habitat Conservation Plan&#39;, &#39;Renewable Energy Production - Other&#39;,
-       &#39;Manufacturing&#39;, &#39;Renewable Energy Production - Solar&#39;, &#39;Renewable Energy Production - Energy Storage&#39;,
-       &#39;Renewable Energy Production - Wind, Onshore&#39;, &#39;Emergency and Disaster Response&#39;, &#39;Surface Transportation - Bridges&#39;,
-       &#39;Surface Transportation - Public Transportation&#39;, &#39;Conventional Energy Production - Nuclear&#39;,
-       &#39;Aviation - Airports and Air Traffic&#39;, &#39;Renewable Energy Production - Biomass&#39;, &#39;Military and Defense&#39;,
-       &#39;Land Development - Housing&#39;, &#39;Other&#39;, &#39;Conventional Energy Production - Offshore Oil and Gas&#39;,
-       &#39;Conventional Energy Production - Other&#39;, &#39;Land Development - Urban&#39;, &#39;Data Storage and Data Management&#39;,
-       &#39;Mining - Marine Minerals&#39;, &#39;Surface Transportation - Railroads&#39;, &#39;Aviation - Commercial Space&#39;,
-       &#39;Renewable Energy Production - Geothermal&#39;, &#39;Conventional Energy Production - Rural Energy&#39;, &#39;Nuclear Technology&#39;,
-       &#39;Carbon Capture and Sequestration&#39;, &#39;Renewable Energy Production - Wind, Offshore&#39;,
-       &#39;Renewable Energy Production - Hydrokinetic&#39;, &#39;High Performance Computing and Advanced Computer Hardware and Software&#39;,
+       &#39;Conventional Energy Production - Land-based Oil &amp; Gas&#39;,
+       &#39;Pipelines&#39;, &#39;Routine Maintenance&#39;,
+       &#39;Mining - Non-Metallic Minerals&#39;,
+       &#39;Public and Recreational Land Use&#39;,
+       &#39;Ecosystem Management and Restoration&#39;,
+       &#39;Vegetation and Fuels Management&#39;,
+       &#39;Threatened and Endangered Species Management&#39;,
+       &#39;Water Resources - Irrigation and Water Supply&#39;, &#39;Agriculture&#39;,
+       &#39;Rangeland Management&#39;, &#39;Electricity Transmission&#39;,
+       &#39;Surface Transportation - Other&#39;,
+       &#39;Land Use or Forest Management Plan&#39;, &#39;Waste Management&#39;,
+       &#39;Mining - Metals&#39;, &#39;Water Resources - Other&#39;,
+       &#39;Conventional Energy Production - Coal&#39;,
+       &#39;Laws, Policies, Regulations, and Guidance&#39;,
+       &#39;Land Development - Other&#39;, &#39;Ports and Waterways&#39;,
+       &#39;Research and Development&#39;,
+       &#39;Renewable Energy Production - Hydropower&#39;,
+       &#39;Habitat Conservation Plan&#39;, &#39;Renewable Energy Production - Other&#39;,
+       &#39;Manufacturing&#39;, &#39;Renewable Energy Production - Solar&#39;,
+       &#39;Renewable Energy Production - Energy Storage&#39;,
+       &#39;Renewable Energy Production - Wind, Onshore&#39;,
+       &#39;Emergency and Disaster Response&#39;,
+       &#39;Surface Transportation - Bridges&#39;,
+       &#39;Surface Transportation - Public Transportation&#39;,
+       &#39;Conventional Energy Production - Nuclear&#39;,
+       &#39;Aviation - Airports and Air Traffic&#39;,
+       &#39;Renewable Energy Production - Biomass&#39;, &#39;Military and Defense&#39;,
+       &#39;Land Development - Housing&#39;, &#39;Other&#39;,
+       &#39;Conventional Energy Production - Offshore Oil and Gas&#39;,
+       &#39;Conventional Energy Production - Other&#39;,
+       &#39;Land Development - Urban&#39;, &#39;Data Storage and Data Management&#39;,
+       &#39;Mining - Marine Minerals&#39;, &#39;Surface Transportation - Railroads&#39;,
+       &#39;Aviation - Commercial Space&#39;,
+       &#39;Renewable Energy Production - Geothermal&#39;,
+       &#39;Conventional Energy Production - Rural Energy&#39;,
+       &#39;Nuclear Technology&#39;, &#39;Carbon Capture and Sequestration&#39;,
+       &#39;Renewable Energy Production - Wind, Offshore&#39;,
+       &#39;Renewable Energy Production - Hydrokinetic&#39;,
+       &#39;High Performance Computing and Advanced Computer Hardware and Software&#39;,
        nan, &#39;Semiconductors&#39;], dtype=object)</code></pre>
 </div>
 </div>
@@ -5443,17 +5468,19 @@ Name: count, dtype: int64</code></pre>
 </div>
 </div>
 </div>
-<div class="cell" data-execution_count="141">
+<div class="cell" data-execution_count="19">
 <div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;6e9fc6608e30977c74305d2a98628a13&#39;} # coldfoot</span></span>
 <span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;e1f95fc5d710fea657ab131cb5b63f9c&#39;} # Lenhardt_Wells</span></span>
 <span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;a48fc2e9268e31474c3ef9a1a40d2d5d&#39;} # Balboa Well   </span></span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> {<span class="st">&#39;value&#39;</span>:<span class="st">&#39;39d059404366825eda2052316c81c34a&#39;</span>} <span class="co"># Chevron</span></span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>documents_filtered <span class="op">=</span> documents.loc[</span>
-<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a>    documents[<span class="st">&quot;project_id&quot;</span>] <span class="op">==</span> target_id</span>
-<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>]</span>
-<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>documents_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;39d059404366825eda2052316c81c34a&#39;} # Chevron</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;d9c1ed3f8b9cd0a4279528faa5cfc712&#39;} # test</span></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&#39;d9c1ed3f8b9cd0a4279528faa5cfc712&#39;</span> <span class="co"># test</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>documents_filtered <span class="op">=</span> documents.loc[</span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>    documents[<span class="st">&quot;project_id&quot;</span>] <span class="op">==</span> target_id</span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>documents_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -5475,45 +5502,6 @@ Name: count, dtype: int64</code></pre>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">10</td>
-<td>{&#39;value&#39;: &#39;39d059404366825eda2052316c81c34a&#39;}</td>
-<td>3f8157061aad8329a396eeb621e6359b</td>
-<td></td>
-<td></td>
-<td>[]</td>
-<td></td>
-<td>3f8157061aad8329a396eeb621e6359b</td>
-<td>DR_C060-2022-0096-EA - Chevron - Three Lost Hills Well Abandonements.pdf</td>
-<td>2</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">11</td>
-<td>{&#39;value&#39;: &#39;39d059404366825eda2052316c81c34a&#39;}</td>
-<td>cdbf9eb7fff4269ee20530227407585d</td>
-<td>EA</td>
-<td>Environmental Assessment: Chevron USA Inc. Three Lost Hills Well Abandonments</td>
-<td>[Chevron, Department of the Interior - Bureau of Land Management]</td>
-<td></td>
-<td>cdbf9eb7fff4269ee20530227407585d</td>
-<td>EA - C060-2022-0096-EA - Chevron - Three Lost Hills Well Abandonements.pdf</td>
-<td>8</td>
-<td>YES</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">12</td>
-<td>{&#39;value&#39;: &#39;39d059404366825eda2052316c81c34a&#39;}</td>
-<td>c899de7a18d192f022700df8c50805cb</td>
-<td></td>
-<td></td>
-<td>[]</td>
-<td></td>
-<td>c899de7a18d192f022700df8c50805cb</td>
-<td>FONSI_C060-2022-0096-EA - Chevron- Three Lost Hills Well Abandonements.pdf</td>
-<td>3</td>
-<td>YES</td>
-</tr>
 </tbody>
 </table>
 
@@ -5524,21 +5512,23 @@ Name: count, dtype: int64</code></pre>
 </section>
 <section id="pages" class="level2">
 <h2 class="anchored" data-anchor-id="pages">Pages</h2>
-<div class="cell" data-execution_count="4">
+<div class="cell" data-execution_count="15">
 <div class="sourceCode cell-code" id="cb32"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&quot;299fe27f5e25bda53e0a1e4883a76c61&quot;</span> <span class="co"># coldfoot DR</span></span>
-<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&quot;299fe27f5e25bda53e0a1e4883a76c61&quot;</span> <span class="co"># coldfoot DR</span></span>
-<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&quot;299fe27f5e25bda53e0a1e4883a76c61&quot;</span> <span class="co"># coldfoot DR</span></span>
-<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a><span class="co"># coldfoot       &#39;value&#39;: &#39;6e9fc6608e30977c74305d2a98628a13&#39;</span></span>
-<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Lenhardt_Wells &#39;value&#39;: &#39;e1f95fc5d710fea657ab131cb5b63f9c&#39;</span></span>
-<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Balboa Well    &#39;value&#39;: &#39;a48fc2e9268e31474c3ef9a1a40d2d5d&#39;</span></span>
-<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>pages_filtered <span class="op">=</span> pages.loc[</span>
-<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a>    pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> target_id</span>
-<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a>]</span>
-<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a>pages_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;299fe27f5e25bda53e0a1e4883a76c61&quot; # coldfoot DR</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;299fe27f5e25bda53e0a1e4883a76c61&quot; # coldfoot DR</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;299fe27f5e25bda53e0a1e4883a76c61&quot; # coldfoot DR</span></span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;3f8157061aad8329a396eeb621e6359b&quot; # Chevron FONSI</span></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&quot;0245dad9b0b4fc0c8b19d2069077f4d6&quot;</span> <span class="co"># Chevron FONSI</span></span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a><span class="co"># coldfoot       &#39;value&#39;: &#39;6e9fc6608e30977c74305d2a98628a13&#39;</span></span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Lenhardt_Wells &#39;value&#39;: &#39;e1f95fc5d710fea657ab131cb5b63f9c&#39;</span></span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Balboa Well    &#39;value&#39;: &#39;a48fc2e9268e31474c3ef9a1a40d2d5d&#39;</span></span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a>pages_filtered <span class="op">=</span> pages.loc[</span>
+<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a>    pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> target_id</span>
+<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a>pages_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -5553,410 +5543,21 @@ Name: count, dtype: int64</code></pre>
 </tr>
 </thead>
 <tbody>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">16</td>
-<td>299fe27f5e25bda53e0a1e4883a76c61</td>
-<td>1</td>
-<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nDecision Record Memorandum \nColdfoot Cell Tower \n \nIntroduction \n \nSummary \n \nGCI proposes to install a cell tower, equipment hut and antenna adjacent to their existing \ninfrastructure currently located on State lands. They also propose to extend the fence to \nencompass the entire new infrastructure. They propose an authorization for 20 years. \n \nAlternatives Considered \n \nThe No Alternative Option is the only alternative considere...</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">17</td>
-<td>299fe27f5e25bda53e0a1e4883a76c61</td>
-<td>2</td>
-<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \ndo not file your appeal at the locations specified on the form within 30 days; the Board may \ndismiss your appeal as untimely without considering its merits. Be sure to send a copy of your \nnotice of appeal to each party named in this decision and to all of the addresses on the enclosed \nform 1842-1. You may also ask the Board to stay or suspend the effect of this decision while \nyour appeal is pending. If you desire a stay, you must enclose yo...</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">18</td>
-<td>299fe27f5e25bda53e0a1e4883a76c61</td>
-<td>3</td>
-<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nAppendix A -Essential Fish Habitat Determination \n \nNEPA document: DOI-BLM-AK-F030-2016-0009-EA \n \nCase File No.: F-97066 \n \nTitle: Coldfoot Cell Tower \n \nPrepared by: Dave Parker \n \nDate: 1/27/2016 \n \n \n \n \n \n \n \n \n \n \n \nEssential Fish Habitat Finding: The proposed action lies within the general range of Dolly \nVarden (Salvelinus malma); arctic char (S. alpinus); Lake Trout (Salvelinus namaycush); burbot \n(Lota lota);...</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">19</td>
-<td>299fe27f5e25bda53e0a1e4883a76c61</td>
-<td>4</td>
-<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nAppendix B - Wilderness Characteristics Assessment \n \nNEPA Document No.: DOI-BLM-AK-F030-2016-0009-EA \n \nApplicant: GCI \n \nSerial No.: F-97066 \n \nLocation: Coldfoot airport mile post 175 Dalton Highway \n \nTownship/Range: Sec. 16, T. 28 N., R. 12 W., Fairbanks Meridian, Alaska \n \nEvaluation by: Robin Walthour \n \nDate: February 1, 2016 \n \nProposed Action: \n \nGCI proposes to install a wireless communications tower and associated...</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">20</td>
-<td>299fe27f5e25bda53e0a1e4883a76c61</td>
-<td>5</td>
-<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nFinding: \n \nThe proposed action will not occur on lands identified as having wilderness characteristics and \ntherefore will not affect wilderness characteristics. \n \n \nType of Assessment/Sources: \n \n● U.S. Department of Interior, BLM, 1980. Nonwilderness Assessment: The Alaska Natural Gas \nTransportation System, Final Decision. Anchorage, Alaska \n● U.S.G.S. topographic map Philip Smith Mountains; GIS data; Google Earth images \n● Aerial...</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">21</td>
-<td>299fe27f5e25bda53e0a1e4883a76c61</td>
-<td>6</td>
-<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nAppendix C \nCompliance with ANILCA Section 810 \n \nNEPA Document No.: DOI-BLM-AK-030-2016-0009-EA \n \nApplicant: GCI \n \n \nCase File No.: F-97066 \n \nProposed Action: GCI proposes to install a wireless communications tower and associated \ninfrastructure to provide wireless internet service to the community of Coldfoot, Alaska. \n \nLocation: Coldfoot airport mile post 175 Dalton Highway more particularly described as within \nSec. 16...</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">22</td>
-<td>299fe27f5e25bda53e0a1e4883a76c61</td>
-<td>7</td>
-<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nresources. Subsistence activities that target these resources occur in a much broader area than \nwhere the proposed action is to take place. Therefore, the proposed action will not significantly \naffect subsistence uses and needs. \n \nAvailability of other lands, if any, for the purpose sought to be achieved: No other land \navailable. \n \nOther alternatives, if any, which would reduce or eliminate the use, occupancy, or \ndisposition of pub...</td>
-</tr>
 </tbody>
 </table>
 
 </div>
 </div>
 </div>
-<div class="cell">
+<div class="cell" data-execution_count="16">
 <div class="sourceCode cell-code" id="cb33"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop through first 15 rows</span></span>
-<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">15</span>):</span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">2</span>):</span>
 <span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- START PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
 <span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(pages_filtered.page_text.iloc[i])</span>
 <span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- END PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
 <span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()  <span class="co"># Empty line for separation</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>--- START PAGE 0 ---
-DOI-BLM-AK-F030-2016-0009-EA 
-F-97066 
- 
-Decision Record Memorandum 
-Coldfoot Cell Tower 
- 
-Introduction 
-  
-Summary 
-  
-GCI proposes to install a cell tower, equipment hut and antenna adjacent to their existing 
-infrastructure currently located on State lands.  They also propose to extend the fence to 
-encompass the entire new infrastructure.  They propose an authorization for 20 years. 
- 
-Alternatives Considered 
- 
-The No Alternative Option is the only alternative considered and was not selected as it would not 
-allow for the installation of a cell tower near the Coldfoot Airport. 
- 
-Decision 
- 
- I have decided to authorize a communication site lease on public lands for the purpose of 
-installing a cell tower, equipment hut and antenna adjacent to the existing GCI infrastructure 
-near the Coldfoot Airport mile post 175 off the Dalton Highway for twenty (20) years.  All 
-mitigations have been incorporated into the stipulations which are an appendix to the lease. 
- 
-Management Considerations 
- 
-The Categorical Exclusion and supporting documentation have been prepared consistent with the 
-requirements of various applicable statutes and regulations, including but not limited to: 
- 
-• Alaska National Interest Lands Conservation Act of 1980 (ANILCA) 
-• Federal Land Policy and Management Act of 1976 (FLPMA) 
-• National Environmental Policy Act of 1969 (NEPA) 
-• National Historic Preservation Act of 1966 (NHPA) 
- 
-One BLM land use plan applies to the overall project area, the Utility Corridor Resource 
-Management Plan. 
- 
-Public Involvement 
-It was determined that due to the remoteness of the area there would be no impact to the general 
-public. Additionally, this document was published to the electronic Central Yukon Field Office 
-NEPA Register on February 1, 2016. No comments have been received as of February 26, 2016. 
- 
-Appeal or Protest Opportunities 
- 
-This decision may be appealed to the Interior Board of Land Appeals, Office of Hearings and 
-Appeals in accordance with 43 CFR Part 4 and DOI Form 1842-1. The notice of appeal must be 
-filed in the Bureau of Land Management Central Yukon Field Office, 1150 University Avenue, 
-Fairbanks, Alaska 99709 within 30 days from receipt of this decision. If you decide to file an 
-appeal you must carefully follow the procedure described on the enclosed form 1842-1. If you 
-
---- END PAGE 0 ---
-
---- START PAGE 1 ---
-DOI-BLM-AK-F030-2016-0009-EA 
-F-97066 
- 
-do not file your appeal at the locations specified on the form within 30 days; the Board may 
-dismiss your appeal as untimely without considering its merits. Be sure to send a copy of your 
-notice of appeal to each party named in this decision and to all of the addresses on the enclosed 
-form 1842-1. You may also ask the Board to stay or suspend the effect of this decision while 
-your appeal is pending. If you desire a stay, you must enclose your request for a stay with your 
-notice of appeal. You have the burden of showing a stay is justified. The Board will grant a stay 
-only if you provide sufficient justification based on the following standards: 
- 
-1. The relative harm to the parties if the Board grants or denies the stay, 
-2. The likelihood of the success of your appeal on its merits, 
-3. The likelihood of immediate and irreparable harm if the Board does not grant the stay, and; 
-4. Whether the public interest favors granting a stay. 
- 
-Approval from Authorized Official 
- 
-Field Office Manager Recommendation 
- 
-Having considered a full range of alternatives, associated impacts, and public and agency input, I 
-recommend the adoption and implementation of the attached Approved Plan as the Utility 
-Corridor Resource Management Plan. 
- 
- 
- 
-/s/ Timothy J. La Marr 
-Field, Manager, Central Yukon Field Office 
-Date 
-March 3, 2016 
-  
-  
- 
- 
- 
-
---- END PAGE 1 ---
-
---- START PAGE 2 ---
-DOI-BLM-AK-F030-2016-0009-EA 
-F-97066 
- 
-Appendix A -Essential Fish Habitat Determination 
- 
-NEPA document:  DOI-BLM-AK-F030-2016-0009-EA 
- 
-Case File No.:  F-97066 
- 
-Title:  Coldfoot Cell Tower 
- 
-Prepared by:  Dave Parker 
- 
-Date:  1/27/2016 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
- 
-Essential Fish Habitat Finding:  The proposed action lies within the general range of Dolly 
-Varden (Salvelinus malma); arctic char (S. alpinus); Lake Trout (Salvelinus namaycush); burbot 
-(Lota lota); and whitefish (Coregonid spp.). Arctic grayling (Thymallus arcticus) and slimey 
-sculpin (Cottus cognatus) are ubiquitous throughout the region (ADF&amp;G 1978). Northern pike 
-(Esox lucius), Alaska blackfish (Dallia pectoralis), longnose sucker (Catostomus catostomus) 
-and ninespine stickleback (Pungitius pungitius) are also found in select streams and lakes in the 
-area (BLM 2010 and Mecklenberg et al. 2002). Chinook (Oncorhynchus tshawytscha) and chum 
-salmon (O. keta) are listed as present in waters adjacent to the proposed action. The National 
-Marine Fisheries Service (NMFS) recognizes fresh waters cataloged (ADF&amp;G 2014) as being 
-used by salmon under AS 41.14.870 (Catalog of Waters Important for the Spawning, Rearing or 
-Migration of Anadromous Fishes) as essential fish habitat (EFH).  
- 
-The proposed action described in this Environmental Assessment is to construct a 
-communications tower and associated infrastructure to provide wireless internet coverage to the 
-community of Coldfoot. The closest anadromous stream is Slate Creek (anadromous stream # 
-334-40-11000-2125-3912-4100) which is approximately 1100 feet from the proposed 
-construction site. There is no anticipated effect on EFH.  
- 
-Essential Fish Habitat Finding:  No adverse effect.  EFH consultation with NMFS is not 
-required. 
- 
- 
- 
- 
- 
- 
- 
-  
- 
- 
-Reference: 
-Bureau of Land Management, 2010. Fish Streams Along the Trans-Alaska Pipeline System, A 
-Compilation of Selected References with Current TAPS Stationing. BLM Open File 
-Report 105. 43 p. 
- 
-Mecklenburg, Catherine W., T. Anthony Mecklenberg, and Lyman K. Thorsteinson, 2002. 
-Fishes of Alaska. American Fisheries Society. Bethesda, Maryland. 1037 p. 
- 
-State of Alaska, Alaska Department of Fish and Game. 1978.  Alaska’s Fisheries Atlas. Volume 
-2. Edited by R. McLean and K. Delaney. Alaska Department of Fish and Game.  
- 
-State of Alaska, Alaska Department of Fish and Game. 2014.  An Atlas to the Catalog of Waters 
-Important for Spawning, Rearing, or Migration of Anadromous Fishes, Resource 
-Management Region V.  Alaska Department of Fish and Game, Habitat and Restoration 
-Division. 
- 
-http://extra.sf.adfg.state.ak.us/FishResourceMonitor/?mode=awc 
-
---- END PAGE 2 ---
-
---- START PAGE 3 ---
-DOI-BLM-AK-F030-2016-0009-EA 
-F-97066 
- 
-Appendix B - Wilderness Characteristics Assessment 
- 
-NEPA Document No.: DOI-BLM-AK-F030-2016-0009-EA 
- 
-Applicant:  GCI 
- 
-Serial No.: F-97066 
- 
-Location:  Coldfoot airport mile post 175 Dalton Highway 
- 
-Township/Range:  Sec. 16, T. 28 N., R. 12 W., Fairbanks Meridian, Alaska 
- 
-Evaluation by:  Robin Walthour 
- 
-Date:  February 1, 2016 
- 
-Proposed Action: 
- 
-GCI proposes to install a wireless communications tower and associated infrastructure to provide 
-wireless internet service to the community of Coldfoot, Alaska. 
- 
-Evaluation:   
- 
-The basis for this evaluation is BLM Manual 6310-Conducting Wilderness Characteristics 
-Inventory on BLM Lands, and BLM Manual 6320 - Considering Lands with Wilderness 
-Characteristics in the BLM Land Use Planning Process, which direct offices to conduct and 
-maintain inventories regarding the presence or absence of wilderness characteristics, and to 
-consider identified Lands with Wilderness Characteristics (LWC) in land use plans and when 
-analyzing projects under the National Environmental Policy Act (NEPA). 
- 
-Effects on wilderness characteristics on BLM lands within the Utility Corridor are evaluated 
-according to the Nonwilderness Assessment, a special project approved by the BLM Director 
-and conducted by the BLM along portions of the Trans-Alaska Pipeline System (TAPS) corridor 
-in 1980. This assessment identified lands under BLM administration that were considered 
-lacking in the wilderness characteristics as defined by the Wilderness Act of 1964. The 
-assessment was conducted in a manner that met the requirements of Section 603 of the Federal 
-Land Policy and Management Act of 1976 (FLPMA). 
- 
-The action being considered is located within the Sagavanirktok Segment of the Nonwilderness 
-Assessment, which covered approximately 512,000 acres total in 1980. Portions of this segment 
-meet the 5,000 acre minimum size. However it was determined that the Sagavanirktok Segment 
-did not meet the standards for naturalness due to roads, camps, airfields, pipelines, material sites 
-and associated facilities. These disturbances bisect the entire length of the segment. 
- 
- 
- 
-
---- END PAGE 3 ---
-
---- START PAGE 4 ---
-DOI-BLM-AK-F030-2016-0009-EA 
-F-97066 
- 
-Finding:   
- 
-The proposed action will not occur on lands identified as having wilderness characteristics and 
-therefore will not affect wilderness characteristics. 
- 
- 
-Type of Assessment/Sources: 
- 
-● U.S. Department of Interior, BLM, 1980. Nonwilderness Assessment: The Alaska Natural Gas 
-Transportation System, Final Decision. Anchorage, Alaska 
-● U.S.G.S. topographic map Philip Smith Mountains; GIS data; Google Earth images 
-● Aerial surveys in 2013 and personal knowledge of the area. 
- 
-
---- END PAGE 4 ---
-
---- START PAGE 5 ---
-DOI-BLM-AK-F030-2016-0009-EA 
-F-97066 
- 
-Appendix C 
-Compliance with ANILCA Section 810 
- 
-NEPA Document No.:  DOI-BLM-AK-030-2016-0009-EA 
-  
-Applicant:   GCI 
- 
- 
-Case File No.:  F-97066 
- 
-Proposed Action:   GCI proposes to install a wireless communications tower and associated 
-infrastructure to provide wireless internet service to the community of Coldfoot, Alaska. 
- 
-Location:  Coldfoot airport mile post 175 Dalton Highway more particularly described as within 
-Sec. 16, T. 28 N., R. 12 W., Fairbanks Meridian, Alaska 
- 
-Evaluation by:  David G. Parker (Fisheries) and Erin Julianus (Wildlife) 
- 
-Date:  1/27/2016 
- 
-Type of Assessment/Sources:  Review of application materials, subsistence database, local 
-knowledge, interviews with staff knowledgeable about the area and proposed action.  
- 
-Effect of the proposal on subsistence uses and needs  
- 
-Fisheries:  
- 
-The proposed action would not alter the distribution, migration, or location of harvestable 
-fisheries resources.  The proposed action will not create any legal or physical barriers that would 
-limit access by subsistence users of the fisheries resources. 
-  
-Wildlife:  
- 
-Activities associated with the proposed action will occur in Game Management Unit (GMU) 
-24A.  Species of wildlife that are used for subsistence harvest in the area include moose, caribou, 
-bears, furbearers, and small game. Activities associated with the proposed action will occur at an 
-isolated, small location in Coldfoot. These animals are not anticipated to be in the immediate 
-vicinity.  If animals are present, they will likely temporarily avoid the area when activities 
-associated with the permitted action are occurring, but the activity will not permanently impact 
-their distribution in the area.  
- 
-Subsistence hunting and trapping activities are not anticipated to be ongoing in the vicinity of the 
-proposed action during the proposed construction timeframe (summer). The proposed action will 
-not alter the distribution, migration, or location of harvestable wildlife resources.  
-  
-Other resources:  
- 
-The proposed activity will not significantly impact other resources such as water, wood, or 
-berries. The proposed action is non-consumptive and will not impact quantities of these  
- 
- 
-
---- END PAGE 5 ---
-
---- START PAGE 6 ---
-DOI-BLM-AK-F030-2016-0009-EA 
-F-97066 
- 
-resources. Subsistence activities that target these resources occur in a much broader area than 
-where the proposed action is to take place. Therefore, the proposed action will not significantly 
-affect subsistence uses and needs. 
-  
-Availability of other lands, if any, for the purpose sought to be achieved:   No other land 
-available. 
- 
-Other alternatives, if any, which would reduce or eliminate the use, occupancy, or 
-disposition of public lands needed for subsistence purposes:   None 
- 
-Finding:  
- 
-The proposed action will not significantly restrict subsistence uses. Access to subsistence 
-resources will not be hampered by the proposed activity. There is no reasonably foreseeable 
-significant decrease in the abundance of harvestable resources and in the distribution of 
-harvestable resources due to the proposed action. 
- 
-References:  
- 
- Bureau of Land Management, 2010. Fish Streams Along the Trans-Alaska Pipeline System, A 
-Compilation of Selected References with Current TAPS Stationing. BLM Open File 
-Report 105. 43 p. 
- 
-Mecklenburg, Catherine W., T. Anthony Mecklenberg, and Lyman K. Thorsteinson, 2002. 
-Fishes of Alaska. American Fisheries Society. Bethesda, Maryland. 1037 p. 
- 
-State of Alaska, Alaska Department of Fish and Game. 1978.  Alaska’s Fisheries Atlas. Volume 
-2. Edited by R. McLean and K. Delaney. Alaska Department of Fish and Game.  
- 
-State of Alaska, Alaska Department of Fish and Game. 2014.  An Atlas to the Catalog of Waters 
-Important for Spawning, Rearing, or Migration of Anadromous Fishes, Resource 
-Management Region V.  Alaska Department of Fish and Game, Habitat and Restoration 
-Division. 
- 
- 
- 
- 
- 
- 
-
---- END PAGE 6 ---
-
---- START PAGE 7 ---</code></pre>
+<pre><code>--- START PAGE 0 ---</code></pre>
 </div>
 <div class="cell-output cell-output-error">
 <pre><code>IndexError: single positional indexer is out-of-bounds</code></pre>

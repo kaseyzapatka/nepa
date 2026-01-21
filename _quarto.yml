@@ -8,8 +8,10 @@ website:
     left:
       - text: "Project Overview"
         href: project_overview.qmd
-      - text: "Report 1"
-        href: reports/report01.qmd
+      - text: "Deliverable 1"
+        href: reports/deliverable01.qmd
+      - text: "Deliverable 3"
+        href: reports/deliverable03.qmd
 
 format:
   html:
