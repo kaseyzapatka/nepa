@@ -4,35 +4,35 @@
     "href": "reports/deliverable01.html",
     "title": "NEPA Clean Energy Analysis: Deliverable 1",
     "section": "",
-    "text": "This report characterizes the clean energy project landscape by technology, lead agency, and geographic location.\n\n\n\n\n\n\nData Scope\n\n\n\nAnalysis covers 26,000+ clean energy projects extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation)."
+    "text": "Key decisions to make for next steps:\n\n\n\n\nAre there any further refinements to the project definition of “Clean Energy” we want to consider?\n\nExclude “Utilities” + non-energy tags\nExclude “Military and Defense” nuclear projects?\nExclude waste management of nuclear projects?\n\nAny further analysis of DOE projects?\nWhat do we prefer for the geographic analysis–maps, tables, some combination?\n\nDo we want a deeper dive into any specific location?\n\n\n\n\nThis report aims to create the following set of deliverables:\n\nData on number of clean energy projects within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location\n\nFigure 1 gives us a sense of the universe of total number of projects in the publicly released NEPATEC2.0 database by review process.\n\n\n\n\n\nFigure 1: Distribution of all projects by review in NEPA database.\n\n\n\n\nFigure 2 reports all clean energy projects in the NEPA database, which totals about 25,000 clean energy projects extracted from the NEPA database.\n\n\n\n\n\nFigure 2: Distribution of clean projects by review in NEPA database."
   },
   {
     "objectID": "reports/deliverable01.html#executive-summary",
     "href": "reports/deliverable01.html#executive-summary",
     "title": "NEPA Clean Energy Analysis: Deliverable 1",
     "section": "",
-    "text": "This report characterizes the clean energy project landscape by technology, lead agency, and geographic location.\n\n\n\n\n\n\nData Scope\n\n\n\nAnalysis covers 26,000+ clean energy projects extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation)."
+    "text": "Key decisions to make for next steps:\n\n\n\n\nAre there any further refinements to the project definition of “Clean Energy” we want to consider?\n\nExclude “Utilities” + non-energy tags\nExclude “Military and Defense” nuclear projects?\nExclude waste management of nuclear projects?\n\nAny further analysis of DOE projects?\nWhat do we prefer for the geographic analysis–maps, tables, some combination?\n\nDo we want a deeper dive into any specific location?\n\n\n\n\nThis report aims to create the following set of deliverables:\n\nData on number of clean energy projects within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location\n\nFigure 1 gives us a sense of the universe of total number of projects in the publicly released NEPATEC2.0 database by review process.\n\n\n\n\n\nFigure 1: Distribution of all projects by review in NEPA database.\n\n\n\n\nFigure 2 reports all clean energy projects in the NEPA database, which totals about 25,000 clean energy projects extracted from the NEPA database.\n\n\n\n\n\nFigure 2: Distribution of clean projects by review in NEPA database."
   },
   {
     "objectID": "reports/deliverable01.html#state-level-distribution",
     "href": "reports/deliverable01.html#state-level-distribution",
     "title": "NEPA Clean Energy Analysis: Deliverable 1",
     "section": "State-Level Distribution",
-    "text": "State-Level Distribution\n\n\n\n\nTable 2: Top 15 states by clean energy project count\n\n\nState\nCategorical Exclusion\nEnvironmental Impact Statement\nEnvironmental Assessment\nTotal\n\n\n\n\nSouth Carolina\n4,143\n48\n23\n4,214\n\n\nWashington\n2,165\n96\n62\n2,323\n\n\nCalifornia\n1,616\n186\n95\n1,897\n\n\nIdaho\n1,666\n92\n59\n1,817\n\n\nOregon\n1,320\n69\n31\n1,420\n\n\nColorado\n1,295\n44\n46\n1,385\n\n\nNevada\n955\n112\n27\n1,094\n\n\nArizona\n929\n70\n93\n1,092\n\n\nWyoming\n819\n47\n11\n877\n\n\nNew Mexico\n657\n60\n39\n756\n\n\nTexas\n674\n27\n22\n723\n\n\nUtah\n617\n46\n9\n672\n\n\nNew York\n591\n27\n12\n630\n\n\nIllinois\n543\n10\n20\n573\n\n\nPennsylvania\n536\n11\n6\n553\n\n\nMontana\n386\n43\n6\n435\n\n\n\n\n\n\n\n\n\n\n\n\n\nFigure 4: Clean energy projects by state. Alaska and Hawaii repositioned for display."
+    "text": "State-Level Distribution\n\n\n\n\nTable 3: Top 15 states by clean energy project count and NEPA process type\n\n\nState\nCategorical Exclusion\nEnvironmental Impact Statement\nEnvironmental Assessment\nTotal\n\n\n\n\nSouth Carolina\n3,932\n47\n23\n4,002\n\n\nWashington\n2,051\n95\n62\n2,208\n\n\nCalifornia\n1,545\n185\n92\n1,822\n\n\nIdaho\n1,529\n91\n56\n1,676\n\n\nOregon\n1,225\n68\n31\n1,324\n\n\nColorado\n1,222\n44\n45\n1,311\n\n\nNevada\n848\n111\n27\n986\n\n\nArizona\n804\n69\n89\n962\n\n\nTexas\n664\n26\n22\n712\n\n\nWyoming\n654\n47\n11\n712\n\n\nNew Mexico\n582\n59\n39\n680\n\n\nNew York\n583\n26\n12\n621\n\n\nIllinois\n533\n9\n20\n562\n\n\nUtah\n504\n46\n9\n559\n\n\nPennsylvania\n518\n10\n6\n534\n\n\nTennessee\n312\n44\n24\n380\n\n\n\nNote:   Each project may be in multiple states, meaning totals may sum to greater than project total of 25,000.\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nFigure 7: Clean energy projects by state. Alaska and Hawaii repositioned for display.\n\n\n\n\nSouth Carolina clearly sticks out with the number of projects in the state. Click here to explore a more detailed table of projects there."
   },
   {
     "objectID": "reports/deliverable01.html#county-level-distribution",
     "href": "reports/deliverable01.html#county-level-distribution",
     "title": "NEPA Clean Energy Analysis: Deliverable 1",
     "section": "County-Level Distribution",
-    "text": "County-Level Distribution\n\n\n\n\n\nFigure 5: Clean energy projects by county. Note: County data available for approximately 47% of projects."
+    "text": "County-Level Distribution\nAt the county level, Aiken, South Carolina, has a number of projects that are largely driven by nuclear projects at the Savannah River Site. Boundary, Idaho also has a high count of projects, likely driven by the national labs there.\n**Note that county data is only available for about 46% of projects, with about 13,392 projects missing county-level project identifiers. This is largely because many CE projects do have have county identifiers.\n\n\n\n\n\nFigure 8: Clean energy projects by county. Note: County data available for approximately 47% of projects."
   },
   {
     "objectID": "reports/deliverable01.html#process-type-by-location",
     "href": "reports/deliverable01.html#process-type-by-location",
     "title": "NEPA Clean Energy Analysis: Deliverable 1",
     "section": "Process Type by Location",
-    "text": "Process Type by Location\n\n\n\n\n\nFigure 6: Clean energy project locations by NEPA process type. Points placed at county centroids; size indicates project count.\n\n\n\n\n\n\n\n\n\n\nKey Finding: Geography\n\n\n\nClean energy projects concentrate in the Western states and Southeast nuclear corridor. South Carolina leads (driven by Savannah River Site activity), followed by Washington, California, and Idaho. The county-level map reveals clustering around major federal facilities and high-resource renewable areas (desert Southwest for solar, Great Plains for wind).\n\n\n\nReport generated 2026-01-21 | NEPA Clean Energy Analysis"
+    "text": "Process Type by Location\n\n\n\n\n\nFigure 9: Clean energy project locations by NEPA process type. Points placed at county centroids; size indicates project count.\n\n\n\n\n\nReport generated 2026-01-21 | NEPA Clean Energy Analysis"
   },
   {
     "objectID": "reports/project_overview.html",

@@ -20,6 +20,8 @@ library(here)
 library(knitr)
 library(kableExtra)
 library(readr)
+library(gt)
+library(tibble)
 
 # Paths
 d1_figures <- here("output", "deliverable1", "figures")
@@ -29,18 +31,114 @@ d1_tables <- here("output", "deliverable1", "tables")
 
 ## Executive Summary
 
-This report characterizes the clean energy project landscape by technology, lead agency, and geographic location.
+::: {.callout-tip}
+## Key decisions to make for next steps:
+-   [ ] Are there any further refinements to the project definition  of “Clean Energy” we want to consider?
+    -   [X] Exclude "Utilities" + non-energy tags
+    -   [ ] Exclude "Military and Defense" nuclear projects?
+    -   [ ] Exclude waste management of nuclear projects?
+-   [ ] Any further analysis of DOE projects?
+-   [ ] What do we prefer for the geographic analysis--maps, tables, some combination?
+    -   [ ] Do we want a deeper dive into any specific location?
 
-::: {.callout-note}
-## Data Scope
-Analysis covers **26,000+ clean energy projects** extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation).
 :::
+
+This report aims to create the following set of deliverables: 
+
+> Data on number of clean energy projects within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
+
+
+@fig-projects gives us a sense of the universe of total number of projects in the publicly released [NEPATEC2.0 database](https://huggingface.co/datasets/PNNL/NEPATEC2.0) by review process.
+
+```{r}
+#| label: fig-projects
+#| fig-cap: "Distribution of all projects by review in NEPA database."
+
+knitr::include_graphics(file.path(d1_figures, "00_fig_projects_by_review.png"))
+```
+
+@fig-clean-energy-projects reports all clean energy projects in the NEPA database, which totals about **25,000 clean energy projects** extracted from the NEPA database. 
+
+
+```{r}
+#| label: fig-clean-energy-projects
+#| fig-cap: "Distribution of clean projects by review in NEPA database."
+
+knitr::include_graphics(file.path(d1_figures, "00_fig_clean_energy_by_review.png"))
+```
+
+---
+
+# Definitions: What Qualifies as Clean Energy?
+
+@tbl-energy-tags enumerates the CAFT-defined 14 clean energy and 5 fossil fuel categories used to identify clean vs fossil fuel energy projects in the NEPA database. While projects often have multiple tags, "clean energy" is identified as having at least one of the 14 tags _AND_ no fossil fuel tags. 
+
+```{r}
+#| label: tbl-energy-tags
+#| tbl-cap: "Project type tags used to classify clean vs. fossil energy projects"
+
+tibble(
+  `Clean Energy Tags` = c(
+    "Carbon Capture and Sequestration",
+    "Conventional Energy Production - Nuclear",
+    "Conventional Energy Production - Other",
+    "Electricity Transmission",
+    "Nuclear Technology",
+    "Renewable Energy Production*",
+    "Utilities (electricity, gas, telecommunications)"
+  ),
+  `Fossil Energy Tags` = c(
+    "Conventional Energy Production - Coal",
+    "Conventional Energy Production - Land-based Oil & Gas",
+    "Conventional Energy Production - Offshore Oil and Gas",
+    "Conventional Energy Production - Rural Energy",
+    "Pipelines",
+    "",
+    ""
+  )
+) |>
+  gt() |>
+  tab_style(
+    style = cell_text(color = "#999999"),
+    locations = cells_body(
+      columns = `Fossil Energy Tags`,
+      rows = `Fossil Energy Tags` == ""
+    )
+  ) |>
+  tab_footnote(
+    footnote = "Includes Biomass, Energy Storage, Geothermal, Hydrokinetic, Hydropower, Solar, Wind (Offshore & Onshore), and \nOther",
+    locations = cells_body(columns = `Clean Energy Tags`, rows = 6)
+  ) |>
+  cols_width(
+    `Clean Energy Tags` ~ px(350),
+    `Fossil Energy Tags` ~ px(350)
+  )
+```
+
+About **10% of projects have only clean energy tags**, but most (about 90%) have at least 1 clean energy tag plus some other combination of tags. 
+
+### Further Refining 
+
+After reviewing a [table of all co-occurring project types](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1809595689#gid=1809595689), three other projects combinations are currently under consideration to be excluded from the "clean energy" category.
+
+- **Utilities + non-energy:**  About **1,623 projects** tagged _ONLY_ as Utilities _AND_ with 1 or more of the following non-energy tags (e.g., broadband, waste management, land development) were excluded, since these likely reflect utility-adjacent infrastructure rather than energy generation.
+
+- **Military and Defense + Nuclear:** There are **481 projects** tagged as "Nuclear Energy" and "Military and Defense." [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1310622375#gid=1310622375) The majority of these projects are led by the Department of Energy rather than the Department of Defense—an unexpected pattern that warrants further consideration. **Should these be excluded or further analyzed in some way?**
+
+- **Nuclear + Waste Management :** Approximately, **4,000 projects** combine "Nuclear" ("Nuclear Technology" and "Conventional Energy Production - Nuclear") and "Waste management" tags. [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1263485295#gid=1263485295) Many of these projects appear to involve decommissioning or site cleanup rather than energy production. **Are these projects we wish to classify as "clean energy" since it looks more like management rather than power generation?**
+
+
 
 ---
 
 # Technology Distribution
 
-How are clean energy projects distributed across technology types?
+::: {.callout-tip}
+## Key Findings: Technology
+**Utilities, Electricity Transmission, and Nuclear Technology dominate** the clean energy NEPA landscape. Utility and Electricity Transmission projects comprise the largest share, reflecting the infrastructure build out required to connect renewable generation to load centers. The prominence of nuclear and solar projects are interesting. When looking at how clean energy technologies breakdown by review process, most are granted "Categorical Exclusion (CE)" status, with Hydropower, nuclear, and wind producing projects to be notable exceptions.  
+:::
+
+The first deliverable examines how clean energy projects breakdown by technology.
 
 ```{r}
 #| label: fig-technology
@@ -49,19 +147,30 @@ How are clean energy projects distributed across technology types?
 knitr::include_graphics(file.path(d1_figures, "01_clean_energy_bar_chart.png"))
 ```
 
-::: {.callout-tip}
-## Key Finding: Technology
-**Transmission and solar dominate** the clean energy NEPA landscape. Transmission projects comprise the largest share, reflecting the infrastructure buildout required to connect renewable generation to load centers. Solar's prominence aligns with its rapid deployment growth over the analysis period.
-:::
+
+A second interesting analysis is to view how the technologies break down by review process. 
+
+```{r}
+#| label: fig-technology-by-review
+#| fig-cap: "Distribution of clean energy projects by technology type and review status. Projects may have multiple technology tags."
+
+knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.png"))
+```
+
 
 ---
 
-# Lead Agency Analysis
+# Lead Agency 
 
-Which federal agencies are leading clean energy NEPA reviews?
+::: {.callout-tip}
+## Key Finding: Agency
+**Department of Energy (DOE) dominates** clean energy NEPA reviews (81% of projects), followed by Interior (17%). Notably, DOE processes the vast majority through Categorical Exclusions (CE) (96%), while Interior shows more variation across process types.  This concentration suggests DOE's loan programs and grid modernization initiatives drive most federal clean energy review activity.Most other agencies have a substantial share of projects requiring Environmental Impact Statements (EIS) or Enviornmental Assessement (EA).
+:::
+
+This next deliverable examines project counts by lead agency. In this analysis, agency has been aggregated up to department for parsimony, since agency was less informative. @tbl-department reports counts by agency and review process with @fig-dept visualizing counts by agency and @fig-dept-process visualizing counts by agency and review process. 
 
 ```{r}
-#| label: tbl-agency
+#| label: tbl-department
 #| tbl-cap: "Clean energy projects by lead federal department and NEPA process type"
 
 read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALSE) |>
@@ -71,11 +180,11 @@ read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALS
 ```
 
 ```{r}
-#| label: fig-departments
+#| label: fig-dept
 #| fig-cap: "Clean energy projects by lead department"
 #| out-width: "90%"
 
-knitr::include_graphics(file.path(d1_figures, "06_departments.png"))
+knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
 ```
 
 ```{r}
@@ -83,30 +192,38 @@ knitr::include_graphics(file.path(d1_figures, "06_departments.png"))
 #| fig-cap: "NEPA process type composition by lead department"
 #| out-width: "90%"
 
-knitr::include_graphics(file.path(d1_figures, "07_dept_process_type.png"))
+knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
 ```
 
-::: {.callout-tip}
-## Key Finding: Agency
-**DOE dominates** clean energy NEPA reviews (81% of projects), followed by Interior (17%). Notably, DOE processes the vast majority through Categorical Exclusions (96%), while Interior shows more variation across process types. This concentration suggests DOE's loan programs and grid modernization initiatives drive most federal clean energy review activity.
-:::
 
 ---
 
 # Geographic Distribution
 
-Where are clean energy projects located?
+::: {.callout-tip}
+## Key Finding: Geography
+Clean energy projects concentrate in the **Western states and South Carolina**. South Carolina has the most projects (largely driven by nuclear projects at the Savannah River Site), followed by Washington, California, and Idaho. The county-level map reveals clustering around major federal facilities and high-resource renewable areas (desert Southwest for solar, nuclear facilities, and national labs). There does not seem to be a clear finding for the distribution of the NEPA review process by type. 
+:::
+
+The final deliverable examines geographic location of projects. @tbl-state reports project counts by NEPA process type, @fig-state-map visualizes that with a state map, and @fig-county-map does so by county. [Click here for a complete table](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1065723676#gid=1065723676) of project count by county, which is prohibitively large.
+
+
 
 ## State-Level Distribution
 
 ```{r}
 #| label: tbl-state
-#| tbl-cap: "Top 15 states by clean energy project count"
+#| tbl-cap: "Top 15 states by clean energy project count and NEPA process type"
 
 read_csv(file.path(d1_tables, "table3_by_state.csv"), show_col_types = FALSE) |>
   head(16) |>  # Top 15 + header info
   kable(format.args = list(big.mark = ",")) |>
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE)
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) |> 
+  footnote(
+    general = "Each project may be in multiple states, meaning totals may sum to greater than project total of 25,000.",
+    footnote_as_chunk = TRUE,
+    escape = FALSE
+  )
 ```
 
 ```{r}
@@ -117,7 +234,15 @@ read_csv(file.path(d1_tables, "table3_by_state.csv"), show_col_types = FALSE) |>
 knitr::include_graphics(file.path(d1_maps, "09_state_choropleth.png"))
 ```
 
+
+South Carolina clearly sticks out with the number of projects in the state. Click here to explore a [more detailed table](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=991995876#gid=991995876) of projects there. 
+
+
 ## County-Level Distribution
+
+At the county level, Aiken, South Carolina, has a number of projects that are largely driven by nuclear projects at the Savannah River Site. Boundary, Idaho also has a high count of projects, likely driven by the national labs there. 
+
+**Note that county data is only available for about 46% of projects, with about 13,392 projects missing county-level project identifiers. This is largely because many CE projects do have have county identifiers.
 
 ```{r}
 #| label: fig-county-map
@@ -133,14 +258,11 @@ knitr::include_graphics(file.path(d1_maps, "10_county_choropleth.png"))
 #| label: fig-dots-map
 #| fig-cap: "Clean energy project locations by NEPA process type. Points placed at county centroids; size indicates project count."
 #| out-width: "100%"
+#| fig-asp: 1.6
 
 knitr::include_graphics(file.path(d1_maps, "11_county_dots_process_type.png"))
 ```
 
-::: {.callout-tip}
-## Key Finding: Geography
-Clean energy projects concentrate in the **Western states and Southeast nuclear corridor**. South Carolina leads (driven by Savannah River Site activity), followed by Washington, California, and Idaho. The county-level map reveals clustering around major federal facilities and high-resource renewable areas (desert Southwest for solar, Great Plains for wind).
-:::
 
 ---
 
