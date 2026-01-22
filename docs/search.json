@@ -376,12 +376,5 @@
     "title": "NEPA Clean Energy Analysis: Deliverable 3",
     "section": "",
     "text": "This report analyzes NEPA process types (CE, EA, EIS) across energy classifications.\n\n\n\n\n\n\nData Scope\n\n\n\nAnalysis covers 26,000+ clean energy projects extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation)."
-  },
-  {
-    "objectID": "reports/deliverable01.html#footnotes",
-    "href": "reports/deliverable01.html#footnotes",
-    "title": "NEPA Clean Energy Analysis: Deliverable 1",
-    "section": "Footnotes",
-    "text": "Footnotes\n\n\nWe removed any projects that had some combination of ONLY at least two of following: “Broadband”, “Utilities (electricity, gas, telecommunications)”, “Waste Management”, “Land Development - Other”↩︎"
   }
 ]
