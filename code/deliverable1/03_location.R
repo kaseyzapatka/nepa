@@ -18,7 +18,7 @@ source(here::here("code", "deliverable1", "00_setup.R"))
 # share that needs geocoding
 clean_energy |> 
   count(project_location_needs_geocoding) |> 
-  glimpse() # 45/26,621
+  glimpse() # 45/24953
 
 # view locations that need to be geo-coded  
 clean_energy |> 
@@ -50,7 +50,7 @@ clean_energy |>
 # --------------------------
 
 # Explode project_state (can have multiple values per project)
-location_data <- clean_energy %>%
+location_data <- clean_energy %>% 
   explode_column("project_state") %>%
   filter(!is.na(project_state) & project_state != "")
 
@@ -63,6 +63,24 @@ cat("Unique states/territories:", nrow(state_counts), "\n")
 cat("Top 10 states by project count:\n")
 state_counts %>% slice_head(n = 10) %>% print()
 
+
+
+# --------------------------
+# EXPLORATORY
+# --------------------------
+
+south_carolina_projects <- 
+  location_data |> 
+  filter(str_detect(project_state, "South Carolina")) |> 
+  select(project_title, project_type, project_state) |> 
+  glimpse()
+
+# save
+sheet_write(
+  data = south_carolina_projects,
+  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
+  sheet = "south_carolina_projects"
+)
 
 # --------------------------
 # TABLE 3: BY STATE
@@ -88,8 +106,6 @@ table3 %>% print(n = 60)
 
 # Save
 write_csv(table3, here(tables_dir, "table3_by_state.csv"))
-cat("  Saved: table3_by_state.csv\n")
-
 
 # --------------------------
 # TABLE 4: BY STATE & BY COUNTY
@@ -163,7 +179,13 @@ write_csv(
   here(tables_dir, "table3_by_state_and_county_totals.csv")
 )
 
-cat("  Saved: table3_by_state_and_county_totals_top.csv\n")
+
+# save
+sheet_write(
+  data = table_county_state,
+  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
+  sheet = "table_county_state"
+)
 
 
 # --------------------------
@@ -416,55 +438,64 @@ centroid_data <- county_centroids %>%
   )
 
 # Create dot map - size scaled to count, color by process type
+
 fig_county_dots <- ggplot() +
-  # Base map (states outline)
-  geom_sf(data = state_map_data, fill = "gray95", color = "gray70", size = 0.3) +
-  # Dots at county centroids - sized by project count
+  # Base map
+  geom_sf(
+    data = state_map_data,
+    fill = "gray95",
+    color = "gray70",
+    size = 0.3
+  ) +
+  # County centroids, sized by project count
   geom_sf(
     data = centroid_data,
-    aes(size = n_projects, color = process_type),
+    aes(size = n_projects),
+    color = catf_dark_blue,
     alpha = 0.5
   ) +
   scale_size_continuous(
     range = c(0.3, 5),
-    guide = "none"  # Remove size legend - density shows concentration
+    guide = "none"
   ) +
-  scale_color_manual(
-    name = "Process Type",
-    values = c("CE" = "#e41a1c", "EA" = "#377eb8", "EIS" = "#4daf4a"),
-    labels = c("CE" = "Categorical Exclusion", "EA" = "Environmental Assessment", "EIS" = "Environmental Impact Statement")
+  facet_wrap(
+    ~ process_type,
+    ncol = 1,
+    labeller = as_labeller(c(
+      CE  = "Categorical Exclusion",
+      EA  = "Environmental Assessment",
+      EIS = "Environmental Impact Statement"
+    ))
   ) +
   labs(
-    title = "Clean Energy Projects by County and Process Type",
-    subtitle = "Dot size reflects project count; overlapping dots indicate higher concentration",
+    title = "Clean Energy Projects by County and NEPA Process Type",
+    subtitle = "Each panel shows county-level project concentration by process type; dot size reflects project count",
     caption = paste0(
       "Note: County data available for ", pct_with_county, "% of clean energy projects ",
       "(", scales::comma(n_missing_county), " projects missing county information).\n",
-      "Dots placed at county centroids. Larger/denser areas indicate more projects."
+      "Dots placed at county centroids."
     )
   ) +
   theme_void() +
   theme(
-    legend.position = "right",
+    strip.text = element_text(size = 10, face = "bold"),
     plot.title = element_text(size = 14, face = "bold"),
     plot.subtitle = element_text(size = 10, color = "gray40"),
     plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
-  ) +
-  guides(
-    color = guide_legend(override.aes = list(size = 4, alpha = 1))
   )
-
 fig_county_dots
 
+# save
 ggsave(
   filename = here(maps_dir, "11_county_dots_process_type.png"),
   plot = fig_county_dots,
-  width = 14,
-  height = 9,
+  width = 10,
+  height = 16,
   units = "in",
   dpi = 300
 )
-cat("  Saved: maps/11_county_dots_process_type.png\n")
+
+
 
 
 # --------------------------
