@@ -31,6 +31,11 @@ d1_tables <- here("output", "deliverable1", "tables")
 
 ## Executive Summary
 
+This report aims to create the following set of deliverables: 
+
+> Data on number of clean energy projects within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
+
+
 @fig-projects gives us a sense of the universe of total number of projects in the NEPA database by review process.
 
 ```{r}
@@ -40,9 +45,7 @@ d1_tables <- here("output", "deliverable1", "tables")
 knitr::include_graphics(file.path(d1_figures, "00_fig_projects_by_review.png"))
 ```
 
-@fig-clean-energy-projects reports all clean energy projects in the NEPA database, which totals about **25,000 clean energy projects** extracted from the NEPA database. This report aims to create the following set of deliverables: 
-
-> Data on number of clean energy projects within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
+@fig-clean-energy-projects reports all clean energy projects in the NEPA database, which totals about **25,000 clean energy projects** extracted from the NEPA database. 
 
 
 ```{r}
@@ -55,11 +58,10 @@ knitr::include_graphics(file.path(d1_figures, "00_fig_clean_energy_by_review.png
 
 ::: {.callout-tip}
 ## Key decisions to make for next steps:
--   [ ] Are there any refinements to our characterization of “Clean Energy” we want to consider before moving on?
+-   [ ] Are there any further refinements to the project definition  of “Clean Energy” we want to consider?
     -   [X] Exclude "Utilities" + non-energy tags
     -   [ ] Exclude "Military and Defense" nuclear projects?
     -   [ ] Exclude waste management of nuclear projects?
--   [ ] What categories should be included or excluded?
 -   [ ] What types of maps do we prefer?
 :::
 
@@ -127,8 +129,6 @@ After reviewing a [table of all co-occurring project types](https://docs.google.
 
 ---
 
-
-
 # Technology Distribution
 
 The first deliverable examines how clean energy projects breakdown by technology.
@@ -159,12 +159,12 @@ knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.pn
 
 ---
 
-# Lead Agency Analysis
+# Lead Agency 
 
-This next deliverable looks at project county by lead agency. To create the clearest  a Which federal agencies are leading clean energy NEPA reviews?
+This next deliverable examines project counts by lead agency. In this analysis, agency has been aggregated up to department for parsimony, since agency was less informative. @tbl-department reports counts by agency and review process with @fig-dept visualizing counts by agency and @fig-dept-process visualizing counts by agency and review process. 
 
 ```{r}
-#| label: tbl-agency
+#| label: tbl-department
 #| tbl-cap: "Clean energy projects by lead federal department and NEPA process type"
 
 read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALSE) |>
@@ -174,11 +174,11 @@ read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALS
 ```
 
 ```{r}
-#| label: fig-departments
+#| label: fig-dept
 #| fig-cap: "Clean energy projects by lead department"
 #| out-width: "90%"
 
-knitr::include_graphics(file.path(d1_figures, "06_departments.png"))
+knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
 ```
 
 ```{r}
@@ -186,12 +186,12 @@ knitr::include_graphics(file.path(d1_figures, "06_departments.png"))
 #| fig-cap: "NEPA process type composition by lead department"
 #| out-width: "90%"
 
-knitr::include_graphics(file.path(d1_figures, "07_dept_process_type.png"))
+knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
 ```
 
 ::: {.callout-tip}
 ## Key Finding: Agency
-**DOE dominates** clean energy NEPA reviews (81% of projects), followed by Interior (17%). Notably, DOE processes the vast majority through Categorical Exclusions (96%), while Interior shows more variation across process types. This concentration suggests DOE's loan programs and grid modernization initiatives drive most federal clean energy review activity.
+**Department of Energy (DOE) dominates** clean energy NEPA reviews (81% of projects), followed by Interior (17%). Notably, DOE processes the vast majority through Categorical Exclusions (CE) (96%), while Interior shows more variation across process types.  This concentration suggests DOE's loan programs and grid modernization initiatives drive most federal clean energy review activity.Most other agencies have a substantial share of projects requiring Environmental Impact Statements (EIS) or Enviornmental Assessement (EA).
 :::
 
 ---

@@ -10,10 +10,6 @@
 
 source(here::here("code", "deliverable1", "00_setup.R"))
 
-#install.packages("googledrive")
-library(googlesheets4)
-
-
 # --------------------------
 # PROCESS
 # --------------------------
@@ -161,11 +157,9 @@ sheet_write(
 
 
 # --------------------------
-# TABLE 2: BY DEPARTMENT (AGENCY COLLAPSED)
+# TABLE: PROEJCTS BY DEPARTMENT 
 # --------------------------
 # This table collapses lead agency into department for parsimony
-
-cat("\nCreating Table 2b: Clean Energy by Department (Collapsed)...\n")
 
 table2 <- create_crosstab(agency_data, "department")
 
@@ -185,18 +179,20 @@ table2 %>% print(n = 25)
 
 # Save
 write_csv(table2, here(tables_dir, "table2_by_department.csv"))
-cat("  Saved: table2_by_department.csv\n")
+
 
 
 # --------------------------
 # FIGURES
 # --------------------------
 
-# Figure 2: Department-Level Bar Chart (Collapsed)
+#
+# Deliverable: Department Bar Chart 
+# ----------------------------------------
 fig_departments <- department_counts %>%
   filter(department != "Other / Unclassified") %>%
   ggplot(aes(x = n_projects, y = reorder(department, n_projects))) +
-  geom_col(fill = "steelblue") +
+  geom_col(fill = catf_dark_blue) +
   geom_text(aes(label = scales::comma(n_projects)), hjust = -0.1, size = 3) +
   labs(
     x = "Number of Clean Energy Projects",
@@ -210,17 +206,18 @@ fig_departments <- department_counts %>%
 fig_departments
 
 ggsave(
-  filename = here(figures_dir, "06_departments.png"),
+  filename = here(figures_dir, "02_departments.png"),
   plot = fig_departments,
   width = 10,
   height = 7,
   units = "in",
   dpi = 300
 )
-cat("  Saved: 06_departments.png\n")
 
 
-# Figure 3: Department by Process Type
+#
+# Deliverable: Departments by review process 
+# ----------------------------------------
 dept_process <- agency_data %>%
   count(department, process_type) %>%
   group_by(department) %>%
@@ -232,6 +229,7 @@ dept_process <- agency_data %>%
   filter(department != "Other / Unclassified")
 
 fig_dept_process <- dept_process %>%
+  filter(total >= 5) |> 
   ggplot(aes(x = reorder(department, total), y = percent, fill = process_type)) +
   geom_col() +
   coord_flip() +
@@ -239,23 +237,26 @@ fig_dept_process <- dept_process %>%
     x = NULL,
     y = "Percent of Projects",
     fill = "Process Type",
-    title = "Process Type Distribution by Federal Department"
+    title = "Process Type Distribution by Federal Department",
+    caption = "Note that Departments with fewer than 5 projects were removed for parsimony."
   ) +
-  scale_fill_brewer(palette = "Set1") +
+  #scale_fill_brewer(palette = "Set1") +
+  scale_fill_manual(
+    values = c("CE" = catf_dark_blue, "EA" = catf_teal, "EIS" = catf_magenta)
+  ) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 9))
 
 fig_dept_process
 
 ggsave(
-  filename = here(figures_dir, "07_dept_process_type.png"),
+  filename = here(figures_dir, "02_department_process.png"),
   plot = fig_dept_process,
   width = 10,
   height = 7,
   units = "in",
   dpi = 300
 )
-cat("  Saved: 07_dept_process_type.png\n")
 
 
 # --------------------------
