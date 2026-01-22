@@ -368,13 +368,41 @@
     "href": "reports/deliverable03.html",
     "title": "NEPA Clean Energy Analysis: Deliverable 3",
     "section": "",
-    "text": "This report analyzes NEPA process types (CE, EA, EIS) across energy classifications.\n\n\n\n\n\n\nData Scope\n\n\n\nAnalysis covers 26,000+ clean energy projects extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation)."
+    "text": "Key decisions to make for next steps:\n\n\n\n\nDo we need to further refine “Other” since they seem rather large?\n\n\n\nThis report aims to create the following set of deliverables:\n\nData on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements. Broken out by number of projects, generation capacity, and change over time."
   },
   {
     "objectID": "reports/deliverable03.html#executive-summary",
     "href": "reports/deliverable03.html#executive-summary",
     "title": "NEPA Clean Energy Analysis: Deliverable 3",
     "section": "",
-    "text": "This report analyzes NEPA process types (CE, EA, EIS) across energy classifications.\n\n\n\n\n\n\nData Scope\n\n\n\nAnalysis covers 26,000+ clean energy projects extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation)."
+    "text": "Key decisions to make for next steps:\n\n\n\n\nDo we need to further refine “Other” since they seem rather large?\n\n\n\nThis report aims to create the following set of deliverables:\n\nData on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements. Broken out by number of projects, generation capacity, and change over time."
+  },
+  {
+    "objectID": "reports/deliverable03.html#project-counts-by-year",
+    "href": "reports/deliverable03.html#project-counts-by-year",
+    "title": "NEPA Clean Energy Analysis: Deliverable 3",
+    "section": "Project Counts by Year",
+    "text": "Project Counts by Year\nFigure 3 shows project counts over time, faceted by process type. The data shows CE projects dominate in volume, with relatively consistent counts from 2010-2024. EA and EIS projects are fewer but show year-to-year variation.\n\n\n\n\n\nFigure 3: NEPA projects by year and process type (preliminary data)"
+  },
+  {
+    "objectID": "reports/deliverable03.html#project-duration-by-process-type",
+    "href": "reports/deliverable03.html#project-duration-by-process-type",
+    "title": "NEPA Clean Energy Analysis: Deliverable 3",
+    "section": "Project Duration by Process Type",
+    "text": "Project Duration by Process Type\nFigure 4 compares project duration across process types. Key observations:\n\nCE projects: Median duration near 0 days, consistent with same-day or rapid approvals\nEA projects: Median ~11.5 years (likely includes false positive dates)\nEIS projects: Median ~20 years (likely includes false positive dates)\n\nThe long median durations for EA and EIS suggest the date extraction is capturing reference dates (citations, historical mentions) rather than actual project timelines.\n\n\n\n\n\nFigure 4: Project duration distribution by process type (preliminary data)"
+  },
+  {
+    "objectID": "reports/deliverable03.html#data-quality-summary",
+    "href": "reports/deliverable03.html#data-quality-summary",
+    "title": "NEPA Clean Energy Analysis: Deliverable 3",
+    "section": "Data Quality Summary",
+    "text": "Data Quality Summary\n\n\nTable 2: Timeline data quality metrics\n\n\nMetric\nValue\n\n\n\n\nProjects with dates extracted\n19,694 (74%)\n\n\nProjects flagged for review\n15,289 (57%)\n\n\nDuration &gt;5 years (likely errors)\n6,116 (31%)\n\n\nDuration &gt;10 years (likely errors)\n4,694 (24%)"
+  },
+  {
+    "objectID": "reports/deliverable03.html#next-steps-for-timeline-extraction",
+    "href": "reports/deliverable03.html#next-steps-for-timeline-extraction",
+    "title": "NEPA Clean Energy Analysis: Deliverable 3",
+    "section": "Next Steps for Timeline Extraction",
+    "text": "Next Steps for Timeline Extraction\n\nImplement structure-aware preprocessing: Remove reference/bibliography sections before date extraction to eliminate citation false positives\nAdd QA-based extraction: Use question-answering models to directly ask “When was the decision signed?” rather than extracting all dates and filtering\nValidate sample manually: Review 50-100 flagged projects to assess extraction accuracy and identify systematic errors\nFilter for reliable data: For final analysis, restrict to projects with duration &lt;5 years and explicit decision dates found\nConsider document metadata: Check if raw NEPA data contains document publication dates that could supplement text extraction\n\n\nReport generated 2026-01-22 | NEPA Clean Energy Analysis"
   }
 ]
