@@ -32,7 +32,7 @@
     "href": "reports/deliverable01.html#process-type-by-location",
     "title": "NEPA Clean Energy Analysis: Deliverable 1",
     "section": "Process Type by Location",
-    "text": "Process Type by Location\n\n\n\n\n\nFigure 9: Clean energy project locations by NEPA process type. Points placed at county centroids; size indicates project count.\n\n\n\n\n\nReport generated 2026-01-21 | NEPA Clean Energy Analysis"
+    "text": "Process Type by Location\n\n\n\n\n\nFigure 9: Clean energy project locations by NEPA process type. Points placed at county centroids; size indicates project count.\n\n\n\n\n\nReport generated 2026-01-22 | NEPA Clean Energy Analysis"
   },
   {
     "objectID": "reports/project_overview.html",
@@ -368,13 +368,13 @@
     "href": "reports/deliverable03.html",
     "title": "NEPA Clean Energy Analysis: Deliverable 3",
     "section": "",
-    "text": "This report analyzes NEPA process types (CE, EA, EIS) across energy classifications.\n\n\n\n\n\n\nData Scope\n\n\n\nAnalysis covers 26,000+ clean energy projects extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation)."
+    "text": "Key decisions to make for next steps:\n\n\n\n\nDo we need to further refine “Other” since they seem rather large?\nThoughts on next steps for timeline analysis?\n\nDecision Records, FONSI, other documents to focus the analysis?\n\nWhich types of projects are likely to not have generation capacity (CE, transmission)?\n\n\n\nThis report aims to create the following set of deliverables:\n\nData on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements. Broken out by number of projects, generation capacity, and change over time.\n\nFor context, Table 1 summarizes the breakdown of projects by energy type. I wonder the extent to which “Other” projects need to further refined.\n\n\n\n\nTable 1: Project counts by energy classification\n\n\nEnergy Type\nCount\nPercent\n\n\n\n\nOther\n26,100\n42.2%\n\n\nClean\n24,998\n40.4%\n\n\nFossil\n10,783\n17.4%"
   },
   {
     "objectID": "reports/deliverable03.html#executive-summary",
     "href": "reports/deliverable03.html#executive-summary",
     "title": "NEPA Clean Energy Analysis: Deliverable 3",
     "section": "",
-    "text": "This report analyzes NEPA process types (CE, EA, EIS) across energy classifications.\n\n\n\n\n\n\nData Scope\n\n\n\nAnalysis covers 26,000+ clean energy projects extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation)."
+    "text": "Key decisions to make for next steps:\n\n\n\n\nDo we need to further refine “Other” since they seem rather large?\nThoughts on next steps for timeline analysis?\n\nDecision Records, FONSI, other documents to focus the analysis?\n\nWhich types of projects are likely to not have generation capacity (CE, transmission)?\n\n\n\nThis report aims to create the following set of deliverables:\n\nData on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements. Broken out by number of projects, generation capacity, and change over time.\n\nFor context, Table 1 summarizes the breakdown of projects by energy type. I wonder the extent to which “Other” projects need to further refined.\n\n\n\n\nTable 1: Project counts by energy classification\n\n\nEnergy Type\nCount\nPercent\n\n\n\n\nOther\n26,100\n42.2%\n\n\nClean\n24,998\n40.4%\n\n\nFossil\n10,783\n17.4%"
   }
 ]

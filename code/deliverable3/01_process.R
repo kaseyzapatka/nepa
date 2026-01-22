@@ -11,6 +11,25 @@
 source(here::here("code", "deliverable3", "00_setup.R"))
 
 # --------------------------
+# RECLASSIFY UTILITIES TO OTHER
+# --------------------------
+# Projects tagged as Clean but with Utilities/Broadband, Waste Management,
+# or Land Development should be classified as "Other" for reporting
+
+projects <- projects %>%
+  mutate(
+    project_energy_type = if_else(
+      project_energy_type == "Clean" & project_utilities_to_filter_out,
+      "Other",
+      project_energy_type
+    )
+  )
+
+cat("After reclassifying utilities to Other:\n")
+cat("  Clean energy projects:", sum(projects$project_energy_type == "Clean"), "\n")
+cat("  Other projects:", sum(projects$project_energy_type == "Other"), "\n\n")
+
+# --------------------------
 # TABLE 1: PROJECT STATUS BY ENERGY TYPE
 # --------------------------
 
@@ -61,10 +80,14 @@ cat("  Saved: table1_by_energy_type.csv\n")
 
 cat("\nCreating supplementary table: Clean Energy Detail...\n")
 
-clean_energy <- projects %>%
+# Use clean_energy from setup (already filtered to exclude utilities)
+# Or filter here since we've reclassified utilities to "Other" above
+clean_energy_detail <- projects %>%
   filter(project_energy_type == "Clean")
 
-clean_by_tech <- clean_energy %>%
+cat("Clean energy projects for detail table:", nrow(clean_energy_detail), "\n")
+
+clean_by_tech <- clean_energy_detail %>%
   explode_column("project_type") %>%
   filter(!is.na(project_type) & project_type != "") %>%
   group_by(project_type, process_type) %>%
@@ -113,9 +136,18 @@ summary_stats <- projects %>%
   summarise(
     count = n(),
     pct = n() / nrow(projects) * 100
+  ) %>%
+  arrange(desc(count)) %>%
+  rename(
+    `Energy Type` = project_energy_type,
+    `Count` = count,
+    `Percent` = pct
   )
 
 print(summary_stats)
+
+write_csv(summary_stats, here(tables_dir, "energy_type_summary.csv"))
+cat("  Saved: energy_type_summary.csv\n")
 
 cat("\nProjects flagged for review:", sum(projects$project_energy_type_questions, na.rm = TRUE), "\n")
 
@@ -140,8 +172,18 @@ fig_data <- projects %>%
 # Figure 1: Grouped bar chart comparing process types
 
 fig1 <- fig_data %>%
-  ggplot(aes(x = n, y = reorder(project_energy_type, total_energy_type), fill = process_type)) +
-  geom_col(position = "dodge") +
+  ggplot(aes(
+    x = n,
+    y = reorder(project_energy_type, total_energy_type),
+    fill = process_type
+  )) +
+  geom_col(position = position_dodge(width = 0.9)) +
+  geom_text(
+    aes(label = comma(n)),               # <-- format with commas
+    position = position_dodge(width = 0.9),
+    hjust = -0.1,                        # slightly outside the bar
+    size = 3
+  ) +
   labs(
     title = "Project Counts by Energy Type and Process Type",
     x = "Number of Projects",
@@ -150,13 +192,8 @@ fig1 <- fig_data %>%
     caption = "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), EIS (Environmental Impact Statement)"
   ) +
   scale_x_continuous(labels = comma, expand = expansion(mult = c(0, 0.05))) +
-  scale_fill_brewer(palette = "Set2") +
-  theme_minimal() +
-  theme(
-    legend.position = "top",
-    plot.subtitle = element_text(size = 9, color = "gray40"),
-    plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
-  )
+  scale_fill_catf() +
+  theme_catf()
 
 fig1
 
