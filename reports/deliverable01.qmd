@@ -20,6 +20,8 @@ library(here)
 library(knitr)
 library(kableExtra)
 library(readr)
+library(gt)
+library(tibble)
 
 # Paths
 d1_figures <- here("output", "deliverable1", "figures")
@@ -29,18 +31,107 @@ d1_tables <- here("output", "deliverable1", "tables")
 
 ## Executive Summary
 
-This report characterizes the clean energy project landscape by technology, lead agency, and geographic location.
+@fig-projects gives us a sense of the universe of total number of projects in the NEPA database by review process.
 
-::: {.callout-note}
-## Data Scope
-Analysis covers **26,000+ clean energy projects** extracted from the NEPA database, classified using energy technology tags (solar, wind, transmission, storage, geothermal, hydropower, nuclear, hydrogen, and efficiency/conservation).
+```{r}
+#| label: fig-projects
+#| fig-cap: "Distribution of all projects by review in NEPA database."
+
+knitr::include_graphics(file.path(d1_figures, "00_fig_projects_by_review.png"))
+```
+
+@fig-clean-energy-projects reports all clean energy projects in the NEPA database, which totals about **25,000 clean energy projects** extracted from the NEPA database. This report aims to create the following set of deliverables: 
+
+> Data on number of clean energy projects within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
+
+
+```{r}
+#| label: fig-clean-energy-projects
+#| fig-cap: "Distribution of clean projects by review in NEPA database."
+
+knitr::include_graphics(file.path(d1_figures, "00_fig_clean_energy_by_review.png"))
+```
+
+
+::: {.callout-tip}
+## Key decisions to make for next steps:
+-   [ ] Are there any refinements to our characterization of “Clean Energy” we want to consider before moving on?
+    -   [X] Exclude "Utilities" + non-energy tags
+    -   [ ] Exclude "Military and Defense" nuclear projects?
+    -   [ ] Exclude waste management of nuclear projects?
+-   [ ] What categories should be included or excluded?
+-   [ ] What types of maps do we prefer?
 :::
 
 ---
 
+# Definitions: What Qualifies as Clean Energy?
+
+@tbl-energy-tags enumerates the CAFT-defined 14 clean energy and 5 fossil fuel categories used to identify clean vs fossil fuel energy projects in the NEPA database. While projects often have multiple tags, "clean energy" is identified as having at least one of the 14 tags _AND_ no fossil fuel tags. 
+
+```{r}
+#| label: tbl-energy-tags
+#| tbl-cap: "Project type tags used to classify clean vs. fossil energy projects"
+
+tibble(
+  `Clean Energy Tags` = c(
+    "Carbon Capture and Sequestration",
+    "Conventional Energy Production - Nuclear",
+    "Conventional Energy Production - Other",
+    "Electricity Transmission",
+    "Nuclear Technology",
+    "Renewable Energy Production*",
+    "Utilities (electricity, gas, telecommunications)"
+  ),
+  `Fossil Energy Tags` = c(
+    "Conventional Energy Production - Coal",
+    "Conventional Energy Production - Land-based Oil & Gas",
+    "Conventional Energy Production - Offshore Oil and Gas",
+    "Conventional Energy Production - Rural Energy",
+    "Pipelines",
+    "",
+    ""
+  )
+) |>
+  gt() |>
+  tab_style(
+    style = cell_text(color = "#999999"),
+    locations = cells_body(
+      columns = `Fossil Energy Tags`,
+      rows = `Fossil Energy Tags` == ""
+    )
+  ) |>
+  tab_footnote(
+    footnote = "Includes Biomass, Energy Storage, Geothermal, Hydrokinetic, Hydropower, Solar, Wind (Offshore & Onshore), and \nOther",
+    locations = cells_body(columns = `Clean Energy Tags`, rows = 6)
+  ) |>
+  cols_width(
+    `Clean Energy Tags` ~ px(350),
+    `Fossil Energy Tags` ~ px(350)
+  )
+```
+
+About **10% of projects have only clean energy tags**, but most (about 90%) have at least 1 clean energy tag plus some other combination of tags. 
+
+### Further Refining 
+
+After reviewing a [table of all co-occurring project types](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1809595689#gid=1809595689), three other projects combinations are currently under consideration to be excluded from the "clean energy" category.
+
+- **Utilities + non-energy:**  About **1,623 projects** tagged _ONLY_ as Utilities _AND_ with 1 or more of the following non-energy tags (e.g., broadband, waste management, land development) were excluded, since these likely reflect utility-adjacent infrastructure rather than energy generation.
+
+- **Military and Defense + Nuclear:** There are **481 projects** tagged as "Nuclear Energy" and "Military and Defense." [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1310622375#gid=1310622375) The majority of these projects are led by the Department of Energy rather than the Department of Defense—an unexpected pattern that warrants further consideration. **Should these be excluded or further analyzed in some way?**
+
+- **Nuclear + Waste Management :** Approximately, **4,000 projects** combine "Nuclear" ("Nuclear Technology" and "Conventional Energy Production - Nuclear") and "Waste management" tags. [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1263485295#gid=1263485295) Many of these projects appear to involve decommissioning or site cleanup rather than energy production. **Are these projects we wish to classify as "clean energy" since it looks more like management rather than power generation?**
+
+
+
+---
+
+
+
 # Technology Distribution
 
-How are clean energy projects distributed across technology types?
+The first deliverable examines how clean energy projects breakdown by technology.
 
 ```{r}
 #| label: fig-technology
@@ -49,16 +140,28 @@ How are clean energy projects distributed across technology types?
 knitr::include_graphics(file.path(d1_figures, "01_clean_energy_bar_chart.png"))
 ```
 
+
+A second interesting analysis is to view how the technologies break down by review process. 
+
+```{r}
+#| label: fig-technology-by-review
+#| fig-cap: "Distribution of clean energy projects by technology type and review status. Projects may have multiple technology tags."
+
+knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.png"))
+```
+
+
+
 ::: {.callout-tip}
-## Key Finding: Technology
-**Transmission and solar dominate** the clean energy NEPA landscape. Transmission projects comprise the largest share, reflecting the infrastructure buildout required to connect renewable generation to load centers. Solar's prominence aligns with its rapid deployment growth over the analysis period.
+## Key Findings: Technology
+**Utilities, Electricity Transmission, and Nuclear Technology dominate** the clean energy NEPA landscape. Utility and Electricity Transmission projects comprise the largest share, reflecting the infrastructure build out required to connect renewable generation to load centers. The prominence of nuclear and solar projects are interesting. When looking at how clean energy technologies breakdown by review process, most are granted "Categorical Exclusion (CE)" status, with Hydropower, nuclear, and wind producing projects to be notable exceptions.  
 :::
 
 ---
 
 # Lead Agency Analysis
 
-Which federal agencies are leading clean energy NEPA reviews?
+This next deliverable looks at project county by lead agency. To create the clearest  a Which federal agencies are leading clean energy NEPA reviews?
 
 ```{r}
 #| label: tbl-agency
