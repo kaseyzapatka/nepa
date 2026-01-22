@@ -32,19 +32,17 @@ d3_tables <- here("output", "deliverable3", "tables")
 ::: {.callout-note}
 ## Key decisions to make for next steps:
 -   [ ] Do we need to further refine "Other" since they seem rather large?
-
+-   [ ] Thoughts on next steps for timeline analysis?
+    -   [ ] Decision Records, FONSI, other documents to focus the analysis?
+-   [ ] Which types of projects are likely to not have generation capacity (CE, transmission)?
 :::
 
 
-This report aims to create the following set of deliverables: 
+This report aims to create the following set of deliverables:
 
 > Data on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements.  Broken out by number of projects, generation capacity, and change over time.
 
----
-
-# Energy Type Summary
-
-For context, @tbl-energy-summary summarizes the breakdown of projects by energy type. I wonder the extent to which "Other" projects need to further refined.  
+For context, @tbl-energy-summary summarizes the breakdown of projects by energy type. I wonder the extent to which "Other" projects need to further refined.
 
 ```{r}
 #| label: tbl-energy-summary
@@ -74,7 +72,7 @@ summary_stats %>%
 **Clean energy projects use Categorical Exclusions at higher rates** than fossil fuel or other types of projects. This could reflect smaller project footprints for clean energy projects?  Fossil fuel projects show higher EA/EIS rates, consistent with larger environmental footprints requiring more detailed review.
 :::
 
-@fig-energy-grouped visualizes project counts by review and energy type, whereas @fig-energy-composition reports the share of review process types within energy types. 
+@fig-energy-grouped visualizes project counts by review and energy type, whereas @fig-energy-composition reports the share of review process types within energy types.
 
 ```{r}
 #| label: fig-energy-grouped
@@ -104,7 +102,7 @@ Timeline data is extracted using regex pattern and have some clear data quality 
 
 **Data Quality Summary**
 
-About 26% of clean energy projects don't have clean timeline data -- could be process-- and large chunk likely have errors.  
+About 26% of clean energy projects don't have clean timeline data -- could be process-- and large chunk likely have errors.
 
 | Metric | Value |
 |--------|-------|
@@ -117,7 +115,7 @@ About 26% of clean energy projects don't have clean timeline data -- could be pr
 
 ::: {.callout-tip}
 ## Key Findings: Technology
-**CE projects have the shortest timelines,** whereas EA and EIS projects are less frequent and can have longer durations. There are likely some date extraction issue that are inflating review times. 
+**CE projects have the shortest timelines,** whereas EA and EIS projects are less frequent and can have longer durations. There are likely some date extraction issue that are inflating review times.
 :::
 
 Figure @fig-projects-by-year shows project counts over time, faceted by process type. CE projects dominate in volume with relatively consistent counts from 2010–2024, while EA and EIS projects are fewer and more variable year-to-year.
@@ -147,13 +145,89 @@ knitr::include_graphics(file.path(d3_figures, "03_duration_boxplot.png"))
 
 1. **Implement structure-aware preprocessing**: Remove reference/bibliography sections before date extraction to eliminate citation false positives
 
-2. **Focus analysis on specific documents**: Create variable to idenify document type and only search the most useful, likely with an LLM. 
+2. **Focus analysis on specific documents**: Create variable to idenify document type and only search the most useful, likely with an LLM.
 
 3. **Add QA-based extraction**: Use question-answering models to directly ask "When was the decision signed?" rather than extracting all dates and filtering
 
 4. **Validate sample manually**: Review 50-100 flagged projects to assess extraction accuracy and identify systematic errors
 
 5. **Filter for reliable data**: For final analysis, restrict to projects with duration <5 years and explicit decision dates found
+
+---
+
+# Generation Capacity Analysis (Preliminary)
+
+::: {.callout-warning}
+## Data Quality Notice
+Generation capacity was extracted using regex pattern matching. Some values may be false positives (e.g., reference numbers misidentified as capacity). Values >5,000 MW excluded as likely errors.
+:::
+
+::: {.callout-tip}
+## Key Findings: Capacity
+Preliminary analysis shows that generation capacity data varies by review type and that **EIS projects are predominantly utility-scale** (>500 MW), while CE projects are mostly small-scale (<10 MW). This aligns with expectations: larger projects require more intensive environmental review.
+:::
+
+To identify capacity generation, a regex-based extraction using pattern matching for values like "50 MW", "1,500 megawatts", "2.5 GW facility". Capacity values normalized to MW for comparison.
+
+
+@fig-capacity-coverage shows that extraction rates vary significantly by process type. EIS projects have the highest coverage (81%), reflecting larger projects with explicit capacity documentation. CE projects have low coverage (8%) as expected—these are typically smaller projects that don't require detailed capacity reporting.
+
+```{r}
+#| label: fig-capacity-coverage
+#| fig-cap: "Generation capacity extraction coverage by NEPA process type"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d3_figures, "04_capacity_coverage.png"))
+```
+
+
+@fig-capacity-process shows the distribution of project sizes across process types. Among projects with extracted capacity:
+
+- **EIS**: 53% are utility-scale (>500 MW), median capacity of 538 MW
+- **EA**: Mixed distribution, median capacity of 60 MW
+- **CE**: 58% are small (<10 MW), median capacity of 1.2 MW
+
+```{r}
+#| label: fig-capacity-process
+#| fig-cap: "Project capacity distribution by NEPA process type (projects with reasonable extracted values)"
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d3_figures, "05_capacity_by_process.png"))
+```
+
+```{r}
+#| label: tbl-capacity-summary
+#| tbl-cap: "Generation capacity by process type"
+
+capacity_table <- read_csv(file.path(d3_tables, "table2_by_generation_capacity.csv"), show_col_types = FALSE)
+
+capacity_table %>%
+  kable(
+    align = c("l", "r", "r", "r", "r"),
+    format.args = list(big.mark = ",")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE,
+    position = "left"
+  )
+```
+
+**Data Quality Summary**
+
+| Metric | Value |
+|--------|-------|
+| Total clean energy projects | 26,621 |
+| Projects with capacity extracted | 3,219 (12.1%) |
+| Projects with reasonable values (≤5000 MW) | 2,586 (9.7%) |
+
+: Generation capacity extraction summary {#tbl-gencap-quality}
+
+**Next Steps for Generation Capacity**
+
+1. Read some sample documents to **confirm CE doesn't have much generation capacity** estimates.
+2. Create a variable to **identify which projects are most likely to have generation capacity**. 
+3. **Run LLM extraction on those projects** by review process, likely skipping CE. 
 
 ---
 
