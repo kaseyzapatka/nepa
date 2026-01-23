@@ -14,7 +14,7 @@ source(here::here("code", "deliverable1", "00_setup.R"))
 # PROCESS
 # --------------------------
 
-# Note: project_department is now pre-computed in the Python extract pipeline.
+# Note: project_department pre-computed in the Python extract pipeline.
 # Only 40 of 61,881 projects (0.06%) have multiple lead agencies.
 # We keep explode_column for lead_agency detail analysis, but use the
 # pre-computed project_department for department-level grouping.
@@ -38,47 +38,9 @@ department_counts <- agency_data %>%
   count(department, name = "n_projects") %>%
   arrange(desc(n_projects))
 
-cat("Unique agencies (detailed):", nrow(agency_counts), "\n")
-cat("Unique departments (collapsed):", nrow(department_counts), "\n\n")
-
-cat("Top 10 agencies by project count:\n")
-agency_counts %>% slice_head(n = 10) %>% print()
-
-cat("\nDepartment-level counts:\n")
-department_counts %>% print()
-
 # --------------------------
 # EXPLORATORY
 # --------------------------
-
-#
-# Military
-# ----------------------------------------
-# Frank wanted to know the agency mix for  defense related nuclear projects --  DOE or DOD ? 
-# nearly all of 481 were DOE
-military_projects <- 
-  agency_data |> 
-  filter(str_detect(project_type, "Military and Defense") & str_detect(project_type, "Nuclear")) |> 
-  select(project_id, project_title, department, project_type) |> 
-  arrange(department) |> 
-  glimpse()
-
-# save
-sheet_write(
-  data = military_projects,
-  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
-  sheet = "military_projects"
-)
-
-# pull all project IDs so we can filter out
-military_project_ids_to_filter <- 
-  military_projects |> 
-  select(project_id) |> 
-  glimpse()
-
-# Save
-write_csv(military_project_ids_to_filter, here("notes",  "military_project_ids_to_filter.csv"))
-
 
 #
 # Nuclear Waste
@@ -97,93 +59,6 @@ sheet_write(
   ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
   sheet = "nuclear_waste_projects"
 )
-
-# remove NNSA, LM, and EM
-nuclear_waste_projects_refined <- 
-  nuclear_waste_projects |> 
-  filter(
-    # Filter for project_sponsor
-    str_detect(project_sponsor, regex(
-      paste(
-        # NNSA patterns
-        "\\bNNSA\\b",
-        "National Nuclear Security Administration",
-        "National Nuclear(?!\\s+Laboratory)",  # Excludes "National Nuclear Laboratory" 
-        "Kansas City.{0,20}(Field Office|National Security Campus)",
-        "Livermore.{0,20}(Field Office|Site Office)",
-        "Lawrence Livermore National Laboratory",
-        "Los Alamos.{0,20}(Field Office|Site Office|Area Office|National Laboratory)",
-        "Office of Los Alamos Site Operations",  # NEW
-        "Naval Nuclear.{0,20}(Propulsion Program|Laboratory)",
-        "Nevada.{0,20}(Field Office|National Security Site)",
-        "Pantex.{0,20}(Field Office|Plant)?",
-        "\\bPantex\\b",
-        "Sandia.{0,20}(Field Office|National Laboratories)",
-        "Sandia Site Office",  # NEW
-        "Savannah River.{0,20}(Mission Completion|Operations Office|Field Office|Site)?",
-        "\\bSavannah River\\b",
-        "Y-12.{0,20}(Site Office|Field Office|National Security Complex)",
-        
-        # Legacy Management patterns
-        "Office of Legacy Management",
-        "Legacy Management",
-        
-        # Environmental Management patterns
-        "Office of Environmental Management",
-        "Environmental Management",
-        "Hanford Site",
-        "Hanford Mission Integration Solutions",  # NEW
-        "\\bRichland\\b",
-        "Richland Operations.{0,20}Office?",
-        "Office of River Protection",
-        "\\bPaducah\\b",
-        "Paducah Site",
-        "\\bPortsmouth\\b",
-        "Portsmouth Site",
-        "Portsmouth and Paducah Field Office",
-        "\\bOak Ridge\\b",
-        "Oak Ridge Office of Environmental Management",
-        "Waste Isolation Pilot Plant",
-        "\\bCarlsbad\\b",
-        "Carlsbad Field Office",
-        
-        sep = "|"
-      ),
-      ignore_case = TRUE
-    )) |
-    
-    # OR filter for lead_agency (three major agencies only)
-    str_detect(lead_agency, regex(
-      paste(
-        "National Nuclear Security Administration",
-        "Office of Legacy Management",
-        "Office of Environmental Management",
-        sep = "|"
-      ),
-      ignore_case = TRUE
-    ))
-  ) |> 
-  select(project_id, project_title, department, lead_agency, project_sponsor, project_type) |> 
-  arrange(department) |> 
-  glimpse()
-
-
-# save
-sheet_write(
-  data = nuclear_waste_projects_refined,
-  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
-  sheet = "nuclear_waste_projects_refined"
-)
-
-# pull ids to filter
-nuclear_waste_projects_ids_to_filter <- 
-  nuclear_waste_projects_refined |> 
-  select(project_id) |> 
-  glimpse()
-
-# Save
-write_csv(nuclear_waste_projects_ids_to_filter, here("notes",  "nuclear_waste_projects_ids_to_filter.csv"))
-
 
 # --------------------------
 # TABLE: PROJECTS BY DEPARTMENT 
@@ -289,7 +164,7 @@ ggsave(
 
 
 # --------------------------
-# ANALYSIS
+# SUMMARY ANALYSIS
 # --------------------------
 
 cat("\n=== Agency Analysis ===\n")
@@ -299,24 +174,6 @@ cat("\nMulti-agency projects in dataset:\n")
 multi_agency <- clean_energy %>%
   filter(str_detect(lead_agency, ","))
 cat("  Count:", nrow(multi_agency), "(these have >1 lead agency)\n")
-
-# Agencies with most EIS (complex projects)
-eis_agencies <- agency_data %>%
-  filter(process_type == "EIS") %>%
-  count(lead_agency, name = "n_eis") %>%
-  arrange(desc(n_eis))
-
-cat("\nTop 10 agencies by EIS count (most complex projects):\n")
-eis_agencies %>% slice_head(n = 10) %>% print()
-
-# Departments with most EIS
-eis_depts <- agency_data %>%
-  filter(process_type == "EIS") %>%
-  count(department, name = "n_eis") %>%
-  arrange(desc(n_eis))
-
-cat("\nDepartments by EIS count:\n")
-eis_depts %>% print()
 
 # Agencies with highest CE ratio (streamlined projects)
 ce_ratio <- agency_data %>%
@@ -331,13 +188,3 @@ ce_ratio <- agency_data %>%
 
 cat("\nAgencies with highest CE ratio (min 50 projects):\n")
 ce_ratio %>% slice_head(n = 10) %>% print()
-
-
-# --------------------------
-# SUMMARY
-# --------------------------
-
-cat("\n=== Agency Script Complete ===\n")
-cat("Tables saved to:", tables_dir, "\n")
-cat("Figures saved to:", figures_dir, "\n")
-
