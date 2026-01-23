@@ -15,6 +15,12 @@ library(jsonlite)
 library(scales)
 library(zoo)
 library(googlesheets4)
+library(sf)
+library(tidycensus)
+library(tigris)
+
+# options
+options(tigris_use_cache = TRUE)
 
 # --------------------------
 # FILE PATHS
@@ -24,11 +30,13 @@ data_path <- here("data", "analysis", "projects_combined.parquet")
 output_dir <- here("output", "deliverable4")
 tables_dir <- here("output", "deliverable4", "tables")
 figures_dir <- here("output", "deliverable4", "figures")
+maps_dir <- here("output", "deliverable4", "maps")
 
 # Create output directories if they don't exist
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 dir.create(tables_dir, showWarnings = FALSE, recursive = TRUE)
 dir.create(figures_dir, showWarnings = FALSE, recursive = TRUE)
+dir.create(maps_dir, showWarnings = FALSE, recursive = TRUE)
 
 # --------------------------
 # LOAD DATA
