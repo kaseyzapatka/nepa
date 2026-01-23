@@ -19,6 +19,16 @@ projects %>%
 
 
 
+projects %>%
+  distinct(lead_agency) |> 
+  print(n=100)
+
+projects %>%
+  select(contains("department")) |> 
+  glimpse()
+  distinct(project_department) |> 
+  print(n=100)
+
 # --------------------------
 # TIMELINE
 # --------------------------

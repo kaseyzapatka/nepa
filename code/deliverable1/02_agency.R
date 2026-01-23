@@ -14,84 +14,19 @@ source(here::here("code", "deliverable1", "00_setup.R"))
 # PROCESS
 # --------------------------
 
-# Note: Only 40 of 61,881 projects (0.06%) have multiple lead agencies.
-# We keep explode_column for completeness, but this is rare.
+# Note: project_department is now pre-computed in the Python extract pipeline.
+# Only 40 of 61,881 projects (0.06%) have multiple lead agencies.
+# We keep explode_column for lead_agency detail analysis, but use the
+# pre-computed project_department for department-level grouping.
 
 # Explode lead_agency (handles rare multi-agency cases)
 agency_data <- clean_energy %>%
   explode_column("lead_agency") %>%
   filter(!is.na(lead_agency) & lead_agency != "")
 
-# Create collapsed department-level grouping
+# Use pre-computed department column (renamed for consistency with this script)
 agency_data <- agency_data %>%
-  mutate(
-    department = case_when(
-      # Department of Energy
-      str_detect(lead_agency, "^Department of Energy") ~ "Department of Energy",
-
-      # Department of the Interior
-      str_detect(lead_agency, "^Department of the Interior") ~ "Department of the Interior",
-
-      # Department of Agriculture
-      str_detect(lead_agency, "^Department of Agriculture") ~ "Department of Agriculture",
-
-      # Department of Defense
-      str_detect(lead_agency, "^Department of Defense") ~ "Department of Defense",
-
-      # Department of Homeland Security
-      str_detect(lead_agency, "^Department of Homeland Security") ~ "Department of Homeland Security",
-
-      # Department of Transportation
-      str_detect(lead_agency, "^Department of Transportation") ~ "Department of Transportation",
-
-      # Health and Human Services
-      str_detect(lead_agency, "^Department of Health and Human Services") ~
-        "Department of Health and Human Services",
-
-      # Housing and Urban Development
-      str_detect(lead_agency, "^Department of Housing and Urban Development") ~
-        "Department of Housing and Urban Development",
-
-      # Commerce
-      str_detect(lead_agency, "^Department of Commerce") ~ "Department of Commerce",
-
-      # State
-      str_detect(lead_agency, "^Department of State") ~ "Department of State",
-
-      # Justice
-      str_detect(lead_agency, "^Department of Justice") ~ "Department of Justice",
-
-      # Veterans Affairs
-      str_detect(lead_agency, "^Department of Veterans Affairs") ~
-        "Department of Veterans Affairs",
-
-      # Treasury
-      str_detect(lead_agency, "^Department of the Treasury") ~
-        "Department of the Treasury",
-
-      # Major Independent Agencies
-      str_detect(lead_agency, "^Major Independent Agencies") ~
-        "Major Independent Agencies",
-
-      # Other Independent Agencies
-      str_detect(lead_agency, "^Other Independent Agencies") ~
-        "Other Independent Agencies",
-
-      # GSA
-      str_detect(lead_agency, "^General Services Administration") ~
-        "General Services Administration",
-
-      # Legislative
-      lead_agency == "Legislative Branch" ~ "Legislative Branch",
-
-      # International
-      lead_agency == "International Assistance Programs" ~
-        "International Assistance Programs",
-
-      # Fallback
-      TRUE ~ "Other / Unclassified"
-    )
-  )
+  mutate(department = project_department)
 
 # Count projects per agency (detailed)
 agency_counts <- agency_data %>%
@@ -124,10 +59,9 @@ department_counts %>% print()
 military_projects <- 
   agency_data |> 
   filter(str_detect(project_type, "Military and Defense") & str_detect(project_type, "Nuclear")) |> 
-  select(project_title, department, project_type) |> 
+  select(project_id, project_title, department, project_type) |> 
   arrange(department) |> 
   glimpse()
-
 
 # save
 sheet_write(
@@ -136,15 +70,24 @@ sheet_write(
   sheet = "military_projects"
 )
 
+# pull all project IDs so we can filter out
+military_project_ids_to_filter <- 
+  military_projects |> 
+  select(project_id) |> 
+  glimpse()
+
+# Save
+write_csv(military_project_ids_to_filter, here("notes",  "military_project_ids_to_filter.csv"))
+
+
 #
 # Nuclear Waste
 # ----------------------------------------
 # Frank wanted to know if there were ways to disaggregate the nuclear waste reviews?
-
 nuclear_waste_projects <- 
   agency_data |> 
   filter(str_detect(project_type, "Waste Management") & str_detect(project_type, "Nuclear")) |> 
-  select(project_title, department, project_sponsor, project_type) |> 
+  select(project_id, project_title, department, lead_agency, project_sponsor, project_type) |> 
   arrange(department) |> 
   glimpse()
 
@@ -155,9 +98,95 @@ sheet_write(
   sheet = "nuclear_waste_projects"
 )
 
+# remove NNSA, LM, and EM
+nuclear_waste_projects_refined <- 
+  nuclear_waste_projects |> 
+  filter(
+    # Filter for project_sponsor
+    str_detect(project_sponsor, regex(
+      paste(
+        # NNSA patterns
+        "\\bNNSA\\b",
+        "National Nuclear Security Administration",
+        "National Nuclear(?!\\s+Laboratory)",  # Excludes "National Nuclear Laboratory" 
+        "Kansas City.{0,20}(Field Office|National Security Campus)",
+        "Livermore.{0,20}(Field Office|Site Office)",
+        "Lawrence Livermore National Laboratory",
+        "Los Alamos.{0,20}(Field Office|Site Office|Area Office|National Laboratory)",
+        "Office of Los Alamos Site Operations",  # NEW
+        "Naval Nuclear.{0,20}(Propulsion Program|Laboratory)",
+        "Nevada.{0,20}(Field Office|National Security Site)",
+        "Pantex.{0,20}(Field Office|Plant)?",
+        "\\bPantex\\b",
+        "Sandia.{0,20}(Field Office|National Laboratories)",
+        "Sandia Site Office",  # NEW
+        "Savannah River.{0,20}(Mission Completion|Operations Office|Field Office|Site)?",
+        "\\bSavannah River\\b",
+        "Y-12.{0,20}(Site Office|Field Office|National Security Complex)",
+        
+        # Legacy Management patterns
+        "Office of Legacy Management",
+        "Legacy Management",
+        
+        # Environmental Management patterns
+        "Office of Environmental Management",
+        "Environmental Management",
+        "Hanford Site",
+        "Hanford Mission Integration Solutions",  # NEW
+        "\\bRichland\\b",
+        "Richland Operations.{0,20}Office?",
+        "Office of River Protection",
+        "\\bPaducah\\b",
+        "Paducah Site",
+        "\\bPortsmouth\\b",
+        "Portsmouth Site",
+        "Portsmouth and Paducah Field Office",
+        "\\bOak Ridge\\b",
+        "Oak Ridge Office of Environmental Management",
+        "Waste Isolation Pilot Plant",
+        "\\bCarlsbad\\b",
+        "Carlsbad Field Office",
+        
+        sep = "|"
+      ),
+      ignore_case = TRUE
+    )) |
+    
+    # OR filter for lead_agency (three major agencies only)
+    str_detect(lead_agency, regex(
+      paste(
+        "National Nuclear Security Administration",
+        "Office of Legacy Management",
+        "Office of Environmental Management",
+        sep = "|"
+      ),
+      ignore_case = TRUE
+    ))
+  ) |> 
+  select(project_id, project_title, department, lead_agency, project_sponsor, project_type) |> 
+  arrange(department) |> 
+  glimpse()
+
+
+# save
+sheet_write(
+  data = nuclear_waste_projects_refined,
+  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
+  sheet = "nuclear_waste_projects_refined"
+)
+
+# pull ids to filter
+nuclear_waste_projects_ids_to_filter <- 
+  nuclear_waste_projects_refined |> 
+  select(project_id) |> 
+  glimpse()
+
+# Save
+write_csv(nuclear_waste_projects_ids_to_filter, here("notes",  "nuclear_waste_projects_ids_to_filter.csv"))
+
 
 # --------------------------
-# TABLE: PROEJCTS BY DEPARTMENT 
+# TABLE: PROJECTS BY DEPARTMENT 
 # --------------------------
 # This table collapses lead agency into department for parsimony
 
@@ -311,3 +340,4 @@ ce_ratio %>% slice_head(n = 10) %>% print()
 cat("\n=== Agency Script Complete ===\n")
 cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")
+

@@ -49,6 +49,7 @@ projects_with_tags <- clean_energy_parsed %>%
   #select(project_id, project_title, project_type_list)
   select(project_type_list)
 
+tech_data |> glimpse()
 
 # --------------------------
 # EXPLORATORY
@@ -99,14 +100,12 @@ table1 %>% print(n = 100)
 
 # Save
 write_csv(table1, here(tables_dir, "table1_by_technology.csv"))
-cat("  Saved: table1_by_technology.csv\n")
 
 
 # --------------------------
 # TABLE 4: CO-OCCURRENCE SUMMARY (TOP 3)
 # --------------------------
 
-cat("Creating Table 4: Co-occurrence Summary by Clean Energy Type...\n")
 
 cooccurrence_summary <- map_dfr(clean_energy_tags, function(ce_tag) {
 
@@ -188,16 +187,12 @@ table4 <- cooccurrence_summary %>%
 
 table4 |> print(n = 10)
 
+# save
 write_csv(table4, here(tables_dir, "table4_cooccurrence_summary.csv"))
-cat("  Saved: table4_cooccurrence_summary.csv\n")
-
 
 # --------------------------
 # TABLE 5: EXHAUSTIVE CO-OCCURRENCE (>5%)
 # --------------------------
-
-cat("Creating Table 5: Exhaustive Co-occurrence by Clean Energy Type...\n")
-
 exhaustive_cooccurrence <- map_dfr(clean_energy_tags, function(ce_tag) {
 
   projects_with_ce_tag <- projects_with_tags %>%
@@ -242,16 +237,12 @@ table5 <- exhaustive_cooccurrence %>%
 
 table5 |> print(n = 10)
 
+# save
 write_csv(table5, here(tables_dir, "table5_cooccurrence_exhaustive.csv"))
-cat("  Saved: table5_cooccurrence_exhaustive.csv\n")
-
 
 # --------------------------
 # TABLE 6: PROJECT-LEVEL CO-OCCURRENCE DETAIL
 # --------------------------
-
-cat("Creating Table 6: Project-level Co-occurrence Detail...\n")
-
 project_cooccurrence_detail <- map_dfr(clean_energy_tags, function(ce_tag) {
 
   projects_with_ce_tag <- projects_with_tags %>%
@@ -730,3 +721,4 @@ cat("Reduction:", round(100 * strict_exclusions / nrow(clean_energy), 1), "%\n")
 cat("\n=== Technology Script Complete ===\n")
 cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")
+
