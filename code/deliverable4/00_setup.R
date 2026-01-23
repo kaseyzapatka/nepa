@@ -108,8 +108,15 @@ explode_column <- function(df, col_name) {
 }
 
 #' Create cross-tabulation table by process type
-create_crosstab <- function(df, group_col, process_col = "process_type") {
-  df %>%
+#'
+#' @param df Data frame to process
+#' @param group_col Column name to group by (quoted string)
+#' @param process_col Column for process type (default "process_type")
+#' @param keep_cols Optional character vector of column names to keep (takes first value per group)
+#' @return A tibble with counts by process type and optional extra columns
+create_crosstab <- function(df, group_col, process_col = "process_type", keep_cols = NULL) {
+  # Create the basic crosstab
+  crosstab <- df %>%
     group_by(.data[[group_col]], .data[[process_col]]) %>%
     summarise(n = n(), .groups = "drop") %>%
     pivot_wider(
@@ -119,6 +126,19 @@ create_crosstab <- function(df, group_col, process_col = "process_type") {
     ) %>%
     mutate(Total = rowSums(select(., -1), na.rm = TRUE)) %>%
     arrange(desc(Total))
+
+ # If keep_cols specified, get first values per group and join
+  if (!is.null(keep_cols)) {
+    extra_info <- df %>%
+      group_by(.data[[group_col]]) %>%
+      summarise(across(all_of(keep_cols), ~ first(na.omit(.))), .groups = "drop")
+
+    crosstab <- crosstab %>%
+      left_join(extra_info, by = group_col) %>%
+      select(all_of(group_col), all_of(keep_cols), everything())
+  }
+
+  crosstab
 }
 
 #' Add totals row to a crosstab table

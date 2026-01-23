@@ -285,7 +285,13 @@ ggsave(
 # MULTI-DEPARTMENT
 # --------------------------
 
-
 multi_department_data |> glimpse()
+#
+# Process multi-state data
+# ----------------------------------------------------
+department_links <- create_crosstab(multi_department_data, "project_department") |> 
+  glimpse()
+
+ |> glimpse()
 
 
