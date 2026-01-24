@@ -18,7 +18,7 @@ source(here::here("code", "deliverable1", "00_setup.R"))
 # share that needs geocoding
 clean_energy |> 
   count(project_location_needs_geocoding) |> 
-  glimpse() # 45/24953
+  glimpse() # 45/22305
 
 # view locations that need to be geo-coded  
 clean_energy |> 
@@ -543,3 +543,4 @@ cat("(Projects spanning multiple states)\n")
 cat("\n=== Location Script Complete ===\n")
 cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")
+
