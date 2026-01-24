@@ -22,8 +22,8 @@ multi_state_data <-
 # Create multi-department dataframe
 multi_department_data <- 
   clean_energy |> 
-  filter(project_multi_county) |> 
-  glimpse()  # 335
+  filter(project_multi_department) |> 
+  glimpse()  # 21
 
 
 # --------------------------
@@ -66,7 +66,8 @@ tbl_state_links <-
 # Add totals row
 tbl_state_links_clean <- add_totals_row(tbl_state_links, "project_state") |> 
   select(-project_state) |> 
-  glimpse()
+  mutate(`State connections` = replace_na(`State connections`, "Total")) |>
+  print()
 
 # save
 write_csv(tbl_state_links_clean, here(tables_dir, "table_by_state.csv"))
@@ -247,7 +248,7 @@ map_state_links <- ggplot() +
     expand = FALSE
   ) +
   labs(
-    title = "Interstate Clean Energy Project Corridors",
+    title = "Interstate Clean Energy Project Connections",
     subtitle = "Line thickness reflects number of shared projects; labels show top corridor counts",
     caption = "Connections shown for state pairs with 10+ shared projects"
   ) +
@@ -272,7 +273,7 @@ map_state_links
 
 # Save the figure
 ggsave(
-  filename = here(maps_dir, "d4_state_links_map.png"),
+  filename = here(maps_dir, "map_state_links.png"),
   plot = map_state_links,
   width = 12,
   height = 8,
@@ -281,17 +282,187 @@ ggsave(
 )
 
 
+#
+# Process Type Breakdown Bar Chart
+# ----------------------------------------------------
+cat("\nCreating process type breakdown for multi-state projects...\n")
+
+# Summarize by process type
+process_breakdown <- multi_state_data %>%
+  count(process_type, name = "n_projects") %>%
+  mutate(
+    pct = n_projects / sum(n_projects) * 100,
+    label = paste0(n_projects, "\n(", round(pct, 1), "%)")
+  )
+
+# Create bar chart
+fig_process_breakdown <- ggplot(process_breakdown, aes(x = reorder(process_type, -n_projects), y = n_projects)) +
+geom_col(fill = catf_dark_blue, width = 0.7) +
+  geom_text(aes(label = label), vjust = -0.3, size = 3.5, color = catf_navy) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(
+    title = "Multi-State Projects by NEPA Process Type",
+    subtitle = paste0("n = ", sum(process_breakdown$n_projects), " multi-state clean energy projects"),
+    x = NULL,
+    y = "Number of Projects"
+  ) +
+  theme_catf() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    axis.line.x = element_blank()
+  )
+
+fig_process_breakdown
+
+ggsave(
+  filename = here(figures_dir, "fig_multistate_process_type.png"),
+  plot = fig_process_breakdown,
+  width = 8,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+cat("  Saved: figures/fig_multistate_process_type.png\n")
+
+
+#
+# Top Connections Analysis
+# ----------------------------------------------------
+cat("\nCreating top corridors analysis...\n")
+
+# Get top 10 state pair connections with project details
+top_connections <- create_crosstab(
+  multi_state_data,
+  "project_state",
+  keep_cols = c("project_title", "project_type")
+) %>%
+  filter(!row_number() == 1) %>%  # remove DC, Washington
+  slice_head(n = 10) %>%
+  mutate(
+    # Parse JSON state list to readable format
+    state_pair = map_chr(project_state, ~ paste(fromJSON(.x), collapse = " - ")),
+    # Extract distinct project types, sorted by frequency
+    project_type = map_chr(project_type, ~ {
+      # Remove JSON brackets and quotes, split on commas
+      clean_str <- str_replace_all(.x, '\\[|\\]|"', "")
+      all_types <- str_split(clean_str, ",\\s*|\\s*\\|\\s*")[[1]] %>%
+        str_trim() %>%
+        .[. != ""]  # Remove empty strings
+      # Count frequency and sort by most common
+      type_counts <- table(all_types)
+      sorted_types <- names(sort(type_counts, decreasing = TRUE))
+      paste(sorted_types, collapse = ", ")
+    })
+  ) %>%
+  select(state_pair, project_type, CE, EA, EIS, Total) |>
+  print()
+
+# Create clean table for export
+tbl_top_connections <- top_connections %>%
+  rename(
+    `State Connections` = state_pair,
+    `Distinct Project Types` = project_type,
+    `Categorical Exclusion` = CE,
+    `Environmental Assessment` = EA,
+    `Environmental Impact Statement` = EIS
+  )
+
+tbl_top_connections %>% print()
+
+# Save
+write_csv(tbl_top_connections, here(tables_dir, "table_top_connections.csv"))
+
 # --------------------------
 # MULTI-DEPARTMENT
 # --------------------------
 
-multi_department_data |> glimpse()
+multi_department_data |>
+  select(project_department, lead_agency, project_sponsor, project_multi_department) |>
+  print(n = 50)
+
 #
-# Process multi-state data
+# Process data
 # ----------------------------------------------------
-department_links <- create_crosstab(multi_department_data, "project_department") |> 
-  glimpse()
+department_links <- create_crosstab(
+  multi_department_data,
+  "lead_agency",
+  keep_cols = c("project_title", "project_type")
+) |>
+  print()
 
- |> glimpse()
+#
+# Table
+# ----------------------------------------------------
+tbl_department_links <-
+  department_links |>
+  mutate(
+    lead_agency = map_chr(lead_agency, ~ paste(fromJSON(.x), collapse = ", ")),
+    # Extract distinct project types, sorted by frequency
+    project_type = map_chr(project_type, ~ {
+      # Remove JSON brackets and quotes, split on commas
+      clean_str <- str_replace_all(.x, '\\[|\\]|"', "")
+      all_types <- str_split(clean_str, ",\\s*|\\s*\\|\\s*")[[1]] %>%
+        str_trim() %>%
+        .[. != ""]
+      # Count frequency and sort by most common
+      type_counts <- table(all_types)
+      sorted_types <- names(sort(type_counts, decreasing = TRUE))
+      paste(sorted_types, collapse = ", ")
+    })
+  ) |>
+  select(-CE, -project_title) |>
+  rename(
+    `Department connections` = lead_agency,
+    `Distinct Project Types` = project_type
+  ) |>
+  print()
 
+# save
+write_csv(tbl_department_links, here(tables_dir, "table_by_department.csv"))
+
+
+#
+# Word Cloud of Project Types
+# ----------------------------------------------------
+cat("\nCreating word cloud of project types...\n")
+
+
+# Extract and count all project types from multi-state data
+project_type_counts <- multi_state_data %>%
+  # Parse JSON arrays in project_type column
+  mutate(
+    types_list = map(project_type, ~ {
+      clean_str <- str_replace_all(.x, '\\[|\\]|"', "")
+      str_split(clean_str, ",\\s*")[[1]] %>%
+        str_trim() %>%
+        .[. != ""]
+    })
+  ) %>%
+  unnest(types_list) %>%
+  count(types_list, name = "freq", sort = TRUE) %>%
+  filter(!is.na(types_list) & types_list != "") %>%
+  rename(word = types_list)
+
+# Create word cloud
+set.seed(42)
+fig_wordcloud <- ggplot(project_type_counts, aes(label = word, size = freq, color = freq)) +
+  geom_text_wordcloud_area(
+    shape = "square",
+    rm_outside = TRUE,
+    area_corr = TRUE
+  ) +
+  scale_size_area(max_size = 60) +
+  scale_color_gradientn(colors = c(catf_light_blue, catf_dark_blue, catf_navy)) +
+  theme_void()
+
+fig_wordcloud
+
+ggsave(
+  filename = here(figures_dir, "fig_project_types_wordcloud.png"),
+  plot = fig_wordcloud,
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = 300
+)
 

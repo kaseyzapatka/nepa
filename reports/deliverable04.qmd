@@ -1,0 +1,215 @@
+---
+title: "NEPA Clean Energy Analysis: Deliverable 4"
+subtitle: "Multi-State and Multi-Department Projects"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(here)
+library(knitr)
+library(kableExtra)
+library(gt)
+library(readr)
+
+# Paths
+d4_maps <- here("output", "deliverable4", "maps")
+d4_tables <- here("output", "deliverable4", "tables")
+d4_figures <- here("output", "deliverable4", "figures")
+```
+
+## Executive Summary
+
+::: {.callout-note}
+## Key Findings
+- **Multi-state projects** represent a subset of clean energy projects that span state boundaries, often involving transmission lines or large-scale renewable energy connections
+- **Multi-department projects** are relatively rare but involve coordination between multiple federal departments
+- Geographic patterns reveal regional clusters of interstate cooperation
+:::
+
+This deliverable analyzes clean energy projects that cross administrative boundaries---either spanning multiple states or involving multiple federal agencies. These projects often represent larger, more complex undertakings that require coordination across jurisdictions.
+
+---
+
+# Multi-State Projects
+
+Multi-state projects are those where the project footprint extends across state boundaries. These typically include:
+
+- Interstate transmission lines
+- Pipeline connections
+- Large renewable energy projects near state borders
+
+## Process Type Breakdown
+
+@fig-process-breakdown shows the distribution of NEPA process types among multi-state projects.
+
+```{r}
+#| label: fig-process-breakdown
+#| fig-cap: "Distribution of NEPA process types for multi-state clean energy projects"
+#| out-width: "80%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_process_type.png"))
+```
+
+
+## State Connections Table
+
+@tbl-state-links shows state connection pairs with 5 or more shared projects, broken down by NEPA review process type.
+
+```{r}
+#| label: tbl-state-links
+#| tbl-cap: "Multi-state project connections by NEPA process type (connections with 5+ projects)"
+
+state_links <- read_csv(file.path(d4_tables, "table_by_state.csv"), show_col_types = FALSE)
+
+state_links %>%
+  filter(Total >= 5) %>%
+  gt() %>%
+  cols_align(align = "left", columns = `State connections`) %>%
+  cols_align(align = "right", columns = where(is.numeric)) %>%
+  fmt_number(columns = where(is.numeric), decimals = 0, use_seps = TRUE) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#f0f7ff"),
+    locations = cells_body(rows = Total >= 50)
+  ) %>%
+  tab_options(
+    table.font.size = px(13),
+    data_row.padding = px(6)
+  )
+```
+
+
+## Interstate Connections Map
+
+@fig-state-connections visualizes the connections between states that share clean energy projects. Line thickness reflects the number of shared projects, with labels highlighting the most active connections.
+
+```{r}
+#| label: fig-state-connections
+#| fig-cap: "Interstate clean energy project connections. Line thickness reflects number of shared projects; labels show counts for top connections."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_maps, "map_state_links.png"))
+```
+
+
+## Top Connections Detail
+
+@tbl-top-connections provides detail on the top 10 state connections by project volume, including the types of projects involved. Project types are deduplicated and sorted by frequency.
+
+```{r}
+#| label: tbl-top-connections
+#| tbl-cap: "Top 10 interstate connections with project types (sorted by frequency)"
+
+top_corridors <- read_csv(file.path(d4_tables, "table_top_connections.csv"), show_col_types = FALSE)
+
+top_corridors %>%
+  gt() %>%
+  cols_align(align = "left", columns = c(`State Connections`, `Distinct Project Types`)) %>%
+  cols_align(align = "right", columns = where(is.numeric)) %>%
+  fmt_number(columns = where(is.numeric), decimals = 0) %>%
+  cols_width(
+    `State Connections` ~ px(180),
+    `Distinct Project Types` ~ px(400)
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(11)),
+    locations = cells_body(columns = `Distinct Project Types`)
+  ) %>%
+  tab_footnote(
+    footnote = "Project types are ordered by frequency of appearance within each state connection.",
+    locations = cells_column_labels(columns = `Distinct Project Types`)
+  ) %>%
+  tab_options(
+    table.font.size = px(12),
+    data_row.padding = px(6)
+  )
+```
+
+## Word Cloud of Project Types
+
+@fig-wordcloud visualizes the most common project types across multi-state clean energy projects, with word size reflecting frequency.
+
+```{r}
+#| label: fig-wordcloud
+#| fig-cap: "Project types in multi-state clean energy projects. Word size reflects frequency of occurrence."
+#| out-width: "80%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_project_types_wordcloud.png"))
+```
+
+# Multi-Department Projects
+
+Multi-department projects involve coordination between multiple federal departments (e.g., DOE and DOI, or BLM and Forest Service). These are relatively rare but often represent significant undertakings.
+
+## Department Connections Table
+
+@tbl-department-links lists agency combinations that share projects, along with the types of projects involved. Project types are deduplicated and sorted by frequency.
+
+```{r}
+#| label: tbl-department-links
+#| tbl-cap: "Multi-department clean energy projects by agency combination"
+
+department_links <- read_csv(file.path(d4_tables, "table_by_department.csv"), show_col_types = FALSE)
+
+department_links %>%
+  gt() %>%
+  cols_align(align = "left", columns = everything()) %>%
+  cols_align(align = "right", columns = any_of(c("EA", "EIS", "Total"))) %>%
+  fmt_number(columns = any_of(c("EA", "EIS", "Total")), decimals = 0) %>%
+  cols_width(
+    `Department connections` ~ px(250),
+    `Distinct Project Types` ~ px(350)
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(11)),
+    locations = cells_body(columns = `Distinct Project Types`)
+  ) %>%
+  tab_footnote(
+    footnote = "Project types are ordered by frequency of appearance within each agency combination.",
+    locations = cells_column_labels(columns = `Distinct Project Types`)
+  ) %>%
+  tab_options(
+    table.font.size = px(13),
+    data_row.padding = px(8)
+  )
+```
+
+---
+
+# Summary
+
+| Category | Count |
+|----------|-------|
+| Multi-state projects | 745 |
+| Multi-department projects | 21 |
+
+: Summary of cross-boundary projects {#tbl-summary}
+
+Multi-state projects are far more common than multi-department projects, likely reflecting the geographic nature of energy infrastructure (transmission lines, pipelines) versus the rarity of projects requiring formal coordination between federal departments.
+
+---
+
+*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
