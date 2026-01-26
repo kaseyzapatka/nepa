@@ -28,9 +28,7 @@ source(here::here("code", "00_setup.R"))
 # Identify utility only projects to exclude
 utilty_projects_to_exclude <-
   projects |> 
-  filter(project_energy_type == "Clean") |> 
-  # remove Utilities + Broadband, Waste Management, or Land Development tags
-  filter(project_utilities_to_filter_out) |> 
+  filter(project_utilities_to_exclude) |> 
   select(project_id, project_title, project_department, project_type) |> 
   glimpse()
 
@@ -51,7 +49,8 @@ sheet_write(
 
 military_projects_to_exclude <- 
   projects |> 
-  filter(str_detect(project_type, "Military and Defense") & str_detect(project_type, "Nuclear")) |> 
+  filter(project_military_to_exclude) |> 
+  #filter(str_detect(project_type, "Military and Defense") & str_detect(project_type, "Nuclear")) |> 
   select(project_id, project_title, project_department, project_type) |> 
   arrange(project_department) |> 
   glimpse()
@@ -85,8 +84,9 @@ write_csv(military_project_ids_to_filter, here("notes", "military_project_ids_to
 nuclear_waste_projects <- 
   agency_data |> 
   filter(str_detect(project_type, "Waste Management") & str_detect(project_type, "Nuclear")) |> 
-  select(project_id, project_title, department, lead_agency, project_sponsor, project_type) |> 
-  arrange(department) |> 
+  filter(!project_nuclear_waste_to_exclude) |> 
+  select(project_id, project_title, project_department, lead_agency, project_sponsor, project_type) |> 
+  arrange(project_department) |> 
   glimpse() # 1,588
 
 # save to google sheets so team can view

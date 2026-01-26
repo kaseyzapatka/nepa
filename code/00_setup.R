@@ -88,9 +88,8 @@ projects <- read_parquet(data_path)
 
 # Filter to clean energy only
 clean_energy <- projects %>%
-  filter(project_energy_type == "Clean") |> 
-  # remove Utilities + Broadband, Waste Management, or Land Development tags
-  filter(!project_utilities_to_filter_out)
+  filter(project_energy_type == "Clean") %>%
+  glimpse()
 
 # Explode lead_agency (handles rare multi-agency cases)
 agency_data <- clean_energy %>%

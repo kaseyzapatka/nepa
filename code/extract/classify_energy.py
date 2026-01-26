@@ -330,7 +330,7 @@ def add_energy_columns(df):
 
     # Utilities filter: flags projects with ONLY Utilities + Broadband/Waste Management/Land Development
     # These are likely not primarily clean energy projects
-    df["project_utilities_to_filter_out"] = df["project_type"].apply(is_utilities_to_filter_out)
+    df["project_utilities_to_exclude"] = df["project_type"].apply(is_utilities_to_filter_out)
 
     # Count tags
     counts = df["project_type"].apply(count_energy_tags)

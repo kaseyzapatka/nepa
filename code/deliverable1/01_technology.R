@@ -31,208 +31,6 @@ projects_with_tags <- clean_energy_parsed %>%
 tech_data |> glimpse()
 
 # --------------------------
-# EXPLORATORY
-# --------------------------
-
-# --------------------------
-# TABLE 1: BY TECHNOLOGY (project_type)
-# --------------------------
-table1 <- create_crosstab(tech_data, "project_type")
-
-# Add totals row
-table1 <- add_totals_row(table1, "project_type")
-
-# Rename for clarity
-table1 <- table1 %>%
-  rename(
-    Technology = project_type,
-    `Environmental Assessment` = EA,
-    `Environmental Impact Statement` = EIS,
-    `Categorical Exclusion` = CE
-  )
-
-table1 %>% print(n = 100)
-
-# Save
-write_csv(table1, here(tables_dir, "table1_by_technology.csv"))
-
-
-# --------------------------
-# TABLE 4: CO-OCCURRENCE SUMMARY (TOP 3)
-# --------------------------
-cooccurrence_summary <- map_dfr(clean_energy_tags, function(ce_tag) {
-
-  projects_with_ce_tag <- projects_with_tags %>%
-    filter(map_lgl(project_type_list, ~ ce_tag %in% .x))
-
-  n_projects <- nrow(projects_with_ce_tag)
-
-  if (n_projects == 0) {
-    return(tibble(
-      clean_energy_category = ce_tag,
-      total_projects = 0,
-      cooccur_rank = 1:3,
-      cooccur_category = NA_character_,
-      cooccur_count = NA_integer_,
-      cooccur_percent = NA_real_
-    ))
-  }
-
-  cooccur_counts <- projects_with_ce_tag %>%
-    unnest(project_type_list) %>%
-    rename(other_tag = project_type_list) %>%
-    filter(other_tag != ce_tag) %>%
-    count(other_tag, name = "cooccur_count") %>%
-    mutate(cooccur_percent = round(100 * cooccur_count / n_projects, 1)) %>%
-    arrange(desc(cooccur_count)) %>%
-    slice_head(n = 3) %>%
-    mutate(cooccur_rank = row_number())
-
-  # Pad to 3 rows if needed
-  if (nrow(cooccur_counts) < 3) {
-    cooccur_counts <- cooccur_counts %>%
-      bind_rows(tibble(
-        other_tag = rep(NA_character_, 3 - nrow(cooccur_counts)),
-        cooccur_count = rep(NA_integer_, 3 - nrow(cooccur_counts)),
-        cooccur_percent = rep(NA_real_, 3 - nrow(cooccur_counts)),
-        cooccur_rank = (nrow(cooccur_counts) + 1):3
-      ))
-  }
-
-  cooccur_counts %>%
-    mutate(
-      clean_energy_category = ce_tag,
-      total_projects = n_projects
-    ) %>%
-    rename(cooccur_category = other_tag) %>%
-    select(clean_energy_category, total_projects, cooccur_rank,
-           cooccur_category, cooccur_count, cooccur_percent)
-})
-
-# Pivot to wide format
-table4 <- cooccurrence_summary %>%
-  pivot_wider(
-    id_cols = c(clean_energy_category, total_projects),
-    names_from = cooccur_rank,
-    values_from = c(cooccur_category, cooccur_count, cooccur_percent),
-    names_glue = "{.value}_{cooccur_rank}"
-  ) %>%
-  arrange(desc(total_projects)) %>%
-  select(
-    clean_energy_category, total_projects,
-    cooccur_category_1, cooccur_count_1, cooccur_percent_1,
-    cooccur_category_2, cooccur_count_2, cooccur_percent_2,
-    cooccur_category_3, cooccur_count_3, cooccur_percent_3
-  ) %>%
-  rename(
-    `Clean Energy Category` = clean_energy_category,
-    `Total Projects` = total_projects,
-    `Top Co-occurring Category` = cooccur_category_1,
-    `Count (1)` = cooccur_count_1,
-    `% (1)` = cooccur_percent_1,
-    `2nd Co-occurring Category` = cooccur_category_2,
-    `Count (2)` = cooccur_count_2,
-    `% (2)` = cooccur_percent_2,
-    `3rd Co-occurring Category` = cooccur_category_3,
-    `Count (3)` = cooccur_count_3,
-    `% (3)` = cooccur_percent_3
-  )
-
-table4 |> print(n = 10)
-
-# save
-write_csv(table4, here(tables_dir, "table4_cooccurrence_summary.csv"))
-
-# --------------------------
-# TABLE 5: EXHAUSTIVE CO-OCCURRENCE (>5%)
-# --------------------------
-exhaustive_cooccurrence <- map_dfr(clean_energy_tags, function(ce_tag) {
-
-  projects_with_ce_tag <- projects_with_tags %>%
-    filter(map_lgl(project_type_list, ~ ce_tag %in% .x))
-
-  n_projects <- nrow(projects_with_ce_tag)
-
-  if (n_projects == 0) {
-    return(tibble(
-      clean_energy_category = ce_tag,
-      total_projects_with_category = 0,
-      cooccurring_type = NA_character_,
-      cooccur_count = NA_integer_,
-      cooccur_percent = NA_real_
-    ))
-  }
-
-  projects_with_ce_tag %>%
-    unnest(project_type_list) %>%
-    rename(cooccurring_type = project_type_list) %>%
-    filter(cooccurring_type != ce_tag) %>%
-    count(cooccurring_type, name = "cooccur_count") %>%
-    mutate(
-      clean_energy_category = ce_tag,
-      total_projects_with_category = n_projects,
-      cooccur_percent = round(100 * cooccur_count / n_projects, 1)
-    ) %>%
-    arrange(desc(cooccur_count)) %>%
-    select(clean_energy_category, total_projects_with_category,
-           cooccurring_type, cooccur_count, cooccur_percent)
-})
-
-table5 <- exhaustive_cooccurrence %>%
-  filter(cooccur_percent > 5) %>%
-  rename(
-    `Clean Energy Category` = clean_energy_category,
-    `Total Projects with Category` = total_projects_with_category,
-    `Co-occurring Project Type` = cooccurring_type,
-    `Co-occurrence Count` = cooccur_count,
-    `Co-occurrence %` = cooccur_percent
-  )
-
-table5 |> print(n = 10)
-
-# save
-write_csv(table5, here(tables_dir, "table5_cooccurrence_exhaustive.csv"))
-
-# --------------------------
-# TABLE 6: PROJECT-LEVEL CO-OCCURRENCE DETAIL
-# --------------------------
-project_cooccurrence_detail <- map_dfr(clean_energy_tags, function(ce_tag) {
-
-  projects_with_ce_tag <- projects_with_tags %>%
-    filter(map_lgl(project_type_list, ~ ce_tag %in% .x))
-
-  if (nrow(projects_with_ce_tag) == 0) {
-    return(tibble(
-      clean_energy_category = ce_tag,
-      project_id = NA_character_,
-      project_title = NA_character_,
-      cooccurring_type = NA_character_
-    ))
-  }
-
-  projects_with_ce_tag %>%
-    unnest(project_type_list) %>%
-    rename(cooccurring_type = project_type_list) %>%
-    filter(cooccurring_type != ce_tag) %>%
-    mutate(clean_energy_category = ce_tag) %>%
-    select(clean_energy_category, project_id, project_title, cooccurring_type)
-})
-
-table6 <- project_cooccurrence_detail %>%
-  rename(
-    `Clean Energy Category` = clean_energy_category,
-    `Project ID` = project_id,
-    `Project Title` = project_title,
-    `Co-occurring Project Type` = cooccurring_type
-  )
-
-table6 |> print(n = 10)
-
-write_csv(table6, here(tables_dir, "table6_cooccurrence_projects.csv"))
-cat("  Saved: table6_cooccurrence_projects.csv\n")
-
-
-# --------------------------
 # FIGURES
 # --------------------------
 
@@ -272,9 +70,7 @@ ggsave(
   height = 5,
   dpi = 300
 )
-clean_energy |> 
-  filter(!project_is_nuclear_tech_only) |> 
-  dim()
+
 #
 # Executive Summary: Clean Energy by review
 # ----------------------------------------
@@ -316,6 +112,7 @@ ggsave(
 #
 # Executive Summary: Energy Type Breakdown (Clean, Fossil, Other)
 # ----------------------------------------
+# Note: project_energy_type already has final classification from Python pipeline
 energy_type_summary <- projects %>%
   count(project_energy_type, name = "projects") %>%
   mutate(
@@ -475,8 +272,205 @@ ggsave(
 
 
 # --------------------------
-# EXTRA FIGURES
+# EXTRA TABLES AND FIGURES
 # --------------------------
+
+#
+# TABLE 1: BY TECHNOLOGY (project_type)
+# ----------------------------------------------------
+table1 <- create_crosstab(tech_data, "project_type")
+
+# Add totals row
+table1 <- add_totals_row(table1, "project_type")
+
+# Rename for clarity
+table1 <- table1 %>%
+  rename(
+    Technology = project_type,
+    `Environmental Assessment` = EA,
+    `Environmental Impact Statement` = EIS,
+    `Categorical Exclusion` = CE
+  )
+
+table1 %>% print(n = 100)
+
+# Save
+write_csv(table1, here(tables_dir, "table1_by_technology.csv"))
+
+
+# 
+# TABLE 4: CO-OCCURRENCE SUMMARY (TOP 3)
+# ----------------------------------------------------
+cooccurrence_summary <- map_dfr(clean_energy_tags, function(ce_tag) {
+
+  projects_with_ce_tag <- projects_with_tags %>%
+    filter(map_lgl(project_type_list, ~ ce_tag %in% .x))
+
+  n_projects <- nrow(projects_with_ce_tag)
+
+  if (n_projects == 0) {
+    return(tibble(
+      clean_energy_category = ce_tag,
+      total_projects = 0,
+      cooccur_rank = 1:3,
+      cooccur_category = NA_character_,
+      cooccur_count = NA_integer_,
+      cooccur_percent = NA_real_
+    ))
+  }
+
+  cooccur_counts <- projects_with_ce_tag %>%
+    unnest(project_type_list) %>%
+    rename(other_tag = project_type_list) %>%
+    filter(other_tag != ce_tag) %>%
+    count(other_tag, name = "cooccur_count") %>%
+    mutate(cooccur_percent = round(100 * cooccur_count / n_projects, 1)) %>%
+    arrange(desc(cooccur_count)) %>%
+    slice_head(n = 3) %>%
+    mutate(cooccur_rank = row_number())
+
+  # Pad to 3 rows if needed
+  if (nrow(cooccur_counts) < 3) {
+    cooccur_counts <- cooccur_counts %>%
+      bind_rows(tibble(
+        other_tag = rep(NA_character_, 3 - nrow(cooccur_counts)),
+        cooccur_count = rep(NA_integer_, 3 - nrow(cooccur_counts)),
+        cooccur_percent = rep(NA_real_, 3 - nrow(cooccur_counts)),
+        cooccur_rank = (nrow(cooccur_counts) + 1):3
+      ))
+  }
+
+  cooccur_counts %>%
+    mutate(
+      clean_energy_category = ce_tag,
+      total_projects = n_projects
+    ) %>%
+    rename(cooccur_category = other_tag) %>%
+    select(clean_energy_category, total_projects, cooccur_rank,
+           cooccur_category, cooccur_count, cooccur_percent)
+})
+
+# Pivot to wide format
+table4 <- cooccurrence_summary %>%
+  pivot_wider(
+    id_cols = c(clean_energy_category, total_projects),
+    names_from = cooccur_rank,
+    values_from = c(cooccur_category, cooccur_count, cooccur_percent),
+    names_glue = "{.value}_{cooccur_rank}"
+  ) %>%
+  arrange(desc(total_projects)) %>%
+  select(
+    clean_energy_category, total_projects,
+    cooccur_category_1, cooccur_count_1, cooccur_percent_1,
+    cooccur_category_2, cooccur_count_2, cooccur_percent_2,
+    cooccur_category_3, cooccur_count_3, cooccur_percent_3
+  ) %>%
+  rename(
+    `Clean Energy Category` = clean_energy_category,
+    `Total Projects` = total_projects,
+    `Top Co-occurring Category` = cooccur_category_1,
+    `Count (1)` = cooccur_count_1,
+    `% (1)` = cooccur_percent_1,
+    `2nd Co-occurring Category` = cooccur_category_2,
+    `Count (2)` = cooccur_count_2,
+    `% (2)` = cooccur_percent_2,
+    `3rd Co-occurring Category` = cooccur_category_3,
+    `Count (3)` = cooccur_count_3,
+    `% (3)` = cooccur_percent_3
+  )
+
+table4 |> print(n = 10)
+
+# save
+write_csv(table4, here(tables_dir, "table4_cooccurrence_summary.csv"))
+
+#
+# TABLE 5: EXHAUSTIVE CO-OCCURRENCE (>5%)
+# ----------------------------------------------------
+exhaustive_cooccurrence <- map_dfr(clean_energy_tags, function(ce_tag) {
+
+  projects_with_ce_tag <- projects_with_tags %>%
+    filter(map_lgl(project_type_list, ~ ce_tag %in% .x))
+
+  n_projects <- nrow(projects_with_ce_tag)
+
+  if (n_projects == 0) {
+    return(tibble(
+      clean_energy_category = ce_tag,
+      total_projects_with_category = 0,
+      cooccurring_type = NA_character_,
+      cooccur_count = NA_integer_,
+      cooccur_percent = NA_real_
+    ))
+  }
+
+  projects_with_ce_tag %>%
+    unnest(project_type_list) %>%
+    rename(cooccurring_type = project_type_list) %>%
+    filter(cooccurring_type != ce_tag) %>%
+    count(cooccurring_type, name = "cooccur_count") %>%
+    mutate(
+      clean_energy_category = ce_tag,
+      total_projects_with_category = n_projects,
+      cooccur_percent = round(100 * cooccur_count / n_projects, 1)
+    ) %>%
+    arrange(desc(cooccur_count)) %>%
+    select(clean_energy_category, total_projects_with_category,
+           cooccurring_type, cooccur_count, cooccur_percent)
+})
+
+table5 <- exhaustive_cooccurrence %>%
+  filter(cooccur_percent > 5) %>%
+  rename(
+    `Clean Energy Category` = clean_energy_category,
+    `Total Projects with Category` = total_projects_with_category,
+    `Co-occurring Project Type` = cooccurring_type,
+    `Co-occurrence Count` = cooccur_count,
+    `Co-occurrence %` = cooccur_percent
+  )
+
+table5 |> print(n = 10)
+
+# save
+write_csv(table5, here(tables_dir, "table5_cooccurrence_exhaustive.csv"))
+
+#
+# TABLE 6: PROJECT-LEVEL CO-OCCURRENCE DETAIL
+# ----------------------------------------------------
+project_cooccurrence_detail <- map_dfr(clean_energy_tags, function(ce_tag) {
+
+  projects_with_ce_tag <- projects_with_tags %>%
+    filter(map_lgl(project_type_list, ~ ce_tag %in% .x))
+
+  if (nrow(projects_with_ce_tag) == 0) {
+    return(tibble(
+      clean_energy_category = ce_tag,
+      project_id = NA_character_,
+      project_title = NA_character_,
+      cooccurring_type = NA_character_
+    ))
+  }
+
+  projects_with_ce_tag %>%
+    unnest(project_type_list) %>%
+    rename(cooccurring_type = project_type_list) %>%
+    filter(cooccurring_type != ce_tag) %>%
+    mutate(clean_energy_category = ce_tag) %>%
+    select(clean_energy_category, project_id, project_title, cooccurring_type)
+})
+
+table6 <- project_cooccurrence_detail %>%
+  rename(
+    `Clean Energy Category` = clean_energy_category,
+    `Project ID` = project_id,
+    `Project Title` = project_title,
+    `Co-occurring Project Type` = cooccurring_type
+  )
+
+table6 |> print(n = 10)
+
+write_csv(table6, here(tables_dir, "table6_cooccurrence_projects.csv"))
+cat("  Saved: table6_cooccurrence_projects.csv\n")
 
 
 # Figure 2: Single vs Multi-Tag Composition

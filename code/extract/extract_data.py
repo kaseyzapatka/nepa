@@ -448,14 +448,22 @@ def is_nuclear_waste_project(project_type, project_sponsor, lead_agency, project
 
 def apply_energy_type_filters(df):
     """
-    Apply military and nuclear waste filters to reclassify projects as "Other".
+    Apply all clean energy exclusion filters to reclassify projects as "Other".
 
     Projects that were initially classified as "Clean" but match these filters
     will be reclassified as "Other" since they are not clean energy projects.
 
+    Filters applied:
+    1. Utilities exclusion: Projects with ONLY Utilities + Broadband/Waste Management/
+       Land Development tags (likely telecom or development, not energy projects)
+    2. Military nuclear: Defense-related nuclear projects (weapons, naval reactors)
+    3. Nuclear waste: Nuclear waste cleanup/storage at DOE sites
+
     Adds columns:
-    - project_is_military_nuclear: Boolean flag for military nuclear projects
-    - project_is_nuclear_waste: Boolean flag for nuclear waste projects
+    - project_utilities_to_exclude: Boolean flag for utilities-only projects
+       (Note: This column is created in classify_energy.py, we just use it here)
+    - project_military_to_exclude: Boolean flag for military nuclear projects
+    - project_nuclear_waste_to_exclude: Boolean flag for nuclear waste projects
 
     Modifies:
     - project_energy_type: Updates from "Clean" to "Other" for filtered projects
@@ -463,22 +471,28 @@ def apply_energy_type_filters(df):
 
     Args:
         df: DataFrame with project_id, project_type, project_sponsor, lead_agency,
-            project_title, project_energy_type, and project_energy_type_strict columns
+            project_title, project_energy_type, project_energy_type_strict, and
+            project_utilities_to_exclude columns
 
     Returns:
         DataFrame with filters applied
     """
     df = df.copy()
 
-    # Load military project IDs
+    # --- Filter 1: Utilities exclusion ---
+    # project_utilities_to_exclude is already computed in classify_energy.py
+    utilities_count = df['project_utilities_to_exclude'].sum()
+    print(f"  Utilities exclusion: {utilities_count} projects flagged")
+
+    # --- Filter 2: Military nuclear projects ---
     print("  Loading military project filter...")
     military_ids = load_military_project_ids()
     print(f"    Found {len(military_ids)} military project IDs to filter")
 
     # Flag military nuclear projects
-    df['project_is_military_nuclear'] = df['project_id'].astype(str).isin(military_ids)
+    df['project_military_to_exclude'] = df['project_id'].astype(str).isin(military_ids)
 
-    # Load exclusion terms once for nuclear waste filtering
+    # --- Filter 3: Nuclear waste projects ---
     print("  Loading nuclear waste exclusion terms...")
     exclusion_terms = load_exclusion_terms()
     print(f"    Loaded {len(exclusion_terms)} exclusion terms from agencies_to_be_excluded.txt")
@@ -487,7 +501,7 @@ def apply_energy_type_filters(df):
     # Checks project_type for Nuclear + Waste Management tags, then checks
     # lead_agency, project_sponsor, AND project_title for exclusion terms
     print("  Identifying nuclear waste projects...")
-    df['project_is_nuclear_waste'] = df.apply(
+    df['project_nuclear_waste_to_exclude'] = df.apply(
         lambda row: is_nuclear_waste_project(
             row.get('project_type'),
             row.get('project_sponsor'),
@@ -498,16 +512,28 @@ def apply_energy_type_filters(df):
         axis=1
     )
 
-    nuclear_waste_count = df['project_is_nuclear_waste'].sum()
+    nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
     print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
 
-    # Reclassify filtered projects from "Clean" to "Other"
-    filter_mask = df['project_is_military_nuclear'] | df['project_is_nuclear_waste']
+    # --- Apply all filters to reclassify Clean -> Other ---
+    filter_mask = (
+        df['project_utilities_to_exclude'] |
+        df['project_military_to_exclude'] |
+        df['project_nuclear_waste_to_exclude']
+    )
     clean_mask = df['project_energy_type'] == 'Clean'
     reclassify_mask = filter_mask & clean_mask
 
     reclassified_count = reclassify_mask.sum()
     print(f"  Reclassifying {reclassified_count} projects from 'Clean' to 'Other'")
+
+    # Count by filter type for reporting
+    utilities_reclassified = (df['project_utilities_to_exclude'] & clean_mask).sum()
+    military_reclassified = (df['project_military_to_exclude'] & clean_mask).sum()
+    nuclear_waste_reclassified = (df['project_nuclear_waste_to_exclude'] & clean_mask).sum()
+    print(f"    - Utilities: {utilities_reclassified}")
+    print(f"    - Military: {military_reclassified}")
+    print(f"    - Nuclear waste: {nuclear_waste_reclassified}")
 
     df.loc[reclassify_mask, 'project_energy_type'] = 'Other'
     df.loc[reclassify_mask, 'project_energy_type_strict'] = 'Other'
@@ -830,9 +856,10 @@ def create_combined_projects():
     print(f"\nBy energy type:")
     print(combined['project_energy_type'].value_counts())
     print(f"\nProjects flagged for review: {combined['project_energy_type_questions'].sum():,}")
-    print(f"\nFiltered projects:")
-    print(f"  Military nuclear projects: {combined['project_is_military_nuclear'].sum():,}")
-    print(f"  Nuclear waste projects: {combined['project_is_nuclear_waste'].sum():,}")
+    print(f"\nExcluded from clean energy (reclassified to Other):")
+    print(f"  Utilities: {combined['project_utilities_to_exclude'].sum():,}")
+    print(f"  Military nuclear: {combined['project_military_to_exclude'].sum():,}")
+    print(f"  Nuclear waste: {combined['project_nuclear_waste_to_exclude'].sum():,}")
     print(f"\nMulti-value projects:")
     print(f"  Multi-state: {combined['project_multi_state'].sum():,}")
     print(f"  Multi-county: {combined['project_multi_county'].sum():,}")
