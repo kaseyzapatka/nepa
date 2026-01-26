@@ -87,7 +87,7 @@ nuclear_waste_projects <-
   filter(str_detect(project_type, "Waste Management") & str_detect(project_type, "Nuclear")) |> 
   select(project_id, project_title, department, lead_agency, project_sponsor, project_type) |> 
   arrange(department) |> 
-  glimpse() # 1,590
+  glimpse() # 1,588
 
 # save to google sheets so team can view
 sheet_write(
