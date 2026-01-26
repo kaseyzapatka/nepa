@@ -40,7 +40,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from extract.classify_energy import add_energy_columns
 from extract.parse_location import add_location_columns
-import re
 import json
 
 pd.set_option('display.max_columns', None)
@@ -269,6 +268,66 @@ def add_multi_value_flags(df):
 # --------------------------
 # MILITARY & NUCLEAR WASTE FILTERS
 # --------------------------
+#
+# FILTERING LOGIC SUMMARY:
+# ========================
+# The following filters reclassify projects from "Clean" to "Other" energy type:
+#
+# 1. UTILITIES + NON-ENERGY EXCLUSIONS (in classify_energy.py)
+#    - Projects with ONLY "Utilities" + one of: Broadband, Waste Management,
+#      Land Development (Housing, Other, Urban)
+#    - Rationale: These are likely telecommunications or development projects
+#      with utility connections, not clean energy projects
+#
+# 2. MILITARY / DEFENSE SITE EXCLUSIONS
+#    - Projects with both "Military and Defense" AND "Nuclear" project_type tags
+#    - Loaded from: notes/military_project_ids_to_filter.csv
+#    - Rationale: Defense-related nuclear projects are not civilian clean energy
+#
+# 3. NUCLEAR WASTE MANAGEMENT EXCLUSIONS
+#    - Projects with both "Waste Management" AND "Nuclear" project_type tags
+#    - AND associated with NNSA, Office of Legacy Management, or Office of
+#      Environmental Management (based on lead_agency, project_sponsor, OR project_title)
+#    - Exclusion terms loaded from: notes/agencies_to_be_excluded.txt
+#    - Rationale: Nuclear waste cleanup/storage is not clean energy production
+#    - Title-based filtering added to catch projects where sponsor field is missing
+#      (e.g., "Hanford Site" appearing only in the title)
+#
+# The exclusion terms file (agencies_to_be_excluded.txt) includes:
+#    - NNSA sites: Los Alamos, Sandia, Livermore, Pantex, Y-12, Savannah River, etc.
+#    - Legacy Management: Albuquerque Operations Office, Grand Junction Office
+#    - Environmental Management: Hanford, Richland, Oak Ridge, WIPP, etc.
+
+
+def load_exclusion_terms():
+    """
+    Load exclusion terms from notes/agencies_to_be_excluded.txt.
+
+    These terms identify projects associated with NNSA, Office of Legacy Management,
+    or Office of Environmental Management that should not be classified as clean energy
+    when combined with Nuclear + Waste Management tags.
+
+    Returns:
+        list: List of exclusion term strings (lowercase, stripped)
+    """
+    txt_path = NOTES_DIR / "agencies_to_be_excluded.txt"
+    if not txt_path.exists():
+        print(f"  Warning: {txt_path} not found, using default patterns")
+        return []
+
+    try:
+        terms = []
+        with open(txt_path, 'r') as f:
+            for line in f:
+                # Skip comments and empty lines
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    terms.append(line.lower())
+        return terms
+    except Exception as e:
+        print(f"  Warning: Error loading exclusion terms: {e}")
+        return []
+
 
 def load_military_project_ids():
     """
@@ -293,19 +352,25 @@ def load_military_project_ids():
         return set()
 
 
-def is_nuclear_waste_project(project_type, project_sponsor, lead_agency):
+def is_nuclear_waste_project(project_type, project_sponsor, lead_agency, project_title,
+                              exclusion_terms=None):
     """
     Check if a project is a nuclear waste project that should not be classified as clean energy.
 
     Identifies projects that have both "Waste Management" AND "Nuclear" tags,
-    AND are associated with NNSA, Legacy Management, or Environmental Management.
+    AND are associated with NNSA, Legacy Management, or Environmental Management
+    based on lead_agency, project_sponsor, OR project_title.
 
-    This mirrors the R code logic in deliverable1/02_agency.R.
+    Title-based filtering catches cases where projects slipped through because
+    the sponsor field was missing (e.g., "Hanford Site" appearing only in the title).
 
     Args:
         project_type: Project type string (may be JSON array or numpy array)
         project_sponsor: Project sponsor string
         lead_agency: Lead agency string
+        project_title: Project title string
+        exclusion_terms: List of exclusion terms (loaded from agencies_to_be_excluded.txt)
+                        If None, will load from file.
 
     Returns:
         bool: True if this is a nuclear waste project to filter
@@ -327,7 +392,7 @@ def is_nuclear_waste_project(project_type, project_sponsor, lead_agency):
     if not (has_waste_management and has_nuclear):
         return False
 
-    # Convert sponsor and agency to strings for pattern matching
+    # Convert fields to strings for pattern matching
     # Handle None, NaN, arrays, and strings
     def to_lower_str(val):
         if val is None:
@@ -340,51 +405,35 @@ def is_nuclear_waste_project(project_type, project_sponsor, lead_agency):
 
     sponsor_str = to_lower_str(project_sponsor)
     agency_str = to_lower_str(lead_agency)
+    title_str = to_lower_str(project_title)
 
-    # NNSA patterns (National Nuclear Security Administration)
-    nnsa_patterns = [
-        r"\bnnsa\b",
-        "national nuclear security administration",
-        "kansas city",
-        "livermore",
-        "lawrence livermore",
-        "los alamos",
-        "naval nuclear",
-        "nevada",
-        "pantex",
-        "sandia",
-        "savannah river",
-        "y-12",
-    ]
+    # Use provided exclusion terms or load from file
+    if exclusion_terms is None:
+        exclusion_terms = load_exclusion_terms()
 
-    # Legacy Management patterns
-    lm_patterns = [
-        "office of legacy management",
-        "legacy management",
-    ]
+    # If exclusion terms loaded successfully, use them
+    if exclusion_terms:
+        # Check if any exclusion term appears in sponsor, agency, OR title
+        for term in exclusion_terms:
+            if term in sponsor_str or term in agency_str or term in title_str:
+                return True
+    else:
+        # Fallback to hardcoded patterns if file not available
+        fallback_patterns = [
+            "nnsa", "national nuclear security administration",
+            "kansas city", "livermore", "lawrence livermore", "los alamos",
+            "naval nuclear", "nevada", "pantex", "sandia", "savannah river", "y-12",
+            "office of legacy management", "legacy management",
+            "albuquerque operations office", "grand junction office",
+            "office of environmental management", "environmental management",
+            "hanford", "richland", "office of river protection",
+            "paducah", "portsmouth", "oak ridge", "waste isolation pilot plant", "carlsbad",
+        ]
+        for pattern in fallback_patterns:
+            if pattern in sponsor_str or pattern in agency_str or pattern in title_str:
+                return True
 
-    # Environmental Management patterns
-    em_patterns = [
-        "office of environmental management",
-        "environmental management",
-        "hanford",
-        "richland",
-        "office of river protection",
-        "paducah",
-        "portsmouth",
-        "oak ridge",
-        "waste isolation pilot plant",
-        "carlsbad",
-    ]
-
-    all_patterns = nnsa_patterns + lm_patterns + em_patterns
-
-    # Check if sponsor or agency matches any pattern
-    for pattern in all_patterns:
-        if re.search(pattern, sponsor_str) or re.search(pattern, agency_str):
-            return True
-
-    # Also check for specific lead agency matches
+    # Also check for specific lead agency matches (always check these)
     agency_specific = [
         "national nuclear security administration",
         "office of legacy management",
@@ -414,7 +463,7 @@ def apply_energy_type_filters(df):
 
     Args:
         df: DataFrame with project_id, project_type, project_sponsor, lead_agency,
-            project_energy_type, and project_energy_type_strict columns
+            project_title, project_energy_type, and project_energy_type_strict columns
 
     Returns:
         DataFrame with filters applied
@@ -429,13 +478,22 @@ def apply_energy_type_filters(df):
     # Flag military nuclear projects
     df['project_is_military_nuclear'] = df['project_id'].astype(str).isin(military_ids)
 
+    # Load exclusion terms once for nuclear waste filtering
+    print("  Loading nuclear waste exclusion terms...")
+    exclusion_terms = load_exclusion_terms()
+    print(f"    Loaded {len(exclusion_terms)} exclusion terms from agencies_to_be_excluded.txt")
+
     # Flag nuclear waste projects
+    # Checks project_type for Nuclear + Waste Management tags, then checks
+    # lead_agency, project_sponsor, AND project_title for exclusion terms
     print("  Identifying nuclear waste projects...")
     df['project_is_nuclear_waste'] = df.apply(
         lambda row: is_nuclear_waste_project(
             row.get('project_type'),
             row.get('project_sponsor'),
-            row.get('lead_agency')
+            row.get('lead_agency'),
+            row.get('project_title'),
+            exclusion_terms
         ),
         axis=1
     )

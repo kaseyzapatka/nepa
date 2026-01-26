@@ -18,27 +18,6 @@ source(here::here("code", "deliverable1", "00_setup.R"))
 clean_energy_parsed <- clean_energy %>%
   mutate(project_type_list = map(project_type, fromJSON))
 
-# Count clean energy tags per project
-project_tag_counts <- clean_energy_parsed %>%
-  mutate(
-    num_clean_tags = map_int(project_type_list, ~ sum(.x %in% clean_energy_tags)),
-    num_total_tags = map_int(project_type_list, ~ length(.x)),
-    num_other_tags = num_total_tags - num_clean_tags,
-    tag_category = case_when(
-      num_clean_tags == 0 ~ "0",
-      num_clean_tags == 1 ~ "1",
-      num_clean_tags == 2 ~ "2",
-      num_clean_tags == 3 ~ "3",
-      num_clean_tags == 4 ~ "4",
-      num_clean_tags >= 5 ~ "5+"
-    ),
-    other_category = case_when(
-      num_other_tags == 0 ~ "0",
-      num_other_tags == 1 ~ "1",
-      num_other_tags >= 2 ~ "2+"
-    )
-  )
-
 # Explode project_type for table creation
 tech_data <- clean_energy %>%
   explode_column("project_type") %>%
@@ -55,33 +34,9 @@ tech_data |> glimpse()
 # EXPLORATORY
 # --------------------------
 
-#
-# Utilities only
-# ----------------------------------------
-# There were about 1,623 projects that had some combination of Utilities we didn't want 
-# to count as clean energy
-utilties_only_projects <-
-  projects |> 
-  filter(project_energy_type == "Clean") |> 
-  # remove Utilities + Broadband, Waste Management, or Land Development tags
-  filter(project_utilities_to_filter_out) |> 
-  select(project_title, project_type) |> 
-  glimpse()
-
-# save
-sheet_write(
-  data = utilties_only_projects,
-  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
-  sheet = "utilties_only_projects"
-)
-
-
 # --------------------------
 # TABLE 1: BY TECHNOLOGY (project_type)
 # --------------------------
-
-cat("Creating Table 1: Clean Energy by Technology...\n")
-
 table1 <- create_crosstab(tech_data, "project_type")
 
 # Add totals row
@@ -105,8 +60,6 @@ write_csv(table1, here(tables_dir, "table1_by_technology.csv"))
 # --------------------------
 # TABLE 4: CO-OCCURRENCE SUMMARY (TOP 3)
 # --------------------------
-
-
 cooccurrence_summary <- map_dfr(clean_energy_tags, function(ce_tag) {
 
   projects_with_ce_tag <- projects_with_tags %>%
@@ -319,7 +272,9 @@ ggsave(
   height = 5,
   dpi = 300
 )
-
+clean_energy |> 
+  filter(!project_is_nuclear_tech_only) |> 
+  dim()
 #
 # Executive Summary: Clean Energy by review
 # ----------------------------------------
