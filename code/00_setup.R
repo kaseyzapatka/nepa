@@ -21,6 +21,7 @@ library(googlesheets4)
 # --------------------------
 
 data_path <- here("data", "analysis", "projects_combined.parquet")
+timeline_path <- here("data", "analysis", "projects_timeline.parquet")
 
 
 # --------------------------
@@ -85,6 +86,10 @@ add_totals_row <- function(df, group_col_name) {
 # Load project data
 cat("Loading data from:", data_path, "\n")
 projects <- read_parquet(data_path)
+
+cat("Loading data from:", timeline_path, "\n")
+timeline <- read_parquet(timeline_path)
+
 
 # Filter to clean energy only
 clean_energy <- projects %>%

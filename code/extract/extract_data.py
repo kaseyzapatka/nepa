@@ -909,28 +909,77 @@ DOCUMENT_TYPE_CATEGORIES = {
     'decision': ['ROD', 'FONSI', 'CE'],  # Decision documents - primary source for timelines
     'final': ['FEIS', 'EA'],              # Final documents (EA can be final)
     'draft': ['DEIS', 'DEA'],             # Draft documents
+    'appendix': [],                        # Appendices/attachments (identified by filename)
     'other': ['OTHER', ''],               # Other/unknown documents
 }
 
+# Filename patterns for classifying documents when document_type is missing
+# Each pattern list contains regex patterns to search in file_name (case-insensitive)
+# Note: Using (?:^|[^a-zA-Z]) and (?:[^a-zA-Z]|$) instead of \b because \b treats _ as word char
+FILENAME_PATTERNS = {
+    'decision': [
+        r'(?:^|[^a-zA-Z])ROD(?:[^a-zA-Z]|$)',
+        r'Record[_\-\s]?of[_\-\s]?Decision',
+        r'(?:^|[^a-zA-Z])FONSI(?:[^a-zA-Z]|$)',
+        r'Finding[_\-\s]?of[_\-\s]?No[_\-\s]?Significant[_\-\s]?Impact',
+        r'Categorical[_\-\s]?Exclusion',
+    ],
+    'final': [
+        r'(?:^|[^a-zA-Z])FEIS(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+        r'Final[_\-\s]?EA(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?Environmental[_\-\s]?Assessment',
+    ],
+    'draft': [
+        r'(?:^|[^a-zA-Z])DEIS(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+        r'(?:^|[^a-zA-Z])DEA(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?A(?:ssessment)?',
+    ],
+    'appendix': [
+        r'(?:^|[^a-zA-Z])Appendix',
+        r'(?:^|[^a-zA-Z])Appendices(?:[^a-zA-Z]|$)',
+        r'(?:^|[^a-zA-Z])Attachment',
+        r'(?:^|[^a-zA-Z])Exhibit(?:[^a-zA-Z]|$)',
+    ],
+}
 
-def classify_document_type(doc_type):
+
+def classify_document_type(doc_type, file_name=None):
     """
     Classify a document_type into a category.
 
+    When doc_type is missing or empty, falls back to scanning the file_name
+    for known patterns (abbreviations and spelled-out versions).
+
     Args:
         doc_type: The document_type value (e.g., 'ROD', 'FEIS', 'DEIS')
+        file_name: The file_name value to scan when doc_type is missing
 
     Returns:
-        str: Category name ('decision', 'final', 'draft', 'other')
+        str: Category name ('decision', 'final', 'draft', 'appendix', 'other')
     """
-    if pd.isna(doc_type) or doc_type == '':
-        return 'other'
+    import re
 
-    doc_type_upper = str(doc_type).upper().strip()
+    # First, try to classify using document_type if present
+    if doc_type is not None and not pd.isna(doc_type) and doc_type != '':
+        doc_type_upper = str(doc_type).upper().strip()
 
-    for category, types in DOCUMENT_TYPE_CATEGORIES.items():
-        if doc_type_upper in types:
-            return category
+        for category, types in DOCUMENT_TYPE_CATEGORIES.items():
+            if doc_type_upper in types:
+                return category
+
+    # If doc_type is missing/empty/OTHER, try to classify using file_name
+    if file_name is not None and not pd.isna(file_name) and file_name != '':
+        file_name_str = str(file_name)
+
+        # Check each category's filename patterns
+        # Order matters: check decision/final/draft before appendix
+        for category in ['decision', 'final', 'draft', 'appendix']:
+            patterns = FILENAME_PATTERNS.get(category, [])
+            for pattern in patterns:
+                if re.search(pattern, file_name_str, re.IGNORECASE):
+                    return category
 
     return 'other'
 
@@ -939,14 +988,20 @@ def add_document_type_category(df):
     """
     Add document_type_category column to documents dataframe.
 
+    Uses document_type when available, falls back to scanning file_name
+    for known patterns when document_type is missing.
+
     Args:
-        df: Documents dataframe with document_type column
+        df: Documents dataframe with document_type and file_name columns
 
     Returns:
         DataFrame with document_type_category column added
     """
     df = df.copy()
-    df['document_type_category'] = df['document_type'].apply(classify_document_type)
+    df['document_type_category'] = df.apply(
+        lambda row: classify_document_type(row.get('document_type'), row.get('file_name')),
+        axis=1
+    )
     return df
 
 
@@ -955,7 +1010,7 @@ def get_project_document_flags(documents_df):
     Create project-level flags for document types.
 
     Args:
-        documents_df: Documents dataframe with project_id and document_type columns
+        documents_df: Documents dataframe with project_id, document_type, and file_name columns
 
     Returns:
         DataFrame with project_id and document flag columns
@@ -969,6 +1024,7 @@ def get_project_document_flags(documents_df):
         project_has_decision_doc=('document_type_category', lambda x: 'decision' in x.values),
         project_has_final_doc=('document_type_category', lambda x: 'final' in x.values),
         project_has_draft_doc=('document_type_category', lambda x: 'draft' in x.values),
+        project_has_appendix_doc=('document_type_category', lambda x: 'appendix' in x.values),
         project_doc_count=('document_id', 'count'),
     ).reset_index()
 
