@@ -38,11 +38,16 @@ DATE_PATTERNS = [
     (rf'({MONTHS_SHORT})\.?\s+(\d{{1,2}}),?\s+(\d{{4}})', 'MDY_short'),
     # "15 January 2024"
     (rf'(\d{{1,2}})\s+({MONTHS})\s+(\d{{4}})', 'DMY_full'),
-    # "01/15/2024" or "1/15/2024"
+    # "01/15/2024" or "1/15/2024" (4-digit year)
     (r'(\d{1,2})/(\d{1,2})/(\d{4})', 'numeric_slash'),
-    # "01-15-2024" or "2024-01-15" (ISO format)
+    # "01/15/24" or "1/15/24" (2-digit year)
+    (r'(\d{1,2})/(\d{1,2})/(\d{2})\b', 'numeric_slash_2y'),
+    # "2024-01-15" (ISO format)
     (r'(\d{4})-(\d{1,2})-(\d{1,2})', 'ISO'),
+    # "01-15-2024" (dash with 4-digit year)
     (r'(\d{1,2})-(\d{1,2})-(\d{4})', 'numeric_dash'),
+    # "2024.01.15" (digital signature format)
+    (r'(\d{4})\.(\d{2})\.(\d{2})', 'digital_sig'),
     # "January 2024" (month-year only)
     (rf'({MONTHS})\s+(\d{{4}})', 'MY_full'),
     # "Jan 2024"
@@ -63,18 +68,21 @@ DATE_CONTEXT_KEYWORDS = {
 }
 
 # Context keywords that indicate a date should be EXCLUDED (law/statute years, references)
+# NOTE: These must be specific enough to avoid excluding valid document dates
+# Avoid generic terms like "nepa" which would exclude "NEPA Compliance Officer Date:"
 DATE_EXCLUSION_KEYWORDS = [
-    # Law/statute references
-    'act of', 'act (', 'policy act', 'preservation act', 'conservation act',
+    # Law/statute references - use specific phrases, not just acronyms
+    'act of 19', 'act of 20',  # "Act of 1969", "Act of 2000"
+    'act (19', 'act (20',      # "Act (1969)"
+    'policy act', 'preservation act', 'conservation act',
     'management act', 'protection act', 'improvement act', 'reform act',
     'recovery act', 'species act', 'water act', 'air act', 'lands act',
-    'flpma', 'nepa', 'nhpa', 'anilca', 'cercla', 'rcra', 'esa', 'cwa', 'caa',
     'statute', 'u.s.c.', 'usc', 'public law', 'p.l.', 'amended in',
     # Bibliographic references (citations)
-    'accessed', 'retrieved', 'available at', 'http://', 'https://', 'www.',
+    'accessed on', 'retrieved on', 'available at',
     'et al.', 'et al,', 'eds.', 'editor', 'vol.', 'volume', 'pp.', 'pages',
-    'journal', 'publication', 'proceedings', 'report no.', 'technical report',
-    'isbn', 'issn', 'doi:', 'reference', 'cited', 'bibliography',
+    'journal', 'proceedings', 'report no.', 'technical report',
+    'isbn', 'issn', 'doi:',
 ]
 
 # Regex patterns that indicate a date is in a citation/reference (Author. Year. format)
@@ -118,12 +126,24 @@ def parse_date_match(match, pattern_type):
             month, day, year = groups
             return datetime(int(year), int(month), int(day))
 
+        elif pattern_type == 'numeric_slash_2y':
+            # 2-digit year: assume 2000s for 00-30, 1900s for 31-99
+            month, day, year_2d = groups
+            year_int = int(year_2d)
+            year = 2000 + year_int if year_int <= 30 else 1900 + year_int
+            return datetime(year, int(month), int(day))
+
         elif pattern_type == 'ISO':
             year, month, day = groups
             return datetime(int(year), int(month), int(day))
 
         elif pattern_type == 'numeric_dash':
             month, day, year = groups
+            return datetime(int(year), int(month), int(day))
+
+        elif pattern_type == 'digital_sig':
+            # Digital signature format: YYYY.MM.DD
+            year, month, day = groups
             return datetime(int(year), int(month), int(day))
 
         elif pattern_type == 'MY_full' or pattern_type == 'MY_short':
@@ -1385,7 +1405,7 @@ def run_llm_timeline_extraction(
     total = len(projects)
 
     print(f"\nProcessing {total} projects with LLM...")
-    print("(This may take a while - ~2-5 seconds per project)\n")
+    print("(This may take a while)\n")
 
     import time
     start_time = time.time()
