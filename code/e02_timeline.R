@@ -14,37 +14,12 @@ rm(list=ls())
 # source setup files
 source(here::here("code", "00_setup.R"))
 
-
-# --------------------------
-# LOAD DATA
-# --------------------------
-documents <- read_parquet(here("data", "analysis", "documents_combined.parquet")) |> glimpse()
-ea_pages <- read_parquet(here("data", "processed", "ea", "pages.parquet")) |> glimpse()
-projects_timeline <- read_parquet(here("data", "analysis", "projects_timeline.parquet")) |> glimpse()
-my_results <- read_parquet(here("data", "analysis", "my_results.parquet")) |> glimpse()
-my_results2 <- read_parquet(here("data", "analysis", "my_results2.parquet")) |> glimpse()
-my_results3 <- read_parquet(here("data", "analysis", "my_results3.parquet")) |> glimpse()
-my_results4 <- read_parquet(here("data", "analysis", "my_results4.parquet")) |> glimpse()
-my_results70b <- read_parquet(here("data", "analysis", "my_results_70b.parquet")) |> glimpse()
-my_resultsqwen <- read_parquet(here("data", "analysis", "my_results_qwen.parquet")) |> glimpse()
-my_results100 <- read_parquet(here("data", "analysis", "results_100_qwen14b.parquet")) |> glimpse()
-
-
-
-# --------------------------
-# VIEW RESULTS OF LLM RUN
-# --------------------------
-
-my_results100 |> 
-  filter(is.na(llm_error)) |> 
-  glimpse()
-
-my_results4 |> 
-  glimpse()
-
-
+# load libraries
 library(jsonlite)
 
+#
+# functions 
+# ----------------------------------------
 # Safe JSON parser for LLM output
 safe_fromJSON <- function(x) {
   tryCatch(
@@ -53,45 +28,230 @@ safe_fromJSON <- function(x) {
   )
 }
 
-my_results_parsed <- my_results100 %>%
+
+# --------------------------
+# LOAD DATA
+# --------------------------
+documents <- read_parquet(here("data", "analysis", "documents_combined.parquet")) |> glimpse()
+ea_pages <- read_parquet(here("data", "processed", "ea", "pages.parquet")) |> glimpse()
+projects_timeline <- read_parquet(here("data", "analysis", "projects_timeline.parquet")) |> glimpse()
+
+# llm results 
+my_results <- read_parquet(here("data", "analysis", "my_results.parquet")) |> glimpse()
+my_results2 <- read_parquet(here("data", "analysis", "my_results2.parquet")) |> glimpse()
+my_results3 <- read_parquet(here("data", "analysis", "my_results3.parquet")) |> glimpse()
+my_results4 <- read_parquet(here("data", "analysis", "my_results4.parquet")) |> glimpse()
+my_results70b <- read_parquet(here("data", "analysis", "my_results_70b.parquet")) |> glimpse()
+my_resultsqwen <- read_parquet(here("data", "analysis", "my_results_qwen.parquet")) |> glimpse()
+my_results100 <- read_parquet(here("data", "analysis", "results_100_qwen14b.parquet")) |> glimpse()
+
+# test runs by varying model size
+test10_qwen2_14b <- read_parquet(here("data", "analysis", "test10_qwen14b.parquet")) |> glimpse()
+test10_qwen2_7b <- read_parquet(here("data", "analysis", "test10_qwen2:7b.parquet")) |> glimpse()
+test10_llama3 <- read_parquet(here("data", "analysis", "test10_llama3.2.parquet")) |> glimpse()
+test10_qwen7 <- read_parquet(here("data", "analysis", "test10_hybrid_qwen7.parquet")) |> glimpse()
+
+
+
+
+
+# --------------------------
+# VIEW RESULTS OF LLM RUN
+# --------------------------
+
+#
+# processing
+# ----------------------------------------
+
+#  successes
+successes_parsed100 <- 
+  my_results100 %>%
+  # process
   mutate(
     parsed = map(llm_raw_response, safe_fromJSON),
     parse_success = !map_lgl(parsed, is.null)
   ) %>%
-  filter(parse_success) %>%            # drop malformed JSON rows
+  #filter(parse_success) %>%            # drop malformed JSON rows
   unnest_wider(parsed) %>%
   glimpse()
 
-# Long, timeline-ready format
-timeline <- my_results_parsed %>%
-  pivot_longer(
-    cols = ends_with("_date"),
-    names_to = "event_type",
-    values_to = "date"
+#  successes
+successes_parsed_llama <- 
+  test10_llama3 %>%
+  # process
+  mutate(
+    parsed = map(llm_raw_response, safe_fromJSON),
+    parse_success = !map_lgl(parsed, is.null)
   ) %>%
-  filter(!is.na(date)) %>%
-  arrange(date) |> 
+  #filter(parse_success) %>%            # drop malformed JSON rows
+  unnest_wider(parsed) %>%
+  glimpse()
+
+successes_parsed_qwen <- 
+  test10_qwen2_7b %>%
+  # process
+  mutate(
+    parsed = map(llm_raw_response, safe_fromJSON),
+    parse_success = !map_lgl(parsed, is.null)
+  ) %>%
+  #filter(parse_success) %>%            # drop malformed JSON rows
+  unnest_wider(parsed) %>%
+  glimpse()
+
+successes_parsed_qwen14 <- 
+  test10_qwen2_14b %>%
+  # process
+  mutate(
+    parsed = map(llm_raw_response, safe_fromJSON),
+    parse_success = !map_lgl(parsed, is.null)
+  ) %>%
+  #filter(parse_success) %>%            # drop malformed JSON rows
+  unnest_wider(parsed) %>%
   glimpse()
 
 
+#  successes
+successes_parsed_qwen7 <- 
+  test10_qwen7  %>%
+  # process
+  mutate(
+    parsed = map(llm_raw_response, safe_fromJSON),
+    parse_success = !map_lgl(parsed, is.null)
+  ) %>%
+  #filter(parse_success) %>%            # drop malformed JSON rows
+  unnest_wider(parsed) %>%
+  glimpse()
+
+
+#
+# failures
+# ----------------------------------------
+test10_qwen2_7b |> 
+  filter(!is.na(llm_error)) |> 
+  select(total_chars) |> 
+  summary()
+
+
+# failure - characters
+my_results100 |> 
+  filter(is.na(llm_error)) |> 
+  select(total_chars) |> 
+  summary()
+
+# success - characters
+my_results100 |> 
+  filter(!is.na(llm_error)) |> 
+  ggplot() +
+  geom_histogram(aes(total_chars))
+
+my_results100 |> 
+  filter(is.na(llm_error)) |> 
+  ggplot() +
+  geom_histogram(aes(total_chars))
+
+my_results100 |> 
+  filter(!is.na(llm_error)) |> 
+  dim() # 26
+
+my_results100 |> 
+  filter(!is.na(llm_error)) |> 
+  filter(total_chars > 20000) |> 
+  dim() # 26
+
+
+# number of characters tokens in errors
+my_results100 |> 
+  filter(!is.na(llm_error)) |> 
+  select(total_chars) |> 
+  summary()
+
+my_results100 |> 
+  filter(!is.na(llm_error)) |> 
+  dim() # 26
+
+my_results100 |> 
+  filter(!is.na(llm_error)) |> 
+  filter(total_chars > 20000) |> 
+  dim() # 26
+
+
+#
+# successes
+# ----------------------------------------
+successes_parsed |> 
+  unnest(dates) |> 
+  group_by(project_id) |> 
+  count(type) |> 
+  ungroup() |> 
+  filter(type == "decision") |> 
+  arrange(desc(n)) |> 
+  count(n) |> 
+  arrange(desc(n)) |> 
+  print() # 15 / 50 1 decision
+
+# view where there are double decisions
+double_decision <-
+  successes_parsed |> 
+  unnest(dates) |> 
+  group_by(project_id) |> 
+  count(type) |> 
+  ungroup() |> 
+  left_join(test10_qwen2_7b) |> 
+  filter(n >= 2) |> 
+  slice_sample(n=1) |> 
+  glimpse()
+
+successes_parsed |> 
+  filter(project_id %in% double_decision) |> 
+  unnest(dates) |> 
+  select(type, date, source) |> 
+  print()
+ 
+#
+# view quality of tags by specific project
+# ----------------------------------------
 target_id <-
-  my_results_parsed |> 
+  successes_parsed_qwen7 |> 
+    filter(parse_success == FALSE) |> 
     select(project_id) |> 
-    slice_sample(1) |> 
+    #slice_sample(n=1) |> 
     glimpse()
 
-my_results_parsed |>  
-  #filter(project_id == "21aa5fa3-1327-a0ef-fe4c-734901214de2") |> 
-  #filter(project_id == "90133a0a-6dee-eb4c-1b07-cb16ab318599") |> 
-  filter(project_id == target_id) |> 
+#successes_parsed_qwen14 |> 
+#  filter(project_id %in% target_id) |> 
+#  unnest(dates) |> 
+#  select(type, date, source) |> 
+#  print()
+
+successes_parsed_qwen |> 
+  filter(project_id %in% target_id) |> 
   unnest(dates) |> 
-  #select(project_id, llm_decision_date:llm_earliest_historical_date, date:confidence,) |> 
   select(type, date, source) |> 
-  #glimpse()
   print()
 
-# Optional: inspect raw LLM text for a single row
-cat(my_results3$llm_raw_response[1])
+successes_parsed_qwen7 |>
+  filter(project_id %in% target_id) |> 
+  unnest(classifications) |> 
+  select(type, date, reason) |> 
+  print()
+
+
+
+#successes_parsed_llama |> 
+#  filter(project_id %in% target_id) |> 
+#  unnest(dates) |> 
+#  select(type, date, source) |> 
+#  print()
+
+
+
+successes_parsed100 |> 
+  slice_sample(n = 1)
+  filter(project_id == "51baada6-e292-4362-7094-625197da2c2") |> 
+  unnest(dates) |> 
+  select(type, date, source) |> 
+  print()
+
 
 # --------------------------
 # DOCUMENT DISTRIBUTION BY REVIEW PROCESS
