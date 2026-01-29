@@ -532,6 +532,342 @@ from preprocess_documents import preprocess_for_timeline
 # Default Ollama model - llama3.2 is fast and accurate for structured extraction
 DEFAULT_LLM_MODEL = "llama3.2:latest"
 
+# Context window for date extraction (chars before/after each date)
+DATE_CONTEXT_WINDOW = 150
+
+
+# --------------------------
+# HYBRID REGEX + LLM APPROACH
+# --------------------------
+
+def extract_dates_with_context(text: str, context_window: int = DATE_CONTEXT_WINDOW) -> list:
+    """
+    Extract all dates from text using regex, with surrounding context.
+
+    This is the first step of the hybrid approach:
+    1. Regex finds all dates (fast, reliable)
+    2. Context is captured for LLM classification
+
+    Args:
+        text: Full document text
+        context_window: Characters to capture before/after each date match
+
+    Returns:
+        List of dicts: [{'date': 'YYYY-MM-DD', 'match': '01/15/2024', 'context': '...'}, ...]
+    """
+    results = []
+    seen_dates = set()
+
+    for pattern, pattern_type in DATE_PATTERNS:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            date_obj = parse_date_match(match, pattern_type)
+
+            if date_obj is None:
+                continue
+
+            # Filter to reasonable year range (but allow historical for classification)
+            if date_obj.year < 1950 or date_obj.year > 2030:
+                continue
+
+            # Skip obvious law/statute years
+            if should_exclude_date(text, match.start(), match.end(), window=30):
+                continue
+
+            date_str = date_obj.strftime('%Y-%m-%d')
+
+            # Deduplicate by date string
+            if date_str in seen_dates:
+                continue
+            seen_dates.add(date_str)
+
+            # Extract context window
+            start = max(0, match.start() - context_window)
+            end = min(len(text), match.end() + context_window)
+            context = text[start:end]
+
+            # Clean up context (normalize whitespace)
+            context = re.sub(r'\s+', ' ', context).strip()
+
+            results.append({
+                'date': date_str,
+                'match': match.group(),
+                'context': context,
+                'position': match.start(),
+                'position_pct': match.start() / len(text) * 100 if len(text) > 0 else 0,
+            })
+
+    # Sort by date
+    results.sort(key=lambda x: x['date'])
+
+    return results
+
+
+def create_classification_prompt(dates_with_context: list) -> str:
+    """
+    Create a streamlined prompt for LLM to classify pre-extracted dates.
+
+    This is much shorter than the full-document prompt because:
+    - Dates are already found by regex
+    - LLM only needs to classify based on context
+
+    Args:
+        dates_with_context: List from extract_dates_with_context()
+
+    Returns:
+        Prompt string for LLM
+    """
+    if not dates_with_context:
+        return ""
+
+    lines = [
+        "Classify each date extracted from a NEPA Categorical Exclusion document.",
+        "",
+        "DATE TYPES:",
+        "- decision: Final approval signature (Field Manager, NEPA Compliance Officer, Authorizing Official)",
+        "- specialist_review: Individual specialist sign-offs (wildlife biologist, archaeologist, etc.)",
+        "- application: When proposal/application was submitted or received",
+        "- historical: Prior actions, original permits from past years (e.g., 1985, 1990)",
+        "- expiration: End dates for permits or authorizations",
+        "- effective: When an action becomes effective",
+        "- other: Form revision dates, unrelated dates",
+        "",
+        "DATES TO CLASSIFY:",
+        ""
+    ]
+
+    for i, d in enumerate(dates_with_context, 1):
+        lines.append(f'{i}. {d["match"]} ({d["date"]})')
+        lines.append(f'   Context: "...{d["context"]}..."')
+        lines.append("")
+
+    lines.extend([
+        "Return JSON only:",
+        '{"classifications": [',
+        '  {"date": "YYYY-MM-DD", "type": "decision|specialist_review|application|historical|expiration|effective|other", "reason": "brief explanation"},',
+        '  ...',
+        ']}'
+    ])
+
+    return "\n".join(lines)
+
+
+def parse_classification_response(response_text: str, dates_with_context: list) -> dict:
+    """
+    Parse the LLM classification response.
+
+    Args:
+        response_text: Raw LLM response
+        dates_with_context: Original dates list (for fallback)
+
+    Returns:
+        Dict with classified dates and summary fields
+    """
+    import json
+
+    result = {
+        'dates_json': '[]',
+        'n_dates_found': len(dates_with_context),
+        'decision_date': None,
+        'decision_date_source': None,
+        'decision_confidence': None,
+        'earliest_review_date': None,
+        'latest_review_date': None,
+        'n_specialist_reviews': 0,
+        'application_date': None,
+        'inferred_application_date': None,
+        'earliest_historical_date': None,
+        'n_historical_dates': 0,
+        'expiration_date': None,
+        'parse_error': None,
+        'raw_response': response_text[:500] if response_text else None,
+    }
+
+    if not response_text:
+        result['parse_error'] = 'empty_response'
+        return result
+
+    try:
+        # Find JSON in response
+        json_match = re.search(r'\{[^{}]*"classifications"\s*:\s*\[[^\]]*\][^{}]*\}', response_text, re.DOTALL)
+        if not json_match:
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+
+        if json_match:
+            parsed = json.loads(json_match.group())
+            classifications = parsed.get('classifications', [])
+
+            # Build classified dates list
+            classified_dates = []
+            for c in classifications:
+                if not isinstance(c, dict):
+                    continue
+
+                date_str = normalize_date_string(c.get('date'))
+                if date_str:
+                    classified_dates.append({
+                        'date': date_str,
+                        'type': c.get('type', 'other'),
+                        'source': str(c.get('reason', ''))[:200],
+                        'confidence': 'high',  # LLM classified it
+                    })
+
+            # If LLM didn't return all dates, add unclassified ones
+            classified_date_strs = {d['date'] for d in classified_dates}
+            for orig in dates_with_context:
+                if orig['date'] not in classified_date_strs:
+                    classified_dates.append({
+                        'date': orig['date'],
+                        'type': 'other',
+                        'source': 'not classified by LLM',
+                        'confidence': 'low',
+                    })
+
+            result['dates_json'] = json.dumps(classified_dates)
+            result['n_dates_found'] = len(classified_dates)
+
+            # Extract summary fields by type
+            decision_dates = [d for d in classified_dates if d['type'] == 'decision']
+            review_dates = [d for d in classified_dates if d['type'] == 'specialist_review']
+            application_dates = [d for d in classified_dates if d['type'] == 'application']
+            historical_dates = [d for d in classified_dates if d['type'] == 'historical']
+            expiration_dates = [d for d in classified_dates if d['type'] == 'expiration']
+
+            # Decision date (latest if multiple)
+            if decision_dates:
+                decision_dates.sort(key=lambda x: x['date'])
+                latest = decision_dates[-1]
+                result['decision_date'] = latest['date']
+                result['decision_date_source'] = latest['source']
+                result['decision_confidence'] = latest['confidence']
+
+            # Specialist reviews
+            if review_dates:
+                review_dates.sort(key=lambda x: x['date'])
+                result['earliest_review_date'] = review_dates[0]['date']
+                result['latest_review_date'] = review_dates[-1]['date']
+                result['n_specialist_reviews'] = len(review_dates)
+
+            # Application date
+            if application_dates:
+                application_dates.sort(key=lambda x: x['date'])
+                result['application_date'] = application_dates[0]['date']
+
+            # Inferred application date
+            if result['earliest_review_date'] and not result['application_date']:
+                result['inferred_application_date'] = result['earliest_review_date']
+            elif result['application_date']:
+                result['inferred_application_date'] = result['application_date']
+
+            # Historical dates
+            if historical_dates:
+                historical_dates.sort(key=lambda x: x['date'])
+                result['earliest_historical_date'] = historical_dates[0]['date']
+                result['n_historical_dates'] = len(historical_dates)
+
+            # Expiration date
+            if expiration_dates:
+                expiration_dates.sort(key=lambda x: x['date'])
+                result['expiration_date'] = expiration_dates[-1]['date']
+
+        else:
+            result['parse_error'] = 'no_json_found'
+
+    except json.JSONDecodeError as e:
+        result['parse_error'] = f'json_decode_error: {str(e)}'
+    except Exception as e:
+        result['parse_error'] = f'parse_error: {str(e)}'
+
+    return result
+
+
+def extract_with_hybrid_approach(
+    text: str,
+    model: str = DEFAULT_LLM_MODEL,
+    timeout: int = 120,
+    context_window: int = DATE_CONTEXT_WINDOW,
+) -> dict:
+    """
+    Extract timeline using hybrid regex + LLM approach.
+
+    1. Regex extracts all dates with context (fast)
+    2. LLM classifies each date based on context (accurate)
+
+    This is more efficient than the full-document approach:
+    - ~80% fewer tokens sent to LLM
+    - Clearer task for LLM (just classify, don't find)
+    - Regex handles date finding (what it's good at)
+    - LLM handles understanding (what it's good at)
+
+    Args:
+        text: Full document text
+        model: Ollama model name
+        timeout: Request timeout in seconds
+        context_window: Chars to capture around each date
+
+    Returns:
+        Dict with classified dates and summary fields
+    """
+    import requests
+
+    result = {
+        'llm_model': model,
+        'original_chars': len(text),
+        'approach': 'hybrid_regex_llm',
+        'error': None,
+    }
+
+    # Step 1: Extract dates with context using regex
+    dates_with_context = extract_dates_with_context(text, context_window)
+    result['n_dates_regex'] = len(dates_with_context)
+
+    if not dates_with_context:
+        result['error'] = 'no_dates_found_by_regex'
+        result['dates_json'] = '[]'
+        result['n_dates_found'] = 0
+        return result
+
+    # Step 2: Create classification prompt
+    prompt = create_classification_prompt(dates_with_context)
+    result['prompt_chars'] = len(prompt)
+
+    # Step 3: Call LLM for classification
+    try:
+        response = requests.post(
+            'http://localhost:11434/api/generate',
+            json={
+                'model': model,
+                'prompt': prompt,
+                'stream': False,
+                'options': {
+                    'temperature': 0.1,
+                    'num_predict': 512,  # Shorter response needed
+                }
+            },
+            timeout=timeout
+        )
+
+        if response.status_code == 200:
+            llm_response = response.json().get('response', '')
+
+            # Parse classification response
+            parsed = parse_classification_response(llm_response, dates_with_context)
+            result.update(parsed)
+
+            # Add timing info
+            result['llm_eval_duration_ms'] = response.json().get('eval_duration', 0) / 1e6
+
+        else:
+            result['error'] = f'ollama_http_error: {response.status_code}'
+
+    except requests.exceptions.ConnectionError:
+        result['error'] = 'ollama_not_running'
+    except requests.exceptions.Timeout:
+        result['error'] = 'ollama_timeout'
+    except Exception as e:
+        result['error'] = f'ollama_error: {str(e)}'
+
+    return result
+
 
 def create_llm_prompt(processed_text: str) -> str:
     """
@@ -846,6 +1182,8 @@ def build_project_timeline_llm(
     pages_df: pd.DataFrame,
     documents_df: pd.DataFrame,
     model: str = DEFAULT_LLM_MODEL,
+    use_hybrid: bool = False,
+    timeout: int = 120,
 ) -> dict:
     """
     Build a timeline for a single project using LLM extraction.
@@ -902,6 +1240,7 @@ def build_project_timeline_llm(
 
         # Metadata
         'llm_model': model,
+        'llm_approach': 'hybrid' if use_hybrid else 'full_document',
         'llm_error': None,
         'llm_processed_chars': 0,
         'llm_reduction_pct': 0,
@@ -928,8 +1267,11 @@ def build_project_timeline_llm(
         result['llm_error'] = 'empty_text'
         return result
 
-    # Extract with LLM
-    llm_result = extract_with_ollama(all_text, model=model)
+    # Extract with LLM (hybrid or full-document approach)
+    if use_hybrid:
+        llm_result = extract_with_hybrid_approach(all_text, model=model, timeout=timeout)
+    else:
+        llm_result = extract_with_ollama(all_text, model=model, timeout=timeout)
 
     # Merge all results
     result['llm_dates_json'] = llm_result.get('dates_json', '[]')
@@ -953,6 +1295,7 @@ def build_project_timeline_llm(
 
     result['llm_error'] = llm_result.get('error')
     result['llm_processed_chars'] = llm_result.get('processed_chars', 0)
+    result['llm_prompt_chars'] = llm_result.get('prompt_chars', 0)
     result['llm_reduction_pct'] = llm_result.get('reduction_pct', 0)
     result['llm_raw_response'] = llm_result.get('raw_response')
 
@@ -966,6 +1309,8 @@ def run_llm_timeline_extraction(
     main_docs_only: bool = True,
     model: str = DEFAULT_LLM_MODEL,
     output_file: str = None,
+    use_hybrid: bool = False,
+    timeout: int = 120,
 ):
     """
     Run LLM-based timeline extraction for CE clean energy projects.
@@ -977,12 +1322,16 @@ def run_llm_timeline_extraction(
         main_docs_only: If True, only read pages from main_document == 'YES' documents
         model: Ollama model name
         output_file: Custom output filename (default: projects_timeline_llm.parquet)
+        use_hybrid: If True, use hybrid regex+LLM approach (faster)
+        timeout: Timeout in seconds per document
 
     Returns:
         DataFrame with results
     """
-    print("\n=== LLM Timeline Extraction ===")
+    approach = "hybrid regex+LLM" if use_hybrid else "full-document"
+    print(f"\n=== LLM Timeline Extraction ({approach}) ===")
     print(f"Model: {model}")
+    print(f"Timeout: {timeout}s")
 
     # Load projects
     projects_path = ANALYSIS_DIR / "projects_combined.parquet"
@@ -1052,7 +1401,8 @@ def run_llm_timeline_extraction(
             print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining/60:.1f} min remaining")
 
         timeline = build_project_timeline_llm(
-            project_id, pages_df, documents_df, model=model
+            project_id, pages_df, documents_df, model=model,
+            use_hybrid=use_hybrid, timeout=timeout
         )
         results.append(timeline)
 
@@ -1304,6 +1654,8 @@ if __name__ == "__main__":
                         help='Timeout in seconds per document (default: 120, use 300+ for larger models)')
     parser.add_argument('--project-id', type=str,
                         help='Run extraction on a single project by ID')
+    parser.add_argument('--hybrid', action='store_true',
+                        help='Use hybrid regex+LLM approach (faster, recommended)')
 
     args = parser.parse_args()
 
@@ -1326,7 +1678,8 @@ if __name__ == "__main__":
         import json as json_module
         import time
 
-        print(f"\n=== Single Project LLM Extraction ===")
+        approach = "hybrid regex+LLM" if args.hybrid else "full-document LLM"
+        print(f"\n=== Single Project Extraction ({approach}) ===")
         print(f"Project ID: {args.project_id}")
         print(f"Model: {args.model}")
         print(f"Timeout: {args.timeout}s")
@@ -1356,10 +1709,22 @@ if __name__ == "__main__":
         all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
         print(f"Total text: {len(all_text):,} chars")
 
-        # Extract with custom timeout
+        # Extract using selected approach
         print(f"\nCalling {args.model}...")
         start = time.time()
-        result = extract_with_ollama(all_text, model=args.model, timeout=args.timeout)
+
+        if args.hybrid:
+            # Show what regex finds first
+            dates_found = extract_dates_with_context(all_text)
+            print(f"Regex found {len(dates_found)} dates")
+            for d in dates_found:
+                print(f"  {d['date']} ({d['match']}): ...{d['context'][:80]}...")
+
+            result = extract_with_hybrid_approach(all_text, model=args.model, timeout=args.timeout)
+            print(f"\nPrompt size: {result.get('prompt_chars', 0):,} chars (vs ~5,000 for full-document)")
+        else:
+            result = extract_with_ollama(all_text, model=args.model, timeout=args.timeout)
+
         elapsed = time.time() - start
         print(f"Response time: {elapsed:.1f}s")
 
@@ -1394,7 +1759,7 @@ if __name__ == "__main__":
             try:
                 dates = json_module.loads(dates_json)
                 if dates:
-                    print("\nALL DATES EXTRACTED:")
+                    print("\nALL DATES CLASSIFIED:")
                     for d in dates:
                         print(f"  {d['date']} [{d['type']}] - {d.get('source', 'N/A')[:60]}...")
             except json_module.JSONDecodeError:
@@ -1412,4 +1777,6 @@ if __name__ == "__main__":
             main_docs_only=True,     # Default to main docs only
             model=args.model,
             output_file=args.output,
+            use_hybrid=args.hybrid,
+            timeout=args.timeout,
         )
