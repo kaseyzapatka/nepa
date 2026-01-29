@@ -6,10 +6,8 @@
 
 import re
 import pandas as pd
-import numpy as np
 from pathlib import Path
 from datetime import datetime
-from collections import defaultdict
 import sys
 
 # Add parent directory to path for imports
@@ -537,7 +535,7 @@ DEFAULT_LLM_MODEL = "llama3.2:latest"
 
 def create_llm_prompt(processed_text: str) -> str:
     """
-    Create a prompt for LLM timeline extraction.
+    Create a prompt for LLM timeline extraction - extracts ALL dates with context.
 
     Args:
         processed_text: Preprocessed document text (from preprocess_for_timeline)
@@ -545,53 +543,122 @@ def create_llm_prompt(processed_text: str) -> str:
     Returns:
         str: Prompt for LLM
     """
-    prompt = f"""You are extracting timeline dates from a NEPA (National Environmental Policy Act) Categorical Exclusion document.
+    prompt = f"""You are extracting ALL dates from a NEPA (National Environmental Policy Act) Categorical Exclusion document.
 
 DOCUMENT TEXT (key sections extracted):
 ---
 {processed_text}
 ---
 
-Based on the text above, extract the following dates:
+Extract EVERY date you find in the document. For each date, identify:
 
-1. DECISION DATE: When was this project approved/signed by the authorizing official?
-   - Look for: "Date:", "Date Determined:", signature dates, "Authorizing Official" dates
-   - This is the most important date
+1. DATE TYPES:
+   - "decision": Final approval by authorizing official (Field Manager, NEPA Compliance Officer, etc.)
+   - "specialist_review": Individual specialist sign-offs (wildlife biologist, archaeologist, realty specialist, etc.)
+   - "application": When proposal/application was submitted or received
+   - "historical": Prior actions, original permit/ROW issuances from past years
+   - "expiration": End dates for permits, authorizations, or comment periods
+   - "effective": When an action becomes effective
+   - "other": Any other dates that don't fit above categories
 
-2. APPLICATION DATE: When was the application/proposal submitted or received? (if mentioned)
-   - Look for: "Proposal Date:", "received on", "submitted", "application date"
+2. For each date provide:
+   - The date in YYYY-MM-DD format
+   - The type from the list above
+   - A brief quote (10-20 words) showing context
+   - Confidence: high (clearly stated), medium (inferred), low (uncertain)
 
-Return your answer as JSON only, no other text:
+Return JSON only:
 {{
-  "decision_date": "YYYY-MM-DD",
-  "application_date": "YYYY-MM-DD or null",
-  "confidence": "high|medium|low",
-  "decision_date_source": "brief quote showing where you found the decision date"
+  "dates": [
+    {{"date": "YYYY-MM-DD", "type": "decision", "source": "Field Manager signed on...", "confidence": "high"}},
+    {{"date": "YYYY-MM-DD", "type": "specialist_review", "source": "Wildlife biologist approved...", "confidence": "high"}},
+    ...
+  ]
 }}
 
-If you cannot find a decision date, use null. Only return the JSON object, nothing else."""
+Important:
+- Include ALL dates found, even historical ones from prior years
+- The decision date is usually the Field Manager or Authorizing Official signature date
+- Specialist review dates help establish when the review process occurred
+- If no dates found, return {{"dates": []}}
+- Return ONLY the JSON object, no other text."""
 
     return prompt
 
 
+def normalize_date_string(val: str) -> str:
+    """
+    Normalize a date string to YYYY-MM-DD format.
+
+    Args:
+        val: Date string in various formats
+
+    Returns:
+        Normalized date string or None if invalid
+    """
+    if not val or val == 'null' or str(val).lower() == 'none':
+        return None
+
+    val_str = str(val).strip()
+
+    # Try various date formats
+    date_formats = [
+        ('%Y-%m-%d', r'^\d{4}-\d{2}-\d{2}$'),      # 2024-03-20
+        ('%m/%d/%Y', r'^\d{1,2}/\d{1,2}/\d{4}$'),  # 03/20/2024
+        ('%m/%d/%y', r'^\d{1,2}/\d{1,2}/\d{2}$'),  # 03/20/24
+        ('%m-%d-%Y', r'^\d{1,2}-\d{1,2}-\d{4}$'),  # 03-20-2024
+        ('%Y.%m.%d', r'^\d{4}\.\d{2}\.\d{2}$'),    # 2024.03.20
+    ]
+
+    for fmt, pattern in date_formats:
+        if re.match(pattern, val_str):
+            try:
+                parsed_date = datetime.strptime(val_str, fmt)
+                # Validate year range (allow historical dates for this workflow)
+                if 1950 <= parsed_date.year <= 2030:
+                    return parsed_date.strftime('%Y-%m-%d')
+            except ValueError:
+                continue
+
+    return None
+
+
 def parse_llm_response(response_text: str) -> dict:
     """
-    Parse the LLM response to extract structured data.
+    Parse the LLM response to extract structured multi-date data.
 
     Args:
         response_text: Raw text response from LLM
 
     Returns:
-        dict with parsed fields
+        dict with parsed fields including all dates and summary
     """
     import json
 
-    # Try to extract JSON from response
+    # Initialize result with all fields
     result = {
+        # All dates as JSON array
+        'dates_json': '[]',
+        'n_dates_found': 0,
+
+        # Summary fields (extracted from dates array)
         'decision_date': None,
-        'application_date': None,
-        'confidence': 'low',
         'decision_date_source': None,
+        'decision_confidence': None,
+
+        'earliest_review_date': None,
+        'latest_review_date': None,
+        'n_specialist_reviews': 0,
+
+        'application_date': None,
+        'inferred_application_date': None,  # Earliest review if no explicit application
+
+        'earliest_historical_date': None,
+        'n_historical_dates': 0,
+
+        'expiration_date': None,
+
+        # Metadata
         'parse_error': None,
         'raw_response': response_text[:500] if response_text else None,
     }
@@ -601,48 +668,83 @@ def parse_llm_response(response_text: str) -> dict:
         return result
 
     try:
-        # Try to find JSON in the response
-        # Look for { ... } pattern
-        json_match = re.search(r'\{[^{}]*\}', response_text, re.DOTALL)
+        # Try to find JSON in the response - need to match nested structure
+        # Look for {"dates": [...]} pattern
+        json_match = re.search(r'\{[^{}]*"dates"\s*:\s*\[[^\]]*\][^{}]*\}', response_text, re.DOTALL)
+        if not json_match:
+            # Fallback: try to find any JSON object
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+
         if json_match:
             json_str = json_match.group()
             parsed = json.loads(json_str)
 
-            result['decision_date'] = parsed.get('decision_date')
-            result['application_date'] = parsed.get('application_date')
-            result['confidence'] = parsed.get('confidence', 'medium')
-            result['decision_date_source'] = parsed.get('decision_date_source')
+            dates_list = parsed.get('dates', [])
+            if not isinstance(dates_list, list):
+                dates_list = []
 
-            # Validate and normalize date format
-            for key in ['decision_date', 'application_date']:
-                val = result[key]
-                if val and val != 'null' and str(val).lower() != 'none':
-                    val_str = str(val).strip()
-                    normalized = None
+            # Normalize all dates and filter valid ones
+            valid_dates = []
+            for d in dates_list:
+                if not isinstance(d, dict):
+                    continue
 
-                    # Try various date formats
-                    date_formats = [
-                        ('%Y-%m-%d', r'^\d{4}-\d{2}-\d{2}$'),      # 2024-03-20
-                        ('%m/%d/%Y', r'^\d{1,2}/\d{1,2}/\d{4}$'),  # 03/20/2024
-                        ('%m/%d/%y', r'^\d{1,2}/\d{1,2}/\d{2}$'),  # 03/20/24
-                        ('%m-%d-%Y', r'^\d{1,2}-\d{1,2}-\d{4}$'),  # 03-20-2024
-                        ('%Y.%m.%d', r'^\d{4}\.\d{2}\.\d{2}$'),    # 2024.03.20
-                    ]
+                normalized = normalize_date_string(d.get('date'))
+                if normalized:
+                    valid_dates.append({
+                        'date': normalized,
+                        'type': d.get('type', 'other'),
+                        'source': str(d.get('source', ''))[:200],  # Truncate long sources
+                        'confidence': d.get('confidence', 'medium'),
+                    })
 
-                    for fmt, pattern in date_formats:
-                        if re.match(pattern, val_str):
-                            try:
-                                parsed = datetime.strptime(val_str, fmt)
-                                # Validate year range
-                                if 1990 <= parsed.year <= 2030:
-                                    normalized = parsed.strftime('%Y-%m-%d')
-                                    break
-                            except ValueError:
-                                continue
+            # Store all dates as JSON
+            result['dates_json'] = json.dumps(valid_dates)
+            result['n_dates_found'] = len(valid_dates)
 
-                    result[key] = normalized
-                else:
-                    result[key] = None
+            # Extract summary fields by type
+            decision_dates = [d for d in valid_dates if d['type'] == 'decision']
+            review_dates = [d for d in valid_dates if d['type'] == 'specialist_review']
+            application_dates = [d for d in valid_dates if d['type'] == 'application']
+            historical_dates = [d for d in valid_dates if d['type'] == 'historical']
+            expiration_dates = [d for d in valid_dates if d['type'] == 'expiration']
+
+            # Decision date (use latest if multiple)
+            if decision_dates:
+                decision_dates.sort(key=lambda x: x['date'])
+                latest_decision = decision_dates[-1]
+                result['decision_date'] = latest_decision['date']
+                result['decision_date_source'] = latest_decision['source']
+                result['decision_confidence'] = latest_decision['confidence']
+
+            # Specialist review dates
+            if review_dates:
+                review_dates.sort(key=lambda x: x['date'])
+                result['earliest_review_date'] = review_dates[0]['date']
+                result['latest_review_date'] = review_dates[-1]['date']
+                result['n_specialist_reviews'] = len(review_dates)
+
+            # Application date
+            if application_dates:
+                application_dates.sort(key=lambda x: x['date'])
+                result['application_date'] = application_dates[0]['date']
+
+            # Inferred application date (earliest review if no explicit application)
+            if result['earliest_review_date'] and not result['application_date']:
+                result['inferred_application_date'] = result['earliest_review_date']
+            elif result['application_date']:
+                result['inferred_application_date'] = result['application_date']
+
+            # Historical dates
+            if historical_dates:
+                historical_dates.sort(key=lambda x: x['date'])
+                result['earliest_historical_date'] = historical_dates[0]['date']
+                result['n_historical_dates'] = len(historical_dates)
+
+            # Expiration date (use latest if multiple)
+            if expiration_dates:
+                expiration_dates.sort(key=lambda x: x['date'])
+                result['expiration_date'] = expiration_dates[-1]['date']
 
         else:
             result['parse_error'] = 'no_json_found'
@@ -666,19 +768,17 @@ def extract_with_ollama(
 
     Args:
         text: Document text (will be preprocessed if preprocess=True)
-        model: Ollama model name (default: qwen2:7b)
+        model: Ollama model name
         timeout: Request timeout in seconds
         preprocess: Whether to preprocess text first
 
     Returns:
-        dict with extracted timeline and metadata
+        dict with extracted timeline and metadata (all dates + summary fields)
     """
     import requests
 
     result = {
-        'decision_date': None,
-        'application_date': None,
-        'confidence': 'low',
+        # Preprocessing metadata
         'llm_model': model,
         'original_chars': len(text),
         'processed_chars': 0,
@@ -711,7 +811,7 @@ def extract_with_ollama(
                 'stream': False,
                 'options': {
                     'temperature': 0.1,  # Low temperature for consistent extraction
-                    'num_predict': 256,   # Limit response length
+                    'num_predict': 1024,  # Increased for multi-date response
                 }
             },
             timeout=timeout
@@ -721,7 +821,7 @@ def extract_with_ollama(
             response_data = response.json()
             llm_response = response_data.get('response', '')
 
-            # Parse the response
+            # Parse the response (now returns all dates + summary)
             parsed = parse_llm_response(llm_response)
             result.update(parsed)
 
@@ -750,6 +850,8 @@ def build_project_timeline_llm(
     """
     Build a timeline for a single project using LLM extraction.
 
+    Extracts ALL dates with context and provides summary fields.
+
     Args:
         project_id: Project ID string
         pages_df: DataFrame with page text (already filtered to main docs if needed)
@@ -757,7 +859,7 @@ def build_project_timeline_llm(
         model: Ollama model name
 
     Returns:
-        dict with timeline information
+        dict with timeline information including all dates and summary fields
     """
     # Get documents for this project
     project_docs = documents_df[documents_df['project_id'] == project_id].copy()
@@ -772,11 +874,38 @@ def build_project_timeline_llm(
         'project_id': project_id,
         'project_document_count': document_count,
         'project_main_document_count': main_document_count,
+
+        # All dates as JSON
+        'llm_dates_json': '[]',
+        'llm_n_dates_found': 0,
+
+        # Decision date fields
         'llm_decision_date': None,
+        'llm_decision_date_source': None,
+        'llm_decision_confidence': None,
+
+        # Specialist review fields
+        'llm_earliest_review_date': None,
+        'llm_latest_review_date': None,
+        'llm_n_specialist_reviews': 0,
+
+        # Application date fields
         'llm_application_date': None,
-        'llm_confidence': 'low',
+        'llm_inferred_application_date': None,
+
+        # Historical dates
+        'llm_earliest_historical_date': None,
+        'llm_n_historical_dates': 0,
+
+        # Expiration
+        'llm_expiration_date': None,
+
+        # Metadata
         'llm_model': model,
         'llm_error': None,
+        'llm_processed_chars': 0,
+        'llm_reduction_pct': 0,
+        'llm_raw_response': None,
     }
 
     if project_docs.empty:
@@ -802,12 +931,27 @@ def build_project_timeline_llm(
     # Extract with LLM
     llm_result = extract_with_ollama(all_text, model=model)
 
-    # Merge results
+    # Merge all results
+    result['llm_dates_json'] = llm_result.get('dates_json', '[]')
+    result['llm_n_dates_found'] = llm_result.get('n_dates_found', 0)
+
     result['llm_decision_date'] = llm_result.get('decision_date')
-    result['llm_application_date'] = llm_result.get('application_date')
-    result['llm_confidence'] = llm_result.get('confidence', 'low')
-    result['llm_error'] = llm_result.get('error')
     result['llm_decision_date_source'] = llm_result.get('decision_date_source')
+    result['llm_decision_confidence'] = llm_result.get('decision_confidence')
+
+    result['llm_earliest_review_date'] = llm_result.get('earliest_review_date')
+    result['llm_latest_review_date'] = llm_result.get('latest_review_date')
+    result['llm_n_specialist_reviews'] = llm_result.get('n_specialist_reviews', 0)
+
+    result['llm_application_date'] = llm_result.get('application_date')
+    result['llm_inferred_application_date'] = llm_result.get('inferred_application_date')
+
+    result['llm_earliest_historical_date'] = llm_result.get('earliest_historical_date')
+    result['llm_n_historical_dates'] = llm_result.get('n_historical_dates', 0)
+
+    result['llm_expiration_date'] = llm_result.get('expiration_date')
+
+    result['llm_error'] = llm_result.get('error')
     result['llm_processed_chars'] = llm_result.get('processed_chars', 0)
     result['llm_reduction_pct'] = llm_result.get('reduction_pct', 0)
     result['llm_raw_response'] = llm_result.get('raw_response')
@@ -934,14 +1078,22 @@ def run_llm_timeline_extraction(
     # Summary
     has_decision = projects_with_llm['llm_decision_date'].notna()
     has_application = projects_with_llm['llm_application_date'].notna()
-    high_conf = projects_with_llm['llm_confidence'] == 'high'
+    has_inferred_app = projects_with_llm['llm_inferred_application_date'].notna()
+    has_reviews = projects_with_llm['llm_n_specialist_reviews'] > 0
+    high_conf = projects_with_llm['llm_decision_confidence'] == 'high'
     has_error = projects_with_llm['llm_error'].notna()
 
     print(f"\n=== Results Summary ===")
     print(f"Projects with decision date: {has_decision.sum():,} ({100*has_decision.mean():.1f}%)")
-    print(f"Projects with application date: {has_application.sum():,} ({100*has_application.mean():.1f}%)")
-    print(f"High confidence extractions: {high_conf.sum():,} ({100*high_conf.mean():.1f}%)")
+    print(f"Projects with explicit application date: {has_application.sum():,} ({100*has_application.mean():.1f}%)")
+    print(f"Projects with inferred application date: {has_inferred_app.sum():,} ({100*has_inferred_app.mean():.1f}%)")
+    print(f"Projects with specialist reviews: {has_reviews.sum():,} ({100*has_reviews.mean():.1f}%)")
+    print(f"High confidence decisions: {high_conf.sum():,} ({100*high_conf.mean():.1f}%)")
     print(f"Projects with errors: {has_error.sum():,} ({100*has_error.mean():.1f}%)")
+
+    # Date count distribution
+    print(f"\nDates found per project:")
+    print(projects_with_llm['llm_n_dates_found'].describe())
 
     if has_error.sum() > 0:
         print(f"\nError breakdown:")
@@ -961,6 +1113,9 @@ def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODE
     Returns:
         DataFrame with detailed results
     """
+    import json as json_module
+    import time
+
     print(f"\n=== Testing LLM Extraction ({n_samples} samples) ===")
     print(f"Model: {model}\n")
 
@@ -1018,7 +1173,6 @@ def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODE
 
         # Extract with LLM
         print(f"\n  Calling {model}...")
-        import time
         start = time.time()
         llm_result = extract_with_ollama(all_text, model=model)
         elapsed = time.time() - start
@@ -1026,26 +1180,52 @@ def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODE
 
         # Show results
         print(f"\n  RESULTS:")
-        print(f"    Decision date:    {llm_result.get('decision_date')}")
-        print(f"    Application date: {llm_result.get('application_date')}")
-        print(f"    Confidence:       {llm_result.get('confidence')}")
-        print(f"    Source quote:     {llm_result.get('decision_date_source', 'N/A')[:100]}...")
+        print(f"    Total dates found: {llm_result.get('n_dates_found', 0)}")
+        print(f"\n    DECISION:")
+        print(f"      Date:       {llm_result.get('decision_date')}")
+        print(f"      Confidence: {llm_result.get('decision_confidence')}")
+        print(f"      Source:     {str(llm_result.get('decision_date_source', 'N/A'))[:80]}...")
+
+        print(f"\n    SPECIALIST REVIEWS:")
+        print(f"      Count:    {llm_result.get('n_specialist_reviews', 0)}")
+        print(f"      Earliest: {llm_result.get('earliest_review_date')}")
+        print(f"      Latest:   {llm_result.get('latest_review_date')}")
+
+        print(f"\n    APPLICATION:")
+        print(f"      Explicit: {llm_result.get('application_date')}")
+        print(f"      Inferred: {llm_result.get('inferred_application_date')}")
+
+        print(f"\n    HISTORICAL:")
+        print(f"      Count:    {llm_result.get('n_historical_dates', 0)}")
+        print(f"      Earliest: {llm_result.get('earliest_historical_date')}")
+
+        print(f"\n    EXPIRATION: {llm_result.get('expiration_date')}")
 
         if llm_result.get('error'):
-            print(f"    ERROR: {llm_result.get('error')}")
+            print(f"\n    ERROR: {llm_result.get('error')}")
 
-        print(f"\n  Raw response preview:")
-        raw = llm_result.get('raw_response', '')
-        print(f"    {raw[:300]}...")
+        # Show all dates
+        dates_json = llm_result.get('dates_json', '[]')
+        try:
+            dates_list = json_module.loads(dates_json)
+            if dates_list:
+                print(f"\n    ALL DATES EXTRACTED:")
+                for d in dates_list:
+                    print(f"      {d['date']} [{d['type']}] - {d['source'][:50]}...")
+        except Exception:
+            pass
 
         results.append({
             'project_id': project_id,
             'project_title': project_title,
             'total_chars': len(all_text),
             'processed_chars': len(preprocess_result.processed_text),
+            'n_dates_found': llm_result.get('n_dates_found', 0),
             'decision_date': llm_result.get('decision_date'),
-            'application_date': llm_result.get('application_date'),
-            'confidence': llm_result.get('confidence'),
+            'decision_confidence': llm_result.get('decision_confidence'),
+            'earliest_review': llm_result.get('earliest_review_date'),
+            'n_reviews': llm_result.get('n_specialist_reviews', 0),
+            'inferred_app_date': llm_result.get('inferred_application_date'),
             'error': llm_result.get('error'),
             'response_time_sec': elapsed,
         })
@@ -1057,7 +1237,10 @@ def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODE
     print("\n" + "="*70)
     print("SUMMARY")
     print("="*70)
-    print(results_df[['project_id', 'decision_date', 'confidence', 'response_time_sec']].to_string())
+    print(results_df[[
+        'project_id', 'n_dates_found', 'decision_date',
+        'decision_confidence', 'n_reviews', 'response_time_sec'
+    ]].to_string())
 
     return results_df
 
