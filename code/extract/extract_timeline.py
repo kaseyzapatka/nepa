@@ -760,7 +760,7 @@ def parse_llm_response(response_text: str) -> dict:
 def extract_with_ollama(
     text: str,
     model: str = DEFAULT_LLM_MODEL,
-    timeout: int = 120,
+    timeout: int = 240,
     preprocess: bool = True,
 ) -> dict:
     """
@@ -1300,6 +1300,10 @@ if __name__ == "__main__":
                         help=f'Ollama model to use (default: {DEFAULT_LLM_MODEL})')
     parser.add_argument('--output', type=str,
                         help='Custom output filename for LLM results')
+    parser.add_argument('--timeout', type=int, default=120,
+                        help='Timeout in seconds per document (default: 120, use 300+ for larger models)')
+    parser.add_argument('--project-id', type=str,
+                        help='Run extraction on a single project by ID')
 
     args = parser.parse_args()
 
@@ -1316,6 +1320,88 @@ if __name__ == "__main__":
     # Test LLM extraction
     elif args.llm_test:
         test_llm_extraction_sample(n_samples=args.llm_test, model=args.model)
+
+    # Run LLM extraction on single project
+    elif args.project_id:
+        import json as json_module
+        import time
+
+        print(f"\n=== Single Project LLM Extraction ===")
+        print(f"Project ID: {args.project_id}")
+        print(f"Model: {args.model}")
+        print(f"Timeout: {args.timeout}s")
+
+        # Load CE data
+        pages_df = pd.read_parquet(PROCESSED_DIR / "ce" / "pages.parquet")
+        documents_df = pd.read_parquet(PROCESSED_DIR / "ce" / "documents.parquet")
+
+        # Clean project_id
+        documents_df['project_id'] = documents_df['project_id'].apply(
+            lambda x: x.get('value', '') if isinstance(x, dict) else x
+        )
+
+        # Filter to main docs for this project
+        project_docs = documents_df[documents_df['project_id'] == args.project_id]
+        if project_docs.empty:
+            print(f"ERROR: No documents found for project {args.project_id}")
+            sys.exit(1)
+
+        main_docs = project_docs[project_docs['main_document'] == 'YES']
+        doc_ids = main_docs['document_id'].tolist() if not main_docs.empty else project_docs['document_id'].tolist()
+
+        print(f"Documents found: {len(project_docs)} (main: {len(main_docs)})")
+
+        # Get page text
+        project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
+        all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
+        print(f"Total text: {len(all_text):,} chars")
+
+        # Extract with custom timeout
+        print(f"\nCalling {args.model}...")
+        start = time.time()
+        result = extract_with_ollama(all_text, model=args.model, timeout=args.timeout)
+        elapsed = time.time() - start
+        print(f"Response time: {elapsed:.1f}s")
+
+        # Display results
+        print(f"\n{'='*60}")
+        print("RESULTS")
+        print('='*60)
+
+        if result.get('error'):
+            print(f"ERROR: {result['error']}")
+        else:
+            print(f"Dates found: {result.get('n_dates_found', 0)}")
+            print("\nDECISION:")
+            print(f"  Date: {result.get('decision_date')}")
+            print(f"  Confidence: {result.get('decision_confidence')}")
+            print(f"  Source: {str(result.get('decision_date_source', 'N/A'))[:80]}")
+
+            print("\nSPECIALIST REVIEWS:")
+            print(f"  Count: {result.get('n_specialist_reviews', 0)}")
+            print(f"  Earliest: {result.get('earliest_review_date')}")
+            print(f"  Latest: {result.get('latest_review_date')}")
+
+            print("\nAPPLICATION:")
+            print(f"  Explicit: {result.get('application_date')}")
+            print(f"  Inferred: {result.get('inferred_application_date')}")
+
+            print(f"\nHISTORICAL: {result.get('n_historical_dates', 0)} dates")
+            print(f"EXPIRATION: {result.get('expiration_date')}")
+
+            # Show all dates
+            dates_json = result.get('dates_json', '[]')
+            try:
+                dates = json_module.loads(dates_json)
+                if dates:
+                    print("\nALL DATES EXTRACTED:")
+                    for d in dates:
+                        print(f"  {d['date']} [{d['type']}] - {d.get('source', 'N/A')[:60]}...")
+            except json_module.JSONDecodeError:
+                pass
+
+            print("\nRAW RESPONSE:")
+            print(result.get('raw_response', 'N/A')[:500])
 
     # Run LLM extraction
     elif args.llm_run:
