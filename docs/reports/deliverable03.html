@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-01-23">
+<meta name="dcterms.date" content="2026-01-30">
 
 <title>NEPA - NEPA Clean Energy Analysis: Deliverable 3</title>
 <style>
@@ -4744,7 +4744,7 @@ border: 0;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 23, 2026</p>
+      <p class="date">January 30, 2026</p>
     </div>
   </div>
   
@@ -4976,6 +4976,7 @@ Key Findings: Capacity
 </div>
 </div>
 <p>To identify capacity generation, a regex-based extraction using pattern matching for values like “50 MW”, “1,500 megawatts”, “2.5 GW facility”. Capacity values normalized to MW for comparison.</p>
+<p>Transmission-only projects account for <strong>1,531 of 22,279 clean energy projects (6.9%)</strong> based on <code>project_type</code> tags (strict definition: only Electricity Transmission + Utilities).</p>
 <p><a href="#fig-capacity-coverage">Figure 5</a> shows that extraction rates vary significantly by process type. EIS projects have the highest coverage (81%), reflecting larger projects with explicit capacity documentation. CE projects have low coverage (8%) as expected—these are typically smaller projects that don’t require detailed capacity reporting.</p>
 <div class="cell">
 <div class="cell-output-display">
@@ -5086,6 +5087,8 @@ Key Findings: Capacity
 </tbody>
 </table>
 </div>
+<p><strong>Baseline validation (manual sample)</strong><br>
+We reviewed a 20-project sample of clean energy projects with extracted capacity values. Only 11/20 had snippets available from the first 10 pages of the main document, so those were the verifiable cases. Among those, 11/11 extractions were judged correct. Several notes flagged uncertainty about whether a capacity mention clearly referred to the proposed project versus another project or context. This validation is preliminary and should be expanded by locating the remaining snippets or scanning more pages.</p>
 <p><strong>Next Steps for Generation Capacity</strong></p>
 <ol type="1">
 <li>Read some sample documents to <strong>confirm CE doesn’t have much generation capacity</strong> estimates.</li>
@@ -5093,7 +5096,7 @@ Key Findings: Capacity
 <li><strong>Run LLM extraction on those projects</strong> by review process, likely skipping CE.</li>
 </ol>
 <hr>
-<p><em>Report generated 2026-01-23 | NEPA Clean Energy Analysis</em></p>
+<p><em>Report generated 2026-01-30 | NEPA Clean Energy Analysis</em></p>
 
 
 </section>
