@@ -1,14 +1,17 @@
 # Files to ignore
 *.DS*
 *.csv
+*.pdf
 *project_overview.md
 20181101_COMMS_CATFBrandGuide.pdf
+project_overview.md
 
 # Folders to ignore
 *data/
 *documents/
 *admin/
-*notes/
+*output/samples
+
 
 # Python bytecode
 __pycache__/

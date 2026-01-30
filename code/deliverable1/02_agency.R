@@ -42,23 +42,7 @@ department_counts <- agency_data %>%
 # EXPLORATORY
 # --------------------------
 
-#
-# Nuclear Waste
-# ----------------------------------------
-# Frank wanted to know if there were ways to disaggregate the nuclear waste reviews?
-nuclear_waste_projects <- 
-  agency_data |> 
-  filter(str_detect(project_type, "Waste Management") & str_detect(project_type, "Nuclear")) |> 
-  select(project_id, project_title, department, lead_agency, project_sponsor, project_type) |> 
-  arrange(department) |> 
-  glimpse()
 
-# save
-sheet_write(
-  data = nuclear_waste_projects,
-  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
-  sheet = "nuclear_waste_projects"
-)
 
 # --------------------------
 # TABLE: PROJECTS BY DEPARTMENT 

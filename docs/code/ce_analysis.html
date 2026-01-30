@@ -4552,7 +4552,7 @@ vertical-align: -.125em;
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">#import sys</span></span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">#print(sys.executable)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="4">
+<div class="cell" data-execution_count="1">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -4595,7 +4595,7 @@ Note: you may need to restart the kernel to use updated packages.</code></pre>
 <pre><code>Current directory: /Users/Dora/git/consulting/nepa/code</code></pre>
 </div>
 </div>
-<div class="cell">
+<div class="cell" data-execution_count="2">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Read entire file</span></span>
@@ -4604,7 +4604,7 @@ Note: you may need to restart the kernel to use updated packages.</code></pre>
 <span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>documents <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ce/documents.parquet&#39;</span>)</span>
 <span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>pages <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ce/pages.parquet&#39;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="4">
+<div class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>projects.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
@@ -4627,32 +4627,32 @@ Note: you may need to restart the kernel to use updated packages.</code></pre>
 <tr class="odd">
 <td data-quarto-table-cell-role="th">0</td>
 <td>{&#39;value&#39;: &#39;840aac91-a94d-0bb3-5338-73bb83674ae5&#39;}</td>
-<td>Nebel Coulee Allotment Grazing Preference Tran...</td>
-<td>[Agriculture and Natural Resource Management, ...</td>
-<td>[Rangeland Management, Agriculture, Laws, Poli...</td>
-<td>[**Proposed Action: to approve the 67 AUM tran...</td>
+<td>Nebel Coulee Allotment Grazing Preference Transfer</td>
+<td>[Agriculture and Natural Resource Management, Environmental Policy and Regulation]</td>
+<td>[Rangeland Management, Agriculture, Laws, Policies, Regulations, and Guidance]</td>
+<td>[**Proposed Action: to approve the 67 AUM transfer of grazing preference in the Nebel Coulee (#09665) Allotment from Conrad S. Bodner to Joseph C. Bodner and to issue a new grazing lease.**]</td>
 <td>[Lewistown Field Office]</td>
-<td>[Nebel Coulee #09665, T. 16 N., R. 9 E., Sec. ...</td>
+<td>[Nebel Coulee #09665, T. 16 N., R. 9 E., Sec. 30: Lots 5-8, 30-6-19; Sec. 3 Lots 1-14, 31 – 16 – 9; Judith Basin County, Montana.]</td>
 </tr>
 <tr class="even">
 <td data-quarto-table-cell-role="th">1</td>
 <td>{&#39;value&#39;: &#39;6d2848e8-5c52-555b-e549-fa3f275089a4&#39;}</td>
-<td>Solaris Midstream, LLC Right-of-Way for Buried...</td>
-<td>[Land Development and Urban Planning, Energy P...</td>
-<td>[Pipelines, Conventional Energy Production - L...</td>
-<td>[**Proposed Action: Solaris Midstream, LLC, is...</td>
+<td>Solaris Midstream, LLC Right-of-Way for Buried Pipelines and Surface Sites</td>
+<td>[Land Development and Urban Planning, Energy Production and Management, Water and Waste Management, Transportation and Infrastructure]</td>
+<td>[Pipelines, Conventional Energy Production - Land-based Oil &amp; Gas, Waste Management, Water Resources - Other, Land Development - Other]</td>
+<td>[**Proposed Action: Solaris Midstream, LLC, is requesting a right-of-way for two (2) 24-inch buried poly produced water pipeline, 24-inch buried poly freshwater pipeline, two (2) 30&#39; x 30&#39; surface sites. The pipelines will service the Green Beret Fed 20A CTB and tie into Pitchblend ROW across public land. The length of the right-of-way is 582.6 feet (0.11 miles), width is 30 feet, for 0.44 acres. The proposed pipelines follows approved APD EA-2020-0690.**]</td>
 <td>[Solaris Midstream, LLC]</td>
-<td>[T. 25 S., R. 35 E., NMPM, sec. 20: E2NW¼, New...</td>
+<td>[T. 25 S., R. 35 E., NMPM, sec. 20: E2NW¼, New Mexico]</td>
 </tr>
 <tr class="odd">
 <td data-quarto-table-cell-role="th">2</td>
 <td>{&#39;value&#39;: &#39;8da280bf-8917-d807-ecc7-3b81652b037c&#39;}</td>
 <td>EOG Resources Incorporated Ruby 1819-16H Well Pad</td>
-<td>[Land Development and Urban Planning, Energy P...</td>
-<td>[Conventional Energy Production - Land-based O...</td>
-<td>[**1.1 LOCATION AND DESCRIPTION OF THE PROPOSE...</td>
+<td>[Land Development and Urban Planning, Energy Production and Management, Water and Waste Management, Transportation and Infrastructure]</td>
+<td>[Conventional Energy Production - Land-based Oil &amp; Gas, Land Development - Other, Surface Transportation - Other, Water Resources - Other]</td>
+<td>[**1.1 LOCATION AND DESCRIPTION OF THE PROPOSED ACTION:** EOG Resources Incorporated (EOG) proposes to drill one horizontal oil and gas well, the Ruby\n1819-16H, with the following surface location:\n\nSixth Principal Meridian, Wyoming\nT. 40 N., R. 72 W.,\nsec. 18, NE1/4NW1/4.\n\nEOG proposes to construct a drilling pad of approximately 510 x 710 feet, and a facilities pad of\napproximately 600 x 510 feet. Additional acreage for cut/fill slopes and construction are within a\nfenced boundary...</td>
 <td>[EOG Resources Incorporated]</td>
-<td>[Sixth Principal Meridian, Wyoming\nT. 40 N., ...</td>
+<td>[Sixth Principal Meridian, Wyoming\nT. 40 N., R. 72 W.,\nsec. 18, NE1/4NW1/4.]</td>
 </tr>
 <tr class="even">
 <td data-quarto-table-cell-role="th">3</td>
@@ -4660,19 +4660,19 @@ Note: you may need to restart the kernel to use updated packages.</code></pre>
 <td>Special Recreation Permit</td>
 <td>[Land Development and Urban Planning]</td>
 <td>[Public and Recreational Land Use]</td>
-<td>[**Description of Proposed Action: Authorize a...</td>
+<td>[**Description of Proposed Action: Authorize a Special Recreation Permit (SRP) for Southwest Extreme LLC for the purpose of guiding clients on Utility Terrain Vehicles (UTV) on authorized roads in the BLM St. George Field Office. The proponent anticipates 75% of their trips would occur in the Sand Mountain Open OHV Area, with the remainder taking place on authorized roads throughout Washington County, including the Beaver Dam Wash and Red Cliffs National Conservation Areas.\n\nThere would be...</td>
 <td>[Southwest Extreme LLC]</td>
-<td>[The area of the proposed action includes all ...</td>
+<td>[The area of the proposed action includes all of the Sand Mountain Recreation Area (Open OHV) and all authorized routes on BLM managed lands in Washington County that are open to the public for motorized use.]</td>
 </tr>
 <tr class="odd">
 <td data-quarto-table-cell-role="th">4</td>
 <td>{&#39;value&#39;: &#39;fc8d1695-09d2-4c70-ef06-70dd3efc0cfc&#39;}</td>
-<td>Jackson Mountain Allotment # 46330 Grazing Pre...</td>
-<td>[Agriculture and Natural Resource Management, ...</td>
-<td>[Rangeland Management, Agriculture, Laws, Poli...</td>
-<td>[**Proposed Action: The Proposed Action is to ...</td>
+<td>Jackson Mountain Allotment # 46330 Grazing Preference Transfer</td>
+<td>[Agriculture and Natural Resource Management, Environmental Policy and Regulation]</td>
+<td>[Rangeland Management, Agriculture, Laws, Policies, Regulations, and Guidance]</td>
+<td>[**Proposed Action: The Proposed Action is to transfer the grazing preference on the Jackson Mountain Allotment No. 46330, a Section 3 grazing permit, from Don and Kim Lackner to Dan Lackner. The Jackson Mountain Allotment is currently an active allotment and a permit would be issued for a period of 10 years under the authority of section 402(c)(2) of the Federal Land Policy and Management Act (FLPMA), 1976 as amended. This permit would contain the same mandatory terms and conditions as the ...</td>
 <td>[Bureau of Land Management Safford Field Office]</td>
-<td>[T6S, R22E, Sections: 8,16-22, 28-30\nT6S, R21...</td>
+<td>[T6S, R22E, Sections: 8,16-22, 28-30\nT6S, R21E, Sections: 12, Arizona]</td>
 </tr>
 </tbody>
 </table>
@@ -4809,424 +4809,8 @@ Name: project_location, dtype: object</code></pre>
 </section>
 <section id="documents" class="level2">
 <h2 class="anchored" data-anchor-id="documents">Documents</h2>
-<div class="cell" data-execution_count="9">
+<div class="cell">
 <div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>documents.head(<span class="dv">30</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display">
-<div>
-
-
-<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
-<thead>
-<tr class="header">
-<th data-quarto-table-cell-role="th"></th>
-<th data-quarto-table-cell-role="th">project_id</th>
-<th data-quarto-table-cell-role="th">document_id</th>
-<th data-quarto-table-cell-role="th">document_type</th>
-<th data-quarto-table-cell-role="th">document_title</th>
-<th data-quarto-table-cell-role="th">prepared_by</th>
-<th data-quarto-table-cell-role="th">ce_category</th>
-<th data-quarto-table-cell-role="th">file_id</th>
-<th data-quarto-table-cell-role="th">file_name</th>
-<th data-quarto-table-cell-role="th">total_pages</th>
-<th data-quarto-table-cell-role="th">main_document</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">0</td>
-<td>{&#39;value&#39;: &#39;840aac91-a94d-0bb3-5338-73bb83674ae5&#39;}</td>
-<td>36009af6-4709-ea8e-3c66-137c9d9a2089</td>
-<td>CE</td>
-<td>CATEGORICAL EXCLUSION REVIEW AND APPROVAL</td>
-<td>[U.S. Department of the Interior; Bureau of Land Management; Lewistown Field Office]</td>
-<td>[516 DM 11.9, D. Rangeland Management (1): Approval of transfers of grazing preference.]</td>
-<td>36009af6-4709-ea8e-3c66-137c9d9a2089</td>
-<td>Signed_CX.pdf</td>
-<td>6</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">1</td>
-<td>{&#39;value&#39;: &#39;6d2848e8-5c52-555b-e549-fa3f275089a4&#39;}</td>
-<td>f8784150-e64d-c56e-3acc-b54aee648f43</td>
-<td>CE</td>
-<td>NEPA COMPLIANCE RECORD FOR CATEGORICAL EXCLUSION (CX)</td>
-<td>[Bureau of Land Management; Carlsbad Field Office]</td>
-<td>[516 DM 6, Appendix 5.4, E (12) that states, “Grants of rights-of-way wholly within the boundaries of other compatibly developed rights-of-way”]</td>
-<td>f8784150-e64d-c56e-3acc-b54aee648f43</td>
-<td>CX Buried pipeline NM-144605 Signed.pdf</td>
-<td>3</td>
-<td>YES</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">2</td>
-<td>{&#39;value&#39;: &#39;6d2848e8-5c52-555b-e549-fa3f275089a4&#39;}</td>
-<td>ab833fc6-271a-1eaf-edc0-19b84d4a3132</td>
-<td>OTHER</td>
-<td></td>
-<td>[]</td>
-<td>[]</td>
-<td>ab833fc6-271a-1eaf-edc0-19b84d4a3132</td>
-<td>CX Buried pipeline NM-144605.pdf</td>
-<td>3</td>
-<td>NO</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">3</td>
-<td>{&#39;value&#39;: &#39;8da280bf-8917-d807-ecc7-3b81652b037c&#39;}</td>
-<td>9156eace-d599-5bf1-cff2-f0ff03b7cf6d</td>
-<td>ROD</td>
-<td>Categorical Exclusion and Decision Record for EOG Resources Incorporated Ruby 1819-16H Well Pad</td>
-<td>[U.S. Department of the Interior; Bureau of Land Management; Casper Field Office]</td>
-<td>[Section 390 of the National Energy Policy Act of 2005, Exclusion Category No. 3, “Drilling an oil or gas well within a developed field for which an approved land use plan or any environmental document prepared pursuant to NEPA analyzed drilling as a reasonably foreseeable activity, so long as such plan or document was approved within five years prior to the date of spudding the well.]</td>
-<td>9156eace-d599-5bf1-cff2-f0ff03b7cf6d</td>
-<td>CX and DR combined 508 sign.pdf</td>
-<td>7</td>
-<td>YES</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">4</td>
-<td>{&#39;value&#39;: &#39;54391a5b-0a7b-7713-ca52-4d5391902f19&#39;}</td>
-<td>a3fddde4-b916-9ee8-5be4-a9a2f551eb15</td>
-<td>CE</td>
-<td>Categorical Exclusion Not Established By Statute DOI-BLM-UT-CO30-2017-0046-CX</td>
-<td>[United States Department of the Interior, Bureau of Land Management, St. George Field Office, Interior Board of Land Appeals, Office of the Secretary]</td>
-<td>[516 DM 11.9, 9 (Actions Eligible for a Categorical Exclusion): H (Recreation Management) (1}, Issuance of Special Recreation Permits for day use or overnight use up to 14 consecutive nights; that impacts not more than 3 staging area acres; and/or for recreational travel along roads. trails, or in areas authorized in a land use plan.]</td>
-<td>a3fddde4-b916-9ee8-5be4-a9a2f551eb15</td>
-<td>Southwest Extreme SRP.pdf</td>
-<td>8</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">5</td>
-<td>{&#39;value&#39;: &#39;fc8d1695-09d2-4c70-ef06-70dd3efc0cfc&#39;}</td>
-<td>d8d2036c-e9e0-86d3-50cf-d6ee74c7efa0</td>
-<td>CE</td>
-<td>Categorical Exclusion (CX)</td>
-<td>[Department of the Interior; Bureau of Land Management; BLM Safford Field Office; Gila District Office]</td>
-<td>[516 DM 11, 11.9, D (1), Approval of transfers of grazing preference.]</td>
-<td>d8d2036c-e9e0-86d3-50cf-d6ee74c7efa0</td>
-<td>Transfer CX Jackson Mountain Signed.pdf</td>
-<td>6</td>
-<td>YES</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">6</td>
-<td>{&#39;value&#39;: &#39;5daa59d3-6142-deec-1a51-19b8c46bf8d0&#39;}</td>
-<td>ac6b8d3a-fcbc-8e85-ba48-acd614052898</td>
-<td>CE</td>
-<td>UTUT-106302557 Kaleidoscope Productions Film Permit Categorical Exclusion</td>
-<td>[U.S. Department of the Interior; Bureau of Land Management; Moab Field Office]</td>
-<td>[516 DM 11.9 E(19), Issuance of short-term (3 years of less) rights-of-way or land use authorizations for such uses as storage sites, apiary sites, and construction sites where the proposal includes rehabilitation to restore the land to its natural or original condition.]</td>
-<td>ac6b8d3a-fcbc-8e85-ba48-acd614052898</td>
-<td>23-0060.pdf</td>
-<td>18</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">7</td>
-<td>{&#39;value&#39;: &#39;3c20e144-5b07-c3de-0044-c7e0f3298b40&#39;}</td>
-<td>46d9e6ec-66f0-b612-65d4-e03bfabc856d</td>
-<td>CE</td>
-<td>Categorical Exclusion DOI-BLM-NV-S030-2018-0011</td>
-<td>[United States Department of the Interior; Bureau of Land Management]</td>
-<td>[516 DM 11.9, Appendix 4-E, Realty: Acquisition of easements for existing road or issuance of leases, permits, or rights-of-way for the use of existing facilities, improvements, or sites for the same or similar purposes.]</td>
-<td>46d9e6ec-66f0-b612-65d4-e03bfabc856d</td>
-<td>Signed DOI-BLM-NV-S030-2018-0011-CX.pdf</td>
-<td>12</td>
-<td>YES</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">8</td>
-<td>{&#39;value&#39;: &#39;f5ff95d2-d956-b1e4-ae6f-0799142fe501&#39;}</td>
-<td>d31581b3-076b-c1eb-8b42-57742aa290f1</td>
-<td>CE</td>
-<td>CATEGORICAL EXCLUSION DOCUMENTATION</td>
-<td>[United States Department of the Interior; Bureau of Land Management; Kemmerer Field Office]</td>
-<td>[43 CFR Part 46.210 or 516 DM 11.9, Section E, Realty (9), Renewals and assignments of leases, permits, or rights-of-way where no additional rights are conveyed beyond those granted by the original authorizations.]</td>
-<td>d31581b3-076b-c1eb-8b42-57742aa290f1</td>
-<td>CX.Renewal Wexpro 122548.pdf</td>
-<td>5</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">9</td>
-<td>{&#39;value&#39;: &#39;f5ff95d2-d956-b1e4-ae6f-0799142fe501&#39;}</td>
-<td>08e3c0f0-7c88-e2c8-8c5c-3c5dc1e322df</td>
-<td>OTHER</td>
-<td></td>
-<td>[]</td>
-<td>[]</td>
-<td>08e3c0f0-7c88-e2c8-8c5c-3c5dc1e322df</td>
-<td>Map(s).pdf</td>
-<td>3</td>
-<td>NO</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">10</td>
-<td>{&#39;value&#39;: &#39;f5ff95d2-d956-b1e4-ae6f-0799142fe501&#39;}</td>
-<td>f63b70c1-b207-148f-ce2b-9e16d248be4e</td>
-<td>OTHER</td>
-<td></td>
-<td>[]</td>
-<td>[]</td>
-<td>f63b70c1-b207-148f-ce2b-9e16d248be4e</td>
-<td>00_Wildlife_Clearance_Final_Form_02.10.21_merge.pdf</td>
-<td>4</td>
-<td>NO</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">11</td>
-<td>{&#39;value&#39;: &#39;16927428-5300-721f-9450-6ded17fca6cf&#39;}</td>
-<td>5eaa901b-7eca-d02d-54e3-ae0a30a00e40</td>
-<td>OTHER</td>
-<td></td>
-<td>[]</td>
-<td>[]</td>
-<td>5eaa901b-7eca-d02d-54e3-ae0a30a00e40</td>
-<td>Review of Extraordinary Circumstances (DOI-BLM-CA-C070-2018-0002-CX).pdf</td>
-<td>3</td>
-<td>NO</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">12</td>
-<td>{&#39;value&#39;: &#39;16927428-5300-721f-9450-6ded17fca6cf&#39;}</td>
-<td>93779c5c-c337-7017-9591-9951ac45ed69</td>
-<td>CE</td>
-<td>Adobe Lake Allotment Grazing Preference Transfer Categorical Exclusion Documentation</td>
-<td>[United States Department of the Interior\nBureau of Land Management]</td>
-<td>[516 DM 11.9, D (1): Approval of transfers of grazing preference.]</td>
-<td>93779c5c-c337-7017-9591-9951ac45ed69</td>
-<td>Categorical Exclusion Documentation (DOI-BLM-CA-C070-2018-0002-CX).pdf</td>
-<td>3</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">13</td>
-<td>{&#39;value&#39;: &#39;91995b7b-17cc-60bb-74a8-1cd1913cb41a&#39;}</td>
-<td>66eedbf3-2418-f941-111e-f2ba43c8dae2</td>
-<td>CE</td>
-<td>Categorical Exclusion DOI-BLM-AZ-C030-2016-0013-CX AGFD Maintenance of Bill Williams #1 Catchment 965</td>
-<td>[U.S. Department of the Interior; Bureau of Land Management; Lake Havasu Field Office; Colorado River District; Arizona Game and Fish Department]</td>
-<td>[516 DM 11.9, Appendix 4, A.2, 1. Minor modification of water developments to improve or facilitate wildlife use (e.g. modify enclosure fence, install flood valve, or reduce ramp access angle).]</td>
-<td>66eedbf3-2418-f941-111e-f2ba43c8dae2</td>
-<td>Signed CX Water 965.pdf</td>
-<td>12</td>
-<td>YES</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">14</td>
-<td>{&#39;value&#39;: &#39;1d066780-ccb9-b362-9dad-1cb61addfc56&#39;}</td>
-<td>a4533f1d-3d12-1f15-28fe-ce04a2101b0e</td>
-<td>CE</td>
-<td>Decision on Action and Application for Categorical Exclusion</td>
-<td>[U.S. Department of the Interior; Bureau of Land Management; Pinedale Field Office]</td>
-<td>[Section 390 of the Energy Policy Act of 2005, Category 3, which pertains to &quot;Drilling an oil or gas well within a developed field for which an approved land use plan or any environmental document prepared pursuant to NEPA analyzed drilling as a reasonably foreseeable activity, so long as such plan or document was approved within five (5) years prior to the date of spudding the well.”]</td>
-<td>a4533f1d-3d12-1f15-28fe-ce04a2101b0e</td>
-<td>Ultra_WB_14B2-15D_CX.pdf</td>
-<td>4</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">15</td>
-<td>{&#39;value&#39;: &#39;1d066780-ccb9-b362-9dad-1cb61addfc56&#39;}</td>
-<td>a6f45d9e-8d79-d313-4ae1-24ba564129c3</td>
-<td>OTHER</td>
-<td></td>
-<td>[]</td>
-<td>[]</td>
-<td>a6f45d9e-8d79-d313-4ae1-24ba564129c3</td>
-<td>WB_5-15_COA_030817.pdf</td>
-<td>9</td>
-<td>NO</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">16</td>
-<td>{&#39;value&#39;: &#39;1d066780-ccb9-b362-9dad-1cb61addfc56&#39;}</td>
-<td>830527ac-e95b-2175-aabc-45cee49484a0</td>
-<td>CE</td>
-<td>Decision on Action and Application for Categorical Exclusion</td>
-<td>[U.S. Department of the Interior; Bureau of Land Management; Pinedale Field Office]</td>
-<td>[Section 390 of the Energy Policy Act of 2005, Category 3, which pertains to &quot;Drilling an oil or gas well within a developed field for which an approved land use plan or any environmental document prepared pursuant to NEPA analyzed drilling as a reasonably foreseeable activity, so long as such plan or document was approved within five (5) years prior to the date of spudding the well.”]</td>
-<td>830527ac-e95b-2175-aabc-45cee49484a0</td>
-<td>Ultra_WB_14B2-15D_Cover.pdf</td>
-<td>2</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">17</td>
-<td>{&#39;value&#39;: &#39;5d10a84c-98f3-7658-9f41-102c15a40abc&#39;}</td>
-<td>3f030387-84fe-3bb0-e3a3-e890c2328c06</td>
-<td>CE</td>
-<td>Categorical Exclusion: Transfer of Grazing Preference</td>
-<td>[United States Department of the Interior; Bureau of Land Management; Vale District Office; Baker Field Office]</td>
-<td>[516 DM 11.9 D., Rangeland Management 1. Approval of transfers of grazing preference.]</td>
-<td>3f030387-84fe-3bb0-e3a3-e890c2328c06</td>
-<td>Fillmore_Signed-Tranfer of Preference CX.pdf</td>
-<td>1</td>
-<td>YES</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">18</td>
-<td>{&#39;value&#39;: &#39;ad376b28-db6d-2d14-e26d-f12995312a75&#39;}</td>
-<td>13282916-51db-da19-7919-cf61159f6870</td>
-<td>CE</td>
-<td>Categorical Exclusion DOI-BLM-CO-SO54-2017-0001 CX Flat Top Mesa Communication Site Plan</td>
-<td>[United States Department of the Interior; Bureau of Land Management; Uncompahgre Field Office]</td>
-<td>[None, DOI-BLM-CO-SO54-2017-0001 CX]</td>
-<td>13282916-51db-da19-7919-cf61159f6870</td>
-<td>Flat Top Mesa Communication Site Plan.pdf</td>
-<td>10</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">19</td>
-<td>{&#39;value&#39;: &#39;6e025d57-efc1-57d9-78ad-238fda650800&#39;}</td>
-<td>330b56ad-41e1-b132-ba52-753fc60baaf1</td>
-<td>CE</td>
-<td>Categorical Exclusion Not Established By Statute</td>
-<td>[United States Department of the Interior; Bureau of Land Management; Moab Field Office]</td>
-<td>[516 DM 11.5(E) 19, issuance of short-term (3 years or less) rights-of-way or land use authorizations...where the proposal includes rehabilitation to restore the land to its natural or original condition.]</td>
-<td>330b56ad-41e1-b132-ba52-753fc60baaf1</td>
-<td>20-0018.pdf</td>
-<td>11</td>
-<td>YES</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">20</td>
-<td>{&#39;value&#39;: &#39;22164d3b-1f45-cb8a-d375-562347ecacf6&#39;}</td>
-<td>bc5628ef-cde7-3805-2248-aae1d21aad7e</td>
-<td>CE</td>
-<td>Categorical Exclusion Documentation</td>
-<td>[U.S. Department of the Interior; Bureau of Land Management]</td>
-<td>[516 DM 11.9. E. Realty, 9. Renewals and assignments of leases, permits, or rights-of-way where no additional rights are conveyed beyond those granted by the original authorizations.]</td>
-<td>bc5628ef-cde7-3805-2248-aae1d21aad7e</td>
-<td>Signed CX S010-2017-0079.pdf</td>
-<td>8</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">21</td>
-<td>{&#39;value&#39;: &#39;c34e6bfe-e685-3512-e6f9-40e2c6378d0a&#39;}</td>
-<td>0162115d-bbac-e7a3-20c9-452534f1b780</td>
-<td>CE</td>
-<td>Categorical Exclusion Not Established By Statute</td>
-<td>[United States Department of the Interior; Bureau of Land Management; Moab Field Office]</td>
-<td>[516 DM 11.5(E) 19, issuance of short-term (3 years or less) rights-of-way or land use authorizations...where the proposal includes rehabilitation to restore the land to its natural or original condition.]</td>
-<td>0162115d-bbac-e7a3-20c9-452534f1b780</td>
-<td>CX.pdf</td>
-<td>12</td>
-<td>YES</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">22</td>
-<td>{&#39;value&#39;: &#39;0aab3891-e819-1bbf-95f1-12ad6161e40e&#39;}</td>
-<td>0a569dd5-5e27-e2fe-7907-6d551b6f55de</td>
-<td>CE</td>
-<td>Categorical Exclusion\nDecision Record</td>
-<td>[U.S. Department of the Interior; Bureau of Land Management; Billings Field Office]</td>
-<td>[516 DM 11.9 E(9), Renewals and assignments of leases, permits, or rights-of-way where no additional rights are conveyed beyond those granted by the original authorizations.]</td>
-<td>0a569dd5-5e27-e2fe-7907-6d551b6f55de</td>
-<td>Categorical Exclusion.pdf</td>
-<td>5</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">23</td>
-<td>{&#39;value&#39;: &#39;0aab3891-e819-1bbf-95f1-12ad6161e40e&#39;}</td>
-<td>ba73bcfc-a45c-f2f3-972d-f5ef30f9ffe4</td>
-<td>OTHER</td>
-<td></td>
-<td>[]</td>
-<td>[]</td>
-<td>ba73bcfc-a45c-f2f3-972d-f5ef30f9ffe4</td>
-<td>Exhibit A_Location Map.pdf</td>
-<td>1</td>
-<td>NO</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">24</td>
-<td>{&#39;value&#39;: &#39;0aab3891-e819-1bbf-95f1-12ad6161e40e&#39;}</td>
-<td>8cfb3cf8-a127-049c-a679-eea36f0795cc</td>
-<td>CE</td>
-<td>Categorical Exclusion\nDecision Record</td>
-<td>[U.S. Department of the Interior; Bureau of Land Management; Billings Field Office]</td>
-<td>[516 DM 11.9 E(9), Renewals and assignments of leases, permits, or rights-of-way where no additional rights are conveyed beyond those granted by the original authorizations.]</td>
-<td>8cfb3cf8-a127-049c-a679-eea36f0795cc</td>
-<td>Decision Record.pdf</td>
-<td>4</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">25</td>
-<td>{&#39;value&#39;: &#39;0aab3891-e819-1bbf-95f1-12ad6161e40e&#39;}</td>
-<td>451eef7b-d669-edac-3c2c-341e7259fdc8</td>
-<td>OTHER</td>
-<td></td>
-<td>[]</td>
-<td>[]</td>
-<td>451eef7b-d669-edac-3c2c-341e7259fdc8</td>
-<td>Exhibit B_Current Terms and Conditions.pdf</td>
-<td>6</td>
-<td>NO</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">26</td>
-<td>{&#39;value&#39;: &#39;f5eeb487-3d05-56cb-0d49-90d36ef68c24&#39;}</td>
-<td>b911ee64-8bc8-de13-a670-80366779f6ac</td>
-<td>CE</td>
-<td>ENERGY POLICY ACT OF 2005 SECTION 390 CX REVIEW AND DOCUMENTATION FORM</td>
-<td>[United States Department of Interior\nBureau of Land Management\nCarlsbad Field Office\nU.S. Fish and Wildlife Service\nState Historic Preservation Office]</td>
-<td>[Section 390 of the Energy Policy Act of 2005, (b) (4) – Placement of a pipelines in an approved right-of-way corridor, so long as the corridor was approved within five years prior to the date of placement of the road.]</td>
-<td>b911ee64-8bc8-de13-a670-80366779f6ac</td>
-<td>Straight Flush SWD #1).pdf</td>
-<td>3</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">27</td>
-<td>{&#39;value&#39;: &#39;c87a153c-f0c6-bd71-17e1-7e01ea9816a5&#39;}</td>
-<td>c73de3f5-ab88-5b3c-5f4e-f7298ae5b0e2</td>
-<td>OTHER</td>
-<td></td>
-<td>[]</td>
-<td>[]</td>
-<td>c73de3f5-ab88-5b3c-5f4e-f7298ae5b0e2</td>
-<td>GeoTechnical POD.pdf</td>
-<td>24</td>
-<td>NO</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">28</td>
-<td>{&#39;value&#39;: &#39;c87a153c-f0c6-bd71-17e1-7e01ea9816a5&#39;}</td>
-<td>cc821d3b-e4de-2c9f-41bd-d4ae09f50f27</td>
-<td>CE</td>
-<td>NEPA COMPLIANCE RECORD Categorical Exclusion (CX)</td>
-<td>[Bureau of Land Management Safford Field Office; Southline Transmission, LLC; Western Area Power Administration]</td>
-<td>[516 DM 11.9, E (19) Issuance of short-term (3 years or less) rights-of-way or land use authorizations for such uses as storage sites, apiary sites, and construction sites where the proposal includes rehabilitation to restore the land to its natural or original condition.]</td>
-<td>cc821d3b-e4de-2c9f-41bd-d4ae09f50f27</td>
-<td>Geotech CX.pdf</td>
-<td>6</td>
-<td>YES</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">29</td>
-<td>{&#39;value&#39;: &#39;c87a153c-f0c6-bd71-17e1-7e01ea9816a5&#39;}</td>
-<td>6e463359-843e-c7d3-1425-056287e65cb8</td>
-<td>OTHER</td>
-<td></td>
-<td>[]</td>
-<td>[]</td>
-<td>6e463359-843e-c7d3-1425-056287e65cb8</td>
-<td>Maps.pdf</td>
-<td>3</td>
-<td>NO</td>
-</tr>
-</tbody>
-</table>
-
-</div>
-</div>
 </div>
 <div class="cell" data-execution_count="10">
 <div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>pages.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -6416,8 +6000,76 @@ St. George Field Office
 </code></pre>
 </div>
 </div>
+</section>
+<section id="pages" class="level2">
+<h2 class="anchored" data-anchor-id="pages">Pages</h2>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&#39;75f86c2f-e651-6f0f-78b4-0816aecb0d3a&#39;</span> <span class="co"># Wyarno Grazing Lease</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>documents_filtered <span class="op">=</span> documents.loc[</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    documents[<span class="st">&quot;project_id&quot;</span>] <span class="op">==</span> target_id</span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>documents_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">project_id</th>
+<th data-quarto-table-cell-role="th">document_id</th>
+<th data-quarto-table-cell-role="th">document_type</th>
+<th data-quarto-table-cell-role="th">document_title</th>
+<th data-quarto-table-cell-role="th">prepared_by</th>
+<th data-quarto-table-cell-role="th">ce_category</th>
+<th data-quarto-table-cell-role="th">file_id</th>
+<th data-quarto-table-cell-role="th">file_name</th>
+<th data-quarto-table-cell-role="th">total_pages</th>
+<th data-quarto-table-cell-role="th">main_document</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&quot;75f86c2f-e651-6f0f-78b4-0816aecb0d3a&quot;</span> <span class="co"># coldfoot DR</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>pages_filtered <span class="op">=</span> pages.loc[</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> target_id</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>pages_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">document_id</th>
+<th data-quarto-table-cell-role="th">page_number</th>
+<th data-quarto-table-cell-role="th">page_text</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
 <div class="cell" data-execution_count="7">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>pages</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>pages</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -6506,8 +6158,8 @@ St. George Field Office
 </div>
 </div>
 <div class="cell" data-execution_count="12">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>docs_pages <span class="op">=</span> documents.merge(pages, on<span class="op">=</span><span class="st">&#39;document_id&#39;</span>, how<span class="op">=</span><span class="st">&#39;inner&#39;</span>)</span>
-<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>docs_pages.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>docs_pages <span class="op">=</span> documents.merge(pages, on<span class="op">=</span><span class="st">&#39;document_id&#39;</span>, how<span class="op">=</span><span class="st">&#39;inner&#39;</span>)</span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>docs_pages.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -6613,15 +6265,15 @@ St. George Field Office
 </div>
 </div>
 <div class="cell" data-execution_count="13">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a>docs_pages.document_type.unique()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>docs_pages.document_type.unique()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>array([&#39;CE&#39;, &#39;OTHER&#39;, &#39;ROD&#39;, &#39;FONSI&#39;, &#39;EA&#39;, &#39;&#39;, &#39;DEA&#39;], dtype=object)</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="25">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>test <span class="op">=</span> docs_pages[<span class="dv">0</span>:<span class="dv">100</span>]</span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>test</span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a><span class="co">#test.shape</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>test <span class="op">=</span> docs_pages[<span class="dv">0</span>:<span class="dv">100</span>]</span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>test</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a><span class="co">#test.shape</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -6818,32 +6470,32 @@ St. George Field Office
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> spacy</span>
-<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext <span class="im">import</span> SampleCorpora, produce_scattertext_explorer</span>
-<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext <span class="im">import</span> produce_scattertext_html</span>
-<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext.CorpusFromPandas <span class="im">import</span> CorpusFromPandas</span>
-<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a>nlp <span class="op">=</span> spacy.load(<span class="st">&#39;en_core_web_sm&#39;</span>)</span>
-<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="co">#convention_df = SampleCorpora.ConventionData2012.get_data()</span></span>
-<span id="cb24-9"><a href="#cb24-9" aria-hidden="true" tabindex="-1"></a>short_docs <span class="op">=</span> docs_pages[<span class="dv">0</span>:<span class="dv">100</span>]</span>
-<span id="cb24-10"><a href="#cb24-10" aria-hidden="true" tabindex="-1"></a>corpus <span class="op">=</span> CorpusFromPandas(short_docs,</span>
-<span id="cb24-11"><a href="#cb24-11" aria-hidden="true" tabindex="-1"></a>                          category_col<span class="op">=</span><span class="st">&#39;document_type&#39;</span>,</span>
-<span id="cb24-12"><a href="#cb24-12" aria-hidden="true" tabindex="-1"></a>                          text_col<span class="op">=</span><span class="st">&#39;page_text&#39;</span>,</span>
-<span id="cb24-13"><a href="#cb24-13" aria-hidden="true" tabindex="-1"></a>                          nlp<span class="op">=</span>nlp).build()</span>
-<span id="cb24-14"><a href="#cb24-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-15"><a href="#cb24-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-16"><a href="#cb24-16" aria-hidden="true" tabindex="-1"></a><span class="co"># create html document</span></span>
-<span id="cb24-17"><a href="#cb24-17" aria-hidden="true" tabindex="-1"></a>html <span class="op">=</span> st.produce_scattertext_explorer(corpus,</span>
-<span id="cb24-18"><a href="#cb24-18" aria-hidden="true" tabindex="-1"></a>                                       category<span class="op">=</span><span class="st">&#39;CE&#39;</span>,</span>
-<span id="cb24-19"><a href="#cb24-19" aria-hidden="true" tabindex="-1"></a>                                       category_name<span class="op">=</span><span class="st">&#39;Categorical Exclusion&#39;</span>,</span>
-<span id="cb24-20"><a href="#cb24-20" aria-hidden="true" tabindex="-1"></a>                                       not_category_name<span class="op">=</span><span class="st">&#39;Other&#39;</span>,</span>
-<span id="cb24-21"><a href="#cb24-21" aria-hidden="true" tabindex="-1"></a>                                       width_in_pixels<span class="op">=</span><span class="dv">1000</span>,</span>
-<span id="cb24-22"><a href="#cb24-22" aria-hidden="true" tabindex="-1"></a>                                       minimum_term_frequency<span class="op">=</span><span class="dv">5</span>,</span>
-<span id="cb24-23"><a href="#cb24-23" aria-hidden="true" tabindex="-1"></a>                                       metadata<span class="op">=</span>short_docs[<span class="st">&#39;document_id&#39;</span>])</span>
-<span id="cb24-24"><a href="#cb24-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb24-25"><a href="#cb24-25" aria-hidden="true" tabindex="-1"></a><span class="bu">open</span>(<span class="st">&#39;../output/scattertext/ce.html&#39;</span>, <span class="st">&#39;wb&#39;</span>).write(html.encode(<span class="st">&#39;utf-8&#39;</span>))</span>
-<span id="cb24-26"><a href="#cb24-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&#39;Open ../output/scattertext/ce.html in web browser.&#39;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> spacy</span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext <span class="im">import</span> SampleCorpora, produce_scattertext_explorer</span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext <span class="im">import</span> produce_scattertext_html</span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext.CorpusFromPandas <span class="im">import</span> CorpusFromPandas</span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-7"><a href="#cb26-7" aria-hidden="true" tabindex="-1"></a>nlp <span class="op">=</span> spacy.load(<span class="st">&#39;en_core_web_sm&#39;</span>)</span>
+<span id="cb26-8"><a href="#cb26-8" aria-hidden="true" tabindex="-1"></a><span class="co">#convention_df = SampleCorpora.ConventionData2012.get_data()</span></span>
+<span id="cb26-9"><a href="#cb26-9" aria-hidden="true" tabindex="-1"></a>short_docs <span class="op">=</span> docs_pages[<span class="dv">0</span>:<span class="dv">100</span>]</span>
+<span id="cb26-10"><a href="#cb26-10" aria-hidden="true" tabindex="-1"></a>corpus <span class="op">=</span> CorpusFromPandas(short_docs,</span>
+<span id="cb26-11"><a href="#cb26-11" aria-hidden="true" tabindex="-1"></a>                          category_col<span class="op">=</span><span class="st">&#39;document_type&#39;</span>,</span>
+<span id="cb26-12"><a href="#cb26-12" aria-hidden="true" tabindex="-1"></a>                          text_col<span class="op">=</span><span class="st">&#39;page_text&#39;</span>,</span>
+<span id="cb26-13"><a href="#cb26-13" aria-hidden="true" tabindex="-1"></a>                          nlp<span class="op">=</span>nlp).build()</span>
+<span id="cb26-14"><a href="#cb26-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-15"><a href="#cb26-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-16"><a href="#cb26-16" aria-hidden="true" tabindex="-1"></a><span class="co"># create html document</span></span>
+<span id="cb26-17"><a href="#cb26-17" aria-hidden="true" tabindex="-1"></a>html <span class="op">=</span> st.produce_scattertext_explorer(corpus,</span>
+<span id="cb26-18"><a href="#cb26-18" aria-hidden="true" tabindex="-1"></a>                                       category<span class="op">=</span><span class="st">&#39;CE&#39;</span>,</span>
+<span id="cb26-19"><a href="#cb26-19" aria-hidden="true" tabindex="-1"></a>                                       category_name<span class="op">=</span><span class="st">&#39;Categorical Exclusion&#39;</span>,</span>
+<span id="cb26-20"><a href="#cb26-20" aria-hidden="true" tabindex="-1"></a>                                       not_category_name<span class="op">=</span><span class="st">&#39;Other&#39;</span>,</span>
+<span id="cb26-21"><a href="#cb26-21" aria-hidden="true" tabindex="-1"></a>                                       width_in_pixels<span class="op">=</span><span class="dv">1000</span>,</span>
+<span id="cb26-22"><a href="#cb26-22" aria-hidden="true" tabindex="-1"></a>                                       minimum_term_frequency<span class="op">=</span><span class="dv">5</span>,</span>
+<span id="cb26-23"><a href="#cb26-23" aria-hidden="true" tabindex="-1"></a>                                       metadata<span class="op">=</span>short_docs[<span class="st">&#39;document_id&#39;</span>])</span>
+<span id="cb26-24"><a href="#cb26-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb26-25"><a href="#cb26-25" aria-hidden="true" tabindex="-1"></a><span class="bu">open</span>(<span class="st">&#39;../output/scattertext/ce.html&#39;</span>, <span class="st">&#39;wb&#39;</span>).write(html.encode(<span class="st">&#39;utf-8&#39;</span>))</span>
+<span id="cb26-26"><a href="#cb26-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&#39;Open ../output/scattertext/ce.html in web browser.&#39;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Open ./simple.html in Chrome or Firefox.</code></pre>
 </div>

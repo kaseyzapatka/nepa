@@ -41,10 +41,11 @@ cat("Total projects loaded:", nrow(projects), "\n")
 cat("Clean energy projects:", sum(projects$project_energy_type == "Clean"), "\n\n")
 
 # Filter to clean energy only
+# Note: project_energy_type already reflects final classification after all exclusions
+# (utilities, military nuclear, nuclear waste) are applied in the Python extraction pipeline
 clean_energy <- projects %>%
-  filter(project_energy_type == "Clean") |> 
-  # remove Utilities + Broadband, Waste Management, or Land Development tags
-  filter(!project_utilities_to_filter_out)
+  filter(project_energy_type == "Clean") %>%
+  glimpse()
 
 cat("Clean energy dataset ready:", nrow(clean_energy), "projects\n")
 

@@ -372,6 +372,53 @@ tbl_top_connections %>% print()
 # Save
 write_csv(tbl_top_connections, here(tables_dir, "table_top_connections.csv"))
 
+
+
+#
+# Word Cloud of Project Types
+# ----------------------------------------------------
+cat("\nCreating word cloud of project types...\n")
+
+
+# Extract and count all project types from multi-state data
+project_type_counts <- multi_state_data %>%
+  # Parse JSON arrays in project_type column
+  mutate(
+    types_list = map(project_type, ~ {
+      clean_str <- str_replace_all(.x, '\\[|\\]|"', "")
+      str_split(clean_str, ",\\s*")[[1]] %>%
+        str_trim() %>%
+        .[. != ""]
+    })
+  ) %>%
+  unnest(types_list) %>%
+  count(types_list, name = "freq", sort = TRUE) %>%
+  filter(!is.na(types_list) & types_list != "") %>%
+  rename(word = types_list)
+
+# Create word cloud
+set.seed(42)
+fig_wordcloud <- ggplot(project_type_counts, aes(label = word, size = freq, color = freq)) +
+  geom_text_wordcloud_area(
+    shape = "square",
+    rm_outside = TRUE,
+    area_corr = TRUE
+  ) +
+  scale_size_area(max_size = 60) +
+  scale_color_gradientn(colors = c(catf_light_blue, catf_dark_blue, catf_navy)) +
+  theme_void()
+
+fig_wordcloud
+
+ggsave(
+  filename = here(figures_dir, "fig_project_types_wordcloud.png"),
+  plot = fig_wordcloud,
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = 300
+)
+
 # --------------------------
 # MULTI-DEPARTMENT
 # --------------------------
@@ -421,48 +468,54 @@ tbl_department_links <-
 write_csv(tbl_department_links, here(tables_dir, "table_by_department.csv"))
 
 
+
+
+# --------------------------
+# MULTI-DEPARTMENT
+# --------------------------
+
+multi_department_data |>
+  select(project_department, lead_agency, project_sponsor, project_multi_department) |>
+  print(n = 50)
+
+
+# Create multi-department dataframe
+multi_agency_data <- 
+  clean_energy |> 
+  filter(dataset_source != "CE") |> 
+  select(lead_agency, project_sponsor) |> 
+  slice_sample(n = 100) |> 
+  print(n = 100)
+  glimpse()
+  
+  sfilter(project_multi_department) |> 
+  glimpse()  # 21
+
 #
-# Word Cloud of Project Types
+# Process data
 # ----------------------------------------------------
-cat("\nCreating word cloud of project types...\n")
+department_links <- create_crosstab(
+  multi_department_data,
+  "lead_agency",
+  keep_cols = c("project_title", "project_type")
+) |>
+  print()
 
 
-# Extract and count all project types from multi-state data
-project_type_counts <- multi_state_data %>%
-  # Parse JSON arrays in project_type column
-  mutate(
-    types_list = map(project_type, ~ {
-      clean_str <- str_replace_all(.x, '\\[|\\]|"', "")
-      str_split(clean_str, ",\\s*")[[1]] %>%
-        str_trim() %>%
-        .[. != ""]
-    })
-  ) %>%
-  unnest(types_list) %>%
-  count(types_list, name = "freq", sort = TRUE) %>%
-  filter(!is.na(types_list) & types_list != "") %>%
-  rename(word = types_list)
 
-# Create word cloud
-set.seed(42)
-fig_wordcloud <- ggplot(project_type_counts, aes(label = word, size = freq, color = freq)) +
-  geom_text_wordcloud_area(
-    shape = "square",
-    rm_outside = TRUE,
-    area_corr = TRUE
-  ) +
-  scale_size_area(max_size = 60) +
-  scale_color_gradientn(colors = c(catf_light_blue, catf_dark_blue, catf_navy)) +
-  theme_void()
 
-fig_wordcloud
+# --------------------------
+# BUREAU OF LAND MANAGEMENT SPECIFIC QUESTION
+# --------------------------
+# Geothermal team - association of project review speed with BLM office -- What to know: Different offices offer faster review processing?
 
-ggsave(
-  filename = here(figures_dir, "fig_project_types_wordcloud.png"),
-  plot = fig_wordcloud,
-  width = 8,
-  height = 5,
-  units = "in",
-  dpi = 300
-)
+# NEED TO ESTABLISH TIMELINE ANALYSIS FIRST 
 
+projects %>%
+  filter(str_detect(project_type, regex("geothermal", ignore_case = TRUE))) |> 
+  filter(str_detect(lead_agency, regex("land management", ignore_case = TRUE))) |> 
+  #select(project_title, dataset_source, project_department, project_sponsor, lead_agency, project_energy_type) |> 
+  select(dataset_source, project_department, project_sponsor,lead_agency, project_energy_type) |> 
+  slice_sample(n = 20) |> 
+  print(n = 20 )
+  glimpse()

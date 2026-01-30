@@ -40,7 +40,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from extract.classify_energy import add_energy_columns
 from extract.parse_location import add_location_columns
-import re
 import json
 
 pd.set_option('display.max_columns', None)
@@ -269,6 +268,66 @@ def add_multi_value_flags(df):
 # --------------------------
 # MILITARY & NUCLEAR WASTE FILTERS
 # --------------------------
+#
+# FILTERING LOGIC SUMMARY:
+# ========================
+# The following filters reclassify projects from "Clean" to "Other" energy type:
+#
+# 1. UTILITIES + NON-ENERGY EXCLUSIONS (in classify_energy.py)
+#    - Projects with ONLY "Utilities" + one of: Broadband, Waste Management,
+#      Land Development (Housing, Other, Urban)
+#    - Rationale: These are likely telecommunications or development projects
+#      with utility connections, not clean energy projects
+#
+# 2. MILITARY / DEFENSE SITE EXCLUSIONS
+#    - Projects with both "Military and Defense" AND "Nuclear" project_type tags
+#    - Loaded from: notes/military_project_ids_to_filter.csv
+#    - Rationale: Defense-related nuclear projects are not civilian clean energy
+#
+# 3. NUCLEAR WASTE MANAGEMENT EXCLUSIONS
+#    - Projects with both "Waste Management" AND "Nuclear" project_type tags
+#    - AND associated with NNSA, Office of Legacy Management, or Office of
+#      Environmental Management (based on lead_agency, project_sponsor, OR project_title)
+#    - Exclusion terms loaded from: notes/agencies_to_be_excluded.txt
+#    - Rationale: Nuclear waste cleanup/storage is not clean energy production
+#    - Title-based filtering added to catch projects where sponsor field is missing
+#      (e.g., "Hanford Site" appearing only in the title)
+#
+# The exclusion terms file (agencies_to_be_excluded.txt) includes:
+#    - NNSA sites: Los Alamos, Sandia, Livermore, Pantex, Y-12, Savannah River, etc.
+#    - Legacy Management: Albuquerque Operations Office, Grand Junction Office
+#    - Environmental Management: Hanford, Richland, Oak Ridge, WIPP, etc.
+
+
+def load_exclusion_terms():
+    """
+    Load exclusion terms from notes/agencies_to_be_excluded.txt.
+
+    These terms identify projects associated with NNSA, Office of Legacy Management,
+    or Office of Environmental Management that should not be classified as clean energy
+    when combined with Nuclear + Waste Management tags.
+
+    Returns:
+        list: List of exclusion term strings (lowercase, stripped)
+    """
+    txt_path = NOTES_DIR / "agencies_to_be_excluded.txt"
+    if not txt_path.exists():
+        print(f"  Warning: {txt_path} not found, using default patterns")
+        return []
+
+    try:
+        terms = []
+        with open(txt_path, 'r') as f:
+            for line in f:
+                # Skip comments and empty lines
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    terms.append(line.lower())
+        return terms
+    except Exception as e:
+        print(f"  Warning: Error loading exclusion terms: {e}")
+        return []
+
 
 def load_military_project_ids():
     """
@@ -293,19 +352,25 @@ def load_military_project_ids():
         return set()
 
 
-def is_nuclear_waste_project(project_type, project_sponsor, lead_agency):
+def is_nuclear_waste_project(project_type, project_sponsor, lead_agency, project_title,
+                              exclusion_terms=None):
     """
     Check if a project is a nuclear waste project that should not be classified as clean energy.
 
     Identifies projects that have both "Waste Management" AND "Nuclear" tags,
-    AND are associated with NNSA, Legacy Management, or Environmental Management.
+    AND are associated with NNSA, Legacy Management, or Environmental Management
+    based on lead_agency, project_sponsor, OR project_title.
 
-    This mirrors the R code logic in deliverable1/02_agency.R.
+    Title-based filtering catches cases where projects slipped through because
+    the sponsor field was missing (e.g., "Hanford Site" appearing only in the title).
 
     Args:
         project_type: Project type string (may be JSON array or numpy array)
         project_sponsor: Project sponsor string
         lead_agency: Lead agency string
+        project_title: Project title string
+        exclusion_terms: List of exclusion terms (loaded from agencies_to_be_excluded.txt)
+                        If None, will load from file.
 
     Returns:
         bool: True if this is a nuclear waste project to filter
@@ -327,7 +392,7 @@ def is_nuclear_waste_project(project_type, project_sponsor, lead_agency):
     if not (has_waste_management and has_nuclear):
         return False
 
-    # Convert sponsor and agency to strings for pattern matching
+    # Convert fields to strings for pattern matching
     # Handle None, NaN, arrays, and strings
     def to_lower_str(val):
         if val is None:
@@ -340,51 +405,35 @@ def is_nuclear_waste_project(project_type, project_sponsor, lead_agency):
 
     sponsor_str = to_lower_str(project_sponsor)
     agency_str = to_lower_str(lead_agency)
+    title_str = to_lower_str(project_title)
 
-    # NNSA patterns (National Nuclear Security Administration)
-    nnsa_patterns = [
-        r"\bnnsa\b",
-        "national nuclear security administration",
-        "kansas city",
-        "livermore",
-        "lawrence livermore",
-        "los alamos",
-        "naval nuclear",
-        "nevada",
-        "pantex",
-        "sandia",
-        "savannah river",
-        "y-12",
-    ]
+    # Use provided exclusion terms or load from file
+    if exclusion_terms is None:
+        exclusion_terms = load_exclusion_terms()
 
-    # Legacy Management patterns
-    lm_patterns = [
-        "office of legacy management",
-        "legacy management",
-    ]
+    # If exclusion terms loaded successfully, use them
+    if exclusion_terms:
+        # Check if any exclusion term appears in sponsor, agency, OR title
+        for term in exclusion_terms:
+            if term in sponsor_str or term in agency_str or term in title_str:
+                return True
+    else:
+        # Fallback to hardcoded patterns if file not available
+        fallback_patterns = [
+            "nnsa", "national nuclear security administration",
+            "kansas city", "livermore", "lawrence livermore", "los alamos",
+            "naval nuclear", "nevada", "pantex", "sandia", "savannah river", "y-12",
+            "office of legacy management", "legacy management",
+            "albuquerque operations office", "grand junction office",
+            "office of environmental management", "environmental management",
+            "hanford", "richland", "office of river protection",
+            "paducah", "portsmouth", "oak ridge", "waste isolation pilot plant", "carlsbad",
+        ]
+        for pattern in fallback_patterns:
+            if pattern in sponsor_str or pattern in agency_str or pattern in title_str:
+                return True
 
-    # Environmental Management patterns
-    em_patterns = [
-        "office of environmental management",
-        "environmental management",
-        "hanford",
-        "richland",
-        "office of river protection",
-        "paducah",
-        "portsmouth",
-        "oak ridge",
-        "waste isolation pilot plant",
-        "carlsbad",
-    ]
-
-    all_patterns = nnsa_patterns + lm_patterns + em_patterns
-
-    # Check if sponsor or agency matches any pattern
-    for pattern in all_patterns:
-        if re.search(pattern, sponsor_str) or re.search(pattern, agency_str):
-            return True
-
-    # Also check for specific lead agency matches
+    # Also check for specific lead agency matches (always check these)
     agency_specific = [
         "national nuclear security administration",
         "office of legacy management",
@@ -399,14 +448,22 @@ def is_nuclear_waste_project(project_type, project_sponsor, lead_agency):
 
 def apply_energy_type_filters(df):
     """
-    Apply military and nuclear waste filters to reclassify projects as "Other".
+    Apply all clean energy exclusion filters to reclassify projects as "Other".
 
     Projects that were initially classified as "Clean" but match these filters
     will be reclassified as "Other" since they are not clean energy projects.
 
+    Filters applied:
+    1. Utilities exclusion: Projects with ONLY Utilities + Broadband/Waste Management/
+       Land Development tags (likely telecom or development, not energy projects)
+    2. Military nuclear: Defense-related nuclear projects (weapons, naval reactors)
+    3. Nuclear waste: Nuclear waste cleanup/storage at DOE sites
+
     Adds columns:
-    - project_is_military_nuclear: Boolean flag for military nuclear projects
-    - project_is_nuclear_waste: Boolean flag for nuclear waste projects
+    - project_utilities_to_exclude: Boolean flag for utilities-only projects
+       (Note: This column is created in classify_energy.py, we just use it here)
+    - project_military_to_exclude: Boolean flag for military nuclear projects
+    - project_nuclear_waste_to_exclude: Boolean flag for nuclear waste projects
 
     Modifies:
     - project_energy_type: Updates from "Clean" to "Other" for filtered projects
@@ -414,42 +471,69 @@ def apply_energy_type_filters(df):
 
     Args:
         df: DataFrame with project_id, project_type, project_sponsor, lead_agency,
-            project_energy_type, and project_energy_type_strict columns
+            project_title, project_energy_type, project_energy_type_strict, and
+            project_utilities_to_exclude columns
 
     Returns:
         DataFrame with filters applied
     """
     df = df.copy()
 
-    # Load military project IDs
+    # --- Filter 1: Utilities exclusion ---
+    # project_utilities_to_exclude is already computed in classify_energy.py
+    utilities_count = df['project_utilities_to_exclude'].sum()
+    print(f"  Utilities exclusion: {utilities_count} projects flagged")
+
+    # --- Filter 2: Military nuclear projects ---
     print("  Loading military project filter...")
     military_ids = load_military_project_ids()
     print(f"    Found {len(military_ids)} military project IDs to filter")
 
     # Flag military nuclear projects
-    df['project_is_military_nuclear'] = df['project_id'].astype(str).isin(military_ids)
+    df['project_military_to_exclude'] = df['project_id'].astype(str).isin(military_ids)
+
+    # --- Filter 3: Nuclear waste projects ---
+    print("  Loading nuclear waste exclusion terms...")
+    exclusion_terms = load_exclusion_terms()
+    print(f"    Loaded {len(exclusion_terms)} exclusion terms from agencies_to_be_excluded.txt")
 
     # Flag nuclear waste projects
+    # Checks project_type for Nuclear + Waste Management tags, then checks
+    # lead_agency, project_sponsor, AND project_title for exclusion terms
     print("  Identifying nuclear waste projects...")
-    df['project_is_nuclear_waste'] = df.apply(
+    df['project_nuclear_waste_to_exclude'] = df.apply(
         lambda row: is_nuclear_waste_project(
             row.get('project_type'),
             row.get('project_sponsor'),
-            row.get('lead_agency')
+            row.get('lead_agency'),
+            row.get('project_title'),
+            exclusion_terms
         ),
         axis=1
     )
 
-    nuclear_waste_count = df['project_is_nuclear_waste'].sum()
+    nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
     print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
 
-    # Reclassify filtered projects from "Clean" to "Other"
-    filter_mask = df['project_is_military_nuclear'] | df['project_is_nuclear_waste']
+    # --- Apply all filters to reclassify Clean -> Other ---
+    filter_mask = (
+        df['project_utilities_to_exclude'] |
+        df['project_military_to_exclude'] |
+        df['project_nuclear_waste_to_exclude']
+    )
     clean_mask = df['project_energy_type'] == 'Clean'
     reclassify_mask = filter_mask & clean_mask
 
     reclassified_count = reclassify_mask.sum()
     print(f"  Reclassifying {reclassified_count} projects from 'Clean' to 'Other'")
+
+    # Count by filter type for reporting
+    utilities_reclassified = (df['project_utilities_to_exclude'] & clean_mask).sum()
+    military_reclassified = (df['project_military_to_exclude'] & clean_mask).sum()
+    nuclear_waste_reclassified = (df['project_nuclear_waste_to_exclude'] & clean_mask).sum()
+    print(f"    - Utilities: {utilities_reclassified}")
+    print(f"    - Military: {military_reclassified}")
+    print(f"    - Nuclear waste: {nuclear_waste_reclassified}")
 
     df.loc[reclassify_mask, 'project_energy_type'] = 'Other'
     df.loc[reclassify_mask, 'project_energy_type_strict'] = 'Other'
@@ -772,9 +856,10 @@ def create_combined_projects():
     print(f"\nBy energy type:")
     print(combined['project_energy_type'].value_counts())
     print(f"\nProjects flagged for review: {combined['project_energy_type_questions'].sum():,}")
-    print(f"\nFiltered projects:")
-    print(f"  Military nuclear projects: {combined['project_is_military_nuclear'].sum():,}")
-    print(f"  Nuclear waste projects: {combined['project_is_nuclear_waste'].sum():,}")
+    print(f"\nExcluded from clean energy (reclassified to Other):")
+    print(f"  Utilities: {combined['project_utilities_to_exclude'].sum():,}")
+    print(f"  Military nuclear: {combined['project_military_to_exclude'].sum():,}")
+    print(f"  Nuclear waste: {combined['project_nuclear_waste_to_exclude'].sum():,}")
     print(f"\nMulti-value projects:")
     print(f"  Multi-state: {combined['project_multi_state'].sum():,}")
     print(f"  Multi-county: {combined['project_multi_county'].sum():,}")
@@ -824,28 +909,77 @@ DOCUMENT_TYPE_CATEGORIES = {
     'decision': ['ROD', 'FONSI', 'CE'],  # Decision documents - primary source for timelines
     'final': ['FEIS', 'EA'],              # Final documents (EA can be final)
     'draft': ['DEIS', 'DEA'],             # Draft documents
+    'appendix': [],                        # Appendices/attachments (identified by filename)
     'other': ['OTHER', ''],               # Other/unknown documents
 }
 
+# Filename patterns for classifying documents when document_type is missing
+# Each pattern list contains regex patterns to search in file_name (case-insensitive)
+# Note: Using (?:^|[^a-zA-Z]) and (?:[^a-zA-Z]|$) instead of \b because \b treats _ as word char
+FILENAME_PATTERNS = {
+    'decision': [
+        r'(?:^|[^a-zA-Z])ROD(?:[^a-zA-Z]|$)',
+        r'Record[_\-\s]?of[_\-\s]?Decision',
+        r'(?:^|[^a-zA-Z])FONSI(?:[^a-zA-Z]|$)',
+        r'Finding[_\-\s]?of[_\-\s]?No[_\-\s]?Significant[_\-\s]?Impact',
+        r'Categorical[_\-\s]?Exclusion',
+    ],
+    'final': [
+        r'(?:^|[^a-zA-Z])FEIS(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+        r'Final[_\-\s]?EA(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?Environmental[_\-\s]?Assessment',
+    ],
+    'draft': [
+        r'(?:^|[^a-zA-Z])DEIS(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+        r'(?:^|[^a-zA-Z])DEA(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?A(?:ssessment)?',
+    ],
+    'appendix': [
+        r'(?:^|[^a-zA-Z])Appendix',
+        r'(?:^|[^a-zA-Z])Appendices(?:[^a-zA-Z]|$)',
+        r'(?:^|[^a-zA-Z])Attachment',
+        r'(?:^|[^a-zA-Z])Exhibit(?:[^a-zA-Z]|$)',
+    ],
+}
 
-def classify_document_type(doc_type):
+
+def classify_document_type(doc_type, file_name=None):
     """
     Classify a document_type into a category.
 
+    When doc_type is missing or empty, falls back to scanning the file_name
+    for known patterns (abbreviations and spelled-out versions).
+
     Args:
         doc_type: The document_type value (e.g., 'ROD', 'FEIS', 'DEIS')
+        file_name: The file_name value to scan when doc_type is missing
 
     Returns:
-        str: Category name ('decision', 'final', 'draft', 'other')
+        str: Category name ('decision', 'final', 'draft', 'appendix', 'other')
     """
-    if pd.isna(doc_type) or doc_type == '':
-        return 'other'
+    import re
 
-    doc_type_upper = str(doc_type).upper().strip()
+    # First, try to classify using document_type if present
+    if doc_type is not None and not pd.isna(doc_type) and doc_type != '':
+        doc_type_upper = str(doc_type).upper().strip()
 
-    for category, types in DOCUMENT_TYPE_CATEGORIES.items():
-        if doc_type_upper in types:
-            return category
+        for category, types in DOCUMENT_TYPE_CATEGORIES.items():
+            if doc_type_upper in types:
+                return category
+
+    # If doc_type is missing/empty/OTHER, try to classify using file_name
+    if file_name is not None and not pd.isna(file_name) and file_name != '':
+        file_name_str = str(file_name)
+
+        # Check each category's filename patterns
+        # Order matters: check decision/final/draft before appendix
+        for category in ['decision', 'final', 'draft', 'appendix']:
+            patterns = FILENAME_PATTERNS.get(category, [])
+            for pattern in patterns:
+                if re.search(pattern, file_name_str, re.IGNORECASE):
+                    return category
 
     return 'other'
 
@@ -854,14 +988,20 @@ def add_document_type_category(df):
     """
     Add document_type_category column to documents dataframe.
 
+    Uses document_type when available, falls back to scanning file_name
+    for known patterns when document_type is missing.
+
     Args:
-        df: Documents dataframe with document_type column
+        df: Documents dataframe with document_type and file_name columns
 
     Returns:
         DataFrame with document_type_category column added
     """
     df = df.copy()
-    df['document_type_category'] = df['document_type'].apply(classify_document_type)
+    df['document_type_category'] = df.apply(
+        lambda row: classify_document_type(row.get('document_type'), row.get('file_name')),
+        axis=1
+    )
     return df
 
 
@@ -870,7 +1010,7 @@ def get_project_document_flags(documents_df):
     Create project-level flags for document types.
 
     Args:
-        documents_df: Documents dataframe with project_id and document_type columns
+        documents_df: Documents dataframe with project_id, document_type, and file_name columns
 
     Returns:
         DataFrame with project_id and document flag columns
@@ -884,6 +1024,7 @@ def get_project_document_flags(documents_df):
         project_has_decision_doc=('document_type_category', lambda x: 'decision' in x.values),
         project_has_final_doc=('document_type_category', lambda x: 'final' in x.values),
         project_has_draft_doc=('document_type_category', lambda x: 'draft' in x.values),
+        project_has_appendix_doc=('document_type_category', lambda x: 'appendix' in x.values),
         project_doc_count=('document_id', 'count'),
     ).reset_index()
 
