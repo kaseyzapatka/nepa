@@ -555,6 +555,9 @@ DEFAULT_LLM_MODEL = "llama3.2:latest"
 # Context window for date extraction (chars before/after each date)
 DATE_CONTEXT_WINDOW = 150
 
+# Default cache path for hybrid regex candidates
+REGEX_CACHE_PATH = ANALYSIS_DIR / "regex_candidates.parquet"
+
 
 # --------------------------
 # HYBRID REGEX + LLM APPROACH
@@ -942,6 +945,7 @@ def extract_with_hybrid_approach(
     model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
     context_window: int = DATE_CONTEXT_WINDOW,
+    dates_with_context: list = None,
 ) -> dict:
     """
     Extract timeline using hybrid regex + LLM approach.
@@ -973,8 +977,9 @@ def extract_with_hybrid_approach(
         'error': None,
     }
 
-    # Step 1: Extract dates with context using regex
-    dates_with_context = extract_dates_with_context(text, context_window)
+    # Step 1: Extract dates with context using regex (or use precomputed cache)
+    if dates_with_context is None:
+        dates_with_context = extract_dates_with_context(text, context_window)
     result['n_dates_regex'] = len(dates_with_context)
 
     if not dates_with_context:
@@ -1341,6 +1346,7 @@ def build_project_timeline_llm(
     model: str = DEFAULT_LLM_MODEL,
     use_hybrid: bool = False,
     timeout: int = 120,
+    dates_with_context: list = None,
 ) -> dict:
     """
     Build a timeline for a single project using LLM extraction.
@@ -1408,25 +1414,35 @@ def build_project_timeline_llm(
         result['llm_error'] = 'no_documents'
         return result
 
-    # Get page text for this project
-    doc_ids = project_docs['document_id'].tolist()
-    project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
+    # If hybrid with cached dates, skip loading page text
+    if use_hybrid and dates_with_context is not None:
+        all_text = ""
+        result['total_chars'] = 0
+    else:
+        # Get page text for this project
+        doc_ids = project_docs['document_id'].tolist()
+        project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
 
-    if project_pages.empty:
-        result['llm_error'] = 'no_pages'
-        return result
+        if project_pages.empty:
+            result['llm_error'] = 'no_pages'
+            return result
 
-    # Combine all page text
-    all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
-    result['total_chars'] = len(all_text)
+        # Combine all page text
+        all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
+        result['total_chars'] = len(all_text)
 
-    if not all_text.strip():
-        result['llm_error'] = 'empty_text'
-        return result
+        if not all_text.strip():
+            result['llm_error'] = 'empty_text'
+            return result
 
     # Extract with LLM (hybrid or full-document approach)
     if use_hybrid:
-        llm_result = extract_with_hybrid_approach(all_text, model=model, timeout=timeout)
+        llm_result = extract_with_hybrid_approach(
+            all_text,
+            model=model,
+            timeout=timeout,
+            dates_with_context=dates_with_context,
+        )
     else:
         llm_result = extract_with_ollama(all_text, model=model, timeout=timeout)
 
@@ -1468,6 +1484,8 @@ def run_llm_timeline_extraction(
     output_file: str = None,
     use_hybrid: bool = False,
     timeout: int = 120,
+    use_regex_cache: bool = False,
+    regex_cache_path: Path = REGEX_CACHE_PATH,
 ):
     """
     Run LLM-based timeline extraction for CE clean energy projects.
@@ -1537,6 +1555,14 @@ def run_llm_timeline_extraction(
         pages_df = pages_df[pages_df['document_id'].isin(main_doc_ids)]
         print(f"Filtered to {len(pages_df):,} pages from main documents")
 
+    regex_cache_df = None
+    if use_hybrid and use_regex_cache:
+        if not regex_cache_path.exists():
+            print(f"Error: regex cache not found at {regex_cache_path}. Run --regex-prep first.")
+            return None
+        regex_cache_df = pd.read_parquet(regex_cache_path)
+        print(f"Loaded regex cache: {len(regex_cache_df):,} rows")
+
     # Process each project
     results = []
     total = len(projects)
@@ -1557,10 +1583,20 @@ def run_llm_timeline_extraction(
             remaining = (total - idx) / rate if rate > 0 else 0
             print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining/60:.1f} min remaining")
 
-        timeline = build_project_timeline_llm(
-            project_id, pages_df, documents_df, model=model,
-            use_hybrid=use_hybrid, timeout=timeout
-        )
+        if use_hybrid and use_regex_cache and regex_cache_df is not None:
+            cached_dates = regex_cache_df[regex_cache_df['project_id'] == project_id]
+            dates_with_context = cached_dates[[
+                'date', 'match', 'context', 'position', 'position_pct'
+            ]].to_dict(orient='records')
+            timeline = build_project_timeline_llm(
+                project_id, pages_df, documents_df, model=model,
+                use_hybrid=True, timeout=timeout, dates_with_context=dates_with_context
+            )
+        else:
+            timeline = build_project_timeline_llm(
+                project_id, pages_df, documents_df, model=model,
+                use_hybrid=use_hybrid, timeout=timeout
+            )
         results.append(timeline)
 
     elapsed_total = time.time() - start_time
@@ -1607,6 +1643,114 @@ def run_llm_timeline_extraction(
         print(projects_with_llm[has_error]['llm_error'].value_counts())
 
     return projects_with_llm
+
+
+def run_regex_prep(
+    sample_size: int = None,
+    clean_energy_only: bool = True,
+    ce_only: bool = True,
+    main_docs_only: bool = True,
+    output_file: str = None,
+):
+    """
+    Precompute regex candidate dates with context for hybrid LLM runs.
+
+    Saves a single cache file to data/analysis for reuse across runs.
+    """
+    print("\n=== Regex Candidate Preprocessing ===")
+
+    # Load projects
+    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
+    if not projects_path.exists():
+        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+        return None
+
+    projects = pd.read_parquet(projects_path)
+    print(f"Loaded {len(projects):,} projects")
+
+    # Filter by dataset source (CE only)
+    if ce_only:
+        projects = projects[projects['dataset_source'] == 'CE']
+        print(f"Filtered to {len(projects):,} CE projects")
+
+    # Filter by energy type
+    if clean_energy_only:
+        projects = projects[projects['project_energy_type'] == 'Clean']
+        print(f"Filtered to {len(projects):,} clean energy projects")
+
+    if sample_size:
+        projects = projects.sample(n=min(sample_size, len(projects)), random_state=42)
+        print(f"Sampled {len(projects):,} projects")
+
+    if projects.empty:
+        print("No projects to process after filtering.")
+        return None
+
+    # Load CE data
+    print("\nLoading CE document data...")
+    data_dir = PROCESSED_DIR / "ce"
+    pages_df = pd.read_parquet(data_dir / "pages.parquet")
+    documents_df = pd.read_parquet(data_dir / "documents.parquet")
+
+    # Clean project_id in documents
+    def extract_id(x):
+        if isinstance(x, dict):
+            return x.get('value', '')
+        return x
+
+    documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+
+    # Filter to main documents only if requested
+    if main_docs_only:
+        main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
+        pages_df = pages_df[pages_df['document_id'].isin(main_doc_ids)]
+        print(f"Filtered to {len(pages_df):,} pages from main documents")
+
+    results = []
+    total = len(projects)
+
+    print(f"\nProcessing {total} projects for regex candidates...")
+
+    for idx, (_, project) in enumerate(projects.iterrows()):
+        if idx % 100 == 0:
+            print(f"  Processing project {idx + 1}/{total}...")
+
+        project_id = project['project_id']
+        doc_ids = documents_df[documents_df['project_id'] == project_id]['document_id'].tolist()
+        if not doc_ids:
+            continue
+
+        project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
+        if project_pages.empty:
+            continue
+
+        all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
+        if not all_text.strip():
+            continue
+
+        dates_with_context = extract_dates_with_context(all_text)
+        for d in dates_with_context:
+            results.append({
+                'project_id': project_id,
+                'date': d.get('date'),
+                'match': d.get('match'),
+                'context': d.get('context'),
+                'position': d.get('position'),
+                'position_pct': d.get('position_pct'),
+            })
+
+    results_df = pd.DataFrame(results)
+
+    if output_file:
+        output_path = ANALYSIS_DIR / output_file
+    else:
+        output_path = REGEX_CACHE_PATH
+
+    results_df.to_parquet(output_path)
+    print(f"\nSaved regex cache to: {output_path}")
+    print(f"Total candidate rows: {len(results_df):,}")
+
+    return results_df
 
 
 def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODEL):
@@ -1813,6 +1957,12 @@ if __name__ == "__main__":
                         help='Run extraction on a single project by ID')
     parser.add_argument('--hybrid', action='store_true',
                         help='Use hybrid regex+LLM approach (faster, recommended)')
+    parser.add_argument('--regex-prep', action='store_true',
+                        help='Precompute regex candidate cache for hybrid LLM')
+    parser.add_argument('--use-regex-cache', action='store_true',
+                        help='Use precomputed regex cache for hybrid LLM')
+    parser.add_argument('--regex-cache', type=str,
+                        help='Custom regex cache filename (data/analysis/...)')
 
     args = parser.parse_args()
 
@@ -1829,6 +1979,17 @@ if __name__ == "__main__":
     # Test LLM extraction
     elif args.llm_test:
         test_llm_extraction_sample(n_samples=args.llm_test, model=args.model)
+
+    # Precompute regex candidates
+    elif args.regex_prep:
+        run_regex_prep(
+            sample_size=args.sample,
+            clean_energy_only=True,
+            ce_only=True,
+            main_docs_only=True,
+            output_file=args.regex_cache,
+        )
+        sys.exit(0)
 
     # Run LLM extraction on single project
     elif args.project_id:
@@ -1872,12 +2033,28 @@ if __name__ == "__main__":
 
         if args.hybrid:
             # Show what regex finds first
-            dates_found = extract_dates_with_context(all_text)
+            if args.use_regex_cache:
+                cache_path = ANALYSIS_DIR / args.regex_cache if args.regex_cache else REGEX_CACHE_PATH
+                if cache_path.exists():
+                    cache_df = pd.read_parquet(cache_path)
+                    dates_found = cache_df[cache_df['project_id'] == args.project_id][[
+                        'date', 'match', 'context', 'position', 'position_pct'
+                    ]].to_dict(orient='records')
+                else:
+                    print(f"WARNING: regex cache not found at {cache_path}, falling back to live extraction.")
+                    dates_found = extract_dates_with_context(all_text)
+            else:
+                dates_found = extract_dates_with_context(all_text)
             print(f"Regex found {len(dates_found)} dates")
             for d in dates_found:
                 print(f"  {d['date']} ({d['match']}): ...{d['context'][:80]}...")
 
-            result = extract_with_hybrid_approach(all_text, model=args.model, timeout=args.timeout)
+            result = extract_with_hybrid_approach(
+                all_text,
+                model=args.model,
+                timeout=args.timeout,
+                dates_with_context=dates_found,
+            )
             print(f"\nPrompt size: {result.get('prompt_chars', 0):,} chars (vs ~5,000 for full-document)")
         else:
             result = extract_with_ollama(all_text, model=args.model, timeout=args.timeout)
@@ -1936,4 +2113,6 @@ if __name__ == "__main__":
             output_file=args.output,
             use_hybrid=args.hybrid,
             timeout=args.timeout,
+            use_regex_cache=args.use_regex_cache,
+            regex_cache_path=ANALYSIS_DIR / args.regex_cache if args.regex_cache else REGEX_CACHE_PATH,
         )
