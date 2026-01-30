@@ -17,6 +17,8 @@ source(here::here("code", "00_setup.R"))
 # load libraries
 library(jsonlite)
 
+
+
 #
 # functions 
 # ----------------------------------------
@@ -50,14 +52,18 @@ test10_qwen2_14b <- read_parquet(here("data", "analysis", "test10_qwen14b.parque
 test10_qwen2_7b <- read_parquet(here("data", "analysis", "test10_qwen2:7b.parquet")) |> glimpse()
 test10_llama3 <- read_parquet(here("data", "analysis", "test10_llama3.2.parquet")) |> glimpse()
 test10_qwen7 <- read_parquet(here("data", "analysis", "test10_hybrid_qwen7.parquet")) |> glimpse()
+test10_qwen7_fixed <- read_parquet(here("data", "analysis", "test10_hybrid_fixed.parquet")) |> glimpse()
 
-
-
+#
+test20 <- read_parquet(here("data", "analysis", "test20_hybrid2.parquet")) |> glimpse()
+test20_1 <- read_parquet(here("data", "analysis", "test20_hybrid3.parquet")) |> glimpse()
 
 
 # --------------------------
 # VIEW RESULTS OF LLM RUN
 # --------------------------
+
+my_results4 |> glimpse()
 
 #
 # processing
@@ -110,9 +116,19 @@ successes_parsed_qwen14 <-
   glimpse()
 
 
-#  successes
-successes_parsed_qwen7 <- 
-  test10_qwen7  %>%
+successes_parsed20<- 
+  test20 %>%
+  # process
+  mutate(
+    parsed = map(llm_raw_response, safe_fromJSON),
+    parse_success = !map_lgl(parsed, is.null)
+  ) %>%
+  #filter(parse_success) %>%            # drop malformed JSON rows
+  unnest_wider(parsed) %>%
+  glimpse()
+
+successes_parsed20_1 <- 
+  test20_1 %>%
   # process
   mutate(
     parsed = map(llm_raw_response, safe_fromJSON),
@@ -123,11 +139,70 @@ successes_parsed_qwen7 <-
   glimpse()
 
 
+#  successes
+successes_parsed_qwen7 <- 
+  test10_qwen7_fixed  %>%
+  # process
+  mutate(
+    parsed = map(llm_raw_response, safe_fromJSON),
+    parse_success = !map_lgl(parsed, is.null)
+  ) %>%
+  filter(parse_success) %>%            # drop malformed JSON rows
+  unnest_wider(parsed) %>%
+  glimpse()
+
+
+test10_qwen7_fixed |> glimpse()
+ 
+#
+# view quality of tags by specific project
+# ----------------------------------------
+target_id <-
+  successes_parsed20 |> 
+    select(project_id) |> 
+    slice_sample(n=1) |> 
+    glimpse()
+
+successes_parsed20 |> 
+  filter(project_id %in% target_id) |> 
+  unnest(classifications) |> 
+  select(type, date, reason) |> 
+  print()
+
+successes_parsed20_1 |>  
+  filter(project_id %in% target_id) |> 
+  unnest(classifications) |> 
+  select(type, date, reason) |> 
+  print()
+
+successes_parsed_qwen |> 
+  filter(project_id %in% target_id) |> 
+  unnest(dates) |> 
+  select(type, date, source) |> 
+  print()
+
+successes_parsed_qwen7 |>
+  filter(project_id %in% target_id) |> 
+  unnest(classifications) |> 
+  select(type, date, reason) |> 
+  print()
+
+
+successes_parsed_llama |> 
+  filter(project_id %in% target_id) |> 
+  unnest(dates) |> 
+  select(type, date, source) |> 
+  print()
+
+
+
+
 #
 # failures
 # ----------------------------------------
-test10_qwen2_7b |> 
-  filter(!is.na(llm_error)) |> 
+test10_qwen7 |> 
+  filter(is.na(llm_error)) |> 
+  glimpse()
   select(total_chars) |> 
   summary()
 
@@ -206,52 +281,6 @@ successes_parsed |>
   unnest(dates) |> 
   select(type, date, source) |> 
   print()
- 
-#
-# view quality of tags by specific project
-# ----------------------------------------
-target_id <-
-  successes_parsed_qwen7 |> 
-    filter(parse_success == FALSE) |> 
-    select(project_id) |> 
-    #slice_sample(n=1) |> 
-    glimpse()
-
-#successes_parsed_qwen14 |> 
-#  filter(project_id %in% target_id) |> 
-#  unnest(dates) |> 
-#  select(type, date, source) |> 
-#  print()
-
-successes_parsed_qwen |> 
-  filter(project_id %in% target_id) |> 
-  unnest(dates) |> 
-  select(type, date, source) |> 
-  print()
-
-successes_parsed_qwen7 |>
-  filter(project_id %in% target_id) |> 
-  unnest(classifications) |> 
-  select(type, date, reason) |> 
-  print()
-
-
-
-#successes_parsed_llama |> 
-#  filter(project_id %in% target_id) |> 
-#  unnest(dates) |> 
-#  select(type, date, source) |> 
-#  print()
-
-
-
-successes_parsed100 |> 
-  slice_sample(n = 1)
-  filter(project_id == "51baada6-e292-4362-7094-625197da2c2") |> 
-  unnest(dates) |> 
-  select(type, date, source) |> 
-  print()
-
 
 # --------------------------
 # DOCUMENT DISTRIBUTION BY REVIEW PROCESS
