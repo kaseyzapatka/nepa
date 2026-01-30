@@ -560,23 +560,111 @@ DATE_CONTEXT_WINDOW = 150
 # HYBRID REGEX + LLM APPROACH
 # --------------------------
 
-def extract_dates_with_context(text: str, context_window: int = DATE_CONTEXT_WINDOW) -> list:
+# Hybrid cue lists (over-inclusive by design)
+DECISION_CUES = [
+    'signed', 'signature', 'digitally signed', 'approved', 'approval',
+    'determination', 'decision', 'decision memorandum', 'final approval',
+    'authorizing official', 'field manager', 'field office manager',
+    'field office manager determination', 'nepa compliance officer',
+    'environmental coordinator', 'concur', 'date determined', 'initiator signature',
+]
+
+INITIATION_CUES = [
+    'initiated', 'initiate', 'consultation', 'consulted', 'scoping',
+    'notice of intent', 'noi', 'submitted', 'submission', 'application received',
+    'received', 'request received', 'proposal submitted', 'prepared and submitted',
+    'comment period', '30-day comment period', 'request for', 'right-of-way application',
+    'row application', 'right of way application',
+    'document creation', 'date created', 'date prepared', 'prepared', 'drafted',
+    'revised', 'reviewed',
+]
+
+# Strong exclusions (keep tight to avoid discarding useful start/creation dates)
+EXCLUSION_PATTERNS = [
+    r'\b\d+\s*FR\s*\d+\b',          # Federal Register citations
+    r'\b\d+\s*CFR\s*\d+\b',         # CFR citations
+    r'\b\d+\s*U\.?S\.?C\.?\b',      # USC citations
+    r'\bFederal Register\b',
+    r'https?://',
+    r'\bOMB Control\b',
+    r'\bPaperwork Reduction\b',
+]
+
+
+def _sentence_spans(text: str) -> list:
     """
-    Extract all dates from text using regex, with surrounding context.
+    Split text into sentence-like spans with start/end indices.
+    Uses punctuation and line breaks as boundaries.
+    """
+    spans = []
+    for m in re.finditer(r'.*?(?:[.!?]+|\n{2,}|\n|$)', text, flags=re.DOTALL):
+        s = m.group(0)
+        if s and s.strip():
+            spans.append((m.start(), m.end(), s.strip()))
+    return spans
+
+
+def _expand_context(spans: list, idx: int, min_chars: int = 100) -> str:
+    """
+    Expand context to meet a minimum character length using adjacent sentences.
+    """
+    if not spans:
+        return ''
+    start_idx = end_idx = idx
+    context = spans[idx][2]
+    while len(context) < min_chars and (start_idx > 0 or end_idx < len(spans) - 1):
+        if start_idx > 0:
+            start_idx -= 1
+            context = f"{spans[start_idx][2]} {context}"
+        if len(context) >= min_chars:
+            break
+        if end_idx < len(spans) - 1:
+            end_idx += 1
+            context = f"{context} {spans[end_idx][2]}"
+    return re.sub(r'\s+', ' ', context).strip()
+
+
+def _has_any(text: str, cues: list) -> bool:
+    text_lower = text.lower()
+    return any(cue in text_lower for cue in cues)
+
+
+def _is_excluded_context(text: str) -> bool:
+    for pattern in EXCLUSION_PATTERNS:
+        if re.search(pattern, text, flags=re.IGNORECASE):
+            return True
+    return False
+
+
+def extract_dates_with_context(
+    text: str,
+    context_window: int = DATE_CONTEXT_WINDOW,
+    min_context_chars: int = 100,
+) -> list:
+    """
+    Extract candidate dates from text using regex, with sentence-based context.
 
     This is the first step of the hybrid approach:
     1. Regex finds all dates (fast, reliable)
-    2. Context is captured for LLM classification
+    2. Context is captured for LLM classification (sentence-based, expanded if short)
+    3. Only initiation/decision candidates are kept
 
     Args:
         text: Full document text
-        context_window: Characters to capture before/after each date match
+        context_window: Fallback window if sentence detection fails
+        min_context_chars: Minimum context length (expand with adjacent sentences)
 
     Returns:
         List of dicts: [{'date': 'YYYY-MM-DD', 'match': '01/15/2024', 'context': '...'}, ...]
     """
     results = []
     seen_dates = set()
+
+    # Build sentence spans once for context extraction
+    spans = _sentence_spans(text)
+
+    # Map sentence index to date matches
+    sentence_matches = [[] for _ in spans]
 
     for pattern, pattern_type in DATE_PATTERNS:
         for match in re.finditer(pattern, text, re.IGNORECASE):
@@ -595,18 +683,39 @@ def extract_dates_with_context(text: str, context_window: int = DATE_CONTEXT_WIN
 
             date_str = date_obj.strftime('%Y-%m-%d')
 
+            # Find sentence index containing this match
+            sent_idx = None
+            for i, (s_start, s_end, _) in enumerate(spans):
+                if s_start <= match.start() < s_end:
+                    sent_idx = i
+                    break
+
+            if sent_idx is None:
+                # Fallback to window if no sentence found
+                start = max(0, match.start() - context_window)
+                end = min(len(text), match.end() + context_window)
+                context = re.sub(r'\s+', ' ', text[start:end]).strip()
+            else:
+                context = _expand_context(spans, sent_idx, min_chars=min_context_chars)
+
+            # Exclusion filters (FR/CFR/USC/URLs/OMB)
+            if _is_excluded_context(context):
+                continue
+
+            sentence_matches[sent_idx].append({
+                'date_str': date_str,
+                'match': match.group(),
+                'position': match.start(),
+            })
+
+            # Candidate filter: keep if context has decision/initiation cues
+            if not (_has_any(context, DECISION_CUES) or _has_any(context, INITIATION_CUES)):
+                continue
+
             # Deduplicate by date string
             if date_str in seen_dates:
                 continue
             seen_dates.add(date_str)
-
-            # Extract context window
-            start = max(0, match.start() - context_window)
-            end = min(len(text), match.end() + context_window)
-            context = text[start:end]
-
-            # Clean up context (normalize whitespace)
-            context = re.sub(r'\s+', ' ', context).strip()
 
             results.append({
                 'date': date_str,
@@ -614,6 +723,37 @@ def extract_dates_with_context(text: str, context_window: int = DATE_CONTEXT_WIN
                 'context': context,
                 'position': match.start(),
                 'position_pct': match.start() / len(text) * 100 if len(text) > 0 else 0,
+            })
+
+    # Link initiation cue in sentence without date to date in next sentence
+    for i, (_, _, sent_text) in enumerate(spans):
+        if not sent_text:
+            continue
+        if not _has_any(sent_text, INITIATION_CUES):
+            continue
+        if sentence_matches[i]:
+            continue  # already has dates in this sentence
+        if i + 1 >= len(spans):
+            continue
+        if not sentence_matches[i + 1]:
+            continue
+
+        # Combine initiation sentence with next sentence context
+        combined = f"{sent_text} {spans[i + 1][2]}"
+        combined = re.sub(r'\s+', ' ', combined).strip()
+        if _is_excluded_context(combined):
+            continue
+
+        for m in sentence_matches[i + 1]:
+            if m['date_str'] in seen_dates:
+                continue
+            seen_dates.add(m['date_str'])
+            results.append({
+                'date': m['date_str'],
+                'match': m['match'],
+                'context': combined,
+                'position': m['position'],
+                'position_pct': m['position'] / len(text) * 100 if len(text) > 0 else 0,
             })
 
     # Sort by date
@@ -642,14 +782,10 @@ def create_classification_prompt(dates_with_context: list) -> str:
     lines = [
         "Classify each date extracted from a NEPA Categorical Exclusion document.",
         "",
-        "DATE TYPES:",
+        "Only classify the following date types:",
         "- decision: Final approval signature (Field Manager, NEPA Compliance Officer, Authorizing Official)",
-        "- specialist_review: Individual specialist sign-offs (wildlife biologist, archaeologist, etc.)",
-        "- application: When proposal/application was submitted or received",
-        "- historical: Prior actions, original permits from past years (e.g., 1985, 1990)",
-        "- expiration: End dates for permits or authorizations",
-        "- effective: When an action becomes effective",
-        "- other: Form revision dates, unrelated dates",
+        "- initiation: Start of the review or consultation (e.g., initiated consultation, application received, NOI, scoping)",
+        "- other: Anything else",
         "",
         "DATES TO CLASSIFY:",
         ""
@@ -663,7 +799,7 @@ def create_classification_prompt(dates_with_context: list) -> str:
     lines.extend([
         "Return JSON only:",
         '{"classifications": [',
-        '  {"date": "YYYY-MM-DD", "type": "decision|specialist_review|application|historical|expiration|effective|other", "reason": "brief explanation"},',
+        '  {"date": "YYYY-MM-DD", "type": "decision|initiation|other", "reason": "brief explanation"},',
         '  ...',
         ']}'
     ])
@@ -745,10 +881,11 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
             result['dates_json'] = json.dumps(classified_dates)
             result['n_dates_found'] = len(classified_dates)
 
-            # Extract summary fields by type
+            # Extract summary fields by type (hybrid focuses on decision/initiation)
             decision_dates = [d for d in classified_dates if d['type'] == 'decision']
+            initiation_types = {'initiation', 'application', 'start'}
+            application_dates = [d for d in classified_dates if d['type'] in initiation_types]
             review_dates = [d for d in classified_dates if d['type'] == 'specialist_review']
-            application_dates = [d for d in classified_dates if d['type'] == 'application']
             historical_dates = [d for d in classified_dates if d['type'] == 'historical']
             expiration_dates = [d for d in classified_dates if d['type'] == 'expiration']
 
@@ -767,7 +904,7 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
                 result['latest_review_date'] = review_dates[-1]['date']
                 result['n_specialist_reviews'] = len(review_dates)
 
-            # Application date
+            # Initiation/application date
             if application_dates:
                 application_dates.sort(key=lambda x: x['date'])
                 result['application_date'] = application_dates[0]['date']
