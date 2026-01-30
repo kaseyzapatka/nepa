@@ -1,6 +1,7 @@
 # Deliverable #2: Programmatic & Tiered Reviews
 
-**Status**: In Development
+**Status**: First full extraction running in background
+**Last Updated**: 2026-01-30
 **Script**: `code/extract/extract_reviews.py`
 **Output**: `data/analysis/projects_reviews.parquet`
 
@@ -8,13 +9,76 @@
 
 Data on programmatic and tiered reviews: how many tiered reviews are there compared to total, and are they completed faster?
 
+---
+
+## Current Status
+
+### Completed
+- [x] Created `extract_reviews.py` with 3-tier extraction approach
+- [x] Title-based detection for programmatic reviews
+- [x] Regex extraction with false-positive filtering
+- [x] LLM integration for ambiguous cases (optional flag)
+- [x] Fixed bug: "tiering from PEIS" was incorrectly flagged as programmatic
+- [x] Unit tests passing
+
+### In Progress
+- [ ] Full extraction running on 1,416 EA/EIS clean energy projects (background, `--no-llm`)
+- [ ] Estimated runtime: 2-4 hours
+
+### Next Steps
+1. **Review results** from first extraction when complete
+2. **Examine examples** - look at any programmatic/tiered reviews found
+3. **Refine patterns** based on real examples (regex may need tuning)
+4. **Second pass** with LLM enabled if needed for ambiguous cases
+5. **Timeline integration** - merge with timeline data to answer "are tiered reviews faster?"
+
+---
+
+## Known Issues
+
+### Issue 1: Rarity of Examples
+**Problem**: Programmatic/tiered reviews are very rare, making testing difficult.
+- Only **3 clean energy EA/EIS projects** have "programmatic" in title
+- Random 10-project samples consistently miss these cases
+- Tiered reviews estimated at only 5-15% of EA/EIS projects
+
+**Solution**: Run full extraction first, then examine what we find rather than trying to sample.
+
+### Issue 2: Performance/Speed
+**Problem**: Each project requires loading pages from parquet with filters (~10 sec/project).
+- Full run of 1,416 projects takes 2-4 hours
+- Bottleneck is `pq.read_table(pages_path, filters=[...])` per project
+
+**Potential optimization**: Pre-load all pages per source once, filter in memory.
+
+### Issue 3: "Tier" False Positives
+**Problem**: The word "tier" has many non-NEPA meanings.
+
+| False Positive | Example |
+|----------------|---------|
+| EPA engine standards | "EPA Tier 4 engine" |
+| Road classifications | "Tier 1 Roads and Primitive Roads" |
+| Pricing systems | "tiered pricing structure" |
+| Rankings | "first-tier", "top-tier" |
+
+**Status**: Filtering working correctly - unit tests pass.
+
+### Issue 4: Programmatic vs Tiered Distinction
+**Problem**: A document might mention a PEIS in two different ways:
+- "This Programmatic EIS analyzes..." → This IS a programmatic review
+- "This EA tiers from the Solar PEIS..." → This TIERS FROM a programmatic review
+
+**Status**: Fixed. Added check to exclude "tiering from" language from programmatic detection.
+
+---
+
 ## Background
 
 ### What are Programmatic Reviews?
 
 **Programmatic EIS/EA**: A broad environmental review that analyzes a class of similar actions (e.g., all solar projects on BLM land in California). These serve as "umbrella" documents that cover general environmental impacts.
 
-Examples found in data:
+Examples in data:
 - "Solar Energy Development PEIS"
 - "Wind Energy PEIS"
 - "Geothermal PEIS"
@@ -25,15 +89,17 @@ Examples found in data:
 
 Example language: *"This site-specific EA tiers from the 2012 Solar PEIS..."*
 
+---
+
 ## Extraction Approach
 
 ### 3-Tier Strategy
 
-| Tier | Method | Confidence | Speed |
-|------|--------|------------|-------|
-| 1 | Title-based detection | High | Fast |
-| 2 | Regex with context filtering | Medium-High | Medium |
-| 3 | LLM (Ollama) for ambiguous cases | Variable | Slow |
+| Tier | Method | When Used | Speed |
+|------|--------|-----------|-------|
+| 1 | Title detection | Always first | Instant |
+| 2 | Regex with context | If title doesn't match | ~10 sec/project |
+| 3 | LLM (Ollama) | Only if `--no-llm` not set AND medium-confidence matches | ~5 sec/call |
 
 ### Variables Created
 
@@ -46,14 +112,27 @@ Example language: *"This site-specific EA tiers from the 2012 Solar PEIS..."*
 | `project_review_confidence` | Categorical | `high`, `medium`, `low` |
 | `project_review_source` | String | Detection source: `title`, `text_regex`, `llm` |
 | `project_review_match_text` | String | Actual matched text from document |
-| `project_review_pages_scanned` | Integer | Number of pages examined |
-| `project_review_candidates_found` | Integer | Number of potential matches found |
 
-## Current Scope
+---
 
-- **Included**: EA and EIS projects (these have programmatic/tiered relationships)
-- **Excluded by default**: CE projects (rarely have these relationships)
-- **Filter**: Clean energy projects only (matching deliverable scope)
+## Unit Test Results
+
+```
+=== Title Detection ===
+✓ 'Programmatic Environmental Assessment...' -> programmatic=True
+✓ 'New York Bight Programmatic EIS...' -> programmatic=True
+✓ 'Regular Solar Farm Project...' -> programmatic=False
+✓ 'Site-specific EA tiering from the Solar PEIS...' -> programmatic=False (BUG FIXED)
+✓ 'Solar Energy Development PEIS...' -> programmatic=True
+
+=== Text Extraction ===
+✓ 'This EA tiers from the 2012 Solar Energy Development Programmatic EIS.'
+    -> Match found, reference extracted: "2012 Solar Energy Development Programmatic EIS"
+✓ 'Equipment will use EPA Tier 4 engines...' -> No match (false positive filtered)
+✓ 'This is a standard environmental assessment...' -> No match (correct)
+```
+
+---
 
 ## Usage
 
@@ -61,76 +140,63 @@ Example language: *"This site-specific EA tiers from the 2012 Solar PEIS..."*
 # Test on 10 projects
 python code/extract/extract_reviews.py --test
 
-# Sample run (50 projects)
-python code/extract/extract_reviews.py --run --sample 50
+# Full extraction (EA + EIS, no LLM - faster first pass)
+python code/extract/extract_reviews.py --run --no-llm
 
-# Full extraction (EA + EIS clean energy)
+# Full extraction with LLM for ambiguous cases
 python code/extract/extract_reviews.py --run
 
-# Include CE projects
+# Include CE projects (rarely have programmatic relationships)
 python code/extract/extract_reviews.py --run --include-ce
-
-# Disable LLM (regex only)
-python code/extract/extract_reviews.py --run --no-llm
 ```
 
-## Expected Prevalence
+---
 
-Based on sample analysis (50 clean energy projects):
+## Data Counts
 
-| Review Type | Expected % |
-|-------------|-----------|
-| Programmatic | ~1-2% (projects that ARE programmatic reviews) |
-| Tiered | ~5-15% of EA/EIS (projects tiering FROM programmatic) |
-| Standard | ~85-95% (no programmatic relationship) |
+| Category | Count |
+|----------|-------|
+| Total projects | 61,881 |
+| Clean energy projects | 22,279 |
+| Clean energy EA/EIS (current scope) | 1,416 |
+| Projects with "programmatic" in title | 3 |
+| Estimated tiered reviews | ~70-210 (5-15%) |
 
-## Key Findings from Sample Analysis
-
-1. **37 clean energy projects** have "programmatic" explicitly in title
-2. **Term "tier" has many false positives** - EPA Tier 1-4 engines, road classifications
-3. **CEs rarely mention programmatic relationships** - minimal documentation
-4. **EA/EIS documents frequently reference PEISs** but many are just citations, not tiering
-
-## False Positive Handling
-
-The script filters out these common false positives:
-- EPA Tier 1/2/3/4 engine standards
-- Road tier classifications
-- Tiered pricing/rate systems
-- First-tier/second-tier rankings
+---
 
 ## Timeline Integration (TODO)
 
-To answer "are tiered reviews completed faster", we need to combine this data with timeline data:
+To answer "are tiered reviews completed faster":
 
-1. **Current**: `extract_timeline.py` extracts dates from documents
-2. **Needed**: Merge `projects_reviews.parquet` with `projects_timeline.parquet`
-3. **Analysis**: Compare duration (decision_date - start_date) between tiered vs standard reviews
+1. Merge `projects_reviews.parquet` with timeline data
+2. Compare duration between tiered vs standard reviews
+3. Timeline extraction still being refined - revisit when ready
 
-### Timeline Variables to Use
-
-From `extract_timeline.py`:
-- `project_year` - Year of decision
+Key timeline variables:
 - `llm_decision_date` - Final approval date
 - `llm_application_date` - Start date
-- Duration can be calculated as difference
+- Duration = decision_date - application_date
 
-**Note**: Timeline extraction is still being refined. Will revisit integration when timeline data is more complete.
+---
 
 ## Development Log
 
 ### 2026-01-30
 - Created `extract_reviews.py` with 3-tier extraction approach
 - Implemented title-based, regex, and LLM extraction tiers
-- Added false positive filtering for EPA Tier standards, etc.
-- Created this status document
-- Next: Run test extraction, validate results
+- Added false positive filtering for EPA Tier standards, road tiers, etc.
+- Fixed bug: "tiering from PEIS" incorrectly flagged as programmatic
+- Unit tests passing
+- **Started first full extraction** (background, `--no-llm`)
+- **Next**: Review results when complete, examine found examples, refine patterns
+
+---
 
 ## Files
 
 - Script: `code/extract/extract_reviews.py`
 - Output: `data/analysis/projects_reviews.parquet`
-- This doc: `notes/reviews_status.md`
+- This doc: `notes/status/reviews_status.md`
 
 ## Related Files
 
