@@ -55,23 +55,22 @@ test10_qwen7 <- read_parquet(here("data", "analysis", "test10_hybrid_qwen7.parqu
 test10_qwen7_fixed <- read_parquet(here("data", "analysis", "test10_hybrid_fixed.parquet")) |> glimpse()
 
 #
-test20 <- read_parquet(here("data", "analysis", "test20_hybrid2.parquet")) |> glimpse()
-test20_1 <- read_parquet(here("data", "analysis", "test20_hybrid3.parquet")) |> glimpse()
+test20 <- read_parquet(here("data", "analysis", "test20_hybrid3.parquet")) |> glimpse()
+test20_instruct <- read_parquet(here("data", "analysis", "test20_hybrid3_instruct.parquet")) |> glimpse()
+test20_workers <- read_parquet(here("data", "analysis", "test20_workers.parquet")) |> glimpse()
 
 
 # --------------------------
 # VIEW RESULTS OF LLM RUN
 # --------------------------
 
-my_results4 |> glimpse()
 
 #
 # processing
 # ----------------------------------------
 
-#  successes
-successes_parsed100 <- 
-  my_results100 %>%
+successes_parsed_instruct <- 
+  test20_instruct %>%
   # process
   mutate(
     parsed = map(llm_raw_response, safe_fromJSON),
@@ -81,31 +80,8 @@ successes_parsed100 <-
   unnest_wider(parsed) %>%
   glimpse()
 
-#  successes
-successes_parsed_llama <- 
-  test10_llama3 %>%
-  # process
-  mutate(
-    parsed = map(llm_raw_response, safe_fromJSON),
-    parse_success = !map_lgl(parsed, is.null)
-  ) %>%
-  #filter(parse_success) %>%            # drop malformed JSON rows
-  unnest_wider(parsed) %>%
-  glimpse()
-
-successes_parsed_qwen <- 
-  test10_qwen2_7b %>%
-  # process
-  mutate(
-    parsed = map(llm_raw_response, safe_fromJSON),
-    parse_success = !map_lgl(parsed, is.null)
-  ) %>%
-  #filter(parse_success) %>%            # drop malformed JSON rows
-  unnest_wider(parsed) %>%
-  glimpse()
-
-successes_parsed_qwen14 <- 
-  test10_qwen2_14b %>%
+successes_parsed_workers <- 
+  test20_workers %>%
   # process
   mutate(
     parsed = map(llm_raw_response, safe_fromJSON),
@@ -116,85 +92,29 @@ successes_parsed_qwen14 <-
   glimpse()
 
 
-successes_parsed20<- 
-  test20 %>%
-  # process
-  mutate(
-    parsed = map(llm_raw_response, safe_fromJSON),
-    parse_success = !map_lgl(parsed, is.null)
-  ) %>%
-  #filter(parse_success) %>%            # drop malformed JSON rows
-  unnest_wider(parsed) %>%
-  glimpse()
-
-successes_parsed20_1 <- 
-  test20_1 %>%
-  # process
-  mutate(
-    parsed = map(llm_raw_response, safe_fromJSON),
-    parse_success = !map_lgl(parsed, is.null)
-  ) %>%
-  #filter(parse_success) %>%            # drop malformed JSON rows
-  unnest_wider(parsed) %>%
-  glimpse()
-
-
-#  successes
-successes_parsed_qwen7 <- 
-  test10_qwen7_fixed  %>%
-  # process
-  mutate(
-    parsed = map(llm_raw_response, safe_fromJSON),
-    parse_success = !map_lgl(parsed, is.null)
-  ) %>%
-  filter(parse_success) %>%            # drop malformed JSON rows
-  unnest_wider(parsed) %>%
-  glimpse()
-
-
-test10_qwen7_fixed |> glimpse()
  
 #
 # view quality of tags by specific project
 # ----------------------------------------
 target_id <-
-  successes_parsed20 |> 
+  successes_parsed_workers |> 
     select(project_id) |> 
     slice_sample(n=1) |> 
     glimpse()
 
-successes_parsed20 |> 
+successes_parsed_instruct |> 
   filter(project_id %in% target_id) |> 
+  select(-type, -date, -reason) |> 
   unnest(classifications) |> 
   select(type, date, reason) |> 
   print()
 
-successes_parsed20_1 |>  
-  filter(project_id %in% target_id) |> 
+successes_parsed_workers |>  
+filter(project_id %in% target_id) |> 
+  select(-type, -date, -reason) |> 
   unnest(classifications) |> 
   select(type, date, reason) |> 
   print()
-
-successes_parsed_qwen |> 
-  filter(project_id %in% target_id) |> 
-  unnest(dates) |> 
-  select(type, date, source) |> 
-  print()
-
-successes_parsed_qwen7 |>
-  filter(project_id %in% target_id) |> 
-  unnest(classifications) |> 
-  select(type, date, reason) |> 
-  print()
-
-
-successes_parsed_llama |> 
-  filter(project_id %in% target_id) |> 
-  unnest(dates) |> 
-  select(type, date, source) |> 
-  print()
-
-
 
 
 #
