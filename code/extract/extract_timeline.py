@@ -551,10 +551,10 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
 from preprocess_documents import preprocess_for_timeline
 
 # Default Ollama model - llama3.2 is fast and accurate for structured extraction
-DEFAULT_LLM_MODEL = "llama3.2:latest"
+DEFAULT_LLM_MODEL = "llama3.2:3b-instruct-q4_K_M"
 
 # Context window for date extraction (chars before/after each date)
-DATE_CONTEXT_WINDOW = 150
+DATE_CONTEXT_WINDOW = 80
 
 # Default cache path for hybrid regex candidates
 REGEX_CACHE_PATH = ANALYSIS_DIR / "regex_candidates.parquet"
@@ -643,7 +643,7 @@ def _is_excluded_context(text: str) -> bool:
 def extract_dates_with_context(
     text: str,
     context_window: int = DATE_CONTEXT_WINDOW,
-    min_context_chars: int = 100,
+    min_context_chars: int = 80,
 ) -> list:
     """
     Extract candidate dates from text using regex, with sentence-based context.
@@ -1011,10 +1011,10 @@ def extract_with_hybrid_approach(
                 'model': model,
                 'prompt': prompt,
                 'stream': False,
-                'options': {
-                    'temperature': 0.1,
-                    'num_predict': 512,  # Shorter response needed
-                }
+                    'options': {
+                        'temperature': 0.1,
+                        'num_predict': 256,  # Shorter response needed
+                    }
             },
             timeout=timeout
         )
@@ -1497,6 +1497,7 @@ def run_llm_timeline_extraction(
     timeout: int = 120,
     use_regex_cache: bool = False,
     regex_cache_path: Path = REGEX_CACHE_PATH,
+    workers: int = 4,
 ):
     """
     Run LLM-based timeline extraction for CE clean energy projects.
@@ -1582,33 +1583,47 @@ def run_llm_timeline_extraction(
     print("(This may take a while)\n")
 
     import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     start_time = time.time()
 
-    for idx, (_, project) in enumerate(projects.iterrows()):
-        project_id = project['project_id']
-
-        # Progress update
-        if idx > 0 and idx % 10 == 0:
-            elapsed = time.time() - start_time
-            rate = idx / elapsed
-            remaining = (total - idx) / rate if rate > 0 else 0
-            print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining/60:.1f} min remaining")
-
+    def _run_one(project_id: str):
         if use_hybrid and use_regex_cache and regex_cache_df is not None:
             cached_dates = regex_cache_df[regex_cache_df['project_id'] == project_id]
             dates_with_context = cached_dates[[
                 'date', 'match', 'context', 'position', 'position_pct'
             ]].to_dict(orient='records')
-            timeline = build_project_timeline_llm(
+            return build_project_timeline_llm(
                 project_id, pages_df, documents_df, model=model,
                 use_hybrid=True, timeout=timeout, dates_with_context=dates_with_context
             )
-        else:
-            timeline = build_project_timeline_llm(
-                project_id, pages_df, documents_df, model=model,
-                use_hybrid=use_hybrid, timeout=timeout
-            )
-        results.append(timeline)
+        return build_project_timeline_llm(
+            project_id, pages_df, documents_df, model=model,
+            use_hybrid=use_hybrid, timeout=timeout
+        )
+
+    if workers and workers > 1:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = []
+            for _, project in projects.iterrows():
+                futures.append(executor.submit(_run_one, project['project_id']))
+
+            for idx, fut in enumerate(as_completed(futures), 1):
+                results.append(fut.result())
+                if idx % 10 == 0:
+                    elapsed = time.time() - start_time
+                    rate = idx / elapsed
+                    remaining = (total - idx) / rate if rate > 0 else 0
+                    print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining/60:.1f} min remaining")
+    else:
+        for idx, (_, project) in enumerate(projects.iterrows(), 1):
+            project_id = project['project_id']
+            if idx % 10 == 0:
+                elapsed = time.time() - start_time
+                rate = idx / elapsed
+                remaining = (total - idx) / rate if rate > 0 else 0
+                print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining/60:.1f} min remaining")
+            results.append(_run_one(project_id))
 
     elapsed_total = time.time() - start_time
     print(f"\nCompleted {total} projects in {elapsed_total/60:.1f} minutes")
@@ -1968,6 +1983,8 @@ if __name__ == "__main__":
                         help='Run extraction on a single project by ID')
     parser.add_argument('--hybrid', action='store_true',
                         help='Use hybrid regex+LLM approach (faster, recommended)')
+    parser.add_argument('--workers', type=int, default=4,
+                        help='Number of parallel LLM workers (default: 4)')
     parser.add_argument('--regex-prep', action='store_true',
                         help='Precompute regex candidate cache for hybrid LLM')
     parser.add_argument('--use-regex-cache', action='store_true',
@@ -2126,4 +2143,5 @@ if __name__ == "__main__":
             timeout=args.timeout,
             use_regex_cache=args.use_regex_cache,
             regex_cache_path=ANALYSIS_DIR / args.regex_cache if args.regex_cache else REGEX_CACHE_PATH,
+            workers=args.workers,
         )
