@@ -169,6 +169,8 @@ Preliminary analysis shows that generation capacity data varies by review type a
 
 To identify capacity generation, a regex-based extraction using pattern matching for values like "50 MW", "1,500 megawatts", "2.5 GW facility". Capacity values normalized to MW for comparison.
 
+Transmission-only projects account for **1,531 of 22,279 clean energy projects (6.9%)** based on `project_type` tags (strict definition: only Electricity Transmission + Utilities).
+
 
 @fig-capacity-coverage shows that extraction rates vary significantly by process type. EIS projects have the highest coverage (81%), reflecting larger projects with explicit capacity documentation. CE projects have low coverage (8%) as expected—these are typically smaller projects that don't require detailed capacity reporting.
 

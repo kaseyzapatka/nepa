@@ -4578,43 +4578,34 @@ vertical-align: -.125em;
 <span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Or force it to be the notebook&#39;s directory</span></span>
 <span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a><span class="co"># notebook_dir = Path(__file__).parent  # doesn&#39;t work in notebooks</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell">
+<div class="cell" data-execution_count="2">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">#%pip install pyarrow</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Collecting pyarrow
-  Downloading pyarrow-22.0.0-cp312-cp312-macosx_12_0_x86_64.whl.metadata (3.2 kB)
-Downloading pyarrow-22.0.0-cp312-cp312-macosx_12_0_x86_64.whl (36.0 MB)
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 36.0/36.0 MB 43.7 MB/s  0:00:00 eta 0:00:010:01:01
-Installing collected packages: pyarrow
-Successfully installed pyarrow-22.0.0
-Note: you may need to restart the kernel to use updated packages.</code></pre>
-</div>
 </div>
 <div class="cell" data-execution_count="2">
-<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify the current working directory</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>notebook_dir <span class="op">=</span> Path.cwd()  <span class="co"># or os.getcwd()</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Current directory: </span><span class="sc">{</span>notebook_dir<span class="sc">}</span><span class="ss">&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Verify the current working directory</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>notebook_dir <span class="op">=</span> Path.cwd()  <span class="co"># or os.getcwd()</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Current directory: </span><span class="sc">{</span>notebook_dir<span class="sc">}</span><span class="ss">&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Current directory: /Users/Dora/git/consulting/nepa/code</code></pre>
 </div>
 </div>
-<div class="cell" data-execution_count="2">
-<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Read entire file</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>projects <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ea/projects.parquet&#39;</span>)</span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>process <span class="op">=</span> pd.read_parquet(<span class="st">&quot;../data/processed/ea/processes.parquet&quot;</span>)</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>documents <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ea/documents.parquet&#39;</span>)</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>pages <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ea/pages.parquet&#39;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Read entire file</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>projects <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ea/projects.parquet&#39;</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>process <span class="op">=</span> pd.read_parquet(<span class="st">&quot;../data/processed/ea/processes.parquet&quot;</span>)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>documents <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ea/documents.parquet&#39;</span>)</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>pages <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ea/pages.parquet&#39;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <section id="projects" class="level2">
 <h2 class="anchored" data-anchor-id="projects">Projects</h2>
 <section id="project-type" class="level3">
 <h3 class="anchored" data-anchor-id="project-type">Project type</h3>
 <p>Use this feature to determine clean vs fossil energy of each project. The difficulty here will be that many projects have more than one classification – e.g., “Utilities (electricity, gas, telecommunication), Broadband”</p>
-<div class="cell" data-execution_count="3">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="co"># view unqiue project type values to see how they match with clean energy criteria</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>projects[<span class="st">&quot;project_type&quot;</span>].explode().unique()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># view unqiue project type values to see how they match with clean energy criteria</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>projects[<span class="st">&quot;project_type&quot;</span>].explode().unique()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>array([&#39;Utilities (electricity, gas, telecommunications)&#39;, &#39;Broadband&#39;,
        &#39;Conventional Energy Production - Land-based Oil &amp; Gas&#39;,
@@ -4659,35 +4650,35 @@ Note: you may need to restart the kernel to use updated packages.</code></pre>
        nan, &#39;Semiconductors&#39;], dtype=object)</code></pre>
 </div>
 </div>
-<div class="cell">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># define clean energy types</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>clean_energy_types <span class="op">=</span> {</span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Carbon Capture and Sequestration&quot;</span>,</span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Conventional Energy Production - Nuclear&quot;</span>,</span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Biomass&quot;</span>,</span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Energy Storage&quot;</span>,</span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Geothermal&quot;</span>,</span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Hydrokinetic&quot;</span>,</span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Hydropower&quot;</span>,</span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Solar&quot;</span>,</span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Wind, Offshore&quot;</span>,</span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Wind, Onshore&quot;</span>,</span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Other&quot;</span>,</span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Nuclear Technology&quot;</span>,</span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Electricity Transmission&quot;</span>,</span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Utilities (electricity, gas, telecommunications)&quot;</span></span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># define clean energy types</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>clean_energy_types <span class="op">=</span> {</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Carbon Capture and Sequestration&quot;</span>,</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Conventional Energy Production - Nuclear&quot;</span>,</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Biomass&quot;</span>,</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Energy Storage&quot;</span>,</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Geothermal&quot;</span>,</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Hydrokinetic&quot;</span>,</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Hydropower&quot;</span>,</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Solar&quot;</span>,</span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Wind, Offshore&quot;</span>,</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Wind, Onshore&quot;</span>,</span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Renewable Energy Production - Other&quot;</span>,</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Nuclear Technology&quot;</span>,</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Electricity Transmission&quot;</span>,</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;Utilities (electricity, gas, telecommunications)&quot;</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="83">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># apply clean energy dictionary to create new &quot;clean energy&quot; column</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>projects[<span class="st">&quot;clean_energy&quot;</span>] <span class="op">=</span> (</span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    projects[<span class="st">&quot;project_type&quot;</span>]</span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    .<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="bu">any</span>(t <span class="kw">in</span> clean_energy_types <span class="cf">for</span> t <span class="kw">in</span> x) <span class="cf">if</span> <span class="bu">isinstance</span>(x, (<span class="bu">list</span>, np.ndarray)) <span class="cf">else</span> <span class="va">False</span>)</span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>projects.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># apply clean energy dictionary to create new &quot;clean energy&quot; column</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>projects[<span class="st">&quot;clean_energy&quot;</span>] <span class="op">=</span> (</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>    projects[<span class="st">&quot;project_type&quot;</span>]</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>    .<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="bu">any</span>(t <span class="kw">in</span> clean_energy_types <span class="cf">for</span> t <span class="kw">in</span> x) <span class="cf">if</span> <span class="bu">isinstance</span>(x, (<span class="bu">list</span>, np.ndarray)) <span class="cf">else</span> <span class="va">False</span>)</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>projects.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -4769,14 +4760,14 @@ Note: you may need to restart the kernel to use updated packages.</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="73">
-<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>projects.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>projects.shape</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>(3083, 8)</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="84">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># how many were flagged?  860 were flagged for environmental review</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>projects[<span class="st">&quot;clean_energy&quot;</span>].value_counts(dropna<span class="op">=</span><span class="va">False</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># how many were flagged?  860 were flagged for environmental review</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>projects[<span class="st">&quot;clean_energy&quot;</span>].value_counts(dropna<span class="op">=</span><span class="va">False</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>clean_energy
 False    2223
@@ -4785,23 +4776,23 @@ Name: count, dtype: int64</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="74">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>(<span class="dv">860</span><span class="op">/</span><span class="dv">3083</span>) <span class="op">*</span> <span class="dv">100</span>  <span class="co"># 28% of environmental review is for</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>(<span class="dv">860</span><span class="op">/</span><span class="dv">3083</span>) <span class="op">*</span> <span class="dv">100</span>  <span class="co"># 28% of environmental review is for</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>27.894907557573788</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="90">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># view project title and type of clean energy projects under environmental review</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="co">#clean_energy = projects.loc[projects[&quot;clean_energy&quot;].notna(), [&quot;project_title&quot;, &quot;project_type&quot;, &quot;clean_energy&quot;]]</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>clean_energy <span class="op">=</span> projects[projects[<span class="st">&quot;clean_energy&quot;</span>] <span class="op">==</span> <span class="va">True</span>][[<span class="st">&quot;project_title&quot;</span>, <span class="st">&quot;project_type&quot;</span>, <span class="st">&quot;clean_energy&quot;</span>]]</span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>clean_energy.head(<span class="dv">20</span>)</span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="co"># save </span></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>clean_energy.to_csv(<span class="st">&quot;../output/projects_clean_energy.csv&quot;</span>, index<span class="op">=</span><span class="va">False</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># view project title and type of clean energy projects under environmental review</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="co">#clean_energy = projects.loc[projects[&quot;clean_energy&quot;].notna(), [&quot;project_title&quot;, &quot;project_type&quot;, &quot;clean_energy&quot;]]</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>clean_energy <span class="op">=</span> projects[projects[<span class="st">&quot;clean_energy&quot;</span>] <span class="op">==</span> <span class="va">True</span>][[<span class="st">&quot;project_title&quot;</span>, <span class="st">&quot;project_type&quot;</span>, <span class="st">&quot;clean_energy&quot;</span>]]</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>clean_energy.head(<span class="dv">20</span>)</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co"># save </span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>clean_energy.to_csv(<span class="st">&quot;../output/projects_clean_energy.csv&quot;</span>, index<span class="op">=</span><span class="va">False</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="89">
-<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>clean_energy.head(<span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>clean_energy.head(<span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -4853,16 +4844,16 @@ Name: count, dtype: int64</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="75">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>utilities_label <span class="op">=</span> <span class="st">&quot;Utilities (electricity, gas, telecommunications)&quot;</span></span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>projects.loc[</span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>    (projects[<span class="st">&quot;clean_energy&quot;</span>].notna()) <span class="op">&amp;</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>    (projects[<span class="st">&quot;project_type&quot;</span>].<span class="bu">apply</span>(</span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">lambda</span> x: utilities_label <span class="kw">in</span> x <span class="cf">if</span> <span class="bu">isinstance</span>(x, (<span class="bu">list</span>, np.ndarray)) <span class="cf">else</span> <span class="va">False</span></span>
-<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>    )),</span>
-<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>    [<span class="st">&quot;project_title&quot;</span>, <span class="st">&quot;project_type&quot;</span>, <span class="st">&quot;clean_energy&quot;</span>]</span>
-<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>].head(<span class="dv">100</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>utilities_label <span class="op">=</span> <span class="st">&quot;Utilities (electricity, gas, telecommunications)&quot;</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>projects.loc[</span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    (projects[<span class="st">&quot;clean_energy&quot;</span>].notna()) <span class="op">&amp;</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>    (projects[<span class="st">&quot;project_type&quot;</span>].<span class="bu">apply</span>(</span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">lambda</span> x: utilities_label <span class="kw">in</span> x <span class="cf">if</span> <span class="bu">isinstance</span>(x, (<span class="bu">list</span>, np.ndarray)) <span class="cf">else</span> <span class="va">False</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>    )),</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>    [<span class="st">&quot;project_title&quot;</span>, <span class="st">&quot;project_type&quot;</span>, <span class="st">&quot;clean_energy&quot;</span>]</span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>].head(<span class="dv">100</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -4954,11 +4945,11 @@ Name: count, dtype: int64</code></pre>
 <section id="project-location" class="level3">
 <h3 class="anchored" data-anchor-id="project-location">Project location</h3>
 <div class="cell" data-execution_count="41">
-<div class="sourceCode cell-code" id="cb22"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="co">#type(projects.project_sector)</span></span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a><span class="co">#projects.project_sector.tolist()</span></span>
-<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a><span class="co">#projects.project_location.tolist()</span></span>
-<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>projects.project_location.head(<span class="dv">500</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co">#type(projects.project_sector)</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co">#projects.project_sector.tolist()</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co">#projects.project_location.tolist()</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>projects.project_location.head(<span class="dv">500</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>0           [Coldfoot, Yukon-Koyukuk Census Area, AK (Lat/Lon: 67.2500, -150.1750)]
 1                 [Kern Front Oil Field, Kern County, CA (Lat/Lon: 35.48, -119.05)]
@@ -4975,7 +4966,7 @@ Name: project_location, Length: 500, dtype: object</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="42">
-<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>process.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a>process.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -5033,13 +5024,13 @@ Name: project_location, Length: 500, dtype: object</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="91">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a>process.process_type.unique()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb24"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>process.process_type.unique()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>array([&#39;Environmental Assessment (EA)&#39;], dtype=object)</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="103">
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>process[<span class="st">&quot;lead_agency&quot;</span>].explode().value_counts()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>process[<span class="st">&quot;lead_agency&quot;</span>].explode().value_counts()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>lead_agency
 Department of the Interior - Bureau of Land Management                                       2217
@@ -5078,16 +5069,16 @@ Name: count, dtype: int64</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>utilities_label <span class="op">=</span> <span class="st">&quot;Utilities (electricity, gas, telecommunications)&quot;</span></span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>projects.loc[</span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>    (projects[<span class="st">&quot;clean_energy&quot;</span>].notna()) <span class="op">&amp;</span></span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>    (projects[<span class="st">&quot;project_type&quot;</span>].<span class="bu">apply</span>(</span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">lambda</span> x: utilities_label <span class="kw">in</span> x <span class="cf">if</span> <span class="bu">isinstance</span>(x, (<span class="bu">list</span>, np.ndarray)) <span class="cf">else</span> <span class="va">False</span></span>
-<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a>    )),</span>
-<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a>    [<span class="st">&quot;project_title&quot;</span>, <span class="st">&quot;project_type&quot;</span>, <span class="st">&quot;clean_energy&quot;</span>]</span>
-<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a>].head(<span class="dv">100</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>utilities_label <span class="op">=</span> <span class="st">&quot;Utilities (electricity, gas, telecommunications)&quot;</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>projects.loc[</span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>    (projects[<span class="st">&quot;clean_energy&quot;</span>].notna()) <span class="op">&amp;</span></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>    (projects[<span class="st">&quot;project_type&quot;</span>].<span class="bu">apply</span>(</span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">lambda</span> x: utilities_label <span class="kw">in</span> x <span class="cf">if</span> <span class="bu">isinstance</span>(x, (<span class="bu">list</span>, np.ndarray)) <span class="cf">else</span> <span class="va">False</span></span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>    )),</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>    [<span class="st">&quot;project_title&quot;</span>, <span class="st">&quot;project_type&quot;</span>, <span class="st">&quot;clean_energy&quot;</span>]</span>
+<span id="cb28-10"><a href="#cb28-10" aria-hidden="true" tabindex="-1"></a>].head(<span class="dv">100</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -5179,12 +5170,12 @@ Name: count, dtype: int64</code></pre>
 <section id="documents" class="level3">
 <h3 class="anchored" data-anchor-id="documents">Documents</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a>documents.head(<span class="dv">20</span>)</span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="co"># coldfoot       &#39;value&#39;: &#39;6e9fc6608e30977c74305d2a98628a13&#39;</span></span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Lenhardt_Wells &#39;value&#39;: &#39;e1f95fc5d710fea657ab131cb5b63f9c&#39;</span></span>
-<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Balboa Well    &#39;value&#39;: &#39;a48fc2e9268e31474c3ef9a1a40d2d5d&#39;</span></span>
-<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Chevron        &#39;value&#39;: &#39;39d059404366825eda2052316c81c34a&#39;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a>documents.head(<span class="dv">20</span>)</span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="co"># coldfoot       &#39;value&#39;: &#39;6e9fc6608e30977c74305d2a98628a13&#39;</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Lenhardt_Wells &#39;value&#39;: &#39;e1f95fc5d710fea657ab131cb5b63f9c&#39;</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Balboa Well    &#39;value&#39;: &#39;a48fc2e9268e31474c3ef9a1a40d2d5d&#39;</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Chevron        &#39;value&#39;: &#39;39d059404366825eda2052316c81c34a&#39;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -5473,18 +5464,18 @@ Name: count, dtype: int64</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="19">
-<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;6e9fc6608e30977c74305d2a98628a13&#39;} # coldfoot</span></span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;e1f95fc5d710fea657ab131cb5b63f9c&#39;} # Lenhardt_Wells</span></span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;a48fc2e9268e31474c3ef9a1a40d2d5d&#39;} # Balboa Well   </span></span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;39d059404366825eda2052316c81c34a&#39;} # Chevron</span></span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;d9c1ed3f8b9cd0a4279528faa5cfc712&#39;} # test</span></span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&#39;d9c1ed3f8b9cd0a4279528faa5cfc712&#39;</span> <span class="co"># test</span></span>
-<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>documents_filtered <span class="op">=</span> documents.loc[</span>
-<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a>    documents[<span class="st">&quot;project_id&quot;</span>] <span class="op">==</span> target_id</span>
-<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a>]</span>
-<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a>documents_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;6e9fc6608e30977c74305d2a98628a13&#39;} # coldfoot</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;e1f95fc5d710fea657ab131cb5b63f9c&#39;} # Lenhardt_Wells</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;a48fc2e9268e31474c3ef9a1a40d2d5d&#39;} # Balboa Well   </span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;39d059404366825eda2052316c81c34a&#39;} # Chevron</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = {&#39;value&#39;:&#39;d9c1ed3f8b9cd0a4279528faa5cfc712&#39;} # test</span></span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&#39;d9c1ed3f8b9cd0a4279528faa5cfc712&#39;</span> <span class="co"># test</span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>documents_filtered <span class="op">=</span> documents.loc[</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>    documents[<span class="st">&quot;project_id&quot;</span>] <span class="op">==</span> target_id</span>
+<span id="cb30-10"><a href="#cb30-10" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb30-11"><a href="#cb30-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb30-12"><a href="#cb30-12" aria-hidden="true" tabindex="-1"></a>documents_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -5516,23 +5507,27 @@ Name: count, dtype: int64</code></pre>
 </section>
 <section id="pages" class="level2">
 <h2 class="anchored" data-anchor-id="pages">Pages</h2>
-<div class="cell" data-execution_count="15">
-<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;299fe27f5e25bda53e0a1e4883a76c61&quot; # coldfoot DR</span></span>
-<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;299fe27f5e25bda53e0a1e4883a76c61&quot; # coldfoot DR</span></span>
-<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;299fe27f5e25bda53e0a1e4883a76c61&quot; # coldfoot DR</span></span>
-<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;3f8157061aad8329a396eeb621e6359b&quot; # Chevron FONSI</span></span>
-<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&quot;0245dad9b0b4fc0c8b19d2069077f4d6&quot;</span> <span class="co"># Chevron FONSI</span></span>
-<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a><span class="co"># coldfoot       &#39;value&#39;: &#39;6e9fc6608e30977c74305d2a98628a13&#39;</span></span>
-<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Lenhardt_Wells &#39;value&#39;: &#39;e1f95fc5d710fea657ab131cb5b63f9c&#39;</span></span>
-<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Balboa Well    &#39;value&#39;: &#39;a48fc2e9268e31474c3ef9a1a40d2d5d&#39;</span></span>
-<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a>pages_filtered <span class="op">=</span> pages.loc[</span>
-<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a>    pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> target_id</span>
-<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a>]</span>
-<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a>pages_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="23">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>target_id <span class="op">=</span> <span class="st">&quot;299fe27f5e25bda53e0a1e4883a76c61&quot;</span> <span class="co"># coldfoot DR</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;2d9415b3c9309d9670f09501ca618ce3&quot; # coldfoot EA</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;ab609d98a24655188c809403825bf9e6&quot; # coldfoot FONSI</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;18ba4bebd27753266190e6a95b6890dc&quot; # coldfoot ARF</span></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;3f8157061aad8329a396eeb621e6359b&quot; # Chevron FONSI</span></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;0245dad9b0b4fc0c8b19d2069077f4d6&quot; # Chevron FONSI</span></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;3f8157061aad8329a396eeb621e6359b&quot; # DR Environmental Assessment: Chevron USA Inc. Three Lost Hills Well Abandonments</span></span>
+<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;cdbf9eb7fff4269ee20530227407585d&quot; # EA Environmental Assessment: Chevron USA Inc. Three Lost Hills Well Abandonments</span></span>
+<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a><span class="co">#target_id = &quot;c899de7a18d192f022700df8c50805cb&quot; # FONSI Environmental Assessment: Chevron USA Inc. Three Lost Hills Well Abandonments</span></span>
+<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a><span class="co"># coldfoot       &#39;value&#39;: &#39;6e9fc6608e30977c74305d2a98628a13&#39;</span></span>
+<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Lenhardt_Wells &#39;value&#39;: &#39;e1f95fc5d710fea657ab131cb5b63f9c&#39;</span></span>
+<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Balboa Well    &#39;value&#39;: &#39;a48fc2e9268e31474c3ef9a1a40d2d5d&#39;</span></span>
+<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a>pages_filtered <span class="op">=</span> pages.loc[</span>
+<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a>    pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> target_id</span>
+<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a>pages_filtered</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -5547,28 +5542,413 @@ Name: count, dtype: int64</code></pre>
 </tr>
 </thead>
 <tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">16</td>
+<td>299fe27f5e25bda53e0a1e4883a76c61</td>
+<td>1</td>
+<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nDecision Record Memorandum \nColdfoot Cell Tower \n \nIntroduction \n \nSummary \n \nGCI proposes to install a cell tower, equipment hut and antenna adjacent to their existing \ninfrastructure currently located on State lands. They also propose to extend the fence to \nencompass the entire new infrastructure. They propose an authorization for 20 years. \n \nAlternatives Considered \n \nThe No Alternative Option is the only alternative considere...</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">17</td>
+<td>299fe27f5e25bda53e0a1e4883a76c61</td>
+<td>2</td>
+<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \ndo not file your appeal at the locations specified on the form within 30 days; the Board may \ndismiss your appeal as untimely without considering its merits. Be sure to send a copy of your \nnotice of appeal to each party named in this decision and to all of the addresses on the enclosed \nform 1842-1. You may also ask the Board to stay or suspend the effect of this decision while \nyour appeal is pending. If you desire a stay, you must enclose yo...</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">18</td>
+<td>299fe27f5e25bda53e0a1e4883a76c61</td>
+<td>3</td>
+<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nAppendix A -Essential Fish Habitat Determination \n \nNEPA document: DOI-BLM-AK-F030-2016-0009-EA \n \nCase File No.: F-97066 \n \nTitle: Coldfoot Cell Tower \n \nPrepared by: Dave Parker \n \nDate: 1/27/2016 \n \n \n \n \n \n \n \n \n \n \n \nEssential Fish Habitat Finding: The proposed action lies within the general range of Dolly \nVarden (Salvelinus malma); arctic char (S. alpinus); Lake Trout (Salvelinus namaycush); burbot \n(Lota lota);...</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">19</td>
+<td>299fe27f5e25bda53e0a1e4883a76c61</td>
+<td>4</td>
+<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nAppendix B - Wilderness Characteristics Assessment \n \nNEPA Document No.: DOI-BLM-AK-F030-2016-0009-EA \n \nApplicant: GCI \n \nSerial No.: F-97066 \n \nLocation: Coldfoot airport mile post 175 Dalton Highway \n \nTownship/Range: Sec. 16, T. 28 N., R. 12 W., Fairbanks Meridian, Alaska \n \nEvaluation by: Robin Walthour \n \nDate: February 1, 2016 \n \nProposed Action: \n \nGCI proposes to install a wireless communications tower and associated...</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">20</td>
+<td>299fe27f5e25bda53e0a1e4883a76c61</td>
+<td>5</td>
+<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nFinding: \n \nThe proposed action will not occur on lands identified as having wilderness characteristics and \ntherefore will not affect wilderness characteristics. \n \n \nType of Assessment/Sources: \n \n● U.S. Department of Interior, BLM, 1980. Nonwilderness Assessment: The Alaska Natural Gas \nTransportation System, Final Decision. Anchorage, Alaska \n● U.S.G.S. topographic map Philip Smith Mountains; GIS data; Google Earth images \n● Aerial...</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">21</td>
+<td>299fe27f5e25bda53e0a1e4883a76c61</td>
+<td>6</td>
+<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nAppendix C \nCompliance with ANILCA Section 810 \n \nNEPA Document No.: DOI-BLM-AK-030-2016-0009-EA \n \nApplicant: GCI \n \n \nCase File No.: F-97066 \n \nProposed Action: GCI proposes to install a wireless communications tower and associated \ninfrastructure to provide wireless internet service to the community of Coldfoot, Alaska. \n \nLocation: Coldfoot airport mile post 175 Dalton Highway more particularly described as within \nSec. 16...</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">22</td>
+<td>299fe27f5e25bda53e0a1e4883a76c61</td>
+<td>7</td>
+<td>DOI-BLM-AK-F030-2016-0009-EA \nF-97066 \n \nresources. Subsistence activities that target these resources occur in a much broader area than \nwhere the proposed action is to take place. Therefore, the proposed action will not significantly \naffect subsistence uses and needs. \n \nAvailability of other lands, if any, for the purpose sought to be achieved: No other land \navailable. \n \nOther alternatives, if any, which would reduce or eliminate the use, occupancy, or \ndisposition of pub...</td>
+</tr>
 </tbody>
 </table>
 
 </div>
 </div>
 </div>
-<div class="cell" data-execution_count="16">
-<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop through first 15 rows</span></span>
-<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">2</span>):</span>
-<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- START PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
-<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(pages_filtered.page_text.iloc[i])</span>
-<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- END PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
-<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()  <span class="co"># Empty line for separation</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell" data-execution_count="24">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop through first 15 rows</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">7</span>):</span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- START PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(pages_filtered.page_text.iloc[i])</span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- END PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()  <span class="co"># Empty line for separation</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>--- START PAGE 0 ---</code></pre>
-</div>
-<div class="cell-output cell-output-error">
-<pre><code>IndexError: single positional indexer is out-of-bounds</code></pre>
+<pre><code>--- START PAGE 0 ---
+DOI-BLM-AK-F030-2016-0009-EA 
+F-97066 
+ 
+Decision Record Memorandum 
+Coldfoot Cell Tower 
+ 
+Introduction 
+  
+Summary 
+  
+GCI proposes to install a cell tower, equipment hut and antenna adjacent to their existing 
+infrastructure currently located on State lands.  They also propose to extend the fence to 
+encompass the entire new infrastructure.  They propose an authorization for 20 years. 
+ 
+Alternatives Considered 
+ 
+The No Alternative Option is the only alternative considered and was not selected as it would not 
+allow for the installation of a cell tower near the Coldfoot Airport. 
+ 
+Decision 
+ 
+ I have decided to authorize a communication site lease on public lands for the purpose of 
+installing a cell tower, equipment hut and antenna adjacent to the existing GCI infrastructure 
+near the Coldfoot Airport mile post 175 off the Dalton Highway for twenty (20) years.  All 
+mitigations have been incorporated into the stipulations which are an appendix to the lease. 
+ 
+Management Considerations 
+ 
+The Categorical Exclusion and supporting documentation have been prepared consistent with the 
+requirements of various applicable statutes and regulations, including but not limited to: 
+ 
+• Alaska National Interest Lands Conservation Act of 1980 (ANILCA) 
+• Federal Land Policy and Management Act of 1976 (FLPMA) 
+• National Environmental Policy Act of 1969 (NEPA) 
+• National Historic Preservation Act of 1966 (NHPA) 
+ 
+One BLM land use plan applies to the overall project area, the Utility Corridor Resource 
+Management Plan. 
+ 
+Public Involvement 
+It was determined that due to the remoteness of the area there would be no impact to the general 
+public. Additionally, this document was published to the electronic Central Yukon Field Office 
+NEPA Register on February 1, 2016. No comments have been received as of February 26, 2016. 
+ 
+Appeal or Protest Opportunities 
+ 
+This decision may be appealed to the Interior Board of Land Appeals, Office of Hearings and 
+Appeals in accordance with 43 CFR Part 4 and DOI Form 1842-1. The notice of appeal must be 
+filed in the Bureau of Land Management Central Yukon Field Office, 1150 University Avenue, 
+Fairbanks, Alaska 99709 within 30 days from receipt of this decision. If you decide to file an 
+appeal you must carefully follow the procedure described on the enclosed form 1842-1. If you 
+
+--- END PAGE 0 ---
+
+--- START PAGE 1 ---
+DOI-BLM-AK-F030-2016-0009-EA 
+F-97066 
+ 
+do not file your appeal at the locations specified on the form within 30 days; the Board may 
+dismiss your appeal as untimely without considering its merits. Be sure to send a copy of your 
+notice of appeal to each party named in this decision and to all of the addresses on the enclosed 
+form 1842-1. You may also ask the Board to stay or suspend the effect of this decision while 
+your appeal is pending. If you desire a stay, you must enclose your request for a stay with your 
+notice of appeal. You have the burden of showing a stay is justified. The Board will grant a stay 
+only if you provide sufficient justification based on the following standards: 
+ 
+1. The relative harm to the parties if the Board grants or denies the stay, 
+2. The likelihood of the success of your appeal on its merits, 
+3. The likelihood of immediate and irreparable harm if the Board does not grant the stay, and; 
+4. Whether the public interest favors granting a stay. 
+ 
+Approval from Authorized Official 
+ 
+Field Office Manager Recommendation 
+ 
+Having considered a full range of alternatives, associated impacts, and public and agency input, I 
+recommend the adoption and implementation of the attached Approved Plan as the Utility 
+Corridor Resource Management Plan. 
+ 
+ 
+ 
+/s/ Timothy J. La Marr 
+Field, Manager, Central Yukon Field Office 
+Date 
+March 3, 2016 
+  
+  
+ 
+ 
+ 
+
+--- END PAGE 1 ---
+
+--- START PAGE 2 ---
+DOI-BLM-AK-F030-2016-0009-EA 
+F-97066 
+ 
+Appendix A -Essential Fish Habitat Determination 
+ 
+NEPA document:  DOI-BLM-AK-F030-2016-0009-EA 
+ 
+Case File No.:  F-97066 
+ 
+Title:  Coldfoot Cell Tower 
+ 
+Prepared by:  Dave Parker 
+ 
+Date:  1/27/2016 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Essential Fish Habitat Finding:  The proposed action lies within the general range of Dolly 
+Varden (Salvelinus malma); arctic char (S. alpinus); Lake Trout (Salvelinus namaycush); burbot 
+(Lota lota); and whitefish (Coregonid spp.). Arctic grayling (Thymallus arcticus) and slimey 
+sculpin (Cottus cognatus) are ubiquitous throughout the region (ADF&amp;G 1978). Northern pike 
+(Esox lucius), Alaska blackfish (Dallia pectoralis), longnose sucker (Catostomus catostomus) 
+and ninespine stickleback (Pungitius pungitius) are also found in select streams and lakes in the 
+area (BLM 2010 and Mecklenberg et al. 2002). Chinook (Oncorhynchus tshawytscha) and chum 
+salmon (O. keta) are listed as present in waters adjacent to the proposed action. The National 
+Marine Fisheries Service (NMFS) recognizes fresh waters cataloged (ADF&amp;G 2014) as being 
+used by salmon under AS 41.14.870 (Catalog of Waters Important for the Spawning, Rearing or 
+Migration of Anadromous Fishes) as essential fish habitat (EFH).  
+ 
+The proposed action described in this Environmental Assessment is to construct a 
+communications tower and associated infrastructure to provide wireless internet coverage to the 
+community of Coldfoot. The closest anadromous stream is Slate Creek (anadromous stream # 
+334-40-11000-2125-3912-4100) which is approximately 1100 feet from the proposed 
+construction site. There is no anticipated effect on EFH.  
+ 
+Essential Fish Habitat Finding:  No adverse effect.  EFH consultation with NMFS is not 
+required. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+ 
+ 
+Reference: 
+Bureau of Land Management, 2010. Fish Streams Along the Trans-Alaska Pipeline System, A 
+Compilation of Selected References with Current TAPS Stationing. BLM Open File 
+Report 105. 43 p. 
+ 
+Mecklenburg, Catherine W., T. Anthony Mecklenberg, and Lyman K. Thorsteinson, 2002. 
+Fishes of Alaska. American Fisheries Society. Bethesda, Maryland. 1037 p. 
+ 
+State of Alaska, Alaska Department of Fish and Game. 1978.  Alaska’s Fisheries Atlas. Volume 
+2. Edited by R. McLean and K. Delaney. Alaska Department of Fish and Game.  
+ 
+State of Alaska, Alaska Department of Fish and Game. 2014.  An Atlas to the Catalog of Waters 
+Important for Spawning, Rearing, or Migration of Anadromous Fishes, Resource 
+Management Region V.  Alaska Department of Fish and Game, Habitat and Restoration 
+Division. 
+ 
+http://extra.sf.adfg.state.ak.us/FishResourceMonitor/?mode=awc 
+
+--- END PAGE 2 ---
+
+--- START PAGE 3 ---
+DOI-BLM-AK-F030-2016-0009-EA 
+F-97066 
+ 
+Appendix B - Wilderness Characteristics Assessment 
+ 
+NEPA Document No.: DOI-BLM-AK-F030-2016-0009-EA 
+ 
+Applicant:  GCI 
+ 
+Serial No.: F-97066 
+ 
+Location:  Coldfoot airport mile post 175 Dalton Highway 
+ 
+Township/Range:  Sec. 16, T. 28 N., R. 12 W., Fairbanks Meridian, Alaska 
+ 
+Evaluation by:  Robin Walthour 
+ 
+Date:  February 1, 2016 
+ 
+Proposed Action: 
+ 
+GCI proposes to install a wireless communications tower and associated infrastructure to provide 
+wireless internet service to the community of Coldfoot, Alaska. 
+ 
+Evaluation:   
+ 
+The basis for this evaluation is BLM Manual 6310-Conducting Wilderness Characteristics 
+Inventory on BLM Lands, and BLM Manual 6320 - Considering Lands with Wilderness 
+Characteristics in the BLM Land Use Planning Process, which direct offices to conduct and 
+maintain inventories regarding the presence or absence of wilderness characteristics, and to 
+consider identified Lands with Wilderness Characteristics (LWC) in land use plans and when 
+analyzing projects under the National Environmental Policy Act (NEPA). 
+ 
+Effects on wilderness characteristics on BLM lands within the Utility Corridor are evaluated 
+according to the Nonwilderness Assessment, a special project approved by the BLM Director 
+and conducted by the BLM along portions of the Trans-Alaska Pipeline System (TAPS) corridor 
+in 1980. This assessment identified lands under BLM administration that were considered 
+lacking in the wilderness characteristics as defined by the Wilderness Act of 1964. The 
+assessment was conducted in a manner that met the requirements of Section 603 of the Federal 
+Land Policy and Management Act of 1976 (FLPMA). 
+ 
+The action being considered is located within the Sagavanirktok Segment of the Nonwilderness 
+Assessment, which covered approximately 512,000 acres total in 1980. Portions of this segment 
+meet the 5,000 acre minimum size. However it was determined that the Sagavanirktok Segment 
+did not meet the standards for naturalness due to roads, camps, airfields, pipelines, material sites 
+and associated facilities. These disturbances bisect the entire length of the segment. 
+ 
+ 
+ 
+
+--- END PAGE 3 ---
+
+--- START PAGE 4 ---
+DOI-BLM-AK-F030-2016-0009-EA 
+F-97066 
+ 
+Finding:   
+ 
+The proposed action will not occur on lands identified as having wilderness characteristics and 
+therefore will not affect wilderness characteristics. 
+ 
+ 
+Type of Assessment/Sources: 
+ 
+● U.S. Department of Interior, BLM, 1980. Nonwilderness Assessment: The Alaska Natural Gas 
+Transportation System, Final Decision. Anchorage, Alaska 
+● U.S.G.S. topographic map Philip Smith Mountains; GIS data; Google Earth images 
+● Aerial surveys in 2013 and personal knowledge of the area. 
+ 
+
+--- END PAGE 4 ---
+
+--- START PAGE 5 ---
+DOI-BLM-AK-F030-2016-0009-EA 
+F-97066 
+ 
+Appendix C 
+Compliance with ANILCA Section 810 
+ 
+NEPA Document No.:  DOI-BLM-AK-030-2016-0009-EA 
+  
+Applicant:   GCI 
+ 
+ 
+Case File No.:  F-97066 
+ 
+Proposed Action:   GCI proposes to install a wireless communications tower and associated 
+infrastructure to provide wireless internet service to the community of Coldfoot, Alaska. 
+ 
+Location:  Coldfoot airport mile post 175 Dalton Highway more particularly described as within 
+Sec. 16, T. 28 N., R. 12 W., Fairbanks Meridian, Alaska 
+ 
+Evaluation by:  David G. Parker (Fisheries) and Erin Julianus (Wildlife) 
+ 
+Date:  1/27/2016 
+ 
+Type of Assessment/Sources:  Review of application materials, subsistence database, local 
+knowledge, interviews with staff knowledgeable about the area and proposed action.  
+ 
+Effect of the proposal on subsistence uses and needs  
+ 
+Fisheries:  
+ 
+The proposed action would not alter the distribution, migration, or location of harvestable 
+fisheries resources.  The proposed action will not create any legal or physical barriers that would 
+limit access by subsistence users of the fisheries resources. 
+  
+Wildlife:  
+ 
+Activities associated with the proposed action will occur in Game Management Unit (GMU) 
+24A.  Species of wildlife that are used for subsistence harvest in the area include moose, caribou, 
+bears, furbearers, and small game. Activities associated with the proposed action will occur at an 
+isolated, small location in Coldfoot. These animals are not anticipated to be in the immediate 
+vicinity.  If animals are present, they will likely temporarily avoid the area when activities 
+associated with the permitted action are occurring, but the activity will not permanently impact 
+their distribution in the area.  
+ 
+Subsistence hunting and trapping activities are not anticipated to be ongoing in the vicinity of the 
+proposed action during the proposed construction timeframe (summer). The proposed action will 
+not alter the distribution, migration, or location of harvestable wildlife resources.  
+  
+Other resources:  
+ 
+The proposed activity will not significantly impact other resources such as water, wood, or 
+berries. The proposed action is non-consumptive and will not impact quantities of these  
+ 
+ 
+
+--- END PAGE 5 ---
+
+--- START PAGE 6 ---
+DOI-BLM-AK-F030-2016-0009-EA 
+F-97066 
+ 
+resources. Subsistence activities that target these resources occur in a much broader area than 
+where the proposed action is to take place. Therefore, the proposed action will not significantly 
+affect subsistence uses and needs. 
+  
+Availability of other lands, if any, for the purpose sought to be achieved:   No other land 
+available. 
+ 
+Other alternatives, if any, which would reduce or eliminate the use, occupancy, or 
+disposition of public lands needed for subsistence purposes:   None 
+ 
+Finding:  
+ 
+The proposed action will not significantly restrict subsistence uses. Access to subsistence 
+resources will not be hampered by the proposed activity. There is no reasonably foreseeable 
+significant decrease in the abundance of harvestable resources and in the distribution of 
+harvestable resources due to the proposed action. 
+ 
+References:  
+ 
+ Bureau of Land Management, 2010. Fish Streams Along the Trans-Alaska Pipeline System, A 
+Compilation of Selected References with Current TAPS Stationing. BLM Open File 
+Report 105. 43 p. 
+ 
+Mecklenburg, Catherine W., T. Anthony Mecklenberg, and Lyman K. Thorsteinson, 2002. 
+Fishes of Alaska. American Fisheries Society. Bethesda, Maryland. 1037 p. 
+ 
+State of Alaska, Alaska Department of Fish and Game. 1978.  Alaska’s Fisheries Atlas. Volume 
+2. Edited by R. McLean and K. Delaney. Alaska Department of Fish and Game.  
+ 
+State of Alaska, Alaska Department of Fish and Game. 2014.  An Atlas to the Catalog of Waters 
+Important for Spawning, Rearing, or Migration of Anadromous Fishes, Resource 
+Management Region V.  Alaska Department of Fish and Game, Habitat and Restoration 
+Division. 
+ 
+ 
+ 
+ 
+ 
+ 
+
+--- END PAGE 6 ---
+</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="131">
-<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(pages_filtered.page_text[<span class="dv">19</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(pages_filtered.page_text[<span class="dv">19</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>DOI-BLM-AK-F030-2016-0009-EA 
 F-97066 
@@ -5622,8 +6002,8 @@ and associated facilities. These disturbances bisect the entire length of the se
 </code></pre>
 </div>
 </div>
-<div class="cell" data-execution_count="45">
-<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a>pages.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb36"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a>pages.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -5675,7 +6055,7 @@ and associated facilities. These disturbances bisect the entire length of the se
 </div>
 </div>
 <div class="cell" data-execution_count="46">
-<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(pages.page_text[<span class="dv">1</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(pages.page_text[<span class="dv">1</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Coldfoot Cell Tower, F-97066 
  
@@ -5724,12 +6104,12 @@ comments have been received as of February 24, 2016.
 </div>
 </div>
 <div class="cell" data-execution_count="104">
-<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop through first 15 rows</span></span>
-<span id="cb41-2"><a href="#cb41-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">15</span>):</span>
-<span id="cb41-3"><a href="#cb41-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- START PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
-<span id="cb41-4"><a href="#cb41-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(pages.page_text[i])</span>
-<span id="cb41-5"><a href="#cb41-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- END PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
-<span id="cb41-6"><a href="#cb41-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()  <span class="co"># Empty line for separation</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Loop through first 15 rows</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">15</span>):</span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- START PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(pages.page_text[i])</span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;--- END PAGE </span><span class="sc">{</span>i<span class="sc">}</span><span class="ss"> ---&quot;</span>)</span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>()  <span class="co"># Empty line for separation</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>--- START PAGE 0 ---
 Coldfoot Cell Tower, F-97066 
@@ -6576,7 +6956,7 @@ rw  1/25/16
 </div>
 </div>
 <div class="cell" data-execution_count="48">
-<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>pages</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb41"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a>pages</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -6665,8 +7045,8 @@ rw  1/25/16
 </div>
 </div>
 <div class="cell" data-execution_count="49">
-<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a>docs_pages <span class="op">=</span> documents.merge(pages, on<span class="op">=</span><span class="st">&#39;document_id&#39;</span>, how<span class="op">=</span><span class="st">&#39;inner&#39;</span>)</span>
-<span id="cb44-2"><a href="#cb44-2" aria-hidden="true" tabindex="-1"></a>docs_pages.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a>docs_pages <span class="op">=</span> documents.merge(pages, on<span class="op">=</span><span class="st">&#39;document_id&#39;</span>, how<span class="op">=</span><span class="st">&#39;inner&#39;</span>)</span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>docs_pages.head()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -6772,15 +7152,15 @@ rw  1/25/16
 </div>
 </div>
 <div class="cell" data-execution_count="50">
-<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>docs_pages.document_type.unique()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb43"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>docs_pages.document_type.unique()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <pre><code>array([&#39;EA&#39;, &#39;&#39;, &#39;OTHER&#39;, &#39;ROD&#39;, &#39;FONSI&#39;, &#39;DEA&#39;], dtype=object)</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="51">
-<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>test <span class="op">=</span> docs_pages[<span class="dv">0</span>:<span class="dv">100</span>]</span>
-<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>test</span>
-<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a><span class="co">#test.shape</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a>test <span class="op">=</span> docs_pages[<span class="dv">0</span>:<span class="dv">100</span>]</span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>test</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a><span class="co">#test.shape</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-display">
 <div>
 
@@ -6977,32 +7357,32 @@ rw  1/25/16
 </div>
 </div>
 <div class="cell" data-execution_count="52">
-<div class="sourceCode cell-code" id="cb48"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> spacy</span>
-<span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb48-3"><a href="#cb48-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext <span class="im">import</span> SampleCorpora, produce_scattertext_explorer</span>
-<span id="cb48-4"><a href="#cb48-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext <span class="im">import</span> produce_scattertext_html</span>
-<span id="cb48-5"><a href="#cb48-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext.CorpusFromPandas <span class="im">import</span> CorpusFromPandas</span>
-<span id="cb48-6"><a href="#cb48-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb48-7"><a href="#cb48-7" aria-hidden="true" tabindex="-1"></a>nlp <span class="op">=</span> spacy.load(<span class="st">&#39;en_core_web_sm&#39;</span>)</span>
-<span id="cb48-8"><a href="#cb48-8" aria-hidden="true" tabindex="-1"></a><span class="co">#convention_df = SampleCorpora.ConventionData2012.get_data()</span></span>
-<span id="cb48-9"><a href="#cb48-9" aria-hidden="true" tabindex="-1"></a>short_docs <span class="op">=</span> docs_pages[<span class="dv">0</span>:<span class="dv">100</span>]</span>
-<span id="cb48-10"><a href="#cb48-10" aria-hidden="true" tabindex="-1"></a>corpus <span class="op">=</span> CorpusFromPandas(short_docs,</span>
-<span id="cb48-11"><a href="#cb48-11" aria-hidden="true" tabindex="-1"></a>                          category_col<span class="op">=</span><span class="st">&#39;document_type&#39;</span>,</span>
-<span id="cb48-12"><a href="#cb48-12" aria-hidden="true" tabindex="-1"></a>                          text_col<span class="op">=</span><span class="st">&#39;page_text&#39;</span>,</span>
-<span id="cb48-13"><a href="#cb48-13" aria-hidden="true" tabindex="-1"></a>                          nlp<span class="op">=</span>nlp).build()</span>
-<span id="cb48-14"><a href="#cb48-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb48-15"><a href="#cb48-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb48-16"><a href="#cb48-16" aria-hidden="true" tabindex="-1"></a><span class="co"># create html document</span></span>
-<span id="cb48-17"><a href="#cb48-17" aria-hidden="true" tabindex="-1"></a>html <span class="op">=</span> st.produce_scattertext_explorer(corpus,</span>
-<span id="cb48-18"><a href="#cb48-18" aria-hidden="true" tabindex="-1"></a>                                       category<span class="op">=</span><span class="st">&#39;EA&#39;</span>,</span>
-<span id="cb48-19"><a href="#cb48-19" aria-hidden="true" tabindex="-1"></a>                                       category_name<span class="op">=</span><span class="st">&#39;Environmental Assessment&#39;</span>,</span>
-<span id="cb48-20"><a href="#cb48-20" aria-hidden="true" tabindex="-1"></a>                                       not_category_name<span class="op">=</span><span class="st">&#39;Other&#39;</span>,</span>
-<span id="cb48-21"><a href="#cb48-21" aria-hidden="true" tabindex="-1"></a>                                       width_in_pixels<span class="op">=</span><span class="dv">1000</span>,</span>
-<span id="cb48-22"><a href="#cb48-22" aria-hidden="true" tabindex="-1"></a>                                       minimum_term_frequency<span class="op">=</span><span class="dv">5</span>,</span>
-<span id="cb48-23"><a href="#cb48-23" aria-hidden="true" tabindex="-1"></a>                                       metadata<span class="op">=</span>short_docs[<span class="st">&#39;document_id&#39;</span>])</span>
-<span id="cb48-24"><a href="#cb48-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb48-25"><a href="#cb48-25" aria-hidden="true" tabindex="-1"></a><span class="bu">open</span>(<span class="st">&#39;../output/scattertext/ea.html&#39;</span>, <span class="st">&#39;wb&#39;</span>).write(html.encode(<span class="st">&#39;utf-8&#39;</span>))</span>
-<span id="cb48-26"><a href="#cb48-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&#39;Open ../output/scattertext/ea.html in web browser.&#39;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> spacy</span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext <span class="im">import</span> SampleCorpora, produce_scattertext_explorer</span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext <span class="im">import</span> produce_scattertext_html</span>
+<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> scattertext.CorpusFromPandas <span class="im">import</span> CorpusFromPandas</span>
+<span id="cb46-6"><a href="#cb46-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-7"><a href="#cb46-7" aria-hidden="true" tabindex="-1"></a>nlp <span class="op">=</span> spacy.load(<span class="st">&#39;en_core_web_sm&#39;</span>)</span>
+<span id="cb46-8"><a href="#cb46-8" aria-hidden="true" tabindex="-1"></a><span class="co">#convention_df = SampleCorpora.ConventionData2012.get_data()</span></span>
+<span id="cb46-9"><a href="#cb46-9" aria-hidden="true" tabindex="-1"></a>short_docs <span class="op">=</span> docs_pages[<span class="dv">0</span>:<span class="dv">100</span>]</span>
+<span id="cb46-10"><a href="#cb46-10" aria-hidden="true" tabindex="-1"></a>corpus <span class="op">=</span> CorpusFromPandas(short_docs,</span>
+<span id="cb46-11"><a href="#cb46-11" aria-hidden="true" tabindex="-1"></a>                          category_col<span class="op">=</span><span class="st">&#39;document_type&#39;</span>,</span>
+<span id="cb46-12"><a href="#cb46-12" aria-hidden="true" tabindex="-1"></a>                          text_col<span class="op">=</span><span class="st">&#39;page_text&#39;</span>,</span>
+<span id="cb46-13"><a href="#cb46-13" aria-hidden="true" tabindex="-1"></a>                          nlp<span class="op">=</span>nlp).build()</span>
+<span id="cb46-14"><a href="#cb46-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-15"><a href="#cb46-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-16"><a href="#cb46-16" aria-hidden="true" tabindex="-1"></a><span class="co"># create html document</span></span>
+<span id="cb46-17"><a href="#cb46-17" aria-hidden="true" tabindex="-1"></a>html <span class="op">=</span> st.produce_scattertext_explorer(corpus,</span>
+<span id="cb46-18"><a href="#cb46-18" aria-hidden="true" tabindex="-1"></a>                                       category<span class="op">=</span><span class="st">&#39;EA&#39;</span>,</span>
+<span id="cb46-19"><a href="#cb46-19" aria-hidden="true" tabindex="-1"></a>                                       category_name<span class="op">=</span><span class="st">&#39;Environmental Assessment&#39;</span>,</span>
+<span id="cb46-20"><a href="#cb46-20" aria-hidden="true" tabindex="-1"></a>                                       not_category_name<span class="op">=</span><span class="st">&#39;Other&#39;</span>,</span>
+<span id="cb46-21"><a href="#cb46-21" aria-hidden="true" tabindex="-1"></a>                                       width_in_pixels<span class="op">=</span><span class="dv">1000</span>,</span>
+<span id="cb46-22"><a href="#cb46-22" aria-hidden="true" tabindex="-1"></a>                                       minimum_term_frequency<span class="op">=</span><span class="dv">5</span>,</span>
+<span id="cb46-23"><a href="#cb46-23" aria-hidden="true" tabindex="-1"></a>                                       metadata<span class="op">=</span>short_docs[<span class="st">&#39;document_id&#39;</span>])</span>
+<span id="cb46-24"><a href="#cb46-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb46-25"><a href="#cb46-25" aria-hidden="true" tabindex="-1"></a><span class="bu">open</span>(<span class="st">&#39;../output/scattertext/ea.html&#39;</span>, <span class="st">&#39;wb&#39;</span>).write(html.encode(<span class="st">&#39;utf-8&#39;</span>))</span>
+<span id="cb46-26"><a href="#cb46-26" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="st">&#39;Open ../output/scattertext/ea.html in web browser.&#39;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Open ../output/scattertext/ea.html in web browser.</code></pre>
 </div>
