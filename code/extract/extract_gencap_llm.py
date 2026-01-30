@@ -34,7 +34,13 @@ ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
 
 # Ollama settings
 OLLAMA_URL = "http://localhost:11434/api/generate"
-DEFAULT_MODEL = "qwen2.5-coder:14b"  # Good balance of speed and quality
+DEFAULT_MODEL = "llama3.2:3b-instruct-q4_K_M"
+
+# Multiprocessing worker globals
+_WORKER_DOCS = None
+_WORKER_PAGES_PATH = None
+_WORKER_MODEL = None
+_WORKER_VERBOSE = False
 
 # --------------------------
 # CAPACITY SEARCH TERMS BY PROJECT TYPE
@@ -416,12 +422,36 @@ def extract_capacity_for_project(
 # BATCH EXTRACTION
 # --------------------------
 
+def _init_worker(docs_df, pages_path, model, verbose):
+    """Initialize worker globals for multiprocessing."""
+    global _WORKER_DOCS, _WORKER_PAGES_PATH, _WORKER_MODEL, _WORKER_VERBOSE
+    _WORKER_DOCS = docs_df
+    _WORKER_PAGES_PATH = pages_path
+    _WORKER_MODEL = model
+    _WORKER_VERBOSE = verbose
+
+
+def _process_project_row(project):
+    """Process a single project row (for multiprocessing)."""
+    return extract_capacity_for_project(
+        project_id=project['project_id'],
+        project_title=project['project_title'],
+        project_type=project['project_type'],
+        documents_df=_WORKER_DOCS,
+        pages_path=_WORKER_PAGES_PATH,
+        model=_WORKER_MODEL,
+        verbose=_WORKER_VERBOSE
+    )
+
 def extract_capacity_for_projects(
     source: str = 'eis',
     clean_energy_only: bool = True,
     sample_size: Optional[int] = None,
     model: str = DEFAULT_MODEL,
-    verbose: bool = True
+    verbose: bool = True,
+    regex_results_path: Optional[str] = None,
+    only_low_medium: bool = True,
+    workers: int = 4
 ) -> pd.DataFrame:
     """
     Extract generation capacity for multiple projects.
@@ -439,12 +469,25 @@ def extract_capacity_for_projects(
     print(f"\n=== Generation Capacity Extraction ({source.upper()}) ===")
     print(f"Model: {model}")
 
-    # Load projects
-    projects = pd.read_parquet(ANALYSIS_DIR / "projects_combined.parquet")
+    if regex_results_path:
+        regex_path = Path(regex_results_path)
+        if not regex_path.exists():
+            raise FileNotFoundError(f"Regex results not found: {regex_path}")
+        projects = pd.read_parquet(regex_path)
+    else:
+        projects = pd.read_parquet(ANALYSIS_DIR / "projects_combined.parquet")
+
     projects = projects[projects['dataset_source'] == source.upper()]
 
-    if clean_energy_only:
+    if clean_energy_only and 'project_energy_type' in projects.columns:
         projects = projects[projects['project_energy_type'] == 'Clean']
+
+    if only_low_medium and 'project_gencap_confidence' in projects.columns:
+        conf = projects['project_gencap_confidence'].fillna('low').astype(str).str.lower()
+        projects = projects[conf.isin(['low', 'medium'])]
+
+    if only_low_medium and 'project_gencap_source' in projects.columns:
+        projects = projects[~projects['project_gencap_source'].isin(['title', 'skipped_transmission_only'])]
 
     print(f"Projects to process: {len(projects):,}")
 
@@ -463,22 +506,36 @@ def extract_capacity_for_projects(
 
     pages_path = PROCESSED_DIR / source.lower() / "pages.parquet"
 
-    # Process each project
-    results = []
-    for idx, (_, project) in enumerate(projects.iterrows()):
-        if verbose and idx % 10 == 0:
-            print(f"\nProcessing {idx + 1}/{len(projects)}: {project['project_title'][:50]}...")
+    project_records = projects[['project_id', 'project_title', 'project_type']].to_dict('records')
 
-        result = extract_capacity_for_project(
-            project_id=project['project_id'],
-            project_title=project['project_title'],
-            project_type=project['project_type'],
-            documents_df=documents_df,
-            pages_path=pages_path,
-            model=model,
-            verbose=verbose
-        )
-        results.append(result)
+    results = []
+    if workers and workers > 1:
+        from multiprocessing import get_context
+        ctx = get_context("spawn")
+        with ctx.Pool(
+            processes=workers,
+            initializer=_init_worker,
+            initargs=(documents_df, pages_path, model, False),
+        ) as pool:
+            for idx, result in enumerate(pool.imap_unordered(_process_project_row, project_records, chunksize=1)):
+                if verbose and idx % 10 == 0:
+                    print(f"\nProcessed {idx + 1}/{len(project_records)} projects...")
+                results.append(result)
+    else:
+        for idx, project in enumerate(project_records):
+            if verbose and idx % 10 == 0:
+                print(f"\nProcessing {idx + 1}/{len(project_records)}: {project['project_title'][:50]}...")
+
+            result = extract_capacity_for_project(
+                project_id=project['project_id'],
+                project_title=project['project_title'],
+                project_type=project['project_type'],
+                documents_df=documents_df,
+                pages_path=pages_path,
+                model=model,
+                verbose=verbose
+            )
+            results.append(result)
 
     results_df = pd.DataFrame(results)
 
@@ -487,6 +544,10 @@ def extract_capacity_for_projects(
     has_capacity = results_df['capacity_value'].notna()
     print(f"Projects with capacity extracted: {has_capacity.sum()} / {len(results_df)} ({has_capacity.mean()*100:.1f}%)")
     print(f"Extraction methods: {results_df['extraction_method'].value_counts().to_dict()}")
+    if 'pages_scanned' in results_df.columns:
+        print(f"Average pages scanned: {results_df['pages_scanned'].mean():.1f}")
+    if 'num_candidates' in results_df.columns:
+        print(f"Average candidate sentences: {results_df['num_candidates'].mean():.1f}")
 
     return results_df
 
@@ -509,6 +570,12 @@ def main():
                         help='Process all projects, not just clean energy')
     parser.add_argument('--model', default=DEFAULT_MODEL,
                         help=f'Ollama model to use (default: {DEFAULT_MODEL})')
+    parser.add_argument('--regex-results', type=str,
+                        help='Path to regex results (projects_gencap.parquet)')
+    parser.add_argument('--include-high', action='store_true',
+                        help='Include high-confidence regex cases')
+    parser.add_argument('--workers', type=int, default=4,
+                        help='Number of parallel workers (default: 4)')
     parser.add_argument('--run', action='store_true', help='Run extraction')
     parser.add_argument('--test', action='store_true', help='Test on 3 projects')
     parser.add_argument('--output', type=str, help='Output file path (parquet)')
@@ -521,7 +588,10 @@ def main():
             source=args.source,
             sample_size=3,
             model=args.model,
-            verbose=True
+            verbose=True,
+            regex_results_path=args.regex_results,
+            only_low_medium=not args.include_high,
+            workers=args.workers
         )
         print("\n=== Results ===")
         print(results[['project_title', 'capacity_value', 'capacity_unit', 'confidence', 'source_quote']].to_string())
@@ -532,7 +602,10 @@ def main():
             clean_energy_only=not args.all_projects,
             sample_size=args.sample,
             model=args.model,
-            verbose=True
+            verbose=True,
+            regex_results_path=args.regex_results,
+            only_low_medium=not args.include_high,
+            workers=args.workers
         )
 
         # Save results
@@ -546,6 +619,7 @@ def main():
         print("  python extract_gencap_llm.py --test                    # Quick test on 3 projects")
         print("  python extract_gencap_llm.py --source eis --sample 20  # Test on 20 EIS projects")
         print("  python extract_gencap_llm.py --source eis --run        # Full EIS extraction")
+        print("  python extract_gencap_llm.py --source eis --run --regex-results data/analysis/projects_gencap.parquet --workers 4")
 
 
 if __name__ == "__main__":

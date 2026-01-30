@@ -42,7 +42,6 @@ if (file.exists(gencap_path)) {
         capacity_mw = case_when(
           project_gencap_unit == "GW" ~ project_gencap_value * 1000,
           project_gencap_unit == "kW" ~ project_gencap_value / 1000,
-          project_gencap_unit == "MWh" ~ project_gencap_value,
           TRUE ~ project_gencap_value
         )
       )
