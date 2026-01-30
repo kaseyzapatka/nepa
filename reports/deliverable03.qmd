@@ -223,6 +223,9 @@ capacity_table %>%
 
 : Generation capacity extraction summary {#tbl-gencap-quality}
 
+**Baseline validation (manual sample)**  
+We reviewed a 20-project sample of clean energy projects with extracted capacity values. Only 11/20 had snippets available from the first 10 pages of the main document, so those were the verifiable cases. Among those, 11/11 extractions were judged correct. Several notes flagged uncertainty about whether a capacity mention clearly referred to the proposed project versus another project or context. This validation is preliminary and should be expanded by locating the remaining snippets or scanning more pages.
+
 **Next Steps for Generation Capacity**
 
 1. Read some sample documents to **confirm CE doesn't have much generation capacity** estimates.
