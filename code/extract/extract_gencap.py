@@ -355,13 +355,16 @@ def run_capacity_extraction(clean_energy_only=True, sample_size=None, source=Non
     if source is None and parallel_workers and parallel_workers > 1:
         return _run_parallel_sources(projects, clean_energy_only, sample_size, parallel_workers, output_path)
 
+    if source:
+        projects = projects[projects['dataset_source'] == source]
+
     results = []
 
     sources = [source] if source else list(projects['dataset_source'].unique())
     for src in sources:
         print(f"\nProcessing {src} projects...")
 
-        source_projects = projects[projects['dataset_source'] == src]
+        source_projects = projects if source else projects[projects['dataset_source'] == src]
         data_dir = PROCESSED_DIR / src.lower()
 
         pages_df = pd.read_parquet(data_dir / "pages.parquet")
@@ -389,12 +392,13 @@ def run_capacity_extraction(clean_energy_only=True, sample_size=None, source=Non
 
             results.append({
                 'project_id': project_id,
+                'dataset_source': src,
                 **capacity
             })
 
     results_df = pd.DataFrame(results)
 
-    projects_with_cap = projects.merge(results_df, on='project_id', how='left')
+    projects_with_cap = projects.merge(results_df, on=['project_id', 'dataset_source'], how='left')
 
     if output_path:
         save_path = Path(output_path)
@@ -463,6 +467,12 @@ def _run_parallel_sources(projects, clean_energy_only, sample_size, parallel_wor
         save_path = ANALYSIS_DIR / "projects_gencap.parquet"
     combined.to_parquet(save_path)
     print(f"\nSaved combined output to: {save_path}")
+
+    # Clean up temp files
+    for p in tmp_paths:
+        if p.exists():
+            p.unlink()
+
     return combined
 
 

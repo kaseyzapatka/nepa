@@ -145,6 +145,68 @@ def has_number_with_unit(text: str) -> bool:
     return bool(re.search(pattern, text, re.IGNORECASE))
 
 
+def _normalize_unit_llm(unit: str) -> str:
+    """Normalize common unit strings to standard form."""
+    u = unit.lower().strip()
+    mapping = {
+        'mw': 'MW', 'mwe': 'MW', 'mwt': 'MW', 'megawatt': 'MW', 'megawatts': 'MW',
+        'gw': 'GW', 'gwe': 'GW', 'gigawatt': 'GW', 'gigawatts': 'GW',
+        'kw': 'kW', 'kwe': 'kW', 'kilowatt': 'kW', 'kilowatts': 'kW',
+        'mwh': 'MWh', 'gwh': 'GWh', 'kwh': 'kWh',
+    }
+    return mapping.get(u, unit)
+
+
+def _fallback_extract_from_candidates(sentences: list) -> dict:
+    """Fallback extraction: pick max numeric capacity from candidate sentences."""
+    if not sentences:
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None}
+
+    pattern = re.compile(r'(\d[\d,\.]*)\s*(MW|GW|kW|MWh|GWh|kWh|megawatt|megawatts|gigawatt|gigawatts|kilowatt|kilowatts|MWe|MWt)', re.IGNORECASE)
+
+    matches = []
+    for s in sentences:
+        for m in pattern.finditer(s):
+            val_str, unit_str = m.group(1), m.group(2)
+            try:
+                val = float(val_str.replace(',', ''))
+            except ValueError:
+                continue
+            unit = _normalize_unit_llm(unit_str)
+            matches.append((val, unit, m.group(0), s))
+
+    if not matches:
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None}
+
+    # Prioritize power units over energy, then choose highest value (normalized to MW or MWh)
+    power_units = {'GW', 'MW', 'kW'}
+    energy_units = {'GWh', 'MWh', 'kWh'}
+
+    def to_base(val, unit):
+        if unit == 'GW':
+            return val * 1000
+        if unit == 'kW':
+            return val / 1000
+        if unit == 'GWh':
+            return val * 1000
+        if unit == 'kWh':
+            return val / 1000
+        return val
+
+    power = [m for m in matches if m[1] in power_units]
+    energy = [m for m in matches if m[1] in energy_units]
+    pool = power if power else energy
+
+    best = max(pool, key=lambda m: to_base(m[0], m[1]))
+    value, unit, quote, _sentence = best
+    return {
+        "capacity_value": value,
+        "capacity_unit": unit,
+        "confidence": "medium",
+        "source_quote": quote,
+    }
+
+
 def extract_candidate_sentences(text: str, terms: set, max_sentences: int = 10) -> list:
     """
     Extract sentences that likely contain capacity information.
@@ -210,12 +272,13 @@ Instructions:
 1. Find the PRIMARY generation capacity of the proposed project (not alternatives, not comparisons to other projects)
 2. If multiple values exist, prefer "nameplate" or "rated" capacity
 3. If a range is given (e.g., "50-100 MW"), use the higher value
-4. Return ONLY valid JSON, no other text
+4. The source_quote MUST include the numeric value and unit exactly as shown in the text
+5. Return ONLY valid JSON, no other text
 
 Return this exact JSON structure:
 {{"capacity_value": <number or null>, "capacity_unit": "<MW|GW|kW|MWh|GWh|kWh or null>", "confidence": "<high|medium|low>", "source_quote": "<exact quote or null>"}}
 
-If no project capacity is clearly stated, return:
+If no project capacity is clearly stated OR you cannot provide a source_quote with the numeric value and unit, return:
 {{"capacity_value": null, "capacity_unit": null, "confidence": "low", "source_quote": null}}
 
 JSON response:"""
@@ -277,11 +340,41 @@ def extract_capacity_with_llm(sentences: list, project_title: str, project_type:
         return {"capacity_value": None, "capacity_unit": None, "confidence": "low",
                 "source_quote": None, "extraction_method": "no_candidates"}
 
+    # Reject if no numeric capacity patterns appear in candidates
+    if not any(has_number_with_unit(s) for s in sentences):
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low",
+                "source_quote": None, "extraction_method": "no_numeric_candidates"}
+
     prompt = build_extraction_prompt(sentences, project_title, project_type)
     response = call_ollama(prompt, model=model)
     result = parse_llm_response(response)
     result["extraction_method"] = "llm"
     result["num_candidates"] = len(sentences)
+
+    # Enforce source_quote with numeric value + unit
+    quote = result.get("source_quote")
+    if result.get("capacity_value") is not None:
+        if not quote or not has_number_with_unit(quote):
+            fallback = _fallback_extract_from_candidates(sentences)
+            if fallback.get("capacity_value") is not None:
+                fallback["extraction_method"] = "fallback_from_candidates"
+                fallback["num_candidates"] = len(sentences)
+                return fallback
+            return {
+                "capacity_value": None,
+                "capacity_unit": None,
+                "confidence": "low",
+                "source_quote": None,
+                "extraction_method": "llm_rejected_no_quote",
+                "num_candidates": len(sentences)
+            }
+
+    if result.get("capacity_value") is None:
+        fallback = _fallback_extract_from_candidates(sentences)
+        if fallback.get("capacity_value") is not None:
+            fallback["extraction_method"] = "fallback_from_candidates"
+            fallback["num_candidates"] = len(sentences)
+            return fallback
 
     return result
 
@@ -451,7 +544,8 @@ def extract_capacity_for_projects(
     verbose: bool = True,
     regex_results_path: Optional[str] = None,
     only_low_medium: bool = True,
-    workers: int = 4
+    workers: int = 4,
+    require_regex_capacity: bool = False
 ) -> pd.DataFrame:
     """
     Extract generation capacity for multiple projects.
@@ -488,6 +582,9 @@ def extract_capacity_for_projects(
 
     if only_low_medium and 'project_gencap_source' in projects.columns:
         projects = projects[~projects['project_gencap_source'].isin(['title', 'skipped_transmission_only'])]
+
+    if require_regex_capacity and 'project_gencap_value' in projects.columns:
+        projects = projects[projects['project_gencap_value'].notna()]
 
     print(f"Projects to process: {len(projects):,}")
 
@@ -574,6 +671,8 @@ def main():
                         help='Path to regex results (projects_gencap.parquet)')
     parser.add_argument('--include-high', action='store_true',
                         help='Include high-confidence regex cases')
+    parser.add_argument('--require-regex-capacity', action='store_true',
+                        help='Only sample projects with regex capacity values')
     parser.add_argument('--workers', type=int, default=4,
                         help='Number of parallel workers (default: 4)')
     parser.add_argument('--run', action='store_true', help='Run extraction')
@@ -583,14 +682,15 @@ def main():
     args = parser.parse_args()
 
     if args.test:
-        print("Running test extraction on 3 projects...")
+        print("Running test extraction on 10 projects...")
         results = extract_capacity_for_projects(
             source=args.source,
-            sample_size=3,
+            sample_size=10,
             model=args.model,
             verbose=True,
             regex_results_path=args.regex_results,
             only_low_medium=not args.include_high,
+            require_regex_capacity=args.require_regex_capacity,
             workers=args.workers
         )
         print("\n=== Results ===")
@@ -605,6 +705,7 @@ def main():
             verbose=True,
             regex_results_path=args.regex_results,
             only_low_medium=not args.include_high,
+            require_regex_capacity=args.require_regex_capacity,
             workers=args.workers
         )
 
@@ -616,7 +717,7 @@ def main():
     else:
         parser.print_help()
         print("\n\nExamples:")
-        print("  python extract_gencap_llm.py --test                    # Quick test on 3 projects")
+        print("  python extract_gencap_llm.py --test                    # Quick test on 10 projects")
         print("  python extract_gencap_llm.py --source eis --sample 20  # Test on 20 EIS projects")
         print("  python extract_gencap_llm.py --source eis --run        # Full EIS extraction")
         print("  python extract_gencap_llm.py --source eis --run --regex-results data/analysis/projects_gencap.parquet --workers 4")
