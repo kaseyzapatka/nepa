@@ -230,6 +230,7 @@ def extract_dates_from_text(text):
 
     results = []
     seen_dates = set()
+    seen_contexts = set()
 
     for pattern, pattern_type in DATE_PATTERNS:
         for match in re.finditer(pattern, text, re.IGNORECASE):
@@ -715,10 +716,16 @@ def extract_dates_with_context(
             if not (_has_any(context, DECISION_CUES) or _has_any(context, INITIATION_CUES)):
                 continue
 
+            # Deduplicate by context to avoid duplicate signature sentences
+            context_key = re.sub(r'\s+', ' ', context).strip().lower()
+            if context_key in seen_contexts:
+                continue
+
             # Deduplicate by date string
             if date_str in seen_dates:
                 continue
             seen_dates.add(date_str)
+            seen_contexts.add(context_key)
 
             results.append({
                 'date': date_str,
@@ -746,11 +753,15 @@ def extract_dates_with_context(
         combined = re.sub(r'\s+', ' ', combined).strip()
         if _is_excluded_context(combined):
             continue
+        combined_key = combined.lower()
 
         for m in sentence_matches[i + 1]:
             if m['date_str'] in seen_dates:
                 continue
+            if combined_key in seen_contexts:
+                continue
             seen_dates.add(m['date_str'])
+            seen_contexts.add(combined_key)
             results.append({
                 'date': m['date_str'],
                 'match': m['match'],
