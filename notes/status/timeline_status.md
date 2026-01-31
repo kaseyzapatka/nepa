@@ -148,62 +148,123 @@ New CLI arguments:
 - `--bert-model` - Choose base model (default: distilbert-base-uncased)
 - `--epochs` - Training epochs (default: 3)
 
-### Current Status
+### Current Status (End of Day 2026-01-30)
 
-**Where we left off:** Training was interrupted by a numpy version incompatibility.
+**Training completed.** Model saved to `models/timeline_classifier/`.
 
-**Issue:** numpy 2.2.6 is incompatible with torch 2.2.2
+**20-sample evaluation completed.** Results in `data/analysis/test20_bert.parquet`.
 
-**Fix required:**
-```bash
-pip install "numpy<2"
-# or specifically:
-pip install numpy==1.26.4
+---
+
+### BERT Evaluation Results
+
+| Metric | BERT | LLM | Notes |
+|--------|------|-----|-------|
+| Decision coverage | **85%** (17/20) | 80% (16/20) | BERT slightly better |
+| Initiation coverage | **0%** (0/20) | 35% (7/20) | BERT fails completely |
+| Decision agreement | 12/13 (92%) | - | Where both found dates |
+
+**Decision quality analysis (17 classified):**
+- ✅ ~9 clearly correct (53%) - signature blocks, NEPA Compliance Officer, digitally signed
+- ⚠️ ~4 questionable (24%) - "Date Determined" without full context
+- ❌ ~4 false positives (24%) - form boilerplate ("Revised:", "Form Approved")
+
+**Example good classifications:**
 ```
+"NEPA Compliance Officer: STEPHEN WITMER Digitally signed by STEPHEN WITMER Date: 2023.08.14"
+"Signed By: Casey Strickland NEPA Compliance Officer Date: 11/23/2022"
+"ORO NEPA Compliance Officer Gary S. Hartman Date Determined: 6/29/2011"
+```
+
+**Example false positives:**
+```
+"NETL F 451. 1-1/1 Revised: 11/24/2014 Reviewed: 11/24/2014 (Previous Editions Obsolete)"
+"DOE F 1325. 8e Electronic Form Approved by Forms Mgmt. 04/19/2006"
+```
+
+---
+
+### Training Data Imbalance (Root Cause of Issues)
+
+| Label | Count | % |
+|-------|-------|---|
+| decision | 15,250 | 89% |
+| other | 1,810 | 10.5% |
+| initiation | **122** | **0.7%** |
+
+Only 122 initiation examples vs 15,250 decision examples. The model never learned initiation patterns.
 
 ---
 
 ## Monday Pickup Instructions
 
-### Step 1: Fix numpy (if not done)
-```bash
-conda activate textanalysis
-pip install numpy==1.26.4
-python -c "import numpy; import torch; print(f'numpy: {numpy.__version__}'); print(f'torch: {torch.__version__}')"
-```
-Expected: numpy 1.26.4, torch 2.2.2
+### Priority 1: Create Training Data for Initiation
 
-### Step 2: Train BERT classifier
+The model has only 122 initiation examples (0.7%) - it never learned what initiation looks like.
+
+**Option A: Expand initiation patterns** (in `extract_timeline.py` → `INITIATION_PATTERNS_STRONG`)
+```python
+# Add more patterns like:
+r'proposed action',
+r'project initiat',
+r'environmental review began',
+r'review process started',
+r'eis process',
+r'ea preparation',
+```
+
+**Option B: Add negative patterns to exclude form boilerplate** (in `OTHER_PATTERNS_STRONG`)
+```python
+# Add patterns to catch form templates:
+r'previous editions obsolete',
+r'form approved',
+r'forms mgmt',
+r'netl f \d+',
+r'doe f \d+',
+```
+
+**Option C: Manually label ~50-100 initiation examples**
+- Look at LLM results where `llm_application_date` was found
+- Extract those contexts and verify they're correct
+- Add to training data with `label='initiation'`
+
+**Option D: Use class weighting during training**
+- Modify `train_bert_classifier()` to weight initiation class higher
+- This helps the model pay more attention to rare classes
+
+### Priority 2: Use Larger BERT Model
+
+Since BERT is so fast (~5ms/context), we can afford a better model:
+
+```bash
+# Retrain with RoBERTa (often better for classification)
+python extract_timeline.py --bert-train --bert-model roberta-base --epochs 5
+
+# Or full BERT
+python extract_timeline.py --bert-train --bert-model bert-base-uncased --epochs 5
+```
+
+### Priority 3: Regenerate and Retrain
+
+After updating patterns:
 ```bash
 cd /Users/Dora/git/consulting/nepa/code/extract
-python extract_timeline.py --bert-train
-```
-This will:
-- Load training data from `data/analysis/bert_training_data.parquet`
-- Fine-tune DistilBERT for 3 epochs
-- Save model to `models/timeline_classifier/`
 
-### Step 3: Run on 20-project sample (compare to LLM)
-```bash
-python extract_timeline.py --bert-run --sample 20 --output test20_bert.parquet
-```
+# 1. Regenerate training data with new patterns
+python extract_timeline.py --bert-generate
 
-### Step 4: Compare results
-```python
-import pandas as pd
+# 2. Check new label distribution
+python -c "import pandas as pd; df=pd.read_parquet('../../data/analysis/bert_training_data.parquet'); print(df['label'].value_counts())"
 
-# BERT results
-bert = pd.read_parquet('data/analysis/test20_bert.parquet')
-print("BERT decision coverage:", bert['bert_decision_date'].notna().mean())
-print("BERT initiation coverage:", bert['bert_application_date'].notna().mean())
+# 3. Retrain with better model
+python extract_timeline.py --bert-train --bert-model roberta-base --epochs 5
 
-# LLM results (for comparison)
-llm = pd.read_parquet('data/analysis/test20_workers.parquet')
-print("LLM decision coverage:", llm['llm_decision_date'].notna().mean())
-print("LLM initiation coverage:", llm['llm_application_date'].notna().mean())
+# 4. Test on sample
+python extract_timeline.py --bert-run --sample 20 --output test20_bert_v2.parquet
 ```
 
-### Step 5: If BERT looks good, run on full dataset
+### Priority 4: Full Run (if results look good)
+
 ```bash
 python extract_timeline.py --bert-run --output projects_timeline_bert.parquet
 ```
@@ -344,11 +405,16 @@ python extract_timeline.py --bert-run --output projects_timeline_bert.parquet  #
 - **Added BERT-based classification as alternative to LLM** (50-100x faster)
 - Implemented weak supervision using existing regex patterns for auto-labeling
 - Added `--bert-generate`, `--bert-train`, `--bert-run` CLI commands
-- Training data generated from regex cache (~thousands of labeled examples)
+- Training data generated: 17,182 examples (decision: 15,250, other: 1,810, initiation: 122)
 - Uses DistilBERT from Hugging Face (downloads automatically, ~250MB)
-- **Blocked by:** numpy 2.x incompatibility with torch 2.2.2
-- **Fix:** `pip install numpy==1.26.4`
-- **Next step:** Complete training and compare to LLM results on 20-project sample
+- **Trained model** saved to `models/timeline_classifier/`
+- **Evaluated on 20 samples**: 85% decision coverage, 0% initiation coverage
+- **Key finding**: Training data severely imbalanced - only 122 initiation examples (0.7%)
+- **Key finding**: ~24% false positives from form boilerplate ("Revised:", "Form Approved")
+- **Next steps**:
+  1. Create more initiation training data (expand patterns or manual labeling)
+  2. Add patterns to exclude form boilerplate
+  3. Try larger model (roberta-base) since BERT is fast enough
 
 ### 2026-01-30 (AM) - Hybrid LLM
 - Added hybrid initiation/decision cue filtering.
