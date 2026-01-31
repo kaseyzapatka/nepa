@@ -223,7 +223,9 @@ def extract_candidate_sentences(text: str, terms: set, max_sentences: int = 10) 
     for sent in sentences:
         sent = sent.strip()
         # More lenient length limits
-        if len(sent) < 20 or len(sent) > 600:
+        if len(sent) < 20:
+            continue
+        if len(sent) > 600 and not has_number_with_unit(sent):
             continue
 
         # Score the sentence
@@ -549,7 +551,8 @@ def extract_capacity_for_projects(
     regex_results_path: Optional[str] = None,
     only_low_medium: bool = True,
     workers: int = 4,
-    require_regex_capacity: bool = False
+    require_regex_capacity: bool = False,
+    project_id: Optional[str] = None
 ) -> pd.DataFrame:
     """
     Extract generation capacity for multiple projects.
@@ -589,6 +592,9 @@ def extract_capacity_for_projects(
 
     if require_regex_capacity and 'project_gencap_value' in projects.columns:
         projects = projects[projects['project_gencap_value'].notna()]
+
+    if project_id:
+        projects = projects[projects['project_id'] == project_id]
 
     print(f"Projects to process: {len(projects):,}")
 
@@ -677,6 +683,8 @@ def main():
                         help='Include high-confidence regex cases')
     parser.add_argument('--require-regex-capacity', action='store_true',
                         help='Only sample projects with regex capacity values')
+    parser.add_argument('--project-id', type=str,
+                        help='Run extraction for a single project_id')
     parser.add_argument('--workers', type=int, default=4,
                         help='Number of parallel workers (default: 4)')
     parser.add_argument('--run', action='store_true', help='Run extraction')
@@ -695,6 +703,7 @@ def main():
             regex_results_path=args.regex_results,
             only_low_medium=not args.include_high,
             require_regex_capacity=args.require_regex_capacity,
+            project_id=args.project_id,
             workers=args.workers
         )
         print("\n=== Results ===")
@@ -710,6 +719,7 @@ def main():
             regex_results_path=args.regex_results,
             only_low_medium=not args.include_high,
             require_regex_capacity=args.require_regex_capacity,
+            project_id=args.project_id,
             workers=args.workers
         )
 
