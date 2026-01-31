@@ -14,6 +14,8 @@ Capture the current state of generation-capacity extraction work for Deliverable
 - Transmission-only gating has been removed; transmission-only projects are included in the regex pass.
 - LLM model default set to `llama3.2:3b-instruct-q4_K_M`.
 - LLM pass restricted to low/medium confidence cases by default and can run in parallel.
+- LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and falls back to extracting the **max numeric capacity** from candidate sentences when the LLM omits a quote (marks `extraction_method = fallback_from_candidates`).
+- LLM can now be constrained to projects that already have regex capacity (`--require-regex-capacity`).
 - Stratified validation sample script added.
 
 ## Transmission/utilities prevalence (clean energy only)
@@ -36,6 +38,12 @@ By dataset source (percent of clean energy in each source):
 - 11/20 have a text snippet captured (match found within first 10 pages of the main doc). The remaining 9 are marked N/A for manual verification due to missing snippets.
 - Baseline precision on verifiable rows: 11/11 = 100% (limited to rows with snippets).
 - Main uncertainty noted: whether some matches clearly refer to the proposed project vs. another project (several notes flagged this).
+
+## LLM spot-check (regex-capacity sample)
+- 10-project CE sample restricted to **regex-capacity cases** resulted in 9/10 capacity extractions (90%).
+- Methods: 5 `llm`, 4 `fallback_from_candidates`, 1 `no_candidates`.
+- The only miss was a false-positive regex match (initials/date “MW”).
+- Example fix: Barr‑Tech case now returns **2.2 MW** via fallback.
 
 ## Gating status (extract_gencap.py)
 Transmission-only gating has been removed. All projects, including transmission-only, are scanned by the regex pipeline.
@@ -119,7 +127,18 @@ python code/extract/extract_gencap_llm.py \
   --workers 4
 ```
 
-### 9) Stratified validation sample (30 per source)
+### 9) LLM test run using regex-capacity cases only
+```bash
+python code/extract/extract_gencap_llm.py \
+  --source ce \
+  --run \
+  --sample 10 \
+  --regex-results data/analysis/projects_gencap.parquet \
+  --require-regex-capacity \
+  --workers 1
+```
+
+### 10) Stratified validation sample (30 per source)
 ```bash
 python code/deliverable3/03_gencap_validation_sample.py --n 30
 ```
