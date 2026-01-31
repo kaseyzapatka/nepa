@@ -312,13 +312,16 @@ def call_ollama(prompt: str, model: str = DEFAULT_MODEL, timeout: int = 120) -> 
         return response.json().get("response", "")
     except requests.exceptions.RequestException as e:
         print(f"Ollama API error: {e}")
-        return None
+        return f"__OLLAMA_ERROR__:{type(e).__name__}:{e}"
 
 
 def parse_llm_response(response: str) -> dict:
     """Parse LLM response into structured dict."""
     if not response:
         return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True}
+
+    if isinstance(response, str) and response.startswith("__OLLAMA_ERROR__"):
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True, "llm_error": response}
 
     # Try to extract JSON from response
     try:
@@ -356,6 +359,10 @@ def extract_capacity_with_llm(sentences: list, project_title: str, project_type:
     result = parse_llm_response(response)
     result["extraction_method"] = "llm"
     result["num_candidates"] = len(sentences)
+
+    if result.get("llm_error"):
+        result["extraction_method"] = "llm_timeout" if "ReadTimeout" in result["llm_error"] else "llm_error"
+        return result
 
     # Enforce source_quote with numeric value + unit
     quote = result.get("source_quote")

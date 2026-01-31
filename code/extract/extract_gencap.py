@@ -113,6 +113,19 @@ def is_invalid_match(match_text):
     return any(tok in lower for tok in invalid_tokens)
 
 
+def is_initials_date_context(context_text: str) -> bool:
+    """Detect initials/date lists that can trigger false MW matches."""
+    if not context_text:
+        return False
+    text = context_text.lower()
+    # Common patterns like "MW, 5/21/15" or "initials/date"
+    initials_date = re.compile(r'\b[a-z]{1,3}\b,?\s*\d{1,2}/\d{1,2}/\d{2,4}')
+    date_near_unit = re.compile(r'\b(?:mw|kw|gw)\b[^\\n]{0,30}\b\\d{1,2}/\\d{1,2}/\\d{2,4}')
+    if 'initials/date' in text:
+        return True
+    return bool(initials_date.search(text) or date_near_unit.search(text))
+
+
 def score_confidence(context):
     """Score confidence based on local context."""
     if not context:
@@ -182,9 +195,11 @@ def extract_capacity_from_text(text, source='document'):
             if not unit_type:
                 continue
 
-            context_start = max(0, match.start() - 80)
-            context_end = min(len(text), match.end() + 80)
-            context = text[context_start:context_end].replace('\n', ' ')
+                context_start = max(0, match.start() - 80)
+                context_end = min(len(text), match.end() + 80)
+                context = text[context_start:context_end].replace('\n', ' ')
+                if is_initials_date_context(context):
+                    continue
             confidence = 'high' if source == 'title' else score_confidence(context)
 
             results.append({

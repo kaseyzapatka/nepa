@@ -16,6 +16,9 @@ Capture the current state of generation-capacity extraction work for Deliverable
 - LLM pass restricted to low/medium confidence cases by default and can run in parallel.
 - LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and falls back to extracting the **max numeric capacity** from candidate sentences when the LLM omits a quote (marks `extraction_method = fallback_from_candidates`).
 - LLM can now be constrained to projects that already have regex capacity (`--require-regex-capacity`).
+- Regex extraction now skips likely initials/date false positives (e.g., “MW, 5/21/15”).
+- Added merge script to combine regex + LLM outputs into a single dataset.
+- Added lightweight validation flags and audit sample generator for regex capacities (initials/date, non-generation context, non-build context, equipment lists).
 - Stratified validation sample script added.
 
 ## Transmission/utilities prevalence (clean energy only)
@@ -142,6 +145,21 @@ python code/extract/extract_gencap_llm.py \
 ```bash
 python code/deliverable3/03_gencap_validation_sample.py --n 30
 ```
+
+### 11) Generate validation flags + quick audit sample
+```bash
+python code/deliverable3/04_gencap_validation_flags.py
+```
+Outputs:
+- `data/analysis/projects_gencap_flagged.parquet`
+- `output/deliverable3/gencap_validation_quick_sample.csv`
+
+### 12) Merge regex + LLM outputs
+```bash
+python code/deliverable3/05_gencap_merge_llm.py
+```
+Output:
+- `data/analysis/projects_gencap_merged.parquet`
 Output: `output/deliverable3/gencap_validation_stratified_sample.csv`
 
 ## Files updated
@@ -155,3 +173,28 @@ Output: `output/deliverable3/gencap_validation_stratified_sample.csv`
 - Power/energy are now separated; update analysis logic accordingly (power only for capacity bins).
 - LLM pass is restricted to low/medium confidence by default to save time and cost.
 - Parallelization: use 4-6 workers on this machine; Ollama throughput will be the limiting factor.
+
+## Where to pick up next (Monday)
+1) **Full LLM run (sequential)**  
+   Run CE, then EA, then EIS. If you want no parallelism inside a run, use `--workers 1`.\n
+   ```bash
+   python code/extract/extract_gencap_llm.py --source ce  --run --regex-results data/analysis/projects_gencap.parquet --workers 1
+   python code/extract/extract_gencap_llm.py --source ea  --run --regex-results data/analysis/projects_gencap.parquet --workers 1
+   python code/extract/extract_gencap_llm.py --source eis --run --regex-results data/analysis/projects_gencap.parquet --workers 1
+   ```\n
+2) **Merge regex + LLM outputs**  
+   ```bash
+   python code/deliverable3/05_gencap_merge_llm.py
+   ```\n
+3) **Review validation flags / sample**  
+   Open: `output/deliverable3/gencap_validation_quick_sample.csv` and confirm which flags you want to filter.\n
+4) **Update analysis in Deliverable 3**  
+   Point analysis to `data/analysis/projects_gencap_merged.parquet` (or `projects_gencap_flagged.parquet` if you want to filter first).\n
+
+## Recent progress recap
+- Regex extraction now skips initials/date false positives (e.g., “MW, 5/21/15”).\n
+- LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and uses `fallback_from_candidates` when LLM omits a quote.\n
+- Candidate selection improved for hyphenated units and long equipment-list sentences with numeric units.\n
+- LLM spot-checks:\n
+  - 20-project regex-capacity CE sample: **18/20 (90%)** extracted.\n
+  - Misses were false positives / list-style cases; equipment list fix now captures 50 kW example.\n
