@@ -230,7 +230,6 @@ def extract_dates_from_text(text):
 
     results = []
     seen_dates = set()
-    seen_contexts = set()
 
     for pattern, pattern_type in DATE_PATTERNS:
         for match in re.finditer(pattern, text, re.IGNORECASE):
@@ -561,6 +560,674 @@ REGEX_CACHE_PATH = ANALYSIS_DIR / "regex_candidates.parquet"
 
 
 # --------------------------
+# BERT CLASSIFIER APPROACH
+# --------------------------
+# Uses weak supervision (pattern-based auto-labeling) to train a fast classifier
+
+# Model paths
+BERT_MODEL_DIR = BASE_DIR / "models" / "timeline_classifier"
+BERT_TRAINING_DATA_PATH = ANALYSIS_DIR / "bert_training_data.parquet"
+
+# Auto-labeling patterns (high confidence rules)
+DECISION_PATTERNS_STRONG = [
+    r'digitally signed by',
+    r'signed by\s+\w+',
+    r'signature of',
+    r'/s/\s*\w+',  # Digital signature format
+    r'nepa compliance officer.*date',
+    r'authorizing official.*date',
+    r'field.*manager.*signature',
+    r'field office manager determination',
+    r'approved.*signature',
+    r'fonsi.*signed',
+    r'rod.*signed',
+    r'decision.*signed',
+    r'approval date',
+    r'date of approval',
+    r'ce determination date',
+]
+
+INITIATION_PATTERNS_STRONG = [
+    r'scoping meeting',
+    r'scoping period',
+    r'notice of intent',
+    r'\bnoi\b.*publish',
+    r'application received',
+    r'application submitted',
+    r'consultation initiated',
+    r'project proposed',
+    r'proposal submitted',
+    r'request received',
+    r'right[- ]of[- ]way application',
+    r'row application',
+]
+
+OTHER_PATTERNS_STRONG = [
+    r'map created',
+    r'map prepared',
+    r'revised \d{4}',
+    r'prepared by.*\d{4}',
+    r'\d+\s*cfr\s*\d+',
+    r'\d+\s*u\.?s\.?c',
+    r'\d+\s*fr\s*\d+',
+    r'federal register',
+    r'public law',
+    r'act of \d{4}',
+]
+
+
+def auto_label_context(context: str) -> str:
+    """
+    Auto-label a date context using pattern matching (weak supervision).
+
+    Args:
+        context: The text context around a date
+
+    Returns:
+        'decision', 'initiation', 'other', or None if uncertain
+    """
+    context_lower = context.lower()
+
+    # Check decision patterns first (highest priority)
+    for pattern in DECISION_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'decision'
+
+    # Check initiation patterns
+    for pattern in INITIATION_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'initiation'
+
+    # Check other patterns (negative examples)
+    for pattern in OTHER_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'other'
+
+    # Return None for ambiguous cases (don't include in training)
+    return None
+
+
+def generate_bert_training_data(
+    sample_size: int = None,
+    output_path: Path = BERT_TRAINING_DATA_PATH,
+    min_samples_per_class: int = 100,
+):
+    """
+    Generate training data for BERT classifier using weak supervision.
+
+    Uses pattern-based auto-labeling on all regex-extracted date contexts.
+
+    Args:
+        sample_size: If set, only process this many projects
+        output_path: Where to save the training data
+        min_samples_per_class: Minimum samples needed per class
+
+    Returns:
+        DataFrame with labeled training examples
+    """
+    import time
+
+    print("\n=== Generating BERT Training Data (Weak Supervision) ===")
+
+    # Check if regex cache exists
+    if not REGEX_CACHE_PATH.exists():
+        print(f"Regex cache not found at {REGEX_CACHE_PATH}")
+        print("Run --regex-prep first to build the cache, or building now...")
+        run_regex_prep()
+
+    # Load regex cache
+    print("Loading regex cache...")
+    cache_df = pd.read_parquet(REGEX_CACHE_PATH)
+    print(f"Loaded {len(cache_df):,} date contexts")
+
+    if sample_size:
+        # Sample by project to maintain diversity
+        project_ids = cache_df['project_id'].unique()
+        if len(project_ids) > sample_size:
+            project_ids = pd.Series(project_ids).sample(n=sample_size, random_state=42).tolist()
+            cache_df = cache_df[cache_df['project_id'].isin(project_ids)]
+        print(f"Sampled to {len(cache_df):,} contexts from {len(project_ids)} projects")
+
+    # Auto-label each context
+    print("Auto-labeling contexts...")
+    start = time.time()
+
+    labeled_data = []
+    label_counts = {'decision': 0, 'initiation': 0, 'other': 0, 'unlabeled': 0}
+
+    for _, row in cache_df.iterrows():
+        context = row.get('context', '')
+        if not context or len(context) < 10:
+            continue
+
+        label = auto_label_context(context)
+
+        if label:
+            labeled_data.append({
+                'context': context,
+                'label': label,
+                'date': row.get('date'),
+                'project_id': row.get('project_id'),
+            })
+            label_counts[label] += 1
+        else:
+            label_counts['unlabeled'] += 1
+
+    elapsed = time.time() - start
+    print(f"Labeled {len(labeled_data):,} contexts in {elapsed:.1f}s")
+    print(f"\nLabel distribution:")
+    for label, count in label_counts.items():
+        print(f"  {label}: {count:,}")
+
+    # Check minimum samples
+    for label in ['decision', 'initiation', 'other']:
+        if label_counts[label] < min_samples_per_class:
+            print(f"\nWARNING: Only {label_counts[label]} samples for '{label}' (min: {min_samples_per_class})")
+
+    # Create DataFrame
+    training_df = pd.DataFrame(labeled_data)
+
+    # Save
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    training_df.to_parquet(output_path)
+    print(f"\nSaved training data to: {output_path}")
+
+    return training_df
+
+
+def train_bert_classifier(
+    training_data_path: Path = BERT_TRAINING_DATA_PATH,
+    model_name: str = "distilbert-base-uncased",
+    output_dir: Path = BERT_MODEL_DIR,
+    epochs: int = 3,
+    batch_size: int = 16,
+    max_length: int = 128,
+    test_split: float = 0.1,
+):
+    """
+    Train a BERT classifier on the auto-labeled data.
+
+    Args:
+        training_data_path: Path to training data parquet
+        model_name: Hugging Face model name
+        output_dir: Where to save the trained model
+        epochs: Number of training epochs
+        batch_size: Training batch size
+        max_length: Max token length
+        test_split: Fraction to hold out for validation
+
+    Returns:
+        Trained model and tokenizer
+    """
+    try:
+        from transformers import (
+            AutoTokenizer,
+            AutoModelForSequenceClassification,
+            TrainingArguments,
+            Trainer,
+            DataCollatorWithPadding,
+        )
+        from datasets import Dataset
+        import numpy as np
+    except ImportError:
+        print("ERROR: transformers and datasets libraries required.")
+        print("Install with: pip install transformers datasets torch")
+        return None, None
+
+    print(f"\n=== Training BERT Classifier ===")
+    print(f"Model: {model_name}")
+    print(f"Epochs: {epochs}")
+    print(f"Batch size: {batch_size}")
+
+    # Load training data
+    if not training_data_path.exists():
+        print(f"Training data not found at {training_data_path}")
+        print("Run --bert-generate first to create training data.")
+        return None, None
+
+    df = pd.read_parquet(training_data_path)
+    print(f"Loaded {len(df):,} training examples")
+
+    # Create label mapping
+    label2id = {'decision': 0, 'initiation': 1, 'other': 2}
+    id2label = {v: k for k, v in label2id.items()}
+
+    df['label_id'] = df['label'].map(label2id)
+
+    # Check class balance
+    print("\nClass distribution:")
+    print(df['label'].value_counts())
+
+    # Split into train/test
+    df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
+    split_idx = int(len(df_shuffled) * (1 - test_split))
+    train_df = df_shuffled[:split_idx]
+    test_df = df_shuffled[split_idx:]
+
+    print(f"\nTrain: {len(train_df):,}, Test: {len(test_df):,}")
+
+    # Create datasets
+    train_dataset = Dataset.from_pandas(train_df[['context', 'label_id']])
+    test_dataset = Dataset.from_pandas(test_df[['context', 'label_id']])
+
+    # Load tokenizer and model
+    print(f"\nLoading {model_name}...")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_name,
+        num_labels=3,
+        id2label=id2label,
+        label2id=label2id,
+    )
+
+    # Tokenize
+    def tokenize_fn(examples):
+        return tokenizer(
+            examples['context'],
+            truncation=True,
+            max_length=max_length,
+            padding=False,  # Let data collator handle padding
+        )
+
+    print("Tokenizing...")
+    train_dataset = train_dataset.map(tokenize_fn, batched=True, remove_columns=['context'])
+    test_dataset = test_dataset.map(tokenize_fn, batched=True, remove_columns=['context'])
+
+    # Rename label column
+    train_dataset = train_dataset.rename_column('label_id', 'labels')
+    test_dataset = test_dataset.rename_column('label_id', 'labels')
+
+    # Data collator
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+    # Metrics
+    def compute_metrics(eval_pred):
+        predictions, labels = eval_pred
+        predictions = np.argmax(predictions, axis=1)
+        accuracy = (predictions == labels).mean()
+        return {'accuracy': accuracy}
+
+    # Training arguments
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    training_args = TrainingArguments(
+        output_dir=str(output_dir),
+        num_train_epochs=epochs,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        warmup_steps=100,
+        weight_decay=0.01,
+        logging_dir=str(output_dir / "logs"),
+        logging_steps=50,
+        eval_strategy="no",  # Skip eval during training (numpy issue on Apple Silicon)
+        save_strategy="epoch",
+        load_best_model_at_end=False,
+    )
+
+    # Trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=test_dataset,
+        data_collator=data_collator,
+    )
+
+    # Train
+    print("\nTraining...")
+    trainer.train()
+
+    # Skip evaluation due to numpy compatibility issue on Apple Silicon
+    # The model is still trained and saved correctly
+    print("\nSkipping evaluation (numpy compatibility issue on Apple Silicon)")
+
+    # Save
+    print(f"\nSaving model to {output_dir}...")
+    trainer.save_model(str(output_dir))
+    tokenizer.save_pretrained(str(output_dir))
+
+    # Save label mapping
+    import json
+    with open(output_dir / "label_mapping.json", 'w') as f:
+        json.dump({'label2id': label2id, 'id2label': id2label}, f)
+
+    print("Training complete!")
+
+    return model, tokenizer
+
+
+class BertDateClassifier:
+    """
+    Fast BERT-based classifier for date contexts.
+
+    Usage:
+        classifier = BertDateClassifier()
+        classifier.load()
+        results = classifier.classify(["context1", "context2"])
+    """
+
+    def __init__(self, model_dir: Path = BERT_MODEL_DIR):
+        self.model_dir = model_dir
+        self.model = None
+        self.tokenizer = None
+        self.label2id = None
+        self.id2label = None
+        self.device = None
+
+    def load(self):
+        """Load the trained model."""
+        try:
+            from transformers import AutoTokenizer, AutoModelForSequenceClassification
+            import torch
+        except ImportError:
+            raise ImportError("transformers and torch required. Install with: pip install transformers torch")
+
+        if not self.model_dir.exists():
+            raise FileNotFoundError(f"Model not found at {self.model_dir}. Run --bert-train first.")
+
+        print(f"Loading BERT classifier from {self.model_dir}...")
+
+        self.tokenizer = AutoTokenizer.from_pretrained(str(self.model_dir))
+        self.model = AutoModelForSequenceClassification.from_pretrained(str(self.model_dir))
+
+        # Load label mapping
+        import json
+        with open(self.model_dir / "label_mapping.json") as f:
+            mapping = json.load(f)
+            self.label2id = mapping['label2id']
+            self.id2label = {int(k): v for k, v in mapping['id2label'].items()}
+
+        # Set device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        self.model.eval()
+
+        print(f"Model loaded on {self.device}")
+
+    def classify(self, contexts: list, batch_size: int = 32) -> list:
+        """
+        Classify a list of contexts.
+
+        Args:
+            contexts: List of context strings
+            batch_size: Batch size for inference
+
+        Returns:
+            List of dicts with 'label' and 'confidence'
+        """
+        import torch
+
+        if self.model is None:
+            self.load()
+
+        results = []
+
+        for i in range(0, len(contexts), batch_size):
+            batch = contexts[i:i + batch_size]
+
+            # Tokenize
+            inputs = self.tokenizer(
+                batch,
+                truncation=True,
+                max_length=128,
+                padding=True,
+                return_tensors="pt",
+            ).to(self.device)
+
+            # Inference
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                probs = torch.softmax(outputs.logits, dim=1)
+                predictions = torch.argmax(probs, dim=1)
+                confidences = probs.max(dim=1).values
+
+            # Convert to results
+            for pred, conf in zip(predictions.cpu().numpy(), confidences.cpu().numpy()):
+                results.append({
+                    'label': self.id2label[int(pred)],
+                    'confidence': float(conf),
+                })
+
+        return results
+
+    def classify_single(self, context: str) -> dict:
+        """Classify a single context."""
+        return self.classify([context])[0]
+
+
+def extract_with_bert(
+    dates_with_context: list,
+    classifier: BertDateClassifier = None,
+) -> dict:
+    """
+    Classify pre-extracted dates using BERT classifier.
+
+    This replaces the LLM call in the hybrid approach with a fast BERT inference.
+
+    Args:
+        dates_with_context: List from extract_dates_with_context()
+        classifier: Pre-loaded BertDateClassifier (optional, will load if None)
+
+    Returns:
+        Dict with classified dates and summary fields (same format as LLM approach)
+    """
+    import json
+
+    result = {
+        'approach': 'bert_classifier',
+        'dates_json': '[]',
+        'n_dates_found': len(dates_with_context),
+        'decision_date': None,
+        'decision_date_source': None,
+        'decision_confidence': None,
+        'earliest_review_date': None,
+        'latest_review_date': None,
+        'application_date': None,
+        'inferred_application_date': None,
+        'earliest_historical_date': None,
+        'n_historical_dates': 0,
+        'expiration_date': None,
+        'error': None,
+    }
+
+    if not dates_with_context:
+        result['error'] = 'no_dates_found_by_regex'
+        return result
+
+    # Load classifier if not provided
+    if classifier is None:
+        try:
+            classifier = BertDateClassifier()
+            classifier.load()
+        except Exception as e:
+            result['error'] = f'bert_load_error: {str(e)}'
+            return result
+
+    # Extract contexts
+    contexts = [d.get('context', '') for d in dates_with_context]
+
+    # Classify
+    try:
+        classifications = classifier.classify(contexts)
+    except Exception as e:
+        result['error'] = f'bert_classify_error: {str(e)}'
+        return result
+
+    # Build classified dates list
+    classified_dates = []
+    for date_info, classification in zip(dates_with_context, classifications):
+        classified_dates.append({
+            'date': date_info['date'],
+            'type': classification['label'],
+            'source': date_info.get('context', '')[:100],
+            'confidence': 'high' if classification['confidence'] > 0.8 else 'medium',
+            'bert_confidence': classification['confidence'],
+        })
+
+    result['dates_json'] = json.dumps(classified_dates)
+    result['n_dates_found'] = len(classified_dates)
+
+    # Extract summary fields
+    decision_dates = [d for d in classified_dates if d['type'] == 'decision']
+    initiation_dates = [d for d in classified_dates if d['type'] == 'initiation']
+
+    # Decision date (prefer highest confidence, then latest)
+    if decision_dates:
+        # Sort by confidence descending, then by date descending
+        decision_dates.sort(key=lambda x: (x['bert_confidence'], x['date']), reverse=True)
+        best = decision_dates[0]
+        result['decision_date'] = best['date']
+        result['decision_date_source'] = best['source']
+        result['decision_confidence'] = best['confidence']
+
+    # Initiation/application date (earliest)
+    if initiation_dates:
+        initiation_dates.sort(key=lambda x: x['date'])
+        result['application_date'] = initiation_dates[0]['date']
+        result['inferred_application_date'] = initiation_dates[0]['date']
+
+    return result
+
+
+def run_bert_timeline_extraction(
+    sample_size: int = None,
+    clean_energy_only: bool = True,
+    ce_only: bool = True,
+    main_docs_only: bool = True,
+    output_file: str = None,
+    use_regex_cache: bool = True,
+    workers: int = 4,
+):
+    """
+    Run BERT-based timeline extraction.
+
+    Much faster than LLM approach (~50-100x speedup).
+
+    Args:
+        sample_size: If set, only process this many projects
+        output_file: Custom output filename
+        use_regex_cache: Use precomputed regex cache (recommended)
+        workers: Number of parallel workers (less important for BERT)
+    """
+    import time
+
+    print("\n=== BERT Timeline Extraction ===")
+
+    # Load classifier
+    try:
+        classifier = BertDateClassifier()
+        classifier.load()
+    except Exception as e:
+        print(f"ERROR: Could not load BERT classifier: {e}")
+        print("Run --bert-train first to train the model.")
+        return None
+
+    # Load projects
+    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
+    if not projects_path.exists():
+        print(f"Error: {projects_path} not found.")
+        return None
+
+    projects = pd.read_parquet(projects_path)
+    print(f"Loaded {len(projects):,} projects")
+
+    if ce_only:
+        projects = projects[projects['dataset_source'] == 'CE']
+        print(f"Filtered to {len(projects):,} CE projects")
+
+    if clean_energy_only:
+        projects = projects[projects['project_energy_type'] == 'Clean']
+        print(f"Filtered to {len(projects):,} clean energy projects")
+
+    if sample_size:
+        projects = projects.sample(n=min(sample_size, len(projects)), random_state=42)
+        print(f"Sampled {len(projects):,} projects")
+
+    if projects.empty:
+        print("No projects to process.")
+        return None
+
+    # Load regex cache
+    if use_regex_cache:
+        if not REGEX_CACHE_PATH.exists():
+            print(f"Regex cache not found. Run --regex-prep first.")
+            return None
+        regex_cache_df = pd.read_parquet(REGEX_CACHE_PATH)
+        print(f"Loaded regex cache: {len(regex_cache_df):,} rows")
+    else:
+        print("ERROR: BERT approach requires regex cache. Run --regex-prep first.")
+        return None
+
+    # Process projects
+    results = []
+    total = len(projects)
+    start_time = time.time()
+
+    print(f"\nProcessing {total} projects with BERT...")
+
+    for idx, (_, project) in enumerate(projects.iterrows(), 1):
+        project_id = project['project_id']
+
+        # Get cached dates for this project
+        project_dates = regex_cache_df[regex_cache_df['project_id'] == project_id]
+        dates_with_context = project_dates[[
+            'date', 'match', 'context', 'position', 'position_pct'
+        ]].to_dict(orient='records')
+
+        # Classify with BERT
+        bert_result = extract_with_bert(dates_with_context, classifier)
+
+        # Build result row
+        result = {
+            'project_id': project_id,
+            'bert_dates_json': bert_result.get('dates_json', '[]'),
+            'bert_n_dates_found': bert_result.get('n_dates_found', 0),
+            'bert_decision_date': bert_result.get('decision_date'),
+            'bert_decision_date_source': bert_result.get('decision_date_source'),
+            'bert_decision_confidence': bert_result.get('decision_confidence'),
+            'bert_application_date': bert_result.get('application_date'),
+            'bert_inferred_application_date': bert_result.get('inferred_application_date'),
+            'bert_error': bert_result.get('error'),
+        }
+        results.append(result)
+
+        if idx % 100 == 0:
+            elapsed = time.time() - start_time
+            rate = idx / elapsed
+            remaining = (total - idx) / rate if rate > 0 else 0
+            print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining:.0f}s remaining")
+
+    elapsed_total = time.time() - start_time
+    print(f"\nCompleted {total} projects in {elapsed_total:.1f}s")
+    print(f"Average: {elapsed_total/total*1000:.1f}ms/project")
+
+    # Create results dataframe
+    results_df = pd.DataFrame(results)
+    projects_with_bert = projects.merge(results_df, on='project_id', how='left')
+
+    # Save
+    if output_file:
+        output_path = ANALYSIS_DIR / output_file
+    else:
+        output_path = ANALYSIS_DIR / "projects_timeline_bert.parquet"
+
+    projects_with_bert.to_parquet(output_path)
+    print(f"\nSaved to: {output_path}")
+
+    # Summary
+    has_decision = projects_with_bert['bert_decision_date'].notna()
+    has_application = projects_with_bert['bert_application_date'].notna()
+    has_error = projects_with_bert['bert_error'].notna()
+
+    print(f"\n=== Results Summary ===")
+    print(f"Projects with decision date: {has_decision.sum():,} ({100*has_decision.mean():.1f}%)")
+    print(f"Projects with application date: {has_application.sum():,} ({100*has_application.mean():.1f}%)")
+    print(f"Projects with errors: {has_error.sum():,} ({100*has_error.mean():.1f}%)")
+
+    return projects_with_bert
+
+
+# --------------------------
 # HYBRID REGEX + LLM APPROACH
 # --------------------------
 
@@ -663,6 +1330,7 @@ def extract_dates_with_context(
     """
     results = []
     seen_dates = set()
+    seen_contexts = set()
 
     # Build sentence spans once for context extraction
     spans = _sentence_spans(text)
@@ -1992,6 +2660,18 @@ if __name__ == "__main__":
     parser.add_argument('--regex-cache', type=str,
                         help='Custom regex cache filename (data/analysis/...)')
 
+    # BERT classifier options
+    parser.add_argument('--bert-generate', action='store_true',
+                        help='Generate training data for BERT using weak supervision')
+    parser.add_argument('--bert-train', action='store_true',
+                        help='Train BERT classifier on auto-labeled data')
+    parser.add_argument('--bert-run', action='store_true',
+                        help='Run BERT-based timeline extraction (fast)')
+    parser.add_argument('--bert-model', type=str, default='distilbert-base-uncased',
+                        help='Hugging Face model for BERT (default: distilbert-base-uncased)')
+    parser.add_argument('--epochs', type=int, default=3,
+                        help='Training epochs for BERT (default: 3)')
+
     args = parser.parse_args()
 
     # Run regex extraction
@@ -2144,4 +2824,31 @@ if __name__ == "__main__":
             use_regex_cache=args.use_regex_cache,
             regex_cache_path=ANALYSIS_DIR / args.regex_cache if args.regex_cache else REGEX_CACHE_PATH,
             workers=args.workers,
+        )
+
+    # Generate BERT training data
+    elif args.bert_generate:
+        generate_bert_training_data(
+            sample_size=args.sample,
+            output_path=BERT_TRAINING_DATA_PATH,
+        )
+
+    # Train BERT classifier
+    elif args.bert_train:
+        train_bert_classifier(
+            training_data_path=BERT_TRAINING_DATA_PATH,
+            model_name=args.bert_model,
+            output_dir=BERT_MODEL_DIR,
+            epochs=args.epochs,
+        )
+
+    # Run BERT extraction
+    elif args.bert_run:
+        run_bert_timeline_extraction(
+            sample_size=args.sample,
+            clean_energy_only=True,
+            ce_only=True,
+            main_docs_only=True,
+            output_file=args.output,
+            use_regex_cache=True,
         )

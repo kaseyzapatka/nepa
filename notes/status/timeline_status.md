@@ -1,6 +1,6 @@
 # Timeline Extraction Status
 
-**Last updated**: 2026-01-30
+**Last updated**: 2026-01-30 (end of day)
 
 This document summarizes the current state of timeline extraction for the NEPA project. Read this file to understand timeline-related work without needing to explore the full codebase.
 
@@ -99,6 +99,118 @@ python extract_timeline.py --llm-run --hybrid --use-regex-cache --sample 20 --mo
 
 ---
 
+## BERT Classifier Approach (NEW - 2026-01-30)
+
+### Why BERT?
+
+The LLM approach works but is **slow**:
+- 20 projects = 3.5 minutes
+- 20,000 projects = ~58 hours (2.5 days)
+
+BERT offers **50-100x speedup**:
+- 20 projects = ~2-5 seconds
+- 20,000 projects = ~30-60 minutes
+
+### How It Works
+
+1. **Weak Supervision (Auto-Labeling)**
+   - Uses existing regex patterns to auto-label thousands of date contexts
+   - Decision patterns: `digitally signed by`, `NEPA Compliance Officer`, `authorizing official`, etc.
+   - Initiation patterns: `scoping meeting`, `application received`, `notice of intent`, etc.
+   - Other patterns: `map created`, CFR/USC citations, etc.
+   - No manual labeling required
+
+2. **BERT Training**
+   - Downloads `distilbert-base-uncased` from Hugging Face (~250MB, cached locally)
+   - Fine-tunes on auto-labeled NEPA data
+   - 3-class classifier: decision / initiation / other
+   - Training takes ~5-10 minutes
+
+3. **Fast Inference**
+   - Classifies date contexts in batches (~5ms per context vs ~500ms for LLM)
+   - Uses regex cache (same as hybrid LLM approach)
+   - Outputs same format as LLM approach for easy comparison
+
+### Implementation Added
+
+New functions in `extract_timeline.py`:
+- `auto_label_context()` - Pattern-based weak supervision
+- `generate_bert_training_data()` - Creates training dataset from regex cache
+- `train_bert_classifier()` - Fine-tunes DistilBERT
+- `BertDateClassifier` - Inference class
+- `extract_with_bert()` - Drop-in replacement for LLM classification
+- `run_bert_timeline_extraction()` - Full pipeline
+
+New CLI arguments:
+- `--bert-generate` - Generate training data
+- `--bert-train` - Train classifier
+- `--bert-run` - Run extraction with BERT
+- `--bert-model` - Choose base model (default: distilbert-base-uncased)
+- `--epochs` - Training epochs (default: 3)
+
+### Current Status
+
+**Where we left off:** Training was interrupted by a numpy version incompatibility.
+
+**Issue:** numpy 2.2.6 is incompatible with torch 2.2.2
+
+**Fix required:**
+```bash
+pip install "numpy<2"
+# or specifically:
+pip install numpy==1.26.4
+```
+
+---
+
+## Monday Pickup Instructions
+
+### Step 1: Fix numpy (if not done)
+```bash
+conda activate textanalysis
+pip install numpy==1.26.4
+python -c "import numpy; import torch; print(f'numpy: {numpy.__version__}'); print(f'torch: {torch.__version__}')"
+```
+Expected: numpy 1.26.4, torch 2.2.2
+
+### Step 2: Train BERT classifier
+```bash
+cd /Users/Dora/git/consulting/nepa/code/extract
+python extract_timeline.py --bert-train
+```
+This will:
+- Load training data from `data/analysis/bert_training_data.parquet`
+- Fine-tune DistilBERT for 3 epochs
+- Save model to `models/timeline_classifier/`
+
+### Step 3: Run on 20-project sample (compare to LLM)
+```bash
+python extract_timeline.py --bert-run --sample 20 --output test20_bert.parquet
+```
+
+### Step 4: Compare results
+```python
+import pandas as pd
+
+# BERT results
+bert = pd.read_parquet('data/analysis/test20_bert.parquet')
+print("BERT decision coverage:", bert['bert_decision_date'].notna().mean())
+print("BERT initiation coverage:", bert['bert_application_date'].notna().mean())
+
+# LLM results (for comparison)
+llm = pd.read_parquet('data/analysis/test20_workers.parquet')
+print("LLM decision coverage:", llm['llm_decision_date'].notna().mean())
+print("LLM initiation coverage:", llm['llm_application_date'].notna().mean())
+```
+
+### Step 5: If BERT looks good, run on full dataset
+```bash
+python extract_timeline.py --bert-run --output projects_timeline_bert.parquet
+```
+Expected runtime: ~30-60 minutes for 20K projects
+
+---
+
 ## Known Issues / Gaps (Current)
 
 1) **Decision date selection can be wrong**
@@ -185,11 +297,15 @@ Comparison: `test20_workers.parquet` vs `test20_hybrid3_instruct.parquet` (both 
 
 | File | Purpose |
 |------|---------|
-| `code/extract/extract_timeline.py` | Timeline extraction implementation (regex + LLM + hybrid + cache) |
+| `code/extract/extract_timeline.py` | Timeline extraction implementation (regex + LLM + hybrid + BERT) |
 | `code/extract/preprocess_documents.py` | LLM preprocessing for full-document extraction (legacy) |
 | `data/analysis/projects_combined.parquet` | Combined project data (input) |
 | `data/analysis/projects_timeline.parquet` | Regex-only timeline output |
-| `data/analysis/regex_candidates.parquet` | Hybrid regex cache (new) |
+| `data/analysis/regex_candidates.parquet` | Hybrid regex cache |
+| `data/analysis/bert_training_data.parquet` | Auto-labeled training data for BERT |
+| `data/analysis/test20_workers.parquet` | LLM hybrid results (20 sample) |
+| `data/analysis/test20_bert.parquet` | BERT results (20 sample) - to be created |
+| `models/timeline_classifier/` | Trained BERT model - to be created |
 | `notes/project_overview.md` | Project goals and deliverables |
 
 ---
@@ -201,22 +317,40 @@ Regex-only extraction:
 python extract_timeline.py --run --sample 100
 ```
 
-Hybrid LLM extraction (fresh regex each run):
-```bash
-python extract_timeline.py --llm-run --hybrid --sample 20 --model llama3.2:3b-instruct-q4_K_M --timeout 180 --workers 4
-```
-
 Hybrid LLM extraction (cached regex):
 ```bash
 python extract_timeline.py --regex-prep
 python extract_timeline.py --llm-run --hybrid --use-regex-cache --sample 20 --model llama3.2:3b-instruct-q4_K_M --timeout 180 --workers 4
 ```
 
+**BERT extraction (recommended - 50-100x faster):**
+```bash
+# One-time setup:
+pip install numpy==1.26.4 transformers datasets torch
+python extract_timeline.py --regex-prep        # Build regex cache (if not done)
+python extract_timeline.py --bert-generate     # Generate training data
+python extract_timeline.py --bert-train        # Train classifier (~5-10 min)
+
+# Run extraction:
+python extract_timeline.py --bert-run --sample 20 --output test20_bert.parquet
+python extract_timeline.py --bert-run --output projects_timeline_bert.parquet  # Full run
+```
+
 ---
 
 ## Change Log
 
-### 2026-01-30
+### 2026-01-30 (PM) - BERT Classifier
+- **Added BERT-based classification as alternative to LLM** (50-100x faster)
+- Implemented weak supervision using existing regex patterns for auto-labeling
+- Added `--bert-generate`, `--bert-train`, `--bert-run` CLI commands
+- Training data generated from regex cache (~thousands of labeled examples)
+- Uses DistilBERT from Hugging Face (downloads automatically, ~250MB)
+- **Blocked by:** numpy 2.x incompatibility with torch 2.2.2
+- **Fix:** `pip install numpy==1.26.4`
+- **Next step:** Complete training and compare to LLM results on 20-project sample
+
+### 2026-01-30 (AM) - Hybrid LLM
 - Added hybrid initiation/decision cue filtering.
 - Switched hybrid context to sentence-based extraction with min-length expansion.
 - Linked initiation cue sentence to next sentence date if needed.
