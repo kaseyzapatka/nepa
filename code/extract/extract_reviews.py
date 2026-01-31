@@ -669,13 +669,19 @@ def run_review_extraction(
         return None
 
     # Process by source
+    import time
     results = []
     sources = list(projects['dataset_source'].unique())
 
-    for source in sources:
-        print(f"\n--- Processing {source} ---")
+    # Running counts
+    n_programmatic_found = 0
+    n_tiered_found = 0
 
+    for source in sources:
         source_projects = projects[projects['dataset_source'] == source]
+        total = len(source_projects)
+        print(f"\n--- Processing {source} ({total} projects) ---")
+
         data_dir = PROCESSED_DIR / source.lower()
 
         docs_path = data_dir / "documents.parquet"
@@ -688,12 +694,9 @@ def run_review_extraction(
             return x.get('value', '') if isinstance(x, dict) else x
         documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
 
-        total = len(source_projects)
+        start_time = time.time()
 
         for idx, (_, project) in enumerate(source_projects.iterrows()):
-            if verbose and idx % 20 == 0:
-                print(f"  Processing {idx + 1}/{total}...")
-
             project_id = project['project_id']
             project_title = project.get('project_title', '')
 
@@ -710,6 +713,25 @@ def run_review_extraction(
             result_dict = result.to_dict()
             result_dict['dataset_source'] = source
             results.append(result_dict)
+
+            # Track counts
+            if result.review_type == 'programmatic':
+                n_programmatic_found += 1
+            elif result.review_type == 'tiered':
+                n_tiered_found += 1
+
+            # Progress output every 10 projects
+            if verbose and (idx + 1) % 10 == 0:
+                elapsed = time.time() - start_time
+                rate = (idx + 1) / elapsed if elapsed > 0 else 0
+                remaining = (total - idx - 1) / rate if rate > 0 else 0
+                print(f"  [{idx + 1}/{total}] {rate:.1f} proj/sec | "
+                      f"~{remaining/60:.1f} min left | "
+                      f"Found: {n_programmatic_found} prog, {n_tiered_found} tiered")
+
+        # Source complete
+        elapsed = time.time() - start_time
+        print(f"  Completed {source} in {elapsed/60:.1f} min")
 
     # Create results dataframe
     results_df = pd.DataFrame(results)
