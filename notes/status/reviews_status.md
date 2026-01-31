@@ -150,6 +150,19 @@ python code/extract/extract_reviews.py --run
 python code/extract/extract_reviews.py --run --include-ce
 ```
 
+### Check Results After Extraction
+
+```bash
+python3 -c "
+import pandas as pd
+df = pd.read_parquet('data/analysis/projects_reviews.parquet')
+print(df['project_review_type'].value_counts())
+print()
+print('Tiered reviews:')
+print(df[df['project_review_type']=='tiered'][['project_title','project_review_tiers_from']].head(10))
+"
+```
+
 ---
 
 ## Data Counts
