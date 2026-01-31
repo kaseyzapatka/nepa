@@ -140,8 +140,8 @@ def has_number_with_unit(text: str) -> bool:
     """Check if text has a number followed by a power unit."""
     if not text:
         return False
-    # Match patterns like "50 MW", "1,500 megawatts", "2.5 GW"
-    pattern = r'\d[\d,\.]*\s*(?:MW|GW|kW|MWh|GWh|kWh|megawatt|gigawatt|kilowatt|MWe|MWt)'
+    # Match patterns like "50 MW", "1,500 megawatts", "2.5 GW", "15-MW"
+    pattern = r'\d[\d,\.]*\s*(?:-|–|—)?\s*(?:MW|GW|kW|MWh|GWh|kWh|megawatt|gigawatt|kilowatt|MWe|MWt)'
     return bool(re.search(pattern, text, re.IGNORECASE))
 
 
@@ -229,13 +229,17 @@ def extract_candidate_sentences(text: str, terms: set, max_sentences: int = 10) 
         # Score the sentence
         score = 0
 
-        # Strong signal: has number + power unit (MW, GW, kW, megawatt, etc.)
+        # Strong signal: has number + unit (MW, GW, kW, megawatt, etc.)
         if has_number_with_unit(sent):
-            score += 5  # This is the key signal
+            score += 5  # Key signal
         elif has_capacity_terms(sent, terms):
             score += 1  # Weak signal without number
         else:
             continue  # Skip if no relevant terms
+
+        # Keep long list-style sentences if they contain numeric units
+        if len(sent) > 600 and has_number_with_unit(sent):
+            score = max(score, 3)
 
         # Bonus for project-related context
         context_words = {'project', 'proposed', 'facility', 'plant', 'farm', 'array',
@@ -248,7 +252,7 @@ def extract_candidate_sentences(text: str, terms: set, max_sentences: int = 10) 
     # Sort by score descending, take top N
     candidates.sort(key=lambda x: x[1], reverse=True)
     # Lowered threshold: score >= 1 (just need SOME signal)
-    return [sent for sent, score in candidates[:max_sentences] if score >= 3]
+    return [sent for sent, score in candidates[:max_sentences] if score >= 1]
 
 
 # --------------------------
