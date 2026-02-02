@@ -354,6 +354,36 @@ Comparison: `test20_workers.parquet` vs `test20_hybrid3_instruct.parquet` (both 
 
 ---
 
+## Updates Added (2026-02-02)
+
+1) **New timeline class: `review` (BERT + hybrid)**  
+   - **Change:** Added `review` as a third class alongside `initiation` and `decision`; summary now includes earliest/latest review and review count.  
+   - **Reason:** Interim approvals and phase approvals were being mislabeled as decisions; review dates are valuable for timeline structure and for initiation backfill when explicit initiation is missing.
+
+2) **Decision selection ranking (cue strength + confidence)**  
+   - **Change:** Decision date now chosen by cue strength + confidence, not just latest date; boilerplate penalty added; footer/header position only used when top candidates are close in score but far apart in position.  
+   - **Reason:** Prevents form boilerplate or weak header dates from overriding true signature decisions.
+
+3) **Dynamic context window sizing**  
+   - **Change:** Smaller contexts for strong signature cues, larger contexts for review/initiation cues.  
+   - **Reason:** Avoids over-capturing noise around signatures while preserving enough context for weak review cues.
+
+4) **Keep-all regex cache (default)**  
+   - **Change:** Regex cache now keeps all dates by default (cue filtering moved downstream); `--regex-filtered` restores legacy behavior.  
+   - **Reason:** Dates in tables/lists were being dropped before BERT could see them (e.g., 1/7/2021, 1/11/2021, 1/26/2021).
+
+5) **Boilerplate context merging for decisions**  
+   - **Change:** If a date’s sentence is boilerplate, expand context to adjacent sentence with decision cues (signature blocks).  
+   - **Reason:** Prevents Recovery Act/boilerplate sentences from masking nearby signature lines.
+
+6) **Full context preserved in `source`**  
+   - **Change:** BERT `source` now stores full context rather than truncating to 100 chars.  
+   - **Reason:** Allows direct validation of dates (e.g., include “5515-001 on November 30, 2011.”).
+
+7) **Memo DATE fallback to review (when no decision cues)**  
+   - **Change:** If no decision cues exist, memo “DATE:” lines are treated as review; DOE form boilerplate is forced to `other`.  
+   - **Reason:** Environmental clearance memos often have no signatures; memo date is the best available review proxy and form approval dates should be excluded.
+
 ## File References
 
 | File | Purpose |

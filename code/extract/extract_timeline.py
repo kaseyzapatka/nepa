@@ -587,6 +587,16 @@ DECISION_PATTERNS_STRONG = [
     r'ce determination date',
 ]
 
+DECISION_PATTERNS_MED = [
+    r'date determined',
+    r'determination',
+    r'field office manager',
+    r'nepa compliance officer',
+    r'authorizing official',
+    r'final approval',
+    r'approval',
+]
+
 INITIATION_PATTERNS_STRONG = [
     r'scoping meeting',
     r'scoping period',
@@ -600,6 +610,31 @@ INITIATION_PATTERNS_STRONG = [
     r'request received',
     r'right[- ]of[- ]way application',
     r'row application',
+]
+
+REVIEW_PATTERNS_STRONG = [
+    r'review completed',
+    r'interim review',
+    r'decision in principle',
+    r'phase\s+\d+\s+was approved',
+    r'phase\s+\d+\s+approved',
+    r'approved by\s+\w+.*(review|phase)',
+    r'nepa review completed',
+]
+
+MEMO_DATE_PATTERNS = [
+    r'\bDATE:\b',
+    r'\bmemorandum\b',
+]
+
+DECISION_BOILERPLATE_PATTERNS = [
+    r'previous editions obsolete',
+    r'form approved',
+    r'forms mgmt',
+    r'netl f \d+',
+    r'doe f \d+',
+    r'revised:',
+    r'reviewed:',
 ]
 
 OTHER_PATTERNS_STRONG = [
@@ -637,6 +672,11 @@ def auto_label_context(context: str) -> str:
     for pattern in INITIATION_PATTERNS_STRONG:
         if re.search(pattern, context_lower):
             return 'initiation'
+
+    # Check review patterns
+    for pattern in REVIEW_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'review'
 
     # Check other patterns (negative examples)
     for pattern in OTHER_PATTERNS_STRONG:
@@ -693,7 +733,7 @@ def generate_bert_training_data(
     start = time.time()
 
     labeled_data = []
-    label_counts = {'decision': 0, 'initiation': 0, 'other': 0, 'unlabeled': 0}
+    label_counts = {'decision': 0, 'initiation': 0, 'review': 0, 'other': 0, 'unlabeled': 0}
 
     for _, row in cache_df.iterrows():
         context = row.get('context', '')
@@ -720,7 +760,7 @@ def generate_bert_training_data(
         print(f"  {label}: {count:,}")
 
     # Check minimum samples
-    for label in ['decision', 'initiation', 'other']:
+    for label in ['decision', 'initiation', 'review', 'other']:
         if label_counts[label] < min_samples_per_class:
             print(f"\nWARNING: Only {label_counts[label]} samples for '{label}' (min: {min_samples_per_class})")
 
@@ -789,7 +829,7 @@ def train_bert_classifier(
     print(f"Loaded {len(df):,} training examples")
 
     # Create label mapping
-    label2id = {'decision': 0, 'initiation': 1, 'other': 2}
+    label2id = {'decision': 0, 'initiation': 1, 'review': 2, 'other': 3}
     id2label = {v: k for k, v in label2id.items()}
 
     df['label_id'] = df['label'].map(label2id)
@@ -815,7 +855,7 @@ def train_bert_classifier(
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
         model_name,
-        num_labels=3,
+        num_labels=4,
         id2label=id2label,
         label2id=label2id,
     )
@@ -995,6 +1035,48 @@ class BertDateClassifier:
         return self.classify([context])[0]
 
 
+def _is_decision_boilerplate(context: str) -> bool:
+    return _has_any_regex(context, DECISION_BOILERPLATE_PATTERNS)
+
+
+def _decision_strength(context: str) -> int:
+    if not context:
+        return 0
+    if _has_any_regex(context, DECISION_PATTERNS_STRONG):
+        return 3
+    if _has_any_regex(context, DECISION_PATTERNS_MED):
+        return 2
+    if _has_any(context, DECISION_CUES):
+        return 1
+    return 0
+
+
+def _select_best_decision(decision_dates: list) -> dict:
+    if not decision_dates:
+        return None
+
+    for d in decision_dates:
+        ctx = d.get('context', '')
+        d['_decision_strength'] = _decision_strength(ctx)
+        d['_boilerplate_penalty'] = -2 if _is_decision_boilerplate(ctx) else 0
+        d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
+        d['_score'] = d['_decision_strength'] + d['_boilerplate_penalty'] + (2 * d['_confidence'])
+
+    decision_dates.sort(key=lambda x: (x['_score'], x['date']), reverse=True)
+    best = decision_dates[0]
+
+    if len(decision_dates) > 1:
+        runner_up = decision_dates[1]
+        score_gap = abs(best['_score'] - runner_up['_score'])
+        pos_gap = abs((best.get('position_pct') or 0) - (runner_up.get('position_pct') or 0))
+
+        # Only use header/footer position when cue strength is similar but positions disagree
+        if score_gap < 0.3 and pos_gap >= 20:
+            best = max([best, runner_up], key=lambda x: x.get('position_pct') or 0)
+
+    return best
+
+
 def extract_with_bert(
     dates_with_context: list,
     classifier: BertDateClassifier = None,
@@ -1022,6 +1104,8 @@ def extract_with_bert(
         'decision_confidence': None,
         'earliest_review_date': None,
         'latest_review_date': None,
+        'n_review_dates': 0,
+        'n_specialist_reviews': 0,
         'application_date': None,
         'inferred_application_date': None,
         'earliest_historical_date': None,
@@ -1056,35 +1140,66 @@ def extract_with_bert(
     # Build classified dates list
     classified_dates = []
     for date_info, classification in zip(dates_with_context, classifications):
+        context_text = date_info.get('context', '')
+        forced_type = None
+        if _is_decision_boilerplate(context_text):
+            forced_type = 'other'
         classified_dates.append({
             'date': date_info['date'],
-            'type': classification['label'],
-            'source': date_info.get('context', '')[:100],
+            'type': forced_type or classification['label'],
+            'source': context_text,
+            'context': context_text,
             'confidence': 'high' if classification['confidence'] > 0.8 else 'medium',
             'bert_confidence': classification['confidence'],
+            'position_pct': date_info.get('position_pct'),
         })
 
-    result['dates_json'] = json.dumps(classified_dates)
+    output_dates = [
+        {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score')}
+        for d in classified_dates
+    ]
+    result['dates_json'] = json.dumps(output_dates)
     result['n_dates_found'] = len(classified_dates)
 
     # Extract summary fields
     decision_dates = [d for d in classified_dates if d['type'] == 'decision']
     initiation_dates = [d for d in classified_dates if d['type'] == 'initiation']
+    review_dates = [d for d in classified_dates if d['type'] == 'review']
 
-    # Decision date (prefer highest confidence, then latest)
+    # If no decision cues exist anywhere, treat memo DATE lines as review
+    has_decision_cues = any(
+        _has_any(d.get('context', ''), DECISION_CUES) or _has_any_regex(d.get('context', ''), DECISION_PATTERNS_STRONG)
+        for d in classified_dates
+    )
+    if not has_decision_cues:
+        for d in classified_dates:
+            if d['type'] == 'other' and _has_any_regex(d.get('context', ''), MEMO_DATE_PATTERNS):
+                d['type'] = 'review'
+
+        review_dates = [d for d in classified_dates if d['type'] == 'review']
+
+    # Decision date (cue strength, then confidence, then date)
     if decision_dates:
-        # Sort by confidence descending, then by date descending
-        decision_dates.sort(key=lambda x: (x['bert_confidence'], x['date']), reverse=True)
-        best = decision_dates[0]
-        result['decision_date'] = best['date']
-        result['decision_date_source'] = best['source']
-        result['decision_confidence'] = best['confidence']
+        best = _select_best_decision(decision_dates)
+        if best:
+            result['decision_date'] = best['date']
+            result['decision_date_source'] = best['source']
+            result['decision_confidence'] = best['confidence']
+
+    # Review dates
+    if review_dates:
+        review_dates.sort(key=lambda x: x['date'])
+        result['earliest_review_date'] = review_dates[0]['date']
+        result['latest_review_date'] = review_dates[-1]['date']
+        result['n_review_dates'] = len(review_dates)
 
     # Initiation/application date (earliest)
     if initiation_dates:
         initiation_dates.sort(key=lambda x: x['date'])
         result['application_date'] = initiation_dates[0]['date']
         result['inferred_application_date'] = initiation_dates[0]['date']
+    elif review_dates:
+        result['inferred_application_date'] = result['earliest_review_date']
 
     return result
 
@@ -1185,6 +1300,9 @@ def run_bert_timeline_extraction(
             'bert_decision_date': bert_result.get('decision_date'),
             'bert_decision_date_source': bert_result.get('decision_date_source'),
             'bert_decision_confidence': bert_result.get('decision_confidence'),
+            'bert_earliest_review_date': bert_result.get('earliest_review_date'),
+            'bert_latest_review_date': bert_result.get('latest_review_date'),
+            'bert_n_review_dates': bert_result.get('n_review_dates', 0),
             'bert_application_date': bert_result.get('application_date'),
             'bert_inferred_application_date': bert_result.get('inferred_application_date'),
             'bert_error': bert_result.get('error'),
@@ -1250,6 +1368,11 @@ INITIATION_CUES = [
     'revised', 'reviewed',
 ]
 
+REVIEW_CUES = [
+    'review completed', 'interim', 'phase', 'decision in principle',
+    'review memo', 'review memorandum', 'reviewed by', 'nepa review',
+]
+
 # Strong exclusions (keep tight to avoid discarding useful start/creation dates)
 EXCLUSION_PATTERNS = [
     r'\b\d+\s*FR\s*\d+\b',          # Federal Register citations
@@ -1299,6 +1422,43 @@ def _has_any(text: str, cues: list) -> bool:
     text_lower = text.lower()
     return any(cue in text_lower for cue in cues)
 
+def _has_any_regex(text: str, patterns: list) -> bool:
+    text_lower = text.lower()
+    return any(re.search(pattern, text_lower) for pattern in patterns)
+
+def _min_context_chars_for_sentence(sent_text: str) -> int:
+    # Use tighter context for strong signature cues; expand for weaker review/initiation cues.
+    if _has_any_regex(sent_text, DECISION_PATTERNS_STRONG):
+        return 60
+    if _has_any(sent_text, INITIATION_CUES):
+        return 140
+    if _has_any(sent_text, REVIEW_CUES):
+        return 160
+    return 100
+
+
+def _expand_for_decision_cues(spans: list, sent_idx: int, context: str) -> str:
+    """
+    If a date is near boilerplate text but an adjacent sentence has decision cues,
+    merge the adjacent sentence to capture the signature context.
+    """
+    if not spans or sent_idx is None:
+        return context
+    if not _is_decision_boilerplate(context):
+        return context
+
+    merged = context
+    if sent_idx + 1 < len(spans):
+        next_sent = spans[sent_idx + 1][2]
+        if _has_any(next_sent, DECISION_CUES) or _has_any_regex(next_sent, DECISION_PATTERNS_STRONG):
+            merged = f"{merged} {next_sent}"
+    if sent_idx - 1 >= 0:
+        prev_sent = spans[sent_idx - 1][2]
+        if _has_any(prev_sent, DECISION_CUES) or _has_any_regex(prev_sent, DECISION_PATTERNS_STRONG):
+            merged = f"{prev_sent} {merged}"
+
+    return re.sub(r'\\s+', ' ', merged).strip()
+
 
 def _is_excluded_context(text: str) -> bool:
     for pattern in EXCLUSION_PATTERNS:
@@ -1311,6 +1471,8 @@ def extract_dates_with_context(
     text: str,
     context_window: int = DATE_CONTEXT_WINDOW,
     min_context_chars: int = 80,
+    keep_all_candidates: bool = False,
+    dedupe_by_date: bool = True,
 ) -> list:
     """
     Extract candidate dates from text using regex, with sentence-based context.
@@ -1368,7 +1530,9 @@ def extract_dates_with_context(
                 end = min(len(text), match.end() + context_window)
                 context = re.sub(r'\s+', ' ', text[start:end]).strip()
             else:
-                context = _expand_context(spans, sent_idx, min_chars=min_context_chars)
+                min_chars = _min_context_chars_for_sentence(spans[sent_idx][2])
+                context = _expand_context(spans, sent_idx, min_chars=min_chars)
+                context = _expand_for_decision_cues(spans, sent_idx, context)
 
             # Exclusion filters (FR/CFR/USC/URLs/OMB)
             if _is_excluded_context(context):
@@ -1380,19 +1544,23 @@ def extract_dates_with_context(
                 'position': match.start(),
             })
 
-            # Candidate filter: keep if context has decision/initiation cues
-            if not (_has_any(context, DECISION_CUES) or _has_any(context, INITIATION_CUES)):
-                continue
+            # Candidate filter: keep if context has decision/initiation/review cues
+            if not keep_all_candidates:
+                if not (_has_any(context, DECISION_CUES)
+                        or _has_any(context, INITIATION_CUES)
+                        or _has_any(context, REVIEW_CUES)):
+                    continue
 
             # Deduplicate by context to avoid duplicate signature sentences
             context_key = re.sub(r'\s+', ' ', context).strip().lower()
             if context_key in seen_contexts:
                 continue
 
-            # Deduplicate by date string
-            if date_str in seen_dates:
-                continue
-            seen_dates.add(date_str)
+            # Deduplicate by date string (optional)
+            if dedupe_by_date:
+                if date_str in seen_dates:
+                    continue
+                seen_dates.add(date_str)
             seen_contexts.add(context_key)
 
             results.append({
@@ -1467,6 +1635,7 @@ def create_classification_prompt(dates_with_context: list) -> str:
         "Only classify the following date types:",
         "- decision: Final approval signature (Field Manager, NEPA Compliance Officer, Authorizing Official)",
         "- initiation: Start of the review or consultation (e.g., initiated consultation, application received, NOI, scoping)",
+        "- review: Interim review or phase approval (not final decision, not initiation)",
         "- other: Anything else",
         "",
         "DATES TO CLASSIFY:",
@@ -1481,7 +1650,7 @@ def create_classification_prompt(dates_with_context: list) -> str:
     lines.extend([
         "Return JSON only:",
         '{"classifications": [',
-        '  {"date": "YYYY-MM-DD", "type": "decision|initiation|other", "reason": "brief explanation"},',
+        '  {"date": "YYYY-MM-DD", "type": "decision|initiation|review|other", "reason": "brief explanation"},',
         '  ...',
         ']}'
     ])
@@ -1510,7 +1679,7 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
         'decision_confidence': None,
         'earliest_review_date': None,
         'latest_review_date': None,
-        'n_specialist_reviews': 0,
+        'n_review_dates': 0,
         'application_date': None,
         'inferred_application_date': None,
         'earliest_historical_date': None,
@@ -1535,6 +1704,14 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
             classifications = parsed.get('classifications', [])
 
             # Build classified dates list
+            context_map = {}
+            for orig in dates_with_context:
+                if orig.get('date') not in context_map:
+                    context_map[orig.get('date')] = {
+                        'context': orig.get('context', ''),
+                        'position_pct': orig.get('position_pct'),
+                    }
+
             classified_dates = []
             for c in classifications:
                 if not isinstance(c, dict):
@@ -1542,11 +1719,15 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
 
                 date_str = normalize_date_string(c.get('date'))
                 if date_str:
+                    ctx_info = context_map.get(date_str, {})
                     classified_dates.append({
                         'date': date_str,
                         'type': c.get('type', 'other'),
                         'source': str(c.get('reason', ''))[:200],
+                        'context': ctx_info.get('context', ''),
+                        'position_pct': ctx_info.get('position_pct'),
                         'confidence': 'high',  # LLM classified it
+                        'confidence_score': 1.0,
                     })
 
             # If LLM didn't return all dates, add unclassified ones
@@ -1557,33 +1738,43 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
                         'date': orig['date'],
                         'type': 'other',
                         'source': 'not classified by LLM',
+                        'context': orig.get('context', ''),
+                        'position_pct': orig.get('position_pct'),
                         'confidence': 'low',
+                        'confidence_score': 0.2,
                     })
 
-            result['dates_json'] = json.dumps(classified_dates)
+            output_dates = [
+                {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty',
+                                                        '_confidence', '_score')}
+                for d in classified_dates
+            ]
+            result['dates_json'] = json.dumps(output_dates)
             result['n_dates_found'] = len(classified_dates)
 
             # Extract summary fields by type (hybrid focuses on decision/initiation)
             decision_dates = [d for d in classified_dates if d['type'] == 'decision']
             initiation_types = {'initiation', 'application', 'start'}
             application_dates = [d for d in classified_dates if d['type'] in initiation_types]
-            review_dates = [d for d in classified_dates if d['type'] == 'specialist_review']
+            review_types = {'review', 'specialist_review'}
+            review_dates = [d for d in classified_dates if d['type'] in review_types]
             historical_dates = [d for d in classified_dates if d['type'] == 'historical']
             expiration_dates = [d for d in classified_dates if d['type'] == 'expiration']
 
-            # Decision date (latest if multiple)
+            # Decision date (cue strength, then confidence, then date)
             if decision_dates:
-                decision_dates.sort(key=lambda x: x['date'])
-                latest = decision_dates[-1]
-                result['decision_date'] = latest['date']
-                result['decision_date_source'] = latest['source']
-                result['decision_confidence'] = latest['confidence']
+                best = _select_best_decision(decision_dates)
+                if best:
+                    result['decision_date'] = best['date']
+                    result['decision_date_source'] = best['source']
+                    result['decision_confidence'] = best['confidence']
 
-            # Specialist reviews
+            # Review dates
             if review_dates:
                 review_dates.sort(key=lambda x: x['date'])
                 result['earliest_review_date'] = review_dates[0]['date']
                 result['latest_review_date'] = review_dates[-1]['date']
+                result['n_review_dates'] = len(review_dates)
                 result['n_specialist_reviews'] = len(review_dates)
 
             # Initiation/application date
@@ -1825,6 +2016,7 @@ def parse_llm_response(response_text: str) -> dict:
 
         'earliest_review_date': None,
         'latest_review_date': None,
+        'n_review_dates': 0,
         'n_specialist_reviews': 0,
 
         'application_date': None,
@@ -1881,7 +2073,7 @@ def parse_llm_response(response_text: str) -> dict:
 
             # Extract summary fields by type
             decision_dates = [d for d in valid_dates if d['type'] == 'decision']
-            review_dates = [d for d in valid_dates if d['type'] == 'specialist_review']
+            review_dates = [d for d in valid_dates if d['type'] in {'review', 'specialist_review'}]
             application_dates = [d for d in valid_dates if d['type'] == 'application']
             historical_dates = [d for d in valid_dates if d['type'] == 'historical']
             expiration_dates = [d for d in valid_dates if d['type'] == 'expiration']
@@ -1899,6 +2091,7 @@ def parse_llm_response(response_text: str) -> dict:
                 review_dates.sort(key=lambda x: x['date'])
                 result['earliest_review_date'] = review_dates[0]['date']
                 result['latest_review_date'] = review_dates[-1]['date']
+                result['n_review_dates'] = len(review_dates)
                 result['n_specialist_reviews'] = len(review_dates)
 
             # Application date
@@ -2064,9 +2257,10 @@ def build_project_timeline_llm(
         'llm_decision_date_source': None,
         'llm_decision_confidence': None,
 
-        # Specialist review fields
+        # Review fields
         'llm_earliest_review_date': None,
         'llm_latest_review_date': None,
+        'llm_n_review_dates': 0,
         'llm_n_specialist_reviews': 0,
 
         # Application date fields
@@ -2135,7 +2329,8 @@ def build_project_timeline_llm(
 
     result['llm_earliest_review_date'] = llm_result.get('earliest_review_date')
     result['llm_latest_review_date'] = llm_result.get('latest_review_date')
-    result['llm_n_specialist_reviews'] = llm_result.get('n_specialist_reviews', 0)
+    result['llm_n_review_dates'] = llm_result.get('n_review_dates', llm_result.get('n_specialist_reviews', 0))
+    result['llm_n_specialist_reviews'] = llm_result.get('n_specialist_reviews', result['llm_n_review_dates'])
 
     result['llm_application_date'] = llm_result.get('application_date')
     result['llm_inferred_application_date'] = llm_result.get('inferred_application_date')
@@ -2345,6 +2540,7 @@ def run_regex_prep(
     ce_only: bool = True,
     main_docs_only: bool = True,
     output_file: str = None,
+    keep_all_candidates: bool = True,
 ):
     """
     Precompute regex candidate dates with context for hybrid LLM runs.
@@ -2422,7 +2618,11 @@ def run_regex_prep(
         if not all_text.strip():
             continue
 
-        dates_with_context = extract_dates_with_context(all_text)
+        dates_with_context = extract_dates_with_context(
+            all_text,
+            keep_all_candidates=keep_all_candidates,
+            dedupe_by_date=not keep_all_candidates,
+        )
         for d in dates_with_context:
             results.append({
                 'project_id': project_id,
@@ -2655,6 +2855,8 @@ if __name__ == "__main__":
                         help='Number of parallel LLM workers (default: 4)')
     parser.add_argument('--regex-prep', action='store_true',
                         help='Precompute regex candidate cache for hybrid LLM')
+    parser.add_argument('--regex-filtered', action='store_true',
+                        help='Apply cue filtering when building regex cache (legacy behavior)')
     parser.add_argument('--use-regex-cache', action='store_true',
                         help='Use precomputed regex cache for hybrid LLM')
     parser.add_argument('--regex-cache', type=str,
@@ -2696,6 +2898,7 @@ if __name__ == "__main__":
             ce_only=True,
             main_docs_only=True,
             output_file=args.regex_cache,
+            keep_all_candidates=not args.regex_filtered,
         )
         sys.exit(0)
 
