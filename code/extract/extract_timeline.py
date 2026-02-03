@@ -567,12 +567,6 @@ REGEX_CACHE_PATH = ANALYSIS_DIR / "regex_candidates.parquet"
 # Model paths
 BERT_MODEL_DIR = BASE_DIR / "models" / "timeline_classifier"
 BERT_TRAINING_DATA_PATH = ANALYSIS_DIR / "bert_training_data.parquet"
-CLASS_CONF_THRESHOLDS = {
-    'decision': 0.85,
-    'initiation': 0.75,
-    'review': 0.75,
-    'other': 0.85,
-}
 
 # Auto-labeling patterns (high confidence rules)
 DECISION_PATTERNS_STRONG = [
@@ -747,17 +741,11 @@ def generate_bert_training_data(
         if not context or len(context) < 10:
             continue
 
-        # Clean context for training to match inference behavior
-        cleaned_context, cleaned_flag = _clean_context(context)
-        context_for_training = cleaned_context if cleaned_context else context
-
-        label = auto_label_context(context_for_training)
+        label = auto_label_context(context)
 
         if label:
             labeled_data.append({
-                'context': context_for_training,
-                'context_original': context,
-                'context_cleaned_flag': cleaned_flag,
+                'context': context,
                 'label': label,
                 'date': row.get('date'),
                 'project_id': row.get('project_id'),
@@ -813,7 +801,6 @@ def train_bert_classifier(
         Trained model and tokenizer
     """
     try:
-        import os
         from transformers import (
             AutoTokenizer,
             AutoModelForSequenceClassification,
@@ -823,7 +810,6 @@ def train_bert_classifier(
         )
         from datasets import Dataset
         import numpy as np
-        import torch
     except ImportError:
         print("ERROR: transformers and datasets libraries required.")
         print("Install with: pip install transformers datasets torch")
@@ -833,9 +819,6 @@ def train_bert_classifier(
     print(f"Model: {model_name}")
     print(f"Epochs: {epochs}")
     print(f"Batch size: {batch_size}")
-
-    # TensorBoard logging directory (used by HF Trainer)
-    os.environ["TENSORBOARD_LOGGING_DIR"] = str(output_dir / "logs")
 
     # Load training data
     if not training_data_path.exists():
@@ -856,11 +839,11 @@ def train_bert_classifier(
     print("\nClass distribution:")
     print(df['label'].value_counts())
 
-    # Stratified split into train/test
-    test_df = df.groupby('label', group_keys=False).apply(
-        lambda x: x.sample(frac=test_split, random_state=42)
-    )
-    train_df = df.drop(test_df.index)
+    # Split into train/test
+    df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
+    split_idx = int(len(df_shuffled) * (1 - test_split))
+    train_df = df_shuffled[:split_idx]
+    test_df = df_shuffled[split_idx:]
 
     print(f"\nTrain: {len(train_df):,}, Test: {len(test_df):,}")
 
@@ -921,25 +904,8 @@ def train_bert_classifier(
         load_best_model_at_end=False,
     )
 
-    # Class weights for imbalanced labels
-    class_counts = train_df['label_id'].value_counts().sort_index()
-    total = class_counts.sum()
-    class_weights = (total / (len(class_counts) * class_counts)).values
-    class_weights = torch.tensor(class_weights, dtype=torch.float).to(model.device)
-
-    class WeightedTrainer(Trainer):
-        def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
-            labels = inputs.get("labels")
-            outputs = model(**inputs)
-            logits = outputs.get("logits")
-            # Compute loss on same device as logits to satisfy Trainer expectations
-            device = logits.device
-            loss_fct = torch.nn.CrossEntropyLoss(weight=class_weights.to(device))
-            loss = loss_fct(logits, labels.to(device))
-            return (loss, outputs) if return_outputs else loss
-
     # Trainer
-    trainer = WeightedTrainer(
+    trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
@@ -1161,7 +1127,7 @@ def extract_with_bert(
             result['error'] = f'bert_load_error: {str(e)}'
             return result
 
-    # Extract contexts (cleaned for classification, original preserved)
+    # Extract contexts (classification uses original; cleaned saved for review)
     original_contexts = [d.get('context', '') for d in dates_with_context]
     cleaned_contexts = []
     cleaned_flags = []
@@ -1172,7 +1138,7 @@ def extract_with_bert(
 
     # Classify
     try:
-        classifications = classifier.classify(cleaned_contexts)
+        classifications = classifier.classify(original_contexts)
     except Exception as e:
         result['error'] = f'bert_classify_error: {str(e)}'
         return result
@@ -1183,14 +1149,13 @@ def extract_with_bert(
         dates_with_context, classifications, original_contexts, cleaned_contexts, cleaned_flags
     ):
         context_text = orig_ctx
-        context_for_rules = clean_ctx if clean_ctx else orig_ctx
+        context_for_rules = orig_ctx
         forced_type = None
         if _is_decision_boilerplate(context_for_rules):
             forced_type = 'other'
         if _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
             forced_type = 'initiation'
         label = forced_type or classification['label']
-        thresh = CLASS_CONF_THRESHOLDS.get(label, 0.8)
         classified_dates.append({
             'date': date_info['date'],
             'type': label,
@@ -1198,7 +1163,7 @@ def extract_with_bert(
             'context': context_text,
             'context_cleaned': clean_ctx,
             'context_cleaned_flag': clean_flag,
-            'confidence': 'high' if classification['confidence'] >= thresh else 'medium',
+            'confidence': 'high' if classification['confidence'] >= 0.8 else 'medium',
             'bert_confidence': classification['confidence'],
             'position_pct': date_info.get('position_pct'),
         })
@@ -1538,7 +1503,6 @@ def _clean_context(context: str) -> tuple:
         # drop only the clause and keep the signature tail.
         if re.search(r'Recovery Act', line_stripped, flags=re.IGNORECASE):
             if re.search(r'Approved by|NEPA Compliance Officer|Authorizing Official|Field Office Manager|Signature|Signed by', line_stripped, flags=re.IGNORECASE):
-                # keep text after the Recovery Act clause
                 split = re.split(r'Recovery Act\\)?\\s*', line_stripped, flags=re.IGNORECASE, maxsplit=1)
                 if len(split) > 1 and split[1].strip():
                     line_stripped = split[1].strip()
