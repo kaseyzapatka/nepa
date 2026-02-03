@@ -610,6 +610,7 @@ INITIATION_PATTERNS_STRONG = [
     r'request received',
     r'right[- ]of[- ]way application',
     r'row application',
+    r'initiator signature',
 ]
 
 REVIEW_PATTERNS_STRONG = [
@@ -1127,32 +1128,53 @@ def extract_with_bert(
             result['error'] = f'bert_load_error: {str(e)}'
             return result
 
-    # Extract contexts
-    contexts = [d.get('context', '') for d in dates_with_context]
+    # Extract contexts (cleaned for classification, original preserved)
+    original_contexts = [d.get('context', '') for d in dates_with_context]
+    cleaned_contexts = []
+    cleaned_flags = []
+    for ctx in original_contexts:
+        cleaned, flag = _clean_context(ctx)
+        cleaned_contexts.append(cleaned)
+        cleaned_flags.append(flag)
 
     # Classify
     try:
-        classifications = classifier.classify(contexts)
+        classifications = classifier.classify(cleaned_contexts)
     except Exception as e:
         result['error'] = f'bert_classify_error: {str(e)}'
         return result
 
     # Build classified dates list
     classified_dates = []
-    for date_info, classification in zip(dates_with_context, classifications):
-        context_text = date_info.get('context', '')
+    for date_info, classification, orig_ctx, clean_ctx, clean_flag in zip(
+        dates_with_context, classifications, original_contexts, cleaned_contexts, cleaned_flags
+    ):
+        context_text = orig_ctx
         forced_type = None
         if _is_decision_boilerplate(context_text):
             forced_type = 'other'
+        if _has_any_regex(context_text, [r'initiator signature', r'\binitiator\b']):
+            forced_type = 'initiation'
         classified_dates.append({
             'date': date_info['date'],
             'type': forced_type or classification['label'],
             'source': context_text,
             'context': context_text,
+            'context_cleaned': clean_ctx,
+            'context_cleaned_flag': clean_flag,
             'confidence': 'high' if classification['confidence'] > 0.8 else 'medium',
             'bert_confidence': classification['confidence'],
             'position_pct': date_info.get('position_pct'),
         })
+
+    # Context-level dedupe: keep highest-confidence entry per (date, type)
+    deduped = {}
+    for d in classified_dates:
+        key = (d['date'], d['type'])
+        score = d.get('bert_confidence', 0)
+        if key not in deduped or score > deduped[key].get('bert_confidence', 0):
+            deduped[key] = d
+    classified_dates = list(deduped.values())
 
     output_dates = [
         {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score')}
@@ -1458,6 +1480,34 @@ def _expand_for_decision_cues(spans: list, sent_idx: int, context: str) -> str:
             merged = f"{prev_sent} {merged}"
 
     return re.sub(r'\\s+', ' ', merged).strip()
+
+
+def _clean_context(context: str) -> tuple:
+    """
+    Strip boilerplate lines from context while preserving original text.
+    Returns (cleaned_text, cleaned_flag).
+    """
+    if not context:
+        return "", False
+
+    original = context
+    patterns = [
+        r'Is the project funded by the American Recovery and Reinvestment Act of 2009.*?No\\s*\\[[ xX]?\\]',
+        r'Is the project funded by the American Recovery and Reinvestment Act of 2009.*',
+        r'\\bDOE F \\d+[\\w\\.\\-]*.*',
+        r'\\bNETL F \\d+[\\w\\.\\-]*.*',
+        r'Previous Editions Obsolete.*',
+        r'Electronic Form Approved by Forms Mgmt\\..*',
+        r'Paperwork Reduction Act.*',
+        r'OMB Control.*',
+    ]
+
+    cleaned = original
+    for pat in patterns:
+        cleaned = re.sub(pat, '', cleaned, flags=re.IGNORECASE)
+
+    cleaned = re.sub(r'\\s+', ' ', cleaned).strip()
+    return cleaned, cleaned != original
 
 
 def _is_excluded_context(text: str) -> bool:
