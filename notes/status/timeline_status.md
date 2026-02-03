@@ -384,6 +384,32 @@ Comparison: `test20_workers.parquet` vs `test20_hybrid3_instruct.parquet` (both 
    - **Change:** If no decision cues exist, memo “DATE:” lines are treated as review; DOE form boilerplate is forced to `other`.  
    - **Reason:** Environmental clearance memos often have no signatures; memo date is the best available review proxy and form approval dates should be excluded.
 
+8) **Context cleaning for BERT classification**  
+   - **Change:** Added `clean_context()` to strip boilerplate (Recovery Act checkbox lines, DOE/NETL form headers, OMB/PRA lines) before BERT classification. Both original and cleaned context are stored in output, with a `context_cleaned_flag`.  
+   - **Reason:** Boilerplate was masking signature lines, causing “Approved by … NEPA Compliance Officer” to be labeled `other`.
+
+9) **Use cleaned context for rule overrides**  
+   - **Change:** Decision/initiator override checks now use cleaned context when available (fallback to original if cleaned is empty).  
+   - **Reason:** Ensures overrides are based on the meaningful text rather than boilerplate noise.
+
+10) **Recovery Act cleaning made non-destructive**  
+   - **Change:** Recovery Act checkbox line now gets stripped without removing trailing signature text (e.g., “Approved by …”).  
+   - **Reason:** Prior regex removed entire line, leaving empty cleaned context and preventing decision classification.
+
+11) **Model comparison: v6 vs v8 (test50)**  
+   - **Decision rate:** v6 **84.0%** → v8 **84.0%** (no change)  
+   - **Initiation rate:** v6 **2.0%** → v8 **16.0%** (improved)  
+   - **Inferred initiation:** v6 **26.0%** → v8 **36.0%** (improved)  
+   - **Net decision shifts:** 1 lost, 1 gained (overall stable).
+
+12) **Known gap remains: Recovery‑Act signature lines**  
+   - **Finding:** 7 projects with “Recovery Act … Approved by … NEPA Compliance Officer” still have **no decision** in both v6 and v8.  
+   - **Implication:** Decision capture is stable, but these are consistent false negatives.
+
+13) **Next targeted fix (recommended)**  
+   - **Action:** Implement a narrow Recovery‑Act signature extraction that keeps the signature tail when “Recovery Act” and signature cues appear on the same line.  
+   - **Goal:** Flip those 7 misses to decisions without hurting overall decision precision.
+
 ## File References
 
 | File | Purpose |
