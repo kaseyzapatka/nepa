@@ -4544,6 +4544,11 @@ vertical-align: -.125em;
 <li>Transmission-only gating has been removed; transmission-only projects are included in the regex pass.</li>
 <li>LLM model default set to <code>llama3.2:3b-instruct-q4_K_M</code>.</li>
 <li>LLM pass restricted to low/medium confidence cases by default and can run in parallel.</li>
+<li>LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and falls back to extracting the <strong>max numeric capacity</strong> from candidate sentences when the LLM omits a quote (marks <code>extraction_method = fallback_from_candidates</code>).</li>
+<li>LLM can now be constrained to projects that already have regex capacity (<code>--require-regex-capacity</code>).</li>
+<li>Regex extraction now skips likely initials/date false positives (e.g., “MW, 5/21/15”).</li>
+<li>Added merge script to combine regex + LLM outputs into a single dataset.</li>
+<li>Added lightweight validation flags and audit sample generator for regex capacities (initials/date, non-generation context, non-build context, equipment lists).</li>
 <li>Stratified validation sample script added.</li>
 </ul>
 </section>
@@ -4561,6 +4566,15 @@ vertical-align: -.125em;
 <li>11/20 have a text snippet captured (match found within first 10 pages of the main doc). The remaining 9 are marked N/A for manual verification due to missing snippets.</li>
 <li>Baseline precision on verifiable rows: 11/11 = 100% (limited to rows with snippets).</li>
 <li>Main uncertainty noted: whether some matches clearly refer to the proposed project vs. another project (several notes flagged this).</li>
+</ul>
+</section>
+<section id="llm-spot-check-regex-capacity-sample" class="level2">
+<h2 class="anchored" data-anchor-id="llm-spot-check-regex-capacity-sample">LLM spot-check (regex-capacity sample)</h2>
+<ul>
+<li>10-project CE sample restricted to <strong>regex-capacity cases</strong> resulted in 9/10 capacity extractions (90%).</li>
+<li>Methods: 5 <code>llm</code>, 4 <code>fallback_from_candidates</code>, 1 <code>no_candidates</code>.</li>
+<li>The only miss was a false-positive regex match (initials/date “MW”).</li>
+<li>Example fix: Barr‑Tech case now returns <strong>2.2 MW</strong> via fallback.</li>
 </ul>
 </section>
 <section id="gating-status-extract_gencap.py" class="level2">
@@ -4633,10 +4647,29 @@ vertical-align: -.125em;
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--include-high</span> <span class="dt">\</span></span>
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
+<section id="llm-test-run-using-regex-capacity-cases-only" class="level3">
+<h3 class="anchored" data-anchor-id="llm-test-run-using-regex-capacity-cases-only">9) LLM test run using regex-capacity cases only</h3>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap_llm.py <span class="dt">\</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--source</span> ce <span class="dt">\</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--run</span> <span class="dt">\</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--sample</span> 10 <span class="dt">\</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--regex-results</span> data/analysis/projects_gencap.parquet <span class="dt">\</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--require-regex-capacity</span> <span class="dt">\</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--workers</span> 1</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
 <section id="stratified-validation-sample-30-per-source" class="level3">
-<h3 class="anchored" data-anchor-id="stratified-validation-sample-30-per-source">9) Stratified validation sample (30 per source)</h3>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/deliverable3/03_gencap_validation_sample.py <span class="at">--n</span> 30</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>Output: <code>output/deliverable3/gencap_validation_stratified_sample.csv</code></p>
+<h3 class="anchored" data-anchor-id="stratified-validation-sample-30-per-source">10) Stratified validation sample (30 per source)</h3>
+<div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/deliverable3/03_gencap_validation_sample.py <span class="at">--n</span> 30</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="generate-validation-flags-quick-audit-sample" class="level3">
+<h3 class="anchored" data-anchor-id="generate-validation-flags-quick-audit-sample">11) Generate validation flags + quick audit sample</h3>
+<div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/deliverable3/04_gencap_validation_flags.py</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Outputs: - <code>data/analysis/projects_gencap_flagged.parquet</code> - <code>output/deliverable3/gencap_validation_quick_sample.csv</code></p>
+</section>
+<section id="merge-regex-llm-outputs" class="level3">
+<h3 class="anchored" data-anchor-id="merge-regex-llm-outputs">12) Merge regex + LLM outputs</h3>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/deliverable3/05_gencap_merge_llm.py</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Output: - <code>data/analysis/projects_gencap_merged.parquet</code> Output: <code>output/deliverable3/gencap_validation_stratified_sample.csv</code></p>
 </section>
 </section>
 <section id="files-updated" class="level2">
@@ -4655,6 +4688,32 @@ vertical-align: -.125em;
 <li>Power/energy are now separated; update analysis logic accordingly (power only for capacity bins).</li>
 <li>LLM pass is restricted to low/medium confidence by default to save time and cost.</li>
 <li>Parallelization: use 4-6 workers on this machine; Ollama throughput will be the limiting factor.</li>
+</ul>
+</section>
+<section id="where-to-pick-up-next-monday" class="level2">
+<h2 class="anchored" data-anchor-id="where-to-pick-up-next-monday">Where to pick up next (Monday)</h2>
+<ol type="1">
+<li><strong>Full LLM run (sequential)</strong><br>
+Run CE, then EA, then EIS. If you want no parallelism inside a run, use <code>--workers 1</code>. <code>bash    python code/extract/extract_gencap_llm.py --source ce  --run --regex-results data/analysis/projects_gencap.parquet --workers 1    python code/extract/extract_gencap_llm.py --source ea  --run --regex-results data/analysis/projects_gencap.parquet --workers 1    python code/extract/extract_gencap_llm.py --source eis --run --regex-results data/analysis/projects_gencap.parquet --workers 1</code></li>
+<li><strong>Merge regex + LLM outputs</strong><br>
+<code>bash    python code/deliverable3/05_gencap_merge_llm.py</code></li>
+<li><strong>Review validation flags / sample</strong><br>
+Open: <code>output/deliverable3/gencap_validation_quick_sample.csv</code> and confirm which flags you want to filter.</li>
+<li><strong>Update analysis in Deliverable 3</strong><br>
+Point analysis to <code>data/analysis/projects_gencap_merged.parquet</code> (or <code>projects_gencap_flagged.parquet</code> if you want to filter first).</li>
+</ol>
+</section>
+<section id="recent-progress-recap" class="level2">
+<h2 class="anchored" data-anchor-id="recent-progress-recap">Recent progress recap</h2>
+<ul>
+<li>Regex extraction now skips initials/date false positives (e.g., “MW, 5/21/15”).</li>
+<li>LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and uses <code>fallback_from_candidates</code> when LLM omits a quote.</li>
+<li>Candidate selection improved for hyphenated units and long equipment-list sentences with numeric units.</li>
+<li>LLM spot-checks:
+<ul>
+<li>20-project regex-capacity CE sample: <strong>18/20 (90%)</strong> extracted.</li>
+<li>Misses were false positives / list-style cases; equipment list fix now captures 50 kW example.</li>
+</ul></li>
 </ul>
 
 

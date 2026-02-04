@@ -4528,7 +4528,7 @@ vertical-align: -.125em;
 
 <section id="timeline-extraction-status" class="level1">
 <h1>Timeline Extraction Status</h1>
-<p><strong>Last updated</strong>: 2026-01-30</p>
+<p><strong>Last updated</strong>: 2026-01-30 (end of day)</p>
 <p>This document summarizes the current state of timeline extraction for the NEPA project. Read this file to understand timeline-related work without needing to explore the full codebase.</p>
 <hr>
 <section id="project-context" class="level2">
@@ -4659,6 +4659,186 @@ vertical-align: -.125em;
 <hr>
 </section>
 </section>
+<section id="bert-classifier-approach-new---2026-01-30" class="level2">
+<h2 class="anchored" data-anchor-id="bert-classifier-approach-new---2026-01-30">BERT Classifier Approach (NEW - 2026-01-30)</h2>
+<section id="why-bert" class="level3">
+<h3 class="anchored" data-anchor-id="why-bert">Why BERT?</h3>
+<p>The LLM approach works but is <strong>slow</strong>: - 20 projects = 3.5 minutes - 20,000 projects = ~58 hours (2.5 days)</p>
+<p>BERT offers <strong>50-100x speedup</strong>: - 20 projects = ~2-5 seconds - 20,000 projects = ~30-60 minutes</p>
+</section>
+<section id="how-it-works" class="level3">
+<h3 class="anchored" data-anchor-id="how-it-works">How It Works</h3>
+<ol type="1">
+<li><strong>Weak Supervision (Auto-Labeling)</strong>
+<ul>
+<li>Uses existing regex patterns to auto-label thousands of date contexts</li>
+<li>Decision patterns: <code>digitally signed by</code>, <code>NEPA Compliance Officer</code>, <code>authorizing official</code>, etc.</li>
+<li>Initiation patterns: <code>scoping meeting</code>, <code>application received</code>, <code>notice of intent</code>, etc.</li>
+<li>Other patterns: <code>map created</code>, CFR/USC citations, etc.</li>
+<li>No manual labeling required</li>
+</ul></li>
+<li><strong>BERT Training</strong>
+<ul>
+<li>Downloads <code>distilbert-base-uncased</code> from Hugging Face (~250MB, cached locally)</li>
+<li>Fine-tunes on auto-labeled NEPA data</li>
+<li>3-class classifier: decision / initiation / other</li>
+<li>Training takes ~5-10 minutes</li>
+</ul></li>
+<li><strong>Fast Inference</strong>
+<ul>
+<li>Classifies date contexts in batches (~5ms per context vs ~500ms for LLM)</li>
+<li>Uses regex cache (same as hybrid LLM approach)</li>
+<li>Outputs same format as LLM approach for easy comparison</li>
+</ul></li>
+</ol>
+</section>
+<section id="implementation-added" class="level3">
+<h3 class="anchored" data-anchor-id="implementation-added">Implementation Added</h3>
+<p>New functions in <code>extract_timeline.py</code>: - <code>auto_label_context()</code> - Pattern-based weak supervision - <code>generate_bert_training_data()</code> - Creates training dataset from regex cache - <code>train_bert_classifier()</code> - Fine-tunes DistilBERT - <code>BertDateClassifier</code> - Inference class - <code>extract_with_bert()</code> - Drop-in replacement for LLM classification - <code>run_bert_timeline_extraction()</code> - Full pipeline</p>
+<p>New CLI arguments: - <code>--bert-generate</code> - Generate training data - <code>--bert-train</code> - Train classifier - <code>--bert-run</code> - Run extraction with BERT - <code>--bert-model</code> - Choose base model (default: distilbert-base-uncased) - <code>--epochs</code> - Training epochs (default: 3)</p>
+</section>
+<section id="current-status-end-of-day-2026-01-30" class="level3">
+<h3 class="anchored" data-anchor-id="current-status-end-of-day-2026-01-30">Current Status (End of Day 2026-01-30)</h3>
+<p><strong>Training completed.</strong> Model saved to <code>models/timeline_classifier/</code>.</p>
+<p><strong>20-sample evaluation completed.</strong> Results in <code>data/analysis/test20_bert.parquet</code>.</p>
+<hr>
+</section>
+<section id="bert-evaluation-results" class="level3">
+<h3 class="anchored" data-anchor-id="bert-evaluation-results">BERT Evaluation Results</h3>
+<table class="table">
+<colgroup>
+<col style="width: 30%">
+<col style="width: 23%">
+<col style="width: 19%">
+<col style="width: 26%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Metric</th>
+<th>BERT</th>
+<th>LLM</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Decision coverage</td>
+<td><strong>85%</strong> (17/20)</td>
+<td>80% (16/20)</td>
+<td>BERT slightly better</td>
+</tr>
+<tr class="even">
+<td>Initiation coverage</td>
+<td><strong>0%</strong> (0/20)</td>
+<td>35% (7/20)</td>
+<td>BERT fails completely</td>
+</tr>
+<tr class="odd">
+<td>Decision agreement</td>
+<td>12/13 (92%)</td>
+<td>-</td>
+<td>Where both found dates</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Decision quality analysis (17 classified):</strong> - ✅ ~9 clearly correct (53%) - signature blocks, NEPA Compliance Officer, digitally signed - ⚠️ ~4 questionable (24%) - “Date Determined” without full context - ❌ ~4 false positives (24%) - form boilerplate (“Revised:”, “Form Approved”)</p>
+<p><strong>Example good classifications:</strong></p>
+<pre><code>&quot;NEPA Compliance Officer: STEPHEN WITMER Digitally signed by STEPHEN WITMER Date: 2023.08.14&quot;
+&quot;Signed By: Casey Strickland NEPA Compliance Officer Date: 11/23/2022&quot;
+&quot;ORO NEPA Compliance Officer Gary S. Hartman Date Determined: 6/29/2011&quot;</code></pre>
+<p><strong>Example false positives:</strong></p>
+<pre><code>&quot;NETL F 451. 1-1/1 Revised: 11/24/2014 Reviewed: 11/24/2014 (Previous Editions Obsolete)&quot;
+&quot;DOE F 1325. 8e Electronic Form Approved by Forms Mgmt. 04/19/2006&quot;</code></pre>
+<hr>
+</section>
+<section id="training-data-imbalance-root-cause-of-issues" class="level3">
+<h3 class="anchored" data-anchor-id="training-data-imbalance-root-cause-of-issues">Training Data Imbalance (Root Cause of Issues)</h3>
+<table class="table">
+<thead>
+<tr class="header">
+<th>Label</th>
+<th>Count</th>
+<th>%</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>decision</td>
+<td>15,250</td>
+<td>89%</td>
+</tr>
+<tr class="even">
+<td>other</td>
+<td>1,810</td>
+<td>10.5%</td>
+</tr>
+<tr class="odd">
+<td>initiation</td>
+<td><strong>122</strong></td>
+<td><strong>0.7%</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Only 122 initiation examples vs 15,250 decision examples. The model never learned initiation patterns.</p>
+<hr>
+</section>
+</section>
+<section id="monday-pickup-instructions" class="level2">
+<h2 class="anchored" data-anchor-id="monday-pickup-instructions">Monday Pickup Instructions</h2>
+<section id="priority-1-create-training-data-for-initiation" class="level3">
+<h3 class="anchored" data-anchor-id="priority-1-create-training-data-for-initiation">Priority 1: Create Training Data for Initiation</h3>
+<p>The model has only 122 initiation examples (0.7%) - it never learned what initiation looks like.</p>
+<p><strong>Option A: Expand initiation patterns</strong> (in <code>extract_timeline.py</code> → <code>INITIATION_PATTERNS_STRONG</code>)</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add more patterns like:</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;proposed action&#39;</span>,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;project initiat&#39;</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;environmental review began&#39;</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;review process started&#39;</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;eis process&#39;</span>,</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;ea preparation&#39;</span>,</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p><strong>Option B: Add negative patterns to exclude form boilerplate</strong> (in <code>OTHER_PATTERNS_STRONG</code>)</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add patterns to catch form templates:</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;previous editions obsolete&#39;</span>,</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;form approved&#39;</span>,</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;forms mgmt&#39;</span>,</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;netl f \d+&#39;</span>,</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">r&#39;doe f \d+&#39;</span>,</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p><strong>Option C: Manually label ~50-100 initiation examples</strong> - Look at LLM results where <code>llm_application_date</code> was found - Extract those contexts and verify they’re correct - Add to training data with <code>label=&#39;initiation&#39;</code></p>
+<p><strong>Option D: Use class weighting during training</strong> - Modify <code>train_bert_classifier()</code> to weight initiation class higher - This helps the model pay more attention to rare classes</p>
+</section>
+<section id="priority-2-use-larger-bert-model" class="level3">
+<h3 class="anchored" data-anchor-id="priority-2-use-larger-bert-model">Priority 2: Use Larger BERT Model</h3>
+<p>Since BERT is so fast (~5ms/context), we can afford a better model:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrain with RoBERTa (often better for classification)</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-train</span> <span class="at">--bert-model</span> roberta-base <span class="at">--epochs</span> 5</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Or full BERT</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-train</span> <span class="at">--bert-model</span> bert-base-uncased <span class="at">--epochs</span> 5</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="priority-3-regenerate-and-retrain" class="level3">
+<h3 class="anchored" data-anchor-id="priority-3-regenerate-and-retrain">Priority 3: Regenerate and Retrain</h3>
+<p>After updating patterns:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /Users/Dora/git/consulting/nepa/code/extract</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Regenerate training data with new patterns</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-generate</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Check new label distribution</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-c</span> <span class="st">&quot;import pandas as pd; df=pd.read_parquet(&#39;../../data/analysis/bert_training_data.parquet&#39;); print(df[&#39;label&#39;].value_counts())&quot;</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Retrain with better model</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-train</span> <span class="at">--bert-model</span> roberta-base <span class="at">--epochs</span> 5</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Test on sample</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--output</span> test20_bert_v2.parquet</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="priority-4-full-run-if-results-look-good" class="level3">
+<h3 class="anchored" data-anchor-id="priority-4-full-run-if-results-look-good">Priority 4: Full Run (if results look good)</h3>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-run</span> <span class="at">--output</span> projects_timeline_bert.parquet</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Expected runtime: ~30-60 minutes for 20K projects</p>
+<hr>
+</section>
+</section>
 <section id="known-issues-gaps-current" class="level2">
 <h2 class="anchored" data-anchor-id="known-issues-gaps-current">Known Issues / Gaps (Current)</h2>
 <ol type="1">
@@ -4757,6 +4937,72 @@ vertical-align: -.125em;
 </ol>
 <hr>
 </section>
+<section id="updates-added-2026-02-02" class="level2">
+<h2 class="anchored" data-anchor-id="updates-added-2026-02-02">Updates Added (2026-02-02)</h2>
+<ol type="1">
+<li><strong>New timeline class: <code>review</code> (BERT + hybrid)</strong>
+<ul>
+<li><strong>Change:</strong> Added <code>review</code> as a third class alongside <code>initiation</code> and <code>decision</code>; summary now includes earliest/latest review and review count.<br>
+</li>
+<li><strong>Reason:</strong> Interim approvals and phase approvals were being mislabeled as decisions; review dates are valuable for timeline structure and for initiation backfill when explicit initiation is missing.</li>
+</ul></li>
+<li><strong>Decision selection ranking (cue strength + confidence)</strong>
+<ul>
+<li><strong>Change:</strong> Decision date now chosen by cue strength + confidence, not just latest date; boilerplate penalty added; footer/header position only used when top candidates are close in score but far apart in position.<br>
+</li>
+<li><strong>Reason:</strong> Prevents form boilerplate or weak header dates from overriding true signature decisions.</li>
+</ul></li>
+<li><strong>Dynamic context window sizing</strong>
+<ul>
+<li><strong>Change:</strong> Smaller contexts for strong signature cues, larger contexts for review/initiation cues.<br>
+</li>
+<li><strong>Reason:</strong> Avoids over-capturing noise around signatures while preserving enough context for weak review cues.</li>
+</ul></li>
+<li><strong>Keep-all regex cache (default)</strong>
+<ul>
+<li><strong>Change:</strong> Regex cache now keeps all dates by default (cue filtering moved downstream); <code>--regex-filtered</code> restores legacy behavior.<br>
+</li>
+<li><strong>Reason:</strong> Dates in tables/lists were being dropped before BERT could see them (e.g., 1/7/2021, 1/11/2021, 1/26/2021).</li>
+</ul></li>
+<li><strong>Boilerplate context merging for decisions</strong>
+<ul>
+<li><strong>Change:</strong> If a date’s sentence is boilerplate, expand context to adjacent sentence with decision cues (signature blocks).<br>
+</li>
+<li><strong>Reason:</strong> Prevents Recovery Act/boilerplate sentences from masking nearby signature lines.</li>
+</ul></li>
+<li><strong>Full context preserved in <code>source</code></strong>
+<ul>
+<li><strong>Change:</strong> BERT <code>source</code> now stores full context rather than truncating to 100 chars.<br>
+</li>
+<li><strong>Reason:</strong> Allows direct validation of dates (e.g., include “5515-001 on November 30, 2011.”).</li>
+</ul></li>
+<li><strong>Memo DATE fallback to review (when no decision cues)</strong>
+<ul>
+<li><strong>Change:</strong> If no decision cues exist, memo “DATE:” lines are treated as review; DOE form boilerplate is forced to <code>other</code>.<br>
+</li>
+<li><strong>Reason:</strong> Environmental clearance memos often have no signatures; memo date is the best available review proxy and form approval dates should be excluded.</li>
+</ul></li>
+<li><strong>Context cleaning for BERT classification</strong>
+<ul>
+<li><strong>Change:</strong> Added <code>clean_context()</code> to strip boilerplate (Recovery Act checkbox lines, DOE/NETL form headers, OMB/PRA lines) before BERT classification. Both original and cleaned context are stored in output, with a <code>context_cleaned_flag</code>.<br>
+</li>
+<li><strong>Reason:</strong> Boilerplate was masking signature lines, causing “Approved by … NEPA Compliance Officer” to be labeled <code>other</code>.</li>
+</ul></li>
+<li><strong>Use cleaned context for rule overrides</strong>
+<ul>
+<li><strong>Change:</strong> Decision/initiator override checks now use cleaned context when available (fallback to original if cleaned is empty).<br>
+</li>
+<li><strong>Reason:</strong> Ensures overrides are based on the meaningful text rather than boilerplate noise.</li>
+</ul></li>
+<li><strong>Recovery Act cleaning made non-destructive</strong><br>
+</li>
+</ol>
+<ul>
+<li><strong>Change:</strong> Recovery Act checkbox line now gets stripped without removing trailing signature text (e.g., “Approved by …”).<br>
+</li>
+<li><strong>Reason:</strong> Prior regex removed entire line, leaving empty cleaned context and preventing decision classification.</li>
+</ul>
+</section>
 <section id="file-references" class="level2">
 <h2 class="anchored" data-anchor-id="file-references">File References</h2>
 <table class="table">
@@ -4773,7 +5019,7 @@ vertical-align: -.125em;
 <tbody>
 <tr class="odd">
 <td><code>code/extract/extract_timeline.py</code></td>
-<td>Timeline extraction implementation (regex + LLM + hybrid + cache)</td>
+<td>Timeline extraction implementation (regex + LLM + hybrid + BERT)</td>
 </tr>
 <tr class="even">
 <td><code>code/extract/preprocess_documents.py</code></td>
@@ -4789,7 +5035,23 @@ vertical-align: -.125em;
 </tr>
 <tr class="odd">
 <td><code>data/analysis/regex_candidates.parquet</code></td>
-<td>Hybrid regex cache (new)</td>
+<td>Hybrid regex cache</td>
+</tr>
+<tr class="even">
+<td><code>data/analysis/bert_training_data.parquet</code></td>
+<td>Auto-labeled training data for BERT</td>
+</tr>
+<tr class="odd">
+<td><code>data/analysis/test20_workers.parquet</code></td>
+<td>LLM hybrid results (20 sample)</td>
+</tr>
+<tr class="even">
+<td><code>data/analysis/test20_bert.parquet</code></td>
+<td>BERT results (20 sample) - to be created</td>
+</tr>
+<tr class="odd">
+<td><code>models/timeline_classifier/</code></td>
+<td>Trained BERT model - to be created</td>
 </tr>
 <tr class="even">
 <td><code>notes/project_overview.md</code></td>
@@ -4802,18 +5064,46 @@ vertical-align: -.125em;
 <section id="quick-start" class="level2">
 <h2 class="anchored" data-anchor-id="quick-start">Quick Start</h2>
 <p>Regex-only extraction:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--run</span> <span class="at">--sample</span> 100</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>Hybrid LLM extraction (fresh regex each run):</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--llm-run</span> <span class="at">--hybrid</span> <span class="at">--sample</span> 20 <span class="at">--model</span> llama3.2:3b-instruct-q4_K_M <span class="at">--timeout</span> 180 <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--run</span> <span class="at">--sample</span> 100</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>Hybrid LLM extraction (cached regex):</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--regex-prep</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--llm-run</span> <span class="at">--hybrid</span> <span class="at">--use-regex-cache</span> <span class="at">--sample</span> 20 <span class="at">--model</span> llama3.2:3b-instruct-q4_K_M <span class="at">--timeout</span> 180 <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--regex-prep</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--llm-run</span> <span class="at">--hybrid</span> <span class="at">--use-regex-cache</span> <span class="at">--sample</span> 20 <span class="at">--model</span> llama3.2:3b-instruct-q4_K_M <span class="at">--timeout</span> 180 <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p><strong>BERT extraction (recommended - 50-100x faster):</strong></p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># One-time setup:</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install numpy==1.26.4 transformers datasets torch</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--regex-prep</span>        <span class="co"># Build regex cache (if not done)</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-generate</span>     <span class="co"># Generate training data</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-train</span>        <span class="co"># Train classifier (~5-10 min)</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Run extraction:</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--output</span> test20_bert.parquet</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> extract_timeline.py <span class="at">--bert-run</span> <span class="at">--output</span> projects_timeline_bert.parquet  <span class="co"># Full run</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <hr>
 </section>
 <section id="change-log" class="level2">
 <h2 class="anchored" data-anchor-id="change-log">Change Log</h2>
-<section id="section" class="level3">
-<h3 class="anchored" data-anchor-id="section">2026-01-30</h3>
+<section id="pm---bert-classifier" class="level3">
+<h3 class="anchored" data-anchor-id="pm---bert-classifier">2026-01-30 (PM) - BERT Classifier</h3>
+<ul>
+<li><strong>Added BERT-based classification as alternative to LLM</strong> (50-100x faster)</li>
+<li>Implemented weak supervision using existing regex patterns for auto-labeling</li>
+<li>Added <code>--bert-generate</code>, <code>--bert-train</code>, <code>--bert-run</code> CLI commands</li>
+<li>Training data generated: 17,182 examples (decision: 15,250, other: 1,810, initiation: 122)</li>
+<li>Uses DistilBERT from Hugging Face (downloads automatically, ~250MB)</li>
+<li><strong>Trained model</strong> saved to <code>models/timeline_classifier/</code></li>
+<li><strong>Evaluated on 20 samples</strong>: 85% decision coverage, 0% initiation coverage</li>
+<li><strong>Key finding</strong>: Training data severely imbalanced - only 122 initiation examples (0.7%)</li>
+<li><strong>Key finding</strong>: ~24% false positives from form boilerplate (“Revised:”, “Form Approved”)</li>
+<li><strong>Next steps</strong>:
+<ol type="1">
+<li>Create more initiation training data (expand patterns or manual labeling)</li>
+<li>Add patterns to exclude form boilerplate</li>
+<li>Try larger model (roberta-base) since BERT is fast enough</li>
+</ol></li>
+</ul>
+</section>
+<section id="am---hybrid-llm" class="level3">
+<h3 class="anchored" data-anchor-id="am---hybrid-llm">2026-01-30 (AM) - Hybrid LLM</h3>
 <ul>
 <li>Added hybrid initiation/decision cue filtering.</li>
 <li>Switched hybrid context to sentence-based extraction with min-length expansion.</li>
@@ -4823,8 +5113,8 @@ vertical-align: -.125em;
 <li>Added single regex cache workflow via <code>--regex-prep</code> and <code>--use-regex-cache</code>.</li>
 </ul>
 </section>
-<section id="section-1" class="level3">
-<h3 class="anchored" data-anchor-id="section-1">2026-01-26</h3>
+<section id="section" class="level3">
+<h3 class="anchored" data-anchor-id="section">2026-01-26</h3>
 <ul>
 <li>Document type classification improvements in <code>code/extract/extract_data.py</code> (appendix detection, filename patterns, etc.).</li>
 </ul>
