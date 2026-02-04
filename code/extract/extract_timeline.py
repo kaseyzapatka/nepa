@@ -230,7 +230,6 @@ def extract_dates_from_text(text):
 
     results = []
     seen_dates = set()
-    seen_contexts = set()
 
     for pattern, pattern_type in DATE_PATTERNS:
         for match in re.finditer(pattern, text, re.IGNORECASE):
@@ -561,6 +560,815 @@ REGEX_CACHE_PATH = ANALYSIS_DIR / "regex_candidates.parquet"
 
 
 # --------------------------
+# BERT CLASSIFIER APPROACH
+# --------------------------
+# Uses weak supervision (pattern-based auto-labeling) to train a fast classifier
+
+# Model paths
+BERT_MODEL_DIR = BASE_DIR / "models" / "timeline_classifier"
+BERT_TRAINING_DATA_PATH = ANALYSIS_DIR / "bert_training_data.parquet"
+
+# Auto-labeling patterns (high confidence rules)
+DECISION_PATTERNS_STRONG = [
+    r'digitally signed by',
+    r'signed by\s+\w+',
+    r'signature of',
+    r'/s/\s*\w+',  # Digital signature format
+    r'nepa compliance officer.*date',
+    r'authorizing official.*date',
+    r'field.*manager.*signature',
+    r'field office manager determination',
+    r'approved.*signature',
+    r'fonsi.*signed',
+    r'rod.*signed',
+    r'decision.*signed',
+    r'approval date',
+    r'date of approval',
+    r'ce determination date',
+]
+
+DECISION_PATTERNS_MED = [
+    r'date determined',
+    r'determination',
+    r'field office manager',
+    r'nepa compliance officer',
+    r'authorizing official',
+    r'final approval',
+    r'approval',
+]
+
+INITIATION_PATTERNS_STRONG = [
+    r'scoping meeting',
+    r'scoping period',
+    r'notice of intent',
+    r'\bnoi\b.*publish',
+    r'application received',
+    r'application submitted',
+    r'consultation initiated',
+    r'project proposed',
+    r'proposal submitted',
+    r'request received',
+    r'right[- ]of[- ]way application',
+    r'row application',
+    r'initiator signature',
+]
+
+REVIEW_PATTERNS_STRONG = [
+    r'review completed',
+    r'interim review',
+    r'decision in principle',
+    r'phase\s+\d+\s+was approved',
+    r'phase\s+\d+\s+approved',
+    r'approved by\s+\w+.*(review|phase)',
+    r'nepa review completed',
+]
+
+MEMO_DATE_PATTERNS = [
+    r'\bDATE:\b',
+    r'\bmemorandum\b',
+]
+
+DECISION_BOILERPLATE_PATTERNS = [
+    r'previous editions obsolete',
+    r'form approved',
+    r'forms mgmt',
+    r'netl f \d+',
+    r'doe f \d+',
+    r'revised:',
+    r'reviewed:',
+]
+
+OTHER_PATTERNS_STRONG = [
+    r'map created',
+    r'map prepared',
+    r'revised \d{4}',
+    r'prepared by.*\d{4}',
+    r'\d+\s*cfr\s*\d+',
+    r'\d+\s*u\.?s\.?c',
+    r'\d+\s*fr\s*\d+',
+    r'federal register',
+    r'public law',
+    r'act of \d{4}',
+]
+
+
+def auto_label_context(context: str) -> str:
+    """
+    Auto-label a date context using pattern matching (weak supervision).
+
+    Args:
+        context: The text context around a date
+
+    Returns:
+        'decision', 'initiation', 'other', or None if uncertain
+    """
+    context_lower = context.lower()
+
+    # Check decision patterns first (highest priority)
+    for pattern in DECISION_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'decision'
+
+    # Check initiation patterns
+    for pattern in INITIATION_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'initiation'
+
+    # Check review patterns
+    for pattern in REVIEW_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'review'
+
+    # Check other patterns (negative examples)
+    for pattern in OTHER_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'other'
+
+    # Return None for ambiguous cases (don't include in training)
+    return None
+
+
+def generate_bert_training_data(
+    sample_size: int = None,
+    output_path: Path = BERT_TRAINING_DATA_PATH,
+    min_samples_per_class: int = 100,
+):
+    """
+    Generate training data for BERT classifier using weak supervision.
+
+    Uses pattern-based auto-labeling on all regex-extracted date contexts.
+
+    Args:
+        sample_size: If set, only process this many projects
+        output_path: Where to save the training data
+        min_samples_per_class: Minimum samples needed per class
+
+    Returns:
+        DataFrame with labeled training examples
+    """
+    import time
+
+    print("\n=== Generating BERT Training Data (Weak Supervision) ===")
+
+    # Check if regex cache exists
+    if not REGEX_CACHE_PATH.exists():
+        print(f"Regex cache not found at {REGEX_CACHE_PATH}")
+        print("Run --regex-prep first to build the cache, or building now...")
+        run_regex_prep()
+
+    # Load regex cache
+    print("Loading regex cache...")
+    cache_df = pd.read_parquet(REGEX_CACHE_PATH)
+    print(f"Loaded {len(cache_df):,} date contexts")
+
+    if sample_size:
+        # Sample by project to maintain diversity
+        project_ids = cache_df['project_id'].unique()
+        if len(project_ids) > sample_size:
+            project_ids = pd.Series(project_ids).sample(n=sample_size, random_state=42).tolist()
+            cache_df = cache_df[cache_df['project_id'].isin(project_ids)]
+        print(f"Sampled to {len(cache_df):,} contexts from {len(project_ids)} projects")
+
+    # Auto-label each context
+    print("Auto-labeling contexts...")
+    start = time.time()
+
+    labeled_data = []
+    label_counts = {'decision': 0, 'initiation': 0, 'review': 0, 'other': 0, 'unlabeled': 0}
+
+    for _, row in cache_df.iterrows():
+        context = row.get('context', '')
+        if not context or len(context) < 10:
+            continue
+
+        label = auto_label_context(context)
+
+        if label:
+            labeled_data.append({
+                'context': context,
+                'label': label,
+                'date': row.get('date'),
+                'project_id': row.get('project_id'),
+            })
+            label_counts[label] += 1
+        else:
+            label_counts['unlabeled'] += 1
+
+    elapsed = time.time() - start
+    print(f"Labeled {len(labeled_data):,} contexts in {elapsed:.1f}s")
+    print(f"\nLabel distribution:")
+    for label, count in label_counts.items():
+        print(f"  {label}: {count:,}")
+
+    # Check minimum samples
+    for label in ['decision', 'initiation', 'review', 'other']:
+        if label_counts[label] < min_samples_per_class:
+            print(f"\nWARNING: Only {label_counts[label]} samples for '{label}' (min: {min_samples_per_class})")
+
+    # Create DataFrame
+    training_df = pd.DataFrame(labeled_data)
+
+    # Save
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    training_df.to_parquet(output_path)
+    print(f"\nSaved training data to: {output_path}")
+
+    return training_df
+
+
+def train_bert_classifier(
+    training_data_path: Path = BERT_TRAINING_DATA_PATH,
+    model_name: str = "distilbert-base-uncased",
+    output_dir: Path = BERT_MODEL_DIR,
+    epochs: int = 3,
+    batch_size: int = 16,
+    max_length: int = 128,
+    test_split: float = 0.1,
+):
+    """
+    Train a BERT classifier on the auto-labeled data.
+
+    Args:
+        training_data_path: Path to training data parquet
+        model_name: Hugging Face model name
+        output_dir: Where to save the trained model
+        epochs: Number of training epochs
+        batch_size: Training batch size
+        max_length: Max token length
+        test_split: Fraction to hold out for validation
+
+    Returns:
+        Trained model and tokenizer
+    """
+    try:
+        from transformers import (
+            AutoTokenizer,
+            AutoModelForSequenceClassification,
+            TrainingArguments,
+            Trainer,
+            DataCollatorWithPadding,
+        )
+        from datasets import Dataset
+        import numpy as np
+    except ImportError:
+        print("ERROR: transformers and datasets libraries required.")
+        print("Install with: pip install transformers datasets torch")
+        return None, None
+
+    print(f"\n=== Training BERT Classifier ===")
+    print(f"Model: {model_name}")
+    print(f"Epochs: {epochs}")
+    print(f"Batch size: {batch_size}")
+
+    # Load training data
+    if not training_data_path.exists():
+        print(f"Training data not found at {training_data_path}")
+        print("Run --bert-generate first to create training data.")
+        return None, None
+
+    df = pd.read_parquet(training_data_path)
+    print(f"Loaded {len(df):,} training examples")
+
+    # Create label mapping
+    label2id = {'decision': 0, 'initiation': 1, 'review': 2, 'other': 3}
+    id2label = {v: k for k, v in label2id.items()}
+
+    df['label_id'] = df['label'].map(label2id)
+
+    # Check class balance
+    print("\nClass distribution:")
+    print(df['label'].value_counts())
+
+    # Split into train/test
+    df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
+    split_idx = int(len(df_shuffled) * (1 - test_split))
+    train_df = df_shuffled[:split_idx]
+    test_df = df_shuffled[split_idx:]
+
+    print(f"\nTrain: {len(train_df):,}, Test: {len(test_df):,}")
+
+    # Create datasets
+    train_dataset = Dataset.from_pandas(train_df[['context', 'label_id']])
+    test_dataset = Dataset.from_pandas(test_df[['context', 'label_id']])
+
+    # Load tokenizer and model
+    print(f"\nLoading {model_name}...")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_name,
+        num_labels=4,
+        id2label=id2label,
+        label2id=label2id,
+    )
+
+    # Tokenize
+    def tokenize_fn(examples):
+        return tokenizer(
+            examples['context'],
+            truncation=True,
+            max_length=max_length,
+            padding=False,  # Let data collator handle padding
+        )
+
+    print("Tokenizing...")
+    train_dataset = train_dataset.map(tokenize_fn, batched=True, remove_columns=['context'])
+    test_dataset = test_dataset.map(tokenize_fn, batched=True, remove_columns=['context'])
+
+    # Rename label column
+    train_dataset = train_dataset.rename_column('label_id', 'labels')
+    test_dataset = test_dataset.rename_column('label_id', 'labels')
+
+    # Data collator
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+    # Metrics
+    def compute_metrics(eval_pred):
+        predictions, labels = eval_pred
+        predictions = np.argmax(predictions, axis=1)
+        accuracy = (predictions == labels).mean()
+        return {'accuracy': accuracy}
+
+    # Training arguments
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    training_args = TrainingArguments(
+        output_dir=str(output_dir),
+        num_train_epochs=epochs,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        warmup_steps=100,
+        weight_decay=0.01,
+        logging_steps=50,
+        eval_strategy="no",  # Skip eval during training (numpy issue on Apple Silicon)
+        save_strategy="epoch",
+        load_best_model_at_end=False,
+    )
+
+    # Trainer
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=test_dataset,
+        data_collator=data_collator,
+    )
+
+    # Train
+    print("\nTraining...")
+    trainer.train()
+
+    # Skip evaluation due to numpy compatibility issue on Apple Silicon
+    # The model is still trained and saved correctly
+    print("\nSkipping evaluation (numpy compatibility issue on Apple Silicon)")
+
+    # Save
+    print(f"\nSaving model to {output_dir}...")
+    trainer.save_model(str(output_dir))
+    tokenizer.save_pretrained(str(output_dir))
+
+    # Save label mapping
+    import json
+    with open(output_dir / "label_mapping.json", 'w') as f:
+        json.dump({'label2id': label2id, 'id2label': id2label}, f)
+
+    print("Training complete!")
+
+    return model, tokenizer
+
+
+class BertDateClassifier:
+    """
+    Fast BERT-based classifier for date contexts.
+
+    Usage:
+        classifier = BertDateClassifier()
+        classifier.load()
+        results = classifier.classify(["context1", "context2"])
+    """
+
+    def __init__(self, model_dir: Path = BERT_MODEL_DIR):
+        self.model_dir = model_dir
+        self.model = None
+        self.tokenizer = None
+        self.label2id = None
+        self.id2label = None
+        self.device = None
+
+    def load(self):
+        """Load the trained model."""
+        try:
+            from transformers import AutoTokenizer, AutoModelForSequenceClassification
+            import torch
+        except ImportError:
+            raise ImportError("transformers and torch required. Install with: pip install transformers torch")
+
+        if not self.model_dir.exists():
+            raise FileNotFoundError(f"Model not found at {self.model_dir}. Run --bert-train first.")
+
+        print(f"Loading BERT classifier from {self.model_dir}...")
+
+        self.tokenizer = AutoTokenizer.from_pretrained(str(self.model_dir))
+        self.model = AutoModelForSequenceClassification.from_pretrained(str(self.model_dir))
+
+        # Load label mapping
+        import json
+        with open(self.model_dir / "label_mapping.json") as f:
+            mapping = json.load(f)
+            self.label2id = mapping['label2id']
+            self.id2label = {int(k): v for k, v in mapping['id2label'].items()}
+
+        # Set device
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model.to(self.device)
+        self.model.eval()
+
+        print(f"Model loaded on {self.device}")
+
+    def classify(self, contexts: list, batch_size: int = 32) -> list:
+        """
+        Classify a list of contexts.
+
+        Args:
+            contexts: List of context strings
+            batch_size: Batch size for inference
+
+        Returns:
+            List of dicts with 'label' and 'confidence'
+        """
+        import torch
+
+        if self.model is None:
+            self.load()
+
+        results = []
+
+        for i in range(0, len(contexts), batch_size):
+            batch = contexts[i:i + batch_size]
+
+            # Tokenize
+            inputs = self.tokenizer(
+                batch,
+                truncation=True,
+                max_length=128,
+                padding=True,
+                return_tensors="pt",
+            ).to(self.device)
+
+            # Inference
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                probs = torch.softmax(outputs.logits, dim=1)
+                predictions = torch.argmax(probs, dim=1)
+                confidences = probs.max(dim=1).values
+
+            # Convert to results
+            for pred, conf in zip(predictions.cpu().numpy(), confidences.cpu().numpy()):
+                results.append({
+                    'label': self.id2label[int(pred)],
+                    'confidence': float(conf),
+                })
+
+        return results
+
+    def classify_single(self, context: str) -> dict:
+        """Classify a single context."""
+        return self.classify([context])[0]
+
+
+def _is_decision_boilerplate(context: str) -> bool:
+    return _has_any_regex(context, DECISION_BOILERPLATE_PATTERNS)
+
+
+def _decision_strength(context: str) -> int:
+    if not context:
+        return 0
+    if _has_any_regex(context, DECISION_PATTERNS_STRONG):
+        return 3
+    if _has_any_regex(context, DECISION_PATTERNS_MED):
+        return 2
+    if _has_any(context, DECISION_CUES):
+        return 1
+    return 0
+
+
+def _select_best_decision(decision_dates: list) -> dict:
+    if not decision_dates:
+        return None
+
+    for d in decision_dates:
+        ctx = d.get('context', '')
+        d['_decision_strength'] = _decision_strength(ctx)
+        d['_boilerplate_penalty'] = -2 if _is_decision_boilerplate(ctx) else 0
+        d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
+        d['_score'] = d['_decision_strength'] + d['_boilerplate_penalty'] + (2 * d['_confidence'])
+
+    decision_dates.sort(key=lambda x: (x['_score'], x['date']), reverse=True)
+    best = decision_dates[0]
+
+    if len(decision_dates) > 1:
+        runner_up = decision_dates[1]
+        score_gap = abs(best['_score'] - runner_up['_score'])
+        pos_gap = abs((best.get('position_pct') or 0) - (runner_up.get('position_pct') or 0))
+
+        # Only use header/footer position when cue strength is similar but positions disagree
+        if score_gap < 0.3 and pos_gap >= 20:
+            best = max([best, runner_up], key=lambda x: x.get('position_pct') or 0)
+
+    return best
+
+
+def extract_with_bert(
+    dates_with_context: list,
+    classifier: BertDateClassifier = None,
+) -> dict:
+    """
+    Classify pre-extracted dates using BERT classifier.
+
+    This replaces the LLM call in the hybrid approach with a fast BERT inference.
+
+    Args:
+        dates_with_context: List from extract_dates_with_context()
+        classifier: Pre-loaded BertDateClassifier (optional, will load if None)
+
+    Returns:
+        Dict with classified dates and summary fields (same format as LLM approach)
+    """
+    import json
+
+    result = {
+        'approach': 'bert_classifier',
+        'dates_json': '[]',
+        'n_dates_found': len(dates_with_context),
+        'decision_date': None,
+        'decision_date_source': None,
+        'decision_confidence': None,
+        'earliest_review_date': None,
+        'latest_review_date': None,
+        'n_review_dates': 0,
+        'n_specialist_reviews': 0,
+        'application_date': None,
+        'inferred_application_date': None,
+        'earliest_historical_date': None,
+        'n_historical_dates': 0,
+        'expiration_date': None,
+        'error': None,
+    }
+
+    if not dates_with_context:
+        result['error'] = 'no_dates_found_by_regex'
+        return result
+
+    # Load classifier if not provided
+    if classifier is None:
+        try:
+            classifier = BertDateClassifier()
+            classifier.load()
+        except Exception as e:
+            result['error'] = f'bert_load_error: {str(e)}'
+            return result
+
+    # Extract contexts (classification uses original; cleaned saved for review)
+    original_contexts = [d.get('context', '') for d in dates_with_context]
+    cleaned_contexts = []
+    cleaned_flags = []
+    for ctx in original_contexts:
+        cleaned, flag = _clean_context(ctx)
+        cleaned_contexts.append(cleaned)
+        cleaned_flags.append(flag)
+
+    # Classify
+    try:
+        classifications = classifier.classify(original_contexts)
+    except Exception as e:
+        result['error'] = f'bert_classify_error: {str(e)}'
+        return result
+
+    # Build classified dates list
+    classified_dates = []
+    for date_info, classification, orig_ctx, clean_ctx, clean_flag in zip(
+        dates_with_context, classifications, original_contexts, cleaned_contexts, cleaned_flags
+    ):
+        context_text = orig_ctx
+        context_for_rules = orig_ctx
+        forced_type = None
+        if _is_decision_boilerplate(context_for_rules):
+            forced_type = 'other'
+        if _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
+            forced_type = 'initiation'
+        label = forced_type or classification['label']
+        classified_dates.append({
+            'date': date_info['date'],
+            'type': label,
+            'source': context_text,
+            'context': context_text,
+            'context_cleaned': clean_ctx,
+            'context_cleaned_flag': clean_flag,
+            'confidence': 'high' if classification['confidence'] >= 0.8 else 'medium',
+            'bert_confidence': classification['confidence'],
+            'position_pct': date_info.get('position_pct'),
+        })
+
+    # Context-level dedupe: keep highest-confidence entry per (date, type)
+    deduped = {}
+    for d in classified_dates:
+        key = (d['date'], d['type'])
+        score = d.get('bert_confidence', 0)
+        if key not in deduped or score > deduped[key].get('bert_confidence', 0):
+            deduped[key] = d
+    classified_dates = list(deduped.values())
+
+    output_dates = [
+        {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score')}
+        for d in classified_dates
+    ]
+    result['dates_json'] = json.dumps(output_dates)
+    result['n_dates_found'] = len(classified_dates)
+
+    # Extract summary fields
+    decision_dates = [d for d in classified_dates if d['type'] == 'decision']
+    initiation_dates = [d for d in classified_dates if d['type'] == 'initiation']
+    review_dates = [d for d in classified_dates if d['type'] == 'review']
+
+    # If no decision cues exist anywhere, treat memo DATE lines as review
+    has_decision_cues = any(
+        _has_any(d.get('context', ''), DECISION_CUES) or _has_any_regex(d.get('context', ''), DECISION_PATTERNS_STRONG)
+        for d in classified_dates
+    )
+    if not has_decision_cues:
+        for d in classified_dates:
+            if d['type'] == 'other' and _has_any_regex(d.get('context', ''), MEMO_DATE_PATTERNS):
+                d['type'] = 'review'
+
+        review_dates = [d for d in classified_dates if d['type'] == 'review']
+
+    # Decision date (cue strength, then confidence, then date)
+    if decision_dates:
+        best = _select_best_decision(decision_dates)
+        if best:
+            result['decision_date'] = best['date']
+            result['decision_date_source'] = best['source']
+            result['decision_confidence'] = best['confidence']
+
+    # Review dates
+    if review_dates:
+        review_dates.sort(key=lambda x: x['date'])
+        result['earliest_review_date'] = review_dates[0]['date']
+        result['latest_review_date'] = review_dates[-1]['date']
+        result['n_review_dates'] = len(review_dates)
+
+    # Initiation/application date (earliest)
+    if initiation_dates:
+        initiation_dates.sort(key=lambda x: x['date'])
+        result['application_date'] = initiation_dates[0]['date']
+        result['inferred_application_date'] = initiation_dates[0]['date']
+    elif review_dates:
+        result['inferred_application_date'] = result['earliest_review_date']
+
+    return result
+
+
+def run_bert_timeline_extraction(
+    sample_size: int = None,
+    clean_energy_only: bool = True,
+    ce_only: bool = True,
+    main_docs_only: bool = True,
+    output_file: str = None,
+    use_regex_cache: bool = True,
+    workers: int = 4,
+):
+    """
+    Run BERT-based timeline extraction.
+
+    Much faster than LLM approach (~50-100x speedup).
+
+    Args:
+        sample_size: If set, only process this many projects
+        output_file: Custom output filename
+        use_regex_cache: Use precomputed regex cache (recommended)
+        workers: Number of parallel workers (less important for BERT)
+    """
+    import time
+
+    print("\n=== BERT Timeline Extraction ===")
+
+    # Load classifier
+    try:
+        classifier = BertDateClassifier()
+        classifier.load()
+    except Exception as e:
+        print(f"ERROR: Could not load BERT classifier: {e}")
+        print("Run --bert-train first to train the model.")
+        return None
+
+    # Load projects
+    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
+    if not projects_path.exists():
+        print(f"Error: {projects_path} not found.")
+        return None
+
+    projects = pd.read_parquet(projects_path)
+    print(f"Loaded {len(projects):,} projects")
+
+    if ce_only:
+        projects = projects[projects['dataset_source'] == 'CE']
+        print(f"Filtered to {len(projects):,} CE projects")
+
+    if clean_energy_only:
+        projects = projects[projects['project_energy_type'] == 'Clean']
+        print(f"Filtered to {len(projects):,} clean energy projects")
+
+    if sample_size:
+        projects = projects.sample(n=min(sample_size, len(projects)), random_state=42)
+        print(f"Sampled {len(projects):,} projects")
+
+    if projects.empty:
+        print("No projects to process.")
+        return None
+
+    # Load regex cache
+    if use_regex_cache:
+        if not REGEX_CACHE_PATH.exists():
+            print(f"Regex cache not found. Run --regex-prep first.")
+            return None
+        regex_cache_df = pd.read_parquet(REGEX_CACHE_PATH)
+        print(f"Loaded regex cache: {len(regex_cache_df):,} rows")
+    else:
+        print("ERROR: BERT approach requires regex cache. Run --regex-prep first.")
+        return None
+
+    # Process projects
+    results = []
+    total = len(projects)
+    start_time = time.time()
+
+    print(f"\nProcessing {total} projects with BERT...")
+
+    for idx, (_, project) in enumerate(projects.iterrows(), 1):
+        project_id = project['project_id']
+
+        # Get cached dates for this project
+        project_dates = regex_cache_df[regex_cache_df['project_id'] == project_id]
+        dates_with_context = project_dates[[
+            'date', 'match', 'context', 'position', 'position_pct'
+        ]].to_dict(orient='records')
+
+        # Classify with BERT
+        bert_result = extract_with_bert(dates_with_context, classifier)
+
+        # Build result row
+        result = {
+            'project_id': project_id,
+            'bert_dates_json': bert_result.get('dates_json', '[]'),
+            'bert_n_dates_found': bert_result.get('n_dates_found', 0),
+            'bert_decision_date': bert_result.get('decision_date'),
+            'bert_decision_date_source': bert_result.get('decision_date_source'),
+            'bert_decision_confidence': bert_result.get('decision_confidence'),
+            'bert_earliest_review_date': bert_result.get('earliest_review_date'),
+            'bert_latest_review_date': bert_result.get('latest_review_date'),
+            'bert_n_review_dates': bert_result.get('n_review_dates', 0),
+            'bert_application_date': bert_result.get('application_date'),
+            'bert_inferred_application_date': bert_result.get('inferred_application_date'),
+            'bert_error': bert_result.get('error'),
+        }
+        results.append(result)
+
+        if idx % 100 == 0:
+            elapsed = time.time() - start_time
+            rate = idx / elapsed
+            remaining = (total - idx) / rate if rate > 0 else 0
+            print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining:.0f}s remaining")
+
+    elapsed_total = time.time() - start_time
+    print(f"\nCompleted {total} projects in {elapsed_total:.1f}s")
+    print(f"Average: {elapsed_total/total*1000:.1f}ms/project")
+
+    # Create results dataframe
+    results_df = pd.DataFrame(results)
+    projects_with_bert = projects.merge(results_df, on='project_id', how='left')
+
+    # Save
+    if output_file:
+        output_path = ANALYSIS_DIR / output_file
+    else:
+        output_path = ANALYSIS_DIR / "projects_timeline_bert.parquet"
+
+    projects_with_bert.to_parquet(output_path)
+    print(f"\nSaved to: {output_path}")
+
+    # Summary
+    has_decision = projects_with_bert['bert_decision_date'].notna()
+    has_application = projects_with_bert['bert_application_date'].notna()
+    has_error = projects_with_bert['bert_error'].notna()
+
+    print(f"\n=== Results Summary ===")
+    print(f"Projects with decision date: {has_decision.sum():,} ({100*has_decision.mean():.1f}%)")
+    print(f"Projects with application date: {has_application.sum():,} ({100*has_application.mean():.1f}%)")
+    print(f"Projects with errors: {has_error.sum():,} ({100*has_error.mean():.1f}%)")
+
+    return projects_with_bert
+
+
+# --------------------------
 # HYBRID REGEX + LLM APPROACH
 # --------------------------
 
@@ -581,6 +1389,11 @@ INITIATION_CUES = [
     'row application', 'right of way application',
     'document creation', 'date created', 'date prepared', 'prepared', 'drafted',
     'revised', 'reviewed',
+]
+
+REVIEW_CUES = [
+    'review completed', 'interim', 'phase', 'decision in principle',
+    'review memo', 'review memorandum', 'reviewed by', 'nepa review',
 ]
 
 # Strong exclusions (keep tight to avoid discarding useful start/creation dates)
@@ -632,6 +1445,89 @@ def _has_any(text: str, cues: list) -> bool:
     text_lower = text.lower()
     return any(cue in text_lower for cue in cues)
 
+def _has_any_regex(text: str, patterns: list) -> bool:
+    text_lower = text.lower()
+    return any(re.search(pattern, text_lower) for pattern in patterns)
+
+def _min_context_chars_for_sentence(sent_text: str) -> int:
+    # Use tighter context for strong signature cues; expand for weaker review/initiation cues.
+    if _has_any_regex(sent_text, DECISION_PATTERNS_STRONG):
+        return 60
+    if _has_any(sent_text, INITIATION_CUES):
+        return 140
+    if _has_any(sent_text, REVIEW_CUES):
+        return 160
+    return 100
+
+
+def _expand_for_decision_cues(spans: list, sent_idx: int, context: str) -> str:
+    """
+    If a date is near boilerplate text but an adjacent sentence has decision cues,
+    merge the adjacent sentence to capture the signature context.
+    """
+    if not spans or sent_idx is None:
+        return context
+    if not _is_decision_boilerplate(context):
+        return context
+
+    merged = context
+    if sent_idx + 1 < len(spans):
+        next_sent = spans[sent_idx + 1][2]
+        if _has_any(next_sent, DECISION_CUES) or _has_any_regex(next_sent, DECISION_PATTERNS_STRONG):
+            merged = f"{merged} {next_sent}"
+    if sent_idx - 1 >= 0:
+        prev_sent = spans[sent_idx - 1][2]
+        if _has_any(prev_sent, DECISION_CUES) or _has_any_regex(prev_sent, DECISION_PATTERNS_STRONG):
+            merged = f"{prev_sent} {merged}"
+
+    return re.sub(r'\\s+', ' ', merged).strip()
+
+
+def _clean_context(context: str) -> tuple:
+    """
+    Strip boilerplate lines from context while preserving original text.
+    Returns (cleaned_text, cleaned_flag).
+    """
+    if not context:
+        return "", False
+
+    original = context
+    # Line-level removal for robust boilerplate stripping
+    lines = re.split(r'[\\n\\r]+', original)
+    cleaned_lines = []
+    for line in lines:
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+        # If the Recovery Act clause is on the same line as a signature,
+        # drop only the clause and keep the signature tail.
+        if re.search(r'Recovery Act', line_stripped, flags=re.IGNORECASE):
+            if re.search(r'Approved by|NEPA Compliance Officer|Authorizing Official|Field Office Manager|Signature|Signed by', line_stripped, flags=re.IGNORECASE):
+                split = re.split(r'Recovery Act\\)?\\s*', line_stripped, flags=re.IGNORECASE, maxsplit=1)
+                if len(split) > 1 and split[1].strip():
+                    line_stripped = split[1].strip()
+                else:
+                    continue
+            else:
+                continue
+        if re.search(r'\\bDOE F \\d+[\\w\\.\\-]*', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'\\bNETL F \\d+[\\w\\.\\-]*', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'Previous Editions Obsolete', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'Electronic Form Approved by Forms Mgmt\\.', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'Paperwork Reduction Act', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'OMB Control', line_stripped, flags=re.IGNORECASE):
+            continue
+        cleaned_lines.append(line_stripped)
+
+    cleaned = ' '.join(cleaned_lines)
+    cleaned = re.sub(r'\\s+', ' ', cleaned).strip()
+    return cleaned, cleaned != original
+
 
 def _is_excluded_context(text: str) -> bool:
     for pattern in EXCLUSION_PATTERNS:
@@ -644,6 +1540,8 @@ def extract_dates_with_context(
     text: str,
     context_window: int = DATE_CONTEXT_WINDOW,
     min_context_chars: int = 80,
+    keep_all_candidates: bool = False,
+    dedupe_by_date: bool = True,
 ) -> list:
     """
     Extract candidate dates from text using regex, with sentence-based context.
@@ -663,6 +1561,7 @@ def extract_dates_with_context(
     """
     results = []
     seen_dates = set()
+    seen_contexts = set()
 
     # Build sentence spans once for context extraction
     spans = _sentence_spans(text)
@@ -700,7 +1599,9 @@ def extract_dates_with_context(
                 end = min(len(text), match.end() + context_window)
                 context = re.sub(r'\s+', ' ', text[start:end]).strip()
             else:
-                context = _expand_context(spans, sent_idx, min_chars=min_context_chars)
+                min_chars = _min_context_chars_for_sentence(spans[sent_idx][2])
+                context = _expand_context(spans, sent_idx, min_chars=min_chars)
+                context = _expand_for_decision_cues(spans, sent_idx, context)
 
             # Exclusion filters (FR/CFR/USC/URLs/OMB)
             if _is_excluded_context(context):
@@ -712,19 +1613,23 @@ def extract_dates_with_context(
                 'position': match.start(),
             })
 
-            # Candidate filter: keep if context has decision/initiation cues
-            if not (_has_any(context, DECISION_CUES) or _has_any(context, INITIATION_CUES)):
-                continue
+            # Candidate filter: keep if context has decision/initiation/review cues
+            if not keep_all_candidates:
+                if not (_has_any(context, DECISION_CUES)
+                        or _has_any(context, INITIATION_CUES)
+                        or _has_any(context, REVIEW_CUES)):
+                    continue
 
             # Deduplicate by context to avoid duplicate signature sentences
             context_key = re.sub(r'\s+', ' ', context).strip().lower()
             if context_key in seen_contexts:
                 continue
 
-            # Deduplicate by date string
-            if date_str in seen_dates:
-                continue
-            seen_dates.add(date_str)
+            # Deduplicate by date string (optional)
+            if dedupe_by_date:
+                if date_str in seen_dates:
+                    continue
+                seen_dates.add(date_str)
             seen_contexts.add(context_key)
 
             results.append({
@@ -799,6 +1704,7 @@ def create_classification_prompt(dates_with_context: list) -> str:
         "Only classify the following date types:",
         "- decision: Final approval signature (Field Manager, NEPA Compliance Officer, Authorizing Official)",
         "- initiation: Start of the review or consultation (e.g., initiated consultation, application received, NOI, scoping)",
+        "- review: Interim review or phase approval (not final decision, not initiation)",
         "- other: Anything else",
         "",
         "DATES TO CLASSIFY:",
@@ -813,7 +1719,7 @@ def create_classification_prompt(dates_with_context: list) -> str:
     lines.extend([
         "Return JSON only:",
         '{"classifications": [',
-        '  {"date": "YYYY-MM-DD", "type": "decision|initiation|other", "reason": "brief explanation"},',
+        '  {"date": "YYYY-MM-DD", "type": "decision|initiation|review|other", "reason": "brief explanation"},',
         '  ...',
         ']}'
     ])
@@ -842,7 +1748,7 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
         'decision_confidence': None,
         'earliest_review_date': None,
         'latest_review_date': None,
-        'n_specialist_reviews': 0,
+        'n_review_dates': 0,
         'application_date': None,
         'inferred_application_date': None,
         'earliest_historical_date': None,
@@ -867,6 +1773,14 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
             classifications = parsed.get('classifications', [])
 
             # Build classified dates list
+            context_map = {}
+            for orig in dates_with_context:
+                if orig.get('date') not in context_map:
+                    context_map[orig.get('date')] = {
+                        'context': orig.get('context', ''),
+                        'position_pct': orig.get('position_pct'),
+                    }
+
             classified_dates = []
             for c in classifications:
                 if not isinstance(c, dict):
@@ -874,11 +1788,15 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
 
                 date_str = normalize_date_string(c.get('date'))
                 if date_str:
+                    ctx_info = context_map.get(date_str, {})
                     classified_dates.append({
                         'date': date_str,
                         'type': c.get('type', 'other'),
                         'source': str(c.get('reason', ''))[:200],
+                        'context': ctx_info.get('context', ''),
+                        'position_pct': ctx_info.get('position_pct'),
                         'confidence': 'high',  # LLM classified it
+                        'confidence_score': 1.0,
                     })
 
             # If LLM didn't return all dates, add unclassified ones
@@ -889,33 +1807,43 @@ def parse_classification_response(response_text: str, dates_with_context: list) 
                         'date': orig['date'],
                         'type': 'other',
                         'source': 'not classified by LLM',
+                        'context': orig.get('context', ''),
+                        'position_pct': orig.get('position_pct'),
                         'confidence': 'low',
+                        'confidence_score': 0.2,
                     })
 
-            result['dates_json'] = json.dumps(classified_dates)
+            output_dates = [
+                {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty',
+                                                        '_confidence', '_score')}
+                for d in classified_dates
+            ]
+            result['dates_json'] = json.dumps(output_dates)
             result['n_dates_found'] = len(classified_dates)
 
             # Extract summary fields by type (hybrid focuses on decision/initiation)
             decision_dates = [d for d in classified_dates if d['type'] == 'decision']
             initiation_types = {'initiation', 'application', 'start'}
             application_dates = [d for d in classified_dates if d['type'] in initiation_types]
-            review_dates = [d for d in classified_dates if d['type'] == 'specialist_review']
+            review_types = {'review', 'specialist_review'}
+            review_dates = [d for d in classified_dates if d['type'] in review_types]
             historical_dates = [d for d in classified_dates if d['type'] == 'historical']
             expiration_dates = [d for d in classified_dates if d['type'] == 'expiration']
 
-            # Decision date (latest if multiple)
+            # Decision date (cue strength, then confidence, then date)
             if decision_dates:
-                decision_dates.sort(key=lambda x: x['date'])
-                latest = decision_dates[-1]
-                result['decision_date'] = latest['date']
-                result['decision_date_source'] = latest['source']
-                result['decision_confidence'] = latest['confidence']
+                best = _select_best_decision(decision_dates)
+                if best:
+                    result['decision_date'] = best['date']
+                    result['decision_date_source'] = best['source']
+                    result['decision_confidence'] = best['confidence']
 
-            # Specialist reviews
+            # Review dates
             if review_dates:
                 review_dates.sort(key=lambda x: x['date'])
                 result['earliest_review_date'] = review_dates[0]['date']
                 result['latest_review_date'] = review_dates[-1]['date']
+                result['n_review_dates'] = len(review_dates)
                 result['n_specialist_reviews'] = len(review_dates)
 
             # Initiation/application date
@@ -1157,6 +2085,7 @@ def parse_llm_response(response_text: str) -> dict:
 
         'earliest_review_date': None,
         'latest_review_date': None,
+        'n_review_dates': 0,
         'n_specialist_reviews': 0,
 
         'application_date': None,
@@ -1213,7 +2142,7 @@ def parse_llm_response(response_text: str) -> dict:
 
             # Extract summary fields by type
             decision_dates = [d for d in valid_dates if d['type'] == 'decision']
-            review_dates = [d for d in valid_dates if d['type'] == 'specialist_review']
+            review_dates = [d for d in valid_dates if d['type'] in {'review', 'specialist_review'}]
             application_dates = [d for d in valid_dates if d['type'] == 'application']
             historical_dates = [d for d in valid_dates if d['type'] == 'historical']
             expiration_dates = [d for d in valid_dates if d['type'] == 'expiration']
@@ -1231,6 +2160,7 @@ def parse_llm_response(response_text: str) -> dict:
                 review_dates.sort(key=lambda x: x['date'])
                 result['earliest_review_date'] = review_dates[0]['date']
                 result['latest_review_date'] = review_dates[-1]['date']
+                result['n_review_dates'] = len(review_dates)
                 result['n_specialist_reviews'] = len(review_dates)
 
             # Application date
@@ -1396,9 +2326,10 @@ def build_project_timeline_llm(
         'llm_decision_date_source': None,
         'llm_decision_confidence': None,
 
-        # Specialist review fields
+        # Review fields
         'llm_earliest_review_date': None,
         'llm_latest_review_date': None,
+        'llm_n_review_dates': 0,
         'llm_n_specialist_reviews': 0,
 
         # Application date fields
@@ -1467,7 +2398,8 @@ def build_project_timeline_llm(
 
     result['llm_earliest_review_date'] = llm_result.get('earliest_review_date')
     result['llm_latest_review_date'] = llm_result.get('latest_review_date')
-    result['llm_n_specialist_reviews'] = llm_result.get('n_specialist_reviews', 0)
+    result['llm_n_review_dates'] = llm_result.get('n_review_dates', llm_result.get('n_specialist_reviews', 0))
+    result['llm_n_specialist_reviews'] = llm_result.get('n_specialist_reviews', result['llm_n_review_dates'])
 
     result['llm_application_date'] = llm_result.get('application_date')
     result['llm_inferred_application_date'] = llm_result.get('inferred_application_date')
@@ -1677,6 +2609,7 @@ def run_regex_prep(
     ce_only: bool = True,
     main_docs_only: bool = True,
     output_file: str = None,
+    keep_all_candidates: bool = True,
 ):
     """
     Precompute regex candidate dates with context for hybrid LLM runs.
@@ -1754,7 +2687,11 @@ def run_regex_prep(
         if not all_text.strip():
             continue
 
-        dates_with_context = extract_dates_with_context(all_text)
+        dates_with_context = extract_dates_with_context(
+            all_text,
+            keep_all_candidates=keep_all_candidates,
+            dedupe_by_date=not keep_all_candidates,
+        )
         for d in dates_with_context:
             results.append({
                 'project_id': project_id,
@@ -1987,10 +2924,24 @@ if __name__ == "__main__":
                         help='Number of parallel LLM workers (default: 4)')
     parser.add_argument('--regex-prep', action='store_true',
                         help='Precompute regex candidate cache for hybrid LLM')
+    parser.add_argument('--regex-filtered', action='store_true',
+                        help='Apply cue filtering when building regex cache (legacy behavior)')
     parser.add_argument('--use-regex-cache', action='store_true',
                         help='Use precomputed regex cache for hybrid LLM')
     parser.add_argument('--regex-cache', type=str,
                         help='Custom regex cache filename (data/analysis/...)')
+
+    # BERT classifier options
+    parser.add_argument('--bert-generate', action='store_true',
+                        help='Generate training data for BERT using weak supervision')
+    parser.add_argument('--bert-train', action='store_true',
+                        help='Train BERT classifier on auto-labeled data')
+    parser.add_argument('--bert-run', action='store_true',
+                        help='Run BERT-based timeline extraction (fast)')
+    parser.add_argument('--bert-model', type=str, default='distilbert-base-uncased',
+                        help='Hugging Face model for BERT (default: distilbert-base-uncased)')
+    parser.add_argument('--epochs', type=int, default=3,
+                        help='Training epochs for BERT (default: 3)')
 
     args = parser.parse_args()
 
@@ -2016,6 +2967,7 @@ if __name__ == "__main__":
             ce_only=True,
             main_docs_only=True,
             output_file=args.regex_cache,
+            keep_all_candidates=not args.regex_filtered,
         )
         sys.exit(0)
 
@@ -2144,4 +3096,31 @@ if __name__ == "__main__":
             use_regex_cache=args.use_regex_cache,
             regex_cache_path=ANALYSIS_DIR / args.regex_cache if args.regex_cache else REGEX_CACHE_PATH,
             workers=args.workers,
+        )
+
+    # Generate BERT training data
+    elif args.bert_generate:
+        generate_bert_training_data(
+            sample_size=args.sample,
+            output_path=BERT_TRAINING_DATA_PATH,
+        )
+
+    # Train BERT classifier
+    elif args.bert_train:
+        train_bert_classifier(
+            training_data_path=BERT_TRAINING_DATA_PATH,
+            model_name=args.bert_model,
+            output_dir=BERT_MODEL_DIR,
+            epochs=args.epochs,
+        )
+
+    # Run BERT extraction
+    elif args.bert_run:
+        run_bert_timeline_extraction(
+            sample_size=args.sample,
+            clean_energy_only=True,
+            ce_only=True,
+            main_docs_only=True,
+            output_file=args.output,
+            use_regex_cache=True,
         )

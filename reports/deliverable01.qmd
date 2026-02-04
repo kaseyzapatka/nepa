@@ -32,15 +32,12 @@ d1_tables <- here("output", "deliverable1", "tables")
 ## Executive Summary
 
 ::: {.callout-tip}
-## Key decisions to make for next steps:
+## Key decisions to make:
 -   [ ] Are there any further refinements to the project definition  of “Clean Energy” we want to consider?
-    -   [X] Exclude "Utilities" + non-energy tags
-    -   [ ] Exclude "Military and Defense" nuclear projects?
-    -   [ ] Exclude waste management of nuclear projects?
--   [ ] Any further analysis of DOE projects?
--   [ ] What do we prefer for the geographic analysis--maps, tables, some combination?
-    -   [ ] Do we want a deeper dive into any specific location?
-
+-   [ ] Does these tables/figures collectively answers Frank's idea to show how CE puts strain on specific agencies?  
+-   [ ] What do we think of Figure 13? 
+-   [ ] Any other changes to any of these figures or tables?
+-   [ ] Any other tables, figures, or maps you want to see?
 :::
 
 This report aims to create the following set of deliverables: 
@@ -115,17 +112,26 @@ tibble(
   )
 ```
 
+@fig-energy-type shows the overall distribution of projects in the NEPATEC 2.0 database by energy type. Clean energy projects comprise roughly 37% of all projects in the database, while fossil fuel projects represent 18%, and other (non-energy) projects make up 45% of the total. This breakdown helps contextualize the clean energy subset analyzed in this report within the broader universe of federal environmental reviews.
+
+```{r}
+#| label: fig-energy-type
+#| fig-cap: "Distribution of all NEPA projects by energy type classification."
+
+knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
+```
+
 About **10% of projects have only clean energy tags**, but most (about 90%) have at least 1 clean energy tag plus some other combination of tags. 
 
-### Further Refining 
+### Refining Clean Energy
 
-After reviewing a [table of all co-occurring project types](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1809595689#gid=1809595689), three other projects combinations are currently under consideration to be excluded from the "clean energy" category.
+After reviewing a [table of all co-occurring project types](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1809595689#gid=1809595689), three refinements were applied to improve the precision of the "clean energy" classification:
 
-- **Utilities + non-energy:**  About **1,623 projects** tagged _ONLY_ as Utilities _AND_ with 1 or more of the following non-energy tags (e.g., broadband, waste management, land development) were excluded, since these likely reflect utility-adjacent infrastructure rather than energy generation.
+- **Utilities + non-energy:**  **1,623 projects** tagged _ONLY_ as Utilities _AND_ with 1 or more of the following non-energy tags (e.g., broadband, waste management, land development) were excluded, since these likely reflect utility-adjacent infrastructure rather than energy generation.
 
-- **Military and Defense + Nuclear:** There are **481 projects** tagged as "Nuclear Energy" and "Military and Defense." [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1310622375#gid=1310622375) The majority of these projects are led by the Department of Energy rather than the Department of Defense—an unexpected pattern that warrants further consideration. **Should these be excluded or further analyzed in some way?**
+- **Military and Defense + Nuclear:** **481 projects** tagged as "Nuclear Energy" and "Military and Defense" were excluded from the clean energy category. [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1310622375#gid=1310622375) The majority of these projects are led by the Department of Energy rather than the Department of Defense, suggesting they involve weapons-related nuclear activities rather than energy production.
 
-- **Nuclear + Waste Management :** Approximately, **4,000 projects** combine "Nuclear" ("Nuclear Technology" and "Conventional Energy Production - Nuclear") and "Waste management" tags. [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1263485295#gid=1263485295) Many of these projects appear to involve decommissioning or site cleanup rather than energy production. **Are these projects we wish to classify as "clean energy" since it looks more like management rather than power generation?**
+- **Nuclear + Waste Management:** We started with approximately **4,000 Nuclear Waste projects** (those tagged with "Waste Management" AND ("Nuclear Technology" OR "Conventional Energy Production - Nuclear")). By excluding all projects sponsored by DOE's National Nuclear Security Administration (NNSA), Office of Environmental Management (EM), and Office of Legacy Management (LM), along with their associated field offices, this filtering reduced the dataset from approximately 4,000 nuclear-waste projects down to **1,588 projects**, focusing the analysis on nuclear energy research and development rather than waste cleanup or weapons programs. [You can see a list of the remaining nuclear-tagged projects here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1263485295#gid=1263485295)
 
 
 
@@ -235,14 +241,65 @@ knitr::include_graphics(file.path(d1_maps, "09_state_choropleth.png"))
 ```
 
 
-South Carolina clearly sticks out with the number of projects in the state. Click here to explore a [more detailed table](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=991995876#gid=991995876) of projects there. 
+South Carolina clearly sticks out with the number of projects in the state. Click here to explore a [more detailed table](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=991995876#gid=991995876) of projects there.
+
+@fig-top-states shows the top 20 states ranked by total clean energy project count. South Carolina leads with over 4,000 projects, followed by Washington, California, and Idaho. This geographic concentration reflects both the location of major federal facilities (like the Savannah River Site in South Carolina) and regions with high renewable energy potential.
+
+```{r}
+#| label: fig-top-states
+#| fig-cap: "Top 20 states by clean energy project count."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "07_top_states.png"))
+```
+
+@fig-state-process examines how the NEPA process type varies across the top 15 states. While most states show a high proportion of Categorical Exclusions (CE), there is notable variation in the share of Environmental Assessments (EA) and Environmental Impact Statements (EIS). States like Washington and California show more diverse distributions across process types, suggesting a mix of project scales and complexities.
+
+```{r}
+#| label: fig-state-process
+#| fig-cap: "NEPA process type distribution across top 15 states."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "08_state_process_type.png"))
+```
 
 
 ## County-Level Distribution
 
-At the county level, Aiken, South Carolina, has a number of projects that are largely driven by nuclear projects at the Savannah River Site. Boundary, Idaho also has a high count of projects, likely driven by the national labs there. 
+County-level geographic data is available for approximately **48% of clean energy projects** overall. However, coverage varies significantly by NEPA review process, as shown in @tbl-county-coverage below.
 
-**Note that county data is only available for about 46% of projects, with about 13,392 projects missing county-level project identifiers. This is largely because many CE projects do have have county identifiers.
+```{r}
+#| label: tbl-county-coverage
+#| tbl-cap: "County data coverage by NEPA process type"
+
+tibble(
+  `Process Type` = c("CE (Categorical Exclusion)", "EA (Environmental Assessment)", "EIS (Environmental Impact Statement)", "Total"),
+  `Total Projects` = c("20,863", "622", "794", "22,279"),
+  `With County Data` = c("9,631 (46%)", "504 (81%)", "509 (64%)", "10,644 (48%)"),
+  `Missing County` = c("11,232 (54%)", "118 (19%)", "285 (36%)", "11,635 (52%)"),
+  `Recoverable` = c("Not recoverable", "~116 (98%)", "~281 (99%)", "~397 EA/EIS")
+) |>
+  gt() |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = 4)
+  ) |>
+  tab_footnote(
+    footnote = "CE projects use legal land descriptions without coordinates, making county recovery infeasible. EA and EIS projects have lat/long coordinates that enable reverse geocoding.",
+    locations = cells_column_labels(columns = Recoverable)
+  ) |>
+  cols_width(
+    `Process Type` ~ px(280),
+    `Total Projects` ~ px(120),
+    `With County Data` ~ px(140),
+    `Missing County` ~ px(140),
+    `Recoverable` ~ px(150)
+  )
+```
+
+The low county coverage for CE projects (46%) reflects their streamlined documentation standards, which often use legal land descriptions rather than explicit county identifiers, or that they simply don't include easily recognizable geographic data. In contrast, **nearly all EA and EIS projects missing county data (98.5%) or about 397 projects can be recovered** through reverse geocoding using their existing lat/long coordinates. This would increase EA coverage from 81% to ~99% and EIS coverage from 64% to ~99%.
+
+At the county level, Aiken, South Carolina, has a number of projects that are largely driven by nuclear projects at the Savannah River Site that were not marked for exclusion (because they were not tagged as "Waste Management"). Boundary, Idaho also has a high count of projects, likely driven by the national labs there as well. 
 
 ```{r}
 #| label: fig-county-map
@@ -252,7 +309,7 @@ At the county level, Aiken, South Carolina, has a number of projects that are la
 knitr::include_graphics(file.path(d1_maps, "10_county_choropleth.png"))
 ```
 
-## Process Type by Location
+## Process Type by Location by Review Process
 
 ```{r}
 #| label: fig-dots-map
@@ -260,7 +317,22 @@ knitr::include_graphics(file.path(d1_maps, "10_county_choropleth.png"))
 #| out-width: "100%"
 #| fig-asp: 1.6
 
-knitr::include_graphics(file.path(d1_maps, "11_county_dots_process_type.png"))
+knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_process_type.png"))
+```
+
+@fig-dots-map uses a  uniform classification scheme across all panels enables direct comparison: counties in the same color class have similar project counts regardless of process type. This reveals that CE projects dominate the highest activity counties (particularly in South Carolina and Idaho), while EA and EIS projects show more dispersed, lower-intensity geographic patterns.
+
+@fig-county-jenks provides an alternative view of the same data using Jenks natural breaks classification. Unlike the continuous gradient in the previous map, Jenks classification groups counties into 5 classes that mathematically highlights differences between groups[^breaks], making it easier to identify distinct tiers of project activity across all three process types. This shows how CE projects dominate the country and where EA/EIS are high. 
+
+[^breaks]: It does this by minimizing within-class variance and maximize between-class differences
+
+```{r}
+#| label: fig-county-jenks
+#| fig-cap: "Clean energy projects by county using Jenks natural breaks classification. Uniform classification enables cross-panel comparison."
+#| out-width: "100%"
+#| fig-asp: 1.6
+
+knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_process_type_jenks.png"))
 ```
 
 

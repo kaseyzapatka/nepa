@@ -117,16 +117,22 @@ dept_process <- agency_data %>%
   filter(department != "Other / Unclassified")
 
 fig_dept_process <- dept_process %>%
-  filter(total >= 5) |> 
+  filter(total >= 5) |>
   ggplot(aes(x = reorder(department, total), y = percent, fill = process_type)) +
   geom_col() +
+  geom_text(
+    aes(label = ifelse(percent >= 3, scales::percent(percent / 100, accuracy = 1), "")),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "white"
+  ) +
   coord_flip() +
   labs(
     x = NULL,
     y = "Percent of Projects",
     fill = "Process Type",
     title = "Process Type Distribution by Federal Department",
-    caption = "Note that Departments with fewer than 5 projects were removed for parsimony."
+    caption = "Note: Departments with fewer than 5 projects were removed for parsimony.\nPercentage labels below 3% are excluded for readability."
   ) +
   #scale_fill_brewer(palette = "Set1") +
   scale_fill_manual(
@@ -172,3 +178,4 @@ ce_ratio <- agency_data %>%
 
 cat("\nAgencies with highest CE ratio (min 50 projects):\n")
 ce_ratio %>% slice_head(n = 10) %>% print()
+

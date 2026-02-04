@@ -1,6 +1,6 @@
 # Timeline Extraction Status
 
-**Last updated**: 2026-01-30
+**Last updated**: 2026-01-30 (end of day)
 
 This document summarizes the current state of timeline extraction for the NEPA project. Read this file to understand timeline-related work without needing to explore the full codebase.
 
@@ -99,6 +99,179 @@ python extract_timeline.py --llm-run --hybrid --use-regex-cache --sample 20 --mo
 
 ---
 
+## BERT Classifier Approach (NEW - 2026-01-30)
+
+### Why BERT?
+
+The LLM approach works but is **slow**:
+- 20 projects = 3.5 minutes
+- 20,000 projects = ~58 hours (2.5 days)
+
+BERT offers **50-100x speedup**:
+- 20 projects = ~2-5 seconds
+- 20,000 projects = ~30-60 minutes
+
+### How It Works
+
+1. **Weak Supervision (Auto-Labeling)**
+   - Uses existing regex patterns to auto-label thousands of date contexts
+   - Decision patterns: `digitally signed by`, `NEPA Compliance Officer`, `authorizing official`, etc.
+   - Initiation patterns: `scoping meeting`, `application received`, `notice of intent`, etc.
+   - Other patterns: `map created`, CFR/USC citations, etc.
+   - No manual labeling required
+
+2. **BERT Training**
+   - Downloads `distilbert-base-uncased` from Hugging Face (~250MB, cached locally)
+   - Fine-tunes on auto-labeled NEPA data
+   - 3-class classifier: decision / initiation / other
+   - Training takes ~5-10 minutes
+
+3. **Fast Inference**
+   - Classifies date contexts in batches (~5ms per context vs ~500ms for LLM)
+   - Uses regex cache (same as hybrid LLM approach)
+   - Outputs same format as LLM approach for easy comparison
+
+### Implementation Added
+
+New functions in `extract_timeline.py`:
+- `auto_label_context()` - Pattern-based weak supervision
+- `generate_bert_training_data()` - Creates training dataset from regex cache
+- `train_bert_classifier()` - Fine-tunes DistilBERT
+- `BertDateClassifier` - Inference class
+- `extract_with_bert()` - Drop-in replacement for LLM classification
+- `run_bert_timeline_extraction()` - Full pipeline
+
+New CLI arguments:
+- `--bert-generate` - Generate training data
+- `--bert-train` - Train classifier
+- `--bert-run` - Run extraction with BERT
+- `--bert-model` - Choose base model (default: distilbert-base-uncased)
+- `--epochs` - Training epochs (default: 3)
+
+### Current Status (End of Day 2026-01-30)
+
+**Training completed.** Model saved to `models/timeline_classifier/`.
+
+**20-sample evaluation completed.** Results in `data/analysis/test20_bert.parquet`.
+
+---
+
+### BERT Evaluation Results
+
+| Metric | BERT | LLM | Notes |
+|--------|------|-----|-------|
+| Decision coverage | **85%** (17/20) | 80% (16/20) | BERT slightly better |
+| Initiation coverage | **0%** (0/20) | 35% (7/20) | BERT fails completely |
+| Decision agreement | 12/13 (92%) | - | Where both found dates |
+
+**Decision quality analysis (17 classified):**
+- ✅ ~9 clearly correct (53%) - signature blocks, NEPA Compliance Officer, digitally signed
+- ⚠️ ~4 questionable (24%) - "Date Determined" without full context
+- ❌ ~4 false positives (24%) - form boilerplate ("Revised:", "Form Approved")
+
+**Example good classifications:**
+```
+"NEPA Compliance Officer: STEPHEN WITMER Digitally signed by STEPHEN WITMER Date: 2023.08.14"
+"Signed By: Casey Strickland NEPA Compliance Officer Date: 11/23/2022"
+"ORO NEPA Compliance Officer Gary S. Hartman Date Determined: 6/29/2011"
+```
+
+**Example false positives:**
+```
+"NETL F 451. 1-1/1 Revised: 11/24/2014 Reviewed: 11/24/2014 (Previous Editions Obsolete)"
+"DOE F 1325. 8e Electronic Form Approved by Forms Mgmt. 04/19/2006"
+```
+
+---
+
+### Training Data Imbalance (Root Cause of Issues)
+
+| Label | Count | % |
+|-------|-------|---|
+| decision | 15,250 | 89% |
+| other | 1,810 | 10.5% |
+| initiation | **122** | **0.7%** |
+
+Only 122 initiation examples vs 15,250 decision examples. The model never learned initiation patterns.
+
+---
+
+## Monday Pickup Instructions
+
+### Priority 1: Create Training Data for Initiation
+
+The model has only 122 initiation examples (0.7%) - it never learned what initiation looks like.
+
+**Option A: Expand initiation patterns** (in `extract_timeline.py` → `INITIATION_PATTERNS_STRONG`)
+```python
+# Add more patterns like:
+r'proposed action',
+r'project initiat',
+r'environmental review began',
+r'review process started',
+r'eis process',
+r'ea preparation',
+```
+
+**Option B: Add negative patterns to exclude form boilerplate** (in `OTHER_PATTERNS_STRONG`)
+```python
+# Add patterns to catch form templates:
+r'previous editions obsolete',
+r'form approved',
+r'forms mgmt',
+r'netl f \d+',
+r'doe f \d+',
+```
+
+**Option C: Manually label ~50-100 initiation examples**
+- Look at LLM results where `llm_application_date` was found
+- Extract those contexts and verify they're correct
+- Add to training data with `label='initiation'`
+
+**Option D: Use class weighting during training**
+- Modify `train_bert_classifier()` to weight initiation class higher
+- This helps the model pay more attention to rare classes
+
+### Priority 2: Use Larger BERT Model
+
+Since BERT is so fast (~5ms/context), we can afford a better model:
+
+```bash
+# Retrain with RoBERTa (often better for classification)
+python extract_timeline.py --bert-train --bert-model roberta-base --epochs 5
+
+# Or full BERT
+python extract_timeline.py --bert-train --bert-model bert-base-uncased --epochs 5
+```
+
+### Priority 3: Regenerate and Retrain
+
+After updating patterns:
+```bash
+cd /Users/Dora/git/consulting/nepa/code/extract
+
+# 1. Regenerate training data with new patterns
+python extract_timeline.py --bert-generate
+
+# 2. Check new label distribution
+python -c "import pandas as pd; df=pd.read_parquet('../../data/analysis/bert_training_data.parquet'); print(df['label'].value_counts())"
+
+# 3. Retrain with better model
+python extract_timeline.py --bert-train --bert-model roberta-base --epochs 5
+
+# 4. Test on sample
+python extract_timeline.py --bert-run --sample 20 --output test20_bert_v2.parquet
+```
+
+### Priority 4: Full Run (if results look good)
+
+```bash
+python extract_timeline.py --bert-run --output projects_timeline_bert.parquet
+```
+Expected runtime: ~30-60 minutes for 20K projects
+
+---
+
 ## Known Issues / Gaps (Current)
 
 1) **Decision date selection can be wrong**
@@ -181,15 +354,75 @@ Comparison: `test20_workers.parquet` vs `test20_hybrid3_instruct.parquet` (both 
 
 ---
 
+## Updates Added (2026-02-02)
+
+1) **New timeline class: `review` (BERT + hybrid)**  
+   - **Change:** Added `review` as a third class alongside `initiation` and `decision`; summary now includes earliest/latest review and review count.  
+   - **Reason:** Interim approvals and phase approvals were being mislabeled as decisions; review dates are valuable for timeline structure and for initiation backfill when explicit initiation is missing.
+
+2) **Decision selection ranking (cue strength + confidence)**  
+   - **Change:** Decision date now chosen by cue strength + confidence, not just latest date; boilerplate penalty added; footer/header position only used when top candidates are close in score but far apart in position.  
+   - **Reason:** Prevents form boilerplate or weak header dates from overriding true signature decisions.
+
+3) **Dynamic context window sizing**  
+   - **Change:** Smaller contexts for strong signature cues, larger contexts for review/initiation cues.  
+   - **Reason:** Avoids over-capturing noise around signatures while preserving enough context for weak review cues.
+
+4) **Keep-all regex cache (default)**  
+   - **Change:** Regex cache now keeps all dates by default (cue filtering moved downstream); `--regex-filtered` restores legacy behavior.  
+   - **Reason:** Dates in tables/lists were being dropped before BERT could see them (e.g., 1/7/2021, 1/11/2021, 1/26/2021).
+
+5) **Boilerplate context merging for decisions**  
+   - **Change:** If a date’s sentence is boilerplate, expand context to adjacent sentence with decision cues (signature blocks).  
+   - **Reason:** Prevents Recovery Act/boilerplate sentences from masking nearby signature lines.
+
+6) **Full context preserved in `source`**  
+   - **Change:** BERT `source` now stores full context rather than truncating to 100 chars.  
+   - **Reason:** Allows direct validation of dates (e.g., include “5515-001 on November 30, 2011.”).
+
+7) **Memo DATE fallback to review (when no decision cues)**  
+   - **Change:** If no decision cues exist, memo “DATE:” lines are treated as review; DOE form boilerplate is forced to `other`.  
+   - **Reason:** Environmental clearance memos often have no signatures; memo date is the best available review proxy and form approval dates should be excluded.
+
+8) **Context cleaning for BERT classification**  
+   - **Change:** Added `clean_context()` to strip boilerplate (Recovery Act checkbox lines, DOE/NETL form headers, OMB/PRA lines) before BERT classification. Both original and cleaned context are stored in output, with a `context_cleaned_flag`.  
+   - **Reason:** Boilerplate was masking signature lines, causing “Approved by … NEPA Compliance Officer” to be labeled `other`.
+
+9) **Use cleaned context for rule overrides**  
+   - **Change:** Decision/initiator override checks now use cleaned context when available (fallback to original if cleaned is empty).  
+   - **Reason:** Ensures overrides are based on the meaningful text rather than boilerplate noise.
+
+10) **Recovery Act cleaning made non-destructive**  
+   - **Change:** Recovery Act checkbox line now gets stripped without removing trailing signature text (e.g., “Approved by …”).  
+   - **Reason:** Prior regex removed entire line, leaving empty cleaned context and preventing decision classification.
+
+11) **Model comparison: v6 vs v8 (test50)**  
+   - **Decision rate:** v6 **84.0%** → v8 **84.0%** (no change)  
+   - **Initiation rate:** v6 **2.0%** → v8 **16.0%** (improved)  
+   - **Inferred initiation:** v6 **26.0%** → v8 **36.0%** (improved)  
+   - **Net decision shifts:** 1 lost, 1 gained (overall stable).
+
+12) **Known gap remains: Recovery‑Act signature lines**  
+   - **Finding:** 7 projects with “Recovery Act … Approved by … NEPA Compliance Officer” still have **no decision** in both v6 and v8.  
+   - **Implication:** Decision capture is stable, but these are consistent false negatives.
+
+13) **Next targeted fix (recommended)**  
+   - **Action:** Implement a narrow Recovery‑Act signature extraction that keeps the signature tail when “Recovery Act” and signature cues appear on the same line.  
+   - **Goal:** Flip those 7 misses to decisions without hurting overall decision precision.
+
 ## File References
 
 | File | Purpose |
 |------|---------|
-| `code/extract/extract_timeline.py` | Timeline extraction implementation (regex + LLM + hybrid + cache) |
+| `code/extract/extract_timeline.py` | Timeline extraction implementation (regex + LLM + hybrid + BERT) |
 | `code/extract/preprocess_documents.py` | LLM preprocessing for full-document extraction (legacy) |
 | `data/analysis/projects_combined.parquet` | Combined project data (input) |
 | `data/analysis/projects_timeline.parquet` | Regex-only timeline output |
-| `data/analysis/regex_candidates.parquet` | Hybrid regex cache (new) |
+| `data/analysis/regex_candidates.parquet` | Hybrid regex cache |
+| `data/analysis/bert_training_data.parquet` | Auto-labeled training data for BERT |
+| `data/analysis/test20_workers.parquet` | LLM hybrid results (20 sample) |
+| `data/analysis/test20_bert.parquet` | BERT results (20 sample) - to be created |
+| `models/timeline_classifier/` | Trained BERT model - to be created |
 | `notes/project_overview.md` | Project goals and deliverables |
 
 ---
@@ -201,22 +434,45 @@ Regex-only extraction:
 python extract_timeline.py --run --sample 100
 ```
 
-Hybrid LLM extraction (fresh regex each run):
-```bash
-python extract_timeline.py --llm-run --hybrid --sample 20 --model llama3.2:3b-instruct-q4_K_M --timeout 180 --workers 4
-```
-
 Hybrid LLM extraction (cached regex):
 ```bash
 python extract_timeline.py --regex-prep
 python extract_timeline.py --llm-run --hybrid --use-regex-cache --sample 20 --model llama3.2:3b-instruct-q4_K_M --timeout 180 --workers 4
 ```
 
+**BERT extraction (recommended - 50-100x faster):**
+```bash
+# One-time setup:
+pip install numpy==1.26.4 transformers datasets torch
+python extract_timeline.py --regex-prep        # Build regex cache (if not done)
+python extract_timeline.py --bert-generate     # Generate training data
+python extract_timeline.py --bert-train        # Train classifier (~5-10 min)
+
+# Run extraction:
+python extract_timeline.py --bert-run --sample 20 --output test20_bert.parquet
+python extract_timeline.py --bert-run --output projects_timeline_bert.parquet  # Full run
+```
+
 ---
 
 ## Change Log
 
-### 2026-01-30
+### 2026-01-30 (PM) - BERT Classifier
+- **Added BERT-based classification as alternative to LLM** (50-100x faster)
+- Implemented weak supervision using existing regex patterns for auto-labeling
+- Added `--bert-generate`, `--bert-train`, `--bert-run` CLI commands
+- Training data generated: 17,182 examples (decision: 15,250, other: 1,810, initiation: 122)
+- Uses DistilBERT from Hugging Face (downloads automatically, ~250MB)
+- **Trained model** saved to `models/timeline_classifier/`
+- **Evaluated on 20 samples**: 85% decision coverage, 0% initiation coverage
+- **Key finding**: Training data severely imbalanced - only 122 initiation examples (0.7%)
+- **Key finding**: ~24% false positives from form boilerplate ("Revised:", "Form Approved")
+- **Next steps**:
+  1. Create more initiation training data (expand patterns or manual labeling)
+  2. Add patterns to exclude form boilerplate
+  3. Try larger model (roberta-base) since BERT is fast enough
+
+### 2026-01-30 (AM) - Hybrid LLM
 - Added hybrid initiation/decision cue filtering.
 - Switched hybrid context to sentence-based extraction with min-length expansion.
 - Linked initiation cue sentence to next sentence date if needed.

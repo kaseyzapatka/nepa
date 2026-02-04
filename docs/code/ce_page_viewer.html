@@ -4715,7 +4715,7 @@ Loaded 73,544 CE pages</code></pre>
 <section id="explore-a-specific-project" class="level2">
 <h2 class="anchored" data-anchor-id="explore-a-specific-project">Explore a specific project</h2>
 <p>Set the <code>project_id</code> below and run the cells to explore.</p>
-<div class="cell" data-execution_count="9">
+<div class="cell" data-execution_count="51">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set your project ID here</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;2135a0a9-e30c-47a6-4781-d35b7eb72322&quot; # Wyarno Grazing Lease </span></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;75f86c2f-e651-6f0f-78b4-0816aecb0d3a&quot; # Iberlin 1-12 wells</span></span>
@@ -4727,14 +4727,14 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;abb436a4-3bb4-8f91-0013-d5a5158dbf32&quot; # Enoch Well House Power Line</span></span>
 <span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0&quot; # Right of way renewals</span></span>
 <span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;c0a5a0de-acea-0b84-f727-029167677961&quot; # 703-43A Room 30 Install Electrical and UW</span></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;f488ca40-4864-fffd-2212-698e6e529248&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;6fa3f68d-9916-3080-32ab-4865ec4cebd7&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="10">
+<div class="cell" data-execution_count="52">
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># List all documents for this project</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>list_documents(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-Documents for project: f488ca40-4864-fffd-2212-698e6e529248
+Documents for project: 6fa3f68d-9916-3080-32ab-4865ec4cebd7
 --------------------------------------------------------------------------------</code></pre>
 </div>
 <div class="cell-output cell-output-display">
@@ -4755,13 +4755,13 @@ Documents for project: f488ca40-4864-fffd-2212-698e6e529248
 </thead>
 <tbody>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">129763</td>
-<td>f488ca40-4864-fffd-2212-698e6e529248</td>
+<td data-quarto-table-cell-role="th">123108</td>
+<td>6fa3f68d-9916-3080-32ab-4865ec4cebd7</td>
 <td>CE</td>
 <td>decision</td>
 <td>YES</td>
-<td>cx-004876.pdf</td>
-<td>2</td>
+<td>cx-011843.pdf</td>
+<td>1</td>
 </tr>
 </tbody>
 </table>
@@ -4769,92 +4769,43 @@ Documents for project: f488ca40-4864-fffd-2212-698e6e529248
 </div>
 </div>
 </div>
-<div class="cell" data-execution_count="11">
+<div class="cell" data-execution_count="53">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># View first 3 pages of each document</span></span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>view_project_pages(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 ================================================================================
-Document: cx-004876.pdf
+Document: cx-011843.pdf
 Type: CE | Category: decision | Main: YES
 ================================================================================
 
---- PAGE 1-2 ---
+--- PAGE 1-1 ---
 
-Categorical Exclusion for the upgrading to a
-double circuit of 3.6 miles of the existing
-Casa Grande-Empire 115-kV transmission
-line located in Pinal County, Arizona
+DOE-ID NEPA CX DETERMINATION
+Page 1 of 1
+CX Posting No.: DOE-ID-14-004
+SECTION A. Project Title: Enhanced Shielding Performance of HLW Storage Packages via Multi-Component Coatings – Virginia Polytechnic Institute and State University
 
-RECORD OF CATEGORICAL EXCLUSION DETERMINATION
+SECTION B. Project Description
+Virginia Polytechnic Institute and State University, in collaboration with North Carolina State University, proposes to develop an outer shield material for use in packaging that is not only resistant to the corrosion, radiation, diffusion, and thermal cycling processes that affect fuel packages during long-term storage, but that is also wear tolerant and mechanically robust so that it can survive repeated handling and transportation. To accomplish this goal, they propose a new multi-layer composite coating that will provide the robust material needed to enhance long-term HLW storage and facilitate safe transport of storage packages.
 
-A. Proposed Action: Western proposes to work with Salt River Project on an upgrade
-to a double circuit on its Casa Grande-Empire 115-kV transmission line. This project
-involves the removal of the existing H-frame wooden structures and the installation
-of new steel monopole structures. This will require auger trucks, bulldozers, bucket
-trucks and cranes. Existing access roads and the existing right-of-way will be used
-for vehicles such as pickup trucks, crew trucks, backhoes and bucket trucks to bring
-personnel and equipment to the work areas.
+SECTION C. Environmental Aspects / Potential Sources of Impact
+Air Emissions – Some deposition systems may use process gasses for synthesis. It is impossible to know at this time exactly what will be used as the end result is to define and optimize the deposition process. All deposition systems to be used at Virginia Tech and NC State operate within established safety and environmental guidelines.
 
-The attached map shows the project area situated within Sections 19, 30 &amp; 31 of
-Township 6 South, Range 6 East &amp; Sections 6 &amp; 7 of Township 7 South, Range 6
-East on the Gila &amp; Salt River Meridian, Yuma County, Arizona. The corresponding
-U.S.G.S. 7.5-minute topographic maps are Chuichu, Arizona. This work is planned
-to begin in October 2013.
+Radioactive Material Use – Existing Cesium-137 and Cobalt-60 sources will be used for gamma attenuation experiments. An existing PuBe source will be used for neutron attenuation experiments.
 
-B. Categorical Exclusion Applied: 10 CFR, Part 1021, Subpart D, Appendix B, B4.13:
-&quot;Reconstruction (upgrading or rebuilding) and/or minor relocation of existing electric
-powerlines approximately 20 miles in length or less to enhance environmental and
-land use values. Such actions include relocations to avoid right of ways
-encroachments, resolve conflict with property development, accommodate
-road/highway construction, allow for construction of facilities such as canals and
-pipelines, or reduce existing impacts to environmentally sensitive areas. &quot;
+Chemical Use/Storage – The potential exists to use basic laboratory solvents such as acetone and isopropyl alcohol for cleaning. They will be handled and stored in accordance with existing procedures at Virginia Tech and NC State as necessary.
 
-C. Regulatory Requirements in 10 CFR 1021.410 (b):
+SECTION D. Determine the Level of Environmental Review (or Documentation) and Reference(s): Identify the applicable categorical exclusion from 10 CFR 1021, Appendix B, give the appropriate justification, and the approval date.
+Note: For Categorical Exclusions (CXs) the proposed action must not: 1) threaten a violation of applicable statutory, regulatory, or permit requirements for environmental, safety, and health, including requirements of DOE orders; 2) require siting and construction or major expansion of waste storage, disposal, recovery, or treatment facilities; 3) disturb hazardous substances, pollutants, contaminants, or CERCLA-excluded petroleum and natural gas products that pre-exist in the environment such that there would be uncontrolled or unpermitted releases; 4) adversely affect environmentally sensitive resources. In addition, no extraordinary circumstances related to the proposal exist which would affect the significance of the action, and the action is not “connected” nor “related” (40 CFR 1508.25(a)(1) and (2), respectively) to other actions with potentially or cumulatively significant impacts.
 
-1. The proposed action fits within a class of actions that is listed in Appendix B to
-Subpart D.
+References: B3.6 Siting, construction, modification, operation, and decommissioning of facilities for small-scale research and development projects; conventional laboratory operations (such as preparation of chemical standards and sample analysis); and small-scale pilot projects (generally less than 2 years) frequently conducted to verify a concept before demonstration actions, provided that construction or modification would be within or contiguous to a previously disturbed or developed area (where active utilities and currently used roads are readily accessible). Not included in this category are demonstration actions, meaning actions that are undertaken at a scale to show whether a technology would be viable on a larger scale and suitable for commercial development.
 
-a. The proposed action was reviewed for the requirements of the Endangered
-Species Act, the National Environmental Policy Act (NEPA), the National
-Historic Preservation Act, and all applicable Department of Energy Orders.
-This action falls under the Programmatic Agreement for routine maintenance
-activities, type II activities.
+Justification: The activity consists of developing waste package shield material for research purposes.
 
-b. The proposed action does not require the siting, construction, or major
-expansion of waste storage, disposal, recovery, or treatment facilities.
-
-c. The proposed action does not disturb hazardous substances, pollutants,
-contaminates, or CERLA-excluded petroleum and natural gas products that
-pre-exist in the environment such that there would be uncontrolled and
-unpermitted releases.
-
-3
-d. The proposed action was reviewed and surveyed for impacts to cultural and
-sensitive biological resources. Cultural and sensitive biological resources
-have been determined to not be affected. Western consulted with the Arizona
-State Historic Preservation Office and received concurrence on June 7, 2010.
-
-2. There are no extraordinary circumstances related to the proposal that may affect
-the significance of the environmental effects of the proposal; and
-
-3. The proposal is not &quot;connected&quot; to other actions with potentially significant
-impacts, is not related to other proposed actions with cumulatively significant
-impacts, and is not precluded by 40 CFR 1506.1 or 10 CFR 1021.211.
-
-D. Determination: Based on my review of information conveyed to me and in my
-possession (or attached) concerning the proposed action, as NEPA Compliance
-Officer (as authorized under DOE Order 451.1A), I have determined that the
-proposed action fits within the specified class of actions, the other regulatory
-requirements set forth above are met, and the proposed action is hereby
-categorically excluded from further NEPA review.
-
-E. Special Conditions: NONE
-
-John R. Holt
-NEPA Compliance Officer
-9/15/10
-Date</code></pre>
+Is the project funded by the American Recovery and Reinvestment Act of 2009 (Recovery Act)
+Yes [ ] No [x]
+Approved by Jack Depperschmidt, DOE-ID NEPA Compliance Officer on 01/22/2014</code></pre>
 </div>
 </div>
 </section>

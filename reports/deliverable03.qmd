@@ -100,6 +100,22 @@ knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 Timeline data is extracted using regex pattern and have some clear data quality issues that require further refinement before final analysis.
 :::
 
+### How timeline dates are extracted (plain‑language overview)
+
+We start with the full text of each NEPA document and look for **date-like strings** (e.g., “06/07/2018,” “July 7, 2010”). For each date we capture the surrounding sentence so we can understand **why** that date appears. A fast classifier then labels each date into one of three buckets:
+
+- **Initiation**: when the review appears to start (e.g., “application received,” “scoping”)
+- **Review**: interim steps (e.g., “phase approved,” “review completed”)
+- **Decision**: final approval (e.g., “Approved by… NEPA Compliance Officer”)
+
+**Example phrases by bucket**
+
+- **Initiation**: “Initiator Signature…”, “initiation of consultation…”, “application received…”, “notice of intent…”, “scoping meeting…”
+- **Review**: “Phase 1 was approved…”, “review completed…”, “interim review…”, “concurrence provided…”, “decision in principle…”
+- **Decision**: “Approved by [Name], NEPA Compliance Officer…”, “Authorizing Official…”, “Field Office Manager determination…”, “digitally signed by…”, “FONSI signed…”
+
+When no explicit initiation date is found, we use the **earliest review date** as a proxy for initiation. To reduce false positives, we **strip boilerplate lines** (e.g., standard form text) before classification, while still keeping the original text for verification. This creates a transparent, auditable timeline: every date can be traced back to the exact text it came from.
+
 **Data Quality Summary**
 
 About 26% of clean energy projects don't have clean timeline data -- could be process-- and large chunk likely have errors.

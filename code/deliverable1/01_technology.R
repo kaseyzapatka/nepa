@@ -233,7 +233,7 @@ fig_clean_energy_bar_by_process <- ggplot(
 ) +
   geom_col(width = 0.8) +
   geom_text(
-    aes(label = scales::percent(share, accuracy = 1)),
+    aes(label = ifelse(share >= 0.03, scales::percent(share, accuracy = 1), "")),
     position = position_stack(vjust = 0.5),
     size = 3,
     color = "white"
@@ -249,7 +249,8 @@ fig_clean_energy_bar_by_process <- ggplot(
     x = "Share of Projects",
     y = NULL,
     fill = "Process Type",
-    title = "Clean Energy Projects by Technology and Process Type"
+    title = "Clean Energy Projects by Technology and Process Type",
+    caption = "Note: Percentage labels below 3% are excluded for readability."
   ) +
   theme(
     axis.text.y = element_text(size = 9),

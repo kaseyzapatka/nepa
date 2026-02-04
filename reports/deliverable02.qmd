@@ -1,0 +1,135 @@
+---
+title: "NEPA Clean Energy Analysis: Deliverable 2"
+subtitle: "Programmatic & Tiered Reviews"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(arrow)
+library(here)
+
+reviews_path <- here("data", "analysis", "projects_reviews.parquet")
+reviews <- read_parquet(reviews_path) %>% as_tibble()
+```
+
+## Executive Summary
+
+::: {.callout-tip}
+## Key Findings
+Programmatic and tiered reviews are **rare** in the clean energy EA/EIS subset, but they are detectable with high confidence. Any statistical comparison (e.g., timelines) will rely on a **small sample**, so results should be framed as exploratory.
+:::
+
+**Snapshot (EA/EIS clean energy subset; n = 1,416):**
+```{r}
+#| label: tbl-review-type-snapshot
+#| tbl-cap: "Review type snapshot within the EA/EIS clean energy subset"
+
+reviews %>%
+  count(project_review_type, name = "Count") %>%
+  mutate(Share = Count / sum(Count)) %>%
+  arrange(desc(Count)) %>%
+  mutate(
+    Share = scales::percent(Share, accuracy = 0.1),
+    project_review_type = str_to_sentence(project_review_type)
+  ) %>%
+  kable(align = c("l", "r", "r")) %>%
+  kable_styling(full_width = FALSE, position = "left") %>%
+  footnote(
+    general = "“Standard” means a typical, stand‑alone EA/EIS review that is not programmatic and does not explicitly tier from a programmatic review.",
+    general_title = "Note:"
+  )
+```
+
+**Detection quality:**
+- Confidence is **high** for 1,413 projects; **medium** for 3
+- Detection source is primarily **text regex** (1,413) with a small number via **title** (3)
+
+**Interpretation for Thursday (included here for quick briefing):**
+Programmatic reviews appear mainly in large, multi‑project planning efforts (solar/wind/nuclear programs). Tiered reviews are uncommon but present, often tied to a specific programmatic EIS/EA. Because sample sizes for tiered reviews are small, any timeline comparison should be framed as exploratory until the timeline data are cleaned.
+
+---
+
+# Examples
+
+**Programmatic review examples (titles pulled from data):**
+
+```{r}
+#| label: tbl-programmatic-examples
+#| tbl-cap: "Programmatic review examples (from project titles)"
+
+reviews %>%
+  filter(project_review_type == "programmatic") %>%
+  distinct(project_title) %>%
+  slice_head(n = 8) %>%
+  mutate(project_title = str_wrap(project_title, width = 80)) %>%
+  rename(`Project title` = project_title) %>%
+  kable(align = "l") %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+**Tiered review examples (project, tiers‑from label, and evidence text):**
+
+```{r}
+#| label: tbl-tiered-examples
+#| tbl-cap: "Tiered review examples with evidence text from the source document"
+
+reviews %>%
+  filter(project_review_type == "tiered") %>%
+  mutate(
+    tiers_from_clean = if_else(
+      str_detect(project_review_tiers_from, regex("PEIS|Programmatic|EIS|EA", ignore_case = TRUE)),
+      project_review_tiers_from,
+      NA_character_
+    ),
+    evidence_text = coalesce(project_review_tiers_from_context, project_review_match_text)
+  ) %>%
+  filter(!is.na(tiers_from_clean)) %>%
+  transmute(
+    `Project title` = str_wrap(project_title, 70),
+    `Tiers from` = str_wrap(tiers_from_clean, 60),
+    `Evidence text` = str_wrap(evidence_text, 80)
+  ) %>%
+  slice_head(n = 8) %>%
+  kable(align = c("l", "l", "l")) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+---
+
+# Summary Analyses to Present
+
+Distribution by agency (where programmatic/tiered appear most):
+
+```{r}
+#| label: tbl-agency-programmatic-tiered
+#| tbl-cap: "Top agencies associated with programmatic or tiered reviews"
+reviews %>%
+  filter(project_review_type %in% c("programmatic", "tiered")) %>%
+  count(lead_agency, project_review_type, name = "Count") %>%
+  group_by(lead_agency) %>%
+  summarise(Total = sum(Count), .groups = "drop") %>%
+  arrange(desc(Total)) %>%
+  slice_head(n = 6) %>%
+  kable(align = c("l", "r")) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+---
+
+# Data Source
+
+Counts and examples are derived from `data/analysis/projects_reviews.parquet` for clean energy EA/EIS projects.

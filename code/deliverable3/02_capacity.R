@@ -280,3 +280,23 @@ if (file.exists(gencap_path)) {
 cat("\n=== Capacity Script Complete ===\n")
 cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")
+
+
+library(tidyverse)
+library(arrow)
+
+#gencap_path <- "data/analysis/projects_gencap.parquet"
+gencap_path <- "data/analysis/projects_gencap_dedup.parquet"
+
+gencap <- read_parquet(gencap_path) 
+gencap |> glimpse()
+
+gencap |> 
+  #filter(project_id == "543b103fec369256675be35047a51d20") |> 
+  filter(project_id == "158bcddde40e38947bc4c80d25408c67") |> 
+  glimpse()
+
+# Clean energy only (if file includes other types)
+gencap_clean <- 
+  gencap %>%
+  filter(project_energy_type == "Clean")
