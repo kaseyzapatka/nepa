@@ -29,9 +29,8 @@ d1_maps <- here("output", "deliverable1", "maps")
 d1_tables <- here("output", "deliverable1", "tables")
 ```
 
-## Executive Summary
 
-::: {.callout-tip}
+::: {.callout-important}
 ## Key decisions to make:
 -   [ ] Are there any further refinements to the project definition  of “Clean Energy” we want to consider?
 -   [ ] Does these tables/figures collectively answers Frank's idea to show how CE puts strain on specific agencies?  
@@ -39,6 +38,8 @@ d1_tables <- here("output", "deliverable1", "tables")
 -   [ ] Any other changes to any of these figures or tables?
 -   [ ] Any other tables, figures, or maps you want to see?
 :::
+
+## Executive Summary
 
 This report aims to create the following set of deliverables: 
 
