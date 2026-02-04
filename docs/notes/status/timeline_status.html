@@ -5002,6 +5002,37 @@ vertical-align: -.125em;
 </li>
 <li><strong>Reason:</strong> Prior regex removed entire line, leaving empty cleaned context and preventing decision classification.</li>
 </ul>
+<ol start="11" type="1">
+<li><strong>Model comparison: v6 vs v8 (test50)</strong><br>
+</li>
+</ol>
+<ul>
+<li><strong>Decision rate:</strong> v6 <strong>84.0%</strong> → v8 <strong>84.0%</strong> (no change)<br>
+</li>
+<li><strong>Initiation rate:</strong> v6 <strong>2.0%</strong> → v8 <strong>16.0%</strong> (improved)<br>
+</li>
+<li><strong>Inferred initiation:</strong> v6 <strong>26.0%</strong> → v8 <strong>36.0%</strong> (improved)<br>
+</li>
+<li><strong>Net decision shifts:</strong> 1 lost, 1 gained (overall stable).</li>
+</ul>
+<ol start="12" type="1">
+<li><strong>Known gap remains: Recovery‑Act signature lines</strong><br>
+</li>
+</ol>
+<ul>
+<li><strong>Finding:</strong> 7 projects with “Recovery Act … Approved by … NEPA Compliance Officer” still have <strong>no decision</strong> in both v6 and v8.<br>
+</li>
+<li><strong>Implication:</strong> Decision capture is stable, but these are consistent false negatives.</li>
+</ul>
+<ol start="13" type="1">
+<li><strong>Next targeted fix (recommended)</strong><br>
+</li>
+</ol>
+<ul>
+<li><strong>Action:</strong> Implement a narrow Recovery‑Act signature extraction that keeps the signature tail when “Recovery Act” and signature cues appear on the same line.<br>
+</li>
+<li><strong>Goal:</strong> Flip those 7 misses to decisions without hurting overall decision precision.</li>
+</ul>
 </section>
 <section id="file-references" class="level2">
 <h2 class="anchored" data-anchor-id="file-references">File References</h2>

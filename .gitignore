@@ -6,6 +6,7 @@
 20181101_COMMS_CATFBrandGuide.pdf
 project_overview.md
 *running_todo.md
+*running_todo.html
 Claude**
 
 # Folders to ignore
@@ -13,6 +14,7 @@ Claude**
 *documents/
 *admin/
 *output/samples
+*models/
 
 
 # Python bytecode

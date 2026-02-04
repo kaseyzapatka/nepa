@@ -34,6 +34,8 @@ d1_tables <- here("output", "deliverable1", "tables")
 ::: {.callout-tip}
 ## Key decisions to make:
 -   [ ] Are there any further refinements to the project definition  of “Clean Energy” we want to consider?
+-   [ ] Does these tables/figures collectively answers Frank's idea to show how CE puts strain on specific agencies?  
+-   [ ] What do we think of Figure 13? 
 -   [ ] Any other changes to any of these figures or tables?
 -   [ ] Any other tables, figures, or maps you want to see?
 :::
@@ -316,6 +318,21 @@ knitr::include_graphics(file.path(d1_maps, "10_county_choropleth.png"))
 #| fig-asp: 1.6
 
 knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_process_type.png"))
+```
+
+@fig-dots-map uses a  uniform classification scheme across all panels enables direct comparison: counties in the same color class have similar project counts regardless of process type. This reveals that CE projects dominate the highest activity counties (particularly in South Carolina and Idaho), while EA and EIS projects show more dispersed, lower-intensity geographic patterns.
+
+@fig-county-jenks provides an alternative view of the same data using Jenks natural breaks classification. Unlike the continuous gradient in the previous map, Jenks classification groups counties into 5 classes that mathematically highlights differences between groups[^breaks], making it easier to identify distinct tiers of project activity across all three process types. This shows how CE projects dominate the country and where EA/EIS are high. 
+
+[^breaks]: It does this by minimizing within-class variance and maximize between-class differences
+
+```{r}
+#| label: fig-county-jenks
+#| fig-cap: "Clean energy projects by county using Jenks natural breaks classification. Uniform classification enables cross-panel comparison."
+#| out-width: "100%"
+#| fig-asp: 1.6
+
+knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_process_type_jenks.png"))
 ```
 
 
