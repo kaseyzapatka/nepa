@@ -569,8 +569,11 @@ cat("  Percent:", round(mean(agency_sponsor_overlap$has_overlap) * 100, 2), "%\n
 # Show examples of overlap
 overlap_examples <- agency_sponsor_overlap |>
  filter(has_overlap) |>
- select(project_id, project_title, lead_agency, project_sponsor, process_type) |>
- slice_head(n = 20)
+ #select(project_id, project_title, lead_agency, project_sponsor, process_type) |>
+ select(lead_agency, project_sponsor, process_type) |>
+ slice_head(n = 20) |> 
+  print()
+
 
 cat("\nExamples of projects with overlap:\n")
 print(overlap_examples, n = 20)
