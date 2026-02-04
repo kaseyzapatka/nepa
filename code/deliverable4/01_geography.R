@@ -328,6 +328,11 @@ cat("  Saved: figures/fig_multistate_process_type.png\n")
 #
 # Top Connections Analysis
 # ----------------------------------------------------
+# NOTE: "Top connections" = the 10 state-pair combinations with the highest
+# total project count. create_crosstab() groups multi-state projects by their
+# full state combination (e.g., "California, Nevada"), counts projects per
+# process type, sums to a Total column, and sorts descending. slice_head(n=10)
+# then keeps only the 10 highest-volume state-pair corridors.
 cat("\nCreating top corridors analysis...\n")
 
 # Get top 10 state pair connections with project details
@@ -424,26 +429,49 @@ ggsave(
 # --------------------------
 
 multi_department_data |>
-  select(project_department, lead_agency, project_sponsor, project_multi_department) |>
+  select(project_department, process_type, lead_agency, project_sponsor, project_multi_department) |>
   print(n = 50)
 
 #
 # Process data
 # ----------------------------------------------------
+# NOTE: Use lead_agency for crosstab since project_department only reflects
+# the first department (due to how classify_department works in extract_data.py).
+# We then map agencies to departments in the table display.
 department_links <- create_crosstab(
   multi_department_data,
   "lead_agency",
   keep_cols = c("project_title", "project_type")
 ) |>
   print()
-
 #
 # Table
 # ----------------------------------------------------
+# Helper function to map agency names to departments
+map_agency_to_department <- function(agency) {
+  case_when(
+    str_detect(agency, "^Department of Energy") ~ "Department of Energy",
+    str_detect(agency, "^Department of the Interior") ~ "Department of the Interior",
+    str_detect(agency, "^Department of Agriculture") ~ "Department of Agriculture",
+    str_detect(agency, "^Department of Defense") ~ "Department of Defense",
+    str_detect(agency, "^Department of Homeland Security") ~ "Department of Homeland Security",
+    str_detect(agency, "^Department of Transportation") ~ "Department of Transportation",
+    str_detect(agency, "^Department of Commerce") ~ "Department of Commerce",
+    str_detect(agency, "^Major Independent Agencies") ~ "Major Independent Agencies",
+    str_detect(agency, "^Other Independent Agencies") ~ "Other Independent Agencies",
+    TRUE ~ agency  # Keep original if no match
+  )
+}
+
 tbl_department_links <-
   department_links |>
   mutate(
-    lead_agency = map_chr(lead_agency, ~ paste(fromJSON(.x), collapse = ", ")),
+    # Parse lead_agency JSON array and map each agency to its department
+    department_connections = map_chr(lead_agency, ~ {
+      agencies <- fromJSON(.x)
+      departments <- unique(map_agency_to_department(agencies))
+      paste(departments, collapse = ", ")
+    }),
     # Extract distinct project types, sorted by frequency
     project_type = map_chr(project_type, ~ {
       # Remove JSON brackets and quotes, split on commas
@@ -457,10 +485,9 @@ tbl_department_links <-
       paste(sorted_types, collapse = ", ")
     })
   ) |>
-  select(-CE, -project_title) |>
-  rename(
-    `Department connections` = lead_agency,
-    `Distinct Project Types` = project_type
+  select(
+    `Department connections` = department_connections,
+    `Distinct Project Types` = project_type, Total
   ) |>
   print()
 
@@ -474,22 +501,23 @@ write_csv(tbl_department_links, here(tables_dir, "table_by_department.csv"))
 # MULTI-DEPARTMENT
 # --------------------------
 
+clean_energy |> 
+  select(project_sponsor, lead_agency) |> 
+  slice_sample(n = 5) |> 
+  print()
+
 multi_department_data |>
   select(project_department, lead_agency, project_sponsor, project_multi_department) |>
   print(n = 50)
 
 
 # Create multi-department dataframe
-multi_agency_data <- 
+gmulti_agency_data <- 
   clean_energy |> 
   filter(dataset_source != "CE") |> 
   select(lead_agency, project_sponsor) |> 
   slice_sample(n = 100) |> 
   print(n = 100)
-  glimpse()
-  
-  sfilter(project_multi_department) |> 
-  glimpse()  # 21
 
 #
 # Process data
@@ -502,6 +530,53 @@ department_links <- create_crosstab(
   print()
 
 
+#
+# Check for lead_agency names appearing in project_sponsor
+# ----------------------------------------------------
+# This checks if any agency name from lead_agency also appears in project_sponsor,
+# which could indicate potential multi-agency involvement not captured in lead_agency
+
+# Helper to parse JSON arrays
+parse_agencies <- function(x) {
+ if (is.na(x) || x == "") return(character(0))
+ if (str_detect(x, "^\\[")) {
+   tryCatch(fromJSON(x), error = function(e) x)
+ } else {
+   x
+ }
+}
+
+# Check for overlap between lead_agency and project_sponsor
+agency_sponsor_overlap <- clean_energy |>
+ filter(!is.na(lead_agency) & !is.na(project_sponsor)) |>
+ mutate(
+   # Parse lead_agency (may be JSON array)
+   agencies = map(lead_agency, parse_agencies),
+   # Check if any agency name appears in project_sponsor (case-insensitive)
+   has_overlap = map2_lgl(agencies, project_sponsor, ~ {
+     if (length(.x) == 0 || is.na(.y) || .y == "") return(FALSE)
+     any(sapply(.x, function(agency) {
+       str_detect(.y, regex(agency, ignore_case = TRUE))
+     }))
+   })
+ )
+
+cat("\n=== Lead Agency / Project Sponsor Overlap Analysis ===\n")
+cat("Projects with lead_agency name appearing in project_sponsor:\n")
+cat("  Count:", sum(agency_sponsor_overlap$has_overlap), "\n")
+cat("  Percent:", round(mean(agency_sponsor_overlap$has_overlap) * 100, 2), "%\n")
+
+# Show examples of overlap
+overlap_examples <- agency_sponsor_overlap |>
+ filter(has_overlap) |>
+ #select(project_id, project_title, lead_agency, project_sponsor, process_type) |>
+ select(lead_agency, project_sponsor, process_type) |>
+ slice_head(n = 20) |> 
+  print()
+
+
+cat("\nExamples of projects with overlap:\n")
+print(overlap_examples, n = 20)
 
 
 # --------------------------

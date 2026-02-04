@@ -51,16 +51,13 @@ cat("Clean energy projects:", sum(projects$project_energy_type == "Clean"), "\n\
 
 # Filter to clean energy only
 clean_energy <- projects %>%
-  filter(project_energy_type == "Clean") |>
-  # remove Utilities + Broadband, Waste Management, or Land Development tags
-  filter(!project_utilities_to_filter_out) |>
-  # Simplify verbose utility label for cleaner tables
-
+  filter(project_energy_type == "Clean") %>%
   mutate(project_type = str_replace_all(
     project_type,
     'Utilities \\(electricity, gas, telecommunications\\)',
     'Utilities'
-  ))
+  )) |> 
+  glimpse()
 
 cat("Clean energy dataset ready:", nrow(clean_energy), "projects\n")
 
