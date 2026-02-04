@@ -198,7 +198,7 @@ top_states <- state_counts %>%
 
 fig_top_states <- top_states %>%
   ggplot(aes(x = n_projects, y = reorder(project_state, n_projects))) +
-  geom_col(fill = "darkorange") +
+  geom_col(fill = catf_dark_blue) +
   geom_text(aes(label = n_projects), hjust = -0.2, size = 3) +
   labs(
     x = "Number of Clean Energy Projects",
@@ -236,14 +236,24 @@ top15_state_process <- location_data %>%
 fig_state_process <- top15_state_process %>%
   ggplot(aes(x = reorder(project_state, total), y = percent, fill = process_type)) +
   geom_col() +
+  geom_text(
+    aes(label = ifelse(percent >= 3, paste0(round(percent), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "white"
+  ) +
   coord_flip() +
   labs(
     x = NULL,
     y = "Percent of Projects",
     fill = "Process Type",
-    title = "Process Type Distribution by State (Top 15)"
+    title = "Process Type Distribution by State (Top 15)",
+    caption = "Note: Percentage labels below 3% are excluded for readability."
   ) +
-  scale_fill_brewer(palette = "Set1") +
+  scale_fill_manual(
+    values = c("CE" = catf_dark_blue, "EA" = catf_teal, "EIS" = catf_magenta)
+  ) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 9))
 
@@ -407,7 +417,7 @@ fig_county_choropleth <- ggplot(county_map_data) +
 
 fig_county_choropleth
 
-ggsave(
+  ggsave(
   filename = here(maps_dir, "10_county_choropleth.png"),
   plot = fig_county_choropleth,
   width = 14,
@@ -418,45 +428,56 @@ ggsave(
 cat("  Saved: maps/10_county_choropleth.png\n")
 
 
-# --- MAP 3: County Centroid Dot Map by Process Type ---
-cat("Creating county centroid dot map by process type...\n")
+# --- MAP 3: County Choropleth Map by Process Type ---
+cat("Creating county choropleth map by process type...\n")
 
-# Get county centroids
-county_centroids <- us_counties %>%
-  st_centroid() %>%
-  select(NAME, state_name, geometry)
-
-# Count by county, state, and process type
+# Count by county, state, and process type (remove NA process types)
 county_process_counts <- county_with_state %>%
+  filter(!is.na(process_type)) %>%
   count(project_county, first_state, process_type, name = "n_projects")
 
-# Join with centroids
-centroid_data <- county_centroids %>%
-  inner_join(
+# Join with county shapefile for each process type
+county_map_by_process <- us_counties %>%
+  left_join(
     county_process_counts,
     by = c("NAME" = "project_county", "state_name" = "first_state")
+  ) %>%
+  filter(!is.na(process_type)) %>%
+  mutate(
+    n_projects = replace_na(n_projects, 0),
+    # Create display variable that shows NA for 0 values (will map to grey)
+    n_projects_display = ifelse(n_projects == 0, NA_real_, n_projects)
   )
 
-# Create dot map - size scaled to count, color by process type
-
-fig_county_dots <- ggplot() +
-  # Base map
+# Create faceted choropleth map by process type
+fig_county_choropleth_process_type <- ggplot() +
+  # Base layer: all counties in light grey (for missing data visibility)
+  geom_sf(
+    data = us_counties,
+    fill = "grey95",
+    color = "white",
+    size = 0.1
+  ) +
+  # County fill by project count (only show colors where n_projects > 0)
+  geom_sf(
+    data = county_map_by_process,
+    aes(fill = n_projects_display),
+    color = NA
+  ) +
+  # State boundaries
   geom_sf(
     data = state_map_data,
-    fill = "gray95",
-    color = "gray70",
+    fill = NA,
+    color = "grey40",
     size = 0.3
   ) +
-  # County centroids, sized by project count
-  geom_sf(
-    data = centroid_data,
-    aes(size = n_projects),
-    color = catf_dark_blue,
-    alpha = 0.5
-  ) +
-  scale_size_continuous(
-    range = c(0.3, 5),
-    guide = "none"
+  scale_fill_gradient(
+    low = "#deebf7",
+    high = "#08519c",
+    name = "Number of\nProjects",
+    labels = scales::comma,
+    trans = "sqrt",
+    na.value = "grey95"
   ) +
   facet_wrap(
     ~ process_type,
@@ -469,11 +490,10 @@ fig_county_dots <- ggplot() +
   ) +
   labs(
     title = "Clean Energy Projects by County and NEPA Process Type",
-    subtitle = "Each panel shows county-level project concentration by process type; dot size reflects project count",
+    subtitle = "Each panel shows county-level project concentration by process type; grey areas indicate no projects",
     caption = paste0(
       "Note: County data available for ", pct_with_county, "% of clean energy projects ",
-      "(", scales::comma(n_missing_county), " projects missing county information).\n",
-      "Dots placed at county centroids."
+      "(", scales::comma(n_missing_county), " projects missing county information)."
     )
   ) +
   theme_void() +
@@ -481,14 +501,15 @@ fig_county_dots <- ggplot() +
     strip.text = element_text(size = 10, face = "bold"),
     plot.title = element_text(size = 14, face = "bold"),
     plot.subtitle = element_text(size = 10, color = "gray40"),
-    plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
+    plot.caption = element_text(size = 8, color = "gray50", hjust = 0),
+    legend.position = "right"
   )
-fig_county_dots
+fig_county_choropleth_process_type
 
 # save
 ggsave(
-  filename = here(maps_dir, "11_county_dots_process_type.png"),
-  plot = fig_county_dots,
+  filename = here(maps_dir, "11_county_choropleth_process_type.png"),
+  plot = fig_county_choropleth_process_type,
   width = 10,
   height = 16,
   units = "in",
@@ -497,6 +518,203 @@ ggsave(
 
 
 
+
+# --------------------------
+# ANALYSIS: COUNTY DATA COVERAGE BY PROCESS TYPE
+# --------------------------
+
+cat("\n=== County Data Coverage Analysis ===\n")
+
+# Overall county data availability
+county_coverage <- clean_energy %>%
+  mutate(
+    has_county = !is.na(project_county) &
+                 project_county != "" &
+                 project_county != "[]"
+  ) %>%
+  group_by(process_type) %>%
+  summarise(
+    total_projects = n(),
+    projects_with_county = sum(has_county),
+    projects_missing_county = sum(!has_county),
+    pct_with_county = round(100 * sum(has_county) / n(), 1),
+    pct_missing_county = round(100 * sum(!has_county) / n(), 1)
+  ) %>%
+  arrange(desc(pct_missing_county))
+
+cat("\nCounty data coverage by NEPA process type:\n")
+print(county_coverage)
+
+# Statistical summary
+cat("\n=== Summary Statistics ===\n")
+cat("Overall county data coverage:", round(100 * n_projects_with_county / nrow(clean_energy), 1), "%\n")
+cat("CE projects with county data:",
+    round(100 * sum(clean_energy$process_type == "CE" &
+                    clean_energy$project_county != "[]" &
+                    !is.na(clean_energy$project_county), na.rm = TRUE) /
+          sum(clean_energy$process_type == "CE"), 1), "%\n")
+cat("EA projects with county data:",
+    round(100 * sum(clean_energy$process_type == "EA" &
+                    clean_energy$project_county != "[]" &
+                    !is.na(clean_energy$project_county), na.rm = TRUE) /
+          sum(clean_energy$process_type == "EA"), 1), "%\n")
+cat("EIS projects with county data:",
+    round(100 * sum(clean_energy$process_type == "EIS" &
+                    clean_energy$project_county != "[]" &
+                    !is.na(clean_energy$project_county), na.rm = TRUE) /
+          sum(clean_energy$process_type == "EIS"), 1), "%\n")
+
+# Sample projects missing county data by process type
+cat("\n=== Sample CE Projects Missing County Data ===\n")
+ce_missing_county <- clean_energy %>%
+  filter(process_type == "CE" & (is.na(project_county) | project_county == "[]")) %>%
+  select(project_id, project_title, project_location, project_state, project_county, lead_agency) %>%
+  slice_head(n = 10)
+
+print(ce_missing_county)
+
+cat("\n=== Sample CE Projects WITH County Data ===\n")
+ce_with_county <- clean_energy %>%
+  filter(process_type == "CE" & !is.na(project_county) & project_county != "[]") %>%
+  select(project_id, project_title, project_location, project_state, project_county, lead_agency) %>%
+  slice_head(n = 10)
+
+print(ce_with_county)
+
+# Agency patterns in missing county data
+cat("\n=== County Data Coverage by Agency (for CE projects) ===\n")
+ce_county_by_agency <- clean_energy %>%
+  filter(process_type == "CE") %>%
+  mutate(
+    has_county = !is.na(project_county) &
+                 project_county != "" &
+                 project_county != "[]"
+  ) %>%
+  group_by(project_department) %>%
+  summarise(
+    total_ce_projects = n(),
+    ce_with_county = sum(has_county),
+    pct_with_county = round(100 * sum(has_county) / n(), 1)
+  ) %>%
+  arrange(desc(total_ce_projects)) %>%
+  slice_head(n = 10)
+
+print(ce_county_by_agency)
+
+# --------------------------
+# EA AND EIS MISSING COUNTY DATA ANALYSIS
+# --------------------------
+
+cat("\n=== EA Projects Missing County Data ===\n")
+ea_missing_county <- clean_energy %>%
+  filter(process_type == "EA" & (is.na(project_county) | project_county == "[]")) %>%
+  select(project_id, project_title, project_location, project_state, project_county, lead_agency, project_department)
+
+cat("Total EA projects missing county:", nrow(ea_missing_county), "out of",
+    sum(clean_energy$process_type == "EA"), "EA projects\n")
+cat("Sample of EA projects missing county data:\n")
+print(ea_missing_county %>% slice_head(n = 15))
+
+# Look at location field patterns for EA
+cat("\n=== Location Field Analysis for EA Missing County ===\n")
+ea_location_patterns <- ea_missing_county %>%
+  mutate(
+    has_location = !is.na(project_location) & project_location != "" & project_location != "[]",
+    location_length = nchar(project_location),
+    mentions_county = str_detect(tolower(project_location), "county|counties"),
+    has_coordinates = str_detect(project_location, "latitude|longitude|lat|long|coord"),
+    has_legal_desc = str_detect(project_location, "T\\.|Township|Section|Range|Meridian"),
+    location_type = case_when(
+      !has_location ~ "No location",
+      mentions_county ~ "Mentions county",
+      has_coordinates ~ "Has coordinates",
+      has_legal_desc ~ "Legal description",
+      TRUE ~ "Other description"
+    )
+  )
+
+cat("\nEA Location field patterns:\n")
+print(ea_location_patterns %>% count(location_type, sort = TRUE))
+
+cat("\n=== EIS Projects Missing County Data ===\n")
+eis_missing_county <- clean_energy %>%
+  filter(process_type == "EIS" & (is.na(project_county) | project_county == "[]")) %>%
+  select(project_id, project_title, project_location, project_state, project_county, lead_agency, project_department)
+
+cat("Total EIS projects missing county:", nrow(eis_missing_county), "out of",
+    sum(clean_energy$process_type == "EIS"), "EIS projects\n")
+cat("Sample of EIS projects missing county data:\n")
+print(eis_missing_county %>% slice_head(n = 15))
+
+# Look at location field patterns for EIS
+cat("\n=== Location Field Analysis for EIS Missing County ===\n")
+eis_location_patterns <- eis_missing_county %>%
+  mutate(
+    has_location = !is.na(project_location) & project_location != "" & project_location != "[]",
+    location_length = nchar(project_location),
+    mentions_county = str_detect(tolower(project_location), "county|counties"),
+    has_coordinates = str_detect(project_location, "latitude|longitude|lat|long|coord"),
+    has_legal_desc = str_detect(project_location, "T\\.|Township|Section|Range|Meridian"),
+    mentions_multiple = str_detect(tolower(project_location), "multiple|various|several|region|area"),
+    location_type = case_when(
+      !has_location ~ "No location",
+      mentions_county ~ "Mentions county",
+      has_coordinates ~ "Has coordinates",
+      mentions_multiple ~ "Multiple/regional",
+      has_legal_desc ~ "Legal description",
+      TRUE ~ "Other description"
+    )
+  )
+
+cat("\nEIS Location field patterns:\n")
+print(eis_location_patterns %>% count(location_type, sort = TRUE))
+
+# Examples of each pattern type for EIS
+cat("\n=== Sample EIS Projects by Location Pattern ===\n")
+for (loc_type in unique(eis_location_patterns$location_type)) {
+  cat("\n", loc_type, ":\n")
+  sample <- eis_location_patterns %>%
+    filter(location_type == loc_type) %>%
+    select(project_title, project_location, project_state) %>%
+    slice_head(n = 3)
+  print(sample)
+}
+
+# Check if coordinates are available for geocoding
+cat("\n=== Geocoding Potential (projects with lat/long) ===\n")
+projects_with_coords <- clean_energy %>%
+  filter(process_type %in% c("EA", "EIS")) %>%
+  filter(is.na(project_county) | project_county == "[]") %>%
+  filter(!is.na(project_lat) & !is.na(project_lon) &
+         project_lat != 0 & project_lon != 0) %>%
+  select(process_type, project_id, project_title, project_lat, project_lon,
+         project_location, project_state)
+
+cat("EA/EIS projects missing county but WITH lat/long coordinates:\n")
+print(projects_with_coords %>% count(process_type))
+
+if (nrow(projects_with_coords) > 0) {
+  cat("\nSample projects that could be reverse geocoded:\n")
+  print(projects_with_coords %>% slice_head(n = 10))
+}
+
+# Check agency patterns
+cat("\n=== Agency Patterns for EA/EIS Missing County ===\n")
+ea_eis_missing_by_agency <- clean_energy %>%
+  filter(process_type %in% c("EA", "EIS")) %>%
+  mutate(
+    has_county = !is.na(project_county) & project_county != "" & project_county != "[]"
+  ) %>%
+  group_by(process_type, project_department) %>%
+  summarise(
+    total = n(),
+    missing_county = sum(!has_county),
+    pct_missing = round(100 * sum(!has_county) / n(), 1)
+  ) %>%
+  filter(total >= 5) %>%
+  arrange(process_type, desc(pct_missing))
+
+print(ea_eis_missing_by_agency)
 
 # --------------------------
 # ANALYSIS
@@ -544,3 +762,14 @@ cat("\n=== Location Script Complete ===\n")
 cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")
 
+clean_energy |> 
+  select(project_title, project_state, project_type, project_county) |> 
+   filter(sapply(project_state, function(x) {
+    states <- fromJSON(x)
+    "South Carolina" %in% states
+  })) |> 
+     filter(sapply(project_county, function(x) {
+    states <- fromJSON(x)
+    "Aiken" %in% states
+  })) |> 
+  glimpse()
