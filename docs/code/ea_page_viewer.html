@@ -4507,6 +4507,10 @@ vertical-align: -.125em;
  <span class="menu-text">Deliverable 1</span></a>
   </li>  
   <li class="nav-item">
+    <a class="nav-link" href="../reports/deliverable02.html" rel target>
+ <span class="menu-text">Deliverable 2</span></a>
+  </li>  
+  <li class="nav-item">
     <a class="nav-link" href="../reports/deliverable03.html" rel target>
  <span class="menu-text">Deliverable 3</span></a>
   </li>  
@@ -4638,7 +4642,7 @@ Loaded 469,106 EA pages</code></pre>
 <span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f&quot;Page </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> not found&quot;</span>)</span>
 <span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="22">
+<div class="cell" data-execution_count="6">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> view_project_pages(project_id, document_id<span class="op">=</span><span class="va">None</span>):</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;View all pages of each document in a project (no truncation).</span></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
@@ -4679,7 +4683,7 @@ Loaded 469,106 EA pages</code></pre>
 <span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="ss">--- PAGE </span><span class="sc">{</span>page[<span class="st">&#39;page_number&#39;</span>]<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">&quot;</span>)</span>
 <span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(page[<span class="st">&quot;page_text&quot;</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="18">
+<div class="cell" data-execution_count="7">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> search_pages(project_id, search_term):</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Search for a term in all pages of a project.&quot;&quot;&quot;</span></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    docs <span class="op">=</span> ea_documents[ea_documents[<span class="st">&quot;project_id&quot;</span>] <span class="op">==</span> project_id]</span>
@@ -4727,94 +4731,16 @@ Loaded 469,106 EA pages</code></pre>
 <section id="explore-a-specific-project" class="level2">
 <h2 class="anchored" data-anchor-id="explore-a-specific-project">Explore a specific project</h2>
 <p>Set the <code>project_id</code> below and run the cells to explore.</p>
-<div class="cell" data-execution_count="19">
+<div class="cell" data-execution_count="11">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set your project ID here</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;d9c3d975f3e8c38c549f8182bec4181b&quot; # </span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;3f6f6a981e9cb3834955c8248ffbb455&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;f5aa4d8a-9bf8-c3e0-2d08-a37ebda57ee9&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="20">
+<div class="cell" data-execution_count="12">
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># List all documents for this project</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>list_documents(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>
-Documents for project: 3f6f6a981e9cb3834955c8248ffbb455
---------------------------------------------------------------------------------</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<div>
-
-
-<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
-<thead>
-<tr class="header">
-<th data-quarto-table-cell-role="th"></th>
-<th data-quarto-table-cell-role="th">document_id</th>
-<th data-quarto-table-cell-role="th">document_type</th>
-<th data-quarto-table-cell-role="th">document_type_category</th>
-<th data-quarto-table-cell-role="th">main_document</th>
-<th data-quarto-table-cell-role="th">file_name</th>
-<th data-quarto-table-cell-role="th">total_pages</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">12799</td>
-<td>91a703a5f0a0220bc0e1c9838a936792</td>
-<td></td>
-<td>draft</td>
-<td>NO</td>
-<td>EA-2004/EA_2004_Draft_Environmental_A_EA-2004-DEA-APPENDICES-2015_2.pdf</td>
-<td>69</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">12800</td>
-<td>bcae4b1baef7d47f425ef22fbedbd50b</td>
-<td></td>
-<td>decision</td>
-<td>NO</td>
-<td>EA-2004/initial_EA_2004_Finding_of_No_Signif_EA-2004-FONSI-2015.pdf</td>
-<td>6</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">12801</td>
-<td>d9ef62610e9f37210d54de30b5efc58c</td>
-<td></td>
-<td>appendix</td>
-<td>NO</td>
-<td>EA-2004/EA_2004_Final_Environmental_EA-2004-FEA-APPENDICES-2015_0.pdf</td>
-<td>75</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">12802</td>
-<td>cfe19401c8339de6502e25950354c5c6</td>
-<td>EA</td>
-<td>final</td>
-<td>YES</td>
-<td>EA-2004/EA_2004_Final_Environmental_EA-2004-FEA-2015_0.pdf</td>
-<td>68</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th">12803</td>
-<td>1d0a7f3d0bdd74a05f2f779a5f66640b</td>
-<td></td>
-<td>draft</td>
-<td>YES</td>
-<td>EA-2004/EA_2004_Draft_Environmental_A_EA-2004-DEA-2015_2.pdf</td>
-<td>68</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">12804</td>
-<td>b3ee74c7a6083cc641c1d653b371a5d0</td>
-<td></td>
-<td>other</td>
-<td>NO</td>
-<td>EA-2004/initial_EA_2004_Public_Scoping_Notice_EA-2004-Public%20Scoping%20Letter-2015.pdf</td>
-<td>6</td>
-</tr>
-</tbody>
-</table>
-
-</div>
+<pre><code>No documents found for project_id: f5aa4d8a-9bf8-c3e0-2d08-a37ebda57ee9</code></pre>
 </div>
 </div>
 <div class="cell" data-execution_count="23">

@@ -4502,6 +4502,10 @@ vertical-align: -.125em;
  <span class="menu-text">Deliverable 1</span></a>
   </li>  
   <li class="nav-item">
+    <a class="nav-link" href="../../reports/deliverable02.html" rel target>
+ <span class="menu-text">Deliverable 2</span></a>
+  </li>  
+  <li class="nav-item">
     <a class="nav-link" href="../../reports/deliverable03.html" rel target>
  <span class="menu-text">Deliverable 3</span></a>
   </li>  
@@ -4528,7 +4532,7 @@ vertical-align: -.125em;
 
 <section id="deliverable-2-programmatic-tiered-reviews" class="level1">
 <h1>Deliverable #2: Programmatic &amp; Tiered Reviews</h1>
-<p><strong>Status</strong>: First full extraction running in background <strong>Last Updated</strong>: 2026-01-30 <strong>Script</strong>: <code>code/extract/extract_reviews.py</code> <strong>Output</strong>: <code>data/analysis/projects_reviews.parquet</code></p>
+<p><strong>Status</strong>: Extraction complete, awaiting client validation <strong>Last Updated</strong>: 2026-02-04 <strong>Script</strong>: <code>code/extract/extract_reviews.py</code> <strong>Output</strong>: <code>data/analysis/projects_reviews.parquet</code> <strong>Report</strong>: <code>reports/deliverable02.qmd</code></p>
 <section id="deliverable-goal" class="level2">
 <h2 class="anchored" data-anchor-id="deliverable-goal">Deliverable Goal</h2>
 <p>Data on programmatic and tiered reviews: how many tiered reviews are there compared to total, and are they completed faster?</p>
@@ -4544,24 +4548,85 @@ vertical-align: -.125em;
 <li><input type="checkbox" checked>Regex extraction with false-positive filtering</li>
 <li><input type="checkbox" checked>LLM integration for ambiguous cases (optional flag)</li>
 <li><input type="checkbox" checked>Fixed bug: “tiering from PEIS” was incorrectly flagged as programmatic</li>
-<li><input type="checkbox" checked>Unit tests passing</li>
+<li><input type="checkbox" checked><strong>Full extraction completed</strong> on 1,416 EA/EIS clean energy projects</li>
+<li><input type="checkbox" checked>Created exploratory analysis script (<code>code/exploratory/reviews/01_reviews_eda.R</code>)</li>
+<li><input type="checkbox" checked>Created Google Sheet for client validation</li>
+<li><input type="checkbox" checked>Created report (<code>reports/deliverable02.qmd</code>)</li>
 </ul>
 </section>
-<section id="in-progress" class="level3">
-<h3 class="anchored" data-anchor-id="in-progress">In Progress</h3>
+<section id="extraction-results" class="level3">
+<h3 class="anchored" data-anchor-id="extraction-results">Extraction Results</h3>
+<table class="table">
+<thead>
+<tr class="header">
+<th>Review Type</th>
+<th>Count</th>
+<th>Share</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Standard</td>
+<td>1,390</td>
+<td>98.2%</td>
+</tr>
+<tr class="even">
+<td>Programmatic</td>
+<td>16</td>
+<td>1.1%</td>
+</tr>
+<tr class="odd">
+<td>Tiered</td>
+<td>10</td>
+<td>0.7%</td>
+</tr>
+<tr class="even">
+<td><strong>Total</strong></td>
+<td><strong>1,416</strong></td>
+<td>100%</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li>Confidence: <strong>high</strong> for 1,413 projects, <strong>medium</strong> for 3</li>
+<li>Detection source: <strong>text_regex</strong> (1,413), <strong>title</strong> (3)</li>
+</ul>
+</section>
+<section id="awaiting-validation" class="level3">
+<h3 class="anchored" data-anchor-id="awaiting-validation">Awaiting Validation</h3>
 <ul class="task-list">
-<li><input type="checkbox">Full extraction running on 1,416 EA/EIS clean energy projects (background, <code>--no-llm</code>)</li>
-<li><input type="checkbox">Estimated runtime: 2-4 hours</li>
+<li><input type="checkbox">Client review of 26 identified programmatic/tiered reviews via Google Sheet</li>
+<li><input type="checkbox">Investigate potential duplicates (2 sets in programmatic tab, 1 in tiered)</li>
+<li><input type="checkbox">Add project <code>3621210fbd086bddbbf6fbedc1d6a488</code> — found via file name search but classified as “standard”</li>
+<li><input type="checkbox">Confirm “Programmatic Collaborations” (DOE grants) should be excluded</li>
 </ul>
 </section>
 <section id="next-steps" class="level3">
 <h3 class="anchored" data-anchor-id="next-steps">Next Steps</h3>
 <ol type="1">
-<li><strong>Review results</strong> from first extraction when complete</li>
-<li><strong>Examine examples</strong> - look at any programmatic/tiered reviews found</li>
-<li><strong>Refine patterns</strong> based on real examples (regex may need tuning)</li>
-<li><strong>Second pass</strong> with LLM enabled if needed for ambiguous cases</li>
-<li><strong>Timeline integration</strong> - merge with timeline data to answer “are tiered reviews faster?”</li>
+<li><strong>Client validation</strong> — review Google Sheet, mark correct/incorrect</li>
+<li><strong>Add missing project</strong> — investigate <code>3621210fbd086bddbbf6fbedc1d6a488</code></li>
+<li><strong>Add evidence_context</strong> to programmatic extraction (currently only in tiered)</li>
+<li><strong>Merge with timeline data</strong> — answer “are tiered reviews completed faster?”</li>
+<li><strong>Refine patterns</strong> if validation reveals false positives/negatives</li>
+</ol>
+<hr>
+</section>
+</section>
+<section id="validation-resources" class="level2">
+<h2 class="anchored" data-anchor-id="validation-resources">Validation Resources</h2>
+<section id="google-sheet" class="level3">
+<h3 class="anchored" data-anchor-id="google-sheet">Google Sheet</h3>
+<p><strong><a href="https://docs.google.com/spreadsheets/d/1d25Arj2IFR3SLcgv8B6tPdLbs2cDZtC_IjMhZUcueBA/edit?usp=sharing">NEPA Reviews Validation Sheet</a></strong></p>
+<p>Two tabs: - <strong>Programmatic</strong> (16 projects): Reviews that ARE programmatic EIS/EAs - <strong>Tiered</strong> (10 projects): Reviews that tier FROM a programmatic review</p>
+<p>Key columns for reviewers: - <code>evidence_text</code> — text that triggered classification - <code>tiers_from</code> — (tiered only) programmatic review being referenced - <code>correct</code> — Yes/No/Unsure - <code>notes</code> — comments</p>
+</section>
+<section id="potential-issues-found" class="level3">
+<h3 class="anchored" data-anchor-id="potential-issues-found">Potential Issues Found</h3>
+<ol type="1">
+<li><strong>Duplicates</strong>: Some projects have same title but different <code>project_id</code> — need manual review</li>
+<li><strong>Missing project</strong>: <code>3621210fbd086bddbbf6fbedc1d6a488</code> has “programmatic” in file name but was classified as “standard” — may need file name search added to extraction</li>
+<li><strong>“Programmatic Collaborations”</strong>: DOE grants with “programmatic” in name are NOT programmatic NEPA reviews — confirmed these are in CE dataset and excluded from EA/EIS scope</li>
 </ol>
 <hr>
 </section>
@@ -4570,49 +4635,18 @@ vertical-align: -.125em;
 <h2 class="anchored" data-anchor-id="known-issues">Known Issues</h2>
 <section id="issue-1-rarity-of-examples" class="level3">
 <h3 class="anchored" data-anchor-id="issue-1-rarity-of-examples">Issue 1: Rarity of Examples</h3>
-<p><strong>Problem</strong>: Programmatic/tiered reviews are very rare, making testing difficult. - Only <strong>3 clean energy EA/EIS projects</strong> have “programmatic” in title - Random 10-project samples consistently miss these cases - Tiered reviews estimated at only 5-15% of EA/EIS projects</p>
-<p><strong>Solution</strong>: Run full extraction first, then examine what we find rather than trying to sample.</p>
+<p><strong>Problem</strong>: Programmatic/tiered reviews are very rare. - Only 26 found out of 1,416 projects (1.8%) - Tiered reviews (10) fewer than expected (estimated 5-15%)</p>
+<p><strong>Implication</strong>: Timeline comparisons will have small sample sizes — results should be framed as exploratory.</p>
 </section>
-<section id="issue-2-performancespeed" class="level3">
-<h3 class="anchored" data-anchor-id="issue-2-performancespeed">Issue 2: Performance/Speed</h3>
-<p><strong>Problem</strong>: Each project requires loading pages from parquet with filters (~10 sec/project). - Full run of 1,416 projects takes 2-4 hours - Bottleneck is <code>pq.read_table(pages_path, filters=[...])</code> per project</p>
-<p><strong>Potential optimization</strong>: Pre-load all pages per source once, filter in memory.</p>
+<section id="issue-2-missing-file-name-search" class="level3">
+<h3 class="anchored" data-anchor-id="issue-2-missing-file-name-search">Issue 2: Missing File Name Search</h3>
+<p><strong>Problem</strong>: Extraction searches titles and document text, but not file names. - Project <code>3621210fbd086bddbbf6fbedc1d6a488</code> has “programmatic” in file name but not detected - May be missing other projects</p>
+<p><strong>TODO</strong>: Consider adding file name search to extraction.</p>
 </section>
-<section id="issue-3-tier-false-positives" class="level3">
-<h3 class="anchored" data-anchor-id="issue-3-tier-false-positives">Issue 3: “Tier” False Positives</h3>
-<p><strong>Problem</strong>: The word “tier” has many non-NEPA meanings.</p>
-<table class="table">
-<thead>
-<tr class="header">
-<th>False Positive</th>
-<th>Example</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>EPA engine standards</td>
-<td>“EPA Tier 4 engine”</td>
-</tr>
-<tr class="even">
-<td>Road classifications</td>
-<td>“Tier 1 Roads and Primitive Roads”</td>
-</tr>
-<tr class="odd">
-<td>Pricing systems</td>
-<td>“tiered pricing structure”</td>
-</tr>
-<tr class="even">
-<td>Rankings</td>
-<td>“first-tier”, “top-tier”</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Status</strong>: Filtering working correctly - unit tests pass.</p>
-</section>
-<section id="issue-4-programmatic-vs-tiered-distinction" class="level3">
-<h3 class="anchored" data-anchor-id="issue-4-programmatic-vs-tiered-distinction">Issue 4: Programmatic vs Tiered Distinction</h3>
-<p><strong>Problem</strong>: A document might mention a PEIS in two different ways: - “This Programmatic EIS analyzes…” → This IS a programmatic review - “This EA tiers from the Solar PEIS…” → This TIERS FROM a programmatic review</p>
-<p><strong>Status</strong>: Fixed. Added check to exclude “tiering from” language from programmatic detection.</p>
+<section id="issue-3-programmatic-tab-missing-context" class="level3">
+<h3 class="anchored" data-anchor-id="issue-3-programmatic-tab-missing-context">Issue 3: Programmatic Tab Missing Context</h3>
+<p><strong>Problem</strong>: <code>evidence_context</code> (surrounding text) only captured for tiered reviews, not programmatic.</p>
+<p><strong>TODO</strong>: Update extraction to capture context for programmatic reviews too.</p>
 <hr>
 </section>
 </section>
@@ -4620,13 +4654,13 @@ vertical-align: -.125em;
 <h2 class="anchored" data-anchor-id="background">Background</h2>
 <section id="what-are-programmatic-reviews" class="level3">
 <h3 class="anchored" data-anchor-id="what-are-programmatic-reviews">What are Programmatic Reviews?</h3>
-<p><strong>Programmatic EIS/EA</strong>: A broad environmental review that analyzes a class of similar actions (e.g., all solar projects on BLM land in California). These serve as “umbrella” documents that cover general environmental impacts.</p>
-<p>Examples in data: - “Solar Energy Development PEIS” - “Wind Energy PEIS” - “Geothermal PEIS”</p>
+<p><strong>Programmatic EIS/EA</strong>: A broad environmental review that analyzes a class of similar actions (e.g., all solar projects on BLM land). These serve as “umbrella” documents.</p>
+<p>Examples found: - “Programmatic Environmental Assessment for System-wide Operations and Maintenance” - “Recycle of Scrap Metal Originating From Radiological Areas” (THIS PROGRAMMATIC ENVIRONMENTAL…)</p>
 </section>
 <section id="what-are-tiered-reviews" class="level3">
 <h3 class="anchored" data-anchor-id="what-are-tiered-reviews">What are Tiered Reviews?</h3>
-<p><strong>Tiered Reviews</strong>: Individual project-specific reviews that reference and build upon a programmatic review. They don’t need to repeat analysis already done in the programmatic review, potentially making them faster.</p>
-<p>Example language: <em>“This site-specific EA tiers from the 2012 Solar PEIS…”</em></p>
+<p><strong>Tiered Reviews</strong>: Project-specific reviews that reference and build upon a programmatic review. They don’t repeat analysis already done, potentially making them faster.</p>
+<p>Examples found: - “This EA tiers from the 2012 NPR-A IAP/EIS and its ROD” - “The EA tiered from the analysis conducted in [programmatic review]”</p>
 <hr>
 </section>
 </section>
@@ -4671,6 +4705,12 @@ vertical-align: -.125em;
 </tbody>
 </table>
 </section>
+<section id="search-patterns" class="level3">
+<h3 class="anchored" data-anchor-id="search-patterns">Search Patterns</h3>
+<p><strong>Programmatic (titles):</strong> <code>programmatic</code>, <code>program-wide</code>, <code>PEIS</code>, <code>PEA</code></p>
+<p><strong>Tiered (document text):</strong> - “this EA tiers from…” - “tiers to the…PEIS” - “pursuant to the…Programmatic EIS” - “site-specific EA that tiers from…”</p>
+<p><strong>False positive exclusions:</strong> EPA Tier 1-4 engines, road classifications, tiered pricing, ranking language</p>
+</section>
 <section id="variables-created" class="level3">
 <h3 class="anchored" data-anchor-id="variables-created">Variables Created</h3>
 <table class="table">
@@ -4705,7 +4745,7 @@ vertical-align: -.125em;
 <tr class="even">
 <td><code>project_review_tiers_from_context</code></td>
 <td>String</td>
-<td>Full context text showing the tiering relationship</td>
+<td>Full context text (tiered only currently)</td>
 </tr>
 <tr class="odd">
 <td><code>project_review_confidence</code></td>
@@ -4727,105 +4767,57 @@ vertical-align: -.125em;
 <hr>
 </section>
 </section>
-<section id="unit-test-results" class="level2">
-<h2 class="anchored" data-anchor-id="unit-test-results">Unit Test Results</h2>
-<pre><code>=== Title Detection ===
-✓ &#39;Programmatic Environmental Assessment...&#39; -&gt; programmatic=True
-✓ &#39;New York Bight Programmatic EIS...&#39; -&gt; programmatic=True
-✓ &#39;Regular Solar Farm Project...&#39; -&gt; programmatic=False
-✓ &#39;Site-specific EA tiering from the Solar PEIS...&#39; -&gt; programmatic=False (BUG FIXED)
-✓ &#39;Solar Energy Development PEIS...&#39; -&gt; programmatic=True
-
-=== Text Extraction ===
-✓ &#39;This EA tiers from the 2012 Solar Energy Development Programmatic EIS.&#39;
-    -&gt; Match found, reference extracted: &quot;2012 Solar Energy Development Programmatic EIS&quot;
-✓ &#39;Equipment will use EPA Tier 4 engines...&#39; -&gt; No match (false positive filtered)
-✓ &#39;This is a standard environmental assessment...&#39; -&gt; No match (correct)</code></pre>
-<hr>
-</section>
-<section id="usage" class="level2">
-<h2 class="anchored" data-anchor-id="usage">Usage</h2>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Test on 10 projects</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--test</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Full extraction (EA + EIS, no LLM - faster first pass)</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--run</span> <span class="at">--no-llm</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Full extraction with LLM for ambiguous cases</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--run</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Include CE projects (rarely have programmatic relationships)</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--run</span> <span class="at">--include-ce</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<section id="check-results-after-extraction" class="level3">
-<h3 class="anchored" data-anchor-id="check-results-after-extraction">Check Results After Extraction</h3>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> <span class="at">-c</span> <span class="st">&quot;</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="st">import pandas as pd</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="st">df = pd.read_parquet(&#39;data/analysis/projects_reviews.parquet&#39;)</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="st">print(df[&#39;project_review_type&#39;].value_counts())</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="st">print()</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="st">print(&#39;Tiered reviews:&#39;)</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="st">print(df[df[&#39;project_review_type&#39;]==&#39;tiered&#39;][[&#39;project_title&#39;,&#39;project_review_tiers_from&#39;]].head(10))</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<hr>
-</section>
-</section>
-<section id="data-counts" class="level2">
-<h2 class="anchored" data-anchor-id="data-counts">Data Counts</h2>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Category</th>
-<th>Count</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Total projects</td>
-<td>61,881</td>
-</tr>
-<tr class="even">
-<td>Clean energy projects</td>
-<td>22,279</td>
-</tr>
-<tr class="odd">
-<td>Clean energy EA/EIS (current scope)</td>
-<td>1,416</td>
-</tr>
-<tr class="even">
-<td>Projects with “programmatic” in title</td>
-<td>3</td>
-</tr>
-<tr class="odd">
-<td>Estimated tiered reviews</td>
-<td>~70-210 (5-15%)</td>
-</tr>
-</tbody>
-</table>
-<hr>
-</section>
 <section id="timeline-integration-todo" class="level2">
 <h2 class="anchored" data-anchor-id="timeline-integration-todo">Timeline Integration (TODO)</h2>
 <p>To answer “are tiered reviews completed faster”:</p>
 <ol type="1">
 <li>Merge <code>projects_reviews.parquet</code> with timeline data</li>
 <li>Compare duration between tiered vs standard reviews</li>
-<li>Timeline extraction still being refined - revisit when ready</li>
+<li>Timeline extraction still being refined — revisit when ready</li>
 </ol>
-<p>Key timeline variables: - <code>llm_decision_date</code> - Final approval date - <code>llm_application_date</code> - Start date - Duration = decision_date - application_date</p>
+<p>Key timeline variables needed: - <code>llm_decision_date</code> — Final approval date - <code>llm_application_date</code> — Start date - Duration = decision_date - application_date</p>
+<p><strong>Note</strong>: With only 10 tiered reviews, statistical power will be limited.</p>
 <hr>
+</section>
+<section id="usage" class="level2">
+<h2 class="anchored" data-anchor-id="usage">Usage</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Full extraction (EA + EIS, no LLM)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--run</span> <span class="at">--no-llm</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Full extraction with LLM for ambiguous cases</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--run</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Include CE projects</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--run</span> <span class="at">--include-ce</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="exploratory-analysis" class="level3">
+<h3 class="anchored" data-anchor-id="exploratory-analysis">Exploratory Analysis</h3>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run EDA and write to Google Sheet</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> code/exploratory/reviews/01_reviews_eda.R</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<hr>
+</section>
 </section>
 <section id="development-log" class="level2">
 <h2 class="anchored" data-anchor-id="development-log">Development Log</h2>
 <section id="section" class="level3">
-<h3 class="anchored" data-anchor-id="section">2026-01-30</h3>
+<h3 class="anchored" data-anchor-id="section">2026-02-04</h3>
+<ul>
+<li><strong>Extraction complete</strong>: 16 programmatic, 10 tiered, 1,390 standard</li>
+<li>Created <code>code/exploratory/reviews/01_reviews_eda.R</code> with summary stats, figures, and Google Sheet export</li>
+<li>Created Google Sheet for client validation (separate Programmatic/Tiered tabs)</li>
+<li>Updated <code>reports/deliverable02.qmd</code> with figures, examples, and validation link</li>
+<li>Investigated file name search — found 1 potential miss (<code>3621210fbd086bddbbf6fbedc1d6a488</code>)</li>
+<li>Confirmed “Programmatic Collaborations” (DOE grants) are in CE dataset, not EA/EIS</li>
+<li><strong>Next</strong>: Client validation, timeline merge, add missing project</li>
+</ul>
+</section>
+<section id="section-1" class="level3">
+<h3 class="anchored" data-anchor-id="section-1">2026-01-30</h3>
 <ul>
 <li>Created <code>extract_reviews.py</code> with 3-tier extraction approach</li>
 <li>Implemented title-based, regex, and LLM extraction tiers</li>
 <li>Added false positive filtering for EPA Tier standards, road tiers, etc.</li>
 <li>Fixed bug: “tiering from PEIS” incorrectly flagged as programmatic</li>
-<li>Unit tests passing</li>
-<li><strong>Started first full extraction</strong> (background, <code>--no-llm</code>)</li>
-<li><strong>Next</strong>: Review results when complete, examine found examples, refine patterns</li>
+<li>Started first full extraction (background, <code>--no-llm</code>)</li>
 </ul>
 <hr>
 </section>
@@ -4835,16 +4827,17 @@ vertical-align: -.125em;
 <ul>
 <li>Script: <code>code/extract/extract_reviews.py</code></li>
 <li>Output: <code>data/analysis/projects_reviews.parquet</code></li>
+<li>EDA: <code>code/exploratory/reviews/01_reviews_eda.R</code></li>
+<li>Report: <code>reports/deliverable02.qmd</code></li>
 <li>This doc: <code>notes/status/reviews_status.md</code></li>
 </ul>
 </section>
 <section id="related-files" class="level2">
 <h2 class="anchored" data-anchor-id="related-files">Related Files</h2>
 <ul>
-<li><code>code/extract/extract_timeline.py</code> - Timeline extraction</li>
-<li><code>code/extract/extract_gencap.py</code> - Generation capacity (similar pattern)</li>
-<li><code>code/extract/extract_gencap_llm.py</code> - LLM extraction pattern reference</li>
-<li><code>notes/project_overview.md</code> - Overall project deliverables</li>
+<li><code>code/extract/extract_timeline.py</code> — Timeline extraction (for merge)</li>
+<li><code>notes/project_overview.md</code> — Overall project deliverables</li>
+<li><code>notes/status/timeline_status.md</code> — Timeline extraction status</li>
 </ul>
 
 
