@@ -5360,7 +5360,7 @@ Capacity-specific decisions to make:
 
 </div>
 </div>
-<p><strong>Analysis:</strong> This CE project involves removing equipment, so multiple capacity values appear in the document (different generators). The regex captured the largest value; the LLM identified the specific equipment being removed.</p>
+<p><strong>Analysis:</strong> This CE project involves removing equipment, so multiple capacity values appear in the document (different generators). The regex identifies <code>350 KW diesel generator (non-operable – formerly the C-Site diesel generator)</code> while the LLM identifies <code>Small MG set (75 HP motor/50 KW DC Generator)</code>. It seems that generation should be the focus here not removal?</p>
 </section>
 </section>
 <section id="next-steps-for-generation-capacity" class="level3">
