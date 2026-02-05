@@ -31,7 +31,8 @@ timeline <- timeline %>%
     # Duration: decision minus best available start date
     bert_start_date = coalesce(bert_application_date, bert_inferred_application_date),
     bert_duration_days = as.numeric(bert_decision_date - bert_start_date)
-  )
+  ) |> 
+  glimpse()
 
 # --------------------------
 # TABLE 1: EXTRACTION COVERAGE SUMMARY
@@ -167,7 +168,9 @@ coverage_bars <- tibble(
             n_has_any_start, n_has_review),
   pct = 100 * count / n_total
 ) %>%
-  mutate(category = factor(category, levels = rev(category)))
+  mutate(category = factor(category, levels = rev(category))) |> 
+  filter(category != "Inferred initiation") |> 
+  glimpse()
 
 fig_coverage <- ggplot(coverage_bars, aes(x = category, y = pct)) +
   geom_col(fill = catf_blue, alpha = 0.8) +
@@ -180,7 +183,7 @@ fig_coverage <- ggplot(coverage_bars, aes(x = category, y = pct)) +
     subtitle = sprintf("%s CE clean energy projects | BERT classifier",
                        scales::comma(n_total)),
     x = NULL,
-    y = "Percent of projects"
+    y = "Percent of total projects (20,863)"
   ) +
   theme_catf()
 
