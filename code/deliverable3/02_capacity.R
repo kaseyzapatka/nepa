@@ -286,19 +286,26 @@ cat("Figures saved to:", figures_dir, "\n")
 # --------------------------
 # GENERATION CAPACITY EXAMPLES (for client review)
 # --------------------------
-# Shows curated projects where regex and LLM found different
-# capacity values — illustrates why multi-method extraction matters.
+# Three curated projects illustrating extraction quality:
+#   A) Regex and LLM agree
+#   B) Regex and LLM disagree (regex grabbed wrong number)
+#   C) Multiple capacity dimensions (power + energy + LLM)
 
 cat("\n=== Generation Capacity Examples ===\n\n")
 
-# Reload merged data (already loaded above, but keep self-contained)
 gencap_merged <- read_parquet(here("data", "analysis", "projects_gencap_merged.parquet"))
 
 example_ids <- c(
-  "166574ea3c128fb3a46bd0dd1a3fcfc9",    # EIS: Fourmile Hill Geothermal
-  "a62e5d7c90008e8c34b700183f62a04f",    # EA:  Sodium Test and Fill Facility
-  "a8f8ca21-28aa-e951-164f-736cac8136ef" # CE:  Removal of C-Site MG Equipment
+  "3689d8443cb2835804a5c9e61ccf1d30",    # EA:  Solana / Abengoa Solar (agree)
+  "166574ea3c128fb3a46bd0dd1a3fcfc9",     # EIS: Fourmile Hill Geothermal (disagree)
+  "6faf66e9757e4d865ceef6462911a854"      # EA:  Advanced Clean Energy Storage (multi)
 )
+
+# Helper: safely truncate or return NA
+safe_trunc <- function(x, width = 250) {
+  x <- as.character(x)
+  ifelse(is.na(x) | x == "NA", NA_character_, str_trunc(x, width))
+}
 
 examples_list <- list()
 
@@ -313,36 +320,67 @@ for (i in seq_along(example_ids)) {
 
   row <- row[1, ]
 
-  # Build a table showing regex vs LLM extraction
-  ex <- tibble(
-    project_title = row$project_title,
-    dataset_source = row$dataset_source,
-    method = c("Regex", "LLM", "Final (merged)"),
-    value = c(
-      row$project_gencap_value,
-      row$llm_capacity_value,
-      row$project_gencap_final_value
-    ),
-    unit = c(
-      row$project_gencap_unit,
-      row$llm_capacity_unit,
-      row$project_gencap_final_unit
-    ),
-    confidence = c(
-      row$project_gencap_confidence,
-      as.character(row$llm_confidence),
-      as.character(row$project_gencap_final_confidence)
-    ),
-    context = c(
-      str_trunc(as.character(row$project_gencap_context), 200),
-      str_trunc(as.character(row$llm_source_quote), 200),
-      NA_character_
+  # Build rows for each extraction method, showing both context fields
+  ex_rows <- list()
+
+  # Regex row (always present if value exists)
+  if (!is.na(row$project_gencap_value)) {
+    ex_rows[[length(ex_rows) + 1]] <- tibble(
+      method = "Regex (power)",
+      value = row$project_gencap_value,
+      unit = as.character(row$project_gencap_unit),
+      confidence = as.character(row$project_gencap_confidence),
+      regex_context = safe_trunc(row$project_gencap_context),
+      llm_quote = NA_character_
     )
-  )
+  }
+
+  # Regex energy row (if project has energy value too)
+  if (!is.na(row$project_gencap_energy_value) && row$project_gencap_energy_value > 0) {
+    ex_rows[[length(ex_rows) + 1]] <- tibble(
+      method = "Regex (energy)",
+      value = row$project_gencap_energy_value,
+      unit = as.character(row$project_gencap_energy_unit),
+      confidence = as.character(row$project_gencap_confidence),
+      regex_context = safe_trunc(row$project_gencap_context),
+      llm_quote = NA_character_
+    )
+  }
+
+  # LLM row
+  if (!is.na(row$llm_capacity_value) && row$llm_capacity_value > 0) {
+    ex_rows[[length(ex_rows) + 1]] <- tibble(
+      method = "LLM",
+      value = row$llm_capacity_value,
+      unit = as.character(row$llm_capacity_unit),
+      confidence = as.character(row$llm_confidence),
+      regex_context = NA_character_,
+      llm_quote = safe_trunc(row$llm_source_quote)
+    )
+  }
+
+  # Final merged row
+  if (!is.na(row$project_gencap_final_value)) {
+    ex_rows[[length(ex_rows) + 1]] <- tibble(
+      method = "Final (merged)",
+      value = row$project_gencap_final_value,
+      unit = as.character(row$project_gencap_final_unit),
+      confidence = as.character(row$project_gencap_final_confidence),
+      regex_context = NA_character_,
+      llm_quote = NA_character_
+    )
+  }
+
+  ex <- bind_rows(ex_rows) %>%
+    mutate(
+      project_title = row$project_title,
+      dataset_source = as.character(row$dataset_source),
+      .before = 1
+    )
 
   examples_list[[i]] <- ex
-  cat(sprintf("Example %d (%s — %s): %s\n",
-              i, row$dataset_source, example_ids[i], row$project_title))
+  cat(sprintf("Example %d (%s — %s): %s (%d rows)\n",
+              i, row$dataset_source, example_ids[i], row$project_title, nrow(ex)))
 }
 
 # Save individual CSVs
