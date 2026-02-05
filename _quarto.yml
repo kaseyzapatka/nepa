@@ -10,6 +10,8 @@ website:
         href: project_overview.qmd
       - text: "Deliverable 1"
         href: reports/deliverable01.qmd
+      - text: "Deliverable 2"
+        href: reports/deliverable02.qmd
       - text: "Deliverable 3"
         href: reports/deliverable03.qmd
       - text: "Deliverable 4"
