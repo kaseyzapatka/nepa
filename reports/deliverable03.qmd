@@ -23,6 +23,7 @@ library(kableExtra)
 library(readr)
 
 # Paths
+d1_figures <- here("output", "deliverable1", "figures")
 d3_figures <- here("output", "deliverable3", "figures")
 d3_tables <- here("output", "deliverable3", "tables")
 ```
@@ -32,7 +33,7 @@ d3_tables <- here("output", "deliverable3", "tables")
 
 ::: {.callout-important}
 ## Key Decisions
-- [ ] Timeline decisions (see red box below)
+- [ ] Timeline decisions (see red box below in Timeline Section)
 - [ ] What kinds of timelines do we think EA and EIS will have?
 :::
 
@@ -41,25 +42,13 @@ This report aims to create the following set of deliverables:
 
 > Data on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements.  Broken out by number of projects, generation capacity, and change over time.
 
-For context, @tbl-energy-summary summarizes the breakdown of projects by energy type. I wonder the extent to which "Other" projects need to further refined.
+For context, @fig-energy-type summarizes the breakdown of projects by energy type.
 
 ```{r}
-#| label: tbl-energy-summary
-#| tbl-cap: "Project counts by energy classification"
+#| label: fig-energy-type
+#| fig-cap: "Distribution of all NEPA projects by energy type classification."
 
-summary_stats <- read_csv(file.path(d3_tables, "energy_type_summary.csv"), show_col_types = FALSE)
-
-summary_stats %>%
-  mutate(Percent = sprintf("%.1f%%", Percent)) %>%
-  kable(
-    align = c("l", "r", "r"),
-    format.args = list(big.mark = ",")
-  ) %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover"),
-    full_width = FALSE,
-    position = "left"
-  )
+knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
 ```
 
 ---
@@ -158,6 +147,8 @@ knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
 -   [ ] Improving the classifier training data -- ideas?
 -   [ ] Ideas for EA/EIS?
 :::
+
+Here is a link to a few more [examples not shown here](https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?gid=887650574#gid=887650574). It'd be great if someone could give some feedback to Examples 6 in particular. 
 
 #### Example A: Single decision date only
 
