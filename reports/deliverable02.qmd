@@ -64,6 +64,39 @@ We developed a multi-tier extraction approach to identify programmatic and tiere
 
 3. **LLM classification (optional)**: For ambiguous cases with medium-confidence regex matches, an LLM can refine the classification (not used in this initial extraction since there are only a few so far)
 
+### Search Patterns Used
+
+The following regex patterns were used to identify programmatic and tiered reviews:
+
+**Programmatic Review Detection (in titles):**
+
+| Pattern | Matches |
+|---------|---------|
+| `programmatic` | Explicit "programmatic" keyword |
+| `program-wide` or `programwide` | Program-wide reviews |
+| `PEIS` | Programmatic Environmental Impact Statement |
+| `PEA` | Programmatic Environmental Assessment |
+
+**Tiered Review Detection (in document text):**
+
+| Pattern Type | Example Match |
+|--------------|---------------|
+| Direct tiering statement | "this EA tiers from the..." |
+| Tiering to programmatic | "tiers to the...PEIS" |
+| Pursuant to | "pursuant to the...Programmatic EIS" |
+| Site-specific tiering | "site-specific EA that tiers from..." |
+| PEIS/PEA reference with tiering | "2012 Solar PEIS...tier" |
+
+**False Positive Exclusions:**
+
+| Excluded Pattern | Reason |
+|------------------|--------|
+| `EPA Tier 1-4` | EPA engine emission standards |
+| `Tier 1-4 engine/equipment` | Equipment classifications |
+| `first-tier`, `top-tier` | Ranking language |
+| `Tier 1-3 Roads` | Road classifications |
+| `tiered pricing/rate/system` | Non-NEPA tiering concepts |
+
 ---
 
 **Snapshot (EA/EIS clean energy subset; n = 1,416):**
