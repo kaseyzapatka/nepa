@@ -29,12 +29,11 @@ d3_tables <- here("output", "deliverable3", "tables")
 
 ## Executive Summary
 
-::: {.callout-note}
-## Key decisions to make for next steps:
--   [ ] Do we need to further refine "Other" since they seem rather large?
--   [ ] Thoughts on next steps for timeline analysis?
-    -   [ ] Decision Records, FONSI, other documents to focus the analysis?
--   [ ] Which types of projects are likely to not have generation capacity (CE, transmission)?
+
+::: {.callout-important}
+## Key Decisions
+- [ ] Timeline decisions (see red box below)
+- [ ] What kinds of timelines do we think EA and EIS will have?
 :::
 
 
@@ -93,77 +92,78 @@ knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 
 ---
 
-# Timeline Analysis for Clean Energy (Preliminary)
+# Timeline Analysis for Clean Energy (In-progress)
 
 ::: {.callout-warning}
 ## Data Quality Notice
-Timeline data is extracted using regex pattern and have some clear data quality issues that require further refinement before final analysis.
+Timeline data cleaning is still in progress.
 :::
 
-### How timeline dates are extracted (plain‑language overview)
+Focused on Categorical Exclusion (CEs) since they have the fewest dates and clearest timelines. 
 
-We start with the full text of each NEPA document and look for **date-like strings** (e.g., “06/07/2018,” “July 7, 2010”). For each date we capture the surrounding sentence so we can understand **why** that date appears. A fast classifier then labels each date into one of three buckets:
+### How timeline dates are extracted
 
-- **Initiation**: when the review appears to start (e.g., “application received,” “scoping”)
-- **Review**: interim steps (e.g., “phase approved,” “review completed”)
-- **Decision**: final approval (e.g., “Approved by… NEPA Compliance Officer”)
+1. We start with the full text of each NEPA document and look for **dates** in various forms (e.g., “06/07/2018,” “July 7, 2010”, 13 Feb 2010). 
+2. For each date we capture the surrounding sentence so we can understand **why** that date appears. 
+3. Then we pass that through a fast classifier (BERT) that labels each date into one of four buckets:
 
-**Example phrases by bucket**
+    - **Initiation**: when the review appears to start (e.g., "Initiator Signature",  “application received,” or "initiation of consultation")
+    - **Review**: interim steps (e.g., Phase 1 was approved,” “review completed” or "interim review")
+    - **Decision**: final approval (e.g., “Approved by[Name], NEPA Compliance Officer”, "Authorizing Official", Field Office Manager determination)
+    - **Other**: when it doesn't fall into one of those three buckets
 
-- **Initiation**: “Initiator Signature…”, “initiation of consultation…”, “application received…”, “notice of intent…”, “scoping meeting…”
-- **Review**: “Phase 1 was approved…”, “review completed…”, “interim review…”, “concurrence provided…”, “decision in principle…”
-- **Decision**: “Approved by [Name], NEPA Compliance Officer…”, “Authorizing Official…”, “Field Office Manager determination…”, “digitally signed by…”, “FONSI signed…”
+4. When no explicit initiation date is found, we use the **earliest review date** as a proxy for initiation. 
 
-When no explicit initiation date is found, we use the **earliest review date** as a proxy for initiation. To reduce false positives, we **strip boilerplate lines** (e.g., standard form text) before classification, while still keeping the original text for verification. This creates a transparent, auditable timeline: every date can be traced back to the exact text it came from.
+**Extraction Coverage (Full Run — CE Projects)**
 
-**Data Quality Summary**
+The BERT classifier was run on all 20,863 CE clean energy projects. @fig-bert-coverage visualizes the coverage rates. Decision dates are found for 83% of CE projects. Explicit initiation dates remain the biggest gap at 20%, though using the earliest review date as a proxy brings start-date coverage to 40%.
 
-About 26% of clean energy projects don't have clean timeline data -- could be process-- and large chunk likely have errors.
+```{r}
+#| label: fig-bert-coverage
+#| fig-cap: "Timeline extraction coverage by date type (CE clean energy projects)"
+#| out-width: "90%"
 
-| Metric | Value |
-|--------|-------|
-| Projects with dates extracted | 19,694 (74%) |
-| Projects flagged for review | 15,289 (57%) |
-| Duration >5 years (likely errors) | 6,116 (31%) |
-| Duration >10 years (likely errors) | 4,694 (24%) |
+knitr::include_graphics(file.path(d3_figures, "03_bert_coverage.png"))
+```
 
-: Timeline data quality metrics {#tbl-timeline-quality}
+@fig-date-distribution shows how many dates the classifier extracted per project. Most projects have 1–3 dates; projects with zero dates (4%) had extraction errors (e.g., no parseable text).
 
-::: {.callout-tip}
-## Key Findings: Technology
-**CE projects have the shortest timelines,** whereas EA and EIS projects are less frequent and can have longer durations. There are likely some date extraction issue that are inflating review times.
-:::
+```{r}
+#| label: fig-date-distribution
+#| fig-cap: "Number of classified dates extracted per project"
+#| out-width: "90%"
 
-Figure @fig-projects-by-year shows project counts over time, faceted by process type. CE projects dominate in volume with relatively consistent counts from 2010–2024, while EA and EIS projects are fewer and more variable year-to-year.
+knitr::include_graphics(file.path(d3_figures, "03_bert_date_distribution.png"))
+```
 
+@fig-projects-by-year shows CE project counts by decision year.
 
 ```{r}
 #| label: fig-projects-by-year
-#| fig-cap: "NEPA projects by year and process type (preliminary data)"
+#| fig-cap: "CE clean energy projects by decision year (BERT classifier)"
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
 ```
 
 
-Figure @fig-duration-boxplot compares project durations across process types: CE projects are typically very short (median ~0 days), whereas EA (~11.5 years) and EIS (~20 years) show unusually long durations, likely reflecting false positives from date extraction rather than actual review timelines.
+### Example Project Timelines
 
-```{r}
-#| label: fig-duration-boxplot
-#| fig-cap: "Project duration distribution by process type (preliminary data)"
-#| out-width: "90%"
+::: {.callout-important}
+## Timeline-specific decisions to make:
+-   [ ] What to do when there is only one date?
+-   [ ] OK if the earliest review date serves as the initiation date?
+-   [ ] What is the initiation date for example C? The first date found or expiration of project under review
+-   [ ] Do the four buckets (initiation, review, decision, other) capture everything? Or do we want to add more?
+-   [ ] Improving the classifier training data -- ideas?
+-   [ ] Ideas for EA/EIS?
+:::
 
-knitr::include_graphics(file.path(d3_figures, "03_duration_boxplot.png"))
-```
-
-
-### Example Project Timelines (BERT v8 Classifier)
-
-The tables below show three example projects and every date the classifier extracted from their documents. Each date is labeled as **initiation**, **review**, **decision**, or **other**, along with the source text that triggered the classification. These examples illustrate how the classifier constructs a project timeline from raw document text.
+#### Example A: Single decision date only
 
 ```{r}
 #| label: tbl-example5
-#| tbl-cap: "Example 5: Extracted timeline"
+#| tbl-cap: "Example A: Single decision date — no timeline possible"
 
 ex5 <- read_csv(file.path(d3_tables, "03_bert_example5.csv"), show_col_types = FALSE)
 
@@ -186,9 +186,13 @@ ex5 %>%
   column_spec(2, width = "9em")
 ```
 
+**Analysis:** The classifier found only one date in this project's documents — a decision memorandum signature. While the decision date is correct, there is no initiation or review date to anchor the start of the process.
+
+#### Example B: Multi-phase project with clear decision
+
 ```{r}
 #| label: tbl-example3
-#| tbl-cap: "Example 3: Extracted timeline"
+#| tbl-cap: "Example B: Phased project with review milestones and a decision"
 
 ex3 <- read_csv(file.path(d3_tables, "03_bert_example3.csv"), show_col_types = FALSE)
 
@@ -211,9 +215,13 @@ ex3 %>%
   column_spec(2, width = "9em")
 ```
 
+**Analysis:** This project shows three dates over an 8-month window: two review milestones and a NEPA Compliance Officer signature. The decision date is clear but there's no initiation date. Phase 1 approval could serve as a reasonable proxy but it's not 100% clear that it is the initiation date.
+
+#### Example C: Rich timeline with multiple specialists
+
 ```{r}
 #| label: tbl-example1
-#| tbl-cap: "Example 1: Extracted timeline"
+#| tbl-cap: "Example C: Multi-specialist sign-off with detailed timeline"
 
 ex1 <- read_csv(file.path(d3_tables, "03_bert_example1.csv"), show_col_types = FALSE)
 
@@ -236,26 +244,22 @@ ex1 %>%
   column_spec(2, width = "9em")
 ```
 
+**Analysis:** This BLM right-of-way renewal shows the 12 dates spanning about two months. The classifier correctly identifies the final authorizing official's digital signature as the decision date but identifies multiple intervening dates as decision dates as well. The latter initiation seems like *expiration* date and the first identifies the expiration date of the current project. 
 
-**Next Steps for Timeline Extraction**
+#### Next Steps for Timeline Extraction
 
-1. **Implement structure-aware preprocessing**: Remove reference/bibliography sections before date extraction to eliminate citation false positives
+1. **Improve training data**: Improve the training data I'm feeding the classifier, especially for initiation dates and review key words
 
-2. **Focus analysis on specific documents**: Create variable to idenify document type and only search the most useful, likely with an LLM.
+2. **Expand to EA and EIS**: Do we have any good examples of what those timelines would look like? Specific examples for reviews 
 
-3. **Add QA-based extraction**: Use question-answering models to directly ask "When was the decision signed?" rather than extracting all dates and filtering
-
-4. **Validate sample manually**: Review 50-100 flagged projects to assess extraction accuracy and identify systematic errors
-
-5. **Filter for reliable data**: For final analysis, restrict to projects with duration <5 years and explicit decision dates found
 
 ---
 
-# Generation Capacity Analysis (Preliminary)
+# Generation Capacity Analysis (In-progress)
 
 ::: {.callout-warning}
 ## Data Quality Notice
-Generation capacity was extracted using regex pattern matching. Some values may be false positives (e.g., reference numbers misidentified as capacity). Values >5,000 MW excluded as likely errors.
+Generation capacity data cleaning is still in progress.
 :::
 
 ::: {.callout-tip}
