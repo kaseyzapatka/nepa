@@ -98,30 +98,115 @@ sheet_write(
 # bert analysis 
 #bert_path = "data/analysis/test20_bert_v6.parquet"
 #bert_path = "data/analysis/test50_bert.parquet"
-bert_path = "data/analysis/test50_bert_v2.parquet"
+#bert_path = "data/analysis/test50_bert_v2.parquet"
+bert_path = "data/analysis/test50_bert_v8.parquet"
 bert <- read_results(bert_path)
 bert_json_col = "bert_dates_json"
 bert_ctx <- extract_contexts(bert, bert_json_col, "bert")
 
-# missing multiple dates
 bert_ctx |> 
-  filter(project_id == "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0") |> 
+  distinct(model) |> 
   glimpse() # misses extra dates
 
 bert_ctx |> 
+  select(project_id) |> 
+  slice_sample(n = 1 ) |> 
+  print()
+
+
+#
+# Examples for Feb 5 meeting 
+# --------------------------------------------------
+example1 <- 
+  bert_ctx |> 
+  filter(project_id == "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0") |> 
+  #select(project_title, model:context_cleaned_flag) |> 
+  select(type, date, source) |> 
+  arrange(date) |> 
+  print()
+
+# Write to google sheets for review
+sheet_write(
+  data = example1,
+  ss = "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing",
+  sheet = "example1"
+)
+
+example2 <- 
+  bert_ctx |> 
   filter(project_id == "46f4da85-af1c-0e66-a706-9a7292dd9689") |> 
-  View() # gets it right but does not report full context -- CORRECT!
+  #select(project_title, model:context_cleaned_flag) |> 
+  select(type, date, source) |> 
+  arrange(date) |> 
+  print()
 
-bert_ctx |> 
+# Write to google sheets for review
+sheet_write(
+  data = example2,
+  ss = "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing",
+  sheet = "example2"
+)
+
+example3 <- 
+  bert_ctx |> 
   filter(project_id == "824ba268-8ddf-a34f-f9a7-625e7727c242") |> 
-  glimpse() # gets it right but does not report full context -- should now
+  #select(project_title, model:context_cleaned_flag) |> 
+  select(type, date, source) |> 
+  arrange(date) |> 
+  print()
 
-bert_ctx |> 
+# Write to google sheets for review
+sheet_write(
+  data = example3,
+  ss = "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing",
+  sheet = "example3"
+)
+
+example4 <- 
+  bert_ctx |> 
   filter(project_id == "f2812da0-16c5-fbd1-9e16-10bf8e67c514") |> 
-  glimpse() # no decision date, seems like July 7, 2010 should be decision, making change to capture that date. 2010-07-06" is captured as part of attachments. and 2006-04-19 should be ignored
+  #select(project_title, model:context_cleaned_flag) |> 
+  select(type, date, source) |> 
+  arrange(date) |> 
+  print()
+
+# Write to google sheets for review
+sheet_write(
+  data = example4,
+  ss = "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing",
+  sheet = "example4"
+)
+
+example5 <- 
+  bert_ctx |> 
+  filter(project_id == "dec68c6f-da24-f178-7bf9-30dcd886fb12") |> 
+  #select(project_title, model:context_cleaned_flag) |> 
+  select(type, date, source) |> 
+  arrange(date) |> 
+  print()
 
 
-# sample 50
-bert_ctx |> 
-  filter(project_id == "6fa3f68d-9916-3080-32ab-4865ec4cebd7") |> 
-  View() # misses extra dates
+# Write to google sheets for review
+sheet_write(
+  data = example5,
+  ss = "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing",
+  sheet = "example5"
+)
+
+
+example6 <- 
+  bert_ctx |> 
+  filter(project_id == "5c512493-33a9-ff2c-5f13-3a8d55464b93") |> 
+  #select(project_title, model:context_cleaned_flag) |> 
+  select(type, date, source) |> 
+  arrange(date) |> 
+  print()
+
+
+# Write to google sheets for review
+sheet_write(
+  data = example6,
+  ss = "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing",
+  sheet = "example6"
+)
+

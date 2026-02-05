@@ -351,6 +351,7 @@ Comparison: `test20_workers.parquet` vs `test20_hybrid3_instruct.parquet` (both 
 4) **Prompt examples + quote requirement**: add short YES/NO examples; require a 5–10 word quote.
 5) **Parallelization test**: run a 10-project test with `--workers 6` and compare time/Errors.
 6) **Add timing logs**: print total elapsed time + avg sec/project for real speed tracking.
+7) **BERT speed-up**: `--bert-run` currently runs single-threaded even though it accepts `--workers`. Add batching and/or multiprocessing for BERT inference to improve throughput on full runs.
 
 ---
 
