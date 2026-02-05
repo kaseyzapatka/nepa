@@ -4938,6 +4938,7 @@ vertical-align: -.125em;
 <li><strong>Prompt examples + quote requirement</strong>: add short YES/NO examples; require a 5–10 word quote.</li>
 <li><strong>Parallelization test</strong>: run a 10-project test with <code>--workers 6</code> and compare time/Errors.</li>
 <li><strong>Add timing logs</strong>: print total elapsed time + avg sec/project for real speed tracking.</li>
+<li><strong>BERT speed-up</strong>: <code>--bert-run</code> currently runs single-threaded even though it accepts <code>--workers</code>. Add batching and/or multiprocessing for BERT inference to improve throughput on full runs.</li>
 </ol>
 <hr>
 </section>

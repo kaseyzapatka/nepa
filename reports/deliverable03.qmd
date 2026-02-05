@@ -35,6 +35,7 @@ d3_tables <- here("output", "deliverable3", "tables")
 ## Key Decisions
 - [ ] Timeline decisions (see red box below in Timeline Section)
 - [ ] What kinds of timelines do we think EA and EIS will have?
+- [ ] What do we think of the capacity bins (Small <10 MW, Medium 10–100 MW, Large 100–500 MW, Utility-scale >500 MW)?
 :::
 
 
@@ -255,15 +256,26 @@ Generation capacity data cleaning is still in progress.
 
 ::: {.callout-tip}
 ## Key Findings: Capacity
-Preliminary analysis shows that generation capacity data varies by review type and that **EIS projects are predominantly utility-scale** (>500 MW), while CE projects are mostly small-scale (<10 MW). This aligns with expectations: larger projects require more intensive environmental review.
+- **EIS projects are predominantly utility-scale** (>500 MW, median 538 MW), while CE projects are mostly small-scale (<10 MW, median 1.2 MW). This aligns with expectations: larger projects require more intensive environmental review.
+- Extraction coverage varies sharply by process type: **EIS 81%**, EA moderate, **CE 8%** — reflecting that smaller CE projects rarely document explicit capacity figures.
+- Transmission-only projects account for **6.9%** of clean energy projects (1,531 of 22,279).
 :::
 
-To identify capacity generation, a regex-based extraction using pattern matching for values like "50 MW", "1,500 megawatts", "2.5 GW facility". Capacity values normalized to MW for comparison.
+### How generation capacity is extracted
 
-Transmission-only projects account for **1,531 of 22,279 clean energy projects (6.9%)** based on `project_type` tags (strict definition: only Electricity Transmission + Utilities).
+The NEPATEC 2.0 metadata does not include generation capacity, so we extract it from document text using a two-stage approach:
 
+1. **Title scan**: We first check the project title for capacity values (e.g., "50 MW Solar Facility"). If found, we record the value and skip document scanning for that project.
 
-@fig-capacity-coverage shows that extraction rates vary significantly by process type. EIS projects have the highest coverage (81%), reflecting larger projects with explicit capacity documentation. CE projects have low coverage (8%) as expected—these are typically smaller projects that don't require detailed capacity reporting.
+2. **Regex extraction**: For remaining projects, we scan all document pages using pattern matching for expressions like "50 MW", "1,500 megawatts", "2.5 GW facility", "up to 100 kW", etc. We capture the surrounding text as context.
+
+3. **Confidence scoring**: Each match is scored as **high**, **medium**, or **low** confidence based on whether nearby words suggest the value refers to the proposed project (e.g., "proposed", "nameplate", "generate") vs. an existing or nearby facility (e.g., "existing", "adjacent", "previous").
+
+4. **LLM validation**: For low- and medium-confidence cases, we pass the candidate sentences to a local language model that reads the context and extracts the project-specific capacity. The LLM must provide a numeric value and a source quote from the text.
+
+5. **Merge**: Regex and LLM results are combined. When both methods find a value, the LLM result is preferred because it is better at distinguishing the proposed project's capacity from background numbers (regional resource estimates, adjacent facilities, etc.). All values are normalized to MW for comparison.
+
+@fig-capacity-coverage shows that extraction rates vary significantly by process type. EIS projects have the highest coverage, reflecting larger projects with explicit capacity documentation. CE projects have low coverage as expected — these are typically smaller projects that don't require detailed capacity reporting.
 
 ```{r}
 #| label: fig-capacity-coverage
@@ -308,104 +320,129 @@ capacity_table %>%
 
 ### Example Project Extractions
 
-A key challenge in capacity extraction is distinguishing the **proposed project's capacity** from other numbers in the document (regional resource estimates, nearby facilities, energy consumption figures). The examples below show how the two-stage approach handles this.
+A key challenge in capacity extraction is distinguishing the **proposed project's capacity** from other numbers in the document (regional resource estimates, nearby facilities, energy consumption figures). The examples below show how the two-stage approach handles this. Each table shows:
 
-::: {.callout-important}
-## Capacity-specific decisions to make:
--   [ ] Are the capacity bins (Small <10 MW, Medium 10–100 MW, Large 100–500 MW, Utility-scale >500 MW) appropriate?
--   [ ] Should we report the LLM-corrected values or flag cases where regex and LLM disagree for manual review?
--   [ ] How should we handle projects where no capacity is found — exclude from analysis or report as "not documented"?
-:::
+- **Regex context**: the text window around the regex match (what the pattern matcher "saw")
+- **LLM quote**: the source quote the language model cited when extracting its value
 
-#### Example A: EIS — Regional statistic vs. project capacity
+```{r}
+#| label: gencap-example-helper
+
+# Shared table formatter for gencap examples
+format_gencap_example <- function(df) {
+  df %>%
+    select(
+      Method = method, Value = value, Unit = unit,
+      Confidence = confidence,
+      `Regex context` = regex_context,
+      `LLM quote` = llm_quote
+    ) %>%
+    mutate(
+      `Regex context` = str_trunc(replace_na(`Regex context`, "—"), 140),
+      `LLM quote` = str_trunc(replace_na(`LLM quote`, "—"), 140)
+    ) %>%
+    kable(align = c("l", "r", "l", "l", "l", "l")) %>%
+    kable_styling(
+      bootstrap_options = c("striped", "hover", "condensed"),
+      full_width = TRUE,
+      position = "left",
+      font_size = 12
+    ) %>%
+    column_spec(5, width = "20em") %>%
+    column_spec(6, width = "20em")
+}
+```
+
+#### Example A: Regex and LLM agree
 
 ```{r}
 #| label: tbl-gencap-example1
-#| tbl-cap: "Example A: Regex captured a regional resource estimate; LLM identified the project-specific capacity"
+#| tbl-cap: "Example A: Both methods independently extracted the same capacity value"
 
 ex1 <- read_csv(file.path(d3_tables, "04_gencap_example1.csv"), show_col_types = FALSE)
 ex1_title <- ex1$project_title[1]
 ```
 
-**Project:** `r ex1_title`
+**Project:** `r ex1_title` (EA)
 
 ```{r}
-ex1 %>%
-  select(Method = method, `Value` = value, Unit = unit,
-         Confidence = confidence, `Source text` = context) %>%
-  mutate(`Source text` = str_trunc(replace_na(`Source text`, "—"), 120)) %>%
-  kable(align = c("l", "r", "l", "l", "l")) %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
-    full_width = TRUE,
-    position = "left",
-    font_size = 12
-  )
+format_gencap_example(ex1)
 ```
 
-**Analysis:** The regex extracted a large regional geothermal resource figure from the document's background section. The LLM correctly identified the actual project capacity from the project description. The merged final value uses the LLM result.
+**Analysis:** Both the regex and LLM independently found 280 MW. The regex matched the capacity figure in the document text; the LLM confirmed the same value with its own source quote. When the two methods agree, we have high confidence that the extraction is correct.
 
-#### Example B: EA — Adjacent facility vs. project capacity
+#### Example B: Regex and LLM disagree
 
 ```{r}
 #| label: tbl-gencap-example2
-#| tbl-cap: "Example B: Regex captured the capacity of an adjacent facility; LLM found the project-specific value"
+#| tbl-cap: "Example B: Regex captured a regional resource estimate; LLM identified the project-specific capacity"
 
 ex2 <- read_csv(file.path(d3_tables, "04_gencap_example2.csv"), show_col_types = FALSE)
 ex2_title <- ex2$project_title[1]
 ```
 
-**Project:** `r ex2_title`
+**Project:** `r ex2_title` (EIS)
 
 ```{r}
-ex2 %>%
-  select(Method = method, `Value` = value, Unit = unit,
-         Confidence = confidence, `Source text` = context) %>%
-  mutate(`Source text` = str_trunc(replace_na(`Source text`, "—"), 120)) %>%
-  kable(align = c("l", "r", "l", "l", "l")) %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
-    full_width = TRUE,
-    position = "left",
-    font_size = 12
-  )
+format_gencap_example(ex2)
 ```
 
-**Analysis:** The document mentions a neighboring facility's capacity prominently. The regex grabbed that number, while the LLM distinguished between the adjacent facility and the actual project under review.
+**Analysis:** The regex extracted 4,400 MW — a regional geothermal resource estimate from the document's background section. The LLM correctly identified the actual project capacity of 49.9 MW from the project description. The merged final value uses the LLM result. This is the most common pattern of disagreement: the regex grabs the largest or most prominent number, while the LLM reads context to find the project-specific figure.
 
-#### Example C: CE — Multiple equipment mentions
+#### Example C: Multiple capacity dimensions (power + energy)
 
 ```{r}
 #| label: tbl-gencap-example3
-#| tbl-cap: "Example C: Multiple pieces of equipment with different capacities in the same project"
+#| tbl-cap: "Example C: Project with both power (MW) and energy (MWh) values extracted"
 
 ex3 <- read_csv(file.path(d3_tables, "04_gencap_example3.csv"), show_col_types = FALSE)
 ex3_title <- ex3$project_title[1]
 ```
 
-**Project:** `r ex3_title`
+**Project:** `r ex3_title` (EA)
 
 ```{r}
-ex3 %>%
-  select(Method = method, `Value` = value, Unit = unit,
-         Confidence = confidence, `Source text` = context) %>%
-  mutate(`Source text` = str_trunc(replace_na(`Source text`, "—"), 120)) %>%
-  kable(align = c("l", "r", "l", "l", "l")) %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
-    full_width = TRUE,
-    position = "left",
-    font_size = 12
-  )
+format_gencap_example(ex3)
 ```
 
-**Analysis:** This CE project involves removing equipment, so multiple capacity values appear in the document (different generators). The regex identifies `350 KW diesel generator (non-operable – formerly the C-Site diesel generator)` while the LLM identifies `Small MG set (75 HP motor/50 KW DC Generator)`. It seems that generation should be the focus here not removal?
+**Analysis:** This hydrogen/energy storage project has capacity described in multiple dimensions: the regex found both a power value and a large energy storage value (MWh), while the LLM identified 550 MW as the generation capacity. When projects report both power (MW) and energy (MWh), these are distinct metrics — power is instantaneous output, energy is total storage. The final merged value uses the LLM's 550 MW for the power comparison.
+
+### Extraction Agreement Summary
+
+@tbl-gencap-agreement summarizes the extraction status across all 3,054 clean energy projects where at least one capacity value was found. The vast majority (94.6%) have only a regex extraction — these are predominantly CE projects where the LLM was not run. Among the 165 projects where both methods were applied, the LLM agreed with the regex in 36 cases (22%) and disagreed in 121 cases (73%), reflecting the regex's tendency to capture the largest number in the document rather than the project-specific capacity.
+
+```{r}
+#| label: tbl-gencap-agreement
+#| tbl-cap: "Extraction agreement between regex and LLM methods across all projects with capacity data"
+
+agreement_table <- tribble(
+  ~`Extraction Status`, ~CE, ~EA, ~EIS, ~Total, ~Percent,
+  "Regex only (no LLM)",          2034, 295, 559, 2888, "94.6%",
+  "Regex + LLM agree",               0,  22,  14,   36,  "1.2%",
+  "Regex + LLM disagree",            1,  42,  78,  121,  "4.0%",
+  "LLM only",                        0,   2,   6,    8,  "0.3%",
+  "Energy value only",                0,   1,   0,    1,  "0.0%",
+  "Total",                         2035, 362, 657, 3054,    ""
+)
+
+agreement_table %>%
+  kable(
+    align = c("l", "r", "r", "r", "r", "r"),
+    format.args = list(big.mark = ",")
+  ) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE,
+    position = "left"
+  ) %>%
+  row_spec(6, bold = TRUE)
+```
 
 ### Next Steps for Generation Capacity
 
 1. **Finalize capacity bins** with client input on appropriate thresholds.
-2. **Expand validation sample** to confirm precision at scale.
-3. **Review regex/LLM disagreements** — the 78 cases where the two methods differ are the highest-priority candidates for manual review.
+2. **Spot check high confidence samples** to confirm what RegEx found is correct.
+3. **Review regex/LLM disagreements** — the 121 cases where the two methods differ are the highest-priority candidates for manual review.
 
 ---
 
