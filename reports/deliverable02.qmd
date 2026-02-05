@@ -64,8 +64,6 @@ We developed a multi-tier extraction approach to identify programmatic and tiere
 
 3. **LLM classification (optional)**: For ambiguous cases with medium-confidence regex matches, an LLM can refine the classification (not used in this initial extraction since there are only a few so far)
 
----
-
 **Snapshot (EA/EIS clean energy subset; n = 1,416):**
 ```{r}
 #| label: tbl-review-type-snapshot
