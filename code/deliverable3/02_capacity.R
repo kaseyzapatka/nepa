@@ -14,7 +14,7 @@ source(here::here("code", "deliverable3", "00_setup.R"))
 # FILE PATHS
 # --------------------------
 
-gencap_path <- here("data", "analysis", "projects_gencap.parquet")
+gencap_path <- here("data", "analysis", "projects_gencap_merged.parquet")
 
 # --------------------------
 # TABLE 2: GENERATION CAPACITY
@@ -273,6 +273,10 @@ if (file.exists(gencap_path)) {
   cat("  Saved placeholder:", output_file2, "\n")
 }
 
+fig1
+fig2
+
+
 # --------------------------
 # SUMMARY
 # --------------------------
@@ -282,21 +286,79 @@ cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")
 
 
-library(tidyverse)
-library(arrow)
+# --------------------------
+# GENERATION CAPACITY EXAMPLES (for client review)
+# --------------------------
+# Shows curated projects where regex and LLM found different
+# capacity values — illustrates why multi-method extraction matters.
 
-#gencap_path <- "data/analysis/projects_gencap.parquet"
-gencap_path <- "data/analysis/projects_gencap_dedup.parquet"
+cat("\n=== Generation Capacity Examples ===\n\n")
 
-gencap <- read_parquet(gencap_path) 
-gencap |> glimpse()
+# Reload merged data (already loaded above, but keep self-contained)
+gencap_merged <- read_parquet(here("data", "analysis", "projects_gencap_merged.parquet"))
 
-gencap |> 
-  #filter(project_id == "543b103fec369256675be35047a51d20") |> 
-  filter(project_id == "158bcddde40e38947bc4c80d25408c67") |> 
-  glimpse()
+example_ids <- c(
+  "166574ea3c128fb3a46bd0dd1a3fcfc9",    # EIS: Fourmile Hill Geothermal
+  "a62e5d7c90008e8c34b700183f62a04f",    # EA:  Sodium Test and Fill Facility
+  "a8f8ca21-28aa-e951-164f-736cac8136ef" # CE:  Removal of C-Site MG Equipment
+)
 
-# Clean energy only (if file includes other types)
-gencap_clean <- 
-  gencap %>%
-  filter(project_energy_type == "Clean")
+examples_list <- list()
+
+for (i in seq_along(example_ids)) {
+  row <- gencap_merged %>%
+    filter(project_id == example_ids[i])
+
+  if (nrow(row) == 0) {
+    cat(sprintf("  Example %d: project_id %s not found, skipping\n", i, example_ids[i]))
+    next
+  }
+
+  row <- row[1, ]
+
+  # Build a table showing regex vs LLM extraction
+  ex <- tibble(
+    project_title = row$project_title,
+    dataset_source = row$dataset_source,
+    method = c("Regex", "LLM", "Final (merged)"),
+    value = c(
+      row$project_gencap_value,
+      row$llm_capacity_value,
+      row$project_gencap_final_value
+    ),
+    unit = c(
+      row$project_gencap_unit,
+      row$llm_capacity_unit,
+      row$project_gencap_final_unit
+    ),
+    confidence = c(
+      row$project_gencap_confidence,
+      as.character(row$llm_confidence),
+      as.character(row$project_gencap_final_confidence)
+    ),
+    context = c(
+      str_trunc(as.character(row$project_gencap_context), 200),
+      str_trunc(as.character(row$llm_source_quote), 200),
+      NA_character_
+    )
+  )
+
+  examples_list[[i]] <- ex
+  cat(sprintf("Example %d (%s — %s): %s\n",
+              i, row$dataset_source, example_ids[i], row$project_title))
+}
+
+# Save individual CSVs
+for (i in seq_along(examples_list)) {
+  if (!is.null(examples_list[[i]])) {
+    ex_path <- here(tables_dir, sprintf("04_gencap_example%d.csv", i))
+    write_csv(examples_list[[i]], ex_path)
+    cat(sprintf("  Saved: %s\n", ex_path))
+  }
+}
+
+# Save combined CSV
+examples_all <- bind_rows(examples_list, .id = "example")
+examples_csv_path <- here(tables_dir, "04_gencap_client_examples.csv")
+write_csv(examples_all, examples_csv_path)
+cat("Saved combined examples:", examples_csv_path, "\n")

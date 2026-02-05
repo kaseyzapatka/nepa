@@ -4551,7 +4551,7 @@ vertical-align: -.125em;
 </header>
 
 <p>Simple notebook to view CE document pages for manual review and exploration.</p>
-<div class="cell" data-execution_count="1">
+<div class="cell" data-execution_count="2">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
@@ -4561,7 +4561,7 @@ vertical-align: -.125em;
 </div>
 <section id="load-data" class="level2">
 <h2 class="anchored" data-anchor-id="load-data">Load Data</h2>
-<div class="cell" data-execution_count="2">
+<div class="cell" data-execution_count="3">
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load CE documents</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>documents <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/analysis/documents_combined.parquet&#39;</span>)</span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>ce_documents <span class="op">=</span> documents[documents[<span class="st">&quot;dataset_source&quot;</span>] <span class="op">==</span> <span class="st">&quot;CE&quot;</span>]</span>
@@ -4578,7 +4578,7 @@ Loaded 73,544 CE pages</code></pre>
 </section>
 <section id="helper-functions" class="level2">
 <h2 class="anchored" data-anchor-id="helper-functions">Helper Functions</h2>
-<div class="cell" data-execution_count="3">
+<div class="cell" data-execution_count="4">
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> list_documents(project_id):</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;List all documents for a given project.&quot;&quot;&quot;</span></span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    docs <span class="op">=</span> ce_documents[ce_documents[<span class="st">&quot;project_id&quot;</span>] <span class="op">==</span> project_id]</span>
@@ -4593,7 +4593,7 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    available_cols <span class="op">=</span> [c <span class="cf">for</span> c <span class="kw">in</span> display_cols <span class="cf">if</span> c <span class="kw">in</span> docs.columns]</span>
 <span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> docs[available_cols]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="4">
+<div class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> view_page(document_id, page_num<span class="op">=</span><span class="dv">1</span>):</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;View a specific page from a document.&quot;&quot;&quot;</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    page <span class="op">=</span> ce_pages[(ce_pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> document_id) <span class="op">&amp;</span> </span>
@@ -4618,7 +4618,7 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="ss">--- END PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">&quot;</span>)</span>
 <span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> page.iloc[<span class="dv">0</span>][<span class="st">&quot;page_text&quot;</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="5">
+<div class="cell" data-execution_count="6">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> view_pages(document_id, start_page<span class="op">=</span><span class="dv">1</span>, end_page<span class="op">=</span><span class="dv">5</span>):</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;View a range of pages from a document.&quot;&quot;&quot;</span></span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get document metadata</span></span>
@@ -4642,7 +4642,7 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f&quot;Page </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> not found&quot;</span>)</span>
 <span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="6">
+<div class="cell" data-execution_count="7">
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> view_project_pages(project_id):</span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;View all pages of each document in a project (no truncation).&quot;&quot;&quot;</span></span>
 <span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    docs <span class="op">=</span> ce_documents[ce_documents[<span class="st">&quot;project_id&quot;</span>] <span class="op">==</span> project_id]</span>
@@ -4671,7 +4671,7 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="ss">--- PAGE </span><span class="sc">{</span>page[<span class="st">&#39;page_number&#39;</span>]<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">&quot;</span>)</span>
 <span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(page[<span class="st">&quot;page_text&quot;</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="7">
+<div class="cell" data-execution_count="8">
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> search_pages(project_id, search_term):</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Search for a term in all pages of a project.&quot;&quot;&quot;</span></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    docs <span class="op">=</span> ce_documents[ce_documents[<span class="st">&quot;project_id&quot;</span>] <span class="op">==</span> project_id]</span>
@@ -4704,7 +4704,7 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>    </span>
 <span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> matching_pages</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="8">
+<div class="cell" data-execution_count="9">
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_random_project(n_docs<span class="op">=</span><span class="dv">2</span>):</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Get a random project with at least n_docs documents.&quot;&quot;&quot;</span></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> random</span>
@@ -4719,7 +4719,7 @@ Loaded 73,544 CE pages</code></pre>
 <section id="explore-a-specific-project" class="level2">
 <h2 class="anchored" data-anchor-id="explore-a-specific-project">Explore a specific project</h2>
 <p>Set the <code>project_id</code> below and run the cells to explore.</p>
-<div class="cell" data-execution_count="51">
+<div class="cell" data-execution_count="13">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set your project ID here</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;2135a0a9-e30c-47a6-4781-d35b7eb72322&quot; # Wyarno Grazing Lease </span></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;75f86c2f-e651-6f0f-78b4-0816aecb0d3a&quot; # Iberlin 1-12 wells</span></span>
@@ -4731,14 +4731,14 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;abb436a4-3bb4-8f91-0013-d5a5158dbf32&quot; # Enoch Well House Power Line</span></span>
 <span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0&quot; # Right of way renewals</span></span>
 <span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;c0a5a0de-acea-0b84-f727-029167677961&quot; # 703-43A Room 30 Install Electrical and UW</span></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;6fa3f68d-9916-3080-32ab-4865ec4cebd7&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;5c512493-33a9-ff2c-5f13-3a8d55464b93&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="52">
+<div class="cell" data-execution_count="14">
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># List all documents for this project</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>list_documents(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-Documents for project: 6fa3f68d-9916-3080-32ab-4865ec4cebd7
+Documents for project: 5c512493-33a9-ff2c-5f13-3a8d55464b93
 --------------------------------------------------------------------------------</code></pre>
 </div>
 <div class="cell-output cell-output-display">
@@ -4759,13 +4759,13 @@ Documents for project: 6fa3f68d-9916-3080-32ab-4865ec4cebd7
 </thead>
 <tbody>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">123108</td>
-<td>6fa3f68d-9916-3080-32ab-4865ec4cebd7</td>
+<td data-quarto-table-cell-role="th">90554</td>
+<td>aaa03627-37b8-9dd3-41b7-3f2b5ccb32f5</td>
 <td>CE</td>
 <td>decision</td>
 <td>YES</td>
-<td>cx-011843.pdf</td>
-<td>1</td>
+<td>DOI-BLM-CO-N030-2015-0019-CX Grand Valley Power Upgrade_Renewals Final.pdf</td>
+<td>18</td>
 </tr>
 </tbody>
 </table>
@@ -4773,43 +4773,1055 @@ Documents for project: 6fa3f68d-9916-3080-32ab-4865ec4cebd7
 </div>
 </div>
 </div>
-<div class="cell" data-execution_count="53">
+<div class="cell" data-execution_count="15">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># View first 3 pages of each document</span></span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>view_project_pages(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 ================================================================================
-Document: cx-011843.pdf
+Document: DOI-BLM-CO-N030-2015-0019-CX Grand Valley Power Upgrade_Renewals Final.pdf
 Type: CE | Category: decision | Main: YES
 ================================================================================
 
---- PAGE 1-1 ---
+--- PAGE 1-18 ---
 
-DOE-ID NEPA CX DETERMINATION
-Page 1 of 1
-CX Posting No.: DOE-ID-14-004
-SECTION A. Project Title: Enhanced Shielding Performance of HLW Storage Packages via Multi-Component Coatings – Virginia Polytechnic Institute and State University
+United States Department of the Interior
+Bureau of Land Management
 
-SECTION B. Project Description
-Virginia Polytechnic Institute and State University, in collaboration with North Carolina State University, proposes to develop an outer shield material for use in packaging that is not only resistant to the corrosion, radiation, diffusion, and thermal cycling processes that affect fuel packages during long-term storage, but that is also wear tolerant and mechanically robust so that it can survive repeated handling and transportation. To accomplish this goal, they propose a new multi-layer composite coating that will provide the robust material needed to enhance long-term HLW storage and facilitate safe transport of storage packages.
+Categorical Exclusion
+for
+Amendment to Grand Valley Power Line and
+Renewal of Adjacent Rights-of-Way
 
-SECTION C. Environmental Aspects / Potential Sources of Impact
-Air Emissions – Some deposition systems may use process gasses for synthesis. It is impossible to know at this time exactly what will be used as the end result is to define and optimize the deposition process. All deposition systems to be used at Virginia Tech and NC State operate within established safety and environmental guidelines.
+Grand Junction Field Office
+2815 H Road
+Grand Junction, Colorado 81506
 
-Radioactive Material Use – Existing Cesium-137 and Cobalt-60 sources will be used for gamma attenuation experiments. An existing PuBe source will be used for neutron attenuation experiments.
+DOI-BLM-CO-N030-2015-0019-CX
 
-Chemical Use/Storage – The potential exists to use basic laboratory solvents such as acetone and isopropyl alcohol for cleaning. They will be handled and stored in accordance with existing procedures at Virginia Tech and NC State as necessary.
+September 2015
 
-SECTION D. Determine the Level of Environmental Review (or Documentation) and Reference(s): Identify the applicable categorical exclusion from 10 CFR 1021, Appendix B, give the appropriate justification, and the approval date.
-Note: For Categorical Exclusions (CXs) the proposed action must not: 1) threaten a violation of applicable statutory, regulatory, or permit requirements for environmental, safety, and health, including requirements of DOE orders; 2) require siting and construction or major expansion of waste storage, disposal, recovery, or treatment facilities; 3) disturb hazardous substances, pollutants, contaminants, or CERCLA-excluded petroleum and natural gas products that pre-exist in the environment such that there would be uncontrolled or unpermitted releases; 4) adversely affect environmentally sensitive resources. In addition, no extraordinary circumstances related to the proposal exist which would affect the significance of the action, and the action is not “connected” nor “related” (40 CFR 1508.25(a)(1) and (2), respectively) to other actions with potentially or cumulatively significant impacts.
+BLM
+US. DEPARTMENT OF THE INTERIOR
+BUREAU OF LAND MANAGEMENT
 
-References: B3.6 Siting, construction, modification, operation, and decommissioning of facilities for small-scale research and development projects; conventional laboratory operations (such as preparation of chemical standards and sample analysis); and small-scale pilot projects (generally less than 2 years) frequently conducted to verify a concept before demonstration actions, provided that construction or modification would be within or contiguous to a previously disturbed or developed area (where active utilities and currently used roads are readily accessible). Not included in this category are demonstration actions, meaning actions that are undertaken at a scale to show whether a technology would be viable on a larger scale and suitable for commercial development.
+LEGAL DESCRIPTION:
+COC35141: Grand Valley Power line from BOR to Golden Gate Plant
+Sixth Principal Meridian
+T. 9 S., R. 101 W., Section 34, Lots 2 and 3.
+Ute Principal Meridian
+T. 2 N., R. 2 W., Section 24, SE¼NE¼, NE¼SE¼, and S½SE¼;
+Section 25, W½NE¼, NE¼SW¼, and NW¼SE¼.
 
-Justification: The activity consists of developing waste package shield material for research purposes.
+COC0123103: Golden Gate Petroleum water pipeline from Highline Canal to Plant
+Sixth Principal Meridian
+T. 9 S., R. 101 W., Section 34, lots 2 and 3.
+Ute Principal Meridian
+T. 2 N., R. 2 W., Section 24, SE¼NE¼, NE¼SE¼, and S½SE¼;
+Section 25, W½NE¼, NE¼SW¼, and NW¼SE¼;
+Section 36, lot 1.
 
-Is the project funded by the American Recovery and Reinvestment Act of 2009 (Recovery Act)
-Yes [ ] No [x]
-Approved by Jack Depperschmidt, DOE-ID NEPA Compliance Officer on 01/22/2014</code></pre>
+COC0118339: Qwest Telephone line renewal
+Sixth Principal Meridian
+T. 9 S., R. 101 W., Section 34, Lots 2 and 3.
+Ute Principal Meridian
+T. 2 N., R. 2 W., Section 24, SE¼NE¼, NE¼SE¼, and S½SE¼;
+Section 25, W½NE¼, NE¼SW¼, and NW¼SE¼.
+
+COC36739: Grand Valley Power line, Asbury Compressor Station to rectifier sites
+Sixth Principal Meridian
+T. 9 S., R. 101 W., Section 13, W½SW¼;
+Section 14, SE¼NE¼ and NE¼SE¼;
+Section 23, E½NE¼, NE¼SE¼, and S½SE¼;
+Section 24, NW¼NW¼;
+Section 26, W½NE¼, SE¼NW¼, NE¼SW¼, and S½SW¼;
+Section 34, lot 1;
+Section 35, NW¼NW¼.
+
+APPLICANTS:
+Grand Valley Power, Golden Gate, Qwest
+
+INTRODUCTION:
+The Proposed Action is necessary in order to allow for upgrades to an existing power line and to
+allow for continued access across federal lands managed by the BLM for an existing power line,
+2
+
+water pipeline, and fiber optic line rights-of-way (ROW). The project also provides for the
+continued use and renewal of four expired ROW grants.
+
+DESCRIPTION OF PROPOSED ACTION:
+Grand Valley Power (GVP) requests an upgrade to an overhead power line servicing the Golden
+Gate Petroleum Plant (Co. Fuel) located in the Sixth P.M., T. 9 S., R. 101 W., sec. 34, lot 2
+(COC035141). The upgrade is requested in order to increase the grid power so that Golden Gate
+(natural gas liquids fractionation plant) can discontinue use of their gas generator engines. The
+7.2 kV single-phase line will be upgraded to 7.2/12.5 kV three-phase (9,345 feet wide by 40 feet
+in width). In addition, 4 feet of underground primary line to a ground mounted transformer will
+be within Golden Gate existing plant ROW (COC099642). A total of 28 poles are or will be
+located on BLM. Three new poles are being added and seven poles are being replaced. Starting
+within the ROW on the Xcel Asbury Compressor site, Pole #58 will be cut off and converted to a
+meter pole (27&#39; tall) with a new pole (#58.5) added 10&#39; to the northeast. Poles #56 and #55,
+within the Golden Gate Petroleum ROW, will be replaced and just south of Golden Gate pole
+#54 will be replaced. East of Pole #53, a new pole (#53.5) would be added for an overhead guy
+wire. This pole is located at Lat. 39.230615 and Lon. -108.644646 and will be 35&#39; tall. Farther
+to the southwest, pole #45 will be replaced with a new pole, 40&#39; tall. Pole #44 (Lat. 39.221921
+&amp; Lon.-108.650608) and pole #38 (Lat.39.21549 &amp; Lon.-108.652326) will be replaced with 50&#39;
+poles. Pole #37.5 will be a new pole to shorten an existing span that is too long to meet the
+design standard. Pole #36 will be replaced with a 40&#39; tall pole. Access maps to all the poles are
+on maps in this folder. Equipment required for job: (1) bucket truck, (1) digger truck, (1) pick-
+up truck, (2) trailers (stringing wire materials). No temporary work area is required with all
+overhead work located within a 40&#39; ROW. The job is connected to other work being performed
+on private land to the south and will take 4-5 weeks to complete. This ROW expired 7/18/2012
+and will be renewed.
+
+Three (3) other ROW&#39;s in the immediate area are included in this document for renewal. They
+are as follows: (1) COC0123103, Golden Gate Plant water pipeline. This 2½ inch pipeline
+transports water to the plant from the Highline canal within a 40 foot ROW that parallels the
+GVP line. This pipeline transports approximately 960,000 gallons per year and is in use May
+through September. This ROW expired 10/8/2014 and will be renewed for 30 years. No
+disturbance of ground, only renewal of ROW.
+
+(2) COC0118339, Qwest Corporation d/b/a CenturyLink QC buried telephone cable. This buried
+copper cable parallels the westerly side of 21 Road and then crosses over to the east side and is
+located in a 16 foot ROW. This line concludes at the Golden Gate Plant. This ROW expired
+3/23/2014 and will be renewed for 30 years. No disturbance of ground, only renewal of ROW.
+
+(3) COC036739, Grand Valley Power 7.2 kV single-phase above-ground power line
+commencing at the Asbury Compressor Station traveling northeast and concluding at the Asbury
+8, 10 and 13 rectifier sites within a 20 foot ROW. This ROW expired 8/22/2013 and will be
+renewed for 30 years. No disturbance of ground, only renewal of ROW.
+3
+
+PLAN CONFORMANCE REVIEW:
+The Proposed Action is subject to and has been reviewed for conformance with (43 CFR 1610.5,
+BLM 1617.3) the following plan:
+
+Name of Plan: Grand Junction Field Office Approved Resource Management Plan
+
+Date Approved: August 2015
+
+Decision Number/Page: Page 169
+
+Decision Language: The objective (L&amp;R-OBJ-01) of the GJFO RMP under Public
+Utilities Management is “Provide for the development and operation of transportation
+systems, pipelines, transmission lines, communication sites, renewable energy resources,
+and other land use authorizations in an environmentally responsible and timely manner”.
+
+CATEGORICAL EXCLUSION REVIEW:
+The proposed action qualifies as a categorical exclusion under 516 DM 11.9 E 13: “Amendments
+to existing rights-of-way, such as the upgrading of existing facilities, which entail no additional
+disturbances outside the right-of-way boundary” and E9: “Renewals and assignments of leases,
+permits, or rights-of-way where no additional rights are conveyed beyond those granted by the
+original authorizations&quot;.
+
+EXTRAORDINARY CIRCUMSTANCES
+There are no extraordinary circumstances having effects, which may significantly affect the
+environment. I considered the following resource conditions in determining whether
+extraordinary circumstances related to the proposed action warranted further analysis and
+documentation in an EA or EIS (516 DM 2, Appendix 2):
+
+1. Have significant adverse effects on public health and safety.
+
+The proposed action is not expected to impact public health and safety.
+
+2. Have adverse effects on such natural resources and unique geographic
+characteristics as historic or cultural resources; park, recreation, or refuge lands;
+wilderness areas; wild or scenic rivers; national natural landmarks; sole or
+principal drinking water aquifers; prime farmlands; wetlands, floodplains;
+national monuments; migratory birds; and other ecologically significant or
+critical areas.
+
+HISTORIC AND CULTURAL RESOURCES:
+A records search of the general project area, and a Class III inventory of the Area of
+Potential Effect (APE), as defined in the National Historic Preservation Act (NHPA),
+was completed by Colorado BLM permitted cultural resource contracting firms in the
+following reports: (GJFO CRIR 1085-23, 1080-33, 1183-27a, 1183-27b,
+4
+
+ME.LM.R671, and ME.LM.R900). Conditions of the existing cultural environment
+are incorporated by these references but the following briefly summarizes cultural
+resources in the APE: Four cultural resource sites were rerecorded, or reevaluated as a
+part of a 2015 inventory (5ME4676.8, 5ME4676.9, 5ME12860, and 5ME17562.1).
+Additionally, one new site (5ME21161), one new segment of the Government
+Highline Canal (5ME4676.30) and one new isolated find (5ME21162) were also
+recorded.
+
+The following sites or segments were determined to be eligible or potentially eligible
+for the National Register of Historic Places (NRHP): 5ME4676.8, 5ME4676.9,
+5ME4676.30, and 5ME17562.1. The proposed power line upgrade will not adversely
+impact these historic properties as the features of these properties will be avoided.
+The remaining sites are considered Not Eligible for the NRHP and no further work is
+recommended for them. Additionally, one previously recorded site, 5ME4519, is
+present in the ROW renewal for COC36739. It has been determined to be Officially
+not eligible to the NRHP and no further work is recommended for that site. The
+project inventories and evaluations are in compliance with the NHPA, the Colorado
+State Protocol Agreement, and other federal law, regulation, policy, and guidelines
+regarding cultural resources.
+
+For future ground disturbing activities associated with the renewed ROWs, a condition
+shall be placed on the renewal requiring the holder to notify BLM prior to any surface
+disturbance on the ROWs. The BLM will determine if a cultural resource inventory is
+required. Depending on the results of the inventories, mitigation may be required prior
+to maintenance or other such activities. The attached standard cultural stipulations
+would protect any significant cultural resources in the project areas that may not be
+known to the agency.
+
+SPECIAL DESIGNATIONS: No lands with Special Designations occur in the project
+area.
+
+DRINKING WATER AQUIFERS; WETLANDS, FLOODPLAINS: There will be no
+measurable impact to air quality or climate change because of the Proposed Action.
+
+WATER: The proposed project (COC35141) is located within the Little Salt Wash,
+which is located just west of this segment of the power line. None of the pole
+locations are less than 300 feet from a defined drainage. Standard stipulations will
+protect surface water quality and thus no impacts would occur.
+
+SOILS: Standard stipulations to minimize soil disturbance will ensure that overall soil
+health is maintained and that soil erosion is not increased.
+
+MIGRATORY BIRDS: Wildlife surveys conducted in July, 2015 found two
+Burrowing Owl nests within a quarter mile of the ROW. Work on this project is not
+expected to begin until after August 15, 2015. It is expected, by this time, that young
+Burrowing Owls will have fledged and no impacts will occur as a result of this action.
+5
+
+If construction be postponed beyond March 1, 2016 follow-up surveys will be needed
+to determine nesting status. Other migratory birds likely to occur in the area may be
+temporarily displaced by activities but nests and nesting activities are not expected to
+be impacted due to the timing of the project. The power poles to be replaced should
+utilize the Avian Power Line Interaction Committee&#39;s suggested practices for avian
+protection on power lines, or similar design to minimize the risk of electrocution.
+
+3. Have highly controversial environmental effects or involve unresolved conflicts
+concerning alternative uses of available resources.
+
+The impacts of upgrading an electrical power line and renewing rights-of-way are a
+negligible in the overall area.
+
+4. Have highly uncertain and potentially significant environmental effects or
+involve unique or unknown environmental risks.
+
+Upgrading an existing power line poses no unique or unknown risks to the
+environment.
+
+5. Establish a precedent for future action or represent a decision in principle about
+future actions with potentially significant environmental effects.
+
+This decision is within the scope of the Resource Management Plan and is not
+expected to establish a precedent for future actions.
+
+6. Be directly related to other actions with individually insignificant but
+cumulatively significant environmental effects.
+
+This is a stand-alone project. There are no projects with significant environmental
+impacts known to BLM that would result directly or indirectly from implementation of
+this project.
+
+7. Have adverse effects on properties listed, or eligible for listing, in the National
+Register of Historic Places.
+
+No, the project would have no adverse impacts on special properties.
+
+8. Have adverse effects on species listed, or proposed to be listed, on the List of
+Endangered or Threatened Species, or have adverse effects on designated
+Critical Habitat for these species.
+
+Burrowing Owls (BLM Sensitive) were documented to be nesting along the ROW,
+and are discussed under Migratory Birds above. Additional BLM sensitive species
+observed during biological surveys were White-tailed prairie dog, Brewers Sparrow
+and Longnosed leopard lizard. Habitat for the BLM sensitive Kit fox, spotted bat,
+townsend&#39;s big eared bat, midget faded rattlesnake and milksnake exists in the project
+area. While the proposed action may eliminate or displace some individuals these
+effects will be minimal at the species level. No federally listed fish or wildlife occur
+within the action area. The proposed action is within the watershed of the four
+Colorado River listed fish (Humback chub, Razorback Sucker, Bonytail, and Colorado
+6
+
+Pikeminnow). This action is not expected to impact water quality or quantity for the
+Critical Habitat of the four Colorado River listed fish.
+
+Biologic Surveys were completed for the power line project in June, 2015. While two
+Special Status plant Species were recorded (Eriogonum contortum and Sclerocactus
+glaucus) both were outside of the ROW, and would not be impacted by this project.
+Until the genetic uncertainty of the Sclerocactus is resolved, all Sclerocactus in the
+project area will be treated as the listed species (Sclerocactus glaucus). The
+Sclerocactus was recorded more than 100 meters from the proposed power line
+project, and the Eriogonum contortum was located more than 30 meters away. Due to
+the recorded rare plants being outside of the ROW, and the distance between the
+proposed project and the plants, the proposed project will have no effect on either
+recorded rare plant.
+
+For future ground disturbing activities associated with the renewed ROWs, additional
+biologic surveys may be required prior to maintenance occurring.
+
+9. Have the potential to violate a Federal law, or a State, local or tribal law or
+requirement imposed for the protection of the environment.
+
+This decision complies with other Federal, State, or local laws and requirements
+imposed for the protection of the environment.
+
+10. Have the potential for a disproportionately high and adverse effect on low income
+or minority populations.
+
+The minority and low-income populations of the county are small relative to state-
+wide averages and such populations are dispersed throughout the county. The
+majority of the project is also located away from population centers and private
+residences. Therefore, no minority or low-income populations would suffer
+disproportionately high and adverse effects as a result of the Proposed Action.
+
+11. Restrict access to and ceremonial use of Indian sacred sites by Indian religious
+practitioners or adversely affect the physical integrity of such sacred sites.
+
+The proposed action is not known to physically threaten the integrity of any
+Traditional Cultural Properties, prevent access to sacred sites, prevent the possession
+of sacred objects, or interfere or otherwise hinder the performance of traditional
+ceremonies and rituals pursuant to AIRFA or EO 13007. There are currently no
+known threats to remains that fall within the purview of Native American Graves
+Protection and Repatriation Act or Archaeological Resource Protection Act. Although
+none have been identified, any heretofore unidentified effect of the proposed action to
+Native American Religious Concerns is expected to be negligible in both the short and
+long term.
+
+12. Significantly, contribute to the introduction, continued existence, or spread of
+noxious weeds or non-native invasive species known to occur in the area or
+actions that may promote the introduction, growth, or expansion of the range of
+7
+
+such species.
+This project is designed to minimize disturbance to avoid new infestation of noxious
+weeds. The field office routinely treats weed infestations when they are found,
+therefore we do not expect this project to contribute to invasive species infestation.
+
+INTERDISCIPLINARY REVIEW:
+Name
+Alissa Leavitt-Reynolds
+Title
+Archaeologist
+Area of Responsibility
+Cultural Resources,
+Native American
+Religious Concerns
+
+Anna Lincoln
+
+Ecologist
+
+Special Status Species
+
+Heidi Plank
+
+Wildlife Biologist
+
+Wildlife, Fisheries,
+Special Status Species
+
+Janet Doll
+
+Realty Specialist
+
+Right-of-Way Authorizations
+
+NAME OF PREPARER: Janet Doll
+
+NAME OF ENVIRONMENTAL COORDINATOR: Christina Stark
+
+DATE: 9/4/15
+
+8
+
+Table 1– Potentially Impacted Resources
+
+Resources
+
+PHYSICAL RESOURCES
+Air and Climate
+Water (surface &amp; subsurface, floodplains)
+Soils
+Geological/Mineral Resources
+
+BIOLOGICAL RESOURCES
+Special Status Plants
+Special Status Wildlife
+Migratory Birds
+Other Important Wildlife Habitat
+Vegetation
+Forestry
+Invasive, Non-native Species
+Riparian Zones/ Wetlands
+
+HERITAGE RESOURCES AND HUMAN ENV.
+Cultural or Historical
+Paleontological
+Tribal&amp; American Indian
+Religious Concerns
+Visual Resources
+Social/Economic
+Transportation and Access
+Wastes, Hazardous or Solid
+LAND RESOURCES
+Recreation
+
+Not
+Present On
+Location
+
+Potentially
+Impacted
+
+BLM
+Mitigation Evaluator
+Necessary Initial &amp;
+Date
+
+Comments
+
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+
+PLB
+4/15/15
+PLB
+4/15/15
+PLB
+4/15/15
+DSG
+4/2/15
+
+[ ]
+[ ]
+[ ]
+[ ]
+
+[x]
+[x]
+[x]
+[ ]
+
+[ ]
+[ ]
+[ ]
+[ ]
+
+[ ]
+[ ]
+[ ]
+[ ]
+
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+
+ARL
+7/22/15
+HLP
+4/2/15
+HLP
+4/2/15
+HLP
+4/2/15
+SC 5/5/15
+JAM
+7/27/15
+MT
+3/24/15
+ARL
+3/24/15
+
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+
+[x]
+[ ]
+[ ]
+[ ]
+[x]
+[x]
+[ ]
+[x]
+
+[ ]
+[x]
+[x]
+[x]
+[ ]
+[ ]
+[x]
+[ ]
+
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+
+See text
+See text
+See text
+
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+
+ALR
+4/1/2015
+DSG
+4/2/15
+ALR
+4/1/2015
+AW
+4/23/15
+CS
+4/17/15
+AW
+4/23/15
+AK 4/2/15
+AW
+
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+
+[ ]
+[x]
+[ ]
+[x]
+[x]
+[x]
+[x]
+[x]
+
+[x]
+[ ]
+[x]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+
+See text
+See text
+
+9
+
+Table 1– Potentially Impacted Resources
+
+Resources
+
+Not
+Present On
+Location
+
+Potentially
+Impacted
+
+BLM
+Mitigation Evaluator
+Necessary Initial &amp;
+Date
+
+Comments
+
+4/23/15
+AW
+4/23/15
+AW
+4/23/15
+SC 5/5/15
+JD 5/5/15
+JP 4/6/15
+
+Special Designations (ACEC, SMAS,
+WSR)
+Wilderness &amp; Wilderness
+Characteristics
+Range Management
+Wild Horse and Burros
+Land Tenure, ROW, Other Uses
+Fire/Fuels
+
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+Y [ ] N [ ]
+
+[x]
+[x]
+[ ]
+[x]
+[ ]
+[ ]
+
+[ ]
+[ ]
+[x]
+[ ]
+[x]
+[x]
+
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+[ ]
+
+10
+
+UNITED STATES
+DEPARTMENT OF THE INTERIOR
+BUREAU OF LAND MANAGEMENT
+GRAND JUNCTION FIELD OFFICE
+
+DECISION DOCUMENT
+
+Amendment to Grand Valley Power Line and Renewal of Adjacent Rights-of-Way
+DOI-BLM-CO-NO30-2015-0019-CX
+
+DECISION:
+I have reviewed this document and it is my decision to implement the Proposed Action, as
+mitigated in DOI-BLM-CO-N0300-2015-0019-CX, authorizing an the renewal and amendment
+to upgrade a power line (COC35141), as well as renewing three existing rights-of-way to Grand
+Valley Power, Colorado Fuel Manufacturers Inc., and Qwest Corporation. This project is
+categorically excluded from documentation in an EA or EIS under 516 DM 11.9 E 13:
+“Amendments to existing rights-of-way, such as the upgrading of existing facilities, which entail
+no additional disturbances outside the right-of-way boundary” and E 9: “Renewals and
+assignments of leases, permits, or rights-of-way where no additional rights are conveyed beyond
+those granted by the original authorizations”.
+
+RATIONALE:
+This action is listed in the Department Handbook H-1790-1 as an action that may be
+categorically excluded. I have evaluated the action relative to the 12 criteria listed above and
+have determined that no extraordinary circumstances exist.
+
+Grand Valley Power is upgrading this line from 7.2kv to 7.2/12.5kv to increase the grid power to
+serve the Colorado Fuel Manufacturers Plant.
+
+PUBLIC INVOLVEMENT:
+Public scoping was conducted by posting the project information on the Grand Junction Field
+Office NEPA website, this was the primary mechanism used by the BLM to initially identify
+issues from the public. Internal scoping for the project included presentation and discussion of
+the project at BLM interdisciplinary team meetings
+
+ADMINISTRATIVE REMEDIES:
+Administrative remedies may be available to those who believe they will be adversely affected by
+this decision. Appeals may be made to the Office of Hearings and Appeals, Office of the Secretary,
+U.S. Department of Interior, Board of Land Appeals (Board) in strict compliance with the regulations
+in 43 CFR Part 4. Notices of appeal must be filed in this office within 30 days after publication of
+this decision. If a notice of appeal does not include a statement of reasons, such statement must be
+filed with this office and the Board within 30 days after the notice of appeal is filed. The notice of
+appeal and any statement of reasons, written arguments, or briefs must also be served upon the
+Regional Solicitor, Rocky Mountain Region, 755 Parfet Street, Suite 151, Lakewood, Colorado
+80215.)
+1
+
+Katie A. Stevens
+Field Manager
+Grand Junction Field Office
+
+ATTACHMENTS: Exhibit A: Project Maps (4).
+Exhibit B: Stipulations
+
+9-4-15
+Date
+
+2
+
+Exhibit A-1
+Amend and Renew COC 35141
+Grand Valley Power Electric Line
+
+26
+C
+4800-
+
+26
+23
+14
+45
+
+2N 2W
+9,345 Foot ROW
+HIGHLINE
+GANAL
+Pole: 38, 44, 53
+COC35141
+No warranty is made by the
+Bureau of Land Management
+as to the accuracy, reliability,
+or completeness of these data
+for individual use or aggregation
+use with other data.
+1:24,000
+LANDS
+1.3. DEPARTMENT OF THE INTERIOR
+AU OF LAND MANA
+4752
+00
+Little
+36
+24
+25
+4788
+13
+27
+4900-
+4820
+Salt
+4845
+836
+34
+Wash
+4900
+9S 101W
+35
+S
+PIPELINE
+03
+02
+26
+26
+26
+01
+4046
+10S 101W
+Creek
+11
+12
+N
+0
+1,250
+2,500
++
+Feet
+5,000
+3
+Grand Junction Field Office
+Utah
+C.O.
+5000
+
+Exhibit A-2
+Renew COC 0123103
+Golden Gate Water Pipeline
+
+23
+008
+26
+006
+
+2N 2W
+HIGHLINE
+CANAL
+35
+No warranty is made by the
+Bureau of Land Management
+as to the accuracy, reliability,
+or completeness of these data
+for individual use or aggregation
+use with other data.
+COC0123103
+4750
+24
+1945ء
+Satt
+9,349 FT
+4845
+Little
+25
+4786
+1,600 FT
+4820
+830
+27
+4916
+4900/9S 101W
+34
+26
+35
+PIPELINE
+03
+02
+Greek
+4748
+1:24,000
+0
+1,320
+2,640
+Feet
+5,280
+This map was produced by the BLM Grand Junction Field Office July, 2015
+4
+N
+10S 101W
+17
+Garfield Co
+Mesa Co
+Utah CO
+4846
+70
+Delta Co
+Location of the Project in the Grand Junction Field Office
+
+Exhibit A-3
+COC 0118339 QWest Telephone Line Renewal
+
+INE
+35
+27
+14
+26
+13
+25
+9S 101W
+34
+35
+23
+24
+36
+9,480 Foot ROW
+21.00
+2N 2W
+T9S
+T 10 S
+26
+Little
+A
+A
+03
+02
+25 Point of Crossing Over
+01
+Road
+No warranty is made by the
+Bureau of Land Management
+as to the accuracy, reliability,
+or completeness of these data
+for individual use or aggregation
+use with other data.
+1:24,000
+US. DEPARTMENT OF THE INTERIOR
+108°39&#39;11.51&quot;W, 39°12′49.52&quot;N
+36
+36
+0
+1,250
+R2W
+R 101 W
+COC 0118339
+2,500
+Feet
+5
+SPECIAL
+10S 101W/
+Creek
+17
+N
+5,000 A
+12
+Grand Junction Field Office
+Utah
+C.O.
+
+Exhibit A-4
+Renew COC 36739 Grand Valley Powerline
+
+2N
+15
+14
+01
+12
+2N 2W
+R2W
+R 101 W
+22
+23
+Asbury #8
+R
+Salt
+9S 101W
+12
+07
+Asbury #10
+R
+21.00
+18
+13
+R
+Asbury #13
+1556
+24
+19
+9S 100W
+27
+26
+20,000 Foot ROW
+25
+13
+30
+34
+35
+24
+No warranty is made by the
+Bureau of Land Management
+as to the accuracy, reliability,
+or completeness of these data
+for individual use or aggregation
+use with other data.
+1:24,000
+36
+31
+COC 36739
+R
+Rectifier
+N
+0
+1,250 2,500
++
+Feet
+5,000
+6
+Grand Junction Field Office
+Utah
+C.O.
+
+STANDARD STIPULATIONS
+Exhibit B
+1.
+Any cultural and/or paleontological resource (historic or prehistoric site or object)
+discovered by the holder, or any person working on his behalf, on public or Federal land
+shall be immediately reported to the authorized officer. Holder shall suspend all
+operations in the immediate area of such discovery until written authorization to proceed
+is issued by the authorized officer. An evaluation of the discovery will be made by the
+authorized officer to determine appropriate actions to prevent the loss of significant
+cultural or scientific values. The holder will be responsible for the cost of evaluation and
+any decision as to proper mitigation measures will be made by the authorized officer after
+consulting with the holder.
+2.
+Pursuant to 43 CFR 10.4(g) the holder of this authorization must notify the authorized
+officer, by telephone, with written confirmation, immediately upon the discovery of
+human remains, funerary items, sacred objects, or objects of cultural patrimony. Further,
+pursuant to 43 CFR 10.4(c) and (d), you must stop activities in the vicinity of the
+discovery and protect it for 30 days or until notified to proceed by the authorized officer.
+3.
+The operator or its contractor is responsible for informing all persons who are associated
+with the project operations that they will be subject to prosecution for knowingly
+disturbing historic or archaeological sites or for collecting artifacts. If historic or
+archaeological materials are uncovered during any project or construction activity, the
+operator must stop work in the area of the discovery that might further disturb such
+materials and immediately contact the Administrative Officer. Within five working days,
+the AO will inform the operator as to the mitigation measures the operator will likely
+have to undertake before the site can be used (assuming in-place preservation is not
+necessary).
+4.
+The holder shall notify the AO at least 60 days prior to non-emergency activities that
+would cause surface disturbance in the ROW or TUP. BLM will determine whether any
+special resource (cultural, plants, animal, etc.) inventories, treatments, or mitigation are
+required. The authorized officer may require the completion of a special status species
+surveys by a third party contractor at the expense of the holder, or the BLM may choose
+to complete the survey. The BLM may take actions or make recommendations to protect
+any special status plant populations identified near or on the right-of-way.
+5.
+A &quot;Notice to Proceed&quot; stipulation shall be required for any non-emergency activities as
+defined above that would cause surface disturbance on the ROW. Any request for a
+&quot;Notice to Proceed&quot; should be made to the AO, who shall review the proposed action for
+consistency with resource management concerns such as wildlife, big game winter range,
+paleontology, threatened and endangered species, and cultural resource protection.
+Additional measures may be required to protect these resources.
+6.
+On the Right-of-Way, the holder shall monitor and control those noxious weeds that may
+occur or be found, as listed in the booklet, Noxious Weeds of Mesa County. If chemical
+control is necessary, use of pesticides shall comply with the applicable Federal and State
+7
+
+Exhibit B
+laws. Pesticides shall be used only in accordance with their registered uses and within
+limitations imposed by the Secretary of the Interior. Prior to the use of pesticides, the
+holder shall obtain from the authorized officer written approval of a plan showing the
+type and quantity of material to be used, the pest(s) to be controlled, method of
+application, location of storage and disposal of containers, and any other information
+deemed necessary by the authorized officer. Emergency use of pesticides shall be
+approved in writing by the authorized officer prior to such use.
+7.
+The holder shall comply with all applicable Federal laws and regulations existing or
+hereafter enacted or promulgated. In any event, the holder shall comply with the Toxic
+Substances Control Act of 1976, as amended (15 U.S.C. 2601 et seq.) with regard to any
+toxic substances that are used, generated by or stored on the right-of-way or on facilities
+authorized under this right-of-way grant (see 40 CFR, Part 702-799 and especially,
+provisions on polychlorinated biphenyls, 40 CFR 761.1-761.193). Additionally, any
+release of toxic substances (leaks, spills, etc.) in excess of the reportable quantity
+established by 40 CFR, Part 117 shall be reported as required by the Comprehensive
+Environmental Response, Compensation and Liability Act of 1980, Section 102b. A
+copy of any report required or requested by any Federal agency or State government as a
+result of a reportable release or spill of any toxic substances shall be furnished to the
+authorized officer concurrent with the filing of the reports to the involved Federal agency
+or State government.
+8.
+The holder shall comply with applicable State standards for public health and safety,
+environmental protection and siting, construction, operation and maintenance, if these
+State standards are more stringent than Federal standards for similar projects.
+9.
+The holder shall conduct all activities associated with the construction, operation, and
+termination of the right-of-way within the authorized limits of the ROW.
+10.
+Burrowing Owl Burrows and Nest Sites. The holder shall conduct all activities associated
+with the construction between August 15 and March 1, to avoid impacts to nesting
+Burrowing Owls in the area. Work between March 1 and August 15 will require further
+biological surveys and should be coordinated with the GJFO Wildlife Biologists, Heidi
+Plank (970-244-3012).
+11.
+Power poles should be constructed utilizing the Avian Power Line Interaction
+Committee&#39;s suggested practices for avian protection on power lines (APLIC, 2006) or
+similar design to minimize the risk of electrocution.
+12.
+Special Storm Water Management Measures shall be required where an Authorized
+Officer determines that riparian zones or wetlands will be affected by maintenance
+activities and protections are needed to minimize impacts to resources.
+8</code></pre>
 </div>
 </div>
 </section>

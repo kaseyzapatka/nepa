@@ -51,8 +51,8 @@ make_samples <- function(
 
 # ---- Inputs ----
 # Set these to the run you want to send to clients
-run_path <- "data/analysis/test20_workers.parquet"
-json_col <- "llm_dates_json"
+run_path <- "data/analysis/test50_bert_v8.parquet"
+json_col <- "bert_dates_json"
 model_label <- "llm"
 
 samples <- make_samples(run_path, json_col, model_label, n_per_class = 5)

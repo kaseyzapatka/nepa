@@ -1,8 +1,8 @@
 # --------------------------
 # DELIVERABLE 3: TIMELINE ANALYSIS
 # --------------------------
-# Preliminary analysis of project timelines
-# Note: Timeline data extraction is in development - results are preliminary
+# BERT-based timeline extraction for clean energy CE projects
+# Full run: data/analysis/projects_timeline_bert.parquet
 
 # --------------------------
 # SETUP
@@ -11,310 +11,299 @@
 source(here::here("code", "deliverable3", "00_setup.R"))
 
 # --------------------------
-# LOAD TIMELINE DATA
+# LOAD BERT TIMELINE DATA
 # --------------------------
 
-timeline_path <- here("data", "analysis", "projects_timeline.parquet")
+bert_timeline_path <- here("data", "analysis", "projects_timeline_bert.parquet")
+cat("Loading BERT timeline data from:", bert_timeline_path, "\n")
+timeline <- read_parquet(bert_timeline_path)
+cat("Projects loaded:", nrow(timeline), "\n\n")
 
-if (!file.exists(timeline_path)) {
-  cat("WARNING: Timeline data not found at:", timeline_path, "\n")
-  cat("Run: python code/extract/extract_timeline.py --run\n")
-  cat("Creating placeholder outputs...\n\n")
-
-  # Create placeholder outputs
-  placeholder_msg <- "Timeline extraction pending"
-
-} else {
-  cat("Loading timeline data from:", timeline_path, "\n")
-  timeline <- read_parquet(timeline_path)
-  cat("Projects loaded:", nrow(timeline), "\n\n")
-}
-
-# --------------------------
-# DATA QUALITY SUMMARY
-# --------------------------
-
-cat("=== Timeline Data Quality Summary ===\n\n")
-
-if (exists("timeline")) {
-  # Calculate data quality metrics
-  n_total <- nrow(timeline)
-  n_has_dates <- sum(!is.na(timeline$project_date_earliest))
-  n_has_year <- sum(!is.na(timeline$project_year))
-  n_has_duration <- sum(!is.na(timeline$project_duration_days))
-
-  # Outlier detection
-  n_duration_5yr <- sum(timeline$project_duration_days > 365 * 5, na.rm = TRUE)
-  n_duration_10yr <- sum(timeline$project_duration_days > 365 * 10, na.rm = TRUE)
-  n_needs_review <- sum(timeline$project_timeline_needs_review == TRUE, na.rm = TRUE)
-
-  cat("Total projects:", n_total, "\n")
-  cat("Projects with dates extracted:", n_has_dates,
-      sprintf("(%.1f%%)", 100 * n_has_dates / n_total), "\n")
-  cat("Projects with year assigned:", n_has_year,
-      sprintf("(%.1f%%)", 100 * n_has_year / n_total), "\n")
-  cat("Projects with duration calculated:", n_has_duration,
-      sprintf("(%.1f%%)", 100 * n_has_duration / n_total), "\n\n")
-
-  cat("Outlier analysis:\n")
-  cat("  Duration > 5 years:", n_duration_5yr,
-      sprintf("(%.1f%%)", 100 * n_duration_5yr / n_has_duration), "\n")
-  cat("  Duration > 10 years:", n_duration_10yr,
-      sprintf("(%.1f%%)", 100 * n_duration_10yr / n_has_duration), "\n")
-  cat("  Flagged for review:", n_needs_review,
-      sprintf("(%.1f%%)", 100 * n_needs_review / n_total), "\n\n")
-
-  # Duration statistics
-  if (n_has_duration > 0) {
-    dur_stats <- timeline %>%
-      filter(!is.na(project_duration_days)) %>%
-      summarise(
-        mean_days = mean(project_duration_days),
-        median_days = median(project_duration_days),
-        min_days = min(project_duration_days),
-        max_days = max(project_duration_days),
-        sd_days = sd(project_duration_days)
-      )
-
-    cat("Duration statistics (days):\n")
-    cat("  Mean:", round(dur_stats$mean_days), "\n")
-    cat("  Median:", round(dur_stats$median_days), "\n")
-    cat("  Min:", round(dur_stats$min_days), "\n")
-    cat("  Max:", round(dur_stats$max_days), "\n")
-    cat("  Std Dev:", round(dur_stats$sd_days), "\n\n")
-  }
-}
+# Derive year from decision date (or inferred application date as fallback)
+timeline <- timeline %>%
+  mutate(
+    bert_decision_date = as.Date(bert_decision_date),
+    bert_application_date = as.Date(bert_application_date),
+    bert_inferred_application_date = as.Date(bert_inferred_application_date),
+    bert_earliest_review_date = as.Date(bert_earliest_review_date),
+    # Year from decision date
+    bert_year = as.integer(format(bert_decision_date, "%Y")),
+    # Duration: decision minus best available start date
+    bert_start_date = coalesce(bert_application_date, bert_inferred_application_date),
+    bert_duration_days = as.numeric(bert_decision_date - bert_start_date)
+  ) |> 
+  glimpse()
 
 # --------------------------
-# FIGURE 1: PROJECT COUNTS BY YEAR (FACETED BY PROCESS TYPE)
+# TABLE 1: EXTRACTION COVERAGE SUMMARY
 # --------------------------
 
-cat("Creating Figure 1: Project Counts by Year (faceted by process type)...\n")
+cat("=== BERT Extraction Coverage ===\n\n")
 
-if (exists("timeline") && n_has_year > 0) {
+n_total <- nrow(timeline)
+n_has_decision <- sum(!is.na(timeline$bert_decision_date))
+n_has_app <- sum(!is.na(timeline$bert_application_date))
+n_has_inferred_app <- sum(!is.na(timeline$bert_inferred_application_date))
+n_has_review <- sum(timeline$bert_n_review_dates > 0)
+n_has_any_start <- sum(!is.na(timeline$bert_start_date))
+n_has_duration <- sum(!is.na(timeline$bert_duration_days) & timeline$bert_duration_days >= 0)
+n_errors <- sum(!is.na(timeline$bert_error))
 
-  # Prepare data - count by year AND process_type
-  year_counts <- timeline %>%
-    filter(!is.na(project_year)) %>%
-    mutate(project_year = as.integer(project_year)) %>%
-    filter(project_year >= 2000, project_year <= 2025) %>%
-    count(project_year, process_type, name = "n_projects") %>%
-    # Ensure all process types have factor levels for consistent faceting
-    mutate(process_type = factor(process_type, levels = c("EA", "EIS", "CE")))
+coverage_table <- tibble(
+  Metric = c(
+    "Total CE clean energy projects",
+    "Decision date found",
+    "Explicit initiation date found",
+    "Inferred initiation (earliest review as proxy)",
+    "Any start date (explicit or inferred)",
+    "Review dates found (at least one)",
+    "Duration calculable (decision + start, >= 0 days)",
+    "Errors (no dates extracted)"
+  ),
+  Count = c(n_total, n_has_decision, n_has_app, n_has_inferred_app,
+            n_has_any_start, n_has_review, n_has_duration, n_errors),
+  Percent = sprintf("%.1f%%", 100 * Count / n_total)
+)
 
-  # Create figure with facets stacked vertically
-  fig1 <- ggplot(year_counts, aes(x = project_year, y = n_projects)) +
-    geom_col(fill = catf_dark_blue, alpha = 0.8) +
-    geom_text(aes(label = scales::comma(n_projects)), vjust = -0.5, size = 2.5, color = "gray30") +
-    scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.2)), labels = scales::comma) +
-    facet_wrap(~ process_type, ncol = 1, scales = "free_y") +
-    labs(
-      title = "NEPA Projects by Year and Process Type",
-      subtitle = sprintf("Preliminary data | %s projects with year assigned | %d%% flagged for review",
-                         scales::comma(n_has_year), round(100 * n_needs_review / n_total)),
-      x = "Project Year",
-      y = "Number of Projects",
-      caption = "Note: Year derived from decision date or latest date in documents.\nData quality under review - results are preliminary."
-    ) +
-    theme_catf() +
-    theme(
-      strip.text = element_text(size = rel(1.1), face = "bold"),
-      panel.spacing = unit(1, "lines")
-    )
+print(coverage_table)
 
-  # Save figure - larger height for stacked facets
-  fig1_path <- here(figures_dir, "03_projects_by_year.png")
-  ggsave(fig1_path, fig1, width = 12, height = 10, dpi = 300)
-  cat("  Saved:", fig1_path, "\n")
-
-  print(fig1)
-
-} else {
-  cat("  Skipped: No year data available\n")
-}
+# Save table
+coverage_path <- here(tables_dir, "03_bert_coverage.csv")
+write_csv(coverage_table, coverage_path)
+cat("\nSaved:", coverage_path, "\n")
 
 # --------------------------
-# FIGURE 2: DURATION DISTRIBUTION
+# FIGURE: DATE COUNT DISTRIBUTION PER PROJECT
 # --------------------------
 
-cat("\nCreating Figure 2: Duration Distribution...\n")
+cat("\nCreating Figure: Date count distribution per project...\n")
 
-if (exists("timeline") && n_has_duration > 0) {
+date_dist <- timeline %>%
+  mutate(
+    n_dates_bin = case_when(
+      bert_n_dates_found == 0 ~ "0",
+      bert_n_dates_found == 1 ~ "1",
+      bert_n_dates_found == 2 ~ "2",
+      bert_n_dates_found == 3 ~ "3",
+      bert_n_dates_found <= 5 ~ "4-5",
+      bert_n_dates_found <= 10 ~ "6-10",
+      TRUE ~ "11+"
+    ),
+    n_dates_bin = factor(n_dates_bin,
+                         levels = c("0", "1", "2", "3", "4-5", "6-10", "11+"))
+  ) %>%
+  count(n_dates_bin, name = "n") %>%
+  mutate(pct = 100 * n / sum(n))
 
-  # Prepare data - convert to years for readability
-  duration_data <- timeline %>%
-    filter(!is.na(project_duration_days)) %>%
-    mutate(
-      duration_years = project_duration_days / 365,
-      duration_category = case_when(
-        duration_years <= 1 ~ "≤1 year",
-        duration_years <= 2 ~ "1-2 years",
-        duration_years <= 5 ~ "2-5 years",
-        duration_years <= 10 ~ "5-10 years",
-        TRUE ~ ">10 years"
-      ),
-      duration_category = factor(duration_category,
-                                  levels = c("≤1 year", "1-2 years", "2-5 years",
-                                            "5-10 years", ">10 years"))
-    )
+fig_date_dist <- ggplot(date_dist, aes(x = n_dates_bin, y = n)) +
+  geom_col(fill = catf_dark_blue, alpha = 0.8) +
+  geom_text(aes(label = sprintf("%s\n(%.0f%%)", scales::comma(n), pct)),
+            vjust = -0.3, size = 3, color = "gray30") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2)), labels = scales::comma) +
+  labs(
+    title = "Number of Dates Extracted per Project",
+    subtitle = sprintf("%s CE clean energy projects | BERT classifier",
+                       scales::comma(n_total)),
+    x = "Dates extracted per project",
+    y = "Number of projects"
+  ) +
+  theme_catf()
 
-  # Summary by category
-  duration_summary <- duration_data %>%
-    count(duration_category, name = "n") %>%
-    mutate(pct = 100 * n / sum(n))
+fig_date_dist
 
-  # Create figure - bar chart of duration categories
-  fig2 <- ggplot(duration_summary, aes(x = duration_category, y = n)) +
-    geom_col(fill = catf_blue, alpha = 0.8) +
-    geom_text(aes(label = sprintf("%d\n(%.0f%%)", n, pct)),
-              vjust = -0.3, size = 3, color = "gray30") +
-    scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
-    labs(
-      title = "Distribution of Project Duration",
-      subtitle = sprintf("Preliminary data | %d projects | High outlier rate indicates data quality issues",
-                         n_has_duration),
-      x = "Project Duration",
-      y = "Number of Projects",
-      caption = "Note: Duration = latest date - earliest date in documents.\nDurations >5 years likely include false positive dates (citations, references)."
-    ) +
-    theme_catf() +
-    theme(axis.text.x = element_text(angle = 0, hjust = 0.5))
+fig_date_dist_path <- here(figures_dir, "03_bert_date_distribution.png")
+ggsave(fig_date_dist_path, fig_date_dist, width = 8, height = 6, dpi = 300)
+cat("  Saved:", fig_date_dist_path, "\n")
+print(fig_date_dist)
 
-  # Save figure
-  fig2_path <- here(figures_dir, "03_duration_distribution.png")
-  ggsave(fig2_path, fig2, width = 8, height = 6, dpi = 300)
-  cat("  Saved:", fig2_path, "\n")
-
-  print(fig2)
-
-  # Print summary table
-  cat("\nDuration category summary:\n")
-  print(duration_summary)
-
-} else {
-  cat("  Skipped: No duration data available\n")
-}
+# Save underlying table
+write_csv(date_dist, here(tables_dir, "03_bert_date_distribution.csv"))
 
 # --------------------------
-# FIGURE 3: DURATION BOXPLOT BY PROCESS TYPE
+# FIGURE: CE PROJECTS BY DECISION YEAR
 # --------------------------
 
-cat("\nCreating Figure 3: Duration Boxplot by Process Type...\n")
+cat("\nCreating Figure: CE projects by decision year...\n")
 
-if (exists("timeline") && n_has_duration > 0) {
+year_counts <- timeline %>%
+  filter(!is.na(bert_year)) %>%
+  filter(bert_year >= 2000, bert_year <= 2025) %>%
+  count(bert_year, name = "n_projects")
 
-  # Prepare data - convert to years for readability
-  boxplot_data <- timeline %>%
-    filter(!is.na(project_duration_days)) %>%
-    mutate(
-      duration_years = project_duration_days / 365,
-      process_type = factor(process_type, levels = c("EA", "EIS", "CE"))
-    )
+fig_by_year <- ggplot(year_counts, aes(x = bert_year, y = n_projects)) +
+  geom_col(fill = catf_dark_blue, alpha = 0.8) +
+  geom_text(aes(label = scales::comma(n_projects)), vjust = -0.5, size = 2.5, color = "gray30") +
+  scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15)), labels = scales::comma) +
+  labs(
+    title = "CE Clean Energy Projects by Decision Year",
+    subtitle = sprintf("%s projects with decision date | BERT classifier",
+                       scales::comma(sum(year_counts$n_projects))),
+    x = "Decision Year",
+    y = "Number of Projects",
+    caption = "Year derived from BERT-classified decision date (signature/approval)."
+  ) +
+  theme_catf()
 
-  # Calculate summary stats for annotation
-  duration_stats <- boxplot_data %>%
-    group_by(process_type) %>%
-    summarise(
-      n = n(),
-      median_years = median(duration_years),
-      mean_years = mean(duration_years),
-      .groups = "drop"
-    )
+fig_by_year
 
-  # Create boxplot
-  fig3 <- ggplot(boxplot_data, aes(x = process_type, y = duration_years, fill = process_type)) +
-    geom_boxplot(alpha = 0.7, outlier.alpha = 0.3, outlier.size = 1) +
-    geom_text(
-      data = duration_stats,
-      aes(x = process_type, y = -1, label = sprintf("n = %s", scales::comma(n))),
-      size = 3, color = "gray40", vjust = 1
-    ) +
-    scale_fill_manual(values = c("EA" = catf_dark_blue, "EIS" = catf_blue, "CE" = catf_teal)) +
-    scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0.1, 0.05))) +
-    coord_cartesian(ylim = c(-2, max(boxplot_data$duration_years) * 1.05)) +
-    labs(
-      title = "Project Duration by Process Type",
-      subtitle = sprintf("Preliminary data | %s projects | Outliers indicate data quality issues",
-                         scales::comma(n_has_duration)),
-      x = "Process Type",
-      y = "Duration (Years)",
-      caption = "Note: Duration = latest date - earliest date in documents.\nLong durations likely include false positive dates from citations/references."
-    ) +
-    theme_catf() +
-    theme(legend.position = "none")
+fig_by_year_path <- here(figures_dir, "03_projects_by_year.png")
+ggsave(fig_by_year_path, fig_by_year, width = 10, height = 6, dpi = 300)
+cat("  Saved:", fig_by_year_path, "\n")
+print(fig_by_year)
 
-  # Save figure
-  fig3_path <- here(figures_dir, "03_duration_boxplot.png")
-  ggsave(fig3_path, fig3, width = 8, height = 7, dpi = 300)
-  cat("  Saved:", fig3_path, "\n")
-
-  print(fig3)
-
-  # Print duration stats by process type
-  cat("\nDuration statistics by process type (years):\n")
-  print(duration_stats)
-
-} else {
-  cat("  Skipped: No duration data available\n")
-}
+# Save underlying table
+write_csv(year_counts, here(tables_dir, "03_year_by_process_type.csv"))
 
 # --------------------------
-# TABLE: YEAR BY PROCESS TYPE
+# FIGURE: EXTRACTION COVERAGE BREAKDOWN
 # --------------------------
 
-cat("\nCreating Table: Projects by Year and Process Type...\n")
+cat("\nCreating Figure: Extraction coverage breakdown...\n")
 
-if (exists("timeline") && n_has_year > 0) {
+coverage_bars <- tibble(
+  category = c("Decision date", "Explicit initiation", "Inferred initiation",
+                "Any start date", "Review dates"),
+  count = c(n_has_decision, n_has_app, n_has_inferred_app,
+            n_has_any_start, n_has_review),
+  pct = 100 * count / n_total
+) %>%
+  mutate(category = factor(category, levels = rev(category))) |> 
+  filter(category != "Inferred initiation") |> 
+  glimpse()
 
-  table_year_process <- timeline %>%
-    filter(!is.na(project_year)) %>%
-    mutate(project_year = as.integer(project_year)) %>%
-    filter(project_year >= 2010, project_year <= 2025) %>%
-    count(project_year, process_type) %>%
-    pivot_wider(names_from = process_type, values_from = n, values_fill = 0) %>%
-    mutate(Total = rowSums(select(., -project_year), na.rm = TRUE)) %>%
-    arrange(desc(project_year))
+fig_coverage <- ggplot(coverage_bars, aes(x = category, y = pct)) +
+  geom_col(fill = catf_blue, alpha = 0.8) +
+  geom_text(aes(label = sprintf("%.0f%%\n(%s)", pct, scales::comma(count))),
+            hjust = -0.1, size = 3, color = "gray30") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.3)), limits = c(0, 100)) +
+  coord_flip() +
+  labs(
+    title = "Timeline Extraction Coverage",
+    subtitle = sprintf("%s CE clean energy projects | BERT classifier",
+                       scales::comma(n_total)),
+    x = NULL,
+    y = "Percent of total projects (20,863)"
+  ) +
+  theme_catf()
 
-  # Add totals row
-  totals <- table_year_process %>%
-    summarise(across(where(is.numeric), sum)) %>%
-    mutate(project_year = NA_integer_)
+fig_coverage
 
-  table_year_process <- bind_rows(table_year_process, totals) %>%
-    mutate(project_year = ifelse(is.na(project_year), "Total", as.character(project_year)))
-
-  cat("\nProjects by Year and Process Type:\n")
-  print(table_year_process)
-
-  # Save table
-  table_path <- here(tables_dir, "03_year_by_process_type.csv")
-  write_csv(table_year_process, table_path)
-  cat("\nSaved:", table_path, "\n")
-
-} else {
-  cat("  Skipped: No year data available\n")
-}
+fig_coverage_path <- here(figures_dir, "03_bert_coverage.png")
+ggsave(fig_coverage_path, fig_coverage, width = 9, height = 5, dpi = 300)
+cat("  Saved:", fig_coverage_path, "\n")
+print(fig_coverage)
 
 # --------------------------
 # SUMMARY
 # --------------------------
 
 cat("\n=== Timeline Analysis Summary ===\n\n")
-
-cat("DATA QUALITY CONCERNS:\n")
-cat("1. High outlier rate:", sprintf("%.0f%%", 100 * n_duration_5yr / n_has_duration),
-    "of projects show duration >5 years\n")
-cat("2. Review flags:", sprintf("%.0f%%", 100 * n_needs_review / n_total),
-    "of projects flagged for manual review\n")
-cat("3. Sample size: Current data is from test extraction, not full dataset\n\n")
-
-cat("NEXT STEPS FOR IMPROVING TIMELINE DATA:\n")
-cat("1. Run full timeline extraction on all projects (EA, EIS, CE)\n")
-cat("2. Apply improved citation/reference filtering (already implemented)\n")
-cat("3. Consider QA-based extraction for decision dates\n")
-cat("4. Validate sample of flagged projects manually\n")
-cat("5. Filter to projects with reliable dates for final analysis\n\n")
+cat("Decision date coverage:", sprintf("%.0f%%", 100 * n_has_decision / n_total), "\n")
+cat("Explicit initiation coverage:", sprintf("%.0f%%", 100 * n_has_app / n_total), "\n")
+cat("Inferred initiation coverage:", sprintf("%.0f%%", 100 * n_has_inferred_app / n_total), "\n")
+cat("Duration calculable:", sprintf("%.0f%%", 100 * n_has_duration / n_total), "\n")
+cat("Median dates per project:", median(timeline$bert_n_dates_found), "\n\n")
 
 cat("Files saved to:", figures_dir, "\n")
 cat("Tables saved to:", tables_dir, "\n")
+
+# --------------------------
+# BERT TIMELINE EXAMPLES (for client review)
+# --------------------------
+# Source: code/exploratory/timeline/01_compare_decisions.R
+# Shows 6 curated project examples from BERT v8 classification
+
+cat("\n=== BERT Timeline Examples ===\n\n")
+
+# --- helpers (JSON parsing) ---
+
+safe_fromJSON <- function(x) {
+  tryCatch(fromJSON(x, flatten = TRUE), error = function(e) NULL)
+}
+
+normalize_parsed <- function(x) {
+  if (is.null(x)) return(NULL)
+  if (is.data.frame(x)) return(as_tibble(x))
+  if (is.list(x)) {
+    if (!is.null(names(x)) && length(names(x)) > 0) {
+      return(as_tibble(x))
+    }
+    return(bind_rows(lapply(x, as_tibble)))
+  }
+  NULL
+}
+
+extract_contexts <- function(df, json_col, model_label) {
+  df %>%
+    mutate(parsed = map(.data[[json_col]], safe_fromJSON)) %>%
+    mutate(parsed = map(parsed, normalize_parsed)) %>%
+    select(project_id, project_title, lead_agency, parsed) %>%
+    unnest(parsed) %>%
+    mutate(model = model_label) %>%
+    select(project_id, project_title, lead_agency, model, type, date, source, confidence, everything())
+}
+
+# --- load BERT v8 results ---
+
+bert_path <- here("data", "analysis", "test50_bert_v8.parquet")
+bert <- read_parquet(bert_path)
+bert_ctx <- extract_contexts(bert, "bert_dates_json", "bert")
+
+cat("BERT v8 results loaded:", nrow(bert), "projects,",
+    nrow(bert_ctx), "date contexts\n\n")
+
+# --- curated project examples ---
+
+example_ids <- c(
+  "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0",
+  "46f4da85-af1c-0e66-a706-9a7292dd9689",
+  "824ba268-8ddf-a34f-f9a7-625e7727c242",
+  "f2812da0-16c5-fbd1-9e16-10bf8e67c514",
+  "dec68c6f-da24-f178-7bf9-30dcd886fb12",
+  "5c512493-33a9-ff2c-5f13-3a8d55464b93"
+)
+
+examples_list <- list()
+
+for (i in seq_along(example_ids)) {
+  ex <- bert_ctx %>%
+    filter(project_id == example_ids[i]) %>%
+    select(project_title, type, date, source) %>%
+    arrange(date) %>%
+    mutate(example = i)
+
+  examples_list[[i]] <- ex
+
+  cat(sprintf("Example %d (%s): %d date contexts\n",
+              i, example_ids[i], nrow(ex)))
+}
+
+# Combine all examples into one table
+examples_all <- bind_rows(examples_list)
+
+examples_all |> glimpse()
+
+# Save combined CSV
+examples_csv_path <- here(tables_dir, "03_bert_client_examples.csv")
+write_csv(examples_all, examples_csv_path)
+cat("\nSaved combined examples:", examples_csv_path, "\n")
+
+# Save individual CSVs
+for (i in seq_along(examples_list)) {
+  ex_path <- here(tables_dir, sprintf("03_bert_example%d.csv", i))
+  write_csv(examples_list[[i]], ex_path)
+}
+cat("Saved individual example CSVs to:", tables_dir, "\n")
+
+# Write to Google Sheets
+gs_url <- "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing"
+
+#for (i in seq_along(examples_list)) {
+#  sheet_write(
+#    data = examples_list[[i]],
+#    ss = gs_url,
+#    sheet = sprintf("example%d", i)
+#  )
+#}
+cat("Written examples to Google Sheet\n")

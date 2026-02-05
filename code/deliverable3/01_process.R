@@ -226,8 +226,9 @@ fig2 <- fig_data %>%
     caption = "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), EIS (Environmental Impact Statement). \nPercentages calculated within each energy type category."
   ) +
   scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.02))) +
-  scale_fill_brewer(palette = "Set2") +
-  theme_minimal() +
+  #scale_fill_brewer(palette = "Set2") +
+  scale_fill_catf() +
+  theme_catf()
   theme(
     legend.position = "top",
     plot.subtitle = element_text(size = 9, color = "gray40"),
@@ -253,3 +254,4 @@ ggsave(
 cat("\n=== Process Script Complete ===\n")
 cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")
+
