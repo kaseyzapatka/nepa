@@ -273,9 +273,6 @@ if (file.exists(gencap_path)) {
   cat("  Saved placeholder:", output_file2, "\n")
 }
 
-fig1
-fig2
-
 
 # --------------------------
 # SUMMARY
