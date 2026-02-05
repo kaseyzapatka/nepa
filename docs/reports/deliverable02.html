@@ -4828,99 +4828,6 @@ Next steps
 <li><p><strong>Regex extraction from documents</strong>: Searched the first 30 pages of each project’s documents for tiering language patterns (e.g., “this EA tiers from…”, “pursuant to the… Programmatic EIS”). We included false-positive filtering to exclude common non-NEPA uses of “tier” (EPA engine standards, road classifications, pricing tiers)</p></li>
 <li><p><strong>LLM classification (optional)</strong>: For ambiguous cases with medium-confidence regex matches, an LLM can refine the classification (not used in this initial extraction since there are only a few so far)</p></li>
 </ol>
-<section id="search-patterns-used" class="level3">
-<h3 class="anchored" data-anchor-id="search-patterns-used">Search Patterns Used</h3>
-<p>The following regex patterns were used to identify programmatic and tiered reviews:</p>
-<p><strong>Programmatic Review Detection (in titles):</strong></p>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Pattern</th>
-<th>Matches</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>programmatic</code></td>
-<td>Explicit “programmatic” keyword</td>
-</tr>
-<tr class="even">
-<td><code>program-wide</code> or <code>programwide</code></td>
-<td>Program-wide reviews</td>
-</tr>
-<tr class="odd">
-<td><code>PEIS</code></td>
-<td>Programmatic Environmental Impact Statement</td>
-</tr>
-<tr class="even">
-<td><code>PEA</code></td>
-<td>Programmatic Environmental Assessment</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Tiered Review Detection (in document text):</strong></p>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Pattern Type</th>
-<th>Example Match</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Direct tiering statement</td>
-<td>“this EA tiers from the…”</td>
-</tr>
-<tr class="even">
-<td>Tiering to programmatic</td>
-<td>“tiers to the…PEIS”</td>
-</tr>
-<tr class="odd">
-<td>Pursuant to</td>
-<td>“pursuant to the…Programmatic EIS”</td>
-</tr>
-<tr class="even">
-<td>Site-specific tiering</td>
-<td>“site-specific EA that tiers from…”</td>
-</tr>
-<tr class="odd">
-<td>PEIS/PEA reference with tiering</td>
-<td>“2012 Solar PEIS…tier”</td>
-</tr>
-</tbody>
-</table>
-<p><strong>False Positive Exclusions:</strong></p>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Excluded Pattern</th>
-<th>Reason</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>EPA Tier 1-4</code></td>
-<td>EPA engine emission standards</td>
-</tr>
-<tr class="even">
-<td><code>Tier 1-4 engine/equipment</code></td>
-<td>Equipment classifications</td>
-</tr>
-<tr class="odd">
-<td><code>first-tier</code>, <code>top-tier</code></td>
-<td>Ranking language</td>
-</tr>
-<tr class="even">
-<td><code>Tier 1-3 Roads</code></td>
-<td>Road classifications</td>
-</tr>
-<tr class="odd">
-<td><code>tiered pricing/rate/system</code></td>
-<td>Non-NEPA tiering concepts</td>
-</tr>
-</tbody>
-</table>
-<hr>
 <p><strong>Snapshot (EA/EIS clean energy subset; n = 1,416):</strong></p>
 <div class="cell">
 <div class="cell-output-display">
@@ -4975,7 +4882,6 @@ Next steps
 <li>Detection source is primarily <strong>text regex</strong> (1,413) with a small number via <strong>title</strong> (3)</li>
 </ul>
 <hr>
-</section>
 </section>
 <section id="summary-analyses" class="level1">
 <h1>Summary Analyses</h1>
