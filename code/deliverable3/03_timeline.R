@@ -318,3 +318,103 @@ cat("5. Filter to projects with reliable dates for final analysis\n\n")
 
 cat("Files saved to:", figures_dir, "\n")
 cat("Tables saved to:", tables_dir, "\n")
+
+# --------------------------
+# BERT TIMELINE EXAMPLES (for client review)
+# --------------------------
+# Source: code/exploratory/timeline/01_compare_decisions.R
+# Shows 6 curated project examples from BERT v8 classification
+
+cat("\n=== BERT Timeline Examples ===\n\n")
+
+# --- helpers (JSON parsing) ---
+
+safe_fromJSON <- function(x) {
+  tryCatch(fromJSON(x, flatten = TRUE), error = function(e) NULL)
+}
+
+normalize_parsed <- function(x) {
+  if (is.null(x)) return(NULL)
+  if (is.data.frame(x)) return(as_tibble(x))
+  if (is.list(x)) {
+    if (!is.null(names(x)) && length(names(x)) > 0) {
+      return(as_tibble(x))
+    }
+    return(bind_rows(lapply(x, as_tibble)))
+  }
+  NULL
+}
+
+extract_contexts <- function(df, json_col, model_label) {
+  df %>%
+    mutate(parsed = map(.data[[json_col]], safe_fromJSON)) %>%
+    mutate(parsed = map(parsed, normalize_parsed)) %>%
+    select(project_id, project_title, lead_agency, parsed) %>%
+    unnest(parsed) %>%
+    mutate(model = model_label) %>%
+    select(project_id, project_title, lead_agency, model, type, date, source, confidence, everything())
+}
+
+# --- load BERT v8 results ---
+
+bert_path <- here("data", "analysis", "test50_bert_v8.parquet")
+bert <- read_parquet(bert_path)
+bert_ctx <- extract_contexts(bert, "bert_dates_json", "bert")
+
+cat("BERT v8 results loaded:", nrow(bert), "projects,",
+    nrow(bert_ctx), "date contexts\n\n")
+
+# --- curated project examples ---
+
+example_ids <- c(
+  "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0",
+  "46f4da85-af1c-0e66-a706-9a7292dd9689",
+  "824ba268-8ddf-a34f-f9a7-625e7727c242",
+  "f2812da0-16c5-fbd1-9e16-10bf8e67c514",
+  "dec68c6f-da24-f178-7bf9-30dcd886fb12",
+  "5c512493-33a9-ff2c-5f13-3a8d55464b93"
+)
+
+examples_list <- list()
+
+for (i in seq_along(example_ids)) {
+  ex <- bert_ctx %>%
+    filter(project_id == example_ids[i]) %>%
+    select(project_title, type, date, source) %>%
+    arrange(date) %>%
+    mutate(example = i)
+
+  examples_list[[i]] <- ex
+
+  cat(sprintf("Example %d (%s): %d date contexts\n",
+              i, example_ids[i], nrow(ex)))
+}
+
+# Combine all examples into one table
+examples_all <- bind_rows(examples_list)
+
+examples_all |> glimpse()
+
+# Save combined CSV
+examples_csv_path <- here(tables_dir, "03_bert_client_examples.csv")
+write_csv(examples_all, examples_csv_path)
+cat("\nSaved combined examples:", examples_csv_path, "\n")
+
+# Save individual CSVs
+for (i in seq_along(examples_list)) {
+  ex_path <- here(tables_dir, sprintf("03_bert_example%d.csv", i))
+  write_csv(examples_list[[i]], ex_path)
+}
+cat("Saved individual example CSVs to:", tables_dir, "\n")
+
+# Write to Google Sheets
+gs_url <- "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing"
+
+#for (i in seq_along(examples_list)) {
+#  sheet_write(
+#    data = examples_list[[i]],
+#    ss = gs_url,
+#    sheet = sprintf("example%d", i)
+#  )
+#}
+cat("Written examples to Google Sheet\n")
