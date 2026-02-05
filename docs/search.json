@@ -1089,14 +1089,14 @@
     "href": "reports/deliverable02.html",
     "title": "NEPA Clean Energy Analysis: Deliverable 2",
     "section": "",
-    "text": "Key Findings\n\n\n\nProgrammatic and tiered reviews are rare in the clean energy EA/EIS subset, but they are detectable with high confidence. Any statistical comparison (e.g., timelines) will rely on a small sample, so results should be framed as exploratory.\n\n\nSnapshot (EA/EIS clean energy subset; n = 1,416):\n\n\n\n\nTable 1: Review type snapshot within the EA/EIS clean energy subset\n\n\nproject_review_type\nCount\nShare\n\n\n\n\nStandard\n1390\n98.2%\n\n\nProgrammatic\n16\n1.1%\n\n\nTiered\n10\n0.7%\n\n\n\nNote:\n\n\n\n\n “Standard” means a typical, stand‑alone EA/EIS review that is not programmatic and does not explicitly tier from a programmatic review.\n\n\n\n\n\n\n\n\n\n\n\nDetection quality: - Confidence is high for 1,413 projects; medium for 3 - Detection source is primarily text regex (1,413) with a small number via title (3)\nInterpretation for Thursday (included here for quick briefing): Programmatic reviews appear mainly in large, multi‑project planning efforts (solar/wind/nuclear programs). Tiered reviews are uncommon but present, often tied to a specific programmatic EIS/EA. Because sample sizes for tiered reviews are small, any timeline comparison should be framed as exploratory until the timeline data are cleaned."
+    "text": "Key Decisions\n\n\n\n\nEvaluate whether 26 captured programmatic and tiered reviews are indeed captured correctly (see For Manual Validation below)\n“Programmatic Collaborations” will refer to grants/agreements with state energy offices, and are not programmatic environmental reviews (PEIS/PEA)?"
   },
   {
     "objectID": "reports/deliverable02.html#executive-summary",
     "href": "reports/deliverable02.html#executive-summary",
     "title": "NEPA Clean Energy Analysis: Deliverable 2",
-    "section": "",
-    "text": "Key Findings\n\n\n\nProgrammatic and tiered reviews are rare in the clean energy EA/EIS subset, but they are detectable with high confidence. Any statistical comparison (e.g., timelines) will rely on a small sample, so results should be framed as exploratory.\n\n\nSnapshot (EA/EIS clean energy subset; n = 1,416):\n\n\n\n\nTable 1: Review type snapshot within the EA/EIS clean energy subset\n\n\nproject_review_type\nCount\nShare\n\n\n\n\nStandard\n1390\n98.2%\n\n\nProgrammatic\n16\n1.1%\n\n\nTiered\n10\n0.7%\n\n\n\nNote:\n\n\n\n\n “Standard” means a typical, stand‑alone EA/EIS review that is not programmatic and does not explicitly tier from a programmatic review.\n\n\n\n\n\n\n\n\n\n\n\nDetection quality: - Confidence is high for 1,413 projects; medium for 3 - Detection source is primarily text regex (1,413) with a small number via title (3)\nInterpretation for Thursday (included here for quick briefing): Programmatic reviews appear mainly in large, multi‑project planning efforts (solar/wind/nuclear programs). Tiered reviews are uncommon but present, often tied to a specific programmatic EIS/EA. Because sample sizes for tiered reviews are small, any timeline comparison should be framed as exploratory until the timeline data are cleaned."
+    "section": "Executive Summary",
+    "text": "Executive Summary\n\n\n\n\n\n\nKey Findings\n\n\n\nProgrammatic and tiered reviews are rare in the clean energy EA/EIS subset, but they are detectable with high confidence. Any statistical comparison (e.g., timelines) will rely on a small sample, so results should be framed as exploratory.\n\n\n\n\n\n\n\n\nNext steps\n\n\n\n\nAdd one potential project (“3621210fbd086bddbbf6fbedc1d6a488”) that was captured using regex on file names.\nMerge with timeline data once completed to determine speed of completion.\n\n\n\nThis report aims to create the following set of deliverables:\n\nData on programmatic and tiered reviews: how many tiered reviews are there compared to total and are they completed faster"
   },
   {
     "objectID": "reports/deliverable01.html#process-type-by-location-by-review-process",
@@ -1111,5 +1111,54 @@
     "title": "NEPA Clean Energy Analysis: Deliverable 1",
     "section": "Footnotes",
     "text": "Footnotes\n\n\nIt does this by minimizing within-class variance and maximize between-class differences↩︎"
+  },
+  {
+    "objectID": "reports/deliverable02.html#what-we-did",
+    "href": "reports/deliverable02.html#what-we-did",
+    "title": "NEPA Clean Energy Analysis: Deliverable 2",
+    "section": "",
+    "text": "We developed a multi-tier extraction approach to identify programmatic and tiered reviews within the NEPATEC 2.0 clean energy EA/EIS corpus (n = 1,416 projects):\n\nTitle-based detection: Scanned project titles for explicit programmatic indicators (“programmatic”, “PEIS”, “PEA”)\nRegex extraction from documents: Searched the first 30 pages of each project’s documents for tiering language patterns (e.g., “this EA tiers from…”, “pursuant to the… Programmatic EIS”). We included false-positive filtering to exclude common non-NEPA uses of “tier” (EPA engine standards, road classifications, pricing tiers)\nLLM classification (optional): For ambiguous cases with medium-confidence regex matches, an LLM can refine the classification (not used in this initial extraction)\n\nThis approach prioritizes high-confidence detection with minimal manual review, accepting that some borderline cases may be classified as “standard.”"
+  },
+  {
+    "objectID": "reports/deliverable02.html#what-ive-done-so-far",
+    "href": "reports/deliverable02.html#what-ive-done-so-far",
+    "title": "NEPA Clean Energy Analysis: Deliverable 2",
+    "section": "What I’ve done so far",
+    "text": "What I’ve done so far\nWe developed a multi-tier extraction approach to identify programmatic and tiered reviews within the NEPATEC 2.0 clean energy EA/EIS corpus (n = 1,416 projects):\n\nTitle-based detection: Scanned project titles for explicit programmatic indicators (“programmatic”, “PEIS”, “PEA”)\nRegex extraction from documents: Searched the first 30 pages of each project’s documents for tiering language patterns (e.g., “this EA tiers from…”, “pursuant to the… Programmatic EIS”). We included false-positive filtering to exclude common non-NEPA uses of “tier” (EPA engine standards, road classifications, pricing tiers)\nLLM classification (optional): For ambiguous cases with medium-confidence regex matches, an LLM can refine the classification (not used in this initial extraction since there are only a few so far)\n\n\nSnapshot (EA/EIS clean energy subset; n = 1,416):\n\n\n\n\nTable 1: Review type snapshot within the EA/EIS clean energy subset\n\n\nproject_review_type\nCount\nShare\n\n\n\n\nStandard\n1390\n98.2%\n\n\nProgrammatic\n16\n1.1%\n\n\nTiered\n10\n0.7%\n\n\n\nNote:\n\n\n\n\n “Standard” means a typical, stand‑alone EA/EIS review that is not programmatic and does not explicitly tier from a programmatic review.\n\n\n\n\n\n\n\n\n\n\n\nDetection quality:\n\nConfidence is high for 1,413 projects; medium for 3\nDetection source is primarily text regex (1,413) with a small number via title (3)"
+  },
+  {
+    "objectID": "reports/deliverable02.html#review-type-distribution",
+    "href": "reports/deliverable02.html#review-type-distribution",
+    "title": "NEPA Clean Energy Analysis: Deliverable 2",
+    "section": "Review Type Distribution",
+    "text": "Review Type Distribution\nFigure 1 shows the overall distribution of review types. The vast majority of clean energy EA/EIS projects (98%) are standard reviews—standalone environmental assessments or impact statements that do not tier from or constitute a programmatic review. This is expected: programmatic reviews are by design rare umbrella documents, and tiered reviews require a programmatic review to exist first.\n\n\n\n\n\nFigure 1: Distribution of review types across clean energy EA/EIS projects"
+  },
+  {
+    "objectID": "reports/deliverable02.html#review-type-by-nepa-process",
+    "href": "reports/deliverable02.html#review-type-by-nepa-process",
+    "title": "NEPA Clean Energy Analysis: Deliverable 2",
+    "section": "Review Type by NEPA Process",
+    "text": "Review Type by NEPA Process\nFigure 2 breaks down the review types by whether the project went through an Environmental Assessment (EA) or Environmental Impact Statement (EIS). Programmatic reviews appear in both EA and EIS processes, while tiered reviews in this dataset are predominantly EAs—consistent with the idea that tiered reviews leverage prior programmatic analysis to streamline site-specific assessments.\n\n\n\n\n\nFigure 2: Review type distribution by NEPA process (EA vs EIS)"
+  },
+  {
+    "objectID": "reports/deliverable02.html#distribution-by-agency",
+    "href": "reports/deliverable02.html#distribution-by-agency",
+    "title": "NEPA Clean Energy Analysis: Deliverable 2",
+    "section": "Distribution by Agency",
+    "text": "Distribution by Agency\nTable 2 shows which agencies have the most programmatic or tiered reviews in the clean energy subset.\n\n\n\n\nTable 2: Top agencies associated with programmatic or tiered reviews\n\n\nlead_agency\nTotal\n\n\n\n\n[\"Department of the Interior - Bureau of Land Management\"]\n11\n\n\n[\"Department of Energy - Department of Energy\"]\n5\n\n\n[\"Department of Energy - Power Marketing Administration\"]\n4\n\n\n[\"Department of the Interior - United States Fish and Wildlife Service\"]\n2\n\n\n[\"\"]\n1\n\n\n[\"Department of Energy - National Nuclear Security Administration\"]\n1"
+  },
+  {
+    "objectID": "reports/deliverable02.html#programmatic-reviews",
+    "href": "reports/deliverable02.html#programmatic-reviews",
+    "title": "NEPA Clean Energy Analysis: Deliverable 2",
+    "section": "Programmatic Reviews",
+    "text": "Programmatic Reviews\nTable 3 shows 5 sample of projects classified as programmatic reviews, with the evidence text that triggered the classification.\n\n\n\n\nTable 3: Programmatic review examples with evidence text\n\n\nProject title\nEvidence text\n\n\n\n\nRecycle of Scrap Metal Originating From Radiological Areas\n\"THIS PROGRAMMATIC ENVIRONMENTAL\"\n\n\nProgrammatic Environmental Assessment for System-wide Operations and Maintenance Activities and Integrated Vegetation Management Program\n\"Programmatic Environmental Assessment for System-wide Operations and Maintenance Activities and Integrated Vegetation Management Program\"\n\n\nWind Energy Development Program\n\"this programmatic environmental\"\n\n\nSolar Energy Development in Six Southwestern States\n\"this programmatic environmental\"\n\n\nUpdates to the Western Solar Plan\n\"this Programmatic EIS\""
+  },
+  {
+    "objectID": "reports/deliverable02.html#tiered-reviews",
+    "href": "reports/deliverable02.html#tiered-reviews",
+    "title": "NEPA Clean Energy Analysis: Deliverable 2",
+    "section": "Tiered Reviews",
+    "text": "Tiered Reviews\nTable 4 shows 5 sample of projects classified as tiered reviews, including which programmatic review they tier from and the evidence text.\n\n\n\n\nTable 4: Tiered review examples with evidence text\n\n\nProject title\nTiers from\nEvidence text\n\n\n\n\nTemporary Pull/Reel Sites for Optical Ground Wire Upgrade (OPGW)\nthese CEQA and NEPA documents\n\"this EA is tiered to these CEQA and NEPA documents,\"\n\n\nIP Athos Renewable Energy Project 220-kV Generation Tie-Line Invasive Plant Management Integrated Weed Management Plan and Pesticide Use Proposal for Construction, Operation, and Maintenance Activities\nBLM’s Vegetation Treatment Using Herbicides on BLM Lands in 17 Western States\n\"The EA tiers to BLM’s Vegetation Treatment Using Herbicides on BLM Lands in 17 Western States\"\n\n\nBarrow Utilities and Electric Cooperative, Inc. New Switchgear Building\n2012 NPR-A IAP/EIS and its ROD\n\"This EA is tiered from the 2012 NPR-A IAP/EIS and its ROD.\"\n\n\nCoalinga #1 San Miguel 70kV Line Monterey County\nBLM’s Programmatic EA for Hazard Removal and Vegetation\n\"This EA is tiered to the BLM’s Programmatic EA for Hazard Removal and Vegetation\"\n\n\nSapphire Linear Facility Routes Project\nfollowing environmental impact statements completed at the BLM state or national\n\"This EA tiers from the following environmental impact statements completed at the BLM state or national\"\n\n\n\n\n\n\n\n\n\nFor Manual Validation\nI’ve have prepared a Google Sheet for manual review of the 26 identified programmatic and tiered reviews:\nNEPA Reviews Validation Sheet\nThe sheet contains two tabs:\n\nProgrammatic (16 projects): Reviews that ARE programmatic EIS/EAs\nTiered (10 projects): Reviews that tier FROM a programmatic review\n\nIn the programmatic tab, there appears to be two sets of duplicates. While they have the same project title, they have unique project_ids. So, I’ll have to manually look at them to determine whether they are actually duplicates or not. Same the tiered tab – except there is just one set of duplicates.\n\n\nKey Variables for Reviewers\n\n\n\n\n\n\n\n\nVariable\nDescription\nWhat to check\n\n\n\n\nevidence_text\nThe actual text that triggered our classification\nDoes this text clearly indicate a programmatic or tiered review?\n\n\ntiers_from\n(Tiered tab only) The programmatic review being referenced\nIs this a real PEIS/PEA reference?\n\n\nevidence_context\n(Tiered tab only) Surrounding text for context\nDoes the context support the classification?\n\n\ncorrect\nYour assessment\nEnter Yes / No / Unsure\n\n\nnotes\nAny additional comments\nNote false positives or edge cases\n\n\n\n\n\n\n\n\n\nNote on Programmatic Tab\n\n\n\nThe Programmatic tab currently does not include the evidence_context variable (surrounding text). This will be added in the next extraction run. For now, the evidence_text column shows the matched text that triggered classification."
   }
 ]
