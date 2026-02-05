@@ -157,6 +157,86 @@ knitr::include_graphics(file.path(d3_figures, "03_duration_boxplot.png"))
 ```
 
 
+### Example Project Timelines (BERT v8 Classifier)
+
+The tables below show three example projects and every date the classifier extracted from their documents. Each date is labeled as **initiation**, **review**, **decision**, or **other**, along with the source text that triggered the classification. These examples illustrate how the classifier constructs a project timeline from raw document text.
+
+```{r}
+#| label: tbl-example5
+#| tbl-cap: "Example 5: Extracted timeline"
+
+ex5 <- read_csv(file.path(d3_tables, "03_bert_example5.csv"), show_col_types = FALSE)
+
+ex5_title <- ex5$project_title[1]
+```
+
+**Project:** `r ex5_title`
+
+```{r}
+ex5 %>%
+  select(Type = type, Date = date, `Source text` = source) %>%
+  mutate(`Source text` = str_trunc(`Source text`, 120)) %>%
+  kable(align = c("l", "l", "l")) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE,
+    position = "left",
+    font_size = 12
+  ) %>%
+  column_spec(2, width = "9em")
+```
+
+```{r}
+#| label: tbl-example3
+#| tbl-cap: "Example 3: Extracted timeline"
+
+ex3 <- read_csv(file.path(d3_tables, "03_bert_example3.csv"), show_col_types = FALSE)
+
+ex3_title <- ex3$project_title[1]
+```
+
+**Project:** `r ex3_title`
+
+```{r}
+ex3 %>%
+  select(Type = type, Date = date, `Source text` = source) %>%
+  mutate(`Source text` = str_trunc(`Source text`, 120)) %>%
+  kable(align = c("l", "l", "l")) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE,
+    position = "left",
+    font_size = 12
+  ) %>%
+  column_spec(2, width = "9em")
+```
+
+```{r}
+#| label: tbl-example1
+#| tbl-cap: "Example 1: Extracted timeline"
+
+ex1 <- read_csv(file.path(d3_tables, "03_bert_example1.csv"), show_col_types = FALSE)
+
+ex1_title <- ex1$project_title[1]
+```
+
+**Project:** `r ex1_title`
+
+```{r}
+ex1 %>%
+  select(Type = type, Date = date, `Source text` = source) %>%
+  mutate(`Source text` = str_trunc(`Source text`, 120)) %>%
+  kable(align = c("l", "l", "l")) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE,
+    position = "left",
+    font_size = 12
+  ) %>%
+  column_spec(2, width = "9em")
+```
+
+
 **Next Steps for Timeline Extraction**
 
 1. **Implement structure-aware preprocessing**: Remove reference/bibliography sections before date extraction to eliminate citation false positives
