@@ -8,7 +8,7 @@
 # SETUP
 # --------------------------
 
-source(here::here("code", "deliverable1", "00_setup.R"))
+source(here::here("code", "deliverable01", "00_setup.R"))
 
 # --------------------------
 # PROCESS
@@ -40,15 +40,15 @@ tech_data |> glimpse()
 projects_by_review <- projects %>%
   count(process_type, name = "projects") %>%
   mutate(
-    process_type = factor(process_type, 
-                          levels = c("CE", "EA", "EIS"),
-                          labels = c("Categorical Exclusion (CE)", 
-                                     "Environmental Assessment (EA)", 
-                                     "Environmental Impact Statement (EIS)"))
+    process_type = factor(process_type,
+                          levels = c("EIS", "EA", "CE"),
+                          labels = c("Environmental Impact Statement (EIS)",
+                                     "Environmental Assessment (EA)",
+                                     "Categorical Exclusion (CE)"))
   )
 
 fig_projects_by_review <- projects_by_review %>%
-  ggplot(aes(x = reorder(process_type, projects), y = projects)) +
+  ggplot(aes(x = process_type, y = projects)) +
   geom_col(fill = catf_dark_blue) +
   geom_text(aes(label = scales::comma(projects)), vjust = -0.3, size = 3.5) +
   labs(
@@ -77,15 +77,15 @@ ggsave(
 clean_energy_by_review <- clean_energy %>%
   count(process_type, name = "projects") %>%
   mutate(
-    process_type = factor(process_type, 
-                          levels = c("CE", "EA", "EIS"),
-                          labels = c("Categorical Exclusion (CE)", 
-                                     "Environmental Assessment (EA)", 
-                                     "Environmental Impact Statement (EIS)"))
+    process_type = factor(process_type,
+                          levels = c("EIS", "EA", "CE"),
+                          labels = c("Environmental Impact Statement (EIS)",
+                                     "Environmental Assessment (EA)",
+                                     "Categorical Exclusion (CE)"))
   )
 
 fig_clean_energy_by_review <- clean_energy_by_review %>%
-  ggplot(aes(x = reorder(process_type, projects), y = projects)) +
+  ggplot(aes(x = process_type, y = projects)) +
   geom_col(fill = catf_dark_blue) +
   geom_text(aes(label = scales::comma(projects)), vjust = -0.3, size = 3.5) +
   labs(
@@ -164,13 +164,18 @@ clean_energy_summary <- clean_energy_parsed %>%
   distinct(project_title, technology) %>%
   count(technology, name = "n") %>%
   mutate(
-    percent_projects = 100 * n / n_distinct(clean_energy$project_title)
+    percent_projects = 100 * n / n_distinct(clean_energy$project_title),
+    # Clean up labels: remove "Renewable Energy Production - " except for "Other"
+    technology_label = case_when(
+      technology == "Renewable Energy Production - Other" ~ technology,
+      TRUE ~ str_remove(technology, "^Renewable Energy Production - ")
+    )
   ) %>%
   arrange(desc(percent_projects))
 
 fig_clean_energy_bar <- clean_energy_summary %>%
   ggplot(aes(x = percent_projects,
-             y = reorder(technology, percent_projects))) +
+             y = reorder(technology_label, percent_projects))) +
   geom_col(fill = catf_dark_blue) +
   geom_text(aes(label = scales::comma(n)), hjust = -0.1, size = 3) +
   labs(
@@ -180,6 +185,7 @@ fig_clean_energy_bar <- clean_energy_summary %>%
   ) +
   scale_x_continuous(
     labels = function(x) paste0(x, "%"),
+    breaks = seq(0, 100, by = 5),
     expand = expansion(mult = c(0, 0.12))
   ) +
   theme_minimal() +
@@ -210,24 +216,29 @@ clean_energy_summary_by_process <- clean_energy_parsed %>%
   count(technology, process_type, name = "n") %>%
   group_by(technology) %>%
   mutate(
-    share = n / sum(n)
+    share = n / sum(n),
+    # Clean up labels: remove "Renewable Energy Production - " except for "Other"
+    technology_label = case_when(
+      technology == "Renewable Energy Production - Other" ~ technology,
+      TRUE ~ str_remove(technology, "^Renewable Energy Production - ")
+    )
   ) %>%
   ungroup()
 
 # Use same order as fig_clean_energy_bar (by percent_projects)
-tech_order <- clean_energy_summary %>%
+tech_label_order <- clean_energy_summary %>%
   arrange(percent_projects) %>%
-  pull(technology)
+  pull(technology_label)
 
 clean_energy_summary_by_process <- clean_energy_summary_by_process %>%
-  mutate(technology = factor(technology, levels = tech_order))
+  mutate(technology_label = factor(technology_label, levels = tech_label_order))
 
 # Plot
 fig_clean_energy_bar_by_process <- ggplot(
   clean_energy_summary_by_process,
   aes(
     x = share,
-    y = technology,
+    y = technology_label,
     fill = process_type
   )
 ) +
@@ -240,6 +251,7 @@ fig_clean_energy_bar_by_process <- ggplot(
   ) +
   scale_x_continuous(
     labels = scales::percent,
+    breaks = seq(0, 1, by = 0.1),
     expand = expansion(mult = c(0, 0.02))
   ) +
   scale_fill_manual(

@@ -8,7 +8,7 @@
 # SETUP
 # --------------------------
 
-source(here::here("code", "deliverable1", "00_setup.R"))
+source(here::here("code", "deliverable01", "00_setup.R"))
 
 
 # --------------------------
@@ -428,8 +428,8 @@ fig_county_choropleth
 cat("  Saved: maps/10_county_choropleth.png\n")
 
 
-# --- MAP 3: County Choropleth Map by Process Type ---
-cat("Creating county choropleth map by process type...\n")
+# --- MAP 3: County Choropleth Maps by Process Type (Individual Maps) ---
+cat("Creating individual county choropleth maps by process type...\n")
 
 # Count by county, state, and process type (remove NA process types)
 county_process_counts <- county_with_state %>%
@@ -449,196 +449,265 @@ county_map_by_process <- us_counties %>%
     n_projects_display = ifelse(n_projects == 0, NA_real_, n_projects)
   )
 
-# Create faceted choropleth map by process type
-fig_county_choropleth_process_type <- ggplot() +
-  # Base layer: all counties in light grey (for missing data visibility)
-  geom_sf(
-    data = us_counties,
-    fill = "grey95",
-    color = "white",
-    size = 0.1
-  ) +
-  # County fill by project count (only show colors where n_projects > 0)
-  geom_sf(
-    data = county_map_by_process,
-    aes(fill = n_projects_display),
-    color = NA
-  ) +
-  # State boundaries
-  geom_sf(
-    data = state_map_data,
-    fill = NA,
-    color = "grey40",
-    size = 0.3
-  ) +
-  scale_fill_gradient(
-    low = "#deebf7",
-    high = "#08519c",
-    name = "Number of\nProjects",
-    labels = scales::comma,
-    trans = "sqrt",
-    na.value = "grey95"
-  ) +
-  facet_wrap(
-    ~ process_type,
-    ncol = 1,
-    labeller = as_labeller(c(
-      CE  = "Categorical Exclusion",
-      EA  = "Environmental Assessment",
-      EIS = "Environmental Impact Statement"
-    ))
-  ) +
-  labs(
-    title = "Clean Energy Projects by County and NEPA Process Type",
-    subtitle = "Each panel shows county-level project concentration by process type; grey areas indicate no projects",
-    caption = paste0(
-      "Note: County data available for ", pct_with_county, "% of clean energy projects ",
-      "(", scales::comma(n_missing_county), " projects missing county information)."
-    )
-  ) +
-  theme_void() +
-  theme(
-    strip.text = element_text(size = 10, face = "bold"),
-    plot.title = element_text(size = 14, face = "bold"),
-    plot.subtitle = element_text(size = 10, color = "gray40"),
-    plot.caption = element_text(size = 8, color = "gray50", hjust = 0),
-    legend.position = "right"
-  )
-fig_county_choropleth_process_type
+# Function to create choropleth map for a single process type
+create_choropleth_map <- function(process_type_value, process_type_label) {
 
-# save
-ggsave(
-  filename = here(maps_dir, "11_county_choropleth_process_type.png"),
-  plot = fig_county_choropleth_process_type,
-  width = 10,
-  height = 16,
-  units = "in",
-  dpi = 300
+  # Filter data for this process type
+  process_data <- county_map_by_process %>%
+    filter(process_type == process_type_value)
+
+  if (nrow(process_data) == 0) {
+    return(NULL)
+  }
+
+  # Create the map
+
+  fig <- ggplot() +
+    # Base layer: all counties in light grey
+    geom_sf(
+      data = us_counties,
+      fill = "grey95",
+      color = "white",
+      size = 0.1
+    ) +
+    # County fill by project count
+    geom_sf(
+      data = process_data,
+      aes(fill = n_projects_display),
+      color = NA
+    ) +
+    # State boundaries
+    geom_sf(
+      data = state_map_data,
+      fill = NA,
+      color = "grey40",
+      size = 0.3
+    ) +
+    scale_fill_gradient(
+      low = "#deebf7",
+      high = "#08519c",
+      name = "Number of\nProjects",
+      labels = scales::comma,
+      trans = "sqrt",
+      na.value = "grey95"
+    ) +
+    labs(
+      title = paste0("Clean Energy Projects by County: ", process_type_label),
+      subtitle = "Grey areas indicate no projects",
+      caption = paste0(
+        "Note: County data available for ", pct_with_county, "% of clean energy projects."
+      )
+    ) +
+    theme_void() +
+    theme(
+      plot.title = element_text(size = 14, face = "bold"),
+      plot.subtitle = element_text(size = 10, color = "gray40"),
+      plot.caption = element_text(size = 8, color = "gray50", hjust = 0),
+      legend.position = "right"
+    )
+
+  return(fig)
+}
+
+# Create and save individual maps for each process type
+choropleth_process_types <- list(
+  list(code = "CE", label = "Categorical Exclusion (CE)"),
+  list(code = "EA", label = "Environmental Assessment (EA)"),
+  list(code = "EIS", label = "Environmental Impact Statement (EIS)")
 )
 
+for (pt in choropleth_process_types) {
+  cat("  Creating choropleth map for", pt$code, "...\n")
 
-# --- MAP 4: County Choropleth Map by Process Type (Jenks Breaks) ---
-cat("Creating county choropleth map by process type (Jenks breaks)...\n")
+  fig <- create_choropleth_map(pt$code, pt$label)
+
+  if (!is.null(fig)) {
+    print(fig)
+
+    filename <- paste0("11_county_choropleth_", tolower(pt$code), ".png")
+    ggsave(
+      filename = here(maps_dir, filename),
+      plot = fig,
+      width = 12,
+      height = 8,
+      units = "in",
+      dpi = 300
+    )
+    cat("    Saved: maps/", filename, "\n", sep = "")
+  }
+}
+
+cat("  Saved individual choropleth maps for CE, EA, and EIS\n")
+
+
+# --- MAP 4: County Choropleth Maps by Process Type (Individual Jenks Breaks) ---
+cat("Creating individual county choropleth maps by process type (Jenks breaks)...\n")
 
 # Load classInt package for Jenks breaks
 library(classInt)
 
-# Calculate Jenks breaks using ALL data (uniform across process types)
-all_values <- county_map_by_process %>%
-  filter(n_projects > 0) %>%
-  pull(n_projects)
+# Function to create Jenks map for a single process type
+create_jenks_map <- function(process_type_value, process_type_label) {
 
-n_unique <- length(unique(all_values))
+  # Filter data for this process type
+  process_data <- county_map_by_process %>%
+    filter(process_type == process_type_value & n_projects > 0)
 
-# Calculate breaks once for all process types
-if (n_unique > 5) {
-  # Try Jenks breaks with exactly 5 classes
+  if (nrow(process_data) == 0) {
+    return(NULL)
+  }
+
+  # Get values for this process type only
+  values <- process_data$n_projects
+  n_unique <- length(unique(values))
+
+  # Calculate Jenks breaks for THIS process type
+  n_classes <- min(4, n_unique - 1)
+  if (n_classes < 2) n_classes <- 2
+
   jenks_breaks <- tryCatch({
-    breaks <- classIntervals(all_values, n = 5, style = "jenks")
+    breaks <- classIntervals(values, n = n_classes, style = "jenks")
     breaks$brks
   }, error = function(e) {
-    # If Jenks fails, use quantile breaks with 5 classes
-    quantile(all_values, probs = seq(0, 1, length.out = 6))
+    # Fallback to quantile breaks
+    quantile(values, probs = seq(0, 1, length.out = n_classes + 1))
   })
-} else {
-  # Too few unique values, use quantiles
-  jenks_breaks <- quantile(all_values, probs = seq(0, 1, length.out = min(n_unique + 1, 6)))
+
+  # Ensure breaks are unique (can happen with ties in data)
+  jenks_breaks <- unique(jenks_breaks)
+
+  # If we only have 2 unique breaks (min and max), create more by using unique values
+  if (length(jenks_breaks) < 3) {
+    sorted_unique <- sort(unique(values))
+    if (length(sorted_unique) >= 3) {
+      # Use unique values as breaks
+      n_to_use <- min(6, length(sorted_unique))
+      indices <- round(seq(1, length(sorted_unique), length.out = n_to_use))
+      jenks_breaks <- sorted_unique[indices]
+    } else {
+      # Very few unique values - just use them all
+      jenks_breaks <- c(min(values) - 0.5, sorted_unique + 0.5)
+    }
+    jenks_breaks <- unique(jenks_breaks)
+  }
+
+  # Apply classification first, then calculate labels from actual data
+  process_data <- process_data %>%
+    mutate(
+      jenks_class_num = cut(n_projects, breaks = jenks_breaks,
+                            labels = FALSE, include.lowest = TRUE)
+    )
+
+  # Create labels based on actual min/max values in each class (no gaps)
+  n_classes_actual <- max(process_data$jenks_class_num, na.rm = TRUE)
+  labels <- character(n_classes_actual)
+  prev_upper <- 0
+
+  for (i in 1:n_classes_actual) {
+    class_values <- process_data$n_projects[process_data$jenks_class_num == i]
+    if (length(class_values) == 0) next
+
+    min_val <- min(class_values)
+    max_val <- max(class_values)
+
+    # Ensure continuous ranges: lower bound is previous upper + 1 (except for first class)
+    if (i == 1) {
+      lower <- min_val
+    } else {
+      lower <- prev_upper + 1
+    }
+    upper <- max_val
+    prev_upper <- upper
+
+    if (lower == upper) {
+      labels[i] <- as.character(lower)
+    } else {
+      labels[i] <- paste0(lower, "-", upper)
+    }
+  }
+
+  # Apply labels to data
+  process_data <- process_data %>%
+    mutate(
+      jenks_class = factor(labels[jenks_class_num], levels = labels, ordered = TRUE)
+    )
+
+  # Create the map
+  fig <- ggplot() +
+    # Base layer: all counties in light grey
+    geom_sf(
+      data = us_counties,
+      fill = "grey95",
+      color = "white",
+      size = 0.1
+    ) +
+    # County fill by Jenks classification
+    geom_sf(
+      data = process_data,
+      aes(fill = jenks_class),
+      color = NA
+    ) +
+    # State boundaries
+    geom_sf(
+      data = state_map_data,
+      fill = NA,
+      color = "grey40",
+      size = 0.3
+    ) +
+    scale_fill_brewer(
+      palette = "Blues",
+      name = "Project Count",
+      na.value = "grey95",
+      drop = FALSE
+    ) +
+    labs(
+      title = paste0("Clean Energy Projects by County: ", process_type_label),
+      subtitle = "Jenks natural breaks classification; grey areas indicate no projects",
+      caption = paste0(
+        "Note: County data available for ", pct_with_county, "% of clean energy projects.\n",
+        "Classification uses Jenks natural breaks calculated specifically for this process type."
+      )
+    ) +
+    theme_void() +
+    theme(
+      plot.title = element_text(size = 14, face = "bold"),
+      plot.subtitle = element_text(size = 10, color = "gray40"),
+      plot.caption = element_text(size = 8, color = "gray50", hjust = 0),
+      legend.position = "right"
+    )
+
+  return(fig)
 }
 
-# Apply the same breaks to all process types
-county_map_by_process_jenks <- county_map_by_process %>%
-  filter(n_projects > 0) %>%
-  mutate(
-    # Apply uniform classification
-    jenks_class = cut(n_projects, breaks = jenks_breaks, labels = FALSE, include.lowest = TRUE)
-  ) %>%
-  # Create readable labels for each class
-  mutate(
-    jenks_label = {
-      sapply(jenks_class, function(c) {
-        if (is.na(c)) return(NA_character_)
-        # Get all values in this class across ALL process types
-        class_values <- n_projects[jenks_class == c & !is.na(jenks_class)]
-        if (length(class_values) == 0) return(NA_character_)
-        min_val <- min(class_values)
-        max_val <- max(class_values)
-        if (min_val == max_val) {
-          return(as.character(min_val))
-        } else {
-          return(paste0(min_val, "-", max_val))
-        }
-      })
-    }
-  )
-
-# Create faceted choropleth map with Jenks breaks
-fig_county_choropleth_process_type_jenks <- ggplot() +
-  # Base layer: all counties in light grey (for missing data visibility)
-  geom_sf(
-    data = us_counties,
-    fill = "grey95",
-    color = "white",
-    size = 0.1
-  ) +
-  # County fill by Jenks classification
-  geom_sf(
-    data = county_map_by_process_jenks,
-    aes(fill = jenks_label),
-    color = NA
-  ) +
-  # State boundaries
-  geom_sf(
-    data = state_map_data,
-    fill = NA,
-    color = "grey40",
-    size = 0.3
-  ) +
-  scale_fill_brewer(
-    palette = "Blues",
-    name = "Project Count",
-    na.value = "grey95",
-    direction = 1
-  ) +
-  facet_wrap(
-    ~ process_type,
-    ncol = 1,
-    labeller = as_labeller(c(
-      CE  = "Categorical Exclusion",
-      EA  = "Environmental Assessment",
-      EIS = "Environmental Impact Statement"
-    ))
-  ) +
-  labs(
-    title = "Clean Energy Projects by County and NEPA Process Type (Jenks Classification)",
-    subtitle = "Each panel shows county-level project concentration by process type; grey areas indicate no projects",
-    caption = paste0(
-      "Note: County data available for ", pct_with_county, "% of clean energy projects ",
-      "(", scales::comma(n_missing_county), " projects missing county information).\n",
-      "Classification uses Jenks natural breaks to optimize within-class homogeneity."
-    )
-  ) +
-  theme_void() +
-  theme(
-    strip.text = element_text(size = 10, face = "bold"),
-    plot.title = element_text(size = 14, face = "bold"),
-    plot.subtitle = element_text(size = 10, color = "gray40"),
-    plot.caption = element_text(size = 8, color = "gray50", hjust = 0),
-    legend.position = "right"
-  )
-
-fig_county_choropleth_process_type_jenks
-
-# save
-ggsave(
-  filename = here(maps_dir, "11_county_choropleth_process_type_jenks.png"),
-  plot = fig_county_choropleth_process_type_jenks,
-  width = 10,
-  height = 16,
-  units = "in",
-  dpi = 300
+# Create and save individual maps for each process type
+process_types <- list(
+  list(code = "CE", label = "Categorical Exclusion (CE)"),
+  list(code = "EA", label = "Environmental Assessment (EA)"),
+  list(code = "EIS", label = "Environmental Impact Statement (EIS)")
 )
 
-cat("  Saved: maps/11_county_choropleth_process_type_jenks.png\n")
+for (pt in process_types) {
+  cat("  Creating Jenks map for", pt$code, "...\n")
+
+  fig <- create_jenks_map(pt$code, pt$label)
+
+  if (!is.null(fig)) {
+    print(fig)
+
+    filename <- paste0("12_county_jenks_", tolower(pt$code), ".png")
+    ggsave(
+      filename = here(maps_dir, filename),
+      plot = fig,
+      width = 12,
+      height = 8,
+      units = "in",
+      dpi = 300
+    )
+    cat("    Saved: maps/", filename, "\n", sep = "")
+  }
+}
+
+cat("  Saved individual Jenks maps for CE, EA, and EIS\n")
 
 
 # --------------------------
