@@ -48,6 +48,9 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 np.set_printoptions(threshold=np.inf)
 
+# Optional: Federal Register NOI enrichment (disabled by default)
+ENABLE_FEDERAL_REGISTER_NOI = False
+
 
 # --------------------------
 # FILE PATHS (RELATIVE TO THIS FILE)
@@ -1041,6 +1044,20 @@ def create_combined_projects():
     combined['project_has_final_doc'] = combined['project_has_final_doc'].fillna(False)
     combined['project_has_draft_doc'] = combined['project_has_draft_doc'].fillna(False)
     combined['project_doc_count'] = combined['project_doc_count'].fillna(0).astype(int)
+
+    # Optional: Federal Register NOI enrichment (disabled by default)
+    if ENABLE_FEDERAL_REGISTER_NOI:
+        from extract.federal_register import (
+            attach_noi_fields,
+            FederalRegisterConfig,
+        )
+
+        fr_config = FederalRegisterConfig(
+            process_types=("EIS",),
+            energy_types=("Clean",),
+            sample_n=None,
+        )
+        combined = attach_noi_fields(combined, config=fr_config)
 
     # Convert complex columns for parquet compatibility
     print("Converting complex columns for parquet...")
