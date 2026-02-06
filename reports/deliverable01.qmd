@@ -202,6 +202,33 @@ knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
 knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
 ```
 
+## Key Agency Deep Dive
+
+While the department-level analysis provides a high-level view, a closer look at specific agencies within DOE, Interior, and USDA reveals important patterns. @tbl-key-agencies shows project counts by NEPA process type for key agencies involved in clean energy infrastructure, and @fig-key-agency-process visualizes the share of each process type by agency.
+
+::: {.callout-note}
+**Note on DOE Power Marketing Administrations:** The source data combines all Power Marketing Administrations (Bonneville, Southeastern, Southwestern, and Western Area) under a single "Power Marketing Administration" category. Individual PMA-level breakdowns are not available in the current dataset.
+:::
+
+```{r}
+#| label: tbl-key-agencies
+#| tbl-cap: "Clean energy projects by key federal agency and NEPA process type"
+
+read_csv(file.path(d1_tables, "table_key_agencies.csv"), show_col_types = FALSE) |>
+  kable(format.args = list(big.mark = ",")) |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) |>
+  column_spec(1, width = "12em") |>
+  column_spec(2, width = "14em")
+```
+
+```{r}
+#| label: fig-key-agency-process
+#| fig-cap: "NEPA process type distribution by key federal agency"
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_figures, "03_key_agency_process.png"))
+```
+
 
 ---
 
@@ -366,6 +393,99 @@ knitr::include_graphics(file.path(d1_maps, "12_county_jenks_ea.png"))
 knitr::include_graphics(file.path(d1_maps, "12_county_jenks_eis.png"))
 ```
 
+## Deeper Dive into High Project Count Counties
+
+This section examines the projects in counties with the highest project counts for each NEPA process type. The figures show technology distribution across the top 10 counties, while the tables provide a random sample of 20 projects from the top 2 counties. [Full project lists are available in the Google Sheet](FILL_IN_GOOGLE_SHEET_URL).
+
+### Top Categorical Exclusion (CE) Counties
+
+@fig-ce-tech-breakdown shows the technology distribution across the top 10 CE counties.
+
+```{r}
+#| label: fig-ce-tech-breakdown
+#| fig-cap: "Technology distribution in top 10 CE counties"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "13_deep_dive_ce_tech.png"))
+```
+
+@tbl-deep-dive-ce shows a random sample of 20 projects from the two counties with the highest CE counts.
+
+```{r}
+#| label: tbl-deep-dive-ce
+#| tbl-cap: "Sample of projects in top 2 CE counties (random 20)"
+
+ce_sample <- read_csv(file.path(d1_tables, "deep_dive_ce_sample.csv"), show_col_types = FALSE)
+
+ce_sample |>
+  kable() |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                font_size = 10) |>
+  column_spec(1, width = "45%") |>
+  column_spec(2, width = "35%") |>
+  column_spec(3, width = "20%")
+```
+
+### Top Environmental Assessment (EA) Counties
+
+@fig-ea-tech-breakdown shows the technology distribution across the top 10 EA counties.
+
+```{r}
+#| label: fig-ea-tech-breakdown
+#| fig-cap: "Technology distribution in top 10 EA counties"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "13_deep_dive_ea_tech.png"))
+```
+
+@tbl-deep-dive-ea shows a random sample of 20 projects from the two counties with the highest EA counts.
+
+```{r}
+#| label: tbl-deep-dive-ea
+#| tbl-cap: "Sample of projects in top 2 EA counties (random 20)"
+
+ea_sample <- read_csv(file.path(d1_tables, "deep_dive_ea_sample.csv"), show_col_types = FALSE)
+
+ea_sample |>
+  kable() |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                font_size = 10) |>
+  column_spec(1, width = "45%") |>
+  column_spec(2, width = "35%") |>
+  column_spec(3, width = "20%")
+```
+
+### Top Environmental Impact Statement (EIS) Counties
+
+@fig-eis-tech-breakdown shows the technology distribution across the top 10 EIS counties.
+
+```{r}
+#| label: fig-eis-tech-breakdown
+#| fig-cap: "Technology distribution in top 10 EIS counties"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "13_deep_dive_eis_tech.png"))
+```
+
+@tbl-deep-dive-eis shows a random sample of 20 projects from the two counties with the highest EIS counts.
+
+```{r}
+#| label: tbl-deep-dive-eis
+#| tbl-cap: "Sample of projects in top 2 EIS counties (random 20)"
+
+eis_sample <- read_csv(file.path(d1_tables, "deep_dive_eis_sample.csv"), show_col_types = FALSE)
+
+eis_sample |>
+  kable() |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                font_size = 10) |>
+  column_spec(1, width = "45%") |>
+  column_spec(2, width = "35%") |>
+  column_spec(3, width = "20%")
+```
 
 ---
 

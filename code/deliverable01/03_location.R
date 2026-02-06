@@ -711,6 +711,286 @@ cat("  Saved individual Jenks maps for CE, EA, and EIS\n")
 
 
 # --------------------------
+# DEEP DIVE: TOP COUNTIES BY PROCESS TYPE
+# --------------------------
+cat("\n=== Creating Deep Dive Tables for Top Counties ===\n")
+
+# State name to abbreviation mapping
+state_abbr <- c(
+  "Alabama" = "AL", "Alaska" = "AK", "Arizona" = "AZ", "Arkansas" = "AR",
+  "California" = "CA", "Colorado" = "CO", "Connecticut" = "CT", "Delaware" = "DE",
+  "Florida" = "FL", "Georgia" = "GA", "Hawaii" = "HI", "Idaho" = "ID",
+  "Illinois" = "IL", "Indiana" = "IN", "Iowa" = "IA", "Kansas" = "KS",
+
+  "Kentucky" = "KY", "Louisiana" = "LA", "Maine" = "ME", "Maryland" = "MD",
+  "Massachusetts" = "MA", "Michigan" = "MI", "Minnesota" = "MN", "Mississippi" = "MS",
+  "Missouri" = "MO", "Montana" = "MT", "Nebraska" = "NE", "Nevada" = "NV",
+  "New Hampshire" = "NH", "New Jersey" = "NJ", "New Mexico" = "NM", "New York" = "NY",
+  "North Carolina" = "NC", "North Dakota" = "ND", "Ohio" = "OH", "Oklahoma" = "OK",
+  "Oregon" = "OR", "Pennsylvania" = "PA", "Rhode Island" = "RI", "South Carolina" = "SC",
+  "South Dakota" = "SD", "Tennessee" = "TN", "Texas" = "TX", "Utah" = "UT",
+  "Vermont" = "VT", "Virginia" = "VA", "Washington" = "WA", "West Virginia" = "WV",
+  "Wisconsin" = "WI", "Wyoming" = "WY", "District of Columbia" = "DC",
+  "Puerto Rico" = "PR", "Guam" = "GU", "Virgin Islands" = "VI"
+)
+
+# Helper function to clean project type labels
+clean_project_type <- function(x) {
+  # Parse JSON if needed
+  if (is.character(x) && grepl("^\\[", x)) {
+    types <- tryCatch(fromJSON(x), error = function(e) x)
+  } else if (is.list(x)) {
+    types <- unlist(x)
+  } else {
+    types <- x
+  }
+
+  # Clean each type
+  cleaned <- sapply(types, function(t) {
+    # Apply cleanups
+    t <- str_replace(t, "^Renewable Energy Production - ", "")
+    t <- str_replace(t, "Utilities \\(electricity, gas, telecommunications\\)", "Utilities")
+    t <- str_replace(t, "Carbon Capture and Sequestration", "Carbon Capture")
+    return(t)
+  })
+
+  # Return as comma-separated string (remove duplicates)
+  paste(unique(cleaned), collapse = ", ")
+}
+
+# Get county counts by process type
+county_process_summary <- county_with_state %>%
+  count(project_county, first_state, process_type, name = "n_projects") %>%
+  arrange(process_type, desc(n_projects))
+
+# Function to get top N counties for a process type
+get_top_counties <- function(process, n = 10) {
+  county_process_summary %>%
+    filter(process_type == process) %>%
+    slice_head(n = n) %>%
+    select(project_county, first_state, n_projects)
+}
+
+# Get top 10 counties for each process type
+top_ce_counties <- get_top_counties("CE", 10)
+top_ea_counties <- get_top_counties("EA", 10)
+top_eis_counties <- get_top_counties("EIS", 10)
+
+cat("Top 10 CE counties:\n")
+print(top_ce_counties)
+cat("\nTop 10 EA counties:\n")
+print(top_ea_counties)
+cat("\nTop 10 EIS counties:\n")
+print(top_eis_counties)
+
+# Function to create project table for specific counties and process type
+create_county_project_table <- function(counties_df, process_type_filter) {
+
+  # Get projects in these counties with the specified process type
+  projects_in_counties <- county_with_state %>%
+    filter(process_type == process_type_filter) %>%
+    inner_join(
+      counties_df,
+      by = c("project_county" = "project_county", "first_state" = "first_state")
+    ) %>%
+    select(project_id, project_title, project_type, project_county, first_state) %>%
+    distinct() %>%
+    mutate(
+      # Clean project type labels
+      project_type_clean = sapply(project_type, clean_project_type),
+      # Create county/state label with state abbreviation
+      state_short = ifelse(first_state %in% names(state_abbr),
+                           state_abbr[first_state], first_state),
+      location = paste0(project_county, ", ", state_short)
+    ) %>%
+    select(
+      `Project Title` = project_title,
+      `Technology` = project_type_clean,
+      `Location` = location
+    ) %>%
+    arrange(Location, `Project Title`)
+
+  return(projects_in_counties)
+}
+
+# Create tables for each process type (top 10 counties)
+cat("\nCreating CE county deep dive table...\n")
+table_ce_deep_dive <- create_county_project_table(top_ce_counties, "CE")
+cat("  CE projects in top 10 counties:", nrow(table_ce_deep_dive), "\n")
+
+cat("Creating EA county deep dive table...\n")
+table_ea_deep_dive <- create_county_project_table(top_ea_counties, "EA")
+cat("  EA projects in top 10 counties:", nrow(table_ea_deep_dive), "\n")
+
+cat("Creating EIS county deep dive table...\n")
+table_eis_deep_dive <- create_county_project_table(top_eis_counties, "EIS")
+cat("  EIS projects in top 10 counties:", nrow(table_eis_deep_dive), "\n")
+
+# Save to Google Sheets (user will fill in URL)
+DEEP_DIVE_SHEET_URL <- "FILL_IN_GOOGLE_SHEET_URL"
+
+if (DEEP_DIVE_SHEET_URL != "FILL_IN_GOOGLE_SHEET_URL") {
+  sheet_write(table_ce_deep_dive, ss = DEEP_DIVE_SHEET_URL, sheet = "CE_Top10_Counties")
+  cat("  Wrote CE deep dive to Google Sheet\n")
+
+  sheet_write(table_ea_deep_dive, ss = DEEP_DIVE_SHEET_URL, sheet = "EA_Top10_Counties")
+  cat("  Wrote EA deep dive to Google Sheet\n")
+
+  sheet_write(table_eis_deep_dive, ss = DEEP_DIVE_SHEET_URL, sheet = "EIS_Top10_Counties")
+  cat("  Wrote EIS deep dive to Google Sheet\n")
+} else {
+  cat("  Note: Set DEEP_DIVE_SHEET_URL to save to Google Sheets\n")
+  # Save as CSV as backup
+  write_csv(table_ce_deep_dive, here(tables_dir, "deep_dive_ce_top_counties.csv"))
+  write_csv(table_ea_deep_dive, here(tables_dir, "deep_dive_ea_top_counties.csv"))
+  write_csv(table_eis_deep_dive, here(tables_dir, "deep_dive_eis_top_counties.csv"))
+  cat("  Saved CSV backups to:", tables_dir, "\n")
+}
+
+# --------------------------
+# DEEP DIVE FIGURES: Technology breakdown for top 10 counties
+# --------------------------
+cat("\n=== Creating Deep Dive Figures ===\n")
+
+# Function to create technology breakdown for top counties
+create_tech_breakdown <- function(counties_df, process_type_filter) {
+
+  # Get projects and explode technology types
+  tech_counts <- county_with_state %>%
+    filter(process_type == process_type_filter) %>%
+    inner_join(
+      counties_df,
+      by = c("project_county" = "project_county", "first_state" = "first_state")
+    ) %>%
+    select(project_id, project_type) %>%
+    distinct() %>%
+    mutate(
+      # Parse project_type JSON
+      tech_list = map(project_type, ~ {
+        if (is.character(.x) && grepl("^\\[", .x)) {
+          tryCatch(fromJSON(.x), error = function(e) .x)
+        } else if (is.list(.x)) {
+          unlist(.x)
+        } else {
+          .x
+        }
+      })
+    ) %>%
+    unnest(tech_list) %>%
+    # Clean technology names
+    mutate(
+      technology = tech_list,
+      technology = str_replace(technology, "^Renewable Energy Production - ", ""),
+      technology = str_replace(technology, "Utilities \\(electricity, gas, telecommunications\\)", "Utilities"),
+      technology = str_replace(technology, "Carbon Capture and Sequestration", "Carbon Capture")
+    ) %>%
+    count(technology, name = "n_projects") %>%
+    arrange(desc(n_projects))
+
+  return(tech_counts)
+}
+
+# Create technology breakdowns
+ce_tech_breakdown <- create_tech_breakdown(top_ce_counties, "CE")
+ea_tech_breakdown <- create_tech_breakdown(top_ea_counties, "EA")
+eis_tech_breakdown <- create_tech_breakdown(top_eis_counties, "EIS")
+
+# Function to create bar chart with filtering and custom x-axis breaks
+create_tech_bar_chart <- function(tech_df, process_label, fill_color,
+                                   min_count = 0, x_break = 10) {
+  # Filter by minimum count
+  filtered_df <- tech_df %>% filter(n_projects > min_count)
+
+  # Calculate max for x-axis breaks
+  max_val <- max(filtered_df$n_projects, na.rm = TRUE)
+  x_breaks <- seq(0, ceiling(max_val / x_break) * x_break, by = x_break)
+
+  # Create caption based on filtering
+  caption_text <- if (min_count > 0) {
+    paste0("Note: Technologies with ", min_count, " or fewer projects excluded for readability.")
+  } else {
+    NULL
+  }
+
+  ggplot(filtered_df, aes(x = n_projects, y = reorder(technology, n_projects))) +
+    geom_col(fill = fill_color) +
+    geom_text(aes(label = scales::comma(n_projects)), hjust = -0.1, size = 3) +
+    labs(
+      x = "Number of Projects",
+      y = NULL,
+      title = paste0("Technology Distribution: Top 10 ", process_label, " Counties"),
+      caption = caption_text
+    ) +
+    scale_x_continuous(
+      expand = expansion(mult = c(0, 0.15)),
+      breaks = x_breaks
+    ) +
+    theme_minimal() +
+    theme(
+      axis.text.y = element_text(size = 9),
+      plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
+    )
+}
+
+# Create and save figures with filtering and custom x-axis breaks
+# CE: filter > 10, x-axis breaks every 100
+# EA: filter > 1, x-axis breaks every 10
+# EIS: filter > 1, x-axis breaks every 10
+fig_ce_tech <- create_tech_bar_chart(ce_tech_breakdown, "CE", catf_dark_blue,
+                                     min_count = 10, x_break = 200)
+fig_ea_tech <- create_tech_bar_chart(ea_tech_breakdown, "EA", catf_teal,
+                                     min_count = 1, x_break = 10)
+fig_eis_tech <- create_tech_bar_chart(eis_tech_breakdown, "EIS", catf_magenta,
+                                      min_count = 1, x_break = 10)
+
+ggsave(
+  filename = here(figures_dir, "13_deep_dive_ce_tech.png"),
+  plot = fig_ce_tech,
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+cat("  Saved: 13_deep_dive_ce_tech.png\n")
+
+ggsave(
+  filename = here(figures_dir, "13_deep_dive_ea_tech.png"),
+  plot = fig_ea_tech,
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+cat("  Saved: 13_deep_dive_ea_tech.png\n")
+
+ggsave(
+  filename = here(figures_dir, "13_deep_dive_eis_tech.png"),
+  plot = fig_eis_tech,
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+cat("  Saved: 13_deep_dive_eis_tech.png\n")
+
+# Create sample tables for report (random 20 from top 2 counties only)
+top_2_ce <- top_ce_counties %>% slice_head(n = 2)
+top_2_ea <- top_ea_counties %>% slice_head(n = 2)
+top_2_eis <- top_eis_counties %>% slice_head(n = 2)
+
+set.seed(42)  # For reproducibility
+table_ce_sample <- create_county_project_table(top_2_ce, "CE") %>% slice_sample(n = min(20, nrow(.)))
+table_ea_sample <- create_county_project_table(top_2_ea, "EA") %>% slice_sample(n = min(20, nrow(.)))
+table_eis_sample <- create_county_project_table(top_2_eis, "EIS") %>% slice_sample(n = min(20, nrow(.)))
+
+# Save sample tables for the report
+write_csv(table_ce_sample, here(tables_dir, "deep_dive_ce_sample.csv"))
+write_csv(table_ea_sample, here(tables_dir, "deep_dive_ea_sample.csv"))
+write_csv(table_eis_sample, here(tables_dir, "deep_dive_eis_sample.csv"))
+cat("  Saved sample tables for report\n")
+
+
+# --------------------------
 # ANALYSIS: COUNTY DATA COVERAGE BY PROCESS TYPE
 # --------------------------
 
