@@ -28,6 +28,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import sys
+import re
+import ast
 
 # datasets is only needed for raw extraction from HuggingFace
 # Import lazily to allow analysis mode to work without it
@@ -171,6 +173,202 @@ def add_department_column(df):
     """
     df = df.copy()
     df['project_department'] = df['lead_agency'].apply(classify_department)
+    return df
+
+
+# --------------------------
+# LEAD AGENCY HARMONIZATION
+# --------------------------
+
+DEPT_ABBREV_MAP = {
+    "DOE": "Department of Energy",
+    "DOI": "Department of the Interior",
+    "USDA": "Department of Agriculture",
+    "DOD": "Department of Defense",
+    "DoD": "Department of Defense",
+    "DHS": "Department of Homeland Security",
+    "DOT": "Department of Transportation",
+    "HHS": "Department of Health and Human Services",
+    "HUD": "Department of Housing and Urban Development",
+    "DOC": "Department of Commerce",
+    "DOS": "Department of State",
+    "DOJ": "Department of Justice",
+    "VA": "Department of Veterans Affairs",
+    "Treasury": "Department of the Treasury",
+    "USACE": "Major Independent Agencies - Corps of Engineers--Civil Works",
+    "EPA": "Major Independent Agencies - Environmental Protection Agency",
+    "GSA": "General Services Administration",
+    "NASA": "Major Independent Agencies - National Aeronautics and Space Administration",
+    "TVA": "Other Independent Agencies - Tennessee Valley Authority",
+}
+
+
+def parse_agency_list(value):
+    """
+    Parse lead_agency into a list of agency strings.
+
+    Handles:
+    - Python list/np.ndarray
+    - JSON list strings
+    - Python-list-style strings with single quotes
+    - Single strings
+    """
+    if value is None:
+        return []
+    if isinstance(value, (list, np.ndarray)):
+        return [str(x).strip() for x in value if str(x).strip()]
+    if isinstance(value, float) and np.isnan(value):
+        return []
+    if isinstance(value, str):
+        v = value.strip()
+        if not v:
+            return []
+        if v.startswith('[') and v.endswith(']'):
+            # Try JSON, then Python literal
+            for parser in (json.loads, ast.literal_eval):
+                try:
+                    parsed = parser(v)
+                    if isinstance(parsed, (list, tuple)):
+                        return [str(x).strip() for x in parsed if str(x).strip()]
+                except Exception:
+                    pass
+        return [v]
+    return [str(value).strip()]
+
+
+def normalize_agency_text(value):
+    """
+    Normalize raw agency text for matching.
+    """
+    if value is None:
+        return ""
+    s = str(value).strip()
+    if not s:
+        return ""
+    # Normalize dashes and whitespace
+    s = s.replace("—", "-").replace("–", "-")
+    s = re.sub(r"\s+", " ", s)
+    # Strip wrapping quotes
+    s = s.strip("\"' ")
+    # Normalize "U.S." prefix
+    s = re.sub(r"^(U\.S\.|US)\s+", "", s)
+    return s
+
+
+def build_subagency_lookup(series):
+    """
+    Build a lookup of subagency -> full agency name from existing full values.
+    Example: "Power Marketing Administration" -> "Department of Energy - Power Marketing Administration"
+    """
+    lookup = {}
+    for value in series.dropna():
+        for agency in parse_agency_list(value):
+            agency = normalize_agency_text(agency)
+            if " - " in agency:
+                parts = agency.split(" - ", 1)
+                parent = parts[0].strip()
+                sub = parts[1].strip()
+                if not sub or sub == parent:
+                    continue
+                if sub not in lookup:
+                    lookup[sub] = agency
+    return lookup
+
+
+def harmonize_single_agency(agency, subagency_lookup):
+    """
+    Harmonize a single agency string to a canonical name.
+    """
+    agency = normalize_agency_text(agency)
+    if not agency:
+        return ""
+
+    # Expand department abbreviations (prefixes)
+    for abbr, dept in DEPT_ABBREV_MAP.items():
+        if agency == abbr:
+            return dept
+        if agency.startswith(f"{abbr} - "):
+            return f"{dept} - {agency[len(abbr) + 3:]}"
+        if agency.startswith(f"{abbr}-"):
+            return f"{dept} - {agency[len(abbr) + 1:]}"
+
+    # Collapse redundant "Department of X - Department of X"
+    for dept in DEPT_ABBREV_MAP.values():
+        if agency == f"{dept} - {dept}":
+            return dept
+
+    # Prefer agency-only (subagency) since department is stored separately.
+    # For hierarchical labels, return the subagency portion.
+    if " - " in agency:
+        parent, sub = agency.split(" - ", 1)
+        parent = parent.strip()
+        sub = sub.strip()
+        if sub:
+            return sub
+
+    # If this is already a department-level name, keep it (no subagency available)
+    if agency.startswith("Department of "):
+        return agency
+    if agency.startswith("Major Independent Agencies"):
+        return agency
+    if agency.startswith("Other Independent Agencies"):
+        return agency
+    if agency.startswith("General Services Administration"):
+        return agency
+    if agency in ("Legislative Branch", "International Assistance Programs"):
+        return agency
+
+    # If agency is only a subagency name, map to full
+    if agency in subagency_lookup:
+        return subagency_lookup[agency]
+
+    return agency
+
+
+def add_lead_agency_harmonized(df, verbose=True):
+    """
+    Add lead_agency_harmonized column.
+
+    Returns:
+        DataFrame with lead_agency_harmonized as list (one per agency entry).
+    """
+    df = df.copy()
+    subagency_lookup = build_subagency_lookup(df['lead_agency'])
+
+    pairs = []
+
+    def harmonize_value(value):
+        raw_list = parse_agency_list(value)
+        harmonized = []
+        for raw in raw_list:
+            h = harmonize_single_agency(raw, subagency_lookup)
+            harmonized.append(h)
+            pairs.append((normalize_agency_text(raw), h))
+        return harmonized
+
+    df['lead_agency_harmonized'] = df['lead_agency'].apply(harmonize_value)
+
+    if verbose:
+        pairs_df = pd.DataFrame(pairs, columns=['raw', 'harmonized'])
+        pairs_df = pairs_df[pairs_df['raw'] != ""]
+        raw_unique = pairs_df['raw'].nunique()
+        harm_unique = pairs_df['harmonized'].nunique()
+        changed = (pairs_df['raw'] != pairs_df['harmonized']).sum()
+        print("\n=== Lead Agency Harmonization ===")
+        print(f"Unique raw values: {raw_unique:,}")
+        print(f"Unique harmonized values: {harm_unique:,}")
+        print(f"Entries changed by harmonization: {changed:,}")
+        print("\nTop raw -> harmonized mappings (changed only):")
+        mapping_counts = (
+            pairs_df[pairs_df['raw'] != pairs_df['harmonized']]
+            .value_counts()
+            .head(20)
+        )
+        if len(mapping_counts) == 0:
+            print("  (No changes detected)")
+        else:
+            print(mapping_counts.to_string())
+
     return df
 
 
@@ -734,6 +932,7 @@ def convert_complex_columns_for_parquet(df):
     complex_cols = [
         'project_sector', 'project_type', 'project_description',
         'project_sponsor', 'project_location', 'lead_agency',
+        'lead_agency_harmonized',
         'project_state', 'project_county'
     ]
 
@@ -817,6 +1016,10 @@ def create_combined_projects():
     # Add department classification
     print("Adding department classification...")
     combined = add_department_column(combined)
+
+    # Add lead agency harmonization
+    print("Harmonizing lead agencies...")
+    combined = add_lead_agency_harmonized(combined, verbose=True)
 
     # Add multi-value flags (multi-state, multi-county, multi-department)
     print("Adding multi-value flags...")
