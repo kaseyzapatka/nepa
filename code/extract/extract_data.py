@@ -62,6 +62,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # goes from extract/ -
 RAW_DIR = BASE_DIR / "data" / "raw"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+FEDERAL_REGISTER_PATH = ANALYSIS_DIR / "noi_federal_register.parquet"
 
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1044,6 +1045,15 @@ def create_combined_projects():
     combined['project_has_final_doc'] = combined['project_has_final_doc'].fillna(False)
     combined['project_has_draft_doc'] = combined['project_has_draft_doc'].fillna(False)
     combined['project_doc_count'] = combined['project_doc_count'].fillna(0).astype(int)
+
+    # Merge Federal Register NOI enrichment if available
+    if FEDERAL_REGISTER_PATH.exists():
+        print("Merging Federal Register NOI enrichment...")
+        fr_df = pd.read_parquet(FEDERAL_REGISTER_PATH)
+        fr_df = fr_df.drop(columns=["project_title"], errors="ignore")
+        combined = combined.merge(fr_df, on="project_id", how="left")
+    else:
+        print(f"Federal Register NOI file not found: {FEDERAL_REGISTER_PATH}")
 
     # Optional: Federal Register NOI enrichment (disabled by default)
     if ENABLE_FEDERAL_REGISTER_NOI:

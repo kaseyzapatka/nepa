@@ -1,7 +1,7 @@
 # --------------------------
-# EXPLORATORY: PUBLIC COMMENTS
+# EXPLORATORY: FEDERAL REGISTER
 # --------------------------
-# Exploraotry analysis of public comments
+# Exploratory analysis of public comments
 
 
 # --------------------------
@@ -15,14 +15,27 @@ source(here::here("code", "deliverable01", "00_setup.R"))
 # LOAD SPECIFIC DATA
 # --------------------------
 
-doc_path <- here("data", "analysis", "documents_combined.parquet")
-docs <- read_parquet(doc_path)
+register_path <- here("data", "analysis", "noi_federal_register.parquet")
+register <- read_parquet(register_path)
+
 
 # --------------------------
 # ANALYSIS
 # --------------------------
 
-docs |> 
-  filter(dataset_source == "EA") |> 
-  filter(str_detect(file_name, regex("comment", ignore_case = TRUE))) |> 
+register |> 
+  filter(!is.na(noi_publication_date)) |> 
+  #select(noi_publication_date:noi_document_number) |> 
+  glimpse()
+
+projects |> 
+  filter(project_id == "8fa2e4a0ce54588261fa6730fcf58c03") |> 
+  glimpse()
+  filter(str_detect(project_title, regex("Coastal Virginia Offshore Wind Commercial Project", ignore_case = TRUE))) |> 
+  glimpse()
+
+clean_energy |> 
+  select(project_id, project_title, project_state) |> 
+  left_join(register) |> 
+  filter(!is.na(noi_publication_date)) |> 
   glimpse()

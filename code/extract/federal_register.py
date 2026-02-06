@@ -386,7 +386,7 @@ def main() -> None:
     parser.add_argument("--process-types", default="EIS,EA", help="Comma-separated list")
     parser.add_argument("--energy-types", default="Clean", help="Comma-separated list")
     parser.add_argument("--cache-path", default=str(ANALYSIS_DIR / "fr_noi_cache.json"))
-    parser.add_argument("--output", default=str(ANALYSIS_DIR / "fr_noi_sample.parquet"))
+    parser.add_argument("--output", default=str(ANALYSIS_DIR / "noi_federal_register.parquet"))
     parser.add_argument("--report-n", type=int, default=10, help="Examples to print")
     parser.add_argument("--fetch-raw-text", action="store_true", help="Fetch raw text for scoping dates")
     parser.add_argument("--debug-log", default=None, help="Optional path to write query debug log")
