@@ -38,11 +38,6 @@ department_counts <- agency_data %>%
   count(department, name = "n_projects") %>%
   arrange(desc(n_projects))
 
-# --------------------------
-# EXPLORATORY
-# --------------------------
-
-
 
 # --------------------------
 # TABLE: PROJECTS BY DEPARTMENT 
@@ -420,3 +415,27 @@ ggsave(
 )
 cat("  Saved: 03_key_agency_process.png\n")
 
+
+# --------------------------
+# EXPLORATORY
+# --------------------------
+# check to see if there are any projects by Federal Energy Regulatory Commission
+
+projects |> 
+  #select(lead_agency_harmonized) |> 
+  #parse_json_column("lead_agency_harmonized") |> 
+  filter(str_detect(project_sponsor, regex("Regulatory Commission", ignore_case = TRUE))) |> 
+  select(lead_agency_harmonized) |> 
+  distinct() |> 
+  glimpse()
+
+ferc_hits <- agency_data |>
+  filter(
+    str_detect(lead_agency, regex("Federal Energy Regulatory Commission|\\bFERC\\b", ignore_case = TRUE)) |
+    str_detect(project_department, regex("Federal Energy Regulatory Commission|\\bFERC\\b", ignore_case = TRUE))
+  ) |>
+  distinct(project_department, lead_agency)
+
+ferc_hits |> print(n = 50)
+
+nrow(ferc_hits)
