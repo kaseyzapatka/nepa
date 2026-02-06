@@ -4730,27 +4730,69 @@ vertical-align: -.125em;
 <section id="explore-a-specific-project" class="level2">
 <h2 class="anchored" data-anchor-id="explore-a-specific-project">Explore a specific project</h2>
 <p>Set the <code>project_id</code> below and run the cells to explore.</p>
-<div class="cell" data-execution_count="39">
+<div class="cell" data-execution_count="53">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set your project ID here</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;d9c3d975f3e8c38c549f8182bec4181b&quot; # </span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;683fe0ca-24ad-0d00-9dc4-ea9f48c34117&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;0f7c6f78530735f9bd986b38726c79eb&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="40">
+<div class="cell" data-execution_count="54">
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># List all documents for this project</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>list_documents(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>No documents found for project_id: 683fe0ca-24ad-0d00-9dc4-ea9f48c34117</code></pre>
+<pre><code>
+Documents for project: 0f7c6f78530735f9bd986b38726c79eb
+--------------------------------------------------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">document_id</th>
+<th data-quarto-table-cell-role="th">document_type</th>
+<th data-quarto-table-cell-role="th">document_type_category</th>
+<th data-quarto-table-cell-role="th">main_document</th>
+<th data-quarto-table-cell-role="th">file_name</th>
+<th data-quarto-table-cell-role="th">total_pages</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">56004</td>
+<td>9a48c01c17562389b2082718d167a859</td>
+<td>OTHER</td>
+<td>other</td>
+<td>NO</td>
+<td>3342.pdf</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">56005</td>
+<td>fb4d76a4e910e63da4b41c92dcd567cb</td>
+<td>OTHER</td>
+<td>other</td>
+<td>NO</td>
+<td>3342.pdf</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+
 </div>
 </div>
-<div class="cell" data-execution_count="34">
+</div>
+<div class="cell" data-execution_count="55">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># View first 3 pages of EISch document</span></span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>view_project_pages(project_id, document_id <span class="op">=</span> <span class="st">&quot;d8e36db202c0cb8a085014f48d7f407d&quot;</span>)</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co">#view_project_pages(project_id)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="co">#view_project_pages(project_id, document_id = &quot;d8e36db202c0cb8a085014f48d7f407d&quot;)</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>view_project_pages(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 ================================================================================
-Document: appendix_f_programmatic_agreement.pdf
-Type:  | Category: appendix | Main: NO
+Document: 3342.pdf
+Type: OTHER | Category: other | Main: NO
 ================================================================================
 
 --- PAGE 1 ---
@@ -4760,61 +4802,184 @@ Type:  | Category: appendix | Main: NO
  
  
  
- 
-Appendix F 
-Programmatic Agreement with CA and NV SHPOs 
- 
- 
+April 27, 2006 
+Reply To 
+Attn Of: ETPA-088 
  
  
  
  
  
  
+ 
+Ref:  02-086-BLM 
+ 
+ 
+Mr. Scott Barker, Project Manager 
+Bureau of Land Management 
+15 East, 200 South 
+Burley, ID  83318 
+ 
+Dear Mr. Barker: 
+ 
+The U.S. Environmental Protection Agency (EPA) has reviewed the final Environmental Impact 
+Statement (EIS) for the proposed Cotterel Wind Power Project and Resource Management Plan 
+Amendment (CEQ No. 20060103) in Cassia County, Idaho.  The review was conducted in accordance with 
+EPA responsibilities under the National Environmental Policy Act (NEPA) and Section 309 of the Clean Air 
+Act (CAA).  This section of the CAA directs EPA to specifically review and comment in writing on the 
+environmental impacts associated with all major federal actions.  Under our policies and procedures, we 
+evaluate the document&#39;s adequacy in meeting NEPA requirements. 
+ 
+The final EIS proposes construction, operation, and maintenance of a 190-240 megawatt (MW) 
+wind-driven electric power generation facility on Cotterel Mountain, land primarily administered by the 
+Bureau of Land Management (BLM); and amendments to the 1985 Cassia Resource Management Plan 
+(RMP) to allow for the granting of a right-of-way (ROW) for development of the facility.  From four 
+possible alternative actions proposed for the project, Alternative C has been identified as the final EIS 
+preferred alternative.  Under this action, BLM would use fewer (81-98) but larger output (2-3 MW) wind 
+turbines, construct 23 miles of roads (19.5 miles of new and 3.2 miles of reconstructed roads), build one 
+substation, and set up 20 miles of new transmission interconnect lines.  Adverse impacts from the preferred 
+Alternative C would be reduced using appropriate Best Management Practices (BMPs), effectiveness 
+monitoring, adaptive management, and compensatory off-site mitigation. 
+ 
+In our comments on the draft EIS in September 2005, EPA requested that the final EIS include 
+information about the National Pollutant Discharge Elimination System (NPDES) stormwater permit and 
+recommended continued engagement of the U.S. Fish and Wildlife Service, Idaho Department of Fish and 
+Game, and other experts on wind energy development issues throughout the life of the proposed project.  All 
+changes made to the EIS between draft and final reflect the good work that BLM has done, working with 
+interested stakeholders, and modifying the proposed action in response to public comments.  The responses 
+provided in the final EIS address our concerns. 
+ 
+EPA appreciates the opportunity to provide comments on the final EIS for this project. If you have 
+questions about our comments, please contact Theogene Mbabaliye at (206) 553-6322. 
+ 
+Sincerely, 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+/S/ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Christine B. Reichgott, Manager 
+ 
+ 
+ 
+ 
+ 
+ 
+NEPA Review Unit 
+ 
+cc: 
+EPA Idaho Operations Office 
+ 
 
 
---- PAGE 10 ---
+================================================================================
+Document: 3342.pdf
+Type: OTHER | Category: other | Main: NO
+================================================================================
 
+--- PAGE 1 ---
 
-
---- PAGE 11 ---
-
-
-
---- PAGE 12 ---
-
-
-
---- PAGE 13 ---
-
-
-
---- PAGE 14 ---
-
-
-
---- PAGE 15 ---
-
-
-
---- PAGE 16 ---
-
-
-
---- PAGE 17 ---
-
-
-
---- PAGE 18 ---
-
-
-
---- PAGE 19 ---
-
+September 22, 2005 
+ 
+Reply To 
+Attn Of: 
+ETPA-088 
+ 
+ 
+ 
+ 
+ 
+ 
+Ref:  02-086-BLM 
+ 
+ 
+Mr. Scott Barker, Project Manager 
+Bureau of Land Management 
+15 East, 200 South 
+Burley, ID  83318 
+ 
+Dear Mr. Barker: 
+ 
+The U.S. Environmental Protection Agency (EPA) has reviewed the Draft Environmental 
+Impact Statement (DEIS) for the proposed Cotterel Wind Power Project and Draft Resource 
+Management Plan Amendment (CEQ No. 20050249) in Cassia County, Idaho.  The review 
+was conducted in accordance with EPA responsibilities under the National Environmental Policy 
+Act (NEPA) and Section 309 of the Clean Air Act (CAA).  This section of the CAA directs EPA 
+to specifically review and comment in writing on the environmental impacts associated with all 
+major federal actions.  Our review considers not only the impact to the environment but also the 
+adequacy of the NEPA document itself. 
+ 
+The DEIS analyzes the impact of a proposal to construct, operate and maintain a 190-240 
+megawatt (MW) wind-driven electric power generation facility on Cotterel Mountain, land 
+primarily administered by the Bureau of Land Management (BLM).  BLM will decide whether 
+to grant a right-of-way (ROW) for the project and amend its 1985 Cassia Resource Management 
+Plan (RMP). 
+ 
+The DEIS analyzes four alternatives, A through D.  Alternative A is the no action 
+alternative, under which the ROW would be denied.  Alternative B is the proposed action, with 
+infrastructure that would include 130 turbines of 1.5 MW output each, 2 substations, 25 miles of 
+roads (22.1 miles for new and 4.5 reconstructed roads), and a permanent project area of about 
+203 acres.  The BLM’s preferred alternative is Alternative C, which is a modification of 
+Alternative B using fewer (81-98) but larger output (2-3 MW) wind turbines, about 23 miles of 
+roads (19.5 miles of new and 3.2 miles of reconstructed roads), 1 substation, and longer 
+transmission lines (20 miles).  Alternative D would modify alternative C to avoid a portion of 
+sage-grouse habitat using less overall acreage (158 acres) for the project and fewer wind turbines 
+(66-82), 1 substation, and 17.4 miles of roads (14.5 miles of new and 2.9 of reconstructed roads).  
+Both Alternatives C and D would include effectiveness monitoring, adaptive management, 
+compensatory off-site mitigation, and a technical steering committee.  Alternatives B-D would 
+require amendments to the Cassia RMP, which currently does not allow granting a ROW for 
+wind energy development. 
+ 
+ 
 
 
 --- PAGE 2 ---
 
+2 
+ 
+EPA supports development of alternative and environmentally sustainable sources of 
+energy such as wind power.  The DEIS for this project includes a good analysis of the potential 
+impacts of the Cotterel Mountain Wind Power Project.  We are particularly pleased that the 
+interagency group of experts on wildlife biology (IWETT) and Technical Steering Committee 
+are actively engaged as advisors on this project since wind power technology and configuration 
+of wind turbines in this area are still relatively new.  Effective adaptive management will be 
+important to minimize and mitigate impacts. 
+ 
+The DEIS indicates that the primary impacts of this project are expected to be disruption 
+of sage-grouse habitat and bird and bat mortality due to collisions with rotors.  Water quality 
+may be adversely affected if construction alters the hydrology of springs and surface runoff such 
+that erosion carries sediment to tributaries and ultimately to streams already listed on the 303(d) 
+list for sediment and/or temperature.  The DEIS states that BMPs will be used to minimize these 
+impacts.  We recommend that this aspect of the project be monitored to assure that water quality 
+is protected.  A NPDES stormwater permit is required for construction projects that disturb more 
+than one acre (40 CFR 122.26 (b)).  We recommend that the final EIS include information about 
+this permit.  Air quality will be impacted in the short term due to construction activities and in 
+the longer term due to traffic on unpaved roads, emissions from vehicles and on-site operations, 
+and cumulative impacts from surrounding activities such as agriculture and fire.  Because the 
+project site is within the Prevention of Significant Deterioration (PSD) Class II area, it will be 
+important to monitor the situation and take corrective action if air quality standards are not met.  
+We recommend that the BLM continue to work closely with the U.S. Fish and Wildlife Service, 
+Idaho Department of Fish and Game, and other experts on these issues throughout the life of the 
+proposed project, particularly in effectiveness monitoring, adaptive management, and 
+compensatory mitigation. 
+ 
+We have assigned a rating of LO (Lack of Objections) to the DEIS.  This rating and a 
+summary of our comments will be published in the Federal Register.  A copy of the rating 
+system used in conducting our review is enclosed for your reference.   
+ 
+Thank you for the opportunity to review this DEIS.  If you have questions or comments 
+concerning this review, please contact Mr. Theogene Mbabaliye at (206) 553-6322 or by email at 
+mbabaliye.theogene@epa.gov. 
  
  
  
@@ -4822,50 +4987,36 @@ Programmatic Agreement with CA and NV SHPOs
  
  
  
-This page intentionally left blank 
+ 
+Sincerely, 
  
  
  
-
-
---- PAGE 20 ---
-
-
-
---- PAGE 21 ---
-
-
-
---- PAGE 22 ---
-
-
-
---- PAGE 3 ---
-
-
-
---- PAGE 4 ---
-
-
-
---- PAGE 5 ---
-
-
-
---- PAGE 6 ---
-
-
-
---- PAGE 7 ---
-
-
-
---- PAGE 8 ---
-
-
-
---- PAGE 9 ---
-
+ 
+ 
+ 
+ 
+/S/ Denise Clark for 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Christine B. Reichgott, Manager 
+ 
+ 
+ 
+ 
+ 
+ 
+NEPA Review Unit 
+ 
+Enclosure 
+ 
+cc: 
+EPA Idaho Operations Office 
 </code></pre>
 </div>
 </div>
