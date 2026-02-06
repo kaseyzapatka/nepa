@@ -101,6 +101,31 @@ explode_column <- function(df, col_name) {
     separate_rows(!!col_name, sep = "\\|")
 }
 
+#' Parse JSON-encoded strings into readable character values
+#' Handles: JSON arrays/objects stored as strings, plain strings, lists, NULL
+parse_json_string <- function(x, collapse = ", ") {
+  if (is.null(x) || length(x) == 0) return(NA_character_)
+  if (is.list(x)) x <- unlist(x)
+  if (length(x) > 1) return(paste(as.character(x), collapse = collapse))
+  if (is.na(x) || (is.character(x) && x == "")) return(NA_character_)
+  if (!is.character(x)) return(as.character(x))
+  if (!grepl("^\\s*[\\[{]", x)) return(x)
+
+  parsed <- tryCatch(
+    jsonlite::fromJSON(x),
+    error = function(e) x
+  )
+  if (is.list(parsed)) parsed <- unlist(parsed)
+  if (length(parsed) > 1) return(paste(as.character(parsed), collapse = collapse))
+  as.character(parsed)
+}
+
+#' Parse a JSON-encoded column to readable character values
+parse_json_column <- function(df, col_name, collapse = ", ") {
+  df %>%
+    mutate(!!col_name := sapply(.data[[col_name]], parse_json_string, collapse = collapse))
+}
+
 #' Create cross-tabulation table by process type
 create_crosstab <- function(df, group_col, process_col = "process_type") {
   df %>%
