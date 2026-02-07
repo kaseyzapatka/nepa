@@ -1083,6 +1083,18 @@ def train_bert_classifier(
     # Data collator
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
+    # Class weights (handle imbalance)
+    import numpy as np
+    import torch
+    label_counts = df['label_id'].value_counts().sort_index()
+    total = label_counts.sum()
+    # Inverse frequency weights
+    class_weights = total / (label_counts * len(label_counts))
+    class_weights = torch.tensor(class_weights.values, dtype=torch.float)
+    print("\nClass weights:")
+    for lbl, w in zip(label2id.keys(), class_weights.tolist()):
+        print(f"  {lbl}: {w:.3f}")
+
     # Metrics
     def compute_metrics(eval_pred):
         predictions, labels = eval_pred
@@ -1106,8 +1118,17 @@ def train_bert_classifier(
         load_best_model_at_end=False,
     )
 
-    # Trainer
-    trainer = Trainer(
+    # Trainer with weighted loss (compatible with older transformers)
+    class WeightedTrainer(Trainer):
+        def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+            labels = inputs.pop("labels")
+            outputs = model(**inputs)
+            logits = outputs.logits
+            loss_fct = torch.nn.CrossEntropyLoss(weight=class_weights.to(logits.device))
+            loss = loss_fct(logits, labels)
+            return (loss, outputs) if return_outputs else loss
+
+    trainer = WeightedTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,

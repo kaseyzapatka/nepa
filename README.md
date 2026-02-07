@@ -29,3 +29,37 @@ python code/extract/extract_data.py --mode analysis
 The merge uses `project_id` and drops `project_title` from the NOI output to avoid duplicate columns. The NOI output is expected at `data/analysis/noi_federal_register.parquet`.
 
 Note for later updates: consider tracking a run log with query statistics for reproducibility.
+
+## Timeline Data Build (Regex + BERT)
+
+Use this after updating timeline patterns or models in `code/extract/extract_timeline.py`.
+
+1. Build regex cache (uses updated context rules):
+
+```bash
+python code/extract/extract_timeline.py --regex-prep
+```
+
+2. Generate BERT training data (uses updated strong/med/weak patterns):
+
+```bash
+python code/extract/extract_timeline.py --bert-generate
+```
+
+3. Train the BERT classifier:
+
+```bash
+python code/extract/extract_timeline.py --bert-train
+```
+
+4. Run a small test sample (sanity check):
+
+```bash
+python code/extract/extract_timeline.py --bert-run --sample 50 --output test50_bert_v9.parquet
+```
+
+5. Full run to update timeline output:
+
+```bash
+python code/extract/extract_timeline.py --bert-run --output projects_timeline_bert.parquet
+```
