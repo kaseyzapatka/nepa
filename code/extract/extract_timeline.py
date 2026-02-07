@@ -5,6 +5,7 @@
 # Strategy: Regex first to find all dates, then order them chronologically
 
 import re
+import json
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
@@ -156,6 +157,113 @@ def parse_date_match(match, pattern_type):
 
     return None
 
+
+def extract_dates_from_filename(file_name: str) -> list:
+    """
+    Extract date strings from a filename.
+
+    Returns:
+        List of dicts: [{'date': 'YYYY-MM-DD', 'match': 'Feb 27 2023'}, ...]
+    """
+    if not file_name or not isinstance(file_name, str):
+        return []
+
+    variants = [
+        file_name,
+        file_name.replace('_', '-'),
+        file_name.replace('_', '/'),
+        re.sub(r'[_-]+', ' ', file_name),
+    ]
+
+    results = []
+    seen = set()
+
+    # Extra filename-specific pattern: YYYY/MM/DD
+    ymd_slash = re.compile(r'(\d{4})/(\d{1,2})/(\d{1,2})')
+
+    for text in variants:
+        # DATE_PATTERNS handle month names, MDY, DMY, ISO, numeric slash/dash
+        for pattern, pattern_type in DATE_PATTERNS:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                date_obj = parse_date_match(match, pattern_type)
+                if date_obj is None:
+                    continue
+                date_str = date_obj.strftime('%Y-%m-%d')
+                key = (date_str, match.group(0))
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append({'date': date_str, 'match': match.group(0)})
+
+        # YYYY/MM/DD variant
+        for match in ymd_slash.finditer(text):
+            year, month, day = match.groups()
+            try:
+                date_obj = datetime(int(year), int(month), int(day))
+            except ValueError:
+                continue
+            date_str = date_obj.strftime('%Y-%m-%d')
+            key = (date_str, match.group(0))
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append({'date': date_str, 'match': match.group(0)})
+
+    # Sort by date string
+    results.sort(key=lambda x: x['date'])
+    return results
+
+
+def build_file_name_date_map(documents_df: pd.DataFrame, main_docs_only: bool = True) -> dict:
+    """
+    Build a map of project_id -> JSON list of filename date matches.
+    """
+    if documents_df is None or documents_df.empty:
+        return {}
+
+    df = documents_df.copy()
+
+    def extract_id(x):
+        if isinstance(x, dict):
+            return x.get('value', '')
+        return x
+
+    if 'project_id' in df.columns:
+        df['project_id'] = df['project_id'].apply(extract_id)
+
+    if main_docs_only and 'main_document' in df.columns:
+        df = df[df['main_document'] == 'YES']
+
+    project_map = {}
+
+    for _, row in df.iterrows():
+        project_id = row.get('project_id')
+        file_name = row.get('file_name')
+        if not project_id or not file_name:
+            continue
+        matches = extract_dates_from_filename(file_name)
+        if not matches:
+            continue
+        for m in matches:
+            m['file_name'] = file_name
+            if 'document_id' in row:
+                m['document_id'] = row.get('document_id')
+        project_map.setdefault(project_id, []).extend(matches)
+
+    # Deduplicate per project by (date, match, file_name)
+    deduped = {}
+    for project_id, items in project_map.items():
+        seen = set()
+        out = []
+        for item in items:
+            key = (item.get('date'), item.get('match'), item.get('file_name'))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(item)
+        deduped[project_id] = json.dumps(out)
+
+    return deduped
 
 def should_exclude_date(text, match_start, match_end, window=50):
     """
@@ -495,6 +603,12 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
 
         documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
 
+        # Precompute filename date matches for this source
+        file_name_dates_map = build_file_name_date_map(
+            documents_df,
+            main_docs_only=main_docs_only
+        )
+
         # Filter to main documents only if requested
         if main_docs_only:
             main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
@@ -508,6 +622,7 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
 
             project_id = project['project_id']
             timeline = build_project_timeline(project_id, pages_df, documents_df, decision_docs_only)
+            timeline['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
             results.append(timeline)
 
     # Create results dataframe
@@ -568,16 +683,29 @@ REGEX_CACHE_PATH = ANALYSIS_DIR / "regex_candidates.parquet"
 BERT_MODEL_DIR = BASE_DIR / "models" / "timeline_classifier"
 BERT_TRAINING_DATA_PATH = ANALYSIS_DIR / "bert_training_data.parquet"
 
-# Auto-labeling patterns (high confidence rules)
+# Auto-labeling patterns (ranked confidence rules)
 DECISION_PATTERNS_STRONG = [
     r'digitally signed by',
     r'signed by\s+\w+',
     r'signature of',
     r'/s/\s*\w+',  # Digital signature format
+    r'concur.*nepa compliance officer',
+    r'nepa compliance officer.*concur',
     r'nepa compliance officer.*date',
+    r'nepa compliance officer',
+    r'authoriz(ing|ed) official',
+    r'authority and approval',
+    r'determination and approval',
+    r'categorical exclusion determination',
+    r'categorical exclusion (determination|approval)',
+    r'decision memo',
+    r'decision memorandum',
+    r'decision record',
     r'authorizing official.*date',
     r'field.*manager.*signature',
     r'field office manager determination',
+    r'field manager (acting)?',
+    r'assistant field manager',
     r'approved.*signature',
     r'fonsi.*signed',
     r'rod.*signed',
@@ -589,11 +717,13 @@ DECISION_PATTERNS_STRONG = [
 
 DECISION_PATTERNS_MED = [
     r'date determined',
-    r'determination',
     r'field office manager',
-    r'nepa compliance officer',
     r'authorizing official',
     r'final approval',
+]
+
+DECISION_PATTERNS_WEAK = [
+    r'determination',
     r'approval',
 ]
 
@@ -601,16 +731,41 @@ INITIATION_PATTERNS_STRONG = [
     r'scoping meeting',
     r'scoping period',
     r'notice of intent',
+    r'submitted notice of intent',
+    r'\bnoi\b',
     r'\bnoi\b.*publish',
+    r'noi published',
     r'application received',
     r'application submitted',
     r'consultation initiated',
-    r'project proposed',
-    r'proposal submitted',
-    r'request received',
+    r'initiation of consultation',
+    r'initiated on',
     r'right[- ]of[- ]way application',
     r'row application',
+    r'\brow\b application',
+    r'submitted (a )?(completed )?right[- ]of[- ]way application',
+    r'blm received (a|the) (row )?application',
     r'initiator signature',
+    r'doe initiator signature',
+]
+
+INITIATION_PATTERNS_MED = [
+    r'renewal application received',
+    r'by renewal application received',
+    r'project proposed',
+    r'proposed action',
+    r'nepa process started',
+    r'nepa review began',
+    r'proposal submitted',
+    r'request received',
+    r'review was initiated',
+    r'(distribution|review) (was )?initiated',
+]
+
+INITIATION_PATTERNS_WEAK = [
+    r'may require (a )?new nepa determinat',
+    r'may be categorically excluded',
+    r'categorically excluded from further nepa review',
 ]
 
 REVIEW_PATTERNS_STRONG = [
@@ -620,7 +775,36 @@ REVIEW_PATTERNS_STRONG = [
     r'phase\s+\d+\s+was approved',
     r'phase\s+\d+\s+approved',
     r'approved by\s+\w+.*(review|phase)',
+    r'realty specialist',
+    r'wildlife biologist',
+    r'scientist',
+    r'fisheries/?wildlife biologist',
+    r'recreation (planner|specialist)',
+    r'outdoor recreation planner',
+    r'natural resource specialist',
+    r'environmental coordinator',
+    r'planning & environmental coordinator',
+    r'planning and environmental coordinator',
+    r'botanist',
+    r'archaeologist',
+    r'archeologist',
+    r'district archaeologist',
+    r'cultural resource(s)? specialist',
+    r'project officer',
+    r'yes\s+no\s+reviewer/title\s+initials\s*&\s*date',
+    r'yes\s+no\s+reviewer',
+    r'reviewer/title\s+initials\s*&\s*date',
     r'nepa review completed',
+]
+
+REVIEW_PATTERNS_MED = [
+    r'review memo',
+    r'review memorandum',
+    r'reviewed by',
+]
+
+REVIEW_PATTERNS_WEAK = [
+    r'specialist',
 ]
 
 MEMO_DATE_PATTERNS = [
@@ -668,16 +852,34 @@ def auto_label_context(context: str) -> str:
     for pattern in DECISION_PATTERNS_STRONG:
         if re.search(pattern, context_lower):
             return 'decision'
+    for pattern in DECISION_PATTERNS_MED:
+        if re.search(pattern, context_lower):
+            return 'decision'
+    for pattern in DECISION_PATTERNS_WEAK:
+        if re.search(pattern, context_lower):
+            return 'decision'
+
+    # Check review patterns (treat as initiation-negative)
+    for pattern in REVIEW_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'review'
+    for pattern in REVIEW_PATTERNS_MED:
+        if re.search(pattern, context_lower):
+            return 'review'
+    for pattern in REVIEW_PATTERNS_WEAK:
+        if re.search(pattern, context_lower):
+            return 'review'
 
     # Check initiation patterns
     for pattern in INITIATION_PATTERNS_STRONG:
         if re.search(pattern, context_lower):
             return 'initiation'
-
-    # Check review patterns
-    for pattern in REVIEW_PATTERNS_STRONG:
+    for pattern in INITIATION_PATTERNS_MED:
         if re.search(pattern, context_lower):
-            return 'review'
+            return 'initiation'
+    for pattern in INITIATION_PATTERNS_WEAK:
+        if re.search(pattern, context_lower):
+            return 'initiation'
 
     # Check other patterns (negative examples)
     for pattern in OTHER_PATTERNS_STRONG:
@@ -1046,9 +1248,27 @@ def _decision_strength(context: str) -> int:
         return 3
     if _has_any_regex(context, DECISION_PATTERNS_MED):
         return 2
+    if _has_any_regex(context, DECISION_PATTERNS_WEAK):
+        return 1
     if _has_any(context, DECISION_CUES):
         return 1
     return 0
+
+
+def _has_strong_review_cue(context: str) -> bool:
+    return _has_any_regex(context, REVIEW_PATTERNS_STRONG)
+
+
+def _has_strong_decision_cue(context: str) -> bool:
+    return _has_any_regex(context, DECISION_PATTERNS_STRONG)
+
+
+def _has_reviewer_checkbox(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'yes\s+no\s+reviewer/title\s+initials\s*&\s*date',
+        r'yes\s+no\s+reviewer',
+        r'reviewer/title\s+initials\s*&\s*date',
+    ])
 
 
 def _select_best_decision(decision_dates: list) -> dict:
@@ -1156,6 +1376,17 @@ def extract_with_bert(
         if _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
             forced_type = 'initiation'
         label = forced_type or classification['label']
+
+        # Guardrail: strong decision/review cues cannot be initiation
+        if label == 'initiation':
+            if _has_strong_decision_cue(context_for_rules):
+                label = 'decision'
+            elif _has_strong_review_cue(context_for_rules):
+                label = 'review'
+
+        # Guardrail: reviewer checkbox lines are review, not decision
+        if label == 'decision' and _has_reviewer_checkbox(context_for_rules):
+            label = 'review'
         classified_dates.append({
             'date': date_info['date'],
             'type': label,
@@ -1285,6 +1516,23 @@ def run_bert_timeline_extraction(
         print("No projects to process.")
         return None
 
+    # Load documents for filename date extraction (CE only)
+    file_name_dates_map = {}
+    if ce_only:
+        data_dir = PROCESSED_DIR / "ce"
+        documents_df = pd.read_parquet(data_dir / "documents.parquet")
+
+        def extract_id(x):
+            if isinstance(x, dict):
+                return x.get('value', '')
+            return x
+
+        documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+        file_name_dates_map = build_file_name_date_map(
+            documents_df,
+            main_docs_only=main_docs_only
+        )
+
     # Load regex cache
     if use_regex_cache:
         if not REGEX_CACHE_PATH.exists():
@@ -1329,6 +1577,7 @@ def run_bert_timeline_extraction(
             'bert_application_date': bert_result.get('application_date'),
             'bert_inferred_application_date': bert_result.get('inferred_application_date'),
             'bert_error': bert_result.get('error'),
+            'project_file_name_dates': file_name_dates_map.get(project_id, '[]'),
         }
         results.append(result)
 
@@ -1460,6 +1709,15 @@ def _min_context_chars_for_sentence(sent_text: str) -> int:
     return 100
 
 
+def _is_signature_block(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'/s/\s*\w+',
+        r'\bsigned\b',
+        r'\bsignature\b',
+        r'\bdate\s*:',
+    ])
+
+
 def _expand_for_decision_cues(spans: list, sent_idx: int, context: str) -> str:
     """
     If a date is near boilerplate text but an adjacent sentence has decision cues,
@@ -1467,7 +1725,7 @@ def _expand_for_decision_cues(spans: list, sent_idx: int, context: str) -> str:
     """
     if not spans or sent_idx is None:
         return context
-    if not _is_decision_boilerplate(context):
+    if not _is_decision_boilerplate(context) and not _is_signature_block(context):
         return context
 
     merged = context
@@ -2493,6 +2751,12 @@ def run_llm_timeline_extraction(
 
     documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
 
+    # Precompute filename date matches
+    file_name_dates_map = build_file_name_date_map(
+        documents_df,
+        main_docs_only=main_docs_only
+    )
+
     # Filter to main documents only if requested
     if main_docs_only:
         main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
@@ -2525,14 +2789,18 @@ def run_llm_timeline_extraction(
             dates_with_context = cached_dates[[
                 'date', 'match', 'context', 'position', 'position_pct'
             ]].to_dict(orient='records')
-            return build_project_timeline_llm(
+            result = build_project_timeline_llm(
                 project_id, pages_df, documents_df, model=model,
                 use_hybrid=True, timeout=timeout, dates_with_context=dates_with_context
             )
-        return build_project_timeline_llm(
+            result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+            return result
+        result = build_project_timeline_llm(
             project_id, pages_df, documents_df, model=model,
             use_hybrid=use_hybrid, timeout=timeout
         )
+        result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+        return result
 
     if workers and workers > 1:
         with ThreadPoolExecutor(max_workers=workers) as executor:
