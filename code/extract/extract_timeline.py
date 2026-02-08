@@ -695,6 +695,7 @@ DECISION_PATTERNS_STRONG = [
     r'nepa compliance officer',
     r'authoriz(ing|ed) official',
     r'authority and approval',
+    r'NCO Determination:',
     r'determination and approval',
     r'categorical exclusion determination',
     r'categorical exclusion (determination|approval)',
@@ -716,6 +717,7 @@ DECISION_PATTERNS_STRONG = [
 ]
 
 DECISION_PATTERNS_MED = [
+    r'digitally signed by',
     r'date determined',
     r'field office manager',
     r'authorizing official',
@@ -735,6 +737,7 @@ INITIATION_PATTERNS_STRONG = [
     r'\bnoi\b',
     r'\bnoi\b.*publish',
     r'noi published',
+    r'doe initiator signature',
     r'application received',
     r'application submitted',
     r'consultation initiated',
@@ -785,16 +788,27 @@ REVIEW_PATTERNS_STRONG = [
     r'environmental coordinator',
     r'planning & environmental coordinator',
     r'planning and environmental coordinator',
+    r'environmental specialist',
     r'botanist',
     r'archaeologist',
     r'archeologist',
     r'district archaeologist',
     r'cultural resource(s)? specialist',
     r'project officer',
+    r'shpo.*concur',
+    r'environmental clearance memorandum',
     r'yes\s+no\s+reviewer/title\s+initials\s*&\s*date',
     r'yes\s+no\s+reviewer',
     r'reviewer/title\s+initials\s*&\s*date',
     r'nepa review completed',
+]
+
+REVIEW_PATTERNS_STRONG_CASE_SENSITIVE = [
+    r'\bSubject Matter Expert\b',
+    r'\bExpert\b',
+    r'\bNEPA-SME\b',
+    r'\bNEPA SME\b',
+    r'\bSME\b',
 ]
 
 REVIEW_PATTERNS_MED = [
@@ -805,6 +819,31 @@ REVIEW_PATTERNS_MED = [
 
 REVIEW_PATTERNS_WEAK = [
     r'specialist',
+]
+
+# Expiration cues (for future dates, e.g., CE expiration)
+EXPIRATION_PATTERNS_STRONG = [
+    r're-?authoriz\w*.*until',
+    r'categorical exclusion expires',
+    r'\bexpire\b',
+    r'\bexpir\w*\s+on\b',
+    r'expiration date would',
+    r'for a term of',
+    r'expiration date\s*[:]',
+    r'expiration date of',
+    r'valid until',
+]
+
+# Background/plan reference cues (treat as historical/other)
+HISTORICAL_CONTEXT_PATTERNS = [
+    r'resource management plan',
+    r'\brmp\b',
+    r'conformance with the applicable lup',
+    r'land use plan',
+    r'was assigned to',
+    r'assigned back to',
+    r'lease was issued',
+    r'communication site was established',
 ]
 
 MEMO_DATE_PATTERNS = [
@@ -862,6 +901,9 @@ def auto_label_context(context: str) -> str:
     # Check review patterns (treat as initiation-negative)
     for pattern in REVIEW_PATTERNS_STRONG:
         if re.search(pattern, context_lower):
+            return 'review'
+    for pattern in REVIEW_PATTERNS_STRONG_CASE_SENSITIVE:
+        if re.search(pattern, context):
             return 'review'
     for pattern in REVIEW_PATTERNS_MED:
         if re.search(pattern, context_lower):
@@ -1277,7 +1319,10 @@ def _decision_strength(context: str) -> int:
 
 
 def _has_strong_review_cue(context: str) -> bool:
-    return _has_any_regex(context, REVIEW_PATTERNS_STRONG)
+    return (
+        _has_any_regex(context, REVIEW_PATTERNS_STRONG)
+        or _has_any_regex_case_sensitive(context, REVIEW_PATTERNS_STRONG_CASE_SENSITIVE)
+    )
 
 
 def _has_strong_decision_cue(context: str) -> bool:
@@ -1290,6 +1335,49 @@ def _has_reviewer_checkbox(context: str) -> bool:
         r'yes\s+no\s+reviewer',
         r'reviewer/title\s+initials\s*&\s*date',
     ])
+
+
+def _is_expiration_candidate(date_str: str, context: str) -> bool:
+    if not date_str or not context:
+        return False
+    # Only bucket future dates after 2025-12-31
+    if date_str <= "2025-12-31":
+        return False
+    return _has_any_regex(context, EXPIRATION_PATTERNS_STRONG)
+
+
+def _is_historical_by_year(date_str: str) -> bool:
+    if not date_str:
+        return False
+    # Any date before 2000 is historical
+    return date_str < "2000-01-01"
+
+
+def _has_historical_context(context: str) -> bool:
+    return _has_any_regex(context, HISTORICAL_CONTEXT_PATTERNS)
+
+
+def _apply_historical_gap_rule(classified_dates: list, gap_days: int = 730) -> None:
+    """
+    If the earliest date is more than gap_days before the next earliest date,
+    re-label the earliest as historical.
+    """
+    if not classified_dates or len(classified_dates) < 2:
+        return
+    # Sort by date (ISO strings safe for lexicographic order)
+    sorted_dates = sorted(classified_dates, key=lambda x: x.get('date') or "")
+    d0 = sorted_dates[0].get('date')
+    d1 = sorted_dates[1].get('date')
+    if not d0 or not d1:
+        return
+    try:
+        from datetime import datetime
+        dt0 = datetime.strptime(d0, "%Y-%m-%d")
+        dt1 = datetime.strptime(d1, "%Y-%m-%d")
+    except Exception:
+        return
+    if (dt1 - dt0).days > gap_days:
+        sorted_dates[0]['type'] = 'historical'
 
 
 def _select_best_decision(decision_dates: list) -> dict:
@@ -1396,11 +1484,13 @@ def extract_with_bert(
             forced_type = 'other'
         if _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
             forced_type = 'initiation'
+        if _has_any_regex(context_for_rules, [r'nepa compliance officer']):
+            forced_type = 'decision'
         label = forced_type or classification['label']
 
         # Guardrail: strong decision/review cues cannot be initiation
         if label == 'initiation':
-            if _has_strong_decision_cue(context_for_rules):
+            if _has_strong_decision_cue(context_for_rules) and not _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
                 label = 'decision'
             elif _has_strong_review_cue(context_for_rules):
                 label = 'review'
@@ -1408,6 +1498,20 @@ def extract_with_bert(
         # Guardrail: reviewer checkbox lines are review, not decision
         if label == 'decision' and _has_reviewer_checkbox(context_for_rules):
             label = 'review'
+
+        # Guardrail: specialist signature lines are review, not decision
+        if label == 'decision' and _has_any_regex(context_for_rules, [r'specialist signature', r'\bspecialist\b']):
+            label = 'review'
+
+        # Bucket future expiration dates (post-2025-12-31)
+        if _is_expiration_candidate(date_info.get('date'), context_for_rules):
+            label = 'expiration'
+
+        # Bucket historical dates (< 2000)
+        if _is_historical_by_year(date_info.get('date')):
+            label = 'historical'
+        elif _has_historical_context(context_for_rules):
+            label = 'historical'
         classified_dates.append({
             'date': date_info['date'],
             'type': label,
@@ -1429,6 +1533,9 @@ def extract_with_bert(
             deduped[key] = d
     classified_dates = list(deduped.values())
 
+    # Historical gap rule (after dedupe)
+    _apply_historical_gap_rule(classified_dates, gap_days=730)
+
     output_dates = [
         {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score')}
         for d in classified_dates
@@ -1440,6 +1547,8 @@ def extract_with_bert(
     decision_dates = [d for d in classified_dates if d['type'] == 'decision']
     initiation_dates = [d for d in classified_dates if d['type'] == 'initiation']
     review_dates = [d for d in classified_dates if d['type'] == 'review']
+    expiration_dates = [d for d in classified_dates if d['type'] == 'expiration']
+    historical_dates = [d for d in classified_dates if d['type'] == 'historical']
 
     # If no decision cues exist anywhere, treat memo DATE lines as review
     has_decision_cues = any(
@@ -1475,6 +1584,17 @@ def extract_with_bert(
         result['inferred_application_date'] = initiation_dates[0]['date']
     elif review_dates:
         result['inferred_application_date'] = result['earliest_review_date']
+
+    # Expiration date (earliest)
+    if expiration_dates:
+        expiration_dates.sort(key=lambda x: x['date'])
+        result['expiration_date'] = expiration_dates[0]['date']
+
+    # Historical date (earliest + count)
+    if historical_dates:
+        historical_dates.sort(key=lambda x: x['date'])
+        result['earliest_historical_date'] = historical_dates[0]['date']
+        result['n_historical_dates'] = len(historical_dates)
 
     return result
 
@@ -1718,6 +1838,10 @@ def _has_any(text: str, cues: list) -> bool:
 def _has_any_regex(text: str, patterns: list) -> bool:
     text_lower = text.lower()
     return any(re.search(pattern, text_lower) for pattern in patterns)
+
+
+def _has_any_regex_case_sensitive(text: str, patterns: list) -> bool:
+    return any(re.search(pattern, text) for pattern in patterns)
 
 def _min_context_chars_for_sentence(sent_text: str) -> int:
     # Use tighter context for strong signature cues; expand for weaker review/initiation cues.
