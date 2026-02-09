@@ -52,10 +52,10 @@ python code/extract/extract_timeline.py --bert-generate
 python code/extract/extract_timeline.py --bert-train
 ```
 
-4. Run a small test sample (sanity check):
+4. Run a small test sample (optional):
 
 ```bash
-python code/extract/extract_timeline.py --bert-run --sample 50 --output test50_bert_v9.parquet
+python code/extract/extract_timeline.py --bert-run --sample 50 --output test50_bert_vX.parquet
 ```
 
 5. Full run to update timeline output:
