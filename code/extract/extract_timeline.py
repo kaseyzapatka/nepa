@@ -749,6 +749,7 @@ INITIATION_PATTERNS_STRONG = [
     r'submitted (a )?(completed )?right[- ]of[- ]way application',
     r'blm received (a|the) (row )?application',
     r'initiator signature',
+    r'designation form',
     r'doe initiator signature',
 ]
 
@@ -757,6 +758,7 @@ INITIATION_PATTERNS_MED = [
     r'by renewal application received',
     r'project proposed',
     r'proposed action',
+    r'designation',
     r'nepa process started',
     r'nepa review began',
     r'proposal submitted',
@@ -788,6 +790,7 @@ REVIEW_PATTERNS_STRONG = [
     r'environmental coordinator',
     r'planning & environmental coordinator',
     r'planning and environmental coordinator',
+    r'environmental coordinator',
     r'environmental specialist',
     r'botanist',
     r'archaeologist',
@@ -801,6 +804,9 @@ REVIEW_PATTERNS_STRONG = [
     r'yes\s+no\s+reviewer',
     r'reviewer/title\s+initials\s*&\s*date',
     r'nepa review completed',
+    r'memorandum of agreement',
+    r'\bmoa\b',
+    r'section 106',
 ]
 
 REVIEW_PATTERNS_STRONG_CASE_SENSITIVE = [
@@ -840,6 +846,8 @@ HISTORICAL_CONTEXT_PATTERNS = [
     r'\brmp\b',
     r'conformance with the applicable lup',
     r'land use plan',
+    r'plan maintenance action',
+    r'record of decision',
     r'was assigned to',
     r'assigned back to',
     r'lease was issued',
@@ -872,6 +880,8 @@ OTHER_PATTERNS_STRONG = [
     r'federal register',
     r'public law',
     r'act of \d{4}',
+    r'program specific guidance',
+    r'prepared in accordance with .* guidance',
 ]
 
 
@@ -1357,11 +1367,13 @@ def _has_historical_context(context: str) -> bool:
     return _has_any_regex(context, HISTORICAL_CONTEXT_PATTERNS)
 
 
-def _apply_historical_gap_rule(classified_dates: list, gap_days: int = 730) -> None:
+def _apply_historical_gap_rule(classified_dates: list, gap_days: int = 730, enable: bool = True) -> None:
     """
     If the earliest date is more than gap_days before the next earliest date,
     re-label the earliest as historical.
     """
+    if not enable:
+        return
     if not classified_dates or len(classified_dates) < 2:
         return
     # Sort by date (ISO strings safe for lexicographic order)
@@ -1409,6 +1421,7 @@ def _select_best_decision(decision_dates: list) -> dict:
 def extract_with_bert(
     dates_with_context: list,
     classifier: BertDateClassifier = None,
+    apply_historical_gap_rule: bool = True,
 ) -> dict:
     """
     Classify pre-extracted dates using BERT classifier.
@@ -1534,7 +1547,7 @@ def extract_with_bert(
     classified_dates = list(deduped.values())
 
     # Historical gap rule (after dedupe)
-    _apply_historical_gap_rule(classified_dates, gap_days=730)
+    _apply_historical_gap_rule(classified_dates, gap_days=730, enable=apply_historical_gap_rule)
 
     output_dates = [
         {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score')}
@@ -1701,8 +1714,13 @@ def run_bert_timeline_extraction(
             'date', 'match', 'context', 'position', 'position_pct'
         ]].to_dict(orient='records')
 
-        # Classify with BERT
-        bert_result = extract_with_bert(dates_with_context, classifier)
+        # Classify with BERT (apply historical gap rule only for CE projects)
+        apply_gap_rule = project.get('dataset_source') == 'CE'
+        bert_result = extract_with_bert(
+            dates_with_context,
+            classifier,
+            apply_historical_gap_rule=apply_gap_rule
+        )
 
         # Build result row
         result = {
@@ -1874,14 +1892,40 @@ def _expand_for_decision_cues(spans: list, sent_idx: int, context: str) -> str:
         return context
 
     merged = context
+
+    def _should_pull(sent: str) -> bool:
+        if not sent:
+            return False
+        return _has_any_regex(
+            sent,
+            [
+                r'initiator signature',
+                r'nepa compliance officer',
+                r'concur',
+                r'authorizing official',
+                r'field manager',
+            ],
+        )
+
+    # Pull adjacent lines with decision cues
     if sent_idx + 1 < len(spans):
         next_sent = spans[sent_idx + 1][2]
         if _has_any(next_sent, DECISION_CUES) or _has_any_regex(next_sent, DECISION_PATTERNS_STRONG):
+            merged = f"{merged} {next_sent}"
+        elif _should_pull(next_sent):
             merged = f"{merged} {next_sent}"
     if sent_idx - 1 >= 0:
         prev_sent = spans[sent_idx - 1][2]
         if _has_any(prev_sent, DECISION_CUES) or _has_any_regex(prev_sent, DECISION_PATTERNS_STRONG):
             merged = f"{prev_sent} {merged}"
+        elif _should_pull(prev_sent):
+            merged = f"{prev_sent} {merged}"
+
+    # Pull up to two prior lines if this looks like a signature/date block
+    if _is_signature_block(context) and sent_idx - 2 >= 0:
+        prev2 = spans[sent_idx - 2][2]
+        if _should_pull(prev2):
+            merged = f"{prev2} {merged}"
 
     return re.sub(r'\\s+', ' ', merged).strip()
 
