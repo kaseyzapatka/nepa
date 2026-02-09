@@ -96,14 +96,17 @@ sheet_write(
 
 
 # bert analysis 
-#bert_path = "data/analysis/test20_bert_v6.parquet"
-#bert_path = "data/analysis/test50_bert.parquet"
-#bert_path = "data/analysis/test50_bert_v2.parquet"
-bert_path = "data/analysis/test50_bert_v8.parquet"
-bert <- read_results(bert_path)
+bert_sample_path = "data/analysis/test50_bert_v8.parquet"
+bert_sample <- read_results(bert_sample_path)
 bert_json_col = "bert_dates_json"
 bert_ctx <- extract_contexts(bert, bert_json_col, "bert")
 
+bert_path = "data/analysis/projects_timeline_bert.parquet"
+bert <- read_results(bert_path)
+bert |> glimpse()
+
+bert |> dim()
+bert_sample |> dim()
 bert_ctx |> 
   distinct(model) |> 
   glimpse() # misses extra dates
@@ -112,6 +115,16 @@ bert_ctx |>
   select(project_id) |> 
   slice_sample(n = 1 ) |> 
   print()
+    
+  bert_ctx |> 
+  filter(project_id == "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0") |> 
+  left_join(qwen) |> 
+    glimpse()
+  #select(project_title, model:context_cleaned_flag) |> 
+  select(type, date, source) |> 
+  arrange(date) |> 
+  print()
+
 
 
 #
