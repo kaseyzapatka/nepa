@@ -627,6 +627,8 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
 
     # Create results dataframe
     results_df = pd.DataFrame(results)
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
 
     # Convert list columns to JSON for parquet
     import json
@@ -854,6 +856,29 @@ HISTORICAL_CONTEXT_PATTERNS = [
     r'communication site was established',
 ]
 
+# Hard exclusions for initiation candidates
+INITIATION_EXCLUSION_PATTERNS = [
+    r'program specific guidance',
+    r'prepared in accordance with .* guidance',
+    r'resource management plan',
+    r'\brmp\b',
+    r'land use plan',
+    r'conformance with the applicable lup',
+    r'record of decision',
+    r'plan maintenance action',
+    r'memorandum of agreement',
+    r'\bmoa\b',
+    r'section 106',
+    r'shpo.*concur',
+    r'map created',
+    r'map prepared',
+    r'form approved',
+    r'previous editions obsolete',
+    r'reviewer/title\s+initials\s*&\s*date',
+    r'yes\s+no\s+reviewer',
+    r'specialist signature',
+]
+
 MEMO_DATE_PATTERNS = [
     r'\bDATE:\b',
     r'\bmemorandum\b',
@@ -1021,6 +1046,7 @@ def generate_bert_training_data(
 
     # Create DataFrame
     training_df = pd.DataFrame(labeled_data)
+    training_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
 
     # Save
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1418,6 +1444,63 @@ def _select_best_decision(decision_dates: list) -> dict:
     return best
 
 
+def _initiation_strength(context: str) -> int:
+    if not context:
+        return 0
+    # Strong signals
+    if _has_any_regex(context, [r'doe initiator signature', r'initiator signature']):
+        return 3
+    if _has_any_regex(context, [r'application received', r'application submitted', r'notice of intent', r'\bnoi\b', r'scoping']):
+        return 2
+    if _has_any_regex(context, [r'right[- ]of[- ]way application', r'\brow\b application', r'proposal submitted', r'request received', r'deemed the application complete']):
+        return 2
+    if _has_any_regex(context, [r'proposed action', r'project proposed', r're-submitted', r'amended and re-submitted']):
+        return 1
+    return 0
+
+
+def _is_initiation_excluded(context: str) -> bool:
+    return _has_any_regex(context, INITIATION_EXCLUSION_PATTERNS)
+
+
+def _select_best_initiation(initiation_dates: list, decision_date: str = None) -> dict:
+    """
+    Select the best initiation date using cue strength, confidence, and sanity checks.
+    """
+    if not initiation_dates:
+        return None
+
+    candidates = []
+    for d in initiation_dates:
+        ctx = d.get('context', '')
+        if _is_initiation_excluded(ctx):
+            continue
+        score = _initiation_strength(ctx)
+        # Penalize if initiation after decision
+        if decision_date and d.get('date') and d.get('date') > decision_date:
+            score -= 3
+        d['_init_score'] = score
+        d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
+        d['_score'] = d['_init_score'] + d['_confidence']
+        candidates.append(d)
+
+    if not candidates:
+        return None
+
+    # Prefer higher score, then earliest date
+    candidates.sort(key=lambda x: (x['_score'], x['date']), reverse=True)
+    best = candidates[0]
+
+    # If scores are tied, take earliest
+    top_score = best['_score']
+    tied = [c for c in candidates if abs(c['_score'] - top_score) < 1e-6]
+    if len(tied) > 1:
+        tied.sort(key=lambda x: x['date'])
+        best = tied[0]
+
+    return best
+
+
 def extract_with_bert(
     dates_with_context: list,
     classifier: BertDateClassifier = None,
@@ -1444,12 +1527,14 @@ def extract_with_bert(
         'decision_date': None,
         'decision_date_source': None,
         'decision_confidence': None,
+        'decision_date_final': None,
         'earliest_review_date': None,
         'latest_review_date': None,
         'n_review_dates': 0,
         'n_specialist_reviews': 0,
         'application_date': None,
         'inferred_application_date': None,
+        'initiation_date_final': None,
         'earliest_historical_date': None,
         'n_historical_dates': 0,
         'expiration_date': None,
@@ -1553,7 +1638,6 @@ def extract_with_bert(
         {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score')}
         for d in classified_dates
     ]
-    result['dates_json'] = json.dumps(output_dates)
     result['n_dates_found'] = len(classified_dates)
 
     # Extract summary fields
@@ -1582,6 +1666,7 @@ def extract_with_bert(
             result['decision_date'] = best['date']
             result['decision_date_source'] = best['source']
             result['decision_confidence'] = best['confidence']
+            result['decision_date_final'] = best['date']
 
     # Review dates
     if review_dates:
@@ -1595,8 +1680,13 @@ def extract_with_bert(
         initiation_dates.sort(key=lambda x: x['date'])
         result['application_date'] = initiation_dates[0]['date']
         result['inferred_application_date'] = initiation_dates[0]['date']
+
+        best_init = _select_best_initiation(initiation_dates, decision_date=result['decision_date'])
+        if best_init:
+            result['initiation_date_final'] = best_init['date']
     elif review_dates:
         result['inferred_application_date'] = result['earliest_review_date']
+        result['initiation_date_final'] = result['earliest_review_date']
 
     # Expiration date (earliest)
     if expiration_dates:
@@ -1608,6 +1698,32 @@ def extract_with_bert(
         historical_dates.sort(key=lambda x: x['date'])
         result['earliest_historical_date'] = historical_dates[0]['date']
         result['n_historical_dates'] = len(historical_dates)
+
+    # Append final picks into the raw list with flags
+    final_rows = []
+    if result.get('decision_date_final'):
+        final_rows.append({
+            'date': result['decision_date_final'],
+            'type': 'decision_final',
+            'source': result.get('decision_date_source'),
+            'final_flag': True,
+            'final_imputed': False,
+        })
+    if result.get('initiation_date_final'):
+        # imputed if it came from review fallback or differs from explicit initiation
+        final_imputed = False
+        if not initiation_dates and review_dates:
+            final_imputed = True
+        final_rows.append({
+            'date': result['initiation_date_final'],
+            'type': 'initiation_final',
+            'source': None,
+            'final_flag': True,
+            'final_imputed': final_imputed,
+        })
+
+    output_dates.extend(final_rows)
+    result['dates_json'] = json.dumps(output_dates)
 
     return result
 
@@ -1730,11 +1846,13 @@ def run_bert_timeline_extraction(
             'bert_decision_date': bert_result.get('decision_date'),
             'bert_decision_date_source': bert_result.get('decision_date_source'),
             'bert_decision_confidence': bert_result.get('decision_confidence'),
+            'bert_decision_date_final': bert_result.get('decision_date_final'),
             'bert_earliest_review_date': bert_result.get('earliest_review_date'),
             'bert_latest_review_date': bert_result.get('latest_review_date'),
             'bert_n_review_dates': bert_result.get('n_review_dates', 0),
             'bert_application_date': bert_result.get('application_date'),
             'bert_inferred_application_date': bert_result.get('inferred_application_date'),
+            'bert_initiation_date_final': bert_result.get('initiation_date_final'),
             'bert_error': bert_result.get('error'),
             'project_file_name_dates': file_name_dates_map.get(project_id, '[]'),
         }
@@ -1752,6 +1870,7 @@ def run_bert_timeline_extraction(
 
     # Create results dataframe
     results_df = pd.DataFrame(results)
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
     projects_with_bert = projects.merge(results_df, on='project_id', how='left')
 
     # Save
@@ -3160,6 +3279,8 @@ def run_regex_prep(
             })
 
     results_df = pd.DataFrame(results)
+    # Add run timestamp for provenance
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
 
     if output_file:
         output_path = ANALYSIS_DIR / output_file
