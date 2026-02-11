@@ -554,6 +554,29 @@ def load_military_project_ids():
         return set()
 
 
+def load_nuclear_waste_keep_ids():
+    """
+    Load list of nuclear waste project IDs that should be kept as clean energy.
+
+    These are projects within the Nuclear + Waste Management subset that were
+    reviewed with clients and explicitly retained.
+
+    Returns:
+        set: Set of project IDs to keep
+    """
+    csv_path = NOTES_DIR / "nuclear_waste_projects_to_keep.csv"
+    if not csv_path.exists():
+        print(f"  Warning: {csv_path} not found")
+        return set()
+
+    try:
+        df = pd.read_csv(csv_path)
+        return set(df['project_id'].dropna().astype(str))
+    except Exception as e:
+        print(f"  Warning: Error loading nuclear waste keep IDs: {e}")
+        return set()
+
+
 def is_nuclear_waste_project(project_type, project_sponsor, lead_agency, project_title,
                               exclusion_terms=None):
     """
@@ -716,6 +739,18 @@ def apply_energy_type_filters(df):
 
     nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
     print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
+
+    # --- Override: Keep explicitly approved nuclear waste projects ---
+    print("  Loading nuclear waste keep list...")
+    nuclear_waste_keep_ids = load_nuclear_waste_keep_ids()
+    print(f"    Found {len(nuclear_waste_keep_ids)} nuclear waste project IDs to keep")
+
+    if nuclear_waste_keep_ids:
+        keep_mask = df['project_id'].astype(str).isin(nuclear_waste_keep_ids)
+        keep_count = (df['project_nuclear_waste_to_exclude'] & keep_mask).sum()
+        if keep_count > 0:
+            df.loc[keep_mask, 'project_nuclear_waste_to_exclude'] = False
+        print(f"    Kept {keep_count} nuclear waste projects (override)")
 
     # --- Apply all filters to reclassify Clean -> Other ---
     filter_mask = (
