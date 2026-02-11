@@ -671,6 +671,26 @@ def is_nuclear_waste_project(project_type, project_sponsor, lead_agency, project
     return False
 
 
+def has_nuclear_waste_tags(project_type):
+    """
+    Check if project_type contains both "Waste Management" and a nuclear tag.
+
+    This is the broad tag-based definition used for client-reviewed keep/exclude lists.
+    """
+    if project_type is None:
+        types_str = ""
+    elif isinstance(project_type, (list, np.ndarray)):
+        types_str = " ".join(str(t) for t in project_type).lower()
+    elif isinstance(project_type, float) and np.isnan(project_type):
+        types_str = ""
+    else:
+        types_str = str(project_type).lower()
+
+    has_waste_management = "waste management" in types_str
+    has_nuclear = "nuclear" in types_str
+    return has_waste_management and has_nuclear
+
+
 def apply_energy_type_filters(df):
     """
     Apply all clean energy exclusion filters to reclassify projects as "Other".
@@ -722,35 +742,39 @@ def apply_energy_type_filters(df):
     exclusion_terms = load_exclusion_terms()
     print(f"    Loaded {len(exclusion_terms)} exclusion terms from agencies_to_be_excluded.txt")
 
-    # Flag nuclear waste projects
-    # Checks project_type for Nuclear + Waste Management tags, then checks
-    # lead_agency, project_sponsor, AND project_title for exclusion terms
-    print("  Identifying nuclear waste projects...")
-    df['project_nuclear_waste_to_exclude'] = df.apply(
-        lambda row: is_nuclear_waste_project(
-            row.get('project_type'),
-            row.get('project_sponsor'),
-            row.get('lead_agency'),
-            row.get('project_title'),
-            exclusion_terms
-        ),
-        axis=1
-    )
-
-    nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
-    print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
-
     # --- Override: Keep explicitly approved nuclear waste projects ---
     print("  Loading nuclear waste keep list...")
     nuclear_waste_keep_ids = load_nuclear_waste_keep_ids()
     print(f"    Found {len(nuclear_waste_keep_ids)} nuclear waste project IDs to keep")
 
     if nuclear_waste_keep_ids:
+        # Client-reviewed keep list present: exclude ALL nuclear+waste tags except keep list
+        print("  Identifying nuclear waste projects (tag-based keep list override)...")
+        tag_mask = df['project_type'].apply(has_nuclear_waste_tags)
         keep_mask = df['project_id'].astype(str).isin(nuclear_waste_keep_ids)
-        keep_count = (df['project_nuclear_waste_to_exclude'] & keep_mask).sum()
-        if keep_count > 0:
-            df.loc[keep_mask, 'project_nuclear_waste_to_exclude'] = False
-        print(f"    Kept {keep_count} nuclear waste projects (override)")
+        df['project_nuclear_waste_to_exclude'] = tag_mask & ~keep_mask
+        nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
+        kept_count = (tag_mask & keep_mask).sum()
+        print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
+        print(f"    Kept {kept_count} nuclear waste projects (keep list)")
+    else:
+        # No keep list: use exclusion term logic
+        # Checks project_type for Nuclear + Waste Management tags, then checks
+        # lead_agency, project_sponsor, AND project_title for exclusion terms
+        print("  Identifying nuclear waste projects...")
+        df['project_nuclear_waste_to_exclude'] = df.apply(
+            lambda row: is_nuclear_waste_project(
+                row.get('project_type'),
+                row.get('project_sponsor'),
+                row.get('lead_agency'),
+                row.get('project_title'),
+                exclusion_terms
+            ),
+            axis=1
+        )
+
+        nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
+        print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
 
     # --- Apply all filters to reclassify Clean -> Other ---
     filter_mask = (
