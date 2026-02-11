@@ -149,33 +149,6 @@ ggsave(
 
 
 # --------------------------
-# SUMMARY ANALYSIS
-# --------------------------
-
-cat("\n=== Agency Analysis ===\n")
-
-# Multi-agency projects (rare but worth noting)
-cat("\nMulti-agency projects in dataset:\n")
-multi_agency <- clean_energy %>%
-  filter(str_detect(lead_agency, ","))
-cat("  Count:", nrow(multi_agency), "(these have >1 lead agency)\n")
-
-# Agencies with highest CE ratio (streamlined projects)
-ce_ratio <- agency_data %>%
-  count(lead_agency, process_type) %>%
-  pivot_wider(names_from = process_type, values_from = n, values_fill = 0) %>%
-  mutate(
-    total = EA + EIS + CE,
-    ce_ratio = CE / total
-  ) %>%
-  filter(total >= 50) %>%
-  arrange(desc(ce_ratio))
-
-cat("\nAgencies with highest CE ratio (min 50 projects):\n")
-ce_ratio %>% slice_head(n = 10) %>% print()
-
-
-# --------------------------
 # KEY AGENCIES ANALYSIS
 # --------------------------
 # Analysis of specific agencies requested for deliverable
@@ -414,28 +387,3 @@ ggsave(
   dpi = 300
 )
 cat("  Saved: 03_key_agency_process.png\n")
-
-
-# --------------------------
-# EXPLORATORY
-# --------------------------
-# check to see if there are any projects by Federal Energy Regulatory Commission
-
-projects |> 
-  #select(lead_agency_harmonized) |> 
-  #parse_json_column("lead_agency_harmonized") |> 
-  filter(str_detect(project_sponsor, regex("Regulatory Commission", ignore_case = TRUE))) |> 
-  select(lead_agency_harmonized) |> 
-  distinct() |> 
-  glimpse()
-
-ferc_hits <- agency_data |>
-  filter(
-    str_detect(lead_agency, regex("Federal Energy Regulatory Commission|\\bFERC\\b", ignore_case = TRUE)) |
-    str_detect(project_department, regex("Federal Energy Regulatory Commission|\\bFERC\\b", ignore_case = TRUE))
-  ) |>
-  distinct(project_department, lead_agency)
-
-ferc_hits |> print(n = 50)
-
-nrow(ferc_hits)
