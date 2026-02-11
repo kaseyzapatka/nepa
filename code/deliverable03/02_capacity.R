@@ -8,7 +8,7 @@
 # SETUP
 # --------------------------
 
-source(here::here("code", "deliverable3", "00_setup.R"))
+source(here::here("code", "deliverable03", "00_setup.R"))
 
 # --------------------------
 # FILE PATHS
@@ -235,24 +235,6 @@ if (file.exists(gencap_path)) {
       dpi = 300
     )
     cat("  Saved: 05_capacity_by_process.png\n")
-
-    # --------------------------
-    # SAVE SUMMARY STATS
-    # --------------------------
-
-    summary_stats <- gencap_reasonable %>%
-      group_by(dataset_source) %>%
-      summarise(
-        n_projects = n(),
-        median_mw = median(capacity_mw, na.rm = TRUE),
-        mean_mw = mean(capacity_mw, na.rm = TRUE),
-        min_mw = min(capacity_mw, na.rm = TRUE),
-        max_mw = max(capacity_mw, na.rm = TRUE),
-        .groups = "drop"
-      )
-
-    write_csv(summary_stats, here(tables_dir, "capacity_summary_stats.csv"))
-    cat("  Saved: capacity_summary_stats.csv\n")
 
   }
 } else {

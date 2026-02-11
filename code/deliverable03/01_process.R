@@ -8,7 +8,7 @@
 # SETUP
 # --------------------------
 
-source(here::here("code", "deliverable3", "00_setup.R"))
+source(here::here("code", "deliverable03", "00_setup.R"))
 
 # --------------------------
 # RECLASSIFY UTILITIES TO OTHER
@@ -16,141 +16,18 @@ source(here::here("code", "deliverable3", "00_setup.R"))
 # Projects tagged as Clean but with Utilities/Broadband, Waste Management,
 # or Land Development should be classified as "Other" for reporting
 
-projects <- projects %>%
-  mutate(
-    project_energy_type = if_else(
-      project_energy_type == "Clean" & project_utilities_to_filter_out,
-      "Other",
-      project_energy_type
-    )
-  )
+#projects <- projects %>%
+#  mutate(
+#    project_energy_type = if_else(
+#      project_energy_type == "Clean" & project_utilities_to_filter_out,
+#      "Other",
+#      project_energy_type
+#    )
+#  )
 
 cat("After reclassifying utilities to Other:\n")
 cat("  Clean energy projects:", sum(projects$project_energy_type == "Clean"), "\n")
 cat("  Other projects:", sum(projects$project_energy_type == "Other"), "\n\n")
-
-# --------------------------
-# TABLE 1: PROJECT STATUS BY ENERGY TYPE
-# --------------------------
-
-cat("Creating Table 1: Project Status by Energy Type...\n")
-
-table1 <- projects %>%
-  group_by(project_energy_type, process_type) %>%
-  summarise(n = n(), .groups = "drop") %>%
-  pivot_wider(
-    names_from = process_type,
-    values_from = n,
-    values_fill = 0
-  ) %>%
-  mutate(Total = rowSums(select(., -1), na.rm = TRUE)) %>%
-  arrange(desc(Total))
-
-# Add column totals
-totals_row <- table1 %>%
-  summarise(
-    project_energy_type = "Total",
-    EA = sum(EA, na.rm = TRUE),
-    EIS = sum(EIS, na.rm = TRUE),
-    CE = sum(CE, na.rm = TRUE),
-    Total = sum(Total, na.rm = TRUE)
-  )
-
-table1 <- bind_rows(table1, totals_row)
-
-# Rename for clarity
-table1 <- table1 %>%
-  rename(
-    `Energy Type` = project_energy_type,
-    `Environmental Assessment` = EA,
-    `Environmental Impact Statement` = EIS,
-    `Categorical Exclusion` = CE
-  )
-
-table1 %>% print()
-
-# Save
-write_csv(table1, here("output", "deliverable3", "tables", "table1_by_energy_type.csv"))
-cat("  Saved: table1_by_energy_type.csv\n")
-
-
-# --------------------------
-# DETAILED BREAKDOWN: CLEAN ENERGY BY TECHNOLOGY x PROCESS TYPE
-# --------------------------
-
-cat("\nCreating supplementary table: Clean Energy Detail...\n")
-
-# Use clean_energy from setup (already filtered to exclude utilities)
-# Or filter here since we've reclassified utilities to "Other" above
-clean_energy_detail <- projects %>%
-  filter(project_energy_type == "Clean")
-
-cat("Clean energy projects for detail table:", nrow(clean_energy_detail), "\n")
-
-clean_by_tech <- clean_energy_detail %>%
-  explode_column("project_type") %>%
-  filter(!is.na(project_type) & project_type != "") %>%
-  group_by(project_type, process_type) %>%
-  summarise(n = n(), .groups = "drop") %>%
-  pivot_wider(
-    names_from = process_type,
-    values_from = n,
-    values_fill = 0
-  ) %>%
-  mutate(Total = rowSums(select(., -1), na.rm = TRUE)) %>%
-  arrange(desc(Total))
-
-# Add totals
-totals_row <- clean_by_tech %>%
-  summarise(
-    project_type = "Total",
-    EA = sum(EA, na.rm = TRUE),
-    EIS = sum(EIS, na.rm = TRUE),
-    CE = sum(CE, na.rm = TRUE),
-    Total = sum(Total, na.rm = TRUE)
-  )
-
-clean_by_tech <- bind_rows(clean_by_tech, totals_row)
-
-clean_by_tech <- clean_by_tech %>%
-  rename(
-    Technology = project_type,
-    `Environmental Assessment` = EA,
-    `Environmental Impact Statement` = EIS,
-    `Categorical Exclusion` = CE
-  )
-
-clean_by_tech %>% print(n = 20)
-
-write_csv(clean_by_tech, here(tables_dir, "clean_energy_by_technology_detail.csv"))
-cat("  Saved: clean_energy_by_technology_detail.csv\n")
-
-
-# --------------------------
-# ENERGY TYPE COUNTS SUMMARY
-# --------------------------
-
-cat("\n=== Energy Type Summary ===\n")
-summary_stats <- projects %>%
-  group_by(project_energy_type) %>%
-  summarise(
-    count = n(),
-    pct = n() / nrow(projects) * 100
-  ) %>%
-  arrange(desc(count)) %>%
-  rename(
-    `Energy Type` = project_energy_type,
-    `Count` = count,
-    `Percent` = pct
-  )
-
-print(summary_stats)
-
-write_csv(summary_stats, here(tables_dir, "energy_type_summary.csv"))
-cat("  Saved: energy_type_summary.csv\n")
-
-cat("\nProjects flagged for review:", sum(projects$project_energy_type_questions, na.rm = TRUE), "\n")
-
 
 # --------------------------
 # FIGURES
@@ -217,6 +94,15 @@ fig2 <- fig_data %>%
     size = 3.5,
     fontface = "bold"
   ) +
+  geom_text(
+    data = fig_data %>% distinct(project_energy_type, total_energy_type),
+    aes(x = reorder(project_energy_type, total_energy_type), y = 101,
+        label = scales::comma(total_energy_type)),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
+  ) +
   coord_flip() +
   labs(
     title = "Process Type Composition Within Energy Types",
@@ -225,7 +111,8 @@ fig2 <- fig_data %>%
     fill = "Process",
     caption = "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), EIS (Environmental Impact Statement). \nPercentages calculated within each energy type category."
   ) +
-  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.02))) +
+  scale_y_continuous(labels = percent_format(scale = 1),
+                     expand = expansion(mult = c(0, 0.08))) +
   #scale_fill_brewer(palette = "Set2") +
   scale_fill_catf() +
   theme_catf()
@@ -254,4 +141,3 @@ ggsave(
 cat("\n=== Process Script Complete ===\n")
 cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")
-

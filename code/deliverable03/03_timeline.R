@@ -8,14 +8,13 @@
 # SETUP
 # --------------------------
 
-source(here::here("code", "deliverable3", "00_setup.R"))
+source(here::here("code", "deliverable03", "00_setup.R"))
 
 # --------------------------
 # LOAD BERT TIMELINE DATA
 # --------------------------
 
 bert_timeline_path <- here("data", "analysis", "projects_timeline_bert.parquet")
-cat("Loading BERT timeline data from:", bert_timeline_path, "\n")
 timeline <- read_parquet(bert_timeline_path)
 cat("Projects loaded:", nrow(timeline), "\n\n")
 
@@ -65,13 +64,6 @@ coverage_table <- tibble(
   Percent = sprintf("%.1f%%", 100 * Count / n_total)
 )
 
-print(coverage_table)
-
-# Save table
-coverage_path <- here(tables_dir, "03_bert_coverage.csv")
-write_csv(coverage_table, coverage_path)
-cat("\nSaved:", coverage_path, "\n")
-
 # --------------------------
 # FIGURE: DATE COUNT DISTRIBUTION PER PROJECT
 # --------------------------
@@ -116,9 +108,6 @@ ggsave(fig_date_dist_path, fig_date_dist, width = 8, height = 6, dpi = 300)
 cat("  Saved:", fig_date_dist_path, "\n")
 print(fig_date_dist)
 
-# Save underlying table
-write_csv(date_dist, here(tables_dir, "03_bert_date_distribution.csv"))
-
 # --------------------------
 # FIGURE: CE PROJECTS BY DECISION YEAR
 # --------------------------
@@ -151,9 +140,6 @@ fig_by_year_path <- here(figures_dir, "03_projects_by_year.png")
 ggsave(fig_by_year_path, fig_by_year, width = 10, height = 6, dpi = 300)
 cat("  Saved:", fig_by_year_path, "\n")
 print(fig_by_year)
-
-# Save underlying table
-write_csv(year_counts, here(tables_dir, "03_year_by_process_type.csv"))
 
 # --------------------------
 # FIGURE: EXTRACTION COVERAGE BREAKDOWN
