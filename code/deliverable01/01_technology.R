@@ -228,6 +228,11 @@ tech_label_order <- clean_energy_summary %>%
 clean_energy_summary_by_process <- clean_energy_summary_by_process %>%
   mutate(technology_label = factor(technology_label, levels = tech_label_order))
 
+# Totals for label layer (project counts per technology)
+tech_totals <- clean_energy_summary_by_process %>%
+  group_by(technology_label) %>%
+  summarise(total = sum(n), .groups = "drop")
+
 # Plot
 fig_clean_energy_bar_by_process <- ggplot(
   clean_energy_summary_by_process,
@@ -244,10 +249,18 @@ fig_clean_energy_bar_by_process <- ggplot(
     size = 3,
     color = "white"
   ) +
+  geom_text(
+    data = tech_totals,
+    aes(x = 1.02, y = technology_label, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
+  ) +
   scale_x_continuous(
     labels = scales::percent,
     breaks = seq(0, 1, by = 0.1),
-    expand = expansion(mult = c(0, 0.02))
+    expand = expansion(mult = c(0, 0.08))
   ) +
   scale_fill_manual(
     values = c("CE" = catf_dark_blue, "EA" = catf_teal, "EIS" = catf_magenta)

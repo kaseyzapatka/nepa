@@ -111,6 +111,10 @@ dept_process <- agency_data %>%
   ungroup() %>%
   filter(department != "Other / Unclassified")
 
+# Totals for label layer
+dept_totals <- dept_process %>%
+  distinct(department, total)
+
 fig_dept_process <- dept_process %>%
   filter(total >= 5) |>
   ggplot(aes(x = reorder(department, total), y = percent, fill = process_type)) +
@@ -120,6 +124,14 @@ fig_dept_process <- dept_process %>%
     position = position_stack(vjust = 0.5),
     size = 3,
     color = "white"
+  ) +
+  geom_text(
+    data = dept_totals %>% filter(total >= 5),
+    aes(x = reorder(department, total), y = 101, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
   ) +
   coord_flip() +
   labs(
@@ -133,6 +145,7 @@ fig_dept_process <- dept_process %>%
   scale_fill_manual(
     values = c("CE" = catf_dark_blue, "EA" = catf_teal, "EIS" = catf_magenta)
   ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 9))
 

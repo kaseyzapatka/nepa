@@ -101,6 +101,9 @@ top15_state_process <- location_data %>%
   ) %>%
   ungroup()
 
+state_totals <- top15_state_process %>%
+  distinct(project_state, total)
+
 fig_state_process <- top15_state_process %>%
   ggplot(aes(x = reorder(project_state, total), y = percent, fill = process_type)) +
   geom_col() +
@@ -109,6 +112,14 @@ fig_state_process <- top15_state_process %>%
     position = position_stack(vjust = 0.5),
     size = 3,
     color = "white"
+  ) +
+  geom_text(
+    data = state_totals,
+    aes(x = reorder(project_state, total), y = 101, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
   ) +
   coord_flip() +
   labs(
@@ -121,7 +132,8 @@ fig_state_process <- top15_state_process %>%
   scale_fill_manual(
     values = c("CE" = catf_dark_blue, "EA" = catf_teal, "EIS" = catf_magenta)
   ) +
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  scale_y_continuous(labels = function(x) paste0(x, "%"),
+                     expand = expansion(mult = c(0, 0.08))) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 9))
 
