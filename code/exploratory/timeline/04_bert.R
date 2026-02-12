@@ -46,11 +46,13 @@ extract_contexts <- function(df, json_col, model_label) {
 show_timeline <- function(df, pid) {
   df |> 
   filter(project_id == pid) |>
-  select("type","date","source") |> 
+  select("type","final_flag", "date","source") |> 
   print()
 }
 
-
+timeline |> 
+  distinct(type) |> 
+  glimpse()
 
 # --------------------------
 # LOAD BERT TIMELINE DATA
@@ -152,27 +154,22 @@ show_timeline(timeline, sample)
 # group by project, order, and overwrite to make sure there is 1 initiation and 1 decision, all others should be review or other. 
 
 
-# examples for further cleaning
+# checks !
+show_timeline(timeline, "1df6f8b5-7e16-2d38-01b6-a042628ea3c8") # Environmental Coordinator > review - why is decision 2022-09-13 still decision !
+show_timeline(timeline, "5ec95c90-2b23-042d-4bab-8c8dad0151c6") # why is 2023-05-01 not the final decision? 
+show_timeline(timeline, "58cab57e-ab90-d812-4735-526d78cf48b4") # all three three historical dates are still not being captured correctly, 2016-08-23 should be the initiation date
+show_timeline(timeline, "8de424f4-3082-0131-f0d5-6a8c7cc07d2f") # 2012-07-01 is not being captured correctly as historical date; decision and initation should be on same day
+show_timeline(timeline, "e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5") # 2013-08-01 is not being captured as historical date, not being captured, 2020-04-27 should be initiation_final
+
+# can be cleaned in post processing
 show_timeline(timeline, "f2b5a957-b5aa-dadb-2cff-89b60dfa5e9b") # 2 decisions, make first a initiation?
-show_timeline(timeline, "1df6f8b5-7e16-2d38-01b6-a042628ea3c8") # Environmental Coordinator > review - DONE
-show_timeline(timeline, "a8f8ca21-28aa-e951-164f-736cac8136ef") # good complicated examples
-show_timeline(timeline, "5ec95c90-2b23-042d-4bab-8c8dad0151c6") # first initiation date should be dropped, 2015-09-01 is initiation 
-show_timeline(timeline, "f2b5a957-b5aa-dadb-2cff-89b60dfa5e9b") # not sure how to code these
-show_timeline(timeline, "d01c96bc-9ec7-77c5-d72f-da3cb7bbb548") # initiation and decision cannot be on the same day
-show_timeline(timeline, "18354a3f-ea8d-982a-e050-0c882dcd3ce9") # first review becomes initiation and other four years out is dropped
-
-
-show_timeline(timeline, "b523e342-39f2-fca4-0a2c-745c476dcf88") # 
-show_timeline(timeline, "58cab57e-ab90-d812-4735-526d78cf48b4") #  has three historical dates
-show_timeline(timeline, "8de424f4-3082-0131-f0d5-6a8c7cc07d2f") #  has three historical dates
-
-
-
+show_timeline(timeline, "f2b5a957-b5aa-dadb-2cff-89b60dfa5e9b") # 2 decisions, make first a initiation?
 
 # not sure what to do with these
-show_timeline(timeline, "cec29e92-aa8d-42df-257a-62f290614404") # not sure what to do with this one
+show_timeline(timeline, "b523e342-39f2-fca4-0a2c-745c476dcf88") # not sure how to deal with  initiation 2021-12-31
+show_timeline(timeline, "cec29e92-aa8d-42df-257a-62f290614404") # not capturing "DOE Initiator Signature" and "NEPA Compliance Officer" text correctly
 show_timeline(timeline, "97e4029a-56b2-238a-1bd4-425e5cde9e91") # not sure what to do with first initiation 
-show_timeline(timeline, "e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5") # kind of a mess
+
 show_timeline(timeline, "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0") # not sure what to do here
 show_timeline(timeline, "78566cce-e233-ee90-6f60-0109a449e89b") # last review should review and is a duplicate date
 show_timeline(timeline, "6149175c-8eb2-78bf-b995-1ab77be60997") # what other bucket can we categorize all these initiations?
@@ -180,15 +177,17 @@ show_timeline(timeline, "5c0911d5-65ab-b391-c956-a713cfa57da5") # how do we get 
 show_timeline(timeline, "ca23261c-79f5-5207-fcff-a3158b9b2f9f") # seems to be two CE combined?
 show_timeline(timeline, "e0f39636-313a-fc6c-43e3-6453566a1d1b") # last initiation needs to be a decision
 show_timeline(timeline, "19938d50-8678-a9ce-0f7e-b164e85dac34") # not sure how to clean this one
+show_timeline(timeline, "18354a3f-ea8d-982a-e050-0c882dcd3ce9") # not sure if review 2010-06-01 is a review or not
 
 # good
-show_timeline(timeline, "ea12d384-b7bf-83a0-4ada-d529d21f945b") 
-
-
+show_timeline(timeline, "ea12d384-b7bf-83a0-4ada-d529d21f945b") # no initiation
+show_timeline(timeline, "d01c96bc-9ec7-77c5-d72f-da3cb7bbb548") # initiation and decision cannot be on the same day
+show_timeline(timeline, "a8f8ca21-28aa-e951-164f-736cac8136ef") # good complicated examples
 
 # some manual checks 
-#"e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5" - good example of decision that should change with new coding
-#5ec95c90-2b23-042d-4bab-8c8dad0151c6  - has many that shoudl eb labeled as review 
+show_timeline(timeline, "e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5") # review 2020-04-27 > should become initiation even though correctly classified
+show_timeline(timeline, "5ec95c90-2b23-042d-4bab-8c8dad0151c6") # review 2020-04-27 > should become initiation even though correctly classified
+
 
 #timeline |> 
 #  #filter(project_id == "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0") |> 
