@@ -22,6 +22,40 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
 
+# Expected CE clean energy count (from latest extract_data.py output)
+EXPECTED_CE_CLEAN_N = 20725
+EXPECTED_CE_CLEAN_TOL = 250
+
+
+def _load_projects_combined():
+    """
+    Load the latest projects_combined output from extract_data.py.
+    """
+    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
+    if not projects_path.exists():
+        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+        return None
+    return pd.read_parquet(projects_path)
+
+
+def _warn_if_clean_energy_count_off(df: pd.DataFrame, ce_only: bool, clean_energy_only: bool):
+    """
+    Warn if CE clean energy count is far from expected.
+    """
+    if df is None:
+        return
+    if not (ce_only and clean_energy_only):
+        return
+    if 'dataset_source' not in df.columns or 'project_energy_type' not in df.columns:
+        return
+
+    n_clean_ce = len(df[(df['dataset_source'] == 'CE') & (df['project_energy_type'] == 'Clean')])
+    if abs(n_clean_ce - EXPECTED_CE_CLEAN_N) > EXPECTED_CE_CLEAN_TOL:
+        print(
+            f"WARNING: CE clean energy count is {n_clean_ce:,}, expected ~{EXPECTED_CE_CLEAN_N:,}. "
+            "If this is unexpected, rerun extract_data.py (analysis) and rebuild regex cache."
+        )
+
 
 # --------------------------
 # DATE PATTERNS
@@ -558,12 +592,10 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
     print("\n=== Timeline Extraction ===")
 
     # Load projects
-    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
-    if not projects_path.exists():
-        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+    projects = _load_projects_combined()
+    if projects is None:
         return
-
-    projects = pd.read_parquet(projects_path)
+    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -716,6 +748,9 @@ DECISION_PATTERNS_STRONG = [
     r'approval date',
     r'date of approval',
     r'ce determination date',
+    r'district manager',
+    r'approval and contact information',
+    r'\d{4}\.\d{2}\.\d{2}',  # YYYY.MM.DD digital signature timestamps
 ]
 
 DECISION_PATTERNS_MED = [
@@ -805,6 +840,8 @@ REVIEW_PATTERNS_STRONG = [
     r'yes\s+no\s+reviewer/title\s+initials\s*&\s*date',
     r'yes\s+no\s+reviewer',
     r'reviewer/title\s+initials\s*&\s*date',
+    r'initial and date',
+    r'initials?\s*&\s*date',
     r'nepa review completed',
     r'memorandum of agreement',
     r'\bmoa\b',
@@ -875,6 +912,8 @@ INITIATION_EXCLUSION_PATTERNS = [
     r'form approved',
     r'previous editions obsolete',
     r'reviewer/title\s+initials\s*&\s*date',
+    r'initial and date',
+    r'initials?\s*&\s*date',
     r'yes\s+no\s+reviewer',
     r'specialist signature',
 ]
@@ -886,7 +925,7 @@ MEMO_DATE_PATTERNS = [
 
 DECISION_BOILERPLATE_PATTERNS = [
     r'previous editions obsolete',
-    r'form approved',
+    r'form approved\s*(omb|omg)',  # OMB boilerplate only, not "Form Status: Approved"
     r'forms mgmt',
     r'netl f \d+',
     r'doe f \d+',
@@ -1343,6 +1382,9 @@ def _is_decision_boilerplate(context: str) -> bool:
 def _decision_strength(context: str) -> int:
     if not context:
         return 0
+    # Tier 4: definitive decision section headings
+    if _has_any_regex(context, [r'authority and approval', r'determination and approval']):
+        return 4
     if _has_any_regex(context, DECISION_PATTERNS_STRONG):
         return 3
     if _has_any_regex(context, DECISION_PATTERNS_MED):
@@ -1373,13 +1415,42 @@ def _has_reviewer_checkbox(context: str) -> bool:
     ])
 
 
+def _has_specialist_cue(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'environmental coordinator',
+        r'planning & environmental coordinator',
+        r'planning and environmental coordinator',
+        r'realty specialist',
+        r'wildlife biologist',
+        r'fisheries/?wildlife biologist',
+        r'recreation (planner|specialist)',
+        r'outdoor recreation planner',
+        r'natural resource specialist',
+        r'cultural resource(s)? specialist',
+        r'botanist',
+        r'archaeologist',
+        r'archeologist',
+        r'district archaeologist',
+        r'project officer',
+    ])
+
+
+def _has_authorizing_with_signature(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'authorizing official.*(signed|signature|/s/|date\s*:)',
+    ])
+
+
 def _is_expiration_candidate(date_str: str, context: str) -> bool:
     if not date_str or not context:
         return False
-    # Only bucket future dates after 2025-12-31
-    if date_str <= "2025-12-31":
-        return False
-    return _has_any_regex(context, EXPIRATION_PATTERNS_STRONG)
+    # Strong expiration context cues apply regardless of date
+    if _has_any_regex(context, EXPIRATION_PATTERNS_STRONG):
+        return True
+    # Future dates after 2025-12-31 are also expiration candidates
+    if date_str > "2025-12-31":
+        return True
+    return False
 
 
 def _is_historical_by_year(date_str: str) -> bool:
@@ -1395,27 +1466,40 @@ def _has_historical_context(context: str) -> bool:
 
 def _apply_historical_gap_rule(classified_dates: list, gap_days: int = 730, enable: bool = True) -> None:
     """
-    If the earliest date is more than gap_days before the next earliest date,
-    re-label the earliest as historical.
+    Tranche-based rule:
+    Find the LAST gap > gap_days and mark all dates before that gap as historical.
+    Multi-pass: catches projects with multiple historical date clusters.
     """
     if not enable:
         return
     if not classified_dates or len(classified_dates) < 2:
         return
+
     # Sort by date (ISO strings safe for lexicographic order)
     sorted_dates = sorted(classified_dates, key=lambda x: x.get('date') or "")
-    d0 = sorted_dates[0].get('date')
-    d1 = sorted_dates[1].get('date')
-    if not d0 or not d1:
+
+    # Find LAST large gap (not first) — this catches multiple historical clusters
+    from datetime import datetime
+    cutoff_idx = None
+    for i in range(len(sorted_dates) - 1):
+        d0 = sorted_dates[i].get('date')
+        d1 = sorted_dates[i + 1].get('date')
+        if not d0 or not d1:
+            continue
+        try:
+            dt0 = datetime.strptime(d0, "%Y-%m-%d")
+            dt1 = datetime.strptime(d1, "%Y-%m-%d")
+        except Exception:
+            continue
+        if (dt1 - dt0).days > gap_days:
+            cutoff_idx = i  # Keep updating — last gap wins
+
+    if cutoff_idx is None:
         return
-    try:
-        from datetime import datetime
-        dt0 = datetime.strptime(d0, "%Y-%m-%d")
-        dt1 = datetime.strptime(d1, "%Y-%m-%d")
-    except Exception:
-        return
-    if (dt1 - dt0).days > gap_days:
-        sorted_dates[0]['type'] = 'historical'
+
+    for j in range(cutoff_idx + 1):
+        if sorted_dates[j].get('type') != 'expiration':
+            sorted_dates[j]['type'] = 'historical'
 
 
 def _select_best_decision(decision_dates: list) -> dict:
@@ -1476,9 +1560,9 @@ def _select_best_initiation(initiation_dates: list, decision_date: str = None) -
         if _is_initiation_excluded(ctx):
             continue
         score = _initiation_strength(ctx)
-        # Penalize if initiation after decision
+        # Hard-reject initiation dates that fall after the decision date
         if decision_date and d.get('date') and d.get('date') > decision_date:
-            score -= 3
+            continue
         d['_init_score'] = score
         d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
         d['_score'] = d['_init_score'] + d['_confidence']
@@ -1586,6 +1670,10 @@ def extract_with_bert(
             forced_type = 'decision'
         label = forced_type or classification['label']
 
+        # Guardrail: strong decision cues should override 'other' classification
+        if label == 'other' and _has_strong_decision_cue(context_for_rules):
+            label = 'decision'
+
         # Guardrail: strong decision/review cues cannot be initiation
         if label == 'initiation':
             if _has_strong_decision_cue(context_for_rules) and not _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
@@ -1600,6 +1688,22 @@ def extract_with_bert(
         # Guardrail: specialist signature lines are review, not decision
         if label == 'decision' and _has_any_regex(context_for_rules, [r'specialist signature', r'\bspecialist\b']):
             label = 'review'
+
+        # Guardrail: specialist cues should be review unless strong decision cues exist
+        if label == 'decision':
+            has_strong_decision = _has_strong_decision_cue(context_for_rules) or _has_any_regex(
+                context_for_rules, [r'nepa compliance officer']
+            ) or _has_authorizing_with_signature(context_for_rules)
+            if _has_specialist_cue(context_for_rules) and not has_strong_decision:
+                label = 'review'
+
+        # Guardrail: strong review cues should override decision unless strong decision cues exist
+        if label == 'decision':
+            has_strong_decision = _has_strong_decision_cue(context_for_rules) or _has_any_regex(
+                context_for_rules, [r'nepa compliance officer']
+            ) or _has_authorizing_with_signature(context_for_rules)
+            if _has_strong_review_cue(context_for_rules) and not has_strong_decision:
+                label = 'review'
 
         # Bucket future expiration dates (post-2025-12-31)
         if _is_expiration_candidate(date_info.get('date'), context_for_rules):
@@ -1699,30 +1803,39 @@ def extract_with_bert(
         result['earliest_historical_date'] = historical_dates[0]['date']
         result['n_historical_dates'] = len(historical_dates)
 
-    # Append final picks into the raw list with flags
-    final_rows = []
-    if result.get('decision_date_final'):
-        final_rows.append({
-            'date': result['decision_date_final'],
-            'type': 'decision_final',
-            'source': result.get('decision_date_source'),
-            'final_flag': True,
-            'final_imputed': False,
-        })
-    if result.get('initiation_date_final'):
-        # imputed if it came from review fallback or differs from explicit initiation
-        final_imputed = False
-        if not initiation_dates and review_dates:
-            final_imputed = True
-        final_rows.append({
-            'date': result['initiation_date_final'],
-            'type': 'initiation_final',
-            'source': None,
-            'final_flag': True,
-            'final_imputed': final_imputed,
-        })
+    # Mark final picks on existing rows; only add rows if missing
+    def _mark_final(date_str: str, target_type: str, imputed: bool, source: str = None):
+        if not date_str:
+            return
+        matched = False
+        for d in output_dates:
+            if d.get('date') == date_str:
+                # Keep original type but mark as final; also normalize to target_type
+                d['type'] = target_type
+                d['final_flag'] = True
+                d['final_imputed'] = imputed
+                matched = True
+        if not matched:
+            output_dates.append({
+                'date': date_str,
+                'type': target_type,
+                'source': source,
+                'final_flag': True,
+                'final_imputed': imputed,
+            })
 
-    output_dates.extend(final_rows)
+    _mark_final(
+        result.get('decision_date_final'),
+        'decision',
+        False,
+        result.get('decision_date_source'),
+    )
+    _mark_final(
+        result.get('initiation_date_final'),
+        'initiation',
+        bool(not initiation_dates and review_dates),
+        None,
+    )
     result['dates_json'] = json.dumps(output_dates)
 
     return result
@@ -1762,12 +1875,10 @@ def run_bert_timeline_extraction(
         return None
 
     # Load projects
-    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
-    if not projects_path.exists():
-        print(f"Error: {projects_path} not found.")
+    projects = _load_projects_combined()
+    if projects is None:
         return None
-
-    projects = pd.read_parquet(projects_path)
+    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
     if ce_only:
@@ -1915,7 +2026,7 @@ INITIATION_CUES = [
     'comment period', '30-day comment period', 'request for', 'right-of-way application',
     'row application', 'right of way application',
     'document creation', 'date created', 'date prepared', 'prepared', 'drafted',
-    'revised', 'reviewed',
+    'revised',
 ]
 
 REVIEW_CUES = [
@@ -3019,12 +3130,10 @@ def run_llm_timeline_extraction(
     print(f"Timeout: {timeout}s")
 
     # Load projects
-    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
-    if not projects_path.exists():
-        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+    projects = _load_projects_combined()
+    if projects is None:
         return None
-
-    projects = pd.read_parquet(projects_path)
+    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -3195,12 +3304,10 @@ def run_regex_prep(
     print("\n=== Regex Candidate Preprocessing ===")
 
     # Load projects
-    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
-    if not projects_path.exists():
-        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+    projects = _load_projects_combined()
+    if projects is None:
         return None
-
-    projects = pd.read_parquet(projects_path)
+    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -3312,7 +3419,10 @@ def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODE
     print(f"Model: {model}\n")
 
     # Load data
-    projects = pd.read_parquet(ANALYSIS_DIR / "projects_combined.parquet")
+    projects = _load_projects_combined()
+    if projects is None:
+        return None
+    _warn_if_clean_energy_count_off(projects, ce_only=True, clean_energy_only=True)
 
     # Filter to CE + Clean energy
     projects = projects[
