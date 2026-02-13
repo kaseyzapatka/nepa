@@ -34,32 +34,84 @@ Note for later updates: consider tracking a run log with query statistics for re
 
 Use this after updating timeline patterns or models in `code/extract/extract_timeline.py`.
 
-1. Build regex cache (uses updated context rules):
+The `--source` flag controls which NEPA process types to run. Accepts `CE`, `EA`, `EIS`, or comma-separated combinations. Defaults to `CE` if omitted.
+
+### CE (Categorical Exclusions) — default
 
 ```bash
+# 1. Build regex cache
 python code/extract/extract_timeline.py --regex-prep
+
+# 2. Generate BERT training data
+python code/extract/extract_timeline.py --bert-generate
+
+# 3. Train the BERT classifier
+python code/extract/extract_timeline.py --bert-train
+
+# 4. Test sample (optional)
+python code/extract/extract_timeline.py --bert-run --sample 50 --output test50_bert_vX.parquet
+
+# 5. Full run
+python code/extract/extract_timeline.py --bert-run --output projects_timeline_bert.parquet
 ```
 
-2. Generate BERT training data (uses updated strong/med/weak patterns):
+### EA (Environmental Assessments)
+
+```bash
+# 1. Build EA regex cache
+python code/extract/extract_timeline.py --regex-prep --source EA
+
+# 2. Test sample
+python code/extract/extract_timeline.py --bert-run --source EA --sample 50 --output test50_ea.parquet
+
+# 3. Full run
+python code/extract/extract_timeline.py --bert-run --source EA --output projects_timeline_bert_ea.parquet
+```
+
+### EIS (Environmental Impact Statements)
+
+```bash
+# 1. Build EIS regex cache
+python code/extract/extract_timeline.py --regex-prep --source EIS
+
+# 2. Test sample
+python code/extract/extract_timeline.py --bert-run --source EIS --sample 50 --output test50_eis.parquet
+
+# 3. Full run
+python code/extract/extract_timeline.py --bert-run --source EIS --output projects_timeline_bert_eis.parquet
+```
+
+### Multi-source runs
+
+```bash
+# Build regex caches for EA + EIS together
+python code/extract/extract_timeline.py --regex-prep --source EA,EIS
+
+# Run all three sources
+python code/extract/extract_timeline.py --bert-run --source CE,EA,EIS --output projects_timeline_bert_all.parquet
+```
+
+### Retraining with EA/EIS data
+
+After building regex caches for EA and/or EIS, `--bert-generate` auto-discovers all available per-source caches and includes them in training data (with 3x oversampling for EA/EIS to prevent CE domination):
 
 ```bash
 python code/extract/extract_timeline.py --bert-generate
-```
-
-3. Train the BERT classifier:
-
-```bash
 python code/extract/extract_timeline.py --bert-train
 ```
 
-4. Run a small test sample (optional):
+### Filtering by energy type
+
+Add `--clean-energy` to restrict to clean energy projects only:
 
 ```bash
-python code/extract/extract_timeline.py --bert-run --sample 50 --output test50_bert_vX.parquet
+python code/extract/extract_timeline.py --bert-run --source EA --clean-energy --output projects_timeline_bert_ea_clean.parquet
 ```
 
-5. Full run to update timeline output:
+### Single project debugging
+
+The `--project-id` flag searches CE, EA, and EIS sources automatically:
 
 ```bash
-python code/extract/extract_timeline.py --bert-run --output projects_timeline_bert.parquet
+python code/extract/extract_timeline.py --project-id <UUID> --hybrid --use-regex-cache
 ```

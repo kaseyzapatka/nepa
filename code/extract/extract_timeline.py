@@ -704,8 +704,34 @@ DEFAULT_LLM_MODEL = "llama3.2:3b-instruct-q4_K_M"
 # Context window for date extraction (chars before/after each date)
 DATE_CONTEXT_WINDOW = 80
 
-# Default cache path for hybrid regex candidates
+# Default cache path for hybrid regex candidates (legacy, CE-only)
 REGEX_CACHE_PATH = ANALYSIS_DIR / "regex_candidates.parquet"
+
+
+def _regex_cache_path(source: str) -> Path:
+    """Return per-source regex cache path."""
+    return ANALYSIS_DIR / f"regex_candidates_{source.lower()}.parquet"
+
+
+def _parse_sources(source_arg: str) -> list:
+    """Parse --source argument into list of source codes."""
+    if not source_arg:
+        return ['CE']
+    sources = [s.strip().upper() for s in source_arg.split(',')]
+    valid = {'CE', 'EA', 'EIS'}
+    for s in sources:
+        if s not in valid:
+            print(f"ERROR: Unknown source '{s}'. Valid: CE, EA, EIS")
+            sys.exit(1)
+    return sources
+
+
+# Per-source configuration
+SOURCE_CONFIG = {
+    'CE':  {'apply_gap_rule': True,  'gap_days': 730},
+    'EA':  {'apply_gap_rule': True,  'gap_days': 730},
+    'EIS': {'apply_gap_rule': False},  # EIS projects legitimately span 5-10+ years
+}
 
 
 # --------------------------
@@ -752,6 +778,10 @@ DECISION_PATTERNS_STRONG = [
     r'district manager',
     r'approval and contact information',
     r'\d{4}\.\d{2}\.\d{2}',  # YYYY.MM.DD digital signature timestamps
+    r'finding of no significant impact',  # EA decision document
+    r'\bfonsi\b',                          # EA decision abbreviation
+    r'record of decision',                 # EIS decision document
+    r'\brod\b.*signed',                    # ROD-specific signature
 ]
 
 DECISION_PATTERNS_MED = [
@@ -789,6 +819,7 @@ INITIATION_PATTERNS_STRONG = [
     r'initiator signature',
     r'designation form',
     r'doe initiator signature',
+    r'notice of intent.*prepare',          # EIS-specific NOI language
 ]
 
 INITIATION_PATTERNS_MED = [
@@ -1030,16 +1061,29 @@ def generate_bert_training_data(
 
     print("\n=== Generating BERT Training Data (Weak Supervision) ===")
 
-    # Check if regex cache exists
-    if not REGEX_CACHE_PATH.exists():
-        print(f"Regex cache not found at {REGEX_CACHE_PATH}")
-        print("Run --regex-prep first to build the cache, or building now...")
-        run_regex_prep()
+    # Load all available per-source regex caches
+    cache_dfs = []
+    for source in ['CE', 'EA', 'EIS']:
+        cache_path = _regex_cache_path(source)
+        if cache_path.exists():
+            df = pd.read_parquet(cache_path)
+            df['dataset_source'] = source
+            cache_dfs.append(df)
+            print(f"  Loaded {source}: {len(df):,} contexts")
 
-    # Load regex cache
-    print("Loading regex cache...")
-    cache_df = pd.read_parquet(REGEX_CACHE_PATH)
-    print(f"Loaded {len(cache_df):,} date contexts")
+    # Fallback: legacy single-file cache
+    if not cache_dfs and REGEX_CACHE_PATH.exists():
+        print("  Using legacy regex cache (CE only)...")
+        df = pd.read_parquet(REGEX_CACHE_PATH)
+        df['dataset_source'] = 'CE'
+        cache_dfs.append(df)
+
+    if not cache_dfs:
+        print("No regex cache found. Run --regex-prep first.")
+        return None
+
+    cache_df = pd.concat(cache_dfs, ignore_index=True)
+    print(f"Total: {len(cache_df):,} date contexts")
 
     if sample_size:
         # Sample by project to maintain diversity
@@ -1069,6 +1113,7 @@ def generate_bert_training_data(
                 'label': label,
                 'date': row.get('date'),
                 'project_id': row.get('project_id'),
+                'dataset_source': row.get('dataset_source', 'CE'),
             })
             label_counts[label] += 1
         else:
@@ -1114,6 +1159,22 @@ def generate_bert_training_data(
             print(f"  {label}: {count:,}")
     else:
         print(f"\nNo manual corrections found at {MANUAL_CORRECTIONS_PATH}")
+
+    # Oversample EA/EIS to prevent CE domination in training
+    if 'dataset_source' in training_df.columns:
+        source_counts = training_df['dataset_source'].value_counts()
+        if len(source_counts) > 1:
+            oversample_factors = {'CE': 1, 'EA': 3, 'EIS': 3}
+            oversampled = []
+            for source, factor in oversample_factors.items():
+                subset = training_df[training_df['dataset_source'] == source]
+                if not subset.empty and factor > 1:
+                    oversampled.append(pd.concat([subset] * factor, ignore_index=True))
+                    print(f"  Oversampled {source}: {len(subset):,} x {factor} = {len(subset)*factor:,}")
+                elif not subset.empty:
+                    oversampled.append(subset)
+            training_df = pd.concat(oversampled, ignore_index=True)
+            print(f"  Total after oversampling: {len(training_df):,}")
 
     training_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
 
@@ -1412,8 +1473,11 @@ def _is_decision_boilerplate(context: str) -> bool:
 def _decision_strength(context: str) -> int:
     if not context:
         return 0
-    # Tier 4: definitive decision section headings
-    if _has_any_regex(context, [r'authority and approval', r'determination and approval']):
+    # Tier 4: definitive decision section headings and EA/EIS decision documents
+    if _has_any_regex(context, [
+        r'authority and approval', r'determination and approval',
+        r'record of decision', r'finding of no significant impact', r'\bfonsi\b',
+    ]):
         return 4
     if _has_any_regex(context, DECISION_PATTERNS_STRONG):
         return 3
@@ -1878,8 +1942,8 @@ def extract_with_bert(
 
 def run_bert_timeline_extraction(
     sample_size: int = None,
-    clean_energy_only: bool = True,
-    ce_only: bool = True,
+    sources: list = None,
+    clean_energy_only: bool = False,
     main_docs_only: bool = True,
     output_file: str = None,
     use_regex_cache: bool = True,
@@ -1889,16 +1953,23 @@ def run_bert_timeline_extraction(
     Run BERT-based timeline extraction.
 
     Much faster than LLM approach (~50-100x speedup).
+    Supports CE, EA, and EIS projects via the sources parameter.
 
     Args:
         sample_size: If set, only process this many projects
+        sources: List of dataset sources to process (default: ['CE'])
+        clean_energy_only: If True, only process clean energy projects
         output_file: Custom output filename
         use_regex_cache: Use precomputed regex cache (recommended)
         workers: Number of parallel workers (less important for BERT)
     """
     import time
 
+    if sources is None:
+        sources = ['CE']
+
     print("\n=== BERT Timeline Extraction ===")
+    print(f"Sources: {', '.join(sources)}")
 
     # Load classifier
     try:
@@ -1913,12 +1984,11 @@ def run_bert_timeline_extraction(
     projects = _load_projects_combined()
     if projects is None:
         return None
-    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
-    if ce_only:
-        projects = projects[projects['dataset_source'] == 'CE']
-        print(f"Filtered to {len(projects):,} CE projects")
+    # Filter by dataset source
+    projects = projects[projects['dataset_source'].isin(sources)]
+    print(f"Filtered to {len(projects):,} projects in {', '.join(sources)}")
 
     if clean_energy_only:
         projects = projects[projects['project_energy_type'] == 'Clean']
@@ -1932,10 +2002,10 @@ def run_bert_timeline_extraction(
         print("No projects to process.")
         return None
 
-    # Load documents for filename date extraction (CE only)
+    # Load documents for filename date extraction (all requested sources)
     file_name_dates_map = {}
-    if ce_only:
-        data_dir = PROCESSED_DIR / "ce"
+    for source in sources:
+        data_dir = PROCESSED_DIR / source.lower()
         documents_df = pd.read_parquet(data_dir / "documents.parquet")
 
         def extract_id(x):
@@ -1944,18 +2014,31 @@ def run_bert_timeline_extraction(
             return x
 
         documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
-        file_name_dates_map = build_file_name_date_map(
+        source_map = build_file_name_date_map(
             documents_df,
             main_docs_only=main_docs_only
         )
+        file_name_dates_map.update(source_map)
+    print(f"Built filename date map: {len(file_name_dates_map):,} projects")
 
-    # Load regex cache
+    # Load regex cache (per-source with legacy fallback)
     if use_regex_cache:
-        if not REGEX_CACHE_PATH.exists():
-            print(f"Regex cache not found. Run --regex-prep first.")
-            return None
-        regex_cache_df = pd.read_parquet(REGEX_CACHE_PATH)
-        print(f"Loaded regex cache: {len(regex_cache_df):,} rows")
+        cache_dfs = []
+        for source in sources:
+            cache_path = _regex_cache_path(source)
+            if not cache_path.exists():
+                # Fallback: try legacy single-file cache for CE
+                if source == 'CE' and REGEX_CACHE_PATH.exists():
+                    cache_path = REGEX_CACHE_PATH
+                else:
+                    print(f"Regex cache not found for {source} at {cache_path}.")
+                    print(f"Run --regex-prep --source {source} first.")
+                    return None
+            source_cache = pd.read_parquet(cache_path)
+            print(f"Loaded {source} regex cache: {len(source_cache):,} rows")
+            cache_dfs.append(source_cache)
+        regex_cache_df = pd.concat(cache_dfs, ignore_index=True)
+        print(f"Total regex cache: {len(regex_cache_df):,} rows")
     else:
         print("ERROR: BERT approach requires regex cache. Run --regex-prep first.")
         return None
@@ -1976,13 +2059,32 @@ def run_bert_timeline_extraction(
             'date', 'match', 'context', 'position', 'position_pct'
         ]].to_dict(orient='records')
 
-        # Classify with BERT (apply historical gap rule only for CE projects)
-        apply_gap_rule = project.get('dataset_source') == 'CE'
+        # Classify with BERT (apply historical gap rule per source config)
+        source_cfg = SOURCE_CONFIG.get(project.get('dataset_source', 'CE'), SOURCE_CONFIG['CE'])
+        apply_gap_rule = source_cfg.get('apply_gap_rule', True)
         bert_result = extract_with_bert(
             dates_with_context,
             classifier,
             apply_historical_gap_rule=apply_gap_rule
         )
+
+        # NOI metadata as initiation fallback
+        noi_date = project.get('noi_publication_date')
+        if noi_date and pd.notna(noi_date):
+            noi_date_str = str(noi_date)[:10]  # YYYY-MM-DD
+            if not bert_result.get('application_date') and not bert_result.get('inferred_application_date'):
+                bert_result['inferred_application_date'] = noi_date_str
+                bert_result['initiation_date_final'] = noi_date_str
+
+        # Compute timeline_status
+        if bert_result.get('decision_date') and bert_result.get('initiation_date_final'):
+            timeline_status = 'complete'
+        elif bert_result.get('decision_date'):
+            timeline_status = 'missing_initiation'
+        elif bert_result.get('initiation_date_final'):
+            timeline_status = 'missing_decision'
+        else:
+            timeline_status = 'no_dates'
 
         # Build result row
         result = {
@@ -1999,6 +2101,7 @@ def run_bert_timeline_extraction(
             'bert_application_date': bert_result.get('application_date'),
             'bert_inferred_application_date': bert_result.get('inferred_application_date'),
             'bert_initiation_date_final': bert_result.get('initiation_date_final'),
+            'bert_timeline_status': timeline_status,
             'bert_error': bert_result.get('error'),
             'project_file_name_dates': file_name_dates_map.get(project_id, '[]'),
         }
@@ -2028,7 +2131,7 @@ def run_bert_timeline_extraction(
     projects_with_bert.to_parquet(output_path)
     print(f"\nSaved to: {output_path}")
 
-    # Summary
+    # Summary (per source + total)
     has_decision = projects_with_bert['bert_decision_date'].notna()
     has_application = projects_with_bert['bert_application_date'].notna()
     has_error = projects_with_bert['bert_error'].notna()
@@ -2037,6 +2140,22 @@ def run_bert_timeline_extraction(
     print(f"Projects with decision date: {has_decision.sum():,} ({100*has_decision.mean():.1f}%)")
     print(f"Projects with application date: {has_application.sum():,} ({100*has_application.mean():.1f}%)")
     print(f"Projects with errors: {has_error.sum():,} ({100*has_error.mean():.1f}%)")
+
+    if len(sources) > 1:
+        print(f"\n--- Per-source breakdown ---")
+        for source in sources:
+            mask = projects_with_bert['dataset_source'] == source
+            n = mask.sum()
+            if n == 0:
+                continue
+            n_dec = (mask & has_decision).sum()
+            n_app = (mask & has_application).sum()
+            print(f"  {source}: {n:,} projects, {n_dec:,} decisions ({100*n_dec/n:.1f}%), {n_app:,} initiations ({100*n_app/n:.1f}%)")
+
+    # Timeline status summary
+    if 'bert_timeline_status' in projects_with_bert.columns:
+        print(f"\n--- Timeline Status ---")
+        print(projects_with_bert['bert_timeline_status'].value_counts().to_string())
 
     return projects_with_bert
 
@@ -3325,30 +3444,32 @@ def run_llm_timeline_extraction(
 
 def run_regex_prep(
     sample_size: int = None,
-    clean_energy_only: bool = True,
-    ce_only: bool = True,
+    sources: list = None,
+    clean_energy_only: bool = False,
     main_docs_only: bool = True,
     output_file: str = None,
     keep_all_candidates: bool = True,
 ):
     """
-    Precompute regex candidate dates with context for hybrid LLM runs.
+    Precompute regex candidate dates with context for hybrid LLM/BERT runs.
 
-    Saves a single cache file to data/analysis for reuse across runs.
+    Saves per-source cache files to data/analysis for reuse across runs.
     """
+    if sources is None:
+        sources = ['CE']
+
     print("\n=== Regex Candidate Preprocessing ===")
+    print(f"Sources: {', '.join(sources)}")
 
     # Load projects
     projects = _load_projects_combined()
     if projects is None:
         return None
-    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
-    # Filter by dataset source (CE only)
-    if ce_only:
-        projects = projects[projects['dataset_source'] == 'CE']
-        print(f"Filtered to {len(projects):,} CE projects")
+    # Filter by dataset source
+    projects = projects[projects['dataset_source'].isin(sources)]
+    print(f"Filtered to {len(projects):,} projects in {', '.join(sources)}")
 
     # Filter by energy type
     if clean_energy_only:
@@ -3363,77 +3484,89 @@ def run_regex_prep(
         print("No projects to process after filtering.")
         return None
 
-    # Load CE data
-    print("\nLoading CE document data...")
-    data_dir = PROCESSED_DIR / "ce"
-    pages_df = pd.read_parquet(data_dir / "pages.parquet")
-    documents_df = pd.read_parquet(data_dir / "documents.parquet")
-
-    # Clean project_id in documents
     def extract_id(x):
         if isinstance(x, dict):
             return x.get('value', '')
         return x
 
-    documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+    all_results_df = []
 
-    # Filter to main documents only if requested
-    if main_docs_only:
-        main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
-        pages_df = pages_df[pages_df['document_id'].isin(main_doc_ids)]
-        print(f"Filtered to {len(pages_df):,} pages from main documents")
-
-    results = []
-    total = len(projects)
-
-    print(f"\nProcessing {total} projects for regex candidates...")
-
-    for idx, (_, project) in enumerate(projects.iterrows()):
-        if idx % 100 == 0:
-            print(f"  Processing project {idx + 1}/{total}...")
-
-        project_id = project['project_id']
-        doc_ids = documents_df[documents_df['project_id'] == project_id]['document_id'].tolist()
-        if not doc_ids:
+    for source in sources:
+        source_projects = projects[projects['dataset_source'] == source]
+        if source_projects.empty:
+            print(f"\nNo {source} projects to process, skipping.")
             continue
 
-        project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
-        if project_pages.empty:
-            continue
+        # Load source data
+        data_dir = PROCESSED_DIR / source.lower()
+        print(f"\nLoading {source} document data from {data_dir}...")
+        pages_df = pd.read_parquet(data_dir / "pages.parquet")
+        documents_df = pd.read_parquet(data_dir / "documents.parquet")
 
-        all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
-        if not all_text.strip():
-            continue
+        documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
 
-        dates_with_context = extract_dates_with_context(
-            all_text,
-            keep_all_candidates=keep_all_candidates,
-            dedupe_by_date=not keep_all_candidates,
-        )
-        for d in dates_with_context:
-            results.append({
-                'project_id': project_id,
-                'date': d.get('date'),
-                'match': d.get('match'),
-                'context': d.get('context'),
-                'position': d.get('position'),
-                'position_pct': d.get('position_pct'),
-            })
+        # Filter to main documents only if requested
+        if main_docs_only:
+            main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
+            pages_df = pages_df[pages_df['document_id'].isin(main_doc_ids)]
+            print(f"Filtered to {len(pages_df):,} pages from main documents")
 
-    results_df = pd.DataFrame(results)
-    # Add run timestamp for provenance
-    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+        results = []
+        total = len(source_projects)
 
-    if output_file:
-        output_path = ANALYSIS_DIR / output_file
-    else:
-        output_path = REGEX_CACHE_PATH
+        print(f"Processing {total} {source} projects for regex candidates...")
 
-    results_df.to_parquet(output_path)
-    print(f"\nSaved regex cache to: {output_path}")
-    print(f"Total candidate rows: {len(results_df):,}")
+        for idx, (_, project) in enumerate(source_projects.iterrows()):
+            if idx % 100 == 0:
+                print(f"  Processing project {idx + 1}/{total}...")
 
-    return results_df
+            project_id = project['project_id']
+            doc_ids = documents_df[documents_df['project_id'] == project_id]['document_id'].tolist()
+            if not doc_ids:
+                continue
+
+            project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
+            if project_pages.empty:
+                continue
+
+            all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
+            if not all_text.strip():
+                continue
+
+            dates_with_context = extract_dates_with_context(
+                all_text,
+                keep_all_candidates=keep_all_candidates,
+                dedupe_by_date=not keep_all_candidates,
+            )
+            for d in dates_with_context:
+                results.append({
+                    'project_id': project_id,
+                    'date': d.get('date'),
+                    'match': d.get('match'),
+                    'context': d.get('context'),
+                    'position': d.get('position'),
+                    'position_pct': d.get('position_pct'),
+                })
+
+        results_df = pd.DataFrame(results)
+        results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+
+        # Save per-source cache
+        if output_file:
+            cache_path = ANALYSIS_DIR / output_file
+        else:
+            cache_path = _regex_cache_path(source)
+
+        results_df.to_parquet(cache_path)
+        print(f"Saved {source} regex cache to: {cache_path}")
+        print(f"  {source} candidate rows: {len(results_df):,}")
+        all_results_df.append(results_df)
+
+    if all_results_df:
+        combined = pd.concat(all_results_df, ignore_index=True)
+        print(f"\nTotal candidate rows across all sources: {len(combined):,}")
+        return combined
+    return None
 
 
 def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODEL):
@@ -3620,9 +3753,11 @@ if __name__ == "__main__":
         description="Extract timeline dates from NEPA documents using regex or LLM"
     )
 
-    # Regex extraction options
+    # Filtering options
     parser.add_argument('--run', action='store_true', help='Run regex-based extraction')
     parser.add_argument('--sample', type=int, help='Sample size for testing')
+    parser.add_argument('--source', type=str, default=None,
+                        help='Dataset source(s): CE, EA, EIS, or comma-separated (default: CE)')
     parser.add_argument('--clean-energy', action='store_true', help='Process clean energy only')
     parser.add_argument('--ce-only', action='store_true', help='Process CE (Categorical Exclusion) projects only')
     parser.add_argument('--main-docs-only', action='store_true', help='Only read pages from main_document == YES')
@@ -3684,10 +3819,11 @@ if __name__ == "__main__":
 
     # Precompute regex candidates
     elif args.regex_prep:
+        sources = _parse_sources(args.source)
         run_regex_prep(
             sample_size=args.sample,
-            clean_energy_only=True,
-            ce_only=True,
+            sources=sources,
+            clean_energy_only=args.clean_energy,
             main_docs_only=True,
             output_file=args.regex_cache,
             keep_all_candidates=not args.regex_filtered,
@@ -3705,19 +3841,29 @@ if __name__ == "__main__":
         print(f"Model: {args.model}")
         print(f"Timeout: {args.timeout}s")
 
-        # Load CE data
-        pages_df = pd.read_parquet(PROCESSED_DIR / "ce" / "pages.parquet")
-        documents_df = pd.read_parquet(PROCESSED_DIR / "ce" / "documents.parquet")
+        # Search all sources for the project
+        pages_df = None
+        project_docs = pd.DataFrame()
+        for source in ['CE', 'EA', 'EIS']:
+            data_dir = PROCESSED_DIR / source.lower()
+            pages_path = data_dir / "pages.parquet"
+            docs_path = data_dir / "documents.parquet"
+            if not pages_path.exists():
+                continue
+            source_pages = pd.read_parquet(pages_path)
+            source_docs = pd.read_parquet(docs_path)
+            source_docs['project_id'] = source_docs['project_id'].apply(
+                lambda x: x.get('value', '') if isinstance(x, dict) else x
+            )
+            project_docs = source_docs[source_docs['project_id'] == args.project_id]
+            if not project_docs.empty:
+                pages_df = source_pages
+                documents_df = source_docs
+                print(f"Found project in {source} dataset")
+                break
 
-        # Clean project_id
-        documents_df['project_id'] = documents_df['project_id'].apply(
-            lambda x: x.get('value', '') if isinstance(x, dict) else x
-        )
-
-        # Filter to main docs for this project
-        project_docs = documents_df[documents_df['project_id'] == args.project_id]
         if project_docs.empty:
-            print(f"ERROR: No documents found for project {args.project_id}")
+            print(f"ERROR: No documents found for project {args.project_id} in any source (CE, EA, EIS)")
             sys.exit(1)
 
         main_docs = project_docs[project_docs['main_document'] == 'YES']
@@ -3839,10 +3985,11 @@ if __name__ == "__main__":
 
     # Run BERT extraction
     elif args.bert_run:
+        sources = _parse_sources(args.source)
         run_bert_timeline_extraction(
             sample_size=args.sample,
-            clean_energy_only=True,
-            ce_only=True,
+            sources=sources,
+            clean_energy_only=args.clean_energy,
             main_docs_only=True,
             output_file=args.output,
             use_regex_cache=True,
