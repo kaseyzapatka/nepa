@@ -28,6 +28,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 import sys
+import re
+import ast
 
 # datasets is only needed for raw extraction from HuggingFace
 # Import lazily to allow analysis mode to work without it
@@ -40,10 +42,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from extract.classify_energy import add_energy_columns
 from extract.parse_location import add_location_columns
+import json
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 np.set_printoptions(threshold=np.inf)
+
+# Optional: Federal Register NOI enrichment (disabled by default)
+ENABLE_FEDERAL_REGISTER_NOI = False
 
 
 # --------------------------
@@ -56,9 +62,744 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # goes from extract/ -
 RAW_DIR = BASE_DIR / "data" / "raw"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+FEDERAL_REGISTER_PATH = ANALYSIS_DIR / "noi_federal_register.parquet"
 
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Notes directory for filter files
+NOTES_DIR = BASE_DIR / "notes"
+
+
+# --------------------------
+# DEPARTMENT CLASSIFICATION
+# --------------------------
+
+def classify_department(lead_agency):
+    """
+    Classify lead agency into a department-level grouping.
+
+    This mirrors the R code logic in deliverable1/02_agency.R.
+    Collapses detailed agency names into high-level departments.
+
+    Args:
+        lead_agency: Lead agency string (may contain multiple values as JSON array or numpy array)
+
+    Returns:
+        str: Department name or "Other / Unclassified"
+    """
+    # Handle None
+    if lead_agency is None:
+        return "Other / Unclassified"
+
+    # Handle numpy arrays - use first value
+    if isinstance(lead_agency, np.ndarray):
+        if len(lead_agency) == 0:
+            return "Other / Unclassified"
+        lead_agency = lead_agency[0]
+
+    # Handle lists - use first value
+    if isinstance(lead_agency, list):
+        if len(lead_agency) == 0:
+            return "Other / Unclassified"
+        lead_agency = lead_agency[0]
+
+    # Handle NaN
+    if isinstance(lead_agency, float) and np.isnan(lead_agency):
+        return "Other / Unclassified"
+
+    # Handle JSON-encoded arrays - parse and use first value for classification
+    if isinstance(lead_agency, str):
+        if lead_agency.startswith('['):
+            try:
+                agencies = json.loads(lead_agency)
+                if isinstance(agencies, list) and agencies:
+                    lead_agency = agencies[0]  # Use first agency for classification
+            except json.JSONDecodeError:
+                pass
+
+    # Handle empty strings
+    if not lead_agency:
+        return "Other / Unclassified"
+
+    agency_str = str(lead_agency)
+
+    # Department mappings (order matters - first match wins)
+    if agency_str.startswith("Department of Energy"):
+        return "Department of Energy"
+    if agency_str.startswith("Department of the Interior"):
+        return "Department of the Interior"
+    if agency_str.startswith("Department of Agriculture"):
+        return "Department of Agriculture"
+    if agency_str.startswith("Department of Defense"):
+        return "Department of Defense"
+    if agency_str.startswith("Department of Homeland Security"):
+        return "Department of Homeland Security"
+    if agency_str.startswith("Department of Transportation"):
+        return "Department of Transportation"
+    if agency_str.startswith("Department of Health and Human Services"):
+        return "Department of Health and Human Services"
+    if agency_str.startswith("Department of Housing and Urban Development"):
+        return "Department of Housing and Urban Development"
+    if agency_str.startswith("Department of Commerce"):
+        return "Department of Commerce"
+    if agency_str.startswith("Department of State"):
+        return "Department of State"
+    if agency_str.startswith("Department of Justice"):
+        return "Department of Justice"
+    if agency_str.startswith("Department of Veterans Affairs"):
+        return "Department of Veterans Affairs"
+    if agency_str.startswith("Department of the Treasury"):
+        return "Department of the Treasury"
+    if agency_str.startswith("Major Independent Agencies"):
+        return "Major Independent Agencies"
+    if agency_str.startswith("Other Independent Agencies"):
+        return "Other Independent Agencies"
+    if agency_str.startswith("General Services Administration"):
+        return "General Services Administration"
+    if agency_str == "Legislative Branch":
+        return "Legislative Branch"
+    if agency_str == "International Assistance Programs":
+        return "International Assistance Programs"
+
+    return "Other / Unclassified"
+
+
+def add_department_column(df):
+    """
+    Add project_department column to DataFrame.
+
+    Args:
+        df: DataFrame with 'lead_agency' column
+
+    Returns:
+        DataFrame with 'project_department' column added
+    """
+    df = df.copy()
+    df['project_department'] = df['lead_agency'].apply(classify_department)
+    return df
+
+
+# --------------------------
+# LEAD AGENCY HARMONIZATION
+# --------------------------
+
+DEPT_ABBREV_MAP = {
+    "DOE": "Department of Energy",
+    "DOI": "Department of the Interior",
+    "USDA": "Department of Agriculture",
+    "DOD": "Department of Defense",
+    "DoD": "Department of Defense",
+    "DHS": "Department of Homeland Security",
+    "DOT": "Department of Transportation",
+    "HHS": "Department of Health and Human Services",
+    "HUD": "Department of Housing and Urban Development",
+    "DOC": "Department of Commerce",
+    "DOS": "Department of State",
+    "DOJ": "Department of Justice",
+    "VA": "Department of Veterans Affairs",
+    "Treasury": "Department of the Treasury",
+    "USACE": "Major Independent Agencies - Corps of Engineers--Civil Works",
+    "EPA": "Major Independent Agencies - Environmental Protection Agency",
+    "GSA": "General Services Administration",
+    "NASA": "Major Independent Agencies - National Aeronautics and Space Administration",
+    "TVA": "Other Independent Agencies - Tennessee Valley Authority",
+}
+
+
+def parse_agency_list(value):
+    """
+    Parse lead_agency into a list of agency strings.
+
+    Handles:
+    - Python list/np.ndarray
+    - JSON list strings
+    - Python-list-style strings with single quotes
+    - Single strings
+    """
+    if value is None:
+        return []
+    if isinstance(value, (list, np.ndarray)):
+        return [str(x).strip() for x in value if str(x).strip()]
+    if isinstance(value, float) and np.isnan(value):
+        return []
+    if isinstance(value, str):
+        v = value.strip()
+        if not v:
+            return []
+        if v.startswith('[') and v.endswith(']'):
+            # Try JSON, then Python literal
+            for parser in (json.loads, ast.literal_eval):
+                try:
+                    parsed = parser(v)
+                    if isinstance(parsed, (list, tuple)):
+                        return [str(x).strip() for x in parsed if str(x).strip()]
+                except Exception:
+                    pass
+        return [v]
+    return [str(value).strip()]
+
+
+def normalize_agency_text(value):
+    """
+    Normalize raw agency text for matching.
+    """
+    if value is None:
+        return ""
+    s = str(value).strip()
+    if not s:
+        return ""
+    # Normalize dashes and whitespace
+    s = s.replace("—", "-").replace("–", "-")
+    s = re.sub(r"\s+", " ", s)
+    # Strip wrapping quotes
+    s = s.strip("\"' ")
+    # Normalize "U.S." prefix
+    s = re.sub(r"^(U\.S\.|US)\s+", "", s)
+    return s
+
+
+def build_subagency_lookup(series):
+    """
+    Build a lookup of subagency -> full agency name from existing full values.
+    Example: "Power Marketing Administration" -> "Department of Energy - Power Marketing Administration"
+    """
+    lookup = {}
+    for value in series.dropna():
+        for agency in parse_agency_list(value):
+            agency = normalize_agency_text(agency)
+            if " - " in agency:
+                parts = agency.split(" - ", 1)
+                parent = parts[0].strip()
+                sub = parts[1].strip()
+                if not sub or sub == parent:
+                    continue
+                if sub not in lookup:
+                    lookup[sub] = agency
+    return lookup
+
+
+def harmonize_single_agency(agency, subagency_lookup):
+    """
+    Harmonize a single agency string to a canonical name.
+    """
+    agency = normalize_agency_text(agency)
+    if not agency:
+        return ""
+
+    # Expand department abbreviations (prefixes)
+    for abbr, dept in DEPT_ABBREV_MAP.items():
+        if agency == abbr:
+            return dept
+        if agency.startswith(f"{abbr} - "):
+            return f"{dept} - {agency[len(abbr) + 3:]}"
+        if agency.startswith(f"{abbr}-"):
+            return f"{dept} - {agency[len(abbr) + 1:]}"
+
+    # Collapse redundant "Department of X - Department of X"
+    for dept in DEPT_ABBREV_MAP.values():
+        if agency == f"{dept} - {dept}":
+            return dept
+
+    # Prefer agency-only (subagency) since department is stored separately.
+    # For hierarchical labels, return the subagency portion.
+    if " - " in agency:
+        parent, sub = agency.split(" - ", 1)
+        parent = parent.strip()
+        sub = sub.strip()
+        if sub:
+            return sub
+
+    # If this is already a department-level name, keep it (no subagency available)
+    if agency.startswith("Department of "):
+        return agency
+    if agency.startswith("Major Independent Agencies"):
+        return agency
+    if agency.startswith("Other Independent Agencies"):
+        return agency
+    if agency.startswith("General Services Administration"):
+        return agency
+    if agency in ("Legislative Branch", "International Assistance Programs"):
+        return agency
+
+    # If agency is only a subagency name, map to full
+    if agency in subagency_lookup:
+        return subagency_lookup[agency]
+
+    return agency
+
+
+def add_lead_agency_harmonized(df, verbose=True):
+    """
+    Add lead_agency_harmonized column.
+
+    Returns:
+        DataFrame with lead_agency_harmonized as list (one per agency entry).
+    """
+    df = df.copy()
+    subagency_lookup = build_subagency_lookup(df['lead_agency'])
+
+    pairs = []
+
+    def harmonize_value(value):
+        raw_list = parse_agency_list(value)
+        harmonized = []
+        for raw in raw_list:
+            h = harmonize_single_agency(raw, subagency_lookup)
+            harmonized.append(h)
+            pairs.append((normalize_agency_text(raw), h))
+        return harmonized
+
+    df['lead_agency_harmonized'] = df['lead_agency'].apply(harmonize_value)
+
+    if verbose:
+        pairs_df = pd.DataFrame(pairs, columns=['raw', 'harmonized'])
+        pairs_df = pairs_df[pairs_df['raw'] != ""]
+        raw_unique = pairs_df['raw'].nunique()
+        harm_unique = pairs_df['harmonized'].nunique()
+        changed = (pairs_df['raw'] != pairs_df['harmonized']).sum()
+        print("\n=== Lead Agency Harmonization ===")
+        print(f"Unique raw values: {raw_unique:,}")
+        print(f"Unique harmonized values: {harm_unique:,}")
+        print(f"Entries changed by harmonization: {changed:,}")
+        print("\nTop raw -> harmonized mappings (changed only):")
+        mapping_counts = (
+            pairs_df[pairs_df['raw'] != pairs_df['harmonized']]
+            .value_counts()
+            .head(20)
+        )
+        if len(mapping_counts) == 0:
+            print("  (No changes detected)")
+        else:
+            print(mapping_counts.to_string())
+
+    return df
+
+
+# --------------------------
+# MULTI-VALUE FLAGS
+# --------------------------
+
+def parse_json_list(value):
+    """
+    Parse a JSON-encoded list or return the value as-is.
+
+    Args:
+        value: String (possibly JSON array), list, or other value
+
+    Returns:
+        list: Parsed list of values
+    """
+    if value is None:
+        return []
+    if isinstance(value, (list, np.ndarray)):
+        return list(value)
+    if isinstance(value, float) and np.isnan(value):
+        return []
+    if isinstance(value, str):
+        if value.startswith('['):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+        # Single value
+        if value.strip():
+            return [value]
+    return []
+
+
+def count_values(value):
+    """
+    Count the number of values in a field.
+
+    Args:
+        value: String (possibly JSON array), list, or other value
+
+    Returns:
+        int: Number of values
+    """
+    parsed = parse_json_list(value)
+    return len(parsed)
+
+
+def has_multiple_values(value):
+    """
+    Check if a field has multiple values.
+
+    Args:
+        value: String (possibly JSON array), list, or other value
+
+    Returns:
+        bool: True if multiple values exist
+    """
+    return count_values(value) > 1
+
+
+def add_multi_value_flags(df):
+    """
+    Add flags for projects that span multiple states, counties, or departments.
+
+    Adds columns:
+    - project_multi_state: Boolean, True if project spans multiple states
+    - project_multi_county: Boolean, True if project spans multiple counties
+    - project_multi_department: Boolean, True if project has multiple lead agencies
+
+    Args:
+        df: DataFrame with project_state, project_county, and lead_agency columns
+
+    Returns:
+        DataFrame with multi-value flag columns added
+    """
+    df = df.copy()
+
+    # Multi-state flag: check if project_state has multiple values
+    df['project_multi_state'] = df['project_state'].apply(has_multiple_values)
+
+    # Multi-county flag: check if project_county has multiple values
+    df['project_multi_county'] = df['project_county'].apply(has_multiple_values)
+
+    # Multi-department flag: check if lead_agency has multiple values
+    # (Note: only ~40 of 61,881 projects have multiple agencies per R code)
+    df['project_multi_department'] = df['lead_agency'].apply(has_multiple_values)
+
+    return df
+
+
+# --------------------------
+# MILITARY & NUCLEAR WASTE FILTERS
+# --------------------------
+#
+# FILTERING LOGIC SUMMARY:
+# ========================
+# The following filters reclassify projects from "Clean" to "Other" energy type:
+#
+# 1. UTILITIES + NON-ENERGY EXCLUSIONS (in classify_energy.py)
+#    - Projects with ONLY "Utilities" + one of: Broadband, Waste Management,
+#      Land Development (Housing, Other, Urban)
+#    - Rationale: These are likely telecommunications or development projects
+#      with utility connections, not clean energy projects
+#
+# 2. MILITARY / DEFENSE SITE EXCLUSIONS
+#    - Projects with both "Military and Defense" AND "Nuclear" project_type tags
+#    - Loaded from: notes/military_project_ids_to_filter.csv
+#    - Rationale: Defense-related nuclear projects are not civilian clean energy
+#
+# 3. NUCLEAR WASTE MANAGEMENT EXCLUSIONS
+#    - Projects with both "Waste Management" AND "Nuclear" project_type tags
+#    - AND associated with NNSA, Office of Legacy Management, or Office of
+#      Environmental Management (based on lead_agency, project_sponsor, OR project_title)
+#    - Exclusion terms loaded from: notes/agencies_to_be_excluded.txt
+#    - Rationale: Nuclear waste cleanup/storage is not clean energy production
+#    - Title-based filtering added to catch projects where sponsor field is missing
+#      (e.g., "Hanford Site" appearing only in the title)
+#
+# The exclusion terms file (agencies_to_be_excluded.txt) includes:
+#    - NNSA sites: Los Alamos, Sandia, Livermore, Pantex, Y-12, Savannah River, etc.
+#    - Legacy Management: Albuquerque Operations Office, Grand Junction Office
+#    - Environmental Management: Hanford, Richland, Oak Ridge, WIPP, etc.
+
+
+def load_exclusion_terms():
+    """
+    Load exclusion terms from notes/agencies_to_be_excluded.txt.
+
+    These terms identify projects associated with NNSA, Office of Legacy Management,
+    or Office of Environmental Management that should not be classified as clean energy
+    when combined with Nuclear + Waste Management tags.
+
+    Returns:
+        list: List of exclusion term strings (lowercase, stripped)
+    """
+    txt_path = NOTES_DIR / "agencies_to_be_excluded.txt"
+    if not txt_path.exists():
+        print(f"  Warning: {txt_path} not found, using default patterns")
+        return []
+
+    try:
+        terms = []
+        with open(txt_path, 'r') as f:
+            for line in f:
+                # Skip comments and empty lines
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    terms.append(line.lower())
+        return terms
+    except Exception as e:
+        print(f"  Warning: Error loading exclusion terms: {e}")
+        return []
+
+
+def load_military_project_ids():
+    """
+    Load list of military project IDs that should be filtered from clean energy.
+
+    These are projects with both "Military and Defense" AND "Nuclear" tags,
+    which are defense-related nuclear projects, not clean energy.
+
+    Returns:
+        set: Set of project IDs to filter
+    """
+    csv_path = NOTES_DIR / "military_project_ids_to_filter.csv"
+    if not csv_path.exists():
+        print(f"  Warning: {csv_path} not found")
+        return set()
+
+    try:
+        df = pd.read_csv(csv_path)
+        return set(df['project_id'].dropna().astype(str))
+    except Exception as e:
+        print(f"  Warning: Error loading military project IDs: {e}")
+        return set()
+
+
+def load_nuclear_waste_keep_ids():
+    """
+    Load list of nuclear waste project IDs that should be kept as clean energy.
+
+    These are projects within the Nuclear + Waste Management subset that were
+    reviewed with clients and explicitly retained.
+
+    Returns:
+        set: Set of project IDs to keep
+    """
+    csv_path = NOTES_DIR / "nuclear_waste_projects_to_keep.csv"
+    if not csv_path.exists():
+        print(f"  Warning: {csv_path} not found")
+        return set()
+
+    try:
+        df = pd.read_csv(csv_path)
+        return set(df['project_id'].dropna().astype(str))
+    except Exception as e:
+        print(f"  Warning: Error loading nuclear waste keep IDs: {e}")
+        return set()
+
+
+def is_nuclear_waste_project(project_type, project_sponsor, lead_agency, project_title,
+                              exclusion_terms=None):
+    """
+    Check if a project is a nuclear waste project that should not be classified as clean energy.
+
+    Identifies projects that have both "Waste Management" AND "Nuclear" tags,
+    AND are associated with NNSA, Legacy Management, or Environmental Management
+    based on lead_agency, project_sponsor, OR project_title.
+
+    Title-based filtering catches cases where projects slipped through because
+    the sponsor field was missing (e.g., "Hanford Site" appearing only in the title).
+
+    Args:
+        project_type: Project type string (may be JSON array or numpy array)
+        project_sponsor: Project sponsor string
+        lead_agency: Lead agency string
+        project_title: Project title string
+        exclusion_terms: List of exclusion terms (loaded from agencies_to_be_excluded.txt)
+                        If None, will load from file.
+
+    Returns:
+        bool: True if this is a nuclear waste project to filter
+    """
+    # Parse project_type - handle None, NaN, arrays, and strings
+    if project_type is None:
+        types_str = ""
+    elif isinstance(project_type, (list, np.ndarray)):
+        types_str = " ".join(str(t) for t in project_type).lower()
+    elif isinstance(project_type, float) and np.isnan(project_type):
+        types_str = ""
+    else:
+        types_str = str(project_type).lower()
+
+    # Must have both "Waste Management" AND "Nuclear" tags
+    has_waste_management = "waste management" in types_str
+    has_nuclear = "nuclear" in types_str
+
+    if not (has_waste_management and has_nuclear):
+        return False
+
+    # Convert fields to strings for pattern matching
+    # Handle None, NaN, arrays, and strings
+    def to_lower_str(val):
+        if val is None:
+            return ""
+        if isinstance(val, (list, np.ndarray)):
+            return " ".join(str(v) for v in val).lower()
+        if isinstance(val, float) and np.isnan(val):
+            return ""
+        return str(val).lower()
+
+    sponsor_str = to_lower_str(project_sponsor)
+    agency_str = to_lower_str(lead_agency)
+    title_str = to_lower_str(project_title)
+
+    # Use provided exclusion terms or load from file
+    if exclusion_terms is None:
+        exclusion_terms = load_exclusion_terms()
+
+    # If exclusion terms loaded successfully, use them
+    if exclusion_terms:
+        # Check if any exclusion term appears in sponsor, agency, OR title
+        for term in exclusion_terms:
+            if term in sponsor_str or term in agency_str or term in title_str:
+                return True
+    else:
+        # Fallback to hardcoded patterns if file not available
+        fallback_patterns = [
+            "nnsa", "national nuclear security administration",
+            "kansas city", "livermore", "lawrence livermore", "los alamos",
+            "naval nuclear", "nevada", "pantex", "sandia", "savannah river", "y-12",
+            "office of legacy management", "legacy management",
+            "albuquerque operations office", "grand junction office",
+            "office of environmental management", "environmental management",
+            "hanford", "richland", "office of river protection",
+            "paducah", "portsmouth", "oak ridge", "waste isolation pilot plant", "carlsbad",
+        ]
+        for pattern in fallback_patterns:
+            if pattern in sponsor_str or pattern in agency_str or pattern in title_str:
+                return True
+
+    # Also check for specific lead agency matches (always check these)
+    agency_specific = [
+        "national nuclear security administration",
+        "office of legacy management",
+        "office of environmental management",
+    ]
+    for pattern in agency_specific:
+        if pattern in agency_str:
+            return True
+
+    return False
+
+
+def has_nuclear_waste_tags(project_type):
+    """
+    Check if project_type contains both "Waste Management" and a nuclear tag.
+
+    This is the broad tag-based definition used for client-reviewed keep/exclude lists.
+    """
+    if project_type is None:
+        types_str = ""
+    elif isinstance(project_type, (list, np.ndarray)):
+        types_str = " ".join(str(t) for t in project_type).lower()
+    elif isinstance(project_type, float) and np.isnan(project_type):
+        types_str = ""
+    else:
+        types_str = str(project_type).lower()
+
+    has_waste_management = "waste management" in types_str
+    has_nuclear = "nuclear" in types_str
+    return has_waste_management and has_nuclear
+
+
+def apply_energy_type_filters(df):
+    """
+    Apply all clean energy exclusion filters to reclassify projects as "Other".
+
+    Projects that were initially classified as "Clean" but match these filters
+    will be reclassified as "Other" since they are not clean energy projects.
+
+    Filters applied:
+    1. Utilities exclusion: Projects with ONLY Utilities + Broadband/Waste Management/
+       Land Development tags (likely telecom or development, not energy projects)
+    2. Military nuclear: Defense-related nuclear projects (weapons, naval reactors)
+    3. Nuclear waste: Nuclear waste cleanup/storage at DOE sites
+
+    Adds columns:
+    - project_utilities_to_exclude: Boolean flag for utilities-only projects
+       (Note: This column is created in classify_energy.py, we just use it here)
+    - project_military_to_exclude: Boolean flag for military nuclear projects
+    - project_nuclear_waste_to_exclude: Boolean flag for nuclear waste projects
+
+    Modifies:
+    - project_energy_type: Updates from "Clean" to "Other" for filtered projects
+    - project_energy_type_strict: Updates from "Clean" to "Other" for filtered projects
+
+    Args:
+        df: DataFrame with project_id, project_type, project_sponsor, lead_agency,
+            project_title, project_energy_type, project_energy_type_strict, and
+            project_utilities_to_exclude columns
+
+    Returns:
+        DataFrame with filters applied
+    """
+    df = df.copy()
+
+    # --- Filter 1: Utilities exclusion ---
+    # project_utilities_to_exclude is already computed in classify_energy.py
+    utilities_count = df['project_utilities_to_exclude'].sum()
+    print(f"  Utilities exclusion: {utilities_count} projects flagged")
+
+    # --- Filter 2: Military nuclear projects ---
+    print("  Loading military project filter...")
+    military_ids = load_military_project_ids()
+    print(f"    Found {len(military_ids)} military project IDs to filter")
+
+    # Flag military nuclear projects
+    df['project_military_to_exclude'] = df['project_id'].astype(str).isin(military_ids)
+
+    # --- Filter 3: Nuclear waste projects ---
+    print("  Loading nuclear waste exclusion terms...")
+    exclusion_terms = load_exclusion_terms()
+    print(f"    Loaded {len(exclusion_terms)} exclusion terms from agencies_to_be_excluded.txt")
+
+    # --- Override: Keep explicitly approved nuclear waste projects ---
+    print("  Loading nuclear waste keep list...")
+    nuclear_waste_keep_ids = load_nuclear_waste_keep_ids()
+    print(f"    Found {len(nuclear_waste_keep_ids)} nuclear waste project IDs to keep")
+
+    if nuclear_waste_keep_ids:
+        # Client-reviewed keep list present: exclude ALL nuclear+waste tags except keep list
+        print("  Identifying nuclear waste projects (tag-based keep list override)...")
+        tag_mask = df['project_type'].apply(has_nuclear_waste_tags)
+        keep_mask = df['project_id'].astype(str).isin(nuclear_waste_keep_ids)
+        df['project_nuclear_waste_to_exclude'] = tag_mask & ~keep_mask
+        nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
+        kept_count = (tag_mask & keep_mask).sum()
+        print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
+        print(f"    Kept {kept_count} nuclear waste projects (keep list)")
+    else:
+        # No keep list: use exclusion term logic
+        # Checks project_type for Nuclear + Waste Management tags, then checks
+        # lead_agency, project_sponsor, AND project_title for exclusion terms
+        print("  Identifying nuclear waste projects...")
+        df['project_nuclear_waste_to_exclude'] = df.apply(
+            lambda row: is_nuclear_waste_project(
+                row.get('project_type'),
+                row.get('project_sponsor'),
+                row.get('lead_agency'),
+                row.get('project_title'),
+                exclusion_terms
+            ),
+            axis=1
+        )
+
+        nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
+        print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
+
+    # --- Apply all filters to reclassify Clean -> Other ---
+    filter_mask = (
+        df['project_utilities_to_exclude'] |
+        df['project_military_to_exclude'] |
+        df['project_nuclear_waste_to_exclude']
+    )
+    clean_mask = df['project_energy_type'] == 'Clean'
+    reclassify_mask = filter_mask & clean_mask
+
+    reclassified_count = reclassify_mask.sum()
+    print(f"  Reclassifying {reclassified_count} projects from 'Clean' to 'Other'")
+
+    # Count by filter type for reporting
+    utilities_reclassified = (df['project_utilities_to_exclude'] & clean_mask).sum()
+    military_reclassified = (df['project_military_to_exclude'] & clean_mask).sum()
+    nuclear_waste_reclassified = (df['project_nuclear_waste_to_exclude'] & clean_mask).sum()
+    print(f"    - Utilities: {utilities_reclassified}")
+    print(f"    - Military: {military_reclassified}")
+    print(f"    - Nuclear waste: {nuclear_waste_reclassified}")
+
+    df.loc[reclassify_mask, 'project_energy_type'] = 'Other'
+    df.loc[reclassify_mask, 'project_energy_type_strict'] = 'Other'
+
+    return df
 
 
 # --------------------------
@@ -254,6 +995,7 @@ def convert_complex_columns_for_parquet(df):
     complex_cols = [
         'project_sector', 'project_type', 'project_description',
         'project_sponsor', 'project_location', 'lead_agency',
+        'lead_agency_harmonized',
         'project_state', 'project_county'
     ]
 
@@ -270,8 +1012,12 @@ def create_combined_projects():
 
     Combines EA, EIS, CE datasets and adds:
     - process_type column (EA, EIS, CE)
-    - Energy classification columns
-    - Location columns
+    - Energy classification columns (project_energy_type, project_type_count, etc.)
+    - Military/nuclear waste filters (project_is_military_nuclear, project_is_nuclear_waste)
+    - Location columns (project_state, project_county, project_lat, project_lon)
+    - Department classification (project_department)
+    - Multi-value flags (project_multi_state, project_multi_county, project_multi_department)
+    - Document flags (project_has_decision_doc, project_has_final_doc, etc.)
 
     Outputs:
         data/analysis/projects_combined.parquet
@@ -322,9 +1068,25 @@ def create_combined_projects():
     print("Adding energy classification...")
     combined = add_energy_columns(combined)
 
+    # Apply military and nuclear waste filters
+    print("Applying military/nuclear waste filters...")
+    combined = apply_energy_type_filters(combined)
+
     # Add location columns
     print("Adding location columns...")
     combined = add_location_columns(combined)
+
+    # Add department classification
+    print("Adding department classification...")
+    combined = add_department_column(combined)
+
+    # Add lead agency harmonization
+    print("Harmonizing lead agencies...")
+    combined = add_lead_agency_harmonized(combined, verbose=True)
+
+    # Add multi-value flags (multi-state, multi-county, multi-department)
+    print("Adding multi-value flags...")
+    combined = add_multi_value_flags(combined)
 
     # Add document flags (requires loading documents)
     print("Adding document type flags...")
@@ -343,6 +1105,29 @@ def create_combined_projects():
     combined['project_has_draft_doc'] = combined['project_has_draft_doc'].fillna(False)
     combined['project_doc_count'] = combined['project_doc_count'].fillna(0).astype(int)
 
+    # Merge Federal Register NOI enrichment if available
+    if FEDERAL_REGISTER_PATH.exists():
+        print("Merging Federal Register NOI enrichment...")
+        fr_df = pd.read_parquet(FEDERAL_REGISTER_PATH)
+        fr_df = fr_df.drop(columns=["project_title"], errors="ignore")
+        combined = combined.merge(fr_df, on="project_id", how="left")
+    else:
+        print(f"Federal Register NOI file not found: {FEDERAL_REGISTER_PATH}")
+
+    # Optional: Federal Register NOI enrichment (disabled by default)
+    if ENABLE_FEDERAL_REGISTER_NOI:
+        from extract.federal_register import (
+            attach_noi_fields,
+            FederalRegisterConfig,
+        )
+
+        fr_config = FederalRegisterConfig(
+            process_types=("EIS",),
+            energy_types=("Clean",),
+            sample_n=None,
+        )
+        combined = attach_noi_fields(combined, config=fr_config)
+
     # Convert complex columns for parquet compatibility
     print("Converting complex columns for parquet...")
     combined = convert_complex_columns_for_parquet(combined)
@@ -360,6 +1145,16 @@ def create_combined_projects():
     print(f"\nBy energy type:")
     print(combined['project_energy_type'].value_counts())
     print(f"\nProjects flagged for review: {combined['project_energy_type_questions'].sum():,}")
+    print(f"\nExcluded from clean energy (reclassified to Other):")
+    print(f"  Utilities: {combined['project_utilities_to_exclude'].sum():,}")
+    print(f"  Military nuclear: {combined['project_military_to_exclude'].sum():,}")
+    print(f"  Nuclear waste: {combined['project_nuclear_waste_to_exclude'].sum():,}")
+    print(f"\nMulti-value projects:")
+    print(f"  Multi-state: {combined['project_multi_state'].sum():,}")
+    print(f"  Multi-county: {combined['project_multi_county'].sum():,}")
+    print(f"  Multi-department: {combined['project_multi_department'].sum():,}")
+    print(f"\nBy department:")
+    print(combined['project_department'].value_counts())
     print(f"\nDocument availability:")
     print(f"  Projects with decision docs: {combined['project_has_decision_doc'].sum():,}")
     print(f"  Projects with final docs: {combined['project_has_final_doc'].sum():,}")
@@ -403,28 +1198,77 @@ DOCUMENT_TYPE_CATEGORIES = {
     'decision': ['ROD', 'FONSI', 'CE'],  # Decision documents - primary source for timelines
     'final': ['FEIS', 'EA'],              # Final documents (EA can be final)
     'draft': ['DEIS', 'DEA'],             # Draft documents
+    'appendix': [],                        # Appendices/attachments (identified by filename)
     'other': ['OTHER', ''],               # Other/unknown documents
 }
 
+# Filename patterns for classifying documents when document_type is missing
+# Each pattern list contains regex patterns to search in file_name (case-insensitive)
+# Note: Using (?:^|[^a-zA-Z]) and (?:[^a-zA-Z]|$) instead of \b because \b treats _ as word char
+FILENAME_PATTERNS = {
+    'decision': [
+        r'(?:^|[^a-zA-Z])ROD(?:[^a-zA-Z]|$)',
+        r'Record[_\-\s]?of[_\-\s]?Decision',
+        r'(?:^|[^a-zA-Z])FONSI(?:[^a-zA-Z]|$)',
+        r'Finding[_\-\s]?of[_\-\s]?No[_\-\s]?Significant[_\-\s]?Impact',
+        r'Categorical[_\-\s]?Exclusion',
+    ],
+    'final': [
+        r'(?:^|[^a-zA-Z])FEIS(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+        r'Final[_\-\s]?EA(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?Environmental[_\-\s]?Assessment',
+    ],
+    'draft': [
+        r'(?:^|[^a-zA-Z])DEIS(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+        r'(?:^|[^a-zA-Z])DEA(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?A(?:ssessment)?',
+    ],
+    'appendix': [
+        r'(?:^|[^a-zA-Z])Appendix',
+        r'(?:^|[^a-zA-Z])Appendices(?:[^a-zA-Z]|$)',
+        r'(?:^|[^a-zA-Z])Attachment',
+        r'(?:^|[^a-zA-Z])Exhibit(?:[^a-zA-Z]|$)',
+    ],
+}
 
-def classify_document_type(doc_type):
+
+def classify_document_type(doc_type, file_name=None):
     """
     Classify a document_type into a category.
 
+    When doc_type is missing or empty, falls back to scanning the file_name
+    for known patterns (abbreviations and spelled-out versions).
+
     Args:
         doc_type: The document_type value (e.g., 'ROD', 'FEIS', 'DEIS')
+        file_name: The file_name value to scan when doc_type is missing
 
     Returns:
-        str: Category name ('decision', 'final', 'draft', 'other')
+        str: Category name ('decision', 'final', 'draft', 'appendix', 'other')
     """
-    if pd.isna(doc_type) or doc_type == '':
-        return 'other'
+    import re
 
-    doc_type_upper = str(doc_type).upper().strip()
+    # First, try to classify using document_type if present
+    if doc_type is not None and not pd.isna(doc_type) and doc_type != '':
+        doc_type_upper = str(doc_type).upper().strip()
 
-    for category, types in DOCUMENT_TYPE_CATEGORIES.items():
-        if doc_type_upper in types:
-            return category
+        for category, types in DOCUMENT_TYPE_CATEGORIES.items():
+            if doc_type_upper in types:
+                return category
+
+    # If doc_type is missing/empty/OTHER, try to classify using file_name
+    if file_name is not None and not pd.isna(file_name) and file_name != '':
+        file_name_str = str(file_name)
+
+        # Check each category's filename patterns
+        # Order matters: check decision/final/draft before appendix
+        for category in ['decision', 'final', 'draft', 'appendix']:
+            patterns = FILENAME_PATTERNS.get(category, [])
+            for pattern in patterns:
+                if re.search(pattern, file_name_str, re.IGNORECASE):
+                    return category
 
     return 'other'
 
@@ -433,14 +1277,20 @@ def add_document_type_category(df):
     """
     Add document_type_category column to documents dataframe.
 
+    Uses document_type when available, falls back to scanning file_name
+    for known patterns when document_type is missing.
+
     Args:
-        df: Documents dataframe with document_type column
+        df: Documents dataframe with document_type and file_name columns
 
     Returns:
         DataFrame with document_type_category column added
     """
     df = df.copy()
-    df['document_type_category'] = df['document_type'].apply(classify_document_type)
+    df['document_type_category'] = df.apply(
+        lambda row: classify_document_type(row.get('document_type'), row.get('file_name')),
+        axis=1
+    )
     return df
 
 
@@ -449,7 +1299,7 @@ def get_project_document_flags(documents_df):
     Create project-level flags for document types.
 
     Args:
-        documents_df: Documents dataframe with project_id and document_type columns
+        documents_df: Documents dataframe with project_id, document_type, and file_name columns
 
     Returns:
         DataFrame with project_id and document flag columns
@@ -463,6 +1313,7 @@ def get_project_document_flags(documents_df):
         project_has_decision_doc=('document_type_category', lambda x: 'decision' in x.values),
         project_has_final_doc=('document_type_category', lambda x: 'final' in x.values),
         project_has_draft_doc=('document_type_category', lambda x: 'draft' in x.values),
+        project_has_appendix_doc=('document_type_category', lambda x: 'appendix' in x.values),
         project_doc_count=('document_id', 'count'),
     ).reset_index()
 

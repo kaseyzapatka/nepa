@@ -1,0 +1,23 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "NEPA"
+  navbar:
+    left:
+      - text: "Project Overview"
+        href: project_overview.qmd
+      - text: "Deliverable 1"
+        href: reports/deliverable01.qmd
+      - text: "Deliverable 2"
+        href: reports/deliverable02.qmd
+      - text: "Deliverable 3"
+        href: reports/deliverable03.qmd
+      - text: "Deliverable 4"
+        href: reports/deliverable04.qmd
+
+format:
+  html:
+    embed-resources: true
+    theme: cosmo
