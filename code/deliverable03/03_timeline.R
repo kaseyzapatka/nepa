@@ -8,14 +8,13 @@
 # SETUP
 # --------------------------
 
-source(here::here("code", "deliverable3", "00_setup.R"))
+source(here::here("code", "deliverable03", "00_setup.R"))
 
 # --------------------------
 # LOAD BERT TIMELINE DATA
 # --------------------------
 
 bert_timeline_path <- here("data", "analysis", "projects_timeline_bert.parquet")
-cat("Loading BERT timeline data from:", bert_timeline_path, "\n")
 timeline <- read_parquet(bert_timeline_path)
 cat("Projects loaded:", nrow(timeline), "\n\n")
 
@@ -65,13 +64,6 @@ coverage_table <- tibble(
   Percent = sprintf("%.1f%%", 100 * Count / n_total)
 )
 
-print(coverage_table)
-
-# Save table
-coverage_path <- here(tables_dir, "03_bert_coverage.csv")
-write_csv(coverage_table, coverage_path)
-cat("\nSaved:", coverage_path, "\n")
-
 # --------------------------
 # FIGURE: DATE COUNT DISTRIBUTION PER PROJECT
 # --------------------------
@@ -116,9 +108,6 @@ ggsave(fig_date_dist_path, fig_date_dist, width = 8, height = 6, dpi = 300)
 cat("  Saved:", fig_date_dist_path, "\n")
 print(fig_date_dist)
 
-# Save underlying table
-write_csv(date_dist, here(tables_dir, "03_bert_date_distribution.csv"))
-
 # --------------------------
 # FIGURE: CE PROJECTS BY DECISION YEAR
 # --------------------------
@@ -152,8 +141,117 @@ ggsave(fig_by_year_path, fig_by_year, width = 10, height = 6, dpi = 300)
 cat("  Saved:", fig_by_year_path, "\n")
 print(fig_by_year)
 
-# Save underlying table
-write_csv(year_counts, here(tables_dir, "03_year_by_process_type.csv"))
+# --------------------------
+# FIGURE: DURATION DISTRIBUTION (BOXPLOT)
+# --------------------------
+
+cat("\nCreating Figure: CE project duration distribution...\n")
+
+
+timeline |> filter(project_id == "1df6f8b5-7e16-2d38-01b6-a042628ea3c8") |> glimpse()
+
+duration_df <- timeline %>%
+  mutate(
+    bert_initiation_date_final = as.Date(bert_initiation_date_final),
+    bert_decision_date_final = as.Date(bert_decision_date_final),
+    bert_duration_days_final = as.numeric(bert_decision_date_final - bert_initiation_date_final)
+  ) %>%
+  filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+  mutate(
+    bert_duration_months = bert_duration_days_final / 30.44,
+    decision_year = as.integer(format(bert_decision_date_final, "%Y"))
+  ) %>%
+  filter(!is.na(decision_year)) %>%
+  filter(decision_year >= 2000, decision_year <= 2025)
+
+min_year_n <- 50
+year_counts_duration <- duration_df %>%
+  count(decision_year, name = "n") %>%
+  filter(n >= min_year_n)
+
+duration_df <- duration_df %>%
+  semi_join(year_counts_duration, by = "decision_year")
+
+duration_p99 <- quantile(duration_df$bert_duration_months, 0.99, na.rm = TRUE)
+
+fig_duration_box <- ggplot(duration_df, aes(x = factor(decision_year), y = bert_duration_months)) +
+  geom_boxplot(
+    fill = catf_light_blue,
+    color = catf_navy,
+    outlier.alpha = 0.2,
+    outlier.size = 0.6,
+    linewidth = 0.4
+  ) +
+  coord_cartesian(ylim = c(0, duration_p99)) +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  labs(
+    title = "Distribution of CE Project Duration",
+    subtitle = sprintf(
+      "Decision year shown for years with >= %s projects | Duration from start to decision (months, p99 capped)",
+      scales::comma(min_year_n)
+    ),
+    x = "Decision Year",
+    y = "Duration (months)"
+  ) +
+  theme_catf() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+  )
+
+fig_duration_box
+
+fig_duration_box_path <- here(figures_dir, "03_duration_boxplot.png")
+ggsave(fig_duration_box_path, fig_duration_box, width = 12, height = 6.5, dpi = 300)
+cat("  Saved:", fig_duration_box_path, "\n")
+print(fig_duration_box)
+
+# --------------------------
+# FIGURE: START VS DECISION YEAR (LOLLIPOP)
+# --------------------------
+
+cat("\nCreating Figure: Start vs Decision year lollipop chart...\n")
+
+start_counts <- timeline %>%
+  mutate(start_year = as.integer(format(bert_start_date, "%Y"))) %>%
+  filter(!is.na(start_year), start_year >= 2000, start_year <= 2025) %>%
+  count(year = start_year, name = "n") %>%
+  mutate(type = "Start (explicit or inferred)")
+
+decision_counts <- timeline %>%
+  mutate(decision_year = as.integer(format(bert_decision_date, "%Y"))) %>%
+  filter(!is.na(decision_year), decision_year >= 2000, decision_year <= 2025) %>%
+  count(year = decision_year, name = "n") %>%
+  mutate(type = "Decision")
+
+start_end_long <- bind_rows(start_counts, decision_counts) %>%
+  mutate(type = factor(type, levels = c("Start (explicit or inferred)", "Decision")))
+
+fig_start_end <- ggplot(start_end_long, aes(x = year, y = n, color = type)) +
+  geom_segment(
+    aes(x = year, xend = year, y = 0, yend = n),
+    position = position_dodge(width = 0.6),
+    linewidth = 0.7
+  ) +
+  geom_point(
+    position = position_dodge(width = 0.6),
+    size = 2.3
+  ) +
+  scale_color_manual(values = c(catf_teal, catf_magenta)) +
+  scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
+  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.05))) +
+  labs(
+    title = "When CE Project Timelines Start and End",
+    subtitle = "Start dates use explicit initiation or inferred earliest review date",
+    x = "Year",
+    y = "Number of Projects",
+    color = NULL
+  ) +
+  theme_catf()
+
+fig_start_end_path <- here(figures_dir, "03_start_vs_decision_lollipop.png")
+ggsave(fig_start_end_path, fig_start_end, width = 11, height = 6, dpi = 300)
+cat("  Saved:", fig_start_end_path, "\n")
+print(fig_start_end)
 
 # --------------------------
 # FIGURE: EXTRACTION COVERAGE BREAKDOWN

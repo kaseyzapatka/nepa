@@ -12,40 +12,6 @@ source(here::here("code", "deliverable01", "00_setup.R"))
 
 
 # --------------------------
-# EXPLORATORY ANALYSIS
-# --------------------------
-
-# share that needs geocoding
-clean_energy |> 
-  count(project_location_needs_geocoding) |> 
-  glimpse() # 45/22305
-
-# view locations that need to be geo-coded  
-clean_energy |> 
-  filter(project_location_needs_geocoding == TRUE) |> 
-  select(project_location, project_state:project_lon) |> 
-  print(n = 50) 
-
-  # most are in US Territories or have a default geolocation - geographic center of US
-
-
-# view locations that need to be geo-coded  
-clean_energy |> 
-  #filter(is.na(project_location)) |> 
-  #filter(is_empty(project_county)) |> 
-  filter(project_county == "[]") |> 
-  select(project_location, project_state:project_lon) |> 
-  print(n = 50) 
-
-clean_energy |> 
-  filter(process_type  == "CE") |> 
-  #select(process_type, project_lat, project_lon, project_county, project_state) |> 
-  select(process_type, project_county, project_state) |> 
-  filter(project_county == "[]") |> 
-  glimpse()
-
-
-# --------------------------
 # PROCESS
 # --------------------------
 
@@ -64,23 +30,6 @@ cat("Top 10 states by project count:\n")
 state_counts %>% slice_head(n = 10) %>% print()
 
 
-
-# --------------------------
-# EXPLORATORY
-# --------------------------
-
-south_carolina_projects <- 
-  location_data |> 
-  filter(str_detect(project_state, "South Carolina")) |> 
-  select(project_title, project_type, project_state) |> 
-  glimpse()
-
-# save
-sheet_write(
-  data = south_carolina_projects,
-  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
-  sheet = "south_carolina_projects"
-)
 
 # --------------------------
 # TABLE 3: BY STATE
@@ -106,87 +55,6 @@ table3 %>% print(n = 60)
 
 # Save
 write_csv(table3, here(tables_dir, "table3_by_state.csv"))
-
-# --------------------------
-# TABLE 4: BY STATE & BY COUNTY
-# --------------------------
-
-# A–G: State + County nested crosstab with totals at the top
-table_county_state <- location_data %>%
-  # ---- A. Parse + unnest county JSON ----
-  mutate(
-    project_county = map(
-      project_county,
-      ~ if (.x == "[]" | is.na(.x)) NA_character_ else fromJSON(.x)
-    )
-  ) %>%
-  unnest(project_county, keep_empty = TRUE) %>%
-  
-  # ---- B. Create identifiers + display labels ----
-  mutate(
-    geo_label = if_else(
-      is.na(project_county),
-      project_state,
-      paste0("  \u2514\u2500 ", project_county)   # indented county
-    ),
-    geo_state = project_state,
-    geo_level = if_else(is.na(project_county), "State", "County")
-  ) %>%
-  
-  # ---- C. Crosstab by geography + process type ----
-  count(geo_label, geo_state, geo_level, process_type) %>%
-  pivot_wider(
-    names_from = process_type,
-    values_from = n,
-    values_fill = 0
-  ) %>%
-  
-  # ---- D. Add totals ----
-  mutate(
-    Total = rowSums(across(c(EA, EIS, CE)))
-  ) %>%
-  
-  # ---- E. Order: state first, then counties ----
-  arrange(
-    geo_state,
-    desc(geo_level == "State"),
-    geo_label
-  ) %>%
-  
-  # ---- F. Clean up for output ----
-  select(
-    Geography = geo_label,
-    `Environmental Assessment` = EA,
-    `Environmental Impact Statement` = EIS,
-    `Categorical Exclusion` = CE,
-    Total
-  )
-
-# ---- G. Add grand totals row at the top ----
-grand_totals <- table_county_state %>%
-  summarise(
-    Geography = "TOTAL (All States & Counties)",
-    across(where(is.numeric), sum)
-  )
-
-table_county_state <- bind_rows(grand_totals, table_county_state)
-
-# ---- H. Print + save ----
-table_county_state %>% print(n = 80)
-
-write_csv(
-  table_county_state,
-  here(tables_dir, "table3_by_state_and_county_totals.csv")
-)
-
-
-# save
-sheet_write(
-  data = table_county_state,
-  ss = "https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?usp=sharing",
-  sheet = "table_county_state"
-)
-
 
 # --------------------------
 # FIGURES
@@ -233,6 +101,9 @@ top15_state_process <- location_data %>%
   ) %>%
   ungroup()
 
+state_totals <- top15_state_process %>%
+  distinct(project_state, total)
+
 fig_state_process <- top15_state_process %>%
   ggplot(aes(x = reorder(project_state, total), y = percent, fill = process_type)) +
   geom_col() +
@@ -241,6 +112,14 @@ fig_state_process <- top15_state_process %>%
     position = position_stack(vjust = 0.5),
     size = 3,
     color = "white"
+  ) +
+  geom_text(
+    data = state_totals,
+    aes(x = reorder(project_state, total), y = 101, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
   ) +
   coord_flip() +
   labs(
@@ -253,7 +132,8 @@ fig_state_process <- top15_state_process %>%
   scale_fill_manual(
     values = c("CE" = catf_dark_blue, "EA" = catf_teal, "EIS" = catf_magenta)
   ) +
-  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  scale_y_continuous(labels = function(x) paste0(x, "%"),
+                     expand = expansion(mult = c(0, 0.08))) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 9))
 
@@ -813,40 +693,6 @@ create_county_project_table <- function(counties_df, process_type_filter) {
   return(projects_in_counties)
 }
 
-# Create tables for each process type (top 10 counties)
-cat("\nCreating CE county deep dive table...\n")
-table_ce_deep_dive <- create_county_project_table(top_ce_counties, "CE")
-cat("  CE projects in top 10 counties:", nrow(table_ce_deep_dive), "\n")
-
-cat("Creating EA county deep dive table...\n")
-table_ea_deep_dive <- create_county_project_table(top_ea_counties, "EA")
-cat("  EA projects in top 10 counties:", nrow(table_ea_deep_dive), "\n")
-
-cat("Creating EIS county deep dive table...\n")
-table_eis_deep_dive <- create_county_project_table(top_eis_counties, "EIS")
-cat("  EIS projects in top 10 counties:", nrow(table_eis_deep_dive), "\n")
-
-# Save to Google Sheets (user will fill in URL)
-DEEP_DIVE_SHEET_URL <- "FILL_IN_GOOGLE_SHEET_URL"
-
-if (DEEP_DIVE_SHEET_URL != "FILL_IN_GOOGLE_SHEET_URL") {
-  sheet_write(table_ce_deep_dive, ss = DEEP_DIVE_SHEET_URL, sheet = "CE_Top10_Counties")
-  cat("  Wrote CE deep dive to Google Sheet\n")
-
-  sheet_write(table_ea_deep_dive, ss = DEEP_DIVE_SHEET_URL, sheet = "EA_Top10_Counties")
-  cat("  Wrote EA deep dive to Google Sheet\n")
-
-  sheet_write(table_eis_deep_dive, ss = DEEP_DIVE_SHEET_URL, sheet = "EIS_Top10_Counties")
-  cat("  Wrote EIS deep dive to Google Sheet\n")
-} else {
-  cat("  Note: Set DEEP_DIVE_SHEET_URL to save to Google Sheets\n")
-  # Save as CSV as backup
-  write_csv(table_ce_deep_dive, here(tables_dir, "deep_dive_ce_top_counties.csv"))
-  write_csv(table_ea_deep_dive, here(tables_dir, "deep_dive_ea_top_counties.csv"))
-  write_csv(table_eis_deep_dive, here(tables_dir, "deep_dive_eis_top_counties.csv"))
-  cat("  Saved CSV backups to:", tables_dir, "\n")
-}
-
 # --------------------------
 # DEEP DIVE FIGURES: Technology breakdown for top 10 counties
 # --------------------------
@@ -991,256 +837,9 @@ cat("  Saved sample tables for report\n")
 
 
 # --------------------------
-# ANALYSIS: COUNTY DATA COVERAGE BY PROCESS TYPE
-# --------------------------
-
-cat("\n=== County Data Coverage Analysis ===\n")
-
-# Overall county data availability
-county_coverage <- clean_energy %>%
-  mutate(
-    has_county = !is.na(project_county) &
-                 project_county != "" &
-                 project_county != "[]"
-  ) %>%
-  group_by(process_type) %>%
-  summarise(
-    total_projects = n(),
-    projects_with_county = sum(has_county),
-    projects_missing_county = sum(!has_county),
-    pct_with_county = round(100 * sum(has_county) / n(), 1),
-    pct_missing_county = round(100 * sum(!has_county) / n(), 1)
-  ) %>%
-  arrange(desc(pct_missing_county))
-
-cat("\nCounty data coverage by NEPA process type:\n")
-print(county_coverage)
-
-# Statistical summary
-cat("\n=== Summary Statistics ===\n")
-cat("Overall county data coverage:", round(100 * n_projects_with_county / nrow(clean_energy), 1), "%\n")
-cat("CE projects with county data:",
-    round(100 * sum(clean_energy$process_type == "CE" &
-                    clean_energy$project_county != "[]" &
-                    !is.na(clean_energy$project_county), na.rm = TRUE) /
-          sum(clean_energy$process_type == "CE"), 1), "%\n")
-cat("EA projects with county data:",
-    round(100 * sum(clean_energy$process_type == "EA" &
-                    clean_energy$project_county != "[]" &
-                    !is.na(clean_energy$project_county), na.rm = TRUE) /
-          sum(clean_energy$process_type == "EA"), 1), "%\n")
-cat("EIS projects with county data:",
-    round(100 * sum(clean_energy$process_type == "EIS" &
-                    clean_energy$project_county != "[]" &
-                    !is.na(clean_energy$project_county), na.rm = TRUE) /
-          sum(clean_energy$process_type == "EIS"), 1), "%\n")
-
-# Sample projects missing county data by process type
-cat("\n=== Sample CE Projects Missing County Data ===\n")
-ce_missing_county <- clean_energy %>%
-  filter(process_type == "CE" & (is.na(project_county) | project_county == "[]")) %>%
-  select(project_id, project_title, project_location, project_state, project_county, lead_agency) %>%
-  slice_head(n = 10)
-
-print(ce_missing_county)
-
-cat("\n=== Sample CE Projects WITH County Data ===\n")
-ce_with_county <- clean_energy %>%
-  filter(process_type == "CE" & !is.na(project_county) & project_county != "[]") %>%
-  select(project_id, project_title, project_location, project_state, project_county, lead_agency) %>%
-  slice_head(n = 10)
-
-print(ce_with_county)
-
-# Agency patterns in missing county data
-cat("\n=== County Data Coverage by Agency (for CE projects) ===\n")
-ce_county_by_agency <- clean_energy %>%
-  filter(process_type == "CE") %>%
-  mutate(
-    has_county = !is.na(project_county) &
-                 project_county != "" &
-                 project_county != "[]"
-  ) %>%
-  group_by(project_department) %>%
-  summarise(
-    total_ce_projects = n(),
-    ce_with_county = sum(has_county),
-    pct_with_county = round(100 * sum(has_county) / n(), 1)
-  ) %>%
-  arrange(desc(total_ce_projects)) %>%
-  slice_head(n = 10)
-
-print(ce_county_by_agency)
-
-# --------------------------
-# EA AND EIS MISSING COUNTY DATA ANALYSIS
-# --------------------------
-
-cat("\n=== EA Projects Missing County Data ===\n")
-ea_missing_county <- clean_energy %>%
-  filter(process_type == "EA" & (is.na(project_county) | project_county == "[]")) %>%
-  select(project_id, project_title, project_location, project_state, project_county, lead_agency, project_department)
-
-cat("Total EA projects missing county:", nrow(ea_missing_county), "out of",
-    sum(clean_energy$process_type == "EA"), "EA projects\n")
-cat("Sample of EA projects missing county data:\n")
-print(ea_missing_county %>% slice_head(n = 15))
-
-# Look at location field patterns for EA
-cat("\n=== Location Field Analysis for EA Missing County ===\n")
-ea_location_patterns <- ea_missing_county %>%
-  mutate(
-    has_location = !is.na(project_location) & project_location != "" & project_location != "[]",
-    location_length = nchar(project_location),
-    mentions_county = str_detect(tolower(project_location), "county|counties"),
-    has_coordinates = str_detect(project_location, "latitude|longitude|lat|long|coord"),
-    has_legal_desc = str_detect(project_location, "T\\.|Township|Section|Range|Meridian"),
-    location_type = case_when(
-      !has_location ~ "No location",
-      mentions_county ~ "Mentions county",
-      has_coordinates ~ "Has coordinates",
-      has_legal_desc ~ "Legal description",
-      TRUE ~ "Other description"
-    )
-  )
-
-cat("\nEA Location field patterns:\n")
-print(ea_location_patterns %>% count(location_type, sort = TRUE))
-
-cat("\n=== EIS Projects Missing County Data ===\n")
-eis_missing_county <- clean_energy %>%
-  filter(process_type == "EIS" & (is.na(project_county) | project_county == "[]")) %>%
-  select(project_id, project_title, project_location, project_state, project_county, lead_agency, project_department)
-
-cat("Total EIS projects missing county:", nrow(eis_missing_county), "out of",
-    sum(clean_energy$process_type == "EIS"), "EIS projects\n")
-cat("Sample of EIS projects missing county data:\n")
-print(eis_missing_county %>% slice_head(n = 15))
-
-# Look at location field patterns for EIS
-cat("\n=== Location Field Analysis for EIS Missing County ===\n")
-eis_location_patterns <- eis_missing_county %>%
-  mutate(
-    has_location = !is.na(project_location) & project_location != "" & project_location != "[]",
-    location_length = nchar(project_location),
-    mentions_county = str_detect(tolower(project_location), "county|counties"),
-    has_coordinates = str_detect(project_location, "latitude|longitude|lat|long|coord"),
-    has_legal_desc = str_detect(project_location, "T\\.|Township|Section|Range|Meridian"),
-    mentions_multiple = str_detect(tolower(project_location), "multiple|various|several|region|area"),
-    location_type = case_when(
-      !has_location ~ "No location",
-      mentions_county ~ "Mentions county",
-      has_coordinates ~ "Has coordinates",
-      mentions_multiple ~ "Multiple/regional",
-      has_legal_desc ~ "Legal description",
-      TRUE ~ "Other description"
-    )
-  )
-
-cat("\nEIS Location field patterns:\n")
-print(eis_location_patterns %>% count(location_type, sort = TRUE))
-
-# Examples of each pattern type for EIS
-cat("\n=== Sample EIS Projects by Location Pattern ===\n")
-for (loc_type in unique(eis_location_patterns$location_type)) {
-  cat("\n", loc_type, ":\n")
-  sample <- eis_location_patterns %>%
-    filter(location_type == loc_type) %>%
-    select(project_title, project_location, project_state) %>%
-    slice_head(n = 3)
-  print(sample)
-}
-
-# Check if coordinates are available for geocoding
-cat("\n=== Geocoding Potential (projects with lat/long) ===\n")
-projects_with_coords <- clean_energy %>%
-  filter(process_type %in% c("EA", "EIS")) %>%
-  filter(is.na(project_county) | project_county == "[]") %>%
-  filter(!is.na(project_lat) & !is.na(project_lon) &
-         project_lat != 0 & project_lon != 0) %>%
-  select(process_type, project_id, project_title, project_lat, project_lon,
-         project_location, project_state)
-
-cat("EA/EIS projects missing county but WITH lat/long coordinates:\n")
-print(projects_with_coords %>% count(process_type))
-
-if (nrow(projects_with_coords) > 0) {
-  cat("\nSample projects that could be reverse geocoded:\n")
-  print(projects_with_coords %>% slice_head(n = 10))
-}
-
-# Check agency patterns
-cat("\n=== Agency Patterns for EA/EIS Missing County ===\n")
-ea_eis_missing_by_agency <- clean_energy %>%
-  filter(process_type %in% c("EA", "EIS")) %>%
-  mutate(
-    has_county = !is.na(project_county) & project_county != "" & project_county != "[]"
-  ) %>%
-  group_by(process_type, project_department) %>%
-  summarise(
-    total = n(),
-    missing_county = sum(!has_county),
-    pct_missing = round(100 * sum(!has_county) / n(), 1)
-  ) %>%
-  filter(total >= 5) %>%
-  arrange(process_type, desc(pct_missing))
-
-print(ea_eis_missing_by_agency)
-
-# --------------------------
-# ANALYSIS
-# --------------------------
-
-cat("\n=== Location Analysis ===\n")
-
-# States with most EIS (complex projects)
-eis_states <- location_data %>%
-  filter(process_type == "EIS") %>%
-  count(project_state, name = "n_eis") %>%
-  arrange(desc(n_eis))
-
-cat("\nTop 10 states by EIS count (most complex projects):\n")
-eis_states %>% slice_head(n = 10) %>% print()
-
-# States with highest EIS ratio
-eis_ratio <- location_data %>%
-  count(project_state, process_type) %>%
-  pivot_wider(names_from = process_type, values_from = n, values_fill = 0) %>%
-  mutate(
-    total = EA + EIS + CE,
-    eis_ratio = EIS / total
-  ) %>%
-  filter(total >= 100) %>%
-  arrange(desc(eis_ratio))
-
-cat("\nStates with highest EIS ratio (min 100 projects):\n")
-eis_ratio %>% slice_head(n = 10) %>% print()
-
-# Multi-state projects analysis
-multi_state <- clean_energy %>%
-  mutate(n_states = str_count(project_state, "\\|") + 1) %>%
-  filter(n_states > 1)
-
-cat("\nMulti-state projects:", nrow(multi_state), "\n")
-cat("(Projects spanning multiple states)\n")
-
-
-# --------------------------
 # SUMMARY
 # --------------------------
 
 cat("\n=== Location Script Complete ===\n")
 cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")
-
-clean_energy |> 
-  select(project_title, project_state, project_type, project_county) |> 
-   filter(sapply(project_state, function(x) {
-    states <- fromJSON(x)
-    "South Carolina" %in% states
-  })) |> 
-     filter(sapply(project_county, function(x) {
-    states <- fromJSON(x)
-    "Aiken" %in% states
-  })) |> 
-  glimpse()

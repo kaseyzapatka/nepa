@@ -5,6 +5,7 @@
 # Strategy: Regex first to find all dates, then order them chronologically
 
 import re
+import json
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
@@ -20,6 +21,40 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+
+# Expected CE clean energy count (from latest extract_data.py output)
+EXPECTED_CE_CLEAN_N = 20725
+EXPECTED_CE_CLEAN_TOL = 250
+
+
+def _load_projects_combined():
+    """
+    Load the latest projects_combined output from extract_data.py.
+    """
+    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
+    if not projects_path.exists():
+        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+        return None
+    return pd.read_parquet(projects_path)
+
+
+def _warn_if_clean_energy_count_off(df: pd.DataFrame, ce_only: bool, clean_energy_only: bool):
+    """
+    Warn if CE clean energy count is far from expected.
+    """
+    if df is None:
+        return
+    if not (ce_only and clean_energy_only):
+        return
+    if 'dataset_source' not in df.columns or 'project_energy_type' not in df.columns:
+        return
+
+    n_clean_ce = len(df[(df['dataset_source'] == 'CE') & (df['project_energy_type'] == 'Clean')])
+    if abs(n_clean_ce - EXPECTED_CE_CLEAN_N) > EXPECTED_CE_CLEAN_TOL:
+        print(
+            f"WARNING: CE clean energy count is {n_clean_ce:,}, expected ~{EXPECTED_CE_CLEAN_N:,}. "
+            "If this is unexpected, rerun extract_data.py (analysis) and rebuild regex cache."
+        )
 
 
 # --------------------------
@@ -156,6 +191,113 @@ def parse_date_match(match, pattern_type):
 
     return None
 
+
+def extract_dates_from_filename(file_name: str) -> list:
+    """
+    Extract date strings from a filename.
+
+    Returns:
+        List of dicts: [{'date': 'YYYY-MM-DD', 'match': 'Feb 27 2023'}, ...]
+    """
+    if not file_name or not isinstance(file_name, str):
+        return []
+
+    variants = [
+        file_name,
+        file_name.replace('_', '-'),
+        file_name.replace('_', '/'),
+        re.sub(r'[_-]+', ' ', file_name),
+    ]
+
+    results = []
+    seen = set()
+
+    # Extra filename-specific pattern: YYYY/MM/DD
+    ymd_slash = re.compile(r'(\d{4})/(\d{1,2})/(\d{1,2})')
+
+    for text in variants:
+        # DATE_PATTERNS handle month names, MDY, DMY, ISO, numeric slash/dash
+        for pattern, pattern_type in DATE_PATTERNS:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                date_obj = parse_date_match(match, pattern_type)
+                if date_obj is None:
+                    continue
+                date_str = date_obj.strftime('%Y-%m-%d')
+                key = (date_str, match.group(0))
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append({'date': date_str, 'match': match.group(0)})
+
+        # YYYY/MM/DD variant
+        for match in ymd_slash.finditer(text):
+            year, month, day = match.groups()
+            try:
+                date_obj = datetime(int(year), int(month), int(day))
+            except ValueError:
+                continue
+            date_str = date_obj.strftime('%Y-%m-%d')
+            key = (date_str, match.group(0))
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append({'date': date_str, 'match': match.group(0)})
+
+    # Sort by date string
+    results.sort(key=lambda x: x['date'])
+    return results
+
+
+def build_file_name_date_map(documents_df: pd.DataFrame, main_docs_only: bool = True) -> dict:
+    """
+    Build a map of project_id -> JSON list of filename date matches.
+    """
+    if documents_df is None or documents_df.empty:
+        return {}
+
+    df = documents_df.copy()
+
+    def extract_id(x):
+        if isinstance(x, dict):
+            return x.get('value', '')
+        return x
+
+    if 'project_id' in df.columns:
+        df['project_id'] = df['project_id'].apply(extract_id)
+
+    if main_docs_only and 'main_document' in df.columns:
+        df = df[df['main_document'] == 'YES']
+
+    project_map = {}
+
+    for _, row in df.iterrows():
+        project_id = row.get('project_id')
+        file_name = row.get('file_name')
+        if not project_id or not file_name:
+            continue
+        matches = extract_dates_from_filename(file_name)
+        if not matches:
+            continue
+        for m in matches:
+            m['file_name'] = file_name
+            if 'document_id' in row:
+                m['document_id'] = row.get('document_id')
+        project_map.setdefault(project_id, []).extend(matches)
+
+    # Deduplicate per project by (date, match, file_name)
+    deduped = {}
+    for project_id, items in project_map.items():
+        seen = set()
+        out = []
+        for item in items:
+            key = (item.get('date'), item.get('match'), item.get('file_name'))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(item)
+        deduped[project_id] = json.dumps(out)
+
+    return deduped
 
 def should_exclude_date(text, match_start, match_end, window=50):
     """
@@ -450,12 +592,10 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
     print("\n=== Timeline Extraction ===")
 
     # Load projects
-    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
-    if not projects_path.exists():
-        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+    projects = _load_projects_combined()
+    if projects is None:
         return
-
-    projects = pd.read_parquet(projects_path)
+    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -495,6 +635,12 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
 
         documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
 
+        # Precompute filename date matches for this source
+        file_name_dates_map = build_file_name_date_map(
+            documents_df,
+            main_docs_only=main_docs_only
+        )
+
         # Filter to main documents only if requested
         if main_docs_only:
             main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
@@ -508,10 +654,13 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
 
             project_id = project['project_id']
             timeline = build_project_timeline(project_id, pages_df, documents_df, decision_docs_only)
+            timeline['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
             results.append(timeline)
 
     # Create results dataframe
     results_df = pd.DataFrame(results)
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
 
     # Convert list columns to JSON for parquet
     import json
@@ -567,17 +716,32 @@ REGEX_CACHE_PATH = ANALYSIS_DIR / "regex_candidates.parquet"
 # Model paths
 BERT_MODEL_DIR = BASE_DIR / "models" / "timeline_classifier"
 BERT_TRAINING_DATA_PATH = ANALYSIS_DIR / "bert_training_data.parquet"
+MANUAL_CORRECTIONS_PATH = ANALYSIS_DIR / "manual_training_corrections.csv"
 
-# Auto-labeling patterns (high confidence rules)
+# Auto-labeling patterns (ranked confidence rules)
 DECISION_PATTERNS_STRONG = [
     r'digitally signed by',
     r'signed by\s+\w+',
     r'signature of',
     r'/s/\s*\w+',  # Digital signature format
+    r'concur.*nepa compliance officer',
+    r'nepa compliance officer.*concur',
     r'nepa compliance officer.*date',
+    r'nepa compliance officer',
+    r'authoriz(ing|ed) official',
+    r'authority and approval',
+    r'NCO Determination:',
+    r'determination and approval',
+    r'categorical exclusion determination',
+    r'categorical exclusion (determination|approval)',
+    r'decision memo',
+    r'decision memorandum',
+    r'decision record',
     r'authorizing official.*date',
     r'field.*manager.*signature',
     r'field office manager determination',
+    r'field manager (acting)?',
+    r'assistant field manager',
     r'approved.*signature',
     r'fonsi.*signed',
     r'rod.*signed',
@@ -585,15 +749,21 @@ DECISION_PATTERNS_STRONG = [
     r'approval date',
     r'date of approval',
     r'ce determination date',
+    r'district manager',
+    r'approval and contact information',
+    r'\d{4}\.\d{2}\.\d{2}',  # YYYY.MM.DD digital signature timestamps
 ]
 
 DECISION_PATTERNS_MED = [
+    r'digitally signed by',
     r'date determined',
-    r'determination',
     r'field office manager',
-    r'nepa compliance officer',
     r'authorizing official',
     r'final approval',
+]
+
+DECISION_PATTERNS_WEAK = [
+    r'determination',
     r'approval',
 ]
 
@@ -601,16 +771,44 @@ INITIATION_PATTERNS_STRONG = [
     r'scoping meeting',
     r'scoping period',
     r'notice of intent',
+    r'submitted notice of intent',
+    r'\bnoi\b',
     r'\bnoi\b.*publish',
+    r'noi published',
+    r'doe initiator signature',
     r'application received',
     r'application submitted',
     r'consultation initiated',
-    r'project proposed',
-    r'proposal submitted',
-    r'request received',
+    r'initiation of consultation',
+    r'initiated on',
     r'right[- ]of[- ]way application',
     r'row application',
+    r'\brow\b application',
+    r'submitted (a )?(completed )?right[- ]of[- ]way application',
+    r'blm received (a|the) (row )?application',
     r'initiator signature',
+    r'designation form',
+    r'doe initiator signature',
+]
+
+INITIATION_PATTERNS_MED = [
+    r'renewal application received',
+    r'by renewal application received',
+    r'project proposed',
+    r'proposed action',
+    r'designation',
+    r'nepa process started',
+    r'nepa review began',
+    r'proposal submitted',
+    r'request received',
+    r'review was initiated',
+    r'(distribution|review) (was )?initiated',
+]
+
+INITIATION_PATTERNS_WEAK = [
+    r'may require (a )?new nepa determinat',
+    r'may be categorically excluded',
+    r'categorically excluded from further nepa review',
 ]
 
 REVIEW_PATTERNS_STRONG = [
@@ -620,7 +818,106 @@ REVIEW_PATTERNS_STRONG = [
     r'phase\s+\d+\s+was approved',
     r'phase\s+\d+\s+approved',
     r'approved by\s+\w+.*(review|phase)',
+    r'realty specialist',
+    r'wildlife biologist',
+    r'scientist',
+    r'fisheries/?wildlife biologist',
+    r'recreation (planner|specialist)',
+    r'outdoor recreation planner',
+    r'natural resource specialist',
+    r'environmental coordinator',
+    r'planning & environmental coordinator',
+    r'planning and environmental coordinator',
+    r'environmental coordinator',
+    r'environmental specialist',
+    r'botanist',
+    r'archaeologist',
+    r'archeologist',
+    r'district archaeologist',
+    r'cultural resource(s)? specialist',
+    r'project officer',
+    r'shpo.*concur',
+    r'environmental clearance memorandum',
+    r'yes\s+no\s+reviewer/title\s+initials\s*&\s*date',
+    r'yes\s+no\s+reviewer',
+    r'reviewer/title\s+initials\s*&\s*date',
+    r'initial and date',
+    r'initials?\s*&\s*date',
     r'nepa review completed',
+    r'memorandum of agreement',
+    r'\bmoa\b',
+    r'section 106',
+]
+
+REVIEW_PATTERNS_STRONG_CASE_SENSITIVE = [
+    r'\bSubject Matter Expert\b',
+    r'\bExpert\b',
+    r'\bNEPA-SME\b',
+    r'\bNEPA SME\b',
+    r'\bSME\b',
+]
+
+REVIEW_PATTERNS_MED = [
+    r'review memo',
+    r'review memorandum',
+    r'reviewed by',
+]
+
+REVIEW_PATTERNS_WEAK = [
+    r'specialist',
+]
+
+# Expiration cues (for future dates, e.g., CE expiration)
+EXPIRATION_PATTERNS_STRONG = [
+    r're-?authoriz\w*.*until',
+    r'categorical exclusion expires',
+    r'\bexpire\b',
+    r'\bexpir\w*\s+on\b',
+    r'expiration date would',
+    r'for a term of',
+    r'expiration date\s*[:]',
+    r'expiration date of',
+    r'valid until',
+    r'to begin.*completed by',  # construction schedule: "to begin ... and be completed by"
+]
+
+# Background/plan reference cues (treat as historical/other)
+HISTORICAL_CONTEXT_PATTERNS = [
+    r'resource management plan',
+    r'\brmp\b',
+    r'conformance with the applicable lup',
+    r'land use plan',
+    r'plan maintenance action',
+    r'record of decision',
+    r'was assigned to',
+    r'assigned back to',
+    r'lease was issued',
+    r'communication site was established',
+]
+
+# Hard exclusions for initiation candidates
+INITIATION_EXCLUSION_PATTERNS = [
+    r'program specific guidance',
+    r'prepared in accordance with .* guidance',
+    r'resource management plan',
+    r'\brmp\b',
+    r'land use plan',
+    r'conformance with the applicable lup',
+    r'record of decision',
+    r'plan maintenance action',
+    r'memorandum of agreement',
+    r'\bmoa\b',
+    r'section 106',
+    r'shpo.*concur',
+    r'map created',
+    r'map prepared',
+    r'form approved',
+    r'previous editions obsolete',
+    r'reviewer/title\s+initials\s*&\s*date',
+    r'initial and date',
+    r'initials?\s*&\s*date',
+    r'yes\s+no\s+reviewer',
+    r'specialist signature',
 ]
 
 MEMO_DATE_PATTERNS = [
@@ -630,7 +927,7 @@ MEMO_DATE_PATTERNS = [
 
 DECISION_BOILERPLATE_PATTERNS = [
     r'previous editions obsolete',
-    r'form approved',
+    r'form approved\s*(omb|omg)',  # OMB boilerplate only, not "Form Status: Approved"
     r'forms mgmt',
     r'netl f \d+',
     r'doe f \d+',
@@ -649,6 +946,8 @@ OTHER_PATTERNS_STRONG = [
     r'federal register',
     r'public law',
     r'act of \d{4}',
+    r'program specific guidance',
+    r'prepared in accordance with .* guidance',
 ]
 
 
@@ -668,16 +967,37 @@ def auto_label_context(context: str) -> str:
     for pattern in DECISION_PATTERNS_STRONG:
         if re.search(pattern, context_lower):
             return 'decision'
+    for pattern in DECISION_PATTERNS_MED:
+        if re.search(pattern, context_lower):
+            return 'decision'
+    for pattern in DECISION_PATTERNS_WEAK:
+        if re.search(pattern, context_lower):
+            return 'decision'
+
+    # Check review patterns (treat as initiation-negative)
+    for pattern in REVIEW_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'review'
+    for pattern in REVIEW_PATTERNS_STRONG_CASE_SENSITIVE:
+        if re.search(pattern, context):
+            return 'review'
+    for pattern in REVIEW_PATTERNS_MED:
+        if re.search(pattern, context_lower):
+            return 'review'
+    for pattern in REVIEW_PATTERNS_WEAK:
+        if re.search(pattern, context_lower):
+            return 'review'
 
     # Check initiation patterns
     for pattern in INITIATION_PATTERNS_STRONG:
         if re.search(pattern, context_lower):
             return 'initiation'
-
-    # Check review patterns
-    for pattern in REVIEW_PATTERNS_STRONG:
+    for pattern in INITIATION_PATTERNS_MED:
         if re.search(pattern, context_lower):
-            return 'review'
+            return 'initiation'
+    for pattern in INITIATION_PATTERNS_WEAK:
+        if re.search(pattern, context_lower):
+            return 'initiation'
 
     # Check other patterns (negative examples)
     for pattern in OTHER_PATTERNS_STRONG:
@@ -767,6 +1087,35 @@ def generate_bert_training_data(
 
     # Create DataFrame
     training_df = pd.DataFrame(labeled_data)
+
+    # Merge manual corrections if available
+    if MANUAL_CORRECTIONS_PATH.exists():
+        print("\nMerging manual training corrections...")
+        corrections = pd.read_csv(MANUAL_CORRECTIONS_PATH)
+        # For each correction, override auto-label where (project_id, date) matches
+        corrections_key = set(zip(corrections['project_id'], corrections['date']))
+        override_count = 0
+        for idx, row in training_df.iterrows():
+            key = (row['project_id'], row['date'])
+            if key in corrections_key:
+                match = corrections[(corrections['project_id'] == row['project_id']) &
+                                    (corrections['date'] == row['date'])]
+                if not match.empty:
+                    new_label = match.iloc[0]['correct_type']
+                    if new_label != row['label']:
+                        training_df.at[idx, 'label'] = new_label
+                        override_count += 1
+
+        print(f"  Applied {override_count} label overrides from {len(corrections)} manual corrections")
+
+        # Recount labels after corrections
+        for label in ['decision', 'initiation', 'review', 'other']:
+            count = (training_df['label'] == label).sum()
+            print(f"  {label}: {count:,}")
+    else:
+        print(f"\nNo manual corrections found at {MANUAL_CORRECTIONS_PATH}")
+
+    training_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
 
     # Save
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -881,6 +1230,18 @@ def train_bert_classifier(
     # Data collator
     data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
 
+    # Class weights (handle imbalance)
+    import numpy as np
+    import torch
+    label_counts = df['label_id'].value_counts().sort_index()
+    total = label_counts.sum()
+    # Inverse frequency weights
+    class_weights = total / (label_counts * len(label_counts))
+    class_weights = torch.tensor(class_weights.values, dtype=torch.float)
+    print("\nClass weights:")
+    for lbl, w in zip(label2id.keys(), class_weights.tolist()):
+        print(f"  {lbl}: {w:.3f}")
+
     # Metrics
     def compute_metrics(eval_pred):
         predictions, labels = eval_pred
@@ -904,8 +1265,17 @@ def train_bert_classifier(
         load_best_model_at_end=False,
     )
 
-    # Trainer
-    trainer = Trainer(
+    # Trainer with weighted loss (compatible with older transformers)
+    class WeightedTrainer(Trainer):
+        def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+            labels = inputs.pop("labels")
+            outputs = model(**inputs)
+            logits = outputs.logits
+            loss_fct = torch.nn.CrossEntropyLoss(weight=class_weights.to(logits.device))
+            loss = loss_fct(logits, labels)
+            return (loss, outputs) if return_outputs else loss
+
+    trainer = WeightedTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
@@ -1042,13 +1412,126 @@ def _is_decision_boilerplate(context: str) -> bool:
 def _decision_strength(context: str) -> int:
     if not context:
         return 0
+    # Tier 4: definitive decision section headings
+    if _has_any_regex(context, [r'authority and approval', r'determination and approval']):
+        return 4
     if _has_any_regex(context, DECISION_PATTERNS_STRONG):
         return 3
     if _has_any_regex(context, DECISION_PATTERNS_MED):
         return 2
+    if _has_any_regex(context, DECISION_PATTERNS_WEAK):
+        return 1
     if _has_any(context, DECISION_CUES):
         return 1
     return 0
+
+
+def _has_strong_review_cue(context: str) -> bool:
+    return (
+        _has_any_regex(context, REVIEW_PATTERNS_STRONG)
+        or _has_any_regex_case_sensitive(context, REVIEW_PATTERNS_STRONG_CASE_SENSITIVE)
+    )
+
+
+def _has_strong_decision_cue(context: str) -> bool:
+    return _has_any_regex(context, DECISION_PATTERNS_STRONG)
+
+
+def _has_reviewer_checkbox(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'yes\s+no\s+reviewer/title\s+initials\s*&\s*date',
+        r'yes\s+no\s+reviewer',
+        r'reviewer/title\s+initials\s*&\s*date',
+    ])
+
+
+def _has_specialist_cue(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'environmental coordinator',
+        r'planning & environmental coordinator',
+        r'planning and environmental coordinator',
+        r'realty specialist',
+        r'wildlife biologist',
+        r'fisheries/?wildlife biologist',
+        r'recreation (planner|specialist)',
+        r'outdoor recreation planner',
+        r'natural resource specialist',
+        r'cultural resource(s)? specialist',
+        r'botanist',
+        r'archaeologist',
+        r'archeologist',
+        r'district archaeologist',
+        r'project officer',
+    ])
+
+
+def _has_authorizing_with_signature(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'authorizing official.*(signed|signature|/s/|date\s*:)',
+    ])
+
+
+def _is_expiration_candidate(date_str: str, context: str) -> bool:
+    if not date_str or not context:
+        return False
+    # Strong expiration context cues apply regardless of date
+    if _has_any_regex(context, EXPIRATION_PATTERNS_STRONG):
+        return True
+    # Future dates after 2025-12-31 are also expiration candidates
+    if date_str > "2025-12-31":
+        return True
+    return False
+
+
+def _is_historical_by_year(date_str: str) -> bool:
+    if not date_str:
+        return False
+    # Any date before 2000 is historical
+    return date_str < "2000-01-01"
+
+
+def _has_historical_context(context: str) -> bool:
+    return _has_any_regex(context, HISTORICAL_CONTEXT_PATTERNS)
+
+
+def _apply_historical_gap_rule(classified_dates: list, gap_days: int = 730, enable: bool = True) -> None:
+    """
+    Tranche-based rule:
+    Find the FIRST gap > gap_days and mark all dates before that gap as historical.
+    Uses first gap to avoid over-marking recent project dates when distant future
+    references (e.g., expiration in 2024) create a second gap.
+    """
+    if not enable:
+        return
+    if not classified_dates or len(classified_dates) < 2:
+        return
+
+    # Sort by date (ISO strings safe for lexicographic order)
+    sorted_dates = sorted(classified_dates, key=lambda x: x.get('date') or "")
+
+    # Find FIRST large gap — stops at earliest break point
+    from datetime import datetime
+    cutoff_idx = None
+    for i in range(len(sorted_dates) - 1):
+        d0 = sorted_dates[i].get('date')
+        d1 = sorted_dates[i + 1].get('date')
+        if not d0 or not d1:
+            continue
+        try:
+            dt0 = datetime.strptime(d0, "%Y-%m-%d")
+            dt1 = datetime.strptime(d1, "%Y-%m-%d")
+        except Exception:
+            continue
+        if (dt1 - dt0).days > gap_days:
+            cutoff_idx = i
+            break  # First gap wins
+
+    if cutoff_idx is None:
+        return
+
+    for j in range(cutoff_idx + 1):
+        if sorted_dates[j].get('type') != 'expiration':
+            sorted_dates[j]['type'] = 'historical'
 
 
 def _select_best_decision(decision_dates: list) -> dict:
@@ -1077,9 +1560,67 @@ def _select_best_decision(decision_dates: list) -> dict:
     return best
 
 
+def _initiation_strength(context: str) -> int:
+    if not context:
+        return 0
+    # Strong signals
+    if _has_any_regex(context, [r'doe initiator signature', r'initiator signature']):
+        return 3
+    if _has_any_regex(context, [r'application received', r'application submitted', r'notice of intent', r'\bnoi\b', r'scoping']):
+        return 2
+    if _has_any_regex(context, [r'right[- ]of[- ]way application', r'\brow\b application', r'proposal submitted', r'request received', r'deemed the application complete']):
+        return 2
+    if _has_any_regex(context, [r'proposed action', r'project proposed', r're-submitted', r'amended and re-submitted']):
+        return 1
+    return 0
+
+
+def _is_initiation_excluded(context: str) -> bool:
+    return _has_any_regex(context, INITIATION_EXCLUSION_PATTERNS)
+
+
+def _select_best_initiation(initiation_dates: list, decision_date: str = None) -> dict:
+    """
+    Select the best initiation date using cue strength, confidence, and sanity checks.
+    """
+    if not initiation_dates:
+        return None
+
+    candidates = []
+    for d in initiation_dates:
+        ctx = d.get('context', '')
+        if _is_initiation_excluded(ctx):
+            continue
+        score = _initiation_strength(ctx)
+        # Hard-reject initiation dates on or after the decision date
+        if decision_date and d.get('date') and d.get('date') >= decision_date:
+            continue
+        d['_init_score'] = score
+        d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
+        d['_score'] = d['_init_score'] + d['_confidence']
+        candidates.append(d)
+
+    if not candidates:
+        return None
+
+    # Prefer higher score, then earliest date
+    candidates.sort(key=lambda x: (x['_score'], x['date']), reverse=True)
+    best = candidates[0]
+
+    # If scores are tied, take earliest
+    top_score = best['_score']
+    tied = [c for c in candidates if abs(c['_score'] - top_score) < 1e-6]
+    if len(tied) > 1:
+        tied.sort(key=lambda x: x['date'])
+        best = tied[0]
+
+    return best
+
+
 def extract_with_bert(
     dates_with_context: list,
     classifier: BertDateClassifier = None,
+    apply_historical_gap_rule: bool = True,
 ) -> dict:
     """
     Classify pre-extracted dates using BERT classifier.
@@ -1102,12 +1643,14 @@ def extract_with_bert(
         'decision_date': None,
         'decision_date_source': None,
         'decision_confidence': None,
+        'decision_date_final': None,
         'earliest_review_date': None,
         'latest_review_date': None,
         'n_review_dates': 0,
         'n_specialist_reviews': 0,
         'application_date': None,
         'inferred_application_date': None,
+        'initiation_date_final': None,
         'earliest_historical_date': None,
         'n_historical_dates': 0,
         'expiration_date': None,
@@ -1155,7 +1698,54 @@ def extract_with_bert(
             forced_type = 'other'
         if _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
             forced_type = 'initiation'
+        if _has_any_regex(context_for_rules, [r'nepa compliance officer']):
+            forced_type = 'decision'
         label = forced_type or classification['label']
+
+        # Guardrail: strong decision cues should override 'other' classification
+        if label == 'other' and _has_strong_decision_cue(context_for_rules):
+            label = 'decision'
+
+        # Guardrail: strong decision/review cues cannot be initiation
+        if label == 'initiation':
+            if _has_strong_decision_cue(context_for_rules) and not _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
+                label = 'decision'
+            elif _has_strong_review_cue(context_for_rules):
+                label = 'review'
+
+        # Guardrail: reviewer checkbox lines are review, not decision
+        if label == 'decision' and _has_reviewer_checkbox(context_for_rules):
+            label = 'review'
+
+        # Guardrail: specialist signature lines are review, not decision
+        if label == 'decision' and _has_any_regex(context_for_rules, [r'specialist signature', r'\bspecialist\b']):
+            label = 'review'
+
+        # Guardrail: specialist cues should be review unless strong decision cues exist
+        if label == 'decision':
+            has_strong_decision = _has_strong_decision_cue(context_for_rules) or _has_any_regex(
+                context_for_rules, [r'nepa compliance officer']
+            ) or _has_authorizing_with_signature(context_for_rules)
+            if _has_specialist_cue(context_for_rules) and not has_strong_decision:
+                label = 'review'
+
+        # Guardrail: strong review cues should override decision unless strong decision cues exist
+        if label == 'decision':
+            has_strong_decision = _has_strong_decision_cue(context_for_rules) or _has_any_regex(
+                context_for_rules, [r'nepa compliance officer']
+            ) or _has_authorizing_with_signature(context_for_rules)
+            if _has_strong_review_cue(context_for_rules) and not has_strong_decision:
+                label = 'review'
+
+        # Bucket future expiration dates (post-2025-12-31)
+        if _is_expiration_candidate(date_info.get('date'), context_for_rules):
+            label = 'expiration'
+
+        # Bucket historical dates (< 2000)
+        if _is_historical_by_year(date_info.get('date')):
+            label = 'historical'
+        elif _has_historical_context(context_for_rules):
+            label = 'historical'
         classified_dates.append({
             'date': date_info['date'],
             'type': label,
@@ -1177,17 +1767,21 @@ def extract_with_bert(
             deduped[key] = d
     classified_dates = list(deduped.values())
 
+    # Historical gap rule (after dedupe)
+    _apply_historical_gap_rule(classified_dates, gap_days=730, enable=apply_historical_gap_rule)
+
     output_dates = [
         {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score')}
         for d in classified_dates
     ]
-    result['dates_json'] = json.dumps(output_dates)
     result['n_dates_found'] = len(classified_dates)
 
     # Extract summary fields
     decision_dates = [d for d in classified_dates if d['type'] == 'decision']
     initiation_dates = [d for d in classified_dates if d['type'] == 'initiation']
     review_dates = [d for d in classified_dates if d['type'] == 'review']
+    expiration_dates = [d for d in classified_dates if d['type'] == 'expiration']
+    historical_dates = [d for d in classified_dates if d['type'] == 'historical']
 
     # If no decision cues exist anywhere, treat memo DATE lines as review
     has_decision_cues = any(
@@ -1208,6 +1802,7 @@ def extract_with_bert(
             result['decision_date'] = best['date']
             result['decision_date_source'] = best['source']
             result['decision_confidence'] = best['confidence']
+            result['decision_date_final'] = best['date']
 
     # Review dates
     if review_dates:
@@ -1216,13 +1811,67 @@ def extract_with_bert(
         result['latest_review_date'] = review_dates[-1]['date']
         result['n_review_dates'] = len(review_dates)
 
-    # Initiation/application date (earliest)
+    # Initiation/application date — run through _select_best_initiation first
+    # so that application_date also respects the decision-date filter
     if initiation_dates:
-        initiation_dates.sort(key=lambda x: x['date'])
-        result['application_date'] = initiation_dates[0]['date']
-        result['inferred_application_date'] = initiation_dates[0]['date']
+        best_init = _select_best_initiation(initiation_dates, decision_date=result['decision_date'])
+        if best_init:
+            result['application_date'] = best_init['date']
+            result['inferred_application_date'] = best_init['date']
+            result['initiation_date_final'] = best_init['date']
+        elif review_dates:
+            # All initiation candidates rejected (e.g., all on/after decision)
+            result['inferred_application_date'] = result['earliest_review_date']
+            result['initiation_date_final'] = result['earliest_review_date']
     elif review_dates:
         result['inferred_application_date'] = result['earliest_review_date']
+        result['initiation_date_final'] = result['earliest_review_date']
+
+    # Expiration date (earliest)
+    if expiration_dates:
+        expiration_dates.sort(key=lambda x: x['date'])
+        result['expiration_date'] = expiration_dates[0]['date']
+
+    # Historical date (earliest + count)
+    if historical_dates:
+        historical_dates.sort(key=lambda x: x['date'])
+        result['earliest_historical_date'] = historical_dates[0]['date']
+        result['n_historical_dates'] = len(historical_dates)
+
+    # Mark final picks on existing rows; only add rows if missing
+    def _mark_final(date_str: str, target_type: str, imputed: bool, source: str = None):
+        if not date_str:
+            return
+        matched = False
+        for d in output_dates:
+            if d.get('date') == date_str:
+                # Keep original type but mark as final; also normalize to target_type
+                d['type'] = target_type
+                d['final_flag'] = True
+                d['final_imputed'] = imputed
+                matched = True
+        if not matched:
+            output_dates.append({
+                'date': date_str,
+                'type': target_type,
+                'source': source,
+                'final_flag': True,
+                'final_imputed': imputed,
+            })
+
+    _mark_final(
+        result.get('decision_date_final'),
+        'decision',
+        False,
+        result.get('decision_date_source'),
+    )
+    _mark_final(
+        result.get('initiation_date_final'),
+        'initiation',
+        bool(not initiation_dates and review_dates),
+        None,
+    )
+    result['dates_json'] = json.dumps(output_dates)
 
     return result
 
@@ -1261,12 +1910,10 @@ def run_bert_timeline_extraction(
         return None
 
     # Load projects
-    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
-    if not projects_path.exists():
-        print(f"Error: {projects_path} not found.")
+    projects = _load_projects_combined()
+    if projects is None:
         return None
-
-    projects = pd.read_parquet(projects_path)
+    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
     if ce_only:
@@ -1284,6 +1931,23 @@ def run_bert_timeline_extraction(
     if projects.empty:
         print("No projects to process.")
         return None
+
+    # Load documents for filename date extraction (CE only)
+    file_name_dates_map = {}
+    if ce_only:
+        data_dir = PROCESSED_DIR / "ce"
+        documents_df = pd.read_parquet(data_dir / "documents.parquet")
+
+        def extract_id(x):
+            if isinstance(x, dict):
+                return x.get('value', '')
+            return x
+
+        documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+        file_name_dates_map = build_file_name_date_map(
+            documents_df,
+            main_docs_only=main_docs_only
+        )
 
     # Load regex cache
     if use_regex_cache:
@@ -1312,8 +1976,13 @@ def run_bert_timeline_extraction(
             'date', 'match', 'context', 'position', 'position_pct'
         ]].to_dict(orient='records')
 
-        # Classify with BERT
-        bert_result = extract_with_bert(dates_with_context, classifier)
+        # Classify with BERT (apply historical gap rule only for CE projects)
+        apply_gap_rule = project.get('dataset_source') == 'CE'
+        bert_result = extract_with_bert(
+            dates_with_context,
+            classifier,
+            apply_historical_gap_rule=apply_gap_rule
+        )
 
         # Build result row
         result = {
@@ -1323,12 +1992,15 @@ def run_bert_timeline_extraction(
             'bert_decision_date': bert_result.get('decision_date'),
             'bert_decision_date_source': bert_result.get('decision_date_source'),
             'bert_decision_confidence': bert_result.get('decision_confidence'),
+            'bert_decision_date_final': bert_result.get('decision_date_final'),
             'bert_earliest_review_date': bert_result.get('earliest_review_date'),
             'bert_latest_review_date': bert_result.get('latest_review_date'),
             'bert_n_review_dates': bert_result.get('n_review_dates', 0),
             'bert_application_date': bert_result.get('application_date'),
             'bert_inferred_application_date': bert_result.get('inferred_application_date'),
+            'bert_initiation_date_final': bert_result.get('initiation_date_final'),
             'bert_error': bert_result.get('error'),
+            'project_file_name_dates': file_name_dates_map.get(project_id, '[]'),
         }
         results.append(result)
 
@@ -1344,6 +2016,7 @@ def run_bert_timeline_extraction(
 
     # Create results dataframe
     results_df = pd.DataFrame(results)
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
     projects_with_bert = projects.merge(results_df, on='project_id', how='left')
 
     # Save
@@ -1388,7 +2061,7 @@ INITIATION_CUES = [
     'comment period', '30-day comment period', 'request for', 'right-of-way application',
     'row application', 'right of way application',
     'document creation', 'date created', 'date prepared', 'prepared', 'drafted',
-    'revised', 'reviewed',
+    'revised',
 ]
 
 REVIEW_CUES = [
@@ -1449,6 +2122,10 @@ def _has_any_regex(text: str, patterns: list) -> bool:
     text_lower = text.lower()
     return any(re.search(pattern, text_lower) for pattern in patterns)
 
+
+def _has_any_regex_case_sensitive(text: str, patterns: list) -> bool:
+    return any(re.search(pattern, text) for pattern in patterns)
+
 def _min_context_chars_for_sentence(sent_text: str) -> int:
     # Use tighter context for strong signature cues; expand for weaker review/initiation cues.
     if _has_any_regex(sent_text, DECISION_PATTERNS_STRONG):
@@ -1460,6 +2137,15 @@ def _min_context_chars_for_sentence(sent_text: str) -> int:
     return 100
 
 
+def _is_signature_block(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'/s/\s*\w+',
+        r'\bsigned\b',
+        r'\bsignature\b',
+        r'\bdate\s*:',
+    ])
+
+
 def _expand_for_decision_cues(spans: list, sent_idx: int, context: str) -> str:
     """
     If a date is near boilerplate text but an adjacent sentence has decision cues,
@@ -1467,18 +2153,44 @@ def _expand_for_decision_cues(spans: list, sent_idx: int, context: str) -> str:
     """
     if not spans or sent_idx is None:
         return context
-    if not _is_decision_boilerplate(context):
+    if not _is_decision_boilerplate(context) and not _is_signature_block(context):
         return context
 
     merged = context
+
+    def _should_pull(sent: str) -> bool:
+        if not sent:
+            return False
+        return _has_any_regex(
+            sent,
+            [
+                r'initiator signature',
+                r'nepa compliance officer',
+                r'concur',
+                r'authorizing official',
+                r'field manager',
+            ],
+        )
+
+    # Pull adjacent lines with decision cues
     if sent_idx + 1 < len(spans):
         next_sent = spans[sent_idx + 1][2]
         if _has_any(next_sent, DECISION_CUES) or _has_any_regex(next_sent, DECISION_PATTERNS_STRONG):
+            merged = f"{merged} {next_sent}"
+        elif _should_pull(next_sent):
             merged = f"{merged} {next_sent}"
     if sent_idx - 1 >= 0:
         prev_sent = spans[sent_idx - 1][2]
         if _has_any(prev_sent, DECISION_CUES) or _has_any_regex(prev_sent, DECISION_PATTERNS_STRONG):
             merged = f"{prev_sent} {merged}"
+        elif _should_pull(prev_sent):
+            merged = f"{prev_sent} {merged}"
+
+    # Pull up to two prior lines if this looks like a signature/date block
+    if _is_signature_block(context) and sent_idx - 2 >= 0:
+        prev2 = spans[sent_idx - 2][2]
+        if _should_pull(prev2):
+            merged = f"{prev2} {merged}"
 
     return re.sub(r'\\s+', ' ', merged).strip()
 
@@ -2453,12 +3165,10 @@ def run_llm_timeline_extraction(
     print(f"Timeout: {timeout}s")
 
     # Load projects
-    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
-    if not projects_path.exists():
-        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+    projects = _load_projects_combined()
+    if projects is None:
         return None
-
-    projects = pd.read_parquet(projects_path)
+    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -2493,6 +3203,12 @@ def run_llm_timeline_extraction(
 
     documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
 
+    # Precompute filename date matches
+    file_name_dates_map = build_file_name_date_map(
+        documents_df,
+        main_docs_only=main_docs_only
+    )
+
     # Filter to main documents only if requested
     if main_docs_only:
         main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
@@ -2525,14 +3241,18 @@ def run_llm_timeline_extraction(
             dates_with_context = cached_dates[[
                 'date', 'match', 'context', 'position', 'position_pct'
             ]].to_dict(orient='records')
-            return build_project_timeline_llm(
+            result = build_project_timeline_llm(
                 project_id, pages_df, documents_df, model=model,
                 use_hybrid=True, timeout=timeout, dates_with_context=dates_with_context
             )
-        return build_project_timeline_llm(
+            result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+            return result
+        result = build_project_timeline_llm(
             project_id, pages_df, documents_df, model=model,
             use_hybrid=use_hybrid, timeout=timeout
         )
+        result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+        return result
 
     if workers and workers > 1:
         with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -2619,12 +3339,10 @@ def run_regex_prep(
     print("\n=== Regex Candidate Preprocessing ===")
 
     # Load projects
-    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
-    if not projects_path.exists():
-        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+    projects = _load_projects_combined()
+    if projects is None:
         return None
-
-    projects = pd.read_parquet(projects_path)
+    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -2703,6 +3421,8 @@ def run_regex_prep(
             })
 
     results_df = pd.DataFrame(results)
+    # Add run timestamp for provenance
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
 
     if output_file:
         output_path = ANALYSIS_DIR / output_file
@@ -2734,7 +3454,10 @@ def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODE
     print(f"Model: {model}\n")
 
     # Load data
-    projects = pd.read_parquet(ANALYSIS_DIR / "projects_combined.parquet")
+    projects = _load_projects_combined()
+    if projects is None:
+        return None
+    _warn_if_clean_energy_count_off(projects, ce_only=True, clean_energy_only=True)
 
     # Filter to CE + Clean energy
     projects = projects[

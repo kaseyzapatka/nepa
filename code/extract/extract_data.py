@@ -48,6 +48,9 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 np.set_printoptions(threshold=np.inf)
 
+# Optional: Federal Register NOI enrichment (disabled by default)
+ENABLE_FEDERAL_REGISTER_NOI = False
+
 
 # --------------------------
 # FILE PATHS (RELATIVE TO THIS FILE)
@@ -59,6 +62,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # goes from extract/ -
 RAW_DIR = BASE_DIR / "data" / "raw"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+FEDERAL_REGISTER_PATH = ANALYSIS_DIR / "noi_federal_register.parquet"
 
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
@@ -550,6 +554,29 @@ def load_military_project_ids():
         return set()
 
 
+def load_nuclear_waste_keep_ids():
+    """
+    Load list of nuclear waste project IDs that should be kept as clean energy.
+
+    These are projects within the Nuclear + Waste Management subset that were
+    reviewed with clients and explicitly retained.
+
+    Returns:
+        set: Set of project IDs to keep
+    """
+    csv_path = NOTES_DIR / "nuclear_waste_projects_to_keep.csv"
+    if not csv_path.exists():
+        print(f"  Warning: {csv_path} not found")
+        return set()
+
+    try:
+        df = pd.read_csv(csv_path)
+        return set(df['project_id'].dropna().astype(str))
+    except Exception as e:
+        print(f"  Warning: Error loading nuclear waste keep IDs: {e}")
+        return set()
+
+
 def is_nuclear_waste_project(project_type, project_sponsor, lead_agency, project_title,
                               exclusion_terms=None):
     """
@@ -644,6 +671,26 @@ def is_nuclear_waste_project(project_type, project_sponsor, lead_agency, project
     return False
 
 
+def has_nuclear_waste_tags(project_type):
+    """
+    Check if project_type contains both "Waste Management" and a nuclear tag.
+
+    This is the broad tag-based definition used for client-reviewed keep/exclude lists.
+    """
+    if project_type is None:
+        types_str = ""
+    elif isinstance(project_type, (list, np.ndarray)):
+        types_str = " ".join(str(t) for t in project_type).lower()
+    elif isinstance(project_type, float) and np.isnan(project_type):
+        types_str = ""
+    else:
+        types_str = str(project_type).lower()
+
+    has_waste_management = "waste management" in types_str
+    has_nuclear = "nuclear" in types_str
+    return has_waste_management and has_nuclear
+
+
 def apply_energy_type_filters(df):
     """
     Apply all clean energy exclusion filters to reclassify projects as "Other".
@@ -695,23 +742,39 @@ def apply_energy_type_filters(df):
     exclusion_terms = load_exclusion_terms()
     print(f"    Loaded {len(exclusion_terms)} exclusion terms from agencies_to_be_excluded.txt")
 
-    # Flag nuclear waste projects
-    # Checks project_type for Nuclear + Waste Management tags, then checks
-    # lead_agency, project_sponsor, AND project_title for exclusion terms
-    print("  Identifying nuclear waste projects...")
-    df['project_nuclear_waste_to_exclude'] = df.apply(
-        lambda row: is_nuclear_waste_project(
-            row.get('project_type'),
-            row.get('project_sponsor'),
-            row.get('lead_agency'),
-            row.get('project_title'),
-            exclusion_terms
-        ),
-        axis=1
-    )
+    # --- Override: Keep explicitly approved nuclear waste projects ---
+    print("  Loading nuclear waste keep list...")
+    nuclear_waste_keep_ids = load_nuclear_waste_keep_ids()
+    print(f"    Found {len(nuclear_waste_keep_ids)} nuclear waste project IDs to keep")
 
-    nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
-    print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
+    if nuclear_waste_keep_ids:
+        # Client-reviewed keep list present: exclude ALL nuclear+waste tags except keep list
+        print("  Identifying nuclear waste projects (tag-based keep list override)...")
+        tag_mask = df['project_type'].apply(has_nuclear_waste_tags)
+        keep_mask = df['project_id'].astype(str).isin(nuclear_waste_keep_ids)
+        df['project_nuclear_waste_to_exclude'] = tag_mask & ~keep_mask
+        nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
+        kept_count = (tag_mask & keep_mask).sum()
+        print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
+        print(f"    Kept {kept_count} nuclear waste projects (keep list)")
+    else:
+        # No keep list: use exclusion term logic
+        # Checks project_type for Nuclear + Waste Management tags, then checks
+        # lead_agency, project_sponsor, AND project_title for exclusion terms
+        print("  Identifying nuclear waste projects...")
+        df['project_nuclear_waste_to_exclude'] = df.apply(
+            lambda row: is_nuclear_waste_project(
+                row.get('project_type'),
+                row.get('project_sponsor'),
+                row.get('lead_agency'),
+                row.get('project_title'),
+                exclusion_terms
+            ),
+            axis=1
+        )
+
+        nuclear_waste_count = df['project_nuclear_waste_to_exclude'].sum()
+        print(f"    Found {nuclear_waste_count} nuclear waste projects to filter")
 
     # --- Apply all filters to reclassify Clean -> Other ---
     filter_mask = (
@@ -1041,6 +1104,29 @@ def create_combined_projects():
     combined['project_has_final_doc'] = combined['project_has_final_doc'].fillna(False)
     combined['project_has_draft_doc'] = combined['project_has_draft_doc'].fillna(False)
     combined['project_doc_count'] = combined['project_doc_count'].fillna(0).astype(int)
+
+    # Merge Federal Register NOI enrichment if available
+    if FEDERAL_REGISTER_PATH.exists():
+        print("Merging Federal Register NOI enrichment...")
+        fr_df = pd.read_parquet(FEDERAL_REGISTER_PATH)
+        fr_df = fr_df.drop(columns=["project_title"], errors="ignore")
+        combined = combined.merge(fr_df, on="project_id", how="left")
+    else:
+        print(f"Federal Register NOI file not found: {FEDERAL_REGISTER_PATH}")
+
+    # Optional: Federal Register NOI enrichment (disabled by default)
+    if ENABLE_FEDERAL_REGISTER_NOI:
+        from extract.federal_register import (
+            attach_noi_fields,
+            FederalRegisterConfig,
+        )
+
+        fr_config = FederalRegisterConfig(
+            process_types=("EIS",),
+            energy_types=("Clean",),
+            sample_n=None,
+        )
+        combined = attach_noi_fields(combined, config=fr_config)
 
     # Convert complex columns for parquet compatibility
     print("Converting complex columns for parquet...")

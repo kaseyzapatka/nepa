@@ -38,11 +38,6 @@ department_counts <- agency_data %>%
   count(department, name = "n_projects") %>%
   arrange(desc(n_projects))
 
-# --------------------------
-# EXPLORATORY
-# --------------------------
-
-
 
 # --------------------------
 # TABLE: PROJECTS BY DEPARTMENT 
@@ -116,6 +111,10 @@ dept_process <- agency_data %>%
   ungroup() %>%
   filter(department != "Other / Unclassified")
 
+# Totals for label layer
+dept_totals <- dept_process %>%
+  distinct(department, total)
+
 fig_dept_process <- dept_process %>%
   filter(total >= 5) |>
   ggplot(aes(x = reorder(department, total), y = percent, fill = process_type)) +
@@ -125,6 +124,14 @@ fig_dept_process <- dept_process %>%
     position = position_stack(vjust = 0.5),
     size = 3,
     color = "white"
+  ) +
+  geom_text(
+    data = dept_totals %>% filter(total >= 5),
+    aes(x = reorder(department, total), y = 101, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
   ) +
   coord_flip() +
   labs(
@@ -138,6 +145,7 @@ fig_dept_process <- dept_process %>%
   scale_fill_manual(
     values = c("CE" = catf_dark_blue, "EA" = catf_teal, "EIS" = catf_magenta)
   ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.08))) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 9))
 
@@ -151,33 +159,6 @@ ggsave(
   units = "in",
   dpi = 300
 )
-
-
-# --------------------------
-# SUMMARY ANALYSIS
-# --------------------------
-
-cat("\n=== Agency Analysis ===\n")
-
-# Multi-agency projects (rare but worth noting)
-cat("\nMulti-agency projects in dataset:\n")
-multi_agency <- clean_energy %>%
-  filter(str_detect(lead_agency, ","))
-cat("  Count:", nrow(multi_agency), "(these have >1 lead agency)\n")
-
-# Agencies with highest CE ratio (streamlined projects)
-ce_ratio <- agency_data %>%
-  count(lead_agency, process_type) %>%
-  pivot_wider(names_from = process_type, values_from = n, values_fill = 0) %>%
-  mutate(
-    total = EA + EIS + CE,
-    ce_ratio = CE / total
-  ) %>%
-  filter(total >= 50) %>%
-  arrange(desc(ce_ratio))
-
-cat("\nAgencies with highest CE ratio (min 50 projects):\n")
-ce_ratio %>% slice_head(n = 10) %>% print()
 
 
 # --------------------------
@@ -419,4 +400,3 @@ ggsave(
   dpi = 300
 )
 cat("  Saved: 03_key_agency_process.png\n")
-
