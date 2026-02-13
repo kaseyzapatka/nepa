@@ -147,6 +147,9 @@ print(fig_by_year)
 
 cat("\nCreating Figure: CE project duration distribution...\n")
 
+
+timeline |> filter(project_id == "1df6f8b5-7e16-2d38-01b6-a042628ea3c8") |> glimpse()
+
 duration_df <- timeline %>%
   mutate(
     bert_initiation_date_final = as.Date(bert_initiation_date_final),
@@ -194,6 +197,8 @@ fig_duration_box <- ggplot(duration_df, aes(x = factor(decision_year), y = bert_
   theme(
     axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
   )
+
+fig_duration_box
 
 fig_duration_box_path <- here(figures_dir, "03_duration_boxplot.png")
 ggsave(fig_duration_box_path, fig_duration_box, width = 12, height = 6.5, dpi = 300)
