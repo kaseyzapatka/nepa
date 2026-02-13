@@ -716,6 +716,7 @@ REGEX_CACHE_PATH = ANALYSIS_DIR / "regex_candidates.parquet"
 # Model paths
 BERT_MODEL_DIR = BASE_DIR / "models" / "timeline_classifier"
 BERT_TRAINING_DATA_PATH = ANALYSIS_DIR / "bert_training_data.parquet"
+MANUAL_CORRECTIONS_PATH = ANALYSIS_DIR / "manual_training_corrections.csv"
 
 # Auto-labeling patterns (ranked confidence rules)
 DECISION_PATTERNS_STRONG = [
@@ -877,6 +878,7 @@ EXPIRATION_PATTERNS_STRONG = [
     r'expiration date\s*[:]',
     r'expiration date of',
     r'valid until',
+    r'to begin.*completed by',  # construction schedule: "to begin ... and be completed by"
 ]
 
 # Background/plan reference cues (treat as historical/other)
@@ -1085,6 +1087,34 @@ def generate_bert_training_data(
 
     # Create DataFrame
     training_df = pd.DataFrame(labeled_data)
+
+    # Merge manual corrections if available
+    if MANUAL_CORRECTIONS_PATH.exists():
+        print("\nMerging manual training corrections...")
+        corrections = pd.read_csv(MANUAL_CORRECTIONS_PATH)
+        # For each correction, override auto-label where (project_id, date) matches
+        corrections_key = set(zip(corrections['project_id'], corrections['date']))
+        override_count = 0
+        for idx, row in training_df.iterrows():
+            key = (row['project_id'], row['date'])
+            if key in corrections_key:
+                match = corrections[(corrections['project_id'] == row['project_id']) &
+                                    (corrections['date'] == row['date'])]
+                if not match.empty:
+                    new_label = match.iloc[0]['correct_type']
+                    if new_label != row['label']:
+                        training_df.at[idx, 'label'] = new_label
+                        override_count += 1
+
+        print(f"  Applied {override_count} label overrides from {len(corrections)} manual corrections")
+
+        # Recount labels after corrections
+        for label in ['decision', 'initiation', 'review', 'other']:
+            count = (training_df['label'] == label).sum()
+            print(f"  {label}: {count:,}")
+    else:
+        print(f"\nNo manual corrections found at {MANUAL_CORRECTIONS_PATH}")
+
     training_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
 
     # Save
@@ -1467,8 +1497,9 @@ def _has_historical_context(context: str) -> bool:
 def _apply_historical_gap_rule(classified_dates: list, gap_days: int = 730, enable: bool = True) -> None:
     """
     Tranche-based rule:
-    Find the LAST gap > gap_days and mark all dates before that gap as historical.
-    Multi-pass: catches projects with multiple historical date clusters.
+    Find the FIRST gap > gap_days and mark all dates before that gap as historical.
+    Uses first gap to avoid over-marking recent project dates when distant future
+    references (e.g., expiration in 2024) create a second gap.
     """
     if not enable:
         return
@@ -1478,7 +1509,7 @@ def _apply_historical_gap_rule(classified_dates: list, gap_days: int = 730, enab
     # Sort by date (ISO strings safe for lexicographic order)
     sorted_dates = sorted(classified_dates, key=lambda x: x.get('date') or "")
 
-    # Find LAST large gap (not first) — this catches multiple historical clusters
+    # Find FIRST large gap — stops at earliest break point
     from datetime import datetime
     cutoff_idx = None
     for i in range(len(sorted_dates) - 1):
@@ -1492,7 +1523,8 @@ def _apply_historical_gap_rule(classified_dates: list, gap_days: int = 730, enab
         except Exception:
             continue
         if (dt1 - dt0).days > gap_days:
-            cutoff_idx = i  # Keep updating — last gap wins
+            cutoff_idx = i
+            break  # First gap wins
 
     if cutoff_idx is None:
         return
@@ -1560,8 +1592,8 @@ def _select_best_initiation(initiation_dates: list, decision_date: str = None) -
         if _is_initiation_excluded(ctx):
             continue
         score = _initiation_strength(ctx)
-        # Hard-reject initiation dates that fall after the decision date
-        if decision_date and d.get('date') and d.get('date') > decision_date:
+        # Hard-reject initiation dates on or after the decision date
+        if decision_date and d.get('date') and d.get('date') >= decision_date:
             continue
         d['_init_score'] = score
         d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
@@ -1779,15 +1811,18 @@ def extract_with_bert(
         result['latest_review_date'] = review_dates[-1]['date']
         result['n_review_dates'] = len(review_dates)
 
-    # Initiation/application date (earliest)
+    # Initiation/application date — run through _select_best_initiation first
+    # so that application_date also respects the decision-date filter
     if initiation_dates:
-        initiation_dates.sort(key=lambda x: x['date'])
-        result['application_date'] = initiation_dates[0]['date']
-        result['inferred_application_date'] = initiation_dates[0]['date']
-
         best_init = _select_best_initiation(initiation_dates, decision_date=result['decision_date'])
         if best_init:
+            result['application_date'] = best_init['date']
+            result['inferred_application_date'] = best_init['date']
             result['initiation_date_final'] = best_init['date']
+        elif review_dates:
+            # All initiation candidates rejected (e.g., all on/after decision)
+            result['inferred_application_date'] = result['earliest_review_date']
+            result['initiation_date_final'] = result['earliest_review_date']
     elif review_dates:
         result['inferred_application_date'] = result['earliest_review_date']
         result['initiation_date_final'] = result['earliest_review_date']
