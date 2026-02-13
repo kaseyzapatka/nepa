@@ -468,6 +468,281 @@ def add_multi_value_flags(df):
 
 
 # --------------------------
+# TECHNOLOGY-SPECIFIC FEATURES
+# --------------------------
+
+MILES_RE = re.compile(r'(?<![a-z0-9])(\d{1,4}(?:,\d{3})*(?:\.\d+)?)\s*(mile|miles|mi)\b', re.IGNORECASE)
+FEET_RE = re.compile(r'(?<![a-z0-9])(\d{1,6}(?:,\d{3})*(?:\.\d+)?)\s*(foot|feet|ft)\b', re.IGNORECASE)
+
+TRANSMISSION_HINTS = (
+    "transmission",
+    "powerline",
+    "power line",
+    "kV transmission",
+    "electric line",
+    "line route",
+)
+
+TRANSMISSION_BUILD_RE = re.compile(
+    r'(?:new\s+transmission\s+line|'
+    r'\btransmission\s+line\s+(?:project|route|corridor)\b|'
+    r'\b(?:construct(?:ion|ed)?|build(?:ing)?|install(?:ation|ed)?|upgrade(?:d|s)?|rebuild(?:ing)?)\s+'
+    r'(?:of\s+)?(?:new\s+)?(?:\d{2,4}\s*-?\s*k\s?v\s+)?transmission\s+line\b|'
+    r'double-?circuit\s+(?:\d{2,4}\s*-?\s*k\s?v\s+)?transmission\s+line|'
+    r'single-?circuit\s+(?:\d{2,4}\s*-?\s*k\s?v\s+)?transmission\s+line|'
+    r'\b\d{2,4}\s*-?\s*k\s?v\s+(?:transmission\s+line|line)\b|'
+    r'right-?of-?way.*transmission\s+line|transmission\s+line.*right-?of-?way)',
+    re.IGNORECASE
+)
+
+PIPELINE_HINTS = (
+    "pipeline",
+    "pipelines",
+    "right-of-way",
+    "row",
+    "buried line",
+    "flowline",
+)
+
+GEOTHERMAL_PHASE_PATTERNS = {
+    "exploration": [
+        r'\bexploration\b',
+        r'\bexploratory\b',
+        r'\bresource assessment\b',
+        r'\bgeophysical survey\b',
+        r'\btemperature gradient\b',
+    ],
+    "drilling": [
+        r'\bdrilling\b',
+        r'\bdrill pad\b',
+        r'\bwell pad\b',
+        r'\bproduction well\b',
+        r'\binjection well\b',
+        r'\bwell stimulation\b',
+    ],
+    "plant": [
+        r'\bpower plant\b',
+        r'\bgenerating station\b',
+        r'\bsteam plant\b',
+        r'\bbinary plant\b',
+        r'\bflash plant\b',
+        r'\bturbine\b',
+        r'\binterconnection\b',
+    ],
+}
+
+
+def _value_to_text(value):
+    """
+    Convert list/JSON/scalar values to a normalized plain-text string.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, float) and np.isnan(value):
+        return ""
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return " ".join(str(v) for v in value if str(v).strip())
+    if isinstance(value, str):
+        v = value.strip()
+        if not v:
+            return ""
+        if v.startswith("[") and v.endswith("]"):
+            for parser in (json.loads, ast.literal_eval):
+                try:
+                    parsed = parser(v)
+                    if isinstance(parsed, (list, tuple)):
+                        return " ".join(str(x) for x in parsed if str(x).strip())
+                except Exception:
+                    pass
+        return v
+    return str(value)
+
+
+def _first_length_in_miles(text, hints):
+    """
+    Extract a best-effort linear length in miles from text.
+
+    Strategy:
+    - score sentence candidates that include domain hints
+    - prefer explicit miles over feet conversions
+    - avoid obvious false positives (mile post)
+    """
+    if not text:
+        return np.nan, "none", ""
+
+    normalized = re.sub(r'\s+', ' ', text).strip()
+    if not normalized:
+        return np.nan, "none", ""
+
+    # Keep sentence segmentation simple and deterministic.
+    sentences = re.split(r'(?<=[\.\?!;])\s+', normalized)
+    candidates = []
+
+    for sent in sentences:
+        s_lower = sent.lower()
+        if "mile post" in s_lower or "mp " in s_lower:
+            continue
+
+        hint_score = sum(1 for h in hints if h.lower() in s_lower)
+        if hint_score == 0:
+            continue
+
+        for m in MILES_RE.finditer(sent):
+            val = float(m.group(1).replace(",", ""))
+            if 0 < val <= 5000:
+                candidates.append((val, sent, hint_score + 2))
+
+        for m in FEET_RE.finditer(sent):
+            val_ft = float(m.group(1).replace(",", ""))
+            val_mi = val_ft / 5280.0
+            if 0 < val_mi <= 5000:
+                candidates.append((val_mi, sent, hint_score + 1))
+
+    if not candidates:
+        return np.nan, "none", ""
+
+    # Prefer strongest-context sentence; then largest plausible distance.
+    candidates.sort(key=lambda x: (x[2], x[0]), reverse=True)
+    best_val, best_sentence, best_score = candidates[0]
+    confidence = "high" if best_score >= 4 else "medium"
+    return round(best_val, 3), confidence, best_sentence[:500]
+
+
+def _contains_any(text, terms):
+    txt = (text or "").lower()
+    return any(term.lower() in txt for term in terms)
+
+
+def _classify_geothermal_phase(text):
+    """
+    Classify geothermal phase based on project text.
+    Returns one of: none, exploration, drilling, plant, multi_phase, unknown
+    """
+    txt = (text or "").lower()
+    if "geothermal" not in txt:
+        return "none"
+
+    matches = []
+    for phase, patterns in GEOTHERMAL_PHASE_PATTERNS.items():
+        if any(re.search(p, txt, flags=re.IGNORECASE) for p in patterns):
+            matches.append(phase)
+
+    if len(matches) == 0:
+        return "unknown"
+    if len(matches) == 1:
+        return matches[0]
+    return "multi_phase"
+
+
+def add_technology_columns(df):
+    """
+    Add technology-specific flags and extracted linear-length measures.
+
+    Adds:
+    - project_is_transmission_broad
+    - project_is_transmission_strict
+    - project_is_transmission (alias of strict)
+    - project_is_geothermal
+    - project_is_pipeline
+    - project_is_carbon_pipeline
+    - project_is_hydrogen_pipeline
+    - project_is_natural_gas_pipeline
+    - project_geothermal_phase
+    - project_transmission_length_miles, *_confidence, *_source_text
+    - project_pipeline_length_miles, *_confidence, *_source_text
+    """
+    df = df.copy()
+
+    title_txt = df['project_title'].apply(_value_to_text) if 'project_title' in df.columns else ""
+    desc_txt = df['project_description'].apply(_value_to_text) if 'project_description' in df.columns else ""
+    type_txt = df['project_type'].apply(_value_to_text) if 'project_type' in df.columns else ""
+
+    full_text = (
+        title_txt.fillna("").astype(str) + " " +
+        desc_txt.fillna("").astype(str) + " " +
+        type_txt.fillna("").astype(str)
+    ).str.strip()
+    context_text = (
+        title_txt.fillna("").astype(str) + " " +
+        desc_txt.fillna("").astype(str)
+    ).str.strip()
+
+    lower_text = full_text.str.lower()
+    lower_context_text = context_text.str.lower()
+
+    # Technology flags
+    df['project_is_transmission_broad'] = (
+        lower_text.str.contains(r'\belectricity transmission\b', regex=True) |
+        lower_text.str.contains(r'\btransmission line\b', regex=True) |
+        lower_text.str.contains(r'\btransmission\b', regex=True)
+    )
+    has_transmission_type_tag = type_txt.str.lower().str.contains(r'\belectricity transmission\b', regex=True)
+    has_transmission_build_text = lower_context_text.str.contains(TRANSMISSION_BUILD_RE)
+
+    df['project_is_geothermal'] = lower_text.str.contains(r'\bgeothermal\b', regex=True)
+    df['project_is_pipeline'] = lower_text.str.contains(r'\bpipelines?\b', regex=True)
+    df['project_is_carbon_pipeline'] = (
+        df['project_is_pipeline'] &
+        lower_text.str.contains(r'\b(?:carbon|co2|carbon dioxide)\b', regex=True)
+    )
+    df['project_is_hydrogen_pipeline'] = (
+        df['project_is_pipeline'] &
+        lower_text.str.contains(r'\bhydrogen\b', regex=True)
+    )
+    df['project_is_natural_gas_pipeline'] = (
+        df['project_is_pipeline'] &
+        lower_text.str.contains(r'\bnatural gas\b|\bgas pipeline\b', regex=True)
+    )
+
+    # Geothermal phase
+    df['project_geothermal_phase'] = full_text.apply(_classify_geothermal_phase)
+
+    # Linear length extraction
+    tx_len = full_text.apply(lambda x: _first_length_in_miles(x, TRANSMISSION_HINTS))
+    df['project_transmission_length_miles'] = tx_len.apply(lambda x: x[0])
+    df['project_transmission_length_confidence'] = tx_len.apply(lambda x: x[1])
+    df['project_transmission_length_source_text'] = tx_len.apply(lambda x: x[2])
+    # Keep only broad transmission projects populated
+    df.loc[~df['project_is_transmission_broad'], 'project_transmission_length_miles'] = np.nan
+
+    # Strict transmission definition for deliverable analyses:
+    # must have transmission tag + explicit line-build language + non-trivial length
+    df['project_is_transmission_strict'] = (
+        has_transmission_type_tag &
+        has_transmission_build_text &
+        (df['project_transmission_length_miles'] >= 1.0)
+    )
+    # Default project_is_transmission now follows strict definition.
+    df['project_is_transmission'] = df['project_is_transmission_strict']
+
+    pl_len = full_text.apply(lambda x: _first_length_in_miles(x, PIPELINE_HINTS))
+    df['project_pipeline_length_miles'] = pl_len.apply(lambda x: x[0])
+    df['project_pipeline_length_confidence'] = pl_len.apply(lambda x: x[1])
+    df['project_pipeline_length_source_text'] = pl_len.apply(lambda x: x[2])
+    # Keep only pipeline projects populated
+    df.loc[~df['project_is_pipeline'], 'project_pipeline_length_miles'] = np.nan
+
+    # Thin convenience group for analysis
+    df['project_pipeline_group'] = np.select(
+        [
+            df['project_is_carbon_pipeline'],
+            df['project_is_hydrogen_pipeline'],
+            df['project_is_natural_gas_pipeline'],
+            df['project_is_pipeline'],
+        ],
+        [
+            'carbon_pipeline',
+            'hydrogen_pipeline',
+            'natural_gas_pipeline',
+            'other_pipeline',
+        ],
+        default='none'
+    )
+
+    return df
+
+
+# --------------------------
 # MILITARY & NUCLEAR WASTE FILTERS
 # --------------------------
 #
@@ -1087,6 +1362,10 @@ def create_combined_projects():
     # Add multi-value flags (multi-state, multi-county, multi-department)
     print("Adding multi-value flags...")
     combined = add_multi_value_flags(combined)
+
+    # Add technology-specific flags and linear-feature lengths
+    print("Adding technology-specific features...")
+    combined = add_technology_columns(combined)
 
     # Add document flags (requires loading documents)
     print("Adding document type flags...")
