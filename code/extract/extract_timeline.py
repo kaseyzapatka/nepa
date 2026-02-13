@@ -22,9 +22,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
 
-# Expected CE clean energy count (from latest extract_data.py output)
-EXPECTED_CE_CLEAN_N = 20725
-EXPECTED_CE_CLEAN_TOL = 250
+# Expected clean energy project counts per source (from latest extract_data.py output)
+EXPECTED_CLEAN_COUNTS = {
+    'CE':  19399,
+    'EA':  573,
+    'EIS': 753,
+}
+EXPECTED_CLEAN_TOL = 50  # flag if count drifts by more than this
 
 
 def _load_projects_combined():
@@ -38,23 +42,26 @@ def _load_projects_combined():
     return pd.read_parquet(projects_path)
 
 
-def _warn_if_clean_energy_count_off(df: pd.DataFrame, ce_only: bool, clean_energy_only: bool):
+def _warn_if_clean_energy_count_off(df: pd.DataFrame, sources: list = None):
     """
-    Warn if CE clean energy count is far from expected.
+    Warn if clean energy project counts are far from expected for any source.
     """
     if df is None:
-        return
-    if not (ce_only and clean_energy_only):
         return
     if 'dataset_source' not in df.columns or 'project_energy_type' not in df.columns:
         return
 
-    n_clean_ce = len(df[(df['dataset_source'] == 'CE') & (df['project_energy_type'] == 'Clean')])
-    if abs(n_clean_ce - EXPECTED_CE_CLEAN_N) > EXPECTED_CE_CLEAN_TOL:
-        print(
-            f"WARNING: CE clean energy count is {n_clean_ce:,}, expected ~{EXPECTED_CE_CLEAN_N:,}. "
-            "If this is unexpected, rerun extract_data.py (analysis) and rebuild regex cache."
-        )
+    check_sources = sources if sources else list(EXPECTED_CLEAN_COUNTS.keys())
+    for source in check_sources:
+        expected = EXPECTED_CLEAN_COUNTS.get(source)
+        if expected is None:
+            continue
+        actual = len(df[(df['dataset_source'] == source) & (df['project_energy_type'] == 'Clean')])
+        if abs(actual - expected) > EXPECTED_CLEAN_TOL:
+            print(
+                f"WARNING: {source} clean energy count is {actual:,}, expected ~{expected:,}. "
+                "If this is unexpected, rerun extract_data.py (analysis) and rebuild regex cache."
+            )
 
 
 # --------------------------
@@ -595,7 +602,7 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
     projects = _load_projects_combined()
     if projects is None:
         return
-    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
+    _warn_if_clean_energy_count_off(projects, sources=['CE'] if ce_only else None)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -1602,12 +1609,16 @@ def _select_best_decision(decision_dates: list) -> dict:
     if not decision_dates:
         return None
 
+    # Decision document types: dates from ROD/FONSI docs get a boost
+    DECISION_DOC_TYPES = {'ROD', 'FONSI'}
+
     for d in decision_dates:
         ctx = d.get('context', '')
         d['_decision_strength'] = _decision_strength(ctx)
         d['_boilerplate_penalty'] = -2 if _is_decision_boilerplate(ctx) else 0
         d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
-        d['_score'] = d['_decision_strength'] + d['_boilerplate_penalty'] + (2 * d['_confidence'])
+        d['_doc_type_boost'] = 3 if str(d.get('doc_type', '')).upper().strip() in DECISION_DOC_TYPES else 0
+        d['_score'] = d['_decision_strength'] + d['_boilerplate_penalty'] + (2 * d['_confidence']) + d['_doc_type_boost']
 
     decision_dates.sort(key=lambda x: (x['_score'], x['date']), reverse=True)
     best = decision_dates[0]
@@ -1806,10 +1817,26 @@ def extract_with_bert(
             label = 'expiration'
 
         # Bucket historical dates (< 2000)
-        if _is_historical_by_year(date_info.get('date')):
-            label = 'historical'
-        elif _has_historical_context(context_for_rules):
-            label = 'historical'
+        # But don't override strong EA/EIS decision cues (FONSI, ROD, Decision Record)
+        has_ea_eis_decision_cue = _has_any_regex(context_for_rules, [
+            r'finding of no significant impact',
+            r'\bfonsi\b',
+            r'record of decision',
+            r'\brod\b',
+            r'decision record',
+            r'decision memo',
+        ])
+        if not has_ea_eis_decision_cue:
+            if _is_historical_by_year(date_info.get('date')):
+                label = 'historical'
+            elif _has_historical_context(context_for_rules):
+                label = 'historical'
+
+        # Post-BERT override: force decision for strong EA/EIS decision language
+        # BERT was trained on CE data and doesn't recognize FONSI/ROD as decision cues
+        if has_ea_eis_decision_cue and label not in ('decision', 'expiration'):
+            label = 'decision'
+
         classified_dates.append({
             'date': date_info['date'],
             'type': label,
@@ -1820,6 +1847,7 @@ def extract_with_bert(
             'confidence': 'high' if classification['confidence'] >= 0.8 else 'medium',
             'bert_confidence': classification['confidence'],
             'position_pct': date_info.get('position_pct'),
+            'doc_type': date_info.get('doc_type', ''),
         })
 
     # Context-level dedupe: keep highest-confidence entry per (date, type)
@@ -1835,7 +1863,7 @@ def extract_with_bert(
     _apply_historical_gap_rule(classified_dates, gap_days=730, enable=apply_historical_gap_rule)
 
     output_dates = [
-        {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score')}
+        {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score', '_doc_type_boost')}
         for d in classified_dates
     ]
     result['n_dates_found'] = len(classified_dates)
@@ -1984,6 +2012,7 @@ def run_bert_timeline_extraction(
     projects = _load_projects_combined()
     if projects is None:
         return None
+    _warn_if_clean_energy_count_off(projects, sources=sources)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source
@@ -2055,9 +2084,10 @@ def run_bert_timeline_extraction(
 
         # Get cached dates for this project
         project_dates = regex_cache_df[regex_cache_df['project_id'] == project_id]
-        dates_with_context = project_dates[[
-            'date', 'match', 'context', 'position', 'position_pct'
-        ]].to_dict(orient='records')
+        cache_cols = ['date', 'match', 'context', 'position', 'position_pct']
+        if 'doc_type' in project_dates.columns:
+            cache_cols.append('doc_type')
+        dates_with_context = project_dates[cache_cols].to_dict(orient='records')
 
         # Classify with BERT (apply historical gap rule per source config)
         source_cfg = SOURCE_CONFIG.get(project.get('dataset_source', 'CE'), SOURCE_CONFIG['CE'])
@@ -3287,7 +3317,7 @@ def run_llm_timeline_extraction(
     projects = _load_projects_combined()
     if projects is None:
         return None
-    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
+    _warn_if_clean_energy_count_off(projects, sources=['CE'] if ce_only else None)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -3465,6 +3495,7 @@ def run_regex_prep(
     projects = _load_projects_combined()
     if projects is None:
         return None
+    _warn_if_clean_energy_count_off(projects, sources=sources)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source
@@ -3516,37 +3547,46 @@ def run_regex_prep(
 
         print(f"Processing {total} {source} projects for regex candidates...")
 
+        # Build document_id -> document_type lookup
+        doc_type_map = dict(zip(documents_df['document_id'], documents_df['document_type'].fillna('')))
+
         for idx, (_, project) in enumerate(source_projects.iterrows()):
             if idx % 100 == 0:
                 print(f"  Processing project {idx + 1}/{total}...")
 
             project_id = project['project_id']
-            doc_ids = documents_df[documents_df['project_id'] == project_id]['document_id'].tolist()
-            if not doc_ids:
+            project_docs = documents_df[documents_df['project_id'] == project_id]
+            if project_docs.empty:
                 continue
 
-            project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
-            if project_pages.empty:
-                continue
+            # Process per-document to tag each candidate with doc_type
+            for _, doc_row in project_docs.iterrows():
+                doc_id = doc_row['document_id']
+                doc_type = doc_type_map.get(doc_id, '')
 
-            all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
-            if not all_text.strip():
-                continue
+                doc_pages = pages_df[pages_df['document_id'] == doc_id]
+                if doc_pages.empty:
+                    continue
 
-            dates_with_context = extract_dates_with_context(
-                all_text,
-                keep_all_candidates=keep_all_candidates,
-                dedupe_by_date=not keep_all_candidates,
-            )
-            for d in dates_with_context:
-                results.append({
-                    'project_id': project_id,
-                    'date': d.get('date'),
-                    'match': d.get('match'),
-                    'context': d.get('context'),
-                    'position': d.get('position'),
-                    'position_pct': d.get('position_pct'),
-                })
+                doc_text = "\n\n".join(doc_pages['page_text'].dropna().tolist())
+                if not doc_text.strip():
+                    continue
+
+                dates_with_context = extract_dates_with_context(
+                    doc_text,
+                    keep_all_candidates=keep_all_candidates,
+                    dedupe_by_date=not keep_all_candidates,
+                )
+                for d in dates_with_context:
+                    results.append({
+                        'project_id': project_id,
+                        'date': d.get('date'),
+                        'match': d.get('match'),
+                        'context': d.get('context'),
+                        'position': d.get('position'),
+                        'position_pct': d.get('position_pct'),
+                        'doc_type': doc_type,
+                    })
 
         results_df = pd.DataFrame(results)
         results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
@@ -3590,7 +3630,7 @@ def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODE
     projects = _load_projects_combined()
     if projects is None:
         return None
-    _warn_if_clean_energy_count_off(projects, ce_only=True, clean_energy_only=True)
+    _warn_if_clean_energy_count_off(projects, sources=['CE'])
 
     # Filter to CE + Clean energy
     projects = projects[
@@ -3823,7 +3863,7 @@ if __name__ == "__main__":
         run_regex_prep(
             sample_size=args.sample,
             sources=sources,
-            clean_energy_only=args.clean_energy,
+            clean_energy_only=True,
             main_docs_only=True,
             output_file=args.regex_cache,
             keep_all_candidates=not args.regex_filtered,
@@ -3989,7 +4029,7 @@ if __name__ == "__main__":
         run_bert_timeline_extraction(
             sample_size=args.sample,
             sources=sources,
-            clean_energy_only=args.clean_energy,
+            clean_energy_only=True,
             main_docs_only=True,
             output_file=args.output,
             use_regex_cache=True,
