@@ -1,6 +1,6 @@
 # Timeline Extraction Status
 
-**Last updated**: 2026-01-30 (end of day)
+**Last updated**: 2026-02-12
 
 This document summarizes the current state of timeline extraction for the NEPA project. Read this file to understand timeline-related work without needing to explore the full codebase.
 
@@ -411,6 +411,73 @@ Comparison: `test20_workers.parquet` vs `test20_hybrid3_instruct.parquet` (both 
    - **Action:** Implement a narrow Recovery‑Act signature extraction that keeps the signature tail when “Recovery Act” and signature cues appear on the same line.  
    - **Goal:** Flip those 7 misses to decisions without hurting overall decision precision.
 
+## Updates Added (2026-02-12)
+
+Reviewed 11 misclassified projects from the BERT full run (`projects_timeline_bert.parquet`) and identified 7 systematic error patterns. Implemented 9 targeted fixes in `extract_timeline.py` to address them. These fixes affect both BERT training data (via auto-labeling patterns) and post-BERT guardrails/scoring.
+
+### Projects Reviewed
+
+| Project ID | Issue |
+|---|---|
+| `1df6f8b5` | "Initial and Date:" specialist sign-off misread as initiation |
+| `5ec95c90` | "AUTHORITY AND APPROVAL" not winning as final decision |
+| `58cab57e` | "Form Status: Approved" caught by too-broad boilerplate pattern |
+| `8de424f4` | Historical gap rule only fires once (single-pass) |
+| `e74f6ef2` | "reviewed" in INITIATION_CUES causing misclassification |
+| `b523e342` | YYYY.MM.DD timestamp not recognized as digital signature; "Approval and Contact Information" not a strong decision cue |
+| `cec29e92` | Initiation date after decision not hard-rejected |
+| `3e3bb9f5` | "expire on [date]" not caught for past dates; "Initial and Date:" issue |
+| `6149175c` | ROW application as initiation (appears correct) |
+| `5c0911d5` | "Date Determined" winning over digital signature date |
+| `e0f39636` | "District Manager" absent from decision patterns; no other→decision guardrail |
+
+### Systematic Patterns Found
+
+- **A.** "Initial and Date:" on BLM specialist checklists misread as initiation
+- **B.** Missing decision-maker patterns (District Manager, Approval and Contact Information, YYYY.MM.DD timestamps)
+- **C.** No other→decision guardrail — BERT "other" not corrected even when strong decision cue exists
+- **D.** Expiration detection gated on >2025 year — misses "expire on [past date]"
+- **E.** Historical gap rule finds first gap only — misses multi-cluster projects
+- **F.** Initiation after decision only penalized (-3), not rejected
+- **G.** "reviewed" in INITIATION_CUES causes false initiation labels
+
+### Fixes Implemented (9 of 10 proposed)
+
+1. **"Initial and Date:" → review** — Added `initial and date` and `initials?\s*&\s*date` to `REVIEW_PATTERNS_STRONG` and `INITIATION_EXCLUSION_PATTERNS`. (Patterns A)
+
+2. **Missing decision patterns** — Added `district manager`, `approval and contact information`, `\d{4}\.\d{2}\.\d{2}` (YYYY.MM.DD timestamps) to `DECISION_PATTERNS_STRONG`. (Pattern B)
+
+3. **other→decision guardrail** — New guardrail in `extract_with_bert()`: if BERT classifies as "other" but context has a strong decision cue, reclassify to "decision". (Pattern C)
+
+4. **Expiration detection expanded** — `_is_expiration_candidate()` now fires on expiration language cues regardless of date, not just for dates after 2025-12-31. (Pattern D)
+
+5. **Historical gap rule: last gap wins** — `_apply_historical_gap_rule()` now finds the LAST gap > 730 days (not the first), marking all dates before it as historical. Catches multi-cluster projects. (Pattern E)
+
+6. **Hard-reject initiation after decision** — `_select_best_initiation()` now skips (continues past) candidates with dates after the decision date instead of penalizing by -3. (Pattern F)
+
+7. *(Skipped)* **Dedupe by date before type** — Not implemented. Would change dedupe key from `(date, type)` to `(date)`. Risk: loses legitimate same-day multi-event entries. Other fixes likely address the edge cases that motivated this.
+
+8. **"AUTHORITY AND APPROVAL" → tier 4** — `_decision_strength()` now returns 4 for `authority and approval` and `determination and approval`, above the tier 3 default for strong patterns. (Pattern B)
+
+9. **Tighten "form approved" boilerplate** — Changed `r'form approved'` to `r'form approved\s*(omb|omg)'` in `DECISION_BOILERPLATE_PATTERNS` so "Form Status: Approved" is not penalized as boilerplate. (Pattern related to `58cab57e`)
+
+10. **Remove "reviewed" from INITIATION_CUES** — Deleted `'reviewed'` from the hybrid `INITIATION_CUES` list. This cue belongs in review contexts, not initiation. (Pattern G)
+
+### Impact Assessment
+
+- **Fixes 1, 2, 10** affect auto-labeling (`auto_label_context()`) — require `--bert-generate` + `--bert-train` to take full effect
+- **Fixes 3, 4, 5, 6, 8, 9** are post-BERT guardrails/scoring — take effect immediately on next `--bert-run`
+- Highest-impact fixes: **1, 2, 3, 6** (address the most projects)
+
+### Next Steps
+
+1. Regenerate BERT training data: `python extract_timeline.py --bert-generate`
+2. Retrain BERT model: `python extract_timeline.py --bert-train`
+3. Test on the 11 misclassified projects: `python extract_timeline.py --bert-run --sample 50 --output test50_bert_v9.parquet`
+4. If results improve, full run: `python extract_timeline.py --bert-run --output projects_timeline_bert.parquet`
+
+---
+
 ## File References
 
 | File | Purpose |
@@ -457,6 +524,21 @@ python extract_timeline.py --bert-run --output projects_timeline_bert.parquet  #
 ---
 
 ## Change Log
+
+### 2026-02-12 - BERT v9 Guardrail Fixes
+- **Reviewed 11 misclassified projects** from BERT full run, identified 7 systematic error patterns
+- **Implemented 9 fixes** in `extract_timeline.py` targeting misclassification root causes
+- Added "Initial and Date:" to review patterns + initiation exclusions
+- Added missing decision patterns: district manager, approval and contact information, YYYY.MM.DD timestamps
+- New other→decision guardrail in `extract_with_bert()`
+- Expiration detection no longer gated on >2025 year
+- Historical gap rule now finds LAST gap (multi-cluster support)
+- Hard-reject initiation dates after decision (was soft penalty)
+- "AUTHORITY AND APPROVAL" boosted to tier 4 decision strength
+- Tightened "form approved" boilerplate to OMB-only (`form approved\s*(omb|omg)`)
+- Removed "reviewed" from `INITIATION_CUES`
+- **Not implemented**: dedupe by date-only (risk of losing legitimate same-day events)
+- **Next**: regenerate training data, retrain, re-run on sample + full
 
 ### 2026-01-30 (PM) - BERT Classifier
 - **Added BERT-based classification as alternative to LLM** (50-100x faster)

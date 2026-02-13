@@ -50,9 +50,6 @@ show_timeline <- function(df, pid) {
   print()
 }
 
-timeline |> 
-  distinct(type) |> 
-  glimpse()
 
 # --------------------------
 # LOAD BERT TIMELINE DATA
@@ -127,13 +124,6 @@ timeline |>
 # VIEW SPECIFIC TIMELINES
 # --------------------------
 
-timeline |> 
-  filter(type == "other") |>  
-  filter(date < "2008") |> 
-  select(project_id, type, date, source) |> 
-  slice_sample(n = 20)
-  #print(n = 20)
-
 sample <-
   timeline |> 
   slice_sample(n = 1) |> 
@@ -155,38 +145,48 @@ show_timeline(timeline, sample)
 
 
 # checks !
-show_timeline(timeline, "1df6f8b5-7e16-2d38-01b6-a042628ea3c8") # Environmental Coordinator > review - why is decision 2022-09-13 still decision !
-show_timeline(timeline, "5ec95c90-2b23-042d-4bab-8c8dad0151c6") # why is 2023-05-01 not the final decision? 
-show_timeline(timeline, "58cab57e-ab90-d812-4735-526d78cf48b4") # all three three historical dates are still not being captured correctly, 2016-08-23 should be the initiation date
-show_timeline(timeline, "8de424f4-3082-0131-f0d5-6a8c7cc07d2f") # 2012-07-01 is not being captured correctly as historical date; decision and initation should be on same day
-show_timeline(timeline, "e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5") # 2013-08-01 is not being captured as historical date, not being captured, 2020-04-27 should be initiation_final
+show_timeline(timeline, "1df6f8b5-7e16-2d38-01b6-a042628ea3c8") # Environmental Coordinator > review - why is 2022-09-13 still decision? | 2021-12-02 > review - WRONG
+show_timeline(timeline, "b523e342-39f2-fca4-0a2c-745c476dcf88") # 2021-12-31 not expiration?  | 2021-08-23 not labeled as initiation?
+show_timeline(timeline, "cec29e92-aa8d-42df-257a-62f290614404") # not capturing "DOE Initiator Signature" and "NEPA Compliance Officer" text correctly in document | initiation is after decision?
+show_timeline(timeline, "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0") # why is 2021-04-30 not expiration? | why is 2021-01-11 final initiation? -- could be right?
+show_timeline(timeline, "6149175c-8eb2-78bf-b995-1ab77be60997") # prob fine but there are lots of initiations here | 2014-10-01 should prob be a review
+show_timeline(timeline, "5c0911d5-65ab-b391-c956-a713cfa57da5") # why is 2021-07-01 not the final decision here?
+show_timeline(timeline, "e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5") # why is 2020-04-30 initiation instead of 2020-04-27?
+show_timeline(timeline, "d01c96bc-9ec7-77c5-d72f-da3cb7bbb548") # why does second 2012-08-22 not trigger decision?
+show_timeline(timeline, "ca23261c-79f5-5207-fcff-a3158b9b2f9f") # seems to be two CE combined? - last review should be made decision
+show_timeline(timeline, "10a5fe92-958e-9004-a46c-3f3ba4c031cc") # 2023-07-10 should be final decision | 2023-07-07 should be review
+show_timeline(timeline, "779788a2-7efe-c1b9-9c24-3b98ae5f8499") # should 2018-05-02 be the initiation?
+show_timeline(timeline, "b1c99c0e-775d-d29b-e696-89d6cf2213ef") # 2011-09-01 and 2013-01-01 should be expiration dates
+show_timeline(timeline, "82fcccb4-f539-604e-5be5-7f9fb867054a") # 2021-08-05 should be decision
+
+# review 
+show_timeline(timeline, "58cab57e-ab90-d812-4735-526d78cf48b4") # 2016-08-23 not initiation but other? NO DATES
+show_timeline(timeline, "a8f8ca21-28aa-e951-164f-736cac8136ef") # correct - no dates anymore
+
 
 # can be cleaned in post processing
-show_timeline(timeline, "f2b5a957-b5aa-dadb-2cff-89b60dfa5e9b") # 2 decisions, make first a initiation?
-show_timeline(timeline, "f2b5a957-b5aa-dadb-2cff-89b60dfa5e9b") # 2 decisions, make first a initiation?
+show_timeline(timeline, "f2b5a957-b5aa-dadb-2cff-89b60dfa5e9b") # correct
+show_timeline(timeline, "f2b5a957-b5aa-dadb-2cff-89b60dfa5e9b") # correct
+show_timeline(timeline, "97e4029a-56b2-238a-1bd4-425e5cde9e91") # correct
+show_timeline(timeline, "78566cce-e233-ee90-6f60-0109a449e89b") # correct
+show_timeline(timeline, "e0f39636-313a-fc6c-43e3-6453566a1d1b") # correct
+show_timeline(timeline, "5ec95c90-2b23-042d-4bab-8c8dad0151c6") # correct
 
-# not sure what to do with these
-show_timeline(timeline, "b523e342-39f2-fca4-0a2c-745c476dcf88") # not sure how to deal with  initiation 2021-12-31
-show_timeline(timeline, "cec29e92-aa8d-42df-257a-62f290614404") # not capturing "DOE Initiator Signature" and "NEPA Compliance Officer" text correctly
-show_timeline(timeline, "97e4029a-56b2-238a-1bd4-425e5cde9e91") # not sure what to do with first initiation 
+show_timeline(timeline, "5ec95c90-2b23-042d-4bab-8c8dad0151c6") # why is 2023-05-01 not the final decision? CORRECT
+show_timeline(timeline, "8de424f4-3082-0131-f0d5-6a8c7cc07d2f") # 2012-07-01 is not being captured correctly as historical date; decision and initiation should be on same day CORRECT
+show_timeline(timeline, "e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5") # 2020-04-30 initiation and not 2020-04-27? CORRECT
 
-show_timeline(timeline, "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0") # not sure what to do here
-show_timeline(timeline, "78566cce-e233-ee90-6f60-0109a449e89b") # last review should review and is a duplicate date
-show_timeline(timeline, "6149175c-8eb2-78bf-b995-1ab77be60997") # what other bucket can we categorize all these initiations?
-show_timeline(timeline, "5c0911d5-65ab-b391-c956-a713cfa57da5") # how do we get the first decision to be an initiation based on date determined
-show_timeline(timeline, "ca23261c-79f5-5207-fcff-a3158b9b2f9f") # seems to be two CE combined?
-show_timeline(timeline, "e0f39636-313a-fc6c-43e3-6453566a1d1b") # last initiation needs to be a decision
-show_timeline(timeline, "19938d50-8678-a9ce-0f7e-b164e85dac34") # not sure how to clean this one
-show_timeline(timeline, "18354a3f-ea8d-982a-e050-0c882dcd3ce9") # not sure if review 2010-06-01 is a review or not
+# long CE -- could have LLM read?
+show_timeline(timeline, "18354a3f-ea8d-982a-e050-0c882dcd3ce9") # correct, but long?
+show_timeline(timeline, "19938d50-8678-a9ce-0f7e-b164e85dac34") # correct, but long? | 2022-02-25 likely initiation but means CE took 2years | 2024-02-09 should be initiation?
+show_timeline(timeline, "badd0cda-75a3-e09f-138c-2ecbfa39631f") # long CE? classifications are correct here but seems long, other explanation?
+show_timeline(timeline, "ed362c4b-cec9-fb82-6292-8cc64fedf5ae") # long CE? classifications are correct here but seems long, other explanation?
+show_timeline(timeline, "b3e12657-6fce-6aaf-767e-80e3db00201a") # could 2017-08-14 be the correct initiation date instead? decision date is correct
+show_timeline(timeline, "0ba26e6f-880f-fc26-35b1-50a34622eb7c") # could be correct but also initiation date seems far 
 
 # good
 show_timeline(timeline, "ea12d384-b7bf-83a0-4ada-d529d21f945b") # no initiation
-show_timeline(timeline, "d01c96bc-9ec7-77c5-d72f-da3cb7bbb548") # initiation and decision cannot be on the same day
-show_timeline(timeline, "a8f8ca21-28aa-e951-164f-736cac8136ef") # good complicated examples
 
-# some manual checks 
-show_timeline(timeline, "e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5") # review 2020-04-27 > should become initiation even though correctly classified
-show_timeline(timeline, "5ec95c90-2b23-042d-4bab-8c8dad0151c6") # review 2020-04-27 > should become initiation even though correctly classified
 
 
 #timeline |> 
@@ -194,3 +194,44 @@ show_timeline(timeline, "5ec95c90-2b23-042d-4bab-8c8dad0151c6") # review 2020-04
 #  filter(project_id == "78566cce-e233-ee90-6f60-0109a449e89b") |> 
 #  select(bert_decision_date, bert_earliest_review_date, bert_latest_review_date, bert_inferred_application_date) |> 
 #  glimpse()
+
+
+
+# checks !
+"1df6f8b5-7e16-2d38-01b6-a042628ea3c8" # Environmental Coordinator > review - why is 2022-09-13 still decision? | 2021-12-02 > review - WRONG
+"b523e342-39f2-fca4-0a2c-745c476dcf88" # 2021-12-31 not expiration?  | 2021-08-23 not labeled as initiation?
+"cec29e92-aa8d-42df-257a-62f290614404" # not capturing "DOE Initiator Signature" and "NEPA Compliance Officer" text correctly in document | initiation is after decision?
+"3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0" # why is 2021-04-30 not expiration? | why is 2021-01-11 final initiation? -- could be right?
+"6149175c-8eb2-78bf-b995-1ab77be60997" # prob fine but there are lots of initiations here | 2014-10-01 should prob be a review
+"5c0911d5-65ab-b391-c956-a713cfa57da5" # why is 2021-07-01 not the final decision here?
+"e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5" # why is 2020-04-30 initiation instead of 2020-04-27?
+"d01c96bc-9ec7-77c5-d72f-da3cb7bbb548" # why does second 2012-08-22 not trigger decision?
+"ca23261c-79f5-5207-fcff-a3158b9b2f9f" # seems to be two CE combined? - last review should be made decision
+"10a5fe92-958e-9004-a46c-3f3ba4c031cc" # 2023-07-10 should be final decision | 2023-07-07 should be review
+"779788a2-7efe-c1b9-9c24-3b98ae5f8499" # should 2018-05-02 be the initiation?
+"b1c99c0e-775d-d29b-e696-89d6cf2213ef" # 2011-09-01 and 2013-01-01 should be expiration dates
+"82fcccb4-f539-604e-5be5-7f9fb867054a" # 2021-08-05 should be decision
+
+# review 
+"58cab57e-ab90-d812-4735-526d78cf48b4" # 2016-08-23 not initiation but other? NO DATES
+"a8f8ca21-28aa-e951-164f-736cac8136ef" # correct - no dates anymore
+
+
+# can be cleaned in post processing
+"f2b5a957-b5aa-dadb-2cff-89b60dfa5e9b" # correct
+"f2b5a957-b5aa-dadb-2cff-89b60dfa5e9b" # correct
+"97e4029a-56b2-238a-1bd4-425e5cde9e91" # correct
+"78566cce-e233-ee90-6f60-0109a449e89b" # correct
+"e0f39636-313a-fc6c-43e3-6453566a1d1b" # correct
+"5ec95c90-2b23-042d-4bab-8c8dad0151c6" # correct
+"5ec95c90-2b23-042d-4bab-8c8dad0151c6" # why is 2023-05-01 not the final decision? CORRECT
+"8de424f4-3082-0131-f0d5-6a8c7cc07d2f" # 2012-07-01 is not being captured correctly as historical date; decision and initiation should be on same day CORRECT
+"e74f6ef2-fb99-b7d0-1e67-7c76c1c269a5" # 2020-04-30 initiation and not 2020-04-27? CORRECT
+
+# long CE -- could hav LLM read?
+"18354a3f-ea8d-982a-e050-0c882dcd3ce9" # correct, but long?
+"19938d50-8678-a9ce-0f7e-b164e85dac34" # correct, but long? | 2022-02-25 likely initiation but means CE took 2years | 2024-02-09 should be initiation?
+"badd0cda-75a3-e09f-138c-2ecbfa39631f" # long CE? classifications are correct here but seems long, other explanation?
+"ed362c4b-cec9-fb82-6292-8cc64fedf5ae" # long CE? classifications are correct here but seems long, other explanation?
+"b3e12657-6fce-6aaf-767e-80e3db00201a" # could 2017-08-14 be the correct initiation date instead? decision date is correct
+"0ba26e6f-880f-fc26-35b1-50a34622eb7c" # could be correct but also initiation date seems far 
