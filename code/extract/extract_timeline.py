@@ -3609,6 +3609,362 @@ def run_regex_prep(
     return None
 
 
+# ---------------------------------------------------------------------------
+# LLM Adjudication: Post-BERT LLM pass to select best initiation/decision
+# ---------------------------------------------------------------------------
+
+def _build_adjudication_prompt(project_title: str, dates: list) -> str:
+    """
+    Build a prompt for LLM adjudication of BERT-classified dates.
+
+    The LLM sees all date candidates (minus historical/expiration) with their
+    BERT classification and source context, and picks the best initiation and
+    decision dates for the project.
+    """
+    date_block = []
+    for i, d in enumerate(dates, 1):
+        doc_type_str = f" [doc: {d['doc_type']}]" if d.get('doc_type') else ""
+        date_block.append(
+            f"{i}. DATE: {d['date']}  BERT_TYPE: {d['type']}{doc_type_str}\n"
+            f"   CONTEXT: {d['source'][:300]}"
+        )
+    dates_text = "\n".join(date_block)
+
+    return f"""You are an expert at reading NEPA (National Environmental Policy Act) project documents.
+
+PROJECT: {project_title}
+
+Below are all date candidates extracted from this project's documents. Each has a date, the BERT model's classification (decision, initiation, review, other), the source document type if known, and the surrounding text context.
+
+{dates_text}
+
+YOUR TASK: Pick the single best INITIATION date and the single best DECISION date for this project.
+
+DEFINITIONS:
+- INITIATION: When the NEPA review process began — application received, notice of intent, scoping notice, or project proposal date.
+- DECISION: When the NEPA review was completed — FONSI signed, Record of Decision (ROD) signed, decision record issued, or approval/authorization date.
+
+RULES:
+- The initiation date must come BEFORE the decision date.
+- Prefer dates from ROD or FONSI documents for decision.
+- Prefer dates with strong decision language (signed, approved, issued, FONSI, ROD, decision record) over generic document dates.
+- Prefer dates with strong initiation language (application, notice of intent, scoping, proposed) over generic dates.
+- If no clear initiation date exists, respond with null.
+- If no clear decision date exists, respond with null.
+- Do NOT pick dates that refer to other projects, regulations, or historical references.
+
+Respond with ONLY valid JSON in this exact format (no other text):
+{{"initiation_date": "YYYY-MM-DD", "decision_date": "YYYY-MM-DD", "initiation_reasoning": "brief reason", "decision_reasoning": "brief reason"}}"""
+
+
+def _call_ollama_adjudication(prompt: str, model: str, timeout: int) -> dict:
+    """Call Ollama for a single adjudication prompt."""
+    import requests
+    try:
+        response = requests.post(
+            'http://localhost:11434/api/generate',
+            json={
+                'model': model,
+                'prompt': prompt,
+                'stream': False,
+                'options': {
+                    'temperature': 0.1,
+                    'num_predict': 200,
+                }
+            },
+            timeout=timeout
+        )
+        if response.status_code == 200:
+            return {
+                'response': response.json().get('response', ''),
+                'eval_duration_ms': response.json().get('eval_duration', 0) / 1e6,
+                'error': None,
+            }
+        else:
+            return {'response': '', 'error': f'ollama_http_error: {response.status_code}'}
+    except requests.exceptions.ConnectionError:
+        return {'response': '', 'error': 'ollama_not_running'}
+    except requests.exceptions.Timeout:
+        return {'response': '', 'error': 'ollama_timeout'}
+    except Exception as e:
+        return {'response': '', 'error': f'ollama_error: {str(e)}'}
+
+
+def _call_claude_adjudication(prompt: str, model: str, timeout: int, max_retries: int = 3) -> dict:
+    """Call Claude API for a single adjudication prompt with rate-limit retry."""
+    import requests
+    import os
+    import time as _time
+
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        return {'response': '', 'error': 'ANTHROPIC_API_KEY not set'}
+
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                'https://api.anthropic.com/v1/messages',
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                },
+                json={
+                    'model': model,
+                    'max_tokens': 200,
+                    'temperature': 0.1,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                },
+                timeout=timeout
+            )
+            if response.status_code == 200:
+                data = response.json()
+                text = data.get('content', [{}])[0].get('text', '')
+                return {
+                    'response': text,
+                    'eval_duration_ms': None,
+                    'error': None,
+                }
+            elif response.status_code == 429:
+                # Rate limited — wait and retry
+                retry_after = int(response.headers.get('retry-after', 30))
+                _time.sleep(retry_after)
+                continue
+            else:
+                error_msg = response.json().get('error', {}).get('message', response.text[:200])
+                return {'response': '', 'error': f'claude_api_error ({response.status_code}): {error_msg}'}
+        except requests.exceptions.Timeout:
+            return {'response': '', 'error': 'claude_timeout'}
+        except Exception as e:
+            return {'response': '', 'error': f'claude_error: {str(e)}'}
+
+    return {'response': '', 'error': 'claude_rate_limit_exhausted'}
+
+
+def _parse_adjudication_response(response_text: str) -> dict:
+    """Parse JSON response from LLM adjudication."""
+    import json as json_module
+    result = {
+        'llm_initiation_date': None,
+        'llm_decision_date': None,
+        'llm_initiation_reasoning': None,
+        'llm_decision_reasoning': None,
+    }
+    if not response_text:
+        return result
+
+    # Try to extract JSON from response (may have extra text around it)
+    text = response_text.strip()
+    # Find first { and last }
+    start = text.find('{')
+    end = text.rfind('}')
+    if start >= 0 and end > start:
+        text = text[start:end + 1]
+
+    try:
+        parsed = json_module.loads(text)
+        for key in ['initiation_date', 'decision_date', 'initiation_reasoning', 'decision_reasoning']:
+            val = parsed.get(key)
+            if val and str(val).lower() not in ('null', 'none', 'n/a', ''):
+                result[f'llm_{key}'] = str(val)
+    except json_module.JSONDecodeError:
+        pass
+
+    return result
+
+
+CLAUDE_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+
+
+def run_llm_adjudication(
+    input_file: str,
+    model: str = DEFAULT_LLM_MODEL,
+    provider: str = 'ollama',
+    timeout: int = 120,
+    workers: int = 1,
+    sample_size: int = None,
+    output_file: str = None,
+):
+    """
+    Run LLM adjudication on BERT timeline output.
+
+    Reads a BERT output parquet, extracts all date candidates per project,
+    sends them to an Ollama LLM for adjudication, and adds LLM picks
+    alongside the BERT picks for comparison.
+
+    Args:
+        input_file: Path to BERT output parquet (e.g., test50_ea.parquet)
+        model: Ollama model name
+        timeout: Timeout per project in seconds
+        workers: Number of parallel workers
+        output_file: Output parquet path (default: adds _llm suffix to input)
+    """
+    import json as json_module
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    input_path = Path(input_file) if not str(input_file).startswith('/') else Path(input_file)
+    if not input_path.is_absolute():
+        input_path = ANALYSIS_DIR / input_file
+
+    if not input_path.exists():
+        print(f"ERROR: Input file not found: {input_path}")
+        return None
+
+    # Resolve provider and model defaults
+    if provider == 'claude' and model == DEFAULT_LLM_MODEL:
+        model = CLAUDE_DEFAULT_MODEL
+    if provider == 'claude':
+        import os
+        if not os.environ.get('ANTHROPIC_API_KEY'):
+            print("ERROR: ANTHROPIC_API_KEY environment variable not set.")
+            print("  Set it with: export ANTHROPIC_API_KEY='sk-ant-...'")
+            return None
+        workers = 1  # Sequential to respect rate limits
+
+    print(f"\n=== LLM Adjudication ===")
+    print(f"Input: {input_path}")
+    print(f"Provider: {provider}")
+    print(f"Model: {model}")
+    print(f"Workers: {workers}")
+    print(f"Timeout: {timeout}s per project")
+
+    df = pd.read_parquet(input_path)
+    print(f"Loaded {len(df):,} projects")
+
+    if sample_size and sample_size < len(df):
+        df = df.sample(n=sample_size, random_state=42)
+        print(f"Sampled {len(df):,} projects")
+
+    # Prepare adjudication tasks
+    tasks = []
+    for idx, row in df.iterrows():
+        project_id = row['project_id']
+        project_title = row.get('project_title', 'Unknown')
+
+        # Parse BERT dates JSON
+        dates_json = row.get('bert_dates_json', '[]')
+        try:
+            all_dates = json_module.loads(dates_json) if dates_json else []
+        except json_module.JSONDecodeError:
+            all_dates = []
+
+        # Filter out historical and expiration — not useful for adjudication
+        candidates = [
+            d for d in all_dates
+            if d.get('type') not in ('historical', 'expiration')
+        ]
+
+        tasks.append({
+            'idx': idx,
+            'project_id': project_id,
+            'project_title': project_title,
+            'candidates': candidates,
+            'n_total_dates': len(all_dates),
+            'n_candidates': len(candidates),
+        })
+
+    # Stats
+    n_with_candidates = sum(1 for t in tasks if t['n_candidates'] > 0)
+    n_no_candidates = sum(1 for t in tasks if t['n_candidates'] == 0)
+    print(f"Projects with candidates: {n_with_candidates}")
+    print(f"Projects with no candidates (skipped): {n_no_candidates}")
+
+    # Process with thread pool
+    results = {}
+    start_time = time.time()
+
+    def _process_one(task):
+        if not task['candidates']:
+            return task['idx'], {
+                'llm_initiation_date': None,
+                'llm_decision_date': None,
+                'llm_initiation_reasoning': None,
+                'llm_decision_reasoning': None,
+                'llm_adj_error': 'no_candidates',
+                'llm_adj_n_candidates': 0,
+                'llm_adj_raw_response': None,
+            }
+
+        prompt = _build_adjudication_prompt(task['project_title'], task['candidates'])
+        if provider == 'claude':
+            ollama_result = _call_claude_adjudication(prompt, model, timeout)
+        else:
+            ollama_result = _call_ollama_adjudication(prompt, model, timeout)
+
+        parsed = _parse_adjudication_response(ollama_result['response'])
+        parsed['llm_adj_error'] = ollama_result['error']
+        parsed['llm_adj_n_candidates'] = task['n_candidates']
+        parsed['llm_adj_prompt'] = prompt
+        parsed['llm_adj_raw_response'] = ollama_result['response'][:500] if ollama_result['response'] else None
+        return task['idx'], parsed
+
+    completed = 0
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(_process_one, t): t for t in tasks}
+        for future in as_completed(futures):
+            idx, result_dict = future.result()
+            results[idx] = result_dict
+            completed += 1
+            if completed % 5 == 0 or completed <= 3 or completed == len(tasks):
+                elapsed = time.time() - start_time
+                rate = completed / elapsed if elapsed > 0 else 0
+                remaining = (len(tasks) - completed) / rate if rate > 0 else 0
+                print(f"  {completed}/{len(tasks)} projects ({rate:.1f}/s, ~{remaining:.0f}s remaining)")
+
+    elapsed = time.time() - start_time
+    print(f"\nCompleted in {elapsed:.1f}s ({elapsed/len(tasks):.1f}s per project)")
+
+    # Merge results into DataFrame
+    for col in ['llm_initiation_date', 'llm_decision_date', 'llm_initiation_reasoning',
+                'llm_decision_reasoning', 'llm_adj_error', 'llm_adj_n_candidates', 'llm_adj_prompt', 'llm_adj_raw_response']:
+        df[col] = None
+
+    for idx, result_dict in results.items():
+        for col, val in result_dict.items():
+            df.at[idx, col] = val
+
+    # Summary
+    has_llm_decision = df['llm_decision_date'].notna().sum()
+    has_llm_initiation = df['llm_initiation_date'].notna().sum()
+    has_bert_decision = df['bert_decision_date'].notna().sum() if 'bert_decision_date' in df.columns else 0
+    has_bert_initiation = df['bert_initiation_date_final'].notna().sum() if 'bert_initiation_date_final' in df.columns else 0
+
+    print(f"\n=== Comparison ===")
+    print(f"{'':20s} {'BERT':>8s} {'LLM':>8s}")
+    print(f"{'Decision found':20s} {has_bert_decision:>8d} {has_llm_decision:>8d}")
+    print(f"{'Initiation found':20s} {has_bert_initiation:>8d} {has_llm_initiation:>8d}")
+
+    # Agreement stats
+    if 'bert_decision_date' in df.columns:
+        both_have_dec = df['bert_decision_date'].notna() & df['llm_decision_date'].notna()
+        if both_have_dec.any():
+            agree_dec = (df.loc[both_have_dec, 'bert_decision_date'] == df.loc[both_have_dec, 'llm_decision_date']).sum()
+            print(f"{'Decision agreement':20s} {agree_dec:>8d} / {both_have_dec.sum()}")
+    if 'bert_initiation_date_final' in df.columns:
+        both_have_init = df['bert_initiation_date_final'].notna() & df['llm_initiation_date'].notna()
+        if both_have_init.any():
+            agree_init = (df.loc[both_have_init, 'bert_initiation_date_final'] == df.loc[both_have_init, 'llm_initiation_date']).sum()
+            print(f"{'Initiation agreement':20s} {agree_init:>8d} / {both_have_init.sum()}")
+
+    errors = df['llm_adj_error'].dropna()
+    if not errors.empty:
+        non_skip_errors = errors[errors != 'no_candidates']
+        if not non_skip_errors.empty:
+            print(f"\nErrors: {non_skip_errors.value_counts().to_dict()}")
+
+    # Save output
+    if output_file:
+        out_path = ANALYSIS_DIR / output_file
+    else:
+        stem = input_path.stem
+        out_path = input_path.parent / f"{stem}_llm.parquet"
+
+    df.to_parquet(out_path)
+    print(f"\nSaved to: {out_path}")
+    return df
+
+
 def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODEL):
     """
     Test LLM extraction on a small sample with detailed output.
@@ -3841,6 +4197,14 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=3,
                         help='Training epochs for BERT (default: 3)')
 
+    # LLM adjudication options
+    parser.add_argument('--llm-adjudicate', action='store_true',
+                        help='Run LLM adjudication on BERT output (post-processing)')
+    parser.add_argument('--input', type=str,
+                        help='Input parquet for LLM adjudication (BERT output file)')
+    parser.add_argument('--provider', type=str, default='ollama', choices=['ollama', 'claude'],
+                        help='LLM provider for adjudication (default: ollama)')
+
     args = parser.parse_args()
 
     # Run regex extraction
@@ -4033,4 +4397,19 @@ if __name__ == "__main__":
             main_docs_only=True,
             output_file=args.output,
             use_regex_cache=True,
+        )
+
+    # LLM adjudication (post-BERT)
+    elif args.llm_adjudicate:
+        if not args.input:
+            print("ERROR: --llm-adjudicate requires --input <bert_output.parquet>")
+            sys.exit(1)
+        run_llm_adjudication(
+            input_file=args.input,
+            model=args.model,
+            provider=args.provider,
+            timeout=args.timeout,
+            workers=args.workers,
+            sample_size=args.sample,
+            output_file=args.output,
         )
