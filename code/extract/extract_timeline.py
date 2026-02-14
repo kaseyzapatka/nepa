@@ -370,10 +370,7 @@ def _build_project_filename_bounds_map(documents_df: pd.DataFrame, main_docs_onl
         df = df[df['main_document'] == 'YES']
 
     if 'document_date_from_file_name' not in df.columns:
-        raise ValueError(
-            "documents.parquet is missing required column 'document_date_from_file_name'. "
-            "Re-run extract_data.py to rebuild processed documents."
-        )
+        return {}
 
     out = {}
     for project_id, group in df.groupby('project_id'):
@@ -3670,6 +3667,12 @@ def run_regex_prep(
             if project_docs.empty:
                 continue
 
+            # Only iterate main documents (skip non-main even at doc level)
+            if main_docs_only and 'main_document' in project_docs.columns:
+                project_docs = project_docs[project_docs['main_document'] == 'YES']
+                if project_docs.empty:
+                    continue
+
             # Process per-document to tag each candidate with doc_type
             for _, doc_row in project_docs.iterrows():
                 doc_id = doc_row['document_id']
@@ -3724,21 +3727,32 @@ def run_regex_prep(
 # LLM Adjudication: Post-BERT LLM pass to select best initiation/decision
 # ---------------------------------------------------------------------------
 
-# Doc types that are inherently high-signal for decisions
-_LLM_DECISION_DOC_TYPES = {'ROD', 'FONSI'}
+# Doc-type priority tiers for EA/EIS adjudication
+# Decision-priority docs: most reliable for decision/approval dates
+_LLM_DECISION_DOC_TYPES = {'ROD', 'FONSI', 'DR', 'DECISION RECORD'}
+# Initiation-priority docs: most reliable for initiation/scoping dates
+_LLM_INITIATION_DOC_TYPES = {'EA', 'DEA', 'FEA', 'DEIS'}
+# All known EA/EIS doc types (used for filtering vs blank/unknown)
+_LLM_KNOWN_DOC_TYPES = _LLM_DECISION_DOC_TYPES | _LLM_INITIATION_DOC_TYPES | {'FEIS', 'OTHER'}
 
 
-def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> list:
+def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> dict:
     """
     Filter and rank date candidates before sending to LLM adjudication.
 
-    Applies layered filtering to reduce noise while preserving the strongest
-    initiation and decision signals:
-      Layer 1: Dedup by date (keep best version of each date)
-      Layer 2: Confidence floor (drop very low confidence, except FONSI/ROD)
-      Layer 3: Smart type filtering (drop low-value review/other)
-      Layer 4: Doc-type priority (stricter filtering for blank/other docs)
-      Layer 5: Hard cap at max_candidates
+    Applies layered filtering to reduce noise, then applies tiered decision
+    selection so the LLM only sees appropriate decision candidates:
+      - Tier A (priority): FONSI, ROD, DR, Decision Record
+      - Tier B (fallback): EA, DEA — only used when Tier A has zero decision
+        candidates, and only if context has strong decision language.
+
+    Layers:
+      1. Dedup by date (keep best version of each date)
+      2. Confidence floor (drop very low confidence, except priority docs)
+      3. Smart type filtering (drop low-value review/other)
+      4. Doc-type priority (stricter filtering for blank/other docs)
+      5. Tiered decision gating
+      6. Hard cap at max_candidates
 
     Args:
         candidates: List of date dicts from BERT classification (already
@@ -3746,14 +3760,34 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> li
         max_candidates: Maximum candidates to return.
 
     Returns:
-        Filtered list of date dicts, sorted by relevance.
+        dict with keys:
+          'candidates': filtered list of date dicts, sorted chronologically
+          'decision_mode': 'priority_only' | 'open'
+          'allowed_decision_dates': set of YYYY-MM-DD strings the LLM may pick
+          'n_priority_decision': int count of Tier A decision candidates
+          'n_other_decision': int count of non-Tier-A decision candidates
     """
+    empty_result = {
+        'candidates': [],
+        'decision_mode': 'no_decision_candidates',
+        'allowed_decision_dates': set(),
+        'n_priority_decision': 0,
+        'n_other_decision': 0,
+    }
     if not candidates:
-        return []
+        return empty_result
+
+    def _get_conf(d):
+        c = d.get('bert_confidence', 0.5)
+        return c if isinstance(c, (int, float)) else 0.5
+
+    def _get_doc_type(d):
+        return str(d.get('doc_type', '')).upper().strip()
+
+    def _is_priority_doc(doc_type):
+        return doc_type in _LLM_DECISION_DOC_TYPES or doc_type in _LLM_INITIATION_DOC_TYPES
 
     # ----- Layer 1: Dedup by date -----
-    # Group by date string, keep the best version (highest confidence,
-    # best doc_type), annotate with mention count.
     from collections import defaultdict
     by_date = defaultdict(list)
     for d in candidates:
@@ -3763,14 +3797,14 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> li
     for date_str, group in by_date.items():
         if not date_str:
             continue
-        # Score each duplicate: prefer FONSI/ROD doc, then decision/initiation
-        # type, then higher confidence
+
         def _dedup_score(d):
-            doc_type = str(d.get('doc_type', '')).upper().strip()
-            doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else 0
+            doc_type = _get_doc_type(d)
+            doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else (
+                8 if doc_type in _LLM_INITIATION_DOC_TYPES else 0
+            )
             type_bonus = 5 if d.get('type') in ('decision', 'initiation') else 0
-            conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
-            return doc_bonus + type_bonus + conf
+            return doc_bonus + type_bonus + _get_conf(d)
 
         group.sort(key=_dedup_score, reverse=True)
         best = group[0].copy()
@@ -3779,28 +3813,17 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> li
         deduped.append(best)
 
     # ----- Layer 2: Confidence floor -----
-    # Drop candidates with very low BERT confidence, UNLESS they come from
-    # a FONSI/ROD document (always high-signal regardless of BERT score).
     CONFIDENCE_FLOOR = 0.3
     filtered = []
     for d in deduped:
-        doc_type = str(d.get('doc_type', '')).upper().strip()
-        conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
-        is_decision_doc = doc_type in _LLM_DECISION_DOC_TYPES
-
-        if is_decision_doc or conf >= CONFIDENCE_FLOOR:
+        if _is_priority_doc(_get_doc_type(d)) or _get_conf(d) >= CONFIDENCE_FLOOR:
             filtered.append(d)
 
     # ----- Layer 3: Smart type filtering -----
-    # - Always keep: decision, initiation (these are what the LLM chooses from)
-    # - Keep review only if: confidence >= 0.5 OR context has decision/initiation cues
-    #   (BERT sometimes misclassifies initiation as review)
-    # - Drop other: unless from a FONSI/ROD document
     _decision_cues_lower = {c.lower() for c in DECISION_CUES}
     _initiation_cues_lower = {c.lower() for c in INITIATION_CUES}
 
     def _has_timeline_cue(d):
-        """Check if context contains decision or initiation language."""
         ctx = str(d.get('source', '') or d.get('context', '')).lower()
         return any(cue in ctx for cue in _decision_cues_lower) or \
                any(cue in ctx for cue in _initiation_cues_lower)
@@ -3808,79 +3831,106 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> li
     type_filtered = []
     for d in filtered:
         dtype = d.get('type', '')
-        doc_type = str(d.get('doc_type', '')).upper().strip()
-        conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
-        is_decision_doc = doc_type in _LLM_DECISION_DOC_TYPES
+        is_priority = _is_priority_doc(_get_doc_type(d))
 
         if dtype in ('decision', 'initiation'):
             type_filtered.append(d)
         elif dtype == 'review':
-            if conf >= 0.5 or _has_timeline_cue(d) or is_decision_doc:
+            if _get_conf(d) >= 0.5 or _has_timeline_cue(d) or is_priority:
                 type_filtered.append(d)
         elif dtype == 'other':
-            if is_decision_doc:
+            if is_priority:
                 type_filtered.append(d)
         else:
-            # Unknown type — keep if high confidence
-            if conf >= 0.6:
+            if _get_conf(d) >= 0.6:
                 type_filtered.append(d)
 
     # ----- Layer 4: Doc-type priority -----
-    # For blank/OTHER doc types, apply stricter filtering: only keep
-    # decision/initiation with reasonable confidence.
     doc_filtered = []
     for d in type_filtered:
-        doc_type = str(d.get('doc_type', '')).upper().strip()
+        doc_type = _get_doc_type(d)
         dtype = d.get('type', '')
-        conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
 
-        if doc_type in _LLM_DECISION_DOC_TYPES or doc_type in ('EA', 'FEIS', 'DEIS', 'DEA', 'FEA'):
-            # Known document type — keep (already passed earlier filters)
+        if doc_type in _LLM_KNOWN_DOC_TYPES:
             doc_filtered.append(d)
         else:
-            # Blank or OTHER doc type — only keep decision/initiation with
-            # decent confidence, or anything with timeline cues
-            if dtype in ('decision', 'initiation') and conf >= 0.4:
+            if dtype in ('decision', 'initiation') and _get_conf(d) >= 0.4:
                 doc_filtered.append(d)
-            elif _has_timeline_cue(d) and conf >= 0.4:
+            elif _has_timeline_cue(d) and _get_conf(d) >= 0.4:
                 doc_filtered.append(d)
 
-    # ----- Layer 5: Hard cap -----
-    # Sort by composite relevance score, keep top N.
-    if len(doc_filtered) > max_candidates:
+    # ----- Layer 5: Tiered decision classification -----
+    # Classify decision candidates into tiers for prompt guidance.
+    # Tier A (FONSI/ROD/DR) = hard constraint: if present, LLM must pick from these.
+    # Non-Tier-A = soft guidance: all candidates sent to LLM, prompt guides preference.
+    tier_a_decision = []
+    other_decision = []
+    non_decision = []
+
+    for d in doc_filtered:
+        doc_type = _get_doc_type(d)
+        dtype = d.get('type', '')
+
+        if dtype == 'decision' and doc_type in _LLM_DECISION_DOC_TYPES:
+            tier_a_decision.append(d)
+        elif dtype == 'decision':
+            other_decision.append(d)
+        else:
+            non_decision.append(d)
+
+    n_priority = len(tier_a_decision)
+    n_other_dec = len(other_decision)
+
+    if n_priority > 0:
+        # Hard constraint: only FONSI/ROD/DR decision dates allowed
+        decision_mode = 'priority_only'
+        allowed_decision_dates = {d.get('date') for d in tier_a_decision}
+    else:
+        # Soft guidance: all candidates sent, Claude decides
+        decision_mode = 'open'
+        allowed_decision_dates = set()  # empty = no constraint
+
+    # All candidates go to the LLM (Tier A gets priority via prompt)
+    final = tier_a_decision + other_decision + non_decision
+
+    # ----- Layer 6: Hard cap -----
+    if len(final) > max_candidates:
         def _rank_score(d):
-            doc_type = str(d.get('doc_type', '')).upper().strip()
+            doc_type = _get_doc_type(d)
             doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else (
-                5 if doc_type in ('EA', 'FEIS', 'DEIS', 'DEA', 'FEA') else 0
+                8 if doc_type in _LLM_INITIATION_DOC_TYPES else 0
             )
             type_bonus = 5 if d.get('type') == 'decision' else (
                 4 if d.get('type') == 'initiation' else 0
             )
-            conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
-            return doc_bonus + type_bonus + conf
+            return doc_bonus + type_bonus + _get_conf(d)
 
-        doc_filtered.sort(key=_rank_score, reverse=True)
-        doc_filtered = doc_filtered[:max_candidates]
+        final.sort(key=_rank_score, reverse=True)
+        final = final[:max_candidates]
 
-    # Sort final output chronologically for the LLM
-    def _sort_date(d):
-        try:
-            return d.get('date', '9999-99-99')
-        except Exception:
-            return '9999-99-99'
+    # Sort chronologically for the LLM
+    final.sort(key=lambda d: d.get('date', '9999-99-99'))
 
-    doc_filtered.sort(key=_sort_date)
+    return {
+        'candidates': final,
+        'decision_mode': decision_mode,
+        'allowed_decision_dates': allowed_decision_dates,
+        'n_priority_decision': n_priority,
+        'n_other_decision': n_other_dec,
+    }
 
-    return doc_filtered
 
-
-def _build_adjudication_prompt(project_title: str, dates: list) -> str:
+def _build_adjudication_prompt(project_title: str, dates: list,
+                               decision_mode: str = 'priority_only',
+                               allowed_decision_dates: set = None) -> str:
     """
     Build a prompt for LLM adjudication of BERT-classified dates.
 
-    The LLM sees all date candidates (minus historical/expiration) with their
-    BERT classification and source context, and picks the best initiation and
-    decision dates for the project.
+    Args:
+        project_title: Project name for context.
+        dates: Filtered date candidate dicts.
+        decision_mode: 'priority_only' or 'open'.
+        allowed_decision_dates: Set of YYYY-MM-DD strings the LLM may pick for decision.
     """
     date_block = []
     for i, d in enumerate(dates, 1):
@@ -3892,11 +3942,30 @@ def _build_adjudication_prompt(project_title: str, dates: list) -> str:
         )
     dates_text = "\n".join(date_block)
 
+    # Build decision constraint block based on mode
+    if decision_mode == 'priority_only':
+        allowed_str = ', '.join(sorted(allowed_decision_dates)) if allowed_decision_dates else 'none'
+        decision_constraint = (
+            f"DECISION MODE: priority_only\n"
+            f"This project has decision candidates from FONSI/ROD/Decision Record documents.\n"
+            f"You MUST pick the decision date from this set ONLY: [{allowed_str}]\n"
+            f"Do NOT use dates from EA or other documents for the decision."
+        )
+    else:
+        # Open mode: no FONSI/ROD docs, Claude picks from all candidates
+        decision_constraint = (
+            "DECISION MODE: open\n"
+            "This project has NO FONSI/ROD/Decision Record documents.\n"
+            "Look for the best decision date among all candidates, preferring dates with "
+            "strong decision language (signed, approved, issued, FONSI, decision record, "
+            "determination, authorization). If no convincing decision date exists, respond with null."
+        )
+
     return f"""You are an expert at reading NEPA (National Environmental Policy Act) project documents.
 
 PROJECT: {project_title}
 
-Below are all date candidates extracted from this project's documents. Each has a date, the BERT model's classification (decision, initiation, review, other), the source document type if known, and the surrounding text context.
+Below are date candidates extracted from this project's documents. Each has a date, the BERT model's classification, the source document type [doc: X] if known, and surrounding text context.
 
 {dates_text}
 
@@ -3906,11 +3975,16 @@ DEFINITIONS:
 - INITIATION: When the NEPA review process began — application received, notice of intent, scoping notice, or project proposal date.
 - DECISION: When the NEPA review was completed — FONSI signed, Record of Decision (ROD) signed, decision record issued, or approval/authorization date.
 
+{decision_constraint}
+
+INITIATION GUIDANCE:
+- Prefer dates from EA or DEA (Draft EA) documents that reference application, scoping, or project start.
+- FONSI/ROD documents rarely contain good initiation dates.
+
 RULES:
 - The initiation date must come BEFORE the decision date.
-- Prefer dates from ROD or FONSI documents for decision.
 - Prefer dates with strong decision language (signed, approved, issued, FONSI, ROD, decision record) over generic document dates.
-- Prefer dates with strong initiation language (application, notice of intent, scoping, proposed) over generic dates.
+- Prefer dates with strong initiation language (application, notice of intent, scoping, proposed, received) over generic dates.
 - If no clear initiation date exists, respond with null.
 - If no clear decision date exists, respond with null.
 - Do NOT pick dates that refer to other projects, regulations, or historical references.
@@ -4111,21 +4185,25 @@ def run_llm_adjudication(
         except json_module.JSONDecodeError:
             all_dates = []
 
-        # Remove historical/expiration, then apply layered filtering
+        # Remove historical/expiration, then apply layered + tiered filtering
         pre_filter = [
             d for d in all_dates
             if d.get('type') not in ('historical', 'expiration')
         ]
-        candidates = _filter_candidates_for_llm(pre_filter, max_candidates=50)
+        filter_result = _filter_candidates_for_llm(pre_filter, max_candidates=50)
 
         tasks.append({
             'idx': idx,
             'project_id': project_id,
             'project_title': project_title,
-            'candidates': candidates,
+            'candidates': filter_result['candidates'],
+            'decision_mode': filter_result['decision_mode'],
+            'allowed_decision_dates': filter_result['allowed_decision_dates'],
+            'n_priority_decision': filter_result['n_priority_decision'],
+            'n_other_decision': filter_result['n_other_decision'],
             'n_total_dates': len(all_dates),
             'n_pre_filter': len(pre_filter),
-            'n_candidates': len(candidates),
+            'n_candidates': len(filter_result['candidates']),
         })
 
     # Stats
@@ -4134,15 +4212,25 @@ def run_llm_adjudication(
     total_pre = sum(t['n_pre_filter'] for t in tasks)
     total_post = sum(t['n_candidates'] for t in tasks)
     reduction_pct = (1 - total_post / total_pre) * 100 if total_pre > 0 else 0
+    n_priority_mode = sum(1 for t in tasks if t['decision_mode'] == 'priority_only')
+    n_open_mode = sum(1 for t in tasks if t['decision_mode'] == 'open')
     print(f"Projects with candidates: {n_with_candidates}")
     print(f"Projects with no candidates (skipped): {n_no_candidates}")
     print(f"Candidate filtering: {total_pre:,} -> {total_post:,} ({reduction_pct:.0f}% reduction)")
+    print(f"Decision mode: {n_priority_mode} priority_only (FONSI/ROD), {n_open_mode} open")
 
     # Process with thread pool
     results = {}
     start_time = time.time()
 
     def _process_one(task):
+        # Diagnostic fields included in every result
+        diag = {
+            'llm_decision_mode': task['decision_mode'],
+            'llm_n_priority_decision_candidates': task['n_priority_decision'],
+            'llm_n_other_decision_candidates': task['n_other_decision'],
+        }
+
         if not task['candidates']:
             return task['idx'], {
                 'llm_initiation_date': None,
@@ -4152,19 +4240,41 @@ def run_llm_adjudication(
                 'llm_adj_error': 'no_candidates',
                 'llm_adj_n_candidates': 0,
                 'llm_adj_raw_response': None,
+                **diag,
             }
 
-        prompt = _build_adjudication_prompt(task['project_title'], task['candidates'])
+        prompt = _build_adjudication_prompt(
+            task['project_title'],
+            task['candidates'],
+            decision_mode=task['decision_mode'],
+            allowed_decision_dates=task['allowed_decision_dates'],
+        )
         if provider == 'claude':
-            ollama_result = _call_claude_adjudication(prompt, model, timeout)
+            llm_result = _call_claude_adjudication(prompt, model, timeout)
         else:
-            ollama_result = _call_ollama_adjudication(prompt, model, timeout)
+            llm_result = _call_ollama_adjudication(prompt, model, timeout)
 
-        parsed = _parse_adjudication_response(ollama_result['response'])
-        parsed['llm_adj_error'] = ollama_result['error']
+        parsed = _parse_adjudication_response(llm_result['response'])
+        parsed['llm_adj_error'] = llm_result['error']
         parsed['llm_adj_n_candidates'] = task['n_candidates']
         parsed['llm_adj_prompt'] = prompt
-        parsed['llm_adj_raw_response'] = ollama_result['response'][:500] if ollama_result['response'] else None
+        parsed['llm_adj_raw_response'] = llm_result['response'][:500] if llm_result['response'] else None
+        parsed.update(diag)
+
+        # Post-parse guardrail: only enforced in priority_only mode.
+        # When FONSI/ROD/DR candidates exist, the LLM must pick from those.
+        # In open mode, Claude is free to pick any date.
+        if task['decision_mode'] == 'priority_only':
+            allowed = task['allowed_decision_dates']
+            picked_dec = parsed.get('llm_decision_date')
+            if picked_dec and allowed and picked_dec not in allowed:
+                parsed['llm_decision_date'] = None
+                existing_err = parsed.get('llm_adj_error') or ''
+                parsed['llm_adj_error'] = (
+                    f"{existing_err}; decision_not_in_allowed_tier" if existing_err
+                    else 'decision_not_in_allowed_tier'
+                )
+
         return task['idx'], parsed
 
     completed = 0
@@ -4185,7 +4295,8 @@ def run_llm_adjudication(
 
     # Merge results into DataFrame
     for col in ['llm_initiation_date', 'llm_decision_date', 'llm_initiation_reasoning',
-                'llm_decision_reasoning', 'llm_adj_error', 'llm_adj_n_candidates', 'llm_adj_prompt', 'llm_adj_raw_response']:
+                'llm_decision_reasoning', 'llm_adj_error', 'llm_adj_n_candidates', 'llm_adj_prompt', 'llm_adj_raw_response',
+                'llm_decision_mode', 'llm_n_priority_decision_candidates', 'llm_n_other_decision_candidates']:
         df[col] = None
 
     for idx, result_dict in results.items():
@@ -4215,11 +4326,16 @@ def run_llm_adjudication(
             agree_init = (df.loc[both_have_init, 'bert_initiation_date_final'] == df.loc[both_have_init, 'llm_initiation_date']).sum()
             print(f"{'Initiation agreement':20s} {agree_init:>8d} / {both_have_init.sum()}")
 
+    # Decision mode breakdown
+    if 'llm_decision_mode' in df.columns:
+        mode_counts = df['llm_decision_mode'].value_counts().to_dict()
+        print(f"\nDecision modes: {mode_counts}")
+
     errors = df['llm_adj_error'].dropna()
     if not errors.empty:
         non_skip_errors = errors[errors != 'no_candidates']
         if not non_skip_errors.empty:
-            print(f"\nErrors: {non_skip_errors.value_counts().to_dict()}")
+            print(f"Errors: {non_skip_errors.value_counts().to_dict()}")
 
     # Save output
     if output_file:
