@@ -1,6 +1,6 @@
 # Timeline Extraction Status
 
-**Last updated**: 2026-02-12
+**Last updated**: 2026-02-13
 
 This document summarizes the current state of timeline extraction for the NEPA project. Read this file to understand timeline-related work without needing to explore the full codebase.
 
@@ -478,6 +478,119 @@ Reviewed 11 misclassified projects from the BERT full run (`projects_timeline_be
 
 ---
 
+## Updates Added (2026-02-13) — EA/EIS Timeline Construction
+
+Extended the timeline pipeline to support EA and EIS projects (previously CE-only), added Claude API as an LLM adjudication provider, and implemented tiered decision selection to improve decision date quality.
+
+### Multi-source support (CE, EA, EIS)
+
+- **`--source` CLI arg**: `--regex-prep --source EA`, `--bert-run --source EIS`, etc. Per-source regex caches saved to `regex_candidates_ea.parquet`, `regex_candidates_eis.parquet`.
+- **Per-source expected counts**: `EXPECTED_CLEAN_COUNTS = {'CE': 19399, 'EA': 573, 'EIS': 753}` with tolerance of 50. Warns if actual count drifts.
+- **Clean energy hardcoded**: `--regex-prep` and `--bert-run` always filter to clean energy projects (no need for `--clean-energy` flag).
+- **Per-document regex processing**: `run_regex_prep()` now iterates documents individually instead of concatenating all pages, tagging each candidate with `doc_type` (FONSI, ROD, EA, DEA, etc.).
+- **main_document only**: Only `main_document == 'YES'` documents are parsed for date candidates (both at page and document level).
+
+### EA/EIS-specific BERT post-processing
+
+- **ROD/FONSI doc-type boost**: +3 score for candidates from ROD/FONSI documents in `_select_best_decision()`.
+- **Post-BERT FONSI/ROD override**: Forces `decision` label when EA/EIS decision language (FONSI, ROD, decision record) is present in context, even if BERT classified differently.
+- **Historical year exemption**: Dates with FONSI/ROD context no longer overridden to `historical` by the pre-2000 year rule.
+
+### LLM adjudication pipeline (Regex → BERT → LLM)
+
+Three-stage pipeline where the LLM sees all candidates together and picks best initiation/decision:
+
+1. **Regex** extracts date candidates with context from document text
+2. **BERT** classifies each candidate (decision/initiation/review/other/historical/expiration)
+3. **LLM** reads all candidates + BERT classifications + context and adjudicates
+
+New CLI:
+```bash
+python extract_timeline.py --llm-adjudicate --input test50_ea.parquet --provider claude
+python extract_timeline.py --llm-adjudicate --input test50_ea.parquet --provider ollama --model llama3.2:3b-instruct-q4_K_M
+```
+
+### Claude API support
+
+- **Provider flag**: `--provider claude` (default: ollama). Uses `claude-haiku-4-5-20251001` by default.
+- **API key**: reads `ANTHROPIC_API_KEY` environment variable (not hardcoded).
+- **Rate limit handling**: retries on 429 with `retry-after` header, up to 3 retries.
+- **Sequential by default**: Claude provider forces `workers=1` to respect rate limits.
+- **Cost**: ~$0.78 for all 573 EA projects (Haiku pricing).
+
+### Candidate noise filtering (`_filter_candidates_for_llm`)
+
+Layered filtering to reduce noise before sending to the LLM:
+
+| Layer | Filter | Purpose |
+|-------|--------|---------|
+| 1 | Dedup by date | Same date appearing Nx → keep best, note count |
+| 2 | Confidence floor (0.3) | Drop BERT's worst guesses; exempt FONSI/ROD/EA/DEA |
+| 3 | Smart type filter | Keep decision/initiation always; review only if conf >= 0.5 or has cues; drop other |
+| 4 | Doc-type priority | Stricter thresholds for blank/unknown doc types |
+| 5 | Tiered decision gating | See below |
+| 6 | Hard cap at 50 | Absolute bound on prompt size |
+
+### Tiered decision selection (newest)
+
+Explicit gating so the LLM only considers appropriate decision candidates:
+
+- **Tier A** (priority): FONSI, ROD, DR, Decision Record → if any decision candidates exist from these, only these are allowed.
+- **Tier B** (fallback): EA, DEA → used only when Tier A is empty, and only if context has strong decision language (signed, approved, issued, finding, FONSI, determination) AND no exclusion patterns (draft, comment period, scoping, NOI).
+
+The LLM prompt explicitly states the mode and allowed date set:
+- `priority_only`: "You MUST pick the decision date from this set ONLY: [dates]"
+- `ea_dea_fallback`: "No FONSI/ROD exists, pick from this limited set"
+- `no_decision_candidates`: "You MUST respond with null"
+
+**Post-parse guardrail**: if the LLM returns a decision date not in the allowed set, it's nulled out with `llm_adj_error = 'decision_not_in_allowed_tier'`.
+
+### Diagnostic output columns
+
+| Column | Description |
+|--------|-------------|
+| `llm_decision_date` | LLM's best decision date |
+| `llm_initiation_date` | LLM's best initiation date |
+| `llm_decision_reasoning` | Brief explanation |
+| `llm_initiation_reasoning` | Brief explanation |
+| `llm_decision_mode` | `priority_only`, `ea_dea_fallback`, or `no_decision_candidates` |
+| `llm_n_priority_decision_candidates` | Count of Tier A candidates |
+| `llm_n_eadea_fallback_candidates` | Count of Tier B candidates |
+| `llm_adj_n_candidates` | Total candidates sent to LLM |
+| `llm_adj_error` | Error or guardrail flag |
+| `llm_adj_prompt` | Full prompt sent to LLM |
+
+### BERT vs Claude accuracy (50-project EA test)
+
+Spot-check of 10 projects showed Claude was more accurate than BERT for EA decisions:
+- Claude correct in all 10 cases where it had an opinion
+- BERT picked non-NEPA events in 4/10 cases (tribal agreements, FEMA revisions, wetland verifications)
+
+### Known gaps (EA/EIS)
+
+- Only 11% of EA projects have FONSI/ROD documents — 89% rely on EA text for decision dates
+- 8 FONSI documents were previously excluded due to `main_document` flag (now filtered at doc level)
+- Filename dates could serve as fallback but are 90% year-only precision (useful for sanity checks, not day-level dates)
+
+### Workflow (EA)
+
+```bash
+# 1. Build regex cache
+python extract_timeline.py --regex-prep --source EA
+
+# 2. BERT classification
+python extract_timeline.py --bert-run --source EA --sample 50 --output test50_ea.parquet
+
+# 3. Claude adjudication
+python extract_timeline.py --llm-adjudicate --input test50_ea.parquet --provider claude
+
+# 4. Full run
+python extract_timeline.py --bert-run --source EA --output projects_timeline_bert_ea.parquet
+python extract_timeline.py --llm-adjudicate --input projects_timeline_bert_ea.parquet --provider claude
+```
+
+---
+
 ## File References
 
 | File | Purpose |
@@ -524,6 +637,20 @@ python extract_timeline.py --bert-run --output projects_timeline_bert.parquet  #
 ---
 
 ## Change Log
+
+### 2026-02-13 - EA/EIS Multi-Source + Claude LLM Adjudication
+- **Extended pipeline to EA and EIS** with `--source` CLI arg, per-source regex caches, per-source expected counts
+- **Per-document regex processing** with `doc_type` tagging (FONSI, ROD, EA, DEA, etc.)
+- **main_document filtering** enforced at both page and document level
+- **ROD/FONSI scoring boost** (+3) and post-BERT override for EA/EIS decision language
+- **LLM adjudication pipeline**: regex → BERT classify → LLM adjudicate (`--llm-adjudicate`)
+- **Claude API support** (`--provider claude`) with rate-limit retry and env var API key
+- **Candidate noise filtering** (`_filter_candidates_for_llm`): dedup, confidence floor, type filtering, doc-type priority, hard cap at 50
+- **Tiered decision selection**: Tier A (FONSI/ROD/DR) preferred; Tier B (EA/DEA) fallback only with strong decision language
+- **Post-parse guardrail**: nulls LLM decision if not in allowed tier set
+- **Diagnostic columns**: `llm_decision_mode`, `llm_n_priority_decision_candidates`, `llm_n_eadea_fallback_candidates`
+- **Prompt enhancements**: explicit decision mode, allowed date set, document priority guidance
+- **Graceful handling** of missing `document_date_from_file_name` column in EA/EIS data
 
 ### 2026-02-12 - BERT v9 Guardrail Fixes
 - **Reviewed 11 misclassified projects** from BERT full run, identified 7 systematic error patterns
