@@ -3987,7 +3987,8 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
 
 def _build_adjudication_prompt(project_title: str, dates: list,
                                decision_mode: str = 'priority_only',
-                               allowed_decision_dates: set = None) -> str:
+                               allowed_decision_dates: set = None,
+                               context_chars: int = 300) -> str:
     """
     Build a prompt for LLM adjudication of BERT-classified dates.
 
@@ -4001,9 +4002,10 @@ def _build_adjudication_prompt(project_title: str, dates: list,
     for i, d in enumerate(dates, 1):
         doc_type_str = f" [doc: {d['doc_type']}]" if d.get('doc_type') else ""
         mentions_str = f" (appears {d['_mentions']}x)" if d.get('_mentions', 0) > 1 else ""
+        source_text = str(d.get('source', '') or d.get('context', ''))
         date_block.append(
             f"{i}. DATE: {d['date']}  BERT_TYPE: {d['type']}{doc_type_str}{mentions_str}\n"
-            f"   CONTEXT: {d['source'][:300]}"
+            f"   CONTEXT: {source_text[:context_chars]}"
         )
     dates_text = "\n".join(date_block)
 
@@ -4184,6 +4186,10 @@ def _parse_adjudication_response(response_text: str) -> dict:
 
 
 CLAUDE_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+LLM_ADJ_DEFAULT_MAX_CANDIDATES = 50
+LLM_ADJ_DEFAULT_CONTEXT_CHARS = 300
+LLM_ADJ_EIS_MAX_CANDIDATES = 30
+LLM_ADJ_EIS_CONTEXT_CHARS = 200
 
 
 def run_llm_adjudication(
@@ -4251,6 +4257,12 @@ def run_llm_adjudication(
     for idx, row in df.iterrows():
         project_id = row['project_id']
         project_title = row.get('project_title', 'Unknown')
+        dataset_source = str(row.get('dataset_source', '') or '').upper()
+        process_type = str(row.get('process_type', '') or '').upper()
+
+        is_eis = dataset_source == 'EIS' or process_type == 'EIS'
+        max_candidates = LLM_ADJ_EIS_MAX_CANDIDATES if is_eis else LLM_ADJ_DEFAULT_MAX_CANDIDATES
+        context_chars = LLM_ADJ_EIS_CONTEXT_CHARS if is_eis else LLM_ADJ_DEFAULT_CONTEXT_CHARS
 
         # Parse BERT dates JSON
         dates_json = row.get('bert_dates_json', '[]')
@@ -4264,12 +4276,16 @@ def run_llm_adjudication(
             d for d in all_dates
             if d.get('type') not in ('historical', 'expiration')
         ]
-        filter_result = _filter_candidates_for_llm(pre_filter, max_candidates=50)
+        filter_result = _filter_candidates_for_llm(pre_filter, max_candidates=max_candidates)
 
         tasks.append({
             'idx': idx,
             'project_id': project_id,
             'project_title': project_title,
+            'dataset_source': dataset_source,
+            'process_type': process_type,
+            'max_candidates': max_candidates,
+            'context_chars': context_chars,
             'candidates': filter_result['candidates'],
             'decision_mode': filter_result['decision_mode'],
             'allowed_decision_dates': filter_result['allowed_decision_dates'],
@@ -4292,6 +4308,11 @@ def run_llm_adjudication(
     print(f"Projects with candidates: {n_with_candidates}")
     print(f"Projects with no candidates (skipped): {n_no_candidates}")
     print(f"Candidate filtering: {total_pre:,} -> {total_post:,} ({reduction_pct:.0f}% reduction)")
+    n_eis_tasks = sum(1 for t in tasks if t['max_candidates'] == LLM_ADJ_EIS_MAX_CANDIDATES)
+    print(
+        f"Adjudication limits: default cap={LLM_ADJ_DEFAULT_MAX_CANDIDATES}, "
+        f"EIS cap={LLM_ADJ_EIS_MAX_CANDIDATES} ({n_eis_tasks} projects)"
+    )
     print(
         f"Decision modes: {n_priority_mode} priority_only, "
         f"{n_fallback_mode} ea_eis_fallback, "
@@ -4328,6 +4349,7 @@ def run_llm_adjudication(
             task['candidates'],
             decision_mode=task['decision_mode'],
             allowed_decision_dates=task['allowed_decision_dates'],
+            context_chars=task['context_chars'],
         )
         if provider == 'claude':
             llm_result = _call_claude_adjudication(prompt, model, timeout)
