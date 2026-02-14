@@ -667,6 +667,19 @@ python extract_timeline.py --bert-run --output projects_timeline_bert.parquet  #
 - **Validation**:
   - `python -m py_compile code/extract/extract_timeline.py` passed
 
+### 2026-02-14 (Addendum) - EA Fallback Gate Tuning After v2 Regression
+- **Observed issue after initial fallback tightening (`test50_ea_llm_v2.parquet`)**:
+  - Decision coverage dropped (LLM decision found: 24/50 vs prior 28/50) even though target project `41cbef1f58b19d9f391d037a5d0cbfc6` was fixed (`2019-07-01` selected).
+  - Root cause: fallback mode became over-constrained (hard set + strict guardrail + prompt language effectively forcing nulls outside narrow set).
+- **Implemented rollback/tuning in `extract_timeline.py`**:
+  - Kept strict guardrail (`decision_not_in_allowed_tier`) **only** for `priority_only` mode (FONSI/ROD/DR).
+  - Changed `ea_eis_fallback` prompt from hard-constrained (“MUST pick only from set”) to preference-based (“SHOULD prioritize set, may choose another stronger-context date”).
+  - Changed `no_decision_candidates` prompt from forced null to context-based adjudication (“pick only if clear final approval/completion context exists”).
+- **Kept useful fix from v2**:
+  - Fallback gate still allows final-document marker promotion (e.g., `Final Environmental Assessment July 2019`), enabling selection of `2019-07-01` for project `41cbef1f58b19d9f391d037a5d0cbfc6`.
+- **Resulting workflow note**:
+  - Use `test50_ea_llm_v3.parquet` (or later) as the tuned baseline instead of `v2`.
+
 ### 2026-02-13 - EA/EIS Multi-Source + Claude LLM Adjudication
 - **Extended pipeline to EA and EIS** with `--source` CLI arg, per-source regex caches, per-source expected counts
 - **Per-document regex processing** with `doc_type` tagging (FONSI, ROD, EA, DEA, etc.)
