@@ -8,6 +8,9 @@
 #5.00 - 4.91 | .09
 #4.91 - 4.75 | .16
 #4.75 - 4.63 | .12
+#4.63 - 4.48 | .15
+#4.48 - 4.34 | .14
+#4.34 - 4.21 #| .13
 
 # --------------------------
 # SETUP
@@ -107,6 +110,7 @@ show_timeline(timeline, "0b5d77cbc60c67c4be589f6d2f8d9f27") # seem off
 # --------------------------
 llm <- read_parquet("data/analysis/test50_ea_llm.parquet")
 
+llm |> glimpse()
 
 #
 # sample
@@ -132,7 +136,7 @@ sample <-
 # ------------------------------
 llm |> 
   #filter(project_id == "0b5d77cbc60c67c4be589f6d2f8d9f27") |> # example 0b5d77cbc60c67c4be589f6d2f8d9f27 - decision should be 2012-10-01
-  filter(project_id %in% sample) |> 
+  #filter(project_id %in% sample) |> 
   select(bert_initiation_date_final, bert_decision_date, llm_initiation_date, llm_decision_date) |> 
   print(n = 50)
 
@@ -169,8 +173,8 @@ analysis <-
 
 # bert timeline status
 analysis |> 
-  filter(!is.na(llm_initiation_date) & is.na(llm_decision_date)) |> 
-  filter(is.na(llm_initiation_date)) |> 
+  filter(!is.na(llm_initiation_date) & !is.na(llm_decision_date)) |> 
+  #filter(is.na(llm_initiation_date)) |> 
   glimpse()
 
 analysis |> 

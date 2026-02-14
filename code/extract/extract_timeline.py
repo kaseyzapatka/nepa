@@ -881,6 +881,10 @@ DECISION_PATTERNS_STRONG = [
     r'\bfonsi\b',                          # EA decision abbreviation
     r'record of decision',                 # EIS decision document
     r'\brod\b.*signed',                    # ROD-specific signature
+    r'joint record of decision',           # EIS joint ROD variant
+    r'record of decision.*(signed|issued)',
+    r'(selected|selection of) alternative',  # EIS final selection language
+    r'decision to implement',
 ]
 
 DECISION_PATTERNS_MED = [
@@ -919,6 +923,11 @@ INITIATION_PATTERNS_STRONG = [
     r'designation form',
     r'doe initiator signature',
     r'notice of intent.*prepare',          # EIS-specific NOI language
+    r'intent to prepare (an )?environmental impact statement',
+    r'notice of intent.*environmental impact statement',
+    r'noi.*federal register',
+    r'notice of intent.*published',
+    r'scoping notice',
 ]
 
 INITIATION_PATTERNS_MED = [
@@ -2301,6 +2310,8 @@ DECISION_CUES = [
     'authorizing official', 'field manager', 'field office manager',
     'field office manager determination', 'nepa compliance officer',
     'environmental coordinator', 'concur', 'date determined', 'initiator signature',
+    'record of decision', 'rod', 'joint record of decision',
+    'selected alternative', 'decision to implement',
 ]
 
 INITIATION_CUES = [
@@ -2310,7 +2321,8 @@ INITIATION_CUES = [
     'comment period', '30-day comment period', 'request for', 'right-of-way application',
     'row application', 'right of way application',
     'document creation', 'date created', 'date prepared', 'prepared', 'drafted',
-    'revised',
+    'revised', 'intent to prepare an environmental impact statement',
+    'noi published', 'federal register', 'scoping notice',
 ]
 
 REVIEW_CUES = [
@@ -3656,7 +3668,9 @@ def run_regex_prep(
         print(f"Processing {total} {source} projects for regex candidates...")
 
         # Build document_id -> document_type lookup
-        doc_type_map = dict(zip(documents_df['document_id'], documents_df['document_type'].fillna('')))
+        # Prefer cleaned labels when available (better signal for EIS fallback gating).
+        doc_type_col = 'document_type_clean' if 'document_type_clean' in documents_df.columns else 'document_type'
+        doc_type_map = dict(zip(documents_df['document_id'], documents_df[doc_type_col].fillna('')))
 
         for idx, (_, project) in enumerate(source_projects.iterrows()):
             if idx % 100 == 0:
@@ -3731,9 +3745,11 @@ def run_regex_prep(
 # Decision-priority docs: most reliable for decision/approval dates
 _LLM_DECISION_DOC_TYPES = {'ROD', 'FONSI', 'DR', 'DECISION RECORD'}
 # Initiation-priority docs: most reliable for initiation/scoping dates
-_LLM_INITIATION_DOC_TYPES = {'EA', 'DEA', 'FEA', 'DEIS'}
+_LLM_INITIATION_DOC_TYPES = {'EA', 'DEA', 'DEIS'}
+# Fallback decision docs (used only when Tier A is absent)
+_LLM_FALLBACK_DECISION_DOC_TYPES = {'EA', 'DEA', 'DEIS', 'FEIS', 'FEA', 'EIS'}
 # All known EA/EIS doc types (used for filtering vs blank/unknown)
-_LLM_KNOWN_DOC_TYPES = _LLM_DECISION_DOC_TYPES | _LLM_INITIATION_DOC_TYPES | {'FEIS', 'OTHER'}
+_LLM_KNOWN_DOC_TYPES = _LLM_DECISION_DOC_TYPES | _LLM_FALLBACK_DECISION_DOC_TYPES | {'OTHER'}
 
 
 def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> dict:
@@ -3743,7 +3759,7 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
     Applies layered filtering to reduce noise, then applies tiered decision
     selection so the LLM only sees appropriate decision candidates:
       - Tier A (priority): FONSI, ROD, DR, Decision Record
-      - Tier B (fallback): EA, DEA — only used when Tier A has zero decision
+      - Tier B (fallback): EA, DEA, DEIS, FEIS — only used when Tier A has zero decision
         candidates, and only if context has strong decision language.
 
     Layers:
@@ -3762,10 +3778,10 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
     Returns:
         dict with keys:
           'candidates': filtered list of date dicts, sorted chronologically
-          'decision_mode': 'priority_only' | 'open'
+          'decision_mode': 'priority_only' | 'ea_eis_fallback' | 'no_decision_candidates'
           'allowed_decision_dates': set of YYYY-MM-DD strings the LLM may pick
           'n_priority_decision': int count of Tier A decision candidates
-          'n_other_decision': int count of non-Tier-A decision candidates
+          'n_other_decision': int count of Tier B fallback decision candidates
     """
     empty_result = {
         'candidates': [],
@@ -3860,12 +3876,32 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
                 doc_filtered.append(d)
 
     # ----- Layer 5: Tiered decision classification -----
-    # Classify decision candidates into tiers for prompt guidance.
     # Tier A (FONSI/ROD/DR) = hard constraint: if present, LLM must pick from these.
-    # Non-Tier-A = soft guidance: all candidates sent to LLM, prompt guides preference.
+    # Tier B fallback (EA/DEA/DEIS/FEIS + strong decision language) is only used
+    # when Tier A is empty.
     tier_a_decision = []
-    other_decision = []
+    fallback_decision = []
     non_decision = []
+
+    _STRONG_DECISION_PATTERNS = {
+        'signed', 'approved', 'issued', 'finding', 'fonsi',
+        'record of decision', 'decision record', 'determination',
+        'approval', 'authorized', 'authorization',
+        'selected alternative', 'joint record of decision',
+    }
+    _NON_DECISION_PATTERNS = {
+        'draft', 'public review', 'comment period', 'scoping',
+        'notice of intent', 'noi', 'proposed action', 'public comment',
+        'draft eis', 'draft environmental impact statement',
+        'notice of availability', 'noa',
+        'public hearing', 'comment deadline',
+    }
+
+    def _has_strong_decision_language(d):
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        has_strong = any(p in ctx for p in _STRONG_DECISION_PATTERNS)
+        has_exclude = any(p in ctx for p in _NON_DECISION_PATTERNS)
+        return has_strong and not has_exclude
 
     for d in doc_filtered:
         doc_type = _get_doc_type(d)
@@ -3874,24 +3910,32 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
         if dtype == 'decision' and doc_type in _LLM_DECISION_DOC_TYPES:
             tier_a_decision.append(d)
         elif dtype == 'decision':
-            other_decision.append(d)
+            # Fallback-doc decisions, or blank/other docs, must pass strong language checks.
+            if doc_type in _LLM_FALLBACK_DECISION_DOC_TYPES or doc_type not in _LLM_KNOWN_DOC_TYPES:
+                if _has_strong_decision_language(d):
+                    fallback_decision.append(d)
         else:
             non_decision.append(d)
 
     n_priority = len(tier_a_decision)
-    n_other_dec = len(other_decision)
+    n_other_dec = len(fallback_decision)
 
     if n_priority > 0:
         # Hard constraint: only FONSI/ROD/DR decision dates allowed
         decision_mode = 'priority_only'
-        allowed_decision_dates = {d.get('date') for d in tier_a_decision}
+        allowed_decision = tier_a_decision
+    elif n_other_dec > 0:
+        # Fallback mode: only vetted EA/DEA/DEIS/FEIS decision dates allowed
+        decision_mode = 'ea_eis_fallback'
+        allowed_decision = fallback_decision
     else:
-        # Soft guidance: all candidates sent, Claude decides
-        decision_mode = 'open'
-        allowed_decision_dates = set()  # empty = no constraint
+        decision_mode = 'no_decision_candidates'
+        allowed_decision = []
 
-    # All candidates go to the LLM (Tier A gets priority via prompt)
-    final = tier_a_decision + other_decision + non_decision
+    allowed_decision_dates = {d.get('date') for d in allowed_decision}
+
+    # Only allowed decision candidates are sent, plus all non-decision candidates.
+    final = allowed_decision + non_decision
 
     # ----- Layer 6: Hard cap -----
     if len(final) > max_candidates:
@@ -3929,7 +3973,7 @@ def _build_adjudication_prompt(project_title: str, dates: list,
     Args:
         project_title: Project name for context.
         dates: Filtered date candidate dicts.
-        decision_mode: 'priority_only' or 'open'.
+        decision_mode: 'priority_only', 'ea_eis_fallback', or 'no_decision_candidates'.
         allowed_decision_dates: Set of YYYY-MM-DD strings the LLM may pick for decision.
     """
     date_block = []
@@ -3949,16 +3993,22 @@ def _build_adjudication_prompt(project_title: str, dates: list,
             f"DECISION MODE: priority_only\n"
             f"This project has decision candidates from FONSI/ROD/Decision Record documents.\n"
             f"You MUST pick the decision date from this set ONLY: [{allowed_str}]\n"
-            f"Do NOT use dates from EA or other documents for the decision."
+            f"Do NOT use dates from EA/DEA/DEIS/FEIS or other documents for the decision."
+        )
+    elif decision_mode == 'ea_eis_fallback':
+        allowed_str = ', '.join(sorted(allowed_decision_dates)) if allowed_decision_dates else 'none'
+        decision_constraint = (
+            "DECISION MODE: ea_eis_fallback\n"
+            "This project has NO FONSI/ROD/Decision Record documents.\n"
+            "Decision candidates are limited to EA/DEA/DEIS/FEIS dates with strong decision language.\n"
+            f"You MUST pick the decision date from this set ONLY: [{allowed_str}]\n"
+            "If none are convincing, respond with null for decision_date."
         )
     else:
-        # Open mode: no FONSI/ROD docs, Claude picks from all candidates
         decision_constraint = (
-            "DECISION MODE: open\n"
-            "This project has NO FONSI/ROD/Decision Record documents.\n"
-            "Look for the best decision date among all candidates, preferring dates with "
-            "strong decision language (signed, approved, issued, FONSI, decision record, "
-            "determination, authorization). If no convincing decision date exists, respond with null."
+            "DECISION MODE: no_decision_candidates\n"
+            "No strong decision candidates exist for this project.\n"
+            "You MUST respond with null for decision_date."
         )
 
     return f"""You are an expert at reading NEPA (National Environmental Policy Act) project documents.
@@ -3978,8 +4028,8 @@ DEFINITIONS:
 {decision_constraint}
 
 INITIATION GUIDANCE:
-- Prefer dates from EA or DEA (Draft EA) documents that reference application, scoping, or project start.
-- FONSI/ROD documents rarely contain good initiation dates.
+- Prefer dates from EA/DEA (or DEIS for EIS projects) that reference application, NOI, scoping, or project start.
+- FONSI/ROD/Decision Record documents rarely contain good initiation dates.
 
 RULES:
 - The initiation date must come BEFORE the decision date.
@@ -4213,11 +4263,16 @@ def run_llm_adjudication(
     total_post = sum(t['n_candidates'] for t in tasks)
     reduction_pct = (1 - total_post / total_pre) * 100 if total_pre > 0 else 0
     n_priority_mode = sum(1 for t in tasks if t['decision_mode'] == 'priority_only')
-    n_open_mode = sum(1 for t in tasks if t['decision_mode'] == 'open')
+    n_fallback_mode = sum(1 for t in tasks if t['decision_mode'] == 'ea_eis_fallback')
+    n_no_dec_mode = sum(1 for t in tasks if t['decision_mode'] == 'no_decision_candidates')
     print(f"Projects with candidates: {n_with_candidates}")
     print(f"Projects with no candidates (skipped): {n_no_candidates}")
     print(f"Candidate filtering: {total_pre:,} -> {total_post:,} ({reduction_pct:.0f}% reduction)")
-    print(f"Decision mode: {n_priority_mode} priority_only (FONSI/ROD), {n_open_mode} open")
+    print(
+        f"Decision modes: {n_priority_mode} priority_only, "
+        f"{n_fallback_mode} ea_eis_fallback, "
+        f"{n_no_dec_mode} no_decision_candidates"
+    )
 
     # Process with thread pool
     results = {}
@@ -4229,6 +4284,7 @@ def run_llm_adjudication(
             'llm_decision_mode': task['decision_mode'],
             'llm_n_priority_decision_candidates': task['n_priority_decision'],
             'llm_n_other_decision_candidates': task['n_other_decision'],
+            'llm_n_fallback_decision_candidates': task['n_other_decision'],
         }
 
         if not task['candidates']:
@@ -4261,19 +4317,16 @@ def run_llm_adjudication(
         parsed['llm_adj_raw_response'] = llm_result['response'][:500] if llm_result['response'] else None
         parsed.update(diag)
 
-        # Post-parse guardrail: only enforced in priority_only mode.
-        # When FONSI/ROD/DR candidates exist, the LLM must pick from those.
-        # In open mode, Claude is free to pick any date.
-        if task['decision_mode'] == 'priority_only':
-            allowed = task['allowed_decision_dates']
-            picked_dec = parsed.get('llm_decision_date')
-            if picked_dec and allowed and picked_dec not in allowed:
-                parsed['llm_decision_date'] = None
-                existing_err = parsed.get('llm_adj_error') or ''
-                parsed['llm_adj_error'] = (
-                    f"{existing_err}; decision_not_in_allowed_tier" if existing_err
-                    else 'decision_not_in_allowed_tier'
-                )
+        # Post-parse guardrail: enforce allowed decision date set for any constrained mode.
+        allowed = task['allowed_decision_dates']
+        picked_dec = parsed.get('llm_decision_date')
+        if picked_dec and allowed and picked_dec not in allowed:
+            parsed['llm_decision_date'] = None
+            existing_err = parsed.get('llm_adj_error') or ''
+            parsed['llm_adj_error'] = (
+                f"{existing_err}; decision_not_in_allowed_tier" if existing_err
+                else 'decision_not_in_allowed_tier'
+            )
 
         return task['idx'], parsed
 
@@ -4296,7 +4349,8 @@ def run_llm_adjudication(
     # Merge results into DataFrame
     for col in ['llm_initiation_date', 'llm_decision_date', 'llm_initiation_reasoning',
                 'llm_decision_reasoning', 'llm_adj_error', 'llm_adj_n_candidates', 'llm_adj_prompt', 'llm_adj_raw_response',
-                'llm_decision_mode', 'llm_n_priority_decision_candidates', 'llm_n_other_decision_candidates']:
+                'llm_decision_mode', 'llm_n_priority_decision_candidates',
+                'llm_n_other_decision_candidates', 'llm_n_fallback_decision_candidates']:
         df[col] = None
 
     for idx, result_dict in results.items():

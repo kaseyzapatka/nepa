@@ -638,6 +638,35 @@ python extract_timeline.py --bert-run --output projects_timeline_bert.parquet  #
 
 ## Change Log
 
+### 2026-02-14 - EIS Cue + Tiering Enhancements
+- **Expanded EIS decision regex cues** in `extract_timeline.py`:
+  - Added variants like `joint record of decision`, `record of decision ... signed/issued`, `selected alternative`, `decision to implement`
+- **Expanded EIS initiation regex cues**:
+  - Added variants like `intent to prepare ... environmental impact statement`, `notice of intent ... EIS`, `NOI ... federal register`, `scoping notice`
+- **Expanded hybrid cue library for EIS**:
+  - Added EIS-oriented decision cues in `DECISION_CUES` (ROD/joint ROD/selected alternative)
+  - Added EIS-oriented initiation cues in `INITIATION_CUES` (NOI published, federal register, scoping notice)
+- **Generalized LLM fallback logic from EA-only to EA+EIS docs**:
+  - Added fallback decision doc set: `EA`, `DEA`, `DEIS`, `FEIS`, `FEA`, `EIS`
+  - Decision mode now supports:
+    - `priority_only` (FONSI/ROD/DR/Decision Record candidates only)
+    - `ea_eis_fallback` (EA/DEA/DEIS/FEIS fallback only when Tier A is empty)
+    - `no_decision_candidates`
+- **Tightened fallback decision filtering**:
+  - Requires strong decision language for fallback candidates
+  - Added non-decision exclusions for draft/public review signals (including EIS-specific noise like `draft EIS`, `notice of availability`, `public hearing`, comment-period language)
+- **Prompt updates for EIS-aware adjudication**:
+  - Updated decision-mode instructions and allowed decision-date set text
+  - Updated initiation guidance to include EIS initiation context (`DEIS`/NOI/scoping)
+- **Guardrail enforcement remains strict**:
+  - If LLM returns a decision date outside allowed tier set, date is nulled and flagged with `decision_not_in_allowed_tier`
+- **Regex prep doc typing improved**:
+  - `run_regex_prep()` now prefers `document_type_clean` when available (falls back to raw `document_type` otherwise) to improve tiering quality for EIS docs with weak raw type labels
+- **No change (intentional)**:
+  - CLI hardcode behavior for `main_docs_only=True` in `--regex-prep` and `--bert-run` was not changed in this update
+- **Validation**:
+  - `python -m py_compile code/extract/extract_timeline.py` passed
+
 ### 2026-02-13 - EA/EIS Multi-Source + Claude LLM Adjudication
 - **Extended pipeline to EA and EIS** with `--source` CLI arg, per-source regex caches, per-source expected counts
 - **Per-document regex processing** with `doc_type` tagging (FONSI, ROD, EA, DEA, etc.)
