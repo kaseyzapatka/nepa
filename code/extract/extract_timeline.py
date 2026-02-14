@@ -9,6 +9,7 @@ import json
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
+from calendar import monthrange
 import sys
 
 # Add parent directory to path for imports
@@ -305,6 +306,93 @@ def build_file_name_date_map(documents_df: pd.DataFrame, main_docs_only: bool = 
         deduped[project_id] = json.dumps(out)
 
     return deduped
+
+
+def _parse_document_date_value(value):
+    """
+    Parse preserved-granularity filename date values.
+
+    Accepted forms:
+    - YYYY
+    - YYYY-MM
+    - YYYY-MM-DD
+
+    Returns:
+        tuple(datetime, datetime) as earliest/latest bounds for the value
+    """
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+
+    s = str(value).strip()
+    if not s:
+        return None
+
+    try:
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}', s):
+            dt = datetime.strptime(s, '%Y-%m-%d')
+            return dt, dt
+        if re.fullmatch(r'\d{4}-\d{2}', s):
+            year, month = [int(x) for x in s.split('-')]
+            start = datetime(year, month, 1)
+            end = datetime(year, month, monthrange(year, month)[1])
+            return start, end
+        if re.fullmatch(r'\d{4}', s):
+            year = int(s)
+            return datetime(year, 1, 1), datetime(year, 12, 31)
+    except ValueError:
+        return None
+
+    return None
+
+
+def _build_project_filename_bounds_map(documents_df: pd.DataFrame, main_docs_only: bool = True) -> dict:
+    """
+    Build project-level earliest/latest bounds from document_date_from_file_name.
+
+    Returns:
+        dict[project_id] -> {'project_date_earliest_file_name': 'YYYY-MM-DD'|None,
+                             'project_date_latest_file_name': 'YYYY-MM-DD'|None}
+    """
+    if documents_df is None or documents_df.empty:
+        return {}
+
+    df = documents_df.copy()
+
+    def extract_id(x):
+        if isinstance(x, dict):
+            return x.get('value', '')
+        return x
+
+    if 'project_id' in df.columns:
+        df['project_id'] = df['project_id'].apply(extract_id)
+
+    if main_docs_only and 'main_document' in df.columns:
+        df = df[df['main_document'] == 'YES']
+
+    if 'document_date_from_file_name' not in df.columns:
+        raise ValueError(
+            "documents.parquet is missing required column 'document_date_from_file_name'. "
+            "Re-run extract_data.py to rebuild processed documents."
+        )
+
+    out = {}
+    for project_id, group in df.groupby('project_id'):
+        min_dt = None
+        max_dt = None
+        for val in group['document_date_from_file_name'].tolist():
+            parsed = _parse_document_date_value(val)
+            if parsed is None:
+                continue
+            low, high = parsed
+            min_dt = low if min_dt is None or low < min_dt else min_dt
+            max_dt = high if max_dt is None or high > max_dt else max_dt
+
+        out[project_id] = {
+            'project_date_earliest_file_name': min_dt.strftime('%Y-%m-%d') if min_dt else None,
+            'project_date_latest_file_name': max_dt.strftime('%Y-%m-%d') if max_dt else None,
+        }
+
+    return out
 
 def should_exclude_date(text, match_start, match_end, window=50):
     """
@@ -647,6 +735,10 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
             documents_df,
             main_docs_only=main_docs_only
         )
+        file_name_bounds_map = _build_project_filename_bounds_map(
+            documents_df,
+            main_docs_only=main_docs_only
+        )
 
         # Filter to main documents only if requested
         if main_docs_only:
@@ -662,6 +754,9 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
             project_id = project['project_id']
             timeline = build_project_timeline(project_id, pages_df, documents_df, decision_docs_only)
             timeline['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+            bounds = file_name_bounds_map.get(project_id, {})
+            timeline['project_date_earliest_file_name'] = bounds.get('project_date_earliest_file_name')
+            timeline['project_date_latest_file_name'] = bounds.get('project_date_latest_file_name')
             results.append(timeline)
 
     # Create results dataframe
@@ -2033,6 +2128,7 @@ def run_bert_timeline_extraction(
 
     # Load documents for filename date extraction (all requested sources)
     file_name_dates_map = {}
+    file_name_bounds_map = {}
     for source in sources:
         data_dir = PROCESSED_DIR / source.lower()
         documents_df = pd.read_parquet(data_dir / "documents.parquet")
@@ -2047,7 +2143,12 @@ def run_bert_timeline_extraction(
             documents_df,
             main_docs_only=main_docs_only
         )
+        source_bounds = _build_project_filename_bounds_map(
+            documents_df,
+            main_docs_only=main_docs_only
+        )
         file_name_dates_map.update(source_map)
+        file_name_bounds_map.update(source_bounds)
     print(f"Built filename date map: {len(file_name_dates_map):,} projects")
 
     # Load regex cache (per-source with legacy fallback)
@@ -2134,6 +2235,8 @@ def run_bert_timeline_extraction(
             'bert_timeline_status': timeline_status,
             'bert_error': bert_result.get('error'),
             'project_file_name_dates': file_name_dates_map.get(project_id, '[]'),
+            'project_date_earliest_file_name': file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name'),
+            'project_date_latest_file_name': file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name'),
         }
         results.append(result)
 
@@ -3357,6 +3460,10 @@ def run_llm_timeline_extraction(
         documents_df,
         main_docs_only=main_docs_only
     )
+    file_name_bounds_map = _build_project_filename_bounds_map(
+        documents_df,
+        main_docs_only=main_docs_only
+    )
 
     # Filter to main documents only if requested
     if main_docs_only:
@@ -3395,12 +3502,16 @@ def run_llm_timeline_extraction(
                 use_hybrid=True, timeout=timeout, dates_with_context=dates_with_context
             )
             result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+            result['project_date_earliest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name')
+            result['project_date_latest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name')
             return result
         result = build_project_timeline_llm(
             project_id, pages_df, documents_df, model=model,
             use_hybrid=use_hybrid, timeout=timeout
         )
         result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+        result['project_date_earliest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name')
+        result['project_date_latest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name')
         return result
 
     if workers and workers > 1:

@@ -30,6 +30,7 @@ from pathlib import Path
 import sys
 import re
 import ast
+from datetime import datetime
 
 # datasets is only needed for raw extraction from HuggingFace
 # Import lazily to allow analysis mode to work without it
@@ -1201,6 +1202,9 @@ def run_raw_extraction(dataset_type):
     documents_df = extract_documents(ds)
     pages_df = extract_pages(ds)
 
+    # Add filename-derived document-level date with preserved precision
+    documents_df = add_document_date_from_file_name(documents_df)
+
     # Add cleaned document type for downstream analysis/timeline filtering
     documents_df = add_document_type_clean(documents_df)
 
@@ -1561,6 +1565,135 @@ DOCUMENT_TYPE_CLEAN_PATTERNS = {
 KNOWN_DOCUMENT_TYPES = {'ROD', 'FONSI', 'CE', 'FEIS', 'DEIS', 'EA', 'DEA', 'OTHER'}
 
 
+# Filename date extraction patterns for document-level metadata.
+# Returns the most precise date found in each filename:
+# - YYYY-MM-DD if day is present
+# - YYYY-MM if only month/year is present
+# - YYYY if only year is present
+DOC_FILENAME_DATE_PATTERNS = [
+    (re.compile(r'(?<!\d)(19\d{2}|20\d{2})[._\-/](\d{1,2})[._\-/](\d{1,2})(?!\d)'), 'YMD'),
+    (re.compile(r'(?<!\d)(\d{1,2})[._\-/](\d{1,2})[._\-/](19\d{2}|20\d{2})(?!\d)'), 'MDY'),
+    (re.compile(r'(?<!\d)(19\d{2})(\d{2})(\d{2})(?!\d)'), 'YMD_COMPACT'),
+    (re.compile(r'(?<!\d)(19\d{2}|20\d{2})[._\-/](\d{1,2})(?!\d)'), 'YM'),
+]
+
+MONTH_TOKEN_MAP = {
+    'jan': 1, 'january': 1,
+    'feb': 2, 'february': 2,
+    'mar': 3, 'march': 3,
+    'apr': 4, 'april': 4,
+    'may': 5,
+    'jun': 6, 'june': 6,
+    'jul': 7, 'july': 7,
+    'aug': 8, 'august': 8,
+    'sep': 9, 'sept': 9, 'september': 9,
+    'oct': 10, 'october': 10,
+    'nov': 11, 'november': 11,
+    'dec': 12, 'december': 12,
+}
+
+DOC_FILENAME_MONTHNAME_PATTERNS = [
+    re.compile(
+        r'\b(' + '|'.join(MONTH_TOKEN_MAP.keys()) + r')[\s._\-/]+(\d{1,2})[\s,._\-/]+(19\d{2}|20\d{2})\b',
+        re.IGNORECASE
+    ),
+    re.compile(
+        r'\b(' + '|'.join(MONTH_TOKEN_MAP.keys()) + r')[\s._\-/]+(19\d{2}|20\d{2})\b',
+        re.IGNORECASE
+    ),
+]
+
+DOC_FILENAME_YEAR_PATTERN = re.compile(r'(?<!\d)(19\d{2}|20\d{2})(?!\d)')
+
+
+def _to_document_date_string(year, month=None, day=None):
+    """Return a normalized date string preserving available granularity."""
+    if day is not None and month is not None:
+        try:
+            datetime(int(year), int(month), int(day))
+            return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+        except ValueError:
+            return None
+    if month is not None:
+        if 1 <= int(month) <= 12:
+            return f"{int(year):04d}-{int(month):02d}"
+        return None
+    return f"{int(year):04d}"
+
+
+def extract_document_date_from_file_name(file_name):
+    """
+    Extract one best-effort date string from filename.
+
+    Preference order:
+    1) Most recent YYYY-MM-DD
+    2) Most recent YYYY-MM
+    3) Most recent YYYY
+    """
+    if not isinstance(file_name, str) or not file_name.strip():
+        return None
+
+    text = file_name.strip()
+    ymd_candidates = []
+    ym_candidates = []
+    y_candidates = []
+
+    for pattern, kind in DOC_FILENAME_DATE_PATTERNS:
+        for match in pattern.finditer(text):
+            groups = match.groups()
+            if kind == 'YMD':
+                value = _to_document_date_string(groups[0], groups[1], groups[2])
+                if value:
+                    ymd_candidates.append(value)
+            elif kind == 'MDY':
+                value = _to_document_date_string(groups[2], groups[0], groups[1])
+                if value:
+                    ymd_candidates.append(value)
+            elif kind == 'YMD_COMPACT':
+                value = _to_document_date_string(groups[0], groups[1], groups[2])
+                if value:
+                    ymd_candidates.append(value)
+            elif kind == 'YM':
+                value = _to_document_date_string(groups[0], groups[1], None)
+                if value:
+                    ym_candidates.append(value)
+
+    # Month-name formats (e.g., Jan-2021 or Jan 14 2021)
+    for pattern in DOC_FILENAME_MONTHNAME_PATTERNS:
+        for match in pattern.finditer(text):
+            groups = match.groups()
+            month = MONTH_TOKEN_MAP.get(groups[0].lower())
+            if month is None:
+                continue
+            if len(groups) == 3:
+                value = _to_document_date_string(groups[2], month, groups[1])
+                if value:
+                    ymd_candidates.append(value)
+            elif len(groups) == 2:
+                value = _to_document_date_string(groups[1], month, None)
+                if value:
+                    ym_candidates.append(value)
+
+    for year in DOC_FILENAME_YEAR_PATTERN.findall(text):
+        y_candidates.append(_to_document_date_string(year))
+
+    # Deduplicate and pick latest within precision tier
+    if ymd_candidates:
+        return sorted(set(ymd_candidates))[-1]
+    if ym_candidates:
+        return sorted(set(ym_candidates))[-1]
+    if y_candidates:
+        return sorted(set(y_candidates))[-1]
+    return None
+
+
+def add_document_date_from_file_name(df):
+    """Add document_date_from_file_name column to documents dataframe."""
+    df = df.copy()
+    df['document_date_from_file_name'] = df['file_name'].apply(extract_document_date_from_file_name)
+    return df
+
+
 def classify_document_type_clean(doc_type, file_name=None, document_title=None):
     """
     Normalize document type to a specific cleaned type.
@@ -1742,6 +1875,10 @@ def create_combined_documents():
     # Add specific cleaned type labels before broad category labels
     print("Adding document type clean labels...")
     combined = add_document_type_clean(combined)
+
+    # Add filename-derived document-level date with preserved precision
+    print("Adding document_date_from_file_name...")
+    combined = add_document_date_from_file_name(combined)
 
     # Add document type category
     print("Adding document type categories...")
