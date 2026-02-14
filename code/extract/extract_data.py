@@ -1201,6 +1201,9 @@ def run_raw_extraction(dataset_type):
     documents_df = extract_documents(ds)
     pages_df = extract_pages(ds)
 
+    # Add cleaned document type for downstream analysis/timeline filtering
+    documents_df = add_document_type_clean(documents_df)
+
     projects_df.to_parquet(out_dir / "projects.parquet")
     processes_df.to_parquet(out_dir / "processes.parquet")
     documents_df.to_parquet(out_dir / "documents.parquet")
@@ -1513,6 +1516,92 @@ FILENAME_PATTERNS = {
 }
 
 
+DOCUMENT_TYPE_CLEAN_PATTERNS = {
+    'ROD': [
+        r'(?:^|[^a-zA-Z])ROD(?:[^a-zA-Z]|$)',
+        r'Record[_\-\s]?of[_\-\s]?Decision',
+        r'Decision[_\-\s]?Record',
+        r'Signed[_\-\s]?Decision',
+    ],
+    'FONSI': [
+        r'(?:^|[^a-zA-Z])FONSI(?:[^a-zA-Z]|$)',
+        r'Finding[_\-\s]?of[_\-\s]?No[_\-\s]?Significant[_\-\s]?Impact',
+    ],
+    'CE': [
+        r'Categorical[_\-\s]?Exclusion',
+        r'(?:^|[^a-zA-Z])CE(?:[^a-zA-Z]|$)',
+    ],
+    'FEIS': [
+        r'(?:^|[^a-zA-Z])FEIS(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+    ],
+    'DEIS': [
+        r'(?:^|[^a-zA-Z])DEIS(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+    ],
+    'DEA': [
+        r'(?:^|[^a-zA-Z])DEA(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?A(?:ssessment)?',
+        r'Draft[_\-\s]?EA(?:[^a-zA-Z]|$)',
+    ],
+    'EA': [
+        r'Final[_\-\s]?EA(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?Environmental[_\-\s]?Assessment',
+        r'(?:^|[^a-zA-Z])EA(?:[^a-zA-Z]|$)',
+        r'Environmental[_\-\s]?Assessment',
+    ],
+    'APPENDIX': [
+        r'(?:^|[^a-zA-Z])Appendix',
+        r'(?:^|[^a-zA-Z])Appendices(?:[^a-zA-Z]|$)',
+        r'(?:^|[^a-zA-Z])Attachment',
+        r'(?:^|[^a-zA-Z])Exhibit(?:[^a-zA-Z]|$)',
+    ],
+}
+
+KNOWN_DOCUMENT_TYPES = {'ROD', 'FONSI', 'CE', 'FEIS', 'DEIS', 'EA', 'DEA', 'OTHER'}
+
+
+def classify_document_type_clean(doc_type, file_name=None, document_title=None):
+    """
+    Normalize document type to a specific cleaned type.
+
+    Priority:
+    1) Keep known raw document_type values
+    2) Infer from file_name/document_title patterns
+    3) Fallback to OTHER
+    """
+    doc_type_norm = ''
+    if doc_type is not None and not pd.isna(doc_type):
+        doc_type_norm = str(doc_type).upper().strip()
+
+    if doc_type_norm in KNOWN_DOCUMENT_TYPES and doc_type_norm != '':
+        return doc_type_norm
+
+    search_text = f"{file_name or ''} || {document_title or ''}"
+    for clean_type in ['ROD', 'FONSI', 'CE', 'FEIS', 'DEIS', 'DEA', 'EA', 'APPENDIX']:
+        for pattern in DOCUMENT_TYPE_CLEAN_PATTERNS.get(clean_type, []):
+            if re.search(pattern, search_text, re.IGNORECASE):
+                return clean_type
+
+    return 'OTHER'
+
+
+def add_document_type_clean(df):
+    """
+    Add document_type_clean column to a documents dataframe.
+    """
+    df = df.copy()
+    df['document_type_clean'] = df.apply(
+        lambda row: classify_document_type_clean(
+            row.get('document_type'),
+            row.get('file_name'),
+            row.get('document_title'),
+        ),
+        axis=1
+    )
+    return df
+
+
 def classify_document_type(doc_type, file_name=None):
     """
     Classify a document_type into a category.
@@ -1527,8 +1616,6 @@ def classify_document_type(doc_type, file_name=None):
     Returns:
         str: Category name ('decision', 'final', 'draft', 'appendix', 'other')
     """
-    import re
-
     # First, try to classify using document_type if present
     if doc_type is not None and not pd.isna(doc_type) and doc_type != '':
         doc_type_upper = str(doc_type).upper().strip()
@@ -1566,8 +1653,12 @@ def add_document_type_category(df):
         DataFrame with document_type_category column added
     """
     df = df.copy()
+    if 'document_type_clean' not in df.columns:
+        df = add_document_type_clean(df)
+
+    # Prefer cleaned type for category mapping.
     df['document_type_category'] = df.apply(
-        lambda row: classify_document_type(row.get('document_type'), row.get('file_name')),
+        lambda row: classify_document_type(row.get('document_type_clean'), row.get('file_name')),
         axis=1
     )
     return df
@@ -1583,6 +1674,10 @@ def get_project_document_flags(documents_df):
     Returns:
         DataFrame with project_id and document flag columns
     """
+    # Ensure cleaned/simplified document type fields exist
+    if 'document_type_clean' not in documents_df.columns:
+        documents_df = add_document_type_clean(documents_df)
+
     # Ensure document_type_category exists
     if 'document_type_category' not in documents_df.columns:
         documents_df = add_document_type_category(documents_df)
@@ -1644,6 +1739,10 @@ def create_combined_documents():
 
     combined = pd.concat(all_documents, ignore_index=True)
 
+    # Add specific cleaned type labels before broad category labels
+    print("Adding document type clean labels...")
+    combined = add_document_type_clean(combined)
+
     # Add document type category
     print("Adding document type categories...")
     combined = add_document_type_category(combined)
@@ -1654,6 +1753,10 @@ def create_combined_documents():
     output_path = ANALYSIS_DIR / "documents_combined.parquet"
     combined.to_parquet(output_path)
     print(f"Saved {len(combined):,} documents to: {output_path}")
+
+    # Print document type category stats
+    print("\nDocument type clean:")
+    print(combined['document_type_clean'].value_counts())
 
     # Print document type category stats
     print("\nDocument type categories:")
