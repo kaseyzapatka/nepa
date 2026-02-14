@@ -5,13 +5,7 @@
 # Full run: data/analysis/projects_timeline_bert.parquet
 
 # TAB
-#5.00 - 4.91 | .09
-#4.91 - 4.75 | .16
-#4.75 - 4.63 | .12
-#4.63 - 4.48 | .15
-#4.48 - 4.34 | .14
-#4.34 - 4.21 | .13
-#4.21 - 4.07 #| .14
+#2.28 - 2.17 #| .11
 
 # --------------------------
 # SETUP
@@ -70,8 +64,8 @@ final_timeline <- function(df, pid) {
 # LOAD BERT TIMELINE DATA
 # --------------------------
 # settings
-#bert_timeline_path <- here("data", "analysis", "test50_ea.parquet")
-bert_timeline_path <- here("data", "analysis", "test50_ea_llm.parquet")
+bert_timeline_path <- here("data", "analysis", "test50_eis.parquet")
+#bert_timeline_path <- here("data", "analysis", "test50_eis_llm.parquet")
 bert_json_col = "bert_dates_json"
 
 # extract
@@ -101,15 +95,14 @@ sample
 #
 # checks
 # ------------------------------
-show_timeline(timeline, "2225ede090009df12ee87dcf48e16103") # no decision
-show_timeline(timeline, "064ca592292b00766bfac7cddb952a1e") # seems too old
-show_timeline(timeline, "0b5d77cbc60c67c4be589f6d2f8d9f27") # seem off
+show_timeline(timeline, "XXXXXXX") # no decision
 
 
 # --------------------------
 # LLM
 # --------------------------
-llm <- read_parquet("data/analysis/test50_ea_llm.parquet")
+llm <- read_parquet("data/analysis/test50_eis_llm.parquet")
+
 
 llm |> glimpse()
 
@@ -136,9 +129,10 @@ sample <-
 # compare llm with bert 
 # ------------------------------
 llm |> 
-  #filter(project_id == "0b5d77cbc60c67c4be589f6d2f8d9f27") |> # example 0b5d77cbc60c67c4be589f6d2f8d9f27 - decision should be 2012-10-01
   #filter(project_id %in% sample) |> 
   select(bert_initiation_date_final, bert_decision_date, llm_initiation_date, llm_decision_date) |> 
+  #filter(!is.na(bert_initiation_date_final) & !is.na(bert_decision_date)) |> 
+  drop_na() |> 
   print(n = 50)
 
 #
@@ -218,19 +212,17 @@ llm |>
 # documents
 # --------------------------
 docs <- read_parquet("data/analysis/documents_combined.parquet") |> 
-  filter(dataset_source == "EA") |> 
+  filter(dataset_source == "EIS") |> 
+  glimpse()
+
+docs |>
+  filter(project_id == "1d8e80f7f4201d7cde3a6a71d30e3266") |> 
   glimpse()
 
 projects <- read_parquet("data/analysis/projects_combined.parquet") |> 
-  filter(dataset_source == "EA") |> 
+  filter(dataset_source == "EIS") |> 
   glimpse()
 
-candidates <- read_parquet("data/analysis/regex_candidates_ea.parquet") |> 
-  glimpse()
-
-candidates |> 
-  filter(project_id == "543b103fec369256675be35047a51d20") |> 
-  glimpse()
 
 projects |> 
   select(contains("date")) |> 
@@ -249,14 +241,11 @@ sample <-
 
 docs |> 
   #filter(project_id == "be968878a52ba88ffa3b34a9e8510b6b") |> 
-  #filter(project_id == "6e9fc6608e30977c74305d2a98628a13") |> 
   filter(project_id %in% sample) |> 
   select(file_name, document_type, document_type_clean, document_type_category, main_document) |> 
   print()
 
 sample 
-
-# a94c8dd2bac25c3c52045291fc2b79f9 - FEA should be final
 
 docs |> 
   select(document_type_category) |> 
