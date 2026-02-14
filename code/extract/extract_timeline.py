@@ -3877,8 +3877,11 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
 
     # ----- Layer 5: Tiered decision classification -----
     # Tier A (FONSI/ROD/DR) = hard constraint: if present, LLM must pick from these.
-    # Tier B fallback (EA/DEA/DEIS/FEIS + strong decision language) is only used
-    # when Tier A is empty.
+    # Tier B fallback (EA/DEA/DEIS/FEIS) is only used when Tier A is empty.
+    # Fallback candidates can pass via:
+    #   - strong decision language, OR
+    #   - clear final-document markers (Final EA/FEIS), even if BERT mislabels
+    #     the candidate as initiation/review.
     tier_a_decision = []
     fallback_decision = []
     non_decision = []
@@ -3889,19 +3892,30 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
         'approval', 'authorized', 'authorization',
         'selected alternative', 'joint record of decision',
     }
+    _FINAL_DOC_DECISION_MARKERS = {
+        'final environmental assessment', 'final ea',
+        'final environmental impact statement', 'final eis', 'feis',
+    }
     _NON_DECISION_PATTERNS = {
         'draft', 'public review', 'comment period', 'scoping',
-        'notice of intent', 'noi', 'proposed action', 'public comment',
+        'notice of intent', 'noi', 'public comment',
         'draft eis', 'draft environmental impact statement',
         'notice of availability', 'noa',
         'public hearing', 'comment deadline',
     }
+
+    def _is_fallback_doc(doc_type):
+        return doc_type in _LLM_FALLBACK_DECISION_DOC_TYPES or doc_type not in _LLM_KNOWN_DOC_TYPES
 
     def _has_strong_decision_language(d):
         ctx = str(d.get('source', '') or d.get('context', '')).lower()
         has_strong = any(p in ctx for p in _STRONG_DECISION_PATTERNS)
         has_exclude = any(p in ctx for p in _NON_DECISION_PATTERNS)
         return has_strong and not has_exclude
+
+    def _has_final_doc_decision_marker(d):
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        return any(p in ctx for p in _FINAL_DOC_DECISION_MARKERS)
 
     for d in doc_filtered:
         doc_type = _get_doc_type(d)
@@ -3911,9 +3925,16 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
             tier_a_decision.append(d)
         elif dtype == 'decision':
             # Fallback-doc decisions, or blank/other docs, must pass strong language checks.
-            if doc_type in _LLM_FALLBACK_DECISION_DOC_TYPES or doc_type not in _LLM_KNOWN_DOC_TYPES:
-                if _has_strong_decision_language(d):
+            if _is_fallback_doc(doc_type):
+                if _has_strong_decision_language(d) or _has_final_doc_decision_marker(d):
                     fallback_decision.append(d)
+        elif dtype in ('initiation', 'review', 'other'):
+            # Promote misclassified fallback candidates if context clearly indicates
+            # a final EA/FEIS document date.
+            if _is_fallback_doc(doc_type) and _has_final_doc_decision_marker(d):
+                fallback_decision.append(d)
+            else:
+                non_decision.append(d)
         else:
             non_decision.append(d)
 
@@ -4000,15 +4021,18 @@ def _build_adjudication_prompt(project_title: str, dates: list,
         decision_constraint = (
             "DECISION MODE: ea_eis_fallback\n"
             "This project has NO FONSI/ROD/Decision Record documents.\n"
-            "Decision candidates are limited to EA/DEA/DEIS/FEIS dates with strong decision language.\n"
-            f"You MUST pick the decision date from this set ONLY: [{allowed_str}]\n"
-            "If none are convincing, respond with null for decision_date."
+            "Decision candidates are limited to EA/DEA/DEIS/FEIS dates with strong decision language "
+            "or clear final-document markers (Final EA/FEIS).\n"
+            f"Preferred decision-date set: [{allowed_str}].\n"
+            "You SHOULD prioritize this set, but you may pick another candidate date if its context "
+            "more clearly indicates final approval/completion."
         )
     else:
         decision_constraint = (
             "DECISION MODE: no_decision_candidates\n"
-            "No strong decision candidates exist for this project.\n"
-            "You MUST respond with null for decision_date."
+            "No high-confidence decision candidates were pre-identified.\n"
+            "Review all provided candidates and pick a decision date only if context clearly indicates "
+            "final approval/completion; otherwise respond with null."
         )
 
     return f"""You are an expert at reading NEPA (National Environmental Policy Act) project documents.
@@ -4317,16 +4341,18 @@ def run_llm_adjudication(
         parsed['llm_adj_raw_response'] = llm_result['response'][:500] if llm_result['response'] else None
         parsed.update(diag)
 
-        # Post-parse guardrail: enforce allowed decision date set for any constrained mode.
-        allowed = task['allowed_decision_dates']
-        picked_dec = parsed.get('llm_decision_date')
-        if picked_dec and allowed and picked_dec not in allowed:
-            parsed['llm_decision_date'] = None
-            existing_err = parsed.get('llm_adj_error') or ''
-            parsed['llm_adj_error'] = (
-                f"{existing_err}; decision_not_in_allowed_tier" if existing_err
-                else 'decision_not_in_allowed_tier'
-            )
+        # Post-parse guardrail: strict enforcement only for priority_only mode.
+        # In fallback/no-candidate modes, allow the LLM to infer from broader context.
+        if task['decision_mode'] == 'priority_only':
+            allowed = task['allowed_decision_dates']
+            picked_dec = parsed.get('llm_decision_date')
+            if picked_dec and allowed and picked_dec not in allowed:
+                parsed['llm_decision_date'] = None
+                existing_err = parsed.get('llm_adj_error') or ''
+                parsed['llm_adj_error'] = (
+                    f"{existing_err}; decision_not_in_allowed_tier" if existing_err
+                    else 'decision_not_in_allowed_tier'
+                )
 
         return task['idx'], parsed
 
