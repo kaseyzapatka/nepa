@@ -92,11 +92,16 @@ python code/extract/extract_timeline.py --llm-adjudicate --input projects_timeli
 ### Multi-source runs
 
 ```bash
-# Build regex caches for EA + EIS together
-python code/extract/extract_timeline.py --regex-prep --source EA,EIS
+# Build regex caches per source
+python code/extract/extract_timeline.py --regex-prep --source CE
+python code/extract/extract_timeline.py --regex-prep --source EA
+python code/extract/extract_timeline.py --regex-prep --source EIS
 
-# Run all three sources
+# Run BERT across all three sources
 python code/extract/extract_timeline.py --bert-run --source CE,EA,EIS --output projects_timeline_bert_all.parquet
+
+# Run Claude adjudication on combined BERT output
+python code/extract/extract_timeline.py --llm-adjudicate --input projects_timeline_bert_all.parquet --provider claude --output projects_timeline_bert_all_llm.parquet
 ```
 
 ### Retraining with EA/EIS data
