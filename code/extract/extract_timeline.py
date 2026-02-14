@@ -3724,6 +3724,156 @@ def run_regex_prep(
 # LLM Adjudication: Post-BERT LLM pass to select best initiation/decision
 # ---------------------------------------------------------------------------
 
+# Doc types that are inherently high-signal for decisions
+_LLM_DECISION_DOC_TYPES = {'ROD', 'FONSI'}
+
+
+def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> list:
+    """
+    Filter and rank date candidates before sending to LLM adjudication.
+
+    Applies layered filtering to reduce noise while preserving the strongest
+    initiation and decision signals:
+      Layer 1: Dedup by date (keep best version of each date)
+      Layer 2: Confidence floor (drop very low confidence, except FONSI/ROD)
+      Layer 3: Smart type filtering (drop low-value review/other)
+      Layer 4: Doc-type priority (stricter filtering for blank/other docs)
+      Layer 5: Hard cap at max_candidates
+
+    Args:
+        candidates: List of date dicts from BERT classification (already
+                    excluding historical/expiration).
+        max_candidates: Maximum candidates to return.
+
+    Returns:
+        Filtered list of date dicts, sorted by relevance.
+    """
+    if not candidates:
+        return []
+
+    # ----- Layer 1: Dedup by date -----
+    # Group by date string, keep the best version (highest confidence,
+    # best doc_type), annotate with mention count.
+    from collections import defaultdict
+    by_date = defaultdict(list)
+    for d in candidates:
+        by_date[d.get('date', '')].append(d)
+
+    deduped = []
+    for date_str, group in by_date.items():
+        if not date_str:
+            continue
+        # Score each duplicate: prefer FONSI/ROD doc, then decision/initiation
+        # type, then higher confidence
+        def _dedup_score(d):
+            doc_type = str(d.get('doc_type', '')).upper().strip()
+            doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else 0
+            type_bonus = 5 if d.get('type') in ('decision', 'initiation') else 0
+            conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
+            return doc_bonus + type_bonus + conf
+
+        group.sort(key=_dedup_score, reverse=True)
+        best = group[0].copy()
+        if len(group) > 1:
+            best['_mentions'] = len(group)
+        deduped.append(best)
+
+    # ----- Layer 2: Confidence floor -----
+    # Drop candidates with very low BERT confidence, UNLESS they come from
+    # a FONSI/ROD document (always high-signal regardless of BERT score).
+    CONFIDENCE_FLOOR = 0.3
+    filtered = []
+    for d in deduped:
+        doc_type = str(d.get('doc_type', '')).upper().strip()
+        conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
+        is_decision_doc = doc_type in _LLM_DECISION_DOC_TYPES
+
+        if is_decision_doc or conf >= CONFIDENCE_FLOOR:
+            filtered.append(d)
+
+    # ----- Layer 3: Smart type filtering -----
+    # - Always keep: decision, initiation (these are what the LLM chooses from)
+    # - Keep review only if: confidence >= 0.5 OR context has decision/initiation cues
+    #   (BERT sometimes misclassifies initiation as review)
+    # - Drop other: unless from a FONSI/ROD document
+    _decision_cues_lower = {c.lower() for c in DECISION_CUES}
+    _initiation_cues_lower = {c.lower() for c in INITIATION_CUES}
+
+    def _has_timeline_cue(d):
+        """Check if context contains decision or initiation language."""
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        return any(cue in ctx for cue in _decision_cues_lower) or \
+               any(cue in ctx for cue in _initiation_cues_lower)
+
+    type_filtered = []
+    for d in filtered:
+        dtype = d.get('type', '')
+        doc_type = str(d.get('doc_type', '')).upper().strip()
+        conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
+        is_decision_doc = doc_type in _LLM_DECISION_DOC_TYPES
+
+        if dtype in ('decision', 'initiation'):
+            type_filtered.append(d)
+        elif dtype == 'review':
+            if conf >= 0.5 or _has_timeline_cue(d) or is_decision_doc:
+                type_filtered.append(d)
+        elif dtype == 'other':
+            if is_decision_doc:
+                type_filtered.append(d)
+        else:
+            # Unknown type — keep if high confidence
+            if conf >= 0.6:
+                type_filtered.append(d)
+
+    # ----- Layer 4: Doc-type priority -----
+    # For blank/OTHER doc types, apply stricter filtering: only keep
+    # decision/initiation with reasonable confidence.
+    doc_filtered = []
+    for d in type_filtered:
+        doc_type = str(d.get('doc_type', '')).upper().strip()
+        dtype = d.get('type', '')
+        conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
+
+        if doc_type in _LLM_DECISION_DOC_TYPES or doc_type in ('EA', 'FEIS', 'DEIS', 'DEA', 'FEA'):
+            # Known document type — keep (already passed earlier filters)
+            doc_filtered.append(d)
+        else:
+            # Blank or OTHER doc type — only keep decision/initiation with
+            # decent confidence, or anything with timeline cues
+            if dtype in ('decision', 'initiation') and conf >= 0.4:
+                doc_filtered.append(d)
+            elif _has_timeline_cue(d) and conf >= 0.4:
+                doc_filtered.append(d)
+
+    # ----- Layer 5: Hard cap -----
+    # Sort by composite relevance score, keep top N.
+    if len(doc_filtered) > max_candidates:
+        def _rank_score(d):
+            doc_type = str(d.get('doc_type', '')).upper().strip()
+            doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else (
+                5 if doc_type in ('EA', 'FEIS', 'DEIS', 'DEA', 'FEA') else 0
+            )
+            type_bonus = 5 if d.get('type') == 'decision' else (
+                4 if d.get('type') == 'initiation' else 0
+            )
+            conf = d.get('bert_confidence', 0.5) if isinstance(d.get('bert_confidence'), (int, float)) else 0.5
+            return doc_bonus + type_bonus + conf
+
+        doc_filtered.sort(key=_rank_score, reverse=True)
+        doc_filtered = doc_filtered[:max_candidates]
+
+    # Sort final output chronologically for the LLM
+    def _sort_date(d):
+        try:
+            return d.get('date', '9999-99-99')
+        except Exception:
+            return '9999-99-99'
+
+    doc_filtered.sort(key=_sort_date)
+
+    return doc_filtered
+
+
 def _build_adjudication_prompt(project_title: str, dates: list) -> str:
     """
     Build a prompt for LLM adjudication of BERT-classified dates.
@@ -3735,8 +3885,9 @@ def _build_adjudication_prompt(project_title: str, dates: list) -> str:
     date_block = []
     for i, d in enumerate(dates, 1):
         doc_type_str = f" [doc: {d['doc_type']}]" if d.get('doc_type') else ""
+        mentions_str = f" (appears {d['_mentions']}x)" if d.get('_mentions', 0) > 1 else ""
         date_block.append(
-            f"{i}. DATE: {d['date']}  BERT_TYPE: {d['type']}{doc_type_str}\n"
+            f"{i}. DATE: {d['date']}  BERT_TYPE: {d['type']}{doc_type_str}{mentions_str}\n"
             f"   CONTEXT: {d['source'][:300]}"
         )
     dates_text = "\n".join(date_block)
@@ -3960,11 +4111,12 @@ def run_llm_adjudication(
         except json_module.JSONDecodeError:
             all_dates = []
 
-        # Filter out historical and expiration — not useful for adjudication
-        candidates = [
+        # Remove historical/expiration, then apply layered filtering
+        pre_filter = [
             d for d in all_dates
             if d.get('type') not in ('historical', 'expiration')
         ]
+        candidates = _filter_candidates_for_llm(pre_filter, max_candidates=50)
 
         tasks.append({
             'idx': idx,
@@ -3972,14 +4124,19 @@ def run_llm_adjudication(
             'project_title': project_title,
             'candidates': candidates,
             'n_total_dates': len(all_dates),
+            'n_pre_filter': len(pre_filter),
             'n_candidates': len(candidates),
         })
 
     # Stats
     n_with_candidates = sum(1 for t in tasks if t['n_candidates'] > 0)
     n_no_candidates = sum(1 for t in tasks if t['n_candidates'] == 0)
+    total_pre = sum(t['n_pre_filter'] for t in tasks)
+    total_post = sum(t['n_candidates'] for t in tasks)
+    reduction_pct = (1 - total_post / total_pre) * 100 if total_pre > 0 else 0
     print(f"Projects with candidates: {n_with_candidates}")
     print(f"Projects with no candidates (skipped): {n_no_candidates}")
+    print(f"Candidate filtering: {total_pre:,} -> {total_post:,} ({reduction_pct:.0f}% reduction)")
 
     # Process with thread pool
     results = {}
