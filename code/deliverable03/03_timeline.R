@@ -152,6 +152,8 @@ print(fig_complete_share)
 
 cat("\nCreating Figure: Initiation and decision dates by project...\n")
 
+max_spans_per_process <- 300
+
 spans_df <- timeline %>%
   filter(!is.na(process_group)) %>%
   filter(
@@ -159,54 +161,75 @@ spans_df <- timeline %>%
     !is.na(bert_decision_date_final),
     bert_decision_date_final >= bert_initiation_date_final
   ) %>%
-  group_by(process_group) %>%
-  arrange(bert_initiation_date_final, bert_decision_date_final, .by_group = TRUE) %>%
   mutate(
-    project_order = row_number()
+    duration_days_exact = as.numeric(bert_decision_date_final - bert_initiation_date_final),
+    duration_months = duration_days_exact / 30.44
+  ) %>%
+  group_by(process_group) %>%
+  arrange(duration_months, .by_group = TRUE) %>%
+  mutate(
+    row_id = row_number(),
+    keep = if (n() <= max_spans_per_process) {
+      rep(TRUE, n())
+    } else {
+      row_id %in% round(seq(1, n(), length.out = max_spans_per_process))
+    }
+  ) %>%
+  filter(keep) %>%
+  mutate(
+    project_order = row_number(),
+    duration_bin = case_when(
+      duration_months < 6 ~ "< 6 months",
+      duration_months < 12 ~ "6-12 months",
+      duration_months < 24 ~ "1-2 years",
+      duration_months < 60 ~ "2-5 years",
+      TRUE ~ ">= 5 years"
+    ),
+    duration_bin = factor(
+      duration_bin,
+      levels = c("< 6 months", "6-12 months", "1-2 years", "2-5 years", ">= 5 years")
+    )
   ) %>%
   ungroup()
 
-segments_df <- spans_df
-
-points_df <- bind_rows(
-  spans_df %>%
-    transmute(process_group, project_order, date = bert_initiation_date_final, point_type = "Initiation"),
-  spans_df %>%
-    transmute(process_group, project_order, date = bert_decision_date_final, point_type = "Decision")
+span_colors <- c(
+  "< 6 months" = catf_lime,
+  "6-12 months" = catf_teal,
+  "1-2 years" = catf_blue,
+  "2-5 years" = catf_purple,
+  ">= 5 years" = catf_navy
 )
 
-fig_timeline_spans <- ggplot() +
+fig_timeline_spans <- ggplot(spans_df) +
   geom_segment(
-    data = segments_df,
     aes(
       x = bert_initiation_date_final, xend = bert_decision_date_final,
-      y = project_order, yend = project_order
+      y = project_order, yend = project_order,
+      color = duration_bin
     ),
-    color = catf_light_blue,
-    alpha = 0.45,
-    linewidth = 0.35
-  ) +
-  geom_point(
-    data = points_df,
-    aes(x = date, y = project_order, color = point_type),
-    alpha = 0.6,
-    size = 1.0
+    alpha = 0.8,
+    linewidth = 0.45
   ) +
   facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
-  scale_color_manual(values = c("Initiation" = catf_teal, "Decision" = catf_magenta)) +
+  scale_color_manual(values = span_colors, drop = FALSE) +
   labs(
     title = "Project Timelines by Review Process",
-    subtitle = "Complete timelines only; projects ordered by initiation date within each process",
+    subtitle = paste0(
+      "Complete timelines only; projects sorted by duration (up to ",
+      scales::comma(max_spans_per_process),
+      " per process)"
+    ),
     x = "Date",
     y = "Projects (ordered within process)",
-    color = NULL
+    color = "Duration bin"
   ) +
   theme_catf() +
   theme(
     legend.position = "top",
     axis.text.y = element_blank(),
     axis.ticks.y = element_blank(),
-    panel.grid.major.y = element_blank()
+    panel.grid.major.y = element_blank(),
+    panel.spacing = grid::unit(1.1, "lines")
   )
 
 fig_timeline_spans_path <- here(figures_dir, "03_project_timeline_spans_by_process.png")
@@ -215,7 +238,102 @@ cat("  Saved:", fig_timeline_spans_path, "\n")
 print(fig_timeline_spans)
 
 # --------------------------
-# FIGURE 3: PROJECTS BY DECISION YEAR (FACETED BY PROCESS)
+# FIGURE 4: DURATION SUMMARY INTERVALS BY PROCESS
+# --------------------------
+
+cat("\nCreating Figure: Duration summary intervals by process...\n")
+
+duration_summary <- duration_complete %>%
+  group_by(process_group) %>%
+  summarise(
+    n = n(),
+    p10 = quantile(duration_months, 0.10, na.rm = TRUE),
+    p25 = quantile(duration_months, 0.25, na.rm = TRUE),
+    median_months = median(duration_months, na.rm = TRUE),
+    p75 = quantile(duration_months, 0.75, na.rm = TRUE),
+    p90 = quantile(duration_months, 0.90, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+fig_duration_summary <- ggplot(duration_summary, aes(y = process_group, color = process_group)) +
+  geom_segment(aes(x = p10, xend = p90, yend = process_group), linewidth = 1.8, alpha = 0.35) +
+  geom_segment(aes(x = p25, xend = p75, yend = process_group), linewidth = 5.5, alpha = 0.55) +
+  geom_point(aes(x = median_months), size = 3.2) +
+  geom_text(
+    aes(x = p90, label = paste0("n=", scales::comma(n))),
+    nudge_x = 1.2,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
+  ) +
+  scale_color_catf(drop = FALSE) +
+  scale_x_continuous(
+    labels = scales::label_number(accuracy = 1),
+    expand = expansion(mult = c(0.02, 0.12))
+  ) +
+  labs(
+    title = "Timeline Duration Summary by Review Process",
+    subtitle = "Thin bar = p10 to p90, thick bar = IQR (p25 to p75), point = median",
+    x = "Duration (months)",
+    y = "Review Process",
+    color = NULL
+  ) +
+  theme_catf() +
+  theme(legend.position = "none")
+
+fig_duration_summary_path <- here(figures_dir, "03_duration_summary_intervals_by_process.png")
+ggsave(fig_duration_summary_path, fig_duration_summary, width = 10, height = 6, dpi = 300)
+cat("  Saved:", fig_duration_summary_path, "\n")
+print(fig_duration_summary)
+
+# --------------------------
+# FIGURE 5: COHORT TREND OF MEDIAN DURATION
+# --------------------------
+
+cat("\nCreating Figure: Cohort trend of timeline duration...\n")
+
+cohort_duration <- duration_complete %>%
+  mutate(initiation_year = as.integer(format(bert_initiation_date_final, "%Y"))) %>%
+  filter(!is.na(initiation_year), initiation_year >= 2000, initiation_year <= 2025) %>%
+  group_by(process_group, initiation_year) %>%
+  summarise(
+    n = n(),
+    median_months = median(duration_months, na.rm = TRUE),
+    p25 = quantile(duration_months, 0.25, na.rm = TRUE),
+    p75 = quantile(duration_months, 0.75, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  filter(n >= 10)
+
+fig_duration_cohort <- ggplot(cohort_duration, aes(x = initiation_year, y = median_months, color = process_group, fill = process_group)) +
+  geom_ribbon(aes(ymin = p25, ymax = p75), alpha = 0.15, color = NA) +
+  geom_line(linewidth = 1) +
+  geom_point(aes(size = n), alpha = 0.8) +
+  facet_wrap(~process_group, ncol = 1, drop = FALSE) +
+  scale_color_catf(drop = FALSE) +
+  scale_fill_catf(drop = FALSE) +
+  scale_size_continuous(range = c(1.8, 4.5), breaks = c(10, 25, 50, 100)) +
+  scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  labs(
+    title = "Median Timeline Duration by Initiation Cohort",
+    subtitle = "Point size indicates number of complete projects in each initiation-year cohort",
+    x = "Initiation year",
+    y = "Median duration (months)",
+    color = "Review Process",
+    fill = "Review Process",
+    size = "Projects"
+  ) +
+  theme_catf() +
+  theme(legend.position = "bottom")
+
+fig_duration_cohort_path <- here(figures_dir, "03_duration_cohort_trend_by_process.png")
+ggsave(fig_duration_cohort_path, fig_duration_cohort, width = 11, height = 10, dpi = 300)
+cat("  Saved:", fig_duration_cohort_path, "\n")
+print(fig_duration_cohort)
+
+# --------------------------
+# FIGURE 6: PROJECTS BY DECISION YEAR (FACETED BY PROCESS)
 # --------------------------
 
 cat("\nCreating Figure: Projects by decision year (by process)...\n")
@@ -254,7 +372,7 @@ cat("  Saved:", fig_by_year_path, "\n")
 print(fig_by_year)
 
 # --------------------------
-# FIGURE 4: TIMELINE STATUS MIX BY PROCESS (ADDITIONAL)
+# FIGURE 7: TIMELINE STATUS MIX BY PROCESS (ADDITIONAL)
 # --------------------------
 
 cat("\nCreating Figure: Timeline status mix by process...\n")
@@ -305,7 +423,7 @@ cat("  Saved:", fig_status_mix_path, "\n")
 print(fig_status_mix)
 
 # --------------------------
-# FIGURE 5: DURATION DISTRIBUTION BY PROCESS (ADDITIONAL)
+# FIGURE 8: DURATION DISTRIBUTION BY PROCESS (ADDITIONAL)
 # --------------------------
 
 cat("\nCreating Figure: Duration distribution by process...\n")
