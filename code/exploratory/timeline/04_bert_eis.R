@@ -6,6 +6,7 @@
 
 # TAB
 #2.28 - 2.17 #| .11
+#2.17 - 2.04 #| .13
 
 # --------------------------
 # SETUP
@@ -111,6 +112,7 @@ llm |> glimpse()
 # ------------------------------
 sample <- 
   llm |> 
+  filter(!is.na(llm_initiation_date) & !is.na(llm_decision_date)) |> 
   select(project_id) |> 
   slice_sample(n =1) |> 
   pull() |> 
@@ -130,15 +132,26 @@ sample <-
 # ------------------------------
 llm |> 
   #filter(project_id %in% sample) |> 
-  select(bert_initiation_date_final, bert_decision_date, llm_initiation_date, llm_decision_date) |> 
+  #select(project_id, bert_initiation_date_final, bert_decision_date, llm_initiation_date, llm_decision_date) |> 
   #filter(!is.na(bert_initiation_date_final) & !is.na(bert_decision_date)) |> 
-  drop_na() |> 
+  #filter(!is.na(llm_initiation_date) & !is.na(llm_decision_date)) |> 
+  filter(is.na(llm_initiation_date) & is.na(llm_decision_date)) |> 
+  select(project_id) |> 
+  #drop_na() |> 
   print(n = 50)
+
+
+llm |> 
+  filter(!is.na(llm_initiation_date) & !is.na(llm_decision_date)) |> 
+  dim()
+
+24/50 # 48% 
 
 #
 # view llm reasoning
 # ------------------------------
 llm |> 
+  #filter(project_id == "9e2d0d5d3ae33f94a782b79bae9db894") |> 
   filter(project_id %in% sample) |> 
   select(llm_initiation_reasoning) |> 
   pull() |> 
@@ -172,18 +185,19 @@ analysis |>
   #filter(is.na(llm_initiation_date)) |> 
   glimpse()
 
+# llm timeline status
 analysis |> 
   filter(!is.na(llm_initiation_date) & !is.na(llm_decision_date)) |> 
-  glimpse()
-
-# summary of timeline status
-analysis |> 
-  count(bert_timeline_status)
+  select(llm_initiation_date, llm_decision_date) |> 
+  mutate(duration = as_date(llm_decision_date) - as_date(llm_initiation_date)) |> 
+  print(n = 100)
 
 
 analysis |> 
-  filter(bert_timeline_status == "missing_decision") |> 
-  glimpse()
+  filter(!is.na(llm_initiation_date) & !is.na(llm_decision_date)) |> 
+  select(llm_initiation_date, llm_decision_date, contains("reasoning")) |> 
+  print(n = 100)
+
 
 #
 # view dates 
@@ -207,7 +221,6 @@ llm |>
   print(n = 100)
 
 
-
 # --------------------------
 # documents
 # --------------------------
@@ -226,6 +239,13 @@ projects <- read_parquet("data/analysis/projects_combined.parquet") |>
 
 projects |> 
   select(contains("date")) |> 
+  glimpse()
+
+llm |> 
+  left_join(projects) |> 
+  select(noi_publication_date, llm_initiation_date) |> 
+  drop_na() |> 
+  print()
   glimpse()
 
 #
@@ -252,4 +272,33 @@ docs |>
   distinct()
   glimpse()
 
+llm |> 
+  filter(project_id == "9e2d0d5d3ae33f94a782b79bae9db894") |> 
+  pull(llm_decision_reasoning)
 
+# 9e2d0d5d3ae33f94a782b79bae9db894
+# =================================
+#2008
+#
+#9/12/2008 — NRC and USACE sign a Memorandum of Understanding for cooperative review of nuclear power plant license applications
+#9/22/2008 — Westinghouse submits Revision 17 to the AP1000 Design Certification Amendment
+#10/14/2008 — NRC issues "notice of acceptance" for docketing the COL application (published in Federal Register)
+#12/19/2008 — EPA provides EIS scoping comments to NRC
+#
+#2009
+#
+#3/16/2009 — USACE releases public notice soliciting comments on preconstruction activities
+#5/1/2009 — PEF withdraws its Limited Work Authorization (LWA) request
+#
+#2010
+#
+#3/3/2010 — DOE submits motion to withdraw its Yucca Mountain permanent repository application
+#8/6/2010 — DEIS filed
+#8/13/2010 — CEQ Federal Register notice published
+#9/15/2010 — NRC issues updated "Waste Confidence" regulation (extending safe storage to 60 years beyond reactor licensed life)
+#9/23/2010 — Joint 404 permit public hearing held in Crystal River, FL
+#~December 2010 — AP1000 certification review expected to be completed
+#
+#2011
+#
+#NRC Safety Evaluation Report anticipated for publication

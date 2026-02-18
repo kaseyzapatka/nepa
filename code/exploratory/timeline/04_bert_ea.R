@@ -10,7 +10,10 @@
 #4.75 - 4.63 | .12
 #4.63 - 4.48 | .15
 #4.48 - 4.34 | .14
-#4.34 - 4.21 #| .13
+#4.34 - 4.21 | .13
+#4.21 - 4.07 | .14
+#4.07 - 3.93 #| .14 - 50 sample 
+#3.93 - 2.28 #| 1.65 - 573 sample 
 
 # --------------------------
 # SETUP
@@ -69,8 +72,7 @@ final_timeline <- function(df, pid) {
 # LOAD BERT TIMELINE DATA
 # --------------------------
 # settings
-#bert_timeline_path <- here("data", "analysis", "test50_ea.parquet")
-bert_timeline_path <- here("data", "analysis", "test50_ea_llm.parquet")
+bert_timeline_path <- here("data", "analysis", "projects_timeline_bert_ea_llm.parquet")
 bert_json_col = "bert_dates_json"
 
 # extract
@@ -103,15 +105,48 @@ sample
 show_timeline(timeline, "2225ede090009df12ee87dcf48e16103") # no decision
 show_timeline(timeline, "064ca592292b00766bfac7cddb952a1e") # seems too old
 show_timeline(timeline, "0b5d77cbc60c67c4be589f6d2f8d9f27") # seem off
+show_timeline(timeline, "41cbef1f58b19d9f391d037a5d0cbfc6") # 2019-07-01 - final decision
 
 
 # --------------------------
 # LLM
 # --------------------------
-llm <- read_parquet("data/analysis/test50_ea_llm.parquet")
-
+#llm <- read_parquet("data/analysis/test50_ea_llm.parquet")
+#llm <- read_parquet("data/analysis/test50_ea_llm.parquet")
+#llm <- read_parquet("data/analysis/test50_ea_llm_v3.parquet")
+llm <- read_parquet("data/analysis/projects_timeline_bert_ea_llm.parquet")
 llm |> glimpse()
 
+llm_summary <- 
+  llm |>  
+  filter(!is.na(llm_initiation_date) & !is.na(llm_decision_date)) |> 
+  select(project_id, llm_initiation_date, llm_decision_date, contains("reasoning")) |> 
+  mutate(days = as_date(llm_decision_date) - as_date(llm_initiation_date)) |> 
+  mutate(years = (as.numeric)(as_date(llm_decision_date) - as_date(llm_initiation_date))/365.25) |> 
+  glimpse()
+
+
+llm_summary |>
+  summarize(
+    mean_years = mean(
+      as.numeric(as_date(llm_decision_date) - 
+                 as_date(llm_initiation_date)),
+      na.rm = TRUE
+    ) / 365.25
+  ) |>
+  glimpse()
+
+llm_summary |> 
+  slice_sample(n = 10) |>
+  select(llm_initiation_date,llm_decision_date, days, years ) |> 
+  print()
+
+llm_summary |> 
+  slice_sample(n = 1) |>
+  pull(llm_decision_reasoning) |> 
+  print()
+
+#355/573 # 61%
 #
 # sample
 # ------------------------------
@@ -136,14 +171,19 @@ sample <-
 # ------------------------------
 llm |> 
   #filter(project_id == "0b5d77cbc60c67c4be589f6d2f8d9f27") |> # example 0b5d77cbc60c67c4be589f6d2f8d9f27 - decision should be 2012-10-01
-  #filter(project_id %in% sample) |> 
-  select(bert_initiation_date_final, bert_decision_date, llm_initiation_date, llm_decision_date) |> 
+  filter(project_id %in% sample) |> 
+  select(project_id, bert_initiation_date_final, bert_decision_date, llm_initiation_date, llm_decision_date) |> 
   print(n = 50)
+
+show_timeline(timeline, "41cbef1f58b19d9f391d037a5d0cbfc6") # 2019-03-26 | 2019-07-01 - final decision
+show_timeline(timeline, "5c29e4983e3c45262048a8b0c6cba9cf") # no clear decision
+show_timeline(timeline, "a94c8dd2bac25c3c52045291fc2b79f9") # 2008-05-22 |       
+
 
 #
 # view llm reasoning
 # ------------------------------
-llm |> 
+llm |>  
   filter(project_id %in% sample) |> 
   select(llm_initiation_reasoning) |> 
   pull() |> 
@@ -211,7 +251,37 @@ llm |>
             ) |> 
   print(n = 100)
 
+# --------------------------
+# LLM Claude Validation
+# --------------------------
+llm |> 
+  filter(!is.na(llm_initiation_date) & !is.na(llm_decision_date)) |> 
+  select(project_id) |> 
+  slice_sample(n = 10 ) |> 
+  print()
 
+# "716142ba81ce0beccb68f8cd5b0e930c" - Dates check out
+# e5c590bfc90f810aae483d05bfd75c40
+# 1c43ac38157653b1c7c339ec8598a85b
+# 0ecdffd963b17a55fb2494b1cc5b7f7c
+# 8821fb369b963ad337af0a6ac1db6ab4
+# 1c2b8cc1484c40f793104e081f0321b2
+# 0d717f5248bf4e6ae621cf064239d1b2
+# 79cc77ed8727e7744c191ac8dc7372e8
+# 6a2156fa14087bb58bd61ed1c11c717d
+# 6faf66e9757e4d865ceef6462911a854
+# 8b635116b3235c991c71d0d81be39584
+
+llm |> 
+  filter(project_id == "716142ba81ce0beccb68f8cd5b0e930c") |> 
+  select(llm_initiation_date, llm_decision_date, contains("reasoning")) |> 
+  print()
+
+llm |> 
+  filter(project_id == "0dadd4221696c70125443b189d73db55") |> 
+  select(llm_initiation_date, llm_decision_date) |> 
+  #select(llm_initiation_date, llm_decision_date, contains("reasoning")) |> 
+  print()
 
 # --------------------------
 # documents
