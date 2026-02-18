@@ -140,6 +140,7 @@ fig_complete_share <- ggplot(complete_box, aes(x = process_group, y = complete_n
   theme_catf() +
   theme(legend.position = "none")
 
+fig_complete_share
 fig_complete_share_path <- here(figures_dir, "03_complete_timeline_share_boxplot.png")
 ggsave(fig_complete_share_path, fig_complete_share, width = 9, height = 6, dpi = 300)
 cat("  Saved:", fig_complete_share_path, "\n")
@@ -153,29 +154,25 @@ cat("\nCreating Figure: Initiation and decision dates by project...\n")
 
 spans_df <- timeline %>%
   filter(!is.na(process_group)) %>%
-  filter(!is.na(bert_initiation_date_final) | !is.na(bert_decision_date_final)) %>%
-  group_by(process_group) %>%
-  arrange(coalesce(bert_initiation_date_final, bert_decision_date_final), .by_group = TRUE) %>%
-  mutate(
-    project_order = row_number(),
-    project_order_j = project_order + runif(n(), min = -0.22, max = 0.22)
-  ) %>%
-  ungroup()
-
-segments_df <- spans_df %>%
   filter(
     !is.na(bert_initiation_date_final),
     !is.na(bert_decision_date_final),
     bert_decision_date_final >= bert_initiation_date_final
-  )
+  ) %>%
+  group_by(process_group) %>%
+  arrange(bert_initiation_date_final, bert_decision_date_final, .by_group = TRUE) %>%
+  mutate(
+    project_order = row_number()
+  ) %>%
+  ungroup()
+
+segments_df <- spans_df
 
 points_df <- bind_rows(
   spans_df %>%
-    filter(!is.na(bert_initiation_date_final)) %>%
-    transmute(process_group, project_order_j, date = bert_initiation_date_final, point_type = "Initiation"),
+    transmute(process_group, project_order, date = bert_initiation_date_final, point_type = "Initiation"),
   spans_df %>%
-    filter(!is.na(bert_decision_date_final)) %>%
-    transmute(process_group, project_order_j, date = bert_decision_date_final, point_type = "Decision")
+    transmute(process_group, project_order, date = bert_decision_date_final, point_type = "Decision")
 )
 
 fig_timeline_spans <- ggplot() +
@@ -183,23 +180,23 @@ fig_timeline_spans <- ggplot() +
     data = segments_df,
     aes(
       x = bert_initiation_date_final, xend = bert_decision_date_final,
-      y = project_order_j, yend = project_order_j
+      y = project_order, yend = project_order
     ),
     color = catf_light_blue,
-    alpha = 0.25,
-    linewidth = 0.3
+    alpha = 0.45,
+    linewidth = 0.35
   ) +
   geom_point(
     data = points_df,
-    aes(x = date, y = project_order_j, color = point_type),
-    alpha = 0.50,
-    size = 0.9
+    aes(x = date, y = project_order, color = point_type),
+    alpha = 0.6,
+    size = 1.0
   ) +
   facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
   scale_color_manual(values = c("Initiation" = catf_teal, "Decision" = catf_magenta)) +
   labs(
     title = "Project Timelines by Review Process",
-    subtitle = "Each row is one project; segment length approximates review duration",
+    subtitle = "Complete timelines only; projects ordered by initiation date within each process",
     x = "Date",
     y = "Projects (ordered within process)",
     color = NULL
@@ -230,9 +227,15 @@ year_counts <- timeline %>%
 
 fig_by_year <- ggplot(year_counts, aes(x = bert_year, y = n_projects)) +
   geom_col(fill = catf_dark_blue, alpha = 0.85) +
+  geom_text(
+    aes(label = scales::comma(n_projects)),
+    vjust = -0.3,
+    size = 2.6,
+    color = "gray30"
+  ) +
   facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
   scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.10)), labels = scales::comma) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15)), labels = scales::comma) +
   labs(
     title = "Clean Energy Projects by Decision Year",
     subtitle = "Faceted by NEPA review process",
@@ -242,7 +245,7 @@ fig_by_year <- ggplot(year_counts, aes(x = bert_year, y = n_projects)) +
   ) +
   theme_catf() +
   theme(
-    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+    axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5)
   )
 
 fig_by_year_path <- here(figures_dir, "03_projects_by_year.png")
@@ -271,8 +274,20 @@ status_by_process <- timeline %>%
   mutate(pct = 100 * n / sum(n)) %>%
   ungroup()
 
+status_levels <- c("Complete", "Missing decision", "Missing initiation", "Missing both")
+status_colors <- c(
+  "Complete" = catf_teal,
+  "Missing decision" = catf_magenta,
+  "Missing initiation" = catf_blue,
+  "Missing both" = catf_navy
+)
+
+status_by_process <- status_by_process %>%
+  mutate(timeline_status_plot = factor(timeline_status_plot, levels = status_levels))
+
 fig_status_mix <- ggplot(status_by_process, aes(x = process_group, y = pct, fill = timeline_status_plot)) +
   geom_col(alpha = 0.9) +
+  scale_fill_manual(values = status_colors, drop = FALSE) +
   scale_x_discrete(drop = FALSE) +
   scale_y_continuous(labels = scales::label_percent(scale = 1), expand = expansion(mult = c(0, 0.03))) +
   labs(
@@ -301,16 +316,38 @@ duration_by_process <- timeline %>%
   filter(!is.na(duration_months), duration_months >= 0)
 
 duration_p99 <- quantile(duration_by_process$duration_months, 0.99, na.rm = TRUE)
+duration_break_step <- dplyr::case_when(
+  duration_p99 <= 36 ~ 3,
+  duration_p99 <= 96 ~ 6,
+  TRUE ~ 12
+)
+duration_breaks <- seq(
+  0,
+  ceiling(duration_p99 / duration_break_step) * duration_break_step,
+  by = duration_break_step
+)
 
 fig_duration_by_process <- ggplot(duration_by_process, aes(x = process_group, y = duration_months, fill = process_group)) +
-  geom_boxplot(outlier.alpha = 0.2, outlier.size = 0.6, linewidth = 0.4) +
+  geom_violin(alpha = 0.25, trim = FALSE, color = NA) +
+  geom_boxplot(
+    width = 0.18,
+    outlier.alpha = 0.2,
+    outlier.size = 0.6,
+    linewidth = 0.4,
+    fill = "white",
+    color = catf_navy
+  ) +
+  stat_summary(fun = median, geom = "point", shape = 21, size = 2.2, fill = catf_navy, color = "white") +
   coord_cartesian(ylim = c(0, duration_p99)) +
   scale_x_discrete(drop = FALSE) +
-  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  scale_y_continuous(
+    breaks = duration_breaks,
+    labels = scales::label_number(accuracy = 1)
+  ) +
   scale_fill_catf(drop = FALSE) +
   labs(
     title = "Project Duration Distribution by Review Process",
-    subtitle = "Complete timelines only; y-axis capped at p99 to reduce outlier dominance",
+    subtitle = "Violin + boxplot overlay; complete timelines only (y-axis capped at p99)",
     x = "Review Process",
     y = "Duration (months)"
   ) +
