@@ -18,24 +18,37 @@ source(here::here("code", "deliverable03", "00_setup.R"))
 # --------------------------
 
 timeline <- load_timeline_for_deliverable3(include_eis = FALSE)
-timeline_sources <- sort(unique(na.omit(timeline$dataset_source)))
-timeline_sources_label <- paste(timeline_sources, collapse = "+")
-cat("Timeline sources:", timeline_sources_label, "\n")
-cat("Projects loaded:", nrow(timeline), "\n\n")
+process_levels <- c("CE", "EA", "EIS")
 
-# Derive year from decision date (or inferred application date as fallback)
+# Derive harmonized timeline fields and process grouping for plotting.
 timeline <- timeline %>%
   mutate(
+    source_for_plot = toupper(as.character(coalesce(dataset_source, process_type))),
+    process_group = factor(source_for_plot, levels = process_levels),
     bert_decision_date = as.Date(bert_decision_date),
     bert_application_date = as.Date(bert_application_date),
     bert_inferred_application_date = as.Date(bert_inferred_application_date),
     bert_earliest_review_date = as.Date(bert_earliest_review_date),
+    bert_initiation_date_final = as.Date(bert_initiation_date_final),
+    bert_decision_date_final = as.Date(bert_decision_date_final),
+    timeline_complete = !is.na(bert_initiation_date_final) & !is.na(bert_decision_date_final),
     # Year from decision date
-    bert_year = as.integer(format(bert_decision_date, "%Y")),
+    bert_year = as.integer(format(bert_decision_date_final, "%Y")),
     # Duration: decision minus best available start date
-    bert_start_date = coalesce(bert_application_date, bert_inferred_application_date),
-    bert_duration_days = as.numeric(bert_decision_date - bert_start_date)
-  ) |> 
+    bert_start_date = coalesce(bert_application_date, bert_inferred_application_date, bert_initiation_date_final),
+    bert_duration_days = as.numeric(bert_decision_date_final - bert_start_date)
+  )
+
+timeline_sources <- process_levels[process_levels %in% unique(as.character(na.omit(timeline$process_group)))]
+timeline_sources_label <- paste(timeline_sources, collapse = "+")
+if (!("EIS" %in% timeline_sources)) {
+  cat("Timeline sources:", timeline_sources_label, "| EIS pending\n")
+} else {
+  cat("Timeline sources:", timeline_sources_label, "\n")
+}
+cat("Projects loaded:", nrow(timeline), "\n\n")
+
+timeline |>
   glimpse()
 
 # --------------------------
@@ -70,229 +83,244 @@ coverage_table <- tibble(
 )
 
 # --------------------------
-# FIGURE: DATE COUNT DISTRIBUTION PER PROJECT
+# FIGURE 1: COMPLETE TIMELINE SHARE BY PROCESS (BOXPLOT)
 # --------------------------
 
-cat("\nCreating Figure: Date count distribution per project...\n")
+cat("\nCreating Figure: Complete timeline share by review process...\n")
 
-date_dist <- timeline %>%
+process_summary <- timeline %>%
+  filter(!is.na(process_group)) %>%
+  group_by(process_group) %>%
+  summarise(
+    n_projects = n(),
+    n_complete = sum(timeline_complete, na.rm = TRUE),
+    share_complete = n_complete / n_projects,
+    .groups = "drop"
+  )
+
+process_summary <- tibble(process_group = factor(process_levels, levels = process_levels)) %>%
+  left_join(process_summary, by = "process_group") %>%
   mutate(
-    n_dates_bin = case_when(
-      bert_n_dates_found == 0 ~ "0",
-      bert_n_dates_found == 1 ~ "1",
-      bert_n_dates_found == 2 ~ "2",
-      bert_n_dates_found == 3 ~ "3",
-      bert_n_dates_found <= 5 ~ "4-5",
-      bert_n_dates_found <= 10 ~ "6-10",
-      TRUE ~ "11+"
-    ),
-    n_dates_bin = factor(n_dates_bin,
-                         levels = c("0", "1", "2", "3", "4-5", "6-10", "11+"))
-  ) %>%
-  count(n_dates_bin, name = "n") %>%
-  mutate(pct = 100 * n / sum(n))
+    n_projects = replace_na(n_projects, 0L),
+    n_complete = replace_na(n_complete, 0L),
+    share_complete = if_else(n_projects > 0, share_complete, NA_real_),
+    label = case_when(
+      n_projects == 0 ~ "Pending",
+      TRUE ~ sprintf("%s/%s (%.0f%%)", scales::comma(n_complete), scales::comma(n_projects), 100 * share_complete)
+    )
+  )
 
-fig_date_dist <- ggplot(date_dist, aes(x = n_dates_bin, y = n)) +
-  geom_col(fill = catf_dark_blue, alpha = 0.8) +
-  geom_text(aes(label = sprintf("%s\n(%.0f%%)", scales::comma(n), pct)),
-            vjust = -0.3, size = 3, color = "gray30") +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.2)), labels = scales::comma) +
-  labs(
-    title = "Number of Dates Extracted per Project",
-    subtitle = sprintf("%s clean energy projects (%s) | Harmonized CE-BERT + EA/EIS-LLM dates",
-                       scales::comma(n_total), timeline_sources_label),
-    x = "Dates extracted per project",
-    y = "Number of projects"
+complete_box <- timeline %>%
+  filter(!is.na(process_group)) %>%
+  mutate(complete_num = as.numeric(timeline_complete))
+
+fig_complete_share <- ggplot(complete_box, aes(x = process_group, y = complete_num, fill = process_group)) +
+  geom_boxplot(outlier.shape = NA, width = 0.55, alpha = 0.35, na.rm = TRUE) +
+  stat_summary(fun = mean, geom = "point", size = 3, color = catf_navy) +
+  geom_text(
+    data = process_summary,
+    aes(x = process_group, y = 1.07, label = label),
+    inherit.aes = FALSE,
+    size = 3,
+    color = "gray30"
   ) +
-  theme_catf()
+  scale_x_discrete(drop = FALSE) +
+  scale_y_continuous(
+    labels = scales::percent_format(accuracy = 1),
+    limits = c(0, 1.12),
+    breaks = seq(0, 1, by = 0.2)
+  ) +
+  scale_fill_catf(drop = FALSE) +
+  labs(
+    title = "Share of Projects with Complete Timelines",
+    subtitle = "Boxplot shows project-level completion (0/1); dot is mean share by process",
+    x = "Review Process",
+    y = "Completion Share"
+  ) +
+  theme_catf() +
+  theme(legend.position = "none")
 
-fig_date_dist
-
-fig_date_dist_path <- here(figures_dir, "03_bert_date_distribution.png")
-ggsave(fig_date_dist_path, fig_date_dist, width = 8, height = 6, dpi = 300)
-cat("  Saved:", fig_date_dist_path, "\n")
-print(fig_date_dist)
+fig_complete_share_path <- here(figures_dir, "03_complete_timeline_share_boxplot.png")
+ggsave(fig_complete_share_path, fig_complete_share, width = 9, height = 6, dpi = 300)
+cat("  Saved:", fig_complete_share_path, "\n")
+print(fig_complete_share)
 
 # --------------------------
-# FIGURE: CE PROJECTS BY DECISION YEAR
+# FIGURE 2: PROJECT INITIATION -> DECISION SPANS (FACETED)
 # --------------------------
 
-cat("\nCreating Figure: projects by decision year...\n")
+cat("\nCreating Figure: Initiation and decision dates by project...\n")
+
+spans_df <- timeline %>%
+  filter(!is.na(process_group)) %>%
+  filter(!is.na(bert_initiation_date_final) | !is.na(bert_decision_date_final)) %>%
+  group_by(process_group) %>%
+  arrange(coalesce(bert_initiation_date_final, bert_decision_date_final), .by_group = TRUE) %>%
+  mutate(
+    project_order = row_number(),
+    project_order_j = project_order + runif(n(), min = -0.22, max = 0.22)
+  ) %>%
+  ungroup()
+
+segments_df <- spans_df %>%
+  filter(
+    !is.na(bert_initiation_date_final),
+    !is.na(bert_decision_date_final),
+    bert_decision_date_final >= bert_initiation_date_final
+  )
+
+points_df <- bind_rows(
+  spans_df %>%
+    filter(!is.na(bert_initiation_date_final)) %>%
+    transmute(process_group, project_order_j, date = bert_initiation_date_final, point_type = "Initiation"),
+  spans_df %>%
+    filter(!is.na(bert_decision_date_final)) %>%
+    transmute(process_group, project_order_j, date = bert_decision_date_final, point_type = "Decision")
+)
+
+fig_timeline_spans <- ggplot() +
+  geom_segment(
+    data = segments_df,
+    aes(
+      x = bert_initiation_date_final, xend = bert_decision_date_final,
+      y = project_order_j, yend = project_order_j
+    ),
+    color = catf_light_blue,
+    alpha = 0.25,
+    linewidth = 0.3
+  ) +
+  geom_point(
+    data = points_df,
+    aes(x = date, y = project_order_j, color = point_type),
+    alpha = 0.50,
+    size = 0.9
+  ) +
+  facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
+  scale_color_manual(values = c("Initiation" = catf_teal, "Decision" = catf_magenta)) +
+  labs(
+    title = "Project Timelines by Review Process",
+    subtitle = "Each row is one project; segment length approximates review duration",
+    x = "Date",
+    y = "Projects (ordered within process)",
+    color = NULL
+  ) +
+  theme_catf() +
+  theme(
+    legend.position = "top",
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    panel.grid.major.y = element_blank()
+  )
+
+fig_timeline_spans_path <- here(figures_dir, "03_project_timeline_spans_by_process.png")
+ggsave(fig_timeline_spans_path, fig_timeline_spans, width = 12, height = 10, dpi = 300)
+cat("  Saved:", fig_timeline_spans_path, "\n")
+print(fig_timeline_spans)
+
+# --------------------------
+# FIGURE 3: PROJECTS BY DECISION YEAR (FACETED BY PROCESS)
+# --------------------------
+
+cat("\nCreating Figure: Projects by decision year (by process)...\n")
 
 year_counts <- timeline %>%
-  filter(!is.na(bert_year)) %>%
+  filter(!is.na(process_group), !is.na(bert_year)) %>%
   filter(bert_year >= 2000, bert_year <= 2025) %>%
-  count(bert_year, name = "n_projects")
+  count(process_group, bert_year, name = "n_projects")
 
 fig_by_year <- ggplot(year_counts, aes(x = bert_year, y = n_projects)) +
-  geom_col(fill = catf_dark_blue, alpha = 0.8) +
-  geom_text(aes(label = scales::comma(n_projects)), vjust = -0.5, size = 2.5, color = "gray30") +
+  geom_col(fill = catf_dark_blue, alpha = 0.85) +
+  facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
   scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.15)), labels = scales::comma) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.10)), labels = scales::comma) +
   labs(
     title = "Clean Energy Projects by Decision Year",
-    subtitle = sprintf("%s projects with decision date | Harmonized final decision dates",
-                       scales::comma(sum(year_counts$n_projects))),
+    subtitle = "Faceted by NEPA review process",
     x = "Decision Year",
     y = "Number of Projects",
     caption = "Year derived from harmonized final decision date."
-  ) +
-  theme_catf()
-
-fig_by_year
-
-fig_by_year_path <- here(figures_dir, "03_projects_by_year.png")
-ggsave(fig_by_year_path, fig_by_year, width = 10, height = 6, dpi = 300)
-cat("  Saved:", fig_by_year_path, "\n")
-print(fig_by_year)
-
-# --------------------------
-# FIGURE: DURATION DISTRIBUTION (BOXPLOT)
-# --------------------------
-
-cat("\nCreating Figure: project duration distribution...\n")
-
-duration_df <- timeline %>%
-  mutate(
-    bert_initiation_date_final = as.Date(bert_initiation_date_final),
-    bert_decision_date_final = as.Date(bert_decision_date_final),
-    bert_duration_days_final = as.numeric(bert_decision_date_final - bert_initiation_date_final)
-  ) %>%
-  filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
-  mutate(
-    bert_duration_months = bert_duration_days_final / 30.44,
-    decision_year = as.integer(format(bert_decision_date_final, "%Y"))
-  ) %>%
-  filter(!is.na(decision_year)) %>%
-  filter(decision_year >= 2000, decision_year <= 2025)
-
-min_year_n <- 50
-year_counts_duration <- duration_df %>%
-  count(decision_year, name = "n") %>%
-  filter(n >= min_year_n)
-
-duration_df <- duration_df %>%
-  semi_join(year_counts_duration, by = "decision_year")
-
-duration_p99 <- quantile(duration_df$bert_duration_months, 0.99, na.rm = TRUE)
-
-fig_duration_box <- ggplot(duration_df, aes(x = factor(decision_year), y = bert_duration_months)) +
-  geom_boxplot(
-    fill = catf_light_blue,
-    color = catf_navy,
-    outlier.alpha = 0.2,
-    outlier.size = 0.6,
-    linewidth = 0.4
-  ) +
-  coord_cartesian(ylim = c(0, duration_p99)) +
-  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
-  labs(
-    title = "Distribution of Project Duration",
-    subtitle = sprintf(
-      "Decision year shown for years with >= %s projects | Duration from start to decision (months, p99 capped)",
-      scales::comma(min_year_n)
-    ),
-    x = "Decision Year",
-    y = "Duration (months)"
   ) +
   theme_catf() +
   theme(
     axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
   )
 
-fig_duration_box
-
-fig_duration_box_path <- here(figures_dir, "03_duration_boxplot.png")
-ggsave(fig_duration_box_path, fig_duration_box, width = 12, height = 6.5, dpi = 300)
-cat("  Saved:", fig_duration_box_path, "\n")
-print(fig_duration_box)
+fig_by_year_path <- here(figures_dir, "03_projects_by_year.png")
+ggsave(fig_by_year_path, fig_by_year, width = 11, height = 9, dpi = 300)
+cat("  Saved:", fig_by_year_path, "\n")
+print(fig_by_year)
 
 # --------------------------
-# FIGURE: START VS DECISION YEAR (LOLLIPOP)
+# FIGURE 4: TIMELINE STATUS MIX BY PROCESS (ADDITIONAL)
 # --------------------------
 
-cat("\nCreating Figure: Start vs Decision year lollipop chart...\n")
+cat("\nCreating Figure: Timeline status mix by process...\n")
 
-start_counts <- timeline %>%
-  mutate(start_year = as.integer(format(bert_start_date, "%Y"))) %>%
-  filter(!is.na(start_year), start_year >= 2000, start_year <= 2025) %>%
-  count(year = start_year, name = "n") %>%
-  mutate(type = "Start (explicit or inferred)")
+status_by_process <- timeline %>%
+  mutate(
+    timeline_status_plot = case_when(
+      !is.na(bert_initiation_date_final) & !is.na(bert_decision_date_final) ~ "Complete",
+      !is.na(bert_initiation_date_final) & is.na(bert_decision_date_final) ~ "Missing decision",
+      is.na(bert_initiation_date_final) & !is.na(bert_decision_date_final) ~ "Missing initiation",
+      TRUE ~ "Missing both"
+    )
+  ) %>%
+  filter(!is.na(process_group)) %>%
+  count(process_group, timeline_status_plot, name = "n") %>%
+  group_by(process_group) %>%
+  mutate(pct = 100 * n / sum(n)) %>%
+  ungroup()
 
-decision_counts <- timeline %>%
-  mutate(decision_year = as.integer(format(bert_decision_date, "%Y"))) %>%
-  filter(!is.na(decision_year), decision_year >= 2000, decision_year <= 2025) %>%
-  count(year = decision_year, name = "n") %>%
-  mutate(type = "Decision")
-
-start_end_long <- bind_rows(start_counts, decision_counts) %>%
-  mutate(type = factor(type, levels = c("Start (explicit or inferred)", "Decision")))
-
-fig_start_end <- ggplot(start_end_long, aes(x = year, y = n, color = type)) +
-  geom_segment(
-    aes(x = year, xend = year, y = 0, yend = n),
-    position = position_dodge(width = 0.6),
-    linewidth = 0.7
-  ) +
-  geom_point(
-    position = position_dodge(width = 0.6),
-    size = 2.3
-  ) +
-  scale_color_manual(values = c(catf_teal, catf_magenta)) +
-  scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
-  scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.05))) +
+fig_status_mix <- ggplot(status_by_process, aes(x = process_group, y = pct, fill = timeline_status_plot)) +
+  geom_col(alpha = 0.9) +
+  scale_x_discrete(drop = FALSE) +
+  scale_y_continuous(labels = scales::label_percent(scale = 1), expand = expansion(mult = c(0, 0.03))) +
   labs(
-    title = "When Project Timelines Start and End",
-    subtitle = "Start dates use explicit initiation or inferred earliest review date",
-    x = "Year",
-    y = "Number of Projects",
-    color = NULL
+    title = "Timeline Coverage Mix by Review Process",
+    subtitle = "Share of projects with complete vs missing timeline components",
+    x = "Review Process",
+    y = "Percent of Projects",
+    fill = NULL
   ) +
   theme_catf()
 
-fig_start_end_path <- here(figures_dir, "03_start_vs_decision_lollipop.png")
-ggsave(fig_start_end_path, fig_start_end, width = 11, height = 6, dpi = 300)
-cat("  Saved:", fig_start_end_path, "\n")
-print(fig_start_end)
+fig_status_mix_path <- here(figures_dir, "03_timeline_status_by_process.png")
+ggsave(fig_status_mix_path, fig_status_mix, width = 10, height = 6, dpi = 300)
+cat("  Saved:", fig_status_mix_path, "\n")
+print(fig_status_mix)
 
 # --------------------------
-# FIGURE: EXTRACTION COVERAGE BREAKDOWN
+# FIGURE 5: DURATION DISTRIBUTION BY PROCESS (ADDITIONAL)
 # --------------------------
 
-cat("\nCreating Figure: Extraction coverage breakdown...\n")
+cat("\nCreating Figure: Duration distribution by process...\n")
 
-coverage_bars <- tibble(
-  category = c("Decision date", "Explicit initiation", "Inferred initiation",
-                "Any start date", "Review dates"),
-  count = c(n_has_decision, n_has_app, n_has_inferred_app,
-            n_has_any_start, n_has_review),
-  pct = 100 * count / n_total
-) %>%
-  mutate(category = factor(category, levels = rev(category))) |> 
-  filter(category != "Inferred initiation") |> 
-  glimpse()
+duration_by_process <- timeline %>%
+  filter(!is.na(process_group)) %>%
+  mutate(duration_months = as.numeric(bert_decision_date_final - bert_initiation_date_final) / 30.44) %>%
+  filter(!is.na(duration_months), duration_months >= 0)
 
-fig_coverage <- ggplot(coverage_bars, aes(x = category, y = pct)) +
-  geom_col(fill = catf_blue, alpha = 0.8) +
-  geom_text(aes(label = sprintf("%.0f%%\n(%s)", pct, scales::comma(count))),
-            hjust = -0.1, size = 3, color = "gray30") +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.3)), limits = c(0, 100)) +
-  coord_flip() +
+duration_p99 <- quantile(duration_by_process$duration_months, 0.99, na.rm = TRUE)
+
+fig_duration_by_process <- ggplot(duration_by_process, aes(x = process_group, y = duration_months, fill = process_group)) +
+  geom_boxplot(outlier.alpha = 0.2, outlier.size = 0.6, linewidth = 0.4) +
+  coord_cartesian(ylim = c(0, duration_p99)) +
+  scale_x_discrete(drop = FALSE) +
+  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
+  scale_fill_catf(drop = FALSE) +
   labs(
-    title = "Timeline Extraction Coverage",
-    subtitle = sprintf("%s clean energy projects (%s) | Harmonized CE-BERT + EA/EIS-LLM dates",
-                       scales::comma(n_total), timeline_sources_label),
-    x = NULL,
-    y = sprintf("Percent of total projects (%s)", scales::comma(n_total))
+    title = "Project Duration Distribution by Review Process",
+    subtitle = "Complete timelines only; y-axis capped at p99 to reduce outlier dominance",
+    x = "Review Process",
+    y = "Duration (months)"
   ) +
-  theme_catf()
+  theme_catf() +
+  theme(legend.position = "none")
 
-fig_coverage
-
-fig_coverage_path <- here(figures_dir, "03_bert_coverage.png")
-ggsave(fig_coverage_path, fig_coverage, width = 9, height = 5, dpi = 300)
-cat("  Saved:", fig_coverage_path, "\n")
-print(fig_coverage)
+fig_duration_by_process_path <- here(figures_dir, "03_duration_by_process_boxplot.png")
+ggsave(fig_duration_by_process_path, fig_duration_by_process, width = 10, height = 6, dpi = 300)
+cat("  Saved:", fig_duration_by_process_path, "\n")
+print(fig_duration_by_process)
 
 # --------------------------
 # SUMMARY
@@ -347,63 +375,65 @@ extract_contexts <- function(df, json_col, model_label) {
 # --- load BERT v8 results ---
 
 bert_path <- here("data", "analysis", "test50_bert_v8.parquet")
-bert <- read_parquet(bert_path)
-bert_ctx <- extract_contexts(bert, "bert_dates_json", "bert")
+if (file.exists(bert_path)) {
+  bert <- read_parquet(bert_path)
+  bert_ctx <- extract_contexts(bert, "bert_dates_json", "bert")
 
-cat("BERT v8 results loaded:", nrow(bert), "projects,",
-    nrow(bert_ctx), "date contexts\n\n")
+  cat("BERT v8 results loaded:", nrow(bert), "projects,",
+      nrow(bert_ctx), "date contexts\n\n")
 
-# --- curated project examples ---
+  # --- curated project examples ---
+  example_ids <- c(
+    "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0",
+    "46f4da85-af1c-0e66-a706-9a7292dd9689",
+    "824ba268-8ddf-a34f-f9a7-625e7727c242",
+    "f2812da0-16c5-fbd1-9e16-10bf8e67c514",
+    "dec68c6f-da24-f178-7bf9-30dcd886fb12",
+    "5c512493-33a9-ff2c-5f13-3a8d55464b93"
+  )
 
-example_ids <- c(
-  "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0",
-  "46f4da85-af1c-0e66-a706-9a7292dd9689",
-  "824ba268-8ddf-a34f-f9a7-625e7727c242",
-  "f2812da0-16c5-fbd1-9e16-10bf8e67c514",
-  "dec68c6f-da24-f178-7bf9-30dcd886fb12",
-  "5c512493-33a9-ff2c-5f13-3a8d55464b93"
-)
+  examples_list <- list()
 
-examples_list <- list()
+  for (i in seq_along(example_ids)) {
+    ex <- bert_ctx %>%
+      filter(project_id == example_ids[i]) %>%
+      select(project_title, type, date, source) %>%
+      arrange(date) %>%
+      mutate(example = i)
 
-for (i in seq_along(example_ids)) {
-  ex <- bert_ctx %>%
-    filter(project_id == example_ids[i]) %>%
-    select(project_title, type, date, source) %>%
-    arrange(date) %>%
-    mutate(example = i)
+    examples_list[[i]] <- ex
 
-  examples_list[[i]] <- ex
+    cat(sprintf("Example %d (%s): %d date contexts\n",
+                i, example_ids[i], nrow(ex)))
+  }
 
-  cat(sprintf("Example %d (%s): %d date contexts\n",
-              i, example_ids[i], nrow(ex)))
+  # Combine all examples into one table
+  examples_all <- bind_rows(examples_list)
+  examples_all |> glimpse()
+
+  # Save combined CSV
+  examples_csv_path <- here(tables_dir, "03_bert_client_examples.csv")
+  write_csv(examples_all, examples_csv_path)
+  cat("\nSaved combined examples:", examples_csv_path, "\n")
+
+  # Save individual CSVs
+  for (i in seq_along(examples_list)) {
+    ex_path <- here(tables_dir, sprintf("03_bert_example%d.csv", i))
+    write_csv(examples_list[[i]], ex_path)
+  }
+  cat("Saved individual example CSVs to:", tables_dir, "\n")
+
+  # Write to Google Sheets
+  gs_url <- "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing"
+
+  #for (i in seq_along(examples_list)) {
+  #  sheet_write(
+  #    data = examples_list[[i]],
+  #    ss = gs_url,
+  #    sheet = sprintf("example%d", i)
+  #  )
+  #}
+  cat("Written examples to Google Sheet\n")
+} else {
+  cat("Skipping BERT examples: missing file ", bert_path, "\n", sep = "")
 }
-
-# Combine all examples into one table
-examples_all <- bind_rows(examples_list)
-
-examples_all |> glimpse()
-
-# Save combined CSV
-examples_csv_path <- here(tables_dir, "03_bert_client_examples.csv")
-write_csv(examples_all, examples_csv_path)
-cat("\nSaved combined examples:", examples_csv_path, "\n")
-
-# Save individual CSVs
-for (i in seq_along(examples_list)) {
-  ex_path <- here(tables_dir, sprintf("03_bert_example%d.csv", i))
-  write_csv(examples_list[[i]], ex_path)
-}
-cat("Saved individual example CSVs to:", tables_dir, "\n")
-
-# Write to Google Sheets
-gs_url <- "https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?usp=sharing"
-
-#for (i in seq_along(examples_list)) {
-#  sheet_write(
-#    data = examples_list[[i]],
-#    ss = gs_url,
-#    sheet = sprintf("example%d", i)
-#  )
-#}
-cat("Written examples to Google Sheet\n")
