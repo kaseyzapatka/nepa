@@ -5,6 +5,21 @@
 
 Use this file as the canonical, up-to-date context for timeline extraction. If older notes conflict, trust the code and this document.
 
+## Diff Checklist (Fast Read)
+
+- Sources supported in current run: `CE`, `EA`, `EIS` via `--source`.
+- Canonical workflow: `--regex-prep` -> `--bert-run` -> `--llm-adjudicate`.
+- `--regex-prep` writes per-source caches: `regex_candidates_ce/ea/eis.parquet`.
+- `--bert-run` is clean-energy only in CLI dispatch (`clean_energy_only=True`).
+- EIS gap rule is OFF; CE/EA gap rule is ON (730 days).
+- EA/EIS can use non-main-doc fallback when no main docs exist; flag is `main_document_imputed`.
+- LLM adjudication reads BERT candidates (`bert_dates_json`) only; no new date discovery.
+- Decision modes: `priority_only`, `ea_eis_fallback`, `no_decision_candidates`.
+- Guardrail strictness applies only to `priority_only`.
+- Adjudication caps: default `50/300`; EIS `30/200` (max candidates/context chars).
+- Claude provider forces `workers=1`; currently retries `429` only (not `529/5xx`).
+- Default adjudication output naming: `<input_stem>_llm.parquet`.
+
 ## Scope
 
 This pipeline extracts NEPA timeline dates from document text for **clean-energy** projects across:
