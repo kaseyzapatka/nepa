@@ -50,6 +50,103 @@ clean_energy <- projects %>%
 cat("Clean energy dataset ready:", nrow(clean_energy), "projects\n")
 
 # --------------------------
+# TIMELINE INPUTS (DELIVERABLE 3)
+# --------------------------
+
+# Current production inputs:
+# - CE uses BERT final dates (no LLM adjudication file yet)
+# - EA uses LLM-adjudicated dates
+# - EIS line is ready but optional until file exists
+timeline_ce_path <- here("data", "analysis", "projects_timeline_bert.parquet")
+timeline_ea_path <- here("data", "analysis", "projects_timeline_bert_ea_llm.parquet")
+timeline_eis_path <- here("data", "analysis", "projects_timeline_bert_eis_llm.parquet")
+
+#' Load and harmonize timeline files for Deliverable 3
+#'
+#' Harmonization rule:
+#' - CE: use BERT final initiation/decision dates
+#' - EA/EIS: use LLM initiation/decision dates
+#'
+#' @param include_eis Whether to include EIS input if file exists (default FALSE)
+#' @return A tibble with harmonized timeline columns compatible with existing analysis scripts
+load_timeline_for_deliverable3 <- function(include_eis = FALSE) {
+  if (!file.exists(timeline_ce_path)) {
+    stop("Missing required CE timeline file: ", timeline_ce_path)
+  }
+
+  ce_df <- read_parquet(timeline_ce_path) %>%
+    mutate(timeline_input_file = basename(timeline_ce_path))
+
+  if (!file.exists(timeline_ea_path)) {
+    stop("Missing required EA timeline file: ", timeline_ea_path)
+  }
+
+  ea_df <- read_parquet(timeline_ea_path) %>%
+    mutate(timeline_input_file = basename(timeline_ea_path))
+
+  timeline_list <- list(ce_df, ea_df)
+
+  if (include_eis) {
+    if (file.exists(timeline_eis_path)) {
+      eis_df <- read_parquet(timeline_eis_path) %>%
+        mutate(timeline_input_file = basename(timeline_eis_path))
+      timeline_list <- append(timeline_list, list(eis_df))
+    } else {
+      message("EIS timeline file not found (skipping for now): ", timeline_eis_path)
+    }
+  }
+
+  timeline_raw <- bind_rows(timeline_list)
+
+  # Ensure source exists even if a file is missing this field.
+  if (!"dataset_source" %in% names(timeline_raw)) {
+    timeline_raw <- timeline_raw %>% mutate(dataset_source = NA_character_)
+  }
+
+  # Harmonize final dates used in downstream analysis.
+  # CE: BERT final dates
+  # EA/EIS: LLM dates
+  timeline_harmonized <- timeline_raw %>%
+    mutate(
+      dataset_source = toupper(as.character(dataset_source)),
+      timeline_initiation_date_final = as.Date(case_when(
+        dataset_source %in% c("EA", "EIS") ~ llm_initiation_date,
+        TRUE ~ bert_initiation_date_final
+      )),
+      timeline_decision_date_final = as.Date(case_when(
+        dataset_source %in% c("EA", "EIS") ~ llm_decision_date,
+        TRUE ~ bert_decision_date_final
+      )),
+      timeline_method = case_when(
+        dataset_source %in% c("EA", "EIS") ~ "llm",
+        TRUE ~ "bert"
+      ),
+      # Keep legacy column names used in existing scripts, now harmonized.
+      bert_initiation_date_final = timeline_initiation_date_final,
+      bert_decision_date_final = timeline_decision_date_final,
+      bert_decision_date = timeline_decision_date_final,
+      bert_application_date = if_else(
+        dataset_source %in% c("EA", "EIS"),
+        timeline_initiation_date_final,
+        as.Date(bert_application_date)
+      ),
+      bert_inferred_application_date = if_else(
+        dataset_source %in% c("EA", "EIS"),
+        as.Date(NA),
+        as.Date(bert_inferred_application_date)
+      ),
+      bert_timeline_status = case_when(
+        !is.na(timeline_decision_date_final) & !is.na(timeline_initiation_date_final) ~ "complete",
+        !is.na(timeline_decision_date_final) & is.na(timeline_initiation_date_final) ~ "missing_initiation",
+        is.na(timeline_decision_date_final) & !is.na(timeline_initiation_date_final) ~ "missing_decision",
+        TRUE ~ "no_dates"
+      )
+    )
+
+  timeline_harmonized
+}
+
+# --------------------------
 # CONSTANTS
 # --------------------------
 

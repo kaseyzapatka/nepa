@@ -1,8 +1,11 @@
 # --------------------------
 # DELIVERABLE 3: TIMELINE ANALYSIS
 # --------------------------
-# BERT-based timeline extraction for clean energy CE projects
-# Full run: data/analysis/projects_timeline_bert.parquet
+# Harmonized timeline extraction for clean energy projects
+# Current inputs:
+# - CE: data/analysis/projects_timeline_bert.parquet (BERT final dates)
+# - EA: data/analysis/projects_timeline_bert_ea_llm.parquet (LLM dates)
+# - EIS: placeholder in 00_setup.R (enable once available)
 
 # --------------------------
 # SETUP
@@ -11,11 +14,13 @@
 source(here::here("code", "deliverable03", "00_setup.R"))
 
 # --------------------------
-# LOAD BERT TIMELINE DATA
+# LOAD HARMONIZED TIMELINE DATA
 # --------------------------
 
-bert_timeline_path <- here("data", "analysis", "projects_timeline_bert.parquet")
-timeline <- read_parquet(bert_timeline_path)
+timeline <- load_timeline_for_deliverable3(include_eis = FALSE)
+timeline_sources <- sort(unique(na.omit(timeline$dataset_source)))
+timeline_sources_label <- paste(timeline_sources, collapse = "+")
+cat("Timeline sources:", timeline_sources_label, "\n")
 cat("Projects loaded:", nrow(timeline), "\n\n")
 
 # Derive year from decision date (or inferred application date as fallback)
@@ -37,7 +42,7 @@ timeline <- timeline %>%
 # TABLE 1: EXTRACTION COVERAGE SUMMARY
 # --------------------------
 
-cat("=== BERT Extraction Coverage ===\n\n")
+cat("=== Timeline Extraction Coverage ===\n\n")
 
 n_total <- nrow(timeline)
 n_has_decision <- sum(!is.na(timeline$bert_decision_date))
@@ -50,7 +55,7 @@ n_errors <- sum(!is.na(timeline$bert_error))
 
 coverage_table <- tibble(
   Metric = c(
-    "Total CE clean energy projects",
+    sprintf("Total clean energy projects (%s)", timeline_sources_label),
     "Decision date found",
     "Explicit initiation date found",
     "Inferred initiation (earliest review as proxy)",
@@ -94,8 +99,8 @@ fig_date_dist <- ggplot(date_dist, aes(x = n_dates_bin, y = n)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.2)), labels = scales::comma) +
   labs(
     title = "Number of Dates Extracted per Project",
-    subtitle = sprintf("%s CE clean energy projects | BERT classifier",
-                       scales::comma(n_total)),
+    subtitle = sprintf("%s clean energy projects (%s) | Harmonized CE-BERT + EA/EIS-LLM dates",
+                       scales::comma(n_total), timeline_sources_label),
     x = "Dates extracted per project",
     y = "Number of projects"
   ) +
@@ -112,7 +117,7 @@ print(fig_date_dist)
 # FIGURE: CE PROJECTS BY DECISION YEAR
 # --------------------------
 
-cat("\nCreating Figure: CE projects by decision year...\n")
+cat("\nCreating Figure: projects by decision year...\n")
 
 year_counts <- timeline %>%
   filter(!is.na(bert_year)) %>%
@@ -125,12 +130,12 @@ fig_by_year <- ggplot(year_counts, aes(x = bert_year, y = n_projects)) +
   scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15)), labels = scales::comma) +
   labs(
-    title = "CE Clean Energy Projects by Decision Year",
-    subtitle = sprintf("%s projects with decision date | BERT classifier",
+    title = "Clean Energy Projects by Decision Year",
+    subtitle = sprintf("%s projects with decision date | Harmonized final decision dates",
                        scales::comma(sum(year_counts$n_projects))),
     x = "Decision Year",
     y = "Number of Projects",
-    caption = "Year derived from BERT-classified decision date (signature/approval)."
+    caption = "Year derived from harmonized final decision date."
   ) +
   theme_catf()
 
@@ -145,10 +150,7 @@ print(fig_by_year)
 # FIGURE: DURATION DISTRIBUTION (BOXPLOT)
 # --------------------------
 
-cat("\nCreating Figure: CE project duration distribution...\n")
-
-
-timeline |> filter(project_id == "1df6f8b5-7e16-2d38-01b6-a042628ea3c8") |> glimpse()
+cat("\nCreating Figure: project duration distribution...\n")
 
 duration_df <- timeline %>%
   mutate(
@@ -185,7 +187,7 @@ fig_duration_box <- ggplot(duration_df, aes(x = factor(decision_year), y = bert_
   coord_cartesian(ylim = c(0, duration_p99)) +
   scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
   labs(
-    title = "Distribution of CE Project Duration",
+    title = "Distribution of Project Duration",
     subtitle = sprintf(
       "Decision year shown for years with >= %s projects | Duration from start to decision (months, p99 capped)",
       scales::comma(min_year_n)
@@ -240,7 +242,7 @@ fig_start_end <- ggplot(start_end_long, aes(x = year, y = n, color = type)) +
   scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
   scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.05))) +
   labs(
-    title = "When CE Project Timelines Start and End",
+    title = "When Project Timelines Start and End",
     subtitle = "Start dates use explicit initiation or inferred earliest review date",
     x = "Year",
     y = "Number of Projects",
@@ -278,10 +280,10 @@ fig_coverage <- ggplot(coverage_bars, aes(x = category, y = pct)) +
   coord_flip() +
   labs(
     title = "Timeline Extraction Coverage",
-    subtitle = sprintf("%s CE clean energy projects | BERT classifier",
-                       scales::comma(n_total)),
+    subtitle = sprintf("%s clean energy projects (%s) | Harmonized CE-BERT + EA/EIS-LLM dates",
+                       scales::comma(n_total), timeline_sources_label),
     x = NULL,
-    y = "Percent of total projects (20,863)"
+    y = sprintf("Percent of total projects (%s)", scales::comma(n_total))
   ) +
   theme_catf()
 
