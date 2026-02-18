@@ -2145,14 +2145,22 @@ def run_bert_timeline_extraction(
             return x
 
         documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
-        source_map = build_file_name_date_map(
-            documents_df,
-            main_docs_only=main_docs_only
-        )
-        source_bounds = _build_project_filename_bounds_map(
-            documents_df,
-            main_docs_only=main_docs_only
-        )
+
+        # For EA/EIS: build main-only map first, then fill gaps with all-docs fallback
+        source_map = build_file_name_date_map(documents_df, main_docs_only=main_docs_only)
+        source_bounds = _build_project_filename_bounds_map(documents_df, main_docs_only=main_docs_only)
+
+        if main_docs_only and source in ('EA', 'EIS'):
+            # Fallback: projects with no main docs get filename dates from all docs
+            all_map = build_file_name_date_map(documents_df, main_docs_only=False)
+            all_bounds = _build_project_filename_bounds_map(documents_df, main_docs_only=False)
+            for pid in all_map:
+                if pid not in source_map:
+                    source_map[pid] = all_map[pid]
+            for pid in all_bounds:
+                if pid not in source_bounds:
+                    source_bounds[pid] = all_bounds[pid]
+
         file_name_dates_map.update(source_map)
         file_name_bounds_map.update(source_bounds)
     print(f"Built filename date map: {len(file_name_dates_map):,} projects")
@@ -2178,6 +2186,14 @@ def run_bert_timeline_extraction(
     else:
         print("ERROR: BERT approach requires regex cache. Run --regex-prep first.")
         return None
+
+    # Build set of imputed project IDs from regex cache
+    imputed_project_ids = set()
+    if 'main_document_imputed' in regex_cache_df.columns:
+        imputed_rows = regex_cache_df[regex_cache_df['main_document_imputed'] == True]
+        imputed_project_ids = set(imputed_rows['project_id'].unique())
+        if imputed_project_ids:
+            print(f"Projects using non-main document fallback: {len(imputed_project_ids)}")
 
     # Process projects
     results = []
@@ -2243,6 +2259,7 @@ def run_bert_timeline_extraction(
             'project_file_name_dates': file_name_dates_map.get(project_id, '[]'),
             'project_date_earliest_file_name': file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name'),
             'project_date_latest_file_name': file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name'),
+            'main_document_imputed': project_id in imputed_project_ids,
         }
         results.append(result)
 
@@ -3592,6 +3609,25 @@ def run_llm_timeline_extraction(
     return projects_with_llm
 
 
+# Document-type priority for fallback (non-main-document) projects.
+# Lower rank = higher priority. Documents are processed in this order.
+_DOC_TYPE_PRIORITY = {
+    'EA': {
+        'FONSI': 0, 'ROD': 1, 'DR': 2, 'DECISION RECORD': 2,
+        'FEA': 3, 'EA': 4, 'DEA': 5, 'OTHER': 6,
+    },
+    'EIS': {
+        'ROD': 0, 'FEIS': 1, 'EIS': 2, 'DEIS': 3, 'OTHER': 4,
+    },
+}
+
+
+def _get_doc_priority(doc_type: str, source: str) -> int:
+    """Return sort priority for a document type (lower = higher priority)."""
+    priority_map = _DOC_TYPE_PRIORITY.get(source, {})
+    return priority_map.get(doc_type.upper().strip(), 99)
+
+
 def run_regex_prep(
     sample_size: int = None,
     sources: list = None,
@@ -3656,13 +3692,15 @@ def run_regex_prep(
 
         documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
 
-        # Filter to main documents only if requested
-        if main_docs_only:
+        # For CE, filter pages globally to main docs only.
+        # For EA/EIS, keep all pages loaded — fallback projects need non-main pages.
+        if main_docs_only and source == 'CE':
             main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
             pages_df = pages_df[pages_df['document_id'].isin(main_doc_ids)]
             print(f"Filtered to {len(pages_df):,} pages from main documents")
 
         results = []
+        imputed_project_ids = set()
         total = len(source_projects)
 
         print(f"Processing {total} {source} projects for regex candidates...")
@@ -3681,10 +3719,24 @@ def run_regex_prep(
             if project_docs.empty:
                 continue
 
-            # Only iterate main documents (skip non-main even at doc level)
+            is_imputed = False
+
+            # Document selection: main docs first, fallback for EA/EIS only
             if main_docs_only and 'main_document' in project_docs.columns:
-                project_docs = project_docs[project_docs['main_document'] == 'YES']
-                if project_docs.empty:
+                main_docs = project_docs[project_docs['main_document'] == 'YES']
+                if not main_docs.empty:
+                    project_docs = main_docs
+                elif source in ('EA', 'EIS'):
+                    # Fallback: no main docs — use all docs sorted by type priority
+                    project_docs = project_docs.copy()
+                    project_docs['_priority'] = project_docs['document_id'].map(
+                        lambda did: _get_doc_priority(doc_type_map.get(did, ''), source)
+                    )
+                    project_docs = project_docs.sort_values('_priority')
+                    is_imputed = True
+                    imputed_project_ids.add(project_id)
+                else:
+                    # CE: no fallback, skip project
                     continue
 
             # Process per-document to tag each candidate with doc_type
@@ -3714,7 +3766,11 @@ def run_regex_prep(
                         'position': d.get('position'),
                         'position_pct': d.get('position_pct'),
                         'doc_type': doc_type,
+                        'main_document_imputed': is_imputed,
                     })
+
+        if imputed_project_ids:
+            print(f"  {source}: {len(imputed_project_ids)} projects used non-main document fallback (main_document_imputed=True)")
 
         results_df = pd.DataFrame(results)
         results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
