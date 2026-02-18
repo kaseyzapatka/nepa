@@ -194,3 +194,36 @@ When editing timeline tasks:
 - **Tier A decision docs:** `FONSI`, `ROD`, `DR`, `DECISION RECORD`
 - **Fallback decision docs:** `EA`, `DEA`, `DEIS`, `FEIS`, `FEA`, `EIS`
 - **Imputed main-doc flag:** `main_document_imputed=True` means EA/EIS fallback used non-main docs because no main docs existed.
+
+## TO DO
+
+Add a fast, bounded validation layer before final analysis:
+
+1. Build a 40-project QA sample (EA first):
+- 20 random
+- 20 risky (`llm_decision_date` missing, `llm_initiation_date` missing, `llm_decision_mode == no_decision_candidates`, `llm_adj_error` not null, or initiation > decision)
+
+2. For each sampled project, manually record:
+- `project_id`
+- `gold_initiation_date`
+- `gold_decision_date`
+- `gold_init_doc_id`
+- `gold_dec_doc_id`
+- one-line note
+
+3. Read only the same document scope used by pipeline:
+- main docs (`main_document == YES`) unless fallback/imputation applies
+
+4. Report bounded metrics:
+- initiation exact match
+- decision exact match
+- initiation within ±30 days
+- decision within ±30 days
+- complete-case validity (both dates present and initiation <= decision)
+
+5. Add production `review_needed` flag and prioritize manual checks on flagged rows.
+
+Useful test command for EIS sampling:
+```bash
+python code/extract/extract_timeline.py --bert-run --source EIS --sample 50 --output test50_eis.parquet
+```
