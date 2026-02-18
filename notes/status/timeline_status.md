@@ -531,19 +531,19 @@ Layered filtering to reduce noise before sending to the LLM:
 | 5 | Tiered decision gating | See below |
 | 6 | Hard cap at 50 | Absolute bound on prompt size |
 
-### Tiered decision selection (newest)
+### Tiered decision selection (current)
 
-Explicit gating so the LLM only considers appropriate decision candidates:
+Decision date selection uses a two-tier system that combines **document type** (from NEPATEC metadata) and **BERT classification**:
 
-- **Tier A** (priority): FONSI, ROD, DR, Decision Record → if any decision candidates exist from these, only these are allowed.
-- **Tier B** (fallback): EA, DEA → used only when Tier A is empty, and only if context has strong decision language (signed, approved, issued, finding, FONSI, determination) AND no exclusion patterns (draft, comment period, scoping, NOI).
+**Tier A (`priority_only` mode)**: A candidate qualifies only if BOTH:
+- `doc_type` is FONSI, ROD, DR, or Decision Record (the official decision artifacts)
+- BERT classified the date as `decision`
 
-The LLM prompt explicitly states the mode and allowed date set:
-- `priority_only`: "You MUST pick the decision date from this set ONLY: [dates]"
-- `ea_dea_fallback`: "No FONSI/ROD exists, pick from this limited set"
-- `no_decision_candidates`: "You MUST respond with null"
+If any Tier A candidates exist for a project, the LLM is hard-constrained to pick from those dates only. A post-parse guardrail enforces this: if Claude returns a date not in the allowed set, it is nulled out with `llm_adj_error = 'decision_not_in_allowed_tier'`.
 
-**Post-parse guardrail**: if the LLM returns a decision date not in the allowed set, it's nulled out with `llm_adj_error = 'decision_not_in_allowed_tier'`.
+**Open mode**: When no Tier A candidates exist (89% of EA projects lack FONSI/ROD docs), all candidates are sent to Claude with soft prompt guidance: "prefer dates with strong decision language (signed, approved, issued, FONSI, decision record, determination, authorization)." No hard constraint, no guardrail — Claude decides freely.
+
+This design emerged after an initial three-tier approach (`priority_only` / `ea_dea_fallback` / `no_decision_candidates`) was found to be too aggressive, dropping decision coverage from 32/50 to 19/50 on the EA test set. The strong-language + exclusion-pattern filter was killing legitimate signatures (e.g., `/s/ Michael Johnson 06/11/2013` blocked because "comment period" appeared elsewhere in the 300-char context window).
 
 ### Diagnostic output columns
 
@@ -553,9 +553,9 @@ The LLM prompt explicitly states the mode and allowed date set:
 | `llm_initiation_date` | LLM's best initiation date |
 | `llm_decision_reasoning` | Brief explanation |
 | `llm_initiation_reasoning` | Brief explanation |
-| `llm_decision_mode` | `priority_only`, `ea_dea_fallback`, or `no_decision_candidates` |
-| `llm_n_priority_decision_candidates` | Count of Tier A candidates |
-| `llm_n_eadea_fallback_candidates` | Count of Tier B candidates |
+| `llm_decision_mode` | `priority_only` or `open` |
+| `llm_n_priority_decision_candidates` | Count of Tier A (FONSI/ROD/DR) decision candidates |
+| `llm_n_other_decision_candidates` | Count of non-Tier-A decision candidates |
 | `llm_adj_n_candidates` | Total candidates sent to LLM |
 | `llm_adj_error` | Error or guardrail flag |
 | `llm_adj_prompt` | Full prompt sent to LLM |
@@ -566,10 +566,21 @@ Spot-check of 10 projects showed Claude was more accurate than BERT for EA decis
 - Claude correct in all 10 cases where it had an opinion
 - BERT picked non-NEPA events in 4/10 cases (tribal agreements, FEMA revisions, wetland verifications)
 
+### Non-main document fallback (EA/EIS only)
+
+Some EA/EIS projects have documents but none flagged as `main_document == 'YES'`:
+- **EA**: 11 projects (1.9% of 573 clean energy)
+- **EIS**: 178 projects (23.6% of 753 clean energy)
+
+For these projects, the pipeline falls back to all available documents, sorted by document type priority:
+- **EA priority**: FONSI > ROD > DR > FEA > EA > DEA > OTHER > blank
+- **EIS priority**: ROD > FEIS > EIS > DEIS > OTHER > blank
+
+Projects using the fallback are flagged with `main_document_imputed = True` in the regex cache, BERT output, and LLM output. Projects with main documents continue to use only main documents. This fallback is **not applied to CE** projects.
+
 ### Known gaps (EA/EIS)
 
 - Only 11% of EA projects have FONSI/ROD documents — 89% rely on EA text for decision dates
-- 8 FONSI documents were previously excluded due to `main_document` flag (now filtered at doc level)
 - Filename dates could serve as fallback but are 90% year-only precision (useful for sanity checks, not day-level dates)
 
 ### Workflow (EA)
@@ -587,6 +598,79 @@ python extract_timeline.py --llm-adjudicate --input test50_ea.parquet --provider
 # 4. Full run
 python extract_timeline.py --bert-run --source EA --output projects_timeline_bert_ea.parquet
 python extract_timeline.py --llm-adjudicate --input projects_timeline_bert_ea.parquet --provider claude
+```
+
+### How EIS differs from EA
+
+EIS projects use the same three-stage pipeline (regex → BERT → Claude) but with several key differences:
+
+**1. No historical gap rule for EIS**
+
+EIS projects legitimately span 5-10+ years, so the 730-day gap rule that marks old date clusters as `historical` is disabled:
+```python
+SOURCE_CONFIG = {
+    'CE':  {'apply_gap_rule': True,  'gap_days': 730},
+    'EA':  {'apply_gap_rule': True,  'gap_days': 730},
+    'EIS': {'apply_gap_rule': False},
+}
+```
+
+**2. EIS-specific decision cues**
+
+The regex and BERT auto-labeling patterns include EIS-oriented decision language not present in EA:
+- `record of decision`, `joint record of decision` (ROD — the EIS equivalent of FONSI)
+- `selected alternative`, `selection of alternative` (EIS final selection language)
+- `decision to implement`
+
+**3. EIS-specific initiation cues**
+
+EIS projects have a formal Notice of Intent process published in the Federal Register:
+- `notice of intent.*prepare`, `intent to prepare an environmental impact statement`
+- `notice of intent.*environmental impact statement`
+- `noi.*federal register`, `noi published`
+- `scoping notice`
+
+These are absent from EA projects, which use simpler initiation signals (application received, scoping).
+
+**4. EIS document type hierarchy**
+
+The doc-type constants include EIS-specific document types:
+- `_LLM_INITIATION_DOC_TYPES`: includes `DEIS` (Draft EIS) alongside `EA`, `DEA`
+- `_LLM_FALLBACK_DECISION_DOC_TYPES`: includes `DEIS`, `FEIS`, `EIS` alongside EA variants
+- Tiered decision logic is the same: Tier A = FONSI/ROD/DR (hard constraint), open mode for everything else
+
+**5. Tighter LLM adjudication parameters for EIS**
+
+EIS documents are longer and noisier, so adjudication uses tighter limits:
+- Max candidates: 30 (vs 50 for EA)
+- Context chars per candidate: 200 (vs 300 for EA)
+
+**6. `document_type_clean` preference**
+
+`run_regex_prep()` uses `document_type_clean` when available (falls back to raw `document_type`). This matters more for EIS where raw type labels are often weak/inconsistent.
+
+**7. Non-decision exclusion patterns include EIS-specific noise**
+
+The fallback decision filter excludes EIS-specific draft/process language:
+- `draft eis`, `draft environmental impact statement`
+- `notice of availability`, `noa`
+- `public hearing`, `comment deadline`
+
+### Workflow (EIS)
+
+```bash
+# 1. Build regex cache
+python extract_timeline.py --regex-prep --source EIS
+
+# 2. BERT classification
+python extract_timeline.py --bert-run --source EIS --sample 50 --output test50_eis.parquet
+
+# 3. Claude adjudication
+python extract_timeline.py --llm-adjudicate --input test50_eis.parquet --provider claude
+
+# 4. Full run
+python extract_timeline.py --bert-run --source EIS --output projects_timeline_bert_eis.parquet
+python extract_timeline.py --llm-adjudicate --input projects_timeline_bert_eis.parquet --provider claude
 ```
 
 ---
@@ -637,6 +721,15 @@ python extract_timeline.py --bert-run --output projects_timeline_bert.parquet  #
 ---
 
 ## Change Log
+
+### 2026-02-18 - Non-main document fallback for EA/EIS
+- **Problem**: 178 EIS projects (23.6%) and 11 EA projects (1.9%) have documents but none flagged `main_document == 'YES'`, producing zero date candidates
+- **Implemented fallback** in `run_regex_prep()`: when no main docs exist for an EA/EIS project, all documents are used, sorted by type priority (`_DOC_TYPE_PRIORITY`)
+- **Document priority ordering**: EA: FONSI > ROD > DR > FEA > EA > DEA > OTHER > blank; EIS: ROD > FEIS > EIS > DEIS > OTHER > blank
+- **`main_document_imputed` flag**: added to regex cache rows, BERT output, and LLM output for affected projects
+- **Filename date fallback**: `build_file_name_date_map` and `_build_project_filename_bounds_map` also fall back to all docs for EA/EIS projects with no main docs
+- **CE unaffected**: fallback logic only applies to EA and EIS sources
+- **Next**: re-run `--regex-prep --source EA` and `--regex-prep --source EIS` to rebuild caches with imputed projects
 
 ### 2026-02-14 - EIS Cue + Tiering Enhancements
 - **Expanded EIS decision regex cues** in `extract_timeline.py`:
