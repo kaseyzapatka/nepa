@@ -9,6 +9,7 @@ import json
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
+from calendar import monthrange
 import sys
 
 # Add parent directory to path for imports
@@ -22,9 +23,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
 
-# Expected CE clean energy count (from latest extract_data.py output)
-EXPECTED_CE_CLEAN_N = 20725
-EXPECTED_CE_CLEAN_TOL = 250
+# Expected clean energy project counts per source (from latest extract_data.py output)
+EXPECTED_CLEAN_COUNTS = {
+    'CE':  19399,
+    'EA':  573,
+    'EIS': 753,
+}
+EXPECTED_CLEAN_TOL = 50  # flag if count drifts by more than this
 
 
 def _load_projects_combined():
@@ -38,23 +43,26 @@ def _load_projects_combined():
     return pd.read_parquet(projects_path)
 
 
-def _warn_if_clean_energy_count_off(df: pd.DataFrame, ce_only: bool, clean_energy_only: bool):
+def _warn_if_clean_energy_count_off(df: pd.DataFrame, sources: list = None):
     """
-    Warn if CE clean energy count is far from expected.
+    Warn if clean energy project counts are far from expected for any source.
     """
     if df is None:
-        return
-    if not (ce_only and clean_energy_only):
         return
     if 'dataset_source' not in df.columns or 'project_energy_type' not in df.columns:
         return
 
-    n_clean_ce = len(df[(df['dataset_source'] == 'CE') & (df['project_energy_type'] == 'Clean')])
-    if abs(n_clean_ce - EXPECTED_CE_CLEAN_N) > EXPECTED_CE_CLEAN_TOL:
-        print(
-            f"WARNING: CE clean energy count is {n_clean_ce:,}, expected ~{EXPECTED_CE_CLEAN_N:,}. "
-            "If this is unexpected, rerun extract_data.py (analysis) and rebuild regex cache."
-        )
+    check_sources = sources if sources else list(EXPECTED_CLEAN_COUNTS.keys())
+    for source in check_sources:
+        expected = EXPECTED_CLEAN_COUNTS.get(source)
+        if expected is None:
+            continue
+        actual = len(df[(df['dataset_source'] == source) & (df['project_energy_type'] == 'Clean')])
+        if abs(actual - expected) > EXPECTED_CLEAN_TOL:
+            print(
+                f"WARNING: {source} clean energy count is {actual:,}, expected ~{expected:,}. "
+                "If this is unexpected, rerun extract_data.py (analysis) and rebuild regex cache."
+            )
 
 
 # --------------------------
@@ -298,6 +306,90 @@ def build_file_name_date_map(documents_df: pd.DataFrame, main_docs_only: bool = 
         deduped[project_id] = json.dumps(out)
 
     return deduped
+
+
+def _parse_document_date_value(value):
+    """
+    Parse preserved-granularity filename date values.
+
+    Accepted forms:
+    - YYYY
+    - YYYY-MM
+    - YYYY-MM-DD
+
+    Returns:
+        tuple(datetime, datetime) as earliest/latest bounds for the value
+    """
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+
+    s = str(value).strip()
+    if not s:
+        return None
+
+    try:
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}', s):
+            dt = datetime.strptime(s, '%Y-%m-%d')
+            return dt, dt
+        if re.fullmatch(r'\d{4}-\d{2}', s):
+            year, month = [int(x) for x in s.split('-')]
+            start = datetime(year, month, 1)
+            end = datetime(year, month, monthrange(year, month)[1])
+            return start, end
+        if re.fullmatch(r'\d{4}', s):
+            year = int(s)
+            return datetime(year, 1, 1), datetime(year, 12, 31)
+    except ValueError:
+        return None
+
+    return None
+
+
+def _build_project_filename_bounds_map(documents_df: pd.DataFrame, main_docs_only: bool = True) -> dict:
+    """
+    Build project-level earliest/latest bounds from document_date_from_file_name.
+
+    Returns:
+        dict[project_id] -> {'project_date_earliest_file_name': 'YYYY-MM-DD'|None,
+                             'project_date_latest_file_name': 'YYYY-MM-DD'|None}
+    """
+    if documents_df is None or documents_df.empty:
+        return {}
+
+    df = documents_df.copy()
+
+    def extract_id(x):
+        if isinstance(x, dict):
+            return x.get('value', '')
+        return x
+
+    if 'project_id' in df.columns:
+        df['project_id'] = df['project_id'].apply(extract_id)
+
+    if main_docs_only and 'main_document' in df.columns:
+        df = df[df['main_document'] == 'YES']
+
+    if 'document_date_from_file_name' not in df.columns:
+        return {}
+
+    out = {}
+    for project_id, group in df.groupby('project_id'):
+        min_dt = None
+        max_dt = None
+        for val in group['document_date_from_file_name'].tolist():
+            parsed = _parse_document_date_value(val)
+            if parsed is None:
+                continue
+            low, high = parsed
+            min_dt = low if min_dt is None or low < min_dt else min_dt
+            max_dt = high if max_dt is None or high > max_dt else max_dt
+
+        out[project_id] = {
+            'project_date_earliest_file_name': min_dt.strftime('%Y-%m-%d') if min_dt else None,
+            'project_date_latest_file_name': max_dt.strftime('%Y-%m-%d') if max_dt else None,
+        }
+
+    return out
 
 def should_exclude_date(text, match_start, match_end, window=50):
     """
@@ -595,7 +687,7 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
     projects = _load_projects_combined()
     if projects is None:
         return
-    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
+    _warn_if_clean_energy_count_off(projects, sources=['CE'] if ce_only else None)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -640,6 +732,10 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
             documents_df,
             main_docs_only=main_docs_only
         )
+        file_name_bounds_map = _build_project_filename_bounds_map(
+            documents_df,
+            main_docs_only=main_docs_only
+        )
 
         # Filter to main documents only if requested
         if main_docs_only:
@@ -655,6 +751,9 @@ def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=F
             project_id = project['project_id']
             timeline = build_project_timeline(project_id, pages_df, documents_df, decision_docs_only)
             timeline['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+            bounds = file_name_bounds_map.get(project_id, {})
+            timeline['project_date_earliest_file_name'] = bounds.get('project_date_earliest_file_name')
+            timeline['project_date_latest_file_name'] = bounds.get('project_date_latest_file_name')
             results.append(timeline)
 
     # Create results dataframe
@@ -782,6 +881,10 @@ DECISION_PATTERNS_STRONG = [
     r'\bfonsi\b',                          # EA decision abbreviation
     r'record of decision',                 # EIS decision document
     r'\brod\b.*signed',                    # ROD-specific signature
+    r'joint record of decision',           # EIS joint ROD variant
+    r'record of decision.*(signed|issued)',
+    r'(selected|selection of) alternative',  # EIS final selection language
+    r'decision to implement',
 ]
 
 DECISION_PATTERNS_MED = [
@@ -820,6 +923,11 @@ INITIATION_PATTERNS_STRONG = [
     r'designation form',
     r'doe initiator signature',
     r'notice of intent.*prepare',          # EIS-specific NOI language
+    r'intent to prepare (an )?environmental impact statement',
+    r'notice of intent.*environmental impact statement',
+    r'noi.*federal register',
+    r'notice of intent.*published',
+    r'scoping notice',
 ]
 
 INITIATION_PATTERNS_MED = [
@@ -1602,12 +1710,16 @@ def _select_best_decision(decision_dates: list) -> dict:
     if not decision_dates:
         return None
 
+    # Decision document types: dates from ROD/FONSI docs get a boost
+    DECISION_DOC_TYPES = {'ROD', 'FONSI'}
+
     for d in decision_dates:
         ctx = d.get('context', '')
         d['_decision_strength'] = _decision_strength(ctx)
         d['_boilerplate_penalty'] = -2 if _is_decision_boilerplate(ctx) else 0
         d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
-        d['_score'] = d['_decision_strength'] + d['_boilerplate_penalty'] + (2 * d['_confidence'])
+        d['_doc_type_boost'] = 3 if str(d.get('doc_type', '')).upper().strip() in DECISION_DOC_TYPES else 0
+        d['_score'] = d['_decision_strength'] + d['_boilerplate_penalty'] + (2 * d['_confidence']) + d['_doc_type_boost']
 
     decision_dates.sort(key=lambda x: (x['_score'], x['date']), reverse=True)
     best = decision_dates[0]
@@ -1806,10 +1918,26 @@ def extract_with_bert(
             label = 'expiration'
 
         # Bucket historical dates (< 2000)
-        if _is_historical_by_year(date_info.get('date')):
-            label = 'historical'
-        elif _has_historical_context(context_for_rules):
-            label = 'historical'
+        # But don't override strong EA/EIS decision cues (FONSI, ROD, Decision Record)
+        has_ea_eis_decision_cue = _has_any_regex(context_for_rules, [
+            r'finding of no significant impact',
+            r'\bfonsi\b',
+            r'record of decision',
+            r'\brod\b',
+            r'decision record',
+            r'decision memo',
+        ])
+        if not has_ea_eis_decision_cue:
+            if _is_historical_by_year(date_info.get('date')):
+                label = 'historical'
+            elif _has_historical_context(context_for_rules):
+                label = 'historical'
+
+        # Post-BERT override: force decision for strong EA/EIS decision language
+        # BERT was trained on CE data and doesn't recognize FONSI/ROD as decision cues
+        if has_ea_eis_decision_cue and label not in ('decision', 'expiration'):
+            label = 'decision'
+
         classified_dates.append({
             'date': date_info['date'],
             'type': label,
@@ -1820,6 +1948,7 @@ def extract_with_bert(
             'confidence': 'high' if classification['confidence'] >= 0.8 else 'medium',
             'bert_confidence': classification['confidence'],
             'position_pct': date_info.get('position_pct'),
+            'doc_type': date_info.get('doc_type', ''),
         })
 
     # Context-level dedupe: keep highest-confidence entry per (date, type)
@@ -1835,7 +1964,7 @@ def extract_with_bert(
     _apply_historical_gap_rule(classified_dates, gap_days=730, enable=apply_historical_gap_rule)
 
     output_dates = [
-        {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score')}
+        {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score', '_doc_type_boost')}
         for d in classified_dates
     ]
     result['n_dates_found'] = len(classified_dates)
@@ -1984,6 +2113,7 @@ def run_bert_timeline_extraction(
     projects = _load_projects_combined()
     if projects is None:
         return None
+    _warn_if_clean_energy_count_off(projects, sources=sources)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source
@@ -2004,6 +2134,7 @@ def run_bert_timeline_extraction(
 
     # Load documents for filename date extraction (all requested sources)
     file_name_dates_map = {}
+    file_name_bounds_map = {}
     for source in sources:
         data_dir = PROCESSED_DIR / source.lower()
         documents_df = pd.read_parquet(data_dir / "documents.parquet")
@@ -2014,11 +2145,24 @@ def run_bert_timeline_extraction(
             return x
 
         documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
-        source_map = build_file_name_date_map(
-            documents_df,
-            main_docs_only=main_docs_only
-        )
+
+        # For EA/EIS: build main-only map first, then fill gaps with all-docs fallback
+        source_map = build_file_name_date_map(documents_df, main_docs_only=main_docs_only)
+        source_bounds = _build_project_filename_bounds_map(documents_df, main_docs_only=main_docs_only)
+
+        if main_docs_only and source in ('EA', 'EIS'):
+            # Fallback: projects with no main docs get filename dates from all docs
+            all_map = build_file_name_date_map(documents_df, main_docs_only=False)
+            all_bounds = _build_project_filename_bounds_map(documents_df, main_docs_only=False)
+            for pid in all_map:
+                if pid not in source_map:
+                    source_map[pid] = all_map[pid]
+            for pid in all_bounds:
+                if pid not in source_bounds:
+                    source_bounds[pid] = all_bounds[pid]
+
         file_name_dates_map.update(source_map)
+        file_name_bounds_map.update(source_bounds)
     print(f"Built filename date map: {len(file_name_dates_map):,} projects")
 
     # Load regex cache (per-source with legacy fallback)
@@ -2043,6 +2187,14 @@ def run_bert_timeline_extraction(
         print("ERROR: BERT approach requires regex cache. Run --regex-prep first.")
         return None
 
+    # Build set of imputed project IDs from regex cache
+    imputed_project_ids = set()
+    if 'main_document_imputed' in regex_cache_df.columns:
+        imputed_rows = regex_cache_df[regex_cache_df['main_document_imputed'] == True]
+        imputed_project_ids = set(imputed_rows['project_id'].unique())
+        if imputed_project_ids:
+            print(f"Projects using non-main document fallback: {len(imputed_project_ids)}")
+
     # Process projects
     results = []
     total = len(projects)
@@ -2055,9 +2207,10 @@ def run_bert_timeline_extraction(
 
         # Get cached dates for this project
         project_dates = regex_cache_df[regex_cache_df['project_id'] == project_id]
-        dates_with_context = project_dates[[
-            'date', 'match', 'context', 'position', 'position_pct'
-        ]].to_dict(orient='records')
+        cache_cols = ['date', 'match', 'context', 'position', 'position_pct']
+        if 'doc_type' in project_dates.columns:
+            cache_cols.append('doc_type')
+        dates_with_context = project_dates[cache_cols].to_dict(orient='records')
 
         # Classify with BERT (apply historical gap rule per source config)
         source_cfg = SOURCE_CONFIG.get(project.get('dataset_source', 'CE'), SOURCE_CONFIG['CE'])
@@ -2104,6 +2257,9 @@ def run_bert_timeline_extraction(
             'bert_timeline_status': timeline_status,
             'bert_error': bert_result.get('error'),
             'project_file_name_dates': file_name_dates_map.get(project_id, '[]'),
+            'project_date_earliest_file_name': file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name'),
+            'project_date_latest_file_name': file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name'),
+            'main_document_imputed': project_id in imputed_project_ids,
         }
         results.append(result)
 
@@ -2171,6 +2327,8 @@ DECISION_CUES = [
     'authorizing official', 'field manager', 'field office manager',
     'field office manager determination', 'nepa compliance officer',
     'environmental coordinator', 'concur', 'date determined', 'initiator signature',
+    'record of decision', 'rod', 'joint record of decision',
+    'selected alternative', 'decision to implement',
 ]
 
 INITIATION_CUES = [
@@ -2180,7 +2338,8 @@ INITIATION_CUES = [
     'comment period', '30-day comment period', 'request for', 'right-of-way application',
     'row application', 'right of way application',
     'document creation', 'date created', 'date prepared', 'prepared', 'drafted',
-    'revised',
+    'revised', 'intent to prepare an environmental impact statement',
+    'noi published', 'federal register', 'scoping notice',
 ]
 
 REVIEW_CUES = [
@@ -3287,7 +3446,7 @@ def run_llm_timeline_extraction(
     projects = _load_projects_combined()
     if projects is None:
         return None
-    _warn_if_clean_energy_count_off(projects, ce_only=ce_only, clean_energy_only=clean_energy_only)
+    _warn_if_clean_energy_count_off(projects, sources=['CE'] if ce_only else None)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source (CE only)
@@ -3324,6 +3483,10 @@ def run_llm_timeline_extraction(
 
     # Precompute filename date matches
     file_name_dates_map = build_file_name_date_map(
+        documents_df,
+        main_docs_only=main_docs_only
+    )
+    file_name_bounds_map = _build_project_filename_bounds_map(
         documents_df,
         main_docs_only=main_docs_only
     )
@@ -3365,12 +3528,16 @@ def run_llm_timeline_extraction(
                 use_hybrid=True, timeout=timeout, dates_with_context=dates_with_context
             )
             result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+            result['project_date_earliest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name')
+            result['project_date_latest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name')
             return result
         result = build_project_timeline_llm(
             project_id, pages_df, documents_df, model=model,
             use_hybrid=use_hybrid, timeout=timeout
         )
         result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+        result['project_date_earliest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name')
+        result['project_date_latest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name')
         return result
 
     if workers and workers > 1:
@@ -3442,6 +3609,25 @@ def run_llm_timeline_extraction(
     return projects_with_llm
 
 
+# Document-type priority for fallback (non-main-document) projects.
+# Lower rank = higher priority. Documents are processed in this order.
+_DOC_TYPE_PRIORITY = {
+    'EA': {
+        'FONSI': 0, 'ROD': 1, 'DR': 2, 'DECISION RECORD': 2,
+        'FEA': 3, 'EA': 4, 'DEA': 5, 'OTHER': 6,
+    },
+    'EIS': {
+        'ROD': 0, 'FEIS': 1, 'EIS': 2, 'DEIS': 3, 'OTHER': 4,
+    },
+}
+
+
+def _get_doc_priority(doc_type: str, source: str) -> int:
+    """Return sort priority for a document type (lower = higher priority)."""
+    priority_map = _DOC_TYPE_PRIORITY.get(source, {})
+    return priority_map.get(doc_type.upper().strip(), 99)
+
+
 def run_regex_prep(
     sample_size: int = None,
     sources: list = None,
@@ -3465,6 +3651,7 @@ def run_regex_prep(
     projects = _load_projects_combined()
     if projects is None:
         return None
+    _warn_if_clean_energy_count_off(projects, sources=sources)
     print(f"Loaded {len(projects):,} projects")
 
     # Filter by dataset source
@@ -3505,48 +3692,85 @@ def run_regex_prep(
 
         documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
 
-        # Filter to main documents only if requested
-        if main_docs_only:
+        # For CE, filter pages globally to main docs only.
+        # For EA/EIS, keep all pages loaded — fallback projects need non-main pages.
+        if main_docs_only and source == 'CE':
             main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
             pages_df = pages_df[pages_df['document_id'].isin(main_doc_ids)]
             print(f"Filtered to {len(pages_df):,} pages from main documents")
 
         results = []
+        imputed_project_ids = set()
         total = len(source_projects)
 
         print(f"Processing {total} {source} projects for regex candidates...")
+
+        # Build document_id -> document_type lookup
+        # Prefer cleaned labels when available (better signal for EIS fallback gating).
+        doc_type_col = 'document_type_clean' if 'document_type_clean' in documents_df.columns else 'document_type'
+        doc_type_map = dict(zip(documents_df['document_id'], documents_df[doc_type_col].fillna('')))
 
         for idx, (_, project) in enumerate(source_projects.iterrows()):
             if idx % 100 == 0:
                 print(f"  Processing project {idx + 1}/{total}...")
 
             project_id = project['project_id']
-            doc_ids = documents_df[documents_df['project_id'] == project_id]['document_id'].tolist()
-            if not doc_ids:
+            project_docs = documents_df[documents_df['project_id'] == project_id]
+            if project_docs.empty:
                 continue
 
-            project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
-            if project_pages.empty:
-                continue
+            is_imputed = False
 
-            all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
-            if not all_text.strip():
-                continue
+            # Document selection: main docs first, fallback for EA/EIS only
+            if main_docs_only and 'main_document' in project_docs.columns:
+                main_docs = project_docs[project_docs['main_document'] == 'YES']
+                if not main_docs.empty:
+                    project_docs = main_docs
+                elif source in ('EA', 'EIS'):
+                    # Fallback: no main docs — use all docs sorted by type priority
+                    project_docs = project_docs.copy()
+                    project_docs['_priority'] = project_docs['document_id'].map(
+                        lambda did: _get_doc_priority(doc_type_map.get(did, ''), source)
+                    )
+                    project_docs = project_docs.sort_values('_priority')
+                    is_imputed = True
+                    imputed_project_ids.add(project_id)
+                else:
+                    # CE: no fallback, skip project
+                    continue
 
-            dates_with_context = extract_dates_with_context(
-                all_text,
-                keep_all_candidates=keep_all_candidates,
-                dedupe_by_date=not keep_all_candidates,
-            )
-            for d in dates_with_context:
-                results.append({
-                    'project_id': project_id,
-                    'date': d.get('date'),
-                    'match': d.get('match'),
-                    'context': d.get('context'),
-                    'position': d.get('position'),
-                    'position_pct': d.get('position_pct'),
-                })
+            # Process per-document to tag each candidate with doc_type
+            for _, doc_row in project_docs.iterrows():
+                doc_id = doc_row['document_id']
+                doc_type = doc_type_map.get(doc_id, '')
+
+                doc_pages = pages_df[pages_df['document_id'] == doc_id]
+                if doc_pages.empty:
+                    continue
+
+                doc_text = "\n\n".join(doc_pages['page_text'].dropna().tolist())
+                if not doc_text.strip():
+                    continue
+
+                dates_with_context = extract_dates_with_context(
+                    doc_text,
+                    keep_all_candidates=keep_all_candidates,
+                    dedupe_by_date=not keep_all_candidates,
+                )
+                for d in dates_with_context:
+                    results.append({
+                        'project_id': project_id,
+                        'date': d.get('date'),
+                        'match': d.get('match'),
+                        'context': d.get('context'),
+                        'position': d.get('position'),
+                        'position_pct': d.get('position_pct'),
+                        'doc_type': doc_type,
+                        'main_document_imputed': is_imputed,
+                    })
+
+        if imputed_project_ids:
+            print(f"  {source}: {len(imputed_project_ids)} projects used non-main document fallback (main_document_imputed=True)")
 
         results_df = pd.DataFrame(results)
         results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
@@ -3567,6 +3791,720 @@ def run_regex_prep(
         print(f"\nTotal candidate rows across all sources: {len(combined):,}")
         return combined
     return None
+
+
+# ---------------------------------------------------------------------------
+# LLM Adjudication: Post-BERT LLM pass to select best initiation/decision
+# ---------------------------------------------------------------------------
+
+# Doc-type priority tiers for EA/EIS adjudication
+# Decision-priority docs: most reliable for decision/approval dates
+_LLM_DECISION_DOC_TYPES = {'ROD', 'FONSI', 'DR', 'DECISION RECORD'}
+# Initiation-priority docs: most reliable for initiation/scoping dates
+_LLM_INITIATION_DOC_TYPES = {'EA', 'DEA', 'DEIS'}
+# Fallback decision docs (used only when Tier A is absent)
+_LLM_FALLBACK_DECISION_DOC_TYPES = {'EA', 'DEA', 'DEIS', 'FEIS', 'FEA', 'EIS'}
+# All known EA/EIS doc types (used for filtering vs blank/unknown)
+_LLM_KNOWN_DOC_TYPES = _LLM_DECISION_DOC_TYPES | _LLM_FALLBACK_DECISION_DOC_TYPES | {'OTHER'}
+
+
+def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> dict:
+    """
+    Filter and rank date candidates before sending to LLM adjudication.
+
+    Applies layered filtering to reduce noise, then applies tiered decision
+    selection so the LLM only sees appropriate decision candidates:
+      - Tier A (priority): FONSI, ROD, DR, Decision Record
+      - Tier B (fallback): EA, DEA, DEIS, FEIS — only used when Tier A has zero decision
+        candidates, and only if context has strong decision language.
+
+    Layers:
+      1. Dedup by date (keep best version of each date)
+      2. Confidence floor (drop very low confidence, except priority docs)
+      3. Smart type filtering (drop low-value review/other)
+      4. Doc-type priority (stricter filtering for blank/other docs)
+      5. Tiered decision gating
+      6. Hard cap at max_candidates
+
+    Args:
+        candidates: List of date dicts from BERT classification (already
+                    excluding historical/expiration).
+        max_candidates: Maximum candidates to return.
+
+    Returns:
+        dict with keys:
+          'candidates': filtered list of date dicts, sorted chronologically
+          'decision_mode': 'priority_only' | 'ea_eis_fallback' | 'no_decision_candidates'
+          'allowed_decision_dates': set of YYYY-MM-DD strings the LLM may pick
+          'n_priority_decision': int count of Tier A decision candidates
+          'n_other_decision': int count of Tier B fallback decision candidates
+    """
+    empty_result = {
+        'candidates': [],
+        'decision_mode': 'no_decision_candidates',
+        'allowed_decision_dates': set(),
+        'n_priority_decision': 0,
+        'n_other_decision': 0,
+    }
+    if not candidates:
+        return empty_result
+
+    def _get_conf(d):
+        c = d.get('bert_confidence', 0.5)
+        return c if isinstance(c, (int, float)) else 0.5
+
+    def _get_doc_type(d):
+        return str(d.get('doc_type', '')).upper().strip()
+
+    def _is_priority_doc(doc_type):
+        return doc_type in _LLM_DECISION_DOC_TYPES or doc_type in _LLM_INITIATION_DOC_TYPES
+
+    # ----- Layer 1: Dedup by date -----
+    from collections import defaultdict
+    by_date = defaultdict(list)
+    for d in candidates:
+        by_date[d.get('date', '')].append(d)
+
+    deduped = []
+    for date_str, group in by_date.items():
+        if not date_str:
+            continue
+
+        def _dedup_score(d):
+            doc_type = _get_doc_type(d)
+            doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else (
+                8 if doc_type in _LLM_INITIATION_DOC_TYPES else 0
+            )
+            type_bonus = 5 if d.get('type') in ('decision', 'initiation') else 0
+            return doc_bonus + type_bonus + _get_conf(d)
+
+        group.sort(key=_dedup_score, reverse=True)
+        best = group[0].copy()
+        if len(group) > 1:
+            best['_mentions'] = len(group)
+        deduped.append(best)
+
+    # ----- Layer 2: Confidence floor -----
+    CONFIDENCE_FLOOR = 0.3
+    filtered = []
+    for d in deduped:
+        if _is_priority_doc(_get_doc_type(d)) or _get_conf(d) >= CONFIDENCE_FLOOR:
+            filtered.append(d)
+
+    # ----- Layer 3: Smart type filtering -----
+    _decision_cues_lower = {c.lower() for c in DECISION_CUES}
+    _initiation_cues_lower = {c.lower() for c in INITIATION_CUES}
+
+    def _has_timeline_cue(d):
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        return any(cue in ctx for cue in _decision_cues_lower) or \
+               any(cue in ctx for cue in _initiation_cues_lower)
+
+    type_filtered = []
+    for d in filtered:
+        dtype = d.get('type', '')
+        is_priority = _is_priority_doc(_get_doc_type(d))
+
+        if dtype in ('decision', 'initiation'):
+            type_filtered.append(d)
+        elif dtype == 'review':
+            if _get_conf(d) >= 0.5 or _has_timeline_cue(d) or is_priority:
+                type_filtered.append(d)
+        elif dtype == 'other':
+            if is_priority:
+                type_filtered.append(d)
+        else:
+            if _get_conf(d) >= 0.6:
+                type_filtered.append(d)
+
+    # ----- Layer 4: Doc-type priority -----
+    doc_filtered = []
+    for d in type_filtered:
+        doc_type = _get_doc_type(d)
+        dtype = d.get('type', '')
+
+        if doc_type in _LLM_KNOWN_DOC_TYPES:
+            doc_filtered.append(d)
+        else:
+            if dtype in ('decision', 'initiation') and _get_conf(d) >= 0.4:
+                doc_filtered.append(d)
+            elif _has_timeline_cue(d) and _get_conf(d) >= 0.4:
+                doc_filtered.append(d)
+
+    # ----- Layer 5: Tiered decision classification -----
+    # Tier A (FONSI/ROD/DR) = hard constraint: if present, LLM must pick from these.
+    # Tier B fallback (EA/DEA/DEIS/FEIS) is only used when Tier A is empty.
+    # Fallback candidates can pass via:
+    #   - strong decision language, OR
+    #   - clear final-document markers (Final EA/FEIS), even if BERT mislabels
+    #     the candidate as initiation/review.
+    tier_a_decision = []
+    fallback_decision = []
+    non_decision = []
+
+    _STRONG_DECISION_PATTERNS = {
+        'signed', 'approved', 'issued', 'finding', 'fonsi',
+        'record of decision', 'decision record', 'determination',
+        'approval', 'authorized', 'authorization',
+        'selected alternative', 'joint record of decision',
+    }
+    _FINAL_DOC_DECISION_MARKERS = {
+        'final environmental assessment', 'final ea',
+        'final environmental impact statement', 'final eis', 'feis',
+    }
+    _NON_DECISION_PATTERNS = {
+        'draft', 'public review', 'comment period', 'scoping',
+        'notice of intent', 'noi', 'public comment',
+        'draft eis', 'draft environmental impact statement',
+        'notice of availability', 'noa',
+        'public hearing', 'comment deadline',
+    }
+
+    def _is_fallback_doc(doc_type):
+        return doc_type in _LLM_FALLBACK_DECISION_DOC_TYPES or doc_type not in _LLM_KNOWN_DOC_TYPES
+
+    def _has_strong_decision_language(d):
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        has_strong = any(p in ctx for p in _STRONG_DECISION_PATTERNS)
+        has_exclude = any(p in ctx for p in _NON_DECISION_PATTERNS)
+        return has_strong and not has_exclude
+
+    def _has_final_doc_decision_marker(d):
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        return any(p in ctx for p in _FINAL_DOC_DECISION_MARKERS)
+
+    for d in doc_filtered:
+        doc_type = _get_doc_type(d)
+        dtype = d.get('type', '')
+
+        if dtype == 'decision' and doc_type in _LLM_DECISION_DOC_TYPES:
+            tier_a_decision.append(d)
+        elif dtype == 'decision':
+            # Fallback-doc decisions, or blank/other docs, must pass strong language checks.
+            if _is_fallback_doc(doc_type):
+                if _has_strong_decision_language(d) or _has_final_doc_decision_marker(d):
+                    fallback_decision.append(d)
+        elif dtype in ('initiation', 'review', 'other'):
+            # Promote misclassified fallback candidates if context clearly indicates
+            # a final EA/FEIS document date.
+            if _is_fallback_doc(doc_type) and _has_final_doc_decision_marker(d):
+                fallback_decision.append(d)
+            else:
+                non_decision.append(d)
+        else:
+            non_decision.append(d)
+
+    n_priority = len(tier_a_decision)
+    n_other_dec = len(fallback_decision)
+
+    if n_priority > 0:
+        # Hard constraint: only FONSI/ROD/DR decision dates allowed
+        decision_mode = 'priority_only'
+        allowed_decision = tier_a_decision
+    elif n_other_dec > 0:
+        # Fallback mode: only vetted EA/DEA/DEIS/FEIS decision dates allowed
+        decision_mode = 'ea_eis_fallback'
+        allowed_decision = fallback_decision
+    else:
+        decision_mode = 'no_decision_candidates'
+        allowed_decision = []
+
+    allowed_decision_dates = {d.get('date') for d in allowed_decision}
+
+    # Only allowed decision candidates are sent, plus all non-decision candidates.
+    final = allowed_decision + non_decision
+
+    # ----- Layer 6: Hard cap -----
+    if len(final) > max_candidates:
+        def _rank_score(d):
+            doc_type = _get_doc_type(d)
+            doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else (
+                8 if doc_type in _LLM_INITIATION_DOC_TYPES else 0
+            )
+            type_bonus = 5 if d.get('type') == 'decision' else (
+                4 if d.get('type') == 'initiation' else 0
+            )
+            return doc_bonus + type_bonus + _get_conf(d)
+
+        final.sort(key=_rank_score, reverse=True)
+        final = final[:max_candidates]
+
+    # Sort chronologically for the LLM
+    final.sort(key=lambda d: d.get('date', '9999-99-99'))
+
+    return {
+        'candidates': final,
+        'decision_mode': decision_mode,
+        'allowed_decision_dates': allowed_decision_dates,
+        'n_priority_decision': n_priority,
+        'n_other_decision': n_other_dec,
+    }
+
+
+def _build_adjudication_prompt(project_title: str, dates: list,
+                               decision_mode: str = 'priority_only',
+                               allowed_decision_dates: set = None,
+                               context_chars: int = 300) -> str:
+    """
+    Build a prompt for LLM adjudication of BERT-classified dates.
+
+    Args:
+        project_title: Project name for context.
+        dates: Filtered date candidate dicts.
+        decision_mode: 'priority_only', 'ea_eis_fallback', or 'no_decision_candidates'.
+        allowed_decision_dates: Set of YYYY-MM-DD strings the LLM may pick for decision.
+    """
+    date_block = []
+    for i, d in enumerate(dates, 1):
+        doc_type_str = f" [doc: {d['doc_type']}]" if d.get('doc_type') else ""
+        mentions_str = f" (appears {d['_mentions']}x)" if d.get('_mentions', 0) > 1 else ""
+        source_text = str(d.get('source', '') or d.get('context', ''))
+        date_block.append(
+            f"{i}. DATE: {d['date']}  BERT_TYPE: {d['type']}{doc_type_str}{mentions_str}\n"
+            f"   CONTEXT: {source_text[:context_chars]}"
+        )
+    dates_text = "\n".join(date_block)
+
+    # Build decision constraint block based on mode
+    if decision_mode == 'priority_only':
+        allowed_str = ', '.join(sorted(allowed_decision_dates)) if allowed_decision_dates else 'none'
+        decision_constraint = (
+            f"DECISION MODE: priority_only\n"
+            f"This project has decision candidates from FONSI/ROD/Decision Record documents.\n"
+            f"You MUST pick the decision date from this set ONLY: [{allowed_str}]\n"
+            f"Do NOT use dates from EA/DEA/DEIS/FEIS or other documents for the decision."
+        )
+    elif decision_mode == 'ea_eis_fallback':
+        allowed_str = ', '.join(sorted(allowed_decision_dates)) if allowed_decision_dates else 'none'
+        decision_constraint = (
+            "DECISION MODE: ea_eis_fallback\n"
+            "This project has NO FONSI/ROD/Decision Record documents.\n"
+            "Decision candidates are limited to EA/DEA/DEIS/FEIS dates with strong decision language "
+            "or clear final-document markers (Final EA/FEIS).\n"
+            f"Preferred decision-date set: [{allowed_str}].\n"
+            "You SHOULD prioritize this set, but you may pick another candidate date if its context "
+            "more clearly indicates final approval/completion."
+        )
+    else:
+        decision_constraint = (
+            "DECISION MODE: no_decision_candidates\n"
+            "No high-confidence decision candidates were pre-identified.\n"
+            "Review all provided candidates and pick a decision date only if context clearly indicates "
+            "final approval/completion; otherwise respond with null."
+        )
+
+    return f"""You are an expert at reading NEPA (National Environmental Policy Act) project documents.
+
+PROJECT: {project_title}
+
+Below are date candidates extracted from this project's documents. Each has a date, the BERT model's classification, the source document type [doc: X] if known, and surrounding text context.
+
+{dates_text}
+
+YOUR TASK: Pick the single best INITIATION date and the single best DECISION date for this project.
+
+DEFINITIONS:
+- INITIATION: When the NEPA review process began — application received, notice of intent, scoping notice, or project proposal date.
+- DECISION: When the NEPA review was completed — FONSI signed, Record of Decision (ROD) signed, decision record issued, or approval/authorization date.
+
+{decision_constraint}
+
+INITIATION GUIDANCE:
+- Prefer dates from EA/DEA (or DEIS for EIS projects) that reference application, NOI, scoping, or project start.
+- FONSI/ROD/Decision Record documents rarely contain good initiation dates.
+
+RULES:
+- The initiation date must come BEFORE the decision date.
+- Prefer dates with strong decision language (signed, approved, issued, FONSI, ROD, decision record) over generic document dates.
+- Prefer dates with strong initiation language (application, notice of intent, scoping, proposed, received) over generic dates.
+- If no clear initiation date exists, respond with null.
+- If no clear decision date exists, respond with null.
+- Do NOT pick dates that refer to other projects, regulations, or historical references.
+
+Respond with ONLY valid JSON in this exact format (no other text):
+{{"initiation_date": "YYYY-MM-DD", "decision_date": "YYYY-MM-DD", "initiation_reasoning": "brief reason", "decision_reasoning": "brief reason"}}"""
+
+
+def _call_ollama_adjudication(prompt: str, model: str, timeout: int) -> dict:
+    """Call Ollama for a single adjudication prompt."""
+    import requests
+    try:
+        response = requests.post(
+            'http://localhost:11434/api/generate',
+            json={
+                'model': model,
+                'prompt': prompt,
+                'stream': False,
+                'options': {
+                    'temperature': 0.1,
+                    'num_predict': 200,
+                }
+            },
+            timeout=timeout
+        )
+        if response.status_code == 200:
+            return {
+                'response': response.json().get('response', ''),
+                'eval_duration_ms': response.json().get('eval_duration', 0) / 1e6,
+                'error': None,
+            }
+        else:
+            return {'response': '', 'error': f'ollama_http_error: {response.status_code}'}
+    except requests.exceptions.ConnectionError:
+        return {'response': '', 'error': 'ollama_not_running'}
+    except requests.exceptions.Timeout:
+        return {'response': '', 'error': 'ollama_timeout'}
+    except Exception as e:
+        return {'response': '', 'error': f'ollama_error: {str(e)}'}
+
+
+def _call_claude_adjudication(prompt: str, model: str, timeout: int, max_retries: int = 3) -> dict:
+    """Call Claude API for a single adjudication prompt with rate-limit retry."""
+    import requests
+    import os
+    import time as _time
+
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        return {'response': '', 'error': 'ANTHROPIC_API_KEY not set'}
+
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                'https://api.anthropic.com/v1/messages',
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                },
+                json={
+                    'model': model,
+                    'max_tokens': 200,
+                    'temperature': 0.1,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                },
+                timeout=timeout
+            )
+            if response.status_code == 200:
+                data = response.json()
+                text = data.get('content', [{}])[0].get('text', '')
+                return {
+                    'response': text,
+                    'eval_duration_ms': None,
+                    'error': None,
+                }
+            elif response.status_code == 429:
+                # Rate limited — wait and retry
+                retry_after = int(response.headers.get('retry-after', 30))
+                _time.sleep(retry_after)
+                continue
+            else:
+                error_msg = response.json().get('error', {}).get('message', response.text[:200])
+                return {'response': '', 'error': f'claude_api_error ({response.status_code}): {error_msg}'}
+        except requests.exceptions.Timeout:
+            return {'response': '', 'error': 'claude_timeout'}
+        except Exception as e:
+            return {'response': '', 'error': f'claude_error: {str(e)}'}
+
+    return {'response': '', 'error': 'claude_rate_limit_exhausted'}
+
+
+def _parse_adjudication_response(response_text: str) -> dict:
+    """Parse JSON response from LLM adjudication."""
+    import json as json_module
+    result = {
+        'llm_initiation_date': None,
+        'llm_decision_date': None,
+        'llm_initiation_reasoning': None,
+        'llm_decision_reasoning': None,
+    }
+    if not response_text:
+        return result
+
+    # Try to extract JSON from response (may have extra text around it)
+    text = response_text.strip()
+    # Find first { and last }
+    start = text.find('{')
+    end = text.rfind('}')
+    if start >= 0 and end > start:
+        text = text[start:end + 1]
+
+    try:
+        parsed = json_module.loads(text)
+        for key in ['initiation_date', 'decision_date', 'initiation_reasoning', 'decision_reasoning']:
+            val = parsed.get(key)
+            if val and str(val).lower() not in ('null', 'none', 'n/a', ''):
+                result[f'llm_{key}'] = str(val)
+    except json_module.JSONDecodeError:
+        pass
+
+    return result
+
+
+CLAUDE_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+LLM_ADJ_DEFAULT_MAX_CANDIDATES = 50
+LLM_ADJ_DEFAULT_CONTEXT_CHARS = 300
+LLM_ADJ_EIS_MAX_CANDIDATES = 30
+LLM_ADJ_EIS_CONTEXT_CHARS = 200
+
+
+def run_llm_adjudication(
+    input_file: str,
+    model: str = DEFAULT_LLM_MODEL,
+    provider: str = 'ollama',
+    timeout: int = 120,
+    workers: int = 1,
+    sample_size: int = None,
+    output_file: str = None,
+):
+    """
+    Run LLM adjudication on BERT timeline output.
+
+    Reads a BERT output parquet, extracts all date candidates per project,
+    sends them to an Ollama LLM for adjudication, and adds LLM picks
+    alongside the BERT picks for comparison.
+
+    Args:
+        input_file: Path to BERT output parquet (e.g., test50_ea.parquet)
+        model: Ollama model name
+        timeout: Timeout per project in seconds
+        workers: Number of parallel workers
+        output_file: Output parquet path (default: adds _llm suffix to input)
+    """
+    import json as json_module
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    input_path = Path(input_file) if not str(input_file).startswith('/') else Path(input_file)
+    if not input_path.is_absolute():
+        input_path = ANALYSIS_DIR / input_file
+
+    if not input_path.exists():
+        print(f"ERROR: Input file not found: {input_path}")
+        return None
+
+    # Resolve provider and model defaults
+    if provider == 'claude' and model == DEFAULT_LLM_MODEL:
+        model = CLAUDE_DEFAULT_MODEL
+    if provider == 'claude':
+        import os
+        if not os.environ.get('ANTHROPIC_API_KEY'):
+            print("ERROR: ANTHROPIC_API_KEY environment variable not set.")
+            print("  Set it with: export ANTHROPIC_API_KEY='sk-ant-...'")
+            return None
+        workers = 1  # Sequential to respect rate limits
+
+    print(f"\n=== LLM Adjudication ===")
+    print(f"Input: {input_path}")
+    print(f"Provider: {provider}")
+    print(f"Model: {model}")
+    print(f"Workers: {workers}")
+    print(f"Timeout: {timeout}s per project")
+
+    df = pd.read_parquet(input_path)
+    print(f"Loaded {len(df):,} projects")
+
+    if sample_size and sample_size < len(df):
+        df = df.sample(n=sample_size, random_state=42)
+        print(f"Sampled {len(df):,} projects")
+
+    # Prepare adjudication tasks
+    tasks = []
+    for idx, row in df.iterrows():
+        project_id = row['project_id']
+        project_title = row.get('project_title', 'Unknown')
+        dataset_source = str(row.get('dataset_source', '') or '').upper()
+        process_type = str(row.get('process_type', '') or '').upper()
+
+        is_eis = dataset_source == 'EIS' or process_type == 'EIS'
+        max_candidates = LLM_ADJ_EIS_MAX_CANDIDATES if is_eis else LLM_ADJ_DEFAULT_MAX_CANDIDATES
+        context_chars = LLM_ADJ_EIS_CONTEXT_CHARS if is_eis else LLM_ADJ_DEFAULT_CONTEXT_CHARS
+
+        # Parse BERT dates JSON
+        dates_json = row.get('bert_dates_json', '[]')
+        try:
+            all_dates = json_module.loads(dates_json) if dates_json else []
+        except json_module.JSONDecodeError:
+            all_dates = []
+
+        # Remove historical/expiration, then apply layered + tiered filtering
+        pre_filter = [
+            d for d in all_dates
+            if d.get('type') not in ('historical', 'expiration')
+        ]
+        filter_result = _filter_candidates_for_llm(pre_filter, max_candidates=max_candidates)
+
+        tasks.append({
+            'idx': idx,
+            'project_id': project_id,
+            'project_title': project_title,
+            'dataset_source': dataset_source,
+            'process_type': process_type,
+            'max_candidates': max_candidates,
+            'context_chars': context_chars,
+            'candidates': filter_result['candidates'],
+            'decision_mode': filter_result['decision_mode'],
+            'allowed_decision_dates': filter_result['allowed_decision_dates'],
+            'n_priority_decision': filter_result['n_priority_decision'],
+            'n_other_decision': filter_result['n_other_decision'],
+            'n_total_dates': len(all_dates),
+            'n_pre_filter': len(pre_filter),
+            'n_candidates': len(filter_result['candidates']),
+        })
+
+    # Stats
+    n_with_candidates = sum(1 for t in tasks if t['n_candidates'] > 0)
+    n_no_candidates = sum(1 for t in tasks if t['n_candidates'] == 0)
+    total_pre = sum(t['n_pre_filter'] for t in tasks)
+    total_post = sum(t['n_candidates'] for t in tasks)
+    reduction_pct = (1 - total_post / total_pre) * 100 if total_pre > 0 else 0
+    n_priority_mode = sum(1 for t in tasks if t['decision_mode'] == 'priority_only')
+    n_fallback_mode = sum(1 for t in tasks if t['decision_mode'] == 'ea_eis_fallback')
+    n_no_dec_mode = sum(1 for t in tasks if t['decision_mode'] == 'no_decision_candidates')
+    print(f"Projects with candidates: {n_with_candidates}")
+    print(f"Projects with no candidates (skipped): {n_no_candidates}")
+    print(f"Candidate filtering: {total_pre:,} -> {total_post:,} ({reduction_pct:.0f}% reduction)")
+    n_eis_tasks = sum(1 for t in tasks if t['max_candidates'] == LLM_ADJ_EIS_MAX_CANDIDATES)
+    print(
+        f"Adjudication limits: default cap={LLM_ADJ_DEFAULT_MAX_CANDIDATES}, "
+        f"EIS cap={LLM_ADJ_EIS_MAX_CANDIDATES} ({n_eis_tasks} projects)"
+    )
+    print(
+        f"Decision modes: {n_priority_mode} priority_only, "
+        f"{n_fallback_mode} ea_eis_fallback, "
+        f"{n_no_dec_mode} no_decision_candidates"
+    )
+
+    # Process with thread pool
+    results = {}
+    start_time = time.time()
+
+    def _process_one(task):
+        # Diagnostic fields included in every result
+        diag = {
+            'llm_decision_mode': task['decision_mode'],
+            'llm_n_priority_decision_candidates': task['n_priority_decision'],
+            'llm_n_other_decision_candidates': task['n_other_decision'],
+            'llm_n_fallback_decision_candidates': task['n_other_decision'],
+        }
+
+        if not task['candidates']:
+            return task['idx'], {
+                'llm_initiation_date': None,
+                'llm_decision_date': None,
+                'llm_initiation_reasoning': None,
+                'llm_decision_reasoning': None,
+                'llm_adj_error': 'no_candidates',
+                'llm_adj_n_candidates': 0,
+                'llm_adj_raw_response': None,
+                **diag,
+            }
+
+        prompt = _build_adjudication_prompt(
+            task['project_title'],
+            task['candidates'],
+            decision_mode=task['decision_mode'],
+            allowed_decision_dates=task['allowed_decision_dates'],
+            context_chars=task['context_chars'],
+        )
+        if provider == 'claude':
+            llm_result = _call_claude_adjudication(prompt, model, timeout)
+        else:
+            llm_result = _call_ollama_adjudication(prompt, model, timeout)
+
+        parsed = _parse_adjudication_response(llm_result['response'])
+        parsed['llm_adj_error'] = llm_result['error']
+        parsed['llm_adj_n_candidates'] = task['n_candidates']
+        parsed['llm_adj_prompt'] = prompt
+        parsed['llm_adj_raw_response'] = llm_result['response'][:500] if llm_result['response'] else None
+        parsed.update(diag)
+
+        # Post-parse guardrail: strict enforcement only for priority_only mode.
+        # In fallback/no-candidate modes, allow the LLM to infer from broader context.
+        if task['decision_mode'] == 'priority_only':
+            allowed = task['allowed_decision_dates']
+            picked_dec = parsed.get('llm_decision_date')
+            if picked_dec and allowed and picked_dec not in allowed:
+                parsed['llm_decision_date'] = None
+                existing_err = parsed.get('llm_adj_error') or ''
+                parsed['llm_adj_error'] = (
+                    f"{existing_err}; decision_not_in_allowed_tier" if existing_err
+                    else 'decision_not_in_allowed_tier'
+                )
+
+        return task['idx'], parsed
+
+    completed = 0
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(_process_one, t): t for t in tasks}
+        for future in as_completed(futures):
+            idx, result_dict = future.result()
+            results[idx] = result_dict
+            completed += 1
+            if completed % 5 == 0 or completed <= 3 or completed == len(tasks):
+                elapsed = time.time() - start_time
+                rate = completed / elapsed if elapsed > 0 else 0
+                remaining = (len(tasks) - completed) / rate if rate > 0 else 0
+                print(f"  {completed}/{len(tasks)} projects ({rate:.1f}/s, ~{remaining:.0f}s remaining)")
+
+    elapsed = time.time() - start_time
+    print(f"\nCompleted in {elapsed:.1f}s ({elapsed/len(tasks):.1f}s per project)")
+
+    # Merge results into DataFrame
+    for col in ['llm_initiation_date', 'llm_decision_date', 'llm_initiation_reasoning',
+                'llm_decision_reasoning', 'llm_adj_error', 'llm_adj_n_candidates', 'llm_adj_prompt', 'llm_adj_raw_response',
+                'llm_decision_mode', 'llm_n_priority_decision_candidates',
+                'llm_n_other_decision_candidates', 'llm_n_fallback_decision_candidates']:
+        df[col] = None
+
+    for idx, result_dict in results.items():
+        for col, val in result_dict.items():
+            df.at[idx, col] = val
+
+    # Summary
+    has_llm_decision = df['llm_decision_date'].notna().sum()
+    has_llm_initiation = df['llm_initiation_date'].notna().sum()
+    has_bert_decision = df['bert_decision_date'].notna().sum() if 'bert_decision_date' in df.columns else 0
+    has_bert_initiation = df['bert_initiation_date_final'].notna().sum() if 'bert_initiation_date_final' in df.columns else 0
+
+    print(f"\n=== Comparison ===")
+    print(f"{'':20s} {'BERT':>8s} {'LLM':>8s}")
+    print(f"{'Decision found':20s} {has_bert_decision:>8d} {has_llm_decision:>8d}")
+    print(f"{'Initiation found':20s} {has_bert_initiation:>8d} {has_llm_initiation:>8d}")
+
+    # Agreement stats
+    if 'bert_decision_date' in df.columns:
+        both_have_dec = df['bert_decision_date'].notna() & df['llm_decision_date'].notna()
+        if both_have_dec.any():
+            agree_dec = (df.loc[both_have_dec, 'bert_decision_date'] == df.loc[both_have_dec, 'llm_decision_date']).sum()
+            print(f"{'Decision agreement':20s} {agree_dec:>8d} / {both_have_dec.sum()}")
+    if 'bert_initiation_date_final' in df.columns:
+        both_have_init = df['bert_initiation_date_final'].notna() & df['llm_initiation_date'].notna()
+        if both_have_init.any():
+            agree_init = (df.loc[both_have_init, 'bert_initiation_date_final'] == df.loc[both_have_init, 'llm_initiation_date']).sum()
+            print(f"{'Initiation agreement':20s} {agree_init:>8d} / {both_have_init.sum()}")
+
+    # Decision mode breakdown
+    if 'llm_decision_mode' in df.columns:
+        mode_counts = df['llm_decision_mode'].value_counts().to_dict()
+        print(f"\nDecision modes: {mode_counts}")
+
+    errors = df['llm_adj_error'].dropna()
+    if not errors.empty:
+        non_skip_errors = errors[errors != 'no_candidates']
+        if not non_skip_errors.empty:
+            print(f"Errors: {non_skip_errors.value_counts().to_dict()}")
+
+    # Save output
+    if output_file:
+        out_path = ANALYSIS_DIR / output_file
+    else:
+        stem = input_path.stem
+        out_path = input_path.parent / f"{stem}_llm.parquet"
+
+    df.to_parquet(out_path)
+    print(f"\nSaved to: {out_path}")
+    return df
 
 
 def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODEL):
@@ -3590,7 +4528,7 @@ def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODE
     projects = _load_projects_combined()
     if projects is None:
         return None
-    _warn_if_clean_energy_count_off(projects, ce_only=True, clean_energy_only=True)
+    _warn_if_clean_energy_count_off(projects, sources=['CE'])
 
     # Filter to CE + Clean energy
     projects = projects[
@@ -3801,6 +4739,14 @@ if __name__ == "__main__":
     parser.add_argument('--epochs', type=int, default=3,
                         help='Training epochs for BERT (default: 3)')
 
+    # LLM adjudication options
+    parser.add_argument('--llm-adjudicate', action='store_true',
+                        help='Run LLM adjudication on BERT output (post-processing)')
+    parser.add_argument('--input', type=str,
+                        help='Input parquet for LLM adjudication (BERT output file)')
+    parser.add_argument('--provider', type=str, default='ollama', choices=['ollama', 'claude'],
+                        help='LLM provider for adjudication (default: ollama)')
+
     args = parser.parse_args()
 
     # Run regex extraction
@@ -3823,7 +4769,7 @@ if __name__ == "__main__":
         run_regex_prep(
             sample_size=args.sample,
             sources=sources,
-            clean_energy_only=args.clean_energy,
+            clean_energy_only=True,
             main_docs_only=True,
             output_file=args.regex_cache,
             keep_all_candidates=not args.regex_filtered,
@@ -3989,8 +4935,23 @@ if __name__ == "__main__":
         run_bert_timeline_extraction(
             sample_size=args.sample,
             sources=sources,
-            clean_energy_only=args.clean_energy,
+            clean_energy_only=True,
             main_docs_only=True,
             output_file=args.output,
             use_regex_cache=True,
+        )
+
+    # LLM adjudication (post-BERT)
+    elif args.llm_adjudicate:
+        if not args.input:
+            print("ERROR: --llm-adjudicate requires --input <bert_output.parquet>")
+            sys.exit(1)
+        run_llm_adjudication(
+            input_file=args.input,
+            model=args.model,
+            provider=args.provider,
+            timeout=args.timeout,
+            workers=args.workers,
+            sample_size=args.sample,
+            output_file=args.output,
         )

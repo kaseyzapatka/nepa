@@ -61,11 +61,15 @@ python code/extract/extract_timeline.py --bert-run --output projects_timeline_be
 # 1. Build EA regex cache
 python code/extract/extract_timeline.py --regex-prep --source EA
 
-# 2. Test sample
+# 2. Test sample (BERT)
 python code/extract/extract_timeline.py --bert-run --source EA --sample 50 --output test50_ea.parquet
 
-# 3. Full run
+# 3. LLM adjudication (Claude) on BERT output
+python code/extract/extract_timeline.py --llm-adjudicate --input test50_ea.parquet --provider claude
+
+# 4. Full run (BERT + Claude adjudication)
 python code/extract/extract_timeline.py --bert-run --source EA --output projects_timeline_bert_ea.parquet
+python code/extract/extract_timeline.py --llm-adjudicate --input projects_timeline_bert_ea.parquet --provider claude
 ```
 
 ### EIS (Environmental Impact Statements)
@@ -74,21 +78,30 @@ python code/extract/extract_timeline.py --bert-run --source EA --output projects
 # 1. Build EIS regex cache
 python code/extract/extract_timeline.py --regex-prep --source EIS
 
-# 2. Test sample
+# 2. Test sample (BERT)
 python code/extract/extract_timeline.py --bert-run --source EIS --sample 50 --output test50_eis.parquet
 
-# 3. Full run
+# 3. LLM adjudication (Claude) on BERT output
+python code/extract/extract_timeline.py --llm-adjudicate --input test50_eis.parquet --provider claude
+
+# 4. Full run (BERT + Claude adjudication)
 python code/extract/extract_timeline.py --bert-run --source EIS --output projects_timeline_bert_eis.parquet
+python code/extract/extract_timeline.py --llm-adjudicate --input projects_timeline_bert_eis.parquet --provider claude
 ```
 
 ### Multi-source runs
 
 ```bash
-# Build regex caches for EA + EIS together
-python code/extract/extract_timeline.py --regex-prep --source EA,EIS
+# Build regex caches per source
+python code/extract/extract_timeline.py --regex-prep --source CE
+python code/extract/extract_timeline.py --regex-prep --source EA
+python code/extract/extract_timeline.py --regex-prep --source EIS
 
-# Run all three sources
+# Run BERT across all three sources
 python code/extract/extract_timeline.py --bert-run --source CE,EA,EIS --output projects_timeline_bert_all.parquet
+
+# Run Claude adjudication on combined BERT output
+python code/extract/extract_timeline.py --llm-adjudicate --input projects_timeline_bert_all.parquet --provider claude --output projects_timeline_bert_all_llm.parquet
 ```
 
 ### Retraining with EA/EIS data

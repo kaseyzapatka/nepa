@@ -30,6 +30,7 @@ from pathlib import Path
 import sys
 import re
 import ast
+from datetime import datetime
 
 # datasets is only needed for raw extraction from HuggingFace
 # Import lazily to allow analysis mode to work without it
@@ -1201,6 +1202,12 @@ def run_raw_extraction(dataset_type):
     documents_df = extract_documents(ds)
     pages_df = extract_pages(ds)
 
+    # Add filename-derived document-level date with preserved precision
+    documents_df = add_document_date_from_file_name(documents_df)
+
+    # Add cleaned document type for downstream analysis/timeline filtering
+    documents_df = add_document_type_clean(documents_df)
+
     projects_df.to_parquet(out_dir / "projects.parquet")
     processes_df.to_parquet(out_dir / "processes.parquet")
     documents_df.to_parquet(out_dir / "documents.parquet")
@@ -1513,6 +1520,221 @@ FILENAME_PATTERNS = {
 }
 
 
+DOCUMENT_TYPE_CLEAN_PATTERNS = {
+    'ROD': [
+        r'(?:^|[^a-zA-Z])ROD(?:[^a-zA-Z]|$)',
+        r'Record[_\-\s]?of[_\-\s]?Decision',
+        r'Decision[_\-\s]?Record',
+        r'Signed[_\-\s]?Decision',
+    ],
+    'FONSI': [
+        r'(?:^|[^a-zA-Z])FONSI(?:[^a-zA-Z]|$)',
+        r'Finding[_\-\s]?of[_\-\s]?No[_\-\s]?Significant[_\-\s]?Impact',
+    ],
+    'CE': [
+        r'Categorical[_\-\s]?Exclusion',
+        r'(?:^|[^a-zA-Z])CE(?:[^a-zA-Z]|$)',
+    ],
+    'FEIS': [
+        r'(?:^|[^a-zA-Z])FEIS(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+    ],
+    'DEIS': [
+        r'(?:^|[^a-zA-Z])DEIS(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?I(?:mpact[_\-\s]?)?S(?:tatement)?',
+    ],
+    'DEA': [
+        r'(?:^|[^a-zA-Z])DEA(?:[^a-zA-Z]|$)',
+        r'Draft[_\-\s]?E(?:nvironmental[_\-\s]?)?A(?:ssessment)?',
+        r'Draft[_\-\s]?EA(?:[^a-zA-Z]|$)',
+    ],
+    'EA': [
+        r'Final[_\-\s]?EA(?:[^a-zA-Z]|$)',
+        r'Final[_\-\s]?Environmental[_\-\s]?Assessment',
+        r'(?:^|[^a-zA-Z])EA(?:[^a-zA-Z]|$)',
+        r'Environmental[_\-\s]?Assessment',
+    ],
+    'APPENDIX': [
+        r'(?:^|[^a-zA-Z])Appendix',
+        r'(?:^|[^a-zA-Z])Appendices(?:[^a-zA-Z]|$)',
+        r'(?:^|[^a-zA-Z])Attachment',
+        r'(?:^|[^a-zA-Z])Exhibit(?:[^a-zA-Z]|$)',
+    ],
+}
+
+KNOWN_DOCUMENT_TYPES = {'ROD', 'FONSI', 'CE', 'FEIS', 'DEIS', 'EA', 'DEA', 'OTHER'}
+
+
+# Filename date extraction patterns for document-level metadata.
+# Returns the most precise date found in each filename:
+# - YYYY-MM-DD if day is present
+# - YYYY-MM if only month/year is present
+# - YYYY if only year is present
+DOC_FILENAME_DATE_PATTERNS = [
+    (re.compile(r'(?<!\d)(19\d{2}|20\d{2})[._\-/](\d{1,2})[._\-/](\d{1,2})(?!\d)'), 'YMD'),
+    (re.compile(r'(?<!\d)(\d{1,2})[._\-/](\d{1,2})[._\-/](19\d{2}|20\d{2})(?!\d)'), 'MDY'),
+    (re.compile(r'(?<!\d)(19\d{2})(\d{2})(\d{2})(?!\d)'), 'YMD_COMPACT'),
+    (re.compile(r'(?<!\d)(19\d{2}|20\d{2})[._\-/](\d{1,2})(?!\d)'), 'YM'),
+]
+
+MONTH_TOKEN_MAP = {
+    'jan': 1, 'january': 1,
+    'feb': 2, 'february': 2,
+    'mar': 3, 'march': 3,
+    'apr': 4, 'april': 4,
+    'may': 5,
+    'jun': 6, 'june': 6,
+    'jul': 7, 'july': 7,
+    'aug': 8, 'august': 8,
+    'sep': 9, 'sept': 9, 'september': 9,
+    'oct': 10, 'october': 10,
+    'nov': 11, 'november': 11,
+    'dec': 12, 'december': 12,
+}
+
+DOC_FILENAME_MONTHNAME_PATTERNS = [
+    re.compile(
+        r'\b(' + '|'.join(MONTH_TOKEN_MAP.keys()) + r')[\s._\-/]+(\d{1,2})[\s,._\-/]+(19\d{2}|20\d{2})\b',
+        re.IGNORECASE
+    ),
+    re.compile(
+        r'\b(' + '|'.join(MONTH_TOKEN_MAP.keys()) + r')[\s._\-/]+(19\d{2}|20\d{2})\b',
+        re.IGNORECASE
+    ),
+]
+
+DOC_FILENAME_YEAR_PATTERN = re.compile(r'(?<!\d)(19\d{2}|20\d{2})(?!\d)')
+
+
+def _to_document_date_string(year, month=None, day=None):
+    """Return a normalized date string preserving available granularity."""
+    if day is not None and month is not None:
+        try:
+            datetime(int(year), int(month), int(day))
+            return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
+        except ValueError:
+            return None
+    if month is not None:
+        if 1 <= int(month) <= 12:
+            return f"{int(year):04d}-{int(month):02d}"
+        return None
+    return f"{int(year):04d}"
+
+
+def extract_document_date_from_file_name(file_name):
+    """
+    Extract one best-effort date string from filename.
+
+    Preference order:
+    1) Most recent YYYY-MM-DD
+    2) Most recent YYYY-MM
+    3) Most recent YYYY
+    """
+    if not isinstance(file_name, str) or not file_name.strip():
+        return None
+
+    text = file_name.strip()
+    ymd_candidates = []
+    ym_candidates = []
+    y_candidates = []
+
+    for pattern, kind in DOC_FILENAME_DATE_PATTERNS:
+        for match in pattern.finditer(text):
+            groups = match.groups()
+            if kind == 'YMD':
+                value = _to_document_date_string(groups[0], groups[1], groups[2])
+                if value:
+                    ymd_candidates.append(value)
+            elif kind == 'MDY':
+                value = _to_document_date_string(groups[2], groups[0], groups[1])
+                if value:
+                    ymd_candidates.append(value)
+            elif kind == 'YMD_COMPACT':
+                value = _to_document_date_string(groups[0], groups[1], groups[2])
+                if value:
+                    ymd_candidates.append(value)
+            elif kind == 'YM':
+                value = _to_document_date_string(groups[0], groups[1], None)
+                if value:
+                    ym_candidates.append(value)
+
+    # Month-name formats (e.g., Jan-2021 or Jan 14 2021)
+    for pattern in DOC_FILENAME_MONTHNAME_PATTERNS:
+        for match in pattern.finditer(text):
+            groups = match.groups()
+            month = MONTH_TOKEN_MAP.get(groups[0].lower())
+            if month is None:
+                continue
+            if len(groups) == 3:
+                value = _to_document_date_string(groups[2], month, groups[1])
+                if value:
+                    ymd_candidates.append(value)
+            elif len(groups) == 2:
+                value = _to_document_date_string(groups[1], month, None)
+                if value:
+                    ym_candidates.append(value)
+
+    for year in DOC_FILENAME_YEAR_PATTERN.findall(text):
+        y_candidates.append(_to_document_date_string(year))
+
+    # Deduplicate and pick latest within precision tier
+    if ymd_candidates:
+        return sorted(set(ymd_candidates))[-1]
+    if ym_candidates:
+        return sorted(set(ym_candidates))[-1]
+    if y_candidates:
+        return sorted(set(y_candidates))[-1]
+    return None
+
+
+def add_document_date_from_file_name(df):
+    """Add document_date_from_file_name column to documents dataframe."""
+    df = df.copy()
+    df['document_date_from_file_name'] = df['file_name'].apply(extract_document_date_from_file_name)
+    return df
+
+
+def classify_document_type_clean(doc_type, file_name=None, document_title=None):
+    """
+    Normalize document type to a specific cleaned type.
+
+    Priority:
+    1) Keep known raw document_type values
+    2) Infer from file_name/document_title patterns
+    3) Fallback to OTHER
+    """
+    doc_type_norm = ''
+    if doc_type is not None and not pd.isna(doc_type):
+        doc_type_norm = str(doc_type).upper().strip()
+
+    if doc_type_norm in KNOWN_DOCUMENT_TYPES and doc_type_norm != '':
+        return doc_type_norm
+
+    search_text = f"{file_name or ''} || {document_title or ''}"
+    for clean_type in ['ROD', 'FONSI', 'CE', 'FEIS', 'DEIS', 'DEA', 'EA', 'APPENDIX']:
+        for pattern in DOCUMENT_TYPE_CLEAN_PATTERNS.get(clean_type, []):
+            if re.search(pattern, search_text, re.IGNORECASE):
+                return clean_type
+
+    return 'OTHER'
+
+
+def add_document_type_clean(df):
+    """
+    Add document_type_clean column to a documents dataframe.
+    """
+    df = df.copy()
+    df['document_type_clean'] = df.apply(
+        lambda row: classify_document_type_clean(
+            row.get('document_type'),
+            row.get('file_name'),
+            row.get('document_title'),
+        ),
+        axis=1
+    )
+    return df
+
+
 def classify_document_type(doc_type, file_name=None):
     """
     Classify a document_type into a category.
@@ -1527,8 +1749,6 @@ def classify_document_type(doc_type, file_name=None):
     Returns:
         str: Category name ('decision', 'final', 'draft', 'appendix', 'other')
     """
-    import re
-
     # First, try to classify using document_type if present
     if doc_type is not None and not pd.isna(doc_type) and doc_type != '':
         doc_type_upper = str(doc_type).upper().strip()
@@ -1566,8 +1786,12 @@ def add_document_type_category(df):
         DataFrame with document_type_category column added
     """
     df = df.copy()
+    if 'document_type_clean' not in df.columns:
+        df = add_document_type_clean(df)
+
+    # Prefer cleaned type for category mapping.
     df['document_type_category'] = df.apply(
-        lambda row: classify_document_type(row.get('document_type'), row.get('file_name')),
+        lambda row: classify_document_type(row.get('document_type_clean'), row.get('file_name')),
         axis=1
     )
     return df
@@ -1583,6 +1807,10 @@ def get_project_document_flags(documents_df):
     Returns:
         DataFrame with project_id and document flag columns
     """
+    # Ensure cleaned/simplified document type fields exist
+    if 'document_type_clean' not in documents_df.columns:
+        documents_df = add_document_type_clean(documents_df)
+
     # Ensure document_type_category exists
     if 'document_type_category' not in documents_df.columns:
         documents_df = add_document_type_category(documents_df)
@@ -1644,6 +1872,14 @@ def create_combined_documents():
 
     combined = pd.concat(all_documents, ignore_index=True)
 
+    # Add specific cleaned type labels before broad category labels
+    print("Adding document type clean labels...")
+    combined = add_document_type_clean(combined)
+
+    # Add filename-derived document-level date with preserved precision
+    print("Adding document_date_from_file_name...")
+    combined = add_document_date_from_file_name(combined)
+
     # Add document type category
     print("Adding document type categories...")
     combined = add_document_type_category(combined)
@@ -1654,6 +1890,10 @@ def create_combined_documents():
     output_path = ANALYSIS_DIR / "documents_combined.parquet"
     combined.to_parquet(output_path)
     print(f"Saved {len(combined):,} documents to: {output_path}")
+
+    # Print document type category stats
+    print("\nDocument type clean:")
+    print(combined['document_type_clean'].value_counts())
 
     # Print document type category stats
     print("\nDocument type categories:")
