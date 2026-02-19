@@ -6,11 +6,11 @@
 #
 # Figures produced:
 #   1. Coverage funnel (inclusion criteria)
-#   2. Average pages over time (monthly line chart with FRA line)
+#   2. Average pages over time (6-month rolling average with FRA line)
 #   3. Pre/Post FRA comparison (bar chart, mean pages)
 #   4. Pre/Post FRA distribution (violin + box plot)
 #   5. Project-level scatter with LOESS trend
-#   6. Annual average pages by decision year
+#   6. FRA page limit compliance (Post-FRA projects only)
 
 # --------------------------
 # SETUP
@@ -49,7 +49,8 @@ fig_coverage <- ggplot(coverage_plot, aes(x = n, y = fct_rev(step), fill = proce
     labels = c("EA" = "Environmental Assessment",
                "EIS" = "Environmental Impact Statement")
   ) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.25)), labels = comma) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.25)), labels = comma,
+                     breaks = seq(0, 2000, by = 200)) +
   labs(
     title = "Analysis Coverage: Inclusion Criteria",
     subtitle = "Number of clean energy projects retained at each filtering step",
@@ -68,21 +69,20 @@ print(fig_coverage)
 # --------------------------
 # FIGURE 2: AVERAGE DOCUMENT LENGTH OVER TIME
 # --------------------------
-# Monthly average page count with 6-month rolling average
+# 6-month rolling average of page counts
 # Red dashed vertical line at FRA enactment date
 # Faceted by EA vs EIS
 
-cat("\nCreating Figure 2: Average pages over time (monthly)...\n")
+cat("\nCreating Figure 2: Average pages over time (rolling average)...\n")
 
-# Filter to reasonable date range for readability
+# Filter to 2010+ for readability
 pages_for_time <- pages_analysis %>%
-  filter(decision_year >= 2000, decision_year <= 2025)
+  filter(decision_year >= 2010, decision_year <= 2025)
 
 monthly_pages <- pages_for_time %>%
   group_by(process_type, decision_month) %>%
   summarise(
     mean_pages = mean(total_pages, na.rm = TRUE),
-    median_pages = median(total_pages, na.rm = TRUE),
     n_projects = n(),
     .groups = "drop"
   ) %>%
@@ -94,9 +94,6 @@ monthly_pages <- pages_for_time %>%
   ungroup()
 
 fig_pages_over_time <- ggplot(monthly_pages, aes(x = decision_month)) +
-  geom_line(aes(y = mean_pages), color = catf_light_blue, alpha = 0.6, linewidth = 0.5) +
-  geom_point(aes(y = mean_pages, size = n_projects),
-             color = catf_light_blue, alpha = 0.4) +
   geom_line(aes(y = rolling_mean_6m), color = catf_dark_blue, linewidth = 1.1, na.rm = TRUE) +
   geom_vline(xintercept = fra_date, linetype = "dashed", color = "red", linewidth = 0.8) +
   annotate(
@@ -106,13 +103,12 @@ fig_pages_over_time <- ggplot(monthly_pages, aes(x = decision_month)) +
   ) +
   facet_wrap(~process_type, ncol = 1, scales = "free_y") +
   scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
-  scale_size_continuous(range = c(0.5, 3), guide = "none") +
   labs(
     title = "Average Document Length Over Time",
-    subtitle = "Monthly average (light blue) with 6-month rolling average (dark blue)",
+    subtitle = "6-month rolling average of mean monthly page counts",
     x = "Decision Date (Month)",
     y = "Average Total Pages",
-    caption = "Point size reflects number of projects in that month. Projects with complete timelines only."
+    caption = "Projects with complete timelines only."
   ) +
   theme_catf()
 
@@ -139,7 +135,7 @@ fra_summary <- pages_analysis %>%
     .groups = "drop"
   ) %>%
   mutate(
-    bar_label = sprintf("%.0f pages\n(n = %s)", mean_pages, comma(n)),
+    bar_label = sprintf("average\n%.0f pages\n(n = %s)", mean_pages, comma(n)),
     median_label = sprintf("median: %.0f", median_pages)
   )
 
@@ -149,7 +145,7 @@ fig_pre_post <- ggplot(fra_summary, aes(x = fra_period, y = mean_pages, fill = f
   geom_point(aes(y = median_pages), shape = 18, size = 4, color = catf_navy) +
   geom_text(
     aes(y = median_pages, label = median_label),
-    hjust = -0.15, size = 2.8, color = catf_navy
+    vjust = 1.8, size = 2.8, color = "white"
   ) +
   facet_wrap(~process_type, scales = "free_y") +
   scale_fill_manual(
@@ -181,17 +177,19 @@ cat("\nCreating Figure 4: Pre/Post FRA distribution (violin + box plot)...\n")
 # Cap y-axis at p99 for readability (extreme outliers distort the view)
 p99_pages <- quantile(pages_analysis$total_pages, 0.99, na.rm = TRUE)
 
-# Add n labels per group
-n_labels <- pages_analysis %>%
+# Add n and median labels per group
+dist_labels <- pages_analysis %>%
   group_by(process_type, fra_period) %>%
   summarise(
     n = n(),
-    label = paste0("n = ", comma(n)),
+    median_pages = median(total_pages, na.rm = TRUE),
+    n_label = paste0("n = ", comma(n)),
+    median_label = sprintf("median: %.0f", median_pages),
     .groups = "drop"
   )
 
 fig_distribution <- ggplot(pages_analysis, aes(x = fra_period, y = total_pages, fill = fra_period)) +
-  geom_violin(alpha = 0.2, trim = FALSE, color = NA) +
+  geom_violin(alpha = 0.35, trim = FALSE, color = NA) +
   geom_boxplot(
     width = 0.2,
     outlier.alpha = 0.25,
@@ -200,11 +198,18 @@ fig_distribution <- ggplot(pages_analysis, aes(x = fra_period, y = total_pages, 
     color = catf_navy,
     linewidth = 0.4
   ) +
-  stat_summary(fun = median, geom = "point", shape = 21, size = 2.5,
-               fill = catf_navy, color = "white") +
+  stat_summary(fun = median, geom = "point", shape = 18, size = 3.5,
+               color = catf_navy) +
+  geom_label(
+    data = dist_labels,
+    aes(x = fra_period, y = median_pages, label = paste0("median\n", comma(median_pages))),
+    inherit.aes = FALSE,
+    hjust = -0.15, size = 2.5, color = catf_navy,
+    fill = "white", label.size = 0.2, label.padding = unit(0.15, "lines")
+  ) +
   geom_text(
-    data = n_labels,
-    aes(x = fra_period, y = 0, label = label),
+    data = dist_labels,
+    aes(x = fra_period, y = 0, label = n_label),
     inherit.aes = FALSE,
     vjust = 1.5, size = 3, color = "gray40"
   ) +
@@ -215,7 +220,7 @@ fig_distribution <- ggplot(pages_analysis, aes(x = fra_period, y = total_pages, 
   coord_cartesian(ylim = c(0, p99_pages)) +
   labs(
     title = "Document Length Distribution: Pre vs Post FRA",
-    subtitle = "Violin + boxplot overlay; dot = median (y-axis capped at p99)",
+    subtitle = "Violin + boxplot overlay; diamond = median (y-axis capped at p99)",
     x = NULL,
     y = "Total Pages",
     fill = NULL
@@ -237,7 +242,7 @@ print(fig_distribution)
 cat("\nCreating Figure 5: Pages over time scatter with trend...\n")
 
 fig_scatter <- ggplot(
-  pages_analysis %>% filter(decision_year >= 2000, decision_year <= 2025),
+  pages_analysis %>% filter(decision_year >= 2010, decision_year <= 2025),
   aes(x = timeline_decision_date, y = total_pages)
 ) +
   geom_point(aes(color = fra_period), alpha = 0.35, size = 1.5) +
@@ -247,6 +252,11 @@ fig_scatter <- ggplot(
     alpha = 0.2, linewidth = 1
   ) +
   geom_vline(xintercept = fra_date, linetype = "dashed", color = "red", linewidth = 0.7) +
+  annotate(
+    "text", x = fra_date + 45, y = Inf,
+    label = "FRA enacted\n(June 3, 2023)",
+    vjust = 1.5, hjust = 0, size = 3, color = "red", fontface = "italic"
+  ) +
   facet_wrap(~process_type, ncol = 1, scales = "free_y") +
   scale_color_manual(
     values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)
@@ -257,8 +267,7 @@ fig_scatter <- ggplot(
     subtitle = "Each point = one project; blue curve = LOESS trend with 95% CI",
     x = "Decision Date",
     y = "Total Pages",
-    color = NULL,
-    caption = "Red dashed line = FRA enactment (June 3, 2023)"
+    color = NULL
   ) +
   theme_catf() +
   theme(legend.position = "top")
@@ -267,6 +276,105 @@ fig_scatter_path <- here(figures_dir, "05_pages_scatter.png")
 ggsave(fig_scatter_path, fig_scatter, width = 12, height = 8, dpi = 300)
 cat("  Saved:", fig_scatter_path, "\n")
 print(fig_scatter)
+
+# --------------------------
+# FIGURE 6: FRA PAGE LIMIT COMPLIANCE (POST-FRA ONLY)
+# --------------------------
+# FRA page limits:
+#   EA:  75 pages max
+#   EIS: 150 pages max (standard), 300 pages max (extraordinarily complex)
+# Shows how well post-FRA projects comply with these limits
+
+cat("\nCreating Figure 6: FRA page limit compliance...\n")
+
+post_fra <- pages_analysis %>%
+  filter(fra_period == "Post-FRA") %>%
+  mutate(
+    compliance = case_when(
+      process_type == "EA" & total_pages <= 75 ~
+        "Compliant\n(\u2264 75 pages)",
+      process_type == "EA" & total_pages > 75 ~
+        "Exceeds limit\n(> 75 pages)",
+      process_type == "EIS" & total_pages <= 150 ~
+        "Compliant\n(\u2264 150 pages)",
+      process_type == "EIS" & total_pages > 150 & total_pages <= 300 ~
+        "Exceeds standard limit\n(151\u2013300 pages)",
+      process_type == "EIS" & total_pages > 300 ~
+        "Exceeds all limits\n(> 300 pages)"
+    )
+  )
+
+# Order the compliance categories
+ea_levels <- c("Compliant\n(\u2264 75 pages)", "Exceeds limit\n(> 75 pages)")
+eis_levels <- c("Compliant\n(\u2264 150 pages)",
+                "Exceeds standard limit\n(151\u2013300 pages)",
+                "Exceeds all limits\n(> 300 pages)")
+all_levels <- c(ea_levels, eis_levels)
+
+post_fra <- post_fra %>%
+  mutate(compliance = factor(compliance, levels = all_levels))
+
+# Compliance colors: green for compliant, amber for between, red for exceeds
+compliance_colors <- c(
+  "Compliant\n(\u2264 75 pages)" = catf_teal,
+  "Exceeds limit\n(> 75 pages)" = catf_magenta,
+  "Compliant\n(\u2264 150 pages)" = catf_teal,
+  "Exceeds standard limit\n(151\u2013300 pages)" = "#E8A317",
+  "Exceeds all limits\n(> 300 pages)" = catf_magenta
+)
+
+# Summarise for plotting
+compliance_summary <- post_fra %>%
+  count(process_type, compliance, .drop = FALSE) %>%
+  group_by(process_type) %>%
+  # Drop levels that don't belong to this process type
+  filter(
+    (process_type == "EA" & compliance %in% ea_levels) |
+    (process_type == "EIS" & compliance %in% eis_levels)
+  ) %>%
+  mutate(
+    total = sum(n),
+    pct = n / total * 100,
+    label = sprintf("%s\n(%.0f%%)", comma(n), pct)
+  ) %>%
+  ungroup()
+
+fig_compliance <- ggplot(compliance_summary,
+                         aes(x = process_type, y = n, fill = compliance)) +
+  geom_col(width = 0.6, alpha = 0.9) +
+  geom_text(
+    aes(label = label),
+    position = position_stack(vjust = 0.5),
+    size = 3.2, color = "white", fontface = "bold"
+  ) +
+  scale_fill_manual(values = compliance_colors) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  labs(
+    title = "FRA Page Limit Compliance: Post-FRA Projects",
+    subtitle = paste0(
+      "EA limit: 75 pages | EIS limit: 150 pages (300 for extraordinarily complex)\n",
+      "n = ", comma(sum(compliance_summary$n[compliance_summary$process_type == "EA"])),
+      " EA, ",
+      comma(sum(compliance_summary$n[compliance_summary$process_type == "EIS"])),
+      " EIS post-FRA projects"
+    ),
+    x = NULL,
+    y = "Number of Projects",
+    fill = NULL
+  ) +
+  theme_catf() +
+  theme(legend.position = "right")
+
+fig_compliance_path <- here(figures_dir, "05_fra_compliance.png")
+ggsave(fig_compliance_path, fig_compliance, width = 10, height = 7, dpi = 300)
+cat("  Saved:", fig_compliance_path, "\n")
+print(fig_compliance)
+
+# Save compliance summary table
+compliance_table_path <- here(tables_dir, "05_fra_compliance.csv")
+write_csv(compliance_summary, compliance_table_path)
+cat("  Saved:", compliance_table_path, "\n")
+
 
 # --------------------------
 # SUMMARY TABLE (CSV)

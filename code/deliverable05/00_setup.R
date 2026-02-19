@@ -134,16 +134,13 @@ cat("  After deduplication:", nrow(final_docs_dedup),
 
 coverage_steps <- list()
 
-# Step 1: Total clean energy EA/EIS
-coverage_steps[["Total clean energy"]] <- projects %>%
-  count(process_type, name = "n")
-
-# Step 2: With timeline data available
-coverage_steps[["With timeline data"]] <- projects %>%
+# Step 1: Total clean energy EA/EIS with timeline data
+# (All clean energy EA/EIS projects have timeline data, so these are equivalent)
+coverage_steps[["Total clean energy\nwith timeline data"]] <- projects %>%
   semi_join(timeline, by = "project_id") %>%
   count(process_type, name = "n")
 
-# Step 3: With final document available
+# Step 2: With final document available
 coverage_steps[["With final document"]] <- projects %>%
   semi_join(final_docs_dedup, by = "project_id") %>%
   count(process_type, name = "n")
