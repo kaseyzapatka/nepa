@@ -8,6 +8,52 @@ analysis <- prepare_deliverable6_data() %>%
   filter(project_is_transmission)
 
 cat("Transmission projects:", nrow(analysis), "\n")
+max_year <- as.integer(format(Sys.Date(), "%Y"))
+
+# --------------------------
+# EXPLORATORY
+# --------------------------
+
+analysis |> 
+  glimpse()
+
+transmissions <-
+  analysis |> 
+  select(project_id, project_type, project_description, dataset_source, project_state,bert_initiation_date_final, bert_decision_date_final,
+  project_is_transmission, project_transmission_length_miles, project_transmission_length_confidence,project_transmission_length_source_text, 
+  bert_duration_days_final,bert_duration_months_final ) |> 
+  #distinct(dataset_source) |> 
+  #filter(!is.na(bert_initiation_date_final) & !is.na(bert_decision_date_final)) |> 
+  filter(!is.na(bert_duration_months_final)) |> 
+  glimpse()
+
+# write to sheet
+sheet_write(
+  data = transmissions,
+  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
+  sheet = "01_transmission"
+)
+
+analysis |> 
+  filter(project_id == "c87a153c-f0c6-bd71-17e1-7e01ea9816a5") |> 
+  glimpse()
+
+transmissions |> 
+  filter(project_id == "c87a153c-f0c6-bd71-17e1-7e01ea9816a5") |> 
+  select(project_description) |> 
+  pull() |> 
+  print()
+
+analysis |> 
+  select(project_description) |> 
+  filter(!is.na(project_description)) |> 
+  nrow()
+
+projects |> 
+  count(project_is_transmission)
+  filter(!is.na(project_transmission_length_miles)) |> 
+  nrow()
+
 
 # --------------------------
 # TABLES
@@ -106,12 +152,14 @@ fig_scatter <- analysis %>%
   scale_x_continuous(labels = scales::comma) +
   scale_y_continuous(labels = scales::comma) +
   labs(
-    title = "Transmission Length vs CE Timeline Duration",
+    title = "Transmission Length vs Timeline Duration",
     subtitle = "Projects with extracted transmission length",
     x = "Transmission length (miles)",
     y = "Duration (days)"
   ) +
   theme_minimal(base_size = 11)
+
+print(fig_scatter)
 
 ggsave(
   filename = here(figures_dir, "fig_transmission_length_vs_duration.png"),
@@ -129,11 +177,13 @@ fig_region <- analysis %>%
   scale_fill_manual(values = rep(c(catf_dark_blue, catf_light_blue, catf_teal, catf_magenta), 10)) +
   labs(
     title = "Transmission Project Duration by Region",
-    subtitle = "CE projects; duration = initiation to decision",
+    subtitle = "Clean energy projects; duration = initiation to decision",
     x = "Region",
     y = "Duration (days)"
   ) +
   theme_minimal(base_size = 11)
+
+print(fig_region)
 
 ggsave(
   filename = here(figures_dir, "fig_transmission_duration_by_region.png"),
@@ -146,13 +196,13 @@ ggsave(
 # Start vs decision lollipop (transmission-only)
 start_counts <- analysis %>%
   mutate(start_year = as.integer(format(bert_initiation_date_final, "%Y"))) %>%
-  filter(!is.na(start_year), start_year >= 2000, start_year <= 2025) %>%
+  filter(!is.na(start_year), start_year >= 2000, start_year <= max_year) %>%
   count(year = start_year, name = "n") %>%
   mutate(type = "Start")
 
 decision_counts <- analysis %>%
   mutate(decision_year = as.integer(format(bert_decision_date_final, "%Y"))) %>%
-  filter(!is.na(decision_year), decision_year >= 2000, decision_year <= 2025) %>%
+  filter(!is.na(decision_year), decision_year >= 2000, decision_year <= max_year) %>%
   count(year = decision_year, name = "n") %>%
   mutate(type = "Decision")
 
@@ -170,11 +220,11 @@ fig_start_end <- ggplot(start_end_long, aes(x = year, y = n, color = type)) +
     size = 2.3
   ) +
   scale_color_manual(values = c(catf_teal, catf_magenta)) +
-  scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
+  scale_x_continuous(breaks = seq(2000, max_year, by = 2)) +
   scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.05))) +
   labs(
     title = "Transmission Projects: Start vs Decision Year",
-    subtitle = "Transmission-only CE projects (strict definition)",
+    subtitle = "Transmission-only clean energy projects (strict definition)",
     x = "Year",
     y = "Number of Projects",
     color = NULL

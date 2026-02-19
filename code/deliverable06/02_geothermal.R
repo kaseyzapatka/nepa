@@ -78,7 +78,7 @@ fig_phase_box <- analysis %>%
   scale_fill_manual(values = c(catf_dark_blue, catf_teal, catf_magenta, catf_light_blue, "gray60", "gray80")) +
   labs(
     title = "Geothermal Timelines by Project Phase",
-    subtitle = "CE projects classified from project text",
+    subtitle = "Clean energy projects classified from project text",
     x = "Geothermal phase",
     y = "Duration (days)"
   ) +
