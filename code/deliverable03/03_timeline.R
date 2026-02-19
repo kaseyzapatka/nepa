@@ -17,7 +17,7 @@ source(here::here("code", "deliverable03", "00_setup.R"))
 # LOAD HARMONIZED TIMELINE DATA
 # --------------------------
 
-timeline <- load_timeline_for_deliverable3(include_eis = FALSE)
+timeline <- load_timeline_for_deliverable3()
 process_levels <- c("CE", "EA", "EIS")
 
 # Derive harmonized timeline fields and process grouping for plotting.
@@ -243,6 +243,11 @@ print(fig_timeline_spans)
 
 cat("\nCreating Figure: Duration summary intervals by process...\n")
 
+duration_complete <- timeline %>%
+  filter(!is.na(process_group), timeline_complete) %>%
+  mutate(duration_months = bert_duration_days / 30.44) %>%
+  filter(!is.na(duration_months), duration_months >= 0)
+
 duration_summary <- duration_complete %>%
   group_by(process_group) %>%
   summarise(
@@ -285,52 +290,6 @@ fig_duration_summary_path <- here(figures_dir, "03_duration_summary_intervals_by
 ggsave(fig_duration_summary_path, fig_duration_summary, width = 10, height = 6, dpi = 300)
 cat("  Saved:", fig_duration_summary_path, "\n")
 print(fig_duration_summary)
-
-# --------------------------
-# FIGURE 5: COHORT TREND OF MEDIAN DURATION
-# --------------------------
-
-cat("\nCreating Figure: Cohort trend of timeline duration...\n")
-
-cohort_duration <- duration_complete %>%
-  mutate(initiation_year = as.integer(format(bert_initiation_date_final, "%Y"))) %>%
-  filter(!is.na(initiation_year), initiation_year >= 2000, initiation_year <= 2025) %>%
-  group_by(process_group, initiation_year) %>%
-  summarise(
-    n = n(),
-    median_months = median(duration_months, na.rm = TRUE),
-    p25 = quantile(duration_months, 0.25, na.rm = TRUE),
-    p75 = quantile(duration_months, 0.75, na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  filter(n >= 10)
-
-fig_duration_cohort <- ggplot(cohort_duration, aes(x = initiation_year, y = median_months, color = process_group, fill = process_group)) +
-  geom_ribbon(aes(ymin = p25, ymax = p75), alpha = 0.15, color = NA) +
-  geom_line(linewidth = 1) +
-  geom_point(aes(size = n), alpha = 0.8) +
-  facet_wrap(~process_group, ncol = 1, drop = FALSE) +
-  scale_color_catf(drop = FALSE) +
-  scale_fill_catf(drop = FALSE) +
-  scale_size_continuous(range = c(1.8, 4.5), breaks = c(10, 25, 50, 100)) +
-  scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
-  scale_y_continuous(labels = scales::label_number(accuracy = 1)) +
-  labs(
-    title = "Median Timeline Duration by Initiation Cohort",
-    subtitle = "Point size indicates number of complete projects in each initiation-year cohort",
-    x = "Initiation year",
-    y = "Median duration (months)",
-    color = "Review Process",
-    fill = "Review Process",
-    size = "Projects"
-  ) +
-  theme_catf() +
-  theme(legend.position = "bottom")
-
-fig_duration_cohort_path <- here(figures_dir, "03_duration_cohort_trend_by_process.png")
-ggsave(fig_duration_cohort_path, fig_duration_cohort, width = 11, height = 10, dpi = 300)
-cat("  Saved:", fig_duration_cohort_path, "\n")
-print(fig_duration_cohort)
 
 # --------------------------
 # FIGURE 6: PROJECTS BY DECISION YEAR (FACETED BY PROCESS)

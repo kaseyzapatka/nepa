@@ -67,36 +67,28 @@ timeline_eis_path <- here("data", "analysis", "projects_timeline_bert_eis_llm.pa
 #' - CE: use BERT final initiation/decision dates
 #' - EA/EIS: use LLM initiation/decision dates
 #'
-#' @param include_eis Whether to include EIS input if file exists (default FALSE)
 #' @return A tibble with harmonized timeline columns compatible with existing analysis scripts
-load_timeline_for_deliverable3 <- function(include_eis = FALSE) {
+load_timeline_for_deliverable3 <- function() {
   if (!file.exists(timeline_ce_path)) {
     stop("Missing required CE timeline file: ", timeline_ce_path)
+  }
+  if (!file.exists(timeline_ea_path)) {
+    stop("Missing required EA timeline file: ", timeline_ea_path)
+  }
+  if (!file.exists(timeline_eis_path)) {
+    stop("Missing required EIS timeline file: ", timeline_eis_path)
   }
 
   ce_df <- read_parquet(timeline_ce_path) %>%
     mutate(timeline_input_file = basename(timeline_ce_path))
 
-  if (!file.exists(timeline_ea_path)) {
-    stop("Missing required EA timeline file: ", timeline_ea_path)
-  }
-
   ea_df <- read_parquet(timeline_ea_path) %>%
     mutate(timeline_input_file = basename(timeline_ea_path))
 
-  timeline_list <- list(ce_df, ea_df)
+  eis_df <- read_parquet(timeline_eis_path) %>%
+    mutate(timeline_input_file = basename(timeline_eis_path))
 
-  if (include_eis) {
-    if (file.exists(timeline_eis_path)) {
-      eis_df <- read_parquet(timeline_eis_path) %>%
-        mutate(timeline_input_file = basename(timeline_eis_path))
-      timeline_list <- append(timeline_list, list(eis_df))
-    } else {
-      message("EIS timeline file not found (skipping for now): ", timeline_eis_path)
-    }
-  }
-
-  timeline_raw <- bind_rows(timeline_list)
+  timeline_raw <- bind_rows(ce_df, ea_df, eis_df)
 
   # Ensure source exists even if a file is missing this field.
   if (!"dataset_source" %in% names(timeline_raw)) {

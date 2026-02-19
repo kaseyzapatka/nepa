@@ -34,7 +34,7 @@ d3_tables <- here("output", "deliverable3", "tables")
 ::: {.callout-important}
 ## Key Decisions
 - [ ] Timeline decisions (see red box below in Timeline Section)
-- [ ] What kinds of timelines do we think EA and EIS will have?
+- [x] What kinds of timelines do we think EA and EIS will have? *(Now included — see Timeline section)*
 - [ ] What do we think of the capacity bins (Small <10 MW, Medium 10–100 MW, Large 100–500 MW, Utility-scale >500 MW)?
 :::
 
@@ -86,14 +86,14 @@ knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 
 ::: {.callout-warning}
 ## Data Quality Notice
-Timeline data is available for CE and EA projects. EIS timeline extraction is pending.
+Timeline data cleaning is still in progress. Results cover all three NEPA process types (CE, EA, EIS).
 :::
 
 ### How timeline dates are extracted
 
 1. We start with the full text of each NEPA document and look for **dates** in various forms (e.g., "06/07/2018," "July 7, 2010", 13 Feb 2010).
 2. For each date we capture the surrounding sentence so we can understand **why** that date appears.
-3. Then we pass that through a fast classifier (BERT for CE, LLM for EA) that labels each date into one of four buckets:
+3. Then we pass that through a fast classifier (BERT for CE, LLM for EA and EIS) that labels each date into one of four buckets:
 
     - **Initiation**: when the review appears to start (e.g., "Initiator Signature",  "application received," or "initiation of consultation")
     - **Review**: interim steps (e.g., "Phase 1 was approved," "review completed" or "interim review")
@@ -104,7 +104,7 @@ Timeline data is available for CE and EA projects. EIS timeline extraction is pe
 
 ### Timeline completeness
 
-@fig-complete-share shows the share of projects with complete timelines (both initiation and decision dates extracted) by review process. EA projects achieve 62% completeness (355 of 573), while CE projects are at 30% (5,899 of 19,399). The lower CE rate reflects that many CE documents contain only a single signature date with no distinct initiation marker.
+@fig-complete-share shows the share of projects with complete timelines (both initiation and decision dates extracted) by review process. EA projects achieve the highest completeness at 62% (355 of 573), followed by EIS at 48% (362 of 753), and CE at 30% (5,899 of 19,399). The lower CE rate reflects that many CE documents contain only a single signature date with no distinct initiation marker. EIS completeness is limited primarily by missing decision dates, as EIS Records of Decision are often in separate documents that may not be linked in the database.
 
 ```{r}
 #| label: fig-complete-share
@@ -114,7 +114,7 @@ Timeline data is available for CE and EA projects. EIS timeline extraction is pe
 knitr::include_graphics(file.path(d3_figures, "03_complete_timeline_share_boxplot.png"))
 ```
 
-@fig-timeline-status breaks down the specific gaps in timeline coverage. For CE projects, the largest gap is **missing initiation dates** (~50% of projects), while decision dates are found for the vast majority. EA projects show a different pattern: the primary gap is **missing decision dates** (~25%), likely because EA documents are longer and decision language is more varied. About 10% of projects in both process types are missing both dates entirely, typically due to parsing errors or non-standard document formats.
+@fig-timeline-status breaks down the specific gaps in timeline coverage. Each process type shows a distinct pattern of missing data. For CE projects, the largest gap is **missing initiation dates** (~50% of projects), while decision dates are found for the vast majority. EA and EIS projects share a different pattern: the primary gap is **missing decision dates** (~25% for EA, ~31% for EIS), likely because decision language in these longer documents is more varied and Records of Decision may be in separate, unlinked files. EIS projects also have the highest rate of missing both dates (~17%), reflecting that some EIS records in the database lack parseable document text entirely.
 
 ```{r}
 #| label: fig-timeline-status
@@ -126,7 +126,11 @@ knitr::include_graphics(file.path(d3_figures, "03_timeline_status_by_process.png
 
 ### Duration analysis
 
-@fig-duration-intervals compares project durations between CE and EA processes using interval summaries. CE projects are fast: the median duration is roughly 1 month, with the middle 50% (IQR) completing within about 5 months and 90% within roughly 10 months (n=5,509). EA projects take substantially longer, with a median of approximately 14 months, an IQR spanning roughly 7 to 25 months, and a long right tail extending past 40 months at the 90th percentile (n=336). This difference is consistent with the expected complexity: CEs are routine actions with minimal review, while EAs require public scoping, alternatives analysis, and a formal Finding of No Significant Impact (FONSI).
+@fig-duration-intervals compares project durations across all three process types using interval summaries. The progression from CE to EA to EIS tracks the expected complexity of each review level:
+
+- **CE** projects are fast: the median duration is roughly 1 month, with the IQR within about 5 months and 90% completing within roughly 10 months (n=5,509).
+- **EA** projects take substantially longer, with a median of approximately 14 months, an IQR spanning roughly 7 to 25 months, and a long right tail extending past 40 months at the 90th percentile (n=336).
+- **EIS** projects are the longest: the median duration is approximately 34 months (nearly 3 years), with an IQR from about 18 to 57 months. The 90th percentile extends past 90 months (~7.5 years), reflecting that these large-scale reviews can span multiple administrations and involve extensive public comment, supplemental analyses, and litigation (n=346).
 
 ```{r}
 #| label: fig-duration-intervals
@@ -136,7 +140,7 @@ knitr::include_graphics(file.path(d3_figures, "03_timeline_status_by_process.png
 knitr::include_graphics(file.path(d3_figures, "03_duration_summary_intervals_by_process.png"))
 ```
 
-@fig-timeline-spans visualizes individual project timelines as horizontal segments ordered by duration within each process type. CE timelines are densely clustered from roughly 2008 onward, with most spans appearing as short segments. EA timelines show considerably more variation: shorter projects (green/teal) mix with multi-year reviews (purple/navy), and a handful of projects span 5+ years. The EIS panel is currently empty pending data integration.
+@fig-timeline-spans visualizes individual project timelines as horizontal segments ordered by duration within each process type. CE timelines are densely clustered from roughly 2008 onward, with most spans appearing as short segments. EA timelines show considerably more variation: shorter projects (green/teal) mix with multi-year reviews (purple/navy), and a handful of projects span 5+ years. EIS timelines are dominated by long-duration reviews — the majority of spans fall in the 2–5 year (purple) and 5+ year (navy) bins, with many projects stretching from the late 2000s through the early 2020s. A few shorter EIS reviews do appear (under 1 year), but these are the exception.
 
 ```{r}
 #| label: fig-timeline-spans
@@ -148,7 +152,7 @@ knitr::include_graphics(file.path(d3_figures, "03_project_timeline_spans_by_proc
 
 ### Projects by decision year
 
-@fig-projects-by-year shows the volume of clean energy projects by decision year, faceted by review process. CE projects show a sharp ramp starting around 2008–2009, peaking at 1,789 in 2010 — likely driven by ARRA (American Recovery and Reinvestment Act) stimulus funding. After a dip in the mid-2010s, CE volumes climbed again to a new peak of 1,834 in 2023. EA project counts are much smaller in magnitude (typically 10–40 per year) but follow a similar pattern, with a notable spike of 41 projects in 2010.
+@fig-projects-by-year shows the volume of clean energy projects by decision year, faceted by review process. CE projects show a sharp ramp starting around 2008–2009, peaking at 1,789 in 2010 — likely driven by ARRA (American Recovery and Reinvestment Act) stimulus funding. After a dip in the mid-2010s, CE volumes climbed again to a new peak of 1,834 in 2023. EA project counts are much smaller in magnitude (typically 10–40 per year) but follow a similar pattern, with a notable spike of 41 projects in 2010. EIS decisions peak in 2012 and 2014 (40 each), with a secondary rise in 2020 (26) and a recent spike of 32 in 2024. The EIS temporal pattern is lagged relative to CE and EA — consistent with the fact that EIS reviews initiated during the late-2000s stimulus era would reach their Record of Decision several years later.
 
 ```{r}
 #| label: fig-projects-by-year
