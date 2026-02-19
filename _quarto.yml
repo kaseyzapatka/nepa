@@ -16,6 +16,8 @@ website:
         href: reports/deliverable03.qmd
       - text: "Deliverable 4"
         href: reports/deliverable04.qmd
+      - text: "Deliverable 5"
+        href: reports/deliverable05.qmd
 
 format:
   html:
