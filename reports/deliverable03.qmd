@@ -86,51 +86,73 @@ knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 
 ::: {.callout-warning}
 ## Data Quality Notice
-Timeline data cleaning is still in progress.
+Timeline data is available for CE and EA projects. EIS timeline extraction is pending.
 :::
-
-Focused on Categorical Exclusion (CEs) since they have the fewest dates and clearest timelines. 
 
 ### How timeline dates are extracted
 
-1. We start with the full text of each NEPA document and look for **dates** in various forms (e.g., “06/07/2018,” “July 7, 2010”, 13 Feb 2010). 
-2. For each date we capture the surrounding sentence so we can understand **why** that date appears. 
-3. Then we pass that through a fast classifier (BERT) that labels each date into one of four buckets:
+1. We start with the full text of each NEPA document and look for **dates** in various forms (e.g., "06/07/2018," "July 7, 2010", 13 Feb 2010).
+2. For each date we capture the surrounding sentence so we can understand **why** that date appears.
+3. Then we pass that through a fast classifier (BERT for CE, LLM for EA) that labels each date into one of four buckets:
 
-    - **Initiation**: when the review appears to start (e.g., "Initiator Signature",  “application received,” or "initiation of consultation")
-    - **Review**: interim steps (e.g., Phase 1 was approved,” “review completed” or "interim review")
-    - **Decision**: final approval (e.g., “Approved by[Name], NEPA Compliance Officer”, "Authorizing Official", Field Office Manager determination)
+    - **Initiation**: when the review appears to start (e.g., "Initiator Signature",  "application received," or "initiation of consultation")
+    - **Review**: interim steps (e.g., "Phase 1 was approved," "review completed" or "interim review")
+    - **Decision**: final approval (e.g., "Approved by [Name], NEPA Compliance Officer", "Authorizing Official", Field Office Manager determination)
     - **Other**: when it doesn't fall into one of those three buckets
 
-4. When no explicit initiation date is found, we use the **earliest review date** as a proxy for initiation. 
+4. When no explicit initiation date is found, we use the **earliest review date** as a proxy for initiation. A project's timeline is considered **complete** when both an initiation date and a decision date are available.
 
-**Extraction Coverage (Full Run — CE Projects)**
+### Timeline completeness
 
-The BERT classifier was run on all 20,863 CE clean energy projects. @fig-bert-coverage visualizes the coverage rates. Decision dates are found for 83% of CE projects. Explicit initiation dates remain the biggest gap at 20%, though using the earliest review date as a proxy brings start-date coverage to 40%.
-
-```{r}
-#| label: fig-bert-coverage
-#| fig-cap: "Timeline extraction coverage by date type (CE clean energy projects)"
-#| out-width: "90%"
-
-knitr::include_graphics(file.path(d3_figures, "03_bert_coverage.png"))
-```
-
-@fig-date-distribution shows how many dates the classifier extracted per project. Most projects have 1–3 dates; projects with zero dates (4%) had extraction errors (e.g., no parseable text).
+@fig-complete-share shows the share of projects with complete timelines (both initiation and decision dates extracted) by review process. EA projects achieve 62% completeness (355 of 573), while CE projects are at 30% (5,899 of 19,399). The lower CE rate reflects that many CE documents contain only a single signature date with no distinct initiation marker.
 
 ```{r}
-#| label: fig-date-distribution
-#| fig-cap: "Number of classified dates extracted per project"
+#| label: fig-complete-share
+#| fig-cap: "Share of projects with complete timelines by NEPA review process. Dot indicates the mean completion rate."
 #| out-width: "90%"
 
-knitr::include_graphics(file.path(d3_figures, "03_bert_date_distribution.png"))
+knitr::include_graphics(file.path(d3_figures, "03_complete_timeline_share_boxplot.png"))
 ```
 
-@fig-projects-by-year shows CE project counts by decision year.
+@fig-timeline-status breaks down the specific gaps in timeline coverage. For CE projects, the largest gap is **missing initiation dates** (~50% of projects), while decision dates are found for the vast majority. EA projects show a different pattern: the primary gap is **missing decision dates** (~25%), likely because EA documents are longer and decision language is more varied. About 10% of projects in both process types are missing both dates entirely, typically due to parsing errors or non-standard document formats.
+
+```{r}
+#| label: fig-timeline-status
+#| fig-cap: "Timeline coverage breakdown by review process, showing which date components are present or missing."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d3_figures, "03_timeline_status_by_process.png"))
+```
+
+### Duration analysis
+
+@fig-duration-intervals compares project durations between CE and EA processes using interval summaries. CE projects are fast: the median duration is roughly 1 month, with the middle 50% (IQR) completing within about 5 months and 90% within roughly 10 months (n=5,509). EA projects take substantially longer, with a median of approximately 14 months, an IQR spanning roughly 7 to 25 months, and a long right tail extending past 40 months at the 90th percentile (n=336). This difference is consistent with the expected complexity: CEs are routine actions with minimal review, while EAs require public scoping, alternatives analysis, and a formal Finding of No Significant Impact (FONSI).
+
+```{r}
+#| label: fig-duration-intervals
+#| fig-cap: "Duration summary by review process. Thin bar spans the 10th to 90th percentile, thick bar shows the interquartile range (25th–75th), and the point marks the median."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d3_figures, "03_duration_summary_intervals_by_process.png"))
+```
+
+@fig-timeline-spans visualizes individual project timelines as horizontal segments ordered by duration within each process type. CE timelines are densely clustered from roughly 2008 onward, with most spans appearing as short segments. EA timelines show considerably more variation: shorter projects (green/teal) mix with multi-year reviews (purple/navy), and a handful of projects span 5+ years. The EIS panel is currently empty pending data integration.
+
+```{r}
+#| label: fig-timeline-spans
+#| fig-cap: "Individual project timelines from initiation to decision, sorted by duration within each process type. Color indicates duration bin. Complete timelines only (up to 300 per process)."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d3_figures, "03_project_timeline_spans_by_process.png"))
+```
+
+### Projects by decision year
+
+@fig-projects-by-year shows the volume of clean energy projects by decision year, faceted by review process. CE projects show a sharp ramp starting around 2008–2009, peaking at 1,789 in 2010 — likely driven by ARRA (American Recovery and Reinvestment Act) stimulus funding. After a dip in the mid-2010s, CE volumes climbed again to a new peak of 1,834 in 2023. EA project counts are much smaller in magnitude (typically 10–40 per year) but follow a similar pattern, with a notable spike of 41 projects in 2010.
 
 ```{r}
 #| label: fig-projects-by-year
-#| fig-cap: "CE clean energy projects by decision year (BERT classifier)"
+#| fig-cap: "Clean energy projects by decision year, faceted by NEPA review process."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
