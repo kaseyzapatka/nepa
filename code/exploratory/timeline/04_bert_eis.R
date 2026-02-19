@@ -7,6 +7,7 @@
 # TAB
 #2.28 - 2.17 #| .11
 #2.17 - 2.04 #| .13
+#2.04 #| .13
 
 # --------------------------
 # SETUP
@@ -102,7 +103,8 @@ show_timeline(timeline, "XXXXXXX") # no decision
 # --------------------------
 # LLM
 # --------------------------
-llm <- read_parquet("data/analysis/test50_eis_llm.parquet")
+#llm <- read_parquet("data/analysis/test50_eis_llm.parquet")
+llm <- read_parquet("data/analysis/projects_timeline_bert_eis_llm.parquet")
 
 
 llm |> glimpse()
@@ -145,7 +147,7 @@ llm |>
   filter(!is.na(llm_initiation_date) & !is.na(llm_decision_date)) |> 
   dim()
 
-24/50 # 48% 
+362/753 # 48% 
 
 #
 # view llm reasoning

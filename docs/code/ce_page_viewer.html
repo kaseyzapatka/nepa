@@ -4731,7 +4731,7 @@ Loaded 73,544 CE pages</code></pre>
 <section id="explore-a-specific-project" class="level2">
 <h2 class="anchored" data-anchor-id="explore-a-specific-project">Explore a specific project</h2>
 <p>Set the <code>project_id</code> below and run the cells to explore.</p>
-<div class="cell" data-execution_count="12">
+<div class="cell" data-execution_count="9">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set your project ID here</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;2135a0a9-e30c-47a6-4781-d35b7eb72322&quot; # Wyarno Grazing Lease </span></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;75f86c2f-e651-6f0f-78b4-0816aecb0d3a&quot; # Iberlin 1-12 wells</span></span>
@@ -4743,15 +4743,15 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;abb436a4-3bb4-8f91-0013-d5a5158dbf32&quot; # Enoch Well House Power Line</span></span>
 <span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0&quot; # Right of way renewals</span></span>
 <span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;c0a5a0de-acea-0b84-f727-029167677961&quot; # 703-43A Room 30 Install Electrical and UW</span></span>
-<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;1df6f8b5-7e16-2d38-01b6-a042628ea3c8&quot;</span> <span class="co"># </span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;c87a153c-f0c6-bd71-17e1-7e01ea9816a5&quot;</span> <span class="co"># </span></span>
 <span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;a8f8ca21-28aa-e951-164f-736cac8136ef&quot; # </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="13">
+<div class="cell" data-execution_count="10">
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># List all documents for this project</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>list_documents(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-Documents for project: 1df6f8b5-7e16-2d38-01b6-a042628ea3c8
+Documents for project: c87a153c-f0c6-bd71-17e1-7e01ea9816a5
 --------------------------------------------------------------------------------</code></pre>
 </div>
 <div class="cell-output cell-output-display">
@@ -4772,13 +4772,31 @@ Documents for project: 1df6f8b5-7e16-2d38-01b6-a042628ea3c8
 </thead>
 <tbody>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">85300</td>
-<td>9d8ec280-285b-aa18-7773-b902f7840840</td>
+<td data-quarto-table-cell-role="th">68566</td>
+<td>c73de3f5-ab88-5b3c-5f4e-f7298ae5b0e2</td>
+<td>OTHER</td>
+<td>other</td>
+<td>NO</td>
+<td>GeoTechnical POD.pdf</td>
+<td>24</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">68567</td>
+<td>cc821d3b-e4de-2c9f-41bd-d4ae09f50f27</td>
 <td>CE</td>
 <td>decision</td>
 <td>YES</td>
-<td>DOI-BLM-UT-C010-2022-0002-CX_FORGE Strainmenter Monitoring Sites.pdf</td>
-<td>15</td>
+<td>Geotech CX.pdf</td>
+<td>6</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">68568</td>
+<td>6e463359-843e-c7d3-1425-056287e65cb8</td>
+<td>OTHER</td>
+<td>other</td>
+<td>NO</td>
+<td>Maps.pdf</td>
+<td>3</td>
 </tr>
 </tbody>
 </table>
@@ -4786,545 +4804,1731 @@ Documents for project: 1df6f8b5-7e16-2d38-01b6-a042628ea3c8
 </div>
 </div>
 </div>
-<div class="cell" data-execution_count="14">
+<div class="cell" data-execution_count="11">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># View first 3 pages of each document</span></span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>view_project_pages(project_id)</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co">#view_project_pages(project_id, document_id = &quot;86c02395-3a91-53f7-b1db-3ba3ad46aae7&quot;)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 ================================================================================
-Document: DOI-BLM-UT-C010-2022-0002-CX_FORGE Strainmenter Monitoring Sites.pdf
+Document: GeoTechnical POD.pdf
+Type: OTHER | Category: other | Main: NO
+================================================================================
+
+--- PAGE 1-24 ---
+
+SOUTHLINE TRANSMISSION PROJECT
+GEOTECHNICAL INVESTIGATION PLAN OF
+DEVELOPMENT
+
+APRIL 2018
+
+PREPARED FOR
+Bureau of Land Management
+
+PREPARED BY
+SWCA Environmental Consultants
+
+SOUTHLINE TRANSMISSION PROJECT
+GEOTECHNICAL INVESTIGATION PLAN OF DEVELOPMENT
+
+Prepared for
+Bureau of Land Management
+Arizona State Office
+One North Central Avenue, Suite 800
+Phoenix, Arizona 85004-4427
+
+Submitted by
+Southline Transmission, L.L.C.
+1900 North Akard Street
+Dallas, Texas 75201
+www.southlinetransmissionproject.com
+AZA035681
+
+Prepared by
+SWCA Environmental Consultants
+20 East Thomas Road, Suite 1700
+Phoenix, Arizona 85012
+www.swca.com
+
+April 2018
+
+CONTENTS
+
+1 INTRODUCTION........................................................................................................................... 1
+1.1 National Environmental Policy Act ......................................................................................... 1
+1.2 Geotechnical Investigation Plan of Development ................................................................... 1
+
+2 Geotechnical Exploration Description, Standards, and Requirements .......................................... 4
+2.1 Geotechnical Exploration Plan ............................................................................................... 4
+2.1.1 General Requirements .............................................................................................. 4
+2.1.2 Temporary Ground Disturbance .............................................................................. 4
+2.1.3 Drilling Equipment Staging ...................................................................................... 7
+2.2 Description and Identification of Geotechnical Exploration Sites, Access Routes, and
+Temporary Disturbance ........................................................................................................ 7
+2.2.1 Overview of Borehole Site Locations and Selection Criteria .................................. 8
+2.2.2 Access Routes and Roads ........................................................................................ 8
+2.3 Identification of Potential Geologic Hazards .......................................................................... 8
+2.3.1 Overview of Geologic Hazards ................................................................................ 8
+2.4 Geotechnical Exploration Methods ........................................................................................ 9
+2.4.1 Geotechnical Drilling and Sampling Methods ......................................................... 9
+2.5 Drill Vehicle Types .............................................................................................................. 10
+2.5.1 Truck-Mounted ..................................................................................................... 10
+2.5.2 All-Terrain Vehicles ............................................................................................. 11
+2.5.3 Track-Mounted ..................................................................................................... 12
+
+3 Geotechnical Exploration Locations ......................................................................................... 13
+3.1 Sensitive Resources ............................................................................................................. 13
+
+4 Construction Permits and Clearance Surveys ............................................................................. 14
+4.1 Anticipated Drilling-Related Permits ................................................................................... 14
+4.2 Environmental Clearance Surveys and Seasonal Restrictions .............................................. 14
+
+5 Environmental Protection Measures .......................................................................................... 15
+5.1 Geotechnical Investigation Specific Environmental Protection Measures .............................. 15
+5.2 Additional Environmental Protection Measures .................................................................... 15
+
+Figures
+
+Figure 1. Project overview............................................................................................................... 3
+Figure 2a. Geotechnical drilling locations and access roads. .......................................................... 5
+Figure 2b. Geotechnical drilling locations and access roads. .......................................................... 6
+Figure 3. Typical truck-mounted drill rig. ..................................................................................... 11
+Figure 4. Typical ATV-mounted drill rig. ..................................................................................... 12
+Figure 5. Typical track-mounted drill rig. ..................................................................................... 13
+
+i
+
+Tables
+
+Table 1. Maximum Temporary Ground Disturbance by Land Ownership (acres) ............................ 7
+Table 2. Borehole Sites on BLM Lands in Arizona.......................................................................... 8
+
+ii
+
+1 INTRODUCTION
+
+The Southline Transmission Project (hereafter, Project), sponsored by Southline Transmission, L.L.C.
+(Southline), a wholly owned subsidiary of Hunt Power, L.P., is a non-utility, merchant transmission line
+designed to collect and transmit electricity across southern New Mexico and southern Arizona.
+
+The Project consists of two sections: the New Build and the Upgrade sections. The New Build Section
+is approximately 240 miles of new double-circuit 345-kilovolt (kV) transmission line along with
+substation expansions, access roads, and associated infrastructure. The Upgrade Section is approximately
+120 miles of Western Area Power Administration&#39;s (Western&#39;s or WAPA&#39;s) existing 115-kV
+transmission line that is being upgraded to a double-circuit 230-kV transmission line as well as substation
+expansions, access roads, and associated infrastructure.
+
+This Geotechnical Investigation Plan of Development (Geotechnical POD) is for the Project&#39;s
+Arizona New Build portion only (Figure 1). The total length of the Arizona alignment applicable to this
+Geotechnical POD is approximately 72 miles, traversing Cochise County. Additionally, full Project
+details can be found in the below referenced 2015 Project Final Environmental Impact Statement.
+
+1.1 National Environmental Policy Act
+
+On December 4, 2009, Southline submitted an “Application for Transportation and Utility Systems
+and Facilities on Federal Lands” (Standard Form [SF] 299) to the Bureau of Land Management
+(BLM) for a right-of-way (ROW), and then submitted an amended application on December 22, 2010.
+Southline will use identified BLM-administered public land for a portion of the Project, in addition to
+other federal, state, and private lands through New Mexico and Arizona. As part of the Project, Southline
+will upgrade two existing lines in Arizona that are owned by WAPA. The BLM and WAPA are joint lead
+agencies under the National Environmental Policy Act of 1969 (NEPA) regulations at 40 Code of Federal
+Regulations (CFR) 1501.5(b).
+
+BLM and WAPA jointly prepared the 2015 “Southline Transmission Line Project Final Environmental
+Impact Statement” (Final EIS). A notice of intent (NOI) to prepare the EIS for the Project was published
+in the Federal Register on April 4, 2012. The notice of availability (NOA) for the Draft EIS was published
+on April 11, 2014 in the Federal Register. The NOA for the Final EIS was published on November 6,
+2015 in the Federal Register. The BLM Record of Decision (ROD) was signed on April 21, 2016, and
+WAPA&#39;S ROD was signed April 5, 2016. The BLM and WAPA&#39;s Selected Alternative was the Agency
+Preferred Alternative as described in the Final EIS. The BLM ROD authorized a ROW grant to Southline
+to use public land administered by the BLM for the Project for 30 years.
+
+1.2 Geotechnical Investigation Plan of Development
+
+This Geotechnical POD was prepared to accompany the SF 299. The purpose of this document is to
+outline the geotechnical investigation program, including information regarding the drilling, location of
+boreholes, borehole drilling equipment, and borehole access.
+
+Geotechnical investigations provide necessary information for the detailed engineering and design
+of the transmission line, access roads, substations, and other facilities and are a required step in the
+Project construction process. Southline, in coordination with the BLM, has developed an implementation
+strategy that includes the preparation of a Geotechnical POD.
+
+1
+
+The purpose of the geotechnical investigations is to collect geophysical data and hydrogeologic and
+geotechnical soil properties to provide necessary information for detailed Project engineering and design.
+These data will be incorporated into structure foundation design and will help ensure the Project is
+designed and constructed to be safe, reliable, and cost effective.
+
+Section 2 of this Geotechnical POD describes the drilling process, drilling activities, and selection
+of drilling locations. Anticipated disturbance is also detailed.
+
+Section 3 describes the sensitive resources, and Sections 4 and 5 list environmental protection measures
+that will be applied during geotechnical investigation.
+
+Specific Project environmental protection measures, or Proponent Committed Environmental Measures
+(PCEMs) were developed during the NEPA process and carried forward to BLM’s ROD as stipulations
+and conditions. PCEMs that are specifically applicable to the implementation of the geotechnical program
+are provided here in Section 5.
+
+2
+
+SUPERSTITION
+MOUNTAINS
+60
+PINAL
+GILA
+GLOBE
+Saguaro
+Tortolita
+Marana
+IRONWOOD FOREST N.M.
+Rattlesnake
+MARANA
+ALTAR
+VALLEY
+Upgrade New Build
+191
+ARIZONA
+NEW MEXICO
+GILA MOUNTAINS
+GREENLEE
+GRAHAM
+SAFFORD
+CATRON
+MOGOLLON
+MOUNTAINS
+180
+BLACK RANGE
+GALIURO
+MOUNTAINS
+PINALENO
+MOUNTAINS
+191
+WILLCOX
+Adams
+Tap
+SAN SIMON VALLEY
+SILVER CITY
+GRANT
+70
+Pantano
+10
+VELONCILLO MOUNTAINS
+Hidalgo
+LORDSBURG
+10
+LUNA
+Apache
+BENSON
+COCHISE
+CHIRICAHUA
+MOUNTAINS
+HIDALGO HACHITA
+SAGUARO N.P.
+WEST
+De Moss Petrie
+Del Bac
+Nogales
+SANTA CATALINA
+MOUNTAINS
+Tucson
+TUCSON SAGUARO N.P.
+Vail
+EAST
+PIMA
+19
+SANTA CRUZ
+SANTA RITA MOUNTAINS
+Fort
+PATAGONIA
+MOUNTAINS
+Huachuca
+Military
+191
+Reservation MULE
+MOUNTAINS
+Figure 1. Project overview.
+80
+PELONCILLO MOUNTAINS
+3
+PLAYAS VALLEY
+SIERRA
+25
+SAN ANDRES MOUNTAINS
+ORGAN MOUNTAINS
+DESERT PEAKS N.M.
+Midpoint
+North
+LAS CRUCES
+DEMING
+FLORIDA
+MOUNTAINS
+COLUMBUS
+Legend
+[] Substation
+[] AZ New Build Route
+Project Route
+Project Substation
+Interstate
+US or State Highway
+Major Road
+Land Ownership
+Tribal
+Bureau of
+Land Management
+Bureau of
+Reclamation
+Department of Defense
+National Park Service
+Private/Other
+State
+US Forest Service
+US Fish &amp; Wildlife
+National Park/
+DOÑA ANA
+National Monument/
+National Conservation
+Area
+ORGAN MOUNTAINS
+DESERT PEAKS N.M.
+Afton
+EL PASO
+Utah
+Colorado
+Nevada
+Map Extent
+0
+New Mexico
+Arizona
+Miles
+25
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 1:
+Project Overview.
+AZ Geotech Project Overview r-mid-Revised 4/23/2018
+
+MP095
+191
+Fisher
+Hills
+MP090
+Diaw
+Geld
+MP355
+13
+Gole
+10
+MP360
+14
+DOS CABEZAS MOUNTAINS
+WILDERNESS
+C
+ABEZAS
+MOUNTAINS
+MP340
+MP345
+MP365
+MP365
+FAN
+MP370
+15 16
+17
+18
+Figure 2a. Geotechnical drilling locations and access roads.
+Butterfield Tra
+MP375
+MP375
+SAN
+19
+MP380
+Butterfield Trail
+ی
+M
+Graham County
+Greenlee Countys
+Cochise County
+20
+MP385
+--
+VAL
+Simen
+7
+PELONCILLO MOUNTAINS
+ELONC
+21
+E
+ARIZONA
+Hidalgo County
+NEW MEXICO
+MP390
+NEW MEXIKAR
+MP-0
+AINS
+MOUNTA
+Legend
+[] AZ Route
+[] Boring Location
+[] Access Route
+[] National Historic/
+Scenic Trail
+[] Bureau of
+Land Management
+[] National Park Service
+[] Private/Other
+[] State
+[] US Forest Service
+1
+Sheet 1 of 2
+0
+Miles
+2
+AZ NB Geotech Locations mxd-Revised 4/26/2018
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 2a:
+Geotechnical drilling
+locations and access
+roads.
+
+MOUN
+N
+MP320
+S
+10
+MP330
+MP335
+ULPHUR
+MP340
+12
+11
+MP345
+WILLCOX
+MP340
+WILLCOX
+PLAYA
+10
+MP330
+9
+(186)
+8
+WILLCOX
+PLAYA
+MP065
+WILLCOX
+DRY LAKE
+6
+BOMBING
+RANGE
+Cochise
+MP325
+Draw
+MP060
+Apache
+Figure 2b. Geotechnical drilling locations and access roads.
+MP055
+191
+5
+MP335
+MP350
+DOS
+Gold
+MP355
+13
+CABEZAS
+MP340
+Cab
+Butterfield Trail
+------
+10
+MP360
+14
+DOS CABEZAS MOUNTAINS
+WILDERNESS
+MOUNTAINS
+MP345
+Idea
+Moge
+MP365
+MP365
+15
+16
+Legend
+[] AZ Route
+[] Boring Location
+[] Access Route
+[] Existing Substation
+[] Buffalo Soldier
+Electronic Testing Range
+[] National Historic/
+Scenic Trail
+[] Bureau of
+Land Management
+[] Department of Defense
+[] National Park Service
+[] Private/Other
+[] State
+[] US Forest Service
+[] Arizona Game and Fish
+Department Wildlife
+Watching Area
+2
+Sheet 2 of 2
+0
+Miles
+2
+AZ NB Geotech Locations mxd-Revised 4/26/2018
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 2b:
+Geotechnical drilling
+locations and access
+roads.
+
+BORING WORK AREAS
+
+A typical boring work area is 30 × 60 feet. This is enough room to get the drilling rig and support vehicles
+in and work around the rig. There may be some minor disturbance outside that area in rare cases;
+however, the maximum temporary disturbance at each boring site is anticipated to be less than 0.4 acres.
+Surface disturbance within the boring work area may occur as a result of moving the drilling vehicles,
+support vehicles, and associated equipment. Additional foot traffic will also occur around the drill
+vehicles as the drill crew moves between the drill and support vehicles.
+
+Work sites will be managed to minimize both environmental and physical impacts to the immediate work
+area and surrounding area. All practical controls will be followed to minimize soil disturbance and
+prevent soils from migrating offsite. Equipment and vehicles will be positioned to minimize damage to
+vegetation and soils. Excavated soils and other work materials will be properly contained to minimize the
+spread of material to outside the work area. If adverse weather conditions are anticipated, excavated soils
+will be properly secured to prevent sediment migration offsite.
+
+Table 1 below summarizes the maximum temporary ground disturbance anticipated, by land ownership.
+
+Table 1. Maximum Temporary Ground Disturbance by Land Ownership (acres)
+
+BLM | State | Private | Total
+---|---|---|---
+Number of Drilling Sites | 6 | 8 | 7 | 21
+Maximum Temporary Disturbance (0.4 acre per drilling site) | 2.4 acres | 3.2 acres | 2.8 acres | 8.4 acres
+
+ACCESS ROUTES
+
+Access roads to each boring will be restricted to existing paved or dirt roads with a minor amount
+of overland travel. As described below in Section 2.2.2, no grading for access to geotechnical
+investigation sites will occur.
+
+2.1.3 Drilling Equipment Staging
+
+All drilling equipment will be staged within the approved Project ROW. Equipment staging areas will
+limit earth disturbance to the extent reasonable. Heavy-duty equipment will not be placed/stored over
+exposed tree roots or within the critical root zone. At the end of each day the drilling vehicles and all
+equipment will be left at the last completed boring location or moved to the next boring location.
+Personnel will travel to and from the boring sites via four-wheel drive vehicles.
+
+2.2 Description and Identification of Geotechnical
+Exploration Sites, Access Routes, and Temporary
+Disturbance
+
+The criteria for borehole site location and access road selection as well as a description of typical pre-
+drilling and post-drilling site conditions are described below. Figures 2a and 2b depict borehole locations,
+access to each location, land ownership, and pertinent Project information.
+
+7
+
+2.2.1 Overview of Borehole Site Locations and Selection Criteria
+
+All borehole sites are located within the area analyzed in the Final EIS. They were selected based on the
+results of a preliminary geotechnical report that identified expected geological conditions and associated
+hazards, and field verification activities at select locations. Figures 2a and 2b depict all selected borehole
+locations in the Arizona New Build portion of the Project.
+
+Table 2 summarizes the borehole sites located on BLM lands, with their respective latitude and longitude
+information.
+
+Table 2. Borehole Sites on BLM Lands in Arizona
+
+Boring Location Number | Latitude (degrees) | Longitude (degrees) | Land Status
+---|---|---|---
+3 | 32.0676 | -109.8475 | BLM
+7 | 32.1683 | -109.7677 | BLM
+18 | 32.2947 | -109.3483 | BLM
+19 | 32.3011 | -109.2617 | BLM
+20 | 32.3014 | -109.1765 | BLM
+21 | 32.3001 | -109.0949 | BLM
+
+2.2.2 Access Routes and Roads
+
+Existing roads will be used to access the majority of boring sites to facilitate the geotechnical
+investigation. There are however, short segments of overland travel that are necessary. In areas where
+overland travel is needed, this access will follow the drive-and-crush method detailed in Final EIS
+Section 2.4.2.
+
+Prior to drill rig mobilization to a predetermined access point, field verification will be performed to
+confirm existing field conditions will accommodate the safe access of drill rig and employees. Field
+verification includes reviewing items such as access approval, surface conditions of access path, ground
+and aerial obstacles, marked underground utilities, and overhead utilities.
+
+2.3 Identification of Potential Geologic Hazards
+
+2.3.1 Overview of Geologic Hazards
+
+A geological condition that has the potential to cause structural damage is classified as a geologic hazard
+(or geohazard), and the presence of geohazards can pose significant risks to the Project. Geohazards
+involve short-term processes, long-term processes, or both, and are influenced by both geological and
+environmental conditions. Geohazards can be exacerbated by human activities. For these reasons, the
+potential impacts of geohazards were analyzed as part of the Project NEPA process.
+
+The NEPA analysis consisted of a preliminary geotechnical desktop study which identified potential
+geohazards. Potential geohazards identified for the Project area are presented in Section 3.4.4 of the Final
+EIS and include land subsidence, earth fissures, geological faults, earthquakes, landslides, volcanoes, and
+karst. Analysis of these potential hazards is presented in Final EIS Section 4.4.4.
+
+8
+
+2.4 Geotechnical Exploration Methods
+
+2.4.1 Geotechnical Drilling and Sampling Methods
+
+Test borings will be performed in accordance with the following: 1) American Society for Testing and
+Materials (ASTM) D1586 Standard Test Method for Standard Penetration Test (SPT) and Split Barrel
+Sampling of Soils, 2) ASTM D2113 Standard Practice for Rock Core Drilling and Sampling of Rock for
+Site Exploration, and 3) and details specified herein. Borings will range from 4 to 8 inches in diameter
+and can be drilled by means of a combination of one or more sizes of auger or casing (rotary drilling) and,
+if rock is encountered, rock coring using NQ-sized (less than 2-inches in diameter) or HQ-sized (about
+2.5 inches in diameter) coring equipment. In general, test borings will extend to a depth of approximately
+10 feet below the anticipated bottom of a foundation or until refusal/bedrock is encountered.
+If bedrock/refusal is encountered, the boring will be extended a minimum of 10 feet beyond the top of
+bedrock/refusal. It is anticipated that drilling depths will range from 25 to 50 feet below ground surface.
+Typically, borings of this depth require one-third to one-half of a work day.
+
+Test borings will be extended to the minimum depths specified in boring phase documentation provided
+by the GEOR prior to mobilization; the minimum depths provided in GEOR documentation will be in
+accordance with requirements stipulated above. Test borings shall not be terminated in material exhibiting
+an SPT N-value of less than 7 blows per foot without prior approval from the GEOR.
+
+A minimum of four SPTs (minimum 18 inches inside clear length) will be attempted within the upper
+10 feet of each boring; SPTs below 10 feet will be attempted at intervals no greater than 5 feet. Thin-
+walled tube samples (i.e., Shelby tubes) may be obtained within anticipated cohesive soils at locations
+and/or intervals specified by the GEOR or Quanta Services field representative either prior to drilling
+or at the time of drilling. Thin-walled tubes samples will be obtained in accordance with ASTM D1587
+“Standard Practice for Thin-Walled Tub Sampling of Soils for Geotechnical Purposes.” Additional
+sampling, testing, and documentation requirements during drilling are listed below.
+
+• Drilling in environmentally contaminated areas/conditions is not anticipated. As such, all onsite
+personnel will, at a minimum, utilize Level D Personal Protective Equipment (PPE). Level D
+PPE will consist of the following: cut 5, impact-resistant gloves, chemical resistance steel-
+or composite-toe boots, safety glasses, Class E hard hat, and high-visibility vest, shirt, or jacket.
+• The drilling method and drilling fluid, SPT hammer type, and SPT hammer energy efficiency
+(if known) will be recorded on each boring log.
+• Encountered soils will be classified for the entire depth of each test boring in general accordance
+with ASTM D2487 “Standard Practice for Classification of Soils for Engineering Purposes&quot;
+(Unified Soil Classification System) and/or ASTMD D2488 “Standard Practice for Description
+and Identification of Soils” (Visual-Manual Procedure).
+• The depth of topsoil and/or organic material will be recorded on respective boring logs.
+The depth of topsoil will be determined by hand digging immediately adjacent to the boring
+location and the thickness measured using a tape measure.
+• SPT and bulk samples will be collected in watertight containers and labeled in a manner that
+would not result in loss of information. At a minimum, labeling of samples will contain
+appropriate information regarding sample depth and location.
+• Rock Quality Designation (RQD) values for bedrock will be recorded on the respective boring
+logs.
+
+9
+
+• At a minimum, groundwater levels will be recorded on the boring logs at the time of drilling
+and following completion of drilling. Stabilized groundwater levels may be obtained through
+temporary piezometers consisting of a minimum 1.5-inch-diameter PVC casing.
+• Pocket penetrometer testing will be performed on cohesive soils. If thin-walled tube samples
+are collected, pocket penetrometer testing should be performed on the exposed soil at the
+bottom. Pocket penetrometer test results will be indicated on the respective boring logs.
+
+Each borehole will be backfilled upon completion of drilling and/or final groundwater level measurement.
+Backfill procedures will meet state, federal, and local statutes concerning the abandonment of
+geotechnical borings. If no statutes exist, completed boreholes must be backfilled with a combination
+of bentonite chips and auger cuttings to the ground surface.
+
+Drill cuttings originating from the drilling activities will be left onsite and spread evenly over the ground
+surface to return existing topography to similar conditions prior to investigation. Borings drilled in areas
+where livestock, pedestrian, or vehicular traffic may occur will be plugged or capped immediately upon
+completion of the boring and flush with the adjacent ground surface. Temporary cover will be provided
+for all boreholes left open overnight or while activities in the area of drilling are temporarily halted for
+any period of time.
+
+Upon completion of the work activities and prior to final demobilization from the work site, areas
+disturbed by equipment will be returned to their original condition to the extent that is reasonably
+possible. All debris, garbage, and other like material will be removed from the work area and disposed
+of properly.
+
+2.5 Drill Vehicle Types
+
+The drilling methods and equipment (rigs) will be mounted on road-legal trucks, tracked vehicles, or
+oversized-tire all-terrain vehicles (ATVs). All the drilling vehicles can be equipped with hollow-stem
+augers, solid stem augers (SSAs), and mud rotary/coring drilling systems. The boreholes will be drilled
+using truck-, track-, or ATV-mounted drilling rigs, depending on the access. It is expected that truck-
+mounted drills will be used at the majority of the locations. Other vehicles and equipment will also be
+used to support geotechnical testing and may include a water truck or support vehicle, field geotechnical
+engineer/geologist&#39;s pickup truck or utility vehicle, and possibly another support pickup truck.
+
+2.5.1 Truck-Mounted
+
+Truck-mounted drilling rigs, similar to that depicted in Figure 3, are proposed for the majority of the
+borings. These rigs are road-legal, heavy trucks that require relatively flat access (5 percent grade or less).
+The rigs will travel on existing roadways and two-track trails as close as possible to geotechnical testing
+sites and then overland on firm ground. Truck-mounted drilling rigs are typically 30 feet long, 8.5 feet
+wide, and 12 feet high with mast down and 34 feet high with mast up and have a gross vehicle weight
+of approximately 30,000 pounds with 30 to 50 pounds per square inch (psi) ground pressure.
+
+10
+
+Figure 3. Typical truck-mounted drill rig.
+
+2.5.2 All-Terrain Vehicles
+
+ATV rigs, also known as balloon-tired rigs, are an alternate drill vehicle type for borings where truck-
+mounted rigs cannot gain access, including areas with softer ground conditions and up to 20 percent grade
+(Figure 4). ATV rigs are typically 25 feet long, 8.5 feet wide, and 15 feet high with mast down and
+25 feet high with mast up, and have rubber balloon tires allowing low ground pressure and thus less
+ground disturbance. ATV rigs are transported to the Project area on low-boy trailers using existing
+roadways and two-track trails as close as possible to geotechnical testing sites and then overland to the
+geotechnical testing sites. If the ground is firm enough, ATV rigs can travel faster overland than the
+tracked rigs discussed in the next section.
+
+11
+
+A DANDER
+KEEP BACK
+A DANGER
+KEEP BACK
+2.5.3 Track-Mounted
+
+Figure 4. Typical ATV-mounted drill rig.
+
+Track-mounted drilling rigs (Figure 5) are another alternative drill vehicle type for borings where softer
+ground conditions exist with up to 20 percent grade. These rigs are approximately 8,000 pounds with
+rubber tracks, resulting in approximately 10 psi ground pressure, the lowest available ground-disturbance
+mobile vehicle for softer ground. Tracked rigs are typically 22 feet long, 6 feet wide, and 22 feet high
+with mast up. Tracked rigs travel on low-boy trailers using existing roadways and two-track trails to get
+as close as possible to geotechnical testing sites and then overland to the geotechnical testing sites.
+Tracked rigs can be driven by remote-control by an operator walking along the side of the vehicle as it is
+moving, or by personnel in the cab of the tracked vehicle.
+
+12
+
+Figure 5. Typical track-mounted drill rig.
+
+3 GEOTECHNICAL EXPLORATION LOCATIONS
+
+The borehole sites are located on BLM, state, and private lands (see Table 1). Of the 21 total boreholes
+in the Arizona New Build portion of the Project, 6 are located on BLM land. Seven are on Arizona state
+land, and 8 are on private land.
+
+All boring locations are associated with the ROW, with the exception of borehole 1, which is associated
+with a substation. Apache Substation is located at the western end of the Project New Build portion.
+Borehole 1 is located directly adjacent or within the fence line of the existing station. Figures 2a and 2b
+show the location of all boreholes and land ownership for the Arizona New Build portion of the Project.
+
+3.1 Sensitive Resources
+
+Following are details on sensitive resources that were considered for geotechnical investigations.
+
+BIOLOGICAL RESOURCES
+
+Project impacts to biological resources were analyzed during the NEPA process and are described in
+detail in Sections 4.8.1 (Vegetation) and 4.8.2 (Wildlife) of the Final EIS. Per required environmental
+protection measures and PCEMs, all required applicable biological resource surveys were conducted in
+the Arizona New Build in fall 2017 and winter 2017/2018 for avoidance and/or necessary precautions
+during the geotechnical investigation, including:
+
+• Special status plant communities (including Chihuahua scurfpea and night-blooming cereus):
+Surveys were completed in fall 2017 and winter 2017-2018.
+
+13
+
+• Burrowing owl (pre-geotech activity survey check will be performed. Active burrows will be
+buffered by 246 feet): Initial surveys were completed in winter January 2018.
+• Gila monster: Surveys were completed January 2018.
+• Kit fox (pre-geotech activity survey check will be performed. Active burrows will be
+buffered by 328 feet): Initial surveys were completed in January 2018.
+• Large raptor nests (pre-geotech activity survey check will be performed. Active nests will be
+buffered by 328 feet).
+• Nesting birds (will be conducted 30 days prior to ground disturbance. Active areas will be
+buffered by 328 feet).
+• Noxious weeds (pre-geotech activity survey check will be performed. Noxious weeds will be
+avoided).
+
+Boring locations have been placed to avoid all required biological resources that were identified during
+field surveys.
+
+CULTURAL RESOURCES
+
+Project impacts to cultural resources were analyzed during the NEPA process and are described in detail
+in Section 4.9 of the Final EIS. Class III pedestrian surveys in the Arizona New Build portion of the
+Project have been completed as defined in the Project Programmatic Agreement (PA). Surveys were
+completed in March 2018.
+
+Boring location have been strategically placed as to avoid all archaeology sites that were identified during
+field surveys.
+
+4 CONSTRUCTION PERMITS AND CLEARANCE SURVEYS
+
+4.1 Anticipated Drilling-Related Permits
+
+The geotechnical investigation will comply with all applicable laws, ordinances, rules, and regulations
+of the federal and state governments. All permits and license required and related to the execution of the
+geotechnical investigation will be obtained prior to drilling. As part of the geotechnical investigation
+program, Southline will avoid sensitive features that would require environmental permitting for
+geotechnical activities by use of environmental surveying and environmental monitors.
+
+4.2 Environmental Clearance Surveys and Seasonal
+Restrictions
+
+Environmental resource clearance surveys have been conducted in areas planned for geotechnical
+investigation and drilling activities to determine the presence or absence of sensitive resources. Biological
+resource surveys were conducted in accordance with Section 4.8 of the Final EIS and applicable PCEMs.
+The cultural resource clearance surveys were conducted in accordance with the Project PA. Results of the
+biological and cultural surveys were then used to determine the presence or absence of sensitive resources
+relative to the location of geotechnical exploration and drilling activities and access.
+
+Several biological resources have seasonal restrictions as described under Wildlife Protection in Section
+5.2 below. Seasonal restrictions potentially associated with geotechnical exploration sites include:
+
+14
+
+• Nesting birds
+• Burrowing owls
+
+Based on the environmental resource clearance surveys, if presence of a sensitive resource is identified,
+the following methods will be implemented, in the order listed and as approved by the land management
+agency, prior to initiating geotechnical exploration activities:
+
+1. Monitor borehole during drilling activities for the presence of sensitive features;
+2. Adjust drilling date outside seasonal restrictions;
+3. Use alternative access or drilling type;
+4. Relocate borehole or exploration activity to a different location; or
+5. Abandon borehole/exploration activity in the area.
+
+5 ENVIRONMENTAL PROTECTION MEASURES
+
+Environmental protection measures, or PCEMs, were developed during the EIS process and carried
+forward to BLM’s ROD as stipulations and conditions.
+
+Below are select PCEMs that will be implemented during geotechnical exploration activities to minimize
+potential impacts on resources and to ensure regulatory compliance. These PECMs include applicable
+mitigation measures described in the Final EIS (Table 2-8) and in the ROD POD (Table 8) that will apply
+to the geotechnical program. Application of these PCEMs will minimize specific impacts on
+environmental and cultural resources from the implementation of the geotechnical investigation program.
+
+The PCEMs and protection measures provided herein are applicable to the entire Project; on BLM-
+administered federal lands they are enforceable measures of the BLM ROW grant.
+
+5.1 Geotechnical Investigation Specific Environmental
+Protection Measures
+
+GEO-1: Southline will prepare a geotechnical engineering study prior to the final Project design to
+identify site-specific geological conditions and potential geological hazards. The data collected from the
+study will be used to guide sound engineering practices and mitigate potential geological hazards.
+
+5.2 Additional Environmental Protection Measures
+
+GENERAL
+
+STA-Ag1: The boundaries of construction activities will be predetermined and staked or flagged prior
+to any construction activity. No permanent markings will be applied to rocks or vegetation.
+
+STA-Ag2: Prior to construction, all construction personnel will be instructed on the protection of cultural
+and ecological resources.
+
+STA-Ag3: All vehicle movement will be restricted to designated access, contracted acquired access,
+or public roads.
+
+STA-Ag10: Unimproved spur roads will be used to the extent practicable in areas where no grading will
+be warranted to access work areas, within the approved ROW. Unimproved spur roads will be used to
+
+15
+
+access a site without specifically blading a road or significantly modifying the landscape. All vehicle
+movement will be restricted to designated access, even if that is unimproved access. Vegetation will be
+crushed where feasible, not cut. For all access types, soil will be compacted, but not removed, except
+when grading requires displacement of surface soil.
+
+NOI-2: Construction equipment will be maintained in good working order in accordance with
+manufacturer’s recommendations.
+
+TRA-Ag1: If any existing roads were to be damaged by Southline or its construction contractor during
+construction activities and/or truck traffic, the road will be repaired.
+
+TR-5: Refueling and storing potentially hazardous materials will not occur within a 500-foot radius
+of a water body, a 200-foot radius of all identified private water wells, and a 400-foot radius of all
+identified municipal or community water wells. If surface disturbance is required to store potentially
+hazardous materials or refuel equipment, these activities will not occur within a 500-foot radius of any
+riparian area or water body. Spill preventive and containment measures or practices will be incorporated
+as needed.
+
+TR-15: Unauthorized vehicles will not be allowed within the construction ROW or along roadsides near
+ROW.
+
+TR-17: Landowners will be notified at least 48 hours prior to the start of construction within 0.25 mile
+of a residence.
+
+CULTURAL RESOURCES PROTECTION
+
+CR-4: Ground-disturbing activities and other proposed Project components will be sited to avoid or
+minimize direct impacts on cultural resources listed as, or potentially eligible for listing as, unique
+archaeological sites, historical resources, or historic properties.
+
+CR-7: Activities will minimize ground surface disturbance within the bounds of significant archaeological
+sites, historical resources, or historic properties.
+
+WILDLIFE PROTECTION
+
+WILD-Ag5: Construction holes left open overnight will be appropriately fenced or covered to prevent
+damage to wildlife or livestock. They will be inspected daily until filled to ensure no wildlife has become
+entrapped.
+
+WILD-Ag7: In construction areas where recontouring is not required, vegetation will be left in place
+wherever possible, to avoid excessive root damage and allow for resprouting.
+
+WILD-7: Surveys for western burrowing owl will also be conducted in Cochise County near agricultural
+fields surrounding the Willcox Playa, and anywhere else throughout the Project where suitable habitat
+occurs. Surveys for western burrowing owls in Arizona will follow the &quot;Burrowing Owl Project
+Clearance Guidance for Landowners.&quot;
+
+EROSION CONTROL, SOIL RESOURCE PROTECTION, AND AIR QUALITY
+
+AIR-Ag6: Combustion emissions from mobile sources will be minimized by proper maintenance
+of equipment.
+
+16
+
+EROS-1: Project construction supervisors will be trained on dust control procedures.
+
+EROS-4: Trackout onto paved roads at construction access points must be cleaned up as quickly as
+possible if it extends a cumulative distance of 25 linear feet or more along an area accessible to the public,
+including curbs, gutters, and sidewalks. All trackout/carryout must be cleaned up no later than the end of
+the work day or no later than 8:00 p.m.
+
+EROS-5: Exposed storage piles of soil and other excavated materials will be sprayed with water
+or approved dust suppressants daily as needed, or covered with tarps and/or canvas.
+
+TR-10: Dust suppression techniques will be applied (such as watering construction areas) to prevent
+powdering of soils on roads, maintain firm working surfaces, limit fugitive dust, protect topsoil for
+reclamation, and prevent safety hazards or nuisances on access roads and in construction zones near
+residential and commercial areas and along major highways and interstates. In addition, dirt tracked onto
+paved roads will be removed as needed.
+
+VIS-3: During the construction period, dust suppression measures will be used to minimize the creation
+of dust clouds potentially associated with the use of access roads.
+
+TR-3: All requirements of those entities having jurisdiction over air quality matters will be adhered to.
+Any necessary dust control plans will be developed and permits for construction activities will be
+obtained. Open burning of construction trash will not be allowed, unless permitted by appropriate
+authorities. Excessive exhaust emissions from vehicles and heavy equipment will be prevented by proper
+maintenance.
+
+AIR-Ag1: Project activities will be in compliance with all applicable federal, state, and local laws and
+regulations concerning prevention and control of air pollution during construction and operation.
+
+SPILL PREVENTION, CONTAINMENT, AND COUNTERMEASURES/WASTE
+(HAZARDOUS AND SOLID)
+
+HAZ-Ag4: Personnel, contractors, and transporters involved with hazardous materials management will
+be required to comply with federal and state regulations established for the transportation, storage,
+handling, and disposal of hazardous substances, materials, and wastes. “Hazardous substances&quot; means
+any substance, pollutant, or contaminant that is listed as hazardous under the Comprehensive
+Environmental Response, Compensation, and Liability Act of 1980, as amended.
+
+HAZ-5: In the event of a spill, workers in the immediate area will cease work, begin spill cleanup
+operations, and notify appropriate agencies as required by law and specified in the Spill Prevention,
+Control, and Countermeasures Plan. Southline and its construction contractor(s) are responsible for
+cleanup and assume liability for any and all releases of hazardous substances disposed of on public land,
+in accordance with state, federal, and local laws and regulations. Southline will immediately notify the
+BLM authorized officer of any and all releases of hazardous substances on public land.
+
+HAZ-7: Southline or the applicable contractors will maintain all vehicles in good working order.
+Equipment will be properly tuned and maintained to avoid leaks of fluids.
+
+HAZ-8: Service and refueling procedures will not be conducted within 500 feet of a seep, wash, or other
+water body. Routine service of any vehicles or equipment will not be done within the ROW.
+
+17
+
+VEGETATION PROTECTION
+
+VEG-Ag5: Field presence/absence surveys will be conducted for special status species in locations where
+such species are likely to occur within the Project ROW, and specifically locations where vegetation will
+be impacted, prior to any actual impacts. Surveys will be conducted following established protocols by
+qualified biologists approved by BLM.
+
+VEG-Ag9: Southwest Regional Gap Analysis Project plant associations (communities) that are
+considered to be environmentally sensitive will be included in ground-truthing field surveys, such as
+wetlands, riparian areas, drainages, and special status species habitats, to confirm the presence and extent
+of such communities. If any such sensitive plant communities are identified and documented, the first
+response will be a determination regarding whether the sensitive community can be avoided. If avoidance
+is not possible, a mitigation plan (included as part of the Plant and Wildlife Species Conservation
+Measures Plan) will be developed as needed for those vegetation communities, including options to
+reduce impacts to those communities. Exclusion zones (at least 10 feet around the perimeter of the plant
+community) will be delineated around any such plant communities and marked with flagging.
+Construction monitoring shall be employed around any such sensitive plant communities, and the
+biological monitor shall have the authority to halt any construction activity deemed intrusive and causing
+impacts beyond those stated in the mitigation plan. Any changes in construction plans that occur after the
+Project approval will require additional field presence/absence surveys for such sensitive plant
+communities and will require a variance request from the BLM if such communities are found, and the
+above mitigation measures will apply.
+
+VEG-Ag11: Pre-construction surveys for Chihuahua scurfpea and other special status plant species will
+occur in suitable habitat and ground disturbance in occupied habitat will be avoided to the extent
+practicable. FWS shall be contacted prior to disturbance if any Chihuahua scurfpea are located.
+
+NOXIOUS WEED CONTROL
+
+PPC-3: Also, in compliance with Executive Order 13112 regarding invasive species, all earthmoving and
+hauling equipment shall be washed at the contractor’s storage facility prior to arriving onsite to prevent
+the introduction of invasive species.
+
+PPC-4: To prevent invasive species propagules from leaving the site, the contractor shall inspect all
+construction equipment and remove all attached plant/vegetation and soil/mud debris identified prior
+to leaving the construction site.
+
+VEG-Ag14: The responsible Project operator will comply with agency requirements regarding
+management of noxious weeds within the ROW, along access roads, and at temporary use areas
+(e.g., cleaning equipment to prevent spread of noxious weeds). Chemical treatment within or adjacent
+to the ROW generally would be limited only to areas with noxious weeds, and only if absolutely
+necessary.
+
+NOX-2: Where feasible, construction will begin in weed-free areas before operating in weed-infested
+areas. The feasibility of this measure will be determined after survey data are complete to identify weed-
+free and weed-infested areas.
+
+NOX-4: All movement of construction vehicles outside the ROW will be restricted to predesignated
+access, contractor-acquired access, or public roads. All construction sites and access roads will be clearly
+marked or flagged at the outer limits prior to the onset of any surface-disturbing activity. All personnel
+shall be informed their activities must be confined within the marked or flagged areas (see ROD POD
+Appendix A1).
+
+18
+
+WATER RESOURCES PROTECTION
+
+WAT-2: Construction equipment will be kept out of flowing stream channels, unless feasible alternatives
+are not available. Structures will be located to avoid active drainage channels, especially downstream
+of steep slope areas, to minimize the potential for damage by flash flooding and mud and debris flows.
+
+WAT-Ag5: The crossings of ephemeral washes or streams will be limited to vehicular crossings along
+spur roads or access roads as described in the POD.
+
+WAT-Ag7: All stream crossings will be made as close as possible to right angles to the streams and
+washes.
+
+SW-7: Migration of construction-related sediment to all adjacent surface water bodies will be prevented.
+
+SW-11: The construction schedule may be modified to minimize construction activities in rain-soaked
+or muddy conditions. Existing roads and trails will be used for travel to the maximum extent feasible
+unless otherwise authorized. During wet road conditions, any ruts deeper than 4 inches remaining on the
+roads from the Project will be repaired at the landowner’s discretion.
+
+FARM-Ag1: Water facilities (e.g., tanks, developed springs, water lines, wells, etc.) will be repaired
+or replaced to their predisturbed condition if they are damaged or destroyed by construction, operation,
+or maintenance activities, as required by the landowner or land management agency. Temporary watering
+facilities will be provided for wildlife and livestock until permanent repair or replacement is complete.
+
+HEALTH, SAFETY, AND FIRE PROTECTION
+
+FP-1: Construction crews will provide immediate initial attack on all fires (if safe to do so) that start
+on the construction site. Crews will only suppress fires within their training and equipment capabilities.
+If fire activity increases beyond the limits of their tools and personnel capability to safely suppress, all
+crew members will evacuate the area using pre-determined evacuation procedures.
+
+FP-2: Construction crews will notify fire authorities immediately of any fire start that escapes initial
+attack containment and provide an accurate location and status of the fire.
+
+FP-3: All vehicles and construction equipment will be equipped with fire extinguishers, shovels, and
+water. Fire extinguishers will be rated ABC-10 pound minimum for equipment and ABC-2.5 pound
+minimum for vehicles.
+
+FP-5: Spark arrestors will be used at all times on all internal and external combustion engines. Spark
+arrestors will be regularly maintained and meet Society of Automotive Engineers Recommended
+Practices J335 or J350.
+
+FP-6: All vehicle use will be restricted to designated roads and contractor acquired access; parking areas
+will be located within areas with vegetation less than 8 inches. Undercarriages will be inspected daily
+to ensure against vegetation build up that could initiate a fire. Construction activities will be contained
+within predetermined boundaries.
+
+FP-8: Smoking is prohibited while operating machinery or equipment and when operating or moving
+through areas of tall vegetation.
+
+FP-9: Smoking is only allowed in designated areas with cleared vegetation. Tobacco products must
+be discarded in approved containers.
+
+19
+
+FP-10: All fires (including open burning of construction trash) and barbeques are prohibited within the
+ROW and on construction sites.
+
+FP-11: Any crew member assigned to the field will receive training in emergency response to fires in the
+event of a fire onsite.
+
+FP-12: All flammable materials not needed on the work site or not in use will be removed from operation
+areas to a minimum of 10 feet to reduce incidence of fire starts.
+
+FP-13: No burning activities (campfires, barbeques, open burning) will be allowed on the ROW, material
+yards/staging areas, substations, access roads, or other construction areas.
+
+FP-23: The construction contractor(s) will ensure continuous access will be provided to emergency
+vehicles along all access roads. Access roads will be maintained in a manner that they may be used as fire
+breaks in the event of a fire start.
+
+FP-24: All motorized vehicles and equipment in each active construction area will have:
+
+• One long-handled round-point shovel.
+• One axe or Pulaski tool.
+• Fire extinguishers (rated ABC-10 pound minimum for equipment and ABC-2.5 pound minimum
+for vehicles). One 5-gallon water back-pack filled with water or other extinguishing solution.
+• Hard hat, work gloves, and eye protection for all crew members.
+
+20
+
+================================================================================
+Document: Geotech CX.pdf
 Type: CE | Category: decision | Main: YES
 ================================================================================
 
---- PAGE 1-15 ---
+--- PAGE 1-6 ---
 
-United States Department of the Interior
+NEPA COMPLIANCE RECORD
+Categorical Exclusion (CX)
+
 Bureau of Land Management
-Categorical Exclusion
-DOI-BLM-UT-C010-2022-0002-CX
-September 15, 2022
-FORGE Strainmeter Monitoring Sites
-Location: Beaver County, Utah
-Applicant/Address: Energy &amp; Geoscience Institute
-432 S. Wakara Way, Ste 300
-Salt Lake City, UT 84108
-Cedar City Field Office
-176 East DL Sargent Drive
-Cedar City, Utah 84721
-435-865-3000
+Safford Field Office
+Safford, AZ
 
-BLM
-US DEPARTMENT OF THE INTERIOR
-BUREAU
-MANAGEMENT
+1. PROJECT INFORMATION
+0033 .
+NEPA #: DOI-BLM-AZ-G010-2018-####-CX
+Serial/Case File No.: AZA03568101
+Title: Geotechnical Investigation for the Southline Transmission Line Project approved on August 22, 2016
+Proposed Action/Type: The proposed action involves the construction of six boreholes at marked structure
+locations within the new build section of the Southline 345 kilovolt (kV) Transmission Line Project area on
+Bureau of Land Management-administered lands in Arizona.
+Proposed Action (Who, What, When, Where, How): Southline Transmission, LLC, a subsidiary of
+Hunt Power, L.P., holds BLM right-of-way authorization AZA035681 to build portions of a 240 miles of
+new double-circuit 345-kilovolt (kV) transmission line along with substation expansions, access roads, and
+associated infrastructure on BLM-administered public lands, other Federal lands, State lands, and private
+lands through New Mexico and Arizona. Also included is an Upgrade Section which is approximately 120
+miles of Western Area Power Administration&#39;s (Western) existing 115-kV transmission line that is being
+upgraded to a double-circuit 230-kV transmission line as well as substation expansions, access roads, and
+associated infrastructure. The transmission line will be designed to collect and transmit electricity across
+southern New Mexico and southern Arizona.
 
-Categorical Exclusions Not Established by Statute
-A. Backgound
-BLM Office: Cedar City Field Office
-Lease/Serial/Case File Number: UTU-95778
-Proposed Action Title/Type: FORGE Strainmeter Monitoring Sites Right-of-Way
-Location of Proposed Action:
-Description of Proposed Action: Frontier Observatory for Research in Geothermal Energy
-(FORGE) has requested a temporary right-of-way (ROW) to install a total of nine strainmeter
-sites to measure ground movement surrounding the FORGE project activities. Eight of the sites
-are located on BLM-managed land and one site on SITLA land (see Exhibit A). The sites are
-located within 50 feet of existing roadways and will require clearing 50 by 75-foot areas to serve
-as drill sites. The strainmeters will be emplaced in 200-foot-deep boreholes and grouted in
-place to within 20 feet of the surface. Once the strainmeters are emplaced, a short mast for a
-solar panel and data transmission equipment will be installed at the well bore and a small,
-fenced enclosure created around the well equipment to prevent damage from livestock.
-Ongoing access to the sites will only be required for periodic maintenance. At the completion of
-the FORGE project, the upper 20 feet of the wellbores will be cemented to the surface and the
-surface equipment removed. ROW terms and conditions are contained in Exhibit B. A map of
-the project area is presented in Exhibit C.
-Design Features
-• The drill sites will be reclaimed after the installation is completed.
-• Well-site ground clearing will be conducted outside of migratory bird nesting season.
-• A Class III cultural inventory will be completed by the proponent.
-B. Land Use Plan Conformance
-The proposed action is in conformance with the Cedar Beaver Garfield Antimony Resource
-Management Plan, Decision 3.1 (Page 9) which states that applications for use authorizations
-such as rights-of-way, leases, and permits should be processed on a case-by-case basis.
-C: Compliance with NEPA
-The proposed action is categorically excluded from further documentation under the National
-Environmental Policy Act (NEPA) in accordance with 516 DM 11.9, E.19 which states &quot;Issuance
-of short-term (3 years or less) rights-of-way or land use authorizations for such uses as storage
-sites, apiary sites, and construction sites where the proposal includes rehabilitation to restore
-the land to its natural or original condition.&quot; The proposed action has been reviewed, and none
-of the extraordinary circumstances described in CFR Part 46.215 apply.
+Impacts associated with the geotechnical investigation are also mitigated as per Chapter 5 (Environmental
+Mitigation Measures) of Attachment A and Appendices A and B of the &#39;Southline Transmission Line Project
+NEPA Plan Of Development, Volume I dated April 2016.&#39;
 
-D: Screening for Exemptions
-The following extraordinary circumstances (516 DM 2, Appendix 2) may apply to individual
-actions within the categorical exceptions. The indicated specialist concludes the proposed
-action:
-CX Extraordinary Circumstances Documentation
-2.1 Would not have significant impacts on public health or safety.
-Brooklynn Cox, Realty Specialist
-Rationale: All federal, state and local public health and safety regulations will be followed by the
-proponent.
-Initial and Date: BC 11/8/2021
-2.2 Would not have significant impacts on such natural resources and unique geographic
-characteristics as historic or cultural resources; park, recreation or refuge lands;
-wilderness areas; wild or scenic rivers; national natural landmarks; sole or principal
-drinking water aquifers; prime farmlands; wetlands (Executive Order 11990); floodplains
-(Executive Order 11988); national monuments; migratory birds; and other ecologically
-significant or critical areas.
-Roy Plank, Archeologist
-Rationale: No historic or cultural resources would be affected.
-Initial and Date: RWP 9/12/2022
-Dave Jacobson, Recreation Specialist
-Rationale: There are no park, recreation or refuge lands; wilderness areas; wild or scenic rivers;
-national natural landmarks; or national monuments in the project area.
-Initial and Date: DJ 11-30-2021
-Dustin Schaible, Wildlife Biologist
-Rationale: Project construction will occur outside of migratory bird nesting season. This action
-would require kit fox clearance surveys as per Fillmore Field Office protocol prior to disturbance.
-Initial and Date: DS 12/2/21
-Erica Shotwell, Range Management Specialist (wetlands, floodplains)
-Rationale: There are no sole or principal drinking water aquifers, prime farmlands, wetlands or
-floodplains in the project area.
-Initial and Date: ES 11/18/2021
+On May 1, 2018, Southline Transmission, LLC, submitted an application for a right-of-way grant (Serial
+Number AZA03568101) from the Bureau of Land Management (BLM) for geotechnical investigation along
+the new build section of the Southline 345 kilovolt (kV) Transmission Line Project (Project) route in
+Cochise County, Arizona. Geotechnical site investigations will be completed to determine the soil and
+bedrock engineering properties. The investigations entails drilling borings to obtain the soil and/or bedrock
+samples for analysis in order to provide detailed engineering and design for the transmission line tower
+foundation. The site investigation would consist of six boreholes, one at each marked structure location as
+noted on Attachment 1-Legal Land Description, and Attachment 2-geotechnical plan of development
+(POD) maps pages 3, 5, &amp; 6). Boring locations have been placed to avoid all required biological resources
+and all archaeological sites that were identified during field surveys. (POD page 13, section 3.1-Sensitive
+Resources)
 
-2.3 Would not have highly controversial environmental effects or involve unresolved
-conflicts concerning alternative uses of available resources [NEPA section 102 (2) (E)].
-Brooklynn Cox, Realty Specialist
-Rationale: The temporary monitoring sites would not result in any highly controversial
-environmental effects. No resource conflicts have been identified.
-Initial and Date: BC 11/8/2021
-2.4. Would not have highly uncertain and potentially significant environmental effects or
-involve unique or unknown environmental risks.
-Brooklynn Cox, Realty Specialist
-Rationale: The impacts would be temporary, and all sites reclaimed. No uncertain or significant
-effects are anticipated.
-Initial and Date BC 11/8/2021
-2.5. Would not establish a precedent for future action or represent a decision in principle
-about future actions with potentially significant environmental effects.
-Brooklynn Cox, Realty Specialist
-Rationale: All impacts would be temporary and not set a precedent for any future actions with
-potentially significant effects.
-Initial and Date BC 11/8/2021
-2.6. Would not have a direct relationship to other actions with individually insignificant
-but cumulatively significant environmental effects.
-Brooklynn Cox, Realty Specialist
-Rationale: All other actions related to the FORGE project would be analyzed in separate NEPA
-documents, which would address potential cumulative effects.
-Initial and Date BC 11/8/2021
-2.7. Would not have significant impacts on properties listed, or eligible for listing, on the
-National Register of Historic Places as determined by either the bureau or office.
-Roy Plank, Archeologist
-Rationale: No impacts would occur to historic properties.
-Initial and Date: RWP 9/12/2022
+Temporary ground disturbance associated with the geotechnical investigation will occur in the boring work
+areas and in some cases along access routes to a boring work area. The bore holes will range from 4 to 8
+inches in diameter, and each of the six bore work areas will be approximately 30 x 60 feet for a total of
+2.4 acres. In rare cases, there may be temporary minor disturbance outside the bore work area, however, the
+maximum disturbance at each bore site is anticipated to be less than 0.4 acres.
 
-2.8. Would not have significant impacts on species listed, or proposed to be listed, on the
-List of Endangered or Threatened Species, or have significant impacts on designated
-Critical Habitat for these species.
-Derek Christensen, Wildlife Biologist
-Rationale: Not designated critical habitat for threatened and endangered species is found within
-or reasonably near the proposed monitoring sites. However, Monarch Butterfly is a candidate
-species and potential habitat may be found within or near the proposed monitoring sites.
-Milkweed plant species should be mapped and protected.
-Initial and Date: D.C. 11/9/2021
-2.9. Would not violate a Federal law, or a State, local or tribal law or requirement imposed
-for the protection of the environment.
-Brooklynn Cox, Realty Specialist
-Rationale: All federal, state and local laws would be followed.
-Initial and Date BC 11/8/2021
-2.10. Would not have a disproportionately high and adverse effect on low income or
-minority populations (Executive Order 12898).
-Brooklynn Cox, Realty Specialist
-Rationale: No low income or minority populations would be affected.
-Initial and Date BC 11/8/2021
-2.11. Would not limit access to and ceremonial use of Indian sacred sites on Federal lands
-by Indian religious practitioners or significantly adversely affect the physical integrity of
-such sacred sites (Executive Order 13007).
-Roy Plank, Archeologist
-Rationale: The PITU reviewed the project on 8/19/2022 and have no objection to the project
-moving forward.
-Initial and Date: RWP 9/12/2022
-2.12. Would not contribute to the introduction, continued existence, or spread of noxious
-weeds or non-native invasive species known to occur in the area or actions that may
-promote the introduction, growth, or expansion of the range of such species (Federal
-Noxious Weed Control Act and Executive Order 13112).
-Jessica Bulloch, Range Technician
-Rationale: ROW terms and conditions require the ROW holder to control noxious weeds on the
-ROW. Any chemicals used need to be approved by the Cedar City Field Office noxious weed
-coordinator. Any infestations need to be reported to the same.
-Initial and Date JB 11/8/2021
+Borings drilled in areas where livestock, pedestrian, or vehicular traffic may occur will be plugged or capped
+immediately upon completion of the boring and flush with the adjacent ground surface. Temporary cover
+will be provided for all boreholes left open overnight or while activities in the area of drilling are
+temporarily halted; and, each bore hole will be filled upon completion of drilling and/or final groundwater
+level measurement and will meet State, Federal, and local laws.
+1
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+0033
+Access to each boring will be restricted to existing paved or dirt road and will include some crushing of
+vegetation from minor mounts of overland travel of the drill equipment and vehicles to and from each
+borehole location. No grading to geotechnical sites will occur.
 
-Other (initial):
-Lands: BC 11/8/2021
-E. Signatures
-Environmental Coordinator: Gina Ginouves
-Date: 13 September 2022
-Authorizing Official: Paul N. Briggs
-Paul N. Briggs
-Date:
-Digitally signed by Paul N. Briggs
-Date: 2022.09.15 10:20:10 -06&#39;00&#39;
-Cedar City Field Manager
-Attachments
-Exhibit A. Legal Descriptions
-Exhibit B. ROW Terms and Conditions
-Exhibit C. Map
+The bore holes will be drilled using truck-, track-, or ATV-mounted drilling rigs (see POD pages 11, 12, &amp;
+13). Drilling vehicles can be equipped with hollow-stem augers, solid stem augers, and mud rotary/coring
+drilling systems. Other vehicles and equipment will also be used to support geotechnical testing and may
+include a water truck or support vehicle, pickup truck or utility vehicle, and possibly another support pickup
+truck. Equipment and vehicles will be positioned to minimize damage to vegetation and soils. Excavated
+soils and other work materials will be properly contained to minimize the spread of material to outside the
+work area.
 
-EXHIBIT A
-ENERGY &amp; GEOSCIENCE INSTITUTE (FORGE)
-LEGAL DESCRIPTIONS
-FS2-1:
-Salt Lake Meridian, Utah
-T. 26 S., R. 10 W.,
-sec. 25 SE1/4NE1/4;
-FS2-2:
-Salt Lake Meridian, Utah
-T. 27 S., R. 9 W.,
-sec. 5 lot 1;
-FS2-3:
-Salt Lake Meridian, Utah
-T. 27 S., R. 9 W.,
-sec. 9 NW1/4NE1/4;
-FS2-4:
-Salt Lake Meridian, Utah
-T. 27 S., R. 9 W.,
-sec. 6 lot 4;
-FS2-5:
-Salt Lake Meridian, Utah
-T. 26 S., R. 9 W.,
-sec. 31 NE1/4SE1/4;
-FS2-7:
-Salt Lake Meridian, Utah
-T. 27 S., R. 9 W.,
-sec. 8 SE1/4SW1/4;
-FS2-8:
-Salt Lake Meridian, Utah
-T. 26 S., R. 9 W.,
-sec. 33 SE1/4NE1/4;
-FS2-9:
-Salt Lake Meridian, Utah
-T. 26 S., R. 9 W.,
-sec. 28 SE1/4NW1/4
+• Truck-mounted drilling rigs are typically 30 feet long, 8.5 feet wide, and 12 feet high with mast
+down and 34 feet high with mast up and have a gross vehicle weight of approximately 30,000
+pounds with 30 to 50 pounds per square inch (psi) ground pressure.
 
-EXHIBIT B
-ENERGY &amp; GEOSCIENCE INSTITUTE (FORGE)
-RIGHT-OF-WAY TERMS AND CONDITIONS
-General
-1. In case of change of address, the holder shall immediately notify the Bureau of Land
-Management (BLM) Authorized Officer.
-2. The holder shall conduct all activities associated with the construction, operation, and
-termination of the right-of-way within the authorized limits of the right-of-way.
-3. There is reserved to the authorized officer, the right to grant additional rights-of-way or
-permits for compatible use on, over, under, or adjacent to the land involved in this grant.
-4. If at any time hereafter the holder wishes to reconstruct, remodel, or relocate any portion
-of the right-of-way or change, modify, or add improvements or facilities thereon, the
-prior written approval of the Authorized Officer must be obtained. The holder must
-amend this right-of-way grant at any time additional land, equipment, and/or new uses
-are proposed which are beyond the scope of the existing authorization.
-5. If the right-of-way holder violates any of the terms and conditions of this grant, the
-authorized officer, after giving written notice may declare the grant terminated.
-6. This grant will be issued subject to all valid existing rights including other authorized
-rights-of-way that may be located adjacent to or which may be affected by the
-construction, operation, maintenance and termination of this described right-of-way. Any
-existing facilities which may be damaged during operation, maintenance, or termination
-of this right-of-way shall be repaired or restored to the same condition as existed prior to
-the damage.
-7. This right-of-way applies only to public lands. It is the grantee&#39;s responsibility to obtain
-appropriate authorization from the landowners of other affected lands.
-8. Holder may not construct or make access roads or travel cross-county by vehicle to reach
-the grant area unless prior written approval is given by the Authorized Officer.
-9. The holder shall protect all survey monuments found within the right-of-way. Survey
-monuments include, but are not limited to, General Land Office and Bureau of Land
-Management Cadastral Survey Corners, reference corners, witness points, U.S. Coastal
-and Geodetic benchmarks and triangulation stations, military control monuments, and
-recognizable civil (both public and private) survey monuments. In the event of
-obliteration or disturbance of any of the above, the holder shall immediately report the
-incident, in writing, to the Authorized Officer and the respective installing authority, if
-known. Where General Land Office or Bureau of Land Management right-of-way
+• ATV rigs are typically 25 feet long, 8.5 feet wide, and 15 feet high with mast down and 25 feet high
+with mast up, and have rubber balloon tires allowing low ground pressure and less ground
+disturbance.
 
-monuments or references are obliterated during operations, the holder shall secure the
-services of a registered land surveyor or a Bureau cadastral surveyor to restore the
-disturbed monuments and references using surveying procedures found in the Manual of
-Surveying Instructions for the Survey of the Public Lands in the United States, latest
-edition. The holder shall record such survey in the appropriate county and send a copy to
-the Authorized Officer. If the Bureau cadastral surveyors or other Federal surveyors are
-used to restore the disturbed survey monument, the holder shall be responsible for the
-survey cost.
-10. The holder shall conduct all activities associated with the operation and termination of
-the right-of-way within the authorized limits of the right-of-way.
-11. The holder shall comply with the provision of Title VI of the Civil Rights Act of 1964,
-and will not engage in any discriminatory actions prohibited by 43 CFR Part 17, to the
-end that no person in the United States shall, on the grounds of race, color, national
-origin, or gender, be excluded from participation in, be denied the benefits of, or
-otherwise be subjected to discrimination under the program for which the holder has
-received a Federal authorization.
-12. The holder or their contractors will notify the BLM of any fires and comply with all rules
-and regulations administered by the BLM concerning the use, prevention and suppression
-of fires on federal lands, including any fire prevention orders that may be in effect at the
-time of the permitted activity. The holder or their contractors may be held liable for the
-cost of fire suppression, stabilization and rehabilitation. In the event of a fire, personal
-safety will be the first priority of the holder or their contractors. The holder or their
-contractors will:
-a) Operate all internal and external combustion engines on federally managed lands
-per 36 CFR 261.52, which requires all such engines to be equipped with a
-qualified spark arrester that is maintained and not modified.
-b) Initiate fire suppression actions in the work area to prevent fire spread to or on
-federally administered lands.
-c) Carry shovels, water, and fire extinguishers that are rated as a minimum as ABC -
-5 pounds on all equipment and vehicles. If a fire spreads beyond the suppression
-capability of workers with these tools, all will cease fire suppression action and
-leave the area immediately via pre-identified escape routes.
-d) Notify the Cedar City Interagency Fire Center at (435) 865-4600, or 911
-immediately of the location and status of any escaped fire. Construction personnel
-will be trained in basic fire control procedures.
-Public Health &amp; Safety Environmental Protection
-13. Failure of the Holder to comply with applicable law or any provision of this right-of-way
-grant shall constitute grounds for suspension or termination thereof.
-14. Holder shall maintain the right-of-way in a safe, usable condition, as directed by the
-authorized officer. The holder may not restrict access to the general public along the
+• Track-mounted drilling rigs are approximately 8,000 pounds with rubber tracks resulting in
+approximately 10 psi ground pressure and are typically 22 feet long, 6 feet wide, and 22 feet high
+with mast up.
 
-ROW. No signs or advertising devices shall be placed on the premises or on adjacent
-public lands, except those posted by or at the direction of the authorized officer.
-15. The holder agrees to indemnify and hold harmless the United States for any and all
-liability, including injury to persons or damage of property, which may result directly
-from the use permitted.
-16. The Holder of Right-of-Way agrees to indemnify the United States against any liability
-arising from the release of any hazardous substance or hazardous waste (as these terms
-are defined in the Comprehensive Environmental Response, Compensation and Liability
-Act of 1980, 42 U.S.C. 9601, et seq. or the Resource Conservation and Recovery Act of
-1976, 42 U.S.C. 6901 et seq.) on the right-of-way (unless the release or threatened release
-is wholly unrelated to the right-of-way holder&#39;s activity on the right-of-way. This
-agreement applies without regard to whether a release is caused by the holder, its agent,
-or unrelated third parties.
-17. The Authorized Officer may suspend or terminate in whole, or in part, any notice to
-proceed which has been issued when, in his/her judgment, unforeseen conditions arise
-which result in the approved terms and conditions being inadequate to protect the public
-health and safety or to protect the environment.
-18. The holder shall comply with all applicable Federal laws and regulations existing or
-hereafter enacted or promulgated. In any event, the holder shall comply with the Toxic
-Substances Control Act of 1976 as amended, 15 U.S.C. 2601 et. seq. (1982) with regards
-to any toxic substances that are used, generated by, or stored on the right-of-way or on
-facilities authorized under this right-of-way grant. (See 40 CFR, Part 702-799 and
-especially, provisions on polychlorinated biphenyls, 40 CFR 761.1-761.193.)
-Additionally, any release of toxic substances (leaks, spills, etc.) in excess of the
-reportable quantity established by 40 CFR, Part 117 shall be reported as required by the
-Comprehensive Environmental Response, Compensation, and Liability Act, Section
-102b. A copy of any report required or requested by any Federal agency or State
-government as a result of a reportable release or spill of any toxic substances shall be
-furnished to the Authorized Officer concurrent with the filing of the reports to the
-involved Federal agency or State government.
-19. If during any phase of the construction, operation, or termination any oil or other
-pollutant should be discharged from containers or vehicles and impact Federal lands, the
-control and total removal, disposal, and cleanup of such oil or other pollutant, wherever
-found, shall be the responsibility of the holder, regardless of fault. Upon failure of holder
-to control, cleanup, or dispose of such discharge on or affecting Federal lands, or to repair
-all damages to Federal lands resulting there from, the authorized officer may take such
-measures as he deems necessary to control and cleanup the discharge and restore the area,
-including, where appropriate, the aquatic environment and fish and wildlife habitats, at
-the full expense of the Holder. Such action by the authorized officer shall not relieve the
-holder of any liability or responsibility.
+Prior to drill rig mobilization to predetermined access points, field verification such as access approval,
+surface conditions of access path, ground and aerial obstacles, marked underground utilities, and overhead
+utilities will be performed to confirm existing conditions will accommodate the safe access of drill rig and
+employees.
 
-Wildlife
-20. The holder is given notice that surveys for nesting migratory birds may be required during
-migratory bird breeding season whenever surface disturbances and/or occupancy is
-proposed within priority habitats. Surveys should focus on identified priority bird species
-in Utah. Field surveys will be conducted as determined by the authorized officer of the
-Bureau of Land Management. Based on the result of the field survey, the authorized officer
-will determine appropriate buffers and timing limitations.
-21. Surveys will be required whenever surface disturbances and/or occupancy is proposed
-within potential raptor nesting areas. Field surveys will be conducted as determined by the
-authorized officer of the Bureau of Land Management. Based on the result of the field
-survey, the authorized officer will determine appropriate buffers and timing limitations.
-This notice may be waived, accepted, or modified by the authorized officer if either the
-resource values change or the lessee/operator demonstrates that adverse impacts can be
-mitigated.
-22. No surface use or otherwise disruptive activity would be allowed that would result in direct
-disturbance to populations or an individual kit fox. The holder is also given notice that
-lands in this parcel have been identified as containing potential habitat for the kit fox which
-is on the Utah Sensitive Species List. Modifications to the Surface Use Plan of Operations
-may be required in order to protect this resource from surface disturbing activities.
-23. No surface use or otherwise disruptive activity allowed from May 1 through June 29 within
-crucial elk calving and/or mule deer fawning habitat. Modifications to the Surface Use Plan
-of Operations may be required. This timing limitation may be waived, accepted, or
-modified by the authorized officer if either the resource values change, or the
-lessee/operator demonstrates that adverse impacts can be mitigated.
-24. No surface use or otherwise disruptive activity would be allowed from May 1 through
-June 30 within identified crucial pronghorn fawning habitat unless the grantee/operator
-requests in writing an exception for construction, ground disturbance, or otherwise
-disruptive maintenance activities during this time frame. The request for an exception
-must include duration of activity (exact start and end dates when the action is needed)
-and specific activity (including number of people, equipment). The BLM authorized
-officer will review the request to determine current conditions and potential impacts to
-pronghorn fawning.
-25. No surface use or otherwise disruptive activity would be allowed that would result in direct
-disturbance to populations and individual special status plant and animal species, including
-those listed on the BLM sensitive species list and the Utah sensitive species list.
-Modifications to the Surface Use Plan of Operations may be required in order to protect
-these resources from surface disturbing activities in accordance with Section 6 of the lease
-terms, Endangered Species Act, Migratory Bird Treaty Act and 43 CFR 3262.11. This
-notice may be waived, accepted, or modified by the authorized officer if either the resource
-values change, or the lessee/operator demonstrates that adverse impacts can be mitigated.
+See POD pages 15 thru 20 for the selected Proponent Committed Environmental Measures (PCEM) that will
+be implemented during geotechnical exploration activities to minimize potential impacts on resources and to
+ensure regulatory compliance. Application of these PCEMs will minimize specific impacts on
+environmental and cultural resources from the implementation of the geotechnical investigation program.
+Map and Legal Land Descriptions are attached.
+Applicant (if any): Southwest Transmission LLC
+Applicable CX: 516 DM 11.9, E (19) Issuance of short-term (3 years or less) rights-of-way or land use
+authorizations for such uses as storage sites, apiary sites, and construction sites where the proposal includes
+rehabilitation to restore the land to its natural or original condition.
 
-Cultural
-26. Any cultural and/or paleontological resource (historic or prehistoric site or object)
-discovered by the holder, or any person working on his behalf, on public or Federal land
-shall be immediately reported to the authorized officer. Holder shall suspend all operations
-in the immediate area of such discovery until written authorization to proceed is issued by
-the authorized officer. An evaluation of the discovery will be made by the authorized
-officer to determine appropriate actions to prevent the loss of significant cultural or
-scientific values. The holder will be responsible for the cost of evaluation and any decision
-as to proper mitigation measures will be made by the authorized officer after consulting
-with the holder.
-27. If in connection with operations under this authorization, any human remains, funerary
-objects, sacred objects or objects of cultural patrimony as defined in the Native American
-Graves Protection and Repatriation Act (P.L. 101-601; 104 Stat. 3048; 25 U.S.C. 3001) are
-discovered, the holder shall stop operations in the immediate area of the discovery, protect
-the remains and objects, and immediately notify the authorized officer. The holder shall
-continue to protect the immediate area of the discovery until notified by the authorized
-officer that operations may resume.
-Air Quality, Soil, and Vegetation
-28. The area is a municipal or non-municipal watershed and has steep slopes and erosive soils.
-New roads will be constructed to avoid soils that are highly erosive and / or in critical or
-severe erosion conditions. New roads will be constructed with water bars. Riprap may be
-required. Road grades in excess of 8 percent will normally not be allowed. In special
-circumstances, where a road grade of more than 10 percent is allowed, its maximum length
-will be 1,000 feet. Access grading along with exploration, drilling, construction, or other
-activities will be prohibited during wet or muddy conditions (usually during spring runoff
-and summer monsoon rains). This notice may be waived, accepted, or modified by the
-authorized officer if either the resource values change or the lessee/operator demonstrates
-that adverse impacts can be mitigated.
-29. The holder is given notice that, occupancy would not be allowed on slopes in excess of 30
-percent without written permission from the Authorized Officer.
-Invasive Species/Noxious Weed
-30. The holder will be responsible for controlling noxious weeds within the limits of the
-right-of-way. Noxious weeds are defined as those which are listed by the Utah
-Commissioner of Agriculture under the Noxious Weed Act, and those declared noxious
-by the County in which the ROW resides. The holder will employ weed control methods
-approved in writing by the BLM Authorized Officer. An approved Pesticide Use
-Proposal (PUP) must be obtained prior to application of herbicides. Upon coordination
-with the Authorized Officer, the holder may elect to operate under an approved PUP
-which the BLM holds, or may apply for its own PUP, either through the Authorized
+II. PLAN CONFORMANCE REVIEW
 
-Officer or the BLM Utah State Office. A daily Pesticide Application Report (PAR) must
-be submitted to the Authorized Officer for each day weeds are sprayed on the ROW.
-Transfer of Federal Ownership/Relinquishment/Assignment
-31. In accordance with federal regulations in 43 CFR 2807.21 any proposed transfer of any
-right or interest in the right-of-way grant shall be filed with the BLM Authorized Officer.
-An application for assignment shall be accompanied by a showing of qualifications of the
-Assignee. The assignment shall be supported by a stipulation that the Assignee agrees to
-comply with and to bound by the terms and conditions of the grant to be assigned. No
-assignment shall be recognized unless and until it is approved in writing by the
-Authorized Officer.
-32. In the event that the public land underlying the right-of-way encompassed in this grant, or
-a portion thereof, is conveyed out of Federal ownership and administration of the ROW
-or the land underlying the ROW is not being reserved to the United States in the
-patent/deed and/or the ROW is not within a ROW corridor being reserved to the United
-States in the patent/deed, the United States waives any right it has to administer the right-
-of-way, or portion thereof, within the conveyed land under Federal laws, statutes, and
-regulations, including the regulations at 43 CFR Part 2800, including any rights to have
-the holder apply to BLM for amendments, modifications, or assignments and for BLM to
-approve or recognize such amendments, modifications, or assignments. At the time of
-conveyance, the patentee/grantee, and their successors and assigns, shall succeed to the
-interests of the United States in all matters relating to the right-of-way, or portion thereof,
-within the conveyed land and shall be subject to applicable State and local government
-laws, statutes, and ordinances. After conveyance, any disputes concerning compliance
-with the use and the terms and conditions of the ROW shall be considered a civil matter
-between the patentee/grantee and the ROW Holder.
-33. Prior to termination of the right-of-way, the holder shall contact the authorized officer to
-arrange a joint inspection of the right-of-way. This inspection will be held to agree to an
-acceptable termination (and rehabilitation) plan. This plan shall include but is not limited
-to, removal of facilities, drainage structures, or surface material, recontouring, topsoiling,
-or seeding. The authorized officer must approve the plan in writing prior to the holder&#39;s
-commencement of any termination activities.
-34. The right-of-way shall be relinquished to the United States if the authorized uses are no
-longer needed.
+This proposed action is subject to the following land use plan: Safford District Resource Management
+Plan (RMP), Final Environmental Impact Statement (August 1991), and partial Records of Decision
+approved September 1992 and July 1994.
 
-EXHIBIT C
-ENERGY &amp; GEOSCIENCE INSTITUTE (FORGE)
-RIGHT-OF-WAY MAP
+2
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+0033
+Page 22 of the RMP states &quot;Rights-of-way, leases, and permits will be considered on a case-by-case basis,
+in accordance with the decision of this RMP.&quot;
 
-FORGE Strainmeter Test Wells UTU-95778
-United States Department of the Interior
-Bureau of Land Management
-Cedar City Field Office
-23
-24
-Antelope
-Point Road
-Lower
-19
-20
-21
-22
-23
-FS2-1
-FS2-9
-26S 10W
-26
-25
-30
-29
-28
-26S 9W
-27
-Antelope Point Road
-35
-FS2-6 Salt Cove Road
-36
-31
-FS2-5
-32
-FS2-4
-02
-01
-06
-05
-FS2-3
-33
-03
-34
-Hot Spring Road
-Geothermal
-rd
-02
-27S 10W
-12
-07
-Geothermal Plant Road FS2-7
-FS2-2
-27S 9W
-08
-09
+Project Lead
+6/14/18
+Date
+
+III. RESOURCE PROGRAM CONSULTATION &amp; COORDINATION
+
+III (A). CX Applicability/ Exception Review
+Date Internal Scoping Initiated:
+Date Internal Scoping Closed:
+Applies?
+Yes No
+NAME
+EXTRAORDINARY CIRCUMSTANCE (EXCEPTION)
+SIGNATURE*
+DATE
+*Signature indicates that I have reviewed the project to determine the applicability of an extraordinary circumstance.
+In accordance with 43 CFR 45.215, if any of the following extraordinary circumstances below are applicable to the action being
+considered, either an EA or EIS must be prepared for the action.
+[ ] [ ]
+§45.215(a) Have significant impacts on public health or safety.
+6/14/2018
+The proponent would be provided a Health and Safety Plan which would
+address the hazards that may be encountered during construction, and
+would detail employee safety training procedures that would be used,
+and safety control that would be put in place to minimize the chance of
+an accident occurring. The area is sparsely populated and is not adjacent
+to residential areas. The impacts would be negligible to minor.
+Al
+Val fake
+[ ] [ ]
+§45.215(b) Have significant effects on such unique geographic
+characteristics as prime farmlands; sole or principal drinking water
+aquifers; wetlands (EO 11990); or floodplains (EO 11988).
+6/14/2018
+During the geotechnical investigation, there will be no placement of
+structure(s). The boreholes will be adjacent to the approved right-of-way
+which was analyzed in the Final Environmental Impact Statement (FEIS)
+dated October 2015. Proper implementation of the PCEMs and controls
+would prevent discharge of pollutants to water resources.
+[ ] [ ]
+§45.215(b) Have significant effects on such natural resources and unique
+geographic characteristics as park, recreation or refuge lands; national
+natural landmarks; national monuments; wilderness areas; wild or scenic
+rivers; or other ecologically significant or critical areas.
+6/14/2018
+Impacts would be negligible to minor because the routes would follow
+existing facilities which includes crossing Wilcox Playa. Wilcox Playa
+provides seasonal habitat which is also dependent on precipitation. Due
+to the crossing of the Playa seasonal restrictions are in place along with
+mitigation measures outlined in the Southline Transmission Line EIS and
+ROD and stipulations in the right-of-way grant.
+3
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+B
+0053
+[x] [ ]
+§45.215(b) Have significant impacts on properties listed, or eligible for
+listing, on the National Register of Historic Places, or on such unique
+geographic characteristics as historic or cultural resources.
+§45.215(i) Violate a Federal law, or a State, local, or tribal law or
+requirement imposed for the protection of the environment.
+§45.215(k) Limit access to and ceremonial use of Indian sacred sites on
+Federal lands by Indian religious practitioners or significantly adversely
+affect the physical integrity of such sacred sites (EO 13007).
+6/14/2018
+The proposed action to drill bore holes for geotechnical studies will avoid
+all known cultural sites which were identified in a BLM Class III cultural
+survey and therefore no effects or impacts are anticipated.
+[ ] [ ]
+§45.215(h) Have significant impacts on species listed, or proposed to be
+listed, on the List of Endangered or Threatened Species, or have
+significant effects on designated Critical Habitat for these species.
+§45.215(b) Have significant impacts on migratory birds; or other
+ecologically significant or critical areas.
+6/14/2018
+Impacts on wildlife would be minor. The Project has been sited to avoid
+ground disturbance and erosion control in both designated and proposed
+critical habitat. PCEMs to minimize impacts to wildlife habitat would
+include limiting the area of disturbance, restoring disturbed areas, and
+avoiding aquatic and riparian areas.
+[ ] [ ]
+§45.215(1) Contribute to the introduction, continued existence, or spread
+of noxious weeds or non-native invasive species known to occur in the
+area or actions that may promote the introduction, growth, or expansion
+of the range of such species (Federal Noxious Weed Control Act and
+ΕΟ 13112).
+6/14/2018
+BLM grant stipulations require controlling the spread of invasive species
+and Proponent Committed Environmental Measures (PCEM) includes a
+measure to limit invasive species establishment and spread. Noxious
+Weed Management Plan would be developed and implemented, and
+construction equipment would be washed prior to moving onto the
+construction site to limit introduction and spread of noxious weeds.
+Impacts would be minor.
+[ ] [ ]
+§45.215(c) Have highly controversial environmental effects or involve
+unresolved conflicts concerning alternative uses of available resources
+[42 USC 4332(2)(E)].
+6/14/2018
+The proposed action to bore holes for geotechnical studies does not have
+highly controversial environmental effects or involve unresolved conflicts.
+[ ] [ ]
+§45.215(d) Have highly uncertain and potentially significant
+environmental effects or involve unique or unknown environmental risks.
+6/14/2018
+The proposed action to bore holes for geotechnical studies does not have
+uncertainty nor the potential for significant environmental effects.
+Additionally the Southline 345kV transmission line project for which the
+geotechnical studies are benefiting, prepared an Environmental Impact
+Study and the BLM issued a Record of Decision and therefore eliminates
+all uncertainty and unknowns.
+4
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+0033
+[ ] [ ]
+§45.215(e) Establish a precedent for future action or represent a decision
+in principle about future actions with potentially significant
+environmental effects.
+6/14/2018
+This action does not set a precedent for future action nor does it
+represent a decision in principle about future actions as bore holes for
+geotechnical studies is a common practice.
+[ ] [ ]
+§45.215(f) Have a direct relationship to other actions with individually
+insignificant but cumulatively significant environmental effects.
+6/14/2018
+The proposed action to drill bore holes for geotechnical studies does not
+cumulate effects to the level of significance due to the nature of the
+proposed action.
+[ ] [x]
+§45.215(j) Have a disproportionately high and adverse effect on low
+income or minority populations (ΕΟ 12898).
+6/14/2018
+The area is sparsely populated (rural), and there are no residential areas
+adjacent to the project area.
+
+III (B). Critical Resources Review
+Critical Resource
+Specialist
+Affected,
+but less
+than
+Significant
+Comments
+Signature
+Date
+Yes No
+Yes No
+1. NRHP/Cultural
+X
+7/11/18
+2. TES Species
+X
+Els
+3. Floodplains/Wetlands
+X
+&quot;
+4. Invasive Species
+X
+7/18
+Comments/Attachments: The case of the proposed action was analyzed in
+The Southline Transmission Line Project EIS (Record of Decision signed
+April 21, 2016) in which all of the above resources were analyzed and
+mitigated as needed. The gentech proposal avoids all resources conflicts
+and therefore mitigation is not needed.
+ZIS NEPA# DOI-BLM-NM-2000-2016-0142-EIS
+
+IV. FINAL REVIEW
+
+This proposed action qualifies as a categorical exclusion under the National Environmental Policy Act in
+accordance with 516 DM 11.9, E (19) Issuance of short-term (3 years or less) rights-of-way or land
+5
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+0033
+use authorizations for such uses as storage sites, apiary sites, and construction sites where the
+proposal includes rehabilitation to restore the land to its natural or original condition.
+And
+In accordance with 43 CFR 46.215, this categorical exclusion is appropriate for the proposed action
+because no extraordinary circumstances apply:
+
+Mitigation Measures/Stipulations:
+[List using bullets points; if none, state &quot;None&quot; or &quot;N/A&quot;]
+
+NEPA Coordinator:
+Date: 6/22/18
+Assistant Field Manager:
+Recommended
+Rebula hopez
+Date: 7/2/18
+V. DECISION
+Authorized Official:
+Satt lake
+Date: 7/16/18
+Scott C. Cooke
+Field Manager
+6
+
+================================================================================
+Document: Maps.pdf
+Type: OTHER | Category: other | Main: NO
+================================================================================
+
+--- PAGE 1-3 ---
+
+SUPERSTITION
+MOUNTAINS
+60
+PINAL
+GILA
+GLOBE
+Saguaro
+Tortolita
+Marana
+IRONWOOD FOREST N.M.
+Rattlesnake
+MARANA
+ALTAR
+V ALLEY
+Upgrade New Build
+191
+Attachment 3
+ARIZONA
+NEW MEXICO
+GILA MOUNTAINS
+GREENLEE
+GRA HAM
+SAFFORD
+CATRON
+MOGOLLON
+MOUNT AINS
+180
+BLACK RANGE
+GALIURO
+MOUNTAINS
+PINALENO
+MOUNTAINS
+191
+WILLCOX
+Adams
+Tap
+SAN SIMON VALLEY
+SILVER CITY
+GRANT
+70
+Pantano
 10
-Wild Horse Wash Road
-Big Cedar Cove
+VELONCILLO MOUNTAINS
+Hidalgo
+LORDSBURG
+10
+LUNA
+Apache
+BENSON
+COCHISE
+CHIRICAHUA
+MOUNTAINS
+HIDALGO HACHITA
+SAGUARO N.P.
+WEST
+De Moss Petrie
+Del Bac
+Nogales
+SANTA CAT ALINA
+MOUNTAINS
+Tucson
+TUCSON SAGUARO N.P.
+Vail
+EAST
+PIMA
+19
+SANA CRUZ
+ANTA RITA MOUNTAINS
+Fort
+PATAGONIA
+MOUNTAINS
+Huachuca
+Military
+191
+Reservation MULE
+MOUNTAINS
+Figure 1. Project overview.
+80
+PELONCILED MOUNTAINS
+3
+PLAYAS VALLEY
+SIERRA
+25
+SAN ANDRES MOUNTAINS IN
+ORGAN MOUNTAINS
+DESERT PEAKS N.M.
+Midpoint
+North
+LAS CRUCES
+DEMING
+FLORIDA
+MOUNTAINS
+COLUMBUS
+Legend
+Substation
+AZ New Build Route
+Project Route
+Project Substation
+Interstate
+US or State Highway
+Major Road
+Land Ownership
+Tribal
+Bureau of
+Land Management
+Bureau of
+Reclamation
+Department of Defense
+National Park Service
+Private/Other
+State
+County
+US Forest Service
+US Fish &amp; Wildlife
+National Park/
+DOÑA A NA
+National Monument/
+National Conservation
+Area
+ORGAN MOUNTAINS
+DESERT PEAKS N.M.
+Afton
+EL PASO
+Utah
+Colorado
+Nevada
+Map Extent
+0
+New Mexico
+Arizona
+Miles
+25
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 1:
+Project Overview.
+AZ Gactach Project Overview mid-Revised 4/23/2018
+MP095
+191
+Fisher
+Hills
+MP090
+Diaw
+Geld
+MP355
+13
+Gole
+10
+MP360
+14
+DOS CABEZAS MOUNTAINS
+WILDERNESS
+C
+ABEZAS
+MOUNTAINS
+MP340
+MP345
+MP365
+MP365
+FAN
+MP370
+15 16
+17
+18
+Figure 2a. Geotechnical drilling locations and access roads.
+Butterfield Tra
+MP375
+MP375
+SAN
+19
+MP380
+Butterfield Trail
+ی
+M
+Graham County
+Greenlee Countys
+Cochise County
+20
+MP385
+--
+VAL
+Simen
+7
+PELONCILLO MOUNTAINS
+ELONC
+21
+E
+ARIZONA
+Hidalgo County
+NEW MEXICO
+MP390
+NEW MEXIKAR
+MP-0
+AINS
+MOUNTA
+Legend
+AZ Route
+Boring Location
+Access Route
+National Historic/
+Scenic Trail
+Bureau of
+Land Management
+National Park Service
+Private/Other
+State
+US Forest Service
+1
+Sheet 1 of 2
+0
+Miles
+2
+AZ NB Geitech Locations mxd-Revised 4/26/2018
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 2a:
+Geotechnical drilling
+locations and access
+roads.
+MOUN
+N
+MP320
+S
+10
+MP330
+MP335
+ULPHUR
+MP340
+12
+11
+MP345
+WILLCOX
+MP340
+WILLCOX
+PLAYA
+10
+MP330
+9
+(186)
+8
+WILLCOX
+PLAYA
+MP065
+WILLCOX
+DRY LAKE
+6
+BOMBING
+RANGE
+Cochise
+MP325
+Draw
+MP060
+Apache
+Figure 2b. Geotechnical drilling locations and access roads.
+MP055
+191
+5
+MP335
+MP350
+DOS
+Gold
+MP355
+13
+CABEZAS
+MP340
+Cab
+Butterfield Trail
+------
+10
+MP360
+14
+DOS CABEZAS MOUNTAINS
+WILDERNESS
+MOUNTAINS
+MP345
+Idea
+Moge
+MP365
+MP365
 15
 16
-14
-13
-18
-17
 Legend
-Strain_Meter_Wells
-Class_B_Roads
-Township
-Section
-Bureau of Land Management (BLM)
-Private
+AZ Route
+Boring Location
+Access Route
+Existing Substation
+Buffalo Soldier
+Electronic Testing Range
+National Historic/
+Scenic Trail
+Bureau of
+Land Management
+Department of Defense
+National Park Service
+Private/Other
 State
-1:45,000
-No warranty is made by the
-Bureau of Land Management as to
-the accuracy, realiability, or completeness
-of this data for individual use or
-aggregate use with other data.
-0.5
-1
-2 Miles
-11
-14
-Salt
-Cove
-Road
-35</code></pre>
+US Forest Service
+Arizona Game and Fish
+Department Wildlife
+Watching Area
+2
+Sheet 2 of 2
+0
+Miles
+2
+AZ MB Geotech Locations med Revised 4/26/2018
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 2b:
+Geotechnical drilling
+locations and access
+roads.</code></pre>
 </div>
 </div>
 </section>
