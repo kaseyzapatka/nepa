@@ -374,7 +374,7 @@ print(fig_compliance)
 compliance_table_path <- here(tables_dir, "05_fra_compliance.csv")
 write_csv(compliance_summary, compliance_table_path)
 cat("  Saved:", compliance_table_path, "\n")
-
+print(compliance_summary)
 
 # --------------------------
 # SUMMARY TABLE (CSV)
