@@ -534,6 +534,7 @@ def _run_llm_transmission_adjudication(
         claude_model = CLAUDE_DEFAULT_MODEL
         result = _call_claude_api(prompt, model=claude_model, timeout=timeout)
         if result.get("error"):
+            print(f"  [Claude error] {result['error']}")
             return None
         raw = result["response"]
     else:
@@ -553,11 +554,34 @@ def _run_llm_transmission_adjudication(
         except Exception:
             return None
 
+    # --- parse JSON response (bracket-matching to handle reasoning w/ braces) ---
     try:
-        m = re.search(r"\{[^{}]*\}", raw, re.DOTALL)
-        if not m:
+        parsed = json.loads(raw.strip())
+    except (json.JSONDecodeError, ValueError):
+        start = raw.find("{")
+        if start == -1:
+            print(f"  [LLM parse] No JSON in response: {raw[:120]!r}")
             return None
-        parsed = json.loads(m.group())
+        depth = 0
+        end = -1
+        for k, ch in enumerate(raw[start:], start=start):
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = k + 1
+                    break
+        if end == -1:
+            print(f"  [LLM parse] Unmatched braces: {raw[:120]!r}")
+            return None
+        try:
+            parsed = json.loads(raw[start:end])
+        except (json.JSONDecodeError, ValueError) as exc:
+            print(f"  [LLM parse] JSON error: {exc} | raw: {raw[:120]!r}")
+            return None
+
+    try:
         idx = int(parsed.get("selected_index", 0)) - 1
         if 0 <= idx < len(nontrivial):
             chosen = nontrivial[idx]
@@ -573,7 +597,8 @@ def _run_llm_transmission_adjudication(
             "selected_candidate_ids": [chosen["candidate_id"]],
             "reasoning": str(parsed.get("reasoning", "")),
         }
-    except Exception:
+    except Exception as exc:
+        print(f"  [LLM parse] Result extraction failed: {exc}")
         return None
 
 
@@ -602,13 +627,14 @@ def _adjudicate_transmission_length(
 
     # ------------------------------------------------------------------
     # LLM trigger logic:
-    #   anthropic provider: trigger on ANY row with distinct_count >= 2
-    #     (Claude reads all multi-candidate rows, not just ambiguous ones)
+    #   anthropic provider: trigger on ANY row with >= 2 nontrivial (>= 0.25 mi)
+    #     distinct candidates — Claude reads all genuinely ambiguous rows.
+    #     Sub-quarter-mile projects (tiny electric lines) are handled by rules.
     #   ollama provider: only fire when genuinely ambiguous among effective
     #     (non-partial) candidates (spread > 1.5x and no dominant build-verb winner)
     # ------------------------------------------------------------------
     if provider == "anthropic":
-        llm_trigger = distinct_count >= 2
+        llm_trigger = len(effective_nontrivial) >= 2
     elif len(effective_nontrivial) >= 2:
         nt_vals = [g["value_miles"] for g in effective_nontrivial]
         spread = max(nt_vals) / min(nt_vals) if min(nt_vals) > 0 else 1.0
