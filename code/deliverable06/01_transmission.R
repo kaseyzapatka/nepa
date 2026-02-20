@@ -14,6 +14,9 @@ max_year <- as.integer(format(Sys.Date(), "%Y"))
 # EXPLORATORY
 # --------------------------
 
+#
+# Create candidates
+# ----------------------------------------
 # Unpack every extracted length candidate to one row per candidate.
 # Use this to audit taxonomies, spot width artifacts, and identify
 # which projects need LLM adjudication before re-running Python extraction.
@@ -48,7 +51,8 @@ tx_candidates <- analysis |>
     hint_terms_txt      = map_chr(hint_terms, ~paste(unlist(.x), collapse = ", ")),
     is_width_artifact   = unit_normalized == "miles_from_feet" & value_miles < 0.25
   ) |>
-  select(-hint_terms, -selected_ids)
+  select(-hint_terms, -selected_ids) |> 
+  glimpse()
 
 cat("Total candidates:", nrow(tx_candidates), "\n")
 cat("Width artifact candidates:", sum(tx_candidates$is_width_artifact), "\n")
@@ -74,6 +78,9 @@ tx_candidates |>
          candidate_action_type, sentence_has_build_verb, is_selected, is_width_artifact, source_text) |>
   print()
 
+#
+# Multi-candidate rows: one row per candidate for projects with 2+ distinct values
+# ----------------------------------------
 # Multi-candidate rows: one row per candidate for projects with 2+ distinct values
 tx_multi_candidates <- tx_candidates |>
   filter(project_transmission_length_distinct_candidate_count >= 2) |>
@@ -96,18 +103,30 @@ tx_multi_candidates <- tx_candidates |>
   ) |>
   arrange(project_id, desc(is_selected), desc(hint_score))
 
-# Sample of 'unknown' action type cases for review — used to decide whether
+# write
+sheet_write(
+  data = tx_multi_candidates,
+  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
+  sheet = "tx_multi_candidates"
+)
+
+
+#
+# UNKNOWN: Sample of 'unknown' action type cases for review — used to decide whether
+# ----------------------------------------
 # to add more regex patterns or accept the unknowns as a residual category.
 tx_unknown_sample <- tx_candidates |>
   filter(candidate_action_type == "unknown", value_miles >= 0.25) |>
-  slice_sample(n = min(40, n())) |>
+  #slice_sample(n = min(40, n())) |>
+  slice_sample(n = 40) |>
   select(
     project_id,
     candidate_value_miles = value_miles,
     hint_score,
     sentence_has_build_verb,
     source_text
-  )
+  ) |> 
+  glimpse()
 
 cat("Unknown action type candidates (>= 0.25 mi):",
     sum(tx_candidates$candidate_action_type == "unknown" & tx_candidates$value_miles >= 0.25), "\n")
@@ -120,6 +139,97 @@ sheet_write(
 
 cat("Multi-candidate rows (for review):", nrow(tx_multi_candidates), "\n")
 
+
+
+
+
+
+#
+# example 2 
+# ----------------------------------------
+# the LLM gets this right
+example2 <- 
+tx_candidates |> 
+  filter(project_id == "3e996a98-e88f-3af5-3b72-c4c4cc6b1152") |> 
+  glimpse()
+
+sheet_write(
+  data = example2,
+  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
+  sheet = "example2"
+)
+
+#
+# example 3
+# ----------------------------------------
+
+# the LLM gets this right
+sample <- 
+  tx_candidates |> 
+  select(project_id) |> 
+  slice_sample(n = 1) |> 
+  pull() |> 
+  print()
+
+# 4d5e6399-df32-1bf0-9c39-73d09ba1df01
+example3 <- 
+  tx_candidates |> 
+  filter(project_id %in% sample) |> 
+  select(project_id, project_transmission_length_miles, project_transmission_length_taxonomy, value_miles, matched_text,source_text) |> 
+  View()
+
+#
+# example 4
+# ----------------------------------------
+
+# the LLM gets this right
+sample <- 
+  tx_candidates |> 
+  select(project_id) |> 
+  slice_sample(n = 1) |> 
+  pull() |> 
+  print()
+
+# 4d5e6399-df32-1bf0-9c39-73d09ba1df01
+example4 <- 
+  tx_candidates |> 
+  filter(project_id %in% sample) |> 
+  select(project_id, project_transmission_length_miles,project_transmission_length_taxonomy, value_miles, matched_text,source_text) |> 
+  glimpse()
+
+analysis |> glimpse()
+
+analysis |> 
+  filter(project_transmission_length_llm_used == TRUE) |>
+  select(
+    #project_id,
+    lng  = project_transmission_length_miles,
+    #project_transmission_length_llm_status,
+    conf=project_transmission_length_confidence,
+    txt =project_transmission_length_source_text
+  ) |>
+  print(n = Inf)
+
+analysis |>
+  count(project_transmission_length_taxonomy, project_transmission_length_llm_status) |>
+  arrange(desc(n))
+
+analysis |> 
+  filter(project_transmission_length_taxonomy  == "do_not_sum") |> 
+  select(id = project_id,lgth =  project_transmission_length_miles, txt =  project_transmission_length_source_text) |> 
+  arrange(id) |> 
+  select(lgth, txt) |> 
+  print(n = 100)
+
+
+analysis |> 
+  #filter(project_id == "06ee24b6-e7bd-10d4-4924-31154372b4a3") |> 
+  #filter(project_id == "29402d2a-61cf-25dc-5050-bb2f2d62ff48") |> 
+  #filter(project_id == "88637c69-789b-99df-4593-7fb2601ea8d9") |> 
+  #filter(project_id == "8d4f94cf-0cab-3ccf-00a0-c7c18dbfb2b9") |> 
+  filter(project_id == "3fbe2462-7af6-4c8f-5613-90e8dc9bcc7c") |> 
+  glimpse()
+
 # LLM-trigger projects only (the ones that need adjudication)
 tx_llm_trigger <- tx_candidates |>
   filter(project_transmission_length_llm_trigger == TRUE) |>
@@ -127,7 +237,11 @@ tx_llm_trigger <- tx_candidates |>
 
 cat("LLM-trigger candidate rows:", nrow(tx_llm_trigger), "\n")
 
-# Write QC sheets for manual review
+
+#
+# Transmissions
+# ----------------------------------------
+
 transmissions <-
   analysis |>
   select(
@@ -138,7 +252,8 @@ transmissions <-
     project_transmission_length_llm_trigger, project_transmission_length_source_text,
     bert_duration_days_final, bert_duration_months_final
   ) |>
-  filter(!is.na(bert_duration_months_final))
+  #filter(!is.na(bert_duration_months_final)) |> 
+  glimpse()
 
 sheet_write(
   data = transmissions,
@@ -146,14 +261,13 @@ sheet_write(
   sheet = "01_transmission"
 )
 
-sheet_write(
-  data = tx_multi_candidates,
-  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
-  sheet = "tx_candidates_qc"
-)
 
 # Project-level count summary
 projects |> count(project_is_transmission)
+projects |> select(project_id, project_title) |>  filter(project_id == "1aff267e-235b-abb2-347a-92d3ff989575") |> glimpse() # why is this still being pulled in?>
+projects |> select(project_id, project_title) |>  filter(project_id == "284f25aa-e022-7781-51c0-d338390aa866") |> pull(project_title)
+projects |> select(project_id, project_title, project_type) |>  filter(project_id == "284f25aa-e022-7781-51c0-d338390aa866") |> glimpse()
+projects |> select(project_id, project_title, project_type) |>  filter(project_id == "29402d2a-61cf-25dc-5050-bb2f2d62ff48") |> glimpse()
 
 
 # --------------------------
