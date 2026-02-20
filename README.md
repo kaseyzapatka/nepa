@@ -128,3 +128,37 @@ The `--project-id` flag searches CE, EA, and EIS sources automatically:
 ```bash
 python code/extract/extract_timeline.py --project-id <UUID> --hybrid --use-regex-cache
 ```
+
+## Technology Deliverables Build
+
+Use `code/extract/extract_technology.py` to build technology-specific fields in `data/analysis/projects_combined.parquet`.
+
+### Transmission
+
+Rule-based extraction only:
+
+```bash
+python3 code/extract/extract_technology.py --run transmission
+```
+
+Run transmission with LLM adjudication (Anthropic/Claude):
+
+```bash
+python code/extract/extract_technology.py --run transmission --use-llm --provider anthropic
+```
+
+If using Anthropic, set `ANTHROPIC_API_KEY` in your environment before running.
+
+### Geothermal
+
+```bash
+# TODO: add final geothermal run sequence for Deliverable 6
+python3 code/extract/extract_technology.py --run geothermal
+```
+
+### Pipelines
+
+```bash
+# TODO: add final pipeline run sequence for Deliverable 6
+python3 code/extract/extract_technology.py --run pipeline
+```
