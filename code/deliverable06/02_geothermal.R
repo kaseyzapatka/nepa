@@ -22,6 +22,17 @@ analysis <- prepare_deliverable6_data() %>%
 
 cat("Geothermal projects:", nrow(analysis), "\n")
 
+
+# --------------------------
+# EXPLORATORY
+# --------------------------
+analysis |> 
+  select(dataset_source) |> 
+  group_by(dataset_source) |> 
+  count() |> 
+  glimpse()
+
+
 # --------------------------
 # TABLES
 # --------------------------
@@ -78,11 +89,13 @@ fig_phase_box <- analysis %>%
   scale_fill_manual(values = c(catf_dark_blue, catf_teal, catf_magenta, catf_light_blue, "gray60", "gray80")) +
   labs(
     title = "Geothermal Timelines by Project Phase",
-    subtitle = "CE projects classified from project text",
+    subtitle = "Clean energy projects classified from project text",
     x = "Geothermal phase",
     y = "Duration (days)"
   ) +
   theme_minimal(base_size = 11)
+
+print(fig_phase_box)
 
 ggsave(
   filename = here(figures_dir, "fig_geothermal_phase_duration_boxplot.png"),
@@ -132,6 +145,8 @@ fig_sequence <- ggplot(sequence_data) +
     color = "Phase"
   ) +
   theme_minimal(base_size = 10)
+
+print(fig_sequence)
 
 ggsave(
   filename = here(figures_dir, "fig_geothermal_within_project_sequence.png"),

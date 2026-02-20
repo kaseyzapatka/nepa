@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>NEPA – system_specs</title>
+<title>NEPA – d6_transmission_validation_2026-02-20</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -1469,7 +1469,7 @@ function fuseSearch(query, fuse, fuseOptions) {
   });
 }
 </script>
-<meta name="quarto:offset" content="../">
+<meta name="quarto:offset" content="../../">
 <script>const sectionChanged = new CustomEvent("quarto-sectionChanged", {
   detail: {},
   bubbles: true,
@@ -4449,7 +4449,7 @@ vertical-align: -.125em;
     <nav class="navbar navbar-expand-lg navbar-dark ">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container">
-    <a class="navbar-brand" href="../index.html">
+    <a class="navbar-brand" href="../../index.html">
     <span class="navbar-title">NEPA</span>
     </a>
   </div>
@@ -4460,31 +4460,31 @@ vertical-align: -.125em;
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link" href="../project_overview.html" rel target>
+    <a class="nav-link" href="../../project_overview.html" rel target>
  <span class="menu-text">Project Overview</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable01.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable01.html" rel target>
  <span class="menu-text">Deliverable 1</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable02.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable02.html" rel target>
  <span class="menu-text">Deliverable 2</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable03.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable03.html" rel target>
  <span class="menu-text">Deliverable 3</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable04.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable04.html" rel target>
  <span class="menu-text">Deliverable 4</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable05.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable05.html" rel target>
  <span class="menu-text">Deliverable 5</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable06.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable06.html" rel target>
  <span class="menu-text">Deliverable 6</span></a>
   </li>  
 </ul>
@@ -4504,51 +4504,302 @@ vertical-align: -.125em;
 
 
 
-<section id="computer-specifications-for-parallelization" class="level1">
-<h1>Computer Specifications for Parallelization</h1>
-<section id="cpu" class="level2">
-<h2 class="anchored" data-anchor-id="cpu">CPU</h2>
+<section id="deliverable-06-transmission-validation-memo" class="level1">
+<h1>Deliverable 06 Transmission Validation Memo</h1>
+<p>Date: 2026-02-20 Scope: memorialize manual validation notes for transmission extraction/adjudication and define concrete workflow fixes. Data snapshot: <code>data/analysis/projects_combined.parquet</code> as currently present in this repo on 2026-02-20.</p>
+<section id="snapshot-metrics-current-file" class="level2">
+<h2 class="anchored" data-anchor-id="snapshot-metrics-current-file">Snapshot Metrics (Current File)</h2>
 <ul>
-<li>Model: Intel Core i9‑10910 @ 3.60 GHz</li>
-<li>Physical cores: 10</li>
-<li>Logical CPUs (threads): 20</li>
-<li>Hyper‑Threading: Enabled</li>
-<li>Cache line size: 64 bytes</li>
-<li>L1d/L1i: 32 KB / 32 KB per core</li>
-<li>L2: 256 KB per core</li>
-<li>L3: 20 MB shared</li>
+<li>Clean + strict transmission projects: 205</li>
+<li>Projects with 2+ transmission candidates: 62</li>
+<li>Projects with 2+ distinct candidate values: 59</li>
+<li>Projects with <code>project_transmission_length_llm_trigger == TRUE</code>: 26</li>
+<li>Taxonomy counts in strict set:
+<ul>
+<li><code>do_not_sum</code>: 146</li>
+<li><code>llm</code>: 26</li>
+<li><code>take_max</code>: 14</li>
+<li><code>sum</code>: 12</li>
+<li><code>build_verb_winner</code>: 6</li>
+<li><code>choose_alternative</code>: 1</li>
+</ul></li>
 </ul>
 </section>
-<section id="memory" class="level2">
-<h2 class="anchored" data-anchor-id="memory">Memory</h2>
+<section id="case-log-from-manual-review" class="level2">
+<h2 class="anchored" data-anchor-id="case-log-from-manual-review">Case Log From Manual Review</h2>
+<section id="cases-that-appear-correct-or-mostly-correct" class="level3">
+<h3 class="anchored" data-anchor-id="cases-that-appear-correct-or-mostly-correct">Cases that appear correct or mostly correct</h3>
 <ul>
-<li>Total RAM: 128 GB</li>
+<li><code>027e8fc7-069e-9bcc-0d19-c87315aedb8a</code>
+<ul>
+<li>Current: <code>sum</code> to 33.7 miles (15.9 + 17.8).</li>
+<li>Note: good additive behavior.</li>
+</ul></li>
+<li><code>2acd8c11-4c32-f636-659f-c7a62f0619b8</code>
+<ul>
+<li>Current: build-verb winner selects 20 miles.</li>
+<li>Note: good build-verb behavior.</li>
+</ul></li>
+<li><code>3148ad5b-0eb7-e20b-7688-276559b2268c</code>
+<ul>
+<li>Current: build-verb winner selects 9.77 miles.</li>
+<li>Note: good build-verb behavior.</li>
+</ul></li>
+<li><code>e574fb6c-c0de-5842-3493-32cca57052f4</code>
+<ul>
+<li>Current: <code>sum</code> to 10.2 miles.</li>
+<li>Note: additive behavior appears appropriate.</li>
+</ul></li>
+<li><code>d9a9a307-066d-334a-0095-a8f3862a427e</code>
+<ul>
+<li>Current: LLM selects 3.8 miles acquisition line; this aligns with intended choice.</li>
+</ul></li>
+<li><code>f493eb06-f330-28f1-4ea9-5e830f78daea</code>
+<ul>
+<li>Current: <code>take_max</code> selects 1.34 miles; this appears acceptable for this case.</li>
+</ul></li>
+<li><code>a38e1b8a-7776-458d-fa50-f4f325ebad52</code>
+<ul>
+<li>Current: LLM selects 18.39 miles and ignores the access-road mileage.</li>
+<li>Note: desired behavior.</li>
+</ul></li>
 </ul>
 </section>
-<section id="gpu-for-gpuparallel-workloads" class="level2">
-<h2 class="anchored" data-anchor-id="gpu-for-gpuparallel-workloads">GPU (for GPU‑parallel workloads)</h2>
+<section id="cases-likely-incorrect-selectionadjudication" class="level3">
+<h3 class="anchored" data-anchor-id="cases-likely-incorrect-selectionadjudication">Cases likely incorrect (selection/adjudication)</h3>
 <ul>
-<li>AMD Radeon Pro 5700 XT</li>
-<li>VRAM: 16 GB</li>
-<li>PCIe x16, Metal: Supported</li>
+<li><code>06ee24b6-e7bd-10d4-4924-31154372b4a3</code>
+<ul>
+<li>Current: LLM picks 11.389 miles from 60,132 ft.</li>
+<li>Expected: add both lengths (6,167 ft + 60,132 ft).</li>
+<li>Likely issue: LLM prompt only allows selecting one candidate.</li>
+</ul></li>
+<li><code>29402d2a-61cf-25dc-5050-bb2f2d62ff48</code>
+<ul>
+<li>Current: LLM picks 26.0 miles from “26.0 miles north of Helena”.</li>
+<li>Expected: 3.14 miles from “BLM authorizes 3.14 miles of this existing powerline”.</li>
+<li>Likely issue: location-distance not fully filtered before adjudication.</li>
+</ul></li>
+<li><code>ff089bb4-8710-815b-7eac-d3e94c6b4e49</code>
+<ul>
+<li>Current: <code>take_max</code> = 13 miles.</li>
+<li>Expected: sum the two segments (10 + 13).</li>
+<li>Likely issue: no additive cue detected even though sentence enumerates two valid segments.</li>
+</ul></li>
+<li><code>9b92344b-1230-be3c-58f4-5c2df57521ba</code>
+<ul>
+<li>Current: <code>sum</code> = 3.5 miles.</li>
+<li>Expected: likely 0.5 miles (or at minimum not naive 3 + 0.5).</li>
+<li>Likely issue: additive rule sums values with mixed semantics (land rights vs transmission-line rights).</li>
+</ul></li>
+<li><code>baa1b870-24af-1703-22ae-cd0120271f40</code>
+<ul>
+<li>Current: LLM picks 1.61 miles (public land crossing extent).</li>
+<li>Expected: 10 miles total line length.</li>
+<li>Likely issue: partial crossing candidate not downweighted enough.</li>
+</ul></li>
+<li><code>b48dbb2b-e9e5-999b-6cb9-049605356a7b</code>
+<ul>
+<li>Current: LLM picks 3.0 miles over ~1/3 mile.</li>
+<li>Expected: ~0.33 mile.</li>
+<li>Likely issue: fraction-form parsing/normalization + candidate representation.</li>
+</ul></li>
+<li><code>88637c69-789b-99df-4593-7fb2601ea8d9</code>
+<ul>
+<li>Current: LLM picks 4.7 (public lands crossing) instead of clear total 11.7 miles long.</li>
+<li>Expected: 11.7 miles.</li>
+<li>Likely issue: total-length cue not strongly prioritized over crossing extents.</li>
+</ul></li>
 </ul>
 </section>
-<section id="storage-io-parallelism-constraints" class="level2">
-<h2 class="anchored" data-anchor-id="storage-io-parallelism-constraints">Storage (I/O parallelism constraints)</h2>
+<section id="cases-likely-should-be-excluded-from-transmission-infrastructure-analysis" class="level3">
+<h3 class="anchored" data-anchor-id="cases-likely-should-be-excluded-from-transmission-infrastructure-analysis">Cases likely should be excluded from transmission-infrastructure analysis</h3>
 <ul>
-<li>Internal SSD, PCI‑Express</li>
-<li>APFS volume “Macintosh HD”</li>
-<li>Size: 1.0 TB</li>
-<li>Free (container): ~288.9 GB</li>
-<li>Block size: 4 KB</li>
-<li>FileVault: Yes</li>
-<li>Note: current boot volume is an APFS snapshot and read‑only</li>
+<li><code>1aff267e-235b-abb2-347a-92d3ff989575</code>
+<ul>
+<li>Vegetation herbicide follow-up along ROW.</li>
+</ul></li>
+<li><code>284f25aa-e022-7781-51c0-d338390aa866</code>
+<ul>
+<li>Access-road maintenance along corridor.</li>
+</ul></li>
+<li><code>ac0254b4-77b3-f1bb-6855-2e8c7f94538c</code>
+<ul>
+<li>Vegetation reclamation/removal program.</li>
+</ul></li>
+<li><code>dab94a46-e67a-4865-0437-0fdefe83ba69</code>
+<ul>
+<li>Danger-tree management / routine inspections.</li>
+</ul></li>
+<li><code>8d4f94cf-0cab-3ccf-00a0-c7c18dbfb2b9</code>
+<ul>
+<li>Routine road maintenance; also vulnerable to location-distance confusion.</li>
+</ul></li>
 </ul>
 </section>
-<section id="os" class="level2">
-<h2 class="anchored" data-anchor-id="os">OS</h2>
+</section>
+<section id="high-value-fixes" class="level2">
+<h2 class="anchored" data-anchor-id="high-value-fixes">High-Value Fixes</h2>
+<section id="tighten-transmission-inclusion-filtering-highest-priority" class="level3">
+<h3 class="anchored" data-anchor-id="tighten-transmission-inclusion-filtering-highest-priority">1) Tighten transmission inclusion filtering (highest priority)</h3>
 <ul>
-<li>macOS 26.2 (Darwin 25.2.0)</li>
+<li>Add a stronger exclusion gate for O&amp;M/vegetation/reclamation/inspection projects.</li>
+<li>Keep these as <code>project_is_transmission_broad</code>, but default them out of strict infrastructure analysis unless there is explicit line-build/upgrade/rebuild scope.</li>
+<li>Important bug to fix in current code:
+<ul>
+<li>In <code>code/extract/extract_technology.py</code>, maintenance flagging currently uses:
+<ul>
+<li><code>context_text.str.contains(TRANSMISSION_MAINTENANCE_RE, regex=False)</code></li>
+</ul></li>
+<li>With a compiled regex, <code>regex=False</code> prevents regex matching and can silently fail.</li>
+<li>Should use regex matching (<code>regex=True</code> or omit the argument).</li>
+</ul></li>
+</ul>
+</section>
+<section id="improve-candidate-filtering-before-any-adjudication" class="level3">
+<h3 class="anchored" data-anchor-id="improve-candidate-filtering-before-any-adjudication">2) Improve candidate filtering before any adjudication</h3>
+<ul>
+<li>Hard-drop location-distance patterns:
+<ul>
+<li><code>X miles north/south/east/west of &lt;place&gt;</code></li>
+<li><code>located approximately X miles &lt;direction&gt; of</code></li>
+</ul></li>
+<li>Hard-tag and downrank (or exclude for total-length selection) partial extents:
+<ul>
+<li><code>cross public lands for X miles</code></li>
+<li><code>X miles on public/federal/BLM lands</code></li>
+</ul></li>
+<li>Add candidate role tags:
+<ul>
+<li><code>total_length_explicit</code>, <code>segment_length</code>, <code>partial_land_crossing</code>, <code>location_distance</code>, <code>access_road_length</code>, <code>vegetation_maintenance_extent</code>, <code>land_rights_extent</code>.</li>
+</ul></li>
+</ul>
+</section>
+<section id="refine-sumtake-max-logic" class="level3">
+<h3 class="anchored" data-anchor-id="refine-sumtake-max-logic">3) Refine sum/take-max logic</h3>
+<ul>
+<li>Do not sum all distinct values whenever additive language appears anywhere in the full text.</li>
+<li>Sum only when candidate roles are compatible and explicitly segmental, for example:
+<ul>
+<li>same sentence/clause list joined by <code>and</code>/commas with shared line object</li>
+<li>mixed-action projects where <code>new_build</code> and <code>upgrade</code> segments are both part of one project scope</li>
+</ul></li>
+<li>Prefer explicit totals (<code>X miles long</code>, <code>total length</code>) over component/crossing values.</li>
+</ul>
+</section>
+<section id="upgrade-llm-adjudication-contract-if-used" class="level3">
+<h3 class="anchored" data-anchor-id="upgrade-llm-adjudication-contract-if-used">4) Upgrade LLM adjudication contract (if used)</h3>
+<ul>
+<li>Current prompt forces one-candidate selection. This blocks valid additive outcomes.</li>
+<li>Update LLM output schema to return:
+<ul>
+<li><code>decision_type</code>: <code>sum | take_max | choose_alternative | do_not_sum</code></li>
+<li><code>selected_candidate_ids</code>: list</li>
+<li><code>selected_length_miles</code></li>
+<li><code>rationale_short</code></li>
+</ul></li>
+<li>Trigger LLM only for unresolved multi-candidate rows after deterministic filters and role-tagging.</li>
+</ul>
+</section>
+<section id="fraction-parsing-and-numeric-normalization" class="level3">
+<h3 class="anchored" data-anchor-id="fraction-parsing-and-numeric-normalization">5) Fraction parsing and numeric normalization</h3>
+<ul>
+<li>Preserve and parse fraction expressions like <code>1/3 mile</code> before regex extraction.</li>
+<li>Keep both raw token and normalized miles in candidate JSON for QA.</li>
+</ul>
+</section>
+</section>
+<section id="llm-prompt-improvements" class="level2">
+<h2 class="anchored" data-anchor-id="llm-prompt-improvements">LLM Prompt Improvements</h2>
+<ul>
+<li>Add explicit negative examples inside prompt:
+<ul>
+<li>“26 miles north of Helena” is location, not line length.</li>
+<li>“cross public lands for 4.7 miles” is a partial crossing extent.</li>
+</ul></li>
+<li>Add explicit priority rule:
+<ul>
+<li>If any candidate sentence says <code>X miles long</code>/<code>in length</code>, prefer it unless contradicted by a clearer total.</li>
+</ul></li>
+<li>Allow multi-candidate output (sum) when segments are clearly additive.</li>
+</ul>
+</section>
+<section id="should-we-use-claude" class="level2">
+<h2 class="anchored" data-anchor-id="should-we-use-claude">Should We Use Claude?</h2>
+<p>Short answer: maybe, but only after deterministic fixes above.</p>
+<p>Recommended approach: 1. Build a frozen eval set from these reviewed IDs plus additional multi-candidate rows. 2. Compare adjudication accuracy with identical candidate inputs and output schema: - current Ollama model - Claude (same schema/prompt intent) 3. Promote a model only if it materially improves error classes that rules cannot reliably solve.</p>
+<p>Rationale: many current failures are upstream candidate/filter issues; switching models alone will not fix location-distance or maintenance-inclusion errors.</p>
+</section>
+<section id="implementation-sequence" class="level2">
+<h2 class="anchored" data-anchor-id="implementation-sequence">Implementation Sequence</h2>
+<ol type="1">
+<li>Deterministic filtering hotfixes (maintenance gate + location/partial crossing filtering + fraction parsing).</li>
+<li>Role-tagged candidate adjudication (sum/take-max/alternative/do-not-sum with stricter compatibility checks).</li>
+<li>Optional LLM stage for unresolved multi-candidate cases only.</li>
+<li>Re-run extraction and update this memo with before/after accuracy on the reviewed set.</li>
+</ol>
+</section>
+<section id="related-files" class="level2">
+<h2 class="anchored" data-anchor-id="related-files">Related Files</h2>
+<ul>
+<li><code>code/extract/extract_technology.py</code></li>
+<li><code>code/extract/extract_data.py</code></li>
+<li><code>code/deliverable06/01_transmission.R</code></li>
+<li><code>tmp/d6_transmission_user_review_ids_diagnostics.csv</code></li>
+</ul>
+</section>
+<section id="follow-up-inspection-queue-user-requested" class="level2">
+<h2 class="anchored" data-anchor-id="follow-up-inspection-queue-user-requested">Follow-up Inspection Queue (User-Requested)</h2>
+<p>Projects to explicitly inspect in the next QA pass:</p>
+<ul>
+<li><code>ff089bb4-8710-815b-7eac-d3e94c6b4e49</code>
+<ul>
+<li>Label to verify: example of LLM getting it right.</li>
+</ul></li>
+<li><code>baa1b870-24af-1703-22ae-cd0120271f40</code>
+<ul>
+<li>Label to verify: example of LLM getting it right.</li>
+</ul></li>
+<li><code>7094a354-0fee-062a-2d26-5e96f85ed60d</code>
+<ul>
+<li>Label to verify: example of LLM getting it right.</li>
+</ul></li>
+<li><code>09299b10-2b00-47bc-9dd1-bb93cc27f659</code>
+<ul>
+<li>Label to verify: maintenance (uses “conduct routine road maintenance”).</li>
+</ul></li>
+<li><code>1aff267e-235b-abb2-347a-92d3ff989575</code>
+<ul>
+<li>Label to verify: maintenance (uses “herbicide application on incompatible vegetation”).</li>
+</ul></li>
+<li><code>284f25aa-e022-7781-51c0-d338390aa866</code>
+<ul>
+<li>Label to verify: maintenance (uses “road maintenance”).</li>
+</ul></li>
+<li><code>3fbe2462-7af6-4c8f-5613-90e8dc9bcc7c</code>
+<ul>
+<li>Label to verify: maintenance (uses “crews will survey and inspect vegetation along”).</li>
+</ul></li>
+<li><code>02827ece-5b58-b374-1150-f3c0718f81c8</code>
+<ul>
+<li>Label to verify: maintenance (uses “perform routine maintenance”).</li>
+</ul></li>
+<li><code>091946ad-d76a-c6e5-985b-b6090db23fe9</code>
+<ul>
+<li>Label to verify: upgrade (uses “replacement project”).</li>
+</ul></li>
+<li><code>0dfa9f0c-9b67-2669-cece-74de2002eac3</code>
+<ul>
+<li>Label to verify: upgrade (uses “Replacement” in context).</li>
+</ul></li>
+<li><code>29b57e84-b5ea-e75b-2a63-7b08fc3a1d90</code>
+<ul>
+<li>Label to verify: upgrade (uses “proposes to replace”).</li>
+</ul></li>
+<li><code>f07667a4-97d1-255d-7710-924e15acc5b3</code>
+<ul>
+<li>Label to verify: new_build (uses “proposing to construct”).</li>
+</ul></li>
 </ul>
 
 

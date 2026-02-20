@@ -1,0 +1,444 @@
+---
+title: "NEPA Clean Energy Analysis: Deliverable 6"
+subtitle: "Technology-Specific Analyses: Transmission Lines, Geothermal, and Pipelines"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    code-fold: true
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(here)
+library(knitr)
+library(gt)
+library(readr)
+library(scales)
+
+d6_figures <- here("output", "deliverable6", "figures")
+d6_tables  <- here("output", "deliverable6", "tables")
+```
+
+::: {.callout-important}
+## Before Rendering
+Run the following scripts to regenerate all figures and tables before rendering this report:
+
+```r
+source("code/deliverable06/01_transmission.R")
+source("code/deliverable06/02_geothermal.R")
+source("code/deliverable06/03_pipelines.R")
+```
+:::
+
+## Executive Summary
+
+This deliverable examines three technology-specific questions from the NEPATEC 2.0 corpus, each addressing a dimension of how NEPA reviews operate for major clean energy infrastructure types:
+
+1. **Transmission lines** — How do extracted line lengths correlate with NEPA timelines, geographic location, and project action type?
+2. **Geothermal energy** — What NEPA timeline patterns emerge across different phases of geothermal development (exploration, drilling, plant construction)?
+3. **Carbon and hydrogen pipelines** — How do pipeline NEPA timelines compare to natural gas pipelines, and does pipeline length predict review duration?
+
+---
+
+# Transmission Lines
+
+::: {.callout-note}
+## Key Findings
+
+- **151 strict clean-energy transmission projects** were identified with extractable line lengths — nearly the entire strict sample has a usable length figure.
+- **Most projects involve short line segments**: 55% are under 10 miles; the median extracted length is just 8 miles. Only 8 projects involve lines of 100 miles or more.
+- **NEPA reviews are fast overall**, with a median duration of just 38.5 days. However, reviews for the longest projects (100+ miles) take a median of 221 days — nearly 6× longer.
+- **Upgrades and replacements dominate** clean energy transmission activity: 59 projects involve equipment replacement or reconductoring, while only 5 are classified as purely new-build construction.
+- **Geography matters**: Western states have both the highest project counts and the longest median line lengths. Multi-state projects (14 in total) are concentrated in the West and South.
+:::
+
+## Overview
+
+This analysis covers transmission line projects identified in NEPATEC 2.0 that meet a strict clean energy classification: projects must have a transmission type tag, transmission-related build text, and an extracted line length of at least 1 mile. Maintenance-only projects (access road work, vegetation management) are excluded. Length figures are drawn from the `project_transmission_length_final` field, which uses LLM adjudication for the 35 projects with ambiguous multi-candidate lengths and rule-based selection for all others.
+
+```{r}
+#| label: tbl-tx-summary
+#| tbl-cap: "Summary statistics for strict clean-energy transmission projects."
+
+read_csv(file.path(d6_tables, "table_transmission_summary.csv"), show_col_types = FALSE) %>%
+  gt() %>%
+  cols_label(Metric = "Metric", Value = "Value") %>%
+  cols_align(align = "left", columns = Metric) %>%
+  cols_align(align = "right", columns = Value) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(table.font.size = px(13), data_row.padding = px(6))
+```
+
+---
+
+## Length Distribution
+
+@fig-tx-length-dist shows the full distribution of extracted transmission line lengths. The distribution is heavily right-skewed: the majority of projects involve short line segments of 25 miles or less, while a small number of large-scale projects extend well beyond 100 miles. The dashed line marks the median.
+
+```{r}
+#| label: fig-tx-length-dist
+#| fig-cap: "Distribution of extracted transmission line lengths (miles) for strict clean energy projects. Dashed line marks the median."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_distribution.png"))
+```
+
+@fig-tx-bins examines how project count and median NEPA duration vary across length bands. The left panel shows that most projects are short-segment (<10 miles), while the right panel reveals that review duration rises with line length — projects in the 50–100 mile band take a median 133 days, and 100+ mile projects take 221 days, compared to just 25–41 days for projects under 50 miles.
+
+```{r}
+#| label: fig-tx-bins
+#| fig-cap: "Left: number of strict clean energy transmission projects by length band. Right: median NEPA review duration by length band. Longer lines require substantially longer reviews."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_bins.png"))
+```
+
+```{r}
+#| label: tbl-tx-bins
+#| tbl-cap: "Project counts and duration statistics by transmission line length band."
+
+read_csv(file.path(d6_tables, "table_transmission_length_bins.csv"), show_col_types = FALSE) %>%
+  gt() %>%
+  cols_label(
+    length_bin          = "Length band",
+    n_projects          = "Projects",
+    median_length_miles = "Median length (mi)",
+    median_duration_days = "Median duration (days)",
+    p90_duration_days   = "P90 duration (days)"
+  ) %>%
+  cols_align(align = "left",  columns = length_bin) %>%
+  cols_align(align = "right", columns = where(is.numeric)) %>%
+  fmt_number(columns = where(is.numeric), decimals = 1, use_seps = TRUE) %>%
+  fmt_integer(columns = n_projects) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(table.font.size = px(13), data_row.padding = px(6))
+```
+
+---
+
+## Geographic Patterns
+
+@fig-tx-state-n and @fig-tx-state-length decompose the transmission sample across states. The left figure shows which states have the most projects; the right shows which states have the longest median line lengths. The two pictures are related but distinct — states with many projects are not necessarily those with the longest lines.
+
+::: {layout-ncol=2}
+```{r}
+#| label: fig-tx-state-n
+#| fig-cap: "Number of strict clean energy transmission projects per state, colored by census region."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_state_n.png"))
+```
+
+```{r}
+#| label: fig-tx-state-length
+#| fig-cap: "Median extracted line length (miles) per state. Labels show project count. Colored by census region."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_state_length.png"))
+```
+:::
+
+---
+
+## Project Action Type
+
+The `project_transmission_action` field classifies projects by their primary activity — whether the project is constructing new infrastructure, upgrading existing lines, renewing rights-of-way, or other activities. @tbl-tx-action summarizes the breakdown, and @fig-tx-action-pair shows how both line length and NEPA duration vary by action type.
+
+Upgrades and equipment replacements are by far the most common activity (59 projects), reflecting the active maintenance and reconductoring of the existing transmission network. Projects classified as "mixed" — matching multiple action-type signals — are also common (50 projects), suggesting many projects involve both construction and renewal elements. Purely new-build projects are rare (5 projects), which is notable given the focus on transmission expansion in clean energy policy discussions.
+
+New builds have the longest median NEPA duration (65 days), while acquisitions and renewals are often resolved very quickly. Fiber optic projects show the longest median line lengths (78 miles), reflecting their spanning nature.
+
+```{r}
+#| label: tbl-tx-action
+#| tbl-cap: "Transmission projects by action type, with median line length and NEPA duration."
+
+read_csv(file.path(d6_tables, "table_transmission_action.csv"), show_col_types = FALSE) %>%
+  mutate(action = str_to_title(str_replace_all(action, "_", " "))) %>%
+  gt() %>%
+  cols_label(
+    action               = "Action type",
+    n_projects           = "Projects",
+    median_length_miles  = "Median length (mi)",
+    median_duration_days = "Median duration (days)"
+  ) %>%
+  cols_align(align = "left",  columns = action) %>%
+  cols_align(align = "right", columns = where(is.numeric)) %>%
+  fmt_number(columns = where(is.numeric), decimals = 1, use_seps = TRUE) %>%
+  fmt_integer(columns = n_projects) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_footnote(
+    footnote = "Mixed = project text matched multiple action-type signals. Projects with no detectable action type are excluded."
+  ) %>%
+  tab_options(table.font.size = px(13), data_row.padding = px(6))
+```
+
+::: {layout-ncol=2}
+```{r}
+#| label: fig-tx-length-by-action
+#| fig-cap: "Transmission line length by project action type. Boxes show IQR; points are individual projects colored by action type."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action.png"))
+```
+
+```{r}
+#| label: fig-tx-duration-by-action
+#| fig-cap: "NEPA duration by project action type. Ordered by median duration. New builds take the longest; acquisitions and renewals resolve fastest."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_action.png"))
+```
+:::
+
+---
+
+## Length vs. NEPA Duration
+
+@fig-tx-scatter plots each project's extracted line length against its NEPA duration, colored by action type. The grey trend line represents the overall linear relationship. While there is a positive association — longer lines tend to have longer reviews — the correlation is modest, and many short projects still take substantial time. Upgrade projects (teal) are distributed throughout the length range, while new builds (dark blue) and fiber optic projects are concentrated at intermediate lengths.
+
+```{r}
+#| label: fig-tx-scatter
+#| fig-cap: "Transmission line length vs. NEPA duration. Points colored by action type; grey line shows overall linear trend with Pearson r shown in subtitle."
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_vs_duration.png"))
+```
+
+---
+
+## Regional Duration Patterns
+
+@fig-tx-region compares NEPA review durations across the four census regions. Durations are capped at 1,000 days to improve readability; a small number of projects with extremely long reviews are not shown. While medians are similar across regions, the distribution width and upper tail vary — the West tends to show more spread, reflecting both large-scale infrastructure reviews and rapid categorical exclusion decisions for smaller projects.
+
+```{r}
+#| label: fig-tx-region
+#| fig-cap: "NEPA duration by census region (capped at 1,000 days). Boxes show IQR; points are individual projects."
+#| out-width: "85%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_region.png"))
+```
+
+---
+
+# Geothermal Energy
+
+::: {.callout-note}
+## Key Findings
+
+- **914 geothermal NEPA actions** are present in the dataset, spanning exploration, drilling, plant construction, and multi-phase projects.
+- **Phase classification is incomplete**: half of all geothermal projects (50%) cannot be assigned to a phase from available text, highlighting a data limitation.
+- **Drilling is the most common identifiable phase** (197 projects, 22% of all), followed by multi-phase (130, 14%).
+- **Exploration and multi-phase projects take the longest** on a median basis (20–21 days), while drilling reviews are often resolved very quickly (median 4 days). This likely reflects that drilling is frequently categorically excluded.
+- **Within-project sequencing** shows that some geothermal developments span multi-year permitting sequences, with individual NEPA actions separated by years as projects progress from exploration wells to full plant construction.
+:::
+
+## Overview
+
+The deliverable 6 geothermal analysis asks: do NEPA review timelines differ meaningfully across phases of geothermal development? Geothermal projects are unique in that a single physical development typically triggers multiple sequential NEPA actions — one for exploration drilling, one or more for production well programs, and a final review for the power plant. This analysis uses normalized project title keys to group related NEPA actions and examines timeline patterns by phase.
+
+```{r}
+#| label: tbl-geo-phase-dist
+#| tbl-cap: "Distribution of geothermal NEPA actions by classified phase."
+
+read_csv(file.path(d6_tables, "table_geothermal_phase_distribution.csv"), show_col_types = FALSE) %>%
+  mutate(
+    geothermal_phase = str_to_title(str_replace_all(geothermal_phase, "_", " ")),
+    share = round(share * 100, 1)
+  ) %>%
+  gt() %>%
+  cols_label(
+    geothermal_phase = "Phase",
+    n_projects       = "Projects",
+    share            = "Share (%)"
+  ) %>%
+  cols_align(align = "left",  columns = geothermal_phase) %>%
+  cols_align(align = "right", columns = where(is.numeric)) %>%
+  fmt_integer(columns = n_projects) %>%
+  fmt_number(columns = share, decimals = 1) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_footnote(
+    footnote = "Phase classification is derived from project title and description text. 'Unknown' indicates no phase signal was found."
+  ) %>%
+  tab_options(table.font.size = px(13), data_row.padding = px(6))
+```
+
+---
+
+## NEPA Duration by Phase
+
+@fig-geo-box shows the distribution of NEPA review duration for each geothermal phase among projects with calculable timelines. Drilling-phase projects tend to be reviewed very quickly (median 4 days) — consistent with the widespread use of categorical exclusions for well drilling on established geothermal fields. Exploration and multi-phase projects involve broader environmental analysis and take longer on median, with considerably wider interquartile ranges.
+
+```{r}
+#| label: fig-geo-box
+#| fig-cap: "NEPA review duration by geothermal project phase. Drilling phases are frequently categorical exclusions and resolve quickly; exploration and multi-phase reviews take considerably longer."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_duration_boxplot.png"))
+```
+
+```{r}
+#| label: tbl-geo-phase-timeline
+#| tbl-cap: "NEPA review duration statistics by geothermal phase, restricted to projects with calculable timelines."
+
+read_csv(file.path(d6_tables, "table_geothermal_phase_timeline.csv"), show_col_types = FALSE) %>%
+  mutate(geothermal_phase = str_to_title(str_replace_all(geothermal_phase, "_", " "))) %>%
+  gt() %>%
+  cols_label(
+    geothermal_phase     = "Phase",
+    n_projects           = "N (with duration)",
+    median_duration_days = "Median (days)",
+    p25_duration_days    = "P25 (days)",
+    p75_duration_days    = "P75 (days)"
+  ) %>%
+  cols_align(align = "left",  columns = geothermal_phase) %>%
+  cols_align(align = "right", columns = where(is.numeric)) %>%
+  fmt_number(columns = where(is.numeric), decimals = 1, use_seps = TRUE) %>%
+  fmt_integer(columns = n_projects) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(table.font.size = px(13), data_row.padding = px(6))
+```
+
+---
+
+## Within-Project Sequencing
+
+@fig-geo-sequence visualizes the temporal sequencing of NEPA actions within individual geothermal development projects. Each horizontal segment represents one NEPA review (initiation to decision date); rows are grouped by inferred project identity (normalized title key). Projects with multiple NEPA actions are shown, revealing the multi-year permitting timelines that characterize full geothermal development cycles — exploration wells, production well programs, and plant construction can each require separate reviews separated by years.
+
+```{r}
+#| label: fig-geo-sequence
+#| fig-cap: "Timeline segments for geothermal projects with multiple NEPA actions. Each segment represents one NEPA review; rows share a project identity derived from normalized titles. Color indicates phase. Only projects with 2+ actions and complete timeline dates are shown (top 250 by action count)."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_within_project_sequence.png"))
+```
+
+---
+
+# Carbon and Hydrogen Pipelines
+
+::: {.callout-note}
+## Key Findings
+
+- **Sample sizes are very small**: only 8 carbon pipeline projects and 4 hydrogen pipeline projects were identified, limiting the strength of any conclusions.
+- **Carbon pipelines show dramatically longer NEPA reviews** than natural gas pipelines (median 624 days vs. 72 days) — but this must be interpreted cautiously given the n=8 sample. Carbon capture infrastructure is novel and may face greater regulatory scrutiny.
+- **Hydrogen pipeline NEPA reviews are fast** (median 15 days, n=4), suggesting these are currently small-scale or categorically excluded.
+- **Length data is sparse**: only 2 of 8 carbon pipeline projects have extractable length figures, and no hydrogen pipeline projects yielded a usable length. Natural gas pipelines fare better (52% coverage) but still have substantial gaps.
+- These results are **preliminary** and should be treated as descriptive rather than conclusive given the small samples.
+:::
+
+## Overview
+
+The deliverable 6 pipeline analysis compares carbon capture and hydrogen pipeline NEPA timelines to natural gas pipelines used as a baseline. This addresses the question: are emerging pipeline technologies subject to longer or more complex NEPA reviews than established natural gas infrastructure?
+
+```{r}
+#| label: tbl-pipe-summary
+#| tbl-cap: "Pipeline project summary by technology group. Length extraction coverage reflects the share of projects with usable extracted length figures."
+
+read_csv(file.path(d6_tables, "table_pipeline_group_summary.csv"), show_col_types = FALSE) %>%
+  mutate(pct_with_length = round(pct_with_length * 100, 1)) %>%
+  gt() %>%
+  cols_label(
+    pipeline_group       = "Pipeline type",
+    n_projects           = "Projects",
+    n_with_length        = "With length",
+    pct_with_length      = "Length coverage (%)",
+    n_with_duration      = "With duration",
+    median_length_miles  = "Median length (mi)",
+    median_duration_days = "Median duration (days)"
+  ) %>%
+  cols_align(align = "left",  columns = pipeline_group) %>%
+  cols_align(align = "right", columns = where(is.numeric)) %>%
+  fmt_number(columns = c(median_length_miles, median_duration_days, pct_with_length),
+             decimals = 1, use_seps = TRUE) %>%
+  fmt_integer(columns = c(n_projects, n_with_length, n_with_duration)) %>%
+  sub_missing(missing_text = "—") %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_footnote(
+    footnote = "'Other pipeline' captures pipeline projects that did not match carbon, hydrogen, or natural gas classifiers."
+  ) %>%
+  tab_options(table.font.size = px(13), data_row.padding = px(6))
+```
+
+---
+
+## Timeline Duration by Pipeline Type
+
+@fig-pipe-duration compares NEPA review durations across pipeline technology groups. Carbon pipelines show a notably wide distribution centered well above the natural gas baseline, though the small sample (n=8, only 2 with duration data) prevents firm conclusions. The natural gas pipeline group provides the most reliable baseline (21 projects, 13 with duration).
+
+```{r}
+#| label: fig-pipe-duration
+#| fig-cap: "NEPA review duration by pipeline technology group. Carbon pipelines show a higher median than natural gas; hydrogen pipelines resolve quickly. Very small sample sizes for carbon and hydrogen — interpret with caution."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_pipeline_duration_by_group.png"))
+```
+
+---
+
+## Pipeline Length vs. NEPA Duration
+
+@fig-pipe-scatter plots pipeline length against NEPA duration, with separate trend lines per group. The relationship is noisy across all groups. Note that hydrogen pipelines are absent from this plot (no projects with both length and duration data), and carbon pipeline coverage is minimal (2 data points). The natural gas trend line, based on 11 projects, provides the most informative reference.
+
+```{r}
+#| label: fig-pipe-scatter
+#| fig-cap: "Pipeline length vs. NEPA duration by technology group. Points colored by pipeline type; lines show per-group linear trends. Very limited data for carbon and hydrogen pipelines."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_pipeline_length_vs_duration.png"))
+```
+
+---
+
+# Caveats and Limitations
+
+::: {.callout-warning}
+## Important Considerations
+
+**Transmission:**
+
+- **Length extraction**: Lengths are extracted by regex from project descriptions and adjudicated by LLM for ambiguous cases. Some lengths may reflect segments, rights-of-way widths, or other non-linear measures misidentified as line lengths.
+- **Strict classification**: Projects are only counted if they have both a type tag and explicit build-related language plus a non-trivial length. This likely undercounts purely administrative or renewal-only actions.
+- **Action type completeness**: ~15% of strict transmission projects could not be assigned an action type; these are excluded from action-type figures.
+- **Short median duration**: The 38.5-day median reflects that many short-segment projects are processed as categorical exclusions. This does not reflect the full range of transmission permitting complexity.
+
+**Geothermal:**
+
+- **Phase detection**: Half of geothermal projects have unknown phase, limiting phase-specific conclusions. Phase classification relies on title/description text and will miss projects that use non-standard terminology.
+- **Project key matching**: Within-project grouping uses normalized title keys, which may merge unrelated projects with similar names or split a single project whose titles vary across actions.
+
+**Pipelines:**
+
+- **Small sample**: With only 8 carbon and 4 hydrogen pipeline projects, all pipeline comparisons are highly sensitive to individual project characteristics. These findings should be treated as exploratory.
+- **Length coverage**: Most pipeline projects lack extractable length figures, making length-based comparisons unreliable.
+- **Natural gas baseline**: The natural gas pipeline group (n=21) includes projects of varying scale and type and may not be directly comparable to novel CCS or hydrogen infrastructure.
+:::
+
+---
+
+*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
