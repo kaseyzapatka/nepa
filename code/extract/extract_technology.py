@@ -1279,10 +1279,15 @@ def run_cli(args: argparse.Namespace) -> None:
     print(f"Saved: {out_path}")
 
     if "transmission" in targets and "project_is_transmission" in updated.columns:
-        n_tx = int(updated["project_is_transmission"].fillna(False).sum())
-        n_multi = int((updated["project_transmission_length_distinct_candidate_count"].fillna(0) >= 2).sum())
-        print(f"Transmission strict projects: {n_tx:,}")
-        print(f"Transmission rows with multi distinct candidates: {n_multi:,}")
+        clean = updated[updated.get("project_energy_type", pd.Series("", index=updated.index)) == "Clean"] \
+            if "project_energy_type" in updated.columns else updated
+        n_tx = int(clean["project_is_transmission"].fillna(False).sum())
+        n_llm_trigger = int(
+            clean.loc[clean["project_is_transmission"].fillna(False),
+                      "project_transmission_length_llm_trigger"].fillna(False).sum()
+        )
+        print(f"Clean energy strict transmission projects: {n_tx:,}")
+        print(f"  of which need LLM adjudication (2+ distinct candidates): {n_llm_trigger:,}")
 
 
 if __name__ == "__main__":
