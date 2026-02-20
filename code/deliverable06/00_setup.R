@@ -123,8 +123,7 @@ tech_cols <- c(
   "project_transmission_length_miles",
   "project_transmission_length_confidence",
   "project_transmission_length_source_text",
-  "project_transmission_action_type",
-  "project_transmission_has_mixed_action_types",
+  "project_transmission_action",
   "project_transmission_new_build_miles",
   "project_transmission_upgrade_miles",
   "project_is_transmission_maintenance",
@@ -226,7 +225,6 @@ add_deliv6_fallback_features <- function(df) {
     "project_has_transmission_build_text",
     "project_transmission_length_llm_trigger",
     "project_transmission_length_llm_used",
-    "project_transmission_has_mixed_action_types",
     "project_is_transmission_maintenance"
   )
   numeric_cols <- c(
@@ -244,7 +242,7 @@ add_deliv6_fallback_features <- function(df) {
     "project_pipeline_group",
     "project_transmission_length_confidence",
     "project_transmission_length_source_text",
-    "project_transmission_action_type",
+    "project_transmission_action",
     "project_pipeline_length_confidence",
     "project_pipeline_length_source_text",
     "project_transmission_length_candidates_json",

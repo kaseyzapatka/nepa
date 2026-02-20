@@ -43,7 +43,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from extract.classify_energy import add_energy_columns
 from extract.parse_location import add_location_columns
-from extract.extract_technology import add_technology_columns as add_technology_columns_v2
+# Technology-specific extraction is handled separately by:
+#   python code/extract/extract_technology.py --run all
+# Run that after extract_data.py to add transmission/geothermal/pipeline columns.
 import json
 
 pd.set_option('display.max_columns', None)
@@ -472,9 +474,8 @@ def add_multi_value_flags(df):
 # --------------------------
 # TECHNOLOGY-SPECIFIC FEATURES
 # --------------------------
-# Technology extraction logic lives in:
-#   code/extract/extract_technology.py
-# and is imported as add_technology_columns_v2.
+# Handled separately — run after this script:
+#   python code/extract/extract_technology.py --run all
 
 
 # --------------------------
@@ -1103,10 +1104,6 @@ def create_combined_projects():
     # Add multi-value flags (multi-state, multi-county, multi-department)
     print("Adding multi-value flags...")
     combined = add_multi_value_flags(combined)
-
-    # Add technology-specific flags and linear-feature lengths
-    print("Adding technology-specific features...")
-    combined = add_technology_columns_v2(combined, run="all", use_llm=False)
 
     # Add document flags (requires loading documents)
     print("Adding document type flags...")

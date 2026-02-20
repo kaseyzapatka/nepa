@@ -154,3 +154,32 @@ Rationale: many current failures are upstream candidate/filter issues; switching
 - `code/extract/extract_data.py`
 - `code/deliverable06/01_transmission.R`
 - `tmp/d6_transmission_user_review_ids_diagnostics.csv`
+
+## Follow-up Inspection Queue (User-Requested)
+
+Projects to explicitly inspect in the next QA pass:
+
+- `ff089bb4-8710-815b-7eac-d3e94c6b4e49`
+  - Label to verify: example of LLM getting it right.
+- `baa1b870-24af-1703-22ae-cd0120271f40`
+  - Label to verify: example of LLM getting it right.
+- `7094a354-0fee-062a-2d26-5e96f85ed60d`
+  - Label to verify: example of LLM getting it right.
+- `09299b10-2b00-47bc-9dd1-bb93cc27f659`
+  - Label to verify: maintenance (uses "conduct routine road maintenance").
+- `1aff267e-235b-abb2-347a-92d3ff989575`
+  - Label to verify: maintenance (uses "herbicide application on incompatible vegetation").
+- `284f25aa-e022-7781-51c0-d338390aa866`
+  - Label to verify: maintenance (uses "road maintenance").
+- `3fbe2462-7af6-4c8f-5613-90e8dc9bcc7c`
+  - Label to verify: maintenance (uses "crews will survey and inspect vegetation along").
+- `02827ece-5b58-b374-1150-f3c0718f81c8`
+  - Label to verify: maintenance (uses "perform routine maintenance").
+- `091946ad-d76a-c6e5-985b-b6090db23fe9`
+  - Label to verify: upgrade (uses "replacement project").
+- `0dfa9f0c-9b67-2669-cece-74de2002eac3`
+  - Label to verify: upgrade (uses "Replacement" in context).
+- `29b57e84-b5ea-e75b-2a63-7b08fc3a1d90`
+  - Label to verify: upgrade (uses "proposes to replace").
+- `f07667a4-97d1-255d-7710-924e15acc5b3`
+  - Label to verify: new_build (uses "proposing to construct").

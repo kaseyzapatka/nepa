@@ -102,30 +102,77 @@ CANDIDATE_BUILD_VERB_RE = re.compile(
     re.IGNORECASE,
 )
 
-# ----- Action type classification regexes -----
-# These operate on a candidate's source sentence to identify what kind of work is described.
+# ----- Project-level action type classification regexes -----
+# Applied to full project text (title + description) to classify the primary action.
+# Categories: new_build | upgrade | maintenance | fiber_optic | renewal | acquisition
 
-_TX_NEW_BUILD_RE = re.compile(
-    r"\b(new build|new double.circuit|new single.circuit|new construction"
-    r"|new transmission line|new overhead|new underground"
-    r"|new \d{2,4}\s*-?\s*k\s?v)"
-    r"|\bconstruct(?:ion)? of (?:a |the |new )?(?:\d[\d,.]* ?(?:mile|mi|km)s? (?:of )?)?(?:new )?(?:transmission|power.?line)",
+_TX_ACT_NEW_BUILD_RE = re.compile(
+    # Require explicitly "new" infrastructure — avoid matching "construction" alone
+    # because renewal/upgrade/acquisition projects also use "permit to construct" boilerplate.
+    r"\b(?:new\s+(?:transmission\s+)?line|new\s+double.circuit|new\s+single.circuit"
+    r"|new\s+substation|new\s+support\s+structure|new\s+overhead|new\s+underground"
+    r"|substation\s+construction|construct(?:ion|ing|ed)?\s+of\s+(?:a\s+|the\s+)?new"
+    r"|build(?:ing)?\s+(?:a\s+|the\s+)?new"
+    r"|switchyard|tap\s+line|tie\s+line|interconnection)\b",
     re.IGNORECASE,
 )
-_TX_UPGRADE_RE = re.compile(
-    r"\b(upgrad(?:e|ed|ing|es)|upgrade section|reconductor(?:ing|ed)?)\b"
-    r"|existing.*\bupgrad(?:e|ed|ing)\b"
-    r"|\bupgrad(?:e|ed|ing)\b.*existing"
-    r"|\brebuild(?:ing|s)?\b|\brebuilt\b|\breconstruct(?:ion|ed|ing)?\b",
+_TX_ACT_UPGRADE_RE = re.compile(
+    r"\b(?:replac(?:e|es|ed|ing|ement)|rebuild(?:ing|s|t)?|reconductor(?:ing|ed)?"
+    r"|upgrad(?:e|es|ed|ing)|reconstruct(?:ion|ed|ing)?"
+    r"|component\s+replacement|structure\s+replacement|hardware\s+replacement"
+    r"|crossarm|insulator|shield\s+wire|spacer.damper)\b",
     re.IGNORECASE,
 )
-_TX_RENEWAL_RE = re.compile(
-    r"\b(renew(?:al|ed|ing|s)?|re.licens(?:e|ing)|existing right.of.way"
-    r"|existing (?:grant|permit|easement|authorization)|re.authoriz(?:e|ation|ing))\b",
+# Narrow on purpose: road/vegetation/herbicide are in TRANSMISSION_MAINTENANCE_RE (exclusion filter).
+# This only labels on-line structural maintenance in projects that pass the exclusion filter.
+_TX_ACT_MAINTENANCE_RE = re.compile(
+    r"\b(?:hazard\s+tree|structure\s+inspection|line\s+inspection"
+    r"|routine\s+inspection|pole\s+inspection|tower\s+inspection)\b",
     re.IGNORECASE,
 )
-_TX_RELOCATION_RE = re.compile(
-    r"\b(relocat(?:e|ed|ion|ing)|realign(?:ment|ed|ing)?|re.rout(?:e|ed|ing))\b",
+_TX_ACT_FIBER_OPTIC_RE = re.compile(
+    r"\b(?:fiber\s+optic|opgw|optical\s+ground\s+wire|replace\s+ogw"
+    r"|overhead\s+fiber|fiber\s+cable|fiber\s+poles|telecom(?:munication)?"
+    r"|communication\s+facilit(?:y|ies)|vault)\b",
+    re.IGNORECASE,
+)
+_TX_ACT_RENEWAL_RE = re.compile(
+    # Require ROW/authorization context — bare "renewal" fires too broadly on upgrade projects
+    r"\b(?:right.of.way\s+(?:grant|renewal|application|amendment)"
+    r"|row\s+(?:grant|renewal|application|amendment)"
+    r"|re.authoriz(?:e|ation|ing)|re.licens(?:e|ing)"
+    r"|short.term\s+row|row\s+expires|issued\s+in\s+\d{4})\b",
+    re.IGNORECASE,
+)
+_TX_ACT_ACQUISITION_RE = re.compile(
+    # "easement rights" removed — appears in nearly every transmission project description.
+    # Keep only explicit acquisition/transfer actions.
+    r"\b(?:acqui(?:re|res|red|ring|sition)|disposition|dispos(?:e|al)"
+    r"|convey(?:ance|ed|ing)?|transfer\s+of\s+(?:easement|land|property|ownership))\b",
+    re.IGNORECASE,
+)
+
+_TX_ACTION_REGEXES: List[Tuple[str, re.Pattern]] = [
+    ("new_build",   _TX_ACT_NEW_BUILD_RE),
+    ("upgrade",     _TX_ACT_UPGRADE_RE),
+    ("maintenance", _TX_ACT_MAINTENANCE_RE),
+    ("fiber_optic", _TX_ACT_FIBER_OPTIC_RE),
+    ("renewal",     _TX_ACT_RENEWAL_RE),
+    ("acquisition", _TX_ACT_ACQUISITION_RE),
+]
+
+# Per-candidate regexes (subset) — used only to split mileage by new_build vs upgrade.
+# Deliberately broader than the project-level regexes to catch sentence-level cues.
+_TX_CAND_NEW_BUILD_RE = re.compile(
+    r"\b(?:new\s+(?:transmission\s+)?line|new\s+double.circuit|new\s+single.circuit"
+    r"|new\s+substation|switchyard|tap\s+line|tie\s+line|interconnection"
+    r"|new\s+overhead|new\s+underground)"
+    r"|\bconstruct(?:ion)?\s+of\s+(?:a\s+|the\s+|new\s+)?(?:\d[\d,.]*\s*(?:mile|mi|km)s?\s+(?:of\s+)?)?(?:new\s+)?(?:transmission|power.?line)",
+    re.IGNORECASE,
+)
+_TX_CAND_UPGRADE_RE = re.compile(
+    r"\b(?:upgrad(?:e|ed|ing|es)|reconductor(?:ing|ed)?|rebuild(?:ing|s|t)?|rebuilt"
+    r"|reconstruct(?:ion|ed|ing)?|replac(?:e|es|ed|ing|ement)|crossarm|insulator|shield\s+wire)\b",
     re.IGNORECASE,
 )
 
@@ -802,32 +849,30 @@ def _adjudicate_transmission_length(
     )
 
 
-def _classify_transmission_action(sentence: str) -> str:
+def _classify_project_transmission_action(text: str) -> str:
     """
-    Classify the action type described in a candidate sentence.
+    Classify the primary action type from full project title+description text.
 
-    Returns one of: new_build | upgrade | renewal | relocation | mixed | unknown.
-    Applied per-candidate after extraction, stored in candidate_action_type.
+    Returns: new_build | upgrade | maintenance | fiber_optic | renewal | acquisition | mixed | unknown
+    Applied at the project level; stored in project_transmission_action.
     """
-    hits = []
-    if _TX_NEW_BUILD_RE.search(sentence):   hits.append("new_build")
-    if _TX_UPGRADE_RE.search(sentence):     hits.append("upgrade")
-    if _TX_RENEWAL_RE.search(sentence):     hits.append("renewal")
-    if _TX_RELOCATION_RE.search(sentence):  hits.append("relocation")
+    hits = [label for label, rx in _TX_ACTION_REGEXES if rx.search(text or "")]
     if len(hits) == 0:  return "unknown"
     if len(hits) == 1:  return hits[0]
     return "mixed"
 
 
-def _selected_action_type(candidates: List[Dict], selected_ids: List[str]) -> str:
-    """Return the action type of the selected candidate(s), or 'unknown'."""
-    selected = [c for c in candidates if c.get("candidate_id") in selected_ids]
-    if not selected:
-        selected = candidates
-    types = {c.get("candidate_action_type", "unknown") for c in selected} - {"unknown"}
-    if not types:   return "unknown"
-    if len(types) == 1: return next(iter(types))
-    return "mixed"
+def _classify_candidate_action(sentence: str) -> str:
+    """
+    Classify the action type from a single candidate sentence (new_build or upgrade only).
+    Used to split mileage into project_transmission_new_build_miles / upgrade_miles.
+    """
+    is_new = bool(_TX_CAND_NEW_BUILD_RE.search(sentence))
+    is_upg = bool(_TX_CAND_UPGRADE_RE.search(sentence))
+    if is_new and is_upg:   return "mixed"
+    if is_new:              return "new_build"
+    if is_upg:              return "upgrade"
+    return "unknown"
 
 
 def _miles_by_action(candidates: List[Dict], action: str) -> float:
@@ -913,10 +958,10 @@ def _add_transmission_columns(
         else:
             candidates.append([])
 
-    # Classify action type on each candidate sentence (transmission-specific).
+    # Classify action type on each candidate sentence — used only for mileage split.
     for cand_list in candidates:
         for c in cand_list:
-            c["candidate_action_type"] = _classify_transmission_action(c["source_text"])
+            c["candidate_action_type"] = _classify_candidate_action(c["source_text"])
 
     # Adjudicate lengths in parallel (workers > 1 speeds up the LLM calls).
     n_skipped = n_broad - n_active
@@ -975,16 +1020,9 @@ def _add_transmission_columns(
     out["project_transmission_length_confidence"] = [a.confidence for a in adjudications]
     out["project_transmission_length_source_text"] = [a.source_text for a in adjudications]
 
-    # Action type: what kind of work is described for the selected length candidate.
-    out["project_transmission_action_type"] = [
-        _selected_action_type(cands, adj.selected_candidate_ids)
-        for cands, adj in zip(candidates, adjudications)
-    ]
-    # True when the project has both new_build and upgrade candidates (mixed projects).
-    out["project_transmission_has_mixed_action_types"] = [
-        any(c.get("candidate_action_type") == "new_build" for c in cands)
-        and any(c.get("candidate_action_type") == "upgrade" for c in cands)
-        for cands in candidates
+    # Project-level action type from full title+description text.
+    out["project_transmission_action"] = [
+        _classify_project_transmission_action(txt) for txt in context_text.tolist()
     ]
     # Separate mileage by action type (NaN when no candidates of that type exist).
     out["project_transmission_new_build_miles"] = [_miles_by_action(cands, "new_build") for cands in candidates]
@@ -1005,8 +1043,7 @@ def _add_transmission_columns(
     out.loc[non_broad, "project_transmission_length_llm_status"] = "not_triggered"
     out.loc[non_broad, "project_transmission_length_llm_reasoning"] = ""
     out.loc[non_broad, "project_transmission_length_candidates_json"] = "[]"
-    out.loc[non_broad, "project_transmission_action_type"] = "none"
-    out.loc[non_broad, "project_transmission_has_mixed_action_types"] = False
+    out.loc[non_broad, "project_transmission_action"] = "none"
     out.loc[non_broad, "project_transmission_new_build_miles"] = np.nan
     out.loc[non_broad, "project_transmission_upgrade_miles"] = np.nan
 

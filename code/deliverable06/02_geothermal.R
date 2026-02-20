@@ -22,6 +22,17 @@ analysis <- prepare_deliverable6_data() %>%
 
 cat("Geothermal projects:", nrow(analysis), "\n")
 
+
+# --------------------------
+# EXPLORATORY
+# --------------------------
+analysis |> 
+  select(dataset_source) |> 
+  group_by(dataset_source) |> 
+  count() |> 
+  glimpse()
+
+
 # --------------------------
 # TABLES
 # --------------------------
