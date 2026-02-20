@@ -33,12 +33,65 @@ import requests
 OLLAMA_URL = "http://localhost:11434/api/generate"
 DEFAULT_LLM_MODEL = "llama3.2:3b-instruct-q4_K_M"
 
+CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
+CLAUDE_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+
 MILES_RE = re.compile(r"(?<![a-z0-9])(\d{1,4}(?:,\d{3})*(?:\.\d+)?)\s*(mile|miles|mi)\b", re.IGNORECASE)
 FEET_RE = re.compile(r"(?<![a-z0-9])(\d{1,6}(?:,\d{3})*(?:\.\d+)?)\s*(foot|feet|ft)\b", re.IGNORECASE)
 
 # Matches width-context words that indicate a feet value is ROW/easement width, not line length.
 WIDTH_CONTEXT_RE = re.compile(
     r"\b(wide|width|in\s+width|corridor\s+width|easement\s+width|right.of.way\s+width)\b",
+    re.IGNORECASE,
+)
+
+# Matches when a mile value is immediately followed by a cardinal direction,
+# indicating a geographic distance ("26 miles north of Helena"), not a line length.
+# Applied to the text AFTER the miles match.
+LOCATION_DIRECTION_RE = re.compile(
+    r"^\s*(?:north|south|east|west|northeast|northwest|southeast|southwest)\b",
+    re.IGNORECASE,
+)
+
+# Matches sentences with explicit total-length language ("11.7 miles long").
+# Candidates in such sentences get a +2 hint_score bonus.
+TOTAL_LENGTH_RE = re.compile(
+    r"\b(?:miles?\s+long|miles?\s+in\s+length|total\s+(?:length|distance)\s+of"
+    r"|overall\s+length|would\s+be\s+\d[\d,.]*\s*miles?)\b",
+    re.IGNORECASE,
+)
+
+# Matches context indicating a mile value is a partial land-crossing extent,
+# not the total line length ("cross public lands for 4.7 miles", "1.61 miles on public land").
+# Two directional regexes to detect partial land-crossing extent around a miles match.
+# Applied separately to text BEFORE and AFTER the match to avoid false positives
+# (e.g., "3.14 miles of this powerline, where it crosses federal lands" is NOT a partial crossing
+# because the crossing language is not immediately linked to the 3.14 number).
+#
+# BEFORE match: "cross public lands for [X miles]"
+PARTIAL_CROSSING_BEFORE_RE = re.compile(
+    r"cross(?:es|ing)?\s+(?:\w+\s+){0,4}(?:public|federal|BLM|National\s+Forest|state|tribal)\s+lands?\s+for\s*$",
+    re.IGNORECASE,
+)
+# AFTER match: "[X miles] on/of/within public land"
+PARTIAL_CROSSING_AFTER_RE = re.compile(
+    r"^\s*(?:on|of|within|across)\s+(?:public|federal|BLM|state|tribal)\s+lands?\b",
+    re.IGNORECASE,
+)
+
+# Projects matching this are vegetation management / routine maintenance,
+# not infrastructure construction — flagged as project_is_transmission_maintenance.
+TRANSMISSION_MAINTENANCE_RE = re.compile(
+    r"\b(?:"
+    r"vegetation\s+(?:management|inspection|control|removal|clearing|trimming)|"
+    r"integrated\s+vegetation\s+management|"
+    r"weed\s+(?:control|management)|herbicide(?:\s+(?:treatment|application))?|"
+    r"brush\s+(?:clearing|control|management|removal)|"
+    r"tree\s+(?:trimming|removal|cutting)|"
+    r"right.of.way\s+(?:maintenance|mowing|spraying)|"
+    r"routine\s+(?:maintenance|inspection|survey)|"
+    r"road\s+maintenance|dust\s+abatement|reclaim(?:ation)?"
+    r")\b",
     re.IGNORECASE,
 )
 
@@ -181,6 +234,7 @@ class LengthAdjudication:
     llm_trigger: bool
     llm_used: bool
     llm_status: str
+    llm_reasoning: str
 
 
 # --------------------------
@@ -270,11 +324,33 @@ def _extract_length_candidates(text: str, hints: Sequence[str], prefix: str) -> 
 
         sent_has_build = bool(CANDIDATE_BUILD_VERB_RE.search(sent))
 
+        sent_is_total_length = bool(TOTAL_LENGTH_RE.search(sent))
+
         for m in MILES_RE.finditer(sent):
             raw = m.group(1)
             val_mi = float(raw.replace(",", ""))
             if 0 < val_mi <= 5000:
+                # Skip if the miles value is a geographic distance reference
+                # (e.g., "26 miles north of Helena" = location, not line length).
+                after_40 = sent[m.end(): m.end() + 40]
+                if LOCATION_DIRECTION_RE.match(after_40):
+                    continue
+
                 match_start, match_end = m.span()
+
+                # Detect partial land-crossing context linked to this match.
+                # Check text before for "crosses public lands for [X miles]"
+                # and text after for "[X miles] on/of/within public land".
+                before_80 = sent[max(0, m.start() - 80): m.start()]
+                after_80 = sent[m.end(): min(len(sent), m.end() + 80)]
+                is_partial_crossing = (
+                    bool(PARTIAL_CROSSING_BEFORE_RE.search(before_80))
+                    or bool(PARTIAL_CROSSING_AFTER_RE.match(after_80))
+                )
+
+                # Bonus for sentences with explicit total-length language ("X miles long").
+                total_bonus = 2 if sent_is_total_length else 0
+
                 candidates.append(
                     {
                         "candidate_id": f"{prefix}_{cid:04d}",
@@ -284,9 +360,10 @@ def _extract_length_candidates(text: str, hints: Sequence[str], prefix: str) -> 
                         "matched_text": m.group(0),
                         "raw_unit": m.group(2).lower(),
                         "unit_normalized": "miles",
-                        "hint_score": hint_score + 2,
+                        "hint_score": hint_score + 2 + total_bonus,
                         "hint_terms": matched_hints,
                         "sentence_has_build_verb": sent_has_build,
+                        "is_partial_crossing": is_partial_crossing,
                         "source_text": _match_snippet(sent, match_start, match_end, max_len=500),
                     }
                 )
@@ -313,6 +390,7 @@ def _extract_length_candidates(text: str, hints: Sequence[str], prefix: str) -> 
                         "hint_score": hint_score + 1,
                         "hint_terms": matched_hints,
                         "sentence_has_build_verb": sent_has_build,
+                        "is_partial_crossing": False,
                         "source_text": _match_snippet(sent, match_start, match_end, max_len=500),
                     }
                 )
@@ -363,51 +441,117 @@ def _best_single_candidate(candidates: List[Dict]) -> Tuple[float, str, str]:
     return best["value_miles"], confidence, best["source_text"]
 
 
+import time as _time
+
+
+def _call_claude_api(prompt: str, model: str, timeout: int, max_retries: int = 3) -> Dict:
+    """
+    Call Claude via the Anthropic messages API (same pattern as extract_timeline.py).
+    Returns a dict with 'response' (str) and 'error' (str|None).
+    """
+    import os
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        return {"response": "", "error": "ANTHROPIC_API_KEY not set"}
+
+    for attempt in range(max_retries):
+        try:
+            resp = requests.post(
+                CLAUDE_API_URL,
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "max_tokens": 200,
+                    "temperature": 0.1,
+                    "messages": [{"role": "user", "content": prompt}],
+                },
+                timeout=timeout,
+            )
+            if resp.status_code == 200:
+                text = resp.json().get("content", [{}])[0].get("text", "")
+                return {"response": text, "error": None}
+            elif resp.status_code == 429:
+                retry_after = int(resp.headers.get("retry-after", 30))
+                _time.sleep(retry_after)
+                continue
+            else:
+                msg = resp.json().get("error", {}).get("message", resp.text[:200])
+                return {"response": "", "error": f"claude_api_error ({resp.status_code}): {msg}"}
+        except requests.exceptions.Timeout:
+            return {"response": "", "error": "claude_timeout"}
+        except Exception as e:
+            return {"response": "", "error": f"claude_error: {e}"}
+
+    return {"response": "", "error": "claude_rate_limit_exhausted"}
+
+
 def _run_llm_transmission_adjudication(
     candidates: List[Dict],
     model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
+    provider: str = "ollama",
 ) -> Dict | None:
     """
-    Use an Ollama LLM to adjudicate among competing transmission line length candidates.
+    Adjudicate among competing transmission line length candidates using an LLM.
 
-    Only called when rule-based adjudication is genuinely ambiguous (llm_trigger=True).
+    Supports provider='ollama' (local Ollama) or provider='anthropic' (Claude Haiku).
     Returns a result dict on success, or None so the caller falls back to rule-based logic.
+    Includes 'reasoning' field so the LLM's logic can be audited.
     """
     nontrivial = [c for c in candidates if c["value_miles"] >= 0.25]
     if not nontrivial:
         return None
 
-    cand_lines = "\n".join(
-        f"[{i + 1}] {c['value_miles']:.2f} miles — \"{c['source_text'][:300]}\""
-        for i, c in enumerate(nontrivial[:8])
-    )
+    cand_lines_parts = []
+    for i, c in enumerate(nontrivial[:8]):
+        label = " [PARTIAL CROSSING — not total length]" if c.get("is_partial_crossing") else ""
+        cand_lines_parts.append(
+            f"[{i + 1}] {c['value_miles']:.2f} miles{label} — \"{c['source_text'][:300]}\""
+        )
+    cand_lines = "\n".join(cand_lines_parts)
 
     prompt = (
         "NEPA transmission line review. Pick the ONE candidate = total length of the proposed line.\n\n"
         f"Candidates:\n{cand_lines}\n\n"
-        "Rules: prefer the line being built/upgraded/installed; ignore existing reference lines, "
-        "ROW widths, or alternatives. If segments sum to a stated total, use the total.\n\n"
-        "Return ONLY valid JSON:\n"
+        "Rules:\n"
+        "1. PREFER candidates whose sentence says 'X miles long' or 'X miles in length' — these are explicit total lengths.\n"
+        "2. IGNORE candidates labeled [PARTIAL CROSSING] — these measure how far the line crosses a land type, not the total length.\n"
+        "3. 'X miles north/south/east/west of [place]' = geographic location, NOT line length — skip it.\n"
+        "4. Prefer the length of the line being built/upgraded/installed, not existing reference lines.\n"
+        "5. If segments clearly add up to a stated total, use the total.\n\n"
+        "Return ONLY valid JSON with these fields:\n"
         "{\"selected_index\": <1-based int>, \"selected_length_miles\": <number>, "
-        "\"confidence\": \"high|medium|low\"}\n\nJSON:"
+        "\"confidence\": \"high|medium|low\", \"reasoning\": \"<one sentence explanation>\"}\n\nJSON:"
     )
 
-    try:
-        resp = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {"temperature": 0.0, "num_predict": 80},
-            },
-            timeout=timeout,
-        )
-        resp.raise_for_status()
-        raw = resp.json().get("response", "")
-    except Exception:
-        return None
+    # --- call LLM (route by provider) ---
+    raw = ""
+    if provider == "anthropic":
+        claude_model = CLAUDE_DEFAULT_MODEL
+        result = _call_claude_api(prompt, model=claude_model, timeout=timeout)
+        if result.get("error"):
+            return None
+        raw = result["response"]
+    else:
+        try:
+            resp = requests.post(
+                OLLAMA_URL,
+                json={
+                    "model": model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.0, "num_predict": 120},
+                },
+                timeout=timeout,
+            )
+            resp.raise_for_status()
+            raw = resp.json().get("response", "")
+        except Exception:
+            return None
 
     try:
         m = re.search(r"\{[^{}]*\}", raw, re.DOTALL)
@@ -427,6 +571,7 @@ def _run_llm_transmission_adjudication(
             "confidence": str(parsed.get("confidence", "medium")),
             "source_text": chosen["source_text"],
             "selected_candidate_ids": [chosen["candidate_id"]],
+            "reasoning": str(parsed.get("reasoning", "")),
         }
     except Exception:
         return None
@@ -438,24 +583,38 @@ def _adjudicate_transmission_length(
     use_llm: bool = False,
     model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
+    provider: str = "ollama",
 ) -> LengthAdjudication:
     groups = _collapse_candidates_by_value(candidates)
     candidate_count = len(candidates)
     distinct_count = len(groups)
 
-    # ------------------------------------------------------------------
-    # LLM trigger: only fire when genuinely ambiguous.
-    # Requires multiple non-trivial (>= 0.25 mi) distinct values with
-    # meaningful spread (> 1.5x) and no clear rule-based winner
-    # (a winner = sole candidate with top hint_score AND a build verb).
-    # ------------------------------------------------------------------
+    # Separate nontrivial groups into full-length and partial-crossing.
+    # Partial-crossing candidates (e.g., "4.7 miles of public land") are
+    # deprioritized when full-length alternatives exist, but kept as the
+    # answer when they are the only option.
     nontrivial = [g for g in groups if g["value_miles"] >= 0.25]
-    if len(nontrivial) >= 2:
-        nt_vals = [g["value_miles"] for g in nontrivial]
+    non_partial_nontrivial = [
+        g for g in nontrivial
+        if not g["best_candidate"].get("is_partial_crossing", False)
+    ]
+    effective_nontrivial = non_partial_nontrivial if non_partial_nontrivial else nontrivial
+
+    # ------------------------------------------------------------------
+    # LLM trigger logic:
+    #   anthropic provider: trigger on ANY row with distinct_count >= 2
+    #     (Claude reads all multi-candidate rows, not just ambiguous ones)
+    #   ollama provider: only fire when genuinely ambiguous among effective
+    #     (non-partial) candidates (spread > 1.5x and no dominant build-verb winner)
+    # ------------------------------------------------------------------
+    if provider == "anthropic":
+        llm_trigger = distinct_count >= 2
+    elif len(effective_nontrivial) >= 2:
+        nt_vals = [g["value_miles"] for g in effective_nontrivial]
         spread = max(nt_vals) / min(nt_vals) if min(nt_vals) > 0 else 1.0
-        top_score = max(g["best_candidate"]["hint_score"] for g in nontrivial)
+        top_score = max(g["best_candidate"]["hint_score"] for g in effective_nontrivial)
         dominant = [
-            g for g in nontrivial
+            g for g in effective_nontrivial
             if g["best_candidate"]["hint_score"] == top_score
             and g["best_candidate"].get("sentence_has_build_verb", False)
         ]
@@ -476,6 +635,7 @@ def _adjudicate_transmission_length(
             llm_trigger=False,
             llm_used=False,
             llm_status="not_triggered",
+            llm_reasoning="",
         )
 
     text_lower = (full_text or "").lower()
@@ -488,7 +648,7 @@ def _adjudicate_transmission_length(
     if llm_trigger and use_llm:
         try:
             llm_result = _run_llm_transmission_adjudication(
-                candidates, model=model, timeout=timeout
+                candidates, model=model, timeout=timeout, provider=provider
             )
             if llm_result:
                 llm_used = True
@@ -512,6 +672,7 @@ def _adjudicate_transmission_length(
             llm_trigger=llm_trigger,
             llm_used=llm_used,
             llm_status=llm_status,
+            llm_reasoning=llm_result.get("reasoning", ""),
         )
 
     if distinct_count <= 1:
@@ -529,6 +690,7 @@ def _adjudicate_transmission_length(
             llm_trigger=llm_trigger,
             llm_used=llm_used,
             llm_status=llm_status,
+            llm_reasoning="",
         )
 
     # Rule order matters: alternatives should not be summed.
@@ -551,6 +713,7 @@ def _adjudicate_transmission_length(
             llm_trigger=llm_trigger,
             llm_used=llm_used,
             llm_status=llm_status,
+            llm_reasoning="",
         )
 
     if has_additive:
@@ -571,12 +734,18 @@ def _adjudicate_transmission_length(
             llm_trigger=llm_trigger,
             llm_used=llm_used,
             llm_status=llm_status,
+            llm_reasoning="",
         )
 
-    # Ambiguous multi-candidate: prefer the sole candidate whose sentence
-    # contains a build verb; fall back to take_max.
+    # Ambiguous multi-candidate: among non-partial (preferred) candidates,
+    # pick the sole one with a build verb; fall back to highest hint_score / take_max.
+    # effective_groups = non-partial groups when available, else all groups.
+    effective_groups = (
+        [g for g in groups if not g["best_candidate"].get("is_partial_crossing", False)]
+        or groups
+    )
     build_candidates = [
-        g["best_candidate"] for g in groups
+        g["best_candidate"] for g in effective_groups
         if g["best_candidate"].get("sentence_has_build_verb", False)
     ]
     if len(build_candidates) == 1:
@@ -584,8 +753,8 @@ def _adjudicate_transmission_length(
         taxonomy = "build_verb_winner"
     else:
         chosen = sorted(
-            (g["best_candidate"] for g in groups),
-            key=lambda x: (x["value_miles"], x["hint_score"]),
+            (g["best_candidate"] for g in effective_groups),
+            key=lambda x: (x["hint_score"], x["value_miles"]),
             reverse=True,
         )[0]
         taxonomy = "take_max"
@@ -603,6 +772,7 @@ def _adjudicate_transmission_length(
         llm_trigger=llm_trigger,
         llm_used=llm_used,
         llm_status=llm_status,
+        llm_reasoning="",
     )
 
 
@@ -679,6 +849,7 @@ def _add_transmission_columns(
     model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
     workers: int = 1,
+    provider: str = "ollama",
 ) -> pd.DataFrame:
     out = df.copy()
     lower_text = full_text.str.lower()
@@ -695,15 +866,23 @@ def _add_transmission_columns(
     )
     out["project_has_transmission_build_text"] = lower_context.str.contains(TRANSMISSION_BUILD_RE)
 
-    # Only extract candidates for broad-transmission rows — skipping the rest
-    # saves significant time on large datasets (60k+ projects).
+    # Flag maintenance projects early — before expensive extraction — so they are
+    # excluded from candidate extraction, adjudication, and the strict definition.
+    out["project_is_transmission_maintenance"] = context_text.str.contains(
+        TRANSMISSION_MAINTENANCE_RE, regex=False
+    ).fillna(False)
+
+    # Only extract candidates for broad, non-maintenance transmission rows.
     is_broad = out["project_is_transmission_broad"].values
+    is_maintenance = out["project_is_transmission_maintenance"].values
+    is_active = is_broad & ~is_maintenance
     n_broad = int(is_broad.sum())
+    n_active = int(is_active.sum())
     texts = full_text.tolist()
 
     candidates: List[List[Dict]] = []
-    for txt, broad in zip(texts, is_broad):
-        if broad:
+    for txt, active in zip(texts, is_active):
+        if active:
             candidates.append(_extract_length_candidates(txt, TRANSMISSION_HINTS, prefix="tx"))
         else:
             candidates.append([])
@@ -714,12 +893,15 @@ def _add_transmission_columns(
             c["candidate_action_type"] = _classify_transmission_action(c["source_text"])
 
     # Adjudicate lengths in parallel (workers > 1 speeds up the LLM calls).
-    print(f"  {len(texts):,} rows | {n_broad:,} broad-transmission | workers={workers}"
-          + (" | LLM on" if use_llm else " | LLM off"))
+    n_skipped = n_broad - n_active
+    provider_label = f"provider={provider}" if use_llm else "LLM off"
+    print(f"  {len(texts):,} rows | {n_broad:,} broad-tx | {n_active:,} active (excl. {n_skipped} maintenance) | workers={workers} | {provider_label}")
 
     def _adjudicate_one(args):
         i, txt, cands = args
-        return i, _adjudicate_transmission_length(txt, cands, use_llm=use_llm, model=model, timeout=timeout)
+        return i, _adjudicate_transmission_length(
+            txt, cands, use_llm=use_llm, model=model, timeout=timeout, provider=provider
+        )
 
     indexed = [(i, txt, cands) for i, (txt, cands) in enumerate(zip(texts, candidates))]
     adjudications_map: Dict[int, LengthAdjudication] = {}
@@ -761,6 +943,7 @@ def _add_transmission_columns(
     out["project_transmission_length_llm_trigger"] = [a.llm_trigger for a in adjudications]
     out["project_transmission_length_llm_used"] = [a.llm_used for a in adjudications]
     out["project_transmission_length_llm_status"] = [a.llm_status for a in adjudications]
+    out["project_transmission_length_llm_reasoning"] = [a.llm_reasoning for a in adjudications]
 
     out["project_transmission_length_miles"] = [a.selected_length_miles for a in adjudications]
     out["project_transmission_length_confidence"] = [a.confidence for a in adjudications]
@@ -794,6 +977,7 @@ def _add_transmission_columns(
     out.loc[non_broad, "project_transmission_length_llm_trigger"] = False
     out.loc[non_broad, "project_transmission_length_llm_used"] = False
     out.loc[non_broad, "project_transmission_length_llm_status"] = "not_triggered"
+    out.loc[non_broad, "project_transmission_length_llm_reasoning"] = ""
     out.loc[non_broad, "project_transmission_length_candidates_json"] = "[]"
     out.loc[non_broad, "project_transmission_action_type"] = "none"
     out.loc[non_broad, "project_transmission_has_mixed_action_types"] = False
@@ -804,6 +988,7 @@ def _add_transmission_columns(
         out["project_has_transmission_type_tag"]
         & out["project_has_transmission_build_text"]
         & (out["project_transmission_length_miles"] >= 1.0)
+        & ~out["project_is_transmission_maintenance"]
     )
     out["project_is_transmission"] = out["project_is_transmission_strict"]
 
@@ -901,6 +1086,7 @@ def add_technology_columns(
     model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
     workers: int = 1,
+    provider: str = "ollama",
 ) -> pd.DataFrame:
     """
     Add technology-specific features to a project dataframe.
@@ -909,8 +1095,10 @@ def add_technology_columns(
         df: project dataframe
         run: one or more of transmission/geothermal/pipeline/all
         use_llm: optional LLM adjudication for multi-candidate transmission rows
-        model: Ollama model name for LLM adjudication
-        timeout: seconds before an Ollama request times out
+        model: Ollama model name for LLM adjudication (ignored when provider='anthropic')
+        timeout: seconds before an LLM request times out
+        workers: parallel workers for adjudication (use 1 for anthropic to respect rate limits)
+        provider: 'ollama' (local) or 'anthropic' (Claude Haiku)
 
     Returns:
         DataFrame with requested technology columns added/updated.
@@ -939,7 +1127,7 @@ def add_technology_columns(
     if "transmission" in targets:
         out = _add_transmission_columns(
             out, full_text, context_text, type_txt,
-            use_llm=use_llm, model=model, timeout=timeout, workers=workers,
+            use_llm=use_llm, model=model, timeout=timeout, workers=workers, provider=provider,
         )
 
     if "geothermal" in targets:
@@ -1001,7 +1189,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--workers",
         type=int,
         default=1,
-        help="Parallel workers for adjudication (default: 1; use 4 to speed up LLM calls)",
+        help="Parallel workers for adjudication (default: 1; use 4 to speed up Ollama calls)",
+    )
+    parser.add_argument(
+        "--provider",
+        default="ollama",
+        choices=["ollama", "anthropic"],
+        help="LLM provider: 'ollama' (local) or 'anthropic' (Claude Haiku). "
+             "Anthropic reads ALL multi-candidate rows; requires ANTHROPIC_API_KEY env var. "
+             "(default: ollama)",
     )
     return parser
 
@@ -1018,11 +1214,18 @@ def run_cli(args: argparse.Namespace) -> None:
     df = pd.read_parquet(in_path)
     print(f"Rows loaded: {len(df):,}")
     print(f"Running targets: {', '.join(targets)}")
-    llm_label = f"on (model={args.model}, timeout={args.timeout}s, workers={args.workers})" if args.use_llm else "off"
+    if args.use_llm:
+        if args.provider == "anthropic":
+            llm_label = f"on (provider=anthropic model={CLAUDE_DEFAULT_MODEL}, timeout={args.timeout}s, workers={args.workers})"
+        else:
+            llm_label = f"on (provider=ollama model={args.model}, timeout={args.timeout}s, workers={args.workers})"
+    else:
+        llm_label = "off"
     print(f"LLM mode: {llm_label}")
 
     updated = add_technology_columns(
-        df, run=targets, use_llm=args.use_llm, model=args.model, timeout=args.timeout, workers=args.workers,
+        df, run=targets, use_llm=args.use_llm, model=args.model,
+        timeout=args.timeout, workers=args.workers, provider=args.provider,
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     updated.to_parquet(out_path, index=False)
