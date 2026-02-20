@@ -14,45 +14,146 @@ max_year <- as.integer(format(Sys.Date(), "%Y"))
 # EXPLORATORY
 # --------------------------
 
-analysis |> 
-  glimpse()
+# Unpack every extracted length candidate to one row per candidate.
+# Use this to audit taxonomies, spot width artifacts, and identify
+# which projects need LLM adjudication before re-running Python extraction.
+tx_candidates <- analysis |>
+  select(
+    project_id,
+    project_transmission_length_miles,
+    project_transmission_length_taxonomy,
+    project_transmission_length_llm_trigger,
+    project_transmission_length_llm_status,
+    project_transmission_length_candidate_count,
+    project_transmission_length_distinct_candidate_count,
+    project_transmission_length_selected_candidate_ids,
+    project_transmission_length_candidates_json
+  ) |>
+  filter(nchar(coalesce(project_transmission_length_candidates_json, "")) > 2) |>
+  mutate(
+    parsed = map(
+      project_transmission_length_candidates_json,
+      ~tryCatch(
+        jsonlite::fromJSON(.x, simplifyDataFrame = TRUE),
+        error = function(e) NULL
+      )
+    )
+  ) |>
+  filter(map_lgl(parsed, ~!is.null(.x) && is.data.frame(.x) && nrow(.x) > 0)) |>
+  unnest(parsed) |>
+  select(-project_transmission_length_candidates_json) |>
+  mutate(
+    selected_ids        = map(project_transmission_length_selected_candidate_ids, safe_fromJSON),
+    is_selected         = map2_lgl(candidate_id, selected_ids, ~.x %in% .y),
+    hint_terms_txt      = map_chr(hint_terms, ~paste(unlist(.x), collapse = ", ")),
+    is_width_artifact   = unit_normalized == "miles_from_feet" & value_miles < 0.25
+  ) |>
+  select(-hint_terms, -selected_ids)
 
+cat("Total candidates:", nrow(tx_candidates), "\n")
+cat("Width artifact candidates:", sum(tx_candidates$is_width_artifact), "\n")
+cat("Projects with llm_trigger=TRUE:", sum(analysis$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
+
+# Taxonomy breakdown across projects
+tx_candidates |>
+  distinct(project_id, project_transmission_length_taxonomy, project_transmission_length_llm_trigger) |>
+  count(project_transmission_length_taxonomy, project_transmission_length_llm_trigger, name = "n_projects") |>
+  arrange(project_transmission_length_taxonomy) |>
+  print()
+
+# Action type distribution across all candidates
+tx_candidates |>
+  count(candidate_action_type, name = "n_candidates") |>
+  arrange(desc(n_candidates)) |>
+  print()
+
+# Spot-check a specific project (Southline: expect new_build=240mi, upgrade=120mi)
+tx_candidates |>
+  filter(project_id == "c87a153c-f0c6-bd71-17e1-7e01ea9816a5") |>
+  select(candidate_id, value_miles, unit_normalized, hint_score,
+         candidate_action_type, sentence_has_build_verb, is_selected, is_width_artifact, source_text) |>
+  print()
+
+# Multi-candidate rows: one row per candidate for projects with 2+ distinct values
+tx_multi_candidates <- tx_candidates |>
+  filter(project_transmission_length_distinct_candidate_count >= 2) |>
+  select(
+    project_id,
+    project_transmission_length_taxonomy,
+    project_transmission_length_llm_trigger,
+    project_transmission_length_llm_status,
+    selected_length_miles = project_transmission_length_miles,
+    candidate_id,
+    candidate_value_miles = value_miles,
+    candidate_action_type,
+    unit_normalized,
+    hint_score,
+    sentence_has_build_verb,
+    is_selected,
+    is_width_artifact,
+    hint_terms_txt,
+    source_text
+  ) |>
+  arrange(project_id, desc(is_selected), desc(hint_score))
+
+# Sample of 'unknown' action type cases for review — used to decide whether
+# to add more regex patterns or accept the unknowns as a residual category.
+tx_unknown_sample <- tx_candidates |>
+  filter(candidate_action_type == "unknown", value_miles >= 0.25) |>
+  slice_sample(n = min(40, n())) |>
+  select(
+    project_id,
+    candidate_value_miles = value_miles,
+    hint_score,
+    sentence_has_build_verb,
+    source_text
+  )
+
+cat("Unknown action type candidates (>= 0.25 mi):",
+    sum(tx_candidates$candidate_action_type == "unknown" & tx_candidates$value_miles >= 0.25), "\n")
+
+sheet_write(
+  data = tx_unknown_sample,
+  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
+  sheet = "tx_action_unknown_sample"
+)
+
+cat("Multi-candidate rows (for review):", nrow(tx_multi_candidates), "\n")
+
+# LLM-trigger projects only (the ones that need adjudication)
+tx_llm_trigger <- tx_candidates |>
+  filter(project_transmission_length_llm_trigger == TRUE) |>
+  arrange(project_id, desc(is_selected), desc(hint_score))
+
+cat("LLM-trigger candidate rows:", nrow(tx_llm_trigger), "\n")
+
+# Write QC sheets for manual review
 transmissions <-
-  analysis |> 
-  select(project_id, project_type, project_description, dataset_source, project_state,bert_initiation_date_final, bert_decision_date_final,
-  project_is_transmission, project_transmission_length_miles, project_transmission_length_confidence,project_transmission_length_source_text, 
-  bert_duration_days_final,bert_duration_months_final ) |> 
-  #distinct(dataset_source) |> 
-  #filter(!is.na(bert_initiation_date_final) & !is.na(bert_decision_date_final)) |> 
-  filter(!is.na(bert_duration_months_final)) |> 
-  glimpse()
+  analysis |>
+  select(
+    project_id, project_type, project_description, dataset_source, project_state,
+    bert_initiation_date_final, bert_decision_date_final,
+    project_is_transmission, project_transmission_length_miles,
+    project_transmission_length_confidence, project_transmission_length_taxonomy,
+    project_transmission_length_llm_trigger, project_transmission_length_source_text,
+    bert_duration_days_final, bert_duration_months_final
+  ) |>
+  filter(!is.na(bert_duration_months_final))
 
-# write to sheet
 sheet_write(
   data = transmissions,
   ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
   sheet = "01_transmission"
 )
 
-analysis |> 
-  filter(project_id == "c87a153c-f0c6-bd71-17e1-7e01ea9816a5") |> 
-  glimpse()
+sheet_write(
+  data = tx_multi_candidates,
+  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
+  sheet = "tx_candidates_qc"
+)
 
-transmissions |> 
-  filter(project_id == "c87a153c-f0c6-bd71-17e1-7e01ea9816a5") |> 
-  select(project_description) |> 
-  pull() |> 
-  print()
-
-analysis |> 
-  select(project_description) |> 
-  filter(!is.na(project_description)) |> 
-  nrow()
-
-projects |> 
-  count(project_is_transmission)
-  filter(!is.na(project_transmission_length_miles)) |> 
-  nrow()
+# Project-level count summary
+projects |> count(project_is_transmission)
 
 
 # --------------------------

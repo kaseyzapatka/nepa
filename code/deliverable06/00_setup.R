@@ -122,6 +122,10 @@ tech_cols <- c(
   "project_transmission_length_miles",
   "project_transmission_length_confidence",
   "project_transmission_length_source_text",
+  "project_transmission_action_type",
+  "project_transmission_has_mixed_action_types",
+  "project_transmission_new_build_miles",
+  "project_transmission_upgrade_miles",
   "project_pipeline_length_miles",
   "project_pipeline_length_confidence",
   "project_pipeline_length_source_text",
@@ -219,7 +223,8 @@ add_deliv6_fallback_features <- function(df) {
     "project_has_transmission_type_tag",
     "project_has_transmission_build_text",
     "project_transmission_length_llm_trigger",
-    "project_transmission_length_llm_used"
+    "project_transmission_length_llm_used",
+    "project_transmission_has_mixed_action_types"
   )
   numeric_cols <- c(
     "project_transmission_length_miles",
@@ -227,13 +232,16 @@ add_deliv6_fallback_features <- function(df) {
     "project_transmission_length_candidate_count",
     "project_transmission_length_distinct_candidate_count",
     "project_pipeline_length_candidate_count",
-    "project_pipeline_length_distinct_candidate_count"
+    "project_pipeline_length_distinct_candidate_count",
+    "project_transmission_new_build_miles",
+    "project_transmission_upgrade_miles"
   )
   character_cols <- c(
     "project_geothermal_phase",
     "project_pipeline_group",
     "project_transmission_length_confidence",
     "project_transmission_length_source_text",
+    "project_transmission_action_type",
     "project_pipeline_length_confidence",
     "project_pipeline_length_source_text",
     "project_transmission_length_candidates_json",

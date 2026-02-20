@@ -16,20 +16,65 @@ import argparse
 import ast
 import json
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
+import requests
 
 
 # --------------------------
 # CONSTANTS
 # --------------------------
 
+OLLAMA_URL = "http://localhost:11434/api/generate"
+DEFAULT_LLM_MODEL = "llama3.2:3b-instruct-q4_K_M"
+
 MILES_RE = re.compile(r"(?<![a-z0-9])(\d{1,4}(?:,\d{3})*(?:\.\d+)?)\s*(mile|miles|mi)\b", re.IGNORECASE)
 FEET_RE = re.compile(r"(?<![a-z0-9])(\d{1,6}(?:,\d{3})*(?:\.\d+)?)\s*(foot|feet|ft)\b", re.IGNORECASE)
+
+# Matches width-context words that indicate a feet value is ROW/easement width, not line length.
+WIDTH_CONTEXT_RE = re.compile(
+    r"\b(wide|width|in\s+width|corridor\s+width|easement\s+width|right.of.way\s+width)\b",
+    re.IGNORECASE,
+)
+
+# Matches action verbs in a candidate sentence that signal a proposed build action.
+CANDIDATE_BUILD_VERB_RE = re.compile(
+    r"\b(construct(?:ion|ed)?|build(?:ing)?|install(?:ation|ed)?|upgrade(?:d|s)?"
+    r"|rebuild(?:ing)?|proposed?|approv(?:e|ed|al)|authoriz(?:e|ed|ation)|develop(?:ment|ed)?)\b",
+    re.IGNORECASE,
+)
+
+# ----- Action type classification regexes -----
+# These operate on a candidate's source sentence to identify what kind of work is described.
+
+_TX_NEW_BUILD_RE = re.compile(
+    r"\b(new build|new double.circuit|new single.circuit|new construction"
+    r"|new transmission line|new overhead|new underground"
+    r"|new \d{2,4}\s*-?\s*k\s?v)"
+    r"|\bconstruct(?:ion)? of (?:a |the |new )?(?:\d[\d,.]* ?(?:mile|mi|km)s? (?:of )?)?(?:new )?(?:transmission|power.?line)",
+    re.IGNORECASE,
+)
+_TX_UPGRADE_RE = re.compile(
+    r"\b(upgrad(?:e|ed|ing|es)|upgrade section|reconductor(?:ing|ed)?)\b"
+    r"|existing.*\bupgrad(?:e|ed|ing)\b"
+    r"|\bupgrad(?:e|ed|ing)\b.*existing"
+    r"|\brebuild(?:ing|s)?\b|\brebuilt\b|\breconstruct(?:ion|ed|ing)?\b",
+    re.IGNORECASE,
+)
+_TX_RENEWAL_RE = re.compile(
+    r"\b(renew(?:al|ed|ing|s)?|re.licens(?:e|ing)|existing right.of.way"
+    r"|existing (?:grant|permit|easement|authorization)|re.authoriz(?:e|ation|ing))\b",
+    re.IGNORECASE,
+)
+_TX_RELOCATION_RE = re.compile(
+    r"\b(relocat(?:e|ed|ion|ing)|realign(?:ment|ed|ing)?|re.rout(?:e|ed|ing))\b",
+    re.IGNORECASE,
+)
 
 TRANSMISSION_HINTS = (
     "transmission",
@@ -223,6 +268,8 @@ def _extract_length_candidates(text: str, hints: Sequence[str], prefix: str) -> 
         if hint_score == 0:
             continue
 
+        sent_has_build = bool(CANDIDATE_BUILD_VERB_RE.search(sent))
+
         for m in MILES_RE.finditer(sent):
             raw = m.group(1)
             val_mi = float(raw.replace(",", ""))
@@ -239,6 +286,7 @@ def _extract_length_candidates(text: str, hints: Sequence[str], prefix: str) -> 
                         "unit_normalized": "miles",
                         "hint_score": hint_score + 2,
                         "hint_terms": matched_hints,
+                        "sentence_has_build_verb": sent_has_build,
                         "source_text": _match_snippet(sent, match_start, match_end, max_len=500),
                     }
                 )
@@ -249,6 +297,9 @@ def _extract_length_candidates(text: str, hints: Sequence[str], prefix: str) -> 
             val_ft = float(raw.replace(",", ""))
             val_mi = val_ft / 5280.0
             if 0 < val_mi <= 5000:
+                # Skip if sentence context indicates this is a width (ROW width, pole spacing, etc.)
+                if WIDTH_CONTEXT_RE.search(sent):
+                    continue
                 match_start, match_end = m.span()
                 candidates.append(
                     {
@@ -261,6 +312,7 @@ def _extract_length_candidates(text: str, hints: Sequence[str], prefix: str) -> 
                         "unit_normalized": "miles_from_feet",
                         "hint_score": hint_score + 1,
                         "hint_terms": matched_hints,
+                        "sentence_has_build_verb": sent_has_build,
                         "source_text": _match_snippet(sent, match_start, match_end, max_len=500),
                     }
                 )
@@ -312,28 +364,104 @@ def _best_single_candidate(candidates: List[Dict]) -> Tuple[float, str, str]:
 
 
 def _run_llm_transmission_adjudication(
-    full_text: str,
     candidates: List[Dict],
-    groups: List[Dict],
+    model: str = DEFAULT_LLM_MODEL,
+    timeout: int = 120,
 ) -> Dict | None:
     """
-    Placeholder for future LLM adjudication.
+    Use an Ollama LLM to adjudicate among competing transmission line length candidates.
 
-    Intentionally returns None today. Rule-based adjudication remains primary.
+    Only called when rule-based adjudication is genuinely ambiguous (llm_trigger=True).
+    Returns a result dict on success, or None so the caller falls back to rule-based logic.
     """
-    _ = (full_text, candidates, groups)
-    return None
+    nontrivial = [c for c in candidates if c["value_miles"] >= 0.25]
+    if not nontrivial:
+        return None
+
+    cand_lines = "\n".join(
+        f"[{i + 1}] {c['value_miles']:.2f} miles — \"{c['source_text'][:300]}\""
+        for i, c in enumerate(nontrivial[:8])
+    )
+
+    prompt = (
+        "NEPA transmission line review. Pick the ONE candidate = total length of the proposed line.\n\n"
+        f"Candidates:\n{cand_lines}\n\n"
+        "Rules: prefer the line being built/upgraded/installed; ignore existing reference lines, "
+        "ROW widths, or alternatives. If segments sum to a stated total, use the total.\n\n"
+        "Return ONLY valid JSON:\n"
+        "{\"selected_index\": <1-based int>, \"selected_length_miles\": <number>, "
+        "\"confidence\": \"high|medium|low\"}\n\nJSON:"
+    )
+
+    try:
+        resp = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {"temperature": 0.0, "num_predict": 80},
+            },
+            timeout=timeout,
+        )
+        resp.raise_for_status()
+        raw = resp.json().get("response", "")
+    except Exception:
+        return None
+
+    try:
+        m = re.search(r"\{[^{}]*\}", raw, re.DOTALL)
+        if not m:
+            return None
+        parsed = json.loads(m.group())
+        idx = int(parsed.get("selected_index", 0)) - 1
+        if 0 <= idx < len(nontrivial):
+            chosen = nontrivial[idx]
+        else:
+            stated = float(parsed.get("selected_length_miles", 0))
+            if stated <= 0:
+                return None
+            chosen = min(nontrivial, key=lambda c: abs(c["value_miles"] - stated))
+        return {
+            "selected_length_miles": chosen["value_miles"],
+            "confidence": str(parsed.get("confidence", "medium")),
+            "source_text": chosen["source_text"],
+            "selected_candidate_ids": [chosen["candidate_id"]],
+        }
+    except Exception:
+        return None
 
 
 def _adjudicate_transmission_length(
     full_text: str,
     candidates: List[Dict],
     use_llm: bool = False,
+    model: str = DEFAULT_LLM_MODEL,
+    timeout: int = 120,
 ) -> LengthAdjudication:
     groups = _collapse_candidates_by_value(candidates)
     candidate_count = len(candidates)
     distinct_count = len(groups)
-    llm_trigger = distinct_count >= 2
+
+    # ------------------------------------------------------------------
+    # LLM trigger: only fire when genuinely ambiguous.
+    # Requires multiple non-trivial (>= 0.25 mi) distinct values with
+    # meaningful spread (> 1.5x) and no clear rule-based winner
+    # (a winner = sole candidate with top hint_score AND a build verb).
+    # ------------------------------------------------------------------
+    nontrivial = [g for g in groups if g["value_miles"] >= 0.25]
+    if len(nontrivial) >= 2:
+        nt_vals = [g["value_miles"] for g in nontrivial]
+        spread = max(nt_vals) / min(nt_vals) if min(nt_vals) > 0 else 1.0
+        top_score = max(g["best_candidate"]["hint_score"] for g in nontrivial)
+        dominant = [
+            g for g in nontrivial
+            if g["best_candidate"]["hint_score"] == top_score
+            and g["best_candidate"].get("sentence_has_build_verb", False)
+        ]
+        llm_trigger = spread > 1.5 and not (len(dominant) == 1 and top_score >= 3)
+    else:
+        llm_trigger = False
 
     if candidate_count == 0:
         return LengthAdjudication(
@@ -358,19 +486,33 @@ def _adjudicate_transmission_length(
     llm_status = "not_requested" if llm_trigger else "not_triggered"
     llm_result = None
     if llm_trigger and use_llm:
-        llm_status = "not_configured"
         try:
-            llm_result = _run_llm_transmission_adjudication(full_text, candidates, groups)
+            llm_result = _run_llm_transmission_adjudication(
+                candidates, model=model, timeout=timeout
+            )
             if llm_result:
                 llm_used = True
                 llm_status = "success"
+            else:
+                llm_status = "failed_fallback_rule"
         except Exception:
             llm_used = False
             llm_status = "failed_fallback_rule"
 
     if llm_result:
-        # Reserved for future LLM behavior; keep deterministic fallback for now.
-        pass
+        return LengthAdjudication(
+            selected_length_miles=llm_result["selected_length_miles"],
+            confidence=llm_result["confidence"],
+            source_text=llm_result["source_text"],
+            taxonomy="llm",
+            selection_method="llm",
+            selected_candidate_ids=llm_result["selected_candidate_ids"],
+            candidate_count=candidate_count,
+            distinct_candidate_count=distinct_count,
+            llm_trigger=llm_trigger,
+            llm_used=llm_used,
+            llm_status=llm_status,
+        )
 
     if distinct_count <= 1:
         best = groups[0]["best_candidate"]
@@ -431,18 +573,29 @@ def _adjudicate_transmission_length(
             llm_status=llm_status,
         )
 
-    # Ambiguous multi-candidate case without additive/alternative cues.
-    chosen = sorted(
-        (g["best_candidate"] for g in groups),
-        key=lambda x: (x["value_miles"], x["hint_score"]),
-        reverse=True,
-    )[0]
+    # Ambiguous multi-candidate: prefer the sole candidate whose sentence
+    # contains a build verb; fall back to take_max.
+    build_candidates = [
+        g["best_candidate"] for g in groups
+        if g["best_candidate"].get("sentence_has_build_verb", False)
+    ]
+    if len(build_candidates) == 1:
+        chosen = build_candidates[0]
+        taxonomy = "build_verb_winner"
+    else:
+        chosen = sorted(
+            (g["best_candidate"] for g in groups),
+            key=lambda x: (x["value_miles"], x["hint_score"]),
+            reverse=True,
+        )[0]
+        taxonomy = "take_max"
+
     confidence = "high" if chosen["hint_score"] >= 4 else "medium"
     return LengthAdjudication(
         selected_length_miles=chosen["value_miles"],
         confidence=confidence,
         source_text=chosen["source_text"],
-        taxonomy="take_max",
+        taxonomy=taxonomy,
         selection_method="rule",
         selected_candidate_ids=[chosen["candidate_id"]],
         candidate_count=candidate_count,
@@ -451,6 +604,48 @@ def _adjudicate_transmission_length(
         llm_used=llm_used,
         llm_status=llm_status,
     )
+
+
+def _classify_transmission_action(sentence: str) -> str:
+    """
+    Classify the action type described in a candidate sentence.
+
+    Returns one of: new_build | upgrade | renewal | relocation | mixed | unknown.
+    Applied per-candidate after extraction, stored in candidate_action_type.
+    """
+    hits = []
+    if _TX_NEW_BUILD_RE.search(sentence):   hits.append("new_build")
+    if _TX_UPGRADE_RE.search(sentence):     hits.append("upgrade")
+    if _TX_RENEWAL_RE.search(sentence):     hits.append("renewal")
+    if _TX_RELOCATION_RE.search(sentence):  hits.append("relocation")
+    if len(hits) == 0:  return "unknown"
+    if len(hits) == 1:  return hits[0]
+    return "mixed"
+
+
+def _selected_action_type(candidates: List[Dict], selected_ids: List[str]) -> str:
+    """Return the action type of the selected candidate(s), or 'unknown'."""
+    selected = [c for c in candidates if c.get("candidate_id") in selected_ids]
+    if not selected:
+        selected = candidates
+    types = {c.get("candidate_action_type", "unknown") for c in selected} - {"unknown"}
+    if not types:   return "unknown"
+    if len(types) == 1: return next(iter(types))
+    return "mixed"
+
+
+def _miles_by_action(candidates: List[Dict], action: str) -> float:
+    """
+    Sum distinct length values (>= 0.25 mi) for a given action type.
+
+    Uses the same near-equality collapse as adjudication to avoid double-counting
+    repeated mentions of the same length across sentences.
+    """
+    relevant = [c for c in candidates if c.get("candidate_action_type") == action and c.get("value_miles", 0) >= 0.25]
+    if not relevant:
+        return np.nan
+    groups = _collapse_candidates_by_value(relevant)
+    return round(sum(g["value_miles"] for g in groups), 3)
 
 
 def _classify_geothermal_phase(text: str) -> str:
@@ -481,6 +676,9 @@ def _add_transmission_columns(
     context_text: pd.Series,
     type_text: pd.Series,
     use_llm: bool = False,
+    model: str = DEFAULT_LLM_MODEL,
+    timeout: int = 120,
+    workers: int = 1,
 ) -> pd.DataFrame:
     out = df.copy()
     lower_text = full_text.str.lower()
@@ -497,15 +695,60 @@ def _add_transmission_columns(
     )
     out["project_has_transmission_build_text"] = lower_context.str.contains(TRANSMISSION_BUILD_RE)
 
-    candidates = [
-        _extract_length_candidates(txt, TRANSMISSION_HINTS, prefix="tx")
-        for txt in full_text.tolist()
-    ]
+    # Only extract candidates for broad-transmission rows — skipping the rest
+    # saves significant time on large datasets (60k+ projects).
+    is_broad = out["project_is_transmission_broad"].values
+    n_broad = int(is_broad.sum())
+    texts = full_text.tolist()
 
-    adjudications = [
-        _adjudicate_transmission_length(txt, cands, use_llm=use_llm)
-        for txt, cands in zip(full_text.tolist(), candidates)
-    ]
+    candidates: List[List[Dict]] = []
+    for txt, broad in zip(texts, is_broad):
+        if broad:
+            candidates.append(_extract_length_candidates(txt, TRANSMISSION_HINTS, prefix="tx"))
+        else:
+            candidates.append([])
+
+    # Classify action type on each candidate sentence (transmission-specific).
+    for cand_list in candidates:
+        for c in cand_list:
+            c["candidate_action_type"] = _classify_transmission_action(c["source_text"])
+
+    # Adjudicate lengths in parallel (workers > 1 speeds up the LLM calls).
+    print(f"  {len(texts):,} rows | {n_broad:,} broad-transmission | workers={workers}"
+          + (" | LLM on" if use_llm else " | LLM off"))
+
+    def _adjudicate_one(args):
+        i, txt, cands = args
+        return i, _adjudicate_transmission_length(txt, cands, use_llm=use_llm, model=model, timeout=timeout)
+
+    indexed = [(i, txt, cands) for i, (txt, cands) in enumerate(zip(texts, candidates))]
+    adjudications_map: Dict[int, LengthAdjudication] = {}
+    llm_trigger_count = 0
+
+    try:
+        from tqdm import tqdm as _tqdm
+        _pbar = _tqdm(total=len(indexed), desc="Adjudicating", unit="row")
+    except ImportError:
+        _pbar = None
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_adjudicate_one, item): item[0] for item in indexed}
+        for future in as_completed(futures):
+            i, adj = future.result()
+            adjudications_map[i] = adj
+            if adj.llm_trigger:
+                llm_trigger_count += 1
+                if use_llm:
+                    print(f"  [LLM] row {i}: status={adj.llm_status} length={adj.selected_length_miles:.1f}mi")
+            if _pbar:
+                _pbar.update(1)
+
+    if _pbar:
+        _pbar.close()
+
+    adjudications = [adjudications_map[i] for i in range(len(texts))]
+    print(f"  LLM-trigger rows: {llm_trigger_count}"
+          + (" | LLM called on all triggers" if use_llm else " | rerun with --use-llm to adjudicate"))
 
     out["project_transmission_length_candidates_json"] = [json.dumps(c, ensure_ascii=False) for c in candidates]
     out["project_transmission_length_candidate_count"] = [a.candidate_count for a in adjudications]
@@ -523,6 +766,21 @@ def _add_transmission_columns(
     out["project_transmission_length_confidence"] = [a.confidence for a in adjudications]
     out["project_transmission_length_source_text"] = [a.source_text for a in adjudications]
 
+    # Action type: what kind of work is described for the selected length candidate.
+    out["project_transmission_action_type"] = [
+        _selected_action_type(cands, adj.selected_candidate_ids)
+        for cands, adj in zip(candidates, adjudications)
+    ]
+    # True when the project has both new_build and upgrade candidates (mixed projects).
+    out["project_transmission_has_mixed_action_types"] = [
+        any(c.get("candidate_action_type") == "new_build" for c in cands)
+        and any(c.get("candidate_action_type") == "upgrade" for c in cands)
+        for cands in candidates
+    ]
+    # Separate mileage by action type (NaN when no candidates of that type exist).
+    out["project_transmission_new_build_miles"] = [_miles_by_action(cands, "new_build") for cands in candidates]
+    out["project_transmission_upgrade_miles"]   = [_miles_by_action(cands, "upgrade")   for cands in candidates]
+
     # Keep only broad transmission projects populated.
     non_broad = ~out["project_is_transmission_broad"]
     out.loc[non_broad, "project_transmission_length_miles"] = np.nan
@@ -537,6 +795,10 @@ def _add_transmission_columns(
     out.loc[non_broad, "project_transmission_length_llm_used"] = False
     out.loc[non_broad, "project_transmission_length_llm_status"] = "not_triggered"
     out.loc[non_broad, "project_transmission_length_candidates_json"] = "[]"
+    out.loc[non_broad, "project_transmission_action_type"] = "none"
+    out.loc[non_broad, "project_transmission_has_mixed_action_types"] = False
+    out.loc[non_broad, "project_transmission_new_build_miles"] = np.nan
+    out.loc[non_broad, "project_transmission_upgrade_miles"] = np.nan
 
     out["project_is_transmission_strict"] = (
         out["project_has_transmission_type_tag"]
@@ -636,6 +898,9 @@ def add_technology_columns(
     df: pd.DataFrame,
     run: Sequence[str] | str = "all",
     use_llm: bool = False,
+    model: str = DEFAULT_LLM_MODEL,
+    timeout: int = 120,
+    workers: int = 1,
 ) -> pd.DataFrame:
     """
     Add technology-specific features to a project dataframe.
@@ -644,6 +909,8 @@ def add_technology_columns(
         df: project dataframe
         run: one or more of transmission/geothermal/pipeline/all
         use_llm: optional LLM adjudication for multi-candidate transmission rows
+        model: Ollama model name for LLM adjudication
+        timeout: seconds before an Ollama request times out
 
     Returns:
         DataFrame with requested technology columns added/updated.
@@ -670,7 +937,10 @@ def add_technology_columns(
     ).str.strip()
 
     if "transmission" in targets:
-        out = _add_transmission_columns(out, full_text, context_text, type_txt, use_llm=use_llm)
+        out = _add_transmission_columns(
+            out, full_text, context_text, type_txt,
+            use_llm=use_llm, model=model, timeout=timeout, workers=workers,
+        )
 
     if "geothermal" in targets:
         out = _add_geothermal_columns(out, full_text)
@@ -716,6 +986,23 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Attempt LLM adjudication for multi-candidate transmission rows",
     )
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_LLM_MODEL,
+        help=f"Ollama model for LLM adjudication (default: {DEFAULT_LLM_MODEL})",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=120,
+        help="Seconds before an Ollama request times out (default: 120)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help="Parallel workers for adjudication (default: 1; use 4 to speed up LLM calls)",
+    )
     return parser
 
 
@@ -731,9 +1018,12 @@ def run_cli(args: argparse.Namespace) -> None:
     df = pd.read_parquet(in_path)
     print(f"Rows loaded: {len(df):,}")
     print(f"Running targets: {', '.join(targets)}")
-    print(f"LLM mode: {'on' if args.use_llm else 'off'}")
+    llm_label = f"on (model={args.model}, timeout={args.timeout}s, workers={args.workers})" if args.use_llm else "off"
+    print(f"LLM mode: {llm_label}")
 
-    updated = add_technology_columns(df, run=targets, use_llm=args.use_llm)
+    updated = add_technology_columns(
+        df, run=targets, use_llm=args.use_llm, model=args.model, timeout=args.timeout, workers=args.workers,
+    )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     updated.to_parquet(out_path, index=False)
     print(f"Saved: {out_path}")
