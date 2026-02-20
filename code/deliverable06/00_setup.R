@@ -9,6 +9,7 @@ library(tidyverse)
 library(jsonlite)
 library(scales)
 library(googlesheets4)
+library(patchwork)
 
 # --------------------------
 # FILE PATHS
