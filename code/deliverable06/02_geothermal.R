@@ -95,6 +95,8 @@ fig_phase_box <- analysis %>%
   ) +
   theme_minimal(base_size = 11)
 
+print(fig_phase_box)
+
 ggsave(
   filename = here(figures_dir, "fig_geothermal_phase_duration_boxplot.png"),
   plot = fig_phase_box,
@@ -143,6 +145,8 @@ fig_sequence <- ggplot(sequence_data) +
     color = "Phase"
   ) +
   theme_minimal(base_size = 10)
+
+print(fig_sequence)
 
 ggsave(
   filename = here(figures_dir, "fig_geothermal_within_project_sequence.png"),
