@@ -2,6 +2,8 @@
 # DELIVERABLE 6: TRANSMISSION LINES
 # --------------------------
 
+# 4.92-4.83 about .09 cents to use
+
 rm(list = ls())
 source(here::here("code", "deliverable06", "00_setup.R"))
 
@@ -9,8 +11,13 @@ analysis <- prepare_deliverable6_data() %>%
   filter(project_is_transmission) |> 
   glimpse()
 
-cat("Transmission projects:", nrow(analysis), "\n")
+cat("Transmission projects (strict, clean energy):", nrow(analysis), "\n")
+cat("  - Unambiguous (rule-based only):            ", sum(!analysis$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
+cat("  - Flagged for LLM adjudication:             ", sum(analysis$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
 max_year <- as.integer(format(Sys.Date(), "%Y"))
+
+# check to see if LLM ran
+if (any(!is.na(analysis$project_transmission_length_llm_reasoning))) {print("LLM ran")}
 
 # --------------------------
 # EXPLORATORY
@@ -60,9 +67,6 @@ transmissions <-
   select(-hint_terms, -selected_ids) |> 
   glimpse()
 
-analysis |> select(contains("llm")) |> glimpse()
-analysis |> count(project_transmission_length_llm_trigger) |> glimpse()
-transmissions |> glimpse()
 
 # write
 sheet_write(
@@ -70,10 +74,6 @@ sheet_write(
   ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
   sheet = "tx"
 )
-
-cat("Total candidates:", nrow(transmissions), "\n")
-cat("Width artifact candidates:", sum(transmissions$is_width_artifact), "\n")
-cat("Projects with llm_trigger=TRUE:", sum(analysis$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
 
 # Taxonomy breakdown across projects
 transmissions |>
@@ -102,7 +102,7 @@ transmissions_multiple <-
     project_transmission_length_llm_trigger,
     project_transmission_length_llm_status,
     rule_based_miles  = project_transmission_length_miles,
-    final_miles       = project_transmission_length_final,
+    final_miles        = project_transmission_length_final,
     candidate_id,
     candidate_value_miles = value_miles,
     candidate_action_type,
@@ -154,150 +154,15 @@ tx_adjudication <-
       select(project_id, project_title_txt, project_description_txt),
     by = "project_id"
   ) |>
-  arrange(project_transmission_length_llm_status, project_id)
-
-cat("Ambiguous projects (2+ distinct nontrivial candidates):", nrow(tx_adjudication), "\n")
-cat("  LLM triggered:", sum(tx_adjudication$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
-cat("  LLM used:     ", sum(tx_adjudication$project_transmission_length_llm_status == "success", na.rm = TRUE), "\n")
+  #arrange(project_transmission_length_llm_status, project_id) |> 
+  arrange(project_id, project_transmission_length_llm_status) |> 
+  glimpse()
 
 sheet_write(
   data = tx_adjudication,
   ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
   sheet = "tx_adjudication"
 )
-
-
-#
-# UNKNOWN: Project-level action type review — broad-tx projects where the
-# ----------------------------------------
-# project_transmission_action classifier returned 'unknown' or 'mixed'.
-# Use this to identify phrases worth adding to the action type regexes.
-transmissions_unknown <-
-  projects |>
-  filter(
-    project_is_transmission_broad,
-    project_transmission_action %in% c("unknown", "mixed")
-  ) |>
-  select(
-    project_id,
-    project_transmission_action,
-    project_transmission_length_miles,
-    project_title_txt,
-    project_description_txt
-  ) |>
-  arrange(project_transmission_action, project_id) |>
-  slice_sample(n = min(50, n()))
-
-sheet_write(
-  data = transmissions_unknown,
-  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
-  sheet = "tx_unknown"
-)
-
-
-
-
-
-#
-# example 2 
-# ----------------------------------------
-# the LLM gets this right
-example2 <- 
-transmissions |> 
-  filter(project_id == "3e996a98-e88f-3af5-3b72-c4c4cc6b1152") |> 
-  glimpse()
-
-sheet_write(
-  data = example2,
-  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
-  sheet = "example2"
-)
-
-#
-# example 3
-# ----------------------------------------
-
-# the LLM gets this right
-sample <- 
-  transmissions |> 
-  select(project_id) |> 
-  slice_sample(n = 1) |> 
-  pull() |> 
-  print()
-
-# 4d5e6399-df32-1bf0-9c39-73d09ba1df01
-example3 <- 
-  transmissions |> 
-  filter(project_id %in% sample) |> 
-  select(project_id, project_transmission_length_miles, project_transmission_length_taxonomy, value_miles, matched_text,source_text) |> 
-  View()
-
-#
-# example 4
-# ----------------------------------------
-
-# the LLM gets this right
-sample <- 
-  transmissions |> 
-  select(project_id) |> 
-  slice_sample(n = 1) |> 
-  pull() |> 
-  print()
-
-# 4d5e6399-df32-1bf0-9c39-73d09ba1df01
-example4 <- 
-  transmissions |> 
-  filter(project_id %in% sample) |> 
-  select(project_id, project_transmission_length_miles,project_transmission_length_taxonomy, value_miles, matched_text,source_text) |> 
-  glimpse()
-
-analysis |> glimpse()
-
-analysis |> 
-  filter(project_transmission_length_llm_used == TRUE) |>
-  select(
-    #project_id,
-    lng  = project_transmission_length_miles,
-    #project_transmission_length_llm_status,
-    conf=project_transmission_length_confidence,
-    txt =project_transmission_length_source_text
-  ) |>
-  print(n = Inf)
-
-analysis |>
-  count(project_transmission_length_taxonomy, project_transmission_length_llm_status) |>
-  arrange(desc(n))
-
-analysis |> 
-  filter(project_transmission_length_taxonomy  == "do_not_sum") |> 
-  select(id = project_id,lgth =  project_transmission_length_miles, txt =  project_transmission_length_source_text) |> 
-  arrange(id) |> 
-  select(lgth, txt) |> 
-  print(n = 100)
-
-
-analysis |> 
-  #filter(project_id == "06ee24b6-e7bd-10d4-4924-31154372b4a3") |> 
-  #filter(project_id == "29402d2a-61cf-25dc-5050-bb2f2d62ff48") |> 
-  #filter(project_id == "88637c69-789b-99df-4593-7fb2601ea8d9") |> 
-  #filter(project_id == "8d4f94cf-0cab-3ccf-00a0-c7c18dbfb2b9") |> 
-  filter(project_id == "3fbe2462-7af6-4c8f-5613-90e8dc9bcc7c") |> 
-  glimpse()
-
-# LLM-trigger projects only (the ones that need adjudication)
-tx_llm_trigger <- transmissions |>
-  filter(project_transmission_length_llm_trigger == TRUE) |>
-  arrange(project_id, desc(is_selected), desc(hint_score))
-
-cat("LLM-trigger candidate rows:", nrow(tx_llm_trigger), "\n")
-
-# Project-level count summary
-projects |> count(project_is_transmission)
-projects |> select(project_id, project_title) |>  filter(project_id == "1aff267e-235b-abb2-347a-92d3ff989575") |> glimpse() # why is this still being pulled in?>
-projects |> select(project_id, project_title) |>  filter(project_id == "284f25aa-e022-7781-51c0-d338390aa866") |> pull(project_title)
-projects |> select(project_id, project_title, project_type) |>  filter(project_id == "284f25aa-e022-7781-51c0-d338390aa866") |> glimpse()
-projects |> select(project_id, project_title, project_type) |>  filter(project_id == "29402d2a-61cf-25dc-5050-bb2f2d62ff48") |> glimpse()
-
 
 # --------------------------
 # TABLES

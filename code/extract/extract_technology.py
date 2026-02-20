@@ -111,13 +111,14 @@ _TX_ACT_NEW_BUILD_RE = re.compile(
     # because renewal/upgrade/acquisition projects also use "permit to construct" boilerplate.
     r"\b(?:new\s+(?:transmission\s+)?line|new\s+double.circuit|new\s+single.circuit"
     r"|new\s+substation|new\s+support\s+structure|new\s+overhead|new\s+underground"
+    r"|new\s+segment\s+of\s+(?:line|transmission)|re.alignment\s+of"
     r"|substation\s+construction|construct(?:ion|ing|ed)?\s+of\s+(?:a\s+|the\s+)?new"
     r"|build(?:ing)?\s+(?:a\s+|the\s+)?new"
     r"|switchyard|tap\s+line|tie\s+line|interconnection)\b",
     re.IGNORECASE,
 )
 _TX_ACT_UPGRADE_RE = re.compile(
-    r"\b(?:replac(?:e|es|ed|ing|ement)|rebuild(?:ing|s|t)?|reconductor(?:ing|ed)?"
+    r"\b(?:replac(?:e|es|ed|ing|ement)(?!\s+in\s+kind)|rebuild(?:ing|s|t)?|reconductor(?:ing|ed)?"
     r"|upgrad(?:e|es|ed|ing)|reconstruct(?:ion|ed|ing)?"
     r"|component\s+replacement|structure\s+replacement|hardware\s+replacement"
     r"|crossarm|insulator|shield\s+wire|spacer.damper)\b",
@@ -908,6 +909,7 @@ def _add_transmission_columns(
     full_text: pd.Series,
     context_text: pd.Series,
     type_text: pd.Series,
+    title_text: pd.Series,
     use_llm: bool = False,
     model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
@@ -931,8 +933,12 @@ def _add_transmission_columns(
 
     # Flag maintenance projects early — before expensive extraction — so they are
     # excluded from candidate extraction, adjudication, and the strict definition.
-    out["project_is_transmission_maintenance"] = context_text.str.contains(
-        TRANSMISSION_MAINTENANCE_RE, regex=False
+    # Title-only check: maintenance language in the description is often incidental
+    # (e.g., "access road maintenance" in a pole-replacement project). Checking only
+    # the title avoids excluding genuine transmission projects where maintenance work
+    # is a minor supporting activity, not the primary purpose.
+    out["project_is_transmission_maintenance"] = title_text.apply(
+        lambda x: bool(TRANSMISSION_MAINTENANCE_RE.search(str(x) if x else ""))
     ).fillna(False)
 
     # Only extract candidates for broad, non-maintenance transmission rows.
@@ -1040,6 +1046,10 @@ def _add_transmission_columns(
     out.loc[non_broad, "project_transmission_length_llm_reasoning"] = ""
     out.loc[non_broad, "project_transmission_length_candidates_json"] = "[]"
     out.loc[non_broad, "project_transmission_action"] = "none"
+    # Broad-tx projects excluded as maintenance get a consistent "maintenance" label
+    # regardless of what _classify_project_transmission_action found in the text.
+    broad_maintenance = out["project_is_transmission_broad"] & out["project_is_transmission_maintenance"].fillna(False)
+    out.loc[broad_maintenance, "project_transmission_action"] = "maintenance"
     out.loc[non_broad, "project_transmission_new_build_miles"] = np.nan
     out.loc[non_broad, "project_transmission_upgrade_miles"] = np.nan
 
@@ -1185,7 +1195,7 @@ def add_technology_columns(
 
     if "transmission" in targets:
         out = _add_transmission_columns(
-            out, full_text, context_text, type_txt,
+            out, full_text, context_text, type_txt, title_txt,
             use_llm=use_llm, model=model, timeout=timeout, workers=workers, provider=provider,
         )
 
