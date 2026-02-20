@@ -270,7 +270,8 @@ GEOTHERMAL_PHASE_PATTERNS = {
 
 @dataclass
 class LengthAdjudication:
-    selected_length_miles: float
+    selected_length_miles: float       # Final answer: LLM result if used, else rule-based
+    rule_based_length_miles: float     # Always rule-based (for comparison with LLM)
     confidence: str
     source_text: str
     taxonomy: str
@@ -649,108 +650,32 @@ def _run_llm_transmission_adjudication(
         return None
 
 
-def _adjudicate_transmission_length(
-    full_text: str,
-    candidates: List[Dict],
-    use_llm: bool = False,
-    model: str = DEFAULT_LLM_MODEL,
-    timeout: int = 120,
-    provider: str = "ollama",
-) -> LengthAdjudication:
-    groups = _collapse_candidates_by_value(candidates)
-    candidate_count = len(candidates)
+def _rule_based_length_selection(
+    groups: List[Dict],
+    has_alternative: bool,
+    has_additive: bool,
+) -> Dict:
+    """
+    Pure rule-based selection from collapsed candidate groups.
+    Always computed — used both as fallback and as the comparison baseline
+    when the LLM overrides the selection.
+    Returns a dict with: selected_length_miles, confidence, source_text,
+    taxonomy, selection_method, selected_candidate_ids.
+    """
     distinct_count = len(groups)
-
-    # Separate nontrivial groups into full-length and partial-crossing.
-    # Partial-crossing candidates (e.g., "4.7 miles of public land") are
-    # deprioritized when full-length alternatives exist, but kept as the
-    # answer when they are the only option.
-    nontrivial = [g for g in groups if g["value_miles"] >= 0.25]
-    non_partial_nontrivial = [
-        g for g in nontrivial
-        if not g["best_candidate"].get("is_partial_crossing", False)
-    ]
-    effective_nontrivial = non_partial_nontrivial if non_partial_nontrivial else nontrivial
-
-    # ------------------------------------------------------------------
-    # LLM trigger: any project with >= 2 distinct nontrivial (>= 0.25 mi)
-    # candidates is flagged regardless of provider. At N=39 strict-tx
-    # projects this covers all genuinely ambiguous cases cheaply.
-    # ------------------------------------------------------------------
-    llm_trigger = len(effective_nontrivial) >= 2
-
-    if candidate_count == 0:
-        return LengthAdjudication(
-            selected_length_miles=np.nan,
-            confidence="none",
-            source_text="",
-            taxonomy="none",
-            selection_method="none",
-            selected_candidate_ids=[],
-            candidate_count=0,
-            distinct_candidate_count=0,
-            llm_trigger=False,
-            llm_used=False,
-            llm_status="not_triggered",
-            llm_reasoning="",
-        )
-
-    text_lower = (full_text or "").lower()
-    has_alternative = bool(TRANSMISSION_ALTERNATIVE_RE.search(text_lower))
-    has_additive = bool(TRANSMISSION_ADDITIVE_RE.search(text_lower))
-
-    llm_used = False
-    llm_status = "not_requested" if llm_trigger else "not_triggered"
-    llm_result = None
-    if llm_trigger and use_llm:
-        try:
-            llm_result = _run_llm_transmission_adjudication(
-                candidates, model=model, timeout=timeout, provider=provider
-            )
-            if llm_result:
-                llm_used = True
-                llm_status = "success"
-            else:
-                llm_status = "failed_fallback_rule"
-        except Exception:
-            llm_used = False
-            llm_status = "failed_fallback_rule"
-
-    if llm_result:
-        return LengthAdjudication(
-            selected_length_miles=llm_result["selected_length_miles"],
-            confidence=llm_result["confidence"],
-            source_text=llm_result["source_text"],
-            taxonomy="llm",
-            selection_method="llm",
-            selected_candidate_ids=llm_result["selected_candidate_ids"],
-            candidate_count=candidate_count,
-            distinct_candidate_count=distinct_count,
-            llm_trigger=llm_trigger,
-            llm_used=llm_used,
-            llm_status=llm_status,
-            llm_reasoning=llm_result.get("reasoning", ""),
-        )
 
     if distinct_count <= 1:
         best = groups[0]["best_candidate"]
         confidence = "high" if best["hint_score"] >= 4 else "medium"
-        return LengthAdjudication(
+        return dict(
             selected_length_miles=best["value_miles"],
             confidence=confidence,
             source_text=best["source_text"],
             taxonomy="do_not_sum",
             selection_method="rule",
             selected_candidate_ids=[best["candidate_id"]],
-            candidate_count=candidate_count,
-            distinct_candidate_count=distinct_count,
-            llm_trigger=llm_trigger,
-            llm_used=llm_used,
-            llm_status=llm_status,
-            llm_reasoning="",
         )
 
-    # Rule order matters: alternatives should not be summed.
     if has_alternative:
         chosen = sorted(
             (g["best_candidate"] for g in groups),
@@ -758,45 +683,34 @@ def _adjudicate_transmission_length(
             reverse=True,
         )[0]
         confidence = "high" if chosen["hint_score"] >= 4 else "medium"
-        return LengthAdjudication(
+        return dict(
             selected_length_miles=chosen["value_miles"],
             confidence=confidence,
             source_text=chosen["source_text"],
             taxonomy="choose_alternative",
             selection_method="rule",
             selected_candidate_ids=[chosen["candidate_id"]],
-            candidate_count=candidate_count,
-            distinct_candidate_count=distinct_count,
-            llm_trigger=llm_trigger,
-            llm_used=llm_used,
-            llm_status=llm_status,
-            llm_reasoning="",
         )
 
     if has_additive:
-        selected = [g["best_candidate"] for g in groups]
-        selected = sorted(selected, key=lambda x: (x["value_miles"], x["hint_score"]), reverse=True)
+        selected = sorted(
+            [g["best_candidate"] for g in groups],
+            key=lambda x: (x["value_miles"], x["hint_score"]),
+            reverse=True,
+        )
         value = round(sum(c["value_miles"] for c in selected), 3)
         source = " || ".join(c["source_text"] for c in selected)[:2000]
         confidence = "high" if len(selected) >= 2 else "medium"
-        return LengthAdjudication(
+        return dict(
             selected_length_miles=value,
             confidence=confidence,
             source_text=source,
             taxonomy="sum",
             selection_method="rule",
             selected_candidate_ids=[c["candidate_id"] for c in selected],
-            candidate_count=candidate_count,
-            distinct_candidate_count=distinct_count,
-            llm_trigger=llm_trigger,
-            llm_used=llm_used,
-            llm_status=llm_status,
-            llm_reasoning="",
         )
 
-    # Ambiguous multi-candidate: among non-partial (preferred) candidates,
-    # pick the sole one with a build verb; fall back to highest hint_score / take_max.
-    # effective_groups = non-partial groups when available, else all groups.
+    # Ambiguous multi-candidate: prefer non-partial candidates, then build verb or take_max.
     effective_groups = (
         [g for g in groups if not g["best_candidate"].get("is_partial_crossing", False)]
         or groups
@@ -817,13 +731,107 @@ def _adjudicate_transmission_length(
         taxonomy = "take_max"
 
     confidence = "high" if chosen["hint_score"] >= 4 else "medium"
-    return LengthAdjudication(
+    return dict(
         selected_length_miles=chosen["value_miles"],
         confidence=confidence,
         source_text=chosen["source_text"],
         taxonomy=taxonomy,
         selection_method="rule",
         selected_candidate_ids=[chosen["candidate_id"]],
+    )
+
+
+def _adjudicate_transmission_length(
+    full_text: str,
+    candidates: List[Dict],
+    use_llm: bool = False,
+    model: str = DEFAULT_LLM_MODEL,
+    timeout: int = 120,
+    provider: str = "ollama",
+) -> LengthAdjudication:
+    groups = _collapse_candidates_by_value(candidates)
+    candidate_count = len(candidates)
+    distinct_count = len(groups)
+
+    nontrivial = [g for g in groups if g["value_miles"] >= 0.25]
+    non_partial_nontrivial = [
+        g for g in nontrivial
+        if not g["best_candidate"].get("is_partial_crossing", False)
+    ]
+    effective_nontrivial = non_partial_nontrivial if non_partial_nontrivial else nontrivial
+
+    llm_trigger = len(effective_nontrivial) >= 2
+
+    if candidate_count == 0:
+        return LengthAdjudication(
+            selected_length_miles=np.nan,
+            rule_based_length_miles=np.nan,
+            confidence="none",
+            source_text="",
+            taxonomy="none",
+            selection_method="none",
+            selected_candidate_ids=[],
+            candidate_count=0,
+            distinct_candidate_count=0,
+            llm_trigger=False,
+            llm_used=False,
+            llm_status="not_triggered",
+            llm_reasoning="",
+        )
+
+    text_lower = (full_text or "").lower()
+    has_alternative = bool(TRANSMISSION_ALTERNATIVE_RE.search(text_lower))
+    has_additive = bool(TRANSMISSION_ADDITIVE_RE.search(text_lower))
+
+    # Always compute rule-based selection first — stored in project_transmission_length_miles
+    # as the comparison baseline regardless of whether the LLM also runs.
+    rule = _rule_based_length_selection(groups, has_alternative, has_additive)
+
+    llm_used = False
+    llm_status = "not_requested" if llm_trigger else "not_triggered"
+    llm_result = None
+    if llm_trigger and use_llm:
+        try:
+            llm_result = _run_llm_transmission_adjudication(
+                candidates, model=model, timeout=timeout, provider=provider
+            )
+            if llm_result:
+                llm_used = True
+                llm_status = "success"
+            else:
+                llm_status = "failed_fallback_rule"
+        except Exception:
+            llm_used = False
+            llm_status = "failed_fallback_rule"
+
+    if llm_result:
+        # LLM succeeded: selected_length_miles = LLM answer,
+        # rule_based_length_miles = what rules would have chosen (for comparison).
+        return LengthAdjudication(
+            selected_length_miles=llm_result["selected_length_miles"],
+            rule_based_length_miles=rule["selected_length_miles"],
+            confidence=llm_result["confidence"],
+            source_text=llm_result["source_text"],
+            taxonomy="llm",
+            selection_method="llm",
+            selected_candidate_ids=llm_result["selected_candidate_ids"],
+            candidate_count=candidate_count,
+            distinct_candidate_count=distinct_count,
+            llm_trigger=llm_trigger,
+            llm_used=llm_used,
+            llm_status=llm_status,
+            llm_reasoning=llm_result.get("reasoning", ""),
+        )
+
+    # No LLM: both columns are the rule-based result.
+    return LengthAdjudication(
+        selected_length_miles=rule["selected_length_miles"],
+        rule_based_length_miles=rule["selected_length_miles"],
+        confidence=rule["confidence"],
+        source_text=rule["source_text"],
+        taxonomy=rule["taxonomy"],
+        selection_method=rule["selection_method"],
+        selected_candidate_ids=rule["selected_candidate_ids"],
         candidate_count=candidate_count,
         distinct_candidate_count=distinct_count,
         llm_trigger=llm_trigger,
@@ -1000,7 +1008,10 @@ def _add_transmission_columns(
     out["project_transmission_length_llm_status"] = [a.llm_status for a in adjudications]
     out["project_transmission_length_llm_reasoning"] = [a.llm_reasoning for a in adjudications]
 
-    out["project_transmission_length_miles"] = [a.selected_length_miles for a in adjudications]
+    # project_transmission_length_miles  = rule-based only (comparison baseline)
+    # project_transmission_length_final  = LLM result when llm_used=True, else rule-based
+    out["project_transmission_length_miles"] = [a.rule_based_length_miles for a in adjudications]
+    out["project_transmission_length_final"]  = [a.selected_length_miles  for a in adjudications]
     out["project_transmission_length_confidence"] = [a.confidence for a in adjudications]
     out["project_transmission_length_source_text"] = [a.source_text for a in adjudications]
 
@@ -1015,6 +1026,7 @@ def _add_transmission_columns(
     # Keep only broad transmission projects populated.
     non_broad = ~out["project_is_transmission_broad"]
     out.loc[non_broad, "project_transmission_length_miles"] = np.nan
+    out.loc[non_broad, "project_transmission_length_final"]  = np.nan
     out.loc[non_broad, "project_transmission_length_confidence"] = "none"
     out.loc[non_broad, "project_transmission_length_source_text"] = ""
     out.loc[non_broad, "project_transmission_length_candidate_count"] = 0
@@ -1034,7 +1046,7 @@ def _add_transmission_columns(
     out["project_is_transmission_strict"] = (
         out["project_has_transmission_type_tag"]
         & out["project_has_transmission_build_text"]
-        & (out["project_transmission_length_miles"] >= 1.0)
+        & (out["project_transmission_length_final"] >= 1.0)
         & ~out["project_is_transmission_maintenance"]
     )
     out["project_is_transmission"] = out["project_is_transmission_strict"]

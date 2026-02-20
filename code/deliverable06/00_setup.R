@@ -121,6 +121,7 @@ tech_cols <- c(
   "project_geothermal_phase",
   "project_pipeline_group",
   "project_transmission_length_miles",
+  "project_transmission_length_final",
   "project_transmission_length_confidence",
   "project_transmission_length_source_text",
   "project_transmission_action",
@@ -229,6 +230,7 @@ add_deliv6_fallback_features <- function(df) {
   )
   numeric_cols <- c(
     "project_transmission_length_miles",
+    "project_transmission_length_final",
     "project_pipeline_length_miles",
     "project_transmission_length_candidate_count",
     "project_transmission_length_distinct_candidate_count",

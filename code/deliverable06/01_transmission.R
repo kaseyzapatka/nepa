@@ -2,10 +2,12 @@
 # DELIVERABLE 6: TRANSMISSION LINES
 # --------------------------
 
+rm(list = ls())
 source(here::here("code", "deliverable06", "00_setup.R"))
 
 analysis <- prepare_deliverable6_data() %>%
-  filter(project_is_transmission)
+  filter(project_is_transmission) |> 
+  glimpse()
 
 cat("Transmission projects:", nrow(analysis), "\n")
 max_year <- as.integer(format(Sys.Date(), "%Y"))
@@ -20,14 +22,16 @@ max_year <- as.integer(format(Sys.Date(), "%Y"))
 # Unpack every extracted length candidate to one row per candidate.
 # Use this to audit taxonomies, spot width artifacts, and identify
 # which projects need LLM adjudication before re-running Python extraction.
-transmissions <- 
+transmissions <-
   analysis |>
   select(
     project_id,
-    project_transmission_length_miles,
+    project_transmission_length_miles,   # rule-based only
+    project_transmission_length_final,   # LLM if used, else rule-based
     project_transmission_length_taxonomy,
     project_transmission_length_llm_trigger,
     project_transmission_length_llm_status,
+    project_transmission_length_llm_reasoning,
     project_transmission_length_candidate_count,
     project_transmission_length_distinct_candidate_count,
     project_transmission_length_selected_candidate_ids,
@@ -55,6 +59,10 @@ transmissions <-
   ) |>
   select(-hint_terms, -selected_ids) |> 
   glimpse()
+
+analysis |> select(contains("llm")) |> glimpse()
+analysis |> count(project_transmission_length_llm_trigger) |> glimpse()
+transmissions |> glimpse()
 
 # write
 sheet_write(
@@ -85,7 +93,7 @@ transmissions |>
 # Multi-candidate rows: one row per candidate for projects with 2+ distinct values
 # ----------------------------------------
 # Multi-candidate rows: one row per candidate for projects with 2+ distinct values
-transmissions_multiple <- 
+transmissions_multiple <-
   transmissions |>
   filter(project_transmission_length_distinct_candidate_count >= 2) |>
   select(
@@ -93,7 +101,8 @@ transmissions_multiple <-
     project_transmission_length_taxonomy,
     project_transmission_length_llm_trigger,
     project_transmission_length_llm_status,
-    selected_length_miles = project_transmission_length_miles,
+    rule_based_miles  = project_transmission_length_miles,
+    final_miles       = project_transmission_length_final,
     candidate_id,
     candidate_value_miles = value_miles,
     candidate_action_type,
@@ -128,7 +137,8 @@ tx_adjudication <-
     project_id,
     project_transmission_action,
     project_transmission_length_taxonomy,
-    selected_length_miles = project_transmission_length_miles,
+    rule_based_miles  = project_transmission_length_miles,
+    final_miles       = project_transmission_length_final,
     project_transmission_length_llm_trigger,
     project_transmission_length_llm_status,
     project_transmission_length_llm_reasoning
