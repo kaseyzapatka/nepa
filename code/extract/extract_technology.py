@@ -673,27 +673,11 @@ def _adjudicate_transmission_length(
     effective_nontrivial = non_partial_nontrivial if non_partial_nontrivial else nontrivial
 
     # ------------------------------------------------------------------
-    # LLM trigger logic:
-    #   anthropic provider: trigger on ANY row with >= 2 nontrivial (>= 0.25 mi)
-    #     distinct candidates — Claude reads all genuinely ambiguous rows.
-    #     Sub-quarter-mile projects (tiny electric lines) are handled by rules.
-    #   ollama provider: only fire when genuinely ambiguous among effective
-    #     (non-partial) candidates (spread > 1.5x and no dominant build-verb winner)
+    # LLM trigger: any project with >= 2 distinct nontrivial (>= 0.25 mi)
+    # candidates is flagged regardless of provider. At N=39 strict-tx
+    # projects this covers all genuinely ambiguous cases cheaply.
     # ------------------------------------------------------------------
-    if provider == "anthropic":
-        llm_trigger = len(effective_nontrivial) >= 2
-    elif len(effective_nontrivial) >= 2:
-        nt_vals = [g["value_miles"] for g in effective_nontrivial]
-        spread = max(nt_vals) / min(nt_vals) if min(nt_vals) > 0 else 1.0
-        top_score = max(g["best_candidate"]["hint_score"] for g in effective_nontrivial)
-        dominant = [
-            g for g in effective_nontrivial
-            if g["best_candidate"]["hint_score"] == top_score
-            and g["best_candidate"].get("sentence_has_build_verb", False)
-        ]
-        llm_trigger = spread > 1.5 and not (len(dominant) == 1 and top_score >= 3)
-    else:
-        llm_trigger = False
+    llm_trigger = len(effective_nontrivial) >= 2
 
     if candidate_count == 0:
         return LengthAdjudication(

@@ -117,6 +117,47 @@ sheet_write(
 
 
 #
+# Adjudication review: one row per project with 2+ distinct nontrivial candidates
+# ----------------------------------------
+# Each row is one project. Candidate values are collapsed to a single string so
+# you can review all 39 ambiguous projects at a glance and verify LLM choices.
+tx_adjudication <-
+  transmissions |>
+  filter(project_transmission_length_distinct_candidate_count >= 2) |>
+  group_by(
+    project_id,
+    project_transmission_action,
+    project_transmission_length_taxonomy,
+    selected_length_miles = project_transmission_length_miles,
+    project_transmission_length_llm_trigger,
+    project_transmission_length_llm_status,
+    project_transmission_length_llm_reasoning
+  ) |>
+  summarise(
+    n_candidates      = n(),
+    candidate_values  = paste(sort(unique(round(value_miles, 3))), collapse = " | "),
+    selected_texts    = paste(source_text[is_selected], collapse = " // "),
+    .groups = "drop"
+  ) |>
+  left_join(
+    analysis |>
+      select(project_id, project_title_txt, project_description_txt),
+    by = "project_id"
+  ) |>
+  arrange(project_transmission_length_llm_status, project_id)
+
+cat("Ambiguous projects (2+ distinct nontrivial candidates):", nrow(tx_adjudication), "\n")
+cat("  LLM triggered:", sum(tx_adjudication$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
+cat("  LLM used:     ", sum(tx_adjudication$project_transmission_length_llm_status == "success", na.rm = TRUE), "\n")
+
+sheet_write(
+  data = tx_adjudication,
+  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
+  sheet = "tx_adjudication"
+)
+
+
+#
 # UNKNOWN: Project-level action type review — broad-tx projects where the
 # ----------------------------------------
 # project_transmission_action classifier returned 'unknown' or 'mixed'.
