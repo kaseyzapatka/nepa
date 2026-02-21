@@ -21,7 +21,7 @@
 # --------------------------
 # SETUP
 # --------------------------
-
+rm(list=ls())
 source(here::here("code", "deliverable02", "00_setup.R"))
 
 # --------------------------
@@ -68,7 +68,7 @@ fig_share <- ggplot(review_counts,
 fig_share_path <- here(figures_dir, "02_review_share.png")
 ggsave(fig_share_path, fig_share, width = 9, height = 4, dpi = 300)
 cat("  Saved:", fig_share_path, "\n")
-
+print(fig_share)
 # --------------------------
 # FIGURE 2: REVIEW TYPE BY NEPA PROCESS
 # --------------------------
@@ -85,7 +85,7 @@ by_process <- reviews %>%
   mutate(
     total = sum(n),
     pct   = n / total,
-    label = if_else(pct >= 0.015,
+    label = if_else(pct >= 0.05,
                     sprintf("%.1f%%\n(n=%s)", pct * 100, comma(n)),
                     "")
   ) %>%
@@ -164,6 +164,7 @@ tryCatch({
   ggsave(fig_process_path, panel_a, width = 9, height = 4, dpi = 300)
   cat("  Saved:", fig_process_path, "\n")
 })
+print(fig_process)
 
 # --------------------------
 # FIGURE 3: TOP AGENCIES FOR NON-STANDARD REVIEWS
@@ -230,6 +231,55 @@ fig_agency <- ggplot(agency_data,
 fig_agency_path <- here(figures_dir, "02_agency.png")
 ggsave(fig_agency_path, fig_agency, width = 10, height = 6, dpi = 300)
 cat("  Saved:", fig_agency_path, "\n")
+print(fig_agency)
+
+# --------------------------
+# FIGURE 3b: TOP DEPARTMENTS FOR NON-STANDARD REVIEWS
+# --------------------------
+# Same story as Figure 3 but at the department level (project_department is a
+# scalar column — no unnesting needed).
+
+cat("\nCreating Figure 3b: Department breakdown...\n")
+
+dept_data <- non_standard %>%
+  filter(!is.na(project_department), project_department != "") %>%
+  count(project_department, review_type, name = "n") %>%
+  complete(project_department, review_type = c("Programmatic", "Tiered"),
+           fill = list(n = 0)) %>%
+  group_by(project_department) %>%
+  mutate(total = sum(n)) %>%
+  ungroup() %>%
+  mutate(project_department = fct_reorder(project_department, total))
+
+fig_dept <- ggplot(dept_data,
+                   aes(x = n, y = project_department, fill = review_type)) +
+  geom_col(position = position_dodge(width = 0.65), width = 0.6, alpha = 0.9) +
+  geom_text(aes(label = if_else(n > 0, as.character(n), "")),
+            position = position_dodge(width = 0.65),
+            hjust = -0.2, size = 3.2, color = "gray20") +
+  scale_fill_manual(
+    values = review_type_colors[c("Programmatic", "Tiered")],
+    name   = "Review type"
+  ) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.25)),
+                     labels = comma) +
+  labs(
+    title    = "Programmatic & Tiered Reviews by Department",
+    subtitle = "All departments with at least one non-standard review",
+    x        = "Number of projects",
+    y        = NULL,
+    caption  = "Department determined by project_department (scalar field; no multi-department unnesting needed)."
+  ) +
+  theme_catf() +
+  theme(
+    legend.position    = "top",
+    panel.grid.major.y = element_blank()
+  )
+
+fig_dept_path <- here(figures_dir, "02_department.png")
+ggsave(fig_dept_path, fig_dept, width = 10, height = 6, dpi = 300)
+cat("  Saved:", fig_dept_path, "\n")
+print(fig_dept)
 
 # --------------------------
 # FIGURE 4: GEOGRAPHIC DISTRIBUTION
@@ -255,12 +305,24 @@ state_data <- reviews_long_state %>%
   ungroup() %>%
   mutate(state = fct_reorder(state, total))
 
+# Labels inside the Programmatic segment (center = n_prog / 2)
+state_prog_labels <- state_data %>%
+  filter(review_type == "Programmatic", n > 0) %>%
+  mutate(label = sprintf("%d (%.0f%%)", n, n / total * 100))
+
 fig_state <- ggplot(state_data,
                     aes(x = n, y = state, fill = review_type)) +
   geom_col(width = 0.65, alpha = 0.9) +   # stacked for total clarity
   scale_fill_manual(
     values = review_type_colors[c("Programmatic", "Tiered")],
     name   = "Review type"
+  ) +
+  # White label inside the programmatic segment showing count (% of row total)
+  geom_text(
+    data = state_prog_labels,
+    aes(x = n / 2, y = state, label = label),
+    inherit.aes = FALSE,
+    color = "white", size = 2.8, fontface = "bold"
   ) +
   geom_text(
     data = state_data %>% group_by(state) %>% summarise(total = sum(n), .groups = "drop"),
@@ -286,7 +348,7 @@ fig_state <- ggplot(state_data,
 fig_state_path <- here(figures_dir, "02_state.png")
 ggsave(fig_state_path, fig_state, width = 9, height = 6, dpi = 300)
 cat("  Saved:", fig_state_path, "\n")
-
+print(fig_state)
 # --------------------------
 # FIGURE 5: DURATION COMPARISON
 # --------------------------
@@ -372,6 +434,7 @@ fig_duration <- ggplot(
 fig_duration_path <- here(figures_dir, "02_duration.png")
 ggsave(fig_duration_path, fig_duration, width = 11, height = 7, dpi = 300)
 cat("  Saved:", fig_duration_path, "\n")
+print(fig_duration)
 
 # --------------------------
 # FIGURE 6: TIERED REVIEW PARENTAGE
@@ -461,7 +524,7 @@ fig_parents <- ggplot(parent_counts,
 fig_parents_path <- here(figures_dir, "02_tiered_parents.png")
 ggsave(fig_parents_path, fig_parents, width = 10, height = 6, dpi = 300)
 cat("  Saved:", fig_parents_path, "\n")
-
+print(fig_parents)
 # --------------------------
 # TABLE 1: SNAPSHOT CROSS-TABULATION
 # --------------------------
@@ -566,3 +629,4 @@ print(duration_summary %>%
         select(process_type, review_type, n, median_days, mean_days))
 cat("\nFigures saved to:", figures_dir, "\n")
 cat("Tables  saved to:", tables_dir, "\n")
+
