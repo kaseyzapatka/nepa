@@ -30,6 +30,41 @@ The merge uses `project_id` and drops `project_title` from the NOI output to avo
 
 Note for later updates: consider tracking a run log with query statistics for reproducibility.
 
+## Review Type Extraction (Programmatic + Tiered)
+
+Use `code/extract/extract_reviews.py` to classify projects as `programmatic`, `tiered`, or `standard`.
+
+The extractor now uses DuckDB for source-level page loading (both EA and EIS), then classifies projects from in-memory caches. `--workers` parallelizes project classification on top of that.
+`generic` / `tier 1` stand-in terminology is included by default.
+Scope is fixed to clean energy EA/EIS projects.
+
+### Full production run (recommended)
+
+Default scope is clean energy + EA/EIS only. Output writes to `data/analysis/projects_reviews.parquet`.
+
+```bash
+python code/extract/extract_reviews.py --run --workers 8
+```
+
+### Optional full run with LLM fallback (slower)
+
+```bash
+python code/extract/extract_reviews.py --run --use-llm --workers 8
+```
+
+Use `--use-llm` when:
+- You want higher recall on borderline/ambiguous phrasing that regex scores as medium confidence.
+- You are doing a focused QA pass on likely edge cases, not routine production refreshes.
+- You can tolerate slower runtime and model-driven variability in classifications.
+
+### Test run (safe output)
+
+Writes to `data/analysis/projects_reviews_test.parquet` so the main output is not overwritten.
+
+```bash
+python code/extract/extract_reviews.py --test --workers 4
+```
+
 ## Timeline Data Build (Regex + BERT)
 
 Use this after updating timeline patterns or models in `code/extract/extract_timeline.py`.
