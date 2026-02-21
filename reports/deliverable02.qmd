@@ -163,6 +163,20 @@ knitr::include_graphics(file.path(d2_figures, "02_review_by_process.png"))
 knitr::include_graphics(file.path(d2_figures, "02_agency.png"))
 ```
 
+## By Department
+
+@fig-dept aggregates the same non-standard reviews to the department level, collapsing sub-agencies into their parent cabinet departments. The picture simplifies considerably: the **Department of the Interior** (primarily BLM, but also the Bureau of Ocean Energy Management and Bureau of Reclamation) is responsible for roughly half of all programmatic and tiered reviews in the clean energy corpus. **Other Independent Agencies**—a catch-all that includes the Tennessee Valley Authority and NASA—account for the next largest share, mostly through programmatic EISs tied to long-range resource planning. **Department of Energy** rounds out the top three, driven by DOE program offices and the Power Marketing Administrations that oversee transmission and grid infrastructure.
+
+The department view is useful for stakeholder reporting: it maps cleanly onto the organizational structure that clients and policymakers engage with, and makes the Interior dominance unmistakable even if sub-agency details matter for operational questions.
+
+```{r}
+#| label: fig-dept
+#| fig-cap: "Programmatic and tiered reviews by parent department."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d2_figures, "02_department.png"))
+```
+
 ## Geographic Distribution
 
 @fig-state shows the top states for non-standard reviews. Western states dominate—California, Nevada, Washington, Colorado, and Arizona each have ten or more programmatic or tiered projects—mirroring BLM's land footprint and the concentration of utility-scale renewable energy siting in the West. Note that multi-state projects are counted once per state, so these totals reflect project-state combinations.

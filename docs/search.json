@@ -1901,6 +1901,69 @@
     "href": "reports/deliverable02.html#geographic-distribution",
     "title": "NEPA Clean Energy Analysis: Deliverable 2",
     "section": "Geographic Distribution",
-    "text": "Geographic Distribution\nFigure 4 shows the top states for non-standard reviews. Western states dominate—California, Nevada, Washington, Colorado, and Arizona each have ten or more programmatic or tiered projects—mirroring BLM’s land footprint and the concentration of utility-scale renewable energy siting in the West. Note that multi-state projects are counted once per state, so these totals reflect project-state combinations.\n\n\n\n\n\nFigure 4: Top 12 states for programmatic and tiered clean energy reviews (multi-state projects counted once per state)."
+    "text": "Geographic Distribution\nFigure 5 shows the top states for non-standard reviews. Western states dominate—California, Nevada, Washington, Colorado, and Arizona each have ten or more programmatic or tiered projects—mirroring BLM’s land footprint and the concentration of utility-scale renewable energy siting in the West. Note that multi-state projects are counted once per state, so these totals reflect project-state combinations.\n\n\n\n\n\nFigure 5: Top 12 states for programmatic and tiered clean energy reviews (multi-state projects counted once per state)."
+  },
+  {
+    "objectID": "reports/deliverable02.html#by-department",
+    "href": "reports/deliverable02.html#by-department",
+    "title": "NEPA Clean Energy Analysis: Deliverable 2",
+    "section": "By Department",
+    "text": "By Department\nFigure 4 aggregates the same non-standard reviews to the department level, collapsing sub-agencies into their parent cabinet departments. The picture simplifies considerably: the Department of the Interior (primarily BLM, but also the Bureau of Ocean Energy Management and Bureau of Reclamation) is responsible for roughly half of all programmatic and tiered reviews in the clean energy corpus. Other Independent Agencies—a catch-all that includes the Tennessee Valley Authority and NASA—account for the next largest share, mostly through programmatic EISs tied to long-range resource planning. Department of Energy rounds out the top three, driven by DOE program offices and the Power Marketing Administrations that oversee transmission and grid infrastructure.\nThe department view is useful for stakeholder reporting: it maps cleanly onto the organizational structure that clients and policymakers engage with, and makes the Interior dominance unmistakable even if sub-agency details matter for operational questions.\n\n\n\n\n\nFigure 4: Programmatic and tiered reviews by parent department."
+  },
+  {
+    "objectID": "notes/status/02_deliverable02.html",
+    "href": "notes/status/02_deliverable02.html",
+    "title": "Deliverable 02 Status (Programmatic & Tiered Reviews)",
+    "section": "",
+    "text": "Date: 2026-02-21\nStatus: Core extraction and analysis complete; targeted validation and decision work remains.\n\n\nDeliverable 02 covers clean-energy EA/EIS projects only and answers: 1. How many programmatic/tiered reviews are there? 2. Are tiered reviews completed faster?\n\n\n\n\nExtraction pipeline is implemented and operational in code/extract/extract_reviews.py.\nScope is fixed to clean-energy EA/EIS in the extractor.\nDuckDB-based page loading is integrated for both EA and EIS for faster runs.\ngeneric and tier 1 stand-in language is enabled by default in classification.\nLLM fallback is available but now opt-in (--use-llm), with default runs using regex/title/metadata only.\nTest output safety is in place (--test writes to data/analysis/projects_reviews_test.parquet).\nDeliverable analysis scripts are in place:\n\ncode/deliverable02/00_setup.R\ncode/deliverable02/01_reviews.R\n\nDeliverable report is in place at reports/deliverable02.qmd.\nQA scripts were created for review validation in code/exploratory/reviews/:\n\n01_review_qc_overview.R\n02_tier_term_logic_checks.R\n03_tier_linkage_checks.R\n\n\n\n\n\nUsing data/analysis/projects_reviews.parquet:\n\nTotal projects: 1,326\nStandard: 1,165 (87.9%)\nProgrammatic: 128 (9.7%)\nTiered: 33 (2.5%)\n\nBy process: - EA: 537 standard, 10 programmatic, 26 tiered - EIS: 628 standard, 118 programmatic, 7 tiered\nDuration summary from output/deliverable2/tables/02_duration_summary.csv: - EA median days: Standard 421, Programmatic 311, Tiered 734 - EIS median days: Standard 1087, Programmatic 974, Tiered 768 (n=2; unstable)\n\n\n\nFrom output/exploratory/reviews/:\n\nStructural QA checks currently pass (01_issue_summary.csv has zero flagged rows).\nTier-term logic checks currently show:\n\nTier 1 mentions not classified as programmatic: 0\nTier 2 mentions not classified as tiered: 0\n\nTier linkage checks identified 2 weak tiers_from strings for manual review:\n\n80f749d925f8a9b0301b808ee659b478\n47e8e1d91193ef400612c85890aabcaf\n\n\n\n\n\n\nRegex validation (priority):\n\nManually review a sample of non-standard classifications for precision.\nManually review a sampled set of standard records to estimate false negatives.\nResolve the 2 weak tiers_from extractions and decide whether to normalize/fix these patterns.\n\nLLM decision (priority):\n\nRun side-by-side comparison on a labeled validation sample with and without --use-llm.\nDecide LLM policy based on measured gain vs runtime/variability.\nRecommended default remains no-LLM until benchmark evidence justifies routine LLM usage.\n\nFollow-up analysis questions from reports/deliverable02.qmd:\n\nConfirm whether captured programmatic/tiered records are correctly classified via manual validation sheet.\nConfirm “Programmatic Collaborations” are grants/agreements, not PEIS/PEA reviews.\nRevisit duration findings after finalized timeline coverage is merged.\nInvestigate whether longer tiered EA durations reflect complexity confounding vs tiering effect.\n\nReport refinement:\n\nUpdate narrative once validation outcomes are complete.\nAdd explicit note about small-sample limits for tiered EIS and programmatic EA inference.\n\n\n\n\n\n\nExecute regex/manual validation pass and adjudicate weak tier-parent links.\nRun LLM benchmark on the same adjudicated sample and make a clear go/no-go decision.\nRecompute final Deliverable 02 outputs and refresh reports/deliverable02.qmd.\nRecord final decisions and validation stats back into this status file.\n\n\n\n\n\nExtraction: code/extract/extract_reviews.py\nSetup: code/deliverable02/00_setup.R\nAnalysis: code/deliverable02/01_reviews.R\nReport: reports/deliverable02.qmd\nQA scripts: code/exploratory/reviews/01_review_qc_overview.R, code/exploratory/reviews/02_tier_term_logic_checks.R, code/exploratory/reviews/03_tier_linkage_checks.R\nQA outputs: output/exploratory/reviews/"
+  },
+  {
+    "objectID": "notes/status/02_deliverable02.html#scope",
+    "href": "notes/status/02_deliverable02.html#scope",
+    "title": "Deliverable 02 Status (Programmatic & Tiered Reviews)",
+    "section": "",
+    "text": "Deliverable 02 covers clean-energy EA/EIS projects only and answers: 1. How many programmatic/tiered reviews are there? 2. Are tiered reviews completed faster?"
+  },
+  {
+    "objectID": "notes/status/02_deliverable02.html#what-has-been-completed",
+    "href": "notes/status/02_deliverable02.html#what-has-been-completed",
+    "title": "Deliverable 02 Status (Programmatic & Tiered Reviews)",
+    "section": "",
+    "text": "Extraction pipeline is implemented and operational in code/extract/extract_reviews.py.\nScope is fixed to clean-energy EA/EIS in the extractor.\nDuckDB-based page loading is integrated for both EA and EIS for faster runs.\ngeneric and tier 1 stand-in language is enabled by default in classification.\nLLM fallback is available but now opt-in (--use-llm), with default runs using regex/title/metadata only.\nTest output safety is in place (--test writes to data/analysis/projects_reviews_test.parquet).\nDeliverable analysis scripts are in place:\n\ncode/deliverable02/00_setup.R\ncode/deliverable02/01_reviews.R\n\nDeliverable report is in place at reports/deliverable02.qmd.\nQA scripts were created for review validation in code/exploratory/reviews/:\n\n01_review_qc_overview.R\n02_tier_term_logic_checks.R\n03_tier_linkage_checks.R"
+  },
+  {
+    "objectID": "notes/status/02_deliverable02.html#current-data-snapshot",
+    "href": "notes/status/02_deliverable02.html#current-data-snapshot",
+    "title": "Deliverable 02 Status (Programmatic & Tiered Reviews)",
+    "section": "",
+    "text": "Using data/analysis/projects_reviews.parquet:\n\nTotal projects: 1,326\nStandard: 1,165 (87.9%)\nProgrammatic: 128 (9.7%)\nTiered: 33 (2.5%)\n\nBy process: - EA: 537 standard, 10 programmatic, 26 tiered - EIS: 628 standard, 118 programmatic, 7 tiered\nDuration summary from output/deliverable2/tables/02_duration_summary.csv: - EA median days: Standard 421, Programmatic 311, Tiered 734 - EIS median days: Standard 1087, Programmatic 974, Tiered 768 (n=2; unstable)"
+  },
+  {
+    "objectID": "notes/status/02_deliverable02.html#qa-results-so-far",
+    "href": "notes/status/02_deliverable02.html#qa-results-so-far",
+    "title": "Deliverable 02 Status (Programmatic & Tiered Reviews)",
+    "section": "",
+    "text": "From output/exploratory/reviews/:\n\nStructural QA checks currently pass (01_issue_summary.csv has zero flagged rows).\nTier-term logic checks currently show:\n\nTier 1 mentions not classified as programmatic: 0\nTier 2 mentions not classified as tiered: 0\n\nTier linkage checks identified 2 weak tiers_from strings for manual review:\n\n80f749d925f8a9b0301b808ee659b478\n47e8e1d91193ef400612c85890aabcaf"
+  },
+  {
+    "objectID": "notes/status/02_deliverable02.html#what-is-left-to-do",
+    "href": "notes/status/02_deliverable02.html#what-is-left-to-do",
+    "title": "Deliverable 02 Status (Programmatic & Tiered Reviews)",
+    "section": "",
+    "text": "Regex validation (priority):\n\nManually review a sample of non-standard classifications for precision.\nManually review a sampled set of standard records to estimate false negatives.\nResolve the 2 weak tiers_from extractions and decide whether to normalize/fix these patterns.\n\nLLM decision (priority):\n\nRun side-by-side comparison on a labeled validation sample with and without --use-llm.\nDecide LLM policy based on measured gain vs runtime/variability.\nRecommended default remains no-LLM until benchmark evidence justifies routine LLM usage.\n\nFollow-up analysis questions from reports/deliverable02.qmd:\n\nConfirm whether captured programmatic/tiered records are correctly classified via manual validation sheet.\nConfirm “Programmatic Collaborations” are grants/agreements, not PEIS/PEA reviews.\nRevisit duration findings after finalized timeline coverage is merged.\nInvestigate whether longer tiered EA durations reflect complexity confounding vs tiering effect.\n\nReport refinement:\n\nUpdate narrative once validation outcomes are complete.\nAdd explicit note about small-sample limits for tiered EIS and programmatic EA inference."
+  },
+  {
+    "objectID": "notes/status/02_deliverable02.html#suggested-next-sequence",
+    "href": "notes/status/02_deliverable02.html#suggested-next-sequence",
+    "title": "Deliverable 02 Status (Programmatic & Tiered Reviews)",
+    "section": "",
+    "text": "Execute regex/manual validation pass and adjudicate weak tier-parent links.\nRun LLM benchmark on the same adjudicated sample and make a clear go/no-go decision.\nRecompute final Deliverable 02 outputs and refresh reports/deliverable02.qmd.\nRecord final decisions and validation stats back into this status file."
+  },
+  {
+    "objectID": "notes/status/02_deliverable02.html#key-files",
+    "href": "notes/status/02_deliverable02.html#key-files",
+    "title": "Deliverable 02 Status (Programmatic & Tiered Reviews)",
+    "section": "",
+    "text": "Extraction: code/extract/extract_reviews.py\nSetup: code/deliverable02/00_setup.R\nAnalysis: code/deliverable02/01_reviews.R\nReport: reports/deliverable02.qmd\nQA scripts: code/exploratory/reviews/01_review_qc_overview.R, code/exploratory/reviews/02_tier_term_logic_checks.R, code/exploratory/reviews/03_tier_linkage_checks.R\nQA outputs: output/exploratory/reviews/"
   }
 ]
