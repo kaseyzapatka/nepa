@@ -1,0 +1,230 @@
+# --------------------------
+# DELIVERABLE 2: SETUP
+# --------------------------
+# Shared setup for deliverable 2 (Programmatic & Tiered Reviews)
+# Loads reviews data and merges with timeline for duration analysis
+#
+# Key output objects:
+#   reviews            - full reviews dataset (clean energy EA/EIS projects)
+#   reviews_tl         - reviews merged with timeline data (includes duration_days)
+#   duration_data      - subset with valid duration (positive, non-missing)
+#   non_standard       - only programmatic + tiered reviews
+#   reviews_long_agency - unnested by lead agency (for agency-level analyses)
+#   reviews_long_state  - unnested by state (for geographic analyses)
+
+# --------------------------
+# LIBRARIES
+# --------------------------
+
+library(here)
+library(arrow)
+library(tidyverse)
+library(jsonlite)
+library(scales)
+library(gt)
+
+# --------------------------
+# FILE PATHS
+# --------------------------
+
+reviews_path      <- here("data", "analysis", "projects_reviews.parquet")
+timeline_ea_path  <- here("data", "analysis", "projects_timeline_bert_ea_llm.parquet")
+timeline_eis_path <- here("data", "analysis", "projects_timeline_bert_eis_llm.parquet")
+
+output_dir  <- here("output", "deliverable2")
+tables_dir  <- here("output", "deliverable2", "tables")
+figures_dir <- here("output", "deliverable2", "figures")
+
+dir.create(tables_dir,  showWarnings = FALSE, recursive = TRUE)
+dir.create(figures_dir, showWarnings = FALSE, recursive = TRUE)
+
+# --------------------------
+# CONSTANTS
+# --------------------------
+
+review_type_levels <- c("Standard", "Programmatic", "Tiered")
+
+review_type_colors <- c(
+  "Standard"     = "gray75",
+  "Programmatic" = "#0047BB",
+  "Tiered"       = "#00B5E2"
+)
+
+# --------------------------
+# HELPER: UNNEST LIST / JSON COLUMN
+# --------------------------
+# Handles both native Arrow list columns and JSON-string columns.
+# Returns a long-form data frame with one value per row.
+
+explode_col <- function(df, col_name) {
+  col <- df[[col_name]]
+  if (is.list(col)) {
+    # Arrow native list column
+    df %>%
+      mutate(!!col_name := lapply(.data[[col_name]], function(x) {
+        if (is.null(x) || length(x) == 0) NA_character_
+        else as.character(x)
+      })) %>%
+      unnest(cols = !!sym(col_name), keep_empty = TRUE)
+  } else {
+    # JSON-string column
+    df %>%
+      mutate(!!col_name := lapply(as.character(.data[[col_name]]), function(x) {
+        if (is.na(x) || x == "" || x == "[]") return(NA_character_)
+        tryCatch(
+          as.character(jsonlite::fromJSON(x)),
+          error = function(e) NA_character_
+        )
+      })) %>%
+      unnest(cols = !!sym(col_name), keep_empty = TRUE)
+  }
+}
+
+# --------------------------
+# LOAD REVIEWS
+# --------------------------
+
+cat("Loading reviews from:", reviews_path, "\n")
+reviews_raw <- read_parquet(reviews_path) %>% as_tibble()
+cat("  Total projects:", nrow(reviews_raw), "\n")
+
+reviews <- reviews_raw %>%
+  mutate(
+    review_type  = factor(
+      str_to_sentence(project_review_type),
+      levels = review_type_levels
+    ),
+    process_type = factor(dataset_source, levels = c("EA", "EIS"))
+  )
+
+cat("Review type breakdown:\n")
+print(count(reviews, review_type))
+
+# --------------------------
+# UNNEST AGENCY AND STATE
+# --------------------------
+
+reviews_long_agency <- reviews %>%
+  select(project_id, project_review_type, review_type, process_type,
+         lead_agency_harmonized) %>%
+  explode_col("lead_agency_harmonized") %>%
+  rename(agency = lead_agency_harmonized) %>%
+  filter(!is.na(agency), agency != "")
+
+reviews_long_state <- reviews %>%
+  select(project_id, project_review_type, review_type, process_type,
+         project_state) %>%
+  explode_col("project_state") %>%
+  rename(state = project_state) %>%
+  filter(!is.na(state), state != "")
+
+cat("  Agency records (unnested):", nrow(reviews_long_agency), "\n")
+cat("  State records  (unnested):", nrow(reviews_long_state), "\n\n")
+
+# --------------------------
+# LOAD AND MERGE TIMELINE
+# --------------------------
+
+cat("Loading timeline data...\n")
+if (!file.exists(timeline_ea_path))  stop("Missing EA timeline file")
+if (!file.exists(timeline_eis_path)) stop("Missing EIS timeline file")
+
+timeline <- bind_rows(
+  read_parquet(timeline_ea_path)  %>% select(project_id, llm_initiation_date, llm_decision_date),
+  read_parquet(timeline_eis_path) %>% select(project_id, llm_initiation_date, llm_decision_date)
+) %>%
+  distinct(project_id, .keep_all = TRUE) %>%
+  mutate(
+    initiation_date = as.Date(llm_initiation_date),
+    decision_date   = as.Date(llm_decision_date)
+  ) %>%
+  select(project_id, initiation_date, decision_date)
+
+cat("  Timeline records:", nrow(timeline), "\n")
+
+reviews_tl <- reviews %>%
+  left_join(timeline, by = "project_id") %>%
+  mutate(
+    duration_days   = as.numeric(decision_date - initiation_date),
+    duration_months = duration_days / 30.44,
+    has_duration    = !is.na(duration_days) & duration_days > 0
+  )
+
+duration_data <- reviews_tl %>% filter(has_duration)
+
+cat("Projects with valid duration by review type:\n")
+print(duration_data %>% count(review_type, process_type))
+
+# --------------------------
+# NON-STANDARD SUBSET
+# --------------------------
+
+non_standard <- reviews %>%
+  filter(project_review_type %in% c("programmatic", "tiered")) %>%
+  mutate(review_type = droplevels(review_type))
+
+cat("\nNon-standard reviews:", nrow(non_standard), "\n")
+
+# --------------------------
+# CATF BRAND THEME
+# --------------------------
+
+catf_dark_blue  <- "#0047BB"
+catf_blue       <- "#00B5E2"
+catf_magenta    <- "#C22A90"
+catf_purple     <- "#75246C"
+catf_lime       <- "#93D500"
+catf_teal       <- "#00AE8D"
+catf_light_blue <- "#8AB7E9"
+catf_navy       <- "#002169"
+
+catf_palette <- c(
+  "#0047BB", "#00B5E2", "#00AE8D", "#93D500",
+  "#C22A90", "#75246C", "#8AB7E9", "#002169"
+)
+
+theme_catf <- function(base_size = 11, base_family = "Helvetica") {
+  theme_minimal(base_size = base_size, base_family = base_family) +
+    theme(
+      plot.title       = element_text(face = "bold", size = rel(1.2), color = catf_navy,
+                                      margin = margin(b = 10)),
+      plot.subtitle    = element_text(size = rel(0.9), color = catf_dark_blue,
+                                      margin = margin(b = 10)),
+      plot.caption     = element_text(size = rel(0.8), color = "gray50", hjust = 1),
+      axis.title       = element_text(size = rel(0.9), color = catf_navy),
+      axis.text        = element_text(size = rel(0.85), color = "gray30"),
+      axis.line        = element_line(color = "gray70", linewidth = 0.3),
+      legend.title     = element_text(face = "bold", size = rel(0.9), color = catf_navy),
+      legend.text      = element_text(size = rel(0.85), color = "gray30"),
+      legend.position  = "bottom",
+      legend.key.size  = unit(0.8, "lines"),
+      panel.grid.major = element_line(color = "gray90", linewidth = 0.3),
+      panel.grid.minor = element_blank(),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background  = element_rect(fill = "white", color = NA),
+      strip.text       = element_text(face = "bold", size = rel(0.9), color = catf_navy),
+      strip.background = element_rect(fill = "gray95", color = NA),
+      plot.margin      = margin(15, 15, 10, 10)
+    )
+}
+
+scale_color_catf <- function(...) scale_color_manual(values = catf_palette, ...)
+scale_fill_catf  <- function(...) scale_fill_manual(values = catf_palette, ...)
+
+theme_set(theme_catf())
+
+# --------------------------
+# SETUP COMPLETE
+# --------------------------
+
+cat("\n=== Deliverable 2 Setup Complete ===\n")
+cat("Key objects:\n")
+cat("  reviews            -", nrow(reviews), "projects\n")
+cat("  reviews_tl         -", nrow(reviews_tl), "projects (with timeline joined)\n")
+cat("  duration_data      -", nrow(duration_data), "projects with valid duration\n")
+cat("  non_standard       -", nrow(non_standard), "programmatic + tiered projects\n")
+cat("  reviews_long_agency -", nrow(reviews_long_agency), "rows (agency-unnested)\n")
+cat("  reviews_long_state  -", nrow(reviews_long_state), "rows (state-unnested)\n")
+cat("Output directories:\n")
+cat("  Tables: ", tables_dir, "\n")
+cat("  Figures:", figures_dir, "\n")

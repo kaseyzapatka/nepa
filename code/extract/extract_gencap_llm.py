@@ -117,6 +117,16 @@ def is_non_power_project(project_type: str) -> bool:
     return 'pipeline' in pt_lower and 'solar' not in pt_lower and 'wind' not in pt_lower
 
 
+def extract_numeric_page_number(page_number) -> int:
+    """Extract a numeric page token for stable ordering of mixed page labels."""
+    if page_number is None or pd.isna(page_number):
+        return 10**9
+    match = re.search(r'(\d+)', str(page_number))
+    if match:
+        return int(match.group(1))
+    return 10**9
+
+
 # --------------------------
 # SENTENCE FILTERING
 # --------------------------
@@ -492,8 +502,9 @@ def extract_capacity_for_project(
                 print(f"  Error reading pages for doc {doc_id}: {e}")
             continue
 
-        # Sort by page number, focus on early pages (but check more of them)
-        doc_pages = doc_pages.sort_values('page_number')
+        # Sort by numeric page value first, then raw label for deterministic order.
+        doc_pages['_page_number_num'] = doc_pages['page_number'].apply(extract_numeric_page_number)
+        doc_pages = doc_pages.sort_values(['_page_number_num', 'page_number'])
         pages_to_check = min(50, len(doc_pages), max_pages - pages_scanned)
 
         for _, page in doc_pages.head(pages_to_check).iterrows():

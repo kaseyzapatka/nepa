@@ -336,7 +336,9 @@ ce |>
 #
 # Load CE pages to examine actual text content
 # ------------------------------
-ce_pages <- read_parquet(here("data", "processed", "ce", "pages.parquet"))
+ce_pages <-
+  read_parquet(here("data", "processed", "ce", "pages.parquet")) |>
+  mutate(page_number_num = readr::parse_number(as.character(page_number)))
 
 # Get document_ids for our sample projects
 sample_doc_ids <-
@@ -362,7 +364,7 @@ sample_pages |>
 
 # Look at first page of each document to compare content
 sample_pages |>
-  filter(page_number == 1) |>
+  filter(page_number_num == 1) |>
   select(project_id, main_document, file_name, page_text) |>
   mutate(
     # Truncate text for display
@@ -377,8 +379,8 @@ one_project <- multi_doc_projects[1]
 
 sample_pages |>
   filter(project_id == one_project) |>
-  filter(page_number <= 3) |>  # First 3 pages
-  arrange(desc(main_document), page_number) |>
+  filter(page_number_num <= 3) |>  # First 3 pages
+  arrange(desc(main_document), page_number_num, page_number) |>
   select(main_document, file_name, page_number, page_text) |>
   mutate(page_text_preview = str_sub(page_text, 1, 1000)) |>
   select(-page_text) |>
