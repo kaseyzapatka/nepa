@@ -42,6 +42,9 @@ CONFIDENCE_HIGH = "high"      # No LLM needed
 CONFIDENCE_MEDIUM = "medium"  # May need LLM verification
 CONFIDENCE_LOW = "low"        # Needs LLM or manual review
 
+# Default page window to inspect for review signals.
+DEFAULT_MAX_PAGES = 60
+
 
 # --------------------------
 # REGEX PATTERNS FOR REVIEW DETECTION
@@ -55,6 +58,34 @@ PROGRAMMATIC_TITLE_PATTERNS = [
     r'\bpea\b',   # Programmatic EA (careful - also matches other things)
 ]
 
+# Strong programmatic indicators in metadata/title/text
+PROGRAMMATIC_STRONG_PATTERNS = [
+    r'(?:draft|final|supplemental)\s+programmatic\s+environmental\s+(?:impact\s+statement|assessment)',
+    r'programmatic\s+environmental\s+(?:impact\s+statement|assessment)',
+    r'\b(?:dpeis|fpeis|speis|peis|pea)\b',
+    r'this\s+programmatic\s+(?:eis|ea|environmental)',
+    r'this\s+(?:peis|pea)\s+(?:analyzes|addresses|evaluates)',
+]
+
+# Medium-confidence synonyms that may be used for umbrella review documents
+PROGRAMMATIC_MEDIUM_PATTERNS = [
+]
+
+# Optional stand-in terminology ("generic" / "tier 1"), disabled by default.
+GENERIC_STANDIN_PATTERNS = [
+    r'\bgeneric\s+(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b',
+    r'\btier\s*(?:1|i|one)\s+(?:nepa\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b',
+    r'\b(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\s+tier\s*(?:1|i|one)\b',
+]
+
+# Non-NEPA or ancillary uses of "programmatic" that should not classify a project
+PROGRAMMATIC_EXCLUSION_PATTERNS = [
+    r'programmatic\s+agreement',
+    r'programmatic\s+biological\s+opinion',
+    r'programmatic\s+consultation',
+    r'programmatic\s+collaboration',
+]
+
 # Patterns indicating this project TIERS FROM a programmatic review
 # These are the key tiering patterns we want to extract
 TIERING_PATTERNS = [
@@ -62,6 +93,7 @@ TIERING_PATTERNS = [
     (r'(?:this|the)\s+(?:EA|EIS|environmental\s+(?:assessment|impact\s+statement))\s+(?:is\s+)?tier(?:s|ed|ing)\s+(?:to|from)\s+(?:the\s+)?(.{10,150}?)(?:\.|,|\n|$)', 'tiered_statement'),
     (r'tier(?:s|ed|ing)\s+(?:to|from)\s+(?:the\s+)?(.{10,150}?(?:PEIS|PEA|programmatic|program))(?:\.|,|\n|$)', 'tiering_to'),
     (r'(?:pursuant|according)\s+to\s+(?:the\s+)?(.{10,150}?(?:PEIS|PEA|programmatic))(?:\.|,|\n|$)', 'pursuant_to'),
+    (r'(?:incorporat(?:e|es|ed|ing)\s+by\s+reference|adopt(?:s|ed|ing)\s+the\s+analysis\s+in|build(?:s|ing)\s+upon)\s+(?:the\s+)?(.{10,150}?(?:PEIS|PEA|programmatic))(?:\.|,|\n|$)', 'reference_adoption'),
 
     # Site-specific analysis tiering from programmatic
     (r'(?:site[\-\s]?specific|project[\-\s]?specific)\s+(?:EA|EIS|analysis)\s+(?:that\s+)?tier(?:s|ed|ing)\s+(?:to|from)\s+(?:the\s+)?(.{10,150}?)(?:\.|,|\n|$)', 'site_specific_tiering'),
@@ -106,7 +138,7 @@ class ReviewExtractionResult:
     review_tiers_from_context: Optional[str]  # Full context text
 
     # Source tracking
-    review_source: str  # 'title', 'text_regex', 'llm'
+    review_source: str  # 'title', 'doc_metadata', 'text_regex', 'llm'
     review_match_text: Optional[str]  # The actual matched text
 
     # Metadata
@@ -138,6 +170,42 @@ def is_false_positive(text: str) -> bool:
         if re.search(pattern, text, re.IGNORECASE):
             return True
     return False
+
+
+def normalize_text(text: str) -> str:
+    """Normalize spacing in extracted text."""
+    if not text:
+        return ""
+    return re.sub(r'\s+', ' ', str(text)).strip()
+
+
+def contains_programmatic_exclusion(text: str) -> bool:
+    """Check whether text contains programmatic false-positive language."""
+    text = normalize_text(text).lower()
+    if not text:
+        return False
+
+    for pattern in PROGRAMMATIC_EXCLUSION_PATTERNS:
+        if re.search(pattern, text, re.IGNORECASE):
+            return True
+    return False
+
+
+def extract_numeric_page_number(page_number: str) -> int:
+    """
+    Extract a numeric page value from string labels like '12' or 'Page-12'.
+
+    Returns a large fallback value when no numeric token is present so those
+    rows sort last.
+    """
+    if page_number is None:
+        return 10**9
+
+    match = re.search(r'(\d+)', str(page_number))
+    if match:
+        return int(match.group(1))
+
+    return 10**9
 
 
 def clean_extracted_reference(ref: str) -> str:
@@ -183,7 +251,7 @@ def extract_programmatic_reference(text: str, window: int = 200) -> Optional[str
 # TIER 1: TITLE-BASED DETECTION
 # --------------------------
 
-def check_title_for_programmatic(title: str) -> Tuple[bool, str]:
+def check_title_for_programmatic(title: str, include_generic: bool = False) -> Tuple[bool, str]:
     """
     Check if project title indicates a programmatic review.
 
@@ -193,11 +261,24 @@ def check_title_for_programmatic(title: str) -> Tuple[bool, str]:
     if not title:
         return False, CONFIDENCE_LOW
 
-    title_lower = title.lower()
+    title_clean = normalize_text(title)
+    title_lower = title_clean.lower()
 
     # Exclude if title mentions "tiering from" - this is a tiered review, not programmatic
     if re.search(r'tier(?:s|ing|ed)?\s+(?:to|from)', title_lower):
         return False, CONFIDENCE_LOW
+
+    # Exclude known non-review programmatic language
+    if contains_programmatic_exclusion(title_lower):
+        return False, CONFIDENCE_LOW
+
+    # Strong phrase match
+    for pattern in PROGRAMMATIC_STRONG_PATTERNS:
+        if re.search(pattern, title_lower, re.IGNORECASE):
+            # Prevent "from the PEIS/PEA" title references from being marked programmatic
+            if re.search(r'(?:from|pursuant\s+to|tier(?:s|ing|ed)?\s+(?:to|from))\s+(?:the\s+)?\w*\s*(?:peis|pea)', title_lower):
+                continue
+            return True, CONFIDENCE_HIGH
 
     # Strong indicators in title
     if 'programmatic' in title_lower:
@@ -215,6 +296,12 @@ def check_title_for_programmatic(title: str) -> Tuple[bool, str]:
         kw in title_lower for kw in ['environmental', 'assessment', 'program']
     ):
         if not re.search(r'(?:from|pursuant\s+to)\s+(?:the\s+)?\w*\s*pea', title_lower):
+            return True, CONFIDENCE_MEDIUM
+
+    # Optional "Generic EIS/EA" stand-in terminology
+    generic_patterns = GENERIC_STANDIN_PATTERNS if include_generic else []
+    for pattern in generic_patterns:
+        if re.search(pattern, title_lower, re.IGNORECASE):
             return True, CONFIDENCE_MEDIUM
 
     return False, CONFIDENCE_LOW
@@ -267,14 +354,13 @@ def extract_review_from_text(
             # Get surrounding context
             start = max(0, match.start() - 100)
             end = min(len(text), match.end() + 100)
-            context = text[start:end].replace('\n', ' ')
-            context = re.sub(r'\s+', ' ', context).strip()
+            context = normalize_text(text[start:end])
 
             # Score confidence based on pattern type and context
             confidence = CONFIDENCE_MEDIUM
-            if pattern_type in ['tiered_statement', 'tiering_to']:
+            if pattern_type in ['tiered_statement', 'tiering_to', 'site_specific_tiering']:
                 confidence = CONFIDENCE_HIGH
-            elif pattern_type == 'pursuant_to':
+            elif pattern_type in ['pursuant_to', 'reference_adoption']:
                 confidence = CONFIDENCE_MEDIUM
 
             results.append({
@@ -296,7 +382,7 @@ def extract_review_from_text(
     return results
 
 
-def check_text_for_programmatic(text: str) -> Tuple[bool, str, str]:
+def check_text_for_programmatic(text: str, include_generic: bool = False) -> Tuple[bool, str, str]:
     """
     Check if text indicates this IS a programmatic review (not tiering from one).
 
@@ -306,18 +392,75 @@ def check_text_for_programmatic(text: str) -> Tuple[bool, str, str]:
     if not text:
         return False, CONFIDENCE_LOW, None
 
-    # Look for phrases indicating this document IS the programmatic review
-    programmatic_indicators = [
-        r'this\s+programmatic\s+(?:EIS|EA|environmental)',
-        r'programmatic\s+(?:EIS|EA)\s+(?:is|was)\s+prepared',
+    text_clean = normalize_text(text)
+    if contains_programmatic_exclusion(text_clean):
+        return False, CONFIDENCE_LOW, None
+
+    # Look for phrases indicating this document IS the umbrella review
+    strong_indicators = [
+        r'this\s+programmatic\s+(?:eis|ea|environmental)',
+        r'programmatic\s+(?:eis|ea)\s+(?:is|was)\s+prepared',
         r'purpose\s+of\s+this\s+programmatic',
-        r'this\s+(?:PEIS|PEA)\s+(?:analyzes|addresses|evaluates)',
+        r'this\s+(?:peis|pea)\s+(?:analyzes|addresses|evaluates)',
     ]
 
-    for pattern in programmatic_indicators:
-        match = re.search(pattern, text, re.IGNORECASE)
+    for pattern in strong_indicators:
+        match = re.search(pattern, text_clean, re.IGNORECASE)
         if match:
             return True, CONFIDENCE_HIGH, match.group(0)
+
+    medium_indicators = GENERIC_STANDIN_PATTERNS if include_generic else []
+
+    for pattern in medium_indicators:
+        match = re.search(pattern, text_clean, re.IGNORECASE)
+        if match:
+            return True, CONFIDENCE_MEDIUM, match.group(0)
+
+    return False, CONFIDENCE_LOW, None
+
+
+def check_document_metadata_for_programmatic(
+    project_docs: pd.DataFrame,
+    include_generic: bool = False
+) -> Tuple[bool, str, Optional[str]]:
+    """
+    Check file/document metadata for programmatic indicators.
+
+    This helps recover true positives when OCR text is weak on early pages.
+    """
+    if project_docs is None or project_docs.empty:
+        return False, CONFIDENCE_LOW, None
+
+    # Prefer main documents first when available.
+    docs = project_docs.copy()
+    if 'main_document' in docs.columns:
+        docs['_main_first'] = (docs['main_document'].fillna('').str.upper() == 'YES').astype(int)
+        docs = docs.sort_values('_main_first', ascending=False)
+
+    medium_match = None
+    for _, row in docs.iterrows():
+        for field in ['document_title', 'file_name']:
+            value = normalize_text(row.get(field, ''))
+            if not value:
+                continue
+
+            value_lower = value.lower()
+            if contains_programmatic_exclusion(value_lower):
+                continue
+
+            for pattern in PROGRAMMATIC_STRONG_PATTERNS:
+                if re.search(pattern, value_lower, re.IGNORECASE):
+                    if re.search(r'(?:from|pursuant\s+to|tier(?:s|ing|ed)?\s+(?:to|from))\s+(?:the\s+)?\w*\s*(?:peis|pea)', value_lower):
+                        continue
+                    return True, CONFIDENCE_HIGH, value
+
+            generic_patterns = GENERIC_STANDIN_PATTERNS if include_generic else []
+            for pattern in generic_patterns:
+                if re.search(pattern, value_lower, re.IGNORECASE):
+                    medium_match = value
+
+    if medium_match:
+        return True, CONFIDENCE_MEDIUM, medium_match
 
     return False, CONFIDENCE_LOW, None
 
@@ -441,8 +584,9 @@ def extract_review_for_project(
     documents_df: pd.DataFrame,
     pages_path: Path,
     model: str = DEFAULT_MODEL,
-    max_pages: int = 30,
+    max_pages: int = DEFAULT_MAX_PAGES,
     use_llm: bool = True,
+    include_generic: bool = False,
     verbose: bool = False
 ) -> ReviewExtractionResult:
     """
@@ -483,7 +627,7 @@ def extract_review_for_project(
     )
 
     # ----- TIER 1: Title-based detection -----
-    is_prog, title_conf = check_title_for_programmatic(project_title)
+    is_prog, title_conf = check_title_for_programmatic(project_title, include_generic=include_generic)
     if is_prog:
         result.review_is_programmatic = True
         result.review_type = 'programmatic'
@@ -507,11 +651,32 @@ def extract_review_for_project(
         if not main_docs.empty:
             project_docs = main_docs
 
+    # Metadata fallback before page-level OCR search
+    meta_is_prog, meta_conf, meta_match = check_document_metadata_for_programmatic(
+        project_docs,
+        include_generic=include_generic,
+    )
+    if meta_is_prog and meta_conf == CONFIDENCE_HIGH:
+        result.review_is_programmatic = True
+        result.review_type = 'programmatic'
+        result.review_confidence = meta_conf
+        result.review_source = 'doc_metadata'
+        result.review_match_text = meta_match
+        return result
+
     doc_ids = project_docs['document_id'].tolist()
+    if not doc_ids:
+        result.review_source = 'no_documents'
+        return result
 
     # Read pages
+    page_columns = ['document_id', 'page_number', 'page_text']
     try:
-        pages_table = pq.read_table(pages_path, filters=[('document_id', 'in', doc_ids)])
+        pages_table = pq.read_table(
+            pages_path,
+            filters=[('document_id', 'in', doc_ids)],
+            columns=page_columns,
+        )
         pages_df = pages_table.to_pandas()
     except Exception as e:
         if verbose:
@@ -523,8 +688,9 @@ def extract_review_for_project(
         result.review_source = 'no_pages'
         return result
 
-    # Sort by page number, focus on early pages
-    pages_df = pages_df.sort_values('page_number')
+    # Sort by numeric page value when possible, then label for deterministic order
+    pages_df['_page_number_numeric'] = pages_df['page_number'].apply(extract_numeric_page_number)
+    pages_df = pages_df.sort_values(['_page_number_numeric', 'page_number'])
     pages_to_check = min(max_pages, len(pages_df))
 
     all_candidates = []
@@ -535,8 +701,11 @@ def extract_review_for_project(
         text = page.get('page_text', '') or ''
 
         # Check if this IS a programmatic document
-        is_prog, prog_conf, prog_match = check_text_for_programmatic(text)
-        if is_prog and prog_conf == CONFIDENCE_HIGH:
+        is_prog, prog_conf, prog_match = check_text_for_programmatic(
+            text,
+            include_generic=include_generic,
+        )
+        if is_prog and prog_conf in [CONFIDENCE_HIGH, CONFIDENCE_MEDIUM]:
             result.review_is_programmatic = True
             result.review_type = 'programmatic'
             result.review_confidence = prog_conf
@@ -569,6 +738,15 @@ def extract_review_for_project(
 
     result.pages_scanned = pages_scanned
     result.candidates_found = len(all_candidates)
+
+    # Medium-confidence metadata fallback after text scan.
+    if meta_is_prog and meta_conf == CONFIDENCE_MEDIUM:
+        result.review_is_programmatic = True
+        result.review_type = 'programmatic'
+        result.review_confidence = meta_conf
+        result.review_source = 'doc_metadata'
+        result.review_match_text = meta_match
+        return result
 
     # ----- TIER 3: LLM for ambiguous cases -----
     if all_candidates and use_llm:
@@ -620,6 +798,8 @@ def run_review_extraction(
     verbose: bool = True,
     output_path: Optional[str] = None,
     workers: int = 1,
+    max_pages: int = DEFAULT_MAX_PAGES,
+    include_generic: bool = False,
 ) -> pd.DataFrame:
     """
     Run review extraction for multiple projects.
@@ -633,6 +813,8 @@ def run_review_extraction(
         verbose: Print progress
         output_path: Custom output path
         workers: Number of parallel workers (1 = sequential)
+        max_pages: Maximum pages to inspect per project
+        include_generic: Whether to treat "Generic" / "Tier 1 NEPA review" phrases as optional stand-ins for programmatic review
 
     Returns:
         DataFrame with extraction results
@@ -640,6 +822,7 @@ def run_review_extraction(
     print("\n=== Programmatic & Tiered Review Extraction ===")
     print(f"LLM: {'enabled' if use_llm else 'disabled'} (model: {model})")
     print(f"Include CE: {include_ce}")
+    print(f"Include Generic stand-in: {include_generic}")
 
     # Load projects
     projects_path = ANALYSIS_DIR / "projects_combined.parquet"
@@ -696,38 +879,101 @@ def run_review_extraction(
 
         start_time = time.time()
 
-        for idx, (_, project) in enumerate(source_projects.iterrows()):
-            project_id = project['project_id']
-            project_title = project.get('project_title', '')
+        project_inputs = [
+            (project['project_id'], project.get('project_title', ''))
+            for _, project in source_projects.iterrows()
+        ]
 
-            result = extract_review_for_project(
-                project_id=project_id,
-                project_title=project_title,
-                documents_df=documents_df,
-                pages_path=pages_path,
-                model=model,
-                use_llm=use_llm,
-                verbose=False,
-            )
+        if workers and workers > 1:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
 
-            result_dict = result.to_dict()
-            result_dict['dataset_source'] = source
-            results.append(result_dict)
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                future_to_project = {
+                    executor.submit(
+                        extract_review_for_project,
+                        project_id=project_id,
+                        project_title=project_title,
+                        documents_df=documents_df,
+                        pages_path=pages_path,
+                        model=model,
+                        max_pages=max_pages,
+                        use_llm=use_llm,
+                        include_generic=include_generic,
+                        verbose=False,
+                    ): (project_id, project_title)
+                    for project_id, project_title in project_inputs
+                }
 
-            # Track counts
-            if result.review_type == 'programmatic':
-                n_programmatic_found += 1
-            elif result.review_type == 'tiered':
-                n_tiered_found += 1
+                completed = 0
+                for future in as_completed(future_to_project):
+                    completed += 1
+                    try:
+                        result = future.result()
+                    except Exception as e:
+                        project_id, _ = future_to_project[future]
+                        if verbose:
+                            print(f"  Error processing {project_id}: {e}")
+                        result = ReviewExtractionResult(
+                            project_id=project_id,
+                            review_is_programmatic=False,
+                            review_type='unknown',
+                            review_confidence=CONFIDENCE_LOW,
+                            review_tiers_from=None,
+                            review_tiers_from_context=None,
+                            review_source='error',
+                            review_match_text=None,
+                            pages_scanned=0,
+                            candidates_found=0,
+                        )
 
-            # Progress output every 10 projects
-            if verbose and (idx + 1) % 10 == 0:
-                elapsed = time.time() - start_time
-                rate = (idx + 1) / elapsed if elapsed > 0 else 0
-                remaining = (total - idx - 1) / rate if rate > 0 else 0
-                print(f"  [{idx + 1}/{total}] {rate:.1f} proj/sec | "
-                      f"~{remaining/60:.1f} min left | "
-                      f"Found: {n_programmatic_found} prog, {n_tiered_found} tiered")
+                    result_dict = result.to_dict()
+                    result_dict['dataset_source'] = source
+                    results.append(result_dict)
+
+                    if result.review_type == 'programmatic':
+                        n_programmatic_found += 1
+                    elif result.review_type == 'tiered':
+                        n_tiered_found += 1
+
+                    if verbose and completed % 10 == 0:
+                        elapsed = time.time() - start_time
+                        rate = completed / elapsed if elapsed > 0 else 0
+                        remaining = (total - completed) / rate if rate > 0 else 0
+                        print(f"  [{completed}/{total}] {rate:.1f} proj/sec | "
+                              f"~{remaining/60:.1f} min left | "
+                              f"Found: {n_programmatic_found} prog, {n_tiered_found} tiered")
+        else:
+            for idx, (project_id, project_title) in enumerate(project_inputs):
+                result = extract_review_for_project(
+                    project_id=project_id,
+                    project_title=project_title,
+                    documents_df=documents_df,
+                    pages_path=pages_path,
+                    model=model,
+                    max_pages=max_pages,
+                    use_llm=use_llm,
+                    include_generic=include_generic,
+                    verbose=False,
+                )
+
+                result_dict = result.to_dict()
+                result_dict['dataset_source'] = source
+                results.append(result_dict)
+
+                # Track counts
+                if result.review_type == 'programmatic':
+                    n_programmatic_found += 1
+                elif result.review_type == 'tiered':
+                    n_tiered_found += 1
+
+                # Progress output every 10 projects
+                if verbose and (idx + 1) % 10 == 0:
+                    elapsed = time.time() - start_time
+                    rate = (idx + 1) / elapsed if elapsed > 0 else 0
+                    remaining = (total - idx - 1) / rate if rate > 0 else 0
+                    print(f"  [{idx + 1}/{total}] {rate:.1f} proj/sec | "
+                          f"~{remaining/60:.1f} min left | "
+                          f"Found: {n_programmatic_found} prog, {n_tiered_found} tiered")
 
         # Source complete
         elapsed = time.time() - start_time
@@ -807,11 +1053,18 @@ def main():
                         help='Custom output path')
     parser.add_argument('--verbose', '-v', action='store_true',
                         help='Verbose output')
+    parser.add_argument('--max-pages', type=int, default=DEFAULT_MAX_PAGES,
+                        help=f'Max pages to scan per project (default: {DEFAULT_MAX_PAGES})')
+    parser.add_argument('--include-generic', action='store_true',
+                        help='Treat "Generic" and "Tier 1 NEPA review" phrases as optional stand-ins for programmatic review')
+    parser.add_argument('--workers', type=int, default=1,
+                        help='Number of concurrent workers for project extraction (default: 1)')
 
     args = parser.parse_args()
 
     if args.test:
         print("Running test on 10 projects...")
+        test_output = ANALYSIS_DIR / "projects_reviews_test.parquet"
         results = run_review_extraction(
             clean_energy_only=True,
             include_ce=False,
@@ -819,6 +1072,10 @@ def main():
             model=args.model,
             use_llm=not args.no_llm,
             verbose=True,
+            max_pages=args.max_pages,
+            output_path=str(test_output),
+            include_generic=args.include_generic,
+            workers=args.workers,
         )
 
         if results is not None:
@@ -841,6 +1098,9 @@ def main():
             use_llm=not args.no_llm,
             verbose=args.verbose,
             output_path=args.output,
+            max_pages=args.max_pages,
+            include_generic=args.include_generic,
+            workers=args.workers,
         )
 
     else:
