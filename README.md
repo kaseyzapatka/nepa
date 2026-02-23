@@ -205,7 +205,7 @@ Use `code/extract/extract_gencap.py` to extract generation capacity (MW/GW/kW) f
 The extraction runs in two phases:
 
 - **Regex phase**: scans project title → description → document pages for power unit patterns. Records the primary value, candidate count, confidence, and local context snippet for each project.
-- **LLM phase** (Ollama, local): runs on projects with 2+ distinct regex candidates (ambiguous cases), adjudicates the correct value, and merges results back into the dataset. Non-ambiguous projects keep their regex value unchanged.
+- **LLM phase** (Claude Haiku API): runs on projects with 2+ distinct regex candidates (ambiguous cases), adjudicates the correct value, and merges results back into the dataset. Non-ambiguous projects keep their regex value unchanged.
 
 Scope is fixed to clean energy projects. All three process types (CE, EA, EIS) are always processed together.
 
@@ -243,9 +243,11 @@ Requires Phase 1 output. Processes CE, EA, EIS sequentially and updates the parq
 python code/extract/extract_gencap.py --run llm --workers 4
 ```
 
-Outputs:
-- `data/analysis/projects_gencap_merged.parquet` — final merged values (regex + LLM overrides)
+Outputs (written in place to the Phase 1 output file):
+- `data/analysis/projects_gencap.parquet` — regex values + LLM override columns added
 - `data/analysis/gencap_{ce,ea,eis}_llm.parquet` — raw LLM outputs per source
+
+Use `--output` to write to a separate path instead of overwriting in place.
 
 ### Phase 2: LLM test sample
 
@@ -269,4 +271,4 @@ python code/extract/extract_gencap.py --run llm --project-id <UUID>
 Use `--include-non-ambiguous` when:
 - You want full LLM coverage regardless of regex candidate count.
 - You are doing a QA pass and want to verify regex-only extractions.
-- You can tolerate the additional runtime and Ollama throughput limits.
+- You can tolerate the additional API cost.

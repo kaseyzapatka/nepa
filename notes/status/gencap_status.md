@@ -12,20 +12,21 @@ Capture the current state of generation-capacity extraction work for Deliverable
 - Invalid match filtering: filters MW-year and $/MW style matches.
 - Confidence fields added: `project_gencap_confidence` (high/medium/low) and `project_gencap_context` (local snippet).
 - Transmission-only gating has been removed; transmission-only projects are included in the regex pass.
-- LLM model default set to `llama3.2:3b-instruct-q4_K_M`.
-- LLM pass restricted to ambiguous cases (candidate_count >= 2) by default and can run in parallel.
+- LLM model: Claude Haiku (`claude-haiku-4-5-20251001`) via Anthropic API (replaced Ollama).
+- LLM pass restricted to ambiguous cases (candidate_count >= 2) by default and uses ThreadPoolExecutor.
+- LLM uses pre-extracted candidate context snippets from regex output — no page re-reading.
 - LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and falls back to extracting the **max numeric capacity** from candidate sentences when the LLM omits a quote (marks `extraction_method = fallback_from_candidates`).
 - LLM can now be constrained to projects that already have regex capacity (`--require-regex-capacity`).
-- Regex extraction now skips likely initials/date false positives (e.g., “MW, 5/21/15”).
-- Added merge script to combine regex + LLM outputs into a single dataset.
-- Added lightweight validation flags and audit sample generator for regex capacities (initials/date, non-generation context, non-build context, equipment lists).
+- Regex extraction now skips likely initials/date false positives (e.g., "MW, 5/21/15").
+- Merging is integrated into `--run llm` (no separate merge script).
+- Added lightweight validation flags and audit sample generator for regex capacities.
 - Stratified validation sample script added.
 
 ## Transmission/utilities prevalence (clean energy only)
 Clean energy projects: 22,279 total.
 
 Overall:
-- Any “Electricity Transmission” in project_type: 7,815 (35.1%)
+- Any "Electricity Transmission" in project_type: 7,815 (35.1%)
 - Transmission-only (strict: only Electricity Transmission + Utilities): 1,531 (6.9%)
 - Transmission-only (relaxed: also allow Broadband): 1,784 (8.0%)
 - Utilities-only (only Utilities, no transmission): 488 (2.2%)
@@ -45,7 +46,7 @@ By dataset source (percent of clean energy in each source):
 ## LLM spot-check (regex-capacity sample)
 - 10-project CE sample restricted to **regex-capacity cases** resulted in 9/10 capacity extractions (90%).
 - Methods: 5 `llm`, 4 `fallback_from_candidates`, 1 `no_candidates`.
-- The only miss was a false-positive regex match (initials/date “MW”).
+- The only miss was a false-positive regex match (initials/date "MW").
 - Example fix: Barr‑Tech case now returns **2.2 MW** via fallback.
 
 ## Gating status (extract_gencap.py)
@@ -55,9 +56,15 @@ Transmission-only gating has been removed. All projects, including transmission-
 `data/analysis/projects_gencap.parquet` now includes:
 - `project_gencap_value`, `project_gencap_unit` (power only)
 - `project_gencap_energy_value`, `project_gencap_energy_unit` (energy only)
-- `project_gencap_source` (title/document/none/skipped_transmission_only)
+- `project_gencap_source` (title/description/document/none)
 - `project_gencap_confidence` (high/medium/low)
-- `project_gencap_context` (local text snippet)
+- `project_gencap_context` (local text snippet for primary match)
+- `project_gencap_candidate_contexts` (list of context snippets for all power candidates — used by LLM)
+
+After `--run llm`, `projects_gencap.parquet` is updated in place with additional columns:
+- `project_gencap_final_value`, `project_gencap_final_unit` (LLM-adjudicated or regex)
+- `project_gencap_llm_triggered`, `llm_merge_decision`, `project_gencap_llm_selection_logic`
+- `llm_capacity_value`, `llm_confidence`, `llm_source_quote`, etc.
 
 ## Runbook (commands)
 
@@ -100,10 +107,11 @@ PY
 ```
 
 ### 6) Run LLM adjudication + merge (all sources, ambiguous only)
-The `--run llm` command runs CE, EA, EIS sequentially and writes the final merged parquet.
+The `--run llm` command runs CE, EA, EIS sequentially and updates the parquet in place.
 ```bash
 python code/extract/extract_gencap.py --run llm --workers 4
 ```
+Output: `data/analysis/projects_gencap.parquet` (updated in place) + `data/analysis/gencap_{ce,ea,eis}_llm.parquet`.
 
 ### 7) LLM test run (sample, all sources)
 ```bash
@@ -133,47 +141,44 @@ Outputs:
 - `data/analysis/projects_gencap_flagged.parquet`
 - `output/deliverable3/gencap_validation_quick_sample.csv`
 
-Note: `05_gencap_merge_llm.py` has been removed. Merging is now integrated into `--run llm`
-(via `run_llm_merge_pipeline()` in `extract_gencap_llm.py`).
-Output: `data/analysis/projects_gencap_merged.parquet`
-
-## Files updated
-- `code/extract/extract_gencap.py`
-- `code/extract/extract_gencap_llm.py`
+## Files
+- `code/extract/extract_gencap.py` — single unified script (regex + LLM + merge)
 - `code/utils/config.py`
 - `code/deliverable03/02_capacity.R`
 - `code/deliverable03/03_gencap_validation_sample.py`
-- `code/deliverable03/05_gencap_merge_llm.py` — **deleted** (merge now integrated into `--run llm`)
+- `code/deliverable03/04_gencap_validation_flags.py`
+- `code/extract/extract_gencap_llm.py` — **deleted** (merged into extract_gencap.py)
+- `code/deliverable03/05_gencap_merge_llm.py` — **deleted** (merge integrated into `--run llm`)
 
 ## Notes
 - Power/energy are now separated; update analysis logic accordingly (power only for capacity bins).
 - LLM pass triggers on `project_gencap_candidate_count >= 2` (ambiguous cases) by default.
   Use `--include-non-ambiguous` to include all projects.
-- `project_gencap_candidate_count` is only populated after a regex rerun — run `--run regex` first.
-- Parallelization: use 4-6 workers on this machine; Ollama throughput will be the limiting factor.
+- `project_gencap_candidate_count` and `project_gencap_candidate_contexts` are only populated after a regex rerun — run `--run regex` first before `--run llm`.
+- LLM uses Claude Haiku API (set `ANTHROPIC_API_KEY`); use 4-8 workers.
 - Description hits now always get confidence='high' (same as title hits).
+- `--run llm` overwrites the input parquet in place. Use `--output <path>` to write to a separate file.
 
 ## Where to pick up next
-1) **Re-run regex extraction** (populates `project_gencap_candidate_count`; required for LLM trigger)
+1) **Re-run regex extraction** (required: populates `project_gencap_candidate_count` and `project_gencap_candidate_contexts`)
    ```bash
    python code/extract/extract_gencap.py --run regex --parallel 3
    ```
-2) **Full LLM adjudication + merge** (all sources, ambiguous cases only)
+2) **Full LLM adjudication** (all sources, ambiguous cases only)
    ```bash
    python code/extract/extract_gencap.py --run llm --workers 4
    ```
-   Output: `data/analysis/projects_gencap_merged.parquet`
+   Output written in place to `data/analysis/projects_gencap.parquet`.
 3) **Review validation flags / sample**
    Open: `output/deliverable3/gencap_validation_quick_sample.csv` and confirm which flags you want to filter.
 4) **Update analysis in Deliverable 3**
-   Point analysis to `data/analysis/projects_gencap_merged.parquet` (or `projects_gencap_flagged.parquet` if you want to filter first).
-5) **DuckDB optimization** (next session)
-   Replace per-document pyarrow reads in `extract_gencap_llm.py` with bulk DuckDB query (pattern from `extract_reviews.py:240-297`).
+   Point analysis to `data/analysis/projects_gencap.parquet` (use `project_gencap_final_value`/`project_gencap_final_unit` columns for LLM-adjudicated values).
 
 ## Recent progress recap
-- Regex extraction now skips initials/date false positives (e.g., “MW, 5/21/15”).\n
-- LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and uses `fallback_from_candidates` when LLM omits a quote.\n
-- Candidate selection improved for hyphenated units and long equipment-list sentences with numeric units.\n
-- LLM spot-checks:\n
-  - 20-project regex-capacity CE sample: **18/20 (90%)** extracted.\n
-  - Misses were false positives / list-style cases; equipment list fix now captures 50 kW example.\n
+- Regex extraction now skips initials/date false positives (e.g., "MW, 5/21/15").
+- LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and uses `fallback_from_candidates` when LLM omits a quote.
+- LLM now uses pre-stored candidate contexts from regex output (no page re-reading, zero extra I/O cost).
+- Switched from Ollama to Claude Haiku API; switched from multiprocessing.Pool to ThreadPoolExecutor.
+- LLM spot-checks:
+  - 20-project regex-capacity CE sample: **18/20 (90%)** extracted.
+  - Misses were false positives / list-style cases; equipment list fix now captures 50 kW example.

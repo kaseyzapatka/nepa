@@ -473,46 +473,6 @@ def build_regex_document_pairs(documents_df: pd.DataFrame, project_ids: set) -> 
     return docs[["project_id", "document_id", "doc_rank"]]
 
 
-def build_llm_document_pairs(
-    documents_df: pd.DataFrame,
-    project_ids: set,
-    max_docs: int = 3,
-) -> tuple[pd.DataFrame, dict]:
-    """
-    Rank documents for LLM extraction and return top-N document pairs per project.
-
-    Ranking mirrors prior per-project logic:
-      _type_priority, _main_priority, _size_priority
-    """
-    if not project_ids:
-        return pd.DataFrame(columns=["project_id", "document_id", "doc_rank"]), {}
-
-    docs = documents_df[documents_df["project_id"].isin(project_ids)].copy()
-    if docs.empty:
-        return pd.DataFrame(columns=["project_id", "document_id", "doc_rank"]), {}
-
-    doc_type_priority = {"FEIS": 1, "DEIS": 2, "EA": 3, "DEA": 4, "FONSI": 5, "ROD": 6, "CE": 7, "OTHER": 8, "": 5}
-    doc_type_series = docs["document_type"] if "document_type" in docs.columns else pd.Series("", index=docs.index)
-    main_series = docs["main_document"] if "main_document" in docs.columns else pd.Series("", index=docs.index)
-    total_pages_series = docs["total_pages"] if "total_pages" in docs.columns else pd.Series(0, index=docs.index)
-
-    docs["_type_priority"] = doc_type_series.map(lambda x: doc_type_priority.get(x, 10))
-    docs["_main_priority"] = main_series.map({"YES": 0, "NO": 1, "": 2}).fillna(2)
-
-    total_pages_num = pd.to_numeric(total_pages_series, errors="coerce").fillna(0)
-    docs["_size_priority"] = np.where(total_pages_num > 50, 0, 1)
-
-    docs = docs.sort_values(
-        ["project_id", "_type_priority", "_main_priority", "_size_priority", "document_id"],
-        kind="stable",
-    )
-    docs = docs.drop_duplicates(subset=["project_id", "document_id"], keep="first")
-    docs["doc_rank"] = docs.groupby("project_id").cumcount()
-    docs = docs[docs["doc_rank"] < int(max_docs)].copy()
-
-    doc_counts = docs.groupby("project_id")["document_id"].nunique().astype(int).to_dict()
-    return docs[["project_id", "document_id", "doc_rank"]], doc_counts
-
 
 # --------------------------
 # REGEX EXTRACTION
@@ -639,6 +599,7 @@ def _empty_capacity_result(source: str = "none") -> dict:
         "project_gencap_source": source,
         "project_gencap_confidence": "low",
         "project_gencap_context": None,
+        "project_gencap_candidate_contexts": [],
     }
 
 
@@ -666,6 +627,7 @@ def extract_project_capacity_title_description(project_title, project_descriptio
             "project_gencap_source": "title",
             "project_gencap_confidence": "high",
             "project_gencap_context": primary["context"] if primary else None,
+            "project_gencap_candidate_contexts": [c["context"] for c in title_caps if c["unit_type"] == "power" and c.get("context")][:5],
         }
 
     description_text = value_to_text(project_description)
@@ -686,6 +648,7 @@ def extract_project_capacity_title_description(project_title, project_descriptio
             "project_gencap_source": "description",
             "project_gencap_confidence": "high",
             "project_gencap_context": primary["context"] if primary else None,
+            "project_gencap_candidate_contexts": [c["context"] for c in desc_caps if c["unit_type"] == "power" and c.get("context")][:5],
         }
 
     return None
@@ -736,6 +699,7 @@ def extract_project_capacity_from_pages(
         "project_gencap_source": "document" if primary else "none",
         "project_gencap_confidence": primary["confidence"] if primary else "low",
         "project_gencap_context": primary["context"] if primary else None,
+        "project_gencap_candidate_contexts": [c["context"] for c in all_capacities if c["unit_type"] == "power" and c.get("context")][:5],
     }
 
 
@@ -1312,9 +1276,7 @@ def parse_llm_response(response: str) -> dict:
     if not response:
         return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True}
 
-    if isinstance(response, str) and (
-        response.startswith("__LLM_ERROR__") or response.startswith("__OLLAMA_ERROR__")
-    ):
+    if isinstance(response, str) and response.startswith("__LLM_ERROR__"):
         return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True, "llm_error": response}
 
     try:
@@ -1392,23 +1354,24 @@ def extract_capacity_for_project(
     project_id: str,
     project_title: str,
     project_type: str,
-    pages: list[str],
+    candidate_sentences: Optional[list] = None,
     model: str = DEFAULT_MODEL,
-    max_pages: int = 25,
-    docs_scanned: int = 0,
-    verbose: bool = False
+    verbose: bool = False,
 ) -> dict:
     """
     Extract generation capacity for a single project using the LLM.
+
+    Receives pre-extracted candidate context snippets from the regex pass
+    (project_gencap_candidate_contexts). No page I/O is performed.
 
     Args:
         project_id: Project identifier
         project_title: Project name (for context in LLM prompt)
         project_type: Project type (e.g., 'solar', 'wind')
-        pages: Pre-loaded page texts in document-priority order
+        candidate_sentences: Context snippets from regex extraction
+            (project_gencap_candidate_contexts). Each snippet is a ~160-char
+            window around a regex power-unit match.
         model: Claude model to use
-        max_pages: Maximum pages to scan per project
-        docs_scanned: Number of ranked documents selected for this project
         verbose: Print progress
 
     Returns:
@@ -1424,7 +1387,6 @@ def extract_capacity_for_project(
         "source_quote": None,
         "extraction_method": None,
         "pages_scanned": 0,
-        "docs_scanned": int(docs_scanned or 0),
         "candidates_found": 0,
     }
 
@@ -1433,37 +1395,22 @@ def extract_capacity_for_project(
         result["note"] = "Project type uses non-power metrics (volume, not MW)"
         return result
 
-    if result["docs_scanned"] <= 0 and not pages:
-        result["extraction_method"] = "no_documents"
-        return result
-
-    terms = get_terms_for_project_type(project_type)
-    all_candidates = []
-    pages_scanned = 0
-
-    for text in pages[:max_pages]:
-        if pages_scanned >= max_pages:
-            break
-        if len(all_candidates) >= 15:
-            break
-
-        pages_scanned += 1
-        candidates = extract_candidate_sentences(text, terms, max_sentences=5)
-        all_candidates.extend(candidates)
-        if len(all_candidates) >= 15:
-            break
-
-    result["pages_scanned"] = pages_scanned
+    # Filter to snippets that contain a numeric capacity value
+    all_candidates = [
+        s for s in (candidate_sentences or [])
+        if s and has_number_with_unit(s)
+    ]
     result["candidates_found"] = len(all_candidates)
 
-    if verbose:
-        print(f"  Scanned {pages_scanned} pages, found {len(all_candidates)} candidate sentences")
-
-    if all_candidates:
-        llm_result = extract_capacity_with_llm(all_candidates, project_title, project_type, model=model)
-        result.update(llm_result)
-    else:
+    if not all_candidates:
         result["extraction_method"] = "no_candidates"
+        return result
+
+    if verbose:
+        print(f"  {len(all_candidates)} candidate snippets from regex pass")
+
+    llm_result = extract_capacity_with_llm(all_candidates, project_title, project_type, model=model)
+    result.update(llm_result)
 
     return result
 
@@ -1543,38 +1490,23 @@ def extract_capacity_for_projects(
         projects = projects.sample(min(sample_size, len(projects)), random_state=42)
         print(f"Sampled: {len(projects)}")
 
-    docs_path = PROCESSED_DIR / source.lower() / "documents.parquet"
-    documents_df = pd.read_parquet(docs_path)
-
-    def extract_id(x):
-        return x.get('value', '') if isinstance(x, dict) else x
-    documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
-
-    pages_path = PROCESSED_DIR / source.lower() / "pages.parquet"
-    project_records = projects[['project_id', 'project_title', 'project_type']].to_dict('records')
-    project_ids = set(projects["project_id"].tolist())
-
-    document_pairs, doc_counts = build_llm_document_pairs(
-        documents_df=documents_df,
-        project_ids=project_ids,
-        max_docs=3,
-    )
-    pages_lookup = load_project_pages_with_duckdb(
-        pages_path=pages_path,
-        document_pairs=document_pairs,
-        max_pages=25,
-    )
+    ctx_col = "project_gencap_candidate_contexts"
+    cols = ["project_id", "project_title", "project_type"]
+    if ctx_col in projects.columns:
+        cols.append(ctx_col)
+    else:
+        print(f"WARNING: {ctx_col} not found in regex output. Re-run --run regex first.")
+    project_records = projects[cols].to_dict("records")
 
     def run_one(project_row):
         pid = project_row["project_id"]
+        candidates = value_to_list(project_row.get(ctx_col, []))
         return extract_capacity_for_project(
             project_id=pid,
             project_title=project_row["project_title"],
             project_type=project_row["project_type"],
-            pages=pages_lookup.get(pid, []),
+            candidate_sentences=candidates,
             model=model,
-            max_pages=25,
-            docs_scanned=doc_counts.get(pid, 0),
             verbose=False,
         )
 
@@ -1598,8 +1530,6 @@ def extract_capacity_for_projects(
                         "confidence": "low",
                         "source_quote": None,
                         "extraction_method": "llm_error",
-                        "pages_scanned": 0,
-                        "docs_scanned": 0,
                         "candidates_found": 0,
                         "llm_error": f"__LLM_ERROR__:Exception:{e}",
                     })
@@ -1615,7 +1545,7 @@ def extract_capacity_for_projects(
         results_df = pd.DataFrame(columns=[
             "project_id", "project_title", "project_type",
             "capacity_value", "capacity_unit", "confidence", "source_quote",
-            "extraction_method", "pages_scanned", "docs_scanned", "candidates_found",
+            "extraction_method", "candidates_found",
             "num_candidates", "parse_error", "llm_error",
         ])
     results_df["dataset_source"] = source.upper()
@@ -1628,8 +1558,6 @@ def extract_capacity_for_projects(
     has_capacity = results_df['capacity_value'].notna()
     print(f"Projects with capacity extracted: {has_capacity.sum()} / {len(results_df)} ({has_capacity.mean()*100:.1f}%)")
     print(f"Extraction methods: {results_df['extraction_method'].value_counts().to_dict()}")
-    if 'pages_scanned' in results_df.columns:
-        print(f"Average pages scanned: {results_df['pages_scanned'].mean():.1f}")
 
     return results_df
 
