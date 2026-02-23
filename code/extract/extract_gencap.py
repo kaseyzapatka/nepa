@@ -1,15 +1,25 @@
 # --------------------------
 # GENERATION CAPACITY EXTRACTION
 # --------------------------
-# Extract generation capacity values from document text
-# Strategy: Regex first, LLM for gaps (clean energy projects only)
+# Extract generation capacity values from document text.
+# Strategy: Regex first (title → description → document pages).
+#           LLM adjudication for ambiguous multi-candidate cases.
+#
+# Usage:
+#   python extract_gencap.py --run regex               # regex extraction on all sources
+#   python extract_gencap.py --run regex --parallel 3  # regex in parallel
+#   python extract_gencap.py --run llm --workers 4     # LLM adjudication + merge
+#   python extract_gencap.py --run llm --sample 10     # LLM test sample
+#   python extract_gencap.py --self-test               # test regex patterns
 
 import re
 import json
 import ast
+import requests
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from typing import Optional
 import sys
 
 # Add parent directory to path for imports
@@ -79,7 +89,54 @@ AMBIGUOUS_WORDS = {
 
 
 # --------------------------
-# HELPERS
+# LLM CONFIGURATION
+# --------------------------
+
+OLLAMA_URL = "http://localhost:11434/api/generate"
+DEFAULT_MODEL = "llama3.2:3b-instruct-q4_K_M"
+POWER_UNITS = {"GW", "MW", "kW"}
+
+# Multiprocessing worker globals
+_WORKER_DOCS = None
+_WORKER_PAGES_PATH = None
+_WORKER_MODEL = None
+_WORKER_VERBOSE = False
+
+
+# --------------------------
+# LLM CAPACITY SEARCH TERMS BY PROJECT TYPE
+# --------------------------
+
+BASE_CAPACITY_TERMS = {
+    'mw', 'gw', 'kw', 'mwh', 'gwh', 'kwh',
+    'megawatt', 'megawatts', 'gigawatt', 'gigawatts',
+    'kilowatt', 'kilowatts',
+    'megawatt-hour', 'megawatt-hours', 'kilowatt-hour', 'kilowatt-hours',
+    'nameplate', 'capacity', 'generate', 'generates', 'generating',
+    'generation', 'output', 'rated', 'produce', 'produces', 'producing',
+}
+
+PROJECT_TYPE_TERMS = {
+    'solar': {'ac', 'dc', 'photovoltaic', 'pv', 'panel', 'array'},
+    'wind': {'turbine', 'rotor', 'nacelle'},
+    'nuclear': {'mwe', 'megawatt-electric', 'reactor', 'thermal', 'mwt'},
+    'geothermal': {'binary', 'flash', 'steam', 'wellhead'},
+    'hydropower': {'dam', 'turbine', 'head', 'flow'},
+    'hydrokinetic': {'tidal', 'wave', 'current'},
+    'biomass': {'btu', 'british thermal', 'boiler', 'combustion'},
+    'storage': {'battery', 'storage', 'discharge', 'duration'},
+    'transmission': {'kv', 'kilovolt', 'volt', 'voltage', 'transfer'},
+    'carbon capture': {'co2', 'capture', 'sequestration', 'tons', 'mwe'},
+}
+
+NON_POWER_PROJECT_TYPES = {
+    'pipeline': {'barrel', 'barrels', 'mcf', 'cubic feet', 'cubic meter',
+                 'dekatherm', 'diameter', 'throughput'},
+}
+
+
+# --------------------------
+# SHARED HELPERS (REGEX)
 # --------------------------
 
 def normalize_unit(unit_str):
@@ -148,7 +205,7 @@ def is_initials_date_context(context_text: str) -> bool:
     text = context_text.lower()
     # Common patterns like "MW, 5/21/15" or "initials/date"
     initials_date = re.compile(r'\b[a-z]{1,3}\b,?\s*\d{1,2}/\d{1,2}/\d{2,4}')
-    date_near_unit = re.compile(r'\b(?:mw|kw|gw)\b[^\\n]{0,30}\b\\d{1,2}/\\d{1,2}/\\d{2,4}')
+    date_near_unit = re.compile(r'\b(?:mw|kw|gw)\b[^\n]{0,30}\b\d{1,2}/\d{1,2}/\d{2,4}')
     if 'initials/date' in text:
         return True
     return bool(initials_date.search(text) or date_near_unit.search(text))
@@ -174,15 +231,153 @@ def score_confidence(context):
 
 
 # --------------------------
-# EXTRACTION
+# SHARED HELPERS (LLM)
+# --------------------------
+
+def parse_match_count(value) -> int:
+    """Count regex matches stored as list/array/JSON string."""
+    if value is None:
+        return 0
+    if isinstance(value, float) and pd.isna(value):
+        return 0
+    if isinstance(value, (list, tuple)):
+        return len(value)
+    if hasattr(value, "__len__") and not isinstance(value, str):
+        try:
+            return len(value)
+        except Exception:
+            pass
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return 0
+        if text.startswith("[") and text.endswith("]"):
+            for parser in (json.loads, ast.literal_eval):
+                try:
+                    parsed = parser(text)
+                    if isinstance(parsed, (list, tuple)):
+                        return len(parsed)
+                except Exception:
+                    pass
+    return 0
+
+
+def value_to_list(value) -> list:
+    """Convert list/JSON/scalar values to a normalized list of strings."""
+    if value is None:
+        return []
+    if isinstance(value, float) and pd.isna(value):
+        return []
+    if isinstance(value, (list, tuple)):
+        return [str(v) for v in value if str(v).strip()]
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        if text.startswith("[") and text.endswith("]"):
+            for parser in (json.loads, ast.literal_eval):
+                try:
+                    parsed = parser(text)
+                    if isinstance(parsed, (list, tuple)):
+                        return [str(v) for v in parsed if str(v).strip()]
+                except Exception:
+                    pass
+        return [text]
+    return [str(value)]
+
+
+def normalize_power_unit(unit):
+    """Normalize common power unit variants to GW/MW/kW."""
+    if unit is None or (isinstance(unit, float) and pd.isna(unit)):
+        return None
+    text = str(unit).strip().lower().replace(" ", "")
+    mapping = {
+        "gw": "GW", "gwe": "GW", "gwac": "GW", "gwdc": "GW",
+        "gigawatt": "GW", "gigawatts": "GW",
+        "mw": "MW", "mwe": "MW", "mwt": "MW", "mwth": "MW",
+        "mwac": "MW", "mwdc": "MW", "mwp": "MW",
+        "megawatt": "MW", "megawatts": "MW",
+        "kw": "kW", "kwe": "kW", "kwac": "kW", "kwdc": "kW",
+        "kilowatt": "kW", "kilowatts": "kW",
+    }
+    return mapping.get(text, str(unit).strip())
+
+
+def _extract_power_pairs_from_matches(match_value) -> set:
+    """Extract (value, unit) pairs from regex match text for power units only."""
+    pattern = re.compile(
+        r'(\d[\d,\.]*)\s*(?:-|–|—)?\s*'
+        r'(MWac|MWdc|MWe|MWt|MWth|MWp|GWac|GWdc|kWe|kWac|kWdc|MW|GW|kW|'
+        r'megawatts?|gigawatts?|kilowatts?)',
+        re.IGNORECASE,
+    )
+    pairs = set()
+    for text in value_to_list(match_value):
+        for m in pattern.finditer(str(text)):
+            value_str, unit_str = m.group(1), m.group(2)
+            try:
+                value = float(value_str.replace(",", ""))
+            except ValueError:
+                continue
+            unit = normalize_power_unit(unit_str)
+            if unit in POWER_UNITS:
+                pairs.add((round(value, 6), unit))
+    return pairs
+
+
+def _llm_selection_in_regex_matches(llm_value, llm_unit, regex_matches) -> bool:
+    """Check if LLM-selected value/unit appears in regex candidate match list."""
+    try:
+        value = float(llm_value)
+    except (TypeError, ValueError):
+        return False
+    unit = normalize_power_unit(llm_unit)
+    if unit not in POWER_UNITS:
+        return False
+    pairs = _extract_power_pairs_from_matches(regex_matches)
+    return (round(value, 6), unit) in pairs
+
+
+# --------------------------
+# LLM PROJECT TYPE HELPERS
+# --------------------------
+
+def get_terms_for_project_type(project_type: str) -> set:
+    """Get relevant capacity terms based on project type."""
+    if not project_type or not isinstance(project_type, str):
+        return BASE_CAPACITY_TERMS
+    pt_lower = project_type.lower()
+    terms = BASE_CAPACITY_TERMS.copy()
+    for key, type_terms in PROJECT_TYPE_TERMS.items():
+        if key in pt_lower:
+            terms.update(type_terms)
+    return terms
+
+
+def is_non_power_project(project_type: str) -> bool:
+    """Check if project uses non-power metrics (e.g., pipelines use volume).
+
+    Only returns True if the project is PURELY a pipeline project,
+    not if it includes pipeline along with power generation types.
+    """
+    if not project_type:
+        return False
+    pt_lower = project_type.lower()
+    power_keywords = ['solar', 'wind', 'nuclear', 'geothermal', 'hydropower',
+                      'hydrokinetic', 'biomass', 'energy production', 'energy storage']
+    has_power_type = any(kw in pt_lower for kw in power_keywords)
+    if has_power_type:
+        return False
+    return 'pipeline' in pt_lower and 'solar' not in pt_lower and 'wind' not in pt_lower
+
+
+# --------------------------
+# REGEX EXTRACTION
 # --------------------------
 
 def extract_capacity_from_text(text, source='document'):
     """
     Extract generation capacity from a text string.
-
-    Args:
-        text: String containing document text
 
     Returns:
         list of dicts: [{'value': float, 'unit': str, 'match': str, 'unit_type': str,
@@ -247,12 +442,6 @@ def get_primary_capacity(capacities, unit_type):
     Select the primary capacity from a list of extracted capacities.
 
     Prefers GW over MW over kW for power; GWh over MWh over kWh for energy.
-
-    Args:
-        capacities: list of capacity dicts
-
-    Returns:
-        dict or None: capacity dict
     """
     if not capacities:
         return None
@@ -295,17 +484,9 @@ def count_distinct_capacities(capacities, unit_type):
 
 def extract_project_capacity(project_id, project_title, project_description, project_type, pages_df, documents_df):
     """
-    Extract generation capacity for a single project.
+    Extract generation capacity for a single project using regex.
 
-    Processes main documents first, then other documents if needed.
-
-    Args:
-        project_id: Project ID string
-        project_title: Project title string
-        project_description: Project description string/list
-        project_type: Project type string/list
-        pages_df: DataFrame with page text
-        documents_df: DataFrame with document metadata
+    Search order: title → description → main documents → other documents.
 
     Returns:
         dict with power/energy values and metadata
@@ -347,7 +528,7 @@ def extract_project_capacity(project_id, project_title, project_description, pro
             'project_gencap_candidate_count': count_distinct_capacities(desc_caps, unit_type='power'),
             'project_gencap_energy_candidate_count': count_distinct_capacities(desc_caps, unit_type='energy'),
             'project_gencap_source': 'description',
-            'project_gencap_confidence': primary['confidence'] if primary else 'medium',
+            'project_gencap_confidence': 'high',
             'project_gencap_context': primary['context'] if primary else None,
         }
 
@@ -407,16 +588,12 @@ def extract_project_capacity(project_id, project_title, project_description, pro
 
 
 # --------------------------
-# RUNNER
+# REGEX RUNNER
 # --------------------------
 
 def run_capacity_extraction(clean_energy_only=True, sample_size=None, source=None, output_path=None, parallel_workers=0):
     """
-    Run generation capacity extraction for projects.
-
-    Args:
-        clean_energy_only: If True, only process clean energy projects
-        sample_size: If set, only process this many projects (for testing)
+    Run generation capacity regex extraction for all projects.
 
     Outputs:
         data/analysis/projects_gencap.parquet
@@ -558,7 +735,6 @@ def _run_parallel_sources(projects, clean_energy_only, sample_size, parallel_wor
     combined.to_parquet(save_path)
     print(f"\nSaved combined output to: {save_path}")
 
-    # Clean up temp files
     for p in tmp_paths:
         if p.exists():
             p.unlink()
@@ -567,37 +743,878 @@ def _run_parallel_sources(projects, clean_energy_only, sample_size, parallel_wor
 
 
 # --------------------------
-# TESTING
+# LLM SENTENCE FILTERING
+# --------------------------
+
+def extract_words(text: str) -> set:
+    """Extract lowercase words from text."""
+    if not text:
+        return set()
+    return set(re.findall(r'\b[a-z]+\b', text.lower()))
+
+
+def has_capacity_terms(text: str, terms: set) -> bool:
+    """Check if text contains any capacity-related terms."""
+    if not text:
+        return False
+    words = extract_words(text)
+    return bool(words & terms)
+
+
+def has_number_with_unit(text: str) -> bool:
+    """Check if text has a number followed by a power unit."""
+    if not text:
+        return False
+    pattern = (
+        r'\d[\d,\.]*\s*(?:-|–|—)?\s*'
+        r'(?:MWh|GWh|kWh|MWac|MWdc|MWe|MWt|MWth|MWp|GWac|GWdc|kWe|kWac|kWdc|MW|GW|kW|'
+        r'megawatt(?:-?\s*hours?)?|gigawatt(?:-?\s*hours?)?|kilowatt(?:-?\s*hours?)?)'
+    )
+    return bool(re.search(pattern, text, re.IGNORECASE))
+
+
+def _normalize_unit_llm(unit: str) -> str:
+    """Normalize common unit strings to standard form (including energy units)."""
+    u = unit.lower().strip()
+    mapping = {
+        'mw': 'MW', 'mwe': 'MW', 'mwt': 'MW', 'megawatt': 'MW', 'megawatts': 'MW',
+        'gw': 'GW', 'gwe': 'GW', 'gigawatt': 'GW', 'gigawatts': 'GW',
+        'kw': 'kW', 'kwe': 'kW', 'kilowatt': 'kW', 'kilowatts': 'kW',
+        'mwh': 'MWh', 'gwh': 'GWh', 'kwh': 'kWh',
+        'megawatt-hour': 'MWh', 'megawatt-hours': 'MWh',
+        'gigawatt-hour': 'GWh', 'gigawatt-hours': 'GWh',
+        'kilowatt-hour': 'kWh', 'kilowatt-hours': 'kWh',
+    }
+    return mapping.get(u, unit)
+
+
+def _fallback_extract_from_candidates(sentences: list) -> dict:
+    """Fallback extraction: pick max numeric capacity from candidate sentences."""
+    if not sentences:
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None}
+
+    pattern = re.compile(
+        r'(\d[\d,\.]*)\s*'
+        r'(MWh|GWh|kWh|MWac|MWdc|MWe|MWt|MWth|MWp|GWac|GWdc|kWe|kWac|kWdc|MW|GW|kW|'
+        r'megawatt(?:-?\s*hours?)?|gigawatt(?:-?\s*hours?)?|kilowatt(?:-?\s*hours?)?)',
+        re.IGNORECASE,
+    )
+
+    matches = []
+    for s in sentences:
+        for m in pattern.finditer(s):
+            val_str, unit_str = m.group(1), m.group(2)
+            try:
+                val = float(val_str.replace(',', ''))
+            except ValueError:
+                continue
+            unit = _normalize_unit_llm(unit_str)
+            matches.append((val, unit, m.group(0), s))
+
+    if not matches:
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None}
+
+    power_units = {'GW', 'MW', 'kW'}
+    energy_units = {'GWh', 'MWh', 'kWh'}
+
+    def to_base(val, unit):
+        if unit == 'GW':
+            return val * 1000
+        if unit == 'kW':
+            return val / 1000
+        if unit == 'GWh':
+            return val * 1000
+        if unit == 'kWh':
+            return val / 1000
+        return val
+
+    power = [m for m in matches if m[1] in power_units]
+    energy = [m for m in matches if m[1] in energy_units]
+    pool = power if power else energy
+
+    best = max(pool, key=lambda m: to_base(m[0], m[1]))
+    value, unit, quote, _sentence = best
+    return {
+        "capacity_value": value,
+        "capacity_unit": unit,
+        "confidence": "medium",
+        "source_quote": quote,
+    }
+
+
+def extract_candidate_sentences(text: str, terms: set, max_sentences: int = 10) -> list:
+    """Extract sentences that likely contain capacity information, sorted by relevance."""
+    if not text or not isinstance(text, str):
+        return []
+
+    sentences = re.split(r'(?<=[.!?])\s+|\n\n+', text)
+
+    candidates = []
+    for sent in sentences:
+        sent = sent.strip()
+        if len(sent) < 20:
+            continue
+        if len(sent) > 600 and not has_number_with_unit(sent):
+            continue
+
+        score = 0
+        if has_number_with_unit(sent):
+            score += 5
+        elif has_capacity_terms(sent, terms):
+            score += 1
+        else:
+            continue
+
+        if len(sent) > 600 and has_number_with_unit(sent):
+            score = max(score, 3)
+
+        context_words = {'project', 'proposed', 'facility', 'plant', 'farm', 'array',
+                         'system', 'generate', 'capacity', 'nameplate', 'rated'}
+        if extract_words(sent) & context_words:
+            score += 2
+
+        candidates.append((sent, score))
+
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    return [sent for sent, score in candidates[:max_sentences] if score >= 1]
+
+
+# --------------------------
+# LLM EXTRACTION
+# --------------------------
+
+def build_extraction_prompt(sentences: list, project_title: str, project_type: str) -> str:
+    """Build prompt for LLM to extract capacity."""
+    sentences_text = "\n".join(f"[{i+1}] {s}" for i, s in enumerate(sentences[:5]))
+
+    prompt = f"""Extract the proposed project's generation capacity from these text excerpts.
+
+Project Title: {project_title}
+Project Type: {project_type}
+
+Text excerpts:
+{sentences_text}
+
+Instructions:
+1. Find the PRIMARY generation capacity of the proposed project (not alternatives, not comparisons to other projects)
+2. If multiple values exist, prefer "nameplate" or "rated" capacity
+3. If a range is given (e.g., "50-100 MW"), use the higher value
+4. The source_quote MUST include the numeric value and unit exactly as shown in the text
+5. Return ONLY valid JSON, no other text
+
+Return this exact JSON structure:
+{{"capacity_value": <number or null>, "capacity_unit": "<MW|GW|kW|MWh|GWh|kWh or null>", "confidence": "<high|medium|low>", "source_quote": "<exact quote or null>"}}
+
+If no project capacity is clearly stated OR you cannot provide a source_quote with the numeric value and unit, return:
+{{"capacity_value": null, "capacity_unit": null, "confidence": "low", "source_quote": null}}
+
+JSON response:"""
+
+    return prompt
+
+
+def call_ollama(prompt: str, model: str = DEFAULT_MODEL, timeout: int = 120) -> Optional[str]:
+    """Call Ollama API and return response text."""
+    try:
+        response = requests.post(
+            OLLAMA_URL,
+            json={
+                "model": model,
+                "prompt": prompt,
+                "stream": False,
+                "options": {
+                    "temperature": 0.1,
+                    "num_predict": 200,
+                }
+            },
+            timeout=timeout
+        )
+        response.raise_for_status()
+        return response.json().get("response", "")
+    except requests.exceptions.RequestException as e:
+        print(f"Ollama API error: {e}")
+        return f"__OLLAMA_ERROR__:{type(e).__name__}:{e}"
+
+
+def parse_llm_response(response: str) -> dict:
+    """Parse LLM response into structured dict."""
+    if not response:
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True}
+
+    if isinstance(response, str) and response.startswith("__OLLAMA_ERROR__"):
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True, "llm_error": response}
+
+    try:
+        json_match = re.search(r'\{[^{}]*\}', response, re.DOTALL)
+        if json_match:
+            result = json.loads(json_match.group())
+            result.setdefault("capacity_value", None)
+            result.setdefault("capacity_unit", None)
+            result.setdefault("confidence", "low")
+            result.setdefault("source_quote", None)
+            result["parse_error"] = False
+            return result
+    except json.JSONDecodeError:
+        pass
+
+    return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True}
+
+
+def extract_capacity_with_llm(sentences: list, project_title: str, project_type: str,
+                               model: str = DEFAULT_MODEL) -> dict:
+    """Use LLM to extract capacity from candidate sentences."""
+    if not sentences:
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low",
+                "source_quote": None, "extraction_method": "no_candidates"}
+
+    if not any(has_number_with_unit(s) for s in sentences):
+        return {"capacity_value": None, "capacity_unit": None, "confidence": "low",
+                "source_quote": None, "extraction_method": "no_numeric_candidates"}
+
+    prompt = build_extraction_prompt(sentences, project_title, project_type)
+    response = call_ollama(prompt, model=model)
+    result = parse_llm_response(response)
+    result["extraction_method"] = "llm"
+    result["num_candidates"] = len(sentences)
+
+    if result.get("llm_error"):
+        result["extraction_method"] = "llm_timeout" if "ReadTimeout" in result["llm_error"] else "llm_error"
+        return result
+
+    # Enforce source_quote with numeric value + unit
+    quote = result.get("source_quote")
+    if result.get("capacity_value") is not None:
+        if not quote or not has_number_with_unit(quote):
+            fallback = _fallback_extract_from_candidates(sentences)
+            if fallback.get("capacity_value") is not None:
+                fallback["extraction_method"] = "fallback_from_candidates"
+                fallback["num_candidates"] = len(sentences)
+                return fallback
+            return {
+                "capacity_value": None,
+                "capacity_unit": None,
+                "confidence": "low",
+                "source_quote": None,
+                "extraction_method": "llm_rejected_no_quote",
+                "num_candidates": len(sentences)
+            }
+
+    if result.get("capacity_value") is None:
+        fallback = _fallback_extract_from_candidates(sentences)
+        if fallback.get("capacity_value") is not None:
+            fallback["extraction_method"] = "fallback_from_candidates"
+            fallback["num_candidates"] = len(sentences)
+            return fallback
+
+    return result
+
+
+# --------------------------
+# LLM PROJECT-LEVEL EXTRACTION
+# --------------------------
+
+def extract_numeric_page_number(page_number) -> int:
+    """Extract a numeric page token for stable ordering of mixed page labels."""
+    if page_number is None or pd.isna(page_number):
+        return 10**9
+    match = re.search(r'(\d+)', str(page_number))
+    if match:
+        return int(match.group(1))
+    return 10**9
+
+
+def extract_capacity_for_project(
+    project_id: str,
+    project_title: str,
+    project_type: str,
+    documents_df: pd.DataFrame,
+    pages_path: Path,
+    model: str = DEFAULT_MODEL,
+    max_pages: int = 25,
+    verbose: bool = False
+) -> dict:
+    """
+    Extract generation capacity for a single project using the LLM.
+
+    Args:
+        project_id: Project identifier
+        project_title: Project name (for context in LLM prompt)
+        project_type: Project type (e.g., 'solar', 'wind')
+        documents_df: DataFrame with document metadata
+        pages_path: Path to pages.parquet file
+        model: Ollama model to use
+        max_pages: Maximum pages to scan per project
+        verbose: Print progress
+
+    Returns:
+        dict with capacity_value, capacity_unit, confidence, source_quote, etc.
+    """
+    import pyarrow.parquet as pq
+
+    result = {
+        "project_id": project_id,
+        "project_title": project_title,
+        "project_type": project_type,
+        "capacity_value": None,
+        "capacity_unit": None,
+        "confidence": "low",
+        "source_quote": None,
+        "extraction_method": None,
+        "pages_scanned": 0,
+        "candidates_found": 0,
+    }
+
+    if is_non_power_project(project_type):
+        result["extraction_method"] = "skipped_non_power"
+        result["note"] = "Project type uses non-power metrics (volume, not MW)"
+        return result
+
+    project_docs = documents_df[documents_df['project_id'] == project_id]
+    if project_docs.empty:
+        result["extraction_method"] = "no_documents"
+        return result
+
+    doc_type_priority = {'FEIS': 1, 'DEIS': 2, 'EA': 3, 'DEA': 4, 'FONSI': 5, 'ROD': 6, 'CE': 7, 'OTHER': 8, '': 5}
+    project_docs = project_docs.copy()
+    project_docs['_type_priority'] = project_docs['document_type'].map(lambda x: doc_type_priority.get(x, 10))
+    project_docs['_main_priority'] = project_docs['main_document'].map({'YES': 0, 'NO': 1, '': 2})
+
+    def get_size_priority(x):
+        try:
+            pages = int(x) if pd.notna(x) else 0
+            return 0 if pages > 50 else 1
+        except (ValueError, TypeError):
+            return 1
+
+    project_docs['_size_priority'] = project_docs['total_pages'].apply(get_size_priority)
+    project_docs = project_docs.sort_values(['_type_priority', '_main_priority', '_size_priority'])
+
+    terms = get_terms_for_project_type(project_type)
+    all_candidates = []
+    pages_scanned = 0
+    docs_scanned = 0
+    max_docs = 3
+
+    for _, doc in project_docs.iterrows():
+        if pages_scanned >= max_pages or docs_scanned >= max_docs:
+            break
+        if len(all_candidates) >= 15:
+            break
+
+        doc_id = doc['document_id']
+        docs_scanned += 1
+
+        try:
+            pages_table = pq.read_table(pages_path, filters=[('document_id', '=', doc_id)])
+            doc_pages = pages_table.to_pandas()
+        except Exception as e:
+            if verbose:
+                print(f"  Error reading pages for doc {doc_id}: {e}")
+            continue
+
+        doc_pages['_page_number_num'] = doc_pages['page_number'].apply(extract_numeric_page_number)
+        doc_pages = doc_pages.sort_values(['_page_number_num', 'page_number'])
+        pages_to_check = min(50, len(doc_pages), max_pages - pages_scanned)
+
+        for _, page in doc_pages.head(pages_to_check).iterrows():
+            pages_scanned += 1
+            text = page.get('page_text', '')
+            candidates = extract_candidate_sentences(text, terms, max_sentences=5)
+            all_candidates.extend(candidates)
+            if len(all_candidates) >= 15:
+                break
+
+    result["pages_scanned"] = pages_scanned
+    result["docs_scanned"] = docs_scanned
+    result["candidates_found"] = len(all_candidates)
+
+    if verbose:
+        print(f"  Scanned {pages_scanned} pages, found {len(all_candidates)} candidate sentences")
+
+    if all_candidates:
+        llm_result = extract_capacity_with_llm(all_candidates, project_title, project_type, model=model)
+        result.update(llm_result)
+    else:
+        result["extraction_method"] = "no_candidates"
+
+    return result
+
+
+# --------------------------
+# LLM BATCH EXTRACTION
+# --------------------------
+
+def _init_worker(docs_df, pages_path, model, verbose):
+    """Initialize worker globals for multiprocessing."""
+    global _WORKER_DOCS, _WORKER_PAGES_PATH, _WORKER_MODEL, _WORKER_VERBOSE
+    _WORKER_DOCS = docs_df          # noqa: F841 — read by _process_project_row
+    _WORKER_PAGES_PATH = pages_path  # noqa: F841
+    _WORKER_MODEL = model            # noqa: F841
+    _WORKER_VERBOSE = verbose        # noqa: F841
+
+
+def _process_project_row(project):
+    """Process a single project row (for multiprocessing)."""
+    return extract_capacity_for_project(
+        project_id=project['project_id'],
+        project_title=project['project_title'],
+        project_type=project['project_type'],
+        documents_df=_WORKER_DOCS,
+        pages_path=_WORKER_PAGES_PATH,
+        model=_WORKER_MODEL,
+        verbose=_WORKER_VERBOSE
+    )
+
+
+def extract_capacity_for_projects(
+    source: str = 'eis',
+    clean_energy_only: bool = True,
+    sample_size: Optional[int] = None,
+    model: str = DEFAULT_MODEL,
+    verbose: bool = True,
+    regex_results_path: Optional[str] = None,
+    only_low_medium: bool = False,
+    ambiguous_only: bool = True,
+    workers: int = 4,
+    require_regex_capacity: bool = False,
+    project_id: Optional[str] = None
+) -> pd.DataFrame:
+    """
+    Run LLM extraction for multiple projects within a single source.
+
+    Args:
+        source: Dataset source ('eis', 'ea', 'ce')
+        ambiguous_only: Only process projects with 2+ distinct regex candidates (default True)
+    """
+    print(f"\n=== LLM Capacity Extraction ({source.upper()}) ===")
+    print(f"Model: {model}")
+
+    if regex_results_path:
+        regex_path = Path(regex_results_path)
+        if not regex_path.exists():
+            raise FileNotFoundError(f"Regex results not found: {regex_path}")
+        projects = pd.read_parquet(regex_path)
+    else:
+        projects = pd.read_parquet(ANALYSIS_DIR / "projects_combined.parquet")
+
+    projects = projects[projects['dataset_source'] == source.upper()]
+
+    if clean_energy_only and 'project_energy_type' in projects.columns:
+        projects = projects[projects['project_energy_type'] == 'Clean']
+
+    if ambiguous_only and 'project_gencap_candidate_count' in projects.columns:
+        projects = projects.copy()
+        projects['project_gencap_candidate_count'] = pd.to_numeric(
+            projects['project_gencap_candidate_count'], errors='coerce'
+        ).fillna(0)
+        projects = projects[projects['project_gencap_candidate_count'] >= 2]
+        print(f"Ambiguous-only filter (2+ distinct regex power candidates): {len(projects):,} projects")
+    elif ambiguous_only and 'project_gencap_matches' in projects.columns:
+        projects = projects.copy()
+        projects['project_gencap_match_count'] = projects['project_gencap_matches'].apply(parse_match_count)
+        projects = projects[projects['project_gencap_match_count'] >= 2]
+        print(f"Ambiguous-only filter (2+ regex power matches): {len(projects):,} projects")
+    elif ambiguous_only:
+        print("Ambiguous-only filter requested, but project_gencap_candidate_count not found; skipping.")
+
+    if only_low_medium and 'project_gencap_confidence' in projects.columns:
+        conf = projects['project_gencap_confidence'].fillna('low').astype(str).str.lower()
+        projects = projects[conf.isin(['low', 'medium'])]
+
+    if only_low_medium and 'project_gencap_source' in projects.columns:
+        projects = projects[~projects['project_gencap_source'].isin(['title', 'skipped_transmission_only'])]
+
+    if require_regex_capacity and 'project_gencap_value' in projects.columns:
+        projects = projects[projects['project_gencap_value'].notna()]
+
+    if project_id:
+        projects = projects[projects['project_id'] == project_id]
+
+    print(f"Projects to process: {len(projects):,}")
+
+    if sample_size:
+        projects = projects.sample(min(sample_size, len(projects)), random_state=42)
+        print(f"Sampled: {len(projects)}")
+
+    docs_path = PROCESSED_DIR / source.lower() / "documents.parquet"
+    documents_df = pd.read_parquet(docs_path)
+
+    def extract_id(x):
+        return x.get('value', '') if isinstance(x, dict) else x
+    documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+
+    pages_path = PROCESSED_DIR / source.lower() / "pages.parquet"
+    project_records = projects[['project_id', 'project_title', 'project_type']].to_dict('records')
+
+    results = []
+    if workers and workers > 1:
+        from multiprocessing import get_context
+        ctx = get_context("spawn")
+        with ctx.Pool(
+            processes=workers,
+            initializer=_init_worker,
+            initargs=(documents_df, pages_path, model, False),
+        ) as pool:
+            for idx, result in enumerate(pool.imap_unordered(_process_project_row, project_records, chunksize=1)):
+                if verbose and idx % 10 == 0:
+                    print(f"\nProcessed {idx + 1}/{len(project_records)} projects...")
+                results.append(result)
+    else:
+        for idx, project in enumerate(project_records):
+            if verbose and idx % 10 == 0:
+                print(f"\nProcessing {idx + 1}/{len(project_records)}: {project['project_title'][:50]}...")
+            result = extract_capacity_for_project(
+                project_id=project['project_id'],
+                project_title=project['project_title'],
+                project_type=project['project_type'],
+                documents_df=documents_df,
+                pages_path=pages_path,
+                model=model,
+                verbose=verbose
+            )
+            results.append(result)
+
+    results_df = pd.DataFrame(results)
+    if results_df.empty:
+        results_df = pd.DataFrame(columns=[
+            "project_id", "project_title", "project_type",
+            "capacity_value", "capacity_unit", "confidence", "source_quote",
+            "extraction_method", "pages_scanned", "candidates_found",
+            "num_candidates", "parse_error", "llm_error",
+        ])
+    results_df["dataset_source"] = source.upper()
+    run_timestamp_utc = pd.Timestamp.utcnow().isoformat()
+    results_df["llm_run_completed_at_utc"] = run_timestamp_utc
+    results_df["llm_model_used"] = model
+    results_df["llm_trigger_mode"] = "regex_multi_candidate" if ambiguous_only else "candidate_sentences"
+
+    print("\n=== LLM Summary ===")
+    has_capacity = results_df['capacity_value'].notna()
+    print(f"Projects with capacity extracted: {has_capacity.sum()} / {len(results_df)} ({has_capacity.mean()*100:.1f}%)")
+    print(f"Extraction methods: {results_df['extraction_method'].value_counts().to_dict()}")
+    if 'pages_scanned' in results_df.columns:
+        print(f"Average pages scanned: {results_df['pages_scanned'].mean():.1f}")
+
+    return results_df
+
+
+# --------------------------
+# LLM MERGE
+# --------------------------
+
+def merge_llm_results_into_regex(
+    regex_df: pd.DataFrame,
+    llm_df: pd.DataFrame,
+    source: str,
+    run_timestamp_utc: str,
+    model: str,
+    trigger_mode: str,
+) -> pd.DataFrame:
+    """
+    Merge LLM adjudication results into regex dataset and compute final capacity fields.
+
+    Final capacity = regex output, overridden by validated LLM selections.
+    """
+    merged = regex_df.copy()
+    source = source.upper()
+    source_mask = merged["dataset_source"].astype(str).str.upper() == source
+
+    for col in [
+        "project_gencap_llm_run_completed_at_utc",
+        "project_gencap_llm_model_used",
+        "project_gencap_llm_trigger_mode",
+    ]:
+        if col not in merged.columns:
+            merged[col] = pd.NA
+    merged.loc[source_mask, "project_gencap_llm_run_completed_at_utc"] = run_timestamp_utc
+    merged.loc[source_mask, "project_gencap_llm_model_used"] = model
+    merged.loc[source_mask, "project_gencap_llm_trigger_mode"] = trigger_mode
+
+    llm_cols = [
+        "llm_capacity_value", "llm_capacity_unit", "llm_capacity_unit_norm",
+        "llm_confidence", "llm_source_quote", "llm_extraction_method",
+        "llm_pages_scanned", "llm_candidates_found", "llm_num_candidates",
+        "llm_parse_error", "llm_error", "llm_run_completed_at_utc",
+        "llm_model_used", "llm_trigger_mode",
+        "project_gencap_llm_triggered",
+        "project_gencap_llm_selected_from_regex_candidates",
+        "project_gencap_llm_selection_logic",
+        "project_gencap_llm_selected_value",
+        "project_gencap_llm_selected_unit",
+        "project_gencap_llm_selected_quote",
+    ]
+    for col in llm_cols:
+        if col not in merged.columns:
+            merged[col] = pd.NA
+
+    merged.loc[source_mask, llm_cols] = pd.NA
+    merged.loc[source_mask, "project_gencap_llm_triggered"] = False
+
+    if llm_df is not None and not llm_df.empty:
+        llm_src = llm_df.copy()
+        if "dataset_source" in llm_src.columns:
+            llm_src["dataset_source"] = llm_src["dataset_source"].astype(str).str.upper()
+        else:
+            llm_src["dataset_source"] = source
+        llm_src = llm_src[llm_src["dataset_source"] == source].copy()
+        if not llm_src.empty:
+            if {"project_id", "dataset_source"}.issubset(llm_src.columns):
+                llm_src = llm_src.drop_duplicates(subset=["project_id", "dataset_source"], keep="last")
+
+            llm_src["llm_capacity_unit_norm"] = llm_src["capacity_unit"].apply(normalize_power_unit)
+            llm_src["__key"] = llm_src["project_id"].astype(str) + "|" + llm_src["dataset_source"].astype(str)
+            llm_keyed = llm_src.set_index("__key")
+
+            merged["__key"] = merged["project_id"].astype(str) + "|" + merged["dataset_source"].astype(str)
+            source_keys = set(llm_keyed.index.tolist())
+            merged.loc[source_mask & merged["__key"].isin(source_keys), "project_gencap_llm_triggered"] = True
+
+            map_pairs = [
+                ("capacity_value", "llm_capacity_value"),
+                ("capacity_unit", "llm_capacity_unit"),
+                ("llm_capacity_unit_norm", "llm_capacity_unit_norm"),
+                ("confidence", "llm_confidence"),
+                ("source_quote", "llm_source_quote"),
+                ("extraction_method", "llm_extraction_method"),
+                ("pages_scanned", "llm_pages_scanned"),
+                ("candidates_found", "llm_candidates_found"),
+                ("num_candidates", "llm_num_candidates"),
+                ("parse_error", "llm_parse_error"),
+                ("llm_error", "llm_error"),
+                ("llm_run_completed_at_utc", "llm_run_completed_at_utc"),
+                ("llm_model_used", "llm_model_used"),
+                ("llm_trigger_mode", "llm_trigger_mode"),
+            ]
+
+            for src_col, dst_col in map_pairs:
+                if src_col in llm_keyed.columns:
+                    merged.loc[source_mask, dst_col] = merged.loc[source_mask, "__key"].map(llm_keyed[src_col])
+
+            if "project_gencap_matches" in merged.columns:
+                merged.loc[source_mask, "project_gencap_llm_selected_from_regex_candidates"] = (
+                    merged.loc[source_mask].apply(
+                        lambda r: _llm_selection_in_regex_matches(
+                            r.get("llm_capacity_value"),
+                            r.get("llm_capacity_unit_norm"),
+                            r.get("project_gencap_matches"),
+                        ),
+                        axis=1,
+                    )
+                )
+            else:
+                merged.loc[source_mask, "project_gencap_llm_selected_from_regex_candidates"] = False
+
+            merged.loc[source_mask, "project_gencap_llm_selected_value"] = merged.loc[source_mask, "llm_capacity_value"]
+            merged.loc[source_mask, "project_gencap_llm_selected_unit"] = merged.loc[source_mask, "llm_capacity_unit_norm"]
+            merged.loc[source_mask, "project_gencap_llm_selected_quote"] = merged.loc[source_mask, "llm_source_quote"]
+
+            merged.drop(columns=["__key"], inplace=True, errors="ignore")
+
+    llm_value_num = pd.to_numeric(merged.get("llm_capacity_value"), errors="coerce")
+    llm_extraction_method = merged.get("llm_extraction_method").fillna("").astype(str)
+
+    merged["llm_is_valid_power"] = (
+        llm_value_num.notna()
+        & (llm_value_num > 0)
+        & merged.get("llm_capacity_unit_norm").isin(POWER_UNITS)
+    )
+    merged["llm_is_rejected_method"] = llm_extraction_method.isin(
+        ["no_candidates", "no_numeric_candidates", "llm_rejected_no_quote", "llm_error", "llm_timeout"]
+    )
+    merged["llm_should_override_regex"] = merged["llm_is_valid_power"] & ~merged["llm_is_rejected_method"]
+
+    for col, fallback in [
+        ("project_gencap_final_value", "project_gencap_value"),
+        ("project_gencap_final_unit", "project_gencap_unit"),
+        ("project_gencap_final_source", "project_gencap_source"),
+        ("project_gencap_final_confidence", "project_gencap_confidence"),
+        ("project_gencap_final_quote", "project_gencap_context"),
+    ]:
+        if col not in merged.columns:
+            merged[col] = merged.get(fallback)
+        merged.loc[source_mask, col] = merged.loc[source_mask, fallback]
+
+    llm_override_mask = source_mask & merged["llm_should_override_regex"].eq(True)
+    merged.loc[llm_override_mask, "project_gencap_final_value"] = llm_value_num[llm_override_mask]
+    merged.loc[llm_override_mask, "project_gencap_final_unit"] = merged.loc[llm_override_mask, "llm_capacity_unit_norm"]
+    merged.loc[llm_override_mask, "project_gencap_final_source"] = merged.loc[llm_override_mask, "llm_extraction_method"]
+    merged.loc[llm_override_mask, "project_gencap_final_confidence"] = merged.loc[llm_override_mask, "llm_confidence"]
+    merged.loc[llm_override_mask, "project_gencap_final_quote"] = merged.loc[llm_override_mask, "llm_source_quote"]
+
+    if "llm_merge_decision" not in merged.columns:
+        merged["llm_merge_decision"] = pd.NA
+    merged.loc[source_mask, "llm_merge_decision"] = "regex_no_llm"
+    merged.loc[source_mask & merged["llm_capacity_value"].notna() & ~llm_override_mask, "llm_merge_decision"] = "regex_invalid_or_rejected_llm"
+    merged.loc[llm_override_mask & merged["project_gencap_value"].notna(), "llm_merge_decision"] = "llm_override_regex"
+    merged.loc[llm_override_mask & merged["project_gencap_value"].isna(), "llm_merge_decision"] = "llm_only_fill"
+    merged.loc[
+        source_mask & merged["project_gencap_final_value"].isna() & merged["llm_capacity_value"].isna(),
+        "llm_merge_decision",
+    ] = "no_capacity"
+
+    # Human-readable audit trail
+    llm_triggered = merged["project_gencap_llm_triggered"].eq(True)
+    llm_valid = merged["llm_is_valid_power"].eq(True)
+    llm_rejected = merged["llm_is_rejected_method"].eq(True)
+    llm_selected_regex = merged["project_gencap_llm_selected_from_regex_candidates"].eq(True)
+
+    merged.loc[source_mask, "project_gencap_llm_selection_logic"] = "not_triggered"
+    merged.loc[source_mask & llm_triggered, "project_gencap_llm_selection_logic"] = "triggered_no_selection"
+    merged.loc[
+        source_mask & llm_triggered & llm_valid & llm_rejected,
+        "project_gencap_llm_selection_logic",
+    ] = "selected_valid_power_rejected_by_method"
+    merged.loc[
+        source_mask & llm_triggered & llm_valid & ~llm_rejected & llm_selected_regex,
+        "project_gencap_llm_selection_logic",
+    ] = "selected_regex_candidate"
+    merged.loc[
+        source_mask & llm_triggered & llm_valid & ~llm_rejected & ~llm_selected_regex,
+        "project_gencap_llm_selection_logic",
+    ] = "selected_non_regex_candidate"
+    merged.loc[
+        source_mask & llm_triggered & ~llm_valid,
+        "project_gencap_llm_selection_logic",
+    ] = "selected_invalid_or_non_power"
+
+    return merged
+
+
+def resolve_regex_results_path(regex_results_path: Optional[str], source: str) -> Path:
+    """Resolve input regex results path with sensible defaults."""
+    if regex_results_path:
+        return Path(regex_results_path)
+    candidates = [
+        ANALYSIS_DIR / f"projects_gencap_{source.lower()}.parquet",
+        ANALYSIS_DIR / "projects_gencap.parquet",
+        ANALYSIS_DIR / "projects_gencap_flagged.parquet",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return ANALYSIS_DIR / "projects_gencap.parquet"
+
+
+def run_llm_merge_pipeline(
+    source: str = "eis",
+    clean_energy_only: bool = True,
+    sample_size: Optional[int] = None,
+    model: str = DEFAULT_MODEL,
+    verbose: bool = True,
+    regex_results_path: Optional[str] = None,
+    only_low_medium: bool = False,
+    ambiguous_only: bool = True,
+    workers: int = 4,
+    require_regex_capacity: bool = False,
+    project_id: Optional[str] = None,
+    output_path: Optional[str] = None,
+    llm_output_path: Optional[str] = None,
+) -> tuple:
+    """
+    Run LLM adjudication and immediately merge results into regex output dataset.
+
+    Returns:
+        tuple: (llm_results_df, merged_df, merged_output_path)
+    """
+    source = source.lower()
+    regex_path = resolve_regex_results_path(regex_results_path, source)
+    if not regex_path.exists():
+        raise FileNotFoundError(f"Regex results not found: {regex_path}")
+
+    regex_df = pd.read_parquet(regex_path)
+    llm_results = extract_capacity_for_projects(
+        source=source,
+        clean_energy_only=clean_energy_only,
+        sample_size=sample_size,
+        model=model,
+        verbose=verbose,
+        regex_results_path=str(regex_path),
+        only_low_medium=only_low_medium,
+        ambiguous_only=ambiguous_only,
+        workers=workers,
+        require_regex_capacity=require_regex_capacity,
+        project_id=project_id,
+    )
+
+    if not llm_results.empty and "llm_run_completed_at_utc" in llm_results.columns:
+        run_timestamp_utc = str(llm_results["llm_run_completed_at_utc"].iloc[0])
+    else:
+        run_timestamp_utc = pd.Timestamp.utcnow().isoformat()
+    trigger_mode = "regex_multi_candidate" if ambiguous_only else "candidate_sentences"
+    merged = merge_llm_results_into_regex(
+        regex_df=regex_df,
+        llm_df=llm_results,
+        source=source,
+        run_timestamp_utc=run_timestamp_utc,
+        model=model,
+        trigger_mode=trigger_mode,
+    )
+
+    save_path = Path(output_path) if output_path else regex_path
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    merged.to_parquet(save_path, index=False)
+
+    llm_save_path = (
+        Path(llm_output_path) if llm_output_path
+        else (ANALYSIS_DIR / f"gencap_{source.lower()}_llm.parquet")
+    )
+    llm_save_path.parent.mkdir(parents=True, exist_ok=True)
+    llm_results.to_parquet(llm_save_path, index=False)
+
+    print(f"\nSaved merged dataset: {save_path}")
+    print(f"Saved raw LLM output: {llm_save_path}")
+    source_mask = merged["dataset_source"].astype(str).str.upper() == source.upper()
+    override_count = int((source_mask & (merged["llm_merge_decision"] == "llm_override_regex")).sum())
+    fill_count = int((source_mask & (merged["llm_merge_decision"] == "llm_only_fill")).sum())
+    print(f"LLM final selection updates ({source.upper()}): overrides={override_count:,}, llm_only_fills={fill_count:,}")
+
+    return llm_results, merged, save_path
+
+
+# --------------------------
+# CLI
 # --------------------------
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--run', action='store_true', help='Run full extraction')
+    parser = argparse.ArgumentParser(
+        description="Generation capacity extraction: regex and LLM adjudication.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python extract_gencap.py --run regex                      # regex extraction (all sources)
+  python extract_gencap.py --run regex --parallel 3         # regex in parallel
+  python extract_gencap.py --run regex --sample 100         # regex test sample
+  python extract_gencap.py --run llm --workers 4            # LLM adjudication + merge
+  python extract_gencap.py --run llm --sample 10            # LLM test run
+  python extract_gencap.py --run llm --include-non-ambiguous --workers 4
+  python extract_gencap.py --self-test                      # test regex patterns
+""",
+    )
+    parser.add_argument('--run', choices=['regex', 'llm'], metavar='{regex,llm}',
+                        help='regex: run regex extraction on all sources; llm: run LLM adjudication + merge on all sources')
     parser.add_argument('--self-test', action='store_true', help='Run built-in regex test cases and exit')
     parser.add_argument('--sample', type=int, help='Sample size for testing')
     parser.add_argument('--all', action='store_true', help='Process all projects, not just clean energy')
-    parser.add_argument('--source', choices=['ce', 'ea', 'eis'], help='Process a single dataset source')
-    parser.add_argument('--use-llm', action='store_true',
-                        help='Run LLM adjudication + merge on existing regex output (does not rerun regex extraction)')
     parser.add_argument('--input', type=str,
-                        help='Input regex parquet for LLM mode (default: data/analysis/projects_gencap.parquet)')
-    parser.add_argument('--model', type=str, default='llama3.2:3b-instruct-q4_K_M',
-                        help='LLM model for --use-llm mode')
+                        help='Input regex parquet for llm mode (default: data/analysis/projects_gencap.parquet)')
+    parser.add_argument('--model', type=str, default=DEFAULT_MODEL,
+                        help=f'LLM model for --run llm mode (default: {DEFAULT_MODEL})')
     parser.add_argument('--workers', type=int, default=4,
-                        help='Parallel workers for --use-llm mode (default: 4)')
+                        help='Parallel workers for --run llm mode (default: 4)')
     parser.add_argument('--include-non-ambiguous', action='store_true',
-                        help='In --use-llm mode, include projects with <2 regex candidates')
+                        help='In --run llm mode, include projects with <2 regex candidates')
     parser.add_argument('--only-low-medium', action='store_true',
-                        help='In --use-llm mode, further limit to low/medium regex confidence')
+                        help='In --run llm mode, further limit to low/medium regex confidence')
     parser.add_argument('--require-regex-capacity', action='store_true',
-                        help='In --use-llm mode, only process rows with regex capacity values')
+                        help='In --run llm mode, only process rows with regex capacity values')
     parser.add_argument('--project-id', type=str,
-                        help='In --use-llm mode, run a single project_id')
+                        help='In --run llm mode, run a single project_id')
     parser.add_argument('--llm-output', type=str,
                         help='Optional raw LLM output path (default: data/analysis/gencap_{source}_llm.parquet)')
     parser.add_argument('--output', type=str, help='Output file path (parquet)')
-    parser.add_argument('--parallel', type=int, default=0, help='Run CE/EA/EIS in parallel with N workers')
+    parser.add_argument('--parallel', type=int, default=0,
+                        help='Run CE/EA/EIS in parallel with N workers (--run regex only)')
 
     args = parser.parse_args()
 
@@ -616,51 +1633,48 @@ if __name__ == "__main__":
             results = extract_capacity_from_text(text)
             print(f"\nText: {text}")
             print(f"  Found: {results}")
-    elif args.run:
-        if args.use_llm:
-            from extract_gencap_llm import run_llm_merge_pipeline
 
-            input_path = Path(args.input) if args.input else (ANALYSIS_DIR / "projects_gencap.parquet")
-            output_path = Path(args.output) if args.output else input_path
+    elif args.run == 'llm':
+        input_path = Path(args.input) if args.input else (ANALYSIS_DIR / "projects_gencap.parquet")
+        output_path = Path(args.output) if args.output else input_path
 
-            sources = [args.source.upper()] if args.source else ["CE", "EA", "EIS"]
-            current_input = input_path
+        sources = ["CE", "EA", "EIS"]
+        current_input = input_path
 
-            for src in sources:
-                print(f"\n=== LLM adjudication + merge ({src}) ===")
-                llm_output_for_source = args.llm_output
-                if llm_output_for_source and len(sources) > 1:
-                    llm_output_for_source = None
+        for src in sources:
+            print(f"\n=== LLM adjudication + merge ({src}) ===")
 
-                _, merged_df, saved_path = run_llm_merge_pipeline(
-                    source=src.lower(),
-                    clean_energy_only=not args.all,
-                    sample_size=args.sample,
-                    model=args.model,
-                    verbose=True,
-                    regex_results_path=str(current_input),
-                    only_low_medium=args.only_low_medium,
-                    ambiguous_only=not args.include_non_ambiguous,
-                    workers=args.workers,
-                    require_regex_capacity=args.require_regex_capacity,
-                    project_id=args.project_id,
-                    output_path=str(output_path),
-                    llm_output_path=llm_output_for_source,
-                )
-
-                source_mask = merged_df["dataset_source"].astype(str).str.upper() == src
-                final_count = int((source_mask & merged_df["project_gencap_final_value"].notna()).sum())
-                print(f"{src} rows with final capacity: {final_count:,}")
-                current_input = saved_path
-
-            print(f"\nFinal merged output: {output_path}")
-        else:
-            run_capacity_extraction(
+            _, merged_df, saved_path = run_llm_merge_pipeline(
+                source=src.lower(),
                 clean_energy_only=not args.all,
                 sample_size=args.sample,
-                source=args.source.upper() if args.source else None,
-                output_path=args.output,
-                parallel_workers=args.parallel,
+                model=args.model,
+                verbose=True,
+                regex_results_path=str(current_input),
+                only_low_medium=args.only_low_medium,
+                ambiguous_only=not args.include_non_ambiguous,
+                workers=args.workers,
+                require_regex_capacity=args.require_regex_capacity,
+                project_id=args.project_id,
+                output_path=str(output_path),
+                llm_output_path=args.llm_output,
             )
+
+            source_mask = merged_df["dataset_source"].astype(str).str.upper() == src
+            final_count = int((source_mask & merged_df["project_gencap_final_value"].notna()).sum())
+            print(f"{src} rows with final capacity: {final_count:,}")
+            current_input = saved_path
+
+        print(f"\nFinal merged output: {output_path}")
+
+    elif args.run == 'regex':
+        run_capacity_extraction(
+            clean_energy_only=not args.all,
+            sample_size=args.sample,
+            source=None,
+            output_path=args.output,
+            parallel_workers=args.parallel,
+        )
+
     else:
         parser.print_help()

@@ -197,3 +197,76 @@ python3 code/extract/extract_technology.py --run geothermal
 # TODO: add final pipeline run sequence for Deliverable 6
 python3 code/extract/extract_technology.py --run pipeline
 ```
+
+## Generation Capacity Build
+
+Use `code/extract/extract_gencap.py` to extract generation capacity (MW/GW/kW) from NEPA documents into analysis-ready parquet files.
+
+The extraction runs in two phases:
+
+- **Regex phase**: scans project title → description → document pages for power unit patterns. Records the primary value, candidate count, confidence, and local context snippet for each project.
+- **LLM phase** (Ollama, local): runs on projects with 2+ distinct regex candidates (ambiguous cases), adjudicates the correct value, and merges results back into the dataset. Non-ambiguous projects keep their regex value unchanged.
+
+Scope is fixed to clean energy projects. All three process types (CE, EA, EIS) are always processed together.
+
+### Phase 1: Regex extraction (recommended — parallel)
+
+```bash
+python code/extract/extract_gencap.py --run regex --parallel 3
+```
+
+Runs CE, EA, EIS concurrently and combines output to `data/analysis/projects_gencap.parquet`.
+
+### Phase 1: Regex extraction (sequential)
+
+```bash
+python code/extract/extract_gencap.py --run regex
+```
+
+### Phase 1: Test sample
+
+```bash
+python code/extract/extract_gencap.py --run regex --sample 100
+```
+
+### Phase 1: Test regex patterns only
+
+```bash
+python code/extract/extract_gencap.py --self-test
+```
+
+### Phase 2: LLM adjudication + merge (full run)
+
+Requires Phase 1 output. Processes CE, EA, EIS sequentially and updates the parquet in place.
+
+```bash
+python code/extract/extract_gencap.py --run llm --workers 4
+```
+
+Outputs:
+- `data/analysis/projects_gencap_merged.parquet` — final merged values (regex + LLM overrides)
+- `data/analysis/gencap_{ce,ea,eis}_llm.parquet` — raw LLM outputs per source
+
+### Phase 2: LLM test sample
+
+```bash
+python code/extract/extract_gencap.py --run llm --sample 10 --workers 1
+```
+
+### Phase 2: LLM options
+
+```bash
+# Include all projects, not just ambiguous multi-candidate cases
+python code/extract/extract_gencap.py --run llm --include-non-ambiguous --workers 4
+
+# Restrict to projects where regex already extracted a capacity value
+python code/extract/extract_gencap.py --run llm --require-regex-capacity --workers 4
+
+# Debug a single project
+python code/extract/extract_gencap.py --run llm --project-id <UUID>
+```
+
+Use `--include-non-ambiguous` when:
+- You want full LLM coverage regardless of regex candidate count.
+- You are doing a QA pass and want to verify regex-only extractions.
+- You can tolerate the additional runtime and Ollama throughput limits.
