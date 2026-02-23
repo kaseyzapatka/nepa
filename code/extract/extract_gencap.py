@@ -99,38 +99,6 @@ POWER_UNITS = {"GW", "MW", "kW"}
 
 
 # --------------------------
-# LLM CAPACITY SEARCH TERMS BY PROJECT TYPE
-# --------------------------
-
-BASE_CAPACITY_TERMS = {
-    'mw', 'gw', 'kw', 'mwh', 'gwh', 'kwh',
-    'megawatt', 'megawatts', 'gigawatt', 'gigawatts',
-    'kilowatt', 'kilowatts',
-    'megawatt-hour', 'megawatt-hours', 'kilowatt-hour', 'kilowatt-hours',
-    'nameplate', 'capacity', 'generate', 'generates', 'generating',
-    'generation', 'output', 'rated', 'produce', 'produces', 'producing',
-}
-
-PROJECT_TYPE_TERMS = {
-    'solar': {'ac', 'dc', 'photovoltaic', 'pv', 'panel', 'array'},
-    'wind': {'turbine', 'rotor', 'nacelle'},
-    'nuclear': {'mwe', 'megawatt-electric', 'reactor', 'thermal', 'mwt'},
-    'geothermal': {'binary', 'flash', 'steam', 'wellhead'},
-    'hydropower': {'dam', 'turbine', 'head', 'flow'},
-    'hydrokinetic': {'tidal', 'wave', 'current'},
-    'biomass': {'btu', 'british thermal', 'boiler', 'combustion'},
-    'storage': {'battery', 'storage', 'discharge', 'duration'},
-    'transmission': {'kv', 'kilovolt', 'volt', 'voltage', 'transfer'},
-    'carbon capture': {'co2', 'capture', 'sequestration', 'tons', 'mwe'},
-}
-
-NON_POWER_PROJECT_TYPES = {
-    'pipeline': {'barrel', 'barrels', 'mcf', 'cubic feet', 'cubic meter',
-                 'dekatherm', 'diameter', 'throughput'},
-}
-
-
-# --------------------------
 # SHARED HELPERS (REGEX)
 # --------------------------
 
@@ -225,38 +193,6 @@ def score_confidence(context):
     return 'low'
 
 
-# --------------------------
-# SHARED HELPERS (LLM)
-# --------------------------
-
-def parse_match_count(value) -> int:
-    """Count regex matches stored as list/array/JSON string."""
-    if value is None:
-        return 0
-    if isinstance(value, float) and pd.isna(value):
-        return 0
-    if isinstance(value, (list, tuple)):
-        return len(value)
-    if hasattr(value, "__len__") and not isinstance(value, str):
-        try:
-            return len(value)
-        except Exception:
-            pass
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return 0
-        if text.startswith("[") and text.endswith("]"):
-            for parser in (json.loads, ast.literal_eval):
-                try:
-                    parsed = parser(text)
-                    if isinstance(parsed, (list, tuple)):
-                        return len(parsed)
-                except Exception:
-                    pass
-    return 0
-
-
 def value_to_list(value) -> list:
     """Convert list/JSON/scalar values to a normalized list of strings."""
     if value is None:
@@ -331,22 +267,6 @@ def _llm_selection_in_regex_matches(llm_value, llm_unit, regex_matches) -> bool:
         return False
     pairs = _extract_power_pairs_from_matches(regex_matches)
     return (round(value, 6), unit) in pairs
-
-
-# --------------------------
-# LLM PROJECT TYPE HELPERS
-# --------------------------
-
-def get_terms_for_project_type(project_type: str) -> set:
-    """Get relevant capacity terms based on project type."""
-    if not project_type or not isinstance(project_type, str):
-        return BASE_CAPACITY_TERMS
-    pt_lower = project_type.lower()
-    terms = BASE_CAPACITY_TERMS.copy()
-    for key, type_terms in PROJECT_TYPE_TERMS.items():
-        if key in pt_lower:
-            terms.update(type_terms)
-    return terms
 
 
 def is_non_power_project(project_type: str) -> bool:
@@ -1057,25 +977,6 @@ def _run_parallel_sources(
     return combined
 
 
-# --------------------------
-# LLM SENTENCE FILTERING
-# --------------------------
-
-def extract_words(text: str) -> set:
-    """Extract lowercase words from text."""
-    if not text:
-        return set()
-    return set(re.findall(r'\b[a-z]+\b', text.lower()))
-
-
-def has_capacity_terms(text: str, terms: set) -> bool:
-    """Check if text contains any capacity-related terms."""
-    if not text:
-        return False
-    words = extract_words(text)
-    return bool(words & terms)
-
-
 def has_number_with_unit(text: str) -> bool:
     """Check if text has a number followed by a power unit."""
     if not text:
@@ -1155,43 +1056,6 @@ def _fallback_extract_from_candidates(sentences: list) -> dict:
         "confidence": "medium",
         "source_quote": quote,
     }
-
-
-def extract_candidate_sentences(text: str, terms: set, max_sentences: int = 10) -> list:
-    """Extract sentences that likely contain capacity information, sorted by relevance."""
-    if not text or not isinstance(text, str):
-        return []
-
-    sentences = re.split(r'(?<=[.!?])\s+|\n\n+', text)
-
-    candidates = []
-    for sent in sentences:
-        sent = sent.strip()
-        if len(sent) < 20:
-            continue
-        if len(sent) > 600 and not has_number_with_unit(sent):
-            continue
-
-        score = 0
-        if has_number_with_unit(sent):
-            score += 5
-        elif has_capacity_terms(sent, terms):
-            score += 1
-        else:
-            continue
-
-        if len(sent) > 600 and has_number_with_unit(sent):
-            score = max(score, 3)
-
-        context_words = {'project', 'proposed', 'facility', 'plant', 'farm', 'array',
-                         'system', 'generate', 'capacity', 'nameplate', 'rated'}
-        if extract_words(sent) & context_words:
-            score += 2
-
-        candidates.append((sent, score))
-
-    candidates.sort(key=lambda x: x[1], reverse=True)
-    return [sent for sent, score in candidates[:max_sentences] if score >= 1]
 
 
 # --------------------------
@@ -1422,7 +1286,6 @@ def extract_capacity_for_project(
         "confidence": "low",
         "source_quote": None,
         "extraction_method": None,
-        "pages_scanned": 0,
         "candidates_found": 0,
         "llm_selected_candidate_id": None,
         "llm_reasoning": None,
@@ -1513,11 +1376,6 @@ def extract_capacity_for_projects(
         ).fillna(0)
         projects = projects[projects['project_gencap_candidate_count'] >= 2]
         print(f"Ambiguous-only filter (2+ distinct regex power candidates): {len(projects):,} projects")
-    elif ambiguous_only and 'project_gencap_matches' in projects.columns:
-        projects = projects.copy()
-        projects['project_gencap_match_count'] = projects['project_gencap_matches'].apply(parse_match_count)
-        projects = projects[projects['project_gencap_match_count'] >= 2]
-        print(f"Ambiguous-only filter (2+ regex power matches): {len(projects):,} projects")
     elif ambiguous_only:
         print("Ambiguous-only filter requested, but project_gencap_candidate_count not found; skipping.")
 
@@ -1627,7 +1485,7 @@ def extract_capacity_for_projects(
     run_timestamp_utc = pd.Timestamp.utcnow().isoformat()
     results_df["llm_run_completed_at_utc"] = run_timestamp_utc
     results_df["llm_model_used"] = model
-    results_df["llm_trigger_mode"] = "regex_multi_candidate" if ambiguous_only else "candidate_sentences"
+    results_df["llm_trigger_mode"] = "regex_multi_candidate" if ambiguous_only else "candidate_json"
 
     print("\n=== LLM Summary ===")
     has_capacity = results_df['capacity_value'].notna()
@@ -1672,7 +1530,7 @@ def merge_llm_results_into_regex(
     llm_cols = [
         "llm_capacity_value", "llm_capacity_unit", "llm_capacity_unit_norm",
         "llm_confidence", "llm_source_quote", "llm_extraction_method",
-        "llm_pages_scanned", "llm_candidates_found", "llm_num_candidates",
+        "llm_candidates_found", "llm_num_candidates",
         "llm_parse_error", "llm_error", "llm_run_completed_at_utc",
         "llm_model_used", "llm_trigger_mode",
         "llm_selected_candidate_id", "llm_reasoning", "llm_selection_mode",
@@ -1719,7 +1577,6 @@ def merge_llm_results_into_regex(
                 ("confidence", "llm_confidence"),
                 ("source_quote", "llm_source_quote"),
                 ("extraction_method", "llm_extraction_method"),
-                ("pages_scanned", "llm_pages_scanned"),
                 ("candidates_found", "llm_candidates_found"),
                 ("num_candidates", "llm_num_candidates"),
                 ("parse_error", "llm_parse_error"),
@@ -1768,7 +1625,7 @@ def merge_llm_results_into_regex(
         & merged.get("llm_capacity_unit_norm").isin(POWER_UNITS)
     )
     merged["llm_is_rejected_method"] = llm_extraction_method.isin(
-        ["no_candidates", "no_numeric_candidates", "llm_rejected_no_quote", "llm_error", "llm_timeout"]
+        ["no_candidates", "llm_no_selection", "llm_error", "llm_timeout"]
     )
     merged["llm_should_override_regex"] = merged["llm_is_valid_power"] & ~merged["llm_is_rejected_method"]
 
@@ -1889,7 +1746,7 @@ def run_llm_merge_pipeline(
         run_timestamp_utc = str(llm_results["llm_run_completed_at_utc"].iloc[0])
     else:
         run_timestamp_utc = pd.Timestamp.utcnow().isoformat()
-    trigger_mode = "regex_multi_candidate" if ambiguous_only else "candidate_sentences"
+    trigger_mode = "regex_multi_candidate" if ambiguous_only else "candidate_json"
     merged = merge_llm_results_into_regex(
         regex_df=regex_df,
         llm_df=llm_results,
