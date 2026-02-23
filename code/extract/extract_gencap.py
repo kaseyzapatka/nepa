@@ -599,7 +599,7 @@ def _empty_capacity_result(source: str = "none") -> dict:
         "project_gencap_source": source,
         "project_gencap_confidence": "low",
         "project_gencap_context": None,
-        "project_gencap_candidate_contexts": [],
+        "project_gencap_candidates_json": [],
     }
 
 
@@ -627,7 +627,12 @@ def extract_project_capacity_title_description(project_title, project_descriptio
             "project_gencap_source": "title",
             "project_gencap_confidence": "high",
             "project_gencap_context": primary["context"] if primary else None,
-            "project_gencap_candidate_contexts": [c["context"] for c in title_caps if c["unit_type"] == "power" and c.get("context")][:5],
+            "project_gencap_candidates_json": [
+                {"id": i + 1, "value": c["value"], "unit": c["unit"], "context": c["context"]}
+                for i, c in enumerate(
+                    [x for x in title_caps if x["unit_type"] == "power" and x.get("context")][:5]
+                )
+            ],
         }
 
     description_text = value_to_text(project_description)
@@ -648,7 +653,12 @@ def extract_project_capacity_title_description(project_title, project_descriptio
             "project_gencap_source": "description",
             "project_gencap_confidence": "high",
             "project_gencap_context": primary["context"] if primary else None,
-            "project_gencap_candidate_contexts": [c["context"] for c in desc_caps if c["unit_type"] == "power" and c.get("context")][:5],
+            "project_gencap_candidates_json": [
+                {"id": i + 1, "value": c["value"], "unit": c["unit"], "context": c["context"]}
+                for i, c in enumerate(
+                    [x for x in desc_caps if x["unit_type"] == "power" and x.get("context")][:5]
+                )
+            ],
         }
 
     return None
@@ -699,7 +709,12 @@ def extract_project_capacity_from_pages(
         "project_gencap_source": "document" if primary else "none",
         "project_gencap_confidence": primary["confidence"] if primary else "low",
         "project_gencap_context": primary["context"] if primary else None,
-        "project_gencap_candidate_contexts": [c["context"] for c in all_capacities if c["unit_type"] == "power" and c.get("context")][:5],
+        "project_gencap_candidates_json": [
+            {"id": i + 1, "value": c["value"], "unit": c["unit"], "context": c["context"]}
+            for i, c in enumerate(
+                [x for x in all_capacities if x["unit_type"] == "power" and x.get("context")][:5]
+            )
+        ],
     }
 
 
@@ -1183,34 +1198,32 @@ def extract_candidate_sentences(text: str, terms: set, max_sentences: int = 10) 
 # LLM EXTRACTION
 # --------------------------
 
-def build_extraction_prompt(sentences: list, project_title: str, project_type: str) -> str:
-    """Build prompt for LLM to extract capacity."""
-    sentences_text = "\n".join(f"[{i+1}] {s}" for i, s in enumerate(sentences[:5]))
+def build_extraction_prompt(candidates: list, project_title: str, project_type: str) -> str:
+    """Build adjudication prompt for LLM to select among structured capacity candidates."""
+    lines = []
+    for c in candidates:
+        lines.append(f'[{c["id"]}] {c["value"]} {c["unit"]} — "{str(c.get("context", ""))[:200]}"')
+    candidates_text = "\n".join(lines)
 
-    prompt = f"""Extract the proposed project's generation capacity from these text excerpts.
+    return f"""NEPA {project_type} review. These are capacity values found by regex in the document. Pick the ONE that is the proposed project's generation capacity.
 
-Project Title: {project_title}
-Project Type: {project_type}
+Project: {project_title}
 
-Text excerpts:
-{sentences_text}
+Candidates:
+{candidates_text}
 
-Instructions:
-1. Find the PRIMARY generation capacity of the proposed project (not alternatives, not comparisons to other projects)
-2. If multiple values exist, prefer "nameplate" or "rated" capacity
-3. If a range is given (e.g., "50-100 MW"), use the higher value
-4. The source_quote MUST include the numeric value and unit exactly as shown in the text
-5. Return ONLY valid JSON, no other text
+Rules:
+1. Pick the capacity of the PROPOSED PROJECT being reviewed — not comparisons, existing infrastructure, or neighboring projects
+2. Prefer candidates whose context uses words like "proposed", "nameplate", "rated", or "will generate"
+3. Ignore candidates describing existing systems, regional totals, or reference projects
 
-Return this exact JSON structure:
-{{"capacity_value": <number or null>, "capacity_unit": "<MW|GW|kW|MWh|GWh|kWh or null>", "confidence": "<high|medium|low>", "source_quote": "<exact quote or null>"}}
+Return ONLY valid JSON:
+{{"selected_index": <1-based int or null>, "confidence": "<high|medium|low>", "reasoning": "<one sentence max 80 chars>"}}
 
-If no project capacity is clearly stated OR you cannot provide a source_quote with the numeric value and unit, return:
-{{"capacity_value": null, "capacity_unit": null, "confidence": "low", "source_quote": null}}
+If no candidate clearly represents the proposed project capacity, return:
+{{"selected_index": null, "confidence": "low", "reasoning": "no clear project capacity candidate"}}
 
-JSON response:"""
-
-    return prompt
+JSON:"""
 
 
 def call_claude_api(
@@ -1272,78 +1285,102 @@ def call_claude_api(
 
 
 def parse_llm_response(response: str) -> dict:
-    """Parse LLM response into structured dict."""
+    """Parse LLM response for candidate selection adjudication."""
+    empty = {"selected_index": None, "confidence": "low", "reasoning": None, "parse_error": True}
     if not response:
-        return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True}
-
+        return empty
     if isinstance(response, str) and response.startswith("__LLM_ERROR__"):
-        return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True, "llm_error": response}
-
+        return {**empty, "llm_error": response}
     try:
-        json_match = re.search(r'\{[^{}]*\}', response, re.DOTALL)
-        if json_match:
-            result = json.loads(json_match.group())
-            result.setdefault("capacity_value", None)
-            result.setdefault("capacity_unit", None)
+        m = re.search(r'\{[^{}]*\}', response, re.DOTALL)
+        if m:
+            result = json.loads(m.group())
+            result.setdefault("selected_index", None)
             result.setdefault("confidence", "low")
-            result.setdefault("source_quote", None)
+            result.setdefault("reasoning", None)
             result["parse_error"] = False
+            try:
+                if result["selected_index"] is not None:
+                    result["selected_index"] = int(result["selected_index"])
+            except (TypeError, ValueError):
+                result["selected_index"] = None
             return result
     except json.JSONDecodeError:
         pass
+    return empty
 
-    return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True}
 
-
-def extract_capacity_with_llm(sentences: list, project_title: str, project_type: str,
+def extract_capacity_with_llm(candidates: list, project_title: str, project_type: str,
                                model: str = DEFAULT_MODEL) -> dict:
-    """Use LLM to extract capacity from candidate sentences."""
-    if not sentences:
-        return {"capacity_value": None, "capacity_unit": None, "confidence": "low",
-                "source_quote": None, "extraction_method": "no_candidates"}
+    """Use LLM to adjudicate among structured regex capacity candidates."""
+    if not candidates:
+        return {
+            "capacity_value": None,
+            "capacity_unit": None,
+            "confidence": "low",
+            "source_quote": None,
+            "extraction_method": "no_candidates",
+            "parse_error": False,
+            "llm_error": None,
+            "llm_selected_candidate_id": None,
+            "llm_reasoning": None,
+            "llm_selection_mode": "none",
+            "num_candidates": 0,
+        }
 
-    if not any(has_number_with_unit(s) for s in sentences):
-        return {"capacity_value": None, "capacity_unit": None, "confidence": "low",
-                "source_quote": None, "extraction_method": "no_numeric_candidates"}
-
-    prompt = build_extraction_prompt(sentences, project_title, project_type)
+    prompt = build_extraction_prompt(candidates, project_title, project_type)
     response = call_claude_api(prompt, model=model)
     result = parse_llm_response(response)
-    result["extraction_method"] = "llm"
-    result["num_candidates"] = len(sentences)
+
+    base = {
+        "llm_selected_candidate_id": None,
+        "llm_reasoning": result.get("reasoning"),
+        "llm_selection_mode": "none",
+        "extraction_method": "llm",
+        "num_candidates": len(candidates),
+        "parse_error": bool(result.get("parse_error", False)),
+        "llm_error": result.get("llm_error"),
+    }
 
     if result.get("llm_error"):
         err = str(result["llm_error"])
         timeout_tokens = ("ReadTimeout", "APITimeoutError", "claude_timeout", "timeout")
-        result["extraction_method"] = "llm_timeout" if any(tok in err for tok in timeout_tokens) else "llm_error"
-        return result
+        base["extraction_method"] = "llm_timeout" if any(t in err for t in timeout_tokens) else "llm_error"
+        return {
+            **base,
+            "capacity_value": None,
+            "capacity_unit": None,
+            "confidence": "low",
+            "source_quote": None,
+        }
 
-    # Enforce source_quote with numeric value + unit
-    quote = result.get("source_quote")
-    if result.get("capacity_value") is not None:
-        if not quote or not has_number_with_unit(quote):
-            fallback = _fallback_extract_from_candidates(sentences)
-            if fallback.get("capacity_value") is not None:
-                fallback["extraction_method"] = "fallback_from_candidates"
-                fallback["num_candidates"] = len(sentences)
-                return fallback
-            return {
-                "capacity_value": None,
-                "capacity_unit": None,
-                "confidence": "low",
-                "source_quote": None,
-                "extraction_method": "llm_rejected_no_quote",
-                "num_candidates": len(sentences)
-            }
+    idx = result.get("selected_index")
+    if idx is not None and 1 <= idx <= len(candidates):
+        chosen = candidates[idx - 1]
+        base["llm_selected_candidate_id"] = idx
+        base["llm_selection_mode"] = "single"
+        return {
+            **base,
+            "capacity_value": chosen.get("value"),
+            "capacity_unit": chosen.get("unit"),
+            "confidence": result.get("confidence", "medium"),
+            "source_quote": str(chosen.get("context", ""))[:200] if chosen.get("context") else None,
+        }
 
-    if result.get("capacity_value") is None:
-        fallback = _fallback_extract_from_candidates(sentences)
-        if fallback.get("capacity_value") is not None:
-            fallback["extraction_method"] = "fallback_from_candidates"
-            fallback["num_candidates"] = len(sentences)
-            return fallback
+    fallback_sentences = [str(c.get("context")) for c in candidates if c.get("context")]
+    fallback = _fallback_extract_from_candidates(fallback_sentences)
+    if fallback.get("capacity_value") is not None:
+        base["extraction_method"] = "fallback_from_candidates"
+        return {**base, **fallback}
 
-    return result
+    return {
+        **base,
+        "capacity_value": None,
+        "capacity_unit": None,
+        "confidence": "low",
+        "source_quote": None,
+        "extraction_method": "llm_no_selection",
+    }
 
 
 # --------------------------
@@ -1354,23 +1391,22 @@ def extract_capacity_for_project(
     project_id: str,
     project_title: str,
     project_type: str,
-    candidate_sentences: Optional[list] = None,
+    candidates: Optional[list] = None,
     model: str = DEFAULT_MODEL,
     verbose: bool = False,
 ) -> dict:
     """
     Extract generation capacity for a single project using the LLM.
 
-    Receives pre-extracted candidate context snippets from the regex pass
-    (project_gencap_candidate_contexts). No page I/O is performed.
+    Receives pre-extracted structured candidates from the regex pass
+    (project_gencap_candidates_json). No page I/O is performed.
 
     Args:
         project_id: Project identifier
         project_title: Project name (for context in LLM prompt)
         project_type: Project type (e.g., 'solar', 'wind')
-        candidate_sentences: Context snippets from regex extraction
-            (project_gencap_candidate_contexts). Each snippet is a ~160-char
-            window around a regex power-unit match.
+        candidates: Candidate dicts from regex extraction
+            (project_gencap_candidates_json), each containing id/value/unit/context.
         model: Claude model to use
         verbose: Print progress
 
@@ -1388,6 +1424,9 @@ def extract_capacity_for_project(
         "extraction_method": None,
         "pages_scanned": 0,
         "candidates_found": 0,
+        "llm_selected_candidate_id": None,
+        "llm_reasoning": None,
+        "llm_selection_mode": None,
     }
 
     if is_non_power_project(project_type):
@@ -1395,21 +1434,32 @@ def extract_capacity_for_project(
         result["note"] = "Project type uses non-power metrics (volume, not MW)"
         return result
 
-    # Filter to snippets that contain a numeric capacity value
-    all_candidates = [
-        s for s in (candidate_sentences or [])
-        if s and has_number_with_unit(s)
-    ]
-    result["candidates_found"] = len(all_candidates)
+    # Filter to candidates that contain a numeric capacity value
+    normalized_candidates = []
+    for i, c in enumerate(candidates or [], start=1):
+        if not isinstance(c, dict):
+            continue
+        item = dict(c)
+        try:
+            item["id"] = int(item.get("id")) if item.get("id") is not None else i
+        except (TypeError, ValueError):
+            item["id"] = i
+        normalized_candidates.append(item)
 
-    if not all_candidates:
+    valid_candidates = [
+        c for c in normalized_candidates
+        if c.get("context") and has_number_with_unit(str(c.get("context", "")))
+    ]
+    result["candidates_found"] = len(valid_candidates)
+
+    if not valid_candidates:
         result["extraction_method"] = "no_candidates"
         return result
 
     if verbose:
-        print(f"  {len(all_candidates)} candidate snippets from regex pass")
+        print(f"  {len(valid_candidates)} structured candidates from regex pass")
 
-    llm_result = extract_capacity_with_llm(all_candidates, project_title, project_type, model=model)
+    llm_result = extract_capacity_with_llm(valid_candidates, project_title, project_type, model=model)
     result.update(llm_result)
 
     return result
@@ -1490,7 +1540,7 @@ def extract_capacity_for_projects(
         projects = projects.sample(min(sample_size, len(projects)), random_state=42)
         print(f"Sampled: {len(projects)}")
 
-    ctx_col = "project_gencap_candidate_contexts"
+    ctx_col = "project_gencap_candidates_json"
     cols = ["project_id", "project_title", "project_type"]
     if ctx_col in projects.columns:
         cols.append(ctx_col)
@@ -1500,12 +1550,33 @@ def extract_capacity_for_projects(
 
     def run_one(project_row):
         pid = project_row["project_id"]
-        candidates = value_to_list(project_row.get(ctx_col, []))
+        raw = project_row.get(ctx_col, [])
+        if isinstance(raw, str):
+            try:
+                candidates = json.loads(raw)
+            except Exception:
+                candidates = []
+        elif isinstance(raw, (list, tuple, np.ndarray)):
+            candidates = list(raw)
+        else:
+            candidates = []
+
+        normalized_candidates = []
+        for item in candidates:
+            if isinstance(item, dict):
+                normalized_candidates.append(item)
+            elif isinstance(item, str):
+                try:
+                    parsed = json.loads(item)
+                    if isinstance(parsed, dict):
+                        normalized_candidates.append(parsed)
+                except Exception:
+                    continue
         return extract_capacity_for_project(
             project_id=pid,
             project_title=project_row["project_title"],
             project_type=project_row["project_type"],
-            candidate_sentences=candidates,
+            candidates=normalized_candidates,
             model=model,
             verbose=False,
         )
@@ -1531,6 +1602,9 @@ def extract_capacity_for_projects(
                         "source_quote": None,
                         "extraction_method": "llm_error",
                         "candidates_found": 0,
+                        "llm_selected_candidate_id": None,
+                        "llm_reasoning": None,
+                        "llm_selection_mode": None,
                         "llm_error": f"__LLM_ERROR__:Exception:{e}",
                     })
     else:
@@ -1547,6 +1621,7 @@ def extract_capacity_for_projects(
             "capacity_value", "capacity_unit", "confidence", "source_quote",
             "extraction_method", "candidates_found",
             "num_candidates", "parse_error", "llm_error",
+            "llm_selected_candidate_id", "llm_reasoning", "llm_selection_mode",
         ])
     results_df["dataset_source"] = source.upper()
     run_timestamp_utc = pd.Timestamp.utcnow().isoformat()
@@ -1600,12 +1675,16 @@ def merge_llm_results_into_regex(
         "llm_pages_scanned", "llm_candidates_found", "llm_num_candidates",
         "llm_parse_error", "llm_error", "llm_run_completed_at_utc",
         "llm_model_used", "llm_trigger_mode",
+        "llm_selected_candidate_id", "llm_reasoning", "llm_selection_mode",
         "project_gencap_llm_triggered",
         "project_gencap_llm_selected_from_regex_candidates",
         "project_gencap_llm_selection_logic",
         "project_gencap_llm_selected_value",
         "project_gencap_llm_selected_unit",
         "project_gencap_llm_selected_quote",
+        "project_gencap_llm_selected_candidate_id",
+        "project_gencap_llm_reasoning",
+        "project_gencap_llm_selection_mode",
     ]
     for col in llm_cols:
         if col not in merged.columns:
@@ -1648,6 +1727,9 @@ def merge_llm_results_into_regex(
                 ("llm_run_completed_at_utc", "llm_run_completed_at_utc"),
                 ("llm_model_used", "llm_model_used"),
                 ("llm_trigger_mode", "llm_trigger_mode"),
+                ("llm_selected_candidate_id", "llm_selected_candidate_id"),
+                ("llm_reasoning", "llm_reasoning"),
+                ("llm_selection_mode", "llm_selection_mode"),
             ]
 
             for src_col, dst_col in map_pairs:
@@ -1671,6 +1753,9 @@ def merge_llm_results_into_regex(
             merged.loc[source_mask, "project_gencap_llm_selected_value"] = merged.loc[source_mask, "llm_capacity_value"]
             merged.loc[source_mask, "project_gencap_llm_selected_unit"] = merged.loc[source_mask, "llm_capacity_unit_norm"]
             merged.loc[source_mask, "project_gencap_llm_selected_quote"] = merged.loc[source_mask, "llm_source_quote"]
+            merged.loc[source_mask, "project_gencap_llm_selected_candidate_id"] = merged.loc[source_mask, "llm_selected_candidate_id"]
+            merged.loc[source_mask, "project_gencap_llm_reasoning"] = merged.loc[source_mask, "llm_reasoning"]
+            merged.loc[source_mask, "project_gencap_llm_selection_mode"] = merged.loc[source_mask, "llm_selection_mode"]
 
             merged.drop(columns=["__key"], inplace=True, errors="ignore")
 
