@@ -15,11 +15,13 @@
 import re
 import json
 import ast
-import requests
+import time
+import duckdb
 import pandas as pd
 import numpy as np
 from pathlib import Path
 from typing import Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import sys
 
 # Add parent directory to path for imports
@@ -92,15 +94,8 @@ AMBIGUOUS_WORDS = {
 # LLM CONFIGURATION
 # --------------------------
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-DEFAULT_MODEL = "llama3.2:3b-instruct-q4_K_M"
+DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 POWER_UNITS = {"GW", "MW", "kW"}
-
-# Multiprocessing worker globals
-_WORKER_DOCS = None
-_WORKER_PAGES_PATH = None
-_WORKER_MODEL = None
-_WORKER_VERBOSE = False
 
 
 # --------------------------
@@ -372,6 +367,154 @@ def is_non_power_project(project_type: str) -> bool:
 
 
 # --------------------------
+# PAGE LOADING (DUCKDB)
+# --------------------------
+
+def load_project_pages_with_duckdb(
+    pages_path: Path,
+    document_pairs: pd.DataFrame,
+    max_pages: Optional[int],
+) -> dict:
+    """
+    Load top-N ordered pages per project using DuckDB for fast bulk retrieval.
+
+    Args:
+        pages_path: Path to pages.parquet
+        document_pairs: DataFrame with ['project_id', 'document_id'] and optional 'doc_rank'
+        max_pages: Max pages to keep per project after ordering.
+            If None, returns all pages for each project.
+
+    Returns:
+        dict: {project_id: [page_text, ...]}
+    """
+    if document_pairs is None or document_pairs.empty:
+        return {}
+
+    pairs = document_pairs.copy()
+    required = {"project_id", "document_id"}
+    if not required.issubset(pairs.columns):
+        raise ValueError("document_pairs must include project_id and document_id")
+
+    if "doc_rank" not in pairs.columns:
+        pairs["doc_rank"] = 0
+
+    pairs = pairs[["project_id", "document_id", "doc_rank"]].drop_duplicates()
+    if pairs.empty:
+        return {}
+
+    pages_path_sql = pages_path.as_posix().replace("'", "''")
+
+    con = duckdb.connect()
+    try:
+        con.register("project_docs", pairs)
+        where_clause = ""
+        if max_pages is not None:
+            where_clause = f"WHERE rn <= {int(max_pages)}"
+
+        query = f"""
+        WITH joined AS (
+            SELECT
+                d.project_id,
+                d.doc_rank,
+                p.page_text,
+                CAST(p.page_number AS VARCHAR) AS page_number,
+                COALESCE(
+                    TRY_CAST(regexp_extract(CAST(p.page_number AS VARCHAR), '(\\d+)', 1) AS INTEGER),
+                    1000000000
+                ) AS page_num
+            FROM read_parquet('{pages_path_sql}') p
+            INNER JOIN project_docs d USING (document_id)
+        ),
+        ranked AS (
+            SELECT
+                project_id,
+                page_text,
+                row_number() OVER (
+                    PARTITION BY project_id
+                    ORDER BY doc_rank, page_num, page_number
+                ) AS rn
+            FROM joined
+        )
+        SELECT project_id, page_text
+        FROM ranked
+        {where_clause}
+        ORDER BY project_id, rn
+        """
+        pages_df = con.execute(query).df()
+    finally:
+        con.close()
+
+    if pages_df.empty:
+        return {}
+
+    lookup = {}
+    for project_id, group in pages_df.groupby("project_id", sort=False):
+        lookup[project_id] = [
+            text if isinstance(text, str) else ""
+            for text in group["page_text"].tolist()
+        ]
+    return lookup
+
+
+def build_regex_document_pairs(documents_df: pd.DataFrame, project_ids: set) -> pd.DataFrame:
+    """Build document pairs for regex page loading (main docs first)."""
+    if not project_ids:
+        return pd.DataFrame(columns=["project_id", "document_id", "doc_rank"])
+
+    docs = documents_df[documents_df["project_id"].isin(project_ids)].copy()
+    if docs.empty:
+        return pd.DataFrame(columns=["project_id", "document_id", "doc_rank"])
+
+    main_series = docs["main_document"] if "main_document" in docs.columns else pd.Series("", index=docs.index)
+    docs["_main_priority"] = np.where(main_series.fillna("").astype(str).str.upper() == "YES", 0, 1)
+    docs = docs.sort_values(["project_id", "_main_priority", "document_id"], kind="stable")
+    docs = docs.drop_duplicates(subset=["project_id", "document_id"], keep="first")
+    docs["doc_rank"] = docs.groupby("project_id").cumcount()
+    return docs[["project_id", "document_id", "doc_rank"]]
+
+
+def build_llm_document_pairs(
+    documents_df: pd.DataFrame,
+    project_ids: set,
+    max_docs: int = 3,
+) -> tuple[pd.DataFrame, dict]:
+    """
+    Rank documents for LLM extraction and return top-N document pairs per project.
+
+    Ranking mirrors prior per-project logic:
+      _type_priority, _main_priority, _size_priority
+    """
+    if not project_ids:
+        return pd.DataFrame(columns=["project_id", "document_id", "doc_rank"]), {}
+
+    docs = documents_df[documents_df["project_id"].isin(project_ids)].copy()
+    if docs.empty:
+        return pd.DataFrame(columns=["project_id", "document_id", "doc_rank"]), {}
+
+    doc_type_priority = {"FEIS": 1, "DEIS": 2, "EA": 3, "DEA": 4, "FONSI": 5, "ROD": 6, "CE": 7, "OTHER": 8, "": 5}
+    doc_type_series = docs["document_type"] if "document_type" in docs.columns else pd.Series("", index=docs.index)
+    main_series = docs["main_document"] if "main_document" in docs.columns else pd.Series("", index=docs.index)
+    total_pages_series = docs["total_pages"] if "total_pages" in docs.columns else pd.Series(0, index=docs.index)
+
+    docs["_type_priority"] = doc_type_series.map(lambda x: doc_type_priority.get(x, 10))
+    docs["_main_priority"] = main_series.map({"YES": 0, "NO": 1, "": 2}).fillna(2)
+
+    total_pages_num = pd.to_numeric(total_pages_series, errors="coerce").fillna(0)
+    docs["_size_priority"] = np.where(total_pages_num > 50, 0, 1)
+
+    docs = docs.sort_values(
+        ["project_id", "_type_priority", "_main_priority", "_size_priority", "document_id"],
+        kind="stable",
+    )
+    docs = docs.drop_duplicates(subset=["project_id", "document_id"], keep="first")
+    docs["doc_rank"] = docs.groupby("project_id").cumcount()
+    docs = docs[docs["doc_rank"] < int(max_docs)].copy()
+
+    doc_counts = docs.groupby("project_id")["document_id"].nunique().astype(int).to_dict()
+    return docs[["project_id", "document_id", "doc_rank"]], doc_counts
+
+
+# --------------------------
 # REGEX EXTRACTION
 # --------------------------
 
@@ -482,108 +625,117 @@ def count_distinct_capacities(capacities, unit_type):
     return len(values)
 
 
-def extract_project_capacity(project_id, project_title, project_description, project_type, pages_df, documents_df):
-    """
-    Extract generation capacity for a single project using regex.
+def _empty_capacity_result(source: str = "none") -> dict:
+    """Build an empty capacity result with a specific source label."""
+    return {
+        "project_gencap_value": None,
+        "project_gencap_unit": None,
+        "project_gencap_energy_value": None,
+        "project_gencap_energy_unit": None,
+        "project_gencap_matches": [],
+        "project_gencap_energy_matches": [],
+        "project_gencap_candidate_count": 0,
+        "project_gencap_energy_candidate_count": 0,
+        "project_gencap_source": source,
+        "project_gencap_confidence": "low",
+        "project_gencap_context": None,
+    }
 
-    Search order: title → description → main documents → other documents.
+
+def extract_project_capacity_title_description(project_title, project_description):
+    """
+    Extract capacity from title then description only.
 
     Returns:
-        dict with power/energy values and metadata
+        dict with extraction columns, or None if neither field has a match.
     """
-    # Title-first extraction
-    title_caps = extract_capacity_from_text(project_title, source='title')
-    title_power = get_primary_capacity(title_caps, unit_type='power')
-    title_energy = get_primary_capacity(title_caps, unit_type='energy')
+    title_caps = extract_capacity_from_text(project_title, source="title")
+    title_power = get_primary_capacity(title_caps, unit_type="power")
+    title_energy = get_primary_capacity(title_caps, unit_type="energy")
     if title_power or title_energy:
         primary = title_power or title_energy
         return {
-            'project_gencap_value': title_power['value'] if title_power else None,
-            'project_gencap_unit': title_power['unit'] if title_power else None,
-            'project_gencap_energy_value': title_energy['value'] if title_energy else None,
-            'project_gencap_energy_unit': title_energy['unit'] if title_energy else None,
-            'project_gencap_matches': [c['match'] for c in title_caps if c['unit_type'] == 'power'][:5],
-            'project_gencap_energy_matches': [c['match'] for c in title_caps if c['unit_type'] == 'energy'][:5],
-            'project_gencap_candidate_count': count_distinct_capacities(title_caps, unit_type='power'),
-            'project_gencap_energy_candidate_count': count_distinct_capacities(title_caps, unit_type='energy'),
-            'project_gencap_source': 'title',
-            'project_gencap_confidence': 'high',
-            'project_gencap_context': primary['context'] if primary else None,
+            "project_gencap_value": title_power["value"] if title_power else None,
+            "project_gencap_unit": title_power["unit"] if title_power else None,
+            "project_gencap_energy_value": title_energy["value"] if title_energy else None,
+            "project_gencap_energy_unit": title_energy["unit"] if title_energy else None,
+            "project_gencap_matches": [c["match"] for c in title_caps if c["unit_type"] == "power"][:5],
+            "project_gencap_energy_matches": [c["match"] for c in title_caps if c["unit_type"] == "energy"][:5],
+            "project_gencap_candidate_count": count_distinct_capacities(title_caps, unit_type="power"),
+            "project_gencap_energy_candidate_count": count_distinct_capacities(title_caps, unit_type="energy"),
+            "project_gencap_source": "title",
+            "project_gencap_confidence": "high",
+            "project_gencap_context": primary["context"] if primary else None,
         }
 
-    # Description-second extraction
     description_text = value_to_text(project_description)
-    desc_caps = extract_capacity_from_text(description_text, source='description')
-    desc_power = get_primary_capacity(desc_caps, unit_type='power')
-    desc_energy = get_primary_capacity(desc_caps, unit_type='energy')
+    desc_caps = extract_capacity_from_text(description_text, source="description")
+    desc_power = get_primary_capacity(desc_caps, unit_type="power")
+    desc_energy = get_primary_capacity(desc_caps, unit_type="energy")
     if desc_power or desc_energy:
         primary = desc_power or desc_energy
         return {
-            'project_gencap_value': desc_power['value'] if desc_power else None,
-            'project_gencap_unit': desc_power['unit'] if desc_power else None,
-            'project_gencap_energy_value': desc_energy['value'] if desc_energy else None,
-            'project_gencap_energy_unit': desc_energy['unit'] if desc_energy else None,
-            'project_gencap_matches': [c['match'] for c in desc_caps if c['unit_type'] == 'power'][:5],
-            'project_gencap_energy_matches': [c['match'] for c in desc_caps if c['unit_type'] == 'energy'][:5],
-            'project_gencap_candidate_count': count_distinct_capacities(desc_caps, unit_type='power'),
-            'project_gencap_energy_candidate_count': count_distinct_capacities(desc_caps, unit_type='energy'),
-            'project_gencap_source': 'description',
-            'project_gencap_confidence': 'high',
-            'project_gencap_context': primary['context'] if primary else None,
+            "project_gencap_value": desc_power["value"] if desc_power else None,
+            "project_gencap_unit": desc_power["unit"] if desc_power else None,
+            "project_gencap_energy_value": desc_energy["value"] if desc_energy else None,
+            "project_gencap_energy_unit": desc_energy["unit"] if desc_energy else None,
+            "project_gencap_matches": [c["match"] for c in desc_caps if c["unit_type"] == "power"][:5],
+            "project_gencap_energy_matches": [c["match"] for c in desc_caps if c["unit_type"] == "energy"][:5],
+            "project_gencap_candidate_count": count_distinct_capacities(desc_caps, unit_type="power"),
+            "project_gencap_energy_candidate_count": count_distinct_capacities(desc_caps, unit_type="energy"),
+            "project_gencap_source": "description",
+            "project_gencap_confidence": "high",
+            "project_gencap_context": primary["context"] if primary else None,
         }
 
-    # Get documents for this project
-    project_docs = documents_df[documents_df['project_id'] == project_id]
+    return None
 
+
+def extract_project_capacity_from_pages(
+    project_id,
+    project_title,
+    project_description,
+    project_type,
+    pages_lookup,
+    documents_df,
+):
+    """
+    Extract generation capacity from preloaded document pages for one project.
+
+    Pages are expected to be in priority order (main docs first, then others).
+    """
+    _ = project_title, project_description, project_type  # kept for interface parity
+
+    project_docs = documents_df[documents_df["project_id"] == project_id]
     if project_docs.empty:
-        return {
-            'project_gencap_value': None,
-            'project_gencap_unit': None,
-            'project_gencap_energy_value': None,
-            'project_gencap_energy_unit': None,
-            'project_gencap_matches': [],
-            'project_gencap_energy_matches': [],
-            'project_gencap_candidate_count': 0,
-            'project_gencap_energy_candidate_count': 0,
-            'project_gencap_source': 'no_documents',
-            'project_gencap_confidence': 'low',
-            'project_gencap_context': None,
-        }
+        return _empty_capacity_result(source="no_documents")
 
-    # Process main documents first
-    main_docs = project_docs[project_docs['main_document'] == 'YES']
-    other_docs = project_docs[project_docs['main_document'] != 'YES']
+    pages = pages_lookup.get(project_id, [])
+    if not pages:
+        return _empty_capacity_result(source="none")
 
     all_capacities = []
+    for page_text in pages:
+        capacities = extract_capacity_from_text(page_text, source="document")
+        if capacities:
+            all_capacities.extend(capacities)
 
-    for docs in [main_docs, other_docs]:
-        if not docs.empty:
-            doc_ids = docs['document_id'].tolist()
-            project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
-
-            for _, page in project_pages.iterrows():
-                capacities = extract_capacity_from_text(page.get('page_text', ''), source='document')
-                all_capacities.extend(capacities)
-
-            if all_capacities and docs is main_docs:
-                break
-
-    primary_power = get_primary_capacity(all_capacities, unit_type='power')
-    primary_energy = get_primary_capacity(all_capacities, unit_type='energy')
+    primary_power = get_primary_capacity(all_capacities, unit_type="power")
+    primary_energy = get_primary_capacity(all_capacities, unit_type="energy")
     primary = primary_power or primary_energy
 
     return {
-        'project_gencap_value': primary_power['value'] if primary_power else None,
-        'project_gencap_unit': primary_power['unit'] if primary_power else None,
-        'project_gencap_energy_value': primary_energy['value'] if primary_energy else None,
-        'project_gencap_energy_unit': primary_energy['unit'] if primary_energy else None,
-        'project_gencap_matches': [c['match'] for c in all_capacities if c['unit_type'] == 'power'][:5],
-        'project_gencap_energy_matches': [c['match'] for c in all_capacities if c['unit_type'] == 'energy'][:5],
-        'project_gencap_candidate_count': count_distinct_capacities(all_capacities, unit_type='power'),
-        'project_gencap_energy_candidate_count': count_distinct_capacities(all_capacities, unit_type='energy'),
-        'project_gencap_source': 'document' if primary else 'none',
-        'project_gencap_confidence': primary['confidence'] if primary else 'low',
-        'project_gencap_context': primary['context'] if primary else None,
+        "project_gencap_value": primary_power["value"] if primary_power else None,
+        "project_gencap_unit": primary_power["unit"] if primary_power else None,
+        "project_gencap_energy_value": primary_energy["value"] if primary_energy else None,
+        "project_gencap_energy_unit": primary_energy["unit"] if primary_energy else None,
+        "project_gencap_matches": [c["match"] for c in all_capacities if c["unit_type"] == "power"][:5],
+        "project_gencap_energy_matches": [c["match"] for c in all_capacities if c["unit_type"] == "energy"][:5],
+        "project_gencap_candidate_count": count_distinct_capacities(all_capacities, unit_type="power"),
+        "project_gencap_energy_candidate_count": count_distinct_capacities(all_capacities, unit_type="energy"),
+        "project_gencap_source": "document" if primary else "none",
+        "project_gencap_confidence": primary["confidence"] if primary else "low",
+        "project_gencap_context": primary["context"] if primary else None,
     }
 
 
@@ -591,7 +743,15 @@ def extract_project_capacity(project_id, project_title, project_description, pro
 # REGEX RUNNER
 # --------------------------
 
-def run_capacity_extraction(clean_energy_only=True, sample_size=None, source=None, output_path=None, parallel_workers=0):
+def run_capacity_extraction(
+    clean_energy_only=True,
+    sample_size=None,
+    source=None,
+    output_path=None,
+    parallel_workers=0,
+    regex_page_cap: Optional[int] = 50,
+    regex_fallback_all_pages: bool = True,
+):
     """
     Run generation capacity regex extraction for all projects.
 
@@ -613,7 +773,15 @@ def run_capacity_extraction(clean_energy_only=True, sample_size=None, source=Non
         print(f"Filtered to {len(projects):,} clean energy projects")
 
     if source is None and parallel_workers and parallel_workers > 1:
-        return _run_parallel_sources(projects, clean_energy_only, sample_size, parallel_workers, output_path)
+        return _run_parallel_sources(
+            projects,
+            clean_energy_only,
+            sample_size,
+            parallel_workers,
+            output_path,
+            regex_page_cap=regex_page_cap,
+            regex_fallback_all_pages=regex_fallback_all_pages,
+        )
 
     if source:
         projects = projects[projects['dataset_source'] == source]
@@ -623,6 +791,7 @@ def run_capacity_extraction(clean_energy_only=True, sample_size=None, source=Non
         print(f"Sampling {len(projects):,} projects")
 
     results = []
+    page_cap = regex_page_cap if (regex_page_cap is not None and regex_page_cap > 0) else None
 
     sources = [source] if source else list(projects['dataset_source'].unique())
     for src in sources:
@@ -631,8 +800,8 @@ def run_capacity_extraction(clean_energy_only=True, sample_size=None, source=Non
         source_projects = projects if source else projects[projects['dataset_source'] == src]
         data_dir = PROCESSED_DIR / src.lower()
 
-        pages_df = pd.read_parquet(data_dir / "pages.parquet")
         documents_df = pd.read_parquet(data_dir / "documents.parquet")
+        pages_path = data_dir / "pages.parquet"
 
         def extract_id(x):
             if isinstance(x, dict):
@@ -641,25 +810,178 @@ def run_capacity_extraction(clean_energy_only=True, sample_size=None, source=Non
 
         documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
 
+        # Pass 1: title/description only (no page I/O)
+        source_results = []
+        doc_needed = []
         for idx, (_, project) in enumerate(source_projects.iterrows()):
             if idx % 100 == 0:
-                print(f"  Processing project {idx + 1}/{len(source_projects)}...")
+                print(f"  Pass 1 (title/description) project {idx + 1}/{len(source_projects)}...")
 
             project_id = project['project_id']
-            capacity = extract_project_capacity(
-                project_id=project_id,
+            capacity = extract_project_capacity_title_description(
                 project_title=project.get('project_title', ''),
                 project_description=project.get('project_description', ''),
-                project_type=project.get('project_type', ''),
-                pages_df=pages_df,
-                documents_df=documents_df,
+            )
+            if capacity is not None:
+                source_results.append({
+                    "project_id": project_id,
+                    "dataset_source": src,
+                    **capacity,
+                })
+            else:
+                doc_needed.append(project)
+
+        # Pass 2: bulk DuckDB page load for projects still needing document scan.
+        if doc_needed:
+            print(f"  Pass 2 (DuckDB pages): {len(doc_needed):,} projects")
+            doc_needed_ids = {p["project_id"] for p in doc_needed}
+
+            docs_needed = documents_df[documents_df["project_id"].isin(doc_needed_ids)].copy()
+            docs_present_ids = set(docs_needed["project_id"].unique())
+            main_series = docs_needed["main_document"] if "main_document" in docs_needed.columns else pd.Series("", index=docs_needed.index)
+            main_mask = main_series.fillna("").astype(str).str.upper() == "YES"
+
+            # Stage A: scan main documents first (matches legacy behavior)
+            main_pairs = build_regex_document_pairs(docs_needed[main_mask], doc_needed_ids)
+            main_lookup = load_project_pages_with_duckdb(
+                pages_path=pages_path,
+                document_pairs=main_pairs,
+                max_pages=page_cap,
             )
 
-            results.append({
-                'project_id': project_id,
-                'dataset_source': src,
-                **capacity
-            })
+            fallback_to_other = []
+            doc_stage_results = {}
+            for idx, project in enumerate(doc_needed):
+                if idx % 100 == 0:
+                    print(f"  Pass 2A (main docs) project {idx + 1}/{len(doc_needed)}...")
+
+                project_id = project["project_id"]
+                if project_id not in docs_present_ids:
+                    doc_stage_results[project_id] = _empty_capacity_result(source="no_documents")
+                    continue
+
+                main_pages = main_lookup.get(project_id, [])
+                main_capacity = extract_project_capacity_from_pages(
+                    project_id=project_id,
+                    project_title=project.get("project_title", ""),
+                    project_description=project.get("project_description", ""),
+                    project_type=project.get("project_type", ""),
+                    pages_lookup={project_id: main_pages},
+                    documents_df=documents_df,
+                )
+
+                if main_capacity.get("project_gencap_source") == "document":
+                    doc_stage_results[project_id] = main_capacity
+                else:
+                    fallback_to_other.append(project)
+
+            # Stage B: only for projects with no main-document hit, scan other docs.
+            if fallback_to_other:
+                other_ids = {p["project_id"] for p in fallback_to_other}
+                other_docs = docs_needed[docs_needed["project_id"].isin(other_ids)].copy()
+                if "main_document" in other_docs.columns:
+                    other_docs = other_docs[other_docs["main_document"].fillna("").astype(str).str.upper() != "YES"]
+
+                other_pairs = build_regex_document_pairs(other_docs, other_ids)
+                other_lookup = load_project_pages_with_duckdb(
+                    pages_path=pages_path,
+                    document_pairs=other_pairs,
+                    max_pages=page_cap,
+                )
+
+                for idx, project in enumerate(fallback_to_other):
+                    if idx % 100 == 0:
+                        print(f"  Pass 2B (other docs) project {idx + 1}/{len(fallback_to_other)}...")
+
+                    project_id = project["project_id"]
+                    capacity = extract_project_capacity_from_pages(
+                        project_id=project_id,
+                        project_title=project.get("project_title", ""),
+                        project_description=project.get("project_description", ""),
+                        project_type=project.get("project_type", ""),
+                        pages_lookup=other_lookup,
+                        documents_df=documents_df,
+                    )
+                    doc_stage_results[project_id] = capacity
+
+            # Stage C: for remaining no-hit projects, rescan all pages to recover parity.
+            if regex_fallback_all_pages and page_cap is not None:
+                unresolved = [
+                    p for p in doc_needed
+                    if p["project_id"] in docs_present_ids
+                    and doc_stage_results.get(p["project_id"], {}).get("project_gencap_source") != "document"
+                ]
+                if unresolved:
+                    print(f"  Pass 2C (all pages fallback): {len(unresolved):,} projects")
+                    unresolved_ids = {p["project_id"] for p in unresolved}
+                    # C1: full main-doc scan
+                    full_main_pairs = build_regex_document_pairs(docs_needed[main_mask], unresolved_ids)
+                    full_main_lookup = load_project_pages_with_duckdb(
+                        pages_path=pages_path,
+                        document_pairs=full_main_pairs,
+                        max_pages=None,
+                    )
+
+                    unresolved_after_main = []
+                    for idx, project in enumerate(unresolved):
+                        if idx % 100 == 0:
+                            print(f"  Pass 2C1 (main docs full) project {idx + 1}/{len(unresolved)}...")
+
+                        project_id = project["project_id"]
+                        capacity_main = extract_project_capacity_from_pages(
+                            project_id=project_id,
+                            project_title=project.get("project_title", ""),
+                            project_description=project.get("project_description", ""),
+                            project_type=project.get("project_type", ""),
+                            pages_lookup={project_id: full_main_lookup.get(project_id, [])},
+                            documents_df=documents_df,
+                        )
+                        if capacity_main.get("project_gencap_source") == "document":
+                            doc_stage_results[project_id] = capacity_main
+                        else:
+                            unresolved_after_main.append(project)
+
+                    # C2: for still-unresolved rows, full other-doc scan.
+                    if unresolved_after_main:
+                        unresolved_other_ids = {p["project_id"] for p in unresolved_after_main}
+                        unresolved_other_docs = docs_needed[docs_needed["project_id"].isin(unresolved_other_ids)].copy()
+                        if "main_document" in unresolved_other_docs.columns:
+                            unresolved_other_docs = unresolved_other_docs[
+                                unresolved_other_docs["main_document"].fillna("").astype(str).str.upper() != "YES"
+                            ]
+
+                        full_other_pairs = build_regex_document_pairs(unresolved_other_docs, unresolved_other_ids)
+                        full_other_lookup = load_project_pages_with_duckdb(
+                            pages_path=pages_path,
+                            document_pairs=full_other_pairs,
+                            max_pages=None,
+                        )
+
+                        for idx, project in enumerate(unresolved_after_main):
+                            if idx % 100 == 0:
+                                print(f"  Pass 2C2 (other docs full) project {idx + 1}/{len(unresolved_after_main)}...")
+
+                            project_id = project["project_id"]
+                            capacity_other = extract_project_capacity_from_pages(
+                                project_id=project_id,
+                                project_title=project.get("project_title", ""),
+                                project_description=project.get("project_description", ""),
+                                project_type=project.get("project_type", ""),
+                                pages_lookup={project_id: full_other_lookup.get(project_id, [])},
+                                documents_df=documents_df,
+                            )
+                            doc_stage_results[project_id] = capacity_other
+
+            for project in doc_needed:
+                project_id = project["project_id"]
+                capacity = doc_stage_results.get(project_id, _empty_capacity_result(source="none"))
+                source_results.append({
+                    "project_id": project_id,
+                    "dataset_source": src,
+                    **capacity,
+                })
+
+        results.extend(source_results)
 
     results_df = pd.DataFrame(results)
     if results_df.empty:
@@ -694,7 +1016,7 @@ def run_capacity_extraction(clean_energy_only=True, sample_size=None, source=Non
 
 def _parallel_worker(args):
     """Worker for parallel source extraction."""
-    src, clean_energy_only, sample_size = args
+    src, clean_energy_only, sample_size, regex_page_cap, regex_fallback_all_pages = args
     tmp_path = ANALYSIS_DIR / f"projects_gencap_{src.lower()}_tmp.parquet"
     run_capacity_extraction(
         clean_energy_only=clean_energy_only,
@@ -702,11 +1024,21 @@ def _parallel_worker(args):
         source=src,
         output_path=str(tmp_path),
         parallel_workers=0,
+        regex_page_cap=regex_page_cap,
+        regex_fallback_all_pages=regex_fallback_all_pages,
     )
     return str(tmp_path)
 
 
-def _run_parallel_sources(projects, clean_energy_only, sample_size, parallel_workers, output_path):
+def _run_parallel_sources(
+    projects,
+    clean_energy_only,
+    sample_size,
+    parallel_workers,
+    output_path,
+    regex_page_cap: Optional[int] = 50,
+    regex_fallback_all_pages: bool = True,
+):
     """Run per-source extraction in parallel and combine outputs."""
     from multiprocessing import get_context
 
@@ -719,7 +1051,11 @@ def _run_parallel_sources(projects, clean_energy_only, sample_size, parallel_wor
     ctx = get_context("spawn")
 
     with ctx.Pool(processes=min(parallel_workers, len(sources))) as pool:
-        for p in pool.map(_parallel_worker, [(s, clean_energy_only, sample_size) for s in sources]):
+        worker_args = [
+            (s, clean_energy_only, sample_size, regex_page_cap, regex_fallback_all_pages)
+            for s in sources
+        ]
+        for p in pool.map(_parallel_worker, worker_args):
             tmp_paths.append(Path(p))
 
     parts = [pd.read_parquet(p) for p in tmp_paths if p.exists()]
@@ -913,27 +1249,62 @@ JSON response:"""
     return prompt
 
 
-def call_ollama(prompt: str, model: str = DEFAULT_MODEL, timeout: int = 120) -> Optional[str]:
-    """Call Ollama API and return response text."""
+def call_claude_api(
+    prompt: str,
+    model: str = DEFAULT_MODEL,
+    timeout: int = 120,
+    max_retries: int = 3,
+) -> Optional[str]:
+    """Call Claude (Anthropic SDK) and return response text."""
     try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.1,
-                    "num_predict": 200,
-                }
-            },
-            timeout=timeout
-        )
-        response.raise_for_status()
-        return response.json().get("response", "")
-    except requests.exceptions.RequestException as e:
-        print(f"Ollama API error: {e}")
-        return f"__OLLAMA_ERROR__:{type(e).__name__}:{e}"
+        import anthropic
+    except Exception as e:
+        return f"__LLM_ERROR__:ImportError:{e}"
+
+    import os
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return "__LLM_ERROR__:APIError:ANTHROPIC_API_KEY not set"
+
+    try:
+        client = anthropic.Anthropic(timeout=timeout)
+    except Exception:
+        client = anthropic.Anthropic()
+
+    for attempt in range(max_retries):
+        try:
+            msg = client.messages.create(
+                model=model,
+                max_tokens=200,
+                temperature=0.1,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            parts = []
+            for block in getattr(msg, "content", []):
+                text = getattr(block, "text", None)
+                if text:
+                    parts.append(text)
+            return "".join(parts).strip()
+        except anthropic.RateLimitError as e:
+            retry_after = min(60, 2 ** attempt * 2)
+            response = getattr(e, "response", None)
+            headers = getattr(response, "headers", {}) if response is not None else {}
+            if headers:
+                val = headers.get("retry-after") or headers.get("Retry-After")
+                if val:
+                    try:
+                        retry_after = max(1, int(float(val)))
+                    except (TypeError, ValueError):
+                        pass
+            time.sleep(retry_after)
+            continue
+        except anthropic.APITimeoutError as e:
+            return f"__LLM_ERROR__:APITimeoutError:{e}"
+        except anthropic.APIError as e:
+            return f"__LLM_ERROR__:APIError:{e}"
+        except Exception as e:
+            return f"__LLM_ERROR__:Exception:{e}"
+
+    return "__LLM_ERROR__:RateLimitError:rate_limit_exhausted"
 
 
 def parse_llm_response(response: str) -> dict:
@@ -941,7 +1312,9 @@ def parse_llm_response(response: str) -> dict:
     if not response:
         return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True}
 
-    if isinstance(response, str) and response.startswith("__OLLAMA_ERROR__"):
+    if isinstance(response, str) and (
+        response.startswith("__LLM_ERROR__") or response.startswith("__OLLAMA_ERROR__")
+    ):
         return {"capacity_value": None, "capacity_unit": None, "confidence": "low", "source_quote": None, "parse_error": True, "llm_error": response}
 
     try:
@@ -972,13 +1345,15 @@ def extract_capacity_with_llm(sentences: list, project_title: str, project_type:
                 "source_quote": None, "extraction_method": "no_numeric_candidates"}
 
     prompt = build_extraction_prompt(sentences, project_title, project_type)
-    response = call_ollama(prompt, model=model)
+    response = call_claude_api(prompt, model=model)
     result = parse_llm_response(response)
     result["extraction_method"] = "llm"
     result["num_candidates"] = len(sentences)
 
     if result.get("llm_error"):
-        result["extraction_method"] = "llm_timeout" if "ReadTimeout" in result["llm_error"] else "llm_error"
+        err = str(result["llm_error"])
+        timeout_tokens = ("ReadTimeout", "APITimeoutError", "claude_timeout", "timeout")
+        result["extraction_method"] = "llm_timeout" if any(tok in err for tok in timeout_tokens) else "llm_error"
         return result
 
     # Enforce source_quote with numeric value + unit
@@ -1013,24 +1388,14 @@ def extract_capacity_with_llm(sentences: list, project_title: str, project_type:
 # LLM PROJECT-LEVEL EXTRACTION
 # --------------------------
 
-def extract_numeric_page_number(page_number) -> int:
-    """Extract a numeric page token for stable ordering of mixed page labels."""
-    if page_number is None or pd.isna(page_number):
-        return 10**9
-    match = re.search(r'(\d+)', str(page_number))
-    if match:
-        return int(match.group(1))
-    return 10**9
-
-
 def extract_capacity_for_project(
     project_id: str,
     project_title: str,
     project_type: str,
-    documents_df: pd.DataFrame,
-    pages_path: Path,
+    pages: list[str],
     model: str = DEFAULT_MODEL,
     max_pages: int = 25,
+    docs_scanned: int = 0,
     verbose: bool = False
 ) -> dict:
     """
@@ -1040,17 +1405,15 @@ def extract_capacity_for_project(
         project_id: Project identifier
         project_title: Project name (for context in LLM prompt)
         project_type: Project type (e.g., 'solar', 'wind')
-        documents_df: DataFrame with document metadata
-        pages_path: Path to pages.parquet file
-        model: Ollama model to use
+        pages: Pre-loaded page texts in document-priority order
+        model: Claude model to use
         max_pages: Maximum pages to scan per project
+        docs_scanned: Number of ranked documents selected for this project
         verbose: Print progress
 
     Returns:
         dict with capacity_value, capacity_unit, confidence, source_quote, etc.
     """
-    import pyarrow.parquet as pq
-
     result = {
         "project_id": project_id,
         "project_title": project_title,
@@ -1061,6 +1424,7 @@ def extract_capacity_for_project(
         "source_quote": None,
         "extraction_method": None,
         "pages_scanned": 0,
+        "docs_scanned": int(docs_scanned or 0),
         "candidates_found": 0,
     }
 
@@ -1069,63 +1433,27 @@ def extract_capacity_for_project(
         result["note"] = "Project type uses non-power metrics (volume, not MW)"
         return result
 
-    project_docs = documents_df[documents_df['project_id'] == project_id]
-    if project_docs.empty:
+    if result["docs_scanned"] <= 0 and not pages:
         result["extraction_method"] = "no_documents"
         return result
-
-    doc_type_priority = {'FEIS': 1, 'DEIS': 2, 'EA': 3, 'DEA': 4, 'FONSI': 5, 'ROD': 6, 'CE': 7, 'OTHER': 8, '': 5}
-    project_docs = project_docs.copy()
-    project_docs['_type_priority'] = project_docs['document_type'].map(lambda x: doc_type_priority.get(x, 10))
-    project_docs['_main_priority'] = project_docs['main_document'].map({'YES': 0, 'NO': 1, '': 2})
-
-    def get_size_priority(x):
-        try:
-            pages = int(x) if pd.notna(x) else 0
-            return 0 if pages > 50 else 1
-        except (ValueError, TypeError):
-            return 1
-
-    project_docs['_size_priority'] = project_docs['total_pages'].apply(get_size_priority)
-    project_docs = project_docs.sort_values(['_type_priority', '_main_priority', '_size_priority'])
 
     terms = get_terms_for_project_type(project_type)
     all_candidates = []
     pages_scanned = 0
-    docs_scanned = 0
-    max_docs = 3
 
-    for _, doc in project_docs.iterrows():
-        if pages_scanned >= max_pages or docs_scanned >= max_docs:
+    for text in pages[:max_pages]:
+        if pages_scanned >= max_pages:
             break
         if len(all_candidates) >= 15:
             break
 
-        doc_id = doc['document_id']
-        docs_scanned += 1
-
-        try:
-            pages_table = pq.read_table(pages_path, filters=[('document_id', '=', doc_id)])
-            doc_pages = pages_table.to_pandas()
-        except Exception as e:
-            if verbose:
-                print(f"  Error reading pages for doc {doc_id}: {e}")
-            continue
-
-        doc_pages['_page_number_num'] = doc_pages['page_number'].apply(extract_numeric_page_number)
-        doc_pages = doc_pages.sort_values(['_page_number_num', 'page_number'])
-        pages_to_check = min(50, len(doc_pages), max_pages - pages_scanned)
-
-        for _, page in doc_pages.head(pages_to_check).iterrows():
-            pages_scanned += 1
-            text = page.get('page_text', '')
-            candidates = extract_candidate_sentences(text, terms, max_sentences=5)
-            all_candidates.extend(candidates)
-            if len(all_candidates) >= 15:
-                break
+        pages_scanned += 1
+        candidates = extract_candidate_sentences(text, terms, max_sentences=5)
+        all_candidates.extend(candidates)
+        if len(all_candidates) >= 15:
+            break
 
     result["pages_scanned"] = pages_scanned
-    result["docs_scanned"] = docs_scanned
     result["candidates_found"] = len(all_candidates)
 
     if verbose:
@@ -1143,27 +1471,6 @@ def extract_capacity_for_project(
 # --------------------------
 # LLM BATCH EXTRACTION
 # --------------------------
-
-def _init_worker(docs_df, pages_path, model, verbose):
-    """Initialize worker globals for multiprocessing."""
-    global _WORKER_DOCS, _WORKER_PAGES_PATH, _WORKER_MODEL, _WORKER_VERBOSE
-    _WORKER_DOCS = docs_df          # noqa: F841 — read by _process_project_row
-    _WORKER_PAGES_PATH = pages_path  # noqa: F841
-    _WORKER_MODEL = model            # noqa: F841
-    _WORKER_VERBOSE = verbose        # noqa: F841
-
-
-def _process_project_row(project):
-    """Process a single project row (for multiprocessing)."""
-    return extract_capacity_for_project(
-        project_id=project['project_id'],
-        project_title=project['project_title'],
-        project_type=project['project_type'],
-        documents_df=_WORKER_DOCS,
-        pages_path=_WORKER_PAGES_PATH,
-        model=_WORKER_MODEL,
-        verbose=_WORKER_VERBOSE
-    )
 
 
 def extract_capacity_for_projects(
@@ -1245,33 +1552,62 @@ def extract_capacity_for_projects(
 
     pages_path = PROCESSED_DIR / source.lower() / "pages.parquet"
     project_records = projects[['project_id', 'project_title', 'project_type']].to_dict('records')
+    project_ids = set(projects["project_id"].tolist())
+
+    document_pairs, doc_counts = build_llm_document_pairs(
+        documents_df=documents_df,
+        project_ids=project_ids,
+        max_docs=3,
+    )
+    pages_lookup = load_project_pages_with_duckdb(
+        pages_path=pages_path,
+        document_pairs=document_pairs,
+        max_pages=25,
+    )
+
+    def run_one(project_row):
+        pid = project_row["project_id"]
+        return extract_capacity_for_project(
+            project_id=pid,
+            project_title=project_row["project_title"],
+            project_type=project_row["project_type"],
+            pages=pages_lookup.get(pid, []),
+            model=model,
+            max_pages=25,
+            docs_scanned=doc_counts.get(pid, 0),
+            verbose=False,
+        )
 
     results = []
-    if workers and workers > 1:
-        from multiprocessing import get_context
-        ctx = get_context("spawn")
-        with ctx.Pool(
-            processes=workers,
-            initializer=_init_worker,
-            initargs=(documents_df, pages_path, model, False),
-        ) as pool:
-            for idx, result in enumerate(pool.imap_unordered(_process_project_row, project_records, chunksize=1)):
+    if workers and workers > 1 and project_records:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {executor.submit(run_one, project): project for project in project_records}
+            for idx, future in enumerate(as_completed(futures), start=1):
                 if verbose and idx % 10 == 0:
-                    print(f"\nProcessed {idx + 1}/{len(project_records)} projects...")
-                results.append(result)
+                    print(f"\nProcessed {idx}/{len(project_records)} projects...")
+                try:
+                    results.append(future.result())
+                except Exception as e:
+                    project = futures[future]
+                    results.append({
+                        "project_id": project.get("project_id"),
+                        "project_title": project.get("project_title"),
+                        "project_type": project.get("project_type"),
+                        "capacity_value": None,
+                        "capacity_unit": None,
+                        "confidence": "low",
+                        "source_quote": None,
+                        "extraction_method": "llm_error",
+                        "pages_scanned": 0,
+                        "docs_scanned": 0,
+                        "candidates_found": 0,
+                        "llm_error": f"__LLM_ERROR__:Exception:{e}",
+                    })
     else:
         for idx, project in enumerate(project_records):
             if verbose and idx % 10 == 0:
                 print(f"\nProcessing {idx + 1}/{len(project_records)}: {project['project_title'][:50]}...")
-            result = extract_capacity_for_project(
-                project_id=project['project_id'],
-                project_title=project['project_title'],
-                project_type=project['project_type'],
-                documents_df=documents_df,
-                pages_path=pages_path,
-                model=model,
-                verbose=verbose
-            )
+            result = run_one(project)
             results.append(result)
 
     results_df = pd.DataFrame(results)
@@ -1279,7 +1615,7 @@ def extract_capacity_for_projects(
         results_df = pd.DataFrame(columns=[
             "project_id", "project_title", "project_type",
             "capacity_value", "capacity_unit", "confidence", "source_quote",
-            "extraction_method", "pages_scanned", "candidates_found",
+            "extraction_method", "pages_scanned", "docs_scanned", "candidates_found",
             "num_candidates", "parse_error", "llm_error",
         ])
     results_df["dataset_source"] = source.upper()
@@ -1615,6 +1951,10 @@ Examples:
     parser.add_argument('--output', type=str, help='Output file path (parquet)')
     parser.add_argument('--parallel', type=int, default=0,
                         help='Run CE/EA/EIS in parallel with N workers (--run regex only)')
+    parser.add_argument('--regex-page-cap', type=int, default=50,
+                        help='Fast regex pass cap: max pages per project for doc scans (default: 50; <=0 means all pages)')
+    parser.add_argument('--no-regex-fallback-all-pages', action='store_true',
+                        help='Disable regex fallback that rescans unresolved projects with all pages')
 
     args = parser.parse_args()
 
@@ -1674,6 +2014,8 @@ Examples:
             source=None,
             output_path=args.output,
             parallel_workers=args.parallel,
+            regex_page_cap=args.regex_page_cap,
+            regex_fallback_all_pages=not args.no_regex_fallback_all_pages,
         )
 
     else:
