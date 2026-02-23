@@ -14,7 +14,11 @@ source(here::here("code", "deliverable03", "00_setup.R"))
 # FILE PATHS
 # --------------------------
 
-gencap_path <- here("data", "analysis", "projects_gencap_merged.parquet")
+gencap_candidates <- c(
+  here("data", "analysis", "projects_gencap_merged.parquet"),
+  here("data", "analysis", "projects_gencap.parquet")
+)
+gencap_path <- gencap_candidates[file.exists(gencap_candidates)][1]
 
 # --------------------------
 # TABLE 2: GENERATION CAPACITY
@@ -22,12 +26,32 @@ gencap_path <- here("data", "analysis", "projects_gencap_merged.parquet")
 
 cat("Creating Table 2: Generation Capacity...\n")
 
-if (file.exists(gencap_path)) {
+if (!is.na(gencap_path) && file.exists(gencap_path)) {
   gencap_projects <- read_parquet(gencap_path)
+  if (!"project_gencap_final_value" %in% names(gencap_projects)) {
+    gencap_projects$project_gencap_final_value <- gencap_projects$project_gencap_value
+  }
+  if (!"project_gencap_final_unit" %in% names(gencap_projects)) {
+    gencap_projects$project_gencap_final_unit <- gencap_projects$project_gencap_unit
+  }
+  if (!"project_gencap_final_source" %in% names(gencap_projects)) {
+    gencap_projects$project_gencap_final_source <- gencap_projects$project_gencap_source
+  }
+  if (!"project_gencap_final_confidence" %in% names(gencap_projects)) {
+    gencap_projects$project_gencap_final_confidence <- gencap_projects$project_gencap_confidence
+  }
+
+  gencap_projects <- gencap_projects %>%
+    mutate(
+      capacity_value_use = coalesce(project_gencap_final_value, project_gencap_value),
+      capacity_unit_use = coalesce(project_gencap_final_unit, project_gencap_unit),
+      capacity_source_use = coalesce(project_gencap_final_source, project_gencap_source),
+      capacity_confidence_use = coalesce(project_gencap_final_confidence, project_gencap_confidence)
+    )
 
   # Filter to projects with capacity data
   has_cap <- gencap_projects %>%
-    filter(!is.na(project_gencap_value))
+    filter(!is.na(capacity_value_use))
 
   cat("  Projects with capacity data:", nrow(has_cap), "\n")
 
@@ -40,9 +64,9 @@ if (file.exists(gencap_path)) {
     gencap_projects <- gencap_projects %>%
       mutate(
         capacity_mw = case_when(
-          project_gencap_unit == "GW" ~ project_gencap_value * 1000,
-          project_gencap_unit == "kW" ~ project_gencap_value / 1000,
-          TRUE ~ project_gencap_value
+          capacity_unit_use == "GW" ~ capacity_value_use * 1000,
+          capacity_unit_use == "kW" ~ capacity_value_use / 1000,
+          TRUE ~ capacity_value_use
         )
       )
 
@@ -121,7 +145,7 @@ if (file.exists(gencap_path)) {
       group_by(dataset_source) %>%
       summarise(
         total = n(),
-        with_capacity = sum(!is.na(project_gencap_value)),
+        with_capacity = sum(!is.na(capacity_value_use)),
         reasonable = sum(!is.na(capacity_mw) & capacity_mw > 0 & capacity_mw <= 5000, na.rm = TRUE),
         .groups = "drop"
       ) %>%
@@ -275,7 +299,11 @@ cat("Figures saved to:", figures_dir, "\n")
 
 cat("\n=== Generation Capacity Examples ===\n\n")
 
-gencap_merged <- read_parquet(here("data", "analysis", "projects_gencap_merged.parquet"))
+gencap_examples_path <- gencap_candidates[file.exists(gencap_candidates)][1]
+if (is.na(gencap_examples_path) || !file.exists(gencap_examples_path)) {
+  stop("Generation capacity parquet not found (expected projects_gencap_merged.parquet or projects_gencap.parquet).")
+}
+gencap_merged <- read_parquet(gencap_examples_path)
 
 example_ids <- c(
   "3689d8443cb2835804a5c9e61ccf1d30",    # EA:  Solana / Abengoa Solar (agree)
