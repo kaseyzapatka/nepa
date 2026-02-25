@@ -329,6 +329,35 @@ capacity_coverage_table %>%
   )
 ```
 
+The extraction pipeline separately captures **power** (MW/GW/kW — instantaneous generation rate) and **energy** (MWh/GWh/kWh — storage or cumulative output). @fig-power-energy-coverage breaks down coverage for each metric by process type.
+
+```{r}
+#| label: fig-power-energy-coverage
+#| fig-cap: "Power vs. energy extraction coverage by process type. Power = instantaneous capacity (MW/GW/kW); Energy = storage or output (MWh/GWh/kWh)."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d3_figures, "08_power_energy_coverage.png"))
+```
+
+Energy coverage is low overall and is concentrated in EA and EIS projects. The pipeline captures both types, but the **energy values are not used in the capacity bins below** — the MW-based power figures are used for project-size comparisons. Energy captures are most useful for combined solar+storage or standalone battery projects, but the current energy column also picks up annual output projections (e.g., "will generate 800,000 MWh/year"), so values should be interpreted cautiously without further validation.
+
+@fig-gencap-source shows where the capacity value was found for each project. The extraction pipeline checks three sources in order — project title, project description, and document pages — and records which one yielded the first successful match.
+
+```{r}
+#| label: fig-gencap-source
+#| fig-cap: "Generation capacity extraction source by process type. Title = capacity found in project title; Description = project description field; Document = document text pages; None = no value found."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d3_figures, "09_gencap_source.png"))
+```
+
+Several patterns stand out:
+
+- **Title hits are rare** (63 total, ~0.3%) but represent the highest-precision extractions — projects whose title contains an explicit capacity value (e.g., "50 MW Sundown Solar EA").
+- **Description hits are almost exclusively CE projects** (1,561 of 1,561). CE project descriptions in the NEPATEC dataset are short, structured summaries that frequently name the project capacity directly. EA and EIS descriptions are less structured and rarely contain the figure.
+- **Document hits** (1,232 total) are the primary source for EA (58.8%) and EIS (81.3%), where capacity is stated in the body of the environmental document rather than in metadata fields.
+- **No capacity found** (none) accounts for 90.2% of CE projects, consistent with the expectation that small categorical exclusions rarely document an explicit MW figure.
+
 @fig-capacity-process shows the distribution of project sizes across process types. Among projects with extracted capacity:
 
 - **EIS**: 53% are utility-scale (>500 MW), median capacity of 538 MW

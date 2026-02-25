@@ -15,8 +15,8 @@ source(here::here("code", "deliverable03", "00_setup.R"))
 # --------------------------
 
 gencap_candidates <- c(
-  here("data", "analysis", "projects_gencap_merged.parquet"),
-  here("data", "analysis", "projects_gencap.parquet")
+  here("data", "analysis", "projects_gencap.parquet"),
+  here("data", "analysis", "projects_gencap_merged.parquet")
 )
 gencap_path <- gencap_candidates[file.exists(gencap_candidates)][1]
 
@@ -85,6 +85,235 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     )
   write_csv(capacity_coverage_table, here(tables_dir, "table2_capacity_coverage_summary.csv"))
   cat("  Saved: table2_capacity_coverage_summary.csv\n")
+
+  # --------------------------
+  # POWER VS ENERGY COVERAGE TABLE
+  # --------------------------
+
+  power_energy_rows <- gencap_projects %>%
+    group_by(dataset_source) %>%
+    summarise(
+      total_projects = n(),
+      has_power = sum(!is.na(project_gencap_value), na.rm = TRUE),
+      has_energy = sum(!is.na(project_gencap_energy_value), na.rm = TRUE),
+      has_both = sum(!is.na(project_gencap_value) & !is.na(project_gencap_energy_value), na.rm = TRUE),
+      pct_power = 100 * has_power / total_projects,
+      pct_energy = 100 * has_energy / total_projects,
+      .groups = "drop"
+    ) %>%
+    arrange(factor(dataset_source, levels = c("CE", "EA", "EIS")))
+
+  power_energy_total <- power_energy_rows %>%
+    summarise(
+      dataset_source = "Total",
+      total_projects = sum(total_projects),
+      has_power = sum(has_power),
+      has_energy = sum(has_energy),
+      has_both = sum(has_both),
+      pct_power = 100 * sum(has_power) / sum(total_projects),
+      pct_energy = 100 * sum(has_energy) / sum(total_projects)
+    )
+
+  power_energy_table <- bind_rows(power_energy_rows, power_energy_total) %>%
+    rename(
+      `Process Type` = dataset_source,
+      `Total Projects` = total_projects,
+      `Power (n)` = has_power,
+      `Energy (n)` = has_energy,
+      `Both (n)` = has_both,
+      `Power (%)` = pct_power,
+      `Energy (%)` = pct_energy
+    )
+
+  write_csv(power_energy_table, here(tables_dir, "table2_power_energy_coverage.csv"))
+  cat("  Saved: table2_power_energy_coverage.csv\n")
+
+  # --------------------------
+  # POWER VS ENERGY FIGURE
+  # --------------------------
+
+  power_energy_plot_data <- power_energy_rows %>%
+    select(dataset_source, pct_power, pct_energy) %>%
+    pivot_longer(
+      cols = c(pct_power, pct_energy),
+      names_to = "metric",
+      values_to = "pct"
+    ) %>%
+    mutate(
+      metric = recode(metric,
+        "pct_power"  = "Power (MW/GW/kW)",
+        "pct_energy" = "Energy (MWh/GWh/kWh)"
+      ),
+      dataset_source = factor(dataset_source, levels = c("CE", "EA", "EIS"))
+    )
+
+  fig_power_energy <- power_energy_plot_data %>%
+    ggplot(aes(x = dataset_source, y = pct, fill = metric)) +
+    geom_col(position = "dodge", width = 0.65) +
+    geom_text(
+      aes(label = paste0(round(pct, 1), "%")),
+      position = position_dodge(width = 0.65),
+      vjust = -0.4,
+      size = 3.5,
+      fontface = "bold"
+    ) +
+    labs(
+      title = "Power and Energy Extraction Coverage by Process Type",
+      subtitle = "Percent of projects with at least one power (MW) or energy (MWh) value extracted",
+      x = "Process Type",
+      y = "Projects with Extraction (%)",
+      fill = "Metric",
+      caption = paste0(
+        "CE = Categorical Exclusion, EA = Environmental Assessment, EIS = Environmental Impact Statement\n",
+        "Energy values include both storage capacity and annual output projections; interpret with caution."
+      )
+    ) +
+    scale_y_continuous(
+      limits = c(0, 100),
+      labels = percent_format(scale = 1),
+      expand = expansion(mult = c(0, 0.12))
+    ) +
+    scale_fill_manual(values = c(
+      "Power (MW/GW/kW)"     = catf_blue,
+      "Energy (MWh/GWh/kWh)" = catf_teal
+    )) +
+    theme_catf() +
+    theme(
+      legend.position = "right",
+      plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
+    )
+
+  ggsave(
+    filename = here(figures_dir, "08_power_energy_coverage.png"),
+    plot = fig_power_energy,
+    width = 8,
+    height = 5,
+    units = "in",
+    dpi = 300
+  )
+  cat("  Saved: 08_power_energy_coverage.png\n")
+
+  # --------------------------
+  # EXTRACTION SOURCE TABLE
+  # --------------------------
+
+  source_levels <- c("title", "description", "document", "none")
+
+  source_rows <- gencap_projects %>%
+    mutate(
+      gencap_source_clean = case_when(
+        project_gencap_source %in% source_levels ~ project_gencap_source,
+        TRUE ~ "none"
+      ),
+      gencap_source_clean = factor(gencap_source_clean, levels = source_levels)
+    ) %>%
+    group_by(dataset_source, gencap_source_clean) %>%
+    summarise(n = n(), .groups = "drop") %>%
+    group_by(dataset_source) %>%
+    mutate(pct = 100 * n / sum(n)) %>%
+    ungroup()
+
+  source_wide <- source_rows %>%
+    pivot_wider(
+      id_cols = gencap_source_clean,
+      names_from = dataset_source,
+      values_from = c(n, pct),
+      values_fill = 0,
+      names_glue = "{dataset_source}_{.value}"
+    )
+
+  # Compute totals column
+  source_totals <- gencap_projects %>%
+    mutate(
+      gencap_source_clean = case_when(
+        project_gencap_source %in% source_levels ~ project_gencap_source,
+        TRUE ~ "none"
+      ),
+      gencap_source_clean = factor(gencap_source_clean, levels = source_levels)
+    ) %>%
+    count(gencap_source_clean) %>%
+    mutate(Total_pct = 100 * n / sum(n)) %>%
+    rename(Total_n = n)
+
+  source_table <- source_wide %>%
+    left_join(source_totals, by = "gencap_source_clean") %>%
+    arrange(gencap_source_clean) %>%
+    rename(`Extraction Source` = gencap_source_clean)
+
+  write_csv(source_table, here(tables_dir, "table2_gencap_source_breakdown.csv"))
+  cat("  Saved: table2_gencap_source_breakdown.csv\n")
+
+  # --------------------------
+  # EXTRACTION SOURCE FIGURE
+  # --------------------------
+
+  source_fill <- c(
+    "document"    = catf_blue,
+    "description" = catf_light_blue,
+    "title"       = catf_lime
+  )
+
+  source_labels <- c(
+    "document"    = "Document",
+    "description" = "Description",
+    "title"       = "Title"
+  )
+
+  fig_source <- source_rows %>%
+    filter(gencap_source_clean != "none") %>%
+    group_by(dataset_source) %>%
+    mutate(pct = 100 * n / sum(n)) %>%
+    ungroup() %>%
+    mutate(
+      dataset_source = factor(dataset_source, levels = c("CE", "EA", "EIS")),
+      gencap_source_clean = factor(
+        gencap_source_clean,
+        levels = c("document", "description", "title")
+      )
+    ) %>%
+    ggplot(aes(x = dataset_source, y = pct, fill = gencap_source_clean)) +
+    geom_col(width = 0.65) +
+    geom_text(
+      aes(
+        label = ifelse(pct >= 4, paste0(round(pct, 0), "%"), ""),
+        color = ifelse(gencap_source_clean == "none", "gray30", "white")
+      ),
+      position = position_stack(vjust = 0.5),
+      size = 3.5,
+      fontface = "bold"
+    ) +
+    labs(
+      title = "Generation Capacity Extraction Source by Process Type",
+      subtitle = "Where the pipeline found the capacity value for each project (100% stacked)",
+      x = "Process Type",
+      y = "Percent of Projects",
+      fill = "Source",
+      caption = paste0(
+        "Title = project title contained a MW value; Description = project description field;\n",
+        "Document = document text pages; None = no capacity value found"
+      )
+    ) +
+    scale_y_continuous(
+      labels = percent_format(scale = 1),
+      expand = expansion(mult = c(0, 0.02))
+    ) +
+    scale_fill_manual(values = source_fill, labels = source_labels) +
+    scale_color_identity(guide = "none") +
+    theme_catf() +
+    theme(
+      legend.position = "right",
+      plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
+    )
+
+  ggsave(
+    filename = here(figures_dir, "09_gencap_source.png"),
+    plot = fig_source,
+    width = 8,
+    height = 5,
+    units = "in",
+    dpi = 300
+  )
+  cat("  Saved: 09_gencap_source.png\n")
 
   # Filter to projects with capacity data
   has_cap <- gencap_projects %>%
@@ -523,3 +752,4 @@ examples_all <- bind_rows(examples_list, .id = "example")
 examples_csv_path <- here(tables_dir, "04_gencap_client_examples.csv")
 write_csv(examples_all, examples_csv_path)
 cat("Saved combined examples:", examples_csv_path, "\n")
+
