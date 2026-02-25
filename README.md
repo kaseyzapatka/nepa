@@ -30,6 +30,21 @@ The merge uses `project_id` and drops `project_title` from the NOI output to avo
 
 Note for later updates: consider tracking a run log with query statistics for reproducibility.
 
+## Deliverable 4 Multi-Agency Refresh (Simple)
+
+Run these three commands when you want the latest multi-agency outputs for Deliverable 4:
+
+```bash
+python code/extract/extract_coagency.py --run
+Rscript code/deliverable04/01_geography.R
+quarto render reports/deliverable04.qmd
+```
+
+What this does:
+- Builds `data/analysis/coagency_projects.parquet` from page-text cues (`extract_coagency.py`).
+- Rebuilds Deliverable 4 tables/figures (including strict vs expanded multi-agency outputs).
+- Renders the updated Deliverable 4 report.
+
 ## Review Type Extraction (Programmatic + Tiered)
 
 Use `code/extract/extract_reviews.py` to classify projects as `programmatic`, `tiered`, or `standard`.
@@ -200,75 +215,28 @@ python3 code/extract/extract_technology.py --run pipeline
 
 ## Generation Capacity Build
 
-Use `code/extract/extract_gencap.py` to extract generation capacity (MW/GW/kW) from NEPA documents into analysis-ready parquet files.
+`code/extract/extract_gencap.py` extracts generation capacity (MW/GW/kW) in two phases: regex over all projects, then Claude Haiku adjudication for projects with 2+ distinct candidates.
 
-The extraction runs in two phases:
-
-- **Regex phase**: scans project title → description → document pages for power unit patterns. Records the primary value, candidate count, confidence, and local context snippet for each project.
-- **LLM phase** (Claude Haiku API): runs on projects with 2+ distinct regex candidates (ambiguous cases), adjudicates the correct value, and merges results back into the dataset. Non-ambiguous projects keep their regex value unchanged.
-
-Scope is fixed to clean energy projects. All three process types (CE, EA, EIS) are always processed together.
-
-### Phase 1: Regex extraction (recommended — parallel)
+### Phase 1: Regex (parallel)
 
 ```bash
 python code/extract/extract_gencap.py --run regex --parallel 3
 ```
 
-Runs CE, EA, EIS concurrently and combines output to `data/analysis/projects_gencap.parquet`.
+Output: `data/analysis/projects_gencap.parquet`
 
-### Phase 1: Regex extraction (sequential)
-
-```bash
-python code/extract/extract_gencap.py --run regex
-```
-
-### Phase 1: Test sample
-
-```bash
-python code/extract/extract_gencap.py --run regex --sample 100
-```
-
-### Phase 1: Test regex patterns only
-
-```bash
-python code/extract/extract_gencap.py --self-test
-```
-
-### Phase 2: LLM adjudication + merge (full run)
-
-Requires Phase 1 output. Processes CE, EA, EIS sequentially and updates the parquet in place.
+### Phase 2: LLM adjudication
 
 ```bash
 python code/extract/extract_gencap.py --run llm --workers 4
 ```
 
-Outputs (written in place to the Phase 1 output file):
-- `data/analysis/projects_gencap.parquet` — regex values + LLM override columns added
-- `data/analysis/gencap_{ce,ea,eis}_llm.parquet` — raw LLM outputs per source
-
-Use `--output` to write to a separate path instead of overwriting in place.
-
-### Phase 2: LLM test sample
+Runs on ambiguous multi-candidate projects only. Updates `projects_gencap.parquet` in place and writes per-source raw outputs to `data/analysis/gencap_{ce,ea,eis}_llm.parquet`.
 
 ```bash
+# Test on 10 projects first
 python code/extract/extract_gencap.py --run llm --sample 10 --workers 1
-```
-
-### Phase 2: LLM options
-
-```bash
-# Include all projects, not just ambiguous multi-candidate cases
-python code/extract/extract_gencap.py --run llm --include-non-ambiguous --workers 4
-
-# Restrict to projects where regex already extracted a capacity value
-python code/extract/extract_gencap.py --run llm --require-regex-capacity --workers 4
 
 # Debug a single project
 python code/extract/extract_gencap.py --run llm --project-id <UUID>
 ```
-
-Use `--include-non-ambiguous` when:
-- You want full LLM coverage regardless of regex candidate count.
-- You are doing a QA pass and want to verify regex-only extractions.
-- You can tolerate the additional API cost.
