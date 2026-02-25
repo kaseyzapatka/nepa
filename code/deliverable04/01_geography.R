@@ -7,7 +7,7 @@
 # SETUP
 # --------------------------
 
-source(here::here("code", "deliverable4", "00_setup.R"))
+source(here::here("code", "deliverable04", "00_setup.R"))
 
 # --------------------------
 # PROCESS
@@ -19,11 +19,125 @@ multi_state_data <-
   filter(project_multi_state) |> 
   glimpse()  # 858
 
-# Create multi-department dataframe
-multi_department_data <- 
-  clean_energy |> 
-  filter(project_multi_department) |> 
-  glimpse()  # 21
+# Create multi-agency dataframe (metadata OR coagency high-confidence text signal)
+multi_department_data <-
+  clean_energy_multiagency |>
+  filter(project_multi_agency) |>
+  glimpse()
+
+# Keep metadata-only subset for reference / QA
+multi_department_metadata_only <-
+  clean_energy_multiagency |>
+  filter(project_multi_department)
+
+# Expanded-only projects: not strict metadata multi-department, but high-confidence
+# coagency text signal detected.
+multi_agency_expanded_only <-
+  clean_energy_multiagency |>
+  filter(!project_multi_department, project_has_coagency_signal_high_conf)
+
+# Summary table used in report (strict vs expanded definitions)
+tbl_multi_agency_summary <- tibble(
+  Category = c(
+    "Multi-state projects",
+    "Multi-department projects (strict metadata)",
+    "Multi-agency projects (expanded)",
+    "Expanded-only via coagency text"
+  ),
+  Count = c(
+    nrow(multi_state_data),
+    nrow(multi_department_metadata_only),
+    nrow(multi_department_data),
+    nrow(multi_agency_expanded_only)
+  )
+)
+
+write_csv(tbl_multi_agency_summary, here(tables_dir, "table_multi_agency_summary.csv"))
+
+# Process-type comparison between strict and expanded definitions
+summarize_by_process <- function(df, label) {
+  df %>%
+    count(process_type, name = "n") %>%
+    complete(process_type = c("CE", "EA", "EIS"), fill = list(n = 0)) %>%
+    mutate(Definition = label) %>%
+    pivot_wider(
+      names_from = process_type,
+      values_from = n,
+      values_fill = 0
+    ) %>%
+    mutate(Total = CE + EA + EIS) %>%
+    select(Definition, CE, EA, EIS, Total)
+}
+
+tbl_multi_agency_by_process <- bind_rows(
+  summarize_by_process(
+    multi_department_metadata_only,
+    "Strict metadata (project_multi_department)"
+  ),
+  summarize_by_process(
+    multi_department_data,
+    "Expanded (project_multi_agency)"
+  )
+)
+
+write_csv(tbl_multi_agency_by_process, here(tables_dir, "table_multi_agency_by_process.csv"))
+
+# Signal source breakdown for expanded multi-agency projects
+tbl_multi_agency_signal_source <- multi_department_data %>%
+  count(project_coagency_signal_source, process_type, name = "n_projects") %>%
+  mutate(project_coagency_signal_source = replace_na(project_coagency_signal_source, "none")) %>%
+  arrange(desc(n_projects))
+
+write_csv(
+  tbl_multi_agency_signal_source,
+  here(tables_dir, "table_multi_agency_signal_source.csv")
+)
+
+# Strict vs expanded comparison figure
+fig_multi_agency_comparison_data <- bind_rows(
+  multi_department_metadata_only %>%
+    mutate(Definition = "Strict metadata"),
+  multi_department_data %>%
+    mutate(Definition = "Expanded")
+) %>%
+  count(Definition, process_type, name = "n_projects") %>%
+  complete(
+    Definition = c("Strict metadata", "Expanded"),
+    process_type = c("CE", "EA", "EIS"),
+    fill = list(n_projects = 0)
+  )
+
+fig_multi_agency_comparison <- ggplot(
+  fig_multi_agency_comparison_data,
+  aes(x = process_type, y = n_projects, fill = Definition)
+) +
+  geom_col(position = position_dodge(width = 0.75), width = 0.65) +
+  geom_text(
+    aes(label = n_projects),
+    position = position_dodge(width = 0.75),
+    vjust = -0.25,
+    size = 3
+  ) +
+  scale_fill_manual(values = c("Strict metadata" = catf_dark_blue, "Expanded" = catf_light_blue)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  labs(
+    title = "Strict vs Expanded Multi-Agency Counts by Process Type",
+    subtitle = "Expanded = strict metadata OR high-confidence coagency text signal",
+    x = "NEPA process type",
+    y = "Projects",
+    fill = NULL
+  ) +
+  theme_catf() +
+  theme(legend.position = "top")
+
+ggsave(
+  filename = here(figures_dir, "fig_multiagency_strict_expanded.png"),
+  plot = fig_multi_agency_comparison,
+  width = 8,
+  height = 5,
+  units = "in",
+  dpi = 300
+)
 
 
 # --------------------------
@@ -419,7 +533,16 @@ ggsave(
 # --------------------------
 
 multi_department_data |>
-  select(project_department, process_type, lead_agency, project_sponsor, project_multi_department) |>
+  select(
+    project_department,
+    process_type,
+    lead_agency,
+    project_sponsor,
+    project_multi_department,
+    project_has_coagency_signal_high_conf,
+    project_multi_agency,
+    project_coagency_signal_source
+  ) |>
   print(n = 50)
 
 #
@@ -429,7 +552,7 @@ multi_department_data |>
 # the first department (due to how classify_department works in extract_data.py).
 # We then map agencies to departments in the table display.
 department_links <- create_crosstab(
-  multi_department_data,
+  multi_department_metadata_only,
   "lead_agency",
   keep_cols = c("project_title", "project_type")
 ) |>
@@ -483,4 +606,3 @@ tbl_department_links <-
 
 # save
 write_csv(tbl_department_links, here(tables_dir, "table_by_department.csv"))
-

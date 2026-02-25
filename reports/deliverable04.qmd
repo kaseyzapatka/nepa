@@ -42,8 +42,8 @@ d4_figures <- here("output", "deliverable4", "figures")
 ::: {.callout-note}
 ## Key Findings
 - **Multi-state projects** represent a subset of clean energy projects that span state boundaries, often involving transmission lines or large-scale renewable energy connections
-- **Multi-department projects** are relatively rare but involve coordination between multiple federal departments
-- **Multi-department projects are only Categorical Exclusions (CE)**: Among clean energy projects, all 21 multi-department projects are CEs; no EA or EIS projects have multiple lead agencies
+- **Strict multi-department projects** (based on multiple lead agencies in metadata) are relatively rare
+- **Expanded multi-agency projects** (strict metadata OR high-confidence coagency text signal) produce a materially larger N
 - Geographic patterns reveal regional clusters of interstate cooperation
 :::
 
@@ -51,16 +51,15 @@ This report aims to create the following set of deliverables:
 
 > Data on geography/project location; whether projects are multi-state or multi-agency
 
-It analyzes clean energy projects that cross administrative boundaries---either spanning multiple states or involving multiple federal agencies. These projects often represent larger, more complex undertakings that require coordination across jurisdictions. @tbl-summary summarizes the number of multi-state and multi-department projects found among our clean energy sample. 
+It analyzes clean energy projects that cross administrative boundaries---either spanning multiple states or involving multiple federal agencies. These projects often represent larger, more complex undertakings that require coordination across jurisdictions. @tbl-summary summarizes strict and expanded multi-agency counts used in this report. 
 
 ```{r}
 #| label: tbl-summary
 #| tbl-cap: "Summary of cross-boundary projects"
 
-tibble(
-  Category = c("Multi-state projects", "Multi-department projects"),
-  Count = c(857, 21)
-) %>%
+summary_counts <- read_csv(file.path(d4_tables, "table_multi_agency_summary.csv"), show_col_types = FALSE)
+
+summary_counts %>%
   gt() %>%
   cols_align(align = "left", columns = Category) %>%
   cols_align(align = "right", columns = Count) %>%
@@ -78,7 +77,7 @@ tibble(
   )
 ```
 
-Multi-state projects are far more common than multi-department projects, likely reflecting the geographic nature of energy infrastructure (transmission lines, pipelines) versus the rarity of projects requiring formal coordination between federal departments.
+Multi-state projects are far more common than strict multi-department projects, but expanded multi-agency detection captures additional coordination signals from document text.
 
 
 ---
@@ -202,19 +201,89 @@ top_corridors %>%
 knitr::include_graphics(file.path(d4_figures, "fig_project_types_wordcloud.png"))
 ```
 
-# Multi-Department Projects
+# Multi-Agency Projects
 
-Multi-department projects involve coordination between multiple federal departments (e.g., DOE and DOI, or BLM and Forest Service). These are relatively rare but often represent significant undertakings.
+This section reports two definitions:
 
-Notably, all 21 multi-department clean energy projects are Categorical Exclusions (CE); no Environmental Assessments (EA) or Environmental Impact Statements (EIS) have multiple lead agencies in the dataset. We also checked for potential multi-agency involvement by examining whether any agency name appearing in the `lead_agency` field also appears in the `project_sponsor` field, which could indicate coordination not fully captured in the lead agency metadata. This analysis did not reveal significant additional multi-agency patterns beyond what is already captured.
+- **Strict metadata**: `project_multi_department` (multiple lead agencies in metadata).
+- **Expanded multi-agency**: `project_multi_agency` (strict metadata OR high-confidence coagency text signal from document pages).
+
+## Strict vs Expanded by Process Type
+
+@tbl-multiagency-by-process compares strict metadata and expanded multi-agency counts across CE/EA/EIS.
+
+```{r}
+#| label: tbl-multiagency-by-process
+#| tbl-cap: "Strict vs expanded multi-agency project counts by process type"
+
+multiagency_by_process <- read_csv(
+  file.path(d4_tables, "table_multi_agency_by_process.csv"),
+  show_col_types = FALSE
+)
+
+multiagency_by_process %>%
+  gt() %>%
+  cols_align(align = "left", columns = Definition) %>%
+  cols_align(align = "right", columns = c(CE, EA, EIS, Total)) %>%
+  fmt_number(columns = c(CE, EA, EIS, Total), decimals = 0, use_seps = TRUE) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(
+    table.font.size = px(13),
+    data_row.padding = px(6)
+  )
+```
+
+```{r}
+#| label: fig-multiagency-strict-expanded
+#| fig-cap: "Strict vs expanded multi-agency counts by process type."
+#| out-width: "85%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_strict_expanded.png"))
+```
+
+## Expanded Signal Sources
+
+@tbl-multiagency-sources breaks expanded multi-agency projects by signal source and process type.
+
+```{r}
+#| label: tbl-multiagency-sources
+#| tbl-cap: "Expanded multi-agency signal sources by process type"
+
+multiagency_sources <- read_csv(
+  file.path(d4_tables, "table_multi_agency_signal_source.csv"),
+  show_col_types = FALSE
+)
+
+multiagency_sources %>%
+  rename(
+    `Signal source` = project_coagency_signal_source,
+    `Process type` = process_type,
+    `Projects` = n_projects
+  ) %>%
+  gt() %>%
+  cols_align(align = "left", columns = c(`Signal source`, `Process type`)) %>%
+  cols_align(align = "right", columns = `Projects`) %>%
+  fmt_number(columns = `Projects`, decimals = 0, use_seps = TRUE) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_options(
+    table.font.size = px(12),
+    data_row.padding = px(6)
+  )
+```
 
 ## Department Connections Table
 
-@tbl-department-links lists agency combinations that share projects, along with the types of projects involved. Project types are deduplicated and sorted by frequency.
+@tbl-department-links lists agency combinations for the **strict metadata subset** only, along with the types of projects involved. Project types are deduplicated and sorted by frequency.
 
 ```{r}
 #| label: tbl-department-links
-#| tbl-cap: "Multi-department clean energy projects by agency combination"
+#| tbl-cap: "Strict metadata multi-department projects by agency combination"
 
 department_links <- read_csv(file.path(d4_tables, "table_by_department.csv"), show_col_types = FALSE)
 

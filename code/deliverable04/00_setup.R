@@ -90,6 +90,11 @@ if (file.exists(coagency_path)) {
   cat("Loading coagency enrichment from:", coagency_path, "\n")
   coagency_projects <- read_parquet(coagency_path) %>%
     select(any_of(coagency_join_cols))
+} else {
+  cat(
+    "Coagency enrichment file not found at", coagency_path,
+    "- run `python code/extract/extract_coagency.py --run` to refresh multi-agency inputs.\n"
+  )
 }
 
 clean_energy_multiagency <- clean_energy %>%
@@ -101,9 +106,10 @@ clean_energy_multiagency <- clean_energy %>%
     project_has_coagency_signal_primary = replace_na(project_has_coagency_signal_primary, FALSE),
     project_has_coagency_signal_secondary = replace_na(project_has_coagency_signal_secondary, FALSE),
     project_coagency_signal_source = replace_na(project_coagency_signal_source, "none"),
-    project_multi_agency = replace_na(
-      project_multi_agency,
-      project_multi_department | project_has_coagency_signal_high_conf
+    project_multi_agency = if_else(
+      is.na(project_multi_agency),
+      project_multi_department | project_has_coagency_signal_high_conf,
+      project_multi_agency
     )
   )
 
