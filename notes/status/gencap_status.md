@@ -150,6 +150,17 @@ Outputs:
 - `code/extract/extract_gencap_llm.py` — **deleted** (merged into extract_gencap.py)
 - `code/deliverable03/05_gencap_merge_llm.py` — **deleted** (merge integrated into `--run llm`)
 
+## Known limitations
+
+### Energy capture quality (future work)
+The regex captures both power (MW/GW/kW) and energy (MWh/GWh/kWh) values in separate fields, but the energy column has a quality problem: it conflates two very different things.
+
+- **True battery storage** values would be in the range of tens to a few thousand MWh. The ~99 MWh and 29 GWh captures in the current dataset probably include a mix of real storage figures from combined solar+storage projects and multi-year output projections.
+- **Annual output figures** (e.g., "will generate 800,000 MWh/year") also match the energy unit patterns and are not currently distinguished from storage capacity. The extremely wide value distribution (median ~49 MWh-equivalent but max ~186,000,000 MWh) confirms that large national/regional output totals are leaking in.
+- **kWh captures** (173 of 301 energy extractions) are particularly suspect — most are likely annual output for very small projects, not storage capacity.
+
+To fix this properly, the LLM pass would need to be extended to energy candidates, with a prompt that distinguishes storage capacity (MWh rated capacity) from annual output (MWh/year). Until then, use `project_gencap_energy_value` only for projects where storage is known from `project_type`, and treat the values as lower-quality than the power extractions.
+
 ## Notes
 - Power/energy are now separated; update analysis logic accordingly (power only for capacity bins).
 - LLM pass triggers on `project_gencap_candidate_count >= 2` (ambiguous cases) by default.
