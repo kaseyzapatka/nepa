@@ -358,7 +358,7 @@ Several patterns stand out:
 - **Document hits** (1,232 total) are the primary source for EA (58.8%) and EIS (81.3%), where capacity is stated in the body of the environmental document rather than in metadata fields.
 - **No capacity found** (none) accounts for 90.2% of CE projects, consistent with the expectation that small categorical exclusions rarely document an explicit MW figure.
 
-@fig-capacity-process shows the distribution of project sizes across process types. Among projects with extracted capacity:
+@fig-capacity-process shows the distribution of project sizes across process types. **These figures use power capacity (MW/GW/kW) only** — energy values (MWh/GWh/kWh) are tracked in a separate column and are not included in the size bins. Among projects with extracted capacity:
 
 - **EIS**: 53% are utility-scale (>500 MW), median capacity of 538 MW
 - **EA**: Mixed distribution, median capacity of 60 MW
@@ -384,92 +384,43 @@ knitr::include_graphics(file.path(d3_figures, "06_capacity_distribution_violin_b
 
 ### Example Project Extractions
 
-A key challenge in capacity extraction is distinguishing the **proposed project's capacity** from other numbers in the document (regional resource estimates, nearby facilities, energy consumption figures). The examples below show how the regex + LLM workflow handles this. Each table shows:
-
-- **Regex context**: the text window around the regex match (what the pattern matcher "saw")
-- **LLM quote**: the source quote the language model cited when extracting its value
+The tables below show a sample of extracted capacity values. The top five rows used regex extraction only (no LLM involvement); the bottom five were adjudicated by the LLM, which overrode the initial regex result. The **Context / Quote** column shows the text window the regex matched (for regex-only projects) or the source sentence cited by the LLM (for LLM-adjudicated projects).
 
 ```{r}
-#| label: gencap-example-helper
+#| label: tbl-gencap-examples
+#| tbl-cap: "Sample capacity extractions: regex-only (top) and LLM-adjudicated (bottom)"
 
-# Shared table formatter for gencap examples
-format_gencap_example <- function(df) {
+fmt_examples <- function(df) {
   df %>%
-    select(
-      Method = method, Value = value, Unit = unit,
-      Confidence = confidence,
-      `Regex context` = regex_context,
-      `LLM quote` = llm_quote
-    ) %>%
-    mutate(
-      `Regex context` = str_trunc(replace_na(`Regex context`, "—"), 140),
-      `LLM quote` = str_trunc(replace_na(`LLM quote`, "—"), 140)
-    ) %>%
-    kable(align = c("l", "r", "l", "l", "l", "l")) %>%
-    kable_styling(
-      bootstrap_options = c("striped", "hover", "condensed"),
-      full_width = TRUE,
-      position = "left",
-      font_size = 12
-    ) %>%
-    column_spec(5, width = "20em") %>%
-    column_spec(6, width = "20em")
+    transmute(
+      `Project Title`   = project_title,
+      `Capacity`        = paste(project_gencap_final_value, project_gencap_final_unit),
+      `Context / Quote` = str_trunc(replace_na(as.character(project_gencap_final_quote), "—"), 160),
+      `LLM Reasoning`   = str_trunc(replace_na(as.character(project_gencap_llm_reasoning), "—"), 160)
+    )
 }
+
+ex_regex <- read_csv(file.path(d3_tables, "04_gencap_examples_regex.csv"),
+                     show_col_types = FALSE)
+ex_llm   <- read_csv(file.path(d3_tables, "04_gencap_examples_llm.csv"),
+                     show_col_types = FALSE)
+
+bind_rows(
+  fmt_examples(ex_regex),
+  fmt_examples(ex_llm)
+) %>%
+  kable(align = c("l", "r", "l", "l")) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "hover", "condensed"),
+    full_width = TRUE,
+    font_size = 11
+  ) %>%
+  column_spec(1, width = "22em") %>%
+  column_spec(3, width = "18em") %>%
+  column_spec(4, width = "18em") %>%
+  pack_rows("Regex-only", 1, nrow(ex_regex)) %>%
+  pack_rows("LLM-adjudicated", nrow(ex_regex) + 1, nrow(ex_regex) + nrow(ex_llm))
 ```
-
-#### Example A: Regex and LLM agree
-
-```{r}
-#| label: tbl-gencap-example1
-#| tbl-cap: "Example A: Both methods independently extracted the same capacity value"
-
-ex1 <- read_csv(file.path(d3_tables, "04_gencap_example1.csv"), show_col_types = FALSE)
-ex1_title <- ex1$project_title[1]
-```
-
-**Project:** `r ex1_title` (EA)
-
-```{r}
-format_gencap_example(ex1)
-```
-
-**Analysis:** Both the regex and LLM independently found 280 MW. The regex matched the capacity figure in the document text; the LLM confirmed the same value with its own source quote. When the two methods agree, we have high confidence that the extraction is correct.
-
-#### Example B: Regex and LLM disagree
-
-```{r}
-#| label: tbl-gencap-example2
-#| tbl-cap: "Example B: Regex captured a regional resource estimate; LLM identified the project-specific capacity"
-
-ex2 <- read_csv(file.path(d3_tables, "04_gencap_example2.csv"), show_col_types = FALSE)
-ex2_title <- ex2$project_title[1]
-```
-
-**Project:** `r ex2_title` (EIS)
-
-```{r}
-format_gencap_example(ex2)
-```
-
-**Analysis:** The regex extracted 4,400 MW — a regional geothermal resource estimate from the document's background section. The LLM correctly identified the actual project capacity of 49.9 MW from the project description. The merged final value uses the LLM result. This is the most common pattern of disagreement: the regex grabs the largest or most prominent number, while the LLM reads context to find the project-specific figure.
-
-#### Example C: Multiple capacity dimensions (power + energy)
-
-```{r}
-#| label: tbl-gencap-example3
-#| tbl-cap: "Example C: Project with both power (MW) and energy (MWh) values extracted"
-
-ex3 <- read_csv(file.path(d3_tables, "04_gencap_example3.csv"), show_col_types = FALSE)
-ex3_title <- ex3$project_title[1]
-```
-
-**Project:** `r ex3_title` (EA)
-
-```{r}
-format_gencap_example(ex3)
-```
-
-**Analysis:** This hydrogen/energy storage project has capacity described in multiple dimensions: the regex found both a power value and a large energy storage value (MWh), while the LLM identified 550 MW as the generation capacity. When projects report both power (MW) and energy (MWh), these are distinct metrics — power is instantaneous output, energy is total storage. The final merged value uses the LLM's 550 MW for the power comparison.
 
 ---
 
