@@ -1080,12 +1080,15 @@ Rules:
 1. Pick the capacity of the PROPOSED PROJECT being reviewed — not comparisons, existing infrastructure, or neighboring projects
 2. Prefer candidates whose context uses words like "proposed", "nameplate", "rated", or "will generate"
 3. Ignore candidates describing existing systems, regional totals, or reference projects
+4. If the project proposes N IDENTICAL units (turbines, generators, panels) each rated X MW/kW, set aggregate_method to "multiply" and set computed_value to N × X. Set selected_index to the candidate showing the per-unit value X.
+5. If the project proposes MULTIPLE DIFFERENTLY-RATED units that are all part of the proposed project, set aggregate_method to "sum" and set computed_value to their total. Set selected_index to the largest-value candidate.
+6. In all other cases set aggregate_method to "none" and computed_value to null.
 
 Return ONLY valid JSON:
-{{"selected_index": <1-based int or null>, "confidence": "<high|medium|low>", "reasoning": "<one sentence max 80 chars>"}}
+{{"selected_index": <1-based int or null>, "confidence": "<high|medium|low>", "reasoning": "<one sentence max 100 chars>", "aggregate_method": "<none|sum|multiply>", "computed_value": <number or null>}}
 
 If no candidate clearly represents the proposed project capacity, return:
-{{"selected_index": null, "confidence": "low", "reasoning": "no clear project capacity candidate"}}
+{{"selected_index": null, "confidence": "low", "reasoning": "no clear project capacity candidate", "aggregate_method": "none", "computed_value": null}}
 
 JSON:"""
 
@@ -1115,7 +1118,7 @@ def call_claude_api(
         try:
             msg = client.messages.create(
                 model=model,
-                max_tokens=200,
+                max_tokens=300,
                 temperature=0.1,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -1150,7 +1153,10 @@ def call_claude_api(
 
 def parse_llm_response(response: str) -> dict:
     """Parse LLM response for candidate selection adjudication."""
-    empty = {"selected_index": None, "confidence": "low", "reasoning": None, "parse_error": True}
+    empty = {
+        "selected_index": None, "confidence": "low", "reasoning": None,
+        "aggregate_method": "none", "computed_value": None, "parse_error": True,
+    }
     if not response:
         return empty
     if isinstance(response, str) and response.startswith("__LLM_ERROR__"):
@@ -1162,12 +1168,21 @@ def parse_llm_response(response: str) -> dict:
             result.setdefault("selected_index", None)
             result.setdefault("confidence", "low")
             result.setdefault("reasoning", None)
+            result.setdefault("aggregate_method", "none")
+            result.setdefault("computed_value", None)
             result["parse_error"] = False
             try:
                 if result["selected_index"] is not None:
                     result["selected_index"] = int(result["selected_index"])
             except (TypeError, ValueError):
                 result["selected_index"] = None
+            if result["aggregate_method"] not in ("none", "sum", "multiply"):
+                result["aggregate_method"] = "none"
+            try:
+                if result["computed_value"] is not None:
+                    result["computed_value"] = float(result["computed_value"])
+            except (TypeError, ValueError):
+                result["computed_value"] = None
             return result
     except json.JSONDecodeError:
         pass
@@ -1189,6 +1204,7 @@ def extract_capacity_with_llm(candidates: list, project_title: str, project_type
             "llm_selected_candidate_id": None,
             "llm_reasoning": None,
             "llm_selection_mode": "none",
+            "llm_aggregate_method": "none",
             "num_candidates": 0,
         }
 
@@ -1200,6 +1216,7 @@ def extract_capacity_with_llm(candidates: list, project_title: str, project_type
         "llm_selected_candidate_id": None,
         "llm_reasoning": result.get("reasoning"),
         "llm_selection_mode": "none",
+        "llm_aggregate_method": result.get("aggregate_method", "none"),
         "extraction_method": "llm",
         "num_candidates": len(candidates),
         "parse_error": bool(result.get("parse_error", False)),
@@ -1219,13 +1236,23 @@ def extract_capacity_with_llm(candidates: list, project_title: str, project_type
         }
 
     idx = result.get("selected_index")
+    aggregate_method = result.get("aggregate_method", "none")
+    computed_value = result.get("computed_value")
+
     if idx is not None and 1 <= idx <= len(candidates):
         chosen = candidates[idx - 1]
         base["llm_selected_candidate_id"] = idx
-        base["llm_selection_mode"] = "single"
+        # Use computed_value (sum/multiply) when the LLM aggregated across units;
+        # fall back to the selected candidate's value for direct selections.
+        if aggregate_method in ("sum", "multiply") and computed_value is not None:
+            capacity_value = computed_value
+            base["llm_selection_mode"] = "aggregate"
+        else:
+            capacity_value = chosen.get("value")
+            base["llm_selection_mode"] = "single"
         return {
             **base,
-            "capacity_value": chosen.get("value"),
+            "capacity_value": capacity_value,
             "capacity_unit": chosen.get("unit"),
             "confidence": result.get("confidence", "medium"),
             "source_quote": str(chosen.get("context", ""))[:200] if chosen.get("context") else None,
@@ -1534,6 +1561,7 @@ def merge_llm_results_into_regex(
         "llm_parse_error", "llm_error", "llm_run_completed_at_utc",
         "llm_model_used", "llm_trigger_mode",
         "llm_selected_candidate_id", "llm_reasoning", "llm_selection_mode",
+        "llm_aggregate_method",
         "project_gencap_llm_triggered",
         "project_gencap_llm_selected_from_regex_candidates",
         "project_gencap_llm_selection_logic",
@@ -1543,6 +1571,7 @@ def merge_llm_results_into_regex(
         "project_gencap_llm_selected_candidate_id",
         "project_gencap_llm_reasoning",
         "project_gencap_llm_selection_mode",
+        "project_gencap_llm_aggregate_method",
     ]
     for col in llm_cols:
         if col not in merged.columns:
@@ -1587,6 +1616,7 @@ def merge_llm_results_into_regex(
                 ("llm_selected_candidate_id", "llm_selected_candidate_id"),
                 ("llm_reasoning", "llm_reasoning"),
                 ("llm_selection_mode", "llm_selection_mode"),
+                ("llm_aggregate_method", "llm_aggregate_method"),
             ]
 
             for src_col, dst_col in map_pairs:
@@ -1613,6 +1643,7 @@ def merge_llm_results_into_regex(
             merged.loc[source_mask, "project_gencap_llm_selected_candidate_id"] = merged.loc[source_mask, "llm_selected_candidate_id"]
             merged.loc[source_mask, "project_gencap_llm_reasoning"] = merged.loc[source_mask, "llm_reasoning"]
             merged.loc[source_mask, "project_gencap_llm_selection_mode"] = merged.loc[source_mask, "llm_selection_mode"]
+            merged.loc[source_mask, "project_gencap_llm_aggregate_method"] = merged.loc[source_mask, "llm_aggregate_method"]
 
             merged.drop(columns=["__key"], inplace=True, errors="ignore")
 
