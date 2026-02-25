@@ -4540,7 +4540,7 @@ vertical-align: -.125em;
 
 <section id="generation-capacity-workflow-status" class="level1">
 <h1>Generation Capacity Workflow Status</h1>
-<p>Date: 2026-01-30</p>
+<p>Date: 2026-02-23 (updated)</p>
 <section id="purpose" class="level2">
 <h2 class="anchored" data-anchor-id="purpose">Purpose</h2>
 <p>Capture the current state of generation-capacity extraction work for Deliverable 3, summarize key findings on transmission/utilities prevalence in clean energy projects, and provide a runbook for rerunning the workflow.</p>
@@ -4554,13 +4554,14 @@ vertical-align: -.125em;
 <li>Invalid match filtering: filters MW-year and $/MW style matches.</li>
 <li>Confidence fields added: <code>project_gencap_confidence</code> (high/medium/low) and <code>project_gencap_context</code> (local snippet).</li>
 <li>Transmission-only gating has been removed; transmission-only projects are included in the regex pass.</li>
-<li>LLM model default set to <code>llama3.2:3b-instruct-q4_K_M</code>.</li>
-<li>LLM pass restricted to low/medium confidence cases by default and can run in parallel.</li>
+<li>LLM model: Claude Haiku (<code>claude-haiku-4-5-20251001</code>) via Anthropic API (replaced Ollama).</li>
+<li>LLM pass restricted to ambiguous cases (candidate_count &gt;= 2) by default and uses ThreadPoolExecutor.</li>
+<li>LLM uses pre-extracted candidate context snippets from regex output — no page re-reading.</li>
 <li>LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and falls back to extracting the <strong>max numeric capacity</strong> from candidate sentences when the LLM omits a quote (marks <code>extraction_method = fallback_from_candidates</code>).</li>
 <li>LLM can now be constrained to projects that already have regex capacity (<code>--require-regex-capacity</code>).</li>
 <li>Regex extraction now skips likely initials/date false positives (e.g., “MW, 5/21/15”).</li>
-<li>Added merge script to combine regex + LLM outputs into a single dataset.</li>
-<li>Added lightweight validation flags and audit sample generator for regex capacities (initials/date, non-generation context, non-build context, equipment lists).</li>
+<li>Merging is integrated into <code>--run llm</code> (no separate merge script).</li>
+<li>Added lightweight validation flags and audit sample generator for regex capacities.</li>
 <li>Stratified validation sample script added.</li>
 </ul>
 </section>
@@ -4595,124 +4596,117 @@ vertical-align: -.125em;
 </section>
 <section id="outputs-and-new-fields-regex-pipeline" class="level2">
 <h2 class="anchored" data-anchor-id="outputs-and-new-fields-regex-pipeline">Outputs and new fields (regex pipeline)</h2>
-<p><code>data/analysis/projects_gencap.parquet</code> now includes: - <code>project_gencap_value</code>, <code>project_gencap_unit</code> (power only) - <code>project_gencap_energy_value</code>, <code>project_gencap_energy_unit</code> (energy only) - <code>project_gencap_source</code> (title/document/none/skipped_transmission_only) - <code>project_gencap_confidence</code> (high/medium/low) - <code>project_gencap_context</code> (local text snippet)</p>
+<p><code>data/analysis/projects_gencap.parquet</code> now includes: - <code>project_gencap_value</code>, <code>project_gencap_unit</code> (power only) - <code>project_gencap_energy_value</code>, <code>project_gencap_energy_unit</code> (energy only) - <code>project_gencap_source</code> (title/description/document/none) - <code>project_gencap_confidence</code> (high/medium/low) - <code>project_gencap_context</code> (local text snippet for primary match) - <code>project_gencap_candidate_contexts</code> (list of context snippets for all power candidates — used by LLM)</p>
+<p>After <code>--run llm</code>, <code>projects_gencap.parquet</code> is updated in place with additional columns: - <code>project_gencap_final_value</code>, <code>project_gencap_final_unit</code> (LLM-adjudicated or regex) - <code>project_gencap_llm_triggered</code>, <code>llm_merge_decision</code>, <code>project_gencap_llm_selection_logic</code> - <code>llm_capacity_value</code>, <code>llm_confidence</code>, <code>llm_source_quote</code>, etc.</p>
 </section>
 <section id="runbook-commands" class="level2">
 <h2 class="anchored" data-anchor-id="runbook-commands">Runbook (commands)</h2>
 <section id="run-regex-extraction-clean-energy-only" class="level3">
 <h3 class="anchored" data-anchor-id="run-regex-extraction-clean-energy-only">1) Run regex extraction (clean energy only)</h3>
-<div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> regex</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
 <section id="run-regex-extraction-on-all-projects" class="level3">
 <h3 class="anchored" data-anchor-id="run-regex-extraction-on-all-projects">2) Run regex extraction on ALL projects</h3>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> <span class="at">--all</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> regex <span class="at">--all</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
 <section id="run-regex-extraction-in-parallel-single-command" class="level3">
 <h3 class="anchored" data-anchor-id="run-regex-extraction-in-parallel-single-command">3) Run regex extraction in parallel (single command)</h3>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> <span class="at">--parallel</span> 3</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> regex <span class="at">--parallel</span> 3</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>This runs CE/EA/EIS in parallel and automatically combines to: <code>data/analysis/projects_gencap.parquet</code>.</p>
 </section>
-<section id="run-a-single-dataset-source-optional" class="level3">
-<h3 class="anchored" data-anchor-id="run-a-single-dataset-source-optional">4) Run a single dataset source (optional)</h3>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> <span class="at">--source</span> ce</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> <span class="at">--source</span> ea</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> <span class="at">--source</span> eis</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-</section>
 <section id="quick-regex-test-sample" class="level3">
-<h3 class="anchored" data-anchor-id="quick-regex-test-sample">5) Quick regex test sample</h3>
-<div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> <span class="at">--sample</span> 100</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<h3 class="anchored" data-anchor-id="quick-regex-test-sample">4) Quick regex test sample</h3>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> regex <span class="at">--sample</span> 100</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="count-title-hits-transmission-skips-and-lowmedium-cases-for-llm" class="level3">
-<h3 class="anchored" data-anchor-id="count-title-hits-transmission-skips-and-lowmedium-cases-for-llm">6) Count title hits, transmission skips, and low/medium cases for LLM</h3>
-<div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-</span> <span class="op">&lt;&lt;&#39;PY&#39;</span></span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="st">import pandas as pd</span></span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="st">df = pd.read_parquet(&quot;data/analysis/projects_gencap.parquet&quot;)</span></span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="st">df = df[df[&quot;project_energy_type&quot;] == &quot;Clean&quot;]</span></span>
-<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="st">title_hits = (df[&quot;project_gencap_source&quot;] == &quot;title&quot;).sum()</span></span>
-<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="st">conf = df[&quot;project_gencap_confidence&quot;].fillna(&quot;low&quot;).str.lower()</span></span>
-<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="st">low_med = df[conf.isin([&quot;low&quot;,&quot;medium&quot;])].copy()</span></span>
-<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="st">low_med = low_med[~low_med[&quot;project_gencap_source&quot;].isin([&quot;title&quot;])]</span></span>
-<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="st">print(&quot;Clean energy total:&quot;, len(df))</span></span>
-<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="st">print(&quot;Title hits:&quot;, title_hits)</span></span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="st">print(&quot;Low/medium to LLM:&quot;, len(low_med))</span></span>
-<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="st">print(low_med[&quot;dataset_source&quot;].value_counts())</span></span>
-<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="op">PY</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="count-titledescription-hits-and-ambiguous-cases-for-llm" class="level3">
+<h3 class="anchored" data-anchor-id="count-titledescription-hits-and-ambiguous-cases-for-llm">5) Count title/description hits and ambiguous cases for LLM</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-</span> <span class="op">&lt;&lt;&#39;PY&#39;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="st">import pandas as pd</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="st">df = pd.read_parquet(&quot;data/analysis/projects_gencap.parquet&quot;)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="st">df = df[df[&quot;project_energy_type&quot;] == &quot;Clean&quot;]</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="st">print(&quot;Clean energy total:&quot;, len(df))</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="st">print(&quot;Source counts:&quot;, df[&quot;project_gencap_source&quot;].value_counts(dropna=False).to_dict())</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="st">ambiguous = df[df[&quot;project_gencap_candidate_count&quot;].fillna(0) &gt;= 2]</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="st">print(&quot;Ambiguous (&gt;=2 candidates):&quot;, len(ambiguous))</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="st">print(ambiguous[&quot;dataset_source&quot;].value_counts())</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="op">PY</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="run-llm-extraction-lowmedium-only-parallel-workers" class="level3">
-<h3 class="anchored" data-anchor-id="run-llm-extraction-lowmedium-only-parallel-workers">7) Run LLM extraction (low/medium only, parallel workers)</h3>
-<div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap_llm.py <span class="dt">\</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--source</span> ce <span class="dt">\</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--run</span> <span class="dt">\</span></span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--regex-results</span> data/analysis/projects_gencap.parquet <span class="dt">\</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="run-llm-adjudication-merge-all-sources-ambiguous-only" class="level3">
+<h3 class="anchored" data-anchor-id="run-llm-adjudication-merge-all-sources-ambiguous-only">6) Run LLM adjudication + merge (all sources, ambiguous only)</h3>
+<p>The <code>--run llm</code> command runs CE, EA, EIS sequentially and updates the parquet in place.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> llm <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Output: <code>data/analysis/projects_gencap.parquet</code> (updated in place) + <code>data/analysis/gencap_{ce,ea,eis}_llm.parquet</code>.</p>
 </section>
-<section id="include-high-confidence-cases-in-llm-pass-optional" class="level3">
-<h3 class="anchored" data-anchor-id="include-high-confidence-cases-in-llm-pass-optional">8) Include high-confidence cases in LLM pass (optional)</h3>
-<div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap_llm.py <span class="dt">\</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--source</span> ce <span class="dt">\</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--run</span> <span class="dt">\</span></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--regex-results</span> data/analysis/projects_gencap.parquet <span class="dt">\</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--include-high</span> <span class="dt">\</span></span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="llm-test-run-sample-all-sources" class="level3">
+<h3 class="anchored" data-anchor-id="llm-test-run-sample-all-sources">7) LLM test run (sample, all sources)</h3>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> llm <span class="at">--sample</span> 10 <span class="at">--workers</span> 1</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="llm-test-run-using-regex-capacity-cases-only" class="level3">
-<h3 class="anchored" data-anchor-id="llm-test-run-using-regex-capacity-cases-only">9) LLM test run using regex-capacity cases only</h3>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap_llm.py <span class="dt">\</span></span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--source</span> ce <span class="dt">\</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--run</span> <span class="dt">\</span></span>
-<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--sample</span> 10 <span class="dt">\</span></span>
-<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--regex-results</span> data/analysis/projects_gencap.parquet <span class="dt">\</span></span>
-<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--require-regex-capacity</span> <span class="dt">\</span></span>
-<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--workers</span> 1</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<section id="llm-run-including-non-ambiguous-projects" class="level3">
+<h3 class="anchored" data-anchor-id="llm-run-including-non-ambiguous-projects">8) LLM run including non-ambiguous projects</h3>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> llm <span class="at">--include-non-ambiguous</span> <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</section>
+<section id="llm-run-restricted-to-projects-with-existing-regex-capacity" class="level3">
+<h3 class="anchored" data-anchor-id="llm-run-restricted-to-projects-with-existing-regex-capacity">9) LLM run restricted to projects with existing regex capacity</h3>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> llm <span class="at">--require-regex-capacity</span> <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
 <section id="stratified-validation-sample-30-per-source" class="level3">
 <h3 class="anchored" data-anchor-id="stratified-validation-sample-30-per-source">10) Stratified validation sample (30 per source)</h3>
-<div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/deliverable3/03_gencap_validation_sample.py <span class="at">--n</span> 30</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/deliverable03/03_gencap_validation_sample.py <span class="at">--n</span> 30</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
 <section id="generate-validation-flags-quick-audit-sample" class="level3">
 <h3 class="anchored" data-anchor-id="generate-validation-flags-quick-audit-sample">11) Generate validation flags + quick audit sample</h3>
-<div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/deliverable3/04_gencap_validation_flags.py</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/deliverable03/04_gencap_validation_flags.py</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>Outputs: - <code>data/analysis/projects_gencap_flagged.parquet</code> - <code>output/deliverable3/gencap_validation_quick_sample.csv</code></p>
 </section>
-<section id="merge-regex-llm-outputs" class="level3">
-<h3 class="anchored" data-anchor-id="merge-regex-llm-outputs">12) Merge regex + LLM outputs</h3>
-<div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/deliverable3/05_gencap_merge_llm.py</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>Output: - <code>data/analysis/projects_gencap_merged.parquet</code> Output: <code>output/deliverable3/gencap_validation_stratified_sample.csv</code></p>
 </section>
-</section>
-<section id="files-updated" class="level2">
-<h2 class="anchored" data-anchor-id="files-updated">Files updated</h2>
+<section id="files" class="level2">
+<h2 class="anchored" data-anchor-id="files">Files</h2>
 <ul>
-<li><code>code/extract/extract_gencap.py</code></li>
-<li><code>code/extract/extract_gencap_llm.py</code></li>
+<li><code>code/extract/extract_gencap.py</code> — single unified script (regex + LLM + merge)</li>
 <li><code>code/utils/config.py</code></li>
-<li><code>code/deliverable3/02_capacity.R</code></li>
-<li><code>code/deliverable3/03_gencap_validation_sample.py</code></li>
+<li><code>code/deliverable03/02_capacity.R</code></li>
+<li><code>code/deliverable03/03_gencap_validation_sample.py</code></li>
+<li><code>code/deliverable03/04_gencap_validation_flags.py</code></li>
+<li><code>code/extract/extract_gencap_llm.py</code> — <strong>deleted</strong> (merged into extract_gencap.py)</li>
+<li><code>code/deliverable03/05_gencap_merge_llm.py</code> — <strong>deleted</strong> (merge integrated into <code>--run llm</code>)</li>
 </ul>
+</section>
+<section id="known-limitations" class="level2">
+<h2 class="anchored" data-anchor-id="known-limitations">Known limitations</h2>
+<section id="energy-capture-quality-future-work" class="level3">
+<h3 class="anchored" data-anchor-id="energy-capture-quality-future-work">Energy capture quality (future work)</h3>
+<p>The regex captures both power (MW/GW/kW) and energy (MWh/GWh/kWh) values in separate fields, but the energy column has a quality problem: it conflates two very different things.</p>
+<ul>
+<li><strong>True battery storage</strong> values would be in the range of tens to a few thousand MWh. The ~99 MWh and 29 GWh captures in the current dataset probably include a mix of real storage figures from combined solar+storage projects and multi-year output projections.</li>
+<li><strong>Annual output figures</strong> (e.g., “will generate 800,000 MWh/year”) also match the energy unit patterns and are not currently distinguished from storage capacity. The extremely wide value distribution (median ~49 MWh-equivalent but max ~186,000,000 MWh) confirms that large national/regional output totals are leaking in.</li>
+<li><strong>kWh captures</strong> (173 of 301 energy extractions) are particularly suspect — most are likely annual output for very small projects, not storage capacity.</li>
+</ul>
+<p>To fix this properly, the LLM pass would need to be extended to energy candidates, with a prompt that distinguishes storage capacity (MWh rated capacity) from annual output (MWh/year). Until then, use <code>project_gencap_energy_value</code> only for projects where storage is known from <code>project_type</code>, and treat the values as lower-quality than the power extractions.</p>
+</section>
 </section>
 <section id="notes" class="level2">
 <h2 class="anchored" data-anchor-id="notes">Notes</h2>
 <ul>
 <li>Power/energy are now separated; update analysis logic accordingly (power only for capacity bins).</li>
-<li>LLM pass is restricted to low/medium confidence by default to save time and cost.</li>
-<li>Parallelization: use 4-6 workers on this machine; Ollama throughput will be the limiting factor.</li>
+<li>LLM pass triggers on <code>project_gencap_candidate_count &gt;= 2</code> (ambiguous cases) by default. Use <code>--include-non-ambiguous</code> to include all projects.</li>
+<li><code>project_gencap_candidate_count</code> and <code>project_gencap_candidate_contexts</code> are only populated after a regex rerun — run <code>--run regex</code> first before <code>--run llm</code>.</li>
+<li>LLM uses Claude Haiku API (set <code>ANTHROPIC_API_KEY</code>); use 4-8 workers.</li>
+<li>Description hits now always get confidence=‘high’ (same as title hits).</li>
+<li><code>--run llm</code> overwrites the input parquet in place. Use <code>--output &lt;path&gt;</code> to write to a separate file.</li>
 </ul>
 </section>
-<section id="where-to-pick-up-next-monday" class="level2">
-<h2 class="anchored" data-anchor-id="where-to-pick-up-next-monday">Where to pick up next (Monday)</h2>
+<section id="where-to-pick-up-next" class="level2">
+<h2 class="anchored" data-anchor-id="where-to-pick-up-next">Where to pick up next</h2>
 <ol type="1">
-<li><strong>Full LLM run (sequential)</strong><br>
-Run CE, then EA, then EIS. If you want no parallelism inside a run, use <code>--workers 1</code>. <code>bash    python code/extract/extract_gencap_llm.py --source ce  --run --regex-results data/analysis/projects_gencap.parquet --workers 1    python code/extract/extract_gencap_llm.py --source ea  --run --regex-results data/analysis/projects_gencap.parquet --workers 1    python code/extract/extract_gencap_llm.py --source eis --run --regex-results data/analysis/projects_gencap.parquet --workers 1</code></li>
-<li><strong>Merge regex + LLM outputs</strong><br>
-<code>bash    python code/deliverable3/05_gencap_merge_llm.py</code></li>
-<li><strong>Review validation flags / sample</strong><br>
-Open: <code>output/deliverable3/gencap_validation_quick_sample.csv</code> and confirm which flags you want to filter.</li>
-<li><strong>Update analysis in Deliverable 3</strong><br>
-Point analysis to <code>data/analysis/projects_gencap_merged.parquet</code> (or <code>projects_gencap_flagged.parquet</code> if you want to filter first).</li>
+<li><p><strong>Re-run regex extraction</strong> (required: populates <code>project_gencap_candidate_count</code> and <code>project_gencap_candidate_contexts</code>)</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> regex <span class="at">--parallel</span> 3</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+<li><p><strong>Full LLM adjudication</strong> (all sources, ambiguous cases only)</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_gencap.py <span class="at">--run</span> llm <span class="at">--workers</span> 4</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Output written in place to <code>data/analysis/projects_gencap.parquet</code>.</p></li>
+<li><p><strong>Review validation flags / sample</strong> Open: <code>output/deliverable3/gencap_validation_quick_sample.csv</code> and confirm which flags you want to filter.</p></li>
+<li><p><strong>Update analysis in Deliverable 3</strong> Point analysis to <code>data/analysis/projects_gencap.parquet</code> (use <code>project_gencap_final_value</code>/<code>project_gencap_final_unit</code> columns for LLM-adjudicated values).</p></li>
 </ol>
 </section>
 <section id="recent-progress-recap" class="level2">
@@ -4720,7 +4714,8 @@ Point analysis to <code>data/analysis/projects_gencap_merged.parquet</code> (or 
 <ul>
 <li>Regex extraction now skips initials/date false positives (e.g., “MW, 5/21/15”).</li>
 <li>LLM hardening: requires numeric source quotes, rejects no-numeric candidates, and uses <code>fallback_from_candidates</code> when LLM omits a quote.</li>
-<li>Candidate selection improved for hyphenated units and long equipment-list sentences with numeric units.</li>
+<li>LLM now uses pre-stored candidate contexts from regex output (no page re-reading, zero extra I/O cost).</li>
+<li>Switched from Ollama to Claude Haiku API; switched from multiprocessing.Pool to ThreadPoolExecutor.</li>
 <li>LLM spot-checks:
 <ul>
 <li>20-project regex-capacity CE sample: <strong>18/20 (90%)</strong> extracted.</li>

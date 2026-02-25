@@ -1,14 +1,116 @@
 # Evaluate generation capacity extraction quality
 # Load EA or EIS separately without needing the merge script
 
+
+# --------------------------
+# SETUP
+# --------------------------
+
+# remove lists 
 rm(list = ls())
 
+# source 
 source(here::here("code", "00_setup.R"))
 
+# libraries 
 library(dplyr)
 library(stringr)
 library(arrow)
 library(googlesheets4)
+
+# --------------------------
+# LOAD DATA
+# --------------------------
+gencap <- read_parquet(here::here("data", "analysis", "projects_gencap.parquet")) %>% 
+  select(project_id, project_title, process_type, project_is_transmission_broad:project_gencap_candidates_json) |>  
+  glimpse()
+
+
+# --------------------------
+# COUNT VALIDATIONS
+# --------------------------
+# validate total count
+gencap |> 
+  count(process_type) |> 
+  print()
+
+# validate energy and power counts
+gencap |> 
+  filter(!is.na(project_gencap_value) | !is.na(project_gencap_energy_value)) |> 
+  count(process_type) |> 
+  print()
+
+# validate power counts
+gencap |> 
+  filter(!is.na(project_gencap_value)) |> 
+  count(process_type) |> 
+  print()
+
+
+# --------------------------
+# RANDOM SAMPLE VALIDATION
+# --------------------------
+sample <- 
+  gencap |> 
+  filter(!is.na(project_gencap_value)) |> 
+  select(project_id) |> 
+  slice_sample(n = 1) |> 
+  print()
+
+gencap |> 
+  filter(project_id %in% sample) |> 
+  select(project_id, project_title, process_type, project_gencap_value, project_gencap_candidate_count, project_gencap_energy_candidate_count, project_gencap_source, project_gencap_context ) |> 
+  glimpse()
+
+gencap |> 
+  filter(project_id %in% sample) |> 
+  pull(project_gencap_context ) |> 
+  print()
+
+
+gencap |> 
+  #select(project_gencap_energy_candidate_count) |> 
+  #count(project_gencap_energy_candidate_count)
+  count(project_gencap_candidate_count) |> 
+  filter(project_gencap_candidate_count > 5) |> 
+  summarize(total = sum(n))
+  print(n = 100)
+
+
+gencap |> 
+  filter(!is.na(project_gencap_candidate_count)) |> 
+  unnest(project_gencap_candidates_json ) |> 
+  glimpse()
+
+
+
+# --------------------------
+# MULTIPLE CANDIDATE VALIDATION
+# --------------------------
+sample <- 
+  gencap |> 
+  filter(!is.na(project_gencap_value)) |> 
+  filter(project_gencap_candidate_count >= 2) |> 
+  select(project_id) |> 
+  slice_sample(n = 1) |> 
+  print()
+
+gencap |> 
+  filter(project_id %in% sample) |> 
+  select(project_id, project_title, process_type, project_gencap_value, project_gencap_candidate_count, project_gencap_energy_candidate_count, project_gencap_source, project_gencap_context,project_gencap_candidates_json) |> 
+  unnest(project_gencap_candidates_json ) |> 
+  glimpse()
+
+gencap |> 
+  filter(project_id %in% sample) |> 
+  unnest(project_gencap_candidates_json ) |> 
+  pull(context ) |> 
+  print()
+
+sample # 3c5c295fe8f72f86dbfda31b8a7b4348
+
+
+
 
 # ---- Load EA data ----
 
@@ -33,6 +135,11 @@ ea <- regex_ea %>%
     ),
     by = "project_id"
   )
+
+
+
+
+
 
 # ---- Summary ----
 
