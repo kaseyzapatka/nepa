@@ -49,43 +49,19 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
       capacity_confidence_use = coalesce(project_gencap_final_confidence, project_gencap_confidence)
     ) %>%
     mutate(
-      capacity_source_norm = str_to_lower(replace_na(as.character(capacity_source_use), "none")),
-      has_capacity = !is.na(capacity_value_use) & !is.na(capacity_unit_use),
-      capacity_source_group = case_when(
-        !has_capacity ~ "No capacity identified",
-        capacity_source_norm == "title" ~ "Project title",
-        capacity_source_norm == "description" ~ "Project description",
-        capacity_source_norm == "document" ~ "Document pages",
-        capacity_source_norm %in% c("llm", "fallback_from_candidates") ~ "LLM adjudication",
-        TRUE ~ "Other / unknown"
-      )
+      has_capacity = !is.na(capacity_value_use) & !is.na(capacity_unit_use)
     )
 
   # --------------------------
-  # COVERAGE + IDENTIFICATION PATHWAY TABLES
+  # COVERAGE TABLE (SIMPLE)
   # --------------------------
-
-  source_levels <- c(
-    "Project title",
-    "Project description",
-    "Document pages",
-    "LLM adjudication",
-    "Other / unknown",
-    "No capacity identified"
-  )
 
   capacity_coverage_table <- gencap_projects %>%
     group_by(dataset_source) %>%
     summarise(
       total_projects = n(),
-      capacity_generating_projects = sum(has_capacity, na.rm = TRUE),
-      pct_capacity_generating = 100 * capacity_generating_projects / total_projects,
-      title_hits = sum(capacity_source_group == "Project title", na.rm = TRUE),
-      description_hits = sum(capacity_source_group == "Project description", na.rm = TRUE),
-      document_hits = sum(capacity_source_group == "Document pages", na.rm = TRUE),
-      llm_hits = sum(capacity_source_group == "LLM adjudication", na.rm = TRUE),
-      other_hits = sum(capacity_source_group == "Other / unknown", na.rm = TRUE),
-      no_capacity = sum(capacity_source_group == "No capacity identified", na.rm = TRUE),
+      projects_with_capacity = sum(has_capacity, na.rm = TRUE),
+      coverage_percent = 100 * projects_with_capacity / total_projects,
       .groups = "drop"
     ) %>%
     arrange(factor(dataset_source, levels = c("CE", "EA", "EIS")))
@@ -96,28 +72,19 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
       across(where(is.numeric), \(x) sum(x, na.rm = TRUE))
     ) %>%
     mutate(
-      pct_capacity_generating = 100 * capacity_generating_projects / total_projects
+      coverage_percent = 100 * projects_with_capacity / total_projects
     ) %>%
     select(names(capacity_coverage_table))
 
-  capacity_coverage_table <- bind_rows(capacity_coverage_table, capacity_coverage_total)
+  capacity_coverage_table <- bind_rows(capacity_coverage_table, capacity_coverage_total) %>%
+    rename(
+      `Process Type` = dataset_source,
+      `Total Projects` = total_projects,
+      `Projects with Capacity` = projects_with_capacity,
+      `Coverage (%)` = coverage_percent
+    )
   write_csv(capacity_coverage_table, here(tables_dir, "table2_capacity_coverage_summary.csv"))
   cat("  Saved: table2_capacity_coverage_summary.csv\n")
-
-  capacity_source_table <- gencap_projects %>%
-    mutate(capacity_source_group = factor(capacity_source_group, levels = source_levels)) %>%
-    count(dataset_source, capacity_source_group, name = "n") %>%
-    complete(dataset_source, capacity_source_group, fill = list(n = 0)) %>%
-    group_by(dataset_source) %>%
-    mutate(
-      total_within_process = sum(n),
-      pct_within_process = if_else(total_within_process > 0, 100 * n / total_within_process, 0)
-    ) %>%
-    ungroup() %>%
-    arrange(factor(dataset_source, levels = c("CE", "EA", "EIS")), capacity_source_group)
-
-  write_csv(capacity_source_table, here(tables_dir, "table2_capacity_source_breakdown.csv"))
-  cat("  Saved: table2_capacity_source_breakdown.csv\n")
 
   # Filter to projects with capacity data
   has_cap <- gencap_projects %>%
@@ -284,81 +251,6 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     cat("  Saved: 04_capacity_coverage.png\n")
 
     # --------------------------
-    # FIGURE 1B: WHERE CAPACITY WAS FOUND
-    # --------------------------
-
-    cat("\nCreating Figure 1B: Capacity Source Location...\n")
-
-    source_fill <- c(
-      "Project title" = catf_lime,
-      "Project description" = catf_teal,
-      "Document pages" = catf_dark_blue,
-      "LLM adjudication" = catf_magenta,
-      "Other / unknown" = catf_purple,
-      "No capacity identified" = "gray80"
-    )
-
-    source_plot_data <- gencap_projects %>%
-      mutate(
-        dataset_source = factor(dataset_source, levels = c("CE", "EA", "EIS")),
-        capacity_source_group = factor(capacity_source_group, levels = source_levels)
-      ) %>%
-      count(dataset_source, capacity_source_group, name = "n") %>%
-      complete(dataset_source, capacity_source_group, fill = list(n = 0)) %>%
-      group_by(dataset_source) %>%
-      mutate(
-        pct = 100 * n / sum(n),
-        label = if_else(pct >= 4, paste0(round(pct, 1), "%"), ""),
-        label_color = case_when(
-          capacity_source_group %in% c("Project title", "Project description") ~ "black",
-          capacity_source_group == "No capacity identified" ~ "black",
-          TRUE ~ "white"
-        )
-      ) %>%
-      ungroup()
-
-    fig1b <- source_plot_data %>%
-      ggplot(aes(x = dataset_source, y = pct, fill = capacity_source_group)) +
-      geom_col(width = 0.7) +
-      geom_text(
-        aes(label = label, color = label_color),
-        position = position_stack(vjust = 0.5),
-        size = 3.2,
-        fontface = "bold"
-      ) +
-      labs(
-        title = "Where Capacity Was Identified in the Workflow",
-        subtitle = "Share of clean energy projects by source used for final capacity assignment",
-        x = "Process Type",
-        y = "Share of Projects",
-        fill = "Capacity source",
-        caption = "Shows both extracted and not-extracted projects. LLM adjudication indicates final value selected in merge."
-      ) +
-      scale_y_continuous(
-        labels = percent_format(scale = 1),
-        expand = expansion(mult = c(0, 0.02))
-      ) +
-      scale_fill_manual(values = source_fill, drop = FALSE) +
-      scale_color_identity(guide = "none") +
-      theme_catf() +
-      theme(
-        legend.position = "right",
-        plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
-      )
-
-    fig1b
-
-    ggsave(
-      filename = here(figures_dir, "06_capacity_source_location.png"),
-      plot = fig1b,
-      width = 10,
-      height = 6,
-      units = "in",
-      dpi = 300
-    )
-    cat("  Saved: 06_capacity_source_location.png\n")
-
-    # --------------------------
     # FIGURE 2: CAPACITY CATEGORIES BY PROCESS TYPE
     # --------------------------
 
@@ -383,11 +275,11 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     )
 
     fig2 <- cap_category_data %>%
-      ggplot(aes(x = dataset_source, y = n, fill = capacity_category)) +
+      ggplot(aes(x = dataset_source, y = pct, fill = capacity_category)) +
       geom_col(width = 0.7) +
       geom_text(
         aes(
-          label = ifelse(n > 30, comma(n), ""),
+          label = ifelse(pct >= 5, paste0(round(pct, 1), "%"), ""),
           color = ifelse(
             capacity_category %in% c("Small (<10 MW)", "Medium (10-100 MW)"),
             "black",
@@ -400,13 +292,13 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
       ) +
       labs(
         title = "Project Capacity Distribution by Process Type",
-        subtitle = "Clean energy projects with extracted generation capacity (reasonable range: 0-5000 MW)",
+        subtitle = "Stacked percent of projects with extracted generation capacity (reasonable range: 0-5000 MW)",
         x = "Process Type",
-        y = "Number of Projects",
+        y = "Percent of Extracted Projects",
         fill = "Capacity Category",
         caption = "CE = Categorical Exclusion, EA = Environmental Assessment, EIS = Environmental Impact Statement\nCapacity normalized to MW. Projects with values >5000 MW excluded as likely extraction errors."
       ) +
-      scale_y_continuous(labels = comma, expand = expansion(mult = c(0, 0.05))) +
+      scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.05))) +
       scale_fill_manual(values = fig2_fill, drop = FALSE) +
       scale_color_identity(guide = "none") +
       theme_catf() +
@@ -428,80 +320,61 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     cat("  Saved: 05_capacity_by_process.png\n")
 
     # --------------------------
-    # FIGURE 3: CREATIVE CHECK — LLM IMPACT ON FINAL VALUE
+    # FIGURE 3: CAPACITY DISTRIBUTION (VIOLIN + BOXPLOT)
     # --------------------------
 
-    cat("\nCreating Figure 3: LLM Impact Overview...\n")
+    cat("\nCreating Figure 3: Capacity Distribution...\n")
 
-    llm_impact_data <- gencap_projects %>%
+    distribution_data <- gencap_reasonable %>%
       mutate(
-        regex_value = suppressWarnings(as.numeric(project_gencap_value)),
-        regex_unit = as.character(project_gencap_unit),
-        final_value = suppressWarnings(as.numeric(capacity_value_use)),
-        final_unit = as.character(capacity_unit_use),
-        has_regex = !is.na(regex_value) & !is.na(regex_unit),
-        has_final = has_capacity,
-        same_value_unit = has_regex & has_final &
-          abs(regex_value - final_value) < 1e-9 &
-          regex_unit == final_unit,
-        llm_impact = case_when(
-          !has_final ~ "No final capacity",
-          !has_regex & has_final ~ "Filled beyond regex",
-          has_regex & same_value_unit ~ "Regex retained",
-          has_regex & !same_value_unit ~ "Updated from regex/LLM",
-          TRUE ~ "Other"
-        ),
         dataset_source = factor(dataset_source, levels = c("CE", "EA", "EIS"))
-      ) %>%
-      count(dataset_source, llm_impact, name = "n") %>%
-      group_by(dataset_source) %>%
-      mutate(
-        pct = 100 * n / sum(n),
-        label = if_else(pct >= 5, paste0(round(pct, 1), "%"), "")
-      ) %>%
-      ungroup()
+      )
 
-    llm_impact_fill <- c(
-      "Regex retained" = catf_dark_blue,
-      "Updated from regex/LLM" = catf_magenta,
-      "Filled beyond regex" = catf_teal,
-      "No final capacity" = "gray80",
-      "Other" = "gray60"
-    )
-
-    fig3 <- llm_impact_data %>%
-      ggplot(aes(x = dataset_source, y = pct, fill = llm_impact)) +
-      geom_col(width = 0.7) +
-      geom_text(
-        aes(label = label),
-        position = position_stack(vjust = 0.5),
-        size = 3.2,
-        color = "white",
-        fontface = "bold"
+    fig3 <- distribution_data %>%
+      ggplot(aes(x = dataset_source, y = capacity_mw, fill = dataset_source)) +
+      geom_violin(alpha = 0.5, color = NA, trim = FALSE) +
+      geom_boxplot(
+        width = 0.16,
+        alpha = 0.9,
+        outlier.alpha = 0.15,
+        outlier.size = 0.8,
+        color = "gray20"
+      ) +
+      stat_summary(
+        fun = median,
+        geom = "point",
+        shape = 21,
+        size = 2.8,
+        fill = "white",
+        color = "black"
       ) +
       labs(
-        title = "How Often Final Capacity Changed Beyond Regex",
-        subtitle = "LLM adjudication mostly affects EA/EIS while CE is largely regex-retained",
+        title = "Distribution of Extracted Generation Capacity by Process Type",
+        subtitle = "Violin shows density; boxplot shows median and interquartile range (MW, log scale)",
         x = "Process Type",
-        y = "Share of Projects",
-        fill = "Final selection pathway"
+        y = "Generation Capacity (MW, log scale)"
       ) +
-      scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.02))) +
-      scale_fill_manual(values = llm_impact_fill, drop = FALSE) +
+      scale_y_log10(
+        breaks = c(1, 5, 10, 50, 100, 500, 1000, 5000),
+        labels = label_number(big.mark = ",")
+      ) +
+      scale_fill_manual(values = process_fill, guide = "none") +
       theme_catf() +
-      theme(legend.position = "right")
+      theme(
+        plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
+      )
 
     fig3
 
     ggsave(
-      filename = here(figures_dir, "07_capacity_llm_impact.png"),
+      filename = here(figures_dir, "06_capacity_distribution_violin_box.png"),
       plot = fig3,
       width = 10,
       height = 6,
       units = "in",
       dpi = 300
     )
-    cat("  Saved: 07_capacity_llm_impact.png\n")
+    cat("  Saved: 06_capacity_distribution_violin_box.png\n")
 
   }
 } else {
