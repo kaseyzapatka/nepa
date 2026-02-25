@@ -635,121 +635,44 @@ cat("Figures saved to:", figures_dir, "\n")
 
 
 # --------------------------
-# GENERATION CAPACITY EXAMPLES (for client review)
+# GENERATION CAPACITY EXAMPLES
 # --------------------------
-# Three curated projects illustrating extraction quality:
-#   A) Regex and LLM agree
-#   B) Regex and LLM disagree (regex grabbed wrong number)
-#   C) Multiple capacity dimensions (power + energy + LLM)
+# Sample 5 regex-only and 5 LLM-adjudicated projects for the deliverable.
+# Columns: project_title, dataset_source, project_gencap_final_value,
+#          project_gencap_final_unit, project_gencap_final_quote,
+#          project_gencap_llm_reasoning
 
 cat("\n=== Generation Capacity Examples ===\n\n")
 
-gencap_examples_path <- gencap_candidates[file.exists(gencap_candidates)][1]
-if (is.na(gencap_examples_path) || !file.exists(gencap_examples_path)) {
-  stop("Generation capacity parquet not found (expected projects_gencap_merged.parquet or projects_gencap.parquet).")
-}
-gencap_merged <- read_parquet(gencap_examples_path)
-
-example_ids <- c(
-  "3689d8443cb2835804a5c9e61ccf1d30",    # EA:  Solana / Abengoa Solar (agree)
-  "166574ea3c128fb3a46bd0dd1a3fcfc9",     # EIS: Fourmile Hill Geothermal (disagree)
-  "6faf66e9757e4d865ceef6462911a854"      # EA:  Advanced Clean Energy Storage (multi)
+example_cols <- c(
+  "project_title", "dataset_source",
+  "project_gencap_final_value", "project_gencap_final_unit",
+  "project_gencap_final_quote", "project_gencap_llm_reasoning"
 )
 
-# Helper: safely truncate or return NA
-safe_trunc <- function(x, width = 250) {
-  x <- as.character(x)
-  ifelse(is.na(x) | x == "NA", NA_character_, str_trunc(x, width))
-}
+set.seed(42)
 
-examples_list <- list()
+# 5 regex-only projects (no LLM involved)
+examples_regex <- gencap_projects %>%
+  filter(
+    llm_merge_decision == "regex_no_llm",
+    !is.na(project_gencap_final_quote)
+  ) %>%
+  select(all_of(example_cols)) %>%
+  slice_sample(n = 5)
 
-for (i in seq_along(example_ids)) {
-  row <- gencap_merged %>%
-    filter(project_id == example_ids[i])
+# 5 LLM-adjudicated projects (LLM overrode regex)
+examples_llm <- gencap_projects %>%
+  filter(
+    llm_merge_decision == "llm_override_regex",
+    !is.na(project_gencap_llm_reasoning)
+  ) %>%
+  select(all_of(example_cols)) %>%
+  slice_sample(n = 5)
 
-  if (nrow(row) == 0) {
-    cat(sprintf("  Example %d: project_id %s not found, skipping\n", i, example_ids[i]))
-    next
-  }
+write_csv(examples_regex, here(tables_dir, "04_gencap_examples_regex.csv"))
+write_csv(examples_llm,   here(tables_dir, "04_gencap_examples_llm.csv"))
 
-  row <- row[1, ]
-
-  # Build rows for each extraction method, showing both context fields
-  ex_rows <- list()
-
-  # Regex row (always present if value exists)
-  if (!is.na(row$project_gencap_value)) {
-    ex_rows[[length(ex_rows) + 1]] <- tibble(
-      method = "Regex (power)",
-      value = row$project_gencap_value,
-      unit = as.character(row$project_gencap_unit),
-      confidence = as.character(row$project_gencap_confidence),
-      regex_context = safe_trunc(row$project_gencap_context),
-      llm_quote = NA_character_
-    )
-  }
-
-  # Regex energy row (if project has energy value too)
-  if (!is.na(row$project_gencap_energy_value) && row$project_gencap_energy_value > 0) {
-    ex_rows[[length(ex_rows) + 1]] <- tibble(
-      method = "Regex (energy)",
-      value = row$project_gencap_energy_value,
-      unit = as.character(row$project_gencap_energy_unit),
-      confidence = as.character(row$project_gencap_confidence),
-      regex_context = safe_trunc(row$project_gencap_context),
-      llm_quote = NA_character_
-    )
-  }
-
-  # LLM row
-  if (!is.na(row$llm_capacity_value) && row$llm_capacity_value > 0) {
-    ex_rows[[length(ex_rows) + 1]] <- tibble(
-      method = "LLM",
-      value = row$llm_capacity_value,
-      unit = as.character(row$llm_capacity_unit),
-      confidence = as.character(row$llm_confidence),
-      regex_context = NA_character_,
-      llm_quote = safe_trunc(row$llm_source_quote)
-    )
-  }
-
-  # Final merged row
-  if (!is.na(row$project_gencap_final_value)) {
-    ex_rows[[length(ex_rows) + 1]] <- tibble(
-      method = "Final (merged)",
-      value = row$project_gencap_final_value,
-      unit = as.character(row$project_gencap_final_unit),
-      confidence = as.character(row$project_gencap_final_confidence),
-      regex_context = NA_character_,
-      llm_quote = NA_character_
-    )
-  }
-
-  ex <- bind_rows(ex_rows) %>%
-    mutate(
-      project_title = row$project_title,
-      dataset_source = as.character(row$dataset_source),
-      .before = 1
-    )
-
-  examples_list[[i]] <- ex
-  cat(sprintf("Example %d (%s — %s): %s (%d rows)\n",
-              i, row$dataset_source, example_ids[i], row$project_title, nrow(ex)))
-}
-
-# Save individual CSVs
-for (i in seq_along(examples_list)) {
-  if (!is.null(examples_list[[i]])) {
-    ex_path <- here(tables_dir, sprintf("04_gencap_example%d.csv", i))
-    write_csv(examples_list[[i]], ex_path)
-    cat(sprintf("  Saved: %s\n", ex_path))
-  }
-}
-
-# Save combined CSV
-examples_all <- bind_rows(examples_list, .id = "example")
-examples_csv_path <- here(tables_dir, "04_gencap_client_examples.csv")
-write_csv(examples_all, examples_csv_path)
-cat("Saved combined examples:", examples_csv_path, "\n")
+cat("Saved regex examples: 04_gencap_examples_regex.csv (", nrow(examples_regex), "rows)\n")
+cat("Saved LLM examples:   04_gencap_examples_llm.csv (", nrow(examples_llm), "rows)\n")
 
