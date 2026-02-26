@@ -108,11 +108,17 @@ This filter is especially important for solar and wind projects on federal land,
 
 ---
 
-### 2.3 Tier 3: LLM Adjudication (Optional)
+### 2.3 Tier 3: LLM Adjudication (Not Used)
 
-If `--use-llm` is set and Tier 2 produced medium-confidence (but no high-confidence) tiering candidates, a local Ollama model (`llama3.2:3b-instruct-q4_K_M` by default) is queried to adjudicate. The LLM receives the candidate context texts and classifies whether they represent genuine NEPA tiering language.
+The pipeline includes an optional LLM tier (gated by `--use-llm`) that was designed for **medium-confidence regex candidates** — cases where Tier 2 found tiering language via weaker pattern types (`pursuant_to`, `reference_adoption`) but could not confidently distinguish genuine NEPA tiering from a passing reference to a programmatic review. The LLM (a local Ollama model) would receive the candidate context texts and classify whether they represent true tiering relationships.
 
-LLM adjudication is not used in the primary production run (extraction was run with `--no-llm`). All 1,416 current classifications derive from Tiers 1 and 2 only.
+**Decision: LLM adjudication was not used and is not needed.** After reviewing the medium-confidence cases, the regex results were found to be reliable enough without LLM validation:
+
+- The medium-confidence pattern types produce few hits in practice
+- Manual inspection of the medium-confidence classifications showed them to be correctly labeled
+- The additional complexity and runtime cost of an LLM pass is not justified given the small number of edge cases
+
+All 1,416 final classifications derive from Tiers 1 and 2 only. The LLM code remains in the pipeline as a latent capability should future re-runs encounter more ambiguous cases, but it is disabled by default (`--no-llm`).
 
 ---
 
