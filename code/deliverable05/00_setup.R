@@ -275,7 +275,7 @@ theme_catf <- function(base_size = 11, base_family = "Helvetica") {
         margin = margin(b = 10)
       ),
       plot.caption = element_text(
-        size = rel(0.8), color = "gray50", hjust = 1
+        size = rel(0.8), color = "gray50", hjust = 0
       ),
       axis.title = element_text(size = rel(0.9), color = catf_navy),
       axis.text = element_text(size = rel(0.85), color = "gray30"),

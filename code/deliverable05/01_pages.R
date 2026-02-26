@@ -6,11 +6,10 @@
 #
 # Figures produced:
 #   1. Coverage funnel (inclusion criteria)
-#   2. Average pages over time (6-month rolling average with FRA line)
+#   2. Document length over time (individual points + 3-month rolling average with FRA line)
 #   3. Pre/Post FRA comparison (bar chart, mean pages)
 #   4. Pre/Post FRA distribution (violin + box plot)
-#   5. Project-level scatter with LOESS trend
-#   6. FRA page limit compliance (Post-FRA projects only)
+#   5. FRA page limit compliance (Post-FRA projects only)
 
 # --------------------------
 # SETUP
@@ -89,28 +88,44 @@ monthly_pages <- pages_for_time %>%
   arrange(process_type, decision_month) %>%
   group_by(process_type) %>%
   mutate(
-    rolling_mean_6m = zoo::rollmean(mean_pages, k = 6, fill = NA, align = "right")
+    rolling_mean_3m = zoo::rollmean(mean_pages, k = 3, fill = NA, align = "right")
   ) %>%
   ungroup()
 
-fig_pages_over_time <- ggplot(monthly_pages, aes(x = decision_month)) +
-  geom_line(aes(y = rolling_mean_6m), color = catf_dark_blue, linewidth = 1.1, na.rm = TRUE) +
+fig_pages_over_time <- ggplot() +
+  # Individual project points (low alpha, colored by FRA period)
+  geom_point(
+    data = pages_for_time,
+    aes(x = timeline_decision_date, y = total_pages, color = fra_period),
+    alpha = 0.32, size = 1.2
+  ) +
+  # 3-month rolling average line
+  geom_line(
+    data = monthly_pages,
+    aes(x = decision_month, y = rolling_mean_3m),
+    color = catf_navy, linewidth = 1.2, na.rm = TRUE
+  ) +
   geom_vline(xintercept = fra_date, linetype = "dashed", color = "red", linewidth = 0.8) +
   annotate(
     "text", x = fra_date + 45, y = Inf,
-    label = "FRA enacted\n(June 3, 2023)",
+    label = "Fiscal Responsibility Act\nof 2023 enacted\n(June 3, 2023)",
     vjust = 1.5, hjust = 0, size = 3, color = "red", fontface = "italic"
   ) +
   facet_wrap(~process_type, ncol = 1, scales = "free_y") +
   scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
-  labs(
-    title = "Average Document Length Over Time",
-    subtitle = "6-month rolling average of mean monthly page counts",
-    x = "Decision Date (Month)",
-    y = "Average Total Pages",
-    caption = "Projects with complete timelines only."
+  scale_color_manual(
+    values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)
   ) +
-  theme_catf()
+  labs(
+    title = "Document Length Over Time",
+    subtitle = "Points = individual projects (colored by FRA period); line = 3-month rolling average",
+    x = "Decision Date",
+    y = "Total Pages",
+    color = NULL,
+    caption = "Note: Projects with complete timelines only."
+  ) +
+  theme_catf() +
+  theme(legend.position = "top")
 
 fig_pages_over_time_path <- here(figures_dir, "05_pages_over_time.png")
 ggsave(fig_pages_over_time_path, fig_pages_over_time, width = 12, height = 8, dpi = 300)
@@ -234,51 +249,7 @@ cat("  Saved:", fig_distribution_path, "\n")
 print(fig_distribution)
 
 # --------------------------
-# FIGURE 5: SCATTER WITH LOESS TREND
-# --------------------------
-# Individual projects plotted by decision date and total pages
-# LOESS smoothing shows overall trend
-
-cat("\nCreating Figure 5: Pages over time scatter with trend...\n")
-
-fig_scatter <- ggplot(
-  pages_analysis %>% filter(decision_year >= 2010, decision_year <= 2025),
-  aes(x = timeline_decision_date, y = total_pages)
-) +
-  geom_point(aes(color = fra_period), alpha = 0.35, size = 1.5) +
-  geom_smooth(
-    method = "loess", se = TRUE,
-    color = catf_navy, fill = catf_light_blue,
-    alpha = 0.2, linewidth = 1
-  ) +
-  geom_vline(xintercept = fra_date, linetype = "dashed", color = "red", linewidth = 0.7) +
-  annotate(
-    "text", x = fra_date + 45, y = Inf,
-    label = "FRA enacted\n(June 3, 2023)",
-    vjust = 1.5, hjust = 0, size = 3, color = "red", fontface = "italic"
-  ) +
-  facet_wrap(~process_type, ncol = 1, scales = "free_y") +
-  scale_color_manual(
-    values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)
-  ) +
-  scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
-  labs(
-    title = "Document Length by Decision Date",
-    subtitle = "Each point = one project; blue curve = LOESS trend with 95% CI",
-    x = "Decision Date",
-    y = "Total Pages",
-    color = NULL
-  ) +
-  theme_catf() +
-  theme(legend.position = "top")
-
-fig_scatter_path <- here(figures_dir, "05_pages_scatter.png")
-ggsave(fig_scatter_path, fig_scatter, width = 12, height = 8, dpi = 300)
-cat("  Saved:", fig_scatter_path, "\n")
-print(fig_scatter)
-
-# --------------------------
-# FIGURE 6: FRA PAGE LIMIT COMPLIANCE (POST-FRA ONLY)
+# FIGURE 5: FRA PAGE LIMIT COMPLIANCE (POST-FRA ONLY)
 # --------------------------
 # FRA page limits:
 #   EA:  75 pages max
@@ -291,36 +262,27 @@ post_fra <- pages_analysis %>%
   filter(fra_period == "Post-FRA") %>%
   mutate(
     compliance = case_when(
-      process_type == "EA" & total_pages <= 75 ~
-        "Compliant\n(\u2264 75 pages)",
-      process_type == "EA" & total_pages > 75 ~
-        "Exceeds limit\n(> 75 pages)",
-      process_type == "EIS" & total_pages <= 150 ~
-        "Compliant\n(\u2264 150 pages)",
-      process_type == "EIS" & total_pages > 150 & total_pages <= 300 ~
-        "Exceeds standard limit\n(151\u2013300 pages)",
-      process_type == "EIS" & total_pages > 300 ~
-        "Exceeds all limits\n(> 300 pages)"
+      process_type == "EA" & total_pages <= 75 ~ "Compliant",
+      process_type == "EA" & total_pages > 75 ~ "Exceeds limit",
+      process_type == "EIS" & total_pages <= 150 ~ "Compliant",
+      process_type == "EIS" & total_pages > 150 & total_pages <= 300 ~ "Exceeds standard limit",
+      process_type == "EIS" & total_pages > 300 ~ "Exceeds limit"
     )
   )
 
-# Order the compliance categories
-ea_levels <- c("Compliant\n(\u2264 75 pages)", "Exceeds limit\n(> 75 pages)")
-eis_levels <- c("Compliant\n(\u2264 150 pages)",
-                "Exceeds standard limit\n(151\u2013300 pages)",
-                "Exceeds all limits\n(> 300 pages)")
-all_levels <- c(ea_levels, eis_levels)
+# Order the compliance categories (Exceeds limit rightmost/last in stack)
+ea_levels <- c("Compliant", "Exceeds limit")
+eis_levels <- c("Compliant", "Exceeds standard limit", "Exceeds limit")
+all_levels <- c("Compliant", "Exceeds standard limit", "Exceeds limit")
 
 post_fra <- post_fra %>%
   mutate(compliance = factor(compliance, levels = all_levels))
 
-# Compliance colors: green for compliant, amber for between, red for exceeds
+# Compliance colors: teal for compliant, amber for middle tier, magenta for exceeds
 compliance_colors <- c(
-  "Compliant\n(\u2264 75 pages)" = catf_teal,
-  "Exceeds limit\n(> 75 pages)" = catf_magenta,
-  "Compliant\n(\u2264 150 pages)" = catf_teal,
-  "Exceeds standard limit\n(151\u2013300 pages)" = "#E8A317",
-  "Exceeds all limits\n(> 300 pages)" = catf_magenta
+  "Compliant" = catf_teal,
+  "Exceeds standard limit" = "#E8A317",
+  "Exceeds limit" = catf_magenta
 )
 
 # Summarise for plotting
@@ -363,7 +325,7 @@ fig_compliance <- ggplot(compliance_summary,
     fill = NULL
   ) +
   theme_catf() +
-  theme(legend.position = "right")
+  theme(legend.position = "bottom")
 
 fig_compliance_path <- here(figures_dir, "05_fra_compliance.png")
 ggsave(fig_compliance_path, fig_compliance, width = 10, height = 7, dpi = 300)
