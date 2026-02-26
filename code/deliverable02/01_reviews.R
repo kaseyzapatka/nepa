@@ -205,54 +205,45 @@ panel_a <- ggplot(by_process,
     y = NULL
   ) +
   theme_catf() +
-  theme(legend.position = "right")
+  theme(legend.position = "bottom")
 
-# -- Panel B: Zoomed non-standard absolute counts --
+# -- Panel B: Zoomed non-standard absolute counts (vertical bars) --
 non_std_counts <- by_process %>%
   filter(review_type != "Standard") %>%
   mutate(review_type = droplevels(review_type))
 
 panel_b <- ggplot(non_std_counts,
-                  aes(x = n, y = process_type, fill = review_type)) +
-  geom_col(position = position_dodge(width = 0.6), width = 0.5, alpha = 0.9) +
+                  aes(x = review_type, y = n, fill = process_type)) +
+  geom_col(position = position_dodge(width = 0.65), width = 0.55, alpha = 0.9) +
   geom_text(aes(label = n),
-            position = position_dodge(width = 0.6),
-            hjust = -0.2, size = 3.5, color = "gray20") +
+            position = position_dodge(width = 0.65),
+            vjust = -0.4, size = 3.5, color = "gray20") +
   scale_fill_manual(
-    values = review_type_colors[c("Programmatic","Tiered")],
-    name   = NULL
+    values = c("EA" = catf_blue, "EIS" = catf_dark_blue),
+    name   = "Process"
   ) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.3)),
+  scale_y_continuous(expand = expansion(mult = c(0, 0.22)),
                      labels = comma) +
   labs(
-    title    = "Non-Standard Reviews Only",
-    subtitle = "Absolute counts (programmatic + tiered)",
-    x = "Number of projects",
-    y = NULL
+    title    = "Non-Standard Reviews",
+    subtitle = "Counts by review type and NEPA process",
+    x        = NULL,
+    y        = "Number of projects"
   ) +
   theme_catf() +
-  theme(legend.position = "right",
-        axis.text.y     = element_blank(),
-        axis.title.y    = element_blank())
+  theme(legend.position = "bottom")
+
+library(patchwork)
 
 fig_process <- panel_a + panel_b +
-  patchwork::plot_layout(widths = c(2.2, 1)) +
-  patchwork::plot_annotation(
+  plot_layout(widths = c(2.2, 1)) +
+  plot_annotation(
     caption = "Standard = stand-alone EA/EIS; Programmatic = PEIS/PEA; Tiered = tiers from a programmatic review."
   )
 
-# Save — use cowplot if patchwork not available
-tryCatch({
-  library(patchwork)
-  fig_process_path <- here(figures_dir, "02_review_by_process.png")
-  ggsave(fig_process_path, fig_process, width = 12, height = 4.5, dpi = 300)
-  cat("  Saved:", fig_process_path, "\n")
-}, error = function(e) {
-  cat("  patchwork not available; saving panel A only\n")
-  fig_process_path <- here(figures_dir, "02_review_by_process.png")
-  ggsave(fig_process_path, panel_a, width = 9, height = 4, dpi = 300)
-  cat("  Saved:", fig_process_path, "\n")
-})
+fig_process_path <- here(figures_dir, "02_review_by_process.png")
+ggsave(fig_process_path, fig_process, width = 12, height = 4.5, dpi = 300)
+cat("  Saved:", fig_process_path, "\n")
 print(fig_process)
 
 # --------------------------
@@ -581,33 +572,43 @@ parent_colors <- c(
 )
 
 fig_parents <- ggplot(parent_counts,
-                      aes(x = n, y = parent, fill = as.character(identified))) +
-  geom_col(width = 0.6, alpha = 0.9) +
-  geom_text(aes(label = n), hjust = -0.3, size = 3.5, color = "gray20") +
-  scale_fill_manual(
-    values = parent_colors,
+                      aes(x = fct_reorder(parent, n), y = n,
+                          color = as.character(identified))) +
+  geom_segment(
+    aes(xend = fct_reorder(parent, n), yend = 0),
+    linewidth = 1.0, color = "gray80"
+  ) +
+  geom_point(size = 5, alpha = 0.95) +
+  geom_text(aes(label = n), hjust = -1.4, size = 3.5, color = "gray20",
+            show.legend = FALSE) +
+  scale_color_manual(
+    values = c("TRUE" = catf_dark_blue, "FALSE" = "gray65"),
     labels = c("TRUE" = "Identified programmatic review",
                "FALSE" = "Vague / unclear reference"),
     name = NULL
   ) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.2)),
-                     breaks = 0:6) +
+  scale_y_continuous(
+    breaks = 0:max(parent_counts$n),
+    expand = expansion(mult = c(0, 0.3))
+  ) +
+  coord_flip() +
   labs(
     title    = "Parent Programmatic Reviews Cited by Tiered Projects",
     subtitle = sprintf(
       "Which PEIS/PEA do tiered EAs/EISs reference? (%d tiered projects total)", nrow(tiered_projects)
     ),
-    x        = "Number of tiered projects",
-    y        = NULL,
+    x        = NULL,
+    y        = "Number of tiered projects",
     caption  = paste0(
-      "Tiers-from references extracted from the first 30 pages of each project's documents.\n",
-      "Some references are vague (e.g., 'this document and its references') and cannot be linked to a specific programmatic review."
+      "Tiers-from references extracted from the first 60 pages of each project's documents.\n",
+      "Some references are vague and cannot be linked to a specific programmatic review."
     )
   ) +
   theme_catf() +
   theme(
     legend.position    = "top",
-    panel.grid.major.y = element_blank()
+    panel.grid.major.y = element_blank(),
+    plot.caption       = element_text(hjust = 0)
   )
 
 fig_parents_path <- here(figures_dir, "02_tiered_parents.png")
