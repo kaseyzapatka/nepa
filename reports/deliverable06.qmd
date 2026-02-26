@@ -27,24 +27,15 @@ d6_figures <- here("output", "deliverable6", "figures")
 d6_tables  <- here("output", "deliverable6", "tables")
 ```
 
-::: {.callout-important}
-## Before Rendering
-Run the following scripts to regenerate all figures and tables before rendering this report:
-
-```r
-source("code/deliverable06/01_transmission.R")
-source("code/deliverable06/02_geothermal.R")
-source("code/deliverable06/03_pipelines.R")
-```
-:::
-
 ## Executive Summary
 
-This deliverable examines three technology-specific questions from the NEPATEC 2.0 corpus, each addressing a dimension of how NEPA reviews operate for major clean energy infrastructure types:
+This deliverable examines three technology-specific questions from the NEPATEC 2.0 corpus, each addressing a dimension of how NEPA reviews operate for major clean energy infrastructure types. This report delivers the following:
 
-1. **Transmission lines** — How do extracted line lengths correlate with NEPA timelines, geographic location, and project action type?
-2. **Geothermal energy** — What NEPA timeline patterns emerge across different phases of geothermal development (exploration, drilling, plant construction)?
-3. **Carbon and hydrogen pipelines** — How do pipeline NEPA timelines compare to natural gas pipelines, and does pipeline length predict review duration?
+> **Technology-specific inquiries**
+>
+> - **Transmission lines:** Length of lines from project summary correlated with timelines, location, etc.
+> - **Geothermal:** Timelines of environmental reviews for different phases of the same project.
+> - **Carbon and hydrogen pipelines** (if available): Length of pipelines from project summary correlated with timelines, location, etc.; compare to natural gas pipelines.
 
 ---
 
@@ -64,20 +55,14 @@ This deliverable examines three technology-specific questions from the NEPATEC 2
 
 This analysis covers transmission line projects identified in NEPATEC 2.0 that meet a strict clean energy classification: projects must have a transmission type tag, transmission-related build text, and an extracted line length of at least 1 mile. Maintenance-only projects (access road work, vegetation management) are excluded. Length figures are drawn from the `project_transmission_length_final` field, which uses LLM adjudication for the 35 projects with ambiguous multi-candidate lengths and rule-based selection for all others.
 
-```{r}
-#| label: tbl-tx-summary
-#| tbl-cap: "Summary statistics for strict clean-energy transmission projects."
+@fig-tx-sample-breakdown provides a clearer picture of the usable analysis sample. Of the strict transmission projects, the majority have both timeline dates and can be used in NEPA duration analyses; a smaller share are missing one or both dates and contribute only to length-based analyses.
 
-read_csv(file.path(d6_tables, "table_transmission_summary.csv"), show_col_types = FALSE) %>%
-  gt() %>%
-  cols_label(Metric = "Metric", Value = "Value") %>%
-  cols_align(align = "left", columns = Metric) %>%
-  cols_align(align = "right", columns = Value) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_column_labels()
-  ) %>%
-  tab_options(table.font.size = px(13), data_row.padding = px(6))
+```{r}
+#| label: fig-tx-sample-breakdown
+#| fig-cap: "Breakdown of strict clean energy transmission projects by date availability. Projects with both an initiation and decision date contribute to duration analyses; partial or missing dates limit those projects to length-based analyses only."
+#| out-width: "85%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_sample_breakdown.png"))
 ```
 
 ---
@@ -98,7 +83,7 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_distribut
 
 ```{r}
 #| label: fig-tx-bins
-#| fig-cap: "Left: number of strict clean energy transmission projects by length band. Right: median NEPA review duration by length band. Longer lines require substantially longer reviews."
+#| fig-cap: "Left: number of strict clean energy transmission projects by length band. Right: distribution of NEPA review duration by length band (violin shows density; box shows IQR; y-axis capped at 800 days). Longer lines show wider and higher distributions."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_bins.png"))
@@ -132,13 +117,12 @@ read_csv(file.path(d6_tables, "table_transmission_length_bins.csv"), show_col_ty
 
 ## Geographic Patterns
 
-@fig-tx-state-n and @fig-tx-state-length decompose the transmission sample across states. The left figure shows which states have the most projects; the right shows which states have the longest median line lengths. The two pictures are related but distinct — states with many projects are not necessarily those with the longest lines.
+@fig-tx-state-n and @fig-tx-state-length decompose the transmission sample across states. The first figure shows which states have the most projects; the second shows which states have the longest median line lengths. The two pictures are related but distinct — states with many projects are not necessarily those with the longest lines.
 
-::: {layout-ncol=2}
 ```{r}
 #| label: fig-tx-state-n
 #| fig-cap: "Number of strict clean energy transmission projects per state, colored by census region."
-#| out-width: "100%"
+#| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_state_n.png"))
 ```
@@ -146,54 +130,33 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_state_n.png"))
 ```{r}
 #| label: fig-tx-state-length
 #| fig-cap: "Median extracted line length (miles) per state. Labels show project count. Colored by census region."
-#| out-width: "100%"
+#| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_state_length.png"))
 ```
-:::
 
 ---
 
 ## Project Action Type
 
-The `project_transmission_action` field classifies projects by their primary activity — whether the project is constructing new infrastructure, upgrading existing lines, renewing rights-of-way, or other activities. @tbl-tx-action summarizes the breakdown, and @fig-tx-action-pair shows how both line length and NEPA duration vary by action type.
+The `project_transmission_action` field classifies projects by their primary activity — whether the project is constructing new infrastructure, upgrading existing lines, renewing rights-of-way, or other activities. @fig-tx-action-count shows the project count by action type, and @fig-tx-length-by-action and @fig-tx-duration-by-action show how both line length and NEPA duration vary by action type.
 
 Upgrades and equipment replacements are by far the most common activity (59 projects), reflecting the active maintenance and reconductoring of the existing transmission network. Projects classified as "mixed" — matching multiple action-type signals — are also common (50 projects), suggesting many projects involve both construction and renewal elements. Purely new-build projects are rare (5 projects), which is notable given the focus on transmission expansion in clean energy policy discussions.
 
 New builds have the longest median NEPA duration (65 days), while acquisitions and renewals are often resolved very quickly. Fiber optic projects show the longest median line lengths (78 miles), reflecting their spanning nature.
 
 ```{r}
-#| label: tbl-tx-action
-#| tbl-cap: "Transmission projects by action type, with median line length and NEPA duration."
+#| label: fig-tx-action-count
+#| fig-cap: "Count of strict clean energy transmission projects by action type. Mixed = project text matched multiple action-type signals; projects with no detectable action type are excluded."
+#| out-width: "85%"
 
-read_csv(file.path(d6_tables, "table_transmission_action.csv"), show_col_types = FALSE) %>%
-  mutate(action = str_to_title(str_replace_all(action, "_", " "))) %>%
-  gt() %>%
-  cols_label(
-    action               = "Action type",
-    n_projects           = "Projects",
-    median_length_miles  = "Median length (mi)",
-    median_duration_days = "Median duration (days)"
-  ) %>%
-  cols_align(align = "left",  columns = action) %>%
-  cols_align(align = "right", columns = where(is.numeric)) %>%
-  fmt_number(columns = where(is.numeric), decimals = 1, use_seps = TRUE) %>%
-  fmt_integer(columns = n_projects) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_column_labels()
-  ) %>%
-  tab_footnote(
-    footnote = "Mixed = project text matched multiple action-type signals. Projects with no detectable action type are excluded."
-  ) %>%
-  tab_options(table.font.size = px(13), data_row.padding = px(6))
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_action_count.png"))
 ```
 
-::: {layout-ncol=2}
 ```{r}
 #| label: fig-tx-length-by-action
 #| fig-cap: "Transmission line length by project action type. Boxes show IQR; points are individual projects colored by action type."
-#| out-width: "100%"
+#| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action.png"))
 ```
@@ -201,11 +164,10 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action
 ```{r}
 #| label: fig-tx-duration-by-action
 #| fig-cap: "NEPA duration by project action type. Ordered by median duration. New builds take the longest; acquisitions and renewals resolve fastest."
-#| out-width: "100%"
+#| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_action.png"))
 ```
-:::
 
 ---
 
@@ -229,7 +191,7 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_vs_durati
 
 ```{r}
 #| label: fig-tx-region
-#| fig-cap: "NEPA duration by census region (capped at 1,000 days). Boxes show IQR; points are individual projects."
+#| fig-cap: "NEPA duration by census region (capped at 1,000 days). Boxes show IQR; points are individual projects. Project count per region shown in grey italics."
 #| out-width: "85%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_region.png"))
