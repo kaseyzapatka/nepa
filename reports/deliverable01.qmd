@@ -30,111 +30,13 @@ d1_tables <- here("output", "deliverable1", "tables")
 ```
 
 
-::: {.callout-important}
-## Key decisions to make:
--   [ ] Are there any further refinements to the project definition  of “Clean Energy” we want to consider?
--   [ ] Does these tables/figures collectively answers Frank's idea to show how CE puts strain on specific agencies?  
--   [ ] What do we think of Figure 13? 
--   [ ] Any other changes to any of these figures or tables?
--   [ ] Any other tables, figures, or maps you want to see?
-:::
-
 ## Executive Summary
 
-This report aims to create the following set of deliverables: 
+This report aims to create the following set of deliverables:
 
 > Data on number of clean energy projects within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
 
-
-@fig-projects gives us a sense of the universe of total number of projects in the publicly released [NEPATEC2.0 database](https://huggingface.co/datasets/PNNL/NEPATEC2.0) by review process.
-
-```{r}
-#| label: fig-projects
-#| fig-cap: "Distribution of all projects by review in NEPA database."
-
-knitr::include_graphics(file.path(d1_figures, "00_fig_projects_by_review.png"))
-```
-
-@fig-clean-energy-projects reports all clean energy projects in the NEPA database, which totals about **25,000 clean energy projects** extracted from the NEPA database. 
-
-
-```{r}
-#| label: fig-clean-energy-projects
-#| fig-cap: "Distribution of clean projects by review in NEPA database."
-
-knitr::include_graphics(file.path(d1_figures, "00_fig_clean_energy_by_review.png"))
-```
-
----
-
-# Definitions: What Qualifies as Clean Energy?
-
-@tbl-energy-tags enumerates the CAFT-defined 14 clean energy and 5 fossil fuel categories used to identify clean vs fossil fuel energy projects in the NEPA database. While projects often have multiple tags, "clean energy" is identified as having at least one of the 14 tags _AND_ no fossil fuel tags. 
-
-```{r}
-#| label: tbl-energy-tags
-#| tbl-cap: "Project type tags used to classify clean vs. fossil energy projects"
-
-tibble(
-  `Clean Energy Tags` = c(
-    "Carbon Capture and Sequestration",
-    "Conventional Energy Production - Nuclear",
-    "Conventional Energy Production - Other",
-    "Electricity Transmission",
-    "Nuclear Technology",
-    "Renewable Energy Production*",
-    "Utilities (electricity, gas, telecommunications)"
-  ),
-  `Fossil Energy Tags` = c(
-    "Conventional Energy Production - Coal",
-    "Conventional Energy Production - Land-based Oil & Gas",
-    "Conventional Energy Production - Offshore Oil and Gas",
-    "Conventional Energy Production - Rural Energy",
-    "Pipelines",
-    "",
-    ""
-  )
-) |>
-  gt() |>
-  tab_style(
-    style = cell_text(color = "#999999"),
-    locations = cells_body(
-      columns = `Fossil Energy Tags`,
-      rows = `Fossil Energy Tags` == ""
-    )
-  ) |>
-  tab_footnote(
-    footnote = "Includes Biomass, Energy Storage, Geothermal, Hydrokinetic, Hydropower, Solar, Wind (Offshore & Onshore), and \nOther",
-    locations = cells_body(columns = `Clean Energy Tags`, rows = 6)
-  ) |>
-  cols_width(
-    `Clean Energy Tags` ~ px(350),
-    `Fossil Energy Tags` ~ px(350)
-  )
-```
-
-@fig-energy-type shows the overall distribution of projects in the NEPATEC 2.0 database by energy type. Clean energy projects comprise roughly 37% of all projects in the database, while fossil fuel projects represent 18%, and other (non-energy) projects make up 45% of the total. This breakdown helps contextualize the clean energy subset analyzed in this report within the broader universe of federal environmental reviews.
-
-```{r}
-#| label: fig-energy-type
-#| fig-cap: "Distribution of all NEPA projects by energy type classification."
-
-knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
-```
-
-About **10% of projects have only clean energy tags**, but most (about 90%) have at least 1 clean energy tag plus some other combination of tags. 
-
-### Refining Clean Energy
-
-After reviewing a [table of all co-occurring project types](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1809595689#gid=1809595689), three refinements were applied to improve the precision of the "clean energy" classification:
-
-- **Utilities + non-energy:**  **1,623 projects** tagged _ONLY_ as Utilities _AND_ with 1 or more of the following non-energy tags (e.g., broadband, waste management, land development) were excluded, since these likely reflect utility-adjacent infrastructure rather than energy generation.
-
-- **Military and Defense + Nuclear:** **481 projects** tagged as "Nuclear Energy" and "Military and Defense" were excluded from the clean energy category. [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1310622375#gid=1310622375) The majority of these projects are led by the Department of Energy rather than the Department of Defense, suggesting they involve weapons-related nuclear activities rather than energy production.
-
-- **Nuclear + Waste Management:** We started with approximately **4,000 Nuclear Waste projects** (those tagged with "Waste Management" AND ("Nuclear Technology" OR "Conventional Energy Production - Nuclear")), excluded all projects sponsored by DOE's National Nuclear Security Administration (NNSA), Office of Environmental Management (EM), and Office of Legacy Management (LM), along with their associated field offices. This reduced the dataset to approximately **1,588 projects**, and then CAFT staff identified only **34** projects that were relevant to this analysis. [You can see a list of the 34 nuclear-tagged projects that remain in this analysis here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1263485295#gid=1263485295)
-
-
+For a full description of how “clean energy” is defined and classified in this analysis — including inclusion/exclusion criteria and the overall project universe — see the [Project Overview](project_overview.qmd) document.
 
 ---
 
