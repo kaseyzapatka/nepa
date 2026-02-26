@@ -141,6 +141,8 @@ class ReviewExtractionResult:
     # Source tracking
     review_source: str  # 'title', 'doc_metadata', 'text_regex', 'llm'
     review_match_text: Optional[str]  # The actual matched text
+    review_match_document_id: Optional[str]  # document_id of the file where match was found
+    review_match_file_name: Optional[str]  # PDF filename where match was found
 
     # Metadata
     pages_scanned: int
@@ -156,6 +158,8 @@ class ReviewExtractionResult:
             'project_review_tiers_from_context': self.review_tiers_from_context,
             'project_review_source': self.review_source,
             'project_review_match_text': self.review_match_text,
+            'project_review_match_document_id': self.review_match_document_id,
+            'project_review_match_file_name': self.review_match_file_name,
             'project_review_pages_scanned': self.pages_scanned,
             'project_review_candidates_found': self.candidates_found,
         }
@@ -208,7 +212,7 @@ def build_project_document_lookup(
     rows are retained to match existing extraction behavior.
     """
     if documents_df is None or documents_df.empty or not project_ids:
-        return {}, pd.DataFrame(columns=['project_id', 'document_id'])
+        return {}, pd.DataFrame(columns=['project_id', 'document_id', 'file_name'])
 
     docs = documents_df.copy()
     docs['project_id'] = docs['project_id'].apply(normalize_project_id)
@@ -227,12 +231,15 @@ def build_project_document_lookup(
                 selected_docs = main_docs
 
         project_doc_lookup[project_id] = selected_docs.copy()
-        selected_pairs.append(selected_docs[['project_id', 'document_id']])
+        pair_cols = ['project_id', 'document_id']
+        if 'file_name' in selected_docs.columns:
+            pair_cols.append('file_name')
+        selected_pairs.append(selected_docs[pair_cols])
 
     if selected_pairs:
         doc_pairs = pd.concat(selected_pairs, ignore_index=True).drop_duplicates()
     else:
-        doc_pairs = pd.DataFrame(columns=['project_id', 'document_id'])
+        doc_pairs = pd.DataFrame(columns=['project_id', 'document_id', 'file_name'])
 
     return project_doc_lookup, doc_pairs
 
@@ -250,13 +257,21 @@ def load_project_pages_with_duckdb(
 
     pages_path_sql = pages_path.as_posix().replace("'", "''")
 
+    has_file_name = 'file_name' in document_pairs.columns
+
     con = duckdb.connect()
     try:
-        con.register('project_docs', document_pairs[['project_id', 'document_id']])
+        reg_cols = ['project_id', 'document_id']
+        if has_file_name:
+            reg_cols.append('file_name')
+        con.register('project_docs', document_pairs[reg_cols])
+        file_name_select = 'd.file_name,' if has_file_name else "'' AS file_name,"
         query = f"""
         WITH joined AS (
             SELECT
                 d.project_id,
+                d.document_id,
+                {file_name_select}
                 p.page_text,
                 CAST(p.page_number AS VARCHAR) AS page_number,
                 COALESCE(
@@ -269,6 +284,8 @@ def load_project_pages_with_duckdb(
         ranked AS (
             SELECT
                 project_id,
+                document_id,
+                file_name,
                 page_text,
                 row_number() OVER (
                     PARTITION BY project_id
@@ -276,7 +293,7 @@ def load_project_pages_with_duckdb(
                 ) AS rn
             FROM joined
         )
-        SELECT project_id, page_text
+        SELECT project_id, document_id, file_name, page_text
         FROM ranked
         WHERE rn <= {int(max_pages)}
         ORDER BY project_id, rn
@@ -290,10 +307,7 @@ def load_project_pages_with_duckdb(
 
     pages_lookup = {}
     for project_id, group in pages_df.groupby('project_id', sort=False):
-        pages_lookup[project_id] = [
-            text if isinstance(text, str) else ''
-            for text in group['page_text'].tolist()
-        ]
+        pages_lookup[project_id] = group[['page_text', 'document_id', 'file_name']].to_dict('records')
 
     return pages_lookup
 
@@ -710,6 +724,8 @@ def extract_review_for_project(
         review_tiers_from_context=None,
         review_source='none',
         review_match_text=None,
+        review_match_document_id=None,
+        review_match_file_name=None,
         pages_scanned=0,
         candidates_found=0,
     )
@@ -744,17 +760,27 @@ def extract_review_for_project(
         result.review_match_text = meta_match
         return result
 
-    page_texts = project_pages or []
-    if not page_texts:
+    page_entries = project_pages or []
+    if not page_entries:
         result.review_source = 'no_pages'
         return result
 
-    pages_to_check = min(max_pages, len(page_texts))
+    pages_to_check = min(max_pages, len(page_entries))
 
     all_candidates = []
     pages_scanned = 0
 
-    for text in page_texts[:pages_to_check]:
+    for entry in page_entries[:pages_to_check]:
+        # Support both plain strings (legacy) and dicts with document metadata
+        if isinstance(entry, dict):
+            text = entry.get('page_text', '') or ''
+            match_doc_id = entry.get('document_id')
+            match_file_name = entry.get('file_name')
+        else:
+            text = entry if isinstance(entry, str) else ''
+            match_doc_id = None
+            match_file_name = None
+
         pages_scanned += 1
 
         # Check if this IS a programmatic document
@@ -768,6 +794,8 @@ def extract_review_for_project(
             result.review_confidence = prog_conf
             result.review_source = 'text_regex'
             result.review_match_text = prog_match
+            result.review_match_document_id = match_doc_id
+            result.review_match_file_name = match_file_name
             result.pages_scanned = pages_scanned
             if verbose:
                 print(f"  Text match: programmatic ({prog_conf})")
@@ -787,6 +815,8 @@ def extract_review_for_project(
             result.review_tiers_from_context = best['context']
             result.review_source = 'text_regex'
             result.review_match_text = best['match']
+            result.review_match_document_id = match_doc_id
+            result.review_match_file_name = match_file_name
             result.pages_scanned = pages_scanned
             result.candidates_found = len(all_candidates)
             if verbose:
@@ -984,6 +1014,8 @@ def run_review_extraction(
                             review_tiers_from_context=None,
                             review_source='error',
                             review_match_text=None,
+                            review_match_document_id=None,
+                            review_match_file_name=None,
                             pages_scanned=0,
                             candidates_found=0,
                         )
