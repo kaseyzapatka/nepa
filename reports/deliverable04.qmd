@@ -42,8 +42,8 @@ d4_figures <- here("output", "deliverable4", "figures")
 ::: {.callout-note}
 ## Key Findings
 - **Multi-state projects** represent a subset of clean energy projects that span state boundaries, often involving transmission lines or large-scale renewable energy connections
-- **Multi-department projects** are relatively rare but involve coordination between multiple federal departments
-- **Multi-department projects are only Categorical Exclusions (CE)**: Among clean energy projects, all 21 multi-department projects are CEs; no EA or EIS projects have multiple lead agencies
+- **Strict multi-department projects** (based on multiple lead agencies in metadata) are relatively rare
+- **Expanded multi-agency projects** (strict metadata OR high-confidence coagency text signal) produce a materially larger N
 - Geographic patterns reveal regional clusters of interstate cooperation
 :::
 
@@ -51,16 +51,15 @@ This report aims to create the following set of deliverables:
 
 > Data on geography/project location; whether projects are multi-state or multi-agency
 
-It analyzes clean energy projects that cross administrative boundaries---either spanning multiple states or involving multiple federal agencies. These projects often represent larger, more complex undertakings that require coordination across jurisdictions. @tbl-summary summarizes the number of multi-state and multi-department projects found among our clean energy sample. 
+It analyzes clean energy projects that cross administrative boundaries---either spanning multiple states or involving multiple federal agencies. These projects often represent larger, more complex undertakings that require coordination across jurisdictions. @tbl-summary reports total multi-state and multi-department project counts used in this report. 
 
 ```{r}
 #| label: tbl-summary
 #| tbl-cap: "Summary of cross-boundary projects"
 
-tibble(
-  Category = c("Multi-state projects", "Multi-department projects"),
-  Count = c(857, 21)
-) %>%
+summary_counts <- read_csv(file.path(d4_tables, "table_multi_agency_summary.csv"), show_col_types = FALSE)
+
+summary_counts %>%
   gt() %>%
   cols_align(align = "left", columns = Category) %>%
   cols_align(align = "right", columns = Count) %>%
@@ -78,7 +77,7 @@ tibble(
   )
 ```
 
-Multi-state projects are far more common than multi-department projects, likely reflecting the geographic nature of energy infrastructure (transmission lines, pipelines) versus the rarity of projects requiring formal coordination between federal departments.
+The multi-department count reflects projects identified with the current expanded multi-department definition.
 
 
 ---
@@ -93,7 +92,7 @@ Multi-state projects are those where the project footprint extends across state 
 
 ## Process Type Breakdown
 
-@fig-process-breakdown shows the distribution of NEPA process types among **all** multi-state clean energy projects.
+Figure 1 shows the distribution of NEPA process types among all multi-state clean energy projects.[^sample-size-note]
 
 ```{r}
 #| label: fig-process-breakdown
@@ -102,9 +101,6 @@ Multi-state projects are those where the project footprint extends across state 
 
 knitr::include_graphics(file.path(d4_figures, "fig_multistate_process_type.png"))
 ```
-
-### Note on sample sizes
-The figure above includes all multi-state clean energy projects. The tables and map that follow filter to state-pair connections with 5 or more shared projects (tables) or 10 or more shared projects (map) to highlight the most meaningful connections and improve readability. As a result, the N in subsequent figures and tables will be lower than the total shown here.
 
 ## State Connections Table
 
@@ -190,39 +186,106 @@ top_corridors %>%
   )
 ```
 
-## Word Cloud of Project Types
+## Word Clouds by NEPA Process Type
 
-@fig-wordcloud visualizes the most common project types across multi-state clean energy projects, with word size reflecting frequency.
+The next three figures break multi-state project types out by NEPA process type.
 
 ```{r}
-#| label: fig-wordcloud
-#| fig-cap: "Project types in multi-state clean energy projects. Word size reflects frequency of occurrence."
-#| out-width: "80%"
+#| label: fig-wordcloud-multistate-1
+#| fig-cap: "Multi-state project types word cloud for Categorical Exclusions (CE)."
+#| out-width: "100%"
 
-knitr::include_graphics(file.path(d4_figures, "fig_project_types_wordcloud.png"))
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_ce.png"))
+```
+
+```{r}
+#| label: fig-wordcloud-multistate-2
+#| fig-cap: "Multi-state project types word cloud for Environmental Assessments (EA)."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_ea.png"))
+```
+
+```{r}
+#| label: fig-wordcloud-multistate-3
+#| fig-cap: "Multi-state project types word cloud for Environmental Impact Statements (EIS)."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_eis.png"))
+```
+
+## Sample of Complex Multi-State Projects
+
+@tbl-multistate-sample shows a small sample of projects that span many states and/or very wide state footprints.
+
+```{r}
+#| label: tbl-multistate-sample
+#| tbl-cap: "Sample of geographically complex multi-state projects"
+
+multistate_sample <- read_csv(file.path(d4_tables, "table_multistate_complex_sample.csv"), show_col_types = FALSE)
+
+multistate_sample %>%
+  gt() %>%
+  cols_align(align = "left", columns = everything()) %>%
+  cols_align(align = "right", columns = `Number of States`) %>%
+  fmt_number(columns = `Number of States`, decimals = 0, use_seps = TRUE) %>%
+  cols_width(
+    `Project Title` ~ px(280),
+    `State Footprint` ~ px(280),
+    `Project Types` ~ px(320)
+  ) %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_text(size = px(11)),
+    locations = cells_body(columns = c(`State Footprint`, `Project Types`))
+  ) %>%
+  tab_options(
+    table.font.size = px(12),
+    data_row.padding = px(6)
+  )
 ```
 
 # Multi-Department Projects
 
-Multi-department projects involve coordination between multiple federal departments (e.g., DOE and DOI, or BLM and Forest Service). These are relatively rare but often represent significant undertakings.
+This section reports two definitions:
 
-Notably, all 21 multi-department clean energy projects are Categorical Exclusions (CE); no Environmental Assessments (EA) or Environmental Impact Statements (EIS) have multiple lead agencies in the dataset. We also checked for potential multi-agency involvement by examining whether any agency name appearing in the `lead_agency` field also appears in the `project_sponsor` field, which could indicate coordination not fully captured in the lead agency metadata. This analysis did not reveal significant additional multi-agency patterns beyond what is already captured.
+- **Strict metadata**: `project_multi_department` (multiple lead agencies in metadata).
+- **Expanded multi-department**: `project_multi_agency` (strict metadata OR high-confidence coagency text signal from document pages).
+
+## Process Type Breakdown
+
+@fig-multiagency-process-breakdown shows the distribution of NEPA process types for the expanded multi-department definition.
+
+Multi-department projects are overwhelmingly EIS-level reviews (89%), with CEs and EAs together accounting for just 11% of the portfolio. This is a much sharper EIS skew than in the multi-state population, and it makes conceptual sense: EIS reviews are the longest and most resource-intensive NEPA pathway, and the need to formally coordinate across multiple federal agencies is most common in exactly these high-complexity situations. Projects requiring EIS-level review are the ones most likely to trigger interagency involvement through cooperating agency relationships or overlapping jurisdictions.
+
+```{r}
+#| label: fig-multiagency-process-breakdown
+#| fig-cap: "Distribution of NEPA process types for expanded multi-department clean energy projects."
+#| out-width: "80%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_process_type.png"))
+```
 
 ## Department Connections Table
 
 @tbl-department-links lists agency combinations that share projects, along with the types of projects involved. Project types are deduplicated and sorted by frequency.
 
+The Department of Energy appears in nearly every multi-department pairing, reflecting its central role in both permitting energy infrastructure and managing research facilities. The most project-rich combinations are DOE with DOD (3 shared projects spanning transmission, R&D, and military-adjacent energy uses) and DOE paired with DOI, USDA, Commerce, and GSA (2 projects each). Project types signal two distinct collaboration logics: an energy-infrastructure track (electricity transmission, utilities, renewable energy production) and a research-and-management track (R&D, ecosystem management, waste management). The DOI–Homeland Security pairing stands out as non-DOE coordination, anchored by solar and emergency-preparedness projects.
+
 ```{r}
 #| label: tbl-department-links
-#| tbl-cap: "Multi-department clean energy projects by agency combination"
+#| tbl-cap: "Strict metadata multi-department projects by agency combination"
 
 department_links <- read_csv(file.path(d4_tables, "table_by_department.csv"), show_col_types = FALSE)
 
 department_links %>%
   gt() %>%
   cols_align(align = "left", columns = everything()) %>%
-  cols_align(align = "right", columns = any_of(c("EA", "EIS", "Total"))) %>%
-  fmt_number(columns = any_of(c("EA", "EIS", "Total")), decimals = 0) %>%
+  cols_align(align = "right", columns = any_of(c("Total"))) %>%
+  fmt_number(columns = any_of(c("Total")), decimals = 0) %>%
   cols_width(
     `Department connections` ~ px(250),
     `Distinct Project Types` ~ px(350)
@@ -244,6 +307,97 @@ department_links %>%
     data_row.padding = px(8)
   )
 ```
+
+## Department Collaboration Hubs
+
+@tbl-department-hubs ranks departments by their collaborative footprint. The bridge score combines breadth (number of unique partner departments) with volume (total shared project ties, log-scaled) to identify departments that are both broadly connected and frequently involved—not just departments with one large partnership.
+
+```{r}
+#| label: tbl-department-hubs
+#| tbl-cap: "Department collaboration hubs in strict metadata multi-department projects"
+
+department_hubs <- read_csv(
+  file.path(d4_tables, "table_department_collaboration_hubs.csv"),
+  show_col_types = FALSE
+)
+
+department_hubs %>%
+  gt() %>%
+  cols_align(align = "left", columns = c(department, `Most frequent partner`)) %>%
+  cols_align(
+    align = "right",
+    columns = c(`Unique partner departments`, `Collaborative project ties`, `Projects with top partner`, `Bridge score`)
+  ) %>%
+  fmt_number(
+    columns = c(`Unique partner departments`, `Collaborative project ties`, `Projects with top partner`),
+    decimals = 0,
+    use_seps = TRUE
+  ) %>%
+  fmt_number(columns = `Bridge score`, decimals = 2) %>%
+  cols_label(department = "Department") %>%
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = cell_fill(color = "#eef6ff"),
+    locations = cells_body(rows = `Bridge score` >= quantile(`Bridge score`, 0.8, na.rm = TRUE))
+  ) %>%
+  tab_options(
+    table.font.size = px(12),
+    data_row.padding = px(6)
+  )
+```
+
+```{r}
+#| label: fig-department-hubs
+#| fig-cap: "Department collaboration hubs. Bars show bridge score; labels show each department's most frequent partner."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_department_collaboration_hubs.png"))
+```
+
+DOE stands out as the clear hub of the multi-department network, with a bridge score (26) more than three times that of DOI (9). Its dominance reflects both the sheer number of partner agencies (9 unique departments) and the high volume of shared project ties. DOI is a meaningful secondary hub, with its strongest partnership running back to DOE. All other departments are more peripheral—connecting to one or two partners and typically anchored to DOE as their primary collaborator.
+
+```{r}
+#| label: fig-department-sankey
+#| fig-cap: "Cross-department project flows. Flow width reflects number of shared projects."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_department_sankey.png"))
+```
+
+The Sankey confirms the hub-and-spoke character of multi-department collaboration: DOE is the dominant node on both sides of the diagram, with the largest flows connecting it to DOD, DOI, and USDA on the left and back to DOI, Homeland Security, and Commerce on the right. The right side of the diagram has more nodes than the left, reflecting the variety of secondary partners DOE draws in depending on project type. Most other department-to-department pathways carry only one or two shared projects and appear as thin ribbons at the base of the diagram.
+
+## Word Clouds by NEPA Process Type
+
+The next three figures break multi-department project types out by NEPA process type. Because multi-department CEs and EAs are few (20 and 14 projects respectively), their word clouds reflect a narrow set of project types. EIS, which accounts for the bulk of the portfolio, shows the broadest vocabulary.
+
+```{r}
+#| label: fig-wordcloud-multiagency-1
+#| fig-cap: "Multi-department project types word cloud for Categorical Exclusions (CE)."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_ce.png"))
+```
+
+```{r}
+#| label: fig-wordcloud-multiagency-2
+#| fig-cap: "Multi-department project types word cloud for Environmental Assessments (EA)."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_ea.png"))
+```
+
+```{r}
+#| label: fig-wordcloud-multiagency-3
+#| fig-cap: "Multi-department project types word cloud for Environmental Impact Statements (EIS)."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_eis.png"))
+```
+
+[^sample-size-note]: State-pair tables are filtered to connections with 5+ shared projects and the map to 10+ shared projects, so Ns below Figure 1 are intentionally lower.
 
 ---
 

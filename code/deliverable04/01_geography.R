@@ -7,7 +7,7 @@
 # SETUP
 # --------------------------
 
-source(here::here("code", "deliverable4", "00_setup.R"))
+source(here::here("code", "deliverable04", "00_setup.R"))
 
 # --------------------------
 # PROCESS
@@ -19,11 +19,134 @@ multi_state_data <-
   filter(project_multi_state) |> 
   glimpse()  # 858
 
-# Create multi-department dataframe
-multi_department_data <- 
-  clean_energy |> 
-  filter(project_multi_department) |> 
-  glimpse()  # 21
+# Create multi-agency dataframe (metadata OR coagency high-confidence text signal)
+multi_department_data <-
+  clean_energy_multiagency |>
+  filter(project_multi_agency) |>
+  glimpse()
+
+# Keep metadata-only subset for reference / QA
+multi_department_metadata_only <-
+  clean_energy_multiagency |>
+  filter(project_multi_department)
+
+# Expanded-only projects: not strict metadata multi-department, but high-confidence
+# coagency text signal detected.
+multi_agency_expanded_only <-
+  clean_energy_multiagency |>
+  filter(!project_multi_department, project_has_coagency_signal_high_conf)
+
+# Summary table used in report (strict vs expanded definitions)
+tbl_multi_agency_summary <- tibble(
+  Category = c(
+    "Multi-state projects",
+    "Multi-department projects"
+  ),
+  Count = c(
+    nrow(multi_state_data),
+    nrow(multi_department_data)
+  )
+)
+
+write_csv(tbl_multi_agency_summary, here(tables_dir, "table_multi_agency_summary.csv"))
+
+# --------------------------
+# SHARED HELPERS
+# --------------------------
+
+parse_jsonish_vector <- function(x) {
+  if (is.null(x) || is.na(x) || x == "") return(character(0))
+  if (is.character(x) && str_detect(x, "^\\[")) {
+    parsed <- tryCatch(fromJSON(x), error = function(e) NULL)
+    if (!is.null(parsed) && length(parsed) > 0) return(str_trim(as.character(parsed)))
+  }
+  vals_pipe <- str_split(as.character(x), "\\s*\\|\\s*")[[1]] %>%
+    str_trim() %>%
+    .[. != ""]
+  if (length(vals_pipe) == 0) return(character(0))
+
+  vals <- map(vals_pipe, ~ {
+    token <- .x
+    if (str_detect(token, "^\\[")) {
+      parsed_token <- tryCatch(fromJSON(token), error = function(e) NULL)
+      if (!is.null(parsed_token) && length(parsed_token) > 0) {
+        return(str_trim(as.character(parsed_token)))
+      }
+    }
+    if (str_detect(token, ",")) {
+      return(str_split(token, ",\\s*")[[1]] %>% str_trim() %>% .[. != ""])
+    }
+    token
+  }) %>%
+    unlist(use.names = FALSE) %>%
+    str_trim()
+
+  vals[vals != ""]
+}
+
+derive_clean_type_bucket <- function(project_type_text) {
+  txt <- str_to_lower(coalesce(project_type_text, ""))
+  case_when(
+    str_detect(txt, "solar") ~ "Solar",
+    str_detect(txt, "wind") ~ "Wind",
+    str_detect(txt, "geothermal") ~ "Geothermal",
+    str_detect(txt, "electricity transmission|utilities") ~ "Transmission & Grid",
+    str_detect(txt, "energy storage") ~ "Energy Storage",
+    str_detect(txt, "hydro|hydrokinetic") ~ "Hydro",
+    str_detect(txt, "nuclear") ~ "Nuclear",
+    TRUE ~ "Other Clean"
+  )
+}
+
+build_wordcloud_counts <- function(df) {
+  df %>%
+    mutate(types_list = map(project_type, parse_jsonish_vector)) %>%
+    unnest(types_list) %>%
+    filter(!is.na(types_list), types_list != "") %>%
+    count(types_list, name = "freq", sort = TRUE) %>%
+    rename(word = types_list)
+}
+
+generate_wordcloud_panels <- function(df, figure_prefix, panel_table_name) {
+  process_levels <- c("CE", "EA", "EIS")
+
+  panel_meta <- tibble(
+    panel_index = seq_along(process_levels),
+    process_type = process_levels,
+    n_projects = map_int(process_levels, ~ sum(df$process_type == .x, na.rm = TRUE)),
+    figure_file = paste0(figure_prefix, "_", str_to_lower(process_levels), ".png")
+  )
+
+  walk2(panel_meta$process_type, panel_meta$figure_file, ~ {
+    panel_df <- df %>% filter(process_type == .x)
+    panel_counts <- build_wordcloud_counts(panel_df)
+    if (nrow(panel_counts) == 0) {
+      panel_counts <- tibble(word = paste("No", .x, "projects"), freq = 1)
+    }
+
+    fig_panel <- ggplot(panel_counts, aes(label = word, size = freq, color = freq)) +
+      geom_text_wordcloud_area(
+        shape = "square",
+        rm_outside = TRUE,
+        area_corr = TRUE
+      ) +
+      scale_size_area(max_size = 70) +
+      scale_color_gradientn(colors = c(catf_light_blue, catf_dark_blue, catf_navy)) +
+      theme_void()
+
+    ggsave(
+      filename = here(figures_dir, .y),
+      plot = fig_panel,
+      width = 10,
+      height = 6,
+      units = "in",
+      dpi = 300
+    )
+  })
+
+  write_csv(panel_meta, here(tables_dir, panel_table_name))
+  panel_meta
+}
 
 
 # --------------------------
@@ -370,66 +493,142 @@ write_csv(tbl_top_connections, here(tables_dir, "table_top_connections.csv"))
 
 
 #
-# Word Cloud of Project Types
+# Word Clouds of Project Types by NEPA Process Type
 # ----------------------------------------------------
-cat("\nCreating word cloud of project types...\n")
+cat("\nCreating process-type word cloud panels for multi-state projects...\n")
 
-
-# Extract and count all project types from multi-state data
-project_type_counts <- multi_state_data %>%
-  # Parse JSON arrays in project_type column
-  mutate(
-    types_list = map(project_type, ~ {
-      clean_str <- str_replace_all(.x, '\\[|\\]|"', "")
-      str_split(clean_str, ",\\s*")[[1]] %>%
-        str_trim() %>%
-        .[. != ""]
-    })
-  ) %>%
-  unnest(types_list) %>%
-  count(types_list, name = "freq", sort = TRUE) %>%
-  filter(!is.na(types_list) & types_list != "") %>%
-  rename(word = types_list)
-
-# Create word cloud
-set.seed(42)
-fig_wordcloud <- ggplot(project_type_counts, aes(label = word, size = freq, color = freq)) +
-  geom_text_wordcloud_area(
-    shape = "square",
-    rm_outside = TRUE,
-    area_corr = TRUE
-  ) +
-  scale_size_area(max_size = 60) +
-  scale_color_gradientn(colors = c(catf_light_blue, catf_dark_blue, catf_navy)) +
-  theme_void()
-
-fig_wordcloud
-
-ggsave(
-  filename = here(figures_dir, "fig_project_types_wordcloud.png"),
-  plot = fig_wordcloud,
-  width = 8,
-  height = 5,
-  units = "in",
-  dpi = 300
+tbl_multistate_wordcloud_panels <- generate_wordcloud_panels(
+  df = multi_state_data,
+  figure_prefix = "fig_multistate_project_types_wordcloud",
+  panel_table_name = "table_multistate_wordcloud_panels.csv"
 )
+print(tbl_multistate_wordcloud_panels)
+
+
+#
+# Sample of Complex Multi-State Projects
+# ----------------------------------------------------
+cat("\nCreating sample table of complex multi-state projects...\n")
+
+max_state_spread_km <- function(state_vec, centroid_tbl) {
+  coords <- centroid_tbl %>%
+    filter(state_name %in% state_vec) %>%
+    select(lon, lat)
+  if (nrow(coords) < 2) return(0)
+  max(as.matrix(dist(coords))) * 111
+}
+
+multistate_complex_ranked <- multi_state_data %>%
+  mutate(
+    state_list = map(project_state, parse_jsonish_vector),
+    state_count = lengths(state_list),
+    has_non_contiguous_state = map_lgl(
+      state_list,
+      ~ any(
+        .x %in% c(
+          "Alaska", "Hawaii", "Puerto Rico", "Guam",
+          "American Samoa", "Northern Mariana Islands", "U.S. Virgin Islands"
+        )
+      )
+    ),
+    spread_km = map_dbl(state_list, max_state_spread_km, centroid_tbl = state_centroids),
+    project_types = map_chr(project_type, ~ paste(parse_jsonish_vector(.x), collapse = ", ")),
+    state_footprint = map_chr(state_list, ~ paste(.x, collapse = ", "))
+  ) %>%
+  arrange(desc(has_non_contiguous_state), desc(state_count), desc(spread_km)) %>%
+  distinct(project_title, .keep_all = TRUE)
+
+tbl_multistate_complex_sample <- bind_rows(
+  multistate_complex_ranked %>% slice_head(n = 5),
+  multistate_complex_ranked %>%
+    slice(-(1:5)) %>%
+    arrange(desc(spread_km), desc(state_count)) %>%
+    slice_head(n = 5)
+) %>%
+  distinct(project_title, .keep_all = TRUE) %>%
+  transmute(
+    `Project Title` = project_title,
+    `State Footprint` = state_footprint,
+    `Number of States` = state_count,
+    `Project Types` = project_types
+  )
+
+write_csv(
+  tbl_multistate_complex_sample,
+  here(tables_dir, "table_multistate_complex_sample.csv")
+)
+print(tbl_multistate_complex_sample)
 
 # --------------------------
 # MULTI-DEPARTMENT
 # --------------------------
 
 multi_department_data |>
-  select(project_department, process_type, lead_agency, project_sponsor, project_multi_department) |>
+  select(any_of(c(
+    "project_department",
+    "process_type",
+    "lead_agency",
+    "project_sponsor",
+    "project_multi_department",
+    "project_has_coagency_signal_high_conf",
+    "project_multi_agency",
+    "project_coagency_signal_source"
+  ))) |>
   print(n = 50)
 
 #
-# Process data
+# Process Type Breakdown Figure
+# ----------------------------------------------------
+cat("\nCreating process type breakdown for multi-agency projects...\n")
+
+process_breakdown_multiagency <- multi_department_data %>%
+  count(process_type, name = "n_projects") %>%
+  mutate(
+    pct = n_projects / sum(n_projects) * 100,
+    label = paste0(n_projects, "\n(", round(pct, 1), "%)")
+  )
+
+write_csv(
+  process_breakdown_multiagency,
+  here(tables_dir, "table_multiagency_process_type.csv")
+)
+
+fig_process_breakdown_multiagency <- ggplot(
+  process_breakdown_multiagency,
+  aes(x = reorder(process_type, -n_projects), y = n_projects)
+) +
+  geom_col(fill = catf_teal, width = 0.7) +
+  geom_text(aes(label = label), vjust = -0.3, size = 3.5, color = catf_navy) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(
+    title = "Multi-Department Projects by NEPA Process Type",
+    subtitle = paste0("n = ", sum(process_breakdown_multiagency$n_projects), " multi-department clean energy projects"),
+    x = NULL,
+    y = "Number of Projects"
+  ) +
+  theme_catf() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    axis.line.x = element_blank()
+  )
+
+ggsave(
+  filename = here(figures_dir, "fig_multiagency_process_type.png"),
+  plot = fig_process_breakdown_multiagency,
+  width = 8,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+
+#
+# Department Connections Data
 # ----------------------------------------------------
 # NOTE: Use lead_agency for crosstab since project_department only reflects
 # the first department (due to how classify_department works in extract_data.py).
 # We then map agencies to departments in the table display.
 department_links <- create_crosstab(
-  multi_department_data,
+  multi_department_metadata_only,
   "lead_agency",
   keep_cols = c("project_title", "project_type")
 ) |>
@@ -458,17 +657,13 @@ tbl_department_links <-
   mutate(
     # Parse lead_agency JSON array and map each agency to its department
     department_connections = map_chr(lead_agency, ~ {
-      agencies <- fromJSON(.x)
-      departments <- unique(map_agency_to_department(agencies))
+      agencies <- parse_jsonish_vector(.x)
+      departments <- unique(map_chr(agencies, map_agency_to_department))
       paste(departments, collapse = ", ")
     }),
     # Extract distinct project types, sorted by frequency
     project_type = map_chr(project_type, ~ {
-      # Remove JSON brackets and quotes, split on commas
-      clean_str <- str_replace_all(.x, '\\[|\\]|"', "")
-      all_types <- str_split(clean_str, ",\\s*|\\s*\\|\\s*")[[1]] %>%
-        str_trim() %>%
-        .[. != ""]
+      all_types <- parse_jsonish_vector(.x)
       # Count frequency and sort by most common
       type_counts <- table(all_types)
       sorted_types <- names(sort(type_counts, decreasing = TRUE))
@@ -477,10 +672,188 @@ tbl_department_links <-
   ) |>
   select(
     `Department connections` = department_connections,
-    `Distinct Project Types` = project_type, Total
+    `Distinct Project Types` = project_type,
+    Total
   ) |>
   print()
 
 # save
 write_csv(tbl_department_links, here(tables_dir, "table_by_department.csv"))
 
+
+#
+# Department Collaboration Hubs (Creative Relationship Table)
+# ----------------------------------------------------
+cat("\nCreating department collaboration hubs table...\n")
+
+department_projects <- multi_department_metadata_only %>%
+  mutate(
+    department_list = map(lead_agency, ~ {
+      agencies <- parse_jsonish_vector(.x)
+      depts <- unique(map_chr(agencies, map_agency_to_department))
+      sort(depts[depts != ""])
+    })
+  ) %>%
+  filter(lengths(department_list) >= 2)
+
+department_pairs <- department_projects %>%
+  transmute(
+    project_id,
+    department_pairs = map(department_list, ~ {
+      combo <- combn(.x, 2, simplify = FALSE)
+      tibble(
+        department_1 = map_chr(combo, 1),
+        department_2 = map_chr(combo, 2)
+      )
+    })
+  ) %>%
+  unnest(department_pairs)
+
+pair_counts <- department_pairs %>%
+  count(department_1, department_2, name = "shared_projects", sort = TRUE)
+
+tbl_department_collaboration_hubs <- bind_rows(
+  pair_counts %>%
+    transmute(
+      department = department_1,
+      partner = department_2,
+      shared_projects
+    ),
+  pair_counts %>%
+    transmute(
+      department = department_2,
+      partner = department_1,
+      shared_projects
+    )
+) %>%
+  group_by(department) %>%
+  summarise(
+    `Unique partner departments` = n_distinct(partner),
+    `Collaborative project ties` = sum(shared_projects),
+    `Most frequent partner` = partner[which.max(shared_projects)],
+    `Projects with top partner` = max(shared_projects),
+    `Bridge score` = round(`Unique partner departments` * log1p(`Collaborative project ties`), 2),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(`Bridge score`), desc(`Collaborative project ties`))
+
+write_csv(
+  tbl_department_collaboration_hubs,
+  here(tables_dir, "table_department_collaboration_hubs.csv")
+)
+print(tbl_department_collaboration_hubs)
+
+
+# Figure for collaboration hubs
+fig_department_collaboration_hubs <- tbl_department_collaboration_hubs %>%
+  mutate(department = fct_reorder(department, `Bridge score`)) %>%
+  ggplot(aes(x = `Bridge score`, y = department, fill = `Collaborative project ties`)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = `Most frequent partner`),
+    hjust = 0,
+    nudge_x = 0.15,
+    size = 3,
+    color = catf_navy
+  ) +
+  scale_fill_gradientn(colors = c(catf_light_blue, catf_dark_blue, catf_navy)) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.45))) +
+  labs(
+    title = "Department Collaboration Hubs",
+    subtitle = "Bar length shows bridge score; labels show most frequent partner",
+    x = "Bridge score",
+    y = NULL,
+    fill = "Collaborative\nproject ties"
+  ) +
+  theme_catf()
+
+ggsave(
+  filename = here(figures_dir, "fig_department_collaboration_hubs.png"),
+  plot = fig_department_collaboration_hubs,
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+
+# Sankey/alluvial view of cross-department ties
+base_department_sankey <- ggplot(
+  pair_counts,
+  aes(axis1 = department_1, axis2 = department_2, y = shared_projects)
+) +
+  ggalluvial::geom_alluvium(
+    aes(fill = department_1),
+    width = 1 / 10,
+    alpha = 0.8
+  ) +
+  ggalluvial::geom_stratum(
+    width = 1 / 8,
+    fill = "gray96",
+    color = "gray60"
+  ) +
+  scale_x_discrete(
+    limits = c("axis1", "axis2"),
+    labels = NULL,
+    expand = c(0.03, 0.03)
+  ) +
+  scale_fill_manual(values = rep(catf_palette, length.out = n_distinct(pair_counts$department_1))) +
+  labs(
+    title = "Cross-Department Project Flows",
+    subtitle = "Departments only (agencies rolled up to department level); flow width reflects shared projects",
+    y = NULL,
+    x = NULL
+  ) +
+  theme_catf() +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_blank()
+  )
+
+sankey_label_data <- ggplot_build(base_department_sankey)$data[[2]] %>%
+  as_tibble() %>%
+  transmute(
+    x = x,
+    y = y,
+    label = str_wrap(stratum, width = 18)
+  )
+
+fig_department_sankey <- base_department_sankey +
+  geom_text(
+    data = sankey_label_data,
+    aes(x = x, y = y, label = label),
+    hjust = 0.5,
+    inherit.aes = FALSE,
+    size = 2.3,
+    lineheight = 0.9,
+    color = "gray20"
+  ) +
+  theme(
+    plot.margin = margin(10, 10, 10, 10)
+  )
+
+ggsave(
+  filename = here(figures_dir, "fig_department_sankey.png"),
+  plot = fig_department_sankey,
+  width = 13,
+  height = 7,
+  units = "in",
+  dpi = 300
+)
+
+
+#
+# Word Clouds by NEPA Process Type
+# ----------------------------------------------------
+cat("\nCreating process-type word cloud panels for multi-department projects...\n")
+
+tbl_multiagency_wordcloud_panels <- generate_wordcloud_panels(
+  df = multi_department_data,
+  figure_prefix = "fig_multiagency_project_types_wordcloud",
+  panel_table_name = "table_multiagency_wordcloud_panels.csv"
+)
+print(tbl_multiagency_wordcloud_panels)

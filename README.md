@@ -30,6 +30,21 @@ The merge uses `project_id` and drops `project_title` from the NOI output to avo
 
 Note for later updates: consider tracking a run log with query statistics for reproducibility.
 
+## Deliverable 4 Multi-Agency Refresh (Simple)
+
+Run these three commands when you want the latest multi-agency outputs for Deliverable 4:
+
+```bash
+python code/extract/extract_coagency.py --run
+Rscript code/deliverable04/01_geography.R
+quarto render reports/deliverable04.qmd
+```
+
+What this does:
+- Builds `data/analysis/coagency_projects.parquet` from page-text cues (`extract_coagency.py`).
+- Rebuilds Deliverable 4 tables/figures (including strict vs expanded multi-agency outputs).
+- Renders the updated Deliverable 4 report.
+
 ## Review Type Extraction (Programmatic + Tiered)
 
 Use `code/extract/extract_reviews.py` to classify projects as `programmatic`, `tiered`, or `standard`.
@@ -196,4 +211,32 @@ python3 code/extract/extract_technology.py --run geothermal
 ```bash
 # TODO: add final pipeline run sequence for Deliverable 6
 python3 code/extract/extract_technology.py --run pipeline
+```
+
+## Generation Capacity Build
+
+`code/extract/extract_gencap.py` extracts generation capacity (MW/GW/kW) in two phases: regex over all projects, then Claude Haiku adjudication for projects with 2+ distinct candidates.
+
+### Phase 1: Regex (parallel)
+
+```bash
+python code/extract/extract_gencap.py --run regex --parallel 3
+```
+
+Output: `data/analysis/projects_gencap.parquet`
+
+### Phase 2: LLM adjudication
+
+```bash
+python code/extract/extract_gencap.py --run llm --workers 4 # run with 2 to avoid rate limits
+```
+
+Runs on ambiguous multi-candidate projects only. Updates `projects_gencap.parquet` in place and writes per-source raw outputs to `data/analysis/gencap_{ce,ea,eis}_llm.parquet`.
+
+```bash
+# Test on 10 projects first
+python code/extract/extract_gencap.py --run llm --sample 10 --workers 1
+
+# Debug a single project
+python code/extract/extract_gencap.py --run llm --project-id <UUID>
 ```

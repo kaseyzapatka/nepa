@@ -132,16 +132,28 @@ cat("\nProjects flagged for review:", sum(projects$project_energy_type_questions
 # CAPACITY SUMMARY STATS
 # --------------------------
 
-gencap_path <- here("data", "analysis", "projects_gencap_merged.parquet")
-if (file.exists(gencap_path)) {
+gencap_candidates <- c(
+  here("data", "analysis", "projects_gencap_merged.parquet"),
+  here("data", "analysis", "projects_gencap.parquet")
+)
+gencap_path <- gencap_candidates[file.exists(gencap_candidates)][1]
+if (!is.na(gencap_path) && file.exists(gencap_path)) {
   gencap_projects <- read_parquet(gencap_path)
+  if (!"project_gencap_final_value" %in% names(gencap_projects)) {
+    gencap_projects$project_gencap_final_value <- gencap_projects$project_gencap_value
+  }
+  if (!"project_gencap_final_unit" %in% names(gencap_projects)) {
+    gencap_projects$project_gencap_final_unit <- gencap_projects$project_gencap_unit
+  }
 
   gencap_projects <- gencap_projects %>%
     mutate(
+      capacity_value_use = coalesce(project_gencap_final_value, project_gencap_value),
+      capacity_unit_use = coalesce(project_gencap_final_unit, project_gencap_unit),
       capacity_mw = case_when(
-        project_gencap_unit == "GW" ~ project_gencap_value * 1000,
-        project_gencap_unit == "kW" ~ project_gencap_value / 1000,
-        TRUE ~ project_gencap_value
+        capacity_unit_use == "GW" ~ capacity_value_use * 1000,
+        capacity_unit_use == "kW" ~ capacity_value_use / 1000,
+        TRUE ~ capacity_value_use
       )
     )
 

@@ -1,0 +1,2585 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.3.433">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>NEPA - CE Page Viewer</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 20,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script>
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+</head>
+
+<body class="nav-fixed fullcontent">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg navbar-dark ">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">NEPA</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="Search"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../project_overview.html" rel="" target="">
+ <span class="menu-text">Project Overview</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../reports/deliverable01.html" rel="" target="">
+ <span class="menu-text">Deliverable 1</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../reports/deliverable02.html" rel="" target="">
+ <span class="menu-text">Deliverable 2</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../reports/deliverable03.html" rel="" target="">
+ <span class="menu-text">Deliverable 3</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../reports/deliverable04.html" rel="" target="">
+ <span class="menu-text">Deliverable 4</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../reports/deliverable05.html" rel="" target="">
+ <span class="menu-text">Deliverable 5</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../reports/deliverable06.html" rel="" target="">
+ <span class="menu-text">Deliverable 6</span></a>
+  </li>  
+</ul>
+            <div class="quarto-navbar-tools ms-auto">
+</div>
+          </div> <!-- /navcollapse -->
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">CE Page Viewer</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+</header>
+
+<p>Simple notebook to view CE document pages for manual review and exploration.</p>
+<div class="cell" data-execution_count="1">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Display settings</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>pd.set_option(<span class="st">'display.max_colwidth'</span>, <span class="va">None</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>pd.set_option(<span class="st">'display.max_rows'</span>, <span class="dv">100</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="load-data" class="level2">
+<h2 class="anchored" data-anchor-id="load-data">Load Data</h2>
+<div class="cell" data-execution_count="2">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Load CE documents</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>documents <span class="op">=</span> pd.read_parquet(<span class="st">'../data/analysis/documents_combined.parquet'</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>ce_documents <span class="op">=</span> documents[documents[<span class="st">"dataset_source"</span>] <span class="op">==</span> <span class="st">"CE"</span>]</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Loaded </span><span class="sc">{</span><span class="bu">len</span>(ce_documents)<span class="sc">:,}</span><span class="ss"> CE documents"</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> page_num_int(value):</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Extract first numeric token from page labels like '1', 'Page-1', or '1-6'."""</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> pd.isna(value):</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> pd.NA</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    match <span class="op">=</span> re.search(<span class="vs">r"(\d+)"</span>, <span class="bu">str</span>(value))</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> match:</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">int</span>(match.group(<span class="dv">1</span>))</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pd.NA</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Load CE pages</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>CE_pages <span class="op">=</span> pd.read_parquet(<span class="st">'../data/processed/ce/pages.parquet'</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>CE_pages[<span class="st">"_page_number_num"</span>] <span class="op">=</span> CE_pages[<span class="st">"page_number"</span>].<span class="bu">map</span>(page_num_int).astype(<span class="st">"Int64"</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f"Loaded </span><span class="sc">{</span><span class="bu">len</span>(CE_pages)<span class="sc">:,}</span><span class="ss"> CE pages"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Loaded 73,544 CE documents
+Loaded 73,544 CE pages</code></pre>
+</div>
+</div>
+</section>
+<section id="helper-functions" class="level2">
+<h2 class="anchored" data-anchor-id="helper-functions">Helper Functions</h2>
+<div class="cell" data-execution_count="3">
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> list_documents(project_id):</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""List all documents for a given project."""</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    docs <span class="op">=</span> ce_documents[ce_documents[<span class="st">"project_id"</span>] <span class="op">==</span> project_id]</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(docs) <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"No documents found for project_id: </span><span class="sc">{</span>project_id<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Documents for project: </span><span class="sc">{</span>project_id<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"-"</span> <span class="op">*</span> <span class="dv">80</span>)</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    display_cols <span class="op">=</span> [<span class="st">"document_id"</span>, <span class="st">"document_type"</span>, <span class="st">"document_type_category"</span>, </span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"main_document"</span>, <span class="st">"file_name"</span>, <span class="st">"total_pages"</span>]</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    available_cols <span class="op">=</span> [c <span class="cf">for</span> c <span class="kw">in</span> display_cols <span class="cf">if</span> c <span class="kw">in</span> docs.columns]</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> docs[available_cols]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="4">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> view_page(document_id, page_num<span class="op">=</span><span class="dv">1</span>):</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""View a specific page from a document."""</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    page_target <span class="op">=</span> page_num_int(page_num)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> pd.isna(page_target):</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Invalid page number: </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    page <span class="op">=</span> CE_pages[(CE_pages[<span class="st">"document_id"</span>] <span class="op">==</span> document_id) <span class="op">&amp;</span> </span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>                    (CE_pages[<span class="st">"_page_number_num"</span>] <span class="op">==</span> page_target)]</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(page) <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Page </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> not found for document_id: </span><span class="sc">{</span>document_id<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get document metadata</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    doc <span class="op">=</span> ce_documents[ce_documents[<span class="st">"document_id"</span>] <span class="op">==</span> document_id]</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(doc) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Document: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">'file_name'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Type: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">'document_type'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss"> | "</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f"Category: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">'document_type_category'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss"> | "</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f"Main: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">'main_document'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(page.iloc[<span class="dv">0</span>][<span class="st">"page_text"</span>])</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- END PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> page.iloc[<span class="dv">0</span>][<span class="st">"page_text"</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="5">
+<div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> view_pages(document_id, start_page<span class="op">=</span><span class="dv">1</span>, end_page<span class="op">=</span><span class="dv">5</span>):</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""View a range of pages from a document."""</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get document metadata</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>    doc <span class="op">=</span> ce_documents[ce_documents[<span class="st">"document_id"</span>] <span class="op">==</span> document_id]</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(doc) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Document: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">'file_name'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Type: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">'document_type'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss"> | "</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f"Category: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">'document_type_category'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss"> | "</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f"Main: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">'main_document'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> page_num <span class="kw">in</span> <span class="bu">range</span>(start_page, end_page <span class="op">+</span> <span class="dv">1</span>):</span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        page <span class="op">=</span> CE_pages[(CE_pages[<span class="st">"document_id"</span>] <span class="op">==</span> document_id) <span class="op">&amp;</span> </span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>                        (CE_pages[<span class="st">"_page_number_num"</span>] <span class="op">==</span> page_num)]</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">len</span>(page) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(page.iloc[<span class="dv">0</span>][<span class="st">"page_text"</span>])</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- END PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"Page </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> not found"</span>)</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>            <span class="cf">break</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="6">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> view_project_pages(project_id, document_id<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""View all pages of EISch document in a project (no truncation).</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co">    </span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co">    Args:</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">        project_id: The project ID to filter documents</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">        document_id: Optional document ID to view only that specific document</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">    """</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    docs <span class="op">=</span> ce_documents[ce_documents[<span class="st">"project_id"</span>] <span class="op">==</span> project_id]</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Filter by document_id if provided</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> document_id <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        docs <span class="op">=</span> docs[docs[<span class="st">"document_id"</span>] <span class="op">==</span> document_id]</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(docs) <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> document_id <span class="kw">is</span> <span class="kw">not</span> <span class="va">None</span>:</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"No document found with document_id: </span><span class="sc">{</span>document_id<span class="sc">}</span><span class="ss"> in project_id: </span><span class="sc">{</span>project_id<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"No documents found for project_id: </span><span class="sc">{</span>project_id<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _, doc <span class="kw">in</span> docs.iterrows():</span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a>        doc_id <span class="op">=</span> doc[<span class="st">"document_id"</span>]</span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"Document: </span><span class="sc">{</span>doc<span class="sc">.</span>get(<span class="st">'file_name'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f"Type: </span><span class="sc">{</span>doc<span class="sc">.</span>get(<span class="st">'document_type'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss"> | "</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f"Category: </span><span class="sc">{</span>doc<span class="sc">.</span>get(<span class="st">'document_type_category'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss"> | "</span></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a>            <span class="ss">f"Main: </span><span class="sc">{</span>doc<span class="sc">.</span>get(<span class="st">'main_document'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss">"</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="sc">{</span><span class="st">'='</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>        doc_pages <span class="op">=</span> (</span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>            CE_pages[CE_pages[<span class="st">"document_id"</span>] <span class="op">==</span> doc_id]</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>            .sort_values([<span class="st">"_page_number_num"</span>, <span class="st">"page_number"</span>], na_position<span class="op">=</span><span class="st">"last"</span>)</span>
+<span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>        )</span>
+<span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>                </span>
+<span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> _, page <span class="kw">in</span> doc_pages.iterrows():</span>
+<span id="cb7-38"><a href="#cb7-38" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">--- PAGE </span><span class="sc">{</span>page[<span class="st">'page_number'</span>]<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">"</span>)</span>
+<span id="cb7-39"><a href="#cb7-39" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(page[<span class="st">"page_text"</span>])</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="7">
+<div class="sourceCode cell-code" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> search_pages(project_id, search_term):</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Search for a term in all pages of a project."""</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    docs <span class="op">=</span> ce_documents[ce_documents[<span class="st">"project_id"</span>] <span class="op">==</span> project_id]</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    doc_ids <span class="op">=</span> docs[<span class="st">"document_id"</span>].tolist()</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    matching_pages <span class="op">=</span> ce_pages[</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        (ce_pages[<span class="st">"document_id"</span>].isin(doc_ids)) <span class="op">&amp;</span> </span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        (ce_pages[<span class="st">"page_text"</span>].<span class="bu">str</span>.contains(search_term, case<span class="op">=</span><span class="va">False</span>, na<span class="op">=</span><span class="va">False</span>))</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    ]</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Found </span><span class="sc">{</span><span class="bu">len</span>(matching_pages)<span class="sc">}</span><span class="ss"> pages containing '</span><span class="sc">{</span>search_term<span class="sc">}</span><span class="ss">'"</span>)</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="st">"-"</span> <span class="op">*</span> <span class="dv">80</span>)</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> _, page <span class="kw">in</span> matching_pages.iterrows():</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>        doc <span class="op">=</span> docs[docs[<span class="st">"document_id"</span>] <span class="op">==</span> page[<span class="st">"document_id"</span>]].iloc[<span class="dv">0</span>]</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f"</span><span class="ch">\n</span><span class="ss">Document: </span><span class="sc">{</span>doc<span class="sc">.</span>get(<span class="st">'file_name'</span>, <span class="st">'N/A'</span>)<span class="sc">}</span><span class="ss"> | Page: </span><span class="sc">{</span>page[<span class="st">'page_number'</span>]<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>        </span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Show context around the search term</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>        text <span class="op">=</span> page[<span class="st">"page_text"</span>]</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        idx <span class="op">=</span> text.lower().find(search_term.lower())</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> idx <span class="op">&gt;=</span> <span class="dv">0</span>:</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>            start <span class="op">=</span> <span class="bu">max</span>(<span class="dv">0</span>, idx <span class="op">-</span> <span class="dv">200</span>)</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>            end <span class="op">=</span> <span class="bu">min</span>(<span class="bu">len</span>(text), idx <span class="op">+</span> <span class="bu">len</span>(search_term) <span class="op">+</span> <span class="dv">200</span>)</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>            context <span class="op">=</span> text[start:end]</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> start <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>                context <span class="op">=</span> <span class="st">"..."</span> <span class="op">+</span> context</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> end <span class="op">&lt;</span> <span class="bu">len</span>(text):</span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>                context <span class="op">=</span> context <span class="op">+</span> <span class="st">"..."</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(context)</span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> matching_pages</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="8">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> get_random_project(n_docs<span class="op">=</span><span class="dv">2</span>):</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Get a random project with at least n_docs documents."""</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> random</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    doc_counts <span class="op">=</span> ce_documents.groupby(<span class="st">"project_id"</span>).size()</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    eligible <span class="op">=</span> doc_counts[doc_counts <span class="op">&gt;=</span> n_docs].index.tolist()</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    project_id <span class="op">=</span> random.choice(eligible)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f"Random project with </span><span class="sc">{</span>doc_counts[project_id]<span class="sc">}</span><span class="ss"> documents: </span><span class="sc">{</span>project_id<span class="sc">}</span><span class="ss">"</span>)</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> project_id</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="explore-a-specific-project" class="level2">
+<h2 class="anchored" data-anchor-id="explore-a-specific-project">Explore a specific project</h2>
+<p>Set the <code>project_id</code> below and run the cells to explore.</p>
+<div class="cell" data-execution_count="9">
+<div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set your project ID here</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "2135a0a9-e30c-47a6-4781-d35b7eb72322" # Wyarno Grazing Lease </span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "75f86c2f-e651-6f0f-78b4-0816aecb0d3a" # Iberlin 1-12 wells</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "761dff63-36e7-da8e-33c6-11e30f0ed070" # Haff Ranch</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "7784bc91-d028-0696-80b4-297390e82f20" # Union Fiber</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "3a48a200-db7c-6d61-7a1f-9e7013ebf18d" # Flatiron-Dixon </span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "d97d7ac4-8f23-e9cc-e7d3-85b2e75d8484" # Correct Water Intrusi</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "85c1b6d4-85a5-1597-00c0-5d4e55050a21" # Create Spool Pieces</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "abb436a4-3bb4-8f91-0013-d5a5158dbf32" # Enoch Well House Power Line</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0" # Right of way renewals</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "c0a5a0de-acea-0b84-f727-029167677961" # 703-43A Room 30 Install Electrical and UW</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">"c87a153c-f0c6-bd71-17e1-7e01ea9816a5"</span> <span class="co"># </span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = "a8f8ca21-28aa-e951-164f-736cac8136ef" # </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell" data-execution_count="10">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># List all documents for this project</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>list_documents(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Documents for project: c87a153c-f0c6-bd71-17e1-7e01ea9816a5
+--------------------------------------------------------------------------------</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">document_id</th>
+<th data-quarto-table-cell-role="th">document_type</th>
+<th data-quarto-table-cell-role="th">document_type_category</th>
+<th data-quarto-table-cell-role="th">main_document</th>
+<th data-quarto-table-cell-role="th">file_name</th>
+<th data-quarto-table-cell-role="th">total_pages</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">68566</td>
+<td>c73de3f5-ab88-5b3c-5f4e-f7298ae5b0e2</td>
+<td>OTHER</td>
+<td>other</td>
+<td>NO</td>
+<td>GeoTechnical POD.pdf</td>
+<td>24</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">68567</td>
+<td>cc821d3b-e4de-2c9f-41bd-d4ae09f50f27</td>
+<td>CE</td>
+<td>decision</td>
+<td>YES</td>
+<td>Geotech CX.pdf</td>
+<td>6</td>
+</tr>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">68568</td>
+<td>6e463359-843e-c7d3-1425-056287e65cb8</td>
+<td>OTHER</td>
+<td>other</td>
+<td>NO</td>
+<td>Maps.pdf</td>
+<td>3</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="cell" data-execution_count="11">
+<div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># View first 3 pages of each document</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>view_project_pages(project_id)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co">#view_project_pages(project_id, document_id = "86c02395-3a91-53f7-b1db-3ba3ad46aae7")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+================================================================================
+Document: GeoTechnical POD.pdf
+Type: OTHER | Category: other | Main: NO
+================================================================================
+
+--- PAGE 1-24 ---
+
+SOUTHLINE TRANSMISSION PROJECT
+GEOTECHNICAL INVESTIGATION PLAN OF
+DEVELOPMENT
+
+APRIL 2018
+
+PREPARED FOR
+Bureau of Land Management
+
+PREPARED BY
+SWCA Environmental Consultants
+
+SOUTHLINE TRANSMISSION PROJECT
+GEOTECHNICAL INVESTIGATION PLAN OF DEVELOPMENT
+
+Prepared for
+Bureau of Land Management
+Arizona State Office
+One North Central Avenue, Suite 800
+Phoenix, Arizona 85004-4427
+
+Submitted by
+Southline Transmission, L.L.C.
+1900 North Akard Street
+Dallas, Texas 75201
+www.southlinetransmissionproject.com
+AZA035681
+
+Prepared by
+SWCA Environmental Consultants
+20 East Thomas Road, Suite 1700
+Phoenix, Arizona 85012
+www.swca.com
+
+April 2018
+
+CONTENTS
+
+1 INTRODUCTION........................................................................................................................... 1
+1.1 National Environmental Policy Act ......................................................................................... 1
+1.2 Geotechnical Investigation Plan of Development ................................................................... 1
+
+2 Geotechnical Exploration Description, Standards, and Requirements .......................................... 4
+2.1 Geotechnical Exploration Plan ............................................................................................... 4
+2.1.1 General Requirements .............................................................................................. 4
+2.1.2 Temporary Ground Disturbance .............................................................................. 4
+2.1.3 Drilling Equipment Staging ...................................................................................... 7
+2.2 Description and Identification of Geotechnical Exploration Sites, Access Routes, and
+Temporary Disturbance ........................................................................................................ 7
+2.2.1 Overview of Borehole Site Locations and Selection Criteria .................................. 8
+2.2.2 Access Routes and Roads ........................................................................................ 8
+2.3 Identification of Potential Geologic Hazards .......................................................................... 8
+2.3.1 Overview of Geologic Hazards ................................................................................ 8
+2.4 Geotechnical Exploration Methods ........................................................................................ 9
+2.4.1 Geotechnical Drilling and Sampling Methods ......................................................... 9
+2.5 Drill Vehicle Types .............................................................................................................. 10
+2.5.1 Truck-Mounted ..................................................................................................... 10
+2.5.2 All-Terrain Vehicles ............................................................................................. 11
+2.5.3 Track-Mounted ..................................................................................................... 12
+
+3 Geotechnical Exploration Locations ......................................................................................... 13
+3.1 Sensitive Resources ............................................................................................................. 13
+
+4 Construction Permits and Clearance Surveys ............................................................................. 14
+4.1 Anticipated Drilling-Related Permits ................................................................................... 14
+4.2 Environmental Clearance Surveys and Seasonal Restrictions .............................................. 14
+
+5 Environmental Protection Measures .......................................................................................... 15
+5.1 Geotechnical Investigation Specific Environmental Protection Measures .............................. 15
+5.2 Additional Environmental Protection Measures .................................................................... 15
+
+Figures
+
+Figure 1. Project overview............................................................................................................... 3
+Figure 2a. Geotechnical drilling locations and access roads. .......................................................... 5
+Figure 2b. Geotechnical drilling locations and access roads. .......................................................... 6
+Figure 3. Typical truck-mounted drill rig. ..................................................................................... 11
+Figure 4. Typical ATV-mounted drill rig. ..................................................................................... 12
+Figure 5. Typical track-mounted drill rig. ..................................................................................... 13
+
+i
+
+Tables
+
+Table 1. Maximum Temporary Ground Disturbance by Land Ownership (acres) ............................ 7
+Table 2. Borehole Sites on BLM Lands in Arizona.......................................................................... 8
+
+ii
+
+1 INTRODUCTION
+
+The Southline Transmission Project (hereafter, Project), sponsored by Southline Transmission, L.L.C.
+(Southline), a wholly owned subsidiary of Hunt Power, L.P., is a non-utility, merchant transmission line
+designed to collect and transmit electricity across southern New Mexico and southern Arizona.
+
+The Project consists of two sections: the New Build and the Upgrade sections. The New Build Section
+is approximately 240 miles of new double-circuit 345-kilovolt (kV) transmission line along with
+substation expansions, access roads, and associated infrastructure. The Upgrade Section is approximately
+120 miles of Western Area Power Administration's (Western's or WAPA's) existing 115-kV
+transmission line that is being upgraded to a double-circuit 230-kV transmission line as well as substation
+expansions, access roads, and associated infrastructure.
+
+This Geotechnical Investigation Plan of Development (Geotechnical POD) is for the Project's
+Arizona New Build portion only (Figure 1). The total length of the Arizona alignment applicable to this
+Geotechnical POD is approximately 72 miles, traversing Cochise County. Additionally, full Project
+details can be found in the below referenced 2015 Project Final Environmental Impact Statement.
+
+1.1 National Environmental Policy Act
+
+On December 4, 2009, Southline submitted an “Application for Transportation and Utility Systems
+and Facilities on Federal Lands” (Standard Form [SF] 299) to the Bureau of Land Management
+(BLM) for a right-of-way (ROW), and then submitted an amended application on December 22, 2010.
+Southline will use identified BLM-administered public land for a portion of the Project, in addition to
+other federal, state, and private lands through New Mexico and Arizona. As part of the Project, Southline
+will upgrade two existing lines in Arizona that are owned by WAPA. The BLM and WAPA are joint lead
+agencies under the National Environmental Policy Act of 1969 (NEPA) regulations at 40 Code of Federal
+Regulations (CFR) 1501.5(b).
+
+BLM and WAPA jointly prepared the 2015 “Southline Transmission Line Project Final Environmental
+Impact Statement” (Final EIS). A notice of intent (NOI) to prepare the EIS for the Project was published
+in the Federal Register on April 4, 2012. The notice of availability (NOA) for the Draft EIS was published
+on April 11, 2014 in the Federal Register. The NOA for the Final EIS was published on November 6,
+2015 in the Federal Register. The BLM Record of Decision (ROD) was signed on April 21, 2016, and
+WAPA'S ROD was signed April 5, 2016. The BLM and WAPA's Selected Alternative was the Agency
+Preferred Alternative as described in the Final EIS. The BLM ROD authorized a ROW grant to Southline
+to use public land administered by the BLM for the Project for 30 years.
+
+1.2 Geotechnical Investigation Plan of Development
+
+This Geotechnical POD was prepared to accompany the SF 299. The purpose of this document is to
+outline the geotechnical investigation program, including information regarding the drilling, location of
+boreholes, borehole drilling equipment, and borehole access.
+
+Geotechnical investigations provide necessary information for the detailed engineering and design
+of the transmission line, access roads, substations, and other facilities and are a required step in the
+Project construction process. Southline, in coordination with the BLM, has developed an implementation
+strategy that includes the preparation of a Geotechnical POD.
+
+1
+
+The purpose of the geotechnical investigations is to collect geophysical data and hydrogeologic and
+geotechnical soil properties to provide necessary information for detailed Project engineering and design.
+These data will be incorporated into structure foundation design and will help ensure the Project is
+designed and constructed to be safe, reliable, and cost effective.
+
+Section 2 of this Geotechnical POD describes the drilling process, drilling activities, and selection
+of drilling locations. Anticipated disturbance is also detailed.
+
+Section 3 describes the sensitive resources, and Sections 4 and 5 list environmental protection measures
+that will be applied during geotechnical investigation.
+
+Specific Project environmental protection measures, or Proponent Committed Environmental Measures
+(PCEMs) were developed during the NEPA process and carried forward to BLM’s ROD as stipulations
+and conditions. PCEMs that are specifically applicable to the implementation of the geotechnical program
+are provided here in Section 5.
+
+2
+
+SUPERSTITION
+MOUNTAINS
+60
+PINAL
+GILA
+GLOBE
+Saguaro
+Tortolita
+Marana
+IRONWOOD FOREST N.M.
+Rattlesnake
+MARANA
+ALTAR
+VALLEY
+Upgrade New Build
+191
+ARIZONA
+NEW MEXICO
+GILA MOUNTAINS
+GREENLEE
+GRAHAM
+SAFFORD
+CATRON
+MOGOLLON
+MOUNTAINS
+180
+BLACK RANGE
+GALIURO
+MOUNTAINS
+PINALENO
+MOUNTAINS
+191
+WILLCOX
+Adams
+Tap
+SAN SIMON VALLEY
+SILVER CITY
+GRANT
+70
+Pantano
+10
+VELONCILLO MOUNTAINS
+Hidalgo
+LORDSBURG
+10
+LUNA
+Apache
+BENSON
+COCHISE
+CHIRICAHUA
+MOUNTAINS
+HIDALGO HACHITA
+SAGUARO N.P.
+WEST
+De Moss Petrie
+Del Bac
+Nogales
+SANTA CATALINA
+MOUNTAINS
+Tucson
+TUCSON SAGUARO N.P.
+Vail
+EAST
+PIMA
+19
+SANTA CRUZ
+SANTA RITA MOUNTAINS
+Fort
+PATAGONIA
+MOUNTAINS
+Huachuca
+Military
+191
+Reservation MULE
+MOUNTAINS
+Figure 1. Project overview.
+80
+PELONCILLO MOUNTAINS
+3
+PLAYAS VALLEY
+SIERRA
+25
+SAN ANDRES MOUNTAINS
+ORGAN MOUNTAINS
+DESERT PEAKS N.M.
+Midpoint
+North
+LAS CRUCES
+DEMING
+FLORIDA
+MOUNTAINS
+COLUMBUS
+Legend
+[] Substation
+[] AZ New Build Route
+Project Route
+Project Substation
+Interstate
+US or State Highway
+Major Road
+Land Ownership
+Tribal
+Bureau of
+Land Management
+Bureau of
+Reclamation
+Department of Defense
+National Park Service
+Private/Other
+State
+US Forest Service
+US Fish &amp; Wildlife
+National Park/
+DOÑA ANA
+National Monument/
+National Conservation
+Area
+ORGAN MOUNTAINS
+DESERT PEAKS N.M.
+Afton
+EL PASO
+Utah
+Colorado
+Nevada
+Map Extent
+0
+New Mexico
+Arizona
+Miles
+25
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 1:
+Project Overview.
+AZ Geotech Project Overview r-mid-Revised 4/23/2018
+
+MP095
+191
+Fisher
+Hills
+MP090
+Diaw
+Geld
+MP355
+13
+Gole
+10
+MP360
+14
+DOS CABEZAS MOUNTAINS
+WILDERNESS
+C
+ABEZAS
+MOUNTAINS
+MP340
+MP345
+MP365
+MP365
+FAN
+MP370
+15 16
+17
+18
+Figure 2a. Geotechnical drilling locations and access roads.
+Butterfield Tra
+MP375
+MP375
+SAN
+19
+MP380
+Butterfield Trail
+ی
+M
+Graham County
+Greenlee Countys
+Cochise County
+20
+MP385
+--
+VAL
+Simen
+7
+PELONCILLO MOUNTAINS
+ELONC
+21
+E
+ARIZONA
+Hidalgo County
+NEW MEXICO
+MP390
+NEW MEXIKAR
+MP-0
+AINS
+MOUNTA
+Legend
+[] AZ Route
+[] Boring Location
+[] Access Route
+[] National Historic/
+Scenic Trail
+[] Bureau of
+Land Management
+[] National Park Service
+[] Private/Other
+[] State
+[] US Forest Service
+1
+Sheet 1 of 2
+0
+Miles
+2
+AZ NB Geotech Locations mxd-Revised 4/26/2018
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 2a:
+Geotechnical drilling
+locations and access
+roads.
+
+MOUN
+N
+MP320
+S
+10
+MP330
+MP335
+ULPHUR
+MP340
+12
+11
+MP345
+WILLCOX
+MP340
+WILLCOX
+PLAYA
+10
+MP330
+9
+(186)
+8
+WILLCOX
+PLAYA
+MP065
+WILLCOX
+DRY LAKE
+6
+BOMBING
+RANGE
+Cochise
+MP325
+Draw
+MP060
+Apache
+Figure 2b. Geotechnical drilling locations and access roads.
+MP055
+191
+5
+MP335
+MP350
+DOS
+Gold
+MP355
+13
+CABEZAS
+MP340
+Cab
+Butterfield Trail
+------
+10
+MP360
+14
+DOS CABEZAS MOUNTAINS
+WILDERNESS
+MOUNTAINS
+MP345
+Idea
+Moge
+MP365
+MP365
+15
+16
+Legend
+[] AZ Route
+[] Boring Location
+[] Access Route
+[] Existing Substation
+[] Buffalo Soldier
+Electronic Testing Range
+[] National Historic/
+Scenic Trail
+[] Bureau of
+Land Management
+[] Department of Defense
+[] National Park Service
+[] Private/Other
+[] State
+[] US Forest Service
+[] Arizona Game and Fish
+Department Wildlife
+Watching Area
+2
+Sheet 2 of 2
+0
+Miles
+2
+AZ NB Geotech Locations mxd-Revised 4/26/2018
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 2b:
+Geotechnical drilling
+locations and access
+roads.
+
+BORING WORK AREAS
+
+A typical boring work area is 30 × 60 feet. This is enough room to get the drilling rig and support vehicles
+in and work around the rig. There may be some minor disturbance outside that area in rare cases;
+however, the maximum temporary disturbance at each boring site is anticipated to be less than 0.4 acres.
+Surface disturbance within the boring work area may occur as a result of moving the drilling vehicles,
+support vehicles, and associated equipment. Additional foot traffic will also occur around the drill
+vehicles as the drill crew moves between the drill and support vehicles.
+
+Work sites will be managed to minimize both environmental and physical impacts to the immediate work
+area and surrounding area. All practical controls will be followed to minimize soil disturbance and
+prevent soils from migrating offsite. Equipment and vehicles will be positioned to minimize damage to
+vegetation and soils. Excavated soils and other work materials will be properly contained to minimize the
+spread of material to outside the work area. If adverse weather conditions are anticipated, excavated soils
+will be properly secured to prevent sediment migration offsite.
+
+Table 1 below summarizes the maximum temporary ground disturbance anticipated, by land ownership.
+
+Table 1. Maximum Temporary Ground Disturbance by Land Ownership (acres)
+
+BLM | State | Private | Total
+---|---|---|---
+Number of Drilling Sites | 6 | 8 | 7 | 21
+Maximum Temporary Disturbance (0.4 acre per drilling site) | 2.4 acres | 3.2 acres | 2.8 acres | 8.4 acres
+
+ACCESS ROUTES
+
+Access roads to each boring will be restricted to existing paved or dirt roads with a minor amount
+of overland travel. As described below in Section 2.2.2, no grading for access to geotechnical
+investigation sites will occur.
+
+2.1.3 Drilling Equipment Staging
+
+All drilling equipment will be staged within the approved Project ROW. Equipment staging areas will
+limit earth disturbance to the extent reasonable. Heavy-duty equipment will not be placed/stored over
+exposed tree roots or within the critical root zone. At the end of each day the drilling vehicles and all
+equipment will be left at the last completed boring location or moved to the next boring location.
+Personnel will travel to and from the boring sites via four-wheel drive vehicles.
+
+2.2 Description and Identification of Geotechnical
+Exploration Sites, Access Routes, and Temporary
+Disturbance
+
+The criteria for borehole site location and access road selection as well as a description of typical pre-
+drilling and post-drilling site conditions are described below. Figures 2a and 2b depict borehole locations,
+access to each location, land ownership, and pertinent Project information.
+
+7
+
+2.2.1 Overview of Borehole Site Locations and Selection Criteria
+
+All borehole sites are located within the area analyzed in the Final EIS. They were selected based on the
+results of a preliminary geotechnical report that identified expected geological conditions and associated
+hazards, and field verification activities at select locations. Figures 2a and 2b depict all selected borehole
+locations in the Arizona New Build portion of the Project.
+
+Table 2 summarizes the borehole sites located on BLM lands, with their respective latitude and longitude
+information.
+
+Table 2. Borehole Sites on BLM Lands in Arizona
+
+Boring Location Number | Latitude (degrees) | Longitude (degrees) | Land Status
+---|---|---|---
+3 | 32.0676 | -109.8475 | BLM
+7 | 32.1683 | -109.7677 | BLM
+18 | 32.2947 | -109.3483 | BLM
+19 | 32.3011 | -109.2617 | BLM
+20 | 32.3014 | -109.1765 | BLM
+21 | 32.3001 | -109.0949 | BLM
+
+2.2.2 Access Routes and Roads
+
+Existing roads will be used to access the majority of boring sites to facilitate the geotechnical
+investigation. There are however, short segments of overland travel that are necessary. In areas where
+overland travel is needed, this access will follow the drive-and-crush method detailed in Final EIS
+Section 2.4.2.
+
+Prior to drill rig mobilization to a predetermined access point, field verification will be performed to
+confirm existing field conditions will accommodate the safe access of drill rig and employees. Field
+verification includes reviewing items such as access approval, surface conditions of access path, ground
+and aerial obstacles, marked underground utilities, and overhead utilities.
+
+2.3 Identification of Potential Geologic Hazards
+
+2.3.1 Overview of Geologic Hazards
+
+A geological condition that has the potential to cause structural damage is classified as a geologic hazard
+(or geohazard), and the presence of geohazards can pose significant risks to the Project. Geohazards
+involve short-term processes, long-term processes, or both, and are influenced by both geological and
+environmental conditions. Geohazards can be exacerbated by human activities. For these reasons, the
+potential impacts of geohazards were analyzed as part of the Project NEPA process.
+
+The NEPA analysis consisted of a preliminary geotechnical desktop study which identified potential
+geohazards. Potential geohazards identified for the Project area are presented in Section 3.4.4 of the Final
+EIS and include land subsidence, earth fissures, geological faults, earthquakes, landslides, volcanoes, and
+karst. Analysis of these potential hazards is presented in Final EIS Section 4.4.4.
+
+8
+
+2.4 Geotechnical Exploration Methods
+
+2.4.1 Geotechnical Drilling and Sampling Methods
+
+Test borings will be performed in accordance with the following: 1) American Society for Testing and
+Materials (ASTM) D1586 Standard Test Method for Standard Penetration Test (SPT) and Split Barrel
+Sampling of Soils, 2) ASTM D2113 Standard Practice for Rock Core Drilling and Sampling of Rock for
+Site Exploration, and 3) and details specified herein. Borings will range from 4 to 8 inches in diameter
+and can be drilled by means of a combination of one or more sizes of auger or casing (rotary drilling) and,
+if rock is encountered, rock coring using NQ-sized (less than 2-inches in diameter) or HQ-sized (about
+2.5 inches in diameter) coring equipment. In general, test borings will extend to a depth of approximately
+10 feet below the anticipated bottom of a foundation or until refusal/bedrock is encountered.
+If bedrock/refusal is encountered, the boring will be extended a minimum of 10 feet beyond the top of
+bedrock/refusal. It is anticipated that drilling depths will range from 25 to 50 feet below ground surface.
+Typically, borings of this depth require one-third to one-half of a work day.
+
+Test borings will be extended to the minimum depths specified in boring phase documentation provided
+by the GEOR prior to mobilization; the minimum depths provided in GEOR documentation will be in
+accordance with requirements stipulated above. Test borings shall not be terminated in material exhibiting
+an SPT N-value of less than 7 blows per foot without prior approval from the GEOR.
+
+A minimum of four SPTs (minimum 18 inches inside clear length) will be attempted within the upper
+10 feet of each boring; SPTs below 10 feet will be attempted at intervals no greater than 5 feet. Thin-
+walled tube samples (i.e., Shelby tubes) may be obtained within anticipated cohesive soils at locations
+and/or intervals specified by the GEOR or Quanta Services field representative either prior to drilling
+or at the time of drilling. Thin-walled tubes samples will be obtained in accordance with ASTM D1587
+“Standard Practice for Thin-Walled Tub Sampling of Soils for Geotechnical Purposes.” Additional
+sampling, testing, and documentation requirements during drilling are listed below.
+
+• Drilling in environmentally contaminated areas/conditions is not anticipated. As such, all onsite
+personnel will, at a minimum, utilize Level D Personal Protective Equipment (PPE). Level D
+PPE will consist of the following: cut 5, impact-resistant gloves, chemical resistance steel-
+or composite-toe boots, safety glasses, Class E hard hat, and high-visibility vest, shirt, or jacket.
+• The drilling method and drilling fluid, SPT hammer type, and SPT hammer energy efficiency
+(if known) will be recorded on each boring log.
+• Encountered soils will be classified for the entire depth of each test boring in general accordance
+with ASTM D2487 “Standard Practice for Classification of Soils for Engineering Purposes"
+(Unified Soil Classification System) and/or ASTMD D2488 “Standard Practice for Description
+and Identification of Soils” (Visual-Manual Procedure).
+• The depth of topsoil and/or organic material will be recorded on respective boring logs.
+The depth of topsoil will be determined by hand digging immediately adjacent to the boring
+location and the thickness measured using a tape measure.
+• SPT and bulk samples will be collected in watertight containers and labeled in a manner that
+would not result in loss of information. At a minimum, labeling of samples will contain
+appropriate information regarding sample depth and location.
+• Rock Quality Designation (RQD) values for bedrock will be recorded on the respective boring
+logs.
+
+9
+
+• At a minimum, groundwater levels will be recorded on the boring logs at the time of drilling
+and following completion of drilling. Stabilized groundwater levels may be obtained through
+temporary piezometers consisting of a minimum 1.5-inch-diameter PVC casing.
+• Pocket penetrometer testing will be performed on cohesive soils. If thin-walled tube samples
+are collected, pocket penetrometer testing should be performed on the exposed soil at the
+bottom. Pocket penetrometer test results will be indicated on the respective boring logs.
+
+Each borehole will be backfilled upon completion of drilling and/or final groundwater level measurement.
+Backfill procedures will meet state, federal, and local statutes concerning the abandonment of
+geotechnical borings. If no statutes exist, completed boreholes must be backfilled with a combination
+of bentonite chips and auger cuttings to the ground surface.
+
+Drill cuttings originating from the drilling activities will be left onsite and spread evenly over the ground
+surface to return existing topography to similar conditions prior to investigation. Borings drilled in areas
+where livestock, pedestrian, or vehicular traffic may occur will be plugged or capped immediately upon
+completion of the boring and flush with the adjacent ground surface. Temporary cover will be provided
+for all boreholes left open overnight or while activities in the area of drilling are temporarily halted for
+any period of time.
+
+Upon completion of the work activities and prior to final demobilization from the work site, areas
+disturbed by equipment will be returned to their original condition to the extent that is reasonably
+possible. All debris, garbage, and other like material will be removed from the work area and disposed
+of properly.
+
+2.5 Drill Vehicle Types
+
+The drilling methods and equipment (rigs) will be mounted on road-legal trucks, tracked vehicles, or
+oversized-tire all-terrain vehicles (ATVs). All the drilling vehicles can be equipped with hollow-stem
+augers, solid stem augers (SSAs), and mud rotary/coring drilling systems. The boreholes will be drilled
+using truck-, track-, or ATV-mounted drilling rigs, depending on the access. It is expected that truck-
+mounted drills will be used at the majority of the locations. Other vehicles and equipment will also be
+used to support geotechnical testing and may include a water truck or support vehicle, field geotechnical
+engineer/geologist's pickup truck or utility vehicle, and possibly another support pickup truck.
+
+2.5.1 Truck-Mounted
+
+Truck-mounted drilling rigs, similar to that depicted in Figure 3, are proposed for the majority of the
+borings. These rigs are road-legal, heavy trucks that require relatively flat access (5 percent grade or less).
+The rigs will travel on existing roadways and two-track trails as close as possible to geotechnical testing
+sites and then overland on firm ground. Truck-mounted drilling rigs are typically 30 feet long, 8.5 feet
+wide, and 12 feet high with mast down and 34 feet high with mast up and have a gross vehicle weight
+of approximately 30,000 pounds with 30 to 50 pounds per square inch (psi) ground pressure.
+
+10
+
+Figure 3. Typical truck-mounted drill rig.
+
+2.5.2 All-Terrain Vehicles
+
+ATV rigs, also known as balloon-tired rigs, are an alternate drill vehicle type for borings where truck-
+mounted rigs cannot gain access, including areas with softer ground conditions and up to 20 percent grade
+(Figure 4). ATV rigs are typically 25 feet long, 8.5 feet wide, and 15 feet high with mast down and
+25 feet high with mast up, and have rubber balloon tires allowing low ground pressure and thus less
+ground disturbance. ATV rigs are transported to the Project area on low-boy trailers using existing
+roadways and two-track trails as close as possible to geotechnical testing sites and then overland to the
+geotechnical testing sites. If the ground is firm enough, ATV rigs can travel faster overland than the
+tracked rigs discussed in the next section.
+
+11
+
+A DANDER
+KEEP BACK
+A DANGER
+KEEP BACK
+2.5.3 Track-Mounted
+
+Figure 4. Typical ATV-mounted drill rig.
+
+Track-mounted drilling rigs (Figure 5) are another alternative drill vehicle type for borings where softer
+ground conditions exist with up to 20 percent grade. These rigs are approximately 8,000 pounds with
+rubber tracks, resulting in approximately 10 psi ground pressure, the lowest available ground-disturbance
+mobile vehicle for softer ground. Tracked rigs are typically 22 feet long, 6 feet wide, and 22 feet high
+with mast up. Tracked rigs travel on low-boy trailers using existing roadways and two-track trails to get
+as close as possible to geotechnical testing sites and then overland to the geotechnical testing sites.
+Tracked rigs can be driven by remote-control by an operator walking along the side of the vehicle as it is
+moving, or by personnel in the cab of the tracked vehicle.
+
+12
+
+Figure 5. Typical track-mounted drill rig.
+
+3 GEOTECHNICAL EXPLORATION LOCATIONS
+
+The borehole sites are located on BLM, state, and private lands (see Table 1). Of the 21 total boreholes
+in the Arizona New Build portion of the Project, 6 are located on BLM land. Seven are on Arizona state
+land, and 8 are on private land.
+
+All boring locations are associated with the ROW, with the exception of borehole 1, which is associated
+with a substation. Apache Substation is located at the western end of the Project New Build portion.
+Borehole 1 is located directly adjacent or within the fence line of the existing station. Figures 2a and 2b
+show the location of all boreholes and land ownership for the Arizona New Build portion of the Project.
+
+3.1 Sensitive Resources
+
+Following are details on sensitive resources that were considered for geotechnical investigations.
+
+BIOLOGICAL RESOURCES
+
+Project impacts to biological resources were analyzed during the NEPA process and are described in
+detail in Sections 4.8.1 (Vegetation) and 4.8.2 (Wildlife) of the Final EIS. Per required environmental
+protection measures and PCEMs, all required applicable biological resource surveys were conducted in
+the Arizona New Build in fall 2017 and winter 2017/2018 for avoidance and/or necessary precautions
+during the geotechnical investigation, including:
+
+• Special status plant communities (including Chihuahua scurfpea and night-blooming cereus):
+Surveys were completed in fall 2017 and winter 2017-2018.
+
+13
+
+• Burrowing owl (pre-geotech activity survey check will be performed. Active burrows will be
+buffered by 246 feet): Initial surveys were completed in winter January 2018.
+• Gila monster: Surveys were completed January 2018.
+• Kit fox (pre-geotech activity survey check will be performed. Active burrows will be
+buffered by 328 feet): Initial surveys were completed in January 2018.
+• Large raptor nests (pre-geotech activity survey check will be performed. Active nests will be
+buffered by 328 feet).
+• Nesting birds (will be conducted 30 days prior to ground disturbance. Active areas will be
+buffered by 328 feet).
+• Noxious weeds (pre-geotech activity survey check will be performed. Noxious weeds will be
+avoided).
+
+Boring locations have been placed to avoid all required biological resources that were identified during
+field surveys.
+
+CULTURAL RESOURCES
+
+Project impacts to cultural resources were analyzed during the NEPA process and are described in detail
+in Section 4.9 of the Final EIS. Class III pedestrian surveys in the Arizona New Build portion of the
+Project have been completed as defined in the Project Programmatic Agreement (PA). Surveys were
+completed in March 2018.
+
+Boring location have been strategically placed as to avoid all archaeology sites that were identified during
+field surveys.
+
+4 CONSTRUCTION PERMITS AND CLEARANCE SURVEYS
+
+4.1 Anticipated Drilling-Related Permits
+
+The geotechnical investigation will comply with all applicable laws, ordinances, rules, and regulations
+of the federal and state governments. All permits and license required and related to the execution of the
+geotechnical investigation will be obtained prior to drilling. As part of the geotechnical investigation
+program, Southline will avoid sensitive features that would require environmental permitting for
+geotechnical activities by use of environmental surveying and environmental monitors.
+
+4.2 Environmental Clearance Surveys and Seasonal
+Restrictions
+
+Environmental resource clearance surveys have been conducted in areas planned for geotechnical
+investigation and drilling activities to determine the presence or absence of sensitive resources. Biological
+resource surveys were conducted in accordance with Section 4.8 of the Final EIS and applicable PCEMs.
+The cultural resource clearance surveys were conducted in accordance with the Project PA. Results of the
+biological and cultural surveys were then used to determine the presence or absence of sensitive resources
+relative to the location of geotechnical exploration and drilling activities and access.
+
+Several biological resources have seasonal restrictions as described under Wildlife Protection in Section
+5.2 below. Seasonal restrictions potentially associated with geotechnical exploration sites include:
+
+14
+
+• Nesting birds
+• Burrowing owls
+
+Based on the environmental resource clearance surveys, if presence of a sensitive resource is identified,
+the following methods will be implemented, in the order listed and as approved by the land management
+agency, prior to initiating geotechnical exploration activities:
+
+1. Monitor borehole during drilling activities for the presence of sensitive features;
+2. Adjust drilling date outside seasonal restrictions;
+3. Use alternative access or drilling type;
+4. Relocate borehole or exploration activity to a different location; or
+5. Abandon borehole/exploration activity in the area.
+
+5 ENVIRONMENTAL PROTECTION MEASURES
+
+Environmental protection measures, or PCEMs, were developed during the EIS process and carried
+forward to BLM’s ROD as stipulations and conditions.
+
+Below are select PCEMs that will be implemented during geotechnical exploration activities to minimize
+potential impacts on resources and to ensure regulatory compliance. These PECMs include applicable
+mitigation measures described in the Final EIS (Table 2-8) and in the ROD POD (Table 8) that will apply
+to the geotechnical program. Application of these PCEMs will minimize specific impacts on
+environmental and cultural resources from the implementation of the geotechnical investigation program.
+
+The PCEMs and protection measures provided herein are applicable to the entire Project; on BLM-
+administered federal lands they are enforceable measures of the BLM ROW grant.
+
+5.1 Geotechnical Investigation Specific Environmental
+Protection Measures
+
+GEO-1: Southline will prepare a geotechnical engineering study prior to the final Project design to
+identify site-specific geological conditions and potential geological hazards. The data collected from the
+study will be used to guide sound engineering practices and mitigate potential geological hazards.
+
+5.2 Additional Environmental Protection Measures
+
+GENERAL
+
+STA-Ag1: The boundaries of construction activities will be predetermined and staked or flagged prior
+to any construction activity. No permanent markings will be applied to rocks or vegetation.
+
+STA-Ag2: Prior to construction, all construction personnel will be instructed on the protection of cultural
+and ecological resources.
+
+STA-Ag3: All vehicle movement will be restricted to designated access, contracted acquired access,
+or public roads.
+
+STA-Ag10: Unimproved spur roads will be used to the extent practicable in areas where no grading will
+be warranted to access work areas, within the approved ROW. Unimproved spur roads will be used to
+
+15
+
+access a site without specifically blading a road or significantly modifying the landscape. All vehicle
+movement will be restricted to designated access, even if that is unimproved access. Vegetation will be
+crushed where feasible, not cut. For all access types, soil will be compacted, but not removed, except
+when grading requires displacement of surface soil.
+
+NOI-2: Construction equipment will be maintained in good working order in accordance with
+manufacturer’s recommendations.
+
+TRA-Ag1: If any existing roads were to be damaged by Southline or its construction contractor during
+construction activities and/or truck traffic, the road will be repaired.
+
+TR-5: Refueling and storing potentially hazardous materials will not occur within a 500-foot radius
+of a water body, a 200-foot radius of all identified private water wells, and a 400-foot radius of all
+identified municipal or community water wells. If surface disturbance is required to store potentially
+hazardous materials or refuel equipment, these activities will not occur within a 500-foot radius of any
+riparian area or water body. Spill preventive and containment measures or practices will be incorporated
+as needed.
+
+TR-15: Unauthorized vehicles will not be allowed within the construction ROW or along roadsides near
+ROW.
+
+TR-17: Landowners will be notified at least 48 hours prior to the start of construction within 0.25 mile
+of a residence.
+
+CULTURAL RESOURCES PROTECTION
+
+CR-4: Ground-disturbing activities and other proposed Project components will be sited to avoid or
+minimize direct impacts on cultural resources listed as, or potentially eligible for listing as, unique
+archaeological sites, historical resources, or historic properties.
+
+CR-7: Activities will minimize ground surface disturbance within the bounds of significant archaeological
+sites, historical resources, or historic properties.
+
+WILDLIFE PROTECTION
+
+WILD-Ag5: Construction holes left open overnight will be appropriately fenced or covered to prevent
+damage to wildlife or livestock. They will be inspected daily until filled to ensure no wildlife has become
+entrapped.
+
+WILD-Ag7: In construction areas where recontouring is not required, vegetation will be left in place
+wherever possible, to avoid excessive root damage and allow for resprouting.
+
+WILD-7: Surveys for western burrowing owl will also be conducted in Cochise County near agricultural
+fields surrounding the Willcox Playa, and anywhere else throughout the Project where suitable habitat
+occurs. Surveys for western burrowing owls in Arizona will follow the "Burrowing Owl Project
+Clearance Guidance for Landowners."
+
+EROSION CONTROL, SOIL RESOURCE PROTECTION, AND AIR QUALITY
+
+AIR-Ag6: Combustion emissions from mobile sources will be minimized by proper maintenance
+of equipment.
+
+16
+
+EROS-1: Project construction supervisors will be trained on dust control procedures.
+
+EROS-4: Trackout onto paved roads at construction access points must be cleaned up as quickly as
+possible if it extends a cumulative distance of 25 linear feet or more along an area accessible to the public,
+including curbs, gutters, and sidewalks. All trackout/carryout must be cleaned up no later than the end of
+the work day or no later than 8:00 p.m.
+
+EROS-5: Exposed storage piles of soil and other excavated materials will be sprayed with water
+or approved dust suppressants daily as needed, or covered with tarps and/or canvas.
+
+TR-10: Dust suppression techniques will be applied (such as watering construction areas) to prevent
+powdering of soils on roads, maintain firm working surfaces, limit fugitive dust, protect topsoil for
+reclamation, and prevent safety hazards or nuisances on access roads and in construction zones near
+residential and commercial areas and along major highways and interstates. In addition, dirt tracked onto
+paved roads will be removed as needed.
+
+VIS-3: During the construction period, dust suppression measures will be used to minimize the creation
+of dust clouds potentially associated with the use of access roads.
+
+TR-3: All requirements of those entities having jurisdiction over air quality matters will be adhered to.
+Any necessary dust control plans will be developed and permits for construction activities will be
+obtained. Open burning of construction trash will not be allowed, unless permitted by appropriate
+authorities. Excessive exhaust emissions from vehicles and heavy equipment will be prevented by proper
+maintenance.
+
+AIR-Ag1: Project activities will be in compliance with all applicable federal, state, and local laws and
+regulations concerning prevention and control of air pollution during construction and operation.
+
+SPILL PREVENTION, CONTAINMENT, AND COUNTERMEASURES/WASTE
+(HAZARDOUS AND SOLID)
+
+HAZ-Ag4: Personnel, contractors, and transporters involved with hazardous materials management will
+be required to comply with federal and state regulations established for the transportation, storage,
+handling, and disposal of hazardous substances, materials, and wastes. “Hazardous substances" means
+any substance, pollutant, or contaminant that is listed as hazardous under the Comprehensive
+Environmental Response, Compensation, and Liability Act of 1980, as amended.
+
+HAZ-5: In the event of a spill, workers in the immediate area will cease work, begin spill cleanup
+operations, and notify appropriate agencies as required by law and specified in the Spill Prevention,
+Control, and Countermeasures Plan. Southline and its construction contractor(s) are responsible for
+cleanup and assume liability for any and all releases of hazardous substances disposed of on public land,
+in accordance with state, federal, and local laws and regulations. Southline will immediately notify the
+BLM authorized officer of any and all releases of hazardous substances on public land.
+
+HAZ-7: Southline or the applicable contractors will maintain all vehicles in good working order.
+Equipment will be properly tuned and maintained to avoid leaks of fluids.
+
+HAZ-8: Service and refueling procedures will not be conducted within 500 feet of a seep, wash, or other
+water body. Routine service of any vehicles or equipment will not be done within the ROW.
+
+17
+
+VEGETATION PROTECTION
+
+VEG-Ag5: Field presence/absence surveys will be conducted for special status species in locations where
+such species are likely to occur within the Project ROW, and specifically locations where vegetation will
+be impacted, prior to any actual impacts. Surveys will be conducted following established protocols by
+qualified biologists approved by BLM.
+
+VEG-Ag9: Southwest Regional Gap Analysis Project plant associations (communities) that are
+considered to be environmentally sensitive will be included in ground-truthing field surveys, such as
+wetlands, riparian areas, drainages, and special status species habitats, to confirm the presence and extent
+of such communities. If any such sensitive plant communities are identified and documented, the first
+response will be a determination regarding whether the sensitive community can be avoided. If avoidance
+is not possible, a mitigation plan (included as part of the Plant and Wildlife Species Conservation
+Measures Plan) will be developed as needed for those vegetation communities, including options to
+reduce impacts to those communities. Exclusion zones (at least 10 feet around the perimeter of the plant
+community) will be delineated around any such plant communities and marked with flagging.
+Construction monitoring shall be employed around any such sensitive plant communities, and the
+biological monitor shall have the authority to halt any construction activity deemed intrusive and causing
+impacts beyond those stated in the mitigation plan. Any changes in construction plans that occur after the
+Project approval will require additional field presence/absence surveys for such sensitive plant
+communities and will require a variance request from the BLM if such communities are found, and the
+above mitigation measures will apply.
+
+VEG-Ag11: Pre-construction surveys for Chihuahua scurfpea and other special status plant species will
+occur in suitable habitat and ground disturbance in occupied habitat will be avoided to the extent
+practicable. FWS shall be contacted prior to disturbance if any Chihuahua scurfpea are located.
+
+NOXIOUS WEED CONTROL
+
+PPC-3: Also, in compliance with Executive Order 13112 regarding invasive species, all earthmoving and
+hauling equipment shall be washed at the contractor’s storage facility prior to arriving onsite to prevent
+the introduction of invasive species.
+
+PPC-4: To prevent invasive species propagules from leaving the site, the contractor shall inspect all
+construction equipment and remove all attached plant/vegetation and soil/mud debris identified prior
+to leaving the construction site.
+
+VEG-Ag14: The responsible Project operator will comply with agency requirements regarding
+management of noxious weeds within the ROW, along access roads, and at temporary use areas
+(e.g., cleaning equipment to prevent spread of noxious weeds). Chemical treatment within or adjacent
+to the ROW generally would be limited only to areas with noxious weeds, and only if absolutely
+necessary.
+
+NOX-2: Where feasible, construction will begin in weed-free areas before operating in weed-infested
+areas. The feasibility of this measure will be determined after survey data are complete to identify weed-
+free and weed-infested areas.
+
+NOX-4: All movement of construction vehicles outside the ROW will be restricted to predesignated
+access, contractor-acquired access, or public roads. All construction sites and access roads will be clearly
+marked or flagged at the outer limits prior to the onset of any surface-disturbing activity. All personnel
+shall be informed their activities must be confined within the marked or flagged areas (see ROD POD
+Appendix A1).
+
+18
+
+WATER RESOURCES PROTECTION
+
+WAT-2: Construction equipment will be kept out of flowing stream channels, unless feasible alternatives
+are not available. Structures will be located to avoid active drainage channels, especially downstream
+of steep slope areas, to minimize the potential for damage by flash flooding and mud and debris flows.
+
+WAT-Ag5: The crossings of ephemeral washes or streams will be limited to vehicular crossings along
+spur roads or access roads as described in the POD.
+
+WAT-Ag7: All stream crossings will be made as close as possible to right angles to the streams and
+washes.
+
+SW-7: Migration of construction-related sediment to all adjacent surface water bodies will be prevented.
+
+SW-11: The construction schedule may be modified to minimize construction activities in rain-soaked
+or muddy conditions. Existing roads and trails will be used for travel to the maximum extent feasible
+unless otherwise authorized. During wet road conditions, any ruts deeper than 4 inches remaining on the
+roads from the Project will be repaired at the landowner’s discretion.
+
+FARM-Ag1: Water facilities (e.g., tanks, developed springs, water lines, wells, etc.) will be repaired
+or replaced to their predisturbed condition if they are damaged or destroyed by construction, operation,
+or maintenance activities, as required by the landowner or land management agency. Temporary watering
+facilities will be provided for wildlife and livestock until permanent repair or replacement is complete.
+
+HEALTH, SAFETY, AND FIRE PROTECTION
+
+FP-1: Construction crews will provide immediate initial attack on all fires (if safe to do so) that start
+on the construction site. Crews will only suppress fires within their training and equipment capabilities.
+If fire activity increases beyond the limits of their tools and personnel capability to safely suppress, all
+crew members will evacuate the area using pre-determined evacuation procedures.
+
+FP-2: Construction crews will notify fire authorities immediately of any fire start that escapes initial
+attack containment and provide an accurate location and status of the fire.
+
+FP-3: All vehicles and construction equipment will be equipped with fire extinguishers, shovels, and
+water. Fire extinguishers will be rated ABC-10 pound minimum for equipment and ABC-2.5 pound
+minimum for vehicles.
+
+FP-5: Spark arrestors will be used at all times on all internal and external combustion engines. Spark
+arrestors will be regularly maintained and meet Society of Automotive Engineers Recommended
+Practices J335 or J350.
+
+FP-6: All vehicle use will be restricted to designated roads and contractor acquired access; parking areas
+will be located within areas with vegetation less than 8 inches. Undercarriages will be inspected daily
+to ensure against vegetation build up that could initiate a fire. Construction activities will be contained
+within predetermined boundaries.
+
+FP-8: Smoking is prohibited while operating machinery or equipment and when operating or moving
+through areas of tall vegetation.
+
+FP-9: Smoking is only allowed in designated areas with cleared vegetation. Tobacco products must
+be discarded in approved containers.
+
+19
+
+FP-10: All fires (including open burning of construction trash) and barbeques are prohibited within the
+ROW and on construction sites.
+
+FP-11: Any crew member assigned to the field will receive training in emergency response to fires in the
+event of a fire onsite.
+
+FP-12: All flammable materials not needed on the work site or not in use will be removed from operation
+areas to a minimum of 10 feet to reduce incidence of fire starts.
+
+FP-13: No burning activities (campfires, barbeques, open burning) will be allowed on the ROW, material
+yards/staging areas, substations, access roads, or other construction areas.
+
+FP-23: The construction contractor(s) will ensure continuous access will be provided to emergency
+vehicles along all access roads. Access roads will be maintained in a manner that they may be used as fire
+breaks in the event of a fire start.
+
+FP-24: All motorized vehicles and equipment in each active construction area will have:
+
+• One long-handled round-point shovel.
+• One axe or Pulaski tool.
+• Fire extinguishers (rated ABC-10 pound minimum for equipment and ABC-2.5 pound minimum
+for vehicles). One 5-gallon water back-pack filled with water or other extinguishing solution.
+• Hard hat, work gloves, and eye protection for all crew members.
+
+20
+
+================================================================================
+Document: Geotech CX.pdf
+Type: CE | Category: decision | Main: YES
+================================================================================
+
+--- PAGE 1-6 ---
+
+NEPA COMPLIANCE RECORD
+Categorical Exclusion (CX)
+
+Bureau of Land Management
+Safford Field Office
+Safford, AZ
+
+1. PROJECT INFORMATION
+0033 .
+NEPA #: DOI-BLM-AZ-G010-2018-####-CX
+Serial/Case File No.: AZA03568101
+Title: Geotechnical Investigation for the Southline Transmission Line Project approved on August 22, 2016
+Proposed Action/Type: The proposed action involves the construction of six boreholes at marked structure
+locations within the new build section of the Southline 345 kilovolt (kV) Transmission Line Project area on
+Bureau of Land Management-administered lands in Arizona.
+Proposed Action (Who, What, When, Where, How): Southline Transmission, LLC, a subsidiary of
+Hunt Power, L.P., holds BLM right-of-way authorization AZA035681 to build portions of a 240 miles of
+new double-circuit 345-kilovolt (kV) transmission line along with substation expansions, access roads, and
+associated infrastructure on BLM-administered public lands, other Federal lands, State lands, and private
+lands through New Mexico and Arizona. Also included is an Upgrade Section which is approximately 120
+miles of Western Area Power Administration's (Western) existing 115-kV transmission line that is being
+upgraded to a double-circuit 230-kV transmission line as well as substation expansions, access roads, and
+associated infrastructure. The transmission line will be designed to collect and transmit electricity across
+southern New Mexico and southern Arizona.
+
+Impacts associated with the geotechnical investigation are also mitigated as per Chapter 5 (Environmental
+Mitigation Measures) of Attachment A and Appendices A and B of the 'Southline Transmission Line Project
+NEPA Plan Of Development, Volume I dated April 2016.'
+
+On May 1, 2018, Southline Transmission, LLC, submitted an application for a right-of-way grant (Serial
+Number AZA03568101) from the Bureau of Land Management (BLM) for geotechnical investigation along
+the new build section of the Southline 345 kilovolt (kV) Transmission Line Project (Project) route in
+Cochise County, Arizona. Geotechnical site investigations will be completed to determine the soil and
+bedrock engineering properties. The investigations entails drilling borings to obtain the soil and/or bedrock
+samples for analysis in order to provide detailed engineering and design for the transmission line tower
+foundation. The site investigation would consist of six boreholes, one at each marked structure location as
+noted on Attachment 1-Legal Land Description, and Attachment 2-geotechnical plan of development
+(POD) maps pages 3, 5, &amp; 6). Boring locations have been placed to avoid all required biological resources
+and all archaeological sites that were identified during field surveys. (POD page 13, section 3.1-Sensitive
+Resources)
+
+Temporary ground disturbance associated with the geotechnical investigation will occur in the boring work
+areas and in some cases along access routes to a boring work area. The bore holes will range from 4 to 8
+inches in diameter, and each of the six bore work areas will be approximately 30 x 60 feet for a total of
+2.4 acres. In rare cases, there may be temporary minor disturbance outside the bore work area, however, the
+maximum disturbance at each bore site is anticipated to be less than 0.4 acres.
+
+Borings drilled in areas where livestock, pedestrian, or vehicular traffic may occur will be plugged or capped
+immediately upon completion of the boring and flush with the adjacent ground surface. Temporary cover
+will be provided for all boreholes left open overnight or while activities in the area of drilling are
+temporarily halted; and, each bore hole will be filled upon completion of drilling and/or final groundwater
+level measurement and will meet State, Federal, and local laws.
+1
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+0033
+Access to each boring will be restricted to existing paved or dirt road and will include some crushing of
+vegetation from minor mounts of overland travel of the drill equipment and vehicles to and from each
+borehole location. No grading to geotechnical sites will occur.
+
+The bore holes will be drilled using truck-, track-, or ATV-mounted drilling rigs (see POD pages 11, 12, &amp;
+13). Drilling vehicles can be equipped with hollow-stem augers, solid stem augers, and mud rotary/coring
+drilling systems. Other vehicles and equipment will also be used to support geotechnical testing and may
+include a water truck or support vehicle, pickup truck or utility vehicle, and possibly another support pickup
+truck. Equipment and vehicles will be positioned to minimize damage to vegetation and soils. Excavated
+soils and other work materials will be properly contained to minimize the spread of material to outside the
+work area.
+
+• Truck-mounted drilling rigs are typically 30 feet long, 8.5 feet wide, and 12 feet high with mast
+down and 34 feet high with mast up and have a gross vehicle weight of approximately 30,000
+pounds with 30 to 50 pounds per square inch (psi) ground pressure.
+
+• ATV rigs are typically 25 feet long, 8.5 feet wide, and 15 feet high with mast down and 25 feet high
+with mast up, and have rubber balloon tires allowing low ground pressure and less ground
+disturbance.
+
+• Track-mounted drilling rigs are approximately 8,000 pounds with rubber tracks resulting in
+approximately 10 psi ground pressure and are typically 22 feet long, 6 feet wide, and 22 feet high
+with mast up.
+
+Prior to drill rig mobilization to predetermined access points, field verification such as access approval,
+surface conditions of access path, ground and aerial obstacles, marked underground utilities, and overhead
+utilities will be performed to confirm existing conditions will accommodate the safe access of drill rig and
+employees.
+
+See POD pages 15 thru 20 for the selected Proponent Committed Environmental Measures (PCEM) that will
+be implemented during geotechnical exploration activities to minimize potential impacts on resources and to
+ensure regulatory compliance. Application of these PCEMs will minimize specific impacts on
+environmental and cultural resources from the implementation of the geotechnical investigation program.
+Map and Legal Land Descriptions are attached.
+Applicant (if any): Southwest Transmission LLC
+Applicable CX: 516 DM 11.9, E (19) Issuance of short-term (3 years or less) rights-of-way or land use
+authorizations for such uses as storage sites, apiary sites, and construction sites where the proposal includes
+rehabilitation to restore the land to its natural or original condition.
+
+II. PLAN CONFORMANCE REVIEW
+
+This proposed action is subject to the following land use plan: Safford District Resource Management
+Plan (RMP), Final Environmental Impact Statement (August 1991), and partial Records of Decision
+approved September 1992 and July 1994.
+
+2
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+0033
+Page 22 of the RMP states "Rights-of-way, leases, and permits will be considered on a case-by-case basis,
+in accordance with the decision of this RMP."
+
+Project Lead
+6/14/18
+Date
+
+III. RESOURCE PROGRAM CONSULTATION &amp; COORDINATION
+
+III (A). CX Applicability/ Exception Review
+Date Internal Scoping Initiated:
+Date Internal Scoping Closed:
+Applies?
+Yes No
+NAME
+EXTRAORDINARY CIRCUMSTANCE (EXCEPTION)
+SIGNATURE*
+DATE
+*Signature indicates that I have reviewed the project to determine the applicability of an extraordinary circumstance.
+In accordance with 43 CFR 45.215, if any of the following extraordinary circumstances below are applicable to the action being
+considered, either an EA or EIS must be prepared for the action.
+[ ] [ ]
+§45.215(a) Have significant impacts on public health or safety.
+6/14/2018
+The proponent would be provided a Health and Safety Plan which would
+address the hazards that may be encountered during construction, and
+would detail employee safety training procedures that would be used,
+and safety control that would be put in place to minimize the chance of
+an accident occurring. The area is sparsely populated and is not adjacent
+to residential areas. The impacts would be negligible to minor.
+Al
+Val fake
+[ ] [ ]
+§45.215(b) Have significant effects on such unique geographic
+characteristics as prime farmlands; sole or principal drinking water
+aquifers; wetlands (EO 11990); or floodplains (EO 11988).
+6/14/2018
+During the geotechnical investigation, there will be no placement of
+structure(s). The boreholes will be adjacent to the approved right-of-way
+which was analyzed in the Final Environmental Impact Statement (FEIS)
+dated October 2015. Proper implementation of the PCEMs and controls
+would prevent discharge of pollutants to water resources.
+[ ] [ ]
+§45.215(b) Have significant effects on such natural resources and unique
+geographic characteristics as park, recreation or refuge lands; national
+natural landmarks; national monuments; wilderness areas; wild or scenic
+rivers; or other ecologically significant or critical areas.
+6/14/2018
+Impacts would be negligible to minor because the routes would follow
+existing facilities which includes crossing Wilcox Playa. Wilcox Playa
+provides seasonal habitat which is also dependent on precipitation. Due
+to the crossing of the Playa seasonal restrictions are in place along with
+mitigation measures outlined in the Southline Transmission Line EIS and
+ROD and stipulations in the right-of-way grant.
+3
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+B
+0053
+[x] [ ]
+§45.215(b) Have significant impacts on properties listed, or eligible for
+listing, on the National Register of Historic Places, or on such unique
+geographic characteristics as historic or cultural resources.
+§45.215(i) Violate a Federal law, or a State, local, or tribal law or
+requirement imposed for the protection of the environment.
+§45.215(k) Limit access to and ceremonial use of Indian sacred sites on
+Federal lands by Indian religious practitioners or significantly adversely
+affect the physical integrity of such sacred sites (EO 13007).
+6/14/2018
+The proposed action to drill bore holes for geotechnical studies will avoid
+all known cultural sites which were identified in a BLM Class III cultural
+survey and therefore no effects or impacts are anticipated.
+[ ] [ ]
+§45.215(h) Have significant impacts on species listed, or proposed to be
+listed, on the List of Endangered or Threatened Species, or have
+significant effects on designated Critical Habitat for these species.
+§45.215(b) Have significant impacts on migratory birds; or other
+ecologically significant or critical areas.
+6/14/2018
+Impacts on wildlife would be minor. The Project has been sited to avoid
+ground disturbance and erosion control in both designated and proposed
+critical habitat. PCEMs to minimize impacts to wildlife habitat would
+include limiting the area of disturbance, restoring disturbed areas, and
+avoiding aquatic and riparian areas.
+[ ] [ ]
+§45.215(1) Contribute to the introduction, continued existence, or spread
+of noxious weeds or non-native invasive species known to occur in the
+area or actions that may promote the introduction, growth, or expansion
+of the range of such species (Federal Noxious Weed Control Act and
+ΕΟ 13112).
+6/14/2018
+BLM grant stipulations require controlling the spread of invasive species
+and Proponent Committed Environmental Measures (PCEM) includes a
+measure to limit invasive species establishment and spread. Noxious
+Weed Management Plan would be developed and implemented, and
+construction equipment would be washed prior to moving onto the
+construction site to limit introduction and spread of noxious weeds.
+Impacts would be minor.
+[ ] [ ]
+§45.215(c) Have highly controversial environmental effects or involve
+unresolved conflicts concerning alternative uses of available resources
+[42 USC 4332(2)(E)].
+6/14/2018
+The proposed action to bore holes for geotechnical studies does not have
+highly controversial environmental effects or involve unresolved conflicts.
+[ ] [ ]
+§45.215(d) Have highly uncertain and potentially significant
+environmental effects or involve unique or unknown environmental risks.
+6/14/2018
+The proposed action to bore holes for geotechnical studies does not have
+uncertainty nor the potential for significant environmental effects.
+Additionally the Southline 345kV transmission line project for which the
+geotechnical studies are benefiting, prepared an Environmental Impact
+Study and the BLM issued a Record of Decision and therefore eliminates
+all uncertainty and unknowns.
+4
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+0033
+[ ] [ ]
+§45.215(e) Establish a precedent for future action or represent a decision
+in principle about future actions with potentially significant
+environmental effects.
+6/14/2018
+This action does not set a precedent for future action nor does it
+represent a decision in principle about future actions as bore holes for
+geotechnical studies is a common practice.
+[ ] [ ]
+§45.215(f) Have a direct relationship to other actions with individually
+insignificant but cumulatively significant environmental effects.
+6/14/2018
+The proposed action to drill bore holes for geotechnical studies does not
+cumulate effects to the level of significance due to the nature of the
+proposed action.
+[ ] [x]
+§45.215(j) Have a disproportionately high and adverse effect on low
+income or minority populations (ΕΟ 12898).
+6/14/2018
+The area is sparsely populated (rural), and there are no residential areas
+adjacent to the project area.
+
+III (B). Critical Resources Review
+Critical Resource
+Specialist
+Affected,
+but less
+than
+Significant
+Comments
+Signature
+Date
+Yes No
+Yes No
+1. NRHP/Cultural
+X
+7/11/18
+2. TES Species
+X
+Els
+3. Floodplains/Wetlands
+X
+"
+4. Invasive Species
+X
+7/18
+Comments/Attachments: The case of the proposed action was analyzed in
+The Southline Transmission Line Project EIS (Record of Decision signed
+April 21, 2016) in which all of the above resources were analyzed and
+mitigated as needed. The gentech proposal avoids all resources conflicts
+and therefore mitigation is not needed.
+ZIS NEPA# DOI-BLM-NM-2000-2016-0142-EIS
+
+IV. FINAL REVIEW
+
+This proposed action qualifies as a categorical exclusion under the National Environmental Policy Act in
+accordance with 516 DM 11.9, E (19) Issuance of short-term (3 years or less) rights-of-way or land
+5
+BLM Safford Field Office
+CX NEPA Compliance Record
+DOI-BLM-AZ-G010-2018-####-CX
+0033
+use authorizations for such uses as storage sites, apiary sites, and construction sites where the
+proposal includes rehabilitation to restore the land to its natural or original condition.
+And
+In accordance with 43 CFR 46.215, this categorical exclusion is appropriate for the proposed action
+because no extraordinary circumstances apply:
+
+Mitigation Measures/Stipulations:
+[List using bullets points; if none, state "None" or "N/A"]
+
+NEPA Coordinator:
+Date: 6/22/18
+Assistant Field Manager:
+Recommended
+Rebula hopez
+Date: 7/2/18
+V. DECISION
+Authorized Official:
+Satt lake
+Date: 7/16/18
+Scott C. Cooke
+Field Manager
+6
+
+================================================================================
+Document: Maps.pdf
+Type: OTHER | Category: other | Main: NO
+================================================================================
+
+--- PAGE 1-3 ---
+
+SUPERSTITION
+MOUNTAINS
+60
+PINAL
+GILA
+GLOBE
+Saguaro
+Tortolita
+Marana
+IRONWOOD FOREST N.M.
+Rattlesnake
+MARANA
+ALTAR
+V ALLEY
+Upgrade New Build
+191
+Attachment 3
+ARIZONA
+NEW MEXICO
+GILA MOUNTAINS
+GREENLEE
+GRA HAM
+SAFFORD
+CATRON
+MOGOLLON
+MOUNT AINS
+180
+BLACK RANGE
+GALIURO
+MOUNTAINS
+PINALENO
+MOUNTAINS
+191
+WILLCOX
+Adams
+Tap
+SAN SIMON VALLEY
+SILVER CITY
+GRANT
+70
+Pantano
+10
+VELONCILLO MOUNTAINS
+Hidalgo
+LORDSBURG
+10
+LUNA
+Apache
+BENSON
+COCHISE
+CHIRICAHUA
+MOUNTAINS
+HIDALGO HACHITA
+SAGUARO N.P.
+WEST
+De Moss Petrie
+Del Bac
+Nogales
+SANTA CAT ALINA
+MOUNTAINS
+Tucson
+TUCSON SAGUARO N.P.
+Vail
+EAST
+PIMA
+19
+SANA CRUZ
+ANTA RITA MOUNTAINS
+Fort
+PATAGONIA
+MOUNTAINS
+Huachuca
+Military
+191
+Reservation MULE
+MOUNTAINS
+Figure 1. Project overview.
+80
+PELONCILED MOUNTAINS
+3
+PLAYAS VALLEY
+SIERRA
+25
+SAN ANDRES MOUNTAINS IN
+ORGAN MOUNTAINS
+DESERT PEAKS N.M.
+Midpoint
+North
+LAS CRUCES
+DEMING
+FLORIDA
+MOUNTAINS
+COLUMBUS
+Legend
+Substation
+AZ New Build Route
+Project Route
+Project Substation
+Interstate
+US or State Highway
+Major Road
+Land Ownership
+Tribal
+Bureau of
+Land Management
+Bureau of
+Reclamation
+Department of Defense
+National Park Service
+Private/Other
+State
+County
+US Forest Service
+US Fish &amp; Wildlife
+National Park/
+DOÑA A NA
+National Monument/
+National Conservation
+Area
+ORGAN MOUNTAINS
+DESERT PEAKS N.M.
+Afton
+EL PASO
+Utah
+Colorado
+Nevada
+Map Extent
+0
+New Mexico
+Arizona
+Miles
+25
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 1:
+Project Overview.
+AZ Gactach Project Overview mid-Revised 4/23/2018
+MP095
+191
+Fisher
+Hills
+MP090
+Diaw
+Geld
+MP355
+13
+Gole
+10
+MP360
+14
+DOS CABEZAS MOUNTAINS
+WILDERNESS
+C
+ABEZAS
+MOUNTAINS
+MP340
+MP345
+MP365
+MP365
+FAN
+MP370
+15 16
+17
+18
+Figure 2a. Geotechnical drilling locations and access roads.
+Butterfield Tra
+MP375
+MP375
+SAN
+19
+MP380
+Butterfield Trail
+ی
+M
+Graham County
+Greenlee Countys
+Cochise County
+20
+MP385
+--
+VAL
+Simen
+7
+PELONCILLO MOUNTAINS
+ELONC
+21
+E
+ARIZONA
+Hidalgo County
+NEW MEXICO
+MP390
+NEW MEXIKAR
+MP-0
+AINS
+MOUNTA
+Legend
+AZ Route
+Boring Location
+Access Route
+National Historic/
+Scenic Trail
+Bureau of
+Land Management
+National Park Service
+Private/Other
+State
+US Forest Service
+1
+Sheet 1 of 2
+0
+Miles
+2
+AZ NB Geitech Locations mxd-Revised 4/26/2018
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 2a:
+Geotechnical drilling
+locations and access
+roads.
+MOUN
+N
+MP320
+S
+10
+MP330
+MP335
+ULPHUR
+MP340
+12
+11
+MP345
+WILLCOX
+MP340
+WILLCOX
+PLAYA
+10
+MP330
+9
+(186)
+8
+WILLCOX
+PLAYA
+MP065
+WILLCOX
+DRY LAKE
+6
+BOMBING
+RANGE
+Cochise
+MP325
+Draw
+MP060
+Apache
+Figure 2b. Geotechnical drilling locations and access roads.
+MP055
+191
+5
+MP335
+MP350
+DOS
+Gold
+MP355
+13
+CABEZAS
+MP340
+Cab
+Butterfield Trail
+------
+10
+MP360
+14
+DOS CABEZAS MOUNTAINS
+WILDERNESS
+MOUNTAINS
+MP345
+Idea
+Moge
+MP365
+MP365
+15
+16
+Legend
+AZ Route
+Boring Location
+Access Route
+Existing Substation
+Buffalo Soldier
+Electronic Testing Range
+National Historic/
+Scenic Trail
+Bureau of
+Land Management
+Department of Defense
+National Park Service
+Private/Other
+State
+US Forest Service
+Arizona Game and Fish
+Department Wildlife
+Watching Area
+2
+Sheet 2 of 2
+0
+Miles
+2
+AZ MB Geotech Locations med Revised 4/26/2018
+SOUTHLINE
+TRANSMISSION PROJECT
+Figure 2b:
+Geotechnical drilling
+locations and access
+roads.</code></pre>
+</div>
+</div>
+</section>
+<section id="view-specific-document" class="level2">
+<h2 class="anchored" data-anchor-id="view-specific-document">View Specific Document</h2>
+<div class="cell" data-execution_count="13">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Get document IDs for the project</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>docs <span class="op">=</span> ce_documents[ce_documents[<span class="st">"project_id"</span>] <span class="op">==</span> project_id]</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>docs[[<span class="st">"document_id"</span>, <span class="st">"file_name"</span>, <span class="st">"main_document"</span>, <span class="st">"document_type"</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">document_id</th>
+<th data-quarto-table-cell-role="th">file_name</th>
+<th data-quarto-table-cell-role="th">main_document</th>
+<th data-quarto-table-cell-role="th">document_type</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">73227</td>
+<td>65c6bb9f-ea78-d49b-3513-f5fc9c09da57</td>
+<td>DOI-BLM-CO-N010-2021-0043-CX-DR_Road 1509 Emergency Repair_for web.pdf</td>
+<td>NO</td>
+<td>OTHER</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">73228</td>
+<td>25334806-7f45-75fb-d4b0-cad8e1e5567a</td>
+<td>DOI-BLM-CO-N010-2021-0043-CX_Road 1509 Emergency Repair_for web.pdf</td>
+<td>YES</td>
+<td>CE</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="cell" data-execution_count="14">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set document_id and view specific pages</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>document_id <span class="op">=</span> docs.iloc[<span class="dv">0</span>][<span class="st">"document_id"</span>]  <span class="co"># First document</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>view_pages(document_id, start_page<span class="op">=</span><span class="dv">1</span>, end_page<span class="op">=</span><span class="dv">5</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+================================================================================
+Document: DOI-BLM-CO-N010-2021-0043-CX-DR_Road 1509 Emergency Repair_for web.pdf
+Type: OTHER | Category: other | Main: NO
+================================================================================
+Page 1 not found</code></pre>
+</div>
+</div>
+</section>
+<section id="search-for-text" class="level2">
+<h2 class="anchored" data-anchor-id="search-for-text">Search for Text</h2>
+<div class="cell" data-execution_count="32">
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Search for dates or specific text</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>search_pages(project_id, <span class="st">"22"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Found 1 pages containing '22'
+--------------------------------------------------------------------------------
+
+Document: cx-007803.pdf | Page: 1-4
+...of any spilled material shall
+begin immediately.
+
+10. All potential pitfalls to wildlife will be covered or filled when not attended.
+
+Limetto King acting for
+Linda Hughes
+NEPA Compliance Officer
+
+11/22/2011
+Date
+
+5</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">document_id</th>
+<th data-quarto-table-cell-role="th">page_number</th>
+<th data-quarto-table-cell-role="th">page_text</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">73021</td>
+<td>d0da2533-5bbd-70b4-796f-d8d0145303fe</td>
+<td>1-4</td>
+<td>RECORD OF CATEGORICAL EXCLUSION DETERMINATION\n\nA. Proposed Action: Western proposes to conduct pole replacement along the\nexisting Electrical District #2-Saguaro #1 115-kV transmission line. This will consist\nof removing ninety-five (95) deteriorated wood poles by lifting or pulling them from\nthe ground, auger a 24" hole and installing new wood pole structures and associated\nhardware. Western will use dozers, backhoes, front end loaders, dump trucks, trailer\ntrucks, water trucks, bucket trucks, crew trucks and pickup trucks to bring crews and\nequipment to the project area. This work is necessary to maintain the safety and\nreliability of the bulk electrical system.\n\nThe attached maps show the project areas are situated within Sections 30 &amp; 31\nTownship 6 South Range 8 East, Sections 6, 7, 18, 19, 30 &amp; 31 Township 7 South\nRange 8 East, Sections 6, 7, 18, 19, 30 &amp; 31 Township 8 South Range 8 East,\nSections 6, 7, 18, 19, 30, 31, 32, 33, 34, 35 &amp; 36 Township 9 South Range 8 East,\nSections 30, 31, 32 &amp; 33 Township 9 South Range 9 East, Sections 3, 4, 10, 11 &amp;\n12 Township 10 South Range 9 East, Sections 7, 15, 16 &amp; 17 Township 10 South\nRange 10 East on the Gila and Salt River Meridian, Pinal County, Arizona. Work will\nbe conducted within Western's right of way. The corresponding U.S.G.S. 7.5-minute\ntopographic maps are Eloy North, Eloy South, Friendly Corners, Samaniego Hills &amp;\nRed Rock, Arizona. This work is planned to begin the month of November, 2011.\n\nB. Categorical Exclusion Applied: 10 CFR, Part 1021, Subpart D, Appendix B, B1.3:\n"Routine maintenance activities and custodial services for buildings, structures,\nrights-of-way, infrastructures (e.g., pathways, roads, and railroads), vehicles and\nequipment, and localized vegetation and pest control, during which operations may\nbe suspended and resumed. Custodial services are activities to preserve facility\nappearance, working conditions, and sanitation, such as cleaning, window washing,\nlawn mowing, trash collection, painting, and snow removal. Routine maintenance\nactivities, corrective (that is, repair), preventive, and predictive, are required to\nmaintain and preserve buildings, structures, infrastructures, and equipment\nin a condition suitable for a facility to be used for its designated purpose. Routine\nmaintenance may result in replacement to the extent that replacement is in kind and\nis not a substantial upgrade or improvement. In kind replacement includes\ninstallation of new components to replace outmoded components if the replacement\ndoes not result in a significant change in the expected useful life, design capacity, or\nfunction of the facility. Routine maintenance does not include replacement of a major\ncomponent that significantly extends the originally intended useful life of a facility\n(for example, it does not include the replacement of a reactor vessel near the end of\nits useful life). Routine maintenance activities include, but are not limited to:...(m)\nRepair and maintenance of transmission facilities, including replacement of\nconductors of the same nominal voltage, poles, circuit breakers, transformers,\ncapacitors, crossarms, insulators, and downed transmission lines, in accordance,\n\n2\nwhere appropriate, with 40 CFR part 761 (Polychlorinated Biphenyls Manufacturing,\nProcessing, Distribution in Commerce, and Use Prohibitions)...."\n\nC. Regulatory Requirements in 10 CFR 1021.410 (b):\n\n1. The proposed action fits within a class of actions that is listed in Appendix B to\nSubpart D.\n\na. The proposed action was reviewed for the requirements of the Endangered\nSpecies Act, the National Environmental Policy Act (NEPA), the National\nHistoric Preservation Act, and all applicable Department of Energy Orders.\n\nb. The proposed action does not require the siting, construction, or major\nexpansion of waste storage, disposal, recovery, or treatment facilities.\n\nc. The proposed action does not disturb hazardous substances, pollutants,\ncontaminates, or CERLA-excluded petroleum and natural gas products that\npre-exist in the environment such that there would be uncontrolled and\nunpermitted releases.\n\nd. Should archaeological resources or vertebrate fossils be discovered during\nimplementation of the project all surface disturbing activities in the area of\ndiscovery shall cease. An archaeologist will evaluate the discovery and\nprovide recommendations to the NEPA Compliance Officer. Surface\ndisturbing activities shall not resume in the area until permission is obtained\nfrom the NEPA Compliance Officer.\n\n2. There are no extraordinary circumstances related to the proposal that may affect\nthe significance of the environmental effects of the proposal; and\n\n3. The proposal is not "connected" to other actions with potentially significant\nimpacts, is not related to other proposed actions with cumulatively significant\nimpacts, and is not precluded by 40 CFR 1506.1 or 10 CFR 1021.211.\n\nD. Determination: Based on my review of information conveyed to me and in my\npossession (or attached) concerning the proposed action, as NEPA Compliance\nOfficer (as authorized under DOE Order 451.1A), I have determined that the\nproposed action fits within the specified class of actions, the other regulatory\nrequirements set forth above are met, and the proposed action is hereby\ncategorically excluded from further NEPA review.\n\n3\nE. Special Conditions:\n\n1. An Archaeological monitor will be present during all construction activities.\nWestern will hold an onsite cultural awareness training session so that\nconstruction personnel are aware of avoidance areas. The cultural monitor\nwill mark avoidance areas within the transmission line corridor near\nstructures, 13/1, 13/3, 18/4, 39/4, 39/5 &amp; 44/5. The markings will be removed\nat when ground disturbing activities in the area have been completed.\n\n2. A Pre-Construction Biological Inspection of the project area will locate\nareas to avoid. The qualified biologist will be responsible for overseeing\ncompliance with the avoidance and minimization measures for any desert\ntortoise, Tucson shovel-nosed snake, or active bird nests located.\n\n3. A Qualified Biologist will be present during all project activities that have\npotential to disturb soil, vegetation, and wildlife in the desert shrubland\nportions of the alignment. Western will hold an onsite biological awareness\ntraining session so that construction personnel are aware of avoidance\nareas.\n\n4. The Biological Monitor will be authorized by Western to temporarily halt\nconstruction activity if needed to prevent potential harm to Tucson shovel-\nnosed snakes, desert tortoise, or nesting birds.\n\n5. The work supervisor will coordinate with the Biological Monitor on planned\nor ongoing activities in desert shrubland habitat and any specific\nmonitoring requirements for each activity in those areas.\n\n6. If an active burrowing owl burrow is observed within the project area, the\nBiological Monitor will designate and flag an appropriate buffer area\naround the burrow where activities will not be permitted.\n\n7. All trash and food items shall be properly contained within vehicles or\nclosed containers. The contents shall be regularly removed from the\nproject area to reduce the attractiveness of the area to ravens and other\npredators.\n\n8. No pets will be permitted on the work site.\n\n9. All construction refuse will be removed from the site upon completion of\nconstruction. No raw cement/concrete or washings thereof, asphalt, paint,\noil, solvents, or other petroleum products, or any other substances that\ncould be hazardous to vegetation or wildlife resources, shall be disposed\n\n4\nof on-site or allowed to spill onto soil. Cleanup of any spilled material shall\nbegin immediately.\n\n10. All potential pitfalls to wildlife will be covered or filled when not attended.\n\nLimetto King acting for\nLinda Hughes\nNEPA Compliance Officer\n\n11/22/2011\nDate\n\n5</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+<div class="cell" data-execution_count="16">
+<div class="sourceCode cell-code" id="cb20"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Search for decision-related text</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>search_pages(project_id, <span class="st">"approved"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+Found 2 pages containing 'approved'
+--------------------------------------------------------------------------------
+
+Document: DOI-BLM-CO-N010-2021-0043-CX-DR_Road 1509 Emergency Repair_for web.pdf | Page: 1-4
+...e emergency repair of BLM Road 1509 in Moffat County, Colorado,
+near the Little Snake/White River Field Office boundary. The repair is expected to consist of
+layering compatible rock material and BLM-approved Geotech material, then installing a culvert
+and armoring the inlet and outlet of the culvert with local rock material from a nearby rock pile,
+within BLM standards. The road repairs are expected to b...
+
+Document: DOI-BLM-CO-N010-2021-0043-CX_Road 1509 Emergency Repair_for web.pdf | Page: 1-11
+...safety.
+Conformance with the Land Use Plan
+The Proposed Action is subject to and is in conformance (43 CFR 1610.5) with the following
+land use plan:
+Land Use Plan: Little Snake Record of Decision and Approved Resource Management Plan
+(ROD/RMP)
+Date Approved: October 2011
+Decision Language: Transportation and Access and Travel Management, p. RMP-53 to RMP-
+54
+“Designation and authorization of OHV use will ...</code></pre>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+
+
+<table class="dataframe table table-sm table-striped small" data-quarto-postprocess="true" data-border="1">
+<thead>
+<tr class="header">
+<th data-quarto-table-cell-role="th"></th>
+<th data-quarto-table-cell-role="th">document_id</th>
+<th data-quarto-table-cell-role="th">page_number</th>
+<th data-quarto-table-cell-role="th">page_text</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td data-quarto-table-cell-role="th">4688</td>
+<td>65c6bb9f-ea78-d49b-3513-f5fc9c09da57</td>
+<td>1-4</td>
+<td>**Page 1**\nU.S. Department of the Interior\nBureau of Land Management\nLittle Snake Field Office\n455 Emerson St.\nCraig, CO 81625\n\nDECISION RECORD\n\nEmergency Repair of Road Damage on BLM Road 1509\nDOI-BLM-CO-N010-2021-0043-CX\n\nDecision\nIt is my decision to implement the Proposed Action, as described in DOI-BLM-CO-N010-2021-\n0043-CX, authorizing the emergency repair of BLM Road 1509 in Moffat County, Colorado,\nnear the Little Snake/White River Field Office boundary. The repair is expected to consist of\nlayering compatible rock material and BLM-approved Geotech material, then installing a culvert\nand armoring the inlet and outlet of the culvert with local rock material from a nearby rock pile,\nwithin BLM standards. The road repairs are expected to be completed by a contractor using\nstandard road maintenance equipment (e.g., excavators, dozers, wheel loaders, and motor\ngraders), and is expected to be completed by August 2021.\n\nThe road repair is expected to take approximately one week to complete, with potential road\nclosure for one to two days if necessary. The repairs will require the removal of topsoil;\ndisturbance will be no more than three feet below grade. On-site material will be used where\npossible, including native rock from a rock pile approximately one mile northeast of the failure\nsite (CX Appendix A, Figure 1). Construction activities will occur within 50 feet of the existing\nroad. Some road closures during construction are unavoidable but the BLM will communicate\nthese closures to the public in advance.\n\nDesign Features\n1. A cultural monitor shall be present for any activity with the potential to create new\nsurface disturbance outside of the alluvial drainage channel.\n\nDOI-BLM-CO-N010-2021-000048-CX_Decision Record\n1\n\n**Page 2**\n2. The following seed mix would be used for reclamation of any temporary re-route and any\nother temporary construction disturbances after the permanent road repairs are\ncompleted. Seeding would occur during the appropriate season to ensure seed\nstratification (cold temperatures), germination, and establishment. Fall seeding is\nrecommended following project completion.\n\nApplication\nRate\nCultivar\nCommon Name\nScientific Name\n(lbs PLS/acre)\nMagnar\nBasin wildrye\nLeymus cinereus\n2.0\nRosana\nWestern Wheatgrass\nPascopyrum smithii\n3.0\nBluebunch wheatgrass\nPseudoroegneria spicata\n1.0\nCritana\nThickspike Wheatgrass\nElymus lanceolatus ssp.\nlanceolatus\n2.0\nScarlet Globemallow\nSphaeralcea coccinea\n1.0\nWestern yarrow\nAchillea millefolium\n0.5\nFourwing saltbush\nAtriplex canescens\n1.0\n\n3. The BLM would develop an engineered construction/reclamation plan that includes:\na. How soil productivity would be maintained and restored;\nb. Stormwater control measures and Best Management Practices (e.g., ditches,\ncatchments, energy dissipators, etc.) used to limit surface runoff and avoid\naccelerated erosion such as rilling, gullying, piping, and mass wasting;\nc. Roads and culverts designed and constructed according to the standards provided\nin BLM Manuals 9112 and 9113 which would include:\ni. Proper sized aggregate and riprap used during culvert construction.\nii. Energy dissipators at culvert outlets.\niii. Riprap at culvert entrance to streamline water flow and reduce erosion.\n4. Collecting of nearby riprap material would not be allowed when soils are wet.\n5. Surface collection (no excavation) of riprap material would only be allowed within 100\nfeet of the road.\n6. Ground disturbance from riprap collection will be remediated upon removal.\n7. Fueling of equipment would only occur on existing ground disturbance. Any spills would\nbe cleaned up immediately and disposed of properly.\n8. The applicant is responsible for informing all persons who are associated with the project\nthat they would be subject to prosecution for knowingly disturbing archaeological sites or\nfor collecting artifacts.\n9. If any archaeological materials are discovered as a result of operations under this\nauthorization, activity in the vicinity of the discovery would cease, and the BLM LSFO\n\nDOI-BLM-CO-N010-2021-000048-CX_Decision Record\n2\n\n**Page 3**\nArchaeologist would be notified immediately. Work may not resume at that location until\napproved by the Authorized Officer (AO). The applicant would make every effort to\nprotect the site from further impacts including looting, erosion, or other human or natural\ndamage until BLM determines a treatment approach, and the treatment is completed.\nUnless previously determined in treatment plans or agreements, BLM would evaluate the\ncultural resources and, in consultation with the State Historic Preservation Office\n(SHPO), select the appropriate mitigation option within 48 hours of the discovery. The\napplicant, under guidance of the BLM, would implement the mitigation in a timely\nmanner. The process would be fully documented in reports, site forms, maps, drawings,\nand photographs. The BLM would forward documentation to the SHPO for review and\nconcurrence.\n10. Pursuant to 43 CFR 10.4(g), the applicant must notify the AO, by telephone and written\nconfirmation, immediately upon the discovery of human remains, funerary items, sacred\nobjects, or objects of cultural patrimony. Further, pursuant to 43 CFR 10.4(c) and (d), the\noperator must stop activities in the vicinity of the discovery and protect it for 30 days or\nuntil notified to proceed by the AO.\n11. The applicant is responsible for informing all persons who are associated with the project\noperations that they would be subject to prosecution for disturbing or collecting\nvertebrate or other scientifically important fossils, collecting large amounts of petrified\nwood (over 25lbs./day, up to 250lbs./year), or collecting fossils for commercial purposes\non public lands.\n12. If any paleontological resources are discovered as a result of operations under this\nauthorization, the applicant or any of his agents must stop work immediately at that site,\nimmediately contact the BLM Paleontology Coordinator, and make every effort to protect\nthe site from further impacts, including looting, erosion, or other human or natural\ndamage. Work may not resume at that location until approved by the AO. The BLM or\ndesignated paleontologist would evaluate the discovery and take action to protect or\nremove the resource within 10 working days. Within 10 days, the operator would be\nallowed to continue construction through the site or would be given the choice of either\n(a) following the Paleontology Coordinator's instructions for stabilizing the fossil\nresource in place and avoiding further disturbance to the fossil resource, or (b) following\nthe Paleontology Coordinator's instructions for mitigating impacts to the fossil resource\nprior to continuing construction through the project area.\n\nCompliance with Laws &amp; Conformance with the Land Use Plan\nThis decision is in compliance with the Endangered Species Act and the National Historic\nPreservation Act. It is also in conformance with the 2011 Little Snake Record of\nDecision/Approved Resource Management Plan.\n\nEnvironmental Analysis and Finding of No Significant Impact\nThe Proposed Action was reviewed in DOI-BLM-N010-2021-0043-CX. Analysis within the CX\nwas adequate and there are no significant impacts, thus an EIS is not required.\n\nDOI-BLM-CO-N010-2021-000048-CX_Decision Record\n3\n\n**Page 4**\nPublic Involvement\nThis project was posted on the LSFO's on-line National Environmental Policy Act (NEPA)\nregister on 5/10/2021. No comments or inquiries have been received.\n\nMonitoring and Compliance\nOn-going compliance inspections and monitoring will be conducted by Little Snake Field Office\nstaff during and after project implementation. Specific design features will be followed.\n\nRationale\nThe proposed emergency road repair is necessary for the protection of soil and water resources,\nas well as for the preservation of the existing BLM road network, and to provide for public\nhealth and safety.\n\nAdministrative Remedies\nAny appeal of this decision must follow the procedures set forth in 43 CFR Part 4. Within 30\ndays of the decision, a Notice of Appeal must be filed in the office of the Authorized Officer at\nLittle Snake Field Office, 455 Emerson St., Craig, CO 81625 with copies sent to the Regional\nSolicitor, Rocky Mountain Region, 755 Parfet St., Suite 151, Lakewood, CO 80215, and to the\nDepartment of the Interior, Board of Land Appeals, 801 North Quincy St., MS300-QC,\nArlington, VA, 22203. If a statement of reasons for the appeal is not included with the notice, it\nmust be filed with the Interior Board of Land Appeals at the above address within 30 days after\nthe Notice of Appeal is filed with the Authorized Officer.\n\nSignature of Authorized Official\n\nBRUCE SILLITOE\nField Manager\nDigitally signed by BRUCE SILLITOE\nDate: 2021.05.24 16:13:11 -06'00'\n\nDOI-BLM-CO-N010-2021-000048-CX_Decision Record\n4</td>
+</tr>
+<tr class="even">
+<td data-quarto-table-cell-role="th">4689</td>
+<td>25334806-7f45-75fb-d4b0-cad8e1e5567a</td>
+<td>1-11</td>
+<td>U.S. Department of the Interior\nBureau of Land Management\nWhite River Field Office\n220 E Market St\nMeeker, CO 81641\nCATEGORICAL EXCLUSION\nEmergency Repair of Road Damage on BLM Road 1509\nDOI-BLM-CO-N010-2021-0043-CX\nIdentifying Information\nProject Title: Emergency Repair of Road Damage on BLM Road 1509\nLegal Description: Sixth Principal Meridian, Moffat County, Colorado\nT. 4 N., R 98 W., Sec. 36, SE/SW;\nT. 4 N., R 97 W., Sec. 31, NE/SW.\nApplicant: BLM\nIssues and Concerns\nBLM Road 1509 has identified an area where the road has been damaged by the flow of water\ncausing soils to erode at the surface and beneath the road surface, six to eight feet deep\n(Appendix A, Figures 2, 3, and 4). As weather warms and more moisture finds its way to the\ndrainages, and as soils continue to erode, travel on BLM Road 1509 in its current condition is a\nconcern for public safety.\nConformance with the Land Use Plan\nThe Proposed Action is subject to and is in conformance (43 CFR 1610.5) with the following\nland use plan:\nLand Use Plan: Little Snake Record of Decision and Approved Resource Management Plan\n(ROD/RMP)\nDate Approved: October 2011\nDecision Language: Transportation and Access and Travel Management, p. RMP-53 to RMP-\n54\n“Designation and authorization of OHV use will be designed to provide a quality recreation\nexperience, protect resource values, promote safety of users, and minimize conflict among\nvarious uses of public lands."\n"Provide a transportation system that is manageable and maintainable, meets management needs,\nand minimizes impacts on resources and habitats."\nDOI-BLM-CO-N050-2021-0043-CX\n1\n"Provide for types or modes of access and travel that will balance resource protection with use."\nProposed Action\nProject Components and General Schedule\nThe project consists of layering compatible rock material and BLM-approved Geotech material,\nthen installing a culvert and armoring the inlet and outlet of the culvert with local rock material\nfrom a nearby rock pile, within BLM standards. The road repairs are expected to take place by\nAugust 2021.\nPermanent road repairs would mostly likely be completed by a contractor.\nThe road repair would take approximately one week to complete, with potential road closure for\none to two days if necessary.\nPermanent road repairs would be designed and implemented under the direction of a BLM\nEngineer. The permanent road repairs essentially involve filling the road foundation with stable\nmaterials such as large rock (riprap) and graded aggregates. To reduce costs, the BLM would\nseek to use on-site material where possible, including native rock from a rock pile approximately\none mile northeast of the failure site (Appendix A, Figure 1). Construction activities would occur\nwithin 50 feet of the existing road. Some road closures during construction are unavoidable but\nthe BLM would communicate these closures to the public in advance.\nThe permanent repairs would require the removal of topsoil; disturbance would be no more than\nthree feet below grade. Standard road maintenance equipment would be used (e.g., excavators,\ndozers, wheel loaders, and motor graders).\nDesign Features\n1. A cultural monitor shall be present for any activity with the potential to create new\nsurface disturbance outside of the alluvial drainage channel.\n2. The following seed mix would be used for reclamation of any temporary re-route and any\nother temporary construction disturbances after the permanent road repairs are\ncompleted. Seeding would occur during the appropriate season to ensure seed\nstratification (cold temperatures), germination, and establishment. Fall seeding is\nrecommended following project completion.\nCultivar\nCommon Name\nMagnar Basin wildrye\nRosana\nWestern Wheatgrass\nBluebunch wheatgrass\nCritana\nThickspike Wheatgrass\nScarlet Globemallow\nWestern yarrow\nFourwing saltbush\nDOI-BLM-CO-N050-2021-0043-CX\nScientific Name\nLeymus cinereus\nPascopyrum smithii\nPseudoroegneria spicata\nElymus lanceolatus ssp.\nlanceolatus\nSphaeralcea coccinea\nAchillea millefolium\nAtriplex canescens\nApplication\nRate\n(lbs PLS/acre)\n2.0\n3.0\n1.0\n2.0\n1.0\n0.5\n1.0\n2\n3. The BLM would develop an engineered construction/reclamation plan that includes:\na. How soil productivity would be maintained and restored;\nb. Stormwater control measures and Best Management Practices (e.g., ditches,\ncatchments, energy dissipators, etc.) used to limit surface runoff and avoid\naccelerated erosion such as rilling, gullying, piping, and mass wasting;\nc. Roads and culverts designed and constructed according to the standards provided\nin BLM Manuals 9112 and 9113 which would include:\ni. Proper sized aggregate and riprap used during culvert construction.\nii. Energy dissipators at culvert outlets.\niii. Riprap at culvert entrance to streamline water flow and reduce erosion.\n4. Collecting of nearby riprap material would not be allowed when soils are wet.\n5. Surface collection (no excavation) of riprap material would only be allowed within 100\nfeet of the road.\n6. Ground disturbance from riprap collection would be remediated upon removal.\n7. Fueling of equipment would only occur on existing ground disturbance. Any spills would\nbe cleaned up immediately and disposed of properly.\n8. The applicant is responsible for informing all persons who are associated with the project\nthat they would be subject to prosecution for knowingly disturbing archaeological sites or\nfor collecting artifacts.\n9. If any archaeological materials are discovered as a result of operations under this\nauthorization, activity in the vicinity of the discovery would cease, and the BLM LSFO\nArchaeologist would be notified immediately. Work may not resume at that location until\napproved by the Authorized Officer (AO). The applicant would make every effort to\nprotect the site from further impacts including looting, erosion, or other human or natural\ndamage until BLM determines a treatment approach, and the treatment is completed.\nUnless previously determined in treatment plans or agreements, BLM would evaluate the\ncultural resources and, in consultation with the State Historic Preservation Office\n(SHPO), select the appropriate mitigation option within 48 hours of the discovery. The\napplicant, under guidance of the BLM, would implement the mitigation in a timely\nmanner. The process would be fully documented in reports, site forms, maps, drawings,\nand photographs. The BLM would forward documentation to the SHPO for review and\nconcurrence.\n10. Pursuant to 43 CFR 10.4(g), the applicant must notify the AO, by telephone and written\nconfirmation, immediately upon the discovery of human remains, funerary items, sacred\nobjects, or objects of cultural patrimony. Further, pursuant to 43 CFR 10.4(c) and (d), the\noperator must stop activities in the vicinity of the discovery and protect it for 30 days or\nuntil notified to proceed by the AO.\n11. The applicant is responsible for informing all persons who are associated with the project\noperations that they would be subject to prosecution for disturbing or collecting\nvertebrate or other scientifically important fossils, collecting large amounts of petrified\nDOI-BLM-CO-N050-2021-0043-CX\n3\nwood (over 25lbs./day, up to 250lbs./year), or collecting fossils for commercial purposes\non public lands.\n12. If any paleontological resources are discovered as a result of operations under this\nauthorization, the applicant or any of his agents must stop work immediately at that site,\nimmediately contact the BLM Paleontology Coordinator, and make every effort to protect\nthe site from further impacts, including looting, erosion, or other human or natural\ndamage. Work may not resume at that location until approved by the AO. The BLM or\ndesignated paleontologist would evaluate the discovery and take action to protect or\nremove the resource within 10 working days. Within 10 days, the operator would be\nallowed to continue construction through the site or would be given the choice of either\n(a) following the Paleontology Coordinator's instructions for stabilizing the fossil\nresource in place and avoiding further disturbance to the fossil resource, or (b) following\nthe Paleontology Coordinator's instructions for mitigating impacts to the fossil resource\nprior to continuing construction through the project area.\nCategorical Exclusion Review\nThe Proposed Action qualifies as a categorical exclusion under 516 DM 11.9, I1 for emergency\nstabilization:\n“Planned actions in response to wildfires, floods, weather events, earthquakes, or\nlandslips that threaten public health or safety, property, and/or natural and cultural\nresources, and that are necessary to repair or improve lands unlikely to recover to a\nmanagement-approved condition as a result of the event. Such activities shall be limited\nto: repair and installation of essential erosion control structures; replacement or repair\nof existing culverts, roads, trails, fences, and minor facilities; construction of protection\nfences; planting, seeding, and mulching; and removal of hazard trees, rocks, soil, and\nother mobile debris from, on, or along roads, trails, campgrounds, and watercourses.\nThese activities:\na. Shall be completed within one year following the event;\nb. Shall not include the use of herbicides or pesticides;\nc. Shall not include the construction of new roads or other new permanent\ninfrastructure;\nd. Shall not exceed 4,200 acres; and\ne. May include temporary roads which are defined as roads authorized by\ncontract, permit, lease, other written authorization, or emergency operation not\nintended to be part of the BLM transportation system and not necessary for long-\nterm resource management. Temporary roads shall be designed to standards\nappropriate for the intended uses, considering safety, cost of transportation, and\nimpacts on land and resources; and\nf. Shall require the treatment of temporary roads constructed or used so as to\npermit the reestablishment by artificial or natural means, or vegetative cover on\nthe roadway and areas where the vegetative cover was disturbed by the\nDOI-BLM-CO-N050-2021-0043-CX\n4\nconstruction or use of the road, as necessary to minimize erosion from the\ndisturbed area. Such treatment shall be designed to reestablish vegetative cover\nas soon as practicable, but at least within 10 years after the termination of the\ncontract."\nThe Proposed Action has been reviewed with the list of extraordinary circumstances (43 CFR\n46.215¹) described in the table below.\nExtraordinary Circumstance\na) Have significant adverse effects on public health and safety.\nb) Have significant impacts on such natural resources and unique geographic\ncharacteristics as historic or cultural resources; park, recreation, or refuge lands;\nwilderness areas; wild or scenic rivers; national natural landmarks; sole or\nprincipal drinking water aquifers; prime farmlands; wetlands; floodplains;\nnational monuments; migratory birds; and other ecologically significant or critical\nareas.\nc) Have highly controversial environmental effects or involve unresolved\nconflicts concerning alternative uses of available resources.\nd) Have highly uncertain and potentially significant environmental effects or\ninvolve unique or unknown environmental risks.\ne) Establish a precedent for future action or represent a decision in principle about\nfuture actions with potentially significant environmental effects.\ng) Have significant impacts on properties listed, or eligible for listing, in the\nNational Register of Historic Places as determined by the bureau.\nh) Have significant impacts on species listed, or proposed to be listed, on the List\nof Endangered and Threatened Species, or have adverse effects on designated\nCritical Habitat for these species.\ni) Violate a Federal law, or a State, local or tribal law or requirement imposed for\nthe protection of the environment.\nj) Have a disproportionately high and adverse effect on low income or minority\npopulations.\nk) Limit access to and ceremonial use of Indian sacred sites on Federal lands by\nIndian religious practitioners or significantly affect the physical integrity of such\nsacred sites.\nl) Contribute to the introduction, continued existence, or spread of noxious weeds\nor non-native invasive species known to occur in the area or actions that may\npromote the introduction, growth, or expansion of the range of such species.\nYES\nNO\n[ ] [x]\n[ ] [x]\n[ ] [x]\n[ ] [x]\n[ ] [x]\n[ ] [x]\n[ ] [x]\n[ ] [x]\n[ ] [x]\n[ ] [ ]\n[ ] [ ]\nInterdisciplinary Review\nThe Proposed Action was presented to, and reviewed by, the Little Snake Field Office\ninterdisciplinary team on 4/26/2021. A complete list of resource specialists who participated in\nthis review is available upon request from the Little Snake Field Office. The table below lists\nresource specialists who were responsible for ensuring that the BLM fulfilled its consultation\nobligations under Section 7 of the Endangered Species Act and Section 106 of the National\nHistoric Preservation Act.\n1 As 43 CFR 46.215(f) of the Department's regulations is inconsistent with the revised CEQ regulations, this\ncriterion is no longer applicable. (40 CFR 1507.3(a))\nDOI-BLM-CO-N050-2021-0043-CX\n5\nName\nWendy Parker\nDesa Ausmus\nAimee Huff\nWhitney Patterson\nMaribeth Pecotte\nTitle\nArchaeologist\nWildlife Biologist\nRangeland Management\nSpecialist\nOutdoor Recreation\nPlanner\nPlanning and\nEnvironmental\nCoordinator\nResource\nCultural Resources, Native\nAmerican Religious Concerns\nSpecial Status Wildlife Species\nSpecial Status Plant Species\nProject Lead\nNEPA Compliance\nDate\n5/10/2021\n4/27/2021\n05/03/2021\n4/26/2021\n05/10/2021\nCultural Resources: The National Historic Preservation Act requires that federal land managing\nagencies consider the effect of federal undertakings on historic and prehistoric sites that are\neligible to the National Register of Historic Places (NHRP). A review of existing records was\ncompleted to determine the extent of previous cultural resource surveys and the location of\nrecorded sites in relation to the road repair and native rock pile locations. A small number (three:\nMC.E.R12/21-85; MC.LM.R45/13-81; MF.LM.R249/10-94) of previous cultural inventories\noccurred within a one-mile radius around the two locations; none of which intersected with the\nproposed project areas. While cultural inventories in the area are limited, they did reveal\nmoderate site density around Sagebrush Draw; therefore, a Class III pedestrian survey was\nwarranted.\nOn May 8, 2021, BLM Colorado Northwest District archaeologist Wendy Parker surveyed a\ntotal of 1.6 acres (0.8 acres at each location) around the road damage and rock pile locations. The\nsurvey yielded negative results; therefore, the undertaking would have no effect on historic\nproperties and no further archaeological work is necessary.\nNative American Religious Concerns: Lacking a written, formal agreement outlining a\nconsultation process between BLM-LSFO and the relevant tribes, the field office policy is to\nconsult with tribes when the proposed undertaking is within or in the vicinity of an area known\nto be of concern to the tribes or when the undertaking involves sites of the kind that experience\nhas shown would be of tribal concern. Such sites include burials, rock art, wickiups, stone circle\nsites, possible vision quest sites, possible eagle traps, etc. As the road damage and rock\nprocurement area is not in or near an area of known concern to the tribes, nor would it be in the\nvicinity of sites of the kind that are of tribal concern, it is concluded that proposed undertaking\nwould not affect areas or sites of Native American concern.\nTribes, Individuals, Organizations, or Agencies Consulted\nNone.\nReferences Cited\nBureau of Land Management. BLM Manual 9112 – Bridges and Major Culverts. USDI BLM,\nWashington, D.C.\nDOI-BLM-CO-N050-2021-0043-CX\n6\nBureau of Land Management. 2015. BLM Manual 9113 – Roads. USDI BLM, Washington, D.C.\nMay 4, 2015.\nCompliance with NEPA\nThe Proposed Action is categorically excluded from further documentation under the National\nEnvironmental Policy Act (NEPA) in accordance with 516 DM 11.9, XX. This categorical\nexclusion is appropriate in this situation because there are no extraordinary circumstances\npotentially having effects that may significantly affect the environment. The Proposed Action\nhas been reviewed, and none of the extraordinary circumstances described in 43 CFR 46.215\napply.\nBRUCE SILLITOE Digitally signed by BRUCE SILLITOE\nField Manager\nDate: 2021.05.24 16:12:30 -06'00'\nDOI-BLM-CO-N050-2021-0043-CX\n7\nAppendix A. Figures\nFigure 1. BLM 1509 Map\nBLM 1509 Repair\nC\n1509 Piping\nFailure Area\nWHITE RIVER\nFIELD OFFICE\nBLM Field Office\nGravel Road\nGravel\nN\nLITTLE SNAKE\nFIELD OFFICE\n0\n500\n1,000\n+\n2,000 Feet\nRoad Damage\nGravel Area\nBureau of Land Management\nPrivate\nState\nBLM, White River Field Office\n220 E. Market St.\nMeeker, CO 81641\nCoordinate System: NAD 1983 UTM Zone 13N\nDatum: North American 1983\nSources: BLM, USGS, CDOW\nDisclaimer: Although the data presented within this map, and the map\nitself, have been processed successfully on computers of BLM, no\nwarranty, expressed or implied, is made by BLM regarding the use of\nthis map or the data represented, nor does the fact of distribution\nconstitute or imply any such warranty.\nDOI-BLM-CO-N050-2021-0043-CX\nRock Available\nfor armoring\nCulvert\nWRFO\nLSFO\n8\nFigure 2. BLM Road 1509 Pipe Out\nFigure 3. 6-8 ft hole East side of Road\nDOI-BLM-CO-N050-2021-0043-CX\n9\nFigure 4. West side of Road\nDOI-BLM-CO-N050-2021-0043-CX\n10\nDOI-BLM-CO-N050-2021-0043-CX\n11</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+</div>
+</div>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn) {
+    const config = {
+      allowHTML: true,
+      content: contentFn,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start'
+    };
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+</body></html>
