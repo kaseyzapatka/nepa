@@ -228,7 +228,7 @@ Output: `data/analysis/projects_gencap.parquet`
 ### Phase 2: LLM adjudication
 
 ```bash
-python code/extract/extract_gencap.py --run llm --workers 4
+python code/extract/extract_gencap.py --run llm --workers 4 # run with 2 to avoid rate limits
 ```
 
 Runs on ambiguous multi-candidate projects only. Updates `projects_gencap.parquet` in place and writes per-source raw outputs to `data/analysis/gencap_{ce,ea,eis}_llm.parquet`.
