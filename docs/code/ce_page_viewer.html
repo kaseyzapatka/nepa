@@ -4499,7 +4499,7 @@ vertical-align: -.125em;
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link" href="../project_overview.html" rel target>
+    <a class="nav-link" href="../reports/project_overview.html" rel target>
  <span class="menu-text">Project Overview</span></a>
   </li>  
   <li class="nav-item">
@@ -4560,12 +4560,13 @@ vertical-align: -.125em;
 
 <p>Simple notebook to view CE document pages for manual review and exploration.</p>
 <div class="cell" data-execution_count="1">
-<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Display settings</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>pd.set_option(<span class="st">&#39;display.max_colwidth&#39;</span>, <span class="va">None</span>)</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>pd.set_option(<span class="st">&#39;display.max_rows&#39;</span>, <span class="dv">100</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Display settings</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>pd.set_option(<span class="st">&#39;display.max_colwidth&#39;</span>, <span class="va">None</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>pd.set_option(<span class="st">&#39;display.max_rows&#39;</span>, <span class="dv">100</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <section id="load-data" class="level2">
 <h2 class="anchored" data-anchor-id="load-data">Load Data</h2>
@@ -4575,9 +4576,19 @@ vertical-align: -.125em;
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>ce_documents <span class="op">=</span> documents[documents[<span class="st">&quot;dataset_source&quot;</span>] <span class="op">==</span> <span class="st">&quot;CE&quot;</span>]</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Loaded </span><span class="sc">{</span><span class="bu">len</span>(ce_documents)<span class="sc">:,}</span><span class="ss"> CE documents&quot;</span>)</span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Load CE pages</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>CE_pages <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ce/pages.parquet&#39;</span>)</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Loaded </span><span class="sc">{</span><span class="bu">len</span>(CE_pages)<span class="sc">:,}</span><span class="ss"> CE pages&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> page_num_int(value):</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Extract first numeric token from page labels like &#39;1&#39;, &#39;Page-1&#39;, or &#39;1-6&#39;.&quot;&quot;&quot;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> pd.isna(value):</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> pd.NA</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    match <span class="op">=</span> re.search(<span class="vs">r&quot;(\d+)&quot;</span>, <span class="bu">str</span>(value))</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> match:</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="bu">int</span>(match.group(<span class="dv">1</span>))</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pd.NA</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Load CE pages</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>CE_pages <span class="op">=</span> pd.read_parquet(<span class="st">&#39;../data/processed/ce/pages.parquet&#39;</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>CE_pages[<span class="st">&quot;_page_number_num&quot;</span>] <span class="op">=</span> CE_pages[<span class="st">&quot;page_number&quot;</span>].<span class="bu">map</span>(page_num_int).astype(<span class="st">&quot;Int64&quot;</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="bu">print</span>(<span class="ss">f&quot;Loaded </span><span class="sc">{</span><span class="bu">len</span>(CE_pages)<span class="sc">:,}</span><span class="ss"> CE pages&quot;</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Loaded 73,544 CE documents
 Loaded 73,544 CE pages</code></pre>
@@ -4604,27 +4615,32 @@ Loaded 73,544 CE pages</code></pre>
 <div class="cell" data-execution_count="4">
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> view_page(document_id, page_num<span class="op">=</span><span class="dv">1</span>):</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;View a specific page from a document.&quot;&quot;&quot;</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    page <span class="op">=</span> CE_pages[(CE_pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> document_id) <span class="op">&amp;</span> </span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>                    (CE_pages[<span class="st">&quot;page_number&quot;</span>] <span class="op">==</span> page_num)]</span>
-<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(page) <span class="op">==</span> <span class="dv">0</span>:</span>
-<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;Page </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> not found for document_id: </span><span class="sc">{</span>document_id<span class="sc">}</span><span class="ss">&quot;</span>)</span>
-<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
-<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get document metadata</span></span>
-<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    doc <span class="op">=</span> ce_documents[ce_documents[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> document_id]</span>
-<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(doc) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
-<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="sc">{</span><span class="st">&#39;=&#39;</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">&quot;</span>)</span>
-<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;Document: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">&#39;file_name&#39;</span>, <span class="st">&#39;N/A&#39;</span>)<span class="sc">}</span><span class="ss">&quot;</span>)</span>
-<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;Type: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">&#39;document_type&#39;</span>, <span class="st">&#39;N/A&#39;</span>)<span class="sc">}</span><span class="ss"> | &quot;</span></span>
-<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f&quot;Category: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">&#39;document_type_category&#39;</span>, <span class="st">&#39;N/A&#39;</span>)<span class="sc">}</span><span class="ss"> | &quot;</span></span>
-<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f&quot;Main: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">&#39;main_document&#39;</span>, <span class="st">&#39;N/A&#39;</span>)<span class="sc">}</span><span class="ss">&quot;</span>)</span>
-<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="sc">{</span><span class="st">&#39;=&#39;</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">&quot;</span>)</span>
-<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="ss">--- PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">&quot;</span>)</span>
-<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(page.iloc[<span class="dv">0</span>][<span class="st">&quot;page_text&quot;</span>])</span>
-<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="ss">--- END PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">&quot;</span>)</span>
-<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> page.iloc[<span class="dv">0</span>][<span class="st">&quot;page_text&quot;</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    page_target <span class="op">=</span> page_num_int(page_num)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> pd.isna(page_target):</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;Invalid page number: </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    page <span class="op">=</span> CE_pages[(CE_pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> document_id) <span class="op">&amp;</span> </span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>                    (CE_pages[<span class="st">&quot;_page_number_num&quot;</span>] <span class="op">==</span> page_target)]</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(page) <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;Page </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> not found for document_id: </span><span class="sc">{</span>document_id<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get document metadata</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>    doc <span class="op">=</span> ce_documents[ce_documents[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> document_id]</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="bu">len</span>(doc) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="sc">{</span><span class="st">&#39;=&#39;</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;Document: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">&#39;file_name&#39;</span>, <span class="st">&#39;N/A&#39;</span>)<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;Type: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">&#39;document_type&#39;</span>, <span class="st">&#39;N/A&#39;</span>)<span class="sc">}</span><span class="ss"> | &quot;</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f&quot;Category: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">&#39;document_type_category&#39;</span>, <span class="st">&#39;N/A&#39;</span>)<span class="sc">}</span><span class="ss"> | &quot;</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>              <span class="ss">f&quot;Main: </span><span class="sc">{</span>doc<span class="sc">.</span>iloc[<span class="dv">0</span>]<span class="sc">.</span>get(<span class="st">&#39;main_document&#39;</span>, <span class="st">&#39;N/A&#39;</span>)<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="sc">{</span><span class="st">&#39;=&#39;</span><span class="op">*</span><span class="dv">80</span><span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="ss">--- PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(page.iloc[<span class="dv">0</span>][<span class="st">&quot;page_text&quot;</span>])</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="ss">--- END PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> page.iloc[<span class="dv">0</span>][<span class="st">&quot;page_text&quot;</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell" data-execution_count="5">
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> view_pages(document_id, start_page<span class="op">=</span><span class="dv">1</span>, end_page<span class="op">=</span><span class="dv">5</span>):</span>
@@ -4641,7 +4657,7 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>    </span>
 <span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> page_num <span class="kw">in</span> <span class="bu">range</span>(start_page, end_page <span class="op">+</span> <span class="dv">1</span>):</span>
 <span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        page <span class="op">=</span> CE_pages[(CE_pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> document_id) <span class="op">&amp;</span> </span>
-<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>                        (CE_pages[<span class="st">&quot;page_number&quot;</span>] <span class="op">==</span> page_num)]</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>                        (CE_pages[<span class="st">&quot;_page_number_num&quot;</span>] <span class="op">==</span> page_num)]</span>
 <span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">len</span>(page) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
 <span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f&quot;</span><span class="ch">\n</span><span class="ss">--- PAGE </span><span class="sc">{</span>page_num<span class="sc">}</span><span class="ss"> ---</span><span class="ch">\n</span><span class="ss">&quot;</span>)</span>
 <span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(page.iloc[<span class="dv">0</span>][<span class="st">&quot;page_text&quot;</span>])</span>
@@ -4684,7 +4700,7 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>                </span>
 <span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>        doc_pages <span class="op">=</span> (</span>
 <span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a>            CE_pages[CE_pages[<span class="st">&quot;document_id&quot;</span>] <span class="op">==</span> doc_id]</span>
-<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>            .sort_values(<span class="st">&quot;page_number&quot;</span>)</span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>            .sort_values([<span class="st">&quot;_page_number_num&quot;</span>, <span class="st">&quot;page_number&quot;</span>], na_position<span class="op">=</span><span class="st">&quot;last&quot;</span>)</span>
 <span id="cb7-35"><a href="#cb7-35" aria-hidden="true" tabindex="-1"></a>        )</span>
 <span id="cb7-36"><a href="#cb7-36" aria-hidden="true" tabindex="-1"></a>                </span>
 <span id="cb7-37"><a href="#cb7-37" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> _, page <span class="kw">in</span> doc_pages.iterrows():</span>
