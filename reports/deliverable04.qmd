@@ -51,7 +51,7 @@ This report aims to create the following set of deliverables:
 
 > Data on geography/project location; whether projects are multi-state or multi-agency
 
-It analyzes clean energy projects that cross administrative boundaries---either spanning multiple states or involving multiple federal agencies. These projects often represent larger, more complex undertakings that require coordination across jurisdictions. @tbl-summary reports the total multi-department project count used in this report. 
+It analyzes clean energy projects that cross administrative boundaries---either spanning multiple states or involving multiple federal agencies. These projects often represent larger, more complex undertakings that require coordination across jurisdictions. @tbl-summary reports total multi-state and multi-department project counts used in this report. 
 
 ```{r}
 #| label: tbl-summary
@@ -259,6 +259,8 @@ This section reports two definitions:
 
 @fig-multiagency-process-breakdown shows the distribution of NEPA process types for the expanded multi-department definition.
 
+Multi-department projects are overwhelmingly EIS-level reviews (89%), with CEs and EAs together accounting for just 11% of the portfolio. This is a much sharper EIS skew than in the multi-state population, and it makes conceptual sense: EIS reviews are the longest and most resource-intensive NEPA pathway, and the need to formally coordinate across multiple federal agencies is most common in exactly these high-complexity situations. Projects requiring EIS-level review are the ones most likely to trigger interagency involvement through cooperating agency relationships or overlapping jurisdictions.
+
 ```{r}
 #| label: fig-multiagency-process-breakdown
 #| fig-cap: "Distribution of NEPA process types for expanded multi-department clean energy projects."
@@ -269,7 +271,9 @@ knitr::include_graphics(file.path(d4_figures, "fig_multiagency_process_type.png"
 
 ## Department Connections Table
 
-@tbl-department-links lists agency combinations for the **strict metadata subset** only, along with the types of projects involved. Project types are deduplicated and sorted by frequency.
+@tbl-department-links lists agency combinations that share projects, along with the types of projects involved. Project types are deduplicated and sorted by frequency.
+
+The Department of Energy appears in nearly every multi-department pairing, reflecting its central role in both permitting energy infrastructure and managing research facilities. The most project-rich combinations are DOE with DOD (3 shared projects spanning transmission, R&D, and military-adjacent energy uses) and DOE paired with DOI, USDA, Commerce, and GSA (2 projects each). Project types signal two distinct collaboration logics: an energy-infrastructure track (electricity transmission, utilities, renewable energy production) and a research-and-management track (R&D, ecosystem management, waste management). The DOI–Homeland Security pairing stands out as non-DOE coordination, anchored by solar and emergency-preparedness projects.
 
 ```{r}
 #| label: tbl-department-links
@@ -280,8 +284,8 @@ department_links <- read_csv(file.path(d4_tables, "table_by_department.csv"), sh
 department_links %>%
   gt() %>%
   cols_align(align = "left", columns = everything()) %>%
-  cols_align(align = "right", columns = any_of(c("EA", "EIS", "Total"))) %>%
-  fmt_number(columns = any_of(c("EA", "EIS", "Total")), decimals = 0) %>%
+  cols_align(align = "right", columns = any_of(c("Total"))) %>%
+  fmt_number(columns = any_of(c("Total")), decimals = 0) %>%
   cols_width(
     `Department connections` ~ px(250),
     `Distinct Project Types` ~ px(350)
@@ -306,7 +310,7 @@ department_links %>%
 
 ## Department Collaboration Hubs
 
-@tbl-department-hubs highlights departments that appear as collaboration hubs across multi-department projects, based on how many partner departments they connect with and how frequently those ties occur.
+@tbl-department-hubs ranks departments by their collaborative footprint. The bridge score combines breadth (number of unique partner departments) with volume (total shared project ties, log-scaled) to identify departments that are both broadly connected and frequently involved—not just departments with one large partnership.
 
 ```{r}
 #| label: tbl-department-hubs
@@ -353,9 +357,21 @@ department_hubs %>%
 knitr::include_graphics(file.path(d4_figures, "fig_department_collaboration_hubs.png"))
 ```
 
+DOE stands out as the clear hub of the multi-department network, with a bridge score (26) more than three times that of DOI (9). Its dominance reflects both the sheer number of partner agencies (9 unique departments) and the high volume of shared project ties. DOI is a meaningful secondary hub, with its strongest partnership running back to DOE. All other departments are more peripheral—connecting to one or two partners and typically anchored to DOE as their primary collaborator.
+
+```{r}
+#| label: fig-department-sankey
+#| fig-cap: "Cross-department project flows. Flow width reflects number of shared projects."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_department_sankey.png"))
+```
+
+The Sankey confirms the hub-and-spoke character of multi-department collaboration: DOE is the dominant node on both sides of the diagram, with the largest flows connecting it to DOD, DOI, and USDA on the left and back to DOI, Homeland Security, and Commerce on the right. The right side of the diagram has more nodes than the left, reflecting the variety of secondary partners DOE draws in depending on project type. Most other department-to-department pathways carry only one or two shared projects and appear as thin ribbons at the base of the diagram.
+
 ## Word Clouds by NEPA Process Type
 
-The next three figures break multi-department project types out by NEPA process type.
+The next three figures break multi-department project types out by NEPA process type. Because multi-department CEs and EAs are few (20 and 14 projects respectively), their word clouds reflect a narrow set of project types. EIS, which accounts for the bulk of the portfolio, shows the broadest vocabulary.
 
 ```{r}
 #| label: fig-wordcloud-multiagency-1

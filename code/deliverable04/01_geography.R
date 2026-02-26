@@ -38,8 +38,14 @@ multi_agency_expanded_only <-
 
 # Summary table used in report (strict vs expanded definitions)
 tbl_multi_agency_summary <- tibble(
-  Category = "Multi-department projects",
-  Count = nrow(multi_department_data)
+  Category = c(
+    "Multi-state projects",
+    "Multi-department projects"
+  ),
+  Count = c(
+    nrow(multi_state_data),
+    nrow(multi_department_data)
+  )
 )
 
 write_csv(tbl_multi_agency_summary, here(tables_dir, "table_multi_agency_summary.csv"))
@@ -667,7 +673,6 @@ tbl_department_links <-
   select(
     `Department connections` = department_connections,
     `Distinct Project Types` = project_type,
-    any_of(c("CE", "EA", "EIS")),
     Total
   ) |>
   print()
@@ -767,6 +772,75 @@ ggsave(
   plot = fig_department_collaboration_hubs,
   width = 10,
   height = 6,
+  units = "in",
+  dpi = 300
+)
+
+# Sankey/alluvial view of cross-department ties
+base_department_sankey <- ggplot(
+  pair_counts,
+  aes(axis1 = department_1, axis2 = department_2, y = shared_projects)
+) +
+  ggalluvial::geom_alluvium(
+    aes(fill = department_1),
+    width = 1 / 10,
+    alpha = 0.8
+  ) +
+  ggalluvial::geom_stratum(
+    width = 1 / 8,
+    fill = "gray96",
+    color = "gray60"
+  ) +
+  scale_x_discrete(
+    limits = c("axis1", "axis2"),
+    labels = NULL,
+    expand = c(0.03, 0.03)
+  ) +
+  scale_fill_manual(values = rep(catf_palette, length.out = n_distinct(pair_counts$department_1))) +
+  labs(
+    title = "Cross-Department Project Flows",
+    subtitle = "Departments only (agencies rolled up to department level); flow width reflects shared projects",
+    y = NULL,
+    x = NULL
+  ) +
+  theme_catf() +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_blank()
+  )
+
+sankey_label_data <- ggplot_build(base_department_sankey)$data[[2]] %>%
+  as_tibble() %>%
+  transmute(
+    x = x,
+    y = y,
+    label = str_wrap(stratum, width = 18)
+  )
+
+fig_department_sankey <- base_department_sankey +
+  geom_text(
+    data = sankey_label_data,
+    aes(x = x, y = y, label = label),
+    hjust = 0.5,
+    inherit.aes = FALSE,
+    size = 2.3,
+    lineheight = 0.9,
+    color = "gray20"
+  ) +
+  theme(
+    plot.margin = margin(10, 10, 10, 10)
+  )
+
+ggsave(
+  filename = here(figures_dir, "fig_department_sankey.png"),
+  plot = fig_department_sankey,
+  width = 13,
+  height = 7,
   units = "in",
   dpi = 300
 )
