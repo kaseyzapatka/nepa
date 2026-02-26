@@ -7,7 +7,7 @@ website:
   navbar:
     left:
       - text: "Project Overview"
-        href: project_overview.qmd
+        href: reports/project_overview.qmd
       - text: "Deliverable 1"
         href: reports/deliverable01.qmd
       - text: "Deliverable 2"

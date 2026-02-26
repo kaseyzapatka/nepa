@@ -19,40 +19,6 @@ ul.task-list li input[type="checkbox"] {
 width: 0.8em;
 margin: 0 0.8em 0.2em -1em;  vertical-align: middle;
 }
-
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-{ counter-reset: source-line 0; }
-pre.numberSource code > span
-{ position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-{ content: counter(source-line);
-position: relative; left: -1em; text-align: right; vertical-align: baseline;
-border: none; display: inline-block;
--webkit-touch-callout: none; -webkit-user-select: none;
--khtml-user-select: none; -moz-user-select: none;
--ms-user-select: none; user-select: none;
-padding: 0 4px; width: 4em;
-}
-pre.numberSource { margin-left: 3em; padding-left: 4px; }
-div.sourceCode
-{ }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
-}
 </style>
 
 
@@ -4538,113 +4504,984 @@ vertical-align: -.125em;
 
 
 
-<section id="deliverable-06-status-technology-specific-inquiries" class="level1">
-<h1>Deliverable 06 Status (Technology-Specific Inquiries)</h1>
-<p>Date: 2026-02-13</p>
-<section id="what-was-done" class="level2">
-<h2 class="anchored" data-anchor-id="what-was-done">What Was Done</h2>
-<section id="extraction-pipeline-updates-python" class="level3">
-<h3 class="anchored" data-anchor-id="extraction-pipeline-updates-python">1) Extraction pipeline updates (Python)</h3>
-<p>Updated <code>code/extract/extract_data.py</code> to add Deliverable 06 technology fields directly in the core extraction output (<code>projects_combined.parquet</code>).</p>
-<p>Added in <code>add_technology_columns()</code>: - Flags: - <code>project_is_transmission_broad</code> - <code>project_is_transmission_strict</code> - <code>project_is_transmission</code> (alias of strict) - <code>project_is_geothermal</code> - <code>project_is_pipeline</code> - <code>project_is_carbon_pipeline</code> - <code>project_is_hydrogen_pipeline</code> - <code>project_is_natural_gas_pipeline</code> - Geothermal: - <code>project_geothermal_phase</code> - Transmission lengths: - <code>project_transmission_length_miles</code> - <code>project_transmission_length_confidence</code> - <code>project_transmission_length_source_text</code> - Pipeline lengths: - <code>project_pipeline_length_miles</code> - <code>project_pipeline_length_confidence</code> - <code>project_pipeline_length_source_text</code> - Pipeline grouping: - <code>project_pipeline_group</code></p>
-<p>Integrated this into <code>create_combined_projects()</code> so fields are generated during <code>--mode analysis</code>.</p>
-</section>
-<section id="strict-transmission-logic-was-added" class="level3">
-<h3 class="anchored" data-anchor-id="strict-transmission-logic-was-added">2) Strict transmission logic was added</h3>
-<p>To reduce false positives, transmission inclusion now requires: 1. <code>project_type</code> contains <code>Electricity Transmission</code> 2. explicit transmission line build text in title/description 3. extracted transmission length <code>&gt;= 1</code> mile</p>
-<p>This logic exists in Python and is reflected in analysis usage.</p>
-</section>
-<section id="deliverable-06-scripts-were-created" class="level3">
-<h3 class="anchored" data-anchor-id="deliverable-06-scripts-were-created">3) Deliverable 06 scripts were created</h3>
-<p>Created <code>code/deliverable06/</code>: - <code>00_setup.R</code> - <code>01_transmission.R</code> - <code>02_geothermal.R</code> - <code>03_pipelines.R</code></p>
-</section>
-<section id="clean-energy-only-enforcement" class="level3">
-<h3 class="anchored" data-anchor-id="clean-energy-only-enforcement">4) Clean-energy-only enforcement</h3>
-<p>Deliverable 06 analysis is filtered to <code>project_energy_type == &quot;Clean&quot;</code>.</p>
-</section>
-<section id="removed-r-side-re-extraction-for-techlength-fields" class="level3">
-<h3 class="anchored" data-anchor-id="removed-r-side-re-extraction-for-techlength-fields">5) Removed R-side re-extraction for tech/length fields</h3>
-<p>Initially, R had fallback derivation for missing fields (this caused confusion and false positives). This was removed.</p>
-<p>Current behavior in <code>code/deliverable06/00_setup.R</code>: - Load timeline metrics from <code>data/analysis/projects_timeline_bert.parquet</code> - Load technology/length extraction fields from <code>data/analysis/projects_combined.parquet</code> - Merge by <code>project_id</code> - If extraction fields are missing, they remain <code>NA</code> (not re-derived in R)</p>
-</section>
-<section id="rebuilt-extraction-outputs" class="level3">
-<h3 class="anchored" data-anchor-id="rebuilt-extraction-outputs">6) Rebuilt extraction outputs</h3>
-<p>Ran: - <code>python code/extract/extract_data.py --mode analysis</code></p>
-<p>Then re-ran Deliverable 06 scripts so outputs are based on merged Python extraction columns.</p>
-</section>
-<section id="transmission-figures" class="level3">
-<h3 class="anchored" data-anchor-id="transmission-figures">7) Transmission figures</h3>
-<p><code>code/deliverable06/01_transmission.R</code> now generates: 1. <code>fig_transmission_length_vs_duration.png</code> 2. <code>fig_transmission_duration_by_region.png</code> (box plot) 3. <code>fig_transmission_start_vs_decision_lollipop.png</code></p>
-</section>
-</section>
-<section id="why-there-was-confusion" class="level2">
-<h2 class="anchored" data-anchor-id="why-there-was-confusion">Why There Was Confusion</h2>
-<p>The timeline file (<code>projects_timeline_bert.parquet</code>) contains timeline fields but originally did not include new Deliverable 06 extraction columns. R fallback logic was temporarily filling those fields from text, which made it look like R was redoing Python extraction. This fallback is now removed for tech/length variables.</p>
-</section>
-<section id="current-data-flow-corrected" class="level2">
-<h2 class="anchored" data-anchor-id="current-data-flow-corrected">Current Data Flow (Corrected)</h2>
+<section id="deliverable-06-data-architecture-and-generation-methods" class="level1">
+<h1>Deliverable 06: Data Architecture and Generation Methods</h1>
+<p>This document describes how each major dataset used in Deliverable 06 was constructed, including key design decisions, pipeline steps, and known limitations. Intended as a technical reference for the final project report.</p>
+<hr>
+<section id="technology-specific-analyses-overview" class="level2">
+<h2 class="anchored" data-anchor-id="technology-specific-analyses-overview">1. Technology-Specific Analyses Overview</h2>
+<p><strong>Report section:</strong> “Technology-Specific Analyses: Transmission Lines, Geothermal, and Pipelines” <strong>Primary extraction code:</strong> <code>code/extract/extract_technology.py</code> <strong>Setup code:</strong> <code>code/deliverable06/00_setup.R</code> <strong>Analysis scripts:</strong> <code>code/deliverable06/01_transmission.R</code>, <code>02_geothermal.R</code>, <code>03_pipelines.R</code> <strong>QC scripts:</strong> <code>code/deliverable06/04_identification_qc.R</code>, <code>05_length_validation.R</code> <strong>Report:</strong> <code>reports/deliverable06.qmd</code></p>
+<section id="deliverable-questions" class="level3">
+<h3 class="anchored" data-anchor-id="deliverable-questions">Deliverable questions</h3>
 <ol type="1">
-<li>Python extraction pipeline writes technology/length fields to <code>projects_combined.parquet</code></li>
-<li>Timeline extraction writes timeline fields to <code>projects_timeline_bert.parquet</code></li>
-<li>Deliverable 06 setup merges both by <code>project_id</code></li>
-<li>R scripts analyze merged dataset (no tech-length re-extraction in R)</li>
+<li><strong>Transmission lines</strong> — How do extracted line lengths correlate with NEPA review duration, geographic location, and project action type?</li>
+<li><strong>Geothermal energy</strong> — What NEPA timeline patterns emerge across phases of geothermal development (exploration, drilling, plant construction)?</li>
+<li><strong>Carbon and hydrogen pipelines</strong> — How do NEPA timelines for emerging pipeline technologies compare to natural gas pipelines, and does pipeline length predict review duration?</li>
 </ol>
+<p>All three analyses are restricted to <strong>clean energy projects</strong> (<code>project_energy_type == &quot;Clean&quot;</code>) across all three NEPA process types (CE, EA, EIS).</p>
+<hr>
 </section>
-<section id="output-locations" class="level2">
-<h2 class="anchored" data-anchor-id="output-locations">Output Locations</h2>
-<ul>
-<li>Tables: <code>output/deliverable6/tables/</code></li>
-<li>Figures: <code>output/deliverable6/figures/</code></li>
-</ul>
 </section>
-<section id="what-still-needs-to-be-done" class="level2">
-<h2 class="anchored" data-anchor-id="what-still-needs-to-be-done">What Still Needs To Be Done</h2>
+<section id="source-data" class="level2">
+<h2 class="anchored" data-anchor-id="source-data">2. Source Data</h2>
+<table class="table">
+<colgroup>
+<col style="width: 31%">
+<col style="width: 68%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>data/analysis/projects_combined.parquet</code></td>
+<td>Project-level metadata including all technology/length extraction fields written by the Python pipeline</td>
+</tr>
+<tr class="even">
+<td><code>data/analysis/projects_timeline_bert.parquet</code></td>
+<td>BERT-extracted timeline dates for CE projects</td>
+</tr>
+<tr class="odd">
+<td><code>data/analysis/projects_timeline_bert_ea_llm.parquet</code></td>
+<td>LLM-adjudicated timeline dates for EA projects</td>
+</tr>
+<tr class="even">
+<td><code>data/analysis/projects_timeline_bert_eis_llm.parquet</code></td>
+<td>LLM-adjudicated timeline dates for EIS projects</td>
+</tr>
+</tbody>
+</table>
+<p>The technology-specific fields (<code>project_is_transmission</code>, <code>project_transmission_length_miles</code>, <code>project_geothermal_phase</code>, <code>project_pipeline_group</code>, etc.) are written entirely by the Python extraction pipeline into <code>projects_combined.parquet</code>. R does not re-derive these fields — if they are missing they remain <code>NA</code>.</p>
+<hr>
+</section>
+<section id="python-extraction-pipeline" class="level2">
+<h2 class="anchored" data-anchor-id="python-extraction-pipeline">3. Python Extraction Pipeline</h2>
+<p><strong>Primary code:</strong> <code>code/extract/extract_technology.py</code> <strong>Invoked via:</strong> <code>python code/extract/extract_data.py --mode analysis</code></p>
+<p><code>extract_technology.py</code> is imported by <code>extract_data.py</code> and run as part of the standard analysis-mode pipeline. It generates technology flags, phase classifications, and length extraction fields for all three domains.</p>
+<hr>
+<section id="transmission-line-classification" class="level3">
+<h3 class="anchored" data-anchor-id="transmission-line-classification">3.1 Transmission Line Classification</h3>
+<p>Transmission projects are identified through a two-tier flag system: <strong>broad</strong> and <strong>strict</strong>.</p>
+<section id="broad-classification-project_is_transmission_broad" class="level4">
+<h4 class="anchored" data-anchor-id="broad-classification-project_is_transmission_broad">3.1.1 Broad classification (<code>project_is_transmission_broad</code>)</h4>
+<p>A project is flagged as broad-transmission if its combined text (title + description + type) contains any of: - <code>\belectricity transmission\b</code> - <code>\btransmission line\b</code> - <code>\btransmission\b</code></p>
+<p>This is intentionally permissive and produces more matches than the analysis uses. It serves as an efficient pre-filter before the more expensive length extraction.</p>
+</section>
+<section id="maintenance-exclusion-project_is_transmission_maintenance" class="level4">
+<h4 class="anchored" data-anchor-id="maintenance-exclusion-project_is_transmission_maintenance">3.1.2 Maintenance exclusion (<code>project_is_transmission_maintenance</code>)</h4>
+<p>Before length extraction, projects matching a vegetation management or routine maintenance regex on their <strong>title</strong> are flagged as <code>project_is_transmission_maintenance = TRUE</code>. These are excluded from the strict classification and candidate extraction. The title-only check avoids excluding genuine transmission projects where incidental maintenance language appears in the description (e.g., “access road maintenance” in a pole-replacement project).</p>
+<p>Maintenance patterns include: vegetation management, herbicide treatment, weed control, road maintenance, reclamation, routine inspection, and related terms.</p>
+</section>
+<section id="strict-classification-project_is_transmission_strict-project_is_transmission" class="level4">
+<h4 class="anchored" data-anchor-id="strict-classification-project_is_transmission_strict-project_is_transmission">3.1.3 Strict classification (<code>project_is_transmission_strict</code> / <code>project_is_transmission</code>)</h4>
+<p>A project passes the strict filter only if <strong>all three</strong> conditions hold:</p>
 <ol type="1">
-<li>QA validation pass for extracted lengths (transmission and pipeline)</li>
+<li><code>project_type</code> contains <code>Electricity Transmission</code> (<code>project_has_transmission_type_tag == TRUE</code>)</li>
+<li>Title or description contains explicit build-related transmission text (<code>project_has_transmission_build_text == TRUE</code>), matched against <code>TRANSMISSION_BUILD_RE</code> — a multi-pattern regex covering phrases like “new transmission line”, “construct X kV line”, “double-circuit transmission line”, and “right-of-way … transmission line”</li>
+<li>Extracted transmission length <code>&gt;= 1</code> mile (after adjudication)</li>
 </ol>
-<ul>
-<li>Build a sampled validation table including:
-<ul>
-<li><code>project_id</code></li>
-<li>extracted length</li>
-<li>confidence</li>
-<li>source text snippet</li>
-<li>optional manual review columns</li>
-</ul></li>
-</ul>
-<ol start="2" type="1">
-<li>Review strict transmission rule thresholds</li>
-</ol>
-<ul>
-<li>Current threshold <code>&gt;= 1 mile</code> is intentionally conservative.</li>
-<li>Confirm with project goals whether this should remain 1 mile or be adjusted.</li>
-</ul>
-<ol start="3" type="1">
-<li>Report integration</li>
-</ol>
-<ul>
-<li>Add Deliverable 06 report document (similar structure to <code>reports/deliverable04.qmd</code>) and include the produced tables/figures.</li>
-</ul>
+<p><code>project_is_transmission</code> is an alias of <code>project_is_transmission_strict</code>. The <code>&gt;= 1 mile</code> threshold was chosen conservatively to exclude administrative or measurement artifacts.</p>
+<hr>
 </section>
-<section id="useful-rerun-commands" class="level2">
-<h2 class="anchored" data-anchor-id="useful-rerun-commands">Useful Rerun Commands</h2>
-<p>Rebuild extraction outputs:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_data.py <span class="at">--mode</span> analysis</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p>Run Deliverable 06 scripts:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> code/deliverable06/01_transmission.R</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> code/deliverable06/02_geothermal.R</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> code/deliverable06/03_pipelines.R</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="key-files-changed" class="level2">
-<h2 class="anchored" data-anchor-id="key-files-changed">Key Files Changed</h2>
+<section id="transmission-length-extraction" class="level3">
+<h3 class="anchored" data-anchor-id="transmission-length-extraction">3.2 Transmission Length Extraction</h3>
+<p>Length extraction is a multi-step process: candidate extraction → value grouping → rule-based selection → optional LLM adjudication.</p>
+<section id="candidate-extraction-_extract_length_candidates" class="level4">
+<h4 class="anchored" data-anchor-id="candidate-extraction-_extract_length_candidates">3.2.1 Candidate extraction (<code>_extract_length_candidates</code>)</h4>
+<p>The full project text is split into sentences. Each sentence is checked for hint terms (<code>&quot;transmission&quot;</code>, <code>&quot;powerline&quot;</code>, <code>&quot;power line&quot;</code>, <code>&quot;kV transmission&quot;</code>, <code>&quot;electric line&quot;</code>, <code>&quot;line route&quot;</code>). Sentences with at least one hint term are scanned for:</p>
 <ul>
-<li><code>code/extract/extract_data.py</code></li>
-<li><code>code/deliverable06/00_setup.R</code></li>
-<li><code>code/deliverable06/01_transmission.R</code></li>
-<li><code>code/deliverable06/02_geothermal.R</code></li>
-<li><code>code/deliverable06/03_pipelines.R</code></li>
-<li><code>notes/status/06_deliverable06.md</code> (this file)</li>
+<li><strong>Miles patterns</strong> (<code>MILES_RE</code>): numeric values followed by <code>mile</code>, <code>miles</code>, or <code>mi</code></li>
+<li><strong>Feet patterns</strong> (<code>FEET_RE</code>): numeric values followed by <code>foot</code>, <code>feet</code>, or <code>ft</code>, converted to miles at 5,280 ft/mile</li>
 </ul>
+<p>Each candidate record includes: - <code>value_miles</code>: the extracted numeric value (rounded to 3 decimal places) - <code>hint_score</code>: count of hint terms in the sentence, plus bonuses - <code>sentence_has_build_verb</code>: whether the sentence contains a construction/authorization verb - <code>is_partial_crossing</code>: whether context indicates a partial land-crossing extent rather than total line length - <code>source_text</code>: a bounded snippet (~500 characters) centered on the matched numeric value</p>
+<p>Several false-positive filters are applied before a candidate is accepted: - <strong>Geographic direction filter</strong>: candidates where the miles value is immediately followed by a cardinal direction (e.g., “26 miles north of Helena”) are dropped — these are location references, not line lengths. - <strong>Width context filter</strong> (feet only): candidates where the sentence contains width-context words (<code>wide</code>, <code>corridor width</code>, <code>right-of-way width</code>) are dropped — these measure easement width, not line length. - <strong>Partial crossing filter</strong>: candidates where context indicates the value measures how far a line crosses a specific land type (<code>crosses public lands for X miles</code>, <code>X miles on federal land</code>) are flagged with <code>is_partial_crossing = TRUE</code> and deprioritized during adjudication. - <strong>Mile-post filter</strong>: sentences containing <code>mile post</code> or <code>MP</code> are skipped entirely.</p>
+<p>A <code>+2</code> bonus is added to <code>hint_score</code> for sentences containing explicit total-length language (<code>miles long</code>, <code>miles in length</code>, <code>total length of</code>, <code>overall length</code>).</p>
+</section>
+<section id="candidate-grouping-_collapse_candidates_by_value" class="level4">
+<h4 class="anchored" data-anchor-id="candidate-grouping-_collapse_candidates_by_value">3.2.2 Candidate grouping (<code>_collapse_candidates_by_value</code>)</h4>
+<p>Near-equal candidate values (within 0.01 miles) are collapsed into groups to avoid treating unit-conversion duplicates as distinct candidates. Within each group, the representative (highest hint_score) candidate is retained.</p>
+</section>
+<section id="rule-based-length-selection-_rule_based_length_selection" class="level4">
+<h4 class="anchored" data-anchor-id="rule-based-length-selection-_rule_based_length_selection">3.2.3 Rule-based length selection (<code>_rule_based_length_selection</code>)</h4>
+<p>After grouping, the rule-based selector resolves the final length according to a priority cascade:</p>
+<table class="table">
+<colgroup>
+<col style="width: 34%">
+<col style="width: 37%">
+<col style="width: 27%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Taxonomy</th>
+<th>Condition</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>none</code></td>
+<td>Zero candidates</td>
+<td>NaN</td>
+</tr>
+<tr class="even">
+<td><code>unique_match</code></td>
+<td>Exactly one non-trivial candidate</td>
+<td>That value</td>
+</tr>
+<tr class="odd">
+<td><code>single_nontrivial</code></td>
+<td>One non-partial candidate, others are partial</td>
+<td>The non-partial value</td>
+</tr>
+<tr class="even">
+<td><code>alternative_take_max</code></td>
+<td>Multiple candidates, project text signals alternatives (route options)</td>
+<td>Largest value</td>
+</tr>
+<tr class="odd">
+<td><code>sum</code></td>
+<td>Multiple candidates, project text signals additive segments (<code>also included</code>, <code>lateral</code>, <code>segment</code>)</td>
+<td>Sum of selected values</td>
+</tr>
+<tr class="even">
+<td><code>build_verb_winner</code></td>
+<td>One candidate’s sentence uniquely contains a build verb</td>
+<td>That candidate’s value</td>
+</tr>
+<tr class="odd">
+<td><code>take_max</code></td>
+<td>Ambiguous multi-candidate</td>
+<td>Highest hint_score, then largest value</td>
+</tr>
+</tbody>
+</table>
+<p>The rule-based result is stored in <code>project_transmission_length_miles</code> (the “comparison baseline”).</p>
+</section>
+<section id="llm-adjudication-_run_llm_transmission_adjudication" class="level4">
+<h4 class="anchored" data-anchor-id="llm-adjudication-_run_llm_transmission_adjudication">3.2.4 LLM adjudication (<code>_run_llm_transmission_adjudication</code>)</h4>
+<p>LLM adjudication is <strong>triggered</strong> when two or more non-trivial, non-partial candidate groups remain after rule-based resolution (<code>llm_trigger = TRUE</code>). When LLM is enabled (<code>--use-llm</code> flag passed to the extraction script), an LLM call is made for each triggered project.</p>
+<p>The prompt presents up to 8 candidates with their source snippets and instructs the model to pick the candidate most likely to represent the total proposed line length. The model is explicitly told to: - Prefer candidates with “X miles long” or “X miles in length” language - Ignore partial-crossing candidates - Ignore geographic direction mentions - Use the line being built, not existing reference lines</p>
+<p>Two LLM providers are supported: - <strong>Ollama</strong> (local, default): <code>llama3.2:3b-instruct-q4_K_M</code> - <strong>Claude API</strong> (cloud, <code>provider=anthropic</code>): <code>claude-haiku-4-5-20251001</code></p>
+<p>The LLM-adjudicated result is stored in <code>project_transmission_length_final</code>. If LLM was not triggered or failed, <code>project_transmission_length_final</code> equals <code>project_transmission_length_miles</code> (both are rule-based).</p>
+<p>The analysis uses <code>project_transmission_length_final</code> (LLM-adjudicated when available) as the primary length variable.</p>
+</section>
+<section id="action-type-split-project_transmission_new_build_miles-project_transmission_upgrade_miles" class="level4">
+<h4 class="anchored" data-anchor-id="action-type-split-project_transmission_new_build_miles-project_transmission_upgrade_miles">3.2.5 Action type split (<code>project_transmission_new_build_miles</code>, <code>project_transmission_upgrade_miles</code>)</h4>
+<p>After adjudication, each length candidate is independently classified as <code>new_build</code> or <code>upgrade</code> using sentence-level regexes. Distinct candidate values are summed per action type to produce per-project estimates of how many miles are new-build versus upgrade activity.</p>
+<hr>
+</section>
+</section>
+<section id="transmission-action-type-classification-project_transmission_action" class="level3">
+<h3 class="anchored" data-anchor-id="transmission-action-type-classification-project_transmission_action">3.3 Transmission Action Type Classification (<code>project_transmission_action</code>)</h3>
+<p>A project-level action type is derived by applying six regex patterns to the full project text (title + description). Categories:</p>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Action type</th>
+<th>Example signals</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>new_build</code></td>
+<td>“new transmission line”, “new double-circuit”, “new substation”, “switchyard”, “tap line”</td>
+</tr>
+<tr class="even">
+<td><code>upgrade</code></td>
+<td>“reconductoring”, “rebuilding”, “component replacement”, “crossarm”, “insulator”</td>
+</tr>
+<tr class="odd">
+<td><code>maintenance</code></td>
+<td>“hazard tree”, “structure inspection”, “line inspection” (structural only, in-scope projects)</td>
+</tr>
+<tr class="even">
+<td><code>fiber_optic</code></td>
+<td>“fiber optic”, “OPGW”, “optical ground wire”, “telecom”</td>
+</tr>
+<tr class="odd">
+<td><code>renewal</code></td>
+<td>“right-of-way renewal”, “ROW grant”, “re-authorization”</td>
+</tr>
+<tr class="even">
+<td><code>acquisition</code></td>
+<td>“acquire”, “disposition”, “transfer of easement”</td>
+</tr>
+<tr class="odd">
+<td><code>mixed</code></td>
+<td>Multiple categories match</td>
+</tr>
+<tr class="even">
+<td><code>unknown</code></td>
+<td>No category matches</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="geothermal-phase-classification-project_geothermal_phase" class="level3">
+<h3 class="anchored" data-anchor-id="geothermal-phase-classification-project_geothermal_phase">3.4 Geothermal Phase Classification (<code>project_geothermal_phase</code>)</h3>
+<p>Geothermal projects are identified by <code>project_is_geothermal</code> (a keyword flag detecting <code>geothermal</code> in project text, set in the extraction pipeline). Phase is then classified by <code>_classify_geothermal_phase()</code>, which applies regex patterns to the full project text:</p>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Phase</th>
+<th>Pattern examples</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>exploration</code></td>
+<td><code>\bexploration\b</code>, <code>\bexploratory\b</code>, <code>\bresource assessment\b</code>, <code>\bgeophysical survey\b</code></td>
+</tr>
+<tr class="even">
+<td><code>drilling</code></td>
+<td><code>\bdrilling\b</code>, <code>\bdrill pad\b</code>, <code>\bproduction well\b</code>, <code>\binjection well\b</code></td>
+</tr>
+<tr class="odd">
+<td><code>plant</code></td>
+<td><code>\bpower plant\b</code>, <code>\bgenerating station\b</code>, <code>\bturbine\b</code>, <code>\binterconnection\b</code></td>
+</tr>
+<tr class="even">
+<td><code>multi_phase</code></td>
+<td>Multiple phase signals match simultaneously</td>
+</tr>
+<tr class="odd">
+<td><code>unknown</code></td>
+<td>“geothermal” is present in text but no phase pattern matches</td>
+</tr>
+<tr class="even">
+<td><code>none</code></td>
+<td>“geothermal” does not appear in text at all</td>
+</tr>
+</tbody>
+</table>
+<p>Phase classification is limited to what appears in project title and description text; it does not scan document pages.</p>
+<hr>
+</section>
+<section id="pipeline-classification" class="level3">
+<h3 class="anchored" data-anchor-id="pipeline-classification">3.5 Pipeline Classification</h3>
+<p>Pipeline projects are identified via <code>project_is_pipeline</code> (keyword-based flag). Each pipeline project is then classified into a technology subtype:</p>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Detection basis</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>project_is_carbon_pipeline</code></td>
+<td>Carbon capture / CO₂ pipeline keywords</td>
+</tr>
+<tr class="even">
+<td><code>project_is_hydrogen_pipeline</code></td>
+<td>Hydrogen pipeline keywords</td>
+</tr>
+<tr class="odd">
+<td><code>project_is_natural_gas_pipeline</code></td>
+<td>Natural gas pipeline keywords</td>
+</tr>
+<tr class="even">
+<td><code>project_pipeline_group</code></td>
+<td>Rolled-up label for the above (with “Other pipeline” as the residual)</td>
+</tr>
+</tbody>
+</table>
+<p>Pipeline length extraction follows the same candidate extraction and adjudication logic as transmission, using <code>PIPELINE_HINTS</code> (<code>&quot;pipeline&quot;</code>, <code>&quot;pipelines&quot;</code>, <code>&quot;right-of-way&quot;</code>, <code>&quot;row&quot;</code>, <code>&quot;buried line&quot;</code>, <code>&quot;flowline&quot;</code>). The result is stored in <code>project_pipeline_length_miles</code> and <code>project_pipeline_length_confidence</code>.</p>
+<hr>
+</section>
+</section>
+<section id="r-data-pipeline" class="level2">
+<h2 class="anchored" data-anchor-id="r-data-pipeline">4. R Data Pipeline</h2>
+<section id="timeline-loading-and-harmonization-00_setup.r" class="level3">
+<h3 class="anchored" data-anchor-id="timeline-loading-and-harmonization-00_setup.r">4.1 Timeline loading and harmonization (<code>00_setup.R</code>)</h3>
+<p><code>load_timeline_for_deliverable6()</code> loads three separate timeline parquet files and row-binds them:</p>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Process types</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>projects_timeline_bert.parquet</code></td>
+<td>CE (categorical exclusions, BERT-only dates)</td>
+</tr>
+<tr class="even">
+<td><code>projects_timeline_bert_ea_llm.parquet</code></td>
+<td>EA (LLM-adjudicated dates)</td>
+</tr>
+<tr class="odd">
+<td><code>projects_timeline_bert_eis_llm.parquet</code></td>
+<td>EIS (LLM-adjudicated dates)</td>
+</tr>
+</tbody>
+</table>
+<p>After binding, dates are harmonized into unified <code>timeline_initiation_date_final</code> and <code>timeline_decision_date_final</code> columns: - For EA and EIS: <code>llm_initiation_date</code> / <code>llm_decision_date</code> (the hybrid BERT+LLM pipeline’s final output) - For CE: <code>bert_initiation_date_final</code> / <code>bert_decision_date_final</code> (BERT-only)</p>
+<p>The <code>timeline_method</code> column records which method produced each row’s dates (<code>&quot;llm&quot;</code> or <code>&quot;bert&quot;</code>). Legacy field names (<code>bert_initiation_date_final</code>, <code>bert_decision_date_final</code>) are preserved as aliases of the harmonized dates so downstream scripts do not need conditional column selection.</p>
+<p><strong>Why CE uses BERT-only:</strong> CE projects do not have the LLM adjudication layer applied to them in the current pipeline, so they fall back to raw BERT predictions.</p>
+</section>
+<section id="technology-field-merge" class="level3">
+<h3 class="anchored" data-anchor-id="technology-field-merge">4.2 Technology field merge</h3>
+<p>After loading timelines, <code>00_setup.R</code> reads <code>projects_combined.parquet</code> and left-joins the technology columns by <code>project_id</code>. A fixed list of ~35 technology columns is requested; only columns actually present in <code>projects_combined.parquet</code> are joined (guarding against version mismatches). R does not recompute any missing technology fields.</p>
+</section>
+<section id="prepare_deliverable6_data" class="level3">
+<h3 class="anchored" data-anchor-id="prepare_deliverable6_data">4.3 <code>prepare_deliverable6_data()</code></h3>
+<p>This helper function is called at the top of each analysis script:</p>
+<ol type="1">
+<li>Adds text columns (<code>project_title_txt</code>, <code>project_description_txt</code>, <code>project_type_txt</code>, <code>project_text_full</code>) by unnesting the JSON-stored list fields using <code>textify()</code> / <code>safe_fromJSON()</code>.</li>
+<li>Calls <code>add_timeline_metrics()</code>: computes <code>bert_duration_days_final</code>, <code>bert_duration_months_final</code>, <code>project_state_primary</code> (first listed state), <code>project_region</code> (US Census region via state lookup), and <code>process_group</code>.</li>
+<li>Applies the clean-energy filter (<code>project_energy_type == &quot;Clean&quot;</code>) when <code>clean_only = TRUE</code> (the default).</li>
+</ol>
+<p>Technology extraction columns that are absent from <code>projects_combined.parquet</code> are stubbed as <code>NA</code> (logical, numeric, or character depending on type) so downstream code never fails on a missing column.</p>
+<hr>
+</section>
+</section>
+<section id="transmission-analysis-01_transmission.r" class="level2">
+<h2 class="anchored" data-anchor-id="transmission-analysis-01_transmission.r">5. Transmission Analysis (<code>01_transmission.R</code>)</h2>
+<section id="analysis-subset" class="level3">
+<h3 class="anchored" data-anchor-id="analysis-subset">5.1 Analysis subset</h3>
+<p>The script filters to <code>project_is_transmission == TRUE</code> (strict classification, clean energy). The working dataset <code>analysis_len</code> adds: - <code>length_miles = project_transmission_length_final</code> (LLM-adjudicated when available, else rule-based) - <code>duration_days = bert_duration_days_final</code> - <code>length_bin</code>: <code>&lt;10 mi</code>, <code>10–50 mi</code>, <code>50–100 mi</code>, <code>100+ mi</code></p>
+</section>
+<section id="exploratory-outputs-google-sheets" class="level3">
+<h3 class="anchored" data-anchor-id="exploratory-outputs-google-sheets">5.2 Exploratory outputs (Google Sheets)</h3>
+<p>Three candidate-level tables are exported to a shared Google Sheet for QA:</p>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Sheet tab</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>tx</code></td>
+<td>One row per extracted candidate across all strict transmission projects; includes taxonomy, LLM trigger/status, hint scores, and whether each candidate was selected</td>
+</tr>
+<tr class="even">
+<td><code>tx_multiple</code></td>
+<td>Subset of projects with 2+ distinct candidate values; each row is one candidate</td>
+</tr>
+<tr class="odd">
+<td><code>tx_adjudication</code></td>
+<td>One row per project with 2+ distinct candidates; candidate values and LLM reasoning collapsed for review</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="tables" class="level3">
+<h3 class="anchored" data-anchor-id="tables">5.3 Tables</h3>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>table_transmission_summary.csv</code></td>
+<td>High-level counts: projects, with-length, with-duration, multi-state, median length, median duration</td>
+</tr>
+<tr class="even">
+<td><code>table_transmission_length_bins.csv</code></td>
+<td>Projects and duration statistics (median, P90) by length band</td>
+</tr>
+<tr class="odd">
+<td><code>table_transmission_state_region.csv</code></td>
+<td>Projects, median length, median duration by state and census region</td>
+</tr>
+<tr class="even">
+<td><code>table_transmission_action.csv</code></td>
+<td>Projects, median length, median duration by project action type</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="figures" class="level3">
+<h3 class="anchored" data-anchor-id="figures">5.4 Figures</h3>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>fig_transmission_length_distribution.png</code></td>
+<td>Histogram of extracted line lengths; dashed line at median</td>
+</tr>
+<tr class="even">
+<td><code>fig_transmission_length_by_action.png</code></td>
+<td>Boxplot of length by action type (excludes none/unknown/mixed)</td>
+</tr>
+<tr class="odd">
+<td><code>fig_transmission_length_bins.png</code></td>
+<td>Side-by-side bar charts: project count and median NEPA duration by length band</td>
+</tr>
+<tr class="even">
+<td><code>fig_transmission_state_n.png</code></td>
+<td>Lollipop: number of projects per state, colored by census region</td>
+</tr>
+<tr class="odd">
+<td><code>fig_transmission_state_length.png</code></td>
+<td>Lollipop: median extracted length per state, with project count labels</td>
+</tr>
+<tr class="even">
+<td><code>fig_transmission_length_vs_duration.png</code></td>
+<td>Scatter: length vs. duration, colored by action type; overall linear trend</td>
+</tr>
+<tr class="odd">
+<td><code>fig_transmission_duration_by_region.png</code></td>
+<td>Boxplot + jitter: NEPA duration by census region (y-axis capped at 1,000 days)</td>
+</tr>
+<tr class="even">
+<td><code>fig_transmission_duration_by_action.png</code></td>
+<td>Boxplot + jitter: NEPA duration by project action type</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="geothermal-analysis-02_geothermal.r" class="level2">
+<h2 class="anchored" data-anchor-id="geothermal-analysis-02_geothermal.r">6. Geothermal Analysis (<code>02_geothermal.R</code>)</h2>
+<section id="analysis-subset-1" class="level3">
+<h3 class="anchored" data-anchor-id="analysis-subset-1">6.1 Analysis subset</h3>
+<p>Filters to <code>project_is_geothermal == TRUE</code>, clean energy projects. A <strong>normalized project key</strong> (<code>geothermal_project_key</code>) is derived from the project title by stripping common geothermal-domain words (<code>geothermal</code>, <code>exploration</code>, <code>drilling</code>, <code>well</code>, <code>plant</code>, <code>project</code>, etc.) and punctuation. Projects whose key is fewer than 8 characters after normalization fall back to <code>project_id</code>. This key groups related NEPA actions within a single physical development for within-project sequencing analysis.</p>
+</section>
+<section id="tables-1" class="level3">
+<h3 class="anchored" data-anchor-id="tables-1">6.2 Tables</h3>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>table_geothermal_phase_distribution.csv</code></td>
+<td>Count and share of projects by geothermal phase</td>
+</tr>
+<tr class="even">
+<td><code>table_geothermal_within_project_phases.csv</code></td>
+<td>Per-inferred-project summary: action count, distinct phases, date span, example title</td>
+</tr>
+<tr class="odd">
+<td><code>table_geothermal_phase_timeline.csv</code></td>
+<td>Duration statistics (median, P25, P75) by phase, restricted to projects with complete timelines</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="figures-1" class="level3">
+<h3 class="anchored" data-anchor-id="figures-1">6.3 Figures</h3>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>fig_geothermal_phase_duration_boxplot.png</code></td>
+<td>Boxplot of NEPA duration by phase (excludes <code>none</code>)</td>
+</tr>
+<tr class="even">
+<td><code>fig_geothermal_within_project_sequence.png</code></td>
+<td>Gantt-style segment plot: initiation-to-decision segments per inferred project identity, colored by phase; top 250 rows by action count</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="pipeline-analysis-03_pipelines.r" class="level2">
+<h2 class="anchored" data-anchor-id="pipeline-analysis-03_pipelines.r">7. Pipeline Analysis (<code>03_pipelines.R</code>)</h2>
+<section id="analysis-subset-2" class="level3">
+<h3 class="anchored" data-anchor-id="analysis-subset-2">7.1 Analysis subset</h3>
+<p>Filters to <code>project_is_pipeline == TRUE</code>, clean energy projects. The <code>pipeline_group</code> variable is derived in R as an ordered factor from the Python-extracted subtype flags: - <code>project_is_carbon_pipeline</code> → <code>&quot;Carbon pipeline&quot;</code> - <code>project_is_hydrogen_pipeline</code> → <code>&quot;Hydrogen pipeline&quot;</code> - <code>project_is_natural_gas_pipeline</code> → <code>&quot;Natural gas pipeline&quot;</code> - else → <code>&quot;Other pipeline&quot;</code></p>
+<p>(Priority cascade: carbon &gt; hydrogen &gt; natural gas &gt; other, so a project matching multiple subtype flags takes the first matching label.)</p>
+</section>
+<section id="tables-2" class="level3">
+<h3 class="anchored" data-anchor-id="tables-2">7.2 Tables</h3>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>table_pipeline_group_summary.csv</code></td>
+<td>Per-group counts, length coverage, and duration statistics</td>
+</tr>
+<tr class="even">
+<td><code>table_pipeline_state_region.csv</code></td>
+<td>Projects, median length, median duration by region/state/group</td>
+</tr>
+<tr class="odd">
+<td><code>table_pipeline_baseline_compare.csv</code></td>
+<td>Median duration and length for carbon, hydrogen, and natural gas groups</td>
+</tr>
+<tr class="even">
+<td><code>table_pipeline_correlations.csv</code></td>
+<td>Pearson correlations between pipeline length and duration/doc_count/multi_state</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="figures-2" class="level3">
+<h3 class="anchored" data-anchor-id="figures-2">7.3 Figures</h3>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>fig_pipeline_duration_by_group.png</code></td>
+<td>Boxplot of NEPA review duration by pipeline technology group</td>
+</tr>
+<tr class="even">
+<td><code>fig_pipeline_length_vs_duration.png</code></td>
+<td>Scatter of pipeline length vs. duration, per-group trend lines</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="qc-and-validation-scripts" class="level2">
+<h2 class="anchored" data-anchor-id="qc-and-validation-scripts">8. QC and Validation Scripts</h2>
+<section id="identification-qc-04_identification_qc.r" class="level3">
+<h3 class="anchored" data-anchor-id="identification-qc-04_identification_qc.r">8.1 Identification QC (<code>04_identification_qc.R</code>)</h3>
+<p>Produces a structured overview of technology identification coverage and two stratified audit samples for manual review:</p>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Output</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>table_identification_overview.csv</code></td>
+<td>Key counts: total clean-energy projects, broad/strict/broad-only transmission, geothermal flagged/unknown-phase/keyword-not-flagged, pipeline flagged</td>
+</tr>
+<tr class="even">
+<td><code>table_identification_by_process.csv</code></td>
+<td>Identification counts and percentages broken out by process type (CE / EA / EIS)</td>
+</tr>
+<tr class="odd">
+<td><code>table_transmission_identification_audit_sample.csv</code></td>
+<td>60 strict + 60 broad-only (possible strict misses) projects with title, type, description snippet, and manual review columns</td>
+</tr>
+<tr class="even">
+<td><code>table_geothermal_identification_audit_sample.csv</code></td>
+<td>60 geothermal-flagged + 60 geothermal-keyword-not-flagged projects for false positive / false negative review</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="length-extraction-validation-05_length_validation.r" class="level3">
+<h3 class="anchored" data-anchor-id="length-extraction-validation-05_length_validation.r">8.2 Length Extraction Validation (<code>05_length_validation.R</code>)</h3>
+<p>Produces stratified samples for manual length validation:</p>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Output</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>table_length_extraction_coverage.csv</code></td>
+<td>Per-technology coverage: projects, with-length, high/medium/low confidence, median length</td>
+</tr>
+<tr class="even">
+<td><code>table_transmission_length_validation_sample.csv</code></td>
+<td>90 projects with extracted lengths (balanced by confidence bucket) + 30 missing-length projects (balanced by process type)</td>
+</tr>
+<tr class="odd">
+<td><code>table_pipeline_length_validation_sample.csv</code></td>
+<td>90 projects with extracted lengths + 50 missing-length projects</td>
+</tr>
+</tbody>
+</table>
+<p>Each validation row includes: <code>extracted_length_miles</code>, <code>confidence_bucket</code>, <code>extraction_source_text</code>, and blank <code>manual_length_found</code>, <code>manual_length_miles</code>, <code>manual_source_excerpt</code>, <code>manual_notes</code> columns for the reviewer to fill in.</p>
+<hr>
+</section>
+</section>
+<section id="output-schema" class="level2">
+<h2 class="anchored" data-anchor-id="output-schema">9. Output Schema</h2>
+<section id="technology-fields-in-projects_combined.parquet" class="level3">
+<h3 class="anchored" data-anchor-id="technology-fields-in-projects_combined.parquet">Technology fields in <code>projects_combined.parquet</code></h3>
+<p>All fields below are written by <code>extract_technology.py</code> and available for join in <code>00_setup.R</code>.</p>
+<section id="transmission-flags-and-classification" class="level4">
+<h4 class="anchored" data-anchor-id="transmission-flags-and-classification">Transmission flags and classification</h4>
+<table class="table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>project_is_transmission_broad</code></td>
+<td>Boolean</td>
+<td>Broad transmission flag (keyword-based)</td>
+</tr>
+<tr class="even">
+<td><code>project_has_transmission_type_tag</code></td>
+<td>Boolean</td>
+<td><code>project_type</code> contains <code>Electricity Transmission</code></td>
+</tr>
+<tr class="odd">
+<td><code>project_has_transmission_build_text</code></td>
+<td>Boolean</td>
+<td>Title/description contains explicit build-language match</td>
+</tr>
+<tr class="even">
+<td><code>project_is_transmission_maintenance</code></td>
+<td>Boolean</td>
+<td>Title indicates vegetation management or maintenance-only scope</td>
+</tr>
+<tr class="odd">
+<td><code>project_is_transmission_strict</code></td>
+<td>Boolean</td>
+<td>All three strict criteria satisfied</td>
+</tr>
+<tr class="even">
+<td><code>project_is_transmission</code></td>
+<td>Boolean</td>
+<td>Alias of <code>project_is_transmission_strict</code></td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_action</code></td>
+<td>String</td>
+<td><code>new_build</code>, <code>upgrade</code>, <code>maintenance</code>, <code>fiber_optic</code>, <code>renewal</code>, <code>acquisition</code>, <code>mixed</code>, <code>unknown</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="transmission-length-extraction-1" class="level4">
+<h4 class="anchored" data-anchor-id="transmission-length-extraction-1">Transmission length extraction</h4>
+<table class="table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>project_transmission_length_miles</code></td>
+<td>Float</td>
+<td>Rule-based selected length (baseline, always populated if candidates found)</td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_length_final</code></td>
+<td>Float</td>
+<td>Final length: LLM answer if LLM ran, else rule-based</td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_length_confidence</code></td>
+<td>String</td>
+<td><code>high</code>, <code>medium</code>, <code>none</code></td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_length_source_text</code></td>
+<td>String</td>
+<td>Text snippet containing the matched numeric value</td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_length_taxonomy</code></td>
+<td>String</td>
+<td>Rule taxonomy used: <code>unique_match</code>, <code>build_verb_winner</code>, <code>take_max</code>, <code>sum</code>, <code>alternative_take_max</code>, <code>llm</code>, <code>none</code></td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_length_selection_method</code></td>
+<td>String</td>
+<td><code>rule</code> or <code>llm</code></td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_length_candidate_count</code></td>
+<td>Integer</td>
+<td>Raw candidate count before grouping</td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_length_distinct_candidate_count</code></td>
+<td>Integer</td>
+<td>Distinct value groups after near-equality collapse</td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_length_candidates_json</code></td>
+<td>String</td>
+<td>JSON array of all candidates (for QA)</td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_length_selected_candidate_ids</code></td>
+<td>String</td>
+<td>JSON array of IDs of selected candidates</td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_length_llm_trigger</code></td>
+<td>Boolean</td>
+<td>Whether LLM adjudication was triggered</td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_length_llm_used</code></td>
+<td>Boolean</td>
+<td>Whether LLM call succeeded</td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_length_llm_status</code></td>
+<td>String</td>
+<td><code>success</code>, <code>failed_fallback_rule</code>, <code>not_triggered</code>, <code>not_requested</code></td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_length_llm_reasoning</code></td>
+<td>String</td>
+<td>LLM’s one-sentence explanation of its choice</td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_new_build_miles</code></td>
+<td>Float</td>
+<td>Sum of candidate lengths classified as new-build action type</td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_upgrade_miles</code></td>
+<td>Float</td>
+<td>Sum of candidate lengths classified as upgrade action type</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="geothermal-and-pipeline" class="level4">
+<h4 class="anchored" data-anchor-id="geothermal-and-pipeline">Geothermal and pipeline</h4>
+<table class="table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>project_is_geothermal</code></td>
+<td>Boolean</td>
+<td>Geothermal keyword present in project text</td>
+</tr>
+<tr class="even">
+<td><code>project_geothermal_phase</code></td>
+<td>String</td>
+<td><code>exploration</code>, <code>drilling</code>, <code>plant</code>, <code>multi_phase</code>, <code>unknown</code>, <code>none</code></td>
+</tr>
+<tr class="odd">
+<td><code>project_is_pipeline</code></td>
+<td>Boolean</td>
+<td>Pipeline keyword flag</td>
+</tr>
+<tr class="even">
+<td><code>project_is_carbon_pipeline</code></td>
+<td>Boolean</td>
+<td>Carbon capture / CO₂ pipeline</td>
+</tr>
+<tr class="odd">
+<td><code>project_is_hydrogen_pipeline</code></td>
+<td>Boolean</td>
+<td>Hydrogen pipeline</td>
+</tr>
+<tr class="even">
+<td><code>project_is_natural_gas_pipeline</code></td>
+<td>Boolean</td>
+<td>Natural gas pipeline</td>
+</tr>
+<tr class="odd">
+<td><code>project_pipeline_group</code></td>
+<td>String</td>
+<td>Rolled-up subtype label</td>
+</tr>
+<tr class="even">
+<td><code>project_pipeline_length_miles</code></td>
+<td>Float</td>
+<td>Extracted pipeline length (rule-based)</td>
+</tr>
+<tr class="odd">
+<td><code>project_pipeline_length_confidence</code></td>
+<td>String</td>
+<td><code>high</code>, <code>medium</code>, <code>none</code></td>
+</tr>
+<tr class="even">
+<td><code>project_pipeline_length_source_text</code></td>
+<td>String</td>
+<td>Text snippet containing the matched length value</td>
+</tr>
+<tr class="odd">
+<td><code>project_pipeline_length_candidate_count</code></td>
+<td>Integer</td>
+<td>Raw candidate count</td>
+</tr>
+<tr class="even">
+<td><code>project_pipeline_length_distinct_candidate_count</code></td>
+<td>Integer</td>
+<td>Distinct value groups</td>
+</tr>
+<tr class="odd">
+<td><code>project_pipeline_length_candidates_json</code></td>
+<td>String</td>
+<td>JSON array of all pipeline candidates (for QA)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+</section>
+<section id="key-design-decisions" class="level2">
+<h2 class="anchored" data-anchor-id="key-design-decisions">10. Key Design Decisions</h2>
+<section id="strict-vs.-broad-transmission-definitions" class="level3">
+<h3 class="anchored" data-anchor-id="strict-vs.-broad-transmission-definitions">10.1 Strict vs. broad transmission definitions</h3>
+<p>Using only the broad definition (any mention of “transmission”) would include thousands of projects — including many where “transmission” is incidental (e.g., a solar project with a short interconnect tie line). The strict definition requires a type tag, explicit build-related language, AND a non-trivial extracted length. This is conservative: some genuine transmission projects may be missed if their descriptions use non-standard phrasing or their lengths are not mentioned in title/description text. The broad-only set (projects passing broad but not strict) is provided in the QC output for manual review.</p>
+</section>
+<section id="llm-adjudication-only-for-ambiguous-cases" class="level3">
+<h3 class="anchored" data-anchor-id="llm-adjudication-only-for-ambiguous-cases">10.2 LLM adjudication only for ambiguous cases</h3>
+<p>The LLM adjudication layer runs only when 2+ non-trivial, non-partial candidate lengths remain after rule-based resolution. For the majority of projects (single unambiguous candidate, or rules resolve the contest), the LLM is never called, keeping runtime manageable. The rule-based result is always stored for comparison even when the LLM runs.</p>
+</section>
+<section id="geothermal-within-project-sequencing-via-normalized-title-keys" class="level3">
+<h3 class="anchored" data-anchor-id="geothermal-within-project-sequencing-via-normalized-title-keys">10.3 Geothermal within-project sequencing via normalized title keys</h3>
+<p>To identify that two different NEPA records represent sequential stages of the same physical geothermal development, titles are normalized by stripping domain-generic words. This is a heuristic: it may merge unrelated projects that happen to share a location name, and may split a single project whose titles vary across reviews. No ground-truth match dataset exists to validate grouping accuracy.</p>
+</section>
+<section id="pipeline-technology-comparison-uses-natural-gas-as-a-baseline" class="level3">
+<h3 class="anchored" data-anchor-id="pipeline-technology-comparison-uses-natural-gas-as-a-baseline">10.4 Pipeline technology comparison uses natural gas as a baseline</h3>
+<p>Carbon and hydrogen pipeline NEPA timelines are compared to natural gas pipelines because natural gas provides the closest established-technology analog with sufficient sample size. “Other pipeline” is retained as a residual category but excluded from the key comparison.</p>
+</section>
+<section id="timeline-method-varies-by-process-type" class="level3">
+<h3 class="anchored" data-anchor-id="timeline-method-varies-by-process-type">10.5 Timeline method varies by process type</h3>
+<p>CE timelines come from BERT-only extraction; EA and EIS timelines use the LLM-adjudicated dates from the hybrid pipeline. This is consistent with other deliverables (Deliverable 03, Deliverable 05) and reflects the availability of the LLM layer only for EA/EIS.</p>
+<hr>
+</section>
+</section>
+<section id="known-limitations" class="level2">
+<h2 class="anchored" data-anchor-id="known-limitations">11. Known Limitations</h2>
+<section id="length-extraction-coverage-gaps" class="level3">
+<h3 class="anchored" data-anchor-id="length-extraction-coverage-gaps">11.1 Length extraction coverage gaps</h3>
+<p>Length extraction depends on numeric mile mentions in project title and description text. Projects whose lengths appear only in document body text (not in title or description) will have <code>NA</code> for length fields. Coverage is substantially better for transmission (nearly all strict projects have a usable length) than for pipelines (~52% coverage for natural gas; lower for carbon and hydrogen).</p>
+</section>
+<section id="small-pipeline-samples" class="level3">
+<h3 class="anchored" data-anchor-id="small-pipeline-samples">11.2 Small pipeline samples</h3>
+<p>Carbon (n=8) and hydrogen (n=4) pipeline projects are too few for reliable statistical comparisons. All pipeline findings should be framed as preliminary and descriptive.</p>
+</section>
+<section id="geothermal-phase-completeness" class="level3">
+<h3 class="anchored" data-anchor-id="geothermal-phase-completeness">11.3 Geothermal phase completeness</h3>
+<p>Half of all geothermal projects have <code>project_geothermal_phase == &quot;unknown&quot;</code> — the project text mentions geothermal but no phase-specific signal was detected. Phase-specific conclusions are therefore limited to the minority of projects with classifiable phases.</p>
+</section>
+<section id="transmission-false-positives-from-geographic-directions" class="level3">
+<h3 class="anchored" data-anchor-id="transmission-false-positives-from-geographic-directions">11.4 Transmission false positives from geographic directions</h3>
+<p>The location-direction filter (dropping “26 miles north of Helena”) catches most geographic references, but multi-word directional phrases or less standard geographic mentions may still produce spurious length candidates. These would be selected only if no better candidate exists, and they would typically be outscored by legitimate build-language candidates.</p>
+</section>
+<section id="action-type-completeness" class="level3">
+<h3 class="anchored" data-anchor-id="action-type-completeness">11.5 Action type completeness</h3>
+<p>Approximately 15% of strict transmission projects receive <code>action = &quot;unknown&quot;</code> — no action-type signal is detectable in their text. These projects are excluded from action-type figures and tables.</p>
+</section>
+<section id="timeline-dependency-for-duration-analysis" class="level3">
+<h3 class="anchored" data-anchor-id="timeline-dependency-for-duration-analysis">11.6 Timeline dependency for duration analysis</h3>
+<p>All duration-based results require calculable timelines (both initiation and decision dates). Projects without extractable dates are excluded from duration comparisons. This affects pipeline analysis most severely, where the already-small samples are further reduced.</p>
+<hr>
+</section>
+</section>
+<section id="validation" class="level2">
+<h2 class="anchored" data-anchor-id="validation">12. Validation</h2>
+<p>No formal automated validation pass exists for Deliverable 06. The QC and validation scripts (<code>04_identification_qc.R</code>, <code>05_length_validation.R</code>) produce structured tables for <strong>manual review</strong>:</p>
+<ol type="1">
+<li><p><strong>Identification audit</strong>: Samples of strict-transmission, broad-only-transmission, geothermal-flagged, and geothermal-keyword-not-flagged projects for client review of classification accuracy.</p></li>
+<li><p><strong>Length validation sample</strong>: Stratified samples of projects with extracted lengths (balanced by confidence level) and projects with missing lengths (for gap analysis). Reviewers read the source text snippet and record whether the extracted length is correct, along with any manual correction.</p></li>
+<li><p><strong>Google Sheets upload</strong> (transmission only): The candidate-level tables (<code>tx</code>, <code>tx_multiple</code>, <code>tx_adjudication</code>) are written to a shared Google Sheet for detailed QA of the length selection logic, including auditing LLM adjudication reasoning.</p></li>
+</ol>
+<p>Validation status as of 2026-02-13: <strong>pending client review</strong>; length thresholds and strict classification criteria may be adjusted based on findings.</p>
 
 
 </section>
