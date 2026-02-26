@@ -24,6 +24,95 @@
 rm(list=ls())
 source(here::here("code", "deliverable02", "00_setup.R"))
 
+
+# --------------------------
+# SETUP
+# --------------------------
+
+reviews |> distinct(project_energy_type)
+reviews |> count(process_type)
+reviews |> count(review_type)
+
+# 
+# Programmatic
+# ---------------------------------
+
+# 0c3d63979201d57ca792f2bf380b8538 - This programmatic EIS
+# 90f52e1a39168fe1d642731f1eacbdd0 - Generic Environmental Impact Statement
+# a6c7af5b4682bbdf6a5ee6bc1295a795 - California Offshore Wind Draft Programmatic Environmental Impact Statement
+# 35a07173481cc54b1bb1907fb5096331 - New York Bight Programmatic Environmental Impact Statement
+
+sample_review("Programmatic", "EIS")
+sample_review("Programmatic", "EIS")
+sample_review("Programmatic", "EIS")
+sample_review("Programmatic", "EIS")
+
+
+# f95ec9530b352e3dd46e6473cb80dccf - Tier 1 EIS
+# debe659941dc65ed630daab88d5fbf81 - Programmatic EA
+# e4f17bdb94ef13df214876fefb844074 - Uranium Leasing Program Final Programmatic Environmental Assessment
+# b8dbf48325b74bca43976283460ba1ef - generic environmental impact statement
+
+sample_review("Programmatic", "EA")
+sample_review("Programmatic", "EA")
+sample_review("Programmatic", "EA")
+sample_review("Programmatic", "EA")
+  
+
+reviews |> 
+  #filter(project_id == "7f58211d8e13a419cc57083e545ba4b7") |> 
+  #filter(project_id == "f95ec9530b352e3dd46e6473cb80dccf") |> 
+  filter(project_id == "0c3d63979201d57ca792f2bf380b8538") |> 
+  select(project_id, project_type, process_type, project_review_type:review_type) |>
+  #pull(project_review_match_text)
+  glimpse()
+
+# 
+# Tiered
+# ---------------------------------
+# 6c093ea21877201b04a2452b5c59fca9 - generic environmental impact statement
+# 5c29e4983e3c45262048a8b0c6cba9cf - This EA tiers from\nthe SWEIS and a re-analysis of the operations per say will not be provided in this EA.
+# e76f247aff5b44a943603ffb515644b2 - This EA tiers from the following environmental impact statements completed at the BLM state or national \n
+# e76f247aff5b44a943603ffb515644b2 - The EA tiers to the Desert Renewable Energy Conservation Plan (DRECP) EIS and the WWEC \n
+
+sample_review("Tiered", "EA")
+sample_review("Tiered", "EA")
+sample_review("Tiered", "EA")
+sample_review("Tiered", "EA")
+sample_review("Tiered", "EA")
+
+
+# 
+# Evaluate medium confidence docs
+# ---------------------------------
+medconf <- 
+  reviews |> 
+  filter(project_review_confidence == "medium") |> 
+  filter(review_type != "Standard") |> 
+  select(project_id) |> 
+  glimpse()
+
+sample_conf <- 
+  medconf |> 
+  select(project_id) |> 
+  slice_sample(n=1) |> 
+  pull()
+
+# look at a random sample
+reviews |> 
+  filter(project_id %in% sample_conf) |> 
+  select(project_id, project_type, process_type, project_review_type:review_type) |>
+  glimpse()
+
+# distinct review context for all medium confidence cases
+reviews |> 
+  filter(project_review_confidence == "medium") |> 
+  filter(review_type != "Standard") |> 
+  distinct(project_review_match_text) |> 
+  print(n = 100)
+
+
+
 # --------------------------
 # FIGURE 1: REVIEW TYPE DISTRIBUTION
 # --------------------------
@@ -116,54 +205,45 @@ panel_a <- ggplot(by_process,
     y = NULL
   ) +
   theme_catf() +
-  theme(legend.position = "right")
+  theme(legend.position = "bottom")
 
-# -- Panel B: Zoomed non-standard absolute counts --
+# -- Panel B: Zoomed non-standard absolute counts (vertical bars) --
 non_std_counts <- by_process %>%
   filter(review_type != "Standard") %>%
   mutate(review_type = droplevels(review_type))
 
 panel_b <- ggplot(non_std_counts,
-                  aes(x = n, y = process_type, fill = review_type)) +
-  geom_col(position = position_dodge(width = 0.6), width = 0.5, alpha = 0.9) +
+                  aes(x = review_type, y = n, fill = process_type)) +
+  geom_col(position = position_dodge(width = 0.65), width = 0.55, alpha = 0.9) +
   geom_text(aes(label = n),
-            position = position_dodge(width = 0.6),
-            hjust = -0.2, size = 3.5, color = "gray20") +
+            position = position_dodge(width = 0.65),
+            vjust = -0.4, size = 3.5, color = "gray20") +
   scale_fill_manual(
-    values = review_type_colors[c("Programmatic","Tiered")],
-    name   = NULL
+    values = c("EA" = catf_blue, "EIS" = catf_dark_blue),
+    name   = "Process"
   ) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.3)),
+  scale_y_continuous(expand = expansion(mult = c(0, 0.22)),
                      labels = comma) +
   labs(
-    title    = "Non-Standard Reviews Only",
-    subtitle = "Absolute counts (programmatic + tiered)",
-    x = "Number of projects",
-    y = NULL
+    title    = "Non-Standard Reviews",
+    subtitle = "Counts by review type and NEPA process",
+    x        = NULL,
+    y        = "Number of projects"
   ) +
   theme_catf() +
-  theme(legend.position = "right",
-        axis.text.y     = element_blank(),
-        axis.title.y    = element_blank())
+  theme(legend.position = "bottom")
+
+library(patchwork)
 
 fig_process <- panel_a + panel_b +
-  patchwork::plot_layout(widths = c(2.2, 1)) +
-  patchwork::plot_annotation(
+  plot_layout(widths = c(2.2, 1)) +
+  plot_annotation(
     caption = "Standard = stand-alone EA/EIS; Programmatic = PEIS/PEA; Tiered = tiers from a programmatic review."
   )
 
-# Save — use cowplot if patchwork not available
-tryCatch({
-  library(patchwork)
-  fig_process_path <- here(figures_dir, "02_review_by_process.png")
-  ggsave(fig_process_path, fig_process, width = 12, height = 4.5, dpi = 300)
-  cat("  Saved:", fig_process_path, "\n")
-}, error = function(e) {
-  cat("  patchwork not available; saving panel A only\n")
-  fig_process_path <- here(figures_dir, "02_review_by_process.png")
-  ggsave(fig_process_path, panel_a, width = 9, height = 4, dpi = 300)
-  cat("  Saved:", fig_process_path, "\n")
-})
+fig_process_path <- here(figures_dir, "02_review_by_process.png")
+ggsave(fig_process_path, fig_process, width = 12, height = 4.5, dpi = 300)
+cat("  Saved:", fig_process_path, "\n")
 print(fig_process)
 
 # --------------------------
@@ -492,33 +572,43 @@ parent_colors <- c(
 )
 
 fig_parents <- ggplot(parent_counts,
-                      aes(x = n, y = parent, fill = as.character(identified))) +
-  geom_col(width = 0.6, alpha = 0.9) +
-  geom_text(aes(label = n), hjust = -0.3, size = 3.5, color = "gray20") +
-  scale_fill_manual(
-    values = parent_colors,
+                      aes(x = fct_reorder(parent, n), y = n,
+                          color = as.character(identified))) +
+  geom_segment(
+    aes(xend = fct_reorder(parent, n), yend = 0),
+    linewidth = 1.0, color = "gray80"
+  ) +
+  geom_point(size = 5, alpha = 0.95) +
+  geom_text(aes(label = n), hjust = -1.4, size = 3.5, color = "gray20",
+            show.legend = FALSE) +
+  scale_color_manual(
+    values = c("TRUE" = catf_dark_blue, "FALSE" = "gray65"),
     labels = c("TRUE" = "Identified programmatic review",
                "FALSE" = "Vague / unclear reference"),
     name = NULL
   ) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.2)),
-                     breaks = 0:6) +
+  scale_y_continuous(
+    breaks = 0:max(parent_counts$n),
+    expand = expansion(mult = c(0, 0.3))
+  ) +
+  coord_flip() +
   labs(
     title    = "Parent Programmatic Reviews Cited by Tiered Projects",
     subtitle = sprintf(
       "Which PEIS/PEA do tiered EAs/EISs reference? (%d tiered projects total)", nrow(tiered_projects)
     ),
-    x        = "Number of tiered projects",
-    y        = NULL,
+    x        = NULL,
+    y        = "Number of tiered projects",
     caption  = paste0(
-      "Tiers-from references extracted from the first 30 pages of each project's documents.\n",
-      "Some references are vague (e.g., 'this document and its references') and cannot be linked to a specific programmatic review."
+      "Tiers-from references extracted from the first 60 pages of each project's documents.\n",
+      "Some references are vague and cannot be linked to a specific programmatic review."
     )
   ) +
   theme_catf() +
   theme(
     legend.position    = "top",
-    panel.grid.major.y = element_blank()
+    panel.grid.major.y = element_blank(),
+    plot.caption       = element_text(hjust = 0)
   )
 
 fig_parents_path <- here(figures_dir, "02_tiered_parents.png")
