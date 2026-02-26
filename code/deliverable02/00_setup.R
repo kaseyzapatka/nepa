@@ -87,7 +87,7 @@ sample_review <- function(review_type_filter, process_type_filter = NULL) {
       review_type == review_type_filter,
       if (!is.null(process_type_filter)) process_type == process_type_filter else TRUE
     ) |>
-    select(project_id, project_type, project_review_type:review_type) |>
+    select(project_id, project_type, process_type, project_review_type:review_type) |>
     slice_sample(n = 1) |> 
     glimpse()
 }
