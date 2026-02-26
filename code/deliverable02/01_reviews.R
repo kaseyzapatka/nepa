@@ -24,6 +24,95 @@
 rm(list=ls())
 source(here::here("code", "deliverable02", "00_setup.R"))
 
+
+# --------------------------
+# SETUP
+# --------------------------
+
+reviews |> distinct(project_energy_type)
+reviews |> count(process_type)
+reviews |> count(review_type)
+
+# 
+# Programmatic
+# ---------------------------------
+
+# 0c3d63979201d57ca792f2bf380b8538 - This programmatic EIS
+# 90f52e1a39168fe1d642731f1eacbdd0 - Generic Environmental Impact Statement
+# a6c7af5b4682bbdf6a5ee6bc1295a795 - California Offshore Wind Draft Programmatic Environmental Impact Statement
+# 35a07173481cc54b1bb1907fb5096331 - New York Bight Programmatic Environmental Impact Statement
+
+sample_review("Programmatic", "EIS")
+sample_review("Programmatic", "EIS")
+sample_review("Programmatic", "EIS")
+sample_review("Programmatic", "EIS")
+
+
+# f95ec9530b352e3dd46e6473cb80dccf - Tier 1 EIS
+# debe659941dc65ed630daab88d5fbf81 - Programmatic EA
+# e4f17bdb94ef13df214876fefb844074 - Uranium Leasing Program Final Programmatic Environmental Assessment
+# b8dbf48325b74bca43976283460ba1ef - generic environmental impact statement
+
+sample_review("Programmatic", "EA")
+sample_review("Programmatic", "EA")
+sample_review("Programmatic", "EA")
+sample_review("Programmatic", "EA")
+  
+
+reviews |> 
+  #filter(project_id == "7f58211d8e13a419cc57083e545ba4b7") |> 
+  #filter(project_id == "f95ec9530b352e3dd46e6473cb80dccf") |> 
+  filter(project_id == "0c3d63979201d57ca792f2bf380b8538") |> 
+  select(project_id, project_type, process_type, project_review_type:review_type) |>
+  #pull(project_review_match_text)
+  glimpse()
+
+# 
+# Tiered
+# ---------------------------------
+# 6c093ea21877201b04a2452b5c59fca9 - generic environmental impact statement
+# 5c29e4983e3c45262048a8b0c6cba9cf - This EA tiers from\nthe SWEIS and a re-analysis of the operations per say will not be provided in this EA.
+# e76f247aff5b44a943603ffb515644b2 - This EA tiers from the following environmental impact statements completed at the BLM state or national \n
+# e76f247aff5b44a943603ffb515644b2 - The EA tiers to the Desert Renewable Energy Conservation Plan (DRECP) EIS and the WWEC \n
+
+sample_review("Tiered", "EA")
+sample_review("Tiered", "EA")
+sample_review("Tiered", "EA")
+sample_review("Tiered", "EA")
+sample_review("Tiered", "EA")
+
+
+# 
+# Evaluate medium confidence docs
+# ---------------------------------
+medconf <- 
+  reviews |> 
+  filter(project_review_confidence == "medium") |> 
+  filter(review_type != "Standard") |> 
+  select(project_id) |> 
+  glimpse()
+
+sample_conf <- 
+  medconf |> 
+  select(project_id) |> 
+  slice_sample(n=1) |> 
+  pull()
+
+# look at a random sample
+reviews |> 
+  filter(project_id %in% sample_conf) |> 
+  select(project_id, project_type, process_type, project_review_type:review_type) |>
+  glimpse()
+
+# distinct review context for all medium confidence cases
+reviews |> 
+  filter(project_review_confidence == "medium") |> 
+  filter(review_type != "Standard") |> 
+  distinct(project_review_match_text) |> 
+  print(n = 100)
+
+
+
 # --------------------------
 # FIGURE 1: REVIEW TYPE DISTRIBUTION
 # --------------------------
