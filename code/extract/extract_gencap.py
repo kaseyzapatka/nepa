@@ -1083,12 +1083,13 @@ Rules:
 4. If the project proposes N IDENTICAL units (turbines, generators, panels) each rated X MW/kW, set aggregate_method to "multiply" and set computed_value to N × X. Set selected_index to the candidate showing the per-unit value X.
 5. If the project proposes MULTIPLE DIFFERENTLY-RATED units that are all part of the proposed project, set aggregate_method to "sum" and set computed_value to their total. Set selected_index to the largest-value candidate.
 6. In all other cases set aggregate_method to "none" and computed_value to null.
+7. If the project is NOT a new generation facility (e.g. transmission lines, lease renewals, land management plans, public access projects, research facilities, or projects where all candidates describe energy consumption or existing infrastructure), you MUST return selected_index: null. Do NOT select the least-wrong candidate — return null.
 
 Return ONLY valid JSON:
 {{"selected_index": <1-based int or null>, "confidence": "<high|medium|low>", "reasoning": "<one sentence max 100 chars>", "aggregate_method": "<none|sum|multiply>", "computed_value": <number or null>}}
 
 If no candidate clearly represents the proposed project capacity, return:
-{{"selected_index": null, "confidence": "low", "reasoning": "no clear project capacity candidate", "aggregate_method": "none", "computed_value": null}}
+{{"selected_index": null, "confidence": "low", "reasoning": "<brief explanation of why no candidate applies>", "aggregate_method": "none", "computed_value": null}}
 
 JSON:"""
 
@@ -1363,6 +1364,7 @@ def extract_capacity_for_project(
 def extract_capacity_for_projects(
     source: str = 'eis',
     clean_energy_only: bool = True,
+    generation_only: bool = True,
     sample_size: Optional[int] = None,
     model: str = DEFAULT_MODEL,
     verbose: bool = True,
@@ -1395,6 +1397,28 @@ def extract_capacity_for_projects(
 
     if clean_energy_only and 'project_energy_type' in projects.columns:
         projects = projects[projects['project_energy_type'] == 'Clean']
+
+    # Filter B: skip projects with no generation-type tag (transmission, utilities, R&D, etc.)
+    # These projects will never have generation capacity; skipping them saves LLM calls.
+    GENERATION_TYPE_TAGS = {
+        "Carbon Capture and Sequestration", "Conventional Energy Production - Nuclear",
+        "Conventional Energy Production - Other", "Renewable Energy Production - Biomass",
+        "Renewable Energy Production - Energy Storage", "Renewable Energy Production - Geothermal",
+        "Renewable Energy Production - Hydrokinetic", "Renewable Energy Production - Hydropower",
+        "Renewable Energy Production - Other", "Renewable Energy Production - Solar",
+        "Renewable Energy Production - Wind, Offshore", "Renewable Energy Production - Wind, Onshore",
+        "Nuclear Technology",
+    }
+    if generation_only and 'project_type' in projects.columns:
+        import json as _json
+        def _has_gen_tag(pt):
+            if pd.isna(pt): return False
+            try: tags = _json.loads(str(pt))
+            except Exception: tags = [str(pt)]
+            return any(t in GENERATION_TYPE_TAGS for t in tags)
+        before = len(projects)
+        projects = projects[projects['project_type'].apply(_has_gen_tag)]
+        print(f"Generation-only filter: {len(projects):,} of {before:,} projects retained")
 
     if ambiguous_only and 'project_gencap_candidate_count' in projects.columns:
         projects = projects.copy()

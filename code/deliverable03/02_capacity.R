@@ -53,15 +53,114 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     )
 
   # --------------------------
-  # COVERAGE TABLE (SIMPLE)
+  # FILTER B: GENERATION-TAGGED PROJECTS ONLY
+  # --------------------------
+  # Restrict analysis to projects with at least one generation-specific tag.
+  # Excludes projects tagged exclusively as Electricity Transmission or Utilities
+  # (grid infrastructure, ROW renewals, pole replacements, etc.) that should not
+  # have generation capacity values.
+  #
+  # "All clean energy" denominator:  all 20,725 projects with project_energy_type == "Clean"
+  # "Generation projects" denominator: 11,038 with at least one generation-type tag
+  # The difference (9,687) is R&D, manufacturing, transmission-only, land management, etc.
+
+  generation_type_tags <- c(
+    "Carbon Capture and Sequestration",
+    "Conventional Energy Production - Nuclear",
+    "Conventional Energy Production - Other",
+    "Renewable Energy Production - Biomass",
+    "Renewable Energy Production - Energy Storage",
+    "Renewable Energy Production - Geothermal",
+    "Renewable Energy Production - Hydrokinetic",
+    "Renewable Energy Production - Hydropower",
+    "Renewable Energy Production - Other",
+    "Renewable Energy Production - Solar",
+    "Renewable Energy Production - Wind, Offshore",
+    "Renewable Energy Production - Wind, Onshore",
+    "Nuclear Technology"
+  )
+
+  # project_type is already in gencap_projects (carried through from the extraction pipeline)
+  gencap_projects <- gencap_projects %>%
+    mutate(
+      has_generation_tag = map_lgl(project_type, function(pt) {
+        if (is.null(pt) || is.na(pt) || pt == "") return(FALSE)
+        tags <- tryCatch(jsonlite::fromJSON(as.character(pt)), error = function(e) as.character(pt))
+        any(tags %in% generation_type_tags)
+      })
+    )
+
+  # Record pre-filter counts for denominator comparison table
+  all_clean_by_source <- clean_energy %>%
+    count(dataset_source, name = "all_clean_projects") %>%
+    arrange(factor(dataset_source, levels = c("CE", "EA", "EIS")))
+
+  gen_by_source <- gencap_projects %>%
+    filter(has_generation_tag) %>%
+    count(dataset_source, name = "generation_projects") %>%
+    arrange(factor(dataset_source, levels = c("CE", "EA", "EIS")))
+
+  cat(sprintf(
+    "  Generation-tagged projects: %d of %d clean energy projects (%.1f%%)\n",
+    sum(gencap_projects$has_generation_tag),
+    nrow(gencap_projects),
+    100 * mean(gencap_projects$has_generation_tag)
+  ))
+
+  # --------------------------
+  # FIGURE 1A: COVERAGE — ALL CLEAN ENERGY (pre-filter, for comparison)
+  # --------------------------
+
+  coverage_data_all <- gencap_projects %>%
+    group_by(dataset_source) %>%
+    summarise(with_capacity = sum(has_capacity, na.rm = TRUE), .groups = "drop") %>%
+    left_join(all_clean_by_source, by = "dataset_source") %>%
+    rename(total = all_clean_projects) %>%
+    mutate(
+      pct_extracted  = 100 * with_capacity / total,
+      dataset_source = factor(dataset_source, levels = c("CE", "EA", "EIS")),
+      label_color    = if_else(dataset_source == "CE", "black", "white")
+    )
+
+  process_fill <- c("CE" = catf_light_blue, "EA" = catf_blue, "EIS" = catf_dark_blue)
+
+  fig_coverage_all <- coverage_data_all %>%
+    ggplot(aes(x = dataset_source, y = pct_extracted, fill = dataset_source)) +
+    geom_col(width = 0.7) +
+    geom_text(aes(label = paste0(round(pct_extracted, 1), "%")),
+              vjust = -0.5, size = 4, fontface = "bold") +
+    geom_text(aes(label = paste0("(", comma(with_capacity), " / ", comma(total), ")"),
+                  y = pct_extracted / 2, color = label_color), size = 3.5) +
+    labs(
+      title    = "Extraction Coverage: All Clean Energy Projects",
+      subtitle = "Denominator = all 20,725 clean energy projects (includes transmission, utilities, R&D, etc.)",
+      x = "Process Type", y = "Percent with Capacity Extracted",
+      caption  = "CE = Categorical Exclusion, EA = Environmental Assessment, EIS = Environmental Impact Statement"
+    ) +
+    scale_y_continuous(limits = c(0, 100), labels = percent_format(scale = 1),
+                       expand = expansion(mult = c(0, 0.1))) +
+    scale_fill_manual(values = process_fill, guide = "none") +
+    scale_color_identity(guide = "none") +
+    theme_catf() +
+    theme(plot.caption = element_text(size = 8, color = "gray50", hjust = 0))
+
+  ggsave(here(figures_dir, "04_capacity_coverage_all.png"), fig_coverage_all,
+         width = 8, height = 6, units = "in", dpi = 300)
+  cat("  Saved: 04_capacity_coverage_all.png\n")
+
+  # Apply filter — all downstream figures and tables use generation projects only
+  gencap_projects <- gencap_projects %>% filter(has_generation_tag)
+
+  # --------------------------
+  # COVERAGE TABLE
   # --------------------------
 
   capacity_coverage_table <- gencap_projects %>%
     group_by(dataset_source) %>%
     summarise(
-      total_projects = n(),
+      generation_projects = n(),
       projects_with_capacity = sum(has_capacity, na.rm = TRUE),
-      coverage_percent = 100 * projects_with_capacity / total_projects,
+      coverage_pct_generation = 100 * projects_with_capacity / generation_projects,
       .groups = "drop"
     ) %>%
     arrange(factor(dataset_source, levels = c("CE", "EA", "EIS")))
@@ -72,19 +171,43 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
       across(where(is.numeric), \(x) sum(x, na.rm = TRUE))
     ) %>%
     mutate(
-      coverage_percent = 100 * projects_with_capacity / total_projects
+      coverage_pct_generation = 100 * projects_with_capacity / generation_projects
     ) %>%
     select(names(capacity_coverage_table))
 
   capacity_coverage_table <- bind_rows(capacity_coverage_table, capacity_coverage_total) %>%
     rename(
-      `Process Type` = dataset_source,
-      `Total Projects` = total_projects,
+      `Process Type`           = dataset_source,
+      `Generation Projects`    = generation_projects,
       `Projects with Capacity` = projects_with_capacity,
-      `Coverage (%)` = coverage_percent
+      `Coverage (%)`           = coverage_pct_generation
     )
+
   write_csv(capacity_coverage_table, here(tables_dir, "table2_capacity_coverage_summary.csv"))
   cat("  Saved: table2_capacity_coverage_summary.csv\n")
+
+  # Denominator comparison table (saved separately for the QMD)
+  denom_comparison <- all_clean_by_source %>%
+    left_join(gen_by_source, by = "dataset_source") %>%
+    mutate(excluded = all_clean_projects - generation_projects,
+           pct_excluded = 100 * excluded / all_clean_projects) %>%
+    bind_rows(
+      summarise(., dataset_source = "Total",
+                all_clean_projects = sum(all_clean_projects),
+                generation_projects = sum(generation_projects),
+                excluded = sum(excluded),
+                pct_excluded = 100 * sum(excluded) / sum(all_clean_projects))
+    ) %>%
+    rename(
+      `Process Type`        = dataset_source,
+      `All Clean Energy`    = all_clean_projects,
+      `Generation Projects` = generation_projects,
+      `Excluded`            = excluded,
+      `Excluded (%)`        = pct_excluded
+    )
+
+  write_csv(denom_comparison, here(tables_dir, "table2_denominator_comparison.csv"))
+  cat("  Saved: table2_denominator_comparison.csv\n")
 
   # --------------------------
   # POWER VS ENERGY COVERAGE TABLE
@@ -179,7 +302,7 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     )) +
     theme_catf() +
     theme(
-      legend.position = "right",
+      legend.position = "bottom",
       plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
     )
 
@@ -301,7 +424,7 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     scale_color_identity(guide = "none") +
     theme_catf() +
     theme(
-      legend.position = "right",
+      legend.position = "bottom",
       plot.caption = element_text(size = 8, color = "gray50", hjust = 0)
     )
 
@@ -449,8 +572,8 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
         size = 3.5
       ) +
       labs(
-        title = "Generation Capacity Extraction Coverage by Process Type",
-        subtitle = "Percentage of clean energy projects with capacity values extracted",
+        title = "Extraction Coverage: Generation Projects Only",
+        subtitle = "Denominator = 11,038 generation-tagged projects (Solar, Wind, Geothermal, Hydro, Nuclear, etc.)",
         x = "Process Type",
         y = "Percent with Capacity Extracted",
         caption = "CE = Categorical Exclusion, EA = Environmental Assessment, EIS = Environmental Impact Statement\nLower CE coverage reflects smaller projects that often lack explicit capacity values."
@@ -533,7 +656,7 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
       theme_catf() +
       theme(
         plot.caption = element_text(size = 8, color = "gray50", hjust = 0),
-        legend.position = "right"
+        legend.position = "bottom"
       )
 
     fig2
@@ -662,17 +785,27 @@ examples_regex <- gencap_projects %>%
   slice_sample(n = 5)
 
 # 5 LLM-adjudicated projects (LLM overrode regex)
-examples_llm <- gencap_projects %>%
+# Always include these two illustrative cases; fill remaining 3 at random
+llm_pinned_titles <- c(
+  "Granite Reliable Power Wind Park",
+  "Kotzebue Wind Installation Project"
+)
+llm_pool <- gencap_projects %>%
   filter(
     llm_merge_decision == "llm_override_regex",
     !is.na(project_gencap_llm_reasoning)
   ) %>%
-  select(all_of(example_cols)) %>%
-  slice_sample(n = 5)
+  select(all_of(example_cols))
+
+llm_pinned <- llm_pool %>% filter(project_title %in% llm_pinned_titles)
+llm_random  <- llm_pool %>%
+  filter(!project_title %in% llm_pinned_titles) %>%
+  slice_sample(n = max(0, 5 - nrow(llm_pinned)))
+
+examples_llm <- bind_rows(llm_pinned, llm_random)
 
 write_csv(examples_regex, here(tables_dir, "04_gencap_examples_regex.csv"))
 write_csv(examples_llm,   here(tables_dir, "04_gencap_examples_llm.csv"))
 
 cat("Saved regex examples: 04_gencap_examples_regex.csv (", nrow(examples_regex), "rows)\n")
 cat("Saved LLM examples:   04_gencap_examples_llm.csv (", nrow(examples_llm), "rows)\n")
-
