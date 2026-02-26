@@ -203,6 +203,53 @@ tbl_transmission_summary <- tibble(
 tbl_transmission_summary
 write_csv(tbl_transmission_summary, here(tables_dir, "table_transmission_summary.csv"))
 
+# --------------------------
+# SAMPLE COMPOSITION FIGURE
+# --------------------------
+
+n_total     <- nrow(analysis_len)
+n_full_dur  <- sum(!is.na(analysis_len$duration_days) & analysis_len$duration_days >= 0, na.rm = TRUE)
+n_dec_only  <- sum(!is.na(analysis_len$bert_decision_date_final) &
+                     is.na(analysis_len$bert_initiation_date_final), na.rm = TRUE)
+n_init_only <- sum(is.na(analysis_len$bert_decision_date_final) &
+                     !is.na(analysis_len$bert_initiation_date_final), na.rm = TRUE)
+n_no_dates  <- sum(is.na(analysis_len$bert_decision_date_final) &
+                     is.na(analysis_len$bert_initiation_date_final), na.rm = TRUE)
+
+avail_df <- tibble(
+  status = factor(
+    c("Full duration\n(both dates)", "Decision date only", "Initiation date only", "No dates"),
+    levels = c("No dates", "Initiation date only", "Decision date only", "Full duration\n(both dates)")
+  ),
+  n     = c(n_full_dur, n_dec_only, n_init_only, n_no_dates),
+  group = c("Complete", "Partial", "Partial", "Missing")
+) %>%
+  mutate(pct = round(n / n_total * 100))
+
+fig_sample_breakdown <- avail_df %>%
+  ggplot(aes(x = status, y = n, fill = group)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = paste0(n, "  (", pct, "%)")),
+            hjust = -0.08, size = 3.5, color = "grey20") +
+  coord_flip(clip = "off") +
+  scale_fill_manual(
+    values = c("Complete" = catf_teal, "Partial" = catf_light_blue, "Missing" = "grey75"),
+    name   = "Date availability"
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
+  labs(
+    title    = paste0("Transmission Sample: N = ", n_total, " Strict Clean Energy Projects"),
+    subtitle = "Breakdown by date availability for NEPA duration calculations",
+    x        = NULL,
+    y        = "Number of projects"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom")
+
+print(fig_sample_breakdown)
+ggsave(here(figures_dir, "fig_transmission_sample_breakdown.png"),
+       fig_sample_breakdown, width = 8, height = 4, dpi = 300)
+
 # Length bins: n projects + median/p90 duration per band
 tbl_length_bins <- analysis_len %>%
   filter(!is.na(length_bin)) %>%
@@ -290,6 +337,28 @@ ggsave(here(figures_dir, "fig_transmission_length_distribution.png"),
        fig_length_dist, width = 8, height = 5, dpi = 300)
 
 
+# -- Fig: Action type count bar chart (replaces table in report) --
+fig_action_count <- tbl_action %>%
+  mutate(action_lbl = fct_reorder(action_label(action), n_projects)) %>%
+  ggplot(aes(x = n_projects, y = action_lbl, fill = action_label(action))) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = n_projects), hjust = -0.2, size = 3.5, fontface = "bold") +
+  scale_fill_manual(values = action_colors) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.18))) +
+  labs(
+    title    = "Transmission Projects by Action Type",
+    subtitle = "Count of strict clean energy projects per action category",
+    x        = "Number of projects",
+    y        = NULL
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "none")
+
+print(fig_action_count)
+ggsave(here(figures_dir, "fig_transmission_action_count.png"),
+       fig_action_count, width = 8, height = 4, dpi = 300)
+
+
 # -- Fig 2: Length by action type (boxplot + jitter) --
 fig_length_by_action <- analysis_len %>%
   filter(!is.na(length_miles),
@@ -298,7 +367,7 @@ fig_length_by_action <- analysis_len %>%
     action_label = fct_reorder(action_label(project_transmission_action), length_miles, median)
   ) %>%
   ggplot(aes(x = action_label, y = length_miles, fill = action_label, color = action_label)) +
-  geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE, width = 0.4) +
   geom_jitter(width = 0.2, alpha = 0.55, size = 2, show.legend = FALSE) +
   coord_flip() +
   scale_fill_manual(values = action_colors) +
@@ -326,14 +395,31 @@ p_bin_n <- tbl_length_bins %>%
   labs(x = NULL, y = "Projects", title = "Projects per length") +
   theme_minimal(base_size = 11)
 
-p_bin_dur <- tbl_length_bins %>%
-  filter(!is.na(median_duration_days)) %>%
-  ggplot(aes(x = length_bin, y = median_duration_days)) +
-  geom_col(fill = catf_teal, width = 0.6) +
-  geom_text(aes(label = round(median_duration_days)), vjust = -0.4, size = 3.5, fontface = "bold") +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
-  labs(x = NULL, y = "Days", title = "Median NEPA duration") +
-  theme_minimal(base_size = 11)
+bin_colors <- c(
+  "<10 mi"    = catf_teal,
+  "10–50 mi"  = catf_light_blue,
+  "50–100 mi" = catf_dark_blue,
+  "100+ mi"   = catf_navy
+)
+
+p_bin_dur <- analysis_len %>%
+  filter(!is.na(length_bin), !is.na(duration_days), duration_days >= 0) %>%
+  ggplot(aes(x = length_bin, y = duration_days, fill = length_bin)) +
+  geom_violin(alpha = 0.5, trim = TRUE, color = NA) +
+  geom_boxplot(
+    width = 0.2,
+    outlier.alpha = 0.25,
+    outlier.size  = 0.8,
+    fill          = NA,
+    color         = catf_navy,
+    linewidth     = 0.55
+  ) +
+  coord_cartesian(ylim = c(0, 800)) +
+  scale_fill_manual(values = bin_colors) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(x = NULL, y = "Duration (days)", title = "NEPA Duration by Length Band") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "none")
 
 fig_length_bins_chart <- p_bin_n + p_bin_dur +
   plot_annotation(
@@ -374,7 +460,7 @@ fig_state_n <- tbl_state_region_clean %>%
     color    = "Region"
   ) +
   theme_minimal(base_size = 11) +
-  theme(legend.position = "right")
+  theme(legend.position = "bottom")
 
 print(fig_state_n)
 ggsave(here(figures_dir, "fig_transmission_state_n.png"),
@@ -402,7 +488,7 @@ fig_state_length <- tbl_state_region_clean %>%
     color    = "Region"
   ) +
   theme_minimal(base_size = 11) +
-  theme(legend.position = "right")
+  theme(legend.position = "bottom")
 
 print(fig_state_length)
 ggsave(here(figures_dir, "fig_transmission_state_length.png"),
@@ -444,21 +530,86 @@ fig_scatter <- analysis_len %>%
     x        = "Transmission length (miles)",
     y        = "Duration (days)"
   ) +
-  theme_minimal(base_size = 11)
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom", legend.text = element_text(size = 9)) +
+  guides(color = guide_legend(nrow = 2))
 
 print(fig_scatter)
 ggsave(here(figures_dir, "fig_transmission_length_vs_duration.png"),
        fig_scatter, width = 9, height = 6, dpi = 300)
 
 
+# -- Fig 5b: Scatter with outliers removed (top 5% of length and duration) --
+scatter_base <- analysis_len %>%
+  filter(!is.na(length_miles), !is.na(duration_days), duration_days >= 0)
+
+dur_p95 <- quantile(scatter_base$duration_days, 0.95, na.rm = TRUE)
+len_p95 <- quantile(scatter_base$length_miles,  0.95, na.rm = TRUE)
+
+scatter_trim <- scatter_base %>%
+  filter(duration_days <= dur_p95, length_miles <= len_p95) %>%
+  mutate(
+    action_label = case_when(
+      project_transmission_action %in% c("none", "unknown", "mixed") ~ "Unknown / Mixed",
+      TRUE ~ action_label(project_transmission_action)
+    )
+  )
+
+n_excluded   <- nrow(scatter_base) - nrow(scatter_trim)
+r_len_dur_trim <- round(cor(scatter_trim$length_miles, scatter_trim$duration_days,
+                            use = "complete.obs"), 2)
+
+fig_scatter_trim <- scatter_trim %>%
+  ggplot(aes(x = length_miles, y = duration_days, color = action_label)) +
+  geom_point(alpha = 0.65, size = 2.2) +
+  geom_smooth(
+    aes(x = length_miles, y = duration_days),
+    method = "lm", se = TRUE, color = "grey40", linewidth = 0.9,
+    inherit.aes = FALSE
+  ) +
+  scale_color_manual(
+    values = c(action_colors, "Unknown / Mixed" = "grey70"),
+    name = "Action type"
+  ) +
+  scale_x_continuous(labels = scales::comma) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title    = "Transmission Length vs. NEPA Duration (Outliers Removed)",
+    subtitle = paste0(
+      "Top 5% of length (>", round(len_p95), " mi) and duration (>", round(dur_p95),
+      " days) excluded (n = ", n_excluded, " removed) | Pearson r = ", r_len_dur_trim
+    ),
+    x = "Transmission length (miles)",
+    y = "Duration (days)"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "bottom", legend.text = element_text(size = 9)) +
+  guides(color = guide_legend(nrow = 2))
+
+print(fig_scatter_trim)
+ggsave(here(figures_dir, "fig_transmission_length_vs_duration_trim.png"),
+       fig_scatter_trim, width = 9, height = 6, dpi = 300)
+
+
 # -- Fig 6: Duration by region (boxplot + jitter) --
-fig_region <- analysis_len %>%
+region_plot_data <- analysis_len %>%
   filter(!is.na(duration_days), duration_days >= 0,
          !project_region %in% c("Unknown", NA)) %>%
-  mutate(project_region = fct_reorder(project_region, duration_days, median)) %>%
+  mutate(project_region = fct_reorder(project_region, duration_days, median))
+
+region_n_labels <- region_plot_data %>%
+  count(project_region) %>%
+  mutate(label = paste0("n = ", n))
+
+fig_region <- region_plot_data %>%
   ggplot(aes(x = project_region, y = duration_days, fill = project_region)) +
   geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE) +
   geom_jitter(width = 0.18, alpha = 0.45, size = 1.8, color = "grey30") +
+  geom_text(
+    data = region_n_labels,
+    aes(x = project_region, y = 950, label = label),
+    size = 3.2, color = "grey40", fontface = "italic", inherit.aes = FALSE
+  ) +
   coord_cartesian(ylim = c(0, 1000)) +
   scale_fill_manual(values = region_colors) +
   scale_y_continuous(labels = scales::comma) +
@@ -484,7 +635,7 @@ fig_duration_by_action <- analysis_len %>%
     action_label = fct_reorder(action_label(project_transmission_action), duration_days, median)
   ) %>%
   ggplot(aes(x = action_label, y = duration_days, fill = action_label, color = action_label)) +
-  geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE) +
+  geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE, width = 0.4) +
   geom_jitter(width = 0.2, alpha = 0.55, size = 2, show.legend = FALSE) +
   coord_flip() +
   scale_fill_manual(values = action_colors) +
