@@ -42,11 +42,20 @@ This analysis examines whether document length has changed after FRA enactment, 
 
 > Data on the number of pages over time, including pre- and post-Fiscal Responsibility Act of 2023 (FRA), which set page limit requirements.
 
-The Fiscal Responsibility Act of 2023 (Public Law 118-5) introduced page limits for NEPA environmental reviews as part of broader permitting reform. Environmental Assessments (EAs) are limited to 75 pages, while Environmental Impact Statements (EISs) are limited to 150 pages, with an exception of up to 300 pages for extraordinarily complex projects. This analysis examines document length trends for clean energy EA and EIS projects to assess whether these page limits have had an observable effect.
-
 ---
 
 # Methodology
+
+## Fiscal Responsibility Act of 2023
+
+The [Fiscal Responsibility Act of 2023 (Public Law 118-5)](https://ceq.doe.gov/laws-regulations/fra.html) introduced page limits for NEPA environmental reviews as part of broader permitting reform: 
+
+> The final rule fully implements the page limits included in the 2023 NEPA amendments. Under the rule, environmental impact statements must be 150 pages or less, or 300 pages or less for proposals of extraordinary complexity. 40 C.F.R. § 1502.7. Environmental assessments must be 75 pages or less. 40 C.F.R. § 1501.5(g). The final rule defines a “page” as containing 500 words and excludes citations, explanatory maps, diagrams, graphs, tables, and other means of graphically displaying quantitative or geospatial information. 40 C.F.R. § 1508.1(bb).
+
+- **Environmental Assessments (EAs)** are limited to 75 pages
+- **Environmental Impact Statements (EISs)** are limited to 150 pages, with an exception of up to 300 pages for extraordinarily complex projects.
+
+This analysis examines document length trends for clean energy EA and EIS projects to assess whether these page limits have had an observable effect.
 
 ## Scope and Inclusion Criteria
 
@@ -56,7 +65,7 @@ This analysis is restricted to:
 - **Document types**: Final EAs and Final EISs (FEIS) only. Draft documents are excluded.
 - **Timeline requirement**: Only projects with both a valid initiation date and a decision date (from LLM-adjudicated timeline data) are included in figures that track trends over time or classify projects by FRA period.
 - **Clean energy**: Only projects classified as clean energy in the NEPATEC 2.0 database.
-- **Page count measure**: The `total_pages` field from the primary final document for each project. FRA limits target the main body of the document (not appendices or supplemental volumes), so this is the appropriate measure. When multiple qualifying documents exist for a project, the document flagged as the main document is preferred; ties are broken by highest page count.
+- **Page count measure**: The `total_pages` field from the primary final document for each project. FRA limits target the main body of the document (not appendices or supplemental volumes), but there are likely some (likely a relatively small share) that also include supplemental documents. Next steps will be to try to weed those out if possible.  When multiple qualifying documents exist for a project, the document flagged as the main document is preferred; ties are broken by highest page count.
 
 The analysis combines three datasets: project-level metadata from NEPATEC 2.0, LLM-adjudicated initiation and decision dates from the timeline extraction pipeline, and document-level page counts from the full NEPATEC document inventory. Only projects present in all three sources are included in the final analysis sample.
 
@@ -64,7 +73,7 @@ The analysis combines three datasets: project-level metadata from NEPATEC 2.0, L
 ## FRA Classification Rule
 Projects are classified as **Post-FRA** when their decision date is on or after **June 3, 2023**. Even if a project was initiated before the FRA, it is expected to comply with the page limits if its final decision came after enactment. This reflects the forward-looking nature of the statute.
 
-**Extraordinarily complex EIS:** The FRA permits EISs for "extraordinarily complex" projects to extend to 300 pages. This analysis does not attempt to distinguish such projects from standard EISs. Should we distinguish "extraordinarily complex" EIS projects from standard EIS in the compliance analysis? This would require creating a derived variable (e.g., based on project scope, number of alternatives, or document language) that may not be fully reliable given available metadata. As a result, EIS projects exceeding 150 pages but at or below 300 pages may be compliant under the extraordinary complexity provision — this analysis counts them as exceeding the standard limit.
+**Extraordinarily complex EIS:** The FRA permits EISs for "extraordinarily complex" projects to extend to 300 pages. This analysis does not attempt to distinguish such projects from standard EISs since it's not clear that documents distinguish themselves as "extraordinarily complex" or if there is a clear way to do so. As a result, EIS projects exceeding 150 pages are assumed to be "extraordinarily complex" and therefore judged to be compliant if they are at or below 300 pages in accordance with the extraordinary complexity provision.
 
 **Small sample caution:** The Post-FRA period covers only approximately 2.5 years of data (June 2023 to present), yielding a limited number of completed projects. Pre/Post comparisons should be treated as exploratory; observed differences may not be statistically reliable.
 :::
@@ -138,7 +147,10 @@ summary_stats <- read_csv(file.path(d5_tables, "05_pages_summary.csv"), show_col
 summary_stats %>%
   select(process_type, fra_period, n_projects, mean_pages, median_pages,
          sd_pages, p25_pages, p75_pages) %>%
-  mutate(process_type = factor(process_type, levels = c("EA", "EIS"))) %>%
+  mutate(
+    process_type = factor(process_type, levels = c("EA", "EIS")),
+    fra_period   = factor(fra_period, levels = c("Pre-FRA", "Post-FRA"))
+  ) %>%
   arrange(process_type, fra_period) %>%
   gt(groupname_col = "process_type") %>%
   cols_label(
@@ -258,7 +270,7 @@ compliance %>%
 
 - **Small Post-FRA sample**: Only ~2.5 years of post-FRA data are available (June 2023 to present), limiting the number of Post-FRA projects and the statistical power of comparisons.
 - **Descriptive, not causal**: Changes in page counts after FRA could reflect shifts in project complexity, agency composition, or technology mix---not solely FRA compliance. This analysis does not control for confounders. Figure 2 suggests document length was already declining before FRA enactment, which further complicates attribution.
-- **Page count = main document only**: The `total_pages` field reflects the primary final document, not appendices or supplementary volumes. FRA limits target the main document, so this is the appropriate measure.
+- **Final documents might still be contaminated**: The `total_pages` field reflects the primary final document but might contain appendices or supplementary volumes, which I plan to weed out. So these results are still tentative.
 - **Compliance without context**: Projects exceeding the page limits may have received waivers, may have been initiated well before FRA and grandfathered, or may involve extraordinarily complex circumstances that justify higher page counts.
 
 ---
