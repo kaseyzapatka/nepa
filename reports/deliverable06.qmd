@@ -51,9 +51,19 @@ This deliverable examines three technology-specific questions from the NEPATEC 2
 - **Geography matters**: Western states have both the highest project counts and the longest median line lengths. Multi-state projects (14 in total) are concentrated in the West and South.
 :::
 
-## Overview
+## Transmission Line Identification
 
-This analysis covers transmission line projects identified in NEPATEC 2.0 that meet a strict clean energy classification: projects must have a transmission type tag, transmission-related build text, and an extracted line length of at least 1 mile. Maintenance-only projects (access road work, vegetation management) are excluded. Length figures are drawn from the `project_transmission_length_final` field, which uses LLM adjudication for the 35 projects with ambiguous multi-candidate lengths and rule-based selection for all others.
+Transmission projects are identified through a strict three-gate classification applied to all clean-energy projects in NEPATEC 2.0. A project must pass all three gates to enter the analysis:
+
+1. **Electricity Transmission type tag** — the NEPATEC `project_type` field must include `Electricity Transmission`. This is the primary narrowing step: of 20,725 clean-energy projects, 7,697 carry this type tag.
+
+2. **Build-related text** — the project title and description must match explicit construction language: phrases such as "new transmission line," "construct/install/rebuild \[kV\] transmission line," "double-circuit transmission line," or "right-of-way ... transmission line." ROW renewals, fiber-optic installs, substation transactions, and DOE research grants that carry the transmission type tag but lack construction language are excluded here. This step reduces the candidate pool to 1,741 projects.
+
+3. **Extracted line length ≥ 1 mile** — a numeric mileage value must be recoverable from the project title or description text. Projects whose length appears only in NEPA document body text (not in structured metadata fields) fall through this gate. After also removing 322 maintenance-flagged projects, 151 projects reach the final strict set.
+
+Maintenance projects are flagged separately via a title-only regex (vegetation management, herbicide treatment, line inspection, and related terms) and excluded from both strict classification and length extraction.
+
+Length figures come from `project_transmission_length_final`. For the 35 projects with two or more plausible candidate values, an LLM adjudication step selects the most likely total line length; all others use rule-based selection. The rule-based selector applies a priority cascade — preferring explicit total-length language ("X miles long," "X miles in length"), build-verb context, and highest hint-score — before falling back to the largest candidate value.
 
 @fig-tx-sample-breakdown provides a clearer picture of the usable analysis sample. Of the strict transmission projects, the majority have both timeline dates and can be used in NEPA duration analyses; a smaller share are missing one or both dates and contribute only to length-based analyses.
 
