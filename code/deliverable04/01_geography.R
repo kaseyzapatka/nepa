@@ -819,7 +819,7 @@ sankey_label_data <- ggplot_build(base_department_sankey)$data[[2]] %>%
   transmute(
     x = x,
     y = y,
-    label = str_wrap(stratum, width = 18)
+    label = str_wrap(str_remove(stratum, "^Department of "), width = 18)
   )
 
 fig_department_sankey <- base_department_sankey +
@@ -828,7 +828,7 @@ fig_department_sankey <- base_department_sankey +
     aes(x = x, y = y, label = label),
     hjust = 0.5,
     inherit.aes = FALSE,
-    size = 2.3,
+    size = 3.5,
     lineheight = 0.9,
     color = "gray20"
   ) +

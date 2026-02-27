@@ -29,14 +29,6 @@ d4_tables <- here("output", "deliverable4", "tables")
 d4_figures <- here("output", "deliverable4", "figures")
 ```
 
-::: {.callout-important}
-## Key Decisions
-- [ ] What do we think about the "Interstate Connections Map"?
-- [ ] Do the top multi-state and multi-department connections make sense?
-- [ ] Do we want to explore a sub-agency classifications analysis?
-- [ ] Are there any further analyses?
-:::
-
 ## Executive Summary
 
 ::: {.callout-note}
