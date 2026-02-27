@@ -244,6 +244,17 @@ GEOTHERMAL_PHASE_PATTERNS = {
         r"\bresource assessment\b",
         r"\bgeophysical survey\b",
         r"\btemperature gradient\b",
+        r"\bseismic survey\b",
+        r"\bgravity survey\b",
+        r"\bmagnetic survey\b",
+        r"\btemperature probe\b",
+        r"\bpermit to drill\b",
+        r"\btest hole\b",
+        r"\bslim.?hole\b",
+        r"\bcore hole\b",
+        r"\bresource characterization\b",
+        r"\bgeoelectrical\b",
+        r"\bfeasibility study\b",
     ],
     "drilling": [
         r"\bdrilling\b",
@@ -252,6 +263,17 @@ GEOTHERMAL_PHASE_PATTERNS = {
         r"\bproduction well\b",
         r"\binjection well\b",
         r"\bwell stimulation\b",
+        r"\bwell field\b",
+        r"\bwell program\b",
+        r"\bgeothermal well\b",
+        r"\bsteam well\b",
+        r"\btest well\b",
+        r"\bhydrothermal well\b",
+        r"\bwell construction\b",
+        r"\bwellhead\b",
+        r"\bwellfield\b",
+        r"\bhydraulic stimulation\b",
+        r"\breservoir stimulation\b",
     ],
     "plant": [
         r"\bpower plant\b",
@@ -261,6 +283,24 @@ GEOTHERMAL_PHASE_PATTERNS = {
         r"\bflash plant\b",
         r"\bturbine\b",
         r"\binterconnection\b",
+        r"\bpower generation\b",
+        r"\belectric generation\b",
+        r"\bgenerating facility\b",
+        r"\bpower facility\b",
+        r"\bgenerator\b",
+        r"\bsubstation\b",
+        r"\btransmission line\b",
+        r"\bsteam gathering\b",
+        r"\bpipeline system\b",
+    ],
+    "operations": [
+        r"\bsteam supply\b",
+        r"\bfluid management\b",
+        r"\bmake-up well\b",
+        r"\bmakeup well\b",
+        r"\breinjection\b",
+        r"\bworking fluid\b",
+        r"\bgeothermal resource utilization\b",
     ],
 }
 
@@ -882,10 +922,17 @@ def _miles_by_action(candidates: List[Dict], action: str) -> float:
     return round(sum(g["value_miles"] for g in groups), 3)
 
 
-def _classify_geothermal_phase(text: str) -> str:
-    """Return one of: none, exploration, drilling, plant, multi_phase, unknown."""
+def _classify_geothermal_phase(text: str, dataset_source: str = "") -> str:
+    """Return one of: none, exploration, drilling, plant, operations, multi_phase, unknown.
+
+    dataset_source (CE/EA/EIS) is used as a probabilistic fallback when no patterns
+    match.  CE projects that are geothermal-flagged are almost always in the
+    development/drilling stage; EA/EIS projects are more likely to be exploration or
+    plant-construction reviews.
+    """
     txt = (text or "").lower()
-    if "geothermal" not in txt:
+    geo_keyword = re.search(r"\b(geothermal|enhanced geothermal|egs)\b", txt)
+    if not geo_keyword:
         return "none"
 
     matches = []
@@ -894,6 +941,12 @@ def _classify_geothermal_phase(text: str) -> str:
             matches.append(phase)
 
     if len(matches) == 0:
+        # Fallback: use process type as a weak prior
+        src = (dataset_source or "").strip().upper()
+        if src == "CE":
+            return "drilling"       # CE geothermal actions are almost always well/drill permits
+        elif src in ("EA", "EIS"):
+            return "exploration"    # Larger reviews most often cover pre-development stages
         return "unknown"
     if len(matches) == 1:
         return matches[0]
@@ -1122,8 +1175,18 @@ def _add_pipeline_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFram
 def _add_geothermal_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFrame:
     out = df.copy()
     lower_text = full_text.str.lower()
-    out["project_is_geothermal"] = lower_text.str.contains(r"\bgeothermal\b", regex=True)
-    out["project_geothermal_phase"] = full_text.apply(_classify_geothermal_phase)
+    out["project_is_geothermal"] = lower_text.str.contains(r"\b(geothermal|enhanced geothermal|egs)\b", regex=True)
+
+    # Pass dataset_source as a fallback prior for phase classification
+    if "dataset_source" in out.columns:
+        source_series = out["dataset_source"].fillna("").astype(str)
+    else:
+        source_series = pd.Series([""] * len(out), index=out.index)
+
+    out["project_geothermal_phase"] = [
+        _classify_geothermal_phase(text, src)
+        for text, src in zip(full_text, source_series)
+    ]
     return out
 
 

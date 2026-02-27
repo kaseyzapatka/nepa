@@ -204,94 +204,86 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_regi
 ::: {.callout-note}
 ## Key Findings
 
-- **914 geothermal NEPA actions** are present in the dataset, spanning exploration, drilling, plant construction, and multi-phase projects.
-- **Phase classification is incomplete**: half of all geothermal projects (50%) cannot be assigned to a phase from available text, highlighting a data limitation.
-- **Drilling is the most common identifiable phase** (197 projects, 22% of all), followed by multi-phase (130, 14%).
+- **914 geothermal NEPA actions** are present in the dataset, spanning exploration, drilling, plant construction, operations, and multi-phase projects.
+- **Drilling is the most common identifiable phase**, followed by multi-phase projects where multiple development stages appear in a single NEPA document.
+- **Phase classification uses a layered approach**: regex pattern matching on project text, with the NEPA process type (CE/EA/EIS) as a fallback prior for projects where no phase cues are found.
 - **Exploration and multi-phase projects take the longest** on a median basis (20–21 days), while drilling reviews are often resolved very quickly (median 4 days). This likely reflects that drilling is frequently categorically excluded.
 - **Within-project sequencing** shows that some geothermal developments span multi-year permitting sequences, with individual NEPA actions separated by years as projects progress from exploration wells to full plant construction.
 :::
 
-## Overview
+## Phase Classification Method
 
-The deliverable 6 geothermal analysis asks: do NEPA review timelines differ meaningfully across phases of geothermal development? Geothermal projects are unique in that a single physical development typically triggers multiple sequential NEPA actions — one for exploration drilling, one or more for production well programs, and a final review for the power plant. This analysis uses normalized project title keys to group related NEPA actions and examines timeline patterns by phase.
+Geothermal projects are unique in that a single physical development typically triggers multiple sequential NEPA actions — one for exploration drilling, one or more for production well programs, and a final review for the power plant. This analysis groups geothermal projects by phase and examines timeline patterns by phase.
+
+Each project is assigned a development phase using a regex-based classifier applied to concatenated project text (title + description + project type). The classifier scans each document against five phase-specific keyword sets. The assignment logic is:
+
+- If **one** phase set matches → that phase is assigned.
+- If **two or more** phase sets match → the project is classified as `multi_phase`.
+- If **no** phase set matches → the NEPA process type is used as a weak prior (CE → `drilling`, EA/EIS → `exploration`). Projects where the process type is also unavailable remain `unknown`.
+
+@tbl-geo-phase-cues shows representative text cues for each phase.
 
 ```{r}
-#| label: tbl-geo-phase-dist
-#| tbl-cap: "Distribution of geothermal NEPA actions by classified phase."
+#| label: tbl-geo-phase-cues
+#| tbl-cap: "Sample text cues used to classify geothermal development phase. Matching is case-insensitive and uses whole-word boundaries."
 
-read_csv(file.path(d6_tables, "table_geothermal_phase_distribution.csv"), show_col_types = FALSE) %>%
-  mutate(
-    geothermal_phase = str_to_title(str_replace_all(geothermal_phase, "_", " ")),
-    share = round(share * 100, 1)
-  ) %>%
+tibble::tribble(
+  ~Phase,        ~`Sample cues`,
+  "Exploration",  "exploration, exploratory, resource assessment, seismic survey, temperature gradient, feasibility study, slim hole, core hole",
+  "Drilling",     "drilling, production well, injection well, well pad, wellfield, well program, well stimulation, wellhead, geothermal well",
+  "Plant",        "power plant, binary plant, flash plant, turbine, generating station, power generation, substation, interconnection, steam gathering",
+  "Operations",   "steam supply, reinjection, make-up well, makeup well, fluid management, working fluid, geothermal resource utilization",
+  "Multi-phase",  "(two or more phase cue sets detected in the same document)",
+  "Unknown",      "(no phase cues detected; CE actions default to 'drilling', EA/EIS default to 'exploration' as a process-type prior)"
+) %>%
   gt() %>%
-  cols_label(
-    geothermal_phase = "Phase",
-    n_projects       = "Projects",
-    share            = "Share (%)"
-  ) %>%
-  cols_align(align = "left",  columns = geothermal_phase) %>%
-  cols_align(align = "right", columns = where(is.numeric)) %>%
-  fmt_integer(columns = n_projects) %>%
-  fmt_number(columns = share, decimals = 1) %>%
+  cols_align(align = "left", columns = everything()) %>%
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_column_labels()
   ) %>%
-  tab_footnote(
-    footnote = "Phase classification is derived from project title and description text. 'Unknown' indicates no phase signal was found."
+  tab_style(
+    style = list(cell_fill(color = "#f7f7f7"), cell_text(style = "italic")),
+    locations = cells_body(rows = Phase %in% c("Multi-phase", "Unknown"))
   ) %>%
   tab_options(table.font.size = px(13), data_row.padding = px(6))
+```
+
+```{r}
+#| label: fig-geo-phase-dist
+#| fig-cap: "Number of geothermal NEPA actions by classified development phase. Phase is derived from project text; projects with no matching cues are assigned using process type as a fallback (CE → drilling, EA/EIS → exploration)."
+#| out-width: "85%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_distribution.png"))
 ```
 
 ---
 
 ## NEPA Duration by Phase
 
-@fig-geo-box shows the distribution of NEPA review duration for each geothermal phase among projects with calculable timelines. Drilling-phase projects tend to be reviewed very quickly (median 4 days) — consistent with the widespread use of categorical exclusions for well drilling on established geothermal fields. Exploration and multi-phase projects involve broader environmental analysis and take longer on median, with considerably wider interquartile ranges.
+@fig-geo-box shows the distribution of NEPA review duration for each geothermal phase among projects with calculable timelines. The exploration phase is excluded from the main plot due to its small, spread-out sample; its distribution is summarized in the figure footnote. Drilling-phase projects tend to be reviewed very quickly — consistent with the widespread use of categorical exclusions for well drilling on established geothermal fields. Multi-phase projects, which span multiple development stages, show the widest interquartile ranges.
 
 ```{r}
 #| label: fig-geo-box
-#| fig-cap: "NEPA review duration by geothermal project phase. Drilling phases are frequently categorical exclusions and resolve quickly; exploration and multi-phase reviews take considerably longer."
+#| fig-cap: "NEPA review duration by geothermal project phase (violin + box). Duration values above 250 days are topcoded to 250 and appear at the cap rather than being dropped. Exploration phase is excluded; see figure footnote for its summary statistics."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_duration_boxplot.png"))
-```
-
-```{r}
-#| label: tbl-geo-phase-timeline
-#| tbl-cap: "NEPA review duration statistics by geothermal phase, restricted to projects with calculable timelines."
-
-read_csv(file.path(d6_tables, "table_geothermal_phase_timeline.csv"), show_col_types = FALSE) %>%
-  mutate(geothermal_phase = str_to_title(str_replace_all(geothermal_phase, "_", " "))) %>%
-  gt() %>%
-  cols_label(
-    geothermal_phase     = "Phase",
-    n_projects           = "N (with duration)",
-    median_duration_days = "Median (days)",
-    p25_duration_days    = "P25 (days)",
-    p75_duration_days    = "P75 (days)"
-  ) %>%
-  cols_align(align = "left",  columns = geothermal_phase) %>%
-  cols_align(align = "right", columns = where(is.numeric)) %>%
-  fmt_number(columns = where(is.numeric), decimals = 1, use_seps = TRUE) %>%
-  fmt_integer(columns = n_projects) %>%
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_column_labels()
-  ) %>%
-  tab_options(table.font.size = px(13), data_row.padding = px(6))
 ```
 
 ---
 
 ## Within-Project Sequencing
 
-@fig-geo-sequence visualizes the temporal sequencing of NEPA actions within individual geothermal development projects. Each horizontal segment represents one NEPA review (initiation to decision date); rows are grouped by inferred project identity (normalized title key). Projects with multiple NEPA actions are shown, revealing the multi-year permitting timelines that characterize full geothermal development cycles — exploration wells, production well programs, and plant construction can each require separate reviews separated by years.
+@fig-geo-sequence visualizes the temporal sequencing of NEPA actions within individual geothermal development projects. Each horizontal segment represents one NEPA review (initiation to decision date); rows are grouped by inferred project identity (normalized title key). Only a random sample of projects with at least two dated actions spanning at least two distinct development phases is shown, making the phase progression visible — exploration wells, production well programs, and plant construction can each require separate reviews separated by years.
+
+::: {.callout-note}
+**Data requirement:** This figure requires both an initiation date and a decision date for each NEPA action. Many geothermal actions in NEPATEC 2.0 are missing one or both timeline dates, which limits the number of projects that can be shown. If the figure contains very few or no projects, the BERT timeline extraction coverage for this subset likely needs improvement before this analysis is meaningful.
+:::
 
 ```{r}
 #| label: fig-geo-sequence
-#| fig-cap: "Timeline segments for geothermal projects with multiple NEPA actions. Each segment represents one NEPA review; rows share a project identity derived from normalized titles. Color indicates phase. Only projects with 2+ actions and complete timeline dates are shown (top 250 by action count)."
+#| fig-cap: "Timeline segments for geothermal projects with multiple NEPA actions spanning multiple phases. Each segment represents one NEPA review (initiation to decision); rows share a project identity derived from normalized titles. Color indicates classified phase. Randomly sampled from projects with ≥2 dated actions and ≥2 distinct phases."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_geothermal_within_project_sequence.png"))
@@ -391,7 +383,7 @@ knitr::include_graphics(file.path(d6_figures, "fig_pipeline_length_vs_duration.p
 
 **Geothermal:**
 
-- **Phase detection**: Half of geothermal projects have unknown phase, limiting phase-specific conclusions. Phase classification relies on title/description text and will miss projects that use non-standard terminology.
+- **Phase detection**: Phase classification relies on regex pattern matching against project title and description text and will miss projects that use non-standard terminology. Projects with no text cues are assigned a phase based on process type (CE → drilling, EA/EIS → exploration) as a weak prior rather than direct evidence. Multi-phase classification occurs whenever two or more phase cue sets co-fire in the same document, which can overcount genuinely multi-phase projects if broad terms appear incidentally.
 - **Project key matching**: Within-project grouping uses normalized title keys, which may merge unrelated projects with similar names or split a single project whose titles vary across actions.
 
 **Pipelines:**

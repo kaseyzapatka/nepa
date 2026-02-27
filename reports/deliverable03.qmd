@@ -31,14 +31,6 @@ d3_tables <- here("output", "deliverable3", "tables")
 ## Executive Summary
 
 
-::: {.callout-important}
-## Key Decisions
-- [ ] Timeline decisions (see red box below in Timeline Section)
-- [x] What kinds of timelines do we think EA and EIS will have? *(Now included — see Timeline section)*
-- [ ] What do we think of the capacity bins (Small <10 MW, Medium 10–100 MW, Large 100–500 MW, Utility-scale >500 MW)?
-:::
-
-
 This report aims to create the following set of deliverables:
 
 > Data on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements.  Broken out by number of projects, generation capacity, and change over time.
@@ -56,9 +48,10 @@ knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
 
 # Process Types by Energy Classification
 
-::: {.callout-tip}
+::: {.callout-note}
 ## Key Findings: Process Type
-**Clean energy projects use Categorical Exclusions at higher rates** than fossil fuel or other types of projects. This could reflect smaller project footprints for clean energy projects?  Fossil fuel projects show higher EA/EIS rates, consistent with larger environmental footprints requiring more detailed review.
+- **Clean energy projects use Categorical Exclusions at higher rates** than fossil fuel or other types of projects, likely reflecting smaller project footprints.
+- **Fossil fuel projects show higher EA/EIS rates**, consistent with larger environmental footprints requiring more detailed review.
 :::
 
 @fig-energy-grouped visualizes project counts by review and energy type, whereas @fig-energy-composition reports the share of review process types within energy types.
@@ -82,11 +75,15 @@ knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 
 ---
 
-# Timeline Analysis for Clean Energy (In-progress)
+# Timeline Analysis for Clean Energy
 
-::: {.callout-warning}
-## Data Quality Notice
-Timeline data cleaning is still in progress. Results cover all three NEPA process types (CE, EA, EIS).
+::: {.callout-note}
+## Key Findings: Timeline
+- **CE projects achieve 30% timeline completeness** (both initiation and decision dates), primarily limited by missing initiation dates — many CE documents contain only a single signature date.
+- **EA projects are the most complete at 62%**, with the primary gap being missing decision dates.
+- **EIS completeness reaches 48%**, constrained mainly by Records of Decision that appear in separate, unlinked documents.
+- **Median durations follow expected patterns**: CE ~1 month, EA ~14 months, EIS ~34 months (nearly 3 years), with EIS 90th-percentile reviews exceeding 7.5 years.
+- **CE volumes peaked in 2010** (driven by ARRA stimulus funding) and again in 2023; EIS decision peaks lag CE by several years, reflecting longer review cycles.
 :::
 
 ### How timeline dates are extracted
@@ -165,17 +162,7 @@ knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
 
 ### Example Project Timelines
 
-::: {.callout-important}
-## Timeline-specific decisions to make:
--   [ ] What to do when there is only one date?
--   [ ] OK if the earliest review date serves as the initiation date?
--   [ ] What is the initiation date for example C? The first date found or expiration of project under review
--   [ ] Do the four buckets (initiation, review, decision, other) capture everything? Or do we want to add more?
--   [ ] Improving the classifier training data -- ideas?
--   [ ] Ideas for EA/EIS?
-:::
-
-Here is a link to a few more [examples not shown here](https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?gid=887650574#gid=887650574). It'd be great if someone could give some feedback to Examples 6 in particular. 
+The following examples illustrate the three main situations the classifier encounters across CE projects.
 
 #### Example A: Single decision date only
 
@@ -264,18 +251,11 @@ ex1 %>%
 
 **Analysis:** This BLM right-of-way renewal shows the 12 dates spanning about two months. The classifier correctly identifies the final authorizing official's digital signature as the decision date but identifies multiple intervening dates as decision dates as well. The latter initiation seems like *expiration* date and the first identifies the expiration date of the current project. 
 
-#### Next Steps for Timeline Extraction
-
-1. **Improve training data**: Improve the training data I'm feeding the classifier, especially for initiation dates and review key words
-
-2. **Expand to EA and EIS**: Do we have any good examples of what those timelines would look like? Specific examples for reviews 
-
-
 ---
 
 # Generation Capacity Analysis
 
-::: {.callout-tip}
+::: {.callout-note}
 ## Key Findings: Capacity
 - **EIS projects are predominantly utility-scale** (>500 MW, median 538 MW), while CE projects are mostly small-scale (<10 MW, median 1.2 MW). This aligns with expectations: larger projects require more intensive environmental review.
 - Extraction coverage varies sharply by process type: **EIS 81%**, EA moderate, **CE 8%** — reflecting that smaller CE projects rarely document explicit capacity figures.
