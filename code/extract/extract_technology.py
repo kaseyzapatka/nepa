@@ -1121,15 +1121,27 @@ def _add_pipeline_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFram
     out = df.copy()
     lower_text = full_text.str.lower()
 
-    out["project_is_pipeline"] = lower_text.str.contains(r"\bpipelines?\b", regex=True)
-    out["project_is_carbon_pipeline"] = out["project_is_pipeline"] & lower_text.str.contains(
-        r"\b(?:carbon|co2|carbon dioxide)\b", regex=True
+    # project_is_pipeline: entry gate — any project describing pipeline infrastructure.
+    # Searches: project_title + project_description + project_type (structured metadata only,
+    # not full NEPA document pages).
+    # Broadened from original \bpipelines?\b to also catch flowlines and gathering lines,
+    # which are common synonyms in CCS, gas gathering, and hydrogen conveyance projects.
+    out["project_is_pipeline"] = lower_text.str.contains(
+        r"\bpipelines?\b|\bflowlines?\b|\bgathering lines?\b", regex=True
     )
+
+    # Carbon/CCS pipeline: pipeline flag + any carbon-related keyword.
+    # Includes CCS acronym and "carbon capture" phrase which often appear instead of "carbon pipeline".
+    out["project_is_carbon_pipeline"] = out["project_is_pipeline"] & lower_text.str.contains(
+        r"\b(?:carbon|co2|carbon dioxide|ccs|carbon capture|carbon sequestration)\b", regex=True
+    )
+    # Hydrogen pipeline: pipeline flag + hydrogen keyword.
     out["project_is_hydrogen_pipeline"] = out["project_is_pipeline"] & lower_text.str.contains(
         r"\bhydrogen\b", regex=True
     )
+    # Natural gas pipeline: pipeline flag + natural gas / gas line keywords.
     out["project_is_natural_gas_pipeline"] = out["project_is_pipeline"] & lower_text.str.contains(
-        r"\bnatural gas\b|\bgas pipeline\b", regex=True
+        r"\bnatural gas\b|\bgas pipeline\b|\bgas gathering\b|\bgas line\b", regex=True
     )
 
     candidates = [
@@ -1242,12 +1254,36 @@ def add_technology_columns(
     desc_txt = _series_text(out, "project_description")
     type_txt = _series_text(out, "project_type")
 
+    # Option 1: noi_project_title (already in projects_combined, free join)
+    noi_txt = _series_text(out, "noi_project_title")
+
+    # Option 2: document titles from documents_combined.parquet, aggregated per project
+    doc_title_txt = pd.Series("", index=out.index)
+    if "project_id" in out.columns:
+        docs_path = Path(__file__).resolve().parent.parent.parent / "data" / "analysis" / "documents_combined.parquet"
+        if docs_path.exists():
+            docs = pd.read_parquet(docs_path, columns=["project_id", "document_title"])
+            docs = docs.dropna(subset=["document_title"])
+            docs_agg = (
+                docs.groupby("project_id")["document_title"]
+                .apply(lambda x: " ".join(x.unique()))
+                .reset_index()
+                .rename(columns={"document_title": "_doc_titles"})
+            )
+            out = out.merge(docs_agg, on="project_id", how="left")
+            doc_title_txt = out["_doc_titles"].fillna("").astype(str)
+            out = out.drop(columns=["_doc_titles"])
+
     full_text = (
         title_txt.fillna("").astype(str)
         + " "
         + desc_txt.fillna("").astype(str)
         + " "
         + type_txt.fillna("").astype(str)
+        + " "
+        + noi_txt.fillna("").astype(str)
+        + " "
+        + doc_title_txt
     ).str.strip()
 
     context_text = (
