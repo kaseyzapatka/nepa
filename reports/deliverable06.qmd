@@ -296,16 +296,16 @@ knitr::include_graphics(file.path(d6_figures, "fig_geothermal_within_project_seq
 ::: {.callout-note}
 ## Key Findings
 
-- **Sample sizes are very small**: only 8 carbon pipeline projects and 4 hydrogen pipeline projects were identified, limiting the strength of any conclusions.
-- **Carbon pipelines show dramatically longer NEPA reviews** than natural gas pipelines (median 624 days vs. 72 days) — but this must be interpreted cautiously given the n=8 sample. Carbon capture infrastructure is novel and may face greater regulatory scrutiny.
-- **Hydrogen pipeline NEPA reviews are fast** (median 15 days, n=4), suggesting these are currently small-scale or categorically excluded.
-- **Length data is sparse**: only 2 of 8 carbon pipeline projects have extractable length figures, and no hydrogen pipeline projects yielded a usable length. Natural gas pipelines fare better (52% coverage) but still have substantial gaps.
-- These results are **preliminary** and should be treated as descriptive rather than conclusive given the small samples.
+- **6,133 pipeline NEPA actions** are identified across six technology groups: carbon capture, hydrogen, natural gas, oil/petroleum, water/irrigation, and other. Oil/petroleum (2,580) and natural gas (1,960) dominate by count; carbon (172) and hydrogen (58) are smaller but policy-relevant.
+- **Carbon pipelines are the longest**: median extracted length of 3.8 miles, but with a long upper tail — reflecting both short connector lines and large-scale interstate CCS corridors. Natural gas pipelines span the widest range, from sub-mile gathering lines to a 3,500-mile corridor project.
+- **Duration comparisons are limited to the clean energy subset** (~228 projects with timeline data). Within that group, carbon pipelines show longer median durations than natural gas, consistent with greater regulatory complexity for novel infrastructure.
+- **Length data is moderately sparse** across groups, particularly for hydrogen and carbon pipelines.
+- These results are **preliminary** for carbon and hydrogen; sample sizes for duration analysis are small and should be treated as descriptive.
 :::
 
-## Overview
+## Pipeline Type
 
-The deliverable 6 pipeline analysis compares carbon capture and hydrogen pipeline NEPA timelines to natural gas pipelines used as a baseline. This addresses the question: are emerging pipeline technologies subject to longer or more complex NEPA reviews than established natural gas infrastructure?
+The pipeline analysis covers all pipeline NEPA actions in NEPATEC 2.0, stratified by six technology groups. The first four groups — carbon, hydrogen, natural gas, and oil/petroleum — are classified using Python-extracted flags based on keyword matching in project text. The oil/petroleum and water/irrigation splits use the controlled-vocabulary `project_type` field (e.g., "Oil & Gas", "Water Resources"), which provides reliable classification without relying on free text. Duration analyses are limited to the ~228 clean energy projects that appear in the timeline dataset.
 
 ```{r}
 #| label: tbl-pipe-summary
@@ -334,21 +334,31 @@ read_csv(file.path(d6_tables, "table_pipeline_group_summary.csv"), show_col_type
     locations = cells_column_labels()
   ) %>%
   tab_footnote(
-    footnote = "'Other pipeline' captures pipeline projects that did not match carbon, hydrogen, or natural gas classifiers."
+    footnote = "Oil/petroleum and Water/irrigation groups are classified using the controlled-vocabulary project_type field. 'Other pipeline' captures projects not matched by any classifier."
   ) %>%
   tab_options(table.font.size = px(13), data_row.padding = px(6))
+```
+
+@fig-pipe-length shows the distribution of extracted pipeline lengths across all six groups, topcoded at 25 miles for visual clarity. Carbon capture pipelines have the widest spread relative to their count — their interquartile range extends further than natural gas gathering lines, reflecting that CCS infrastructure ranges from short connector lines at industrial facilities to long-distance CO₂ transport corridors. Natural gas pipelines concentrate heavily near zero (most are short gathering and flowlines for well sites) but have a thick upper tail, including one corridor project exceeding 3,500 miles that is topcoded. Oil/petroleum pipelines show a similarly short median but a slightly tighter distribution. Hydrogen pipelines are too few to draw distributional conclusions. Water/irrigation pipelines skew short — most serve single field or ranch systems — but a handful of larger irrigation infrastructure projects extend into the tens of miles.
+
+```{r}
+#| label: fig-pipe-length
+#| fig-cap: "Pipeline length by technology group (violin + box + jitter). All pipeline NEPA actions with an extractable length are shown. Values above 25 miles are topcoded to 25 and appear at the cap rather than being dropped. n labels show the number of projects with a usable length figure per group."
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_pipeline_length_by_group.png"))
 ```
 
 ---
 
 ## Timeline Duration by Pipeline Type
 
-@fig-pipe-duration compares NEPA review durations across pipeline technology groups. Carbon pipelines show a notably wide distribution centered well above the natural gas baseline, though the small sample (n=8, only 2 with duration data) prevents firm conclusions. The natural gas pipeline group provides the most reliable baseline (21 projects, 13 with duration).
+@fig-pipe-duration compares NEPA review durations for clean energy pipeline projects with calculable timelines (n ≈ 228), topcoded at 500 days. Carbon pipelines show the widest distribution and highest median, consistent with the greater regulatory complexity and novelty of CCS infrastructure — though the very small sample prevents firm conclusions. Natural gas pipelines provide the most stable baseline. Groups with very few projects will show minimal violin density; the n labels indicate sample size for each group.
 
 ```{r}
 #| label: fig-pipe-duration
-#| fig-cap: "NEPA review duration by pipeline technology group. Carbon pipelines show a higher median than natural gas; hydrogen pipelines resolve quickly. Very small sample sizes for carbon and hydrogen — interpret with caution."
-#| out-width: "90%"
+#| fig-cap: "NEPA review duration by pipeline technology group (violin + box + jitter). Duration values above 500 days are topcoded to 500 and appear at the cap. Analysis limited to clean energy projects with calculable timelines; n labels show group sample sizes. Interpret carbon and hydrogen results with caution given very small samples."
+#| out-width: "95%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_pipeline_duration_by_group.png"))
 ```

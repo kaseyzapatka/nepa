@@ -149,26 +149,69 @@ write_csv(tbl_corr, here(tables_dir, "table_pipeline_correlations.csv"))
 # FIGURES
 # --------------------------
 
-plot_df <- analysis_timeline %>%
-  filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0)
+duration_cap <- 500
 
-fig_duration <- ggplot(plot_df, aes(x = pipeline_group, y = bert_duration_days_final, fill = pipeline_group)) +
-  geom_boxplot(alpha = 0.85, outlier.alpha = 0.2, show.legend = FALSE) +
-  scale_fill_manual(values = pipeline_group_colors) +
-  labs(
-    title = "Pipeline Timeline Durations by Technology Group",
-    subtitle = "Clean energy projects with calculable timelines",
-    x = "Pipeline group",
-    y = "Duration (days)"
+duration_overall <- analysis_timeline %>%
+  filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+  summarise(
+    n_total    = n(),
+    n_topcoded = sum(bert_duration_days_final > duration_cap),
+    pct_top    = round(100 * n_topcoded / n_total, 1)
+  )
+
+duration_caption <- paste0(
+  "Notes: Values above ", duration_cap, " days topcoded to cap ",
+  "(", duration_overall$n_topcoded, " of ", duration_overall$n_total,
+  " projects, ", duration_overall$pct_top, "%). ",
+  "Duration analysis limited to clean energy projects with calculable timelines."
+)
+
+duration_n_labels <- analysis_timeline %>%
+  filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+  count(pipeline_group) %>%
+  mutate(label = paste0("n = ", n))
+
+fig_duration <- analysis_timeline %>%
+  filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+  mutate(duration_plot = pmin(bert_duration_days_final, duration_cap)) %>%
+  ggplot(aes(x = pipeline_group, y = duration_plot, fill = pipeline_group)) +
+  geom_violin(alpha = 0.5, trim = TRUE, color = NA) +
+  geom_jitter(width = 0.15, alpha = 0.25, size = 1.2, color = "gray75", show.legend = FALSE) +
+  geom_boxplot(
+    width         = 0.2,
+    outlier.shape = NA,
+    fill          = NA,
+    color         = catf_navy,
+    linewidth     = 0.55
   ) +
-  theme_minimal(base_size = 11)
+  geom_text(
+    data = duration_n_labels,
+    aes(x = pipeline_group, y = duration_cap + 15, label = label),
+    size = 3.2, color = "grey40", fontface = "italic", inherit.aes = FALSE
+  ) +
+  coord_cartesian(ylim = c(0, duration_cap + 28)) +
+  scale_fill_manual(values = pipeline_group_colors) +
+  scale_y_continuous(labels = scales::comma) +
+  labs(
+    title    = "Pipeline NEPA Duration by Technology Group",
+    subtitle = paste0("Clean energy projects; values above ", duration_cap, " days topcoded to cap"),
+    caption  = duration_caption,
+    x        = NULL,
+    y        = "Duration (days)"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "none",
+    plot.caption    = element_text(size = 8, color = "gray40", hjust = 0)
+  )
 
+print(fig_duration)
 ggsave(
   filename = here(figures_dir, "fig_pipeline_duration_by_group.png"),
-  plot = fig_duration,
-  width = 9,
-  height = 6,
-  dpi = 300
+  plot     = fig_duration,
+  width    = 10,
+  height   = 6,
+  dpi      = 300
 )
 
 fig_scatter <- analysis_timeline %>%
@@ -195,7 +238,7 @@ ggsave(
 )
 
 # -- Pipeline Length by Group (violin + box, topcoded at 100 miles) --
-length_cap <- 100
+length_cap <- 25
 
 length_stats <- analysis_all %>%
   filter(!is.na(project_pipeline_length_miles)) %>%
@@ -231,10 +274,10 @@ fig_length <- analysis_all %>%
   ) +
   geom_text(
     data = length_n_labels,
-    aes(x = pipeline_group, y = length_cap + 3, label = label),
+    aes(x = pipeline_group, y = length_cap + 1, label = label),
     size = 3.2, color = "grey40", fontface = "italic", inherit.aes = FALSE
   ) +
-  coord_cartesian(ylim = c(0, length_cap + 6)) +
+  coord_cartesian(ylim = c(0, length_cap + 2.5)) +
   scale_fill_manual(values = pipeline_group_colors) +
   scale_y_continuous(labels = scales::comma) +
   labs(
