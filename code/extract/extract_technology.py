@@ -1254,12 +1254,36 @@ def add_technology_columns(
     desc_txt = _series_text(out, "project_description")
     type_txt = _series_text(out, "project_type")
 
+    # Option 1: noi_project_title (already in projects_combined, free join)
+    noi_txt = _series_text(out, "noi_project_title")
+
+    # Option 2: document titles from documents_combined.parquet, aggregated per project
+    doc_title_txt = pd.Series("", index=out.index)
+    if "project_id" in out.columns:
+        docs_path = Path(__file__).resolve().parent.parent.parent / "data" / "analysis" / "documents_combined.parquet"
+        if docs_path.exists():
+            docs = pd.read_parquet(docs_path, columns=["project_id", "document_title"])
+            docs = docs.dropna(subset=["document_title"])
+            docs_agg = (
+                docs.groupby("project_id")["document_title"]
+                .apply(lambda x: " ".join(x.unique()))
+                .reset_index()
+                .rename(columns={"document_title": "_doc_titles"})
+            )
+            out = out.merge(docs_agg, on="project_id", how="left")
+            doc_title_txt = out["_doc_titles"].fillna("").astype(str)
+            out = out.drop(columns=["_doc_titles"])
+
     full_text = (
         title_txt.fillna("").astype(str)
         + " "
         + desc_txt.fillna("").astype(str)
         + " "
         + type_txt.fillna("").astype(str)
+        + " "
+        + noi_txt.fillna("").astype(str)
+        + " "
+        + doc_title_txt
     ).str.strip()
 
     context_text = (
