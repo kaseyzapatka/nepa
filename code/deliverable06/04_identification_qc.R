@@ -16,6 +16,64 @@ analysis <- prepare_deliverable6_data() %>%
     text_has_geothermal_keyword = str_detect(str_to_lower(project_text_full), "\\b(geothermal|enhanced geothermal|egs)\\b")
   )
 
+analysis |> filter(text_has_geothermal_keyword) |> dim()
+analysis |> count(text_has_geothermal_keyword) |> print()
+
+analysis |>
+  filter(geothermal_flag) |>
+  select(project_id, process_group, project_is_geothermal, project_title_txt, project_type_txt) |>
+  slice(1) |>
+  glimpse()
+
+analysis |>
+  filter(!geothermal_flag, text_has_geothermal_keyword) |>
+  select(project_id, process_group, project_is_geothermal, project_title_txt, project_type_txt) |>
+  slice(1) |>
+  glimpse()
+
+analysis |>
+  filter(!geothermal_flag, text_has_geothermal_keyword) |>
+  mutate(has_geothermal = str_detect(str_to_lower(project_text_full), "\\bgeothermal\\b")) |>
+  filter(!has_geothermal) |>
+  select(process_group, project_title_txt, project_type_txt) |>
+  glimpse()
+
+
+analysis |>
+  filter(!geothermal_flag, text_has_geothermal_keyword) |>
+  mutate(
+    has_geothermal = str_detect(str_to_lower(project_text_full), "\\bgeothermal\\b"),
+    has_egs        = str_detect(str_to_lower(project_text_full), "\\begs\\b"),
+    has_enhanced   = str_detect(str_to_lower(project_text_full), "\\benhanced geothermal\\b")
+  ) |>
+  count(has_geothermal, has_egs, has_enhanced)
+
+analysis |> 
+  #filter(text_has_geothermal_keyword) |> 
+  select(project_title, project_type, project_geothermal_phase, project_text_full, project_type_txt) |> 
+  slice_sample(n=1) |> 
+  glimpse()
+
+analysis |>
+  filter(!geothermal_flag, text_has_geothermal_keyword) |>
+  select(process_group, project_title_txt, project_type_txt, project_geothermal_phase) |>
+  slice_sample(n = 1) |>
+  glimpse()
+
+
+analysis |>
+  filter(geothermal_flag) |>
+  select(process_group, project_title_txt, project_type_txt, project_geothermal_phase) |>
+  slice_sample(n=1) |> 
+  glimpse()
+  print(n = 1)
+
+
+analysis |>
+  filter(!geothermal_flag, text_has_geothermal_keyword) |>
+  select(process_group, project_title_txt, project_type_txt, project_geothermal_phase) |>
+  View("geo_gap")
+
 cat("Rows in D6 clean-energy analysis set:", nrow(analysis), "\n")
 
 # --------------------------
