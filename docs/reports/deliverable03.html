@@ -4730,7 +4730,7 @@ border: 0;
   <ul class="collapse">
   <li><a href="#executive-summary" id="toc-executive-summary" class="nav-link active" data-scroll-target="#executive-summary">Executive Summary</a></li>
   <li><a href="#process-types-by-energy-classification" id="toc-process-types-by-energy-classification" class="nav-link" data-scroll-target="#process-types-by-energy-classification">Process Types by Energy Classification</a></li>
-  <li><a href="#timeline-analysis-for-clean-energy-in-progress" id="toc-timeline-analysis-for-clean-energy-in-progress" class="nav-link" data-scroll-target="#timeline-analysis-for-clean-energy-in-progress">Timeline Analysis for Clean Energy (In-progress)</a></li>
+  <li><a href="#timeline-analysis-for-clean-energy" id="toc-timeline-analysis-for-clean-energy" class="nav-link" data-scroll-target="#timeline-analysis-for-clean-energy">Timeline Analysis for Clean Energy</a></li>
   <li><a href="#generation-capacity-analysis" id="toc-generation-capacity-analysis" class="nav-link" data-scroll-target="#generation-capacity-analysis">Generation Capacity Analysis</a></li>
   </ul>
 </nav>
@@ -4768,23 +4768,6 @@ border: 0;
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<div class="callout callout-style-default callout-important callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Key Decisions
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul class="task-list">
-<li><input type="checkbox">Timeline decisions (see red box below in Timeline Section)</li>
-<li><input type="checkbox" checked>What kinds of timelines do we think EA and EIS will have? <em>(Now included — see Timeline section)</em></li>
-<li><input type="checkbox">What do we think of the capacity bins (Small &lt;10 MW, Medium 10–100 MW, Large 100–500 MW, Utility-scale &gt;500 MW)?</li>
-</ul>
-</div>
-</div>
 <p>This report aims to create the following set of deliverables:</p>
 <blockquote class="blockquote">
 <p>Data on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements. Broken out by number of projects, generation capacity, and change over time.</p>
@@ -4804,7 +4787,7 @@ Key Decisions
 </section>
 <section id="process-types-by-energy-classification" class="level1">
 <h1>Process Types by Energy Classification</h1>
-<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
@@ -4814,7 +4797,10 @@ Key Findings: Process Type
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p><strong>Clean energy projects use Categorical Exclusions at higher rates</strong> than fossil fuel or other types of projects. This could reflect smaller project footprints for clean energy projects? Fossil fuel projects show higher EA/EIS rates, consistent with larger environmental footprints requiring more detailed review.</p>
+<ul>
+<li><strong>Clean energy projects use Categorical Exclusions at higher rates</strong> than fossil fuel or other types of projects, likely reflecting smaller project footprints.</li>
+<li><strong>Fossil fuel projects show higher EA/EIS rates</strong>, consistent with larger environmental footprints requiring more detailed review.</li>
+</ul>
 </div>
 </div>
 <p><a href="#fig-energy-grouped">Figure 2</a> visualizes project counts by review and energy type, whereas <a href="#fig-energy-composition">Figure 3</a> reports the share of review process types within energy types.</p>
@@ -4840,19 +4826,25 @@ Key Findings: Process Type
 </div>
 <hr>
 </section>
-<section id="timeline-analysis-for-clean-energy-in-progress" class="level1">
-<h1>Timeline Analysis for Clean Energy (In-progress)</h1>
-<div class="callout callout-style-default callout-warning callout-titled">
+<section id="timeline-analysis-for-clean-energy" class="level1">
+<h1>Timeline Analysis for Clean Energy</h1>
+<div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-Data Quality Notice
+Key Findings: Timeline
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Timeline data cleaning is still in progress. Results cover all three NEPA process types (CE, EA, EIS).</p>
+<ul>
+<li><strong>CE projects achieve 30% timeline completeness</strong> (both initiation and decision dates), primarily limited by missing initiation dates — many CE documents contain only a single signature date.</li>
+<li><strong>EA projects are the most complete at 62%</strong>, with the primary gap being missing decision dates.</li>
+<li><strong>EIS completeness reaches 48%</strong>, constrained mainly by Records of Decision that appear in separate, unlinked documents.</li>
+<li><strong>Median durations follow expected patterns</strong>: CE ~1 month, EA ~14 months, EIS ~34 months (nearly 3 years), with EIS 90th-percentile reviews exceeding 7.5 years.</li>
+<li><strong>CE volumes peaked in 2010</strong> (driven by ARRA stimulus funding) and again in 2023; EIS decision peaks lag CE by several years, reflecting longer review cycles.</li>
+</ul>
 </div>
 </div>
 <section id="how-timeline-dates-are-extracted" class="level3">
@@ -4941,27 +4933,7 @@ Data Quality Notice
 </section>
 <section id="example-project-timelines" class="level3">
 <h3 class="anchored" data-anchor-id="example-project-timelines">Example Project Timelines</h3>
-<div class="callout callout-style-default callout-important callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Timeline-specific decisions to make:
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<ul class="task-list">
-<li><input type="checkbox">What to do when there is only one date?</li>
-<li><input type="checkbox">OK if the earliest review date serves as the initiation date?</li>
-<li><input type="checkbox">What is the initiation date for example C? The first date found or expiration of project under review</li>
-<li><input type="checkbox">Do the four buckets (initiation, review, decision, other) capture everything? Or do we want to add more?</li>
-<li><input type="checkbox">Improving the classifier training data – ideas?</li>
-<li><input type="checkbox">Ideas for EA/EIS?</li>
-</ul>
-</div>
-</div>
-<p>Here is a link to a few more <a href="https://docs.google.com/spreadsheets/d/1HuvVNDiPAG3WegTy58yn_LLUQ8RnSFwTg0BeabcyM08/edit?gid=887650574#gid=887650574">examples not shown here</a>. It’d be great if someone could give some feedback to Examples 6 in particular.</p>
+<p>The following examples illustrate the three main situations the classifier encounters across CE projects.</p>
 <section id="example-a-single-decision-date-only" class="level4">
 <h4 class="anchored" data-anchor-id="example-a-single-decision-date-only">Example A: Single decision date only</h4>
 <div id="tbl-example5" class="cell tbl-parent quarto-layout-panel anchored" data-tbl-cap="Example A: Single decision date — no timeline possible">
@@ -5116,20 +5088,13 @@ Timeline-specific decisions to make:
 </div>
 </div>
 <p><strong>Analysis:</strong> This BLM right-of-way renewal shows the 12 dates spanning about two months. The classifier correctly identifies the final authorizing official’s digital signature as the decision date but identifies multiple intervening dates as decision dates as well. The latter initiation seems like <em>expiration</em> date and the first identifies the expiration date of the current project.</p>
-</section>
-<section id="next-steps-for-timeline-extraction" class="level4">
-<h4 class="anchored" data-anchor-id="next-steps-for-timeline-extraction">Next Steps for Timeline Extraction</h4>
-<ol type="1">
-<li><p><strong>Improve training data</strong>: Improve the training data I’m feeding the classifier, especially for initiation dates and review key words</p></li>
-<li><p><strong>Expand to EA and EIS</strong>: Do we have any good examples of what those timelines would look like? Specific examples for reviews</p></li>
-</ol>
 <hr>
 </section>
 </section>
 </section>
 <section id="generation-capacity-analysis" class="level1">
 <h1>Generation Capacity Analysis</h1>
-<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
