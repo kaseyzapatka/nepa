@@ -20,6 +20,8 @@ website:
         href: reports/deliverable05.qmd
       - text: "Deliverable 6"
         href: reports/deliverable06.qmd
+      - text: "Presentations"
+        href: presentations/presentation1.qmd
 
 format:
   html:
