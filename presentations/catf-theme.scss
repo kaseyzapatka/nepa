@@ -1,0 +1,344 @@
+/*-- scss:defaults --*/
+
+// ============================================================
+// CATF Brand Colors
+// ============================================================
+$catf-primary:    #0047BB;   // Primary CATF blue
+$catf-dark:       #012169;   // Dark CATF navy
+$catf-cyan:       #00C2F3;   // Accent cyan
+$catf-lime:       #A0E203;   // Accent lime green
+$catf-teal:       #03CDA7;   // Accent teal
+$catf-light:      #D8EAFD;   // Light blue background tint
+$catf-gray:       #CDD4E0;   // Neutral gray
+
+// ============================================================
+// Base Theme Variables
+// ============================================================
+$body-bg:                   #FFFFFF;
+$body-color:                #1A1A2E;
+$link-color:                $catf-primary;
+$link-color-hover:          $catf-dark;
+
+// Headings
+$presentation-heading-color:       $catf-dark;
+$presentation-heading-font-weight: 700;
+$presentation-heading-line-height: 1.2;
+$presentation-heading-letter-spacing: -0.01em;
+
+// Font families - use system fonts for reliability
+$font-family-sans-serif: "Helvetica Neue", Arial, "Liberation Sans", sans-serif;
+
+// Font sizes
+$presentation-font-size-root: 36px;
+$presentation-line-height: 1.5;
+
+// Block quotes
+$blockquote-border-color:   $catf-cyan;
+
+// Code
+$code-color:                $catf-primary;
+$code-bg:                   $catf-light;
+
+
+/*-- scss:rules --*/
+
+// ============================================================
+// TITLE SLIDE
+// ============================================================
+.reveal .title-slide,
+.quarto-title-block {
+  background: linear-gradient(135deg, $catf-dark 0%, $catf-primary 100%);
+}
+
+.reveal .title-slide h1,
+.reveal .title-slide .title {
+  color: #FFFFFF !important;
+  font-size: 2.0em;
+  line-height: 1.15;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+
+.reveal .title-slide .subtitle {
+  color: $catf-cyan !important;
+  font-size: 1.25em;
+  font-weight: 500;
+  margin-top: 0.4em;
+}
+
+.reveal .title-slide .author,
+.reveal .title-slide .date,
+.reveal .title-slide p {
+  color: rgba(255,255,255,0.88) !important;
+  font-size: 0.95em;
+}
+
+// ============================================================
+// SECTION DIVIDER SLIDES (# heading creates these)
+// ============================================================
+.reveal .slide[data-background-color="#012169"] h1,
+.reveal .slide[data-background-color="#012169"] h2 {
+  color: #FFFFFF;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+// Auto-style section slides that use the dark background attribute
+.reveal section.has-dark-background h1,
+.reveal section.has-dark-background h2,
+.reveal section.has-dark-background p,
+.reveal section.has-dark-background li {
+  color: #FFFFFF;
+}
+
+// ============================================================
+// HEADINGS
+// ============================================================
+.reveal h1 {
+  font-size: 2.0em;
+  color: $catf-dark;
+  font-weight: 800;
+}
+
+.reveal h2 {
+  font-size: 1.35em;
+  color: $catf-primary;
+  font-weight: 700;
+  border-bottom: 3px solid $catf-cyan;
+  padding-bottom: 0.2em;
+  margin-bottom: 0.6em;
+}
+
+.reveal h3 {
+  font-size: 1.05em;
+  color: $catf-primary;
+  font-weight: 600;
+}
+
+// ============================================================
+// LOGO (appears bottom-right via RevealJS logo option)
+// ============================================================
+.reveal .slide-logo {
+  max-height: 48px !important;
+  width: auto;
+  opacity: 0.9;
+  margin: 6px;
+}
+
+// ============================================================
+// FOOTER
+// ============================================================
+.reveal .footer {
+  font-size: 0.52em;
+  color: #555555;
+  background-color: #F8F9FA;
+  border-top: 2px solid $catf-primary;
+  padding: 4px 16px;
+}
+
+// ============================================================
+// SLIDE NUMBERS
+// ============================================================
+.reveal .slide-number {
+  background-color: $catf-primary;
+  color: #FFFFFF;
+  font-size: 0.5em;
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+// ============================================================
+// PROGRESS BAR
+// ============================================================
+.reveal .progress {
+  background: rgba(0, 71, 187, 0.15);
+  color: $catf-cyan;
+  height: 4px;
+}
+
+// ============================================================
+// FIGURES & IMAGES
+// ============================================================
+.reveal img {
+  border-radius: 6px;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.14);
+  max-height: 62vh;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+}
+
+// Remove shadow from logo
+.reveal .slide-logo img,
+.reveal img.no-shadow {
+  box-shadow: none;
+}
+
+// ============================================================
+// CALLOUT / HIGHLIGHT BOXES
+// ============================================================
+.callout-finding {
+  background: $catf-light;
+  border-left: 5px solid $catf-cyan;
+  border-radius: 5px;
+  padding: 0.5em 0.9em;
+  margin: 0.5em 0 0.7em 0;
+  font-size: 0.85em;
+  line-height: 1.55;
+
+  strong {
+    color: $catf-dark;
+  }
+}
+
+.callout-warning {
+  background: #FFF8E1;
+  border-left: 5px solid #F9A825;
+  border-radius: 5px;
+  padding: 0.5em 0.9em;
+  margin: 0.5em 0 0.7em 0;
+  font-size: 0.82em;
+}
+
+// ============================================================
+// HIGHLIGHT STAT SPANS
+// ============================================================
+.highlight-stat {
+  color: $catf-primary;
+  font-weight: 800;
+  font-size: 1.15em;
+}
+
+.text-cyan   { color: $catf-cyan; }
+.text-lime   { color: $catf-lime; }
+.text-teal   { color: $catf-teal; }
+.text-navy   { color: $catf-dark; }
+.text-blue   { color: $catf-primary; }
+
+// ============================================================
+// TABLES
+// ============================================================
+.reveal table {
+  font-size: 0.72em;
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.4em auto;
+}
+
+.reveal table th {
+  background-color: $catf-primary;
+  color: #FFFFFF;
+  padding: 6px 12px;
+  text-align: left;
+  font-weight: 600;
+}
+
+.reveal table td {
+  padding: 5px 12px;
+  border-bottom: 1px solid $catf-gray;
+}
+
+.reveal table tr:nth-child(even) td {
+  background-color: $catf-light;
+}
+
+.reveal table tr:hover td {
+  background-color: rgba(0, 194, 243, 0.12);
+}
+
+// ============================================================
+// LISTS
+// ============================================================
+.reveal ul, .reveal ol {
+  margin-left: 1.2em;
+}
+
+.reveal ul li, .reveal ol li {
+  margin-bottom: 0.35em;
+  line-height: 1.5;
+}
+
+.reveal ul li::marker {
+  color: $catf-cyan;
+}
+
+// ============================================================
+// TWO-COLUMN LAYOUT
+// ============================================================
+.reveal .columns {
+  display: flex;
+  gap: 1.5em;
+  align-items: flex-start;
+}
+
+.reveal .column {
+  flex: 1;
+  min-width: 0;
+}
+
+// ============================================================
+// PDF DOWNLOAD BUTTON
+// ============================================================
+a.pdf-btn {
+  display: inline-block;
+  background-color: $catf-primary;
+  color: #FFFFFF !important;
+  padding: 7px 20px;
+  border-radius: 20px;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-decoration: none !important;
+  margin-top: 0.8em;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: $catf-dark;
+  }
+}
+
+// ============================================================
+// SECTION LABEL (small tag for deliverable slides)
+// ============================================================
+.slide-label {
+  display: inline-block;
+  background-color: $catf-light;
+  color: $catf-dark;
+  font-size: 0.55em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 10px;
+  margin-bottom: 0.3em;
+  border: 1px solid $catf-cyan;
+}
+
+// ============================================================
+// TAKEAWAY BOXES (for Key Takeaways slides)
+// ============================================================
+.takeaway-box {
+  background: linear-gradient(135deg, $catf-dark 0%, $catf-primary 100%);
+  color: #FFFFFF;
+  border-radius: 8px;
+  padding: 0.7em 1em;
+  margin: 0.3em 0;
+  font-size: 0.82em;
+
+  strong {
+    color: $catf-lime;
+  }
+}
+
+// ============================================================
+// SMALLER TEXT HELPER
+// ============================================================
+.small-text {
+  font-size: 0.78em;
+  line-height: 1.4;
+}
+
+.caption-text {
+  font-size: 0.6em;
+  color: #777;
+  text-align: center;
+  margin-top: 0.2em;
+}
