@@ -32,8 +32,8 @@ d5_tables <- here("output", "deliverable5", "tables")
 
 ::: {.callout-note}
 ## Key Findings
-- **Document length has declined Post-FRA**, but remains well above statutory limits. Mean EA page counts fell ~22% (142 to 111 pages) and mean EIS page counts fell ~25% (535 to 403 pages) after FRA enactment.
-- **Compliance with FRA page limits is low.** Only 42% of Post-FRA EAs meet the 75-page limit, and just 12% of Post-FRA EISs meet the 150-page standard limit. The majority of EIS projects (69%) exceed even the 300-page extraordinary complexity threshold.
+- **Document length has declined Post-FRA**, but remains well above statutory limits. All figures use regulatory pages per 40 C.F.R. § 1508.1(bb) — body word count ÷ 500, excluding embedded appendix pages and low-content pages (maps, figures, blanks). Mean regulatory EA pages fell approximately 22% and mean regulatory EIS pages fell approximately 25% after FRA enactment (see @fig-pre-post for exact values).
+- **Compliance with FRA page limits is approximately 76% for EAs and 27% for EISs** when measured using regulatory pages. Approximately 52% of main EA documents and 34% of main FEIS documents contain embedded appendices bundled into the same PDF; regulatory pages are typically 45–55% of raw PDF page counts for EAs and 70–80% for EISs. Raw PDF page counts systematically overstate document length relative to what the statute actually limits.
 - **Post-FRA sample sizes are small** (33 EAs, 42 EISs), limiting the strength of conclusions. The analysis covers 627 clean energy projects total (552 Pre-FRA, 75 Post-FRA).
 - **Trends were already declining before FRA.** The rolling average trend suggests document length was decreasing prior to June 2023, meaning the observed post-FRA decline may partially reflect pre-existing trends rather than solely FRA-driven compliance.
 :::
@@ -65,7 +65,7 @@ This analysis is restricted to:
 - **Document types**: Final EAs and Final EISs (FEIS) only. Draft documents are excluded.
 - **Timeline requirement**: Only projects with both a valid initiation date and a decision date (from LLM-adjudicated timeline data) are included in figures that track trends over time or classify projects by FRA period.
 - **Clean energy**: Only projects classified as clean energy in the NEPATEC 2.0 database.
-- **Page count measure**: The `total_pages` field from the primary final document for each project. FRA limits target the main body of the document (not appendices or supplemental volumes), but there are likely some (likely a relatively small share) that also include supplemental documents. Next steps will be to try to weed those out if possible.  When multiple qualifying documents exist for a project, the document flagged as the main document is preferred; ties are broken by highest page count.
+- **Page count measure**: Two measures are used. (1) **Raw pages** (`total_pages`): the PDF page count of the primary final document, used in trend figures. (2) **Regulatory pages**: an estimate that better reflects 40 C.F.R. § 1508.1(bb), used in the compliance figure. Regulatory pages are computed by (a) detecting embedded appendix sections via section-header patterns in page text and excluding all pages from that point on, (b) excluding low-content pages (< 50 words, likely maps, figures, or blank dividers), and (c) converting the remaining body word count to pages at 500 words per page. Across clean energy projects, approximately 52% of main EA documents and 34% of main FEIS documents contain embedded appendices bundled into the same PDF. Regulatory pages are typically 45–55% of raw pages for EAs and 70–80% of raw pages for EISs. When multiple qualifying documents exist for a project, the document flagged as the main document is preferred; ties are broken by highest page count.
 
 The analysis combines three datasets: project-level metadata from NEPATEC 2.0, LLM-adjudicated initiation and decision dates from the timeline extraction pipeline, and document-level page counts from the full NEPATEC document inventory. Only projects present in all three sources are included in the final analysis sample.
 
@@ -96,11 +96,11 @@ knitr::include_graphics(file.path(d5_figures, "05_coverage.png"))
 
 ## Trends and Individual Projects
 
-@fig-pages-over-time shows individual clean energy EA and EIS projects as semi-transparent points (colored by FRA period), overlaid with a 3-month rolling average of monthly mean page counts. The points reveal the full spread and variability in document length across projects, while the rolling average smooths month-to-month noise to show the underlying direction of change. The wide spread of individual points — particularly for EISs — illustrates that average trends can obscure substantial project-to-project variation. The red dashed line marks the Fiscal Responsibility Act of 2023 (FRA) enactment date (June 3, 2023).
+@fig-pages-over-time shows individual clean energy EA and EIS projects as semi-transparent points (colored by FRA period), overlaid with a 3-month rolling average of monthly mean regulatory page counts. Regulatory pages are estimated per 40 C.F.R. § 1508.1(bb): body word count divided by 500, excluding embedded appendix pages and low-content pages (maps, figures, blanks). The points reveal the full spread and variability in document length across projects, while the rolling average smooths month-to-month noise to show the underlying direction of change. The wide spread of individual points — particularly for EISs — illustrates that average trends can obscure substantial project-to-project variation. The red dashed line marks the Fiscal Responsibility Act of 2023 (FRA) enactment date (June 3, 2023).
 
 ```{r}
 #| label: fig-pages-over-time
-#| fig-cap: "Document page counts for individual clean energy EA and EIS projects by decision date (2010--2025), colored by FRA period. The navy line is the 3-month rolling average of monthly mean page counts. The red dashed line marks Fiscal Responsibility Act of 2023 (FRA) enactment on June 3, 2023."
+#| fig-cap: "Regulatory page counts for individual clean energy EA and EIS projects by decision date (2010--2025), colored by FRA period. Regulatory pages = body word count ÷ 500, excluding embedded appendix pages and low-content pages, per 40 C.F.R. § 1508.1(bb). The navy line is the 3-month rolling average of monthly mean regulatory pages. The red dashed line marks Fiscal Responsibility Act of 2023 (FRA) enactment on June 3, 2023."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d5_figures, "05_pages_over_time.png"))
@@ -112,11 +112,11 @@ knitr::include_graphics(file.path(d5_figures, "05_pages_over_time.png"))
 
 ## Average and Median Page Counts
 
-@fig-pre-post compares mean and median document length for projects decided before and after FRA enactment. Bar height represents the mean page count, while the diamond marker indicates the median. Sample sizes are displayed on each bar.
+@fig-pre-post compares mean and median regulatory document length for projects decided before and after FRA enactment. Bar height represents the mean regulatory page count, while the diamond marker indicates the median. Sample sizes are displayed on each bar. Projects without extractable OCR text are excluded.
 
 ```{r}
 #| label: fig-pre-post
-#| fig-cap: "Mean total pages for clean energy EA and EIS projects, Pre- vs Post-FRA. Bar height = mean; diamond = median. Projects are classified by decision date relative to June 3, 2023."
+#| fig-cap: "Mean regulatory pages for clean energy EA and EIS projects, Pre- vs Post-FRA. Regulatory pages = body word count ÷ 500, per 40 C.F.R. § 1508.1(bb). Bar height = mean; diamond = median. Projects are classified by decision date relative to June 3, 2023."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d5_figures, "05_pages_pre_post_fra.png"))
@@ -124,11 +124,11 @@ knitr::include_graphics(file.path(d5_figures, "05_pages_pre_post_fra.png"))
 
 ## Distribution Comparison
 
-@fig-distribution shows the full distribution of page counts before and after FRA using violin plots (showing distribution shape) overlaid with box plots (showing quartiles and outliers). This reveals whether observed changes in the mean are driven by a general shift in the distribution or by movement in the tails.
+@fig-distribution shows the full distribution of regulatory page counts before and after FRA using violin plots (showing distribution shape) overlaid with box plots (showing quartiles and outliers). This reveals whether observed changes in the mean are driven by a general shift in the distribution or by movement in the tails. Projects without extractable OCR text are excluded.
 
 ```{r}
 #| label: fig-distribution
-#| fig-cap: "Distribution of document page counts, Pre- vs Post-FRA. Violin plots show distribution shape; box plots show quartiles. Diamond markers indicate median values. Y-axis capped at the 99th percentile to improve readability."
+#| fig-cap: "Distribution of regulatory page counts, Pre- vs Post-FRA. Regulatory pages = body word count ÷ 500, per 40 C.F.R. § 1508.1(bb). Violin plots show distribution shape; box plots show quartiles. Diamond markers indicate median values. Y-axis capped at the 99th percentile to improve readability."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d5_figures, "05_pages_distribution_boxplot.png"))
@@ -136,11 +136,11 @@ knitr::include_graphics(file.path(d5_figures, "05_pages_distribution_boxplot.png
 
 ## Descriptive Statistics
 
-@tbl-summary provides descriptive statistics for document length by process type and FRA period, including mean, median, standard deviation, and interquartile range.
+@tbl-summary provides descriptive statistics for regulatory document length by process type and FRA period, including mean, median, standard deviation, and interquartile range. All values are in regulatory pages per 40 C.F.R. § 1508.1(bb).
 
 ```{r}
 #| label: tbl-summary
-#| tbl-cap: "Descriptive statistics for document page counts by process type and FRA period"
+#| tbl-cap: "Descriptive statistics for regulatory page counts by process type and FRA period. Regulatory pages = body word count ÷ 500, excluding embedded appendix pages and low-content pages, per 40 C.F.R. § 1508.1(bb). Projects without OCR text fall back to raw PDF page count."
 
 summary_stats <- read_csv(file.path(d5_tables, "05_pages_summary.csv"), show_col_types = FALSE)
 
@@ -166,7 +166,7 @@ summary_stats %>%
   cols_align(align = "right", columns = where(is.numeric)) %>%
   fmt_number(columns = where(is.numeric), decimals = 0, use_seps = TRUE) %>%
   tab_spanner(
-    label = "Pages (final document)",
+    label = "Regulatory Pages (body word count ÷ 500)",
     columns = c(mean_pages, median_pages, sd_pages, p25_pages, p75_pages)
   ) %>%
   tab_style(
@@ -185,7 +185,7 @@ summary_stats %>%
     locations = cells_body(rows = fra_period == "Post-FRA")
   ) %>%
   tab_footnote(
-    footnote = "Note: Post-FRA projects are those with a decision date on or after June 3, 2023."
+    footnote = "Note: Post-FRA projects are those with a decision date on or after June 3, 2023. Regulatory pages exclude embedded appendix pages and low-content pages (maps, figures, blanks); projects without extractable OCR text fall back to raw PDF page count."
   ) %>%
   tab_style(
     style = cell_text(align = "right"),
@@ -270,7 +270,7 @@ compliance %>%
 
 - **Small Post-FRA sample**: Only ~2.5 years of post-FRA data are available (June 2023 to present), limiting the number of Post-FRA projects and the statistical power of comparisons.
 - **Descriptive, not causal**: Changes in page counts after FRA could reflect shifts in project complexity, agency composition, or technology mix---not solely FRA compliance. This analysis does not control for confounders. Figure 2 suggests document length was already declining before FRA enactment, which further complicates attribution.
-- **Final documents might still be contaminated**: The `total_pages` field reflects the primary final document but might contain appendices or supplementary volumes, which I plan to weed out. So these results are still tentative.
+- **Regulatory page estimates are approximate**: OCR quality varies across documents. Scanned documents without extractable text return NULL regulatory pages and are excluded from all figures. In a small number of cases (~5%), regulatory pages exceed raw pages due to table-dense OCR text inflating word counts. The appendix detection heuristic may miss non-standard section headers or misclassify some body pages as appendix starts.
 - **Compliance without context**: Projects exceeding the page limits may have received waivers, may have been initiated well before FRA and grandfathered, or may involve extraordinarily complex circumstances that justify higher page counts.
 
 ---

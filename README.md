@@ -213,6 +213,19 @@ python3 code/extract/extract_technology.py --run geothermal
 python3 code/extract/extract_technology.py --run pipeline
 ```
 
+## Deliverable 5: Regulatory Page Count Extraction
+
+`code/extract/extract_pages.py` estimates FRA-compliant page counts for clean energy EA and EIS final documents. The FRA defines a "page" as 500 words and excludes maps, figures, and appendices (40 C.F.R. § 1508.1(bb)). This script computes `regulatory_pages = CEIL(body_word_count / 500)` by detecting embedded appendix sections and excluding low-content pages. Output is written to `data/analysis/projects_page_counts.parquet` and joined into the Deliverable 5 R pipeline by `code/deliverable05/00_setup.R`.
+
+Re-run this script whenever `projects_combined.parquet` is updated (new projects added).
+
+### Full production run
+
+```bash
+python code/extract/extract_pages.py --run
+```
+---
+
 ## Generation Capacity Build
 
 `code/extract/extract_gencap.py` extracts generation capacity (MW/GW/kW) in two phases: regex over all projects, then Claude Haiku adjudication for projects with 2+ distinct candidates.
