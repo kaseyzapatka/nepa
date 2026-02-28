@@ -68,20 +68,20 @@ print(fig_coverage)
 # --------------------------
 # FIGURE 2: AVERAGE DOCUMENT LENGTH OVER TIME
 # --------------------------
-# 6-month rolling average of page counts
+# 3-month rolling average of regulatory page counts
 # Red dashed vertical line at FRA enactment date
 # Faceted by EA vs EIS
 
 cat("\nCreating Figure 2: Average pages over time (rolling average)...\n")
 
-# Filter to 2010+ for readability
+# Filter to 2010+ for readability; drop projects without regulatory_pages
 pages_for_time <- pages_analysis %>%
-  filter(decision_year >= 2010, decision_year <= 2025)
+  filter(decision_year >= 2010, decision_year <= 2025, !is.na(regulatory_pages))
 
 monthly_pages <- pages_for_time %>%
   group_by(process_type, decision_month) %>%
   summarise(
-    mean_pages = mean(total_pages, na.rm = TRUE),
+    mean_pages = mean(regulatory_pages, na.rm = TRUE),
     n_projects = n(),
     .groups = "drop"
   ) %>%
@@ -96,7 +96,7 @@ fig_pages_over_time <- ggplot() +
   # Individual project points (low alpha, colored by FRA period)
   geom_point(
     data = pages_for_time,
-    aes(x = timeline_decision_date, y = total_pages, color = fra_period),
+    aes(x = timeline_decision_date, y = regulatory_pages, color = fra_period),
     alpha = 0.32, size = 1.2
   ) +
   # 3-month rolling average line
@@ -120,9 +120,9 @@ fig_pages_over_time <- ggplot() +
     title = "Document Length Over Time",
     subtitle = "Points = individual projects (colored by FRA period); line = 3-month rolling average",
     x = "Decision Date",
-    y = "Total Pages",
+    y = "Regulatory Pages (body word count ÷ 500)",
     color = NULL,
-    caption = "Note: Projects with complete timelines only."
+    caption = "Note: Projects with complete timelines only. Regulatory pages exclude embedded appendices and low-content pages per 40 C.F.R. § 1508.1(bb)."
   ) +
   theme_catf() +
   theme(legend.position = "top")
@@ -133,19 +133,20 @@ cat("  Saved:", fig_pages_over_time_path, "\n")
 print(fig_pages_over_time)
 
 # --------------------------
-# FIGURE 3: PRE/POST FRA BAR CHART (NORMALIZED)
+# FIGURE 3: PRE/POST FRA BAR CHART
 # --------------------------
-# Mean total pages by process type, before and after FRA
+# Mean regulatory pages by process type, before and after FRA
 # Includes sample sizes and median markers
 
 cat("\nCreating Figure 3: Pre/Post FRA comparison (bar chart)...\n")
 
 fra_summary <- pages_analysis %>%
+  filter(!is.na(regulatory_pages)) %>%
   group_by(process_type, fra_period) %>%
   summarise(
-    mean_pages = mean(total_pages, na.rm = TRUE),
-    median_pages = median(total_pages, na.rm = TRUE),
-    sd_pages = sd(total_pages, na.rm = TRUE),
+    mean_pages = mean(regulatory_pages, na.rm = TRUE),
+    median_pages = median(regulatory_pages, na.rm = TRUE),
+    sd_pages = sd(regulatory_pages, na.rm = TRUE),
     n = n(),
     .groups = "drop"
   ) %>%
@@ -169,9 +170,9 @@ fig_pre_post <- ggplot(fra_summary, aes(x = fra_period, y = mean_pages, fill = f
   scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
   labs(
     title = "Document Length: Pre vs Post Fiscal Responsibility Act",
-    subtitle = "Bar height = mean total pages; diamond = median; projects classified by decision date",
+    subtitle = "Bar height = mean regulatory pages; diamond = median; projects classified by decision date",
     x = NULL,
-    y = "Total Pages",
+    y = "Regulatory Pages (body word count ÷ 500)",
     fill = NULL
   ) +
   theme_catf() +
@@ -183,27 +184,133 @@ cat("  Saved:", fig_pre_post_path, "\n")
 print(fig_pre_post)
 
 # --------------------------
+# FIGURE 3b: REGULATORY vs BODY PAGES COMPARISON (PRE/POST FRA)
+# --------------------------
+# Shows how much the FRA word-count normalisation (regulatory_pages) differs
+# from simply counting physical body pages (body_pages).
+#
+# body_pages    = count of physical pages in the body (before appendix) with
+#                 >= 50 words.  Excludes appendices but still counts sparse pages
+#                 (covers, section dividers, tables) as full pages.
+# regulatory_pages = body_word_count / 500.  The FRA statutory definition:
+#                 sparse pages contribute < 1 page; only dense text pages
+#                 count toward the limit.
+#
+# The gap between the two bars = pages "lost" to the word-count normalisation.
+
+cat("\nCreating Figure 3b: Regulatory vs body pages comparison...\n")
+
+# Pivot to long form: one row per project × measure
+compare_long <- pages_analysis %>%
+  filter(!is.na(regulatory_pages), !is.na(body_pages)) %>%
+  select(project_id, process_type, fra_period, regulatory_pages, body_pages) %>%
+  pivot_longer(
+    cols = c(regulatory_pages, body_pages),
+    names_to  = "measure",
+    values_to = "pages"
+  ) %>%
+  mutate(
+    measure = factor(
+      measure,
+      levels = c("body_pages", "regulatory_pages"),
+      labels = c("Body pages\n(physical, ≥50 words)", "Regulatory pages\n(word count ÷ 500)")
+    )
+  )
+
+compare_summary <- compare_long %>%
+  group_by(process_type, fra_period, measure) %>%
+  summarise(
+    mean_pages   = mean(pages, na.rm = TRUE),
+    median_pages = median(pages, na.rm = TRUE),
+    n            = n(),
+    .groups = "drop"
+  )
+
+# Print console comparison table
+cat("  Regulatory vs body pages comparison (means):\n")
+print(
+  compare_summary %>%
+    select(process_type, fra_period, measure, mean_pages, median_pages, n) %>%
+    mutate(across(c(mean_pages, median_pages), round, 0)) %>%
+    arrange(process_type, fra_period, measure),
+  n = Inf
+)
+
+fig_compare <- ggplot(
+  compare_summary,
+  aes(x = fra_period, y = mean_pages, fill = measure)
+) +
+  geom_col(
+    position = position_dodge(width = 0.7),
+    width = 0.6, alpha = 0.88
+  ) +
+  geom_point(
+    aes(y = median_pages),
+    position = position_dodge(width = 0.7),
+    shape = 18, size = 3.5, color = catf_navy
+  ) +
+  geom_text(
+    aes(label = sprintf("%.0f", mean_pages)),
+    position = position_dodge(width = 0.7),
+    vjust = -0.4, size = 3, color = "gray20"
+  ) +
+  facet_wrap(~process_type, scales = "free_y") +
+  scale_fill_manual(
+    values = c(
+      "Body pages\n(physical, ≥50 words)"   = catf_light_blue,
+      "Regulatory pages\n(word count ÷ 500)" = catf_dark_blue
+    )
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.25))) +
+  labs(
+    title    = "Document Length: Regulatory Pages vs Physical Body Pages",
+    subtitle = "Bar height = mean; diamond = median | Body pages = physical pages before appendix with ≥50 words",
+    caption  = paste0(
+      "Regulatory pages = body word count ÷ 500 per 40 C.F.R. § 1508.1(bb). ",
+      "Gap between bars reflects sparse pages (headers, tables, dividers) that count ",
+      "as full physical pages but contribute < 1 regulatory page."
+    ),
+    x    = NULL,
+    y    = "Pages",
+    fill = NULL
+  ) +
+  theme_catf() +
+  theme(
+    legend.position  = "top",
+    plot.caption     = element_text(size = rel(0.75), hjust = 0, color = "gray40"),
+    plot.caption.position = "plot"
+  )
+
+fig_compare_path <- here(figures_dir, "05_pages_reg_vs_body.png")
+ggsave(fig_compare_path, fig_compare, width = 11, height = 6, dpi = 300)
+cat("  Saved:", fig_compare_path, "\n")
+print(fig_compare)
+
+# --------------------------
 # FIGURE 4: DISTRIBUTION PRE/POST FRA (VIOLIN + BOX PLOT)
 # --------------------------
-# Shows the full distribution of page counts before and after FRA
+# Shows the full distribution of regulatory page counts before and after FRA
 
 cat("\nCreating Figure 4: Pre/Post FRA distribution (violin + box plot)...\n")
 
+pages_analysis_reg <- pages_analysis %>% filter(!is.na(regulatory_pages))
+
 # Cap y-axis at p99 for readability (extreme outliers distort the view)
-p99_pages <- quantile(pages_analysis$total_pages, 0.99, na.rm = TRUE)
+p99_pages <- quantile(pages_analysis_reg$regulatory_pages, 0.99, na.rm = TRUE)
 
 # Add n and median labels per group
-dist_labels <- pages_analysis %>%
+dist_labels <- pages_analysis_reg %>%
   group_by(process_type, fra_period) %>%
   summarise(
     n = n(),
-    median_pages = median(total_pages, na.rm = TRUE),
+    median_pages = median(regulatory_pages, na.rm = TRUE),
     n_label = paste0("n = ", comma(n)),
     median_label = sprintf("median: %.0f", median_pages),
     .groups = "drop"
   )
 
-fig_distribution <- ggplot(pages_analysis, aes(x = fra_period, y = total_pages, fill = fra_period)) +
+fig_distribution <- ggplot(pages_analysis_reg,
+                           aes(x = fra_period, y = regulatory_pages, fill = fra_period)) +
   geom_violin(alpha = 0.35, trim = FALSE, color = NA) +
   geom_boxplot(
     width = 0.2,
@@ -237,7 +344,7 @@ fig_distribution <- ggplot(pages_analysis, aes(x = fra_period, y = total_pages, 
     title = "Document Length Distribution: Pre vs Post FRA",
     subtitle = "Violin + boxplot overlay; diamond = median (y-axis capped at p99)",
     x = NULL,
-    y = "Total Pages",
+    y = "Regulatory Pages (body word count ÷ 500)",
     fill = NULL
   ) +
   theme_catf() +
@@ -258,15 +365,18 @@ print(fig_distribution)
 
 cat("\nCreating Figure 6: FRA page limit compliance...\n")
 
+# Compliance is assessed using regulatory_pages (word-count-based, excluding embedded
+# appendices and low-content pages), which better reflects 40 C.F.R. § 1508.1(bb).
+# Projects with no extractable text (regulatory_pages = NA) are dropped from this figure.
 post_fra <- pages_analysis %>%
-  filter(fra_period == "Post-FRA") %>%
+  filter(fra_period == "Post-FRA", !is.na(regulatory_pages)) %>%
   mutate(
     compliance = case_when(
-      process_type == "EA" & total_pages <= 75 ~ "Compliant",
-      process_type == "EA" & total_pages > 75 ~ "Exceeds limit",
-      process_type == "EIS" & total_pages <= 150 ~ "Compliant",
-      process_type == "EIS" & total_pages > 150 & total_pages <= 300 ~ "Exceeds standard limit",
-      process_type == "EIS" & total_pages > 300 ~ "Exceeds limit"
+      process_type == "EA" & regulatory_pages <= 75 ~ "Compliant",
+      process_type == "EA" & regulatory_pages > 75 ~ "Exceeds limit",
+      process_type == "EIS" & regulatory_pages <= 150 ~ "Compliant",
+      process_type == "EIS" & regulatory_pages > 150 & regulatory_pages <= 300 ~ "Exceeds standard limit",
+      process_type == "EIS" & regulatory_pages > 300 ~ "Exceeds limit"
     )
   )
 
@@ -348,13 +458,17 @@ summary_table <- pages_analysis %>%
   group_by(process_type, fra_period) %>%
   summarise(
     n_projects = n(),
-    mean_pages = round(mean(total_pages, na.rm = TRUE), 0),
-    median_pages = median(total_pages, na.rm = TRUE),
-    sd_pages = round(sd(total_pages, na.rm = TRUE), 0),
-    min_pages = min(total_pages, na.rm = TRUE),
-    max_pages = max(total_pages, na.rm = TRUE),
-    p25_pages = quantile(total_pages, 0.25, na.rm = TRUE),
-    p75_pages = quantile(total_pages, 0.75, na.rm = TRUE),
+    # Regulatory page counts (primary measure; falls back to raw total_pages when
+    # OCR extraction was unavailable — see reg_pages_source for breakdown)
+    mean_pages   = round(mean(regulatory_pages, na.rm = TRUE), 0),
+    median_pages = median(regulatory_pages, na.rm = TRUE),
+    sd_pages     = round(sd(regulatory_pages, na.rm = TRUE), 0),
+    p25_pages    = quantile(regulatory_pages, 0.25, na.rm = TRUE),
+    p75_pages    = quantile(regulatory_pages, 0.75, na.rm = TRUE),
+    # Source breakdown (how many projects used each method)
+    n_ocr           = sum(reg_pages_source == "ocr",              na.rm = TRUE),
+    n_no_appx_file  = sum(reg_pages_source == "no_appendix_file", na.rm = TRUE),
+    n_raw_fallback  = sum(reg_pages_source == "raw_fallback",     na.rm = TRUE),
     .groups = "drop"
   )
 

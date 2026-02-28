@@ -29,6 +29,7 @@ data_path <- here("data", "analysis", "projects_combined.parquet")
 documents_path <- here("data", "analysis", "documents_combined.parquet")
 timeline_ea_path <- here("data", "analysis", "projects_timeline_bert_ea_llm.parquet")
 timeline_eis_path <- here("data", "analysis", "projects_timeline_bert_eis_llm.parquet")
+page_counts_path <- here("data", "analysis", "projects_page_counts.parquet")
 
 output_dir <- here("output", "deliverable5")
 tables_dir <- here("output", "deliverable5", "tables")
@@ -162,6 +163,62 @@ pages_data <- projects %>%
 
 cat("  Merged dataset:", nrow(pages_data), "projects\n")
 
+# --------------------------
+# JOIN REGULATORY PAGE COUNTS
+# --------------------------
+# Add regulatory_pages from extract_pages.py output.
+# regulatory_pages = body word count / 500, excluding embedded appendix pages and
+# low-content pages (< 50 words), per 40 C.F.R. § 1508.1(bb).
+# NA = document had no extractable OCR text.
+
+if (file.exists(page_counts_path)) {
+  cat("Loading regulatory page counts from:", page_counts_path, "\n")
+  page_counts_raw <- read_parquet(page_counts_path)
+
+  # Backwards-compatibility: parquets generated before regulatory_pages_method
+  # was added to the output schema lack that column — treat as OCR.
+  if (!"regulatory_pages_method" %in% colnames(page_counts_raw)) {
+    page_counts_raw <- page_counts_raw %>%
+      mutate(regulatory_pages_method = "ocr")
+  }
+
+  page_counts <- page_counts_raw %>%
+    select(project_id, regulatory_pages, body_pages, low_content_pages,
+           appendix_start_page, regulatory_pages_method)
+
+  pages_data <- pages_data %>%
+    left_join(page_counts, by = "project_id")
+  cat("  Joined regulatory_pages for", sum(!is.na(pages_data$regulatory_pages)), "projects\n")
+} else {
+  warning("projects_page_counts.parquet not found — run extract_pages.py first. ",
+          "regulatory_pages will be NA for all projects.")
+  pages_data <- pages_data %>%
+    mutate(regulatory_pages = NA_real_, body_pages = NA_real_,
+           low_content_pages = NA_real_, appendix_start_page = NA_real_,
+           regulatory_pages_method = NA_character_)
+}
+
+# Fallback: when regulatory_pages is NA (project not in page_counts output),
+# use total_pages (raw PDF page count) and flag the source.
+# This preserves complete coverage for all analysis figures.
+pages_data <- pages_data %>%
+  mutate(
+    reg_pages_source = case_when(
+      regulatory_pages_method == "no_appendix_file" ~ "no_appendix_file",
+      regulatory_pages_method == "ocr"              ~ "ocr",
+      !is.na(total_pages)                           ~ "raw_fallback",
+      TRUE                                           ~ NA_character_
+    ),
+    regulatory_pages = coalesce(regulatory_pages, as.numeric(total_pages))
+  )
+
+n_fallback <- sum(pages_data$reg_pages_source == "raw_fallback", na.rm = TRUE)
+n_no_appx  <- sum(pages_data$reg_pages_source == "no_appendix_file", na.rm = TRUE)
+n_ocr      <- sum(pages_data$reg_pages_source == "ocr", na.rm = TRUE)
+cat("  regulatory_pages source: ocr =", n_ocr,
+    "| no_appendix_file =", n_no_appx,
+    "| raw_fallback =", n_fallback, "\n\n")
+
 # Step 4: With timeline + document
 coverage_steps[["With timeline + document"]] <- pages_data %>%
   count(process_type, name = "n")
@@ -212,7 +269,11 @@ cat("  Post-FRA:", sum(pages_analysis$fra_period == "Post-FRA"), "\n")
 cat("  Median pages (EA):",
     median(pages_analysis$total_pages[pages_analysis$process_type == "EA"]), "\n")
 cat("  Median pages (EIS):",
-    median(pages_analysis$total_pages[pages_analysis$process_type == "EIS"]), "\n\n")
+    median(pages_analysis$total_pages[pages_analysis$process_type == "EIS"]), "\n")
+cat("  Median regulatory pages (EA):",
+    median(pages_analysis$regulatory_pages[pages_analysis$process_type == "EA"], na.rm = TRUE), "\n")
+cat("  Median regulatory pages (EIS):",
+    median(pages_analysis$regulatory_pages[pages_analysis$process_type == "EIS"], na.rm = TRUE), "\n\n")
 
 # --------------------------
 # CATF BRAND THEME
