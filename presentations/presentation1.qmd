@@ -186,6 +186,12 @@ All federal projects by review type
 :::
 :::
 
+::: {.callout-finding}
+- **CEs account for 88% of projects but only 6% of total pages** — the vast majority of NEPA activity is routine and low-documentation by design.
+- **EIS reviews are 1.3% of projects but generate 89% of all pages** — each EIS produces an average of ~1,480 pages, compared to ~152 for EAs and ~7 for CEs.
+- **This dataset enables population-level analysis** of NEPA patterns for the first time — prior work relied on bespoke, often agency-specific subsets.
+:::
+
 ::: {.small-text style="margin-top:0.6em; border-top: 1px solid #ccc; padding-top:0.4em;"}
 Munikoti, S., Nally, D., Koneru, S.D., et al. (2025). *NEPATEC v2.0: Standardized Metadata and Text Corpus of National Environmental Policy Act Documents.* PNNL/PermitAI. [PDF](https://www.pnnl.gov/sites/default/files/media/file/PNNL_PermitAI_NEPATECv2_Public_Release_20_08_25.pdf)
 :::
@@ -300,9 +306,9 @@ CATF staff reviewed samples from each exclusion category to validate the approac
 
 ## Phase 1 Deliverables at a Glance
 
-::: {tbl-colwidths="[32,68]"}
+::: {tbl-colwidths="[24,68]"}
 | Deliverable | Focus |
-|:---|:---|
+|:-|:---|
 | **D1** — Clean Energy Project Landscape | How are `r n_clean_fmt` clean energy projects distributed across technologies, lead agencies, and geographies? |
 | **D2** — Programmatic & Tiered Reviews | How common are programmatic and tiered reviews among EA/EIS projects, and do they actually deliver faster outcomes? |
 | **D3** — NEPA Process, Timelines & Capacity | How do CE, EA, and EIS differ in duration and project scale? How has activity changed over time? |
@@ -319,11 +325,25 @@ This gives a quick roadmap. Each deliverable section will have its own key findi
 
 # Deliverable 1 {background-color="#012169"}
 
-## Clean Energy Project Landscape
+## Clean Energy Project Landscape  {.full-size}
 
+
+::: {.columns}
+::: {.column width="50%"}
 **`r n_clean_fmt` clean energy projects** identified across the federal NEPA database.
 
 This section covers how they are distributed by **technology type**, **lead agency**, and **geography** — establishing the foundational picture of where federal clean energy permitting happens and who is responsible for it.
+:::
+::: {.column width="50%"}
+```{r}
+#| out-width: "90%"
+knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
+```
+::: {.caption-text}
+Energy type breakdown across all federal projects
+:::
+:::
+:::
 
 ::: {.notes}
 D1 answers the foundational question: how are clean energy NEPA projects distributed across technologies, agencies, and geography?
@@ -353,7 +373,9 @@ Technology by NEPA process type
 :::
 
 ::: {.callout-finding}
-**Utilities, Electricity Transmission, and Nuclear dominate.** Hydropower, Nuclear, and Wind show notably higher EA/EIS rates, reflecting larger environmental footprints.
+- **Utilities and Electricity Transmission dominate,** possibly reflecting the infrastructure build required to connect renewable energy generation.  
+- Solar, Nuclear, and energy storage projects are the next largest categories, **highlighting the infrastructure vs generation divide.** 
+- While **most projects are granted “Categorical Exclusion (CE)”** status, **Hydropower, Nuclear, and Wind have notably higher rates of EA/EIS reviews,** reflecting larger potential environmental footprints than many of the other types of projects.
 :::
 
 ---
@@ -361,24 +383,28 @@ Technology by NEPA process type
 ## Lead Agencies {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
-::: {.column width="55%"}
+::: {.column width="50%"}
 ```{r}
 knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
 ```
+::: {.caption-text}
+Process type mix by lead agency
 :::
-::: {.column width="45%"}
-**DOE processes 81% of clean energy projects** — and 96% of those through Categorical Exclusions.
-
-Interior handles 17% of projects with a more varied process mix.
-
-**Why DOE dominates:**
-
-- Loan programs & grid modernization grants
-- Power Marketing Administrations
-- National Laboratory site operations
-
-Most other agencies have substantially higher EA/EIS shares when they are the lead agency.
 :::
+::: {.column width="50%"}
+```{r}
+knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
+```
+::: {.caption-text}
+Total clean energy projects by lead department
+:::
+:::
+:::
+
+::: {.callout-finding}
+- **DOE accounts for 81% of all clean energy projects** — and processes 97% of those through Categorical Exclusions, likely reflecting high volumes of routine, CE-eligible actions (e.g., loan programs, grid modernization grants, Power Marketing Administrations, National Lab operations).
+- **Interior handles 17%** of projects with a slightly more varied process mix: about 13% through EA and EIS reviews, consistent with its land-management mandate for large-scale renewables on federal land.
+- **Most other agencies** — USDA, Army Corps, FERC — show handle reviews through primarily EA/EIS, rates well above DOE's when they serve as lead, indicating the CE-heavy pattern is specific to DOE's portfolio, not NEPA as a whole.
 :::
 
 ::: {.notes}
@@ -390,31 +416,29 @@ DOE's concentration in CEs has policy implications — CE status means limited p
 ## Geographic Distribution {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
-::: {.column width="58%"}
+::: {.column width="55%"}
 ```{r}
 knitr::include_graphics(file.path(d1_maps, "09_state_choropleth.png"))
 ```
 :::
-::: {.column width="42%"}
-**Top 5 States**
-
-1. South Carolina *(Savannah River Site)*
-2. Washington
-3. California
-4. Idaho
-5. Colorado
-
-**County-Level Coverage**
-
-| Process | Has County |
-|---|---|
-| All | 48% |
-| CE | 46% |
-| EA | 81% |
-| EIS | 64% |
-
-EA/EIS projects missing county data are estimated ~99% recoverable via reverse geocoding.
+::: {.column width="45%"}
+```{r}
+knitr::include_graphics(file.path(d1_figures, "07_top_states.png"))
+```
+::: {.caption-text}
+Top 20 states by clean energy project count
 :::
+:::
+:::
+
+::: {.small-text}
+**County-level coverage:** CE 46% · EA 81% · EIS 64%. EA/EIS projects missing county data are estimated ~99% recoverable via reverse geocoding.
+:::
+
+::: {.callout-finding}
+- **South Carolina leads** with 4,000+ projects — almost entirely driven by DOE's Savannah River Site nuclear facility, not renewable energy generation.
+- **Western states dominate renewable-driven activity:** Washington, California, Idaho, and Colorado together account for a large share of transmission, solar, wind, and hydropower projects.
+- **County-level geographic precision varies by process:** CEs frequently use legal land descriptions rather than coordinates; EA and EIS projects are far more geographically resolvable.
 :::
 
 ::: {.notes}
@@ -423,10 +447,47 @@ South Carolina's dominance is an artifact of the Savannah River Site — a massi
 
 ---
 
+## County-Level Maps by Process Type {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+
+::: {.columns}
+::: {.column width="33%"}
+```{r}
+knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_ce.png"))
+```
+::: {.caption-text}
+Categorical Exclusions by county
+:::
+:::
+::: {.column width="33%"}
+```{r}
+knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_ea.png"))
+```
+::: {.caption-text}
+Environmental Assessments by county
+:::
+:::
+::: {.column width="33%"}
+```{r}
+knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_eis.png"))
+```
+::: {.caption-text}
+Environmental Impact Statements by county
+:::
+:::
+:::
+
+::: {.callout-finding}
+- **CE county coverage is the lowest (46%)** — categorical exclusions frequently rely on legal land descriptions rather than precise coordinates, limiting geographic resolution.
+- **EA coverage is strongest (81%)** — environmental assessments typically include site-specific location data as part of the scoping and FONSI process.
+- **Western federal land counties dominate** across all three process types, consistent with the concentration of public lands managed by BLM, Forest Service, and DOE in the West.
+:::
+
+---
+
 ## D1 Key Takeaways {background-color="#012169" footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.takeaway-box}
-**Scale:** `r n_clean_fmt` clean energy projects — larger than previously documented
+**Scale:** `r n_clean_fmt` clean energy projects — largely projects of Categorical Exclusion status
 :::
 
 ::: {.takeaway-box}
@@ -438,7 +499,7 @@ South Carolina's dominance is an artifact of the Savannah River Site — a massi
 :::
 
 ::: {.takeaway-box}
-**Coverage:** County-level data gaps are concentrated in CEs and are largely recoverable; EA/EIS geographic coverage is solid
+**Coverage:** 
 :::
 
 ---
@@ -482,6 +543,12 @@ Of 4,231 clean energy EA/EIS projects, **only 35.5%** are programmatic or tiered
 - **Programmatic:** Broad "umbrella" review (PEIS/PEA) covering a class of actions or region
 - **Tiered:** Site-specific review that builds on a prior programmatic review
 :::
+:::
+
+::: {.callout-finding}
+- **Standard review is the overwhelming norm** — 64.5% of EA/EIS projects are standalone, with no tiering or programmatic umbrella.
+- **BLM drives non-standard review use** — with over 50% of its EA/EIS projects classified as programmatic or tiered, far above any other agency.
+- **Non-standard reviews are not evenly distributed:** they concentrate in western states and large-scale land-use actions where BLM and Forest Service manage extensive federal acreage.
 :::
 
 ---
@@ -538,7 +605,7 @@ Small sample for tiered EIS limits conclusions there.
 
 # Deliverable 3 {background-color="#012169"}
 
-## NEPA Process Types, Timelines & Generation Capacity
+## NEPA Process Types, Timelines & Generation Capacity {.full-size}
 
 The three NEPA process types — **Categorical Exclusion (CE)**, **Environmental Assessment (EA)**, and **Environmental Impact Statement (EIS)** — differ dramatically in scope, duration, and the scale of projects they cover.
 
@@ -581,6 +648,12 @@ knitr::include_graphics(file.path(d3_figures, "03_duration_summary_intervals_by_
 Dates extracted via BERT NLP pipeline from document text
 :::
 :::
+:::
+
+::: {.callout-finding}
+- **The CE→EA→EIS duration gradient is steep:** median durations range from ~1 month (CE) to ~14 months (EA) to ~34 months (EIS) — a 34× difference at the median.
+- **The long tail drives NEPA's reputation:** 10% of EIS reviews exceed 7.5 years, but this is not typical — the median is 3 years.
+- **Timeline completeness is partial:** only 30% of CEs have extractable dates; EA (62%) and EIS (48%) are better but not complete, so medians likely undercount the slowest cases.
 :::
 
 ---
@@ -647,7 +720,7 @@ Violin + boxplot by process
 
 # Deliverable 4 {background-color="#012169"}
 
-## Multi-State & Multi-Agency Projects
+## Multi-State & Multi-Agency Projects {.full-size}
 
 Long-distance transmission lines, pipelines, and large renewable projects often cross **multiple state boundaries** or require sign-off from **multiple federal agencies** — adding coordination complexity to an already demanding review process.
 
@@ -736,7 +809,7 @@ Multi-agency projects are **89% EIS** | **DOE bridge score: 26** (clear hub, 9 p
 
 # Deliverable 5 {background-color="#012169"}
 
-## Document Length & Fiscal Responsibility Act Impact
+## Document Length & Fiscal Responsibility Act Impact {.full-size}
 
 The **Fiscal Responsibility Act of 2023 (FRA)** established statutory page limits for NEPA documents — 75 pages for EAs and 150 pages (300 for complex projects) for EISs.
 
@@ -818,6 +891,12 @@ Compliance rates (post-FRA only)
 :::
 :::
 
+::: {.callout-finding}
+- **EAs are largely compliant:** 76% of post-FRA EAs meet the 75-page limit — a strong signal that the rule is working for shorter reviews.
+- **EIS compliance remains low:** Only 27% of EIS documents meet the 150-page limit; many fall in the 150–300 "extraordinary complexity" range, but 26% exceed even that ceiling.
+- **Trend preceded the rule:** Document lengths were already declining before FRA 2023, suggesting the law may have reinforced — not initiated — shorter reviews. The post-FRA sample is still small.
+:::
+
 ---
 
 ## D5 Key Takeaways {background-color="#012169" footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
@@ -842,7 +921,7 @@ Compliance rates (post-FRA only)
 
 # Deliverable 6 {background-color="#012169"}
 
-## Technology Deep Dives
+## Technology Deep Dives {.full-size}
 
 Three technology areas received dedicated sub-analyses to explore patterns that get lost in aggregate statistics:
 
@@ -1036,42 +1115,7 @@ Zoom into cohorts, hover for project names, compare duration distributions inter
 
 ---
 
-## A2: County-Level Maps by Process Type
-
-::: {.columns}
-::: {.column width="33%"}
-```{r}
-knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_ce.png"))
-```
-::: {.caption-text}
-Categorical Exclusions by county
-:::
-:::
-::: {.column width="33%"}
-```{r}
-knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_ea.png"))
-```
-::: {.caption-text}
-Environmental Assessments by county
-:::
-:::
-::: {.column width="33%"}
-```{r}
-knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_eis.png"))
-```
-::: {.caption-text}
-Environmental Impact Statements by county
-:::
-:::
-:::
-
-::: {.small-text}
-County coverage: CE 46% | EA 81% | EIS 64%. Western federal land counties show highest activity across all process types.
-:::
-
----
-
-## A3: Timeline Extraction Methodology
+## A2: Timeline Extraction Methodology
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1105,7 +1149,7 @@ County coverage: CE 46% | EA 81% | EIS 64%. Western federal land counties show h
 
 ---
 
-## A4: Transmission — Duration by Region
+## A3: Transmission — Duration by Region
 
 ```{r}
 #| out-width: "85%"
@@ -1118,7 +1162,7 @@ Regional variation reflects differences in project scale, agency staffing, and l
 
 ---
 
-## A5: Geothermal Phase Distribution
+## A4: Geothermal Phase Distribution
 
 ```{r}
 #| out-width: "80%"
@@ -1131,7 +1175,7 @@ Phase classification uses regex keyword matching on project title and descriptio
 
 ---
 
-## A6: Pipeline Length vs. Duration
+## A5: Pipeline Length vs. Duration
 
 ```{r}
 #| out-width: "82%"
@@ -1144,7 +1188,7 @@ Modest positive correlation between pipeline length and NEPA duration across all
 
 ---
 
-## A7: FRA Regulatory vs. Raw Pages Methodology
+## A6: FRA Regulatory vs. Raw Pages Methodology
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1174,7 +1218,7 @@ Modest positive correlation between pipeline length and NEPA duration across all
 
 ---
 
-## A8: NEPA Policy Context 2025–2026 {.scrollable}
+## A7: NEPA Policy Context 2025–2026 {.scrollable}
 
 | Date | Event |
 |---|---|
