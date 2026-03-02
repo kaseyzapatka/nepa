@@ -768,47 +768,88 @@ Violin + boxplot by process
 
 # Deliverable 4 {background-color="#012169"}
 
-## Multi-State & Multi-Agency Projects {.full-size}
+## Multi-State & Multi-Agency Projects {footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
-Long-distance transmission lines, pipelines, and large renewable projects often cross **multiple state boundaries** or require sign-off from **multiple federal agencies** — adding coordination complexity to an already demanding review process.
+Long-distance transmission lines, pipelines, and large renewables often cross **multiple state boundaries** or require **multiple federal agencies** — driving disproportionately high EIS rates in both categories.
 
-This section maps where cross-boundary projects concentrate, which agencies collaborate most, and what types of review they typically require.
 
-::: {.notes}
-D4 examines projects crossing state boundaries or involving multiple federal agencies — particularly relevant for transmission and pipeline infrastructure.
+::: {.columns}
+::: {.column width="50%"}
+```{r}
+#| out-width: "100%"
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_process_type.png"))
+```
+::: {.caption-text}
+Multi-state projects by NEPA process type
+:::
+:::
+::: {.column width="50%"}
+```{r}
+#| out-width: "100%"
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_process_type.png"))
+```
+::: {.caption-text}
+Multi-agency projects by NEPA process type
+:::
+:::
 :::
 
+::: {.callout-finding}
+- Multi-state projects are predominantly **CE** or **EIS-level**, where as Multi-department projects are predominately **EIS-level**. 
+:::
 ---
 
 ## Multi-State Projects {footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
-::: {.columns}
-::: {.column width="58%"}
 ```{r}
+#| out-width: "88%"
+#| fig-align: center
 knitr::include_graphics(file.path(d4_maps, "map_state_links.png"))
 ```
-::: {.caption-text}
-State-to-state project connections
-:::
-:::
-::: {.column width="42%"}
-```{r}
-knitr::include_graphics(file.path(d4_figures, "fig_multistate_process_type.png"))
-```
-
-Multi-state projects span state boundaries — long-haul transmission lines, right-of-way corridors, utility-scale renewables.
 
 ::: {.callout-finding}
 - **Western states dominate** multi-state activity
-- Multi-state projects are predominantly **EIS-level**
-- Top corridors: connecting renewable-rich areas to load centers in California and the Pacific Northwest
-:::
-:::
+- Top corridors: connecting renewable-rich areas to load centers in California and the Pacific Northwest, main exceptions being CO-NM and NE-MO
 :::
 
 ---
 
-## Multi-Agency Collaboration {footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+## Multi-State Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_ce.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Categorical Exclusions (CE)** — multi-state project types
+:::
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_ea.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Environmental Assessments (EA)** — multi-state project types
+:::
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_eis.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Environmental Impact Statements (EIS)** — multi-state project types
+:::
+
+::: {.callout-finding}
+- **Utilities and Electricity Transmission dominate three review types** — confirming multi-state coordination is fundamentally a transmission story.
+:::
+
+---
+
+## Multi-Department Collaboration {footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="50%"}
@@ -824,25 +865,64 @@ Department collaboration hub scores
 knitr::include_graphics(file.path(d4_figures, "fig_department_sankey.png"))
 ```
 ::: {.caption-text}
-Cross-department project flows
+Cross-department project flows. Lead department on the left, partner on the right.
 :::
 :::
 :::
 
 ::: {.callout-finding}
-Multi-agency projects are **89% EIS** | **DOE bridge score: 26** (clear hub, 9 partner agencies) | **DOI bridge score: 9** (secondary hub)
+- Department of Energy (DOE) dominates multi-department projects (9 partner agencies)
+-  **Department of Energy and Department of Interior** partner together the most
 :::
+
+---
+
+## Multi-Agency Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_ce.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Categorical Exclusions (CE)** — 20 multi-agency projects
+:::
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_ea.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Environmental Assessments (EA)** — 14 multi-agency projects
+:::
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_eis.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Environmental Impact Statements (EIS)** — multi-agency projects (majority of portfolio)
+:::
+
+::: {.callout-finding}
+- **Utilities and Electricity Transmission again dominate three review types**
+- **CE and EA samples are very small** (20 and 14 projects respectively) — their word clouds reflect a narrow slice of project types and should be interpreted cautiously.
+:::
+
+
 
 ---
 
 ## D4 Key Takeaways {background-color="#012169" footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
 ::: {.takeaway-box}
-**Geography:** Western states drive cross-state NEPA activity — the clean energy transmission build-out is fundamentally a western story
+**Complexity:** Multi-state and multi-agency projects are mostly CE and EIS-level reviews
 :::
 
 ::: {.takeaway-box}
-**Complexity:** Multi-state and multi-agency projects are almost exclusively EIS-level reviews
+**Geography:** Western states drive cross-state NEPA activity — the clean energy transmission build-out is fundamentally a western story
 :::
 
 ::: {.takeaway-box}
