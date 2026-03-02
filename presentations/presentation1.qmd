@@ -144,30 +144,50 @@ Let me start by orienting everyone to the dataset and what we're analyzing.
 
 ::: {.columns}
 ::: {.column width="55%"}
-**Source:** [NEPATEC 2.0](https://huggingface.co/datasets/PNNL/NEPATEC2.0) — PNNL PermitAI
-The most comprehensive public NEPA database ever assembled.
+**What this is:** [NEPATEC 2.0](https://huggingface.co/datasets/PNNL/NEPATEC2.0) data were created by Pacific Northwest National Laboratory (PNNL) and is the most comprehensive public NEPA database ever assembled.
 
-- **60,000+** total federal projects
-- **120,000+** NEPA documents
-- 60+ federal agencies, 2000–2024
+**Why this matters:** Allows researchers to systematically analyze NEPA data at scale for the first time.
+
+<br> 
+
+**NEPATEC 2.0 Dataset Universe:**
+
+- **60,000+** total federal projects 
+- **140,000+** NEPA documents
+- 60+ federal agencies 
+- 2000–2024
 - Machine-readable full text (JSON)
 
-**Why this matters:**
-Before NEPATEC 2.0, researchers had to assemble bespoke subsets of NEPA data — limiting systematic analysis of review patterns at scale.
 
-**Clean Energy Universe:**
+<br> 
 
-- ~25,000 projects initially tagged as clean energy
-- **`r n_clean_fmt`** retained after exclusion criteria
+**Review Process Breakdown:**
+
+::: {tbl-colwidths="[44,19,19,18]"}
+| Process | Projects | Files | Pages |
+|:---|---:|---:|---:|
+| **CE** — Categorical Exclusion | 54,668 | 73,544 | 366,876 |
+| **EA** — Environmental Assessment | 3,083 | 14,242 | 469,106 |
+| **EIS** — Environmental Impact Statement | 4,130 | 54,297 | 6,131,757 |
+:::
+
+::: {.caption-text}
+**CE:** no significant impact anticipated · **EA:** significance uncertain, brief analysis · **EIS:** significant impacts expected, full review
+:::
 :::
 ::: {.column width="45%"}
 ```{r}
-knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
+#| out-width: "90%"
+knitr::include_graphics(file.path(d1_figures, "00_fig_projects_by_review.png"))
 ```
 ::: {.caption-text}
-All projects: Clean energy 37% | Fossil fuel 18% | Other 45%
+All federal projects by review type
 :::
 :::
+:::
+
+::: {.small-text style="margin-top:0.6em; border-top: 1px solid #ccc; padding-top:0.4em;"}
+Munikoti, S., Nally, D., Koneru, S.D., et al. (2025). *NEPATEC v2.0: Standardized Metadata and Text Corpus of National Environmental Policy Act Documents.* PNNL/PermitAI. [PDF](https://www.pnnl.gov/sites/default/files/media/file/PNNL_PermitAI_NEPATECv2_Public_Release_20_08_25.pdf)
 :::
 
 ::: {.notes}
@@ -176,10 +196,10 @@ NEPATEC 2.0 was assembled by PNNL as part of PermitAI. The dataset converted ten
 
 ---
 
-## Defining Clean Energy — Part 1: Tag System
+## Defining Clean Energy — Tag and Exclusion System
 
 ::: {.columns}
-::: {.column width="50%"}
+::: {.column width="40%"}
 **Clean Energy Tags** *(at least 1 required AND no Fossil Fuel tags)*
 
 | Tag |
@@ -199,8 +219,6 @@ NEPATEC 2.0 was assembled by PNNL as part of PermitAI. The dataset converted ten
 | Renewable Energy Production — Wind (Onshore) |
 | Utilities (electricity, gas, telecommunications) |
 
-:::
-::: {.column width="50%"}
 **Fossil Energy Tags** *(any 1 excludes)*
 
 | Tag |
@@ -211,17 +229,8 @@ NEPATEC 2.0 was assembled by PNNL as part of PermitAI. The dataset converted ten
 | Conventional Energy — Rural Energy |
 | Pipelines |
 
-About **10%** of projects have only clean energy tags; the remaining 90% have at least one clean energy tag alongside other tags.
 :::
-:::
-
-::: {.notes}
-The tagging system is applied to project-level metadata and document titles/descriptions. "Clean energy" requires at least one clean energy tag AND no fossil fuel tags. Multi-tagged projects are common — a solar project on federal land might also have a "right-of-way" tag.
-:::
-
----
-
-## Defining Clean Energy — Part 2: Exclusion Rules
+::: {.column width="60%"}
 
 Three additional exclusions were applied after reviewing co-occurring tag combinations:
 
@@ -235,7 +244,49 @@ Three additional exclusions were applied after reviewing co-occurring tag combin
 
 **Exclusion 3 — Nuclear + Waste Management**
 
-- ~4,000 nuclear waste projects reviewed; those sponsored by DOE's NNSA, Office of Environmental Management, and Office of Legacy Management were excluded. Only **34 projects** from this category were retained as relevant to clean energy analysis.
+- ~4,000 nuclear waste projects reviewed; those sponsored by DOE's NNSA, Office of Environmental Management, and Office of Legacy Management were excluded. Only **34 projects** from this category were retained.
+
+<br> 
+
+::: {.callout-finding}
+**Clean Energy Universe:**
+
+- ~25,000 projects initially tagged as clean energy
+- **`r n_clean_fmt`** retained after exclusion criteria
+- About **10%** have only clean energy tags; the remaining 90% have at least one clean energy tag alongside other non-fossil fuel tags
+::: 
+
+:::
+:::
+
+::: {.notes}
+The tagging system is applied to project-level metadata and document titles/descriptions. "Clean energy" requires at least one clean energy tag AND no fossil fuel tags. Multi-tagged projects are common — a solar project on federal land might also have a "right-of-way" tag.
+:::
+
+---
+
+## Defining Clean Energy — What's left over
+
+::: {.columns}
+::: {.column width="50%"}
+```{r}
+#| out-width: "90%"
+knitr::include_graphics(file.path(d1_figures, "00_fig_clean_energy_by_review.png"))
+```
+::: {.caption-text}
+Clean energy projects by review type
+:::
+:::
+::: {.column width="50%"}
+```{r}
+#| out-width: "90%"
+knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
+```
+::: {.caption-text}
+Energy type breakdown across all federal projects
+:::
+:::
+:::
 
 ::: {.callout-finding}
 **Result:** **`r n_clean_fmt`** clean energy projects across all six Phase 1 deliverables.
