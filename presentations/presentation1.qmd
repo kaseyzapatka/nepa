@@ -506,15 +506,48 @@ Environmental Impact Statements by county
 
 # Deliverable 2 {background-color="#012169"}
 
-## Programmatic & Tiered Reviews {.full-size}
+## Programmatic & Tiered Reviews 
 
-Among the **EA and EIS** projects in our dataset, some use **programmatic** reviews (covering a broad class of actions) or **tiered** reviews (site-specific, building on a prior programmatic review).
+
+::: {.columns}
+::: {.column width="48%"}
+
+There are **three review types** in the NEPA review process: 
+
+- **Standard:** Stand-alone EA or EIS covering a single project — the default NEPA approach
+- **Programmatic:** Broad "umbrella" review (PEIS/PEA) covering a class of actions or a region, before site-specific work begins
+- **Tiered:** Site-specific review that explicitly builds on a prior programmatic review, scoping out issues already addressed
 
 This section examines how common these approaches are, which agencies use them, and whether they actually speed up the environmental review process.
 
-::: {.notes}
-D2 asks: how many NEPA reviews use programmatic or tiered approaches, and do these deliver faster outcomes?
+
+<br> 
+
+::: {.callout-finding}
+- **Standard review is the overwhelming norm** — Almost 90% of projects use the standalone standard review process.
+- For EA and EIS, **only 24%** are non-standard, just under 1/4 of reviews.  
 :::
+
+
+:::
+::: {.column width="52%"}
+```{r}
+knitr::include_graphics(file.path(d2_figures, "02_review_share.png"))
+```
+::: {.caption-text}
+Share of non-standard reviews by lead agency
+:::
+```{r}
+knitr::include_graphics(file.path(d2_figures, "02_review_by_process.png"))
+```
+::: {.caption-text}
+Proportional shares within EA and EIS process type
+:::
+
+:::
+:::
+
+
 
 ---
 
@@ -523,7 +556,7 @@ D2 asks: how many NEPA reviews use programmatic or tiered approaches, and do the
 ::: {.columns}
 ::: {.column width="48%"}
 ```{r}
-knitr::include_graphics(file.path(d2_figures, "02_review_share.png"))
+knitr::include_graphics(file.path(d2_figures, "02_department.png"))
 ```
 ::: {.caption-text}
 Review type distribution across EA/EIS
@@ -531,23 +564,17 @@ Review type distribution across EA/EIS
 :::
 ::: {.column width="52%"}
 ```{r}
-knitr::include_graphics(file.path(d2_figures, "02_agency.png"))
+knitr::include_graphics(file.path(d2_figures, "02_state.png"))
 ```
 ::: {.caption-text}
-BLM leads non-standard review activity (50%+)
+Share of non-standard reviews by lead agency
 :::
 
-Of 4,231 clean energy EA/EIS projects, **only 35.5%** are programmatic or tiered:
-
-- **Standard:** Stand-alone EA/EIS covering a single project
-- **Programmatic:** Broad "umbrella" review (PEIS/PEA) covering a class of actions or region
-- **Tiered:** Site-specific review that builds on a prior programmatic review
 :::
 :::
 
 ::: {.callout-finding}
-- **Standard review is the overwhelming norm** — 64.5% of EA/EIS projects are standalone, with no tiering or programmatic umbrella.
-- **BLM drives non-standard review use** — with over 50% of its EA/EIS projects classified as programmatic or tiered, far above any other agency.
+- The **Nuclear Regulatory Commission and BLM** drive Other Independent Agencies and Department of Interior non-standard review use
 - **Non-standard reviews are not evenly distributed:** they concentrate in western states and large-scale land-use actions where BLM and Forest Service manage extensive federal acreage.
 :::
 
@@ -555,30 +582,19 @@ Of 4,231 clean energy EA/EIS projects, **only 35.5%** are programmatic or tiered
 
 ## Are Tiered Reviews Actually Faster? {footer="Deliverable 2 | <a href='../reports/deliverable02.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D2 report →</a>"}
 
-::: {.columns}
-::: {.column width="58%"}
+
 ```{r}
 knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 ```
-:::
-::: {.column width="42%"}
-**Median review durations:**
-
-| Type | Median |
-|---|---|
-| Standard EA | 294 days |
-| **Tiered EA** | **380 days** |
-| Standard EIS | 1,042 days |
-| Programmatic EIS | 924 days |
 
 ::: {.callout-finding}
-**Tiered EAs are longer than standard EAs.** Programmatic EISs are modestly faster, but the distributions substantially overlap.
+**Tiered EAs seem to take longer than standard EAs.** Programmatic EISs are modestly faster, but the distributions substantially overlap.
+
+**Tiered EISs seem to take less time than standard and programmatic EISs.** Programmatic EISs are modestly faster, but the distributions substantially overlap.
 :::
 
 ::: {.callout-warning}
-Small sample for tiered EIS limits conclusions there.
-:::
-:::
+Small sample for tiered EIS and EAs limits conclusions there.
 :::
 
 ---
@@ -586,7 +602,7 @@ Small sample for tiered EIS limits conclusions there.
 ## D2 Key Takeaways {background-color="#012169" footer="Deliverable 2 | <a href='../reports/deliverable02.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D2 report →</a>"}
 
 ::: {.takeaway-box}
-**Prevalence:** Only 35.5% of EA/EIS projects use programmatic or tiered review — these are not the norm
+**Prevalence:** Only about 25% of EA/EIS projects use programmatic or tiered review — these are not the norm
 :::
 
 ::: {.takeaway-box}
@@ -594,7 +610,7 @@ Small sample for tiered EIS limits conclusions there.
 :::
 
 ::: {.takeaway-box}
-**Who drives them:** BLM accounts for more than half of non-standard reviews; western states dominate
+**Who drives them:** Nuclear Regulatory Commission and BLM accounts for large share of non-standard reviews; mostly located in western states
 :::
 
 ::: {.takeaway-box}
@@ -613,6 +629,37 @@ This section compares review durations, tracks how NEPA activity has changed ove
 
 ::: {.notes}
 D3 is the most data-rich deliverable — covering how CE, EA, and EIS compare on duration, how NEPA activity has changed over time, and what generation capacity is associated with each review type.
+:::
+
+---
+
+## Process Types by Energy Classification {footer="Deliverable 3 | <a href='../reports/deliverable03.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D3 report →</a>"}
+
+::: {.columns}
+::: {.column width="52%"}
+```{r}
+#| out-width: "100%"
+knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
+```
+::: {.caption-text}
+Project counts by NEPA process and energy type
+:::
+:::
+::: {.column width="48%"}
+```{r}
+#| out-width: "100%"
+knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
+```
+::: {.caption-text}
+Share of process types within each energy classification
+:::
+:::
+:::
+
+::: {.callout-finding}
+- **Clean energy projects use Categorical Exclusions at higher rates** than fossil fuel or other project types, likely reflecting smaller average project footprints.
+- **Fossil fuel projects show higher EA/EIS rates**, consistent with larger environmental footprints requiring more detailed review.
+- The composition chart highlights that this is a structural difference — not just a count artifact — confirming CE is the dominant NEPA pathway for clean energy across all technology types.
 :::
 
 ---
@@ -1115,7 +1162,47 @@ Zoom into cohorts, hover for project names, compare duration distributions inter
 
 ---
 
-## A2: Timeline Extraction Methodology
+## A2: Technology Distribution — Deep Dive by Process Type {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+
+::: {.columns}
+::: {.column width="33%"}
+```{r}
+#| out-width: "100%"
+knitr::include_graphics(file.path(d1_figures, "13_deep_dive_ce_tech.png"))
+```
+::: {.caption-text}
+**CE** — Technology distribution
+:::
+:::
+::: {.column width="33%"}
+```{r}
+#| out-width: "100%"
+knitr::include_graphics(file.path(d1_figures, "13_deep_dive_ea_tech.png"))
+```
+::: {.caption-text}
+**EA** — Technology distribution
+:::
+:::
+::: {.column width="33%"}
+```{r}
+#| out-width: "100%"
+knitr::include_graphics(file.path(d1_figures, "13_deep_dive_eis_tech.png"))
+```
+::: {.caption-text}
+**EIS** — Technology distribution
+:::
+:::
+:::
+
+::: {.callout-finding}
+- **CE is dominated by utilities/transmission and nuclear** — reflecting DOE's vast categorical exclusion program for grid and facility upgrades.
+- **EA reviews show more technology diversity:** solar, wind, and geothermal appear prominently alongside transmission, suggesting EAs are triggered by larger renewable buildouts.
+- **EIS reviews concentrate on high-impact technologies:** large transmission, wind, and hydro projects — the ones most likely to require full environmental impact analysis due to scale or site sensitivity.
+:::
+
+---
+
+## A3: Timeline Extraction Methodology
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1149,7 +1236,7 @@ Zoom into cohorts, hover for project names, compare duration distributions inter
 
 ---
 
-## A3: Transmission — Duration by Region
+## A4: Transmission — Duration by Region
 
 ```{r}
 #| out-width: "85%"
@@ -1162,7 +1249,7 @@ Regional variation reflects differences in project scale, agency staffing, and l
 
 ---
 
-## A4: Geothermal Phase Distribution
+## A5: Geothermal Phase Distribution
 
 ```{r}
 #| out-width: "80%"
@@ -1175,7 +1262,7 @@ Phase classification uses regex keyword matching on project title and descriptio
 
 ---
 
-## A5: Pipeline Length vs. Duration
+## A6: Pipeline Length vs. Duration
 
 ```{r}
 #| out-width: "82%"
@@ -1188,7 +1275,7 @@ Modest positive correlation between pipeline length and NEPA duration across all
 
 ---
 
-## A6: FRA Regulatory vs. Raw Pages Methodology
+## A7: FRA Regulatory vs. Raw Pages Methodology
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1218,7 +1305,7 @@ Modest positive correlation between pipeline length and NEPA duration across all
 
 ---
 
-## A7: NEPA Policy Context 2025–2026 {.scrollable}
+## A8: NEPA Policy Context 2025–2026 {.scrollable}
 
 | Date | Event |
 |---|---|
