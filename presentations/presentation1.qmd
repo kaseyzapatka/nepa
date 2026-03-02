@@ -659,7 +659,7 @@ Share of process types within each energy classification
 ::: {.callout-finding}
 - **Clean energy projects use Categorical Exclusions at higher rates** than fossil fuel or other project types, likely reflecting smaller average project footprints.
 - **Fossil fuel projects show higher EA/EIS rates**, consistent with larger environmental footprints requiring more detailed review.
-- The composition chart highlights that this is a structural difference — not just a count artifact — confirming CE is the dominant NEPA pathway for clean energy across all technology types.
+- CE is the dominant NEPA pathway for clean energy across all technology types.
 :::
 
 ---
@@ -677,9 +677,7 @@ knitr::include_graphics(file.path(d3_figures, "03_duration_summary_intervals_by_
 
 - CE: **~1 month**
 - EA: **~14 months**
-- EIS: **~34 months** (3 years)
-
-**EIS 90th percentile: > 7.5 years**
+- EIS: **~34 months** (3 years) with the **90th percentile: > 7.5 years**
 
 ---
 
@@ -713,7 +711,8 @@ knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
 ```
 
 ::: {.callout-finding}
-**CE peaked in 2010** (ARRA stimulus) and again in **2023.** The IRA/BIL investment surge from 2022 onward has not yet fully appeared — projects initiated recently will complete in 2025–2027.
+- **CE peaked in 2010**, would could be due to the American Recovery and Reinvestment Act (ARRA) stimulus
+- **CE again peaked in 2022 and 2023**, likely resulting from the Inflation Reduction Act (IRA)/ Bipartisan Infrastructure Law (BIL) investment surge
 :::
 
 ---
@@ -740,7 +739,9 @@ Violin + boxplot by process
 :::
 
 ::: {.callout-finding}
-**EIS median: 538 MW** | **EA median: 60 MW** | **CE median: 1.2 MW** — Review intensity is broadly proportional to project scale, consistent with NEPA's risk-proportional design.
+- **CE projects are largely small and medium-scale** projects; utility-scale projects mostly EIS, and EA having a balanced mixture
+- **CE median: 1.2 MW** | **EA median: 60 MW** | **EIS median: 538 MW** — Review intensity is broadly proportional to project scale, consistent with NEPA's risk-proportional design.
+
 :::
 
 ---
@@ -756,7 +757,7 @@ Violin + boxplot by process
 :::
 
 ::: {.takeaway-box}
-**Policy signals in the data:** ARRA (2010) and IRA/BIL (2022–) are visible; the full IRA cohort of EAs/EISs is still working through the pipeline
+**Policy signals in the data:** The effects of ARRA (2010) and IRA/BIL (2022/2023) likley drive CE rates in the years following their passages; the full IRA cohort of EAs/EISs is still working through the pipeline
 :::
 
 ::: {.takeaway-box}
