@@ -155,13 +155,35 @@ fra_summary <- pages_analysis %>%
     median_label = sprintf("median: %.0f", median_pages)
   )
 
+# EA post-FRA needs reversed label positions (median above bar, average below diamond)
+# because the short bar makes the default placement hard to read
+ea_post <- fra_summary %>% filter(process_type == "EA", fra_period == "Post-FRA")
+other_bars <- fra_summary %>% filter(!(process_type == "EA" & fra_period == "Post-FRA"))
+
 fig_pre_post <- ggplot(fra_summary, aes(x = fra_period, y = mean_pages, fill = fra_period)) +
   geom_col(alpha = 0.85, width = 0.6) +
-  geom_text(aes(label = bar_label), vjust = -0.2, size = 3.3, color = "gray20") +
-  geom_point(aes(y = median_pages), shape = 18, size = 4, color = catf_navy) +
+  # Average label — standard bars: above bar, dark text
   geom_text(
+    data = other_bars,
+    aes(label = bar_label), vjust = -0.2, size = 3.3, color = "gray20"
+  ) +
+  # Average label — EA post-FRA: reversed to below-diamond position, white text
+  geom_text(
+    data = ea_post,
+    aes(y = median_pages, label = bar_label), vjust = 1.8, size = 3.3, color = "white"
+  ) +
+  geom_point(aes(y = median_pages), shape = 18, size = 4, color = catf_navy) +
+  # Median label — standard bars: below diamond, white text
+  geom_text(
+    data = other_bars,
     aes(y = median_pages, label = median_label),
     vjust = 1.8, size = 2.8, color = "white"
+  ) +
+  # Median label — EA post-FRA: reversed to above-bar position, black text
+  geom_text(
+    data = ea_post,
+    aes(y = mean_pages, label = median_label),
+    vjust = -0.2, size = 2.8, color = "black"
   ) +
   facet_wrap(~process_type, scales = "free_y") +
   scale_fill_manual(
