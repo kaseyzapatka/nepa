@@ -302,7 +302,19 @@ year_counts <- timeline %>%
   filter(bert_year >= 2000, bert_year <= 2025) %>%
   count(process_group, bert_year, name = "n_projects")
 
+# Legislative event markers — labels only in CE (top) panel
+leg_events <- tibble(
+  xintercept = c(2009,             2021,              2022),
+  label       = c("ARRA\nFeb 2009", "BIL\nNov 2021",  "IRA\nAug 2022"),
+  hjust_val   = c(-0.08,            1.08,              -0.08),
+  process_group = factor("CE", levels = process_levels)
+)
+
 fig_by_year <- ggplot(year_counts, aes(x = bert_year, y = n_projects)) +
+  geom_vline(
+    xintercept = leg_events$xintercept,
+    linetype = "dashed", color = catf_teal, linewidth = 0.75, alpha = 0.9
+  ) +
   geom_col(fill = catf_dark_blue, alpha = 0.85) +
   geom_text(
     aes(label = scales::comma(n_projects)),
@@ -310,12 +322,18 @@ fig_by_year <- ggplot(year_counts, aes(x = bert_year, y = n_projects)) +
     size = 2.6,
     color = "gray30"
   ) +
+  geom_text(
+    data = leg_events,
+    aes(x = xintercept, y = Inf, label = label, hjust = hjust_val),
+    vjust = 1.3, size = 2.3, color = catf_teal, lineheight = 0.85,
+    inherit.aes = FALSE
+  ) +
   facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
   scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.15)), labels = scales::comma) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.22)), labels = scales::comma) +
   labs(
     title = "Clean Energy Projects by Decision Year",
-    subtitle = "Faceted by NEPA review process",
+    subtitle = "Faceted by NEPA review process. Dashed lines mark major legislation.",
     x = "Decision Year",
     y = "Number of Projects",
     caption = "Year derived from harmonized final decision date."

@@ -628,15 +628,25 @@ ggsave(here(figures_dir, "fig_transmission_duration_by_region.png"),
 
 
 # -- Fig 7: Duration by action type --
-fig_duration_by_action <- analysis_len %>%
+duration_action_data <- analysis_len %>%
   filter(!is.na(duration_days), duration_days >= 0,
          !project_transmission_action %in% c("none", "unknown", "mixed")) %>%
   mutate(
     action_label = fct_reorder(action_label(project_transmission_action), duration_days, median)
-  ) %>%
-  ggplot(aes(x = action_label, y = duration_days, fill = action_label, color = action_label)) +
+  )
+
+n_duration_action <- duration_action_data %>%
+  count(action_label, name = "n")
+
+fig_duration_by_action <- ggplot(duration_action_data,
+    aes(x = action_label, y = duration_days, fill = action_label, color = action_label)) +
   geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE, width = 0.4) +
   geom_jitter(width = 0.2, alpha = 0.55, size = 2, show.legend = FALSE) +
+  geom_text(
+    data = n_duration_action,
+    aes(x = action_label, y = Inf, label = paste0("n=", n)),
+    hjust = 1.15, size = 2.7, color = "gray30", inherit.aes = FALSE
+  ) +
   coord_flip() +
   scale_fill_manual(values = action_colors) +
   scale_color_manual(values = action_colors) +

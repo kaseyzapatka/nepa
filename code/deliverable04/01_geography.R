@@ -409,7 +409,7 @@ process_breakdown <- multi_state_data %>%
   )
 
 # Create bar chart
-fig_process_breakdown <- ggplot(process_breakdown, aes(x = reorder(process_type, -n_projects), y = n_projects)) +
+fig_process_breakdown <- ggplot(process_breakdown, aes(x = factor(process_type, levels = c("CE", "EA", "EIS")), y = n_projects)) +
 geom_col(fill = catf_dark_blue, width = 0.7) +
   geom_text(aes(label = label), vjust = -0.3, size = 3.5, color = catf_navy) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
@@ -595,7 +595,7 @@ write_csv(
 
 fig_process_breakdown_multiagency <- ggplot(
   process_breakdown_multiagency,
-  aes(x = reorder(process_type, -n_projects), y = n_projects)
+  aes(x = factor(process_type, levels = c("CE", "EA", "EIS")), y = n_projects)
 ) +
   geom_col(fill = catf_teal, width = 0.7) +
   geom_text(aes(label = label), vjust = -0.3, size = 3.5, color = catf_navy) +

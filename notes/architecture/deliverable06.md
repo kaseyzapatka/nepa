@@ -140,7 +140,27 @@ The LLM-adjudicated result is stored in `project_transmission_length_final`. If 
 
 The analysis uses `project_transmission_length_final` (LLM-adjudicated when available) as the primary length variable.
 
-#### 3.2.5 Action type split (`project_transmission_new_build_miles`, `project_transmission_upgrade_miles`)
+#### 3.2.5 Page-level length recovery (`_extract_tx_length_from_pages`)
+
+A secondary extraction pass recovers lengths for projects that passed the build-text gate but have no mileage in their title/description text. Diagnostic analysis showed 1,268 such projects (1,184 CE, 60 EIS, 24 EA) — the full potential population above the current 151 strict projects.
+
+**Trigger condition:** `project_has_transmission_type_tag & project_has_transmission_build_text & ~project_is_transmission_maintenance & (project_transmission_length_final < 1 or NaN)`. Only these projects are searched; the pass for all other rows is a no-op.
+
+**Document targeting (efficiency):**
+- **CE projects**: Each CE document is a single page blob — all pages are read (no filtering needed). DuckDB joins `documents.parquet` → `pages.parquet` on `document_id`, filtering to target project IDs.
+- **EA/EIS projects**: Only `main_document = 'YES'` documents are queried, and only the first `max_ea_eis_pages` pages (default 10) per document via `ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY page_number)`. The "Proposed Action" and "Project Description" sections appear in these opening pages in virtually all EA/EIS formats.
+
+**DuckDB join:** `project_id` in `documents.parquet` is a struct `{value: UUID-with-hyphens}`; `project_id` in `projects_combined.parquet` is a plain hex string. Both sides are normalized by stripping hyphens (`replace(d.project_id.value, '-', '')`) before joining. Target project IDs are registered as an in-memory DuckDB table (`_target_ids`) to avoid per-project queries.
+
+**Extraction:** Page texts are concatenated per project and passed through the same `_extract_length_candidates()` → `_adjudicate_transmission_length()` pipeline used for title/description text. No new logic is introduced.
+
+**Write-back:** For projects where the recovered length ≥ 1 mile, all standard transmission length columns are overwritten with the page-derived values. A new boolean column `project_transmission_length_from_pages = TRUE` marks these rows for provenance tracking. `project_is_transmission_strict` is re-evaluated after write-back, so recovered projects automatically enter the strict set.
+
+**CLI:** Enabled by `--page-length-recovery` flag. `--page-search-max-pages N` controls the EA/EIS page depth (default 10). Not run by default (no flag = old behavior).
+
+**Known limitation:** Recovery rate is lower than expected for the CE population because many of the 1,268 are ROW renewals that pass the build-text gate via incidental "transmission line" mentions in their descriptions but genuinely have no construction length — not even in the document body. The actual recoverable population is a subset of the 1,268.
+
+#### 3.2.6 Action type split (`project_transmission_new_build_miles`, `project_transmission_upgrade_miles`)
 
 After adjudication, each length candidate is independently classified as `new_build` or `upgrade` using sentence-level regexes. Distinct candidate values are summed per action type to produce per-project estimates of how many miles are new-build versus upgrade activity.
 
@@ -392,6 +412,7 @@ All fields below are written by `extract_technology.py` and available for join i
 | `project_transmission_length_llm_reasoning` | String | LLM's one-sentence explanation of its choice |
 | `project_transmission_new_build_miles` | Float | Sum of candidate lengths classified as new-build action type |
 | `project_transmission_upgrade_miles` | Float | Sum of candidate lengths classified as upgrade action type |
+| `project_transmission_length_from_pages` | Boolean | TRUE if length was recovered from document page text (not title/description) |
 
 #### Geothermal and pipeline
 
