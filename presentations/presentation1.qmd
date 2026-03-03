@@ -242,11 +242,11 @@ Three additional exclusions were applied after reviewing co-occurring tag combin
 
 **Exclusion 1 — Utilities + non-energy only**
 
-- **1,623 projects** tagged *only* as Utilities AND with non-energy tags (broadband, waste management, land development) were excluded — these reflect utility-adjacent infrastructure, not energy generation.
+- **1,623 projects** tagged *only* as Utilities AND with non-energy tags (broadband, waste management, land development) were excluded since they are utility-adjacent infrastructure.
 
 **Exclusion 2 — Military & Defense + Nuclear**
 
-- **481 projects** tagged as Nuclear AND Military/Defense were excluded. Most are DOE-led but involve weapons-related activities, not energy production.
+- **481 projects** tagged as Nuclear AND Military/Defense were excluded, since they were mostly defense-related activities.
 
 **Exclusion 3 — Nuclear + Waste Management**
 
@@ -271,7 +271,7 @@ The tagging system is applied to project-level metadata and document titles/desc
 
 ---
 
-## Defining Clean Energy — What's left over
+## Defining Clean Energy — Universe for analysis
 
 ::: {.columns}
 ::: {.column width="50%"}
@@ -304,12 +304,12 @@ CATF staff reviewed samples from each exclusion category to validate the approac
 
 ---
 
-## Phase 1 Deliverables at a Glance
+## Phase 1 Deliverables at a Glance {.full-size}
 
 ::: {tbl-colwidths="[24,68]"}
 | Deliverable | Focus |
 |:-|:---|
-| **D1** — Clean Energy Project Landscape | How are `r n_clean_fmt` clean energy projects distributed across technologies, lead agencies, and geographies? |
+| **D1** — Clean Energy Project Landscape | How are clean energy projects distributed across technologies, lead agencies, and geographies? |
 | **D2** — Programmatic & Tiered Reviews | How common are programmatic and tiered reviews among EA/EIS projects, and do they actually deliver faster outcomes? |
 | **D3** — NEPA Process, Timelines & Capacity | How do CE, EA, and EIS differ in duration and project scale? How has activity changed over time? |
 | **D4** — Multi-State & Multi-Agency | Which projects cross state boundaries or involve multiple federal agencies, and how are they distributed? |
@@ -332,7 +332,7 @@ This gives a quick roadmap. Each deliverable section will have its own key findi
 ::: {.column width="50%"}
 **`r n_clean_fmt` clean energy projects** identified across the federal NEPA database.
 
-This section covers how they are distributed by **technology type**, **lead agency**, and **geography** — establishing the foundational picture of where federal clean energy permitting happens and who is responsible for it.
+This section covers how they are distributed by **technology type**, **lead department**, and **geography** — establishing the foundational picture of where federal clean energy permitting happens and who is responsible for it.
 :::
 ::: {.column width="50%"}
 ```{r}
@@ -380,7 +380,7 @@ Technology by NEPA process type
 
 ---
 
-## Lead Agencies {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+## Lead Departments {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="50%"}
@@ -388,7 +388,7 @@ Technology by NEPA process type
 knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
 ```
 ::: {.caption-text}
-Process type mix by lead agency
+Process type mix by lead department
 :::
 :::
 ::: {.column width="50%"}
@@ -405,6 +405,7 @@ Total clean energy projects by lead department
 - **DOE accounts for 81% of all clean energy projects** — and processes 97% of those through Categorical Exclusions, likely reflecting high volumes of routine, CE-eligible actions (e.g., loan programs, grid modernization grants, Power Marketing Administrations, National Lab operations).
 - **Interior handles 17%** of projects with a slightly more varied process mix: about 13% through EA and EIS reviews, consistent with its land-management mandate for large-scale renewables on federal land.
 - **Most other agencies** — USDA, Army Corps, FERC — show handle reviews through primarily EA/EIS, rates well above DOE's when they serve as lead, indicating the CE-heavy pattern is specific to DOE's portfolio, not NEPA as a whole.
+- [Key department deep dive analysis →](https://www.kaseyzapatka.com/nepa/reports/deliverable01.html#key-agency-deep-dive)
 :::
 
 ::: {.notes}
@@ -416,12 +417,12 @@ DOE's concentration in CEs has policy implications — CE status means limited p
 ## Geographic Distribution {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
-::: {.column width="55%"}
+::: {.column width="65%"}
 ```{r}
 knitr::include_graphics(file.path(d1_maps, "09_state_choropleth.png"))
 ```
 :::
-::: {.column width="45%"}
+::: {.column width="35%"}
 ```{r}
 knitr::include_graphics(file.path(d1_figures, "07_top_states.png"))
 ```
@@ -431,14 +432,10 @@ Top 20 states by clean energy project count
 :::
 :::
 
-::: {.small-text}
-**County-level coverage:** CE 46% · EA 81% · EIS 64%. EA/EIS projects missing county data are estimated ~99% recoverable via reverse geocoding.
-:::
-
 ::: {.callout-finding}
-- **South Carolina leads** with 4,000+ projects — almost entirely driven by DOE's Savannah River Site nuclear facility, not renewable energy generation.
+- **South Carolina leads** with 2,000+ projects — almost entirely driven by DOE's Savannah River Site nuclear facility.
 - **Western states dominate renewable-driven activity:** Washington, California, Idaho, and Colorado together account for a large share of transmission, solar, wind, and hydropower projects.
-- **County-level geographic precision varies by process:** CEs frequently use legal land descriptions rather than coordinates; EA and EIS projects are far more geographically resolvable.
+
 :::
 
 ::: {.notes}
@@ -477,9 +474,8 @@ Environmental Impact Statements by county
 :::
 
 ::: {.callout-finding}
-- **CE county coverage is the lowest (46%)** — categorical exclusions frequently rely on legal land descriptions rather than precise coordinates, limiting geographic resolution.
-- **EA coverage is strongest (81%)** — environmental assessments typically include site-specific location data as part of the scoping and FONSI process.
-- **Western federal land counties dominate** across all three process types, consistent with the concentration of public lands managed by BLM, Forest Service, and DOE in the West.
+- Clean energy projects across all three review types are predominately located in **western counties** of the United States, consistent with the concentration of public lands managed by BLM, Forest Service, and DOE in the West.
+- **Electricity Transmission and solar projects dominate EAs and EIS in** the southwest (see project [deep dive](https://www.kaseyzapatka.com/nepa/reports/deliverable01.html#deeper-dive-into-high-project-count-counties))
 :::
 
 ---
@@ -495,11 +491,7 @@ Environmental Impact Statements by county
 :::
 
 ::: {.takeaway-box}
-**Geography:** South Carolina leads due to one federal nuclear facility — context is essential when reading geographic distributions
-:::
-
-::: {.takeaway-box}
-**Coverage:** 
+**Geography:** Western states and federal lands dominate clean energy NEPA activity — driven by public land concentration managed by BLM, Forest Service, and DOE
 :::
 
 ---
@@ -638,7 +630,7 @@ D3 is the most data-rich deliverable — covering how CE, EA, and EIS compare on
 ::: {.columns}
 ::: {.column width="52%"}
 ```{r}
-#| out-width: "100%"
+#| out-width: "85%"
 knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
 ```
 ::: {.caption-text}
@@ -647,7 +639,7 @@ Project counts by NEPA process and energy type
 :::
 ::: {.column width="48%"}
 ```{r}
-#| out-width: "100%"
+#| out-width: "85%"
 knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 ```
 ::: {.caption-text}
@@ -761,7 +753,7 @@ Violin + boxplot by process
 :::
 
 ::: {.takeaway-box}
-**Proportionality:** Review intensity broadly matches project scale — the largest projects appropriately receive EIS-level review
+**Generation capacity scales with review intensity:** CE median 1.2 MW → EA median 60 MW → EIS median 538 MW — the most demanding reviews cover the highest-capacity projects
 :::
 
 ---
@@ -776,7 +768,7 @@ Long-distance transmission lines, pipelines, and large renewables often cross **
 ::: {.columns}
 ::: {.column width="50%"}
 ```{r}
-#| out-width: "100%"
+#| out-width: "82%"
 knitr::include_graphics(file.path(d4_figures, "fig_multistate_process_type.png"))
 ```
 ::: {.caption-text}
@@ -785,7 +777,7 @@ Multi-state projects by NEPA process type
 :::
 ::: {.column width="50%"}
 ```{r}
-#| out-width: "100%"
+#| out-width: "82%"
 knitr::include_graphics(file.path(d4_figures, "fig_multiagency_process_type.png"))
 ```
 ::: {.caption-text}
@@ -810,41 +802,6 @@ knitr::include_graphics(file.path(d4_maps, "map_state_links.png"))
 ::: {.callout-finding}
 - **Western states dominate** multi-state activity
 - Top corridors: connecting renewable-rich areas to load centers in California and the Pacific Northwest, main exceptions being CO-NM and NE-MO
-:::
-
----
-
-## Multi-State Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
-
-```{r}
-#| out-width: "72%"
-#| fig-align: center
-knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_ce.png"))
-```
-::: {.caption-text style="text-align:center;"}
-**Categorical Exclusions (CE)** — multi-state project types
-:::
-
-```{r}
-#| out-width: "72%"
-#| fig-align: center
-knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_ea.png"))
-```
-::: {.caption-text style="text-align:center;"}
-**Environmental Assessments (EA)** — multi-state project types
-:::
-
-```{r}
-#| out-width: "72%"
-#| fig-align: center
-knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_eis.png"))
-```
-::: {.caption-text style="text-align:center;"}
-**Environmental Impact Statements (EIS)** — multi-state project types
-:::
-
-::: {.callout-finding}
-- **Utilities and Electricity Transmission dominate three review types** — confirming multi-state coordination is fundamentally a transmission story.
 :::
 
 ---
@@ -874,43 +831,6 @@ Cross-department project flows. Lead department on the left, partner on the righ
 - Department of Energy (DOE) dominates multi-department projects (9 partner agencies)
 -  **Department of Energy and Department of Interior** partner together the most
 :::
-
----
-
-## Multi-Agency Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
-
-```{r}
-#| out-width: "72%"
-#| fig-align: center
-knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_ce.png"))
-```
-::: {.caption-text style="text-align:center;"}
-**Categorical Exclusions (CE)** — 20 multi-agency projects
-:::
-
-```{r}
-#| out-width: "72%"
-#| fig-align: center
-knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_ea.png"))
-```
-::: {.caption-text style="text-align:center;"}
-**Environmental Assessments (EA)** — 14 multi-agency projects
-:::
-
-```{r}
-#| out-width: "72%"
-#| fig-align: center
-knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_eis.png"))
-```
-::: {.caption-text style="text-align:center;"}
-**Environmental Impact Statements (EIS)** — multi-agency projects (majority of portfolio)
-:::
-
-::: {.callout-finding}
-- **Utilities and Electricity Transmission again dominate three review types**
-- **CE and EA samples are very small** (20 and 14 projects respectively) — their word clouds reflect a narrow slice of project types and should be interpreted cautiously.
-:::
-
 
 
 ---
@@ -961,7 +881,7 @@ D5 asks: did the FRA's 2023 page limits actually change how long NEPA documents 
 ## Document Length Trends Over Time {footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
 
 ```{r}
-#| out-width: "92%"
+#| out-width: "80%"
 knitr::include_graphics(file.path(d5_figures, "05_pages_over_time.png"))
 ```
 
@@ -980,6 +900,7 @@ Small post-FRA sample: only 33 EAs and 42 EISs completed after June 2023. Conclu
 ::: {.columns}
 ::: {.column width="52%"}
 ```{r}
+#| out-width: "85%"
 knitr::include_graphics(file.path(d5_figures, "05_pages_pre_post_fra.png"))
 ```
 ::: {.caption-text}
@@ -988,6 +909,7 @@ Pre vs. Post-FRA page count comparison
 :::
 ::: {.column width="48%"}
 ```{r}
+#| out-width: "85%"
 knitr::include_graphics(file.path(d5_figures, "05_fra_compliance.png"))
 ```
 ::: {.caption-text}
@@ -997,8 +919,8 @@ Compliance rates (post-FRA only)
 :::
 
 ::: {.callout-finding}
-- **EAs are largely compliant:** 76% of post-FRA EAs meet the 75-page limit — a strong signal that the rule is working for shorter reviews.
-- **EIS compliance remains low:** Only 27% of EIS documents meet the 150-page limit; many fall in the 150–300 "extraordinary complexity" range, but 26% exceed even that ceiling.
+- **EAs are largely compliant:** ~70% of post-FRA EAs meet the 75-page limit — a strong signal that the rule is working for shorter reviews.
+- **EIS compliance is more mixed:** Only 29% of EIS documents meet the 150-page limit outright; but another 29% fall in the 150–300 "extraordinary complexity" range and are compliant — a total of 57% compliant under the full standard.
 - **Trend preceded the rule:** Document lengths were already declining before FRA 2023, suggesting the law may have reinforced — not initiated — shorter reviews. The post-FRA sample is still small.
 :::
 
@@ -1015,24 +937,26 @@ Compliance rates (post-FRA only)
 :::
 
 ::: {.takeaway-box}
-**EA compliance is solid:** 76% of post-FRA EAs comply with the 75-page limit
+**EA compliance is solid:** ~70% of post-FRA EAs comply with the 75-page limit — a strong signal that the rule is working for shorter reviews
 :::
 
 ::: {.takeaway-box}
-**EIS compliance is low:** Only 27% comply with the 150-page limit; many may qualify for the 300-page "extraordinary complexity" exception — but 26% exceed even that threshold
+**EIS compliance is mixed:** Only 29% comply with the 150-page limit outright; another 29% fall in the 150–300 "extraordinary complexity" range and are compliant — a total of 57% compliant under the full standard
 :::
 
 ---
 
 # Deliverable 6 {background-color="#012169"}
 
-## Technology Deep Dives {.full-size}
+## Technology Deep Dives {.full-size footer="Deliverable 6 | <a href='../reports/deliverable06.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"} 
 
 Three technology areas received dedicated sub-analyses to explore patterns that get lost in aggregate statistics:
 
-**Electricity Transmission** — does line length predict how long the review takes?
-**Geothermal Energy** — how many sequential NEPA reviews does a single project require?
-**Pipelines** — how do carbon, hydrogen, and natural gas reviews compare?
+| Technology | Sample | Key Question |
+|---|---|---|
+| **Electricity Transmission** | 151 projects | Does line length predict review duration? |
+| **Geothermal Energy** | 914 NEPA actions | How do project compare by action type? |
+| **Pipelines** | 6,133 NEPA actions | How do carbon, hydrogen & natural gas reviews compare? |
 
 ::: {.notes}
 D6 zooms into three specific technology areas with dedicated sub-analyses.
@@ -1040,7 +964,7 @@ D6 zooms into three specific technology areas with dedicated sub-analyses.
 
 ---
 
-## Electricity Transmission Lines {footer="Deliverable 6 | <a href='../reports/deliverable06.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"}
+## Electricity Transmission Lines {footer="Deliverable 6 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="50%"}
@@ -1048,21 +972,57 @@ D6 zooms into three specific technology areas with dedicated sub-analyses.
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_bins.png"))
 ```
 ::: {.caption-text}
-Projects and duration by length band
+Projects and median duration by length band
+:::
+
+**Mixed results:** Across the full sample, no strong statistical relationship between line length and review duration. Very long lines (≥100 miles) take ~6× longer, but with small N. Most projects cluster under 50 miles with high duration variance.
+
+:::
+::: {.column width="50%"}
+```{r}
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_vs_duration.png"))
+```
+::: {.caption-text}
+Line length vs. NEPA duration (scatter)
+:::
+
+:::
+:::
+
+::: {.callout-finding}
+- Median transmission line lenght: **8 miles** 
+- **55%** under 10 miles 
+- Projects ≥100 miles take **6× longer** than projects under 10 miles — but very small sample size
+:::
+
+---
+
+## Transmission: Length and Duration by Action Type {footer="Deliverable 6 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"}
+
+::: {.columns}
+::: {.column width="50%"}
+```{r}
+#| out-width: "85%"
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action.png"))
+```
+::: {.caption-text}
+Transmission length (miles) by action type
 :::
 :::
 ::: {.column width="50%"}
 ```{r}
+#| out-width: "85%"
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_action.png"))
 ```
 ::: {.caption-text}
-Duration by action type
+NEPA duration (days) by action type
 :::
 :::
 :::
 
 ::: {.callout-finding}
-**151 strict projects** | Median **8 miles** | **55%** under 10 miles | Projects ≥100 miles take **6× longer** than projects under 10 miles
+- **Upgrades dominate** — most transmission NEPA activity is replacements and upgrades, not greenfield construction. 
+- **New builds** are relatively rare but tend toward longer lines.
 :::
 
 ---
@@ -1072,18 +1032,18 @@ Duration by action type
 ::: {.columns}
 ::: {.column width="50%"}
 ```{r}
-knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_duration_boxplot.png"))
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_distribution.png"))
 ```
 ::: {.caption-text}
-Duration by development phase
+Distribution of NEPA actions across development phases
 :::
 :::
 ::: {.column width="50%"}
 ```{r}
-knitr::include_graphics(file.path(d6_figures, "fig_geothermal_within_project_sequence.png"))
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_duration_boxplot.png"))
 ```
 ::: {.caption-text}
-Multi-phase project timelines within a single project
+Duration by development phase
 :::
 :::
 :::
@@ -1128,15 +1088,13 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 ## D6 Key Takeaways {background-color="#012169" footer="Deliverable 6 | <a href='../reports/deliverable06.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"}
 
 ::: {.takeaway-box}
-**Transmission length = duration:** 100+ mile lines take 6× longer — a critical constraint for large-scale grid buildout
+**Mixed findings: Transmission length = duration:** No statistical relation but very long lines (100+ miles) take 6× longer (small N)
+
+- Mostly upgrades, not new builds: most transmission NEPA activity is replacements and upgrades, not greenfield construction
 :::
 
 ::: {.takeaway-box}
 **Geothermal permitting is cumulative:** Full development requires multiple sequential NEPA reviews; streamlining requires addressing the whole lifecycle
-:::
-
-::: {.takeaway-box}
-**Mostly upgrades, not new builds:** Most transmission NEPA activity is upgrades and replacements, not greenfield construction
 :::
 
 ::: {.takeaway-box}
@@ -1148,19 +1106,19 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 ## Phase 1 Summary: Key Findings {.full-size}
 
 ::: {.incremental}
-1. **`r n_clean_fmt` clean energy NEPA projects** documented — the portfolio is larger than previously understood
+1. **`r n_clean_fmt` clean energy NEPA projects** documented — largely projects of Categorical Exclusion status
 2. **DOE handles 81%**, processing 96% via CE — the story is dominated by DOE Categorical Exclusions
 3. **Tiering doesn't automatically help** — programmatic/tiered reviews represent only 35% of EA/EIS and are not reliably faster
 4. **Duration gradient is steep** — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median; 7.5-yr 90th pctile)
 5. **Scale matches review intensity** — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW
 6. **DOE is the multi-agency hub** — improving DOE-DOI-USDA coordination would have outsized impact
-7. **FRA effect is real but uncertain** — document lengths fell ~20–25%; causation is not yet established; EIS compliance is low
+7. **FRA effect is real but not definitive ** — document lengths for EIS but not EA projects; most projects are compliant, small N
 8. **Technology matters** — transmission length predicts duration; geothermal requires multi-phase permitting
 :::
 
 ---
 
-## Discussion & Next Steps
+## Discussion & Next Steps {.full-size}
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1169,33 +1127,24 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 1. Why is NEPA triggered? (federal land vs. federal funding)
 2. Significance determinations across resource areas
 3. Fossil fuel vs. clean energy comparison
-4. Timeline outlier case studies (90th percentile EIS)
+4. Deeper timeline analysis and outlier case studies (90th percentile EIS)
 5. Regulatory categorical exclusion development patterns
+
+:::
+::: {.column width="45%"}
 
 **Discussion Questions**
 
 - Which findings most surprise you?
 - Which are most actionable for CATF's policy work?
-- Where should Phase 2 focus?
+- Any specific follow ups for Phase 2?
 :::
-::: {.column width="45%"}
-**Ideas for Interactive Tools**
-
-::: {.callout-finding}
-**Shiny App — Project Explorer**
-Filter by technology, state, agency, and process type → dynamic map + summary statistics
-
-**Plotly Timeline Visualizer**
-Zoom into cohorts, hover for project names, compare duration distributions interactively
 :::
 
-![](catf-logo.png){width="160px" .no-shadow}
 
 [Full Analysis Website](../reports/project_overview.html) | [NEPATEC 2.0](https://huggingface.co/datasets/PNNL/NEPATEC2.0)
 
 [Download PDF Version](presentation1.pdf){.pdf-btn}
-:::
-:::
 
 ---
 
@@ -1380,6 +1329,77 @@ Modest positive correlation between pipeline length and NEPA duration across all
 
 ::: {.small-text}
 *Source: CATF NEPA & Permitting Reform Timeline. The Phase 1 analysis predates most of these actions. Phase 2 data collection will capture their effects on permitting patterns.*
+:::
+
+---
+
+## A9: Multi-State Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_ce.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Categorical Exclusions (CE)** — multi-state project types
+:::
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_ea.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Environmental Assessments (EA)** — multi-state project types
+:::
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_wordcloud_eis.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Environmental Impact Statements (EIS)** — multi-state project types
+:::
+
+::: {.callout-finding}
+- **Utilities and Electricity Transmission dominate three review types** — confirming multi-state coordination is fundamentally a transmission story.
+:::
+
+---
+
+## A10: Multi-Agency Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_ce.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Categorical Exclusions (CE)** — 20 multi-agency projects
+:::
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_ea.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Environmental Assessments (EA)** — 14 multi-agency projects
+:::
+
+```{r}
+#| out-width: "72%"
+#| fig-align: center
+knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wordcloud_eis.png"))
+```
+::: {.caption-text style="text-align:center;"}
+**Environmental Impact Statements (EIS)** — multi-agency projects (majority of portfolio)
+:::
+
+::: {.callout-finding}
+- **Utilities and Electricity Transmission dominate three review types**
+- **CE and EA samples are very small** (20 and 14 projects respectively) — their word clouds reflect a narrow slice of project types and should be interpreted cautiously.
 :::
 
 ---
