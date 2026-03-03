@@ -113,10 +113,10 @@ d6_figures <- here("output", "deliverable6", "figures")
 ::: {.column width="40%"}
 **Format**
 
-~30 minutes of content
-~15 minutes for open discussion
+~**45 minutes** of content; 
+~**15 minutes** for discussion
 
-**Full reports:** [nepa.catf.us](../reports/project_overview.html)
+See the **full report:** [on the project's website](../reports/project_overview.html)
 
 ---
 
