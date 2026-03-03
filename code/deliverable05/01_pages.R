@@ -433,6 +433,29 @@ compliance_summary <- post_fra %>%
   ) %>%
   ungroup()
 
+# Compute bracket bounds for EIS "within 300-page threshold" annotation
+eis_rows <- compliance_summary %>% filter(process_type == "EIS")
+n_within_300       <- sum(eis_rows$n[as.character(eis_rows$compliance) %in% c("Compliant", "Exceeds standard limit")])
+n_exceeds_limit_eis <- sum(eis_rows$n[as.character(eis_rows$compliance) == "Exceeds limit"])
+n_eis_total        <- sum(eis_rows$n)
+pct_within_300     <- round(n_within_300 / n_eis_total * 100)
+
+# ggplot stacks factor levels in reverse order for geom_col:
+# bottom = Exceeds limit, middle = Exceeds standard limit, top = Compliant
+# Bracket must span middle + top (Exceeds standard + Compliant = within 300-page threshold)
+# Bracket is on the RIGHT side of the EIS bar (center x=2, width=0.6, right edge=2.3)
+x_tick  <- 2.33   # bracket tick start (at bar right edge)
+x_vert  <- 2.50   # bracket vertical line (extends rightward)
+x_label <- 2.55   # text left-edge (hjust = 0 → text extends rightward)
+y_bot   <- n_exceeds_limit_eis   # bottom of "Exceeds standard limit" segment
+y_top   <- n_eis_total           # top of "Compliant" segment
+y_mid   <- (y_bot + y_top) / 2
+tick_h  <- n_eis_total * 0.018
+
+bracket_label <- paste0(
+  "Total ", pct_within_300, "%\ncompliant by\nextraordinary\ncomplexity\nthreshold\n(300 pages)"
+)
+
 fig_compliance <- ggplot(compliance_summary,
                          aes(x = process_type, y = n, fill = compliance)) +
   geom_col(width = 0.6, alpha = 0.9) +
@@ -441,8 +464,24 @@ fig_compliance <- ggplot(compliance_summary,
     position = position_stack(vjust = 0.5),
     size = 3.2, color = "white", fontface = "bold"
   ) +
+  # Bracket: top tick, vertical, bottom tick — right side of EIS bar
+  annotate("segment", x = x_tick, xend = x_vert,
+           y = y_top - tick_h, yend = y_top - tick_h,
+           color = "black", linewidth = 0.55) +
+  annotate("segment", x = x_vert, xend = x_vert,
+           y = y_bot + tick_h, yend = y_top - tick_h,
+           color = "black", linewidth = 0.55) +
+  annotate("segment", x = x_tick, xend = x_vert,
+           y = y_bot + tick_h, yend = y_bot + tick_h,
+           color = "black", linewidth = 0.55) +
+  annotate("text", x = x_label, y = y_mid,
+           label = bracket_label,
+           hjust = 0, vjust = 0.5, size = 2.6,
+           color = "black", lineheight = 0.88) +
   scale_fill_manual(values = compliance_colors) +
+  scale_x_discrete(expand = expansion(add = c(0.5, 0.8))) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
+  coord_cartesian(clip = "off") +
   labs(
     title = "FRA Page Limit Compliance: Post-FRA Projects",
     subtitle = paste0(
@@ -457,7 +496,10 @@ fig_compliance <- ggplot(compliance_summary,
     fill = NULL
   ) +
   theme_catf() +
-  theme(legend.position = "bottom")
+  theme(
+    legend.position = "bottom",
+    plot.margin = margin(5, 40, 5, 5)
+  )
 
 fig_compliance_path <- here(figures_dir, "05_fra_compliance.png")
 ggsave(fig_compliance_path, fig_compliance, width = 10, height = 7, dpi = 300)

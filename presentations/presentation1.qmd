@@ -937,33 +937,23 @@ knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wor
 
 # Deliverable 5 {background-color="#012169"}
 
-## Document Length & Fiscal Responsibility Act Impact {.full-size}
+## Document Length & Fiscal Responsibility Act Impact {footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
 
-The **Fiscal Responsibility Act of 2023 (FRA)** established statutory page limits for NEPA documents — 75 pages for EAs and 150 pages (300 for complex projects) for EISs.
+The **Fiscal Responsibility Act of 2023 (FRA)** established the first statutory page limits for NEPA documents. This section examines whether lengths changed after FRA and how well current documents comply.
 
-This section examines whether NEPA document lengths actually changed after the FRA and how well current documents comply with the new limits, using **regulatory page counts** (body words ÷ 500) to match the statutory definition.
-
-::: {.notes}
-D5 asks: did the FRA's 2023 page limits actually change how long NEPA documents are?
-:::
-
----
-
-## The FRA 2023 Page Limits {footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
-
-The **Fiscal Responsibility Act (June 2023)** established statutory page limits for NEPA documents:
-
-| Document | Standard Limit | Complex Limit |
+| Document | Standard Limit | Extraordinary Complexity |
 |---|---|---|
 | Environmental Assessment (EA) | **75 pages** | — |
 | Environmental Impact Statement (EIS) | **150 pages** | **300 pages** |
 
-**What counts as a "page"?** *(40 C.F.R. § 1508.1(bb))*
-
-> Body word count ÷ 500 — **excludes** maps, figures, tables, appendices, citations
+**Regulatory page** *(40 C.F.R. § 1508.1(bb))*: body word count ÷ 500 — excludes appendices, tables, maps, citations
 
 ::: {.callout-finding}
-This analysis uses **regulatory pages** (not raw PDF pages) to match the statutory definition. Raw page counts overstate document length by 45–55% for EAs and 20–30% for EISs due to bundled appendices — using raw pages would substantially understate compliance.
+This analysis uses **regulatory pages** (not raw PDF page counts) to match the statutory definition. Raw counts overstate length by 45–55% for EAs and 20–30% for EISs due to bundled appendices — using raw pages would substantially understate compliance.
+:::
+
+::: {.notes}
+D5 asks: did the FRA's 2023 page limits actually change how long NEPA documents are?
 :::
 
 ---
@@ -995,13 +985,6 @@ knitr::include_graphics(file.path(d5_figures, "05_pages_pre_post_fra.png"))
 ::: {.caption-text}
 Pre vs. Post-FRA page count comparison
 :::
-
-**Regulatory page medians:**
-
-| | Pre-FRA | Post-FRA |
-|---|---|---|
-| EA | 41 pages | **33 pages** (−20%) |
-| EIS | 120 pages | **93 pages** (−23%) |
 :::
 ::: {.column width="48%"}
 ```{r}
@@ -1010,12 +993,6 @@ knitr::include_graphics(file.path(d5_figures, "05_fra_compliance.png"))
 ::: {.caption-text}
 Compliance rates (post-FRA only)
 :::
-
-**Compliance (post-FRA):**
-
-- EA (75-page limit): **76%** comply
-- EIS (150-page limit): **27%** comply
-- EIS in 150–300 range: 48%
 :::
 :::
 
