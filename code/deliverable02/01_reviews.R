@@ -29,8 +29,138 @@ source(here::here("code", "deliverable02", "00_setup.R"))
 # TIMELINE COVERAGE INSPECTION (161 non-standard projects)
 # --------------------------
 
+# 
+# View projects that are still missing full timelines
+# --------------------------------------------------
+# Random incomplete project: print selected timeline dates + all BERT candidates
+random_incomplete_project <- browse_ns |>
+  filter(!complete) |>
+  slice_sample(n = 1)
+
+random_incomplete_id <- random_incomplete_project |> pull(project_id)
+
+cat("\nRandom incomplete non-standard project:\n")
+print(random_incomplete_project)
+
+cat("\nTimeline fields for sampled project:\n")
+tl_full |>
+  filter(project_id == random_incomplete_id) |>
+  select(any_of(c(
+    "project_id", "dataset_source", "process_type", "project_title",
+    "llm_initiation_date", "llm_decision_date", "llm_decision_mode",
+    "llm_adj_n_candidates", "llm_initiation_reasoning", "llm_decision_reasoning",
+    "bert_initiation_date_final", "bert_decision_date", "bert_timeline_status"
+  ))) |>
+  print(width = Inf)
+
+random_incomplete_id
+print(random_incomplete_project)
+inspect_candidates(random_incomplete_id)
+
+
+
+# 
+# View all projects that are still missing full timelines
+# --------------------------------------------------
+
 browse_ns |> count(complete, review_type, process_type)
 browse_ns |> filter(!complete) |> print(n = 80)
+
+
+
+#
+# View all projects that are still missing full timelines
+# --------------------------------------------------
+
+# NOI initation replacement
+# ----------
+noncomplete_timeline <- browse_ns |> filter(!complete) |> pull(project_id) |> print()
+
+# one missing initation where we could 
+tl_full |> 
+  filter(project_id %in% noncomplete_timeline) |> 
+  select(project_id, noi_publication_date, llm_initiation_date,llm_decision_date) |> 
+  filter(!is.na(noi_publication_date) & is.na(llm_initiation_date)) |> 
+  glimpse()
+
+# Edit: replace llm_initiation_date with noi_publication_date 
+
+
+# final EA doc has date in filename
+# ----------
+tl_full |> filter(project_id == "f95ec9530b352e3dd46e6473cb80dccf") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("f95ec9530b352e3dd46e6473cb80dccf")
+
+# Edit: replace llm_decision_date with April 2019 bc date is in file name 
+
+
+# final EA doc has date in filename
+# ----------
+tl_full |> filter(project_id == "49cdaa3ff2e6c505c6822e8e9803eb9b") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("49cdaa3ff2e6c505c6822e8e9803eb9b") # 
+
+# Edit: replace llm_decision_date with May 2023 bc that date is in the draft file name
+
+
+# final EA doc has date in filename
+# ----------
+noncomplete_eis <- browse_ns |> filter(!complete) |> filter(review_type == "Tiered") |> filter(process_type == "EIS") |> pull(project_id) |> print()
+noncomplete_eis
+
+tl_full |> filter(project_id == "4af8ad4f47941e4ccb53fe4349c258c3") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("4af8ad4f47941e4ccb53fe4349c258c3") # 
+
+# Edit: replace llm_decision_date with September 1995 bc that date is on page 3 of FEIS
+
+# EIS tiered
+# ----------
+noncomplete_eis
+
+
+# EIS tiered 1
+tl_full |> filter(project_id == "00d09887554d7ab68e49e9ab628583bf") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("00d09887554d7ab68e49e9ab628583bf") 
+
+# Edit: replace llm_decision_date with June 2025 bc that date is on page 1 of DEIS
+
+# EIS tiered 2
+tl_full |> filter(project_id == "00d09887554d7ab68e49e9ab628583bf") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("00d09887554d7ab68e49e9ab628583bf") 
+
+# Edit: replace llm_decision_date with June 2025 bc that date is on page 1 of DEIS
+
+
+# EIS tiered 3
+tl_full |> filter(project_id == "6890cacf404f0068be5c1e94470e6c58") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("6890cacf404f0068be5c1e94470e6c58") 
+
+# Edit: replace llm_decision_date with June 2025 bc that date is on page 1 of DEIS
+
+tl_full |> filter(project_id == "8d13822f3d8b469efcdb2706caa463c7") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("8d13822f3d8b469efcdb2706caa463c7") # 
+
+# Edit: replace llm_decision_date with March 2022 since "TVA intends to publish the Final EIS by early to mid-2022" and it cuts the difference
+
+
+tl_full |> filter(project_id == "8d13822f3d8b469efcdb2706caa463c7") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("8d13822f3d8b469efcdb2706caa463c7") # 
+
+# Edit: replace llm_decision_date with March 2022 since "TVA intends to publish the Final EIS by early to mid-2022" and it cuts the difference
+
+
+# 
+# Full timeline
+# --------------------------------------------------
+# cf2fbe90d43ac57a9460fa857f34af6c - replace llm_initiation_date with noi_publication_date 
+# f95ec9530b352e3dd46e6473cb80dccf - replace llm_decision_date with April 2019 bc date is in file name 
+# 49cdaa3ff2e6c505c6822e8e9803eb9b - replace llm_decision_date with May 2023 bc that date is in the draft file name
+
+# 4af8ad4f47941e4ccb53fe4349c258c3 - replace llm_decision_date with September 1995 bc that date is on page 3 of FEIS
+# 00d09887554d7ab68e49e9ab628583bf - replace llm_decision_date with June 2025 bc that date is on page 1 of DEIS
+# 8d13822f3d8b469efcdb2706caa463c7 - replace llm_decision_date with March 2022 since "TVA intends to publish the Final EIS by early to mid-2022" and it cuts the difference
+
+
+
 
 # Drill into date candidates for a specific project:
 # inspect_candidates("project-id-here")
@@ -738,4 +868,3 @@ print(duration_summary %>%
         select(process_type, review_type, n, median_days, mean_days))
 cat("\nFigures saved to:", figures_dir, "\n")
 cat("Tables  saved to:", tables_dir, "\n")
-

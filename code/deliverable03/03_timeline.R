@@ -258,12 +258,30 @@ duration_summary <- duration_complete %>%
     p75 = quantile(duration_months, 0.75, na.rm = TRUE),
     p90 = quantile(duration_months, 0.90, na.rm = TRUE),
     .groups = "drop"
+  ) %>%
+  mutate(
+    median_label = case_when(
+      process_group == "CE"  ~ "CE: ~1 month",
+      process_group == "EA"  ~ "EA: ~14 months",
+      process_group == "EIS" ~ "EIS: ~34 months (3 years)",
+      TRUE ~ ""
+    ),
+    # CE median is ~1 month (far left) — left-anchor the label so it extends
+    # rightward and doesn't get clipped; center EA and EIS above their points.
+    label_hjust = if_else(process_group == "CE", 0, 0.5)
   )
 
 fig_duration_summary <- ggplot(duration_summary, aes(y = process_group, color = process_group)) +
   geom_segment(aes(x = p10, xend = p90, yend = process_group), linewidth = 1.8, alpha = 0.35) +
   geom_segment(aes(x = p25, xend = p75, yend = process_group), linewidth = 5.5, alpha = 0.55) +
   geom_point(aes(x = median_months), size = 3.2) +
+  geom_text(
+    aes(x = median_months, label = median_label, hjust = label_hjust),
+    nudge_y = 0.28,
+    size = 3.2,
+    fontface = "bold",
+    color = "gray20"
+  ) +
   geom_text(
     aes(x = p90, label = paste0("n=", scales::comma(n))),
     nudge_x = 1.2,

@@ -192,6 +192,54 @@ if (file.exists(targeted_path)) {
     select(-t_init, -t_dec)
 }
 
+# --------------------------
+# MANUAL DATE OVERRIDES (TEMPORARY — presentation 2026-03-06)
+# TODO: Integrate into pipeline after Thursday. See notes/status/reviews_status.md.
+# Dates verified manually by inspecting document text, filenames, and NOI records.
+# --------------------------
+
+noi_cf2 <- as.Date(tl_full |>
+  filter(project_id == "cf2fbe90d43ac57a9460fa857f34af6c") |>
+  pull(noi_publication_date) |> first())
+
+manual_overrides <- tibble(
+  project_id           = c(
+    "cf2fbe90d43ac57a9460fa857f34af6c",  # initiation <- NOI publication date
+    "f95ec9530b352e3dd46e6473cb80dccf",  # decision  <- April 2019 (date in EA filename)
+    "49cdaa3ff2e6c505c6822e8e9803eb9b",  # decision  <- May 2023 (date in draft filename)
+    "4af8ad4f47941e4ccb53fe4349c258c3",  # decision  <- September 1995 (p.3 of FEIS)
+                                         # initiation <- ~Jan 1993 (est.; BPA RFP Sept 1992; DEIS March 1995)
+    "00d09887554d7ab68e49e9ab628583bf",  # decision  <- June 2025 (p.1 of DEIS)
+    "8d13822f3d8b469efcdb2706caa463c7",  # decision  <- March 2022 (TVA Final EIS target)
+    "6890cacf404f0068be5c1e94470e6c58",  # decision  <- Feb 2022 (est.; companion project a4b76252 decided 2022-02-25)
+    "5445a80334ce78493711d6bc3d24fd81"   # decision  <- Sept 2012 (est.; FEIS era; 2009 ROD in doc belongs to prior EIS)
+  ),
+  override_initiation  = as.Date(c(noi_cf2, NA, NA, "1993-01-01", NA, NA, NA, NA)),
+  override_decision    = as.Date(c(NA, "2019-04-01", "2023-05-01",
+                                   "1995-09-01", "2025-06-01", "2022-03-01",
+                                   "2022-02-25", "2012-09-01"))
+)
+
+# Patch timeline (-> reviews_tl, duration_data)
+timeline <- timeline |>
+  left_join(manual_overrides, by = "project_id") |>
+  mutate(
+    initiation_date = coalesce(override_initiation, initiation_date),
+    decision_date   = coalesce(override_decision,   decision_date)
+  ) |>
+  select(-override_initiation, -override_decision)
+
+# Patch tl_full (-> browse_ns, inspect_candidates)
+tl_full <- tl_full |>
+  left_join(manual_overrides, by = "project_id") |>
+  mutate(
+    llm_initiation_date = coalesce(override_initiation, as.Date(llm_initiation_date)),
+    llm_decision_date   = coalesce(override_decision,   as.Date(llm_decision_date))
+  ) |>
+  select(-override_initiation, -override_decision)
+
+cat("  Manual overrides applied:", nrow(manual_overrides), "projects\n")
+
 # Coverage browse table: 161 non-standard projects with timeline status
 browse_ns <- reviews |>
   filter(review_type %in% c("Programmatic", "Tiered")) |>
@@ -208,16 +256,33 @@ browse_ns <- reviews |>
   arrange(complete, review_type, process_type)
 
 # Inspect BERT date candidates for a specific project
+# Shows all dates BERT found (bert_dates_json). LLM may have seen fewer after filtering.
+# Use inspect_llm_prompt(pid) to see exactly what the LLM received.
 inspect_candidates <- function(pid) {
   row <- tl_full |> filter(project_id == pid)
   if (nrow(row) == 0) { message("Project not found"); return(invisible(NULL)) }
   json_str <- row$bert_dates_json[[1]]
   if (is.null(json_str) || is.na(json_str)) { message("No candidates"); return(invisible(NULL)) }
-  jsonlite::fromJSON(json_str, simplifyDataFrame = TRUE) |>
-    as_tibble() |>
-    select(any_of(c("date", "dtype", "doc_type", "confidence", "context", "source"))) |>
+  dates <- jsonlite::fromJSON(json_str, simplifyDataFrame = TRUE) |> as_tibble()
+  # Normalize column names (field names vary slightly across pipeline versions)
+  if ("type" %in% names(dates) && !"dtype" %in% names(dates))
+    dates <- rename(dates, dtype = type)
+  if ("context_cleaned" %in% names(dates) && !"context" %in% names(dates))
+    dates <- rename(dates, context = context_cleaned)
+  cat("Total BERT candidates:", nrow(dates), "| LLM saw:", row$llm_adj_n_candidates[[1]], "| mode:", row$llm_decision_mode[[1]], "\n\n")
+  dates |>
+    select(any_of(c("date", "dtype", "doc_type", "confidence", "bert_confidence", "context", "source"))) |>
     arrange(date) |>
-    print(n = 200)
+    print(n = 500)
+}
+
+# Show the raw prompt that was sent to the LLM for a project
+inspect_llm_prompt <- function(pid) {
+  row <- tl_full |> filter(project_id == pid)
+  if (nrow(row) == 0) { message("Project not found"); return(invisible(NULL)) }
+  prompt <- row$llm_adj_prompt[[1]]
+  if (is.null(prompt) || is.na(prompt)) { message("No LLM prompt stored"); return(invisible(NULL)) }
+  cat(prompt)
 }
 
 reviews_tl <- reviews %>%
@@ -308,3 +373,14 @@ cat("  browse_ns          -", nrow(browse_ns), "non-standard projects; complete:
 cat("Output directories:\n")
 cat("  Tables: ", tables_dir, "\n")
 cat("  Figures:", figures_dir, "\n")
+
+# --------------------------
+# MANUAL OVERRIDE VERIFICATION
+# --------------------------
+# Confirm the 6 manually-overridden projects reached reviews_tl / duration_data.
+# Expected: 5 of 6 in duration_data (Columbia Wind Farm missing initiation date).
+cat("\nManual override verification (6 projects):\n")
+reviews_tl %>%
+  filter(project_id %in% manual_overrides$project_id) %>%
+  select(project_id, review_type, process_type, initiation_date, decision_date, duration_days, has_duration) %>%
+  print(n = 10, width = Inf)

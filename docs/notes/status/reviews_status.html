@@ -4544,7 +4544,7 @@ vertical-align: -.125em;
 
 <section id="deliverable-2-programmatic-tiered-reviews" class="level1">
 <h1>Deliverable #2: Programmatic &amp; Tiered Reviews</h1>
-<p><strong>Status</strong>: Extraction complete, awaiting client validation <strong>Last Updated</strong>: 2026-02-04 <strong>Script</strong>: <code>code/extract/extract_reviews.py</code> <strong>Output</strong>: <code>data/analysis/projects_reviews.parquet</code> <strong>Report</strong>: <code>reports/deliverable02.qmd</code></p>
+<p><strong>Status</strong>: Analysis complete; 118/161 non-standard projects have full timelines <strong>Last Updated</strong>: 2026-03-04 <strong>Script</strong>: <code>code/extract/extract_reviews.py</code> <strong>Output</strong>: <code>data/analysis/projects_reviews.parquet</code> <strong>Report</strong>: <code>reports/deliverable02.qmd</code></p>
 <section id="deliverable-goal" class="level2">
 <h2 class="anchored" data-anchor-id="deliverable-goal">Deliverable Goal</h2>
 <p>Data on programmatic and tiered reviews: how many tiered reviews are there compared to total, and are they completed faster?</p>
@@ -4811,7 +4811,72 @@ vertical-align: -.125em;
 <section id="development-log" class="level2">
 <h2 class="anchored" data-anchor-id="development-log">Development Log</h2>
 <section id="section" class="level3">
-<h3 class="anchored" data-anchor-id="section">2026-02-04</h3>
+<h3 class="anchored" data-anchor-id="section">2026-03-04</h3>
+<section id="timeline-coverage-improvements-for-non-standard-projects-d2" class="level4">
+<h4 class="anchored" data-anchor-id="timeline-coverage-improvements-for-non-standard-projects-d2">Timeline Coverage Improvements for Non-Standard Projects (D2)</h4>
+<p>The full review extraction (161 programmatic + tiered projects in NEPATEC 2.0) was complete. The challenge was timeline coverage: only 82/161 had full timelines after the base EA/EIS LLM adjudication. A series of targeted changes brought this to <strong>118/161 (73%)</strong>.</p>
+<p><strong>Root cause</strong>: EIS documents averaged 179 BERT candidates but the LLM cap was 30 — 150+ candidates were filtered before Claude saw them. Programmatic EISs are the hardest: BERT (trained on CE data) frequently mislabels decision-era dates as ‘review’ or ‘other’.</p>
+<p><strong>Changes to <code>code/extract/extract_timeline.py</code></strong>:</p>
+<ol type="1">
+<li><p><strong><code>--nonstandard-incomplete</code> flag for <code>--llm-adjudicate</code></strong>: Auto-selects programmatic/tiered projects still missing <code>llm_initiation_date</code> or <code>llm_decision_date</code>. Reads <code>projects_reviews.parquet</code> + all available timeline outputs internally.</p></li>
+<li><p><strong>Multi-file <code>--input</code></strong>: Accept comma-separated parquet paths (e.g., EA + EIS in one call).</p></li>
+<li><p><strong><code>--max-candidates N</code></strong>: Override per-project candidate cap (used 125 vs default 30 for EIS).</p></li>
+<li><p><strong><code>--context-chars N</code></strong>: Override context snippet length.</p></li>
+<li><p><strong><code>--promote-rod-language</code></strong>: Promotes candidates with ROD/FONSI language to Tier A decision regardless of BERT doc_type classification.</p></li>
+<li><p><strong><code>--year-window N</code></strong>: Drops candidates more than N years before the latest found date (removes NEPA citation noise; used 15).</p></li>
+<li><p><strong>529 retry</strong>: <code>_call_claude_adjudication()</code> now retries HTTP 529 (service overload) with 60-second backoff, same as 429.</p></li>
+<li><p><strong>Silent BERT decision discard fix</strong>: Layer 5 was dropping <code>dtype==&#39;decision&#39;</code> candidates that failed strict doc-type checks. They now pass to <code>non_decision</code> so Claude sees them.</p></li>
+<li><p><strong><code>best_effort</code> prompt for <code>no_decision_candidates</code> mode</strong>: When <code>--nonstandard-incomplete</code> is active, <code>_build_adjudication_prompt()</code> uses a best-effort prompt (“pick most likely decision date, null only if truly nothing fits”) instead of the conservative default (“only if context clearly indicates… otherwise null”). Standard runs are unaffected.</p></li>
+</ol>
+<p><strong>Changes to <code>code/deliverable02/00_setup.R</code></strong>: - Added <code>tl_full</code>: full timeline parquets (with <code>bert_dates_json</code>) patched with targeted dates. - Added <code>browse_ns</code>: coverage table for all 161 non-standard projects (<code>has_initiation</code>, <code>has_decision</code>, <code>complete</code>, <code>llm_decision_mode</code>). - Added <code>inspect_candidates(pid)</code>: parses <code>bert_dates_json</code> JSON and prints all BERT date candidates for a given project.</p>
+<p><strong>Changes to <code>code/deliverable02/01_reviews.R</code></strong>: - Added inspection block calling <code>browse_ns</code> and <code>inspect_candidates()</code> at the top.</p>
+<p><strong>New output</strong>: <code>data/analysis/projects_timeline_targeted_llm.parquet</code> (73 rows). Patched into the main timeline via <code>coalesce()</code> in <code>00_setup.R</code>.</p>
+<p><strong>Coverage results</strong> (161 non-standard projects):</p>
+<table class="table">
+<thead>
+<tr class="header">
+<th>Status</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Complete (both dates)</td>
+<td><strong>118</strong></td>
+</tr>
+<tr class="even">
+<td>Missing decision only</td>
+<td>32</td>
+</tr>
+<tr class="odd">
+<td>Missing initiation only</td>
+<td>3</td>
+</tr>
+<tr class="even">
+<td>Missing both</td>
+<td>8</td>
+</tr>
+<tr class="odd">
+<td><strong>Total incomplete</strong></td>
+<td><strong>43</strong></td>
+</tr>
+</tbody>
+</table>
+<p>The 29 remaining <code>no_decision_candidates</code> projects have zero decision signals identifiable by BERT in any candidate — hard floor without document-level improvements.</p>
+<p><strong>Run command</strong> (documented in README):</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_timeline.py <span class="dt">\</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--input</span> data/analysis/projects_timeline_bert_ea_llm.parquet,data/analysis/projects_timeline_bert_eis_llm.parquet <span class="dt">\</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--nonstandard-incomplete</span> <span class="dt">\</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--max-candidates</span> 125 <span class="at">--context-chars</span> 400 <span class="dt">\</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--promote-rod-language</span> <span class="at">--year-window</span> 15 <span class="dt">\</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--provider</span> claude <span class="dt">\</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">--output</span> data/analysis/projects_timeline_targeted_llm.parquet</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p><strong>Cost</strong>: ~$0.44 (Haiku, ~400K input tokens for 73 projects).</p>
+</section>
+</section>
+<section id="section-1" class="level3">
+<h3 class="anchored" data-anchor-id="section-1">2026-02-04</h3>
 <ul>
 <li><strong>Extraction complete</strong>: 16 programmatic, 10 tiered, 1,390 standard</li>
 <li>Created <code>code/exploratory/reviews/01_reviews_eda.R</code> with summary stats, figures, and Google Sheet export</li>
@@ -4822,8 +4887,8 @@ vertical-align: -.125em;
 <li><strong>Next</strong>: Client validation, timeline merge, add missing project</li>
 </ul>
 </section>
-<section id="section-1" class="level3">
-<h3 class="anchored" data-anchor-id="section-1">2026-01-30</h3>
+<section id="section-2" class="level3">
+<h3 class="anchored" data-anchor-id="section-2">2026-01-30</h3>
 <ul>
 <li>Created <code>extract_reviews.py</code> with 3-tier extraction approach</li>
 <li>Implemented title-based, regex, and LLM extraction tiers</li>

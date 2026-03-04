@@ -4673,8 +4673,19 @@ vertical-align: -.125em;
 <p>The LLM-adjudicated result is stored in <code>project_transmission_length_final</code>. If LLM was not triggered or failed, <code>project_transmission_length_final</code> equals <code>project_transmission_length_miles</code> (both are rule-based).</p>
 <p>The analysis uses <code>project_transmission_length_final</code> (LLM-adjudicated when available) as the primary length variable.</p>
 </section>
+<section id="page-level-length-recovery-_extract_tx_length_from_pages" class="level4">
+<h4 class="anchored" data-anchor-id="page-level-length-recovery-_extract_tx_length_from_pages">3.2.5 Page-level length recovery (<code>_extract_tx_length_from_pages</code>)</h4>
+<p>A secondary extraction pass recovers lengths for projects that passed the build-text gate but have no mileage in their title/description text. Diagnostic analysis showed 1,268 such projects (1,184 CE, 60 EIS, 24 EA) — the full potential population above the current 151 strict projects.</p>
+<p><strong>Trigger condition:</strong> <code>project_has_transmission_type_tag &amp; project_has_transmission_build_text &amp; ~project_is_transmission_maintenance &amp; (project_transmission_length_final &lt; 1 or NaN)</code>. Only these projects are searched; the pass for all other rows is a no-op.</p>
+<p><strong>Document targeting (efficiency):</strong> - <strong>CE projects</strong>: Each CE document is a single page blob — all pages are read (no filtering needed). DuckDB joins <code>documents.parquet</code> → <code>pages.parquet</code> on <code>document_id</code>, filtering to target project IDs. - <strong>EA/EIS projects</strong>: Only <code>main_document = &#39;YES&#39;</code> documents are queried, and only the first <code>max_ea_eis_pages</code> pages (default 10) per document via <code>ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY page_number)</code>. The “Proposed Action” and “Project Description” sections appear in these opening pages in virtually all EA/EIS formats.</p>
+<p><strong>DuckDB join:</strong> <code>project_id</code> in <code>documents.parquet</code> is a struct <code>{value: UUID-with-hyphens}</code>; <code>project_id</code> in <code>projects_combined.parquet</code> is a plain hex string. Both sides are normalized by stripping hyphens (<code>replace(d.project_id.value, &#39;-&#39;, &#39;&#39;)</code>) before joining. Target project IDs are registered as an in-memory DuckDB table (<code>_target_ids</code>) to avoid per-project queries.</p>
+<p><strong>Extraction:</strong> Page texts are concatenated per project and passed through the same <code>_extract_length_candidates()</code> → <code>_adjudicate_transmission_length()</code> pipeline used for title/description text. No new logic is introduced.</p>
+<p><strong>Write-back:</strong> For projects where the recovered length ≥ 1 mile, all standard transmission length columns are overwritten with the page-derived values. A new boolean column <code>project_transmission_length_from_pages = TRUE</code> marks these rows for provenance tracking. <code>project_is_transmission_strict</code> is re-evaluated after write-back, so recovered projects automatically enter the strict set.</p>
+<p><strong>CLI:</strong> Enabled by <code>--page-length-recovery</code> flag. <code>--page-search-max-pages N</code> controls the EA/EIS page depth (default 10). Not run by default (no flag = old behavior).</p>
+<p><strong>Known limitation:</strong> Recovery rate is lower than expected for the CE population because many of the 1,268 are ROW renewals that pass the build-text gate via incidental “transmission line” mentions in their descriptions but genuinely have no construction length — not even in the document body. The actual recoverable population is a subset of the 1,268.</p>
+</section>
 <section id="action-type-split-project_transmission_new_build_miles-project_transmission_upgrade_miles" class="level4">
-<h4 class="anchored" data-anchor-id="action-type-split-project_transmission_new_build_miles-project_transmission_upgrade_miles">3.2.5 Action type split (<code>project_transmission_new_build_miles</code>, <code>project_transmission_upgrade_miles</code>)</h4>
+<h4 class="anchored" data-anchor-id="action-type-split-project_transmission_new_build_miles-project_transmission_upgrade_miles">3.2.6 Action type split (<code>project_transmission_new_build_miles</code>, <code>project_transmission_upgrade_miles</code>)</h4>
 <p>After adjudication, each length candidate is independently classified as <code>new_build</code> or <code>upgrade</code> using sentence-level regexes. Distinct candidate values are summed per action type to produce per-project estimates of how many miles are new-build versus upgrade activity.</p>
 <hr>
 </section>
@@ -5334,6 +5345,11 @@ vertical-align: -.125em;
 <td><code>project_transmission_upgrade_miles</code></td>
 <td>Float</td>
 <td>Sum of candidate lengths classified as upgrade action type</td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_length_from_pages</code></td>
+<td>Boolean</td>
+<td>TRUE if length was recovered from document page text (not title/description)</td>
 </tr>
 </tbody>
 </table>
