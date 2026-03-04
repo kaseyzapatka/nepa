@@ -195,6 +195,86 @@ Rscript code/exploratory/reviews/01_reviews_eda.R
 
 ## Development Log
 
+### 2026-03-04
+
+#### Timeline Coverage Improvements for Non-Standard Projects (D2)
+
+The full review extraction (161 programmatic + tiered projects in NEPATEC 2.0) was complete.
+The challenge was timeline coverage: only 82/161 had full timelines after the base EA/EIS LLM
+adjudication. A series of targeted changes brought this to **118/161 (73%)**.
+
+**Root cause**: EIS documents averaged 179 BERT candidates but the LLM cap was 30 — 150+
+candidates were filtered before Claude saw them. Programmatic EISs are the hardest: BERT
+(trained on CE data) frequently mislabels decision-era dates as 'review' or 'other'.
+
+**Changes to `code/extract/extract_timeline.py`**:
+
+1. **`--nonstandard-incomplete` flag for `--llm-adjudicate`**: Auto-selects programmatic/tiered
+   projects still missing `llm_initiation_date` or `llm_decision_date`. Reads
+   `projects_reviews.parquet` + all available timeline outputs internally.
+
+2. **Multi-file `--input`**: Accept comma-separated parquet paths (e.g., EA + EIS in one call).
+
+3. **`--max-candidates N`**: Override per-project candidate cap (used 125 vs default 30 for EIS).
+
+4. **`--context-chars N`**: Override context snippet length.
+
+5. **`--promote-rod-language`**: Promotes candidates with ROD/FONSI language to Tier A decision
+   regardless of BERT doc_type classification.
+
+6. **`--year-window N`**: Drops candidates more than N years before the latest found date
+   (removes NEPA citation noise; used 15).
+
+7. **529 retry**: `_call_claude_adjudication()` now retries HTTP 529 (service overload) with
+   60-second backoff, same as 429.
+
+8. **Silent BERT decision discard fix**: Layer 5 was dropping `dtype=='decision'` candidates
+   that failed strict doc-type checks. They now pass to `non_decision` so Claude sees them.
+
+9. **`best_effort` prompt for `no_decision_candidates` mode**: When `--nonstandard-incomplete`
+   is active, `_build_adjudication_prompt()` uses a best-effort prompt ("pick most likely
+   decision date, null only if truly nothing fits") instead of the conservative default
+   ("only if context clearly indicates... otherwise null"). Standard runs are unaffected.
+
+**Changes to `code/deliverable02/00_setup.R`**:
+- Added `tl_full`: full timeline parquets (with `bert_dates_json`) patched with targeted dates.
+- Added `browse_ns`: coverage table for all 161 non-standard projects (`has_initiation`,
+  `has_decision`, `complete`, `llm_decision_mode`).
+- Added `inspect_candidates(pid)`: parses `bert_dates_json` JSON and prints all BERT date
+  candidates for a given project.
+
+**Changes to `code/deliverable02/01_reviews.R`**:
+- Added inspection block calling `browse_ns` and `inspect_candidates()` at the top.
+
+**New output**: `data/analysis/projects_timeline_targeted_llm.parquet` (73 rows).
+Patched into the main timeline via `coalesce()` in `00_setup.R`.
+
+**Coverage results** (161 non-standard projects):
+
+| Status | Count |
+|---|---|
+| Complete (both dates) | **118** |
+| Missing decision only | 32 |
+| Missing initiation only | 3 |
+| Missing both | 8 |
+| **Total incomplete** | **43** |
+
+The 29 remaining `no_decision_candidates` projects have zero decision signals identifiable
+by BERT in any candidate — hard floor without document-level improvements.
+
+**Run command** (documented in README):
+```bash
+python code/extract/extract_timeline.py \
+  --llm-adjudicate \
+  --input data/analysis/projects_timeline_bert_ea_llm.parquet,data/analysis/projects_timeline_bert_eis_llm.parquet \
+  --nonstandard-incomplete \
+  --max-candidates 125 --context-chars 400 \
+  --promote-rod-language --year-window 15 \
+  --provider claude \
+  --output data/analysis/projects_timeline_targeted_llm.parquet
+```
+**Cost**: ~$0.44 (Haiku, ~400K input tokens for 73 projects).
+
 ### 2026-02-04
 - **Extraction complete**: 16 programmatic, 10 tiered, 1,390 standard
 - Created `code/exploratory/reviews/01_reviews_eda.R` with summary stats, figures, and Google Sheet export
