@@ -4514,17 +4514,16 @@ vertical-align: -.125em;
 <hr>
 <section id="document-length-over-time-and-fra-compliance" class="level2">
 <h2 class="anchored" data-anchor-id="document-length-over-time-and-fra-compliance">1. Document Length Over Time and FRA Compliance</h2>
-<p><strong>Report section:</strong> “Pages Over Time / FRA Analysis” <strong>Primary output:</strong> <code>pages_analysis</code> (R session object; no intermediate parquet written) <strong>Setup code:</strong> <code>code/deliverable05/00_setup.R</code> <strong>Analysis code:</strong> <code>code/deliverable05/01_pages.R</code> <strong>Report:</strong> <code>reports/deliverable05.qmd</code></p>
+<p><strong>Report section:</strong> “Pages Over Time / FRA Analysis” <strong>Setup code:</strong> <code>code/deliverable05/00_setup.R</code> <strong>Analysis code:</strong> <code>code/deliverable05/01_pages.R</code> <strong>Page extraction script:</strong> <code>code/extract/extract_pages.py</code> <strong>Report:</strong> <code>reports/deliverable05.qmd</code></p>
 <section id="deliverable-question" class="level3">
 <h3 class="anchored" data-anchor-id="deliverable-question">Deliverable question</h3>
 <blockquote class="blockquote">
 <p>Data on the number of pages over time, including pre- and post-Fiscal Responsibility Act of 2023 (FRA), which set page limit requirements.</p>
 </blockquote>
-<p>The Fiscal Responsibility Act of 2023 (Public Law 118-5, signed June 3, 2023) introduced statutory page limits for NEPA environmental reviews: EAs are limited to 75 pages and EISs to 150 pages (up to 300 for extraordinarily complex projects). This deliverable examines whether clean energy document length declined after FRA enactment and how well Post-FRA projects comply with those limits.</p>
+<p>The Fiscal Responsibility Act of 2023 (Public Law 118-5, signed June 3, 2023) introduced statutory page limits for NEPA environmental reviews: EAs are limited to 75 pages and EISs to 150 pages (up to 300 for extraordinarily complex projects). Under 40 C.F.R. § 1508.1(bb), a “page” is defined as containing 500 words, and maps, diagrams, graphs, tables, and citations are excluded from the count. This deliverable examines whether clean energy document length declined after FRA enactment and how well Post-FRA projects comply with those limits, using a page measure that reflects the statutory definition.</p>
 </section>
 <section id="source-data" class="level3">
 <h3 class="anchored" data-anchor-id="source-data">Source data</h3>
-<p>Three parquet files are merged for this analysis:</p>
 <table class="table">
 <colgroup>
 <col style="width: 31%">
@@ -4539,7 +4538,7 @@ vertical-align: -.125em;
 <tbody>
 <tr class="odd">
 <td><code>data/analysis/projects_combined.parquet</code></td>
-<td>Project-level metadata for all NEPA records (see Deliverable 03 documentation for construction)</td>
+<td>Project-level metadata for all NEPA records</td>
 </tr>
 <tr class="even">
 <td><code>data/analysis/documents_combined.parquet</code></td>
@@ -4552,6 +4551,10 @@ vertical-align: -.125em;
 <tr class="even">
 <td><code>data/analysis/projects_timeline_bert_eis_llm.parquet</code></td>
 <td>LLM-adjudicated initiation and decision dates for EIS projects</td>
+</tr>
+<tr class="odd">
+<td><code>data/analysis/projects_page_counts.parquet</code></td>
+<td>Regulatory page counts computed by <code>extract_pages.py</code> (see §2.6)</td>
 </tr>
 </tbody>
 </table>
@@ -4578,7 +4581,7 @@ vertical-align: -.125em;
 <li><code>timeline_decision_date</code> ← <code>llm_decision_date</code> (cast to Date)</li>
 </ul>
 <p>After combining, <code>distinct(project_id, .keep_all = TRUE)</code> removes any duplicate project IDs that arise from the row-binding step.</p>
-<p><strong>Why LLM dates?</strong> Both EA and EIS timelines use the hybrid BERT+LLM pipeline’s final adjudicated dates (<code>llm_initiation_date</code>, <code>llm_decision_date</code>), consistent with the harmonization approach used in Deliverable 03. These represent the pipeline’s best estimate after BERT candidate generation and LLM selection.</p>
+<p><strong>Why LLM dates?</strong> Both EA and EIS timelines use the hybrid BERT+LLM pipeline’s final adjudicated dates, consistent with the harmonization approach used in Deliverable 03.</p>
 <hr>
 </section>
 <section id="document-filtering-and-deduplication" class="level3">
@@ -4606,29 +4609,26 @@ vertical-align: -.125em;
 <tr class="even">
 <td>EA</td>
 <td><code>document_type_clean == &quot;EA&quot;</code></td>
-<td>Final EA; draft EAs tagged as “DEA” are excluded</td>
+<td>Final EA; draft EAs tagged “DEA” are excluded</td>
 </tr>
 </tbody>
 </table>
-<p>This ensures page counts reflect the final submitted document rather than earlier draft versions.</p>
-<p><strong>Deduplication rule:</strong> Some projects have multiple records that qualify as final documents (e.g., multi-volume FEIS, supplemental EIS files). One document per project is selected using a two-key priority:</p>
+<p><strong>Deduplication rule:</strong> One document per project is selected using a two-key priority:</p>
 <ol type="1">
 <li><code>main_document == &quot;YES&quot;</code> is preferred over non-main documents</li>
 <li>Among ties, the document with the <strong>highest <code>total_pages</code></strong> is selected</li>
 </ol>
-<p>This rule favors the document most likely to represent the primary NEPA body (not an appendix or supplemental volume) and uses page count as a secondary tiebreaker when the main_document flag is missing or ambiguous.</p>
+<p>This rule favors the document most likely to represent the primary NEPA body (not an appendix or supplemental volume). Critically, if no <code>main_document == &quot;YES&quot;</code> document exists for a project, the rule falls back to the highest-page document of the correct type. This fallback is mirrored exactly in <code>extract_pages.py</code>’s <code>load_clean_energy_main_docs()</code> function to ensure all projects in the R analysis sample are also covered in the page count extraction.</p>
 <hr>
 </section>
 <section id="three-way-merge" class="level3">
 <h3 class="anchored" data-anchor-id="three-way-merge">2.4 Three-way merge</h3>
-<p>Projects, timelines, and documents are merged using <strong>inner joins</strong> on <code>project_id</code>. Only projects present in all three datasets are retained. This means any clean energy EA/EIS project that lacks either a matched timeline record or a matched final document is excluded from the analysis sample.</p>
-<p>Coverage is tracked at each step (see §2.5).</p>
+<p>Projects, timelines, and documents are merged using <strong>inner joins</strong> on <code>project_id</code>. Only projects present in all three datasets are retained.</p>
 <hr>
 </section>
 <section id="analysis-subset-construction" class="level3">
 <h3 class="anchored" data-anchor-id="analysis-subset-construction">2.5 Analysis subset construction</h3>
-<p>After the merge, a final analysis subset (<code>pages_analysis</code>) is created by filtering to projects with <strong>complete timelines</strong>: non-missing <code>timeline_initiation_date</code> AND non-missing <code>timeline_decision_date</code>.</p>
-<p>Projects with partial timelines (only one date available) are dropped at this stage.</p>
+<p>After the merge, <code>pages_analysis</code> is created by filtering to projects with <strong>complete timelines</strong>: non-missing <code>timeline_initiation_date</code> AND non-missing <code>timeline_decision_date</code>.</p>
 <p><strong>Derived variables added:</strong></p>
 <table class="table">
 <colgroup>
@@ -4674,9 +4674,136 @@ vertical-align: -.125em;
 <p><strong>FRA classification rule:</strong> Projects are classified as Post-FRA when their <em>decision</em> date falls on or after June 3, 2023. Using the decision date (not the initiation date) reflects the forward-looking nature of the statute: a project that received its final decision after FRA was enacted is expected to comply with the page limits regardless of when it was initiated.</p>
 <hr>
 </section>
+<section id="regulatory-page-count-extraction-extract_pages.py" class="level3">
+<h3 class="anchored" data-anchor-id="regulatory-page-count-extraction-extract_pages.py">2.6 Regulatory page count extraction (<code>extract_pages.py</code>)</h3>
+<p>Raw PDF page counts (<code>total_pages</code> from document metadata) overstate document length relative to what the FRA actually limits for two reasons: (1) many main PDF files contain embedded appendices bundled into the same file, and (2) the FRA defines a page as 500 words and excludes maps, figures, tables, and other low-text content. <code>extract_pages.py</code> addresses both issues.</p>
+<p><strong>Script:</strong> <code>code/extract/extract_pages.py</code> <strong>Output:</strong> <code>data/analysis/projects_page_counts.parquet</code> <strong>Run command:</strong> <code>python code/extract/extract_pages.py --run [--sample N] [--verbose]</code></p>
+<p>The script processes clean energy EA and EIS projects only (same filter as the R pipeline). It runs in two stages per project:</p>
+<section id="stage-1-no-appendix-file-shortcut" class="level4">
+<h4 class="anchored" data-anchor-id="stage-1-no-appendix-file-shortcut">Stage 1 — No-appendix file shortcut</h4>
+<p>Before running OCR extraction, the script checks whether any document for the project has a filename explicitly indicating an appendix-free version (e.g. <code>*_wo_appendices.pdf</code>, <code>*_no_app.pdf</code>, <code>*_NoApp.pdf</code>). The pattern matched is:</p>
+<pre><code>(without|wo|no)[_\s-]?(appendix|appendices|app|appx)   [case-insensitive]</code></pre>
+<p>If a match is found among EA or FEIS documents for that project, the matched document’s <code>total_pages</code> is used directly as <code>regulatory_pages</code> — no OCR extraction is needed. This is the most reliable possible estimate because the agency itself produced the appendix-free version. When multiple matches exist for a project, the file with the fewest pages is preferred (the stripped version is smallest). These rows are flagged <code>regulatory_pages_method = &quot;no_appendix_file&quot;</code>.</p>
+</section>
+<section id="stage-2-ocr-based-word-count-extraction-duckdb" class="level4">
+<h4 class="anchored" data-anchor-id="stage-2-ocr-based-word-count-extraction-duckdb">Stage 2 — OCR-based word count extraction (DuckDB)</h4>
+<p>For all remaining projects, the script queries the pages parquet files directly using DuckDB (required because the EIS pages parquet is ~5.5 GB). The query:</p>
+<ol type="1">
+<li><p><strong>Scans the first 80 characters of each page</strong> for appendix section header patterns:</p>
+<pre><code>(^|\n)\s*(APPENDIX|Appendix|ATTACHMENT|Attachment|EXHIBIT|Exhibit)\s+[A-Z0-9][^A-Za-z0-9]</code></pre>
+<p>A page is flagged as an appendix header only if it also has fewer than 100 words (excluding TOC pages) and appears at page 5 or later (avoiding false matches at the start of the document).</p>
+<p>A second guard excludes TOC entries: pages where the pattern is immediately followed by dotted leaders (<code>....</code>) are not flagged as true appendix headers.</p></li>
+<li><p><strong>Finds <code>appendix_start_page</code></strong>: the minimum page number where an appendix header is detected. All pages at or after this page are excluded.</p></li>
+<li><p><strong>Classifies body pages</strong>: pages before <code>appendix_start_page</code> with word count ≥ 50. Pages with fewer than 50 words are counted separately as <code>low_content_pages</code> (likely maps, figures, section dividers, or blank pages) and excluded from the word count sum.</p></li>
+<li><p><strong>Computes regulatory pages</strong>:</p>
+<pre><code>regulatory_pages = CEIL(body_word_count / 500)</code></pre>
+<p>Projects with zero body word count (fully scanned/image-only PDFs with no extractable OCR text) receive <code>regulatory_pages = NULL</code>. These rows are flagged <code>regulatory_pages_method = &quot;ocr&quot;</code>.</p></li>
+</ol>
+<p><strong>Output schema:</strong></p>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>project_id</code></td>
+<td>FK to projects</td>
+</tr>
+<tr class="even">
+<td><code>document_id</code></td>
+<td>The document processed</td>
+</tr>
+<tr class="odd">
+<td><code>dataset_source</code></td>
+<td><code>&quot;EA&quot;</code> or <code>&quot;EIS&quot;</code></td>
+</tr>
+<tr class="even">
+<td><code>raw_pages</code></td>
+<td><code>total_pages</code> of the document processed</td>
+</tr>
+<tr class="odd">
+<td><code>appendix_start_page</code></td>
+<td>First detected appendix page (NULL if none detected)</td>
+</tr>
+<tr class="even">
+<td><code>total_parquet_pages</code></td>
+<td>Total pages in the pages parquet for this document</td>
+</tr>
+<tr class="odd">
+<td><code>body_pages</code></td>
+<td>Physical page count of body (before appendix, ≥50 words)</td>
+</tr>
+<tr class="even">
+<td><code>low_content_pages</code></td>
+<td>Physical page count of low-content body pages (&lt;50 words)</td>
+</tr>
+<tr class="odd">
+<td><code>appendix_pages</code></td>
+<td>Physical page count at or after appendix start</td>
+</tr>
+<tr class="even">
+<td><code>body_word_count</code></td>
+<td>Total word count of body pages</td>
+</tr>
+<tr class="odd">
+<td><code>regulatory_pages</code></td>
+<td><code>CEIL(body_word_count / 500)</code>; NULL if no OCR text</td>
+</tr>
+<tr class="even">
+<td><code>regulatory_pages_method</code></td>
+<td><code>&quot;ocr&quot;</code> or <code>&quot;no_appendix_file&quot;</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="joining-regulatory-pages-into-the-r-pipeline" class="level3">
+<h3 class="anchored" data-anchor-id="joining-regulatory-pages-into-the-r-pipeline">2.7 Joining regulatory pages into the R pipeline</h3>
+<p><code>00_setup.R</code> left-joins <code>projects_page_counts.parquet</code> onto <code>pages_data</code> by <code>project_id</code> after the main three-way merge.</p>
+<p><strong>Fallback logic:</strong> When a project has no row in the page counts parquet (e.g., because it has no extractable text and <code>regulatory_pages = NULL</code>, or rarely due to a join mismatch), <code>regulatory_pages</code> is filled with <code>total_pages</code> (the raw PDF page count) as a conservative fallback. These projects are flagged <code>reg_pages_source = &quot;raw_fallback&quot;</code>. The setup script prints a source breakdown at runtime:</p>
+<pre><code>regulatory_pages source: ocr = N | no_appendix_file = N | raw_fallback = N</code></pre>
+<p>A high <code>raw_fallback</code> count indicates that <code>extract_pages.py</code> should be re-run against an updated <code>projects_combined.parquet</code>.</p>
+<p><strong>Backwards compatibility:</strong> Parquets generated before <code>regulatory_pages_method</code> was added to the output schema are handled automatically: if the column is absent, it is added with value <code>&quot;ocr&quot;</code> before the join.</p>
+<p><strong><code>reg_pages_source</code> values:</strong></p>
+<table class="table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Value</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>&quot;ocr&quot;</code></td>
+<td>Word-count extraction via DuckDB</td>
+</tr>
+<tr class="even">
+<td><code>&quot;no_appendix_file&quot;</code></td>
+<td>No-appendix filename shortcut; page count is the file’s <code>total_pages</code></td>
+</tr>
+<tr class="odd">
+<td><code>&quot;raw_fallback&quot;</code></td>
+<td>Not in page counts parquet; raw PDF page count used</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
 <section id="coverage-tracking" class="level3">
-<h3 class="anchored" data-anchor-id="coverage-tracking">2.6 Coverage tracking</h3>
-<p><code>00_setup.R</code> tracks project counts at each filtering step using a <code>coverage_steps</code> list, building a <code>coverage</code> tibble used in Figure 1. The steps are:</p>
+<h3 class="anchored" data-anchor-id="coverage-tracking">2.8 Coverage tracking</h3>
+<p><code>00_setup.R</code> tracks project counts at each filtering step. Steps:</p>
 <table class="table">
 <colgroup>
 <col style="width: 50%">
@@ -4691,11 +4818,11 @@ vertical-align: -.125em;
 <tbody>
 <tr class="odd">
 <td>Total clean energy with timeline data</td>
-<td>All clean energy EA/EIS projects present in both <code>projects_combined</code> and timeline data</td>
+<td>All clean energy EA/EIS projects in both <code>projects_combined</code> and timeline data</td>
 </tr>
 <tr class="even">
 <td>With final document</td>
-<td>Subset that also has a matched final document in <code>documents_combined</code></td>
+<td>Subset with a matched final document in <code>documents_combined</code></td>
 </tr>
 <tr class="odd">
 <td>With timeline + document</td>
@@ -4707,36 +4834,36 @@ vertical-align: -.125em;
 </tr>
 </tbody>
 </table>
-<p>Coverage percentages in Figure 1 are computed relative to the first step within each process type.</p>
 <hr>
 </section>
 </section>
 <section id="analysis-and-figures" class="level2">
 <h2 class="anchored" data-anchor-id="analysis-and-figures">3. Analysis and Figures</h2>
-<p>All figures and tables are produced by <code>code/deliverable05/01_pages.R</code>, which sources <code>00_setup.R</code> to load all required objects.</p>
+<p>All figures and tables are produced by <code>code/deliverable05/01_pages.R</code>, which sources <code>00_setup.R</code>.</p>
+<p><strong>All figures use <code>regulatory_pages</code> as the page measure</strong> — the FRA-compliant estimate computed by <code>extract_pages.py</code>. <code>total_pages</code> (raw PDF page count) is not shown in any figure but is retained as a fallback for projects without OCR-computed regulatory pages.</p>
 <section id="figure-1-coverage-funnel-05_coverage.png" class="level3">
 <h3 class="anchored" data-anchor-id="figure-1-coverage-funnel-05_coverage.png">Figure 1: Coverage Funnel (<code>05_coverage.png</code>)</h3>
-<p>Horizontal grouped bar chart showing project counts at each inclusion step, split by EA and EIS. Percentage labels are computed relative to the starting count for each process type. This figure documents the analysis coverage so readers can assess how representative the final sample is.</p>
+<p>Horizontal grouped bar chart showing project counts at each inclusion step, split by EA and EIS. Percentage labels are computed relative to the starting count for each process type.</p>
 </section>
-<section id="figure-2-average-pages-over-time-05_pages_over_time.png" class="level3">
-<h3 class="anchored" data-anchor-id="figure-2-average-pages-over-time-05_pages_over_time.png">Figure 2: Average Pages Over Time (<code>05_pages_over_time.png</code>)</h3>
-<p>A 6-month rolling average of mean monthly page counts, faceted by process type (EA, EIS). The x-axis covers 2010–2025. Monthly raw averages are not shown directly because individual months often have small sample sizes that introduce noise. The rolling average uses <code>zoo::rollmean()</code> with <code>align = &quot;right&quot;</code> (trailing window). A red dashed vertical line marks FRA enactment (June 3, 2023).</p>
+<section id="figure-2-document-length-over-time-05_pages_over_time.png" class="level3">
+<h3 class="anchored" data-anchor-id="figure-2-document-length-over-time-05_pages_over_time.png">Figure 2: Document Length Over Time (<code>05_pages_over_time.png</code>)</h3>
+<p>Individual project points (semi-transparent, colored by FRA period) overlaid with a <strong>3-month trailing rolling average</strong> of monthly mean regulatory page counts, faceted by process type (EA, EIS). The x-axis covers 2010–2025. A red dashed vertical line marks FRA enactment (June 3, 2023). Projects without extractable OCR text are excluded. Rolling average computed using <code>zoo::rollmean(k = 3, align = &quot;right&quot;)</code>.</p>
 </section>
 <section id="figure-3-prepost-fra-bar-chart-05_pages_pre_post_fra.png" class="level3">
 <h3 class="anchored" data-anchor-id="figure-3-prepost-fra-bar-chart-05_pages_pre_post_fra.png">Figure 3: Pre/Post FRA Bar Chart (<code>05_pages_pre_post_fra.png</code>)</h3>
-<p>Grouped bar chart comparing mean total pages Pre- vs. Post-FRA, faceted by process type. Each bar is annotated with the mean page count and sample size. A diamond marker on each bar indicates the median, providing a visual indicator of skewness. The bar height (mean) and median are reported separately because the page count distribution is right-skewed, and the mean is more sensitive to extreme outliers than the median.</p>
+<p>Grouped bar chart comparing mean regulatory pages Pre- vs. Post-FRA, faceted by process type. Each bar is annotated with the mean and sample size. A diamond marker indicates the median. The distribution is right-skewed so both statistics are shown.</p>
+</section>
+<section id="figure-3b-regulatory-vs-body-pages-comparison-05_pages_reg_vs_body.png" class="level3">
+<h3 class="anchored" data-anchor-id="figure-3b-regulatory-vs-body-pages-comparison-05_pages_reg_vs_body.png">Figure 3b: Regulatory vs Body Pages Comparison (<code>05_pages_reg_vs_body.png</code>)</h3>
+<p>Grouped bar chart comparing <code>regulatory_pages</code> (word count ÷ 500) against <code>body_pages</code> (physical page count of body section with ≥50 words) within each FRA period. The gap between the two bars represents pages “lost” to the word-count normalization: sparse pages (covers, section dividers, tables) that count as full physical pages but contribute less than one regulatory page. This figure exists to validate and interpret the regulatory page measure and is not included in the primary deliverable report.</p>
 </section>
 <section id="figure-4-distribution-comparison-05_pages_distribution_boxplot.png" class="level3">
 <h3 class="anchored" data-anchor-id="figure-4-distribution-comparison-05_pages_distribution_boxplot.png">Figure 4: Distribution Comparison (<code>05_pages_distribution_boxplot.png</code>)</h3>
-<p>Violin + box plot overlay showing the full distribution of page counts Pre- vs. Post-FRA, faceted by process type. The violin shape shows the overall density; the embedded box plot shows quartiles and outliers. Median values are annotated with labeled markers. The y-axis is capped at the 99th percentile of all observations (<code>p99_pages</code>) to prevent a small number of very long documents from collapsing the scale and making the bulk of the distribution unreadable.</p>
+<p>Violin + box plot overlay of regulatory page counts Pre- vs. Post-FRA, faceted by process type. Median values are annotated. The y-axis is capped at the 99th percentile of all observations to prevent extreme outliers from collapsing the scale.</p>
 </section>
-<section id="figure-5-scatter-with-loess-trend-05_pages_scatter.png" class="level3">
-<h3 class="anchored" data-anchor-id="figure-5-scatter-with-loess-trend-05_pages_scatter.png">Figure 5: Scatter with LOESS Trend (<code>05_pages_scatter.png</code>)</h3>
-<p>Project-level scatter plot of total pages vs. decision date (2010–2025), colored by FRA period. A LOESS smooth with a 95% confidence interval is overlaid to show non-parametric trends without assuming a linear relationship. Points are semi-transparent (<code>alpha = 0.35</code>) to reduce overplotting. The red dashed FRA line is included for reference. This figure complements Figure 2 by showing the full dispersion of individual data points.</p>
-</section>
-<section id="figure-6-fra-page-limit-compliance-05_fra_compliance.png" class="level3">
-<h3 class="anchored" data-anchor-id="figure-6-fra-page-limit-compliance-05_fra_compliance.png">Figure 6: FRA Page Limit Compliance (<code>05_fra_compliance.png</code>)</h3>
-<p>Stacked bar chart restricted to Post-FRA projects, showing the share of projects that comply with FRA page limits. EA compliance is binary (≤ 75 pages / &gt; 75 pages). EIS compliance uses three tiers: compliant (≤ 150 pages), between the standard and extraordinary complexity limits (151–300 pages), and exceeding all limits (&gt; 300 pages). Color coding uses CATF brand colors: teal for compliant, amber for the middle tier, and magenta for non-compliant.</p>
+<section id="figure-5-fra-page-limit-compliance-05_fra_compliance.png" class="level3">
+<h3 class="anchored" data-anchor-id="figure-5-fra-page-limit-compliance-05_fra_compliance.png">Figure 5: FRA Page Limit Compliance (<code>05_fra_compliance.png</code>)</h3>
+<p>Stacked bar chart restricted to Post-FRA projects showing share compliant with FRA page limits, using <code>regulatory_pages</code> as the measure. EA compliance is binary (≤ 75 pages / &gt; 75 pages). EIS compliance uses three tiers: compliant (≤ 150 pages), between standard and extraordinary complexity limits (151–300 pages), and exceeding all limits (&gt; 300 pages). Color coding: teal = compliant, amber = middle tier, magenta = non-compliant.</p>
 </section>
 <section id="summary-tables" class="level3">
 <h3 class="anchored" data-anchor-id="summary-tables">Summary tables</h3>
@@ -4754,7 +4881,7 @@ vertical-align: -.125em;
 <tbody>
 <tr class="odd">
 <td><code>output/deliverable5/tables/05_pages_summary.csv</code></td>
-<td>Descriptive statistics (mean, median, SD, min, max, IQR) by process type and FRA period</td>
+<td>Descriptive statistics (mean, median, SD, IQR) by process type and FRA period — <strong>all stats computed from <code>regulatory_pages</code></strong>; also includes <code>n_ocr</code>, <code>n_no_appx_file</code>, <code>n_raw_fallback</code> source breakdown</td>
 </tr>
 <tr class="even">
 <td><code>output/deliverable5/tables/05_coverage.csv</code></td>
@@ -4771,25 +4898,35 @@ vertical-align: -.125em;
 </section>
 <section id="key-design-decisions" class="level2">
 <h2 class="anchored" data-anchor-id="key-design-decisions">4. Key Design Decisions</h2>
+<section id="regulatory-pages-as-the-primary-page-measure" class="level3">
+<h3 class="anchored" data-anchor-id="regulatory-pages-as-the-primary-page-measure">4.1 Regulatory pages as the primary page measure</h3>
+<p>All figures and tables use <code>regulatory_pages</code> rather than <code>total_pages</code> (raw PDF page count) for three reasons:</p>
+<ol type="1">
+<li><strong>Statutory alignment:</strong> The FRA defines a page as 500 words. Using word-count-normalized pages is the correct measure for the legal compliance question.</li>
+<li><strong>Embedded appendices:</strong> Approximately 52% of clean energy main EA documents and 34% of main FEIS documents contain appendices embedded within the same PDF. Raw page counts include those appendix pages; regulatory pages exclude them.</li>
+<li><strong>Low-content pages:</strong> Maps, figures, section dividers, and blank pages have few words and do not count toward the FRA limit. The regulatory page calculation excludes them by counting only words on pages with ≥50 words.</li>
+</ol>
+<p><code>total_pages</code> is retained in the dataset as a fallback and for reference, but is not shown in published figures.</p>
+</section>
+<section id="body-pages-vs-regulatory-pages" class="level3">
+<h3 class="anchored" data-anchor-id="body-pages-vs-regulatory-pages">4.2 Body pages vs regulatory pages</h3>
+<p><code>body_pages</code> (physical page count before the appendix, ≥50 words) is a simpler alternative to <code>regulatory_pages</code>. It excludes appendix pages but still treats sparse pages as full pages. <code>regulatory_pages</code> is the correct FRA measure because it applies the 500-words-per-page normalization. The two measures diverge by roughly 15–30% in practice: a document with 60 body pages averaging ~300 words/page yields ~36 regulatory pages.</p>
+</section>
 <section id="decision-date-for-fra-classification" class="level3">
-<h3 class="anchored" data-anchor-id="decision-date-for-fra-classification">4.1 Decision date for FRA classification</h3>
-<p>Projects are classified as Post-FRA when their decision date (not their initiation date) falls on or after June 3, 2023. A project that began before the FRA but received its final decision after enactment is expected to comply. Using the initiation date would misclassify some projects: a project that started in 2022 and concluded in 2024 should be subject to the limits.</p>
+<h3 class="anchored" data-anchor-id="decision-date-for-fra-classification">4.3 Decision date for FRA classification</h3>
+<p>Projects are classified as Post-FRA when their <em>decision</em> date falls on or after June 3, 2023. Using the decision date (not initiation date) reflects that a project concluding after FRA enactment is expected to comply, regardless of when it began.</p>
 </section>
-<section id="rolling-average-not-raw-monthly" class="level3">
-<h3 class="anchored" data-anchor-id="rolling-average-not-raw-monthly">4.2 Rolling average (not raw monthly)</h3>
-<p>Individual months often contain very few projects, producing noisy monthly averages. A 6-month trailing rolling average smooths the time series without obscuring the general trend. The rolling window was chosen empirically as wide enough to reduce noise but narrow enough to preserve the shape of trends over multi-year periods.</p>
+<section id="three-month-rolling-average" class="level3">
+<h3 class="anchored" data-anchor-id="three-month-rolling-average">4.4 Three-month rolling average</h3>
+<p>A 3-month trailing rolling average smooths the time series in Figure 2 without losing the shape of multi-year trends. Monthly raw averages can be noisy due to small sample sizes in any given month.</p>
 </section>
-<section id="page-count-main-document-only" class="level3">
-<h3 class="anchored" data-anchor-id="page-count-main-document-only">4.3 Page count = main document only</h3>
-<p>The <code>total_pages</code> field in <code>documents_combined.parquet</code> reflects the page count of a single PDF file. For multi-volume FEIS documents, only the primary volume (selected via the deduplication rule in §2.3) is counted. This is the appropriate measure for FRA compliance analysis: the FRA page limits apply to the main body of the document, not to appendices or supplemental volumes. Summing all volumes would overstate both the pre-FRA baseline and the post-FRA compliance gap.</p>
-</section>
-<section id="time-window-20102025" class="level3">
-<h3 class="anchored" data-anchor-id="time-window-20102025">4.4 Time window 2010–2025</h3>
-<p>Figures 2 and 5 are restricted to 2010–2025. Earlier years have few clean energy projects in the NEPATEC database and are not relevant to the FRA comparison. The 2025 cutoff reflects the current data availability.</p>
+<section id="no-appendix-file-shortcut-priority" class="level3">
+<h3 class="anchored" data-anchor-id="no-appendix-file-shortcut-priority">4.5 No-appendix file shortcut priority</h3>
+<p>When a project has an explicit appendix-free document on record (e.g., <code>*_wo_appendices.pdf</code>), that file’s page count is used directly as <code>regulatory_pages</code>, bypassing OCR extraction. This is more reliable than algorithmic appendix detection because the agency itself produced the clean version. Only a handful of projects qualify for this shortcut in the current dataset.</p>
 </section>
 <section id="p99-cap-on-distribution-figure" class="level3">
-<h3 class="anchored" data-anchor-id="p99-cap-on-distribution-figure">4.5 P99 cap on distribution figure</h3>
-<p>A small number of very long documents (e.g., multi-year large-scale EISs running into thousands of pages) would dominate the y-axis scale if plotted without truncation. The 99th percentile cap retains the bulk of the distribution in view while acknowledging the existence of extreme outliers in the figure caption.</p>
+<h3 class="anchored" data-anchor-id="p99-cap-on-distribution-figure">4.6 P99 cap on distribution figure</h3>
+<p>A small number of very long documents would dominate the y-axis scale without truncation. The 99th percentile cap retains the bulk of the distribution while acknowledging outliers in the caption.</p>
 <hr>
 </section>
 </section>
@@ -4811,11 +4948,11 @@ vertical-align: -.125em;
 <tbody>
 <tr class="odd">
 <td><code>pages_data</code></td>
-<td>Full merged dataset: all clean energy EA/EIS projects with both a timeline record and a final document. Includes <code>total_pages</code>, <code>timeline_initiation_date</code>, <code>timeline_decision_date</code>. Missing timeline dates are retained.</td>
+<td>Full merged dataset: clean energy EA/EIS projects with timeline, document, and regulatory page count data. Includes <code>total_pages</code> (raw), <code>regulatory_pages</code> (primary measure), <code>reg_pages_source</code> (method flag), and page count components (<code>body_pages</code>, <code>low_content_pages</code>, <code>appendix_start_page</code>).</td>
 </tr>
 <tr class="even">
 <td><code>pages_analysis</code></td>
-<td>Analysis subset: <code>pages_data</code> filtered to complete timelines (non-missing initiation + decision), with <code>fra_period</code>, <code>decision_year</code>, <code>decision_month</code>, <code>duration_days</code>, and <code>duration_months</code> added.</td>
+<td>Analysis subset: <code>pages_data</code> filtered to complete timelines, with <code>fra_period</code>, <code>decision_year</code>, <code>decision_month</code>, <code>duration_days</code>, and <code>duration_months</code> added.</td>
 </tr>
 <tr class="odd">
 <td><code>coverage</code></td>
@@ -4823,14 +4960,18 @@ vertical-align: -.125em;
 </tr>
 <tr class="even">
 <td><code>fra_date</code></td>
-<td>Constant: <code>as.Date(&quot;2023-06-03&quot;)</code>. Used for FRA classification and vertical line placement in figures.</td>
+<td>Constant: <code>as.Date(&quot;2023-06-03&quot;)</code>.</td>
 </tr>
 </tbody>
 </table>
 </section>
 <section id="upstream-parquet-inputs-not-modified" class="level3">
 <h3 class="anchored" data-anchor-id="upstream-parquet-inputs-not-modified">Upstream parquet inputs (not modified)</h3>
-<p>This deliverable reads from three upstream parquet files but does not write any new parquet outputs. All outputs are figures (PNG) and tables (CSV).</p>
+<p><code>projects_combined.parquet</code>, <code>documents_combined.parquet</code>, and the two timeline parquets are read-only inputs.</p>
+</section>
+<section id="intermediate-output-written-by-extract_pages.py" class="level3">
+<h3 class="anchored" data-anchor-id="intermediate-output-written-by-extract_pages.py">Intermediate output written by <code>extract_pages.py</code></h3>
+<p><code>data/analysis/projects_page_counts.parquet</code> — one row per clean energy main EA/FEIS document. Must be regenerated when <code>projects_combined.parquet</code> is updated.</p>
 <hr>
 </section>
 </section>
@@ -4838,33 +4979,38 @@ vertical-align: -.125em;
 <h2 class="anchored" data-anchor-id="known-limitations">6. Known Limitations</h2>
 <section id="small-post-fra-sample" class="level3">
 <h3 class="anchored" data-anchor-id="small-post-fra-sample">6.1 Small Post-FRA sample</h3>
-<p>Only approximately 2.5 years of post-FRA projects are available (June 2023 to present as of analysis date). This produces a small Post-FRA sample (dozens of projects vs. hundreds Pre-FRA), limiting the statistical power of Pre/Post comparisons. Differences observed may not be statistically significant and should be interpreted cautiously.</p>
+<p>Only approximately 2.5 years of Post-FRA data are available (June 2023 to present). This produces a small Post-FRA sample, limiting the statistical power of Pre/Post comparisons.</p>
 </section>
 <section id="descriptive-analysis-only" class="level3">
 <h3 class="anchored" data-anchor-id="descriptive-analysis-only">6.2 Descriptive analysis only</h3>
-<p>Changes in page counts after FRA could reflect shifts in project complexity, agency composition, technology mix, or the types of projects reviewed — not solely FRA-driven compliance behavior. The analysis does not control for confounders and cannot establish a causal link between FRA enactment and changes in document length. Figures 2 and 5 suggest that document length was already declining before FRA enactment, which further complicates attribution.</p>
+<p>Changes in page counts after FRA could reflect shifts in project complexity, agency composition, or technology mix — not solely FRA-driven compliance. The analysis does not control for confounders. Figure 2 suggests document length was already declining before FRA enactment, which further complicates attribution.</p>
+</section>
+<section id="regulatory-page-estimates-are-approximate" class="level3">
+<h3 class="anchored" data-anchor-id="regulatory-page-estimates-are-approximate">6.3 Regulatory page estimates are approximate</h3>
+<p>OCR quality varies across documents. Fully scanned (image-only) PDFs return no extractable text and fall back to <code>total_pages</code>. In ~5% of cases, <code>regulatory_pages</code> exceeds <code>total_pages</code> because table-dense OCR text inflates word counts. The appendix detection heuristic may occasionally miss non-standard section headers or misidentify a body page as an appendix start.</p>
 </section>
 <section id="compliance-without-context" class="level3">
-<h3 class="anchored" data-anchor-id="compliance-without-context">6.3 Compliance without context</h3>
-<p>A project exceeding FRA page limits may have received a regulatory waiver, may have been initiated substantially before FRA enactment, or may involve extraordinary complexity that justifies a higher limit. The compliance figure (Figure 6) treats all Post-FRA projects uniformly and does not distinguish these cases. The framing should note that “non-compliance” in this analysis means exceeding the numerical threshold, not necessarily a violation of the statute.</p>
+<h3 class="anchored" data-anchor-id="compliance-without-context">6.4 Compliance without context</h3>
+<p>A project exceeding FRA page limits may have received a regulatory waiver, may have been initiated before FRA, or may involve extraordinary complexity. The compliance figure treats all Post-FRA projects uniformly.</p>
 </section>
 <section id="timeline-dependency" class="level3">
-<h3 class="anchored" data-anchor-id="timeline-dependency">6.4 Timeline dependency</h3>
-<p>The analysis requires complete timelines (both initiation and decision dates) because the FRA classification and all time-series figures depend on the decision date. Projects without extractable timeline dates are excluded from the analysis sample. The coverage funnel (Figure 1) documents the share excluded at this step, but the excluded set may be systematically different from the included set (e.g., older projects or projects where dates appear in non-standard formats may be underrepresented).</p>
+<h3 class="anchored" data-anchor-id="timeline-dependency">6.5 Timeline dependency</h3>
+<p>Projects without complete timelines (both initiation and decision dates) are excluded from all figures. These may be systematically different from the included set.</p>
 </section>
-<section id="no-appendices-or-supplemental-volumes" class="level3">
-<h3 class="anchored" data-anchor-id="no-appendices-or-supplemental-volumes">6.5 No appendices or supplemental volumes</h3>
-<p>The page count measure reflects the single primary document selected per project (see §4.3). For agencies that routinely split their NEPA documents across many volumes or appendices, this measure understates the total documentation burden and overstates apparent compliance with FRA limits.</p>
+<section id="separate-supplemental-volumes-not-summed" class="level3">
+<h3 class="anchored" data-anchor-id="separate-supplemental-volumes-not-summed">6.6 Separate supplemental volumes not summed</h3>
+<p>The page count reflects the single primary document selected per project. Agencies that split their NEPA documents across many separate volumes may appear to have shorter documents than they actually do.</p>
 <hr>
 </section>
 </section>
 <section id="validation" class="level2">
 <h2 class="anchored" data-anchor-id="validation">7. Validation</h2>
-<p>No formal validation step is implemented for this deliverable. Inspection points recommended before finalizing the report:</p>
+<p>Inspection points recommended before finalizing the report:</p>
 <ul>
-<li>Review the coverage funnel numbers to assess whether the analysis sample is representative of the full clean energy EA/EIS population</li>
-<li>Check for zero-page or implausibly low page count records in the final sample, which may indicate metadata extraction errors in the upstream pipeline</li>
-<li>Compare the Pre-FRA and Post-FRA sample compositions (by energy type, agency, and project size) to assess whether confounders could explain observed page count differences</li>
+<li>At script runtime, check the <code>regulatory_pages source: ocr = N | no_appendix_file = N | raw_fallback = N</code> line. A high <code>raw_fallback</code> count means <code>extract_pages.py</code> should be re-run.</li>
+<li>Review the coverage funnel numbers to assess whether the analysis sample is representative of the full clean energy EA/EIS population.</li>
+<li>For Figure 3b (regulatory vs body pages comparison), check that the gap between the two bars is plausible (~15–30% difference is typical). A very large gap may indicate over-detection of appendix headers.</li>
+<li>Compare the Pre-FRA and Post-FRA sample compositions (energy type, agency, project size) to assess whether confounders could explain observed differences.</li>
 </ul>
 
 
