@@ -1,8 +1,8 @@
 # --------------------------
-# DELIVERABLE 1: CLEAN ENERGY BY LEAD AGENCY
+# DELIVERABLE 1: DECARBONIZATION TECHNOLOGY BY LEAD AGENCY
 # --------------------------
-# Table 2: Clean Energy by Lead Agency
-# Analysis of which agencies handle clean energy projects
+# Table 2: Decarbonization Technology by Lead Agency
+# Analysis of which agencies handle decarbonization technology projects
 
 # --------------------------
 # SETUP
@@ -78,9 +78,9 @@ fig_departments <- department_counts %>%
   geom_col(fill = catf_dark_blue) +
   geom_text(aes(label = scales::comma(n_projects)), hjust = -0.1, size = 3) +
   labs(
-    x = "Number of Clean Energy Projects",
+    x = "Number of Projects Tagged with Decarbonization Technologies",
     y = NULL,
-    title = "Clean Energy Projects by Federal Department"
+    title = "Projects Tagged with Decarbonization Technologies by Federal Department"
   ) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 10)) +
@@ -400,3 +400,105 @@ ggsave(
   dpi = 300
 )
 cat("  Saved: 03_key_agency_process.png\n")
+
+
+# --------------------------
+# FIGURE: COVERAGE-VERIFIED AGENCIES ONLY (DOE, BLM, FOREST SERVICE)
+# --------------------------
+# These three agencies have comprehensive EA/CE data in NEPATEC.
+# All other agencies appear primarily via the EPA EIS database (EIS only).
+
+coverage_verified <- bind_rows(
+  # DOE: use full department
+  agency_data %>%
+    filter(department == "Department of Energy") %>%
+    mutate(agency_label = "Dept. of Energy (DOE)", dept_label = "Department of Energy"),
+  # BLM and Forest Service from key agency matches
+  key_agency_data %>%
+    filter(matched_agency %in% c("Bureau of Land Management", "Forest Service")) %>%
+    mutate(
+      agency_label = case_when(
+        matched_agency == "Bureau of Land Management" ~ "Bureau of Land Management (BLM)",
+        matched_agency == "Forest Service" ~ "Forest Service (USFS)"
+      ),
+      dept_label = case_when(
+        matched_agency == "Bureau of Land Management" ~ "Department of the Interior",
+        matched_agency == "Forest Service" ~ "Department of Agriculture"
+      )
+    )
+) %>%
+  count(dept_label, agency_label, process_type) %>%
+  group_by(agency_label) %>%
+  mutate(
+    total = sum(n),
+    share = n / total
+  ) %>%
+  ungroup()
+
+coverage_totals <- coverage_verified %>%
+  distinct(dept_label, agency_label, total)
+
+dept_order_cv <- c("Department of Energy", "Department of the Interior", "Department of Agriculture")
+dept_labels_cv <- c(
+  "Department of Energy" = "Department\nof Energy",
+  "Department of the Interior" = "Department\nof the Interior",
+  "Department of Agriculture" = "Department\nof Agriculture"
+)
+
+coverage_verified <- coverage_verified %>%
+  mutate(dept_label = factor(dept_label, levels = dept_order_cv, labels = dept_labels_cv[dept_order_cv]))
+
+coverage_totals <- coverage_totals %>%
+  mutate(dept_label = factor(dept_label, levels = dept_order_cv, labels = dept_labels_cv[dept_order_cv]))
+
+fig_coverage_verified <- coverage_verified %>%
+  ggplot(aes(x = agency_label, y = share, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(share >= 0.03, scales::percent(share, accuracy = 1), "")),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "white"
+  ) +
+  geom_text(
+    data = coverage_totals,
+    aes(x = agency_label, y = 1.02, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
+  ) +
+  coord_flip(clip = "off") +
+  facet_grid(dept_label ~ ., scales = "free_y", space = "free_y", switch = "y") +
+  labs(
+    x = NULL,
+    y = "Share of Projects",
+    fill = "Process Type",
+    title = "NEPA Process Type Distribution (Coverage-Verified Agencies)",
+    caption = "Only agencies with comprehensive EA/CE data in NEPATEC: DOE (all sub-agencies), BLM, and Forest Service.\nAll other agencies appear primarily via EIS records only. Numbers on right show total project count."
+  ) +
+  scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_manual(
+    values = c("CE" = catf_dark_blue, "EA" = catf_teal, "EIS" = catf_magenta)
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 9),
+    strip.text.y.left = element_text(size = 9, face = "bold", angle = 0, hjust = 1, lineheight = 1.1),
+    strip.background = element_rect(fill = "grey95", color = NA),
+    strip.placement = "outside",
+    panel.spacing = unit(0.8, "lines"),
+    plot.margin = margin(10, 30, 10, 10)
+  )
+
+fig_coverage_verified
+
+ggsave(
+  filename = here(figures_dir, "04_coverage_verified_process.png"),
+  plot = fig_coverage_verified,
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+cat("  Saved: 04_coverage_verified_process.png\n")

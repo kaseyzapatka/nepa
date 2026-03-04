@@ -1,7 +1,7 @@
 # --------------------------
 # DELIVERABLE 3: TIMELINE ANALYSIS
 # --------------------------
-# Harmonized timeline extraction for clean energy projects
+# Harmonized timeline extraction for decarbonization technologies projects
 # Current inputs:
 # - CE: data/analysis/projects_timeline_bert.parquet (BERT final dates)
 # - EA: data/analysis/projects_timeline_bert_ea_llm.parquet (LLM dates)
@@ -68,7 +68,7 @@ n_errors <- sum(!is.na(timeline$bert_error))
 
 coverage_table <- tibble(
   Metric = c(
-    sprintf("Total clean energy projects (%s)", timeline_sources_label),
+    sprintf("Total decarbonization technologies projects (%s)", timeline_sources_label),
     "Decision date found",
     "Explicit initiation date found",
     "Inferred initiation (earliest review as proxy)",
@@ -350,7 +350,7 @@ fig_by_year <- ggplot(year_counts, aes(x = bert_year, y = n_projects)) +
   scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.22)), labels = scales::comma) +
   labs(
-    title = "Clean Energy Projects by Decision Year",
+    title = "Decarbonization Technologies Projects by Decision Year",
     subtitle = "Faceted by NEPA review process. Dashed lines mark major legislation.",
     x = "Decision Year",
     y = "Number of Projects",

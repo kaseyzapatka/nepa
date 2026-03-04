@@ -1,5 +1,5 @@
 ---
-title: "NEPA Project Analysis: Clean Energy Environmental Reviews"
+title: "NEPA Project Analysis: Decarbonization Technology Environmental Reviews"
 subtitle: "National Environmental Policy Act Text Corpus (NEPATEC) 2.0 Analysis"
 author: "Your Name"
 date: "`r Sys.Date()`"
@@ -175,7 +175,7 @@ For this project, we want to create tables, figures, and maps that help us learn
 
 # Create timeline table for Phase 1 deliverables
 phase1_timeline <- data.frame(
-  Deliverable = c("1. Clean Energy Projects", "2. Programmatic Reviews", 
+  Deliverable = c("1. Decarbonization Technology Projects", "2. Programmatic Reviews", 
                   "3. CE vs EA vs EIS", "4. Geography", "5. Pages Over Time", 
                   "6. Technology-Specific"),
   Due_Date = c("Jan 23, 2026", "Feb 6, 2026", "Jan 23, 2026", 
@@ -229,7 +229,7 @@ project_timeline <- data.frame(
   Meeting = c("Kickoff", "1", "2", "3", "4"),
   Date = c("Jan 9, 2026", "Jan 23, 2026", "Feb 6, 2026", "Feb 27, 2026", "Mar 6, 2026"),
   Deliverables = c("(0) Build database", 
-                   "(1) Clean energy projects<br>(3) CE vs EA vs EIS",
+                   "(1) Decarbonization technology projects<br>(3) CE vs EA vs EIS",
                    "(2) Reviews<br>(4) Geography",
                    "(5) Pages<br>(6) Technology",
                    "Present all findings")
@@ -250,11 +250,11 @@ This project is organized into the following directories:
 - **`notes/`**: Internal project documentation and working notes
 - **`literature/`**: Reference materials and background documents
 
-# Definitions: What Qualifies as Clean Energy?
+# Definitions: What Qualifies as Decarbonization Technology?
 
 ## Background
 
-This section defines the universe of clean energy projects analyzed across all deliverables of the NEPA Clean Energy Analysis. It describes the classification criteria, exclusion rules, and refinements applied to identify clean energy projects within the publicly released [NEPATEC 2.0 database](https://huggingface.co/datasets/PNNL/NEPATEC2.0) — a comprehensive record of federal environmental review activity under the National Environmental Policy Act (NEPA).
+This section defines the universe of clean energy projects analyzed across all deliverables of the NEPA Decarbonization Technology Analysis. It describes the classification criteria, exclusion rules, and refinements applied to identify clean energy projects within the publicly released [NEPATEC 2.0 database](https://huggingface.co/datasets/PNNL/NEPATEC2.0) — a comprehensive record of federal environmental review activity under the National Environmental Policy Act (NEPA).
 
 Understanding this classification framework is foundational: every project count, timeline, agency breakdown, and geographic pattern reported in subsequent deliverables flows from the decisions documented here.
 
@@ -280,7 +280,7 @@ knitr::include_graphics(file.path(ce_figures, "00_fig_projects_by_review.png"))
 knitr::include_graphics(file.path(ce_figures, "00_fig_clean_energy_by_review.png"))
 ```
 
-## What Qualifies as Clean Energy?
+## What Qualifies as Decarbonization Technology?
 
 @tbl-energy-tags enumerates the CAFT-defined 14 clean energy and 5 fossil fuel categories used to identify clean vs fossil fuel energy projects in the NEPA database. While projects often have multiple tags, "clean energy" is identified as having at least one of the 14 tags _AND_ no fossil fuel tags.
 
@@ -290,7 +290,7 @@ knitr::include_graphics(file.path(ce_figures, "00_fig_clean_energy_by_review.png
 #| echo: false
 
 tibble(
-  `Clean Energy Tags` = c(
+  `Decarbonization Technology Tags` = c(
     "Carbon Capture and Sequestration",
     "Conventional Energy Production - Nuclear",
     "Conventional Energy Production - Other",
@@ -319,10 +319,10 @@ tibble(
   ) |>
   tab_footnote(
     footnote = "Includes Biomass, Energy Storage, Geothermal, Hydrokinetic, Hydropower, Solar, Wind (Offshore & Onshore), and \nOther",
-    locations = cells_body(columns = `Clean Energy Tags`, rows = 6)
+    locations = cells_body(columns = `Decarbonization Technology Tags`, rows = 6)
   ) |>
   cols_width(
-    `Clean Energy Tags` ~ px(350),
+    `Decarbonization Technology Tags` ~ px(350),
     `Fossil Energy Tags` ~ px(350)
   )
 ```
@@ -339,7 +339,7 @@ knitr::include_graphics(file.path(ce_figures, "00_energy_type_breakdown.png"))
 
 About **10% of projects have only clean energy tags**, but most (about 90%) have at least 1 clean energy tag plus some other combination of tags.
 
-### Refining Clean Energy
+### Refining Decarbonization Technology
 
 After reviewing a [table of all co-occurring project types](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1809595689#gid=1809595689), three refinements were applied to improve the precision of the "clean energy" classification:
 

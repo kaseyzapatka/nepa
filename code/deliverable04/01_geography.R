@@ -1,7 +1,7 @@
 # --------------------------
 # DELIVERABLE 4: MUTLI-STATE, MULTI-DEPARTMENT
 # --------------------------
-# Geographic analysis of clean energy projects with across multiple states and departments (agencies)
+# Geographic analysis of decarbonization technology projects with across multiple states and departments (agencies)
 
 # --------------------------
 # SETUP
@@ -361,7 +361,7 @@ map_state_links <- ggplot() +
     expand = FALSE
   ) +
   labs(
-    title = "Interstate Clean Energy Project Connections",
+    title = "Interstate Decarbonization Technology Project Connections",
     subtitle = "Line thickness reflects number of shared projects; labels show top corridor counts",
     caption = "Connections shown for state pairs with 10+ shared projects"
   ) +
@@ -415,7 +415,7 @@ geom_col(fill = catf_dark_blue, width = 0.7) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(
     title = "Multi-State Projects by NEPA Process Type",
-    subtitle = paste0("n = ", sum(process_breakdown$n_projects), " multi-state clean energy projects"),
+    subtitle = paste0("n = ", sum(process_breakdown$n_projects), " multi-state decarbonization technology projects"),
     x = NULL,
     y = "Number of Projects"
   ) +
@@ -602,7 +602,7 @@ fig_process_breakdown_multiagency <- ggplot(
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(
     title = "Multi-Department Projects by NEPA Process Type",
-    subtitle = paste0("n = ", sum(process_breakdown_multiagency$n_projects), " multi-department clean energy projects"),
+    subtitle = paste0("n = ", sum(process_breakdown_multiagency$n_projects), " multi-department decarbonization technology projects"),
     x = NULL,
     y = "Number of Projects"
   ) +

@@ -290,7 +290,7 @@ fig_share <- ggplot(review_counts,
   labs(
     title    = "Review Type Distribution",
     subtitle = sprintf(
-      "Clean energy EA/EIS projects in NEPATEC 2.0  (n = %s total)",
+      "Decarbonization technology EA/EIS projects in NEPATEC 2.0  (n = %s total)",
       comma(nrow(reviews))
     ),
     x = "Number of projects",

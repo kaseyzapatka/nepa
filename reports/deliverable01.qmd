@@ -1,6 +1,6 @@
 ---
-title: "NEPA Clean Energy Analysis: Deliverable 1"
-subtitle: "Clean Energy Project Landscape"
+title: "NEPA Decarbonization Technologies Analysis: Deliverable 1"
+subtitle: "Decarbonization Technologies Project Landscape"
 date: today
 format:
   html:
@@ -27,6 +27,15 @@ library(tibble)
 d1_figures <- here("output", "deliverable1", "figures")
 d1_maps <- here("output", "deliverable1", "maps")
 d1_tables <- here("output", "deliverable1", "tables")
+
+# Read project overview source so this report stays synced to the canonical
+# definitions document used across deliverables.
+project_overview_path <- here("reports", "project_overview.qmd")
+if (!file.exists(project_overview_path)) {
+  stop("Missing required file: ", project_overview_path)
+}
+project_overview_source <- readr::read_file(project_overview_path)
+project_overview_last_updated <- as.Date(file.info(project_overview_path)$mtime)
 ```
 
 
@@ -34,9 +43,9 @@ d1_tables <- here("output", "deliverable1", "tables")
 
 This report aims to create the following set of deliverables:
 
-> Data on number of clean energy projects within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
+> Data on number of projects tagged with decarbonization technologies within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
 
-For a full description of how “clean energy” is defined and classified in this analysis — including inclusion/exclusion criteria and the overall project universe — see the [Project Overview](project_overview.qmd) document.
+For a full description of how “decarbonization technologies” are defined and classified in this analysis — including inclusion/exclusion criteria and the overall project universe — see the [Project Overview](project_overview.qmd) document (last updated `r project_overview_last_updated`).
 
 ---
 
@@ -44,14 +53,14 @@ For a full description of how “clean energy” is defined and classified in th
 
 ::: {.callout-tip}
 ## Key Findings: Technology
-**Utilities, Electricity Transmission, and Nuclear Technology dominate** the clean energy NEPA landscape. Utility and Electricity Transmission projects comprise the largest share, reflecting the infrastructure build out required to connect renewable generation to load centers. The prominence of nuclear and solar projects are interesting. When looking at how clean energy technologies breakdown by review process, most are granted "Categorical Exclusion (CE)" status, with Hydropower, nuclear, and wind producing projects to be notable exceptions.  
+**Utilities, Electricity Transmission, and Nuclear Technology dominate** the decarbonization technology NEPA landscape. Utility and Electricity Transmission projects comprise the largest share, reflecting the infrastructure build out required to connect renewable generation to load centers. The prominence of nuclear and solar projects are interesting. When looking at how decarbonization technology tags breakdown by review process, most are granted "Categorical Exclusion (CE)" status, with Hydropower, nuclear, and wind producing projects to be notable exceptions.  
 :::
 
-The first deliverable examines how clean energy projects breakdown by technology.
+The first deliverable examines how projects tagged with decarbonization technologies breakdown by technology.
 
 ```{r}
 #| label: fig-technology
-#| fig-cap: "Distribution of clean energy projects by technology type. Projects may have multiple technology tags."
+#| fig-cap: "Distribution of projects tagged with decarbonization technologies by technology type. Projects may have multiple technology tags."
 
 knitr::include_graphics(file.path(d1_figures, "01_clean_energy_bar_chart.png"))
 ```
@@ -61,7 +70,7 @@ A second interesting analysis is to view how the technologies break down by revi
 
 ```{r}
 #| label: fig-technology-by-review
-#| fig-cap: "Distribution of clean energy projects by technology type and review status. Projects may have multiple technology tags."
+#| fig-cap: "Distribution of projects tagged with decarbonization technologies by technology type and review status. Projects may have multiple technology tags."
 
 knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.png"))
 ```
@@ -73,14 +82,14 @@ knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.pn
 
 ::: {.callout-tip}
 ## Key Finding: Agency
-**Department of Energy (DOE) dominates** clean energy NEPA reviews (81% of projects), followed by Interior (17%). Notably, DOE processes the vast majority through Categorical Exclusions (CE) (96%), while Interior shows more variation across process types.  This concentration suggests DOE's loan programs and grid modernization initiatives drive most federal clean energy review activity.Most other agencies have a substantial share of projects requiring Environmental Impact Statements (EIS) or Enviornmental Assessement (EA).
+**Department of Energy (DOE) dominates** decarbonization technology NEPA reviews (81% of projects), followed by Interior (17%). Notably, DOE processes the vast majority through Categorical Exclusions (CE) (96%), while Interior shows more variation across process types.  This concentration suggests DOE's loan programs and grid modernization initiatives drive most federal decarbonization technology review activity.Most other agencies have a substantial share of projects requiring Environmental Impact Statements (EIS) or Enviornmental Assessement (EA).
 :::
 
 This next deliverable examines project counts by lead agency. In this analysis, agency has been aggregated up to department for parsimony, since agency was less informative. @tbl-department reports counts by agency and review process with @fig-dept visualizing counts by agency and @fig-dept-process visualizing counts by agency and review process. 
 
 ```{r}
 #| label: tbl-department
-#| tbl-cap: "Clean energy projects by lead federal department and NEPA process type"
+#| tbl-cap: "Projects tagged with decarbonization technologies by lead federal department and NEPA process type"
 
 read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALSE) |>
   kable(format.args = list(big.mark = ",")) |>
@@ -90,7 +99,7 @@ read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALS
 
 ```{r}
 #| label: fig-dept
-#| fig-cap: "Clean energy projects by lead department"
+#| fig-cap: "Projects tagged with decarbonization technologies by lead department"
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
@@ -106,7 +115,7 @@ knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
 
 ## Key Agency Deep Dive
 
-While the department-level analysis provides a high-level view, a closer look at specific agencies within DOE, Interior, and USDA reveals important patterns. @tbl-key-agencies shows project counts by NEPA process type for key agencies involved in clean energy infrastructure, and @fig-key-agency-process visualizes the share of each process type by agency.
+While the department-level analysis provides a high-level view, a closer look at specific agencies within DOE, Interior, and USDA reveals important patterns. @tbl-key-agencies shows project counts by NEPA process type for key agencies involved in decarbonization technology infrastructure, and @fig-key-agency-process visualizes the share of each process type by agency.
 
 ::: {.callout-note}
 **Note on DOE Power Marketing Administrations:** The source data combines all Power Marketing Administrations (Bonneville, Southeastern, Southwestern, and Western Area) under a single "Power Marketing Administration" category. Individual PMA-level breakdowns are not available in the current dataset.
@@ -114,7 +123,7 @@ While the department-level analysis provides a high-level view, a closer look at
 
 ```{r}
 #| label: tbl-key-agencies
-#| tbl-cap: "Clean energy projects by key federal agency and NEPA process type"
+#| tbl-cap: "Projects tagged with decarbonization technologies by key federal agency and NEPA process type"
 
 read_csv(file.path(d1_tables, "table_key_agencies.csv"), show_col_types = FALSE) |>
   kable(format.args = list(big.mark = ",")) |>
@@ -138,7 +147,7 @@ knitr::include_graphics(file.path(d1_figures, "03_key_agency_process.png"))
 
 ::: {.callout-tip}
 ## Key Finding: Geography
-Clean energy projects concentrate in the **Western states and South Carolina**. South Carolina has the most projects (largely driven by nuclear projects at the Savannah River Site), followed by Washington, California, and Idaho. The county-level map reveals clustering around major federal facilities and high-resource renewable areas (desert Southwest for solar, nuclear facilities, and national labs). There does not seem to be a clear finding for the distribution of the NEPA review process by type. 
+Projects tagged with decarbonization technologies concentrate in the **Western states and South Carolina**. South Carolina has the most projects (largely driven by nuclear projects at the Savannah River Site), followed by Washington, California, and Idaho. The county-level map reveals clustering around major federal facilities and high-resource renewable areas (desert Southwest for solar, nuclear facilities, and national labs). There does not seem to be a clear finding for the distribution of the NEPA review process by type. 
 :::
 
 The final deliverable examines geographic location of projects. @tbl-state reports project counts by NEPA process type, @fig-state-map visualizes that with a state map, and @fig-county-map does so by county. [Click here for a complete table](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1065723676#gid=1065723676) of project count by county, which is prohibitively large.
@@ -149,7 +158,7 @@ The final deliverable examines geographic location of projects. @tbl-state repor
 
 ```{r}
 #| label: tbl-state
-#| tbl-cap: "Top 15 states by clean energy project count and NEPA process type"
+#| tbl-cap: "Top 15 states by decarbonization technology project count and NEPA process type"
 
 read_csv(file.path(d1_tables, "table3_by_state.csv"), show_col_types = FALSE) |>
   head(16) |>  # Top 15 + header info
@@ -164,7 +173,7 @@ read_csv(file.path(d1_tables, "table3_by_state.csv"), show_col_types = FALSE) |>
 
 ```{r}
 #| label: fig-state-map
-#| fig-cap: "Clean energy projects by state. Alaska and Hawaii repositioned for display."
+#| fig-cap: "Projects tagged with decarbonization technologies by state. Alaska and Hawaii repositioned for display."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d1_maps, "09_state_choropleth.png"))
@@ -173,11 +182,11 @@ knitr::include_graphics(file.path(d1_maps, "09_state_choropleth.png"))
 
 South Carolina clearly sticks out with the number of projects in the state. Click here to explore a [more detailed table](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=991995876#gid=991995876) of projects there.
 
-@fig-top-states shows the top 20 states ranked by total clean energy project count. South Carolina leads with over 4,000 projects, followed by Washington, California, and Idaho. This geographic concentration reflects both the location of major federal facilities (like the Savannah River Site in South Carolina) and regions with high renewable energy potential.
+@fig-top-states shows the top 20 states ranked by total decarbonization technology project count. South Carolina leads with over 4,000 projects, followed by Washington, California, and Idaho. This geographic concentration reflects both the location of major federal facilities (like the Savannah River Site in South Carolina) and regions with high renewable energy potential.
 
 ```{r}
 #| label: fig-top-states
-#| fig-cap: "Top 20 states by clean energy project count."
+#| fig-cap: "Top 20 states by decarbonization technology project count."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d1_figures, "07_top_states.png"))
@@ -196,7 +205,7 @@ knitr::include_graphics(file.path(d1_figures, "08_state_process_type.png"))
 
 ## County-Level Distribution
 
-County-level geographic data is available for approximately **48% of clean energy projects** overall. However, coverage varies significantly by NEPA review process, as shown in @tbl-county-coverage below.
+County-level geographic data is available for approximately **48% of projects tagged with decarbonization technologies** overall. However, coverage varies significantly by NEPA review process, as shown in @tbl-county-coverage below.
 
 ```{r}
 #| label: tbl-county-coverage
@@ -233,7 +242,7 @@ At the county level, Aiken, South Carolina, has a number of projects that are la
 
 ```{r}
 #| label: fig-county-map
-#| fig-cap: "Clean energy projects by county. Note: County data available for approximately 47% of projects."
+#| fig-cap: "Projects tagged with decarbonization technologies by county. Note: County data available for approximately 47% of projects."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d1_maps, "10_county_choropleth.png"))
@@ -391,4 +400,4 @@ eis_sample |>
 
 ---
 
-*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
+*Report generated `r Sys.Date()` | NEPA Decarbonization Technologies Analysis*

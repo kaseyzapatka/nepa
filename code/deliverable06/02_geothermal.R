@@ -128,7 +128,7 @@ fig_phase_bar <- analysis %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(
     title = "Geothermal NEPA Actions by Development Phase",
-    subtitle = "914 clean energy projects identified in NEPATEC 2.0",
+    subtitle = "914 decarbonization technology projects identified in NEPATEC 2.0",
     x = NULL,
     y = "Number of projects"
   ) +

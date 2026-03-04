@@ -1,8 +1,8 @@
 # --------------------------
-# DELIVERABLE 1: CLEAN ENERGY BY LOCATION
+# DELIVERABLE 1: DECARBONIZTION TECHNOLOGY BY LOCATION
 # --------------------------
-# Table 3: Clean Energy by State
-# Geographic analysis of clean energy projects
+# Table 3: Decarbonization Technology by State
+# Geographic analysis of decarbonization technology projects
 
 # --------------------------
 # SETUP
@@ -35,7 +35,7 @@ state_counts %>% slice_head(n = 10) %>% print()
 # TABLE 3: BY STATE
 # --------------------------
 
-cat("\nCreating Table 3: Clean Energy by Location (State)...\n")
+cat("\nCreating Table 3: Decarbonization Technology by Location (State)...\n")
 
 table3 <- create_crosstab(location_data, "project_state")
 
@@ -69,9 +69,9 @@ fig_top_states <- top_states %>%
   geom_col(fill = catf_dark_blue) +
   geom_text(aes(label = n_projects), hjust = -0.2, size = 3) +
   labs(
-    x = "Number of Clean Energy Projects",
+    x = "Number of Projects Tagged with Decarbonization Technologies",
     y = NULL,
-    title = "Top 20 States for Clean Energy Projects"
+    title = "Top 20 States for Projects Tagged with Decarbonization Technologies"
   ) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 9)) +
@@ -211,7 +211,7 @@ pct_with_county <- round(100 * n_projects_with_county / nrow(clean_energy), 1)
 n_missing_county <- nrow(clean_energy) - n_projects_with_county
 
 cat("  Projects with county data:", n_projects_with_county,
-    "(", pct_with_county, "% of clean energy projects)\n")
+    "(", pct_with_county, "% of decarbonization technology projects)\n")
 cat("  Projects missing county:", n_missing_county, "\n")
 
 
@@ -237,7 +237,7 @@ fig_state_choropleth <- ggplot(state_map_data) +
     trans = "sqrt"
   ) +
   labs(
-    title = "Clean Energy Projects by State",
+    title = "Projects Tagged with Decarbonization Technologies by State",
     subtitle = paste0("Total: ", scales::comma(sum(state_counts$n_projects)), " project-state pairs"),
     caption = paste0(
       "Note: Projects spanning multiple states are counted in each state.\n",
@@ -279,10 +279,10 @@ fig_county_choropleth <- ggplot(county_map_data) +
     trans = "sqrt"
   ) +
   labs(
-    title = "Clean Energy Projects by County",
+    title = "Projects Tagged with Decarbonization Technologies by County",
     subtitle = paste0(scales::comma(sum(county_counts$n_projects)), " project-county pairs shown"),
     caption = paste0(
-      "Note: County data available for ", pct_with_county, "% of clean energy projects ",
+      "Note: County data available for ", pct_with_county, "% of projects tagged with decarbonization technologies ",
       "(", scales::comma(n_missing_county), " projects missing county information).\n",
       "Projects spanning multiple counties are counted in each county."
     )
@@ -372,10 +372,10 @@ create_choropleth_map <- function(process_type_value, process_type_label) {
       na.value = "grey95"
     ) +
     labs(
-      title = paste0("Clean Energy Projects by County: ", process_type_label),
+      title = paste0("Projects Tagged with Decarbonization Technologies by County: ", process_type_label),
       subtitle = "Grey areas indicate no projects",
       caption = paste0(
-        "Note: County data available for ", pct_with_county, "% of clean energy projects."
+        "Note: County data available for ", pct_with_county, "% of projects tagged with decarbonization technologies."
       )
     ) +
     theme_void() +
@@ -541,10 +541,10 @@ create_jenks_map <- function(process_type_value, process_type_label) {
       drop = FALSE
     ) +
     labs(
-      title = paste0("Clean Energy Projects by County: ", process_type_label),
+      title = paste0("Projects Tagged with Decarbonization Technologies by County: ", process_type_label),
       subtitle = "Jenks natural breaks classification; grey areas indicate no projects",
       caption = paste0(
-        "Note: County data available for ", pct_with_county, "% of clean energy projects.\n",
+        "Note: County data available for ", pct_with_county, "% of projects tagged with decarbonization technologies.\n",
         "Classification uses Jenks natural breaks calculated specifically for this process type."
       )
     ) +

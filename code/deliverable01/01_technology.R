@@ -1,7 +1,7 @@
 # --------------------------
-# DELIVERABLE 1: CLEAN ENERGY BY TECHNOLOGY
+# DELIVERABLE 1: DECARBONIZATION TECHNOLOGY BY TECHNOLOGY TYPE
 # --------------------------
-# Table 1: Clean Energy by Technology (project_type)
+# Table 1: Decarbonization Technology by Technology (project_type)
 # Includes co-occurrence analysis and related figures
 
 # --------------------------
@@ -33,7 +33,7 @@ tech_data |> glimpse()
 # are produced by code/_clean_energy/01_clean_energy.R
 
 #
-# Deliverable: Clean Energy Bar Chart (by technology)
+# Deliverable: Decarbonization Technology Bar Chart (by technology)
 # ----------------------------------------
 clean_energy_summary <- clean_energy_parsed %>%
   select(project_title, project_type_list) %>%
@@ -58,9 +58,9 @@ fig_clean_energy_bar <- clean_energy_summary %>%
   geom_col(fill = catf_dark_blue) +
   geom_text(aes(label = scales::comma(n)), hjust = -0.1, size = 3) +
   labs(
-    x = "Percent of Clean Energy Projects",
+    x = "Percent of Projects with Decarbonization Technologies Tag",
     y = NULL,
-    title = "Clean Energy Projects by Technology Type"
+    title = "Projects with Decarbonization Technologies Tag by Technology Type"
   ) +
   scale_x_continuous(
     labels = function(x) paste0(x, "%"),
@@ -84,7 +84,7 @@ ggsave(
 
 
 #
-# Clean Energy Bar Chart by Technology and Process Type (100% stacked)
+# Decarbonization Technology Bar Chart by Technology and Process Type (100% stacked)
 # --------------------------------------------------------------------
 clean_energy_summary_by_process <- clean_energy_parsed %>%
   select(project_title, project_type_list, process_type) %>%
@@ -153,7 +153,7 @@ fig_clean_energy_bar_by_process <- ggplot(
     x = "Share of Projects",
     y = NULL,
     fill = "Process Type",
-    title = "Clean Energy Projects by Technology and Process Type",
+    title = "Projects with Decarbonization Tag by Technology and Process Type",
     caption = "Note: Percentage labels below 3% are excluded for readability."
   ) +
   theme(
