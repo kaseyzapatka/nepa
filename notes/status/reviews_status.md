@@ -1,7 +1,7 @@
 # Deliverable #2: Programmatic & Tiered Reviews
 
-**Status**: Extraction complete, awaiting client validation
-**Last Updated**: 2026-02-04
+**Status**: Analysis complete; 118/161 non-standard projects have full timelines
+**Last Updated**: 2026-03-04
 **Script**: `code/extract/extract_reviews.py`
 **Output**: `data/analysis/projects_reviews.parquet`
 **Report**: `reports/deliverable02.qmd`
