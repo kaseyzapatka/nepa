@@ -26,6 +26,19 @@ source(here::here("code", "deliverable02", "00_setup.R"))
 
 
 # --------------------------
+# TIMELINE COVERAGE INSPECTION (161 non-standard projects)
+# --------------------------
+
+browse_ns |> count(complete, review_type, process_type)
+browse_ns |> filter(!complete) |> print(n = 80)
+
+# Drill into date candidates for a specific project:
+# inspect_candidates("project-id-here")
+# Get IDs of incomplete projects:
+# browse_ns |> filter(!complete) |> pull(project_id)
+
+
+# --------------------------
 # SETUP
 # --------------------------
 
@@ -434,6 +447,7 @@ fig_state_path <- here(figures_dir, "02_state.png")
 ggsave(fig_state_path, fig_state, width = 9, height = 6, dpi = 300)
 cat("  Saved:", fig_state_path, "\n")
 print(fig_state)
+
 # --------------------------
 # FIGURE 5: DURATION COMPARISON
 # --------------------------
@@ -515,7 +529,7 @@ fig_duration <- ggplot(
   ) +
   theme_catf() +
   theme(legend.position = "none")
-
+fig_duration
 fig_duration_path <- here(figures_dir, "02_duration.png")
 ggsave(fig_duration_path, fig_duration, width = 11, height = 7, dpi = 300)
 cat("  Saved:", fig_duration_path, "\n")

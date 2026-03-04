@@ -3998,6 +3998,10 @@ def _filter_candidates_for_llm(candidates: list, max_candidates=50, promote_rod_
             if _is_fallback_doc(doc_type):
                 if _has_strong_decision_language(d) or _has_final_doc_decision_marker(d):
                     fallback_decision.append(d)
+                else:
+                    non_decision.append(d)  # low-confidence decision date; LLM sees BERT_TYPE label
+            else:
+                non_decision.append(d)  # unknown doc type decision date; LLM sees BERT_TYPE label
         elif dtype in ('initiation', 'review', 'other'):
             # Promote misclassified fallback candidates if context clearly indicates
             # a final EA/FEIS document date.
@@ -4061,7 +4065,8 @@ def _filter_candidates_for_llm(candidates: list, max_candidates=50, promote_rod_
 def _build_adjudication_prompt(project_title: str, dates: list,
                                decision_mode: str = 'priority_only',
                                allowed_decision_dates: set = None,
-                               context_chars: int = 300) -> str:
+                               context_chars: int = 300,
+                               best_effort: bool = False) -> str:
     """
     Build a prompt for LLM adjudication of BERT-classified dates.
 
@@ -4103,12 +4108,22 @@ def _build_adjudication_prompt(project_title: str, dates: list,
             "more clearly indicates final approval/completion."
         )
     else:
-        decision_constraint = (
-            "DECISION MODE: no_decision_candidates\n"
-            "No high-confidence decision candidates were pre-identified.\n"
-            "Review all provided candidates and pick a decision date only if context clearly indicates "
-            "final approval/completion; otherwise respond with null."
-        )
+        if best_effort:
+            decision_constraint = (
+                "DECISION MODE: no_decision_candidates\n"
+                "No decision-specific candidates were pre-identified by BERT.\n"
+                "Review all provided candidates and pick the most likely project decision/approval date "
+                "(ROD, FONSI, approval signature, or final document date). "
+                "Prefer the latest date from the most authoritative document. "
+                "Only respond with null for decision_date if truly no candidate could be the decision date."
+            )
+        else:
+            decision_constraint = (
+                "DECISION MODE: no_decision_candidates\n"
+                "No high-confidence decision candidates were pre-identified.\n"
+                "Review all provided candidates and pick a decision date only if context clearly indicates "
+                "final approval/completion; otherwise respond with null."
+            )
 
     return f"""You are an expert at reading NEPA (National Environmental Policy Act) project documents.
 
@@ -4315,8 +4330,12 @@ def run_llm_adjudication(
     input_paths = []
     for part in input_parts:
         p = Path(part)
-        if not p.is_absolute():
-            p = ANALYSIS_DIR / part
+        if p.is_absolute():
+            pass  # use as-is
+        elif p.exists():
+            p = p.resolve()  # relative to cwd (e.g. data/analysis/foo.parquet)
+        else:
+            p = ANALYSIS_DIR / part  # bare filename relative to ANALYSIS_DIR
         if not p.exists():
             print(f"ERROR: Input file not found: {p}")
             return None
@@ -4431,6 +4450,7 @@ def run_llm_adjudication(
             'n_total_dates': len(all_dates),
             'n_pre_filter': len(pre_filter),
             'n_candidates': len(filter_result['candidates']),
+            'best_effort': nonstandard_incomplete,
         })
 
     # Stats
@@ -4487,6 +4507,7 @@ def run_llm_adjudication(
             decision_mode=task['decision_mode'],
             allowed_decision_dates=task['allowed_decision_dates'],
             context_chars=task['context_chars'],
+            best_effort=task.get('best_effort', False),
         )
         if provider == 'claude':
             llm_result = _call_claude_adjudication(prompt, model, timeout)
@@ -4578,7 +4599,13 @@ def run_llm_adjudication(
 
     # Save output
     if output_file:
-        out_path = ANALYSIS_DIR / output_file
+        p = Path(output_file)
+        if p.is_absolute():
+            out_path = p
+        elif p.parent.exists():
+            out_path = p.resolve()  # relative to cwd (e.g. data/analysis/foo.parquet)
+        else:
+            out_path = ANALYSIS_DIR / output_file  # bare filename relative to ANALYSIS_DIR
     else:
         stem = input_path.stem
         out_path = input_path.parent / f"{stem}_llm.parquet"
