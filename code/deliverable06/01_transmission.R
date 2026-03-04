@@ -11,7 +11,7 @@ analysis <- prepare_deliverable6_data() %>%
   filter(project_is_transmission) |> 
   glimpse()
 
-cat("Transmission projects (strict, clean energy):", nrow(analysis), "\n")
+cat("Transmission projects (strict, decarbonization technology):", nrow(analysis), "\n")
 cat("  - Unambiguous (rule-based only):            ", sum(!analysis$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
 cat("  - Flagged for LLM adjudication:             ", sum(analysis$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
 max_year <- as.integer(format(Sys.Date(), "%Y"))
@@ -184,7 +184,7 @@ analysis_len <- analysis %>%
 # Summary table
 tbl_transmission_summary <- tibble(
   Metric = c(
-    "Transmission projects (strict, clean energy)",
+    "Transmission projects (strict, decarbonization technology)",
     "With extracted length",
     "With calculable duration",
     "Multi-state projects",
@@ -238,7 +238,7 @@ fig_sample_breakdown <- avail_df %>%
   ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
   labs(
-    title    = paste0("Transmission Sample: N = ", n_total, " Strict Clean Energy Projects"),
+    title    = paste0("Transmission Sample: N = ", n_total, " Strict Decarbonization Technology Projects"),
     subtitle = "Breakdown by date availability for NEPA duration calculations",
     x        = NULL,
     y        = "Number of projects"
@@ -326,7 +326,7 @@ fig_length_dist <- analysis_len %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(
     title = "Distribution of Transmission Line Lengths",
-    subtitle = paste0(sum(!is.na(analysis_len$length_miles)), " strict clean energy transmission projects"),
+    subtitle = paste0(sum(!is.na(analysis_len$length_miles)), " strict decarbonization technology transmission projects"),
     x = "Transmission length (miles)",
     y = "Number of projects"
   ) +
@@ -347,7 +347,7 @@ fig_action_count <- tbl_action %>%
   scale_x_continuous(expand = expansion(mult = c(0, 0.18))) +
   labs(
     title    = "Transmission Projects by Action Type",
-    subtitle = "Count of strict clean energy projects per action category",
+    subtitle = "Count of strict decarbonization technology projects per action category",
     x        = "Number of projects",
     y        = NULL
   ) +
@@ -424,7 +424,7 @@ p_bin_dur <- analysis_len %>%
 fig_length_bins_chart <- p_bin_n + p_bin_dur +
   plot_annotation(
     title    = "Longer Transmission Lines, Longer NEPA Reviews",
-    subtitle = "Clean energy transmission projects by length band"
+    subtitle = "Decarbonization technology transmission projects by length band"
   )
 
 print(fig_length_bins_chart)
@@ -454,7 +454,7 @@ fig_state_n <- tbl_state_region_clean %>%
   scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
   labs(
     title    = "Transmission Projects by State",
-    subtitle = "Number of strict clean energy projects per state; color = census region",
+    subtitle = "Number of strict decarbonization technology projects per state; color = census region",
     x        = "Number of projects",
     y        = NULL,
     color    = "Region"
@@ -615,7 +615,7 @@ fig_region <- region_plot_data %>%
   scale_y_continuous(labels = scales::comma) +
   labs(
     title    = "NEPA Duration by Census Region",
-    subtitle = "Strict clean energy transmission projects; ordered by median | capped at 1,000 days",
+    subtitle = "Strict decarbonization technology transmission projects; ordered by median | capped at 1,000 days",
     x        = NULL,
     y        = "Duration (days)"
   ) +

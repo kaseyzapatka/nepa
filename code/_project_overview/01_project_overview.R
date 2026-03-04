@@ -1,9 +1,9 @@
 # --------------------------
-# CLEAN ENERGY DEFINITIONS: FIGURES
+# DECARBONIZTION TECHNOLOGY DEFINITIONS: FIGURES
 # --------------------------
 # Produces figures for 00_project_overview.qmd:
 #   - Projects by NEPA review process (all projects)
-#   - Clean energy projects by NEPA review process
+#   - Decarbonization technology projects by NEPA review process
 #   - Energy type breakdown (Clean, Fossil, Other)
 
 # --------------------------
@@ -54,7 +54,7 @@ ggsave(
 )
 
 #
-# Clean Energy Projects by Review Process
+# Decarbonization Technology Projects by Review Process
 # ----------------------------------------
 clean_energy_by_review <- clean_energy %>%
   count(process_type, name = "projects") %>%
@@ -73,7 +73,7 @@ fig_clean_energy_by_review <- clean_energy_by_review %>%
   labs(
     x = NULL,
     y = "Number of Projects",
-    title = "Clean Energy Projects by NEPA Process Type"
+    title = "Decarbonization Technology Projects by NEPA Process Type"
   ) +
   scale_y_continuous(
     labels = scales::comma,
@@ -137,5 +137,5 @@ ggsave(
 # SUMMARY
 # --------------------------
 
-cat("\n=== Clean Energy Definitions Script Complete ===\n")
+cat("\n=== Decarbonization Technology Definitions Script Complete ===\n")
 cat("Figures saved to:", figures_dir, "\n")

@@ -2,7 +2,7 @@
 # DELIVERABLE 3: GENERATION CAPACITY
 # --------------------------
 # Table 2: Generation Capacity by Process Type
-# Analyzes clean energy projects by their generation capacity
+# Analyzes decarbonization technologies projects by their generation capacity
 
 # --------------------------
 # SETUP
@@ -60,7 +60,7 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
   # (grid infrastructure, ROW renewals, pole replacements, etc.) that should not
   # have generation capacity values.
   #
-  # "All clean energy" denominator:  all 20,725 projects with project_energy_type == "Clean"
+  # "All decarbonization technologies" denominator:  all 20,725 projects with project_energy_type == "Clean"
   # "Generation projects" denominator: 11,038 with at least one generation-type tag
   # The difference (9,687) is R&D, manufacturing, transmission-only, land management, etc.
 
@@ -101,14 +101,14 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     arrange(factor(dataset_source, levels = c("CE", "EA", "EIS")))
 
   cat(sprintf(
-    "  Generation-tagged projects: %d of %d clean energy projects (%.1f%%)\n",
+    "  Generation-tagged projects: %d of %d decarbonization technologies projects (%.1f%%)\n",
     sum(gencap_projects$has_generation_tag),
     nrow(gencap_projects),
     100 * mean(gencap_projects$has_generation_tag)
   ))
 
   # --------------------------
-  # FIGURE 1A: COVERAGE — ALL CLEAN ENERGY (pre-filter, for comparison)
+  # FIGURE 1A: COVERAGE — ALL DECARBONIZATION TECHNOLOGIES (pre-filter, for comparison)
   # --------------------------
 
   coverage_data_all <- gencap_projects %>%
@@ -132,8 +132,8 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     geom_text(aes(label = paste0("(", comma(with_capacity), " / ", comma(total), ")"),
                   y = pct_extracted / 2, color = label_color), size = 3.5) +
     labs(
-      title    = "Extraction Coverage: All Clean Energy Projects",
-      subtitle = "Denominator = all 20,725 clean energy projects (includes transmission, utilities, R&D, etc.)",
+      title    = "Extraction Coverage: All Decarbonization Technologies Projects",
+      subtitle = "Denominator = all 20,725 Decarbonization Technologies projects (includes transmission, utilities, R&D, etc.)",
       x = "Process Type", y = "Percent with Capacity Extracted",
       caption  = "CE = Categorical Exclusion, EA = Environmental Assessment, EIS = Environmental Impact Statement"
     ) +
@@ -200,7 +200,7 @@ if (!is.na(gencap_path) && file.exists(gencap_path)) {
     ) %>%
     rename(
       `Process Type`        = dataset_source,
-      `All Clean Energy`    = all_clean_projects,
+      `All Decarbonization Technologies`    = all_clean_projects,
       `Generation Projects` = generation_projects,
       `Excluded`            = excluded,
       `Excluded (%)`        = pct_excluded

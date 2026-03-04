@@ -275,6 +275,26 @@ python code/extract/extract_timeline.py \
 ```
 **Cost**: ~$0.44 (Haiku, ~400K input tokens for 73 projects).
 
+#### Manual Date Overrides (TODO: integrate into pipeline)
+
+Six projects were manually patched in `code/deliverable02/00_setup.R` for the 2026-03-06
+presentation. These are hardcoded in a `manual_overrides` tibble and should eventually be
+moved into the pipeline (e.g., a `data/analysis/manual_dates.csv` patched via coalesce in
+`00_setup.R`, or re-adjudicated with corrected inputs).
+
+| project_id | field | value | source |
+|---|---|---|---|
+| `cf2fbe90d43ac57a9460fa857f34af6c` | initiation | `noi_publication_date` | Federal Register NOI |
+| `f95ec9530b352e3dd46e6473cb80dccf` | decision | 2019-04-01 | Date in EA filename |
+| `49cdaa3ff2e6c505c6822e8e9803eb9b` | decision | 2023-05-01 | Date in draft filename |
+| `4af8ad4f47941e4ccb53fe4349c258c3` | decision | 1995-09-01 | Page 3 of FEIS |
+| `00d09887554d7ab68e49e9ab628583bf` | decision | 2025-06-01 | Page 1 of DEIS |
+| `8d13822f3d8b469efcdb2706caa463c7` | decision | 2022-03-01 | TVA Final EIS target date |
+
+**TODO**: After Thursday, move these to a persistent override file and remove the hardcoded
+block from `00_setup.R`. Also investigate the remaining 37 incomplete projects using
+`inspect_candidates()` / `inspect_llm_prompt()` in `01_reviews.R`.
+
 ### 2026-02-04
 - **Extraction complete**: 16 programmatic, 10 tiered, 1,390 standard
 - Created `code/exploratory/reviews/01_reviews_eda.R` with summary stats, figures, and Google Sheet export

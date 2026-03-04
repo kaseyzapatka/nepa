@@ -55,7 +55,7 @@ analysis_all <- read_parquet(projects_combined_path) %>%
   ) %>%
   add_pipeline_group()
 
-# Pipeline projects with timeline data (clean energy only, ~228 projects).
+# Pipeline projects with timeline data (decarbonization technology only, ~228 projects).
 # Used for duration-based analyses and figures.
 analysis_timeline <- prepare_deliverable6_data(clean_only = FALSE) %>%
   filter(project_is_pipeline) %>%
@@ -105,7 +105,7 @@ tbl_pipeline_state <- analysis_all %>%
 
 write_csv(tbl_pipeline_state, here(tables_dir, "table_pipeline_state_region.csv"))
 
-# Baseline comparison: duration from timeline (clean energy pipelines only)
+# Baseline comparison: duration from timeline (decarbonization technology pipelines only)
 baseline <- analysis_timeline %>%
   filter(pipeline_group %in% c("Carbon pipeline", "Hydrogen pipeline", "Natural gas pipeline")) %>%
   group_by(pipeline_group) %>%
@@ -163,7 +163,7 @@ duration_caption <- paste0(
   "Notes: Values above ", duration_cap, " days topcoded to cap ",
   "(", duration_overall$n_topcoded, " of ", duration_overall$n_total,
   " projects, ", duration_overall$pct_top, "%). ",
-  "Duration analysis limited to clean energy projects with calculable timelines."
+  "Duration analysis limited to decarbonization technology projects with calculable timelines."
 )
 
 duration_n_labels <- analysis_timeline %>%
@@ -194,7 +194,7 @@ fig_duration <- analysis_timeline %>%
   scale_y_continuous(labels = scales::comma) +
   labs(
     title    = "Pipeline NEPA Duration by Technology Group",
-    subtitle = paste0("Clean energy projects; values above ", duration_cap, " days topcoded to cap"),
+    subtitle = paste0("Decarbonization technology projects; values above ", duration_cap, " days topcoded to cap"),
     caption  = duration_caption,
     x        = NULL,
     y        = "Duration (days)"

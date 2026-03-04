@@ -164,7 +164,6 @@ Let me start by orienting everyone to the dataset and what we're analyzing.
 - **60,000+** total federal projects 
 - **140,000+** NEPA documents
 - 60+ federal agencies 
-- 2000–2024
 - Machine-readable full text (JSON)
 
 
@@ -402,18 +401,18 @@ Process type mix by lead department
 :::
 ::: {.column width="50%"}
 ```{r}
-knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
+knitr::include_graphics(file.path(d1_figures, "04_coverage_verified_process.png"))
 ```
 ::: {.caption-text}
-Total decarbonization-related projects by lead department
+Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
 :::
 :::
 :::
 
 ::: {.callout-finding}
-- **DOE accounts for 81% of all decarbonization-related projects** — and processes 97% of those through Categorical Exclusions, likely reflecting high volumes of routine, CE-eligible actions (e.g., loan programs, grid modernization grants, Power Marketing Administrations, National Lab operations).
-- **Interior handles 17%** of projects with a slightly more varied process mix: about 13% through EA and EIS reviews, consistent with its land-management mandate for large-scale renewables on federal land.
-- **Most other agencies** — USDA, Army Corps, FERC — show handle reviews through primarily EA/EIS, rates well above DOE's when they serve as lead, indicating the CE-heavy pattern is specific to DOE's portfolio, not NEPA as a whole.
+- **DOE accounts for 81% of all decarbonization-related projects** — and processes 97% of those through Categorical Exclusions, reflecting high volumes of routine, CE-eligible actions (loan programs, grid modernization grants, Power Marketing Administrations, National Lab operations).
+- **BLM and Forest Service** show a more varied process mix, consistent with their land-management mandates for large-scale renewables on federal lands.
+- **Coverage note:** EA and CE records in NEPATEC are only available for DOE, BLM, and Forest Service. All other agencies (Army Corps, FERC, etc.) appear primarily via the EPA EIS database — so their process type proportions reflect data availability, not actual NEPA behavior. See appendix for the full all-agencies view.
 - [Key department deep dive analysis →](https://www.kaseyzapatka.com/nepa/reports/deliverable01.html#key-agency-deep-dive)
 :::
 
@@ -1148,7 +1147,34 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 
 ---
 
-## A1: D1-Technology Distribution — Deep Dive by Process Type {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+## A1: D1-Process Type by Lead Department (All Agencies) {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+
+::: {.columns}
+::: {.column width="50%"}
+```{r}
+knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
+```
+::: {.caption-text}
+Total decarbonization-related projects by lead department
+:::
+:::
+::: {.column width="50%"}
+```{r}
+knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
+```
+::: {.caption-text}
+Process type mix by lead department (all agencies)
+:::
+:::
+:::
+
+::: {.callout-note}
+**Coverage caveat:** EA and CE records are only available for DOE, BLM, and Forest Service. Agencies that appear predominantly EIS (e.g., Army Corps, FERC, EPA) likely lack EA/CE data in NEPATEC rather than actually conducting fewer non-EIS reviews. The main slide shows only the three agencies with comprehensive coverage.
+:::
+
+---
+
+## A2: D1-Technology Distribution — Deep Dive by Process Type {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="33%"}
@@ -1188,7 +1214,7 @@ knitr::include_graphics(file.path(d1_figures, "13_deep_dive_eis_tech.png"))
 
 ---
 
-## A2: D3-Timeline Coverage Mix by Review Process
+## A3: D3-Timeline Coverage Mix by Review Process
 
 ```{r}
 #| out-width: "90%"
@@ -1199,7 +1225,7 @@ knitr::include_graphics(file.path(d3_figures, "03_timeline_status_by_process.png
 Timeline coverage breakdown by review process — share of projects with each combination of initiation and decision dates present or missing.
 :::
 
-## A3: D3-Timeline Extraction Methodology
+## A4: D3-Timeline Extraction Methodology
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1233,7 +1259,7 @@ Timeline coverage breakdown by review process — share of projects with each co
 
 ---
 
-## A4: D4-Multi-State Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+## A5: D4-Multi-State Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
 ```{r}
 #| out-width: "72%"
@@ -1268,7 +1294,7 @@ knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_word
 
 ---
 
-## A5: D4-Multi-Agency Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+## A6: D4-Multi-Agency Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
 ```{r}
 #| out-width: "72%"
@@ -1303,7 +1329,7 @@ knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wor
 :::
 ---
 
-## A6: D5-FRA Regulatory vs. Raw Pages Methodology
+## A7: D5-FRA Regulatory vs. Raw Pages Methodology
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1333,7 +1359,7 @@ knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wor
 
 ---
 
-## A7: D6-Transmission — Duration by Region
+## A8: D6-Transmission — Duration by Region
 
 ```{r}
 #| out-width: "85%"
@@ -1346,7 +1372,7 @@ Regional variation reflects differences in project scale, agency staffing, and l
 
 ---
 
-## A8: D6-Geothermal Phase Distribution
+## A9: D6-Geothermal Phase Distribution
 
 ```{r}
 #| out-width: "80%"
@@ -1359,7 +1385,7 @@ Phase classification uses regex keyword matching on project title and descriptio
 
 ---
 
-## A9: D6-Pipeline Length vs. Duration
+## A10: D6-Pipeline Length vs. Duration
 
 ```{r}
 #| out-width: "82%"
@@ -1372,7 +1398,7 @@ Modest positive correlation between pipeline length and NEPA duration across all
 
 ---
 
-## A10: NEPA Policy Context 2025–2026 {.scrollable}
+## A11: NEPA Policy Context 2025–2026 {.scrollable}
 
 | Date | Event |
 |-|---|

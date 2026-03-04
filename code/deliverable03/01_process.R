@@ -2,7 +2,7 @@
 # DELIVERABLE 3: PROJECT STATUS BY ENERGY TYPE
 # --------------------------
 # Table 1: Project Status by Energy Type (Clean/Fossil/Other)
-# Includes detailed breakdown of clean energy by technology
+# Includes detailed breakdown of decarbonization technologies by technology
 
 # --------------------------
 # SETUP
@@ -26,8 +26,8 @@ source(here::here("code", "deliverable03", "00_setup.R"))
 #  )
 
 cat("After reclassifying utilities to Other:\n")
-cat("  Clean energy projects:", sum(projects$project_energy_type == "Clean"), "\n")
-cat("  Other projects:", sum(projects$project_energy_type == "Other"), "\n\n")
+cat("Decarbonization technologies projects:", sum(projects$project_energy_type == "Clean"), "\n")
+cat("Other projects:", sum(projects$project_energy_type == "Other"), "\n\n")
 
 # --------------------------
 # FIGURES
