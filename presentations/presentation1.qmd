@@ -94,6 +94,7 @@ n_clean <- tryCatch({
 n_clean_fmt <- format(n_clean, big.mark = ",")
 
 # Paths
+overview <- here("output", "_project_overview", "figures")
 d1_figures <- here("output", "deliverable1", "figures")
 d1_maps    <- here("output", "deliverable1", "maps")
 d2_figures <- here("output", "deliverable2", "figures")
@@ -285,7 +286,7 @@ The tagging system is applied to project-level metadata and document titles/desc
 ::: {.column width="50%"}
 ```{r}
 #| out-width: "90%"
-knitr::include_graphics(file.path(d1_figures, "00_fig_clean_energy_by_review.png"))
+knitr::include_graphics(file.path(overview, "00_fig_clean_energy_by_review.png"))
 ```
 ::: {.caption-text}
 Decarbonization-related projects by review type
