@@ -179,6 +179,45 @@ The `--project-id` flag searches CE, EA, and EIS sources automatically:
 python code/extract/extract_timeline.py --project-id <UUID> --hybrid --use-regex-cache
 ```
 
+## Targeted Re-Adjudication for Programmatic & Tiered Reviews (Deliverable 2)
+
+Run this when the full EA/EIS LLM adjudication is complete but some programmatic or tiered
+projects are still missing initiation or decision dates. This re-runs adjudication only on those
+incomplete projects, with a higher candidate cap, ROD-language promotion, and a 15-year date
+window to cut noise.
+
+**Prerequisites:** `projects_timeline_bert_ea_llm.parquet` and
+`projects_timeline_bert_eis_llm.parquet` must already exist in `data/analysis/`.
+
+```bash
+export ANTHROPIC_API_KEY='sk-ant-...'
+
+python code/extract/extract_timeline.py \
+  --llm-adjudicate \
+  --input data/analysis/projects_timeline_bert_ea_llm.parquet,data/analysis/projects_timeline_bert_eis_llm.parquet \
+  --nonstandard-incomplete \
+  --max-candidates 125 \
+  --context-chars 400 \
+  --promote-rod-language \
+  --year-window 15 \
+  --provider claude \
+  --output data/analysis/projects_timeline_targeted_llm.parquet
+```
+
+What this does:
+- `--nonstandard-incomplete` — auto-selects only programmatic/tiered projects with missing dates (~73 projects). No manual ID file needed.
+- `--max-candidates 125` — raises the candidate cap from 30 (EIS default) to 125, so large programmatic EISs get adequate coverage.
+- `--promote-rod-language` — promotes dates with ROD/FONSI language to Tier A even if BERT mislabeled them.
+- `--year-window 15` — drops candidate dates more than 15 years before the latest date found, removing NEPA citation noise.
+- Output is a small targeted parquet (~73 rows). The full timeline files are not modified.
+
+**Cost:** ~$0.44 (Haiku, ~400K input tokens).
+
+**After the run**, the targeted dates are automatically patched into the Deliverable 2 analysis
+when you run `00_setup.R` — no further changes needed.
+
+---
+
 ## Technology Deliverables Build
 
 Use `code/extract/extract_technology.py` to build technology-specific fields in `data/analysis/projects_combined.parquet`.

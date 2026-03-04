@@ -154,6 +154,72 @@ timeline <- bind_rows(
 
 cat("  Timeline records:", nrow(timeline), "\n")
 
+# Patch in targeted re-adjudication results for incomplete non-standard projects
+targeted_path <- here("data", "analysis", "projects_timeline_targeted_llm.parquet")
+if (file.exists(targeted_path)) {
+  targeted <- read_parquet(targeted_path) %>%
+    select(project_id,
+           targeted_initiation_date = llm_initiation_date,
+           targeted_decision_date   = llm_decision_date)
+  timeline <- timeline %>%
+    left_join(targeted, by = "project_id") %>%
+    mutate(
+      initiation_date = coalesce(as.Date(targeted_initiation_date), initiation_date),
+      decision_date   = coalesce(as.Date(targeted_decision_date),   decision_date)
+    ) %>%
+    select(-targeted_initiation_date, -targeted_decision_date)
+  cat("  Targeted re-adjudication applied:", nrow(targeted), "projects patched\n")
+}
+
+# Full timeline with bert_dates_json (for candidate inspection)
+tl_full <- bind_rows(
+  read_parquet(timeline_ea_path),
+  read_parquet(timeline_eis_path)
+) |> distinct(project_id, .keep_all = TRUE)
+
+if (file.exists(targeted_path)) {
+  tl_full <- tl_full |>
+    left_join(
+      targeted |> select(project_id,
+                          t_init = targeted_initiation_date,
+                          t_dec  = targeted_decision_date),
+      by = "project_id"
+    ) |>
+    mutate(
+      llm_initiation_date = coalesce(as.Date(t_init), as.Date(llm_initiation_date)),
+      llm_decision_date   = coalesce(as.Date(t_dec),  as.Date(llm_decision_date))
+    ) |>
+    select(-t_init, -t_dec)
+}
+
+# Coverage browse table: 161 non-standard projects with timeline status
+browse_ns <- reviews |>
+  filter(review_type %in% c("Programmatic", "Tiered")) |>
+  select(project_id, process_type, review_type) |>
+  left_join(
+    tl_full |> select(project_id, llm_initiation_date, llm_decision_date, llm_decision_mode),
+    by = "project_id"
+  ) |>
+  mutate(
+    has_initiation = !is.na(llm_initiation_date),
+    has_decision   = !is.na(llm_decision_date),
+    complete       = has_initiation & has_decision
+  ) |>
+  arrange(complete, review_type, process_type)
+
+# Inspect BERT date candidates for a specific project
+inspect_candidates <- function(pid) {
+  row <- tl_full |> filter(project_id == pid)
+  if (nrow(row) == 0) { message("Project not found"); return(invisible(NULL)) }
+  json_str <- row$bert_dates_json[[1]]
+  if (is.null(json_str) || is.na(json_str)) { message("No candidates"); return(invisible(NULL)) }
+  jsonlite::fromJSON(json_str, simplifyDataFrame = TRUE) |>
+    as_tibble() |>
+    select(any_of(c("date", "dtype", "doc_type", "confidence", "context", "source"))) |>
+    arrange(date) |>
+    print(n = 200)
+}
+
 reviews_tl <- reviews %>%
   left_join(timeline, by = "project_id") %>%
   mutate(
@@ -237,6 +303,8 @@ cat("  duration_data      -", nrow(duration_data), "projects with valid duration
 cat("  non_standard       -", nrow(non_standard), "programmatic + tiered projects\n")
 cat("  reviews_long_agency -", nrow(reviews_long_agency), "rows (agency-unnested)\n")
 cat("  reviews_long_state  -", nrow(reviews_long_state), "rows (state-unnested)\n")
+cat("  tl_full            -", nrow(tl_full), "projects (full timeline with candidates)\n")
+cat("  browse_ns          -", nrow(browse_ns), "non-standard projects; complete:", sum(browse_ns$complete), "\n")
 cat("Output directories:\n")
 cat("  Tables: ", tables_dir, "\n")
 cat("  Figures:", figures_dir, "\n")

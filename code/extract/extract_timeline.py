@@ -3808,7 +3808,7 @@ _LLM_FALLBACK_DECISION_DOC_TYPES = {'EA', 'DEA', 'DEIS', 'FEIS', 'FEA', 'EIS'}
 _LLM_KNOWN_DOC_TYPES = _LLM_DECISION_DOC_TYPES | _LLM_FALLBACK_DECISION_DOC_TYPES | {'OTHER'}
 
 
-def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> dict:
+def _filter_candidates_for_llm(candidates: list, max_candidates=50, promote_rod_language: bool = False) -> dict:
     """
     Filter and rank date candidates before sending to LLM adjudication.
 
@@ -3973,21 +3973,42 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
         ctx = str(d.get('source', '') or d.get('context', '')).lower()
         return any(p in ctx for p in _FINAL_DOC_DECISION_MARKERS)
 
+    _ROD_LANGUAGE_PATTERNS = [
+        r'record of decision', r'\brod\b.*sign',
+        r'finding of no significant impact', r'\bfonsi\b.*sign',
+    ]
+
+    def _has_rod_language(d):
+        import re as _re
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        return any(_re.search(p, ctx) for p in _ROD_LANGUAGE_PATTERNS)
+
     for d in doc_filtered:
         doc_type = _get_doc_type(d)
         dtype = d.get('type', '')
 
         if dtype == 'decision' and doc_type in _LLM_DECISION_DOC_TYPES:
             tier_a_decision.append(d)
+        elif promote_rod_language and dtype == 'decision' and _has_rod_language(d):
+            # ROD/FONSI language in any doc type -> Tier A regardless of doc_type
+            # Handles programmatic EISs where ROD is embedded in the FEIS body
+            tier_a_decision.append(d)
         elif dtype == 'decision':
             # Fallback-doc decisions, or blank/other docs, must pass strong language checks.
             if _is_fallback_doc(doc_type):
                 if _has_strong_decision_language(d) or _has_final_doc_decision_marker(d):
                     fallback_decision.append(d)
+                else:
+                    non_decision.append(d)  # low-confidence decision date; LLM sees BERT_TYPE label
+            else:
+                non_decision.append(d)  # unknown doc type decision date; LLM sees BERT_TYPE label
         elif dtype in ('initiation', 'review', 'other'):
             # Promote misclassified fallback candidates if context clearly indicates
             # a final EA/FEIS document date.
             if _is_fallback_doc(doc_type) and _has_final_doc_decision_marker(d):
+                fallback_decision.append(d)
+            elif promote_rod_language and _has_rod_language(d):
+                # Catches BERT misclassifying a decision date as 'review' or 'other'
                 fallback_decision.append(d)
             else:
                 non_decision.append(d)
@@ -4015,7 +4036,7 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
     final = allowed_decision + non_decision
 
     # ----- Layer 6: Hard cap -----
-    if len(final) > max_candidates:
+    if max_candidates is not None and len(final) > max_candidates:
         def _rank_score(d):
             doc_type = _get_doc_type(d)
             doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else (
@@ -4044,7 +4065,8 @@ def _filter_candidates_for_llm(candidates: list, max_candidates: int = 50) -> di
 def _build_adjudication_prompt(project_title: str, dates: list,
                                decision_mode: str = 'priority_only',
                                allowed_decision_dates: set = None,
-                               context_chars: int = 300) -> str:
+                               context_chars: int = 300,
+                               best_effort: bool = False) -> str:
     """
     Build a prompt for LLM adjudication of BERT-classified dates.
 
@@ -4086,12 +4108,22 @@ def _build_adjudication_prompt(project_title: str, dates: list,
             "more clearly indicates final approval/completion."
         )
     else:
-        decision_constraint = (
-            "DECISION MODE: no_decision_candidates\n"
-            "No high-confidence decision candidates were pre-identified.\n"
-            "Review all provided candidates and pick a decision date only if context clearly indicates "
-            "final approval/completion; otherwise respond with null."
-        )
+        if best_effort:
+            decision_constraint = (
+                "DECISION MODE: no_decision_candidates\n"
+                "No decision-specific candidates were pre-identified by BERT.\n"
+                "Review all provided candidates and pick the most likely project decision/approval date "
+                "(ROD, FONSI, approval signature, or final document date). "
+                "Prefer the latest date from the most authoritative document. "
+                "Only respond with null for decision_date if truly no candidate could be the decision date."
+            )
+        else:
+            decision_constraint = (
+                "DECISION MODE: no_decision_candidates\n"
+                "No high-confidence decision candidates were pre-identified.\n"
+                "Review all provided candidates and pick a decision date only if context clearly indicates "
+                "final approval/completion; otherwise respond with null."
+            )
 
     return f"""You are an expert at reading NEPA (National Environmental Policy Act) project documents.
 
@@ -4193,10 +4225,11 @@ def _call_claude_adjudication(prompt: str, model: str, timeout: int, max_retries
                     'eval_duration_ms': None,
                     'error': None,
                 }
-            elif response.status_code == 429:
-                # Rate limited — wait and retry
-                retry_after = int(response.headers.get('retry-after', 30))
-                _time.sleep(retry_after)
+            elif response.status_code in (429, 529):
+                # Rate limited (429) or service overload (529) — wait and retry
+                wait_time = int(response.headers.get('retry-after',
+                                60 if response.status_code == 529 else 30))
+                _time.sleep(wait_time)
                 continue
             else:
                 error_msg = response.json().get('error', {}).get('message', response.text[:200])
@@ -4248,6 +4281,17 @@ LLM_ADJ_EIS_MAX_CANDIDATES = 30
 LLM_ADJ_EIS_CONTEXT_CHARS = 200
 
 
+def _apply_year_window(dates: list, window_years: int = 15) -> list:
+    """Remove dates more than window_years before the latest candidate date."""
+    if not dates:
+        return dates
+    years = [int(d['date'][:4]) for d in dates if d.get('date') and len(d.get('date', '')) >= 4]
+    if not years:
+        return dates
+    cutoff_year = max(years) - window_years
+    return [d for d in dates if d.get('date') and int(d['date'][:4]) >= cutoff_year]
+
+
 def run_llm_adjudication(
     input_file: str,
     model: str = DEFAULT_LLM_MODEL,
@@ -4256,6 +4300,12 @@ def run_llm_adjudication(
     workers: int = 1,
     sample_size: int = None,
     output_file: str = None,
+    project_ids_file: str = None,
+    nonstandard_incomplete: bool = False,
+    override_max_candidates: int = None,
+    override_context_chars: int = None,
+    promote_rod_language: bool = False,
+    year_window: int = None,
 ):
     """
     Run LLM adjudication on BERT timeline output.
@@ -4275,13 +4325,22 @@ def run_llm_adjudication(
     import time
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    input_path = Path(input_file) if not str(input_file).startswith('/') else Path(input_file)
-    if not input_path.is_absolute():
-        input_path = ANALYSIS_DIR / input_file
-
-    if not input_path.exists():
-        print(f"ERROR: Input file not found: {input_path}")
-        return None
+    # Support comma-separated list of input files
+    input_parts = [f.strip() for f in str(input_file).split(',')]
+    input_paths = []
+    for part in input_parts:
+        p = Path(part)
+        if p.is_absolute():
+            pass  # use as-is
+        elif p.exists():
+            p = p.resolve()  # relative to cwd (e.g. data/analysis/foo.parquet)
+        else:
+            p = ANALYSIS_DIR / part  # bare filename relative to ANALYSIS_DIR
+        if not p.exists():
+            print(f"ERROR: Input file not found: {p}")
+            return None
+        input_paths.append(p)
+    input_path = input_paths[0]  # used for default output stem
 
     # Resolve provider and model defaults
     if provider == 'claude' and model == DEFAULT_LLM_MODEL:
@@ -4295,14 +4354,43 @@ def run_llm_adjudication(
         workers = 1  # Sequential to respect rate limits
 
     print(f"\n=== LLM Adjudication ===")
-    print(f"Input: {input_path}")
+    print(f"Input: {', '.join(str(p) for p in input_paths)}")
     print(f"Provider: {provider}")
     print(f"Model: {model}")
     print(f"Workers: {workers}")
     print(f"Timeout: {timeout}s per project")
 
-    df = pd.read_parquet(input_path)
-    print(f"Loaded {len(df):,} projects")
+    if len(input_paths) > 1:
+        dfs = [pd.read_parquet(p) for p in input_paths]
+        df = pd.concat(dfs, ignore_index=True).drop_duplicates('project_id')
+        print(f"Loaded {len(df):,} projects from {len(input_paths)} files")
+    else:
+        df = pd.read_parquet(input_path)
+        print(f"Loaded {len(df):,} projects")
+
+    if project_ids_file:
+        ids_path = Path(project_ids_file)
+        if not ids_path.is_absolute():
+            ids_path = ANALYSIS_DIR / project_ids_file
+        ids = pd.read_csv(ids_path, header=None)[0].astype(str).tolist()
+        df = df[df['project_id'].isin(ids)]
+        print(f"Filtered to {len(df):,} projects from --project-ids")
+
+    if nonstandard_incomplete:
+        reviews_path = ANALYSIS_DIR / 'projects_reviews.parquet'
+        if not reviews_path.exists():
+            print(f"ERROR: --nonstandard-incomplete requires {reviews_path}")
+            return None
+        reviews = pd.read_parquet(reviews_path, columns=['project_id', 'project_review_type'])
+        ns_ids = set(
+            reviews[reviews['project_review_type'].isin(['programmatic', 'tiered'])]['project_id'].astype(str)
+        )
+        is_incomplete = (
+            df['project_id'].astype(str).isin(ns_ids) &
+            (df['llm_decision_date'].isna() | df['llm_initiation_date'].isna())
+        )
+        df = df[is_incomplete]
+        print(f"--nonstandard-incomplete: {len(df):,} programmatic/tiered projects with missing dates")
 
     if sample_size and sample_size < len(df):
         df = df.sample(n=sample_size, random_state=42)
@@ -4317,8 +4405,14 @@ def run_llm_adjudication(
         process_type = str(row.get('process_type', '') or '').upper()
 
         is_eis = dataset_source == 'EIS' or process_type == 'EIS'
-        max_candidates = LLM_ADJ_EIS_MAX_CANDIDATES if is_eis else LLM_ADJ_DEFAULT_MAX_CANDIDATES
-        context_chars = LLM_ADJ_EIS_CONTEXT_CHARS if is_eis else LLM_ADJ_DEFAULT_CONTEXT_CHARS
+        if override_max_candidates is not None:
+            max_candidates = override_max_candidates if override_max_candidates > 0 else None
+        else:
+            max_candidates = LLM_ADJ_EIS_MAX_CANDIDATES if is_eis else LLM_ADJ_DEFAULT_MAX_CANDIDATES
+        if override_context_chars is not None:
+            context_chars = override_context_chars
+        else:
+            context_chars = LLM_ADJ_EIS_CONTEXT_CHARS if is_eis else LLM_ADJ_DEFAULT_CONTEXT_CHARS
 
         # Parse BERT dates JSON
         dates_json = row.get('bert_dates_json', '[]')
@@ -4327,12 +4421,18 @@ def run_llm_adjudication(
         except json_module.JSONDecodeError:
             all_dates = []
 
-        # Remove historical/expiration, then apply layered + tiered filtering
+        # Remove historical/expiration; optionally apply year window; then filter
         pre_filter = [
             d for d in all_dates
             if d.get('type') not in ('historical', 'expiration')
         ]
-        filter_result = _filter_candidates_for_llm(pre_filter, max_candidates=max_candidates)
+        if year_window:
+            pre_filter = _apply_year_window(pre_filter, year_window)
+        filter_result = _filter_candidates_for_llm(
+            pre_filter,
+            max_candidates=max_candidates,
+            promote_rod_language=promote_rod_language,
+        )
 
         tasks.append({
             'idx': idx,
@@ -4350,6 +4450,7 @@ def run_llm_adjudication(
             'n_total_dates': len(all_dates),
             'n_pre_filter': len(pre_filter),
             'n_candidates': len(filter_result['candidates']),
+            'best_effort': nonstandard_incomplete,
         })
 
     # Stats
@@ -4406,6 +4507,7 @@ def run_llm_adjudication(
             decision_mode=task['decision_mode'],
             allowed_decision_dates=task['allowed_decision_dates'],
             context_chars=task['context_chars'],
+            best_effort=task.get('best_effort', False),
         )
         if provider == 'claude':
             llm_result = _call_claude_adjudication(prompt, model, timeout)
@@ -4497,7 +4599,13 @@ def run_llm_adjudication(
 
     # Save output
     if output_file:
-        out_path = ANALYSIS_DIR / output_file
+        p = Path(output_file)
+        if p.is_absolute():
+            out_path = p
+        elif p.parent.exists():
+            out_path = p.resolve()  # relative to cwd (e.g. data/analysis/foo.parquet)
+        else:
+            out_path = ANALYSIS_DIR / output_file  # bare filename relative to ANALYSIS_DIR
     else:
         stem = input_path.stem
         out_path = input_path.parent / f"{stem}_llm.parquet"
@@ -4743,9 +4851,21 @@ if __name__ == "__main__":
     parser.add_argument('--llm-adjudicate', action='store_true',
                         help='Run LLM adjudication on BERT output (post-processing)')
     parser.add_argument('--input', type=str,
-                        help='Input parquet for LLM adjudication (BERT output file)')
+                        help='Input parquet(s) for LLM adjudication (comma-separated for multiple files)')
     parser.add_argument('--provider', type=str, default='ollama', choices=['ollama', 'claude'],
                         help='LLM provider for adjudication (default: ollama)')
+    parser.add_argument('--project-ids', type=str, default=None,
+                        help='File of project IDs to process (one per line, no header)')
+    parser.add_argument('--nonstandard-incomplete', action='store_true',
+                        help='Auto-filter to programmatic/tiered projects with missing LLM dates')
+    parser.add_argument('--max-candidates', type=int, default=None,
+                        help='Override max candidates per project (default: 50 EA / 30 EIS; 0 = no cap)')
+    parser.add_argument('--context-chars', type=int, default=None,
+                        help='Override context chars per candidate (default: 300 EA / 200 EIS)')
+    parser.add_argument('--promote-rod-language', action='store_true',
+                        help='Promote ROD/FONSI language candidates to Tier A in LLM adjudication')
+    parser.add_argument('--year-window', type=int, default=None,
+                        help='Remove candidate dates more than N years before the latest candidate')
 
     args = parser.parse_args()
 
@@ -4954,4 +5074,10 @@ if __name__ == "__main__":
             workers=args.workers,
             sample_size=args.sample,
             output_file=args.output,
+            project_ids_file=args.project_ids,
+            nonstandard_incomplete=args.nonstandard_incomplete,
+            override_max_candidates=args.max_candidates,
+            override_context_chars=args.context_chars,
+            promote_rod_language=args.promote_rod_language,
+            year_window=args.year_window,
         )
