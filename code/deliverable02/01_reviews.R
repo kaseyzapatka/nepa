@@ -29,8 +29,64 @@ source(here::here("code", "deliverable02", "00_setup.R"))
 # TIMELINE COVERAGE INSPECTION (161 non-standard projects)
 # --------------------------
 
+# Random incomplete project: print selected timeline dates + all BERT candidates
+random_incomplete_project <- browse_ns |>
+  filter(!complete) |>
+  slice_sample(n = 1)
+
+random_incomplete_id <- random_incomplete_project |> pull(project_id)
+
+cat("\nRandom incomplete non-standard project:\n")
+print(random_incomplete_project)
+
+cat("\nTimeline fields for sampled project:\n")
+tl_full |>
+  filter(project_id == random_incomplete_id) |>
+  select(any_of(c(
+    "project_id", "dataset_source", "process_type", "project_title",
+    "llm_initiation_date", "llm_decision_date", "llm_decision_mode",
+    "llm_adj_n_candidates", "llm_initiation_reasoning", "llm_decision_reasoning",
+    "bert_initiation_date_final", "bert_decision_date", "bert_timeline_status"
+  ))) |>
+  print(width = Inf)
+
+cat("\nAll date candidates (BERT) for sampled project:\n")
+inspect_candidates(random_incomplete_id)
+
 browse_ns |> count(complete, review_type, process_type)
 browse_ns |> filter(!complete) |> print(n = 80)
+
+noncomplete_timeline <- browse_ns |> filter(!complete) |> pull(project_id) |> print()
+
+# one missing initation where we could 
+tl_full |> 
+  filter(project_id %in% noncomplete_timeline) |> glimpse()
+
+
+
+# one missing initation where we could 
+tl_full |> 
+  filter(project_id %in% noncomplete_timeline) |> glimpse()
+  select(noi_publication_date, llm_initiation_date,llm_decision_date, review_type) |> 
+  filter(!is.na(noi_publication_date) & is.na(llm_initiation_date)) |> 
+  glimpse()
+
+
+
+browse_ns |> glimpse()
+tl_full |> filter(project_id == "f95ec9530b352e3dd46e6473cb80dccf") |> glimpse()
+tl_full |> filter(project_id == "a5cbb6cbd14df4aa1d3a4db048455276") |> glimpse()
+
+tl_full |> filter(project_id == "f95ec9530b352e3dd46e6473cb80dccf") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("f95ec9530b352e3dd46e6473cb80dccf")
+
+tl_full |> filter(project_id == "49cdaa3ff2e6c505c6822e8e9803eb9b") |> select(llm_initiation_date, llm_initiation_reasoning, llm_decision_date, llm_decision_reasoning) |> glimpse()
+inspect_candidates("49cdaa3ff2e6c505c6822e8e9803eb9b")
+
+
+#49cdaa3ff2e6c505c6822e8e9803eb9b - May 2023
+
+
 
 # Drill into date candidates for a specific project:
 # inspect_candidates("project-id-here")
@@ -738,4 +794,3 @@ print(duration_summary %>%
         select(process_type, review_type, n, median_days, mean_days))
 cat("\nFigures saved to:", figures_dir, "\n")
 cat("Tables  saved to:", tables_dir, "\n")
-

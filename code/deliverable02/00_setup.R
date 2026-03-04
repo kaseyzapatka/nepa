@@ -208,16 +208,33 @@ browse_ns <- reviews |>
   arrange(complete, review_type, process_type)
 
 # Inspect BERT date candidates for a specific project
+# Shows all dates BERT found (bert_dates_json). LLM may have seen fewer after filtering.
+# Use inspect_llm_prompt(pid) to see exactly what the LLM received.
 inspect_candidates <- function(pid) {
   row <- tl_full |> filter(project_id == pid)
   if (nrow(row) == 0) { message("Project not found"); return(invisible(NULL)) }
   json_str <- row$bert_dates_json[[1]]
   if (is.null(json_str) || is.na(json_str)) { message("No candidates"); return(invisible(NULL)) }
-  jsonlite::fromJSON(json_str, simplifyDataFrame = TRUE) |>
-    as_tibble() |>
-    select(any_of(c("date", "dtype", "doc_type", "confidence", "context", "source"))) |>
+  dates <- jsonlite::fromJSON(json_str, simplifyDataFrame = TRUE) |> as_tibble()
+  # Normalize column names (field names vary slightly across pipeline versions)
+  if ("type" %in% names(dates) && !"dtype" %in% names(dates))
+    dates <- rename(dates, dtype = type)
+  if ("context_cleaned" %in% names(dates) && !"context" %in% names(dates))
+    dates <- rename(dates, context = context_cleaned)
+  cat("Total BERT candidates:", nrow(dates), "| LLM saw:", row$llm_adj_n_candidates[[1]], "| mode:", row$llm_decision_mode[[1]], "\n\n")
+  dates |>
+    select(any_of(c("date", "dtype", "doc_type", "confidence", "bert_confidence", "context", "source"))) |>
     arrange(date) |>
-    print(n = 200)
+    print(n = 500)
+}
+
+# Show the raw prompt that was sent to the LLM for a project
+inspect_llm_prompt <- function(pid) {
+  row <- tl_full |> filter(project_id == pid)
+  if (nrow(row) == 0) { message("Project not found"); return(invisible(NULL)) }
+  prompt <- row$llm_adj_prompt[[1]]
+  if (is.null(prompt) || is.na(prompt)) { message("No LLM prompt stored"); return(invisible(NULL)) }
+  cat(prompt)
 }
 
 reviews_tl <- reviews %>%
