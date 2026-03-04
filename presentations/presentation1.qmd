@@ -9,7 +9,7 @@ format:
     theme: [default, catf-theme.scss]
     slide-number: c/t
     logo: catf-logo.png
-    footer: "NEPA Decarbonization Technologies Analysis — Phase 1 &nbsp;|&nbsp; <a href='../reports/project_overview.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full analysis on website →</a> &nbsp;|&nbsp; <span style='color:#FF6600;font-weight:700;'>PRELIMINARY</span>"
+    footer: "NEPA Decarbonization Technologies Analysis — Phase 1 &nbsp;|&nbsp; <a href='../reports/project_overview.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full analysis on website →</a> &nbsp;|&nbsp; <span style='color:#FF6600;font-weight:700;'>PRELIMINARY — NOT FOR EXTERNAL DISTRIBUTION</span>"
     transition: slide
     background-transition: fade
     progress: true
@@ -44,35 +44,29 @@ include-in-header:
         if (wrapper && wrapper.tagName === 'P' && wrapper.children.length === 0) {
           wrapper.remove();
         }
+
         var logoStyle = [
           'position:fixed', 'top:10px', 'left:12px',
           'height:40px', 'width:auto', 'max-height:40px',
           'z-index:999', 'opacity:0.9',
           'border-radius:0', 'box-shadow:none', 'margin:0'
         ].join('!important;') + '!important';
+
         logo.setAttribute('style', logoStyle);
+
         function updateLogo(slide) {
           var hide = slide && slide.classList.contains('title-slide');
           logo.style.display = hide ? 'none' : 'block';
         }
-        // Add fixed-position PRELIMINARY notice; show only on slide 1 (the YAML title slide).
-        // We cannot rely on .title-slide class because Quarto also applies it to # section slides.
-        // Instead, capture the slide element when RevealJS fires 'ready' (always starts at slide 1).
-        var prelim = document.createElement('div');
-        prelim.style.cssText = 'position:fixed;bottom:200px;left:50%;transform:translateX(-50%);background:rgba(220,60,0,0.88);color:white;font-weight:700;padding:6px 28px;border-radius:4px;font-size:0.85em;letter-spacing:0.07em;white-space:nowrap;z-index:998;font-family:Lato,sans-serif;display:none;';
-        prelim.textContent = 'PRELIMINARY — NOT FOR EXTERNAL DISTRIBUTION';
-        document.body.appendChild(prelim);
-        var titleSlideRef = null;
-        function updatePrelim(slide) {
-          var show = slide && titleSlideRef && slide === titleSlideRef;
-          prelim.style.display = show ? 'block' : 'none';
-        }
+
         if (window.Reveal) {
           Reveal.on('ready', function (e) {
-            titleSlideRef = e.currentSlide; // Slide 1 is always current when ready fires
-            updateLogo(e.currentSlide); updatePrelim(e.currentSlide);
+            updateLogo(e.currentSlide);
           });
-          Reveal.on('slidechanged', function (e) { updateLogo(e.currentSlide); updatePrelim(e.currentSlide); });
+
+          Reveal.on('slidechanged', function (e) {
+            updateLogo(e.currentSlide);
+          });
         }
       });
       </script>
