@@ -680,24 +680,11 @@ knitr::include_graphics(file.path(d3_figures, "03_duration_summary_intervals_by_
 ```
 :::
 ::: {.column width="38%"}
-**Median durations:**
-
-- CE: **~1 month**
-- EA: **~14 months**
-- EIS: **~34 months** (3 years) with the **90th percentile: > 7.5 years**
-
----
-
-**Timeline completeness** (projects with both initiation + decision dates):
-
-| Process | Complete |
-|---|---|
-| CE | 30% |
-| EA | 62% |
-| EIS | 48% |
-
+```{r}
+knitr::include_graphics(file.path(d3_figures, "03_complete_timeline_share_boxplot.png"))
+```
 ::: {.caption-text}
-Dates extracted via BERT NLP pipeline from document text
+Timeline completeness (projects with both initiation + decision dates):
 :::
 :::
 :::
@@ -1167,24 +1154,7 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 
 ---
 
-## A1: NEPA Process Duration — Summary Statistics {.scrollable}
-
-| Process | Review Type | n (approx.) | Median (days) | 25th pct | 75th pct | 90th pct |
-|---|---|---|---|---|---|---|
-| CE | Standard | ~17,000 | ~30 | 14 | 60 | 120 |
-| EA | Standard | ~2,700 | 294 | 150 | 520 | 900 |
-| EA | Tiered | ~250 | 380 | 200 | 650 | 1,100 |
-| EA | Programmatic | ~350 | 320 | 170 | 580 | 960 |
-| EIS | Standard | ~400 | 1,042 | 600 | 1,600 | 2,800 |
-| EIS | Programmatic | ~80 | 924 | 500 | 1,400 | 2,400 |
-
-::: {.small-text}
-*Statistics derived from projects with complete timelines (both initiation and decision dates). CE statistics are approximate due to lower timeline completeness (30%). See Deliverable 3 for precise figures and confidence intervals.*
-:::
-
----
-
-## A2: Technology Distribution — Deep Dive by Process Type {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+## A1: D1-Technology Distribution — Deep Dive by Process Type {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="33%"}
@@ -1224,7 +1194,18 @@ knitr::include_graphics(file.path(d1_figures, "13_deep_dive_eis_tech.png"))
 
 ---
 
-## A3: Timeline Extraction Methodology
+## A2: D3-Timeline Coverage Mix by Review Process
+
+```{r}
+#| out-width: "90%"
+#| fig-align: center
+knitr::include_graphics(file.path(d3_figures, "03_timeline_status_by_process.png"))
+```
+::: {.caption-text style="text-align:center;"}
+Timeline coverage breakdown by review process — share of projects with each combination of initiation and decision dates present or missing.
+:::
+
+## A3: D3-Timeline Extraction Methodology
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1258,97 +1239,7 @@ knitr::include_graphics(file.path(d1_figures, "13_deep_dive_eis_tech.png"))
 
 ---
 
-## A4: Transmission — Duration by Region
-
-```{r}
-#| out-width: "85%"
-knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_region.png"))
-```
-
-::: {.small-text}
-Regional variation reflects differences in project scale, agency staffing, and land status (federal vs. private). Western regions show both the highest median durations and the widest variance.
-:::
-
----
-
-## A5: Geothermal Phase Distribution
-
-```{r}
-#| out-width: "80%"
-knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_distribution.png"))
-```
-
-::: {.small-text}
-Phase classification uses regex keyword matching on project title and description. Projects matching 2+ phase keyword sets are classified as "multi-phase." Projects with no keyword match fall back to process type (CE → drilling; EA/EIS → exploration).
-:::
-
----
-
-## A6: Pipeline Length vs. Duration
-
-```{r}
-#| out-width: "82%"
-knitr::include_graphics(file.path(d6_figures, "fig_pipeline_length_vs_duration.png"))
-```
-
-::: {.small-text}
-Modest positive correlation between pipeline length and NEPA duration across all types. High variance throughout. Natural gas provides the most statistically reliable trend line given sample size.
-:::
-
----
-
-## A7: FRA Regulatory vs. Raw Pages Methodology
-
-::: {.columns}
-::: {.column width="55%"}
-**Regulatory Page Calculation**
-
-1. Extract body text from OCR'd PDF
-2. Detect appendix boundaries using section-header patterns (e.g., "Appendix A", "References", "List of Preparers")
-3. Count words in body text (pre-appendix sections only)
-4. Regulatory pages = body word count ÷ 500
-
-**Scale of difference:**
-
-- EAs: regulatory pages ≈ 45–55% of raw page count
-- EISs: regulatory pages ≈ 70–80% of raw page count
-:::
-::: {.column width="45%"}
-**Known Edge Cases**
-
-::: {.callout-warning}
-- OCR errors in scanned legacy documents may produce NULL word counts
-- Non-standard appendix headers may not be detected
-- ~5% of cases: regulatory pages exceed raw pages (OCR text extraction artifact in table-heavy documents)
-- Waivers and "extraordinary complexity" exceptions are not distinguished from standard non-compliance
-:::
-:::
-:::
-
----
-
-## A8: NEPA Policy Context 2025–2026 {.scrollable}
-
-| Date | Event |
-|---|---|
-| Jan 20, 2025 | EO 14154 revokes CEQ NEPA regulation authority; instructs agencies to eliminate permitting delays |
-| Feb 25, 2025 | CEQ issues interim rule removing NEPA regulations from CFR |
-| Apr 23, 2025 | DOI emergency permitting: review timelines reduced to under 1 month |
-| May 29, 2025 | Supreme Court (*Seven County v. Eagle County*): agencies may limit NEPA scope to decisional authority |
-| Jul 4, 2025 | Reconciliation bill signed — pay-to-play expedited reviews enacted |
-| Jul 3, 2025 | DOE, DOI, USDA, Army Corps, DOT, FERC convert NEPA regulations to nonbinding guidance |
-| Jul 23, 2025 | AI Action Plan: EO directs new CEs, NEPA exemption when federal funding < 50% |
-| Dec 18, 2025 | SPEED Act passes House — limits on judicial review, new NEPA exemptions proposed |
-| Dec 22, 2025 | DOI issues stop-work orders for 5 offshore wind projects including Vineyard Wind 1 |
-| Jan 8, 2026 | CEQ adopts final rule: all NEPA regulations removed from Federal Register |
-
-::: {.small-text}
-*Source: CATF NEPA & Permitting Reform Timeline. The Phase 1 analysis predates most of these actions. Phase 2 data collection will capture their effects on permitting patterns.*
-:::
-
----
-
-## A9: Multi-State Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+## A4: D4-Multi-State Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
 ```{r}
 #| out-width: "72%"
@@ -1383,7 +1274,7 @@ knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_word
 
 ---
 
-## A10: Multi-Agency Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+## A5: D4-Multi-Agency Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
 ```{r}
 #| out-width: "72%"
@@ -1415,6 +1306,95 @@ knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wor
 ::: {.callout-finding}
 - **Utilities and Electricity Transmission dominate three review types**
 - **CE and EA samples are very small** (20 and 14 projects respectively) — their word clouds reflect a narrow slice of project types and should be interpreted cautiously.
+:::
+---
+
+## A6: D5-FRA Regulatory vs. Raw Pages Methodology
+
+::: {.columns}
+::: {.column width="55%"}
+**Regulatory Page Calculation**
+
+1. Extract body text from OCR'd PDF
+2. Detect appendix boundaries using section-header patterns (e.g., "Appendix A", "References", "List of Preparers")
+3. Count words in body text (pre-appendix sections only)
+4. Regulatory pages = body word count ÷ 500
+
+**Scale of difference:**
+
+- EAs: regulatory pages ≈ 45–55% of raw page count
+- EISs: regulatory pages ≈ 70–80% of raw page count
+:::
+::: {.column width="45%"}
+**Known Edge Cases**
+
+::: {.callout-warning}
+- OCR errors in scanned legacy documents may produce NULL word counts
+- Non-standard appendix headers may not be detected
+- ~5% of cases: regulatory pages exceed raw pages (OCR text extraction artifact in table-heavy documents)
+- Waivers and "extraordinary complexity" exceptions are not distinguished from standard non-compliance
+:::
+:::
+:::
+
+---
+
+## A7: D6-Transmission — Duration by Region
+
+```{r}
+#| out-width: "85%"
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_region.png"))
+```
+
+::: {.small-text}
+Regional variation reflects differences in project scale, agency staffing, and land status (federal vs. private). Western regions show both the highest median durations and the widest variance.
+:::
+
+---
+
+## A8: D6-Geothermal Phase Distribution
+
+```{r}
+#| out-width: "80%"
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_distribution.png"))
+```
+
+::: {.small-text}
+Phase classification uses regex keyword matching on project title and description. Projects matching 2+ phase keyword sets are classified as "multi-phase." Projects with no keyword match fall back to process type (CE → drilling; EA/EIS → exploration).
+:::
+
+---
+
+## A9: D6-Pipeline Length vs. Duration
+
+```{r}
+#| out-width: "82%"
+knitr::include_graphics(file.path(d6_figures, "fig_pipeline_length_vs_duration.png"))
+```
+
+::: {.small-text}
+Modest positive correlation between pipeline length and NEPA duration across all types. High variance throughout. Natural gas provides the most statistically reliable trend line given sample size.
+:::
+
+---
+
+## A10: NEPA Policy Context 2025–2026 {.scrollable}
+
+| Date | Event |
+|-|---|
+| Jan 20, 2025 | EO 14154 revokes CEQ NEPA regulation authority; instructs agencies to eliminate permitting delays |
+| Feb 25, 2025 | CEQ issues interim rule removing NEPA regulations from CFR |
+| Apr 23, 2025 | DOI emergency permitting: review timelines reduced to under 1 month |
+| May 29, 2025 | Supreme Court (*Seven County v. Eagle County*): agencies may limit NEPA scope to decisional authority |
+| Jul 4, 2025 | Reconciliation bill signed — pay-to-play expedited reviews enacted |
+| Jul 3, 2025 | DOE, DOI, USDA, Army Corps, DOT, FERC convert NEPA regulations to nonbinding guidance |
+| Jul 23, 2025 | AI Action Plan: EO directs new CEs, NEPA exemption when federal funding < 50% |
+| Dec 18, 2025 | SPEED Act passes House — limits on judicial review, new NEPA exemptions proposed |
+| Dec 22, 2025 | DOI issues stop-work orders for 5 offshore wind projects including Vineyard Wind 1 |
+| Jan 8, 2026 | CEQ adopts final rule: all NEPA regulations removed from Federal Register |
+
+::: {.small-text}
+*Source: CATF NEPA & Permitting Reform Timeline. The Phase 1 analysis predates most of these actions. Phase 2 data collection will capture their effects on permitting patterns.*
 :::
 
 ---
