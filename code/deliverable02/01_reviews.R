@@ -33,6 +33,11 @@ reviews |> distinct(project_energy_type)
 reviews |> count(process_type)
 reviews |> count(review_type)
 
+
+reviews |> glimpse()
+reviews |> dim()
+reviews |> glimpse()
+duration_data|> count(review_type)
 # 
 # Programmatic
 # ---------------------------------

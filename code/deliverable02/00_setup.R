@@ -154,6 +154,23 @@ timeline <- bind_rows(
 
 cat("  Timeline records:", nrow(timeline), "\n")
 
+# Patch in targeted re-adjudication results for incomplete non-standard projects
+targeted_path <- here("data", "analysis", "projects_timeline_targeted_llm.parquet")
+if (file.exists(targeted_path)) {
+  targeted <- read_parquet(targeted_path) %>%
+    select(project_id,
+           targeted_initiation_date = llm_initiation_date,
+           targeted_decision_date   = llm_decision_date)
+  timeline <- timeline %>%
+    left_join(targeted, by = "project_id") %>%
+    mutate(
+      initiation_date = coalesce(as.Date(targeted_initiation_date), initiation_date),
+      decision_date   = coalesce(as.Date(targeted_decision_date),   decision_date)
+    ) %>%
+    select(-targeted_initiation_date, -targeted_decision_date)
+  cat("  Targeted re-adjudication applied:", nrow(targeted), "projects patched\n")
+}
+
 reviews_tl <- reviews %>%
   left_join(timeline, by = "project_id") %>%
   mutate(
