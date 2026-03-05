@@ -324,37 +324,24 @@ knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
 Process type mix by lead department
 :::
 
-
-::: {.callout-finding}
-- **DOE accounts for 81% of all decarbonization-related projects** — and processes 97% of those through Categorical Exclusions
-- **BLM and Forest Service** show a more varied process mix, consistent with their land-management mandates for large-scale renewables on federal lands.
-- **Coverage note:** Only DOE, BLM, and Forest Service have comphrensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture. See appendix for the full all-agencies view.
-- [Key department deep dive analysis →](https://www.kaseyzapatka.com/nepa/reports/deliverable01.html#key-agency-deep-dive)
-:::
-
 :::
 ::: {.column width="60%"}
 ```{r}
-#| out-width: "65%"
+#| out-width: "85%"
 knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
 ```
 ::: {.caption-text}
 Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
 :::
 
-```{r}
-#| out-width: "65%"
-knitr::include_graphics(file.path(d1_figures, "04_coverage_verified_process.png"))
-```
-::: {.caption-text}
-Process type mix by lead department (all agencies)
-:::
 :::
 :::
 
-
-::: {.notes}
-DOE's concentration in CEs has policy implications — CE status means limited public review. The question for Phase 2 is whether this reflects genuinely low-impact projects or a systematic administrative preference.
+::: {.callout-finding}
+- **DOE accounts for 81% of all decarbonization-related projects** — and processes 97% of those through Categorical Exclusions
+- **BLM and Forest Service** show a more varied process mix, consistent with their land-management mandates for large-scale renewables on federal lands.
+- **See Appendix for detailed coverage note:** Only DOE, BLM, and Forest Service have comprehensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture.
+- [Key department deep dive analysis →](https://www.kaseyzapatka.com/nepa/reports/deliverable01.html#key-agency-deep-dive)
 :::
 
 ---
@@ -443,31 +430,23 @@ There are **three types of reviews** in the NEPA process:
 knitr::include_graphics(file.path(d2_figures, "02_review_share.png"))
 ```
 
-<br> 
-
-::: {.callout-finding}
-- **Standard review is the overwhelming norm** — Almost 90% of projects use the standalone standard review process.
-- **Tiered reviews are more rare** 
-- For EA and EIS, **only 24%** are non-standard, just under 1/4 of reviews.  
-:::
 
 :::
 ::: {.column width="50%"}
 
 
 ```{r}
-#| out-width: "55%"
+#| out-width: "75%"
 knitr::include_graphics(file.path(d2_figures, "02_review_by_process2.png"))
 ```
 
-```{r}
-#| out-width: "80%"
-knitr::include_graphics(file.path(d2_figures, "02_review_by_process1.png"))
-```
-
 :::
 :::
 
+::: {.callout-finding}
+- **Standard review is the overwhelming norm** — Almost 90% of projects use the standalone standard review process.
+- **Tiered reviews are more rare** 
+:::
 
 ---
 
@@ -843,12 +822,12 @@ Only a few carbon and hydrogen projects have both length and duration data. Find
 ## Phase 1 Summary: Key Findings {.full-size}
 
 ::: {.incremental}
-1. D1: **DOE handles 81%** or review cases, processing 96% via CE — the story is dominated by DOE Categorical Exclusions
+1. D1: **DOE Categorical Exclusions are king:** DOE handles 81% of review cases, processing 96% via CE 
 2. D1: **Western states and federal lands dominate** — BLM, Forest Service, and DOE public land concentration drives the geographic pattern
 3. D2: **Tiering might help** — tiered EAs take longer than standard EAs — but less time than a full EIS
 4. D3: **Duration gradient is steep with a long tail** — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median)
-5. D3: **Scale matches review intensity** — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW
-6. D3: **Policy stimulus** — ARRA (2010) and IRA/BIL (2022–23) CE peaks are clear
+5. D3: **Policy stimulus** — ARRA (2010) and IRA/BIL (2022–23), CE peaks are clear
+6. D3: **Scale matches review intensity** — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW
 7. D4: **DOE is the multi-agency hub** — improving DOE-DOI-USDA coordination would have outsized impact
 8. D5: **FRA had effect but not definitive** — document lengths declined; most projects are compliant (small N)
 9. D6: **No relation between line length and duration**, but long lines (100+ miles) take longer (small N)
@@ -955,7 +934,7 @@ Three additional exclusions were applied after reviewing co-occurring tag combin
 ::: {.columns}
 ::: {.column width="50%"}
 ```{r}
-knitr::include_graphics(file.path(d1_figures, "04_coverage_verified_process.png"))
+knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
 ```
 ::: {.caption-text}
 Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
@@ -963,7 +942,7 @@ Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
 :::
 ::: {.column width="50%"}
 ```{r}
-knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
+knitr::include_graphics(file.path(d1_figures, "04_coverage_verified_process.png"))
 ```
 ::: {.caption-text}
 Process type mix by lead department (all agencies)
@@ -971,6 +950,9 @@ Process type mix by lead department (all agencies)
 :::
 :::
 
+::: {.callout-finding}
+**Coverage note:** Only DOE, BLM, and Forest Service have comprehensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture.
+::: 
 ---
 
 ## D1-Technology Distribution — Deep Dive by Process Type {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}

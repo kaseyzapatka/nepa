@@ -1334,7 +1334,7 @@
     "href": "presentations/presentation1.html#programmatic-tiered-reviews",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "Programmatic & Tiered Reviews",
-    "text": "Programmatic & Tiered Reviews\n\n\nThere are three types of reviews in the NEPA process:\n\nStandard: Stand-alone EA or EIS covering a single project — the default NEPA approach\nProgrammatic (Tier 1): Broad “umbrella” review (PEIS/PEA) covering a class of actions or a region, usually before site-specific work begins\nTiered (Tier 2): Site-specific review that builds on a prior programmatic review, scopes out specific issues already identified, streamline the review process\n\n\n\n\n\n\n\n\n\nStandard review is the overwhelming norm — Almost 90% of projects use the standalone standard review process.\nTiered reviews are more rare\nFor EA and EIS, only 24% are non-standard, just under 1/4 of reviews."
+    "text": "Programmatic & Tiered Reviews\n\n\nThere are three types of reviews in the NEPA process:\n\nStandard: Stand-alone EA or EIS covering a single project — the default NEPA approach\nProgrammatic (Tier 1): Broad “umbrella” review (PEIS/PEA) covering a class of actions or a region, usually before site-specific work begins\nTiered (Tier 2): Site-specific review that builds on a prior programmatic review, scopes out specific issues already identified, streamline the review process\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nStandard review is the overwhelming norm — Almost 90% of projects use the standalone standard review process.\nTiered reviews are more rare"
   },
   {
     "objectID": "presentations/presentation1.html#programmatic-tiered-reviews-are-the-minority",
@@ -2580,7 +2580,7 @@
     "href": "presentations/presentation1.html#phase-1-summary-key-findings",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "Phase 1 Summary: Key Findings",
-    "text": "Phase 1 Summary: Key Findings\n\n\nD1: DOE handles 81% or review cases, processing 96% via CE — the story is dominated by DOE Categorical Exclusions\nD1: Western states and federal lands dominate — BLM, Forest Service, and DOE public land concentration drives the geographic pattern\nD2: Tiering might help — tiered EAs take longer than standard EAs — but less time than a full EIS\nD3: Duration gradient is steep with a long tail — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median)\nD3: Scale matches review intensity — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW\nD3: Policy stimulus — ARRA (2010) and IRA/BIL (2022–23) CE peaks are clear\nD4: DOE is the multi-agency hub — improving DOE-DOI-USDA coordination would have outsized impact\nD5: FRA had effect but not definitive — document lengths declined; most projects are compliant (small N)\nD6: No relation between line length and duration, but long lines (100+ miles) take longer (small N)"
+    "text": "Phase 1 Summary: Key Findings\n\n\nD1: DOE Categorical Exclusions are king: DOE handles 81% of review cases, processing 96% via CE\nD1: Western states and federal lands dominate — BLM, Forest Service, and DOE public land concentration drives the geographic pattern\nD2: Tiering might help — tiered EAs take longer than standard EAs — but less time than a full EIS\nD3: Duration gradient is steep with a long tail — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median)\nD3: Policy stimulus — ARRA (2010) and IRA/BIL (2022–23) CE peaks are clear\nD3: Scale matches review intensity — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW\nD4: DOE is the multi-agency hub — improving DOE-DOI-USDA coordination would have outsized impact\nD5: FRA had effect but not definitive — document lengths declined; most projects are compliant (small N)\nD6: No relation between line length and duration, but long lines (100+ miles) take longer (small N)"
   },
   {
     "objectID": "presentations/presentation1.html#a1-nepa-process-duration-summary-statistics",
@@ -3007,7 +3007,7 @@
     "href": "presentations/presentation1.html#d1-process-type-by-lead-department-all-agencies-vs-verified-agencies",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "D1-Process Type by Lead Department (All Agencies vs Verified Agencies)",
-    "text": "D1-Process Type by Lead Department (All Agencies vs Verified Agencies)\n\n\n\n\n\n\n\n\nProcess type mix — DOE, BLM, and Forest Service only (comprehensive coverage)\n\n\n\n\n\n\n\n\nProcess type mix by lead department (all agencies)"
+    "text": "D1-Process Type by Lead Department (All Agencies vs Verified Agencies)\n\n\n\n\n\n\n\n\nProcess type mix — DOE, BLM, and Forest Service only (comprehensive coverage)\n\n\n\n\n\n\n\n\nProcess type mix by lead department (all agencies)\n\n\n\n\nCoverage note: Only DOE, BLM, and Forest Service have comprehensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture."
   },
   {
     "objectID": "presentations/presentation1.html#d1-technology-distribution-deep-dive-by-process-type",
@@ -3084,7 +3084,7 @@
     "href": "presentations/presentation1.html#project-breakdown-by-lead-department",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "Project Breakdown by Lead Department",
-    "text": "Project Breakdown by Lead Department\n\n\n\n\n\n\n\n\nProcess type mix by lead department\n\n\n\nDOE accounts for 81% of all decarbonization-related projects — and processes 97% of those through Categorical Exclusions\nBLM and Forest Service show a more varied process mix, consistent with their land-management mandates for large-scale renewables on federal lands.\nCoverage note: Only DOE, BLM, and Forest Service have comphrensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture. See appendix for the full all-agencies view.\nKey department deep dive analysis →\n\n\n\n\n\n\n\n\n\nProcess type mix — DOE, BLM, and Forest Service only (comprehensive coverage)\n\n\n\n\n\n\n\nProcess type mix by lead department (all agencies)\n\n\n\n\nDOE’s concentration in CEs has policy implications — CE status means limited public review. The question for Phase 2 is whether this reflects genuinely low-impact projects or a systematic administrative preference."
+    "text": "Project Breakdown by Lead Department\n\n\n\n\n\n\n\n\nProcess type mix by lead department\n\n\n\n\n\n\n\n\nProcess type mix — DOE, BLM, and Forest Service only (comprehensive coverage)\n\n\n\n\n\nDOE accounts for 81% of all decarbonization-related projects — and processes 97% of those through Categorical Exclusions\nBLM and Forest Service show a more varied process mix, consistent with their land-management mandates for large-scale renewables on federal lands.\nSee Appendix for detailed coverage note: Only DOE, BLM, and Forest Service have comprehensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture.\nKey department deep dive analysis →"
   },
   {
     "objectID": "presentations/presentation1.html#d6-transmission-length-and-duration-by-action-type",
