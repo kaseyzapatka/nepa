@@ -367,6 +367,64 @@ cat("  Saved:", fig_by_year_path, "\n")
 print(fig_by_year)
 
 # --------------------------
+# FIGURE 6B: PROJECTS BY DECISION YEAR — DOE ONLY
+# --------------------------
+
+cat("\nCreating Figure: DOE projects by decision year (by process)...\n")
+
+year_counts_doe <- timeline %>%
+  filter(str_detect(lead_agency, "Department of Energy")) %>%
+  filter(!is.na(process_group), !is.na(bert_year)) %>%
+  filter(bert_year >= 2000, bert_year <= 2025) %>%
+  count(process_group, bert_year, name = "n_projects")
+
+# Legislative markers: labels only in CE (top) panel — same as all-projects figure
+leg_events_doe <- tibble(
+  xintercept = c(2009,             2021,              2022),
+  label       = c("ARRA\nFeb 2009", "BIL\nNov 2021",  "IRA\nAug 2022"),
+  hjust_val   = c(-0.08,            1.08,              -0.08),
+  process_group = factor("CE", levels = process_levels)
+)
+
+fig_by_year_doe <- ggplot(year_counts_doe, aes(x = bert_year, y = n_projects)) +
+  geom_vline(
+    xintercept = leg_events_doe$xintercept,
+    linetype = "dashed", color = catf_teal, linewidth = 0.75, alpha = 0.9
+  ) +
+  geom_col(fill = catf_dark_blue, alpha = 0.85) +
+  geom_text(
+    aes(label = scales::comma(n_projects)),
+    vjust = -0.3,
+    size = 2.6,
+    color = "gray30"
+  ) +
+  geom_text(
+    data = leg_events_doe,
+    aes(x = xintercept, y = Inf, label = label, hjust = hjust_val),
+    vjust = 1.3, size = 2.3, color = catf_teal, lineheight = 0.85,
+    inherit.aes = FALSE
+  ) +
+  facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
+  scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.22)), labels = scales::comma) +
+  labs(
+    title = "DOE Decarbonization Technologies Projects by Decision Year",
+    subtitle = "DOE projects only (lead_agency contains 'Department of Energy'). Dashed lines mark major legislation.",
+    x = "Decision Year",
+    y = "Number of Projects",
+    caption = "Year derived from harmonized final decision date."
+  ) +
+  theme_catf() +
+  theme(
+    axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 0.5)
+  )
+
+fig_by_year_doe_path <- here(figures_dir, "03_projects_by_year_doe.png")
+ggsave(fig_by_year_doe_path, fig_by_year_doe, width = 11, height = 9, dpi = 300)
+cat("  Saved:", fig_by_year_doe_path, "\n")
+print(fig_by_year_doe)
+
+# --------------------------
 # FIGURE 7: TIMELINE STATUS MIX BY PROCESS (ADDITIONAL)
 # --------------------------
 

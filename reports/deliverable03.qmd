@@ -160,6 +160,24 @@ knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
 ```
 
 
+#### DOE projects by decision year
+
+Given the Department of Energy's (DOE) large share of projects in the NEPATEC 2.0 dataset, one interesting timeline followup question is to look at the distribution of of DOE projects over time.  The  hypothesis is that DOE's outsized presence partly reflects NEPA reviews triggered by grant and loan programs created under major decarbonization funding legislation: the American Recovery and Reinvestment Act (ARRA, 2009), the Bipartisan Infrastructure Law (BIL, 2021), and the Inflation Reduction Act (IRA, 2022). To explore this, @fig-projects-by-year-doe replicates the decision year chart above but restricted data to DOE projects only (12,727 CE, 233 EA, 101 EIS projects with extractable decision dates).
+
+The DOE-only pattern closely tracks the all-agency pattern, which is expected given DOE's dominance in the dataset, and closely match the time lag for each of the review processes - the lag between project initiation and final decision averages roughly 1 month for CEs, 1 year for EAs, and 3 years for EIS reviews. 
+
+- The **CE panel** shows a sharp spike in 2010 — the year after ARRA was enacted — followed by a dip through the mid-2010s and a sustained ramp from 2021 onward that coincides with BIL and IRA enactment.
+- The **EA panel** spikes in the years after ARRA (2010 and 2011) and BIL and IRA  (2023 and 2024). 
+- The **EIS panel** peaks in 2012–2014, consistent with large DOE-funded projects initiated under ARRA reaching their Records of Decision several years after program launch. The BIL and IRA markers fall near the right edge of the data, so their full effect on DOE-led NEPA reviews will not be visible until decisions on projects initiated in 2021–2023 accumulate over the next several years. 
+
+```{r}
+#| label: fig-projects-by-year-doe
+#| fig-cap: "DOE clean energy projects by decision year, faceted by NEPA review process. Only projects where the lead agency is the Department of Energy are included."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d3_figures, "03_projects_by_year_doe.png"))
+```
+
 ### Example Project Timelines
 
 The following examples illustrate the three main situations the classifier encounters across CE projects.
