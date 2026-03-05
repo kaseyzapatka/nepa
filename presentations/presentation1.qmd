@@ -565,7 +565,7 @@ Share of non-standard reviews by lead agency
 ## Are Tiered Reviews Actually Faster? {footer="Deliverable 2 | <a href='../reports/deliverable02.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D2 report →</a>"}
 
 
-::: {style="position:relative;"}
+::: {style="width:65%; margin:0 auto; position:relative;"}
 ```{r}
 knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 ```
@@ -582,9 +582,7 @@ knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 **Tiered EAs take longer than standard EAs on average** — but they are substantially shorter than a full EIS, suggesting the real efficiency gain from tiering is when it allows an agency to avoid a full EIS altogether rather than just shortening an EA.
 
 **Tiered EISs take less time than standard and programmatic EISs**, though distributions substantially overlap and sample sizes are small.
-:::
 
-::: {.callout-warning}
 Small sample for tiered EIS and EAs limits conclusions there.
 :::
 
