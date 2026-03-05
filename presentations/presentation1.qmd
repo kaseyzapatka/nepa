@@ -205,8 +205,8 @@ NEPATEC 2.0 was assembled by PNNL as part of PermitAI. The dataset converted ten
 ::: {.columns}
 ::: {.column width="55%"}
 
-::: {tbl-colwidths="[70,30]"}
-| **Decarbonization Technologies Tags** *(≥1 required, no Fossil Fuel tags)* | **Fossil Energy Tags** *(any 1 excludes)* |
+::: {tbl-colwidths="[80,20]"}
+| **Decarbonization Technology Tags** *(≥1 required, no Fossil Fuel tags)* | **Fossil Fuel Tags** *(any 1 excludes)* |
 |---|---|
 | Carbon Capture and Sequestration | Conventional Energy — Coal |
 | Nuclear Energy Production | Land-based Oil & Gas |
@@ -291,7 +291,7 @@ Technology by NEPA process type
 
 ---
 
-## Lead Departments {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+## Project Breakdown by Lead Department {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="40%"}
@@ -315,7 +315,7 @@ Process type mix by lead department
 ::: {.column width="60%"}
 ```{r}
 #| out-width: "65%"
-knitr::include_graphics(file.path(d1_figures, "04_coverage_verified_process.png"))
+knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
 ```
 ::: {.caption-text}
 Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
@@ -323,7 +323,7 @@ Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
 
 ```{r}
 #| out-width: "65%"
-knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
+knitr::include_graphics(file.path(d1_figures, "04_coverage_verified_process.png"))
 ```
 ::: {.caption-text}
 Process type mix by lead department (all agencies)
@@ -357,8 +357,8 @@ Top 20 states by decarbonization project count
 :::
 
 ::: {.callout-finding}
-- **South Carolina leads** with 2,000+ projects — almost entirely driven by DOE's Savannah River Site nuclear facility.
 - **Western states dominate renewable-driven activity:** Washington, California, Idaho, and Colorado together account for a large share of transmission, solar, wind, and hydropower projects.
+- **South Carolina leads** with 2,000+ projects — almost entirely driven by DOE's Savannah River Site nuclear facility.
 
 :::
 
@@ -400,22 +400,6 @@ Environmental Impact Statements by county
 ::: {.callout-finding}
 - Decarbonization-related projects across all three review types are predominately located in **western counties** of the United States, consistent with the concentration of public lands managed by BLM, Forest Service, and DOE in the West.
 - **Electricity Transmission and solar projects dominate EAs and EIS in** the southwest (see project [deep dive](https://www.kaseyzapatka.com/nepa/reports/deliverable01.html#deeper-dive-into-high-project-count-counties))
-:::
-
----
-
-## D1 Key Takeaways {background-color="#012169" footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
-
-::: {.takeaway-box}
-**Scale:** `r n_clean_fmt` decarbonization-related projects — largely projects of Categorical Exclusion status
-:::
-
-::: {.takeaway-box}
-**DOE dominance:** 81% of projects, 96% via CE — the decarbonization permitting story is largely a DOE Categorical Exclusion story
-:::
-
-::: {.takeaway-box}
-**Geography:** Western states and federal lands dominate NEPA activity for decarbonization technologies — driven by public land concentration managed by BLM, Forest Service, and DOE
 :::
 
 ---
@@ -524,26 +508,6 @@ knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 
 ---
 
-## D2 Key Takeaways {background-color="#012169" footer="Deliverable 2 | <a href='../reports/deliverable02.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D2 report →</a>"}
-
-::: {.takeaway-box}
-**Prevalence:** Only about 25% of EA/EIS projects use programmatic or tiered review — these are not the norm
-:::
-
-::: {.takeaway-box}
-**Speed:** Tiered EAs take longer than standard EAs — but much less time than a full EIS, suggesting tiering delivers efficiency mainly when it enables an agency to avoid the full EIS process
-:::
-
-::: {.takeaway-box}
-**Who drives them:** Nuclear Regulatory Commission and BLM accounts for large share of non-standard reviews; mostly located in western states
-:::
-
-::: {.takeaway-box}
-**Policy implication:** Tiering appears most valuable when it enables an agency to conduct an EA rather than a full EIS — expanding tiering should focus on creating those EIS-avoidance opportunities
-:::
-
----
-
 # Deliverable 3: NEPA Process Types, Timelines, and Generation Capacity {background-color="#012169"}
 
 ## Process Types by Energy Classification {footer="Deliverable 3 | <a href='../reports/deliverable03.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D3 report →</a>"}
@@ -647,26 +611,6 @@ Violin + boxplot by process
 
 ---
 
-## D3 Key Takeaways {background-color="#012169" footer="Deliverable 3 | <a href='../reports/deliverable03.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D3 report →</a>"}
-
-::: {.takeaway-box}
-**Duration gradient:** CE ~1 month → EA ~14 months → EIS ~3 years; the difference is real and large
-:::
-
-::: {.takeaway-box}
-**Long tail:** 10% of EIS reviews take more than 7.5 years — these outliers drive the NEPA delay narrative but are not typical
-:::
-
-::: {.takeaway-box}
-**Policy signals in the data:** The effects of ARRA (2010) and IRA/BIL (2022/2023) likley drive CE rates in the years following their passages; the full IRA cohort of EAs/EISs is still working through the pipeline
-:::
-
-::: {.takeaway-box}
-**Generation capacity scales with review intensity:** CE median 1.2 MW → EA median 60 MW → EIS median 538 MW — the most demanding reviews cover the highest-capacity projects
-:::
-
----
-
 # Deliverable 4: Multi-State & Multi-Agency Projects  {background-color="#012169"}
 
 ## Multi-State & Multi-Agency Projects {footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
@@ -744,26 +688,6 @@ Cross-department project flows. Lead department on the left, partner on the righ
 
 ---
 
-## D4 Key Takeaways {background-color="#012169" footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
-
-::: {.takeaway-box}
-**Complexity:** Multi-state and multi-agency projects are mostly CE and EIS-level reviews
-:::
-
-::: {.takeaway-box}
-**Geography:** Transmission lines that go through the NEPA process are overwhelmingly concentrated in the West — likely reflecting the prevalence of federal lands there
-:::
-
-::: {.takeaway-box}
-**DOE as hub:** DOE is the connective tissue of multi-agency review, partnering with 9 different departments
-:::
-
-::: {.takeaway-box}
-**Policy implication:** Improving coordination among DOE, DOI, and USDA would have outsized impact on the most complex decarbonization reviews
-:::
-
----
-
 # Deliverable 5: Document Length & Fiscal Responsibility Act Impact {background-color="#012169"}
 
 ## Document Length Trends Over Time {footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
@@ -830,26 +754,6 @@ Compliance rates (post-FRA only)
 - **EAs are largely compliant:** ~70% of post-FRA EAs meet the 75-page limit — a strong signal that the rule is working for shorter reviews.
 - **EIS compliance is more mixed:** Only 29% of EIS documents meet the 150-page limit outright; but another 29% fall in the 150–300 "extraordinary complexity" range and are compliant — a total of 57% compliant under the full standard.
 - **Trend preceded the rule:** Document lengths were already declining before FRA 2023, suggesting the law may have reinforced — not initiated — shorter reviews. The post-FRA sample is still small.
-:::
-
----
-
-## D5 Key Takeaways {background-color="#012169" footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
-
-::: {.takeaway-box}
-**Lengths declined:** EA and EIS document lengths fell ~20–25% post-FRA — a meaningful reduction if it holds
-:::
-
-::: {.takeaway-box}
-**Causation is uncertain:** The downward trend preceded FRA; the law may have reinforced rather than initiated the decline
-:::
-
-::: {.takeaway-box}
-**EA compliance is solid:** ~70% of post-FRA EAs comply with the 75-page limit — a strong signal that the rule is working for shorter reviews
-:::
-
-::: {.takeaway-box}
-**EIS compliance is mixed:** Only 29% comply with the 150-page limit outright; another 29% fall in the 150–300 "extraordinary complexity" range and are compliant — a total of 57% compliant under the full standard
 :::
 
 ---
@@ -993,35 +897,19 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 
 ---
 
-## D6 Key Takeaways {background-color="#012169" footer="Deliverable 6 | <a href='../reports/deliverable06.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"}
-
-::: {.takeaway-box}
-**Mixed findings: Transmission length = duration:** No statistical relation but very long lines (100+ miles) take 6× longer (small N)
-
-- Mostly upgrades, not new builds: most transmission NEPA activity is replacements and upgrades, not greenfield construction
-:::
-
-::: {.takeaway-box}
-**Geothermal permitting is cumulative:** Full development requires multiple sequential NEPA reviews; streamlining requires addressing the whole lifecycle
-:::
-
-::: {.takeaway-box}
-**Carbon/hydrogen data is thin:** Only single-digit to low-double-digit projects have full data — findings are directional, not definitive
-:::
-
----
-
 ## Phase 1 Summary: Key Findings {.full-size}
 
 ::: {.incremental}
 1. **`r n_clean_fmt` decarbonization-related NEPA projects** documented — largely projects of Categorical Exclusion status
 2. **DOE handles 81%**, processing 96% via CE — the story is dominated by DOE Categorical Exclusions
-3. **Tiering doesn't automatically help** — programmatic/tiered reviews represent only 35% of EA/EIS and are not reliably faster
-4. **Duration gradient is steep** — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median; 7.5-yr 90th pctile)
-5. **Scale matches review intensity** — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW
-6. **DOE is the multi-agency hub** — improving DOE-DOI-USDA coordination would have outsized impact
-7. **FRA effect is real but not definitive ** — document lengths for EIS but not EA projects; most projects are compliant, small N
-8. **Technology matters** — transmission length predicts duration; geothermal requires multi-phase permitting
+3. **Western states and federal lands dominate** — BLM, Forest Service, and DOE public land concentration drives the geographic pattern
+4. **Tiering doesn't automatically help** — programmatic/tiered reviews represent only ~25% of EA/EIS and are not reliably faster
+5. **Duration gradient is steep** — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median; 7.5-yr 90th pctile)
+6. **Scale matches review intensity** — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW
+7. **Policy stimulus visible in the data** — ARRA (2010) and IRA/BIL (2022–23) CE peaks are clear; the full IRA cohort of EAs/EISs is still working through the pipeline
+8. **DOE is the multi-agency hub** — improving DOE-DOI-USDA coordination would have outsized impact
+9. **FRA effect is real but not definitive** — document lengths declined ~20–25% post-FRA; most projects are compliant, but small N limits conclusions
+10. **Transmission is mostly upgrades** — most transmission NEPA is replacements and upgrades, not greenfield construction; geothermal requires multi-phase permitting
 :::
 
 ---
@@ -1062,7 +950,7 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 
 ---
 
-## A1: Defining Decarbonization Technologies — Tag and Exclusion System {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+## Defining Decarbonization Technologies — Tag and Exclusion System {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 
 ::: {.columns}
@@ -1120,7 +1008,7 @@ Three additional exclusions were applied after reviewing co-occurring tag combin
 
 ---
 
-## A1: D1-Process Type by Lead Department (All Agencies vs Verified Agencies) {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+## D1-Process Type by Lead Department (All Agencies vs Verified Agencies) {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="50%"}
@@ -1147,7 +1035,7 @@ Process type mix by lead department (all agencies)
 
 ---
 
-## A2: D1-Technology Distribution — Deep Dive by Process Type {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+## D1-Technology Distribution — Deep Dive by Process Type {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="33%"}
@@ -1187,7 +1075,7 @@ knitr::include_graphics(file.path(d1_figures, "13_deep_dive_eis_tech.png"))
 
 ---
 
-## A3: D3-Timeline Coverage Mix by Review Process
+## D3-Timeline Coverage Mix by Review Process
 
 ```{r}
 #| out-width: "90%"
@@ -1198,7 +1086,7 @@ knitr::include_graphics(file.path(d3_figures, "03_timeline_status_by_process.png
 Timeline coverage breakdown by review process — share of projects with each combination of initiation and decision dates present or missing.
 :::
 
-## A4: D3-Timeline Extraction Methodology
+## D3-Timeline Extraction Methodology
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1232,7 +1120,7 @@ Timeline coverage breakdown by review process — share of projects with each co
 
 ---
 
-## A5: D4-Multi-State Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+## D4-Multi-State Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
 ```{r}
 #| out-width: "72%"
@@ -1267,7 +1155,7 @@ knitr::include_graphics(file.path(d4_figures, "fig_multistate_project_types_word
 
 ---
 
-## A6: D4-Multi-Agency Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+## D4-Multi-Agency Projects — Project Type Word Clouds {.scrollable footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
 ```{r}
 #| out-width: "72%"
@@ -1302,7 +1190,7 @@ knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wor
 :::
 ---
 
-## A7: D5-FRA Regulatory vs. Raw Pages Methodology
+## D5-FRA Regulatory vs. Raw Pages Methodology
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -1332,7 +1220,7 @@ knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wor
 
 ---
 
-## A8: D6-Transmission — Duration by Region
+## D6-Transmission — Duration by Region
 
 ```{r}
 #| out-width: "85%"
@@ -1345,7 +1233,7 @@ Regional variation reflects differences in project scale, agency staffing, and l
 
 ---
 
-## A9: D6-Geothermal Phase Distribution
+## D6-Geothermal Phase Distribution
 
 ```{r}
 #| out-width: "80%"
@@ -1358,7 +1246,7 @@ Phase classification uses regex keyword matching on project title and descriptio
 
 ---
 
-## A10: D6-Pipeline Length vs. Duration
+## D6-Pipeline Length vs. Duration
 
 ```{r}
 #| out-width: "82%"
@@ -1371,7 +1259,7 @@ Modest positive correlation between pipeline length and NEPA duration across all
 
 ---
 
-## A11: NEPA Policy Context 2025–2026 {.scrollable}
+## NEPA Policy Context 2025–2026 {.scrollable}
 
 | Date | Event |
 |-|---|
@@ -1388,6 +1276,118 @@ Modest positive correlation between pipeline length and NEPA duration across all
 
 ::: {.small-text}
 *Source: CATF NEPA & Permitting Reform Timeline. The Phase 1 analysis predates most of these actions. Phase 2 data collection will capture their effects on permitting patterns.*
+:::
+
+---
+
+## D1 Key Takeaways {background-color="#012169" footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+
+::: {.takeaway-box}
+**Scale:** `r n_clean_fmt` decarbonization-related projects — largely projects of Categorical Exclusion status
+:::
+
+::: {.takeaway-box}
+**DOE dominance:** 81% of projects, 96% via CE — the decarbonization permitting story is largely a DOE Categorical Exclusion story
+:::
+
+::: {.takeaway-box}
+**Geography:** Western states and federal lands dominate NEPA activity for decarbonization technologies — driven by public land concentration managed by BLM, Forest Service, and DOE
+:::
+
+---
+
+## D2 Key Takeaways {background-color="#012169" footer="Deliverable 2 | <a href='../reports/deliverable02.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D2 report →</a>"}
+
+::: {.takeaway-box}
+**Prevalence:** Only about 25% of EA/EIS projects use programmatic or tiered review — these are not the norm
+:::
+
+::: {.takeaway-box}
+**Speed:** Tiered EAs take longer than standard EAs — but much less time than a full EIS, suggesting tiering delivers efficiency mainly when it enables an agency to avoid the full EIS process
+:::
+
+::: {.takeaway-box}
+**Who drives them:** Nuclear Regulatory Commission and BLM accounts for large share of non-standard reviews; mostly located in western states
+:::
+
+::: {.takeaway-box}
+**Policy implication:** Tiering appears most valuable when it enables an agency to conduct an EA rather than a full EIS — expanding tiering should focus on creating those EIS-avoidance opportunities
+:::
+
+---
+
+## D3 Key Takeaways {background-color="#012169" footer="Deliverable 3 | <a href='../reports/deliverable03.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D3 report →</a>"}
+
+::: {.takeaway-box}
+**Duration gradient:** CE ~1 month → EA ~14 months → EIS ~3 years; the difference is real and large
+:::
+
+::: {.takeaway-box}
+**Long tail:** 10% of EIS reviews take more than 7.5 years — these outliers drive the NEPA delay narrative but are not typical
+:::
+
+::: {.takeaway-box}
+**Policy signals in the data:** The effects of ARRA (2010) and IRA/BIL (2022/2023) likely drive CE rates in the years following their passages; the full IRA cohort of EAs/EISs is still working through the pipeline
+:::
+
+::: {.takeaway-box}
+**Generation capacity scales with review intensity:** CE median 1.2 MW → EA median 60 MW → EIS median 538 MW — the most demanding reviews cover the highest-capacity projects
+:::
+
+---
+
+## D4 Key Takeaways {background-color="#012169" footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
+
+::: {.takeaway-box}
+**Complexity:** Multi-state and multi-agency projects are mostly CE and EIS-level reviews
+:::
+
+::: {.takeaway-box}
+**Geography:** Transmission lines that go through the NEPA process are overwhelmingly concentrated in the West — likely reflecting the prevalence of federal lands there
+:::
+
+::: {.takeaway-box}
+**DOE as hub:** DOE is the connective tissue of multi-agency review, partnering with 9 different departments
+:::
+
+::: {.takeaway-box}
+**Policy implication:** Improving coordination among DOE, DOI, and USDA would have outsized impact on the most complex decarbonization reviews
+:::
+
+---
+
+## D5 Key Takeaways {background-color="#012169" footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
+
+::: {.takeaway-box}
+**Lengths declined:** EA and EIS document lengths fell ~20–25% post-FRA — a meaningful reduction if it holds
+:::
+
+::: {.takeaway-box}
+**Causation is uncertain:** The downward trend preceded FRA; the law may have reinforced rather than initiated the decline
+:::
+
+::: {.takeaway-box}
+**EA compliance is solid:** ~70% of post-FRA EAs comply with the 75-page limit — a strong signal that the rule is working for shorter reviews
+:::
+
+::: {.takeaway-box}
+**EIS compliance is mixed:** Only 29% comply with the 150-page limit outright; another 29% fall in the 150–300 "extraordinary complexity" range and are compliant — a total of 57% compliant under the full standard
+:::
+
+---
+
+## D6 Key Takeaways {background-color="#012169" footer="Deliverable 6 | <a href='../reports/deliverable06.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"}
+
+::: {.takeaway-box}
+**Transmission:** No statistical relation between line length and duration, but very long lines (100+ miles) take 6× longer (small N) — most transmission NEPA is upgrades and replacements, not greenfield construction
+:::
+
+::: {.takeaway-box}
+**Geothermal permitting is cumulative:** Full development requires multiple sequential NEPA reviews; streamlining requires addressing the whole lifecycle
+:::
+
+::: {.takeaway-box}
+**Carbon/hydrogen data is thin:** Only single-digit to low-double-digit projects have full data — findings are directional, not definitive
 :::
 
 ---

@@ -413,19 +413,22 @@ coverage_verified <- bind_rows(
   agency_data %>%
     filter(department == "Department of Energy") %>%
     mutate(agency_label = "Dept. of Energy (DOE)", dept_label = "Department of Energy"),
-  # BLM and Forest Service from key agency matches
+  # BLM from key agency matches
   key_agency_data %>%
-    filter(matched_agency %in% c("Bureau of Land Management", "Forest Service")) %>%
+    filter(matched_agency == "Bureau of Land Management") %>%
     mutate(
-      agency_label = case_when(
-        matched_agency == "Bureau of Land Management" ~ "Bureau of Land Management (BLM)",
-        matched_agency == "Forest Service" ~ "Forest Service (USFS)"
-      ),
-      dept_label = case_when(
-        matched_agency == "Bureau of Land Management" ~ "Department of the Interior",
-        matched_agency == "Forest Service" ~ "Department of Agriculture"
-      )
-    )
+      agency_label = "Bureau of Land Management (BLM)",
+      dept_label = "Department of the Interior"
+    ),
+  # Forest Service: explicit FS records + generic USDA CEs
+  # Note: NEPATEC records Forest Service CEs under the generic "Department of Agriculture"
+  # lead_agency rather than "Department of Agriculture - Forest Service". We include all
+  # generic USDA CEs here; see caption footnote.
+  bind_rows(
+    key_agency_data %>% filter(matched_agency == "Forest Service"),
+    agency_data %>% filter(department == "Department of Agriculture", process_type == "CE")
+  ) %>%
+    mutate(agency_label = "Forest Service (USFS)", dept_label = "Department of Agriculture")
 ) %>%
   count(dept_label, agency_label, process_type) %>%
   group_by(agency_label) %>%
@@ -475,7 +478,7 @@ fig_coverage_verified <- coverage_verified %>%
     y = "Share of Projects",
     fill = "Process Type",
     title = "NEPA Process Type Distribution (Coverage-Verified Agencies)",
-    caption = "Only agencies with comprehensive EA/CE data in NEPATEC: DOE (all sub-agencies), BLM, and Forest Service.\nAll other agencies appear primarily via EIS records only. Numbers on right show total project count."
+    caption = "Only agencies with comprehensive EA/CE data in NEPATEC: DOE (all sub-agencies), BLM, and Forest Service."
   ) +
   scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.08))) +
   scale_fill_manual(
