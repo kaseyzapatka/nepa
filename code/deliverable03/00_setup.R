@@ -132,7 +132,11 @@ load_timeline_for_deliverable3 <- function() {
         !is.na(timeline_decision_date_final) & is.na(timeline_initiation_date_final) ~ "missing_initiation",
         is.na(timeline_decision_date_final) & !is.na(timeline_initiation_date_final) ~ "missing_decision",
         TRUE ~ "no_dates"
-      )
+      ),
+      # Explicit harmonized decision year: BERT for CE, LLM for EA/EIS.
+      # Derived directly from timeline_decision_date_final (not its legacy alias)
+      # so the source is unambiguous.
+      decision_year = as.integer(format(timeline_decision_date_final, "%Y"))
     )
 
   timeline_harmonized
