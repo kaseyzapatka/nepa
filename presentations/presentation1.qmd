@@ -313,26 +313,7 @@ CATF staff reviewed samples from each exclusion category to validate the approac
 
 ---
 
-## Phase 1 Deliverables at a Glance {.full-size}
-
-::: {tbl-colwidths="[24,68]"}
-| Deliverable | Focus |
-|:-|:---|
-| **D1** — Decarbonization Project Landscape | How are decarbonization-related projects distributed across technologies, lead agencies, and geographies? |
-| **D2** — Programmatic & Tiered Reviews | How common are programmatic and tiered reviews among EA/EIS projects, and do they actually deliver faster outcomes? |
-| **D3** — NEPA Process, Timelines & Capacity | How do CE, EA, and EIS differ in duration and project scale? How has activity changed over time? |
-| **D4** — Multi-State & Multi-Agency | Which projects cross state boundaries or involve multiple federal agencies, and how are they distributed? |
-| **D5** — Document Length & FRA Impact | Did the Fiscal Responsibility Act of 2023 page limits change how long NEPA documents are? |
-| **D6** — Technology Deep Dives | Deep analysis of electricity transmission, geothermal energy, and carbon/hydrogen pipelines. |
-:::
-
-::: {.notes}
-This gives a quick roadmap. Each deliverable section will have its own key findings summary.
-:::
-
----
-
-# Deliverable 1 {background-color="#012169"}
+# Deliverable 1: Decarbonization Project Landscape {background-color="#012169"}
 
 ## Decarbonization Project Landscape  {.full-size}
 
@@ -505,7 +486,7 @@ Environmental Impact Statements by county
 
 ---
 
-# Deliverable 2 {background-color="#012169"}
+# Deliverable 2: Programmatic and Tiered Reviews  {background-color="#012169"}
 
 ## Programmatic & Tiered Reviews 
 
@@ -629,7 +610,7 @@ Small sample for tiered EIS and EAs limits conclusions there.
 
 ---
 
-# Deliverable 3 {background-color="#012169"}
+# Deliverable 3: NEPA Process Types, Timelines, and Generation Capacity {background-color="#012169"}
 
 ## NEPA Process Types, Timelines & Generation Capacity {.full-size}
 
@@ -763,7 +744,7 @@ Violin + boxplot by process
 
 ---
 
-# Deliverable 4 {background-color="#012169"}
+# Deliverable 4: Multi-State & Multi-Agency Projects  {background-color="#012169"}
 
 ## Multi-State & Multi-Agency Projects {footer="Deliverable 4 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D4 report →</a>"}
 
@@ -860,7 +841,7 @@ Cross-department project flows. Lead department on the left, partner on the righ
 
 ---
 
-# Deliverable 5 {background-color="#012169"}
+# Deliverable 5: Document Length & Fiscal Responsibility Act Impact {background-color="#012169"}
 
 ## Document Length Trends Over Time {footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
 
@@ -950,7 +931,7 @@ Compliance rates (post-FRA only)
 
 ---
 
-# Deliverable 6 {background-color="#012169"}
+# Deliverable 6: Technology Deep Dives: Transmission, Geothermal, Pipeline {background-color="#012169"}
 
 ## Technology Deep Dives {.full-size footer="Deliverable 6 | <a href='../reports/deliverable06.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"} 
 
@@ -1142,13 +1123,15 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 - Which findings most surprise you?
 - Which are most actionable for CATF's policy work?
 - Any specific follow ups for Phase 2?
-:::
-:::
-
 
 [Full Analysis Website](../reports/project_overview.html) | [NEPATEC 2.0](https://huggingface.co/datasets/PNNL/NEPATEC2.0)
 
 [Download PDF Version](presentation1.pdf){.pdf-btn}
+
+:::
+:::
+
+
 
 ---
 
