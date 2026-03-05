@@ -584,9 +584,18 @@ Share of non-standard reviews by lead agency
 ## Are Tiered Reviews Actually Faster? {footer="Deliverable 2 | <a href='../reports/deliverable02.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D2 report →</a>"}
 
 
+::: {style="position:relative;"}
 ```{r}
 knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 ```
+
+<!-- Boxes are % of image dimensions: EA Tiered (left panel, 3rd col) and EIS Standard (right panel, 1st col) -->
+::: {.fragment style="position:absolute; top:63%; left:39%; bottom:21%; right:53%; border:3px solid #012169; border-radius:4px; pointer-events:none; box-sizing:border-box;" data-fragment-index="1"}
+:::
+
+::: {.fragment style="position:absolute; top:56%; left:55%; bottom:25%; right:32%; border:3px solid #012169; border-radius:4px; pointer-events:none; box-sizing:border-box;" data-fragment-index="1"}
+:::
+:::
 
 ::: {.callout-finding}
 **Tiered EAs take longer than standard EAs on average** — but they are substantially shorter than a full EIS, suggesting the real efficiency gain from tiering is when it allows an agency to avoid a full EIS altogether rather than just shortening an EA.
@@ -853,33 +862,32 @@ Cross-department project flows. Lead department on the left, partner on the righ
 
 # Deliverable 5 {background-color="#012169"}
 
-## Document Length & Fiscal Responsibility Act Impact {footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
-
-The **Fiscal Responsibility Act of 2023 (FRA)** established the first statutory page limits for NEPA documents. This section examines whether lengths changed after FRA and how well current documents comply.
-
-| Document | Standard Limit | Extraordinary Complexity |
-|---|---|---|
-| Environmental Assessment (EA) | **75 pages** | — |
-| Environmental Impact Statement (EIS) | **150 pages** | **300 pages** |
-
-**Regulatory page** *(40 C.F.R. § 1508.1(bb))*: body word count ÷ 500 — excludes appendices, tables, maps, citations
-
-::: {.callout-finding}
-This analysis uses **regulatory pages** (not raw PDF page counts) to match the statutory definition. Raw counts overstate length by 45–55% for EAs and 20–30% for EISs due to bundled appendices — using raw pages would substantially understate compliance.
-:::
-
-::: {.notes}
-D5 asks: did the FRA's 2023 page limits actually change how long NEPA documents are?
-:::
-
----
-
 ## Document Length Trends Over Time {footer="Deliverable 5 | <a href='../reports/deliverable05.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D5 report →</a>"}
 
+::: {.columns}
+::: {.column width="25%"}
+**FRA 2023 Page Limits**
+
+The Fiscal Responsibility Act of 2023 (FRA) established the first statutory page limits for NEPA documents. This section examines whether lengths changed after FRA and how well current documents comply.
+
+| | Standard | Complex |
+|---|---|---|
+| EA | **75 pp** | — |
+| EIS | **150 pp** | **300 pp** |
+
+::: {.small-text}
+*Regulatory pages = body word count ÷ 500 (excludes appendices, tables, maps, citations per 40 C.F.R. § 1508.1(bb))*
+:::
+:::
+
+::: {.column width="75%"}
 ```{r}
-#| out-width: "80%"
+#| out-width: "100%"
 knitr::include_graphics(file.path(d5_figures, "05_pages_over_time.png"))
 ```
+:::
+
+:::
 
 ::: {.callout-finding}
 **Document lengths were declining before FRA.** EA mean fell ~22% and EIS fell ~25% post-FRA, but the rolling average trend predates June 2023 — causation is uncertain.
