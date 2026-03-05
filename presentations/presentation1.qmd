@@ -259,33 +259,54 @@ The tagging system is applied to project-level metadata and document titles/desc
 
 ---
 
-# Deliverable 1: Decarbonization Project Landscape{background-color="#012169"}
 
-
-## Technology Distribution {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+## Process Types by Energy Classification {footer="Deliverable 3 | <a href='../reports/deliverable03.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D3 report →</a>"}
 
 ::: {.columns}
-::: {.column width="50%"}
+::: {.column width="52%"}
 ```{r}
-knitr::include_graphics(file.path(d1_figures, "01_clean_energy_bar_chart.png"))
+#| out-width: "85%"
+knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
 ```
 ::: {.caption-text}
-Projects by technology type
+Project counts by NEPA process and energy type
 :::
 :::
-::: {.column width="50%"}
+::: {.column width="48%"}
 ```{r}
-knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.png"))
+#| out-width: "85%"
+knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 ```
 ::: {.caption-text}
-Technology by NEPA process type
+Share of process types within each energy classification
 :::
 :::
 :::
 
 ::: {.callout-finding}
+- **Decarbonization-related projects use Categorical Exclusions at higher rates** than fossil fuel or other project types, likely reflecting smaller average project footprints.
+- **Fossil fuel projects show higher EA/EIS rates**, consistent with larger environmental footprints requiring more detailed review.
+- CE is the dominant NEPA pathway for decarbonization-related projects across all technology types.
+:::
+
+---
+
+# Deliverable 1: Decarbonization Project Landscape{background-color="#012169"}
+
+
+## Technology Distribution {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+
+
+```{r}
+#| out-width: "50%"
+knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.png"))
+```
+::: {.caption-text}
+Technology by NEPA process type
+:::
+
+::: {.callout-finding}
 - **Utilities and Electricity Transmission dominate,** possibly reflecting the infrastructure build required to connect renewable energy generation.  
-- Solar, Nuclear, and energy storage projects are the next largest categories, **highlighting the infrastructure vs generation divide.** 
 - While **most projects are granted “Categorical Exclusion (CE)”** status, **Hydropower, Nuclear, and Wind have notably higher rates of EA/EIS reviews,** reflecting larger potential environmental footprints than many of the other types of projects.
 :::
 
@@ -305,9 +326,9 @@ Process type mix by lead department
 
 
 ::: {.callout-finding}
-- **DOE accounts for 81% of all decarbonization-related projects** — and processes 97% of those through Categorical Exclusions, reflecting high volumes of routine, CE-eligible actions (loan programs, grid modernization grants, Power Marketing Administrations, National Lab operations).
+- **DOE accounts for 81% of all decarbonization-related projects** — and processes 97% of those through Categorical Exclusions
 - **BLM and Forest Service** show a more varied process mix, consistent with their land-management mandates for large-scale renewables on federal lands.
-- **Coverage note:** EA and CE records in NEPATEC are only available for DOE, BLM, and Forest Service. All other agencies (Army Corps, FERC, etc.) appear primarily via the EPA EIS database — so their process type proportions reflect data availability, not actual NEPA behavior. See appendix for the full all-agencies view.
+- **Coverage note:** Only DOE, BLM, and Forest Service have comphrensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture. See appendix for the full all-agencies view.
 - [Key department deep dive analysis →](https://www.kaseyzapatka.com/nepa/reports/deliverable01.html#key-agency-deep-dive)
 :::
 
@@ -358,7 +379,7 @@ Top 20 states by decarbonization project count
 
 ::: {.callout-finding}
 - **Western states dominate renewable-driven activity:** Washington, California, Idaho, and Colorado together account for a large share of transmission, solar, wind, and hydropower projects.
-- **South Carolina leads** with 2,000+ projects — almost entirely driven by DOE's Savannah River Site nuclear facility.
+- **South Carolina leads** with 2,000+ projects — largely driven by DOE's Savannah River Site nuclear facility.
 
 :::
 
@@ -508,38 +529,7 @@ knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 
 ---
 
-# Deliverable 3: NEPA Process Types, Timelines, and Generation Capacity {background-color="#012169"}
-
-## Process Types by Energy Classification {footer="Deliverable 3 | <a href='../reports/deliverable03.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D3 report →</a>"}
-
-::: {.columns}
-::: {.column width="52%"}
-```{r}
-#| out-width: "85%"
-knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
-```
-::: {.caption-text}
-Project counts by NEPA process and energy type
-:::
-:::
-::: {.column width="48%"}
-```{r}
-#| out-width: "85%"
-knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
-```
-::: {.caption-text}
-Share of process types within each energy classification
-:::
-:::
-:::
-
-::: {.callout-finding}
-- **Decarbonization-related projects use Categorical Exclusions at higher rates** than fossil fuel or other project types, likely reflecting smaller average project footprints.
-- **Fossil fuel projects show higher EA/EIS rates**, consistent with larger environmental footprints requiring more detailed review.
-- CE is the dominant NEPA pathway for decarbonization-related projects across all technology types.
-:::
-
----
+# Deliverable 3: Timelines and Generation Capacity {background-color="#012169"}
 
 ## How Long Does NEPA Review Take? {footer="Deliverable 3 | <a href='../reports/deliverable03.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D3 report →</a>"}
 
@@ -718,12 +708,11 @@ knitr::include_graphics(file.path(d5_figures, "05_pages_over_time_break.png"))
 :::
 
 ::: {.callout-finding}
-**Document lengths were declining before FRA.** EA mean fell ~22% and EIS fell ~25% post-FRA, but the rolling average trend predates June 2023 — causation is uncertain.
+**Slight decline right FRA but then an uptick.** EA mean fell ~22% and EIS fell ~25% post-FRA, but then the rolling average treands up afterwards — causation is uncertain.
+
+**Small post-FRA sample:** only 33 EAs and 42 EISs completed after June 2023. 
 :::
 
-::: {.callout-warning}
-Small post-FRA sample: only 33 EAs and 42 EISs completed after June 2023. Conclusions will strengthen as more post-FRA documents accumulate.
-:::
 
 ---
 
@@ -760,20 +749,6 @@ Compliance rates (post-FRA only)
 
 # Deliverable 6: Technology Deep Dives: Transmission, Geothermal, Pipeline {background-color="#012169"}
 
-## Technology Deep Dives {.full-size footer="Deliverable 6 | <a href='../reports/deliverable06.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"} 
-
-Three technology areas received dedicated sub-analyses to explore patterns that get lost in aggregate statistics:
-
-| Technology | Sample | Key Question |
-|---|---|---|
-| **Electricity Transmission** | 151 projects | Does line length predict review duration? |
-| **Geothermal Energy** | 914 NEPA actions | How do project compare by action type? |
-| **Pipelines** | 6,133 NEPA actions | How do carbon, hydrogen & natural gas reviews compare? |
-
-::: {.notes}
-D6 zooms into three specific technology areas with dedicated sub-analyses.
-:::
-
 ---
 
 ## Electricity Transmission Lines {footer="Deliverable 6 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"}
@@ -805,36 +780,6 @@ Line length vs. NEPA duration (scatter)
 - Median transmission line lenght: **8 miles** 
 - **55%** under 10 miles 
 - Projects ≥100 miles take **6× longer** than projects under 10 miles — but very small sample size
-:::
-
----
-
-## Transmission: Length and Duration by Action Type {footer="Deliverable 6 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"}
-
-::: {.columns}
-::: {.column width="50%"}
-```{r}
-#| out-width: "85%"
-knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action.png"))
-```
-::: {.caption-text}
-Transmission length (miles) by action type
-:::
-:::
-::: {.column width="50%"}
-```{r}
-#| out-width: "85%"
-knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_action.png"))
-```
-::: {.caption-text}
-NEPA duration (days) by action type
-:::
-:::
-:::
-
-::: {.callout-finding}
-- **Upgrades dominate** — most transmission NEPA activity is replacements and upgrades, not greenfield construction. 
-- **New builds** are relatively rare but tend toward longer lines.
 :::
 
 ---
@@ -900,16 +845,15 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 ## Phase 1 Summary: Key Findings {.full-size}
 
 ::: {.incremental}
-1. **`r n_clean_fmt` decarbonization-related NEPA projects** documented — largely projects of Categorical Exclusion status
-2. **DOE handles 81%**, processing 96% via CE — the story is dominated by DOE Categorical Exclusions
-3. **Western states and federal lands dominate** — BLM, Forest Service, and DOE public land concentration drives the geographic pattern
-4. **Tiering doesn't automatically help** — programmatic/tiered reviews represent only ~25% of EA/EIS and are not reliably faster
-5. **Duration gradient is steep** — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median; 7.5-yr 90th pctile)
-6. **Scale matches review intensity** — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW
-7. **Policy stimulus visible in the data** — ARRA (2010) and IRA/BIL (2022–23) CE peaks are clear; the full IRA cohort of EAs/EISs is still working through the pipeline
-8. **DOE is the multi-agency hub** — improving DOE-DOI-USDA coordination would have outsized impact
-9. **FRA effect is real but not definitive** — document lengths declined ~20–25% post-FRA; most projects are compliant, but small N limits conclusions
-10. **Transmission is mostly upgrades** — most transmission NEPA is replacements and upgrades, not greenfield construction; geothermal requires multi-phase permitting
+1. **DOE handles 81%** or review cases, processing 96% via CE — the story is dominated by DOE Categorical Exclusions
+2. **Western states and federal lands dominate** — BLM, Forest Service, and DOE public land concentration drives the geographic pattern
+3. **Tiering might help** — compare EA tiered review to standard EIS review
+4. **Duration gradient is steep** — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median; 7.5-yr 90th pctile)
+5. **Scale matches review intensity** — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW
+6. **Policy stimulus visible in the data** — ARRA (2010) and IRA/BIL (2022–23) CE peaks are clear; the full IRA cohort of EAs/EISs is still working through the pipeline
+7. **DOE is the multi-agency hub** — improving DOE-DOI-USDA coordination would have outsized impact
+8. **FRA effect is real but not definitive** — document lengths declined and most projects are compliant, but small N limits conclusions
+9. **Transmission is mostly upgrades** — most transmission NEPA is replacements and upgrades, not greenfield construction; geothermal requires multi-phase permitting
 :::
 
 ---
@@ -1216,6 +1160,36 @@ knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wor
 - Waivers and "extraordinary complexity" exceptions are not distinguished from standard non-compliance
 :::
 :::
+:::
+
+---
+
+## D6-Transmission: Length and Duration by Action Type {footer="Deliverable 6 | <a href='../reports/deliverable04.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D6 report →</a>"}
+
+::: {.columns}
+::: {.column width="50%"}
+```{r}
+#| out-width: "85%"
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action.png"))
+```
+::: {.caption-text}
+Transmission length (miles) by action type
+:::
+:::
+::: {.column width="50%"}
+```{r}
+#| out-width: "85%"
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_action.png"))
+```
+::: {.caption-text}
+NEPA duration (days) by action type
+:::
+:::
+:::
+
+::: {.callout-finding}
+- **Upgrades dominate** — most transmission NEPA activity is replacements and upgrades, not greenfield construction. 
+- **New builds** are relatively rare but tend toward longer lines.
 :::
 
 ---
