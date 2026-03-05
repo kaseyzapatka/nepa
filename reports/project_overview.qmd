@@ -35,7 +35,7 @@ library(DT)
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 # Paths
-ce_figures <- here("output", "deliverable1", "figures")
+ce_figures <- here("output", "_project_overview", "figures")
 ```
 
 # Project Overview
