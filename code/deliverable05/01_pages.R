@@ -133,6 +133,121 @@ cat("  Saved:", fig_pages_over_time_path, "\n")
 print(fig_pages_over_time)
 
 # --------------------------
+# FIGURE 2b: AVERAGE DOCUMENT LENGTH OVER TIME (BROKEN AT FRA)
+# --------------------------
+# Same as Figure 2, but the 3-month rolling average is computed in two segments:
+#   - all projects with decision date before 2023-06-03
+#   - all projects with decision date on/after 2023-06-03
+# This avoids smoothing across the FRA breakpoint.
+
+cat("\nCreating Figure 2b: Average pages over time (rolling average split at FRA)...\n")
+
+monthly_pages_break <- pages_for_time %>%
+  mutate(
+    rolling_segment = if_else(timeline_decision_date < fra_date, "Pre-FRA", "Post-FRA")
+  ) %>%
+  group_by(process_type, rolling_segment, decision_month) %>%
+  summarise(
+    mean_pages = mean(regulatory_pages, na.rm = TRUE),
+    n_projects = n(),
+    .groups = "drop"
+  ) %>%
+  arrange(process_type, rolling_segment, decision_month) %>%
+  group_by(process_type, rolling_segment) %>%
+  mutate(
+    rolling_mean_3m = zoo::rollmean(mean_pages, k = 3, fill = NA, align = "right")
+  ) %>%
+  ungroup()
+
+fig_pages_over_time_break <- ggplot() +
+  # Individual project points (low alpha, colored by FRA period)
+  geom_point(
+    data = pages_for_time,
+    aes(x = timeline_decision_date, y = regulatory_pages, color = fra_period),
+    alpha = 0.32, size = 1.2
+  ) +
+  # 3-month rolling average line, computed separately Pre-FRA and Post-FRA
+  geom_line(
+    data = monthly_pages_break,
+    aes(x = decision_month, y = rolling_mean_3m, group = rolling_segment),
+    color = catf_navy, linewidth = 1.2, na.rm = TRUE
+  ) +
+  geom_vline(xintercept = fra_date, linetype = "dashed", color = "red", linewidth = 0.8) +
+  annotate(
+    "text", x = fra_date + 45, y = Inf,
+    label = "Fiscal Responsibility Act\nof 2023 enacted\n(June 3, 2023)",
+    vjust = 1.5, hjust = 0, size = 3, color = "red", fontface = "italic"
+  ) +
+  facet_wrap(~process_type, ncol = 1, scales = "free_y") +
+  scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
+  scale_color_manual(
+    values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)
+  ) +
+  labs(
+    title = "Document Length Over Time (Rolling Average Broken at FRA)",
+    subtitle = "Points = individual projects (colored by FRA period); line = 3-month rolling average computed separately Pre- and Post-FRA",
+    x = "Decision Date",
+    y = "Regulatory Pages (body word count ÷ 500)",
+    color = NULL,
+    caption = "Note: Projects with complete timelines only. Rolling average is computed separately before and after June 3, 2023 (no smoothing across the FRA breakpoint). Regulatory pages exclude embedded appendices and low-content pages per 40 C.F.R. § 1508.1(bb)."
+  ) +
+  theme_catf() +
+  theme(legend.position = "top")
+
+fig_pages_over_time_break_path <- here(figures_dir, "05_pages_over_time_break.png")
+ggsave(fig_pages_over_time_break_path, fig_pages_over_time_break, width = 12, height = 8, dpi = 300)
+cat("  Saved:", fig_pages_over_time_break_path, "\n")
+print(fig_pages_over_time_break)
+
+# --------------------------
+# FIGURE 2c: AVERAGE DOCUMENT LENGTH OVER TIME (MONTHLY MEAN, NO ROLLING)
+# --------------------------
+# Same visual structure as Figure 2, but the line is the monthly mean directly
+# (no multi-month smoothing window).
+
+cat("\nCreating Figure 2c: Average pages over time (monthly mean, no rolling)...\n")
+
+fig_pages_over_time_monthly <- ggplot() +
+  # Individual project points (low alpha, colored by FRA period)
+  geom_point(
+    data = pages_for_time,
+    aes(x = timeline_decision_date, y = regulatory_pages, color = fra_period),
+    alpha = 0.32, size = 1.2
+  ) +
+  # Monthly mean line (no rolling average)
+  geom_line(
+    data = monthly_pages,
+    aes(x = decision_month, y = mean_pages),
+    color = catf_navy, linewidth = 1.2, na.rm = TRUE
+  ) +
+  geom_vline(xintercept = fra_date, linetype = "dashed", color = "red", linewidth = 0.8) +
+  annotate(
+    "text", x = fra_date + 45, y = Inf,
+    label = "Fiscal Responsibility Act\nof 2023 enacted\n(June 3, 2023)",
+    vjust = 1.5, hjust = 0, size = 3, color = "red", fontface = "italic"
+  ) +
+  facet_wrap(~process_type, ncol = 1, scales = "free_y") +
+  scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
+  scale_color_manual(
+    values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)
+  ) +
+  labs(
+    title = "Document Length Over Time (Monthly Average, No Rolling Window)",
+    subtitle = "Points = individual projects (colored by FRA period); line = monthly mean regulatory pages",
+    x = "Decision Date",
+    y = "Regulatory Pages (body word count ÷ 500)",
+    color = NULL,
+    caption = "Note: Projects with complete timelines only. Regulatory pages exclude embedded appendices and low-content pages per 40 C.F.R. § 1508.1(bb)."
+  ) +
+  theme_catf() +
+  theme(legend.position = "top")
+
+fig_pages_over_time_monthly_path <- here(figures_dir, "05_pages_over_time_monthly.png")
+ggsave(fig_pages_over_time_monthly_path, fig_pages_over_time_monthly, width = 12, height = 8, dpi = 300)
+cat("  Saved:", fig_pages_over_time_monthly_path, "\n")
+print(fig_pages_over_time_monthly)
+
+# --------------------------
 # FIGURE 3: PRE/POST FRA BAR CHART
 # --------------------------
 # Mean regulatory pages by process type, before and after FRA

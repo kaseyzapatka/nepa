@@ -640,7 +640,7 @@ fig_duration <- ggplot(
     aes(x = review_type, y = median_days,
         label = sprintf("median\n%s d", comma(round(median_days)))),
     inherit.aes = FALSE,
-    hjust = -0.15, size = 2.6, color = catf_navy, fontface = "italic"
+    hjust = -0.85, size = 2.6, color = catf_navy, fontface = "italic"
   ) +
   facet_wrap(~process_type, scales = "free_y") +
   scale_fill_manual(values  = review_type_colors) +

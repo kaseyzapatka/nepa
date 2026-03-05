@@ -709,6 +709,12 @@ department_pairs <- department_projects %>%
   ) %>%
   unnest(department_pairs)
 
+# Add reversed pairs so every department appears on both sides of the Sankey
+department_pairs <- bind_rows(
+  department_pairs,
+  department_pairs %>% rename(department_1 = department_2, department_2 = department_1)
+)
+
 pair_counts <- department_pairs %>%
   count(department_1, department_2, name = "shared_projects", sort = TRUE)
 
@@ -819,7 +825,15 @@ sankey_label_data <- ggplot_build(base_department_sankey)$data[[2]] %>%
   transmute(
     x = x,
     y = y,
-    label = str_wrap(str_remove(stratum, "^Department of "), width = 18)
+    label = str_remove(stratum, "^Department of ") %>%
+      str_replace_all(c(
+        "^the Interior$"               = "Interior",
+        "^Housing and Urban Development$" = "HUD",
+        "^General Services Administration$" = "GSA",
+        "^Homeland Security$"          = "Homeland\nSecurity",
+        "^International Assistance Programs$" = "Assistance"
+      )) %>%
+      str_wrap(width = 14)
   )
 
 fig_department_sankey <- base_department_sankey +
