@@ -154,33 +154,23 @@ Let me start by orienting everyone to the dataset and what we're analyzing.
 
 ::: {.columns}
 ::: {.column width="55%"}
-**What this is:** [NEPATEC 2.0](https://huggingface.co/datasets/PNNL/NEPATEC2.0) data were created by Pacific Northwest National Laboratory (PNNL) and is the most comprehensive public NEPA database ever assembled.
-
-**Why this matters:** Allows researchers to systematically analyze NEPA data at scale for the first time.
+**What and why:** [NEPATEC 2.0](https://huggingface.co/datasets/PNNL/NEPATEC2.0) is a **comprehensive public database** of National Environmental Policy Act (NEPA) reviews in machine-readable form created by Pacific Northwest National Laboratory (PNNL) that **allows researchers to systematically analyze** NEPA data at scale.
 
 <br> 
 
-**NEPATEC 2.0 Dataset Universe:**
+**NEPATEC 2.0 Dataset Universe by Review Process:**
 
-- **60,000+** total federal projects 
-- **140,000+** NEPA documents
-- 60+ federal agencies 
-- Machine-readable full text (JSON)
-
-
-<br> 
-
-**Review Process Breakdown:**
 
 ::: {tbl-colwidths="[44,19,19,18]"}
-| Process | Projects | Files | Pages |
-|:---|---:|---:|---:|
+| Process | Total Projects | Total Files | Total Pages |
+|:----|---:|---:|---:|
 | **CE** — Categorical Exclusion | 54,668 | 73,544 | 366,876 |
 | **EA** — Environmental Assessment | 3,083 | 14,242 | 469,106 |
 | **EIS** — Environmental Impact Statement | 4,130 | 54,297 | 6,131,757 |
+| **Total** | **61,881** | **142,083** | **6,967,739** |
 :::
 
-::: {.caption-text}
+::: {.caption-text style="text-align: left;"}
 **CE:** no significant impact anticipated · **EA:** significance uncertain, brief analysis · **EIS:** significant impacts expected, full review
 :::
 :::
@@ -196,9 +186,8 @@ All federal projects by review type
 :::
 
 ::: {.callout-finding}
-- **CEs account for 88% of projects but only 6% of total pages** — the vast majority of NEPA activity is routine and low-documentation by design.
-- **EIS reviews are 1.3% of projects but generate 89% of all pages** — each EIS produces an average of ~1,480 pages, compared to ~152 for EAs and ~7 for CEs.
-- **This dataset enables population-level analysis** of NEPA patterns for the first time — prior work relied on bespoke, often agency-specific subsets.
+- **CEs account for 88% of projects but only 5% of total pages** — the vast majority of NEPA activity is routine and low-documentation by design.
+- **EIS reviews are ~7% of projects but generate 88% of all pages** — each EIS produces an average of ~1,480 total pages, compared to ~152 for EAs and ~7 for CEs.
 :::
 
 ::: {.small-text style="margin-top:0.6em; border-top: 1px solid #ccc; padding-top:0.4em;"}
@@ -234,6 +223,11 @@ NEPATEC 2.0 was assembled by PNNL as part of PermitAI. The dataset converted ten
 | Renewable Energy Production — Wind (Onshore) |
 | Utilities (electricity, gas, telecommunications) |
 
+
+:::
+::: {.column width="60%"}
+
+
 **Fossil Energy Tags** *(any 1 excludes)*
 
 | Tag |
@@ -245,21 +239,7 @@ NEPATEC 2.0 was assembled by PNNL as part of PermitAI. The dataset converted ten
 | Pipelines |
 
 :::
-::: {.column width="60%"}
-
-Three additional exclusions were applied after reviewing co-occurring tag combinations:
-
-**Exclusion 1 — Utilities + non-energy only**
-
-- **1,623 projects** tagged *only* as Utilities AND with non-energy tags (broadband, waste management, land development) were excluded since they are utility-adjacent infrastructure.
-
-**Exclusion 2 — Military & Defense + Nuclear**
-
-- **481 projects** tagged as Nuclear AND Military/Defense were excluded, since they were mostly defense-related activities.
-
-**Exclusion 3 — Nuclear + Waste Management**
-
-- ~4,000 nuclear waste projects reviewed; those sponsored by DOE's NNSA, Office of Environmental Management, and Office of Legacy Management were excluded. Only **34 projects** from this category were retained.
+:::
 
 <br> 
 
@@ -267,12 +247,8 @@ Three additional exclusions were applied after reviewing co-occurring tag combin
 **Decarbonization Technologies Universe:**
 
 - ~25,000 projects initially tagged as decarbonization technologies
-- **`r n_clean_fmt`** retained after exclusion criteria
-- About **10%** have only decarbonization technologies tags; the remaining 90% have at least one decarbonization technologies tag alongside other non-fossil fuel tags
+- **`r n_clean_fmt`** retained after exclusion criteria -- see Appendix for details on what was excluded
 ::: 
-
-:::
-:::
 
 ::: {.notes}
 The tagging system is applied to project-level metadata and document titles/descriptions. "decarbonization technologies" requires at least one decarbonization technologies tag AND no fossil fuel tags. Multi-tagged projects are common — a solar project on federal land might also have a "right-of-way" tag.
@@ -862,7 +838,7 @@ The Fiscal Responsibility Act of 2023 (FRA) established the first statutory page
 ::: {.column width="75%"}
 ```{r}
 #| out-width: "100%"
-knitr::include_graphics(file.path(d5_figures, "05_pages_over_time.png"))
+knitr::include_graphics(file.path(d5_figures, "05_pages_over_time_break.png"))
 ```
 :::
 
@@ -1137,15 +1113,73 @@ Only ~8 carbon and ~4 hydrogen projects have both length and duration data. Find
 
 ---
 
-## A1: D1-Process Type by Lead Department (All Agencies) {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+## A1: Defining Decarbonization Technologies — Tag and Exclusion System {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
+
+
+::: {.columns}
+::: {.column width="40%"}
+**Decarbonization Technologies Tags** *(at least 1 required AND no Fossil Fuel tags)*
+
+| Tag |
+|---|
+| Carbon Capture and Sequestration |
+| Conventional Energy Production — Nuclear |
+| Conventional Energy Production — Other |
+| Electricity Transmission |
+| Nuclear Technology |
+| Renewable Energy Production — Biomass |
+| Renewable Energy Production — Energy Storage |
+| Renewable Energy Production — Geothermal |
+| Renewable Energy Production — Hydrokinetic |
+| Renewable Energy Production — Hydropower |
+| Renewable Energy Production — Solar |
+| Renewable Energy Production — Wind (Offshore) |
+| Renewable Energy Production — Wind (Onshore) |
+| Utilities (electricity, gas, telecommunications) |
+
+**Fossil Energy Tags** *(any 1 excludes)*
+
+| Tag |
+|---|
+| Conventional Energy — Coal |
+| Conventional Energy — Land-based Oil & Gas |
+| Conventional Energy — Offshore Oil and Gas |
+| Conventional Energy — Rural Energy |
+| Pipelines |
+
+:::
+::: {.column width="60%"}
+
+
+
+Three additional exclusions were applied after reviewing co-occurring tag combinations:
+
+**Exclusion 1 — Utilities + non-energy only**
+
+- **1,623 projects** tagged *only* as Utilities AND with non-energy tags (broadband, waste management, land development) were excluded since they are utility-adjacent infrastructure.
+
+**Exclusion 2 — Military & Defense + Nuclear**
+
+- **481 projects** tagged as Nuclear AND Military/Defense were excluded, since they were mostly defense-related activities.
+
+**Exclusion 3 — Nuclear + Waste Management**
+
+- ~4,000 nuclear waste projects reviewed; those sponsored by DOE's NNSA, Office of Environmental Management, and Office of Legacy Management were excluded. Only **34 projects** from this category were retained.
+
+:::
+:::
+
+---
+
+## A1: D1-Process Type by Lead Department (All Agencies vs Verified Agencies) {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="50%"}
 ```{r}
-knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
+knitr::include_graphics(file.path(d1_figures, "04_coverage_verified_process.png"))
 ```
 ::: {.caption-text}
-Total decarbonization-related projects by lead department
+Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
 :::
 :::
 ::: {.column width="50%"}
