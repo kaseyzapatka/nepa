@@ -200,109 +200,51 @@ NEPATEC 2.0 was assembled by PNNL as part of PermitAI. The dataset converted ten
 
 ---
 
-## Defining Decarbonization Technologies — Tag and Exclusion System
+## Defining Decarbonization Technologies
 
 ::: {.columns}
-::: {.column width="40%"}
-**Decarbonization Technologies Tags** *(at least 1 required AND no Fossil Fuel tags)*
+::: {.column width="55%"}
 
-| Tag |
-|---|
-| Carbon Capture and Sequestration |
-| Conventional Energy Production — Nuclear |
-| Conventional Energy Production — Other |
-| Electricity Transmission |
-| Nuclear Technology |
-| Renewable Energy Production — Biomass |
-| Renewable Energy Production — Energy Storage |
-| Renewable Energy Production — Geothermal |
-| Renewable Energy Production — Hydrokinetic |
-| Renewable Energy Production — Hydropower |
-| Renewable Energy Production — Solar |
-| Renewable Energy Production — Wind (Offshore) |
-| Renewable Energy Production — Wind (Onshore) |
-| Utilities (electricity, gas, telecommunications) |
-
-
-:::
-::: {.column width="60%"}
-
-
-**Fossil Energy Tags** *(any 1 excludes)*
-
-| Tag |
-|---|
-| Conventional Energy — Coal |
-| Conventional Energy — Land-based Oil & Gas |
-| Conventional Energy — Offshore Oil and Gas |
-| Conventional Energy — Rural Energy |
-| Pipelines |
-
-:::
+::: {tbl-colwidths="[70,30]"}
+| **Decarbonization Technologies Tags** *(≥1 required, no Fossil Fuel tags)* | **Fossil Energy Tags** *(any 1 excludes)* |
+|---|---|
+| Carbon Capture and Sequestration | Conventional Energy — Coal |
+| Nuclear Energy Production | Land-based Oil & Gas |
+| Other Conventional Production | Offshore Oil & Gas |
+| Electricity Transmission | Rural Energy |
+| Nuclear Technology | Pipelines |
+| Solar | |
+| Wind (Offshore) | |
+| Wind (Onshore) | |
+| Geothermal | |
+| Hydropower | |
+| Hydrokinetic | |
+| Energy Storage | |
+| Biomass | |
+| Utilities | |
 :::
 
-<br> 
+<br>
 
 ::: {.callout-finding}
-**Decarbonization Technologies Universe:**
+**Decarbonization Technologies Universe:** ~25,000 projects initially tagged but **`r n_clean_fmt`** retained after exclusion criteria appplied — see Appendix for details on what was excluded
 
-- ~25,000 projects initially tagged as decarbonization technologies
-- **`r n_clean_fmt`** retained after exclusion criteria -- see Appendix for details on what was excluded
-::: 
+- Universe used across all six Phase 1 deliverables.
 
-::: {.notes}
-The tagging system is applied to project-level metadata and document titles/descriptions. "decarbonization technologies" requires at least one decarbonization technologies tag AND no fossil fuel tags. Multi-tagged projects are common — a solar project on federal land might also have a "right-of-way" tag.
 :::
 
----
-
-## Decarbonization Technologies Universe
-
-::: {.columns}
-::: {.column width="50%"}
+:::
+::: {.column width="45%"}
 ```{r}
-#| out-width: "90%"
+#| out-width: "70%"
 knitr::include_graphics(file.path(overview, "00_fig_clean_energy_by_review.png"))
 ```
 ::: {.caption-text}
 Decarbonization-related projects by review type
 :::
-:::
-::: {.column width="50%"}
+
 ```{r}
-#| out-width: "90%"
-knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
-```
-::: {.caption-text}
-Energy type breakdown across all federal projects
-:::
-:::
-:::
-
-::: {.callout-finding}
-**Result:** **`r n_clean_fmt`** decarbonization-related projects across all six Phase 1 deliverables.
-:::
-
-::: {.notes}
-CATF staff reviewed samples from each exclusion category to validate the approach. Without these exclusions, the decarbonization technologies universe would have included nuclear weapons facilities and radioactive waste disposal — a significant data quality problem.
-:::
-
----
-
-# Deliverable 1: Decarbonization Project Landscape {background-color="#012169"}
-
-## Decarbonization Project Landscape  {.full-size}
-
-
-::: {.columns}
-::: {.column width="50%"}
-**`r n_clean_fmt` decarbonization-related projects** identified across the federal NEPA database.
-
-This section covers how they are distributed by **technology type**, **lead department**, and **geography** — establishing the foundational picture of where federal permitting for decarbonization technologies happens and who is responsible for it.
-:::
-::: {.column width="50%"}
-```{r}
-#| out-width: "90%"
+#| out-width: "70%"
 knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
 ```
 ::: {.caption-text}
@@ -312,10 +254,13 @@ Energy type breakdown across all federal projects
 :::
 
 ::: {.notes}
-D1 answers the foundational question: how are decarbonization-related NEPA projects distributed across technologies, agencies, and geography?
+The tagging system is applied to project-level metadata and document titles/descriptions. "decarbonization technologies" requires at least one decarbonization technologies tag AND no fossil fuel tags. CATF staff reviewed samples from each exclusion category — without exclusions, the universe would have included nuclear weapons facilities and radioactive waste disposal.
 :::
 
 ---
+
+# Deliverable 1: Decarbonization Project Landscape{background-color="#012169"}
+
 
 ## Technology Distribution {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
@@ -349,23 +294,15 @@ Technology by NEPA process type
 ## Lead Departments {footer="Deliverable 1 | <a href='../reports/deliverable01.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D1 report →</a>"}
 
 ::: {.columns}
-::: {.column width="50%"}
+::: {.column width="40%"}
 ```{r}
+#| out-width: "90%"
 knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
 ```
 ::: {.caption-text}
 Process type mix by lead department
 :::
-:::
-::: {.column width="50%"}
-```{r}
-knitr::include_graphics(file.path(d1_figures, "04_coverage_verified_process.png"))
-```
-::: {.caption-text}
-Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
-:::
-:::
-:::
+
 
 ::: {.callout-finding}
 - **DOE accounts for 81% of all decarbonization-related projects** — and processes 97% of those through Categorical Exclusions, reflecting high volumes of routine, CE-eligible actions (loan programs, grid modernization grants, Power Marketing Administrations, National Lab operations).
@@ -373,6 +310,27 @@ Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
 - **Coverage note:** EA and CE records in NEPATEC are only available for DOE, BLM, and Forest Service. All other agencies (Army Corps, FERC, etc.) appear primarily via the EPA EIS database — so their process type proportions reflect data availability, not actual NEPA behavior. See appendix for the full all-agencies view.
 - [Key department deep dive analysis →](https://www.kaseyzapatka.com/nepa/reports/deliverable01.html#key-agency-deep-dive)
 :::
+
+:::
+::: {.column width="60%"}
+```{r}
+#| out-width: "65%"
+knitr::include_graphics(file.path(d1_figures, "04_coverage_verified_process.png"))
+```
+::: {.caption-text}
+Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
+:::
+
+```{r}
+#| out-width: "65%"
+knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
+```
+::: {.caption-text}
+Process type mix by lead department (all agencies)
+:::
+:::
+:::
+
 
 ::: {.notes}
 DOE's concentration in CEs has policy implications — CE status means limited public review. The question for Phase 2 is whether this reflects genuinely low-impact projects or a systematic administrative preference.
@@ -468,48 +426,47 @@ Environmental Impact Statements by county
 
 
 ::: {.columns}
-::: {.column width="48%"}
+::: {.column width="50%"}
 
-There are **three review types** in the NEPA review process: 
+There are **three types of reviews** in the NEPA process:
 
 - **Standard:** Stand-alone EA or EIS covering a single project — the default NEPA approach
-- **Programmatic:** Broad "umbrella" review (PEIS/PEA) covering a class of actions or a region, before site-specific work begins
-- **Tiered:** Site-specific review that explicitly builds on a prior programmatic review, scoping out issues already addressed
+- **Programmatic (Tier 1):** Broad "umbrella" review (PEIS/PEA) covering a class of actions or a region, usually before site-specific work begins
+- **Tiered (Tier 2):** Site-specific review that builds on a prior programmatic review, scopes out specific issues already identified, streamline the review process
 
-This section examines how common these approaches are, which agencies use them, and whether they actually speed up the environmental review process.
-
+```{r}
+knitr::include_graphics(file.path(d2_figures, "02_review_share.png"))
+```
 
 <br> 
 
 ::: {.callout-finding}
 - **Standard review is the overwhelming norm** — Almost 90% of projects use the standalone standard review process.
+- **Tiered reviews are more rare** 
 - For EA and EIS, **only 24%** are non-standard, just under 1/4 of reviews.  
 :::
 
-
 :::
-::: {.column width="52%"}
+::: {.column width="50%"}
+
+
 ```{r}
-knitr::include_graphics(file.path(d2_figures, "02_review_share.png"))
+#| out-width: "55%"
+knitr::include_graphics(file.path(d2_figures, "02_review_by_process2.png"))
 ```
-::: {.caption-text}
-Share of non-standard reviews by lead agency
-:::
+
 ```{r}
-knitr::include_graphics(file.path(d2_figures, "02_review_by_process.png"))
+#| out-width: "80%"
+knitr::include_graphics(file.path(d2_figures, "02_review_by_process1.png"))
 ```
-::: {.caption-text}
-Proportional shares within EA and EIS process type
-:::
 
 :::
 :::
-
 
 
 ---
 
-## Prevalence: Most EA/EIS Reviews Are Standard {footer="Deliverable 2 | <a href='../reports/deliverable02.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D2 report →</a>"}
+## Non-standard Reviews: Who and Where? {footer="Deliverable 2 | <a href='../reports/deliverable02.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D2 report →</a>"}
 
 ::: {.columns}
 ::: {.column width="48%"}
@@ -532,7 +489,7 @@ Share of non-standard reviews by lead agency
 :::
 
 ::: {.callout-finding}
-- The **Nuclear Regulatory Commission and BLM** drive Other Independent Agencies and Department of Interior non-standard review use
+- The **Nuclear Regulatory Commission and BLM** drive Other Independent Agencies and Department of Interior non-standard review use -- check out of analysis on [the website](https://www.kaseyzapatka.com/nepa/reports/deliverable02.html#fig-agency)
 - **Non-standard reviews are not evenly distributed:** they concentrate in western states and large-scale land-use actions where BLM and Forest Service manage extensive federal acreage.
 :::
 
@@ -543,6 +500,7 @@ Share of non-standard reviews by lead agency
 
 ::: {style="width:65%; margin:0 auto; position:relative;"}
 ```{r}
+#| out-width: "85%"
 knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 ```
 
@@ -554,12 +512,14 @@ knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 :::
 :::
 
+<br>
+
 ::: {.callout-finding}
 **Tiered EAs take longer than standard EAs on average** — but they are substantially shorter than a full EIS, suggesting the real efficiency gain from tiering is when it allows an agency to avoid a full EIS altogether rather than just shortening an EA.
 
 **Tiered EISs take less time than standard and programmatic EISs**, though distributions substantially overlap and sample sizes are small.
 
-Small sample for tiered EIS and EAs limits conclusions there.
+**WORD OF CAUTION:** Small sample for non-standard reviews is still quite small to draw strong conclusions here.
 :::
 
 ---
@@ -585,18 +545,6 @@ Small sample for tiered EIS and EAs limits conclusions there.
 ---
 
 # Deliverable 3: NEPA Process Types, Timelines, and Generation Capacity {background-color="#012169"}
-
-## NEPA Process Types, Timelines & Generation Capacity {.full-size}
-
-The three NEPA process types — **Categorical Exclusion (CE)**, **Environmental Assessment (EA)**, and **Environmental Impact Statement (EIS)** — differ dramatically in scope, duration, and the scale of projects they cover.
-
-This section compares review durations, tracks how NEPA activity has changed over time (including the ARRA and IRA/BIL investment waves), and shows how generation capacity scales with review intensity.
-
-::: {.notes}
-D3 is the most data-rich deliverable — covering how CE, EA, and EIS compare on duration, how NEPA activity has changed over time, and what generation capacity is associated with each review type.
-:::
-
----
 
 ## Process Types by Energy Classification {footer="Deliverable 3 | <a href='../reports/deliverable03.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D3 report →</a>"}
 
@@ -648,7 +596,7 @@ Timeline completeness (projects with both initiation + decision dates):
 :::
 
 ::: {.callout-finding}
-- **The CE→EA→EIS duration gradient is steep:** median durations range from ~1 month (CE) to ~14 months (EA) to ~34 months (EIS) — a 34× difference at the median.
+- **The CE→EA→EIS duration gradient is steep:** median durations range from ~1 month (CE) to ~14 months (EA) to ~34 months (EIS) — a rather large difference.
 - **The long tail drives NEPA's reputation:** 10% of EIS reviews exceed 7.5 years, but this is not typical — the median is 3 years.
 - **Timeline completeness is partial:** only 30% of CEs have extractable dates; EA (62%) and EIS (48%) are better but not complete, so medians likely undercount the slowest cases.
 :::
@@ -658,7 +606,7 @@ Timeline completeness (projects with both initiation + decision dates):
 ## NEPA Activity Over Time {footer="Deliverable 3 | <a href='../reports/deliverable03.html' target='_blank' style='color:#0047BB;text-decoration:underline;font-weight:600;'>See full D3 report →</a>"}
 
 ```{r}
-#| out-width: "92%"
+#| out-width: "75%"
 knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
 ```
 
@@ -674,6 +622,7 @@ knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
 ::: {.columns}
 ::: {.column width="50%"}
 ```{r}
+
 knitr::include_graphics(file.path(d3_figures, "05_capacity_by_process.png"))
 ```
 ::: {.caption-text}
