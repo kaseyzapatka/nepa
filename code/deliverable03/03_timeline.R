@@ -32,8 +32,10 @@ timeline <- timeline %>%
     bert_initiation_date_final = as.Date(bert_initiation_date_final),
     bert_decision_date_final = as.Date(bert_decision_date_final),
     timeline_complete = !is.na(bert_initiation_date_final) & !is.na(bert_decision_date_final),
-    # Year from decision date
+    # Year from decision date (BERT for CE, LLM for EA/EIS — from setup harmonization)
     bert_year = as.integer(format(bert_decision_date_final, "%Y")),
+    # decision_year: explicit alias; coalesce guards against missing setup column
+    decision_year = coalesce(decision_year, bert_year),
     # Duration: decision minus best available start date
     bert_start_date = coalesce(bert_application_date, bert_inferred_application_date, bert_initiation_date_final),
     bert_duration_days = as.numeric(bert_decision_date_final - bert_start_date)
@@ -316,9 +318,9 @@ print(fig_duration_summary)
 cat("\nCreating Figure: Projects by decision year (by process)...\n")
 
 year_counts <- timeline %>%
-  filter(!is.na(process_group), !is.na(bert_year)) %>%
-  filter(bert_year >= 2000, bert_year <= 2025) %>%
-  count(process_group, bert_year, name = "n_projects")
+  filter(!is.na(process_group), !is.na(decision_year)) %>%
+  filter(decision_year >= 2000, decision_year <= 2025) %>%
+  count(process_group, decision_year, name = "n_projects")
 
 # Legislative event markers — labels only in CE (top) panel
 leg_events <- tibble(
@@ -328,7 +330,7 @@ leg_events <- tibble(
   process_group = factor("CE", levels = process_levels)
 )
 
-fig_by_year <- ggplot(year_counts, aes(x = bert_year, y = n_projects)) +
+fig_by_year <- ggplot(year_counts, aes(x = decision_year, y = n_projects)) +
   geom_vline(
     xintercept = leg_events$xintercept,
     linetype = "dashed", color = catf_teal, linewidth = 0.75, alpha = 0.9
@@ -374,9 +376,9 @@ cat("\nCreating Figure: DOE projects by decision year (by process)...\n")
 
 year_counts_doe <- timeline %>%
   filter(str_detect(lead_agency, "Department of Energy")) %>%
-  filter(!is.na(process_group), !is.na(bert_year)) %>%
-  filter(bert_year >= 2000, bert_year <= 2025) %>%
-  count(process_group, bert_year, name = "n_projects")
+  filter(!is.na(process_group), !is.na(decision_year)) %>%
+  filter(decision_year >= 2000, decision_year <= 2025) %>%
+  count(process_group, decision_year, name = "n_projects")
 
 # Legislative markers: labels only in CE (top) panel — same as all-projects figure
 leg_events_doe <- tibble(
@@ -386,7 +388,7 @@ leg_events_doe <- tibble(
   process_group = factor("CE", levels = process_levels)
 )
 
-fig_by_year_doe <- ggplot(year_counts_doe, aes(x = bert_year, y = n_projects)) +
+fig_by_year_doe <- ggplot(year_counts_doe, aes(x = decision_year, y = n_projects)) +
   geom_vline(
     xintercept = leg_events_doe$xintercept,
     linetype = "dashed", color = catf_teal, linewidth = 0.75, alpha = 0.9
