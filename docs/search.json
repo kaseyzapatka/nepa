@@ -1376,7 +1376,7 @@
     "href": "presentations/presentation1.html#nepa-activity-over-time",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "NEPA Activity Over Time",
-    "text": "NEPA Activity Over Time\n\n\n\nCE peaked in 2010, would could be due to the American Recovery and Reinvestment Act (ARRA) stimulus\nCE again peaked in 2022 and 2023, likely resulting from the Inflation Reduction Act (IRA)/ Bipartisan Infrastructure Law (BIL) investment surge"
+    "text": "NEPA Activity Over Time\n\n\n\nCE peaked in 2010, could be due to the American Recovery and Reinvestment Act (ARRA) stimulus\nCE again peaked in 2022 and 2023, likely resulting from the Inflation Reduction Act (IRA)/ Bipartisan Infrastructure Law (BIL) investment surge"
   },
   {
     "objectID": "presentations/presentation1.html#generation-capacity-by-review-process",
@@ -1397,7 +1397,7 @@
     "href": "presentations/presentation1.html#multi-state-multi-agency-projects",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "Multi-State & Multi-Agency Projects",
-    "text": "Multi-State & Multi-Agency Projects\nLong-distance transmission lines, pipelines, and large renewables often cross multiple state boundaries or require multiple federal agencies — driving disproportionately high EIS rates in both categories.\n\n\n\n\n\n\n\n\nMulti-state projects by NEPA process type\n\n\n\n\n\n\n\n\nMulti-agency projects by NEPA process type\n\n\n\n\n\nMulti-state projects are predominantly CE or EIS-level, where as Multi-department projects are predominately EIS-level."
+    "text": "Multi-State & Multi-Agency Projects\nLong-distance transmission lines, pipelines, and large renewables often cross multiple state boundaries or require multiple federal agencies — driving disproportionately high EIS rates in both categories.\n\n\n\n\n\n\n\n\nMulti-state projects by NEPA process type\n\n\n\n\n\n\n\n\nMulti-agency projects by NEPA process type\n\n\n\n\n\nMulti-state projects are predominantly CE or EIS-level, whereas Multi-department projects are predominantly EIS-level."
   },
   {
     "objectID": "presentations/presentation1.html#multi-state-projects",
@@ -1439,7 +1439,7 @@
     "href": "presentations/presentation1.html#document-length-trends-over-time",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "Document Length Trends Over Time",
-    "text": "Document Length Trends Over Time\n\n\nFRA 2023 Page Limits\nThe Fiscal Responsibility Act of 2023 (FRA) established the first statutory page limits for NEPA documents. This section examines whether lengths changed after FRA and how well current documents comply.\n\n\n\n\nStandard\nComplex\n\n\n\n\nEA\n75 pp\n—\n\n\nEIS\n150 pp\n300 pp\n\n\n\n\nRegulatory pages = body word count ÷ 500 (excludes appendices, tables, maps, citations per 40 C.F.R. § 1508.1(bb))\n\n\n\n\n\n\n\n\n\n\nSlight decline right FRA but then an uptick. EA mean fell ~22% and EIS fell ~25% post-FRA, but then the rolling average treands up afterwards — causation is uncertain.\nSmall post-FRA sample: only 33 EAs and 42 EISs completed after June 2023."
+    "text": "Document Length Trends Over Time\n\n\nFRA 2023 Page Limits\nThe Fiscal Responsibility Act of 2023 (FRA) established the first statutory page limits for NEPA documents. This section examines whether lengths changed after FRA and how well current documents comply.\n\n\n\n\nStandard\nComplex\n\n\n\n\nEA\n75 pp\n—\n\n\nEIS\n150 pp\n300 pp\n\n\n\n\nRegulatory pages = body word count ÷ 500 (excludes appendices, tables, maps, citations per 40 C.F.R. § 1508.1(bb))\n\n\n\n\n\n\n\n\n\n\nSlight decline right FRA but then an uptick. EA mean fell ~22% and EIS fell ~25% post-FRA, but then the rolling average trends up afterwards — causation is uncertain.\nSmall post-FRA sample: only 33 EAs and 42 EISs completed after June 2023."
   },
   {
     "objectID": "presentations/presentation1.html#prepost-fra-comparison-compliance",
@@ -2580,7 +2580,7 @@
     "href": "presentations/presentation1.html#phase-1-summary-key-findings",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "Phase 1 Summary: Key Findings",
-    "text": "Phase 1 Summary: Key Findings\n\n\nD1: DOE Categorical Exclusions are king: DOE handles 81% of review cases, processing 96% via CE\nD1: Western states and federal lands dominate — BLM, Forest Service, and DOE public land concentration drives the geographic pattern\nD2: Tiering might help — tiered EAs take longer than standard EAs — but less time than a full EIS\nD3: Duration gradient is steep with a long tail — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median)\nD3: Policy stimulus — ARRA (2010) and IRA/BIL (2022–23) CE peaks are clear\nD3: Scale matches review intensity — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW\nD4: DOE is the multi-agency hub — improving DOE-DOI-USDA coordination would have outsized impact\nD5: FRA had effect but not definitive — document lengths declined; most projects are compliant (small N)\nD6: No relation between line length and duration, but long lines (100+ miles) take longer (small N)"
+    "text": "Phase 1 Summary: Key Findings\n\n\nD1: DOE Categorical Exclusions are king: DOE handles 81% of review cases, processing 96% via CE\nD1: Western states and federal lands dominate — BLM, Forest Service, and DOE public land concentration drives the geographic pattern\nD2: Tiering might help — tiered EAs take longer than standard EAs — but less time than a full EIS\nD3: Duration gradient is steep with a long tail — CE (~1 mo) → EA (~14 mo) → EIS (~3 yr median)\nD3: Policy stimulus — ARRA (2010) and IRA/BIL (2022–23), CE peaks are clear\nD3: Scale matches review intensity — EIS = median 538 MW; EA = 60 MW; CE = 1.2 MW\nD4: DOE is the multi-agency hub — improving DOE-DOI-USDA coordination would have outsized impact\nD5: FRA had effect but not definitive — document lengths declined; most projects are compliant (small N)\nD6: No relation between line length and duration, but long lines (100+ miles) take longer (small N)"
   },
   {
     "objectID": "presentations/presentation1.html#a1-nepa-process-duration-summary-statistics",
@@ -2993,14 +2993,14 @@
     "href": "presentations/presentation1.html#defining-decarbonization-technologies",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "Defining Decarbonization Technologies",
-    "text": "Defining Decarbonization Technologies\n\n\n\n\n\n\n\n\n\n\nDecarbonization Technology Tags (≥1 required, no Fossil Fuel tags)\nFossil Fuel Tags (any 1 excludes)\n\n\n\n\nCarbon Capture and Sequestration\nConventional Energy — Coal\n\n\nNuclear Energy Production\nLand-based Oil & Gas\n\n\nOther Conventional Production\nOffshore Oil & Gas\n\n\nElectricity Transmission\nRural Energy\n\n\nNuclear Technology\nPipelines\n\n\nSolar\n\n\n\nWind (Offshore)\n\n\n\nWind (Onshore)\n\n\n\nGeothermal\n\n\n\nHydropower\n\n\n\nHydrokinetic\n\n\n\nEnergy Storage\n\n\n\nBiomass\n\n\n\nUtilities\n\n\n\n\n\n\n\nDecarbonization Technologies Universe: ~25,000 projects initially tagged but 20,725 retained after exclusion criteria appplied — see Appendix for details on what was excluded\n\nUniverse used across all six Phase 1 deliverables.\n\n\n\n\n\n\n\n\n\nDecarbonization-related projects by review type\n\n\n\n\n\n\n\nEnergy type breakdown across all federal projects\n\n\n\n\nThe tagging system is applied to project-level metadata and document titles/descriptions. “decarbonization technologies” requires at least one decarbonization technologies tag AND no fossil fuel tags. CATF staff reviewed samples from each exclusion category — without exclusions, the universe would have included nuclear weapons facilities and radioactive waste disposal."
+    "text": "Defining Decarbonization Technologies\n\n\n\n\n\n\n\n\n\n\nDecarbonization Technology Tags (≥1 required, no Fossil Fuel tags)\nFossil Fuel Tags (any 1 excludes)\n\n\n\n\nCarbon Capture and Sequestration\nConventional Energy — Coal\n\n\nNuclear Energy Production\nLand-based Oil & Gas\n\n\nOther Conventional Production\nOffshore Oil & Gas\n\n\nElectricity Transmission\nRural Energy\n\n\nNuclear Technology\nPipelines\n\n\nSolar\n\n\n\nWind (Offshore)\n\n\n\nWind (Onshore)\n\n\n\nGeothermal\n\n\n\nHydropower\n\n\n\nHydrokinetic\n\n\n\nEnergy Storage\n\n\n\nBiomass\n\n\n\nUtilities\n\n\n\n\n\n\n\nDecarbonization Technologies Universe: ~25,000 projects initially tagged but 20,725 retained after exclusion criteria applied — see Appendix for details on what was excluded\n\nUniverse used across all six Phase 1 deliverables.\n\n\n\n\n\n\n\n\n\nDecarbonization-related projects by review type\n\n\n\n\n\n\n\nEnergy type breakdown across all federal projects\n\n\n\n\nThe tagging system is applied to project-level metadata and document titles/descriptions. “decarbonization technologies” requires at least one decarbonization technologies tag AND no fossil fuel tags. CATF staff reviewed samples from each exclusion category — without exclusions, the universe would have included nuclear weapons facilities and radioactive waste disposal."
   },
   {
     "objectID": "presentations/presentation1.html#non-standard-reviews-who-and-where",
     "href": "presentations/presentation1.html#non-standard-reviews-who-and-where",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "Non-standard Reviews: Who and Where?",
-    "text": "Non-standard Reviews: Who and Where?\n\n\n\n\n\n\n\n\nReview type distribution across EA/EIS\n\n\n\n\n\n\n\n\nShare of non-standard reviews by lead agency\n\n\n\n\n\nThe Nuclear Regulatory Commission and BLM drive Other Independent Agencies and Department of Interior non-standard review use – check out of analysis on the website\nNon-standard reviews are not evenly distributed: they concentrate in western states and large-scale land-use actions where BLM and Forest Service manage extensive federal acreage."
+    "text": "Non-standard Reviews: Who and Where?\n\n\n\n\n\n\n\n\nReview type distribution across EA/EIS\n\n\n\n\n\n\n\n\nShare of non-standard reviews by lead agency\n\n\n\n\n\nThe Nuclear Regulatory Commission and BLM drive Other Independent Agencies and Department of Interior non-standard review use – check out our analysis on the website\nNon-standard reviews are not evenly distributed: they concentrate in western states and large-scale land-use actions where BLM and Forest Service manage extensive federal acreage."
   },
   {
     "objectID": "presentations/presentation1.html#d1-process-type-by-lead-department-all-agencies-vs-verified-agencies",
@@ -3098,6 +3098,6 @@
     "href": "presentations/presentation1.html#electricity-transmission-lines-length-and-duration",
     "title": "NEPA Decarbonization Technologies Analysis",
     "section": "Electricity Transmission Lines: Length and Duration",
-    "text": "Electricity Transmission Lines: Length and Duration\n\n\n\n\n\n\n\n\nProjects and median duration by length band\n\n\n\n\n\n\n\n\nLine length vs. NEPA duration (scatter)\n\n\n\n\nMixed results: No strong statistical relationship between line length and review duration.\n\nMedian lenght is 8 miles and most (55%) under 10 miles\nVery long lines (≥100 miles) take ~6× longer, but with small N."
+    "text": "Electricity Transmission Lines: Length and Duration\n\n\n\n\n\n\n\n\nProjects and median duration by length band\n\n\n\n\n\n\n\n\nLine length vs. NEPA duration (scatter)\n\n\n\n\nMixed results: No strong statistical relationship between line length and review duration.\n\nMedian length is 8 miles and most (55%) under 10 miles\nVery long lines (≥100 miles) take ~6× longer, but with small N."
   }
 ]

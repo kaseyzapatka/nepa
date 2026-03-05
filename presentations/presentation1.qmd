@@ -227,7 +227,7 @@ NEPATEC 2.0 was assembled by PNNL as part of PermitAI. The dataset converted ten
 <br>
 
 ::: {.callout-finding}
-**Decarbonization Technologies Universe:** ~25,000 projects initially tagged but **`r n_clean_fmt`** retained after exclusion criteria appplied — see Appendix for details on what was excluded
+**Decarbonization Technologies Universe:** ~25,000 projects initially tagged but **`r n_clean_fmt`** retained after exclusion criteria applied — see Appendix for details on what was excluded
 
 - Universe used across all six Phase 1 deliverables.
 
@@ -473,7 +473,7 @@ Share of non-standard reviews by lead agency
 :::
 
 ::: {.callout-finding}
-- The **Nuclear Regulatory Commission and BLM** drive Other Independent Agencies and Department of Interior non-standard review use -- check out of analysis on [the website](https://www.kaseyzapatka.com/nepa/reports/deliverable02.html#fig-agency)
+- The **Nuclear Regulatory Commission and BLM** drive Other Independent Agencies and Department of Interior non-standard review use -- check out our analysis on [the website](https://www.kaseyzapatka.com/nepa/reports/deliverable02.html#fig-agency)
 - **Non-standard reviews are not evenly distributed:** they concentrate in western states and large-scale land-use actions where BLM and Forest Service manage extensive federal acreage.
 :::
 
@@ -544,7 +544,7 @@ knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
 ```
 
 ::: {.callout-finding}
-- **CE peaked in 2010**, would could be due to the American Recovery and Reinvestment Act (ARRA) stimulus
+- **CE peaked in 2010**, could be due to the American Recovery and Reinvestment Act (ARRA) stimulus
 - **CE again peaked in 2022 and 2023**, likely resulting from the Inflation Reduction Act (IRA)/ Bipartisan Infrastructure Law (BIL) investment surge
 :::
 
@@ -609,7 +609,7 @@ Multi-agency projects by NEPA process type
 :::
 
 ::: {.callout-finding}
-- Multi-state projects are predominantly **CE** or **EIS-level**, where as Multi-department projects are predominately **EIS-level**. 
+- Multi-state projects are predominantly **CE** or **EIS-level**, whereas Multi-department projects are predominantly **EIS-level**. 
 :::
 ---
 
@@ -687,7 +687,7 @@ knitr::include_graphics(file.path(d5_figures, "05_pages_over_time_break.png"))
 :::
 
 ::: {.callout-finding}
-**Slight decline right FRA but then an uptick.** EA mean fell ~22% and EIS fell ~25% post-FRA, but then the rolling average treands up afterwards — causation is uncertain.
+**Slight decline right FRA but then an uptick.** EA mean fell ~22% and EIS fell ~25% post-FRA, but then the rolling average trends up afterwards — causation is uncertain.
 
 **Small post-FRA sample:** only 33 EAs and 42 EISs completed after June 2023. 
 :::
@@ -755,7 +755,7 @@ Line length vs. NEPA duration (scatter)
 ::: {.callout-finding}
 **Mixed results:** No strong statistical relationship between line length and review duration. 
 
-- Median lenght is 8 miles and most **(55%)** under 10 miles 
+- Median length is 8 miles and most **(55%)** under 10 miles 
 - Very long lines (≥100 miles) take **~6× longer**, but with small N.
 :::
 
