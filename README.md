@@ -10,6 +10,24 @@ Analysis of clean energy projects using the National Environmental Policy Act Te
 
 This project is based on an analysis of [NEPATEC 2.0 on Hugging Face](https://huggingface.co/datasets/PNNL/NEPATEC2.0).
 
+## Reproducible Environment
+
+Use the project-standard conda environment:
+
+```bash
+conda env create -f environment.yml
+conda activate nepa
+```
+
+If you already created it and need to sync to the latest spec:
+
+```bash
+conda env update -n nepa -f environment.yml --prune
+```
+
+Environment design notes and dependency rationale:
+`notes/architecture/environment_setup.md`
+
 ## Database Build
 
 This pipeline produces analysis-ready parquet files in `data/analysis/`. The Federal Register NOI enrichment is generated separately and then merged into the projects output by `project_id`.
@@ -220,36 +238,59 @@ when you run `00_setup.R` — no further changes needed.
 
 ## Technology Deliverables Build
 
-Use `code/extract/extract_technology.py` to build technology-specific fields in `data/analysis/projects_combined.parquet`.
+Use `code/extract/extract_technology.py` to build technology-specific fields.
+
+**Output:**
+- `data/analysis/projects_transmission.parquet` — all transmission columns (flags, lengths, LLM audit, timestamps)
+
+Reads `data/analysis/projects_combined.parquet` for project metadata but does **not** modify it.
 
 ### Transmission
 
-Rule-based extraction only:
+**Step 1 — Rule-based extraction + page-level length recovery (~5–15 min, no API cost):**
 
 ```bash
-python3 code/extract/extract_technology.py --run transmission
+python code/extract/extract_technology.py --run transmission
 ```
 
-Run transmission with LLM adjudication (Anthropic/Claude):
+**Step 2 — LLM adjudication for ambiguous multi-candidate rows (~$0.06, ~2 min with 4 workers):**
+
+Requires `ANTHROPIC_API_KEY` in environment. Run Step 1 first.
 
 ```bash
-python code/extract/extract_technology.py --run transmission --use-llm --provider anthropic
+export ANTHROPIC_API_KEY='sk-ant-...'
+
+python code/extract/extract_technology.py --run llm --workers 4
 ```
 
-If using Anthropic, set `ANTHROPIC_API_KEY` in your environment before running.
+**Verify the output:**
+
+```python
+import pandas as pd
+tx = pd.read_parquet('data/analysis/projects_transmission.parquet')
+print(f"Rows: {len(tx)}, Columns: {len(tx.columns)}")
+print(f"Extraction built: {tx['project_tx_extraction_run_at'].iloc[0]}")
+llm_rows = tx[tx['project_tx_llm_run_at'] != '']
+print(f"LLM rows: {len(llm_rows)}, model: {llm_rows['project_transmission_length_llm_model'].iloc[0] if len(llm_rows) else 'none'}")
+print(f"Strict projects: {tx['project_is_transmission'].sum()}")
+```
+
+**After rebuilding**, re-run the Deliverable 6 R scripts:
+
+```bash
+Rscript code/deliverable06/01_transmission.R
+```
 
 ### Geothermal
 
 ```bash
-# TODO: add final geothermal run sequence for Deliverable 6
-python3 code/extract/extract_technology.py --run geothermal
+python code/extract/extract_technology.py --run geothermal
 ```
 
 ### Pipelines
 
 ```bash
-# TODO: add final pipeline run sequence for Deliverable 6
-python3 code/extract/extract_technology.py --run pipeline
+python code/extract/extract_technology.py --run pipeline
 ```
 
 ## Deliverable 5: Regulatory Page Count Extraction
