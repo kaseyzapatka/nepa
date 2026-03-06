@@ -162,17 +162,48 @@ ggsave(
 
 
 # --------------------------
-# AGENCY-LEVEL ANALYSIS (using lead_agency_harmonized)
+# AGENCY-LEVEL ANALYSIS (harmonized from raw lead_agency strings)
 # --------------------------
-# lead_agency_harmonized is pre-computed in the Python pipeline:
-# - strips "Department of X - " prefix, keeping only the sub-agency name
-# - if no sub-agency exists, keeps the department-level name
-# - covers all agencies without manual pattern-matching
+# We explode lead_agency (which retains "Department of X - Agency" format) so
+# that each exploded row correctly derives its own department from its own
+# agency string. Using project_department instead would mis-assign the primary
+# project department to all secondary agencies on multi-agency projects.
 
 agency_harmonized <- clean_energy %>%
-  explode_column("lead_agency_harmonized") %>%
-  filter(!is.na(lead_agency_harmonized) & lead_agency_harmonized != "") %>%
-  mutate(department = project_department)
+  explode_column("lead_agency") %>%
+  filter(!is.na(lead_agency) & lead_agency != "") %>%
+  mutate(
+    # Expand common abbreviations so the split below works uniformly
+    lead_agency_exp = lead_agency %>%
+      str_replace("^DOE\\s*-\\s*",  "Department of Energy - ") %>%
+      str_replace("^DOI\\s*-\\s*",  "Department of the Interior - ") %>%
+      str_replace("^USDA\\s*-\\s*", "Department of Agriculture - ") %>%
+      str_replace("^DOD\\s*-\\s*",  "Department of Defense - ") %>%
+      str_replace("^DOT\\s*-\\s*",  "Department of Transportation - "),
+    # Department: extract from the agency string, not from project_department.
+    # project_department reflects only the primary agency on multi-agency projects,
+    # so a secondary "Department of Energy" entry on an Interior-primary project
+    # would be mis-assigned. We use the lead_agency string itself where possible.
+    department = case_when(
+      # "Department of X - Agency": use the prefix
+      str_detect(lead_agency_exp, " - ") ~
+        str_extract(lead_agency_exp, "^.+?(?= - )") %>% str_trim(),
+      # Standalone department name: use as-is
+      str_detect(lead_agency_exp, "^Department of ")          ~ lead_agency_exp,
+      str_detect(lead_agency_exp, "^Major Independent ")      ~ "Major Independent Agencies",
+      str_detect(lead_agency_exp, "^Other Independent ")      ~ "Other Independent Agencies",
+      str_detect(lead_agency_exp, "^General Services Admin")  ~ "General Services Administration",
+      # Bare sub-agency or unknown abbreviation: fall back to project-level department
+      TRUE ~ project_department
+    ),
+    # Sub-agency display name: everything after " - "; full string if no split
+    lead_agency_harmonized = if_else(
+      str_detect(lead_agency_exp, " - "),
+      str_extract(lead_agency_exp, "(?<= - ).+$") %>% str_trim(),
+      lead_agency_exp
+    )
+  ) %>%
+  select(-lead_agency_exp)
 
 cat("\nUnique harmonized agencies (DOE/Interior/USDA):\n")
 agency_harmonized %>%
@@ -191,6 +222,17 @@ agency_harmonized %>%
 
 meeting_table <- agency_harmonized %>%
   filter(department != "Other / Unclassified") %>%
+  mutate(
+    lead_agency_harmonized = case_when(
+      # Generic USDA records (no sub-agency label) are Forest Service CEs/EAs stored
+      # without the "Forest Service" identifier. Roll them into Forest Service so CE
+      # counts appear on the correct row instead of a separate generic row.
+      lead_agency_harmonized == department & department == "Department of Agriculture" ~ "Forest Service",
+      # All other generic records (sub-agency name == department name): label as generic
+      lead_agency_harmonized == department ~ paste0(department, " (generic)"),
+      TRUE ~ lead_agency_harmonized
+    )
+  ) %>%
   count(department, lead_agency_harmonized, process_type) %>%
   pivot_wider(names_from = process_type, values_from = n, values_fill = 0) %>%
   mutate(
@@ -198,12 +240,7 @@ meeting_table <- agency_harmonized %>%
     EIS = if ("EIS" %in% names(.)) EIS else 0L,
     CE  = if ("CE"  %in% names(.)) CE  else 0L,
     Total = EIS + EA + CE,
-    Coverage = case_when(
-      department == "Department of Energy"                                       ~ "Full (EIS + EA + CE)",
-      str_detect(lead_agency_harmonized, regex("bureau of land management", ignore_case = TRUE)) ~ "Full (EIS + EA + CE)",
-      str_detect(lead_agency_harmonized, regex("^forest service$", ignore_case = TRUE))          ~ "Full (EIS + EA + CE)",
-      TRUE                                                                       ~ "EIS only (incomplete)"
-    )
+    Coverage = if_else(EIS > 0 & EA > 0 & CE > 0, "Full", "Not complete")
   ) %>%
   select(department, lead_agency_harmonized, EIS, EA, CE, Total, Coverage) %>%
   arrange(department, desc(Total))
@@ -235,16 +272,30 @@ dept_labels_h <- c(
   "Department of Agriculture"  = "Department\nof Agriculture"
 )
 
+# Pre-compute agency factor ordering by total so both geom layers use the same levels.
+# reorder() in aes() is global and character-based; a pre-computed factor is safer
+# when geom_text draws from a separate data frame.
+agency_levels_h <- agency_process_h %>%
+  distinct(lead_agency_harmonized, total) %>%
+  arrange(total) %>%
+  pull(lead_agency_harmonized)
+
 agency_totals_h <- agency_process_h %>%
   group_by(department, lead_agency_harmonized) %>%
   summarise(total = first(total), .groups = "drop") %>%
-  mutate(department = factor(department, levels = dept_order_h, labels = dept_labels_h[dept_order_h]))
+  mutate(
+    agency_f   = factor(lead_agency_harmonized, levels = agency_levels_h),
+    department = factor(department, levels = dept_order_h, labels = dept_labels_h[dept_order_h])
+  )
 
 agency_process_h <- agency_process_h %>%
-  mutate(department = factor(department, levels = dept_order_h, labels = dept_labels_h[dept_order_h]))
+  mutate(
+    agency_f   = factor(lead_agency_harmonized, levels = agency_levels_h),
+    department = factor(department, levels = dept_order_h, labels = dept_labels_h[dept_order_h])
+  )
 
 fig_agency_process <- agency_process_h %>%
-  ggplot(aes(x = reorder(lead_agency_harmonized, total), y = share, fill = process_type)) +
+  ggplot(aes(x = agency_f, y = share, fill = process_type)) +
   geom_col(width = 0.7) +
   geom_text(
     aes(label = ifelse(share >= 0.03, scales::percent(share, accuracy = 1), "")),
@@ -254,7 +305,7 @@ fig_agency_process <- agency_process_h %>%
   ) +
   geom_text(
     data = agency_totals_h,
-    aes(x = lead_agency_harmonized, y = 1.02, label = scales::comma(total)),
+    aes(x = agency_f, y = 1.02, label = scales::comma(total)),
     inherit.aes = FALSE,
     hjust = 0,
     size = 3,
@@ -267,6 +318,7 @@ fig_agency_process <- agency_process_h %>%
     y = "Share of Projects",
     fill = "Process Type",
     title = "NEPA Process Type Distribution by Federal Agency",
+    subtitle = "Only includes Departments of Energy, the Interior, and Agriculture (USDA)",
     caption = "Agencies with fewer than 10 projects excluded. Numbers on right show total project count.\nNote: EA/CE data is complete only for DOE, BLM, and Forest Service; all other agencies appear only via the EPA EIS database."
   ) +
   scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.08))) +
@@ -319,7 +371,7 @@ coverage_verified <- bind_rows(
   # lead_agency rather than "Department of Agriculture - Forest Service". We include both.
   # If no USDA CEs exist in the clean energy dataset, the second arm returns 0 rows.
   bind_rows(
-    agency_harmonized %>% filter(str_detect(lead_agency_harmonized, regex("^forest service$", ignore_case = TRUE))),
+    agency_harmonized %>% filter(str_detect(lead_agency_harmonized, regex("forest service", ignore_case = TRUE))),
     agency_data %>% filter(department == "Department of Agriculture", process_type == "CE")
   ) %>%
     mutate(agency_label = "Forest Service (USFS)", dept_label = "Department of Agriculture")

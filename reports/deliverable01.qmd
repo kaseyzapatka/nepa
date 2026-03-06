@@ -139,8 +139,8 @@ read_csv(file.path(d1_tables, "table_meeting_coverage.csv"), show_col_types = FA
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) |>
   column_spec(7, bold = TRUE,
               color = ifelse(
-                read_csv(file.path(d1_tables, "table_meeting_coverage.csv"), show_col_types = FALSE)$Coverage == "EIS only (incomplete)",
-                "gray", "black"
+                read_csv(file.path(d1_tables, "table_meeting_coverage.csv"), show_col_types = FALSE)$Coverage == "Full",
+                "black", "gray"
               ))
 ```
 
