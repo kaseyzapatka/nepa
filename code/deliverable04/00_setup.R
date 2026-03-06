@@ -20,6 +20,8 @@ library(tidycensus)
 library(tigris)
 library(ggwordcloud)
 
+source(here::here("code", "utils", "utils.R"))
+
 # options
 options(tigris_use_cache = TRUE)
 
