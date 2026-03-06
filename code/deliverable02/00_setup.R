@@ -23,6 +23,8 @@ library(jsonlite)
 library(scales)
 library(gt)
 
+source(here::here("code", "utils", "utils.R"))
+
 # --------------------------
 # FILE PATHS
 # --------------------------
