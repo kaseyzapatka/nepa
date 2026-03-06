@@ -222,17 +222,17 @@ agency_harmonized %>%
 
 meeting_table <- agency_harmonized %>%
   filter(department != "Other / Unclassified") %>%
-  mutate(
-    lead_agency_harmonized = case_when(
-      # Generic USDA records (no sub-agency label) are Forest Service CEs/EAs stored
-      # without the "Forest Service" identifier. Roll them into Forest Service so CE
-      # counts appear on the correct row instead of a separate generic row.
-      lead_agency_harmonized == department & department == "Department of Agriculture" ~ "Forest Service",
-      # All other generic records (sub-agency name == department name): label as generic
-      lead_agency_harmonized == department ~ paste0(department, " (generic)"),
-      TRUE ~ lead_agency_harmonized
-    )
-  ) %>%
+  #mutate(
+  #  lead_agency_harmonized = case_when(
+  #    # Generic USDA records (no sub-agency label) are Forest Service CEs/EAs stored
+  #    # without the "Forest Service" identifier. Roll them into Forest Service so CE
+  #    # counts appear on the correct row instead of a separate generic row.
+  #    lead_agency_harmonized == department & department == "Department of Agriculture" ~ "Forest Service",
+  #    # All other generic records (sub-agency name == department name): label as generic
+  #    lead_agency_harmonized == department ~ paste0(department, " (generic)"),
+  #    TRUE ~ lead_agency_harmonized
+  #  )
+  #) %>%
   count(department, lead_agency_harmonized, process_type) %>%
   pivot_wider(names_from = process_type, values_from = n, values_fill = 0) %>%
   mutate(
