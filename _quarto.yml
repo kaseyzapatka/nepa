@@ -6,6 +6,8 @@ website:
   title: "NEPA"
   navbar:
     left:
+      - text: "Document Explorer"
+        href: https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer
       - text: "Project Overview"
         href: reports/project_overview.qmd
       - text: "Deliverable 1"

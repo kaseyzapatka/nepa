@@ -12,6 +12,11 @@ Strategy: Scan pages in batches (the EIS parquet is 6 GB) and check:
 This is a feasibility check, not a final pipeline.
 """
 
+import os
+
+if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
+    raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
+
 import pyarrow.parquet as pq
 import pandas as pd
 import re

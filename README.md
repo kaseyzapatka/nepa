@@ -320,3 +320,104 @@ python code/extract/extract_technology.py --run geothermal
 python code/extract/extract_technology.py --run pipeline
 ```
 ---
+
+## Build the Document Explorer (HF Spaces, Free Path)
+
+Use this workflow to deploy the Streamlit NEPA document explorer without storing the 7+ GB DuckDB file inside the Space repo.
+
+### 1) Build the DuckDB locally (one-time per data refresh)
+
+```bash
+python code/rag/01_build_text_store.py
+```
+
+This writes:
+
+`data/rag/nepa_reader.duckdb`
+
+### 2) Upload the DB to a Hugging Face Dataset repo
+
+Set your values:
+
+```bash
+HF_USERNAME="YOUR_HF_USERNAME"
+DB_REPO="nepa-document-explorer-db"
+```
+
+Create the dataset repo (safe to rerun):
+
+```bash
+hf repo create "${HF_USERNAME}/${DB_REPO}" --repo-type dataset || true
+```
+
+Upload the DB file:
+
+```bash
+hf upload "${HF_USERNAME}/${DB_REPO}" data/rag/nepa_reader.duckdb nepa_reader.duckdb --repo-type dataset
+```
+
+### 3) Deploy app to a Hugging Face Docker Space
+
+Set Space name:
+
+```bash
+SPACE_NAME="nepa-document-explorer"
+```
+
+Create Space (if CLI supports it):
+
+```bash
+hf repo create "${HF_USERNAME}/${SPACE_NAME}" --repo-type space --space_sdk docker || true
+```
+
+If your CLI does not accept `--space_sdk`, create the Space in the HF web UI as **Docker**, then continue.
+
+Prepare a clean deploy folder:
+
+```bash
+DEPLOY_DIR="$(mktemp -d)"
+cp app/app.py "${DEPLOY_DIR}/app.py"
+cp app/requirements.txt "${DEPLOY_DIR}/requirements.txt"
+```
+
+Create `Dockerfile`:
+
+```bash
+cat > "${DEPLOY_DIR}/Dockerfile" <<'EOF'
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py .
+ENV NEPA_DB_HF_REPO=YOUR_HF_USERNAME/nepa-document-explorer-db
+ENV NEPA_DB_HF_FILENAME=nepa_reader.duckdb
+EXPOSE 7860
+CMD ["streamlit","run","app.py","--server.address=0.0.0.0","--server.port=7860"]
+EOF
+```
+
+Upload app to Space:
+
+```bash
+hf upload "${HF_USERNAME}/${SPACE_NAME}" "${DEPLOY_DIR}" --repo-type space --commit-message "Deploy NEPA document explorer"
+```
+
+### 4) Verify and link
+
+Space URL:
+
+`https://huggingface.co/spaces/YOUR_HF_USERNAME/nepa-document-explorer`
+
+Quarto navbar link is configured in `_quarto.yml` as:
+
+`Document Explorer -> https://huggingface.co/spaces/<username>/nepa-document-explorer`
+
+### 5) Routine updates
+
+- App-only update: re-upload `app.py`, `requirements.txt`, `Dockerfile` to the Space.
+- Data refresh: rebuild `nepa_reader.duckdb`, upload it again to the dataset repo, then restart/rebuild the Space.
+
+### Notes / Limits
+
+- HF Space repos have strict storage limits on free tier (commonly 1 GB). Do not commit `.duckdb` into the Space repo.
+- Keeping DB in a dataset repo avoids Git LFS in the Space deployment flow.

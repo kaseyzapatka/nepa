@@ -1,3 +1,8 @@
+import os
+
+if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
+    raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
+
 # --------------------------
 # NEPA DATA EXTRACTION PIPELINE
 # --------------------------
@@ -30,6 +35,7 @@ from pathlib import Path
 import sys
 import re
 import ast
+import time
 from datetime import datetime
 
 # datasets is only needed for raw extraction from HuggingFace
@@ -54,6 +60,492 @@ np.set_printoptions(threshold=np.inf)
 
 # Optional: Federal Register NOI enrichment (disabled by default)
 ENABLE_FEDERAL_REGISTER_NOI = False
+
+
+# --------------------------
+# PROJECT DESCRIPTION ENRICHMENT CONFIG
+# --------------------------
+
+PROJECT_DESCRIPTION_EMPTY_TOKENS = {"", "null", "none", "nan", "[]", "{}"}
+PROJECT_DESCRIPTION_TOP_N_DOCS = {
+    "EA": 2,
+    "EIS": 3,
+}
+PROJECT_DESCRIPTION_MAX_PAGE_SCAN = 60
+PROJECT_DESCRIPTION_MAX_PAGES_AFTER_HEADING = 5
+PROJECT_DESCRIPTION_MAX_CHARS = 3500
+PROJECT_DESCRIPTION_MIN_CHARS = 40
+
+# SQL heading patterns (DuckDB regex)
+PROJECT_DESCRIPTION_PRIMARY_SQL_PATTERN = (
+    r"(?i)(^|\n)\s*(?:chapter\s+\d+\s*[-:.]?\s*|\d+(?:\.\d+){0,3}\s*[-:.]?\s*)?"
+    r"(project\s+description|description\s+of\s+(?:the\s+)?project|project\s+overview)\b"
+)
+PROJECT_DESCRIPTION_FALLBACK_SQL_PATTERN = (
+    r"(?i)(^|\n)\s*(?:chapter\s+\d+\s*[-:.]?\s*|\d+(?:\.\d+){0,3}\s*[-:.]?\s*)?"
+    r"(description\s+of\s+(?:the\s+)?proposed\s+action|proposed\s+action|purpose\s+and\s+need)\b"
+)
+
+# Line-level heading patterns (Python regex)
+PROJECT_DESCRIPTION_PRIMARY_LINE_PATTERNS = [
+    re.compile(
+        r"(?i)^\s*(?:chapter\s+\d+\s*[-:.]?\s*|(?:\d+(?:\.\d+){0,3})\s*[-:.]?\s*)?"
+        r"project\s+description\b[:\-\s]*"
+    ),
+    re.compile(
+        r"(?i)^\s*(?:chapter\s+\d+\s*[-:.]?\s*|(?:\d+(?:\.\d+){0,3})\s*[-:.]?\s*)?"
+        r"description\s+of\s+(?:the\s+)?project\b[:\-\s]*"
+    ),
+    re.compile(
+        r"(?i)^\s*(?:chapter\s+\d+\s*[-:.]?\s*|(?:\d+(?:\.\d+){0,3})\s*[-:.]?\s*)?"
+        r"project\s+overview\b[:\-\s]*"
+    ),
+]
+PROJECT_DESCRIPTION_FALLBACK_LINE_PATTERNS = [
+    re.compile(
+        r"(?i)^\s*(?:chapter\s+\d+\s*[-:.]?\s*|(?:\d+(?:\.\d+){0,3})\s*[-:.]?\s*)?"
+        r"description\s+of\s+(?:the\s+)?proposed\s+action\b[:\-\s]*"
+    ),
+    re.compile(
+        r"(?i)^\s*(?:chapter\s+\d+\s*[-:.]?\s*|(?:\d+(?:\.\d+){0,3})\s*[-:.]?\s*)?"
+        r"proposed\s+action\b[:\-\s]*"
+    ),
+    re.compile(
+        r"(?i)^\s*(?:chapter\s+\d+\s*[-:.]?\s*|(?:\d+(?:\.\d+){0,3})\s*[-:.]?\s*)?"
+        r"purpose\s+and\s+need\b[:\-\s]*"
+    ),
+]
+
+PROJECT_DESCRIPTION_NUMBERED_HEADING_RE = re.compile(
+    r"(?i)^\s*(?:chapter\s+\d+[\.:]?\s*|(?:\d+(?:\.\d+){0,3})\s+)"
+    r"[A-Za-z][A-Za-z0-9 ,/&()\-]{2,140}\s*$"
+)
+PROJECT_DESCRIPTION_MAJOR_HEADING_RE = re.compile(
+    r"(?i)^\s*(?:table\s+of\s+contents|appendix|appendices|references|"
+    r"introduction|summary|purpose\s+and\s+need|proposed\s+action|"
+    r"alternatives|affected\s+environment|environmental\s+consequences|"
+    r"consultation|cumulative\s+impacts?)\b"
+)
+
+
+def _missing_project_description_mask(series):
+    """Return True for NULL/blank/serialized-empty project descriptions."""
+    def _is_missing_value(value):
+        # Null-like primitives
+        if value is None:
+            return True
+        if isinstance(value, float) and np.isnan(value):
+            return True
+
+        # Structured values from mixed/parquet/object columns
+        if isinstance(value, dict):
+            if not value:
+                return True
+            if "value" in value:
+                return _is_missing_value(value.get("value"))
+            return False
+        if isinstance(value, (list, tuple, np.ndarray)):
+            if len(value) == 0:
+                return True
+            return all(_is_missing_value(v) for v in value)
+
+        # Scalar strings/tokens
+        s = str(value).strip()
+        if not s:
+            return True
+
+        s_lower = s.lower()
+        if s_lower in PROJECT_DESCRIPTION_EMPTY_TOKENS:
+            return True
+
+        # Quoted empty values, e.g. "" or ''
+        unquoted = s.strip("\"' ").strip()
+        if not unquoted:
+            return True
+        if unquoted.lower() in PROJECT_DESCRIPTION_EMPTY_TOKENS:
+            return True
+
+        # Serialized JSON wrappers around empty/null values
+        if s.startswith("[") or s.startswith("{"):
+            for parser in (json.loads, ast.literal_eval):
+                try:
+                    parsed = parser(s)
+                    return _is_missing_value(parsed)
+                except Exception:
+                    continue
+
+        return False
+
+    return series.apply(_is_missing_value)
+
+
+def _is_all_caps_heading_line(line):
+    """Heuristic for heading lines in OCR output."""
+    s = (line or "").strip()
+    if not s or len(s) > 140:
+        return False
+
+    alpha_chars = [c for c in s if c.isalpha()]
+    if len(alpha_chars) < 8:
+        return False
+
+    upper_ratio = sum(1 for c in alpha_chars if c.isupper()) / len(alpha_chars)
+    return upper_ratio >= 0.70
+
+
+def _is_major_section_heading_line(line):
+    """Return True when a line is likely a major section boundary."""
+    s = (line or "").strip()
+    if not s:
+        return False
+    if PROJECT_DESCRIPTION_NUMBERED_HEADING_RE.match(s):
+        return True
+    if PROJECT_DESCRIPTION_MAJOR_HEADING_RE.match(s):
+        return True
+    return _is_all_caps_heading_line(s)
+
+
+def _match_heading_prefix(line, heading_patterns):
+    """
+    If line starts with a target heading, return trailing text after heading.
+    Otherwise return None.
+    """
+    for pattern in heading_patterns:
+        match = pattern.match(line or "")
+        if match:
+            return (line or "")[match.end():].strip()
+    return None
+
+
+def _extract_description_from_ordered_pages(
+    page_rows: pd.DataFrame,
+    heading_type: str,
+) -> str | None:
+    """
+    Extract a section body from ordered page rows after the first heading match.
+    """
+    heading_patterns = (
+        PROJECT_DESCRIPTION_PRIMARY_LINE_PATTERNS
+        if heading_type == "primary"
+        else PROJECT_DESCRIPTION_FALLBACK_LINE_PATTERNS
+    )
+
+    chunks = []
+    total_chars = 0
+    started = False
+
+    for _, row in page_rows.iterrows():
+        page_text = row.get("page_text", "")
+        if page_text is None:
+            page_text = ""
+        if not isinstance(page_text, str):
+            page_text = str(page_text)
+
+        lines = page_text.splitlines()
+        if not lines:
+            lines = [page_text]
+
+        start_idx = 0
+        if not started:
+            for i, line in enumerate(lines):
+                trailing = _match_heading_prefix(line, heading_patterns)
+                if trailing is None:
+                    continue
+                started = True
+                start_idx = i + 1
+                if trailing:
+                    chunks.append(trailing)
+                    total_chars += len(trailing) + 1
+                break
+            if not started:
+                continue
+
+        for line in lines[start_idx:]:
+            line_text = line.strip()
+            if not line_text:
+                continue
+
+            if _is_major_section_heading_line(line_text):
+                extracted = " ".join(" ".join(chunks).split())
+                return extracted[:PROJECT_DESCRIPTION_MAX_CHARS].strip() or None
+
+            chunks.append(line_text)
+            total_chars += len(line_text) + 1
+            if total_chars >= PROJECT_DESCRIPTION_MAX_CHARS:
+                extracted = " ".join(" ".join(chunks).split())
+                return extracted[:PROJECT_DESCRIPTION_MAX_CHARS].strip() or None
+
+    if not chunks:
+        return None
+
+    extracted = " ".join(" ".join(chunks).split()).strip()
+    if len(extracted) < PROJECT_DESCRIPTION_MIN_CHARS:
+        return None
+    return extracted[:PROJECT_DESCRIPTION_MAX_CHARS]
+
+
+def enrich_project_descriptions(dataset_type):
+    """
+    Post-extraction enrichment for missing project_description values.
+
+    Scope:
+    - Runs only for EA/EIS datasets.
+    - Fills project_description only when missing.
+    - Adds project_description_enriched_at timestamp for rows filled by this step.
+    """
+    dataset_type = str(dataset_type).upper().strip()
+    if dataset_type not in {"EA", "EIS"}:
+        print(f"  [description-enrichment] {dataset_type}: skipped (EA/EIS only)")
+        return 0
+
+    try:
+        import duckdb
+    except ImportError:
+        print("  [description-enrichment] duckdb not installed; skipping enrichment")
+        return 0
+
+    start_time = time.time()
+    data_dir = PROCESSED_DIR / dataset_type.lower()
+    projects_path = data_dir / "projects.parquet"
+    documents_path = data_dir / "documents.parquet"
+    pages_path = data_dir / "pages.parquet"
+
+    if not projects_path.exists() or not documents_path.exists() or not pages_path.exists():
+        print(f"  [description-enrichment] {dataset_type}: required parquet missing; skipping")
+        return 0
+
+    try:
+        projects_raw = pd.read_parquet(projects_path)
+        projects_work = clean_project_id(projects_raw)
+
+        if "project_description" not in projects_work.columns:
+            print(f"  [description-enrichment] {dataset_type}: project_description column missing; skipping")
+            return 0
+
+        missing_mask = _missing_project_description_mask(projects_work["project_description"])
+        missing_before = int(missing_mask.sum())
+        total_projects = len(projects_work)
+
+        print(
+            f"  [description-enrichment] {dataset_type}: "
+            f"{missing_before:,}/{total_projects:,} project_description rows missing"
+        )
+
+        if missing_before == 0:
+            return 0
+
+        docs_raw = pd.read_parquet(documents_path)
+        docs_work = clean_project_id(docs_raw)
+        if "document_type_clean" not in docs_work.columns:
+            docs_work = add_document_type_clean(docs_work)
+
+        if "main_document" not in docs_work.columns:
+            docs_work["main_document"] = ""
+        if "total_pages" not in docs_work.columns:
+            docs_work["total_pages"] = 0
+
+        docs_work["project_id"] = docs_work["project_id"].astype(str)
+        docs_work["document_id"] = docs_work["document_id"].fillna("").astype(str)
+        docs_work["main_document"] = docs_work["main_document"].fillna("").astype(str).str.upper()
+        docs_work["document_type_clean"] = docs_work["document_type_clean"].fillna("").astype(str).str.upper()
+        docs_work["total_pages"] = docs_work["total_pages"].fillna(0)
+
+        docs_work = docs_work[docs_work["document_id"].str.strip() != ""]
+        missing_project_ids = (
+            projects_work.loc[missing_mask, "project_id"]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+
+        if not missing_project_ids:
+            return 0
+
+        docs_for_sql = docs_work[
+            ["project_id", "document_id", "main_document", "total_pages", "document_type_clean"]
+        ].copy()
+        missing_for_sql = pd.DataFrame({"project_id": missing_project_ids})
+
+        top_n_docs = PROJECT_DESCRIPTION_TOP_N_DOCS.get(dataset_type, 2)
+        max_page_scan = PROJECT_DESCRIPTION_MAX_PAGE_SCAN
+        max_pages_after_heading = PROJECT_DESCRIPTION_MAX_PAGES_AFTER_HEADING
+
+        if dataset_type == "EA":
+            type_rank_case = """
+                CASE
+                    WHEN document_type_clean IN ('EA', 'DEA') THEN 0
+                    WHEN document_type_clean IN ('OTHER', '') THEN 1
+                    WHEN document_type_clean IN ('FONSI', 'ROD', 'APPENDIX', 'CE') THEN 3
+                    ELSE 2
+                END
+            """
+        else:
+            type_rank_case = """
+                CASE
+                    WHEN document_type_clean IN ('FEIS', 'DEIS') THEN 0
+                    WHEN document_type_clean IN ('OTHER', '') THEN 1
+                    WHEN document_type_clean IN ('FONSI', 'ROD', 'APPENDIX', 'CE') THEN 3
+                    ELSE 2
+                END
+            """
+
+        query = f"""
+            WITH doc_scored AS (
+                SELECT
+                    d.project_id,
+                    d.document_id,
+                    CASE WHEN upper(coalesce(d.main_document, '')) = 'YES' THEN 1 ELSE 0 END AS main_priority,
+                    coalesce(try_cast(d.total_pages AS INTEGER), 0) AS total_pages_num,
+                    {type_rank_case} AS type_rank
+                FROM docs d
+                JOIN missing_projects mp ON d.project_id = mp.project_id
+            ),
+            candidate_docs AS (
+                SELECT
+                    project_id,
+                    document_id,
+                    row_number() OVER (
+                        PARTITION BY project_id
+                        ORDER BY main_priority DESC, type_rank ASC, total_pages_num DESC, document_id
+                    ) AS doc_rank
+                FROM doc_scored
+                QUALIFY doc_rank <= {top_n_docs}
+            ),
+            candidate_pages AS (
+                SELECT
+                    cd.project_id,
+                    cd.document_id,
+                    cd.doc_rank,
+                    cast(p.page_number AS VARCHAR) AS page_number,
+                    try_cast(regexp_extract(cast(p.page_number AS VARCHAR), '(\\d+)', 1) AS INTEGER) AS page_num,
+                    coalesce(p.page_text, '') AS page_text
+                FROM candidate_docs cd
+                JOIN read_parquet(?) p ON p.document_id = cd.document_id
+                WHERE try_cast(regexp_extract(cast(p.page_number AS VARCHAR), '(\\d+)', 1) AS INTEGER)
+                      BETWEEN 1 AND ?
+            ),
+            primary_hits AS (
+                SELECT
+                    project_id,
+                    document_id,
+                    doc_rank,
+                    page_num AS hit_page_num,
+                    'primary' AS heading_type
+                FROM candidate_pages
+                WHERE regexp_matches(page_text, ?)
+                QUALIFY row_number() OVER (
+                    PARTITION BY project_id
+                    ORDER BY doc_rank, page_num, page_number
+                ) = 1
+            ),
+            fallback_hits AS (
+                SELECT
+                    project_id,
+                    document_id,
+                    doc_rank,
+                    page_num AS hit_page_num,
+                    'fallback' AS heading_type
+                FROM candidate_pages
+                WHERE regexp_matches(page_text, ?)
+                  AND project_id NOT IN (SELECT project_id FROM primary_hits)
+                QUALIFY row_number() OVER (
+                    PARTITION BY project_id
+                    ORDER BY doc_rank, page_num, page_number
+                ) = 1
+            ),
+            hits AS (
+                SELECT * FROM primary_hits
+                UNION ALL
+                SELECT * FROM fallback_hits
+            )
+            SELECT
+                h.project_id,
+                h.heading_type,
+                h.doc_rank,
+                cp.page_num,
+                cp.page_number,
+                cp.page_text
+            FROM hits h
+            JOIN candidate_pages cp
+              ON cp.project_id = h.project_id
+             AND cp.doc_rank = h.doc_rank
+             AND cp.page_num BETWEEN h.hit_page_num AND (h.hit_page_num + ?)
+            ORDER BY h.project_id, h.doc_rank, cp.page_num, cp.page_number
+        """
+
+        con = duckdb.connect()
+        try:
+            con.register("docs", docs_for_sql)
+            con.register("missing_projects", missing_for_sql)
+            page_windows = con.execute(
+                query,
+                [
+                    str(pages_path),
+                    max_page_scan,
+                    PROJECT_DESCRIPTION_PRIMARY_SQL_PATTERN,
+                    PROJECT_DESCRIPTION_FALLBACK_SQL_PATTERN,
+                    max_pages_after_heading,
+                ],
+            ).fetch_df()
+        finally:
+            con.close()
+
+        if page_windows.empty:
+            print(f"  [description-enrichment] {dataset_type}: no heading matches found")
+            return 0
+
+        extracted = {}
+        for project_id, grp in page_windows.groupby("project_id", sort=False):
+            heading_type = str(grp["heading_type"].iloc[0]).lower().strip()
+            grp_sorted = grp.sort_values(
+                by=["doc_rank", "page_num", "page_number"],
+                na_position="last",
+            )
+            section_text = _extract_description_from_ordered_pages(grp_sorted, heading_type=heading_type)
+            if section_text:
+                extracted[str(project_id)] = section_text
+
+        timestamp = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        added_timestamp_column = False
+        if "project_description_enriched_at" not in projects_raw.columns:
+            projects_raw["project_description_enriched_at"] = ""
+            added_timestamp_column = True
+        else:
+            projects_raw["project_description_enriched_at"] = (
+                projects_raw["project_description_enriched_at"].fillna("").astype(str)
+            )
+
+        filled_count = 0
+        for idx, project_id in projects_work.loc[missing_mask, "project_id"].items():
+            pid = str(project_id)
+            new_text = extracted.get(pid)
+            if not new_text:
+                continue
+            projects_raw.at[idx, "project_description"] = new_text
+            projects_raw.at[idx, "project_description_enriched_at"] = timestamp
+            filled_count += 1
+
+        if filled_count == 0 and not added_timestamp_column:
+            print(f"  [description-enrichment] {dataset_type}: 0 rows filled")
+            return 0
+
+        temp_path = projects_path.with_suffix(".parquet.tmp")
+        projects_raw.to_parquet(temp_path)
+        temp_path.replace(projects_path)
+
+        projects_after = clean_project_id(projects_raw)
+        missing_after = int(_missing_project_description_mask(projects_after["project_description"]).sum())
+        elapsed = time.time() - start_time
+
+        print(
+            f"  [description-enrichment] {dataset_type}: filled {filled_count:,} rows "
+            f"(missing {missing_before:,} -> {missing_after:,}) in {elapsed:.1f}s"
+        )
+        return filled_count
+    except Exception as exc:
+        print(f"  [description-enrichment] WARNING {dataset_type}: failed ({exc})")
+        return 0
 
 
 # --------------------------
@@ -1642,9 +2134,33 @@ def run_full_extraction():
     Run full extraction from HuggingFace (slow, requires HF token).
     Use this only when you need to refresh the raw data.
     """
+    updated_counts = {"EA": 0, "EIS": 0}
     for dataset in ["EA", "EIS", "CE"]:
         run_raw_extraction(dataset)
+        updated = enrich_project_descriptions(dataset)
+        if dataset in updated_counts:
+            updated_counts[dataset] = int(updated or 0)
+
+    print("\n=== Project Description Enrichment Summary ===")
+    print(f"  EA updated: {updated_counts['EA']:,}")
+    print(f"  EIS updated: {updated_counts['EIS']:,}")
     print("\nAll datasets extracted.")
+
+
+def run_project_description_enrichment():
+    """
+    Ensure EA/EIS processed projects are enriched before downstream combines.
+    Returns a dict with updated row counts.
+    """
+    print("\n=== Enriching EA/EIS Project Descriptions ===")
+    counts = {"EA": 0, "EIS": 0}
+    for dataset in ["EA", "EIS"]:
+        counts[dataset] = int(enrich_project_descriptions(dataset) or 0)
+
+    print("Project description enrichment summary:")
+    print(f"  EA updated: {counts['EA']:,}")
+    print(f"  EIS updated: {counts['EIS']:,}")
+    return counts
 
 
 def run_analysis_pipeline():
@@ -1652,6 +2168,9 @@ def run_analysis_pipeline():
     Create analysis-ready datasets from existing processed data.
     This is the main entry point for creating datasets for deliverables.
     """
+    # Ensure projects_combined.parquet always reflects latest EA/EIS enrichment.
+    run_project_description_enrichment()
+
     create_combined_projects()
     create_combined_processes()
     create_combined_documents()

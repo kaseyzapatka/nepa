@@ -4494,6 +4494,10 @@ vertical-align: -.125em;
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
+    <a class="nav-link" href="https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer" rel target>
+ <span class="menu-text">Document Explorer</span></a>
+  </li>  
+  <li class="nav-item">
     <a class="nav-link" href="../../reports/project_overview.html" rel target>
  <span class="menu-text">Project Overview</span></a>
   </li>  
@@ -4873,6 +4877,65 @@ vertical-align: -.125em;
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--provider</span> claude <span class="dt">\</span></span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">--output</span> data/analysis/projects_timeline_targeted_llm.parquet</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p><strong>Cost</strong>: ~$0.44 (Haiku, ~400K input tokens for 73 projects).</p>
+</section>
+<section id="manual-date-overrides-todo-integrate-into-pipeline" class="level4">
+<h4 class="anchored" data-anchor-id="manual-date-overrides-todo-integrate-into-pipeline">Manual Date Overrides (TODO: integrate into pipeline)</h4>
+<p>Six projects were manually patched in <code>code/deliverable02/00_setup.R</code> for the 2026-03-06 presentation. These are hardcoded in a <code>manual_overrides</code> tibble and should eventually be moved into the pipeline (e.g., a <code>data/analysis/manual_dates.csv</code> patched via coalesce in <code>00_setup.R</code>, or re-adjudicated with corrected inputs).</p>
+<table class="table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>project_id</th>
+<th>field</th>
+<th>value</th>
+<th>source</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>cf2fbe90d43ac57a9460fa857f34af6c</code></td>
+<td>initiation</td>
+<td><code>noi_publication_date</code></td>
+<td>Federal Register NOI</td>
+</tr>
+<tr class="even">
+<td><code>f95ec9530b352e3dd46e6473cb80dccf</code></td>
+<td>decision</td>
+<td>2019-04-01</td>
+<td>Date in EA filename</td>
+</tr>
+<tr class="odd">
+<td><code>49cdaa3ff2e6c505c6822e8e9803eb9b</code></td>
+<td>decision</td>
+<td>2023-05-01</td>
+<td>Date in draft filename</td>
+</tr>
+<tr class="even">
+<td><code>4af8ad4f47941e4ccb53fe4349c258c3</code></td>
+<td>decision</td>
+<td>1995-09-01</td>
+<td>Page 3 of FEIS</td>
+</tr>
+<tr class="odd">
+<td><code>00d09887554d7ab68e49e9ab628583bf</code></td>
+<td>decision</td>
+<td>2025-06-01</td>
+<td>Page 1 of DEIS</td>
+</tr>
+<tr class="even">
+<td><code>8d13822f3d8b469efcdb2706caa463c7</code></td>
+<td>decision</td>
+<td>2022-03-01</td>
+<td>TVA Final EIS target date</td>
+</tr>
+</tbody>
+</table>
+<p><strong>TODO</strong>: After Thursday, move these to a persistent override file and remove the hardcoded block from <code>00_setup.R</code>. Also investigate the remaining 37 incomplete projects using <code>inspect_candidates()</code> / <code>inspect_llm_prompt()</code> in <code>01_reviews.R</code>.</p>
 </section>
 </section>
 <section id="section-1" class="level3">

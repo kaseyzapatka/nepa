@@ -18,6 +18,11 @@ Author: Created for NEPA timeline extraction project
 Date: 2026-01-28
 """
 
+import os
+
+if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
+    raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
+
 import re
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
