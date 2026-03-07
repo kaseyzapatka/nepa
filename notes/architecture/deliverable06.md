@@ -124,7 +124,7 @@ The rule-based result is stored in `project_transmission_length_miles` (the "com
 
 #### 3.2.4 LLM adjudication (`_run_llm_transmission_adjudication`)
 
-LLM adjudication is **triggered** when two or more non-trivial, non-partial candidate groups remain after rule-based resolution (`llm_trigger = TRUE`). When LLM is enabled (`--use-llm` flag passed to the extraction script), an LLM call is made for each triggered project.
+LLM adjudication is **triggered** when two or more non-trivial, non-partial candidate groups remain after rule-based resolution (`llm_trigger = TRUE`). When LLM is enabled (`--use-llm` flag passed to the extraction script), a Claude API call is made for each triggered project.
 
 The prompt presents up to 8 candidates with their source snippets and instructs the model to pick the candidate most likely to represent the total proposed line length. The model is explicitly told to:
 - Prefer candidates with "X miles long" or "X miles in length" language
@@ -132,13 +132,29 @@ The prompt presents up to 8 candidates with their source snippets and instructs 
 - Ignore geographic direction mentions
 - Use the line being built, not existing reference lines
 
-Two LLM providers are supported:
-- **Ollama** (local, default): `llama3.2:3b-instruct-q4_K_M`
-- **Claude API** (cloud, `provider=anthropic`): `claude-haiku-4-5-20251001`
+**Provider:** Claude API only — `claude-haiku-4-5-20251001` (`CLAUDE_DEFAULT_MODEL`). Requires `ANTHROPIC_API_KEY` environment variable. Ollama support has been removed.
+
+**Run command:**
+```bash
+python code/extract/extract_technology.py --run transmission --use-llm --workers 4 \
+  --page-length-recovery --output data/analysis/projects_combined.parquet
+```
 
 The LLM-adjudicated result is stored in `project_transmission_length_final`. If LLM was not triggered or failed, `project_transmission_length_final` equals `project_transmission_length_miles` (both are rule-based).
 
 The analysis uses `project_transmission_length_final` (LLM-adjudicated when available) as the primary length variable.
+
+**Audit columns** — all written to `projects_combined.parquet` per project:
+
+| Column | Type | Meaning |
+|--------|------|---------|
+| `project_transmission_length_llm_trigger` | bool | Whether 2+ distinct candidates triggered adjudication |
+| `project_transmission_length_llm_used` | bool | Whether Claude API was actually called and returned a result |
+| `project_transmission_length_llm_status` | str | `success` / `not_triggered` / `not_requested` / `failed_fallback_rule` |
+| `project_transmission_length_llm_reasoning` | str | Claude's one-sentence explanation |
+| `project_transmission_length_llm_model` | str | Model string (e.g. `claude-haiku-4-5-20251001`) or `""` if not used |
+
+To confirm Claude was used for a specific row: `llm_used == True` and `llm_model != ""`.
 
 #### 3.2.5 Page-level length recovery (`_extract_tx_length_from_pages`)
 

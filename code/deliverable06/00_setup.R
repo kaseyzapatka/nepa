@@ -20,7 +20,8 @@ source(here::here("code", "utils", "utils.R"))
 timeline_ce_path <- here("data", "analysis", "projects_timeline_bert.parquet")
 timeline_ea_path <- here("data", "analysis", "projects_timeline_bert_ea_llm.parquet")
 timeline_eis_path <- here("data", "analysis", "projects_timeline_bert_eis_llm.parquet")
-projects_combined_path <- here("data", "analysis", "projects_combined.parquet")
+projects_combined_path    <- here("data", "analysis", "projects_combined.parquet")
+projects_transmission_path <- here("data", "analysis", "projects_transmission.parquet")
 output_dir <- here("output", "deliverable6")
 tables_dir <- here("output", "deliverable6", "tables")
 figures_dir <- here("output", "deliverable6", "figures")
@@ -98,19 +99,37 @@ timeline <- load_timeline_for_deliverable6()
 cat("Timeline rows loaded:", nrow(timeline), "\n")
 cat("Process types:", paste(sort(unique(as.character(na.omit(timeline$process_type)))), collapse = ", "), "\n")
 
-# Merge technology-specific extraction fields from projects_combined (Python output).
-tech_cols <- c(
+# Shared project metadata (geothermal, pipeline, energy type) from projects_combined.
+combined_cols <- c(
   "project_id",
-  "project_is_transmission",
-  "project_is_transmission_broad",
-  "project_is_transmission_strict",
   "project_is_geothermal",
   "project_is_pipeline",
   "project_is_carbon_pipeline",
   "project_is_hydrogen_pipeline",
   "project_is_natural_gas_pipeline",
+  "project_geothermal_phase",
+  "project_pipeline_group",
+  "project_pipeline_length_miles",
+  "project_pipeline_length_confidence",
+  "project_pipeline_length_source_text",
+  "project_pipeline_length_candidates_json",
+  "project_pipeline_length_candidate_count",
+  "project_pipeline_length_distinct_candidate_count",
+  "project_energy_type"
+)
+
+# Transmission-specific columns from projects_transmission (written by extract_technology.py).
+transmission_cols <- c(
+  "project_id",
+  "project_is_transmission",
+  "project_is_transmission_broad",
+  "project_is_transmission_maintenance",
   "project_has_transmission_type_tag",
   "project_has_transmission_build_text",
+  "project_transmission_length_miles",
+  "project_transmission_length_final",
+  "project_transmission_length_confidence",
+  "project_transmission_length_source_text",
   "project_transmission_length_candidates_json",
   "project_transmission_length_candidate_count",
   "project_transmission_length_distinct_candidate_count",
@@ -121,39 +140,41 @@ tech_cols <- c(
   "project_transmission_length_llm_used",
   "project_transmission_length_llm_status",
   "project_transmission_length_llm_reasoning",
-  "project_geothermal_phase",
-  "project_pipeline_group",
-  "project_transmission_length_miles",
-  "project_transmission_length_final",
-  "project_transmission_length_confidence",
-  "project_transmission_length_source_text",
+  "project_transmission_length_llm_model",
+  "project_transmission_length_from_pages",
   "project_transmission_action",
   "project_transmission_new_build_miles",
   "project_transmission_upgrade_miles",
-  "project_is_transmission_maintenance",
-  "project_pipeline_length_miles",
-  "project_pipeline_length_confidence",
-  "project_pipeline_length_source_text",
-  "project_pipeline_length_candidates_json",
-  "project_pipeline_length_candidate_count",
-  "project_pipeline_length_distinct_candidate_count",
-  "project_energy_type"
+  "project_tx_extraction_run_at",
+  "project_tx_llm_run_at"
 )
 
 projects <- timeline
+
+# Step 1: merge shared metadata from projects_combined.parquet
 if (file.exists(projects_combined_path)) {
   cat("Loading extraction dataset from:", projects_combined_path, "\n")
   combined <- read_parquet(projects_combined_path)
-  available_tech_cols <- intersect(tech_cols, names(combined))
-  if (!"project_id" %in% available_tech_cols) {
-    stop("projects_combined.parquet is missing project_id; cannot merge technology columns.")
-  }
-  projects <- timeline %>%
-    select(-any_of(setdiff(available_tech_cols, "project_id"))) %>%
-    left_join(combined %>% select(all_of(available_tech_cols)), by = "project_id")
-  cat("Merged technology columns:", paste(setdiff(available_tech_cols, "project_id"), collapse = ", "), "\n")
+  avail_combined <- intersect(combined_cols, names(combined))
+  projects <- projects %>%
+    select(-any_of(setdiff(avail_combined, "project_id"))) %>%
+    left_join(combined %>% select(all_of(avail_combined)), by = "project_id")
+  cat("Merged from projects_combined:", paste(setdiff(avail_combined, "project_id"), collapse = ", "), "\n")
 } else {
-  cat("projects_combined.parquet not found; technology fields may be missing.\n")
+  cat("projects_combined.parquet not found; shared metadata fields may be missing.\n")
+}
+
+# Step 2: merge transmission-specific columns from projects_transmission.parquet
+if (file.exists(projects_transmission_path)) {
+  cat("Loading transmission dataset from:", projects_transmission_path, "\n")
+  tx <- read_parquet(projects_transmission_path)
+  avail_tx <- intersect(transmission_cols, names(tx))
+  projects <- projects %>%
+    select(-any_of(setdiff(avail_tx, "project_id"))) %>%
+    left_join(tx %>% select(all_of(avail_tx)), by = "project_id")
+  cat("Merged from projects_transmission:", paste(setdiff(avail_tx, "project_id"), collapse = ", "), "\n")
+} else {
+  cat("projects_transmission.parquet not found; transmission fields will be NA.\n")
 }
 
 # --------------------------
@@ -219,7 +240,6 @@ add_deliv6_fallback_features <- function(df) {
   logical_cols <- c(
     "project_is_transmission",
     "project_is_transmission_broad",
-    "project_is_transmission_strict",
     "project_is_geothermal",
     "project_is_pipeline",
     "project_is_carbon_pipeline",
@@ -229,7 +249,8 @@ add_deliv6_fallback_features <- function(df) {
     "project_has_transmission_build_text",
     "project_transmission_length_llm_trigger",
     "project_transmission_length_llm_used",
-    "project_is_transmission_maintenance"
+    "project_is_transmission_maintenance",
+    "project_transmission_length_from_pages"
   )
   numeric_cols <- c(
     "project_transmission_length_miles",
@@ -256,7 +277,10 @@ add_deliv6_fallback_features <- function(df) {
     "project_transmission_length_selected_candidate_ids",
     "project_transmission_length_llm_status",
     "project_transmission_length_llm_reasoning",
-    "project_pipeline_length_candidates_json"
+    "project_transmission_length_llm_model",
+    "project_pipeline_length_candidates_json",
+    "project_tx_extraction_run_at",
+    "project_tx_llm_run_at"
   )
 
   for (col in logical_cols) df2 <- ensure_missing_col(df2, col, NA)

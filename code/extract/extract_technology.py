@@ -16,8 +16,10 @@ import argparse
 import ast
 import json
 import re
+import time as _time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
@@ -30,11 +32,16 @@ import requests
 # CONSTANTS
 # --------------------------
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-DEFAULT_LLM_MODEL = "llama3.2:3b-instruct-q4_K_M"
-
 CLAUDE_API_URL = "https://api.anthropic.com/v1/messages"
 CLAUDE_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+
+# Column name prefixes that belong in projects_transmission.parquet, not projects_combined.parquet.
+TX_OUTPUT_PREFIXES = (
+    "project_is_transmission",
+    "project_has_transmission",
+    "project_transmission",
+    "project_tx_",
+)
 
 MILES_RE = re.compile(r"(?<![a-z0-9])(\d{1,4}(?:,\d{3})*(?:\.\d+)?)\s*(mile|miles|mi)\b", re.IGNORECASE)
 FEET_RE = re.compile(r"(?<![a-z0-9])(\d{1,6}(?:,\d{3})*(?:\.\d+)?)\s*(foot|feet|ft)\b", re.IGNORECASE)
@@ -324,6 +331,8 @@ class LengthAdjudication:
     llm_used: bool
     llm_status: str
     llm_reasoning: str
+    llm_model: str      # Model name used (e.g. CLAUDE_DEFAULT_MODEL) or "" if LLM not used
+    llm_run_at: str     # ISO-8601 UTC timestamp when Claude returned, or "" if not used
 
 
 # --------------------------
@@ -530,9 +539,6 @@ def _best_single_candidate(candidates: List[Dict]) -> Tuple[float, str, str]:
     return best["value_miles"], confidence, best["source_text"]
 
 
-import time as _time
-
-
 def _call_claude_api(prompt: str, model: str, timeout: int, max_retries: int = 3) -> Dict:
     """
     Call Claude via the Anthropic messages API (same pattern as extract_timeline.py).
@@ -580,14 +586,11 @@ def _call_claude_api(prompt: str, model: str, timeout: int, max_retries: int = 3
 
 def _run_llm_transmission_adjudication(
     candidates: List[Dict],
-    model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
-    provider: str = "ollama",
 ) -> Dict | None:
     """
-    Adjudicate among competing transmission line length candidates using an LLM.
+    Adjudicate among competing transmission line length candidates using Claude API.
 
-    Supports provider='ollama' (local Ollama) or provider='anthropic' (Claude Haiku).
     Returns a result dict on success, or None so the caller falls back to rule-based logic.
     Includes 'reasoning' field so the LLM's logic can be audited.
     """
@@ -617,31 +620,12 @@ def _run_llm_transmission_adjudication(
         "\"confidence\": \"high|medium|low\", \"reasoning\": \"<one sentence explanation>\"}\n\nJSON:"
     )
 
-    # --- call LLM (route by provider) ---
-    raw = ""
-    if provider == "anthropic":
-        claude_model = CLAUDE_DEFAULT_MODEL
-        result = _call_claude_api(prompt, model=claude_model, timeout=timeout)
-        if result.get("error"):
-            print(f"  [Claude error] {result['error']}")
-            return None
-        raw = result["response"]
-    else:
-        try:
-            resp = requests.post(
-                OLLAMA_URL,
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {"temperature": 0.0, "num_predict": 120},
-                },
-                timeout=timeout,
-            )
-            resp.raise_for_status()
-            raw = resp.json().get("response", "")
-        except Exception:
-            return None
+    # --- call Claude API ---
+    result = _call_claude_api(prompt, model=CLAUDE_DEFAULT_MODEL, timeout=timeout)
+    if result.get("error"):
+        print(f"  [Claude error] {result['error']}")
+        return None
+    raw = result["response"]
 
     # --- parse JSON response (bracket-matching to handle reasoning w/ braces) ---
     try:
@@ -786,9 +770,7 @@ def _adjudicate_transmission_length(
     full_text: str,
     candidates: List[Dict],
     use_llm: bool = False,
-    model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
-    provider: str = "ollama",
 ) -> LengthAdjudication:
     groups = _collapse_candidates_by_value(candidates)
     candidate_count = len(candidates)
@@ -818,6 +800,8 @@ def _adjudicate_transmission_length(
             llm_used=False,
             llm_status="not_triggered",
             llm_reasoning="",
+            llm_model="",
+            llm_run_at="",
         )
 
     text_lower = (full_text or "").lower()
@@ -830,15 +814,17 @@ def _adjudicate_transmission_length(
 
     llm_used = False
     llm_status = "not_requested" if llm_trigger else "not_triggered"
+    llm_run_at = ""
     llm_result = None
     if llm_trigger and use_llm:
         try:
             llm_result = _run_llm_transmission_adjudication(
-                candidates, model=model, timeout=timeout, provider=provider
+                candidates, timeout=timeout
             )
             if llm_result:
                 llm_used = True
                 llm_status = "success"
+                llm_run_at = datetime.now(timezone.utc).isoformat()
             else:
                 llm_status = "failed_fallback_rule"
         except Exception:
@@ -862,6 +848,8 @@ def _adjudicate_transmission_length(
             llm_used=llm_used,
             llm_status=llm_status,
             llm_reasoning=llm_result.get("reasoning", ""),
+            llm_model=CLAUDE_DEFAULT_MODEL,
+            llm_run_at=llm_run_at,
         )
 
     # No LLM: both columns are the rule-based result.
@@ -879,6 +867,8 @@ def _adjudicate_transmission_length(
         llm_used=llm_used,
         llm_status=llm_status,
         llm_reasoning="",
+        llm_model="",
+        llm_run_at=llm_run_at,
     )
 
 
@@ -954,6 +944,191 @@ def _classify_geothermal_phase(text: str, dataset_source: str = "") -> str:
 
 
 # --------------------------
+# PAGE-LEVEL LENGTH RECOVERY
+# --------------------------
+
+def _extract_tx_length_from_pages(
+    out: pd.DataFrame,
+    processed_dir: Path,
+    max_ea_eis_pages: int = 10,
+    use_llm: bool = False,
+    timeout: int = 120,
+    workers: int = 1,
+) -> pd.DataFrame:
+    """
+    Recover transmission line lengths for projects that passed the build-text gate
+    but have no extractable mileage in title/description text.
+
+    Uses DuckDB to efficiently join documents and pages parquet files, restricting
+    the search to only the projects that need recovery. For CE projects all pages
+    are read (each CE document is a single page blob). For EA/EIS only the first
+    `max_ea_eis_pages` pages of main documents are searched — the Proposed Action
+    and Project Description sections almost always appear in the opening pages.
+
+    Recovered lengths are written back into the standard transmission length columns.
+    A new boolean column `project_transmission_length_from_pages` is set True for
+    any project whose length was recovered by this step.
+    """
+    try:
+        import duckdb
+    except ImportError:
+        print("  [page-recovery] duckdb not installed — skipping. Install with: pip install duckdb")
+        out["project_transmission_length_from_pages"] = False
+        return out
+
+    needs_mask = (
+        out["project_has_transmission_type_tag"].fillna(False)
+        & out["project_has_transmission_build_text"].fillna(False)
+        & ~out["project_is_transmission_maintenance"].fillna(False)
+        & (out["project_transmission_length_final"].isna() | (out["project_transmission_length_final"] < 1.0))
+    )
+    n_needs = int(needs_mask.sum())
+
+    out["project_transmission_length_from_pages"] = False
+
+    if n_needs == 0:
+        print("  [page-recovery] No projects need length recovery — skipping.")
+        return out
+
+    print(f"  [page-recovery] {n_needs} projects need page-level length recovery")
+
+    needs_df = out.loc[needs_mask, ["project_id", "process_type"]].copy()
+    needs_df["pid_clean"] = needs_df["project_id"].astype(str).str.replace("-", "", regex=False)
+
+    con = duckdb.connect()
+    recovered: Dict[str, LengthAdjudication] = {}
+    recovered_candidates: Dict[str, List[Dict]] = {}
+
+    for ptype in ["CE", "EA", "EIS"]:
+        ptype_lower = ptype.lower()
+        ptype_df = needs_df[needs_df["process_type"] == ptype]
+        if ptype_df.empty:
+            continue
+
+        docs_path = str(processed_dir / ptype_lower / "documents.parquet")
+        pages_path = str(processed_dir / ptype_lower / "pages.parquet")
+
+        if not Path(docs_path).exists() or not Path(pages_path).exists():
+            print(f"  [page-recovery] {ptype}: parquet not found at {docs_path} — skipping")
+            continue
+
+        target_ids = list(ptype_df["pid_clean"].unique())
+        print(f"  [page-recovery] {ptype}: querying {len(target_ids)} projects")
+
+        # Register target IDs as an in-memory table for the IN-clause join.
+        con.register("_target_ids", pd.DataFrame({"pid": target_ids}))
+
+        try:
+            if ptype == "CE":
+                # CE documents are single-page blobs — no page-count filter needed.
+                query = """
+                    SELECT
+                        replace(d.project_id.value, '-', '') AS pid,
+                        p.page_text
+                    FROM read_parquet(?) d
+                    JOIN read_parquet(?) p ON p.document_id = d.document_id
+                    WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _target_ids)
+                """
+                page_df = con.execute(query, [docs_path, pages_path]).df()
+            else:
+                # EA/EIS: restrict to main documents and the first N pages.
+                # ROW_NUMBER orders by page_number string; lexicographic ordering is
+                # sufficient to capture the opening sections where line length appears.
+                query = """
+                    SELECT pid, page_text FROM (
+                        SELECT
+                            replace(d.project_id.value, '-', '') AS pid,
+                            p.page_text,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY d.document_id
+                                ORDER BY p.page_number
+                            ) AS rn
+                        FROM read_parquet(?) d
+                        JOIN read_parquet(?) p ON p.document_id = d.document_id
+                        WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _target_ids)
+                          AND d.main_document = 'YES'
+                    )
+                    WHERE rn <= ?
+                """
+                page_df = con.execute(query, [docs_path, pages_path, max_ea_eis_pages]).df()
+        except Exception as exc:
+            print(f"  [page-recovery] {ptype}: DuckDB error — {exc}")
+            continue
+
+        if page_df.empty:
+            print(f"  [page-recovery] {ptype}: no pages matched")
+            continue
+
+        # Concatenate all recovered pages per project into one text blob.
+        project_texts = (
+            page_df.groupby("pid")["page_text"]
+            .apply(lambda parts: " ".join(str(p) for p in parts if p))
+            .to_dict()
+        )
+
+        print(f"  [page-recovery] {ptype}: extracting from {len(project_texts)} projects")
+
+        def _recover_one(args):
+            pid, text = args
+            cands = _extract_length_candidates(text, TRANSMISSION_HINTS, prefix="tx")
+            for c in cands:
+                c["candidate_action_type"] = _classify_candidate_action(c["source_text"])
+            adj = _adjudicate_transmission_length(
+                text, cands, use_llm=use_llm, timeout=timeout
+            )
+            return pid, cands, adj
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {pool.submit(_recover_one, item): item[0] for item in project_texts.items()}
+            for future in as_completed(futures):
+                pid, cands, adj = future.result()
+                if not np.isnan(adj.selected_length_miles) and adj.selected_length_miles >= 1.0:
+                    recovered[pid] = adj
+                    recovered_candidates[pid] = cands
+
+    con.close()
+
+    if not recovered:
+        print("  [page-recovery] No lengths >= 1 mi recovered from document pages.")
+        return out
+
+    print(f"  [page-recovery] Recovered lengths for {len(recovered)} projects — writing back")
+
+    # Build index -> pid_clean map for the writeback loop.
+    orig_to_pid = dict(zip(needs_df.index, needs_df["pid_clean"]))
+
+    for idx in out.loc[needs_mask].index:
+        pid = orig_to_pid.get(idx)
+        if pid is None or pid not in recovered:
+            continue
+
+        adj = recovered[pid]
+        cands = recovered_candidates[pid]
+
+        out.at[idx, "project_transmission_length_final"] = adj.selected_length_miles
+        out.at[idx, "project_transmission_length_miles"] = adj.rule_based_length_miles
+        out.at[idx, "project_transmission_length_confidence"] = adj.confidence
+        out.at[idx, "project_transmission_length_source_text"] = adj.source_text
+        out.at[idx, "project_transmission_length_taxonomy"] = adj.taxonomy
+        out.at[idx, "project_transmission_length_selection_method"] = adj.selection_method
+        out.at[idx, "project_transmission_length_candidate_count"] = adj.candidate_count
+        out.at[idx, "project_transmission_length_distinct_candidate_count"] = adj.distinct_candidate_count
+        out.at[idx, "project_transmission_length_candidates_json"] = json.dumps(cands, ensure_ascii=False)
+        out.at[idx, "project_transmission_length_selected_candidate_ids"] = json.dumps(adj.selected_candidate_ids)
+        out.at[idx, "project_transmission_length_llm_trigger"] = adj.llm_trigger
+        out.at[idx, "project_transmission_length_llm_used"] = adj.llm_used
+        out.at[idx, "project_transmission_length_llm_status"] = adj.llm_status
+        out.at[idx, "project_transmission_length_llm_reasoning"] = adj.llm_reasoning
+        out.at[idx, "project_transmission_length_llm_model"] = adj.llm_model
+        out.at[idx, "project_tx_llm_run_at"] = adj.llm_run_at
+        out.at[idx, "project_transmission_new_build_miles"] = _miles_by_action(cands, "new_build")
+        out.at[idx, "project_transmission_upgrade_miles"] = _miles_by_action(cands, "upgrade")
+        out.at[idx, "project_transmission_length_from_pages"] = True
+
+    return out
+
+
+# --------------------------
 # DOMAIN EXTRACTORS
 # --------------------------
 
@@ -964,11 +1139,12 @@ def _add_transmission_columns(
     type_text: pd.Series,
     title_text: pd.Series,
     use_llm: bool = False,
-    model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
     workers: int = 1,
-    provider: str = "ollama",
+    processed_dir: Path | None = None,
+    max_ea_eis_pages: int = 10,
 ) -> pd.DataFrame:
+    extraction_run_at = datetime.now(timezone.utc).isoformat()
     out = df.copy()
     lower_text = full_text.str.lower()
     lower_context = context_text.str.lower()
@@ -1016,13 +1192,13 @@ def _add_transmission_columns(
 
     # Adjudicate lengths in parallel (workers > 1 speeds up the LLM calls).
     n_skipped = n_broad - n_active
-    provider_label = f"provider={provider}" if use_llm else "LLM off"
-    print(f"  {len(texts):,} rows | {n_broad:,} broad-tx | {n_active:,} active (excl. {n_skipped} maintenance) | workers={workers} | {provider_label}")
+    llm_label = f"Claude API ({CLAUDE_DEFAULT_MODEL})" if use_llm else "LLM off"
+    print(f"  {len(texts):,} rows | {n_broad:,} broad-tx | {n_active:,} active (excl. {n_skipped} maintenance) | workers={workers} | {llm_label}")
 
     def _adjudicate_one(args):
         i, txt, cands = args
         return i, _adjudicate_transmission_length(
-            txt, cands, use_llm=use_llm, model=model, timeout=timeout, provider=provider
+            txt, cands, use_llm=use_llm, timeout=timeout
         )
 
     indexed = [(i, txt, cands) for i, (txt, cands) in enumerate(zip(texts, candidates))]
@@ -1066,6 +1242,8 @@ def _add_transmission_columns(
     out["project_transmission_length_llm_used"] = [a.llm_used for a in adjudications]
     out["project_transmission_length_llm_status"] = [a.llm_status for a in adjudications]
     out["project_transmission_length_llm_reasoning"] = [a.llm_reasoning for a in adjudications]
+    out["project_transmission_length_llm_model"] = [a.llm_model for a in adjudications]
+    out["project_tx_llm_run_at"] = [a.llm_run_at for a in adjudications]
 
     # project_transmission_length_miles  = rule-based only (comparison baseline)
     # project_transmission_length_final  = LLM result when llm_used=True, else rule-based
@@ -1097,6 +1275,10 @@ def _add_transmission_columns(
     out.loc[non_broad, "project_transmission_length_llm_used"] = False
     out.loc[non_broad, "project_transmission_length_llm_status"] = "not_triggered"
     out.loc[non_broad, "project_transmission_length_llm_reasoning"] = ""
+    out.loc[non_broad, "project_transmission_length_llm_model"] = ""
+    out.loc[non_broad, "project_tx_llm_run_at"] = ""
+    # Stamp every row with when this extraction ran; LLM timestamp is per-row (empty if not called).
+    out["project_tx_extraction_run_at"] = extraction_run_at
     out.loc[non_broad, "project_transmission_length_candidates_json"] = "[]"
     out.loc[non_broad, "project_transmission_action"] = "none"
     # Broad-tx projects excluded as maintenance get a consistent "maintenance" label
@@ -1106,13 +1288,23 @@ def _add_transmission_columns(
     out.loc[non_broad, "project_transmission_new_build_miles"] = np.nan
     out.loc[non_broad, "project_transmission_upgrade_miles"] = np.nan
 
-    out["project_is_transmission_strict"] = (
+    # Page-level length recovery: search document body text for projects that
+    # passed the build-text gate but have no mileage in title/description.
+    if processed_dir is not None:
+        out = _extract_tx_length_from_pages(
+            out, processed_dir,
+            max_ea_eis_pages=max_ea_eis_pages,
+            use_llm=use_llm, timeout=timeout, workers=workers,
+        )
+    else:
+        out["project_transmission_length_from_pages"] = False
+
+    out["project_is_transmission"] = (
         out["project_has_transmission_type_tag"]
         & out["project_has_transmission_build_text"]
         & (out["project_transmission_length_final"] >= 1.0)
         & ~out["project_is_transmission_maintenance"]
     )
-    out["project_is_transmission"] = out["project_is_transmission_strict"]
 
     return out
 
@@ -1206,7 +1398,8 @@ def _add_geothermal_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFr
 # PUBLIC API
 # --------------------------
 
-def normalize_run_targets(run: Sequence[str] | str) -> List[str]:
+def normalize_run_targets(run: Sequence[str] | str) -> tuple[List[str], bool]:
+    """Return (targets, use_llm). ``--run llm`` maps to transmission + LLM enabled."""
     if isinstance(run, str):
         targets = [run]
     else:
@@ -1214,23 +1407,30 @@ def normalize_run_targets(run: Sequence[str] | str) -> List[str]:
 
     targets = [t.strip().lower() for t in targets if t and str(t).strip()]
     if not targets or "all" in targets:
-        return ["transmission", "geothermal", "pipeline"]
+        return ["transmission", "geothermal", "pipeline"], False
+
+    use_llm = "llm" in targets
+    # Replace "llm" token with "transmission"
+    targets = ["transmission" if t == "llm" else t for t in targets]
+    # Deduplicate while preserving order
+    seen: set = set()
+    targets = [t for t in targets if not (t in seen or seen.add(t))]
 
     allowed = {"transmission", "geothermal", "pipeline"}
     cleaned = [t for t in targets if t in allowed]
     if not cleaned:
-        raise ValueError(f"No valid run targets in {targets}. Allowed: {sorted(allowed)}")
-    return cleaned
+        raise ValueError(f"No valid run targets in {targets}. Allowed: {sorted(allowed | {'llm'})}")
+    return cleaned, use_llm
 
 
 def add_technology_columns(
     df: pd.DataFrame,
     run: Sequence[str] | str = "all",
     use_llm: bool = False,
-    model: str = DEFAULT_LLM_MODEL,
     timeout: int = 120,
     workers: int = 1,
-    provider: str = "ollama",
+    processed_dir: Path | None = None,
+    max_ea_eis_pages: int = 10,
 ) -> pd.DataFrame:
     """
     Add technology-specific features to a project dataframe.
@@ -1238,11 +1438,9 @@ def add_technology_columns(
     Args:
         df: project dataframe
         run: one or more of transmission/geothermal/pipeline/all
-        use_llm: optional LLM adjudication for multi-candidate transmission rows
-        model: Ollama model name for LLM adjudication (ignored when provider='anthropic')
-        timeout: seconds before an LLM request times out
-        workers: parallel workers for adjudication (use 1 for anthropic to respect rate limits)
-        provider: 'ollama' (local) or 'anthropic' (Claude Haiku)
+        use_llm: enable Claude API adjudication for multi-candidate transmission rows
+        timeout: seconds before an API request times out
+        workers: parallel workers for adjudication
 
     Returns:
         DataFrame with requested technology columns added/updated.
@@ -1295,7 +1493,8 @@ def add_technology_columns(
     if "transmission" in targets:
         out = _add_transmission_columns(
             out, full_text, context_text, type_txt, title_txt,
-            use_llm=use_llm, model=model, timeout=timeout, workers=workers, provider=provider,
+            use_llm=use_llm, timeout=timeout, workers=workers,
+            processed_dir=processed_dir, max_ea_eis_pages=max_ea_eis_pages,
         )
 
     if "geothermal" in targets:
@@ -1311,9 +1510,14 @@ def add_technology_columns(
 # CLI
 # --------------------------
 
-def _default_projects_combined_path() -> Path:
+def _default_input_path() -> Path:
     base_dir = Path(__file__).resolve().parent.parent.parent
     return base_dir / "data" / "analysis" / "projects_combined.parquet"
+
+
+def _default_transmission_output_path() -> Path:
+    base_dir = Path(__file__).resolve().parent.parent.parent
+    return base_dir / "data" / "analysis" / "projects_transmission.parquet"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -1322,82 +1526,81 @@ def build_parser() -> argparse.ArgumentParser:
         "--run",
         nargs="+",
         default=["all"],
-        choices=["all", "transmission", "geothermal", "pipeline"],
-        help="Technology domains to run (default: all)",
+        choices=["all", "transmission", "geothermal", "pipeline", "llm"],
+        help="Domains to run. Use 'llm' to run transmission + Claude adjudication (default: all)",
     )
     parser.add_argument(
         "--input",
         type=Path,
-        default=_default_projects_combined_path(),
+        default=_default_input_path(),
         help="Input parquet file (default: data/analysis/projects_combined.parquet)",
     )
     parser.add_argument(
         "--output",
         type=Path,
-        default=None,
-        help="Output parquet path (default: overwrite input)",
-    )
-    parser.add_argument(
-        "--use-llm",
-        action="store_true",
-        help="Attempt LLM adjudication for multi-candidate transmission rows",
-    )
-    parser.add_argument(
-        "--model",
-        default=DEFAULT_LLM_MODEL,
-        help=f"Ollama model for LLM adjudication (default: {DEFAULT_LLM_MODEL})",
+        default=_default_transmission_output_path(),
+        help="Output path (default: data/analysis/projects_transmission.parquet)",
     )
     parser.add_argument(
         "--timeout",
         type=int,
         default=120,
-        help="Seconds before an Ollama request times out (default: 120)",
+        help="Seconds before a Claude API request times out (default: 120)",
     )
     parser.add_argument(
         "--workers",
         type=int,
         default=1,
-        help="Parallel workers for adjudication (default: 1; use 4 to speed up Ollama calls)",
+        help="Parallel workers for Claude API adjudication (default: 1)",
     )
     parser.add_argument(
-        "--provider",
-        default="ollama",
-        choices=["ollama", "anthropic"],
-        help="LLM provider: 'ollama' (local) or 'anthropic' (Claude Haiku). "
-             "Anthropic reads ALL multi-candidate rows; requires ANTHROPIC_API_KEY env var. "
-             "(default: ollama)",
+        "--page-search-max-pages",
+        type=int,
+        default=10,
+        help="Max pages to search per EA/EIS main document during length recovery (default: 10)",
     )
     return parser
 
 
 def run_cli(args: argparse.Namespace) -> None:
     in_path = args.input
-    out_path = args.output or args.input
+    tx_path = args.output
 
     if not in_path.exists():
         raise FileNotFoundError(f"Input file not found: {in_path}")
 
-    targets = normalize_run_targets(args.run)
+    targets, use_llm = normalize_run_targets(args.run)
     print(f"Loading: {in_path}")
     df = pd.read_parquet(in_path)
     print(f"Rows loaded: {len(df):,}")
     print(f"Running targets: {', '.join(targets)}")
-    if args.use_llm:
-        if args.provider == "anthropic":
-            llm_label = f"on (provider=anthropic model={CLAUDE_DEFAULT_MODEL}, timeout={args.timeout}s, workers={args.workers})"
-        else:
-            llm_label = f"on (provider=ollama model={args.model}, timeout={args.timeout}s, workers={args.workers})"
-    else:
-        llm_label = "off"
+    llm_label = f"on (model={CLAUDE_DEFAULT_MODEL}, timeout={args.timeout}s, workers={args.workers})" if use_llm else "off"
     print(f"LLM mode: {llm_label}")
 
+    # Page-length recovery is always enabled when processed/ dir is present.
+    _default_processed = Path(__file__).resolve().parent.parent.parent / "data" / "processed"
+    if _default_processed.exists():
+        processed_dir: Path | None = _default_processed
+        print(f"Page-length recovery: ON (max_pages={args.page_search_max_pages}, dir={processed_dir})")
+    else:
+        processed_dir = None
+        print(f"Warning: processed dir not found at {_default_processed} — page recovery disabled")
+
     updated = add_technology_columns(
-        df, run=targets, use_llm=args.use_llm, model=args.model,
-        timeout=args.timeout, workers=args.workers, provider=args.provider,
+        df, run=targets, use_llm=use_llm,
+        timeout=args.timeout, workers=args.workers,
+        processed_dir=processed_dir, max_ea_eis_pages=args.page_search_max_pages,
     )
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    updated.to_parquet(out_path, index=False)
-    print(f"Saved: {out_path}")
+    tx_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if "transmission" in targets and any(
+        c for c in updated.columns if c.startswith(TX_OUTPUT_PREFIXES)
+    ):
+        tx_cols = ["project_id"] + [
+            c for c in updated.columns if c.startswith(TX_OUTPUT_PREFIXES)
+        ]
+        updated[tx_cols].to_parquet(tx_path, index=False)
+        print(f"Saved: {tx_path}  ({len(tx_cols) - 1} columns)")
 
     if "transmission" in targets and "project_is_transmission" in updated.columns:
         clean = updated[updated.get("project_energy_type", pd.Series("", index=updated.index)) == "Clean"] \
@@ -1407,8 +1610,18 @@ def run_cli(args: argparse.Namespace) -> None:
             clean.loc[clean["project_is_transmission"].fillna(False),
                       "project_transmission_length_llm_trigger"].fillna(False).sum()
         )
+        n_llm_used = int(
+            clean.loc[clean["project_is_transmission"].fillna(False),
+                      "project_transmission_length_llm_used"].fillna(False).sum()
+        )
         print(f"Clean energy strict transmission projects: {n_tx:,}")
-        print(f"  of which need LLM adjudication (2+ distinct candidates): {n_llm_trigger:,}")
+        print(f"  of which triggered LLM (2+ distinct candidates): {n_llm_trigger:,}")
+        print(f"  of which ran Claude API successfully: {n_llm_used:,}")
+        if "project_transmission_length_from_pages" in updated.columns:
+            n_recovered = int(
+                clean["project_transmission_length_from_pages"].fillna(False).sum()
+            )
+            print(f"  page-recovery: {n_recovered} projects had lengths recovered from document pages")
 
 
 if __name__ == "__main__":

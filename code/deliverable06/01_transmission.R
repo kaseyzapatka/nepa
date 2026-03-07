@@ -6,163 +6,52 @@
 
 rm(list = ls())
 source(here::here("code", "deliverable06", "00_setup.R"))
+# Data sources:
+#   Timeline:      projects_timeline_bert.parquet + _ea_llm + _eis_llm
+#   Shared fields: projects_combined.parquet         (energy type, geothermal, pipeline)
+#   Transmission:  projects_transmission.parquet      (all project_transmission_* columns)
 
 analysis <- prepare_deliverable6_data() %>%
-  filter(project_is_transmission) |> 
+  filter(project_is_transmission) |>
   glimpse()
 
-cat("Transmission projects (strict, decarbonization technology):", nrow(analysis), "\n")
+# --------------------------
+# MANUAL LENGTH RECODES (QA overrides)
+# --------------------------
+# False positives identified during outlier review. Corrections applied to
+# project_transmission_length_final before any downstream analysis.
+#   ba2da0d3... Davis-Kingman Tap: regex grabbed DSWR system total (3,100 mi); correct is 26.6 mi
+#   d65372a8... SDG&E Helicopter Landing Pad: "2022" is a year on map, not miles; set to NA
+#   35677250... Idaho Power Maintenance (1): scale bar artifact; correct is 1.34 mi (BLM lands)
+#   f2f52b2c... Idaho Power Maintenance (2): same document, same fix
+analysis <- analysis %>%
+  mutate(
+    project_transmission_length_final = case_when(
+      project_id == "ba2da0d34550f2a77a14b8a5a2c1c384"           ~ 26.6,
+      project_id == "d65372a8-13b7-3afe-2126-341201c2dce4"        ~ NA_real_,
+      project_id == "35677250-c914-f32c-b6b1-4022b39066ed"        ~ 1.34,
+      project_id == "f2f52b2c-2327-c14f-73a9-57914bb18e12"        ~ 1.34,
+      TRUE ~ project_transmission_length_final
+    )
+  )
+
+cat("Electricity transmission projects:", nrow(analysis), "\n")
 cat("  - Unambiguous (rule-based only):            ", sum(!analysis$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
 cat("  - Flagged for LLM adjudication:             ", sum(analysis$project_transmission_length_llm_trigger, na.rm = TRUE), "\n")
 max_year <- as.integer(format(Sys.Date(), "%Y"))
 
-# check to see if LLM ran
-if (any(!is.na(analysis$project_transmission_length_llm_reasoning))) {print("LLM ran")}
-
-# --------------------------
-# EXPLORATORY
-# --------------------------
-
-#
-# Transmissions
-# ----------------------------------------
-# Unpack every extracted length candidate to one row per candidate.
-# Use this to audit taxonomies, spot width artifacts, and identify
-# which projects need LLM adjudication before re-running Python extraction.
-transmissions <-
-  analysis |>
-  select(
-    project_id,
-    project_transmission_length_miles,   # rule-based only
-    project_transmission_length_final,   # LLM if used, else rule-based
-    project_transmission_length_taxonomy,
-    project_transmission_length_llm_trigger,
-    project_transmission_length_llm_status,
-    project_transmission_length_llm_reasoning,
-    project_transmission_length_candidate_count,
-    project_transmission_length_distinct_candidate_count,
-    project_transmission_length_selected_candidate_ids,
-    project_transmission_length_candidates_json,
-    project_transmission_action,
-  ) |>
-  filter(nchar(coalesce(project_transmission_length_candidates_json, "")) > 2) |>
-  mutate(
-    parsed = map(
-      project_transmission_length_candidates_json,
-      ~tryCatch(
-        jsonlite::fromJSON(.x, simplifyDataFrame = TRUE),
-        error = function(e) NULL
-      )
-    )
-  ) |>
-  filter(map_lgl(parsed, ~!is.null(.x) && is.data.frame(.x) && nrow(.x) > 0)) |>
-  unnest(parsed) |>
-  select(-project_transmission_length_candidates_json) |>
-  mutate(
-    selected_ids        = map(project_transmission_length_selected_candidate_ids, safe_fromJSON),
-    is_selected         = map2_lgl(candidate_id, selected_ids, ~.x %in% .y),
-    hint_terms_txt      = map_chr(hint_terms, ~paste(unlist(.x), collapse = ", ")),
-    is_width_artifact   = unit_normalized == "miles_from_feet" & value_miles < 0.25
-  ) |>
-  select(-hint_terms, -selected_ids) |> 
-  glimpse()
-
-
-# write
-sheet_write(
-  data = transmissions,
-  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
-  sheet = "tx"
-)
-
-# Taxonomy breakdown across projects
-transmissions |>
-  distinct(project_id, project_transmission_length_taxonomy, project_transmission_length_llm_trigger) |>
-  count(project_transmission_length_taxonomy, project_transmission_length_llm_trigger, name = "n_projects") |>
-  arrange(project_transmission_length_taxonomy) |>
-  print()
-
-# Action type distribution across all candidates
-transmissions |> 
-  count(project_transmission_action, name = "n_candidates") |>
-  arrange(desc(n_candidates)) |>
-  print()
-
-
-#
-# Multi-candidate rows: one row per candidate for projects with 2+ distinct values
-# ----------------------------------------
-# Multi-candidate rows: one row per candidate for projects with 2+ distinct values
-transmissions_multiple <-
-  transmissions |>
-  filter(project_transmission_length_distinct_candidate_count >= 2) |>
-  select(
-    project_id,
-    project_transmission_length_taxonomy,
-    project_transmission_length_llm_trigger,
-    project_transmission_length_llm_status,
-    rule_based_miles  = project_transmission_length_miles,
-    final_miles        = project_transmission_length_final,
-    candidate_id,
-    candidate_value_miles = value_miles,
-    candidate_action_type,
-    unit_normalized,
-    hint_score,
-    sentence_has_build_verb,
-    is_selected,
-    is_width_artifact,
-    hint_terms_txt,
-    source_text
-  ) |>
-  arrange(project_id, desc(is_selected), desc(hint_score)) |> 
-  glimpse()
-
-# write
-sheet_write(
-  data = transmissions_multiple,
-  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
-  sheet = "tx_multiple"
-)
-
-
-#
-# Adjudication review: one row per project with 2+ distinct nontrivial candidates
-# ----------------------------------------
-# Each row is one project. Candidate values are collapsed to a single string so
-# you can review all 39 ambiguous projects at a glance and verify LLM choices.
-tx_adjudication <-
-  transmissions |>
-  filter(project_transmission_length_distinct_candidate_count >= 2) |>
-  group_by(
-    project_id,
-    project_transmission_action,
-    project_transmission_length_taxonomy,
-    rule_based_miles  = project_transmission_length_miles,
-    final_miles       = project_transmission_length_final,
-    project_transmission_length_llm_trigger,
-    project_transmission_length_llm_status,
-    project_transmission_length_llm_reasoning
-  ) |>
-  summarise(
-    n_candidates      = n(),
-    candidate_values  = paste(sort(unique(round(value_miles, 3))), collapse = " | "),
-    selected_texts    = paste(source_text[is_selected], collapse = " // "),
-    .groups = "drop"
-  ) |>
-  left_join(
-    analysis |>
-      select(project_id, project_title_txt, project_description_txt),
-    by = "project_id"
-  ) |>
-  #arrange(project_transmission_length_llm_status, project_id) |> 
-  arrange(project_id, project_transmission_length_llm_status) |> 
-  glimpse()
-
-sheet_write(
-  data = tx_adjudication,
-  ss = "https://docs.google.com/spreadsheets/d/1KicEYrTlXJSk-fzQ2s30S6l8bpPNBlV75pPfWy0NTeI/edit?usp=sharing",
-  sheet = "tx_adjudication"
-)
+# Audit: confirm extraction build and LLM run timestamps
+if ("project_tx_extraction_run_at" %in% names(analysis)) {
+  cat("  Extraction built at:", analysis$project_tx_extraction_run_at[1], "\n")
+}
+if ("project_tx_llm_run_at" %in% names(analysis)) {
+  llm_rows <- analysis$project_tx_llm_run_at[nzchar(coalesce(analysis$project_tx_llm_run_at, ""))]
+  if (length(llm_rows) > 0) {
+    cat("  LLM (Claude API) ran on", length(llm_rows), "rows; most recent:", max(llm_rows), "\n")
+  } else {
+    cat("  LLM not run on any rows (rerun with --run llm to adjudicate)\n")
+  }
+}
 
 # --------------------------
 # TABLES
@@ -184,7 +73,7 @@ analysis_len <- analysis %>%
 # Summary table
 tbl_transmission_summary <- tibble(
   Metric = c(
-    "Transmission projects (strict, decarbonization technology)",
+    "Electricity transmission projects",
     "With extracted length",
     "With calculable duration",
     "Multi-state projects",
@@ -238,7 +127,7 @@ fig_sample_breakdown <- avail_df %>%
   ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
   labs(
-    title    = paste0("Transmission Sample: N = ", n_total, " Strict Decarbonization Technology Projects"),
+    title    = paste0("Transmission Sample: N = ", n_total, " Electricity Transmission Projects"),
     subtitle = "Breakdown by date availability for NEPA duration calculations",
     x        = NULL,
     y        = "Number of projects"
@@ -309,12 +198,15 @@ action_colors <- c(
 action_label <- function(x) str_to_title(str_replace_all(x, "_", " "))
 
 
-# -- Fig 1: Simple length distribution histogram --
-med_len <- median(analysis_len$length_miles, na.rm = TRUE)
+# -- Fig 1: Length distribution histogram (top-coded at 300 mi) --
+len_cap     <- 300
+med_len     <- median(analysis_len$length_miles, na.rm = TRUE)
+n_capped    <- sum(analysis_len$length_miles > len_cap, na.rm = TRUE)
 
 fig_length_dist <- analysis_len %>%
   filter(!is.na(length_miles)) %>%
-  ggplot(aes(x = length_miles)) +
+  mutate(length_miles_plot = pmin(length_miles, len_cap)) %>%
+  ggplot(aes(x = length_miles_plot)) +
   geom_histogram(fill = catf_dark_blue, color = "white", binwidth = 10, boundary = 0) +
   geom_vline(xintercept = med_len, linetype = "dashed", color = catf_teal, linewidth = 0.9) +
   annotate(
@@ -322,11 +214,18 @@ fig_length_dist <- analysis_len %>%
     label = paste0("Median: ", round(med_len, 1), " mi"),
     hjust = 0, vjust = 1.5, color = catf_teal, size = 3.5
   ) +
-  scale_x_continuous(labels = scales::comma, breaks = seq(0, 300, 25)) +
+  scale_x_continuous(
+    labels = scales::comma,
+    breaks = seq(0, len_cap, 50),
+    limits = c(0, len_cap)
+  ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(
-    title = "Distribution of Transmission Line Lengths",
-    subtitle = paste0(sum(!is.na(analysis_len$length_miles)), " strict decarbonization technology transmission projects"),
+    title    = "Distribution of Transmission Line Lengths",
+    subtitle = paste0(
+      sum(!is.na(analysis_len$length_miles)), " electricity transmission projects",
+      if (n_capped > 0) paste0("  |  ", n_capped, " project(s) >", len_cap, " mi top-coded") else ""
+    ),
     x = "Transmission length (miles)",
     y = "Number of projects"
   ) +
@@ -347,7 +246,7 @@ fig_action_count <- tbl_action %>%
   scale_x_continuous(expand = expansion(mult = c(0, 0.18))) +
   labs(
     title    = "Transmission Projects by Action Type",
-    subtitle = "Count of strict decarbonization technology projects per action category",
+    subtitle = "Count of electricity transmission projects per action category",
     x        = "Number of projects",
     y        = NULL
   ) +
@@ -359,23 +258,45 @@ ggsave(here(figures_dir, "fig_transmission_action_count.png"),
        fig_action_count, width = 8, height = 4, dpi = 300)
 
 
+# -- Fig 2 & 7: Shared action-type ordering (by median duration) --
+# Both length and duration figures use this same factor level order so that
+# a given action type appears at the same vertical position in both charts.
+action_order_levels <- analysis_len %>%
+  filter(
+    !is.na(duration_days), duration_days >= 0,
+    !project_transmission_action %in% c("none", "unknown", "mixed")
+  ) %>%
+  group_by(lbl = action_label(project_transmission_action)) %>%
+  summarise(med = median(duration_days, na.rm = TRUE), .groups = "drop") %>%
+  arrange(med) %>%
+  pull(lbl)
+
 # -- Fig 2: Length by action type (boxplot + jitter) --
-fig_length_by_action <- analysis_len %>%
+length_action_data <- analysis_len %>%
   filter(!is.na(length_miles),
          !project_transmission_action %in% c("none", "unknown", "mixed")) %>%
-  mutate(
-    action_label = fct_reorder(action_label(project_transmission_action), length_miles, median)
-  ) %>%
+  mutate(action_label = factor(action_label(project_transmission_action),
+                               levels = action_order_levels))
+
+n_length_action <- length_action_data %>%
+  count(action_label, name = "n")
+
+fig_length_by_action <- length_action_data %>%
   ggplot(aes(x = action_label, y = length_miles, fill = action_label, color = action_label)) +
   geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE, width = 0.4) +
   geom_jitter(width = 0.2, alpha = 0.55, size = 2, show.legend = FALSE) +
+  geom_text(
+    data = n_length_action,
+    aes(x = action_label, y = Inf, label = paste0("n=", n)),
+    hjust = 1.15, size = 2.7, color = "gray30", inherit.aes = FALSE
+  ) +
   coord_flip() +
   scale_fill_manual(values = action_colors) +
   scale_color_manual(values = action_colors) +
   scale_y_continuous(labels = scales::comma) +
   labs(
     title = "Transmission Length by Project Action Type",
-    subtitle = "Ordered by median; points = individual projects",
+    subtitle = "Ordered by median duration; points = individual projects",
     x = NULL,
     y = "Transmission length (miles)"
   ) +
@@ -414,6 +335,11 @@ p_bin_dur <- analysis_len %>%
     color         = catf_navy,
     linewidth     = 0.55
   ) +
+  geom_text(
+    data = tbl_length_bins,
+    aes(x = length_bin, y = 780, label = paste0("n = ", n_projects)),
+    inherit.aes = FALSE, size = 3.2, color = "grey30", fontface = "italic"
+  ) +
   coord_cartesian(ylim = c(0, 800)) +
   scale_fill_manual(values = bin_colors) +
   scale_y_continuous(labels = scales::comma) +
@@ -424,7 +350,7 @@ p_bin_dur <- analysis_len %>%
 fig_length_bins_chart <- p_bin_n + p_bin_dur +
   plot_annotation(
     title    = "Longer Transmission Lines, Longer NEPA Reviews",
-    subtitle = "Decarbonization technology transmission projects by length band"
+    subtitle = "Electricity transmission projects by length band"
   )
 
 print(fig_length_bins_chart)
@@ -454,7 +380,7 @@ fig_state_n <- tbl_state_region_clean %>%
   scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
   labs(
     title    = "Transmission Projects by State",
-    subtitle = "Number of strict decarbonization technology projects per state; color = census region",
+    subtitle = "Number of electricity transmission projects per state; color = census region",
     x        = "Number of projects",
     y        = NULL,
     color    = "Region"
@@ -615,7 +541,7 @@ fig_region <- region_plot_data %>%
   scale_y_continuous(labels = scales::comma) +
   labs(
     title    = "NEPA Duration by Census Region",
-    subtitle = "Strict decarbonization technology transmission projects; ordered by median | capped at 1,000 days",
+    subtitle = "Electricity transmission projects; ordered by median | capped at 1,000 days",
     x        = NULL,
     y        = "Duration (days)"
   ) +
@@ -631,9 +557,8 @@ ggsave(here(figures_dir, "fig_transmission_duration_by_region.png"),
 duration_action_data <- analysis_len %>%
   filter(!is.na(duration_days), duration_days >= 0,
          !project_transmission_action %in% c("none", "unknown", "mixed")) %>%
-  mutate(
-    action_label = fct_reorder(action_label(project_transmission_action), duration_days, median)
-  )
+  mutate(action_label = factor(action_label(project_transmission_action),
+                               levels = action_order_levels))
 
 n_duration_action <- duration_action_data %>%
   count(action_label, name = "n")
