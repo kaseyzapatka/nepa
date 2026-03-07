@@ -19,6 +19,40 @@ ul.task-list li input[type="checkbox"] {
 width: 0.8em;
 margin: 0 0.8em 0.2em -1em;  vertical-align: middle;
 }
+
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+}
+pre.numberSource { margin-left: 3em; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -4460,6 +4494,10 @@ vertical-align: -.125em;
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
+    <a class="nav-link" href="https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer" rel target>
+ <span class="menu-text">Document Explorer</span></a>
+  </li>  
+  <li class="nav-item">
     <a class="nav-link" href="../../reports/project_overview.html" rel target>
  <span class="menu-text">Project Overview</span></a>
   </li>  
@@ -4667,11 +4705,57 @@ vertical-align: -.125em;
 </section>
 <section id="llm-adjudication-_run_llm_transmission_adjudication" class="level4">
 <h4 class="anchored" data-anchor-id="llm-adjudication-_run_llm_transmission_adjudication">3.2.4 LLM adjudication (<code>_run_llm_transmission_adjudication</code>)</h4>
-<p>LLM adjudication is <strong>triggered</strong> when two or more non-trivial, non-partial candidate groups remain after rule-based resolution (<code>llm_trigger = TRUE</code>). When LLM is enabled (<code>--use-llm</code> flag passed to the extraction script), an LLM call is made for each triggered project.</p>
+<p>LLM adjudication is <strong>triggered</strong> when two or more non-trivial, non-partial candidate groups remain after rule-based resolution (<code>llm_trigger = TRUE</code>). When LLM is enabled (<code>--use-llm</code> flag passed to the extraction script), a Claude API call is made for each triggered project.</p>
 <p>The prompt presents up to 8 candidates with their source snippets and instructs the model to pick the candidate most likely to represent the total proposed line length. The model is explicitly told to: - Prefer candidates with “X miles long” or “X miles in length” language - Ignore partial-crossing candidates - Ignore geographic direction mentions - Use the line being built, not existing reference lines</p>
-<p>Two LLM providers are supported: - <strong>Ollama</strong> (local, default): <code>llama3.2:3b-instruct-q4_K_M</code> - <strong>Claude API</strong> (cloud, <code>provider=anthropic</code>): <code>claude-haiku-4-5-20251001</code></p>
+<p><strong>Provider:</strong> Claude API only — <code>claude-haiku-4-5-20251001</code> (<code>CLAUDE_DEFAULT_MODEL</code>). Requires <code>ANTHROPIC_API_KEY</code> environment variable. Ollama support has been removed.</p>
+<p><strong>Run command:</strong></p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_technology.py <span class="at">--run</span> transmission <span class="at">--use-llm</span> <span class="at">--workers</span> 4 <span class="dt">\</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--page-length-recovery</span> <span class="at">--output</span> data/analysis/projects_combined.parquet</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <p>The LLM-adjudicated result is stored in <code>project_transmission_length_final</code>. If LLM was not triggered or failed, <code>project_transmission_length_final</code> equals <code>project_transmission_length_miles</code> (both are rule-based).</p>
 <p>The analysis uses <code>project_transmission_length_final</code> (LLM-adjudicated when available) as the primary length variable.</p>
+<p><strong>Audit columns</strong> — all written to <code>projects_combined.parquet</code> per project:</p>
+<table class="table">
+<colgroup>
+<col style="width: 34%">
+<col style="width: 26%">
+<col style="width: 39%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>project_transmission_length_llm_trigger</code></td>
+<td>bool</td>
+<td>Whether 2+ distinct candidates triggered adjudication</td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_length_llm_used</code></td>
+<td>bool</td>
+<td>Whether Claude API was actually called and returned a result</td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_length_llm_status</code></td>
+<td>str</td>
+<td><code>success</code> / <code>not_triggered</code> / <code>not_requested</code> / <code>failed_fallback_rule</code></td>
+</tr>
+<tr class="even">
+<td><code>project_transmission_length_llm_reasoning</code></td>
+<td>str</td>
+<td>Claude’s one-sentence explanation</td>
+</tr>
+<tr class="odd">
+<td><code>project_transmission_length_llm_model</code></td>
+<td>str</td>
+<td>Model string (e.g. <code>claude-haiku-4-5-20251001</code>) or <code>&quot;&quot;</code> if not used</td>
+</tr>
+</tbody>
+</table>
+<p>To confirm Claude was used for a specific row: <code>llm_used == True</code> and <code>llm_model != &quot;&quot;</code>.</p>
 </section>
 <section id="page-level-length-recovery-_extract_tx_length_from_pages" class="level4">
 <h4 class="anchored" data-anchor-id="page-level-length-recovery-_extract_tx_length_from_pages">3.2.5 Page-level length recovery (<code>_extract_tx_length_from_pages</code>)</h4>

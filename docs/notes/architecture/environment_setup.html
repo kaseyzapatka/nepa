@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>NEPA – deliverable01</title>
+<title>NEPA – environment_setup</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -4546,399 +4546,83 @@ vertical-align: -.125em;
 
 
 
-<section id="deliverable-1-status-report-county-data-coverage-analysis" class="level1">
-<h1>Deliverable 1 Status Report: County Data Coverage Analysis</h1>
-<p><strong>Date</strong>: 2025-02-04 <strong>Status</strong>: Analysis Complete - Recovery Strategy Identified</p>
-<hr>
-<section id="executive-summary" class="level2">
-<h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>County-level geographic data is available for <strong>47.8%</strong> of clean energy projects (10,644 out of 22,279 projects). However, this varies dramatically by NEPA process type, with critical implications for data recovery strategies.</p>
-<p><strong>Key Finding</strong>: Nearly all EA and EIS projects missing county data (98.5%) can be recovered through reverse geocoding, while most CE projects cannot.</p>
-<hr>
-</section>
-<section id="county-data-coverage-by-process-type" class="level2">
-<h2 class="anchored" data-anchor-id="county-data-coverage-by-process-type">County Data Coverage by Process Type</h2>
-<table class="table">
-<colgroup>
-<col style="width: 19%">
-<col style="width: 20%">
-<col style="width: 24%">
-<col style="width: 21%">
-<col style="width: 13%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Process Type</th>
-<th>Total Projects</th>
-<th>With County Data</th>
-<th>Missing County</th>
-<th>Coverage</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><strong>CE</strong> (Categorical Exclusion)</td>
-<td>20,863</td>
-<td>9,631 (46.2%)</td>
-<td>11,232 (53.8%)</td>
-<td>Low</td>
-</tr>
-<tr class="even">
-<td><strong>EA</strong> (Environmental Assessment)</td>
-<td>622</td>
-<td>504 (81.0%)</td>
-<td>118 (19.0%)</td>
-<td>High</td>
-</tr>
-<tr class="odd">
-<td><strong>EIS</strong> (Environmental Impact Statement)</td>
-<td>794</td>
-<td>509 (64.1%)</td>
-<td>285 (35.9%)</td>
-<td>Moderate</td>
-</tr>
-<tr class="even">
-<td><strong>Total</strong></td>
-<td>22,279</td>
-<td>10,644 (47.8%)</td>
-<td>11,635 (52.2%)</td>
-<td>-</td>
-</tr>
-</tbody>
-</table>
-<hr>
-</section>
-<section id="why-ce-projects-are-missing-county-data-not-recoverable" class="level2">
-<h2 class="anchored" data-anchor-id="why-ce-projects-are-missing-county-data-not-recoverable">Why CE Projects Are Missing County Data (NOT RECOVERABLE)</h2>
-<section id="root-causes" class="level3">
-<h3 class="anchored" data-anchor-id="root-causes">Root Causes</h3>
-<p>CE projects missing county data typically have location descriptions using:</p>
-<ol type="1">
-<li><p><strong>Legal land survey descriptions</strong> without explicit county names:</p>
+<section id="reproducible-working-environment-nepa" class="level1">
+<h1>Reproducible Working Environment (<code>nepa</code>)</h1>
+<p>This document defines the project-standard conda environment for NEPA analysis and reporting.</p>
+<section id="why-this-environment-exists" class="level2">
+<h2 class="anchored" data-anchor-id="why-this-environment-exists">1. Why this environment exists</h2>
+<p>The repository uses:</p>
 <ul>
-<li>Example: “T. 25 S., R. 22 E., Section 16”</li>
-<li>Example: “Salt Lake Base and Meridian, T. 43 N., R. 108 W.”</li>
-</ul></li>
-<li><p><strong>Meridian-based coordinate systems</strong> that don’t reference counties</p></li>
-<li><p><strong>Minimal geographic detail</strong> due to streamlined documentation requirements</p></li>
-</ol>
+<li>Python extraction pipelines (<code>code/extract/*.py</code>)</li>
+<li>Python model workflows (Hugging Face <code>datasets</code>, <code>transformers</code>, <code>torch</code>)</li>
+<li>Claude API integration (<code>anthropic</code> SDK + direct API calls)</li>
+<li>DuckDB-backed app/data tooling (<code>app/app.py</code>, <code>code/rag/01_build_text_store.py</code>)</li>
+<li>R analysis scripts (<code>code/**/*.R</code>)</li>
+<li>Quarto reports and presentation rendering (<code>reports/*.qmd</code>, <code>presentations/*.qmd</code>)</li>
+</ul>
+<p>A single, pinned conda environment keeps this stack reproducible end-to-end.</p>
 </section>
-<section id="why-they-cant-be-recovered" class="level3">
-<h3 class="anchored" data-anchor-id="why-they-cant-be-recovered">Why They Can’t Be Recovered</h3>
+<section id="dependency-audit-method" class="level2">
+<h2 class="anchored" data-anchor-id="dependency-audit-method">2. Dependency audit method</h2>
+<p>Dependencies were collected from:</p>
 <ul>
-<li><strong>No usable coordinates</strong>: Most CE projects don’t have lat/long stored in separate fields</li>
-<li><strong>Legal descriptions don’t map cleanly</strong>: Township/Range/Section systems would require complex GIS lookup tables</li>
-<li><strong>By design</strong>: CE projects are routine, low-impact actions that don’t require the same level of geographic specificity in documentation</li>
+<li><code>code/requirements.txt</code> (starting point)</li>
+<li><code>app/requirements.txt</code></li>
+<li>Python imports across <code>code/</code> and <code>app/</code></li>
+<li>Notebook imports in <code>code/*.ipynb</code> and <code>notebooks/*.ipynb</code></li>
+<li>R <code>library()</code> / <code>require()</code> usage across <code>code/</code>, <code>reports/</code>, and <code>presentations/</code></li>
+</ul>
+<p>This ensured coverage from Claude API workflows through DuckDB and report rendering.</p>
+</section>
+<section id="python-version-decision" class="level2">
+<h2 class="anchored" data-anchor-id="python-version-decision">3. Python version decision</h2>
+<p><code>Python 3.12</code> is used in <code>environment.yml</code>.</p>
+<p>Rationale:</p>
+<ul>
+<li>Compatible with current project stack (<code>datasets</code>, <code>transformers</code>, <code>torch</code>, <code>spacy</code>, <code>streamlit</code>, <code>duckdb</code>)</li>
+<li>Matches the existing project bootstrap direction in <code>code/setup_textanalysis.sh</code></li>
+<li>Avoids older Python versions that can break newer NLP/ML dependencies</li>
 </ul>
 </section>
-<section id="agency-patterns" class="level3">
-<h3 class="anchored" data-anchor-id="agency-patterns">Agency Patterns</h3>
-<p>The two largest agencies handling CE projects both have low county coverage: - <strong>Department of Energy</strong>: 47% of CE projects have county data (17,584 CE projects) - <strong>Department of the Interior</strong>: 41.3% of CE projects have county data (3,224 CE projects)</p>
-<p>This is systematic across agencies - data collection standards for CE simply don’t require county-level precision.</p>
-<hr>
-</section>
-</section>
-<section id="why-eaeis-projects-are-missing-county-data-highly-recoverable" class="level2">
-<h2 class="anchored" data-anchor-id="why-eaeis-projects-are-missing-county-data-highly-recoverable">Why EA/EIS Projects Are Missing County Data (HIGHLY RECOVERABLE) ✅</h2>
-<section id="current-status" class="level3">
-<h3 class="anchored" data-anchor-id="current-status">Current Status</h3>
+<section id="canonical-files" class="level2">
+<h2 class="anchored" data-anchor-id="canonical-files">4. Canonical files</h2>
 <ul>
-<li><strong>EA</strong>: 116 out of 118 projects missing county data (98.3%) <strong>have lat/long coordinates</strong></li>
-<li><strong>EIS</strong>: 281 out of 285 projects missing county data (98.6%) <strong>have lat/long coordinates</strong></li>
-<li><strong>Total recoverable</strong>: 397 out of 403 projects (98.5%)</li>
+<li><code>environment.yml</code> (repo root): full reproducible environment (<code>name: nepa</code>) for Python + R + Quarto</li>
+<li><code>environment.lock.yml</code> (repo root): exact lock snapshot exported from <code>nepa</code> on March 6, 2026 (<code>osx-64</code>)</li>
+<li><code>code/requirements.txt</code>: cleaned Python-only fallback for pip installs</li>
+<li><code>app/requirements.txt</code>: minimal dependency file for standalone Streamlit deployment</li>
 </ul>
+<p><code>environment.yml</code> is the source of truth for this project.</p>
 </section>
-<section id="why-theyre-different-from-ce" class="level3">
-<h3 class="anchored" data-anchor-id="why-theyre-different-from-ce">Why They’re Different from CE</h3>
-<p>EA and EIS projects undergo more rigorous review processes that require: 1. Precise location documentation (coordinates captured) 2. More detailed geographic metadata 3. Often multi-county or regional scope (explaining why some legitimately lack a single county assignment)</p>
+<section id="create-and-use-the-environment" class="level2">
+<h2 class="anchored" data-anchor-id="create-and-use-the-environment">5. Create and use the environment</h2>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> env create <span class="at">-f</span> environment.yml</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> activate nepa</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>If the environment already exists:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> env update <span class="at">-n</span> nepa <span class="at">-f</span> environment.yml <span class="at">--prune</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="location-patterns-for-missing-county-data" class="level3">
-<h3 class="anchored" data-anchor-id="location-patterns-for-missing-county-data">Location Patterns for Missing County Data</h3>
-<p><strong>EA Projects (118 missing)</strong>: - 99% have generic location descriptions (e.g., “Fairbanks, Alaska” or “Idaho (Lat/Long)”) - Only 1 explicitly mentions county in location field - Nearly all have actual lat/long coordinates in separate database fields</p>
-<p><strong>EIS Projects (285 missing)</strong>: - 96% have generic descriptions - 8 are multi-county/regional projects (e.g., “Solar Energy Development in Six Southwestern States”) - 2 are offshore/marine projects (no county association) - 98.6% have coordinates available</p>
+<section id="required-credentials" class="level2">
+<h2 class="anchored" data-anchor-id="required-credentials">6. Required credentials</h2>
+<p>Some workflows require credentials:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Hugging Face dataset access</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">hf</span> auth login</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Claude API-backed extraction/adjudication</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">ANTHROPIC_API_KEY</span><span class="op">=</span><span class="st">&#39;sk-ant-...&#39;</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-<section id="sample-projects-that-can-be-recovered" class="level3">
-<h3 class="anchored" data-anchor-id="sample-projects-that-can-be-recovered">Sample Projects That Can Be Recovered</h3>
-<table class="table">
-<colgroup>
-<col style="width: 29%">
-<col style="width: 14%">
-<col style="width: 10%">
-<col style="width: 12%">
-<col style="width: 33%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Project Title</th>
-<th>State</th>
-<th>Lat</th>
-<th>Long</th>
-<th>Current Status</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Tanacross Bluff</td>
-<td>Alaska</td>
-<td>63.4</td>
-<td>-143.0</td>
-<td>Missing county, has coords</td>
-</tr>
-<tr class="even">
-<td>Gateway West Transmission Line</td>
-<td>Idaho</td>
-<td>43.1</td>
-<td>-116.0</td>
-<td>Missing county, has coords</td>
-</tr>
-<tr class="odd">
-<td>Southern California Edison</td>
-<td>California</td>
-<td>35.6</td>
-<td>-116.0</td>
-<td>Missing county, has coords</td>
-</tr>
-</tbody>
-</table>
-<hr>
+<section id="quick-verification-checks" class="level2">
+<h2 class="anchored" data-anchor-id="quick-verification-checks">7. Quick verification checks</h2>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-c</span> <span class="st">&quot;import pandas, numpy, pyarrow, duckdb, requests, geopy, tqdm, datasets, transformers, torch, anthropic, streamlit, spacy, scattertext, wordcloud&quot;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> <span class="at">-e</span> <span class="st">&quot;pkgs &lt;- c(&#39;arrow&#39;,&#39;classInt&#39;,&#39;DT&#39;,&#39;ggalluvial&#39;,&#39;ggwordcloud&#39;,&#39;googlesheets4&#39;,&#39;gt&#39;,&#39;here&#39;,&#39;jsonlite&#39;,&#39;kableExtra&#39;,&#39;knitr&#39;,&#39;patchwork&#39;,&#39;purrr&#39;,&#39;readr&#39;,&#39;rmarkdown&#39;,&#39;rstudioapi&#39;,&#39;scales&#39;,&#39;sf&#39;,&#39;stringr&#39;,&#39;tibble&#39;,&#39;tidycensus&#39;,&#39;tidyr&#39;,&#39;tidyverse&#39;,&#39;tigris&#39;,&#39;zoo&#39;); miss &lt;- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)]; if (length(miss)) { stop(paste(&#39;Missing R packages:&#39;, paste(miss, collapse=&#39;, &#39;))) }&quot;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> <span class="at">--version</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </section>
-</section>
-<section id="recovery-strategy-impact" class="level2">
-<h2 class="anchored" data-anchor-id="recovery-strategy-impact">Recovery Strategy &amp; Impact</h2>
-<section id="recommended-approach-reverse-geocoding" class="level3">
-<h3 class="anchored" data-anchor-id="recommended-approach-reverse-geocoding">Recommended Approach: Reverse Geocoding</h3>
-<p><strong>Method</strong>: Use existing <code>project_lat</code> and <code>project_lon</code> fields to look up county information via: 1. TIGER/Line county boundary shapefiles (already loaded in 03_location.R) 2. <code>sf::st_join()</code> or similar spatial join operations 3. Handle multi-county projects appropriately (store as list/array)</p>
-</section>
-<section id="expected-impact" class="level3">
-<h3 class="anchored" data-anchor-id="expected-impact">Expected Impact</h3>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Metric</th>
-<th>Current</th>
-<th>After Recovery</th>
-<th>Improvement</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>EA county coverage</td>
-<td>81.0%</td>
-<td>~99%</td>
-<td>+18 percentage points</td>
-</tr>
-<tr class="even">
-<td>EIS county coverage</td>
-<td>64.1%</td>
-<td>~99%</td>
-<td>+35 percentage points</td>
-</tr>
-<tr class="odd">
-<td>Overall coverage</td>
-<td>47.8%</td>
-<td>~52%</td>
-<td>+4.2 percentage points</td>
-</tr>
-<tr class="even">
-<td>Recoverable projects</td>
-<td>-</td>
-<td>397 projects</td>
-<td>-</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Note</strong>: Overall improvement is modest (47.8% → 52%) because CE projects (which can’t be recovered) represent 94% of the clean energy dataset.</p>
-</section>
-<section id="implementation-complexity-low" class="level3">
-<h3 class="anchored" data-anchor-id="implementation-complexity-low">Implementation Complexity: LOW</h3>
-<ul>
-<li>Coordinates already in database</li>
-<li>County shapefiles already loaded in mapping code</li>
-<li>Standard spatial join operation</li>
-<li>Estimated effort: 2-3 hours including testing</li>
-</ul>
-</section>
-<section id="edge-cases-to-handle" class="level3">
-<h3 class="anchored" data-anchor-id="edge-cases-to-handle">Edge Cases to Handle</h3>
-<ol type="1">
-<li><strong>Offshore projects (n=2)</strong>: No county assignment - flag as “Offshore” or “Marine”</li>
-<li><strong>Multi-county projects (n=8)</strong>: Store multiple counties as array/list</li>
-<li><strong>Default coordinates (39.8, -98.6)</strong>: Geographic center of US - likely invalid, flag for manual review</li>
-<li><strong>Border cases</strong>: Projects on county boundaries may need tolerance handling</li>
-</ol>
-<hr>
-</section>
-</section>
-<section id="agency-patterns-in-missing-eaeis-county-data" class="level2">
-<h2 class="anchored" data-anchor-id="agency-patterns-in-missing-eaeis-county-data">Agency Patterns in Missing EA/EIS County Data</h2>
-<section id="environmental-assessment-ea" class="level3">
-<h3 class="anchored" data-anchor-id="environmental-assessment-ea">Environmental Assessment (EA)</h3>
-<ul>
-<li>Department of Agriculture: 27.3% missing (11 total projects)</li>
-<li>Department of Energy: 19.9% missing (387 total projects)</li>
-<li>Department of the Interior: 16.5% missing (212 total projects)</li>
-</ul>
-</section>
-<section id="environmental-impact-statement-eis" class="level3">
-<h3 class="anchored" data-anchor-id="environmental-impact-statement-eis">Environmental Impact Statement (EIS)</h3>
-<ul>
-<li>Major Independent Agencies: 46.7% missing (30 total projects)</li>
-<li>Department of Energy: 43.4% missing (281 total projects)</li>
-<li>Other/Unclassified: 40.6% missing (64 total projects)</li>
-<li>Department of the Interior: 37.7% missing (244 total projects)</li>
-</ul>
-<hr>
-</section>
-</section>
-<section id="recommendations" class="level2">
-<h2 class="anchored" data-anchor-id="recommendations">Recommendations</h2>
-<section id="immediate-actions" class="level3">
-<h3 class="anchored" data-anchor-id="immediate-actions">Immediate Actions</h3>
-<ol type="1">
-<li><strong>Implement reverse geocoding for EA/EIS projects</strong> ✅ High priority, low effort
-<ul>
-<li>Add to data processing pipeline</li>
-<li>Validate results with sample checks</li>
-<li>Document methodology</li>
-</ul></li>
-<li><strong>Update report captions</strong> to reflect:
-<ul>
-<li>CE missing data is a documentation standard, not a data quality issue</li>
-<li>EA/EIS coverage can be improved to ~99%</li>
-<li>Overall coverage is limited by CE projects (94% of dataset)</li>
-</ul></li>
-<li><strong>Create data quality flags</strong>:
-<ul>
-<li><code>county_source</code>: “original” | “geocoded” | “missing”</li>
-<li><code>geocode_confidence</code>: for reverse-geocoded counties</li>
-</ul></li>
-</ol>
-</section>
-<section id="future-considerations" class="level3">
-<h3 class="anchored" data-anchor-id="future-considerations">Future Considerations</h3>
-<ol start="4" type="1">
-<li><strong>Don’t attempt CE recovery</strong> - not cost-effective given:
-<ul>
-<li>Low success rate expected (&lt;10%)</li>
-<li>Would require complex GIS Township/Range lookups</li>
-<li>By-design limitation of CE documentation standards</li>
-</ul></li>
-<li><strong>Consider multi-county flagging</strong> for large projects:
-<ul>
-<li>Transmission lines often span multiple counties</li>
-<li>Store as array rather than forcing single county assignment</li>
-</ul></li>
-</ol>
-<hr>
-</section>
-</section>
-<section id="other-important-findings" class="level2">
-<h2 class="anchored" data-anchor-id="other-important-findings">Other Important Findings</h2>
-<section id="geographic-concentration" class="level3">
-<h3 class="anchored" data-anchor-id="geographic-concentration">Geographic Concentration</h3>
-<p><strong>State Level</strong>: - South Carolina dominates (4,000+ projects) due to Savannah River Site - Western states (WA, CA, ID, NV) show high activity - Strong correlation with federal land holdings and renewable resource potential</p>
-<p><strong>County Level</strong>: - Aiken County, SC: Highest concentration (Savannah River Site) - Boundary County, ID: National lab activity - Clustering around major federal facilities and renewable energy zones</p>
-</section>
-<section id="process-type-distribution" class="level3">
-<h3 class="anchored" data-anchor-id="process-type-distribution">Process Type Distribution</h3>
-<p><strong>CE (Categorical Exclusion) - 94% of projects</strong>: - Dominated by DOE (84% of CE projects) - 96% of DOE projects are CE (highly streamlined)</p>
-<p><strong>EA &amp; EIS - 6% of projects</strong>: - More diverse agency participation - Higher geographic specificity requirements - Better metadata quality overall</p>
-</section>
-<section id="technology-patterns" class="level3">
-<h3 class="anchored" data-anchor-id="technology-patterns">Technology Patterns</h3>
-<ul>
-<li><strong>Utilities &amp; Electricity Transmission</strong>: Largest share</li>
-<li><strong>Nuclear Technology</strong>: Significant (concentrated in SC, ID, WA)</li>
-<li><strong>Solar &amp; Wind</strong>: Strong presence in Western states</li>
-<li>Most projects (90%) have multiple technology tags</li>
-</ul>
-<hr>
-</section>
-</section>
-<section id="data-quality-assessment" class="level2">
-<h2 class="anchored" data-anchor-id="data-quality-assessment">Data Quality Assessment</h2>
-<section id="strengths" class="level3">
-<h3 class="anchored" data-anchor-id="strengths">Strengths</h3>
-<ul>
-<li>Comprehensive state-level coverage (99.8% have state data)</li>
-<li>High-quality coordinates for EA/EIS projects</li>
-<li>Consistent NEPA process type classification</li>
-<li>Rich technology tagging (14 clean energy categories)</li>
-</ul>
-</section>
-<section id="limitations" class="level3">
-<h3 class="anchored" data-anchor-id="limitations">Limitations</h3>
-<ul>
-<li>County data inherently limited by CE documentation standards</li>
-<li>Multi-state projects challenging to represent in single-county schema</li>
-<li>Offshore/marine projects don’t map to counties</li>
-<li>Some coordinates may be approximate (centroids vs. actual project locations)</li>
-</ul>
-</section>
-<section id="recommended-data-quality-tiers" class="level3">
-<h3 class="anchored" data-anchor-id="recommended-data-quality-tiers">Recommended Data Quality Tiers</h3>
-<p><strong>Tier 1 (Highest Quality)</strong>: EA &amp; EIS projects with original county data <strong>Tier 2 (High Quality)</strong>: EA &amp; EIS projects with geocoded county data <strong>Tier 3 (State-Level Only)</strong>: CE projects without county data <strong>Tier 4 (Flagged)</strong>: Projects with invalid/default coordinates</p>
-<hr>
-</section>
-</section>
-<section id="next-steps" class="level2">
-<h2 class="anchored" data-anchor-id="next-steps">Next Steps</h2>
-<ol type="1">
-<li>✅ <strong>Complete</strong>: County data coverage analysis</li>
-<li>✅ <strong>Complete</strong>: Identify recovery strategy for EA/EIS</li>
-<li>⏳ <strong>Pending</strong>: Implement reverse geocoding routine</li>
-<li>⏳ <strong>Pending</strong>: Validate geocoded results (sample check)</li>
-<li>⏳ <strong>Pending</strong>: Update deliverable01.qmd with revised county coverage notes</li>
-<li>⏳ <strong>Pending</strong>: Document methodology in technical appendix</li>
-</ol>
-<hr>
-</section>
-<section id="technical-notes" class="level2">
-<h2 class="anchored" data-anchor-id="technical-notes">Technical Notes</h2>
-<section id="files-modified-for-analysis" class="level3">
-<h3 class="anchored" data-anchor-id="files-modified-for-analysis">Files Modified for Analysis</h3>
-<ul>
-<li><code>code/deliverable1/03_location.R</code>: Added county coverage analysis code (lines 512-708)</li>
-<li>Analysis output shows in script console output</li>
-</ul>
-</section>
-<section id="key-variables" class="level3">
-<h3 class="anchored" data-anchor-id="key-variables">Key Variables</h3>
-<ul>
-<li><code>project_county</code>: JSON array of county names (may be empty <code>[]</code>)</li>
-<li><code>project_lat</code>, <code>project_lon</code>: Decimal degree coordinates</li>
-<li><code>project_location</code>: Free-text location description</li>
-<li><code>project_state</code>: JSON array of state names</li>
-</ul>
-</section>
-<section id="reverse-geocoding-approach" class="level3">
-<h3 class="anchored" data-anchor-id="reverse-geocoding-approach">Reverse Geocoding Approach</h3>
-<div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Pseudo-code for implementation</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>projects_to_geocode <span class="ot">&lt;-</span> clean_energy <span class="sc">%&gt;%</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(process_type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;EA&quot;</span>, <span class="st">&quot;EIS&quot;</span>)) <span class="sc">%&gt;%</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(project_county <span class="sc">==</span> <span class="st">&quot;[]&quot;</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(project_lat) <span class="sc">&amp;</span> project_lat <span class="sc">!=</span> <span class="dv">0</span>)</span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Convert to spatial points</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>project_points <span class="ot">&lt;-</span> <span class="fu">st_as_sf</span>(</span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  projects_to_geocode,</span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="at">coords =</span> <span class="fu">c</span>(<span class="st">&quot;project_lon&quot;</span>, <span class="st">&quot;project_lat&quot;</span>),</span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="at">crs =</span> <span class="dv">4326</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Spatial join with county boundaries</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>geocoded_counties <span class="ot">&lt;-</span> <span class="fu">st_join</span>(project_points, us_counties, <span class="at">join =</span> st_within)</span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co"># Update project_county field</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Handle edge cases (offshore, multi-county, etc.)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<hr>
-</section>
-</section>
-<section id="conclusion" class="level2">
-<h2 class="anchored" data-anchor-id="conclusion">Conclusion</h2>
-<p>While overall county coverage is 47.8%, this is primarily driven by CE project documentation standards (not recoverable). The critical finding is that <strong>397 EA/EIS projects (98.5% of missing data) can be recovered through straightforward reverse geocoding</strong>, bringing EA/EIS coverage to ~99%.</p>
-<p>This recovery would support more robust county-level analysis for the most impactful projects (EA/EIS), while accepting that CE projects will remain at state-level granularity due to their streamlined documentation requirements.</p>
-<p><strong>Recommendation</strong>: Proceed with reverse geocoding implementation for EA/EIS projects as a high-value, low-effort data quality improvement.</p>
+<section id="reproducibility-best-practice-lock-snapshot" class="level2">
+<h2 class="anchored" data-anchor-id="reproducibility-best-practice-lock-snapshot">8. Reproducibility best practice (lock snapshot)</h2>
+<p>After a successful install, create a machine-specific lock snapshot:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> env export <span class="at">-n</span> nepa <span class="op">&gt;</span> environment.lock.yml</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<p>Commit that lock file when you need exact rebuilds on the same platform/architecture.</p>
 
 
 </section>
