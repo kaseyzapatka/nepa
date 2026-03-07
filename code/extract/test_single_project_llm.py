@@ -17,6 +17,11 @@ Usage:
     python test_single_project_llm.py --title "Coldfoot" --regex-only
 """
 
+import os
+
+if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
+    raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
+
 import pandas as pd
 import json
 import requests

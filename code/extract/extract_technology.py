@@ -12,6 +12,11 @@ for one or more technology domains.
 
 from __future__ import annotations
 
+import os
+
+if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
+    raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
+
 import argparse
 import ast
 import json
