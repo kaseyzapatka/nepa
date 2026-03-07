@@ -6,6 +6,7 @@ from __future__ import annotations
 import ast
 import html
 import json
+import os
 import re
 from pathlib import Path
 from typing import Iterable, Sequence
@@ -19,6 +20,12 @@ MAX_RESULTS = 500
 ENERGY_PREFIX = "Renewable Energy Production - "
 DATASET_URL = "https://huggingface.co/datasets/PNNL/NEPATEC2.0"
 PAPER_URL = "https://www.pnnl.gov/sites/default/files/media/file/PNNL_PermitAI_NEPATECv2_Public_Release_20_08_25.pdf"
+DEFAULT_DB_FILENAME = "nepa_reader.duckdb"
+
+HF_DB_REPO_ENV = "NEPA_DB_HF_REPO"
+HF_DB_FILENAME_ENV = "NEPA_DB_HF_FILENAME"
+HF_DB_SUBDIR_ENV = "NEPA_DB_HF_SUBDIR"
+HF_DB_REVISION_ENV = "NEPA_DB_HF_REVISION"
 
 QP_TITLE = "q"
 QP_PROJECT_ID = "pid"
@@ -42,6 +49,11 @@ SECTION_NUMBER_ONLY_RE = re.compile(r"^\d+\.\d+(?:\.\d+){0,3}$")
 LETTER_MARKER_ONLY_RE = re.compile(r"^[A-Z][.)]$")
 
 
+def env_text(name: str, default: str = "") -> str:
+    value = os.getenv(name, default)
+    return value.strip() if isinstance(value, str) else default.strip()
+
+
 def resolve_db_path() -> Path:
     """Find the DuckDB file in local and deployment layouts."""
     here = Path(__file__).resolve().parent
@@ -61,6 +73,40 @@ DB_PATH = resolve_db_path()
 
 def sql_path(path: Path) -> str:
     return path.as_posix().replace("'", "''")
+
+
+def ensure_database_available() -> Path:
+    """Return a local DB path, downloading from a HF dataset repo if configured."""
+    local_path = resolve_db_path()
+    if local_path.exists():
+        return local_path
+
+    repo_id = env_text(HF_DB_REPO_ENV)
+    if not repo_id:
+        return local_path
+
+    try:
+        from huggingface_hub import hf_hub_download
+    except Exception as exc:  # pragma: no cover - import guarded by runtime config
+        raise RuntimeError(
+            "NEPA_DB_HF_REPO is set but huggingface_hub is unavailable. "
+            "Install app requirements first."
+        ) from exc
+
+    filename = env_text(HF_DB_FILENAME_ENV, DEFAULT_DB_FILENAME) or DEFAULT_DB_FILENAME
+    subdir = env_text(HF_DB_SUBDIR_ENV)
+    revision = env_text(HF_DB_REVISION_ENV) or None
+    remote_filename = f"{subdir.strip('/')}/{filename}" if subdir else filename
+
+    local_path.parent.mkdir(parents=True, exist_ok=True)
+    downloaded = hf_hub_download(
+        repo_id=repo_id,
+        repo_type="dataset",
+        filename=remote_filename,
+        revision=revision,
+        local_dir=str(local_path.parent),
+    )
+    return Path(downloaded)
 
 
 def init_state() -> None:
@@ -1448,10 +1494,29 @@ def main() -> None:
     init_state()
     apply_query_params_to_state_once()
 
+    global DB_PATH
+    should_download = (not resolve_db_path().exists()) and bool(env_text(HF_DB_REPO_ENV))
+
+    try:
+        if should_download:
+            with st.spinner("Downloading document database from Hugging Face..."):
+                DB_PATH = ensure_database_available()
+        else:
+            DB_PATH = ensure_database_available()
+    except Exception as exc:
+        st.error(f"Database download failed: {exc}")
+        st.stop()
+
     if not DB_PATH.exists():
         st.error(f"Database not found: {DB_PATH}")
-        st.markdown("Run the build script first:")
-        st.code("python code/rag/01_build_text_store.py")
+        st.markdown("Run the build script locally or configure dataset download:")
+        st.code(
+            "python code/rag/01_build_text_store.py\n\n"
+            "# Optional remote DB fallback\n"
+            "export NEPA_DB_HF_REPO='kaseyzapatka/nepa-document-explorer-db'\n"
+            "export NEPA_DB_HF_FILENAME='nepa_reader.duckdb'\n"
+            "streamlit run app/app.py"
+        )
         st.stop()
 
     try:
