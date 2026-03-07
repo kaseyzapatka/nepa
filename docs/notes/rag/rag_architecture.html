@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>NEPA – reviews_status</title>
+<title>NEPA – rag_architecture</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -4542,439 +4542,211 @@ vertical-align: -.125em;
 
 
 
-<section id="deliverable-2-programmatic-tiered-reviews" class="level1">
-<h1>Deliverable #2: Programmatic &amp; Tiered Reviews</h1>
-<p><strong>Status</strong>: Analysis complete; 118/161 non-standard projects have full timelines <strong>Last Updated</strong>: 2026-03-04 <strong>Script</strong>: <code>code/extract/extract_reviews.py</code> <strong>Output</strong>: <code>data/analysis/projects_reviews.parquet</code> <strong>Report</strong>: <code>reports/deliverable02.qmd</code></p>
-<section id="deliverable-goal" class="level2">
-<h2 class="anchored" data-anchor-id="deliverable-goal">Deliverable Goal</h2>
-<p>Data on programmatic and tiered reviews: how many tiered reviews are there compared to total, and are they completed faster?</p>
+<section id="rag-system-for-nepa-document-exploration" class="level1">
+<h1>RAG System for NEPA Document Exploration</h1>
+<section id="context" class="level2">
+<h2 class="anchored" data-anchor-id="context">Context</h2>
+<p>The client wants a way to query the NEPATEC 2.0 corpus with natural language and read specific documents. Currently documents are locked in JSONL/parquet format accessible only through Python scripts. The goal is a low-barrier chat interface + document viewer accessible as a new tab on the existing Quarto website (kaseyzapatka.com/nepa/), usable by non-technical clients, at near-zero cost.</p>
+<p><strong>Scope decided</strong>: Clean energy only (~20K projects) <strong>Budget</strong>: Free / near-zero ($0–5/month) <strong>Document fidelity</strong>: Extracted page text (no original PDFs needed)</p>
 <hr>
 </section>
-<section id="current-status" class="level2">
-<h2 class="anchored" data-anchor-id="current-status">Current Status</h2>
-<section id="completed" class="level3">
-<h3 class="anchored" data-anchor-id="completed">Completed</h3>
-<ul class="task-list">
-<li><input type="checkbox" checked>Created <code>extract_reviews.py</code> with 3-tier extraction approach</li>
-<li><input type="checkbox" checked>Title-based detection for programmatic reviews</li>
-<li><input type="checkbox" checked>Regex extraction with false-positive filtering</li>
-<li><input type="checkbox" checked>LLM integration for ambiguous cases (optional flag)</li>
-<li><input type="checkbox" checked>Fixed bug: “tiering from PEIS” was incorrectly flagged as programmatic</li>
-<li><input type="checkbox" checked><strong>Full extraction completed</strong> on 1,416 EA/EIS clean energy projects</li>
-<li><input type="checkbox" checked>Created exploratory analysis script (<code>code/exploratory/reviews/01_reviews_eda.R</code>)</li>
-<li><input type="checkbox" checked>Created Google Sheet for client validation</li>
-<li><input type="checkbox" checked>Created report (<code>reports/deliverable02.qmd</code>)</li>
-</ul>
-</section>
-<section id="extraction-results" class="level3">
-<h3 class="anchored" data-anchor-id="extraction-results">Extraction Results</h3>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Review Type</th>
-<th>Count</th>
-<th>Share</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Standard</td>
-<td>1,390</td>
-<td>98.2%</td>
-</tr>
-<tr class="even">
-<td>Programmatic</td>
-<td>16</td>
-<td>1.1%</td>
-</tr>
-<tr class="odd">
-<td>Tiered</td>
-<td>10</td>
-<td>0.7%</td>
-</tr>
-<tr class="even">
-<td><strong>Total</strong></td>
-<td><strong>1,416</strong></td>
-<td>100%</td>
-</tr>
-</tbody>
-</table>
+<section id="specific-rag-model-questions" class="level2">
+<h2 class="anchored" data-anchor-id="specific-rag-model-questions">Specific RAG Model Questions:</h2>
+<section id="how-would-the-system-be-set-up-for-clients" class="level3">
+<h3 class="anchored" data-anchor-id="how-would-the-system-be-set-up-for-clients">1. How would the system be set up for clients?</h3>
+<p><strong>Architecture</strong>: A Streamlit app deployed to <strong>Hugging Face Spaces</strong> (free tier) embedded or linked from the Quarto site as a new navbar tab.</p>
 <ul>
-<li>Confidence: <strong>high</strong> for 1,413 projects, <strong>medium</strong> for 3</li>
-<li>Detection source: <strong>text_regex</strong> (1,413), <strong>title</strong> (3)</li>
+<li>Quarto side: add one entry to <code>_quarto.yml</code> navbar pointing to the HF Spaces URL, or create a <code>rag.qmd</code> page with an iframe embedding the app</li>
+<li>Client experience: opens a URL in the browser, types a question in plain English, reads the answer with cited documents, optionally clicks into a document to read its text</li>
 </ul>
-</section>
-<section id="awaiting-validation" class="level3">
-<h3 class="anchored" data-anchor-id="awaiting-validation">Awaiting Validation</h3>
-<ul class="task-list">
-<li><input type="checkbox">Client review of 26 identified programmatic/tiered reviews via Google Sheet</li>
-<li><input type="checkbox">Investigate potential duplicates (2 sets in programmatic tab, 1 in tiered)</li>
-<li><input type="checkbox">Add project <code>3621210fbd086bddbbf6fbedc1d6a488</code> — found via file name search but classified as “standard”</li>
-<li><input type="checkbox">Confirm “Programmatic Collaborations” (DOE grants) should be excluded</li>
-</ul>
-</section>
-<section id="next-steps" class="level3">
-<h3 class="anchored" data-anchor-id="next-steps">Next Steps</h3>
-<ol type="1">
-<li><strong>Client validation</strong> — review Google Sheet, mark correct/incorrect</li>
-<li><strong>Add missing project</strong> — investigate <code>3621210fbd086bddbbf6fbedc1d6a488</code></li>
-<li><strong>Add evidence_context</strong> to programmatic extraction (currently only in tiered)</li>
-<li><strong>Merge with timeline data</strong> — answer “are tiered reviews completed faster?”</li>
-<li><strong>Refine patterns</strong> if validation reveals false positives/negatives</li>
-</ol>
+<p>HF Spaces free tier limitations to know about: - <strong>Cold start</strong>: up to 60 seconds on first load after inactivity - <strong>Storage</strong>: 16 GB (enough for our pre-built index) - <strong>Compute</strong>: 2 vCPU / 16 GB RAM (fine for inference-time retrieval)</p>
+<p>Alternative for always-on reliability: Render.com free tier or a $7/month Fly.io instance.</p>
 <hr>
 </section>
-</section>
-<section id="validation-resources" class="level2">
-<h2 class="anchored" data-anchor-id="validation-resources">Validation Resources</h2>
-<section id="google-sheet" class="level3">
-<h3 class="anchored" data-anchor-id="google-sheet">Google Sheet</h3>
-<p><strong><a href="https://docs.google.com/spreadsheets/d/1d25Arj2IFR3SLcgv8B6tPdLbs2cDZtC_IjMhZUcueBA/edit?usp=sharing">NEPA Reviews Validation Sheet</a></strong></p>
-<p>Two tabs: - <strong>Programmatic</strong> (16 projects): Reviews that ARE programmatic EIS/EAs - <strong>Tiered</strong> (10 projects): Reviews that tier FROM a programmatic review</p>
-<p>Key columns for reviewers: - <code>evidence_text</code> — text that triggered classification - <code>tiers_from</code> — (tiered only) programmatic review being referenced - <code>correct</code> — Yes/No/Unsure - <code>notes</code> — comments</p>
-</section>
-<section id="potential-issues-found" class="level3">
-<h3 class="anchored" data-anchor-id="potential-issues-found">Potential Issues Found</h3>
-<ol type="1">
-<li><strong>Duplicates</strong>: Some projects have same title but different <code>project_id</code> — need manual review</li>
-<li><strong>Missing project</strong>: <code>3621210fbd086bddbbf6fbedc1d6a488</code> has “programmatic” in file name but was classified as “standard” — may need file name search added to extraction</li>
-<li><strong>“Programmatic Collaborations”</strong>: DOE grants with “programmatic” in name are NOT programmatic NEPA reviews — confirmed these are in CE dataset and excluded from EA/EIS scope</li>
-</ol>
-<hr>
-</section>
-</section>
-<section id="known-issues" class="level2">
-<h2 class="anchored" data-anchor-id="known-issues">Known Issues</h2>
-<section id="issue-1-rarity-of-examples" class="level3">
-<h3 class="anchored" data-anchor-id="issue-1-rarity-of-examples">Issue 1: Rarity of Examples</h3>
-<p><strong>Problem</strong>: Programmatic/tiered reviews are very rare. - Only 26 found out of 1,416 projects (1.8%) - Tiered reviews (10) fewer than expected (estimated 5-15%)</p>
-<p><strong>Implication</strong>: Timeline comparisons will have small sample sizes — results should be framed as exploratory.</p>
-</section>
-<section id="issue-2-missing-file-name-search" class="level3">
-<h3 class="anchored" data-anchor-id="issue-2-missing-file-name-search">Issue 2: Missing File Name Search</h3>
-<p><strong>Problem</strong>: Extraction searches titles and document text, but not file names. - Project <code>3621210fbd086bddbbf6fbedc1d6a488</code> has “programmatic” in file name but not detected - May be missing other projects</p>
-<p><strong>TODO</strong>: Consider adding file name search to extraction.</p>
-</section>
-<section id="issue-3-programmatic-tab-missing-context" class="level3">
-<h3 class="anchored" data-anchor-id="issue-3-programmatic-tab-missing-context">Issue 3: Programmatic Tab Missing Context</h3>
-<p><strong>Problem</strong>: <code>evidence_context</code> (surrounding text) only captured for tiered reviews, not programmatic.</p>
-<p><strong>TODO</strong>: Update extraction to capture context for programmatic reviews too.</p>
-<hr>
-</section>
-</section>
-<section id="background" class="level2">
-<h2 class="anchored" data-anchor-id="background">Background</h2>
-<section id="what-are-programmatic-reviews" class="level3">
-<h3 class="anchored" data-anchor-id="what-are-programmatic-reviews">What are Programmatic Reviews?</h3>
-<p><strong>Programmatic EIS/EA</strong>: A broad environmental review that analyzes a class of similar actions (e.g., all solar projects on BLM land). These serve as “umbrella” documents.</p>
-<p>Examples found: - “Programmatic Environmental Assessment for System-wide Operations and Maintenance” - “Recycle of Scrap Metal Originating From Radiological Areas” (THIS PROGRAMMATIC ENVIRONMENTAL…)</p>
-</section>
-<section id="what-are-tiered-reviews" class="level3">
-<h3 class="anchored" data-anchor-id="what-are-tiered-reviews">What are Tiered Reviews?</h3>
-<p><strong>Tiered Reviews</strong>: Project-specific reviews that reference and build upon a programmatic review. They don’t repeat analysis already done, potentially making them faster.</p>
-<p>Examples found: - “This EA tiers from the 2012 NPR-A IAP/EIS and its ROD” - “The EA tiered from the analysis conducted in [programmatic review]”</p>
-<hr>
-</section>
-</section>
-<section id="extraction-approach" class="level2">
-<h2 class="anchored" data-anchor-id="extraction-approach">Extraction Approach</h2>
-<section id="tier-strategy" class="level3">
-<h3 class="anchored" data-anchor-id="tier-strategy">3-Tier Strategy</h3>
+<section id="what-would-it-take-to-build" class="level3">
+<h3 class="anchored" data-anchor-id="what-would-it-take-to-build">2. What would it take to build?</h3>
+<section id="components" class="level4">
+<h4 class="anchored" data-anchor-id="components">Components</h4>
 <table class="table">
 <colgroup>
-<col style="width: 18%">
-<col style="width: 25%">
-<col style="width: 34%">
-<col style="width: 21%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Tier</th>
-<th>Method</th>
-<th>When Used</th>
-<th>Speed</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>1</td>
-<td>Title detection</td>
-<td>Always first</td>
-<td>Instant</td>
-</tr>
-<tr class="even">
-<td>2</td>
-<td>Regex with context</td>
-<td>If title doesn’t match</td>
-<td>~10 sec/project</td>
-</tr>
-<tr class="odd">
-<td>3</td>
-<td>LLM (Ollama)</td>
-<td>Only if <code>--no-llm</code> not set AND medium-confidence matches</td>
-<td>~5 sec/call</td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="search-patterns" class="level3">
-<h3 class="anchored" data-anchor-id="search-patterns">Search Patterns</h3>
-<p><strong>Programmatic (titles):</strong> <code>programmatic</code>, <code>program-wide</code>, <code>PEIS</code>, <code>PEA</code></p>
-<p><strong>Tiered (document text):</strong> - “this EA tiers from…” - “tiers to the…PEIS” - “pursuant to the…Programmatic EIS” - “site-specific EA that tiers from…”</p>
-<p><strong>False positive exclusions:</strong> EPA Tier 1-4 engines, road classifications, tiered pricing, ranking language</p>
-</section>
-<section id="variables-created" class="level3">
-<h3 class="anchored" data-anchor-id="variables-created">Variables Created</h3>
-<table class="table">
-<colgroup>
-<col style="width: 34%">
+<col style="width: 36%">
 <col style="width: 20%">
-<col style="width: 44%">
+<col style="width: 20%">
+<col style="width: 23%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>Variable</th>
-<th>Type</th>
-<th>Description</th>
+<th>Component</th>
+<th>Tool</th>
+<th>Cost</th>
+<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>project_review_is_programmatic</code></td>
-<td>Boolean</td>
-<td>TRUE if this project IS a programmatic review</td>
+<td>Vector index (offline, built once)</td>
+<td>ChromaDB or LanceDB</td>
+<td>$0</td>
+<td>Built locally, uploaded to HF Space</td>
 </tr>
 <tr class="even">
-<td><code>project_review_type</code></td>
-<td>Categorical</td>
-<td><code>programmatic</code>, <code>tiered</code>, <code>standard</code>, <code>unknown</code></td>
+<td>Embedding model</td>
+<td><code>all-MiniLM-L6-v2</code> (sentence-transformers)</td>
+<td>$0</td>
+<td>Runs locally; no API key needed</td>
 </tr>
 <tr class="odd">
-<td><code>project_review_tiers_from</code></td>
-<td>String</td>
-<td>Name of the programmatic review being tiered from</td>
+<td>LLM for answers</td>
+<td>Claude Haiku API</td>
+<td>~$0.001/query</td>
+<td>Only variable cost</td>
 </tr>
 <tr class="even">
-<td><code>project_review_tiers_from_context</code></td>
-<td>String</td>
-<td>Full context text (tiered only currently)</td>
+<td>Frontend / hosting</td>
+<td>Streamlit on HF Spaces</td>
+<td>$0 free tier</td>
+<td></td>
 </tr>
 <tr class="odd">
-<td><code>project_review_confidence</code></td>
-<td>Categorical</td>
-<td><code>high</code>, <code>medium</code>, <code>low</code></td>
-</tr>
-<tr class="even">
-<td><code>project_review_source</code></td>
-<td>String</td>
-<td>Detection source: <code>title</code>, <code>text_regex</code>, <code>llm</code></td>
-</tr>
-<tr class="odd">
-<td><code>project_review_match_text</code></td>
-<td>String</td>
-<td>Actual matched text from document</td>
+<td>Text store (document viewer)</td>
+<td>DuckDB on pre-filtered parquet</td>
+<td>$0</td>
+<td>Extracted locally, ~300–600 MB</td>
 </tr>
 </tbody>
 </table>
-<hr>
 </section>
-</section>
-<section id="timeline-integration-todo" class="level2">
-<h2 class="anchored" data-anchor-id="timeline-integration-todo">Timeline Integration (TODO)</h2>
-<p>To answer “are tiered reviews completed faster”:</p>
+<section id="one-time-build-process-run-locally-24-hours-total" class="level4">
+<h4 class="anchored" data-anchor-id="one-time-build-process-run-locally-24-hours-total">One-time build process (run locally, ~2–4 hours total)</h4>
 <ol type="1">
-<li>Merge <code>projects_reviews.parquet</code> with timeline data</li>
-<li>Compare duration between tiered vs standard reviews</li>
-<li>Timeline extraction still being refined — revisit when ready</li>
+<li><strong>Filter text to clean energy projects</strong>: query <code>data/processed/{ce,ea,eis}/pages.parquet</code> using DuckDB + <code>projects_combined.parquet</code> project IDs → write a <code>clean_energy_pages.db</code> SQLite or small parquet (estimated ~400–600 MB)</li>
+<li><strong>Chunk and embed</strong>: split pages into ~600-char chunks (50-char overlap), embed with <code>all-MiniLM-L6-v2</code>, store in ChromaDB on disk (estimated 1–2 hours, ~800K–1M chunks)</li>
+<li><strong>Upload</strong> the ChromaDB directory + filtered text store to HF Space repo</li>
 </ol>
-<p>Key timeline variables needed: - <code>llm_decision_date</code> — Final approval date - <code>llm_application_date</code> — Start date - Duration = decision_date - application_date</p>
-<p><strong>Note</strong>: With only 10 tiered reviews, statistical power will be limited.</p>
-<hr>
+<p>Compute cost: ~$0 (your local machine). API key cost during build: $0 (open-source embeddings).</p>
 </section>
-<section id="usage" class="level2">
-<h2 class="anchored" data-anchor-id="usage">Usage</h2>
-<div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Full extraction (EA + EIS, no LLM)</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--run</span> <span class="at">--no-llm</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Full extraction with LLM for ambiguous cases</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--run</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Include CE projects</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_reviews.py <span class="at">--run</span> <span class="at">--include-ce</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<section id="exploratory-analysis" class="level3">
-<h3 class="anchored" data-anchor-id="exploratory-analysis">Exploratory Analysis</h3>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run EDA and write to Google Sheet</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> code/exploratory/reviews/01_reviews_eda.R</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<hr>
+<section id="ongoing-query-time-cost" class="level4">
+<h4 class="anchored" data-anchor-id="ongoing-query-time-cost">Ongoing (query-time) cost</h4>
+<ul>
+<li>Claude Haiku: ~$0.25/1M input tokens + $1.25/1M output tokens</li>
+<li>A typical query: ~2,000 tokens in context → $0.0005 per question</li>
+<li>Even 500 queries/month ≈ <strong>$0.25/month</strong></li>
+</ul>
+<p>An <code>ANTHROPIC_API_KEY</code> would be set as a HF Spaces secret (not visible to clients).</p>
 </section>
-</section>
-<section id="development-log" class="level2">
-<h2 class="anchored" data-anchor-id="development-log">Development Log</h2>
-<section id="section" class="level3">
-<h3 class="anchored" data-anchor-id="section">2026-03-04</h3>
-<section id="timeline-coverage-improvements-for-non-standard-projects-d2" class="level4">
-<h4 class="anchored" data-anchor-id="timeline-coverage-improvements-for-non-standard-projects-d2">Timeline Coverage Improvements for Non-Standard Projects (D2)</h4>
-<p>The full review extraction (161 programmatic + tiered projects in NEPATEC 2.0) was complete. The challenge was timeline coverage: only 82/161 had full timelines after the base EA/EIS LLM adjudication. A series of targeted changes brought this to <strong>118/161 (73%)</strong>.</p>
-<p><strong>Root cause</strong>: EIS documents averaged 179 BERT candidates but the LLM cap was 30 — 150+ candidates were filtered before Claude saw them. Programmatic EISs are the hardest: BERT (trained on CE data) frequently mislabels decision-era dates as ‘review’ or ‘other’.</p>
-<p><strong>Changes to <code>code/extract/extract_timeline.py</code></strong>:</p>
+<section id="hallucination-mitigation-critical" class="level4">
+<h4 class="anchored" data-anchor-id="hallucination-mitigation-critical">Hallucination mitigation (critical)</h4>
+<p>Four complementary techniques:</p>
 <ol type="1">
-<li><p><strong><code>--nonstandard-incomplete</code> flag for <code>--llm-adjudicate</code></strong>: Auto-selects programmatic/tiered projects still missing <code>llm_initiation_date</code> or <code>llm_decision_date</code>. Reads <code>projects_reviews.parquet</code> + all available timeline outputs internally.</p></li>
-<li><p><strong>Multi-file <code>--input</code></strong>: Accept comma-separated parquet paths (e.g., EA + EIS in one call).</p></li>
-<li><p><strong><code>--max-candidates N</code></strong>: Override per-project candidate cap (used 125 vs default 30 for EIS).</p></li>
-<li><p><strong><code>--context-chars N</code></strong>: Override context snippet length.</p></li>
-<li><p><strong><code>--promote-rod-language</code></strong>: Promotes candidates with ROD/FONSI language to Tier A decision regardless of BERT doc_type classification.</p></li>
-<li><p><strong><code>--year-window N</code></strong>: Drops candidates more than N years before the latest found date (removes NEPA citation noise; used 15).</p></li>
-<li><p><strong>529 retry</strong>: <code>_call_claude_adjudication()</code> now retries HTTP 529 (service overload) with 60-second backoff, same as 429.</p></li>
-<li><p><strong>Silent BERT decision discard fix</strong>: Layer 5 was dropping <code>dtype==&#39;decision&#39;</code> candidates that failed strict doc-type checks. They now pass to <code>non_decision</code> so Claude sees them.</p></li>
-<li><p><strong><code>best_effort</code> prompt for <code>no_decision_candidates</code> mode</strong>: When <code>--nonstandard-incomplete</code> is active, <code>_build_adjudication_prompt()</code> uses a best-effort prompt (“pick most likely decision date, null only if truly nothing fits”) instead of the conservative default (“only if context clearly indicates… otherwise null”). Standard runs are unaffected.</p></li>
+<li><strong>Closed-context prompting</strong>: system prompt says “Answer ONLY from the provided context passages. If the context is insufficient, say ‘I don’t have enough information.’”</li>
+<li><strong>Mandatory citations</strong>: require the model to name the project title, document type, and page number for every factual claim</li>
+<li><strong>Temperature = 0</strong>: deterministic outputs only</li>
+<li><strong>Show retrieved context</strong>: display the 3–5 source passages alongside the answer so clients can verify claims themselves (this is the most powerful transparency tool)</li>
 </ol>
-<p><strong>Changes to <code>code/deliverable02/00_setup.R</code></strong>: - Added <code>tl_full</code>: full timeline parquets (with <code>bert_dates_json</code>) patched with targeted dates. - Added <code>browse_ns</code>: coverage table for all 161 non-standard projects (<code>has_initiation</code>, <code>has_decision</code>, <code>complete</code>, <code>llm_decision_mode</code>). - Added <code>inspect_candidates(pid)</code>: parses <code>bert_dates_json</code> JSON and prints all BERT date candidates for a given project.</p>
-<p><strong>Changes to <code>code/deliverable02/01_reviews.R</code></strong>: - Added inspection block calling <code>browse_ns</code> and <code>inspect_candidates()</code> at the top.</p>
-<p><strong>New output</strong>: <code>data/analysis/projects_timeline_targeted_llm.parquet</code> (73 rows). Patched into the main timeline via <code>coalesce()</code> in <code>00_setup.R</code>.</p>
-<p><strong>Coverage results</strong> (161 non-standard projects):</p>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Status</th>
-<th>Count</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Complete (both dates)</td>
-<td><strong>118</strong></td>
-</tr>
-<tr class="even">
-<td>Missing decision only</td>
-<td>32</td>
-</tr>
-<tr class="odd">
-<td>Missing initiation only</td>
-<td>3</td>
-</tr>
-<tr class="even">
-<td>Missing both</td>
-<td>8</td>
-</tr>
-<tr class="odd">
-<td><strong>Total incomplete</strong></td>
-<td><strong>43</strong></td>
-</tr>
-</tbody>
-</table>
-<p>The 29 remaining <code>no_decision_candidates</code> projects have zero decision signals identifiable by BERT in any candidate — hard floor without document-level improvements.</p>
-<p><strong>Run command</strong> (documented in README):</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> code/extract/extract_timeline.py <span class="dt">\</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--input</span> data/analysis/projects_timeline_bert_ea_llm.parquet,data/analysis/projects_timeline_bert_eis_llm.parquet <span class="dt">\</span></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--nonstandard-incomplete</span> <span class="dt">\</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--max-candidates</span> 125 <span class="at">--context-chars</span> 400 <span class="dt">\</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">--promote-rod-language</span> <span class="at">--year-window</span> 15 <span class="dt">\</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">--output</span> data/analysis/projects_timeline_targeted_llm.parquet</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p><strong>Cost</strong>: ~$0.44 (Haiku, ~400K input tokens for 73 projects).</p>
+<p>With these in place, the model cannot fabricate — it can only fail to find an answer.</p>
+<hr>
 </section>
-<section id="manual-date-overrides-todo-integrate-into-pipeline" class="level4">
-<h4 class="anchored" data-anchor-id="manual-date-overrides-todo-integrate-into-pipeline">Manual Date Overrides (TODO: integrate into pipeline)</h4>
-<p>Six projects were manually patched in <code>code/deliverable02/00_setup.R</code> for the 2026-03-06 presentation. These are hardcoded in a <code>manual_overrides</code> tibble and should eventually be moved into the pipeline (e.g., a <code>data/analysis/manual_dates.csv</code> patched via coalesce in <code>00_setup.R</code>, or re-adjudicated with corrected inputs).</p>
+</section>
+<section id="how-should-clients-read-specific-documents" class="level3">
+<h3 class="anchored" data-anchor-id="how-should-clients-read-specific-documents">3. How should clients read specific documents?</h3>
+<p><strong>Best approach: document browser tab within the same Streamlit app</strong> — no TextBlob needed, no RShiny needed. The RAG retrieval already locates the right passages, and a second tab lets clients browse and read full documents.</p>
+<p>The app would have two modes:</p>
+<p><strong>Mode A — Chat/Q&amp;A</strong>: ask a question → get answer + source excerpts → click “View full document” to enter Mode B</p>
+<p><strong>Mode B — Document browser</strong>: search by project title / project ID / agency / state → see project metadata card (title, agency, location, process type, decision date) → browse full extracted page text formatted as readable text with page numbers</p>
+<p><strong>Why not TextBlob?</strong> TextBlob is an NLP preprocessing library (tokenization, sentiment, POS tagging) — it’s for analyzing text, not displaying it. Not the right tool here.</p>
+<p><strong>Why not RShiny?</strong> Possible but adds a second language stack (R + Python) for a use case where Streamlit in Python is cleaner given the existing Python pipeline.</p>
+<p><strong>Original PDFs</strong>: NEPATEC doesn’t include PDF download links. Extracted text is the best available source. If a client needs the original PDF, you could add an optional “agency website” link using the <code>file_provider</code> and <code>lead_agency</code> metadata (e.g., EPLANNING.BLM.GOV for BLM projects), but this is optional scope.</p>
+<hr>
+</section>
+</section>
+<section id="recommended-implementation-plan" class="level2">
+<h2 class="anchored" data-anchor-id="recommended-implementation-plan">Recommended Implementation Plan</h2>
+<section id="phase-1-data-prep-offline-python-scripts" class="level3">
+<h3 class="anchored" data-anchor-id="phase-1-data-prep-offline-python-scripts">Phase 1: Data prep (offline, Python scripts)</h3>
+<p><strong>New script</strong>: <code>code/rag/01_build_text_store.py</code> - Input: <code>data/processed/{ce,ea,eis}/pages.parquet</code> + <code>data/analysis/projects_combined.parquet</code> - Filter: <code>project_energy_type == &quot;Clean&quot;</code>, cap at 50 pages/project (mirrors existing pipeline) - Output: <code>data/rag/clean_energy_pages.duckdb</code> (~400–600 MB) - Also writes <code>data/rag/projects_metadata.parquet</code> (title, agency, state, process_type, energy_type, decision_date — from projects_combined.parquet)</p>
+<p><strong>New script</strong>: <code>code/rag/02_build_index.py</code> - Input: <code>data/rag/clean_energy_pages.duckdb</code> - Chunk pages, embed with <code>sentence-transformers/all-MiniLM-L6-v2</code> - Output: <code>data/rag/chroma_index/</code> (ChromaDB on disk) - Estimated runtime: 2–4 hours locally</p>
+</section>
+<section id="phase-2-streamlit-app" class="level3">
+<h3 class="anchored" data-anchor-id="phase-2-streamlit-app">Phase 2: Streamlit app</h3>
+<p><strong>New files</strong>: <code>app/app.py</code>, <code>app/requirements.txt</code></p>
+<p>Two-tab layout: - <strong>Tab 1 “Ask a Question”</strong>: query box → retrieval → Claude Haiku response → source cards - <strong>Tab 2 “Browse Documents”</strong>: filters (agency, state, process type, energy type) + search → project card → page-by-page text viewer</p>
+<p>Anti-hallucination: closed-context prompt + cited sources shown below every answer.</p>
+</section>
+<section id="phase-3-deploy-to-hugging-face-spaces" class="level3">
+<h3 class="anchored" data-anchor-id="phase-3-deploy-to-hugging-face-spaces">Phase 3: Deploy to Hugging Face Spaces</h3>
+<ul>
+<li><p>Create HF Space: Streamlit SDK, set <code>ANTHROPIC_API_KEY</code> as a Space secret</p></li>
+<li><p>Upload <code>app/</code>, <code>data/rag/chroma_index/</code>, <code>data/rag/clean_energy_pages.duckdb</code>, <code>data/rag/projects_metadata.parquet</code></p></li>
+<li><p>Add navbar link in <code>_quarto.yml</code>:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">navbar</span><span class="kw">:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">right</span><span class="kw">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> </span><span class="fu">text</span><span class="kw">:</span><span class="at"> </span><span class="st">&quot;Document Explorer&quot;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">href</span><span class="kw">:</span><span class="at"> https://huggingface.co/spaces/&lt;username&gt;/nepa-explorer</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div></li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="key-files-to-touch" class="level2">
+<h2 class="anchored" data-anchor-id="key-files-to-touch">Key Files to Touch</h2>
 <table class="table">
 <colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
+<col style="width: 50%">
+<col style="width: 50%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>project_id</th>
-<th>field</th>
-<th>value</th>
-<th>source</th>
+<th>File</th>
+<th>Role</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>cf2fbe90d43ac57a9460fa857f34af6c</code></td>
-<td>initiation</td>
-<td><code>noi_publication_date</code></td>
-<td>Federal Register NOI</td>
+<td><code>data/processed/ce/pages.parquet</code></td>
+<td>CE source text (read only)</td>
 </tr>
 <tr class="even">
-<td><code>f95ec9530b352e3dd46e6473cb80dccf</code></td>
-<td>decision</td>
-<td>2019-04-01</td>
-<td>Date in EA filename</td>
+<td><code>data/processed/ea/pages.parquet</code></td>
+<td>EA source text (read only)</td>
 </tr>
 <tr class="odd">
-<td><code>49cdaa3ff2e6c505c6822e8e9803eb9b</code></td>
-<td>decision</td>
-<td>2023-05-01</td>
-<td>Date in draft filename</td>
+<td><code>data/processed/eis/pages.parquet</code></td>
+<td>EIS source text (~5.5 GB, read only)</td>
 </tr>
 <tr class="even">
-<td><code>4af8ad4f47941e4ccb53fe4349c258c3</code></td>
-<td>decision</td>
-<td>1995-09-01</td>
-<td>Page 3 of FEIS</td>
+<td><code>data/analysis/projects_combined.parquet</code></td>
+<td>Project metadata filter + display</td>
 </tr>
 <tr class="odd">
-<td><code>00d09887554d7ab68e49e9ab628583bf</code></td>
-<td>decision</td>
-<td>2025-06-01</td>
-<td>Page 1 of DEIS</td>
+<td><code>_quarto.yml</code></td>
+<td>Add navbar entry</td>
 </tr>
 <tr class="even">
-<td><code>8d13822f3d8b469efcdb2706caa463c7</code></td>
-<td>decision</td>
-<td>2022-03-01</td>
-<td>TVA Final EIS target date</td>
+<td><code>code/rag/01_build_text_store.py</code></td>
+<td>New: filter + export text store</td>
+</tr>
+<tr class="odd">
+<td><code>code/rag/02_build_index.py</code></td>
+<td>New: chunk + embed + write ChromaDB</td>
+</tr>
+<tr class="even">
+<td><code>app/app.py</code></td>
+<td>New: Streamlit frontend</td>
 </tr>
 </tbody>
 </table>
-<p><strong>TODO</strong>: After Thursday, move these to a persistent override file and remove the hardcoded block from <code>00_setup.R</code>. Also investigate the remaining 37 incomplete projects using <code>inspect_candidates()</code> / <code>inspect_llm_prompt()</code> in <code>01_reviews.R</code>.</p>
 </section>
-</section>
-<section id="section-1" class="level3">
-<h3 class="anchored" data-anchor-id="section-1">2026-02-04</h3>
+<section id="reusable-patterns-to-leverage" class="level2">
+<h2 class="anchored" data-anchor-id="reusable-patterns-to-leverage">Reusable Patterns to Leverage</h2>
 <ul>
-<li><strong>Extraction complete</strong>: 16 programmatic, 10 tiered, 1,390 standard</li>
-<li>Created <code>code/exploratory/reviews/01_reviews_eda.R</code> with summary stats, figures, and Google Sheet export</li>
-<li>Created Google Sheet for client validation (separate Programmatic/Tiered tabs)</li>
-<li>Updated <code>reports/deliverable02.qmd</code> with figures, examples, and validation link</li>
-<li>Investigated file name search — found 1 potential miss (<code>3621210fbd086bddbbf6fbedc1d6a488</code>)</li>
-<li>Confirmed “Programmatic Collaborations” (DOE grants) are in CE dataset, not EA/EIS</li>
-<li><strong>Next</strong>: Client validation, timeline merge, add missing project</li>
-</ul>
-</section>
-<section id="section-2" class="level3">
-<h3 class="anchored" data-anchor-id="section-2">2026-01-30</h3>
-<ul>
-<li>Created <code>extract_reviews.py</code> with 3-tier extraction approach</li>
-<li>Implemented title-based, regex, and LLM extraction tiers</li>
-<li>Added false positive filtering for EPA Tier standards, road tiers, etc.</li>
-<li>Fixed bug: “tiering from PEIS” incorrectly flagged as programmatic</li>
-<li>Started first full extraction (background, <code>--no-llm</code>)</li>
+<li>DuckDB predicate pushdown pattern from <code>extract_reviews.py</code> / <code>extract_gencap.py</code> for efficient page loading without reading full parquets into memory</li>
+<li>Project-document lookup pattern (<code>build_project_document_lookup()</code> in reviews)</li>
+<li><code>main_document == &quot;YES&quot;</code> filter for prioritizing primary documents over appendices</li>
 </ul>
 <hr>
 </section>
-</section>
-<section id="files" class="level2">
-<h2 class="anchored" data-anchor-id="files">Files</h2>
-<ul>
-<li>Script: <code>code/extract/extract_reviews.py</code></li>
-<li>Output: <code>data/analysis/projects_reviews.parquet</code></li>
-<li>EDA: <code>code/exploratory/reviews/01_reviews_eda.R</code></li>
-<li>Report: <code>reports/deliverable02.qmd</code></li>
-<li>This doc: <code>notes/status/reviews_status.md</code></li>
-</ul>
-</section>
-<section id="related-files" class="level2">
-<h2 class="anchored" data-anchor-id="related-files">Related Files</h2>
-<ul>
-<li><code>code/extract/extract_timeline.py</code> — Timeline extraction (for merge)</li>
-<li><code>notes/project_overview.md</code> — Overall project deliverables</li>
-<li><code>notes/status/timeline_status.md</code> — Timeline extraction status</li>
-</ul>
+<section id="verification" class="level2">
+<h2 class="anchored" data-anchor-id="verification">Verification</h2>
+<p>End-to-end test sequence: 1. Run <code>01_build_text_store.py</code> → confirm <code>clean_energy_pages.duckdb</code> size ~400–600 MB 2. Run <code>02_build_index.py</code> on a 100-project sample → confirm ChromaDB writes successfully 3. Run <code>streamlit run app/app.py</code> locally → test 3–5 representative queries 4. Confirm retrieved passages are from the right projects and answers are grounded in context 5. Test document browser with a known project by title 6. Deploy to HF Spaces → test cold start, confirm API key works 7. Add link to <code>_quarto.yml</code> → <code>quarto render</code> → confirm navbar entry appears</p>
 
 
 </section>
