@@ -2147,11 +2147,30 @@ def run_full_extraction():
     print("\nAll datasets extracted.")
 
 
+def run_project_description_enrichment():
+    """
+    Ensure EA/EIS processed projects are enriched before downstream combines.
+    Returns a dict with updated row counts.
+    """
+    print("\n=== Enriching EA/EIS Project Descriptions ===")
+    counts = {"EA": 0, "EIS": 0}
+    for dataset in ["EA", "EIS"]:
+        counts[dataset] = int(enrich_project_descriptions(dataset) or 0)
+
+    print("Project description enrichment summary:")
+    print(f"  EA updated: {counts['EA']:,}")
+    print(f"  EIS updated: {counts['EIS']:,}")
+    return counts
+
+
 def run_analysis_pipeline():
     """
     Create analysis-ready datasets from existing processed data.
     This is the main entry point for creating datasets for deliverables.
     """
+    # Ensure projects_combined.parquet always reflects latest EA/EIS enrichment.
+    run_project_description_enrichment()
+
     create_combined_projects()
     create_combined_processes()
     create_combined_documents()
