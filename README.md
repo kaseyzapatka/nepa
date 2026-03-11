@@ -4,7 +4,7 @@ Analysis of clean energy projects using the National Environmental Policy Act Te
 
 ## Project Website
 
-This project has [a website](hhttps://www.kaseyzapatka.com/nepa/reports/project_overview.html) to make it easy to view and share findings. 
+This project has [a website](https://www.kaseyzapatka.com/nepa/reports/project_overview.html) to make it easy to view and share findings. 
 
 ## Data Source
 
