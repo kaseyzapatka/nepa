@@ -56,6 +56,76 @@ analysis |>
 #5 multi_phase        272
 
 # --------------------------
+# IDENTIFICATION FUNNEL FIGURE
+# --------------------------
+# Geothermal uses a single type-tag gate (no build-text, length, or maintenance filters),
+# so the funnel has only two stages. Update n_type_tagged after re-running:
+#   python code/extract/extract_technology.py --run geothermal
+# n_type_tagged is the count of clean energy projects with project_is_geothermal == TRUE
+# before the prepare_deliverable6_data() clean energy filter is applied. Since the R
+# analysis already filters to clean energy, n_type_tagged == nrow(analysis) unless there
+# are non-clean geothermal projects. Confirm with:
+#   projects_combined %>% filter(project_is_geothermal) %>% count(project_energy_type)
+
+n_clean_energy  <- 20725L   # total decarbonization technology projects in NEPATEC 2.0
+n_type_tagged   <- nrow(analysis)  # geothermal project_type tag + clean energy filter
+# NOTE: if non-clean geothermal projects exist, set n_type_tagged manually to the
+# count BEFORE the clean energy filter and add a third stage for the clean filter.
+
+geo_stage_labels <- c(
+  "Decarbonization technology\nprojects (NEPATEC 2.0)",
+  "Geothermal project\ntype tag"
+)
+
+geo_funnel_df <- tibble(
+  stage  = factor(geo_stage_labels, levels = rev(geo_stage_labels)),
+  n_keep = c(n_clean_energy, n_type_tagged),
+  n_total = n_clean_energy
+) %>%
+  mutate(n_drop = n_total - n_keep)
+
+geo_funnel_long <- geo_funnel_df %>%
+  pivot_longer(c(n_keep, n_drop), names_to = "status", values_to = "n") %>%
+  mutate(status = factor(status, levels = c("n_drop", "n_keep")))
+
+fig_geo_funnel <- ggplot(geo_funnel_long, aes(x = n, y = stage, fill = status)) +
+  geom_col(width = 0.55, color = "white", linewidth = 0.25) +
+  geom_text(
+    data = filter(geo_funnel_df, n_keep >= 1000),
+    aes(x = n_keep / 2, y = stage, label = scales::comma(n_keep)),
+    inherit.aes = FALSE,
+    color = "white", fontface = "bold", size = 3.6
+  ) +
+  geom_text(
+    data = filter(geo_funnel_df, n_keep < 1000),
+    aes(x = n_keep, y = stage, label = scales::comma(n_keep)),
+    inherit.aes = FALSE,
+    hjust = -0.35, fontface = "bold", color = catf_navy, size = 3.6
+  ) +
+  scale_fill_manual(
+    values = c(n_keep = catf_dark_blue, n_drop = "#D8DCE8"),
+    labels = c(n_keep = "Included", n_drop = "Excluded at this stage"),
+    guide  = guide_legend(reverse = TRUE)
+  ) +
+  scale_x_continuous(
+    labels = scales::comma,
+    expand = expansion(mult = c(0, 0.14))
+  ) +
+  labs(x = "Projects (n)", y = NULL, fill = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.text.y        = element_text(size = 9.5, lineheight = 1.1)
+  )
+
+print(fig_geo_funnel)
+ggsave(here(figures_dir, "fig_geothermal_funnel.png"),
+       fig_geo_funnel, width = 8, height = 3.2, dpi = 300)
+
+
+# --------------------------
 # TABLES
 # --------------------------
 
@@ -128,7 +198,7 @@ fig_phase_bar <- analysis %>%
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(
     title = "Geothermal NEPA Actions by Development Phase",
-    subtitle = "914 decarbonization technology projects identified in NEPATEC 2.0",
+    subtitle = paste0(comma(nrow(analysis)), " clean geothermal projects identified in NEPATEC 2.0"),
     x = NULL,
     y = "Number of projects"
   ) +

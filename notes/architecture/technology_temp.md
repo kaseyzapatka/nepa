@@ -46,31 +46,33 @@ coordination). The type tag alone is insufficient. The maintenance exclusion is 
 ## Geothermal
 
 ### How identified
-Single keyword match, no type tag, no extra gates:
+Keyword match on **`project_type` field only** (analogous to transmission's type-tag gate):
 
 ```
 \b(geothermal|enhanced geothermal|egs)\b
 ```
 
-Applied to `full_text` = title + description + type + NOI title + aggregated document
-titles. `project_is_geothermal = TRUE` whenever this matches.
+Applied to `project_type` only (not full_text). `project_is_geothermal = TRUE` whenever
+this matches. NEPATEC does carry geothermal-specific tags within `project_type`, making
+a type-tag gate reliable. Earlier documentation incorrectly stated no such tag existed.
 
 R analysis (`02_geothermal.R`) filters to `project_is_geothermal == TRUE` + clean energy.
 
-There is no specific NEPATEC project type tag for geothermal — it is a sub-type of
-`"Renewable Energy Production"` which is too broad to use as a gate.
-
 Phase classification (`project_geothermal_phase`) is derived separately via
-`_classify_geothermal_phase()` using regex patterns applied to full project text.
+`_classify_geothermal_phase()` using regex patterns applied to **`full_text`** (title +
+description + type + NOI title + aggregated document titles). This step is unchanged —
+only the identification flag uses the narrower type_text field.
 Roughly half of geothermal projects receive `phase = "unknown"` (geothermal keyword
 present but no phase signal detected). Phase classification does not scan document pages.
 
 ### What could be missed
-Minor: projects using "hydrothermal" without "geothermal" — rare in NEPA documents.
-The large unknown-phase bucket is a downstream accuracy issue, not an identification gap.
+Projects where the geothermal project_type tag is missing but the project clearly involves
+geothermal development (e.g., tagged only as "Renewable Energy Production"). This is the
+trade-off of moving to a type-tag gate — tighter precision, potentially lower recall.
 
 ### Extra filters verdict
-Nothing to remove — identification is just a keyword. No extra filters exist.
+Nothing to remove — identification is a single type-tag match. No additional filters
+(build text, length threshold, maintenance exclusion) exist for geothermal.
 
 ---
 
@@ -134,8 +136,8 @@ natural gas baseline comparison.
 
 | | Transmission | Geothermal | Pipeline |
 |---|---|---|---|
-| Uses NEPATEC type tag | Yes (required) | No tag available | No (tag = fossil fuel) |
-| Text keyword filter | Strict build-text regex | Simple keyword only | Simple keyword (broadened) |
+| Uses NEPATEC type tag | Yes (required) | **Yes** (project_type field) | No (tag = fossil fuel) |
+| Text keyword filter | Strict build-text regex | Tag keyword only | Simple keyword (broadened) |
 | Length threshold | Yes (≥ 1 mile) | No | No |
 | Maintenance exclusion | Yes (title-only) | No | No |
 | Clean energy filter | Yes | Yes | **No** |

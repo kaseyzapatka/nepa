@@ -925,14 +925,8 @@ def _miles_by_action(candidates: List[Dict], action: str) -> float:
     return round(sum(g["value_miles"] for g in groups), 3)
 
 
-def _classify_geothermal_phase(text: str, dataset_source: str = "") -> str:
-    """Return one of: none, exploration, drilling, plant, operations, multi_phase, unknown.
-
-    dataset_source (CE/EA/EIS) is used as a probabilistic fallback when no patterns
-    match.  CE projects that are geothermal-flagged are almost always in the
-    development/drilling stage; EA/EIS projects are more likely to be exploration or
-    plant-construction reviews.
-    """
+def _classify_geothermal_phase(text: str) -> str:
+    """Return one of: none, exploration, drilling, plant, operations, multi_phase, unknown."""
     txt = (text or "").lower()
     geo_keyword = re.search(r"\b(geothermal|enhanced geothermal|egs)\b", txt)
     if not geo_keyword:
@@ -944,12 +938,6 @@ def _classify_geothermal_phase(text: str, dataset_source: str = "") -> str:
             matches.append(phase)
 
     if len(matches) == 0:
-        # Fallback: use process type as a weak prior
-        src = (dataset_source or "").strip().upper()
-        if src == "CE":
-            return "drilling"       # CE geothermal actions are almost always well/drill permits
-        elif src in ("EA", "EIS"):
-            return "exploration"    # Larger reviews most often cover pre-development stages
         return "unknown"
     if len(matches) == 1:
         return matches[0]
@@ -1391,18 +1379,14 @@ def _add_pipeline_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFram
 
 def _add_geothermal_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFrame:
     out = df.copy()
-    lower_text = full_text.str.lower()
-    out["project_is_geothermal"] = lower_text.str.contains(r"\b(geothermal|enhanced geothermal|egs)\b", regex=True)
-
-    # Pass dataset_source as a fallback prior for phase classification
-    if "dataset_source" in out.columns:
-        source_series = out["dataset_source"].fillna("").astype(str)
-    else:
-        source_series = pd.Series([""] * len(out), index=out.index)
+    # Use project_type tags as the geothermal inclusion rule.
+    type_text = _series_text(out, "project_type").str.lower()
+    geothermal_re = r"\b(?:geothermal|enhanced geothermal|egs)\b"
+    out["project_is_geothermal"] = type_text.str.contains(geothermal_re, regex=True)
 
     out["project_geothermal_phase"] = [
-        _classify_geothermal_phase(text, src)
-        for text, src in zip(full_text, source_series)
+        _classify_geothermal_phase(text)
+        for text in full_text
     ]
     return out
 
@@ -1458,7 +1442,8 @@ def add_technology_columns(
     Returns:
         DataFrame with requested technology columns added/updated.
     """
-    targets = normalize_run_targets(run)
+    targets, run_implies_llm = normalize_run_targets(run)
+    use_llm = bool(use_llm or run_implies_llm)
     out = df.copy()
 
     title_txt = _series_text(out, "project_title")
@@ -1552,7 +1537,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         default=_default_transmission_output_path(),
-        help="Output path (default: data/analysis/projects_transmission.parquet)",
+        help="Transmission-only output path (default: data/analysis/projects_transmission.parquet)",
+    )
+    parser.add_argument(
+        "--projects-output",
+        type=Path,
+        default=None,
+        help=(
+            "Optional full-project output path. "
+            "Defaults to --input (overwrite in place) so geothermal/pipeline "
+            "columns persist to projects_combined.parquet."
+        ),
     )
     parser.add_argument(
         "--timeout",
@@ -1578,6 +1573,7 @@ def build_parser() -> argparse.ArgumentParser:
 def run_cli(args: argparse.Namespace) -> None:
     in_path = args.input
     tx_path = args.output
+    projects_out_path = args.projects_output if args.projects_output is not None else in_path
 
     if not in_path.exists():
         raise FileNotFoundError(f"Input file not found: {in_path}")
@@ -1604,11 +1600,25 @@ def run_cli(args: argparse.Namespace) -> None:
         timeout=args.timeout, workers=args.workers,
         processed_dir=processed_dir, max_ea_eis_pages=args.page_search_max_pages,
     )
+    projects_out_path.parent.mkdir(parents=True, exist_ok=True)
+    updated.to_parquet(projects_out_path, index=False)
+    print(f"Saved updated projects dataset: {projects_out_path}")
+
     tx_path.parent.mkdir(parents=True, exist_ok=True)
 
     if "transmission" in targets and any(
         c for c in updated.columns if c.startswith(TX_OUTPUT_PREFIXES)
     ):
+        try:
+            same_output = tx_path.resolve() == projects_out_path.resolve()
+        except Exception:
+            same_output = tx_path == projects_out_path
+        if same_output:
+            print(
+                "Warning: transmission output path matches full projects output path; "
+                "skipping transmission-only parquet write."
+            )
+            return
         tx_cols = ["project_id"] + [
             c for c in updated.columns if c.startswith(TX_OUTPUT_PREFIXES)
         ]
