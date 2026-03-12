@@ -233,15 +233,31 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_acti
 - **Within-project sequencing** shows that some geothermal developments span multi-year permitting sequences, with individual NEPA actions separated by years as projects progress from exploration wells to full plant construction.
 :::
 
+## Geothermal Project Identification
+
+Geothermal projects are identified using a keyword match on the NEPATEC `project_type` field — analogous to the Electricity Transmission type-tag gate used for transmission. The pattern `geothermal | enhanced geothermal | EGS` is matched against `project_type`; projects where this tag is absent are not included even if geothermal language appears in the title or description. This produces a precise sample of NEPA actions explicitly categorized as geothermal by NEPATEC.
+
+@fig-geo-funnel shows the two-stage identification path.
+
+```{r}
+#| label: fig-geo-funnel
+#| fig-cap: "Geothermal project identification. Blue bar shows projects with a geothermal project_type tag within the decarbonization technology universe; grey bar shows excluded projects."
+#| out-width: "85%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_funnel.png"))
+```
+
+---
+
 ## Phase Classification Method
 
 Geothermal projects are unique in that a single physical development typically triggers multiple sequential NEPA actions — one for exploration drilling, one or more for production well programs, and a final review for the power plant. This analysis groups geothermal projects by phase and examines timeline patterns by phase.
 
-Each project is assigned a development phase using a regex-based classifier applied to concatenated project text (title + description + project type). The classifier scans each document against five phase-specific keyword sets. The assignment logic is:
+Each project is assigned a development phase using a regex-based classifier applied to concatenated project text (title + description + project type + NOI title + document titles). The classifier scans each document against five phase-specific keyword sets. The assignment logic is:
 
 - If **one** phase set matches → that phase is assigned.
 - If **two or more** phase sets match → the project is classified as `multi_phase`.
-- If **no** phase set matches → the NEPA process type is used as a weak prior (CE → `drilling`, EA/EIS → `exploration`). Projects where the process type is also unavailable remain `unknown`.
+- If **no** phase set matches → the project is classified as `unknown`.
 
 @tbl-geo-phase-cues shows representative text cues for each phase.
 
