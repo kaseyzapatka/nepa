@@ -12,8 +12,13 @@ source(here::here("code", "deliverable06", "00_setup.R"))
 #   Transmission:  projects_transmission.parquet      (all project_transmission_* columns)
 
 analysis <- prepare_deliverable6_data() %>%
-  filter(project_is_transmission) |>
+  filter(project_is_transmission) %>%
+  # Exclude fiber optic additions and plain ROW renewals — neither involves new line construction.
+  # "unknown" and "mixed" are kept; they may be genuine builds with undetected action signals.
+  filter(!project_transmission_action %in% c("fiber_optic", "renewal")) |>
   glimpse()
+
+analysis |> count(project_transmission_action)
 
 # --------------------------
 # MANUAL LENGTH RECODES (QA overrides)
@@ -93,11 +98,81 @@ tbl_transmission_summary
 write_csv(tbl_transmission_summary, here(tables_dir, "table_transmission_summary.csv"))
 
 # --------------------------
+# IDENTIFICATION FUNNEL FIGURE
+# --------------------------
+
+n_clean_energy  <- 20725L  # total decarbonization technology projects in NEPATEC 2.0
+n_et_tagged     <- 7697L   # carry Electricity Transmission type tag
+n_build_text    <- 1741L   # pass build-related text filter
+n_not_maint     <- 1419L   # not maintenance-flagged
+n_final         <- nrow(analysis)  # extracted line length ≥ 1 mi
+
+stage_labels <- c(
+  "Decarbonization technology\nprojects (NEPATEC 2.0)",
+  "1. Electricity Transmission\ntype tag",
+  "2. Build-related text\n(title / description)",
+  "3. Not maintenance-flagged",
+  "4. Extracted line length\n\u22651 mile"
+)
+
+funnel_df <- tibble(
+  stage  = factor(stage_labels, levels = rev(stage_labels)),
+  n_keep = c(n_clean_energy, n_et_tagged, n_build_text, n_not_maint, n_final),
+  n_total = n_clean_energy
+) %>%
+  mutate(n_drop = n_total - n_keep)
+
+funnel_long <- funnel_df %>%
+  pivot_longer(c(n_keep, n_drop), names_to = "status", values_to = "n") %>%
+  mutate(status = factor(status, levels = c("n_drop", "n_keep")))
+
+fig_funnel <- ggplot(funnel_long, aes(x = n, y = stage, fill = status)) +
+  geom_col(width = 0.55, color = "white", linewidth = 0.25) +
+  geom_text(
+    data = filter(funnel_df, n_keep >= 1000),
+    aes(x = n_keep / 2, y = stage, label = scales::comma(n_keep)),
+    inherit.aes = FALSE,
+    color = "white", fontface = "bold", size = 3.6
+  ) +
+  geom_text(
+    data = filter(funnel_df, n_keep < 1000),
+    aes(x = n_keep, y = stage, label = scales::comma(n_keep)),
+    inherit.aes = FALSE,
+    hjust = -0.35, fontface = "bold", color = catf_navy, size = 3.6
+  ) +
+  scale_fill_manual(
+    values = c(n_keep = catf_dark_blue, n_drop = "#D8DCE8"),
+    labels = c(n_keep = "Included", n_drop = "Excluded at this stage"),
+    guide  = guide_legend(reverse = TRUE)
+  ) +
+  scale_x_continuous(
+    labels = scales::comma,
+    expand = expansion(mult = c(0, 0.14))
+  ) +
+  labs(x = "Projects (n)", y = NULL, fill = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.text.y        = element_text(size = 9.5, lineheight = 1.1)
+  )
+
+print(fig_funnel)
+ggsave(here(figures_dir, "fig_transmission_funnel.png"),
+       fig_funnel, width = 8, height = 4.4, dpi = 300)
+
+
+# --------------------------
 # SAMPLE COMPOSITION FIGURE
 # --------------------------
 
 n_total     <- nrow(analysis_len)
 n_full_dur  <- sum(!is.na(analysis_len$duration_days) & analysis_len$duration_days >= 0, na.rm = TRUE)
+n_neg_dur   <- sum(!is.na(analysis_len$bert_decision_date_final) &
+                     !is.na(analysis_len$bert_initiation_date_final) &
+                     !is.na(analysis_len$duration_days) &
+                     analysis_len$duration_days < 0, na.rm = TRUE)
 n_dec_only  <- sum(!is.na(analysis_len$bert_decision_date_final) &
                      is.na(analysis_len$bert_initiation_date_final), na.rm = TRUE)
 n_init_only <- sum(is.na(analysis_len$bert_decision_date_final) &
@@ -107,11 +182,11 @@ n_no_dates  <- sum(is.na(analysis_len$bert_decision_date_final) &
 
 avail_df <- tibble(
   status = factor(
-    c("Full duration\n(both dates)", "Decision date only", "Initiation date only", "No dates"),
-    levels = c("No dates", "Initiation date only", "Decision date only", "Full duration\n(both dates)")
+    c("Full duration\n(both dates)", "Both dates\n(order issue)", "Decision date only", "Initiation date only", "No dates"),
+    levels = c("No dates", "Initiation date only", "Decision date only", "Both dates\n(order issue)", "Full duration\n(both dates)")
   ),
-  n     = c(n_full_dur, n_dec_only, n_init_only, n_no_dates),
-  group = c("Complete", "Partial", "Partial", "Missing")
+  n     = c(n_full_dur, n_neg_dur, n_dec_only, n_init_only, n_no_dates),
+  group = c("Complete", "Invalid", "Partial", "Partial", "Missing")
 ) %>%
   mutate(pct = round(n / n_total * 100))
 
@@ -122,7 +197,7 @@ fig_sample_breakdown <- avail_df %>%
             hjust = -0.08, size = 3.5, color = "grey20") +
   coord_flip(clip = "off") +
   scale_fill_manual(
-    values = c("Complete" = catf_teal, "Partial" = catf_light_blue, "Missing" = "grey75"),
+    values = c("Complete" = catf_teal, "Invalid" = catf_magenta, "Partial" = catf_light_blue, "Missing" = "grey75"),
     name   = "Date availability"
   ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
@@ -130,10 +205,14 @@ fig_sample_breakdown <- avail_df %>%
     title    = paste0("Transmission Sample: N = ", n_total, " Electricity Transmission Projects"),
     subtitle = "Breakdown by date availability for NEPA duration calculations",
     x        = NULL,
-    y        = "Number of projects"
+    y        = "Number of projects",
+    caption  = paste0(
+      "Notes: \"Both dates (order issue)\": ", n_neg_dur, " project(s) have both dates extracted but decision\n",
+      "precedes initiation — likely a date-order extraction error. Excluded from duration analyses."
+    )
   ) +
   theme_minimal(base_size = 11) +
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom", plot.caption = element_text(hjust = 0))
 
 print(fig_sample_breakdown)
 ggsave(here(figures_dir, "fig_transmission_sample_breakdown.png"),
@@ -168,7 +247,6 @@ write_csv(tbl_state_region, here(tables_dir, "table_transmission_state_region.cs
 
 # Action type breakdown
 tbl_action <- analysis_len %>%
-  filter(!project_transmission_action %in% c("none", "unknown")) %>%
   group_by(action = project_transmission_action) %>%
   summarise(
     n_projects           = n(),
@@ -188,11 +266,10 @@ write_csv(tbl_action, here(tables_dir, "table_transmission_action.csv"))
 action_colors <- c(
   "New Build"   = catf_dark_blue,
   "Upgrade"     = catf_teal,
-  "Renewal"     = catf_magenta,
-  "Fiber Optic" = catf_light_blue,
   "Acquisition" = catf_navy,
   "Mixed"       = "grey55",
-  "Unknown"     = "grey75"
+  "Unknown"     = "grey70",
+  "None"        = "grey85"
 )
 
 action_label <- function(x) str_to_title(str_replace_all(x, "_", " "))
@@ -237,6 +314,8 @@ ggsave(here(figures_dir, "fig_transmission_length_distribution.png"),
 
 
 # -- Fig: Action type count bar chart (replaces table in report) --
+n_action_total <- sum(tbl_action$n_projects)
+
 fig_action_count <- tbl_action %>%
   mutate(action_lbl = fct_reorder(action_label(action), n_projects)) %>%
   ggplot(aes(x = n_projects, y = action_lbl, fill = action_label(action))) +
@@ -246,7 +325,7 @@ fig_action_count <- tbl_action %>%
   scale_x_continuous(expand = expansion(mult = c(0, 0.18))) +
   labs(
     title    = "Transmission Projects by Action Type",
-    subtitle = "Count of electricity transmission projects per action category",
+    subtitle = paste0(n_action_total, " electricity transmission projects by action type"),
     x        = "Number of projects",
     y        = NULL
   ) +
@@ -258,49 +337,54 @@ ggsave(here(figures_dir, "fig_transmission_action_count.png"),
        fig_action_count, width = 8, height = 4, dpi = 300)
 
 
-# -- Fig 2 & 7: Shared action-type ordering (by median duration) --
+# -- Fig 2 & 7: Shared action-type ordering (by mean length) --
 # Both length and duration figures use this same factor level order so that
 # a given action type appears at the same vertical position in both charts.
 action_order_levels <- analysis_len %>%
-  filter(
-    !is.na(duration_days), duration_days >= 0,
-    !project_transmission_action %in% c("none", "unknown", "mixed")
-  ) %>%
+  filter(!is.na(length_miles)) %>%
   group_by(lbl = action_label(project_transmission_action)) %>%
-  summarise(med = median(duration_days, na.rm = TRUE), .groups = "drop") %>%
-  arrange(med) %>%
+  summarise(mean_len = mean(length_miles, na.rm = TRUE), .groups = "drop") %>%
+  arrange(mean_len) %>%
   pull(lbl)
 
 # -- Fig 2: Length by action type (boxplot + jitter) --
 length_action_data <- analysis_len %>%
-  filter(!is.na(length_miles),
-         !project_transmission_action %in% c("none", "unknown", "mixed")) %>%
+  filter(!is.na(length_miles)) %>%
   mutate(action_label = factor(action_label(project_transmission_action),
                                levels = action_order_levels))
 
 n_length_action <- length_action_data %>%
   count(action_label, name = "n")
 
+len_action_cap <- 300
+n_capped_len_action <- sum(length_action_data$length_miles > len_action_cap, na.rm = TRUE)
+
 fig_length_by_action <- length_action_data %>%
   ggplot(aes(x = action_label, y = length_miles, fill = action_label, color = action_label)) +
-  geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE, width = 0.4) +
+  geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE, width = 0.25) +
   geom_jitter(width = 0.2, alpha = 0.55, size = 2, show.legend = FALSE) +
   geom_text(
     data = n_length_action,
-    aes(x = action_label, y = Inf, label = paste0("n=", n)),
-    hjust = 1.15, size = 2.7, color = "gray30", inherit.aes = FALSE
+    aes(x = action_label, y = len_action_cap * 0.97, label = paste0("n=", n)),
+    hjust = 1.05, size = 2.7, color = "gray30", inherit.aes = FALSE
   ) +
-  coord_flip() +
+  coord_flip(ylim = c(0, len_action_cap)) +
   scale_fill_manual(values = action_colors) +
   scale_color_manual(values = action_colors) +
-  scale_y_continuous(labels = scales::comma) +
+  scale_y_continuous(labels = scales::comma,
+                     breaks = seq(0, len_action_cap, 25)) +
   labs(
-    title = "Transmission Length by Project Action Type",
-    subtitle = "Ordered by median duration; points = individual projects",
-    x = NULL,
-    y = "Transmission length (miles)"
+    title    = "Transmission Length by Project Action Type",
+    subtitle = "Ordered by mean length; box shows IQR; summary statistics use all data",
+    x        = NULL,
+    y        = "Transmission length (miles)",
+    caption  = paste0(
+      "Notes: x-axis capped at ", len_action_cap, " mi. ",
+      n_capped_len_action, " project(s) above cap are hidden but included in box statistics."
+    )
   ) +
-  theme_minimal(base_size = 11)
+  theme_minimal(base_size = 11) +
+  theme(plot.caption = element_text(hjust = 0))
 
 print(fig_length_by_action)
 ggsave(here(figures_dir, "fig_transmission_length_by_action.png"),
@@ -313,7 +397,8 @@ p_bin_n <- tbl_length_bins %>%
   geom_col(fill = catf_dark_blue, width = 0.6) +
   geom_text(aes(label = n_projects), vjust = -0.4, size = 3.5, fontface = "bold") +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
-  labs(x = NULL, y = "Projects", title = "Projects per length") +
+  labs(x = NULL, y = "Projects",
+       title = paste0("Projects per length band  (n = ", sum(tbl_length_bins$n_projects), ")")) +
   theme_minimal(base_size = 11)
 
 bin_colors <- c(
@@ -322,6 +407,10 @@ bin_colors <- c(
   "50–100 mi" = catf_dark_blue,
   "100+ mi"   = catf_navy
 )
+
+tbl_length_bins_dur <- analysis_len %>%
+  filter(!is.na(length_bin), !is.na(duration_days), duration_days >= 0) %>%
+  count(length_bin, name = "n_dur")
 
 p_bin_dur <- analysis_len %>%
   filter(!is.na(length_bin), !is.na(duration_days), duration_days >= 0) %>%
@@ -336,21 +425,29 @@ p_bin_dur <- analysis_len %>%
     linewidth     = 0.55
   ) +
   geom_text(
-    data = tbl_length_bins,
-    aes(x = length_bin, y = 780, label = paste0("n = ", n_projects)),
+    data = tbl_length_bins_dur,
+    aes(x = length_bin, y = 780, label = paste0("n = ", n_dur)),
     inherit.aes = FALSE, size = 3.2, color = "grey30", fontface = "italic"
   ) +
   coord_cartesian(ylim = c(0, 800)) +
   scale_fill_manual(values = bin_colors) +
   scale_y_continuous(labels = scales::comma) +
-  labs(x = NULL, y = "Duration (days)", title = "NEPA Duration by Length Band") +
+  labs(x = NULL, y = "Duration (days)",
+       title = paste0("NEPA Duration by Length Band  (n = ", sum(tbl_length_bins_dur$n_dur), " with duration data)")) +
   theme_minimal(base_size = 11) +
   theme(legend.position = "none")
 
 fig_length_bins_chart <- p_bin_n + p_bin_dur +
   plot_annotation(
     title    = "Longer Transmission Lines, Longer NEPA Reviews",
-    subtitle = "Electricity transmission projects by length band"
+    subtitle = "Electricity transmission projects by length band",
+    caption  = paste0(
+      "Notes: Left panel (n = ", sum(tbl_length_bins$n_projects), "): 1 project excluded — length set to NA during QA ",
+      "review (a year was mistakenly read as miles).\n",
+      "Right panel (n = ", sum(tbl_length_bins_dur$n_dur), "): 1 additional project excluded — ",
+      "has valid duration but no extractable length, so it falls outside the length-band analysis."
+    ),
+    theme = theme(plot.caption = element_text(hjust = 0))
   )
 
 print(fig_length_bins_chart)
@@ -376,8 +473,11 @@ fig_state_n <- tbl_state_region_clean %>%
   geom_segment(aes(x = 0, xend = n_projects, yend = project_state_primary),
                color = "grey85", linewidth = 0.8) +
   geom_point(size = 3.5, alpha = 0.85) +
+  geom_text(aes(label = paste0("n=", n_projects)), hjust = -0.35, size = 2.8,
+            color = "grey40", show.legend = FALSE) +
   scale_color_manual(values = region_colors) +
-  scale_x_continuous(breaks = scales::pretty_breaks(n = 5)) +
+  scale_x_continuous(breaks = scales::pretty_breaks(n = 5),
+                     expand = expansion(mult = c(0, 0.18))) +
   labs(
     title    = "Transmission Projects by State",
     subtitle = "Number of electricity transmission projects per state; color = census region",
@@ -428,37 +528,21 @@ r_len_dur <- round(
 )
 
 
-# -- Fig 5: Length vs duration, colored by action type --
+# -- Fig 5: Length vs duration --
 fig_scatter <- analysis_len %>%
   filter(!is.na(length_miles), !is.na(duration_days), duration_days >= 0) %>%
-  mutate(
-    action_label = case_when(
-      project_transmission_action %in% c("none", "unknown", "mixed") ~ "Unknown / Mixed",
-      TRUE ~ action_label(project_transmission_action)
-    )
-  ) %>%
-  ggplot(aes(x = length_miles, y = duration_days, color = action_label)) +
-  geom_point(alpha = 0.65, size = 2.2) +
-  geom_smooth(
-    aes(x = length_miles, y = duration_days),
-    method = "lm", se = TRUE, color = "grey40", linewidth = 0.9,
-    inherit.aes = FALSE
-  ) +
-  scale_color_manual(
-    values = c(action_colors, "Unknown / Mixed" = "grey70"),
-    name = "Action type"
-  ) +
+  ggplot(aes(x = length_miles, y = duration_days)) +
+  geom_point(alpha = 0.55, size = 2.2, color = "grey55") +
+  geom_smooth(method = "lm", se = TRUE, color = catf_dark_blue, linewidth = 0.9) +
   scale_x_continuous(labels = scales::comma) +
   scale_y_continuous(labels = scales::comma) +
   labs(
     title    = "Transmission Length vs. NEPA Duration",
-    subtitle = paste0("Points colored by action type; grey line = overall trend  |  Pearson r = ", r_len_dur),
+    subtitle = paste0("Pearson r = ", r_len_dur),
     x        = "Transmission length (miles)",
     y        = "Duration (days)"
   ) +
-  theme_minimal(base_size = 11) +
-  theme(legend.position = "bottom", legend.text = element_text(size = 9)) +
-  guides(color = guide_legend(nrow = 2))
+  theme_minimal(base_size = 11)
 
 print(fig_scatter)
 ggsave(here(figures_dir, "fig_transmission_length_vs_duration.png"),
@@ -473,30 +557,16 @@ dur_p95 <- quantile(scatter_base$duration_days, 0.95, na.rm = TRUE)
 len_p95 <- quantile(scatter_base$length_miles,  0.95, na.rm = TRUE)
 
 scatter_trim <- scatter_base %>%
-  filter(duration_days <= dur_p95, length_miles <= len_p95) %>%
-  mutate(
-    action_label = case_when(
-      project_transmission_action %in% c("none", "unknown", "mixed") ~ "Unknown / Mixed",
-      TRUE ~ action_label(project_transmission_action)
-    )
-  )
+  filter(duration_days <= dur_p95, length_miles <= len_p95)
 
 n_excluded   <- nrow(scatter_base) - nrow(scatter_trim)
 r_len_dur_trim <- round(cor(scatter_trim$length_miles, scatter_trim$duration_days,
                             use = "complete.obs"), 2)
 
 fig_scatter_trim <- scatter_trim %>%
-  ggplot(aes(x = length_miles, y = duration_days, color = action_label)) +
-  geom_point(alpha = 0.65, size = 2.2) +
-  geom_smooth(
-    aes(x = length_miles, y = duration_days),
-    method = "lm", se = TRUE, color = "grey40", linewidth = 0.9,
-    inherit.aes = FALSE
-  ) +
-  scale_color_manual(
-    values = c(action_colors, "Unknown / Mixed" = "grey70"),
-    name = "Action type"
-  ) +
+  ggplot(aes(x = length_miles, y = duration_days)) +
+  geom_point(alpha = 0.55, size = 2.2, color = "grey55") +
+  geom_smooth(method = "lm", se = TRUE, color = catf_dark_blue, linewidth = 0.9) +
   scale_x_continuous(labels = scales::comma) +
   scale_y_continuous(labels = scales::comma) +
   labs(
@@ -508,9 +578,7 @@ fig_scatter_trim <- scatter_trim %>%
     x = "Transmission length (miles)",
     y = "Duration (days)"
   ) +
-  theme_minimal(base_size = 11) +
-  theme(legend.position = "bottom", legend.text = element_text(size = 9)) +
-  guides(color = guide_legend(nrow = 2))
+  theme_minimal(base_size = 11)
 
 print(fig_scatter_trim)
 ggsave(here(figures_dir, "fig_transmission_length_vs_duration_trim.png"),
@@ -555,34 +623,41 @@ ggsave(here(figures_dir, "fig_transmission_duration_by_region.png"),
 
 # -- Fig 7: Duration by action type --
 duration_action_data <- analysis_len %>%
-  filter(!is.na(duration_days), duration_days >= 0,
-         !project_transmission_action %in% c("none", "unknown", "mixed")) %>%
+  filter(!is.na(duration_days), duration_days >= 0) %>%
   mutate(action_label = factor(action_label(project_transmission_action),
                                levels = action_order_levels))
 
 n_duration_action <- duration_action_data %>%
   count(action_label, name = "n")
 
+dur_action_cap <- 1200
+n_capped_dur_action <- sum(duration_action_data$duration_days > dur_action_cap, na.rm = TRUE)
+
 fig_duration_by_action <- ggplot(duration_action_data,
     aes(x = action_label, y = duration_days, fill = action_label, color = action_label)) +
-  geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE, width = 0.4) +
+  geom_boxplot(alpha = 0.75, outlier.shape = NA, show.legend = FALSE, width = 0.25) +
   geom_jitter(width = 0.2, alpha = 0.55, size = 2, show.legend = FALSE) +
   geom_text(
     data = n_duration_action,
-    aes(x = action_label, y = Inf, label = paste0("n=", n)),
-    hjust = 1.15, size = 2.7, color = "gray30", inherit.aes = FALSE
+    aes(x = action_label, y = dur_action_cap * 0.97, label = paste0("n=", n)),
+    hjust = 1.05, size = 2.7, color = "gray30", inherit.aes = FALSE
   ) +
-  coord_flip() +
+  coord_flip(ylim = c(0, dur_action_cap)) +
   scale_fill_manual(values = action_colors) +
   scale_color_manual(values = action_colors) +
   scale_y_continuous(labels = scales::comma) +
   labs(
     title    = "NEPA Duration by Project Action Type",
-    subtitle = "Ordered by median duration; points = individual projects",
+    subtitle = "Ordered by mean length; box shows IQR; summary statistics use all data",
     x        = NULL,
-    y        = "Duration (days)"
+    y        = "Duration (days)",
+    caption  = paste0(
+      "Notes: x-axis capped at ", scales::comma(dur_action_cap), " days. ",
+      n_capped_dur_action, " project(s) above cap are hidden but included in box statistics."
+    )
   ) +
-  theme_minimal(base_size = 11)
+  theme_minimal(base_size = 11) +
+  theme(plot.caption = element_text(hjust = 0))
 
 print(fig_duration_by_action)
 ggsave(here(figures_dir, "fig_transmission_duration_by_action.png"),

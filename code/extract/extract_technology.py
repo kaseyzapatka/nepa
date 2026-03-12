@@ -210,12 +210,20 @@ PIPELINE_HINTS = (
 TRANSMISSION_BUILD_RE = re.compile(
     r"(?:new\s+transmission\s+line|"
     r"\btransmission\s+line\s+(?:project|route|corridor)\b|"
+    # Transmission project/corridor without the word "line" (e.g. "Gateway West Transmission Project")
+    r"\btransmission\s+(?:project|corridor|facility)\b|"
     r"\b(?:construct(?:ion|ed)?|build(?:ing)?|install(?:ation|ed)?|upgrade(?:d|s)?|rebuild(?:ing)?)\s+"
     r"(?:of\s+)?(?:new\s+)?(?:\d{2,4}\s*-?\s*k\s?v\s+)?transmission\s+line\b|"
     r"double-?circuit\s+(?:\d{2,4}\s*-?\s*k\s?v\s+)?transmission\s+line|"
     r"single-?circuit\s+(?:\d{2,4}\s*-?\s*k\s?v\s+)?transmission\s+line|"
     r"\b\d{2,4}\s*-?\s*k\s?v\s+(?:transmission\s+line|line)\b|"
-    r"right-?of-?way.*transmission\s+line|transmission\s+line.*right-?of-?way)",
+    # HVDC lines
+    r"\bHVDC\b|high.voltage\s+direct\s+current\b|"
+    # Generator-tie lines (new-build interconnection from generator to grid)
+    r"\bgen.tie\s+(?:line|transmission)\b|\bgenerating\s+tie\s+line\b|"
+    # ROW branch: narrowed to require "new" so plain ROW renewals don't pass
+    r"right-?of-?way\s+(?:\w+\s+){0,3}new\s+transmission\s+line|"
+    r"new\s+transmission\s+line\s+(?:\w+\s+){0,3}right-?of-?way)",
     re.IGNORECASE,
 )
 

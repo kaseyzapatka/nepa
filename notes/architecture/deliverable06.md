@@ -69,7 +69,16 @@ Maintenance patterns include: vegetation management, herbicide treatment, weed c
 A project passes the strict filter only if **all three** conditions hold:
 
 1. `project_type` contains `Electricity Transmission` (`project_has_transmission_type_tag == TRUE`)
-2. Title or description contains explicit build-related transmission text (`project_has_transmission_build_text == TRUE`), matched against `TRANSMISSION_BUILD_RE` — a multi-pattern regex covering phrases like "new transmission line", "construct X kV line", "double-circuit transmission line", and "right-of-way ... transmission line"
+2. Title or description contains explicit build-related transmission text (`project_has_transmission_build_text == TRUE`), matched against `TRANSMISSION_BUILD_RE` — a multi-pattern regex covering:
+   - "new transmission line"
+   - "transmission line project / route / corridor"
+   - "transmission project / corridor / facility" (no "line" required — catches e.g. "Gateway West Transmission Project")
+   - "construct / build / install / upgrade / rebuild ... [kV] transmission line"
+   - "double-circuit / single-circuit ... transmission line"
+   - `\d{2,4} kV (transmission) line`
+   - `HVDC` / "high-voltage direct current"
+   - "gen-tie line / transmission" / "generating tie line"
+   - "right-of-way ... **new** transmission line" (narrowed from old branch that matched any ROW renewal mentioning a transmission line)
 3. Extracted transmission length `>= 1` mile (after adjudication)
 
 `project_is_transmission` is an alias of `project_is_transmission_strict`. The `>= 1 mile` threshold was chosen conservatively to exclude administrative or measurement artifacts.
@@ -174,7 +183,7 @@ A secondary extraction pass recovers lengths for projects that passed the build-
 
 **CLI:** Enabled by `--page-length-recovery` flag. `--page-search-max-pages N` controls the EA/EIS page depth (default 10). Not run by default (no flag = old behavior).
 
-**Known limitation:** Recovery rate is lower than expected for the CE population because many of the 1,268 are ROW renewals that pass the build-text gate via incidental "transmission line" mentions in their descriptions but genuinely have no construction length — not even in the document body. The actual recoverable population is a subset of the 1,268.
+**Known limitation:** Recovery rate is lower than expected for the CE population because many projects that previously passed the build-text gate were ROW renewals entering via the old permissive ROW branch (`right-of-way.*transmission line`). That branch has been narrowed to require "new" in the vicinity, so fewer renewals enter the gate going forward. The remaining no-length projects are expected to be genuine builds where the length is not stated anywhere in the document text.
 
 #### 3.2.6 Action type split (`project_transmission_new_build_miles`, `project_transmission_upgrade_miles`)
 
@@ -271,7 +280,9 @@ Technology extraction columns that are absent from `projects_combined.parquet` a
 
 ### 5.1 Analysis subset
 
-The script filters to `project_is_transmission == TRUE` (strict classification, clean energy). The working dataset `analysis_len` adds:
+The script filters to `project_is_transmission == TRUE` (strict classification, clean energy), then additionally excludes `project_transmission_action %in% c("fiber_optic", "renewal")` — these action types involve adding fiber optic cable to existing lines or renewing ROW grants, neither of which constitutes new line construction. `"unknown"` and `"mixed"` are retained as they may represent genuine builds with undetected action signals.
+
+The working dataset `analysis_len` adds:
 - `length_miles = project_transmission_length_final` (LLM-adjudicated when available, else rule-based)
 - `duration_days = bert_duration_days_final`
 - `length_bin`: `<10 mi`, `10–50 mi`, `50–100 mi`, `100+ mi`

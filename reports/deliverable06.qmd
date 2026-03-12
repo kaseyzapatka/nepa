@@ -25,6 +25,12 @@ library(scales)
 
 d6_figures <- here("output", "deliverable6", "figures")
 d6_tables  <- here("output", "deliverable6", "tables")
+
+tx_summary   <- read_csv(file.path(d6_tables, "table_transmission_summary.csv"), show_col_types = FALSE)
+n_tx_total   <- tx_summary$Value[tx_summary$Metric == "Electricity transmission projects"]
+n_tx_len     <- tx_summary$Value[tx_summary$Metric == "With extracted length"]
+n_tx_dur     <- tx_summary$Value[tx_summary$Metric == "With calculable duration"]
+n_tx_multi   <- tx_summary$Value[tx_summary$Metric == "Multi-state projects"]
 ```
 
 ## Executive Summary
@@ -44,7 +50,7 @@ This deliverable examines three technology-specific questions from the NEPATEC 2
 ::: {.callout-note}
 ## Key Findings
 
-- **290 electricity transmission projects** were identified with extractable line lengths — all have a usable length figure.
+- **`r n_tx_total` electricity transmission projects** were identified with extractable line lengths; of these, `r n_tx_dur` have both initiation and decision dates and contribute to NEPA duration analyses.
 - **Most projects involve short line segments**: 44% are under 10 miles; the median extracted length is 11.1 miles. 25 projects involve lines of 100 miles or more.
 - **NEPA reviews are fast overall**, with a median duration of 107 days. However, reviews for the longest projects (100+ miles) take a median of 477 days — nearly 4.5× longer.
 - **Upgrades and replacements dominate** electricity transmission activity: 94 projects involve equipment upgrades or reconductoring, while only 12 are classified as purely new-build construction.
@@ -53,23 +59,37 @@ This deliverable examines three technology-specific questions from the NEPATEC 2
 
 ## Transmission Line Identification
 
-Transmission projects are identified through a three-gate classification applied to all clean-energy projects in NEPATEC 2.0. A project must pass all three gates to enter the analysis:
+Transmission projects are identified through a four-gate classification applied to all decarbonization technology projects in NEPATEC 2.0. A project must pass all four gates to enter the analysis:
 
-1. **Electricity Transmission type tag** — the NEPATEC `project_type` field must include `Electricity Transmission`. This is the primary narrowing step: of 20,725 clean-energy projects, 7,697 carry this type tag.
+1. **Electricity Transmission type tag** — the NEPATEC `project_type` field must include `Electricity Transmission`. This is the primary narrowing step: of 20,725 decarbonization technology projects, 7,697 carry this type tag.
 
 2. **Build-related text** — the project title and description must match explicit construction language: phrases such as "new transmission line," "construct/install/rebuild \[kV\] transmission line," "double-circuit transmission line," or "right-of-way ... transmission line." ROW renewals, fiber-optic installs, substation transactions, and DOE research grants that carry the transmission type tag but lack construction language are excluded here. This step reduces the candidate pool to 1,741 projects.
 
-3. **Extracted line length ≥ 1 mile** — a numeric mileage value must be recoverable from the project text. Length is first extracted from the project title and description metadata; if absent, the NEPA document page text is searched (up to 10 pages of main documents for EA/EIS; all pages for CE). After removing maintenance-flagged projects, 151 projects are recovered from metadata and an additional 136 from document pages, yielding a final set of 290 projects.
+3. **Not maintenance-flagged** — projects whose titles contain explicit maintenance language (vegetation management, herbicide treatment, line inspection, and related terms) are excluded before length extraction. This removes 322 projects, leaving 1,419 candidates.
 
-Maintenance projects are flagged separately via a title-only regex (vegetation management, herbicide treatment, line inspection, and related terms) and excluded from classification and length extraction.
+4. **Extracted line length ≥ 1 mile** — a numeric mileage value must be recoverable from the project text. Length is first extracted from the project title and description metadata; if absent, the NEPA document page text is searched (up to 10 pages of main documents for EA/EIS; all pages for CE). Of the 1,419 non-maintenance candidates, 151 projects are recovered from metadata and an additional 136 from document pages, yielding a final set of `r n_tx_total` projects.
 
-Length figures come from `project_transmission_length_final`. For the 35 projects with two or more plausible candidate values, an LLM adjudication step selects the most likely total line length; all others use rule-based selection. The rule-based selector applies a priority cascade — preferring explicit total-length language ("X miles long," "X miles in length"), build-verb context, and highest hint-score — before falling back to the largest candidate value.
+@fig-tx-funnel shows the project count at each filtering stage.
 
-@fig-tx-sample-breakdown provides a clearer picture of the usable analysis sample. Of the transmission projects, the majority have both timeline dates and can be used in NEPA duration analyses; a smaller share are missing one or both dates and contribute only to length-based analyses.
+```{r}
+#| label: fig-tx-funnel
+#| fig-cap: "Transmission project identification funnel. Blue bars show projects passing each gate; grey bars show the share excluded at that stage."
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_funnel.png"))
+```
+
+Length figures come from `project_transmission_length_final`. For projects with two or more plausible candidate values, an LLM adjudication step selects the most likely total line length; all others use rule-based selection. The rule-based selector applies a priority cascade — preferring explicit total-length language ("X miles long," "X miles in length"), build-verb context, and highest hint-score — before falling back to the largest candidate value.
+
+### Final Transmission Line Sample
+
+The `r n_tx_total` projects that pass all four gates form the analysis universe for length-based findings. However, NEPA duration analyses require both an initiation date and a decision date to be extractable — only `r n_tx_dur` of the `r n_tx_total` projects meet this requirement. All duration statistics in this report (median review times, length–duration relationships, regional and action-type comparisons) are based on this smaller sample of `r n_tx_dur` projects. Length-only findings (distributions, geographic patterns, action-type shares) use the full `r n_tx_total`.
+
+@fig-tx-sample-breakdown shows the breakdown of the `r n_tx_total` projects by date availability.
 
 ```{r}
 #| label: fig-tx-sample-breakdown
-#| fig-cap: "Breakdown of electricity transmission projects by date availability. Projects with both an initiation and decision date contribute to duration analyses; partial or missing dates limit those projects to length-based analyses only."
+#| fig-cap: "Breakdown of electricity transmission projects by date availability. Projects with both an initiation and decision date contribute to NEPA duration analyses; partial or missing dates limit those projects to length-based analyses only."
 #| out-width: "85%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_sample_breakdown.png"))
@@ -88,6 +108,10 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_sample_breakdown
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_distribution.png"))
 ```
+
+---
+
+## Length vs. NEPA Duration
 
 @fig-tx-bins examines how project count and median NEPA duration vary across length bands. The left panel shows that most projects are short-segment (<10 miles), while the right panel reveals that review duration rises with line length — projects in the 50–100 mile band take a median 133 days, and 100+ mile projects take 221 days, compared to just 25–41 days for projects under 50 miles.
 
@@ -123,6 +147,16 @@ read_csv(file.path(d6_tables, "table_transmission_length_bins.csv"), show_col_ty
   tab_options(table.font.size = px(13), data_row.padding = px(6))
 ```
 
+@fig-tx-scatter plots each project's extracted line length against its NEPA duration. The dark blue trend line shows the overall linear relationship. There is a positive association — longer lines tend to have longer reviews — but the correlation is modest, and many short projects still take substantial time.
+
+```{r}
+#| label: fig-tx-scatter
+#| fig-cap: "Transmission line length vs. NEPA duration. Dark blue line shows overall linear trend; Pearson r in subtitle."
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_vs_duration.png"))
+```
+
 ---
 
 ## Geographic Patterns
@@ -131,7 +165,7 @@ read_csv(file.path(d6_tables, "table_transmission_length_bins.csv"), show_col_ty
 
 ```{r}
 #| label: fig-tx-state-n
-#| fig-cap: "Number of electricity transmission projects per state, colored by census region."
+#| fig-cap: "Number of electricity transmission projects per state, colored by census region. Labels show project count."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_state_n.png"))
@@ -149,15 +183,21 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_state_length.png
 
 ## Project Action Type
 
-The `project_transmission_action` field classifies projects by their primary activity — whether the project is constructing new infrastructure, upgrading existing lines, renewing rights-of-way, or other activities. @fig-tx-action-count shows the project count by action type, and @fig-tx-length-by-action and @fig-tx-duration-by-action show how both line length and NEPA duration vary by action type.
+The `project_transmission_action` field classifies each project's primary activity using keyword patterns applied to the project title and description. Five categories appear in the figures:
 
-Upgrades and equipment replacements are by far the most common activity (59 projects), reflecting the active maintenance and reconductoring of the existing transmission network. Projects classified as "mixed" — matching multiple action-type signals — are also common (50 projects), suggesting many projects involve both construction and renewal elements. Purely new-build projects are rare (5 projects), which is notable given the focus on transmission expansion in clean energy policy discussions.
+- **New Build**: explicit construction language — e.g., *"construction of a new 230 kV transmission line"* or *"new substation."*
+- **Upgrade**: reconductoring, uprating, or capacity expansion of an existing line — e.g., *"reconductor existing 69 kV line"* or *"voltage uprate to 138 kV."*
+- **Acquisition**: land or right-of-way purchase without construction — e.g., *"right-of-way acquisition"* or *"land purchase for corridor."*
+- **Mixed**: the document matched keywords for more than one action type. These are typically multi-component projects involving both new infrastructure and modifications to existing facilities.
+- **Unknown / None**: no action-type keyword was detected. The project passed the transmission build-text gate but its description lacks sufficient language to assign a specific activity.
 
-New builds have the longest median NEPA duration (65 days), while acquisitions and renewals are often resolved very quickly. Fiber optic projects show the longest median line lengths (78 miles), reflecting their spanning nature.
+@fig-tx-action-count shows project counts by action type. @fig-tx-length-by-action and @fig-tx-duration-by-action show how line length and NEPA duration vary across categories; both figures top-code at 300 mi and 1,200 days respectively so that the box shapes are visible — a small number of outliers beyond those thresholds are hidden but included in the underlying statistics.
+
+Upgrades are the most common classified activity, reflecting the active reconductoring and maintenance of the existing grid. Mixed projects are also frequent, suggesting many NEPA actions cover both new construction and modifications to existing facilities. New builds are relatively rare. The Unknown and None categories together account for a substantial share, consistent with many short project descriptions in the dataset that do not include explicit build-type language.
 
 ```{r}
 #| label: fig-tx-action-count
-#| fig-cap: "Count of electricity transmission projects by action type. Mixed = project text matched multiple action-type signals; projects with no detectable action type are excluded."
+#| fig-cap: "Count of electricity transmission projects by action type. Mixed = matched multiple action-type signals; Unknown/None = no detectable action signal."
 #| out-width: "85%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_action_count.png"))
@@ -165,7 +205,7 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_action_count.png
 
 ```{r}
 #| label: fig-tx-length-by-action
-#| fig-cap: "Transmission line length by project action type. Boxes show IQR; points are individual projects colored by action type."
+#| fig-cap: "Transmission line length by project action type. Ordered by mean length. Boxes show IQR; points are individual projects colored by action type."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action.png"))
@@ -173,24 +213,10 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action
 
 ```{r}
 #| label: fig-tx-duration-by-action
-#| fig-cap: "NEPA duration by project action type. Ordered by median duration. New builds take the longest; acquisitions and renewals resolve fastest."
+#| fig-cap: "NEPA duration by project action type. Ordered by mean length. New builds take the longest; acquisitions resolve fastest."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_action.png"))
-```
-
----
-
-## Length vs. NEPA Duration
-
-@fig-tx-scatter plots each project's extracted line length against its NEPA duration, colored by action type. The grey trend line represents the overall linear relationship. While there is a positive association — longer lines tend to have longer reviews — the correlation is modest, and many short projects still take substantial time. Upgrade projects (teal) are distributed throughout the length range, while new builds (dark blue) and fiber optic projects are concentrated at intermediate lengths.
-
-```{r}
-#| label: fig-tx-scatter
-#| fig-cap: "Transmission line length vs. NEPA duration. Points colored by action type; grey line shows overall linear trend with Pearson r shown in subtitle."
-#| out-width: "95%"
-
-knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_vs_duration.png"))
 ```
 
 ---
