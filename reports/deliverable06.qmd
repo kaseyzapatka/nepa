@@ -277,8 +277,7 @@ tibble::tribble(
   "Drilling",     "drilling, production well, injection well, well pad, wellfield, well program, well stimulation, wellhead, geothermal well",
   "Plant",        "power plant, binary plant, flash plant, turbine, generating station, power generation, substation, interconnection, steam gathering",
   "Operations",   "steam supply, reinjection, make-up well, makeup well, fluid management, working fluid, geothermal resource utilization",
-  "Multi-phase",  "(two or more phase cue sets detected in the same document)",
-  "Unknown",      "(no regex cues detected; reclassified by fine-tuned SciBERT ML model)"
+  "Multi-phase",  "(two or more phase cue sets detected in the same document)"
 ) %>%
   gt() %>%
   cols_align(align = "left", columns = everything()) %>%
@@ -288,17 +287,29 @@ tibble::tribble(
   ) %>%
   tab_style(
     style = list(cell_fill(color = "#f7f7f7"), cell_text(style = "italic")),
-    locations = cells_body(rows = Phase %in% c("Multi-phase", "Unknown"))
+    locations = cells_body(rows = Phase == "Multi-phase")
   ) %>%
   tab_options(table.font.size = px(13), data_row.padding = px(6))
 ```
 
 ```{r}
 #| label: fig-geo-phase-dist
-#| fig-cap: "Number of geothermal projects by classified development phase (project-level rollup). Phase is assigned by regex classifier then, for unresolved actions, by a fine-tuned SciBERT ML model; per-action phases are then collapsed to a single project-level label."
+#| fig-cap: "Number of geothermal projects by classified development phase (project-level rollup). Phase is assigned by regex classifier then, for unresolved actions, by a fine-tuned SciBERT ML model; per-action phases are then collapsed to a single project-level label. Projects with no resolved phase (unknown) are excluded."
 #| out-width: "85%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_distribution.png"))
+```
+
+## Multi-Phase Combinations
+
+@fig-geo-upset shows the phase type landscape across all classified geothermal projects. Each bar represents a distinct phase assignment or combination; filled dots below indicate which phases are present. The dominant "Multi Phase" bar captures projects whose single NEPA document matched multiple phase-pattern sets — the internal breakdown is not further decomposed. Bars with two or more named phases (e.g., Exploration + Drilling) represent the smaller subset of projects with separate NEPA actions for each stage.
+
+```{r}
+#| label: fig-geo-upset
+#| fig-cap: "UpSet plot of geothermal project phase types and combinations. 'Multi Phase' captures projects whose single NEPA action matched multiple pattern sets (internal structure unresolved). Named combinations (e.g., Exploration + Drilling) are projects with separate NEPA actions for each stage. Unknown-phase projects are excluded."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_upset.png"))
 ```
 
 ---

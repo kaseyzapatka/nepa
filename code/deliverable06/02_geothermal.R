@@ -270,6 +270,7 @@ ggsave(here(figures_dir, "fig_geothermal_funnel.png"),
 # --------------------------
 
 tbl_phase_distribution <- analysis_proj %>%
+  filter(project_phase != "unknown") %>%
   count(project_phase, name = "n_projects") %>%
   rename(geothermal_phase = project_phase) %>%
   mutate(share = n_projects / sum(n_projects))
@@ -321,8 +322,8 @@ within_project_phase %>%
 
 # -- Fig 1: Phase distribution bar chart (PROJECT level) --
 fig_phase_bar <- analysis_proj %>%
+  filter(!is.na(project_phase), project_phase != "unknown") %>%
   count(project_phase, name = "n_projects") %>%
-  filter(!is.na(project_phase)) %>%
   mutate(
     phase_label = str_to_title(str_replace_all(as.character(project_phase), "_", " ")),
     phase_label = fct_reorder(phase_label, n_projects)
@@ -354,7 +355,72 @@ ggsave(
   dpi = 300
 )
 
-# -- Fig 2: NEPA Duration by Phase (violin + box, capped at 1,000 days) --
+# -- Fig 2: Multi-Phase Combination UpSet Plot (ggupset) --
+# ggupset uses a list column of set memberships directly — no binary matrix needed.
+# clean_phases already holds sorted character vectors of distinct clean phases per project.
+if (!requireNamespace("ggupset", quietly = TRUE)) install.packages("ggupset")
+
+# All non-unknown projects.
+# Projects with n_clean_phases >= 1: use their specific phase list.
+# Projects with n_clean_phases == 0 (action-level multi_phase — one document
+#   matched multiple patterns): their internal phase breakdown is not decomposed,
+#   so they appear as the "Multi Phase" category.
+upset_data <- analysis_proj %>%
+  filter(!is.na(project_phase), project_phase != "unknown") %>%
+  mutate(
+    phase_combo = if_else(
+      n_clean_phases >= 1,
+      map(clean_phases, str_to_title),
+      list(c("Multi Phase"))
+    )
+  )
+
+cat("UpSet plot N:", nrow(upset_data), "\n")
+cat("  of which action-level multi_phase (unresolved):",
+    sum(map_int(upset_data$phase_combo, length) == 1 &
+          map_chr(upset_data$phase_combo, first) == "Multi Phase"), "\n")
+
+fig_upset <- ggplot(upset_data, aes(x = phase_combo)) +
+  geom_bar(fill = catf_navy, width = 0.6) +
+  stat_count(
+    geom    = "text",
+    aes(label = after_stat(count)),
+    vjust   = -0.5,
+    size    = 3.2,
+    fontface = "bold",
+    color   = catf_navy
+  ) +
+  ggupset::scale_x_upset(n_intersections = 20) +
+  ggupset::theme_combmatrix(
+    combmatrix.panel.point.color.fill  = catf_dark_blue,
+    combmatrix.panel.point.color.empty = "gray85",
+    combmatrix.panel.line.color        = "gray70",
+    combmatrix.label.text              = element_text(size = 9)
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(
+    title    = "Geothermal Projects by Phase Type and Combination",
+    subtitle = paste0(
+      comma(nrow(upset_data)), " projects; ",
+      "'Multi Phase' = single document matched multiple pattern sets (unresolved)"
+    ),
+    x        = NULL,
+    y        = "Projects"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank()
+  )
+
+print(fig_upset)
+ggsave(
+  here(figures_dir, "fig_geothermal_upset.png"),
+  fig_upset, width = 9, height = 6, dpi = 300
+)
+
+
+# -- Fig 3: NEPA Duration by Phase (violin + box, capped at 1,000 days) --
 # Color scheme mirrors NEPA Duration by Length Band in the transmission section:
 # sequential teal → light blue → dark blue → navy, with gray for unknown
 phase_colors_box <- c(
