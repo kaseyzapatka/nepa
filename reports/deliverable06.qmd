@@ -338,11 +338,13 @@ knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_distribution
 
 ## Multi-Phase Combinations
 
-@fig-geo-upset breaks down the **`r scales::comma(n_geo_upset)`** multi-phase projects whose phase combinations are fully resolved (out of **`r scales::comma(n_geo_multi)`** total multi-phase projects). Each bar shows the count of projects with exactly that combination of development phases; filled dots indicate which phases are present. Every project in the figure spans at least two distinct phases — combinations like Exploration + Drilling reflect the typical progression from resource assessment to well development, while three- and four-phase bars represent projects that advanced through plant construction and operations. The `r n_geo_multi - n_geo_upset` projects not shown are those classified as multi-phase by a single NEPA document that matched multiple pattern sets simultaneously; their internal phase breakdown becomes fully resolved after re-running the Stage 1 extractor with the updated `project_geothermal_matched_phases` column.
+@fig-geo-upset shows phase combinations for **`r scales::comma(n_geo_upset)`** geothermal projects that span multiple sequential development stages. Each bar shows the count of projects with exactly that combination; filled dots indicate which phases are present. Combinations like Exploration + Drilling reflect the typical progression from resource assessment to well development, while three- and four-phase bars represent projects that advanced through plant construction and operations.
+
+The remaining **`r n_geo_multi - n_geo_upset`** multi-phase projects (out of **`r scales::comma(n_geo_multi)`** total) are excluded. These were classified as multi-phase by the Stage 2 ML classifier: the Stage 1 regex found no strong phase-specific vocabulary match (returning `unknown`), and the ML model inferred from the overall document text that the project spans multiple development stages — but as a single-label classifier, it cannot identify *which* phases are present. Without that information, these projects cannot be placed in a specific combination bar. The 241 shown represent projects where phase assignments were confirmed by the regex pipeline and can be unambiguously attributed to specific development stages.
 
 ```{r}
 #| label: fig-geo-upset
-#| fig-cap: "UpSet plot of phase combinations across multi-phase geothermal projects. Each bar is a distinct combination of development phases; filled dots indicate which phases are present. Only projects with at least two resolved phase assignments are shown."
+#| fig-cap: "Phase combinations across multi-phase geothermal projects with confirmed regex-derived phase assignments (n=241). Each bar is a distinct combination; filled dots indicate which phases are present. The 77 remaining multi-phase projects are excluded because they were classified by the ML model, which predicts multi-phase but does not identify the constituent phases."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_geothermal_upset.png"))

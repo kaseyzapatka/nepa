@@ -226,7 +226,9 @@ A project-level action type is derived by applying six regex patterns to the ful
 | `unknown` | Geothermal keyword present, no phase pattern matches |
 | `none` | No geothermal keyword in full_text |
 
-**Stage 2 (ML classifier, optional):** A fine-tuned `allenai/scibert_scivocab_uncased` model re-classifies rows where `project_geothermal_phase == "unknown"`. Training data: regex-labeled rows (all five canonical phases). Input: title + project_type + first 100 words of description + up to 3 pages of document text (from `data/processed/`). Improvements over baseline: class-weighted loss (corrects drilling-heavy imbalance), self-training (high-confidence pseudo-labels added for one retraining round). Median confidence after SciBERT training: ~0.88–0.90. Rows updated by ML carry `project_geothermal_phase_ml_classified = True` and a `project_geothermal_phase_ml_confidence` score.
+**`project_geothermal_matched_phases`:** When `_classify_geothermal_phase()` returns `multi_phase`, it also records the list of phase keys whose patterns fired as a JSON array stored in `project_geothermal_matched_phases` (e.g., `'["exploration","drilling"]'`). For single-phase and `unknown` rows the value is `'[]'`. This column is used by `02_geothermal.R` to decompose action-level `multi_phase` rows into their constituent phases for the UpSet figure. See Section 10.6 for how this interacts with the ML classifier.
+
+**Stage 2 (ML classifier, optional):** A fine-tuned `allenai/scibert_scivocab_uncased` model re-classifies rows where `project_geothermal_phase == "unknown"`. Training data: regex-labeled rows (all five canonical phases). Input: title + project_type + first 100 words of description + up to 3 pages of document text (from `data/processed/`). Improvements over baseline: class-weighted loss (corrects drilling-heavy imbalance), self-training (high-confidence pseudo-labels added for one retraining round). Median confidence after SciBERT training: ~0.88–0.90. Rows updated by ML carry `project_geothermal_phase_ml_classified = True` and a `project_geothermal_phase_ml_confidence` score. **Important:** the ML classifier is a single-label argmax model — it predicts one phase label including `multi_phase`, but does not record which specific phases it saw. For ML-classified `multi_phase` rows, `project_geothermal_matched_phases` is always `'[]'` (see Section 10.6).
 
 **Project-level rollup (R, `02_geothermal.R`):** Action-level phases are collapsed to one row per `geothermal_project_key` in `analysis_proj`. Logic: if all actions agree on one non-ambiguous phase → that phase; if actions span ≥2 distinct phases → `multi_phase` (genuine); if only action-level `multi_phase` rows → `multi_phase` (ambiguous); else → `unknown`. The action-level `multi_phase` label is excluded from the clean-phase vote to prevent inflation. Key reporting figures use `analysis_proj`; duration figures remain action-level.
 
@@ -363,6 +365,7 @@ A QC block runs automatically if `project_geothermal_phase_ml_classified` is pre
 | `fig_geothermal_phase_distribution.png` | Project count by development phase (project-level, `analysis_proj`) |
 | `fig_geothermal_phase_duration_boxplot.png` | NEPA duration by phase — violin + boxplot, action-level, topcoded at 250 days |
 | `fig_geothermal_within_project_sequence.png` | Gantt-style segment plot: initiation-to-decision per inferred project, colored by phase |
+| `fig_geothermal_upset.png` | UpSet plot of phase combinations for multi-phase projects with confirmed regex-derived phase combinations (n=241 of 318 total multi-phase; see Section 10.6 for the 77 excluded) |
 | `fig_geothermal_ml_confidence.png` | ML classifier confidence histogram (only present after classify step is run) |
 
 ---
@@ -468,8 +471,11 @@ All fields below are written by `extract_technology.py` and available for join i
 
 | Field | Type | Description |
 |---|---|---|
-| `project_is_geothermal` | Boolean | Geothermal keyword present in project text |
-| `project_geothermal_phase` | String | `exploration`, `drilling`, `plant`, `multi_phase`, `unknown`, `none` |
+| `project_is_geothermal` | Boolean | Geothermal keyword in `project_type` field |
+| `project_geothermal_phase` | String | `exploration`, `drilling`, `plant`, `operations`, `multi_phase`, `unknown`, `none` — set by regex (Stage 1); updated from `unknown` by ML (Stage 2) |
+| `project_geothermal_matched_phases` | String (JSON) | JSON array of phase keys whose regex patterns fired; `'[]'` for `unknown`, `none`, and ML-classified rows |
+| `project_geothermal_phase_ml_classified` | Boolean | TRUE if ML classifier updated this row's phase from `unknown` |
+| `project_geothermal_phase_ml_confidence` | Float | Softmax score for the ML-predicted label; NaN for regex-classified rows |
 | `project_is_pipeline` | Boolean | Pipeline keyword flag |
 | `project_is_carbon_pipeline` | Boolean | Carbon capture / CO₂ pipeline |
 | `project_is_hydrogen_pipeline` | Boolean | Hydrogen pipeline |
@@ -502,7 +508,17 @@ To identify that two different NEPA records represent sequential stages of the s
 
 Carbon and hydrogen pipeline NEPA timelines are compared to natural gas pipelines because natural gas provides the closest established-technology analog with sufficient sample size. "Other pipeline" is retained as a residual category but excluded from the key comparison.
 
-### 10.5 Timeline method varies by process type
+### 10.6 Two types of `multi_phase` geothermal projects
+
+The `multi_phase` label can arise in two structurally different ways, and only one type can be decomposed into specific phase combinations for the UpSet figure.
+
+**Type A — regex-classified multi_phase (recoverable, n≈275 actions):** The regex step found two or more distinct phase pattern sets firing on the same document. `project_geothermal_matched_phases` records the specific phase keys (e.g., `'["exploration","drilling"]'`). These projects' phase combinations are used in the UpSet figure after project-level rollup.
+
+**Type B — ML-classified multi_phase (not recoverable, n=84 actions → 77 projects):** The regex step returned `unknown` (no single phase pattern set matched clearly), then the ML classifier predicted `multi_phase` from the overall document text. Because the ML model is a single-label argmax classifier, it does not record *which* phases were present — it only says "this looks like a multi-phase project." `project_geothermal_matched_phases` is `'[]'` for these rows. Their internal phase breakdown cannot be reconstructed without retraining the ML model as a multi-label classifier.
+
+**Consequence for the UpSet figure:** Of 318 project-level `multi_phase` projects, 241 have confirmed phase combinations (Type A, plus Type 2 projects with multiple sequential single-phase NEPA actions) and are shown in the UpSet. The remaining 77 (entirely Type B) are excluded. Including them would require the ML inference step to store top-K softmax scores above a threshold instead of a single argmax label.
+
+### 10.7 Timeline method varies by process type
 
 CE timelines come from BERT-only extraction; EA and EIS timelines use the LLM-adjudicated dates from the hybrid pipeline. This is consistent with other deliverables (Deliverable 03, Deliverable 05) and reflects the availability of the LLM layer only for EA/EIS.
 
