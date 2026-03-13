@@ -210,12 +210,20 @@ PIPELINE_HINTS = (
 TRANSMISSION_BUILD_RE = re.compile(
     r"(?:new\s+transmission\s+line|"
     r"\btransmission\s+line\s+(?:project|route|corridor)\b|"
+    # Transmission project/corridor without the word "line" (e.g. "Gateway West Transmission Project")
+    r"\btransmission\s+(?:project|corridor|facility)\b|"
     r"\b(?:construct(?:ion|ed)?|build(?:ing)?|install(?:ation|ed)?|upgrade(?:d|s)?|rebuild(?:ing)?)\s+"
     r"(?:of\s+)?(?:new\s+)?(?:\d{2,4}\s*-?\s*k\s?v\s+)?transmission\s+line\b|"
     r"double-?circuit\s+(?:\d{2,4}\s*-?\s*k\s?v\s+)?transmission\s+line|"
     r"single-?circuit\s+(?:\d{2,4}\s*-?\s*k\s?v\s+)?transmission\s+line|"
     r"\b\d{2,4}\s*-?\s*k\s?v\s+(?:transmission\s+line|line)\b|"
-    r"right-?of-?way.*transmission\s+line|transmission\s+line.*right-?of-?way)",
+    # HVDC lines
+    r"\bHVDC\b|high.voltage\s+direct\s+current\b|"
+    # Generator-tie lines (new-build interconnection from generator to grid)
+    r"\bgen.tie\s+(?:line|transmission)\b|\bgenerating\s+tie\s+line\b|"
+    # ROW branch: narrowed to require "new" so plain ROW renewals don't pass
+    r"right-?of-?way\s+(?:\w+\s+){0,3}new\s+transmission\s+line|"
+    r"new\s+transmission\s+line\s+(?:\w+\s+){0,3}right-?of-?way)",
     re.IGNORECASE,
 )
 
@@ -260,13 +268,14 @@ GEOTHERMAL_PHASE_PATTERNS = {
         r"\bgravity survey\b",
         r"\bmagnetic survey\b",
         r"\btemperature probe\b",
-        r"\bpermit to drill\b",
         r"\btest hole\b",
         r"\bslim.?hole\b",
         r"\bcore hole\b",
         r"\bresource characterization\b",
         r"\bgeoelectrical\b",
         r"\bfeasibility study\b",
+        r"\bpre.?feasibility\b",
+        r"\bgeothermal prospecting\b",
     ],
     "drilling": [
         r"\bdrilling\b",
@@ -286,6 +295,12 @@ GEOTHERMAL_PHASE_PATTERNS = {
         r"\bwellfield\b",
         r"\bhydraulic stimulation\b",
         r"\breservoir stimulation\b",
+        r"\bpermit to drill\b",
+        r"\bwell permit\b",
+        r"\bnotice of intent to drill\b",
+        r"\bwell abandonment\b",
+        r"\bwell plugging\b",
+        r"\bwell completion\b",
     ],
     "plant": [
         r"\bpower plant\b",
@@ -304,6 +319,9 @@ GEOTHERMAL_PHASE_PATTERNS = {
         r"\btransmission line\b",
         r"\bsteam gathering\b",
         r"\bpipeline system\b",
+        r"\bcondenser\b",
+        r"\bcooling tower\b",
+        r"\bbinary cycle\b",
     ],
     "operations": [
         r"\bsteam supply\b",
@@ -315,6 +333,13 @@ GEOTHERMAL_PHASE_PATTERNS = {
         r"\bgeothermal resource utilization\b",
     ],
 }
+
+# Labels and mappings for the ML phase classifier
+GEO_PHASE_LABELS: List[str] = ["exploration", "drilling", "plant", "operations", "multi_phase"]
+GEO_PHASE_LABEL2ID: Dict[str, int] = {l: i for i, l in enumerate(GEO_PHASE_LABELS)}
+GEO_PHASE_ID2LABEL: Dict[int, str] = {i: l for i, l in enumerate(GEO_PHASE_LABELS)}
+GEO_PHASE_DEFAULT_BASE_MODEL = "allenai/scibert_scivocab_uncased"
+GEO_PHASE_MODEL_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "models" / "geothermal_phase_classifier"
 
 
 # --------------------------
@@ -917,18 +942,21 @@ def _miles_by_action(candidates: List[Dict], action: str) -> float:
     return round(sum(g["value_miles"] for g in groups), 3)
 
 
-def _classify_geothermal_phase(text: str, dataset_source: str = "") -> str:
-    """Return one of: none, exploration, drilling, plant, operations, multi_phase, unknown.
+def _classify_geothermal_phase(text: str) -> tuple:
+    """Return (phase, matched_phases).
 
-    dataset_source (CE/EA/EIS) is used as a probabilistic fallback when no patterns
-    match.  CE projects that are geothermal-flagged are almost always in the
-    development/drilling stage; EA/EIS projects are more likely to be exploration or
-    plant-construction reviews.
+    phase is one of: none, exploration, drilling, plant, operations,
+    multi_phase, unknown.
+
+    matched_phases is the list of phase keys whose pattern set fired.
+    Empty for 'none' and 'unknown'; a single-element list for single-phase
+    matches; two or more elements when phase == 'multi_phase'.  This lets
+    callers decompose multi_phase rows into their constituent phases.
     """
     txt = (text or "").lower()
     geo_keyword = re.search(r"\b(geothermal|enhanced geothermal|egs)\b", txt)
     if not geo_keyword:
-        return "none"
+        return "none", []
 
     matches = []
     for phase, patterns in GEOTHERMAL_PHASE_PATTERNS.items():
@@ -936,16 +964,10 @@ def _classify_geothermal_phase(text: str, dataset_source: str = "") -> str:
             matches.append(phase)
 
     if len(matches) == 0:
-        # Fallback: use process type as a weak prior
-        src = (dataset_source or "").strip().upper()
-        if src == "CE":
-            return "drilling"       # CE geothermal actions are almost always well/drill permits
-        elif src in ("EA", "EIS"):
-            return "exploration"    # Larger reviews most often cover pre-development stages
-        return "unknown"
+        return "unknown", []
     if len(matches) == 1:
-        return matches[0]
-    return "multi_phase"
+        return matches[0], matches
+    return "multi_phase", matches
 
 
 # --------------------------
@@ -1383,20 +1405,467 @@ def _add_pipeline_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFram
 
 def _add_geothermal_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFrame:
     out = df.copy()
-    lower_text = full_text.str.lower()
-    out["project_is_geothermal"] = lower_text.str.contains(r"\b(geothermal|enhanced geothermal|egs)\b", regex=True)
+    # Use project_type tags as the geothermal inclusion rule.
+    type_text = _series_text(out, "project_type").str.lower()
+    geothermal_re = r"\b(?:geothermal|enhanced geothermal|egs)\b"
+    out["project_is_geothermal"] = type_text.str.contains(geothermal_re, regex=True)
 
-    # Pass dataset_source as a fallback prior for phase classification
-    if "dataset_source" in out.columns:
-        source_series = out["dataset_source"].fillna("").astype(str)
-    else:
-        source_series = pd.Series([""] * len(out), index=out.index)
-
-    out["project_geothermal_phase"] = [
-        _classify_geothermal_phase(text, src)
-        for text, src in zip(full_text, source_series)
+    phase_results = [_classify_geothermal_phase(text) for text in full_text]
+    out["project_geothermal_phase"] = [r[0] for r in phase_results]
+    # Matched phases as a JSON array string so R can parse it with safe_fromJSON.
+    # For single-phase rows: '["drilling"]'; for multi_phase: '["exploration","drilling"]';
+    # for none/unknown: '[]'.
+    out["project_geothermal_matched_phases"] = [
+        json.dumps(r[1]) for r in phase_results
     ]
     return out
+
+
+# --------------------------
+# GEOTHERMAL PHASE ML CLASSIFIER
+# --------------------------
+
+def _load_geo_page_texts(
+    df: pd.DataFrame,
+    processed_dir: Path,
+    max_pages: int = 3,
+) -> Dict[str, str]:
+    """Return {pid_clean: first-N-pages text} for rows in *df*, using DuckDB parquets.
+
+    Mirrors the page-loading pattern used for transmission length recovery.
+    Returns an empty dict if duckdb is unavailable or processed_dir is missing.
+    """
+    try:
+        import duckdb
+    except ImportError:
+        print("  [geo-pages] duckdb not available — skipping page text enrichment")
+        return {}
+
+    if "project_id" not in df.columns:
+        return {}
+
+    pid_series = df["project_id"].astype(str).str.replace("-", "", regex=False)
+
+    # Determine which process_type each row belongs to
+    ptype_col = next((c for c in ("process_type", "dataset_source") if c in df.columns), None)
+
+    result: Dict[str, str] = {}
+    con = duckdb.connect()
+
+    for ptype in ["CE", "EA", "EIS"]:
+        if ptype_col is not None:
+            submask = df[ptype_col].str.upper().str.strip() == ptype
+            target_pids = pid_series[submask].unique().tolist()
+        else:
+            target_pids = pid_series.unique().tolist()
+
+        if not target_pids:
+            continue
+
+        ptype_lower = ptype.lower()
+        docs_path  = str(processed_dir / ptype_lower / "documents.parquet")
+        pages_path = str(processed_dir / ptype_lower / "pages.parquet")
+
+        if not Path(docs_path).exists() or not Path(pages_path).exists():
+            continue
+
+        con.register("_geo_pids", pd.DataFrame({"pid": target_pids}))
+        try:
+            if ptype == "CE":
+                query = """
+                    SELECT replace(d.project_id.value, '-', '') AS pid, p.page_text
+                    FROM read_parquet(?) d
+                    JOIN read_parquet(?) p ON p.document_id = d.document_id
+                    WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _geo_pids)
+                """
+                page_df = con.execute(query, [docs_path, pages_path]).df()
+            else:
+                query = """
+                    SELECT pid, page_text FROM (
+                        SELECT
+                            replace(d.project_id.value, '-', '') AS pid,
+                            p.page_text,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY d.document_id ORDER BY p.page_number
+                            ) AS rn
+                        FROM read_parquet(?) d
+                        JOIN read_parquet(?) p ON p.document_id = d.document_id
+                        WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _geo_pids)
+                          AND d.main_document = 'YES'
+                    ) WHERE rn <= ?
+                """
+                page_df = con.execute(query, [docs_path, pages_path, max_pages]).df()
+        except Exception as exc:
+            print(f"  [geo-pages] {ptype}: DuckDB error — {exc}")
+            continue
+
+        if page_df.empty:
+            continue
+
+        for pid, grp in page_df.groupby("pid"):
+            blob = " ".join(str(t) for t in grp["page_text"] if t)
+            result[pid] = " ".join(blob.split()[:300])  # cap at 300 words
+
+        n_loaded = len(page_df["pid"].unique())
+        print(f"  [geo-pages] {ptype}: loaded page text for {n_loaded:,} projects")
+
+    return result
+
+
+def _geo_phase_text(row: "pd.Series", page_texts: "Dict[str, str] | None" = None) -> str:
+    """Compose input text for the ML phase classifier.
+
+    Uses title + project_type + first 100 words of description, plus up to 300
+    words of page text when *page_texts* is provided and a match exists.
+    """
+    title = str(row.get("project_title_txt", "") or row.get("project_title", "") or "")
+    ptype = str(row.get("project_type", "") or "")
+    desc  = str(row.get("project_description_txt", "") or row.get("project_description", "") or "")
+    desc_short = " ".join(desc.split()[:100])
+
+    parts = [p for p in [title, ptype, desc_short] if p.strip()]
+
+    if page_texts is not None:
+        pid = str(row.get("project_id", "") or "").replace("-", "")
+        page = page_texts.get(pid, "")
+        if page:
+            parts.append(page)
+
+    return " ".join(parts)
+
+
+def train_geothermal_phase_classifier(
+    input_path: Path,
+    model_dir: Path,
+    base_model: str = GEO_PHASE_DEFAULT_BASE_MODEL,
+    epochs: int = 5,
+    test_size: float = 0.2,
+    batch_size: int = 16,
+    processed_dir: Path | None = None,
+    self_training_rounds: int = 1,
+    self_training_threshold: float = 0.70,
+    max_pages: int = 3,
+) -> None:
+    """Fine-tune a sequence classifier on labeled geothermal phase rows.
+
+    Improvements over the basic version:
+    - **Page text**: if *processed_dir* is given, the first *max_pages* pages of
+      each project's main document are appended to the input text.
+    - **Weighted loss**: class weights are computed from training label frequencies
+      so that rare phases (operations, exploration) are not ignored.
+    - **Self-training**: after the initial fit, the model is applied to all
+      unknown rows; predictions above *self_training_threshold* are added as
+      pseudo-labels and the model is retrained for *self_training_rounds* extra
+      rounds.
+
+    The trained model and tokenizer are saved to *model_dir*.
+    """
+    try:
+        from transformers import (
+            AutoModelForSequenceClassification,
+            AutoTokenizer,
+            Trainer,
+            TrainingArguments,
+        )
+        import torch
+        import torch.nn as nn
+        from torch.utils.data import Dataset as _TorchDataset
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import classification_report
+        from sklearn.utils.class_weight import compute_class_weight
+    except ImportError as exc:
+        raise ImportError(
+            "Training requires: pip install transformers torch scikit-learn accelerate. "
+            f"Missing package: {exc}"
+        ) from exc
+
+    df = pd.read_parquet(input_path)
+
+    # ── Page text enrichment ──────────────────────────────────────────────────
+    page_texts: Dict[str, str] = {}
+    if processed_dir is not None and Path(processed_dir).exists():
+        print(f"Loading page text from: {processed_dir}")
+        page_texts = _load_geo_page_texts(df, Path(processed_dir), max_pages=max_pages)
+        print(f"  Page text loaded for {len(page_texts):,} projects")
+    else:
+        print("No processed_dir provided — using title + type + description only")
+
+    # ── Labeled examples ─────────────────────────────────────────────────────
+    labeled = df[
+        df.get("project_is_geothermal", pd.Series(False, index=df.index)).fillna(False)
+        & df.get("project_geothermal_phase", pd.Series("unknown", index=df.index))
+             .isin(GEO_PHASE_LABELS)
+    ].copy()
+
+    if len(labeled) == 0:
+        raise ValueError(
+            "No labeled geothermal rows found. "
+            "Run --run geothermal first to populate project_geothermal_phase."
+        )
+
+    labeled["_text"]     = labeled.apply(lambda r: _geo_phase_text(r, page_texts), axis=1)
+    labeled["_label_id"] = labeled["project_geothermal_phase"].map(GEO_PHASE_LABEL2ID)
+    labeled = labeled.dropna(subset=["_label_id"])
+    labeled["_label_id"] = labeled["_label_id"].astype(int)
+
+    print(f"\nLabeled examples: {len(labeled):,}")
+    print(labeled.groupby("project_geothermal_phase").size().rename("n").to_string())
+
+    if len(labeled) < 10:
+        raise ValueError("Too few labeled examples to train (need ≥10).")
+
+    train_df, val_df = train_test_split(
+        labeled, test_size=test_size, stratify=labeled["_label_id"], random_state=42
+    )
+    print(f"Train: {len(train_df):,}  |  Val: {len(val_df):,}")
+
+    # ── Unknown rows for self-training ────────────────────────────────────────
+    unknown_mask = (
+        df.get("project_is_geothermal", pd.Series(False, index=df.index)).fillna(False)
+        & (df.get("project_geothermal_phase", pd.Series("", index=df.index)) == "unknown")
+    )
+    unknown_df = df[unknown_mask].copy()
+    unknown_df["_text"] = unknown_df.apply(lambda r: _geo_phase_text(r, page_texts), axis=1)
+
+    model_dir = Path(model_dir)
+    model_dir.mkdir(parents=True, exist_ok=True)
+    tokenizer = AutoTokenizer.from_pretrained(base_model)
+
+    # ── Dataset helper ────────────────────────────────────────────────────────
+    class _GeoDataset(_TorchDataset):
+        def __init__(self, texts: List[str], labels: List[int]) -> None:
+            enc = tokenizer(
+                texts,
+                truncation=True, padding="max_length",
+                max_length=256, return_tensors="pt",
+            )
+            self.input_ids      = enc["input_ids"]
+            self.attention_mask = enc["attention_mask"]
+            self.labels         = torch.tensor(labels, dtype=torch.long)
+
+        def __len__(self) -> int:
+            return len(self.labels)
+
+        def __getitem__(self, idx: int) -> Dict:
+            return {
+                "input_ids":      self.input_ids[idx],
+                "attention_mask": self.attention_mask[idx],
+                "labels":         self.labels[idx],
+            }
+
+    # ── Trainer with weighted cross-entropy ───────────────────────────────────
+    def _make_weighted_trainer(
+        train_dataset: _TorchDataset,
+        val_dataset: _TorchDataset,
+        train_labels: List[int],
+        n_epochs: int,
+    ) -> "Trainer":
+        raw_weights = compute_class_weight(
+            "balanced",
+            classes=np.arange(len(GEO_PHASE_LABELS)),
+            y=train_labels,
+        )
+        cw = torch.FloatTensor(raw_weights)
+
+        class _WeightedTrainer(Trainer):
+            def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+                labels  = inputs.get("labels")
+                outputs = model(**inputs)
+                logits  = outputs.get("logits")
+                loss = nn.CrossEntropyLoss(weight=cw.to(logits.device))(
+                    logits.view(-1, model.config.num_labels),
+                    labels.view(-1),
+                )
+                return (loss, outputs) if return_outputs else loss
+
+        args = TrainingArguments(
+            output_dir=str(model_dir),
+            num_train_epochs=n_epochs,
+            per_device_train_batch_size=batch_size,
+            per_device_eval_batch_size=batch_size * 2,
+            eval_strategy="epoch",
+            save_strategy="epoch",
+            load_best_model_at_end=True,
+            metric_for_best_model="eval_loss",
+            logging_steps=20,
+            report_to="none",
+        )
+        model = AutoModelForSequenceClassification.from_pretrained(
+            base_model,
+            num_labels=len(GEO_PHASE_LABELS),
+            id2label=GEO_PHASE_ID2LABEL,
+            label2id=GEO_PHASE_LABEL2ID,
+        )
+        return _WeightedTrainer(
+            model=model, args=args,
+            train_dataset=train_dataset, eval_dataset=val_dataset,
+        )
+
+    # ── Round 0: initial training ─────────────────────────────────────────────
+    print(f"\n=== Training round 0 (base labeled data, {epochs} epochs) ===")
+    train_texts  = train_df["_text"].tolist()
+    train_labels = train_df["_label_id"].tolist()
+
+    val_dataset   = _GeoDataset(val_df["_text"].tolist(), val_df["_label_id"].tolist())
+    train_dataset = _GeoDataset(train_texts, train_labels)
+
+    trainer = _make_weighted_trainer(train_dataset, val_dataset, train_labels, epochs)
+    trainer.train()
+
+    # ── Self-training rounds ──────────────────────────────────────────────────
+    for rnd in range(1, self_training_rounds + 1):
+        if unknown_df.empty:
+            print(f"\nSelf-training round {rnd}: no unknown rows — skipping")
+            break
+
+        print(f"\n=== Self-training round {rnd} ===")
+        model_so_far = trainer.model
+        model_so_far.eval()
+
+        unk_texts = unknown_df["_text"].tolist()
+        all_pred_ids: List[int]    = []
+        all_confs:    List[float]  = []
+
+        with torch.no_grad():
+            for i in range(0, len(unk_texts), batch_size * 2):
+                enc    = tokenizer(
+                    unk_texts[i : i + batch_size * 2],
+                    truncation=True, padding=True, max_length=256, return_tensors="pt",
+                )
+                logits = model_so_far(**enc).logits
+                probs  = torch.softmax(logits, dim=-1)
+                all_pred_ids.extend(probs.argmax(dim=-1).tolist())
+                all_confs.extend(probs.max(dim=-1).values.tolist())
+
+        pseudo = unknown_df.copy()
+        pseudo["_label_id"] = all_pred_ids
+        pseudo["_conf"]     = all_confs
+        pseudo = pseudo[pseudo["_conf"] >= self_training_threshold]
+
+        print(f"  High-confidence pseudo-labels (≥{self_training_threshold}): {len(pseudo):,}")
+        if pseudo.empty:
+            print("  No pseudo-labels above threshold — stopping self-training")
+            break
+
+        # Combine original labeled + pseudo-labeled for this round
+        aug_texts  = train_texts + pseudo["_text"].tolist()
+        aug_labels = train_labels + pseudo["_label_id"].tolist()
+
+        train_dataset_aug = _GeoDataset(aug_texts, aug_labels)
+        trainer = _make_weighted_trainer(
+            train_dataset_aug, val_dataset, aug_labels,
+            n_epochs=max(2, epochs // 2),
+        )
+        trainer.train()
+
+    # ── Save and report ───────────────────────────────────────────────────────
+    trainer.model.save_pretrained(model_dir)
+    tokenizer.save_pretrained(model_dir)
+    print(f"\nModel saved: {model_dir}")
+
+    preds    = trainer.predict(val_dataset)
+    pred_ids = preds.predictions.argmax(axis=-1)
+    print("\nValidation classification report:")
+    print(classification_report(
+        val_df["_label_id"].tolist(), pred_ids,
+        target_names=GEO_PHASE_LABELS, zero_division=0,
+    ))
+
+
+def classify_geothermal_phase_ml(
+    input_path: Path,
+    output_path: Path,
+    model_dir: Path = GEO_PHASE_MODEL_DIR,
+    batch_size: int = 32,
+    dry_run: bool = False,
+    processed_dir: Path | None = None,
+    max_pages: int = 3,
+) -> None:
+    """Apply the trained classifier to rows where phase == 'unknown'.
+
+    Writes three new columns to the parquet:
+    - ``project_geothermal_phase`` — updated from 'unknown' to the predicted label
+    - ``project_geothermal_phase_ml_confidence`` — softmax score for the winning label
+    - ``project_geothermal_phase_ml_classified`` — True for rows updated by this step
+    """
+    try:
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        import torch
+    except ImportError as exc:
+        raise ImportError(
+            "Classification requires: pip install transformers torch. "
+            f"Missing: {exc}"
+        ) from exc
+
+    model_dir = Path(model_dir)
+    if not model_dir.exists():
+        raise FileNotFoundError(
+            f"No trained model found at {model_dir}. "
+            "Run --geothermal-phase-train first."
+        )
+
+    df = pd.read_parquet(input_path)
+
+    mask = (
+        df.get("project_is_geothermal", pd.Series(False, index=df.index)).fillna(False)
+        & (df.get("project_geothermal_phase", pd.Series("", index=df.index)) == "unknown")
+    )
+    n_unknown = int(mask.sum())
+    print(f"Geothermal rows with unknown phase: {n_unknown:,}")
+    if n_unknown == 0:
+        print("Nothing to classify.")
+        return
+
+    # Page text enrichment (mirrors training)
+    page_texts: Dict[str, str] = {}
+    if processed_dir is not None and Path(processed_dir).exists():
+        print(f"Loading page text from: {processed_dir}")
+        page_texts = _load_geo_page_texts(df[mask], Path(processed_dir), max_pages=max_pages)
+        print(f"  Page text loaded for {len(page_texts):,} projects")
+
+    texts = df[mask].apply(lambda r: _geo_phase_text(r, page_texts), axis=1).tolist()
+
+    tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
+    model     = AutoModelForSequenceClassification.from_pretrained(str(model_dir))
+    model.eval()
+
+    all_pred_ids: List[int]      = []
+    all_confidences: List[float] = []
+
+    with torch.no_grad():
+        for i in range(0, len(texts), batch_size):
+            enc    = tokenizer(
+                texts[i : i + batch_size],
+                truncation=True, padding=True, max_length=256, return_tensors="pt",
+            )
+            logits = model(**enc).logits
+            probs  = torch.softmax(logits, dim=-1)
+            all_pred_ids.extend(probs.argmax(dim=-1).tolist())
+            all_confidences.extend(probs.max(dim=-1).values.tolist())
+
+    predicted_labels = [GEO_PHASE_ID2LABEL[i] for i in all_pred_ids]
+
+    print("\nPredicted phase distribution (unknowns only):")
+    print(pd.Series(predicted_labels).value_counts().to_string())
+    print(f"Mean confidence: {float(np.mean(all_confidences)):.3f}")
+
+    if dry_run:
+        print("\nDry run — no changes written.")
+        return
+
+    if "project_geothermal_phase_ml_classified" not in df.columns:
+        df["project_geothermal_phase_ml_classified"] = False
+    if "project_geothermal_phase_ml_confidence" not in df.columns:
+        df["project_geothermal_phase_ml_confidence"] = np.nan
+
+    df.loc[mask, "project_geothermal_phase"]               = predicted_labels
+    df.loc[mask, "project_geothermal_phase_ml_confidence"] = all_confidences
+    df.loc[mask, "project_geothermal_phase_ml_classified"] = True
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(output_path, index=False)
+    print(f"\nSaved: {output_path}  ({n_unknown:,} rows updated)")
 
 
 # --------------------------
@@ -1450,7 +1919,8 @@ def add_technology_columns(
     Returns:
         DataFrame with requested technology columns added/updated.
     """
-    targets = normalize_run_targets(run)
+    targets, run_implies_llm = normalize_run_targets(run)
+    use_llm = bool(use_llm or run_implies_llm)
     out = df.copy()
 
     title_txt = _series_text(out, "project_title")
@@ -1544,7 +2014,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         type=Path,
         default=_default_transmission_output_path(),
-        help="Output path (default: data/analysis/projects_transmission.parquet)",
+        help="Transmission-only output path (default: data/analysis/projects_transmission.parquet)",
+    )
+    parser.add_argument(
+        "--projects-output",
+        type=Path,
+        default=None,
+        help=(
+            "Optional full-project output path. "
+            "Defaults to --input (overwrite in place) so geothermal/pipeline "
+            "columns persist to projects_combined.parquet."
+        ),
     )
     parser.add_argument(
         "--timeout",
@@ -1564,15 +2044,144 @@ def build_parser() -> argparse.ArgumentParser:
         default=10,
         help="Max pages to search per EA/EIS main document during length recovery (default: 10)",
     )
+
+    # -- Geothermal phase ML classifier --
+    parser.add_argument(
+        "--geothermal-phase-train",
+        action="store_true",
+        help=(
+            "Fine-tune a DistilBERT classifier on the labeled geothermal phase rows "
+            "already present in --input. Run this after --run geothermal has populated "
+            "project_geothermal_phase for the non-unknown rows."
+        ),
+    )
+    parser.add_argument(
+        "--geothermal-phase-classify",
+        action="store_true",
+        help=(
+            "Apply the trained geothermal phase classifier to all rows where "
+            "project_geothermal_phase == 'unknown'. Writes results back to --input "
+            "(or --projects-output if specified)."
+        ),
+    )
+    parser.add_argument(
+        "--geo-phase-model-dir",
+        type=Path,
+        default=GEO_PHASE_MODEL_DIR,
+        help=f"Directory to save/load the trained phase model (default: {GEO_PHASE_MODEL_DIR})",
+    )
+    parser.add_argument(
+        "--geo-phase-base-model",
+        type=str,
+        default=GEO_PHASE_DEFAULT_BASE_MODEL,
+        help=f"HuggingFace base model for fine-tuning (default: {GEO_PHASE_DEFAULT_BASE_MODEL})",
+    )
+    parser.add_argument(
+        "--geo-phase-epochs",
+        type=int,
+        default=5,
+        help="Training epochs for geothermal phase classifier (default: 5)",
+    )
+    parser.add_argument(
+        "--geo-phase-test-size",
+        type=float,
+        default=0.2,
+        help="Validation fraction for geothermal phase training (default: 0.2)",
+    )
+    parser.add_argument(
+        "--geo-phase-batch-size",
+        type=int,
+        default=16,
+        help="Batch size for training and inference (default: 16)",
+    )
+    parser.add_argument(
+        "--geo-phase-dry-run",
+        action="store_true",
+        help="Classify but do not write any output (useful for previewing predictions)",
+    )
+    parser.add_argument(
+        "--geo-phase-processed-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Path to data/processed/ directory for page-text enrichment during "
+            "training and classification. If omitted, uses title+type+description only."
+        ),
+    )
+    parser.add_argument(
+        "--geo-phase-max-pages",
+        type=int,
+        default=3,
+        help="Max pages per document to include as input text (default: 3)",
+    )
+    parser.add_argument(
+        "--geo-phase-self-training-rounds",
+        type=int,
+        default=1,
+        help="Self-training rounds after initial fit (default: 1; 0 to disable)",
+    )
+    parser.add_argument(
+        "--geo-phase-self-training-threshold",
+        type=float,
+        default=0.70,
+        help="Minimum confidence for a self-training pseudo-label to be accepted (default: 0.70)",
+    )
+
     return parser
 
 
 def run_cli(args: argparse.Namespace) -> None:
     in_path = args.input
     tx_path = args.output
+    projects_out_path = args.projects_output if args.projects_output is not None else in_path
 
     if not in_path.exists():
         raise FileNotFoundError(f"Input file not found: {in_path}")
+
+    # -- ML phase classifier: train (early exit) --
+    if getattr(args, "geothermal_phase_train", False):
+        print(f"=== Geothermal phase classifier: TRAIN ===")
+        print(f"Input:      {in_path}")
+        print(f"Base model: {args.geo_phase_base_model}")
+        print(f"Model dir:  {args.geo_phase_model_dir}")
+        _proc = getattr(args, "geo_phase_processed_dir", None)
+        if _proc is None:
+            _default = Path(__file__).resolve().parent.parent.parent / "data" / "processed"
+            _proc = _default if _default.exists() else None
+        train_geothermal_phase_classifier(
+            input_path=in_path,
+            model_dir=args.geo_phase_model_dir,
+            base_model=args.geo_phase_base_model,
+            epochs=args.geo_phase_epochs,
+            test_size=args.geo_phase_test_size,
+            batch_size=args.geo_phase_batch_size,
+            processed_dir=_proc,
+            self_training_rounds=args.geo_phase_self_training_rounds,
+            self_training_threshold=args.geo_phase_self_training_threshold,
+            max_pages=args.geo_phase_max_pages,
+        )
+        return
+
+    # -- ML phase classifier: classify (early exit) --
+    if getattr(args, "geothermal_phase_classify", False):
+        print(f"=== Geothermal phase classifier: CLASSIFY ===")
+        print(f"Input:     {in_path}")
+        print(f"Output:    {projects_out_path}")
+        print(f"Model dir: {args.geo_phase_model_dir}")
+        _proc = getattr(args, "geo_phase_processed_dir", None)
+        if _proc is None:
+            _default = Path(__file__).resolve().parent.parent.parent / "data" / "processed"
+            _proc = _default if _default.exists() else None
+        classify_geothermal_phase_ml(
+            input_path=in_path,
+            output_path=projects_out_path,
+            model_dir=args.geo_phase_model_dir,
+            batch_size=args.geo_phase_batch_size,
+            dry_run=args.geo_phase_dry_run,
+            processed_dir=_proc,
+            max_pages=args.geo_phase_max_pages,
+        )
+        return
 
     targets, use_llm = normalize_run_targets(args.run)
     print(f"Loading: {in_path}")
@@ -1596,11 +2205,25 @@ def run_cli(args: argparse.Namespace) -> None:
         timeout=args.timeout, workers=args.workers,
         processed_dir=processed_dir, max_ea_eis_pages=args.page_search_max_pages,
     )
+    projects_out_path.parent.mkdir(parents=True, exist_ok=True)
+    updated.to_parquet(projects_out_path, index=False)
+    print(f"Saved updated projects dataset: {projects_out_path}")
+
     tx_path.parent.mkdir(parents=True, exist_ok=True)
 
     if "transmission" in targets and any(
         c for c in updated.columns if c.startswith(TX_OUTPUT_PREFIXES)
     ):
+        try:
+            same_output = tx_path.resolve() == projects_out_path.resolve()
+        except Exception:
+            same_output = tx_path == projects_out_path
+        if same_output:
+            print(
+                "Warning: transmission output path matches full projects output path; "
+                "skipping transmission-only parquet write."
+            )
+            return
         tx_cols = ["project_id"] + [
             c for c in updated.columns if c.startswith(TX_OUTPUT_PREFIXES)
         ]

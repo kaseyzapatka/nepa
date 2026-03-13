@@ -69,7 +69,16 @@ Maintenance patterns include: vegetation management, herbicide treatment, weed c
 A project passes the strict filter only if **all three** conditions hold:
 
 1. `project_type` contains `Electricity Transmission` (`project_has_transmission_type_tag == TRUE`)
-2. Title or description contains explicit build-related transmission text (`project_has_transmission_build_text == TRUE`), matched against `TRANSMISSION_BUILD_RE` — a multi-pattern regex covering phrases like "new transmission line", "construct X kV line", "double-circuit transmission line", and "right-of-way ... transmission line"
+2. Title or description contains explicit build-related transmission text (`project_has_transmission_build_text == TRUE`), matched against `TRANSMISSION_BUILD_RE` — a multi-pattern regex covering:
+   - "new transmission line"
+   - "transmission line project / route / corridor"
+   - "transmission project / corridor / facility" (no "line" required — catches e.g. "Gateway West Transmission Project")
+   - "construct / build / install / upgrade / rebuild ... [kV] transmission line"
+   - "double-circuit / single-circuit ... transmission line"
+   - `\d{2,4} kV (transmission) line`
+   - `HVDC` / "high-voltage direct current"
+   - "gen-tie line / transmission" / "generating tie line"
+   - "right-of-way ... **new** transmission line" (narrowed from old branch that matched any ROW renewal mentioning a transmission line)
 3. Extracted transmission length `>= 1` mile (after adjudication)
 
 `project_is_transmission` is an alias of `project_is_transmission_strict`. The `>= 1 mile` threshold was chosen conservatively to exclude administrative or measurement artifacts.
@@ -174,7 +183,7 @@ A secondary extraction pass recovers lengths for projects that passed the build-
 
 **CLI:** Enabled by `--page-length-recovery` flag. `--page-search-max-pages N` controls the EA/EIS page depth (default 10). Not run by default (no flag = old behavior).
 
-**Known limitation:** Recovery rate is lower than expected for the CE population because many of the 1,268 are ROW renewals that pass the build-text gate via incidental "transmission line" mentions in their descriptions but genuinely have no construction length — not even in the document body. The actual recoverable population is a subset of the 1,268.
+**Known limitation:** Recovery rate is lower than expected for the CE population because many projects that previously passed the build-text gate were ROW renewals entering via the old permissive ROW branch (`right-of-way.*transmission line`). That branch has been narrowed to require "new" in the vicinity, so fewer renewals enter the gate going forward. The remaining no-length projects are expected to be genuine builds where the length is not stated anywhere in the document text.
 
 #### 3.2.6 Action type split (`project_transmission_new_build_miles`, `project_transmission_upgrade_miles`)
 
@@ -199,20 +208,29 @@ A project-level action type is derived by applying six regex patterns to the ful
 
 ---
 
-### 3.4 Geothermal Phase Classification (`project_geothermal_phase`)
+### 3.4 Geothermal Identification and Phase Classification
 
-Geothermal projects are identified by `project_is_geothermal` (a keyword flag detecting `geothermal` in project text, set in the extraction pipeline). Phase is then classified by `_classify_geothermal_phase()`, which applies regex patterns to the full project text:
+**Identification** (`project_is_geothermal`): matched on **`project_type` field only** — analogous to the transmission type-tag gate. Pattern: `\b(geothermal|enhanced geothermal|egs)\b`. Projects without a geothermal `project_type` tag are excluded even if geothermal language appears in title/description.
 
-| Phase | Pattern examples |
+**Phase classification — two-stage pipeline:**
+
+**Stage 1 (regex, always runs):** `_classify_geothermal_phase()` applies `GEOTHERMAL_PHASE_PATTERNS` to `full_text` (title + description + type + NOI title + aggregated document titles). There is no CE/EA/EIS fallback prior — rows with no pattern match receive `unknown`.
+
+| Phase | Key patterns |
 |---|---|
-| `exploration` | `\bexploration\b`, `\bexploratory\b`, `\bresource assessment\b`, `\bgeophysical survey\b` |
-| `drilling` | `\bdrilling\b`, `\bdrill pad\b`, `\bproduction well\b`, `\binjection well\b` |
-| `plant` | `\bpower plant\b`, `\bgenerating station\b`, `\bturbine\b`, `\binterconnection\b` |
-| `multi_phase` | Multiple phase signals match simultaneously |
-| `unknown` | "geothermal" is present in text but no phase pattern matches |
-| `none` | "geothermal" does not appear in text at all |
+| `exploration` | `exploration`, `exploratory`, `resource assessment`, `geophysical survey`, `temperature gradient`, `feasibility study`, `slim hole`, `core hole`, `pre-feasibility`, `geothermal prospecting` |
+| `drilling` | `drilling`, `production well`, `injection well`, `well pad`, `wellfield`, `well program`, `permit to drill`, `well permit`, `notice of intent to drill`, `well abandonment`, `well plugging`, `well completion` |
+| `plant` | `power plant`, `binary plant`, `flash plant`, `turbine`, `generating station`, `interconnection`, `steam gathering`, `condenser`, `cooling tower`, `binary cycle` |
+| `operations` | `steam supply`, `reinjection`, `make-up well`, `fluid management`, `working fluid` |
+| `multi_phase` | Two or more phase sets match the same document |
+| `unknown` | Geothermal keyword present, no phase pattern matches |
+| `none` | No geothermal keyword in full_text |
 
-Phase classification is limited to what appears in project title and description text; it does not scan document pages.
+**`project_geothermal_matched_phases`:** When `_classify_geothermal_phase()` returns `multi_phase`, it also records the list of phase keys whose patterns fired as a JSON array stored in `project_geothermal_matched_phases` (e.g., `'["exploration","drilling"]'`). For single-phase and `unknown` rows the value is `'[]'`. This column is used by `02_geothermal.R` to decompose action-level `multi_phase` rows into their constituent phases for the UpSet figure. See Section 10.6 for how this interacts with the ML classifier.
+
+**Stage 2 (ML classifier, optional):** A fine-tuned `allenai/scibert_scivocab_uncased` model re-classifies rows where `project_geothermal_phase == "unknown"`. Training data: regex-labeled rows (all five canonical phases). Input: title + project_type + first 100 words of description + up to 3 pages of document text (from `data/processed/`). Improvements over baseline: class-weighted loss (corrects drilling-heavy imbalance), self-training (high-confidence pseudo-labels added for one retraining round). Median confidence after SciBERT training: ~0.88–0.90. Rows updated by ML carry `project_geothermal_phase_ml_classified = True` and a `project_geothermal_phase_ml_confidence` score. **Important:** the ML classifier is a single-label argmax model — it predicts one phase label including `multi_phase`, but does not record which specific phases it saw. For ML-classified `multi_phase` rows, `project_geothermal_matched_phases` is always `'[]'` (see Section 10.6).
+
+**Project-level rollup (R, `02_geothermal.R`):** Action-level phases are collapsed to one row per `geothermal_project_key` in `analysis_proj`. Logic: if all actions agree on one non-ambiguous phase → that phase; if actions span ≥2 distinct phases → `multi_phase` (genuine); if only action-level `multi_phase` rows → `multi_phase` (ambiguous); else → `unknown`. The action-level `multi_phase` label is excluded from the clean-phase vote to prevent inflation. Key reporting figures use `analysis_proj`; duration figures remain action-level.
 
 ---
 
@@ -271,7 +289,9 @@ Technology extraction columns that are absent from `projects_combined.parquet` a
 
 ### 5.1 Analysis subset
 
-The script filters to `project_is_transmission == TRUE` (strict classification, clean energy). The working dataset `analysis_len` adds:
+The script filters to `project_is_transmission == TRUE` (strict classification, clean energy), then additionally excludes `project_transmission_action %in% c("fiber_optic", "renewal")` — these action types involve adding fiber optic cable to existing lines or renewing ROW grants, neither of which constitutes new line construction. `"unknown"` and `"mixed"` are retained as they may represent genuine builds with undetected action signals.
+
+The working dataset `analysis_len` adds:
 - `length_miles = project_transmission_length_final` (LLM-adjudicated when available, else rule-based)
 - `duration_days = bert_duration_days_final`
 - `length_bin`: `<10 mi`, `10–50 mi`, `50–100 mi`, `100+ mi`
@@ -312,24 +332,41 @@ Three candidate-level tables are exported to a shared Google Sheet for QA:
 
 ## 6. Geothermal Analysis (`02_geothermal.R`)
 
-### 6.1 Analysis subset
+### 6.1 Analysis subsets
 
-Filters to `project_is_geothermal == TRUE`, clean energy projects. A **normalized project key** (`geothermal_project_key`) is derived from the project title by stripping common geothermal-domain words (`geothermal`, `exploration`, `drilling`, `well`, `plant`, `project`, etc.) and punctuation. Projects whose key is fewer than 8 characters after normalization fall back to `project_id`. This key groups related NEPA actions within a single physical development for within-project sequencing analysis.
+Two analysis objects are created:
 
-### 6.2 Tables
+- **`analysis`** (action-level): filters to `project_is_geothermal == TRUE` + clean energy. One row per NEPA action. Used for duration figures and sequencing.
+- **`analysis_proj`** (project-level): collapses `analysis` to one row per `geothermal_project_key`. Used for phase distribution figures and `tbl_phase_distribution`. See Section 3.4 for rollup logic.
+
+A **normalized project key** (`geothermal_project_key`) strips common geothermal-domain words and punctuation from the project title. Keys shorter than 8 characters after normalization fall back to `project_id`.
+
+### 6.2 ML Classifier QC
+
+A QC block runs automatically if `project_geothermal_phase_ml_classified` is present in `analysis`. Outputs:
+- Phase distribution split by source (regex vs ML)
+- Confidence summary (n, min, P25, median, P75, % below 0.60)
+- Low-confidence row table (confidence < 0.60) for spot-checking
+- `fig_geothermal_ml_confidence.png` — histogram of softmax confidence by predicted phase
+
+### 6.3 Tables
 
 | File | Description |
 |---|---|
-| `table_geothermal_phase_distribution.csv` | Count and share of projects by geothermal phase |
+| `table_geothermal_phase_distribution.csv` | Count and share of **projects** by phase (project-level, from `analysis_proj`) |
 | `table_geothermal_within_project_phases.csv` | Per-inferred-project summary: action count, distinct phases, date span, example title |
-| `table_geothermal_phase_timeline.csv` | Duration statistics (median, P25, P75) by phase, restricted to projects with complete timelines |
+| `table_geothermal_phase_timeline.csv` | Duration statistics (median, P25, P75) by phase, restricted to actions with complete timelines |
 
-### 6.3 Figures
+### 6.4 Figures
 
 | File | Description |
 |---|---|
-| `fig_geothermal_phase_duration_boxplot.png` | Boxplot of NEPA duration by phase (excludes `none`) |
-| `fig_geothermal_within_project_sequence.png` | Gantt-style segment plot: initiation-to-decision segments per inferred project identity, colored by phase; top 250 rows by action count |
+| `fig_geothermal_funnel.png` | Two-stage identification funnel: decarbonization universe → geothermal type-tag |
+| `fig_geothermal_phase_distribution.png` | Project count by development phase (project-level, `analysis_proj`) |
+| `fig_geothermal_phase_duration_boxplot.png` | NEPA duration by phase — violin + boxplot, action-level, topcoded at 250 days |
+| `fig_geothermal_within_project_sequence.png` | Gantt-style segment plot: initiation-to-decision per inferred project, colored by phase |
+| `fig_geothermal_upset.png` | UpSet plot of phase combinations for multi-phase projects with confirmed regex-derived phase combinations (n=241 of 318 total multi-phase; see Section 10.6 for the 77 excluded) |
+| `fig_geothermal_ml_confidence.png` | ML classifier confidence histogram (only present after classify step is run) |
 
 ---
 
@@ -434,8 +471,11 @@ All fields below are written by `extract_technology.py` and available for join i
 
 | Field | Type | Description |
 |---|---|---|
-| `project_is_geothermal` | Boolean | Geothermal keyword present in project text |
-| `project_geothermal_phase` | String | `exploration`, `drilling`, `plant`, `multi_phase`, `unknown`, `none` |
+| `project_is_geothermal` | Boolean | Geothermal keyword in `project_type` field |
+| `project_geothermal_phase` | String | `exploration`, `drilling`, `plant`, `operations`, `multi_phase`, `unknown`, `none` — set by regex (Stage 1); updated from `unknown` by ML (Stage 2) |
+| `project_geothermal_matched_phases` | String (JSON) | JSON array of phase keys whose regex patterns fired; `'[]'` for `unknown`, `none`, and ML-classified rows |
+| `project_geothermal_phase_ml_classified` | Boolean | TRUE if ML classifier updated this row's phase from `unknown` |
+| `project_geothermal_phase_ml_confidence` | Float | Softmax score for the ML-predicted label; NaN for regex-classified rows |
 | `project_is_pipeline` | Boolean | Pipeline keyword flag |
 | `project_is_carbon_pipeline` | Boolean | Carbon capture / CO₂ pipeline |
 | `project_is_hydrogen_pipeline` | Boolean | Hydrogen pipeline |
@@ -468,7 +508,17 @@ To identify that two different NEPA records represent sequential stages of the s
 
 Carbon and hydrogen pipeline NEPA timelines are compared to natural gas pipelines because natural gas provides the closest established-technology analog with sufficient sample size. "Other pipeline" is retained as a residual category but excluded from the key comparison.
 
-### 10.5 Timeline method varies by process type
+### 10.6 Two types of `multi_phase` geothermal projects
+
+The `multi_phase` label can arise in two structurally different ways, and only one type can be decomposed into specific phase combinations for the UpSet figure.
+
+**Type A — regex-classified multi_phase (recoverable, n≈275 actions):** The regex step found two or more distinct phase pattern sets firing on the same document. `project_geothermal_matched_phases` records the specific phase keys (e.g., `'["exploration","drilling"]'`). These projects' phase combinations are used in the UpSet figure after project-level rollup.
+
+**Type B — ML-classified multi_phase (not recoverable, n=84 actions → 77 projects):** The regex step returned `unknown` (no single phase pattern set matched clearly), then the ML classifier predicted `multi_phase` from the overall document text. Because the ML model is a single-label argmax classifier, it does not record *which* phases were present — it only says "this looks like a multi-phase project." `project_geothermal_matched_phases` is `'[]'` for these rows. Their internal phase breakdown cannot be reconstructed without retraining the ML model as a multi-label classifier.
+
+**Consequence for the UpSet figure:** Of 318 project-level `multi_phase` projects, 241 have confirmed phase combinations (Type A, plus Type 2 projects with multiple sequential single-phase NEPA actions) and are shown in the UpSet. The remaining 77 (entirely Type B) are excluded. Including them would require the ML inference step to store top-K softmax scores above a threshold instead of a single argmax label.
+
+### 10.7 Timeline method varies by process type
 
 CE timelines come from BERT-only extraction; EA and EIS timelines use the LLM-adjudicated dates from the hybrid pipeline. This is consistent with other deliverables (Deliverable 03, Deliverable 05) and reflects the availability of the LLM layer only for EA/EIS.
 

@@ -25,6 +25,19 @@ library(scales)
 
 d6_figures <- here("output", "deliverable6", "figures")
 d6_tables  <- here("output", "deliverable6", "tables")
+
+tx_summary   <- read_csv(file.path(d6_tables, "table_transmission_summary.csv"), show_col_types = FALSE)
+n_tx_total   <- tx_summary$Value[tx_summary$Metric == "Electricity transmission projects"]
+n_tx_len     <- tx_summary$Value[tx_summary$Metric == "With extracted length"]
+n_tx_dur     <- tx_summary$Value[tx_summary$Metric == "With calculable duration"]
+n_tx_multi   <- tx_summary$Value[tx_summary$Metric == "Multi-state projects"]
+
+geo_summary     <- read_csv(file.path(d6_tables, "table_geothermal_summary.csv"), show_col_types = FALSE)
+n_geo_actions   <- geo_summary$value[geo_summary$metric == "Geothermal NEPA actions"]
+n_geo_projects  <- geo_summary$value[geo_summary$metric == "Unique geothermal projects (by key)"]
+n_geo_known     <- geo_summary$value[geo_summary$metric == "Projects with resolved phase"]
+n_geo_multi     <- geo_summary$value[geo_summary$metric == "Multi-phase projects"]
+n_geo_upset     <- geo_summary$value[geo_summary$metric == "Multi-phase projects in UpSet"]
 ```
 
 ## Executive Summary
@@ -44,7 +57,7 @@ This deliverable examines three technology-specific questions from the NEPATEC 2
 ::: {.callout-note}
 ## Key Findings
 
-- **290 electricity transmission projects** were identified with extractable line lengths — all have a usable length figure.
+- **`r n_tx_total` electricity transmission projects** were identified with extractable line lengths; of these, `r n_tx_dur` have both initiation and decision dates and contribute to NEPA duration analyses.
 - **Most projects involve short line segments**: 44% are under 10 miles; the median extracted length is 11.1 miles. 25 projects involve lines of 100 miles or more.
 - **NEPA reviews are fast overall**, with a median duration of 107 days. However, reviews for the longest projects (100+ miles) take a median of 477 days — nearly 4.5× longer.
 - **Upgrades and replacements dominate** electricity transmission activity: 94 projects involve equipment upgrades or reconductoring, while only 12 are classified as purely new-build construction.
@@ -53,23 +66,37 @@ This deliverable examines three technology-specific questions from the NEPATEC 2
 
 ## Transmission Line Identification
 
-Transmission projects are identified through a three-gate classification applied to all clean-energy projects in NEPATEC 2.0. A project must pass all three gates to enter the analysis:
+Transmission projects are identified through a four-gate classification applied to all decarbonization technology projects in NEPATEC 2.0. A project must pass all four gates to enter the analysis:
 
-1. **Electricity Transmission type tag** — the NEPATEC `project_type` field must include `Electricity Transmission`. This is the primary narrowing step: of 20,725 clean-energy projects, 7,697 carry this type tag.
+1. **Electricity Transmission type tag** — the NEPATEC `project_type` field must include `Electricity Transmission`. This is the primary narrowing step: of 20,725 decarbonization technology projects, 7,697 carry this type tag.
 
 2. **Build-related text** — the project title and description must match explicit construction language: phrases such as "new transmission line," "construct/install/rebuild \[kV\] transmission line," "double-circuit transmission line," or "right-of-way ... transmission line." ROW renewals, fiber-optic installs, substation transactions, and DOE research grants that carry the transmission type tag but lack construction language are excluded here. This step reduces the candidate pool to 1,741 projects.
 
-3. **Extracted line length ≥ 1 mile** — a numeric mileage value must be recoverable from the project text. Length is first extracted from the project title and description metadata; if absent, the NEPA document page text is searched (up to 10 pages of main documents for EA/EIS; all pages for CE). After removing maintenance-flagged projects, 151 projects are recovered from metadata and an additional 136 from document pages, yielding a final set of 290 projects.
+3. **Not maintenance-flagged** — projects whose titles contain explicit maintenance language (vegetation management, herbicide treatment, line inspection, and related terms) are excluded before length extraction. This removes 322 projects, leaving 1,419 candidates.
 
-Maintenance projects are flagged separately via a title-only regex (vegetation management, herbicide treatment, line inspection, and related terms) and excluded from classification and length extraction.
+4. **Extracted line length ≥ 1 mile** — a numeric mileage value must be recoverable from the project text. Length is first extracted from the project title and description metadata; if absent, the NEPA document page text is searched (up to 10 pages of main documents for EA/EIS; all pages for CE). Of the 1,419 non-maintenance candidates, 151 projects are recovered from metadata and an additional 136 from document pages, yielding a final set of `r n_tx_total` projects.
 
-Length figures come from `project_transmission_length_final`. For the 35 projects with two or more plausible candidate values, an LLM adjudication step selects the most likely total line length; all others use rule-based selection. The rule-based selector applies a priority cascade — preferring explicit total-length language ("X miles long," "X miles in length"), build-verb context, and highest hint-score — before falling back to the largest candidate value.
+@fig-tx-funnel shows the project count at each filtering stage.
 
-@fig-tx-sample-breakdown provides a clearer picture of the usable analysis sample. Of the transmission projects, the majority have both timeline dates and can be used in NEPA duration analyses; a smaller share are missing one or both dates and contribute only to length-based analyses.
+```{r}
+#| label: fig-tx-funnel
+#| fig-cap: "Transmission project identification funnel. Blue bars show projects passing each gate; grey bars show the share excluded at that stage."
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_funnel.png"))
+```
+
+Length figures come from `project_transmission_length_final`. For projects with two or more plausible candidate values, an LLM adjudication step selects the most likely total line length; all others use rule-based selection. The rule-based selector applies a priority cascade — preferring explicit total-length language ("X miles long," "X miles in length"), build-verb context, and highest hint-score — before falling back to the largest candidate value.
+
+### Final Transmission Line Sample
+
+The `r n_tx_total` projects that pass all four gates form the analysis universe for length-based findings. However, NEPA duration analyses require both an initiation date and a decision date to be extractable — only `r n_tx_dur` of the `r n_tx_total` projects meet this requirement. All duration statistics in this report (median review times, length–duration relationships, regional and action-type comparisons) are based on this smaller sample of `r n_tx_dur` projects. Length-only findings (distributions, geographic patterns, action-type shares) use the full `r n_tx_total`.
+
+@fig-tx-sample-breakdown shows the breakdown of the `r n_tx_total` projects by date availability.
 
 ```{r}
 #| label: fig-tx-sample-breakdown
-#| fig-cap: "Breakdown of electricity transmission projects by date availability. Projects with both an initiation and decision date contribute to duration analyses; partial or missing dates limit those projects to length-based analyses only."
+#| fig-cap: "Breakdown of electricity transmission projects by date availability. Projects with both an initiation and decision date contribute to NEPA duration analyses; partial or missing dates limit those projects to length-based analyses only."
 #| out-width: "85%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_sample_breakdown.png"))
@@ -88,6 +115,10 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_sample_breakdown
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_distribution.png"))
 ```
+
+---
+
+## Length vs. NEPA Duration
 
 @fig-tx-bins examines how project count and median NEPA duration vary across length bands. The left panel shows that most projects are short-segment (<10 miles), while the right panel reveals that review duration rises with line length — projects in the 50–100 mile band take a median 133 days, and 100+ mile projects take 221 days, compared to just 25–41 days for projects under 50 miles.
 
@@ -123,6 +154,16 @@ read_csv(file.path(d6_tables, "table_transmission_length_bins.csv"), show_col_ty
   tab_options(table.font.size = px(13), data_row.padding = px(6))
 ```
 
+@fig-tx-scatter plots each project's extracted line length against its NEPA duration. The dark blue trend line shows the overall linear relationship. There is a positive association — longer lines tend to have longer reviews — but the correlation is modest, and many short projects still take substantial time.
+
+```{r}
+#| label: fig-tx-scatter
+#| fig-cap: "Transmission line length vs. NEPA duration. Dark blue line shows overall linear trend; Pearson r in subtitle."
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_vs_duration.png"))
+```
+
 ---
 
 ## Geographic Patterns
@@ -131,7 +172,7 @@ read_csv(file.path(d6_tables, "table_transmission_length_bins.csv"), show_col_ty
 
 ```{r}
 #| label: fig-tx-state-n
-#| fig-cap: "Number of electricity transmission projects per state, colored by census region."
+#| fig-cap: "Number of electricity transmission projects per state, colored by census region. Labels show project count."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_state_n.png"))
@@ -149,15 +190,21 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_state_length.png
 
 ## Project Action Type
 
-The `project_transmission_action` field classifies projects by their primary activity — whether the project is constructing new infrastructure, upgrading existing lines, renewing rights-of-way, or other activities. @fig-tx-action-count shows the project count by action type, and @fig-tx-length-by-action and @fig-tx-duration-by-action show how both line length and NEPA duration vary by action type.
+The `project_transmission_action` field classifies each project's primary activity using keyword patterns applied to the project title and description. Five categories appear in the figures:
 
-Upgrades and equipment replacements are by far the most common activity (59 projects), reflecting the active maintenance and reconductoring of the existing transmission network. Projects classified as "mixed" — matching multiple action-type signals — are also common (50 projects), suggesting many projects involve both construction and renewal elements. Purely new-build projects are rare (5 projects), which is notable given the focus on transmission expansion in clean energy policy discussions.
+- **New Build**: explicit construction language — e.g., *"construction of a new 230 kV transmission line"* or *"new substation."*
+- **Upgrade**: reconductoring, uprating, or capacity expansion of an existing line — e.g., *"reconductor existing 69 kV line"* or *"voltage uprate to 138 kV."*
+- **Acquisition**: land or right-of-way purchase without construction — e.g., *"right-of-way acquisition"* or *"land purchase for corridor."*
+- **Mixed**: the document matched keywords for more than one action type. These are typically multi-component projects involving both new infrastructure and modifications to existing facilities.
+- **Unknown / None**: no action-type keyword was detected. The project passed the transmission build-text gate but its description lacks sufficient language to assign a specific activity.
 
-New builds have the longest median NEPA duration (65 days), while acquisitions and renewals are often resolved very quickly. Fiber optic projects show the longest median line lengths (78 miles), reflecting their spanning nature.
+@fig-tx-action-count shows project counts by action type. @fig-tx-length-by-action and @fig-tx-duration-by-action show how line length and NEPA duration vary across categories; both figures top-code at 300 mi and 1,200 days respectively so that the box shapes are visible — a small number of outliers beyond those thresholds are hidden but included in the underlying statistics.
+
+Upgrades are the most common classified activity, reflecting the active reconductoring and maintenance of the existing grid. Mixed projects are also frequent, suggesting many NEPA actions cover both new construction and modifications to existing facilities. New builds are relatively rare. The Unknown and None categories together account for a substantial share, consistent with many short project descriptions in the dataset that do not include explicit build-type language.
 
 ```{r}
 #| label: fig-tx-action-count
-#| fig-cap: "Count of electricity transmission projects by action type. Mixed = project text matched multiple action-type signals; projects with no detectable action type are excluded."
+#| fig-cap: "Count of electricity transmission projects by action type. Mixed = matched multiple action-type signals; Unknown/None = no detectable action signal."
 #| out-width: "85%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_action_count.png"))
@@ -165,7 +212,7 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_action_count.png
 
 ```{r}
 #| label: fig-tx-length-by-action
-#| fig-cap: "Transmission line length by project action type. Boxes show IQR; points are individual projects colored by action type."
+#| fig-cap: "Transmission line length by project action type. Ordered by mean length. Boxes show IQR; points are individual projects colored by action type."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action.png"))
@@ -173,24 +220,10 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_by_action
 
 ```{r}
 #| label: fig-tx-duration-by-action
-#| fig-cap: "NEPA duration by project action type. Ordered by median duration. New builds take the longest; acquisitions and renewals resolve fastest."
+#| fig-cap: "NEPA duration by project action type. Ordered by mean length. New builds take the longest; acquisitions resolve fastest."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_action.png"))
-```
-
----
-
-## Length vs. NEPA Duration
-
-@fig-tx-scatter plots each project's extracted line length against its NEPA duration, colored by action type. The grey trend line represents the overall linear relationship. While there is a positive association — longer lines tend to have longer reviews — the correlation is modest, and many short projects still take substantial time. Upgrade projects (teal) are distributed throughout the length range, while new builds (dark blue) and fiber optic projects are concentrated at intermediate lengths.
-
-```{r}
-#| label: fig-tx-scatter
-#| fig-cap: "Transmission line length vs. NEPA duration. Points colored by action type; grey line shows overall linear trend with Pearson r shown in subtitle."
-#| out-width: "95%"
-
-knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_vs_duration.png"))
 ```
 
 ---
@@ -200,22 +233,73 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_vs_durati
 ::: {.callout-note}
 ## Key Findings
 
-- **914 geothermal NEPA actions** are present in the dataset, spanning exploration, drilling, plant construction, operations, and multi-phase projects.
-- **Drilling is the most common identifiable phase**, followed by multi-phase projects where multiple development stages appear in a single NEPA document.
-- **Phase classification uses a layered approach**: regex pattern matching on project text, with the NEPA process type (CE/EA/EIS) as a fallback prior for projects where no phase cues are found.
-- **Exploration and multi-phase projects take the longest** on a median basis (20–21 days), while drilling reviews are often resolved very quickly (median 4 days). This likely reflects that drilling is frequently categorically excluded.
+- **Geothermal NEPA actions** in the dataset span exploration, drilling, plant construction, operations, and multi-phase projects; phase is reported at the **project level** by collapsing multiple NEPA filings for the same physical development into a single phase label.
+- **Drilling is the most common identifiable phase**, followed by multi-phase projects where a single project spans multiple distinct development stages across its NEPA history.
+- **Phase classification uses a two-stage pipeline**: regex pattern matching on project text for the majority of projects, followed by a fine-tuned SciBERT ML classifier for actions where no regex cues are detected (median classifier confidence ~0.90).
+- **Drilling reviews are often resolved very quickly** (frequently categorical exclusions), while exploration and multi-phase projects show longer median durations.
 - **Within-project sequencing** shows that some geothermal developments span multi-year permitting sequences, with individual NEPA actions separated by years as projects progress from exploration wells to full plant construction.
 :::
+
+## Geothermal Project Identification
+
+Geothermal projects are identified using a keyword match on the NEPATEC `project_type` field — analogous to the Electricity Transmission type-tag gate used for transmission. The pattern `geothermal | enhanced geothermal | EGS` is matched against `project_type`; projects where this tag is absent are not included even if geothermal language appears in the title or description. This produces a precise sample of NEPA actions explicitly categorized as geothermal by NEPATEC.
+
+@fig-geo-funnel shows the two-stage identification path.
+
+```{r}
+#| label: fig-geo-funnel
+#| fig-cap: "Geothermal project identification. Blue bar shows projects with a geothermal project_type tag within the decarbonization technology universe; grey bar shows excluded projects."
+#| out-width: "85%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_funnel.png"))
+```
+
+---
 
 ## Phase Classification Method
 
 Geothermal projects are unique in that a single physical development typically triggers multiple sequential NEPA actions — one for exploration drilling, one or more for production well programs, and a final review for the power plant. This analysis groups geothermal projects by phase and examines timeline patterns by phase.
 
-Each project is assigned a development phase using a regex-based classifier applied to concatenated project text (title + description + project type). The classifier scans each document against five phase-specific keyword sets. The assignment logic is:
+Phase classification runs in two stages.
+
+**Stage 1 — Regex classifier.** Each NEPA action is scanned against five phase-specific keyword sets applied to concatenated project text (title + description + project type + NOI title + document titles). Assignment logic:
 
 - If **one** phase set matches → that phase is assigned.
-- If **two or more** phase sets match → the project is classified as `multi_phase`.
-- If **no** phase set matches → the NEPA process type is used as a weak prior (CE → `drilling`, EA/EIS → `exploration`). Projects where the process type is also unavailable remain `unknown`.
+- If **two or more** phase sets match → the action is classified as `multi_phase`.
+- If **no** phase set matches → the action is classified as `unknown`.
+
+**Stage 2 — ML classifier.** Actions classified as `unknown` by the regex stage are reclassified using a fine-tuned `allenai/scibert_scivocab_uncased` model. The model is trained on the regex-labeled rows with class-weighted loss (to correct for the drilling-heavy imbalance) and a self-training step that expands the effective training set using high-confidence pseudo-labels (threshold 0.70). Input text is title + project type + first 100 words of description, supplemented by up to 300 words of page-level document text where available. At median, the classifier assigns phase labels with approximately 90% softmax confidence.
+
+**Project-level rollup.** After per-action phase assignment, results are collapsed to the project level. A normalized title key is constructed by stripping common geothermal vocabulary ("geothermal", "well", "drilling", "plant", "project", etc.) from the project title; actions whose normalized titles match are treated as filings for the same physical development. The **`r scales::comma(n_geo_actions)` NEPA actions** collapse to **`r scales::comma(n_geo_projects)` inferred projects** — a reduction of `r n_geo_actions - n_geo_projects` rows driven by well fields and multi-well programs that generated several sequential CEs or EAs over time. Of these, **`r scales::comma(n_geo_known)` projects** have a resolved phase (shown in the bar chart below); the remaining `r n_geo_projects - n_geo_known` could not be classified and are excluded from phase figures.
+
+The table below illustrates the merge with two simplified examples.
+
+```{r}
+#| label: tbl-geo-rollup-example
+#| tbl-cap: "Simplified examples of how multiple NEPA actions for the same physical geothermal development collapse to a single project row. Normalized key strips common vocabulary; actions that share a key are merged."
+
+tibble::tribble(
+  ~`NEPA action (row in data)`,  ~`Process`, ~`Normalized key`,       ~`Action phase`,  ~`→ Project phase`,
+  "Blue Mtn Geothermal Exploration Well Drilling Program",     "CE",   "blue mtn",  "Exploration",  "Multi-phase",
+  "Blue Mtn Geothermal Production Well Program",               "CE",   "blue mtn",  "Drilling",     "↑ (merged)",
+  "—",                                                          "—",    "—",         "—",            "—",
+  "Ormat Nevada Geothermal Production Well Program Phase I",   "CE",   "ormat nevada", "Drilling",  "Drilling",
+  "Ormat Nevada Geothermal Production Well Program Phase II",  "CE",   "ormat nevada", "Drilling",  "↑ (merged)"
+) %>%
+  gt() %>%
+  cols_align(align = "left", columns = everything()) %>%
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_column_labels()) %>%
+  tab_style(style = cell_fill(color = "#f0f4ff"),
+            locations = cells_body(rows = c(1, 2))) %>%
+  tab_style(style = cell_fill(color = "#f7f7f7"),
+            locations = cells_body(rows = 3)) %>%
+  tab_style(style = cell_fill(color = "#f0fff4"),
+            locations = cells_body(rows = c(4, 5))) %>%
+  tab_options(table.font.size = px(12), data_row.padding = px(5))
+```
+
+A project is assigned a single phase if all its actions agree; if actions span two or more distinct phases the project is classified as `multi_phase`. **`r scales::comma(n_geo_multi)` projects** are classified as multi-phase.
 
 @tbl-geo-phase-cues shows representative text cues for each phase.
 
@@ -229,8 +313,7 @@ tibble::tribble(
   "Drilling",     "drilling, production well, injection well, well pad, wellfield, well program, well stimulation, wellhead, geothermal well",
   "Plant",        "power plant, binary plant, flash plant, turbine, generating station, power generation, substation, interconnection, steam gathering",
   "Operations",   "steam supply, reinjection, make-up well, makeup well, fluid management, working fluid, geothermal resource utilization",
-  "Multi-phase",  "(two or more phase cue sets detected in the same document)",
-  "Unknown",      "(no phase cues detected; CE actions default to 'drilling', EA/EIS default to 'exploration' as a process-type prior)"
+  "Multi-phase",  "(two or more phase cue sets detected in the same document)"
 ) %>%
   gt() %>%
   cols_align(align = "left", columns = everything()) %>%
@@ -240,17 +323,31 @@ tibble::tribble(
   ) %>%
   tab_style(
     style = list(cell_fill(color = "#f7f7f7"), cell_text(style = "italic")),
-    locations = cells_body(rows = Phase %in% c("Multi-phase", "Unknown"))
+    locations = cells_body(rows = Phase == "Multi-phase")
   ) %>%
   tab_options(table.font.size = px(13), data_row.padding = px(6))
 ```
 
 ```{r}
 #| label: fig-geo-phase-dist
-#| fig-cap: "Number of geothermal NEPA actions by classified development phase. Phase is derived from project text; projects with no matching cues are assigned using process type as a fallback (CE → drilling, EA/EIS → exploration)."
+#| fig-cap: "Number of geothermal projects by classified development phase (project-level rollup). Phase is assigned by regex classifier then, for unresolved actions, by a fine-tuned SciBERT ML model; per-action phases are then collapsed to a single project-level label. Projects with no resolved phase (unknown) are excluded."
 #| out-width: "85%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_distribution.png"))
+```
+
+## Multi-Phase Combinations
+
+@fig-geo-upset shows phase combinations for **`r scales::comma(n_geo_upset)`** geothermal projects that span multiple sequential development stages. Each bar shows the count of projects with exactly that combination; filled dots indicate which phases are present. Combinations like Exploration + Drilling reflect the typical progression from resource assessment to well development, while three- and four-phase bars represent projects that advanced through plant construction and operations.
+
+The remaining **`r n_geo_multi - n_geo_upset`** multi-phase projects (out of **`r scales::comma(n_geo_multi)`** total) are excluded. These were classified as multi-phase by the Stage 2 ML classifier: the Stage 1 regex found no strong phase-specific vocabulary match (returning `unknown`), and the ML model inferred from the overall document text that the project spans multiple development stages — but as a single-label classifier, it cannot identify *which* phases are present. Without that information, these projects cannot be placed in a specific combination bar. The 241 shown represent projects where phase assignments were confirmed by the regex pipeline and can be unambiguously attributed to specific development stages.
+
+```{r}
+#| label: fig-geo-upset
+#| fig-cap: "Phase combinations across multi-phase geothermal projects with confirmed regex-derived phase assignments (n=241). Each bar is a distinct combination; filled dots indicate which phases are present. The 77 remaining multi-phase projects are excluded because they were classified by the ML model, which predicts multi-phase but does not identify the constituent phases."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d6_figures, "fig_geothermal_upset.png"))
 ```
 
 ---

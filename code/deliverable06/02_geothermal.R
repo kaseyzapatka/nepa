@@ -2,6 +2,7 @@
 # DELIVERABLE 6: GEOTHERMAL PHASES
 # --------------------------
 
+rm(list=ls())
 source(here::here("code", "deliverable06", "00_setup.R"))
 
 normalize_geothermal_key <- function(x) {
@@ -20,7 +21,77 @@ analysis <- prepare_deliverable6_data() %>%
     geothermal_phase = factor(project_geothermal_phase, levels = c("exploration", "drilling", "plant", "operations", "multi_phase", "unknown", "none"))
   )
 
-cat("Geothermal projects:", nrow(analysis), "\n")
+cat("Geothermal NEPA actions:", nrow(analysis), "\n")
+
+# --------------------------
+# PROJECT-LEVEL PHASE ROLLUP
+# --------------------------
+# Each row in `analysis` is a NEPA action (CE/EA/EIS).  A project may have
+# multiple actions.  `analysis_proj` collapses to one row per inferred project
+# (keyed by geothermal_project_key) and assigns a project-level phase:
+#   - If all actions agree on one non-ambiguous phase → that phase
+#   - If actions span ≥2 distinct real phases       → multi_phase (genuine)
+#   - If only action-level multi_phase labels exist  → multi_phase (ambiguous)
+#   - No classifiable signals                        → unknown
+#
+# NOTE: action-level "multi_phase" (one document matched 2+ pattern sets) is
+# excluded from the clean-phase vote so it doesn't inflate multi_phase counts.
+# It is only used as a signal when no clean phase is available.
+#
+# project_geothermal_matched_phases: JSON array of individual patterns that fired
+# in the Stage 1 regex (e.g. '["exploration","drilling"]' for a multi_phase row).
+# Present only after re-running --run geothermal with the updated extractor.
+# Used to decompose action-level multi_phase rows into their constituent phases
+# for the UpSet figure.
+
+has_matched_phases_col <- "project_geothermal_matched_phases" %in% names(analysis)
+
+analysis_proj <- analysis %>%
+  filter(geothermal_phase != "none") %>%
+  group_by(geothermal_project_key) %>%
+  summarise(
+    n_actions        = n(),
+    example_title    = first(project_title_txt),
+    # Phases that are clearly one thing (not the catch-all multi_phase label)
+    clean_phases     = list(sort(unique(as.character(
+      geothermal_phase[!geothermal_phase %in% c("multi_phase", "unknown", "none")]
+    )))),
+    n_clean_phases   = n_distinct(geothermal_phase[
+      !geothermal_phase %in% c("multi_phase", "unknown", "none")
+    ]),
+    # Union of phases from action-level multi_phase rows (from matched_phases JSON).
+    # Falls back to character(0) when the column isn't available yet.
+    multi_matched    = list(if (has_matched_phases_col) {
+      sort(unique(unlist(lapply(
+        project_geothermal_matched_phases[geothermal_phase == "multi_phase"],
+        safe_fromJSON
+      ))))
+    } else character(0)),
+    has_ml_rows      = any(coalesce(project_geothermal_phase_ml_classified, FALSE)),
+    project_phase = case_when(
+      n_clean_phases == 1  ~ first(as.character(geothermal_phase[
+        !geothermal_phase %in% c("multi_phase", "unknown", "none")
+      ])),
+      n_clean_phases >= 2  ~ "multi_phase",   # genuinely spans distinct phases
+      any(geothermal_phase == "multi_phase")  ~ "multi_phase",   # action-level
+      TRUE                                    ~ "unknown"
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    project_phase = factor(project_phase,
+                           levels = c("exploration", "drilling", "plant",
+                                      "operations", "multi_phase", "unknown")),
+    # all_phases: union of clean_phases (from single-phase actions) and
+    # multi_matched (phases decomposed from action-level multi_phase rows).
+    # Used by the UpSet figure to show real combinations for every project.
+    all_phases = map2(clean_phases, multi_matched,
+                      ~ sort(unique(c(.x, .y))))
+  ) |> glimpse()
+
+cat("Unique geothermal projects (by key):", nrow(analysis_proj), "\n")
+cat("Project-level phase distribution:\n")
+print(count(analysis_proj, project_phase))
 
 
 # --------------------------
@@ -55,15 +126,198 @@ analysis |>
 #4 operations           4
 #5 multi_phase        272
 
+# Defined here (before ML QC) so the confidence figure can use it
+phase_colors <- c(
+  exploration = catf_dark_blue,
+  drilling    = catf_teal,
+  plant       = catf_magenta,
+  operations  = catf_light_blue,
+  multi_phase = "#E8A838",
+  unknown     = "gray55",
+  none        = "gray80"
+)
+
+# --------------------------
+# ML CLASSIFIER QC
+# (only runs if the classify step has been run and the column exists)
+# --------------------------
+if ("project_geothermal_phase_ml_classified" %in% names(analysis)) {
+
+  cat("\n--- ML classifier QC ---\n")
+  n_ml <- sum(analysis$project_geothermal_phase_ml_classified, na.rm = TRUE)
+  cat("Rows re-classified by ML:", n_ml, "/", nrow(analysis), "\n")
+
+  # Phase distribution split by classification source
+  cat("\nPhase counts by source (regex vs ML):\n")
+  analysis %>%
+    mutate(source = if_else(
+      coalesce(project_geothermal_phase_ml_classified, FALSE),
+      "ml", "regex"
+    )) %>%
+    count(geothermal_phase, source) %>%
+    tidyr::pivot_wider(names_from = source, values_from = n, values_fill = 0L) %>%
+    arrange(geothermal_phase) %>%
+    print()
+
+  # Confidence score summary
+  if ("project_geothermal_phase_ml_confidence" %in% names(analysis)) {
+    ml_rows <- analysis %>%
+      filter(coalesce(project_geothermal_phase_ml_classified, FALSE))
+
+    cat("\nML confidence summary (all ML-classified rows):\n")
+    ml_rows %>%
+      summarise(
+        n       = n(),
+        min     = round(min(project_geothermal_phase_ml_confidence, na.rm = TRUE), 3),
+        p25     = round(quantile(project_geothermal_phase_ml_confidence, 0.25, na.rm = TRUE), 3),
+        median  = round(median(project_geothermal_phase_ml_confidence, na.rm = TRUE), 3),
+        p75     = round(quantile(project_geothermal_phase_ml_confidence, 0.75, na.rm = TRUE), 3),
+        pct_low = round(mean(project_geothermal_phase_ml_confidence < 0.6, na.rm = TRUE), 3)
+      ) %>%
+      print()
+
+    # Low-confidence rows to spot-check (confidence < 0.6)
+    low_conf <- ml_rows %>%
+      filter(project_geothermal_phase_ml_confidence < 0.6) %>%
+      arrange(project_geothermal_phase_ml_confidence) %>%
+      select(
+        project_id, geothermal_phase,
+        conf = project_geothermal_phase_ml_confidence,
+        project_title_txt
+      )
+    cat("\nLow-confidence predictions (< 0.60):", nrow(low_conf), "rows\n")
+    if (nrow(low_conf) > 0) print(low_conf)
+
+    # Confidence distribution figure
+    fig_ml_confidence <- ggplot(ml_rows, aes(x = project_geothermal_phase_ml_confidence,
+                                              fill = geothermal_phase)) +
+      geom_histogram(binwidth = 0.05, color = "white", linewidth = 0.2) +
+      geom_vline(xintercept = 0.6, linetype = "dashed", color = "gray30") +
+      annotate("text", x = 0.59, y = Inf, label = "0.60 threshold",
+               hjust = 1, vjust = 1.5, size = 3, color = "gray30") +
+      scale_fill_manual(values = phase_colors) +
+      scale_x_continuous(limits = c(0, 1), labels = scales::percent) +
+      labs(
+        title    = "ML Classifier Confidence — Geothermal Phase",
+        subtitle = paste0(comma(n_ml), " rows re-classified from 'unknown'"),
+        x        = "Softmax confidence", y = "Count", fill = "Predicted phase"
+      ) +
+      theme_minimal(base_size = 11) +
+      theme(legend.position = "right")
+
+    print(fig_ml_confidence)
+    ggsave(
+      here(figures_dir, "fig_geothermal_ml_confidence.png"),
+      fig_ml_confidence, width = 9, height = 5, dpi = 300
+    )
+  }
+} else {
+  cat("ML classify step not yet run — skipping ML QC block.\n")
+  cat("  Run: python code/extract/extract_technology.py --geothermal-phase-classify\n")
+}
+
+
+# --------------------------
+# IDENTIFICATION FUNNEL FIGURE
+# --------------------------
+# Geothermal uses a single type-tag gate (no build-text, length, or maintenance filters),
+# so the funnel has only two stages. Update n_type_tagged after re-running:
+#   python code/extract/extract_technology.py --run geothermal
+# n_type_tagged is the count of clean energy projects with project_is_geothermal == TRUE
+# before the prepare_deliverable6_data() clean energy filter is applied. Since the R
+# analysis already filters to clean energy, n_type_tagged == nrow(analysis) unless there
+# are non-clean geothermal projects. Confirm with:
+#   projects_combined %>% filter(project_is_geothermal) %>% count(project_energy_type)
+
+n_clean_energy  <- 20725L   # total decarbonization technology projects in NEPATEC 2.0
+n_type_tagged   <- nrow(analysis)  # geothermal project_type tag + clean energy filter
+# NOTE: if non-clean geothermal projects exist, set n_type_tagged manually to the
+# count BEFORE the clean energy filter and add a third stage for the clean filter.
+
+geo_stage_labels <- c(
+  "Decarbonization technology\nprojects (NEPATEC 2.0)",
+  "Geothermal project\ntype tag"
+)
+
+geo_funnel_df <- tibble(
+  stage  = factor(geo_stage_labels, levels = rev(geo_stage_labels)),
+  n_keep = c(n_clean_energy, n_type_tagged),
+  n_total = n_clean_energy
+) %>%
+  mutate(n_drop = n_total - n_keep)
+
+geo_funnel_long <- geo_funnel_df %>%
+  pivot_longer(c(n_keep, n_drop), names_to = "status", values_to = "n") %>%
+  mutate(status = factor(status, levels = c("n_drop", "n_keep")))
+
+fig_geo_funnel <- ggplot(geo_funnel_long, aes(x = n, y = stage, fill = status)) +
+  geom_col(width = 0.55, color = "white", linewidth = 0.25) +
+  geom_text(
+    data = filter(geo_funnel_df, n_keep >= 1000),
+    aes(x = n_keep / 2, y = stage, label = scales::comma(n_keep)),
+    inherit.aes = FALSE,
+    color = "white", fontface = "bold", size = 3.6
+  ) +
+  geom_text(
+    data = filter(geo_funnel_df, n_keep < 1000),
+    aes(x = n_keep, y = stage, label = scales::comma(n_keep)),
+    inherit.aes = FALSE,
+    hjust = -0.35, fontface = "bold", color = catf_navy, size = 3.6
+  ) +
+  scale_fill_manual(
+    values = c(n_keep = catf_dark_blue, n_drop = "#D8DCE8"),
+    labels = c(n_keep = "Included", n_drop = "Excluded at this stage"),
+    guide  = guide_legend(reverse = TRUE)
+  ) +
+  scale_x_continuous(
+    labels = scales::comma,
+    expand = expansion(mult = c(0, 0.14))
+  ) +
+  labs(x = "Projects (n)", y = NULL, fill = NULL) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank(),
+    panel.grid.minor   = element_blank(),
+    axis.text.y        = element_text(size = 9.5, lineheight = 1.1)
+  )
+
+print(fig_geo_funnel)
+ggsave(here(figures_dir, "fig_geothermal_funnel.png"),
+       fig_geo_funnel, width = 8, height = 3.2, dpi = 300)
+
+
 # --------------------------
 # TABLES
 # --------------------------
 
-tbl_phase_distribution <- analysis %>%
-  count(geothermal_phase, name = "n_projects") %>%
+tbl_phase_distribution <- analysis_proj %>%
+  filter(project_phase != "unknown") %>%
+  count(project_phase, name = "n_projects") %>%
+  rename(geothermal_phase = project_phase) %>%
   mutate(share = n_projects / sum(n_projects))
 
 write_csv(tbl_phase_distribution, here(tables_dir, "table_geothermal_phase_distribution.csv"))
+
+# Summary counts used by deliverable06.qmd for inline text
+geo_summary <- tibble(
+  metric = c(
+    "Geothermal NEPA actions",
+    "Unique geothermal projects (by key)",
+    "Projects with resolved phase",
+    "Multi-phase projects",
+    "Multi-phase projects in UpSet"
+  ),
+  value = c(
+    nrow(analysis),
+    nrow(analysis_proj),
+    sum(!analysis_proj$project_phase %in% c("unknown", NA), na.rm = TRUE),
+    sum(analysis_proj$project_phase == "multi_phase", na.rm = TRUE),
+    # populated after UpSet figure block; placeholder until then
+    NA_integer_
+  )
+)
+# (value for UpSet row is patched after upset_data is built — see FIGURES section)
 
 within_project_phase <- analysis %>%
   filter(!is.na(geothermal_phase), geothermal_phase != "none") %>%
@@ -98,37 +352,36 @@ tbl_phase_timeline <- analysis %>%
     .groups = "drop"
   )
 
+
+within_project_phase %>% 
+  filter(n_distinct_phases >= 2) %>%
+  count(phases, sort = TRUE) %>%
+  head(200)
+
 # --------------------------
 # FIGURES
 # --------------------------
 
-phase_colors <- c(
-  exploration = catf_dark_blue,
-  drilling    = catf_teal,
-  plant       = catf_magenta,
-  operations  = catf_light_blue,
-  multi_phase = "#E8A838",
-  unknown     = "gray55",
-  none        = "gray80"
-)
-
-# -- Fig 1: Phase distribution bar chart --
-fig_phase_bar <- analysis %>%
-  count(geothermal_phase, name = "n_projects") %>%
-  filter(!is.na(geothermal_phase), geothermal_phase != "none") %>%
+# -- Fig 1: Phase distribution bar chart (PROJECT level) --
+fig_phase_bar <- analysis_proj %>%
+  filter(!is.na(project_phase), project_phase != "unknown") %>%
+  count(project_phase, name = "n_projects") %>%
   mutate(
-    phase_label = str_to_title(str_replace_all(as.character(geothermal_phase), "_", " ")),
+    phase_label = str_to_title(str_replace_all(as.character(project_phase), "_", " ")),
     phase_label = fct_reorder(phase_label, n_projects)
   ) %>%
-  ggplot(aes(x = phase_label, y = n_projects, fill = as.character(geothermal_phase))) +
+  ggplot(aes(x = phase_label, y = n_projects, fill = as.character(project_phase))) +
   geom_col(show.legend = FALSE, width = 0.65) +
   geom_text(aes(label = n_projects), hjust = -0.2, size = 3.5, fontface = "bold") +
   coord_flip() +
   scale_fill_manual(values = phase_colors) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(
-    title = "Geothermal NEPA Actions by Development Phase",
-    subtitle = "914 decarbonization technology projects identified in NEPATEC 2.0",
+    title = "Geothermal Projects by Development Phase",
+    subtitle = paste0(
+      comma(nrow(analysis_proj)), " unique geothermal projects identified in NEPATEC 2.0",
+      " (", comma(nrow(analysis)), " total NEPA actions)"
+    ),
     x = NULL,
     y = "Number of projects"
   ) +
@@ -144,7 +397,78 @@ ggsave(
   dpi = 300
 )
 
-# -- Fig 2: NEPA Duration by Phase (violin + box, capped at 1,000 days) --
+# -- Fig 2: Multi-Phase Combination UpSet Plot (ggupset) --
+# ggupset uses a list column of set memberships directly — no binary matrix needed.
+# clean_phases already holds sorted character vectors of distinct clean phases per project.
+if (!requireNamespace("ggupset", quietly = TRUE)) install.packages("ggupset")
+
+# Universe: the multi_phase projects ONLY.
+# Each project must have ≥2 real phase names in all_phases — guaranteed after
+# re-running --run geothermal (matched_phases always has 2+ entries for any
+# action-level multi_phase row because _classify_geothermal_phase only returns
+# "multi_phase" when 2+ pattern sets fire).
+# Projects with < 2 resolvable phases are excluded with a console warning —
+# this only happens with old data that predates the matched_phases column.
+upset_data <- analysis_proj %>%
+  filter(project_phase == "multi_phase") %>%
+  mutate(phase_combo = map(all_phases, str_to_title)) %>%
+  filter(map_int(phase_combo, length) >= 2)
+
+n_excluded <- sum(analysis_proj$project_phase == "multi_phase", na.rm = TRUE) -
+              nrow(upset_data)
+cat("UpSet plot N (multi-phase projects with ≥2 resolved phases):",
+    nrow(upset_data), "\n")
+if (n_excluded > 0) {
+  cat("  NOTE:", n_excluded,
+      "multi-phase projects excluded (< 2 resolved phases).",
+      "Re-run --run geothermal to resolve them.\n")
+}
+
+# Patch the UpSet count into geo_summary, then write to CSV for use in QMD inline text
+geo_summary$value[geo_summary$metric == "Multi-phase projects in UpSet"] <- nrow(upset_data)
+write_csv(geo_summary, here(tables_dir, "table_geothermal_summary.csv"))
+
+fig_upset <- ggplot(upset_data, aes(x = phase_combo)) +
+  geom_bar(fill = catf_navy, width = 0.6) +
+  stat_count(
+    geom    = "text",
+    aes(label = after_stat(count)),
+    vjust   = -0.5,
+    size    = 3.2,
+    fontface = "bold",
+    color   = catf_navy
+  ) +
+  ggupset::scale_x_upset(n_intersections = 20) +
+  ggupset::theme_combmatrix(
+    combmatrix.panel.point.color.fill  = catf_dark_blue,
+    combmatrix.panel.point.color.empty = "gray85",
+    combmatrix.panel.line.color        = "gray70",
+    combmatrix.label.text              = element_text(size = 9)
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(
+    title    = "Phase Combinations Within Multi-Phase Geothermal Projects",
+    subtitle = paste0(
+      comma(nrow(upset_data)),
+      " projects spanning ≥2 development phases"
+    ),
+    x        = NULL,
+    y        = "Projects"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor   = element_blank()
+  )
+
+print(fig_upset)
+ggsave(
+  here(figures_dir, "fig_geothermal_upset.png"),
+  fig_upset, width = 9, height = 6, dpi = 300
+)
+
+
+# -- Fig 3: NEPA Duration by Phase (violin + box, capped at 1,000 days) --
 # Color scheme mirrors NEPA Duration by Length Band in the transmission section:
 # sequential teal → light blue → dark blue → navy, with gray for unknown
 phase_colors_box <- c(

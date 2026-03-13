@@ -4622,7 +4622,18 @@ vertical-align: -.125em;
 <p>A project passes the strict filter only if <strong>all three</strong> conditions hold:</p>
 <ol type="1">
 <li><code>project_type</code> contains <code>Electricity Transmission</code> (<code>project_has_transmission_type_tag == TRUE</code>)</li>
-<li>Title or description contains explicit build-related transmission text (<code>project_has_transmission_build_text == TRUE</code>), matched against <code>TRANSMISSION_BUILD_RE</code> — a multi-pattern regex covering phrases like “new transmission line”, “construct X kV line”, “double-circuit transmission line”, and “right-of-way … transmission line”</li>
+<li>Title or description contains explicit build-related transmission text (<code>project_has_transmission_build_text == TRUE</code>), matched against <code>TRANSMISSION_BUILD_RE</code> — a multi-pattern regex covering:
+<ul>
+<li>“new transmission line”</li>
+<li>“transmission line project / route / corridor”</li>
+<li>“transmission project / corridor / facility” (no “line” required — catches e.g. “Gateway West Transmission Project”)</li>
+<li>“construct / build / install / upgrade / rebuild … [kV] transmission line”</li>
+<li>“double-circuit / single-circuit … transmission line”</li>
+<li><code>\d{2,4} kV (transmission) line</code></li>
+<li><code>HVDC</code> / “high-voltage direct current”</li>
+<li>“gen-tie line / transmission” / “generating tie line”</li>
+<li>“right-of-way … <strong>new</strong> transmission line” (narrowed from old branch that matched any ROW renewal mentioning a transmission line)</li>
+</ul></li>
 <li>Extracted transmission length <code>&gt;= 1</code> mile (after adjudication)</li>
 </ol>
 <p><code>project_is_transmission</code> is an alias of <code>project_is_transmission_strict</code>. The <code>&gt;= 1 mile</code> threshold was chosen conservatively to exclude administrative or measurement artifacts.</p>
@@ -4766,7 +4777,7 @@ vertical-align: -.125em;
 <p><strong>Extraction:</strong> Page texts are concatenated per project and passed through the same <code>_extract_length_candidates()</code> → <code>_adjudicate_transmission_length()</code> pipeline used for title/description text. No new logic is introduced.</p>
 <p><strong>Write-back:</strong> For projects where the recovered length ≥ 1 mile, all standard transmission length columns are overwritten with the page-derived values. A new boolean column <code>project_transmission_length_from_pages = TRUE</code> marks these rows for provenance tracking. <code>project_is_transmission_strict</code> is re-evaluated after write-back, so recovered projects automatically enter the strict set.</p>
 <p><strong>CLI:</strong> Enabled by <code>--page-length-recovery</code> flag. <code>--page-search-max-pages N</code> controls the EA/EIS page depth (default 10). Not run by default (no flag = old behavior).</p>
-<p><strong>Known limitation:</strong> Recovery rate is lower than expected for the CE population because many of the 1,268 are ROW renewals that pass the build-text gate via incidental “transmission line” mentions in their descriptions but genuinely have no construction length — not even in the document body. The actual recoverable population is a subset of the 1,268.</p>
+<p><strong>Known limitation:</strong> Recovery rate is lower than expected for the CE population because many projects that previously passed the build-text gate were ROW renewals entering via the old permissive ROW branch (<code>right-of-way.*transmission line</code>). That branch has been narrowed to require “new” in the vicinity, so fewer renewals enter the gate going forward. The remaining no-length projects are expected to be genuine builds where the length is not stated anywhere in the document text.</p>
 </section>
 <section id="action-type-split-project_transmission_new_build_miles-project_transmission_upgrade_miles" class="level4">
 <h4 class="anchored" data-anchor-id="action-type-split-project_transmission_new_build_miles-project_transmission_upgrade_miles">3.2.6 Action type split (<code>project_transmission_new_build_miles</code>, <code>project_transmission_upgrade_miles</code>)</h4>
@@ -4825,9 +4836,11 @@ vertical-align: -.125em;
 </table>
 <hr>
 </section>
-<section id="geothermal-phase-classification-project_geothermal_phase" class="level3">
-<h3 class="anchored" data-anchor-id="geothermal-phase-classification-project_geothermal_phase">3.4 Geothermal Phase Classification (<code>project_geothermal_phase</code>)</h3>
-<p>Geothermal projects are identified by <code>project_is_geothermal</code> (a keyword flag detecting <code>geothermal</code> in project text, set in the extraction pipeline). Phase is then classified by <code>_classify_geothermal_phase()</code>, which applies regex patterns to the full project text:</p>
+<section id="geothermal-identification-and-phase-classification" class="level3">
+<h3 class="anchored" data-anchor-id="geothermal-identification-and-phase-classification">3.4 Geothermal Identification and Phase Classification</h3>
+<p><strong>Identification</strong> (<code>project_is_geothermal</code>): matched on <strong><code>project_type</code> field only</strong> — analogous to the transmission type-tag gate. Pattern: <code>\b(geothermal|enhanced geothermal|egs)\b</code>. Projects without a geothermal <code>project_type</code> tag are excluded even if geothermal language appears in title/description.</p>
+<p><strong>Phase classification — two-stage pipeline:</strong></p>
+<p><strong>Stage 1 (regex, always runs):</strong> <code>_classify_geothermal_phase()</code> applies <code>GEOTHERMAL_PHASE_PATTERNS</code> to <code>full_text</code> (title + description + type + NOI title + aggregated document titles). There is no CE/EA/EIS fallback prior — rows with no pattern match receive <code>unknown</code>.</p>
 <table class="table">
 <colgroup>
 <col style="width: 50%">
@@ -4836,37 +4849,43 @@ vertical-align: -.125em;
 <thead>
 <tr class="header">
 <th>Phase</th>
-<th>Pattern examples</th>
+<th>Key patterns</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
 <td><code>exploration</code></td>
-<td><code>\bexploration\b</code>, <code>\bexploratory\b</code>, <code>\bresource assessment\b</code>, <code>\bgeophysical survey\b</code></td>
+<td><code>exploration</code>, <code>exploratory</code>, <code>resource assessment</code>, <code>geophysical survey</code>, <code>temperature gradient</code>, <code>feasibility study</code>, <code>slim hole</code>, <code>core hole</code>, <code>pre-feasibility</code>, <code>geothermal prospecting</code></td>
 </tr>
 <tr class="even">
 <td><code>drilling</code></td>
-<td><code>\bdrilling\b</code>, <code>\bdrill pad\b</code>, <code>\bproduction well\b</code>, <code>\binjection well\b</code></td>
+<td><code>drilling</code>, <code>production well</code>, <code>injection well</code>, <code>well pad</code>, <code>wellfield</code>, <code>well program</code>, <code>permit to drill</code>, <code>well permit</code>, <code>notice of intent to drill</code>, <code>well abandonment</code>, <code>well plugging</code>, <code>well completion</code></td>
 </tr>
 <tr class="odd">
 <td><code>plant</code></td>
-<td><code>\bpower plant\b</code>, <code>\bgenerating station\b</code>, <code>\bturbine\b</code>, <code>\binterconnection\b</code></td>
+<td><code>power plant</code>, <code>binary plant</code>, <code>flash plant</code>, <code>turbine</code>, <code>generating station</code>, <code>interconnection</code>, <code>steam gathering</code>, <code>condenser</code>, <code>cooling tower</code>, <code>binary cycle</code></td>
 </tr>
 <tr class="even">
-<td><code>multi_phase</code></td>
-<td>Multiple phase signals match simultaneously</td>
+<td><code>operations</code></td>
+<td><code>steam supply</code>, <code>reinjection</code>, <code>make-up well</code>, <code>fluid management</code>, <code>working fluid</code></td>
 </tr>
 <tr class="odd">
-<td><code>unknown</code></td>
-<td>“geothermal” is present in text but no phase pattern matches</td>
+<td><code>multi_phase</code></td>
+<td>Two or more phase sets match the same document</td>
 </tr>
 <tr class="even">
+<td><code>unknown</code></td>
+<td>Geothermal keyword present, no phase pattern matches</td>
+</tr>
+<tr class="odd">
 <td><code>none</code></td>
-<td>“geothermal” does not appear in text at all</td>
+<td>No geothermal keyword in full_text</td>
 </tr>
 </tbody>
 </table>
-<p>Phase classification is limited to what appears in project title and description text; it does not scan document pages.</p>
+<p><strong><code>project_geothermal_matched_phases</code>:</strong> When <code>_classify_geothermal_phase()</code> returns <code>multi_phase</code>, it also records the list of phase keys whose patterns fired as a JSON array stored in <code>project_geothermal_matched_phases</code> (e.g., <code>&#39;[&quot;exploration&quot;,&quot;drilling&quot;]&#39;</code>). For single-phase and <code>unknown</code> rows the value is <code>&#39;[]&#39;</code>. This column is used by <code>02_geothermal.R</code> to decompose action-level <code>multi_phase</code> rows into their constituent phases for the UpSet figure. See Section 10.6 for how this interacts with the ML classifier.</p>
+<p><strong>Stage 2 (ML classifier, optional):</strong> A fine-tuned <code>allenai/scibert_scivocab_uncased</code> model re-classifies rows where <code>project_geothermal_phase == &quot;unknown&quot;</code>. Training data: regex-labeled rows (all five canonical phases). Input: title + project_type + first 100 words of description + up to 3 pages of document text (from <code>data/processed/</code>). Improvements over baseline: class-weighted loss (corrects drilling-heavy imbalance), self-training (high-confidence pseudo-labels added for one retraining round). Median confidence after SciBERT training: ~0.88–0.90. Rows updated by ML carry <code>project_geothermal_phase_ml_classified = True</code> and a <code>project_geothermal_phase_ml_confidence</code> score. <strong>Important:</strong> the ML classifier is a single-label argmax model — it predicts one phase label including <code>multi_phase</code>, but does not record which specific phases it saw. For ML-classified <code>multi_phase</code> rows, <code>project_geothermal_matched_phases</code> is always <code>&#39;[]&#39;</code> (see Section 10.6).</p>
+<p><strong>Project-level rollup (R, <code>02_geothermal.R</code>):</strong> Action-level phases are collapsed to one row per <code>geothermal_project_key</code> in <code>analysis_proj</code>. Logic: if all actions agree on one non-ambiguous phase → that phase; if actions span ≥2 distinct phases → <code>multi_phase</code> (genuine); if only action-level <code>multi_phase</code> rows → <code>multi_phase</code> (ambiguous); else → <code>unknown</code>. The action-level <code>multi_phase</code> label is excluded from the clean-phase vote to prevent inflation. Key reporting figures use <code>analysis_proj</code>; duration figures remain action-level.</p>
 <hr>
 </section>
 <section id="pipeline-classification" class="level3">
@@ -4961,7 +4980,8 @@ vertical-align: -.125em;
 <h2 class="anchored" data-anchor-id="transmission-analysis-01_transmission.r">5. Transmission Analysis (<code>01_transmission.R</code>)</h2>
 <section id="analysis-subset" class="level3">
 <h3 class="anchored" data-anchor-id="analysis-subset">5.1 Analysis subset</h3>
-<p>The script filters to <code>project_is_transmission == TRUE</code> (strict classification, clean energy). The working dataset <code>analysis_len</code> adds: - <code>length_miles = project_transmission_length_final</code> (LLM-adjudicated when available, else rule-based) - <code>duration_days = bert_duration_days_final</code> - <code>length_bin</code>: <code>&lt;10 mi</code>, <code>10–50 mi</code>, <code>50–100 mi</code>, <code>100+ mi</code></p>
+<p>The script filters to <code>project_is_transmission == TRUE</code> (strict classification, clean energy), then additionally excludes <code>project_transmission_action %in% c(&quot;fiber_optic&quot;, &quot;renewal&quot;)</code> — these action types involve adding fiber optic cable to existing lines or renewing ROW grants, neither of which constitutes new line construction. <code>&quot;unknown&quot;</code> and <code>&quot;mixed&quot;</code> are retained as they may represent genuine builds with undetected action signals.</p>
+<p>The working dataset <code>analysis_len</code> adds: - <code>length_miles = project_transmission_length_final</code> (LLM-adjudicated when available, else rule-based) - <code>duration_days = bert_duration_days_final</code> - <code>length_bin</code>: <code>&lt;10 mi</code>, <code>10–50 mi</code>, <code>50–100 mi</code>, <code>100+ mi</code></p>
 </section>
 <section id="exploratory-outputs-google-sheets" class="level3">
 <h3 class="anchored" data-anchor-id="exploratory-outputs-google-sheets">5.2 Exploratory outputs (Google Sheets)</h3>
@@ -5079,12 +5099,21 @@ vertical-align: -.125em;
 </section>
 <section id="geothermal-analysis-02_geothermal.r" class="level2">
 <h2 class="anchored" data-anchor-id="geothermal-analysis-02_geothermal.r">6. Geothermal Analysis (<code>02_geothermal.R</code>)</h2>
-<section id="analysis-subset-1" class="level3">
-<h3 class="anchored" data-anchor-id="analysis-subset-1">6.1 Analysis subset</h3>
-<p>Filters to <code>project_is_geothermal == TRUE</code>, clean energy projects. A <strong>normalized project key</strong> (<code>geothermal_project_key</code>) is derived from the project title by stripping common geothermal-domain words (<code>geothermal</code>, <code>exploration</code>, <code>drilling</code>, <code>well</code>, <code>plant</code>, <code>project</code>, etc.) and punctuation. Projects whose key is fewer than 8 characters after normalization fall back to <code>project_id</code>. This key groups related NEPA actions within a single physical development for within-project sequencing analysis.</p>
+<section id="analysis-subsets" class="level3">
+<h3 class="anchored" data-anchor-id="analysis-subsets">6.1 Analysis subsets</h3>
+<p>Two analysis objects are created:</p>
+<ul>
+<li><strong><code>analysis</code></strong> (action-level): filters to <code>project_is_geothermal == TRUE</code> + clean energy. One row per NEPA action. Used for duration figures and sequencing.</li>
+<li><strong><code>analysis_proj</code></strong> (project-level): collapses <code>analysis</code> to one row per <code>geothermal_project_key</code>. Used for phase distribution figures and <code>tbl_phase_distribution</code>. See Section 3.4 for rollup logic.</li>
+</ul>
+<p>A <strong>normalized project key</strong> (<code>geothermal_project_key</code>) strips common geothermal-domain words and punctuation from the project title. Keys shorter than 8 characters after normalization fall back to <code>project_id</code>.</p>
+</section>
+<section id="ml-classifier-qc" class="level3">
+<h3 class="anchored" data-anchor-id="ml-classifier-qc">6.2 ML Classifier QC</h3>
+<p>A QC block runs automatically if <code>project_geothermal_phase_ml_classified</code> is present in <code>analysis</code>. Outputs: - Phase distribution split by source (regex vs ML) - Confidence summary (n, min, P25, median, P75, % below 0.60) - Low-confidence row table (confidence &lt; 0.60) for spot-checking - <code>fig_geothermal_ml_confidence.png</code> — histogram of softmax confidence by predicted phase</p>
 </section>
 <section id="tables-1" class="level3">
-<h3 class="anchored" data-anchor-id="tables-1">6.2 Tables</h3>
+<h3 class="anchored" data-anchor-id="tables-1">6.3 Tables</h3>
 <table class="table">
 <colgroup>
 <col style="width: 50%">
@@ -5099,7 +5128,7 @@ vertical-align: -.125em;
 <tbody>
 <tr class="odd">
 <td><code>table_geothermal_phase_distribution.csv</code></td>
-<td>Count and share of projects by geothermal phase</td>
+<td>Count and share of <strong>projects</strong> by phase (project-level, from <code>analysis_proj</code>)</td>
 </tr>
 <tr class="even">
 <td><code>table_geothermal_within_project_phases.csv</code></td>
@@ -5107,13 +5136,13 @@ vertical-align: -.125em;
 </tr>
 <tr class="odd">
 <td><code>table_geothermal_phase_timeline.csv</code></td>
-<td>Duration statistics (median, P25, P75) by phase, restricted to projects with complete timelines</td>
+<td>Duration statistics (median, P25, P75) by phase, restricted to actions with complete timelines</td>
 </tr>
 </tbody>
 </table>
 </section>
 <section id="figures-1" class="level3">
-<h3 class="anchored" data-anchor-id="figures-1">6.3 Figures</h3>
+<h3 class="anchored" data-anchor-id="figures-1">6.4 Figures</h3>
 <table class="table">
 <colgroup>
 <col style="width: 50%">
@@ -5127,12 +5156,28 @@ vertical-align: -.125em;
 </thead>
 <tbody>
 <tr class="odd">
+<td><code>fig_geothermal_funnel.png</code></td>
+<td>Two-stage identification funnel: decarbonization universe → geothermal type-tag</td>
+</tr>
+<tr class="even">
+<td><code>fig_geothermal_phase_distribution.png</code></td>
+<td>Project count by development phase (project-level, <code>analysis_proj</code>)</td>
+</tr>
+<tr class="odd">
 <td><code>fig_geothermal_phase_duration_boxplot.png</code></td>
-<td>Boxplot of NEPA duration by phase (excludes <code>none</code>)</td>
+<td>NEPA duration by phase — violin + boxplot, action-level, topcoded at 250 days</td>
 </tr>
 <tr class="even">
 <td><code>fig_geothermal_within_project_sequence.png</code></td>
-<td>Gantt-style segment plot: initiation-to-decision segments per inferred project identity, colored by phase; top 250 rows by action count</td>
+<td>Gantt-style segment plot: initiation-to-decision per inferred project, colored by phase</td>
+</tr>
+<tr class="odd">
+<td><code>fig_geothermal_upset.png</code></td>
+<td>UpSet plot of phase combinations for multi-phase projects with confirmed regex-derived phase combinations (n=241 of 318 total multi-phase; see Section 10.6 for the 77 excluded)</td>
+</tr>
+<tr class="even">
+<td><code>fig_geothermal_ml_confidence.png</code></td>
+<td>ML classifier confidence histogram (only present after classify step is run)</td>
 </tr>
 </tbody>
 </table>
@@ -5141,8 +5186,8 @@ vertical-align: -.125em;
 </section>
 <section id="pipeline-analysis-03_pipelines.r" class="level2">
 <h2 class="anchored" data-anchor-id="pipeline-analysis-03_pipelines.r">7. Pipeline Analysis (<code>03_pipelines.R</code>)</h2>
-<section id="analysis-subset-2" class="level3">
-<h3 class="anchored" data-anchor-id="analysis-subset-2">7.1 Analysis subset</h3>
+<section id="analysis-subset-1" class="level3">
+<h3 class="anchored" data-anchor-id="analysis-subset-1">7.1 Analysis subset</h3>
 <p>Filters to <code>project_is_pipeline == TRUE</code>, clean energy projects. The <code>pipeline_group</code> variable is derived in R as an ordered factor from the Python-extracted subtype flags: - <code>project_is_carbon_pipeline</code> → <code>&quot;Carbon pipeline&quot;</code> - <code>project_is_hydrogen_pipeline</code> → <code>&quot;Hydrogen pipeline&quot;</code> - <code>project_is_natural_gas_pipeline</code> → <code>&quot;Natural gas pipeline&quot;</code> - else → <code>&quot;Other pipeline&quot;</code></p>
 <p>(Priority cascade: carbon &gt; hydrogen &gt; natural gas &gt; other, so a project matching multiple subtype flags takes the first matching label.)</p>
 </section>
@@ -5457,64 +5502,79 @@ vertical-align: -.125em;
 <tr class="odd">
 <td><code>project_is_geothermal</code></td>
 <td>Boolean</td>
-<td>Geothermal keyword present in project text</td>
+<td>Geothermal keyword in <code>project_type</code> field</td>
 </tr>
 <tr class="even">
 <td><code>project_geothermal_phase</code></td>
 <td>String</td>
-<td><code>exploration</code>, <code>drilling</code>, <code>plant</code>, <code>multi_phase</code>, <code>unknown</code>, <code>none</code></td>
+<td><code>exploration</code>, <code>drilling</code>, <code>plant</code>, <code>operations</code>, <code>multi_phase</code>, <code>unknown</code>, <code>none</code> — set by regex (Stage 1); updated from <code>unknown</code> by ML (Stage 2)</td>
 </tr>
 <tr class="odd">
+<td><code>project_geothermal_matched_phases</code></td>
+<td>String (JSON)</td>
+<td>JSON array of phase keys whose regex patterns fired; <code>&#39;[]&#39;</code> for <code>unknown</code>, <code>none</code>, and ML-classified rows</td>
+</tr>
+<tr class="even">
+<td><code>project_geothermal_phase_ml_classified</code></td>
+<td>Boolean</td>
+<td>TRUE if ML classifier updated this row’s phase from <code>unknown</code></td>
+</tr>
+<tr class="odd">
+<td><code>project_geothermal_phase_ml_confidence</code></td>
+<td>Float</td>
+<td>Softmax score for the ML-predicted label; NaN for regex-classified rows</td>
+</tr>
+<tr class="even">
 <td><code>project_is_pipeline</code></td>
 <td>Boolean</td>
 <td>Pipeline keyword flag</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>project_is_carbon_pipeline</code></td>
 <td>Boolean</td>
 <td>Carbon capture / CO₂ pipeline</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>project_is_hydrogen_pipeline</code></td>
 <td>Boolean</td>
 <td>Hydrogen pipeline</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>project_is_natural_gas_pipeline</code></td>
 <td>Boolean</td>
 <td>Natural gas pipeline</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>project_pipeline_group</code></td>
 <td>String</td>
 <td>Rolled-up subtype label</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>project_pipeline_length_miles</code></td>
 <td>Float</td>
 <td>Extracted pipeline length (rule-based)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>project_pipeline_length_confidence</code></td>
 <td>String</td>
 <td><code>high</code>, <code>medium</code>, <code>none</code></td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>project_pipeline_length_source_text</code></td>
 <td>String</td>
 <td>Text snippet containing the matched length value</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>project_pipeline_length_candidate_count</code></td>
 <td>Integer</td>
 <td>Raw candidate count</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>project_pipeline_length_distinct_candidate_count</code></td>
 <td>Integer</td>
 <td>Distinct value groups</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>project_pipeline_length_candidates_json</code></td>
 <td>String</td>
 <td>JSON array of all pipeline candidates (for QA)</td>
@@ -5543,8 +5603,15 @@ vertical-align: -.125em;
 <h3 class="anchored" data-anchor-id="pipeline-technology-comparison-uses-natural-gas-as-a-baseline">10.4 Pipeline technology comparison uses natural gas as a baseline</h3>
 <p>Carbon and hydrogen pipeline NEPA timelines are compared to natural gas pipelines because natural gas provides the closest established-technology analog with sufficient sample size. “Other pipeline” is retained as a residual category but excluded from the key comparison.</p>
 </section>
+<section id="two-types-of-multi_phase-geothermal-projects" class="level3">
+<h3 class="anchored" data-anchor-id="two-types-of-multi_phase-geothermal-projects">10.6 Two types of <code>multi_phase</code> geothermal projects</h3>
+<p>The <code>multi_phase</code> label can arise in two structurally different ways, and only one type can be decomposed into specific phase combinations for the UpSet figure.</p>
+<p><strong>Type A — regex-classified multi_phase (recoverable, n≈275 actions):</strong> The regex step found two or more distinct phase pattern sets firing on the same document. <code>project_geothermal_matched_phases</code> records the specific phase keys (e.g., <code>&#39;[&quot;exploration&quot;,&quot;drilling&quot;]&#39;</code>). These projects’ phase combinations are used in the UpSet figure after project-level rollup.</p>
+<p><strong>Type B — ML-classified multi_phase (not recoverable, n=84 actions → 77 projects):</strong> The regex step returned <code>unknown</code> (no single phase pattern set matched clearly), then the ML classifier predicted <code>multi_phase</code> from the overall document text. Because the ML model is a single-label argmax classifier, it does not record <em>which</em> phases were present — it only says “this looks like a multi-phase project.” <code>project_geothermal_matched_phases</code> is <code>&#39;[]&#39;</code> for these rows. Their internal phase breakdown cannot be reconstructed without retraining the ML model as a multi-label classifier.</p>
+<p><strong>Consequence for the UpSet figure:</strong> Of 318 project-level <code>multi_phase</code> projects, 241 have confirmed phase combinations (Type A, plus Type 2 projects with multiple sequential single-phase NEPA actions) and are shown in the UpSet. The remaining 77 (entirely Type B) are excluded. Including them would require the ML inference step to store top-K softmax scores above a threshold instead of a single argmax label.</p>
+</section>
 <section id="timeline-method-varies-by-process-type" class="level3">
-<h3 class="anchored" data-anchor-id="timeline-method-varies-by-process-type">10.5 Timeline method varies by process type</h3>
+<h3 class="anchored" data-anchor-id="timeline-method-varies-by-process-type">10.7 Timeline method varies by process type</h3>
 <p>CE timelines come from BERT-only extraction; EA and EIS timelines use the LLM-adjudicated dates from the hybrid pipeline. This is consistent with other deliverables (Deliverable 03, Deliverable 05) and reflects the availability of the LLM layer only for EA/EIS.</p>
 <hr>
 </section>
