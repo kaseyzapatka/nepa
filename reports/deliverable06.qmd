@@ -31,6 +31,13 @@ n_tx_total   <- tx_summary$Value[tx_summary$Metric == "Electricity transmission 
 n_tx_len     <- tx_summary$Value[tx_summary$Metric == "With extracted length"]
 n_tx_dur     <- tx_summary$Value[tx_summary$Metric == "With calculable duration"]
 n_tx_multi   <- tx_summary$Value[tx_summary$Metric == "Multi-state projects"]
+
+geo_summary     <- read_csv(file.path(d6_tables, "table_geothermal_summary.csv"), show_col_types = FALSE)
+n_geo_actions   <- geo_summary$value[geo_summary$metric == "Geothermal NEPA actions"]
+n_geo_projects  <- geo_summary$value[geo_summary$metric == "Unique geothermal projects (by key)"]
+n_geo_known     <- geo_summary$value[geo_summary$metric == "Projects with resolved phase"]
+n_geo_multi     <- geo_summary$value[geo_summary$metric == "Multi-phase projects"]
+n_geo_upset     <- geo_summary$value[geo_summary$metric == "Multi-phase projects in UpSet"]
 ```
 
 ## Executive Summary
@@ -263,7 +270,36 @@ Phase classification runs in two stages.
 
 **Stage 2 — ML classifier.** Actions classified as `unknown` by the regex stage are reclassified using a fine-tuned `allenai/scibert_scivocab_uncased` model. The model is trained on the regex-labeled rows with class-weighted loss (to correct for the drilling-heavy imbalance) and a self-training step that expands the effective training set using high-confidence pseudo-labels (threshold 0.70). Input text is title + project type + first 100 words of description, supplemented by up to 300 words of page-level document text where available. At median, the classifier assigns phase labels with approximately 90% softmax confidence.
 
-**Project-level rollup.** After per-action phase assignment, results are collapsed to the project level using a normalized title key. A project is assigned the single dominant clean phase if all its actions agree; if actions span two or more distinct clean phases, the project is classified as `multi_phase` (a genuine multi-stage development).
+**Project-level rollup.** After per-action phase assignment, results are collapsed to the project level. A normalized title key is constructed by stripping common geothermal vocabulary ("geothermal", "well", "drilling", "plant", "project", etc.) from the project title; actions whose normalized titles match are treated as filings for the same physical development. The **`r scales::comma(n_geo_actions)` NEPA actions** collapse to **`r scales::comma(n_geo_projects)` inferred projects** — a reduction of `r n_geo_actions - n_geo_projects` rows driven by well fields and multi-well programs that generated several sequential CEs or EAs over time. Of these, **`r scales::comma(n_geo_known)` projects** have a resolved phase (shown in the bar chart below); the remaining `r n_geo_projects - n_geo_known` could not be classified and are excluded from phase figures.
+
+The table below illustrates the merge with two simplified examples.
+
+```{r}
+#| label: tbl-geo-rollup-example
+#| tbl-cap: "Simplified examples of how multiple NEPA actions for the same physical geothermal development collapse to a single project row. Normalized key strips common vocabulary; actions that share a key are merged."
+
+tibble::tribble(
+  ~`NEPA action (row in data)`,  ~`Process`, ~`Normalized key`,       ~`Action phase`,  ~`→ Project phase`,
+  "Blue Mtn Geothermal Exploration Well Drilling Program",     "CE",   "blue mtn",  "Exploration",  "Multi-phase",
+  "Blue Mtn Geothermal Production Well Program",               "CE",   "blue mtn",  "Drilling",     "↑ (merged)",
+  "—",                                                          "—",    "—",         "—",            "—",
+  "Ormat Nevada Geothermal Production Well Program Phase I",   "CE",   "ormat nevada", "Drilling",  "Drilling",
+  "Ormat Nevada Geothermal Production Well Program Phase II",  "CE",   "ormat nevada", "Drilling",  "↑ (merged)"
+) %>%
+  gt() %>%
+  cols_align(align = "left", columns = everything()) %>%
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_column_labels()) %>%
+  tab_style(style = cell_fill(color = "#f0f4ff"),
+            locations = cells_body(rows = c(1, 2))) %>%
+  tab_style(style = cell_fill(color = "#f7f7f7"),
+            locations = cells_body(rows = 3)) %>%
+  tab_style(style = cell_fill(color = "#f0fff4"),
+            locations = cells_body(rows = c(4, 5))) %>%
+  tab_options(table.font.size = px(12), data_row.padding = px(5))
+```
+
+A project is assigned a single phase if all its actions agree; if actions span two or more distinct phases the project is classified as `multi_phase`. **`r scales::comma(n_geo_multi)` projects** are classified as multi-phase.
 
 @tbl-geo-phase-cues shows representative text cues for each phase.
 
@@ -302,11 +338,11 @@ knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_distribution
 
 ## Multi-Phase Combinations
 
-@fig-geo-upset shows the phase type landscape across all classified geothermal projects. Each bar represents a distinct phase assignment or combination; filled dots below indicate which phases are present. The dominant "Multi Phase" bar captures projects whose single NEPA document matched multiple phase-pattern sets — the internal breakdown is not further decomposed. Bars with two or more named phases (e.g., Exploration + Drilling) represent the smaller subset of projects with separate NEPA actions for each stage.
+@fig-geo-upset breaks down the **`r scales::comma(n_geo_upset)`** multi-phase projects whose phase combinations are fully resolved (out of **`r scales::comma(n_geo_multi)`** total multi-phase projects). Each bar shows the count of projects with exactly that combination of development phases; filled dots indicate which phases are present. Every project in the figure spans at least two distinct phases — combinations like Exploration + Drilling reflect the typical progression from resource assessment to well development, while three- and four-phase bars represent projects that advanced through plant construction and operations. The `r n_geo_multi - n_geo_upset` projects not shown are those classified as multi-phase by a single NEPA document that matched multiple pattern sets simultaneously; their internal phase breakdown becomes fully resolved after re-running the Stage 1 extractor with the updated `project_geothermal_matched_phases` column.
 
 ```{r}
 #| label: fig-geo-upset
-#| fig-cap: "UpSet plot of geothermal project phase types and combinations. 'Multi Phase' captures projects whose single NEPA action matched multiple pattern sets (internal structure unresolved). Named combinations (e.g., Exploration + Drilling) are projects with separate NEPA actions for each stage. Unknown-phase projects are excluded."
+#| fig-cap: "UpSet plot of phase combinations across multi-phase geothermal projects. Each bar is a distinct combination of development phases; filled dots indicate which phases are present. Only projects with at least two resolved phase assignments are shown."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_geothermal_upset.png"))

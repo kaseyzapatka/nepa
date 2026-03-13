@@ -2,6 +2,7 @@
 # DELIVERABLE 6: GEOTHERMAL PHASES
 # --------------------------
 
+rm(list=ls())
 source(here::here("code", "deliverable06", "00_setup.R"))
 
 normalize_geothermal_key <- function(x) {
@@ -36,6 +37,14 @@ cat("Geothermal NEPA actions:", nrow(analysis), "\n")
 # NOTE: action-level "multi_phase" (one document matched 2+ pattern sets) is
 # excluded from the clean-phase vote so it doesn't inflate multi_phase counts.
 # It is only used as a signal when no clean phase is available.
+#
+# project_geothermal_matched_phases: JSON array of individual patterns that fired
+# in the Stage 1 regex (e.g. '["exploration","drilling"]' for a multi_phase row).
+# Present only after re-running --run geothermal with the updated extractor.
+# Used to decompose action-level multi_phase rows into their constituent phases
+# for the UpSet figure.
+
+has_matched_phases_col <- "project_geothermal_matched_phases" %in% names(analysis)
 
 analysis_proj <- analysis %>%
   filter(geothermal_phase != "none") %>%
@@ -50,13 +59,21 @@ analysis_proj <- analysis %>%
     n_clean_phases   = n_distinct(geothermal_phase[
       !geothermal_phase %in% c("multi_phase", "unknown", "none")
     ]),
+    # Union of phases from action-level multi_phase rows (from matched_phases JSON).
+    # Falls back to character(0) when the column isn't available yet.
+    multi_matched    = list(if (has_matched_phases_col) {
+      sort(unique(unlist(lapply(
+        project_geothermal_matched_phases[geothermal_phase == "multi_phase"],
+        safe_fromJSON
+      ))))
+    } else character(0)),
     has_ml_rows      = any(coalesce(project_geothermal_phase_ml_classified, FALSE)),
     project_phase = case_when(
       n_clean_phases == 1  ~ first(as.character(geothermal_phase[
         !geothermal_phase %in% c("multi_phase", "unknown", "none")
       ])),
       n_clean_phases >= 2  ~ "multi_phase",   # genuinely spans distinct phases
-      any(geothermal_phase == "multi_phase")  ~ "multi_phase",   # ambiguous single doc
+      any(geothermal_phase == "multi_phase")  ~ "multi_phase",   # action-level
       TRUE                                    ~ "unknown"
     ),
     .groups = "drop"
@@ -64,8 +81,13 @@ analysis_proj <- analysis %>%
   mutate(
     project_phase = factor(project_phase,
                            levels = c("exploration", "drilling", "plant",
-                                      "operations", "multi_phase", "unknown"))
-  )
+                                      "operations", "multi_phase", "unknown")),
+    # all_phases: union of clean_phases (from single-phase actions) and
+    # multi_matched (phases decomposed from action-level multi_phase rows).
+    # Used by the UpSet figure to show real combinations for every project.
+    all_phases = map2(clean_phases, multi_matched,
+                      ~ sort(unique(c(.x, .y))))
+  ) |> glimpse()
 
 cat("Unique geothermal projects (by key):", nrow(analysis_proj), "\n")
 cat("Project-level phase distribution:\n")
@@ -277,6 +299,26 @@ tbl_phase_distribution <- analysis_proj %>%
 
 write_csv(tbl_phase_distribution, here(tables_dir, "table_geothermal_phase_distribution.csv"))
 
+# Summary counts used by deliverable06.qmd for inline text
+geo_summary <- tibble(
+  metric = c(
+    "Geothermal NEPA actions",
+    "Unique geothermal projects (by key)",
+    "Projects with resolved phase",
+    "Multi-phase projects",
+    "Multi-phase projects in UpSet"
+  ),
+  value = c(
+    nrow(analysis),
+    nrow(analysis_proj),
+    sum(!analysis_proj$project_phase %in% c("unknown", NA), na.rm = TRUE),
+    sum(analysis_proj$project_phase == "multi_phase", na.rm = TRUE),
+    # populated after UpSet figure block; placeholder until then
+    NA_integer_
+  )
+)
+# (value for UpSet row is patched after upset_data is built — see FIGURES section)
+
 within_project_phase <- analysis %>%
   filter(!is.na(geothermal_phase), geothermal_phase != "none") %>%
   group_by(geothermal_project_key) %>%
@@ -360,25 +402,31 @@ ggsave(
 # clean_phases already holds sorted character vectors of distinct clean phases per project.
 if (!requireNamespace("ggupset", quietly = TRUE)) install.packages("ggupset")
 
-# All non-unknown projects.
-# Projects with n_clean_phases >= 1: use their specific phase list.
-# Projects with n_clean_phases == 0 (action-level multi_phase — one document
-#   matched multiple patterns): their internal phase breakdown is not decomposed,
-#   so they appear as the "Multi Phase" category.
+# Universe: the multi_phase projects ONLY.
+# Each project must have ≥2 real phase names in all_phases — guaranteed after
+# re-running --run geothermal (matched_phases always has 2+ entries for any
+# action-level multi_phase row because _classify_geothermal_phase only returns
+# "multi_phase" when 2+ pattern sets fire).
+# Projects with < 2 resolvable phases are excluded with a console warning —
+# this only happens with old data that predates the matched_phases column.
 upset_data <- analysis_proj %>%
-  filter(!is.na(project_phase), project_phase != "unknown") %>%
-  mutate(
-    phase_combo = if_else(
-      n_clean_phases >= 1,
-      map(clean_phases, str_to_title),
-      list(c("Multi Phase"))
-    )
-  )
+  filter(project_phase == "multi_phase") %>%
+  mutate(phase_combo = map(all_phases, str_to_title)) %>%
+  filter(map_int(phase_combo, length) >= 2)
 
-cat("UpSet plot N:", nrow(upset_data), "\n")
-cat("  of which action-level multi_phase (unresolved):",
-    sum(map_int(upset_data$phase_combo, length) == 1 &
-          map_chr(upset_data$phase_combo, first) == "Multi Phase"), "\n")
+n_excluded <- sum(analysis_proj$project_phase == "multi_phase", na.rm = TRUE) -
+              nrow(upset_data)
+cat("UpSet plot N (multi-phase projects with ≥2 resolved phases):",
+    nrow(upset_data), "\n")
+if (n_excluded > 0) {
+  cat("  NOTE:", n_excluded,
+      "multi-phase projects excluded (< 2 resolved phases).",
+      "Re-run --run geothermal to resolve them.\n")
+}
+
+# Patch the UpSet count into geo_summary, then write to CSV for use in QMD inline text
+geo_summary$value[geo_summary$metric == "Multi-phase projects in UpSet"] <- nrow(upset_data)
+write_csv(geo_summary, here(tables_dir, "table_geothermal_summary.csv"))
 
 fig_upset <- ggplot(upset_data, aes(x = phase_combo)) +
   geom_bar(fill = catf_navy, width = 0.6) +
@@ -399,10 +447,10 @@ fig_upset <- ggplot(upset_data, aes(x = phase_combo)) +
   ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(
-    title    = "Geothermal Projects by Phase Type and Combination",
+    title    = "Phase Combinations Within Multi-Phase Geothermal Projects",
     subtitle = paste0(
-      comma(nrow(upset_data)), " projects; ",
-      "'Multi Phase' = single document matched multiple pattern sets (unresolved)"
+      comma(nrow(upset_data)),
+      " projects spanning ≥2 development phases"
     ),
     x        = NULL,
     y        = "Projects"

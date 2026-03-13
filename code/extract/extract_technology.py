@@ -942,12 +942,21 @@ def _miles_by_action(candidates: List[Dict], action: str) -> float:
     return round(sum(g["value_miles"] for g in groups), 3)
 
 
-def _classify_geothermal_phase(text: str) -> str:
-    """Return one of: none, exploration, drilling, plant, operations, multi_phase, unknown."""
+def _classify_geothermal_phase(text: str) -> tuple:
+    """Return (phase, matched_phases).
+
+    phase is one of: none, exploration, drilling, plant, operations,
+    multi_phase, unknown.
+
+    matched_phases is the list of phase keys whose pattern set fired.
+    Empty for 'none' and 'unknown'; a single-element list for single-phase
+    matches; two or more elements when phase == 'multi_phase'.  This lets
+    callers decompose multi_phase rows into their constituent phases.
+    """
     txt = (text or "").lower()
     geo_keyword = re.search(r"\b(geothermal|enhanced geothermal|egs)\b", txt)
     if not geo_keyword:
-        return "none"
+        return "none", []
 
     matches = []
     for phase, patterns in GEOTHERMAL_PHASE_PATTERNS.items():
@@ -955,10 +964,10 @@ def _classify_geothermal_phase(text: str) -> str:
             matches.append(phase)
 
     if len(matches) == 0:
-        return "unknown"
+        return "unknown", []
     if len(matches) == 1:
-        return matches[0]
-    return "multi_phase"
+        return matches[0], matches
+    return "multi_phase", matches
 
 
 # --------------------------
@@ -1401,9 +1410,13 @@ def _add_geothermal_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFr
     geothermal_re = r"\b(?:geothermal|enhanced geothermal|egs)\b"
     out["project_is_geothermal"] = type_text.str.contains(geothermal_re, regex=True)
 
-    out["project_geothermal_phase"] = [
-        _classify_geothermal_phase(text)
-        for text in full_text
+    phase_results = [_classify_geothermal_phase(text) for text in full_text]
+    out["project_geothermal_phase"] = [r[0] for r in phase_results]
+    # Matched phases as a JSON array string so R can parse it with safe_fromJSON.
+    # For single-phase rows: '["drilling"]'; for multi_phase: '["exploration","drilling"]';
+    # for none/unknown: '[]'.
+    out["project_geothermal_matched_phases"] = [
+        json.dumps(r[1]) for r in phase_results
     ]
     return out
 
