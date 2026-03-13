@@ -338,7 +338,7 @@ GEOTHERMAL_PHASE_PATTERNS = {
 GEO_PHASE_LABELS: List[str] = ["exploration", "drilling", "plant", "operations", "multi_phase"]
 GEO_PHASE_LABEL2ID: Dict[str, int] = {l: i for i, l in enumerate(GEO_PHASE_LABELS)}
 GEO_PHASE_ID2LABEL: Dict[int, str] = {i: l for i, l in enumerate(GEO_PHASE_LABELS)}
-GEO_PHASE_DEFAULT_BASE_MODEL = "distilbert-base-uncased"
+GEO_PHASE_DEFAULT_BASE_MODEL = "allenai/scibert_scivocab_uncased"
 GEO_PHASE_MODEL_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "models" / "geothermal_phase_classifier"
 
 
@@ -1412,18 +1412,113 @@ def _add_geothermal_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFr
 # GEOTHERMAL PHASE ML CLASSIFIER
 # --------------------------
 
-def _geo_phase_text(row: "pd.Series") -> str:
+def _load_geo_page_texts(
+    df: pd.DataFrame,
+    processed_dir: Path,
+    max_pages: int = 3,
+) -> Dict[str, str]:
+    """Return {pid_clean: first-N-pages text} for rows in *df*, using DuckDB parquets.
+
+    Mirrors the page-loading pattern used for transmission length recovery.
+    Returns an empty dict if duckdb is unavailable or processed_dir is missing.
+    """
+    try:
+        import duckdb
+    except ImportError:
+        print("  [geo-pages] duckdb not available — skipping page text enrichment")
+        return {}
+
+    if "project_id" not in df.columns:
+        return {}
+
+    pid_series = df["project_id"].astype(str).str.replace("-", "", regex=False)
+
+    # Determine which process_type each row belongs to
+    ptype_col = next((c for c in ("process_type", "dataset_source") if c in df.columns), None)
+
+    result: Dict[str, str] = {}
+    con = duckdb.connect()
+
+    for ptype in ["CE", "EA", "EIS"]:
+        if ptype_col is not None:
+            submask = df[ptype_col].str.upper().str.strip() == ptype
+            target_pids = pid_series[submask].unique().tolist()
+        else:
+            target_pids = pid_series.unique().tolist()
+
+        if not target_pids:
+            continue
+
+        ptype_lower = ptype.lower()
+        docs_path  = str(processed_dir / ptype_lower / "documents.parquet")
+        pages_path = str(processed_dir / ptype_lower / "pages.parquet")
+
+        if not Path(docs_path).exists() or not Path(pages_path).exists():
+            continue
+
+        con.register("_geo_pids", pd.DataFrame({"pid": target_pids}))
+        try:
+            if ptype == "CE":
+                query = """
+                    SELECT replace(d.project_id.value, '-', '') AS pid, p.page_text
+                    FROM read_parquet(?) d
+                    JOIN read_parquet(?) p ON p.document_id = d.document_id
+                    WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _geo_pids)
+                """
+                page_df = con.execute(query, [docs_path, pages_path]).df()
+            else:
+                query = """
+                    SELECT pid, page_text FROM (
+                        SELECT
+                            replace(d.project_id.value, '-', '') AS pid,
+                            p.page_text,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY d.document_id ORDER BY p.page_number
+                            ) AS rn
+                        FROM read_parquet(?) d
+                        JOIN read_parquet(?) p ON p.document_id = d.document_id
+                        WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _geo_pids)
+                          AND d.main_document = 'YES'
+                    ) WHERE rn <= ?
+                """
+                page_df = con.execute(query, [docs_path, pages_path, max_pages]).df()
+        except Exception as exc:
+            print(f"  [geo-pages] {ptype}: DuckDB error — {exc}")
+            continue
+
+        if page_df.empty:
+            continue
+
+        for pid, grp in page_df.groupby("pid"):
+            blob = " ".join(str(t) for t in grp["page_text"] if t)
+            result[pid] = " ".join(blob.split()[:300])  # cap at 300 words
+
+        n_loaded = len(page_df["pid"].unique())
+        print(f"  [geo-pages] {ptype}: loaded page text for {n_loaded:,} projects")
+
+    return result
+
+
+def _geo_phase_text(row: "pd.Series", page_texts: "Dict[str, str] | None" = None) -> str:
     """Compose input text for the ML phase classifier.
 
-    Uses title + project_type + first 100 words of description.  This mirrors
-    the LLM prompt recommendation: phase signal is concentrated in the title and
-    opening clause of the description; the rest is procedural boilerplate.
+    Uses title + project_type + first 100 words of description, plus up to 300
+    words of page text when *page_texts* is provided and a match exists.
     """
     title = str(row.get("project_title_txt", "") or row.get("project_title", "") or "")
     ptype = str(row.get("project_type", "") or "")
     desc  = str(row.get("project_description_txt", "") or row.get("project_description", "") or "")
     desc_short = " ".join(desc.split()[:100])
-    return " ".join(p for p in [title, ptype, desc_short] if p.strip())
+
+    parts = [p for p in [title, ptype, desc_short] if p.strip()]
+
+    if page_texts is not None:
+        pid = str(row.get("project_id", "") or "").replace("-", "")
+        page = page_texts.get(pid, "")
+        if page:
+            parts.append(page)
+
+    return " ".join(parts)
 
 
 def train_geothermal_phase_classifier(
@@ -1433,16 +1528,24 @@ def train_geothermal_phase_classifier(
     epochs: int = 5,
     test_size: float = 0.2,
     batch_size: int = 16,
+    processed_dir: Path | None = None,
+    self_training_rounds: int = 1,
+    self_training_threshold: float = 0.70,
+    max_pages: int = 3,
 ) -> None:
-    """Fine-tune a sequence classifier on the labeled geothermal phase rows.
+    """Fine-tune a sequence classifier on labeled geothermal phase rows.
 
-    Labeled rows are those where ``project_is_geothermal == True`` and
-    ``project_geothermal_phase`` is one of the five canonical labels
-    (exploration / drilling / plant / operations / multi_phase).  Rows with
-    phase == 'unknown' or 'none' are excluded from training.
+    Improvements over the basic version:
+    - **Page text**: if *processed_dir* is given, the first *max_pages* pages of
+      each project's main document are appended to the input text.
+    - **Weighted loss**: class weights are computed from training label frequencies
+      so that rare phases (operations, exploration) are not ignored.
+    - **Self-training**: after the initial fit, the model is applied to all
+      unknown rows; predictions above *self_training_threshold* are added as
+      pseudo-labels and the model is retrained for *self_training_rounds* extra
+      rounds.
 
-    The trained model and tokenizer are saved to *model_dir* and can be
-    applied later with :func:`classify_geothermal_phase_ml`.
+    The trained model and tokenizer are saved to *model_dir*.
     """
     try:
         from transformers import (
@@ -1452,18 +1555,29 @@ def train_geothermal_phase_classifier(
             TrainingArguments,
         )
         import torch
+        import torch.nn as nn
         from torch.utils.data import Dataset as _TorchDataset
         from sklearn.model_selection import train_test_split
         from sklearn.metrics import classification_report
+        from sklearn.utils.class_weight import compute_class_weight
     except ImportError as exc:
         raise ImportError(
-            "Training requires: pip install transformers torch scikit-learn. "
+            "Training requires: pip install transformers torch scikit-learn accelerate. "
             f"Missing package: {exc}"
         ) from exc
 
     df = pd.read_parquet(input_path)
 
-    # Keep only labeled geothermal rows
+    # ── Page text enrichment ──────────────────────────────────────────────────
+    page_texts: Dict[str, str] = {}
+    if processed_dir is not None and Path(processed_dir).exists():
+        print(f"Loading page text from: {processed_dir}")
+        page_texts = _load_geo_page_texts(df, Path(processed_dir), max_pages=max_pages)
+        print(f"  Page text loaded for {len(page_texts):,} projects")
+    else:
+        print("No processed_dir provided — using title + type + description only")
+
+    # ── Labeled examples ─────────────────────────────────────────────────────
     labeled = df[
         df.get("project_is_geothermal", pd.Series(False, index=df.index)).fillna(False)
         & df.get("project_geothermal_phase", pd.Series("unknown", index=df.index))
@@ -1476,12 +1590,12 @@ def train_geothermal_phase_classifier(
             "Run --run geothermal first to populate project_geothermal_phase."
         )
 
-    labeled["_text"]     = labeled.apply(_geo_phase_text, axis=1)
+    labeled["_text"]     = labeled.apply(lambda r: _geo_phase_text(r, page_texts), axis=1)
     labeled["_label_id"] = labeled["project_geothermal_phase"].map(GEO_PHASE_LABEL2ID)
     labeled = labeled.dropna(subset=["_label_id"])
     labeled["_label_id"] = labeled["_label_id"].astype(int)
 
-    print(f"Labeled examples: {len(labeled):,}")
+    print(f"\nLabeled examples: {len(labeled):,}")
     print(labeled.groupby("project_geothermal_phase").size().rename("n").to_string())
 
     if len(labeled) < 10:
@@ -1492,14 +1606,25 @@ def train_geothermal_phase_classifier(
     )
     print(f"Train: {len(train_df):,}  |  Val: {len(val_df):,}")
 
+    # ── Unknown rows for self-training ────────────────────────────────────────
+    unknown_mask = (
+        df.get("project_is_geothermal", pd.Series(False, index=df.index)).fillna(False)
+        & (df.get("project_geothermal_phase", pd.Series("", index=df.index)) == "unknown")
+    )
+    unknown_df = df[unknown_mask].copy()
+    unknown_df["_text"] = unknown_df.apply(lambda r: _geo_phase_text(r, page_texts), axis=1)
+
+    model_dir = Path(model_dir)
+    model_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(base_model)
 
+    # ── Dataset helper ────────────────────────────────────────────────────────
     class _GeoDataset(_TorchDataset):
         def __init__(self, texts: List[str], labels: List[int]) -> None:
             enc = tokenizer(
                 texts,
                 truncation=True, padding="max_length",
-                max_length=128, return_tensors="pt",
+                max_length=256, return_tensors="pt",
             )
             self.input_ids      = enc["input_ids"]
             self.attention_mask = enc["attention_mask"]
@@ -1515,45 +1640,116 @@ def train_geothermal_phase_classifier(
                 "labels":         self.labels[idx],
             }
 
-    train_dataset = _GeoDataset(train_df["_text"].tolist(), train_df["_label_id"].tolist())
-    val_dataset   = _GeoDataset(val_df["_text"].tolist(),   val_df["_label_id"].tolist())
+    # ── Trainer with weighted cross-entropy ───────────────────────────────────
+    def _make_weighted_trainer(
+        train_dataset: _TorchDataset,
+        val_dataset: _TorchDataset,
+        train_labels: List[int],
+        n_epochs: int,
+    ) -> "Trainer":
+        raw_weights = compute_class_weight(
+            "balanced",
+            classes=np.arange(len(GEO_PHASE_LABELS)),
+            y=train_labels,
+        )
+        cw = torch.FloatTensor(raw_weights)
 
-    model = AutoModelForSequenceClassification.from_pretrained(
-        base_model,
-        num_labels=len(GEO_PHASE_LABELS),
-        id2label=GEO_PHASE_ID2LABEL,
-        label2id=GEO_PHASE_LABEL2ID,
-    )
+        class _WeightedTrainer(Trainer):
+            def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+                labels  = inputs.get("labels")
+                outputs = model(**inputs)
+                logits  = outputs.get("logits")
+                loss = nn.CrossEntropyLoss(weight=cw.to(logits.device))(
+                    logits.view(-1, model.config.num_labels),
+                    labels.view(-1),
+                )
+                return (loss, outputs) if return_outputs else loss
 
-    model_dir = Path(model_dir)
-    model_dir.mkdir(parents=True, exist_ok=True)
+        args = TrainingArguments(
+            output_dir=str(model_dir),
+            num_train_epochs=n_epochs,
+            per_device_train_batch_size=batch_size,
+            per_device_eval_batch_size=batch_size * 2,
+            eval_strategy="epoch",
+            save_strategy="epoch",
+            load_best_model_at_end=True,
+            metric_for_best_model="eval_loss",
+            logging_steps=20,
+            report_to="none",
+        )
+        model = AutoModelForSequenceClassification.from_pretrained(
+            base_model,
+            num_labels=len(GEO_PHASE_LABELS),
+            id2label=GEO_PHASE_ID2LABEL,
+            label2id=GEO_PHASE_LABEL2ID,
+        )
+        return _WeightedTrainer(
+            model=model, args=args,
+            train_dataset=train_dataset, eval_dataset=val_dataset,
+        )
 
-    training_args = TrainingArguments(
-        output_dir=str(model_dir),
-        num_train_epochs=epochs,
-        per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size * 2,
-        eval_strategy="epoch",
-        save_strategy="epoch",
-        load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
-        logging_steps=20,
-        report_to="none",
-    )
+    # ── Round 0: initial training ─────────────────────────────────────────────
+    print(f"\n=== Training round 0 (base labeled data, {epochs} epochs) ===")
+    train_texts  = train_df["_text"].tolist()
+    train_labels = train_df["_label_id"].tolist()
 
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_dataset,
-        eval_dataset=val_dataset,
-    )
+    val_dataset   = _GeoDataset(val_df["_text"].tolist(), val_df["_label_id"].tolist())
+    train_dataset = _GeoDataset(train_texts, train_labels)
+
+    trainer = _make_weighted_trainer(train_dataset, val_dataset, train_labels, epochs)
     trainer.train()
 
-    model.save_pretrained(model_dir)
+    # ── Self-training rounds ──────────────────────────────────────────────────
+    for rnd in range(1, self_training_rounds + 1):
+        if unknown_df.empty:
+            print(f"\nSelf-training round {rnd}: no unknown rows — skipping")
+            break
+
+        print(f"\n=== Self-training round {rnd} ===")
+        model_so_far = trainer.model
+        model_so_far.eval()
+
+        unk_texts = unknown_df["_text"].tolist()
+        all_pred_ids: List[int]    = []
+        all_confs:    List[float]  = []
+
+        with torch.no_grad():
+            for i in range(0, len(unk_texts), batch_size * 2):
+                enc    = tokenizer(
+                    unk_texts[i : i + batch_size * 2],
+                    truncation=True, padding=True, max_length=256, return_tensors="pt",
+                )
+                logits = model_so_far(**enc).logits
+                probs  = torch.softmax(logits, dim=-1)
+                all_pred_ids.extend(probs.argmax(dim=-1).tolist())
+                all_confs.extend(probs.max(dim=-1).values.tolist())
+
+        pseudo = unknown_df.copy()
+        pseudo["_label_id"] = all_pred_ids
+        pseudo["_conf"]     = all_confs
+        pseudo = pseudo[pseudo["_conf"] >= self_training_threshold]
+
+        print(f"  High-confidence pseudo-labels (≥{self_training_threshold}): {len(pseudo):,}")
+        if pseudo.empty:
+            print("  No pseudo-labels above threshold — stopping self-training")
+            break
+
+        # Combine original labeled + pseudo-labeled for this round
+        aug_texts  = train_texts + pseudo["_text"].tolist()
+        aug_labels = train_labels + pseudo["_label_id"].tolist()
+
+        train_dataset_aug = _GeoDataset(aug_texts, aug_labels)
+        trainer = _make_weighted_trainer(
+            train_dataset_aug, val_dataset, aug_labels,
+            n_epochs=max(2, epochs // 2),
+        )
+        trainer.train()
+
+    # ── Save and report ───────────────────────────────────────────────────────
+    trainer.model.save_pretrained(model_dir)
     tokenizer.save_pretrained(model_dir)
     print(f"\nModel saved: {model_dir}")
 
-    # Validation report
     preds    = trainer.predict(val_dataset)
     pred_ids = preds.predictions.argmax(axis=-1)
     print("\nValidation classification report:")
@@ -1569,6 +1765,8 @@ def classify_geothermal_phase_ml(
     model_dir: Path = GEO_PHASE_MODEL_DIR,
     batch_size: int = 32,
     dry_run: bool = False,
+    processed_dir: Path | None = None,
+    max_pages: int = 3,
 ) -> None:
     """Apply the trained classifier to rows where phase == 'unknown'.
 
@@ -1605,21 +1803,27 @@ def classify_geothermal_phase_ml(
         print("Nothing to classify.")
         return
 
-    texts = df[mask].apply(_geo_phase_text, axis=1).tolist()
+    # Page text enrichment (mirrors training)
+    page_texts: Dict[str, str] = {}
+    if processed_dir is not None and Path(processed_dir).exists():
+        print(f"Loading page text from: {processed_dir}")
+        page_texts = _load_geo_page_texts(df[mask], Path(processed_dir), max_pages=max_pages)
+        print(f"  Page text loaded for {len(page_texts):,} projects")
+
+    texts = df[mask].apply(lambda r: _geo_phase_text(r, page_texts), axis=1).tolist()
 
     tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
     model     = AutoModelForSequenceClassification.from_pretrained(str(model_dir))
     model.eval()
 
-    all_pred_ids: List[int]   = []
+    all_pred_ids: List[int]      = []
     all_confidences: List[float] = []
 
-    import torch  # already imported above, repeated for clarity inside block
     with torch.no_grad():
         for i in range(0, len(texts), batch_size):
             enc    = tokenizer(
                 texts[i : i + batch_size],
-                truncation=True, padding=True, max_length=128, return_tensors="pt",
+                truncation=True, padding=True, max_length=256, return_tensors="pt",
             )
             logits = model(**enc).logits
             probs  = torch.softmax(logits, dim=-1)
@@ -1636,13 +1840,12 @@ def classify_geothermal_phase_ml(
         print("\nDry run — no changes written.")
         return
 
-    # Stamp results back into the full dataframe
     if "project_geothermal_phase_ml_classified" not in df.columns:
         df["project_geothermal_phase_ml_classified"] = False
     if "project_geothermal_phase_ml_confidence" not in df.columns:
         df["project_geothermal_phase_ml_confidence"] = np.nan
 
-    df.loc[mask, "project_geothermal_phase"]            = predicted_labels
+    df.loc[mask, "project_geothermal_phase"]               = predicted_labels
     df.loc[mask, "project_geothermal_phase_ml_confidence"] = all_confidences
     df.loc[mask, "project_geothermal_phase_ml_classified"] = True
 
@@ -1883,6 +2086,33 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Classify but do not write any output (useful for previewing predictions)",
     )
+    parser.add_argument(
+        "--geo-phase-processed-dir",
+        type=Path,
+        default=None,
+        help=(
+            "Path to data/processed/ directory for page-text enrichment during "
+            "training and classification. If omitted, uses title+type+description only."
+        ),
+    )
+    parser.add_argument(
+        "--geo-phase-max-pages",
+        type=int,
+        default=3,
+        help="Max pages per document to include as input text (default: 3)",
+    )
+    parser.add_argument(
+        "--geo-phase-self-training-rounds",
+        type=int,
+        default=1,
+        help="Self-training rounds after initial fit (default: 1; 0 to disable)",
+    )
+    parser.add_argument(
+        "--geo-phase-self-training-threshold",
+        type=float,
+        default=0.70,
+        help="Minimum confidence for a self-training pseudo-label to be accepted (default: 0.70)",
+    )
 
     return parser
 
@@ -1901,6 +2131,10 @@ def run_cli(args: argparse.Namespace) -> None:
         print(f"Input:      {in_path}")
         print(f"Base model: {args.geo_phase_base_model}")
         print(f"Model dir:  {args.geo_phase_model_dir}")
+        _proc = getattr(args, "geo_phase_processed_dir", None)
+        if _proc is None:
+            _default = Path(__file__).resolve().parent.parent.parent / "data" / "processed"
+            _proc = _default if _default.exists() else None
         train_geothermal_phase_classifier(
             input_path=in_path,
             model_dir=args.geo_phase_model_dir,
@@ -1908,6 +2142,10 @@ def run_cli(args: argparse.Namespace) -> None:
             epochs=args.geo_phase_epochs,
             test_size=args.geo_phase_test_size,
             batch_size=args.geo_phase_batch_size,
+            processed_dir=_proc,
+            self_training_rounds=args.geo_phase_self_training_rounds,
+            self_training_threshold=args.geo_phase_self_training_threshold,
+            max_pages=args.geo_phase_max_pages,
         )
         return
 
@@ -1917,12 +2155,18 @@ def run_cli(args: argparse.Namespace) -> None:
         print(f"Input:     {in_path}")
         print(f"Output:    {projects_out_path}")
         print(f"Model dir: {args.geo_phase_model_dir}")
+        _proc = getattr(args, "geo_phase_processed_dir", None)
+        if _proc is None:
+            _default = Path(__file__).resolve().parent.parent.parent / "data" / "processed"
+            _proc = _default if _default.exists() else None
         classify_geothermal_phase_ml(
             input_path=in_path,
             output_path=projects_out_path,
             model_dir=args.geo_phase_model_dir,
             batch_size=args.geo_phase_batch_size,
             dry_run=args.geo_phase_dry_run,
+            processed_dir=_proc,
+            max_pages=args.geo_phase_max_pages,
         )
         return
 

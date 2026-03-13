@@ -108,6 +108,8 @@ combined_cols <- c(
   "project_is_hydrogen_pipeline",
   "project_is_natural_gas_pipeline",
   "project_geothermal_phase",
+  "project_geothermal_phase_ml_classified",
+  "project_geothermal_phase_ml_confidence",
   "project_pipeline_group",
   "project_pipeline_length_miles",
   "project_pipeline_length_confidence",
@@ -238,6 +240,7 @@ add_deliv6_fallback_features <- function(df) {
   }
 
   logical_cols <- c(
+    "project_geothermal_phase_ml_classified",
     "project_is_transmission",
     "project_is_transmission_broad",
     "project_is_geothermal",
@@ -253,6 +256,7 @@ add_deliv6_fallback_features <- function(df) {
     "project_transmission_length_from_pages"
   )
   numeric_cols <- c(
+    "project_geothermal_phase_ml_confidence",
     "project_transmission_length_miles",
     "project_transmission_length_final",
     "project_pipeline_length_miles",

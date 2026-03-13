@@ -208,20 +208,27 @@ A project-level action type is derived by applying six regex patterns to the ful
 
 ---
 
-### 3.4 Geothermal Phase Classification (`project_geothermal_phase`)
+### 3.4 Geothermal Identification and Phase Classification
 
-Geothermal projects are identified by `project_is_geothermal` (a keyword flag detecting `geothermal` in project text, set in the extraction pipeline). Phase is then classified by `_classify_geothermal_phase()`, which applies regex patterns to the full project text:
+**Identification** (`project_is_geothermal`): matched on **`project_type` field only** — analogous to the transmission type-tag gate. Pattern: `\b(geothermal|enhanced geothermal|egs)\b`. Projects without a geothermal `project_type` tag are excluded even if geothermal language appears in title/description.
 
-| Phase | Pattern examples |
+**Phase classification — two-stage pipeline:**
+
+**Stage 1 (regex, always runs):** `_classify_geothermal_phase()` applies `GEOTHERMAL_PHASE_PATTERNS` to `full_text` (title + description + type + NOI title + aggregated document titles). There is no CE/EA/EIS fallback prior — rows with no pattern match receive `unknown`.
+
+| Phase | Key patterns |
 |---|---|
-| `exploration` | `\bexploration\b`, `\bexploratory\b`, `\bresource assessment\b`, `\bgeophysical survey\b` |
-| `drilling` | `\bdrilling\b`, `\bdrill pad\b`, `\bproduction well\b`, `\binjection well\b` |
-| `plant` | `\bpower plant\b`, `\bgenerating station\b`, `\bturbine\b`, `\binterconnection\b` |
-| `multi_phase` | Multiple phase signals match simultaneously |
-| `unknown` | "geothermal" is present in text but no phase pattern matches |
-| `none` | "geothermal" does not appear in text at all |
+| `exploration` | `exploration`, `exploratory`, `resource assessment`, `geophysical survey`, `temperature gradient`, `feasibility study`, `slim hole`, `core hole`, `pre-feasibility`, `geothermal prospecting` |
+| `drilling` | `drilling`, `production well`, `injection well`, `well pad`, `wellfield`, `well program`, `permit to drill`, `well permit`, `notice of intent to drill`, `well abandonment`, `well plugging`, `well completion` |
+| `plant` | `power plant`, `binary plant`, `flash plant`, `turbine`, `generating station`, `interconnection`, `steam gathering`, `condenser`, `cooling tower`, `binary cycle` |
+| `operations` | `steam supply`, `reinjection`, `make-up well`, `fluid management`, `working fluid` |
+| `multi_phase` | Two or more phase sets match the same document |
+| `unknown` | Geothermal keyword present, no phase pattern matches |
+| `none` | No geothermal keyword in full_text |
 
-Phase classification is limited to what appears in project title and description text; it does not scan document pages.
+**Stage 2 (ML classifier, optional):** A fine-tuned `allenai/scibert_scivocab_uncased` model re-classifies rows where `project_geothermal_phase == "unknown"`. Training data: regex-labeled rows (all five canonical phases). Input: title + project_type + first 100 words of description + up to 3 pages of document text (from `data/processed/`). Improvements over baseline: class-weighted loss (corrects drilling-heavy imbalance), self-training (high-confidence pseudo-labels added for one retraining round). Median confidence after SciBERT training: ~0.88–0.90. Rows updated by ML carry `project_geothermal_phase_ml_classified = True` and a `project_geothermal_phase_ml_confidence` score.
+
+**Project-level rollup (R, `02_geothermal.R`):** Action-level phases are collapsed to one row per `geothermal_project_key` in `analysis_proj`. Logic: if all actions agree on one non-ambiguous phase → that phase; if actions span ≥2 distinct phases → `multi_phase` (genuine); if only action-level `multi_phase` rows → `multi_phase` (ambiguous); else → `unknown`. The action-level `multi_phase` label is excluded from the clean-phase vote to prevent inflation. Key reporting figures use `analysis_proj`; duration figures remain action-level.
 
 ---
 
@@ -323,24 +330,40 @@ Three candidate-level tables are exported to a shared Google Sheet for QA:
 
 ## 6. Geothermal Analysis (`02_geothermal.R`)
 
-### 6.1 Analysis subset
+### 6.1 Analysis subsets
 
-Filters to `project_is_geothermal == TRUE`, clean energy projects. A **normalized project key** (`geothermal_project_key`) is derived from the project title by stripping common geothermal-domain words (`geothermal`, `exploration`, `drilling`, `well`, `plant`, `project`, etc.) and punctuation. Projects whose key is fewer than 8 characters after normalization fall back to `project_id`. This key groups related NEPA actions within a single physical development for within-project sequencing analysis.
+Two analysis objects are created:
 
-### 6.2 Tables
+- **`analysis`** (action-level): filters to `project_is_geothermal == TRUE` + clean energy. One row per NEPA action. Used for duration figures and sequencing.
+- **`analysis_proj`** (project-level): collapses `analysis` to one row per `geothermal_project_key`. Used for phase distribution figures and `tbl_phase_distribution`. See Section 3.4 for rollup logic.
+
+A **normalized project key** (`geothermal_project_key`) strips common geothermal-domain words and punctuation from the project title. Keys shorter than 8 characters after normalization fall back to `project_id`.
+
+### 6.2 ML Classifier QC
+
+A QC block runs automatically if `project_geothermal_phase_ml_classified` is present in `analysis`. Outputs:
+- Phase distribution split by source (regex vs ML)
+- Confidence summary (n, min, P25, median, P75, % below 0.60)
+- Low-confidence row table (confidence < 0.60) for spot-checking
+- `fig_geothermal_ml_confidence.png` — histogram of softmax confidence by predicted phase
+
+### 6.3 Tables
 
 | File | Description |
 |---|---|
-| `table_geothermal_phase_distribution.csv` | Count and share of projects by geothermal phase |
+| `table_geothermal_phase_distribution.csv` | Count and share of **projects** by phase (project-level, from `analysis_proj`) |
 | `table_geothermal_within_project_phases.csv` | Per-inferred-project summary: action count, distinct phases, date span, example title |
-| `table_geothermal_phase_timeline.csv` | Duration statistics (median, P25, P75) by phase, restricted to projects with complete timelines |
+| `table_geothermal_phase_timeline.csv` | Duration statistics (median, P25, P75) by phase, restricted to actions with complete timelines |
 
-### 6.3 Figures
+### 6.4 Figures
 
 | File | Description |
 |---|---|
-| `fig_geothermal_phase_duration_boxplot.png` | Boxplot of NEPA duration by phase (excludes `none`) |
-| `fig_geothermal_within_project_sequence.png` | Gantt-style segment plot: initiation-to-decision segments per inferred project identity, colored by phase; top 250 rows by action count |
+| `fig_geothermal_funnel.png` | Two-stage identification funnel: decarbonization universe → geothermal type-tag |
+| `fig_geothermal_phase_distribution.png` | Project count by development phase (project-level, `analysis_proj`) |
+| `fig_geothermal_phase_duration_boxplot.png` | NEPA duration by phase — violin + boxplot, action-level, topcoded at 250 days |
+| `fig_geothermal_within_project_sequence.png` | Gantt-style segment plot: initiation-to-decision per inferred project, colored by phase |
+| `fig_geothermal_ml_confidence.png` | ML classifier confidence histogram (only present after classify step is run) |
 
 ---
 

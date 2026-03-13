@@ -226,10 +226,10 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_duration_by_acti
 ::: {.callout-note}
 ## Key Findings
 
-- **914 geothermal NEPA actions** are present in the dataset, spanning exploration, drilling, plant construction, operations, and multi-phase projects.
-- **Drilling is the most common identifiable phase**, followed by multi-phase projects where multiple development stages appear in a single NEPA document.
-- **Phase classification uses a layered approach**: regex pattern matching on project text, with the NEPA process type (CE/EA/EIS) as a fallback prior for projects where no phase cues are found.
-- **Exploration and multi-phase projects take the longest** on a median basis (20–21 days), while drilling reviews are often resolved very quickly (median 4 days). This likely reflects that drilling is frequently categorically excluded.
+- **Geothermal NEPA actions** in the dataset span exploration, drilling, plant construction, operations, and multi-phase projects; phase is reported at the **project level** by collapsing multiple NEPA filings for the same physical development into a single phase label.
+- **Drilling is the most common identifiable phase**, followed by multi-phase projects where a single project spans multiple distinct development stages across its NEPA history.
+- **Phase classification uses a two-stage pipeline**: regex pattern matching on project text for the majority of projects, followed by a fine-tuned SciBERT ML classifier for actions where no regex cues are detected (median classifier confidence ~0.90).
+- **Drilling reviews are often resolved very quickly** (frequently categorical exclusions), while exploration and multi-phase projects show longer median durations.
 - **Within-project sequencing** shows that some geothermal developments span multi-year permitting sequences, with individual NEPA actions separated by years as projects progress from exploration wells to full plant construction.
 :::
 
@@ -253,11 +253,17 @@ knitr::include_graphics(file.path(d6_figures, "fig_geothermal_funnel.png"))
 
 Geothermal projects are unique in that a single physical development typically triggers multiple sequential NEPA actions — one for exploration drilling, one or more for production well programs, and a final review for the power plant. This analysis groups geothermal projects by phase and examines timeline patterns by phase.
 
-Each project is assigned a development phase using a regex-based classifier applied to concatenated project text (title + description + project type + NOI title + document titles). The classifier scans each document against five phase-specific keyword sets. The assignment logic is:
+Phase classification runs in two stages.
+
+**Stage 1 — Regex classifier.** Each NEPA action is scanned against five phase-specific keyword sets applied to concatenated project text (title + description + project type + NOI title + document titles). Assignment logic:
 
 - If **one** phase set matches → that phase is assigned.
-- If **two or more** phase sets match → the project is classified as `multi_phase`.
-- If **no** phase set matches → the project is classified as `unknown`.
+- If **two or more** phase sets match → the action is classified as `multi_phase`.
+- If **no** phase set matches → the action is classified as `unknown`.
+
+**Stage 2 — ML classifier.** Actions classified as `unknown` by the regex stage are reclassified using a fine-tuned `allenai/scibert_scivocab_uncased` model. The model is trained on the regex-labeled rows with class-weighted loss (to correct for the drilling-heavy imbalance) and a self-training step that expands the effective training set using high-confidence pseudo-labels (threshold 0.70). Input text is title + project type + first 100 words of description, supplemented by up to 300 words of page-level document text where available. At median, the classifier assigns phase labels with approximately 90% softmax confidence.
+
+**Project-level rollup.** After per-action phase assignment, results are collapsed to the project level using a normalized title key. A project is assigned the single dominant clean phase if all its actions agree; if actions span two or more distinct clean phases, the project is classified as `multi_phase` (a genuine multi-stage development).
 
 @tbl-geo-phase-cues shows representative text cues for each phase.
 
@@ -272,7 +278,7 @@ tibble::tribble(
   "Plant",        "power plant, binary plant, flash plant, turbine, generating station, power generation, substation, interconnection, steam gathering",
   "Operations",   "steam supply, reinjection, make-up well, makeup well, fluid management, working fluid, geothermal resource utilization",
   "Multi-phase",  "(two or more phase cue sets detected in the same document)",
-  "Unknown",      "(no phase cues detected; CE actions default to 'drilling', EA/EIS default to 'exploration' as a process-type prior)"
+  "Unknown",      "(no regex cues detected; reclassified by fine-tuned SciBERT ML model)"
 ) %>%
   gt() %>%
   cols_align(align = "left", columns = everything()) %>%
@@ -289,7 +295,7 @@ tibble::tribble(
 
 ```{r}
 #| label: fig-geo-phase-dist
-#| fig-cap: "Number of geothermal NEPA actions by classified development phase. Phase is derived from project text; projects with no matching cues are assigned using process type as a fallback (CE → drilling, EA/EIS → exploration)."
+#| fig-cap: "Number of geothermal projects by classified development phase (project-level rollup). Phase is assigned by regex classifier then, for unresolved actions, by a fine-tuned SciBERT ML model; per-action phases are then collapsed to a single project-level label."
 #| out-width: "85%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_geothermal_phase_distribution.png"))

@@ -20,7 +20,56 @@ analysis <- prepare_deliverable6_data() %>%
     geothermal_phase = factor(project_geothermal_phase, levels = c("exploration", "drilling", "plant", "operations", "multi_phase", "unknown", "none"))
   )
 
-cat("Geothermal projects:", nrow(analysis), "\n")
+cat("Geothermal NEPA actions:", nrow(analysis), "\n")
+
+# --------------------------
+# PROJECT-LEVEL PHASE ROLLUP
+# --------------------------
+# Each row in `analysis` is a NEPA action (CE/EA/EIS).  A project may have
+# multiple actions.  `analysis_proj` collapses to one row per inferred project
+# (keyed by geothermal_project_key) and assigns a project-level phase:
+#   - If all actions agree on one non-ambiguous phase → that phase
+#   - If actions span ≥2 distinct real phases       → multi_phase (genuine)
+#   - If only action-level multi_phase labels exist  → multi_phase (ambiguous)
+#   - No classifiable signals                        → unknown
+#
+# NOTE: action-level "multi_phase" (one document matched 2+ pattern sets) is
+# excluded from the clean-phase vote so it doesn't inflate multi_phase counts.
+# It is only used as a signal when no clean phase is available.
+
+analysis_proj <- analysis %>%
+  filter(geothermal_phase != "none") %>%
+  group_by(geothermal_project_key) %>%
+  summarise(
+    n_actions        = n(),
+    example_title    = first(project_title_txt),
+    # Phases that are clearly one thing (not the catch-all multi_phase label)
+    clean_phases     = list(sort(unique(as.character(
+      geothermal_phase[!geothermal_phase %in% c("multi_phase", "unknown", "none")]
+    )))),
+    n_clean_phases   = n_distinct(geothermal_phase[
+      !geothermal_phase %in% c("multi_phase", "unknown", "none")
+    ]),
+    has_ml_rows      = any(coalesce(project_geothermal_phase_ml_classified, FALSE)),
+    project_phase = case_when(
+      n_clean_phases == 1  ~ first(as.character(geothermal_phase[
+        !geothermal_phase %in% c("multi_phase", "unknown", "none")
+      ])),
+      n_clean_phases >= 2  ~ "multi_phase",   # genuinely spans distinct phases
+      any(geothermal_phase == "multi_phase")  ~ "multi_phase",   # ambiguous single doc
+      TRUE                                    ~ "unknown"
+    ),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    project_phase = factor(project_phase,
+                           levels = c("exploration", "drilling", "plant",
+                                      "operations", "multi_phase", "unknown"))
+  )
+
+cat("Unique geothermal projects (by key):", nrow(analysis_proj), "\n")
+cat("Project-level phase distribution:\n")
+print(count(analysis_proj, project_phase))
 
 
 # --------------------------
@@ -54,6 +103,17 @@ analysis |>
 #3 plant              112
 #4 operations           4
 #5 multi_phase        272
+
+# Defined here (before ML QC) so the confidence figure can use it
+phase_colors <- c(
+  exploration = catf_dark_blue,
+  drilling    = catf_teal,
+  plant       = catf_magenta,
+  operations  = catf_light_blue,
+  multi_phase = "#E8A838",
+  unknown     = "gray55",
+  none        = "gray80"
+)
 
 # --------------------------
 # ML CLASSIFIER QC
@@ -209,8 +269,9 @@ ggsave(here(figures_dir, "fig_geothermal_funnel.png"),
 # TABLES
 # --------------------------
 
-tbl_phase_distribution <- analysis %>%
-  count(geothermal_phase, name = "n_projects") %>%
+tbl_phase_distribution <- analysis_proj %>%
+  count(project_phase, name = "n_projects") %>%
+  rename(geothermal_phase = project_phase) %>%
   mutate(share = n_projects / sum(n_projects))
 
 write_csv(tbl_phase_distribution, here(tables_dir, "table_geothermal_phase_distribution.csv"))
@@ -248,37 +309,36 @@ tbl_phase_timeline <- analysis %>%
     .groups = "drop"
   )
 
+
+within_project_phase %>% 
+  filter(n_distinct_phases >= 2) %>%
+  count(phases, sort = TRUE) %>%
+  head(200)
+
 # --------------------------
 # FIGURES
 # --------------------------
 
-phase_colors <- c(
-  exploration = catf_dark_blue,
-  drilling    = catf_teal,
-  plant       = catf_magenta,
-  operations  = catf_light_blue,
-  multi_phase = "#E8A838",
-  unknown     = "gray55",
-  none        = "gray80"
-)
-
-# -- Fig 1: Phase distribution bar chart --
-fig_phase_bar <- analysis %>%
-  count(geothermal_phase, name = "n_projects") %>%
-  filter(!is.na(geothermal_phase), geothermal_phase != "none") %>%
+# -- Fig 1: Phase distribution bar chart (PROJECT level) --
+fig_phase_bar <- analysis_proj %>%
+  count(project_phase, name = "n_projects") %>%
+  filter(!is.na(project_phase)) %>%
   mutate(
-    phase_label = str_to_title(str_replace_all(as.character(geothermal_phase), "_", " ")),
+    phase_label = str_to_title(str_replace_all(as.character(project_phase), "_", " ")),
     phase_label = fct_reorder(phase_label, n_projects)
   ) %>%
-  ggplot(aes(x = phase_label, y = n_projects, fill = as.character(geothermal_phase))) +
+  ggplot(aes(x = phase_label, y = n_projects, fill = as.character(project_phase))) +
   geom_col(show.legend = FALSE, width = 0.65) +
   geom_text(aes(label = n_projects), hjust = -0.2, size = 3.5, fontface = "bold") +
   coord_flip() +
   scale_fill_manual(values = phase_colors) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(
-    title = "Geothermal NEPA Actions by Development Phase",
-    subtitle = paste0(comma(nrow(analysis)), " clean geothermal projects identified in NEPATEC 2.0"),
+    title = "Geothermal Projects by Development Phase",
+    subtitle = paste0(
+      comma(nrow(analysis_proj)), " unique geothermal projects identified in NEPATEC 2.0",
+      " (", comma(nrow(analysis)), " total NEPA actions)"
+    ),
     x = NULL,
     y = "Number of projects"
   ) +
