@@ -310,8 +310,26 @@ python code/extract/extract_technology.py --run llm --workers 4
 
 ### Geothermal
 
+**Step 1 — Rule-based identification and regex phase classification:**
+
 ```bash
 python code/extract/extract_technology.py --run geothermal
+```
+
+**Step 2 — Fine-tune a DistilBERT classifier on the regex-labeled rows (~5 min, no API cost):**
+
+Requires `pip install transformers torch scikit-learn accelerate`. Run Step 1 first.
+
+```bash
+conda run -n nepa pip install "accelerate>=0.26.0" transformers torch scikit-learn
+
+python code/extract/extract_technology.py --geothermal-phase-train
+```
+
+**Step 3 — Apply the classifier to rows where phase == 'unknown':**
+
+```bash
+python code/extract/extract_technology.py --geothermal-phase-classify
 ```
 
 ### Pipelines

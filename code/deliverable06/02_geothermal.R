@@ -56,6 +56,86 @@ analysis |>
 #5 multi_phase        272
 
 # --------------------------
+# ML CLASSIFIER QC
+# (only runs if the classify step has been run and the column exists)
+# --------------------------
+if ("project_geothermal_phase_ml_classified" %in% names(analysis)) {
+
+  cat("\n--- ML classifier QC ---\n")
+  n_ml <- sum(analysis$project_geothermal_phase_ml_classified, na.rm = TRUE)
+  cat("Rows re-classified by ML:", n_ml, "/", nrow(analysis), "\n")
+
+  # Phase distribution split by classification source
+  cat("\nPhase counts by source (regex vs ML):\n")
+  analysis %>%
+    mutate(source = if_else(
+      coalesce(project_geothermal_phase_ml_classified, FALSE),
+      "ml", "regex"
+    )) %>%
+    count(geothermal_phase, source) %>%
+    tidyr::pivot_wider(names_from = source, values_from = n, values_fill = 0L) %>%
+    arrange(geothermal_phase) %>%
+    print()
+
+  # Confidence score summary
+  if ("project_geothermal_phase_ml_confidence" %in% names(analysis)) {
+    ml_rows <- analysis %>%
+      filter(coalesce(project_geothermal_phase_ml_classified, FALSE))
+
+    cat("\nML confidence summary (all ML-classified rows):\n")
+    ml_rows %>%
+      summarise(
+        n       = n(),
+        min     = round(min(project_geothermal_phase_ml_confidence, na.rm = TRUE), 3),
+        p25     = round(quantile(project_geothermal_phase_ml_confidence, 0.25, na.rm = TRUE), 3),
+        median  = round(median(project_geothermal_phase_ml_confidence, na.rm = TRUE), 3),
+        p75     = round(quantile(project_geothermal_phase_ml_confidence, 0.75, na.rm = TRUE), 3),
+        pct_low = round(mean(project_geothermal_phase_ml_confidence < 0.6, na.rm = TRUE), 3)
+      ) %>%
+      print()
+
+    # Low-confidence rows to spot-check (confidence < 0.6)
+    low_conf <- ml_rows %>%
+      filter(project_geothermal_phase_ml_confidence < 0.6) %>%
+      arrange(project_geothermal_phase_ml_confidence) %>%
+      select(
+        project_id, geothermal_phase,
+        conf = project_geothermal_phase_ml_confidence,
+        project_title_txt
+      )
+    cat("\nLow-confidence predictions (< 0.60):", nrow(low_conf), "rows\n")
+    if (nrow(low_conf) > 0) print(low_conf)
+
+    # Confidence distribution figure
+    fig_ml_confidence <- ggplot(ml_rows, aes(x = project_geothermal_phase_ml_confidence,
+                                              fill = geothermal_phase)) +
+      geom_histogram(binwidth = 0.05, color = "white", linewidth = 0.2) +
+      geom_vline(xintercept = 0.6, linetype = "dashed", color = "gray30") +
+      annotate("text", x = 0.59, y = Inf, label = "0.60 threshold",
+               hjust = 1, vjust = 1.5, size = 3, color = "gray30") +
+      scale_fill_manual(values = phase_colors) +
+      scale_x_continuous(limits = c(0, 1), labels = scales::percent) +
+      labs(
+        title    = "ML Classifier Confidence — Geothermal Phase",
+        subtitle = paste0(comma(n_ml), " rows re-classified from 'unknown'"),
+        x        = "Softmax confidence", y = "Count", fill = "Predicted phase"
+      ) +
+      theme_minimal(base_size = 11) +
+      theme(legend.position = "right")
+
+    print(fig_ml_confidence)
+    ggsave(
+      here(figures_dir, "fig_geothermal_ml_confidence.png"),
+      fig_ml_confidence, width = 9, height = 5, dpi = 300
+    )
+  }
+} else {
+  cat("ML classify step not yet run — skipping ML QC block.\n")
+  cat("  Run: python code/extract/extract_technology.py --geothermal-phase-classify\n")
+}
+
+
+# --------------------------
 # IDENTIFICATION FUNNEL FIGURE
 # --------------------------
 # Geothermal uses a single type-tag gate (no build-text, length, or maintenance filters),

@@ -74,6 +74,33 @@ trade-off of moving to a type-tag gate — tighter precision, potentially lower 
 Nothing to remove — identification is a single type-tag match. No additional filters
 (build text, length threshold, maintenance exclusion) exist for geothermal.
 
+### Phase classification — two-stage pipeline
+
+**Stage 1: Regex (always runs).** `_classify_geothermal_phase()` applies
+`GEOTHERMAL_PHASE_PATTERNS` to `full_text`. Returns one of:
+`exploration | drilling | plant | operations | multi_phase | unknown | none`.
+Rows with no pattern match receive `unknown`; rows with no geothermal keyword at all
+receive `none`.
+
+**Stage 2: ML classifier (optional, run separately).** A fine-tuned DistilBERT
+(`distilbert-base-uncased`) re-classifies the `unknown` rows. Trained on the regex-labeled
+rows (exploration / drilling / plant / operations / multi_phase) using title + project_type +
+first 100 words of description as input text. Labels: same five canonical phases
+(`multi_phase` treated as a valid target class).
+
+Run order:
+```
+python code/extract/extract_technology.py --run geothermal          # Stage 1
+python code/extract/extract_technology.py --geothermal-phase-train  # train on labeled rows
+python code/extract/extract_technology.py --geothermal-phase-classify  # update unknowns
+```
+
+Model saved to `data/models/geothermal_phase_classifier/`. Three columns added/updated
+by the classify step:
+- `project_geothermal_phase` — updated from `"unknown"` to predicted label
+- `project_geothermal_phase_ml_confidence` — softmax score for the predicted label
+- `project_geothermal_phase_ml_classified` — `True` for ML-predicted rows (audit flag)
+
 ---
 
 ## Pipeline

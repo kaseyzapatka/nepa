@@ -334,6 +334,13 @@ GEOTHERMAL_PHASE_PATTERNS = {
     ],
 }
 
+# Labels and mappings for the ML phase classifier
+GEO_PHASE_LABELS: List[str] = ["exploration", "drilling", "plant", "operations", "multi_phase"]
+GEO_PHASE_LABEL2ID: Dict[str, int] = {l: i for i, l in enumerate(GEO_PHASE_LABELS)}
+GEO_PHASE_ID2LABEL: Dict[int, str] = {i: l for i, l in enumerate(GEO_PHASE_LABELS)}
+GEO_PHASE_DEFAULT_BASE_MODEL = "distilbert-base-uncased"
+GEO_PHASE_MODEL_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "models" / "geothermal_phase_classifier"
+
 
 # --------------------------
 # TYPES
@@ -1402,6 +1409,250 @@ def _add_geothermal_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFr
 
 
 # --------------------------
+# GEOTHERMAL PHASE ML CLASSIFIER
+# --------------------------
+
+def _geo_phase_text(row: "pd.Series") -> str:
+    """Compose input text for the ML phase classifier.
+
+    Uses title + project_type + first 100 words of description.  This mirrors
+    the LLM prompt recommendation: phase signal is concentrated in the title and
+    opening clause of the description; the rest is procedural boilerplate.
+    """
+    title = str(row.get("project_title_txt", "") or row.get("project_title", "") or "")
+    ptype = str(row.get("project_type", "") or "")
+    desc  = str(row.get("project_description_txt", "") or row.get("project_description", "") or "")
+    desc_short = " ".join(desc.split()[:100])
+    return " ".join(p for p in [title, ptype, desc_short] if p.strip())
+
+
+def train_geothermal_phase_classifier(
+    input_path: Path,
+    model_dir: Path,
+    base_model: str = GEO_PHASE_DEFAULT_BASE_MODEL,
+    epochs: int = 5,
+    test_size: float = 0.2,
+    batch_size: int = 16,
+) -> None:
+    """Fine-tune a sequence classifier on the labeled geothermal phase rows.
+
+    Labeled rows are those where ``project_is_geothermal == True`` and
+    ``project_geothermal_phase`` is one of the five canonical labels
+    (exploration / drilling / plant / operations / multi_phase).  Rows with
+    phase == 'unknown' or 'none' are excluded from training.
+
+    The trained model and tokenizer are saved to *model_dir* and can be
+    applied later with :func:`classify_geothermal_phase_ml`.
+    """
+    try:
+        from transformers import (
+            AutoModelForSequenceClassification,
+            AutoTokenizer,
+            Trainer,
+            TrainingArguments,
+        )
+        import torch
+        from torch.utils.data import Dataset as _TorchDataset
+        from sklearn.model_selection import train_test_split
+        from sklearn.metrics import classification_report
+    except ImportError as exc:
+        raise ImportError(
+            "Training requires: pip install transformers torch scikit-learn. "
+            f"Missing package: {exc}"
+        ) from exc
+
+    df = pd.read_parquet(input_path)
+
+    # Keep only labeled geothermal rows
+    labeled = df[
+        df.get("project_is_geothermal", pd.Series(False, index=df.index)).fillna(False)
+        & df.get("project_geothermal_phase", pd.Series("unknown", index=df.index))
+             .isin(GEO_PHASE_LABELS)
+    ].copy()
+
+    if len(labeled) == 0:
+        raise ValueError(
+            "No labeled geothermal rows found. "
+            "Run --run geothermal first to populate project_geothermal_phase."
+        )
+
+    labeled["_text"]     = labeled.apply(_geo_phase_text, axis=1)
+    labeled["_label_id"] = labeled["project_geothermal_phase"].map(GEO_PHASE_LABEL2ID)
+    labeled = labeled.dropna(subset=["_label_id"])
+    labeled["_label_id"] = labeled["_label_id"].astype(int)
+
+    print(f"Labeled examples: {len(labeled):,}")
+    print(labeled.groupby("project_geothermal_phase").size().rename("n").to_string())
+
+    if len(labeled) < 10:
+        raise ValueError("Too few labeled examples to train (need ≥10).")
+
+    train_df, val_df = train_test_split(
+        labeled, test_size=test_size, stratify=labeled["_label_id"], random_state=42
+    )
+    print(f"Train: {len(train_df):,}  |  Val: {len(val_df):,}")
+
+    tokenizer = AutoTokenizer.from_pretrained(base_model)
+
+    class _GeoDataset(_TorchDataset):
+        def __init__(self, texts: List[str], labels: List[int]) -> None:
+            enc = tokenizer(
+                texts,
+                truncation=True, padding="max_length",
+                max_length=128, return_tensors="pt",
+            )
+            self.input_ids      = enc["input_ids"]
+            self.attention_mask = enc["attention_mask"]
+            self.labels         = torch.tensor(labels, dtype=torch.long)
+
+        def __len__(self) -> int:
+            return len(self.labels)
+
+        def __getitem__(self, idx: int) -> Dict:
+            return {
+                "input_ids":      self.input_ids[idx],
+                "attention_mask": self.attention_mask[idx],
+                "labels":         self.labels[idx],
+            }
+
+    train_dataset = _GeoDataset(train_df["_text"].tolist(), train_df["_label_id"].tolist())
+    val_dataset   = _GeoDataset(val_df["_text"].tolist(),   val_df["_label_id"].tolist())
+
+    model = AutoModelForSequenceClassification.from_pretrained(
+        base_model,
+        num_labels=len(GEO_PHASE_LABELS),
+        id2label=GEO_PHASE_ID2LABEL,
+        label2id=GEO_PHASE_LABEL2ID,
+    )
+
+    model_dir = Path(model_dir)
+    model_dir.mkdir(parents=True, exist_ok=True)
+
+    training_args = TrainingArguments(
+        output_dir=str(model_dir),
+        num_train_epochs=epochs,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size * 2,
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
+        logging_steps=20,
+        report_to="none",
+    )
+
+    trainer = Trainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=val_dataset,
+    )
+    trainer.train()
+
+    model.save_pretrained(model_dir)
+    tokenizer.save_pretrained(model_dir)
+    print(f"\nModel saved: {model_dir}")
+
+    # Validation report
+    preds    = trainer.predict(val_dataset)
+    pred_ids = preds.predictions.argmax(axis=-1)
+    print("\nValidation classification report:")
+    print(classification_report(
+        val_df["_label_id"].tolist(), pred_ids,
+        target_names=GEO_PHASE_LABELS, zero_division=0,
+    ))
+
+
+def classify_geothermal_phase_ml(
+    input_path: Path,
+    output_path: Path,
+    model_dir: Path = GEO_PHASE_MODEL_DIR,
+    batch_size: int = 32,
+    dry_run: bool = False,
+) -> None:
+    """Apply the trained classifier to rows where phase == 'unknown'.
+
+    Writes three new columns to the parquet:
+    - ``project_geothermal_phase`` — updated from 'unknown' to the predicted label
+    - ``project_geothermal_phase_ml_confidence`` — softmax score for the winning label
+    - ``project_geothermal_phase_ml_classified`` — True for rows updated by this step
+    """
+    try:
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+        import torch
+    except ImportError as exc:
+        raise ImportError(
+            "Classification requires: pip install transformers torch. "
+            f"Missing: {exc}"
+        ) from exc
+
+    model_dir = Path(model_dir)
+    if not model_dir.exists():
+        raise FileNotFoundError(
+            f"No trained model found at {model_dir}. "
+            "Run --geothermal-phase-train first."
+        )
+
+    df = pd.read_parquet(input_path)
+
+    mask = (
+        df.get("project_is_geothermal", pd.Series(False, index=df.index)).fillna(False)
+        & (df.get("project_geothermal_phase", pd.Series("", index=df.index)) == "unknown")
+    )
+    n_unknown = int(mask.sum())
+    print(f"Geothermal rows with unknown phase: {n_unknown:,}")
+    if n_unknown == 0:
+        print("Nothing to classify.")
+        return
+
+    texts = df[mask].apply(_geo_phase_text, axis=1).tolist()
+
+    tokenizer = AutoTokenizer.from_pretrained(str(model_dir))
+    model     = AutoModelForSequenceClassification.from_pretrained(str(model_dir))
+    model.eval()
+
+    all_pred_ids: List[int]   = []
+    all_confidences: List[float] = []
+
+    import torch  # already imported above, repeated for clarity inside block
+    with torch.no_grad():
+        for i in range(0, len(texts), batch_size):
+            enc    = tokenizer(
+                texts[i : i + batch_size],
+                truncation=True, padding=True, max_length=128, return_tensors="pt",
+            )
+            logits = model(**enc).logits
+            probs  = torch.softmax(logits, dim=-1)
+            all_pred_ids.extend(probs.argmax(dim=-1).tolist())
+            all_confidences.extend(probs.max(dim=-1).values.tolist())
+
+    predicted_labels = [GEO_PHASE_ID2LABEL[i] for i in all_pred_ids]
+
+    print("\nPredicted phase distribution (unknowns only):")
+    print(pd.Series(predicted_labels).value_counts().to_string())
+    print(f"Mean confidence: {float(np.mean(all_confidences)):.3f}")
+
+    if dry_run:
+        print("\nDry run — no changes written.")
+        return
+
+    # Stamp results back into the full dataframe
+    if "project_geothermal_phase_ml_classified" not in df.columns:
+        df["project_geothermal_phase_ml_classified"] = False
+    if "project_geothermal_phase_ml_confidence" not in df.columns:
+        df["project_geothermal_phase_ml_confidence"] = np.nan
+
+    df.loc[mask, "project_geothermal_phase"]            = predicted_labels
+    df.loc[mask, "project_geothermal_phase_ml_confidence"] = all_confidences
+    df.loc[mask, "project_geothermal_phase_ml_classified"] = True
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_parquet(output_path, index=False)
+    print(f"\nSaved: {output_path}  ({n_unknown:,} rows updated)")
+
+
+# --------------------------
 # PUBLIC API
 # --------------------------
 
@@ -1577,6 +1828,62 @@ def build_parser() -> argparse.ArgumentParser:
         default=10,
         help="Max pages to search per EA/EIS main document during length recovery (default: 10)",
     )
+
+    # -- Geothermal phase ML classifier --
+    parser.add_argument(
+        "--geothermal-phase-train",
+        action="store_true",
+        help=(
+            "Fine-tune a DistilBERT classifier on the labeled geothermal phase rows "
+            "already present in --input. Run this after --run geothermal has populated "
+            "project_geothermal_phase for the non-unknown rows."
+        ),
+    )
+    parser.add_argument(
+        "--geothermal-phase-classify",
+        action="store_true",
+        help=(
+            "Apply the trained geothermal phase classifier to all rows where "
+            "project_geothermal_phase == 'unknown'. Writes results back to --input "
+            "(or --projects-output if specified)."
+        ),
+    )
+    parser.add_argument(
+        "--geo-phase-model-dir",
+        type=Path,
+        default=GEO_PHASE_MODEL_DIR,
+        help=f"Directory to save/load the trained phase model (default: {GEO_PHASE_MODEL_DIR})",
+    )
+    parser.add_argument(
+        "--geo-phase-base-model",
+        type=str,
+        default=GEO_PHASE_DEFAULT_BASE_MODEL,
+        help=f"HuggingFace base model for fine-tuning (default: {GEO_PHASE_DEFAULT_BASE_MODEL})",
+    )
+    parser.add_argument(
+        "--geo-phase-epochs",
+        type=int,
+        default=5,
+        help="Training epochs for geothermal phase classifier (default: 5)",
+    )
+    parser.add_argument(
+        "--geo-phase-test-size",
+        type=float,
+        default=0.2,
+        help="Validation fraction for geothermal phase training (default: 0.2)",
+    )
+    parser.add_argument(
+        "--geo-phase-batch-size",
+        type=int,
+        default=16,
+        help="Batch size for training and inference (default: 16)",
+    )
+    parser.add_argument(
+        "--geo-phase-dry-run",
+        action="store_true",
+        help="Classify but do not write any output (useful for previewing predictions)",
+    )
+
     return parser
 
 
@@ -1587,6 +1894,37 @@ def run_cli(args: argparse.Namespace) -> None:
 
     if not in_path.exists():
         raise FileNotFoundError(f"Input file not found: {in_path}")
+
+    # -- ML phase classifier: train (early exit) --
+    if getattr(args, "geothermal_phase_train", False):
+        print(f"=== Geothermal phase classifier: TRAIN ===")
+        print(f"Input:      {in_path}")
+        print(f"Base model: {args.geo_phase_base_model}")
+        print(f"Model dir:  {args.geo_phase_model_dir}")
+        train_geothermal_phase_classifier(
+            input_path=in_path,
+            model_dir=args.geo_phase_model_dir,
+            base_model=args.geo_phase_base_model,
+            epochs=args.geo_phase_epochs,
+            test_size=args.geo_phase_test_size,
+            batch_size=args.geo_phase_batch_size,
+        )
+        return
+
+    # -- ML phase classifier: classify (early exit) --
+    if getattr(args, "geothermal_phase_classify", False):
+        print(f"=== Geothermal phase classifier: CLASSIFY ===")
+        print(f"Input:     {in_path}")
+        print(f"Output:    {projects_out_path}")
+        print(f"Model dir: {args.geo_phase_model_dir}")
+        classify_geothermal_phase_ml(
+            input_path=in_path,
+            output_path=projects_out_path,
+            model_dir=args.geo_phase_model_dir,
+            batch_size=args.geo_phase_batch_size,
+            dry_run=args.geo_phase_dry_run,
+        )
+        return
 
     targets, use_llm = normalize_run_targets(args.run)
     print(f"Loading: {in_path}")
