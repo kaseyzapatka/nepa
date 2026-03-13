@@ -227,6 +227,44 @@ TRANSMISSION_BUILD_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Pipeline new-build gate: construction/project language in title + description (context_text).
+# Applied analogously to TRANSMISSION_BUILD_RE but tuned for pipeline vocabulary.
+# "pipeline project/route/corridor/segment/lateral" are treated as new-build signals because
+# these phrases are far more commonly used for new infrastructure than for operational reviews.
+PIPELINE_BUILD_RE = re.compile(
+    r"\b(?:"
+    r"new\s+(?:natural\s+gas\s+|gas\s+|oil\s+|carbon\s+|co2\s+|hydrogen\s+|water\s+|crude\s+)?pipeline|"
+    r"(?:construct(?:ion|ed)?|build(?:ing)?|install(?:ation|ed)?|lay(?:ing)?)\s+"
+    r"(?:a\s+|the\s+|new\s+)?(?:gas\s+|oil\s+|carbon\s+|hydrogen\s+|water\s+|crude\s+)?pipeline|"
+    r"pipeline\s+(?:project|route|corridor|expansion|extension|segment|lateral|alignment|interconnect(?:ion)?)|"
+    r"buried\s+pipeline|"
+    r"(?:gathering\s+system|gathering\s+line|flowline)\s+(?:project|construction|installation|expansion)|"
+    r"pipeline\s+(?:facility|system)\s+(?:project|construction|development)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Pipeline maintenance exclusion gate: applied to title only (same design as
+# TRANSMISSION_MAINTENANCE_RE — maintenance language in descriptions is often incidental).
+PIPELINE_MAINTENANCE_RE = re.compile(
+    r"\b(?:"
+    r"pipeline\s+(?:inspection|survey|monitoring)|"
+    r"cathodic\s+protection|"
+    r"in-?line\s+inspection|internal\s+inspection|"
+    r"pigging|"
+    r"pipeline\s+(?:repair|maintenance|replacement)|"
+    r"right.of.way\s+(?:maintenance|mowing|spraying|herbicide)|"
+    r"routine\s+(?:maintenance|inspection)|"
+    r"annual\s+(?:maintenance|inspection|survey)|"
+    r"leak\s+(?:detection|survey|repair)|"
+    r"(?:recoating|coating|lining)\s+(?:of\s+)?(?:the\s+)?pipeline|"
+    r"emergency\s+repair|"
+    r"pipeline\s+safety\s+(?:program|rule|regulation|compliance)|"
+    r"integrity\s+management\s+(?:plan|program)"
+    r")\b",
+    re.IGNORECASE,
+)
+
 TRANSMISSION_ALTERNATIVE_RE = re.compile(
     r"\b("
     r"alternative(?:s)?|"
@@ -1336,7 +1374,12 @@ def _add_transmission_columns(
     return out
 
 
-def _add_pipeline_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFrame:
+def _add_pipeline_columns(
+    df: pd.DataFrame,
+    full_text: pd.Series,
+    context_text: pd.Series,
+    title_txt: pd.Series,
+) -> pd.DataFrame:
     out = df.copy()
     lower_text = full_text.str.lower()
 
@@ -1361,6 +1404,37 @@ def _add_pipeline_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFram
     # Natural gas pipeline: pipeline flag + natural gas / gas line keywords.
     out["project_is_natural_gas_pipeline"] = out["project_is_pipeline"] & lower_text.str.contains(
         r"\bnatural gas\b|\bgas pipeline\b|\bgas gathering\b|\bgas line\b", regex=True
+    )
+
+    # New-build filter — analogous to the transmission 4-gate filter.
+    # Gate A (build text): PIPELINE_BUILD_RE on title + description (context_text, not full_text
+    # which includes doc titles and NOI text that can add noise).
+    # Gate B (maintenance exclusion): PIPELINE_MAINTENANCE_RE on title only — maintenance language
+    # in descriptions is often incidental (e.g. "access road maintenance" in a construction project).
+    # No length gate: pipeline length coverage is much sparser than transmission, so requiring a
+    # minimum length would discard many genuine new-build projects that lack an extractable length.
+    lower_context = context_text.str.lower()
+    lower_title = title_txt.str.lower()
+    out["project_pipeline_has_build_text"] = lower_context.str.contains(
+        PIPELINE_BUILD_RE, na=False
+    )
+    out["project_pipeline_is_maintenance"] = lower_title.str.contains(
+        PIPELINE_MAINTENANCE_RE, na=False
+    )
+    # Carbon and hydrogen pipelines are exempted from the build-text gate: these
+    # technologies have no established infrastructure base, so virtually all NEPA
+    # reviews are for new construction or major new projects rather than operational
+    # maintenance.  Natural gas, oil/petroleum, and other pipeline groups still
+    # require explicit build-text to pass (their large existing infrastructure
+    # generates many routine operational/maintenance NEPA filings).
+    out["project_is_pipeline_new_build"] = (
+        out["project_is_pipeline"]
+        & (
+            out["project_pipeline_has_build_text"]
+            | out["project_is_carbon_pipeline"]
+            | out["project_is_hydrogen_pipeline"]
+        )
+        & ~out["project_pipeline_is_maintenance"]
     )
 
     candidates = [
@@ -1976,7 +2050,7 @@ def add_technology_columns(
         out = _add_geothermal_columns(out, full_text)
 
     if "pipeline" in targets:
-        out = _add_pipeline_columns(out, full_text)
+        out = _add_pipeline_columns(out, full_text, context_text, title_txt)
 
     return out
 
