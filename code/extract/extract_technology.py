@@ -1379,17 +1379,17 @@ def _add_pipeline_columns(
     full_text: pd.Series,
     context_text: pd.Series,
     title_txt: pd.Series,
+    type_text: pd.Series,
 ) -> pd.DataFrame:
     out = df.copy()
     lower_text = full_text.str.lower()
 
-    # project_is_pipeline: entry gate — any project describing pipeline infrastructure.
-    # Searches: project_title + project_description + project_type (structured metadata only,
-    # not full NEPA document pages).
-    # Broadened from original \bpipelines?\b to also catch flowlines and gathering lines,
-    # which are common synonyms in CCS, gas gathering, and hydrogen conveyance projects.
-    out["project_is_pipeline"] = lower_text.str.contains(
-        r"\bpipelines?\b|\bflowlines?\b|\bgathering lines?\b", regex=True
+    # project_is_pipeline: entry gate — project_type field contains "Pipeline".
+    # Matched against the controlled-vocabulary project_type field only (not free text in
+    # title or description) to avoid over-inclusion from incidental pipeline mentions in
+    # multi-component projects.  Analogous to the geothermal type-tag gate.
+    out["project_is_pipeline"] = type_text.str.lower().str.contains(
+        r"\bpipelines?\b", regex=True
     )
 
     # Carbon/CCS pipeline: pipeline flag + any carbon-related keyword.
@@ -2050,7 +2050,7 @@ def add_technology_columns(
         out = _add_geothermal_columns(out, full_text)
 
     if "pipeline" in targets:
-        out = _add_pipeline_columns(out, full_text, context_text, title_txt)
+        out = _add_pipeline_columns(out, full_text, context_text, title_txt, type_txt)
 
     return out
 

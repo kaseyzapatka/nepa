@@ -56,14 +56,44 @@ analysis_all <- read_parquet(projects_combined_path) %>%
   ) %>%
   add_pipeline_group()
 
-# Pipeline projects with timeline data (decarbonization technology only, ~228 projects).
-# Used for duration-based analyses and figures.
+# Pipeline projects with timeline data, restricted to energy pipeline groups for duration analysis.
+# clean_only = FALSE so carbon/hydrogen (NEPATEC-tagged "Fossil") are not excluded.
+# Water/irrigation and Other pipeline groups are excluded: they are outside the scope of this
+# section ("Carbon and Hydrogen Pipelines") and would swamp the energy groups in duration figures.
+energy_pipeline_groups <- c(
+  "Carbon pipeline", "Hydrogen pipeline", "Natural gas pipeline", "Oil/petroleum pipeline"
+)
+# NOTE: The timeline parquet only covers clean energy projects (n=20,725).
+# All pipeline-type-tagged projects are classified as "Fossil" by NEPATEC, so
+# no pipeline projects appear in the timeline data. analysis_timeline will be empty.
+# Duration figures are skipped when this is the case.
 analysis_timeline <- prepare_deliverable6_data(clean_only = FALSE) %>%
   filter(project_is_pipeline) %>%
-  add_pipeline_group()
+  add_pipeline_group() %>%
+  filter(pipeline_group %in% energy_pipeline_groups)
+
+has_timeline_data <- nrow(analysis_timeline) > 0
 
 cat("Pipeline projects (all):", nrow(analysis_all), "\n")
 cat("Pipeline projects (with timeline):", nrow(analysis_timeline), "\n")
+if (!has_timeline_data) {
+  cat("NOTE: No pipeline timeline data available. Timeline extraction covers clean-energy projects only;",
+      "all pipeline-type-tagged projects are NEPATEC 'Fossil'. Duration figures will be skipped.\n")
+}
+
+
+text_pipelines <- 
+  analysis_all |> 
+  filter(!str_detect(project_type_txt, regex("Pipeline"))) |> 
+  glimpse()
+
+text_pipelines |> 
+  count(pipeline_group)
+
+text_pipelines |> 
+  select(project_text_full) |> 
+  slice_sample(n = 5) |> 
+  pull()
 
 # --------------------------
 # FUNNEL COUNTS + DECARB CATEGORY
@@ -72,13 +102,11 @@ cat("Pipeline projects (with timeline):", nrow(analysis_timeline), "\n")
 n_all_nepa        <- read_parquet(projects_combined_path) %>% nrow()
 n_pipeline        <- nrow(analysis_all)
 n_pipeline_decarb <- sum(analysis_all$pipeline_group %in% c("Carbon pipeline", "Hydrogen pipeline"), na.rm = TRUE)
-n_with_length          <- sum(!is.na(analysis_all$project_pipeline_length_miles))
-n_pipeline_type_only   <- sum(str_detect(analysis_all$project_type_txt, regex("pipeline", ignore_case = TRUE)), na.rm = TRUE)
-n_pipeline_new_build   <- sum(analysis_all$project_is_pipeline_new_build == TRUE, na.rm = TRUE)
+n_with_length        <- sum(!is.na(analysis_all$project_pipeline_length_miles))
+n_pipeline_new_build <- sum(analysis_all$project_is_pipeline_new_build == TRUE, na.rm = TRUE)
 
 cat("Total NEPA projects (NEPATEC 2.0):", n_all_nepa, "\n")
-cat("Pipeline-tagged:", n_pipeline, "\n")
-cat("  of which tagged via project_type only:", n_pipeline_type_only, "\n")
+cat("Pipeline type-tagged:", n_pipeline, "\n")
 cat("Pipeline new-build:", n_pipeline_new_build, "\n")
 cat("Decarbonization (carbon + hydrogen):", n_pipeline_decarb, "\n")
 cat("With extractable length:", n_with_length, "\n")
@@ -123,8 +151,7 @@ print(count(analysis_all, decarb_category, project_energy_type))
 tbl_pipeline_summary <- tibble(
   metric = c(
     "Total NEPA projects (NEPATEC 2.0)",
-    "Pipeline-tagged",
-    "Pipeline type-tagged only",
+    "Pipeline type-tagged",
     "Pipeline new-build",
     "Decarbonization technologies (carbon + hydrogen)",
     "Decarbonization new-build",
@@ -132,7 +159,7 @@ tbl_pipeline_summary <- tibble(
     "Other pipeline"
   ),
   value = c(
-    n_all_nepa, n_pipeline, n_pipeline_type_only,
+    n_all_nepa, n_pipeline,
     n_pipeline_new_build, n_pipeline_decarb, n_pipeline_decarb_new_build,
     n_with_length, n_pipeline_other
   )
@@ -154,18 +181,22 @@ tbl_count_length <- analysis_all %>%
     .groups = "drop"
   )
 
-tbl_duration <- analysis_timeline %>%
-  group_by(pipeline_group) %>%
-  summarise(
-    n_with_duration = sum(!is.na(bert_duration_days_final) & bert_duration_days_final >= 0),
-    median_duration_days = median(bert_duration_days_final, na.rm = TRUE),
-    .groups = "drop"
-  )
+if (has_timeline_data) {
+  tbl_duration <- analysis_timeline %>%
+    group_by(pipeline_group) %>%
+    summarise(
+      n_with_duration = sum(!is.na(bert_duration_days_final) & bert_duration_days_final >= 0),
+      median_duration_days = median(bert_duration_days_final, na.rm = TRUE),
+      .groups = "drop"
+    )
+  tbl_pipeline_summary_groups <- tbl_count_length %>%
+    left_join(tbl_duration, by = "pipeline_group")
+} else {
+  tbl_pipeline_summary_groups <- tbl_count_length %>%
+    mutate(n_with_duration = NA_integer_, median_duration_days = NA_real_)
+}
 
-tbl_pipeline_summary <- tbl_count_length %>%
-  left_join(tbl_duration, by = "pipeline_group")
-
-write_csv(tbl_pipeline_summary, here(tables_dir, "table_pipeline_group_summary.csv"))
+write_csv(tbl_pipeline_summary_groups, here(tables_dir, "table_pipeline_group_summary.csv"))
 
 # State/region counts and lengths from all pipelines (duration too sparse to report by state)
 tbl_pipeline_state <- analysis_all %>%
@@ -179,45 +210,45 @@ tbl_pipeline_state <- analysis_all %>%
 
 write_csv(tbl_pipeline_state, here(tables_dir, "table_pipeline_state_region.csv"))
 
-# Baseline comparison: duration from timeline (decarbonization technology pipelines only)
-baseline <- analysis_timeline %>%
-  filter(pipeline_group %in% c("Carbon pipeline", "Hydrogen pipeline", "Natural gas pipeline")) %>%
-  group_by(pipeline_group) %>%
-  summarise(
-    n = n(),
-    median_duration_days = median(bert_duration_days_final, na.rm = TRUE),
-    median_length_miles = median(project_pipeline_length_miles, na.rm = TRUE),
-    .groups = "drop"
+if (has_timeline_data) {
+  # Baseline comparison: duration from timeline (decarbonization technology pipelines only)
+  baseline <- analysis_timeline %>%
+    filter(pipeline_group %in% c("Carbon pipeline", "Hydrogen pipeline", "Natural gas pipeline")) %>%
+    group_by(pipeline_group) %>%
+    summarise(
+      n = n(),
+      median_duration_days = median(bert_duration_days_final, na.rm = TRUE),
+      median_length_miles = median(project_pipeline_length_miles, na.rm = TRUE),
+      .groups = "drop"
+    )
+  write_csv(baseline, here(tables_dir, "table_pipeline_baseline_compare.csv"))
+
+  corr_data <- analysis_timeline %>%
+    transmute(
+      length_miles = project_pipeline_length_miles,
+      duration_days = bert_duration_days_final,
+      n_dates = bert_n_dates_found,
+      doc_count = project_doc_count,
+      multi_state = as.numeric(coalesce(project_multi_state, FALSE))
+    )
+  corr_pairs <- tribble(
+    ~x, ~y,
+    "length_miles", "duration_days",
+    "length_miles", "n_dates",
+    "length_miles", "doc_count",
+    "length_miles", "multi_state"
   )
-
-write_csv(baseline, here(tables_dir, "table_pipeline_baseline_compare.csv"))
-
-corr_data <- analysis_timeline %>%
-  transmute(
-    length_miles = project_pipeline_length_miles,
-    duration_days = bert_duration_days_final,
-    n_dates = bert_n_dates_found,
-    doc_count = project_doc_count,
-    multi_state = as.numeric(coalesce(project_multi_state, FALSE))
-  )
-
-corr_pairs <- tribble(
-  ~x, ~y,
-  "length_miles", "duration_days",
-  "length_miles", "n_dates",
-  "length_miles", "doc_count",
-  "length_miles", "multi_state"
-)
-
-tbl_corr <- corr_pairs %>%
-  rowwise() %>%
-  mutate(
-    n_complete = sum(complete.cases(corr_data[[x]], corr_data[[y]])),
-    correlation = ifelse(n_complete > 2, cor(corr_data[[x]], corr_data[[y]], use = "complete.obs"), NA_real_)
-  ) %>%
-  ungroup()
-
-write_csv(tbl_corr, here(tables_dir, "table_pipeline_correlations.csv"))
+  tbl_corr <- corr_pairs %>%
+    rowwise() %>%
+    mutate(
+      n_complete = sum(complete.cases(corr_data[[x]], corr_data[[y]])),
+      correlation = ifelse(n_complete > 2, cor(corr_data[[x]], corr_data[[y]], use = "complete.obs"), NA_real_)
+    ) %>%
+    ungroup()
+  write_csv(tbl_corr, here(tables_dir, "table_pipeline_correlations.csv"))
+} else {
+  cat("Skipping baseline comparison and correlation tables (no timeline data).\n")
+}
 
 # --------------------------
 # FIGURES
@@ -226,7 +257,7 @@ write_csv(tbl_corr, here(tables_dir, "table_pipeline_correlations.csv"))
 # -- Pipeline Identification Funnel --
 pipeline_funnel_stages <- c(
   "All NEPA projects\n(NEPATEC 2.0)",
-  "1. Pipeline tag\n(pipeline / flowline / gathering line\nin title, description, or project type)",
+  "1. Pipeline type tag\n(project_type field contains \"Pipeline\")",
   "2. New-build filter\n(construction language in title/description,\nno maintenance flag in title)",
   "3. Decarbonization technologies\n(carbon & hydrogen pipelines, new-build)"
 )
@@ -460,18 +491,6 @@ tbl_pipe_length_bins <- analysis_all %>%
   )
 write_csv(tbl_pipe_length_bins, here(tables_dir, "table_pipeline_length_bins.csv"))
 
-# Length bins for duration analysis — use new-build subset so we're comparing
-# like-for-like new construction projects rather than mixing in operational reviews.
-analysis_timeline_new_build <- analysis_timeline_new_build %>%
-  mutate(
-    length_bin = cut(
-      project_pipeline_length_miles,
-      breaks = c(0, 1, 5, 25, Inf),
-      labels = c("<1 mi", "1–5 mi", "5–25 mi", "25+ mi"),
-      right  = FALSE
-    )
-  )
-
 bin_colors_pipe <- c(
   "<1 mi"   = catf_teal,
   "1–5 mi"  = catf_light_blue,
@@ -488,138 +507,134 @@ p_pipe_bin_n <- tbl_pipe_length_bins %>%
        title = paste0("Projects per length band  (n = ", sum(tbl_pipe_length_bins$n_projects), ")")) +
   theme_minimal(base_size = 11)
 
-pipe_bins_dur_n <- analysis_timeline_new_build %>%
-  filter(!is.na(length_bin), !is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
-  count(length_bin, name = "n_dur")
+if (has_timeline_data) {
+  # Length bins for duration analysis — use new-build subset
+  analysis_timeline_new_build <- analysis_timeline_new_build %>%
+    mutate(
+      length_bin = cut(
+        project_pipeline_length_miles,
+        breaks = c(0, 1, 5, 25, Inf),
+        labels = c("<1 mi", "1\u20135 mi", "5\u201325 mi", "25+ mi"),
+        right  = FALSE
+      )
+    )
 
-dur_bin_cap <- 500
+  pipe_bins_dur_n <- analysis_timeline_new_build %>%
+    filter(!is.na(length_bin), !is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+    count(length_bin, name = "n_dur")
 
-p_pipe_bin_dur <- analysis_timeline_new_build %>%
-  filter(!is.na(length_bin), !is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
-  ggplot(aes(x = length_bin, y = bert_duration_days_final, fill = length_bin)) +
-  geom_violin(alpha = 0.5, trim = TRUE, color = NA) +
-  geom_boxplot(
-    width = 0.2, outlier.alpha = 0.25, outlier.size = 0.8,
-    fill = NA, color = catf_navy, linewidth = 0.55
-  ) +
-  geom_text(
-    data = pipe_bins_dur_n,
-    aes(x = length_bin, y = dur_bin_cap * 0.94, label = paste0("n = ", n_dur)),
-    inherit.aes = FALSE, size = 3.2, color = "grey30", fontface = "italic"
-  ) +
-  coord_cartesian(ylim = c(0, dur_bin_cap)) +
-  scale_fill_manual(values = bin_colors_pipe) +
-  scale_y_continuous(labels = scales::comma) +
-  labs(x = NULL, y = "Duration (days)",
-       title = paste0("NEPA Duration by Length Band  (n = ",
-                      sum(pipe_bins_dur_n$n_dur, na.rm = TRUE), " with duration data)")) +
-  theme_minimal(base_size = 11) +
-  theme(legend.position = "none")
+  dur_bin_cap <- 500
 
-fig_pipeline_length_bins <- p_pipe_bin_n + p_pipe_bin_dur +
-  plot_annotation(
-    title    = "Longer Pipelines, Longer NEPA Reviews?",
-    subtitle = "All pipeline projects by length band (left); duration analysis limited to timeline subset (right)",
-    caption  = paste0(
-      "Notes: Left panel (n = ", sum(tbl_pipe_length_bins$n_projects), "): all pipeline projects with extractable length.\n",
-      "Right panel (n = ", sum(pipe_bins_dur_n$n_dur, na.rm = TRUE), "): pipeline projects with both length and duration data. ",
-      "Duration capped at ", dur_bin_cap, " days."
-    ),
-    theme = theme(plot.caption = element_text(hjust = 0, size = 8))
+  p_pipe_bin_dur <- analysis_timeline_new_build %>%
+    filter(!is.na(length_bin), !is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+    ggplot(aes(x = length_bin, y = bert_duration_days_final, fill = length_bin)) +
+    geom_violin(alpha = 0.5, trim = TRUE, color = NA) +
+    geom_boxplot(
+      width = 0.2, outlier.alpha = 0.25, outlier.size = 0.8,
+      fill = NA, color = catf_navy, linewidth = 0.55
+    ) +
+    geom_text(
+      data = pipe_bins_dur_n,
+      aes(x = length_bin, y = dur_bin_cap * 0.94, label = paste0("n = ", n_dur)),
+      inherit.aes = FALSE, size = 3.2, color = "grey30", fontface = "italic"
+    ) +
+    coord_cartesian(ylim = c(0, dur_bin_cap)) +
+    scale_fill_manual(values = bin_colors_pipe) +
+    scale_y_continuous(labels = scales::comma) +
+    labs(x = NULL, y = "Duration (days)",
+         title = paste0("NEPA Duration by Length Band  (n = ",
+                        sum(pipe_bins_dur_n$n_dur, na.rm = TRUE), " with duration data)")) +
+    theme_minimal(base_size = 11) +
+    theme(legend.position = "none")
+
+  fig_pipeline_length_bins <- p_pipe_bin_n + p_pipe_bin_dur +
+    plot_annotation(
+      title    = "Longer Pipelines, Longer NEPA Reviews?",
+      subtitle = "All pipeline projects by length band (left); duration analysis limited to timeline subset (right)",
+      caption  = paste0(
+        "Notes: Left panel (n = ", sum(tbl_pipe_length_bins$n_projects), "): all pipeline projects with extractable length.\n",
+        "Right panel (n = ", sum(pipe_bins_dur_n$n_dur, na.rm = TRUE), "): pipeline projects with both length and duration data. ",
+        "Duration capped at ", dur_bin_cap, " days."
+      ),
+      theme = theme(plot.caption = element_text(hjust = 0, size = 8))
+    )
+  ggsave(here(figures_dir, "fig_pipeline_length_bins.png"),
+         fig_pipeline_length_bins, width = 10, height = 5, dpi = 300)
+
+  duration_cap <- 500
+  duration_overall <- analysis_timeline_new_build %>%
+    filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+    summarise(
+      n_total    = n(),
+      n_topcoded = sum(bert_duration_days_final > duration_cap),
+      pct_top    = round(100 * n_topcoded / n_total, 1)
+    )
+  duration_caption <- paste0(
+    "Notes: Values above ", duration_cap, " days topcoded to cap ",
+    "(", duration_overall$n_topcoded, " of ", duration_overall$n_total,
+    " projects, ", duration_overall$pct_top, "%). ",
+    "Duration analysis limited to new-build pipeline projects with calculable timelines."
   )
+  duration_n_labels <- analysis_timeline_new_build %>%
+    filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+    count(pipeline_group) %>%
+    mutate(label = paste0("n = ", n))
 
-print(fig_pipeline_length_bins)
-ggsave(here(figures_dir, "fig_pipeline_length_bins.png"),
-       fig_pipeline_length_bins, width = 10, height = 5, dpi = 300)
+  fig_duration <- analysis_timeline_new_build %>%
+    filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+    mutate(duration_plot = pmin(bert_duration_days_final, duration_cap)) %>%
+    ggplot(aes(x = pipeline_group, y = duration_plot, fill = pipeline_group)) +
+    geom_violin(alpha = 0.5, trim = TRUE, color = NA) +
+    geom_jitter(width = 0.15, alpha = 0.25, size = 1.2, color = "gray75", show.legend = FALSE) +
+    geom_boxplot(
+      width = 0.2, outlier.shape = NA, fill = NA, color = catf_navy, linewidth = 0.55
+    ) +
+    geom_text(
+      data = duration_n_labels,
+      aes(x = pipeline_group, y = duration_cap + 15, label = label),
+      size = 3.2, color = "grey40", fontface = "italic", inherit.aes = FALSE
+    ) +
+    coord_cartesian(ylim = c(0, duration_cap + 28)) +
+    scale_fill_manual(values = pipeline_group_colors) +
+    scale_y_continuous(labels = scales::comma) +
+    labs(
+      title    = "Pipeline NEPA Duration by Technology Group",
+      subtitle = paste0("New-build projects; values above ", duration_cap, " days topcoded to cap"),
+      caption  = duration_caption,
+      x = NULL, y = "Duration (days)"
+    ) +
+    theme_minimal(base_size = 11) +
+    theme(legend.position = "none", plot.caption = element_text(size = 8, color = "gray40", hjust = 0))
+  ggsave(here(figures_dir, "fig_pipeline_duration_by_group.png"),
+         fig_duration, width = 10, height = 6, dpi = 300)
 
-
-duration_cap <- 500
-
-duration_overall <- analysis_timeline_new_build %>%
-  filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
-  summarise(
-    n_total    = n(),
-    n_topcoded = sum(bert_duration_days_final > duration_cap),
-    pct_top    = round(100 * n_topcoded / n_total, 1)
-  )
-
-duration_caption <- paste0(
-  "Notes: Values above ", duration_cap, " days topcoded to cap ",
-  "(", duration_overall$n_topcoded, " of ", duration_overall$n_total,
-  " projects, ", duration_overall$pct_top, "%). ",
-  "Duration analysis limited to new-build pipeline projects with calculable timelines."
-)
-
-duration_n_labels <- analysis_timeline_new_build %>%
-  filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
-  count(pipeline_group) %>%
-  mutate(label = paste0("n = ", n))
-
-fig_duration <- analysis_timeline_new_build %>%
-  filter(!is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
-  mutate(duration_plot = pmin(bert_duration_days_final, duration_cap)) %>%
-  ggplot(aes(x = pipeline_group, y = duration_plot, fill = pipeline_group)) +
-  geom_violin(alpha = 0.5, trim = TRUE, color = NA) +
-  geom_jitter(width = 0.15, alpha = 0.25, size = 1.2, color = "gray75", show.legend = FALSE) +
-  geom_boxplot(
-    width         = 0.2,
-    outlier.shape = NA,
-    fill          = NA,
-    color         = catf_navy,
-    linewidth     = 0.55
-  ) +
-  geom_text(
-    data = duration_n_labels,
-    aes(x = pipeline_group, y = duration_cap + 15, label = label),
-    size = 3.2, color = "grey40", fontface = "italic", inherit.aes = FALSE
-  ) +
-  coord_cartesian(ylim = c(0, duration_cap + 28)) +
-  scale_fill_manual(values = pipeline_group_colors) +
-  scale_y_continuous(labels = scales::comma) +
-  labs(
-    title    = "Pipeline NEPA Duration by Technology Group",
-    subtitle = paste0("Decarbonization technology projects; values above ", duration_cap, " days topcoded to cap"),
-    caption  = duration_caption,
-    x        = NULL,
-    y        = "Duration (days)"
-  ) +
-  theme_minimal(base_size = 11) +
-  theme(
-    legend.position = "none",
-    plot.caption    = element_text(size = 8, color = "gray40", hjust = 0)
-  )
-
-print(fig_duration)
-ggsave(
-  filename = here(figures_dir, "fig_pipeline_duration_by_group.png"),
-  plot     = fig_duration,
-  width    = 10,
-  height   = 6,
-  dpi      = 300
-)
-
-fig_scatter <- analysis_timeline_new_build %>%
-  filter(!is.na(project_pipeline_length_miles), !is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
-  ggplot(aes(x = project_pipeline_length_miles, y = bert_duration_days_final, color = pipeline_group)) +
-  geom_point(alpha = 0.55) +
-  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
-  scale_color_manual(values = pipeline_group_colors) +
-  labs(
-    title = "Pipeline Length vs Timeline Duration",
-    subtitle = "Carbon/hydrogen compared against natural gas where available",
-    x = "Pipeline length (miles)",
-    y = "Duration (days)",
-    color = "Pipeline group"
-  ) +
-  theme_minimal(base_size = 11)
-
-ggsave(
-  filename = here(figures_dir, "fig_pipeline_length_vs_duration.png"),
-  plot = fig_scatter,
-  width = 9,
-  height = 6,
-  dpi = 300
-)
+  fig_scatter <- analysis_timeline_new_build %>%
+    filter(!is.na(project_pipeline_length_miles), !is.na(bert_duration_days_final), bert_duration_days_final >= 0) %>%
+    ggplot(aes(x = project_pipeline_length_miles, y = bert_duration_days_final, color = pipeline_group)) +
+    geom_point(alpha = 0.55) +
+    geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
+    scale_color_manual(values = pipeline_group_colors) +
+    labs(
+      title = "Pipeline Length vs Timeline Duration",
+      subtitle = "Carbon/hydrogen compared against natural gas where available",
+      x = "Pipeline length (miles)", y = "Duration (days)", color = "Pipeline group"
+    ) +
+    theme_minimal(base_size = 11)
+  ggsave(here(figures_dir, "fig_pipeline_length_vs_duration.png"),
+         fig_scatter, width = 9, height = 6, dpi = 300)
+} else {
+  # No timeline data: length bins figure shows count panel only
+  fig_pipeline_length_bins <- p_pipe_bin_n +
+    plot_annotation(
+      title   = "Pipeline Projects by Length Band",
+      caption = paste0("n = ", sum(tbl_pipe_length_bins$n_projects),
+                       " pipeline projects with extractable length. Duration data unavailable (see report)."),
+      theme = theme(plot.caption = element_text(hjust = 0, size = 8))
+    )
+  ggsave(here(figures_dir, "fig_pipeline_length_bins.png"),
+         fig_pipeline_length_bins, width = 6, height = 4, dpi = 300)
+  cat("Skipping duration figures (fig_pipeline_duration_by_group, fig_pipeline_length_vs_duration).\n")
+}
 
 # -- Pipeline Length by Group (violin + box, topcoded at 100 miles) --
 length_cap <- 25

@@ -41,12 +41,11 @@ n_geo_upset     <- geo_summary$value[geo_summary$metric == "Multi-phase projects
 
 pipe_summary      <- read_csv(file.path(d6_tables, "table_pipeline_summary.csv"), show_col_types = FALSE)
 n_all_nepa        <- pipe_summary$value[pipe_summary$metric == "Total NEPA projects (NEPATEC 2.0)"]
-n_pipeline        <- pipe_summary$value[pipe_summary$metric == "Pipeline-tagged"]
-n_pipeline_decarb <- pipe_summary$value[pipe_summary$metric == "Decarbonization technologies (carbon + hydrogen)"]
-n_pipeline_length <- pipe_summary$value[pipe_summary$metric == "With extractable length"]
-n_pipeline_other          <- pipe_summary$value[pipe_summary$metric == "Other pipeline"]
-n_pipeline_type_only      <- pipe_summary$value[pipe_summary$metric == "Pipeline type-tagged only"]
-n_pipeline_new_build      <- pipe_summary$value[pipe_summary$metric == "Pipeline new-build"]
+n_pipeline          <- pipe_summary$value[pipe_summary$metric == "Pipeline type-tagged"]
+n_pipeline_decarb   <- pipe_summary$value[pipe_summary$metric == "Decarbonization technologies (carbon + hydrogen)"]
+n_pipeline_length   <- pipe_summary$value[pipe_summary$metric == "With extractable length"]
+n_pipeline_other    <- pipe_summary$value[pipe_summary$metric == "Other pipeline"]
+n_pipeline_new_build        <- pipe_summary$value[pipe_summary$metric == "Pipeline new-build"]
 n_pipeline_decarb_new_build <- pipe_summary$value[pipe_summary$metric == "Decarbonization new-build"]
 ```
 
@@ -407,9 +406,7 @@ knitr::include_graphics(file.path(d6_figures, "fig_geothermal_within_project_seq
 
 ## Pipeline Identification
 
-Pipeline projects are identified by a keyword match across the concatenated project title, description, and project type metadata fields. A project receives the pipeline tag (`project_is_pipeline`) if any of these fields contain *pipeline*, *flowline*, or *gathering line*. Matching across all three text fields rather than the controlled-vocabulary `project_type` alone recovers an additional `r scales::comma(n_pipeline - n_pipeline_type_only)` projects — producing a universe of `r scales::comma(n_pipeline)` projects versus `r scales::comma(n_pipeline_type_only)` from a type-field-only match.
-
-The additional projects are retained because they are genuine multi-component infrastructure reviews: diagnostic sampling shows their `project_type` values include categories such as *Oil & Gas + Electricity Transmission*, *Oil & Gas + Utilities*, and *Water Resources + Rangeland* — cases where pipeline infrastructure is a real component of the project but is not the sole NEPATEC type label. Importantly, these text-only-tagged projects have the same pipeline length extraction rate as the type-tagged group, confirming that pipeline language in the title or description reflects substantive pipeline content rather than incidental mentions.
+Pipeline projects are identified using the controlled-vocabulary `project_type` field: a project receives the pipeline tag (`project_is_pipeline`) if its `project_type` contains *Pipeline*. This mirrors the geothermal identification approach — type-tag-only, with no free-text keyword sweep of project titles or descriptions. The result is a universe of `r scales::comma(n_pipeline)` pipeline-tagged NEPA projects across all technology groups.
 
 **A new-build filter further narrows the pipeline universe for duration analyses.** Because the broad keyword gate captures the full lifecycle of pipeline-related NEPA activity — new construction, expansions, operational modifications, safety certifications, right-of-way renewals, and administrative approvals — mixing all of these into duration comparisons would conflate genuinely new infrastructure reviews with routine regulatory filings. A two-gate new-build filter (`project_is_pipeline_new_build`) is applied to isolate likely construction reviews for that purpose:
 
@@ -428,7 +425,7 @@ The new-build filter is applied specifically to duration analyses (length vs. du
 
 ```{r}
 #| label: fig-pipeline-funnel
-#| fig-cap: "Pipeline project identification. Stage 1: keyword tag (pipeline/flowline/gathering line in project title, description, or project type). Stage 2: new-build filter (construction language in title/description, no maintenance flag in title; carbon and hydrogen pipelines exempted from the build-text requirement). Stage 3: decarbonization technology subset (carbon and hydrogen pipelines passing the new-build filter)."
+#| fig-cap: "Pipeline project identification. Stage 1: NEPATEC project_type field contains 'Pipeline'. Stage 2: new-build filter (construction language in title/description, no maintenance flag in title; carbon and hydrogen pipelines exempted from the build-text requirement). Stage 3: decarbonization technology subset (carbon and hydrogen pipelines passing the new-build filter)."
 #| out-width: "95%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_pipeline_funnel.png"))
