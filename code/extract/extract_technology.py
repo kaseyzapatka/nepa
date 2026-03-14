@@ -1604,9 +1604,17 @@ def _add_pipeline_columns(
         i, txt, cands = args
         return i, _adjudicate_transmission_length(txt, cands, use_llm=use_llm, timeout=timeout)
 
+    project_ids = out["project_id"].tolist() if "project_id" in out.columns else [str(i) for i in range(len(texts))]
     indexed = [(i, txt, cands) for i, (txt, cands) in enumerate(zip(texts, candidates))]
     adjudications_map: Dict[int, LengthAdjudication] = {}
     llm_trigger_count = 0
+    llm_used_count = 0
+
+    try:
+        from tqdm import tqdm as _tqdm
+        _pbar = _tqdm(total=len(indexed), desc="Pipeline adjudication", unit="row")
+    except ImportError:
+        _pbar = None
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(_adjudicate_one_pl, item): item[0] for item in indexed}
@@ -1616,10 +1624,17 @@ def _add_pipeline_columns(
             if adj.llm_trigger:
                 llm_trigger_count += 1
                 if use_llm:
-                    print(f"  [LLM-pl] row {i}: status={adj.llm_status} length={adj.selected_length_miles:.2f}mi")
+                    llm_used_count += 1
+                    pid = project_ids[i]
+                    print(f"  [LLM-pl] {pid}: status={adj.llm_status} length={adj.selected_length_miles:.2f}mi")
+            if _pbar:
+                _pbar.update(1)
 
-    print(f"  Pipeline LLM-trigger rows: {llm_trigger_count}"
-          + (" | LLM called on all triggers" if use_llm else " | rerun with --use-llm to adjudicate"))
+    if _pbar:
+        _pbar.close()
+
+    print(f"  Pipeline LLM-trigger rows (2+ candidates): {llm_trigger_count:,}"
+          + (f" | LLM used: {llm_used_count:,}" if use_llm else " | rerun with 'pipeline llm' to adjudicate"))
 
     adjudications = [adjudications_map[i] for i in range(len(texts))]
 
