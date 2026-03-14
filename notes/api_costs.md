@@ -10,12 +10,13 @@ Ollama-based calls (extract_reviews.py, default timeline modes) are local and ha
 
 ## Summary Table
 
-| Script | Mode | Est. calls | Est. input tokens | Est. output tokens | Est. cost |
-|--------|------|-----------|-------------------|-------------------|-----------|
-| `extract_gencap.py` | `--run llm` | ~1,100 | ~451K | ~61K | **~$0.75** |
-| `extract_timeline.py` | `--llm-adj --provider claude` | ~1,326 | ~2,467K | ~146K | **~$3.20** |
-| `extract_technology.py` | `--use-llm --provider anthropic` | ~750 | ~413K | ~53K | **~$0.68** |
-| **Total** | | **~3,176** | **~3,331K** | **~260K** | **~$4.63** |
+| Script | Mode | Est. calls | Est. input tokens | Est. output tokens | Est. cost | Actual cost |
+|--------|------|-----------|-------------------|-------------------|-----------|-------------|
+| `extract_gencap.py` | `--run llm` | ~1,100 | ~451K | ~61K | **~$0.75** | — |
+| `extract_timeline.py` | `--llm-adj --provider claude` | ~1,326 | ~2,467K | ~146K | **~$3.20** | — |
+| `extract_technology.py` | `--run transmission llm` | ~750 | ~413K | ~53K | **~$0.68** | — |
+| `extract_technology.py` | `--run pipeline llm` | ~694 | ~257K | ~69K | **~$0.49** | **~$1.00** |
+| **Total** | | **~3,870** | **~3,588K** | **~329K** | **~$5.12** | |
 
 *Batch pricing (50% off output) reduces total to ~$4.00.*
 
@@ -118,7 +119,7 @@ Return ONLY valid JSON: {"selected_index": ..., "confidence": ..., "reasoning": 
 
 ---
 
-## 3. Transmission Line Length Adjudication — `extract_technology.py --use-llm --provider anthropic`
+## 3. Transmission Line Length Adjudication — `extract_technology.py --run transmission llm`
 
 **Purpose:** When regex finds 2+ competing transmission line length values in a project's documents (e.g., "12 miles" and "47 miles"), Claude picks the one that represents the total length of the proposed line being built.
 
@@ -160,6 +161,29 @@ Return ONLY valid JSON: {"selected_index": ..., "selected_length_miles": ..., "c
 | **Total** | | **~$0.68** |
 
 *With batch API:* **~$0.54**
+
+---
+
+## 4. Pipeline Length Adjudication — `extract_technology.py --run pipeline llm`
+
+**Purpose:** When regex finds 2+ competing pipeline length values in a project's documents, Claude picks the one representing the total length of the proposed pipeline being built.
+
+**Trigger condition:** Only triggered for pipeline projects with 2+ non-trivial, non-partial candidates (≥ 0.25 miles). Same logic as transmission (`_adjudicate_transmission_length`).
+
+**Prompt structure:** Identical to transmission — same 5 rules, same JSON output schema, same 300-char source snippet per candidate.
+
+**Estimated call volume:** ~694 (pre-rebuild; may increase after bug fixes expanding candidate coverage)
+
+**Cost estimate vs. actual:**
+
+| | Estimate | Actual |
+|---|---|---|
+| Calls | ~694 | — |
+| Input tokens | ~257K | — |
+| Output tokens | ~69K | — |
+| **Total cost** | **~$0.49** | **~$1.00** |
+
+Note: actual cost ~2× estimate, likely due to more triggers after the bug-fix rebuild (WIDTH_CONTEXT_RE fix + PIPELINE_HINTS expansion + 50-page limit all increased candidate counts).
 
 ---
 

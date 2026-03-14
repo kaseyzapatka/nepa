@@ -309,7 +309,7 @@ tibble::tribble(
 ```
 
 A project is assigned a single phase if all its actions agree; if actions span two or more distinct phases the project is classified as `multi_phase`. **`r scales::comma(n_geo_multi)` projects** are classified as multi-phase.
-
+git 
 @tbl-geo-phase-cues shows representative text cues for each phase.
 
 ```{r}
