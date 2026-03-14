@@ -205,6 +205,10 @@ PIPELINE_HINTS = (
     "row",
     "buried line",
     "flowline",
+    "gas line",
+    "gas lines",
+    "gathering line",
+    "gathering lines",
 )
 
 TRANSMISSION_BUILD_RE = re.compile(
@@ -540,8 +544,12 @@ def _extract_length_candidates(text: str, hints: Sequence[str], prefix: str) -> 
             val_ft = float(raw.replace(",", ""))
             val_mi = val_ft / 5280.0
             if 0 < val_mi <= 5000:
-                # Skip if sentence context indicates this is a width (ROW width, pole spacing, etc.)
-                if WIDTH_CONTEXT_RE.search(sent):
+                # Skip if local context indicates this feet value is a width (ROW width, easement
+                # width, etc.) rather than a line length.  Check only a ±20-char window around
+                # the match so that a width mentioned elsewhere in the same sentence (e.g.
+                # "21,628 feet in length, 30 feet in width") does not block the valid length value.
+                local_ctx = sent[max(0, m.start() - 20): m.end() + 20]
+                if WIDTH_CONTEXT_RE.search(local_ctx):
                     continue
                 match_start, match_end = m.span()
                 candidates.append(
@@ -1015,7 +1023,7 @@ def _classify_geothermal_phase(text: str) -> tuple:
 def _extract_tx_length_from_pages(
     out: pd.DataFrame,
     processed_dir: Path,
-    max_ea_eis_pages: int = 10,
+    max_ea_eis_pages: int = 50,
     use_llm: bool = False,
     timeout: int = 120,
     workers: int = 1,
@@ -1207,7 +1215,7 @@ def _add_transmission_columns(
     timeout: int = 120,
     workers: int = 1,
     processed_dir: Path | None = None,
-    max_ea_eis_pages: int = 10,
+    max_ea_eis_pages: int = 50,
 ) -> pd.DataFrame:
     extraction_run_at = datetime.now(timezone.utc).isoformat()
     out = df.copy()
@@ -1374,13 +1382,158 @@ def _add_transmission_columns(
     return out
 
 
+def _extract_pipeline_length_from_pages(
+    out: pd.DataFrame,
+    processed_dir: Path,
+    max_ea_eis_pages: int = 50,
+    use_llm: bool = False,
+    timeout: int = 120,
+) -> pd.DataFrame:
+    """
+    Recover pipeline lengths for projects that are pipeline-tagged but have no
+    extractable mileage in title/description text.
+
+    Mirrors the design of _extract_tx_length_from_pages: DuckDB joins documents
+    and pages parquet files, concatenates page text per project, and runs the
+    same _extract_length_candidates + _adjudicate_transmission_length pipeline.
+
+    Recovered values overwrite project_pipeline_length_miles/final/confidence/source_text.
+    project_pipeline_length_from_pages is set True for recovered rows.
+    """
+    try:
+        import duckdb
+    except ImportError:
+        print("  [pipeline-page-recovery] duckdb not installed — skipping.")
+        out["project_pipeline_length_from_pages"] = False
+        return out
+
+    needs_mask = (
+        out["project_is_pipeline"].fillna(False)
+        & ~out["project_pipeline_is_maintenance"].fillna(False)
+        & out["project_pipeline_length_miles"].isna()
+    )
+    n_needs = int(needs_mask.sum())
+
+    out["project_pipeline_length_from_pages"] = False
+
+    if n_needs == 0:
+        print("  [pipeline-page-recovery] No projects need length recovery — skipping.")
+        return out
+
+    print(f"  [pipeline-page-recovery] {n_needs} projects need page-level length recovery")
+
+    needs_df = out.loc[needs_mask, ["project_id", "process_type"]].copy()
+    needs_df["pid_clean"] = needs_df["project_id"].astype(str).str.replace("-", "", regex=False)
+
+    con = duckdb.connect()
+    recovered: Dict[str, tuple] = {}  # pid -> (miles, confidence, source_text)
+
+    for ptype in ["CE", "EA", "EIS"]:
+        ptype_lower = ptype.lower()
+        ptype_df = needs_df[needs_df["process_type"] == ptype]
+        if ptype_df.empty:
+            continue
+
+        docs_path = str(processed_dir / ptype_lower / "documents.parquet")
+        pages_path = str(processed_dir / ptype_lower / "pages.parquet")
+
+        if not Path(docs_path).exists() or not Path(pages_path).exists():
+            print(f"  [pipeline-page-recovery] {ptype}: parquet not found at {docs_path} — skipping")
+            continue
+
+        target_ids = list(ptype_df["pid_clean"].unique())
+        print(f"  [pipeline-page-recovery] {ptype}: querying {len(target_ids)} projects")
+
+        con.register("_target_ids", pd.DataFrame({"pid": target_ids}))
+
+        try:
+            if ptype == "CE":
+                query = """
+                    SELECT
+                        replace(d.project_id.value, '-', '') AS pid,
+                        p.page_text
+                    FROM read_parquet(?) d
+                    JOIN read_parquet(?) p ON p.document_id = d.document_id
+                    WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _target_ids)
+                """
+                page_df = con.execute(query, [docs_path, pages_path]).df()
+            else:
+                query = """
+                    SELECT pid, page_text FROM (
+                        SELECT
+                            replace(d.project_id.value, '-', '') AS pid,
+                            p.page_text,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY d.document_id
+                                ORDER BY p.page_number
+                            ) AS rn
+                        FROM read_parquet(?) d
+                        JOIN read_parquet(?) p ON p.document_id = d.document_id
+                        WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _target_ids)
+                          AND d.main_document = 'YES'
+                    )
+                    WHERE rn <= ?
+                """
+                page_df = con.execute(query, [docs_path, pages_path, max_ea_eis_pages]).df()
+        except Exception as exc:
+            print(f"  [pipeline-page-recovery] {ptype}: DuckDB error — {exc}")
+            continue
+
+        if page_df.empty:
+            print(f"  [pipeline-page-recovery] {ptype}: no pages matched")
+            continue
+
+        project_texts = (
+            page_df.groupby("pid")["page_text"]
+            .apply(lambda parts: " ".join(str(p) for p in parts if p))
+            .to_dict()
+        )
+
+        print(f"  [pipeline-page-recovery] {ptype}: extracting from {len(project_texts)} projects")
+
+        for pid, text in project_texts.items():
+            cands = _extract_length_candidates(text, PIPELINE_HINTS, prefix="pl")
+            adj = _adjudicate_transmission_length(text, cands, use_llm=use_llm, timeout=timeout)
+            if not np.isnan(adj.selected_length_miles) and adj.selected_length_miles >= 0.1:
+                recovered[pid] = (adj.selected_length_miles, adj.confidence, adj.source_text)
+
+    con.close()
+
+    if not recovered:
+        print("  [pipeline-page-recovery] No lengths recovered from document pages.")
+        return out
+
+    print(f"  [pipeline-page-recovery] Recovered lengths for {len(recovered)} projects — writing back")
+
+    orig_to_pid = dict(zip(needs_df.index, needs_df["pid_clean"]))
+
+    for idx in out.loc[needs_mask].index:
+        pid = orig_to_pid.get(idx)
+        if pid is None or pid not in recovered:
+            continue
+        miles, confidence, source_text = recovered[pid]
+        out.at[idx, "project_pipeline_length_miles"] = miles
+        out.at[idx, "project_pipeline_length_final"] = miles
+        out.at[idx, "project_pipeline_length_confidence"] = confidence
+        out.at[idx, "project_pipeline_length_source_text"] = source_text
+        out.at[idx, "project_pipeline_length_from_pages"] = True
+
+    return out
+
+
 def _add_pipeline_columns(
     df: pd.DataFrame,
     full_text: pd.Series,
     context_text: pd.Series,
     title_txt: pd.Series,
     type_text: pd.Series,
+    processed_dir: Path | None = None,
+    max_ea_eis_pages: int = 50,
+    use_llm: bool = False,
+    timeout: int = 120,
+    workers: int = 1,
 ) -> pd.DataFrame:
+    extraction_run_at = datetime.now(timezone.utc).isoformat()
     out = df.copy()
     lower_text = full_text.str.lower()
 
@@ -1437,26 +1590,68 @@ def _add_pipeline_columns(
         & ~out["project_pipeline_is_maintenance"]
     )
 
+    texts = full_text.tolist()
     candidates = [
         _extract_length_candidates(txt, PIPELINE_HINTS, prefix="pl")
-        for txt in full_text.tolist()
+        for txt in texts
     ]
 
-    best = [_best_single_candidate(cands) for cands in candidates]
+    n_pipeline = int(out["project_is_pipeline"].sum())
+    llm_label = f"Claude API ({CLAUDE_DEFAULT_MODEL})" if use_llm else "LLM off"
+    print(f"  Pipeline: {n_pipeline:,} tagged | workers={workers} | {llm_label}")
+
+    def _adjudicate_one_pl(args):
+        i, txt, cands = args
+        return i, _adjudicate_transmission_length(txt, cands, use_llm=use_llm, timeout=timeout)
+
+    indexed = [(i, txt, cands) for i, (txt, cands) in enumerate(zip(texts, candidates))]
+    adjudications_map: Dict[int, LengthAdjudication] = {}
+    llm_trigger_count = 0
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_adjudicate_one_pl, item): item[0] for item in indexed}
+        for future in as_completed(futures):
+            i, adj = future.result()
+            adjudications_map[i] = adj
+            if adj.llm_trigger:
+                llm_trigger_count += 1
+                if use_llm:
+                    print(f"  [LLM-pl] row {i}: status={adj.llm_status} length={adj.selected_length_miles:.2f}mi")
+
+    print(f"  Pipeline LLM-trigger rows: {llm_trigger_count}"
+          + (" | LLM called on all triggers" if use_llm else " | rerun with --use-llm to adjudicate"))
+
+    adjudications = [adjudications_map[i] for i in range(len(texts))]
+
     out["project_pipeline_length_candidates_json"] = [json.dumps(c, ensure_ascii=False) for c in candidates]
-    out["project_pipeline_length_candidate_count"] = [len(c) for c in candidates]
-    out["project_pipeline_length_distinct_candidate_count"] = [len(_collapse_candidates_by_value(c)) for c in candidates]
-    out["project_pipeline_length_miles"] = [x[0] for x in best]
-    out["project_pipeline_length_confidence"] = [x[1] for x in best]
-    out["project_pipeline_length_source_text"] = [x[2] for x in best]
+    out["project_pipeline_length_candidate_count"] = [a.candidate_count for a in adjudications]
+    out["project_pipeline_length_distinct_candidate_count"] = [a.distinct_candidate_count for a in adjudications]
+    out["project_pipeline_length_miles"] = [a.rule_based_length_miles for a in adjudications]
+    out["project_pipeline_length_final"] = [a.selected_length_miles for a in adjudications]
+    out["project_pipeline_length_confidence"] = [a.confidence for a in adjudications]
+    out["project_pipeline_length_source_text"] = [a.source_text for a in adjudications]
+    out["project_pipeline_length_llm_trigger"] = [a.llm_trigger for a in adjudications]
+    out["project_pipeline_length_llm_used"] = [a.llm_used for a in adjudications]
+    out["project_pipeline_length_llm_status"] = [a.llm_status for a in adjudications]
+    out["project_pipeline_length_llm_reasoning"] = [a.llm_reasoning for a in adjudications]
+    out["project_pipeline_length_llm_model"] = [a.llm_model for a in adjudications]
+    out["project_pl_llm_run_at"] = [a.llm_run_at for a in adjudications]
+    out["project_pl_extraction_run_at"] = extraction_run_at
 
     non_pipeline = ~out["project_is_pipeline"]
     out.loc[non_pipeline, "project_pipeline_length_miles"] = np.nan
+    out.loc[non_pipeline, "project_pipeline_length_final"] = np.nan
     out.loc[non_pipeline, "project_pipeline_length_confidence"] = "none"
     out.loc[non_pipeline, "project_pipeline_length_source_text"] = ""
     out.loc[non_pipeline, "project_pipeline_length_candidate_count"] = 0
     out.loc[non_pipeline, "project_pipeline_length_distinct_candidate_count"] = 0
     out.loc[non_pipeline, "project_pipeline_length_candidates_json"] = "[]"
+    out.loc[non_pipeline, "project_pipeline_length_llm_trigger"] = False
+    out.loc[non_pipeline, "project_pipeline_length_llm_used"] = False
+    out.loc[non_pipeline, "project_pipeline_length_llm_status"] = "not_triggered"
+    out.loc[non_pipeline, "project_pipeline_length_llm_reasoning"] = ""
+    out.loc[non_pipeline, "project_pipeline_length_llm_model"] = ""
+    out.loc[non_pipeline, "project_pl_llm_run_at"] = ""
 
     out["project_pipeline_group"] = np.select(
         [
@@ -1473,6 +1668,16 @@ def _add_pipeline_columns(
         ],
         default="none",
     )
+
+    # Page-level length recovery: reads document pages for pipeline-tagged projects
+    # that have no mileage in their title/description metadata.
+    if processed_dir is not None:
+        out = _extract_pipeline_length_from_pages(
+            out, processed_dir, max_ea_eis_pages=max_ea_eis_pages,
+            use_llm=use_llm, timeout=timeout,
+        )
+    else:
+        out["project_pipeline_length_from_pages"] = False
 
     return out
 
@@ -1978,7 +2183,7 @@ def add_technology_columns(
     timeout: int = 120,
     workers: int = 1,
     processed_dir: Path | None = None,
-    max_ea_eis_pages: int = 10,
+    max_ea_eis_pages: int = 50,
 ) -> pd.DataFrame:
     """
     Add technology-specific features to a project dataframe.
@@ -2050,7 +2255,11 @@ def add_technology_columns(
         out = _add_geothermal_columns(out, full_text)
 
     if "pipeline" in targets:
-        out = _add_pipeline_columns(out, full_text, context_text, title_txt, type_txt)
+        out = _add_pipeline_columns(
+            out, full_text, context_text, title_txt, type_txt,
+            processed_dir=processed_dir, max_ea_eis_pages=max_ea_eis_pages,
+            use_llm=use_llm, timeout=timeout, workers=workers,
+        )
 
     return out
 
@@ -2115,8 +2324,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--page-search-max-pages",
         type=int,
-        default=10,
-        help="Max pages to search per EA/EIS main document during length recovery (default: 10)",
+        default=50,
+        help="Max pages to search per EA/EIS main document during length recovery (default: 50)",
     )
 
     # -- Geothermal phase ML classifier --
