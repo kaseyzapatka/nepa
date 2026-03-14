@@ -334,9 +334,22 @@ python code/extract/extract_technology.py --geothermal-phase-classify
 
 ### Pipelines
 
+**Step 1 — Rule-based extraction + page-level length recovery:**
+
 ```bash
 python code/extract/extract_technology.py --run pipeline
 ```
+
+**Step 2 — LLM adjudication for ambiguous multi-candidate rows (~$0.45, ~2 min with 4 workers):**
+
+Requires setting `ANTHROPIC_API_KEY` in environment. Run Step 1 first.
+
+```bash
+export ANTHROPIC_API_KEY='INSERT-KEY-HERE'
+
+python code/extract/extract_technology.py --run pipeline llm --workers 4
+```
+
 ---
 
 ## Build the Document Explorer (HF Spaces, Free Path)

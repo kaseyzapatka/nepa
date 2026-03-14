@@ -133,7 +133,7 @@ The rule-based result is stored in `project_transmission_length_miles` (the "com
 
 #### 3.2.4 LLM adjudication (`_run_llm_transmission_adjudication`)
 
-LLM adjudication is **triggered** when two or more non-trivial, non-partial candidate groups remain after rule-based resolution (`llm_trigger = TRUE`). When LLM is enabled (`--use-llm` flag passed to the extraction script), a Claude API call is made for each triggered project.
+LLM adjudication is **triggered** when two or more non-trivial, non-partial candidate groups remain after rule-based resolution (`llm_trigger = TRUE`). When LLM is enabled (by including `llm` as a run target), a Claude API call is made for each triggered project.
 
 The prompt presents up to 8 candidates with their source snippets and instructs the model to pick the candidate most likely to represent the total proposed line length. The model is explicitly told to:
 - Prefer candidates with "X miles long" or "X miles in length" language
@@ -145,7 +145,7 @@ The prompt presents up to 8 candidates with their source snippets and instructs 
 
 **Run command:**
 ```bash
-python code/extract/extract_technology.py --run transmission --use-llm --workers 4 \
+python code/extract/extract_technology.py --run transmission llm --workers 4 \
   --page-length-recovery --output data/analysis/projects_combined.parquet
 ```
 
