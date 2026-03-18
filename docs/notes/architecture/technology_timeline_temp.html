@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>NEPA – api_costs</title>
+<title>NEPA – technology_timeline_temp</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -1469,7 +1469,7 @@ function fuseSearch(query, fuse, fuseOptions) {
   });
 }
 </script>
-<meta name="quarto:offset" content="../">
+<meta name="quarto:offset" content="../../">
 <script>const sectionChanged = new CustomEvent("quarto-sectionChanged", {
   detail: {},
   bubbles: true,
@@ -4449,7 +4449,7 @@ vertical-align: -.125em;
     <nav class="navbar navbar-expand-lg navbar-dark ">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container">
-    <a class="navbar-brand" href="../index.html">
+    <a class="navbar-brand" href="../../index.html">
     <span class="navbar-title">NEPA</span>
     </a>
   </div>
@@ -4464,35 +4464,35 @@ vertical-align: -.125em;
  <span class="menu-text">Document Explorer</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/project_overview.html" rel target>
+    <a class="nav-link" href="../../reports/project_overview.html" rel target>
  <span class="menu-text">Project Overview</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable01.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable01.html" rel target>
  <span class="menu-text">Deliverable 1</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable02.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable02.html" rel target>
  <span class="menu-text">Deliverable 2</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable03.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable03.html" rel target>
  <span class="menu-text">Deliverable 3</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable04.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable04.html" rel target>
  <span class="menu-text">Deliverable 4</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable05.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable05.html" rel target>
  <span class="menu-text">Deliverable 5</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable06.html" rel target>
+    <a class="nav-link" href="../../reports/deliverable06.html" rel target>
  <span class="menu-text">Deliverable 6</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../presentations/presentation1.html" rel target>
+    <a class="nav-link" href="../../presentations/presentation1.html" rel target>
  <span class="menu-text">Presentations</span></a>
   </li>  
 </ul>
@@ -4512,476 +4512,25 @@ vertical-align: -.125em;
 
 
 
-<section id="api-cost-estimates-claude-api-calls" class="level1">
-<h1>API Cost Estimates — Claude API Calls</h1>
-<p><strong>Model:</strong> <code>claude-haiku-4-5-20251001</code> <strong>Pricing:</strong> $1.00 / 1M input tokens · $5.00 / 1M output tokens <strong>Batch discount (50%):</strong> $0.50 / 1M input · $2.50 / 1M output (if using Anthropic Batch API)</p>
-<p>Ollama-based calls (extract_reviews.py, default timeline modes) are local and have no API cost — omitted.</p>
-<hr>
-<section id="summary-table" class="level2">
-<h2 class="anchored" data-anchor-id="summary-table">Summary Table</h2>
-<table class="table">
-<colgroup>
-<col style="width: 9%">
-<col style="width: 6%">
-<col style="width: 12%">
-<col style="width: 21%">
-<col style="width: 21%">
-<col style="width: 12%">
-<col style="width: 14%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Script</th>
-<th>Mode</th>
-<th>Est. calls</th>
-<th>Est. input tokens</th>
-<th>Est. output tokens</th>
-<th>Est. cost</th>
-<th>Actual cost</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>extract_gencap.py</code></td>
-<td><code>--run llm</code></td>
-<td>~1,100</td>
-<td>~451K</td>
-<td>~61K</td>
-<td><strong>~$0.75</strong></td>
-<td>—</td>
-</tr>
-<tr class="even">
-<td><code>extract_timeline.py</code></td>
-<td><code>--llm-adj --provider claude</code></td>
-<td>~1,326</td>
-<td>~2,467K</td>
-<td>~146K</td>
-<td><strong>~$3.20</strong></td>
-<td>—</td>
-</tr>
-<tr class="odd">
-<td><code>extract_technology.py</code></td>
-<td><code>--run transmission llm</code></td>
-<td>~750</td>
-<td>~413K</td>
-<td>~53K</td>
-<td><strong>~$0.68</strong></td>
-<td>—</td>
-</tr>
-<tr class="even">
-<td><code>extract_technology.py</code></td>
-<td><code>--run pipeline llm</code></td>
-<td>~694</td>
-<td>~257K</td>
-<td>~69K</td>
-<td><strong>~$0.49</strong></td>
-<td><strong>~$1.00</strong></td>
-</tr>
-<tr class="odd">
-<td><strong>Total</strong></td>
-<td></td>
-<td><strong>~3,870</strong></td>
-<td><strong>~3,588K</strong></td>
-<td><strong>~329K</strong></td>
-<td><strong>~$5.12</strong></td>
-<td></td>
-</tr>
-</tbody>
-</table>
-<p><em>Batch pricing (50% off output) reduces total to ~$4.00.</em></p>
-<hr>
-</section>
-<section id="generation-capacity-adjudication-extract_gencap.py---run-llm" class="level2">
-<h2 class="anchored" data-anchor-id="generation-capacity-adjudication-extract_gencap.py---run-llm">1. Generation Capacity Adjudication — <code>extract_gencap.py --run llm</code></h2>
-<p><strong>Purpose:</strong> Resolve ambiguous cases where 2+ distinct power capacity values (e.g., 50 MW and 200 MW) were found in the same project’s documents. The LLM picks the one that represents the proposed project.</p>
-<p><strong>Trigger condition:</strong> <code>project_gencap_candidate_count &gt;= 2</code> after the regex document scan. Projects resolved via title or description in Pass 1 never reach this step.</p>
-<p><strong>Prompt structure:</strong></p>
-<pre><code>NEPA {project_type} review. These are capacity values found by regex...
-Project: {title}
-Candidates:
-[1] 50.0 MW — &quot;context snippet up to 200 chars&quot;
-[2] 200.0 MW — &quot;context snippet up to 200 chars&quot;
-Rules: [3 rules]
-Return ONLY valid JSON: {&quot;selected_index&quot;: ..., &quot;confidence&quot;: ..., &quot;reasoning&quot;: &quot;...&quot;}</code></pre>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Parameter</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>max_tokens</td>
-<td>200</td>
-</tr>
-<tr class="even">
-<td>temperature</td>
-<td>0.1</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Token estimates per call:</strong></p>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Component</th>
-<th>Tokens (est.)</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Static boilerplate (rules, JSON schema, instruction)</td>
-<td>~200</td>
-</tr>
-<tr class="even">
-<td>Project title + type</td>
-<td>~20</td>
-</tr>
-<tr class="odd">
-<td>2–4 candidates (value + unit + 200-char context each)</td>
-<td>~150–220</td>
-</tr>
-<tr class="even">
-<td><strong>Total input</strong></td>
-<td><strong>~370–440</strong></td>
-</tr>
-<tr class="odd">
-<td>Output (JSON: index + confidence + one-sentence reasoning)</td>
-<td>~50–60</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Estimated call volume (full clean energy run):</strong></p>
-<table class="table">
-<colgroup>
-<col style="width: 12%">
-<col style="width: 22%">
-<col style="width: 46%">
-<col style="width: 18%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Source</th>
-<th>Total projects</th>
-<th>Est. % with 2+ doc candidates</th>
-<th>Est. calls</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>CE</td>
-<td>~19,400</td>
-<td>~2% (most CE resolved via title/description)</td>
-<td>~390</td>
-</tr>
-<tr class="even">
-<td>EA</td>
-<td>~575</td>
-<td>~45%</td>
-<td>~260</td>
-</tr>
-<tr class="odd">
-<td>EIS</td>
-<td>~755</td>
-<td>~60%</td>
-<td>~455</td>
-</tr>
-<tr class="even">
-<td><strong>Total</strong></td>
-<td><strong>~20,730</strong></td>
-<td></td>
-<td><strong>~1,100</strong></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Cost estimate (full run):</strong></p>
-<table class="table">
-<thead>
-<tr class="header">
-<th></th>
-<th>Tokens</th>
-<th>Cost</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Input</td>
-<td>~1,100 × 410 = <strong>451,000 (~0.45M)</strong></td>
-<td>$0.45</td>
-</tr>
-<tr class="even">
-<td>Output</td>
-<td>~1,100 × 55 = <strong>60,500 (~0.06M)</strong></td>
-<td>$0.30</td>
-</tr>
-<tr class="odd">
-<td><strong>Total</strong></td>
-<td></td>
-<td><strong>~$0.75</strong></td>
-</tr>
-</tbody>
-</table>
-<p><em>With batch API (50% off output):</em> <strong>~$0.60</strong></p>
-<hr>
-</section>
-<section id="timeline-llm-adjudication-extract_timeline.py---llm-adj---provider-claude" class="level2">
-<h2 class="anchored" data-anchor-id="timeline-llm-adjudication-extract_timeline.py---llm-adj---provider-claude">2. Timeline LLM Adjudication — <code>extract_timeline.py --llm-adj --provider claude</code></h2>
-<p><strong>Purpose:</strong> Post-BERT date adjudication for EA and EIS projects. BERT-classified date candidates (with context snippets) are sent to Claude to pick the single best initiation date and decision date.</p>
-<p><strong>Trigger condition:</strong> <code>project_gencap_candidate_count &gt;= 2</code> after the BERT classification pass. Run with <code>--llm-adj --provider claude</code>.</p>
-<p><strong>Prompt structure:</strong> Project title + all BERT-classified date candidates (each with date, BERT label, document type, mention count, and context snippet) + decision mode constraint block + definitions and rules.</p>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Parameter</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>max_tokens</td>
-<td>200</td>
-</tr>
-<tr class="even">
-<td>temperature</td>
-<td>0.1</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Token estimates per call:</strong></p>
-<table class="table">
-<colgroup>
-<col style="width: 44%">
-<col style="width: 56%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Component</th>
-<th>Tokens (est.)</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Static boilerplate (definitions, rules, decision constraints)</td>
-<td>~400</td>
-</tr>
-<tr class="even">
-<td>EA: up to 50 candidates × 80 tokens (date + context at 300 chars)</td>
-<td>~4,000</td>
-</tr>
-<tr class="odd">
-<td>EIS: up to 30 candidates × 65 tokens (date + context at 200 chars)</td>
-<td>~1,950</td>
-</tr>
-<tr class="even">
-<td><strong>Total input per EA project</strong></td>
-<td><strong>~2,200</strong> (avg, ~20 candidates)</td>
-</tr>
-<tr class="odd">
-<td><strong>Total input per EIS project</strong></td>
-<td><strong>~1,600</strong> (avg, ~15 candidates)</td>
-</tr>
-<tr class="even">
-<td>Output (JSON: 2 dates + 2 reasoning fields)</td>
-<td>~100–120</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Estimated call volume:</strong></p>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Source</th>
-<th>Projects</th>
-<th>Calls</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>EA</td>
-<td>~573</td>
-<td>~573</td>
-</tr>
-<tr class="even">
-<td>EIS</td>
-<td>~753</td>
-<td>~753</td>
-</tr>
-<tr class="odd">
-<td><strong>Total</strong></td>
-<td></td>
-<td><strong>~1,326</strong></td>
-</tr>
-</tbody>
-</table>
-<p><strong>Cost estimate (full EA + EIS run):</strong></p>
-<table class="table">
-<thead>
-<tr class="header">
-<th></th>
-<th>Tokens</th>
-<th>Cost</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Input</td>
-<td>573 × 2,200 + 753 × 1,600 = <strong>2,466,600 (~2.47M)</strong></td>
-<td>$2.47</td>
-</tr>
-<tr class="even">
-<td>Output</td>
-<td>1,326 × 110 = <strong>145,860 (~0.15M)</strong></td>
-<td>$0.73</td>
-</tr>
-<tr class="odd">
-<td><strong>Total</strong></td>
-<td></td>
-<td><strong>~$3.20</strong></td>
-</tr>
-</tbody>
-</table>
-<p><em>With batch API:</em> <strong>~$2.84</strong></p>
-<hr>
-</section>
-<section id="transmission-line-length-adjudication-extract_technology.py---run-transmission-llm" class="level2">
-<h2 class="anchored" data-anchor-id="transmission-line-length-adjudication-extract_technology.py---run-transmission-llm">3. Transmission Line Length Adjudication — <code>extract_technology.py --run transmission llm</code></h2>
-<p><strong>Purpose:</strong> When regex finds 2+ competing transmission line length values in a project’s documents (e.g., “12 miles” and “47 miles”), Claude picks the one that represents the total length of the proposed line being built.</p>
-<p><strong>Trigger condition:</strong> Only triggered for transmission projects with 2+ non-trivial candidates (≥ 0.25 miles).</p>
-<p><strong>Prompt structure:</strong></p>
-<pre><code>NEPA transmission line review. Pick the ONE candidate = total length of the proposed line.
-Candidates: [up to 8, each with value + source text snippet up to 300 chars]
-Rules: [5 rules about explicit length vs. partial crossings vs. location references]
-Return ONLY valid JSON: {&quot;selected_index&quot;: ..., &quot;selected_length_miles&quot;: ..., &quot;confidence&quot;: ..., &quot;reasoning&quot;: &quot;...&quot;}</code></pre>
-<table class="table">
-<thead>
-<tr class="header">
-<th>Parameter</th>
-<th>Value</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>num_predict</td>
-<td>120</td>
-</tr>
-<tr class="even">
-<td>temperature</td>
-<td>0.0</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Token estimates per call:</strong></p>
-<table class="table">
-<colgroup>
-<col style="width: 44%">
-<col style="width: 56%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Component</th>
-<th>Tokens (est.)</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Static boilerplate (task description + 5 rules + JSON schema)</td>
-<td>~150</td>
-</tr>
-<tr class="even">
-<td>Up to 8 candidates × ~65 tokens (value + 300-char context)</td>
-<td>~200–520</td>
-</tr>
-<tr class="odd">
-<td><strong>Total input</strong></td>
-<td><strong>~400–670 (~550 avg)</strong></td>
-</tr>
-<tr class="even">
-<td>Output (JSON: index + length + confidence + one-sentence reasoning)</td>
-<td>~60–80</td>
-</tr>
-</tbody>
-</table>
-<p><strong>Estimated call volume:</strong> - Clean energy projects with any transmission tag: ~7,100 (35% of 20,275) - Estimated fraction with 2+ competing candidates: ~10–15% - <strong>Estimated calls: ~750</strong></p>
-<p><strong>Cost estimate (full run):</strong></p>
-<table class="table">
-<thead>
-<tr class="header">
-<th></th>
-<th>Tokens</th>
-<th>Cost</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Input</td>
-<td>~750 × 550 = <strong>412,500 (~0.41M)</strong></td>
-<td>$0.41</td>
-</tr>
-<tr class="even">
-<td>Output</td>
-<td>~750 × 70 = <strong>52,500 (~0.05M)</strong></td>
-<td>$0.27</td>
-</tr>
-<tr class="odd">
-<td><strong>Total</strong></td>
-<td></td>
-<td><strong>~$0.68</strong></td>
-</tr>
-</tbody>
-</table>
-<p><em>With batch API:</em> <strong>~$0.54</strong></p>
-<hr>
-</section>
-<section id="pipeline-length-adjudication-extract_technology.py---run-pipeline-llm" class="level2">
-<h2 class="anchored" data-anchor-id="pipeline-length-adjudication-extract_technology.py---run-pipeline-llm">4. Pipeline Length Adjudication — <code>extract_technology.py --run pipeline llm</code></h2>
-<p><strong>Purpose:</strong> When regex finds 2+ competing pipeline length values in a project’s documents, Claude picks the one representing the total length of the proposed pipeline being built.</p>
-<p><strong>Trigger condition:</strong> Only triggered for pipeline projects with 2+ non-trivial, non-partial candidates (≥ 0.25 miles). Same logic as transmission (<code>_adjudicate_transmission_length</code>).</p>
-<p><strong>Prompt structure:</strong> Identical to transmission — same 5 rules, same JSON output schema, same 300-char source snippet per candidate.</p>
-<p><strong>Estimated call volume:</strong> ~694 (pre-rebuild; may increase after bug fixes expanding candidate coverage)</p>
-<p><strong>Cost estimate vs. actual:</strong></p>
-<table class="table">
-<thead>
-<tr class="header">
-<th></th>
-<th>Estimate</th>
-<th>Actual</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Calls</td>
-<td>~694</td>
-<td>—</td>
-</tr>
-<tr class="even">
-<td>Input tokens</td>
-<td>~257K</td>
-<td>—</td>
-</tr>
-<tr class="odd">
-<td>Output tokens</td>
-<td>~69K</td>
-<td>—</td>
-</tr>
-<tr class="even">
-<td><strong>Total cost</strong></td>
-<td><strong>~$0.49</strong></td>
-<td><strong>~$1.00</strong></td>
-</tr>
-</tbody>
-</table>
-<p>Note: actual cost ~2× estimate, likely due to more triggers after the bug-fix rebuild (WIDTH_CONTEXT_RE fix + PIPELINE_HINTS expansion + 50-page limit all increased candidate counts).</p>
-<hr>
-</section>
-<section id="notes" class="level2">
-<h2 class="anchored" data-anchor-id="notes">Notes</h2>
-<ul>
-<li>All three scripts use <code>claude-haiku-4-5-20251001</code>; no other Claude models are called.</li>
-<li>Call counts are <strong>estimates</strong> — actual counts depend on how many projects clear the 2+ candidate threshold after the regex pass. Run the regex step first and check <code>project_gencap_candidate_count</code> distributions to get a tighter number.</li>
-<li><code>extract_reviews.py</code> LLM mode and the default <code>extract_timeline.py --llm-run</code> mode use local Ollama models (currently <code>llama3.2:3b-instruct-q4_K_M</code>) and have no API cost.</li>
-<li>Pricing as of February 2026. Verify at <a href="https://platform.claude.com/docs/en/about-claude/pricing">platform.claude.com/docs/en/about-claude/pricing</a> before a large run.</li>
-</ul>
+<section id="technology-timeline-improvement-suggestions" class="level1">
+<h1>Technology timeline improvement suggestions</h1>
+<section id="plans-for-improving-within-project-sequencing" class="level2">
+<h2 class="anchored" data-anchor-id="plans-for-improving-within-project-sequencing">Plans for improving Within-Project Sequencing</h2>
+<p>The current figure (02_geothermal.R:449) is limited to projects with ≥2 dated actions — and most geothermal actions are missing one or both timeline dates. Here’s what’s needed and what’s possible:</p>
+<p>Root cause Timeline coverage for geothermal is low because:</p>
+<p>BLM CEs for individual well permits often have no NOI/scoping → no initiation signal Decision dates for CEs are rarely published in machine-readable form The BERT extractor was trained on EIS/EA-heavy examples; CE-heavy geothermal actions are OOD Plan A — Improve BERT timeline coverage for geothermal CEs (highest impact) The most direct fix. Two levers:</p>
+<p>Add geothermal-specific training examples to extract_timeline.py. BLM CE decisions use phrases like “Decision Record”, “Finding of No Significant Impact”, “approved” in combination with a date — collect 20–30 manually-confirmed (project_id, initiation_date, decision_date) pairs from the geothermal subset and add them to the BERT training set as high-weight examples.</p>
+<p>Expand initiation patterns for well permit language: “application received”, “permit to drill submitted”, “well permit application”, “Notice of Intent to Drill” (NID, distinct from NEPA NOI). These don’t currently fire in extract_timeline.py’s regex candidates.</p>
+<p>Run with –bert-run after retraining. Check coverage with:</p>
+<p>analysis %&gt;% filter(project_is_geothermal) %&gt;% summarise(pct_dated = mean(!is.na(bert_initiation_date_final) &amp; !is.na(bert_decision_date_final))) Plan B — LLM hybrid run on geothermal subset (medium effort) Run the hybrid LLM timeline extractor specifically on geothermal actions where BERT returned no dates:</p>
+<p>python code/extract/extract_timeline.py<br>
+–llm-run –hybrid –use-regex-cache<br>
+–filter project_is_geothermal=True<br>
+–sample 50 –model llama3.2:3b-instruct-q4_K_M<br>
+–output test_geothermal_llm.parquet LLMs handle free-form CE decision language better than BERT. Validate on the 50-sample before full run.</p>
+<p>Plan C — Better project key matching (low-hanging fruit, no data work) The current normalize_geothermal_key() strips too many words (including location names), causing unrelated projects to merge. Replace with a Levenshtein/fuzzy match on the raw title after only light normalization (lowercase + punctuation). This won’t increase date coverage but will reduce false merges in the sequence figure, making the sequenced sample more reliable.</p>
+<p>Plan D — Enrich the sequence figure itself (visualization-side) Even with limited dates, the figure can be improved:</p>
+<p>Show geologic area / field name as a secondary grouping row label (e.g., “Coso”, “Salton Sea”, “Dixie Valley”) — extract from title Add a gap indicator for undated actions within a project (dotted line or hollow point showing “action with unknown dates exists here”) Sort by total project span rather than first start date, so the longest developments appear prominently Facet by agency (BLM vs Forest Service) since BLM dominates drilling CEs and Forest Service tends to have longer reviews Recommended order Priority Plan Effort Expected gain 1 A — BERT training examples Medium +30–50% date coverage 2 B — LLM hybrid on geothermal Low Fills gaps after A 3 C — Better key matching Low Cleaner figure immediately 4 D — Visualization enrichment Low Better story from existing data Start with C (no data re-run needed) to get a cleaner figure now, then tackle A+B in the next extraction pass.</p>
 
 
 </section>
