@@ -322,7 +322,7 @@ fig_solar_highlight <- ggplot(.dat,
     x = "Share of Projects",
     y = NULL,
     fill = "Process Type",
-    title = "Projects with Decarbonization Tag by Technology and Process Type",
+    title = "Actions with Decarbonization Tag by Technology and Process Type",
     caption = "Note: Percentage labels below 3% are excluded for readability."
   ) +
   theme_minimal() +
@@ -345,7 +345,11 @@ fig_solar_highlight
 ```
 
 ::: {.column-margin .review-comment}
-What do we think of this highlighting callout?
+What do we think of this highlight callout? 
+
+<br> 
+
+Also, I changed "projects" to "actions" -- where else might we want to do this?
 :::
 
 ::: {.callout-warning}
@@ -395,7 +399,7 @@ The Phase 1 analysis finds a real but modest post-FRA shift in document length. 
 #| fig-cap: "Regulatory page counts over time, with FRA enactment marked by the vertical red line. Post-FRA lengths decline, but the sample remains limited."
 #| out-width: "100%"
 
-knitr::include_graphics(file.path(d5_figures, "05_pages_over_time.png"))
+knitr::include_graphics(file.path(d5_figures, "05_pages_over_time_break.png"))
 ```
 
 ```{r}
