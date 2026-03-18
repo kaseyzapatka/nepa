@@ -188,14 +188,14 @@ How are these as alternative, catchier options for this first point?
 knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
 ```
 
-**The most comprehensive EA and CE data in the dataset is for DOE, and DOE data shows that decarbonization-related actions are overwhelmingly categorically excluded.** In the strongest-coverage portion of the dataset, DOE records show `r scales::percent(doe_ce_pct, accuracy = 0.1)` of actions as CEs. That does **not** mean DOE should be treated as representative of every federal agency. It does mean that, even where the underlying CE/EA/EIS coverage is comparatively good, the decarbonization portfolio is still overwhelmingly concentrated in the lowest-intensity NEPA pathway.
+**Only DOE and BLM have complete CE, EA, and EIS coverage in NEPATEC 2.0 — and both confirm that decarbonization actions are heavily concentrated in lower-intensity review pathways.** In the strongest-coverage portion of the dataset, DOE records show `r scales::percent(doe_ce_pct, accuracy = 0.1)` of actions as CEs. BLM, the only other agency with full coverage, shows a more balanced mix but remains heavily CE-weighted. That does **not** mean DOE or BLM should be treated as representative of every federal agency. It does mean that, even where the underlying CE/EA/EIS coverage is comparatively good, the decarbonization portfolio is still overwhelmingly concentrated in the lowest-intensity NEPA pathway.
 
 ```{r}
 #| label: fig-agency-process
-#| fig-cap: "NEPA process distribution by federal agency. DOE shows the strongest CE dominance among agencies with fuller EA/CE coverage."
-#| out-width: "100%"
+#| fig-cap: "NEPA process type distribution for departments with complete CE, EA, and EIS coverage in NEPATEC 2.0: DOE (all sub-agencies) and BLM. DOE shows overwhelming CE dominance; BLM has a more balanced mix."
+#| out-width: "90%"
 
-knitr::include_graphics(file.path(d1_figures, "03_agency_process.png"))
+knitr::include_graphics(file.path(d1_figures, "02_agency_process.png"))
 ```
 
 ```{r}
@@ -393,7 +393,7 @@ Also, I changed "projects" to "actions" -- where else might we want to do this?
 ::: {.callout-warning}
 ## Coverage Caveat
 
-NEPATEC 2.0 is a corpus of federal environmental review documents, not a census of all U.S. decarbonization activity. Agency comparisons also need care: EIS coverage is government-wide, but EA/CE coverage is substantially more complete for DOE, BLM, and the Forest Service than for many other agencies.
+NEPATEC 2.0 is a corpus of federal environmental review documents, not a census of all U.S. decarbonization activity. Agency comparisons also need care: EIS coverage is government-wide, but EA/CE coverage is complete only for DOE and BLM — all other agencies are represented primarily via the EPA EIS database and therefore appear with inflated EIS shares.
 :::
 
 ---

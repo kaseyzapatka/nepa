@@ -20,6 +20,7 @@ library(here)
 library(knitr)
 library(kableExtra)
 library(readr)
+library(dplyr)
 library(gt)
 library(tibble)
 
@@ -38,6 +39,12 @@ project_overview_source <- readr::read_file(project_overview_path)
 project_overview_last_updated <- as.Date(file.info(project_overview_path)$mtime)
 ```
 
+
+```{=html}
+<style>
+.table tfoot td { text-align: left !important; }
+</style>
+```
 
 ## Executive Summary
 
@@ -82,24 +89,39 @@ knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.pn
 
 ::: {.callout-tip}
 ## Key Finding: Agency
-**Department of Energy (DOE) dominates** decarbonization technology NEPA reviews (81% of projects), followed by Interior (17%). DOE processes the vast majority through Categorical Exclusions (CE) (96%). **Important caveat:** EA and CE data in NEPATEC is comprehensive only for DOE, BLM, and Forest Service — all other agencies are represented only via the EPA EIS database and therefore appear with inflated EIS shares.
+**Department of Energy (DOE) dominates** decarbonization technology NEPA reviews (81% of projects), followed by Interior (17%). DOE processes the vast majority through Categorical Exclusions (CE) (96%).
 :::
 
-This section examines project counts by lead department and lead agency. @tbl-department reports counts by department and review process, with @fig-dept visualizing counts by department and @fig-dept-process visualizing the process type mix. The agency-level figure (@fig-agency-process) breaks this down further.
+This section examines project counts by lead department and lead agency. @tbl-department reports counts by department and review process, @fig-dept visualizes project counts by department, and @fig-agency-process shows the process type breakdown for the two agencies with complete data coverage: DOE and BLM.
 
 ::: {.callout-warning}
-**Data coverage note:** NEPATEC assembles EIS data from EPA's governmentwide EIS database (comprehensive for all agencies since 2012) but EA and CE data only from DOE, BLM, and Forest Service. Agencies outside these three therefore appear with near-zero EA and CE counts — this reflects a data gap, not actual agency behavior. Process-type mix comparisons are only reliable for DOE, BLM, and Forest Service.
+**Data coverage note:** NEPATEC assembles EIS data from EPA's governmentwide EIS database (comprehensive for all agencies since 2012) but EA and CE data only from DOE and BLM. Agencies outside these two therefore appear with near-zero EA and CE counts — this reflects a data gap, not actual agency behavior. Process-type mix comparisons are only reliable for DOE and BLM.
 :::
+
+The decarbonization technology NEPA portfolio is highly concentrated: DOE alone accounts for roughly four out of every five projects. This reflects both DOE's broad mission — spanning national labs, weapons facilities, grid modernization, and loan programs — and the fact that NEPATEC's EA and CE collection is most complete for DOE. The Department of the Interior's share is driven primarily by BLM's permitting role for large-scale renewables on federal land.
 
 ```{r}
 #| label: tbl-department
 #| tbl-cap: "Projects tagged with decarbonization technologies by lead federal department and NEPA process type"
 
-read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALSE) |>
-  kable(format.args = list(big.mark = ",")) |>
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) |>
-  row_spec(nrow(read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALSE)), bold = TRUE)
+dept_tbl <- read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALSE) |>
+  mutate(Department = if_else(
+    Department %in% c("Department of Energy", "Department of the Interior"),
+    paste0(Department, "*"),
+    Department
+  ))
+
+dept_tbl |>
+  kable(format.args = list(big.mark = ","), escape = FALSE) |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = TRUE) |>
+  row_spec(nrow(dept_tbl), bold = TRUE)
 ```
+
+::: {style="font-size: 0.85em; color: #555; margin-top: -0.75em;"}
+\* Only DOE and DOI have complete CE, EA, and EIS data in NEPATEC 2.0; all other departments are represented only via EPA's governmentwide EIS database.
+:::
+
+The raw project counts in @fig-dept confirm DOE's dominance in absolute terms. All other departments collectively account for less than 2% of the portfolio, a result that partly reflects genuine mission differences and partly the data coverage gap — those agencies appear almost exclusively through EPA's EIS database and therefore contribute only EIS records.
 
 ```{r}
 #| label: fig-dept
@@ -109,39 +131,14 @@ read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALS
 knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
 ```
 
-```{r}
-#| label: fig-dept-process
-#| fig-cap: "NEPA process type composition by lead department. Note: EA/CE coverage is complete only for DOE; all other departments are represented only via the EPA EIS database."
-#| out-width: "90%"
-
-knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
-```
-
-## Agency-Level Breakdown
-
-@fig-agency-process shows the process type mix for all agencies within DOE, Interior, and USDA. Agencies outside DOE, BLM, and Forest Service show near-zero EA and CE shares — this reflects incomplete data collection, not actual behavior. @tbl-meeting-coverage provides the underlying counts with an explicit coverage flag.
+Where the coverage data is reliable — DOE and BLM — the process type mix tells a slightly different story for each. DOE processes the overwhelming majority of its decarbonization actions as Categorical Exclusions, consistent with its large volume of routine lab operations, equipment upgrades, and smaller energy projects. BLM, by contrast, processes about 10% of its actions via Environmental Assessments (EA) and Environmental Impact Statements (EIS), reflecting the greater site-specificity and environmental sensitivity of renewable energy siting decisions on federal public lands.
 
 ```{r}
 #| label: fig-agency-process
-#| fig-cap: "NEPA process type distribution by federal agency. EA/CE data is complete only for DOE, BLM, and Forest Service; all other agencies appear only via the EPA EIS database."
-#| out-width: "100%"
+#| fig-cap: "NEPA process type distribution for the two departments with complete CE, EA, and EIS coverage in NEPATEC 2.0: DOE (all sub-agencies) and BLM. Numbers to the right show total project count."
+#| out-width: "90%"
 
-knitr::include_graphics(file.path(d1_figures, "03_agency_process.png"))
-```
-
-```{r}
-#| label: tbl-meeting-coverage
-#| tbl-cap: "Projects by agency and NEPA process type, with data coverage annotation. 'EIS only' agencies are represented only via EPA's EIS database; EA/CE counts are incomplete for those agencies."
-
-read_csv(file.path(d1_tables, "table_meeting_coverage.csv"), show_col_types = FALSE) |>
-  kable(format.args = list(big.mark = ","),
-        col.names = c("Department", "Agency", "EIS", "EA", "CE", "Total", "Coverage")) |>
-  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) |>
-  column_spec(7, bold = TRUE,
-              color = ifelse(
-                read_csv(file.path(d1_tables, "table_meeting_coverage.csv"), show_col_types = FALSE)$Coverage == "Full",
-                "black", "gray"
-              ))
+knitr::include_graphics(file.path(d1_figures, "02_agency_process.png"))
 ```
 
 
@@ -170,7 +167,7 @@ read_csv(file.path(d1_tables, "table3_by_state.csv"), show_col_types = FALSE) |>
   kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) |> 
   footnote(
     general = "Each project may be in multiple states, meaning totals may sum to greater than project total of 25,000.",
-    footnote_as_chunk = TRUE,
+    general_title = "",
     escape = FALSE
   )
 ```
