@@ -42,6 +42,7 @@ library(here)
 library(knitr)
 library(readr)
 library(arrow)
+library(jsonlite)
 
 d1_figures <- here("output", "deliverable1", "figures")
 d2_figures <- here("output", "deliverable2", "figures")
@@ -173,10 +174,174 @@ knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 
 ```{r}
 #| label: fig-technology-by-process
-#| fig-cap: "Decarbonization technology tags by NEPA review process. Solar is heavily CE-driven, while some technologies show higher EA/EIS shares."
+#| fig-cap: "Decarbonization technology tags by NEPA review process. Solar is heavily CE-driven, while some technologies show higher EA/EIS shares. Non-solar bars are de-emphasized to draw attention to solar's CE dominance."
 #| out-width: "95%"
+#| fig-width: 10
+#| fig-height: 6
 
-knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.png"))
+# --- Solar-highlight variant (key_insights only; original deliverable 1 figure unchanged) ---
+
+# CATF colors (replicated locally; no dependency on 00_setup.R)
+.catf_dark_blue <- "#0047BB"
+.catf_teal      <- "#00AE8D"
+.catf_magenta   <- "#C22A90"
+.solar_amber    <- "#D4720A"   # warm amber for the callout border
+
+# Technology tags (identical to deliverable 1 constants)
+.clean_tags <- c(
+  "Carbon Capture and Sequestration",
+  "Conventional Energy Production - Nuclear",
+  "Conventional Energy Production - Other",
+  "Renewable Energy Production - Biomass",
+  "Renewable Energy Production - Energy Storage",
+  "Renewable Energy Production - Geothermal",
+  "Renewable Energy Production - Hydrokinetic",
+  "Renewable Energy Production - Hydropower",
+  "Renewable Energy Production - Other",
+  "Renewable Energy Production - Solar",
+  "Renewable Energy Production - Wind, Offshore",
+  "Renewable Energy Production - Wind, Onshore",
+  "Nuclear Technology",
+  "Electricity Transmission",
+  "Utilities (electricity, gas, telecommunications)"
+)
+
+# Read only the columns needed
+.proj <- read_parquet(
+  here("data", "analysis", "projects_combined.parquet"),
+  col_select = c("project_title", "project_type", "process_type", "project_energy_type")
+)
+
+.ce <- .proj |>
+  filter(project_energy_type == "Clean") |>
+  mutate(project_type_list = map(project_type, \(x) {
+    if (is.na(x) || x == "") return(character(0))
+    tryCatch(fromJSON(x), error = \(e) character(0))
+  }))
+
+# Row order: ascending percent_projects (bottom-to-top on the y-axis)
+.order_df <- .ce |>
+  select(project_title, project_type_list) |>
+  unnest(project_type_list) |>
+  rename(technology = project_type_list) |>
+  filter(technology %in% .clean_tags) |>
+  distinct(project_title, technology) |>
+  count(technology, name = "n") |>
+  mutate(
+    pct = 100 * n / n_distinct(.ce$project_title),
+    technology_label = case_when(
+      technology == "Renewable Energy Production - Other" ~ technology,
+      TRUE ~ str_remove(technology, "^Renewable Energy Production - ")
+    )
+  ) |>
+  arrange(pct)  # ascending -> bottom-to-top factor order
+
+.label_order <- .order_df$technology_label
+
+# Main plotting dataset
+.dat <- .ce |>
+  select(project_title, project_type_list, process_type) |>
+  unnest(project_type_list) |>
+  rename(technology = project_type_list) |>
+  filter(technology %in% .clean_tags) |>
+  distinct(project_title, technology, process_type) |>
+  count(technology, process_type, name = "n") |>
+  group_by(technology) |>
+  mutate(
+    share = n / sum(n),
+    technology_label = case_when(
+      technology == "Renewable Energy Production - Other" ~ technology,
+      TRUE ~ str_remove(technology, "^Renewable Energy Production - ")
+    )
+  ) |>
+  ungroup() |>
+  mutate(
+    technology_label = factor(technology_label, levels = .label_order),
+    is_solar = as.character(technology_label == "Solar")  # "TRUE"/"FALSE" for scale_alpha_manual
+  )
+
+.totals <- .dat |>
+  group_by(technology_label) |>
+  summarise(total = sum(n), .groups = "drop")
+
+# Numeric y-position of the Solar bar (factor level index)
+.solar_idx <- which(.label_order == "Solar")
+
+# Build the figure
+fig_solar_highlight <- ggplot(.dat,
+  aes(x = share, y = technology_label, fill = process_type)) +
+
+  # 1. Warm background stripe spanning full panel width behind the solar row
+  annotate("rect",
+    xmin = -Inf, xmax = Inf,
+    ymin = .solar_idx - 0.5, ymax = .solar_idx + 0.5,
+    fill = "#FFF3CD", color = NA
+  ) +
+
+  # 2. Stacked bars — non-solar dimmed to 20% opacity, solar at full opacity
+  geom_col(aes(alpha = is_solar), width = 0.8) +
+
+  # 3. Percentage labels inside bars (full opacity for readability throughout)
+  geom_text(
+    aes(label = ifelse(share >= 0.03, scales::percent(share, accuracy = 1), "")),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "white"
+  ) +
+
+  # 4. Total project counts to the right of each bar
+  geom_text(
+    data = .totals,
+    aes(x = 1.02, y = technology_label, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
+  ) +
+
+  # 5. Amber border framing the solar bar exactly (drawn on top of bars)
+  annotate("rect",
+    xmin = 0, xmax = 1,
+    ymin = .solar_idx - 0.4, ymax = .solar_idx + 0.4,
+    fill = NA, color = .solar_amber, linewidth = 1.5
+  ) +
+
+  scale_x_continuous(
+    labels = scales::percent,
+    breaks = seq(0, 1, by = 0.1),
+    expand = expansion(mult = c(0, 0.10))
+  ) +
+  scale_fill_manual(
+    values = c("CE" = .catf_dark_blue, "EA" = .catf_teal, "EIS" = .catf_magenta)
+  ) +
+  scale_alpha_manual(
+    values = c("FALSE" = 0.45, "TRUE" = 1.0),
+    guide = "none"
+  ) +
+  labs(
+    x = "Share of Projects",
+    y = NULL,
+    fill = "Process Type",
+    title = "Projects with Decarbonization Tag by Technology and Process Type",
+    caption = "Note: Percentage labels below 3% are excluded for readability."
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 9),
+    legend.position = "bottom"
+  )
+
+# Save standalone PNG for circulation (highlighted variant only; does not overwrite original)
+ggsave(
+  filename = here(d1_figures, "02_clean_energy_bar_solar_highlight.png"),
+  plot = fig_solar_highlight,
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+
+fig_solar_highlight
 ```
 
 ::: {.callout-warning}
