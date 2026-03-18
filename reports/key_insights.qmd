@@ -112,7 +112,7 @@ eis_exceeds_limit_pct <- d5_compliance %>% filter(process_type == "EIS", complia
 <!--
 Review comment syntax:
 
-::: {.review-comment}
+::: {.column-margin .review-comment}
 Check whether this claim needs a more specific citation to Deliverable 3.
 :::
 -->
@@ -343,6 +343,10 @@ ggsave(
 
 fig_solar_highlight
 ```
+
+::: {.column-margin .review-comment}
+What do we think of this highlighting callout?
+:::
 
 ::: {.callout-warning}
 ## Coverage Caveat
