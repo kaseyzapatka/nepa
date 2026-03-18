@@ -1,5 +1,5 @@
 ---
-title: "NEPA Clean Energy Analysis: Deliverable 6"
+title: "NEPA Decarbonization Technology Analysis: Deliverable 6"
 subtitle: "Technology-Specific Analyses: Transmission Lines, Geothermal, and Pipelines"
 date: today
 format:
@@ -51,7 +51,7 @@ n_pipeline_decarb_new_build <- pipe_summary$value[pipe_summary$metric == "Decarb
 
 ## Executive Summary
 
-This deliverable examines three technology-specific questions from the NEPATEC 2.0 corpus, each addressing a dimension of how NEPA reviews operate for major clean energy infrastructure types. This report delivers the following:
+This deliverable examines three technology-specific questions from the NEPATEC 2.0 corpus, each addressing a dimension of how NEPA reviews operate for major decarbonization technology infrastructure types. This report delivers the following:
 
 > **Technology-specific inquiries**
 >
@@ -119,7 +119,7 @@ knitr::include_graphics(file.path(d6_figures, "fig_transmission_sample_breakdown
 
 ```{r}
 #| label: fig-tx-length-dist
-#| fig-cap: "Distribution of extracted transmission line lengths (miles) for clean energy projects. Dashed line marks the median."
+#| fig-cap: "Distribution of extracted transmission line lengths (miles) for decarbonization technology projects. Dashed line marks the median."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d6_figures, "fig_transmission_length_distribution.png"))
@@ -460,7 +460,7 @@ The `r scales::comma(n_pipeline)` pipeline NEPA projects span six technology gro
 - **Water/irrigation pipeline**: pipeline tag + controlled-vocabulary `project_type` includes "Water Resources" or "Irrigation" (and not Oil & Gas).
 - **Other pipeline**: all remaining projects carrying the pipeline tag but unmatched by any of the above classifiers.
 
-For this analysis, carbon and hydrogen pipelines are treated as **decarbonization technologies** — overriding the NEPATEC energy type tag, which classifies both as "Fossil fuel" in the source data. This reflects that CCS infrastructure and low-carbon hydrogen are policy-relevant clean energy investments regardless of their association with fossil fuel systems. Natural gas and oil/petroleum pipelines are classified as **fossil fuel**; water/irrigation and other pipelines are classified as **Other**.
+For this analysis, carbon and hydrogen pipelines are treated as **decarbonization technologies** — overriding the NEPATEC energy type tag, which classifies both as "Fossil fuel" in the source data. This reflects that CCS infrastructure and low-carbon hydrogen are policy-relevant decarbonization technology investments regardless of their association with fossil fuel systems. Natural gas and oil/petroleum pipelines are classified as **fossil fuel**; water/irrigation and other pipelines are classified as **Other**.
 
 @fig-pipeline-decarb shows the project counts by group, colored by this classification.
 
@@ -528,7 +528,7 @@ knitr::include_graphics(file.path(d6_figures, "fig_pipeline_length_vs_duration.p
 
 ## Timeline Duration by Pipeline Type
 
-@fig-pipe-duration compares NEPA review durations for clean energy pipeline projects with calculable timelines (n ≈ 228), topcoded at 500 days. Carbon pipelines show the widest distribution and highest median, consistent with the greater regulatory complexity and novelty of CCS infrastructure — though the very small sample prevents firm conclusions. Natural gas pipelines provide the most stable baseline. Groups with very few projects will show minimal violin density; the n labels indicate sample size for each group.
+@fig-pipe-duration compares NEPA review durations for decarbonization technology pipeline projects with calculable timelines (n ≈ 228), topcoded at 500 days. Carbon pipelines show the widest distribution and highest median, consistent with the greater regulatory complexity and novelty of CCS infrastructure — though the very small sample prevents firm conclusions. Natural gas pipelines provide the most stable baseline. Groups with very few projects will show minimal violin density; the n labels indicate sample size for each group.
 
 ```{r}
 #| label: fig-pipe-duration
@@ -567,4 +567,4 @@ knitr::include_graphics(file.path(d6_figures, "fig_pipeline_duration_by_group.pn
 
 ---
 
-*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
+*Report generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis*

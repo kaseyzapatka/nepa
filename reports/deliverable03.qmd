@@ -1,5 +1,5 @@
 ---
-title: "NEPA Clean Energy Analysis: Deliverable 3"
+title: "NEPA Decarbonization Technology Analysis: Deliverable 3"
 subtitle: "NEPA Process Analysis"
 date: today
 format:
@@ -33,7 +33,7 @@ d3_tables <- here("output", "deliverable3", "tables")
 
 This report aims to create the following set of deliverables:
 
-> Data on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements.  Broken out by number of projects, generation capacity, and change over time.
+> Data on how many decarbonization technology projects have been categorically excluded vs. have required environmental assessments and environmental impact statements.  Broken out by number of projects, generation capacity, and change over time.
 
 For context, @fig-energy-type summarizes the breakdown of projects by energy type.
 
@@ -50,7 +50,7 @@ knitr::include_graphics(file.path(d1_figures, "00_energy_type_breakdown.png"))
 
 ::: {.callout-note}
 ## Key Findings: Process Type
-- **Clean energy projects use Categorical Exclusions at higher rates** than fossil fuel or other types of projects, likely reflecting smaller project footprints.
+- **Decarbonization technology projects use Categorical Exclusions at higher rates** than fossil fuel or other types of projects, likely reflecting smaller project footprints.
 - **Fossil fuel projects show higher EA/EIS rates**, consistent with larger environmental footprints requiring more detailed review.
 :::
 
@@ -75,7 +75,7 @@ knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 
 ---
 
-# Timeline Analysis for Clean Energy
+# Timeline Analysis for Decarbonization Technologies
 
 ::: {.callout-note}
 ## Key Findings: Timeline
@@ -149,11 +149,11 @@ knitr::include_graphics(file.path(d3_figures, "03_project_timeline_spans_by_proc
 
 ### Projects by decision year
 
-@fig-projects-by-year shows the volume of clean energy projects by decision year, faceted by review process. CE projects show a sharp ramp starting around 2008–2009, peaking at 1,789 in 2010 — likely driven by ARRA (American Recovery and Reinvestment Act) stimulus funding. After a dip in the mid-2010s, CE volumes climbed again to a new peak of 1,834 in 2023. EA project counts are much smaller in magnitude (typically 10–40 per year) but follow a similar pattern, with a notable spike of 41 projects in 2010. EIS decisions peak in 2012 and 2014 (40 each), with a secondary rise in 2020 (26) and a recent spike of 32 in 2024. The EIS temporal pattern is lagged relative to CE and EA — consistent with the fact that EIS reviews initiated during the late-2000s stimulus era would reach their Record of Decision several years later.
+@fig-projects-by-year shows the volume of decarbonization technology projects by decision year, faceted by review process. CE projects show a sharp ramp starting around 2008–2009, peaking at 1,789 in 2010 — likely driven by ARRA (American Recovery and Reinvestment Act) stimulus funding. After a dip in the mid-2010s, CE volumes climbed again to a new peak of 1,834 in 2023. EA project counts are much smaller in magnitude (typically 10–40 per year) but follow a similar pattern, with a notable spike of 41 projects in 2010. EIS decisions peak in 2012 and 2014 (40 each), with a secondary rise in 2020 (26) and a recent spike of 32 in 2024. The EIS temporal pattern is lagged relative to CE and EA — consistent with the fact that EIS reviews initiated during the late-2000s stimulus era would reach their Record of Decision several years later.
 
 ```{r}
 #| label: fig-projects-by-year
-#| fig-cap: "Clean energy projects by decision year, faceted by NEPA review process."
+#| fig-cap: "Decarbonization technology projects by decision year, faceted by NEPA review process."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d3_figures, "03_projects_by_year.png"))
@@ -172,7 +172,7 @@ The DOE-only pattern closely tracks the all-agency pattern, which is expected gi
 
 ```{r}
 #| label: fig-projects-by-year-doe
-#| fig-cap: "DOE clean energy projects by decision year, faceted by NEPA review process. Only projects where the lead agency is the Department of Energy are included."
+#| fig-cap: "DOE decarbonization technology projects by decision year, faceted by NEPA review process. Only projects where the lead agency is the Department of Energy are included."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d3_figures, "03_projects_by_year_doe.png"))
@@ -277,7 +277,7 @@ ex1 %>%
 ## Key Findings: Capacity
 - **EIS projects are predominantly utility-scale** (>500 MW, median 538 MW), while CE projects are mostly small-scale (<10 MW, median 1.2 MW). This aligns with expectations: larger projects require more intensive environmental review.
 - Extraction coverage varies sharply by process type: **EIS 81%**, EA moderate, **CE 8%** — reflecting that smaller CE projects rarely document explicit capacity figures.
-- Transmission-only projects account for **6.9%** of clean energy projects (1,531 of 22,279).
+- Transmission-only projects account for **6.9%** of decarbonization technology projects (1,531 of 22,279).
 :::
 
 ### How generation capacity is extracted
@@ -294,11 +294,11 @@ The NEPATEC 2.0 metadata does not include generation capacity directly, so we de
 
 5. **Final merge**: LLM output is merged back into the same project-level file and used only when it yields a valid power-capacity selection; final fields retain method/source metadata for validation.
 
-@fig-capacity-coverage-all shows extraction rates across all 20,725 clean energy projects. @fig-capacity-coverage shows the same metric restricted to the 11,038 projects with at least one generation-specific tag (Solar, Wind, Geothermal, Hydro, Nuclear, etc.). All coverage rates use the 11,038 generation-tagged projects as the denominator.^[The full clean energy dataset includes 20,725 projects, but not all are generation facilities. Many are tagged exclusively as Electricity Transmission or Utilities — pole replacements, right-of-way renewals, substation upgrades — as well as R&D, manufacturing, and land management projects that have no electricity generation component. Including these in the denominator artificially deflates coverage rates, since we would never expect them to have a capacity value.]
+@fig-capacity-coverage-all shows extraction rates across all 20,725 decarbonization technology projects. @fig-capacity-coverage shows the same metric restricted to the 11,038 projects with at least one generation-specific tag (Solar, Wind, Geothermal, Hydro, Nuclear, etc.). All coverage rates use the 11,038 generation-tagged projects as the denominator.^[The full decarbonization technology dataset includes 20,725 projects, but not all are generation facilities. Many are tagged exclusively as Electricity Transmission or Utilities — pole replacements, right-of-way renewals, substation upgrades — as well as R&D, manufacturing, and land management projects that have no electricity generation component. Including these in the denominator artificially deflates coverage rates, since we would never expect them to have a capacity value.]
 
 ```{r}
 #| label: fig-capacity-coverage-all
-#| fig-cap: "Generation capacity extraction coverage — all clean energy projects (includes transmission, utilities, R&D, etc.)"
+#| fig-cap: "Generation capacity extraction coverage — all decarbonization technology projects (includes transmission, utilities, R&D, etc.)"
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d3_figures, "04_capacity_coverage_all.png"))
@@ -407,4 +407,4 @@ bind_rows(
 
 ---
 
-*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
+*Report generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis*

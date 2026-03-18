@@ -185,11 +185,11 @@ phase1_timeline <- data.frame(
 kable(phase1_timeline, caption = "Phase 1 Deliverable Timeline")
 ```
 
-1. **Data on number of clean energy projects within the dataset**: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
+1. **Data on number of decarbonization technology projects within the dataset**: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
 
 2. **Data on programmatic and tiered reviews**: how many tiered reviews are there compared to total and are they completed faster
 
-3. **Data on how many clean energy projects have been categorically excluded vs. have required environmental assessments and environmental impact statements**
+3. **Data on how many decarbonization technology projects have been categorically excluded vs. have required environmental assessments and environmental impact statements**
    - Broken out by number of projects, generation capacity, and change over time
 
 4. **Data on geography/project location**: whether projects are multi-state or multi-agency
@@ -210,7 +210,7 @@ Phase 2 of the project is still not settled and we'll need to scope it based on 
 2. **Determinations of significance across resource areas**; factors that contribute to a determination of "significant impact" 
    - Starting with mitigated FONSIs
 
-3. **Differences and similarities between NEPA reviews** for fossil fuel and clean energy projects, as well as linear and non-linear projects—application of categorical exclusions, timelines, geography, etc.  
+3. **Differences and similarities between NEPA reviews** for fossil fuel and decarbonization technology projects, as well as linear and non-linear projects—application of categorical exclusions, timelines, geography, etc.
 
 4. **Timelines for categorical exclusions, environmental assessments, and environmental impact statements**, including segmentation by years (e.g., pre- and post-FRA [which set timelines for reviews], different CEQ NEPA regulations, agency, and type of project)
    - Timeline outliers could then be investigated through a case study approach to identify contributing factors, including whether NEPA was a cause of delay or not 
@@ -254,7 +254,7 @@ This project is organized into the following directories:
 
 ## Background
 
-This section defines the universe of clean energy projects analyzed across all deliverables of the NEPA Decarbonization Technology Analysis. It describes the classification criteria, exclusion rules, and refinements applied to identify clean energy projects within the publicly released [NEPATEC 2.0 database](https://huggingface.co/datasets/PNNL/NEPATEC2.0) — a comprehensive record of federal environmental review activity under the National Environmental Policy Act (NEPA).
+This section defines the universe of decarbonization technology projects analyzed across all deliverables of the NEPA Decarbonization Technology Analysis. It describes the classification criteria, exclusion rules, and refinements applied to identify decarbonization technology projects within the publicly released [NEPATEC 2.0 database](https://huggingface.co/datasets/PNNL/NEPATEC2.0) — a comprehensive record of federal environmental review activity under the National Environmental Policy Act (NEPA).
 
 Understanding this classification framework is foundational: every project count, timeline, agency breakdown, and geographic pattern reported in subsequent deliverables flows from the decisions documented here.
 
@@ -270,11 +270,11 @@ Understanding this classification framework is foundational: every project count
 knitr::include_graphics(file.path(ce_figures, "00_fig_projects_by_review.png"))
 ```
 
-@fig-clean-energy-projects shows the clean energy subset, totaling approximately **25,000 clean energy projects** extracted from the NEPA database.
+@fig-clean-energy-projects shows the decarbonization technology subset, totaling approximately **25,000 decarbonization technology projects** extracted from the NEPA database.
 
 ```{r}
 #| label: fig-clean-energy-projects
-#| fig-cap: "Distribution of clean energy projects by review process in the NEPA database."
+#| fig-cap: "Distribution of decarbonization technology projects by review process in the NEPA database."
 #| echo: false
 
 knitr::include_graphics(file.path(ce_figures, "00_fig_clean_energy_by_review.png"))
@@ -282,7 +282,7 @@ knitr::include_graphics(file.path(ce_figures, "00_fig_clean_energy_by_review.png
 
 ## What Qualifies as Decarbonization Technology?
 
-@tbl-energy-tags enumerates the CAFT-defined 14 clean energy and 5 fossil fuel categories used to identify clean vs fossil fuel energy projects in the NEPA database. While projects often have multiple tags, "clean energy" is identified as having at least one of the 14 tags _AND_ no fossil fuel tags.
+@tbl-energy-tags enumerates the CATF-defined 14 decarbonization technology and 5 fossil fuel categories used to identify decarbonization technology vs fossil fuel energy projects in the NEPA database. While projects often have multiple tags, a "decarbonization technology" project is identified as having at least one of the 14 tags _AND_ no fossil fuel tags.
 
 ```{r}
 #| label: tbl-energy-tags
@@ -327,7 +327,7 @@ tibble(
   )
 ```
 
-@fig-energy-type shows the overall distribution of projects in the NEPATEC 2.0 database by energy type. Clean energy projects comprise roughly 37% of all projects in the database, while fossil fuel projects represent 18%, and other (non-energy) projects make up 45% of the total. This breakdown helps contextualize the clean energy subset analyzed in subsequent deliverables within the broader universe of federal environmental reviews.
+@fig-energy-type shows the overall distribution of projects in the NEPATEC 2.0 database by energy type. Decarbonization technology projects comprise roughly 37% of all projects in the database, while fossil fuel projects represent 18%, and other (non-energy) projects make up 45% of the total. This breakdown helps contextualize the decarbonization technology subset analyzed in subsequent deliverables within the broader universe of federal environmental reviews.
 
 ```{r}
 #| label: fig-energy-type
@@ -337,14 +337,14 @@ tibble(
 knitr::include_graphics(file.path(ce_figures, "00_energy_type_breakdown.png"))
 ```
 
-About **10% of projects have only clean energy tags**, but most (about 90%) have at least 1 clean energy tag plus some other combination of tags.
+About **10% of projects have only decarbonization technology tags**, but most (about 90%) have at least 1 decarbonization technology tag plus some other combination of tags.
 
 ### Refining Decarbonization Technology
 
-After reviewing a [table of all co-occurring project types](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1809595689#gid=1809595689), three refinements were applied to improve the precision of the "clean energy" classification:
+After reviewing a [table of all co-occurring project types](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1809595689#gid=1809595689), three refinements were applied to improve the precision of the "decarbonization technology" classification:
 
 - **Utilities + non-energy:**  **1,623 projects** tagged _ONLY_ as Utilities _AND_ with 1 or more of the following non-energy tags (e.g., broadband, waste management, land development) were excluded, since these likely reflect utility-adjacent infrastructure rather than energy generation.
 
-- **Military and Defense + Nuclear:** **481 projects** tagged as "Nuclear Energy" and "Military and Defense" were excluded from the clean energy category. [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1310622375#gid=1310622375) The majority of these projects are led by the Department of Energy rather than the Department of Defense, suggesting they involve weapons-related nuclear activities rather than energy production.
+- **Military and Defense + Nuclear:** **481 projects** tagged as "Nuclear Energy" and "Military and Defense" were excluded from the decarbonization technology category. [A full table can be viewed here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1310622375#gid=1310622375) The majority of these projects are led by the Department of Energy rather than the Department of Defense, suggesting they involve weapons-related nuclear activities rather than energy production.
 
 - **Nuclear + Waste Management:** We started with approximately **4,000 Nuclear Waste projects** (those tagged with "Waste Management" AND ("Nuclear Technology" OR "Conventional Energy Production - Nuclear")), excluded all projects sponsored by DOE's National Nuclear Security Administration (NNSA), Office of Environmental Management (EM), and Office of Legacy Management (LM), along with their associated field offices. This reduced the dataset to approximately **1,588 projects**, and then CAFT staff identified only **34** projects that were relevant to this analysis. [You can see a list of the 34 nuclear-tagged projects that remain in this analysis here.](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1263485295#gid=1263485295)
