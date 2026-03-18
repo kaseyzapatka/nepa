@@ -10,6 +10,8 @@ format:
     toc-location: left
     code-fold: true
     fig-align: center
+    grid:
+      margin-width: 500px
     include-in-header:
       text: |
         <style>
@@ -178,13 +180,16 @@ How are these as alternative, catchier options for this first point?
 :::
 :::
 
-**Decarbonization projects use categorical exclusions at higher rates than fossil fuel or other project types; fossil fuel projects have higher EA/EIS rates than decarbonization projects.** Across `r scales::comma(clean_total)` decarbonization actions, `r scales::percent(clean_ce_pct, accuracy = 0.1)` use Categorical Exclusions. That is materially higher than the CE share for fossil projects (`r scales::percent(fossil_ce_pct, accuracy = 0.1)`) and for the residual "other" category (`r scales::percent(other_ce_pct, accuracy = 0.1)`). That means reforms aimed only at accelerating EAs and EISs will affect only a limited slice of the decarbonization pipeline.
+### 1.1 Decarbonization projects use categorical exclusions at higher rates than fossil fuel or other project types; fossil fuel projects have higher EA/EIS rates than decarbonization projects.
+
+Across `r scales::comma(clean_total)` decarbonization actions, `r scales::percent(clean_ce_pct, accuracy = 0.1)` use Categorical Exclusions. That is materially higher than the CE share for fossil projects (`r scales::percent(fossil_ce_pct, accuracy = 0.1)`) and for the residual "other" category (`r scales::percent(other_ce_pct, accuracy = 0.1)`). That means reforms aimed only at accelerating EAs and EISs will affect only a limited slice of the decarbonization pipeline.
 
 ::: {.content-visible when-format="html"}
 ::: {.column-margin .review-comment}
 
 What do we think about using this figure instead? I think it more cleanly compares rates than the counts figure currently being used. 
 
+<br> 
 
 ```{r}
 knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
@@ -202,7 +207,9 @@ knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
 ```
 
-**Only DOE and BLM have complete CE, EA, and EIS coverage in NEPATEC 2.0 — and both confirm that decarbonization actions are heavily concentrated in lower-intensity review pathways.** In the strongest-coverage portion of the dataset, DOE records show approximately `r scales::percent(doe_ce_pct, accuracy = 0.1)` of actions as CEs. BLM, the only other agency with full coverage, reports a higher rate of EA and EIS but remains heavily CE-weighted. While DOE or BLM are not necessarily representative of every federal agency, this finding indicates that where the underlying CE/EA/EIS coverage is complete, the decarbonization portfolio is overwhelmingly concentrated in the lowest-intensity NEPA pathway.
+### 1.2 The most comprehensive EA and CE data show that 97% of decarbonization-related actions are categorically excluded.
+
+We have the most complete project coverage for Department of Energy (DOE) and Department of the Interioer (DOI) records, which show the overwhelming majority of actions are Categorically Excluded (CE). For DOE, approximately 97% are processed via CEs; whereas DOI reports a higher rates of EA and EIS but remains heavily CE-weighted. Although DOE or DOI are not necessarily representative of every federal agency, this finding indicates that where the underlying review process coverage is complete, the decarbonization portfolio is overwhelmingly concentrated in the lowest-intensity NEPA pathway.
 
 ```{r}
 #| label: fig-agency-process
@@ -229,7 +236,9 @@ What do we think of this figure? It's the reduced form that only focuses on DOE 
 knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 ```
 
-**NEPA is just not really a problem for solar.** Within the current technology-tagged output, there are `r scales::comma(solar_total)` solar actions total; `r scales::percent(solar_ce_pct, accuracy = 0.1)` are CEs and only `r scales::percent(solar_eis_pct, accuracy = 0.1)` are EISs. Within this federal-review corpus, NEPA is therefore not the main bottleneck for most solar activity. Other constraints such as transmission access, interconnection, land availability, agency capacity, and financing may matter more often than full-scale NEPA review.
+### 1.3 NEPA is just not really a problem for solar.
+
+Within the current technology-tagged output, there are `r scales::comma(solar_total)` solar actions total; `r scales::percent(solar_ce_pct, accuracy = 0.1)` are CEs and only `r scales::percent(solar_eis_pct, accuracy = 0.1)` are EISs. Within this federal-review corpus, NEPA is therefore not the main bottleneck for most solar activity. Other constraints such as transmission access, interconnection, land availability, agency capacity, and financing may matter more often than full-scale NEPA review.
 
 ```{r}
 #| label: fig-technology-by-process
