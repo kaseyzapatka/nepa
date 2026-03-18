@@ -4521,11 +4521,12 @@ vertical-align: -.125em;
 <h2 class="anchored" data-anchor-id="summary-table">Summary Table</h2>
 <table class="table">
 <colgroup>
-<col style="width: 10%">
-<col style="width: 8%">
-<col style="width: 14%">
-<col style="width: 25%">
-<col style="width: 25%">
+<col style="width: 9%">
+<col style="width: 6%">
+<col style="width: 12%">
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 12%">
 <col style="width: 14%">
 </colgroup>
 <thead>
@@ -4536,6 +4537,7 @@ vertical-align: -.125em;
 <th>Est. input tokens</th>
 <th>Est. output tokens</th>
 <th>Est. cost</th>
+<th>Actual cost</th>
 </tr>
 </thead>
 <tbody>
@@ -4546,6 +4548,7 @@ vertical-align: -.125em;
 <td>~451K</td>
 <td>~61K</td>
 <td><strong>~$0.75</strong></td>
+<td>—</td>
 </tr>
 <tr class="even">
 <td><code>extract_timeline.py</code></td>
@@ -4554,22 +4557,34 @@ vertical-align: -.125em;
 <td>~2,467K</td>
 <td>~146K</td>
 <td><strong>~$3.20</strong></td>
+<td>—</td>
 </tr>
 <tr class="odd">
 <td><code>extract_technology.py</code></td>
-<td><code>--use-llm --provider anthropic</code></td>
+<td><code>--run transmission llm</code></td>
 <td>~750</td>
 <td>~413K</td>
 <td>~53K</td>
 <td><strong>~$0.68</strong></td>
+<td>—</td>
 </tr>
 <tr class="even">
+<td><code>extract_technology.py</code></td>
+<td><code>--run pipeline llm</code></td>
+<td>~694</td>
+<td>~257K</td>
+<td>~69K</td>
+<td><strong>~$0.49</strong></td>
+<td><strong>~$1.00</strong></td>
+</tr>
+<tr class="odd">
 <td><strong>Total</strong></td>
 <td></td>
-<td><strong>~3,176</strong></td>
-<td><strong>~3,331K</strong></td>
-<td><strong>~260K</strong></td>
-<td><strong>~$4.63</strong></td>
+<td><strong>~3,870</strong></td>
+<td><strong>~3,588K</strong></td>
+<td><strong>~329K</strong></td>
+<td><strong>~$5.12</strong></td>
+<td></td>
 </tr>
 </tbody>
 </table>
@@ -4829,8 +4844,8 @@ Return ONLY valid JSON: {&quot;selected_index&quot;: ..., &quot;confidence&quot;
 <p><em>With batch API:</em> <strong>~$2.84</strong></p>
 <hr>
 </section>
-<section id="transmission-line-length-adjudication-extract_technology.py---use-llm---provider-anthropic" class="level2">
-<h2 class="anchored" data-anchor-id="transmission-line-length-adjudication-extract_technology.py---use-llm---provider-anthropic">3. Transmission Line Length Adjudication — <code>extract_technology.py --use-llm --provider anthropic</code></h2>
+<section id="transmission-line-length-adjudication-extract_technology.py---run-transmission-llm" class="level2">
+<h2 class="anchored" data-anchor-id="transmission-line-length-adjudication-extract_technology.py---run-transmission-llm">3. Transmission Line Length Adjudication — <code>extract_technology.py --run transmission llm</code></h2>
 <p><strong>Purpose:</strong> When regex finds 2+ competing transmission line length values in a project’s documents (e.g., “12 miles” and “47 miles”), Claude picks the one that represents the total length of the proposed line being built.</p>
 <p><strong>Trigger condition:</strong> Only triggered for transmission projects with 2+ non-trivial candidates (≥ 0.25 miles).</p>
 <p><strong>Prompt structure:</strong></p>
@@ -4916,6 +4931,47 @@ Return ONLY valid JSON: {&quot;selected_index&quot;: ..., &quot;selected_length_
 </tbody>
 </table>
 <p><em>With batch API:</em> <strong>~$0.54</strong></p>
+<hr>
+</section>
+<section id="pipeline-length-adjudication-extract_technology.py---run-pipeline-llm" class="level2">
+<h2 class="anchored" data-anchor-id="pipeline-length-adjudication-extract_technology.py---run-pipeline-llm">4. Pipeline Length Adjudication — <code>extract_technology.py --run pipeline llm</code></h2>
+<p><strong>Purpose:</strong> When regex finds 2+ competing pipeline length values in a project’s documents, Claude picks the one representing the total length of the proposed pipeline being built.</p>
+<p><strong>Trigger condition:</strong> Only triggered for pipeline projects with 2+ non-trivial, non-partial candidates (≥ 0.25 miles). Same logic as transmission (<code>_adjudicate_transmission_length</code>).</p>
+<p><strong>Prompt structure:</strong> Identical to transmission — same 5 rules, same JSON output schema, same 300-char source snippet per candidate.</p>
+<p><strong>Estimated call volume:</strong> ~694 (pre-rebuild; may increase after bug fixes expanding candidate coverage)</p>
+<p><strong>Cost estimate vs. actual:</strong></p>
+<table class="table">
+<thead>
+<tr class="header">
+<th></th>
+<th>Estimate</th>
+<th>Actual</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Calls</td>
+<td>~694</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>Input tokens</td>
+<td>~257K</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Output tokens</td>
+<td>~69K</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td><strong>Total cost</strong></td>
+<td><strong>~$0.49</strong></td>
+<td><strong>~$1.00</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Note: actual cost ~2× estimate, likely due to more triggers after the bug-fix rebuild (WIDTH_CONTEXT_RE fix + PIPELINE_HINTS expansion + 50-page limit all increased candidate counts).</p>
 <hr>
 </section>
 <section id="notes" class="level2">

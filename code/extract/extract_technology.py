@@ -205,6 +205,10 @@ PIPELINE_HINTS = (
     "row",
     "buried line",
     "flowline",
+    "gas line",
+    "gas lines",
+    "gathering line",
+    "gathering lines",
 )
 
 TRANSMISSION_BUILD_RE = re.compile(
@@ -224,6 +228,44 @@ TRANSMISSION_BUILD_RE = re.compile(
     # ROW branch: narrowed to require "new" so plain ROW renewals don't pass
     r"right-?of-?way\s+(?:\w+\s+){0,3}new\s+transmission\s+line|"
     r"new\s+transmission\s+line\s+(?:\w+\s+){0,3}right-?of-?way)",
+    re.IGNORECASE,
+)
+
+# Pipeline new-build gate: construction/project language in title + description (context_text).
+# Applied analogously to TRANSMISSION_BUILD_RE but tuned for pipeline vocabulary.
+# "pipeline project/route/corridor/segment/lateral" are treated as new-build signals because
+# these phrases are far more commonly used for new infrastructure than for operational reviews.
+PIPELINE_BUILD_RE = re.compile(
+    r"\b(?:"
+    r"new\s+(?:natural\s+gas\s+|gas\s+|oil\s+|carbon\s+|co2\s+|hydrogen\s+|water\s+|crude\s+)?pipeline|"
+    r"(?:construct(?:ion|ed)?|build(?:ing)?|install(?:ation|ed)?|lay(?:ing)?)\s+"
+    r"(?:a\s+|the\s+|new\s+)?(?:gas\s+|oil\s+|carbon\s+|hydrogen\s+|water\s+|crude\s+)?pipeline|"
+    r"pipeline\s+(?:project|route|corridor|expansion|extension|segment|lateral|alignment|interconnect(?:ion)?)|"
+    r"buried\s+pipeline|"
+    r"(?:gathering\s+system|gathering\s+line|flowline)\s+(?:project|construction|installation|expansion)|"
+    r"pipeline\s+(?:facility|system)\s+(?:project|construction|development)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+# Pipeline maintenance exclusion gate: applied to title only (same design as
+# TRANSMISSION_MAINTENANCE_RE — maintenance language in descriptions is often incidental).
+PIPELINE_MAINTENANCE_RE = re.compile(
+    r"\b(?:"
+    r"pipeline\s+(?:inspection|survey|monitoring)|"
+    r"cathodic\s+protection|"
+    r"in-?line\s+inspection|internal\s+inspection|"
+    r"pigging|"
+    r"pipeline\s+(?:repair|maintenance|replacement)|"
+    r"right.of.way\s+(?:maintenance|mowing|spraying|herbicide)|"
+    r"routine\s+(?:maintenance|inspection)|"
+    r"annual\s+(?:maintenance|inspection|survey)|"
+    r"leak\s+(?:detection|survey|repair)|"
+    r"(?:recoating|coating|lining)\s+(?:of\s+)?(?:the\s+)?pipeline|"
+    r"emergency\s+repair|"
+    r"pipeline\s+safety\s+(?:program|rule|regulation|compliance)|"
+    r"integrity\s+management\s+(?:plan|program)"
+    r")\b",
     re.IGNORECASE,
 )
 
@@ -502,8 +544,12 @@ def _extract_length_candidates(text: str, hints: Sequence[str], prefix: str) -> 
             val_ft = float(raw.replace(",", ""))
             val_mi = val_ft / 5280.0
             if 0 < val_mi <= 5000:
-                # Skip if sentence context indicates this is a width (ROW width, pole spacing, etc.)
-                if WIDTH_CONTEXT_RE.search(sent):
+                # Skip if local context indicates this feet value is a width (ROW width, easement
+                # width, etc.) rather than a line length.  Check only a ±20-char window around
+                # the match so that a width mentioned elsewhere in the same sentence (e.g.
+                # "21,628 feet in length, 30 feet in width") does not block the valid length value.
+                local_ctx = sent[max(0, m.start() - 20): m.end() + 20]
+                if WIDTH_CONTEXT_RE.search(local_ctx):
                     continue
                 match_start, match_end = m.span()
                 candidates.append(
@@ -977,7 +1023,7 @@ def _classify_geothermal_phase(text: str) -> tuple:
 def _extract_tx_length_from_pages(
     out: pd.DataFrame,
     processed_dir: Path,
-    max_ea_eis_pages: int = 10,
+    max_ea_eis_pages: int = 50,
     use_llm: bool = False,
     timeout: int = 120,
     workers: int = 1,
@@ -1169,7 +1215,7 @@ def _add_transmission_columns(
     timeout: int = 120,
     workers: int = 1,
     processed_dir: Path | None = None,
-    max_ea_eis_pages: int = 10,
+    max_ea_eis_pages: int = 50,
 ) -> pd.DataFrame:
     extraction_run_at = datetime.now(timezone.utc).isoformat()
     out = df.copy()
@@ -1336,17 +1382,167 @@ def _add_transmission_columns(
     return out
 
 
-def _add_pipeline_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFrame:
+def _extract_pipeline_length_from_pages(
+    out: pd.DataFrame,
+    processed_dir: Path,
+    max_ea_eis_pages: int = 50,
+    use_llm: bool = False,
+    timeout: int = 120,
+) -> pd.DataFrame:
+    """
+    Recover pipeline lengths for projects that are pipeline-tagged but have no
+    extractable mileage in title/description text.
+
+    Mirrors the design of _extract_tx_length_from_pages: DuckDB joins documents
+    and pages parquet files, concatenates page text per project, and runs the
+    same _extract_length_candidates + _adjudicate_transmission_length pipeline.
+
+    Recovered values overwrite project_pipeline_length_miles/final/confidence/source_text.
+    project_pipeline_length_from_pages is set True for recovered rows.
+    """
+    try:
+        import duckdb
+    except ImportError:
+        print("  [pipeline-page-recovery] duckdb not installed — skipping.")
+        out["project_pipeline_length_from_pages"] = False
+        return out
+
+    needs_mask = (
+        out["project_is_pipeline"].fillna(False)
+        & ~out["project_pipeline_is_maintenance"].fillna(False)
+        & out["project_pipeline_length_miles"].isna()
+    )
+    n_needs = int(needs_mask.sum())
+
+    out["project_pipeline_length_from_pages"] = False
+
+    if n_needs == 0:
+        print("  [pipeline-page-recovery] No projects need length recovery — skipping.")
+        return out
+
+    print(f"  [pipeline-page-recovery] {n_needs} projects need page-level length recovery")
+
+    needs_df = out.loc[needs_mask, ["project_id", "process_type"]].copy()
+    needs_df["pid_clean"] = needs_df["project_id"].astype(str).str.replace("-", "", regex=False)
+
+    con = duckdb.connect()
+    recovered: Dict[str, tuple] = {}  # pid -> (miles, confidence, source_text)
+
+    for ptype in ["CE", "EA", "EIS"]:
+        ptype_lower = ptype.lower()
+        ptype_df = needs_df[needs_df["process_type"] == ptype]
+        if ptype_df.empty:
+            continue
+
+        docs_path = str(processed_dir / ptype_lower / "documents.parquet")
+        pages_path = str(processed_dir / ptype_lower / "pages.parquet")
+
+        if not Path(docs_path).exists() or not Path(pages_path).exists():
+            print(f"  [pipeline-page-recovery] {ptype}: parquet not found at {docs_path} — skipping")
+            continue
+
+        target_ids = list(ptype_df["pid_clean"].unique())
+        print(f"  [pipeline-page-recovery] {ptype}: querying {len(target_ids)} projects")
+
+        con.register("_target_ids", pd.DataFrame({"pid": target_ids}))
+
+        try:
+            if ptype == "CE":
+                query = """
+                    SELECT
+                        replace(d.project_id.value, '-', '') AS pid,
+                        p.page_text
+                    FROM read_parquet(?) d
+                    JOIN read_parquet(?) p ON p.document_id = d.document_id
+                    WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _target_ids)
+                """
+                page_df = con.execute(query, [docs_path, pages_path]).df()
+            else:
+                query = """
+                    SELECT pid, page_text FROM (
+                        SELECT
+                            replace(d.project_id.value, '-', '') AS pid,
+                            p.page_text,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY d.document_id
+                                ORDER BY p.page_number
+                            ) AS rn
+                        FROM read_parquet(?) d
+                        JOIN read_parquet(?) p ON p.document_id = d.document_id
+                        WHERE replace(d.project_id.value, '-', '') IN (SELECT pid FROM _target_ids)
+                          AND d.main_document = 'YES'
+                    )
+                    WHERE rn <= ?
+                """
+                page_df = con.execute(query, [docs_path, pages_path, max_ea_eis_pages]).df()
+        except Exception as exc:
+            print(f"  [pipeline-page-recovery] {ptype}: DuckDB error — {exc}")
+            continue
+
+        if page_df.empty:
+            print(f"  [pipeline-page-recovery] {ptype}: no pages matched")
+            continue
+
+        project_texts = (
+            page_df.groupby("pid")["page_text"]
+            .apply(lambda parts: " ".join(str(p) for p in parts if p))
+            .to_dict()
+        )
+
+        print(f"  [pipeline-page-recovery] {ptype}: extracting from {len(project_texts)} projects")
+
+        for pid, text in project_texts.items():
+            cands = _extract_length_candidates(text, PIPELINE_HINTS, prefix="pl")
+            adj = _adjudicate_transmission_length(text, cands, use_llm=use_llm, timeout=timeout)
+            if not np.isnan(adj.selected_length_miles) and adj.selected_length_miles >= 0.1:
+                recovered[pid] = (adj.selected_length_miles, adj.confidence, adj.source_text)
+
+    con.close()
+
+    if not recovered:
+        print("  [pipeline-page-recovery] No lengths recovered from document pages.")
+        return out
+
+    print(f"  [pipeline-page-recovery] Recovered lengths for {len(recovered)} projects — writing back")
+
+    orig_to_pid = dict(zip(needs_df.index, needs_df["pid_clean"]))
+
+    for idx in out.loc[needs_mask].index:
+        pid = orig_to_pid.get(idx)
+        if pid is None or pid not in recovered:
+            continue
+        miles, confidence, source_text = recovered[pid]
+        out.at[idx, "project_pipeline_length_miles"] = miles
+        out.at[idx, "project_pipeline_length_final"] = miles
+        out.at[idx, "project_pipeline_length_confidence"] = confidence
+        out.at[idx, "project_pipeline_length_source_text"] = source_text
+        out.at[idx, "project_pipeline_length_from_pages"] = True
+
+    return out
+
+
+def _add_pipeline_columns(
+    df: pd.DataFrame,
+    full_text: pd.Series,
+    context_text: pd.Series,
+    title_txt: pd.Series,
+    type_text: pd.Series,
+    processed_dir: Path | None = None,
+    max_ea_eis_pages: int = 50,
+    use_llm: bool = False,
+    timeout: int = 120,
+    workers: int = 1,
+) -> pd.DataFrame:
+    extraction_run_at = datetime.now(timezone.utc).isoformat()
     out = df.copy()
     lower_text = full_text.str.lower()
 
-    # project_is_pipeline: entry gate — any project describing pipeline infrastructure.
-    # Searches: project_title + project_description + project_type (structured metadata only,
-    # not full NEPA document pages).
-    # Broadened from original \bpipelines?\b to also catch flowlines and gathering lines,
-    # which are common synonyms in CCS, gas gathering, and hydrogen conveyance projects.
-    out["project_is_pipeline"] = lower_text.str.contains(
-        r"\bpipelines?\b|\bflowlines?\b|\bgathering lines?\b", regex=True
+    # project_is_pipeline: entry gate — project_type field contains "Pipeline".
+    # Matched against the controlled-vocabulary project_type field only (not free text in
+    # title or description) to avoid over-inclusion from incidental pipeline mentions in
+    # multi-component projects.  Analogous to the geothermal type-tag gate.
+    out["project_is_pipeline"] = type_text.str.lower().str.contains(
+        r"\bpipelines?\b", regex=True
     )
 
     # Carbon/CCS pipeline: pipeline flag + any carbon-related keyword.
@@ -1363,26 +1559,114 @@ def _add_pipeline_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFram
         r"\bnatural gas\b|\bgas pipeline\b|\bgas gathering\b|\bgas line\b", regex=True
     )
 
+    # New-build filter — analogous to the transmission 4-gate filter.
+    # Gate A (build text): PIPELINE_BUILD_RE on title + description (context_text, not full_text
+    # which includes doc titles and NOI text that can add noise).
+    # Gate B (maintenance exclusion): PIPELINE_MAINTENANCE_RE on title only — maintenance language
+    # in descriptions is often incidental (e.g. "access road maintenance" in a construction project).
+    # No length gate: pipeline length coverage is much sparser than transmission, so requiring a
+    # minimum length would discard many genuine new-build projects that lack an extractable length.
+    lower_context = context_text.str.lower()
+    lower_title = title_txt.str.lower()
+    out["project_pipeline_has_build_text"] = lower_context.str.contains(
+        PIPELINE_BUILD_RE, na=False
+    )
+    out["project_pipeline_is_maintenance"] = lower_title.str.contains(
+        PIPELINE_MAINTENANCE_RE, na=False
+    )
+    # Carbon and hydrogen pipelines are exempted from the build-text gate: these
+    # technologies have no established infrastructure base, so virtually all NEPA
+    # reviews are for new construction or major new projects rather than operational
+    # maintenance.  Natural gas, oil/petroleum, and other pipeline groups still
+    # require explicit build-text to pass (their large existing infrastructure
+    # generates many routine operational/maintenance NEPA filings).
+    out["project_is_pipeline_new_build"] = (
+        out["project_is_pipeline"]
+        & (
+            out["project_pipeline_has_build_text"]
+            | out["project_is_carbon_pipeline"]
+            | out["project_is_hydrogen_pipeline"]
+        )
+        & ~out["project_pipeline_is_maintenance"]
+    )
+
+    texts = full_text.tolist()
     candidates = [
         _extract_length_candidates(txt, PIPELINE_HINTS, prefix="pl")
-        for txt in full_text.tolist()
+        for txt in texts
     ]
 
-    best = [_best_single_candidate(cands) for cands in candidates]
+    n_pipeline = int(out["project_is_pipeline"].sum())
+    llm_label = f"Claude API ({CLAUDE_DEFAULT_MODEL})" if use_llm else "LLM off"
+    print(f"  Pipeline: {n_pipeline:,} tagged | workers={workers} | {llm_label}")
+
+    def _adjudicate_one_pl(args):
+        i, txt, cands = args
+        return i, _adjudicate_transmission_length(txt, cands, use_llm=use_llm, timeout=timeout)
+
+    project_ids = out["project_id"].tolist() if "project_id" in out.columns else [str(i) for i in range(len(texts))]
+    indexed = [(i, txt, cands) for i, (txt, cands) in enumerate(zip(texts, candidates))]
+    adjudications_map: Dict[int, LengthAdjudication] = {}
+    llm_trigger_count = 0
+    llm_used_count = 0
+
+    try:
+        from tqdm import tqdm as _tqdm
+        _pbar = _tqdm(total=len(indexed), desc="Pipeline adjudication", unit="row")
+    except ImportError:
+        _pbar = None
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_adjudicate_one_pl, item): item[0] for item in indexed}
+        for future in as_completed(futures):
+            i, adj = future.result()
+            adjudications_map[i] = adj
+            if adj.llm_trigger:
+                llm_trigger_count += 1
+                if use_llm:
+                    llm_used_count += 1
+                    pid = project_ids[i]
+                    print(f"  [LLM-pl] {pid}: status={adj.llm_status} length={adj.selected_length_miles:.2f}mi")
+            if _pbar:
+                _pbar.update(1)
+
+    if _pbar:
+        _pbar.close()
+
+    print(f"  Pipeline LLM-trigger rows (2+ candidates): {llm_trigger_count:,}"
+          + (f" | LLM used: {llm_used_count:,}" if use_llm else " | rerun with 'pipeline llm' to adjudicate"))
+
+    adjudications = [adjudications_map[i] for i in range(len(texts))]
+
     out["project_pipeline_length_candidates_json"] = [json.dumps(c, ensure_ascii=False) for c in candidates]
-    out["project_pipeline_length_candidate_count"] = [len(c) for c in candidates]
-    out["project_pipeline_length_distinct_candidate_count"] = [len(_collapse_candidates_by_value(c)) for c in candidates]
-    out["project_pipeline_length_miles"] = [x[0] for x in best]
-    out["project_pipeline_length_confidence"] = [x[1] for x in best]
-    out["project_pipeline_length_source_text"] = [x[2] for x in best]
+    out["project_pipeline_length_candidate_count"] = [a.candidate_count for a in adjudications]
+    out["project_pipeline_length_distinct_candidate_count"] = [a.distinct_candidate_count for a in adjudications]
+    out["project_pipeline_length_miles"] = [a.rule_based_length_miles for a in adjudications]
+    out["project_pipeline_length_final"] = [a.selected_length_miles for a in adjudications]
+    out["project_pipeline_length_confidence"] = [a.confidence for a in adjudications]
+    out["project_pipeline_length_source_text"] = [a.source_text for a in adjudications]
+    out["project_pipeline_length_llm_trigger"] = [a.llm_trigger for a in adjudications]
+    out["project_pipeline_length_llm_used"] = [a.llm_used for a in adjudications]
+    out["project_pipeline_length_llm_status"] = [a.llm_status for a in adjudications]
+    out["project_pipeline_length_llm_reasoning"] = [a.llm_reasoning for a in adjudications]
+    out["project_pipeline_length_llm_model"] = [a.llm_model for a in adjudications]
+    out["project_pl_llm_run_at"] = [a.llm_run_at for a in adjudications]
+    out["project_pl_extraction_run_at"] = extraction_run_at
 
     non_pipeline = ~out["project_is_pipeline"]
     out.loc[non_pipeline, "project_pipeline_length_miles"] = np.nan
+    out.loc[non_pipeline, "project_pipeline_length_final"] = np.nan
     out.loc[non_pipeline, "project_pipeline_length_confidence"] = "none"
     out.loc[non_pipeline, "project_pipeline_length_source_text"] = ""
     out.loc[non_pipeline, "project_pipeline_length_candidate_count"] = 0
     out.loc[non_pipeline, "project_pipeline_length_distinct_candidate_count"] = 0
     out.loc[non_pipeline, "project_pipeline_length_candidates_json"] = "[]"
+    out.loc[non_pipeline, "project_pipeline_length_llm_trigger"] = False
+    out.loc[non_pipeline, "project_pipeline_length_llm_used"] = False
+    out.loc[non_pipeline, "project_pipeline_length_llm_status"] = "not_triggered"
+    out.loc[non_pipeline, "project_pipeline_length_llm_reasoning"] = ""
+    out.loc[non_pipeline, "project_pipeline_length_llm_model"] = ""
+    out.loc[non_pipeline, "project_pl_llm_run_at"] = ""
 
     out["project_pipeline_group"] = np.select(
         [
@@ -1399,6 +1683,16 @@ def _add_pipeline_columns(df: pd.DataFrame, full_text: pd.Series) -> pd.DataFram
         ],
         default="none",
     )
+
+    # Page-level length recovery: reads document pages for pipeline-tagged projects
+    # that have no mileage in their title/description metadata.
+    if processed_dir is not None:
+        out = _extract_pipeline_length_from_pages(
+            out, processed_dir, max_ea_eis_pages=max_ea_eis_pages,
+            use_llm=use_llm, timeout=timeout,
+        )
+    else:
+        out["project_pipeline_length_from_pages"] = False
 
     return out
 
@@ -1904,7 +2198,7 @@ def add_technology_columns(
     timeout: int = 120,
     workers: int = 1,
     processed_dir: Path | None = None,
-    max_ea_eis_pages: int = 10,
+    max_ea_eis_pages: int = 50,
 ) -> pd.DataFrame:
     """
     Add technology-specific features to a project dataframe.
@@ -1976,7 +2270,11 @@ def add_technology_columns(
         out = _add_geothermal_columns(out, full_text)
 
     if "pipeline" in targets:
-        out = _add_pipeline_columns(out, full_text)
+        out = _add_pipeline_columns(
+            out, full_text, context_text, title_txt, type_txt,
+            processed_dir=processed_dir, max_ea_eis_pages=max_ea_eis_pages,
+            use_llm=use_llm, timeout=timeout, workers=workers,
+        )
 
     return out
 
@@ -2041,8 +2339,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--page-search-max-pages",
         type=int,
-        default=10,
-        help="Max pages to search per EA/EIS main document during length recovery (default: 10)",
+        default=50,
+        help="Max pages to search per EA/EIS main document during length recovery (default: 50)",
     )
 
     # -- Geothermal phase ML classifier --

@@ -52,7 +52,7 @@ fig_coverage <- ggplot(coverage_plot, aes(x = n, y = fct_rev(step), fill = proce
                      breaks = seq(0, 2000, by = 200)) +
   labs(
     title = "Analysis Coverage: Inclusion Criteria",
-    subtitle = "Number of clean energy projects retained at each filtering step",
+    subtitle = "Number of decarbonization technology projects retained at each filtering step",
     x = "Number of Projects",
     y = NULL,
     fill = NULL

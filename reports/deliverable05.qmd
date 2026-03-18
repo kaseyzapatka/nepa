@@ -1,5 +1,5 @@
 ---
-title: "NEPA Clean Energy Analysis: Deliverable 5"
+title: "NEPA Decarbonization Technology Analysis: Deliverable 5"
 subtitle: "Document Length Over Time and Fiscal Responsibility Act Impact"
 date: today
 format:
@@ -34,11 +34,11 @@ d5_tables <- here("output", "deliverable5", "tables")
 ## Key Findings
 - **Document length has declined Post-FRA**, but remains well above statutory limits. All figures use regulatory pages per 40 C.F.R. § 1508.1(bb) — body word count ÷ 500, excluding embedded appendix pages and low-content pages (maps, figures, blanks). Mean regulatory EA pages fell approximately 22% and mean regulatory EIS pages fell approximately 25% after FRA enactment (see @fig-pre-post for exact values).
 - **Compliance with FRA page limits is approximately 76% for EAs and 27% for EISs** when measured using regulatory pages. Approximately 52% of main EA documents and 34% of main FEIS documents contain embedded appendices bundled into the same PDF; regulatory pages are typically 45–55% of raw PDF page counts for EAs and 70–80% for EISs. Raw PDF page counts systematically overstate document length relative to what the statute actually limits.
-- **Post-FRA sample sizes are small** (33 EAs, 42 EISs), limiting the strength of conclusions. The analysis covers 627 clean energy projects total (552 Pre-FRA, 75 Post-FRA).
+- **Post-FRA sample sizes are small** (33 EAs, 42 EISs), limiting the strength of conclusions. The analysis covers 627 decarbonization technology projects total (552 Pre-FRA, 75 Post-FRA).
 - **Trends were already declining before FRA.** The rolling average trend suggests document length was decreasing prior to June 2023, meaning the observed post-FRA decline may partially reflect pre-existing trends rather than solely FRA-driven compliance.
 :::
 
-This analysis examines whether document length has changed after FRA enactment, using clean energy EA and EIS projects with final documents and complete timelines. This report delivers the following:
+This analysis examines whether document length has changed after FRA enactment, using decarbonization technology EA and EIS projects with final documents and complete timelines. This report delivers the following:
 
 > Data on the number of pages over time, including pre- and post-Fiscal Responsibility Act of 2023 (FRA), which set page limit requirements.
 
@@ -55,7 +55,7 @@ The [Fiscal Responsibility Act of 2023 (Public Law 118-5)](https://ceq.doe.gov/l
 - **Environmental Assessments (EAs)** are limited to 75 pages
 - **Environmental Impact Statements (EISs)** are limited to 150 pages, with an exception of up to 300 pages for extraordinarily complex projects.
 
-This analysis examines document length trends for clean energy EA and EIS projects to assess whether these page limits have had an observable effect.
+This analysis examines document length trends for decarbonization technology EA and EIS projects to assess whether these page limits have had an observable effect.
 
 ## Scope and Inclusion Criteria
 
@@ -64,8 +64,8 @@ This analysis is restricted to:
 - **Process types**: Environmental Assessments (EA) and Environmental Impact Statements (EIS) only. Categorical Exclusions (CE) are excluded because FRA page limits do not apply to CEs.
 - **Document types**: Final EAs and Final EISs (FEIS) only. Draft documents are excluded.
 - **Timeline requirement**: Only projects with both a valid initiation date and a decision date (from LLM-adjudicated timeline data) are included in figures that track trends over time or classify projects by FRA period.
-- **Clean energy**: Only projects classified as clean energy in the NEPATEC 2.0 database.
-- **Page count measure**: Two measures are used. (1) **Raw pages** (`total_pages`): the PDF page count of the primary final document, used in trend figures. (2) **Regulatory pages**: an estimate that better reflects 40 C.F.R. § 1508.1(bb), used in the compliance figure. Regulatory pages are computed by (a) detecting embedded appendix sections via section-header patterns in page text and excluding all pages from that point on, (b) excluding low-content pages (< 50 words, likely maps, figures, or blank dividers), and (c) converting the remaining body word count to pages at 500 words per page. Across clean energy projects, approximately 52% of main EA documents and 34% of main FEIS documents contain embedded appendices bundled into the same PDF. Regulatory pages are typically 45–55% of raw pages for EAs and 70–80% of raw pages for EISs. When multiple qualifying documents exist for a project, the document flagged as the main document is preferred; ties are broken by highest page count.
+- **Decarbonization technology**: Only projects classified as decarbonization technology in the NEPATEC 2.0 database.
+- **Page count measure**: Two measures are used. (1) **Raw pages** (`total_pages`): the PDF page count of the primary final document, used in trend figures. (2) **Regulatory pages**: an estimate that better reflects 40 C.F.R. § 1508.1(bb), used in the compliance figure. Regulatory pages are computed by (a) detecting embedded appendix sections via section-header patterns in page text and excluding all pages from that point on, (b) excluding low-content pages (< 50 words, likely maps, figures, or blank dividers), and (c) converting the remaining body word count to pages at 500 words per page. Across decarbonization technology projects, approximately 52% of main EA documents and 34% of main FEIS documents contain embedded appendices bundled into the same PDF. Regulatory pages are typically 45–55% of raw pages for EAs and 70–80% of raw pages for EISs. When multiple qualifying documents exist for a project, the document flagged as the main document is preferred; ties are broken by highest page count.
 
 The analysis combines three datasets: project-level metadata from NEPATEC 2.0, LLM-adjudicated initiation and decision dates from the timeline extraction pipeline, and document-level page counts from the full NEPATEC document inventory. Only projects present in all three sources are included in the final analysis sample.
 
@@ -80,11 +80,11 @@ Projects are classified as **Post-FRA** when their decision date is on or after 
 
 ## Analysis Coverage
 
-@fig-coverage shows how the analysis sample narrows at each filtering step. Starting from all clean energy EA and EIS projects with timeline data, we successively require the presence of a final document and complete timeline dates. The final analysis sample retains the projects that meet all inclusion criteria.
+@fig-coverage shows how the analysis sample narrows at each filtering step. Starting from all decarbonization technology EA and EIS projects with timeline data, we successively require the presence of a final document and complete timeline dates. The final analysis sample retains the projects that meet all inclusion criteria.
 
 ```{r}
 #| label: fig-coverage
-#| fig-cap: "Project counts at each inclusion filter step, by NEPA process type. Percentages are relative to the total clean energy EA/EIS projects at the first step."
+#| fig-cap: "Project counts at each inclusion filter step, by NEPA process type. Percentages are relative to the total decarbonization technology EA/EIS projects at the first step."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d5_figures, "05_coverage.png"))
@@ -96,11 +96,11 @@ knitr::include_graphics(file.path(d5_figures, "05_coverage.png"))
 
 ## Trends and Individual Projects
 
-@fig-pages-over-time shows individual clean energy EA and EIS projects as semi-transparent points (colored by FRA period), overlaid with a 3-month rolling average of monthly mean regulatory page counts. Regulatory pages are estimated per 40 C.F.R. § 1508.1(bb): body word count divided by 500, excluding embedded appendix pages and low-content pages (maps, figures, blanks). The points reveal the full spread and variability in document length across projects, while the rolling average smooths month-to-month noise to show the underlying direction of change. The wide spread of individual points — particularly for EISs — illustrates that average trends can obscure substantial project-to-project variation. The red dashed line marks the Fiscal Responsibility Act of 2023 (FRA) enactment date (June 3, 2023).
+@fig-pages-over-time shows individual decarbonization technology EA and EIS projects as semi-transparent points (colored by FRA period), overlaid with a 3-month rolling average of monthly mean regulatory page counts. Regulatory pages are estimated per 40 C.F.R. § 1508.1(bb): body word count divided by 500, excluding embedded appendix pages and low-content pages (maps, figures, blanks). The points reveal the full spread and variability in document length across projects, while the rolling average smooths month-to-month noise to show the underlying direction of change. The wide spread of individual points — particularly for EISs — illustrates that average trends can obscure substantial project-to-project variation. The red dashed line marks the Fiscal Responsibility Act of 2023 (FRA) enactment date (June 3, 2023).
 
 ```{r}
 #| label: fig-pages-over-time
-#| fig-cap: "Regulatory page counts for individual clean energy EA and EIS projects by decision date (2010--2025), colored by FRA period. Regulatory pages = body word count ÷ 500, excluding embedded appendix pages and low-content pages, per 40 C.F.R. § 1508.1(bb). The navy line is the 3-month rolling average of monthly mean regulatory pages. The red dashed line marks Fiscal Responsibility Act of 2023 (FRA) enactment on June 3, 2023."
+#| fig-cap: "Regulatory page counts for individual decarbonization technology EA and EIS projects by decision date (2010--2025), colored by FRA period. Regulatory pages = body word count ÷ 500, excluding embedded appendix pages and low-content pages, per 40 C.F.R. § 1508.1(bb). The navy line is the 3-month rolling average of monthly mean regulatory pages. The red dashed line marks Fiscal Responsibility Act of 2023 (FRA) enactment on June 3, 2023."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d5_figures, "05_pages_over_time.png"))
@@ -116,7 +116,7 @@ knitr::include_graphics(file.path(d5_figures, "05_pages_over_time.png"))
 
 ```{r}
 #| label: fig-pre-post
-#| fig-cap: "Mean regulatory pages for clean energy EA and EIS projects, Pre- vs Post-FRA. Regulatory pages = body word count ÷ 500, per 40 C.F.R. § 1508.1(bb). Bar height = mean; diamond = median. Projects are classified by decision date relative to June 3, 2023."
+#| fig-cap: "Mean regulatory pages for decarbonization technology EA and EIS projects, Pre- vs Post-FRA. Regulatory pages = body word count ÷ 500, per 40 C.F.R. § 1508.1(bb). Bar height = mean; diamond = median. Projects are classified by decision date relative to June 3, 2023."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d5_figures, "05_pages_pre_post_fra.png"))
@@ -213,7 +213,7 @@ The FRA established specific page limits for NEPA reviews:
 
 ```{r}
 #| label: fig-compliance
-#| fig-cap: "FRA page limit compliance among Post-FRA clean energy projects. Teal = compliant; amber = exceeds standard limit (EIS only, 151--300 pages); magenta = exceeds limit."
+#| fig-cap: "FRA page limit compliance among Post-FRA decarbonization technology projects. Teal = compliant; amber = exceeds standard limit (EIS only, 151--300 pages); magenta = exceeds limit."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d5_figures, "05_fra_compliance.png"))
@@ -275,4 +275,4 @@ compliance %>%
 
 ---
 
-*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
+*Report generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis*

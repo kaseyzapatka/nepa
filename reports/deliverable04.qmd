@@ -1,5 +1,5 @@
 ---
-title: "NEPA Clean Energy Analysis: Deliverable 4"
+title: "NEPA Decarbonization Technology Analysis: Deliverable 4"
 subtitle: "Multi-State and Multi-Department Projects"
 date: today
 format:
@@ -33,7 +33,7 @@ d4_figures <- here("output", "deliverable4", "figures")
 
 ::: {.callout-note}
 ## Key Findings
-- **Multi-state projects** represent a subset of clean energy projects that span state boundaries, often involving transmission lines or large-scale renewable energy connections
+- **Multi-state projects** represent a subset of decarbonization technology projects that span state boundaries, often involving transmission lines or large-scale renewable energy connections
 - **Strict multi-department projects** (based on multiple lead agencies in metadata) are relatively rare
 - **Expanded multi-agency projects** (strict metadata OR high-confidence coagency text signal) produce a materially larger N
 - Geographic patterns reveal regional clusters of interstate cooperation
@@ -43,7 +43,7 @@ This report aims to create the following set of deliverables:
 
 > Data on geography/project location; whether projects are multi-state or multi-agency
 
-It analyzes clean energy projects that cross administrative boundaries---either spanning multiple states or involving multiple federal agencies. These projects often represent larger, more complex undertakings that require coordination across jurisdictions. @tbl-summary reports total multi-state and multi-department project counts used in this report. 
+It analyzes decarbonization technology projects that cross administrative boundaries---either spanning multiple states or involving multiple federal agencies. These projects often represent larger, more complex undertakings that require coordination across jurisdictions. @tbl-summary reports total multi-state and multi-department project counts used in this report. 
 
 ```{r}
 #| label: tbl-summary
@@ -84,11 +84,11 @@ Multi-state projects are those where the project footprint extends across state 
 
 ## Process Type Breakdown
 
-Figure 1 shows the distribution of NEPA process types among all multi-state clean energy projects.[^sample-size-note]
+Figure 1 shows the distribution of NEPA process types among all multi-state decarbonization technology projects.[^sample-size-note]
 
 ```{r}
 #| label: fig-process-breakdown
-#| fig-cap: "Distribution of NEPA process types for multi-state clean energy projects"
+#| fig-cap: "Distribution of NEPA process types for multi-state decarbonization technology projects"
 #| out-width: "80%"
 
 knitr::include_graphics(file.path(d4_figures, "fig_multistate_process_type.png"))
@@ -130,11 +130,11 @@ state_links %>%
 
 ## Interstate Connections Map
 
-@fig-state-connections visualizes the connections between states that share clean energy projects. Line thickness reflects the number of shared projects, with labels highlighting the most active connections.
+@fig-state-connections visualizes the connections between states that share decarbonization technology projects. Line thickness reflects the number of shared projects, with labels highlighting the most active connections.
 
 ```{r}
 #| label: fig-state-connections
-#| fig-cap: "Interstate clean energy project connections. Line thickness reflects number of shared projects; labels show counts for top connections."
+#| fig-cap: "Interstate decarbonization technology project connections. Line thickness reflects number of shared projects; labels show counts for top connections."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d4_maps, "map_state_links.png"))
@@ -255,7 +255,7 @@ Multi-department projects are overwhelmingly EIS-level reviews (89%), with CEs a
 
 ```{r}
 #| label: fig-multiagency-process-breakdown
-#| fig-cap: "Distribution of NEPA process types for expanded multi-department clean energy projects."
+#| fig-cap: "Distribution of NEPA process types for expanded multi-department decarbonization technology projects."
 #| out-width: "80%"
 
 knitr::include_graphics(file.path(d4_figures, "fig_multiagency_process_type.png"))
@@ -393,4 +393,4 @@ knitr::include_graphics(file.path(d4_figures, "fig_multiagency_project_types_wor
 
 ---
 
-*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
+*Report generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis*

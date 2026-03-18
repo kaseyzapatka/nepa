@@ -1,5 +1,5 @@
 ---
-title: "NEPA Clean Energy Analysis: Deliverable 2"
+title: "NEPA Decarbonization Technology Analysis: Deliverable 2"
 subtitle: "Programmatic & Tiered Reviews"
 date: today
 format:
@@ -56,7 +56,7 @@ get_n <- function(proc, rtype) {
 
 ::: {.callout-note}
 ## Key Findings
-- Programmatic and tiered reviews are **rare**: only **`r n_programmatic + n_tiered`** of `r scales::comma(n_total)` clean energy EA/EIS projects (`r sprintf("%.1f%%", pct_nonstandard)`) are non-standard.
+- Programmatic and tiered reviews are **rare**: only **`r n_programmatic + n_tiered`** of `r scales::comma(n_total)` decarbonization technology EA/EIS projects (`r sprintf("%.1f%%", pct_nonstandard)`) are non-standard.
 - **Tiered reviews do not complete faster.** Tiered EAs take a median of `r get_med("EA","Tiered")` days—longer than standard EAs (`r get_med("EA","Standard")` days). Programmatic EISs are modestly faster than standard EISs (`r get_med("EIS","Programmatic")` vs. `r get_med("EIS","Standard")` days median), but the difference is small relative to the overall spread.
 - **BLM dominates.** The Bureau of Land Management accounts for the majority of both programmatic and tiered reviews, reflecting its large federal land footprint in the West.
 - **Western states concentrate non-standard reviews.** California, Nevada, and Washington top the list, consistent with BLM's western land base and the siting of utility-scale renewable energy projects.
@@ -71,7 +71,7 @@ This report delivers:
 
 # Methodology
 
-We identified programmatic and tiered reviews within the NEPATEC 2.0 clean energy EA/EIS corpus using a two-stage extraction approach applied to all `r scales::comma(n_total)` EA and EIS projects.
+We identified programmatic and tiered reviews within the NEPATEC 2.0 decarbonization technology EA/EIS corpus using a two-stage extraction approach applied to all `r scales::comma(n_total)` EA and EIS projects.
 
 **Stage 1 — Title detection:** Project titles were scanned for explicit programmatic indicators. A title match immediately classifies a project as programmatic with high confidence.
 
@@ -98,11 +98,11 @@ We identified programmatic and tiered reviews within the NEPATEC 2.0 clean energ
 
 # Review Type Snapshot
 
-@fig-review-share shows the overall distribution of review types across `r scales::comma(n_total)` clean energy EA/EIS projects. The vast majority (`r sprintf("%.1f%%", n_standard / n_total * 100)`) are standard reviews. Programmatic reviews (`r n_programmatic` projects) and tiered reviews (`r n_tiered` projects) together represent `r sprintf("%.1f%%", pct_nonstandard)` of the corpus.
+@fig-review-share shows the overall distribution of review types across `r scales::comma(n_total)` decarbonization technology EA/EIS projects. The vast majority (`r sprintf("%.1f%%", n_standard / n_total * 100)`) are standard reviews. Programmatic reviews (`r n_programmatic` projects) and tiered reviews (`r n_tiered` projects) together represent `r sprintf("%.1f%%", pct_nonstandard)` of the corpus.
 
 ```{r}
 #| label: fig-review-share
-#| fig-cap: !expr sprintf("Review type distribution across %s clean energy EA/EIS projects in NEPATEC 2.0.", scales::comma(n_total))
+#| fig-cap: !expr sprintf("Review type distribution across %s decarbonization technology EA/EIS projects in NEPATEC 2.0.", scales::comma(n_total))
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d2_figures, "02_review_share.png"))
@@ -130,7 +130,7 @@ knitr::include_graphics(file.path(d2_figures, "02_review_by_process.png"))
 
 ## Lead Agencies
 
-@fig-agency shows which lead agencies are most associated with programmatic and tiered reviews in the clean energy subset. The Bureau of Land Management (BLM) accounts for the plurality of both types, reflecting its authority over large tracts of public land in the western United States—the primary siting ground for utility-scale renewable energy. The Department of Energy (DOE) and Power Marketing Administrations (PMAs, e.g., Western Area Power Administration) account for most of the remainder, driven by their roles in transmission infrastructure and grid management.
+@fig-agency shows which lead agencies are most associated with programmatic and tiered reviews in the decarbonization technology subset. The Bureau of Land Management (BLM) accounts for the plurality of both types, reflecting its authority over large tracts of public land in the western United States—the primary siting ground for utility-scale renewable energy. The Department of Energy (DOE) and Power Marketing Administrations (PMAs, e.g., Western Area Power Administration) account for most of the remainder, driven by their roles in transmission infrastructure and grid management.
 
 ```{r}
 #| label: fig-agency
@@ -142,7 +142,7 @@ knitr::include_graphics(file.path(d2_figures, "02_agency.png"))
 
 ## By Department
 
-@fig-dept aggregates the same non-standard reviews to the department level, collapsing sub-agencies into their parent cabinet departments. The picture simplifies considerably: the **Department of the Interior** (primarily BLM, but also the Bureau of Ocean Energy Management and Bureau of Reclamation) is responsible for roughly half of all programmatic and tiered reviews in the clean energy corpus. **Other Independent Agencies**—a catch-all that includes the Tennessee Valley Authority and NASA—account for the next largest share, mostly through programmatic EISs tied to long-range resource planning. **Department of Energy** rounds out the top three, driven by DOE program offices and the Power Marketing Administrations that oversee transmission and grid infrastructure.
+@fig-dept aggregates the same non-standard reviews to the department level, collapsing sub-agencies into their parent cabinet departments. The picture simplifies considerably: the **Department of the Interior** (primarily BLM, but also the Bureau of Ocean Energy Management and Bureau of Reclamation) is responsible for roughly half of all programmatic and tiered reviews in the decarbonization technology corpus. **Other Independent Agencies**—a catch-all that includes the Tennessee Valley Authority and NASA—account for the next largest share, mostly through programmatic EISs tied to long-range resource planning. **Department of Energy** rounds out the top three, driven by DOE program offices and the Power Marketing Administrations that oversee transmission and grid infrastructure.
 
 The department view is useful for stakeholder reporting: it maps cleanly onto the organizational structure that clients and policymakers engage with, and makes the Interior dominance unmistakable even if sub-agency details matter for operational questions.
 
@@ -160,7 +160,7 @@ knitr::include_graphics(file.path(d2_figures, "02_department.png"))
 
 ```{r}
 #| label: fig-state
-#| fig-cap: "Top 12 states for programmatic and tiered clean energy reviews (multi-state projects counted once per state)."
+#| fig-cap: "Top 12 states for programmatic and tiered decarbonization technology reviews (multi-state projects counted once per state)."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(d2_figures, "02_state.png"))
@@ -314,4 +314,4 @@ reviews %>%
 
 ---
 
-*Report generated `r Sys.Date()` | NEPA Clean Energy Analysis*
+*Report generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis*

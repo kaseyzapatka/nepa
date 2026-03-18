@@ -4763,7 +4763,7 @@ Loaded 73,544 CE pages</code></pre>
 <section id="explore-a-specific-project" class="level2">
 <h2 class="anchored" data-anchor-id="explore-a-specific-project">Explore a specific project</h2>
 <p>Set the <code>project_id</code> below and run the cells to explore.</p>
-<div class="cell" data-execution_count="21">
+<div class="cell" data-execution_count="12">
 <div class="sourceCode cell-code" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Set your project ID here</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;2135a0a9-e30c-47a6-4781-d35b7eb72322&quot; # Wyarno Grazing Lease </span></span>
 <span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;75f86c2f-e651-6f0f-78b4-0816aecb0d3a&quot; # Iberlin 1-12 wells</span></span>
@@ -4776,14 +4776,14 @@ Loaded 73,544 CE pages</code></pre>
 <span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;3e3bb9f5-f5ab-651d-b2d1-50ec99d99db0&quot; # Right of way renewals</span></span>
 <span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;c0a5a0de-acea-0b84-f727-029167677961&quot; # 703-43A Room 30 Install Electrical and UW</span></span>
 <span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="co">#project_id = &quot;60d23605-3fe3-f294-562a-ba71ddaa8f60&quot; # </span></span>
-<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;f2f52b2c-2327-c14f-73a9-57914bb18e12&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>project_id <span class="op">=</span> <span class="st">&quot;e91a1c8c-ce4e-8354-6d9a-d94953143079&quot;</span> <span class="co"># </span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div class="cell" data-execution_count="22">
+<div class="cell" data-execution_count="13">
 <div class="sourceCode cell-code" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="co"># List all documents for this project</span></span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>list_documents(project_id)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
-Documents for project: f2f52b2c-2327-c14f-73a9-57914bb18e12
+Documents for project: e91a1c8c-ce4e-8354-6d9a-d94953143079
 --------------------------------------------------------------------------------</code></pre>
 </div>
 <div class="cell-output cell-output-display">
@@ -4804,22 +4804,13 @@ Documents for project: f2f52b2c-2327-c14f-73a9-57914bb18e12
 </thead>
 <tbody>
 <tr class="odd">
-<td data-quarto-table-cell-role="th">106941</td>
-<td>bcadf260-90fb-b41e-7086-a8d6f96559fd</td>
+<td data-quarto-table-cell-role="th">85900</td>
+<td>cb6fb92f-df87-8279-ed8d-df2bbcd787c4</td>
 <td>CE</td>
 <td>decision</td>
 <td>YES</td>
-<td>Categorical Exclusion Documentation.pdf</td>
-<td>16</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th">106942</td>
-<td>f33f2fce-e354-b1a8-8f1d-140ed4e3934c</td>
-<td>CE</td>
-<td>decision</td>
-<td>YES</td>
-<td>Decision Record.pdf</td>
-<td>13</td>
+<td>CX_Lotus Cedar Canyon 22 powerline1.pdf</td>
+<td>4</td>
 </tr>
 </tbody>
 </table>
@@ -4827,1377 +4818,161 @@ Documents for project: f2f52b2c-2327-c14f-73a9-57914bb18e12
 </div>
 </div>
 </div>
-<div class="cell" data-execution_count="23">
+<div class="cell" data-execution_count="14">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># View first 3 pages of each document</span></span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>view_project_pages(project_id)</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co">#view_project_pages(project_id, document_id = &quot;86c02395-3a91-53f7-b1db-3ba3ad46aae7&quot;)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
 ================================================================================
-Document: Categorical Exclusion Documentation.pdf
+Document: CX_Lotus Cedar Canyon 22 powerline1.pdf
 Type: CE | Category: decision | Main: YES
 ================================================================================
 
---- PAGE 1-16 ---
+--- PAGE 1-4 ---
 
-UNITED STATES DEPARTMENT OF THE INTERIOR
-Bureau of Land Management
-Morley Nelson Birds of Prey Conservation Area
-3948 Development Ave
-Boise ID 83709
+NEPA COMPLIANCE RECORD FOR CATEGORICAL EXCLUSION (CX)
+Bureau of Land Management (BLM) Office: Carlsbad Field Office (CFO)
 
-CATEGORICAL EXCLUSION
-DOI-BLM-ID-B011-2022-0019-CX
+DOI-BLM-NM-P020-2020-1311-CX
+IT4RM-P020-2020-1399-CX
+Lotus Cedar Canyon Electric Line,
+Serial Number: NM-141916
+Southwestern Public Service Company
 
-A. BACKGROUND
+Proposed Action:
+SPS is requesting permission to construct, operate, terminate and maintain 12.47KV, Three Phase
+overhead Power Line. Right of way for extending 3PH primary power to Lotus Cedar Canyon site along
+with anchor ROW. Line begins in BLM land and extends through private land owned by Oxy. Proposed
+route follows E-W running road, turns southwest along pipeline path and comes into Oxy land. Runs west
+and then goes southwest along pipeline and then turns south to customer site. Included is extra routing for
+potential anchors.
 
-Proposed Action Title/Type: Idaho Power Company Short-Term Right-of-Way (Maintenance)
-Lease/Serial/Case File No (if any): IDI 39567
-Location of Proposed Action: The project area is located approximately 5.5 miles to the east of
-Grandview, Idaho, where it originates at C.J. Strike dam and runs approximately 4 miles north
-parallel to Strike Dam Cutoff Road. The right-of-way encumbers a portion of the public lands
-described as:
-Boise Meridian, Idaho (Elmore County)
-T. 5 S., R. 4 E.
-sec. 9, E ½NE¼SW¼ and E½SE¼SW¼;
-sec. 28, E¼NE¼NW¼, E½SE¼NW¼, E½NE¼SW¼ and E½SE¼SW¼.
+For east-west BLM spans, ruling span is 250&#39;
+For southwest running spans across BLM and private, ruling span is 220&#39;
+For west running spans, ruling span is 250&#39;
+For southwest running span across private land, ruling span is 150&#39;
+For last south running span, ruling span is 100&#39;
 
-Applicant: Idaho Power Company
+As you can see from the snapshots, that the powerline is following an access road, existing
+disturbance. However the existing disturbance is on private lands.
 
-B. DESCRIPTION OF PROPOSED ACTION:
+The total length of the power line would be 1320 ft. long(.25 mile) by 30 feet wide and .90 acres
+more or less. The location of the overhead electric line would be located in Eddy County, with
+legal description as follows:
 
-On May 24, 2021, Idaho Power Company filed an application for a short-term right-of-way
-(ROW) to conduct maintenance on an existing FERC 138kV Transmission line known as the
-C.J. Strike Hydro Transmission Line T918. The line is currently permitted under FERC license
-2055-1016. The ROW requested is 100 ft. wide and would lie within the permitted FERC 50 ft.
-wide corridor. The ROW is needed to accommodate the movement of their larger equipment and
-would be assigned BLM case number IDI 39567.
+T. 24 S., R. 29 E., NMPM
+sec. 22: NESW¼.
 
-The workspace area being requested is an increase from an existing 50 ft. width to a 100 ft. width
-(50 ft. on each side from centerline) which is needed to accommodate the movement of their
-larger equipment.
+Gength: 44.6 Feet
+Length: 48 Feet
+Length: 41.6 Feet
+T024S R029E
+P11 COP9 P
+P12 P10
+P7
+P6P5
+OP3
+P4
+P2
+022
+P1 Take Off
+746
+2020 Google
+Google Ea
+Imagery Date: 12/21/2019 32-12 14.56&quot; N 103°58&#39;34.29&quot; W elev 2971 ft eye olt S
+2:05
 
-IPC has also requested to conduct maintenance on an existing service road. Maintenance would
-remain withing the existing 14ft. road and would consist of grading where necessary to ensure
-safe ingress/egress to that portion of the T918 line.
+Authority for this action is Title V of Federal Land Policy and Management Act of Oct. 21,
+1976.
 
-Workspace: 7,074.65 ft. long x 100 ft. wide = 16.24 acres
-Access road: 11,150.65 ft. long x 14 ft. wide = 0.37 acres
+PART I: PLAN CONFORMANCE REVIEW.
 
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
+This proposed action is subject to the Carlsbad Resource Area Resource Management
+Plan/Final Environmental Impact Statement (RMP/FEIS, BLM February 1986) and the Carlsbad
+Resource Area Resource Management Plan Amendment/Final Environmental Impact Statement
+(RMPA/FEIS, BLM January 1997), which were approved as the Final RMP and RMPA for the
+BLM-CFO by the Record of Decisions (ROD) signed September 30, 1988, October 10, 1997.
+The proposed action has been reviewed and determined to be consistent with these plans (43
+CFR 1610.5).
 
-Total encumbrance of 16.7 acres
+The Carlsbad Field Office utilizes a resource conflict map that was prepared by an
+interdisciplinary team showing areas of concern. These areas of concern include special
+management areas (SMA), threatened &amp; endangered (T&amp;E) habitat, known locations of T&amp;E
+species, areas with other special status species, wildlife habitat projects, riparian/wetland areas,
+100-year floodplains, etc. The conflict map is reviewed and the author of the CX signs off the
+projects outside the areas of concern. The projects that occur in the areas of concern depicted
+on the map are reviewed and signed off only by the resource specialist with the expertise for
+that area.
 
-Once completed, Idaho Power will re-contour each area and seed it with an approved BLM seed
-mix.
+PART II: CATEGORICAL EXCLUSION REVIEW
 
-This short-term ROW will be issued under the Title V of the Federal Land Policy and
-Management Act (FLPMA) of October 21, 1976. The ROW will be issued for a term of 3 years.
-There would be no new impacts to the resources, values, or objects for which the Morley Nelson
-Birds of Prey National Conservation Area was established.
+This proposed action qualifies as a categorical exclusion under 516 DM 11, E (12) that states,
+&quot;Grants of rights-of-way wholly within the boundaries of other compatibly developed rights-of-
+way.&quot;
 
-This project does not lie within any Greater Sage Grouse Habitat.
+The proposed action has been reviewed against the following exceptions to individual
+categorical exclusions (516 DM 2, Appendix 2).
 
-C. LAND USE PLAN CONFORMANCE
+Yes No Exception
+[ ] [x] Have significant impact on public health or safety.
 
-This proposed Action is subject to the following land use plan: Snake River Birds of Prey
-National Conservation Area (NCA) Resource Management Plan (RMP)
-Date Plan Approved/Amended: September 30, 2008
+[ ] [x] Have significant impacts on such natural resources and unique geographic
+characteristics as historic or cultural resources; park, recreation, or refuge lands;
+wilderness areas; wild or scenic rivers; national natural landmarks; sole or
+principle drinking water aquifers; prime farmlands; wetlands (Executive Order
+11990); floodplains (Executive Order 11988); national monuments; migratory
+birds; and other ecologically significant or critical areas.
 
-The proposed right-of-way is in conformance with the Snake River Birds of Prey National
-Conservation Area (NCA) RMP (2008). The proposed action aligns with the purpose of the
-RMP, which is to ensure that public land uses are planned for and managed in accordance with
-the requirements of PL 103-64 (August 1993), the NCA-enabling act. The NCA is managed by
-BLM under the concept of dominate use rather than multiple use. This means that prior to
-authorizing uses, BLM determines the compatibility of those uses with the purposes for which
-the NCA was established. Many historic uses that were occurring when it was established have
-either already been analyzed or were analyzed during the planning process (p 1-1).
+[ ] [x] Have highly controversial environmental effects or involve unresolved conflicts
+concerning alternative uses of available resources [NEPA Section 102(2)(E)].
 
-It is specifically provided for in 2.11, pg.2-15, Lands and Realty, Standard Operating Procedures,
-which specifies that all lands and realty proposals undergo site-specific NEPA analysis and must
-be compatible with the purposes for which the NCA was established.
+[ ] [x] Have highly uncertain and potentially significant environmental effects
+or involve unique or unknown environmental risks.
 
-See Exhibit B for stipulations/design features.
-
-D: COMPLIANCE WITH NEPA:
-
-The Proposed Action is categorically excluded from further documentation under the National
-Environmental Policy Act (NEPA) in accordance with 516 DM 11.9,
-
-E19: Issuance of short-term (3 years or less) rights-of-way or land use authorizations for such
-uses as storage sites, apiary sites, and construction sites where the proposal includes
-rehabilitation to restore the land to its natural or original condition&quot;.
-
-Application of this categorical exclusion is appropriate because the area would continue to be used
-and maintained for the original purpose, and because no additional rights would be authorized.
-
-Category Description:
-This categorical exclusion is appropriate in this situation because there are no extraordinary
-circumstances that would introduce potential effects that may significantly affect the
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-environment. The proposed action has been reviewed, and none of the extraordinary
-circumstances described in 43 CFR Part 46.215 apply.
-
-The following list of Extraordinary Circumstances (43 CFR Part 46.215) was considered:
-
-1. Have significant impacts on public health or safety.
-
-No, does not apply.
-Rationale: Issuing a short-term right-of-way for maintenance purposes would not
-significantly affect public health and safety because there would be minimal new disturbance
-created and once complete the area will be returned back to its existing condition.
-Maintenance activities would follow standard operating procedures that ensure public safety.
-Conversely, if this short-term right-of-way were denied, public health and safety could be
-affected through lack of power from damaged poles.
-
-Specialist Signature/Date: /s/ Cory Gardner, Realty Specialist, 08/31/2022
-
-2. Have significant impacts on such natural resources and unique geographic
-characteristics as historic or cultural resources; park, recreation or refuge lands;
-wilderness areas; wild or scenic rivers; national natural landmarks; sole or principal
-drinking water aquifers; prime farmlands; wetlands (Executive Order 11990);
-floodplains (Executive Order 11988); national monuments; migratory birds; and other
-ecologically significant or critical areas.
-
-No, does not apply.
-Rationale: The issuance of a short-term right-of-way for maintenance purposes is not
-expected to result in significant impacts on natural resources, cultural resources, unique
-geographic characteristics, or ecologically significant or critical areas.
-
-Specialist Signature/Date: /s/ Ann Marie Raymondi, Ecologist, 9/19/2022
-Specialist Signature/Date: /s/ Joseph Weldon, Wildlife Biologist, 9/28/2022
-Specialist Signature/Date /s/ Dean Shaw, Archaeologist, 10/27/2022
-
-3. Have highly controversial environmental effects or involve unresolved conflicts
-concerning alternative uses of available resources [NEPA section 102 (2) (E)].
-
-No, does not apply.
-Rationale: Powerline ROW&#39;s are a common use of public land. There would be no
-controversial effects or unresolved conflicts by allowing Idaho Power to conduct their
-maintenance project.
-
-Specialist Signature/Date: /s/Cory Gardner, Realty Specialist, 08/31/2022
-
-4. Have highly uncertain and potentially significant environmental effects or involve
-unique or unknown environmental risks.
-
-No, does not apply.
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-Rationale: The proposed action does not involve highly uncertain and potentially significant
-environmental effects or involve unique or unknown environmental risks. The action is to
-allow a short-term right-of-way for maintenance with minimal disturbance to their existing
-line which lies with FERC license 2055-1016 corridor.
-
-Specialist Signature/Date: /s/ Lonnie Huter, Acting National Environmental Policy Act,
-District Coordinator 11/30/2022
-
-5. Establish a precedent for future actions or represent a decision in principle about
+[ ] [x] Establish a precedent for future action or represent a decision in principle about
 future actions with potentially significant environmental effects.
 
-No, does not apply.
-Rationale: The proposed action does not establish a precedent for future actions or represent
-a decision in principle about future actions with potentially significant environmental effects.
-The proposed action is not connected to another action that would require further
-environmental analysis and it would not set a precedent for future actions that would
-normally require environmental analysis. A decision to issue the short-term over public lands
-as described would only allow the specific rights granted to occur within the defined right-of-
-way area. Any proposed future projects or disturbance outside of the right-of-way must be
-evaluated on their own merits and effects.
-
-Specialist Signature/Date: /s/ Lonnie Huter, Acting National Environmental Policy Act,
-District Coordinator 11/30/2022
-
-6. Have a direct relationship to other actions with individually insignificant but
+[ ] [x] Be a direct relationship to other actions with individually insignificant but
 cumulatively significant environmental effects.
 
-No, does not apply.
-Rationale: This action will not have any direct relationship to other actions with
-individually significant but cumulatively significant environmental effects.
+[ ] [x] Have significant impacts on properties listed, or eligible for listing, on the National
+Register of Historic Places as determined by either the bureau or office.
 
-Specialist Signature/Date: /s/ Dean Shaw, Archaeologist, 10/27/2022
+[ ] [x] Have significant impacts on species listed, or proposed to be listed, on
+the List of Endangered or Threatened Species, or have significant impacts on
+designated critical habitat for these species.
 
-7. Have significant impacts on properties listed, or eligible for listing, on the National
-Register of Historic Places as determined by the bureau.
+[ ] [x] Violate a Federal law, or a State, local or tribal law or requirement imposed for
+the protection of the environment.
 
-No, does not apply.
-Rationale: This action will not have significant impacts on properties listed, or eligible for
-listing, on the National Register of Historic Places as determined by the bureau.
-
-Specialist Signature/Date: /s/ Dean Shaw, Archaeologist, 10/27/2022
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-8. Have significant impacts on species listed, or proposed to be listed, on the List of
-Endangered or Threatened Species, or have significant impacts on designated Critical
-Habitat for these species.
-
-No, does not apply
-Rationale – Plants:
-There are no Type 1 BLM listed special status plant species or their habitat within or near the
-proposed maintenance locations.
-
-Plants Specialist Signature/Date: /s/ Ann Marie Raymondi, Ecologist,9/21/2022
-
-No, does not apply
-Rationale- Wildlife: There are no Threatened or Endangered wildlife species or designated
-Critical Habitat located in the project area. BLM Type 2 Sensitive Species that could
-potentially occur in the project area include burrowing owl, ferruginous hawk, short-eared
-owl, golden eagle, bald eagle, long-billed curlew, Great Basin collared lizard, Woodhouse&#39;s
-toad, and Piute ground squirrel. Impacts to these species will be negligible to minor as
-maintenance will occur on existing roads and timing restrictions provided in the ROW
-stipulations will avoid potential impacts during the migratory bird and raptor breeding
-season.
-
-Wildlife Specialist Signature/Date: /s/ Joseph Weldon, Wildlife Biologist, 9/28/2022
-
-(9) Violate a Federal, State, local, or tribal law or requirement imposed for the
-protection of the environment.
-
-No, does not apply.
-Rationale: The proposed action will not violate any laws or requirements.
-
-Specialist Signature/Date: /s/Cory Gardner, Realty Specialist, 08/31/2022
-
-(10) Have a disproportionately high and adverse effect on low income or minority
+[ ] [x] Have a disproportionately high and adverse effect on low income or minority
 populations (Executive Order 12898).
 
-No, does not apply.
-Rationale: There have been no known impacts to minority or low income populations as a
-result of granting other similar rights-of-way and impacts are not expected to occur as a
-result of the proposed action.
-
-Specialist Signature/Date: /s/ Lonnie Huter, Acting National Environmental Policy Act,
-District Coordinator 11/30/2022
-
-(11) Limit access to and ceremonial use of Indian sacred sites on Federal lands by
+[ ] [x] Limit access to and ceremonial use of Indian sacred sites on Federal lands by
 Indian religious practitioners or significantly adversely affect the physical integrity
 of such sacred sites (Executive Order 13007).
 
-No, does not apply.
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-Rationale: Issuing this short-term right-of-way for maintenance will not limit access to and
-ceremonial use of Indian sacred sites on Federal lands by Indian religious practitioners or
-significantly adversely affect the physical integrity of such sacred sites.
-
-Specialist Signature/Date: /s/ Dean Shaw, Archaeologist, 10/27/2022
-
-(12) Contribute to the introduction, continued existence, or spread of noxious weeds or
-non-native invasive species known to occur in the area or actions that may promote
-the introduction, growth, or expansion of the range of such species (Federal Noxious
-Weed Control Act and Executive Order 13112).
-
-No, does not apply.
-Rationale:
-The short-term ROW is subject to stipulations that will reduce the risk for the spread of non-
-native invasive and noxious weeds. Stipulations contained in Exhibit B require the Holder to
-control noxious weeds that result from use or maintenance and to avoid or minimize travel in
-noxious weed infestations.
-
-Specialist Signature/Date: /s/ Lonnie Huter Weed Management Specialist, 10/4/2022
-
-D: SIGNATURE
-
-Authorizing Official:
-Amanda Hoffman
-Morley Nelson Snake River Birds of Prey
-National Conservation Manager
-AMANDA
-HOFFMAN
-Digitally signed by
-AMANDA HOFFMAN
-Date: 2022.12.07
-12:31:38 -07&#39;00&#39;
-Date:
-
-Prepared By/Contact Person: Cory Gardner, Realty Specialist, Idaho State Office Master
-Agreement Team, 1387 S. Vinnell Way, Boise, ID 83709, 208-384-3348
-
-Attachments: Exhibit A-A3 (maps), Exhibit B (stipulations)
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-Exhibit A- Location Map
-Idaho Power- IDI 39567 (T918)
-Maintenance Project-C.J. Strike Hydro 138 KV Transmission Line
-Exhibit A
-
-Access
-Workspace
-Surface Management Agency:
-Bureau of Land Management
-HSTROWTR
-Private (all other land)
-STATE
-ELMORE COUNTY
-OWYHEE
-COUNTY
-U.S. Department of the Interior
-Bureau of Land Management, Idaho
-Boise District Office
-Map date: August 31, 2022
-N
-No warranty is made by the Bureau of Land Management.
-The accuracy, reliability, or completeness of these data for
-Individual use or aggregate use with other data is not guaranteed.
-This map cannot be made Section 508 compliant.
-For help with its data or information, please contact the
-BLM Idaho State Office webmaster at (208) 373-4000
-Document Path: Q:/od/GIS/projects/realty/IdahoPowerProjects/IDI 39567 T918 Maintenance NCA Aug2022/39567 T918 Maintenance ExhibitA.mxd
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-Exhibit A1- Northern Portion (section 9)
-Idaho Power- IDI 39567 (T918)
-Maintenance Project-C.J. Strike Hydro 138 KV Transmission Line
-Exhibit A1-North Portion, section 9
-
-Workspace
-Surface Management Agency:
-Bureau of Land Management
-STATE
-ELMORE COUNTY
-U.S. Department of the Interior
-Bureau of Land Management, Idaho
-Boise District Office
-Map date: August 31, 2022
-N
-No warranty is made by the Bureau of Land Management.
-The accuracy, reliability, or completeness of these data for
-Individual use or aggregate use with other data is not guaranteed.
-This map cannot be made Section 508 compliant.
-For help with its data or information, please contact the
-BLM Idaho State Office webmaster at (208) 373-4000.
-Document Path: Q:/od/GIS/projects/realty/IdahoPowerProjects/IDI 39567 T918 Maintenance NCA Aug2022/39567 T918 Maintenance ExhibitA1.mxd
-Figure 1Exhibit A1 North segment
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-Exhibit A2- Southern Portion (section 28)
-Idaho Power- IDI 39567 (T918)
-Maintenance Project-C.J. Strike Hydro 138 KV Transmission Line
-Exhibit A2- Southern Portion, section 28
-
-Access
-Workspace
-Surface Management Agency:
-Bureau of Land Management
-Private (all other land)
-ELMORE COUNTY
-U.S. Department of the Interior
-Bureau of Land Management, Idaho
-Boise District Office
-Map date: August 31, 2022
-N
-No warranty is made by the Bureau of Land Management.
-The accuracy, reliability, or completeness of these data for
-Individual use or aggregate use with other data is not guaranteed.
-This map cannot be made Section 508 compliant.
-For help with its data or information, please contact the
-BLM Idaho State Office webmaster at (208) 373-4000.
-Document Path: Q:/locGIS/projects/realty/IdahoPowerProjects/IDI 39567 T918 Maintenance NCA Aug2022/39567 T918 Maintenance ExhibitA2.mxd
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-Exhibit A3- IPC Project Description Map
-
-TRANSMISSION
-IDI-39567 (C.J. Strike Hydro T918 Transmission Line
-Exhibit A3
-T. 5S, R. 4E, B.M.
-SEC. 28, T. 5S, R. 4E, B.M.
-SEC. 9, T. 5S, R. 4E, B.M.
-
-NENW
-BLM
-SENW
-BLM
-NESW
-BLM
-SESW
-BLM
-LINE
-28
-NWSW
-BLM
-NESE
-BLM
-NESW
-BLM
-SESW
-BLM
-9
-STRIKE DAM CUTOFF ROAD
-SNAKE RIVER
-SITE LOCATION
-VICINITY MAP
-NTS
-ACCESS ROAD:
-RIGHT OF WAY ON BLM LAND
-LINEAR FEET OF LINE ON BLM LANDS 1,150.65 LF
-MILES OF LINE ON BLM LANDS 0.22 MI
-ACRES OF LINE ROW ON BLM LANDS 0.37 AC
-LEGEND
-TOWNSHIP
-SECTION
-TEMPORARY:
-SECTION 1/4
-RIGHT OF WAY ON BLM LAND
-SECTION 1/16
-LINEAR FEET ON BLM LANDS 7,074.55 LF
-ROAD CENTER LINE
-MILES ON BLM LANDS 1.34 MI
-POWER LINE
-ACRES OF ROW ON BLM LANDS 16.24 AC
-SECTION NUMBER
-BLM LANDS
-NOTES
-1. THE RIGHT-OF-WAY SHALL ALSO INCLUDE GUY ANCHORS WHEN PRESENT.
-2. THE SERVICE ROAD CORRIDOR ONLY APPLIES TO SERVICE ROADS THAT ARE ON U.S. LAND
-AND OUTSIDE OF THE DISTRIBUTION/TRANSMISSION LINE CORRIDOR.
-
-DISCLAIMER: THIS DRAWING IS NOT A FORMAL SURVEY AND ONLY PROVIDES GEOGRAPHIC REPRESENTATION OF IDAHO
-POWER RIGHT OF WAY GRANT IN RELATION TO IDAHO POWER LINES, FACILITIES, AND EXISTING PROPERTY
-BOUNDARIES. A PROFESSIONAL SURVEY IS RECOMMENDED FOR ACCURATE AND DOCUMENTED LOCATIONS
-OF ALL EASEMENTS, LINE, FACILITIES, AND PROPERTY BOUNDARIES DEPICTED HEREIN.
-
-SIGNAGE DATE
-DS: FW 05/24/2021
-DR: JS 05/24/2021
-SV:-
-
-SCALE: 1&quot;=1,000&#39;
-PROJECT INFORMATION
-DETAIL MAP TO ACCOMPANY
-APPLICATION FOR RIGHT OF WAY GRANT
-T-LINE 918
-ELMORE COUNTY, IDAHO
-
-CORPORATE REAL-ESTATE
-PERMIT NO:-
-VAULT NO:-
-WO NO: 27557333
-SHEET: 1/1
-
-IDAHO
-POWER.
-An IDACORP Company
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-EXHIBIT B- STIPULATIONS
-
-TERMS, CONDITIONS, AND STIPULATIONS
-IDAHO POWER COMPANY
-SHORT-TERM RIGHT-OF-WAY
-IDI-39567
-
-Master Agreement
-1. This grant is subject to the terms set forth in the Master Agreement between the U.S. Department of
-the Interior, Bureau of Land Management – Idaho and Idaho Power Company for Managing Rights-
-of-Way (BLM-MA-ID-001), or subsequent revisions.
-
-General Terms
-2. The Holder will indemnify the United States against any liability for damage to life or property
-arising from the occupancy or use of public lands under this grant.
-
-3. The Holder will comply with all Federal, State, tribal and/or local laws, regulations and policy
-applicable to the right-of-way area.
-
-4. The Authorized Officer may suspend or terminate in whole, or in part, any rights granted when, in
-his/her judgment, conditions arise which result in the approved terms and conditions being inadequate
-to protect the public health and safety or to protect the environment.
-
-5. There is reserved to the Secretary of the Interior, or his/her lawful delegate, the right to grant
-additional rights-of-way or permits for compatible uses on, over, under or adjacent to the land
-involved in this grant.
-
-6. The Holder will not interfere with public land management practices of the BLM or any authorized
-BLM operators, licensees, agents or public.
-
-7. The Holder will permit free and unrestricted public access upon the right-of-way for all lawful
-purposes except for those specific areas designated as restricted by the Authorized Officer to protect
-the public, wildlife, livestock, or facilities constructed within the right-of-way. No gates, signs,
-barriers, obstructions, or other impediments are allowed on public lands wither within or outside the
-right-of-way, unless specifically authorized or required.
-
-8. The right-of-way will be maintained in a sanitary condition at all times; waste materials will be
-disposed of promptly at an appropriate waste disposal site. &#39;Waste&#39; is defined as all discarded matter
-including, but not limited to, human waste, trash, garbage, refuse, oil drums, petroleum products, ash,
-and equipment that are a result of the Holder&#39;s activities.
-
-Protection of Cultural Resources
-9. Pursuant to 43 CFR 10, the Holder of this authorization must immediately notify the Authorized
-Officer, by telephone, with written confirmation, immediately upon the discovery of human remains,
-funerary items, sacred objects, or objects of cultural patrimony. Further, pursuant to 43 CFR 10.4 (c)
-and (d), the Holder must stop activities in the vicinity of the discovery and protect it until notified to
-proceed by the Authorized Officer. The BLM Authorized Officer will determine avoidance,
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-protection or mitigation measures in consultation with the Holder, Idaho SHPO, and affected Tribes.
-Costs associated with the discovery, evaluation, protection or mitigation of the discovery will be the
-responsibility of the Holder.
-
-10. Any cultural and/or paleontological resource (historic or prehistoric site or object, or fossil)
-discovered by the Holder, or any persons working on his behalf on public or Federal land will be
-immediately reported to the Authorized Officer. Holder will suspend all operations in the immediate
-area of such discovery until written authorization to proceed is issued by the Authorized Officer. An
-evaluation of the discovery will be made by the Authorized Officer to determine appropriate actions
-to prevent the loss of significant cultural or scientific values. The Holder will be responsible for the
-cost of evaluation and mitigation, and any decision as to proper avoidance, protection, or mitigation
-measures will be made by the Authorized Officer after consulting with the Holder and others under
-Section 106 of the National Historic Preservation Act.
-
-Protection of Survey Monuments
-11. The Holder will protect all survey monuments found within the right-of-way. Survey monuments
-include, but are not limited to, General Land Office and Bureau of Land Management Cadastral
-Survey Corners, reference corners, witness points, U.S. Coastal and Geodetic benchmarks and
-triangulation stations, military control monuments, and recognizable civil (both public and private)
-survey monuments. In the event of obliteration or disturbance of any of the above, the Holder will
-immediately report the incident, in writing, to the Authorized Officer and the respective installing
-authority if known. Where General Land Office or Bureau of Land Management survey monuments
-or references are obliterated during Holder&#39;s operations, the Holder will secure the services of a
-registered land surveyor or Bureau cadastral surveyor to restore the disturbed monument and
-references using surveying procedures found in the Manual of Surveying Instructions for the Survey
-of the Public Lands of the United States, latest edition. The Holder will record such survey in the
-appropriate county and send a copy to the Authorized Officer. If the Bureau cadastral surveyors or
-other Federal surveyors are used to restore the disturbed survey monument, the Holder will be
-responsible for the survey cost.
-
-Hazardous Materials and Toxic Substances
-12. Holder will comply with the applicable Federal and State Laws and regulations concerning the use of
-pesticides (i.e. insecticides, herbicides, fungicides, rodenticide, and other similar substances) in all
-activities/operations under this grant. Pesticides will be used only in accordance with their registered
-uses and within the limitations imposed by the Secretary of the Interior. Prior to the use of pesticides,
-the Holder will obtain from the Authorized Officer written approval of a plan showing the type and
-quantity of material to be used, pest(s) to be controlled, method of application, location of storage and
-disposal containers, and any other information deemed necessary by the Authorized Officer.
-Pesticides will not be permanently stored on public lands authorized for use under this grant.
-Applicator(s) will hold a current applicator&#39;s license or be under the direct supervision of a licensed
-applicator.
-
-13. The Holder will comply with all applicable Federal, State and local laws and regulations, existing or
-hereafter enacted or promulgated, with regard to any Hazardous Material, as defined in this
-paragraph, that will be used, produced, transported or stored on or within the right-of-way or any of
-the right-of-way facilities, or used in the construction, operation, maintenance or termination of the
-right-of-way or any of its facilities. &quot;Hazardous material&quot; means any substance, pollutant or
-contaminant that is listed as hazardous under the Comprehensive Environmental Response,
-Compensation, and Liability Act of 1980, 42 U.S.C. § 9601 et seq., as amended, (hereinafter
-&quot;CERCLA&quot;) and its regulations. The definition of hazardous substances under CERCLA includes any
-&quot;hazardous waste&quot; as defined in the Resource Conservation and Recovery Act of 1976, 42 U.S.C. §
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-6901 et seq., as amended, (hereinafter &quot;RCRA&quot;) and its regulations. The term hazardous material also
-includes any nuclear or byproduct material as defined by the Atomic Energy Act of 1954, 42 U. S. C.
-§ 2011 et seq., as amended. The term does not include petroleum, including crude oil or any fraction
-thereof that is not otherwise specifically listed or designated as a hazardous substance under
-CERCLA section 101(14), 42 U.S.C. § 9601(14), nor does the term include natural gas.
-
-14. The Holder agrees to indemnify the United States against any liability arising from the release of any
-hazardous substance or hazardous waste (as these terms are defined in the Comprehensive
-Environmental Response, Compensation and Liability Act of 1980, 42 U.S.C. § 9601, et seq. or the
-Resource Conservation and Recovery Act of 1976, 42 U.S.C. § 6901 et seq.) on the right-of-way
-(unless the release or threatened release is wholly unrelated to the right-of-way Holder&#39;s activity on
-the right-of-way). This agreement applies without regard to whether a release is caused by the Holder,
-its agent, or unrelated third parties.
-
-15. The Holder(s) will comply with the Toxic Substances Control Act of 1976 as amended, 15 U.S.C. §
-2601 et seq. (1982) with regards to any toxic substances that are used, generated by or stored on the
-right-of-way or on facilities authorized under this right-of-way grant. (See 40 CFR Part 702-799 and
-especially, provisions on polychlorinated biphenyls, 40 CFR 761.1-761.193.) Additionally, any
-release of toxic substances (leaks, spills, etc.) in excess of the reportable quantity established by 40
-CFR Part 117 will be reported as required by the Comprehensive Environmental Response,
-Compensation, and Liability Act, section 102b. A copy of any report required or requested by any
-Federal agency or State government as a result of a reportable release or spill of any toxic substances
-will be furnished to the Authorized Officer concurrent with the filing of the reports to the involved
-Federal agency or State government.
-
-Fire Prevention and Control
-16. When performing construction and maintenance (including emergency repairs) activities during the
-&quot;closed&quot; fire season (May 10 – October 20), as set by Idaho State Law, Title 38-115, or during any
-other closed fire season prescribed by the BLM Idaho State Director, the Holder, including those
-working on their behalf, will equip at least one on-site vehicle with firefighting equipment, including,
-but not limited to, fire suppression hand tools (i.e. shovels, rakes, Pulaski&#39;s, etc.), a 16-20 pound fire
-extinguisher, and a sufficient supply of water for initial attack, with a mechanism to effectively spray
-the water (i.e. backpack pumps, watersprayer, etc.)
-
-17. Within the bound of the right-of-way, the Holder will provide and maintain a vegetation clearance of
-up to 20 feet around the base of wood poles or other facilities with the potential to catch and/or spread
-fire.
-
-18. During conditions of extreme fire danger or when the State of Idaho and/or the BLM Idaho State
-Director issues a fire restriction order, operations will be limited or suspended in specific areas, or
-additional measures may be required by the Authorized Officer.
-
-19. In accordance with 43 CFR 2805.12(d) (or subsequent revisions), the Holder will do everything
-reasonable to prevent wildfires on or in the immediate vicinity of the right-of-way. The Holder will
-immediately report fires to the BLM Authorized Officer or Fire Dispatch (800-974-2373), and take all
-necessary fire suppression actions, when safe to do so, with their personnel and equipment on any
-fires they cause to ignite.
-
-20. During or following initial attack, the Holder will report to the Fire Investigator or BLM Incident
-Commander and will not enter into the origin area on BLM fires unless given permission to do so.
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-21. The Holder will collaborate and cooperate with the BLM in its efforts to investigate, suppress and
-respond to all future wildland fires. The duty to &quot;collaborate&quot; and &quot;cooperate&quot; includes, but is not
-limited to, the following duties regardless of whether BLM is on the scene:
-a. The duty to provide the BLM (Authorized Officer or local fire dispatch center) with
-reasonable and timely notice concerning all wildland fires involving the Holder&#39;s facilities, or
-discovered during routine operations.
-b. The duty to share factual information with the BLM concerning the wildland fires, including
-but not limited to the names of Holder&#39;s employees with knowledge of the incident; and to
-allow employees to be interviewed by BLM&#39;s investigators regarding factual information
-relating to a wildland fire.
-c. The duty to reasonably account for Holder&#39;s actions taken at the scene of a wildland fire.
-d. The duty to minimize disturbance of potential evidence located on the scene; to properly
-handle and preserve any evidence collected; to not engage in any destructive testing without
-BLM&#39;s consent; and to make all evidence available to the BLM in a rapid and timely manner.
-e. The duty to not hamper the BLM investigation of origin and cause of the wildland fire; and to
-reasonably assist BLM&#39;s investigation at the scene.
-f. The duty to provide information concerning the construction, maintenance and/or repairs of
-any Holder&#39;s facilities located at or adjacent to a wildland fire.
-g. The duty during BLM fire suppression efforts: to defer to and follow the instructions of the
-BLM&#39;s Incident Commander regarding activities within the boundaries of the wildland fire
-and checking in and out of the wildland fire; and to recognize BLM&#39;s primary authority over
-the scene.
-
-Operations and Maintenance
-22. The Holder will conduct all activities associated with the operation, maintenance, and termination of
-the right-of-way within the authorized limits of the right-of-way. If at any time the Holder wishes to
-reconstruct or relocate any portion of the right-of-way, or the improvements thereon, in a manner that
-has been determined to be a substantial deviation, prior written authorization must be obtained from
-the Authorized Officer.
-
-23. Specific sites as identified by the Authorized Officer (e.g., archaeological sites, areas with threatened
-and endangered species, or fragile watersheds) where construction equipment and vehicles are not
-allowed will be clearly marked onsite by the Holder before any surface disturbing activities begin.
-The Holder will be responsible for assuring that construction personnel are well trained to recognize
-these markers and understand the equipment movement restrictions involved.
-
-24. No surface disturbing maintenance activities will be allowed within riparian conservation area
-buffers, as follows: 300 feet for fish-bearing streams; 150 feet for perennial non-fish bearing streams;
-150 feet for ponds, lakes, reservoirs, and wetlands greater than 1 acre; 50 feet for seasonally-flowing
-or intermittent streams, wetlands less than 1 acre, or landslide-prone areas. Any deviation from this
-requirement will have the prior written approval of the Authorized Officer.
-
-25. The Holder will remove only the minimum amount of vegetation and/or topsoil necessary for the
-construction and/or maintenance of structures and facilities. Topsoil removed will be stockpiled
-within the right-of-way or at an approved location during excavation and reused as cover on disturbed
-areas to facilitate growth of vegetation.
-
-26. If any emergency repair activity results in disturbance outside the right-of-way boundary, the Holder
-will notify the Authorized Officer within three days of the occurrence. Upon review, the Authorized
-Officer may require remediation.
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-27. The Holder will notify the Authorized Officer at least 90 days prior to any non-emergency activities
-that would cause surface disturbance in the right-of-way. Surface disturbing activities are not
-considered routine maintenance. The Authorized Officer will determine if resource inventories,
-treatments, or mitigation are required for the activity. The Holder will be responsible for the cost of
-inventory, avoidance, treatment or mitigation, including and maintenance-cause damage. The
-Authorized Officer will determine avoidance, treatment and mitigation measures that are necessary
-after consulting with the Holder.
-
-Access
-28. New access roads or cross-country vehicle travel outside the right-of-way will not be permitted
-without prior written approval by the Authorized Officer. The Holder will obtain a right-of-way to
-use any roads outside the right-of-way that require surface-disturbing repair or maintenance.
-
-Avian Protection
-29. Operations and maintenance within the right-of-way will comply with the most current nest
-management guidelines provided by the U.S. Fish and Wildlife Service (USFWS) as clarified in ID-
-IB-2010-039, or most recent guidance. If proposed maintenance activities are located within one mile
-of bald or golden eagle nests, the Holder will coordinate with the BLM and the USFWS to determine
-the likelihood of disturbance and any appropriate measures necessary to comply with the Band and
-Golden Eagle Protection Act (16 U.S.C. § et seq.).
-
-30. To the extent possible, operations and maintenance activities that include ground disturbance and/or
-vegetation removal will be conducted either prior to or following the affected migratory bird nesting
-season (January 1 – July 31 along the canyon rim) to avoid and/or minimize take of migratory birds
-as defined in the Migratory Bird Treaty Act (MBTA) of 1918 (16 U.S.C. § 703 et seq.) as amended. If
-any ground disturbing activities must occur during the nesting season (e.g., soil disturbance or
-vegetation removal), the Holder will coordinate with the BLM and USFWS to determine appropriate
-measures to comply with the MBTA.
-
-31. Unless otherwise agreed to by the Authorized Officer in writing, power lines will be constructed or
-rebuilt in accordance with the most recent version of the report, Suggested Practices for Avian
-Protection on Power Lines (Avian Power Line Interaction Committee, 2006). The Holder will assume
-the burden and expense of proving that pole designs not shown in the above publication are “eagle
-safe.&quot; Such proof will be provided by a qualified raptor biologist approved by the Authorized Officer.
-The BLM reserved the right to require modifications or additions to all power line structures placed
-within this right-of-way, should they be necessary to ensure the safety of large perching birds. Such
-modifications and/or additions will be made by the Holder without liability or expense to the United
-States.
-
-Plants
-32. The Holder will be responsible for the control of noxious weeds and non-native invasive plants that
-result from construction, use, or maintenance authorized in the Holder&#39;s right-of-way grant. The
-Holder must coordinate with the Authorized Officer and/or local authorities for acceptable weed
-control measures (within limits imposed in the grant stipulations) prior to implementing weed
-treatments.
-
-33. The Holder will use only BLM-approved herbicide and adjuvants, and the applicator(s) will hold a
-current State of Idaho applicator&#39;s license or be under the direct supervision of a licensed applicator.
-
-34. The Holder will clean equipment, machinery and vehicles that disturb soil or vegetation prior to entry
-into BLM-managed lands. Cleaning is defined as removal of all dirt, grease, plant parts and material
-
-DOI-BLM-ID-B011-2022-0019-CX
-Short-Term ROW
-
-================================================================================
-Document: Decision Record.pdf
-Type: CE | Category: decision | Main: YES
-================================================================================
-
---- PAGE 1-13 ---
-
-DEPARTMENT OF THE IN
-MARCH 3, 1849
-OR
-United States Department of the Interior
-BUREAU OF LAND MANAGEMENT
-Morley Nelson Birds of Prey National Conservation Area
-3948 Development Avenue
-Boise, ID 83706
-(208) 384-3300
-
-DECISION RECORD
-Idaho Power Short-Term Right-of-Way (IDI-39567)
-DOI-BLM-ID-B011-2022-0019-CX
-
-U.S. DEPARTMENT OF THE INTERIOR
-BUREAU OF LAND MANAGEMENT
-
-Introduction: On May 24, 2021, Idaho Power Company requested a short-term right-of-way
-(ROW) to conduct maintenance on their existing FERC line known as the C.J. Strike Hydro T918
-Transmission Line, permitted under FERC license 2055-1016. The request is for a 100 ft. wide
-right-of-way which would lie within the permitted FERC 50 ft. wide corridor. They have also
-requested to conduct maintenance on an existing 14 ft. wide service road. This request will allow
-Idaho Power Company a safer workplace for maneuvering of their trucks and safe ingress/egress to
-those areas shown on the attached Exhibits.
-
-The maintenance areas are, located upon public lands located within the Birds of Prey National
-Conservation Area, Boise Meridian, Elmore County, T. 5 S., R. 4 E., section. 9, E½NE¼SW¼ and
-E½SE¼SW¼, and section 28, E½NE¼NW¼, E½SE¼NW¼, E½NE¼SW¼ and E½SE¼SW¼. The
-total encumbrance on public lands is 16.7 acres and consists of:
-
-Workspace: 7,074.65 ft. long x 100 ft. wide = 16.24 acres
-Access road: 1,1150.65 ft. long x 14 ft. wide = 0.37 acres
-
-Compliance and Monitoring: At the direction of the Authorize Officer, a Compliance Officer
-will inspect and monitor the land use area to assure compliance of the ROW Permit, Stipulations
-and Exhibits (43 C.F.R 2805.3).
-
-Terms/Conditions/Stipulations: See Exhibit B attached.
-
-Plan Conformance and Consistency:
-
-The proposed right-of-way is in conformance with the Morley Nelson Snake River Birds of Prey
-National Conservation Area (NCA) RMP (2008). The proposed action aligns with the purpose of the
-RMP, which is to ensure that public land uses are planned for and managed in accordance with the
-requirements of PL 103-64 (August 1993), the NCA-enabling act. The NCA is managed by BLM
-under the concept of dominate use rather than multiple use. This means that prior to authorizing uses,
-BLM determines the compatibility of those uses with the purposes for which the NCA was
-established. Many historic uses that were occurring when it was established have either already been
-analyzed or were analyzed during the planning process (p 1-1).
-
-It is specifically provided for in 2.11, pg.2-15, Lands and Realty, Standard Operating Procedures,
-which specifies that all lands and realty proposals undergo site-specific NEPA analysis and must be
-compatible with the purposes for which the NCA was established.
-
-Decision: It is my decision under the authority of Title V of the Federal Land Policy and
-Management Act of 1976, to issue a short-term right-of-way to Idaho Power Company which will
-be set to expire three years from its issuance with the attached stipulations in Exhibit B.
-
-Rationale for Decision: I have reviewed the documentation for this proposal and have determined
-that the Proposed Action will not significantly affect the quality of the human environment, and
-that no further environmental analysis is required for the following reasons:
-•
-The Proposed Action is categorically excluded from further documentation under 516 DM
-E19:Issuance of short-term (3 years or less) rights-of-way or land use authorizations for such
-uses as storage sites, apiary sites, and construction sites where the proposal includes
-rehabilitation to restore the land to its natural or original condition”
-•
-The proposed action has been reviewed, and none of the extraordinary circumstances
-described in 43 CFR §46.215 apply.
-•
-The Proposed Action will adhere to the attached stipulations and compliance monitoring.
-
-Authorities: The authority for this decision is contained in Title V, Section 501, of the Federal
-Land Policy and Management Act FLPMA (43 U.S.C. §1761), regulations found at 43 CFR 2800
-as well as the Snake River Birds of Prey National Conservation Area (NCA) RMP (2008).
-
-Right of Appeal: This decision may be appealed to the Interior Board of Land Appeals, Office of
-the Secretary, in accordance with the regulations contained in 43 CFR, Part 4 and the enclosed
-Form 1842-1. If an appeal is taken, your notice of appeal must be filed in this office (at the above
-address) within 30 days from receipt of this decision. The appellant has the burden of showing that
-the decision appealed from is in error.
-
-If you wish to file a petition (request) pursuant to regulation 43 CFR 2801.10 or 43 CFR 2881.10
-for a stay (suspension) of the effectiveness of this decision during the time that your appeal is being
-reviewed by the Board, the petition for a stay must accompany your notice of appeal. A petition
-for a stay is required to show sufficient justification based on the standards listed below. Copies
-of the notice of appeal and petition for a stay must also be submitted to each party named in this
-decision and to the Interior Board of Land Appeals and to the appropriate Office of the Solicitor
-(see 43 CFR 4.413) at the same time the original documents are filed with this office. If you request
-a stay, you have the burden of proof to demonstrate that a stay should be granted.
-
-Standards for Obtaining a Stay
-Except as otherwise provided by law or other pertinent regulation, a petition for a stay of a decision
-pending appeal shall show sufficient justification based on the following standards:
-(1) The relative harm to the parties if the stay is granted or denied,
-(2) The likelihood of the appellant&#39;s success on the merits,
-(3) The likelihood of immediate and irreparable harm if the stay is not granted, and
-(4) Whether the public interest favors granting the stay.
-
-AMANDA
-HOFFMAN
-Authorized Officer
-Amanda Hoffman
-Digitally signed by AMANDA
-HOFFMAN
-Date: 2022.12.07 12:32:24 -07&#39;00&#39;
-Morley Nelson Snake River Birds of Prey
-National Conservation Area Manager
-
-Attachments: Exhibit A-A3: Vicinity Maps of Authorized Area and Exhibit B: Stipulations
-
-Exhibit A- Location Map
-
-Idaho Power- IDI 39567 (T918)
-Maintenance Project-C.J. Strike Hydro 138 KV Transmission Line
-
-Exhibit A
-
-Access
-Workspace
-Surface Management Agency:
-Bureau of Land Management
-HSTROWTR
-Private (all other land)
-STATE
-55 4E
-ELMORE COUNTY
-19
-OWYHEE
-COUNTY
-U.S. Department of the interior
-Bureau of Land Management, Idaho
-Boise District Office
-Map date: August 31, 2022
-N
-Nowarranty is made by the Bureau of Land Management.
-The accuracy, reliability, or completeness of these data for
-Individual use or aggregate use with other data is not guaranteed.
-This map cannot be made Section 508 compliant.
-For help with its data or information, please contact the
-BLM Idaho State Office webmaster at (208) 373-4000
-
-Document Path: QlocGIS projects/realtylidahoPower/Projects/lDI 39567 7918 Maintenance NCA Aug2022139567 1918 Maintenance ExhibitAmoxd
-
-Exhibit A1- Northern Portion
-
-Idaho Power- IDI 39567 (T918)
-Maintenance Project-C.J. Strike Hydro 138 KV Transmission Line
-
-Exhibit Al-North Portion, section 9
-
-Workspace
-Surface Management Agency:
-Bureau of Land Management
-STATE
-ELMORE COUNTY
-55 4E
-BeaM, Bees, docorecardig
-N
-No warranty is made by the Bureau of Land Management.
-The accuracy, rdlability, or completeness of these data for
-Individual use or aggregate use with other data is not guaranteed.
-This map cannot be made Sedion 508 compilant.
-For help with its data or information, please contact the
-BLM Idaho State Office webmaster at (208) 373-4000.
-U.S. Department of the interior
-Bureau of Land Management, Idaho
-Boise District Office
-Map date: August 31, 2022
-A
-Document Path: Qod/GIS/projects/realtylidahoPower ProjectsIDI 39567 1918 Maintenance NCA Aug2022139567, 1918 Maintenance Exhibit1.mod
-
-Exhibit A2- Southern Portion
-
-Idaho Power- IDI 39567 (T918)
-Maintenance Project-C.J. Strike Hydro 138 KV Transmission Line
-
-Exhibit A2- Southern Portion, section 28
-
-Access
-Workspace
-Surface Management Agency
-Bureau of Land Management
-Private (all other land)
-EL MORE COUNTY
-554E
-U.S. Department of the interior
-Bureau of Land Management, Idaho
-Boise District Office
-Map date: August 31, 2022
-N
-No warranty is made by the Bureau of Land Management.
-The accuracy, rdiability, or completeness of these data for
-Individual use or aggregate use with other data is not guaranteed.
-This map cannot be made Sedion 508 compliant.
-For help with its data or information, please contact the
-BLM Idaho State Office webmaster at (208) 373-4000.
-Document Path: QlocGIS projects/realtylidahoPowerProjectsIDI 39567 1918 Maintenance NCA Aug2022139567 1918 Maintenance ExhibitA2.mxd
-
-Exhibit A3- IPC Project Map
-
-TRANSMISSION
-LINE
-IDI-39567 (C.J. Strick Hydro T918 Transmission Line
-Exhibit A3
-SEC. 28, T. 5S, R. 4E, B.Μ.
-SEC. 9, T. 5S, R. 4E, B.M.
-75
-NENW
-BLM
-SENIW
-BLM
-NESW
-BLM
-SESW
-BLM
-150
-28
-0 250 500
-50
-ZZZZZZZZZ
-NIWSE
-BUM
-1,000
-2,000
-7.5
-S. FREDERICK ROAD
-TEMPORARY
-ROW
-ACCESS
-ROAD
-RIGHT OF WAY
-TEMPORARY RIGHT OF WAY
-CORRIDOR DETAIL
-NTS
-DISCLAMER:
-TRAS DRAWING IS NOT A FORMAL SURVEY AND ONLY PROVIDES GEOGRAPHIC REPRESENTATION OF DANO
-POWER RIGHT OF WAY GRANT IN RELATION TO IDAHO POWER LINES, FACILITIES, AND EXISTING PROPERTY
-BOUNDARIES. A PROFESSIONAL SURVEY IS RECOMMENDED FOR ACCURATE AND DOCUMENTED LOCATIONS
-OF ALL EASEMENTS, LINE, FACILITIES AND PROPERTY BOUNDARIES DEPICTED HEREW
-NO.
-DESCRIPTION
-DATE DS. DR.
-CORRIDOR DETAIL
-NTS
-NESW
-BLUM
-SESW
-BLM
-9
-STRIKE DAM CUTOFF ROAD
-6
-31
-T. 5S, R. 4E, Β.Μ.
-9
-28
-1
-SNAKE RIVER
-SITE LOCATION
-VICINITY MAP
-NTS
-ACCESS ROAD:
-RIGHT OF WAY ON BLM LAND
-CJ STRIKE
-RESERVOIR
-LINEAR FEET OF LINE ON BLM LANDS
-1,150.65 LF
-0250 500
-1,000
-2,000
-MILES OF LINE ON BLM LANDS
-0.22 MI
-ACRES OF LINE ROW ON BLM LANDS
-0.37 AC
-LEGEND
-TOWNSHIP
-SECTION
-TEMPORARY:
-SECTION 1/4
-RIGHT OF WAY ON BLM LAND
-SECTION 1/16
-LINEAR FEET ON BLM LANDS
-7,074.55 LF
-ROAD CENTER LINE
-MILES ON BLM LANDS
-1.34 MI
-POWER LINE
-SECTION NUMBER
-BUM LANDS
-ACRES OF ROW ON BLM LANDS
-16.24 AC
-NOTES
-SIGNAGE DATE
-DS: FW 05/24/2021
-THE RIGHT-OF-WAY SHALL ALSO INCLUDE GUY ANCHORS WHEN PRESENT.
-THE SERVICE ROAD-CORRIDOR ONLY APPLIES TO SERVICE ROADS THAT ARE ONUS. LAND DR: JS 05/24/2021
-AND OUTSIDE OF THE DISTRIBUTION/TRANSMISSION LINE CORRIDOR
-SV:
-SCALE: 1-1,000 H
-NIA V
-PROJECT INFORMATION
-DETAIL MAP TO ACCOMPANY
-APPLICATION FOR RIGHT OF WAY GRANT
-T-LINE 918
-ELMORE COUNTY, IDAHO
-CORPORATE REAL-ESTATE
-PERMIT NO:--
-VAULT NO:-
-WO NO: 27557333
-SHEET: 1/1
-36
-DAHO
-POWER.
-ANIDADE pay
-
-EXHIBIT B- STIPULATIONS
-
-TERMS, CONDITIONS, AND STIPULATIONS
-IDAHO POWER COMPANY
-SHORT-TERM RIGHT-OF-WAY
-IDI-39567
-
-Master Agreement
-
-1. This grant is subject to the terms set forth in the Master Agreement between the U.S. Department
-of the Interior, Bureau of Land Management – Idaho and Idaho Power Company for Managing
-Rights-of-Way (BLM-MA-ID-001), or subsequent revisions.
-
-General Terms
-
-2. The Holder will indemnify the United States against any liability for damage to life or property
-arising from the occupancy or use of public lands under this grant.
-
-3. The Holder will comply with all Federal, State, tribal and/or local laws, regulations and policy
-applicable to the right-of-way area.
-
-4. The Authorized Officer may suspend or terminate in whole, or in part, any rights granted when, in
-his/her judgment, conditions arise which result in the approved terms and conditions being
-inadequate to protect the public health and safety or to protect the environment.
-
-5. There is reserved to the Secretary of the Interior, or his/her lawful delegate, the right to grant
-additional rights-of-way or permits for compatible uses on, over, under or adjacent to the land
-involved in this grant.
-
-6. The Holder will not interfere with public land management practices of the BLM or any authorized
-BLM operators, licensees, agents or public.
-
-7. The Holder will permit free and unrestricted public access upon the right-of-way for all lawful
-purposes except for those specific areas designated as restricted by the Authorized Officer to
-protect the public, wildlife, livestock, or facilities constructed within the right-of-way. No gates,
-signs, barriers, obstructions, or other impediments are allowed on public lands wither within or
-outside the right-of-way, unless specifically authorized or required.
-
-8. The right-of-way will be maintained in a sanitary condition at all times; waste materials will be
-disposed of promptly at an appropriate waste disposal site. &#39;Waste&#39; is defined as all discarded
-matter including, but not limited to, human waste, trash, garbage, refuse, oil drums, petroleum
-products, ash, and equipment that are a result of the Holder&#39;s activities.
-
-Protection of Cultural Resources
-
-9. Pursuant to 43 CFR 10, the Holder of this authorization must immediately notify the Authorized
-Officer, by telephone, with written confirmation, immediately upon the discovery of human
-remains, funerary items, sacred objects, or objects of cultural patrimony. Further, pursuant to 43
-
-CFR 10.4 (c) and (d), the Holder must stop activities in the vicinity of the discovery and protect it
-until notified to proceed by the Authorized Officer. The BLM Authorized Officer will determine
-avoidance, protection or mitigation measures in consultation with the Holder, Idaho SHPO, and
-affected Tribes. Costs associated with the discovery, evaluation, protection or mitigation of the
-discovery will be the responsibility of the Holder.
-
-10. Any cultural and/or paleontological resource (historic or prehistoric site or object, or fossil)
-discovered by the Holder, or any persons working on his behalf on public or Federal land will be
-immediately reported to the Authorized Officer. Holder will suspend all operations in the immediate
-area of such discovery until written authorization to proceed is issued by the Authorized Officer. An
-evaluation of the discovery will be made by the Authorized Officer to determine appropriate actions
-to prevent the loss of significant cultural or scientific values. The Holder will be responsible for the
-cost of evaluation and mitigation, and any decision as to proper avoidance, protection, or mitigation
-measures will be made by the Authorized Officer after consulting with the Holder and others under
-Section 106 of the National Historic Preservation Act.
-
-Protection of Survey Monuments
-
-11. The Holder will protect all survey monuments found within the right-of-way. Survey monuments
-include, but are not limited to, General Land Office and Bureau of Land Management Cadastral
-Survey Corners, reference corners, witness points, U.S. Coastal and Geodetic benchmarks and
-triangulation stations, military control monuments, and recognizable civil (both public and private)
-survey monuments. In the event of obliteration or disturbance of any of the above, the Holder will
-immediately report the incident, in writing, to the Authorized Officer and the respective installing
-authority if known. Where General Land Office or Bureau of Land Management survey monuments
-or references are obliterated during Holder&#39;s operations, the Holder will secure the services of a
-registered land surveyor or Bureau cadastral surveyor to restore the disturbed monument and
-references using surveying procedures found in the Manual of Surveying Instructions for the Survey
-of the Public Lands of the United States, latest edition. The Holder will record such survey in the
-appropriate county and send a copy to the Authorized Officer. If the Bureau cadastral surveyors or
-other Federal surveyors are used to restore the disturbed survey monument, the Holder will be
-responsible for the survey cost.
-
-Hazardous Materials and Toxic Substances
-
-12. Holder will comply with the applicable Federal and State Laws and regulations concerning the use of
-pesticides (i.e. insecticides, herbicides, fungicides, rodenticide, and other similar substances) in all
-activities/operations under this grant. Pesticides will be used only in accordance with their
-registered uses and within the limitations imposed by the Secretary of the Interior. Prior to the use
-of pesticides, the Holder will obtain from the Authorized Officer written approval of a plan showing
-the type and quantity of material to be used, pest(s) to be controlled, method of application,
-location of storage and disposal containers, and any other information deemed necessary by the
-Authorized Officer. Pesticides will not be permanently stored on public lands authorized for use
-under this grant. Applicator(s) will hold a current applicator&#39;s license or be under the direct
-supervision of a licensed applicator.
-
-13. The Holder will comply with all applicable Federal, State and local laws and regulations, existing or
-hereafter enacted or promulgated, with regard to any Hazardous Material, as defined in this
-paragraph, that will be used, produced, transported or stored on or within the right-of-way or any of
-the right-of-way facilities, or used in the construction, operation, maintenance or termination of the
-right-of-way or any of its facilities. &quot;Hazardous material&quot; means any substance, pollutant or
-contaminant that is listed as hazardous under the Comprehensive Environmental Response,
-
-Compensation, and Liability Act of 1980, 42 U.S.C. § 9601 et seq., as amended, (hereinafter
-&quot;CERCLA&quot;) and its regulations. The definition of hazardous substances under CERCLA includes any
-&quot;hazardous waste&quot; as defined in the Resource Conservation and Recovery Act of 1976, 42 U.S.C. §
-6901 et seq., as amended, (hereinafter “RCRA”) and its regulations. The term hazardous material
-also includes any nuclear or byproduct material as defined by the Atomic Energy Act of 1954, 42 U.
-S. C. § 2011 et seq., as amended. The term does not include petroleum, including crude oil or any
-fraction thereof that is not otherwise specifically listed or designated as a hazardous substance
-under CERCLA section 101(14), 42 U.S.C. § 9601(14), nor does the term include natural gas.
-
-14. The Holder agrees to indemnify the United States against any liability arising from the release of any
-hazardous substance or hazardous waste (as these terms are defined in the Comprehensive
-Environmental Response, Compensation and Liability Act of 1980, 42 U.S.C. § 9601, et seq. or the
-Resource Conservation and Recovery Act of 1976, 42 U.S.C. § 6901 et seq.) on the right-of-way
-(unless the release or threatened release is wholly unrelated to the right-of-way Holder&#39;s activity on
-the right-of-way). This agreement applies without regard to whether a release is caused by the
-Holder, its agent, or unrelated third parties.
-
-15. The Holder(s) will comply with the Toxic Substances Control Act of 1976 as amended, 15 U.S.C. §
-2601 et seq. (1982) with regards to any toxic substances that are used, generated by or stored on
-the right-of-way or on facilities authorized under this right-of-way grant. (See 40 CFR Part 702-799
-and especially, provisions on polychlorinated biphenyls, 40 CFR 761.1-761.193.) Additionally, any
-release of toxic substances (leaks, spills, etc.) in excess of the reportable quantity established by 40
-CFR Part 117 will be reported as required by the Comprehensive Environmental Response,
-Compensation, and Liability Act, section 102b. A copy of any report required or requested by any
-Federal agency or State government as a result of a reportable release or spill of any toxic
-substances will be furnished to the Authorized Officer concurrent with the filing of the reports to the
-involved Federal agency or State government.
-
-Fire Prevention and Control
-
-16. When performing construction and maintenance (including emergency repairs) activities during the
-&quot;closed&quot; fire season (May 10 – October 20), as set by Idaho State Law, Title 38-115, or during any
-other closed fire season prescribed by the BLM Idaho State Director, the Holder, including those
-working on their behalf, will equip at least one on-site vehicle with firefighting equipment, including,
-but not limited to, fire suppression hand tools (i.e. shovels, rakes, Pulaski&#39;s, etc.), a 16-20 pound fire
-extinguisher, and a sufficient supply of water for initial attack, with a mechanism to effectively spray
-the water (i.e. backpack pumps, watersprayer, etc.)
-
-17. Within the bound of the right-of-way, the Holder will provide and maintain a vegetation clearance of
-up to 20 feet around the base of wood poles or other facilities with the potential to catch and/or
-spread fire.
-
-18. During conditions of extreme fire danger or when the State of Idaho and/or the BLM Idaho State
-Director issues a fire restriction order, operations will be limited or suspended in specific areas, or
-additional measures may be required by the Authorized Officer.
-
-19. In accordance with 43 CFR 2805.12(d) (or subsequent revisions), the Holder will do everything
-reasonable to prevent wildfires on or in the immediate vicinity of the right-of-way. The Holder will
-immediately report fires to the BLM Authorized Officer or Fire Dispatch (800-974-2373), and take all
-
-necessary fire suppression actions, when safe to do so, with their personnel and equipment on any
-fires they cause to ignite.
-
-20. During or following initial attack, the Holder will report to the Fire Investigator or BLM Incident
-Commander and will not enter into the origin area on BLM fires unless given permission to do so.
-
-21. The Holder will collaborate and cooperate with the BLM in its efforts to investigate, suppress and
-respond to all future wildland fires. The duty to &quot;collaborate” and “cooperate&quot; includes, but is not
-limited to, the following duties regardless of whether BLM is on the scene:
-a. The duty to provide the BLM (Authorized Officer or local fire dispatch center) with
-reasonable and timely notice concerning all wildland fires involving the Holder&#39;s facilities, or
-discovered during routine operations.
-b. The duty to share factual information with the BLM concerning the wildland fires, including
-but not limited to the names of Holder&#39;s employees with knowledge of the incident; and to
-allow employees to be interviewed by BLM&#39;s investigators regarding factual information
-relating to a wildland fire.
-c. The duty to reasonably account for Holder&#39;s actions taken at the scene of a wildland fire.
-d. The duty to minimize disturbance of potential evidence located on the scene; to properly
-handle and preserve any evidence collected; to not engage in any destructive testing
-without BLM&#39;s consent; and to make all evidence available to the BLM in a rapid and timely
-manner.
-e. The duty to not hamper the BLM investigation of origin and cause of the wildland fire; and
-to reasonably assist BLM&#39;s investigation at the scene.
-f. The duty to provide information concerning the construction, maintenance and/or repairs of
-any Holder&#39;s facilities located at or adjacent to a wildland fire.
-g. The duty during BLM fire suppression efforts: to defer to and follow the instructions of the
-BLM&#39;s Incident Commander regarding activities within the boundaries of the wildland fire
-and checking in and out of the wildland fire; and to recognize BLM;s primary authority over
-the scene.
-
-Operations and Maintenance
-
-22. The Holder will conduct all activities associated with the operation, maintenance, and termination of
-the right-of-way within the authorized limits of the right-of-way. If at any time the Holder wishes to
-reconstruct or relocate any portion of the right-of-way, or the improvements thereon, in a manner
-that has been determined to be a substantial deviation, prior written authorization must be
-obtained from the Authorized Officer.
-
-23. Specific sites as identified by the Authorized Officer (e.g., archaeological sites, areas with threatened
-and endangered species, or fragile watersheds) where construction equipment and vehicles are not
-allowed will be clearly marked onsite by the Holder before any surface disturbing activities begin.
-The Holder will be responsible for assuring that construction personnel are well trained to recognize
-these markers and understand the equipment movement restrictions involved.
-
-24. No surface disturbing maintenance activities will be allowed within riparian conservation area
-buffers, as follows: 300 feet for fish-bearing streams; 150 feet for perennial non-fish bearing
-streams; 150 feet for ponds, lakes, reservoirs, and wetlands greater than 1 acre; 50 feet for
-seasonally-flowing or intermittent streams, wetlands less than 1 acre, or landslide-prone areas. Any
-deviation from this requirement will have the prior written approval of the Authorized Officer.
-
-25. The Holder will remove only the minimum amount of vegetation and/or topsoil necessary for the
-construction and/or maintenance of structures and facilities. Topsoil removed will be stockpiled
-within the right-of-way or at an approved location during excavation and reused as cover on
-disturbed areas to facilitate growth of vegetation.
-
-26. Construction holes left open overnight will be covered. Covers will be secured in place and will be
-strong enough to prevent livestock or wildlife from falling through and into a hole.
-
-27. If any emergency repair activity results in disturbance outside the right-of-way boundary, the Holder
-will notify the Authorized Officer within three days of the occurrence. Upon review, the Authorized
-Officer may require remediation.
-
-28. The Holder will notify the Authorized Officer at least 90 days prior to any non-emergency activities
-that would cause surface disturbance in the right-of-way. Surface disturbing activities are not
-considered routine maintenance. The Authorized Officer will determine if resource inventories,
-treatments, or mitigation are required for the activity. The Holder will be responsible for the cost of
-inventory, avoidance, treatment or mitigation, including and maintenance-cause damage. The
-Authorized Officer will determine avoidance, treatment and mitigation measures that are necessary
-after consulting with the Holder.
-
-Access
-
-29. New access roads or cross-country vehicle travel outside the right-of-way will not be permitted
-without prior written approval by the Authorized Officer. The Holder will obtain a right-of-way to
-use any roads outside the right-of-way that require surface-disturbing repair or maintenance.
-
-Avian Protection
-
-30. Operations and maintenance within the right-of-way will comply with the most current nest
-management guidelines provided by the U.S. Fish and Wildlife Service (USFWS) as clarified in ID-IB-
-2010-039, or most recent guidance. If proposed maintenance activities are located within one mile
-of bald or golden eagle nests, the Holder will coordinate with the BLM and the USFWS to determine
-the likelihood of disturbance and any appropriate measures necessary to comply with the Band and
-Golden Eagle Protection Act (16 U.S.C. § et seq.).
-
-31. To the extent possible, operations and maintenance activities that include ground disturbance
-and/or vegetation removal will be conducted either prior to or following the affected migratory bird
-nesting season (January 1 - July 31 along the canyon rim) to avoid and/or minimize take of
-migratory birds as defined in the Migratory Bird Treaty Act (MBTA) of 1918 (16 U.S.C. § 703 et seq.)
-as amended. If any ground disturbing activities must occur during the nesting season (e.g., soil
-disturbance or vegetation removal), the Holder will coordinate with the BLM and USFWS to
-determine appropriate measures to comply with the MBTA.
-
-32. Unless otherwise agreed to by the Authorized Officer in writing, power lines will be constructed or
-rebuilt in accordance with the most recent version of the report, Suggested Practices for Avian
-Protection on Power Lines (Avian Power Line Interaction Committee, 2006). The Holder will assume
-the burden and expense of proving that pole designs not shown in the above publication are &quot;eagle
-safe.&quot; Such proof will be provided by a qualified raptor biologist approved by the Authorized Officer.
-The BLM reserved the right to require modifications or additions to all power line structures placed
-within this right-of-way, should they be necessary to ensure the safety of large perching birds. Such
-
-modifications and/or additions will be made by the Holder without liability or expense to the United
-States.
-
-Plants
-
-33. The Holder will be responsible for the control of noxious weeds and non-native invasive plants that
-result from construction, use, or maintenance authorized in the Holder&#39;s right-of-way grant. The
-Holder must coordinate with the Authorized Officer and/or local authorities for acceptable weed
-control measures (within limits imposed in the grant stipulations) prior to implementing weed
-treatments.
-
-34. The Holder will use only BLM-approved herbicide and adjuvants, and the applicator(s) will hold a
-current State of Idaho applicator&#39;s license or be under the direct supervision of a licensed applicator.
-
-35. The Holder will clean equipment, machinery and vehicles that disturb soil or vegetation prior to
-entry into BLM-managed lands. Cleaning is defined as removal of all dirt, grease, plant parts and
-material that may carry seeds or plant material from tires, tracks, belly plates, undercarriages, etc.
-Pressure washing is recommended. To the extent practical, the Holder will avoid or minimize travel
-through or parking in areas infested with noxious weeds to avoid spreading seeds or plant parts. At
-the BLM&#39;s discretion, equipment, machinery, and vehicles may be inspected prior to entry onto
-BLM-managed lands.
-
-36. The Holder will seed all disturbed areas with a seed mixture(s) and application method approved by
-the Authorized Officer to enhance successful germination and seedling establishment to control
-invasive species. The seed mixture(s) will be applied in the amounts specified in pounds of pure live
-seed (PLS)/acre. Seed will be tested and the viability of testing seed will be done within State law(s)
-and within 6 months prior to purchase. Commercial seed will be certified “weed free&quot;. The seed
-mixture contain will be tagged in accordance with State law(s) and available for inspection by the
-Authorized Officer.
-
-37. The Holder may clear brush and remove hazard trees less than 8 inches in Diameter Breast Height
-(DBH) within the ROW if necessary for operation and maintenance and/or for the health and safety
-of the Holder and his/her agents. Trees 8 inch DBH or greater within the ROW, and potential hazard
-trees outside the ROW, will be marked by the Holder. Prior to harvest, hazard trees outside the
-ROW and trees 8 inch DBH or greater will be verified and measured by the Authorized Officer.
-Vegetation and timber that is cut remains the property of the Government (43 CFR 2805.15) and
-may be sold to the Holder for appraised value in accordance with 43 CFR 5400.
-
-Pursuant to Section 512(e) of the Federal Land Policy and Management Act of 1976 (Public Law 115-
-141), if vegetation or hazard trees have contacted or present an imminent danger of contacting an
-electric transmission or distribution line from within or adjacent to the ROW, the Holder may prune
-or remove the vegetation or hazard tree to avoid the disruption of electric service and eliminate
-immediate fire and safety hazards. In this case, the Holder will notify the local BLM field or district
-office no later than 1 day after the date of the response to emergency conditions.
-
-Termination and Final Rehabilitation
-
-38. When the right-of-way is no longer required for the purpose granted, the Holder will submit a
-termination and rehabilitation plan to the Authorized Officer. This plan will include, but is not
-limited to, removal of facilities, structures, and surface material, re-contouring, topsoiling, and/or
-seeding. The Authorized Officer must approve the plan in writing prior to commencement of any
-
-termination activities, and may request a joint inspection of the right-of-way prior to
-development/acceptance of such a plan, and/or following execution of such a plan.</code></pre>
+[ ] [x] Contribute to the introduction, continued existence, or spread of noxious weeds
+or nonnative invasive species known to occur in the area or actions that may
+promote the introduction, growth, or expansion of the range of such species
+(Federal Noxious Weed Control Act and Executive Order 13112).
+
+PART III: DECISION
+
+Based on the review documented above, I conclude that this proposal conforms to the
+applicable land use planning document(s) and that this NEPA documentation fully covers the
+proposed action and constitutes BLM&#39;s compliance with the requirements of NEPA and that no
+further environmental analysis is required. It is my decision to implement the proposed action,
+as described, with the following stipulations/mitigation measures to be applied.
+
+Stipulations/Mitigations:
+1. Standard Stipulations for Overhead Electric Distribution Lines.
+
+Digitally signed
+Authorized Official: by TY ALLEN
+Date: 2020.10.01 Date:
+Carlsbad Field Office Manager</code></pre>
 </div>
 </div>
 </section>

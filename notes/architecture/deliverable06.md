@@ -133,7 +133,7 @@ The rule-based result is stored in `project_transmission_length_miles` (the "com
 
 #### 3.2.4 LLM adjudication (`_run_llm_transmission_adjudication`)
 
-LLM adjudication is **triggered** when two or more non-trivial, non-partial candidate groups remain after rule-based resolution (`llm_trigger = TRUE`). When LLM is enabled (`--use-llm` flag passed to the extraction script), a Claude API call is made for each triggered project.
+LLM adjudication is **triggered** when two or more non-trivial, non-partial candidate groups remain after rule-based resolution (`llm_trigger = TRUE`). When LLM is enabled (by including `llm` as a run target), a Claude API call is made for each triggered project.
 
 The prompt presents up to 8 candidates with their source snippets and instructs the model to pick the candidate most likely to represent the total proposed line length. The model is explicitly told to:
 - Prefer candidates with "X miles long" or "X miles in length" language
@@ -145,7 +145,7 @@ The prompt presents up to 8 candidates with their source snippets and instructs 
 
 **Run command:**
 ```bash
-python code/extract/extract_technology.py --run transmission --use-llm --workers 4 \
+python code/extract/extract_technology.py --run transmission llm --workers 4 \
   --page-length-recovery --output data/analysis/projects_combined.parquet
 ```
 
@@ -173,7 +173,7 @@ A secondary extraction pass recovers lengths for projects that passed the build-
 
 **Document targeting (efficiency):**
 - **CE projects**: Each CE document is a single page blob — all pages are read (no filtering needed). DuckDB joins `documents.parquet` → `pages.parquet` on `document_id`, filtering to target project IDs.
-- **EA/EIS projects**: Only `main_document = 'YES'` documents are queried, and only the first `max_ea_eis_pages` pages (default 10) per document via `ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY page_number)`. The "Proposed Action" and "Project Description" sections appear in these opening pages in virtually all EA/EIS formats.
+- **EA/EIS projects**: Only `main_document = 'YES'` documents are queried, and only the first `max_ea_eis_pages` pages (default **50**) per document via `ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY page_number)`. The "Proposed Action" and "Project Description" sections appear in these opening pages in virtually all EA/EIS formats. The default was raised from 10 to 50 after a page-distribution analysis showed that 76% of pipeline EA documents are ≤50 pages (median 33 pages), while EIS documents have a median of ~490 pages making any fixed page cap irrelevant for that type.
 
 **DuckDB join:** `project_id` in `documents.parquet` is a struct `{value: UUID-with-hyphens}`; `project_id` in `projects_combined.parquet` is a plain hex string. Both sides are normalized by stripping hyphens (`replace(d.project_id.value, '-', '')`) before joining. Target project IDs are registered as an in-memory DuckDB table (`_target_ids`) to avoid per-project queries.
 
@@ -181,7 +181,7 @@ A secondary extraction pass recovers lengths for projects that passed the build-
 
 **Write-back:** For projects where the recovered length ≥ 1 mile, all standard transmission length columns are overwritten with the page-derived values. A new boolean column `project_transmission_length_from_pages = TRUE` marks these rows for provenance tracking. `project_is_transmission_strict` is re-evaluated after write-back, so recovered projects automatically enter the strict set.
 
-**CLI:** Enabled by `--page-length-recovery` flag. `--page-search-max-pages N` controls the EA/EIS page depth (default 10). Not run by default (no flag = old behavior).
+**CLI:** Enabled by `--page-length-recovery` flag. `--page-search-max-pages N` controls the EA/EIS page depth (default **50**). Not run by default (no flag = old behavior).
 
 **Known limitation:** Recovery rate is lower than expected for the CE population because many projects that previously passed the build-text gate were ROW renewals entering via the old permissive ROW branch (`right-of-way.*transmission line`). That branch has been narrowed to require "new" in the vicinity, so fewer renewals enter the gate going forward. The remaining no-length projects are expected to be genuine builds where the length is not stated anywhere in the document text.
 
@@ -236,7 +236,42 @@ A project-level action type is derived by applying six regex patterns to the ful
 
 ### 3.5 Pipeline Classification
 
-Pipeline projects are identified via `project_is_pipeline` (keyword-based flag). Each pipeline project is then classified into a technology subtype:
+#### 3.5.1 Broad identification (`project_is_pipeline`)
+
+Pipeline projects are identified using the controlled-vocabulary **`project_type` field only** — analogous to geothermal identification (Section 3.4). A project receives `project_is_pipeline = TRUE` if its `project_type` contains *Pipeline*. No keyword sweep of title, description, or other free-text fields is performed. This mirrors the design choice for geothermal and avoids pulling in projects that mention pipeline infrastructure incidentally (e.g., a wind project noting a nearby gas pipeline in its description).
+
+#### 3.5.2 New-build filter (`project_is_pipeline_new_build`)
+
+The broad `project_is_pipeline` set spans the full lifecycle of pipeline NEPA activity — new construction, expansions, operational modifications, safety certifications, right-of-way renewals, and administrative approvals. Duration analysis on this mixed corpus conflates genuine new-infrastructure reviews with routine regulatory filings.
+
+A two-gate new-build filter (`project_is_pipeline_new_build`) narrows the corpus to likely new-construction and major-expansion reviews:
+
+**Gate 1 — Build-text presence** (`project_pipeline_has_build_text`):
+Title + description (context text) must contain `PIPELINE_BUILD_RE` — patterns covering:
+- `new (natural gas|gas|oil|carbon|co2|hydrogen|water|crude)? pipeline`
+- `(construct|build|install|lay) ... pipeline`
+- `pipeline (project|route|corridor|system|facility|expansion|extension|segment|lateral)`
+- `pipeline (alignment|right-of-way)`
+- `(gathering system|gathering line|flowline) (project|construction|installation|expansion)`
+- `pipeline interconnect(ion)?`
+
+**Gate 2 — Maintenance exclusion** (`project_pipeline_is_maintenance`):
+**Title only** must NOT contain `PIPELINE_MAINTENANCE_RE` — patterns covering inspection, survey, cathodic protection, in-line inspection, pigging, right-of-way mowing, routine maintenance, leak detection, integrity management, etc. Title-only matching avoids excluding genuine construction projects where incidental maintenance language appears in the description.
+
+**Carbon/hydrogen exemption:** Projects flagged as `project_is_carbon_pipeline` or `project_is_hydrogen_pipeline` are **exempted from Gate 1** (build-text requirement). These are nascent technologies with essentially no existing installed base — all reviews are for new infrastructure. Requiring explicit construction language would under-count them because large integrated NEPA documents (covering CCS facilities, LNG terminals, etc.) describe the full project, not just the pipeline component. The maintenance exclusion (Gate 2) still applies.
+
+`project_is_pipeline_new_build` logic:
+```
+project_is_pipeline
+  AND (project_pipeline_has_build_text OR project_is_carbon_pipeline OR project_is_hydrogen_pipeline)
+  AND NOT project_pipeline_is_maintenance
+```
+
+**Note:** No length gate is applied (unlike transmission's ≥ 1 mile threshold) because pipeline length coverage is much sparser — adding a length requirement would drop a large fraction of genuine new-build projects that lack an extractable length.
+
+#### 3.5.3 Technology subtype classification
+
+Each pipeline project is classified into a technology subtype via keyword matching on full text:
 
 | Field | Detection basis |
 |---|---|
@@ -245,7 +280,24 @@ Pipeline projects are identified via `project_is_pipeline` (keyword-based flag).
 | `project_is_natural_gas_pipeline` | Natural gas pipeline keywords |
 | `project_pipeline_group` | Rolled-up label for the above (with "Other pipeline" as the residual) |
 
-Pipeline length extraction follows the same candidate extraction and adjudication logic as transmission, using `PIPELINE_HINTS` (`"pipeline"`, `"pipelines"`, `"right-of-way"`, `"row"`, `"buried line"`, `"flowline"`). The result is stored in `project_pipeline_length_miles` and `project_pipeline_length_confidence`.
+#### 3.5.4 Pipeline length extraction
+
+Pipeline length extraction follows the same candidate extraction and adjudication logic as transmission, using `PIPELINE_HINTS`:
+
+```
+"pipeline", "pipelines", "right-of-way", "row", "buried line", "flowline",
+"gas line", "gas lines", "gathering line", "gathering lines"
+```
+
+The last four terms were added after diagnostic analysis found they appear in BLM CE descriptions (e.g., "5 buried gas lines 9,348 feet long") that the original hint set missed.
+
+**Width-context fix:** `_extract_length_candidates()` previously applied `WIDTH_CONTEXT_RE` at the sentence level, which caused valid pipeline lengths to be silently dropped when a sentence contained both a length and a ROW width (e.g., `"21,628 feet in length, 30 feet in width"`). The check now uses a ±20-char local window around each feet match, so only the value immediately adjacent to width language is excluded. This fix applies to both transmission and pipeline extraction. Diagnostic analysis found this was blocking **691 zero-candidate pipeline projects** from recovering any length.
+
+The result is stored in `project_pipeline_length_miles` and `project_pipeline_length_confidence`.
+
+**Page-level length recovery** (`_extract_pipeline_length_from_pages`): When `data/processed/` exists (automatic — no CLI flag), a secondary pass reads document pages for pipeline-tagged, non-maintenance projects with no mileage in their metadata. Uses the same DuckDB query pattern as transmission: all pages for CE; first **50** pages of `main_document='YES'` documents for EA/EIS (default raised from 10 — see Section 3.2.5). Recovered values overwrite the metadata-derived fields and set `project_pipeline_length_from_pages = True`. Uses `_best_single_candidate()` (rule-based only, no LLM) because pipeline has no multi-candidate adjudication infrastructure.
+
+**CLI:** `python code/extract/extract_technology.py --run pipeline` — page recovery fires automatically when `data/processed/` exists, mirroring the `--run transmission` pattern.
 
 ---
 
@@ -382,6 +434,8 @@ Filters to `project_is_pipeline == TRUE`, clean energy projects. The `pipeline_g
 
 (Priority cascade: carbon > hydrogen > natural gas > other, so a project matching multiple subtype flags takes the first matching label.)
 
+A **new-build subset** (`project_is_pipeline_new_build == TRUE`) is used for duration and length figures to restrict analysis to likely construction/expansion reviews. An **energy pipeline subset** (`pipeline_group %in% c("Carbon pipeline", "Hydrogen pipeline", "Natural gas pipeline", "Oil/petroleum pipeline")`) is used for timeline analysis to exclude water/irrigation pipelines that dominate the "Other pipeline" residual but are not the focus of the analysis.
+
 ### 7.2 Tables
 
 | File | Description |
@@ -476,7 +530,10 @@ All fields below are written by `extract_technology.py` and available for join i
 | `project_geothermal_matched_phases` | String (JSON) | JSON array of phase keys whose regex patterns fired; `'[]'` for `unknown`, `none`, and ML-classified rows |
 | `project_geothermal_phase_ml_classified` | Boolean | TRUE if ML classifier updated this row's phase from `unknown` |
 | `project_geothermal_phase_ml_confidence` | Float | Softmax score for the ML-predicted label; NaN for regex-classified rows |
-| `project_is_pipeline` | Boolean | Pipeline keyword flag |
+| `project_is_pipeline` | Boolean | `project_type` field contains "Pipeline" |
+| `project_pipeline_has_build_text` | Boolean | Title/description contains construction-language match (`PIPELINE_BUILD_RE`) |
+| `project_pipeline_is_maintenance` | Boolean | Title indicates operational maintenance scope (`PIPELINE_MAINTENANCE_RE`) |
+| `project_is_pipeline_new_build` | Boolean | Likely new-construction/major-expansion review (see Section 3.5.2) |
 | `project_is_carbon_pipeline` | Boolean | Carbon capture / CO₂ pipeline |
 | `project_is_hydrogen_pipeline` | Boolean | Hydrogen pipeline |
 | `project_is_natural_gas_pipeline` | Boolean | Natural gas pipeline |
@@ -484,6 +541,7 @@ All fields below are written by `extract_technology.py` and available for join i
 | `project_pipeline_length_miles` | Float | Extracted pipeline length (rule-based) |
 | `project_pipeline_length_confidence` | String | `high`, `medium`, `none` |
 | `project_pipeline_length_source_text` | String | Text snippet containing the matched length value |
+| `project_pipeline_length_from_pages` | Boolean | TRUE if length was recovered from document page text (not title/description) |
 | `project_pipeline_length_candidate_count` | Integer | Raw candidate count |
 | `project_pipeline_length_distinct_candidate_count` | Integer | Distinct value groups |
 | `project_pipeline_length_candidates_json` | String | JSON array of all pipeline candidates (for QA) |
@@ -532,7 +590,7 @@ Length extraction depends on numeric mile mentions in project title and descript
 
 ### 11.2 Small pipeline samples
 
-Carbon (n=8) and hydrogen (n=4) pipeline projects are too few for reliable statistical comparisons. All pipeline findings should be framed as preliminary and descriptive.
+Carbon and hydrogen pipeline projects with both a new-build flag and extractable durations are very few (order of magnitude: single digits). All pipeline findings for these nascent technologies should be framed as preliminary and descriptive. Natural gas pipeline new-build projects (~20% of the broader pipeline tag) provide better statistical support but are still limited relative to transmission.
 
 ### 11.3 Geothermal phase completeness
 

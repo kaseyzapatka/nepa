@@ -4548,20 +4548,29 @@ vertical-align: -.125em;
 <h2 class="anchored" data-anchor-id="geothermal">Geothermal</h2>
 <section id="how-identified-1" class="level3">
 <h3 class="anchored" data-anchor-id="how-identified-1">How identified</h3>
-<p>Single keyword match, no type tag, no extra gates:</p>
+<p>Keyword match on <strong><code>project_type</code> field only</strong> (analogous to transmission’s type-tag gate):</p>
 <pre><code>\b(geothermal|enhanced geothermal|egs)\b</code></pre>
-<p>Applied to <code>full_text</code> = title + description + type + NOI title + aggregated document titles. <code>project_is_geothermal = TRUE</code> whenever this matches.</p>
+<p>Applied to <code>project_type</code> only (not full_text). <code>project_is_geothermal = TRUE</code> whenever this matches. NEPATEC does carry geothermal-specific tags within <code>project_type</code>, making a type-tag gate reliable. Earlier documentation incorrectly stated no such tag existed.</p>
 <p>R analysis (<code>02_geothermal.R</code>) filters to <code>project_is_geothermal == TRUE</code> + clean energy.</p>
-<p>There is no specific NEPATEC project type tag for geothermal — it is a sub-type of <code>&quot;Renewable Energy Production&quot;</code> which is too broad to use as a gate.</p>
-<p>Phase classification (<code>project_geothermal_phase</code>) is derived separately via <code>_classify_geothermal_phase()</code> using regex patterns applied to full project text. Roughly half of geothermal projects receive <code>phase = &quot;unknown&quot;</code> (geothermal keyword present but no phase signal detected). Phase classification does not scan document pages.</p>
+<p>Phase classification (<code>project_geothermal_phase</code>) is derived separately via <code>_classify_geothermal_phase()</code> using regex patterns applied to <strong><code>full_text</code></strong> (title + description + type + NOI title + aggregated document titles). This step is unchanged — only the identification flag uses the narrower type_text field. Roughly half of geothermal projects receive <code>phase = &quot;unknown&quot;</code> (geothermal keyword present but no phase signal detected). Phase classification does not scan document pages.</p>
 </section>
 <section id="what-could-be-missed-1" class="level3">
 <h3 class="anchored" data-anchor-id="what-could-be-missed-1">What could be missed</h3>
-<p>Minor: projects using “hydrothermal” without “geothermal” — rare in NEPA documents. The large unknown-phase bucket is a downstream accuracy issue, not an identification gap.</p>
+<p>Projects where the geothermal project_type tag is missing but the project clearly involves geothermal development (e.g., tagged only as “Renewable Energy Production”). This is the trade-off of moving to a type-tag gate — tighter precision, potentially lower recall.</p>
 </section>
 <section id="extra-filters-verdict-1" class="level3">
 <h3 class="anchored" data-anchor-id="extra-filters-verdict-1">Extra filters verdict</h3>
-<p>Nothing to remove — identification is just a keyword. No extra filters exist.</p>
+<p>Nothing to remove — identification is a single type-tag match. No additional filters (build text, length threshold, maintenance exclusion) exist for geothermal.</p>
+</section>
+<section id="phase-classification-two-stage-pipeline" class="level3">
+<h3 class="anchored" data-anchor-id="phase-classification-two-stage-pipeline">Phase classification — two-stage pipeline</h3>
+<p><strong>Stage 1: Regex (always runs).</strong> <code>_classify_geothermal_phase()</code> applies <code>GEOTHERMAL_PHASE_PATTERNS</code> to <code>full_text</code>. Returns one of: <code>exploration | drilling | plant | operations | multi_phase | unknown | none</code>. Rows with no pattern match receive <code>unknown</code>; rows with no geothermal keyword at all receive <code>none</code>.</p>
+<p><strong>Stage 2: ML classifier (optional, run separately).</strong> A fine-tuned DistilBERT (<code>distilbert-base-uncased</code>) re-classifies the <code>unknown</code> rows. Trained on the regex-labeled rows (exploration / drilling / plant / operations / multi_phase) using title + project_type + first 100 words of description as input text. Labels: same five canonical phases (<code>multi_phase</code> treated as a valid target class).</p>
+<p>Run order:</p>
+<pre><code>python code/extract/extract_technology.py --run geothermal          # Stage 1
+python code/extract/extract_technology.py --geothermal-phase-train  # train on labeled rows
+python code/extract/extract_technology.py --geothermal-phase-classify  # update unknowns</code></pre>
+<p>Model saved to <code>data/models/geothermal_phase_classifier/</code>. Three columns added/updated by the classify step: - <code>project_geothermal_phase</code> — updated from <code>&quot;unknown&quot;</code> to predicted label - <code>project_geothermal_phase_ml_confidence</code> — softmax score for the predicted label - <code>project_geothermal_phase_ml_classified</code> — <code>True</code> for ML-predicted rows (audit flag)</p>
 <hr>
 </section>
 </section>
@@ -4639,13 +4648,13 @@ vertical-align: -.125em;
 <tr class="odd">
 <td>Uses NEPATEC type tag</td>
 <td>Yes (required)</td>
-<td>No tag available</td>
+<td><strong>Yes</strong> (project_type field)</td>
 <td>No (tag = fossil fuel)</td>
 </tr>
 <tr class="even">
 <td>Text keyword filter</td>
 <td>Strict build-text regex</td>
-<td>Simple keyword only</td>
+<td>Tag keyword only</td>
 <td>Simple keyword (broadened)</td>
 </tr>
 <tr class="odd">

@@ -104,6 +104,9 @@ combined_cols <- c(
   "project_id",
   "project_is_geothermal",
   "project_is_pipeline",
+  "project_is_pipeline_new_build",
+  "project_pipeline_has_build_text",
+  "project_pipeline_is_maintenance",
   "project_is_carbon_pipeline",
   "project_is_hydrogen_pipeline",
   "project_is_natural_gas_pipeline",
@@ -113,11 +116,20 @@ combined_cols <- c(
   "project_geothermal_phase_ml_confidence",
   "project_pipeline_group",
   "project_pipeline_length_miles",
+  "project_pipeline_length_final",
   "project_pipeline_length_confidence",
   "project_pipeline_length_source_text",
   "project_pipeline_length_candidates_json",
   "project_pipeline_length_candidate_count",
   "project_pipeline_length_distinct_candidate_count",
+  "project_pipeline_length_from_pages",
+  "project_pipeline_length_llm_trigger",
+  "project_pipeline_length_llm_used",
+  "project_pipeline_length_llm_status",
+  "project_pipeline_length_llm_reasoning",
+  "project_pipeline_length_llm_model",
+  "project_pl_llm_run_at",
+  "project_pl_extraction_run_at",
   "project_energy_type"
 )
 
@@ -246,6 +258,9 @@ add_deliv6_fallback_features <- function(df) {
     "project_is_transmission_broad",
     "project_is_geothermal",
     "project_is_pipeline",
+    "project_is_pipeline_new_build",
+    "project_pipeline_has_build_text",
+    "project_pipeline_is_maintenance",
     "project_is_carbon_pipeline",
     "project_is_hydrogen_pipeline",
     "project_is_natural_gas_pipeline",
@@ -254,13 +269,17 @@ add_deliv6_fallback_features <- function(df) {
     "project_transmission_length_llm_trigger",
     "project_transmission_length_llm_used",
     "project_is_transmission_maintenance",
-    "project_transmission_length_from_pages"
+    "project_transmission_length_from_pages",
+    "project_pipeline_length_from_pages",
+    "project_pipeline_length_llm_trigger",
+    "project_pipeline_length_llm_used"
   )
   numeric_cols <- c(
     "project_geothermal_phase_ml_confidence",
     "project_transmission_length_miles",
     "project_transmission_length_final",
     "project_pipeline_length_miles",
+    "project_pipeline_length_final",
     "project_transmission_length_candidate_count",
     "project_transmission_length_distinct_candidate_count",
     "project_pipeline_length_candidate_count",
@@ -285,6 +304,11 @@ add_deliv6_fallback_features <- function(df) {
     "project_transmission_length_llm_reasoning",
     "project_transmission_length_llm_model",
     "project_pipeline_length_candidates_json",
+    "project_pipeline_length_llm_status",
+    "project_pipeline_length_llm_reasoning",
+    "project_pipeline_length_llm_model",
+    "project_pl_llm_run_at",
+    "project_pl_extraction_run_at",
     "project_tx_extraction_run_at",
     "project_tx_llm_run_at"
   )

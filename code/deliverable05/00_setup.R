@@ -139,7 +139,7 @@ coverage_steps <- list()
 
 # Step 1: Total clean energy EA/EIS with timeline data
 # (All clean energy EA/EIS projects have timeline data, so these are equivalent)
-coverage_steps[["Total clean energy\nwith timeline data"]] <- projects %>%
+coverage_steps[["Total decarbonization technology\nprojects with timeline data"]] <- projects %>%
   semi_join(timeline, by = "project_id") %>%
   count(process_type, name = "n")
 
