@@ -2,6 +2,16 @@
 
 Analysis of clean energy projects using the National Environmental Policy Act Text Corpus (NEPATEC) 2.0 dataset from PNNL's PermitAI project.
 
+## Render Key Insights to Word
+
+```bash
+quarto render reports/key_insights.qmd --to docx
+```
+
+Output: `reports/key_insights.docx`
+
+---
+
 ## Project Website
 
 This project has [a website](https://www.kaseyzapatka.com/nepa/reports/project_overview.html) to make it easy to view and share findings. 
