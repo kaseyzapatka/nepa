@@ -1,6 +1,7 @@
 #!/usr/bin/env Rscript
 # Generates reports/catf-reference.docx with CATF brand colors applied to heading styles.
-# Run once: Rscript reports/make_reference_docx.R
+# Used to create final key-insights document for distribution.
+# Run once: Rscript code/utils/make_reference_docx.R
 
 library(here)
 
