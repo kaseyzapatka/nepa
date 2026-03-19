@@ -98,8 +98,10 @@ energy_type_summary <- projects %>%
   count(project_energy_type, name = "projects") %>%
   mutate(
     share = projects / sum(projects),
-    project_energy_type = factor(project_energy_type,
-                                  levels = c("Clean", "Fossil", "Other"))
+    project_energy_type = factor(
+      if_else(project_energy_type == "Clean", "Decarbonized", project_energy_type),
+      levels = c("Decarbonized", "Fossil", "Other")
+    )
   )
 
 fig_energy_type <- energy_type_summary %>%
@@ -118,7 +120,7 @@ fig_energy_type <- energy_type_summary %>%
     labels = scales::comma,
     expand = expansion(mult = c(0, 0.15))
   ) +
-  scale_fill_manual(values = c("Clean" = catf_teal,
+  scale_fill_manual(values = c("Decarbonized" = catf_teal,
                                 "Fossil" = catf_navy,
                                 "Other" = catf_light_blue)) +
   theme(legend.position = "none")

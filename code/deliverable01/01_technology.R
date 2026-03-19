@@ -176,6 +176,33 @@ ggsave(
 
 
 # --------------------------
+# TABLE: TECHNOLOGY BY PROCESS TYPE (clean energy projects only)
+# --------------------------
+# Derives directly from clean_energy_summary_by_process so table matches figures.
+
+tech_crosstab <- clean_energy_summary_by_process %>%
+  select(technology, process_type, n) %>%
+  pivot_wider(names_from = process_type, values_from = n, values_fill = 0L) %>%
+  mutate(
+    CE  = if ("CE"  %in% names(.)) CE  else 0L,
+    EA  = if ("EA"  %in% names(.)) EA  else 0L,
+    EIS = if ("EIS" %in% names(.)) EIS else 0L,
+    Total = CE + EA + EIS
+  ) %>%
+  select(
+    Technology                       = technology,
+    `Categorical Exclusion`          = CE,
+    `Environmental Assessment`       = EA,
+    `Environmental Impact Statement` = EIS,
+    Total
+  ) %>%
+  arrange(desc(Total))
+
+write_csv(tech_crosstab, here(tables_dir, "table1_by_technology.csv"))
+cat("  Saved: table1_by_technology.csv\n")
+
+
+# --------------------------
 # SUMMARY
 # --------------------------
 
