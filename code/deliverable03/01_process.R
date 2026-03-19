@@ -49,6 +49,7 @@ fig_data <- projects %>%
 # Figure 1: Grouped bar chart comparing process types
 
 fig1 <- fig_data %>%
+  mutate(project_energy_type = if_else(project_energy_type == "Clean", "Decarbonized", project_energy_type)) %>%
   ggplot(aes(
     x = n,
     y = reorder(project_energy_type, total_energy_type),
@@ -85,6 +86,7 @@ ggsave(
 
 # Figure 2: Stacked bar chart showing composition
 fig2 <- fig_data %>%
+  mutate(project_energy_type = if_else(project_energy_type == "Clean", "Decarbonized", project_energy_type)) %>%
   ggplot(aes(x = reorder(project_energy_type, total_energy_type), y = pct, fill = process_type)) +
   geom_col(width = 0.7) +
   geom_text(
@@ -95,7 +97,9 @@ fig2 <- fig_data %>%
     fontface = "bold"
   ) +
   geom_text(
-    data = fig_data %>% distinct(project_energy_type, total_energy_type),
+    data = fig_data %>%
+      mutate(project_energy_type = if_else(project_energy_type == "Clean", "Decarbonized", project_energy_type)) %>%
+      distinct(project_energy_type, total_energy_type),
     aes(x = reorder(project_energy_type, total_energy_type), y = 101,
         label = scales::comma(total_energy_type)),
     inherit.aes = FALSE,

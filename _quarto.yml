@@ -24,6 +24,8 @@ website:
         href: reports/deliverable06.qmd
       - text: "Presentations"
         href: presentations/presentation1.qmd
+      - text: "Fact Sheet"
+        href: reports/key_insights.qmd
 
 format:
   html:
