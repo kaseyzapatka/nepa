@@ -111,6 +111,7 @@ solar_row <- d1_technology %>% filter(Technology == "Renewable Energy Production
 solar_total <- solar_row$Total[[1]]
 solar_ce_pct <- solar_row$`Categorical Exclusion`[[1]] / solar_total
 solar_eis_pct <- solar_row$`Environmental Impact Statement`[[1]] / solar_total
+solar_ea_pct <- solar_row$`Environmental Assessment`[[1]] / solar_total
 
 doe_row <- d1_coverage %>% filter(lead_agency_harmonized == "Department of Energy")
 doe_total <- doe_row$Total[[1]]
@@ -134,17 +135,12 @@ doi_bridge <- d4_hubs %>% filter(department == "Department of the Interior") %>%
 ea_post_fra_total <- d5_compliance %>% filter(process_type == "EA") %>% pull(total) %>% first()
 eis_post_fra_total <- d5_compliance %>% filter(process_type == "EIS") %>% pull(total) %>% first()
 ea_exceeds_pct <- d5_compliance %>% filter(process_type == "EA", compliance == "Exceeds limit") %>% pull(pct) / 100
+ea_compliant_pct <- d5_compliance %>% filter(process_type == "EA", compliance == "Compliant") %>% pull(pct) / 100
 eis_exceeds_standard_pct <- d5_compliance %>% filter(process_type == "EIS", compliance == "Exceeds standard limit") %>% pull(pct) / 100
 eis_exceeds_limit_pct <- d5_compliance %>% filter(process_type == "EIS", compliance == "Exceeds limit") %>% pull(pct) / 100
+eis_compliant_pct <- d5_compliance %>% filter(process_type == "EIS", compliance == "Compliant") %>% pull(pct) / 100
 ```
 
-<!--
-Review comment syntax:
-
-::: {.column-margin .review-comment}
-Check whether this claim needs a more specific citation to Deliverable 3.
-:::
--->
 
 ::: {.content-visible when-format="html"}
 [Download PDF version](key_insights.pdf){.btn .btn-outline-primary .btn-sm}
@@ -238,7 +234,7 @@ knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
 
 ### 1.3 NEPA is just not really a problem for solar.
 
-Within the current technology-tagged output, there are `r scales::comma(solar_total)` solar actions total; `r scales::percent(solar_ce_pct, accuracy = 0.1)` are CEs and only `r scales::percent(solar_eis_pct, accuracy = 0.1)` are EISs. Within this federal-review corpus, NEPA is therefore not the main bottleneck for most solar activity. Other constraints such as transmission access, interconnection, land availability, agency capacity, and financing may matter more often than full-scale NEPA review.
+Within the current technology-tagged output, there are `r scales::comma(solar_total)` solar actions total; `r scales::percent(solar_ce_pct, accuracy = 0.1)` are CEs, `r scales::percent(solar_ea_pct, accuracy = 0.1)` are EAs, and only `r scales::percent(solar_eis_pct, accuracy = 0.1)` are EISs. Within this federal-review corpus, NEPA is likely not the main bottleneck for most solar activity. Other constraints such as transmission access, interconnection, land availability, agency capacity, and financing may matter more than full-scale NEPA review.
 
 ```{r}
 #| label: fig-technology-by-process
@@ -422,12 +418,6 @@ Also, I changed "projects" to "actions" -- where else might we want to do this?
 :::
 :::
 
-::: {.callout-warning}
-## Coverage Caveat
-
-NEPATEC 2.0 is a corpus of federal environmental review documents, not a census of all U.S. decarbonization activity. Agency comparisons also need care: EIS coverage is government-wide, but EA/CE coverage is complete only for DOE and BLM — all other agencies are represented primarily via the EPA EIS database and therefore appear with inflated EIS shares.
-:::
-
 ---
 
 ```{=latex}
@@ -435,9 +425,11 @@ NEPATEC 2.0 is a corpus of federal environmental review documents, not a census 
 ```
 # 2. There Are Real Efficiency Gains to Be Had in NEPA Implementation at the Agency Level
 
-**Programmatic and tiered reviews:** The evidence on programmatic and tiered reviews indicates that there are real efficiency gains from avoiding project-specific environmental impact statements. However, programmatic and tiered reviews are rare: only `r n_nonstandard` of `r scales::comma(n_reviews)` decarbonization EA/EIS reviews (`r scales::percent(pct_nonstandard, accuracy = 0.1)`) are programmatic or tiered.
+### 2.1 Increased strategic use of programmatic and tiered reviews.
 
-Tiered EAs take longer than standard EAs on median (`r ea_tiered_med` versus `r ea_standard_med` days), but they are still much shorter than a full EIS. The more important efficiency gain appears to be at the EIS level: tiered EISs have a median duration of `r eis_tiered_med` days, compared with `r eis_standard_med` days for standard EISs and `r eis_programmatic_med` days for programmatic EISs. The practical lesson is that tiering helps most when it allows an agency to avoid repeating full project-specific EIS analysis, not when it is expected to marginally speed up an EA.
+The evidence on programmatic and tiered reviews indicates that there are real efficiency gains from avoiding project-specific environmental impact statements. However, programmatic and tiered reviews are rare: only `r n_nonstandard` of `r scales::comma(n_reviews)` decarbonization EA/EIS reviews (`r scales::percent(pct_nonstandard, accuracy = 0.1)`) are programmatic or tiered, indicating that there are opportunities for agencies to increase their use, as appropriate.
+
+Tiered EAs take longer than standard EAs on average (`r ea_tiered_med` versus `r ea_standard_med` days), but have a substantially shorter timeline than a full EIS. This suggests the real efficiency gain from tiering is when it allows an agency to avoid a full EIS altogether rather than just shortening the timeline of an EA. Tiered EISs take less time than standard and programmatic EISs (though distributions substantially overlap and sample sizes are small)
 
 ```{r}
 #| label: fig-review-duration
@@ -447,7 +439,9 @@ Tiered EAs take longer than standard EAs on median (`r ea_tiered_med` versus `r 
 knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 ```
 
-**Interagency coordination:** [Previous CATF research](https://www.catf.us/resource/evidence-based-recommendations-overcoming-barriers-federal-transmission-permitting/) on transmission permitting has demonstrated that insufficient support for agency coordination, cooperation, and capacity contributes to longer permitting timelines. This research builds on that finding by mapping which agencies collaborate the most on NEPA reviews. In the current output tables, DOE stands out as the clear hub of the multi-department network, with a bridge score of `r round(doe_bridge, 1)` compared with `r round(doi_bridge, 1)` for DOI. That suggests that improving DOE-DOI collaboration through targeted staffing increases, memoranda of understanding, and other mechanisms may have outsized impact on review timelines.
+### 2.2 Increased interagency coordination. 
+
+[Previous CATF research](https://www.catf.us/resource/evidence-based-recommendations-overcoming-barriers-federal-transmission-permitting/) on transmission permitting has demonstrated that insufficient support for agency coordination, cooperation, and capacity contributes to longer permitting timelines. This research builds on that finding by mapping which agencies collaborate the most on NEPA reviews. We find that DOE stands out as the clear hub of the multi-department netwxork, with a bridge score of `r round(doe_bridge, 1)` compared with `r round(doi_bridge, 1)` for DOI. That suggests that improving DOE-DOI collaboration through targeted staffing increases, memoranda of understanding, and other mechanisms may have outsized impact on review timelines. Its dominance reflects both the sheer number of partner agencies (9 unique departments) and the high volume of shared project ties. DOI is a meaningful secondary hub, with its strongest partnership running back to DOE. All other departments are more peripheral—connecting to one or two partners and typically anchored to DOE as their primary collaborator. This indicates that improving DOE-DOI collaboration through targeted staffing increases, memoranda of understanding, and other mechanisms may have outsized impact on improving review timelines.
 
 ```{r}
 #| label: fig-department-sankey
@@ -457,7 +451,18 @@ knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 knitr::include_graphics(file.path(d4_figures, "fig_department_sankey.png"))
 ```
 
-This is consistent with the broader permitting literature: bottlenecks often arise not from NEPA's existence as a statute, but from uneven agency capacity, fragmented authority, and weak coordination routines. Those are implementation problems, and they can be addressed without reopening the statute itself.
+::: {.content-visible when-format="html"}
+::: {.column-margin .review-comment}
+I think the "bridge" language is prob more helpful in quantifying connections than the sankey plot but the sankey plot is a more interesting visual? If we want to keep the sankey, then we should talk about it/interpret it. Otherwise, my opinion is to switch the sankey out for the bridge figure that is being referenced here: 
+
+
+```{r}
+knitr::include_graphics(file.path(d4_figures, "fig_department_collaboration_hubs.png"))
+```
+
+::: 
+::: 
+
 
 ---
 
@@ -466,9 +471,16 @@ This is consistent with the broader permitting literature: bottlenecks often ari
 ```
 # 3. Permitting Reforms in the Fiscal Responsibility Act of 2023 Have Had a Real, but Modest, Impact
 
-The [Fiscal Responsibility Act of 2023 (Public Law 118-5)](https://ceq.doe.gov/laws-regulations/fra.html) introduced page limits for NEPA environmental reviews. Under the law, environmental impact statements must be 150 pages or less, or 300 pages or less for proposals of extraordinary complexity, and environmental assessments must be 75 pages or less.
+The [Fiscal Responsibility Act of 2023 (Public Law 118-5)](https://ceq.doe.gov/laws-regulations/fra.html) introduced page limits for NEPA environmental reviews. Under the law, environmental assessments must be 75 pages or less and environmental impact statements must be either 150 pages or less, or for proposals of extraordinary complexity, under 300 pages or less.
 
-The Phase 1 analysis finds a real but modest post-FRA shift in document length. Average and median regulatory page counts decline after the FRA threshold, which is consistent with agencies responding to the new statutory limits. At the same time, the post-FRA sample is still small: only `r ea_post_fra_total` EAs and `r eis_post_fra_total` EISs are in the current compliance table.
+::: {.content-visible when-format="html"}
+::: {.column-margin .review-comment}
+I rewrote/restructured some of the content in this section -- tell me what you think. 
+
+:::
+:::
+
+There is considerable variation in average page length of documents over time. Using a 3-month rollling average, we see a slight decline in average page length after FRA's passage, but a return to pre-FRA rates more recently. To some extent, this is likely a result of a small sample size post-FRA: only `r ea_post_fra_total` EAs and `r eis_post_fra_total` EISs.
 
 ```{r}
 #| label: fig-pages-over-time
@@ -478,6 +490,8 @@ The Phase 1 analysis finds a real but modest post-FRA shift in document length. 
 knitr::include_graphics(file.path(d5_figures, "05_pages_over_time_break.png"))
 ```
 
+Viewed another way, our analysis shows a real but modest post-FRA shift in document length pre- and post-FRA. Average and median regulatory page counts mostly decline after the FRA threshold, which is consistent with agencies responding to the new statutory limits. 
+
 ```{r}
 #| label: fig-pre-post
 #| fig-cap: "Mean regulatory pages for decarbonization EA and EIS projects, before and after FRA enactment."
@@ -486,7 +500,7 @@ knitr::include_graphics(file.path(d5_figures, "05_pages_over_time_break.png"))
 knitr::include_graphics(file.path(d5_figures, "05_pages_pre_post_fra.png"))
 ```
 
-The page limits had an effect, though the evidence is not yet definitive. `r scales::percent(ea_exceeds_pct, accuracy = 1)` of post-FRA EAs still exceed the 75-page limit. For EISs, `r scales::percent(eis_exceeds_limit_pct, accuracy = 1)` exceed even the 300-page ceiling, while another `r scales::percent(eis_exceeds_standard_pct, accuracy = 1)` fall in the 151--300 page range and may still be defensible under the "extraordinary complexity" exception. The practical conclusion is that the FRA has changed incentives, but not yet produced consistent compliance.
+Ultimately, it's like that instituting page limits had some effect, but the evidence is not yet definitive:`r scales::percent(ea_compliant_pct, accuracy = 1)` of post-FRA EAs are compliant with the 75-page limit; and  `r scales::percent(eis_exceeds_standard_pct, accuracy = 1)` ofEISs fall within the 151--300 page limit, with another `r scales::percent(eis_compliant_pct, accuracy = 1)` potentially being compliant under the "extraordinary complexity" exception for under 300 pages.  The practical conclusion is that the FRA has changed incentives, but not yet produced consistent compliance. A fuller assessment will require more decisions from EA and EIS projects initiated after June 3, 2023 to be completed. 
 
 ```{r}
 #| label: fig-compliance
@@ -496,7 +510,6 @@ The page limits had an effect, though the evidence is not yet definitive. `r sca
 knitr::include_graphics(file.path(d5_figures, "05_fra_compliance.png"))
 ```
 
-This ambiguity is unsurprising. Many post-FRA decisions were likely already well underway when the law took effect, creating a transitional cohort in which agencies had to balance page-limit pressure against other statutory timing and process requirements. A fuller assessment will require more decisions from projects initiated after June 3, 2023.
 
 ---
 
