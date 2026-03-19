@@ -748,3 +748,31 @@ text_vs_type %>%
   ) %>%
   slice_sample(n = 25) %>%
   print(width = Inf)
+
+
+# --------------------------
+# VALIDATION PIPELINE + TRANSMISSION 
+# --------------------------
+  
+analysis_all |> 
+  filter(pipeline_group %in% energy_pipeline_groups) |> 
+  filter(project_is_pipeline_new_build == TRUE) |> 
+  select(project_id, project_title, project_description_txt,, contains("project_type")) |> 
+    filter(
+    str_detect(project_type_txt, regex("pipeline", ignore_case = TRUE)),
+    str_detect(project_type_txt, regex("transmission", ignore_case = TRUE))
+  ) |> 
+  slice_sample(n = 1) |> 
+  pull(project_title, project_description_txt) |> 
+  print()
+
+analysis_all |> 
+    filter(
+    str_detect(project_type_txt, regex("pipeline", ignore_case = TRUE)),
+    str_detect(project_type_txt, regex("transmission", ignore_case = TRUE))
+  ) |> 
+  filter(project_title == "Suchan Fed 1 POD") |> 
+  #select(project_type) |> 
+  glimpse()
+
+

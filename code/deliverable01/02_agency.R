@@ -312,7 +312,7 @@ coverage_verified <- bind_rows(
     filter(str_detect(lead_agency_harmonized, regex("bureau of land management", ignore_case = TRUE))) %>%
     mutate(
       agency_label = "Bureau of Land Management (BLM)",
-      dept_label = "Department of the Interior"
+      dept_label = "Bureau of Land Management (BLM)"
     )
 ) %>%
   count(dept_label, agency_label, process_type) %>%
@@ -326,10 +326,10 @@ coverage_verified <- bind_rows(
 coverage_totals <- coverage_verified %>%
   distinct(dept_label, agency_label, total)
 
-dept_order_cv <- c("Department of Energy", "Department of the Interior")
+dept_order_cv <- c("Department of Energy", "Bureau of Land Management (BLM)")
 dept_labels_cv <- c(
-  "Department of Energy"       = "Department\nof Energy",
-  "Department of the Interior" = "Department\nof the Interior"
+  "Department of Energy"            = "Department\nof Energy",
+  "Bureau of Land Management (BLM)" = "Bureau of Land\nManagement (BLM)"
 )
 
 coverage_verified <- coverage_verified %>%
@@ -362,7 +362,7 @@ fig_coverage_verified <- coverage_verified %>%
     fill = "Process Type",
     title = "NEPA Process Type Distribution by Department",
     subtitle = "Only DOE and BLM have complete CE, EA, and EIS coverage in NEPATEC 2.0",
-    caption = "Numbers to the right show total project count. For the Department of the Interior, only BLM (Bureau of Land Management) has complete coverage."
+    caption = "Numbers to the right show total project count."
   ) +
   scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.08))) +
   scale_fill_manual(

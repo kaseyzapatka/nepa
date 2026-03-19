@@ -769,7 +769,8 @@ fig_department_collaboration_hubs <- tbl_department_collaboration_hubs %>%
     subtitle = "Bar length shows bridge score; labels show most frequent partner",
     x = "Bridge score",
     y = NULL,
-    fill = "Collaborative\nproject ties"
+    fill = "Collaborative\nproject ties",
+    caption = "Bridge score is a normalized measure of cross-department collaboration ties (unique partner departments × log(1 + total shared project ties))."
   ) +
   theme_catf()
 
@@ -858,6 +859,139 @@ ggsave(
   units = "in",
   dpi = 300
 )
+
+
+#
+# Filtered Sankey: Top Departments Only
+# ----------------------------------------------------
+# Threshold rationale: compute total shared-project ties per department (summing
+# pair_counts as source; symmetric data so this equals total as destination).
+# Departments below the threshold are peripheral collaborators — they add visual
+# clutter without meaningfully shifting the story. A threshold of 20 retains the
+# core agencies that drive clean-energy NEPA collaboration and drops the tail.
+cat("\nCreating filtered department Sankey (top departments only)...\n")
+
+DEPT_TOP_N <- 6  # keep the N most collaborative departments
+
+dept_totals <- pair_counts |>
+  group_by(department = department_1) |>
+  summarise(total_ties = sum(shared_projects), .groups = "drop") |>
+  arrange(desc(total_ties))
+
+cat("\nDepartment collaborative project ties (before filtering):\n")
+print(dept_totals, n = Inf)
+
+top_depts      <- dept_totals |> slice_head(n = DEPT_TOP_N) |> pull(department)
+excluded_df    <- dept_totals |> filter(!department %in% top_depts)
+excluded_depts <- excluded_df$department
+# Effective floor: the minimum tie count among kept departments (for footnote)
+DEPT_THRESHOLD <- dept_totals |> filter(department %in% top_depts) |> pull(total_ties) |> min()
+
+cat(sprintf(
+  "\nTop-%d filter (effective floor: %d project ties)\n  Kept (%d): %s\n  Excluded (%d): %s\n",
+  DEPT_TOP_N, DEPT_THRESHOLD,
+  length(top_depts),    paste(top_depts,     collapse = ", "),
+  length(excluded_depts), paste(excluded_depts, collapse = ", ")
+))
+
+# Filter to pairs where BOTH departments clear the threshold
+pair_counts_filtered <- pair_counts |>
+  filter(department_1 %in% top_depts, department_2 %in% top_depts)
+
+# Order strata: largest department (most ties) at top → set factor levels descending
+dept_order <- dept_totals |>
+  filter(department %in% top_depts) |>
+  arrange(desc(total_ties)) |>
+  pull(department)
+
+pair_counts_filtered <- pair_counts_filtered |>
+  mutate(
+    department_1 = factor(department_1, levels = dept_order),
+    department_2 = factor(department_2, levels = dept_order)
+  )
+
+# Build footnote text
+excluded_label <- if (length(excluded_depts) > 0) {
+  paste0(
+    "Note: Showing top ", length(top_depts), " of ", nrow(dept_totals),
+    " departments by collaborative activity (minimum ", DEPT_THRESHOLD,
+    " shared project ties). Excluded (", length(excluded_depts), "): ",
+    paste(excluded_depts, collapse = "; "), "."
+  )
+} else {
+  "All departments shown."
+}
+
+# Build base filtered Sankey
+base_department_sankey_filtered <- ggplot(
+  pair_counts_filtered,
+  aes(axis1 = department_1, axis2 = department_2, y = shared_projects)
+) +
+  ggalluvial::geom_alluvium(
+    aes(fill = department_1),
+    width = 1 / 10,
+    alpha = 0.8
+  ) +
+  ggalluvial::geom_stratum(
+    width = 1 / 8,
+    fill = "gray96",
+    color = "gray60"
+  ) +
+  scale_x_discrete(
+    limits = c("axis1", "axis2"),
+    labels = NULL,
+    expand = c(0.03, 0.03)
+  ) +
+  scale_fill_manual(
+    values = rep(catf_palette, length.out = n_distinct(pair_counts_filtered$department_1))
+  ) +
+  labs(
+    title = "Cross-Department Project Flows",
+    subtitle = paste0(
+      "Top ", length(top_depts), " departments by collaborative activity; ",
+      "flow width reflects shared projects"
+    ),
+    caption = str_wrap(excluded_label, width = 200),
+    y = NULL,
+    x = NULL
+  ) +
+  theme_catf() +
+  theme(
+    legend.position = "none",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_blank(),
+    plot.caption = element_text(
+      hjust = 0, size = 8, color = "gray40",
+      margin = margin(t = 10)
+    ),
+    plot.margin = margin(10, 10, 15, 10)
+  )
+
+# Add stratum labels using stat = "stratum" — avoids ggplot_build() fragility
+# with factor axes and uses full department names (no prefix removal)
+fig_department_sankey_filtered <- base_department_sankey_filtered +
+  geom_text(
+    stat = ggalluvial::StatStratum,
+    aes(label = str_wrap(after_stat(stratum), width = 18)),
+    hjust = 0.5,
+    size = 3.5,
+    lineheight = 0.9,
+    color = "gray20"
+  )
+
+ggsave(
+  filename = here(figures_dir, "fig_department_sankey_filtered.png"),
+  plot = fig_department_sankey_filtered,
+  width = 13,
+  height = 7,
+  units = "in",
+  dpi = 300
+)
+cat("  Saved: figures/fig_department_sankey_filtered.png\n")
 
 
 #
