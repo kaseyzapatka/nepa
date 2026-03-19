@@ -517,9 +517,35 @@ knitr::include_graphics(file.path(d5_figures, "05_fra_compliance.png"))
 
 Several considerations from the fact sheet should remain front-of-mind when translating these findings into policy recommendations.
 
-- **Data quality and completeness remain a structural limitation.** Better federal metadata standards and document-linkage practices would improve nearly every downstream permitting analysis. Existing efforts such as PermitAI, CEQ's NEPA data standard, and the ePermit Act move in the right direction, but they do not yet solve the broader fragmentation problem.
-- **High CE usage is not automatically a normative success.** Streamlined review can be appropriate, but faster timelines do not always imply better environmental analysis or better public decision-making.
-- **Shorter timelines are not the only policy goal.** Review quality, legal durability, agency learning, and public legitimacy matter alongside speed.
-- **Some of the most important questions remain outside this Phase 1 scope.** In particular, the present work does not directly test whether NEPA was the actual cause of project delay, nor does it comprehensively analyze when agencies may have relied on CEs too aggressively.
+**Data quality and completeness remain a structural limitation.** 
 
-Taken together, the Phase 1 evidence suggests a fairly specific policy posture: be skeptical of claims that broad NEPA reform will dramatically accelerate decarbonization on its own; focus instead on agency capacity, coordination, data systems, and targeted use of programmatic tools where those changes can plausibly alter outcomes.
+- NEPATEC 2.0 assembles documents from multiple sources: EIS records are drawn from EPA's governmentwide EIS database and are broadly representative since 2012, but EA and CE data are substantially complete only for DOE and BLM. This means the dataset captures a large share of the federal decarbonization NEPA universe but not all of it — for example, coverage is thin for agencies like the Corps of Engineers or the Forest Service. 
+
+- Better federal metadata standards, document-linkage practices, and centralized submission requirements would improve nearly every downstream permitting analysis. One coveted data point would be project timeline data. In its current form, all timeline data was extracted directly from document text: this is an inefficient, unwieldy, and somewhat inaccurate process. Future iterations of the  NEPATEC database would benefit greatly from including this as metadata, likely requiring NEPA reviewer to provide a summary of key dates within all NEPA documents. 
+
+- Existing efforts such as PermitAI, CEQ's NEPA data standard, and the ePermit Act move in the right direction, but they do not yet solve the broader fragmentation problem — and significant additional investment in federal data infrastructure is still needed.
+
+::: {.content-visible when-format="html"}
+::: {.column-margin .review-comment}
+I added a point about the importance of timeline data as metadata. Is this ok to keep?
+:::
+:::
+
+**High CE usage is not automatically a normative success — and the present administration's approach warrants particular scrutiny.** 
+
+- Categorical Exclusions are a legitimate and appropriate tool when applied within statutory bounds: they are designed for classes of actions that experience has shown to have no significant individual or cumulative environmental effects. However, their integrity depends on good-faith implementation and the current administration has applied existing CEs to project types they were not designed to cover. This raises concerns about the accuracy of such applied categorical exclusions and artificially compresses review timelines. Unfortuntely, these practices are not directly observable in NEPATEC — the dataset captures the formal record, not the quality of the underlying analysis. A count of CEs is not the same as an asessment of the quality of a CE determination.
+
+**Faster timelines are not the only policy goal, and speed can come at the cost of quality and legal durability.** 
+
+- Review quality, agency learning, and public legitimacy matter alongside speed. DOI's recent production of EISs in as little as two weeks is a salient example: a document of that scope produced on that timeline raises serious questions about whether meaningful analysis took place, regardless of what the formal record shows. Rushing NEPA reviews may trade short-term permitting speed for downstream litigation risk and larger-than-expected environmental impact — the opposite of what well-designed reform should produce.
+
+**Some of the most important questions remain outside this Phase 1 scope.** 
+
+- In particular, the present work does not directly test whether NEPA was the actual cause of project delay, what were the main triggers of NEPA review, nor does it comprehensively analyze when agencies may have relied on CEs too aggressively.
+
+::: {.content-visible when-format="html"}
+::: {.column-margin .review-comment}
+What do we think of these points -- teasing Phase 2? Anything we might want to add?
+:::
+:::
+
