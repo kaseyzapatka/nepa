@@ -328,10 +328,10 @@ Process type mix by lead department
 ::: {.column width="60%"}
 ```{r}
 #| out-width: "85%"
-knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
+knitr::include_graphics(file.path(d1_figures, "02_agency_process.png"))
 ```
 ::: {.caption-text}
-Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
+Process type mix — DOE and BLM only (comprehensive coverage)
 :::
 
 :::
@@ -339,8 +339,8 @@ Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
 
 ::: {.callout-finding}
 - **DOE accounts for 81% of all decarbonization-related projects** — and processes 97% of those through Categorical Exclusions
-- **BLM and Forest Service** show a more varied process mix, consistent with their land-management mandates for large-scale renewables on federal lands.
-- **See Appendix for detailed coverage note:** Only DOE, BLM, and Forest Service have comprehensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture.
+- **BLM** shows a more varied process mix, consistent with its land-management mandate for large-scale renewables on federal lands.
+- **See Appendix for detailed coverage note:** Only DOE and BLM have comprehensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture.
 - [Key department deep dive analysis →](https://www.kaseyzapatka.com/nepa/reports/deliverable01.html#key-agency-deep-dive)
 :::
 
@@ -934,10 +934,10 @@ Three additional exclusions were applied after reviewing co-occurring tag combin
 ::: {.columns}
 ::: {.column width="50%"}
 ```{r}
-knitr::include_graphics(file.path(d1_figures, "02_department_process.png"))
+knitr::include_graphics(file.path(d1_figures, "02_agency_process.png"))
 ```
 ::: {.caption-text}
-Process type mix — DOE, BLM, and Forest Service only (comprehensive coverage)
+Process type mix — DOE and BLM only (comprehensive coverage)
 :::
 :::
 ::: {.column width="50%"}
@@ -951,7 +951,7 @@ Process type mix by lead department (all agencies)
 :::
 
 ::: {.callout-finding}
-**Coverage note:** Only DOE, BLM, and Forest Service have comprehensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture.
+**Coverage note:** Only DOE and BLM have comprehensive CE, EA and EIS data so the second figure limits to those departments/agencies for a clearer picture.
 ::: 
 ---
 
