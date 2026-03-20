@@ -1,7 +1,6 @@
 # Timeline Extraction: Refactor Architecture
 
 **Created:** 2026-03-19
-**Status:** Approved for implementation
 **Scope:** Improving completion rates without modifying or overwriting validated existing timelines
 
 ---
