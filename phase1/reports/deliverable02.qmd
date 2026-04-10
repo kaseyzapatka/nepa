@@ -1,0 +1,317 @@
+---
+title: "NEPA Decarbonization Technology Analysis: Deliverable 2"
+subtitle: "Programmatic & Tiered Reviews"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(arrow)
+library(here)
+library(gt)
+library(readr)
+
+# Paths to pre-computed outputs
+d2_figures <- here("phase1", "output", "deliverable2", "figures")
+d2_tables  <- here("phase1", "output", "deliverable2", "tables")
+
+# Load reviews for inline example tables
+reviews <- read_parquet(here("phase1", "data", "analysis", "projects_reviews.parquet")) %>%
+  as_tibble() %>%
+  mutate(
+    review_type  = str_to_sentence(project_review_type),
+    process_type = dataset_source
+  )
+
+n_total        <- nrow(reviews)
+n_programmatic <- sum(reviews$project_review_type == "programmatic")
+n_tiered       <- sum(reviews$project_review_type == "tiered")
+n_standard     <- n_total - n_programmatic - n_tiered
+pct_nonstandard <- (n_programmatic + n_tiered) / n_total * 100
+
+# Load duration summary for inline values
+dur_summary <- read_csv(here("phase1", "output", "deliverable2", "tables", "02_duration_summary.csv"),
+                        show_col_types = FALSE)
+get_med <- function(proc, rtype) {
+  dur_summary %>% filter(process_type == proc, review_type == rtype) %>% pull(median_days)
+}
+get_n <- function(proc, rtype) {
+  dur_summary %>% filter(process_type == proc, review_type == rtype) %>% pull(n)
+}
+```
+
+
+## Executive Summary
+
+::: {.callout-note}
+## Key Findings
+- Programmatic and tiered reviews are **rare**: only **`r n_programmatic + n_tiered`** of `r scales::comma(n_total)` decarbonization technology EA/EIS projects (`r sprintf("%.1f%%", pct_nonstandard)`) are non-standard.
+- **Tiered reviews do not complete faster.** Tiered EAs take a median of `r get_med("EA","Tiered")` days—longer than standard EAs (`r get_med("EA","Standard")` days). Programmatic EISs are modestly faster than standard EISs (`r get_med("EIS","Programmatic")` vs. `r get_med("EIS","Standard")` days median), but the difference is small relative to the overall spread.
+- **BLM dominates.** The Bureau of Land Management accounts for the majority of both programmatic and tiered reviews, reflecting its large federal land footprint in the West.
+- **Western states concentrate non-standard reviews.** California, Nevada, and Washington top the list, consistent with BLM's western land base and the siting of utility-scale renewable energy projects.
+- Any statistical comparison (e.g., timelines) relies on a **small sample** and incomplete timeline coverage, so results should be treated as exploratory.
+:::
+
+This report delivers:
+
+> Data on programmatic and tiered reviews: how many tiered reviews are there compared to total and are they completed faster?
+
+---
+
+# Methodology
+
+We identified programmatic and tiered reviews within the NEPATEC 2.0 decarbonization technology EA/EIS corpus using a two-stage extraction approach applied to all `r scales::comma(n_total)` EA and EIS projects.
+
+**Stage 1 — Title detection:** Project titles were scanned for explicit programmatic indicators. A title match immediately classifies a project as programmatic with high confidence.
+
+**Stage 2 — Regex extraction from documents:** For projects not resolved by title, the first 60 pages of each project's main documents were searched using pattern matching. Two parallel detection tasks ran on each page: (1) checking whether the document itself is a programmatic review, and (2) looking for tiering language indicating the review builds on a prior programmatic document. A false-positive filter excluded non-NEPA uses of "tier" before any match was accepted.
+
+**Sample search patterns used:**
+
+| Detection target | Example patterns |
+|:---|:---|
+| Programmatic (title/text) | "programmatic," "PEIS," "PEA," "Generic EIS," "Tier 1 EIS" |
+| Programmatic (document text) | "this programmatic EIS/EA," "purpose of this programmatic," "this PEIS analyzes" |
+| Tiered (document text) | "this EA tiers from the [PEIS]," "tiers to the...PEIS," "site-specific EA that tiers from" |
+| False positives excluded | EPA Tier 1–4 engine standards, road tier classifications, "tiered pricing/rate" |
+
+**Definitions:**
+
+| Term | Meaning |
+|:-----|:--------|
+| **Standard** | A typical, stand-alone EA or EIS that neither constitutes nor tiers from a programmatic review |
+| **Programmatic** | A Programmatic EIS (PEIS) or Programmatic EA (PEA) covering a class of actions or a geographic region |
+| **Tiered** | A site-specific EA or EIS that explicitly tiers from a prior programmatic review |
+
+---
+
+# Review Type Snapshot
+
+@fig-review-share shows the overall distribution of review types across `r scales::comma(n_total)` decarbonization technology EA/EIS projects. The vast majority (`r sprintf("%.1f%%", n_standard / n_total * 100)`) are standard reviews. Programmatic reviews (`r n_programmatic` projects) and tiered reviews (`r n_tiered` projects) together represent `r sprintf("%.1f%%", pct_nonstandard)` of the corpus.
+
+```{r}
+#| label: fig-review-share
+#| fig-cap: !expr sprintf("Review type distribution across %s decarbonization technology EA/EIS projects in NEPATEC 2.0.", scales::comma(n_total))
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d2_figures, "02_review_share.png"))
+```
+
+---
+
+# Review Type by NEPA Process
+
+@fig-review-by-process breaks down review types by NEPA process (EA vs. EIS). The left panel shows proportional shares within each process type; the right panel shows absolute counts for non-standard reviews by process.
+
+Programmatic reviews appear in both EA and EIS processes—programmatic EISs (PEIS) are more common, which makes sense given that PEIS are the canonical instrument for landscape-scale or policy-level NEPA reviews. Tiered reviews in this dataset are predominantly EAs, consistent with the idea that tiered reviews leverage prior programmatic analysis to streamline site-specific assessments that might otherwise require a full EIS.
+
+```{r}
+#| label: fig-review-by-process
+#| fig-cap: "Review type distribution by NEPA process. Left: proportional shares within each process type; Right: absolute counts for non-standard reviews by process."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d2_figures, "02_review_by_process.png"))
+```
+
+---
+
+# Who Conducts Programmatic and Tiered Reviews?
+
+## Lead Agencies
+
+@fig-agency shows which lead agencies are most associated with programmatic and tiered reviews in the decarbonization technology subset. The Bureau of Land Management (BLM) accounts for the plurality of both types, reflecting its authority over large tracts of public land in the western United States—the primary siting ground for utility-scale renewable energy. The Department of Energy (DOE) and Power Marketing Administrations (PMAs, e.g., Western Area Power Administration) account for most of the remainder, driven by their roles in transmission infrastructure and grid management.
+
+```{r}
+#| label: fig-agency
+#| fig-cap: "Top 8 lead agencies by number of programmatic and tiered reviews."
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(d2_figures, "02_agency.png"))
+```
+
+## By Department
+
+@fig-dept aggregates the same non-standard reviews to the department level, collapsing sub-agencies into their parent cabinet departments. The picture simplifies considerably: the **Department of the Interior** (primarily BLM, but also the Bureau of Ocean Energy Management and Bureau of Reclamation) is responsible for roughly half of all programmatic and tiered reviews in the decarbonization technology corpus. **Other Independent Agencies**—a catch-all that includes the Tennessee Valley Authority and NASA—account for the next largest share, mostly through programmatic EISs tied to long-range resource planning. **Department of Energy** rounds out the top three, driven by DOE program offices and the Power Marketing Administrations that oversee transmission and grid infrastructure.
+
+The department view is useful for stakeholder reporting: it maps cleanly onto the organizational structure that clients and policymakers engage with, and makes the Interior dominance unmistakable even if sub-agency details matter for operational questions.
+
+```{r}
+#| label: fig-dept
+#| fig-cap: "Programmatic and tiered reviews by parent department."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d2_figures, "02_department.png"))
+```
+
+## Geographic Distribution
+
+@fig-state shows the top states for non-standard reviews. Western states dominate—California, Nevada, Washington, Colorado, and Arizona each have ten or more programmatic or tiered projects—mirroring BLM's land footprint and the concentration of utility-scale renewable energy siting in the West. Note that multi-state projects are counted once per state, so these totals reflect project-state combinations.
+
+```{r}
+#| label: fig-state
+#| fig-cap: "Top 12 states for programmatic and tiered decarbonization technology reviews (multi-state projects counted once per state)."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d2_figures, "02_state.png"))
+```
+
+---
+
+# Review Duration
+
+A central question for this deliverable is whether tiered reviews complete faster than standard reviews—the implicit rationale for tiering being that it reduces analytical burden by leveraging prior programmatic work. @fig-duration compares review duration (days from initiation to decision) across review types, separately for EA and EIS processes. Note that duration analysis is limited to projects with both a valid initiation date and a decision date; incomplete timeline coverage reduces sample sizes, particularly for non-standard review types.
+
+```{r}
+#| label: fig-duration
+#| fig-cap: "Review duration by type and NEPA process. Box = IQR; diamond = median; points = individual projects. Violin shown for groups with n ≥ 10. Y-axis capped at the 97th percentile."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
+```
+
+```{r}
+#| label: tbl-duration
+#| tbl-cap: "Descriptive statistics for review duration (days) by review type and NEPA process."
+
+dur <- read_csv(file.path(d2_tables, "02_duration_summary.csv"), show_col_types = FALSE)
+
+dur %>%
+  mutate(process_type = factor(process_type, levels = c("EA", "EIS"))) %>%
+  arrange(process_type, review_type) %>%
+  gt(groupname_col = "process_type") %>%
+  cols_label(
+    review_type  = "Review Type",
+    n            = "N",
+    mean_days    = "Mean",
+    median_days  = "Median",
+    sd_days      = "SD",
+    p25_days     = "P25",
+    p75_days     = "P75",
+    min_days     = "Min",
+    max_days     = "Max"
+  ) %>%
+  cols_align(align = "left",  columns = review_type) %>%
+  cols_align(align = "right", columns = where(is.numeric)) %>%
+  fmt_number(columns = where(is.numeric), decimals = 0, use_seps = TRUE) %>%
+  tab_spanner(label = "Days (initiation to decision)",
+              columns = c(mean_days, median_days, sd_days, p25_days, p75_days,
+                          min_days, max_days)) %>%
+  tab_style(
+    style    = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) %>%
+  tab_style(
+    style = list(
+      cell_fill(color = "#002169"),
+      cell_text(color = "white", weight = "bold", size = px(13))
+    ),
+    locations = cells_row_groups()
+  ) %>%
+  tab_style(
+    style    = cell_fill(color = "#fff7f0"),
+    locations = cells_body(rows = review_type == "Tiered")
+  ) %>%
+  tab_footnote(
+    footnote = "Only projects with both a valid initiation date and decision date and positive duration are included."
+  ) %>%
+  tab_options(table.font.size = px(13), data_row.padding = px(6),
+              row_group.padding = px(6))
+```
+
+**Key finding:** Tiered reviews are not systematically faster.
+
+- **Tiered EAs** take a median of **`r get_med("EA","Tiered")`** days—longer than standard EAs (`r get_med("EA","Standard")` days). This is the opposite of the expected efficiency gain.
+- **Programmatic EAs** (n = `r get_n("EA","Programmatic")`) appear shorter (median `r get_med("EA","Programmatic")` days), but the sample is too small to draw conclusions.
+- **Programmatic EISs** (n = `r get_n("EIS","Programmatic")`) are modestly faster than standard EISs (`r get_med("EIS","Programmatic")` vs. `r get_med("EIS","Standard")` days), suggesting some efficiency benefit for the programmatic EIS instrument itself—but the difference is small relative to the overall spread.
+- **Tiered EISs** have only `r get_n("EIS","Tiered")` observations and cannot be interpreted reliably.
+
+One possible explanation for the counterintuitive tiered EA finding: projects that explicitly tier from a programmatic review may be larger and more complex (e.g., utility-scale solar siting in BLM landscape plans), and this complexity drives the longer timeline rather than the tiering relationship per se. Controlling for project scope would require additional data.
+
+---
+
+# Tiered Review Parentage
+
+Which programmatic reviews generate the most downstream tiered work? @fig-tiered-parents classifies the "tiers from" references extracted from each tiered project's documents.
+
+```{r}
+#| label: fig-tiered-parents
+#| fig-cap: !expr sprintf("Parent programmatic reviews cited by the %d tiered projects. Blue points = named programmatic reviews; gray = vague or unclear references that could not be linked to a specific PEIS/PEA.", n_tiered)
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(d2_figures, "02_tiered_parents.png"))
+```
+
+A handful of programmatic reviews generate the bulk of identifiable tiered work, including the BLM Vegetation Treatment Using Herbicides PEIS, the TVA Integrated Resource Plan EIS, the Desert Renewable Energy Conservation Plan (DRECP) EIS, and the Upper Great Plains Wind Energy PEIS. Some tiered reviews reference the parent PEIS vaguely (e.g., "this EA incorporates by reference the analysis of..."), making the specific parent review unidentifiable from text alone.
+
+---
+
+# Examples
+
+## Programmatic Reviews
+
+@tbl-programmatic-examples shows sample projects classified as programmatic reviews, with the evidence text that triggered the classification.
+
+```{r}
+#| label: tbl-programmatic-examples
+#| tbl-cap: "Sample programmatic review projects with classification evidence."
+
+reviews %>%
+  filter(project_review_type == "programmatic") %>%
+  arrange(process_type, project_title) %>%
+  slice_head(n = 10) %>%
+  transmute(
+    `Project title`  = str_wrap(project_title, 55),
+    `Process`        = process_type,
+    `Evidence text`  = paste0("\u201c", str_trunc(project_review_match_text, 120), "\u201d")
+  ) %>%
+  gt() %>%
+  cols_align(align = "left") %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) %>%
+  tab_options(table.font.size = px(12), data_row.padding = px(8))
+```
+
+## Tiered Reviews
+
+@tbl-tiered-examples shows sample tiered reviews with the parent programmatic review they reference and the evidence text.
+
+```{r}
+#| label: tbl-tiered-examples
+#| tbl-cap: "Sample tiered review projects with parent PEIS/PEA reference and classification evidence."
+
+reviews %>%
+  filter(project_review_type == "tiered") %>%
+  filter(!is.na(project_review_tiers_from)) %>%
+  arrange(project_title) %>%
+  slice_head(n = 10) %>%
+  transmute(
+    `Project title` = str_wrap(project_title, 20),
+    `Process`       = process_type,
+    `Tiers from`    = str_wrap(str_trunc(project_review_tiers_from, 150), 40),
+    `Evidence`      = paste0("\u201c", str_trunc(project_review_match_text, 220), "\u201d")
+  ) %>%
+  gt() %>%
+  cols_width(
+    `Project title` ~ px(160),
+    `Process`       ~ px(55),
+    `Tiers from`    ~ px(180),
+    `Evidence`      ~ px(340)
+  ) %>%
+  cols_align(align = "left") %>%
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) %>%
+  tab_options(table.font.size = px(12), data_row.padding = px(12))
+```
+
+---
+
+*Report generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis*

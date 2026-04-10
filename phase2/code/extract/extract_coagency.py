@@ -44,7 +44,7 @@ import pandas as pd
 # --------------------------
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+ANALYSIS_DIR = BASE_DIR / "phase1" / "data" / "analysis"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 
 DEFAULT_PROJECTS_PATH = ANALYSIS_DIR / "projects_combined.parquet"

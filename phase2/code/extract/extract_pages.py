@@ -39,7 +39,7 @@ import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
-ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+ANALYSIS_DIR = BASE_DIR / "phase1" / "data" / "analysis"
 
 # Page body classification thresholds
 WORD_COUNT_THRESHOLD = 50        # Pages with fewer words treated as maps/figures/blanks
