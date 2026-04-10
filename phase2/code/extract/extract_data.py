@@ -557,7 +557,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # goes from extract/ -
 
 RAW_DIR = BASE_DIR / "data" / "raw"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
-ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+ANALYSIS_DIR = BASE_DIR / "phase1" / "data" / "analysis"
 FEDERAL_REGISTER_PATH = ANALYSIS_DIR / "noi_federal_register.parquet"
 
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)

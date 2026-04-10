@@ -4,9 +4,9 @@
 **Input:** `data/analysis/projects_combined.parquet` + regex candidate cache.
 **Output:** `data/analysis/timeline_{ce,ea,eis}.parquet`, `timeline_{ea,eis}_llm.parquet`, `timeline_targeted_llm.parquet`
 **Cost:** LLM adjudication ~$0.60–$1.00 (Claude Haiku) for EA + EIS full runs. Targeted re-adjudication ~$0.44.
-**Prerequisites:** Base dataset built ([runbook 01](01_base_dataset.md)).
+**Prerequisites:** Base dataset built ([runbook 01](../runbooks/01_base_dataset.md)).
 
-> **Note on prior organization:** The targeted re-adjudication for programmatic/tiered projects was previously documented as a standalone "Deliverable 02" section in the README. It is step 7 in the full rebuild below because it operates on timeline outputs — it is a timeline operation, not a reviews operation. Reviews ([runbook 03](03_reviews.md)) must still run before step 7.
+> **Note on prior organization:** The targeted re-adjudication for programmatic/tiered projects was previously documented as a standalone "Deliverable 02" section in the README. It is step 7 in the full rebuild below because it operates on timeline outputs — it is a timeline operation, not a reviews operation. Reviews ([runbook 03](../runbooks/03_reviews.md)) must still run before step 7.
 
 ---
 
@@ -30,41 +30,41 @@ Use when regex patterns or training logic have changed and classifiers need retr
 
 ```bash
 # Step 1 — Rebuild regex candidate cache for all sources
-python code/extract/extract_timeline.py --regex-prep --source CE
-python code/extract/extract_timeline.py --regex-prep --source EA
-python code/extract/extract_timeline.py --regex-prep --source EIS
+python phase2/code/extract/extract_timeline.py --regex-prep --source CE
+python phase2/code/extract/extract_timeline.py --regex-prep --source EA
+python phase2/code/extract/extract_timeline.py --regex-prep --source EIS
 # Output: data/analysis/timeline_regex_{ce,ea,eis}.parquet
 
 # Step 2 — Rebuild BERT training data
-python code/extract/extract_timeline.py --bert-generate
+python phase2/code/extract/extract_timeline.py --bert-generate
 # Output: data/analysis/bert_traindata.parquet
 
 # Step 3 — Retrain classifiers
-python code/extract/extract_timeline.py --bert-train --source CE
-python code/extract/extract_timeline.py --bert-train --source EA
-python code/extract/extract_timeline.py --bert-train --source EIS
+python phase2/code/extract/extract_timeline.py --bert-train --source CE
+python phase2/code/extract/extract_timeline.py --bert-train --source EA
+python phase2/code/extract/extract_timeline.py --bert-train --source EIS
 
 # Step 4 — Smoke test on 20 projects before committing to full run
-python code/extract/extract_timeline.py --bert-run --sample 20 --source CE \
+python phase2/code/extract/extract_timeline.py --bert-run --sample 20 --source CE \
     --output data/analysis/timeline_ce_sample20.parquet
 
 # Step 5 — Full BERT inference
-python code/extract/extract_timeline.py --bert-run --source CE \
+python phase2/code/extract/extract_timeline.py --bert-run --source CE \
     --output data/analysis/timeline_ce.parquet
-python code/extract/extract_timeline.py --bert-run --source EA \
+python phase2/code/extract/extract_timeline.py --bert-run --source EA \
     --output data/analysis/timeline_ea.parquet
-python code/extract/extract_timeline.py --bert-run --source EIS \
+python phase2/code/extract/extract_timeline.py --bert-run --source EIS \
     --output data/analysis/timeline_eis.parquet
 
 # Step 6 — LLM adjudication for EA and EIS (not needed for CE at scale)
 export ANTHROPIC_API_KEY='sk-ant-...'
 
-python code/extract/extract_timeline.py --llm-adjudicate \
+python phase2/code/extract/extract_timeline.py --llm-adjudicate \
     --input data/analysis/timeline_ea.parquet \
     --provider claude \
     --output data/analysis/timeline_ea_llm.parquet
 
-python code/extract/extract_timeline.py --llm-adjudicate \
+python phase2/code/extract/extract_timeline.py --llm-adjudicate \
     --input data/analysis/timeline_eis.parquet \
     --provider claude \
     --output data/analysis/timeline_eis_llm.parquet
@@ -72,7 +72,7 @@ python code/extract/extract_timeline.py --llm-adjudicate \
 # Step 7 — Targeted re-adjudication for programmatic/tiered projects
 # Run after step 6 AND after reviews extraction (runbook 03) is complete.
 # Auto-selects ~73 programmatic/tiered projects with missing initiation or decision dates.
-python code/extract/extract_timeline.py \
+python phase2/code/extract/extract_timeline.py \
     --llm-adjudicate \
     --input data/analysis/timeline_ea_llm.parquet,data/analysis/timeline_eis_llm.parquet \
     --nonstandard-incomplete \
@@ -100,17 +100,17 @@ Use when models are current and only BERT inference + adjudication outputs need 
 **CE only:**
 
 ```bash
-python code/extract/extract_timeline.py --bert-run --source CE \
+python phase2/code/extract/extract_timeline.py --bert-run --source CE \
     --output data/analysis/timeline_ce.parquet
 ```
 
 **EA:**
 
 ```bash
-python code/extract/extract_timeline.py --bert-run --source EA \
+python phase2/code/extract/extract_timeline.py --bert-run --source EA \
     --output data/analysis/timeline_ea.parquet
 
-python code/extract/extract_timeline.py --llm-adjudicate \
+python phase2/code/extract/extract_timeline.py --llm-adjudicate \
     --input data/analysis/timeline_ea.parquet \
     --provider claude \
     --output data/analysis/timeline_ea_llm.parquet
@@ -119,10 +119,10 @@ python code/extract/extract_timeline.py --llm-adjudicate \
 **EIS:**
 
 ```bash
-python code/extract/extract_timeline.py --bert-run --source EIS \
+python phase2/code/extract/extract_timeline.py --bert-run --source EIS \
     --output data/analysis/timeline_eis.parquet
 
-python code/extract/extract_timeline.py --llm-adjudicate \
+python phase2/code/extract/extract_timeline.py --llm-adjudicate \
     --input data/analysis/timeline_eis.parquet \
     --provider claude \
     --output data/analysis/timeline_eis_llm.parquet
@@ -135,14 +135,14 @@ python code/extract/extract_timeline.py --llm-adjudicate \
 **Restrict to clean energy projects only** (add `--clean-energy` to any `--bert-run` command):
 
 ```bash
-python code/extract/extract_timeline.py --bert-run --source EA --clean-energy \
+python phase2/code/extract/extract_timeline.py --bert-run --source EA --clean-energy \
     --output data/analysis/timeline_ea_clean.parquet
 ```
 
 **Debug a single project** (searches CE, EA, and EIS sources automatically):
 
 ```bash
-python code/extract/extract_timeline.py --project-id <UUID> --hybrid --use-regex-cache
+python phase2/code/extract/extract_timeline.py --project-id <UUID> --hybrid --use-regex-cache
 ```
 
 ---
@@ -163,17 +163,17 @@ Once corrections are added, you only need to re-run steps 2–5 (not step 1 — 
 
 ```bash
 # Regenerate training data with corrections applied
-python code/extract/extract_timeline.py --bert-generate
+python phase2/code/extract/extract_timeline.py --bert-generate
 
 # Retrain affected source(s)
-python code/extract/extract_timeline.py --bert-train --source CE
+python phase2/code/extract/extract_timeline.py --bert-train --source CE
 
 # Smoke test
-python code/extract/extract_timeline.py --bert-run --sample 20 --source CE \
+python phase2/code/extract/extract_timeline.py --bert-run --sample 20 --source CE \
     --output data/analysis/timeline_ce_sample20_v2.parquet
 
 # Re-run full inference
-python code/extract/extract_timeline.py --bert-run --source CE \
+python phase2/code/extract/extract_timeline.py --bert-run --source CE \
     --output data/analysis/timeline_ce.parquet
 ```
 
