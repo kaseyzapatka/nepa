@@ -86,7 +86,7 @@ library(readr)
 
 # Total decarbonization technologies project count — read from source data
 n_clean <- tryCatch({
-  read_parquet(here("data", "analysis", "projects_combined.parquet")) |>
+  read_parquet(here("phase1", "data", "analysis", "projects_combined.parquet")) |>
     filter(project_energy_type == "Clean") |>
     nrow()
 }, error = function(e) 20725L)
@@ -94,15 +94,15 @@ n_clean <- tryCatch({
 n_clean_fmt <- format(n_clean, big.mark = ",")
 
 # Paths
-overview <- here("output", "_project_overview", "figures")
-d1_figures <- here("output", "deliverable1", "figures")
-d1_maps    <- here("output", "deliverable1", "maps")
-d2_figures <- here("output", "deliverable2", "figures")
-d3_figures <- here("output", "deliverable3", "figures")
-d4_figures <- here("output", "deliverable4", "figures")
-d4_maps    <- here("output", "deliverable4", "maps")
-d5_figures <- here("output", "deliverable5", "figures")
-d6_figures <- here("output", "deliverable6", "figures")
+overview <- here("phase1", "output", "_project_overview", "figures")
+d1_figures <- here("phase1", "output", "deliverable1", "figures")
+d1_maps    <- here("phase1", "output", "deliverable1", "maps")
+d2_figures <- here("phase1", "output", "deliverable2", "figures")
+d3_figures <- here("phase1", "output", "deliverable3", "figures")
+d4_figures <- here("phase1", "output", "deliverable4", "figures")
+d4_maps    <- here("phase1", "output", "deliverable4", "maps")
+d5_figures <- here("phase1", "output", "deliverable5", "figures")
+d6_figures <- here("phase1", "output", "deliverable6", "figures")
 ```
 
 ## Agenda

@@ -27,7 +27,7 @@ import requests
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent  # phase2/code/extract/ -> repo root
-ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+ANALYSIS_DIR = BASE_DIR / "phase1" / "data" / "analysis"
 
 FR_ENDPOINT = "https://www.federalregister.gov/api/v1/documents.json"
 

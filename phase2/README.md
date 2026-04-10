@@ -16,18 +16,23 @@ Phase 2 extends the Phase 1 NEPA analysis with an improved data pipeline and dee
 ```
 phase2/
 ├── code/
-│   ├── extract/        # Extraction scripts
-│   ├── manual_supervision/  # Supervision sample builders
-│   ├── manual_training/     # Training data builders
-│   ├── deliverable01–04/    # Phase 2 deliverable analysis scripts
-│   └── utils/
+│   ├── extract/             # Extraction scripts (improved timeline, reviews, gencap)
+│   ├── manual_supervision/  # Weak supervision sample builders
+│   ├── manual_training/     # Manual training data builders + gold standard
+│   ├── validation/          # Timeline and extraction validation scripts
+│   ├── deliverable01–04/    # Phase 2 deliverable POC scripts
+│   ├── utils/               # Shared utilities
+│   ├── 00_setup.R           # R session setup
+│   ├── e01_clean_energy.R   # Clean energy filter exploratory
+│   ├── e02_timeline.R       # Timeline exploratory
+│   └── page_viewer_{ce,ea,eis}.ipynb  # Interactive document page viewers
 ├── data/               # Phase 2 processed outputs (never write to ../data/analysis/)
-├── models/             # Phase 2 model checkpoints
-├── notes/              # Architecture and workflow documentation
-├── output/             # Phase 2 deliverable outputs
-├── reports/            # Quarto reports
-├── runbooks/           # Step-by-step pipeline docs
-└── tests/              # Tests
+├── models/             # Phase 2 BERT model checkpoints (CE, EA, EIS, combined)
+├── notes/              # Architecture notes, current_plan.md, model evaluation
+├── output/             # Phase 2 deliverable outputs + timeline validation
+├── reports/            # Quarto reports (index.qmd landing page; deliverables added as completed)
+├── runbooks/           # Phase 2-specific pipeline docs (timeline only; other runbooks at repo root)
+└── tests/              # Unit tests
 ```
 
 ## Running Phase 2 pipelines
@@ -38,9 +43,9 @@ Phase 2 scripts inherit the same conda environment as Phase 1:
 conda activate nepa
 ```
 
-All Phase 2 outputs write to `phase2/data/` by default. Phase 1 outputs in `data/analysis/` are never modified.
+All Phase 2 outputs write to `phase2/data/` by default. Phase 1 data in `data/analysis/` is read-only input — never modified.
 
-See `phase2/runbooks/` for step-by-step instructions as they are developed.
+The single Phase 2 runbook is `phase2/runbooks/02_timeline.md` (improved BERT + LLM adjudication pipeline). For all other extractions (reviews, gencap, page counts, etc.), use the Phase 1 runbooks at `runbooks/`.
 
 ## Relationship to Phase 1
 

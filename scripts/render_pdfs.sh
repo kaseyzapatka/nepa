@@ -13,10 +13,10 @@ set -e
 
 echo "Rendering PDFs..."
 
-quarto render reports/project_overview.qmd --to pdf
+quarto render phase1/reports/project_overview.qmd --to pdf
 echo "  project_overview.pdf done"
 
-quarto render reports/key_insights.qmd --to pdf
+quarto render phase1/reports/key_insights.qmd --to pdf
 echo "  key_insights.pdf done"
 
 echo "PDFs complete."

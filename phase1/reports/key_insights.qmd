@@ -1,0 +1,493 @@
+---
+title: "NEPA Insights Fact Sheet"
+subtitle: "Key Points and Policy Implications"
+date: today
+date-format: long
+format-links: [pdf]
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    fig-align: center
+    grid:
+      margin-width: 500px
+    include-in-header:
+      text: |
+        <style>
+        .review-comment {
+          border-left: 4px solid #d97706;
+          background: #fff7ed;
+          padding: 0.75rem 1rem;
+          margin: 1rem 0;
+          font-size: 0.95rem;
+        }
+        .review-comment::before {
+          content: "Comment";
+          display: block;
+          font-weight: 700;
+          margin-bottom: 0.35rem;
+          color: #9a3412;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          font-size: 0.8rem;
+        }
+        </style>
+  docx:
+    toc: false
+    number-sections: false
+    fig-align: center
+    fig-width: 6.5
+    fig-height: 4.5
+    reference-doc: catf-reference.docx
+  pdf:
+    pdf-engine: xelatex
+    toc: false
+    number-sections: false
+    fig-align: center
+    fig-pos: "H"
+    geometry:
+      - top=1in
+      - bottom=1in
+      - left=1in
+      - right=1in
+    fontsize: 11pt
+    colorlinks: true
+    include-in-header:
+      text: |
+        \usepackage{float}
+        \usepackage{microtype}
+        \usepackage{needspace}
+        \usepackage[svgnames]{xcolor}
+        \definecolor{catfnavy}{HTML}{012169}
+        \definecolor{catfblue}{HTML}{0047BB}
+        \addtokomafont{section}{\color{catfnavy}}
+        \addtokomafont{subsection}{\color{catfnavy}}
+        \AtBeginDocument{\hypersetup{linkcolor=catfblue,urlcolor=catfblue}}
+        \setlength{\parskip}{0.5em}
+        \setlength{\parindent}{0em}
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(tidyverse)
+library(here)
+library(knitr)
+library(readr)
+library(arrow)
+library(jsonlite)
+
+d1_figures <- here("phase1", "output", "deliverable1", "figures")
+d2_figures <- here("phase1", "output", "deliverable2", "figures")
+d3_figures <- here("phase1", "output", "deliverable3", "figures")
+d4_figures <- here("phase1", "output", "deliverable4", "figures")
+d5_figures <- here("phase1", "output", "deliverable5", "figures")
+
+d1_technology <- read_csv(here("phase1", "output", "deliverable1", "tables", "table1_by_technology.csv"), show_col_types = FALSE)
+d1_coverage <- read_csv(here("phase1", "output", "deliverable1", "tables", "table_meeting_coverage.csv"), show_col_types = FALSE)
+d2_snapshot <- read_csv(here("phase1", "output", "deliverable2", "tables", "02_snapshot.csv"), show_col_types = FALSE)
+d2_duration <- read_csv(here("phase1", "output", "deliverable2", "tables", "02_duration_summary.csv"), show_col_types = FALSE)
+d3_energy <- read_parquet(here("phase1", "data", "analysis", "projects_combined.parquet"),
+                          col_select = c("project_energy_type", "process_type")) %>%
+  group_by(project_energy_type, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  pivot_wider(names_from = process_type, values_from = n, values_fill = 0) %>%
+  mutate(Total = rowSums(select(., -project_energy_type), na.rm = TRUE)) %>%
+  rename(
+    `Energy Type` = project_energy_type,
+    `Categorical Exclusion` = CE,
+    `Environmental Assessment` = EA,
+    `Environmental Impact Statement` = EIS
+  )
+d4_hubs <- read_csv(here("phase1", "output", "deliverable4", "tables", "table_department_collaboration_hubs.csv"), show_col_types = FALSE)
+d5_compliance <- read_csv(here("phase1", "output", "deliverable5", "tables", "05_fra_compliance.csv"), show_col_types = FALSE)
+
+clean_row <- d3_energy %>% filter(`Energy Type` == "Clean")
+fossil_row <- d3_energy %>% filter(`Energy Type` == "Fossil")
+other_row <- d3_energy %>% filter(`Energy Type` == "Other")
+
+clean_total <- clean_row$Total[[1]]
+clean_ce_pct <- clean_row$`Categorical Exclusion`[[1]] / clean_total
+fossil_ce_pct <- fossil_row$`Categorical Exclusion`[[1]] / fossil_row$Total[[1]]
+other_ce_pct <- other_row$`Categorical Exclusion`[[1]] / other_row$Total[[1]]
+
+solar_row <- d1_technology %>% filter(Technology == "Renewable Energy Production - Solar")
+solar_total <- solar_row$Total[[1]]
+solar_ce_pct <- solar_row$`Categorical Exclusion`[[1]] / solar_total
+solar_eis_pct <- solar_row$`Environmental Impact Statement`[[1]] / solar_total
+solar_ea_pct <- solar_row$`Environmental Assessment`[[1]] / solar_total
+
+doe_row <- d1_coverage %>% filter(lead_agency_harmonized == "Department of Energy")
+doe_total <- doe_row$Total[[1]]
+doe_ce_pct <- doe_row$CE[[1]] / doe_total
+
+n_reviews <- d2_snapshot %>% filter(process_type == "All") %>% pull(row_total) %>% first()
+n_programmatic <- d2_snapshot %>% filter(process_type == "All", review_type == "Programmatic") %>% pull(n)
+n_tiered <- d2_snapshot %>% filter(process_type == "All", review_type == "Tiered") %>% pull(n)
+n_nonstandard <- n_programmatic + n_tiered
+pct_nonstandard <- n_nonstandard / n_reviews
+
+ea_standard_med <- d2_duration %>% filter(process_type == "EA", review_type == "Standard") %>% pull(median_days)
+ea_tiered_med <- d2_duration %>% filter(process_type == "EA", review_type == "Tiered") %>% pull(median_days)
+eis_standard_med <- d2_duration %>% filter(process_type == "EIS", review_type == "Standard") %>% pull(median_days)
+eis_programmatic_med <- d2_duration %>% filter(process_type == "EIS", review_type == "Programmatic") %>% pull(median_days)
+eis_tiered_med <- d2_duration %>% filter(process_type == "EIS", review_type == "Tiered") %>% pull(median_days)
+
+doe_bridge <- d4_hubs %>% filter(department == "Department of Energy") %>% pull(`Bridge score`)
+doi_bridge <- d4_hubs %>% filter(department == "Department of the Interior") %>% pull(`Bridge score`)
+
+ea_post_fra_total <- d5_compliance %>% filter(process_type == "EA") %>% pull(total) %>% first()
+eis_post_fra_total <- d5_compliance %>% filter(process_type == "EIS") %>% pull(total) %>% first()
+ea_exceeds_pct <- d5_compliance %>% filter(process_type == "EA", compliance == "Exceeds limit") %>% pull(pct) / 100
+ea_compliant_pct <- d5_compliance %>% filter(process_type == "EA", compliance == "Compliant") %>% pull(pct) / 100
+eis_exceeds_standard_pct <- d5_compliance %>% filter(process_type == "EIS", compliance == "Exceeds standard limit") %>% pull(pct) / 100
+eis_exceeds_limit_pct <- d5_compliance %>% filter(process_type == "EIS", compliance == "Exceeds limit") %>% pull(pct) / 100
+eis_compliant_pct <- d5_compliance %>% filter(process_type == "EIS", compliance == "Compliant") %>% pull(pct) / 100
+```
+
+
+::: {.content-visible when-format="html"}
+[Download PDF version](key_insights.pdf){.btn .btn-outline-primary .btn-sm}
+:::
+
+## Executive Summary
+
+::: {.callout-note}
+## Key Findings
+
+- **There are diminishing returns to broad NEPA reform for decarbonization since they are not likely to require major federal review (EA or EIS).** Most decarbonization projects use Categorical Exclusions (`r scales::percent(clean_ce_pct, accuracy = 0.1)`) as compared to `r scales::percent(fossil_ce_pct, accuracy = 0.1)` for fossil energy and `r scales::percent(other_ce_pct, accuracy = 0.1)` for other project types. 
+- **There are real efficiency gains to be had in agency-level implementation.** Programmatic and tiered reviews remain rare (`r n_nonstandard` of `r scales::comma(n_reviews)` EA/EIS decarbonization reviews; `r scales::percent(pct_nonstandard, accuracy = 0.1)`), but tiered EISs are faster on median than standard and programmatic EISs (`r eis_tiered_med`, `r eis_standard_med`, and `r eis_programmatic_med` days, respectively).
+- **Permitting reforms in the Fiscal Responsibility Act of 2023 have had a real, but modest, impact.** Post-FRA, `r scales::percent(ea_exceeds_pct, accuracy = 1)` of EAs still exceed the 75-page limit; for EISs, `r scales::percent(eis_exceeds_limit_pct, accuracy = 1)` exceed 300 pages and another `r scales::percent(eis_exceeds_standard_pct, accuracy = 1)` fall between 151 and 300 pages.
+:::
+
+---
+
+```{=latex}
+\needspace{6\baselineskip}
+```
+# 1. There Are Diminishing Returns to NEPA Reform for Speeding Decarbonization Projects
+
+### 1.1 Streamlining NEPA won’t supercharge the clean energy transition—the vast majority of decarbonization-related projects never require environmental assessment or environmental impact statements.
+
+Across `r scales::comma(clean_total)` decarbonization actions, `r scales::percent(clean_ce_pct, accuracy = 0.1)` use Categorical Exclusions. That is materially higher than the CE share for fossil projects (`r scales::percent(fossil_ce_pct, accuracy = 0.1)`) and for the residual "other" category (`r scales::percent(other_ce_pct, accuracy = 0.1)`). That means reforms aimed only at accelerating EAs and EISs will affect a limited slice of the decarbonization pipeline.
+
+```{r}
+#| label: fig-energy-composition
+#| fig-cap: "NEPA process composition by energy classification. Decarbonization projects are more concentrated in Categorical Exclusions than fossil or other project types."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
+```
+
+```{r}
+#| label: fig-energy-grouped
+#| fig-cap: "NEPA process counts by energy classification. Decarbonization actions are concentrated in Categorical Exclusions, while fossil projects show higher EA/EIS counts."
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
+```
+
+### 1.2 The most comprehensive EA and CE data show that 97% of decarbonization-related actions are categorically excluded.
+
+We have the most complete project coverage for Department of Energy (DOE) and Bureau of Land Management (BLM) records, which show the overwhelming majority of actions are Categorically Excluded (CE). For DOE, approximately 97% are processed via CEs; whereas BLM reports marginally higher rates of EA and EIS tha are still heavily CE-weighted. Although DOE and BLM are not necessarily representative of every federal agency, this finding indicates that where the underlying review process coverage is complete, the decarbonization portfolio is overwhelmingly concentrated in the lowest-intensity NEPA pathway.
+
+```{r}
+#| label: fig-agency-process
+#| fig-cap: "NEPA process type distribution for departments with complete CE, EA, and EIS coverage in NEPATEC 2.0: DOE (all sub-agencies) and BLM. DOE shows overwhelming CE dominance; BLM has a more balanced mix."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "02_agency_process.png"))
+```
+
+
+### 1.3 Long NEPA review are not the main bottleneck for solar.
+
+Within the current technology-tagged output, there are `r scales::comma(solar_total)` solar actions total; `r scales::percent(solar_ce_pct, accuracy = 0.1)` are CEs, `r scales::percent(solar_ea_pct, accuracy = 0.1)` are EAs, and only `r scales::percent(solar_eis_pct, accuracy = 0.1)` are EISs. Given that most solar-reviewed project are granted categorical exclusions, the NEPA review process is likely not the main bottleneck for most solar activity. Other constraints such as transmission access, interconnection, land availability, agency capacity, and financing may matter more than full-scale NEPA review.
+
+```{r}
+#| label: fig-technology-by-process
+#| fig-cap: "Decarbonization technology tags by NEPA review process. Solar is heavily CE-driven, while some technologies show higher EA/EIS shares. Non-solar bars are de-emphasized to draw attention to solar's CE dominance."
+#| out-width: "95%"
+#| fig-width: 10
+#| fig-height: 6
+
+# --- Solar-highlight variant (key_insights only; original deliverable 1 figure unchanged) ---
+
+# CATF colors (replicated locally; no dependency on 00_setup.R)
+.catf_dark_blue <- "#0047BB"
+.catf_teal      <- "#00AE8D"
+.catf_magenta   <- "#C22A90"
+.solar_amber    <- "#D4720A"   # warm amber for the callout border
+
+# Technology tags (identical to deliverable 1 constants)
+.clean_tags <- c(
+  "Carbon Capture and Sequestration",
+  "Conventional Energy Production - Nuclear",
+  "Conventional Energy Production - Other",
+  "Renewable Energy Production - Biomass",
+  "Renewable Energy Production - Energy Storage",
+  "Renewable Energy Production - Geothermal",
+  "Renewable Energy Production - Hydrokinetic",
+  "Renewable Energy Production - Hydropower",
+  "Renewable Energy Production - Other",
+  "Renewable Energy Production - Solar",
+  "Renewable Energy Production - Wind, Offshore",
+  "Renewable Energy Production - Wind, Onshore",
+  "Nuclear Technology",
+  "Electricity Transmission",
+  "Utilities (electricity, gas, telecommunications)"
+)
+
+# Read only the columns needed
+.proj <- read_parquet(
+  here("phase1", "data", "analysis", "projects_combined.parquet"),
+  col_select = c("project_title", "project_type", "process_type", "project_energy_type")
+)
+
+.ce <- .proj |>
+  filter(project_energy_type == "Clean") |>
+  mutate(project_type_list = map(project_type, \(x) {
+    if (is.na(x) || x == "") return(character(0))
+    tryCatch(fromJSON(x), error = \(e) character(0))
+  }))
+
+# Row order: ascending percent_projects (bottom-to-top on the y-axis)
+.order_df <- .ce |>
+  select(project_title, project_type_list) |>
+  unnest(project_type_list) |>
+  rename(technology = project_type_list) |>
+  filter(technology %in% .clean_tags) |>
+  distinct(project_title, technology) |>
+  count(technology, name = "n") |>
+  mutate(
+    pct = 100 * n / n_distinct(.ce$project_title),
+    technology_label = case_when(
+      technology == "Renewable Energy Production - Other" ~ technology,
+      TRUE ~ str_remove(technology, "^Renewable Energy Production - ")
+    )
+  ) |>
+  arrange(pct)  # ascending -> bottom-to-top factor order
+
+.label_order <- .order_df$technology_label
+
+# Main plotting dataset
+.dat <- .ce |>
+  select(project_title, project_type_list, process_type) |>
+  unnest(project_type_list) |>
+  rename(technology = project_type_list) |>
+  filter(technology %in% .clean_tags) |>
+  distinct(project_title, technology, process_type) |>
+  count(technology, process_type, name = "n") |>
+  group_by(technology) |>
+  mutate(
+    share = n / sum(n),
+    technology_label = case_when(
+      technology == "Renewable Energy Production - Other" ~ technology,
+      TRUE ~ str_remove(technology, "^Renewable Energy Production - ")
+    )
+  ) |>
+  ungroup() |>
+  mutate(
+    technology_label = factor(technology_label, levels = .label_order),
+    is_solar = as.character(technology_label == "Solar")  # "TRUE"/"FALSE" for scale_alpha_manual
+  )
+
+.totals <- .dat |>
+  group_by(technology_label) |>
+  summarise(total = sum(n), .groups = "drop")
+
+# Numeric y-position of the Solar bar (factor level index)
+.solar_idx <- which(.label_order == "Solar")
+
+# Build the figure
+fig_solar_highlight <- ggplot(.dat,
+  aes(x = share, y = technology_label, fill = process_type)) +
+
+  # 1. Warm background stripe spanning full panel width behind the solar row
+  annotate("rect",
+    xmin = -Inf, xmax = Inf,
+    ymin = .solar_idx - 0.5, ymax = .solar_idx + 0.5,
+    fill = "#FFF3CD", color = NA
+  ) +
+
+  # 2. Stacked bars — non-solar dimmed to 20% opacity, solar at full opacity
+  geom_col(aes(alpha = is_solar), width = 0.8) +
+
+  # 3. Percentage labels inside bars (full opacity for readability throughout)
+  geom_text(
+    aes(label = ifelse(share >= 0.03, scales::percent(share, accuracy = 1), "")),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "white"
+  ) +
+
+  # 4. Total project counts to the right of each bar
+  geom_text(
+    data = .totals,
+    aes(x = 1.02, y = technology_label, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3,
+    color = "gray30"
+  ) +
+
+  # 5. Amber border framing the solar bar exactly (drawn on top of bars)
+  annotate("rect",
+    xmin = 0, xmax = 1,
+    ymin = .solar_idx - 0.4, ymax = .solar_idx + 0.4,
+    fill = NA, color = .solar_amber, linewidth = 1.5
+  ) +
+
+  scale_x_continuous(
+    labels = scales::percent,
+    breaks = seq(0, 1, by = 0.1),
+    expand = expansion(mult = c(0, 0.10))
+  ) +
+  scale_fill_manual(
+    values = c("CE" = .catf_dark_blue, "EA" = .catf_teal, "EIS" = .catf_magenta)
+  ) +
+  scale_alpha_manual(
+    values = c("FALSE" = 0.45, "TRUE" = 1.0),
+    guide = "none"
+  ) +
+  labs(
+    x = "Share of Actions",
+    y = NULL,
+    fill = "Process Type",
+    title = "Actions with Decarbonization Tag by Technology and Process Type",
+    caption = "Note: Percentage labels below 3% are excluded for readability."
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(size = 9),
+    legend.position = "bottom"
+  )
+
+# Save standalone PNG for circulation (highlighted variant only; does not overwrite original)
+ggsave(
+  filename = here(d1_figures, "02_clean_energy_bar_solar_highlight.png"),
+  plot = fig_solar_highlight,
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+
+fig_solar_highlight
+```
+
+---
+
+```{=latex}
+\needspace{6\baselineskip}
+```
+# 2. There Are Real Efficiency Gains to Be Had in NEPA Implementation at the Agency Level
+
+### 2.1 Programmatic and tiered reviews remain underutilized strategic tools
+
+The evidence on programmatic and tiered reviews indicates that there are real efficiency gains from avoiding project-specific environmental impact statements. However, programmatic and tiered reviews are rare: only `r n_nonstandard` of `r scales::comma(n_reviews)` decarbonization EA/EIS reviews (`r scales::percent(pct_nonstandard, accuracy = 0.1)`) are programmatic or tiered, indicating that there are opportunities for agencies to increase their use, as appropriate.
+
+Tiered EAs take longer than standard EAs on average (`r ea_tiered_med` versus `r ea_standard_med` days), but have a substantially shorter timeline than a full EIS. This suggests the real efficiency gain from tiering is when it allows an agency to avoid a full EIS altogether rather than just shortening the timeline of an EA. Tiered EISs take less time than standard and programmatic EISs (though distributions substantially overlap and sample sizes are small).
+
+```{r}
+#| label: fig-review-duration
+#| fig-cap: "Review duration by review type and NEPA process. Small sample sizes mean the results should be treated as directional, not definitive."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
+```
+
+### 2.2 Increased interagency coordination could meaningfully impact efficiency gains
+
+[Previous CATF research](https://www.catf.us/resource/evidence-based-recommendations-overcoming-barriers-federal-transmission-permitting/) on transmission permitting has demonstrated that insufficient support for agency coordination, cooperation, and capacity contributes to longer permitting timelines. This research builds on that finding by mapping which agencies collaborate the most on NEPA reviews. We find that The Department of Energy (DOE) stands out as the clear hub of the multi-department network, with a bridge score of `r round(doe_bridge, 1)` compared with `r round(doi_bridge, 1)` for The Department of the Interior (DOI). That suggests that improving DOE-DOI collaboration through targeted staffing increases, memoranda of understanding, and other mechanisms may have outsized impact on review timelines. Its dominance reflects both the sheer number of partner agencies (9 unique departments) and the high volume of shared project ties. DOI is a meaningful secondary hub, with its strongest partnership running back to DOE. All other departments are more peripheral—connecting to one or two partners and typically anchored to DOE as their primary collaborator. This indicates that improving DOE-DOI collaboration through targeted staffing increases, memoranda of understanding, and other mechanisms may have outsized impact on improving review timelines.
+
+```{r}
+#| label: fig-collaboration-hubs
+#| fig-cap: "Federal departments ranked by bridge score. DOE is the dominant collaboration hub across the interagency network."
+#| out-width: "100%"
+knitr::include_graphics(file.path(d4_figures, "fig_department_collaboration_hubs.png"))
+```
+
+
+The flow diagram below offers a complementary view of the same pattern. Each band connects two departments, with width proportional to the number of shared project ties. You read this figure from left to right: the department on the left shows to which departments on the right all of project collaborations flow. DOE anchors the network on one side, with flows extending to every other major collaborating department on the right-hand side. DOI is the most substantial secondary node, with its largest flow running to DOE. The remaining departments — Agriculture, Defense, Homeland Security, and Commerce — connect primarily to DOE, reinforcing its role as the essential intermediary for cross-agency decarbonization work.
+
+```{r}
+#| label: fig-department-sankey
+#| fig-cap: "Cross-department project flows for the top six departments by collaborative activity. Flow width reflects the number of shared project ties."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d4_figures, "fig_department_sankey_filtered.png"))
+```
+
+
+---
+
+```{=latex}
+\needspace{6\baselineskip}
+```
+# 3. Permitting Reforms in the Fiscal Responsibility Act of 2023 Have Had a Real, but Modest, Impact
+
+The [Fiscal Responsibility Act of 2023 (Public Law 118-5)](https://ceq.doe.gov/laws-regulations/fra.html) introduced page limits for NEPA environmental reviews. Under the law, environmental assessments must be 75 pages or less and environmental impact statements must be either 150 pages or less, or for proposals of extraordinary complexity, under 300 pages or less.
+
+There is considerable variation in average page length of documents over time. Using a 3-month rolling average, we see a slight decline in average page length after FRA's passage, but a return to pre-FRA rates more recently. To some extent, this is likely a result of a small sample size post-FRA: only `r ea_post_fra_total` EAs and `r eis_post_fra_total` EISs.
+
+```{r}
+#| label: fig-pages-over-time
+#| fig-cap: "Regulatory page counts over time, with FRA enactment marked by the vertical red line. Post-FRA lengths decline, but the sample remains limited."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d5_figures, "05_pages_over_time_break.png"))
+```
+
+Viewed another way, our analysis shows a real but modest post-FRA shift in document length pre- and post-FRA. Average and median regulatory page counts mostly decline after the FRA threshold, which is consistent with agencies responding to the new statutory limits. 
+
+```{r}
+#| label: fig-pre-post
+#| fig-cap: "Mean regulatory pages for decarbonization EA and EIS projects, before and after FRA enactment."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d5_figures, "05_pages_pre_post_fra.png"))
+```
+
+Ultimately, it's likely that instituting page limits had some effect, but the evidence is not yet definitive: `r scales::percent(ea_compliant_pct, accuracy = 1)` of post-FRA EAs are compliant with the 75-page limit; and `r scales::percent(eis_exceeds_standard_pct, accuracy = 1)` of EISs fall within the 151--300 page limit, with another `r scales::percent(eis_compliant_pct, accuracy = 1)` potentially being compliant under the "extraordinary complexity" exception for under 300 pages. The practical conclusion is that the FRA has changed incentives, but not yet produced consistent compliance. A fuller assessment will require more decisions from EA and EIS projects initiated after June 3, 2023 to be completed.
+
+```{r}
+#| label: fig-compliance
+#| fig-cap: "FRA page limit compliance for post-FRA decarbonization projects. EISs between 151 and 300 pages may still qualify under the extraordinary-complexity provision."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d5_figures, "05_fra_compliance.png"))
+```
+
+
+---
+
+# Caveats and Considerations
+
+Several considerations from the fact sheet should remain front-of-mind when translating these findings into policy recommendations.
+
+**Data quality and completeness remain a structural limitation.** 
+
+- NEPATEC 2.0 assembles documents from multiple sources: EIS records are drawn from EPA's governmentwide EIS database and are broadly representative since 2012, but EA and CE data are substantially complete only for DOE and BLM. This means the dataset captures a large share of the federal decarbonization NEPA universe but not all of it — for example, coverage is thin for agencies like the Corps of Engineers or the Forest Service. 
+
+- Better federal metadata standards, document-linkage practices, and centralized submission requirements would improve nearly every downstream permitting analysis. One coveted data point would be project timeline data. In its current form, all timeline data was extracted directly from document text: this is an inefficient, unwieldy, and somewhat inaccurate process. Future iterations of the NEPATEC database would benefit greatly from including this as metadata, likely requiring NEPA reviewers to provide a summary of key dates within all NEPA documents.
+
+- Existing efforts such as PermitAI, CEQ's NEPA data standard, and the ePermit Act move in the right direction, but they do not yet solve the broader fragmentation problem — and significant additional investment in federal data infrastructure is still needed.
+
+**High CE usage is not automatically a normative success — using CEs to move projects through NEPA faster, rather than because they genuinely qualify, warrants scrutiny.**
+
+- Categorical Exclusions are a legitimate and appropriate tool when applied within statutory bounds: they are designed for classes of actions that experience has shown to have no significant individual or cumulative environmental effects. Their integrity depends on applying the right tool to the right action. When CEs are used primarily to compress timelines rather than because an action genuinely fits an established exclusion, the core purpose of the process is undermined. The goal of NEPA should not be faster approvals but more efficient reviews that ensure each project or action receives the appropriate level of scrutiny. A CE that shortens a timeline by bypassing warranted analysis trades short-term speed for downstream litigation risk and larger-than-expected environmental impact. These concerns are not directly observable in NEPATEC — the dataset captures the formal record, not the quality of the underlying analysis. A count of CEs is not the same as an assessment of the quality of a CE determination.
+
+**Faster timelines are not the only policy goal, and speed can come at the cost of quality and legal durability.** 
+
+- Review quality, agency learning, and public legitimacy matter alongside speed. DOI's recent production of EISs in as little as two weeks is a salient example: a document of that scope produced on that timeline raises serious questions about whether meaningful analysis took place, regardless of what the formal record shows. Rushing NEPA reviews may trade short-term permitting speed for downstream litigation risk and larger-than-expected environmental impact — the opposite of what well-designed reform should produce.
+
+**Some of the most important questions remain outside of the scope of work for this first phase.** 
+
+- In particular, the present work does not directly test whether NEPA was the actual cause of project delay, what were the main triggers of NEPA review, nor does it comprehensively analyze when agencies may have relied on CEs too aggressively.
+
+

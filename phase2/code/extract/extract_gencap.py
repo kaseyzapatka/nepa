@@ -39,7 +39,7 @@ from utils.config import GENCAP_UNITS
 # --------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
-ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+ANALYSIS_DIR = BASE_DIR / "phase1" / "data" / "analysis"
 
 
 # --------------------------
