@@ -1,429 +1,117 @@
-# NEPA Project Analysis: Clean Energy Environmental Reviews
+# NEPA Project: Clean Energy Environmental Reviews
 
 Analysis of clean energy projects using the National Environmental Policy Act Text Corpus (NEPATEC) 2.0 dataset from PNNL's PermitAI project.
 
-## Render Key Insights to Word
-
-```bash
-quarto render reports/key_insights.qmd --to docx
-```
-
-Output: `reports/key_insights.docx`
+**Project website:** [kaseyzapatka.com/nepa/reports/project_overview.html](https://www.kaseyzapatka.com/nepa/reports/project_overview.html)
+**Data source:** [NEPATEC 2.0 on Hugging Face](https://huggingface.co/datasets/PNNL/NEPATEC2.0)
 
 ---
 
-## Project Website
+## Repository structure
 
-This project has [a website](https://www.kaseyzapatka.com/nepa/reports/project_overview.html) to make it easy to view and share findings. 
+```
+nepa/
+├── README.md                  # This file — project overview
+├── _quarto.yml                # Quarto website configuration
+├── environment.yml            # Conda environment spec (shared by phase1 + phase2)
+├── environment.lock.yml       # Locked conda dependencies
+├── admin/                     # Administrative documents and notes
+├── app/                       # Streamlit document explorer (deployed to HF Spaces)
+├── docs/                      # Built Quarto website output
+├── literature/                # Reference materials
+├── phase1/                    # Phase 1 analysis — frozen at freeze/v1.0
+│   ├── README.md              # Phase 1 pipeline documentation
+│   ├── code/                  # Extraction scripts + per-deliverable R analysis
+│   ├── data/                  # Phase 1 processed data outputs (parquet files)
+│   ├── models/                # Trained BERT timeline classifiers
+│   ├── notes/                 # Status files, architecture notes, running todo
+│   ├── output/                # Deliverable figures, tables, maps
+│   ├── reports/               # Quarto deliverable reports
+│   └── runbooks/              # Step-by-step pipeline instructions (00–08)
+├── phase2/                    # Phase 2 analysis — active development
+│   ├── README.md              # Phase 2 pipeline documentation
+│   ├── code/                  # Improved extraction scripts + deliverable POCs
+│   ├── data/                  # Phase 2 processed data outputs
+│   ├── models/                # Improved BERT model checkpoints (CE, EA, EIS)
+│   ├── notes/                 # Architecture notes, current plan, model evaluation
+│   ├── output/                # Phase 2 deliverable outputs + timeline validation
+│   ├── reports/               # Quarto reports
+│   ├── runbooks/              # Phase 2-specific pipeline docs
+│   └── tests/                 # Unit tests
+├── presentations/             # RevealJS slides (CATF stakeholder presentation)
+└── scripts/                   # Utility scripts
+```
 
-## Data Source
+---
 
-This project is based on an analysis of [NEPATEC 2.0 on Hugging Face](https://huggingface.co/datasets/PNNL/NEPATEC2.0).
+## How it works
 
-## Reproducible Environment
+Raw NEPATEC 2.0 documents are loaded and preprocessed into per-source parquet files. Python extraction scripts (`code/extract/`) use a combination of regex, BERT classifiers, and LLM adjudication to pull structured fields (dates, capacity, review type, page counts, technology) from document text. These parquet outputs feed into per-deliverable R scripts that produce figures and tables. Quarto renders the R outputs into HTML reports, which are published as a static website via `docs/`.
 
-Use the project-standard conda environment:
+---
+
+## Phase 1 and Phase 2
+
+| | Phase 1 | Phase 2 |
+|---|---|---|
+| Status | Frozen at `freeze/v1.0` | Active development |
+| Data pipeline | Pandas-based | DuckDB-based |
+| Timeline extraction | BERT classifier | Improved BERT + LLM hybrid adjudication |
+| Deliverables | D1–D6 complete | In progress |
+| Output location | `phase1/data/analysis/` | `phase2/data/` |
+
+**Data flow:** Phase 2 reads `phase1/data/analysis/projects_combined.parquet` as read-only input and writes all new outputs to `phase2/data/`. Phase 1 data is never modified by Phase 2 scripts.
+
+To reproduce Phase 1 exactly: `git checkout freeze/v1.0`
+
+---
+
+## Getting started
 
 ```bash
 conda env create -f environment.yml
 conda activate nepa
 ```
 
-If you already created it and need to sync to the latest spec:
+Both phases share this environment. See [environment.yml](environment.yml) for the full dependency spec, or `phase1/notes/architecture/environment_setup.md` for design rationale.
 
-```bash
-conda env update -n nepa -f environment.yml --prune
-```
-
-Environment design notes and dependency rationale:
-`notes/architecture/environment_setup.md`
-
-## Database Build
-
-This pipeline produces analysis-ready parquet files in `data/analysis/`. The Federal Register NOI enrichment is generated separately and then merged into the projects output by `project_id`.
-
-1. Generate Federal Register NOI enrichment (Clean EA + Clean EIS by default):
-
-```bash
-python code/extract/federal_register.py --sample 0 --report-n 10 --fetch-raw-text
-```
-
-2. Build the main dataset and merge the NOI fields into `projects_combined.parquet`:
-
-```bash
-python code/extract/extract_data.py --mode analysis
-```
-
-The merge uses `project_id` and drops `project_title` from the NOI output to avoid duplicate columns. The NOI output is expected at `data/analysis/noi_federal_register.parquet`.
-
-Note for later updates: consider tracking a run log with query statistics for reproducibility.
-
-## Deliverable 02: Programmatic and tiered reviews
-
-This sections useargeted Re-Adjudication for 
-
-Run this when the full EA/EIS LLM adjudication is complete but some programmatic or tiered
-projects are still missing initiation or decision dates. This re-runs adjudication only on those
-incomplete projects, with a higher candidate cap, ROD-language promotion, and a 15-year date
-window to cut noise.
-
-**Prerequisites:** `projects_timeline_bert_ea_llm.parquet` and
-`projects_timeline_bert_eis_llm.parquet` must already exist in `data/analysis/`.
-
-```bash
-export ANTHROPIC_API_KEY='sk-ant-...'
-
-python code/extract/extract_timeline.py \
-  --llm-adjudicate \
-  --input data/analysis/projects_timeline_bert_ea_llm.parquet,data/analysis/projects_timeline_bert_eis_llm.parquet \
-  --nonstandard-incomplete \
-  --max-candidates 125 \
-  --context-chars 400 \
-  --promote-rod-language \
-  --year-window 15 \
-  --provider claude \
-  --output data/analysis/projects_timeline_targeted_llm.parquet
-```
-
-What this does:
-- `--nonstandard-incomplete` — auto-selects only programmatic/tiered projects with missing dates (~73 projects). No manual ID file needed.
-- `--max-candidates 125` — raises the candidate cap from 30 (EIS default) to 125, so large programmatic EISs get adequate coverage.
-- `--promote-rod-language` — promotes dates with ROD/FONSI language to Tier A even if BERT mislabeled them.
-- `--year-window 15` — drops candidate dates more than 15 years before the latest date found, removing NEPA citation noise.
-- Output is a small targeted parquet (~73 rows). The full timeline files are not modified.
-
-**Cost:** ~$0.44 (Haiku, ~400K input tokens).
-
-**After the run**, the targeted dates are automatically patched into the Deliverable 2 analysis
-when you run `00_setup.R` — no further changes needed.
+- **Phase 1 pipeline:** [phase1/README.md](phase1/README.md)
+- **Phase 2 pipeline:** [phase2/README.md](phase2/README.md)
 
 ---
 
-## Deliverable 03: Timeline and generation capacity
+## Build the Document Explorer (HF Spaces)
 
-
-### Timeline
-
-Use this after updating timeline patterns or models in `code/extract/extract_timeline.py`.
-
-The `--source` flag controls which NEPA process types to run. Accepts `CE`, `EA`, `EIS`, or comma-separated combinations. Defaults to `CE` if omitted.
-
-#### CE (Categorical Exclusions) — default
-
-```bash
-# 1. Build regex cache
-python code/extract/extract_timeline.py --regex-prep
-
-# 2. Generate BERT training data
-python code/extract/extract_timeline.py --bert-generate
-
-# 3. Train the BERT classifier
-python code/extract/extract_timeline.py --bert-train
-
-# 4. Test sample (optional)
-python code/extract/extract_timeline.py --bert-run --sample 50 --output test50_bert_vX.parquet
-
-# 5. Full run
-python code/extract/extract_timeline.py --bert-run --output projects_timeline_bert.parquet
-```
-
-#### EA (Environmental Assessments)
-
-```bash
-# 1. Build EA regex cache
-python code/extract/extract_timeline.py --regex-prep --source EA
-
-# 2. Test sample (BERT)
-python code/extract/extract_timeline.py --bert-run --source EA --sample 50 --output test50_ea.parquet
-
-# 3. LLM adjudication (Claude) on BERT output
-python code/extract/extract_timeline.py --llm-adjudicate --input test50_ea.parquet --provider claude
-
-# 4. Full run (BERT + Claude adjudication)
-python code/extract/extract_timeline.py --bert-run --source EA --output projects_timeline_bert_ea.parquet
-python code/extract/extract_timeline.py --llm-adjudicate --input projects_timeline_bert_ea.parquet --provider claude
-```
-
-#### EIS (Environmental Impact Statements)
-
-```bash
-# 1. Build EIS regex cache
-python code/extract/extract_timeline.py --regex-prep --source EIS
-
-# 2. Test sample (BERT)
-python code/extract/extract_timeline.py --bert-run --source EIS --sample 50 --output test50_eis.parquet
-
-# 3. LLM adjudication (Claude) on BERT output
-python code/extract/extract_timeline.py --llm-adjudicate --input test50_eis.parquet --provider claude
-
-# 4. Full run (BERT + Claude adjudication)
-python code/extract/extract_timeline.py --bert-run --source EIS --output projects_timeline_bert_eis.parquet
-python code/extract/extract_timeline.py --llm-adjudicate --input projects_timeline_bert_eis.parquet --provider claude
-```
-
-#### Multi-source runs
-
-```bash
-# Build regex caches per source
-python code/extract/extract_timeline.py --regex-prep --source CE
-python code/extract/extract_timeline.py --regex-prep --source EA
-python code/extract/extract_timeline.py --regex-prep --source EIS
-
-# Run BERT across all three sources
-python code/extract/extract_timeline.py --bert-run --source CE,EA,EIS --output projects_timeline_bert_all.parquet
-
-# Run Claude adjudication on combined BERT output
-python code/extract/extract_timeline.py --llm-adjudicate --input projects_timeline_bert_all.parquet --provider claude --output projects_timeline_bert_all_llm.parquet
-```
-
-#### Retraining with EA/EIS data
-
-After building regex caches for EA and/or EIS, `--bert-generate` auto-discovers all available per-source caches and includes them in training data (with 3x oversampling for EA/EIS to prevent CE domination):
-
-```bash
-python code/extract/extract_timeline.py --bert-generate
-python code/extract/extract_timeline.py --bert-train
-```
-
-#### Filtering by energy type
-
-Add `--clean-energy` to restrict to clean energy projects only:
-
-```bash
-python code/extract/extract_timeline.py --bert-run --source EA --clean-energy --output projects_timeline_bert_ea_clean.parquet
-```
-
-#### Single project debugging
-
-The `--project-id` flag searches CE, EA, and EIS sources automatically:
-
-```bash
-python code/extract/extract_timeline.py --project-id <UUID> --hybrid --use-regex-cache
-```
-
-### Generation Capacity Build
-
-`code/extract/extract_gencap.py` extracts generation capacity (MW/GW/kW) in two phases: regex over all projects, then Claude Haiku adjudication for projects with 2+ distinct candidates.
-
-#### Phase 1: Regex (parallel)
-
-```bash
-python code/extract/extract_gencap.py --run regex --parallel 3
-```
-
-Output: `data/analysis/projects_gencap.parquet`
-
-#### Phase 2: LLM adjudication
-
-```bash
-python code/extract/extract_gencap.py --run llm --workers 4 # run with 2 to avoid rate limits
-```
-
-Runs on ambiguous multi-candidate projects only. Updates `projects_gencap.parquet` in place and writes per-source raw outputs to `data/analysis/gencap_{ce,ea,eis}_llm.parquet`.
-
-```bash
-# Test on 10 projects first
-python code/extract/extract_gencap.py --run llm --sample 10 --workers 1
-
-# Debug a single project
-python code/extract/extract_gencap.py --run llm --project-id <UUID>
-```
----
-
-## Deliverable 4 Multi-Agency Refresh (Simple)
-
-Run these three commands when you want the latest multi-agency outputs for Deliverable 4:
-
-```bash
-python code/extract/extract_coagency.py --run
-Rscript code/deliverable04/01_geography.R
-quarto render reports/deliverable04.qmd
-```
-
-What this does:
-- Builds `data/analysis/coagency_projects.parquet` from page-text cues (`extract_coagency.py`).
-- Rebuilds Deliverable 4 tables/figures (including strict vs expanded multi-agency outputs).
-- Renders the updated Deliverable 4 report.
-
-## Review Type Extraction (Programmatic + Tiered)
-
-Use `code/extract/extract_reviews.py` to classify projects as `programmatic`, `tiered`, or `standard`.
-
-The extractor now uses DuckDB for source-level page loading (both EA and EIS), then classifies projects from in-memory caches. `--workers` parallelizes project classification on top of that.
-`generic` / `tier 1` stand-in terminology is included by default.
-Scope is fixed to clean energy EA/EIS projects.
-
-### Full production run (recommended)
-
-Default scope is clean energy + EA/EIS only. Output writes to `data/analysis/projects_reviews.parquet`.
-
-```bash
-python code/extract/extract_reviews.py --run --workers 8
-```
-
-### Optional full run with LLM fallback (slower)
-
-```bash
-python code/extract/extract_reviews.py --run --use-llm --workers 8
-```
-
-Use `--use-llm` when:
-- You want higher recall on borderline/ambiguous phrasing that regex scores as medium confidence.
-- You are doing a focused QA pass on likely edge cases, not routine production refreshes.
-- You can tolerate slower runtime and model-driven variability in classifications.
-
-### Test run (safe output)
-
-Writes to `data/analysis/projects_reviews_test.parquet` so the main output is not overwritten.
-
-```bash
-python code/extract/extract_reviews.py --test --workers 4
-```
-
----
-
-## Deliverable 05: Regulatory Page Count Extraction
-
-`code/extract/extract_pages.py` estimates FRA-compliant page counts for clean energy EA and EIS final documents. The FRA defines a "page" as 500 words and excludes maps, figures, and appendices (40 C.F.R. § 1508.1(bb)). This script computes `regulatory_pages = CEIL(body_word_count / 500)` by detecting embedded appendix sections and excluding low-content pages. Output is written to `data/analysis/projects_page_counts.parquet` and joined into the Deliverable 5 R pipeline by `code/deliverable05/00_setup.R`.
-
-Re-run this script whenever `projects_combined.parquet` is updated (new projects added).
-
-### Full production run
-
-```bash
-python code/extract/extract_pages.py --run
-```
----
-
-
-## Deliverable 06: Technology Build
-
-Use `code/extract/extract_technology.py` to build all technology-specific fields for analysis (transmission, geothermal, and pipelines). Script will read `data/analysis/projects_combined.parquet` and output to `data/analysis/projects_[technology-specific field].parquet`.
-
-### Transmission
-
-**Step 1 — Rule-based extraction + page-level length recovery (~5–15 min, no API cost):**
-
-```bash
-python code/extract/extract_technology.py --run transmission
-```
-
-**Step 2 — LLM adjudication for ambiguous multi-candidate rows (~$0.06, ~2 min with 4 workers):**
-
-Requires setting `ANTHROPIC_API_KEY` in environment. Run Step 1 first.
-
-```bash
-export ANTHROPIC_API_KEY='INSERT-KEY-HERE'
-
-python code/extract/extract_technology.py --run llm --workers 4
-```
-
-### Geothermal
-
-**Step 1 — Rule-based identification and regex phase classification:**
-
-```bash
-python code/extract/extract_technology.py --run geothermal
-```
-
-**Step 2 — Fine-tune a DistilBERT classifier on the regex-labeled rows (~5 min, no API cost):**
-
-Requires `pip install transformers torch scikit-learn accelerate`. Run Step 1 first.
-
-```bash
-conda run -n nepa pip install "accelerate>=0.26.0" transformers torch scikit-learn
-
-python code/extract/extract_technology.py --geothermal-phase-train
-```
-
-**Step 3 — Apply the classifier to rows where phase == 'unknown':**
-
-```bash
-python code/extract/extract_technology.py --geothermal-phase-classify
-```
-
-### Pipelines
-
-**Step 1 — Rule-based extraction + page-level length recovery:**
-
-```bash
-python code/extract/extract_technology.py --run pipeline
-```
-
-**Step 2 — LLM adjudication for ambiguous multi-candidate rows (~$0.45, ~2 min with 4 workers):**
-
-Requires setting `ANTHROPIC_API_KEY` in environment. Run Step 1 first.
-
-```bash
-export ANTHROPIC_API_KEY='INSERT-KEY-HERE'
-
-python code/extract/extract_technology.py --run pipeline llm --workers 4
-```
-
----
-
-## Build the Document Explorer (HF Spaces, Free Path)
-
-Use this workflow to deploy the Streamlit NEPA document explorer without storing the 7+ GB DuckDB file inside the Space repo.
+Use this workflow to deploy the Streamlit NEPA document explorer. The 7+ GB DuckDB file is stored in a Hugging Face Dataset repo (not committed to the Space).
 
 ### 1) Build the DuckDB locally (one-time per data refresh)
 
 ```bash
-python code/rag/01_build_text_store.py
+python phase1/code/rag/01_build_text_store.py
 ```
 
-This writes:
-
-`data/rag/nepa_reader.duckdb`
+Output: `phase1/data/rag/nepa_reader.duckdb`
 
 ### 2) Upload the DB to a Hugging Face Dataset repo
-
-Set your values:
 
 ```bash
 HF_USERNAME="YOUR_HF_USERNAME"
 DB_REPO="nepa-document-explorer-db"
-```
 
-Create the dataset repo (safe to rerun):
-
-```bash
 hf repo create "${HF_USERNAME}/${DB_REPO}" --repo-type dataset || true
-```
-
-Upload the DB file:
-
-```bash
-hf upload "${HF_USERNAME}/${DB_REPO}" data/rag/nepa_reader.duckdb nepa_reader.duckdb --repo-type dataset
+hf upload "${HF_USERNAME}/${DB_REPO}" phase1/data/rag/nepa_reader.duckdb nepa_reader.duckdb --repo-type dataset
 ```
 
 ### 3) Deploy app to a Hugging Face Docker Space
 
-Set Space name:
-
 ```bash
 SPACE_NAME="nepa-document-explorer"
-```
-
-Create Space (if CLI supports it):
-
-```bash
 hf repo create "${HF_USERNAME}/${SPACE_NAME}" --repo-type space --space_sdk docker || true
-```
 
-If your CLI does not accept `--space_sdk`, create the Space in the HF web UI as **Docker**, then continue.
-
-Prepare a clean deploy folder:
-
-```bash
 DEPLOY_DIR="$(mktemp -d)"
 cp app/app.py "${DEPLOY_DIR}/app.py"
 cp app/requirements.txt "${DEPLOY_DIR}/requirements.txt"
-```
 
-Create `Dockerfile`:
-
-```bash
 cat > "${DEPLOY_DIR}/Dockerfile" <<'EOF'
 FROM python:3.11-slim
 WORKDIR /app
@@ -435,30 +123,17 @@ ENV NEPA_DB_HF_FILENAME=nepa_reader.duckdb
 EXPOSE 7860
 CMD ["streamlit","run","app.py","--server.address=0.0.0.0","--server.port=7860"]
 EOF
-```
 
-Upload app to Space:
-
-```bash
 hf upload "${HF_USERNAME}/${SPACE_NAME}" "${DEPLOY_DIR}" --repo-type space --commit-message "Deploy NEPA document explorer"
 ```
 
-### 4) Verify and link
+If your CLI does not accept `--space_sdk`, create the Space in the HF web UI as **Docker**, then continue with the upload step.
 
-Space URL:
+### 4) Routine updates
 
-`https://huggingface.co/spaces/YOUR_HF_USERNAME/nepa-document-explorer`
+- **App-only update:** re-upload `app.py`, `requirements.txt`, `Dockerfile` to the Space.
+- **Data refresh:** rebuild `nepa_reader.duckdb`, re-upload to the dataset repo, then restart the Space.
 
-Quarto navbar link is configured in `_quarto.yml` as:
+Space URL: `https://huggingface.co/spaces/YOUR_HF_USERNAME/nepa-document-explorer`
 
-`Document Explorer -> https://huggingface.co/spaces/<username>/nepa-document-explorer`
-
-### 5) Routine updates
-
-- App-only update: re-upload `app.py`, `requirements.txt`, `Dockerfile` to the Space.
-- Data refresh: rebuild `nepa_reader.duckdb`, upload it again to the dataset repo, then restart/rebuild the Space.
-
-### Notes / Limits
-
-- HF Space repos have strict storage limits on free tier (commonly 1 GB). Do not commit `.duckdb` into the Space repo.
-- Keeping DB in a dataset repo avoids Git LFS in the Space deployment flow.
+> **Note:** HF Space repos have strict storage limits on the free tier (~1 GB). Do not commit `.duckdb` into the Space repo — keep it in the dataset repo.
