@@ -1,0 +1,19 @@
+---
+title: "Phase 2: Extended NEPA Analysis"
+---
+
+Phase 2 extends the [Phase 1 analysis](../reports/project_overview.html) with an improved DuckDB-based pipeline and deeper extraction capabilities.
+
+## Status
+
+Phase 2 is in active development. Reports will appear here as deliverables are completed.
+
+## Key improvements
+
+- **DuckDB-based pipeline** — faster data loading and joins across large document sets
+- **Improved timeline extraction** — refined BERT classifiers with LLM adjudication for ambiguous cases
+- **Extended coverage** — additional extraction dimensions beyond Phase 1 deliverables
+
+## Phase 1 reference
+
+Phase 1 deliverables (frozen at `freeze/v1.0`) are available under the **Phase 1** menu above.
