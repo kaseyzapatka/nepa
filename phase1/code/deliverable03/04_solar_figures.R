@@ -118,14 +118,10 @@ cat("  Saved:", out_a, "\n")
 
 cat("\n=== Figure B: Capacity Distribution (Solar Only) ===\n")
 
-gencap_candidates <- c(
-  here("phase1", "data", "analysis", "projects_gencap.parquet"),
-  here("phase1", "data", "analysis", "projects_gencap_merged.parquet")
-)
-gencap_path <- gencap_candidates[file.exists(gencap_candidates)][1]
+gencap_path <- here("phase1", "data", "analysis", "projects_gencap.parquet")
 
-if (is.na(gencap_path)) {
-  stop("No gencap parquet found. Run extract_gencap.py first.")
+if (!file.exists(gencap_path)) {
+  stop("No gencap parquet found. Run: python code/extract/extract_gencap.py --run regex --parallel 3")
 }
 
 gencap_projects <- read_parquet(gencap_path) %>%

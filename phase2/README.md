@@ -45,7 +45,7 @@ conda activate nepa
 
 All Phase 2 outputs write to `phase2/data/` by default. Phase 1 data in `data/analysis/` is read-only input — never modified.
 
-The single Phase 2 runbook is `phase2/runbooks/02_timeline.md` (improved BERT + LLM adjudication pipeline). For all other extractions (reviews, gencap, page counts, etc.), use the Phase 1 runbooks at `runbooks/`.
+The single Phase 2 runbook is `phase2/runbooks/02_timeline.md` (improved BERT + LLM adjudication pipeline). For all other extractions (reviews, gencap, page counts, etc.), use the Phase 1 runbooks at `phase1/runbooks/`.
 
 ## Relationship to Phase 1
 
