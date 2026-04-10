@@ -2,7 +2,7 @@
 
 Analysis of clean energy projects using the National Environmental Policy Act Text Corpus (NEPATEC) 2.0 dataset from PNNL's PermitAI project.
 
-**Project website:** [kaseyzapatka.com/nepa/reports/project_overview.html](https://www.kaseyzapatka.com/nepa/reports/project_overview.html)
+**Project website:** [Working project website](https://www.kaseyzapatka.com/nepa/reports/project_overview.html)
 **Data source:** [NEPATEC 2.0 on Hugging Face](https://huggingface.co/datasets/PNNL/NEPATEC2.0)
 
 ---
