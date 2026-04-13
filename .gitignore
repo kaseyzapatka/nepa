@@ -23,9 +23,12 @@ Refactor Architecture*
 *models/
 *notes/phase2/
 *docs/notes/phase2/
+*plans/*
 
 
 # Python bytecode
 __pycache__/
 *.pyc
 /.quarto/
+
+**/*.quarto_ipynb
