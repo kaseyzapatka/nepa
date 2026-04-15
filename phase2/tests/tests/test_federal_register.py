@@ -64,10 +64,13 @@ def test_select_title_phrase_strips_generic_prefixes():
 
 def test_corpus_queries_include_notice_of_preparation():
     assert '"Notice of Preparation"' in federal_register.NOI_CORPUS_QUERIES
+    assert '"Notice of Scoping"' in federal_register.NOI_CORPUS_QUERIES
+    assert '"Notice of Public Scoping"' in federal_register.NOI_CORPUS_QUERIES
     assert '"Notice of Preparation" AND "Environmental Impact Statement"' not in federal_register.NOI_CORPUS_QUERIES
     assert '"Environmental Impact Statement" AND "Intent"' not in federal_register.NOI_CORPUS_QUERIES
     assert '"Environmental Assessment" AND "Intent"' not in federal_register.NOI_CORPUS_QUERIES
     assert _is_valid_noi_title("Notice of Preparation of an Environmental Impact Statement")
+    assert _is_valid_noi_title("Notice of Scoping for Proposed Solar Project")
 
 
 def test_date_windows_cover_years_and_quarters():
@@ -117,8 +120,9 @@ def test_corpus_matching_uses_energy_terms_as_distinctive_tokens():
 
     assert len(candidates) == 1
     assert "wind" in candidates.loc[0, "title_overlap_tokens"].split(", ")
-    assert project_matches.loc[0, "noi_match_status"] == "accepted"
-    assert review.empty
+    assert project_matches.loc[0, "noi_match_status"] == "review_required"
+    assert pd.isna(project_matches.loc[0, "noi_publication_date"])
+    assert len(review) == 1
 
 
 def test_process_flags_do_not_treat_standalone_ce_as_categorical_exclusion():
@@ -484,7 +488,7 @@ def test_multiple_high_confidence_matches_are_ambiguous():
     project_matches, candidates, review = build_project_noi_matches(projects, corpus)
 
     assert len(project_matches) == 1
-    assert project_matches.loc[0, "noi_match_status"] == "ambiguous"
+    assert project_matches.loc[0, "noi_match_status"] == "review_required"
     assert pd.isna(project_matches.loc[0, "noi_publication_date"])
     assert len(candidates) == 2
     assert len(review) == 2
@@ -546,3 +550,392 @@ def test_extract_data_analysis_pipeline_passes_refresh_flag(monkeypatch):
     extract_data.run_analysis_pipeline(refresh_federal_register=True)
 
     assert calls == [False, True]
+
+
+def test_normalize_fr_doc_number_ascii_hyphen():
+    from extract.federal_register import _normalize_fr_doc_number
+    assert _normalize_fr_doc_number("2024-05618") == "2024-05618"
+
+
+def test_normalize_fr_doc_number_en_dash():
+    from extract.federal_register import _normalize_fr_doc_number
+    assert _normalize_fr_doc_number("2024\u201305618") == "2024-05618"
+
+
+def test_normalize_fr_doc_number_em_dash():
+    from extract.federal_register import _normalize_fr_doc_number
+    assert _normalize_fr_doc_number("2024\u201405618") == "2024-05618"
+
+
+def test_extract_fr_doc_numbers_from_text():
+    from extract.federal_register import _extract_fr_doc_numbers_from_text
+    text = "This notice [FR Doc. 2024\u201305618 Filed 3\u201315\u201324; 8:45 am] is a test."
+    results = _extract_fr_doc_numbers_from_text(text)
+    assert len(results) == 1
+    normalized, raw, pos = results[0]
+    assert normalized == "2024-05618"
+    assert raw == "2024\u201305618"
+    assert pos > 0
+
+
+def test_extract_fr_url_doc_number():
+    from extract.federal_register import _extract_fr_url_doc_number
+    text = "See federalregister.gov/documents/2024/03/18/2024-05618/jackalope-wind for more info."
+    results = _extract_fr_url_doc_number(text)
+    assert len(results) == 1
+    normalized, url_raw, pos = results[0]
+    assert normalized == "2024-05618"
+
+
+def test_noi_proximity_check_accepts_nearby_phrase():
+    from extract.federal_register import _noi_proximity_check
+    text = "Notice of Intent to Prepare an EIS [FR Doc. 2024-05618 Filed 3-15-24; 8:45 am]"
+    # Position of the FR Doc bracket
+    pos = text.index("[FR Doc")
+    result = _noi_proximity_check(text, pos, "EIS", window=500)
+    # The function returns the nearest phrase; "intent to prepare" is closer to the bracket than "notice of intent"
+    assert result is not None
+    assert result.lower() in ("notice of intent", "intent to prepare", "notice to prepare", "notice of preparation", "notice of scoping", "notice of public scoping")
+
+
+def test_noi_proximity_check_rejects_distant_phrase():
+    from extract.federal_register import _noi_proximity_check
+    # FR doc appears far from any NOI phrase
+    text = "[FR Doc. 2024-05618 Filed 3-15-24; 8:45 am]" + " " * 600 + "Notice of Intent"
+    pos = 0
+    result = _noi_proximity_check(text, pos, "EIS", window=500)
+    assert result is None
+
+
+def test_parse_fr_date_text_extracts_date():
+    from extract.federal_register import _parse_fr_date_text
+    text = "Published in the Federal Register on March 18, 2024"
+    raw, parsed = _parse_fr_date_text(text)
+    assert parsed == "2024-03-18"
+    assert "March 18, 2024" in raw
+
+
+def test_parse_fr_date_text_returns_empty_when_no_match():
+    from extract.federal_register import _parse_fr_date_text
+    text = "This document was submitted on March 18, 2024 for review."
+    raw, parsed = _parse_fr_date_text(text)
+    assert raw == ""
+    assert parsed == ""
+
+
+def test_direct_doc_number_evidence_accepts_with_corroboration():
+    """NEPATEC doc number evidence + title corroboration -> accepted (not just review)."""
+    projects = pd.DataFrame(
+        [
+            {
+                "project_id": "p1",
+                "project_title": "Jackalope Wind Energy Project",
+                "lead_agency": "Bureau of Land Management",
+                "project_state": "Wyoming",
+                "process_type": "EIS",
+                "project_energy_type": "Clean",
+            }
+        ]
+    )
+    corpus = pd.DataFrame(
+        [
+            {
+                "fr_document_number": "2024-05618",
+                "fr_title": "Notice of Intent To Prepare an Environmental Impact Statement for the Jackalope Wind Energy Project",
+                "fr_publication_date": "2024-03-18",
+                "fr_url": "https://example.test/jackalope",
+                "fr_agency_names": '["Bureau of Land Management"]',
+                "fr_type": "Notice",
+                "fr_subtype": "",
+                "fr_comments_close_on": "",
+                "fr_abstract": "",
+                "fr_query_terms": '"Notice of Intent"',
+            }
+        ]
+    )
+    # Simulate NEPATEC evidence table: project p1 has doc number 2024-05618 in its pages
+    nepatec_evidence = pd.DataFrame(
+        [
+            {
+                "project_id": "p1",
+                "process_type": "EIS",
+                "project_title": "Jackalope Wind Energy Project",
+                "document_id": "doc-abc",
+                "file_name": "Jackalope Federal Register Notice.pdf",
+                "document_title": "Federal Register Notice",
+                "document_type": "FR Notice",
+                "main_document": True,
+                "page_number": 1,
+                "evidence_type": "fr_doc_noi",
+                "fr_document_number": "2024-05618",
+                "fr_document_number_raw": "2024\u201305618",
+                "fr_url": "",
+                "fr_citation": "",
+                "fr_date_text": "",
+                "fr_date_text_parsed": "",
+                "notice_title_snippet": "notice of intent",
+                "evidence_context": "[FR Doc. 2024\u201305618 Filed 3\u201315\u201324; 8:45 am]",
+                "nearby_noi_phrase": "notice of intent",
+                "nearby_project_title_token_count": 2,
+                "evidence_rank": 1,
+            }
+        ]
+    )
+
+    project_matches, candidates, review = build_project_noi_matches(
+        projects, corpus, nepatec_evidence=nepatec_evidence
+    )
+
+    assert project_matches.loc[0, "noi_match_status"] == "accepted"
+    assert project_matches.loc[0, "noi_publication_date"] == "2024-03-18"
+    assert project_matches.loc[0, "noi_nepatec_evidence_file_name"] == "Jackalope Federal Register Notice.pdf"
+    assert candidates.loc[0, "nepatec_fr_document_number_evidence"] == True  # noqa: E712
+
+
+def test_title_only_match_never_populates_noi_publication_date():
+    """Without NEPATEC evidence, even strong title matches stay in review and never populate noi_publication_date."""
+    projects = pd.DataFrame(
+        [
+            {
+                "project_id": "p1",
+                "project_title": "Jackalope Wind Energy Project",
+                "lead_agency": "Bureau of Land Management",
+                "project_state": "Wyoming",
+                "process_type": "EIS",
+                "project_energy_type": "Clean",
+            }
+        ]
+    )
+    corpus = pd.DataFrame(
+        [
+            {
+                "fr_document_number": "2024-05618",
+                "fr_title": "Notice of Intent To Prepare an Environmental Impact Statement for the Jackalope Wind Energy Project",
+                "fr_publication_date": "2024-03-18",
+                "fr_url": "https://example.test/jackalope",
+                "fr_agency_names": '["Bureau of Land Management"]',
+                "fr_type": "Notice",
+                "fr_subtype": "",
+                "fr_comments_close_on": "",
+                "fr_abstract": "",
+                "fr_query_terms": '"Notice of Intent"',
+            }
+        ]
+    )
+
+    project_matches, candidates, review = build_project_noi_matches(projects, corpus)
+
+    assert project_matches.loc[0, "noi_match_status"] == "review_required"
+    assert pd.isna(project_matches.loc[0, "noi_publication_date"])
+    assert len(review) >= 1
+
+
+def test_ce_nepatec_doc_number_evidence_goes_to_review():
+    """CE projects with direct doc number evidence -> review, not auto-accept."""
+    projects = pd.DataFrame(
+        [
+            {
+                "project_id": "ce1",
+                "project_title": "Blackrock Solar CE Project",
+                "lead_agency": "Bureau of Land Management",
+                "project_state": "Nevada",
+                "process_type": "CE",
+                "project_energy_type": "Clean",
+            }
+        ]
+    )
+    corpus = pd.DataFrame(
+        [
+            {
+                "fr_document_number": "2024-11111",
+                "fr_title": "Notice of Intent To Prepare a Categorical Exclusion for the Blackrock Solar CE Project",
+                "fr_publication_date": "2024-05-01",
+                "fr_url": "https://example.test/blackrock",
+                "fr_agency_names": '["Bureau of Land Management"]',
+                "fr_type": "Notice",
+                "fr_subtype": "",
+                "fr_comments_close_on": "",
+                "fr_abstract": "",
+                "fr_query_terms": '"Notice of Intent"',
+            }
+        ]
+    )
+    nepatec_evidence = pd.DataFrame(
+        [
+            {
+                "project_id": "ce1",
+                "process_type": "CE",
+                "project_title": "Blackrock Solar CE Project",
+                "document_id": "doc-ce1",
+                "file_name": "CE Determination.pdf",
+                "document_title": "CE Determination",
+                "document_type": "CE",
+                "main_document": True,
+                "page_number": 1,
+                "evidence_type": "fr_doc_noi",
+                "fr_document_number": "2024-11111",
+                "fr_document_number_raw": "2024-11111",
+                "fr_url": "",
+                "fr_citation": "",
+                "fr_date_text": "",
+                "fr_date_text_parsed": "",
+                "notice_title_snippet": "notice of intent",
+                "evidence_context": "[FR Doc. 2024-11111 Filed 4-28-24]",
+                "nearby_noi_phrase": "notice of intent",
+                "nearby_project_title_token_count": 2,
+                "evidence_rank": 1,
+            }
+        ]
+    )
+
+    project_matches, candidates, review = build_project_noi_matches(
+        projects, corpus, nepatec_evidence=nepatec_evidence
+    )
+
+    assert project_matches.loc[0, "noi_match_status"] == "review_required"
+    assert pd.isna(project_matches.loc[0, "noi_publication_date"])
+    assert len(review) >= 1
+
+
+def test_multiple_nepatec_doc_numbers_go_to_review():
+    """When multiple FR records join via NEPATEC evidence, the multi-record case goes to review."""
+    projects = pd.DataFrame(
+        [
+            {
+                "project_id": "p1",
+                "project_title": "TransWest Express Transmission Project",
+                "lead_agency": "Department of Energy",
+                "project_state": "Wyoming",
+                "process_type": "EIS",
+                "project_energy_type": "Clean",
+            }
+        ]
+    )
+    corpus = pd.DataFrame(
+        [
+            {
+                "fr_document_number": "2011-00001",
+                "fr_title": "Notice of Intent To Prepare an Environmental Impact Statement for the TransWest Express Transmission Project in Wyoming",
+                "fr_publication_date": "2011-01-14",
+                "fr_url": "https://example.test/1",
+                "fr_agency_names": '["Department of Energy"]',
+                "fr_type": "Notice",
+                "fr_subtype": "",
+                "fr_comments_close_on": "",
+                "fr_abstract": "",
+                "fr_query_terms": '"Notice of Intent"',
+            },
+            {
+                "fr_document_number": "2011-00002",
+                "fr_title": "Notice of Intent To Prepare an Environmental Impact Statement for TransWest Express Transmission Project, Wyoming",
+                "fr_publication_date": "2011-01-15",
+                "fr_url": "https://example.test/2",
+                "fr_agency_names": '["Department of Energy"]',
+                "fr_type": "Notice",
+                "fr_subtype": "",
+                "fr_comments_close_on": "",
+                "fr_abstract": "",
+                "fr_query_terms": '"Notice of Intent"',
+            },
+        ]
+    )
+    # Both doc numbers found in NEPATEC
+    nepatec_evidence = pd.DataFrame(
+        [
+            {
+                "project_id": "p1", "process_type": "EIS", "project_title": "TransWest Express Transmission Project",
+                "document_id": "doc1", "file_name": "NOI.pdf", "document_title": "NOI", "document_type": "Notice",
+                "main_document": True, "page_number": 1, "evidence_type": "fr_doc_noi",
+                "fr_document_number": "2011-00001", "fr_document_number_raw": "2011-00001",
+                "fr_url": "", "fr_citation": "", "fr_date_text": "", "fr_date_text_parsed": "",
+                "notice_title_snippet": "notice of intent", "evidence_context": "[FR Doc. 2011-00001]",
+                "nearby_noi_phrase": "notice of intent", "nearby_project_title_token_count": 3, "evidence_rank": 1,
+            },
+            {
+                "project_id": "p1", "process_type": "EIS", "project_title": "TransWest Express Transmission Project",
+                "document_id": "doc1", "file_name": "NOI.pdf", "document_title": "NOI", "document_type": "Notice",
+                "main_document": True, "page_number": 2, "evidence_type": "fr_doc_noi",
+                "fr_document_number": "2011-00002", "fr_document_number_raw": "2011-00002",
+                "fr_url": "", "fr_citation": "", "fr_date_text": "", "fr_date_text_parsed": "",
+                "notice_title_snippet": "notice of intent", "evidence_context": "[FR Doc. 2011-00002]",
+                "nearby_noi_phrase": "notice of intent", "nearby_project_title_token_count": 3, "evidence_rank": 1,
+            },
+        ]
+    )
+
+    project_matches, candidates, review = build_project_noi_matches(
+        projects, corpus, nepatec_evidence=nepatec_evidence
+    )
+
+    assert len(project_matches) == 1
+    assert project_matches.loc[0, "noi_match_status"] == "ambiguous"
+    assert pd.isna(project_matches.loc[0, "noi_publication_date"])
+    assert len(review) == 2
+
+
+def test_fr_doc_non_noi_not_used_for_accept():
+    """FR doc numbers that failed the NOI proximity filter (fr_doc_non_noi) do not produce auto-accepts."""
+    projects = pd.DataFrame(
+        [
+            {
+                "project_id": "p1",
+                "project_title": "Cedar Wind Project",
+                "lead_agency": "Bureau of Land Management",
+                "project_state": "Wyoming",
+                "process_type": "EIS",
+                "project_energy_type": "Clean",
+            }
+        ]
+    )
+    corpus = pd.DataFrame(
+        [
+            {
+                "fr_document_number": "2024-10001",
+                "fr_title": "Notice of Intent To Prepare an Environmental Impact Statement for the Cedar Wind Project",
+                "fr_publication_date": "2024-01-02",
+                "fr_url": "https://example.test/cedar-wind",
+                "fr_agency_names": '["Bureau of Land Management"]',
+                "fr_type": "Notice",
+                "fr_subtype": "",
+                "fr_comments_close_on": "",
+                "fr_abstract": "",
+                "fr_query_terms": '"Notice of Intent"',
+            }
+        ]
+    )
+    # Evidence with evidence_type = fr_doc_non_noi (failed proximity filter)
+    nepatec_evidence = pd.DataFrame(
+        [
+            {
+                "project_id": "p1", "process_type": "EIS", "project_title": "Cedar Wind Project",
+                "document_id": "doc1", "file_name": "appendix.pdf", "document_title": "Appendix",
+                "document_type": "Appendix", "main_document": False, "page_number": 5,
+                "evidence_type": "fr_doc_non_noi",  # failed proximity filter
+                "fr_document_number": "2024-10001", "fr_document_number_raw": "2024-10001",
+                "fr_url": "", "fr_citation": "", "fr_date_text": "", "fr_date_text_parsed": "",
+                "notice_title_snippet": "", "evidence_context": "See also [FR Doc. 2024-10001]",
+                "nearby_noi_phrase": "", "nearby_project_title_token_count": 0, "evidence_rank": 2,
+            }
+        ]
+    )
+
+    project_matches, candidates, review = build_project_noi_matches(
+        projects, corpus, nepatec_evidence=nepatec_evidence
+    )
+
+    # Should not auto-accept -- fr_doc_non_noi is excluded from the NEPATEC doc number set
+    assert project_matches.loc[0, "noi_match_status"] != "accepted"
+    assert pd.isna(project_matches.loc[0, "noi_publication_date"])
+
+
+def test_project_output_includes_nepatec_provenance_columns():
+    """PROJECT_OUTPUT_COLUMNS includes the 4 new NEPATEC provenance fields."""
+    assert "noi_date_evidence_type" in federal_register.PROJECT_OUTPUT_COLUMNS
+    assert "noi_nepatec_evidence_document_id" in federal_register.PROJECT_OUTPUT_COLUMNS
+    assert "noi_nepatec_evidence_file_name" in federal_register.PROJECT_OUTPUT_COLUMNS
+    assert "noi_nepatec_evidence_page_number" in federal_register.PROJECT_OUTPUT_COLUMNS
+
+
+def test_candidate_output_includes_nepatec_evidence_column():
+    """CANDIDATE_OUTPUT_COLUMNS includes nepatec_fr_document_number_evidence."""
+    assert "nepatec_fr_document_number_evidence" in federal_register.CANDIDATE_OUTPUT_COLUMNS

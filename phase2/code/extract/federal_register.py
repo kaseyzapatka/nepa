@@ -40,12 +40,16 @@ DEFAULT_REVIEW_OUTPUT = FEDERAL_REGISTER_DIR / "project_noi_manual_review.csv"
 DEFAULT_PROJECT_OUTPUT = FEDERAL_REGISTER_DIR / "noi_federal_register.parquet"
 DEFAULT_CACHE_PATH = FEDERAL_REGISTER_DIR / "fr_noi_cache.json"
 DEFAULT_FETCH_REPORT_OUTPUT = FEDERAL_REGISTER_DIR / "fr_noi_fetch_report.csv"
+DEFAULT_EVIDENCE_OUTPUT = FEDERAL_REGISTER_DIR / "nepatec_fr_evidence.parquet"
 
 NOI_CORPUS_QUERIES = (
     '"Notice of Intent"',
     '"Intent To Prepare"',
     '"Notice To Prepare"',
     '"Notice of Preparation"',
+    '"Notice of Scoping"',
+    '"Notice of Public Scoping"',
+    '"Scoping for Environmental Impact"',
 )
 
 FR_FIELDS = (
@@ -90,6 +94,10 @@ PROJECT_OUTPUT_COLUMNS = [
     "noi_process_match",
     "noi_process_conflict",
     "noi_match_reason",
+    "noi_date_evidence_type",
+    "noi_nepatec_evidence_document_id",
+    "noi_nepatec_evidence_file_name",
+    "noi_nepatec_evidence_page_number",
 ]
 
 CANDIDATE_OUTPUT_COLUMNS = [
@@ -122,6 +130,7 @@ CANDIDATE_OUTPUT_COLUMNS = [
     "document_number_evidence",
     "fr_citation_evidence",
     "raw_text_scoping_date_count",
+    "nepatec_fr_document_number_evidence",
 ]
 
 CORPUS_OUTPUT_COLUMNS = [
@@ -163,6 +172,30 @@ FETCH_REPORT_COLUMNS = [
     "split",
     "split_to",
     "fr_fetch_run_at",
+]
+
+EVIDENCE_OUTPUT_COLUMNS = [
+    "project_id",
+    "process_type",
+    "project_title",
+    "document_id",
+    "file_name",
+    "document_title",
+    "document_type",
+    "main_document",
+    "page_number",
+    "evidence_type",
+    "fr_document_number",
+    "fr_document_number_raw",
+    "fr_url",
+    "fr_citation",
+    "fr_date_text",
+    "fr_date_text_parsed",
+    "notice_title_snippet",
+    "evidence_context",
+    "nearby_noi_phrase",
+    "nearby_project_title_token_count",
+    "evidence_rank",
 ]
 
 _TITLE_PREFIX_PATTERNS = (
@@ -234,13 +267,46 @@ _EMPTY_HINT_PATTERNS = (
 )
 
 _NOI_LIKE_RE = re.compile(
-    r"\b(?:notice\s+of\s+intent|intent\s+to\s+prepare|notice\s+to\s+prepare|notice\s+of\s+preparation)\b",
+    r"\b(?:notice\s+of\s+intent|intent\s+to\s+prepare|notice\s+to\s+prepare"
+    r"|notice\s+of\s+preparation|notice\s+of\s+scoping|notice\s+of\s+public\s+scoping)\b",
     re.IGNORECASE,
 )
 _REJECT_NOTICE_RE = re.compile(r"\b(?:termination|withdrawals?|cancel(?:lation|ed)?)\b", re.IGNORECASE)
 _FR_CITATION_RE = re.compile(r"\b\d+\s*FR\s*\d+\b", re.IGNORECASE)
 _MONTHS = "January|February|March|April|May|June|July|August|September|October|November|December"
 _DATE_PATTERN = rf"(?:{_MONTHS})\s+\d{{1,2}},\s+\d{{4}}"
+
+_FR_DOC_RE = re.compile(
+    r'\[FR Doc\.?\s+(\d{4}[\-\u2013\u2014]\d+)',
+    re.IGNORECASE,
+)
+
+_FR_URL_RE = re.compile(
+    r'federalregister\.gov/documents/\d{4}/\d{2}/\d{2}/([\d\-]+)',
+    re.IGNORECASE,
+)
+
+_FR_DATE_TEXT_RE = re.compile(
+    r'(?:published\s+in\s+the\s+Federal\s+Register\s+on'
+    r'|Federal\s+Register,\s+Vol\.?\s*\d+,\s*No\.?\s*\d+,?)'
+    r'[^.]{0,60}?((?:' + _MONTHS + r')\s+\d{1,2},\s+\d{4})',
+    re.IGNORECASE,
+)
+
+_NOI_PROXIMITY_PHRASES = (
+    "notice of intent",
+    "intent to prepare",
+    "notice to prepare",
+    "notice of preparation",
+    "notice of scoping",
+    "notice of public scoping",
+)
+
+_CE_PROXIMITY_PHRASES = (
+    "notice of application",
+    "notice of proposed action",
+    "categorical exclusion",
+)
 
 
 @dataclass
@@ -621,6 +687,69 @@ def _fr_query_terms(item: object) -> str:
     return _normalize_text(_field(item, "fr_query_terms", "noi_query"))
 
 
+def _normalize_fr_doc_number(raw: str) -> str:
+    """Normalize FR Doc number: replace en-dash/em-dash with ASCII hyphen."""
+    return re.sub(r'[\u2013\u2014]', '-', raw).strip()
+
+
+def _extract_fr_doc_numbers_from_text(text: str) -> list[tuple[str, str, int]]:
+    """Return list of (normalized_doc_number, raw_doc_number, char_position) from page text."""
+    results = []
+    for m in _FR_DOC_RE.finditer(text):
+        raw = m.group(1)
+        normalized = _normalize_fr_doc_number(raw)
+        results.append((normalized, raw, m.start()))
+    return results
+
+
+def _extract_fr_url_doc_number(text: str) -> list[tuple[str, str, int]]:
+    """Return list of (normalized_doc_number, raw_url_match, char_position) from FR URLs."""
+    results = []
+    for m in _FR_URL_RE.finditer(text):
+        raw = m.group(1)
+        normalized = _normalize_fr_doc_number(raw)
+        results.append((normalized, m.group(0), m.start()))
+    return results
+
+
+def _noi_proximity_check(text: str, pos: int, process_type: str, window: int = 500) -> Optional[str]:
+    """Return the nearest NOI-like phrase within window chars of pos, or None."""
+    text_lower = text.lower()
+    start = max(0, pos - window)
+    end = min(len(text), pos + window)
+    region = text_lower[start:end]
+    rel_pos = pos - start
+
+    all_phrases = _NOI_PROXIMITY_PHRASES
+    if process_type.upper() == "CE":
+        all_phrases = _NOI_PROXIMITY_PHRASES + _CE_PROXIMITY_PHRASES
+
+    best: Optional[str] = None
+    best_dist = window + 1
+    for phrase in all_phrases:
+        idx = region.find(phrase)
+        if idx >= 0:
+            dist = abs(idx - rel_pos)
+            if dist < best_dist:
+                best_dist = dist
+                best = phrase
+    return best
+
+
+def _parse_fr_date_text(text: str) -> tuple[str, str]:
+    """Extract (raw_text, parsed_iso_date_str) from FR date prose. Returns ('', '') if not found."""
+    m = _FR_DATE_TEXT_RE.search(text)
+    if not m:
+        return "", ""
+    raw = m.group(0)
+    date_str = m.group(1)
+    try:
+        parsed = datetime.strptime(date_str, "%B %d, %Y").date()
+        return raw, parsed.isoformat()
+    except ValueError:
+        return raw, ""
+
+
 def _project_context_text(row: pd.Series) -> str:
     parts = [
         row.get("project_title"),
@@ -750,28 +879,52 @@ def _is_ce_project(row: pd.Series) -> bool:
     return _normalize_text(row.get("process_type")).upper() == "CE"
 
 
-def _classify_candidate(item: object, row: pd.Series, conservative: bool = True) -> tuple[str, str]:
+def _classify_candidate(
+    item: object,
+    row: pd.Series,
+    conservative: bool = True,
+    nepatec_doc_numbers: frozenset = frozenset(),
+) -> tuple[str, str]:
     metrics = _candidate_match_metrics(item, row)
     contextual = metrics["agency_match"] or metrics["state_match"] or metrics["sponsor_match"]
+
     if _REJECT_NOTICE_RE.search(_fr_title(item)):
         if metrics["document_number_evidence"] or metrics["fr_citation_evidence"]:
             return "medium", "termination_or_withdrawal_notice_requires_review"
         return "low", "termination_or_withdrawal_notice_rejected"
-    if metrics["document_number_evidence"] or metrics["fr_citation_evidence"]:
-        return "high", "document_number_or_fr_citation_evidence"
+
+    # NEPATEC direct evidence path: FR doc number found in project's own NEPATEC documents
+    candidate_doc_number = _fr_document_number(item)
+    has_nepatec_doc_evidence = bool(
+        candidate_doc_number and nepatec_doc_numbers and candidate_doc_number in nepatec_doc_numbers
+    )
+
+    if has_nepatec_doc_evidence:
+        # CE: always review regardless of corroboration
+        if _is_ce_project(row):
+            return "medium", "ce_nepatec_doc_number_evidence_requires_review"
+        # EA/EIS: high if at least one corroboration signal present, medium if not
+        if contextual or metrics["title_overlap_count"] >= 2:
+            return "high", "nepatec_fr_doc_number_evidence_with_corroboration"
+        return "medium", "nepatec_fr_doc_number_evidence_weak_corroboration"
+
+    # Title-only path (no NEPATEC doc number evidence)
+    # CE: apply CE-specific rules
     if _is_ce_project(row) and metrics["title_overlap_count"] < 4:
         if metrics["title_overlap_count"] >= 2 and contextual and not metrics["process_conflict"]:
             return "medium", "ce_match_requires_distinctive_token_review"
         return "low", "ce_low_distinctive_title_overlap"
+
+    # Title-only: cap at medium — strong matches go to review, not auto-accept
     if (
         metrics["title_overlap_count"] >= 3
         and metrics["title_containment_ratio"] >= 0.60
         and contextual
         and not metrics["process_conflict"]
     ):
-        return "high", "strong_title_overlap_with_context"
+        return "medium", "title_only_strong_overlap_requires_review"
     if metrics["exact_phrase_match"] and metrics["title_overlap_count"] >= 2 and not metrics["process_conflict"]:
-        return "high", "exact_phrase_match"
+        return "medium", "title_only_exact_phrase_requires_review"
     if metrics["title_overlap_count"] >= 2 and contextual and not metrics["process_conflict"]:
         return "medium", "moderate_title_overlap_with_context"
     if not conservative and metrics["title_overlap_count"] >= 2 and not metrics["process_conflict"]:
@@ -779,7 +932,12 @@ def _classify_candidate(item: object, row: pd.Series, conservative: bool = True)
     return "low", "weak_or_contextless_match"
 
 
-def _candidate_record(item: object, row: pd.Series, conservative: bool = True) -> Optional[dict]:
+def _candidate_record(
+    item: object,
+    row: pd.Series,
+    conservative: bool = True,
+    nepatec_doc_numbers: frozenset = frozenset(),
+) -> Optional[dict]:
     title = _fr_title(item)
     if not title:
         return None
@@ -788,16 +946,20 @@ def _candidate_record(item: object, row: pd.Series, conservative: bool = True) -
 
     metrics = _candidate_match_metrics(item, row)
     if not _passes_candidate_threshold(metrics):
-        return None
+        # Still include if NEPATEC doc number evidence exists
+        candidate_doc_number = _fr_document_number(item)
+        if not (candidate_doc_number and candidate_doc_number in nepatec_doc_numbers):
+            return None
 
-    confidence, reason = _classify_candidate(item, row, conservative=conservative)
+    confidence, reason = _classify_candidate(item, row, conservative=conservative, nepatec_doc_numbers=nepatec_doc_numbers)
     score = _score_candidate(item, row, metrics=metrics)
+    candidate_doc_number = _fr_document_number(item)
     return {
         "project_id": row.get("project_id"),
         "project_title": row.get("project_title"),
         "process_type": row.get("process_type"),
         "project_energy_type": row.get("project_energy_type"),
-        "fr_document_number": _fr_document_number(item),
+        "fr_document_number": candidate_doc_number,
         "fr_title": title,
         "fr_publication_date": _normalize_text(_field(item, "fr_publication_date", "publication_date")),
         "fr_url": _fr_url(item),
@@ -824,6 +986,7 @@ def _candidate_record(item: object, row: pd.Series, conservative: bool = True) -
         "document_number_evidence": metrics["document_number_evidence"],
         "fr_citation_evidence": metrics["fr_citation_evidence"],
         "raw_text_scoping_date_count": metrics["raw_text_scoping_date_count"],
+        "nepatec_fr_document_number_evidence": bool(candidate_doc_number and candidate_doc_number in nepatec_doc_numbers),
     }
 
 
@@ -1096,6 +1259,188 @@ def _fetch_query_window(
     )
 
 
+def extract_nepatec_federal_register_evidence(
+    projects: pd.DataFrame,
+    *,
+    analysis_dir: Path,
+    process_types: tuple[str, ...] = ("EA", "EIS", "CE"),
+    evidence_output: Optional[Path] = None,
+    show_progress: bool = True,
+) -> pd.DataFrame:
+    """
+    Scan EA/EIS/CE NEPATEC page text for Federal Register evidence using DuckDB.
+
+    Returns an evidence table (one row per FR Doc. number found per page).
+    Results are cached to evidence_output if provided.
+    """
+    import duckdb
+
+    analysis_dir = Path(analysis_dir)
+    processed_dir = analysis_dir.parent / "processed"
+
+    # Build project_id -> project_title lookup
+    project_lookup: dict[str, str] = {}
+    if not projects.empty and "project_id" in projects.columns:
+        for _, prow in projects.iterrows():
+            pid = _normalize_text(prow.get("project_id"))
+            if pid and pid not in project_lookup:
+                project_lookup[pid] = _normalize_text(prow.get("project_title"))
+
+    all_evidence: list[dict] = []
+
+    for process_type in process_types:
+        pt_lower = process_type.lower()
+        docs_path = processed_dir / pt_lower / "documents.parquet"
+        pages_path = processed_dir / pt_lower / "pages.parquet"
+
+        if not docs_path.exists() or not pages_path.exists():
+            if show_progress:
+                print(f"[fr-evidence] {process_type}: processed data not found at {docs_path.parent}, skipping", flush=True)
+            continue
+
+        con = duckdb.connect()
+        try:
+            doc_count = con.execute(f"SELECT COUNT(*) FROM read_parquet('{docs_path}')").fetchone()[0]
+            page_count = con.execute(f"SELECT COUNT(*) FROM read_parquet('{pages_path}')").fetchone()[0]
+            if show_progress:
+                print(
+                    f"[fr-evidence] {process_type}: scanning {doc_count:,} documents / {page_count:,} pages (DuckDB)",
+                    flush=True,
+                )
+
+            result_df = con.execute(
+                """
+                SELECT p.document_id, p.page_number, p.page_text,
+                       d.project_id, d.file_name, d.document_title,
+                       d.document_type, d.main_document
+                FROM read_parquet(?) AS p
+                JOIN read_parquet(?) AS d USING (document_id)
+                WHERE p.page_text LIKE '%FR Doc%'
+                   OR p.page_text LIKE '%federalregister.gov%'
+                   OR p.page_text LIKE '%Federal Register%'
+                """,
+                [str(pages_path), str(docs_path)],
+            ).df()
+        finally:
+            con.close()
+
+        if show_progress:
+            print(
+                f"[fr-evidence] {process_type}: {len(result_df):,} pages matched LIKE filter; extracting FR Doc numbers",
+                flush=True,
+            )
+
+        projects_with_evidence: set[str] = set()
+
+        for _, page_row in result_df.iterrows():
+            page_text = _normalize_text(page_row.get("page_text"))
+            if not page_text:
+                continue
+
+            project_id = _normalize_text(page_row.get("project_id"))
+            document_id = _normalize_text(page_row.get("document_id"))
+            page_number = page_row.get("page_number")
+            file_name = _normalize_text(page_row.get("file_name"))
+            document_title = _normalize_text(page_row.get("document_title"))
+            document_type = _normalize_text(page_row.get("document_type"))
+            main_document = bool(page_row.get("main_document"))
+            project_title = project_lookup.get(project_id, "")
+            evidence_rank = 1 if main_document else 2
+
+            project_tokens = set(_distinctive_tokens(project_title))
+
+            # Extract FR Doc. numbers from bracket pattern
+            for normalized, raw, pos in _extract_fr_doc_numbers_from_text(page_text):
+                nearby_phrase = _noi_proximity_check(page_text, pos, process_type)
+                evidence_type = "fr_doc_noi" if nearby_phrase else "fr_doc_non_noi"
+                ctx_start = max(0, pos - 200)
+                ctx_end = min(len(page_text), pos + 200)
+                context = page_text[ctx_start:ctx_end]
+
+                context_tokens = set(_distinctive_tokens(context))
+                nearby_token_count = len(project_tokens & context_tokens)
+                citation_m = _FR_CITATION_RE.search(context)
+                fr_citation = citation_m.group(0) if citation_m else ""
+                fr_date_text, fr_date_text_parsed = _parse_fr_date_text(context)
+
+                all_evidence.append({
+                    "project_id": project_id,
+                    "process_type": process_type,
+                    "project_title": project_title,
+                    "document_id": document_id,
+                    "file_name": file_name,
+                    "document_title": document_title,
+                    "document_type": document_type,
+                    "main_document": main_document,
+                    "page_number": page_number,
+                    "evidence_type": evidence_type,
+                    "fr_document_number": normalized,
+                    "fr_document_number_raw": raw,
+                    "fr_url": "",
+                    "fr_citation": fr_citation,
+                    "fr_date_text": fr_date_text,
+                    "fr_date_text_parsed": fr_date_text_parsed,
+                    "notice_title_snippet": nearby_phrase or "",
+                    "evidence_context": context,
+                    "nearby_noi_phrase": nearby_phrase or "",
+                    "nearby_project_title_token_count": nearby_token_count,
+                    "evidence_rank": evidence_rank,
+                })
+                projects_with_evidence.add(project_id)
+
+            # Extract FR URLs
+            for normalized, url_raw, pos in _extract_fr_url_doc_number(page_text):
+                ctx_start = max(0, pos - 200)
+                ctx_end = min(len(page_text), pos + 200)
+                context = page_text[ctx_start:ctx_end]
+
+                all_evidence.append({
+                    "project_id": project_id,
+                    "process_type": process_type,
+                    "project_title": project_title,
+                    "document_id": document_id,
+                    "file_name": file_name,
+                    "document_title": document_title,
+                    "document_type": document_type,
+                    "main_document": main_document,
+                    "page_number": page_number,
+                    "evidence_type": "fr_url",
+                    "fr_document_number": normalized,
+                    "fr_document_number_raw": normalized,
+                    "fr_url": url_raw,
+                    "fr_citation": "",
+                    "fr_date_text": "",
+                    "fr_date_text_parsed": "",
+                    "notice_title_snippet": "",
+                    "evidence_context": context,
+                    "nearby_noi_phrase": "",
+                    "nearby_project_title_token_count": 0,
+                    "evidence_rank": evidence_rank,
+                })
+                projects_with_evidence.add(project_id)
+
+        if show_progress:
+            suffix = " (all → review)" if process_type.upper() == "CE" else ""
+            print(
+                f"[fr-evidence] {process_type}: found {len(projects_with_evidence):,} projects with FR Doc evidence{suffix}",
+                flush=True,
+            )
+
+    if all_evidence:
+        evidence_df = pd.DataFrame(all_evidence, columns=EVIDENCE_OUTPUT_COLUMNS)
+    else:
+        evidence_df = pd.DataFrame(columns=EVIDENCE_OUTPUT_COLUMNS)
+
+    if evidence_output:
+        evidence_path = Path(evidence_output)
+        evidence_path.parent.mkdir(parents=True, exist_ok=True)
+        evidence_df.to_parquet(evidence_path, index=False)
+        if show_progress:
+            print(f"[fr-evidence] cached to {evidence_path} ({len(evidence_df):,} rows)", flush=True)
+
+    return evidence_df
+
+
 def fetch_federal_register_noi_corpus(
     config: FederalRegisterConfig,
     cache_path: Optional[Path] = None,
@@ -1218,6 +1563,16 @@ def _build_corpus_index(corpus: pd.DataFrame) -> dict[str, set[int]]:
     return index
 
 
+def _build_corpus_doc_number_index(corpus: pd.DataFrame) -> dict[str, int]:
+    """Map fr_document_number -> integer row index in corpus."""
+    index: dict[str, int] = {}
+    for idx, row in corpus.iterrows():
+        doc_num = _normalize_text(row.get("fr_document_number"))
+        if doc_num and doc_num not in index:
+            index[doc_num] = idx
+    return index
+
+
 def _sort_candidate_records(candidates: list[dict]) -> list[dict]:
     confidence_rank = {"high": 3, "medium": 2, "low": 1}
     sorted_candidates = sorted(
@@ -1260,6 +1615,10 @@ def _empty_project_output(row: pd.Series, status: str = "unmatched", confidence:
         "noi_process_match": False,
         "noi_process_conflict": False,
         "noi_match_reason": status,
+        "noi_date_evidence_type": None,
+        "noi_nepatec_evidence_document_id": None,
+        "noi_nepatec_evidence_file_name": None,
+        "noi_nepatec_evidence_page_number": None,
     }
 
 
@@ -1273,6 +1632,7 @@ def _project_output_from_candidate(
     candidate_count: int,
     high_count: int,
     reason: str,
+    nepatec_evidence_row: Optional[dict] = None,
 ) -> dict:
     return {
         "project_id": row.get("project_id"),
@@ -1300,6 +1660,10 @@ def _project_output_from_candidate(
         "noi_process_match": candidate.get("process_match"),
         "noi_process_conflict": candidate.get("process_conflict"),
         "noi_match_reason": reason,
+        "noi_date_evidence_type": "nepatec_fr_doc_number" if (accepted and nepatec_evidence_row) else None,
+        "noi_nepatec_evidence_document_id": nepatec_evidence_row.get("document_id") if (accepted and nepatec_evidence_row) else None,
+        "noi_nepatec_evidence_file_name": nepatec_evidence_row.get("file_name") if (accepted and nepatec_evidence_row) else None,
+        "noi_nepatec_evidence_page_number": nepatec_evidence_row.get("page_number") if (accepted and nepatec_evidence_row) else None,
     }
 
 
@@ -1311,6 +1675,7 @@ def build_project_noi_matches(
     max_candidates_per_project: int = 10,
     show_progress: bool = False,
     progress_interval: int = 5000,
+    nepatec_evidence: Optional[pd.DataFrame] = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     projects_unique = projects.drop_duplicates(subset=["project_id"], keep="first").copy()
     corpus = corpus.copy()
@@ -1323,6 +1688,26 @@ def build_project_noi_matches(
         return pd.DataFrame(project_rows, columns=PROJECT_OUTPUT_COLUMNS), empty_candidates, empty_review
 
     corpus_index = _build_corpus_index(corpus)
+    corpus_doc_number_index = _build_corpus_doc_number_index(corpus)
+
+    # Build per-project NEPATEC evidence lookup:
+    # project_id -> {fr_document_number: best evidence row dict}
+    nepatec_by_project: dict[str, dict[str, dict]] = defaultdict(dict)
+    if nepatec_evidence is not None and not nepatec_evidence.empty:
+        # Only use fr_doc_noi and fr_url evidence (passed proximity filter)
+        valid_evidence = nepatec_evidence[
+            nepatec_evidence["evidence_type"].isin(["fr_doc_noi", "fr_url"])
+        ]
+        for _, ev_row in valid_evidence.iterrows():
+            pid = _normalize_text(ev_row.get("project_id"))
+            doc_num = _normalize_text(ev_row.get("fr_document_number"))
+            if not pid or not doc_num:
+                continue
+            # Keep the best row per doc number (prefer main_document pages)
+            existing = nepatec_by_project[pid].get(doc_num)
+            if existing is None or (ev_row.get("main_document") and not existing.get("main_document")):
+                nepatec_by_project[pid][doc_num] = ev_row.to_dict()
+
     project_rows = []
     all_candidate_rows = []
     review_rows = []
@@ -1334,15 +1719,30 @@ def build_project_noi_matches(
         )
 
     for project_index, (_, row) in enumerate(projects_unique.iterrows(), start=1):
+        project_id = _normalize_text(row.get("project_id"))
         title = _strip_title_prefixes(_normalize_text(row.get("project_title")))
         project_tokens = _distinctive_tokens(title)
+
+        # Collect candidate corpus indices from token search
         candidate_counter: Counter[int] = Counter()
         for token in project_tokens:
             candidate_counter.update(corpus_index.get(token, set()))
 
+        # Also include any corpus entries matched via NEPATEC doc number evidence
+        project_nepatec = nepatec_by_project.get(project_id, {})
+        nepatec_doc_numbers: frozenset = frozenset(project_nepatec.keys())
+        for doc_num in nepatec_doc_numbers:
+            if doc_num in corpus_doc_number_index:
+                corpus_idx = corpus_doc_number_index[doc_num]
+                candidate_counter[corpus_idx] = max(candidate_counter.get(corpus_idx, 0), 999)
+
         candidate_records = []
         for corpus_idx, _ in candidate_counter.most_common(75):
-            candidate = _candidate_record(corpus.loc[corpus_idx], row, conservative=conservative)
+            candidate = _candidate_record(
+                corpus.loc[corpus_idx], row,
+                conservative=conservative,
+                nepatec_doc_numbers=nepatec_doc_numbers,
+            )
             if candidate is None:
                 continue
             candidate_records.append(candidate)
@@ -1356,46 +1756,55 @@ def build_project_noi_matches(
         if high_candidates:
             top = high_candidates[0]
             if len(high_candidates) > 1 and (top["match_score"] - high_candidates[1]["match_score"]) < 10:
+                # Multiple competing high-confidence direct-evidence candidates
+                # Pick the one with the earlier publication date
+                sorted_by_date = sorted(
+                    high_candidates,
+                    key=lambda c: c.get("fr_publication_date") or "9999-99-99",
+                )
+                top = sorted_by_date[0]
+                ev_row = project_nepatec.get(top.get("fr_document_number") or "")
                 output = _project_output_from_candidate(
-                    row,
-                    top,
+                    row, top,
                     accepted=False,
                     status="ambiguous",
                     confidence="ambiguous",
                     candidate_count=len(candidate_records),
                     high_count=len(high_candidates),
                     reason="multiple_high_confidence_candidates",
+                    nepatec_evidence_row=ev_row,
                 )
                 review_rows.extend(high_candidates[:max_candidates_per_project])
             else:
+                ev_row = project_nepatec.get(top.get("fr_document_number") or "")
                 output = _project_output_from_candidate(
-                    row,
-                    top,
+                    row, top,
                     accepted=True,
                     status="accepted",
                     confidence="high",
                     candidate_count=len(candidate_records),
                     high_count=len(high_candidates),
                     reason=top["match_reason"],
+                    nepatec_evidence_row=ev_row,
                 )
         elif medium_candidates:
             top = medium_candidates[0]
+            ev_row = project_nepatec.get(top.get("fr_document_number") or "")
             output = _project_output_from_candidate(
-                row,
-                top,
+                row, top,
                 accepted=False,
                 status="review_required",
                 confidence="medium",
                 candidate_count=len(candidate_records),
                 high_count=0,
                 reason=top["match_reason"],
+                nepatec_evidence_row=ev_row,
             )
             review_rows.extend(medium_candidates[:max_candidates_per_project])
         elif candidate_records:
             top = candidate_records[0]
             output = _project_output_from_candidate(
-                row,
-                top,
+                row, top,
                 accepted=False,
                 status="unmatched",
                 confidence="low",
@@ -1414,7 +1823,7 @@ def build_project_noi_matches(
                 (
                     f"[FR match] scored {project_index:,}/{project_total:,} projects; "
                     f"candidate rows={len(all_candidate_rows):,}; review rows={len(review_rows):,}; "
-                    f"accepted={sum(row.get('noi_match_status') == 'accepted' for row in project_rows):,}"
+                    f"accepted={sum(r.get('noi_match_status') == 'accepted' for r in project_rows):,}"
                 ),
                 flush=True,
             )
@@ -1475,6 +1884,8 @@ def refresh_federal_register_noi(
     fetch_report_output: Optional[Path] = None,
     cache_path: Optional[Path] = None,
     max_candidates_per_project: int = 10,
+    evidence_output: Optional[Path] = None,
+    rescan_nepatec_evidence: bool = False,
 ) -> pd.DataFrame:
     analysis_dir = Path(analysis_dir)
     fr_dir = analysis_dir / "federal_register"
@@ -1506,6 +1917,20 @@ def refresh_federal_register_noi(
     corpus.to_parquet(corpus_output, index=False)
     print(f"Saved Federal Register corpus: {corpus_output} ({len(corpus):,} documents)")
 
+    # NEPATEC Federal Register evidence scan (or load from cache)
+    evidence_path = Path(evidence_output) if evidence_output else fr_dir / "nepatec_fr_evidence.parquet"
+    if evidence_path.exists() and not rescan_nepatec_evidence:
+        print(f"Loading cached NEPATEC FR evidence: {evidence_path}", flush=True)
+        nepatec_evidence = pd.read_parquet(evidence_path)
+        print(f"Loaded {len(nepatec_evidence):,} evidence rows from cache", flush=True)
+    else:
+        nepatec_evidence = extract_nepatec_federal_register_evidence(
+            projects,
+            analysis_dir=analysis_dir,
+            evidence_output=evidence_path,
+            show_progress=True,
+        )
+
     project_matches, candidates, review = build_project_noi_matches(
         projects,
         corpus,
@@ -1513,6 +1938,7 @@ def refresh_federal_register_noi(
         max_candidates_per_project=max_candidates_per_project,
         show_progress=config.show_progress,
         progress_interval=config.progress_project_interval,
+        nepatec_evidence=nepatec_evidence,
     )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1526,6 +1952,7 @@ def refresh_federal_register_noi(
     print(f"Saved Federal Register project matches: {output_path} ({len(project_matches):,} projects)")
     print(f"Saved Federal Register candidates: {candidates_output} ({len(candidates):,} candidates)")
     print(f"Saved Federal Register manual review packet: {review_output} ({len(review):,} rows)")
+    print(f"NEPATEC FR evidence rows: {len(nepatec_evidence):,}")
     _print_coverage_report(project_matches.merge(
         projects[["project_id", "process_type", "project_energy_type"]],
         on="project_id",
@@ -1591,6 +2018,8 @@ def main() -> None:
     parser.add_argument("--max-candidates-per-project", type=int, default=10)
     parser.add_argument("--quiet-progress", action="store_true", help="Suppress Federal Register progress logs")
     parser.add_argument("--report-n", type=int, default=10, help="Examples to print")
+    parser.add_argument("--evidence-output", default=str(DEFAULT_EVIDENCE_OUTPUT))
+    parser.add_argument("--rescan-nepatec-evidence", action="store_true", help="Rescan NEPATEC pages even if evidence cache exists")
 
     args = parser.parse_args()
 
@@ -1630,6 +2059,20 @@ def main() -> None:
     corpus.to_parquet(corpus_path, index=False)
     print(f"Saved Federal Register corpus: {corpus_path} ({len(corpus):,} documents)")
 
+    # NEPATEC Federal Register evidence scan (or load from cache)
+    evidence_path = Path(args.evidence_output)
+    if evidence_path.exists() and not args.rescan_nepatec_evidence:
+        print(f"Loading cached NEPATEC FR evidence: {evidence_path}", flush=True)
+        nepatec_evidence = pd.read_parquet(evidence_path)
+        print(f"Loaded {len(nepatec_evidence):,} evidence rows from cache", flush=True)
+    else:
+        nepatec_evidence = extract_nepatec_federal_register_evidence(
+            projects,
+            analysis_dir=ANALYSIS_DIR,
+            evidence_output=evidence_path,
+            show_progress=not args.quiet_progress,
+        )
+
     project_matches, candidates, review = build_project_noi_matches(
         projects,
         corpus,
@@ -1637,6 +2080,7 @@ def main() -> None:
         max_candidates_per_project=config.max_candidates_per_project,
         show_progress=config.show_progress,
         progress_interval=config.progress_project_interval,
+        nepatec_evidence=nepatec_evidence,
     )
 
     output_path = Path(args.output)

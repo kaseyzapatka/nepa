@@ -1528,8 +1528,9 @@ def create_combined_projects(refresh_federal_register=False):
 
     Args:
         refresh_federal_register: If True, refresh Federal Register NOI data
-            from the API before merging. Defaults to False so analysis runs stay
-            offline and deterministic unless explicitly requested.
+            from the API before merging (always includes a fresh NEPATEC page scan).
+            Defaults to False so analysis runs stay offline and deterministic
+            unless explicitly requested.
 
     Outputs:
         data/analysis/projects_combined.parquet
@@ -1630,6 +1631,7 @@ def create_combined_projects(refresh_federal_register=False):
             end_date=None,
             fetch_raw_text=False,
             conservative=True,
+            rescan_nepatec_evidence=True,
         )
         fr_df = fr_df.drop(columns=["project_title"], errors="ignore")
         combined = combined.merge(fr_df, on="project_id", how="left")
@@ -2208,7 +2210,6 @@ if __name__ == "__main__":
             "By default, analysis runs only merge an existing local NOI artifact."
         ),
     )
-
     args = parser.parse_args()
 
     if args.mode == "extract":
