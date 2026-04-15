@@ -23,6 +23,8 @@ These are **not runbooks** (step-by-step execution guides — those live in `run
 
 All deliverables start from `extract_data.py`, which produces `data/analysis/projects_combined.parquet`. This contains one row per project with metadata: agency, project type, process type (CE/EA/EIS), energy type, geography, document references, and Federal Register NOI dates.
 
+Federal Register NOI data is a refreshable Phase 2 artifact. Default `extract_data.py --mode analysis` runs offline and merges the existing `data/analysis/federal_register/noi_federal_register.parquet` file if present, falling back to the old top-level artifact until the new output is generated. Use `--refresh-federal-register` only when intentionally querying the Federal Register API and regenerating the artifacts in `data/analysis/federal_register/`. API refreshes use date-windowed Federal Register pulls and write `data/analysis/federal_register/fr_noi_fetch_report.csv` so capped windows and corpus coverage can be audited before match-threshold tuning.
+
 **DuckDB** is used throughout for page-level scanning and parquet joins. Never load full page parquets into pandas — always use DuckDB's `read_parquet()` for memory efficiency.
 
 ---
