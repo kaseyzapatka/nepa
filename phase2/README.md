@@ -31,7 +31,7 @@ phase2/
 ├── notes/              # Architecture notes, current_plan.md, model evaluation
 ├── output/             # Phase 2 deliverable outputs + timeline validation
 ├── reports/            # Quarto reports (index.qmd landing page; deliverables added as completed)
-├── runbooks/           # Phase 2-specific pipeline docs (timeline only; other runbooks at repo root)
+├── runbooks/           # Phase 2-specific pipeline docs
 └── tests/              # Unit tests
 ```
 
@@ -45,7 +45,7 @@ conda activate nepa
 
 All Phase 2 outputs write to `phase2/data/` by default. Phase 1 data in `data/analysis/` is read-only input — never modified.
 
-The single Phase 2 runbook is `phase2/runbooks/02_timeline.md` (improved BERT + LLM adjudication pipeline). For all other extractions (reviews, gencap, page counts, etc.), use the Phase 1 runbooks at `phase1/runbooks/`.
+Phase 2 runbooks include `phase2/runbooks/02_timeline.md` for the improved BERT + LLM adjudication pipeline and `phase2/runbooks/federal_register.md` for Federal Register NOI refreshes. For other extractions without Phase 2-specific runbooks, use the Phase 1 runbooks at `phase1/runbooks/`.
 
 ## Relationship to Phase 1
 
