@@ -34,13 +34,16 @@ FEDERAL_REGISTER_DIR = ANALYSIS_DIR / "federal_register"
 
 FR_ENDPOINT = "https://www.federalregister.gov/api/v1/documents.json"
 
-DEFAULT_CORPUS_OUTPUT = FEDERAL_REGISTER_DIR / "fr_noi_documents.parquet"
-DEFAULT_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "project_noi_candidates.parquet"
-DEFAULT_REVIEW_OUTPUT = FEDERAL_REGISTER_DIR / "project_noi_manual_review.csv"
+DEFAULT_NOI_CORPUS_OUTPUT = FEDERAL_REGISTER_DIR / "noi_documents.parquet"
+DEFAULT_NOI_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "project_noi_candidates.parquet"
+DEFAULT_NOA_CORPUS_OUTPUT = FEDERAL_REGISTER_DIR / "noa_documents.parquet"
+DEFAULT_NOA_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "project_noa_candidates.parquet"
 DEFAULT_PROJECT_OUTPUT = FEDERAL_REGISTER_DIR / "noi_federal_register.parquet"
 DEFAULT_CACHE_PATH = FEDERAL_REGISTER_DIR / "fr_noi_cache.json"
 DEFAULT_FETCH_REPORT_OUTPUT = FEDERAL_REGISTER_DIR / "fr_noi_fetch_report.csv"
 DEFAULT_EVIDENCE_OUTPUT = FEDERAL_REGISTER_DIR / "nepatec_fr_evidence.parquet"
+DEFAULT_AMBIGUOUS_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "manual_review_ambiguous_candidates.csv"
+DEFAULT_LOW_OVERLAP_ACCEPTED_OUTPUT = FEDERAL_REGISTER_DIR / "manual_review_accepted_low_title_overlap.csv"
 
 NOI_CORPUS_QUERIES = (
     '"Notice of Intent"',
@@ -98,6 +101,20 @@ PROJECT_OUTPUT_COLUMNS = [
     "noi_nepatec_evidence_document_id",
     "noi_nepatec_evidence_file_name",
     "noi_nepatec_evidence_page_number",
+    # NOA (Notice of Availability) — end-of-process signal (FEIS/FONSI)
+    "noa_availability_date",
+    "noa_document_number",
+    "noa_url",
+    "noa_fr_title",
+    "noa_match_status",
+    "noa_match_reason",
+    "noa_match_score",
+    "noa_title_overlap_count",
+    "noa_title_overlap_tokens",
+    "noa_date_evidence_type",
+    "noa_nepatec_evidence_document_id",
+    "noa_nepatec_evidence_file_name",
+    "noa_nepatec_evidence_page_number",
 ]
 
 CANDIDATE_OUTPUT_COLUMNS = [
@@ -198,6 +215,57 @@ EVIDENCE_OUTPUT_COLUMNS = [
     "evidence_rank",
 ]
 
+FOCUSED_PROJECT_REVIEW_COLUMNS = [
+    "project_id",
+    "process_type",
+    "project_energy_type",
+    "project_department",
+    "lead_agency",
+    "project_state",
+    "project_sponsor",
+    "project_title",
+    "noi_document_number",
+    "noi_publication_date",
+    "noi_url",
+    "noi_project_title",
+    "noi_match_score",
+    "noi_match_reason",
+    "noi_candidate_count",
+    "noi_high_confidence_candidate_count",
+    "noi_title_overlap_count",
+    "noi_title_overlap_tokens",
+    "noi_agency_match",
+    "noi_state_match",
+    "noi_sponsor_match",
+    "noi_process_match",
+    "noi_process_conflict",
+    "noi_nepatec_evidence_file_name",
+    "noi_nepatec_evidence_page_number",
+]
+
+FOCUSED_CANDIDATE_REVIEW_COLUMNS = [
+    "project_id",
+    "process_type",
+    "project_title",
+    "project_energy_type",
+    "fr_document_number",
+    "fr_publication_date",
+    "fr_url",
+    "fr_title",
+    "match_confidence",
+    "match_score",
+    "match_reason",
+    "candidate_rank",
+    "title_overlap_count",
+    "title_overlap_tokens",
+    "agency_match",
+    "state_match",
+    "sponsor_match",
+    "process_match",
+    "process_conflict",
+    "nepatec_fr_document_number_evidence",
+]
+
 _TITLE_PREFIX_PATTERNS = (
     r"^(?:proposed\s+)?construction and operation of(?:\s+(?:a|an|the))?\s+",
     r"^department of energy loan guarantee for\s+",
@@ -277,7 +345,7 @@ _MONTHS = "January|February|March|April|May|June|July|August|September|October|N
 _DATE_PATTERN = rf"(?:{_MONTHS})\s+\d{{1,2}},\s+\d{{4}}"
 
 _FR_DOC_RE = re.compile(
-    r'\[FR Doc\.?\s+(\d{4}[\-\u2013\u2014]\d+)',
+    r'[\[\(]?FR Doc\.?\s+(\d{4}[\-\u2013\u2014]\d+)',
     re.IGNORECASE,
 )
 
@@ -306,6 +374,23 @@ _CE_PROXIMITY_PHRASES = (
     "notice of application",
     "notice of proposed action",
     "categorical exclusion",
+)
+
+_NOA_PROXIMITY_PHRASES = (
+    "final environmental impact statement",
+    "final eis",
+    "finding of no significant impact",
+    "fonsi",
+    "final environmental assessment",
+    "final ea",
+    "availability of the final",
+)
+
+_NOA_LIKE_RE = re.compile(
+    r"\b(?:final\s+environmental\s+impact\s+statement|final\s+eis"
+    r"|finding\s+of\s+no\s+significant\s+impact|fonsi"
+    r"|final\s+environmental\s+assessment|final\s+ea)\b",
+    re.IGNORECASE,
 )
 
 
@@ -346,6 +431,33 @@ def _normalize_text(value: object) -> str:
     if isinstance(value, float) and pd.isna(value):
         return ""
     return str(value).strip()
+
+
+def _normalize_project_id(value: object) -> str:
+    """Unwrap NEPATEC project_id values that arrive as Arrow struct payloads."""
+    if value is None:
+        return ""
+    if isinstance(value, float) and pd.isna(value):
+        return ""
+    if isinstance(value, dict):
+        if "value" in value:
+            return _normalize_project_id(value.get("value"))
+        return _normalize_text(value)
+
+    text = _normalize_text(value)
+    if not text:
+        return ""
+
+    if text.startswith("{") and text.endswith("}") and "value" in text:
+        for parser in (json.loads, ast.literal_eval):
+            try:
+                parsed = parser(text)
+            except (ValueError, SyntaxError, json.JSONDecodeError):
+                continue
+            if isinstance(parsed, dict) and "value" in parsed:
+                return _normalize_project_id(parsed.get("value"))
+
+    return text
 
 
 def _json_safe(value: object) -> str:
@@ -601,13 +713,23 @@ def search_noi(
     raise last_error
 
 
-def _is_valid_noi_title(title: str) -> bool:
+def _is_noi_title(title: str) -> bool:
     title_lower = _normalize_text(title).lower()
     if not _NOI_LIKE_RE.search(title_lower):
         return False
     if _REJECT_NOTICE_RE.search(title_lower):
         return False
     return True
+
+
+def _is_noa_title(title: str) -> bool:
+    """Return True if FR title describes a Final EIS NOA, FONSI, or Final EA availability notice."""
+    t = _normalize_text(title).lower()
+    if not _NOA_LIKE_RE.search(t):
+        return False
+    has_availability = "availab" in t
+    is_fonsi = bool(re.search(r"\b(?:finding\s+of\s+no\s+significant\s+impact|fonsi)\b", t))
+    return has_availability or is_fonsi
 
 
 def _is_valid_candidate_title(title: str) -> bool:
@@ -727,6 +849,26 @@ def _noi_proximity_check(text: str, pos: int, process_type: str, window: int = 5
     best: Optional[str] = None
     best_dist = window + 1
     for phrase in all_phrases:
+        idx = region.find(phrase)
+        if idx >= 0:
+            dist = abs(idx - rel_pos)
+            if dist < best_dist:
+                best_dist = dist
+                best = phrase
+    return best
+
+
+def _noa_proximity_check(text: str, pos: int, window: int = 500) -> Optional[str]:
+    """Return the nearest NOA-like phrase within window chars of pos, or None."""
+    text_lower = text.lower()
+    start = max(0, pos - window)
+    end = min(len(text), pos + window)
+    region = text_lower[start:end]
+    rel_pos = pos - start
+
+    best: Optional[str] = None
+    best_dist = window + 1
+    for phrase in _NOA_PROXIMITY_PHRASES:
         idx = region.find(phrase)
         if idx >= 0:
             dist = abs(idx - rel_pos)
@@ -879,14 +1021,36 @@ def _is_ce_project(row: pd.Series) -> bool:
     return _normalize_text(row.get("process_type")).upper() == "CE"
 
 
-def _classify_candidate(
+def _required_title_overlap(n_project_tokens: int) -> int:
+    """Minimum distinctive title token overlap required for auto-accept.
+
+    Scales with title length so short titles require all tokens to match
+    while longer titles require at least 3:
+
+        1 token  → require 1 (all)
+        2 tokens → require 2 (all)
+        3 tokens → require 2
+        4+tokens → require 3
+    """
+    if n_project_tokens <= 0:
+        return 1  # no tokens → threshold can never be met → always review
+    if n_project_tokens <= 2:
+        return n_project_tokens  # require all
+    if n_project_tokens == 3:
+        return 2
+    return 3  # 4+
+
+
+def _classify_noi_candidate(
     item: object,
     row: pd.Series,
     conservative: bool = True,
     nepatec_doc_numbers: frozenset = frozenset(),
+    nepatec_evidence_types: Optional[dict[str, set[str]]] = None,
 ) -> tuple[str, str]:
     metrics = _candidate_match_metrics(item, row)
     contextual = metrics["agency_match"] or metrics["state_match"] or metrics["sponsor_match"]
+    nepatec_evidence_types = nepatec_evidence_types or {}
 
     if _REJECT_NOTICE_RE.search(_fr_title(item)):
         if metrics["document_number_evidence"] or metrics["fr_citation_evidence"]:
@@ -900,13 +1064,47 @@ def _classify_candidate(
     )
 
     if has_nepatec_doc_evidence:
+        evidence_types = nepatec_evidence_types.get(candidate_doc_number, set())
+        has_noi_doc_evidence = "fr_doc_noi" in evidence_types
+        has_url_evidence = "fr_url" in evidence_types
+
         # CE: always review regardless of corroboration
         if _is_ce_project(row):
             return "medium", "ce_nepatec_doc_number_evidence_requires_review"
-        # EA/EIS: high if at least one corroboration signal present, medium if not
-        if contextual or metrics["title_overlap_count"] >= 2:
-            return "high", "nepatec_fr_doc_number_evidence_with_corroboration"
-        return "medium", "nepatec_fr_doc_number_evidence_weak_corroboration"
+
+        # EA/EIS: require both direct doc number evidence AND title token overlap.
+        # Agency/state/sponsor alone is not sufficient — title match guards against
+        # the same FR doc number appearing in multiple projects' files (e.g. a
+        # programmatic EIS cited by many site-specific reviews).
+        # Threshold scales with title length (see _required_title_overlap).
+        required = _required_title_overlap(metrics["project_token_count"])
+        title_ok = metrics["title_overlap_count"] >= required
+        # A hard process conflict (e.g. EIS project but FR record is explicitly EA)
+        # overrides even a strong doc number + title match — send to review.
+        conflict = metrics["process_conflict"]
+        # The fetched FR record must itself be an NOI-type notice (not a Notice of
+        # Availability of a Final EIS or other non-initiation notice).  If it isn't,
+        # its publication date would contaminate the initiation-date field.
+        has_noi_title = bool(_NOI_LIKE_RE.search(_fr_title(item)))
+
+        if has_noi_doc_evidence and title_ok and not conflict:
+            if has_noi_title:
+                return "high", "nepatec_fr_doc_number_with_title_match"
+            return "medium", "nepatec_fr_doc_number_non_noi_fr_title_requires_review"
+        if has_noi_doc_evidence and title_ok and conflict:
+            return "medium", "nepatec_fr_doc_number_process_conflict_requires_review"
+        if has_noi_doc_evidence:
+            return "medium", "nepatec_fr_doc_number_no_title_match_requires_review"
+
+        # Federal Register URLs: same two-gate rule (doc number + title).
+        if has_url_evidence and title_ok and not conflict:
+            if has_noi_title:
+                return "high", "nepatec_fr_url_with_title_match"
+            return "medium", "nepatec_fr_url_non_noi_fr_title_requires_review"
+        if has_url_evidence:
+            return "medium", "nepatec_fr_url_no_title_match_requires_review"
+
+        return "medium", "nepatec_direct_evidence_requires_review"
 
     # Title-only path (no NEPATEC doc number evidence)
     # CE: apply CE-specific rules
@@ -937,25 +1135,38 @@ def _candidate_record(
     row: pd.Series,
     conservative: bool = True,
     nepatec_doc_numbers: frozenset = frozenset(),
+    nepatec_evidence_types: Optional[dict[str, set[str]]] = None,
 ) -> Optional[dict]:
     title = _fr_title(item)
     if not title:
         return None
-    if not _is_valid_candidate_title(title):
+
+    # Check direct NEPATEC doc number evidence before applying title filters —
+    # a doc number found in the project's own files must always be evaluated,
+    # even if the resolved FR record is not itself an NOI (e.g. it turns out to
+    # be an EA notice, which triggers a process-conflict review path).
+    candidate_doc_number = _fr_document_number(item)
+    has_nepatec_doc_evidence = bool(
+        candidate_doc_number and nepatec_doc_numbers and candidate_doc_number in nepatec_doc_numbers
+    )
+
+    if not has_nepatec_doc_evidence and not _is_valid_candidate_title(title):
         return None
 
     metrics = _candidate_match_metrics(item, row)
-    if not _passes_candidate_threshold(metrics):
-        # Still include if NEPATEC doc number evidence exists
-        candidate_doc_number = _fr_document_number(item)
-        if not (candidate_doc_number and candidate_doc_number in nepatec_doc_numbers):
-            return None
+    if not _passes_candidate_threshold(metrics) and not has_nepatec_doc_evidence:
+        return None
 
-    confidence, reason = _classify_candidate(item, row, conservative=conservative, nepatec_doc_numbers=nepatec_doc_numbers)
+    confidence, reason = _classify_noi_candidate(
+        item,
+        row,
+        conservative=conservative,
+        nepatec_doc_numbers=nepatec_doc_numbers,
+        nepatec_evidence_types=nepatec_evidence_types,
+    )
     score = _score_candidate(item, row, metrics=metrics)
-    candidate_doc_number = _fr_document_number(item)
     return {
-        "project_id": row.get("project_id"),
+        "project_id": _normalize_project_id(row.get("project_id")),
         "project_title": row.get("project_title"),
         "process_type": row.get("process_type"),
         "project_energy_type": row.get("project_energy_type"),
@@ -1282,7 +1493,7 @@ def extract_nepatec_federal_register_evidence(
     project_lookup: dict[str, str] = {}
     if not projects.empty and "project_id" in projects.columns:
         for _, prow in projects.iterrows():
-            pid = _normalize_text(prow.get("project_id"))
+            pid = _normalize_project_id(prow.get("project_id"))
             if pid and pid not in project_lookup:
                 project_lookup[pid] = _normalize_text(prow.get("project_title"))
 
@@ -1337,7 +1548,7 @@ def extract_nepatec_federal_register_evidence(
             if not page_text:
                 continue
 
-            project_id = _normalize_text(page_row.get("project_id"))
+            project_id = _normalize_project_id(page_row.get("project_id"))
             document_id = _normalize_text(page_row.get("document_id"))
             page_number = page_row.get("page_number")
             file_name = _normalize_text(page_row.get("file_name"))
@@ -1351,8 +1562,18 @@ def extract_nepatec_federal_register_evidence(
 
             # Extract FR Doc. numbers from bracket pattern
             for normalized, raw, pos in _extract_fr_doc_numbers_from_text(page_text):
-                nearby_phrase = _noi_proximity_check(page_text, pos, process_type)
-                evidence_type = "fr_doc_noi" if nearby_phrase else "fr_doc_non_noi"
+                noi_phrase = _noi_proximity_check(page_text, pos, process_type)
+                if noi_phrase:
+                    evidence_type = "fr_doc_noi"
+                    nearby_phrase = noi_phrase
+                else:
+                    noa_phrase = _noa_proximity_check(page_text, pos)
+                    if noa_phrase:
+                        evidence_type = "fr_doc_noa"
+                        nearby_phrase = noa_phrase
+                    else:
+                        evidence_type = "fr_doc_non_noi"
+                        nearby_phrase = None
                 ctx_start = max(0, pos - 200)
                 ctx_end = min(len(page_text), pos + 200)
                 context = page_text[ctx_start:ctx_end]
@@ -1380,9 +1601,9 @@ def extract_nepatec_federal_register_evidence(
                     "fr_citation": fr_citation,
                     "fr_date_text": fr_date_text,
                     "fr_date_text_parsed": fr_date_text_parsed,
-                    "notice_title_snippet": nearby_phrase or "",
+                    "notice_title_snippet": nearby_phrase if nearby_phrase else "",
                     "evidence_context": context,
-                    "nearby_noi_phrase": nearby_phrase or "",
+                    "nearby_noi_phrase": nearby_phrase if nearby_phrase else "",
                     "nearby_project_title_token_count": nearby_token_count,
                     "evidence_rank": evidence_rank,
                 })
@@ -1573,6 +1794,213 @@ def _build_corpus_doc_number_index(corpus: pd.DataFrame) -> dict[str, int]:
     return index
 
 
+def fetch_documents_by_doc_numbers(
+    doc_numbers: list[str],
+    *,
+    throttle_seconds: float = 0.25,
+    cache_path: Optional[Path] = None,
+    show_progress: bool = True,
+) -> pd.DataFrame:
+    """Direct-fetch FR documents by document number.
+
+    For each doc number, calls:
+        GET https://www.federalregister.gov/api/v1/documents/{doc_num}.json
+
+    This replaces the keyword-corpus approach for projects with NEPATEC direct
+    evidence. It is targeted (at most one call per unique doc number), faster
+    than paginated keyword searches, and eliminates keyword-search false positives.
+
+    Results are cached with key ``docnum|{doc_num}`` so subsequent runs skip
+    already-fetched numbers. 404s are also cached as None to avoid re-fetching
+    known-missing numbers.
+
+    Returns a DataFrame with the same column schema as the keyword corpus
+    (CORPUS_OUTPUT_COLUMNS).
+    """
+    if not doc_numbers:
+        return pd.DataFrame(columns=CORPUS_OUTPUT_COLUMNS)
+
+    cache = _load_cache(cache_path)
+    fetch_run_at = datetime.now(timezone.utc).isoformat()
+    records_by_doc: dict[str, dict] = {}
+    not_found: list[str] = []
+    network_calls = 0
+
+    unique_doc_numbers = sorted(set(doc_numbers))
+
+    if show_progress:
+        print(
+            f"[FR direct] Fetching {len(unique_doc_numbers):,} unique doc numbers from FR API",
+            flush=True,
+        )
+
+    for i, doc_num in enumerate(unique_doc_numbers, start=1):
+        cache_key = f"docnum|{doc_num}"
+        if cache_key in cache:
+            item = cache[cache_key]
+        else:
+            url = f"https://www.federalregister.gov/api/v1/documents/{doc_num}.json"
+            try:
+                resp = requests.get(
+                    url,
+                    params=[("fields[]", f) for f in FR_FIELDS],
+                    timeout=30,
+                )
+                if resp.status_code == 404:
+                    cache[cache_key] = None
+                    not_found.append(doc_num)
+                    network_calls += 1
+                    time.sleep(throttle_seconds)
+                    continue
+                resp.raise_for_status()
+                item = resp.json()
+                cache[cache_key] = item
+                network_calls += 1
+                time.sleep(throttle_seconds)
+            except Exception as exc:
+                print(f"[FR direct] Warning: error fetching {doc_num}: {exc}", flush=True)
+                continue
+
+        if item is None:
+            if doc_num not in not_found:
+                not_found.append(doc_num)
+            continue
+
+        record = _normalize_fr_document(item, "direct_fetch", fetch_run_at)
+        rec_doc_num = record["fr_document_number"]
+        if rec_doc_num and rec_doc_num not in records_by_doc:
+            records_by_doc[rec_doc_num] = record
+
+        if show_progress and (i % 50 == 0 or i == len(unique_doc_numbers)):
+            print(
+                f"[FR direct] {i:,}/{len(unique_doc_numbers):,} processed; "
+                f"found={len(records_by_doc):,}; not_found={len(not_found):,}; "
+                f"network_calls={network_calls:,}",
+                flush=True,
+            )
+
+    _save_cache(cache_path, cache)
+
+    if show_progress:
+        print(
+            f"[FR direct] Complete: {len(records_by_doc):,} fetched, "
+            f"{len(not_found):,} not in FR API, {network_calls:,} network calls",
+            flush=True,
+        )
+
+    if not records_by_doc:
+        return pd.DataFrame(columns=CORPUS_OUTPUT_COLUMNS)
+
+    corpus = pd.DataFrame(list(records_by_doc.values()))
+    for col in CORPUS_OUTPUT_COLUMNS:
+        if col not in corpus.columns:
+            corpus[col] = ""
+    return corpus[CORPUS_OUTPUT_COLUMNS]
+
+
+def _columns_present(df: pd.DataFrame, columns: list[str]) -> list[str]:
+    return [col for col in columns if col in df.columns]
+
+
+def _sort_if_columns(
+    df: pd.DataFrame,
+    columns: list[str],
+    *,
+    ascending: Optional[list[bool]] = None,
+) -> pd.DataFrame:
+    sort_columns = _columns_present(df, columns)
+    if not sort_columns:
+        return df
+    sort_ascending = ascending[: len(sort_columns)] if ascending else True
+    return df.sort_values(sort_columns, ascending=sort_ascending, kind="stable")
+
+
+def write_focused_manual_review_exports(
+    project_matches: pd.DataFrame,
+    review: pd.DataFrame,
+    projects: pd.DataFrame,
+    *,
+    output_dir: Path,
+) -> dict[str, int]:
+    """
+    Write small, reproducible review packets for high-priority manual checks.
+
+    These are derived from the canonical Federal Register artifacts:
+    ambiguous project outputs, candidate rows for those ambiguous projects,
+    and accepted rows with only 0-1 title-overlap tokens.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    project_meta_cols = _columns_present(
+        projects,
+        [
+            "project_id",
+            "process_type",
+            "project_energy_type",
+            "project_department",
+            "lead_agency",
+            "project_state",
+            "project_sponsor",
+        ],
+    )
+    project_rows = project_matches.copy()
+    project_meta_add_cols = [
+        col for col in project_meta_cols
+        if col == "project_id" or col not in project_rows.columns
+    ]
+    project_meta = (
+        projects[project_meta_add_cols].drop_duplicates("project_id")
+        if project_meta_add_cols and "project_id" in project_meta_add_cols
+        else pd.DataFrame()
+    )
+    if not project_meta.empty and len(project_meta.columns) > 1:
+        project_rows = project_rows.merge(project_meta, on="project_id", how="left")
+
+    ambiguous_ids = (
+        set(project_rows.loc[project_rows["noi_match_status"].eq("ambiguous"), "project_id"].astype(str))
+        if "noi_match_status" in project_rows.columns
+        else set()
+    )
+    if not review.empty and ambiguous_ids and "project_id" in review.columns:
+        ambiguous_candidates = review[review["project_id"].astype(str).isin(ambiguous_ids)].copy()
+    else:
+        ambiguous_candidates = pd.DataFrame(columns=review.columns)
+    ambiguous_candidates = _sort_if_columns(
+        ambiguous_candidates,
+        ["project_id", "candidate_rank", "match_score"],
+        ascending=[True, True, False],
+    )
+    ambiguous_candidates_path = output_dir / DEFAULT_AMBIGUOUS_CANDIDATES_OUTPUT.name
+    ambiguous_candidates[
+        _columns_present(ambiguous_candidates, FOCUSED_CANDIDATE_REVIEW_COLUMNS)
+    ].to_csv(ambiguous_candidates_path, index=False)
+
+    if "noi_publication_date" in project_rows.columns:
+        accepted = project_rows[project_rows["noi_publication_date"].notna()].copy()
+    else:
+        accepted = pd.DataFrame(columns=project_rows.columns)
+    if "noi_title_overlap_count" in accepted.columns:
+        title_overlap = pd.to_numeric(accepted["noi_title_overlap_count"], errors="coerce").fillna(0)
+    else:
+        title_overlap = pd.Series(0, index=accepted.index)
+    low_overlap_accepted = accepted[title_overlap <= 1].copy()
+    low_overlap_accepted = _sort_if_columns(
+        low_overlap_accepted,
+        ["noi_title_overlap_count", "noi_match_score", "project_title"],
+        ascending=[True, True, True],
+    )
+    low_overlap_accepted_path = output_dir / DEFAULT_LOW_OVERLAP_ACCEPTED_OUTPUT.name
+    low_overlap_accepted[
+        _columns_present(low_overlap_accepted, FOCUSED_PROJECT_REVIEW_COLUMNS)
+    ].to_csv(low_overlap_accepted_path, index=False)
+
+    return {
+        str(ambiguous_candidates_path): len(ambiguous_candidates),
+        str(low_overlap_accepted_path): len(low_overlap_accepted),
+    }
+
+
 def _sort_candidate_records(candidates: list[dict]) -> list[dict]:
     confidence_rank = {"high": 3, "medium": 2, "low": 1}
     sorted_candidates = sorted(
@@ -1590,7 +2018,7 @@ def _sort_candidate_records(candidates: list[dict]) -> list[dict]:
 
 def _empty_project_output(row: pd.Series, status: str = "unmatched", confidence: str = "none") -> dict:
     return {
-        "project_id": row.get("project_id"),
+        "project_id": _normalize_project_id(row.get("project_id")),
         "project_title": row.get("project_title"),
         "noi_publication_date": None,
         "noi_document_number": None,
@@ -1619,6 +2047,19 @@ def _empty_project_output(row: pd.Series, status: str = "unmatched", confidence:
         "noi_nepatec_evidence_document_id": None,
         "noi_nepatec_evidence_file_name": None,
         "noi_nepatec_evidence_page_number": None,
+        "noa_availability_date": None,
+        "noa_document_number": None,
+        "noa_url": None,
+        "noa_fr_title": None,
+        "noa_match_status": "unmatched",
+        "noa_match_reason": "unmatched",
+        "noa_match_score": None,
+        "noa_title_overlap_count": None,
+        "noa_title_overlap_tokens": None,
+        "noa_date_evidence_type": None,
+        "noa_nepatec_evidence_document_id": None,
+        "noa_nepatec_evidence_file_name": None,
+        "noa_nepatec_evidence_page_number": None,
     }
 
 
@@ -1635,7 +2076,7 @@ def _project_output_from_candidate(
     nepatec_evidence_row: Optional[dict] = None,
 ) -> dict:
     return {
-        "project_id": row.get("project_id"),
+        "project_id": _normalize_project_id(row.get("project_id")),
         "project_title": row.get("project_title"),
         "noi_publication_date": candidate.get("fr_publication_date") if accepted else None,
         "noi_document_number": candidate.get("fr_document_number"),
@@ -1667,6 +2108,97 @@ def _project_output_from_candidate(
     }
 
 
+def _empty_project_noa_output(row: pd.Series) -> dict:
+    return {
+        "noa_availability_date": None,
+        "noa_document_number": None,
+        "noa_url": None,
+        "noa_fr_title": None,
+        "noa_match_status": "unmatched",
+        "noa_match_reason": "unmatched",
+        "noa_match_score": None,
+        "noa_title_overlap_count": None,
+        "noa_title_overlap_tokens": None,
+        "noa_date_evidence_type": None,
+        "noa_nepatec_evidence_document_id": None,
+        "noa_nepatec_evidence_file_name": None,
+        "noa_nepatec_evidence_page_number": None,
+    }
+
+
+def _project_noa_output_from_candidate(
+    row: pd.Series,
+    candidate: dict,
+    *,
+    accepted: bool,
+    status: str,
+    reason: str,
+    nepatec_evidence_row: Optional[dict] = None,
+) -> dict:
+    return {
+        "noa_availability_date": candidate.get("fr_publication_date") if accepted else None,
+        "noa_document_number": candidate.get("fr_document_number"),
+        "noa_url": candidate.get("fr_url"),
+        "noa_fr_title": candidate.get("fr_title"),
+        "noa_match_status": status,
+        "noa_match_reason": reason,
+        "noa_match_score": candidate.get("match_score"),
+        "noa_title_overlap_count": candidate.get("title_overlap_count"),
+        "noa_title_overlap_tokens": candidate.get("title_overlap_tokens"),
+        "noa_date_evidence_type": "nepatec_fr_doc_noa" if (accepted and nepatec_evidence_row) else None,
+        "noa_nepatec_evidence_document_id": nepatec_evidence_row.get("document_id") if (accepted and nepatec_evidence_row) else None,
+        "noa_nepatec_evidence_file_name": nepatec_evidence_row.get("file_name") if (accepted and nepatec_evidence_row) else None,
+        "noa_nepatec_evidence_page_number": nepatec_evidence_row.get("page_number") if (accepted and nepatec_evidence_row) else None,
+    }
+
+
+def _classify_noa_candidate(
+    item: object,
+    row: pd.Series,
+    nepatec_doc_numbers: frozenset = frozenset(),
+    nepatec_evidence_types: Optional[dict[str, set[str]]] = None,
+) -> tuple[str, str]:
+    nepatec_evidence_types = nepatec_evidence_types or {}
+    candidate_doc_number = _fr_document_number(item)
+    has_noa_evidence = bool(
+        candidate_doc_number and nepatec_doc_numbers and candidate_doc_number in nepatec_doc_numbers
+    )
+    if not has_noa_evidence:
+        return "low", "no_nepatec_noa_evidence"
+
+    if _REJECT_NOTICE_RE.search(_fr_title(item)):
+        return "medium", "termination_or_withdrawal_notice_requires_review"
+
+    noa_evidence_types = nepatec_evidence_types.get(candidate_doc_number, set())
+    has_noa_doc_evidence = "fr_doc_noa" in noa_evidence_types
+    has_noa_title = _is_noa_title(_fr_title(item))
+    metrics = _candidate_match_metrics(item, row)
+    required = _required_title_overlap(metrics["project_token_count"])
+    title_ok = metrics["title_overlap_count"] >= required
+
+    # Process alignment: EIS → FEIS title, EA → FONSI/Final EA title
+    process_type = _normalize_text(row.get("process_type")).upper()
+    fr_title_lower = _fr_title(item).lower()
+    is_feis = bool(re.search(r"\bfinal\s+(?:environmental\s+impact\s+statement|eis)\b", fr_title_lower))
+    is_fonsi = bool(re.search(
+        r"\b(?:fonsi|finding\s+of\s+no\s+significant\s+impact|final\s+(?:ea|environmental\s+assessment))\b",
+        fr_title_lower,
+    ))
+    process_aligned = (process_type == "EIS" and is_feis) or (process_type == "EA" and is_fonsi)
+
+    if not has_noa_title:
+        return "medium", "noa_doc_number_non_noa_fr_title_requires_review"
+    if _is_ce_project(row):
+        return "medium", "ce_noa_evidence_requires_review"
+    if has_noa_doc_evidence and title_ok and process_aligned:
+        return "high", "nepatec_fr_doc_noa_with_title_match"
+    if has_noa_doc_evidence and title_ok and not process_aligned:
+        return "medium", "noa_process_mismatch_requires_review"
+    if has_noa_doc_evidence:
+        return "medium", "noa_doc_number_insufficient_title_overlap"
+    return "medium", "noa_evidence_requires_review"
+
+
 def build_project_noi_matches(
     projects: pd.DataFrame,
     corpus: pd.DataFrame,
@@ -1693,16 +2225,20 @@ def build_project_noi_matches(
     # Build per-project NEPATEC evidence lookup:
     # project_id -> {fr_document_number: best evidence row dict}
     nepatec_by_project: dict[str, dict[str, dict]] = defaultdict(dict)
+    nepatec_types_by_project: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
     if nepatec_evidence is not None and not nepatec_evidence.empty:
         # Only use fr_doc_noi and fr_url evidence (passed proximity filter)
         valid_evidence = nepatec_evidence[
             nepatec_evidence["evidence_type"].isin(["fr_doc_noi", "fr_url"])
         ]
         for _, ev_row in valid_evidence.iterrows():
-            pid = _normalize_text(ev_row.get("project_id"))
+            pid = _normalize_project_id(ev_row.get("project_id"))
             doc_num = _normalize_text(ev_row.get("fr_document_number"))
             if not pid or not doc_num:
                 continue
+            evidence_type = _normalize_text(ev_row.get("evidence_type"))
+            if evidence_type:
+                nepatec_types_by_project[pid][doc_num].add(evidence_type)
             # Keep the best row per doc number (prefer main_document pages)
             existing = nepatec_by_project[pid].get(doc_num)
             if existing is None or (ev_row.get("main_document") and not existing.get("main_document")):
@@ -1719,7 +2255,7 @@ def build_project_noi_matches(
         )
 
     for project_index, (_, row) in enumerate(projects_unique.iterrows(), start=1):
-        project_id = _normalize_text(row.get("project_id"))
+        project_id = _normalize_project_id(row.get("project_id"))
         title = _strip_title_prefixes(_normalize_text(row.get("project_title")))
         project_tokens = _distinctive_tokens(title)
 
@@ -1730,6 +2266,7 @@ def build_project_noi_matches(
 
         # Also include any corpus entries matched via NEPATEC doc number evidence
         project_nepatec = nepatec_by_project.get(project_id, {})
+        project_nepatec_types = nepatec_types_by_project.get(project_id, {})
         nepatec_doc_numbers: frozenset = frozenset(project_nepatec.keys())
         for doc_num in nepatec_doc_numbers:
             if doc_num in corpus_doc_number_index:
@@ -1742,6 +2279,7 @@ def build_project_noi_matches(
                 corpus.loc[corpus_idx], row,
                 conservative=conservative,
                 nepatec_doc_numbers=nepatec_doc_numbers,
+                nepatec_evidence_types=project_nepatec_types,
             )
             if candidate is None:
                 continue
@@ -1834,6 +2372,185 @@ def build_project_noi_matches(
     return project_matches, candidates, review
 
 
+def build_project_noa_matches(
+    projects: pd.DataFrame,
+    noa_corpus: pd.DataFrame,
+    *,
+    max_candidates_per_project: int = 10,
+    show_progress: bool = False,
+    progress_interval: int = 5000,
+    nepatec_evidence: Optional[pd.DataFrame] = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Match projects to NOA (Notice of Availability) FR records.
+
+    Mirrors build_project_noi_matches() but uses fr_doc_noa evidence and
+    _classify_noa_candidate(). Returns (project_noa_matches, candidates, review)
+    where project_noa_matches has project_id + noa_* columns only.
+    """
+    NOA_OUTPUT_COLUMNS = [
+        "project_id",
+        "noa_availability_date",
+        "noa_document_number",
+        "noa_url",
+        "noa_fr_title",
+        "noa_match_status",
+        "noa_match_reason",
+        "noa_match_score",
+        "noa_title_overlap_count",
+        "noa_title_overlap_tokens",
+        "noa_date_evidence_type",
+        "noa_nepatec_evidence_document_id",
+        "noa_nepatec_evidence_file_name",
+        "noa_nepatec_evidence_page_number",
+    ]
+
+    projects_unique = projects.drop_duplicates(subset=["project_id"], keep="first").copy()
+    project_total = len(projects_unique)
+
+    empty_noa = lambda row: {**{"project_id": _normalize_project_id(row.get("project_id"))}, **_empty_project_noa_output(row)}  # noqa: E731
+
+    if noa_corpus.empty:
+        project_rows = [empty_noa(row) for _, row in projects_unique.iterrows()]
+        empty_candidates = pd.DataFrame(columns=CANDIDATE_OUTPUT_COLUMNS)
+        return pd.DataFrame(project_rows, columns=NOA_OUTPUT_COLUMNS), empty_candidates, empty_candidates.copy()
+
+    corpus_index = _build_corpus_index(noa_corpus)
+    corpus_doc_number_index = _build_corpus_doc_number_index(noa_corpus)
+
+    # Build per-project NOA NEPATEC evidence lookup (fr_doc_noa only)
+    nepatec_by_project: dict[str, dict[str, dict]] = defaultdict(dict)
+    nepatec_types_by_project: dict[str, dict[str, set[str]]] = defaultdict(lambda: defaultdict(set))
+    if nepatec_evidence is not None and not nepatec_evidence.empty:
+        valid_evidence = nepatec_evidence[
+            nepatec_evidence["evidence_type"].isin(["fr_doc_noa"])
+        ]
+        for _, ev_row in valid_evidence.iterrows():
+            pid = _normalize_project_id(ev_row.get("project_id"))
+            doc_num = _normalize_text(ev_row.get("fr_document_number"))
+            if not pid or not doc_num:
+                continue
+            evidence_type = _normalize_text(ev_row.get("evidence_type"))
+            if evidence_type:
+                nepatec_types_by_project[pid][doc_num].add(evidence_type)
+            existing = nepatec_by_project[pid].get(doc_num)
+            if existing is None or (ev_row.get("main_document") and not existing.get("main_document")):
+                nepatec_by_project[pid][doc_num] = ev_row.to_dict()
+
+    project_rows = []
+    all_candidate_rows = []
+    review_rows = []
+
+    if show_progress:
+        print(
+            f"[FR noa-match] Starting NOA matching: {project_total:,} projects x {len(noa_corpus):,} corpus docs",
+            flush=True,
+        )
+
+    for project_index, (_, row) in enumerate(projects_unique.iterrows(), start=1):
+        project_id = _normalize_project_id(row.get("project_id"))
+        title = _strip_title_prefixes(_normalize_text(row.get("project_title")))
+        project_tokens = _distinctive_tokens(title)
+
+        candidate_counter: Counter[int] = Counter()
+        for token in project_tokens:
+            candidate_counter.update(corpus_index.get(token, set()))
+
+        project_nepatec = nepatec_by_project.get(project_id, {})
+        project_nepatec_types = nepatec_types_by_project.get(project_id, {})
+        nepatec_doc_numbers: frozenset = frozenset(project_nepatec.keys())
+        for doc_num in nepatec_doc_numbers:
+            if doc_num in corpus_doc_number_index:
+                corpus_idx = corpus_doc_number_index[doc_num]
+                candidate_counter[corpus_idx] = max(candidate_counter.get(corpus_idx, 0), 999)
+
+        candidate_records = []
+        for corpus_idx, _ in candidate_counter.most_common(75):
+            cand_row = noa_corpus.loc[corpus_idx]
+            candidate_doc_number = _fr_document_number(cand_row)
+            has_noa_evidence = bool(
+                candidate_doc_number and nepatec_doc_numbers and candidate_doc_number in nepatec_doc_numbers
+            )
+            if not has_noa_evidence:
+                continue  # NOA matching requires direct NEPATEC doc number evidence only
+            metrics = _candidate_match_metrics(cand_row, row)
+            confidence, reason = _classify_noa_candidate(
+                cand_row,
+                row,
+                nepatec_doc_numbers=nepatec_doc_numbers,
+                nepatec_evidence_types=project_nepatec_types,
+            )
+            if confidence == "low":
+                continue
+            score = _score_candidate(cand_row, row, metrics=metrics)
+            candidate_records.append({
+                "project_id": project_id,
+                "fr_document_number": candidate_doc_number,
+                "fr_title": _fr_title(cand_row),
+                "fr_publication_date": _normalize_text(_field(cand_row, "fr_publication_date", "publication_date")),
+                "fr_url": _fr_url(cand_row),
+                "match_score": score,
+                "match_confidence": confidence,
+                "match_reason": reason,
+                "title_overlap_count": metrics["title_overlap_count"],
+                "title_overlap_tokens": ", ".join(metrics["title_overlap_tokens"]),
+                "process_conflict": metrics["process_conflict"],
+                "nepatec_fr_document_number_evidence": True,
+            })
+
+        candidate_records = sorted(
+            candidate_records,
+            key=lambda r: (-{"high": 3, "medium": 2, "low": 1}.get(r["match_confidence"], 0), -r["match_score"]),
+        )[:max_candidates_per_project]
+        all_candidate_rows.extend(candidate_records)
+
+        high_candidates = [r for r in candidate_records if r["match_confidence"] == "high"]
+        medium_candidates = [r for r in candidate_records if r["match_confidence"] == "medium"]
+
+        if high_candidates:
+            top = high_candidates[0]
+            ev_row = project_nepatec.get(top.get("fr_document_number") or "")
+            noa_out = _project_noa_output_from_candidate(
+                row, top,
+                accepted=True,
+                status="accepted",
+                reason=top["match_reason"],
+                nepatec_evidence_row=ev_row,
+            )
+        elif medium_candidates:
+            top = medium_candidates[0]
+            ev_row = project_nepatec.get(top.get("fr_document_number") or "")
+            noa_out = _project_noa_output_from_candidate(
+                row, top,
+                accepted=False,
+                status="review_required",
+                reason=top["match_reason"],
+                nepatec_evidence_row=ev_row,
+            )
+            review_rows.extend(medium_candidates[:max_candidates_per_project])
+        else:
+            noa_out = _empty_project_noa_output(row)
+
+        project_rows.append({"project_id": project_id, **noa_out})
+
+        if show_progress and (
+            project_index == project_total or project_index % max(1, progress_interval) == 0
+        ):
+            print(
+                f"[FR noa-match] scored {project_index:,}/{project_total:,} projects; "
+                f"accepted={sum(r.get('noa_availability_date') is not None for r in project_rows):,}",
+                flush=True,
+            )
+
+    noa_output_df = pd.DataFrame(project_rows, columns=NOA_OUTPUT_COLUMNS)
+    candidates_df = pd.DataFrame(all_candidate_rows)
+    if candidates_df.empty:
+        candidates_df = pd.DataFrame(columns=CANDIDATE_OUTPUT_COLUMNS)
+    review_df = pd.DataFrame(review_rows)
+    if review_df.empty:
+        review_df = pd.DataFrame(columns=CANDIDATE_OUTPUT_COLUMNS)
+    return noa_output_df, candidates_df, review_df
+
+
 def enrich_projects_with_noi(
     projects: pd.DataFrame,
     config: FederalRegisterConfig,
@@ -1873,51 +2590,40 @@ def refresh_federal_register_noi(
     projects: pd.DataFrame,
     *,
     analysis_dir: Path,
-    start_date: str = "2000-01-01",
-    end_date: str | None = None,
-    fetch_raw_text: bool = False,
-    conservative: bool = True,
+    throttle_seconds: float = 0.25,
     output_path: Optional[Path] = None,
     corpus_output: Optional[Path] = None,
     candidates_output: Optional[Path] = None,
-    review_output: Optional[Path] = None,
-    fetch_report_output: Optional[Path] = None,
+    noa_corpus_output: Optional[Path] = None,
+    noa_candidates_output: Optional[Path] = None,
     cache_path: Optional[Path] = None,
     max_candidates_per_project: int = 10,
     evidence_output: Optional[Path] = None,
     rescan_nepatec_evidence: bool = False,
+    show_progress: bool = True,
 ) -> pd.DataFrame:
+    """Refresh Federal Register NOI enrichment using direct doc-number fetches.
+
+    Flow:
+        1. Scan NEPATEC pages for FR Doc numbers (or load cached evidence).
+        2. Collect unique doc numbers from fr_doc_noi + fr_url evidence rows.
+        3. Direct-fetch each doc number from the FR API (one call per number).
+        4. Match projects to fetched FR records: accept only when doc number
+           AND >= 2 normalized title tokens both agree.
+        5. Write all output artifacts and return the project-level match table.
+    """
     analysis_dir = Path(analysis_dir)
     fr_dir = analysis_dir / "federal_register"
     fr_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = Path(output_path) if output_path else fr_dir / "noi_federal_register.parquet"
-    corpus_output = Path(corpus_output) if corpus_output else fr_dir / "fr_noi_documents.parquet"
-    candidates_output = Path(candidates_output) if candidates_output else fr_dir / "project_noi_candidates.parquet"
-    review_output = Path(review_output) if review_output else fr_dir / "project_noi_manual_review.csv"
-    fetch_report_output = Path(fetch_report_output) if fetch_report_output else fr_dir / "fr_noi_fetch_report.csv"
+    corpus_output = Path(corpus_output) if corpus_output else fr_dir / DEFAULT_NOI_CORPUS_OUTPUT.name
+    candidates_output = Path(candidates_output) if candidates_output else fr_dir / DEFAULT_NOI_CANDIDATES_OUTPUT.name
+    noa_corpus_output = Path(noa_corpus_output) if noa_corpus_output else fr_dir / DEFAULT_NOA_CORPUS_OUTPUT.name
+    noa_candidates_output = Path(noa_candidates_output) if noa_candidates_output else fr_dir / DEFAULT_NOA_CANDIDATES_OUTPUT.name
     cache_path = Path(cache_path) if cache_path else fr_dir / "fr_noi_cache.json"
 
-    config = FederalRegisterConfig(
-        process_types=tuple(),
-        energy_types=tuple(),
-        sample_n=None,
-        start_date=start_date,
-        end_date=end_date,
-        fetch_raw_text=fetch_raw_text,
-        conservative=conservative,
-        max_candidates_per_project=max_candidates_per_project,
-    )
-    corpus = fetch_federal_register_noi_corpus(
-        config,
-        cache_path=cache_path,
-        fetch_report_output=fetch_report_output,
-    )
-    corpus_output.parent.mkdir(parents=True, exist_ok=True)
-    corpus.to_parquet(corpus_output, index=False)
-    print(f"Saved Federal Register corpus: {corpus_output} ({len(corpus):,} documents)")
-
-    # NEPATEC Federal Register evidence scan (or load from cache)
+    # ── Step 1: NEPATEC page scan (or load cache) ───────────────────────────
     evidence_path = Path(evidence_output) if evidence_output else fr_dir / "nepatec_fr_evidence.parquet"
     if evidence_path.exists() and not rescan_nepatec_evidence:
         print(f"Loading cached NEPATEC FR evidence: {evidence_path}", flush=True)
@@ -1928,30 +2634,98 @@ def refresh_federal_register_noi(
             projects,
             analysis_dir=analysis_dir,
             evidence_output=evidence_path,
-            show_progress=True,
+            show_progress=show_progress,
         )
 
+    # ── Step 2: Collect unique doc numbers from valid evidence (NOI + NOA) ──
+    if not nepatec_evidence.empty:
+        noi_valid_evidence = nepatec_evidence[
+            nepatec_evidence["evidence_type"].isin(["fr_doc_noi", "fr_url"])
+        ]
+        noa_valid_evidence = nepatec_evidence[
+            nepatec_evidence["evidence_type"].isin(["fr_doc_noa"])
+        ]
+    else:
+        noi_valid_evidence = nepatec_evidence
+        noa_valid_evidence = nepatec_evidence
+
+    noi_doc_numbers = set(
+        _normalize_text(v) for v in noi_valid_evidence["fr_document_number"].dropna() if _normalize_text(v)
+    )
+    noa_doc_numbers = set(
+        _normalize_text(v) for v in noa_valid_evidence["fr_document_number"].dropna() if _normalize_text(v)
+    )
+    all_doc_numbers_to_fetch = sorted(noi_doc_numbers | noa_doc_numbers)
+    print(
+        f"[FR direct] {len(all_doc_numbers_to_fetch):,} unique doc numbers to fetch "
+        f"({len(noi_doc_numbers):,} NOI/URL + {len(noa_doc_numbers):,} NOA, "
+        f"{len(noi_doc_numbers & noa_doc_numbers):,} shared)",
+        flush=True,
+    )
+
+    # ── Step 3: Direct-fetch all doc numbers; split by title type ───────────
+    all_fetched = fetch_documents_by_doc_numbers(
+        all_doc_numbers_to_fetch,
+        throttle_seconds=throttle_seconds,
+        cache_path=cache_path,
+        show_progress=show_progress,
+    )
+    corpus = all_fetched[all_fetched["fr_title"].apply(_is_noi_title)] if not all_fetched.empty else all_fetched
+    noa_corpus = all_fetched[all_fetched["fr_title"].apply(_is_noa_title)] if not all_fetched.empty else all_fetched
+
+    corpus_output.parent.mkdir(parents=True, exist_ok=True)
+    corpus.to_parquet(corpus_output, index=False)
+    noa_corpus_output.parent.mkdir(parents=True, exist_ok=True)
+    noa_corpus.to_parquet(noa_corpus_output, index=False)
+    print(f"Saved NOI corpus: {corpus_output} ({len(corpus):,} documents)", flush=True)
+    print(f"Saved NOA corpus: {noa_corpus_output} ({len(noa_corpus):,} documents)", flush=True)
+    legacy_fetch_report_path = fr_dir / DEFAULT_FETCH_REPORT_OUTPUT.name
+    if legacy_fetch_report_path.exists():
+        legacy_fetch_report_path.unlink()
+        print(
+            f"Removed legacy keyword fetch report (not used by direct-fetch workflow): "
+            f"{legacy_fetch_report_path}",
+            flush=True,
+        )
+
+    # ── Step 4: Match NOI + NOA ──────────────────────────────────────────────
     project_matches, candidates, review = build_project_noi_matches(
         projects,
         corpus,
-        conservative=conservative,
         max_candidates_per_project=max_candidates_per_project,
-        show_progress=config.show_progress,
-        progress_interval=config.progress_project_interval,
+        show_progress=show_progress,
         nepatec_evidence=nepatec_evidence,
     )
+    noa_matches, noa_candidates, _noa_review = build_project_noa_matches(
+        projects,
+        noa_corpus,
+        max_candidates_per_project=max_candidates_per_project,
+        show_progress=show_progress,
+        nepatec_evidence=nepatec_evidence,
+    )
+    # Merge NOA columns into project_matches on project_id
+    project_matches = project_matches.merge(noa_matches, on="project_id", how="left")
 
+    # ── Step 5: Write outputs ────────────────────────────────────────────────
     output_path.parent.mkdir(parents=True, exist_ok=True)
     candidates_output.parent.mkdir(parents=True, exist_ok=True)
-    review_output.parent.mkdir(parents=True, exist_ok=True)
+    noa_candidates_output.parent.mkdir(parents=True, exist_ok=True)
 
     project_matches.to_parquet(output_path, index=False)
     candidates.to_parquet(candidates_output, index=False)
-    review.to_csv(review_output, index=False)
+    noa_candidates.to_parquet(noa_candidates_output, index=False)
+    print(f"Saved NOA candidates: {noa_candidates_output} ({len(noa_candidates):,} rows)")
+    focused_review_counts = write_focused_manual_review_exports(
+        project_matches,
+        review,
+        projects,
+        output_dir=candidates_output.parent,
+    )
 
-    print(f"Saved Federal Register project matches: {output_path} ({len(project_matches):,} projects)")
-    print(f"Saved Federal Register candidates: {candidates_output} ({len(candidates):,} candidates)")
-    print(f"Saved Federal Register manual review packet: {review_output} ({len(review):,} rows)")
+    print(f"Saved project NOI+NOA matches: {output_path} ({len(project_matches):,} projects)")
+    print(f"Saved NOI candidates: {candidates_output} ({len(candidates):,} rows)")
+    for path, row_count in focused_review_counts.items():
+        print(f"Saved focused review: {path} ({row_count:,} rows)")
     print(f"NEPATEC FR evidence rows: {len(nepatec_evidence):,}")
     _print_coverage_report(project_matches.merge(
         projects[["project_id", "process_type", "project_energy_type"]],
@@ -1993,33 +2767,28 @@ def _sample_arg(value: Optional[int]) -> Optional[int]:
 def main() -> None:
     import argparse
 
-    parser = argparse.ArgumentParser(description="Federal Register NOI enrichment")
+    parser = argparse.ArgumentParser(
+        description="Federal Register NOI enrichment (direct doc-number fetch)"
+    )
     parser.add_argument(
         "--projects-path",
         default=str(ANALYSIS_DIR / "projects_combined.parquet"),
         help="Path to projects_combined.parquet",
     )
-    parser.add_argument("--output", default=str(DEFAULT_PROJECT_OUTPUT))
-    parser.add_argument("--corpus-output", default=str(DEFAULT_CORPUS_OUTPUT))
-    parser.add_argument("--candidates-output", default=str(DEFAULT_CANDIDATES_OUTPUT))
-    parser.add_argument("--review-output", default=str(DEFAULT_REVIEW_OUTPUT))
-    parser.add_argument("--fetch-report-output", default=str(DEFAULT_FETCH_REPORT_OUTPUT))
-    parser.add_argument("--cache-path", default=str(DEFAULT_CACHE_PATH))
-    parser.add_argument("--all-projects", action="store_true", help="Include all projects, process types, and energy types")
-    parser.add_argument("--sample", type=int, default=None, help="Optional sample size; 0 means all")
+    parser.add_argument("--output", default=str(DEFAULT_PROJECT_OUTPUT), help="Project-level NOI+NOA output parquet")
+    parser.add_argument("--corpus-output", default=str(DEFAULT_NOI_CORPUS_OUTPUT), help="Directly-fetched NOI FR documents parquet")
+    parser.add_argument("--candidates-output", default=str(DEFAULT_NOI_CANDIDATES_OUTPUT), help="All scored NOI candidates parquet")
+    parser.add_argument("--cache-path", default=str(DEFAULT_CACHE_PATH), help="FR API response cache JSON")
+    parser.add_argument("--evidence-output", default=str(DEFAULT_EVIDENCE_OUTPUT), help="NEPATEC page scan evidence parquet")
+    parser.add_argument("--all-projects", action="store_true", help="Include all projects; ignore process/energy filters")
+    parser.add_argument("--sample", type=int, default=None, help="Random sample size (0 = all)")
     parser.add_argument("--process-types", default="", help="Comma-separated process types; ignored with --all-projects")
     parser.add_argument("--energy-types", default="", help="Comma-separated energy types; ignored with --all-projects")
-    parser.add_argument("--start-date", default="2000-01-01")
-    parser.add_argument("--end-date", default=None)
-    parser.add_argument("--fetch-raw-text", action="store_true", help="Fetch raw text for scoping date extraction")
-    parser.add_argument("--balanced", action="store_true", help="Use less conservative medium-match classification")
-    parser.add_argument("--per-page", type=int, default=100)
-    parser.add_argument("--throttle-seconds", type=float, default=0.25)
+    parser.add_argument("--throttle-seconds", type=float, default=0.25, help="Delay between FR API calls (default 0.25)")
     parser.add_argument("--max-candidates-per-project", type=int, default=10)
-    parser.add_argument("--quiet-progress", action="store_true", help="Suppress Federal Register progress logs")
-    parser.add_argument("--report-n", type=int, default=10, help="Examples to print")
-    parser.add_argument("--evidence-output", default=str(DEFAULT_EVIDENCE_OUTPUT))
-    parser.add_argument("--rescan-nepatec-evidence", action="store_true", help="Rescan NEPATEC pages even if evidence cache exists")
+    parser.add_argument("--quiet-progress", action="store_true", help="Suppress progress logs")
+    parser.add_argument("--report-n", type=int, default=10, help="Examples to print at end")
+    parser.add_argument("--rescan-nepatec-evidence", action="store_true", help="Force fresh NEPATEC page scan even if cache exists")
 
     args = parser.parse_args()
 
@@ -2035,74 +2804,19 @@ def main() -> None:
     if sample_n:
         projects = projects.sample(n=min(sample_n, len(projects)), random_state=7)
 
-    config = FederalRegisterConfig(
-        process_types=tuple(),
-        energy_types=tuple(),
-        sample_n=None,
-        per_page=args.per_page,
+    project_matches = refresh_federal_register_noi(
+        projects,
+        analysis_dir=ANALYSIS_DIR,
         throttle_seconds=args.throttle_seconds,
-        start_date=args.start_date,
-        end_date=args.end_date,
-        fetch_raw_text=args.fetch_raw_text,
-        conservative=not args.balanced,
+        output_path=Path(args.output),
+        corpus_output=Path(args.corpus_output),
+        candidates_output=Path(args.candidates_output),
+        cache_path=Path(args.cache_path),
         max_candidates_per_project=args.max_candidates_per_project,
+        evidence_output=Path(args.evidence_output),
+        rescan_nepatec_evidence=args.rescan_nepatec_evidence,
         show_progress=not args.quiet_progress,
     )
-
-    corpus = fetch_federal_register_noi_corpus(
-        config,
-        cache_path=Path(args.cache_path) if args.cache_path else None,
-        fetch_report_output=Path(args.fetch_report_output) if args.fetch_report_output else None,
-    )
-    corpus_path = Path(args.corpus_output)
-    corpus_path.parent.mkdir(parents=True, exist_ok=True)
-    corpus.to_parquet(corpus_path, index=False)
-    print(f"Saved Federal Register corpus: {corpus_path} ({len(corpus):,} documents)")
-
-    # NEPATEC Federal Register evidence scan (or load from cache)
-    evidence_path = Path(args.evidence_output)
-    if evidence_path.exists() and not args.rescan_nepatec_evidence:
-        print(f"Loading cached NEPATEC FR evidence: {evidence_path}", flush=True)
-        nepatec_evidence = pd.read_parquet(evidence_path)
-        print(f"Loaded {len(nepatec_evidence):,} evidence rows from cache", flush=True)
-    else:
-        nepatec_evidence = extract_nepatec_federal_register_evidence(
-            projects,
-            analysis_dir=ANALYSIS_DIR,
-            evidence_output=evidence_path,
-            show_progress=not args.quiet_progress,
-        )
-
-    project_matches, candidates, review = build_project_noi_matches(
-        projects,
-        corpus,
-        conservative=config.conservative,
-        max_candidates_per_project=config.max_candidates_per_project,
-        show_progress=config.show_progress,
-        progress_interval=config.progress_project_interval,
-        nepatec_evidence=nepatec_evidence,
-    )
-
-    output_path = Path(args.output)
-    candidates_path = Path(args.candidates_output)
-    review_path = Path(args.review_output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    candidates_path.parent.mkdir(parents=True, exist_ok=True)
-    review_path.parent.mkdir(parents=True, exist_ok=True)
-
-    project_matches.to_parquet(output_path, index=False)
-    candidates.to_parquet(candidates_path, index=False)
-    review.to_csv(review_path, index=False)
-
-    print(f"Saved Federal Register project matches: {output_path} ({len(project_matches):,} projects)")
-    print(f"Saved Federal Register candidates: {candidates_path} ({len(candidates):,} candidates)")
-    print(f"Saved Federal Register manual review packet: {review_path} ({len(review):,} rows)")
-
-    _print_coverage_report(project_matches.merge(
-        projects[["project_id", "process_type", "project_energy_type"]],
-        on="project_id",
-        how="left",
-    ))
 
     report_n = max(0, args.report_n)
     if report_n:
@@ -2112,8 +2826,6 @@ def main() -> None:
             accepted.sort_values("noi_match_score", ascending=False)
             .head(report_n)[["project_id", "noi_publication_date", "noi_document_number", "noi_match_score", "noi_url"]]
         )
-        print(f"\nFirst {report_n} manual review rows:")
-        print(review.head(report_n)[["project_id", "fr_document_number", "match_confidence", "match_score", "fr_title"]])
 
 
 if __name__ == "__main__":

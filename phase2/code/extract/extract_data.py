@@ -1627,10 +1627,6 @@ def create_combined_projects(refresh_federal_register=False):
         fr_df = refresh_federal_register_noi(
             combined,
             analysis_dir=ANALYSIS_DIR,
-            start_date="2000-01-01",
-            end_date=None,
-            fetch_raw_text=False,
-            conservative=True,
             rescan_nepatec_evidence=True,
         )
         fr_df = fr_df.drop(columns=["project_title"], errors="ignore")
