@@ -44,6 +44,7 @@ DEFAULT_FETCH_REPORT_OUTPUT = FEDERAL_REGISTER_DIR / "fr_noi_fetch_report.csv"
 DEFAULT_EVIDENCE_OUTPUT = FEDERAL_REGISTER_DIR / "nepatec_fr_evidence.parquet"
 DEFAULT_AMBIGUOUS_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "manual_review_ambiguous_candidates.csv"
 DEFAULT_LOW_OVERLAP_ACCEPTED_OUTPUT = FEDERAL_REGISTER_DIR / "manual_review_accepted_low_title_overlap.csv"
+DEFAULT_NOA_REVIEW_OUTPUT = FEDERAL_REGISTER_DIR / "manual_review_noa_candidates.csv"
 
 NOI_CORPUS_QUERIES = (
     '"Notice of Intent"',
@@ -384,12 +385,18 @@ _NOA_PROXIMITY_PHRASES = (
     "final environmental assessment",
     "final ea",
     "availability of the final",
+    "notice of availability",
+    "record of decision",
+    "final supplemental environmental impact statement",
+    "final supplemental eis",
 )
 
 _NOA_LIKE_RE = re.compile(
     r"\b(?:final\s+environmental\s+impact\s+statement|final\s+eis"
     r"|finding\s+of\s+no\s+significant\s+impact|fonsi"
-    r"|final\s+environmental\s+assessment|final\s+ea)\b",
+    r"|final\s+environmental\s+assessment|final\s+ea"
+    r"|final\s+supplemental\s+environmental\s+impact\s+statement"
+    r"|final\s+supplemental\s+eis)\b",
     re.IGNORECASE,
 )
 
@@ -723,13 +730,26 @@ def _is_noi_title(title: str) -> bool:
 
 
 def _is_noa_title(title: str) -> bool:
-    """Return True if FR title describes a Final EIS NOA, FONSI, or Final EA availability notice."""
+    """Return True if FR title describes a Final EIS NOA, FONSI, or Final EA availability notice.
+
+    FEIS and FONSI titles are accepted unconditionally — in the Federal Register context,
+    any document titled with "Final Environmental Impact Statement" or "Finding of No
+    Significant Impact" is an end-of-process notice. "Final EA" / "Final Environmental
+    Assessment" titles require "availab" to avoid false positives from interim EA notices.
+    """
     t = _normalize_text(title).lower()
     if not _NOA_LIKE_RE.search(t):
         return False
-    has_availability = "availab" in t
+    is_feis = bool(re.search(
+        r"\b(?:final\s+(?:supplemental\s+)?environmental\s+impact\s+statement|final\s+(?:supplemental\s+)?eis)\b", t
+    ))
+    if is_feis:
+        return True
     is_fonsi = bool(re.search(r"\b(?:finding\s+of\s+no\s+significant\s+impact|fonsi)\b", t))
-    return has_availability or is_fonsi
+    if is_fonsi:
+        return True
+    # Final EA / Final environmental assessment: require "availab" to be specific
+    return "availab" in t
 
 
 def _is_valid_candidate_title(title: str) -> bool:
@@ -2047,19 +2067,6 @@ def _empty_project_output(row: pd.Series, status: str = "unmatched", confidence:
         "noi_nepatec_evidence_document_id": None,
         "noi_nepatec_evidence_file_name": None,
         "noi_nepatec_evidence_page_number": None,
-        "noa_availability_date": None,
-        "noa_document_number": None,
-        "noa_url": None,
-        "noa_fr_title": None,
-        "noa_match_status": "unmatched",
-        "noa_match_reason": "unmatched",
-        "noa_match_score": None,
-        "noa_title_overlap_count": None,
-        "noa_title_overlap_tokens": None,
-        "noa_date_evidence_type": None,
-        "noa_nepatec_evidence_document_id": None,
-        "noa_nepatec_evidence_file_name": None,
-        "noa_nepatec_evidence_page_number": None,
     }
 
 
@@ -2696,7 +2703,7 @@ def refresh_federal_register_noi(
         show_progress=show_progress,
         nepatec_evidence=nepatec_evidence,
     )
-    noa_matches, noa_candidates, _noa_review = build_project_noa_matches(
+    noa_matches, noa_candidates, noa_review = build_project_noa_matches(
         projects,
         noa_corpus,
         max_candidates_per_project=max_candidates_per_project,
@@ -2721,6 +2728,12 @@ def refresh_federal_register_noi(
         projects,
         output_dir=candidates_output.parent,
     )
+    noa_review_path = candidates_output.parent / DEFAULT_NOA_REVIEW_OUTPUT.name
+    if not noa_review.empty:
+        noa_review.to_csv(noa_review_path, index=False)
+    else:
+        pd.DataFrame(columns=noa_review.columns).to_csv(noa_review_path, index=False)
+    print(f"Saved NOA review: {noa_review_path} ({len(noa_review):,} rows)")
 
     print(f"Saved project NOI+NOA matches: {output_path} ({len(project_matches):,} projects)")
     print(f"Saved NOI candidates: {candidates_output} ({len(candidates):,} rows)")
@@ -2737,7 +2750,7 @@ def refresh_federal_register_noi(
 
 def _print_coverage_report(project_matches: pd.DataFrame) -> None:
     if project_matches.empty:
-        print("Federal Register NOI coverage: no project rows")
+        print("Federal Register NOI/NOA coverage: no project rows")
         return
     print("\n=== Federal Register NOI Coverage ===")
     print(f"Projects: {len(project_matches):,}")
@@ -2748,8 +2761,19 @@ def _print_coverage_report(project_matches: pd.DataFrame) -> None:
         ].agg(rows="size", accepted=lambda s: int(s.notna().sum()))
         print(summary.to_string())
     if "noi_match_status" in project_matches.columns:
-        print("\nMatch statuses:")
+        print("\nNOI match statuses:")
         print(project_matches["noi_match_status"].value_counts(dropna=False).to_string())
+    if "noa_availability_date" in project_matches.columns:
+        print("\n=== Federal Register NOA Coverage ===")
+        print(f"Accepted NOA dates: {project_matches['noa_availability_date'].notna().sum():,}")
+        if {"process_type", "project_energy_type"}.issubset(project_matches.columns):
+            noa_summary = project_matches.groupby(["process_type", "project_energy_type"], dropna=False)[
+                "noa_availability_date"
+            ].agg(rows="size", accepted=lambda s: int(s.notna().sum()))
+            print(noa_summary.to_string())
+        if "noa_match_status" in project_matches.columns:
+            print("\nNOA match statuses:")
+            print(project_matches["noa_match_status"].value_counts(dropna=False).to_string())
 
 
 def _parse_list_arg(value: Optional[str]) -> tuple[str, ...]:

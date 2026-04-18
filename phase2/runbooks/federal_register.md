@@ -2,7 +2,7 @@
 
 **Purpose:** Refresh Phase 2 Federal Register data and link high-confidence notices to NEPA projects:
 - **NOI** (Notice of Intent): project initiation date → `noi_publication_date`
-- **NOA** (Notice of Availability): project end date (FEIS/FONSI) → `noa_availability_date`
+- **NOA** (Notice of Availability): project end date (FEIS/FSEIS/FONSI/Final EA) → `noa_availability_date`
 
 **Default behavior:** `extract_data.py --mode analysis` does not call the Federal Register API or scan NEPATEC pages. It merges `data/analysis/federal_register/noi_federal_register.parquet` if that file already exists.
 
@@ -12,12 +12,12 @@ Matching is entirely document-number-driven in two steps:
 
 1. **NEPATEC page scan:** DuckDB scans all EA/EIS/CE pages for `FR Doc.` references and `federalregister.gov` URLs. Doc numbers are proximity-filtered (500-char window) with priority:
    - `fr_doc_noi` — NOI-like phrase nearby ("notice of intent", "notice of preparation", etc.)
-   - `fr_doc_noa` — NOA-like phrase nearby ("final environmental impact statement", "fonsi", etc.)
+   - `fr_doc_noa` — NOA-like phrase nearby ("final environmental impact statement", "fonsi", "notice of availability", "record of decision", "final supplemental eis", etc.)
    - `fr_doc_non_noi` — no recognized phrase (excluded from matching)
 
 2. **Direct fetch + title match:** All unique valid doc numbers (`fr_doc_noi`, `fr_url`, `fr_doc_noa`) are fetched in a single combined pass (`GET /api/v1/documents/{doc_num}.json`). Fetched records are then split by title type:
    - NOI corpus: records with NOI-type titles (Notice of Intent / Notice of Preparation / Notice of Scoping)
-   - NOA corpus: records with NOA-type titles (Final EIS, FONSI, Final EA availability)
+   - NOA corpus: records with NOA-type titles (Final EIS, Final Supplemental EIS, FONSI, Final EA)
 
    A match is **auto-accepted** only when direct doc number evidence + ≥N title tokens + correct title type + process alignment all agree.
 
@@ -55,7 +55,7 @@ conda run -n nepa python phase2/code/extract/federal_register.py \
   --all-projects
 ```
 
-Add `--rescan-nepatec-evidence` to force a fresh NEPATEC page scan (required after adding `fr_doc_noa` evidence support, or after NEPATEC processed data is rebuilt).
+Add `--rescan-nepatec-evidence` to force a fresh NEPATEC page scan. Required after: adding new `fr_doc_noa` proximity phrases (e.g., "notice of availability", "record of decision", "final supplemental eis"), expanding `_NOA_PROXIMITY_PHRASES`, or rebuilding NEPATEC processed data.
 
 ## CLI Arguments
 
@@ -93,13 +93,14 @@ NOA corpus (`noa_documents.parquet`) and candidates (`project_noa_candidates.par
 - `project_noi_candidates.parquet`: All scored NOI candidate links.
 
 ### NOA (availability / end-of-process)
-- `noa_documents.parquet`: FR records for NOA doc numbers fetched from API (FEIS/FONSI).
+- `noa_documents.parquet`: FR records for NOA doc numbers fetched from API (FEIS/FSEIS/FONSI/Final EA).
 - `project_noa_candidates.parquet`: All scored NOA candidate links.
 
 ### Shared
 - `nepatec_fr_evidence.parquet`: One row per FR Doc. number found per NEPATEC page; cached across refreshes. `evidence_type` values: `fr_doc_noi`, `fr_doc_noa`, `fr_doc_non_noi`, `fr_url`.
 - `manual_review_ambiguous_candidates.csv`: Candidate rows for projects with multiple competing high-confidence NOI candidates.
 - `manual_review_accepted_low_title_overlap.csv`: Accepted NOI rows with `noi_title_overlap_count <= 1`, for spot-checking.
+- `manual_review_noa_candidates.csv`: NOA candidate rows requiring manual review (CE evidence, process mismatch, insufficient title overlap).
 - `noi_federal_register.parquet`: One row per NEPA project; `noi_publication_date` and `noa_availability_date` populated where auto-accepted.
 
 `fr_noi_fetch_report.csv` was part of the legacy keyword/windowed fetch path and is removed during refresh.
@@ -122,7 +123,7 @@ NOA corpus (`noa_documents.parquet`) and candidates (`project_noa_candidates.par
 
 | Condition | Outcome |
 |---|---|
-| EIS: `fr_doc_noa` evidence + ≥N title tokens + FEIS-type FR title + EIS project | Auto-accept (`noa_availability_date` populated) |
+| EIS: `fr_doc_noa` evidence + ≥N title tokens + FEIS/FSEIS-type FR title + EIS project | Auto-accept (`noa_availability_date` populated) |
 | EA: `fr_doc_noa` evidence + ≥N title tokens + FONSI/Final EA title + EA project | Auto-accept |
 | Any: `fr_doc_noa` evidence + NOA title + title overlap < N | Manual review |
 | Any: `fr_doc_noa` evidence + process mismatch (EA project + FEIS title) | Manual review |

@@ -4,7 +4,7 @@
 
 **Purpose:** Enrich NEPA projects with Federal Register dates:
 - `noi_publication_date` — NOI (Notice of Intent) publication date at project initiation
-- `noa_availability_date` — NOA (Notice of Availability) publication date at project end (FEIS/FONSI)
+- `noa_availability_date` — NOA (Notice of Availability) publication date at project end (FEIS/FSEIS/FONSI/Final EA)
 
 Both are found by scanning project NEPATEC files for FR Doc. numbers, then direct-fetching the matching FR records.
 
@@ -43,7 +43,7 @@ flowchart TD
     J -->|Auto-accept| L[noi_publication_date populated]
     J -->|Review| M[manual_review_ambiguous_candidates.csv]
     K -->|Auto-accept| N[noa_availability_date populated]
-    K -->|Review| O[project_noa_candidates.parquet]
+    K -->|Review| O[manual_review_noa_candidates.csv]
     L & N --> P[noi_federal_register.parquet]
 ```
 
@@ -60,7 +60,7 @@ En-dash variants (`2024–05618`) are normalized to ASCII hyphens before use as 
 
 **Proximity filter** — priority order within 500-char window:
 1. `fr_doc_noi` — NOI-like phrase nearby ("notice of intent", "notice of preparation", etc.)
-2. `fr_doc_noa` — NOA-like phrase nearby ("final environmental impact statement", "fonsi", "final ea", etc.)
+2. `fr_doc_noa` — NOA-like phrase nearby ("final environmental impact statement", "fonsi", "notice of availability", "record of decision", "final supplemental eis", etc.)
 3. `fr_doc_non_noi` — no recognized phrase (excluded from matching)
 
 **FR URLs** — `federalregister.gov/documents/...` links are captured as `fr_url` evidence (used for NOI matching only).
@@ -78,7 +78,7 @@ GET https://www.federalregister.gov/api/v1/documents/{doc_num}.json
 
 The combined fetched set is then split by title type:
 - `noi_documents.parquet` — records whose title passes `_is_noi_title()` (NOI/NOP/NOS)
-- `noa_documents.parquet` — records whose title passes `_is_noa_title()` (Final EIS/FONSI/Final EA)
+- `noa_documents.parquet` — records whose title passes `_is_noa_title()`: Final EIS and Final Supplemental EIS titles are accepted unconditionally; FONSI titles are accepted unconditionally; Final EA / Final Environmental Assessment titles require "availability" language.
 
 Records matching neither type are not used in matching (e.g. proposed rules, notices of meeting).
 
@@ -103,8 +103,8 @@ Gate 3 prevents a "Notice of Availability of the Final EIS" date from contaminat
 |---|---|
 | 1. `fr_doc_noa` doc number join | FR record was fetched for a doc number with NOA proximity evidence |
 | 2. Title token overlap | ≥ N distinctive project title tokens appear in the FR record's title |
-| 3. NOA-type title | FR record title contains Final EIS / FONSI / Final EA language |
-| 4. Process alignment | EIS project → FEIS title; EA project → FONSI/Final EA title |
+| 3. NOA-type title | FR record title contains Final EIS / FSEIS / FONSI / Final EA language |
+| 4. Process alignment | EIS project → FEIS or FSEIS title; EA project → FONSI/Final EA title |
 
 CE projects never auto-accept for either NOI or NOA.
 
@@ -137,7 +137,7 @@ CE projects never auto-accept for either NOI or NOA.
 ### NOA
 | Condition | Outcome |
 |---|---|
-| EIS: `fr_doc_noa` evidence + ≥ N title tokens + FEIS title | **Auto-accept** (`noa_availability_date` populated) |
+| EIS: `fr_doc_noa` evidence + ≥ N title tokens + FEIS/FSEIS title | **Auto-accept** (`noa_availability_date` populated) |
 | EA: `fr_doc_noa` evidence + ≥ N title tokens + FONSI/Final EA title | **Auto-accept** |
 | Any: `fr_doc_noa` evidence + NOA title + insufficient title overlap | **Manual review** |
 | Any: `fr_doc_noa` evidence + process mismatch | **Manual review** |
@@ -152,10 +152,11 @@ CE projects never auto-accept for either NOI or NOA.
 |---|---|
 | `federal_register/noi_federal_register.parquet` | **Primary output.** One row per project; `noi_publication_date` and `noa_availability_date` where auto-accepted. |
 | `federal_register/noi_documents.parquet` | FR records for NOI doc numbers (one row per unique doc number). |
-| `federal_register/noa_documents.parquet` | FR records for NOA doc numbers (FEIS/FONSI). |
+| `federal_register/noa_documents.parquet` | FR records for NOA doc numbers (FEIS/FSEIS/FONSI/Final EA). |
 | `federal_register/nepatec_fr_evidence.parquet` | One row per FR doc number per NEPATEC page; cached across refreshes. |
 | `federal_register/project_noi_candidates.parquet` | All scored NOI project/document candidate links. |
 | `federal_register/project_noa_candidates.parquet` | All scored NOA project/document candidate links. |
+| `federal_register/manual_review_noa_candidates.csv` | NOA candidates requiring manual review (CE, process mismatch, insufficient title overlap). |
 | `federal_register/fr_noi_cache.json` | API response cache (keyed `docnum|{doc_num}`). |
 
 ---
