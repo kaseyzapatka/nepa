@@ -17,7 +17,7 @@ import re
 import time
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -2602,6 +2602,226 @@ def build_project_noa_matches(
     return noa_output_df, candidates_df, review_df
 
 
+def _build_noa_title_search_term(project_title: str) -> Optional[str]:
+    """Return an FR title search phrase for NOA lookup, or None if < 3 distinctive tokens.
+
+    Requires at least 3 distinctive tokens to avoid excessively broad searches
+    that would produce low-precision NOA matches without direct doc evidence.
+    """
+    title = _strip_title_prefixes(_normalize_text(project_title))
+    if len(_distinctive_tokens(title)) < 3:
+        return None
+    return _select_title_phrase(title)
+
+
+def _search_noa_by_title_cached(
+    terms: str,
+    min_date: str,
+    cache: dict,
+    *,
+    throttle_seconds: float = 0.25,
+    max_retries: int = 3,
+    retry_backoff_seconds: float = 1.5,
+) -> list[dict]:
+    """Query FR for NOA notices by title keywords anchored by min_date. Cached.
+
+    Cache key: ``noa_title_search|{terms}|{min_date}``
+    Returns a list of raw result dicts from the FR API (may be empty).
+    """
+    cache_key = f"noa_title_search|{terms}|{min_date}"
+    if cache_key in cache:
+        return cache[cache_key] or []
+    try:
+        response = search_noi(
+            terms,
+            min_date,
+            None,  # end_date=None → today
+            per_page=20,
+            max_retries=max_retries,
+            retry_backoff_seconds=retry_backoff_seconds,
+            page=1,
+        )
+        results = response.get("results") or []
+    except Exception as exc:
+        print(f"[FR noa-title] Warning: search error for '{terms}': {exc}", flush=True)
+        results = []
+    cache[cache_key] = results
+    time.sleep(throttle_seconds)
+    return results
+
+
+_FEIS_TITLE_RE = re.compile(
+    r"\b(?:final\s+(?:supplemental\s+)?environmental\s+impact\s+statement|final\s+(?:supplemental\s+)?eis)\b",
+    re.IGNORECASE,
+)
+
+
+def _supplement_noa_by_title_search(
+    noa_matches: pd.DataFrame,
+    projects: pd.DataFrame,
+    project_matches: pd.DataFrame,
+    *,
+    throttle_seconds: float = 0.25,
+    cache: dict,
+    cache_path: Optional[Path] = None,
+    show_progress: bool = True,
+) -> pd.DataFrame:
+    """Supplement NOA matches for unmatched EIS projects by FR title search.
+
+    For EIS projects where build_project_noa_matches() found no direct fr_doc_noa
+    evidence, attempt a targeted FR API search using the project title and a
+    date window anchored by noi_publication_date (NOI date + 365 days → today).
+
+    Eligibility criteria:
+    - EIS project (EA/CE excluded — FONSI matching is less reliable without
+      direct doc evidence)
+    - noi_publication_date is known (provides temporal anchor)
+    - Project title has >= 3 distinctive tokens (prevents overly broad searches)
+
+    Acceptance criteria (all must pass):
+    - FR record has an FEIS/FSEIS-type title (_is_noa_title + FEIS regex)
+    - Title token overlap >= max(_required_title_overlap(n), min(n, 3))
+      (more conservative than the direct-evidence path)
+    - Not a termination/withdrawal notice
+
+    Provenance: noa_date_evidence_type = "fr_title_search_noi_anchored"
+    """
+    # Build lookup: project_id → noi_publication_date
+    noi_dates: dict[str, str] = {}
+    if "noi_publication_date" in project_matches.columns:
+        for _, pm_row in project_matches.iterrows():
+            pid = _normalize_project_id(pm_row.get("project_id"))
+            noi_date_val = _normalize_text(pm_row.get("noi_publication_date"))
+            if pid and noi_date_val:
+                noi_dates[pid] = noi_date_val
+
+    # Build lookup: project_id → {project_title, process_type}
+    project_info: dict[str, dict] = {}
+    for _, p_row in projects.drop_duplicates(subset=["project_id"]).iterrows():
+        pid = _normalize_project_id(p_row.get("project_id"))
+        if pid:
+            project_info[pid] = {
+                "project_title": _normalize_text(p_row.get("project_title")),
+                "process_type": _normalize_text(p_row.get("process_type")).upper(),
+            }
+
+    fetch_run_at = datetime.now(timezone.utc).isoformat()
+    noa_matches = noa_matches.copy()
+    attempted = 0
+    updated_count = 0
+
+    for idx, noa_row in noa_matches.iterrows():
+        if pd.notna(noa_row.get("noa_availability_date")):
+            continue  # already matched
+
+        pid = _normalize_project_id(noa_row.get("project_id"))
+        info = project_info.get(pid, {})
+        process_type = info.get("process_type", "")
+
+        if process_type != "EIS":
+            continue
+
+        noi_date_str = noi_dates.get(pid)
+        if not noi_date_str:
+            continue
+
+        project_title = info.get("project_title", "")
+        search_term = _build_noa_title_search_term(project_title)
+        if not search_term:
+            continue
+
+        try:
+            noi_date = date.fromisoformat(noi_date_str)
+        except (ValueError, TypeError):
+            continue
+        min_date = (noi_date + timedelta(days=365)).isoformat()
+
+        attempted += 1
+        results = _search_noa_by_title_cached(
+            search_term,
+            min_date,
+            cache,
+            throttle_seconds=throttle_seconds,
+        )
+        if not results:
+            continue
+
+        # Minimal project row for _candidate_match_metrics; fields absent here
+        # (lead_agency, project_state, project_sponsor) fall back to "" in helpers.
+        project_row = pd.Series({
+            "project_id": pid,
+            "project_title": project_title,
+            "process_type": process_type,
+        })
+
+        best_item: Optional[dict] = None
+        best_metrics: Optional[dict] = None
+        best_overlap = -1
+
+        for raw_item in results:
+            fr_title = _normalize_text(raw_item.get("title", ""))
+            if not fr_title:
+                continue
+            if not _is_noa_title(fr_title):
+                continue
+            if _REJECT_NOTICE_RE.search(fr_title):
+                continue
+            # EIS → FEIS/FSEIS only (no FONSI — that is for EA projects)
+            if not _FEIS_TITLE_RE.search(fr_title):
+                continue
+
+            norm_item = _normalize_fr_document(raw_item, "noa_title_search", fetch_run_at)
+            metrics = _candidate_match_metrics(norm_item, project_row)
+            n = metrics["project_token_count"]
+            # More conservative threshold than direct-evidence path:
+            # require max(standard, min(n, 3)) overlapping tokens.
+            required = max(_required_title_overlap(n), min(n, 3))
+            if metrics["title_overlap_count"] < required:
+                continue
+
+            if metrics["title_overlap_count"] > best_overlap:
+                best_overlap = metrics["title_overlap_count"]
+                best_item = norm_item
+                best_metrics = metrics
+
+        if best_item is None or best_metrics is None:
+            continue
+
+        pub_date = _normalize_text(best_item.get("fr_publication_date")) or None
+        if not pub_date:
+            continue
+
+        noa_matches.at[idx, "noa_availability_date"] = pub_date
+        noa_matches.at[idx, "noa_document_number"] = _normalize_text(best_item.get("fr_document_number")) or None
+        noa_matches.at[idx, "noa_url"] = _normalize_text(best_item.get("fr_url")) or None
+        noa_matches.at[idx, "noa_fr_title"] = _normalize_text(best_item.get("fr_title")) or None
+        noa_matches.at[idx, "noa_match_status"] = "accepted"
+        noa_matches.at[idx, "noa_match_reason"] = "fr_title_search_noi_anchored"
+        noa_matches.at[idx, "noa_match_score"] = _score_candidate(best_item, project_row, metrics=best_metrics)
+        noa_matches.at[idx, "noa_title_overlap_count"] = best_metrics["title_overlap_count"]
+        noa_matches.at[idx, "noa_title_overlap_tokens"] = ", ".join(best_metrics["title_overlap_tokens"])
+        noa_matches.at[idx, "noa_date_evidence_type"] = "fr_title_search_noi_anchored"
+        noa_matches.at[idx, "noa_nepatec_evidence_document_id"] = None
+        noa_matches.at[idx, "noa_nepatec_evidence_file_name"] = None
+        noa_matches.at[idx, "noa_nepatec_evidence_page_number"] = None
+        updated_count += 1
+
+        if cache_path and attempted % 25 == 0:
+            _save_cache(cache_path, cache)
+
+    if cache_path:
+        _save_cache(cache_path, cache)
+
+    if show_progress:
+        print(
+            f"[FR noa-title] Title search: attempted={attempted:,}, "
+            f"supplemented={updated_count:,} unmatched EIS projects",
+            flush=True,
+        )
+
+    return noa_matches
+
+
 def enrich_projects_with_noi(
     projects: pd.DataFrame,
     config: FederalRegisterConfig,
@@ -2754,6 +2974,23 @@ def refresh_federal_register_noi(
         show_progress=show_progress,
         nepatec_evidence=nepatec_evidence,
     )
+
+    # ── Step 4b: Supplement unmatched EIS NOA by title search ────────────────
+    # For EIS projects with noi_publication_date but no fr_doc_noa NEPATEC
+    # evidence, search the FR API by project title keywords anchored to the
+    # NOI date window. This recovers coverage for projects whose FEIS bodies
+    # cannot self-cite their own FR doc number (assigned only at publication).
+    noa_supplement_cache = _load_cache(cache_path)
+    noa_matches = _supplement_noa_by_title_search(
+        noa_matches,
+        projects,
+        project_matches,
+        throttle_seconds=throttle_seconds,
+        cache=noa_supplement_cache,
+        cache_path=cache_path,
+        show_progress=show_progress,
+    )
+
     # Merge authoritative NOA columns into the project output. The NOI match
     # frame carries empty placeholder noa_* columns, so drop them first to avoid
     # pandas _x/_y suffixes in the persisted artifact.

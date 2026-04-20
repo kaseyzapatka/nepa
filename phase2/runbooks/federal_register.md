@@ -21,12 +21,17 @@ Matching is entirely document-number-driven in two steps:
 
    A match is **auto-accepted** only when direct doc number evidence + ≥N title tokens + correct title type + process alignment all agree.
 
+   A third step supplements NOA coverage for EIS projects with no direct `fr_doc_noa` evidence:
+
+3. **NOA title search (EIS fallback):** For unmatched EIS projects with a known `noi_publication_date`, the FR API is searched by project title keywords with a date window anchored to `noi_date + 365 days`. This recovers FEIS notices that cannot self-cite their own FR doc number (the number is assigned at publication, after the FEIS body is written). Acceptance requires ≥ max(standard, min(n, 3)) title token overlap and a FEIS/FSEIS title type. EA projects are excluded — FONSI matching without direct doc evidence is too risky. Provenance: `noa_date_evidence_type = "fr_title_search_noi_anchored"`.
+
 **Key rules:**
 - `noi_publication_date` is only populated from `fr_doc_noi`/`fr_url` evidence with an NOI-type FR title.
-- `noa_availability_date` is only populated from `fr_doc_noa` evidence with an NOA-type FR title and matching process type (EIS→FEIS, EA→FONSI/Final EA).
+- `noa_availability_date` is populated from `fr_doc_noa` direct evidence (EIS→FEIS/FSEIS, EA→FONSI/Final EA) **or** from the NOA title search fallback for EIS projects (`noa_date_evidence_type = "fr_title_search_noi_anchored"`).
 - Agency/state/sponsor alone is not sufficient — title overlap is always required.
 - CE projects: all evidence goes to manual review, never auto-accepted.
-- Projects with no NEPATEC doc number evidence get no FR coverage.
+- EA projects: no NOA title search fallback — only direct `fr_doc_noa` evidence.
+- Projects with no NEPATEC doc number evidence and no `noi_publication_date` get no NOA coverage.
 
 ## Refresh During Analysis (standard command)
 

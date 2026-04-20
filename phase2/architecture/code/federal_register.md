@@ -26,7 +26,7 @@ The same architecture extends to NOA (Notice of Availability): `fr_doc_noa` evid
 
 ---
 
-## Two-Phase Pipeline
+## Three-Phase Pipeline
 
 ```mermaid
 flowchart TD
@@ -44,7 +44,9 @@ flowchart TD
     J -->|Review| M[manual_review_ambiguous_candidates.csv]
     K -->|Auto-accept| N[noa_availability_date populated]
     K -->|Review| O[manual_review_noa_candidates.csv]
-    L & N --> P[federal_register.parquet]
+    N -->|Unmatched EIS with noi_date| Q[_supplement_noa_by_title_search\nPhase 3: title keyword search]
+    Q -->|FEIS title + ≥N tokens| R[noa_availability_date populated\nevidence_type: fr_title_search_noi_anchored]
+    L & R --> P[federal_register.parquet]
 ```
 
 ### Phase 1 — NEPATEC Page Scan (DuckDB)
@@ -81,6 +83,32 @@ The combined fetched set is then split by title type:
 - `noa_documents.parquet` — records whose title passes `_is_noa_title()`: Final EIS and Final Supplemental EIS titles are accepted unconditionally; FONSI titles are accepted unconditionally; Final EA / Final Environmental Assessment titles require "availability" language.
 
 Records matching neither type are not used in matching (e.g. proposed rules, notices of meeting).
+
+### Phase 3 — NOA Title Search Fallback (EIS only)
+
+For EIS projects that remain unmatched after Phase 2 (no `fr_doc_noa` NEPATEC evidence), `_supplement_noa_by_title_search()` attempts a targeted FR keyword search:
+
+```
+GET https://www.federalregister.gov/api/v1/documents.json
+  ?conditions[term]=<title phrase>
+  &conditions[type][]=NOTICE
+  &conditions[publication_date][gte]=<noi_date + 365 days>
+  &per_page=20
+```
+
+**Eligibility:** EIS project (EA excluded) + `noi_publication_date` known + ≥ 3 distinctive title tokens.
+
+**Why EIS only:** FEIS notices are reliably detectable by title ("Final Environmental Impact Statement" in FR context always means a FEIS notice). FONSI matching without direct doc evidence would have higher false-positive risk.
+
+**Structural rationale:** FEIS bodies are written before their FR doc number is assigned at publication. The FEIS text can never cite its own doc number — only post-FEIS documents (RODs, responses to comments) can. This makes Phase 2's direct-evidence path structurally incomplete for NOA. Phase 3 fills this gap by anchoring on `noi_publication_date` and strong title overlap rather than doc number evidence.
+
+**Acceptance gates (all must pass):**
+1. FR record title passes `_is_noa_title()` — FEIS/FSEIS type only
+2. `_FEIS_TITLE_RE` confirms it is specifically a Final EIS/FSEIS (not FONSI)
+3. Title token overlap ≥ max(_required_title_overlap(n), min(n, 3)) — more conservative than direct-evidence path
+4. Not a termination/withdrawal notice
+
+Results are cached in `fr_noi_cache.json` under key `noa_title_search|{term}|{min_date}`. Provenance: `noa_date_evidence_type = "fr_title_search_noi_anchored"`.
 
 ---
 
@@ -142,7 +170,8 @@ CE projects never auto-accept for either NOI or NOA.
 | Any: `fr_doc_noa` evidence + NOA title + insufficient title overlap | **Manual review** |
 | Any: `fr_doc_noa` evidence + process mismatch | **Manual review** |
 | CE: any `fr_doc_noa` evidence | **Manual review** |
-| No `fr_doc_noa` evidence | **Unmatched** |
+| EIS: no `fr_doc_noa` evidence, has `noi_publication_date`, ≥ 3 title tokens → Phase 3 title search → FEIS title + ≥ max(N, min(n, 3)) overlap | **Auto-accept** (`noa_date_evidence_type = "fr_title_search_noi_anchored"`) |
+| EA/CE: no `fr_doc_noa` evidence | **Unmatched** (no title search fallback) |
 
 ---
 
