@@ -15,7 +15,7 @@ flowchart TD
     C --> D[create_combined_projects]
     D --> E{--refresh-federal-register?}
     E -->|Yes| F[federal_register.py\nrefresh_federal_register_noi]
-    E -->|No| G[merge existing\nnoi_federal_register.parquet]
+    E -->|No| G[merge existing\nfederal_register.parquet]
     F --> H[projects_combined.parquet]
     G --> H
     D --> I[create_combined_processes]
@@ -76,14 +76,13 @@ The Federal Register enrichment is intentionally **opt-in** at refresh time:
 
 ```
 Default (offline):
-  → merges data/analysis/federal_register/noi_federal_register.parquet if present
-  → falls back to legacy data/analysis/noi_federal_register.parquet
-  → if neither exists, projects get null NOI/NOA fields (not an error)
+  → merges data/analysis/federal_register/federal_register.parquet if present
+  → if does not exist, projects get null NOI/NOA fields (not an error)
 
 With --refresh-federal-register:
   → calls federal_register.py refresh_federal_register_noi()
   → runs NEPATEC page scan (DuckDB) + targeted FR API fetches
-  → rewrites noi_federal_register.parquet, then merges
+  → rewrites federal_register.parquet, then merges
 ```
 
 This keeps normal analysis runs fast and deterministic. See [federal_register.md](federal_register.md) for NOI/NOA matching architecture and [runbooks/federal_register.md](../../runbooks/federal_register.md) for refresh commands.

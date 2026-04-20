@@ -44,7 +44,7 @@ flowchart TD
     J -->|Review| M[manual_review_ambiguous_candidates.csv]
     K -->|Auto-accept| N[noa_availability_date populated]
     K -->|Review| O[manual_review_noa_candidates.csv]
-    L & N --> P[noi_federal_register.parquet]
+    L & N --> P[federal_register.parquet]
 ```
 
 ### Phase 1 — NEPATEC Page Scan (DuckDB)
@@ -150,7 +150,7 @@ CE projects never auto-accept for either NOI or NOA.
 
 | File | Description |
 |---|---|
-| `federal_register/noi_federal_register.parquet` | **Primary output.** One row per project; `noi_publication_date` and `noa_availability_date` where auto-accepted. |
+| `federal_register/federal_register.parquet` | **Primary output.** One row per project; `noi_publication_date` and `noa_availability_date` where auto-accepted. |
 | `federal_register/noi_documents.parquet` | FR records for NOI doc numbers (one row per unique doc number). |
 | `federal_register/noa_documents.parquet` | FR records for NOA doc numbers (FEIS/FSEIS/FONSI/Final EA). |
 | `federal_register/nepatec_fr_evidence.parquet` | One row per FR doc number per NEPATEC page; cached across refreshes. |
@@ -161,7 +161,7 @@ CE projects never auto-accept for either NOI or NOA.
 
 ---
 
-## Provenance Fields in `noi_federal_register.parquet`
+## Provenance Fields in `federal_register.parquet`
 
 ### NOI
 | Field | Description |
@@ -189,7 +189,7 @@ CE projects never auto-accept for either NOI or NOA.
 
 ## Integration with extract_data.py
 
-`federal_register.py` is called by `extract_data.py` when `--refresh-federal-register` is set. The output `noi_federal_register.parquet` (containing both NOI and NOA fields) is merged into `projects_combined.parquet` on `project_id`. In offline mode, `extract_data.py` reads a cached copy without calling the FR API.
+`federal_register.py` is called by `extract_data.py` when `--refresh-federal-register` is set. The output `federal_register.parquet` (containing both NOI and NOA fields) is merged into `projects_combined.parquet` on `project_id`. In offline mode, `extract_data.py` reads a cached copy without calling the FR API.
 
 **Timeline date hierarchy** (used in D4 and elsewhere):
 1. `noi_publication_date` — authoritative Federal Register NOI date where present

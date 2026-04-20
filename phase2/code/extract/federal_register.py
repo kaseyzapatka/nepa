@@ -3,7 +3,7 @@ Federal Register NOI enrichment for NEPATEC projects.
 
 Phase 2 treats this as a refreshable, standalone data source. The default
 extract_data.py path remains offline and only merges an existing
-noi_federal_register.parquet artifact unless a refresh is explicitly requested.
+federal_register.parquet artifact unless a refresh is explicitly requested.
 """
 
 from __future__ import annotations
@@ -34,17 +34,18 @@ FEDERAL_REGISTER_DIR = ANALYSIS_DIR / "federal_register"
 
 FR_ENDPOINT = "https://www.federalregister.gov/api/v1/documents.json"
 
-DEFAULT_NOI_CORPUS_OUTPUT = FEDERAL_REGISTER_DIR / "noi_documents.parquet"
-DEFAULT_NOI_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "project_noi_candidates.parquet"
-DEFAULT_NOA_CORPUS_OUTPUT = FEDERAL_REGISTER_DIR / "noa_documents.parquet"
-DEFAULT_NOA_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "project_noa_candidates.parquet"
-DEFAULT_PROJECT_OUTPUT = FEDERAL_REGISTER_DIR / "noi_federal_register.parquet"
+DEFAULT_NOI_CORPUS_OUTPUT = FEDERAL_REGISTER_DIR / "noi_corups.parquet"
+DEFAULT_NOI_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "noi_candidates.parquet"
+DEFAULT_NOA_CORPUS_OUTPUT = FEDERAL_REGISTER_DIR / "noa_corpus.parquet"
+DEFAULT_NOA_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "noa_candidates.parquet"
+DEFAULT_PROJECT_OUTPUT = FEDERAL_REGISTER_DIR / "federal_register.parquet"
 DEFAULT_CACHE_PATH = FEDERAL_REGISTER_DIR / "fr_noi_cache.json"
 DEFAULT_FETCH_REPORT_OUTPUT = FEDERAL_REGISTER_DIR / "fr_noi_fetch_report.csv"
 DEFAULT_EVIDENCE_OUTPUT = FEDERAL_REGISTER_DIR / "nepatec_fr_evidence.parquet"
-DEFAULT_AMBIGUOUS_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "manual_review_ambiguous_candidates.csv"
-DEFAULT_LOW_OVERLAP_ACCEPTED_OUTPUT = FEDERAL_REGISTER_DIR / "manual_review_accepted_low_title_overlap.csv"
-DEFAULT_NOA_REVIEW_OUTPUT = FEDERAL_REGISTER_DIR / "manual_review_noa_candidates.csv"
+DEFAULT_AMBIGUOUS_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "noi_manual_review_candidates.csv"
+DEFAULT_LOW_OVERLAP_ACCEPTED_OUTPUT = FEDERAL_REGISTER_DIR / "noi_manual_review_accepted_low_title_overlap.csv"
+DEFAULT_NOA_LOW_OVERLAP_ACCEPTED_OUTPUT = FEDERAL_REGISTER_DIR / "noa_manual_review_accepted_low_title_overlap.csv"
+DEFAULT_NOA_REVIEW_OUTPUT = FEDERAL_REGISTER_DIR / "noa_manual_review_candidates.csv"
 
 NOI_CORPUS_QUERIES = (
     '"Notice of Intent"',
@@ -242,6 +243,27 @@ FOCUSED_PROJECT_REVIEW_COLUMNS = [
     "noi_process_conflict",
     "noi_nepatec_evidence_file_name",
     "noi_nepatec_evidence_page_number",
+]
+
+FOCUSED_NOA_PROJECT_REVIEW_COLUMNS = [
+    "project_id",
+    "process_type",
+    "project_energy_type",
+    "project_department",
+    "lead_agency",
+    "project_state",
+    "project_sponsor",
+    "project_title",
+    "noa_document_number",
+    "noa_availability_date",
+    "noa_url",
+    "noa_fr_title",
+    "noa_match_score",
+    "noa_match_reason",
+    "noa_title_overlap_count",
+    "noa_title_overlap_tokens",
+    "noa_nepatec_evidence_file_name",
+    "noa_nepatec_evidence_page_number",
 ]
 
 FOCUSED_CANDIDATE_REVIEW_COLUMNS = [
@@ -2015,9 +2037,31 @@ def write_focused_manual_review_exports(
         _columns_present(low_overlap_accepted, FOCUSED_PROJECT_REVIEW_COLUMNS)
     ].to_csv(low_overlap_accepted_path, index=False)
 
+    if "noa_availability_date" in project_rows.columns:
+        noa_accepted = project_rows[project_rows["noa_availability_date"].notna()].copy()
+    else:
+        noa_accepted = pd.DataFrame(columns=project_rows.columns)
+    if "noa_title_overlap_count" in noa_accepted.columns:
+        noa_title_overlap = pd.to_numeric(
+            noa_accepted["noa_title_overlap_count"], errors="coerce"
+        ).fillna(0)
+    else:
+        noa_title_overlap = pd.Series(0, index=noa_accepted.index)
+    noa_low_overlap_accepted = noa_accepted[noa_title_overlap <= 1].copy()
+    noa_low_overlap_accepted = _sort_if_columns(
+        noa_low_overlap_accepted,
+        ["noa_title_overlap_count", "noa_match_score", "project_title"],
+        ascending=[True, True, True],
+    )
+    noa_low_overlap_accepted_path = output_dir / DEFAULT_NOA_LOW_OVERLAP_ACCEPTED_OUTPUT.name
+    noa_low_overlap_accepted[
+        _columns_present(noa_low_overlap_accepted, FOCUSED_NOA_PROJECT_REVIEW_COLUMNS)
+    ].to_csv(noa_low_overlap_accepted_path, index=False)
+
     return {
         str(ambiguous_candidates_path): len(ambiguous_candidates),
         str(low_overlap_accepted_path): len(low_overlap_accepted),
+        str(noa_low_overlap_accepted_path): len(noa_low_overlap_accepted),
     }
 
 
@@ -2623,7 +2667,7 @@ def refresh_federal_register_noi(
     fr_dir = analysis_dir / "federal_register"
     fr_dir.mkdir(parents=True, exist_ok=True)
 
-    output_path = Path(output_path) if output_path else fr_dir / "noi_federal_register.parquet"
+    output_path = Path(output_path) if output_path else fr_dir / DEFAULT_PROJECT_OUTPUT.name
     corpus_output = Path(corpus_output) if corpus_output else fr_dir / DEFAULT_NOI_CORPUS_OUTPUT.name
     candidates_output = Path(candidates_output) if candidates_output else fr_dir / DEFAULT_NOI_CANDIDATES_OUTPUT.name
     noa_corpus_output = Path(noa_corpus_output) if noa_corpus_output else fr_dir / DEFAULT_NOA_CORPUS_OUTPUT.name
@@ -2710,7 +2754,13 @@ def refresh_federal_register_noi(
         show_progress=show_progress,
         nepatec_evidence=nepatec_evidence,
     )
-    # Merge NOA columns into project_matches on project_id
+    # Merge authoritative NOA columns into the project output. The NOI match
+    # frame carries empty placeholder noa_* columns, so drop them first to avoid
+    # pandas _x/_y suffixes in the persisted artifact.
+    project_matches = project_matches.drop(
+        columns=[col for col in project_matches.columns if col.startswith("noa_")],
+        errors="ignore",
+    )
     project_matches = project_matches.merge(noa_matches, on="project_id", how="left")
 
     # ── Step 5: Write outputs ────────────────────────────────────────────────
@@ -2729,10 +2779,7 @@ def refresh_federal_register_noi(
         output_dir=candidates_output.parent,
     )
     noa_review_path = candidates_output.parent / DEFAULT_NOA_REVIEW_OUTPUT.name
-    if not noa_review.empty:
-        noa_review.to_csv(noa_review_path, index=False)
-    else:
-        pd.DataFrame(columns=noa_review.columns).to_csv(noa_review_path, index=False)
+    noa_review.to_csv(noa_review_path, index=False)
     print(f"Saved NOA review: {noa_review_path} ({len(noa_review):,} rows)")
 
     print(f"Saved project NOI+NOA matches: {output_path} ({len(project_matches):,} projects)")

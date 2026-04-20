@@ -4,7 +4,7 @@
 - **NOI** (Notice of Intent): project initiation date → `noi_publication_date`
 - **NOA** (Notice of Availability): project end date (FEIS/FSEIS/FONSI/Final EA) → `noa_availability_date`
 
-**Default behavior:** `extract_data.py --mode analysis` does not call the Federal Register API or scan NEPATEC pages. It merges `data/analysis/federal_register/noi_federal_register.parquet` if that file already exists.
+**Default behavior:** `extract_data.py --mode analysis` does not call the Federal Register API or scan NEPATEC pages. It merges `data/analysis/federal_register/federal_register.parquet` if that file already exists.
 
 ## How Matching Works
 
@@ -47,7 +47,7 @@ Run this directly for more control over paths and options:
 ```bash
 conda run -n nepa python phase2/code/extract/federal_register.py \
   --projects-path phase2/data/analysis/projects_combined.parquet \
-  --output phase2/data/analysis/federal_register/noi_federal_register.parquet \
+  --output phase2/data/analysis/federal_register/federal_register.parquet \
   --corpus-output phase2/data/analysis/federal_register/noi_documents.parquet \
   --candidates-output phase2/data/analysis/federal_register/project_noi_candidates.parquet \
   --evidence-output phase2/data/analysis/federal_register/nepatec_fr_evidence.parquet \
@@ -62,7 +62,7 @@ Add `--rescan-nepatec-evidence` to force a fresh NEPATEC page scan. Required aft
 | Argument | Default | Description |
 |---|---|---|
 | `--projects-path` | `data/analysis/projects_combined.parquet` | Input projects |
-| `--output` | `federal_register/noi_federal_register.parquet` | Project-level NOI+NOA output |
+| `--output` | `federal_register/federal_register.parquet` | Project-level NOI+NOA output |
 | `--corpus-output` | `federal_register/noi_documents.parquet` | Directly-fetched NOI FR records |
 | `--candidates-output` | `federal_register/project_noi_candidates.parquet` | All scored NOI candidates |
 | `--cache-path` | `federal_register/fr_noi_cache.json` | FR API response cache |
@@ -101,7 +101,7 @@ NOA corpus (`noa_documents.parquet`) and candidates (`project_noa_candidates.par
 - `manual_review_ambiguous_candidates.csv`: Candidate rows for projects with multiple competing high-confidence NOI candidates.
 - `manual_review_accepted_low_title_overlap.csv`: Accepted NOI rows with `noi_title_overlap_count <= 1`, for spot-checking.
 - `manual_review_noa_candidates.csv`: NOA candidate rows requiring manual review (CE evidence, process mismatch, insufficient title overlap).
-- `noi_federal_register.parquet`: One row per NEPA project; `noi_publication_date` and `noa_availability_date` populated where auto-accepted.
+- `federal_register.parquet`: One row per NEPA project; `noi_publication_date` and `noa_availability_date` populated where auto-accepted.
 
 `fr_noi_fetch_report.csv` was part of the legacy keyword/windowed fetch path and is removed during refresh.
 
@@ -145,7 +145,7 @@ N = required title token overlap, scaled by title length: 1→1, 2→2, 3→2, 4
 | `nearby_noi_phrase` | Nearest recognized phrase within 500 chars (if any) |
 | `fr_date_text_parsed` | ISO date from prose ("Published in the Federal Register on...") |
 
-## Provenance Fields in `noi_federal_register.parquet`
+## Provenance Fields in `federal_register.parquet`
 
 ### NOI fields
 | Field | Description |

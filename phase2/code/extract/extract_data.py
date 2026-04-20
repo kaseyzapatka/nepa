@@ -555,7 +555,7 @@ RAW_DIR = BASE_DIR / "data" / "raw"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
 FEDERAL_REGISTER_DIR = ANALYSIS_DIR / "federal_register"
-FEDERAL_REGISTER_PATH = FEDERAL_REGISTER_DIR / "noi_federal_register.parquet"
+FEDERAL_REGISTER_PATH = FEDERAL_REGISTER_DIR / "federal_register.parquet"
 LEGACY_FEDERAL_REGISTER_PATH = ANALYSIS_DIR / "noi_federal_register.parquet"
 
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)

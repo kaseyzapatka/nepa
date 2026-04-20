@@ -34,7 +34,7 @@ Deliverable architecture docs are added as each deliverable is implemented. See 
 
 All deliverables start from `extract_data.py`, which produces `data/analysis/projects_combined.parquet`. This contains one row per project with metadata: agency, project type, process type (CE/EA/EIS), energy type, geography, document references, and Federal Register NOI dates.
 
-Federal Register NOI/NOA data is a refreshable Phase 2 artifact. Default `extract_data.py --mode analysis` runs offline and merges the existing `data/analysis/federal_register/noi_federal_register.parquet` file if present. Use `--refresh-federal-register` to re-run the NEPATEC page scan and direct-fetch FR records for all doc numbers found. See [code/federal_register.md](code/federal_register.md) for how matching works and [runbooks/federal_register.md](../runbooks/federal_register.md) for the refresh commands.
+Federal Register NOI/NOA data is a refreshable Phase 2 artifact. Default `extract_data.py --mode analysis` runs offline and merges the existing `data/analysis/federal_register/federal_register.parquet` file if present. Use `--refresh-federal-register` to re-run the NEPATEC page scan and direct-fetch FR records for all doc numbers found. See [code/federal_register.md](code/federal_register.md) for how matching works and [runbooks/federal_register.md](../runbooks/federal_register.md) for the refresh commands.
 
 **DuckDB** is used throughout for page-level scanning and parquet joins. Never load full page parquets into pandas — always use DuckDB's `read_parquet()` for memory efficiency.
 
