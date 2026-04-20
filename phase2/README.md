@@ -19,7 +19,7 @@ phase2/
 │   ├── README.md            # Index of all architecture docs
 │   ├── code/                # Core pipeline script architecture
 │   │   ├── extract_data.md  # Main pipeline entry point
-│   │   └── federal_register.md  # FR NOI matching design
+│   │   └── federal_register.md  # FR NOI/NOA matching design
 │   └── deliverables/        # Per-deliverable data flow and methodology
 │       └── deliverable01.md # D1: NEPA Triggered (others added as built)
 ├── code/

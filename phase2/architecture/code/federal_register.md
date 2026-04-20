@@ -36,14 +36,14 @@ flowchart TD
     C -->|fr_doc_noa| E[NOA doc numbers]
     D & E --> F[Combined fetch pool\nfetch_documents_by_doc_numbers]
     F -->|Phase 2: FR API| G[all_fetched]
-    G -->|_is_noi_title| H[noi_documents.parquet]
-    G -->|_is_noa_title| I[noa_documents.parquet]
+    G -->|_is_noi_title| H[noi_corups.parquet]
+    G -->|_is_noa_title| I[noa_corpus.parquet]
     H --> J[build_project_noi_matches\ntitle token overlap + NOI gates]
     I --> K[build_project_noa_matches\ntitle token overlap + NOA gates]
     J -->|Auto-accept| L[noi_publication_date populated]
-    J -->|Review| M[manual_review_ambiguous_candidates.csv]
+    J -->|Review| M[noi_manual_review_candidates.csv]
     K -->|Auto-accept| N[noa_availability_date populated]
-    K -->|Review| O[manual_review_noa_candidates.csv]
+    K -->|Review| O[noa_manual_review_candidates.csv]
     N -->|Unmatched EIS with noi_date| Q[_supplement_noa_by_title_search\nPhase 3: title keyword search]
     Q -->|FEIS title + ≥N tokens| R[noa_availability_date populated\nevidence_type: fr_title_search_noi_anchored]
     L & R --> P[federal_register.parquet]
@@ -79,8 +79,8 @@ GET https://www.federalregister.gov/api/v1/documents/{doc_num}.json
 404s are cached as `None`. The cache (`fr_noi_cache.json`) avoids redundant calls across refreshes.
 
 The combined fetched set is then split by title type:
-- `noi_documents.parquet` — records whose title passes `_is_noi_title()` (NOI/NOP/NOS)
-- `noa_documents.parquet` — records whose title passes `_is_noa_title()`: Final EIS and Final Supplemental EIS titles are accepted unconditionally; FONSI titles are accepted unconditionally; Final EA / Final Environmental Assessment titles require "availability" language.
+- `noi_corups.parquet` — records whose title passes `_is_noi_title()` (NOI/NOP/NOS)
+- `noa_corpus.parquet` — records whose title passes `_is_noa_title()`: Final EIS and Final Supplemental EIS titles are accepted unconditionally; FONSI titles are accepted unconditionally; Final EA / Final Environmental Assessment titles require "availability" language.
 
 Records matching neither type are not used in matching (e.g. proposed rules, notices of meeting).
 
@@ -180,13 +180,14 @@ CE projects never auto-accept for either NOI or NOA.
 | File | Description |
 |---|---|
 | `federal_register/federal_register.parquet` | **Primary output.** One row per project; `noi_publication_date` and `noa_availability_date` where auto-accepted. |
-| `federal_register/noi_documents.parquet` | FR records for NOI doc numbers (one row per unique doc number). |
-| `federal_register/noa_documents.parquet` | FR records for NOA doc numbers (FEIS/FSEIS/FONSI/Final EA). |
+| `federal_register/noi_corups.parquet` | FR records for NOI doc numbers (one row per unique doc number). |
+| `federal_register/noa_corpus.parquet` | FR records for NOA doc numbers (FEIS/FSEIS/FONSI/Final EA). |
 | `federal_register/nepatec_fr_evidence.parquet` | One row per FR doc number per NEPATEC page; cached across refreshes. |
-| `federal_register/project_noi_candidates.parquet` | All scored NOI project/document candidate links. |
-| `federal_register/project_noa_candidates.parquet` | All scored NOA project/document candidate links. |
-| `federal_register/manual_review_noa_candidates.csv` | NOA candidates requiring manual review (CE, process mismatch, insufficient title overlap). |
-| `federal_register/fr_noi_cache.json` | API response cache (keyed `docnum|{doc_num}`). |
+| `federal_register/noi_candidates.parquet` | All scored NOI project/document candidate links. |
+| `federal_register/noa_candidates.parquet` | All scored NOA project/document candidate links. |
+| `federal_register/noi_manual_review_candidates.csv` | Candidate rows for projects with multiple competing high-confidence NOI candidates. |
+| `federal_register/noa_manual_review_candidates.csv` | NOA candidates requiring manual review (CE, process mismatch, insufficient title overlap). |
+| `federal_register/fr_noi_cache.json` | API response cache. Direct-fetch keys: `docnum|{doc_num}`; Phase 3 title search keys: `noa_title_search|{term}|{min_date}`. |
 
 ---
 
@@ -209,7 +210,7 @@ CE projects never auto-accept for either NOI or NOA.
 | `noa_document_number` | FR document number of the NOA record |
 | `noa_match_status` | `accepted`, `review_required`, or `unmatched` |
 | `noa_match_reason` | Specific reason code (e.g., `nepatec_fr_doc_noa_with_title_match`) |
-| `noa_date_evidence_type` | `nepatec_fr_doc_noa` for auto-accepted matches |
+| `noa_date_evidence_type` | `nepatec_fr_doc_noa` for direct-evidence matches; `fr_title_search_noi_anchored` for Phase 3 title search matches |
 | `noa_nepatec_evidence_document_id` | NEPATEC document where the NOA doc number was found |
 | `noa_nepatec_evidence_file_name` | File name of that document |
 | `noa_nepatec_evidence_page_number` | Page number of the FR doc bracket |

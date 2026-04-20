@@ -43,8 +43,6 @@ DEFAULT_CACHE_PATH = FEDERAL_REGISTER_DIR / "fr_noi_cache.json"
 DEFAULT_FETCH_REPORT_OUTPUT = FEDERAL_REGISTER_DIR / "fr_noi_fetch_report.csv"
 DEFAULT_EVIDENCE_OUTPUT = FEDERAL_REGISTER_DIR / "nepatec_fr_evidence.parquet"
 DEFAULT_AMBIGUOUS_CANDIDATES_OUTPUT = FEDERAL_REGISTER_DIR / "noi_manual_review_candidates.csv"
-DEFAULT_LOW_OVERLAP_ACCEPTED_OUTPUT = FEDERAL_REGISTER_DIR / "noi_manual_review_accepted_low_title_overlap.csv"
-DEFAULT_NOA_LOW_OVERLAP_ACCEPTED_OUTPUT = FEDERAL_REGISTER_DIR / "noa_manual_review_accepted_low_title_overlap.csv"
 DEFAULT_NOA_REVIEW_OUTPUT = FEDERAL_REGISTER_DIR / "noa_manual_review_candidates.csv"
 
 NOI_CORPUS_QUERIES = (
@@ -215,55 +213,6 @@ EVIDENCE_OUTPUT_COLUMNS = [
     "nearby_noi_phrase",
     "nearby_project_title_token_count",
     "evidence_rank",
-]
-
-FOCUSED_PROJECT_REVIEW_COLUMNS = [
-    "project_id",
-    "process_type",
-    "project_energy_type",
-    "project_department",
-    "lead_agency",
-    "project_state",
-    "project_sponsor",
-    "project_title",
-    "noi_document_number",
-    "noi_publication_date",
-    "noi_url",
-    "noi_project_title",
-    "noi_match_score",
-    "noi_match_reason",
-    "noi_candidate_count",
-    "noi_high_confidence_candidate_count",
-    "noi_title_overlap_count",
-    "noi_title_overlap_tokens",
-    "noi_agency_match",
-    "noi_state_match",
-    "noi_sponsor_match",
-    "noi_process_match",
-    "noi_process_conflict",
-    "noi_nepatec_evidence_file_name",
-    "noi_nepatec_evidence_page_number",
-]
-
-FOCUSED_NOA_PROJECT_REVIEW_COLUMNS = [
-    "project_id",
-    "process_type",
-    "project_energy_type",
-    "project_department",
-    "lead_agency",
-    "project_state",
-    "project_sponsor",
-    "project_title",
-    "noa_document_number",
-    "noa_availability_date",
-    "noa_url",
-    "noa_fr_title",
-    "noa_match_score",
-    "noa_match_reason",
-    "noa_title_overlap_count",
-    "noa_title_overlap_tokens",
-    "noa_nepatec_evidence_file_name",
-    "noa_nepatec_evidence_page_number",
 ]
 
 FOCUSED_CANDIDATE_REVIEW_COLUMNS = [
@@ -1957,6 +1906,35 @@ def _sort_if_columns(
     return df.sort_values(sort_columns, ascending=sort_ascending, kind="stable")
 
 
+def _candidate_review_export(review: pd.DataFrame, projects: pd.DataFrame) -> pd.DataFrame:
+    out = review.copy()
+
+    if "project_id" in out.columns and "project_id" in projects.columns:
+        meta_columns = _columns_present(
+            projects,
+            ["project_id", "process_type", "project_title", "project_energy_type"],
+        )
+        add_columns = [
+            col for col in meta_columns
+            if col == "project_id" or col not in out.columns
+        ]
+        if add_columns:
+            project_meta = projects[add_columns].drop_duplicates("project_id")
+            if len(project_meta.columns) > 1:
+                out = out.merge(project_meta, on="project_id", how="left")
+
+    for col in FOCUSED_CANDIDATE_REVIEW_COLUMNS:
+        if col not in out.columns:
+            out[col] = None
+
+    out = _sort_if_columns(
+        out,
+        ["project_id", "candidate_rank", "match_score"],
+        ascending=[True, True, False],
+    )
+    return out[FOCUSED_CANDIDATE_REVIEW_COLUMNS]
+
+
 def write_focused_manual_review_exports(
     project_matches: pd.DataFrame,
     review: pd.DataFrame,
@@ -1967,9 +1945,8 @@ def write_focused_manual_review_exports(
     """
     Write small, reproducible review packets for high-priority manual checks.
 
-    These are derived from the canonical Federal Register artifacts:
-    ambiguous project outputs, candidate rows for those ambiguous projects,
-    and accepted rows with only 0-1 title-overlap tokens.
+    These are derived from the canonical Federal Register artifacts and include
+    candidate rows for ambiguous NOI projects.
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -2018,51 +1995,7 @@ def write_focused_manual_review_exports(
         _columns_present(ambiguous_candidates, FOCUSED_CANDIDATE_REVIEW_COLUMNS)
     ].to_csv(ambiguous_candidates_path, index=False)
 
-    if "noi_publication_date" in project_rows.columns:
-        accepted = project_rows[project_rows["noi_publication_date"].notna()].copy()
-    else:
-        accepted = pd.DataFrame(columns=project_rows.columns)
-    if "noi_title_overlap_count" in accepted.columns:
-        title_overlap = pd.to_numeric(accepted["noi_title_overlap_count"], errors="coerce").fillna(0)
-    else:
-        title_overlap = pd.Series(0, index=accepted.index)
-    low_overlap_accepted = accepted[title_overlap <= 1].copy()
-    low_overlap_accepted = _sort_if_columns(
-        low_overlap_accepted,
-        ["noi_title_overlap_count", "noi_match_score", "project_title"],
-        ascending=[True, True, True],
-    )
-    low_overlap_accepted_path = output_dir / DEFAULT_LOW_OVERLAP_ACCEPTED_OUTPUT.name
-    low_overlap_accepted[
-        _columns_present(low_overlap_accepted, FOCUSED_PROJECT_REVIEW_COLUMNS)
-    ].to_csv(low_overlap_accepted_path, index=False)
-
-    if "noa_availability_date" in project_rows.columns:
-        noa_accepted = project_rows[project_rows["noa_availability_date"].notna()].copy()
-    else:
-        noa_accepted = pd.DataFrame(columns=project_rows.columns)
-    if "noa_title_overlap_count" in noa_accepted.columns:
-        noa_title_overlap = pd.to_numeric(
-            noa_accepted["noa_title_overlap_count"], errors="coerce"
-        ).fillna(0)
-    else:
-        noa_title_overlap = pd.Series(0, index=noa_accepted.index)
-    noa_low_overlap_accepted = noa_accepted[noa_title_overlap <= 1].copy()
-    noa_low_overlap_accepted = _sort_if_columns(
-        noa_low_overlap_accepted,
-        ["noa_title_overlap_count", "noa_match_score", "project_title"],
-        ascending=[True, True, True],
-    )
-    noa_low_overlap_accepted_path = output_dir / DEFAULT_NOA_LOW_OVERLAP_ACCEPTED_OUTPUT.name
-    noa_low_overlap_accepted[
-        _columns_present(noa_low_overlap_accepted, FOCUSED_NOA_PROJECT_REVIEW_COLUMNS)
-    ].to_csv(noa_low_overlap_accepted_path, index=False)
-
-    return {
-        str(ambiguous_candidates_path): len(ambiguous_candidates),
-        str(low_overlap_accepted_path): len(low_overlap_accepted),
-        str(noa_low_overlap_accepted_path): len(noa_low_overlap_accepted),
-    }
+    return {str(ambiguous_candidates_path): len(ambiguous_candidates)}
 
 
 def _sort_candidate_records(candidates: list[dict]) -> list[dict]:
@@ -2535,6 +2468,9 @@ def build_project_noa_matches(
             score = _score_candidate(cand_row, row, metrics=metrics)
             candidate_records.append({
                 "project_id": project_id,
+                "project_title": row.get("project_title"),
+                "process_type": row.get("process_type"),
+                "project_energy_type": row.get("project_energy_type"),
                 "fr_document_number": candidate_doc_number,
                 "fr_title": _fr_title(cand_row),
                 "fr_publication_date": _normalize_text(_field(cand_row, "fr_publication_date", "publication_date")),
@@ -2544,6 +2480,10 @@ def build_project_noa_matches(
                 "match_reason": reason,
                 "title_overlap_count": metrics["title_overlap_count"],
                 "title_overlap_tokens": ", ".join(metrics["title_overlap_tokens"]),
+                "agency_match": metrics["agency_match"],
+                "state_match": metrics["state_match"],
+                "sponsor_match": metrics["sponsor_match"],
+                "process_match": metrics["process_match"],
                 "process_conflict": metrics["process_conflict"],
                 "nepatec_fr_document_number_evidence": True,
             })
@@ -2552,6 +2492,8 @@ def build_project_noa_matches(
             candidate_records,
             key=lambda r: (-{"high": 3, "medium": 2, "low": 1}.get(r["match_confidence"], 0), -r["match_score"]),
         )[:max_candidates_per_project]
+        for rank, record in enumerate(candidate_records, start=1):
+            record["candidate_rank"] = rank
         all_candidate_rows.extend(candidate_records)
 
         high_candidates = [r for r in candidate_records if r["match_confidence"] == "high"]
@@ -3016,7 +2958,8 @@ def refresh_federal_register_noi(
         output_dir=candidates_output.parent,
     )
     noa_review_path = candidates_output.parent / DEFAULT_NOA_REVIEW_OUTPUT.name
-    noa_review.to_csv(noa_review_path, index=False)
+    noa_review_export = _candidate_review_export(noa_review, projects)
+    noa_review_export.to_csv(noa_review_path, index=False)
     print(f"Saved NOA review: {noa_review_path} ({len(noa_review):,} rows)")
 
     print(f"Saved project NOI+NOA matches: {output_path} ({len(project_matches):,} projects)")
