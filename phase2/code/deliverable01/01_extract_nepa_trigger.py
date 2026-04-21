@@ -285,6 +285,20 @@ VALID_CLASSES = frozenset({
     "federal_land", "federal_permit", "federal_funding", "unknown",
 })
 
+# Negation patterns applied to the extracted evidence sentence before accepting a match.
+# Catches CE checklist checkboxes ("No [x]") and ordinary sentence-level negations.
+_NEGATION_PATTERNS = [
+    r'\bno\s*\[(?:x|X|✓|√)\]',
+    r'\[(?:x|X|✓|√)\]\s*no\b',
+    r'\b(?:would\s+not|will\s+not|does\s+not|do\s+not|did\s+not)\s+require\b',
+    r'\bnot\s+(?:require|applicable|trigger|needed|warranted)\b',
+    r'\bno\s+(?:permit|authorization|license|funding|grant)\s+(?:is\s+)?required\b',
+    r'\bwithdraw(?:n|ing)?\s+(?:the\s+)?(?:permit|application)\b',
+    r'\b(?:permit|authorization)\s+(?:is\s+)?not\s+required\b',
+    r'\bnot\s+funded\s+(?:by|through|under)\b',
+    r'\bdoes\s+not\s+(?:involve|include|require|apply)\b',
+]
+
 # --------------------------
 # HELPERS
 # --------------------------
@@ -395,12 +409,16 @@ def _apply_pattern_list(
         if m:
             if trigger_class == "federal_program" and _is_programmatic_exclusion(text):
                 continue
+            evidence = extract_sentence(text, m)
+            # Reject matches that appear in negated context (CE checkboxes, "would not require", etc.)
+            if any(re.search(np, evidence, re.IGNORECASE) for np in _NEGATION_PATTERNS):
+                continue
             return {
                 "project_id": project_id,
                 "nepa_trigger_primary": trigger_class,
                 "nepa_trigger_secondary": [],
                 "nepa_trigger_multi": [trigger_class],
-                "nepa_trigger_evidence_text": extract_sentence(text, m),
+                "nepa_trigger_evidence_text": evidence,
                 "nepa_trigger_evidence_source": evidence_source,
                 "nepa_trigger_confidence": confidence,
                 "nepa_trigger_rule_id": f"{tier_prefix}_{rule_slug}",
@@ -496,7 +514,46 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict]:
                 "nepa_trigger_manual_review": False,
                 "nepa_trigger_llm_run_at": "",
             })
-        # DOE and USACE: intentionally not assigned here
+        elif _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
+            # DOE covers both federal_funding (grants/loan guarantees) and federal_action
+            # (facility, substation, installation work). Check funding signals first since
+            # DOE frequently funds private projects with no direct agency construction role.
+            _DOE_FUNDING_PATTERNS = [
+                r'\b(?:loan\s+guarantee|financial\s+assistance|cooperative\s+agreement)\b',
+                r'\bTitle\s+XVII\b',
+                r'\b(?:ARRA|Recovery\s+Act|Bipartisan\s+Infrastructure|Inflation\s+Reduction\s+Act)\b',
+                r'\bfunded\s+(?:by|through|under)\b',
+                r'\b(?:DOE|Department\s+of\s+Energy)\s+(?:grant|award|funding)\b',
+            ]
+            has_funding = any(re.search(p, text, re.IGNORECASE) for p in _DOE_FUNDING_PATTERNS)
+            if has_funding:
+                results.append({
+                    "project_id": pid,
+                    "nepa_trigger_primary": "federal_funding",
+                    "nepa_trigger_secondary": [],
+                    "nepa_trigger_multi": ["federal_funding"],
+                    "nepa_trigger_evidence_text": agency,
+                    "nepa_trigger_evidence_source": "agency_metadata",
+                    "nepa_trigger_confidence": "medium",
+                    "nepa_trigger_rule_id": "T1a_DOE_funding",
+                    "nepa_trigger_manual_review": False,
+                    "nepa_trigger_llm_run_at": "",
+                })
+            elif _verb_class(text) == "federal_action":
+                results.append({
+                    "project_id": pid,
+                    "nepa_trigger_primary": "federal_action",
+                    "nepa_trigger_secondary": [],
+                    "nepa_trigger_multi": ["federal_action"],
+                    "nepa_trigger_evidence_text": agency,
+                    "nepa_trigger_evidence_source": "agency_metadata",
+                    "nepa_trigger_confidence": "medium",
+                    "nepa_trigger_rule_id": "T1a_DOE_action",
+                    "nepa_trigger_manual_review": False,
+                    "nepa_trigger_llm_run_at": "",
+                })
+            # DOE with no funding or action signal: fall through to Tier 1b
+        # USACE: fall through to Tier 1b (permit vs. land varies too much for agency alone)
     return results
 
 
@@ -564,9 +621,9 @@ def tier2_doc_title(
 
         pids = list(group["project_id"])
         docs = conn.execute(f"""
-            SELECT project_id, document_title, main_document
+            SELECT project_id.value AS project_id, document_title, main_document
             FROM read_parquet('{docs_path}')
-            WHERE project_id IN ({_safe_pid_list(pids)})
+            WHERE project_id.value IN ({_safe_pid_list(pids)})
               AND document_title IS NOT NULL
         """).fetchdf()
 
@@ -642,20 +699,28 @@ def tier3_purpose_and_need(
     for source, group in unresolved_df.groupby("dataset_source"):
         source_upper = source.upper()
         pages_path = PAGES_PATH_MAP.get(source_upper)
+        docs_path = DOCS_PATH_MAP.get(source_upper)
         if pages_path is None or not pages_path.exists():
             log.warning(f"pages.parquet not found for {source_upper}; skipping Tier 3 for this source")
+            continue
+        if docs_path is None or not docs_path.exists():
+            log.warning(f"documents.parquet not found for {source_upper}; skipping Tier 3 for this source")
             continue
 
         pids = list(group["project_id"])
         is_ce = (source_upper == "CE")
-        page_filter = "" if is_ce else f"AND page_num <= {MAX_PAGES_PAN}"
+        # page_number is a string column; TRY_CAST to INTEGER for numeric filtering/ordering
+        page_filter = "" if is_ce else f"AND TRY_CAST(p.page_number AS INTEGER) <= {MAX_PAGES_PAN}"
 
         page_rows = conn.execute(f"""
-            SELECT project_id, string_agg(page_text, ' ' ORDER BY page_num) AS combined_text
-            FROM read_parquet('{pages_path}')
-            WHERE project_id IN ({_safe_pid_list(pids)})
+            SELECT d.project_id.value AS project_id,
+                   string_agg(p.page_text, ' '
+                       ORDER BY TRY_CAST(p.page_number AS INTEGER)) AS combined_text
+            FROM read_parquet('{pages_path}') p
+            JOIN read_parquet('{docs_path}') d USING (document_id)
+            WHERE d.project_id.value IN ({_safe_pid_list(pids)})
               {page_filter}
-            GROUP BY project_id
+            GROUP BY d.project_id.value
         """).fetchdf()
 
         for _, row in page_rows.iterrows():
@@ -950,16 +1015,21 @@ def extract_nepa_triggers(
         resolved[r["project_id"]] = r
     log.info(f"  → {len(resolved):,} resolved ({_pct()})")
 
-    # Tier 5 — re-process confidence=low residuals only
+    # Tier 5 — low-confidence resolved + any still-unresolved (e.g. if Tier 4 was skipped)
     if use_llm:
         low_conf_ids = [pid for pid, r in resolved.items() if r["nepa_trigger_confidence"] == "low"]
-        log.info(f"Tier 5: Claude Haiku on {len(low_conf_ids):,} low-confidence projects")
-        for r in tier5_llm(low_conf_ids, projects):
+        unresolved_still = [pid for pid in all_project_ids if pid not in resolved]
+        llm_target_ids = low_conf_ids + unresolved_still
+        log.info(
+            f"Tier 5: Claude Haiku on {len(llm_target_ids):,} projects "
+            f"({len(low_conf_ids):,} low-conf + {len(unresolved_still):,} unresolved)"
+        )
+        for r in tier5_llm(llm_target_ids, projects):
             resolved[r["project_id"]] = r
     else:
         log.info("Tier 5: skipped (--use-llm not set)")
 
-    # Fill any remaining gaps
+    # Fill any remaining gaps (projects not resolved by any tier and not sent to Tier 5)
     for pid in all_project_ids:
         if pid not in resolved:
             resolved[pid] = _make_unknown(pid)
@@ -1029,10 +1099,12 @@ def main() -> None:
     if not batches.empty:
         batch_path = OUTPUT_DIR / "validation_batches.csv"
         batches.to_csv(batch_path, index=False)
+        true_flagged = int(final["nepa_trigger_manual_review"].sum())
         flag_rate = final["nepa_trigger_manual_review"].mean()
         log.info(
-            f"Validation batches: {len(batches):,} flagged cases ({flag_rate:.1%} flag rate) "
-            f"across {batches['validation_batch'].nunique()} rules → {batch_path}"
+            f"Validation batches: {true_flagged:,} flagged cases ({flag_rate:.1%} flag rate) "
+            f"sampled into {len(batches):,} rows across "
+            f"{batches['validation_batch'].nunique()} rules → {batch_path}"
         )
         if flag_rate > 0.05:
             log.warning(
