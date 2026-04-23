@@ -3,11 +3,18 @@
 **Purpose:** Classify the federal nexus that triggers NEPA review for each clean energy project.
 **Input:** `data/analysis/projects_combined.parquet` + source-level docs/pages parquets (CE, EA, EIS).
 **Output:** `data/analysis/nepa_trigger/projects_nepa_trigger.parquet` + validation batch CSV.
-**Cost:** LLM tier (optional) ~$1–4 (Claude Haiku) depending on share of unresolved cases.
+**Cost:** LLM tier (optional) ~$1–4 (Claude Haiku) depending on share of unresolved cases; Tier 5 has a hard budget guardrail (default $10).
 **Scope:** 20,725 clean energy projects (`project_energy_type = 'Clean'`).
 **Scripts:**
 - `phase2/code/deliverable01/01_extract_nepa_trigger.py` — extraction pipeline
 - `phase2/code/deliverable01/02_analyze_triggers.R` — analysis and figures
+
+**Reference docs** (in `phase2/code/deliverable01/`):
+- `_notes.md` — tactical notes, model selection rationale, threshold guidance
+- `_legend.md` — rule ID format and common examples
+- `_example_bank.md` — calibration examples (positives and hard negatives per class)
+- `tier4_refactor_spec.md` — Tier 4 design spec
+- `tier4_implementation_checklist.md` — implementation sequence
 
 ---
 
@@ -33,36 +40,52 @@ Seven primary trigger classes, in priority order (used to break ties when multip
 
 ## Five-tier extraction pipeline
 
-Each tier runs only on projects not resolved by a prior tier.
+Each tier runs on projects not yet finalized by a prior tier. Tiers 1–3 produce results that are either **auto-accepted** (deterministic high-precision rules) or held as **provisional** (awaiting Tier 4 confirmation). Tier 4 processes all unfinalized projects.
 
 | Tier | Method | Source | Notes |
 |---|---|---|---|
-| 1a | Agency metadata heuristics | `projects_combined.parquet` | BLM/USFS/USACE agency codes; verb signals disambiguate `federal_action` vs `federal_land` |
-| 1b | Keyword patterns on title + description | `projects_combined.parquet` | ~30 patterns per class; returns first match |
+| 1a | Agency metadata heuristics | `projects_combined.parquet` | BLM/USFS/NPS/FWS → `federal_land` (verb signals disambiguate action); FERC/FAA/FCC → `federal_permit`; DOE → provisional (funding vs action boundary) |
+| 1b | Keyword patterns on title + description | `projects_combined.parquet` | ~30 patterns per class; returns first match; negation guard suppresses checklist false positives |
 | 2 | Document title keyword scan | `*_documents.parquet` | Scans all documents for a project; programmatic title patterns fire here |
-| 3 | Purpose and Need section | `*_pages.parquet` | CE: full doc scan; EA/EIS: P&N header detection, first 5 paragraphs |
-| 4 | Embedding cosine similarity | `*_pages.parquet` | `all-MiniLM-L6-v2`; class prototype vectors; pages 1–10 only |
-| 5 | Claude Haiku LLM | `*_pages.parquet` | Only with `--use-llm`; purpose-and-need text + structured JSON prompt |
+| 3 | Purpose and Need section | `*_pages.parquet` | CE: full doc scan with conservative pattern set (no sec404/arra/rmp); EA/EIS: P&N header detection, first 10 pages |
+| 4 | Retrieval-first local NLI | `*_pages.parquet` | Chunk retrieval + `cross-encoder/nli-MiniLM2-L6-H768` zero-shot NLI; embedding fallback if NLI unavailable; DOE and CE-heavy rows route here |
+| 5 | Claude Haiku LLM | Tier 4 evidence bundles | Only with `--use-llm`; receives top chunks + local NLI scores + provisional class; subject to budget guardrail |
 
-**Resolution rule:** the `resolved` dict accumulates results tier-by-tier. A project exits the pipeline when it receives a classification; remaining projects pass to the next tier. Every project receives exactly one row in the output (`is_unique` assertion enforced before write).
+**Routing policy:**
+- `AUTO_ACCEPT_RULE_IDS` — deterministic high-precision rules that finalize immediately (e.g., `T1a_FERC_permit`, `T1b_special_use`, `T3_npdes`)
+- `SEND_TO_TIER4_RULE_IDS` — ambiguous rules always routed to Tier 4 (e.g., `T1a_DOE_action`, `T3_sec404`, `T3_arra`)
+- `AUDIT_FIRST_RULE_IDS` — rules held for review before promotion (e.g., `T3_rmp`)
 
 ---
 
-## Quick run (no LLM)
+## Recommended workflow for a new full run
 
-Runs tiers 1a–4 only. Appropriate for an initial build or after pattern changes.
+### Step 1 — Calibrate hypotheses (first time, or after editing `HYPOTHESIS_TEMPLATES`)
+
+Validates that the NLI hypothesis templates are well-calibrated before running at scale.
+Takes ~2 minutes. Downloads the NLI model (~67MB) on first run.
+
+```bash
+conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py --calibrate
+```
+
+**Passing criteria:**
+- Positive examples: correct class scores ≥ 0.75
+- Hard negatives: all class scores ≤ 0.50
+
+If any check fails, adjust `HYPOTHESIS_TEMPLATES` in the script and re-run calibration before proceeding. See `_example_bank.md` for guidance on hypothesis wording.
+
+### Step 2 — Quick run (no LLM)
+
+Runs tiers 1a–4. Appropriate for an initial build or after pattern changes.
 
 ```bash
 conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py
 ```
 
-Estimated runtime: ~10–20 min on full 20,725-project scope (embedding tier is the bottleneck).
+### Step 3 — Full run (with LLM tier)
 
----
-
-## Full run (with LLM tier)
-
-Adds tier 5 (Claude Haiku) for projects unresolved after embedding similarity.
+Adds Tier 5 (Claude Haiku) for the small uncertain queue remaining after Tier 4. Tier 5 has a preflight guardrail: if the estimated spend exceeds the budget cap (default $10), it writes `tier5_queue.parquet` and stops unless `--force-tier5` is passed.
 
 ```bash
 export ANTHROPIC_API_KEY='sk-ant-...'
@@ -84,7 +107,7 @@ conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py --
 
 ## EDA before full run (optional)
 
-Prints class balance, agency counts, and document coverage stats without writing output:
+Prints description coverage and process-type breakdown without writing output:
 
 ```bash
 conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py --eda
@@ -96,9 +119,12 @@ conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py --
 
 | Argument | Default | Description |
 |---|---|---|
-| `--use-llm` | off | Enable tier 5 (Claude Haiku) for unresolved cases |
-| `--sample N` | None | Random sample of N projects (for testing) |
+| `--calibrate` | off | Validate NLI hypothesis templates against example bank; exit without extracting |
 | `--eda` | off | Print descriptive stats and exit without writing output |
+| `--use-llm` | off | Enable Tier 5 (Claude Haiku) for uncertain cases |
+| `--force-tier5` | off | Override Tier 5 budget guardrail and send full queue |
+| `--tier5-budget` | 10.0 | Hard stop budget in USD for Tier 5 spend |
+| `--sample N` | None | Random sample of N projects (for testing) |
 
 `ANTHROPIC_API_KEY` must be set in the environment when `--use-llm` is used.
 
@@ -106,7 +132,7 @@ conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py --
 
 ## Outputs
 
-### `data/analysis/nepa_trigger/projects_nepa_trigger.parquet`
+### Primary output: `data/analysis/nepa_trigger/projects_nepa_trigger.parquet`
 
 One row per project. Key columns:
 
@@ -121,23 +147,30 @@ One row per project. Key columns:
 | `nepa_trigger_evidence_source` | string | Where evidence came from (see values below) |
 | `nepa_trigger_rule_id` | string | Rule that fired (format: `T{tier}_{slug}`) |
 | `nepa_trigger_manual_review` | bool | Flag for human review |
-| `nepa_trigger_notes` | string | Analyst notes |
 | `is_dual_nexus` | bool | `federal_land` primary + `federal_permit` secondary |
 | `nepa_trigger_extraction_run_at` | string | ISO-8601 UTC timestamp of pipeline run |
-| `nepa_trigger_llm_run_at` | string | ISO-8601 UTC timestamp of LLM call (empty string if tier 5 not used) |
+| `nepa_trigger_llm_run_at` | string | ISO-8601 UTC timestamp of LLM call (empty string if Tier 5 not used) |
 
-**`nepa_trigger_evidence_source` values:** `agency_metadata`, `title`, `description`, `doc_title`, `purpose_and_need`, `embedding`, `llm`.
+**`nepa_trigger_evidence_source` values:** `agency_metadata`, `title`, `description`, `doc_title`, `purpose_and_need`, `document_text`, `embedding`, `llm`.
 
-### `data/analysis/nepa_trigger/validation_batches.csv`
+### Validation batches: `data/analysis/nepa_trigger/validation_batches.csv`
 
-One row per rule that generated any `manual_review = TRUE` cases. Sorted by batch size descending so the highest-volume broken rules surface first.
+Stratified sample of output rows for manual QA. Sampled by:
+- rule_id (up to 20 rows per rule family)
+- process_type (up to 20 rows per CE/EA/EIS)
+- DOE agency (up to 20 rows)
+- CE dataset (up to 20 rows)
 
-| Column | Description |
+Key columns: all output columns + `validation_batch` (batch label), `batch_kind` (`rule`/`process`/`agency`/`dataset`), `batch_size` (total rows in that group).
+
+### Tier 4 diagnostic artifacts (written on every run)
+
+| File | Description |
 |---|---|
-| `nepa_trigger_rule_id` | Rule identifier |
-| `nepa_trigger_primary` | Trigger class the rule fires into |
-| `batch_size` | Number of flagged cases for this rule |
-| `sample_project_ids` | Up to 20 project IDs to inspect |
+| `data/analysis/nepa_trigger/context_candidates.parquet` | All chunks retrieved and scored per project |
+| `data/analysis/nepa_trigger/tier4_chunk_scores.parquet` | Per-chunk NLI scores for each candidate class |
+| `data/analysis/nepa_trigger/tier4_doc_scores.parquet` | Aggregated doc-level scores and auto-resolve decisions |
+| `data/analysis/nepa_trigger/tier5_queue.parquet` | Projects queued for Tier 5 (written before any LLM calls) |
 
 ---
 
@@ -147,24 +180,24 @@ One row per rule that generated any `manual_review = TRUE` cases. Sorted by batc
 
 The script enforces these before writing output; the run fails if any assertion fires:
 
-1. **Uniqueness:** `len(final_df) == len(projects_df)` — exactly one row per project.
+1. **Uniqueness:** `project_id` is unique — exactly one row per project.
 2. **Scope:** all `project_id` values are in the 20,725-project clean energy set.
 3. **List column:** `nepa_trigger_secondary` is a Python list, not a JSON string.
 
 ### Batch-by-rule review (manual)
 
-After a successful run, review the highest-volume flagged rules:
+After a successful run, review the highest-volume rule batches:
 
 ```bash
-# Print top 10 rules by flagged volume
 python -c "
 import pandas as pd
 df = pd.read_csv('data/analysis/nepa_trigger/validation_batches.csv')
-print(df.head(10).to_string(index=False))
+rule_batches = df[df['batch_kind'] == 'rule'].drop_duplicates('validation_batch')
+print(rule_batches[['validation_batch','batch_size']].sort_values('batch_size', ascending=False).head(15).to_string(index=False))
 "
 ```
 
-For each rule with precision below target: correct patterns in the tier functions, re-run on a sample, and check the batch again. Accept a rule batch if manual precision ≥ 0.85.
+Accept a rule batch if manual precision ≥ 0.85. For rules below that threshold, correct patterns in the tier functions, re-run on a sample, and re-check.
 
 ### Quick distribution check
 
@@ -174,8 +207,12 @@ import pyarrow.parquet as pq, pandas as pd
 df = pq.read_table("data/analysis/nepa_trigger/projects_nepa_trigger.parquet").to_pandas()
 print(df["nepa_trigger_primary"].value_counts())
 print(f"\nManual review rate: {df['nepa_trigger_manual_review'].mean():.1%}  (target: < 5%)")
-print(f"Dual-nexus projects: {df['is_dual_nexus'].sum()} ({df['is_dual_nexus'].mean():.1%})")
 print(f"Unknown rate: {(df['nepa_trigger_primary']=='unknown').mean():.1%}  (target: < 10%)")
+print(f"Dual-nexus projects: {df['is_dual_nexus'].sum()} ({df['is_dual_nexus'].mean():.1%})")
+print(f"\nTier 4 diagnostic check:")
+t4 = pq.read_table("data/analysis/nepa_trigger/tier4_doc_scores.parquet").to_pandas()
+print(f"  Tier 4 auto-resolved: {t4['auto_resolve'].sum()} / {len(t4)}")
+print(f"  Mean top class score: {t4['top_class_score'].mean():.3f}")
 ```
 
 **Targets:**
@@ -219,8 +256,10 @@ Fig 6 (trigger × review duration) is a placeholder — uncomment in the R scrip
 ## Notes
 
 - **`nepa_trigger_secondary` is a list-column in R.** `tidyr::unnest(df, nepa_trigger_secondary)` explodes it for frequency counts. `purrr::map2_chr()` handles it in Fig 3 (combination bar). Do not convert to a JSON string.
-- **CE documents:** tiers 2–3 scan the full document (no page cap) because CEs are 1–3 pages. EA/EIS scan pages 1–10 only for performance.
+- **CE documents:** Tier 3 scans the full document with a conservative pattern set that excludes `sec404`, `arra`, and `rmp` to avoid form checklist false positives. EA/EIS scan pages 1–10 only.
+- **DOE corpus dominance:** ~79% of projects are DOE-led. DOE Tier 1a results are always provisional (`T1a_DOE_action`, `T1a_DOE_funding`) and routed to Tier 4 for confirmation. DOE routing quality is the single biggest driver of overall output quality.
+- **NLI model:** Tier 4 uses `cross-encoder/nli-MiniLM2-L6-H768` (~67MB, zero-shot). Downloads automatically on first run. If unavailable, falls back to `all-MiniLM-L6-v2` cosine similarity. Run `--calibrate` to verify hypothesis templates before any full corpus run. See `_notes.md` ("Model selection rationale") for the full explanation of why NLI was chosen over fine-tuned BERT.
+- **Hypothesis tuning:** `HYPOTHESIS_TEMPLATES` in the script is the primary lever for Tier 4 accuracy. The `--calibrate` flag scores all example bank entries and reports PASS/FAIL so you know immediately if a hypothesis change is an improvement.
 - **Document routing** uses the `dataset_source` column (`CE`, `EA`, `EIS`) from `projects_combined.parquet` to select the correct `*_documents.parquet` and `*_pages.parquet` paths.
-- **Programmatic patterns** are defined inline in the script (not imported from `extract_reviews.py`). `extract_reviews.py` is not a dependency of this pipeline.
-- **`nepa_trigger_rule_id` format:** `T{tier}_{slug}` (e.g., `T1a_BLM_land`, `T1b_row_grant`, `T3_pan_sec404`). Use this to trace any classification back to the exact pattern that fired.
-- **SetFit classifier** is documented in the plan but held in reserve. If the unknown rate after tiers 1–4 exceeds 15%, revisit SetFit as an additional tier between 4 and 5.
+- **`nepa_trigger_rule_id` format:** `T{tier}_{slug}` (e.g., `T1a_BLM_land`, `T1b_row_grant`, `T3_sec404`, `T4_local_federal_funding`, `T5_llm`). Use this to trace any classification back to the exact rule that fired.
+- **Negation guard:** a regex negation filter suppresses matches in contexts like "Section 404 permit is NOT required" and CE checkbox forms where the box is unchecked (`[ ]`). This prevents the most common false-positive patterns in CE boilerplate.
