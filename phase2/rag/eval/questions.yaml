@@ -1,0 +1,19 @@
+questions:
+  - id: project_timeline
+    question: "What source evidence supports the timeline for this project?"
+    project_id: ""
+    whole_corpus: false
+
+  - id: federal_register_noi
+    question: "What evidence supports the Federal Register Notice of Intent date?"
+    project_id: ""
+    whole_corpus: false
+
+  - id: broad_corpus_warning
+    question: "What are common reasons clean energy projects require an EIS?"
+    process_types: ["EIS"]
+    whole_corpus: true
+
+  - id: unsupported
+    question: "Which project had the fastest approval in the entire dataset?"
+    whole_corpus: true
