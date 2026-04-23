@@ -19,6 +19,7 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 Use when the project is undergoing NEPA because it receives direct or indirect federal financial support.
 
 Includes:
+
 - Federal grants
 - Cooperative agreements
 - Federal loans or loan guarantees
@@ -27,6 +28,7 @@ Includes:
 - Formula funding where agency approval is tied to the project
 
 Typical language:
+
 - “funded by”
 - “federal grant”
 - “financial assistance”
@@ -35,6 +37,7 @@ Typical language:
 - “recipient of DOE/DOT/HUD funding”
 
 Examples:
+
 - Transit project using Federal Transit Administration money
 - Grid project using DOE funding
 - Housing or infrastructure project using HUD funds
@@ -48,6 +51,7 @@ Assign `federal_funding` when the project description or NEPA document indicates
 Use when the project is located on, crosses, uses, or requires access to federally managed land or federally controlled property interests.
 
 Includes:
+
 - Project located on federal land
 - Transmission line, road, pipeline, or trail crossing federal land
 - Right-of-way grant across BLM, USFS, NPS, DoD, Reclamation, etc.
@@ -55,6 +59,7 @@ Includes:
 - Site-specific land management approvals
 
 Typical language:
+
 - “located on federal land”
 - “crosses BLM land”
 - “right-of-way grant”
@@ -63,6 +68,7 @@ Typical language:
 - “National Forest System lands”
 
 Examples:
+
 - Transmission line across BLM land
 - Solar project on Bureau of Land Management land
 - Recreation or mining access authorization on Forest Service land
@@ -76,6 +82,7 @@ Assign `federal_land` when the federal nexus arises from land ownership, land ma
 Use when the project needs a federal permit, license, certification, or approval, even if it is otherwise private or state-led.
 
 Includes:
+
 - U.S. Army Corps permits
 - FERC approvals
 - FAA approvals
@@ -85,6 +92,7 @@ Includes:
 - Any other federal authorization needed before the project can proceed
 
 Typical language:
+
 - “requires a federal permit”
 - “application for permit”
 - “license amendment”
@@ -93,6 +101,7 @@ Typical language:
 - “jurisdictional waters permit”
 
 Examples:
+
 - Wetland fill permit from USACE
 - Hydropower licensing action at FERC
 - FAA action related to airport expansion
@@ -106,6 +115,7 @@ Assign `federal_permit` when the federal nexus is primarily a regulatory authori
 Use when a federal agency is itself carrying out, constructing, adopting, managing, or directly sponsoring the action.
 
 Includes:
+
 - Federal construction projects
 - Federal facility upgrades
 - Military base actions
@@ -114,6 +124,7 @@ Includes:
 - Federal leasing decisions when the agency is the primary actor
 
 Typical language:
+
 - “the agency proposes to”
 - “federal action by”
 - “the Bureau proposes”
@@ -121,6 +132,7 @@ Typical language:
 - “the Forest Service proposes”
 
 Examples:
+
 - VA hospital expansion
 - Army Corps channel dredging
 - USFS vegetation management project
@@ -134,6 +146,7 @@ Assign `federal_action` when the agency is not just approving someone else’s p
 Use when the action is not primarily a site-specific project, but a broader federal planning or policy action.
 
 Includes:
+
 - Programmatic EIS
 - Resource management plan revisions
 - National or regional strategy documents
@@ -142,6 +155,7 @@ Includes:
 - Corridor designations or similar planning actions
 
 Typical language:
+
 - “programmatic environmental impact statement”
 - “resource management plan amendment”
 - “rulemaking”
@@ -150,6 +164,7 @@ Typical language:
 - “regional plan”
 
 Examples:
+
 - Offshore wind leasing program
 - BLM land-use planning revision
 - Nationwide programmatic review for infrastructure corridor designations
@@ -163,6 +178,7 @@ Assign `federal_program` when the NEPA action is a broader plan, rule, policy, o
 Use when the federal action involves transfer or disposition of land or property interests.
 
 Includes:
+
 - Sale of federal land
 - Land exchange
 - Transfer of administrative control
@@ -170,6 +186,7 @@ Includes:
 - Easement conveyance or related property transaction
 
 Typical language:
+
 - “land exchange”
 - “disposal”
 - “conveyance”
@@ -177,6 +194,7 @@ Typical language:
 - “sale of federal parcel”
 
 Examples:
+
 - Federal land disposal for development
 - Land exchange involving public lands
 
@@ -190,3 +208,25 @@ Use when the project clearly underwent NEPA review, but the available materials 
 
 **Coding rule:**
 Assign `unknown` only after attempting structured extraction from title, description, process metadata, agencies, and document text.
+
+## Class Hypotheses
+
+These are the class-specific hypothesis statements used in Tier 4 to determine whether a document belongs to a class.
+
+- `federal_funding`
+  - This text shows that a federal agency is funding, financing, or providing financial assistance, a grant, or a loan guarantee for this project.
+
+- `federal_action`
+  - This text shows that a federal agency is directly implementing, constructing, installing, operating, or restoring this project.
+
+- `federal_land`
+  - This text shows that the project is located on or crosses federal land, or requires a right-of-way grant or special use permit on federal land.
+
+- `federal_permit`
+  - This text shows that a federal permit, license, or authorization is required for this project.
+
+- `federal_program`
+  - This text shows that this is a programmatic environmental review, a resource management plan revision, or a land use plan covering a class of actions.
+
+- `federal_property_transaction`
+  - This text shows that this involves a federal land exchange, conveyance, or disposal.
