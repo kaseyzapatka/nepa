@@ -58,10 +58,6 @@ pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
 np.set_printoptions(threshold=np.inf)
 
-# Optional: Federal Register NOI enrichment (disabled by default)
-ENABLE_FEDERAL_REGISTER_NOI = False
-
-
 # --------------------------
 # PROJECT DESCRIPTION ENRICHMENT CONFIG
 # --------------------------
@@ -557,8 +553,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent  # goes from extract/ -
 
 RAW_DIR = BASE_DIR / "data" / "raw"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
-ANALYSIS_DIR = BASE_DIR / "phase1" / "data" / "analysis"
-FEDERAL_REGISTER_PATH = ANALYSIS_DIR / "noi_federal_register.parquet"
+ANALYSIS_DIR = BASE_DIR / "data" / "analysis"
+FEDERAL_REGISTER_DIR = ANALYSIS_DIR / "federal_register"
+FEDERAL_REGISTER_PATH = FEDERAL_REGISTER_DIR / "federal_register.parquet"
+LEGACY_FEDERAL_REGISTER_PATH = ANALYSIS_DIR / "noi_federal_register.parquet"
 
 PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
@@ -1515,7 +1513,7 @@ def convert_complex_columns_for_parquet(df):
     return df
 
 
-def create_combined_projects():
+def create_combined_projects(refresh_federal_register=False):
     """
     Create a combined projects dataset with all derived variables.
 
@@ -1527,6 +1525,12 @@ def create_combined_projects():
     - Department classification (project_department)
     - Multi-value flags (project_multi_state, project_multi_county, project_multi_department)
     - Document flags (project_has_decision_doc, project_has_final_doc, etc.)
+
+    Args:
+        refresh_federal_register: If True, refresh Federal Register NOI data
+            from the API before merging (always includes a fresh NEPATEC page scan).
+            Defaults to False so analysis runs stay offline and deterministic
+            unless explicitly requested.
 
     Outputs:
         data/analysis/projects_combined.parquet
@@ -1614,28 +1618,31 @@ def create_combined_projects():
     combined['project_has_draft_doc'] = combined['project_has_draft_doc'].fillna(False)
     combined['project_doc_count'] = combined['project_doc_count'].fillna(0).astype(int)
 
-    # Merge Federal Register NOI enrichment if available
-    if FEDERAL_REGISTER_PATH.exists():
+    # Merge Federal Register NOI enrichment. By default this uses the existing
+    # local artifact; API refresh is explicit because it is network-dependent.
+    if refresh_federal_register:
+        print("Refreshing Federal Register NOI enrichment...")
+        from extract.federal_register import refresh_federal_register_noi
+
+        fr_df = refresh_federal_register_noi(
+            combined,
+            analysis_dir=ANALYSIS_DIR,
+            rescan_nepatec_evidence=True,
+        )
+        fr_df = fr_df.drop(columns=["project_title"], errors="ignore")
+        combined = combined.merge(fr_df, on="project_id", how="left")
+    elif FEDERAL_REGISTER_PATH.exists():
         print("Merging Federal Register NOI enrichment...")
         fr_df = pd.read_parquet(FEDERAL_REGISTER_PATH)
         fr_df = fr_df.drop(columns=["project_title"], errors="ignore")
         combined = combined.merge(fr_df, on="project_id", how="left")
+    elif LEGACY_FEDERAL_REGISTER_PATH.exists():
+        print(f"Merging legacy Federal Register NOI enrichment: {LEGACY_FEDERAL_REGISTER_PATH}")
+        fr_df = pd.read_parquet(LEGACY_FEDERAL_REGISTER_PATH)
+        fr_df = fr_df.drop(columns=["project_title"], errors="ignore")
+        combined = combined.merge(fr_df, on="project_id", how="left")
     else:
         print(f"Federal Register NOI file not found: {FEDERAL_REGISTER_PATH}")
-
-    # Optional: Federal Register NOI enrichment (disabled by default)
-    if ENABLE_FEDERAL_REGISTER_NOI:
-        from extract.federal_register import (
-            attach_noi_fields,
-            FederalRegisterConfig,
-        )
-
-        fr_config = FederalRegisterConfig(
-            process_types=("EIS",),
-            energy_types=("Clean",),
-            sample_n=None,
-        )
-        combined = attach_noi_fields(combined, config=fr_config)
 
     # Convert complex columns for parquet compatibility
     print("Converting complex columns for parquet...")
@@ -2163,7 +2170,7 @@ def run_project_description_enrichment():
     return counts
 
 
-def run_analysis_pipeline():
+def run_analysis_pipeline(refresh_federal_register=False):
     """
     Create analysis-ready datasets from existing processed data.
     This is the main entry point for creating datasets for deliverables.
@@ -2171,7 +2178,7 @@ def run_analysis_pipeline():
     # Ensure projects_combined.parquet always reflects latest EA/EIS enrichment.
     run_project_description_enrichment()
 
-    create_combined_projects()
+    create_combined_projects(refresh_federal_register=refresh_federal_register)
     create_combined_processes()
     create_combined_documents()
     print("\nAnalysis pipeline complete.")
@@ -2191,13 +2198,20 @@ if __name__ == "__main__":
         default="analysis",
         help="extract: Download from HuggingFace; analysis: Create combined datasets; all: Both"
     )
-
+    parser.add_argument(
+        "--refresh-federal-register",
+        action="store_true",
+        help=(
+            "Refresh Federal Register NOI data from the API before merging. "
+            "By default, analysis runs only merge an existing local NOI artifact."
+        ),
+    )
     args = parser.parse_args()
 
     if args.mode == "extract":
         run_full_extraction()
     elif args.mode == "analysis":
-        run_analysis_pipeline()
+        run_analysis_pipeline(refresh_federal_register=args.refresh_federal_register)
     elif args.mode == "all":
         run_full_extraction()
-        run_analysis_pipeline()
+        run_analysis_pipeline(refresh_federal_register=args.refresh_federal_register)

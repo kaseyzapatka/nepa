@@ -15,23 +15,26 @@ Phase 2 extends the Phase 1 NEPA analysis with an improved data pipeline and dee
 
 ```
 phase2/
+├── architecture/
+│   ├── README.md            # Index of all architecture docs
+│   ├── code/                # Core pipeline script architecture
+│   │   ├── extract_data.md  # Main pipeline entry point
+│   │   └── federal_register.md  # FR NOI/NOA matching design
+│   └── deliverables/        # Per-deliverable data flow and methodology
+│       └── deliverable01.md # D1: NEPA Triggered (others added as built)
 ├── code/
-│   ├── extract/             # Extraction scripts (improved timeline, reviews, gencap)
+│   ├── extract/             # Extraction scripts (timeline, reviews, gencap, federal_register)
 │   ├── manual_supervision/  # Weak supervision sample builders
 │   ├── manual_training/     # Manual training data builders + gold standard
 │   ├── validation/          # Timeline and extraction validation scripts
-│   ├── deliverable01–04/    # Phase 2 deliverable POC scripts
-│   ├── utils/               # Shared utilities
-│   ├── 00_setup.R           # R session setup
-│   ├── e01_clean_energy.R   # Clean energy filter exploratory
-│   ├── e02_timeline.R       # Timeline exploratory
-│   └── page_viewer_{ce,ea,eis}.ipynb  # Interactive document page viewers
+│   ├── deliverable01–06/    # Phase 2 deliverable analysis scripts
+│   └── utils/               # Shared utilities
 ├── data/               # Phase 2 processed outputs (never write to ../data/analysis/)
 ├── models/             # Phase 2 BERT model checkpoints (CE, EA, EIS, combined)
-├── notes/              # Architecture notes, current_plan.md, model evaluation
 ├── output/             # Phase 2 deliverable outputs + timeline validation
+├── plans/              # Implementation specs (deleted after each deliverable is built)
 ├── reports/            # Quarto reports (index.qmd landing page; deliverables added as completed)
-├── runbooks/           # Phase 2-specific pipeline docs (timeline only; other runbooks at repo root)
+├── runbooks/           # Step-by-step execution guides
 └── tests/              # Unit tests
 ```
 
@@ -45,7 +48,15 @@ conda activate nepa
 
 All Phase 2 outputs write to `phase2/data/` by default. Phase 1 data in `data/analysis/` is read-only input — never modified.
 
-The single Phase 2 runbook is `phase2/runbooks/02_timeline.md` (improved BERT + LLM adjudication pipeline). For all other extractions (reviews, gencap, page counts, etc.), use the Phase 1 runbooks at `phase1/runbooks/`.
+Architecture docs (`phase2/architecture/`) explain the *why* and *what* of each pipeline — data flow diagrams, design rationale, output schemas, and methodological notes. Runbooks (`phase2/runbooks/`) are step-by-step execution guides. For other extractions without Phase 2-specific runbooks, use the Phase 1 runbooks at `phase1/runbooks/`.
+
+## Running Tests
+
+The shared `nepa` environment includes `pytest` for Phase 2 unit tests:
+
+```bash
+conda run -n nepa python -m pytest phase2/tests/tests
+```
 
 ## Relationship to Phase 1
 
