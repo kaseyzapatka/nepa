@@ -32,6 +32,10 @@ website:
         menu:
           - text: "Overview"
             href: phase2/reports/index.qmd
+          - text: "D1: Schema"
+            href: phase2/reports/deliverable01_schema.qmd
+          - text: "D1: Examples"
+            href: phase2/reports/deliverable01_examples.qmd
       - text: "Presentations"
         href: presentations/presentation1.qmd
 

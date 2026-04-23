@@ -1,0 +1,5 @@
+---
+title: "D1: NEPA Trigger Classification — Examples"
+---
+
+{{< include ../code/deliverable01/_example_bank.md >}}
