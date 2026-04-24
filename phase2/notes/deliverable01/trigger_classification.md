@@ -22,27 +22,59 @@ Use when the project is undergoing NEPA review because it receives direct or ind
 
 Includes:
 
-- Federal grants
-- Cooperative agreements
-- Federal loans or loan guarantees
-- Federal cost sharing
-- Federal reimbursement programs
-- Formula funding where agency approval is tied to the project
+- Federal grants (DOE, DOT, HUD, USDA)
+- Cooperative agreements with partial federal funding
+- Federal loans or loan guarantees (including DOE Title XVII loan guarantees)
+- Federal cost sharing arrangements
+- Formula-based awards (EECBG, State Energy Program, WAP)
+- Bipartisan Infrastructure Law or Inflation Reduction Act funding
+- ARRA / Recovery Act funding
 
-Typical language:
+Typical language (these are the exact phrases the extraction script detects):
 
-- “funded by”
-- “federal grant”
-- “financial assistance”
+**Grants and direct funding:**
+- “federal grant” / “DOE grant” / “DOT grant” / “HUD grant” / “USDA grant” / “grant funding”
+- “federal funding” / “federal financial assistance”
+- “DOE/DOT/HUD/USDA grant” / “DOE/DOT/HUD/USDA funding”
+- “provide federal funding”
+- “DOE Funding” (in dollar-amount context)
+- “DOE/Department of Energy ... would provide ... funds/funding/grant/awards/cost-share”
+- “total award value” / “Total Project Value”
+
+**Loans and loan guarantees:**
 - “loan guarantee”
+- “Title XVII”
+
+**Cooperative agreements:**
+- “through a cooperative agreement ... partially fund”
+- “providing financial assistance to ... cooperative agreement”
+- “awarding a grant ... partially fund”
+
+**Cost sharing:**
 - “cost share”
-- “recipient of DOE/DOT/HUD funding”
+- “DOE Funding = $X / Cost Share = $X”
+- “cost-shared arrangement”
+- “Federal Cost Share ... Total Project Value”
+
+**Legislative funding authorities:**
+- “Inflation Reduction Act”
+- “Bipartisan Infrastructure Law” / “Bipartisan Infrastructure Act”
+- “Title XVII”
+- “ARRA” / “Recovery Act” (detected via Tier 1a DOE agency routing)
+
+**Formula-based programs:**
+- “formula awards” / “formula-based awards” / “formula-based grants”
+- “EECBG funding” / “DOE EECBG funding”
+- “State Energy Program (SEP) ... formula awards”
+- “WAP ... formula awards”
+- “Administrative and Legal Requirements Document (ALRD) ... formula awards”
 
 Examples:
 
 - Transit project using Federal Transit Administration money
-- Grid project using DOE funding
+- Grid project using DOE Title XVII loan guarantee
 - Housing or infrastructure project using HUD funds
+- Energy efficiency project funded through an EECBG formula grant
 
 **Coding rule:**
 Assign `federal_funding` when the project description or NEPA document indicates that federal financial support is a reason the agency is involved in project approval or review.
@@ -54,26 +86,63 @@ Use when the project is located on, crosses, uses, or requires access to federal
 
 Includes:
 
-- Project located on federal land
-- Transmission line, road, pipeline, or trail crossing federal land
-- Right-of-way grant across BLM, USFS, NPS, DoD, Reclamation, etc.
-- Easements or land-use authorizations on federal property
-- Site-specific land management approvals
+- Right-of-way grants, renewals, and amendments on BLM, USFS, NPS, Bureau of Reclamation, or tribal lands
+- Special use permits on federal land
+- Temporary and permanent easements across federal land, including expired easement renewals
+- 2920 Land Use Authorizations (Bureau of Reclamation)
+- Bureau of Indian Affairs right-of-way grants
+- Amendments to existing ROW grants or land use authorizations
+- Federal Land Policy and Management Act (FLPMA) authorizations for rights-of-way across public lands
 
-Typical language:
+Typical language (these are the exact phrases the extraction script detects):
 
-- “located on federal land”
-- “crosses BLM land”
-- “right-of-way grant”
+**ROW applications and grants on BLM / public land:**
+- “application for a right-of-way grant”
+- “30-year right-of-way grant” + “BLM-administered lands” (within same passage)
+- “right-of-way (ROW)” + “public land administered by the Bureau of Land Management” (within same passage)
+- “request for a right-of-way” + “public land managed by BLM” (within same passage)
+- “public lands managed by the Bureau of Land Management”
+- “grant a perpetual ROW on BLM managed public land”
+- “perpetual right-of-way grant”
+- “rights-of-way over, upon, under, or through public lands”
+
+**ROW renewals and amendments:**
+- “right-of-way renewal applications”
+- “right-of-way renewal and amendment”
+- “Request to Amend Existing Authorization”
+- “amend its ROW grant”
+
+**Special use permits:**
 - “special use permit”
-- “land management plan area”
-- “National Forest System lands”
+- “current authorization with a defined ROW” + “Operation and Maintenance Plan” (either order, within same passage)
+
+**Easements:**
+- “temporary and permanent easements”
+- “easement has expired”
+- “easement” + “right-of-way” (within same passage; includes “easement for the right-of-way”)
+
+**Bureau of Indian Affairs:**
+- “Bureau of Indian Affairs is requesting a new right-of-way (ROW)”
+
+**Bureau of Reclamation:**
+- “lands administered by the Bureau of Reclamation” + “permissions must be sought” (within same passage)
+- “2920 Land Use Authorization”
+
+**FLPMA statutory authority:**
+- “Title V of the Federal Land Policy and Management Act” + “respond to requests for rights-of-way across public lands” (within same passage)
+
+**Document title (Tier 2 scan):**
+- “right-of-way” (any hyphen/spacing variant) appearing in the document title
+
+**Agency metadata (Tier 1a — detected without text cues):**
+- Agency is BLM, Bureau of Land Management, USFS, Forest Service, NPS, National Park Service, FWS / USFWS, Fish and Wildlife Service, BOR / USBR, Bureau of Reclamation
 
 Examples:
 
-- Transmission line across BLM land
-- Solar project on Bureau of Land Management land
-- Recreation or mining access authorization on Forest Service land
+- Transmission line across BLM land requiring a 30-year ROW grant
+- Solar project requiring a special use permit on National Forest land
+- Expired BPA easement renewed through Bureau of Indian Affairs
+- Pipeline ROW amendment on Bureau of Reclamation land
 
 **Coding rule:**
 Assign `federal_land` when the federal nexus arises from land ownership, land management authority, easement authority, or right-of-way control.
@@ -85,28 +154,62 @@ Use when the project needs a federal permit, license, certification, or approval
 
 Includes:
 
-- U.S. Army Corps permits
-- FERC approvals
-- FAA approvals
-- FCC licenses
-- Federal siting or operational approvals
-- Incidental take permits or other federal environmental permits
-- Any other federal authorization needed before the project can proceed
+- U.S. Army Corps Section 404 permits (individual, standard, nationwide) and Section 10 Rivers and Harbors Act permits
+- NPDES permits (construction stormwater general permit, point source discharge)
+- FERC hydropower licenses, relicensing, and certificates of public convenience and necessity
+- NRC early site permits, combined licenses, license renewals (including subsequent license renewals), and license amendments
+- Incidental Take Permits (ITP) under ESA Section 10(a)(1)(B), including renewed/amended ITPs and Habitat Conservation Plan-linked permits
+- Presidential Permits (cross-border infrastructure)
+- FAA and FCC approvals — detected via agency metadata (Tier 1a), not document text cues
 
-Typical language:
+Typical language (these are the exact phrases the extraction script detects):
 
-- “requires a federal permit”
-- “application for permit”
-- “license amendment”
-- “authorization requested”
-- “approval by [federal agency]”
-- “jurisdictional waters permit”
+**Army Corps / water permits:**
+- “Standard Individual Permit Application” / “Individual Permit Application”
+- “Section 404 permit application”
+- “applied for an individual permit under Section 404”
+- “Department of Army permit pursuant to Section 404 ... Section 10 of the Rivers and Harbors”
+- “Section 10 ... Rivers and Harbors”
+- “Nationwide Permit (NWP) Verification”
+- “Nationwide, Regional General, or Standard Individual Permit may be required”
+
+**NPDES:**
+- “National Pollutant Discharge Elimination System (NPDES) permit”
+- “NPDES permit must be obtained”
+- “NPDES ... permitting decision”
+- “Construction Storm Water General Permit is required”
+
+**Incidental take / ESA:**
+- “incidental take permit application”
+- “Incidental Take Permit (ITP) under Section 10(a)(1)(B)”
+- “Renewed/Amended ITP is needed”
+- “Habitat Conservation Plan and Incidental Take Permit”
+
+**FERC:**
+- “hydropower license”
+- “relicense” / “relicensing”
+- “application for a certificate of public convenience and necessity”
+- “NRC/FERC license amendment” (also detected near “10 CFR 50.90” or “FERC order”)
+
+**Presidential permits:**
+- “Amendment to Presidential Permit”
+- “Issuance of Presidential Permit PP-[number]”
+- “Presidential Permit Application Review”
+- “Presidential Permit”
+
+**NRC nuclear licenses:**
+- “Early Site Permit”
+- “Combined License”
+- “License Renewal” / “Subsequent License Renewal”
+- “issuance of renewed facility operating licenses”
 
 Examples:
 
-- Wetland fill permit from USACE
-- Hydropower licensing action at FERC
-- FAA action related to airport expansion
+- Wetland fill requiring an individual Section 404 permit from USACE
+- Hydropower relicensing action at FERC
+- Wind project requiring an Incidental Take Permit and Habitat Conservation Plan
+- Nuclear plant combined license or subsequent license renewal from NRC
+- Cross-border transmission line requiring a Presidential Permit
 
 **Coding rule:**
 Assign `federal_permit` when the federal nexus is primarily a regulatory authorization, license, permit, or approval.
