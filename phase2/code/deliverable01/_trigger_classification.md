@@ -6,17 +6,17 @@ This is an explanation of the trigger definitions we want to use for this delive
 
 Each of these 6 classes triggers NEPA review. The main trigger classes are:
 
-- `federal_funding`
-- `federal_action`
-- `federal_land`
-- `federal_permit`
-- `federal_program`
-- `federal_property_transaction`
+- `Federal Funding`
+- `Federal Action`
+- `Federal Land`
+- `Federal Permit`
+- `Federal Program`
+- `Federal Property Transaction`
 
 ### 1. Federal funding or financial assistance
 **Code:** `federal_funding`
 
-Use when the project is undergoing NEPA because it receives direct or indirect federal financial support.
+Use when the project is undergoing NEPA review because it receives direct or indirect federal financial support.
 
 Includes:
 
