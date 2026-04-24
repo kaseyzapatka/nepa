@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>D1: NEPA Trigger Classification – NEPA</title>
+<title>D1: Examples – NEPA</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -18,6 +18,41 @@ ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
 width: 0.8em;
 margin: 0 0.8em 0.2em -1em;  vertical-align: middle;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+}
+pre.numberSource { margin-left: 3em; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
 </style>
 
@@ -3931,7 +3966,7 @@ vertical-align: -.125em;
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">D1: NEPA Trigger Classification</h1>
+<h1 class="title">D1: Examples</h1>
 </div>
 
 
@@ -3948,351 +3983,557 @@ vertical-align: -.125em;
 </header>
 
 
-<p>This is an explanation of the trigger definitions we want to use for this deliverable.</p>
-<section id="classification-schema" class="level2">
-<h2 class="anchored" data-anchor-id="classification-schema">Classification Schema</h2>
-<p>Each of these 6 classes triggers NEPA review. The main trigger classes are:</p>
-<ul>
-<li><code>Federal Funding</code></li>
-<li><code>Federal Action</code></li>
-<li><code>Federal Land</code></li>
-<li><code>Federal Permit</code></li>
-<li><code>Federal Program</code></li>
-<li><code>Federal Property Transaction</code></li>
-</ul>
-<section id="federal-funding-or-financial-assistance" class="level3">
-<h3 class="anchored" data-anchor-id="federal-funding-or-financial-assistance">1. Federal funding or financial assistance</h3>
-<p><strong>Code:</strong> <code>federal_funding</code></p>
-<p>Use when the project is undergoing NEPA review because it receives direct or indirect federal financial support.</p>
-<p>Includes:</p>
-<ul>
-<li>Federal grants (DOE, DOT, HUD, USDA)</li>
-<li>Cooperative agreements with partial federal funding</li>
-<li>Federal loans or loan guarantees (including DOE Title XVII loan guarantees)</li>
-<li>Federal cost sharing arrangements</li>
-<li>Formula-based awards (EECBG, State Energy Program, WAP)</li>
-<li>Bipartisan Infrastructure Law or Inflation Reduction Act funding</li>
-<li>ARRA / Recovery Act funding</li>
-</ul>
-<p>Typical language (these are the exact phrases the extraction script detects):</p>
-<p><strong>Grants and direct funding:</strong></p>
-<ul>
-<li>“federal grant” / “DOE grant” / “DOT grant” / “HUD grant” / “USDA grant” / “grant funding”</li>
-<li>“federal funding” / “federal financial assistance”</li>
-<li>“DOE/DOT/HUD/USDA grant” / “DOE/DOT/HUD/USDA funding”</li>
-<li>“provide federal funding”</li>
-<li>“DOE Funding” (in dollar-amount context)</li>
-<li>“DOE/Department of Energy … would provide … funds/funding/grant/awards/cost-share”</li>
-<li>“total award value” / “Total Project Value”</li>
-</ul>
-<p><strong>Loans and loan guarantees:</strong></p>
-<ul>
-<li>“loan guarantee”</li>
-<li>“Title XVII”</li>
-</ul>
-<p><strong>Cooperative agreements:</strong></p>
-<ul>
-<li>“through a cooperative agreement … partially fund”</li>
-<li>“providing financial assistance to … cooperative agreement”</li>
-<li>“awarding a grant … partially fund”</li>
-</ul>
-<p><strong>Cost sharing:</strong></p>
-<ul>
-<li>“cost share”</li>
-<li>“DOE Funding = $X / Cost Share = $X”</li>
-<li>“cost-shared arrangement”</li>
-<li>“Federal Cost Share … Total Project Value”</li>
-</ul>
-<p><strong>Legislative funding authorities:</strong></p>
-<ul>
-<li>“Inflation Reduction Act”</li>
-<li>“Bipartisan Infrastructure Law” / “Bipartisan Infrastructure Act”</li>
-<li>“Title XVII”</li>
-<li>“ARRA” / “Recovery Act” (detected via Tier 1a DOE agency routing)</li>
-</ul>
-<p><strong>Formula-based programs:</strong></p>
-<ul>
-<li>“formula awards” / “formula-based awards” / “formula-based grants”</li>
-<li>“EECBG funding” / “DOE EECBG funding”</li>
-<li>“State Energy Program (SEP) … formula awards”</li>
-<li>“WAP … formula awards”</li>
-<li>“Administrative and Legal Requirements Document (ALRD) … formula awards”</li>
-</ul>
-<p>Examples:</p>
-<ul>
-<li>Transit project using Federal Transit Administration money</li>
-<li>Grid project using DOE Title XVII loan guarantee</li>
-<li>Housing or infrastructure project using HUD funds</li>
-<li>Energy efficiency project funded through an EECBG formula grant</li>
-</ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_funding</code> when the project description or NEPA document indicates that federal financial support is a reason the agency is involved in project approval or review.</p>
+<p>Use this file to collect a small set of representative text chunks for Tier 4 calibration.</p>
+<section id="how-to-use-these-examples" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-use-these-examples">How to use these examples</h2>
+<p>These examples are <strong>not</strong> training data — the NLI model is zero-shot and runs without them. They serve two specific purposes:</p>
+<section id="validate-nli-hypothesis-templates" class="level3">
+<h3 class="anchored" data-anchor-id="validate-nli-hypothesis-templates">1. Validate NLI hypothesis templates</h3>
+<p>Before running at scale, score each positive example through the NLI model using the hypothesis templates defined in <code>tier4_refactor_spec.md</code>. The correct class hypothesis should score <strong>≥ 0.75</strong>. If a positive example scores below this on its correct class, adjust the hypothesis wording before proceeding.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Quick validation loop (run once before full corpus)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sentence_transformers <span class="im">import</span> CrossEncoder</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>model <span class="op">=</span> CrossEncoder(<span class="st">&quot;cross-encoder/nli-MiniLM2-L6-H768&quot;</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>chunk <span class="op">=</span> <span class="st">&quot;DOE is proposing to provide federal funding...&quot;</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>hypothesis <span class="op">=</span> <span class="st">&quot;This text shows that a federal agency is funding this project.&quot;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>score <span class="op">=</span> model.predict([[chunk, hypothesis]])[<span class="dv">0</span>]  <span class="co"># entailment score</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> score <span class="op">&gt;=</span> <span class="fl">0.75</span>, <span class="ss">f&quot;Positive example scored too low: </span><span class="sc">{</span>score<span class="sc">:.3f}</span><span class="ss">&quot;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="federal-land-right-of-way-easement-or-land-management-involvement" class="level3">
-<h3 class="anchored" data-anchor-id="federal-land-right-of-way-easement-or-land-management-involvement">2. Federal land, right-of-way, easement, or land management involvement</h3>
-<p><strong>Code:</strong> <code>federal_land</code></p>
-<p>Use when the project is located on, crosses, uses, or requires access to federally managed land or federally controlled property interests.</p>
-<p>Includes:</p>
-<ul>
-<li>Right-of-way grants, renewals, and amendments on BLM, USFS, NPS, Bureau of Reclamation, or tribal lands</li>
-<li>Special use permits on federal land</li>
-<li>Temporary and permanent easements across federal land, including expired easement renewals</li>
-<li>2920 Land Use Authorizations (Bureau of Reclamation)</li>
-<li>Bureau of Indian Affairs right-of-way grants</li>
-<li>Amendments to existing ROW grants or land use authorizations</li>
-<li>Federal Land Policy and Management Act (FLPMA) authorizations for rights-of-way across public lands</li>
-</ul>
-<p>Typical language (these are the exact phrases the extraction script detects):</p>
-<p><strong>ROW applications and grants on BLM / public land:</strong></p>
-<ul>
-<li>“application for a right-of-way grant”</li>
-<li>“30-year right-of-way grant” + “BLM-administered lands” (within same passage)</li>
-<li>“right-of-way (ROW)” + “public land administered by the Bureau of Land Management” (within same passage)</li>
-<li>“request for a right-of-way” + “public land managed by BLM” (within same passage)</li>
-<li>“public lands managed by the Bureau of Land Management”</li>
-<li>“grant a perpetual ROW on BLM managed public land”</li>
-<li>“perpetual right-of-way grant”</li>
-<li>“rights-of-way over, upon, under, or through public lands”</li>
-</ul>
-<p><strong>ROW renewals and amendments:</strong></p>
-<ul>
-<li>“right-of-way renewal applications”</li>
-<li>“right-of-way renewal and amendment”</li>
-<li>“Request to Amend Existing Authorization”</li>
-<li>“amend its ROW grant”</li>
-</ul>
-<p><strong>Special use permits:</strong></p>
-<ul>
-<li>“special use permit”</li>
-<li>“current authorization with a defined ROW” + “Operation and Maintenance Plan” (either order, within same passage)</li>
-</ul>
-<p><strong>Easements:</strong></p>
-<ul>
-<li>“temporary and permanent easements”</li>
-<li>“easement has expired”</li>
-<li>“easement” + “right-of-way” (within same passage; includes “easement for the right-of-way”)</li>
-</ul>
-<p><strong>Bureau of Indian Affairs:</strong></p>
-<ul>
-<li>“Bureau of Indian Affairs is requesting a new right-of-way (ROW)”</li>
-</ul>
-<p><strong>Bureau of Reclamation:</strong></p>
-<ul>
-<li>“lands administered by the Bureau of Reclamation” + “permissions must be sought” (within same passage)</li>
-<li>“2920 Land Use Authorization”</li>
-</ul>
-<p><strong>FLPMA statutory authority:</strong></p>
-<ul>
-<li>“Title V of the Federal Land Policy and Management Act” + “respond to requests for rights-of-way across public lands” (within same passage)</li>
-</ul>
-<p><strong>Document title (Tier 2 scan):</strong></p>
-<ul>
-<li>“right-of-way” (any hyphen/spacing variant) appearing in the document title</li>
-</ul>
-<p><strong>Agency metadata (Tier 1a — detected without text cues):</strong></p>
-<ul>
-<li>Agency is BLM, Bureau of Land Management, USFS, Forest Service, NPS, National Park Service, FWS / USFWS, Fish and Wildlife Service, BOR / USBR, Bureau of Reclamation</li>
-</ul>
-<p>Examples:</p>
-<ul>
-<li>Transmission line across BLM land requiring a 30-year ROW grant</li>
-<li>Solar project requiring a special use permit on National Forest land</li>
-<li>Expired BPA easement renewed through Bureau of Indian Affairs</li>
-<li>Pipeline ROW amendment on Bureau of Reclamation land</li>
-</ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_land</code> when the federal nexus arises from land ownership, land management authority, easement authority, or right-of-way control.</p>
-</section>
-<section id="federal-permit-license-approval-or-authorization" class="level3">
-<h3 class="anchored" data-anchor-id="federal-permit-license-approval-or-authorization">3. Federal permit, license, approval, or authorization</h3>
-<p><strong>Code:</strong> <code>federal_permit</code></p>
-<p>Use when the project needs a federal permit, license, certification, or approval, even if it is otherwise private or state-led.</p>
-<p>Includes:</p>
-<ul>
-<li>U.S. Army Corps Section 404 permits (individual, standard, nationwide) and Section 10 Rivers and Harbors Act permits</li>
-<li>NPDES permits (construction stormwater general permit, point source discharge)</li>
-<li>FERC hydropower licenses, relicensing, and certificates of public convenience and necessity</li>
-<li>NRC early site permits, combined licenses, license renewals (including subsequent license renewals), and license amendments</li>
-<li>Incidental Take Permits (ITP) under ESA Section 10(a)(1)(B), including renewed/amended ITPs and Habitat Conservation Plan-linked permits</li>
-<li>Presidential Permits (cross-border infrastructure)</li>
-<li>FAA and FCC approvals — detected via agency metadata (Tier 1a), not document text cues</li>
-</ul>
-<p>Typical language (these are the exact phrases the extraction script detects):</p>
-<p><strong>Army Corps / water permits:</strong></p>
-<ul>
-<li>“Standard Individual Permit Application” / “Individual Permit Application”</li>
-<li>“Section 404 permit application”</li>
-<li>“applied for an individual permit under Section 404”</li>
-<li>“Department of Army permit pursuant to Section 404 … Section 10 of the Rivers and Harbors”</li>
-<li>“Section 10 … Rivers and Harbors”</li>
-<li>“Nationwide Permit (NWP) Verification”</li>
-<li>“Nationwide, Regional General, or Standard Individual Permit may be required”</li>
-</ul>
-<p><strong>NPDES:</strong></p>
-<ul>
-<li>“National Pollutant Discharge Elimination System (NPDES) permit”</li>
-<li>“NPDES permit must be obtained”</li>
-<li>“NPDES … permitting decision”</li>
-<li>“Construction Storm Water General Permit is required”</li>
-</ul>
-<p><strong>Incidental take / ESA:</strong></p>
-<ul>
-<li>“incidental take permit application”</li>
-<li>“Incidental Take Permit (ITP) under Section 10(a)(1)(B)”</li>
-<li>“Renewed/Amended ITP is needed”</li>
-<li>“Habitat Conservation Plan and Incidental Take Permit”</li>
-</ul>
-<p><strong>FERC:</strong></p>
-<ul>
-<li>“hydropower license”</li>
-<li>“relicense” / “relicensing”</li>
-<li>“application for a certificate of public convenience and necessity”</li>
-<li>“NRC/FERC license amendment” (also detected near “10 CFR 50.90” or “FERC order”)</li>
-</ul>
-<p><strong>Presidential permits:</strong></p>
-<ul>
-<li>“Amendment to Presidential Permit”</li>
-<li>“Issuance of Presidential Permit PP-[number]”</li>
-<li>“Presidential Permit Application Review”</li>
-<li>“Presidential Permit”</li>
-</ul>
-<p><strong>NRC nuclear licenses:</strong></p>
-<ul>
-<li>“Early Site Permit”</li>
-<li>“Combined License”</li>
-<li>“License Renewal” / “Subsequent License Renewal”</li>
-<li>“issuance of renewed facility operating licenses”</li>
-</ul>
-<p>Examples:</p>
-<ul>
-<li>Wetland fill requiring an individual Section 404 permit from USACE</li>
-<li>Hydropower relicensing action at FERC</li>
-<li>Wind project requiring an Incidental Take Permit and Habitat Conservation Plan</li>
-<li>Nuclear plant combined license or subsequent license renewal from NRC</li>
-<li>Cross-border transmission line requiring a Presidential Permit</li>
-</ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_permit</code> when the federal nexus is primarily a regulatory authorization, license, permit, or approval.</p>
-</section>
-<section id="direct-federal-agency-action-or-federal-project-sponsor" class="level3">
-<h3 class="anchored" data-anchor-id="direct-federal-agency-action-or-federal-project-sponsor">4. Direct federal agency action or federal project sponsor</h3>
-<p><strong>Code:</strong> <code>federal_action</code></p>
-<p>Use when a federal agency is itself carrying out, constructing, adopting, managing, or directly sponsoring the action.</p>
-<p>Includes:</p>
-<ul>
-<li>Federal construction projects</li>
-<li>Federal facility upgrades</li>
-<li>Military base actions</li>
-<li>Federal land management actions</li>
-<li>Agency-run restoration or infrastructure actions</li>
-<li>Federal leasing decisions when the agency is the primary actor</li>
-</ul>
-<p>Typical language:</p>
-<ul>
-<li>“the agency proposes to”</li>
-<li>“federal action by”</li>
-<li>“the Bureau proposes”</li>
-<li>“the Department will construct”</li>
-<li>“the Forest Service proposes”</li>
-</ul>
-<p>Examples:</p>
-<ul>
-<li>VA hospital expansion</li>
-<li>Army Corps channel dredging</li>
-<li>USFS vegetation management project</li>
-</ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_action</code> when the agency is not just approving someone else’s project but is the primary actor proposing or implementing the action.</p>
-</section>
-<section id="federal-plan-program-rulemaking-or-policy-decision" class="level3">
-<h3 class="anchored" data-anchor-id="federal-plan-program-rulemaking-or-policy-decision">5. Federal plan, program, rulemaking, or policy decision</h3>
-<p><strong>Code:</strong> <code>federal_program</code></p>
-<p>Use when the action is not primarily a site-specific project, but a broader federal planning or policy action.</p>
-<p>Includes:</p>
-<ul>
-<li>Programmatic EIS</li>
-<li>Resource management plan revisions</li>
-<li>National or regional strategy documents</li>
-<li>Program-wide leasing frameworks</li>
-<li>Rulemaking or regulation changes</li>
-<li>Corridor designations or similar planning actions</li>
-</ul>
-<p>Typical language:</p>
-<ul>
-<li>“programmatic environmental impact statement”</li>
-<li>“resource management plan amendment”</li>
-<li>“rulemaking”</li>
-<li>“leasing program”</li>
-<li>“policy framework”</li>
-<li>“regional plan”</li>
-</ul>
-<p>Examples:</p>
-<ul>
-<li>Offshore wind leasing program</li>
-<li>BLM land-use planning revision</li>
-<li>Nationwide programmatic review for infrastructure corridor designations</li>
-</ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_program</code> when the NEPA action is a broader plan, rule, policy, or program rather than a single facility or construction project.</p>
-</section>
-<section id="federal-property-transfer-disposal-acquisition-or-conveyance" class="level3">
-<h3 class="anchored" data-anchor-id="federal-property-transfer-disposal-acquisition-or-conveyance">6. Federal property transfer, disposal, acquisition, or conveyance</h3>
-<p><strong>Code:</strong> <code>federal_property_transaction</code></p>
-<p>Use when the federal action involves transfer or disposition of land or property interests.</p>
-<p>Includes:</p>
-<ul>
-<li>Sale of federal land</li>
-<li>Land exchange</li>
-<li>Transfer of administrative control</li>
-<li>Acquisition of land by federal agency when NEPA review is tied to that action</li>
-<li>Easement conveyance or related property transaction</li>
-</ul>
-<p>Typical language:</p>
-<ul>
-<li>“land exchange”</li>
-<li>“disposal”</li>
-<li>“conveyance”</li>
-<li>“property transfer”</li>
-<li>“sale of federal parcel”</li>
-</ul>
-<p>Examples:</p>
-<ul>
-<li>Federal land disposal for development</li>
-<li>Land exchange involving public lands</li>
-</ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_property_transaction</code> when the trigger is fundamentally about a transfer or disposition of federally controlled property.</p>
-</section>
-<section id="unknown-or-unclear-federal-nexus" class="level3">
-<h3 class="anchored" data-anchor-id="unknown-or-unclear-federal-nexus">7. Unknown or unclear federal nexus</h3>
-<p><strong>Code:</strong> <code>unknown</code></p>
-<p>Use when the project clearly underwent NEPA review, but the available materials do not allow reliable identification of the triggering nexus.</p>
-<p><strong>Coding rule:</strong> Assign <code>unknown</code> only after attempting structured extraction from title, description, process metadata, agencies, and document text.</p>
+<section id="calibrate-auto-accept-thresholds" class="level3">
+<h3 class="anchored" data-anchor-id="calibrate-auto-accept-thresholds">2. Calibrate auto-accept thresholds</h3>
+<p>Run hard negative examples (boilerplate chunks under “Hard negatives”) through the NLI model. All class hypotheses should score <strong>≤ 0.50</strong> for a well-calibrated negative. If a boilerplate chunk scores above 0.50 on any class, either tighten the hypothesis wording or raise the auto-accept threshold in the spec (default 0.90).</p>
+<p><strong>Do this calibration on the example bank before any full-corpus run.</strong> It takes minutes and prevents silent miscalibration at scale.</p>
 </section>
 </section>
-<section id="class-hypotheses" class="level2">
-<h2 class="anchored" data-anchor-id="class-hypotheses">Class Hypotheses</h2>
-<p>These are the class-specific hypothesis statements used in Tier 4 to determine whether a document belongs to a class.</p>
+<section id="targets" class="level2">
+<h2 class="anchored" data-anchor-id="targets">Targets</h2>
 <ul>
-<li><code>federal_funding</code>
-<ul>
-<li>This text shows that a federal agency is funding, financing, or providing financial assistance, a grant, or a loan guarantee for this project.</li>
-</ul></li>
-<li><code>federal_action</code>
-<ul>
-<li>This text shows that a federal agency is directly implementing, constructing, installing, operating, or restoring this project.</li>
-</ul></li>
-<li><code>federal_land</code>
-<ul>
-<li>This text shows that the project is located on or crosses federal land, or requires a right-of-way grant or special use permit on federal land.</li>
-</ul></li>
-<li><code>federal_permit</code>
-<ul>
-<li>This text shows that a federal permit, license, or authorization is required for this project.</li>
-</ul></li>
-<li><code>federal_program</code>
-<ul>
-<li>This text shows that this is a programmatic environmental review, a resource management plan revision, or a land use plan covering a class of actions.</li>
-</ul></li>
-<li><code>federal_property_transaction</code>
-<ul>
-<li>This text shows that this involves a federal land exchange, conveyance, or disposal.</li>
-</ul></li>
+<li>at least <code>3-5</code> clean positives for each positive class</li>
+<li>at least <code>5-10</code> entries across the ambiguous rule families</li>
+<li>at least <code>10</code> hard negatives</li>
 </ul>
+</section>
+<section id="required-fields-for-every-example" class="level2">
+<h2 class="anchored" data-anchor-id="required-fields-for-every-example">Required fields for every example</h2>
+<ul>
+<li><code>Rule family</code></li>
+<li><code>Project ID</code></li>
+<li><code>Suggested class</code></li>
+<li><code>Why</code></li>
+<li><code>Chunk</code></li>
+</ul>
+</section>
+<section id="positive-classes" class="level2">
+<h2 class="anchored" data-anchor-id="positive-classes">Positive classes</h2>
+<section id="federal_funding" class="level3">
+<h3 class="anchored" data-anchor-id="federal_funding">federal_funding</h3>
+<section id="example-1" class="level4">
+<h4 class="anchored" data-anchor-id="example-1">Example 1</h4>
+<pre class="text"><code>Rule family: T2_doc_title_loan_guarantee
+Project ID: 3153f73d56c98c8ccf40db525981fe01
+Suggested class: federal_funding
+
+Why: The document title explicitly says the NEPA review is for a Department of Energy loan guarantee. This is a clean funding-trigger example and useful as a high-confidence positive.
+
+Chunk: FINAL ENVIRONMENTAL ASSESSMENT Volume I for Department of Energy Loan Guarantee to High Plains II, LLC for the California Valley Solar Ranch Project</code></pre>
+</section>
+<section id="example-2" class="level4">
+<h4 class="anchored" data-anchor-id="example-2">Example 2</h4>
+<pre class="text"><code>Rule family: T3_agency_grant
+Project ID: 251d4f28-0319-d49b-7044-ccb53c78e79d
+Suggested class: federal_funding
+
+Why: The award language directly identifies DOE funding and cost share for the project. This is strong affirmative federal_funding evidence.
+
+Chunk: NEPA PROVISION
+DOE has made a final NEPA determination for this award
+
+DOE Funding = $6,999,959
+Cost Share = $20,999,876
+Total Project Cost = $27,999,835</code></pre>
+</section>
+<section id="example-3" class="level4">
+<h4 class="anchored" data-anchor-id="example-3">Example 3</h4>
+<pre class="text"><code>Rule family: T1b_agency_grant
+Project ID: f5f17760-cb4b-6fb3-2d6c-b0bb1d393c58
+Suggested class: federal_funding
+
+Why: The text says DOE is proposing to provide federal funding and then explains what the DOE funding would be used for. That is exactly the kind of project-specific funding language Tier 4 should treat as positive evidence.
+
+Chunk: Rational for determination:
+DOE is proposing to provide federal funding to the Contra Costa Economic Partnership to support local and regional efforts to address and achieve measurable improvements in market conditions for both commercial and residential rooftop photovoltaic (PV) solar arrays.
+
+DOE funding would be used to develop and implement a transparent, consistent, and expedient permitting and interconnection process for residential and small commercial rooftop PV systems throughout all participating jurisdictions.</code></pre>
+</section>
+</section>
+<section id="federal_action" class="level3">
+<h3 class="anchored" data-anchor-id="federal_action">federal_action</h3>
+<section id="example-1-1" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-1">Example 1</h4>
+<pre class="text"><code>Rule family: T1a_DOE_action
+Project ID: 55785ab38769051f617b47da1931e34f
+Suggested class: federal_action
+
+Why: The description presents DOE as the proposing agency for direct construction and operation work at NREL. This is the type of DOE-led facility action that should support a true federal_action label.
+
+Chunk: The Department of Energy (DOE) prepared this Final Supplemental EA to assess the potential environmental effects resulting from the proposed improvements to the RFHP. Specifically, the DOE proposes to develop, construct and operate a woodchip fuel storage silo at the National Renewable Energy Laboratory’s (NREL) South Table Mountain (STM) site in Golden, Colorado.</code></pre>
+</section>
+<section id="example-2-1" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-1">Example 2</h4>
+<pre class="text"><code>Rule family: T1a_DOE_action
+Project ID: 05233996-c065-d1d6-4b6a-aebd57c4282f
+Suggested class: federal_action
+
+Why: Western is not just funding or authorizing someone else here. The text says Western itself will construct, demolish, and install substation infrastructure. That is clean direct-action language.
+
+Chunk: Western Area Power Administration (Western) will construct a new control building at the Lusk Rural Substation (LRS) located in Niobrara County, Wyoming. The proposed work at the LRS control building consists of the following; construct a new control building and associated foundation, demolish existing 69-kV switch, construct new Fault Interrupter foundations and install steel support structure and fault interrupter, and demolish existing control building.</code></pre>
+</section>
+<section id="example-3-1" class="level4">
+<h4 class="anchored" data-anchor-id="example-3-1">Example 3</h4>
+<pre class="text"><code>Rule family: T1a_DOE_action
+Project ID: cd41bb62-9377-d1e4-8038-0d32c2001811
+Suggested class: federal_action
+
+Why: This is another clean direct-action example because Western is the entity that will construct the communications building and do the associated site work.
+
+Chunk: Western Area Power Administration (Western) will construct a new communications building on the Archer Microwave Site (ARW). This project will have the following components:
+* Construct a new communications building
+* Rebuild the fence along the existing fence line
+* Conduct the site work necessary to improve the driveway</code></pre>
+</section>
+</section>
+<section id="federal_land" class="level3">
+<h3 class="anchored" data-anchor-id="federal_land">federal_land</h3>
+<section id="example-1-2" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-2">Example 1</h4>
+<pre class="text"><code>Rule family: T1b_special_use
+Project ID: 8a1ff4621f3b80f0a5c2be15f3649717
+Suggested class: federal_land
+
+Why: The context says “The USFS purpose and need is to determine whether to issue a special use permit” and that “the USFS would bring Western&#39;s facilities under a current authorization with a defined ROW.” That is federal land access / right-of-way authorization language, which is why this is a good federal_land example.
+
+Chunk: Forest Service Purpose and Need The USFS purpose and need is to determine whether to issue a special use permit for the proposed transmission lines upgrade and rebuild. In conjunction with the issuance, the USFS would bring Western&#39;s facilities under a current authorization with a defined ROW and an Operation and Maintenance Plan.</code></pre>
+</section>
+<section id="example-2-2" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-2">Example 2</h4>
+<pre class="text"><code>Rule family: T1b_row_grant
+Project ID: 74d906df-095c-24b1-3055-8b96bcdcc5b8
+Suggested class: federal_land
+
+Why: The project-specific language is about acquiring a perpetual right-of-way grant across a parcel now owned by BLM. This is a clean federal land authorization case.
+
+Chunk: BPA proposes to acquire a perpetual right-of-way grant for BPA&#39;s existing Wautoma-Rock Creek transmission line across a parcel of land in Klickitat County, Washington. Originally BPA had acquired a 50-year easement for the right-of-way from Yakama Tribal Allottees. However, the easement has expired and the Bureau of Land Management now owns the parcel.</code></pre>
+</section>
+<section id="example-3-2" class="level4">
+<h4 class="anchored" data-anchor-id="example-3-2">Example 3</h4>
+<pre class="text"><code>Rule family: T1b_row_grant
+Project ID: b2b71bb4-5152-128c-139f-67a63a83ef3b
+Suggested class: federal_land
+
+Why: This is a straightforward right-of-way renewal on tribal land through a federal land-management authority. The trigger is land access/renewal, not federal funding.
+
+Chunk: A new right-of-way grant from the Bureau of Indian Affairs for a 25 year term from March 29, 2016 through March 28, 2041, with the right to extend the right-of-way for an additional 25 years thorough March 28, 2066. The line has not moved since constructed in the early 1960&#39;s, this is just a right-of-way renewal.</code></pre>
+</section>
+</section>
+<section id="federal_permit" class="level3">
+<h3 class="anchored" data-anchor-id="federal_permit">federal_permit</h3>
+<section id="example-1-3" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-3">Example 1</h4>
+<pre class="text"><code>Rule family: T3_npdes
+Project ID: 2dbec454-c1d5-a8fa-4819-0fc9d6a646c4
+Suggested class: federal_permit
+
+Why: The evidence directly says an NPDES permit for construction activities must be obtained. This is affirmative permit-trigger language and a strong positive example.
+
+Chunk: This would entail obtaining the National Pollutant Discharge Elimination System (NPDES) permit for Construction activities. Develop and implement a Stormwater Pollution Prevention (SWPP) Plan/Temporary Erosion Sediment (TESC) Plan to limit project impacts.</code></pre>
+</section>
+<section id="example-2-3" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-3">Example 2</h4>
+<pre class="text"><code>Rule family: T3_npdes
+Project ID: da5f8822-d72d-a8ed-cc60-106633f5bff9
+Suggested class: federal_permit
+
+Why: This is explicit conditional permit language tied to the project work. It names the permit and the legal authority.
+
+Chunk: If Task 7.2 &quot;Perform Data Acquisition&quot; requires discharge into that stilling basin, a NPDES permit must be obtained to comply with Section 402 of the Clean Water Act.</code></pre>
+</section>
+<section id="example-3-3" class="level4">
+<h4 class="anchored" data-anchor-id="example-3-3">Example 3</h4>
+<pre class="text"><code>Rule family: T2_doc_title_permit_app
+Project ID: d8ce951d6f48a7914a867e2ee6f6fa88
+Suggested class: federal_permit
+
+Why: The document title itself is a permit application document, which is a strong permit-trigger cue.
+
+Chunk: Department of the Army Environmental Assessment and Statement of Findings for the Above-Referenced Standard Individual Permit Application</code></pre>
+</section>
+</section>
+<section id="federal_program" class="level3">
+<h3 class="anchored" data-anchor-id="federal_program">federal_program</h3>
+<section id="example-1-4" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-4">Example 1</h4>
+<pre class="text"><code>Rule family: T2_doc_title_peis
+Project ID: debe659941dc65ed630daab88d5fbf81
+Suggested class: federal_program
+
+Why: The title explicitly says “Programmatic Environmental Assessment,” which is the clearest possible program-level cue.
+
+Chunk: Parker-Davis Transmission System Routine Operation and Maintenance Project and Proposed Integrated Vegetation Management Program Programmatic Environmental Assessment</code></pre>
+</section>
+<section id="example-2-4" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-4">Example 2</h4>
+<pre class="text"><code>Rule family: T1b_programmatic_title
+Project ID: faec045d0d990209b8aada96a616548f
+Suggested class: federal_program
+
+Why: This is another direct programmatic title, centered on system-wide operations and maintenance plus an integrated vegetation management program.
+
+Chunk: Programmatic Environmental Assessment for System-wide Operations and Maintenance Activities and Integrated Vegetation Management Program</code></pre>
+</section>
+<section id="example-3-4" class="level4">
+<h4 class="anchored" data-anchor-id="example-3-4">Example 3</h4>
+<pre class="text"><code>Rule family: T2_doc_title_peis
+Project ID: 19c9535e21071f0bcf98e55248a4025d
+Suggested class: federal_program
+
+Why: The title identifies the document as a Draft Programmatic Environmental Impact Statement, which is a clean federal_program example.
+
+Chunk: Upper Great Plains Wind Energy Draft Programmatic Environmental Impact Statement</code></pre>
+</section>
+</section>
+<section id="federal_property_transaction" class="level3">
+<h3 class="anchored" data-anchor-id="federal_property_transaction">federal_property_transaction</h3>
+<section id="example-1-5" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-5">Example 1</h4>
+<pre class="text"><code>Rule family: T1b_land_exchange
+Project ID: aad5c0f845b958c77a8bfaa9bb88d1e7
+Suggested class: federal_property_transaction
+
+Why: The project title itself explicitly identifies a land exchange. That is direct property-transaction language.
+
+Chunk: Falls Creek Hydroelectric Project and Land Exchange</code></pre>
+</section>
+<section id="example-2-5" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-5">Example 2</h4>
+<pre class="text"><code>Rule family: T1b_land_exchange
+Project ID: a0acb155-1e65-6f3b-a54c-e894e735429c
+Suggested class: federal_property_transaction
+
+Why: This example combines the generic property-transfer category language with an explicit DOE land exchange. It is a strong property-transaction positive.
+
+Chunk: B1.24 Property transfers Transfer, lease, disposition, or acquisition of interests in personal property (including, but not limited to, equipment and materials) or real property (including, but not limited to, permanent structures and land).
+
+Rationale for determination:
+The U.S. Department of Energy (DOE) is proposing to conduct a multi-party land exchange with Jefferson County Open Space (JCOS) and the State of Colorado (the State).</code></pre>
+</section>
+<section id="example-3-5" class="level4">
+<h4 class="anchored" data-anchor-id="example-3-5">Example 3</h4>
+<pre class="text"><code>Rule family: T1b_land_exchange
+Project ID: daa6b3b3dc506abd01afbbfaf6ca0ffb
+Suggested class: federal_property_transaction
+
+Why: The evidence ties the selected village site to a prior land exchange approved by Congress. That is a clean property-transaction cue.
+
+Chunk: This final Environmental Impact Statement (EIS) describes a number of alternatives in a historical context for the purpose of illustrating how the long-term evolution of the project led to the selection of a new village site to be constructed at Mertarvik on Nelson Island, a site granted to the village in a land exchange approved by the U.S.</code></pre>
+</section>
+</section>
+</section>
+<section id="ambiguous-boundary-rule-families" class="level2">
+<h2 class="anchored" data-anchor-id="ambiguous-boundary-rule-families">Ambiguous / boundary rule families</h2>
+<p>These are not simple positives or negatives. Save chunks that help distinguish between plausible classes.</p>
+<section id="doe-funding-vs-federal_action" class="level3">
+<h3 class="anchored" data-anchor-id="doe-funding-vs-federal_action">DOE funding vs federal_action</h3>
+<section id="example-1-6" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-6">Example 1</h4>
+<pre class="text"><code>Rule family: T1a_DOE_funding
+Project ID: 97fca3873618664c1ca208c1874ebff7
+Suggested class: boundary case between federal_funding and federal_action
+
+Why: The title and opening language frame the project as DOE funding, but the description also says DOE’s proposed action under NEPA is the design, construction, and operation of the FRIB. This is a useful example of why DOE metadata alone is not enough.
+
+Chunk: DOE published a “funding opportunity announcement” (FOA) on May 20, 2008, seeking applications for the conceptual design and establishment of a particle acceleration facility—the FRIB. Subsequent to construction, funding for operations would be allocated annually based on Congressional appropriations. DOE’s proposed action under NEPA is the design, construction, and operation of the FRIB.</code></pre>
+</section>
+<section id="example-2-6" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-6">Example 2</h4>
+<pre class="text"><code>Rule family: T1a_DOE_funding
+Project ID: 77eb1b37de8501f37cc21e7990aff341
+Suggested class: boundary case leaning federal_funding
+
+Why: This is still mostly a funding case, but the text is full of plant-construction detail. It is useful for teaching Tier 4 the difference between DOE financial assistance and DOE direct construction.
+
+Chunk: The U.S. Department of Energy (DOE) proposes, through a cooperative agreement with Honeywell International Inc. (Honeywell), to partially fund the construction of a manufacturing plant to produce a critical battery material, lithium hexafluorophosphate (LiPF6). If approved, DOE would provide approximately 50 percent of the funding for the project.</code></pre>
+</section>
+<section id="example-3-6" class="level4">
+<h4 class="anchored" data-anchor-id="example-3-6">Example 3</h4>
+<pre class="text"><code>Rule family: T1a_DOE_funding
+Project ID: 00b2f4e33f9e91f7ffe1401338859099
+Suggested class: boundary case leaning federal_funding
+
+Why: The project includes design, installation, and demonstration of a biomass boiler center, but DOE’s role is still framed as partial funding through a cooperative agreement.
+
+Chunk: The United States Department of Energy (DOE) proposes through a cooperative agreement with Burns &amp; McDonnell Engineering, to partially fund project activities to design, install, and demonstrate an innovative biomass boiler pilot project. Under the terms of the cooperative agreement, DOE would provide $1,655,945 for Burns &amp; McDonnell Engineering to facilitate the development and demonstration of a biomass energy center at the Frito-Lay manufacturing plant.</code></pre>
+</section>
+</section>
+<section id="section-404-true-trigger-vs-boilerplate" class="level3">
+<h3 class="anchored" data-anchor-id="section-404-true-trigger-vs-boilerplate">Section 404: true trigger vs boilerplate</h3>
+<section id="example-1-7" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-7">Example 1</h4>
+<pre class="text"><code>Rule family: T1b_sec404
+Project ID: 56f87d34b0a565f24bcdb727fba09c18
+Suggested class: federal_permit
+
+Why: This is a true Section 404 trigger. The text explicitly says USACE would issue a permit pursuant to Section 404 and Section 10 for site dredge and fill activities.
+
+Chunk: The proposed actions related to the PSEG application are (1) the NRC issuance of an ESP for the PSEG Site and (2) the USACE issuance of a permit pursuant to Section 404 of the Federal Water Pollution Control Act [Clean Water Act (CWA)] and Section 10 of the Rivers and Harbors Appropriation Act of 1899, as amended, to perform certain dredge and fill activities on the site.</code></pre>
+</section>
+<section id="example-2-7" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-7">Example 2</h4>
+<pre class="text"><code>Rule family: T1b_sec404
+Project ID: 20871b5a-ddcb-9303-27d5-fea2681d67c0
+Suggested class: boundary case leaning unknown
+
+Why: This example mentions Section 404 in a real project context, but the text is about reviewing applicability, and the desc later says USACE determined a 404 permit was not required. It is useful for separating mention from actual permit trigger.
+
+Chunk: DOE submitted the project file and the &quot;limited environmental assessment&quot; to the Army Corps of Engineers (Mobile District) for their review and determination of the applicability of Section 404 of the Clean Water Act to the proposed project. On a letter dated Oct. 22nd 2010, USACE determined that the proposed project would not require a 404 permit.</code></pre>
+</section>
+</section>
+<section id="arra-true-funding-trigger-vs-generic-mention" class="level3">
+<h3 class="anchored" data-anchor-id="arra-true-funding-trigger-vs-generic-mention">ARRA: true funding trigger vs generic mention</h3>
+<section id="example-1-8" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-8">Example 1</h4>
+<pre class="text"><code>Rule family: T3_arra
+Project ID: 5d988327-5b0c-2e21-8c87-12c04a3f2cb5
+Suggested class: federal_funding
+
+Why: This is a useful positive comparator because the text does not merely mention ARRA. It says ARRA appropriates funding for DOE to issue grants under EECBG.
+
+Chunk: The American Recovery and Reinvestment Act of 2009, Public Law 111-5, appropriates funding for the Department of Energy (DOE) to issue/award formula-based grants to states, U.S. territories, units of local government, and Indian tribes under the Energy Efficiency and Conservation Block Grant (EECBG) Program.</code></pre>
+</section>
+<section id="example-2-8" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-8">Example 2</h4>
+<pre class="text"><code>Rule family: T3_arra
+Project ID: 445a359b-b00d-f375-2e97-44953a83665b
+Suggested class: boundary case leaning unknown
+
+Why: This is mostly form metadata. It has a checked ARRA box, but the chunk does not itself explain the federal funding nexus for this specific project.
+
+Chunk: Department of Energy
+Categorical Exclusion Determination Form
+
+Program or Field Office: Energy Efficiency and Conservation Block Program
+Project Title: Energy efficiency lighting and plumbing retrofits for several City facilities.
+
+American Recovery and Reinvestment Act: [x]</code></pre>
+</section>
+</section>
+<section id="blm-usfs-land-vs-action" class="level3">
+<h3 class="anchored" data-anchor-id="blm-usfs-land-vs-action">BLM / USFS land vs action</h3>
+<section id="example-1-9" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-9">Example 1</h4>
+<pre class="text"><code>Rule family: T1a_BLM_action
+Project ID: 6997b8a719abdf2633b890254d964252
+Suggested class: boundary case between federal_land and federal_action
+
+Why: This text is why BLM is difficult. It is about federal conveyances and perpetual ROWs, so it has both land-authorization and federal-decision language.
+
+Chunk: In some of the conveyances, the BLM may establish terms and conditions, reserve access through the issuance of perpetual rights of way (ROWs), and/or convert ROWs to perpetual terms for the conveyance parcels. The purpose of the proposed action is to analyze whether or not to 1) establish terms and conditions, 2) reserve public access through the issuance of perpetual ROWs, and/or 3) convert several existing ROWs to perpetual terms.</code></pre>
+</section>
+<section id="example-2-9" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-9">Example 2</h4>
+<pre class="text"><code>Rule family: T1a_BLM_land
+Project ID: a5ee94b8e14073d5ca1ae39925d551c6
+Suggested class: federal_land
+
+Why: This is the cleaner side of the same boundary. The excerpt is centered on granting a new right-of-way and analyzing the use of that ROW.
+
+Chunk: includes granting PG&amp;E a new right-of-way for the existing distribution line and updating the underground alignment. As per 40 CFR 1501.3, this Environmental Assessment (EA) has been prepared to disclose and analyze the environmental consequences of the use of a ROW proposed by PG&amp;E.</code></pre>
+</section>
+</section>
+<section id="rmp-programmatic-action-vs-plan-conformance" class="level3">
+<h3 class="anchored" data-anchor-id="rmp-programmatic-action-vs-plan-conformance">RMP: programmatic action vs plan-conformance</h3>
+<section id="example-1-10" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-10">Example 1</h4>
+<pre class="text"><code>Rule family: T3_rmp
+Project ID: 481ef767-d681-a1f2-fbe3-d50199c5c336
+Suggested class: boundary case between federal_program and federal_land, leaning federal_land
+
+Why: The chunk looks like a programmatic RMP hit, but it is really plan-conformance language supporting a transmission line amendment and associated rights-of-way. This is a good cautionary example.
+
+Chunk: Land Use Plan Conformance
+
+Land Use Plan Name: Spokane Resource Management Plan (RMP)
+
+The proposed action is in conformance with the Spokane RMP because it is clearly consistent with the following RMP objectives, terms, and conditions: Keep public lands open for exploration/development of mineral resources, rights-of-way, access, and other public purposes.</code></pre>
+</section>
+</section>
+</section>
+<section id="hard-negatives" class="level2">
+<h2 class="anchored" data-anchor-id="hard-negatives">Hard negatives</h2>
+<p>Use this section for text that looks relevant but should not drive classification.</p>
+<section id="boilerplate-checklist-negatives" class="level3">
+<h3 class="anchored" data-anchor-id="boilerplate-checklist-negatives">Boilerplate / checklist negatives</h3>
+<section id="example-1-11" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-11">Example 1</h4>
+<pre class="text"><code>Rule family: T3_sec404
+Project ID: 98eb050f-8691-cb6b-0df5-f5f546ed1599
+Suggested class: unknown
+
+Why: This is CE checklist boilerplate from a DOE form. It mentions “Section 404 permit,” but only as an unchecked checklist item rather than affirmative evidence that Section 404 permitting triggered NEPA for this project.
+
+Chunk: Conservation, Fossil, and Renewable Energy Activities
+[ ] B5.3 - Modification (not expansion)/abandonment of oil storage access/
+brine injection/gas/geothermal wells; no site closure
+[ ] B5.4 - Repair/replacement of pipeline sections within maintenance
+provisions of a Section 404 permit
+[ ] B5.5 - Short crude oil/gas/steam/geothermal pipeline const/oper within a
+single industrial complex/existing right-of-way</code></pre>
+</section>
+<section id="example-2-10" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-10">Example 2</h4>
+<pre class="text"><code>Rule family: T3_sec404
+Project ID: 66feacb8-3138-57e0-2755-4725e7d53625
+Suggested class: unknown
+
+Why: Same false-positive pattern as Example 1. The project is about developing Li-ion cells, but the hit comes from recycled CE checklist text rather than project-specific permit language.
+
+Chunk: Conservation, Fossil, and Renewable Energy Activities
+[ ] B5.4 - Repair/replacement of pipeline sections within maintenance
+provisions of a Section 404 permit</code></pre>
+</section>
+<section id="example-3-7" class="level4">
+<h4 class="anchored" data-anchor-id="example-3-7">Example 3</h4>
+<pre class="text"><code>Rule family: T3_sec404
+Project ID: 2b4fa793-82cb-a468-4170-ce11f7b2b84c
+Suggested class: unknown
+
+Why: This one is especially useful because one CE category is checked, which makes the form look more “real,” but the Section 404 line is still unchecked boilerplate and should not drive classification.
+
+Chunk: **Conservation, Fossil, and Renewable Energy Activities**
+[x] B5.1 - Actions to conserve energy, no indoor air quality degradation
+[ ] B5.4 - Repair/replacement of pipeline sections within maintenance
+provisions of a Section 404 permit</code></pre>
+</section>
+<section id="example-4" class="level4">
+<h4 class="anchored" data-anchor-id="example-4">Example 4</h4>
+<pre class="text"><code>Rule family: T3_sec404
+Project ID: 262cc267-a46e-6a84-b1e0-fac687f38484
+Suggested class: unknown
+
+Why: Another unchecked CE checklist hit. The project is about subsurface microbial characterization, so the Section 404 line is clearly non-evidence.
+
+Chunk: Conservation, Fossil, and Renewable Energy Activities
+B5.4 - Repair/replacement of pipeline sections within maintenance provisions of a Section 404 permit [ ]</code></pre>
+</section>
+<section id="example-5" class="level4">
+<h4 class="anchored" data-anchor-id="example-5">Example 5</h4>
+<pre class="text"><code>Rule family: T3_sec404
+Project ID: 8a2aace3-98a0-e6e2-23a7-7c542626a767
+Suggested class: unknown
+
+Why: The project is about redundant booster pumps. The Section 404 phrase appears only because the CE form lists a boilerplate category.
+
+Chunk: **Conservation, Fossil, and Renewable Energy Activities**
+[ ] B5.4 - Repair/replacement of pipeline sections within maintenance provisions of a Section 404 permit</code></pre>
+</section>
+</section>
+<section id="generic-grant-arra-form-negatives" class="level3">
+<h3 class="anchored" data-anchor-id="generic-grant-arra-form-negatives">Generic grant / ARRA form negatives</h3>
+<section id="example-1-12" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-12">Example 1</h4>
+<pre class="text"><code>Rule family: T3_arra
+Project ID: 9929ff24-2841-aeb9-4c3a-1b644ead67c0
+Suggested class: unknown
+
+Why: This is form scaffolding, not project-specific funding evidence. The ARRA box is blank and the chunk is just a generic EECBG form header.
+
+Chunk: Department of Energy
+Categorical Exclusion Determination Form
+
+Program or Field Office: Energy Efficiency and Conservation Block Grant Program
+Project Title MD-City-Bowie
+
+Proposed Action or Project Description
+American Recovery and Reinvestment Act: [ ]</code></pre>
+</section>
+<section id="example-2-11" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-11">Example 2</h4>
+<pre class="text"><code>Rule family: T3_arra
+Project ID: 445a359b-b00d-f375-2e97-44953a83665b
+Suggested class: unknown
+
+Why: Even with a checked ARRA box, this chunk is still mostly template text. It does not state that ARRA or DOE funding is the specific trigger for NEPA review.
+
+Chunk: Department of Energy
+Categorical Exclusion Determination Form
+
+Program or Field Office: Energy Efficiency and Conservation Block Program
+Project Title: Energy efficiency lighting and plumbing retrofits for several City facilities.
+
+American Recovery and Reinvestment Act: [x]</code></pre>
+</section>
+</section>
+<section id="plan-compliance-negatives" class="level3">
+<h3 class="anchored" data-anchor-id="plan-compliance-negatives">Plan / compliance negatives</h3>
+<section id="example-1-13" class="level4">
+<h4 class="anchored" data-anchor-id="example-1-13">Example 1</h4>
+<pre class="text"><code>Rule family: T3_rmp
+Project ID: 152b468c-9cab-767d-3fdb-150ce1e2e8d1
+Suggested class: unknown
+
+Why: This is plan-conformance review text, not evidence that the project itself is a federal program. The real project is a temporary ROW / permit action.
+
+Chunk: PART II – PLAN CONFORMANCE REVIEW
+This proposed action is subject to the following land use plan(s):
+Safford District Resource Management Plan (RMP and Record of Decision (September 1992).
+
+Land use authorizations (rights-of-way, leases, permits, easements) will continue to be issued on a
+case-by-case basis.</code></pre>
+</section>
+<section id="example-2-12" class="level4">
+<h4 class="anchored" data-anchor-id="example-2-12">Example 2</h4>
+<pre class="text"><code>Rule family: T3_rmp
+Project ID: 2c092490-2876-4923-a6b7-ef663139d05d
+Suggested class: unknown
+
+Why: “Consistent with the Forest Plan” is generic compliance language. It should not be treated as a federal_program trigger.
+
+Chunk: COMPLIANCE WITH FOREST PLAN
+
+The proposal is consistent with the approved Forests&#39; Land and Resource Management Plan
+(As Amended January 2012).</code></pre>
+</section>
+<section id="example-3-8" class="level4">
+<h4 class="anchored" data-anchor-id="example-3-8">Example 3</h4>
+<pre class="text"><code>Rule family: T3_rmp
+Project ID: 0535c33e-cfaa-48c6-1225-f6d1b007a73e
+Suggested class: unknown
+
+Why: This hit is purely from the phrase “Cultural Resource Management Plan,” which is not the kind of programmatic trigger the classifier is trying to detect.
+
+Chunk: Idaho National Laboratory Cultural
+Resource Management Plan.</code></pre>
+</section>
+<section id="example-4-1" class="level4">
+<h4 class="anchored" data-anchor-id="example-4-1">Example 4</h4>
+<pre class="text"><code>Rule family: T3_rmp
+Project ID: 75d0b415-8dcb-81ec-a597-0bfc603d6b49
+Suggested class: unknown
+
+Why: This is another misleading management-plan mention. It is about exemption from cultural resource review, not a federal programmatic action.
+
+Chunk: MFC-774 is eligible for nomination to the National Register of Historic Places as a Category 3 historic property; however, the activities described in this Environmental Checklist (EC) are exempted from cultural resource review (&quot;Idaho National Laboratory [INL] Cultural Resource Management Plan&quot; Table 2, exemptions 2 and 8.</code></pre>
+</section>
+</section>
+</section>
+<section id="suggested-collection-order" class="level2">
+<h2 class="anchored" data-anchor-id="suggested-collection-order">Suggested collection order</h2>
+<ol type="1">
+<li>DOE funding vs action</li>
+<li>Section 404 positives and negatives</li>
+<li>ARRA positives and negatives</li>
+<li>BLM / USFS land vs action</li>
+<li>RMP / programmatic cases</li>
+</ol>
 
 
 </section>
