@@ -21,9 +21,8 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 
 **Coding rule:** `Assign federal funding classification when the project receives direct or indirect federal financial support or when federal financial support is the reason the agency is involved in project approval or review`.
 
-Typical language (these are the exact phrases the extraction script detects):
-
 **Grants and direct funding:**
+
 - “federal grant” / “DOE grant” / “DOT grant” / “HUD grant” / “USDA grant” / “grant funding”
 - “federal funding” / “federal financial assistance”
 - “DOE grant” / “DOE funding” / “DOT grant” / “DOT funding” / “HUD grant” / “HUD funding” / “USDA grant” / “USDA funding” (Tier 1b agency+type pattern)
@@ -34,15 +33,18 @@ Typical language (these are the exact phrases the extraction script detects):
 - “Total Project Value”
 
 **Loans and loan guarantees:**
+
 - “loan guarantee”
 - “Title XVII”
 
 **Cooperative agreements:**
+
 - “through a cooperative agreement ... partially fund” (within same passage)
 - “providing financial assistance to ... under/through a cooperative agreement” (within same passage)
 - “awarding a grant ... partially fund” (within same passage)
 
 **Cost sharing:**
+
 - “cost share”
 - “DOE Funding = $[amount] ... Cost Share = $[amount]” (Tier 1b; requires actual dollar figures)
 - “cost-shared arrangement”
@@ -51,20 +53,24 @@ Typical language (these are the exact phrases the extraction script detects):
 - “Federal Cost Share” standalone (Tier 4 context scan — lower specificity)
 
 **Legislative funding authorities:**
+
 - “Inflation Reduction Act”
 - “Bipartisan Infrastructure Law” / “Bipartisan Infrastructure Act”
 - “Title XVII”
 
 **Formula-based programs:**
+
 - “formula awards” / “formula-based awards” / “formula grants” / “formula-based grants”
 - “EECBG funding” / “DOE EECBG funding”
 - “State Energy Program” / “SEP” / “WAP” + “formula awards/grants” within same passage
 - “Administrative and Legal Requirements Document” / “ALRD” + “formula awards/grants” within same passage (medium confidence)
 
 **Document title (Tier 2 scan):**
+
 - “loan guarantee” appearing in the document title
 
 **Agency metadata (Tier 1a — detected without text cues):**
+
 - Agency is DOT / Department of Transportation → auto-assigned `federal_funding`
 - Agency is HUD / Department of Housing and Urban Development → auto-assigned `federal_funding`
 - Agency is FTA / Federal Transit Administration → auto-assigned `federal_funding`
@@ -77,8 +83,6 @@ Typical language (these are the exact phrases the extraction script detects):
 ---
 
 **Coding rule:** `Assign federal land classification when the project is located on, crosses, uses, or requires access to federally managed land or federally controlled property interests or when the project arises from federal land ownership, land management authority, easement authority, or right-of-way control`.
-
-Typical language:
 
 **ROW applications and grants on BLM / public land:**
 
@@ -244,12 +248,28 @@ The compound patterns are:
 
 - “now that DOE has acquired ownership of the parcel, DOE proposes to operate and maintain the site”
 
+**Specific literal pattern (no verb structure required):**
+
+- “now that DOE has acquired ownership of the parcel, DOE proposes to operate and maintain the site”
+
 **Standalone patterns (no actor name required):**
 
 - “federal construction” / “federal facility” / “federal installation”
 - “military installation” / “military base” / “military facility” / “military construction”
 - “federal facility upgrade” / “federal facility expansion” / “federal facility construction” (Tier 1b; more specific form)
 - “vegetation management” + “National Forest” within same passage (~50 chars) (Tier 1b only)
+
+**Agency metadata (Tier 1a — detected without text cues):**
+
+- **`AGENCY_ACTION_PRIOR_MAP`** — sets a prior toward `federal_action`; continues through Tier 1b/2/3/4 for confirmation:
+  - Power Marketing Administration
+  - Bonneville Power Administration / BPA
+  - Western Area Power Administration / WAPA
+
+- **`AGENCY_ACTION_ONLY_MAP`** — border infrastructure is always direct federal construction; continues through tiers:
+  - CBP / U.S. Customs and Border Protection
+
+- Note: DOE and USACE appear in `FEDERAL_ACTION_ACTOR_PATTERN` (used in compound text patterns above) but are classified as `AGENCY_AMBIGUOUS` in Tier 1a — they are NOT auto-assigned to `federal_action` from metadata alone; verb context from document text is required to distinguish `federal_action` from `federal_funding` (DOE) or `federal_permit` (USACE)
 
 
 ### 5. Federal programs

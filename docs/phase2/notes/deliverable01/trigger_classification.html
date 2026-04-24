@@ -3964,21 +3964,67 @@ vertical-align: -.125em;
 <h3 class="anchored" data-anchor-id="federal-funding">1. Federal funding</h3>
 <hr>
 <p><strong>Coding rule:</strong> <code>Assign federal funding classification when the project receives direct or indirect federal financial support or when federal financial support is the reason the agency is involved in project approval or review</code>.</p>
-<p>Typical language (these are the exact phrases the extraction script detects):</p>
-<p><strong>Grants and direct funding:</strong> - “federal grant” / “DOE grant” / “DOT grant” / “HUD grant” / “USDA grant” / “grant funding” - “federal funding” / “federal financial assistance” - “DOE grant” / “DOE funding” / “DOT grant” / “DOT funding” / “HUD grant” / “HUD funding” / “USDA grant” / “USDA funding” (Tier 1b agency+type pattern) - “provide federal funding” - “DOE Funding” (standalone; Tier 4 context scan) - “DOE/Department of Energy” + “would provide” + “funds/funding/grant/awards/cost-share” (within same passage) - “total award value” - “Total Project Value”</p>
-<p><strong>Loans and loan guarantees:</strong> - “loan guarantee” - “Title XVII”</p>
-<p><strong>Cooperative agreements:</strong> - “through a cooperative agreement … partially fund” (within same passage) - “providing financial assistance to … under/through a cooperative agreement” (within same passage) - “awarding a grant … partially fund” (within same passage)</p>
-<p><strong>Cost sharing:</strong> - “cost share” - “DOE Funding = $[amount] … Cost Share = $[amount]” (Tier 1b; requires actual dollar figures) - “cost-shared arrangement” - “DOE’s (proposed) action is to provide … cost-shared arrangement” (within same passage; Tier 1b only) - “Federal Cost Share” + “Total Project Value” within same passage (Tier 1b) - “Federal Cost Share” standalone (Tier 4 context scan — lower specificity)</p>
-<p><strong>Legislative funding authorities:</strong> - “Inflation Reduction Act” - “Bipartisan Infrastructure Law” / “Bipartisan Infrastructure Act” - “Title XVII”</p>
-<p><strong>Formula-based programs:</strong> - “formula awards” / “formula-based awards” / “formula grants” / “formula-based grants” - “EECBG funding” / “DOE EECBG funding” - “State Energy Program” / “SEP” / “WAP” + “formula awards/grants” within same passage - “Administrative and Legal Requirements Document” / “ALRD” + “formula awards/grants” within same passage (medium confidence)</p>
-<p><strong>Document title (Tier 2 scan):</strong> - “loan guarantee” appearing in the document title</p>
-<p><strong>Agency metadata (Tier 1a — detected without text cues):</strong> - Agency is DOT / Department of Transportation → auto-assigned <code>federal_funding</code> - Agency is HUD / Department of Housing and Urban Development → auto-assigned <code>federal_funding</code> - Agency is FTA / Federal Transit Administration → auto-assigned <code>federal_funding</code> - Agency is FHWA / Federal Highway Administration → auto-assigned <code>federal_funding</code> - Note: DOE is ambiguous — it can indicate either <code>federal_funding</code> or <code>federal_action</code> depending on verb context; DOE projects are routed to Tier 4 for adjudication</p>
+<p><strong>Grants and direct funding:</strong></p>
+<ul>
+<li>“federal grant” / “DOE grant” / “DOT grant” / “HUD grant” / “USDA grant” / “grant funding”</li>
+<li>“federal funding” / “federal financial assistance”</li>
+<li>“DOE grant” / “DOE funding” / “DOT grant” / “DOT funding” / “HUD grant” / “HUD funding” / “USDA grant” / “USDA funding” (Tier 1b agency+type pattern)</li>
+<li>“provide federal funding”</li>
+<li>“DOE Funding” (standalone; Tier 4 context scan)</li>
+<li>“DOE/Department of Energy” + “would provide” + “funds/funding/grant/awards/cost-share” (within same passage)</li>
+<li>“total award value”</li>
+<li>“Total Project Value”</li>
+</ul>
+<p><strong>Loans and loan guarantees:</strong></p>
+<ul>
+<li>“loan guarantee”</li>
+<li>“Title XVII”</li>
+</ul>
+<p><strong>Cooperative agreements:</strong></p>
+<ul>
+<li>“through a cooperative agreement … partially fund” (within same passage)</li>
+<li>“providing financial assistance to … under/through a cooperative agreement” (within same passage)</li>
+<li>“awarding a grant … partially fund” (within same passage)</li>
+</ul>
+<p><strong>Cost sharing:</strong></p>
+<ul>
+<li>“cost share”</li>
+<li>“DOE Funding = $[amount] … Cost Share = $[amount]” (Tier 1b; requires actual dollar figures)</li>
+<li>“cost-shared arrangement”</li>
+<li>“DOE’s (proposed) action is to provide … cost-shared arrangement” (within same passage; Tier 1b only)</li>
+<li>“Federal Cost Share” + “Total Project Value” within same passage (Tier 1b)</li>
+<li>“Federal Cost Share” standalone (Tier 4 context scan — lower specificity)</li>
+</ul>
+<p><strong>Legislative funding authorities:</strong></p>
+<ul>
+<li>“Inflation Reduction Act”</li>
+<li>“Bipartisan Infrastructure Law” / “Bipartisan Infrastructure Act”</li>
+<li>“Title XVII”</li>
+</ul>
+<p><strong>Formula-based programs:</strong></p>
+<ul>
+<li>“formula awards” / “formula-based awards” / “formula grants” / “formula-based grants”</li>
+<li>“EECBG funding” / “DOE EECBG funding”</li>
+<li>“State Energy Program” / “SEP” / “WAP” + “formula awards/grants” within same passage</li>
+<li>“Administrative and Legal Requirements Document” / “ALRD” + “formula awards/grants” within same passage (medium confidence)</li>
+</ul>
+<p><strong>Document title (Tier 2 scan):</strong></p>
+<ul>
+<li>“loan guarantee” appearing in the document title</li>
+</ul>
+<p><strong>Agency metadata (Tier 1a — detected without text cues):</strong></p>
+<ul>
+<li>Agency is DOT / Department of Transportation → auto-assigned <code>federal_funding</code></li>
+<li>Agency is HUD / Department of Housing and Urban Development → auto-assigned <code>federal_funding</code></li>
+<li>Agency is FTA / Federal Transit Administration → auto-assigned <code>federal_funding</code></li>
+<li>Agency is FHWA / Federal Highway Administration → auto-assigned <code>federal_funding</code></li>
+<li>Note: DOE is ambiguous — it can indicate either <code>federal_funding</code> or <code>federal_action</code> depending on verb context; DOE projects are routed to Tier 4 for adjudication</li>
+</ul>
 </section>
 <section id="federal-land" class="level3">
 <h3 class="anchored" data-anchor-id="federal-land">2. Federal land</h3>
 <hr>
 <p><strong>Coding rule:</strong> <code>Assign federal land classification when the project is located on, crosses, uses, or requires access to federally managed land or federally controlled property interests or when the project arises from federal land ownership, land management authority, easement authority, or right-of-way control</code>.</p>
-<p>Typical language:</p>
 <p><strong>ROW applications and grants on BLM / public land:</strong></p>
 <ul>
 <li>“application for a right-of-way grant”</li>
@@ -4136,12 +4182,30 @@ vertical-align: -.125em;
 <ul>
 <li>“now that DOE has acquired ownership of the parcel, DOE proposes to operate and maintain the site”</li>
 </ul>
+<p><strong>Specific literal pattern (no verb structure required):</strong></p>
+<ul>
+<li>“now that DOE has acquired ownership of the parcel, DOE proposes to operate and maintain the site”</li>
+</ul>
 <p><strong>Standalone patterns (no actor name required):</strong></p>
 <ul>
 <li>“federal construction” / “federal facility” / “federal installation”</li>
 <li>“military installation” / “military base” / “military facility” / “military construction”</li>
 <li>“federal facility upgrade” / “federal facility expansion” / “federal facility construction” (Tier 1b; more specific form)</li>
 <li>“vegetation management” + “National Forest” within same passage (~50 chars) (Tier 1b only)</li>
+</ul>
+<p><strong>Agency metadata (Tier 1a — detected without text cues):</strong></p>
+<ul>
+<li><strong><code>AGENCY_ACTION_PRIOR_MAP</code></strong> — sets a prior toward <code>federal_action</code>; continues through Tier 1b/2/3/4 for confirmation:
+<ul>
+<li>Power Marketing Administration</li>
+<li>Bonneville Power Administration / BPA</li>
+<li>Western Area Power Administration / WAPA</li>
+</ul></li>
+<li><strong><code>AGENCY_ACTION_ONLY_MAP</code></strong> — border infrastructure is always direct federal construction; continues through tiers:
+<ul>
+<li>CBP / U.S. Customs and Border Protection</li>
+</ul></li>
+<li>Note: DOE and USACE appear in <code>FEDERAL_ACTION_ACTOR_PATTERN</code> (used in compound text patterns above) but are classified as <code>AGENCY_AMBIGUOUS</code> in Tier 1a — they are NOT auto-assigned to <code>federal_action</code> from metadata alone; verb context from document text is required to distinguish <code>federal_action</code> from <code>federal_funding</code> (DOE) or <code>federal_permit</code> (USACE)</li>
 </ul>
 </section>
 <section id="federal-programs" class="level3">
