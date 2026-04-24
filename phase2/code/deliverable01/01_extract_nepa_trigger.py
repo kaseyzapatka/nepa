@@ -152,6 +152,18 @@ AGENCY_FUNDING_MAP = frozenset({
     "FTA", "Federal Transit Administration",
     "FHWA", "Federal Highway Administration",
 })
+AGENCY_ACTION_PRIOR_MAP = frozenset({
+    "Power Marketing Administration",
+    "Bonneville Power Administration",
+    "Western Area Power Administration",
+    "WAPA",
+    "BPA",
+})
+AGENCY_ACTION_ONLY_PRIOR_MAP = frozenset({
+    "CBP",
+    "U.S. Customs and Border Protection",
+    "Customs and Border Protection",
+})
 AGENCY_LAND_MAP = frozenset({
     "BLM", "Bureau of Land Management",
     "USFS", "FS", "US Forest Service", "Forest Service",
@@ -178,10 +190,38 @@ _AGENCY_CODE_LOOKUP = {
 
 # --- federal_action vs federal_land disambiguation ---
 
+FEDERAL_ACTION_ACTOR_PATTERN = (
+    r'(?:DOE|Department\s+of\s+Energy|NNSA|National\s+Nuclear\s+Security\s+Administration|'
+    r'BPA|Bonneville(?:\s+Power\s+Administration)?|'
+    r'WAPA|Western(?:\s+Area\s+Power\s+Administration)?|'
+    r'Reclamation|Bureau\s+of\s+Reclamation|USBR|'
+    r'CBP|U\.S\.\s+Customs\s+and\s+Border\s+Protection|'
+    r'Forest\s+Service|U\.S\.\s+Forest\s+Service|USFS|'
+    r'Bureau\s+of\s+Land\s+Management|BLM|'
+    r'NPS|National\s+Park\s+Service|'
+    r'PNNL|Pacific\s+Northwest\s+National\s+Laboratory)'
+)
+FEDERAL_ACTION_INTRO_PATTERN = r'(?:proposes?\s+to|is\s+proposing\s+to|will|would|would\s+be\s+to|is\s+to)'
+FEDERAL_ACTION_DIRECT_VERB_PATTERN = (
+    r'(?:construct|install|build|operate|implement|manage|restore|undertake|develop|upgrade|'
+    r'expand|demolish|replace|retrofit|rebuild|reconductor|renovate|refurbish|relocate|repair|'
+    r'reconfigure|dismantle|modernize|improve)'
+)
+FEDERAL_ACTION_STEP_OWNERSHIP_PATTERN = (
+    r'\bnow\s+that\s+DOE\s+has\s+acquired\s+ownership\s+of\s+the\s+parcel,\s+DOE\s+proposes\s+to\s+'
+    r'operate\s+and\s+maintain\s+the\s+site\b'
+)
+
 FEDERAL_ACTION_VERB_PATTERNS = [
-    r'\b(?:proposes?\s+to|will|would)\s+(?:construct|install|build|operate|implement|manage|restore|undertake|develop|upgrade|expand)\b',
-    r'\bagency.{0,20}(?:proposes|will\s+construct|will\s+install|will\s+implement)\b',
-    r'\b(?:Forest\s+Service|Bureau\s+of\s+Land\s+Management|BLM|USFS|NPS|Bureau\s+of\s+Reclamation)\s+(?:proposes|will|plans\s+to)\b',
+    rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b',
+    rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b',
+    rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,120}}\bconstruct,\s*own,\s*operate,\s*and\s+maintain\b',
+    rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\b(?:constructed\s+and\s+operated|would\s+be\s+constructed\s+and\s+operated)\b',
+    rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bcontinue\s+to\s+occupy\s+and\s+maintain\s+existing\s+facilities\b[\s\S]{{0,180}}\brefurbish\s+existing\s+facilities\b',
+    FEDERAL_ACTION_STEP_OWNERSHIP_PATTERN,
+    rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bwould\s+functionally\s+replace\b',
+    rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,520}}\brebuild\s+the\s+existing\b',
+    rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,200}}\b(?:upgrade|rebuild)\b[\s\S]{{0,160}}\bby\s+removing\b[\s\S]{{0,160}}\band\s+installing\b',
     r'\bfederal\s+(?:construction|facility|installation)\b',
     r'\bmilitary\s+(?:installation|base|facility|construction)\b',
 ]
@@ -212,25 +252,53 @@ FEDERAL_LAND_AUTHORIZER_PATTERNS = [
 # --- federal_program detection ---
 
 PROGRAMMATIC_TITLE_PATTERNS = [
-    r'\bprogrammatic\b',
-    r'\bprogram[\-\s]?wide\b',
-    r'\bpeis\b',
-    r'\bpea\b',
+    r'\bprogrammatic\s+environmental\s+(?:impact\s+statement|assessment)\b',
+    r'\bprogrammatic\s+(?:eis|ea)\b',
+    r'\b(?:dpeis|fpeis|speis|peis|pea)\b',
 ]
 PROGRAMMATIC_STRONG_PATTERNS = [
     r'(?:draft|final|supplemental)\s+programmatic\s+environmental\s+(?:impact\s+statement|assessment)',
     r'programmatic\s+environmental\s+(?:impact\s+statement|assessment)',
+    r'\bprogrammatic\s+(?:eis|ea)\b',
     r'\b(?:dpeis|fpeis|speis|peis|pea)\b',
     r'this\s+programmatic\s+(?:eis|ea|environmental)',
-    r'resource\s+management\s+plan\s+(?:amendment|revision)',
-    r'\bleasing\s+(?:program|framework)\b',
-    r'\bcorridor\s+designation\b',
+    r'this\s+(?:peis|pea)\s+(?:analyzes|addresses|evaluates)',
+    r'\bgeneric\s+(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b',
+    r'\btier\s*(?:1|i|one)\s+(?:nepa\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b',
+    r'\b(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\s+tier\s*(?:1|i|one)\b',
+    r'\bsite[-\s]?wide\s+environmental\s+(?:impact\s+statement|assessment)\b',
+    r'\b(?:sweis|swea)\b',
+    r'\b(?:\d{4}\s+)?integrated\s+resource\s+plan\b',
+    r'\brevision\s+of\s+the\b[\s\S]{0,160}\bland\s+and\s+resource\s+management\s+plan\b',
+    r'\b(?:final|proposed)\b[\s\S]{0,120}\bland\s+and\s+resource\s+management\s+plan\b',
+    r'\bintegrated\s+vegetation\s+management\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b',
+    r'\bsystem-wide\s+operations\s+and\s+maintenance\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b',
+    r'\buranium\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b',
+    r'\bouter\s+continental\s+shelf\s+oil\s+and\s+gas\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b',
+    r'\bsolar\s+energy\s+development\s+in\s+six\s+southwestern\s+states\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b',
+    r'\bwind\s+energy\s+development\s+on\s+bureau\s+of\s+land\s+management-administered\s+lands\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b',
+    r'\b(?:updates?\s+to\s+the\s+western\s+solar\s+plan|2023\s+draft\s+solar\s+peis)\b[\s\S]{0,160}\b(?:solar\s+peis|programmatic\s+environmental\s+impact\s+statement)\b|\b2023\s+draft\s+solar\s+peis\b',
+    r'\bdesignation\s+of\s+energy\s+corridors\s+on\s+federal\s+land\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b',
+    r'\bsection\s+368\s+energy\s+corridor\s+revisions\b[\s\S]{0,160}\b(?:resource\s+management\s+plan\s+amendment|environmental\s+impact\s+statement)\b',
+    r'\blong-term\s+experimental\s+and\s+management\s+plan\b[\s\S]{0,160}\benvironmental\s+impact\s+statement\b',
 ]
 PROGRAMMATIC_EXCLUSION_PATTERNS = [
     r'programmatic\s+agreement',
     r'programmatic\s+biological\s+opinion',
     r'programmatic\s+consultation',
     r'programmatic\s+collaboration',
+    r'cultural\s+resource\s+management\s+plan',
+]
+
+PROPERTY_TRANSACTION_EXCLUSION_PATTERNS = [
+    r'acquired\s+the\s+property\s+as\s+part\s+of[\s\S]{0,100}land\s+exchange',
+    r'completed\s+a\s+NEPA\s+review\s+of\s+the\s+land\s+exchange',
+    r'no\s+transfer\s+of\s+land\s+ownership',
+    r'only\s+change\s+would\s+be\s+in\s+ownership\s+of\s+assets',
+    r'land\s+exchanges?,\s+withdrawals?,\s+and\s+the\s+implementation\s+of\s+RMP',
+    r'disposals?\s+of\s+land\s+parcels',
+    r'land\s+exchanges?\s+could[\s\S]{0,120}(?:lower|allow|play\s+a\s+role|be\s+considered)',
+    r'land\s+exchanges?\s+are\s+considered\s+on\s+a\s+case-by-case\s+basis',
 ]
 
 # --- Tier 1b: Title / description keyword patterns ---
@@ -240,11 +308,41 @@ PROGRAMMATIC_EXCLUSION_PATTERNS = [
 TIER1B_PATTERNS = [
     # federal_program — most distinctive; check before land/permit patterns
     (r'programmatic\s+environmental\s+impact\s+statement', 'federal_program', 'peis', 'high'),
-    (r'resource\s+management\s+plan\b', 'federal_program', 'rmp', 'high'),
-    (r'leasing\s+(?:program|framework)\b', 'federal_program', 'leasing_prog', 'high'),
-    (r'corridor\s+designation\b', 'federal_program', 'corridor', 'high'),
+    (r'programmatic\s+environmental\s+assessment', 'federal_program', 'pea', 'high'),
+    (r'generic\s+(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'generic_review', 'high'),
+    (r'tier\s*(?:1|i|one)\s+(?:nepa\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'tier1_review', 'high'),
+    (r'(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\s+tier\s*(?:1|i|one)\b', 'federal_program', 'tier1_review_rev', 'high'),
+    (r'site[-\s]?wide\s+environmental\s+(?:impact\s+statement|assessment)\b', 'federal_program', 'sitewide_review', 'high'),
+    (r'\b(?:SWEIS|SWEA)\b', 'federal_program', 'sitewide_acronym', 'high'),
+    (r'(?:\d{4}\s+)?integrated\s+resource\s+plan\b[\s\S]{0,160}\b(?:programmatic\s+environmental\s+impact\s+statement|supplemental\s+environmental\s+impact\s+statement|draft\s+eis)\b', 'federal_program', 'integrated_resource_plan', 'high'),
+    (r'revision\s+of\s+the\b[\s\S]{0,160}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_program', 'lrm_plan_revision', 'high'),
+    (r'(?:final|proposed)\b[\s\S]{0,120}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_program', 'lrm_plan_title', 'medium'),
+    (r'integrated\s+vegetation\s+management\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b', 'federal_program', 'ivm_program_pea', 'high'),
+    (r'system-wide\s+operations\s+and\s+maintenance\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b', 'federal_program', 'systemwide_om_pea', 'high'),
+    (r'uranium\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b', 'federal_program', 'uranium_leasing_pea', 'high'),
+    (r'outer\s+continental\s+shelf\s+oil\s+and\s+gas\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_program', 'ocs_leasing_peis', 'high'),
+    (r'solar\s+energy\s+development\s+in\s+six\s+southwestern\s+states\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_program', 'solar_program_peis', 'high'),
+    (r'wind\s+energy\s+development\s+on\s+bureau\s+of\s+land\s+management-administered\s+lands\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_program', 'wind_program_peis', 'high'),
+    (r'(?:updates?\s+to\s+the\s+western\s+solar\s+plan\b[\s\S]{0,160}\b(?:solar\s+peis|programmatic\s+environmental\s+impact\s+statement)\b)|(?:2023\s+draft\s+solar\s+peis\b)', 'federal_program', 'western_solar_peis', 'high'),
+    (r'designation\s+of\s+energy\s+corridors\s+on\s+federal\s+land\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_program', 'energy_corridors_peis', 'high'),
+    (r'section\s+368\s+energy\s+corridor\s+revisions\b[\s\S]{0,160}\b(?:resource\s+management\s+plan\s+amendment|environmental\s+impact\s+statement)\b', 'federal_program', 'section368_corridor', 'high'),
+    (r'long-term\s+experimental\s+and\s+management\s+plan\b[\s\S]{0,160}\benvironmental\s+impact\s+statement\b', 'federal_program', 'ltemp_eis', 'high'),
     # federal_property_transaction
     (r'land\s+exchange\b', 'federal_property_transaction', 'land_exchange', 'high'),
+    (r'fee[-\s]for[-\s]fee\s+land\s+exchange\b', 'federal_property_transaction', 'fee_land_exchange', 'high'),
+    (r'exchange\s+property\s+with\b', 'federal_property_transaction', 'exchange_property', 'high'),
+    (r'dispose\s+of\s+(?:the\s+)?(?:underlying\s+)?land\s+rights\b', 'federal_property_transaction', 'dispose_land_rights', 'high'),
+    (r'land\s+disposal\b', 'federal_property_transaction', 'land_disposal', 'high'),
+    (r'sale\s+of\s+land\s+rights\b', 'federal_property_transaction', 'sale_land_rights', 'high'),
+    (r'sell\s+in\s+fee\b', 'federal_property_transaction', 'sell_in_fee', 'high'),
+    (r'acquire\s+and\s+release\s+access\s+road\s+rights\b', 'federal_property_transaction', 'access_rights_exchange', 'high'),
+    (r'acquire\s+several\s+road\s+easements\b', 'federal_property_transaction', 'road_easement_acquisition', 'high'),
+    (r'acquire\s+land\s+rights\b', 'federal_property_transaction', 'land_rights_acquisition', 'high'),
+    (r'acquire\s+access\s+road\s+rights\b', 'federal_property_transaction', 'access_rights_acquisition', 'high'),
+    (r'purchase\s+(?:two\s+lots?|lots?)\s+and\s+(?:line\s+)?easements\b', 'federal_property_transaction', 'land_purchase_easement', 'high'),
+    (r'transfer\s+ownership\b[\s\S]{0,160}\b(?:associated\s+easements?|easements?|rights?-of-way|land\s+rights)\b', 'federal_property_transaction', 'transfer_easements', 'high'),
+    (r'title\s+transfer\b[\s\S]{0,160}\b(?:easements?|rights?-of-way|land\s+rights)\b', 'federal_property_transaction', 'title_transfer', 'high'),
+    (r'asset\s+exchange\b[\s\S]{0,160}\b(?:rights?-of-way|line\s+easements?|easements?)\b', 'federal_property_transaction', 'asset_exchange_easements', 'medium'),
     (r'(?:disposal|conveyance)\s+of\s+federal\s+(?:land|property)', 'federal_property_transaction', 'disposal', 'high'),
     (r'parcel\s+transfer\b', 'federal_property_transaction', 'parcel_xfer', 'medium'),
     # federal_permit
@@ -311,8 +409,16 @@ TIER1B_PATTERNS = [
     (r'(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b', 'federal_funding', 'alrd_formula', 'medium'),
     (r'(?:DOE|DOT|HUD|USDA)\s+(?:grant|funding)\b', 'federal_funding', 'agency_grant', 'high'),
     (r'federal\s+(?:financial\s+assistance|grant\b)', 'federal_funding', 'fed_grant', 'medium'),
-    # federal_action — agency as actor (more generic; checked last among high-priority classes)
-    (r'(?:Forest\s+Service|BLM|USFS|Bureau\s+of\s+Reclamation)\s+(?:proposes\s+to|will)\s+(?:construct|install|implement|manage|restore)', 'federal_action', 'agency_actor', 'high'),
+    # federal_action — agency as actor (checked last among high-priority classes)
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b', 'federal_action', 'agency_actor_direct', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b', 'federal_action', 'agency_remove_replace', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,120}}\bconstruct,\s*own,\s*operate,\s*and\s+maintain\b', 'federal_action', 'construct_own_operate_maintain', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\b(?:constructed\s+and\s+operated|would\s+be\s+constructed\s+and\s+operated)\b', 'federal_action', 'constructed_operated', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bcontinue\s+to\s+occupy\s+and\s+maintain\s+existing\s+facilities\b[\s\S]{{0,180}}\brefurbish\s+existing\s+facilities\b', 'federal_action', 'occupy_maintain_refurbish', 'high'),
+    (FEDERAL_ACTION_STEP_OWNERSHIP_PATTERN, 'federal_action', 'ownership_transition_site_operation', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bwould\s+functionally\s+replace\b', 'federal_action', 'functional_replace', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,520}}\brebuild\s+the\s+existing\b', 'federal_action', 'rebuild_existing_facility', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,200}}\b(?:upgrade|rebuild)\b[\s\S]{{0,160}}\bby\s+removing\b[\s\S]{{0,160}}\band\s+installing\b', 'federal_action', 'upgrade_remove_install', 'high'),
     (r'military\s+(?:installation|base|facility)\b', 'federal_action', 'military', 'high'),
     (r'federal\s+facility\s+(?:upgrade|expansion|construction)\b', 'federal_action', 'fed_facility', 'high'),
     (r'vegetation\s+management\b.{0,50}National\s+Forest', 'federal_action', 'usfs_veg_mgmt', 'high'),
@@ -323,7 +429,22 @@ TIER1B_PATTERNS = [
 # Programmatic detection uses PROGRAMMATIC_TITLE_PATTERNS + exclusion check (handled separately).
 
 DOC_TITLE_PATTERNS = [
+    (r'generic\s+(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'generic_review'),
+    (r'tier\s*(?:1|i|one)\s+(?:nepa\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'tier1_review'),
+    (r'(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\s+tier\s*(?:1|i|one)\b', 'federal_program', 'tier1_review_rev'),
+    (r'site[-\s]?wide\s+environmental\s+(?:impact\s+statement|assessment)\b', 'federal_program', 'sitewide_review'),
+    (r'\b(?:SWEIS|SWEA)\b', 'federal_program', 'sitewide_acronym'),
+    (r'(?:\d{4}\s+)?integrated\s+resource\s+plan\b', 'federal_program', 'integrated_resource_plan'),
+    (r'revision\s+of\s+the\b[\s\S]{0,160}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_program', 'lrm_plan_revision'),
+    (r'(?:final|proposed)\b[\s\S]{0,120}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_program', 'lrm_plan_title'),
     (r'land\s+exchange', 'federal_property_transaction', 'land_exchange'),
+    (r'land\s+disposal\b', 'federal_property_transaction', 'land_disposal'),
+    (r'sale\s+of\s+land\s+rights\b', 'federal_property_transaction', 'sale_land_rights'),
+    (r'land\s+purchase\s+and\s+easement\s+acquisition\b', 'federal_property_transaction', 'land_purchase_easement'),
+    (r'land\s+rights\s+acquisition\b', 'federal_property_transaction', 'land_rights_acquisition'),
+    (r'easement\s+exchange\b', 'federal_property_transaction', 'easement_exchange'),
+    (r'title\s+transfer\b', 'federal_property_transaction', 'title_transfer'),
+    (r'(?:transmission\s+line|substation).{0,40}property\s+transfer\b', 'federal_property_transaction', 'property_transfer'),
     (r'right.of.way\b', 'federal_land', 'row'),
     (r'(?:Standard\s+)?Individual\s+Permit\s+Application\b', 'federal_permit', 'permit_app'),
     (r'Hydropower\s+License\b', 'federal_permit', 'ferc_license'),
@@ -364,10 +485,17 @@ TIER4_CUE_PATTERNS = {
         r"(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
     ],
     "federal_action": [
-        r"\b(?:the\s+)?(?:agency|department|bureau|forest\s+service|western|bonneville)\s+(?:proposes?\s+to|will)\s+(?:construct|install|build|operate|implement|restore|upgrade|develop|expand|demolish)\b",
-        r"\b(?:proposes?\s+to|will)\s+(?:construct|install|build|operate|implement|restore|upgrade|develop|expand|demolish)\b",
+        rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b",
+        rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b",
+        rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,120}}\bconstruct,\s*own,\s*operate,\s*and\s+maintain\b",
+        rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\b(?:constructed\s+and\s+operated|would\s+be\s+constructed\s+and\s+operated)\b",
+        rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bcontinue\s+to\s+occupy\s+and\s+maintain\s+existing\s+facilities\b[\s\S]{{0,180}}\brefurbish\s+existing\s+facilities\b",
+        FEDERAL_ACTION_STEP_OWNERSHIP_PATTERN,
+        rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bwould\s+functionally\s+replace\b",
+        rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,520}}\brebuild\s+the\s+existing\b",
+        rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,200}}\b(?:upgrade|rebuild)\b[\s\S]{{0,160}}\bby\s+removing\b[\s\S]{{0,160}}\band\s+installing\b",
         r"\bfederal\s+facility\b",
-        r"\bproject\s+sponsor\b",
+        r"\bmilitary\s+(?:installation|base|facility)\b",
     ],
     "federal_land": [
         r"\bapplication\s+for\s+a\s+right[-\s]of[-\s]way\s+grant\b",
@@ -419,30 +547,53 @@ TIER4_CUE_PATTERNS = {
         r"\b(?:NRC|FERC)\b[\s\S]{0,80}\blicense\s+amendment\b|\blicense\s+amendment\b[\s\S]{0,80}(?:NRC|FERC|10\s+CFR\s+50\.90|FERC\s+order)\b",
     ],
     "federal_program": [
-        r"\bprogrammatic\b",
-        r"\bPEIS\b",
         r"\bprogrammatic\s+environmental\s+(?:impact\s+statement|assessment)\b",
-        r"\bresource\s+management\s+plan\s+(?:amendment|revision)\b",
-        r"\bleasing\s+(?:program|framework)\b",
-        r"\bpolicy\s+framework\b",
-        r"\brulemaking\b",
+        r"\bprogrammatic\s+(?:EIS|EA)\b",
+        r"\b(?:DPEIS|FPEIS|SPEIS|PEIS|PEA)\b",
+        r"\bthis\s+programmatic\s+(?:EIS|EA|environmental)\b",
+        r"\bthis\s+GEIS\b",
+        r"\bgeneric\s+(?:environmental\s+(?:impact\s+statement|assessment)|EIS|EA)\b",
+        r"\btier\s*(?:1|I|one)\s+(?:NEPA\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|EIS|EA)\b",
+        r"\b(?:environmental\s+(?:impact\s+statement|assessment)|EIS|EA)\s+tier\s*(?:1|I|one)\b",
+        r"\bsite[-\s]?wide\s+environmental\s+(?:impact\s+statement|assessment)\b",
+        r"\b(?:SWEIS|SWEA)\b",
+        r"\b(?:\d{4}\s+)?Integrated\s+Resource\s+Plan\b[\s\S]{0,160}\b(?:Programmatic\s+Environmental\s+Impact\s+Statement|Supplemental\s+Environmental\s+Impact\s+Statement|Draft\s+EIS)\b",
+        r"\bRevision\s+of\s+the\b[\s\S]{0,160}\bLand\s+and\s+Resource\s+Management\s+Plan\b",
+        r"\b(?:Final|Proposed)\b[\s\S]{0,120}\bLand\s+and\s+Resource\s+Management\s+Plan\b",
+        r"\bIntegrated\s+Vegetation\s+Management\s+Program\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Assessment\b|\bProgrammatic\s+Environmental\s+Assessment\b[\s\S]{0,160}\bIntegrated\s+Vegetation\s+Management\s+Program\b",
+        r"\bSystem-wide\s+Operations\s+and\s+Maintenance\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Assessment\b|\bProgrammatic\s+Environmental\s+Assessment\b[\s\S]{0,160}\bSystem-wide\s+Operations\s+and\s+Maintenance\b",
+        r"\bUranium\s+Leasing\s+Program\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Assessment\b|\bProgrammatic\s+Environmental\s+Assessment\b[\s\S]{0,160}\bUranium\s+Leasing\s+Program\b",
+        r"\bOuter\s+Continental\s+Shelf\s+Oil\s+and\s+Gas\s+Leasing\s+Program\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b|\bProgrammatic\s+Environmental\s+Impact\s+Statement\b[\s\S]{0,160}\bOuter\s+Continental\s+Shelf\s+Oil\s+and\s+Gas\s+Leasing\s+Program\b",
+        r"\bSolar\s+Energy\s+Development\s+in\s+Six\s+Southwestern\s+States\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b|\bProgrammatic\s+Environmental\s+Impact\s+Statement\b[\s\S]{0,160}\bSolar\s+Energy\s+Development\s+in\s+Six\s+Southwestern\s+States\b",
+        r"\bWind\s+Energy\s+Development\s+on\s+Bureau\s+of\s+Land\s+Management-Administered\s+Lands\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b|\bProgrammatic\s+Environmental\s+Impact\s+Statement\b[\s\S]{0,160}\bWind\s+Energy\s+Development\s+on\s+Bureau\s+of\s+Land\s+Management-Administered\s+Lands\b",
+        r"\b(?:Updates?\s+to\s+the\s+Western\s+Solar\s+Plan\b[\s\S]{0,160}\b(?:Solar\s+PEIS|Programmatic\s+Environmental\s+Impact\s+Statement)\b)|(?:2023\s+Draft\s+Solar\s+PEIS\b)",
+        r"\bDesignation\s+of\s+Energy\s+Corridors\s+on\s+Federal\s+Land\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b|\bProgrammatic\s+Environmental\s+Impact\s+Statement\b[\s\S]{0,160}\bDesignation\s+of\s+Energy\s+Corridors\s+on\s+Federal\s+Land\b",
+        r"\bSection\s+368\s+Energy\s+Corridor\s+Revisions\b[\s\S]{0,160}\b(?:Resource\s+Management\s+Plan\s+Amendment|Environmental\s+Impact\s+Statement)\b",
+        r"\bLong-Term\s+Experimental\s+and\s+Management\s+Plan\b[\s\S]{0,160}\bEnvironmental\s+Impact\s+Statement\b",
     ],
     "federal_property_transaction": [
         r"\bland\s+exchange\b",
+        r"\bfee[-\s]for[-\s]fee\s+land\s+exchange\b",
+        r"\bexchange\s+property\s+with\b",
+        r"\bdispose\s+of\s+(?:the\s+)?(?:underlying\s+)?land\s+rights\b|\bland\s+disposal\b",
+        r"\bsale\s+of\s+land\s+rights\b|\bsell\s+in\s+fee\b",
+        r"\bacquire\s+and\s+release\s+access\s+road\s+rights\b",
+        r"\bacquire\s+(?:several\s+road\s+easements|access\s+road\s+rights|land\s+rights)\b",
+        r"\bpurchase\s+(?:two\s+lots?|lots?)\s+and\s+(?:line\s+)?easements\b",
+        r"\btransfer\s+ownership\b[\s\S]{0,140}\b(?:associated\s+easements?|easements?|rights?-of-way|land\s+rights)\b",
+        r"\btitle\s+transfer\b[\s\S]{0,140}\b(?:easements?|rights?-of-way|land\s+rights)\b",
+        r"\basset\s+exchange\b[\s\S]{0,140}\b(?:rights?-of-way|line\s+easements?|easements?)\b",
         r"\bconveyance\b",
-        r"\bdisposal\b",
-        r"\bproperty\s+transfer\b",
-        r"\bacquisition\s+of\s+(?:interests\s+in\s+)?(?:real\s+property|land)\b",
     ],
 }
 
 HYPOTHESIS_TEMPLATES = {
     "federal_funding": "This text shows that a federal agency is funding, financing, or providing financial assistance, a grant, or a loan guarantee for this project.",
-    "federal_action": "This text shows that a federal agency is directly implementing, constructing, installing, operating, or restoring this project.",
+    "federal_action": "This text shows that a federal agency is directly implementing, constructing, replacing, upgrading, relocating, renovating, or otherwise carrying out this project or facility action.",
     "federal_land": "This text shows that the project is located on or crosses federal land, or requires a right-of-way, easement, special use permit, or similar land-use authorization on federally managed land.",
     "federal_permit": "This text shows that a federal permit, license, or authorization is required for this project.",
-    "federal_program": "This text shows that this is a programmatic environmental review, a resource management plan revision, or a land use plan covering a class of actions.",
-    "federal_property_transaction": "This text shows that this involves a federal land exchange, conveyance, or disposal.",
+    "federal_program": "This text shows that this is a programmatic, generic, tier 1, or site-wide environmental review, or a broader federal planning or program document such as an integrated resource plan, leasing program, corridor designation, or land and resource management plan revision.",
+    "federal_property_transaction": "This text shows that this involves a federal land exchange, sale, disposal, transfer, or acquisition of land, land rights, easements, or other real-property interests.",
 }
 
 # Calibration thresholds (--calibrate mode)
@@ -513,6 +664,16 @@ CALIBRATION_EXAMPLES: list[tuple[str, str | None, str]] = [
      "and Integrated Vegetation Management Program"),
     ("federal_program / Draft PEIS title", "federal_program",
      "Upper Great Plains Wind Energy Draft Programmatic Environmental Impact Statement"),
+    ("federal_program / generic EIS title", "federal_program",
+     "Final Generic Environmental Impact Statement for License Renewal of Nuclear Plants"),
+    ("federal_program / tier 1 EIS title", "federal_program",
+     "Draft Tier 1 Environmental Impact Statement"),
+    ("federal_program / site-wide EIS title", "federal_program",
+     "Final Site-Wide Environmental Impact Statement for the Y-12 National Security Complex"),
+    ("federal_program / integrated resource plan PEIS", "federal_program",
+     "2025 Integrated Resource Plan and Programmatic Environmental Impact Statement"),
+    ("federal_program / energy corridors PEIS title", "federal_program",
+     "Final Programmatic Environmental Impact Statement, Designation of Energy Corridors on Federal Land in the 11 Western States"),
     ("federal_property_transaction / land exchange in title", "federal_property_transaction",
      "Falls Creek Hydroelectric Project and Land Exchange"),
     ("federal_property_transaction / DOE multi-party land exchange", "federal_property_transaction",
@@ -605,13 +766,19 @@ CLASS_PROTOTYPES = {
     "federal_action": [
         "The Forest Service proposes to implement vegetation management on National Forest land.",
         "The Bureau of Land Management will construct a new facility at the site.",
-        "This federal action consists of upgrading an existing federal facility.",
-        "The agency proposes to build and operate a new transmission substation on federal property.",
+        "This federal action consists of upgrading and replacing infrastructure at an existing federal facility.",
+        "Bonneville Power Administration proposes to replace and upgrade the existing radio antennas at its substations.",
+        "Bonneville Power Administration proposes to relocate laboratories and renovate an existing garage at the Ross Complex.",
+        "WAPA would construct, own, operate, and maintain an interconnection switchyard in the project area.",
+        "DOE proposes to develop, construct, and operate a new facility on federal property.",
     ],
     "federal_program": [
-        "This programmatic environmental impact statement evaluates a regional leasing framework.",
-        "The Bureau of Land Management is revising its resource management plan.",
-        "This PEIS addresses program-wide impacts of a wind energy leasing program.",
+        "Programmatic Environmental Assessment for System-wide Operations and Maintenance Activities and Integrated Vegetation Management Program.",
+        "Final Generic Environmental Impact Statement for License Renewal of Nuclear Plants.",
+        "Draft Tier 1 Environmental Impact Statement.",
+        "Final Site-Wide Environmental Impact Statement for the Y-12 National Security Complex.",
+        "2025 Integrated Resource Plan and Programmatic Environmental Impact Statement.",
+        "Final Programmatic Environmental Impact Statement, Designation of Energy Corridors on Federal Land in the 11 Western States.",
     ],
     "federal_land": [
         "The USFS purpose and need is to determine whether to issue a special use permit for the proposed transmission lines upgrade and rebuild.",
@@ -633,8 +800,10 @@ CLASS_PROTOTYPES = {
     ],
     "federal_property_transaction": [
         "The proposed action consists of a land exchange between the federal government and a private party.",
-        "The Bureau of Land Management proposes to convey this federal parcel to the state.",
-        "This action involves the disposal of surplus federal land.",
+        "BPA proposes to dispose of the underlying land rights beneath an existing substation.",
+        "BPA proposes to acquire and release access road rights to ensure permanent legal access to transmission facilities.",
+        "BPA proposes to sell its substation, including land rights, to the city.",
+        "The agency proposes to transfer ownership of the transmission line and associated easements to the local utility.",
     ],
 }
 
@@ -651,7 +820,7 @@ Return unknown if the evidence is insufficient.
 Classes:
 - federal_action: federal agency is the primary actor constructing or implementing the project
 - federal_program: programmatic EIS, land-use plan, rulemaking, or leasing framework
-- federal_property_transaction: land exchange, disposal, or conveyance
+- federal_property_transaction: land exchange, sale, disposal, transfer, or acquisition of land, land rights, easements, or other real-property interests
 - federal_land: project on or crossing federal land; ROW grant or special use permit tied to land access
 - federal_permit: federal permit, license, or authorization is the primary nexus
 - federal_funding: federal grant, loan guarantee, or financial assistance
@@ -696,6 +865,7 @@ _NEGATION_PATTERNS = [
     r'\b(?:permit|authorization)\s+(?:is\s+)?not\s+required\b',
     r'\bnot\s+funded\s+(?:by|through|under)\b',
     r'\bdoes\s+not\s+(?:involve|include|require|apply)\b',
+    r'\bno\s+transfer\s+of\s+land\s+ownership\b',
 ]
 
 # --------------------------
@@ -752,6 +922,13 @@ def _is_programmatic_strong(text: str) -> bool:
 
 def _is_programmatic_title(text: str) -> bool:
     for pat in PROGRAMMATIC_TITLE_PATTERNS:
+        if re.search(pat, text, re.IGNORECASE):
+            return True
+    return False
+
+
+def _is_property_transaction_exclusion(text: str) -> bool:
+    for pat in PROPERTY_TRANSACTION_EXCLUSION_PATTERNS:
         if re.search(pat, text, re.IGNORECASE):
             return True
     return False
@@ -896,6 +1073,8 @@ def _apply_pattern_list(
         if trigger_class == "federal_program" and _is_programmatic_exclusion(text):
             continue
         evidence = extract_sentence(text, m)
+        if trigger_class == "federal_property_transaction" and _is_property_transaction_exclusion(evidence):
+            continue
         if any(re.search(np, evidence, re.IGNORECASE) for np in _NEGATION_PATTERNS):
             continue
         return make_result(
@@ -919,6 +1098,10 @@ def _project_metadata_priors(project_row: pd.Series) -> list[str]:
         priors.extend(["federal_funding", "federal_action"])
     elif _agency_matches(agency, frozenset({"USACE", "Army Corps of Engineers"})):
         priors.extend(["federal_permit", "federal_land"])
+    elif _agency_matches(agency, AGENCY_ACTION_PRIOR_MAP):
+        priors.extend(["federal_action", "federal_land"])
+    elif _agency_matches(agency, AGENCY_ACTION_ONLY_PRIOR_MAP):
+        priors.append("federal_action")
     elif _agency_matches(agency, AGENCY_LAND_MAP):
         priors.extend(["federal_land", "federal_action", "federal_program"])
     elif _agency_matches(agency, AGENCY_PERMIT_MAP):
@@ -1151,6 +1334,8 @@ def score_chunk_cues(
             if not match:
                 continue
             evidence = extract_sentence(chunk_text, match)
+            if cls == "federal_property_transaction" and _is_property_transaction_exclusion(evidence):
+                continue
             if any(re.search(np, evidence, re.IGNORECASE) for np in _NEGATION_PATTERNS):
                 continue
             raw_scores[cls] += 0.18
@@ -1419,6 +1604,10 @@ def get_candidate_classes(
         candidates.extend(["federal_funding", "federal_action"])
     elif _agency_matches(agency, frozenset({"USACE", "Army Corps of Engineers"})):
         candidates.extend(["federal_permit", "federal_land"])
+    elif _agency_matches(agency, AGENCY_ACTION_PRIOR_MAP):
+        candidates.extend(["federal_action", "federal_land"])
+    elif _agency_matches(agency, AGENCY_ACTION_ONLY_PRIOR_MAP):
+        candidates.append("federal_action")
     elif _agency_matches(agency, AGENCY_LAND_MAP):
         candidates.extend(["federal_land", "federal_action", "federal_program"])
     elif _agency_matches(agency, AGENCY_PERMIT_MAP):
@@ -1761,7 +1950,7 @@ def tier2_doc_title(
             pid = row["project_id"]
             if pid in results:
                 continue
-            title = str(row.get("document_title") or "")
+            title = str(row.get("document_title") or row.get("file_name") or "")
             if not title.strip():
                 continue
 
