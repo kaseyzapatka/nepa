@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>timeline – NEPA</title>
+<title>deliverable02 – NEPA</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -3967,190 +3967,462 @@ vertical-align: -.125em;
 
 
 
-<section id="timeline-extraction" class="level1">
-<h1>Timeline Extraction</h1>
-<p><strong>Purpose:</strong> Extract initiation and decision dates for NEPA reviews using a BERT classifier with optional LLM adjudication. <strong>Input:</strong> <code>data/analysis/projects_combined.parquet</code> + regex candidate cache. <strong>Output:</strong> <code>data/analysis/timeline_{ce,ea,eis}.parquet</code>, <code>timeline_{ea,eis}_llm.parquet</code>, <code>timeline_targeted_llm.parquet</code> <strong>Cost:</strong> LLM adjudication ~$0.60–$1.00 (Claude Haiku) for EA + EIS full runs. Targeted re-adjudication ~$0.44. <strong>Prerequisites:</strong> Base dataset built (<a href="../runbooks/01_base_dataset.md">runbook 01</a>).</p>
-<blockquote class="blockquote">
-<p><strong>Note on prior organization:</strong> The targeted re-adjudication for programmatic/tiered projects was previously documented as a standalone “Deliverable 02” section in the README. It is step 7 in the full rebuild below because it operates on timeline outputs — it is a timeline operation, not a reviews operation. Reviews (<a href="../runbooks/03_reviews.md">runbook 03</a>) must still run before step 7.</p>
-</blockquote>
+<section id="d2-significant-impact-factors-implementation-plan" class="level1">
+<h1>D2: Significant Impact Factors — Implementation Plan</h1>
+<p><strong>Delete this file after <code>deliverable02/</code> scripts are implemented.</strong></p>
+<p>Architecture reference: <code>phase2/architecture/deliverable02.md</code> Starting point: <code>phase2/code/deliverable02/significance_sketch.py</code> (page co-occurrence POC — superseded by dep-parse approach here)</p>
 <hr>
-<section id="file-naming-convention" class="level2">
-<h2 class="anchored" data-anchor-id="file-naming-convention">File naming convention</h2>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Stage</th>
-<th>CE</th>
-<th>EA</th>
-<th>EIS</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Regex cache</td>
-<td><code>timeline_regex_ce.parquet</code></td>
-<td><code>timeline_regex_ea.parquet</code></td>
-<td><code>timeline_regex_eis.parquet</code></td>
-</tr>
-<tr class="even">
-<td>BERT training data</td>
-<td><code>bert_traindata.parquet</code></td>
-<td>← same file</td>
-<td>← same file</td>
-</tr>
-<tr class="odd">
-<td>Sample test (post-train)</td>
-<td><code>timeline_ce_sample{N}.parquet</code></td>
-<td><code>timeline_ea_sample{N}.parquet</code></td>
-<td><code>timeline_eis_sample{N}.parquet</code></td>
-</tr>
-<tr class="even">
-<td>Full BERT run</td>
-<td><code>timeline_ce.parquet</code></td>
-<td><code>timeline_ea.parquet</code></td>
-<td><code>timeline_eis.parquet</code></td>
-</tr>
-<tr class="odd">
-<td>Post LLM adjudication</td>
-<td><em>(none)</em></td>
-<td><code>timeline_ea_llm.parquet</code></td>
-<td><code>timeline_eis_llm.parquet</code></td>
-</tr>
-</tbody>
-</table>
-<p>Append <code>_v{N}</code> to sample files when iterating through multiple training rounds (e.g. <code>timeline_ce_sample20_v2.parquet</code>). Full run files are overwritten each time.</p>
+<section id="scripts-to-build" class="level2">
+<h2 class="anchored" data-anchor-id="scripts-to-build">Scripts to Build</h2>
+<ol type="1">
+<li><code>phase2/code/deliverable02/01_extract_significance.py</code></li>
+<li><code>phase2/code/deliverable02/02_analyze_significance.R</code></li>
+</ol>
 <hr>
 </section>
-<section id="full-rebuild-patterns-or-models-changed" class="level2">
-<h2 class="anchored" data-anchor-id="full-rebuild-patterns-or-models-changed">Full rebuild (patterns or models changed)</h2>
-<p>Use when regex patterns or training logic have changed and classifiers need retraining from scratch.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1 — Rebuild regex candidate cache for all sources</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> CE</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EA</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/timeline_regex_{ce,ea,eis}.parquet</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2 — Rebuild BERT training data</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/bert_traindata.parquet</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3 — Retrain classifiers</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EA</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 4 — Smoke test on 20 projects before committing to full run</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20.parquet</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5 — Full BERT inference</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 6 — LLM adjudication for EA and EIS (not needed for CE at scale)</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">ANTHROPIC_API_KEY</span><span class="op">=</span><span class="st">&#39;sk-ant-...&#39;</span></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 7 — Targeted re-adjudication for programmatic/tiered projects</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Run after step 6 AND after reviews extraction (runbook 03) is complete.</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Auto-selects ~73 programmatic/tiered projects with missing initiation or decision dates.</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="dt">\</span></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea_llm.parquet,data/analysis/timeline_eis_llm.parquet <span class="dt">\</span></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">--nonstandard-incomplete</span> <span class="dt">\</span></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">--max-candidates</span> 125 <span class="dt">\</span></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">--context-chars</span> 400 <span class="dt">\</span></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">--promote-rod-language</span> <span class="dt">\</span></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">--year-window</span> 15 <span class="dt">\</span></span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_targeted_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Step 7 flag notes:</strong> - <code>--nonstandard-incomplete</code> — filters to programmatic/tiered projects with missing dates; no manual ID file needed. - <code>--max-candidates 125</code> — raises cap from 30 (EIS default) to 125 for large programmatic EISs. - <code>--promote-rod-language</code> — promotes ROD/FONSI dates to Tier A even if BERT mislabeled them. - <code>--year-window 15</code> — drops candidates &gt;15 years before the latest found date, removing NEPA citation noise. - Targeted output is ~73 rows. Full timeline files are not modified. Patched automatically by <code>00_setup.R</code>.</p>
+<section id="extract_significance.py-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="extract_significance.py-full-specification"><code>01_extract_significance.py</code> — Full Specification</h2>
+<section id="environment-check" class="level3">
+<h3 class="anchored" data-anchor-id="environment-check">Environment check</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> os.environ.get(<span class="st">&quot;CONDA_DEFAULT_ENV&quot;</span>) <span class="op">!=</span> <span class="st">&quot;nepa&quot;</span>:</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">SystemExit</span>(<span class="st">&quot;Please run in conda env &#39;nepa&#39;.&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="imports" class="level3">
+<h3 class="anchored" data-anchor-id="imports">Imports</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> sys</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> duckdb</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> spacy</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> datetime <span class="im">import</span> datetime, timezone</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Optional</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Add extract/ to path for _build_section_label_map reuse</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>sys.path.insert(<span class="dv">0</span>, <span class="bu">str</span>(Path(<span class="va">__file__</span>).parents[<span class="dv">2</span>] <span class="op">/</span> <span class="st">&quot;extract&quot;</span>))</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> extract_timeline <span class="im">import</span> _build_section_label_map, SECTION_PATTERNS</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="constants" class="level3">
+<h3 class="anchored" data-anchor-id="constants">Constants</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>DATA_DIR <span class="op">=</span> Path(<span class="st">&quot;data&quot;</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>ANALYSIS_DIR <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;analysis&quot;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>OUTPUT_DIR <span class="op">=</span> ANALYSIS_DIR <span class="op">/</span> <span class="st">&quot;significance&quot;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>OUTPUT_DIR.mkdir(parents<span class="op">=</span><span class="va">True</span>, exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>EA_PAGES_PATH <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;ea&quot;</span> <span class="op">/</span> <span class="st">&quot;pages.parquet&quot;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>EIS_PAGES_PATH <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;eis&quot;</span> <span class="op">/</span> <span class="st">&quot;pages.parquet&quot;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>PROJECTS_PATH <span class="op">=</span> ANALYSIS_DIR <span class="op">/</span> <span class="st">&quot;projects_combined.parquet&quot;</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Resource area classification (expand keyword sets as needed)</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>RESOURCE_AREAS <span class="op">=</span> {</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;air_quality&quot;</span>: [</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;air quality&quot;</span>, <span class="st">&quot;air pollution&quot;</span>, <span class="st">&quot;criteria pollutant&quot;</span>, <span class="st">&quot;naaqs&quot;</span>,</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;particulate matter&quot;</span>, <span class="st">&quot;pm2.5&quot;</span>, <span class="st">&quot;pm10&quot;</span>, <span class="st">&quot;ozone&quot;</span>, <span class="st">&quot;nox&quot;</span>, <span class="st">&quot;voc&quot;</span>,</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;greenhouse gas&quot;</span>, <span class="st">&quot;ghg&quot;</span>,  <span class="co"># also in climate_ghg but often in air sections</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;water&quot;</span>: [</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;water quality&quot;</span>, <span class="st">&quot;groundwater&quot;</span>, <span class="st">&quot;surface water&quot;</span>, <span class="st">&quot;wetland&quot;</span>, <span class="st">&quot;floodplain&quot;</span>,</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;stormwater&quot;</span>, <span class="st">&quot;runoff&quot;</span>, <span class="st">&quot;aquifer&quot;</span>, <span class="st">&quot;stream&quot;</span>, <span class="st">&quot;creek&quot;</span>, <span class="st">&quot;river&quot;</span>,</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;section 404&quot;</span>, <span class="st">&quot;section 401&quot;</span>,</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;biological&quot;</span>: [</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;biological&quot;</span>, <span class="st">&quot;wildlife&quot;</span>, <span class="st">&quot;species&quot;</span>, <span class="st">&quot;habitat&quot;</span>, <span class="st">&quot;vegetation&quot;</span>,</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;threatened&quot;</span>, <span class="st">&quot;endangered&quot;</span>, <span class="st">&quot;esa&quot;</span>, <span class="st">&quot;migratory bird&quot;</span>, <span class="st">&quot;raptor&quot;</span>,</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;bat&quot;</span>, <span class="st">&quot;fish&quot;</span>, <span class="st">&quot;amphibian&quot;</span>,</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;cultural&quot;</span>: [</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;cultural&quot;</span>, <span class="st">&quot;historic&quot;</span>, <span class="st">&quot;archaeological&quot;</span>, <span class="st">&quot;tribal&quot;</span>, <span class="st">&quot;section 106&quot;</span>,</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;nhpa&quot;</span>, <span class="st">&quot;traditional cultural&quot;</span>, <span class="st">&quot;sacred&quot;</span>, <span class="st">&quot;paleontological&quot;</span>,</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;visual&quot;</span>: [</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;visual&quot;</span>, <span class="st">&quot;viewshed&quot;</span>, <span class="st">&quot;aesthetics&quot;</span>, <span class="st">&quot;scenic&quot;</span>, <span class="st">&quot;landscape character&quot;</span>,</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;visual resources&quot;</span>, <span class="st">&quot;visual contrast&quot;</span>,</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;noise&quot;</span>: [</span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;noise&quot;</span>, <span class="st">&quot;vibration&quot;</span>, <span class="st">&quot;decibel&quot;</span>, <span class="st">&quot;dba&quot;</span>, <span class="st">&quot;sound level&quot;</span>,</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;construction noise&quot;</span>, <span class="st">&quot;operational noise&quot;</span>,</span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;soils_geology&quot;</span>: [</span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;soil&quot;</span>, <span class="st">&quot;geology&quot;</span>, <span class="st">&quot;geologic&quot;</span>, <span class="st">&quot;erosion&quot;</span>, <span class="st">&quot;compaction&quot;</span>,</span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;landslide&quot;</span>, <span class="st">&quot;seismic&quot;</span>, <span class="st">&quot;subsidence&quot;</span>, <span class="st">&quot;prime farmland&quot;</span>,</span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-43"><a href="#cb3-43" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;socioeconomic&quot;</span>: [</span>
+<span id="cb3-44"><a href="#cb3-44" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;socioeconomic&quot;</span>, <span class="st">&quot;employment&quot;</span>, <span class="st">&quot;jobs&quot;</span>, <span class="st">&quot;economy&quot;</span>, <span class="st">&quot;income&quot;</span>,</span>
+<span id="cb3-45"><a href="#cb3-45" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;population&quot;</span>, <span class="st">&quot;community&quot;</span>, <span class="st">&quot;environmental justice&quot;</span>, <span class="st">&quot;ej&quot;</span>,</span>
+<span id="cb3-46"><a href="#cb3-46" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-47"><a href="#cb3-47" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;transportation&quot;</span>: [</span>
+<span id="cb3-48"><a href="#cb3-48" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;transportation&quot;</span>, <span class="st">&quot;traffic&quot;</span>, <span class="st">&quot;road&quot;</span>, <span class="st">&quot;highway&quot;</span>, <span class="st">&quot;access&quot;</span>,</span>
+<span id="cb3-49"><a href="#cb3-49" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;haul route&quot;</span>, <span class="st">&quot;vehicle trip&quot;</span>, <span class="st">&quot;level of service&quot;</span>,</span>
+<span id="cb3-50"><a href="#cb3-50" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-51"><a href="#cb3-51" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;land_use&quot;</span>: [</span>
+<span id="cb3-52"><a href="#cb3-52" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;land use&quot;</span>, <span class="st">&quot;zoning&quot;</span>, <span class="st">&quot;compatibility&quot;</span>, <span class="st">&quot;adjacent land&quot;</span>,</span>
+<span id="cb3-53"><a href="#cb3-53" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;general plan&quot;</span>, <span class="st">&quot;consistency&quot;</span>, <span class="st">&quot;right.of.way&quot;</span>,</span>
+<span id="cb3-54"><a href="#cb3-54" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-55"><a href="#cb3-55" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;climate_ghg&quot;</span>: [</span>
+<span id="cb3-56"><a href="#cb3-56" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;climate change&quot;</span>, <span class="st">&quot;greenhouse gas&quot;</span>, <span class="st">&quot;ghg&quot;</span>, <span class="st">&quot;carbon&quot;</span>, <span class="st">&quot;co2&quot;</span>,</span>
+<span id="cb3-57"><a href="#cb3-57" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;methane&quot;</span>, <span class="st">&quot;emissions&quot;</span>, <span class="st">&quot;global warming&quot;</span>,</span>
+<span id="cb3-58"><a href="#cb3-58" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-59"><a href="#cb3-59" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;public_health&quot;</span>: [</span>
+<span id="cb3-60"><a href="#cb3-60" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;public health&quot;</span>, <span class="st">&quot;human health&quot;</span>, <span class="st">&quot;hazardous material&quot;</span>, <span class="st">&quot;hazmat&quot;</span>,</span>
+<span id="cb3-61"><a href="#cb3-61" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;toxic&quot;</span>, <span class="st">&quot;contamination&quot;</span>, <span class="st">&quot;exposure&quot;</span>, <span class="st">&quot;risk assessment&quot;</span>,</span>
+<span id="cb3-62"><a href="#cb3-62" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-63"><a href="#cb3-63" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-64"><a href="#cb3-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-65"><a href="#cb3-65" aria-hidden="true" tabindex="-1"></a><span class="co"># Significance phrase patterns (from significance_sketch.py, expanded)</span></span>
+<span id="cb3-66"><a href="#cb3-66" aria-hidden="true" tabindex="-1"></a>SIGNIFICANCE_PATTERNS <span class="op">=</span> {</span>
+<span id="cb3-67"><a href="#cb3-67" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;significant_and_unavoidable&quot;</span>: [</span>
+<span id="cb3-68"><a href="#cb3-68" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;significant and unavoidable&quot;</span>,</span>
+<span id="cb3-69"><a href="#cb3-69" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;unavoidable significant&quot;</span>,</span>
+<span id="cb3-70"><a href="#cb3-70" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;significant unavoidable&quot;</span>,</span>
+<span id="cb3-71"><a href="#cb3-71" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;cannot be mitigated to below&quot;</span>,</span>
+<span id="cb3-72"><a href="#cb3-72" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;remain significant&quot;</span>,</span>
+<span id="cb3-73"><a href="#cb3-73" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-74"><a href="#cb3-74" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;less_than_significant&quot;</span>: [</span>
+<span id="cb3-75"><a href="#cb3-75" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;less than significant&quot;</span>,</span>
+<span id="cb3-76"><a href="#cb3-76" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;less-than-significant&quot;</span>,</span>
+<span id="cb3-77"><a href="#cb3-77" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;not significant&quot;</span>,</span>
+<span id="cb3-78"><a href="#cb3-78" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;no significant impact&quot;</span>,</span>
+<span id="cb3-79"><a href="#cb3-79" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;would not be significant&quot;</span>,</span>
+<span id="cb3-80"><a href="#cb3-80" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;will not be significant&quot;</span>,</span>
+<span id="cb3-81"><a href="#cb3-81" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-82"><a href="#cb3-82" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;less_than_significant_with_mitigation&quot;</span>: [</span>
+<span id="cb3-83"><a href="#cb3-83" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;less than significant with mitigation&quot;</span>,</span>
+<span id="cb3-84"><a href="#cb3-84" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;less-than-significant with&quot;</span>,</span>
+<span id="cb3-85"><a href="#cb3-85" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;with mitigation</span><span class="dv">.</span><span class="op">*</span><span class="vs">less than significant&quot;</span>,</span>
+<span id="cb3-86"><a href="#cb3-86" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;mitigated to less than significant&quot;</span>,</span>
+<span id="cb3-87"><a href="#cb3-87" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;reduced to less than significant&quot;</span>,</span>
+<span id="cb3-88"><a href="#cb3-88" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-89"><a href="#cb3-89" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;no_significant_impact&quot;</span>: [</span>
+<span id="cb3-90"><a href="#cb3-90" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;finding of no significant impact&quot;</span>,</span>
+<span id="cb3-91"><a href="#cb3-91" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">FONSI</span><span class="dv">\b</span><span class="vs">&quot;</span>,</span>
+<span id="cb3-92"><a href="#cb3-92" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;no significant impact&quot;</span>,</span>
+<span id="cb3-93"><a href="#cb3-93" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-94"><a href="#cb3-94" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;significant_impact&quot;</span>: [</span>
+<span id="cb3-95"><a href="#cb3-95" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;significant impact&quot;</span>,</span>
+<span id="cb3-96"><a href="#cb3-96" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;would be significant&quot;</span>,</span>
+<span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;will be significant&quot;</span>,</span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a>        <span class="vs">r&quot;is significant&quot;</span>,</span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a>MITIGATION_PATTERNS <span class="op">=</span> [</span>
+<span id="cb3-103"><a href="#cb3-103" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&quot;mitigated to&quot;</span>, <span class="vs">r&quot;reduced to&quot;</span>, <span class="vs">r&quot;with implementation of&quot;</span>,</span>
+<span id="cb3-104"><a href="#cb3-104" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&quot;with mitigation&quot;</span>, <span class="vs">r&quot;mitigation measure&quot;</span>, <span class="vs">r&quot;following mitigation&quot;</span>,</span>
+<span id="cb3-105"><a href="#cb3-105" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&quot;with the following&quot;</span>, <span class="vs">r&quot;through implementation&quot;</span>,</span>
+<span id="cb3-106"><a href="#cb3-106" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb3-107"><a href="#cb3-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-108"><a href="#cb3-108" aria-hidden="true" tabindex="-1"></a><span class="co"># Sections to skip</span></span>
+<span id="cb3-109"><a href="#cb3-109" aria-hidden="true" tabindex="-1"></a>SKIP_SECTION_PATTERNS <span class="op">=</span> [</span>
+<span id="cb3-110"><a href="#cb3-110" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&quot;appendix&quot;</span>, <span class="vs">r&quot;appendices&quot;</span>, <span class="vs">r&quot;references&quot;</span>, <span class="vs">r&quot;bibliography&quot;</span>,</span>
+<span id="cb3-111"><a href="#cb3-111" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&quot;alternatives&quot;</span>, <span class="vs">r&quot;project description&quot;</span>, <span class="vs">r&quot;purpose and need&quot;</span>,</span>
+<span id="cb3-112"><a href="#cb3-112" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&quot;table of contents&quot;</span>,</span>
+<span id="cb3-113"><a href="#cb3-113" aria-hidden="true" tabindex="-1"></a>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="core-functions" class="level3">
+<h3 class="anchored" data-anchor-id="core-functions">Core functions</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> classify_resource_area(text: <span class="bu">str</span>) <span class="op">-&gt;</span> Optional[<span class="bu">str</span>]:</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Match text against RESOURCE_AREAS keyword sets.</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns area name or None if no match.</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">    Longest match wins if multiple areas match.</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    text_lower <span class="op">=</span> text.lower()</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    matches <span class="op">=</span> {}</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> area, keywords <span class="kw">in</span> RESOURCE_AREAS.items():</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> kw <span class="kw">in</span> keywords:</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> re.search(<span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">&#39;</span> <span class="op">+</span> re.escape(kw) <span class="op">+</span> <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">&#39;</span>, text_lower):</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>                matches[area] <span class="op">=</span> matches.get(area, <span class="dv">0</span>) <span class="op">+</span> <span class="dv">1</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> <span class="kw">not</span> matches:</span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">max</span>(matches, key<span class="op">=</span>matches.get)</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> detect_significance_type(text: <span class="bu">str</span>) <span class="op">-&gt;</span> Optional[<span class="bu">str</span>]:</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a><span class="co">    Detect significance determination type in a sentence.</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns determination key or None.</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a><span class="co">    Priority: less_than_significant_with_mitigation &gt; significant_and_unavoidable &gt; ...</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Check in priority order</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> det_type <span class="kw">in</span> [</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;less_than_significant_with_mitigation&quot;</span>,</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;significant_and_unavoidable&quot;</span>,</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;no_significant_impact&quot;</span>,</span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;less_than_significant&quot;</span>,</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;significant_impact&quot;</span>,</span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>    ]:</span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> pat <span class="kw">in</span> SIGNIFICANCE_PATTERNS[det_type]:</span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> re.search(pat, text, re.IGNORECASE):</span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Guard: avoid false positives for bare &quot;significant_impact&quot;</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> det_type <span class="op">==</span> <span class="st">&quot;significant_impact&quot;</span>:</span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a>                    <span class="co"># Skip if it&#39;s part of a less-than-significant phrase</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> re.search(<span class="vs">r&quot;less</span><span class="dv">.</span><span class="vs">than</span><span class="dv">.</span><span class="vs">significant</span><span class="cf">|</span><span class="vs">not significant&quot;</span>, text, re.IGNORECASE):</span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">continue</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>                <span class="cf">return</span> det_type</span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="va">None</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> detect_mitigation(sentence: <span class="bu">str</span>, context_window: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">bool</span>:</span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a><span class="co">    True if mitigation language appears in same sentence or context_window (preceding 2 sentences).</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>    combined <span class="op">=</span> sentence <span class="op">+</span> <span class="st">&quot; &quot;</span> <span class="op">+</span> context_window</span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="bu">any</span>(re.search(pat, combined, re.IGNORECASE) <span class="cf">for</span> pat <span class="kw">in</span> MITIGATION_PATTERNS)</span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> extract_grammatical_subject(sent, nlp_doc) <span class="op">-&gt;</span> Optional[<span class="bu">str</span>]:</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a><span class="co">    Use spaCy dep-parse to find grammatical subject (nsubj) of significance phrase token.</span></span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns the full NP span as string, or None.</span></span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> token <span class="kw">in</span> sent:</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> token.dep_ <span class="op">==</span> <span class="st">&quot;nsubj&quot;</span>:</span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Walk up to find root verb&#39;s subject</span></span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>            subtree <span class="op">=</span> <span class="bu">list</span>(token.subtree)</span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a>            span_text <span class="op">=</span> sent.doc[subtree[<span class="dv">0</span>].i:subtree[<span class="op">-</span><span class="dv">1</span>].i <span class="op">+</span> <span class="dv">1</span>].text</span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> span_text</span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="va">None</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="main-extraction-function" class="level3">
+<h3 class="anchored" data-anchor-id="main-extraction-function">Main extraction function</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> extract_significance(</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    projects_path: Path <span class="op">=</span> PROJECTS_PATH,</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    output_path: Path <span class="op">=</span> OUTPUT_DIR <span class="op">/</span> <span class="st">&quot;projects_significance.parquet&quot;</span>,</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>    use_llm: <span class="bu">bool</span> <span class="op">=</span> <span class="va">False</span>,</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>    sample: Optional[<span class="bu">int</span>] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> pd.DataFrame:</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>    run_at <span class="op">=</span> datetime.now(timezone.utc).isoformat()</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>    conn <span class="op">=</span> duckdb.<span class="ex">connect</span>()</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>    nlp <span class="op">=</span> spacy.load(<span class="st">&quot;en_core_web_sm&quot;</span>)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Load project list</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>    projects <span class="op">=</span> conn.execute(<span class="ss">f&quot;&quot;&quot;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="ss">        SELECT project_id, process_type</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="ss">        FROM read_parquet(&#39;</span><span class="sc">{</span>projects_path<span class="sc">}</span><span class="ss">&#39;)</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="ss">        WHERE process_type IN (&#39;EA&#39;, &#39;EIS&#39;)</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="ss">    &quot;&quot;&quot;</span>).fetchdf()</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> sample:</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        projects <span class="op">=</span> projects.sample(n<span class="op">=</span><span class="bu">min</span>(sample, <span class="bu">len</span>(projects)), random_state<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    all_results <span class="op">=</span> []</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> source, pages_path <span class="kw">in</span> [(<span class="st">&quot;EA&quot;</span>, EA_PAGES_PATH), (<span class="st">&quot;EIS&quot;</span>, EIS_PAGES_PATH)]:</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> pages_path.exists():</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>        source_projects <span class="op">=</span> projects[projects[<span class="st">&quot;process_type&quot;</span>] <span class="op">==</span> source][<span class="st">&quot;project_id&quot;</span>].tolist()</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> source_projects:</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Load pages in batches of 100 projects</span></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>        batch_size <span class="op">=</span> <span class="dv">100</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">0</span>, <span class="bu">len</span>(source_projects), batch_size):</span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>            batch_ids <span class="op">=</span> source_projects[i:i<span class="op">+</span>batch_size]</span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>            ids_str <span class="op">=</span> <span class="st">&quot;,&quot;</span>.join(<span class="ss">f&quot;&#39;</span><span class="sc">{</span>p<span class="sc">}</span><span class="ss">&#39;&quot;</span> <span class="cf">for</span> p <span class="kw">in</span> batch_ids)</span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>            pages <span class="op">=</span> conn.execute(<span class="ss">f&quot;&quot;&quot;</span></span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a><span class="ss">                SELECT project_id, page_num, page_text</span></span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a><span class="ss">                FROM read_parquet(&#39;</span><span class="sc">{</span>pages_path<span class="sc">}</span><span class="ss">&#39;)</span></span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a><span class="ss">                WHERE project_id IN (</span><span class="sc">{</span>ids_str<span class="sc">}</span><span class="ss">)</span></span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a><span class="ss">                ORDER BY project_id, page_num</span></span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a><span class="ss">            &quot;&quot;&quot;</span>).fetchdf()</span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>            <span class="co"># Group pages by project</span></span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> project_id, proj_pages <span class="kw">in</span> pages.groupby(<span class="st">&quot;project_id&quot;</span>):</span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>                proj_pages <span class="op">=</span> proj_pages.sort_values(<span class="st">&quot;page_num&quot;</span>)</span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a>                full_text_pages <span class="op">=</span> <span class="bu">list</span>(<span class="bu">zip</span>(proj_pages[<span class="st">&quot;page_num&quot;</span>], proj_pages[<span class="st">&quot;page_text&quot;</span>]))</span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Build section map; filter to resource analysis sections</span></span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a>                section_map <span class="op">=</span> _build_section_label_map(full_text_pages)</span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>                filtered_pages <span class="op">=</span> filter_resource_analysis_pages(full_text_pages, section_map)</span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Segment sentences via spaCy on filtered pages only</span></span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>                page_texts <span class="op">=</span> [p[<span class="dv">1</span>] <span class="cf">for</span> p <span class="kw">in</span> filtered_pages]</span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>                prev_resource_area <span class="op">=</span> <span class="va">None</span></span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> page_num, page_text <span class="kw">in</span> filtered_pages:</span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>                    doc <span class="op">=</span> nlp(page_text)</span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>                    sentences <span class="op">=</span> <span class="bu">list</span>(doc.sents)</span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">for</span> j, sent <span class="kw">in</span> <span class="bu">enumerate</span>(sentences):</span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a>                        sent_text <span class="op">=</span> sent.text.strip()</span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span> <span class="bu">len</span>(sent_text) <span class="op">&lt;</span> <span class="dv">20</span>:</span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>                            <span class="cf">continue</span></span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a>                        <span class="co"># Detect significance phrase</span></span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>                        det_type <span class="op">=</span> detect_significance_type(sent_text)</span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span> <span class="kw">not</span> det_type:</span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>                            <span class="cf">continue</span></span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a>                        <span class="co"># Try dep-parse subject first</span></span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a>                        subj_text <span class="op">=</span> extract_grammatical_subject(sent, doc)</span>
+<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a>                        resource_area <span class="op">=</span> classify_resource_area(subj_text) <span class="cf">if</span> subj_text <span class="cf">else</span> <span class="va">None</span></span>
+<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a>                        <span class="co"># Fallback: resource area in same sentence</span></span>
+<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span> <span class="kw">not</span> resource_area:</span>
+<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>                            resource_area <span class="op">=</span> classify_resource_area(sent_text)</span>
+<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a>                        <span class="co"># Fallback: preceding sentence&#39;s resource area</span></span>
+<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span> <span class="kw">not</span> resource_area <span class="kw">and</span> j <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a>                            resource_area <span class="op">=</span> classify_resource_area(sentences[j<span class="op">-</span><span class="dv">1</span>].text)</span>
+<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a>                        <span class="co"># Fallback: last known resource area in document</span></span>
+<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span> <span class="kw">not</span> resource_area:</span>
+<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a>                            resource_area <span class="op">=</span> prev_resource_area</span>
+<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span> resource_area:</span>
+<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>                            prev_resource_area <span class="op">=</span> resource_area</span>
+<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a>                        <span class="co"># Context window for mitigation detection</span></span>
+<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a>                        prev_sents <span class="op">=</span> <span class="st">&quot; &quot;</span>.join(s.text <span class="cf">for</span> s <span class="kw">in</span> sentences[<span class="bu">max</span>(<span class="dv">0</span>,j<span class="op">-</span><span class="dv">2</span>):j])</span>
+<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>                        mit_flag <span class="op">=</span> detect_mitigation(sent_text, prev_sents)</span>
+<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a>                        <span class="co"># Confidence: high if dep-parse subject found, medium if sentence-level, low if fallback</span></span>
+<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">if</span> subj_text <span class="kw">and</span> classify_resource_area(subj_text):</span>
+<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a>                            confidence <span class="op">=</span> <span class="st">&quot;high&quot;</span></span>
+<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">elif</span> resource_area <span class="kw">and</span> classify_resource_area(sent_text):</span>
+<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a>                            confidence <span class="op">=</span> <span class="st">&quot;medium&quot;</span></span>
+<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">else</span>:</span>
+<span id="cb5-101"><a href="#cb5-101" aria-hidden="true" tabindex="-1"></a>                            confidence <span class="op">=</span> <span class="st">&quot;low&quot;</span></span>
+<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-103"><a href="#cb5-103" aria-hidden="true" tabindex="-1"></a>                        all_results.append({</span>
+<span id="cb5-104"><a href="#cb5-104" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;project_id&quot;</span>: project_id,</span>
+<span id="cb5-105"><a href="#cb5-105" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;resource_area&quot;</span>: resource_area <span class="kw">or</span> <span class="st">&quot;unknown&quot;</span>,</span>
+<span id="cb5-106"><a href="#cb5-106" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;determination&quot;</span>: det_type,</span>
+<span id="cb5-107"><a href="#cb5-107" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;mitigation_flag&quot;</span>: mit_flag,</span>
+<span id="cb5-108"><a href="#cb5-108" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;context_text&quot;</span>: sent_text[:<span class="dv">500</span>],</span>
+<span id="cb5-109"><a href="#cb5-109" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;source&quot;</span>: source,</span>
+<span id="cb5-110"><a href="#cb5-110" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;confidence&quot;</span>: confidence,</span>
+<span id="cb5-111"><a href="#cb5-111" aria-hidden="true" tabindex="-1"></a>                            <span class="st">&quot;significance_extraction_run_at&quot;</span>: run_at,</span>
+<span id="cb5-112"><a href="#cb5-112" aria-hidden="true" tabindex="-1"></a>                        })</span>
+<span id="cb5-113"><a href="#cb5-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-114"><a href="#cb5-114" aria-hidden="true" tabindex="-1"></a>    df <span class="op">=</span> pd.DataFrame(all_results)</span>
+<span id="cb5-115"><a href="#cb5-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-116"><a href="#cb5-116" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Optional: LLM adjudication for low-confidence cases</span></span>
+<span id="cb5-117"><a href="#cb5-117" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> use_llm <span class="kw">and</span> <span class="bu">len</span>(df) <span class="op">&gt;</span> <span class="dv">0</span>:</span>
+<span id="cb5-118"><a href="#cb5-118" aria-hidden="true" tabindex="-1"></a>        df <span class="op">=</span> adjudicate_with_llm(df[df[<span class="st">&quot;confidence&quot;</span>] <span class="op">==</span> <span class="st">&quot;low&quot;</span>], df)</span>
+<span id="cb5-119"><a href="#cb5-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-120"><a href="#cb5-120" aria-hidden="true" tabindex="-1"></a>    df.to_parquet(output_path, index<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb5-121"><a href="#cb5-121" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;Wrote </span><span class="sc">{</span><span class="bu">len</span>(df)<span class="sc">}</span><span class="ss"> rows to </span><span class="sc">{</span>output_path<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb5-122"><a href="#cb5-122" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> df</span>
+<span id="cb5-123"><a href="#cb5-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-124"><a href="#cb5-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-125"><a href="#cb5-125" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> filter_resource_analysis_pages(pages, section_map):</span>
+<span id="cb5-126"><a href="#cb5-126" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb5-127"><a href="#cb5-127" aria-hidden="true" tabindex="-1"></a><span class="co">    Keep only pages in resource analysis chapters; skip appendices, references, etc.</span></span>
+<span id="cb5-128"><a href="#cb5-128" aria-hidden="true" tabindex="-1"></a><span class="co">    Uses section_map from _build_section_label_map.</span></span>
+<span id="cb5-129"><a href="#cb5-129" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb5-130"><a href="#cb5-130" aria-hidden="true" tabindex="-1"></a>    resource_sections <span class="op">=</span> {</span>
+<span id="cb5-131"><a href="#cb5-131" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;affected_environment&quot;</span>, <span class="st">&quot;environmental_consequences&quot;</span>,</span>
+<span id="cb5-132"><a href="#cb5-132" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;environmental_effects&quot;</span>, <span class="st">&quot;chapter_3&quot;</span>, <span class="st">&quot;environmental_analysis&quot;</span></span>
+<span id="cb5-133"><a href="#cb5-133" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb5-134"><a href="#cb5-134" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> []</span>
+<span id="cb5-135"><a href="#cb5-135" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> page_num, page_text <span class="kw">in</span> pages:</span>
+<span id="cb5-136"><a href="#cb5-136" aria-hidden="true" tabindex="-1"></a>        section <span class="op">=</span> section_map.get(page_num, <span class="st">&quot;&quot;</span>)</span>
+<span id="cb5-137"><a href="#cb5-137" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Skip if in known skip sections</span></span>
+<span id="cb5-138"><a href="#cb5-138" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="bu">any</span>(re.search(pat, section, re.IGNORECASE) <span class="cf">for</span> pat <span class="kw">in</span> SKIP_SECTION_PATTERNS):</span>
+<span id="cb5-139"><a href="#cb5-139" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb5-140"><a href="#cb5-140" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Keep if in resource analysis section (or if section is unknown — be permissive)</span></span>
+<span id="cb5-141"><a href="#cb5-141" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> section <span class="kw">or</span> <span class="bu">any</span>(rs <span class="kw">in</span> section.lower() <span class="cf">for</span> rs <span class="kw">in</span> resource_sections):</span>
+<span id="cb5-142"><a href="#cb5-142" aria-hidden="true" tabindex="-1"></a>            result.append((page_num, page_text))</span>
+<span id="cb5-143"><a href="#cb5-143" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> result</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="llm-adjudication-use-llm-flag" class="level3">
+<h3 class="anchored" data-anchor-id="llm-adjudication-use-llm-flag">LLM adjudication (–use-llm flag)</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> adjudicate_with_llm(low_conf_rows: pd.DataFrame, full_df: pd.DataFrame) <span class="op">-&gt;</span> pd.DataFrame:</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Claude Haiku adjudication for ~20% low-confidence rows.</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">    Expects structured JSON: {&quot;resource_area&quot;: &quot;...&quot;, &quot;determination&quot;: &quot;...&quot;}</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> anthropic</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    client <span class="op">=</span> anthropic.Anthropic()</span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>    PROMPT <span class="op">=</span> <span class="st">&quot;&quot;&quot;Extract the resource area and significance determination from this NEPA sentence.</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="st">Sentence: </span><span class="sc">{text}</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="st">Resource areas: air_quality, water, biological, cultural, visual, noise, soils_geology,</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="st">socioeconomic, transportation, land_use, climate_ghg, public_health</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="st">Determinations: significant_and_unavoidable, less_than_significant,</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="st">less_than_significant_with_mitigation, no_significant_impact, significant_impact</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="st">Respond with JSON only: </span><span class="sc">{{</span><span class="st">&quot;resource_area&quot;: &quot;...&quot;, &quot;determination&quot;: &quot;...&quot;, &quot;confidence&quot;: &quot;high/medium/low&quot;</span><span class="sc">}}</span><span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>    <span class="co"># ... implementation: iterate low_conf_rows, call API, update fields</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="cli" class="level3">
+<h3 class="anchored" data-anchor-id="cli">CLI</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="va">__name__</span> <span class="op">==</span> <span class="st">&quot;__main__&quot;</span>:</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> argparse</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    parser <span class="op">=</span> argparse.ArgumentParser()</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    parser.add_argument(<span class="st">&quot;--use-llm&quot;</span>, action<span class="op">=</span><span class="st">&quot;store_true&quot;</span>, <span class="bu">help</span><span class="op">=</span><span class="st">&quot;Enable LLM adjudication for low-confidence rows&quot;</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    parser.add_argument(<span class="st">&quot;--sample&quot;</span>, <span class="bu">type</span><span class="op">=</span><span class="bu">int</span>, default<span class="op">=</span><span class="va">None</span>, <span class="bu">help</span><span class="op">=</span><span class="st">&quot;Number of projects to sample&quot;</span>)</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    args <span class="op">=</span> parser.parse_args()</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>    extract_significance(use_llm<span class="op">=</span>args.use_llm, sample<span class="op">=</span>args.sample)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
-<section id="quick-run-models-already-trained" class="level2">
-<h2 class="anchored" data-anchor-id="quick-run-models-already-trained">Quick run (models already trained)</h2>
-<p>Use when models are current and only BERT inference + adjudication outputs need refreshing.</p>
-<p><strong>CE only:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EA:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EIS:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="analyze_significance.r-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="analyze_significance.r-full-specification"><code>02_analyze_significance.R</code> — Full Specification</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(arrow)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>sig <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/significance/projects_significance.parquet&quot;</span>)</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>projects <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_combined.parquet&quot;</span>)</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">left_join</span>(sig, projects, <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>)</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Determination rates by resource area</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>by_area <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(resource_area, determination) <span class="sc">|&gt;</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(resource_area) <span class="sc">|&gt;</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Mitigation flag rates (proportion of determinations with mitigation conditions)</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>mitigation_rates <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(determination <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;less_than_significant_with_mitigation&quot;</span>, <span class="st">&quot;significant_and_unavoidable&quot;</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(resource_area) <span class="sc">|&gt;</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(<span class="at">mitigation_pct =</span> <span class="fu">mean</span>(mitigation_flag))</span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Rates by agency and process type</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a>by_agency <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(agency_name, determination) <span class="sc">|&gt;</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(agency_name) <span class="sc">|&gt;</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. Mitigated FONSI patterns</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>fonsi_patterns <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(determination <span class="sc">==</span> <span class="st">&quot;no_significant_impact&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(resource_area, mitigation_flag) <span class="sc">|&gt;</span></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>()</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a><span class="co"># Outputs</span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(by_area, <span class="st">&quot;output/deliverable02/significance_by_resource_area.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(mitigation_rates, <span class="st">&quot;output/deliverable02/mitigation_rates.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(by_agency, <span class="st">&quot;output/deliverable02/significance_by_agency.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(fonsi_patterns, <span class="st">&quot;output/deliverable02/fonsi_patterns.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
-<section id="filtering-and-debugging" class="level2">
-<h2 class="anchored" data-anchor-id="filtering-and-debugging">Filtering and debugging</h2>
-<p><strong>Restrict to clean energy projects only</strong> (add <code>--clean-energy</code> to any <code>--bert-run</code> command):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="at">--clean-energy</span> <span class="dt">\</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_clean.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Debug a single project</strong> (searches CE, EA, and EIS sources automatically):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--project-id</span> <span class="op">&lt;</span>UUID<span class="op">&gt;</span> --hybrid <span class="at">--use-regex-cache</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<hr>
+<section id="testing-approach" class="level2">
+<h2 class="anchored" data-anchor-id="testing-approach">Testing Approach</h2>
+<ol type="1">
+<li><strong>Pilot:</strong> Run <code>--sample 20</code> on 5 BLM EA/EIS documents. Manually inspect 20 extracted rows — verify resource area and determination match the source text.</li>
+<li><strong>Precision check:</strong> If dep-parse subject extraction precision &lt;70% on pilot, fall back to sentence-level keyword matching for resource area (use Alternative A — sentence-level keyword).</li>
+<li><strong>Agency pilot:</strong> Run on top 4 agencies (BLM, DOE, USFS, Corps of Engineers) before full run. If precision &lt;70% on pilot, scope down to those agencies only.</li>
+<li><strong>Section filter validation:</strong> Print section distribution before filtering — verify that &gt;50% of pages are being filtered out (i.e., filter is working).</li>
+</ol>
 </section>
-<section id="manual-training-corrections-iterative-improvement" class="level2">
-<h2 class="anchored" data-anchor-id="manual-training-corrections-iterative-improvement">Manual training corrections (iterative improvement)</h2>
-<p><strong>On the first pass, skip manual corrections entirely</strong> — run steps 1–5 above using weak supervision alone to get a working baseline. Then inspect the output, add corrections, and retrain. You do not need to get corrections right before starting.</p>
-<p>After a full run, inspect the output for systematic errors (e.g. CE projects still missing initiation dates). Corrections are added to:</p>
-<pre><code>data/analysis/manual_training_corrections.csv</code></pre>
-<p><strong>Required columns:</strong> <code>project_id</code>, <code>date</code>, <code>correct_type</code> (one of <code>decision</code>, <code>initiation</code>, <code>review</code>, <code>other</code>)</p>
-<p>Once corrections are added, you only need to re-run steps 2–5 (not step 1 — the regex cache is unchanged):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate training data with corrections applied</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrain affected source(s)</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Smoke test</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20_v2.parquet</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-run full inference</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Matching note:</strong> Corrections are matched on <code>(project_id, date)</code>. If the same date appears in multiple contexts for a project, the correction applies to all of them. You can make the match more precise by also checking <code>context</code> in the CSV (not currently implemented — avoid duplicate dates per project when possible).</p>
-<p><strong>Timing:</strong> Add corrections after inspecting <code>--bert-run</code> output and identifying a cohort of systematic misses (e.g. 20–50 CE initiation false negatives). Corrections before the first run are not useful — you need the model’s output to know what to fix. Plan on at least one correction cycle after the initial build.</p>
-<hr>
-</section>
-<section id="notes" class="level2">
-<h2 class="anchored" data-anchor-id="notes">Notes</h2>
+<section id="key-risks" class="level2">
+<h2 class="anchored" data-anchor-id="key-risks">Key Risks</h2>
 <ul>
-<li><code>--source</code> accepts <code>CE</code>, <code>EA</code>, <code>EIS</code>, or comma-separated combinations. Defaults to <code>CE</code> if omitted.</li>
-<li>spaCy enrichment runs by default during <code>--regex-prep</code>. Use <code>--no-spacy</code> to skip.</li>
-<li>Initiation class imbalance is a known bottleneck; improve via pattern expansion + weighting + manual examples.</li>
-<li>Timeline selection prioritizes strong signature cues over latest-date heuristics.</li>
-<li><code>dep_verb</code>, <code>sig_flag</code>, <code>ner_decision_signal</code> are the spaCy-enriched columns used by BERT.</li>
+<li><strong><code>_build_section_label_map</code> import:</strong> May need to adjust sys.path or copy relevant functions if import structure is complex. Check <code>extract_timeline.py</code> for the function signature before assuming it imports cleanly.</li>
+<li><strong>spaCy model availability:</strong> Requires <code>en_core_web_sm</code>. Install: <code>python -m spacy download en_core_web_sm</code>.</li>
+<li><strong>Agency format variation:</strong> EIS format varies widely. Section heading patterns may not fire for some agencies. If &lt;50% of pages are filtered on pilot, expand <code>SECTION_PATTERNS</code> or reduce filter aggressiveness.</li>
+<li><strong>Pronoun subjects:</strong> dep-parse often finds “it”, “they”, “these” as subject. Fallback chain handles this — verify fallback fires correctly on pilot output.</li>
 </ul>
 
 

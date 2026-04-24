@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>timeline – NEPA</title>
+<title>deliverable01 – NEPA</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -3967,190 +3967,769 @@ vertical-align: -.125em;
 
 
 
-<section id="timeline-extraction" class="level1">
-<h1>Timeline Extraction</h1>
-<p><strong>Purpose:</strong> Extract initiation and decision dates for NEPA reviews using a BERT classifier with optional LLM adjudication. <strong>Input:</strong> <code>data/analysis/projects_combined.parquet</code> + regex candidate cache. <strong>Output:</strong> <code>data/analysis/timeline_{ce,ea,eis}.parquet</code>, <code>timeline_{ea,eis}_llm.parquet</code>, <code>timeline_targeted_llm.parquet</code> <strong>Cost:</strong> LLM adjudication ~$0.60–$1.00 (Claude Haiku) for EA + EIS full runs. Targeted re-adjudication ~$0.44. <strong>Prerequisites:</strong> Base dataset built (<a href="../runbooks/01_base_dataset.md">runbook 01</a>).</p>
-<blockquote class="blockquote">
-<p><strong>Note on prior organization:</strong> The targeted re-adjudication for programmatic/tiered projects was previously documented as a standalone “Deliverable 02” section in the README. It is step 7 in the full rebuild below because it operates on timeline outputs — it is a timeline operation, not a reviews operation. Reviews (<a href="../runbooks/03_reviews.md">runbook 03</a>) must still run before step 7.</p>
-</blockquote>
+<section id="d1-nepa-triggered-implementation-plan" class="level1">
+<h1>D1: NEPA Triggered — Implementation Plan</h1>
+<p><strong>Delete this file after <code>deliverable01/</code> scripts are implemented.</strong></p>
+<p>Architecture reference: <code>phase2/architecture/deliverable01.md</code> Classification scheme reference: <code>phase2/code/deliverable01/nepa_trigger_classification_scheme.md</code></p>
 <hr>
-<section id="file-naming-convention" class="level2">
-<h2 class="anchored" data-anchor-id="file-naming-convention">File naming convention</h2>
+<section id="scope-constraint" class="level2">
+<h2 class="anchored" data-anchor-id="scope-constraint">Scope Constraint</h2>
+<p><strong>Hard filter: 20,725 clean energy projects only.</strong> All DuckDB queries and dataframe loads must apply <code>WHERE project_energy_type = &#39;Clean&#39;</code> from the first step. Do not process or output results for non-clean projects. Document this as a constant at the top of the extraction script.</p>
+<hr>
+</section>
+<section id="classification-scheme" class="level2">
+<h2 class="anchored" data-anchor-id="classification-scheme">Classification Scheme</h2>
+<p>Seven classes per <code>nepa_trigger_classification_scheme.md</code>. The old 3-class scheme (<code>federal_land</code>, <code>federal_funding</code>, <code>federal_permit</code>) is replaced entirely.</p>
 <table class="caption-top table">
 <colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
+<col style="width: 31%">
+<col style="width: 68%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>Stage</th>
-<th>CE</th>
-<th>EA</th>
-<th>EIS</th>
+<th>Code</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Regex cache</td>
-<td><code>timeline_regex_ce.parquet</code></td>
-<td><code>timeline_regex_ea.parquet</code></td>
-<td><code>timeline_regex_eis.parquet</code></td>
+<td><code>federal_action</code></td>
+<td>Federal agency is the primary actor/proposer (not just authorizing a private applicant)</td>
 </tr>
 <tr class="even">
-<td>BERT training data</td>
-<td><code>bert_traindata.parquet</code></td>
-<td>← same file</td>
-<td>← same file</td>
+<td><code>federal_program</code></td>
+<td>Programmatic EIS, land-use plan revision, rulemaking, leasing framework</td>
 </tr>
 <tr class="odd">
-<td>Sample test (post-train)</td>
-<td><code>timeline_ce_sample{N}.parquet</code></td>
-<td><code>timeline_ea_sample{N}.parquet</code></td>
-<td><code>timeline_eis_sample{N}.parquet</code></td>
+<td><code>federal_property_transaction</code></td>
+<td>Land exchange, disposal, conveyance, acquisition</td>
 </tr>
 <tr class="even">
-<td>Full BERT run</td>
-<td><code>timeline_ce.parquet</code></td>
-<td><code>timeline_ea.parquet</code></td>
-<td><code>timeline_eis.parquet</code></td>
+<td><code>federal_land</code></td>
+<td>Project on/crossing federal land; ROW grant or special use permit to a private developer</td>
 </tr>
 <tr class="odd">
-<td>Post LLM adjudication</td>
-<td><em>(none)</em></td>
-<td><code>timeline_ea_llm.parquet</code></td>
-<td><code>timeline_eis_llm.parquet</code></td>
+<td><code>federal_permit</code></td>
+<td>Federal permit, license, or authorization is the primary nexus (e.g., FERC, USACE Section 404)</td>
+</tr>
+<tr class="even">
+<td><code>federal_funding</code></td>
+<td>Federal grant, loan guarantee, cost-share, or financial assistance</td>
+</tr>
+<tr class="odd">
+<td><code>unknown</code></td>
+<td>NEPA review confirmed but trigger cannot be reliably identified</td>
 </tr>
 </tbody>
 </table>
-<p>Append <code>_v{N}</code> to sample files when iterating through multiple training rounds (e.g. <code>timeline_ce_sample20_v2.parquet</code>). Full run files are overwritten each time.</p>
+<p><strong>Priority order for primary trigger assignment</strong> (use when signals conflict): 1. <code>federal_action</code> 2. <code>federal_program</code> 3. <code>federal_property_transaction</code> 4. <code>federal_land</code> 5. <code>federal_permit</code> 6. <code>federal_funding</code> 7. <code>unknown</code></p>
+<p><strong>Primary vs. secondary trigger:</strong> The primary trigger is the main focus of all analysis and figures. Secondary triggers are stored in <code>nepa_trigger_secondary</code> (list) and surface only in multi-label combo analysis and on explicit request. Do not display secondary labels in primary figures.</p>
+<section id="federal_action-vs.-federal_land-disambiguation" class="level3">
+<h3 class="anchored" data-anchor-id="federal_action-vs.-federal_land-disambiguation"><code>federal_action</code> vs. <code>federal_land</code> disambiguation</h3>
+<p>The critical boundary: BLM/USFS/NPS as the <em>proposing/implementing</em> agency vs. as the <em>authorizing</em> agency for a private developer.</p>
+<p><strong>Rule:</strong> If the lead agency is the grammatical subject of action verbs (construct, install, operate, implement, manage, maintain, restore) in the title or description, assign <code>federal_action</code>. If the lead agency is the authorizing body for a private applicant (grant, authorize, approve, evaluate an application from, consider a ROW request by), assign <code>federal_land</code>.</p>
+<p>Verb signals for <code>federal_action</code> (agency as actor):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>FEDERAL_ACTION_VERB_PATTERNS <span class="op">=</span> [</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span>(?:<span class="vs">proposes</span><span class="op">?</span><span class="dv">\s</span><span class="op">+</span><span class="vs">to</span><span class="cf">|</span><span class="vs">will</span><span class="cf">|</span><span class="vs">would</span>)<span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">construct</span><span class="cf">|</span><span class="vs">install</span><span class="cf">|</span><span class="vs">build</span><span class="cf">|</span><span class="vs">operate</span><span class="cf">|</span><span class="vs">implement</span><span class="cf">|</span><span class="vs">manage</span><span class="cf">|</span><span class="vs">restore</span><span class="cf">|</span><span class="vs">undertake</span><span class="cf">|</span><span class="vs">develop</span><span class="cf">|</span><span class="vs">upgrade</span><span class="cf">|</span><span class="vs">expand</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">agency</span><span class="dv">.</span><span class="op">{0,20}</span>(?:<span class="vs">proposes</span><span class="cf">|</span><span class="vs">proposes to</span><span class="cf">|</span><span class="vs">will construct</span><span class="cf">|</span><span class="vs">will install</span><span class="cf">|</span><span class="vs">will implement</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span>(?:<span class="vs">Forest Service</span><span class="cf">|</span><span class="vs">Bureau of Land Management</span><span class="cf">|</span><span class="vs">BLM</span><span class="cf">|</span><span class="vs">USFS</span><span class="cf">|</span><span class="vs">NPS</span><span class="cf">|</span><span class="vs">Bureau of Reclamation</span>)<span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">proposes</span><span class="cf">|</span><span class="vs">will</span><span class="cf">|</span><span class="vs">plans to</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">federal</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">construction</span><span class="cf">|</span><span class="vs">facility</span><span class="cf">|</span><span class="vs">installation</span><span class="cf">|</span><span class="vs">project</span><span class="cf">|</span><span class="vs">operation</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">military</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">installation</span><span class="cf">|</span><span class="vs">base</span><span class="cf">|</span><span class="vs">facility</span><span class="cf">|</span><span class="vs">construction</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Verb signals for <code>federal_land</code> (agency as authorizer):</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>FEDERAL_LAND_AUTHORIZER_PATTERNS <span class="op">=</span> [</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span>(?:<span class="vs">right</span><span class="dv">.</span><span class="vs">of</span><span class="dv">.</span><span class="vs">way</span><span class="cf">|</span><span class="vs">ROW</span>)<span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">grant</span><span class="cf">|</span><span class="vs">application</span><span class="cf">|</span><span class="vs">request</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span>(?:<span class="vs">applicant</span><span class="cf">|</span><span class="vs">proponent</span><span class="cf">|</span><span class="vs">developer</span><span class="cf">|</span><span class="vs">company</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">special</span><span class="dv">\s</span><span class="op">+</span><span class="vs">use</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">permit</span><span class="cf">|</span><span class="vs">authorization</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">would</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">authorize</span><span class="cf">|</span><span class="vs">approve</span><span class="cf">|</span><span class="vs">grant</span><span class="cf">|</span><span class="vs">allow</span>)<span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">a</span><span class="cf">|</span><span class="vs">the</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span>(?:<span class="vs">application</span><span class="cf">|</span><span class="vs">request</span>)<span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">by</span><span class="cf">|</span><span class="vs">from</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">has</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">applied</span><span class="cf">|</span><span class="vs">submitted</span>)<span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">an application</span><span class="cf">|</span><span class="vs">a request</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>When both sets match, prefer <code>federal_action</code> (higher priority). When only authorizer verbs are present alongside federal land agencies, assign <code>federal_land</code>. When neither set matches, fall through to standard agency-code heuristic.</p>
+</section>
+<section id="federal_program-detection" class="level3">
+<h3 class="anchored" data-anchor-id="federal_program-detection"><code>federal_program</code> detection</h3>
+<p>All patterns are defined inline in <code>01_extract_nepa_trigger.py</code>. Do not import from <code>extract_reviews.py</code>.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Scan project/document title</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>PROGRAMMATIC_TITLE_PATTERNS <span class="op">=</span> [</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">programmatic</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">program</span><span class="pp">[</span><span class="ch">\-</span><span class="dv">\s</span><span class="pp">]</span><span class="op">?</span><span class="vs">wide</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">peis</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">pea</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Strong indicators in description or first 5 pages</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>PROGRAMMATIC_STRONG_PATTERNS <span class="op">=</span> [</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span>(?:<span class="vs">draft</span><span class="cf">|</span><span class="vs">final</span><span class="cf">|</span><span class="vs">supplemental</span>)<span class="dv">\s</span><span class="op">+</span><span class="vs">programmatic</span><span class="dv">\s</span><span class="op">+</span><span class="vs">environmental</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">impact</span><span class="dv">\s</span><span class="op">+</span><span class="vs">statement</span><span class="cf">|</span><span class="vs">assessment</span>)<span class="vs">&#39;</span>,</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;programmatic</span><span class="dv">\s</span><span class="op">+</span><span class="vs">environmental</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">impact</span><span class="dv">\s</span><span class="op">+</span><span class="vs">statement</span><span class="cf">|</span><span class="vs">assessment</span>)<span class="vs">&#39;</span>,</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span>(?:<span class="vs">dpeis</span><span class="cf">|</span><span class="vs">fpeis</span><span class="cf">|</span><span class="vs">speis</span><span class="cf">|</span><span class="vs">peis</span><span class="cf">|</span><span class="vs">pea</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;this</span><span class="dv">\s</span><span class="op">+</span><span class="vs">programmatic</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">eis</span><span class="cf">|</span><span class="vs">ea</span><span class="cf">|</span><span class="vs">environmental</span>)<span class="vs">&#39;</span>,</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;resource</span><span class="dv">\s</span><span class="op">+</span><span class="vs">management</span><span class="dv">\s</span><span class="op">+</span><span class="vs">plan</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">amendment</span><span class="cf">|</span><span class="vs">revision</span>)<span class="vs">&#39;</span>,</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">leasing</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">program</span><span class="cf">|</span><span class="vs">framework</span>)<span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">corridor</span><span class="dv">\s</span><span class="op">+</span><span class="vs">designation</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Exclusions — these contain &quot;programmatic&quot; but are NOT federal_program triggers</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>PROGRAMMATIC_EXCLUSION_PATTERNS <span class="op">=</span> [</span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;programmatic</span><span class="dv">\s</span><span class="op">+</span><span class="vs">agreement&#39;</span>,</span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;programmatic</span><span class="dv">\s</span><span class="op">+</span><span class="vs">biological</span><span class="dv">\s</span><span class="op">+</span><span class="vs">opinion&#39;</span>,</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;programmatic</span><span class="dv">\s</span><span class="op">+</span><span class="vs">consultation&#39;</span>,</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;programmatic</span><span class="dv">\s</span><span class="op">+</span><span class="vs">collaboration&#39;</span>,</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Apply: if title matches PROGRAMMATIC_TITLE_PATTERNS AND text does NOT match PROGRAMMATIC_EXCLUSION_PATTERNS, check for PROGRAMMATIC_STRONG_PATTERNS in description or first 5 pages to confirm.</p>
+<p>Expected frequency: &lt;3% of clean energy projects. Handle as a distinct category but do not invest heavily in validation. Projects classified as <code>federal_program</code> should be noted as potentially being umbrella reviews rather than individual site projects, and may warrant separate treatment in the analysis.</p>
+</section>
+<section id="is_dual_nexus-flag-automated" class="level3">
+<h3 class="anchored" data-anchor-id="is_dual_nexus-flag-automated"><code>is_dual_nexus</code> flag (automated)</h3>
+<p>After primary/secondary assignment, add a computed binary flag:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>df[<span class="st">&quot;is_dual_nexus&quot;</span>] <span class="op">=</span> (</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    (df[<span class="st">&quot;nepa_trigger_primary&quot;</span>] <span class="op">==</span> <span class="st">&quot;federal_land&quot;</span>) <span class="op">&amp;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    (df[<span class="st">&quot;nepa_trigger_secondary&quot;</span>].<span class="bu">apply</span>(<span class="kw">lambda</span> x: <span class="st">&quot;federal_permit&quot;</span> <span class="kw">in</span> x <span class="cf">if</span> <span class="bu">isinstance</span>(x, <span class="bu">list</span>) <span class="cf">else</span> <span class="va">False</span>))</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This captures the canonical transmission-line case (crosses federal land + requires USACE Section 404) without collapsing it into either trigger type. Use in timeline comparisons to test whether dual-nexus projects have longer review durations.</p>
 <hr>
 </section>
-<section id="full-rebuild-patterns-or-models-changed" class="level2">
-<h2 class="anchored" data-anchor-id="full-rebuild-patterns-or-models-changed">Full rebuild (patterns or models changed)</h2>
-<p>Use when regex patterns or training logic have changed and classifiers need retraining from scratch.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1 — Rebuild regex candidate cache for all sources</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> CE</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EA</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/timeline_regex_{ce,ea,eis}.parquet</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2 — Rebuild BERT training data</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/bert_traindata.parquet</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3 — Retrain classifiers</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EA</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 4 — Smoke test on 20 projects before committing to full run</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20.parquet</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5 — Full BERT inference</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 6 — LLM adjudication for EA and EIS (not needed for CE at scale)</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">ANTHROPIC_API_KEY</span><span class="op">=</span><span class="st">&#39;sk-ant-...&#39;</span></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 7 — Targeted re-adjudication for programmatic/tiered projects</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Run after step 6 AND after reviews extraction (runbook 03) is complete.</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Auto-selects ~73 programmatic/tiered projects with missing initiation or decision dates.</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="dt">\</span></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea_llm.parquet,data/analysis/timeline_eis_llm.parquet <span class="dt">\</span></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">--nonstandard-incomplete</span> <span class="dt">\</span></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">--max-candidates</span> 125 <span class="dt">\</span></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">--context-chars</span> 400 <span class="dt">\</span></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">--promote-rod-language</span> <span class="dt">\</span></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">--year-window</span> 15 <span class="dt">\</span></span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_targeted_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Step 7 flag notes:</strong> - <code>--nonstandard-incomplete</code> — filters to programmatic/tiered projects with missing dates; no manual ID file needed. - <code>--max-candidates 125</code> — raises cap from 30 (EIS default) to 125 for large programmatic EISs. - <code>--promote-rod-language</code> — promotes ROD/FONSI dates to Tier A even if BERT mislabeled them. - <code>--year-window 15</code> — drops candidates &gt;15 years before the latest found date, removing NEPA citation noise. - Targeted output is ~73 rows. Full timeline files are not modified. Patched automatically by <code>00_setup.R</code>.</p>
+</section>
+<section id="output-schema" class="level2">
+<h2 class="anchored" data-anchor-id="output-schema">Output Schema</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 35%">
+<col style="width: 30%">
+<col style="width: 35%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>project_id</code></td>
+<td>string</td>
+<td>Join key</td>
+</tr>
+<tr class="even">
+<td><code>nepa_trigger_primary</code></td>
+<td>string</td>
+<td>One of the 7 classes</td>
+</tr>
+<tr class="odd">
+<td><code>nepa_trigger_secondary</code></td>
+<td>list[string]</td>
+<td>Additional detected classes; empty list if none</td>
+</tr>
+<tr class="even">
+<td><code>nepa_trigger_multi</code></td>
+<td>list[string]</td>
+<td>All detected classes (union)</td>
+</tr>
+<tr class="odd">
+<td><code>nepa_trigger_evidence_text</code></td>
+<td>string</td>
+<td>Full sentence containing trigger signal (not character window)</td>
+</tr>
+<tr class="even">
+<td><code>nepa_trigger_evidence_source</code></td>
+<td>string</td>
+<td><code>agency_metadata</code>, <code>title</code>, <code>description</code>, <code>doc_title</code>, <code>purpose_and_need</code>, <code>embedding</code>, <code>llm</code></td>
+</tr>
+<tr class="odd">
+<td><code>nepa_trigger_confidence</code></td>
+<td>string</td>
+<td><code>high</code>, <code>medium</code>, <code>low</code></td>
+</tr>
+<tr class="even">
+<td><code>nepa_trigger_rule_id</code></td>
+<td>string</td>
+<td>Which rule or tier fired (e.g., <code>T1a_BLM_land</code>, <code>T1b_row_grant</code>, <code>T3_section_header</code>)</td>
+</tr>
+<tr class="odd">
+<td><code>nepa_trigger_manual_review</code></td>
+<td>bool</td>
+<td>Flag for human review</td>
+</tr>
+<tr class="even">
+<td><code>is_dual_nexus</code></td>
+<td>bool</td>
+<td><code>federal_land</code> + <code>federal_permit</code> combination</td>
+</tr>
+<tr class="odd">
+<td><code>nepa_trigger_extraction_run_at</code></td>
+<td>string</td>
+<td>ISO-8601 UTC timestamp set on all rows at runtime</td>
+</tr>
+<tr class="even">
+<td><code>nepa_trigger_llm_run_at</code></td>
+<td>string</td>
+<td>ISO-8601 UTC per-row timestamp; <code>&quot;&quot;</code> if no LLM call made</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Evidence text:</strong> Extract the full sentence containing the match (sentence-boundary detection on the ±500 char window around the match), not a fixed character slice. This produces quotable text for the report.</p>
 <hr>
 </section>
-<section id="quick-run-models-already-trained" class="level2">
-<h2 class="anchored" data-anchor-id="quick-run-models-already-trained">Quick run (models already trained)</h2>
-<p>Use when models are current and only BERT inference + adjudication outputs need refreshing.</p>
-<p><strong>CE only:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EA:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EIS:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="scripts-to-build" class="level2">
+<h2 class="anchored" data-anchor-id="scripts-to-build">Scripts to Build</h2>
+<ol type="1">
+<li><code>phase2/code/deliverable01/01_extract_nepa_trigger.py</code></li>
+<li><code>phase2/code/deliverable01/02_analyze_triggers.R</code></li>
+</ol>
 <hr>
 </section>
-<section id="filtering-and-debugging" class="level2">
-<h2 class="anchored" data-anchor-id="filtering-and-debugging">Filtering and debugging</h2>
-<p><strong>Restrict to clean energy projects only</strong> (add <code>--clean-energy</code> to any <code>--bert-run</code> command):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="at">--clean-energy</span> <span class="dt">\</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_clean.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Debug a single project</strong> (searches CE, EA, and EIS sources automatically):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--project-id</span> <span class="op">&lt;</span>UUID<span class="op">&gt;</span> --hybrid <span class="at">--use-regex-cache</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="extract_nepa_trigger.py-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="extract_nepa_trigger.py-full-specification"><code>01_extract_nepa_trigger.py</code> — Full Specification</h2>
+<section id="environment-check-and-imports" class="level3">
+<h3 class="anchored" data-anchor-id="environment-check-and-imports">Environment check and imports</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> os.environ.get(<span class="st">&quot;CONDA_DEFAULT_ENV&quot;</span>) <span class="op">!=</span> <span class="st">&quot;nepa&quot;</span>:</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">SystemExit</span>(<span class="st">&quot;Please run in conda env &#39;nepa&#39; (e.g., `conda run -n nepa python ...`).&quot;</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> duckdb</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> datetime <span class="im">import</span> datetime, timezone</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Optional</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>BASE_DIR   <span class="op">=</span> Path(<span class="va">__file__</span>).resolve().parent.parent.parent  <span class="co"># repo root</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>DATA_DIR   <span class="op">=</span> BASE_DIR <span class="op">/</span> <span class="st">&quot;data&quot;</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>ANALYSIS_DIR <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;analysis&quot;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>OUTPUT_DIR <span class="op">=</span> ANALYSIS_DIR <span class="op">/</span> <span class="st">&quot;nepa_trigger&quot;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>OUTPUT_DIR.mkdir(parents<span class="op">=</span><span class="va">True</span>, exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>PROJECTS_PATH  <span class="op">=</span> ANALYSIS_DIR <span class="op">/</span> <span class="st">&quot;projects_combined.parquet&quot;</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>CE_PAGES_PATH  <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;ce&quot;</span>  <span class="op">/</span> <span class="st">&quot;pages.parquet&quot;</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>EA_PAGES_PATH  <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;ea&quot;</span>  <span class="op">/</span> <span class="st">&quot;pages.parquet&quot;</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>EIS_PAGES_PATH <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;eis&quot;</span> <span class="op">/</span> <span class="st">&quot;pages.parquet&quot;</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>CE_DOCS_PATH   <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;ce&quot;</span>  <span class="op">/</span> <span class="st">&quot;documents.parquet&quot;</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>EA_DOCS_PATH   <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;ea&quot;</span>  <span class="op">/</span> <span class="st">&quot;documents.parquet&quot;</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>EIS_DOCS_PATH  <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;eis&quot;</span> <span class="op">/</span> <span class="st">&quot;documents.parquet&quot;</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a><span class="co"># Columns needed from documents.parquet for Tier 2</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>DOC_COLUMNS <span class="op">=</span> [<span class="st">&quot;project_id&quot;</span>, <span class="st">&quot;document_id&quot;</span>, <span class="st">&quot;document_title&quot;</span>, <span class="st">&quot;file_name&quot;</span>, <span class="st">&quot;main_document&quot;</span>]</span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>CLEAN_ENERGY_FILTER <span class="op">=</span> <span class="st">&quot;project_energy_type = &#39;Clean&#39;&quot;</span>  <span class="co"># n = 20,725; hard constraint</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="pre-run-eda-check" class="level3">
+<h3 class="anchored" data-anchor-id="pre-run-eda-check">Pre-run EDA check</h3>
+<p>Before the extraction pipeline, run a one-time EDA query to understand description coverage:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> run_eda(conn: duckdb.DuckDBPyConnection) <span class="op">-&gt;</span> <span class="va">None</span>:</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Print description coverage and length stats for clean energy projects.</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="co">    Informs whether Tier 1b (description keyword match) will have useful coverage.</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">    Run once before implementing the full pipeline; outputs to stdout.</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> conn.execute(<span class="ss">f&quot;&quot;&quot;</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="ss">        SELECT</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="ss">            process_type,</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="ss">            COUNT(*) AS n,</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="ss">            SUM(CASE WHEN project_description IS NOT NULL</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="ss">                      AND LENGTH(project_description) &gt; 50 THEN 1 ELSE 0 END) AS n_with_desc,</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="ss">            AVG(LENGTH(project_description)) AS avg_desc_len</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a><span class="ss">        FROM read_parquet(&#39;</span><span class="sc">{</span>PROJECTS_PATH<span class="sc">}</span><span class="ss">&#39;)</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a><span class="ss">        WHERE </span><span class="sc">{</span>CLEAN_ENERGY_FILTER<span class="sc">}</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a><span class="ss">        GROUP BY process_type</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a><span class="ss">        ORDER BY process_type</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a><span class="ss">    &quot;&quot;&quot;</span>).fetchdf()</span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(result.to_string())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
-<section id="manual-training-corrections-iterative-improvement" class="level2">
-<h2 class="anchored" data-anchor-id="manual-training-corrections-iterative-improvement">Manual training corrections (iterative improvement)</h2>
-<p><strong>On the first pass, skip manual corrections entirely</strong> — run steps 1–5 above using weak supervision alone to get a working baseline. Then inspect the output, add corrections, and retrain. You do not need to get corrections right before starting.</p>
-<p>After a full run, inspect the output for systematic errors (e.g. CE projects still missing initiation dates). Corrections are added to:</p>
-<pre><code>data/analysis/manual_training_corrections.csv</code></pre>
-<p><strong>Required columns:</strong> <code>project_id</code>, <code>date</code>, <code>correct_type</code> (one of <code>decision</code>, <code>initiation</code>, <code>review</code>, <code>other</code>)</p>
-<p>Once corrections are added, you only need to re-run steps 2–5 (not step 1 — the regex cache is unchanged):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate training data with corrections applied</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrain affected source(s)</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Smoke test</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20_v2.parquet</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-run full inference</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Matching note:</strong> Corrections are matched on <code>(project_id, date)</code>. If the same date appears in multiple contexts for a project, the correction applies to all of them. You can make the match more precise by also checking <code>context</code> in the CSV (not currently implemented — avoid duplicate dates per project when possible).</p>
-<p><strong>Timing:</strong> Add corrections after inspecting <code>--bert-run</code> output and identifying a cohort of systematic misses (e.g. 20–50 CE initiation false negatives). Corrections before the first run are not useful — you need the model’s output to know what to fix. Plan on at least one correction cycle after the initial build.</p>
+<section id="revised-five-tier-architecture" class="level3">
+<h3 class="anchored" data-anchor-id="revised-five-tier-architecture">Revised Five-Tier Architecture</h3>
+<section id="tier-1a-agency-metadata-heuristics-45-coverage-expected" class="level4">
+<h4 class="anchored" data-anchor-id="tier-1a-agency-metadata-heuristics-45-coverage-expected">Tier 1a — Agency metadata heuristics (~45% coverage expected)</h4>
+<p>Map lead agency codes to unambiguous trigger types. Apply verb disambiguation rule to separate <code>federal_action</code> from <code>federal_land</code> for land-managing agencies.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Pure-signal agency → trigger type mappings (no ambiguity)</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>AGENCY_PERMIT_MAP <span class="op">=</span> {</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;FERC&quot;</span>, <span class="st">&quot;Federal Energy Regulatory Commission&quot;</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;FAA&quot;</span>, <span class="st">&quot;Federal Aviation Administration&quot;</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;FCC&quot;</span>, <span class="st">&quot;Federal Communications Commission&quot;</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>AGENCY_FUNDING_MAP <span class="op">=</span> {</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;DOT&quot;</span>, <span class="st">&quot;Department of Transportation&quot;</span>,</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;HUD&quot;</span>, <span class="st">&quot;Department of Housing and Urban Development&quot;</span>,</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;FTA&quot;</span>, <span class="st">&quot;Federal Transit Administration&quot;</span>,</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;FHWA&quot;</span>, <span class="st">&quot;Federal Highway Administration&quot;</span>,</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>AGENCY_LAND_MAP <span class="op">=</span> {</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;BLM&quot;</span>, <span class="st">&quot;Bureau of Land Management&quot;</span>,</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;USFS&quot;</span>, <span class="st">&quot;FS&quot;</span>, <span class="st">&quot;US Forest Service&quot;</span>, <span class="st">&quot;Forest Service&quot;</span>,</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;NPS&quot;</span>, <span class="st">&quot;National Park Service&quot;</span>,</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;FWS&quot;</span>, <span class="st">&quot;USFWS&quot;</span>, <span class="st">&quot;Fish and Wildlife Service&quot;</span>,</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;BOR&quot;</span>, <span class="st">&quot;USBR&quot;</span>, <span class="st">&quot;Bureau of Reclamation&quot;</span>,</span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a><span class="co"># DOE and USACE require verb disambiguation — do NOT assign in Tier 1a without verb check</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>AGENCY_AMBIGUOUS <span class="op">=</span> {<span class="st">&quot;DOE&quot;</span>, <span class="st">&quot;Department of Energy&quot;</span>, <span class="st">&quot;USACE&quot;</span>, <span class="st">&quot;Army Corps of Engineers&quot;</span>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>For land agencies, apply verb disambiguation from the patterns above. If action verbs found → <code>federal_action</code>; if authorizer verbs found or no verb match → <code>federal_land</code>.</p>
+<p><strong>Rule ID format:</strong> <code>T1a_{AGENCY_CODE}_{trigger}</code> (e.g., <code>T1a_BLM_land</code>, <code>T1a_BLM_action</code>).</p>
 <hr>
 </section>
-<section id="notes" class="level2">
-<h2 class="anchored" data-anchor-id="notes">Notes</h2>
+<section id="tier-1b-title-and-description-keyword-match-1520-additional-coverage" class="level4">
+<h4 class="anchored" data-anchor-id="tier-1b-title-and-description-keyword-match-1520-additional-coverage">Tier 1b — Title and description keyword match (~15–20% additional coverage)</h4>
+<p>Apply to all projects not resolved at <code>confidence = high</code> in Tier 1a, plus ambiguous agencies. Search project title and project description fields (no document access).</p>
+<p>Pattern categories cover all 7 classes with specificity-ranked patterns (more specific patterns rank higher; match first specific pattern, record rule_id).</p>
+<p>Key additions beyond the old plan: - <code>federal_property_transaction</code>: “land exchange”, “conveyance”, “disposal of federal land”, “parcel transfer” - <code>federal_action</code>: agency-name + action verb phrases (see disambiguation section above) - <code>federal_program</code>: inline patterns below (do not import from <code>extract_reviews.py</code>)</p>
+<p><strong>Rule ID format:</strong> <code>T1b_{pattern_slug}</code> (e.g., <code>T1b_row_grant</code>, <code>T1b_sec404</code>, <code>T1b_loan_guarantee</code>).</p>
+<hr>
+</section>
+<section id="tier-2-document-title-pass-35-additional-coverage" class="level4">
+<h4 class="anchored" data-anchor-id="tier-2-document-title-pass-35-additional-coverage">Tier 2 — Document title pass (~3–5% additional coverage)</h4>
+<p>Scan NEPA document titles for unambiguous trigger phrases before touching page text. All patterns are defined inline in <code>01_extract_nepa_trigger.py</code> — no import from <code>extract_reviews.py</code> or any other phase script.</p>
+<p>Additional patterns: - “Land Exchange” → <code>federal_property_transaction</code> - “Right-of-Way” in title → <code>federal_land</code> - “Permit Application” / “License Amendment” → <code>federal_permit</code> - “Programmatic” + exclusion filter → <code>federal_program</code></p>
+<p><strong>Rule ID format:</strong> <code>T2_doc_title_{slug}</code>.</p>
+<hr>
+</section>
+<section id="tier-3-purpose-and-need-section-extraction-1015-additional-coverage" class="level4">
+<h4 class="anchored" data-anchor-id="tier-3-purpose-and-need-section-extraction-1015-additional-coverage">Tier 3 — Purpose and Need section extraction (~10–15% additional coverage)</h4>
+<p>For projects unresolved at Tier 2, extract the “Purpose and Need” section from pages.parquet. Do NOT scan full 30 pages — target the specific section.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>PURPOSE_AND_NEED_HEADERS <span class="op">=</span> [</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">purpose</span><span class="dv">\s</span><span class="op">+</span><span class="vs">and</span><span class="dv">\s</span><span class="op">+</span><span class="vs">need</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">need</span><span class="dv">\s</span><span class="op">+</span><span class="vs">for</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">federal</span><span class="dv">\s</span><span class="op">+</span>)<span class="op">?</span><span class="vs">action</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">proposed</span><span class="dv">\s</span><span class="op">+</span>(?:<span class="vs">federal</span><span class="dv">\s</span><span class="op">+</span>)<span class="op">?</span><span class="vs">action</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">project</span><span class="dv">\s</span><span class="op">+</span><span class="vs">purpose</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="dv">\b</span><span class="vs">statement</span><span class="dv">\s</span><span class="op">+</span><span class="vs">of</span><span class="dv">\s</span><span class="op">+</span><span class="vs">need</span><span class="dv">\b</span><span class="vs">&#39;</span>,</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> extract_purpose_and_need(text: <span class="bu">str</span>, window: <span class="bu">int</span> <span class="op">=</span> <span class="dv">600</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co">    Detect Purpose and Need section header; return up to `window` chars following it.</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="co">    Returns empty string if no header found.</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> pattern <span class="kw">in</span> PURPOSE_AND_NEED_HEADERS:</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>        m <span class="op">=</span> re.search(pattern, text, re.IGNORECASE)</span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> m:</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>            snippet <span class="op">=</span> text[m.start():m.start() <span class="op">+</span> window]</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>            <span class="cf">return</span> snippet</span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> <span class="st">&quot;&quot;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Apply keyword matching to the extracted window. Capture the full sentence containing the match as <code>nepa_trigger_evidence_text</code>.</p>
+<p>Scan only pages 1–10 per document (covers all Purpose and Need sections in practice).</p>
+<p><strong>Rule ID format:</strong> <code>T3_pan_{slug}</code> (e.g., <code>T3_pan_row_grant</code>).</p>
+<hr>
+</section>
+<section id="tier-4-embedding-similarity-zero-shot-58-additional-coverage" class="level4">
+<h4 class="anchored" data-anchor-id="tier-4-embedding-similarity-zero-shot-58-additional-coverage">Tier 4 — Embedding similarity (zero-shot, ~5–8% additional coverage)</h4>
+<p>For projects with no confident match after Tier 3, score candidate evidence text (Purpose and Need snippet or Tier 1b description) against class prototype sentences using <code>all-MiniLM-L6-v2</code> (already in the pipeline).</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>CLASS_PROTOTYPES <span class="op">=</span> {</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;federal_action&quot;</span>: [</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The Forest Service proposes to implement vegetation management on National Forest land.&quot;</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The Bureau of Land Management will construct a new facility at the site.&quot;</span>,</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;This federal action consists of upgrading an existing federal facility.&quot;</span>,</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;federal_program&quot;</span>: [</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;This programmatic environmental impact statement evaluates a regional leasing framework.&quot;</span>,</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The Bureau of Land Management is revising its resource management plan.&quot;</span>,</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;federal_land&quot;</span>: [</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The project requires a right-of-way grant across Bureau of Land Management land.&quot;</span>,</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The proposed transmission line would cross National Forest System lands.&quot;</span>,</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The applicant has applied for a special use permit on federal land.&quot;</span>,</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;federal_permit&quot;</span>: [</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The project requires an individual permit from the U.S. Army Corps of Engineers under Section 404.&quot;</span>,</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;FERC approval is required before the project can proceed.&quot;</span>,</span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The project requires authorization under Section 10 of the Rivers and Harbors Act.&quot;</span>,</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;federal_funding&quot;</span>: [</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The project is funded through a Department of Energy loan guarantee.&quot;</span>,</span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;Federal financial assistance is provided through a DOE grant under Title XVII.&quot;</span>,</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The project is a recipient of federal funding through the Bipartisan Infrastructure Law.&quot;</span>,</span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;federal_property_transaction&quot;</span>: [</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The proposed action consists of a land exchange between the federal government and a private party.&quot;</span>,</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>        <span class="st">&quot;The Bureau of Land Management proposes to convey this federal parcel to the state.&quot;</span>,</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Embed all prototypes at startup. For each unresolved project, embed the candidate text, compute cosine similarity to each class centroid, assign to highest class if similarity ≥ 0.45 threshold, else <code>unknown</code>. Set <code>confidence = medium</code> for assignments above threshold, <code>low</code> below.</p>
+<p><strong>Rule ID format:</strong> <code>T4_embed_{class}</code>.</p>
+<hr>
+</section>
+<section id="tier-5-claude-haiku-structured-fallback-use-llm-flag" class="level4">
+<h4 class="anchored" data-anchor-id="tier-5-claude-haiku-structured-fallback-use-llm-flag">Tier 5 — Claude Haiku structured fallback (–use-llm flag)</h4>
+<p>For projects with <code>confidence = low</code> after all tiers (target ≤5% of 20,725 ≈ 1,000 projects). Only runs when <code>--use-llm</code> flag is set.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>PROMPT <span class="op">=</span> <span class="st">&quot;&quot;&quot;You are classifying what triggered a NEPA environmental review for an energy project.</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="st">Given the text below, identify the primary federal nexus.</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="st">Classes:</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="st">- federal_action: federal agency is the primary actor constructing or implementing the project</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="st">- federal_program: programmatic EIS, land-use plan, rulemaking, or leasing framework</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="st">- federal_property_transaction: land exchange, disposal, or conveyance</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="st">- federal_land: project on or crossing federal land; ROW grant to a private developer</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="st">- federal_permit: federal permit, license, or authorization is the primary nexus</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="st">- federal_funding: federal grant, loan guarantee, or financial assistance</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="st">- unknown: cannot determine from the text provided</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="st">Text: </span><span class="sc">{text}</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="st">Respond with JSON only:</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="sc">{{</span><span class="st">&quot;primary&quot;: &quot;federal_land&quot;, &quot;secondary&quot;: [&quot;federal_permit&quot;], &quot;confidence&quot;: &quot;high&quot;, &quot;reasoning&quot;: &quot;...&quot;</span><span class="sc">}}</span><span class="st">&quot;&quot;&quot;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Set <code>nepa_trigger_llm_run_at</code> = <code>datetime.now(timezone.utc).isoformat()</code> per row on success.</p>
+<p><strong>Rule ID format:</strong> <code>T5_llm</code>.</p>
+<hr>
+</section>
+</section>
+<section id="ce-specific-path" class="level3">
+<h3 class="anchored" data-anchor-id="ce-specific-path">CE-specific path</h3>
+<p>CEs are 1–3 page forms, not narrative NEPA documents. Do not apply the full Tier 3 Purpose and Need extraction to CEs — the entire document may be 2 pages.</p>
+<p>For CE records: 1. Apply Tiers 1a, 1b, 2 as normal. 2. If unresolved: scan the entire CE document text (no page limit, since documents are short). 3. If CE category code is available in metadata: build a lookup table mapping CE category codes to trigger types (e.g., BLM Instruction Memo 2012-044 categories map to <code>federal_land</code>). This may resolve more CE cases than text scanning.</p>
+<p>Flag CE records with <code>process_type = &#39;CE&#39;</code> in all diagnostic outputs for separate review.</p>
+<hr>
+</section>
+<section id="batch-validation-approach" class="level3">
+<h3 class="anchored" data-anchor-id="batch-validation-approach">Batch validation approach</h3>
+<p>Target: ≤5% of 20,725 projects flagged for manual review (~1,000 max). If the pipeline flags more than this, tighten confidence thresholds before finalizing.</p>
+<p>Validation by rule batch rather than individual case review:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> build_validation_batches(df: pd.DataFrame, sample_per_batch: <span class="bu">int</span> <span class="op">=</span> <span class="dv">20</span>) <span class="op">-&gt;</span> pd.DataFrame:</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Group flagged cases by nepa_trigger_rule_id. For each unique rule that</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co">    produced low-confidence results, sample up to `sample_per_batch` cases.</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="co">    Review the sample; if precision &gt;= 0.85, accept the full batch without</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="co">    further review. If precision &lt; 0.85, either fix the rule or flag all</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co">    cases from that rule for individual review.</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>    flagged <span class="op">=</span> df[df[<span class="st">&quot;nepa_trigger_manual_review&quot;</span>] <span class="op">==</span> <span class="va">True</span>]</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>    batches <span class="op">=</span> []</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> rule_id, group <span class="kw">in</span> flagged.groupby(<span class="st">&quot;nepa_trigger_rule_id&quot;</span>):</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>        sample <span class="op">=</span> group.sample(<span class="bu">min</span>(sample_per_batch, <span class="bu">len</span>(group)), random_state<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>        sample[<span class="st">&quot;validation_batch&quot;</span>] <span class="op">=</span> rule_id</span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>        sample[<span class="st">&quot;batch_size&quot;</span>] <span class="op">=</span> <span class="bu">len</span>(group)</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>        batches.append(sample)</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pd.concat(batches, ignore_index<span class="op">=</span><span class="va">True</span>) <span class="cf">if</span> batches <span class="cf">else</span> pd.DataFrame()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Output <code>validation_batches.csv</code> alongside the main parquet. Reviewer works through batches in descending order of <code>batch_size</code> — fixing the largest broken rule has the most impact. Once a batch is reviewed and the rule confirmed, set <code>nepa_trigger_manual_review = False</code> for all rows from that rule.</p>
+<p><strong>Pre-validation step:</strong> Before the full run, spot-check 30 random BLM projects and 30 random FERC projects from Tier 1a results. If ≥28/30 are correctly classified, Tier 1a is trustworthy and those cases do not need <code>manual_review = True</code> even at medium confidence.</p>
+<hr>
+</section>
+<section id="pipeline-flow-critical" class="level3">
+<h3 class="anchored" data-anchor-id="pipeline-flow-critical">Pipeline flow (critical)</h3>
+<p>Each tier receives only the projects <strong>not yet resolved</strong> by all prior tiers. A project is “resolved” when <code>nepa_trigger_confidence</code> is <code>high</code> or <code>medium</code>. Low-confidence results from an earlier tier are kept but the project is still passed to the next tier to attempt a better classification.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> extract_nepa_triggers(use_llm<span class="op">=</span><span class="va">False</span>, sample<span class="op">=</span><span class="va">None</span>):</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    conn <span class="op">=</span> duckdb.<span class="ex">connect</span>()</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Load clean energy project IDs and key metadata only.</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="co"># dataset_source (&#39;CE&#39;, &#39;EA&#39;, &#39;EIS&#39;) routes each project to the correct</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    <span class="co"># docs/pages parquet in Tiers 2 and 3.</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    projects <span class="op">=</span> conn.execute(<span class="ss">f&quot;&quot;&quot;</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a><span class="ss">        SELECT project_id, lead_agency_harmonized, project_title,</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a><span class="ss">               project_description, process_type, dataset_source</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a><span class="ss">        FROM read_parquet(&#39;</span><span class="sc">{</span>PROJECTS_PATH<span class="sc">}</span><span class="ss">&#39;)</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="ss">        WHERE </span><span class="sc">{</span>CLEAN_ENERGY_FILTER<span class="sc">}</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="ss">    &quot;&quot;&quot;</span>).fetchdf()</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> sample:</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>        projects <span class="op">=</span> projects.sample(sample, random_state<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>    all_project_ids <span class="op">=</span> <span class="bu">set</span>(projects[<span class="st">&quot;project_id&quot;</span>])</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>    resolved <span class="op">=</span> {}  <span class="co"># project_id -&gt; result dict; grows as tiers run</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Tier 1a</span></span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>    r1a <span class="op">=</span> tier1a_metadata(projects)</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>    resolved.update({r[<span class="st">&quot;project_id&quot;</span>]: r <span class="cf">for</span> r <span class="kw">in</span> r1a <span class="cf">if</span> r[<span class="st">&quot;nepa_trigger_confidence&quot;</span>] <span class="kw">in</span> (<span class="st">&quot;high&quot;</span>, <span class="st">&quot;medium&quot;</span>)})</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Tier 1b — only unresolved</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>    unresolved <span class="op">=</span> projects[<span class="op">~</span>projects[<span class="st">&quot;project_id&quot;</span>].isin(resolved)]</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>    r1b <span class="op">=</span> tier1b_title_description(unresolved)</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>    resolved.update({r[<span class="st">&quot;project_id&quot;</span>]: r <span class="cf">for</span> r <span class="kw">in</span> r1b <span class="cf">if</span> r[<span class="st">&quot;nepa_trigger_confidence&quot;</span>] <span class="kw">in</span> (<span class="st">&quot;high&quot;</span>, <span class="st">&quot;medium&quot;</span>)})</span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Tier 2 — only unresolved</span></span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>    unresolved_ids <span class="op">=</span> <span class="bu">list</span>(all_project_ids <span class="op">-</span> <span class="bu">set</span>(resolved))</span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>    r2 <span class="op">=</span> tier2_doc_title(unresolved_ids, conn)</span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>    resolved.update({r[<span class="st">&quot;project_id&quot;</span>]: r <span class="cf">for</span> r <span class="kw">in</span> r2 <span class="cf">if</span> r[<span class="st">&quot;nepa_trigger_confidence&quot;</span>] <span class="kw">in</span> (<span class="st">&quot;high&quot;</span>, <span class="st">&quot;medium&quot;</span>)})</span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Tier 3 — only unresolved; CE records handled separately (full doc scan, no page limit)</span></span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>    unresolved_ids <span class="op">=</span> <span class="bu">list</span>(all_project_ids <span class="op">-</span> <span class="bu">set</span>(resolved))</span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>    r3 <span class="op">=</span> tier3_purpose_and_need(unresolved_ids, projects, conn)</span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>    resolved.update({r[<span class="st">&quot;project_id&quot;</span>]: r <span class="cf">for</span> r <span class="kw">in</span> r3 <span class="cf">if</span> r[<span class="st">&quot;nepa_trigger_confidence&quot;</span>] <span class="kw">in</span> (<span class="st">&quot;high&quot;</span>, <span class="st">&quot;medium&quot;</span>)})</span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Tier 4 — embedding similarity on all still-unresolved</span></span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>    unresolved_ids <span class="op">=</span> <span class="bu">list</span>(all_project_ids <span class="op">-</span> <span class="bu">set</span>(resolved))</span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>    r4 <span class="op">=</span> tier4_embedding(unresolved_ids, projects, conn)</span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>    resolved.update({r[<span class="st">&quot;project_id&quot;</span>]: r <span class="cf">for</span> r <span class="kw">in</span> r4})</span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Tier 5 — LLM on confidence=low residuals (if --use-llm)</span></span>
+<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> use_llm:</span>
+<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a>        low_conf <span class="op">=</span> [pid <span class="cf">for</span> pid, r <span class="kw">in</span> resolved.items() <span class="cf">if</span> r[<span class="st">&quot;nepa_trigger_confidence&quot;</span>] <span class="op">==</span> <span class="st">&quot;low&quot;</span>]</span>
+<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a>        r5 <span class="op">=</span> tier5_llm(low_conf, projects, conn)</span>
+<span id="cb12-47"><a href="#cb12-47" aria-hidden="true" tabindex="-1"></a>        resolved.update({r[<span class="st">&quot;project_id&quot;</span>]: r <span class="cf">for</span> r <span class="kw">in</span> r5})</span>
+<span id="cb12-48"><a href="#cb12-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-49"><a href="#cb12-49" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Any project with no assignment at all → unknown</span></span>
+<span id="cb12-50"><a href="#cb12-50" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> pid <span class="kw">in</span> all_project_ids:</span>
+<span id="cb12-51"><a href="#cb12-51" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> pid <span class="kw">not</span> <span class="kw">in</span> resolved:</span>
+<span id="cb12-52"><a href="#cb12-52" aria-hidden="true" tabindex="-1"></a>            resolved[pid] <span class="op">=</span> {</span>
+<span id="cb12-53"><a href="#cb12-53" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;project_id&quot;</span>: pid,</span>
+<span id="cb12-54"><a href="#cb12-54" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;nepa_trigger_primary&quot;</span>: <span class="st">&quot;unknown&quot;</span>,</span>
+<span id="cb12-55"><a href="#cb12-55" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;nepa_trigger_secondary&quot;</span>: [],</span>
+<span id="cb12-56"><a href="#cb12-56" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;nepa_trigger_multi&quot;</span>: [],</span>
+<span id="cb12-57"><a href="#cb12-57" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;nepa_trigger_evidence_text&quot;</span>: <span class="st">&quot;&quot;</span>,</span>
+<span id="cb12-58"><a href="#cb12-58" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;nepa_trigger_evidence_source&quot;</span>: <span class="st">&quot;&quot;</span>,</span>
+<span id="cb12-59"><a href="#cb12-59" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;nepa_trigger_confidence&quot;</span>: <span class="st">&quot;low&quot;</span>,</span>
+<span id="cb12-60"><a href="#cb12-60" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;nepa_trigger_rule_id&quot;</span>: <span class="st">&quot;no_match&quot;</span>,</span>
+<span id="cb12-61"><a href="#cb12-61" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;nepa_trigger_manual_review&quot;</span>: <span class="va">True</span>,</span>
+<span id="cb12-62"><a href="#cb12-62" aria-hidden="true" tabindex="-1"></a>                <span class="st">&quot;nepa_trigger_llm_run_at&quot;</span>: <span class="st">&quot;&quot;</span>,</span>
+<span id="cb12-63"><a href="#cb12-63" aria-hidden="true" tabindex="-1"></a>            }</span>
+<span id="cb12-64"><a href="#cb12-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-65"><a href="#cb12-65" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> pd.DataFrame(<span class="bu">list</span>(resolved.values()))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="output-assembly" class="level3">
+<h3 class="anchored" data-anchor-id="output-assembly">Output assembly</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>run_at <span class="op">=</span> datetime.now(timezone.utc).isoformat()</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>final <span class="op">=</span> extract_nepa_triggers(use_llm<span class="op">=</span>args.use_llm, sample<span class="op">=</span>args.sample)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Compute is_dual_nexus (post-assignment)</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>final[<span class="st">&quot;is_dual_nexus&quot;</span>] <span class="op">=</span> (</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>    (final[<span class="st">&quot;nepa_trigger_primary&quot;</span>] <span class="op">==</span> <span class="st">&quot;federal_land&quot;</span>) <span class="op">&amp;</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>    (final[<span class="st">&quot;nepa_trigger_secondary&quot;</span>].<span class="bu">apply</span>(</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">lambda</span> x: <span class="st">&quot;federal_permit&quot;</span> <span class="kw">in</span> x <span class="cf">if</span> <span class="bu">isinstance</span>(x, <span class="bu">list</span>) <span class="cf">else</span> <span class="va">False</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    ))</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>final[<span class="st">&quot;nepa_trigger_extraction_run_at&quot;</span>] <span class="op">=</span> run_at</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="co"># nepa_trigger_llm_run_at is set per-row in Tier 5; fill &quot;&quot; elsewhere</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="st">&quot;nepa_trigger_llm_run_at&quot;</span> <span class="kw">not</span> <span class="kw">in</span> final.columns:</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>    final[<span class="st">&quot;nepa_trigger_llm_run_at&quot;</span>] <span class="op">=</span> <span class="st">&quot;&quot;</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="cf">else</span>:</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>    final[<span class="st">&quot;nepa_trigger_llm_run_at&quot;</span>] <span class="op">=</span> final[<span class="st">&quot;nepa_trigger_llm_run_at&quot;</span>].fillna(<span class="st">&quot;&quot;</span>)</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a><span class="co"># One row per project_id — must hold before writing.</span></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> final[<span class="st">&quot;project_id&quot;</span>].is_unique, <span class="st">&quot;Duplicate project_ids in output — check tier logic&quot;</span></span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a><span class="co"># Scope check: verify only clean energy project IDs are present.</span></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>clean_ids <span class="op">=</span> <span class="bu">set</span>(projects[<span class="st">&quot;project_id&quot;</span>])</span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> final[<span class="st">&quot;project_id&quot;</span>].isin(clean_ids).<span class="bu">all</span>(), <span class="st">&quot;Non-clean project IDs in output&quot;</span></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="co"># nepa_trigger_secondary must be a Python list (Arrow list&lt;string&gt; in parquet).</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Do NOT convert to JSON string — R&#39;s arrow::read_parquet() handles list columns natively.</span></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a><span class="cf">assert</span> final[<span class="st">&quot;nepa_trigger_secondary&quot;</span>].<span class="bu">apply</span>(<span class="bu">isinstance</span>, args<span class="op">=</span>(<span class="bu">list</span>,)).<span class="bu">all</span>(), <span class="op">\</span></span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;nepa_trigger_secondary must be list type&quot;</span></span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a><span class="co"># Enforce final column order before writing.</span></span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>OUTPUT_COLS <span class="op">=</span> [</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;project_id&quot;</span>,</span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;nepa_trigger_primary&quot;</span>, <span class="st">&quot;nepa_trigger_secondary&quot;</span>, <span class="st">&quot;nepa_trigger_multi&quot;</span>,</span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;nepa_trigger_evidence_text&quot;</span>, <span class="st">&quot;nepa_trigger_evidence_source&quot;</span>,</span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;nepa_trigger_confidence&quot;</span>, <span class="st">&quot;nepa_trigger_rule_id&quot;</span>,</span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;nepa_trigger_manual_review&quot;</span>, <span class="st">&quot;is_dual_nexus&quot;</span>,</span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;nepa_trigger_extraction_run_at&quot;</span>, <span class="st">&quot;nepa_trigger_llm_run_at&quot;</span>,</span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>]</span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>final <span class="op">=</span> final[OUTPUT_COLS]</span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>final.to_parquet(OUTPUT_DIR <span class="op">/</span> <span class="st">&quot;projects_nepa_trigger.parquet&quot;</span>, index<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a><span class="co"># Write validation batches for manual review workflow</span></span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a>batches <span class="op">=</span> build_validation_batches(final)</span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="kw">not</span> batches.empty:</span>
+<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a>    batches.to_csv(OUTPUT_DIR <span class="op">/</span> <span class="st">&quot;validation_batches.csv&quot;</span>, index<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;Validation batches written: </span><span class="sc">{</span><span class="bu">len</span>(batches)<span class="sc">}</span><span class="ss"> flagged cases across &quot;</span></span>
+<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a>          <span class="ss">f&quot;</span><span class="sc">{</span>batches[<span class="st">&#39;validation_batch&#39;</span>]<span class="sc">.</span>nunique()<span class="sc">}</span><span class="ss"> rules&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="cli" class="level3">
+<h3 class="anchored" data-anchor-id="cli">CLI</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="va">__name__</span> <span class="op">==</span> <span class="st">&quot;__main__&quot;</span>:</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> argparse</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    parser <span class="op">=</span> argparse.ArgumentParser()</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    parser.add_argument(<span class="st">&quot;--eda&quot;</span>, action<span class="op">=</span><span class="st">&quot;store_true&quot;</span>, <span class="bu">help</span><span class="op">=</span><span class="st">&quot;Run EDA check only; do not extract&quot;</span>)</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>    parser.add_argument(<span class="st">&quot;--use-llm&quot;</span>, action<span class="op">=</span><span class="st">&quot;store_true&quot;</span>, <span class="bu">help</span><span class="op">=</span><span class="st">&quot;Enable Tier 5 Haiku fallback&quot;</span>)</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    parser.add_argument(<span class="st">&quot;--sample&quot;</span>, <span class="bu">type</span><span class="op">=</span><span class="bu">int</span>, default<span class="op">=</span><span class="va">None</span>)</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>    args <span class="op">=</span> parser.parse_args()</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> args.eda:</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>        run_eda(duckdb.<span class="ex">connect</span>())</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>    <span class="cf">else</span>:</span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>        extract_nepa_triggers(use_llm<span class="op">=</span>args.use_llm, sample<span class="op">=</span>args.sample)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+</section>
+<section id="analyze_triggers.r-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="analyze_triggers.r-full-specification"><code>02_analyze_triggers.R</code> — Full Specification</h2>
+<section id="inputs" class="level3">
+<h3 class="anchored" data-anchor-id="inputs">Inputs</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(arrow)</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(dplyr)</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyr)</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(forcats)</span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(sf)        <span class="co"># for state choropleth</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(usmap)     <span class="co"># or tigris</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>triggers <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/nepa_trigger/projects_nepa_trigger.parquet&quot;</span>)</span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>projects <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_combined.parquet&quot;</span>)</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">left_join</span>(triggers, projects, <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(project_energy_type <span class="sc">==</span> <span class="st">&quot;Clean&quot;</span>)  <span class="co"># enforce scope</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a><span class="co"># nepa_trigger_secondary is an Arrow list&lt;string&gt; column; R reads it as a list-column.</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a><span class="co"># purrr::map* and length() work correctly on list-columns — do not unnest before using them.</span></span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a><span class="co"># To unnest for frequency counts: tidyr::unnest(df, nepa_trigger_secondary)</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Column normalization ---</span></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a><span class="co"># projects_combined.parquet uses these actual column names (confirmed from db.py / extract scripts):</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a><span class="co">#   lead_agency_harmonized  (NOT agency_name)</span></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a><span class="co">#   project_state           (NOT state)</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a><span class="co">#   project_type            (NOT project_technology)</span></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Rename here once so all figure code below uses short aliases.</span></span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(</span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">agency_name      =</span> lead_agency_harmonized,</span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>    <span class="at">state            =</span> project_state,</span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>    <span class="at">project_technology =</span> project_type         <span class="co"># project_type is the energy/project category</span></span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>  )</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="figure-1-primary-trigger-process-type-main-deliverable-figure" class="level3">
+<h3 class="anchored" data-anchor-id="figure-1-primary-trigger-process-type-main-deliverable-figure">Figure 1 — Primary trigger × process type (main deliverable figure)</h3>
+<p>100% stacked bar chart; primary trigger only; one bar per process type (CE, EA, EIS).</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>fig1 <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(nepa_trigger_primary, process_type) <span class="sc">|&gt;</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(process_type) <span class="sc">|&gt;</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n)) <span class="sc">|&gt;</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> process_type, <span class="at">y =</span> pct, <span class="at">fill =</span> nepa_trigger_primary)) <span class="sc">+</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">position =</span> <span class="st">&quot;fill&quot;</span>) <span class="sc">+</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_y_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>percent) <span class="sc">+</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;NEPA Trigger Type by Review Process&quot;</span>,</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">&quot;Process Type&quot;</span>, <span class="at">y =</span> <span class="st">&quot;Share of Projects&quot;</span>,</span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>       <span class="at">fill =</span> <span class="st">&quot;Primary Trigger&quot;</span>) <span class="sc">+</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="figure-2-agency-trigger-heatmap" class="level3">
+<h3 class="anchored" data-anchor-id="figure-2-agency-trigger-heatmap">Figure 2 — Agency-trigger heatmap</h3>
+<p>Top 15–20 agencies by project count; cells show % of each agency’s projects in each trigger class. Reveals agency behavioral profiles.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>top_agencies <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span> <span class="fu">count</span>(agency_name, <span class="at">sort =</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span> <span class="fu">slice_head</span>(<span class="at">n =</span> <span class="dv">18</span>) <span class="sc">|&gt;</span> <span class="fu">pull</span>(agency_name)</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>fig2 <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(agency_name <span class="sc">%in%</span> top_agencies) <span class="sc">|&gt;</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(agency_name, nepa_trigger_primary) <span class="sc">|&gt;</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(agency_name) <span class="sc">|&gt;</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n)) <span class="sc">|&gt;</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> nepa_trigger_primary, <span class="at">y =</span> <span class="fu">fct_reorder</span>(agency_name, n), <span class="at">fill =</span> pct)) <span class="sc">+</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_tile</span>() <span class="sc">+</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_viridis_c</span>(<span class="at">labels =</span> scales<span class="sc">::</span>percent, <span class="at">name =</span> <span class="st">&quot;% of agency</span><span class="sc">\n</span><span class="st">projects&quot;</span>) <span class="sc">+</span></span>
+<span id="cb17-11"><a href="#cb17-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Trigger Type Distribution by Agency&quot;</span>,</span>
+<span id="cb17-12"><a href="#cb17-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">&quot;Primary Trigger&quot;</span>, <span class="at">y =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb17-13"><a href="#cb17-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="figure-3-multi-trigger-combination-bar-secondary-on-request" class="level3">
+<h3 class="anchored" data-anchor-id="figure-3-multi-trigger-combination-bar-secondary-on-request">Figure 3 — Multi-trigger combination bar (secondary; on request)</h3>
+<p>Top 10 primary+secondary combinations. Show only when multi-label analysis is requested.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>fig3 <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">trigger_combo =</span> purrr<span class="sc">::</span><span class="fu">map2_chr</span>(</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    nepa_trigger_primary,</span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>    nepa_trigger_secondary,</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>    <span class="sc">~</span> <span class="cf">if</span> (<span class="fu">length</span>(.y) <span class="sc">==</span> <span class="dv">0</span>) .x <span class="cf">else</span> <span class="fu">paste</span>(<span class="fu">c</span>(.x, <span class="fu">sort</span>(.y)), <span class="at">collapse =</span> <span class="st">&quot; + &quot;</span>)</span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>  )) <span class="sc">|&gt;</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(trigger_combo, <span class="at">sort =</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice_head</span>(<span class="at">n =</span> <span class="dv">10</span>) <span class="sc">|&gt;</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> n, <span class="at">y =</span> <span class="fu">fct_reorder</span>(trigger_combo, n))) <span class="sc">+</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">fill =</span> <span class="st">&quot;#012169&quot;</span>) <span class="sc">+</span></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Top 10 Trigger Combinations&quot;</span>,</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">&quot;Projects&quot;</span>, <span class="at">y =</span> <span class="cn">NULL</span>) <span class="sc">+</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="figure-4-trigger-energy-technology" class="level3">
+<h3 class="anchored" data-anchor-id="figure-4-trigger-energy-technology">Figure 4 — Trigger × energy technology</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Requires project_technology or project_type field — check column availability</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>fig4 <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(project_technology)) <span class="sc">|&gt;</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(project_technology, nepa_trigger_primary) <span class="sc">|&gt;</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(project_technology) <span class="sc">|&gt;</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n)) <span class="sc">|&gt;</span></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(<span class="fu">aes</span>(<span class="at">x =</span> pct, <span class="at">y =</span> <span class="fu">fct_reorder</span>(project_technology, pct),</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>             <span class="at">fill =</span> nepa_trigger_primary)) <span class="sc">+</span></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_col</span>(<span class="at">position =</span> <span class="st">&quot;fill&quot;</span>) <span class="sc">+</span></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(<span class="at">labels =</span> scales<span class="sc">::</span>percent) <span class="sc">+</span></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Primary Trigger by Energy Technology&quot;</span>,</span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>       <span class="at">x =</span> <span class="st">&quot;Share of Projects&quot;</span>, <span class="at">y =</span> <span class="cn">NULL</span>, <span class="at">fill =</span> <span class="st">&quot;Primary Trigger&quot;</span>) <span class="sc">+</span></span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="figure-5-state-choropleth-dominant-trigger-per-state" class="level3">
+<h3 class="anchored" data-anchor-id="figure-5-state-choropleth-dominant-trigger-per-state">Figure 5 — State choropleth (dominant trigger per state)</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>state_dominant <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(state, nepa_trigger_primary) <span class="sc">|&gt;</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(state) <span class="sc">|&gt;</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice_max</span>(n, <span class="at">n =</span> <span class="dv">1</span>, <span class="at">with_ties =</span> <span class="cn">FALSE</span>) <span class="sc">|&gt;</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rename</span>(<span class="at">dominant_trigger =</span> nepa_trigger_primary)</span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Use usmap::plot_usmap() or ggplot2 + sf with tigris::states()</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>fig5 <span class="ot">&lt;-</span> <span class="fu">plot_usmap</span>(<span class="at">data =</span> state_dominant, <span class="at">values =</span> <span class="st">&quot;dominant_trigger&quot;</span>,</span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>                   <span class="at">regions =</span> <span class="st">&quot;states&quot;</span>) <span class="sc">+</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_brewer</span>(<span class="at">palette =</span> <span class="st">&quot;Set2&quot;</span>, <span class="at">name =</span> <span class="st">&quot;Dominant Trigger&quot;</span>) <span class="sc">+</span></span>
+<span id="cb20-11"><a href="#cb20-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">&quot;Dominant NEPA Trigger by State&quot;</span>) <span class="sc">+</span></span>
+<span id="cb20-12"><a href="#cb20-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_minimal</span>()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="figure-6-trigger-timeline-duration-placeholder-requires-d4" class="level3">
+<h3 class="anchored" data-anchor-id="figure-6-trigger-timeline-duration-placeholder-requires-d4">Figure 6 — Trigger × timeline duration (placeholder; requires D4)</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># </span><span class="al">NOTE</span><span class="co">: Requires projects_timeline_bert.parquet from D4. Placeholder; run after D4 merge.</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="co"># if (file.exists(&quot;data/analysis/projects_timeline_bert.parquet&quot;)) {</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a><span class="co">#   timelines &lt;- read_parquet(&quot;data/analysis/projects_timeline_bert.parquet&quot;)</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a><span class="co">#   df_t &lt;- left_join(df, timelines, by = &quot;project_id&quot;) |&gt;</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="co">#     filter(!is.na(review_duration_days))</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a><span class="co">#</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a><span class="co">#   fig6 &lt;- ggplot(df_t, aes(x = nepa_trigger_primary, y = review_duration_days / 365)) +</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="co">#     geom_boxplot(fill = &quot;#0047BB&quot;, alpha = 0.6) +</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a><span class="co">#     labs(title = &quot;Review Duration by NEPA Trigger Type&quot;,</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a><span class="co">#          x = &quot;Primary Trigger&quot;, y = &quot;Duration (years)&quot;) +</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a><span class="co">#     coord_flip() + theme_minimal()</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a><span class="co"># }</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="table-representative-evidence-text-excerpts" class="level3">
+<h3 class="anchored" data-anchor-id="table-representative-evidence-text-excerpts">Table — Representative evidence text excerpts</h3>
+<p>Pull 2 high-confidence examples per trigger class where <code>nepa_trigger_evidence_source</code> is <code>purpose_and_need</code> or <code>description</code>. These are quotable for the report narrative.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>excerpts <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(nepa_trigger_confidence <span class="sc">==</span> <span class="st">&quot;high&quot;</span>,</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>         nepa_trigger_evidence_source <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;purpose_and_need&quot;</span>, <span class="st">&quot;description&quot;</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(nepa_trigger_primary) <span class="sc">|&gt;</span></span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">slice_sample</span>(<span class="at">n =</span> <span class="dv">2</span>) <span class="sc">|&gt;</span></span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(nepa_trigger_primary, project_title, nepa_trigger_evidence_text,</span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>         agency_name, process_type) <span class="sc">|&gt;</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ungroup</span>()</span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(excerpts, <span class="st">&quot;output/deliverable01/trigger_evidence_excerpts.csv&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="source-and-validation-diagnostics" class="level3">
+<h3 class="anchored" data-anchor-id="source-and-validation-diagnostics">Source and validation diagnostics</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Tier resolution distribution</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>source_dist <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span> <span class="fu">count</span>(nepa_trigger_evidence_source, nepa_trigger_confidence)</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Rule ID distribution (top rules by volume)</span></span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>rule_dist <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span> <span class="fu">count</span>(nepa_trigger_rule_id, <span class="at">sort =</span> <span class="cn">TRUE</span>) <span class="sc">|&gt;</span> <span class="fu">slice_head</span>(<span class="at">n =</span> <span class="dv">20</span>)</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Manual review flagging rate</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>flag_rate <span class="ot">&lt;-</span> <span class="fu">mean</span>(df<span class="sc">$</span>nepa_trigger_manual_review, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span>(<span class="st">&quot;Manual review flag rate:&quot;</span>, scales<span class="sc">::</span><span class="fu">percent</span>(flag_rate), <span class="st">&quot;</span><span class="sc">\n</span><span class="st">&quot;</span>)</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Target: &lt; 5%; if higher, return to pipeline and tighten thresholds</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="outputs" class="level3">
+<h3 class="anchored" data-anchor-id="outputs">Outputs</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">&quot;output/deliverable01/fig1_trigger_by_process.png&quot;</span>, fig1, <span class="at">width =</span> <span class="dv">8</span>, <span class="at">height =</span> <span class="dv">5</span>)</span>
+<span id="cb24-2"><a href="#cb24-2" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">&quot;output/deliverable01/fig2_agency_trigger_heatmap.png&quot;</span>, fig2, <span class="at">width =</span> <span class="dv">10</span>, <span class="at">height =</span> <span class="dv">7</span>)</span>
+<span id="cb24-3"><a href="#cb24-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">&quot;output/deliverable01/fig3_trigger_combinations.png&quot;</span>, fig3, <span class="at">width =</span> <span class="dv">8</span>, <span class="at">height =</span> <span class="dv">5</span>)</span>
+<span id="cb24-4"><a href="#cb24-4" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">&quot;output/deliverable01/fig4_trigger_by_technology.png&quot;</span>, fig4, <span class="at">width =</span> <span class="dv">9</span>, <span class="at">height =</span> <span class="dv">6</span>)</span>
+<span id="cb24-5"><a href="#cb24-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ggsave</span>(<span class="st">&quot;output/deliverable01/fig5_state_choropleth.png&quot;</span>, fig5, <span class="at">width =</span> <span class="dv">10</span>, <span class="at">height =</span> <span class="dv">6</span>)</span>
+<span id="cb24-6"><a href="#cb24-6" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(source_dist, <span class="st">&quot;output/deliverable01/trigger_source_distribution.csv&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb24-7"><a href="#cb24-7" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(rule_dist, <span class="st">&quot;output/deliverable01/trigger_rule_distribution.csv&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb24-8"><a href="#cb24-8" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(excerpts, <span class="st">&quot;output/deliverable01/trigger_evidence_excerpts.csv&quot;</span>, <span class="at">row.names =</span> <span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+</section>
+<section id="setfit-held-in-reserve" class="level2">
+<h2 class="anchored" data-anchor-id="setfit-held-in-reserve">SetFit — Held in Reserve</h2>
+<p>SetFit is <strong>not part of the current implementation plan</strong> and requires no additional scripts or dependencies. It is documented here as a fallback option if the current 5-tier pipeline produces unacceptable residual unknowns (&gt;15% of projects) or systematic misclassification in a specific tier.</p>
+<p>If needed: label 15–20 examples per class (105–140 total) from high-confidence Tier 1a/1b outputs (fast to label since classifications are already known). Train on <code>sentence-transformers/paraphrase-mpnet-base-v2</code>. Insert between Tiers 4 and 5 (embedding similarity → SetFit → LLM fallback). Only pursue if embedding similarity Tier 4 accuracy falls below 70% on a held-out sample. All SetFit code would live inside <code>01_extract_nepa_trigger.py</code> — no new script needed.</p>
+<hr>
+</section>
+<section id="pre-run-checklist" class="level2">
+<h2 class="anchored" data-anchor-id="pre-run-checklist">Pre-Run Checklist</h2>
+<ol type="1">
+<li>Run <code>--eda</code> flag; check description coverage by process type (especially CE). If CE description coverage &lt;30%, plan to lean on document text for CE cases.</li>
+<li>Spot-check 30 BLM + 30 FERC projects from Tier 1a before full run. Confirm ≥28/30 correct for each agency; if not, fix the rule before proceeding.</li>
+<li>After full run: check <code>flag_rate</code> in analysis script; target &lt;5%.</li>
+<li>Run <code>validation_batches.csv</code>; work through batches in descending <code>batch_size</code> order.</li>
+<li>Confirm <code>is_dual_nexus</code> distribution is plausible (~5–15% of projects expected, concentrated in transmission/wind).</li>
+</ol>
+</section>
+<section id="error-handling" class="level2">
+<h2 class="anchored" data-anchor-id="error-handling">Error Handling</h2>
 <ul>
-<li><code>--source</code> accepts <code>CE</code>, <code>EA</code>, <code>EIS</code>, or comma-separated combinations. Defaults to <code>CE</code> if omitted.</li>
-<li>spaCy enrichment runs by default during <code>--regex-prep</code>. Use <code>--no-spacy</code> to skip.</li>
-<li>Initiation class imbalance is a known bottleneck; improve via pattern expansion + weighting + manual examples.</li>
-<li>Timeline selection prioritizes strong signature cues over latest-date heuristics.</li>
-<li><code>dep_verb</code>, <code>sig_flag</code>, <code>ner_decision_signal</code> are the spaCy-enriched columns used by BERT.</li>
+<li>If <code>pages.parquet</code> not found for a source type, log warning and continue.</li>
+<li>If <code>nepa_trigger_types</code> is empty after all tiers, set <code>nepa_trigger_primary = &quot;unknown&quot;</code>, <code>confidence = &quot;low&quot;</code>.</li>
+<li>Catch DuckDB query errors per project batch; log and skip.</li>
+<li>If Tier 5 LLM is unavailable (API error), log and fall through to <code>unknown</code>.</li>
 </ul>
 
 

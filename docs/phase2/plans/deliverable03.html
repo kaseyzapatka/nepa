@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>timeline – NEPA</title>
+<title>deliverable03 – NEPA</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -3967,191 +3967,373 @@ vertical-align: -.125em;
 
 
 
-<section id="timeline-extraction" class="level1">
-<h1>Timeline Extraction</h1>
-<p><strong>Purpose:</strong> Extract initiation and decision dates for NEPA reviews using a BERT classifier with optional LLM adjudication. <strong>Input:</strong> <code>data/analysis/projects_combined.parquet</code> + regex candidate cache. <strong>Output:</strong> <code>data/analysis/timeline_{ce,ea,eis}.parquet</code>, <code>timeline_{ea,eis}_llm.parquet</code>, <code>timeline_targeted_llm.parquet</code> <strong>Cost:</strong> LLM adjudication ~$0.60–$1.00 (Claude Haiku) for EA + EIS full runs. Targeted re-adjudication ~$0.44. <strong>Prerequisites:</strong> Base dataset built (<a href="../runbooks/01_base_dataset.md">runbook 01</a>).</p>
-<blockquote class="blockquote">
-<p><strong>Note on prior organization:</strong> The targeted re-adjudication for programmatic/tiered projects was previously documented as a standalone “Deliverable 02” section in the README. It is step 7 in the full rebuild below because it operates on timeline outputs — it is a timeline operation, not a reviews operation. Reviews (<a href="../runbooks/03_reviews.md">runbook 03</a>) must still run before step 7.</p>
-</blockquote>
+<section id="d3-nepa-review-process-application-implementation-plan" class="level1">
+<h1>D3: NEPA Review Process Application — Implementation Plan</h1>
+<p><strong>Delete this file after <code>deliverable03/</code> scripts are implemented.</strong></p>
+<p>Architecture reference: <code>phase2/architecture/deliverable03.md</code></p>
 <hr>
-<section id="file-naming-convention" class="level2">
-<h2 class="anchored" data-anchor-id="file-naming-convention">File naming convention</h2>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Stage</th>
-<th>CE</th>
-<th>EA</th>
-<th>EIS</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Regex cache</td>
-<td><code>timeline_regex_ce.parquet</code></td>
-<td><code>timeline_regex_ea.parquet</code></td>
-<td><code>timeline_regex_eis.parquet</code></td>
-</tr>
-<tr class="even">
-<td>BERT training data</td>
-<td><code>bert_traindata.parquet</code></td>
-<td>← same file</td>
-<td>← same file</td>
-</tr>
-<tr class="odd">
-<td>Sample test (post-train)</td>
-<td><code>timeline_ce_sample{N}.parquet</code></td>
-<td><code>timeline_ea_sample{N}.parquet</code></td>
-<td><code>timeline_eis_sample{N}.parquet</code></td>
-</tr>
-<tr class="even">
-<td>Full BERT run</td>
-<td><code>timeline_ce.parquet</code></td>
-<td><code>timeline_ea.parquet</code></td>
-<td><code>timeline_eis.parquet</code></td>
-</tr>
-<tr class="odd">
-<td>Post LLM adjudication</td>
-<td><em>(none)</em></td>
-<td><code>timeline_ea_llm.parquet</code></td>
-<td><code>timeline_eis_llm.parquet</code></td>
-</tr>
-</tbody>
-</table>
-<p>Append <code>_v{N}</code> to sample files when iterating through multiple training rounds (e.g. <code>timeline_ce_sample20_v2.parquet</code>). Full run files are overwritten each time.</p>
+<section id="scripts-to-build" class="level2">
+<h2 class="anchored" data-anchor-id="scripts-to-build">Scripts to Build</h2>
+<ol type="1">
+<li><code>phase2/code/deliverable03/01_analyze_review_rates.R</code> — [SELF-CONTAINED]</li>
+<li><code>phase2/code/deliverable03/02_extract_visual_impacts.py</code> — [SELF-CONTAINED]</li>
+<li><code>phase2/code/deliverable03/03_analyze_visual_impacts.R</code> — [SELF-CONTAINED]</li>
+<li><code>phase2/code/deliverable03/04_analyze_geothermal_og.R</code> — [SELF-CONTAINED]</li>
+<li><code>phase2/code/deliverable03/05_analyze_durations.R</code> — [NEEDS TIMELINE]</li>
+</ol>
 <hr>
 </section>
-<section id="full-rebuild-patterns-or-models-changed" class="level2">
-<h2 class="anchored" data-anchor-id="full-rebuild-patterns-or-models-changed">Full rebuild (patterns or models changed)</h2>
-<p>Use when regex patterns or training logic have changed and classifiers need retraining from scratch.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1 — Rebuild regex candidate cache for all sources</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> CE</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EA</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/timeline_regex_{ce,ea,eis}.parquet</span></span>
+<section id="analyze_review_rates.r-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="analyze_review_rates.r-full-specification"><code>01_analyze_review_rates.R</code> — Full Specification</h2>
+<section id="inputs" class="level3">
+<h3 class="anchored" data-anchor-id="inputs">Inputs</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(arrow); <span class="fu">library</span>(dplyr); <span class="fu">library</span>(tidyr); <span class="fu">library</span>(ggplot2); <span class="fu">library</span>(scales)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>projects <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_combined.parquet&quot;</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>technology <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_technology.parquet&quot;</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>reviews <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_reviews.parquet&quot;</span>)</span>
 <span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2 — Rebuild BERT training data</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/bert_traindata.parquet</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3 — Retrain classifiers</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EA</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 4 — Smoke test on 20 projects before committing to full run</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20.parquet</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5 — Full BERT inference</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 6 — LLM adjudication for EA and EIS (not needed for CE at scale)</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">ANTHROPIC_API_KEY</span><span class="op">=</span><span class="st">&#39;sk-ant-...&#39;</span></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 7 — Targeted re-adjudication for programmatic/tiered projects</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Run after step 6 AND after reviews extraction (runbook 03) is complete.</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Auto-selects ~73 programmatic/tiered projects with missing initiation or decision dates.</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="dt">\</span></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea_llm.parquet,data/analysis/timeline_eis_llm.parquet <span class="dt">\</span></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">--nonstandard-incomplete</span> <span class="dt">\</span></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">--max-candidates</span> 125 <span class="dt">\</span></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">--context-chars</span> 400 <span class="dt">\</span></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">--promote-rod-language</span> <span class="dt">\</span></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">--year-window</span> 15 <span class="dt">\</span></span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_targeted_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Step 7 flag notes:</strong> - <code>--nonstandard-incomplete</code> — filters to programmatic/tiered projects with missing dates; no manual ID file needed. - <code>--max-candidates 125</code> — raises cap from 30 (EIS default) to 125 for large programmatic EISs. - <code>--promote-rod-language</code> — promotes ROD/FONSI dates to Tier A even if BERT mislabeled them. - <code>--year-window 15</code> — drops candidates &gt;15 years before the latest found date, removing NEPA citation noise. - Targeted output is ~73 rows. Full timeline files are not modified. Patched automatically by <code>00_setup.R</code>.</p>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> projects <span class="sc">|&gt;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(technology, <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(reviews, <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="key-analyses" class="level3">
+<h3 class="anchored" data-anchor-id="key-analyses">Key analyses</h3>
+<p><strong>1. CE/EA/EIS rates by fossil vs. clean × linear vs. non-linear:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>rate_table <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(process_type), <span class="sc">!</span><span class="fu">is.na</span>(project_energy_type)) <span class="sc">|&gt;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">energy_group =</span> <span class="fu">ifelse</span>(project_energy_type <span class="sc">==</span> <span class="st">&quot;Clean&quot;</span>, <span class="st">&quot;Clean&quot;</span>, <span class="st">&quot;Fossil&quot;</span>),</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">project_class =</span> <span class="fu">ifelse</span>(is_linear, <span class="st">&quot;Linear&quot;</span>, <span class="st">&quot;Non-linear&quot;</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(energy_group, project_class, process_type) <span class="sc">|&gt;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(energy_group, project_class) <span class="sc">|&gt;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>2. Chi-square test:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>contingency <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(project_energy_type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;Clean&quot;</span>, <span class="st">&quot;Fossil&quot;</span>), <span class="sc">!</span><span class="fu">is.na</span>(process_type)) <span class="sc">|&gt;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(project_energy_type, process_type) <span class="sc">|&gt;</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">pivot_wider</span>(<span class="at">names_from =</span> process_type, <span class="at">values_from =</span> n, <span class="at">values_fill =</span> <span class="dv">0</span>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">chisq.test</span>(contingency[, <span class="sc">-</span><span class="dv">1</span>])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>3. Geographic distribution:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>state_rates <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(state, process_type) <span class="sc">|&gt;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(state) <span class="sc">|&gt;</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>4. Programmatic/tiered review rates:</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>programmatic <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(process_type <span class="sc">==</span> <span class="st">&quot;EIS&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(is_programmatic, is_tiered) <span class="sc">|&gt;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="outputs" class="level3">
+<h3 class="anchored" data-anchor-id="outputs">Outputs</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;output/deliverable03&quot;</span>, <span class="at">recursive=</span><span class="cn">TRUE</span>, <span class="at">showWarnings=</span><span class="cn">FALSE</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(rate_table, <span class="st">&quot;output/deliverable03/review_rates_by_type.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(state_rates, <span class="st">&quot;output/deliverable03/review_rates_by_state.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(programmatic, <span class="st">&quot;output/deliverable03/programmatic_summary.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
-<section id="quick-run-models-already-trained" class="level2">
-<h2 class="anchored" data-anchor-id="quick-run-models-already-trained">Quick run (models already trained)</h2>
-<p>Use when models are current and only BERT inference + adjudication outputs need refreshing.</p>
-<p><strong>CE only:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EA:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EIS:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<hr>
 </section>
-<section id="filtering-and-debugging" class="level2">
-<h2 class="anchored" data-anchor-id="filtering-and-debugging">Filtering and debugging</h2>
-<p><strong>Restrict to clean energy projects only</strong> (add <code>--clean-energy</code> to any <code>--bert-run</code> command):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="at">--clean-energy</span> <span class="dt">\</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_clean.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Debug a single project</strong> (searches CE, EA, and EIS sources automatically):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--project-id</span> <span class="op">&lt;</span>UUID<span class="op">&gt;</span> --hybrid <span class="at">--use-regex-cache</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<hr>
+<section id="extract_visual_impacts.py-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="extract_visual_impacts.py-full-specification"><code>02_extract_visual_impacts.py</code> — Full Specification</h2>
+<section id="environment-check-imports" class="level3">
+<h3 class="anchored" data-anchor-id="environment-check-imports">Environment check + imports</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> os.environ.get(<span class="st">&quot;CONDA_DEFAULT_ENV&quot;</span>) <span class="op">!=</span> <span class="st">&quot;nepa&quot;</span>:</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">SystemExit</span>(<span class="st">&quot;Please run in conda env &#39;nepa&#39;.&quot;</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> duckdb</span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> numpy <span class="im">as</span> np</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> datetime <span class="im">import</span> datetime, timezone</span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Optional</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> sentence_transformers <span class="im">import</span> SentenceTransformer</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="manual-training-corrections-iterative-improvement" class="level2">
-<h2 class="anchored" data-anchor-id="manual-training-corrections-iterative-improvement">Manual training corrections (iterative improvement)</h2>
-<p><strong>On the first pass, skip manual corrections entirely</strong> — run steps 1–5 above using weak supervision alone to get a working baseline. Then inspect the output, add corrections, and retrain. You do not need to get corrections right before starting.</p>
-<p>After a full run, inspect the output for systematic errors (e.g. CE projects still missing initiation dates). Corrections are added to:</p>
-<pre><code>data/analysis/manual_training_corrections.csv</code></pre>
-<p><strong>Required columns:</strong> <code>project_id</code>, <code>date</code>, <code>correct_type</code> (one of <code>decision</code>, <code>initiation</code>, <code>review</code>, <code>other</code>)</p>
-<p>Once corrections are added, you only need to re-run steps 2–5 (not step 1 — the regex cache is unchanged):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate training data with corrections applied</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrain affected source(s)</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
+<section id="constants" class="level3">
+<h3 class="anchored" data-anchor-id="constants">Constants</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>DATA_DIR <span class="op">=</span> Path(<span class="st">&quot;data&quot;</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>EA_PAGES_PATH <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;ea&quot;</span> <span class="op">/</span> <span class="st">&quot;pages.parquet&quot;</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>EIS_PAGES_PATH <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;eis&quot;</span> <span class="op">/</span> <span class="st">&quot;pages.parquet&quot;</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>OUTPUT_PATH <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;analysis&quot;</span> <span class="op">/</span> <span class="st">&quot;visual_impacts&quot;</span> <span class="op">/</span> <span class="st">&quot;projects_visual_impacts.parquet&quot;</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>OUTPUT_PATH.parent.mkdir(parents<span class="op">=</span><span class="va">True</span>, exist_ok<span class="op">=</span><span class="va">True</span>)</span>
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Smoke test</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20_v2.parquet</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-run full inference</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Matching note:</strong> Corrections are matched on <code>(project_id, date)</code>. If the same date appears in multiple contexts for a project, the correction applies to all of them. You can make the match more precise by also checking <code>context</code> in the CSV (not currently implemented — avoid duplicate dates per project when possible).</p>
-<p><strong>Timing:</strong> Add corrections after inspecting <code>--bert-run</code> output and identifying a cohort of systematic misses (e.g. 20–50 CE initiation false negatives). Corrections before the first run are not useful — you need the model’s output to know what to fix. Plan on at least one correction cycle after the initial build.</p>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>QUERY_TEXT <span class="op">=</span> <span class="st">&quot;visual impacts of the project on viewsheds, aesthetics, visual resources, landscape character&quot;</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>TOP_N <span class="op">=</span> <span class="dv">5</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>MAX_WORDS_PER_CHUNK <span class="op">=</span> <span class="dv">200</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>MIN_WORDS_PER_CHUNK <span class="op">=</span> <span class="dv">30</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>BATCH_SIZE <span class="op">=</span> <span class="dv">256</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="paragraph-chunking" class="level3">
+<h3 class="anchored" data-anchor-id="paragraph-chunking">Paragraph chunking</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> chunk_page(page_text: <span class="bu">str</span>, max_words: <span class="bu">int</span> <span class="op">=</span> MAX_WORDS_PER_CHUNK) <span class="op">-&gt;</span> <span class="bu">list</span>[<span class="bu">str</span>]:</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Split page text into ~200-word paragraph chunks.&quot;&quot;&quot;</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    paragraphs <span class="op">=</span> [p.strip() <span class="cf">for</span> p <span class="kw">in</span> page_text.split(<span class="st">&#39;</span><span class="ch">\n\n</span><span class="st">&#39;</span>) <span class="cf">if</span> p.strip()]</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    chunks <span class="op">=</span> []</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    current <span class="op">=</span> []</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>    current_words <span class="op">=</span> <span class="dv">0</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> para <span class="kw">in</span> paragraphs:</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        words <span class="op">=</span> <span class="bu">len</span>(para.split())</span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> words <span class="op">&lt;</span> MIN_WORDS_PER_CHUNK:</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>            current.append(para)</span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>            current_words <span class="op">+=</span> words</span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> current_words <span class="op">&gt;=</span> max_words:</span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>                chunks.append(<span class="st">&#39; &#39;</span>.join(current))</span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>                current, current_words <span class="op">=</span> [], <span class="dv">0</span></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        <span class="cf">else</span>:</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> current:</span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>                chunks.append(<span class="st">&#39; &#39;</span>.join(current))</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>                current, current_words <span class="op">=</span> [], <span class="dv">0</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>            <span class="cf">if</span> words <span class="op">&lt;=</span> max_words:</span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a>                chunks.append(para)</span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>            <span class="cf">else</span>:</span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Split long paragraph by sentences</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>                sentences <span class="op">=</span> para.split(<span class="st">&#39;. &#39;</span>)</span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>                buf, buf_words <span class="op">=</span> [], <span class="dv">0</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> sent <span class="kw">in</span> sentences:</span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a>                    sw <span class="op">=</span> <span class="bu">len</span>(sent.split())</span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> buf_words <span class="op">+</span> sw <span class="op">&gt;</span> max_words <span class="kw">and</span> buf:</span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>                        chunks.append(<span class="st">&#39;. &#39;</span>.join(buf))</span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>                        buf, buf_words <span class="op">=</span> [sent], sw</span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">else</span>:</span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>                        buf.append(sent)</span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>                        buf_words <span class="op">+=</span> sw</span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> buf:</span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>                    chunks.append(<span class="st">&#39;. &#39;</span>.join(buf))</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> current:</span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>        chunks.append(<span class="st">&#39; &#39;</span>.join(current))</span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> [c <span class="cf">for</span> c <span class="kw">in</span> chunks <span class="cf">if</span> <span class="bu">len</span>(c.split()) <span class="op">&gt;=</span> MIN_WORDS_PER_CHUNK]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="main-extraction-function" class="level3">
+<h3 class="anchored" data-anchor-id="main-extraction-function">Main extraction function</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> extract_visual_impacts(</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>    sample: Optional[<span class="bu">int</span>] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>    output_path: Path <span class="op">=</span> OUTPUT_PATH,</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> pd.DataFrame:</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>    run_at <span class="op">=</span> datetime.now(timezone.utc).isoformat()</span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>    model <span class="op">=</span> SentenceTransformer(<span class="st">&#39;all-MiniLM-L6-v2&#39;</span>)</span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>    query_embedding <span class="op">=</span> model.encode(QUERY_TEXT, normalize_embeddings<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>    conn <span class="op">=</span> duckdb.<span class="ex">connect</span>()</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>    all_results <span class="op">=</span> []</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> source, pages_path <span class="kw">in</span> [(<span class="st">&quot;EA&quot;</span>, EA_PAGES_PATH), (<span class="st">&quot;EIS&quot;</span>, EIS_PAGES_PATH)]:</span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> <span class="kw">not</span> pages_path.exists():</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f&quot;Skipping </span><span class="sc">{</span>source<span class="sc">}</span><span class="ss">: </span><span class="sc">{</span>pages_path<span class="sc">}</span><span class="ss"> not found&quot;</span>)</span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>            <span class="cf">continue</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>        project_ids <span class="op">=</span> conn.execute(<span class="ss">f&quot;&quot;&quot;</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a><span class="ss">            SELECT DISTINCT project_id</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="ss">            FROM read_parquet(&#39;</span><span class="sc">{</span>pages_path<span class="sc">}</span><span class="ss">&#39;)</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a><span class="ss">        &quot;&quot;&quot;</span>).fetchdf()[<span class="st">&quot;project_id&quot;</span>].tolist()</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> sample:</span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>            <span class="im">import</span> random<span class="op">;</span> random.seed(<span class="dv">42</span>)</span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>            project_ids <span class="op">=</span> random.sample(project_ids, <span class="bu">min</span>(sample, <span class="bu">len</span>(project_ids)))</span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Process in batches of 50 projects to manage memory</span></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">0</span>, <span class="bu">len</span>(project_ids), <span class="dv">50</span>):</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>            batch_ids <span class="op">=</span> project_ids[i:i<span class="op">+</span><span class="dv">50</span>]</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>            ids_str <span class="op">=</span> <span class="st">&quot;,&quot;</span>.join(<span class="ss">f&quot;&#39;</span><span class="sc">{</span>p<span class="sc">}</span><span class="ss">&#39;&quot;</span> <span class="cf">for</span> p <span class="kw">in</span> batch_ids)</span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>            pages <span class="op">=</span> conn.execute(<span class="ss">f&quot;&quot;&quot;</span></span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a><span class="ss">                SELECT project_id, page_num, page_text</span></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a><span class="ss">                FROM read_parquet(&#39;</span><span class="sc">{</span>pages_path<span class="sc">}</span><span class="ss">&#39;)</span></span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a><span class="ss">                WHERE project_id IN (</span><span class="sc">{</span>ids_str<span class="sc">}</span><span class="ss">)</span></span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a><span class="ss">                  AND length(page_text) &gt; 100</span></span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a><span class="ss">                ORDER BY project_id, page_num</span></span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a><span class="ss">            &quot;&quot;&quot;</span>).fetchdf()</span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> project_id, proj_pages <span class="kw">in</span> pages.groupby(<span class="st">&quot;project_id&quot;</span>):</span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>                all_chunks <span class="op">=</span> []</span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>                all_page_nums <span class="op">=</span> []</span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>                <span class="cf">for</span> _, row <span class="kw">in</span> proj_pages.iterrows():</span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a>                    chunks <span class="op">=</span> chunk_page(row[<span class="st">&quot;page_text&quot;</span>])</span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>                    all_chunks.extend(chunks)</span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>                    all_page_nums.extend([row[<span class="st">&quot;page_num&quot;</span>]] <span class="op">*</span> <span class="bu">len</span>(chunks))</span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> <span class="kw">not</span> all_chunks:</span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">continue</span></span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Encode all chunks</span></span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a>                chunk_embeddings <span class="op">=</span> model.encode(</span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a>                    all_chunks, batch_size<span class="op">=</span>BATCH_SIZE, normalize_embeddings<span class="op">=</span><span class="va">True</span></span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>                )</span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Cosine similarity (embeddings are normalized, so dot product = cosine)</span></span>
+<span id="cb10-57"><a href="#cb10-57" aria-hidden="true" tabindex="-1"></a>                similarities <span class="op">=</span> np.dot(chunk_embeddings, query_embedding)</span>
+<span id="cb10-58"><a href="#cb10-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-59"><a href="#cb10-59" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Top-N chunks</span></span>
+<span id="cb10-60"><a href="#cb10-60" aria-hidden="true" tabindex="-1"></a>                top_idx <span class="op">=</span> np.argsort(similarities)[<span class="op">-</span>TOP_N:][::<span class="op">-</span><span class="dv">1</span>]</span>
+<span id="cb10-61"><a href="#cb10-61" aria-hidden="true" tabindex="-1"></a>                top_texts <span class="op">=</span> [all_chunks[j] <span class="cf">for</span> j <span class="kw">in</span> top_idx]</span>
+<span id="cb10-62"><a href="#cb10-62" aria-hidden="true" tabindex="-1"></a>                top_pages <span class="op">=</span> [all_page_nums[j] <span class="cf">for</span> j <span class="kw">in</span> top_idx]</span>
+<span id="cb10-63"><a href="#cb10-63" aria-hidden="true" tabindex="-1"></a>                max_sim <span class="op">=</span> <span class="bu">float</span>(similarities[top_idx[<span class="dv">0</span>]])</span>
+<span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-65"><a href="#cb10-65" aria-hidden="true" tabindex="-1"></a>                page_range <span class="op">=</span> <span class="ss">f&quot;</span><span class="sc">{</span><span class="bu">min</span>(top_pages)<span class="sc">}</span><span class="ss">-</span><span class="sc">{</span><span class="bu">max</span>(top_pages)<span class="sc">}</span><span class="ss">&quot;</span> <span class="cf">if</span> <span class="bu">len</span>(<span class="bu">set</span>(top_pages)) <span class="op">&gt;</span> <span class="dv">1</span> <span class="cf">else</span> <span class="bu">str</span>(top_pages[<span class="dv">0</span>])</span>
+<span id="cb10-66"><a href="#cb10-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-67"><a href="#cb10-67" aria-hidden="true" tabindex="-1"></a>                all_results.append({</span>
+<span id="cb10-68"><a href="#cb10-68" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;project_id&quot;</span>: project_id,</span>
+<span id="cb10-69"><a href="#cb10-69" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;source&quot;</span>: source,</span>
+<span id="cb10-70"><a href="#cb10-70" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;visual_impacts_text&quot;</span>: top_texts,</span>
+<span id="cb10-71"><a href="#cb10-71" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;visual_impacts_max_similarity&quot;</span>: max_sim,</span>
+<span id="cb10-72"><a href="#cb10-72" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;visual_impacts_page_range&quot;</span>: page_range,</span>
+<span id="cb10-73"><a href="#cb10-73" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;visual_impacts_extraction_run_at&quot;</span>: run_at,</span>
+<span id="cb10-74"><a href="#cb10-74" aria-hidden="true" tabindex="-1"></a>                })</span>
+<span id="cb10-75"><a href="#cb10-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-76"><a href="#cb10-76" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f&quot;[</span><span class="sc">{</span>source<span class="sc">}</span><span class="ss">] Batch </span><span class="sc">{</span>i<span class="op">//</span><span class="dv">50</span> <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">: processed </span><span class="sc">{</span><span class="bu">len</span>(batch_ids)<span class="sc">}</span><span class="ss"> projects&quot;</span>)</span>
+<span id="cb10-77"><a href="#cb10-77" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-78"><a href="#cb10-78" aria-hidden="true" tabindex="-1"></a>    df <span class="op">=</span> pd.DataFrame(all_results)</span>
+<span id="cb10-79"><a href="#cb10-79" aria-hidden="true" tabindex="-1"></a>    df.to_parquet(output_path, index<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb10-80"><a href="#cb10-80" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;Wrote </span><span class="sc">{</span><span class="bu">len</span>(df)<span class="sc">}</span><span class="ss"> rows to </span><span class="sc">{</span>output_path<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb10-81"><a href="#cb10-81" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> df</span>
+<span id="cb10-82"><a href="#cb10-82" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-83"><a href="#cb10-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-84"><a href="#cb10-84" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="va">__name__</span> <span class="op">==</span> <span class="st">&quot;__main__&quot;</span>:</span>
+<span id="cb10-85"><a href="#cb10-85" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> argparse</span>
+<span id="cb10-86"><a href="#cb10-86" aria-hidden="true" tabindex="-1"></a>    parser <span class="op">=</span> argparse.ArgumentParser()</span>
+<span id="cb10-87"><a href="#cb10-87" aria-hidden="true" tabindex="-1"></a>    parser.add_argument(<span class="st">&quot;--sample&quot;</span>, <span class="bu">type</span><span class="op">=</span><span class="bu">int</span>, default<span class="op">=</span><span class="va">None</span>)</span>
+<span id="cb10-88"><a href="#cb10-88" aria-hidden="true" tabindex="-1"></a>    args <span class="op">=</span> parser.parse_args()</span>
+<span id="cb10-89"><a href="#cb10-89" aria-hidden="true" tabindex="-1"></a>    extract_visual_impacts(sample<span class="op">=</span>args.sample)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
-<section id="notes" class="level2">
-<h2 class="anchored" data-anchor-id="notes">Notes</h2>
-<ul>
-<li><code>--source</code> accepts <code>CE</code>, <code>EA</code>, <code>EIS</code>, or comma-separated combinations. Defaults to <code>CE</code> if omitted.</li>
-<li>spaCy enrichment runs by default during <code>--regex-prep</code>. Use <code>--no-spacy</code> to skip.</li>
-<li>Initiation class imbalance is a known bottleneck; improve via pattern expansion + weighting + manual examples.</li>
-<li>Timeline selection prioritizes strong signature cues over latest-date heuristics.</li>
-<li><code>dep_verb</code>, <code>sig_flag</code>, <code>ner_decision_signal</code> are the spaCy-enriched columns used by BERT.</li>
-</ul>
+</section>
+<section id="analyze_visual_impacts.r-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="analyze_visual_impacts.r-full-specification"><code>03_analyze_visual_impacts.R</code> — Full Specification</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(arrow); <span class="fu">library</span>(dplyr); <span class="fu">library</span>(tidyr)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>visual <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/visual_impacts/projects_visual_impacts.parquet&quot;</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>projects <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_combined.parquet&quot;</span>)</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> <span class="fu">left_join</span>(visual, projects, <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>)</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. Threshold: projects with max_similarity &gt;= 0.4 have substantive visual impact sections</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>THRESHOLD <span class="ot">&lt;-</span> <span class="fl">0.4</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">has_visual_analysis =</span> visual_impacts_max_similarity <span class="sc">&gt;=</span> THRESHOLD)</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Visual impacts prevalence by energy type and process type</span></span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>prevalence <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(project_energy_type, process_type, has_visual_analysis) <span class="sc">|&gt;</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(project_energy_type, process_type) <span class="sc">|&gt;</span></span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. Geographic distribution</span></span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>geo <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(has_visual_analysis) <span class="sc">|&gt;</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(state)</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(prevalence, <span class="st">&quot;output/deliverable03/visual_impacts_prevalence.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(geo, <span class="st">&quot;output/deliverable03/visual_impacts_geo.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+<section id="analyze_geothermal_og.r-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="analyze_geothermal_og.r-full-specification"><code>04_analyze_geothermal_og.R</code> — Full Specification</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(arrow); <span class="fu">library</span>(dplyr); <span class="fu">library</span>(ggplot2)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>projects <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_combined.parquet&quot;</span>)</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>technology <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_technology.parquet&quot;</span>)</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>reviews <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_reviews.parquet&quot;</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>df <span class="ot">&lt;-</span> projects <span class="sc">|&gt;</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(technology, <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(reviews, <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>    <span class="co"># BLM projects only for fair comparison (same land manager)</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">grepl</span>(<span class="st">&quot;BLM|Bureau of Land Management&quot;</span>, agency_name, <span class="at">ignore.case=</span><span class="cn">TRUE</span>),</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Geothermal and oil/gas only</span></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>    project_energy_type <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;Geothermal&quot;</span>, <span class="st">&quot;Oil/Gas&quot;</span>, <span class="st">&quot;Natural Gas&quot;</span>)</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. CE/EA/EIS rate comparison</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>rate_compare <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(project_energy_type, process_type) <span class="sc">|&gt;</span></span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(project_energy_type) <span class="sc">|&gt;</span></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a><span class="co"># 2. Geographic overlap: projects by state</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>geo_compare <span class="ot">&lt;-</span> df <span class="sc">|&gt;</span></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(project_energy_type, state)</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(rate_compare, <span class="st">&quot;output/deliverable03/geothermal_og_rates.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(geo_compare, <span class="st">&quot;output/deliverable03/geothermal_og_geo.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+<section id="analyze_durations.r-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="analyze_durations.r-full-specification"><code>05_analyze_durations.R</code> — Full Specification</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(arrow); <span class="fu">library</span>(dplyr); <span class="fu">library</span>(lubridate)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Load timeline data — merge initiation dates with NOI override</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>ce <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/_timeline/timeline_ce.parquet&quot;</span>)</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>ea <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/_timeline/timeline_ea.parquet&quot;</span>)</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>eis <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/_timeline/timeline_eis.parquet&quot;</span>)</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>fr  <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/federal_register/federal_register.parquet&quot;</span>)</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>projects <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_combined.parquet&quot;</span>)</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge NOI dates — noi_publication_date wins over bert_initiation_date</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>merge_initiation <span class="ot">&lt;-</span> <span class="cf">function</span>(tl, fr_df) {</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>  tl <span class="sc">|&gt;</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">left_join</span>(fr_df <span class="sc">|&gt;</span> <span class="fu">select</span>(project_id, noi_publication_date), <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>      <span class="at">initiation_date =</span> <span class="fu">coalesce</span>(noi_publication_date, bert_initiation_date)</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>ce  <span class="ot">&lt;-</span> <span class="fu">merge_initiation</span>(ce, fr)</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>ea  <span class="ot">&lt;-</span> <span class="fu">merge_initiation</span>(ea, fr)</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>eis <span class="ot">&lt;-</span> <span class="fu">merge_initiation</span>(eis, fr)</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate durations</span></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>calc_durations <span class="ot">&lt;-</span> <span class="cf">function</span>(tl, source) {</span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a>  tl <span class="sc">|&gt;</span></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(<span class="sc">!</span><span class="fu">is.na</span>(initiation_date), <span class="sc">!</span><span class="fu">is.na</span>(bert_decision_date)) <span class="sc">|&gt;</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>      <span class="at">duration_days =</span> <span class="fu">as.numeric</span>(bert_decision_date <span class="sc">-</span> initiation_date),</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a>      <span class="at">process_type =</span> source,</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a>      <span class="at">period =</span> <span class="fu">case_when</span>(</span>
+<span id="cb13-31"><a href="#cb13-31" aria-hidden="true" tabindex="-1"></a>        bert_decision_date <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2023-08-16&quot;</span>) <span class="sc">~</span> <span class="st">&quot;post_FRA&quot;</span>,</span>
+<span id="cb13-32"><a href="#cb13-32" aria-hidden="true" tabindex="-1"></a>        bert_decision_date <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2020-09-14&quot;</span>) <span class="sc">~</span> <span class="st">&quot;post_2020_CEQ&quot;</span>,</span>
+<span id="cb13-33"><a href="#cb13-33" aria-hidden="true" tabindex="-1"></a>        <span class="cn">TRUE</span> <span class="sc">~</span> <span class="st">&quot;pre_2020&quot;</span></span>
+<span id="cb13-34"><a href="#cb13-34" aria-hidden="true" tabindex="-1"></a>      )</span>
+<span id="cb13-35"><a href="#cb13-35" aria-hidden="true" tabindex="-1"></a>    ) <span class="sc">|&gt;</span></span>
+<span id="cb13-36"><a href="#cb13-36" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(duration_days <span class="sc">&gt;</span> <span class="dv">0</span>, duration_days <span class="sc">&lt;</span> <span class="dv">365</span> <span class="sc">*</span> <span class="dv">20</span>)  <span class="co"># sanity bounds</span></span>
+<span id="cb13-37"><a href="#cb13-37" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb13-38"><a href="#cb13-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-39"><a href="#cb13-39" aria-hidden="true" tabindex="-1"></a>durations <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
+<span id="cb13-40"><a href="#cb13-40" aria-hidden="true" tabindex="-1"></a>  <span class="fu">calc_durations</span>(ce, <span class="st">&quot;CE&quot;</span>),</span>
+<span id="cb13-41"><a href="#cb13-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">calc_durations</span>(ea, <span class="st">&quot;EA&quot;</span>),</span>
+<span id="cb13-42"><a href="#cb13-42" aria-hidden="true" tabindex="-1"></a>  <span class="fu">calc_durations</span>(eis, <span class="st">&quot;EIS&quot;</span>)</span>
+<span id="cb13-43"><a href="#cb13-43" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span></span>
+<span id="cb13-44"><a href="#cb13-44" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(projects <span class="sc">|&gt;</span> <span class="fu">select</span>(project_id, agency_name, project_energy_type, is_linear), <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>)</span>
+<span id="cb13-45"><a href="#cb13-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-46"><a href="#cb13-46" aria-hidden="true" tabindex="-1"></a><span class="co"># Analyses: median by period × process type; by energy type; outliers</span></span>
+<span id="cb13-47"><a href="#cb13-47" aria-hidden="true" tabindex="-1"></a>summary_table <span class="ot">&lt;-</span> durations <span class="sc">|&gt;</span></span>
+<span id="cb13-48"><a href="#cb13-48" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(process_type, period) <span class="sc">|&gt;</span></span>
+<span id="cb13-49"><a href="#cb13-49" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb13-50"><a href="#cb13-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">n =</span> <span class="fu">n</span>(),</span>
+<span id="cb13-51"><a href="#cb13-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">median_days =</span> <span class="fu">median</span>(duration_days),</span>
+<span id="cb13-52"><a href="#cb13-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">p25 =</span> <span class="fu">quantile</span>(duration_days, <span class="fl">0.25</span>),</span>
+<span id="cb13-53"><a href="#cb13-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">p75 =</span> <span class="fu">quantile</span>(duration_days, <span class="fl">0.75</span>),</span>
+<span id="cb13-54"><a href="#cb13-54" aria-hidden="true" tabindex="-1"></a>    <span class="at">.groups =</span> <span class="st">&quot;drop&quot;</span></span>
+<span id="cb13-55"><a href="#cb13-55" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb13-56"><a href="#cb13-56" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-57"><a href="#cb13-57" aria-hidden="true" tabindex="-1"></a>outliers <span class="ot">&lt;-</span> durations <span class="sc">|&gt;</span></span>
+<span id="cb13-58"><a href="#cb13-58" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(process_type) <span class="sc">|&gt;</span></span>
+<span id="cb13-59"><a href="#cb13-59" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">iqr =</span> <span class="fu">IQR</span>(duration_days), <span class="at">q75 =</span> <span class="fu">quantile</span>(duration_days, <span class="fl">0.75</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb13-60"><a href="#cb13-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(duration_days <span class="sc">&gt;</span> q75 <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> iqr) <span class="sc">|&gt;</span></span>
+<span id="cb13-61"><a href="#cb13-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(project_id, process_type, duration_days, agency_name)</span>
+<span id="cb13-62"><a href="#cb13-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-63"><a href="#cb13-63" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(summary_table, <span class="st">&quot;output/deliverable03/durations_summary.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb13-64"><a href="#cb13-64" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(outliers, <span class="st">&quot;output/deliverable03/durations_outliers.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<hr>
+</section>
+<section id="testing-approach" class="level2">
+<h2 class="anchored" data-anchor-id="testing-approach">Testing Approach</h2>
+<ol type="1">
+<li><strong>Script 02 smoke test:</strong> Run <code>--sample 10</code> on 5 EA + 5 EIS projects. Inspect <code>visual_impacts_text</code> output — verify the retrieved paragraphs are actually about visual resources, not boilerplate.</li>
+<li><strong>Similarity threshold:</strong> For script 03, calibrate <code>THRESHOLD</code> (default 0.4) by printing similarity distribution for a sample. Adjust if &gt;80% of projects fall above threshold (too permissive) or &lt;20% (too strict).</li>
+<li><strong>Script 05 coverage check:</strong> Print coverage rate (projects with both initiation and decision dates) before running analysis. If CE coverage &lt;30%, add a warning comment in the output.</li>
+</ol>
 
 
 </section>

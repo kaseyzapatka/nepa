@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>timeline – NEPA</title>
+<title>rag – NEPA</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -3967,190 +3967,828 @@ vertical-align: -.125em;
 
 
 
-<section id="timeline-extraction" class="level1">
-<h1>Timeline Extraction</h1>
-<p><strong>Purpose:</strong> Extract initiation and decision dates for NEPA reviews using a BERT classifier with optional LLM adjudication. <strong>Input:</strong> <code>data/analysis/projects_combined.parquet</code> + regex candidate cache. <strong>Output:</strong> <code>data/analysis/timeline_{ce,ea,eis}.parquet</code>, <code>timeline_{ea,eis}_llm.parquet</code>, <code>timeline_targeted_llm.parquet</code> <strong>Cost:</strong> LLM adjudication ~$0.60–$1.00 (Claude Haiku) for EA + EIS full runs. Targeted re-adjudication ~$0.44. <strong>Prerequisites:</strong> Base dataset built (<a href="../runbooks/01_base_dataset.md">runbook 01</a>).</p>
-<blockquote class="blockquote">
-<p><strong>Note on prior organization:</strong> The targeted re-adjudication for programmatic/tiered projects was previously documented as a standalone “Deliverable 02” section in the README. It is step 7 in the full rebuild below because it operates on timeline outputs — it is a timeline operation, not a reviews operation. Reviews (<a href="../runbooks/03_reviews.md">runbook 03</a>) must still run before step 7.</p>
-</blockquote>
-<hr>
-<section id="file-naming-convention" class="level2">
-<h2 class="anchored" data-anchor-id="file-naming-convention">File naming convention</h2>
+<section id="phase-2-rag-build-plan" class="level1">
+<h1>Phase 2 RAG Build Plan</h1>
+<section id="goal" class="level2">
+<h2 class="anchored" data-anchor-id="goal">Goal</h2>
+<p>Build a CAFT-facing RAG application that answers questions over NEPATEC2.0 source text, project metadata, and selected Phase 2 deliverable artifacts. The app should build on the existing Streamlit/DuckDB document explorer architecture, use Gemma 4 E2B as the fast local default during development, offer Gemma 4 E4B as a quality option, and keep the implementation under <code>phase2/rag</code>. Larger Gemma 4 models such as 26B or 31B can remain optional later benchmarks, but they are too large and slow for the default local path.</p>
+<p>The product goal is answers with evidence, not a semantic-search tool. Retrieval is still required internally, but the user experience should be: ask a question, receive a grounded answer, see cited sources, and click through to the source page.</p>
+</section>
+<section id="known-constraints" class="level2">
+<h2 class="anchored" data-anchor-id="known-constraints">Known constraints</h2>
+<ul>
+<li>Audience: CAFT staff, likely 5 users.</li>
+<li>Expected use: up to roughly 10,000 queries per month, unevenly distributed.</li>
+<li>Data scope: NEPATEC source text first; final Phase 2 deliverables may be added if they improve answer quality.</li>
+<li>Access pattern: browser-based app, eventually linked from the existing website or hosted similarly to the document explorer.</li>
+<li>Logging: session-only chat history by default. Avoid persistent query logs unless CAFT explicitly wants them.</li>
+<li>Failure mode: best guess is acceptable only with a strong, visible warning and source limitations.</li>
+<li>Correctness requirement: answers must cite evidence where applicable and distinguish sourced claims from inference.</li>
+</ul>
+</section>
+<section id="critical-scale-decision" class="level2">
+<h2 class="anchored" data-anchor-id="critical-scale-decision">Critical scale decision</h2>
+<p>Do not build one monolithic DuckDB/FTS store over all page text. The Phase 2 page scale is too large for a single easy-to-host file:</p>
 <table class="caption-top table">
-<colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-</colgroup>
 <thead>
 <tr class="header">
-<th>Stage</th>
-<th>CE</th>
-<th>EA</th>
-<th>EIS</th>
+<th>Process</th>
+<th style="text-align: right;">Pages</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Regex cache</td>
-<td><code>timeline_regex_ce.parquet</code></td>
-<td><code>timeline_regex_ea.parquet</code></td>
-<td><code>timeline_regex_eis.parquet</code></td>
+<td>CE</td>
+<td style="text-align: right;">73,544</td>
 </tr>
 <tr class="even">
-<td>BERT training data</td>
-<td><code>bert_traindata.parquet</code></td>
-<td>← same file</td>
-<td>← same file</td>
+<td>EA</td>
+<td style="text-align: right;">469,106</td>
 </tr>
 <tr class="odd">
-<td>Sample test (post-train)</td>
-<td><code>timeline_ce_sample{N}.parquet</code></td>
-<td><code>timeline_ea_sample{N}.parquet</code></td>
-<td><code>timeline_eis_sample{N}.parquet</code></td>
+<td>EIS</td>
+<td style="text-align: right;">6,131,757</td>
 </tr>
 <tr class="even">
-<td>Full BERT run</td>
-<td><code>timeline_ce.parquet</code></td>
-<td><code>timeline_ea.parquet</code></td>
-<td><code>timeline_eis.parquet</code></td>
-</tr>
-<tr class="odd">
-<td>Post LLM adjudication</td>
-<td><em>(none)</em></td>
-<td><code>timeline_ea_llm.parquet</code></td>
-<td><code>timeline_eis_llm.parquet</code></td>
+<td>Total</td>
+<td style="text-align: right;">6,674,407</td>
 </tr>
 </tbody>
 </table>
-<p>Append <code>_v{N}</code> to sample files when iterating through multiple training rounds (e.g. <code>timeline_ce_sample20_v2.parquet</code>). Full run files are overwritten each time.</p>
-<hr>
-</section>
-<section id="full-rebuild-patterns-or-models-changed" class="level2">
-<h2 class="anchored" data-anchor-id="full-rebuild-patterns-or-models-changed">Full rebuild (patterns or models changed)</h2>
-<p>Use when regex patterns or training logic have changed and classifiers need retraining from scratch.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1 — Rebuild regex candidate cache for all sources</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> CE</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EA</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/timeline_regex_{ce,ea,eis}.parquet</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2 — Rebuild BERT training data</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/bert_traindata.parquet</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3 — Retrain classifiers</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EA</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 4 — Smoke test on 20 projects before committing to full run</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20.parquet</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5 — Full BERT inference</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 6 — LLM adjudication for EA and EIS (not needed for CE at scale)</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">ANTHROPIC_API_KEY</span><span class="op">=</span><span class="st">&#39;sk-ant-...&#39;</span></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 7 — Targeted re-adjudication for programmatic/tiered projects</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Run after step 6 AND after reviews extraction (runbook 03) is complete.</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Auto-selects ~73 programmatic/tiered projects with missing initiation or decision dates.</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="dt">\</span></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea_llm.parquet,data/analysis/timeline_eis_llm.parquet <span class="dt">\</span></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">--nonstandard-incomplete</span> <span class="dt">\</span></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">--max-candidates</span> 125 <span class="dt">\</span></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">--context-chars</span> 400 <span class="dt">\</span></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">--promote-rod-language</span> <span class="dt">\</span></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">--year-window</span> 15 <span class="dt">\</span></span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_targeted_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Step 7 flag notes:</strong> - <code>--nonstandard-incomplete</code> — filters to programmatic/tiered projects with missing dates; no manual ID file needed. - <code>--max-candidates 125</code> — raises cap from 30 (EIS default) to 125 for large programmatic EISs. - <code>--promote-rod-language</code> — promotes ROD/FONSI dates to Tier A even if BERT mislabeled them. - <code>--year-window 15</code> — drops candidates &gt;15 years before the latest found date, removing NEPA citation noise. - Targeted output is ~73 rows. Full timeline files are not modified. Patched automatically by <code>00_setup.R</code>.</p>
-<hr>
-</section>
-<section id="quick-run-models-already-trained" class="level2">
-<h2 class="anchored" data-anchor-id="quick-run-models-already-trained">Quick run (models already trained)</h2>
-<p>Use when models are current and only BERT inference + adjudication outputs need refreshing.</p>
-<p><strong>CE only:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EA:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EIS:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<hr>
-</section>
-<section id="filtering-and-debugging" class="level2">
-<h2 class="anchored" data-anchor-id="filtering-and-debugging">Filtering and debugging</h2>
-<p><strong>Restrict to clean energy projects only</strong> (add <code>--clean-energy</code> to any <code>--bert-run</code> command):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="at">--clean-energy</span> <span class="dt">\</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_clean.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Debug a single project</strong> (searches CE, EA, and EIS sources automatically):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--project-id</span> <span class="op">&lt;</span>UUID<span class="op">&gt;</span> --hybrid <span class="at">--use-regex-cache</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<hr>
-</section>
-<section id="manual-training-corrections-iterative-improvement" class="level2">
-<h2 class="anchored" data-anchor-id="manual-training-corrections-iterative-improvement">Manual training corrections (iterative improvement)</h2>
-<p><strong>On the first pass, skip manual corrections entirely</strong> — run steps 1–5 above using weak supervision alone to get a working baseline. Then inspect the output, add corrections, and retrain. You do not need to get corrections right before starting.</p>
-<p>After a full run, inspect the output for systematic errors (e.g. CE projects still missing initiation dates). Corrections are added to:</p>
-<pre><code>data/analysis/manual_training_corrections.csv</code></pre>
-<p><strong>Required columns:</strong> <code>project_id</code>, <code>date</code>, <code>correct_type</code> (one of <code>decision</code>, <code>initiation</code>, <code>review</code>, <code>other</code>)</p>
-<p>Once corrections are added, you only need to re-run steps 2–5 (not step 1 — the regex cache is unchanged):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate training data with corrections applied</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrain affected source(s)</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Smoke test</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20_v2.parquet</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-run full inference</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Matching note:</strong> Corrections are matched on <code>(project_id, date)</code>. If the same date appears in multiple contexts for a project, the correction applies to all of them. You can make the match more precise by also checking <code>context</code> in the CSV (not currently implemented — avoid duplicate dates per project when possible).</p>
-<p><strong>Timing:</strong> Add corrections after inspecting <code>--bert-run</code> output and identifying a cohort of systematic misses (e.g. 20–50 CE initiation false negatives). Corrections before the first run are not useful — you need the model’s output to know what to fix. Plan on at least one correction cycle after the initial build.</p>
-<hr>
-</section>
-<section id="notes" class="level2">
-<h2 class="anchored" data-anchor-id="notes">Notes</h2>
+<p>A single FTS index over 6.7M pages would take hours to build, create a multi-GB DuckDB file, and risks exceeding Hugging Face’s 5 GB per-file limit or making app cold starts too slow.</p>
+<section id="chosen-scope-strategy-sharded-artifacts" class="level3">
+<h3 class="anchored" data-anchor-id="chosen-scope-strategy-sharded-artifacts">Chosen scope strategy: sharded artifacts</h3>
+<p>Build the RAG store as shards:</p>
 <ul>
-<li><code>--source</code> accepts <code>CE</code>, <code>EA</code>, <code>EIS</code>, or comma-separated combinations. Defaults to <code>CE</code> if omitted.</li>
-<li>spaCy enrichment runs by default during <code>--regex-prep</code>. Use <code>--no-spacy</code> to skip.</li>
-<li>Initiation class imbalance is a known bottleneck; improve via pattern expansion + weighting + manual examples.</li>
-<li>Timeline selection prioritizes strong signature cues over latest-date heuristics.</li>
-<li><code>dep_verb</code>, <code>sig_flag</code>, <code>ner_decision_signal</code> are the spaCy-enriched columns used by BERT.</li>
+<li>CE shard: one CE chunk/page shard.</li>
+<li>EA shard: one EA chunk/page shard.</li>
+<li>EIS shards: many EIS chunk/page shards, split by stable <code>document_id</code> ordering or hash buckets.</li>
+<li>Never split a single <code>document_id</code> across shards.</li>
+<li>Write a shard manifest that records process type, shard id, file paths, row counts, document counts, and build timestamp.</li>
+</ul>
+<p>This keeps each deployable artifact small enough for Hugging Face Dataset storage and lets the app route to the right shard. HF supports multi-file datasets, so deployment should upload the manifest plus all shard files. The simplest MVP can download all shards at startup. If that is too slow, the app should download the manifest first and then lazily download only the needed shards. DuckDB can read page shards directly with a glob such as <code>read_parquet(&#39;.../pages_eis_*.parquet&#39;)</code> for lazy EIS page lookup.</p>
+<p>Because DuckDB FTS requires a materialized table, each searchable shard should also have its own DuckDB file with a <code>rag_chunks</code> table and FTS index:</p>
+<pre class="text"><code>phase2/rag/data/
+├── manifest.json
+├── rag_catalog.duckdb
+├── pages_ce.parquet
+├── pages_ea.parquet
+├── pages_eis_000.parquet
+├── pages_eis_001.parquet
+├── chunks_ce.parquet
+├── chunks_ea.parquet
+├── chunks_eis_000.parquet
+├── chunks_eis_001.parquet
+├── rag_chunks_ce.duckdb
+├── rag_chunks_ea.duckdb
+├── rag_chunks_eis_000.duckdb
+└── rag_chunks_eis_001.duckdb</code></pre>
+<p>The app should query only relevant shard indexes when a process type or selected project is known. For whole-corpus questions, it can fan out across shards with per-shard top-k retrieval, then merge and rerank the evidence.</p>
+</section>
+</section>
+<section id="current-foundation-to-reuse" class="level2">
+<h2 class="anchored" data-anchor-id="current-foundation-to-reuse">Current foundation to reuse</h2>
+<p>The existing document explorer already solves several production problems:</p>
+<ul>
+<li>Streamlit app shell and browser UI.</li>
+<li>DuckDB-backed project/document/page lookup.</li>
+<li>Hugging Face dataset download support through <code>NEPA_DB_HF_REPO</code> and <code>hf_hub_download</code>.</li>
+<li>Full-text page search with DuckDB FTS and <code>LIKE</code> fallback.</li>
+<li>Project filters, document browser, page reader, and source-page navigation.</li>
+</ul>
+<p>The RAG app should reuse this architecture instead of replacing it. The main difference is that the Phase 2 RAG app should live under <code>phase2/rag</code>, use sharded artifacts, and expose an answer workflow in addition to the existing browse/read workflow.</p>
+</section>
+<section id="recommended-directory-layout" class="level2">
+<h2 class="anchored" data-anchor-id="recommended-directory-layout">Recommended directory layout</h2>
+<pre class="text"><code>phase2/rag/
+├── README.md
+├── Makefile
+├── .env.example
+├── app/
+│   ├── app.py
+│   └── requirements.txt
+├── scripts/
+│   ├── 01_build_text_store.py
+│   ├── 02_build_chunks.py
+│   ├── 03_build_indexes.py
+│   └── 04_eval_rag.py
+├── src/
+│   └── nepa_rag/
+│       ├── __init__.py
+│       ├── config.py
+│       ├── db.py
+│       ├── query_router.py
+│       ├── retrieval.py
+│       ├── evidence.py
+│       ├── text_formatting.py
+│       ├── chunking.py
+│       ├── prompts.py
+│       ├── llm.py
+│       ├── answer.py
+│       └── session_history.py
+├── eval/
+│   ├── questions.yaml
+│   └── expected_sources.csv
+├── deploy/
+│   ├── Dockerfile
+│   └── hf_space.md
+└── data/
+    └── .gitignore</code></pre>
+<p>Generated databases, indexes, model caches, parquet shards, and logs should not be committed. Use <code>phase2/rag/data/.gitignore</code> rather than <code>.gitkeep</code>:</p>
+<pre class="gitignore"><code>*
+!.gitignore</code></pre>
+<p>At minimum, generated artifacts should exclude:</p>
+<pre class="text"><code>*.duckdb
+*.duckdb.wal
+*.parquet
+*.json
+models/
+model_cache/
+.cache/
+logs/</code></pre>
+</section>
+<section id="dependencies-and-configuration" class="level2">
+<h2 class="anchored" data-anchor-id="dependencies-and-configuration">Dependencies and configuration</h2>
+<p>Pin DuckDB to a modern version and load local configuration through <code>.env</code>.</p>
+<p><code>phase2/rag/app/requirements.txt</code> should include:</p>
+<pre class="text"><code>streamlit&gt;=1.35
+duckdb&gt;=1.1
+pandas&gt;=2.0
+huggingface_hub&gt;=0.34
+python-dotenv&gt;=1.0
+requests&gt;=2.31</code></pre>
+<p><code>src/nepa_rag/config.py</code> should:</p>
+<ul>
+<li>call <code>dotenv.load_dotenv()</code>;</li>
+<li>define typed config values with defaults;</li>
+<li>validate required values before app startup;</li>
+<li>keep model configuration fully environment-driven;</li>
+<li>avoid hard-coding Ollama tags.</li>
+</ul>
+<p><code>.env.example</code> should include:</p>
+<pre class="text"><code># Local data
+NEPA_RAG_DATA_DIR=phase2/rag/data
+NEPA_RAG_CATALOG=phase2/rag/data/rag_catalog.duckdb
+NEPA_RAG_MANIFEST=phase2/rag/data/manifest.json
+
+# Hugging Face dataset repo for Phase 2 RAG artifacts
+NEPA_RAG_DB_HF_REPO=YOUR_HF_USERNAME/nepa-phase2-rag-db
+NEPA_RAG_DB_HF_REVISION=main
+
+# LLM provider
+LLM_PROVIDER=ollama
+LLM_MODEL=gemma4:e2b
+LLM_QUALITY_MODEL=gemma4:e4b
+LLM_FALLBACK_MODEL=gemma4:e2b
+OLLAMA_HOST=http://localhost:11434
+LLM_TIMEOUT_SECONDS=120
+LLM_NUM_CTX=4096
+LLM_NUM_PREDICT=350
+
+# Retrieval
+RAG_TOP_K_PER_SHARD=3
+RAG_MAX_CONTEXT_PASSAGES=4
+RAG_MAX_CONTEXT_TOKENS=2500
+RAG_REQUIRE_SOURCE_LABELS=true
+
+# App behavior
+RAG_SESSION_HISTORY_ONLY=true
+RAG_DEFAULT_SCOPE=selected_project</code></pre>
+<p>The actual Gemma 4 Ollama tag may differ by quantization and Ollama packaging. The app should not assume these exact tags exist. Local setup must require:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ex">ollama</span> pull <span class="op">&lt;</span>configured-fast-tag<span class="op">&gt;</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="ex">ollama</span> pull <span class="op">&lt;</span>configured-quality-tag<span class="op">&gt;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Use <code>gemma4:e2b</code> as the fast default and fallback for local CPU-bound testing. Use <code>gemma4:e4b</code> as a selectable quality model when latency is acceptable. Gemma 4 26B and 31B should be treated as optional benchmarks, not the default local models.</p>
+<p>For local CPU-bound testing, keep prompts and generations small:</p>
+<pre class="text"><code>RAG_TOP_K_PER_SHARD=3
+RAG_MAX_CONTEXT_PASSAGES=4
+RAG_MAX_CONTEXT_TOKENS=2500
+LLM_NUM_CTX=4096
+LLM_NUM_PREDICT=350</code></pre>
+</section>
+<section id="data-stores" class="level2">
+<h2 class="anchored" data-anchor-id="data-stores">Data stores</h2>
+<section id="rag_catalog.duckdb" class="level3">
+<h3 class="anchored" data-anchor-id="rag_catalog.duckdb"><code>rag_catalog.duckdb</code></h3>
+<p>Build a small catalog database containing metadata and shard information:</p>
+<ul>
+<li><code>projects</code></li>
+<li><code>documents</code></li>
+<li><code>shards</code></li>
+<li>optional deliverable/result metadata</li>
+</ul>
+<p>The catalog should not include all page text. It should be small enough to download quickly at app startup.</p>
+</section>
+<section id="page-shards" class="level3">
+<h3 class="anchored" data-anchor-id="page-shards">Page shards</h3>
+<p>Build process-specific page shards for lazy document viewing and per-project page lookup:</p>
+<pre class="text"><code>pages_ce.parquet
+pages_ea.parquet
+pages_eis_000.parquet
+pages_eis_001.parquet
+...</code></pre>
+<p>Each page shard must include:</p>
+<pre class="text"><code>shard_id
+process_type
+document_id
+project_id
+page_number
+page_number_int
+page_text</code></pre>
+<p>Pages parquets do not contain <code>project_id</code>. The build script must join through documents:</p>
+<pre class="text"><code>pages.document_id
+  -&gt; documents_combined.document_id
+  -&gt; documents_combined.project_id
+  -&gt; projects_combined.project_id</code></pre>
+<p><code>page_number</code> is stored as text in source parquets. Build scripts must preserve the original <code>page_number</code> and derive <code>page_number_int</code> safely:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">COALESCE</span>(</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    TRY_CAST(regexp_extract(<span class="fu">CAST</span>(page_number <span class="kw">AS</span> <span class="dt">VARCHAR</span>), <span class="st">&#39;([0-9]+)&#39;</span>, <span class="dv">1</span>) <span class="kw">AS</span> <span class="dt">INTEGER</span>),</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="dv">0</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>) <span class="kw">AS</span> page_number_int</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This handles non-numeric page labels such as <code>i</code>, <code>A-1</code>, and appendix-style pages without losing the original label.</p>
+</section>
+<section id="chunk-shards" class="level3">
+<h3 class="anchored" data-anchor-id="chunk-shards">Chunk shards</h3>
+<p>Build matching chunk shards:</p>
+<pre class="text"><code>chunks_ce.parquet
+chunks_ea.parquet
+chunks_eis_000.parquet
+chunks_eis_001.parquet
+...</code></pre>
+<p>Proposed <code>rag_chunks</code> schema:</p>
+<pre class="text"><code>chunk_id
+shard_id
+process_type
+project_id
+project_title
+lead_agency
+lead_agency_harmonized
+project_state
+project_type
+document_id
+file_name
+document_type
+document_type_clean
+document_type_category
+main_document
+page_number
+page_number_int
+chunk_index_on_page
+char_start
+char_end
+chunk_text
+token_estimate
+source_label</code></pre>
+<p>Use this exact <code>source_label</code> format so prompts, citations, and validators can parse it consistently:</p>
+<pre class="text"><code>[Project: {project_title} ({project_id}); Document: {file_name} ({document_id}); Page: {page_number}]</code></pre>
+<p>The answer prompt should require citations by exact <code>source_label</code>, and <code>answer.py</code> should validate that every cited label exists in the retrieved evidence set.</p>
+<p>Chunking rules:</p>
+<ul>
+<li>Keep page boundaries intact for citations.</li>
+<li>Prefer paragraph-bounded chunks when possible.</li>
+<li>Target roughly 800-1,500 tokens per chunk.</li>
+<li>Add 100-200 token overlap only when splitting long pages.</li>
+<li>Preserve <code>project_id</code>, <code>document_id</code>, <code>page_number</code>, and <code>source_label</code> on every chunk.</li>
+<li>Prioritize <code>main_document == &quot;YES&quot;</code> during retrieval.</li>
+</ul>
+<p>CE page length warning: CE “pages” average roughly 12,765 characters (~3,200 tokens), compared to ~2,200 characters for EA and EIS. CE records are full documents concatenated into one row, not individual PDF pages. The chunking script must handle CE pages as long documents requiring 3–4 sub-page splits each, not as single-chunk inputs. EA and EIS pages typically fit in 1–2 chunks.</p>
+<p>Reuse the paragraph and heading regex logic already in <code>app/app.py</code>, especially:</p>
+<ul>
+<li><code>BULLET_RE</code></li>
+<li><code>SECTION_HEADING_RE</code></li>
+<li><code>NUMBERED_HEADING_RE</code></li>
+<li><code>LETTERED_HEADING_RE</code></li>
+<li><code>ALL_CAPS_HEADING_RE</code></li>
+<li><code>TOC_HEADING_RE</code></li>
+</ul>
+<p>Move shared text cleanup/chunking logic into <code>src/nepa_rag/text_formatting.py</code> and <code>src/nepa_rag/chunking.py</code>. Do not duplicate these regexes inside the build scripts or import the Streamlit app directly into build code.</p>
+</section>
+<section id="search-index-shards" class="level3">
+<h3 class="anchored" data-anchor-id="search-index-shards">Search index shards</h3>
+<p>Each chunk shard should have a matching DuckDB FTS shard:</p>
+<pre class="text"><code>rag_chunks_ce.duckdb
+rag_chunks_ea.duckdb
+rag_chunks_eis_000.duckdb
+...</code></pre>
+<p>DuckDB FTS is static for this use case. Build it only after all rows have been inserted. If chunks are rebuilt, the FTS index must be rebuilt too.</p>
+<p>Use this SQL in <code>03_build_indexes.py</code> after materializing each shard’s <code>rag_chunks</code> table:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode sql code-with-copy"><code class="sourceCode sql"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>INSTALL fts;</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>LOAD fts;</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>PRAGMA create_fts_index(</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;rag_chunks&#39;</span>,</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;chunk_id&#39;</span>,</span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    <span class="st">&#39;chunk_text&#39;</span>,</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>    stemmer<span class="op">=</span><span class="st">&#39;porter&#39;</span>,</span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>    stopwords<span class="op">=</span><span class="st">&#39;english&#39;</span>,</span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>    overwrite<span class="op">=</span><span class="dv">1</span></span>
+<span id="cb17-10"><a href="#cb17-10" aria-hidden="true" tabindex="-1"></a>);</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>DuckDB FTS is TF-IDF based, not true BM25. Avoid calling it BM25 in code or documentation. Use names such as <code>fts_score</code>, <code>tfidf_score</code>, or <code>search_score</code>.</p>
+</section>
+<section id="optional-deliverablecontext-tables" class="level3">
+<h3 class="anchored" data-anchor-id="optional-deliverablecontext-tables">Optional deliverable/context tables</h3>
+<p>Add these later only if they improve deliverable production:</p>
+<ul>
+<li>final report text from <code>phase2/reports</code></li>
+<li>output tables from <code>phase2/output</code></li>
+<li>Federal Register artifacts from <code>phase2/data/analysis/federal_register</code></li>
+<li>timeline outputs</li>
+<li>architecture/runbook markdown for methodology questions</li>
+</ul>
+<p>Deliverable artifacts should be labeled as analysis outputs, not source documents, so the model does not confuse computed results with NEPATEC evidence.</p>
+</section>
+</section>
+<section id="script-responsibilities-and-idempotency" class="level2">
+<h2 class="anchored" data-anchor-id="script-responsibilities-and-idempotency">Script responsibilities and idempotency</h2>
+<section id="build_text_store.py" class="level3">
+<h3 class="anchored" data-anchor-id="build_text_store.py"><code>01_build_text_store.py</code></h3>
+<p>Responsibilities:</p>
+<ul>
+<li>Read Phase 2 projects, documents, and page parquets.</li>
+<li>Use <code>projects_combined.project_id</code> and <code>projects_combined.lead_agency</code>; do not join through <code>processes_combined</code>.</li>
+<li>Join pages through documents to attach <code>project_id</code> and project metadata.</li>
+<li>Create <code>rag_catalog.duckdb</code>.</li>
+<li>Create sharded page parquets.</li>
+<li>Create <code>manifest.json</code>.</li>
+</ul>
+<p>Required joins:</p>
+<pre class="text"><code>pages.document_id
+  -&gt; documents_combined.document_id
+  -&gt; documents_combined.project_id
+  -&gt; projects_combined.project_id</code></pre>
+<p>Idempotency:</p>
+<ul>
+<li>Re-running the script must replace the catalog and page shards for the requested build scope.</li>
+<li>Use temporary output paths and atomic rename where practical.</li>
+<li>Remove stale shard files listed in the old manifest before writing the new manifest.</li>
+</ul>
+</section>
+<section id="build_chunks.py" class="level3">
+<h3 class="anchored" data-anchor-id="build_chunks.py"><code>02_build_chunks.py</code></h3>
+<p>Responsibilities:</p>
+<ul>
+<li>Read page shards from <code>manifest.json</code>.</li>
+<li>Generate chunk shards.</li>
+<li>Preserve source metadata and <code>source_label</code>.</li>
+<li>Reuse shared chunking helpers from <code>src/nepa_rag/</code>.</li>
+</ul>
+<p>Idempotency:</p>
+<ul>
+<li>Re-running the script must replace chunk shards, not append duplicates.</li>
+<li>For any DuckDB staging table, use <code>DROP TABLE IF EXISTS rag_chunks</code> before recreation.</li>
+<li>After this script runs, <code>03_build_indexes.py</code> is required because FTS indexes are stale.</li>
+</ul>
+</section>
+<section id="build_indexes.py" class="level3">
+<h3 class="anchored" data-anchor-id="build_indexes.py"><code>03_build_indexes.py</code></h3>
+<p>Responsibilities:</p>
+<ul>
+<li>Build one DuckDB FTS file per chunk shard.</li>
+<li>Materialize the shard’s <code>rag_chunks</code> table before creating the FTS index.</li>
+<li>Record index file paths and row counts back into <code>manifest.json</code>.</li>
+</ul>
+<p>Idempotency:</p>
+<ul>
+<li>Re-running the script must replace each index DuckDB.</li>
+<li>Use <code>DROP TABLE IF EXISTS rag_chunks</code> and <code>overwrite=1</code> for FTS creation.</li>
+<li>If any chunk shard changes, rebuild the corresponding FTS shard.</li>
+</ul>
+</section>
+<section id="eval_rag.py" class="level3">
+<h3 class="anchored" data-anchor-id="eval_rag.py"><code>04_eval_rag.py</code></h3>
+<p>Post-MVP task. This should not block the first working local app.</p>
+<p>Responsibilities:</p>
+<ul>
+<li>Run representative questions through the router, retrieval, and answer pipeline.</li>
+<li>Check retrieval hit rate, citation correctness, warning behavior, latency, and use of structured data.</li>
+<li>Write a small report to <code>phase2/rag/eval/</code>.</li>
+</ul>
+</section>
+</section>
+<section id="build-runner" class="level2">
+<h2 class="anchored" data-anchor-id="build-runner">Build runner</h2>
+<p>Add a simple <code>Makefile</code> so the local rebuild path is one command:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode makefile code-with-copy"><code class="sourceCode makefile"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ot">.PHONY:</span><span class="dt"> rag-store rag-chunks rag-index rag-build rag-eval rag-app</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a><span class="dv">rag-store:</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a><span class="er">    </span>conda run -n nepa python phase2/rag/scripts/01_build_text_store.py</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a><span class="dv">rag-chunks:</span></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="er">    </span>conda run -n nepa python phase2/rag/scripts/02_build_chunks.py</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a><span class="dv">rag-index:</span></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a><span class="er">    </span>conda run -n nepa python phase2/rag/scripts/03_build_indexes.py</span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a><span class="dv">rag-build:</span><span class="dt"> rag-store rag-chunks rag-index</span></span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a><span class="dv">rag-eval:</span></span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a><span class="er">    </span>conda run -n nepa python phase2/rag/scripts/04_eval_rag.py</span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a><span class="dv">rag-app:</span></span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a><span class="er">    </span>conda run -n nepa streamlit run phase2/rag/app/app.py</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="hugging-face-artifact-strategy" class="level2">
+<h2 class="anchored" data-anchor-id="hugging-face-artifact-strategy">Hugging Face artifact strategy</h2>
+<p>Use a new Hugging Face Dataset repo for Phase 2 RAG artifacts rather than reusing the existing document explorer DB repo.</p>
+<p>Recommended repo:</p>
+<pre class="text"><code>YOUR_HF_USERNAME/nepa-phase2-rag-db</code></pre>
+<p>Upload:</p>
+<ul>
+<li><code>manifest.json</code></li>
+<li><code>rag_catalog.duckdb</code></li>
+<li>page parquet shards</li>
+<li>chunk parquet shards</li>
+<li>per-shard DuckDB FTS files</li>
+</ul>
+<p>The app should use <code>NEPA_RAG_DB_HF_REPO</code>, not the old document explorer <code>NEPA_DB_HF_REPO</code>, so the two apps can evolve independently.</p>
+</section>
+<section id="retrieval-design" class="level2">
+<h2 class="anchored" data-anchor-id="retrieval-design">Retrieval design</h2>
+<p>A full RAG system still needs retrieval, but retrieval should be hidden behind the answer workflow. Do not build a separate semantic-search UI unless later requested.</p>
+<section id="query-router" class="level3">
+<h3 class="anchored" data-anchor-id="query-router">Query router</h3>
+<p>Route each question before retrieval:</p>
+<ol type="1">
+<li><strong>Selected-project mode</strong>
+<ul>
+<li>Primary project scoping signal should come from the UI, not NLP.</li>
+<li>If the user has selected a project in the explorer, treat that project as authoritative scope.</li>
+<li>Restrict retrieval to that project unless the user explicitly asks for comparison or whole-corpus search.</li>
+</ul></li>
+<li><strong>Free-text project resolution</strong>
+<ul>
+<li>Use only when no project is selected.</li>
+<li>Check exact <code>project_id</code> first.</li>
+<li>Then run a DuckDB <code>ILIKE</code> title search over <code>projects</code>.</li>
+<li>If there are multiple plausible matches, ask the user to choose rather than guessing.</li>
+<li>Avoid fuzzy NLP project detection in the MVP.</li>
+</ul></li>
+<li><strong>Deliverable-specific question</strong>
+<ul>
+<li>Use deliverable outputs and architecture docs first.</li>
+<li>Pull NEPATEC source examples only when needed for evidence.</li>
+</ul></li>
+<li><strong>Corpus-wide factual question</strong>
+<ul>
+<li>Use DuckDB for exact counts, filters, and tabular summaries.</li>
+<li>Use RAG only to explain or cite examples.</li>
+</ul></li>
+<li><strong>Corpus-wide source-text question</strong>
+<ul>
+<li>Fan out retrieval across relevant shards.</li>
+<li>Merge per-shard top-k results.</li>
+<li>Return a warning if retrieved evidence is sparse or concentrated in only a few projects.</li>
+</ul></li>
+<li><strong>Unsupported or ambiguous question</strong>
+<ul>
+<li>Ask for clarification when needed, or answer with a strong limitation warning.</li>
+</ul></li>
+</ol>
+</section>
+<section id="retrieval-stages" class="level3">
+<h3 class="anchored" data-anchor-id="retrieval-stages">Retrieval stages</h3>
+<p>Start with deterministic retrieval, because the existing explorer already has the needed text store:</p>
+<ol type="1">
+<li><strong>Structured lookup</strong>
+<ul>
+<li>Resolve selected project, documents, process type, agency, state, energy type, timeline fields, Federal Register artifacts, and shard ids.</li>
+</ul></li>
+<li><strong>DuckDB FTS / TF-IDF retrieval</strong>
+<ul>
+<li>Search <code>rag_chunks.chunk_text</code> in relevant shard indexes.</li>
+<li>Apply metadata filters from the query router.</li>
+<li>Boost main documents, title matches, Federal Register evidence pages, and timeline/date contexts.</li>
+</ul></li>
+<li><strong>Evidence assembly</strong>
+<ul>
+<li>Deduplicate adjacent chunks from the same page.</li>
+<li>Keep no more than 10-20 source passages in the answer prompt.</li>
+<li>Always preserve source metadata and <code>source_label</code>.</li>
+</ul></li>
+<li><strong>Optional vector fallback</strong>
+<ul>
+<li>Do not implement first unless FTS misses obvious evidence.</li>
+<li>If needed, add an internal embedding index for retrieval only. This should not become a separate semantic-search feature.</li>
+</ul></li>
+</ol>
+</section>
+</section>
+<section id="answer-generation" class="level2">
+<h2 class="anchored" data-anchor-id="answer-generation">Answer generation</h2>
+<p>Use the configured Gemma 4 fast model for local development and answer synthesis. Start with <code>gemma4:e2b</code> for smoke tests and CPU-bound work, and make <code>gemma4:e4b</code> available as a user-selectable quality mode when latency is acceptable.</p>
+<p>The answer prompt should pass structured evidence, not a raw dump of pages:</p>
+<pre class="text"><code>QUESTION
+USER_SCOPE
+STRUCTURED_FACTS
+SOURCE_PASSAGES
+DELIVERABLE_CONTEXT
+INSTRUCTIONS</code></pre>
+<p>Required answer behavior:</p>
+<ul>
+<li>Answer from the supplied evidence.</li>
+<li>If evidence is incomplete, give the best supported answer with a clear warning.</li>
+<li>Cite each factual claim using exact <code>source_label</code> values.</li>
+<li>Separate direct evidence from inference.</li>
+<li>Never invent dates, counts, agencies, project titles, document numbers, or citations.</li>
+<li>For exact counts and tables, use DuckDB results rather than model reasoning.</li>
+<li>Include a short “Evidence used” section with clickable source-page links in the app.</li>
+</ul>
+<p>Proposed response shape:</p>
+<pre class="text"><code>Answer
+Confidence / warning
+Evidence used
+Notes and limitations
+Suggested follow-up query</code></pre>
+<p><code>answer.py</code> should validate model output before display:</p>
+<ul>
+<li>every citation must match a retrieved <code>source_label</code>;</li>
+<li>warnings must be present when retrieval confidence is low;</li>
+<li>exact counts should be sourced from structured query output;</li>
+<li>if validation fails, the app should show a warning and the source cards rather than silently trusting the answer.</li>
+</ul>
+</section>
+<section id="gemma-4-local-development-setup" class="level2">
+<h2 class="anchored" data-anchor-id="gemma-4-local-development-setup">Gemma 4 local development setup</h2>
+<p>Use a provider abstraction from the start:</p>
+<pre class="text"><code>LLM_PROVIDER=ollama
+LLM_MODEL=gemma4:e2b
+LLM_QUALITY_MODEL=gemma4:e4b
+LLM_FALLBACK_MODEL=gemma4:e2b
+OLLAMA_HOST=http://localhost:11434</code></pre>
+<p>The first implementation should call a local Ollama server from the Streamlit app. Keep the provider interface generic enough to swap in vLLM, Hugging Face Inference Endpoints, Vertex AI, or another remote endpoint later.</p>
+<p>Implementation notes:</p>
+<ul>
+<li>Use Gemma 4 E2B as the default fast synthesis model for local testing.</li>
+<li>Offer Gemma 4 E4B as a quality model when local hardware supports it.</li>
+<li>Keep the exact Ollama tag configurable because model tags and quantizations may differ.</li>
+<li>Require <code>ollama pull &lt;configured-tag&gt;</code> during local setup.</li>
+<li>Use <code>gemma4:e2b</code> as the documented local fallback if Gemma 4 E4B is too slow or too memory-heavy.</li>
+<li>Benchmark local latency with realistic prompts before committing to a hosting path.</li>
+<li>Use deterministic code for query routing. Do not spend large-model inference on simple routing decisions.</li>
+<li>Do not expose model chain-of-thought. Store only the final answer, cited evidence, and UI state.</li>
+<li>Keep prompts short enough for good latency even though Gemma 4 supports long context.</li>
+</ul>
+</section>
+<section id="browser-and-caft-deployment-options" class="level2">
+<h2 class="anchored" data-anchor-id="browser-and-caft-deployment-options">Browser and CAFT deployment options</h2>
+<section id="phase-a-local-development" class="level3">
+<h3 class="anchored" data-anchor-id="phase-a-local-development">Phase A: local development</h3>
+<p>Run everything locally:</p>
+<pre class="text"><code>Streamlit app -&gt; local sharded DuckDB/parquet artifacts -&gt; local Ollama model</code></pre>
+<p>This validates correctness, prompts, retrieval, citations, and latency before deployment decisions.</p>
+</section>
+<section id="phase-b-website-link-to-a-hosted-streamlit-app" class="level3">
+<h3 class="anchored" data-anchor-id="phase-b-website-link-to-a-hosted-streamlit-app">Phase B: website link to a hosted Streamlit app</h3>
+<p>Keep the document explorer pattern:</p>
+<pre class="text"><code>Website / Quarto navbar -&gt; Hugging Face Space -&gt; downloaded sharded RAG artifacts</code></pre>
+<p>For Gemma 4 E2B/E4B, the Space should initially be treated as the UI host, not necessarily the model host. A free CPU Space may still be too slow for acceptable inference. The app can call a separate model endpoint through environment variables.</p>
+</section>
+<section id="phase-c-model-hosting-choices" class="level3">
+<h3 class="anchored" data-anchor-id="phase-c-model-hosting-choices">Phase C: model-hosting choices</h3>
+<ol type="1">
+<li><strong>Your machine as the model backend</strong>
+<ul>
+<li>Cost: near $0.</li>
+<li>Path: expose a private HTTPS endpoint with Cloudflare Tunnel, Tailscale Funnel, or a similar tunnel.</li>
+<li>Pros: cheapest way to keep using a local Gemma 4 model.</li>
+<li>Cons: depends on your machine being awake, online, secure, and fast enough.</li>
+</ul></li>
+<li><strong>Paid GPU hosting</strong>
+<ul>
+<li>Cost: variable, likely nonzero if always-on.</li>
+<li>Path: Hugging Face GPU Space, HF Inference Endpoint, RunPod, Modal, Baseten, Vertex AI, or Cloud Run/GKE with GPU.</li>
+<li>Pros: better reliability for CAFT.</li>
+<li>Cons: larger Gemma 4 models need serious memory, especially with long context; always-on GPU hosting will not be free.</li>
+</ul></li>
+<li><strong>Hosted API fallback</strong>
+<ul>
+<li>Cost: usually low at 10,000 queries/month if prompts are controlled.</li>
+<li>Path: keep the same provider interface and swap from local Gemma to hosted API if self-hosting is not practical.</li>
+<li>Pros: easiest reliability story.</li>
+<li>Cons: may not satisfy the open-model preference; privacy/data-use rules must be checked.</li>
+</ul></li>
+</ol>
+</section>
+<section id="cold-start" class="level3">
+<h3 class="anchored" data-anchor-id="cold-start">Cold start</h3>
+<p>A cold start is the delay when an app or model server has been idle and must restart before answering. For this RAG app, cold start could include starting Streamlit, downloading/opening the catalog, downloading needed shards, loading the model, and warming the first inference request.</p>
+<p>Cold start affects wait time, not answer correctness. For Gemma 4 E2B/E4B, model cold starts should be much lighter than 26B/31B, but still depend on hardware and deployment.</p>
+</section>
+</section>
+<section id="mvp-build-sequence" class="level2">
+<h2 class="anchored" data-anchor-id="mvp-build-sequence">MVP build sequence</h2>
+<section id="port-the-document-explorer-into-phase2rag" class="level3">
+<h3 class="anchored" data-anchor-id="port-the-document-explorer-into-phase2rag">1. Port the document explorer into <code>phase2/rag</code></h3>
+<ul>
+<li>Copy the existing Streamlit app structure into <code>phase2/rag/app</code>.</li>
+<li>Keep project search, document browsing, full-text search, and page navigation.</li>
+<li>Update the app title and environment variables for the RAG deployment.</li>
+<li>Keep the current Hugging Face dataset download pattern, but use <code>NEPA_RAG_DB_HF_REPO</code>.</li>
+</ul>
+</section>
+<section id="implement-config-and-build-runner" class="level3">
+<h3 class="anchored" data-anchor-id="implement-config-and-build-runner">2. Implement config and build runner</h3>
+<ul>
+<li>Add <code>src/nepa_rag/config.py</code>.</li>
+<li>Add <code>.env.example</code>.</li>
+<li>Add <code>phase2/rag/data/.gitignore</code>.</li>
+<li>Add a <code>Makefile</code> with <code>rag-build</code> and <code>rag-app</code> targets.</li>
+</ul>
+</section>
+<section id="build-the-sharded-phase-2-text-store" class="level3">
+<h3 class="anchored" data-anchor-id="build-the-sharded-phase-2-text-store">3. Build the sharded Phase 2 text store</h3>
+<ul>
+<li>Adapt the Phase 1 DuckDB builder to Phase 2 paths.</li>
+<li>Join pages through documents to attach <code>project_id</code>.</li>
+<li>Output <code>rag_catalog.duckdb</code>, page shards, and <code>manifest.json</code>.</li>
+<li>Make the script idempotent.</li>
+</ul>
+</section>
+<section id="build-chunk-shards" class="level3">
+<h3 class="anchored" data-anchor-id="build-chunk-shards">4. Build chunk shards</h3>
+<ul>
+<li>Generate paragraph-aware chunk shards from page shards.</li>
+<li>Reuse shared text formatting/chunking helpers from <code>src/nepa_rag/</code>.</li>
+<li>Write consistent <code>source_label</code> values.</li>
+<li>Make the script idempotent.</li>
+</ul>
+</section>
+<section id="build-per-shard-fts-indexes" class="level3">
+<h3 class="anchored" data-anchor-id="build-per-shard-fts-indexes">5. Build per-shard FTS indexes</h3>
+<ul>
+<li>Materialize each chunk shard into its own DuckDB.</li>
+<li>Create the DuckDB FTS index with <code>stemmer=&#39;porter&#39;</code> and <code>stopwords=&#39;english&#39;</code>.</li>
+<li>Rebuild indexes after every chunk rebuild.</li>
+</ul>
+</section>
+<section id="implement-query-routing" class="level3">
+<h3 class="anchored" data-anchor-id="implement-query-routing">6. Implement query routing</h3>
+<ul>
+<li>Use selected project context from the UI as the primary project-specific scope.</li>
+<li>Use exact <code>project_id</code> or DuckDB <code>ILIKE</code> title search only as fallback.</li>
+<li>Return a visible scope label to users, such as “Answering within selected project” or “Searching across corpus.”</li>
+</ul>
+</section>
+<section id="implement-retrieval-and-evidence-assembly" class="level3">
+<h3 class="anchored" data-anchor-id="implement-retrieval-and-evidence-assembly">7. Implement retrieval and evidence assembly</h3>
+<ul>
+<li>Start with DuckDB structured lookup plus FTS over relevant shard indexes.</li>
+<li>Rank and deduplicate evidence.</li>
+<li>Return source cards with <code>project_id</code>, project title, file name, document type, page number, and snippet.</li>
+<li>Add source-page links that jump into the existing document viewer.</li>
+</ul>
+</section>
+<section id="implement-gemma-4-answer-generation" class="level3">
+<h3 class="anchored" data-anchor-id="implement-gemma-4-answer-generation">8. Implement Gemma 4 answer generation</h3>
+<ul>
+<li>Add <code>llm.py</code> with an Ollama provider first.</li>
+<li>Add <code>answer.py</code> to combine router output, retrieved evidence, prompt template, model response, and citations.</li>
+<li>Add strict output validation so the app can detect missing citations or unsupported claims.</li>
+</ul>
+</section>
+<section id="add-the-caft-facing-answer-ui" class="level3">
+<h3 class="anchored" data-anchor-id="add-the-caft-facing-answer-ui">9. Add the CAFT-facing answer UI</h3>
+<ul>
+<li>Add an “Ask” tab above or beside the existing browser.</li>
+<li>Show answer, warning/confidence, evidence cards, and source-page links.</li>
+<li>Keep session-only chat history.</li>
+<li>Add a “clear session” button.</li>
+<li>Do not persist user queries by default.</li>
+</ul>
+</section>
+<section id="post-mvp-evaluation-harness" class="level3">
+<h3 class="anchored" data-anchor-id="post-mvp-evaluation-harness">10. Post-MVP evaluation harness</h3>
+<p>Create <code>phase2/rag/eval/questions.yaml</code> with representative tests:</p>
+<ul>
+<li>project-specific timeline question</li>
+<li>Federal Register / NOI evidence question</li>
+<li>broad corpus question</li>
+<li>deliverable-production question</li>
+<li>unsupported question that should trigger a warning</li>
+<li>question with an ambiguous project title</li>
+</ul>
+<p>Score each test for:</p>
+<ul>
+<li>retrieval hit rate</li>
+<li>citation correctness</li>
+<li>answer faithfulness</li>
+<li>warning behavior</li>
+<li>latency</li>
+<li>whether the answer uses structured data where required</li>
+</ul>
+<p>This is important, but it should not block the first working local MVP.</p>
+</section>
+<section id="decide-deployment-after-local-benchmark" class="level3">
+<h3 class="anchored" data-anchor-id="decide-deployment-after-local-benchmark">11. Decide deployment after local benchmark</h3>
+<p>After the local MVP works, benchmark:</p>
+<ul>
+<li>average latency per query</li>
+<li>p95 latency</li>
+<li>prompt token size</li>
+<li>model memory use</li>
+<li>shard download behavior</li>
+<li>failure cases</li>
+<li>cold start time</li>
+</ul>
+<p>Use those results to choose between:</p>
+<ul>
+<li>website link to HF Space UI plus your local model endpoint;</li>
+<li>paid GPU app/model hosting;</li>
+<li>hosted API fallback.</li>
+</ul>
+</section>
+</section>
+<section id="risks-and-mitigations" class="level2">
+<h2 class="anchored" data-anchor-id="risks-and-mitigations">Risks and mitigations</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Risk</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>EIS scale makes one DB too large</td>
+<td>Use sharded page, chunk, and FTS artifacts; never build one FTS over all 6.7M pages.</td>
+</tr>
+<tr class="even">
+<td>Shard fan-out is slow for whole-corpus questions</td>
+<td>Route by selected project/process first; use per-shard top-k and merge results; cache downloaded shards.</td>
+</tr>
+<tr class="odd">
+<td>Pages lack <code>project_id</code></td>
+<td>Join pages through <code>documents_combined</code> before writing page/chunk shards.</td>
+</tr>
+<tr class="even">
+<td>Re-running build scripts creates duplicate chunks</td>
+<td>Make scripts idempotent with replace semantics and stale-shard cleanup.</td>
+</tr>
+<tr class="odd">
+<td>FTS index becomes stale after chunk rebuild</td>
+<td>Require <code>03_build_indexes.py</code> after every <code>02_build_chunks.py</code> run.</td>
+</tr>
+<tr class="even">
+<td>DuckDB FTS semantics are misunderstood</td>
+<td>Document it as TF-IDF based, not BM25.</td>
+</tr>
+<tr class="odd">
+<td>Gemma 4 E4B is too slow locally</td>
+<td>Use <code>gemma4:e2b</code> as the default fast model; use DuckDB/code for routing and retrieval; reduce retrieved context.</td>
+</tr>
+<tr class="even">
+<td>Free hosting cannot serve local models reliably</td>
+<td>Treat free hosting as UI-only; host the model separately or use paid GPU/API.</td>
+</tr>
+<tr class="odd">
+<td>Broad corpus questions retrieve weak evidence</td>
+<td>Add clear warnings; require source diversity; route exact counts to DuckDB.</td>
+</tr>
+<tr class="even">
+<td>Model invents unsupported details</td>
+<td>Require exact <code>source_label</code> citations, validate labels, and show source cards directly under answers.</td>
+</tr>
+<tr class="odd">
+<td>Long context causes latency and noise</td>
+<td>Pass only ranked evidence snippets, not full documents.</td>
+</tr>
+<tr class="even">
+<td>CAFT users over-trust generated answers</td>
+<td>Use visible confidence/warning labels and “Evidence used” sections.</td>
+</tr>
+<tr class="odd">
+<td>Session logs create privacy concern</td>
+<td>Keep chat history in Streamlit session state only; no persistent logs by default.</td>
+</tr>
+<tr class="even">
+<td>Deliverable outputs conflict with source text</td>
+<td>Label deliverables as analysis outputs and prefer source text for factual evidence.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="open-questions" class="level2">
+<h2 class="anchored" data-anchor-id="open-questions">Open questions</h2>
+<ol type="1">
+<li>What EIS shard size should be the default: fixed document count, fixed approximate bytes, or fixed row count?</li>
+<li>Should CAFT access use a simple shared password, Hugging Face auth, or a private app?</li>
+<li>Can your local machine act as the model backend during the pilot, or does CAFT need a cloud-hosted model from day one?</li>
+<li>Should final Phase 2 deliverables be indexed as answer context, or only as methodology/results references?</li>
+<li>Should the app allow corpus-wide answers by default, or require users to explicitly choose “whole corpus” to avoid accidental broad searches?</li>
+<li>What answer latency is acceptable for CAFT: 10 seconds, 30 seconds, 2 minutes?</li>
+<li>Should the app export answer packets as PDF/HTML for deliverable production?</li>
+<li>Should unsupported answers say “best guess” or “likely answer” when evidence is thin?</li>
+<li>Should every answer include a downloadable evidence CSV?</li>
+</ol>
+</section>
+<section id="source-notes" class="level2">
+<h2 class="anchored" data-anchor-id="source-notes">Source notes</h2>
+<ul>
+<li>Google announced Gemma 4 on April 2, 2026, including E2B, E4B, 26B MoE, and 31B Dense variants, Apache 2.0 licensing, long-context support, and Hugging Face/Ollama support: https://blog.google/innovation-and-ai/technology/developers-tools/gemma-4/</li>
+<li>Hugging Face Spaces remains a good fit for the Streamlit UI and dataset-download pattern, but model serving should be benchmarked separately from the UI host. HF documents the default free Space as CPU Basic and notes that free Spaces sleep after inactivity: https://huggingface.co/docs/hub/spaces-overview</li>
+<li>Hugging Face GPU Spaces are available as paid upgrades with larger CPU/GPU memory, which is relevant if the model is hosted in the same app rather than called through a separate endpoint: https://huggingface.co/docs/hub/en/spaces-gpus</li>
 </ul>
 
 

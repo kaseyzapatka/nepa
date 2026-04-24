@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>timeline – NEPA</title>
+<title>federal_register – NEPA</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -3967,191 +3967,430 @@ vertical-align: -.125em;
 
 
 
-<section id="timeline-extraction" class="level1">
-<h1>Timeline Extraction</h1>
-<p><strong>Purpose:</strong> Extract initiation and decision dates for NEPA reviews using a BERT classifier with optional LLM adjudication. <strong>Input:</strong> <code>data/analysis/projects_combined.parquet</code> + regex candidate cache. <strong>Output:</strong> <code>data/analysis/timeline_{ce,ea,eis}.parquet</code>, <code>timeline_{ea,eis}_llm.parquet</code>, <code>timeline_targeted_llm.parquet</code> <strong>Cost:</strong> LLM adjudication ~$0.60–$1.00 (Claude Haiku) for EA + EIS full runs. Targeted re-adjudication ~$0.44. <strong>Prerequisites:</strong> Base dataset built (<a href="../runbooks/01_base_dataset.md">runbook 01</a>).</p>
-<blockquote class="blockquote">
-<p><strong>Note on prior organization:</strong> The targeted re-adjudication for programmatic/tiered projects was previously documented as a standalone “Deliverable 02” section in the README. It is step 7 in the full rebuild below because it operates on timeline outputs — it is a timeline operation, not a reviews operation. Reviews (<a href="../runbooks/03_reviews.md">runbook 03</a>) must still run before step 7.</p>
-</blockquote>
-<hr>
-<section id="file-naming-convention" class="level2">
-<h2 class="anchored" data-anchor-id="file-naming-convention">File naming convention</h2>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Stage</th>
-<th>CE</th>
-<th>EA</th>
-<th>EIS</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Regex cache</td>
-<td><code>timeline_regex_ce.parquet</code></td>
-<td><code>timeline_regex_ea.parquet</code></td>
-<td><code>timeline_regex_eis.parquet</code></td>
-</tr>
-<tr class="even">
-<td>BERT training data</td>
-<td><code>bert_traindata.parquet</code></td>
-<td>← same file</td>
-<td>← same file</td>
-</tr>
-<tr class="odd">
-<td>Sample test (post-train)</td>
-<td><code>timeline_ce_sample{N}.parquet</code></td>
-<td><code>timeline_ea_sample{N}.parquet</code></td>
-<td><code>timeline_eis_sample{N}.parquet</code></td>
-</tr>
-<tr class="even">
-<td>Full BERT run</td>
-<td><code>timeline_ce.parquet</code></td>
-<td><code>timeline_ea.parquet</code></td>
-<td><code>timeline_eis.parquet</code></td>
-</tr>
-<tr class="odd">
-<td>Post LLM adjudication</td>
-<td><em>(none)</em></td>
-<td><code>timeline_ea_llm.parquet</code></td>
-<td><code>timeline_eis_llm.parquet</code></td>
-</tr>
-</tbody>
-</table>
-<p>Append <code>_v{N}</code> to sample files when iterating through multiple training rounds (e.g. <code>timeline_ce_sample20_v2.parquet</code>). Full run files are overwritten each time.</p>
-<hr>
+<section id="federal-register-evidence-matching-plan" class="level1">
+<h1>Federal Register Evidence Matching Plan</h1>
+<section id="goal" class="level2">
+<h2 class="anchored" data-anchor-id="goal">Goal</h2>
+<p>Add a NEPATEC-derived Federal Register evidence layer so the NOI matcher can use direct evidence from the project’s own documents — specifically <code>FR Doc.</code> numbers and Federal Register URLs — to join to the API corpus. A secondary goal is to use this evidence to improve project initiation date coverage, including for EA, EIS, and CE projects.</p>
+<p>The final date used for timeline analysis should remain the Federal Register API <code>publication_date</code>, saved as <code>noi_publication_date</code>.</p>
 </section>
-<section id="full-rebuild-patterns-or-models-changed" class="level2">
-<h2 class="anchored" data-anchor-id="full-rebuild-patterns-or-models-changed">Full rebuild (patterns or models changed)</h2>
-<p>Use when regex patterns or training logic have changed and classifiers need retraining from scratch.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1 — Rebuild regex candidate cache for all sources</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> CE</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EA</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/timeline_regex_{ce,ea,eis}.parquet</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2 — Rebuild BERT training data</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/bert_traindata.parquet</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3 — Retrain classifiers</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EA</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 4 — Smoke test on 20 projects before committing to full run</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20.parquet</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5 — Full BERT inference</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 6 — LLM adjudication for EA and EIS (not needed for CE at scale)</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">ANTHROPIC_API_KEY</span><span class="op">=</span><span class="st">&#39;sk-ant-...&#39;</span></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 7 — Targeted re-adjudication for programmatic/tiered projects</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Run after step 6 AND after reviews extraction (runbook 03) is complete.</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Auto-selects ~73 programmatic/tiered projects with missing initiation or decision dates.</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="dt">\</span></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea_llm.parquet,data/analysis/timeline_eis_llm.parquet <span class="dt">\</span></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">--nonstandard-incomplete</span> <span class="dt">\</span></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">--max-candidates</span> 125 <span class="dt">\</span></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">--context-chars</span> 400 <span class="dt">\</span></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">--promote-rod-language</span> <span class="dt">\</span></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">--year-window</span> 15 <span class="dt">\</span></span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_targeted_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Step 7 flag notes:</strong> - <code>--nonstandard-incomplete</code> — filters to programmatic/tiered projects with missing dates; no manual ID file needed. - <code>--max-candidates 125</code> — raises cap from 30 (EIS default) to 125 for large programmatic EISs. - <code>--promote-rod-language</code> — promotes ROD/FONSI dates to Tier A even if BERT mislabeled them. - <code>--year-window 15</code> — drops candidates &gt;15 years before the latest found date, removing NEPA citation noise. - Targeted output is ~73 rows. Full timeline files are not modified. Patched automatically by <code>00_setup.R</code>.</p>
-<hr>
-</section>
-<section id="quick-run-models-already-trained" class="level2">
-<h2 class="anchored" data-anchor-id="quick-run-models-already-trained">Quick run (models already trained)</h2>
-<p>Use when models are current and only BERT inference + adjudication outputs need refreshing.</p>
-<p><strong>CE only:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EA:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EIS:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<hr>
-</section>
-<section id="filtering-and-debugging" class="level2">
-<h2 class="anchored" data-anchor-id="filtering-and-debugging">Filtering and debugging</h2>
-<p><strong>Restrict to clean energy projects only</strong> (add <code>--clean-energy</code> to any <code>--bert-run</code> command):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="at">--clean-energy</span> <span class="dt">\</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_clean.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Debug a single project</strong> (searches CE, EA, and EIS sources automatically):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--project-id</span> <span class="op">&lt;</span>UUID<span class="op">&gt;</span> --hybrid <span class="at">--use-regex-cache</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<hr>
-</section>
-<section id="manual-training-corrections-iterative-improvement" class="level2">
-<h2 class="anchored" data-anchor-id="manual-training-corrections-iterative-improvement">Manual training corrections (iterative improvement)</h2>
-<p><strong>On the first pass, skip manual corrections entirely</strong> — run steps 1–5 above using weak supervision alone to get a working baseline. Then inspect the output, add corrections, and retrain. You do not need to get corrections right before starting.</p>
-<p>After a full run, inspect the output for systematic errors (e.g. CE projects still missing initiation dates). Corrections are added to:</p>
-<pre><code>data/analysis/manual_training_corrections.csv</code></pre>
-<p><strong>Required columns:</strong> <code>project_id</code>, <code>date</code>, <code>correct_type</code> (one of <code>decision</code>, <code>initiation</code>, <code>review</code>, <code>other</code>)</p>
-<p>Once corrections are added, you only need to re-run steps 2–5 (not step 1 — the regex cache is unchanged):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate training data with corrections applied</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrain affected source(s)</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Smoke test</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20_v2.parquet</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-run full inference</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Matching note:</strong> Corrections are matched on <code>(project_id, date)</code>. If the same date appears in multiple contexts for a project, the correction applies to all of them. You can make the match more precise by also checking <code>context</code> in the CSV (not currently implemented — avoid duplicate dates per project when possible).</p>
-<p><strong>Timing:</strong> Add corrections after inspecting <code>--bert-run</code> output and identifying a cohort of systematic misses (e.g. 20–50 CE initiation false negatives). Corrections before the first run are not useful — you need the model’s output to know what to fix. Plan on at least one correction cycle after the initial build.</p>
-<hr>
-</section>
-<section id="notes" class="level2">
-<h2 class="anchored" data-anchor-id="notes">Notes</h2>
+<section id="current-problem" class="level2">
+<h2 class="anchored" data-anchor-id="current-problem">Current Problem</h2>
+<p>The current Phase 2 Federal Register workflow matches projects to Federal Register records using corpus-level title and context matching. This is a strong improvement over Phase 1, but it has two compounding problems:</p>
+<ol type="1">
+<li><strong>Title-only matches are unreliable.</strong> A title match has no temporal anchor. If a project went through multiple review iterations, title matching can silently return an NOI date from a prior iteration rather than the current one.</li>
+<li><strong>Direct NEPATEC evidence is unused.</strong> Many NEPATEC documents already contain the FR Doc. number for their own NOI. This is a much stronger signal than title similarity.</li>
+</ol>
+<p>Example:</p>
 <ul>
-<li><code>--source</code> accepts <code>CE</code>, <code>EA</code>, <code>EIS</code>, or comma-separated combinations. Defaults to <code>CE</code> if omitted.</li>
-<li>spaCy enrichment runs by default during <code>--regex-prep</code>. Use <code>--no-spacy</code> to skip.</li>
-<li>Initiation class imbalance is a known bottleneck; improve via pattern expansion + weighting + manual examples.</li>
-<li>Timeline selection prioritizes strong signature cues over latest-date heuristics.</li>
-<li><code>dep_verb</code>, <code>sig_flag</code>, <code>ner_decision_signal</code> are the spaCy-enriched columns used by BERT.</li>
+<li>Project: <code>Jackalope Wind Energy Project</code></li>
+<li>Project ID: <code>bef66b39ae62bd8e8520e7d633a72604</code></li>
+<li>NEPATEC document: <code>Jackalope Federal Register Notice.pdf</code></li>
+<li>NEPATEC page text includes: <code>[FR Doc. 2024–05618 Filed 3–15–24; 8:45 am]</code></li>
+<li>Federal Register API <code>document_number</code>: <code>2024-05618</code></li>
+<li>Federal Register API <code>publication_date</code>: <code>2024-03-18</code></li>
 </ul>
+<p><strong>Note on en-dashes:</strong> Real NEPATEC page text uses en-dashes (<code>–</code>) in FR Doc. brackets, not ASCII hyphens (<code>-</code>). The API corpus uses ASCII hyphens. Normalization is required before joining.</p>
+</section>
+<section id="proposed-workflow" class="level2">
+<h2 class="anchored" data-anchor-id="proposed-workflow">Proposed Workflow</h2>
+<ol type="1">
+<li>Build the usual Phase 2 project, document, and page data from NEPATEC.</li>
+<li>Scan EA/EIS/CE page text for Federal Register evidence using DuckDB.</li>
+<li>Save the extracted evidence to a cacheable artifact.</li>
+<li>Pull or load the Federal Register API NOI corpus.</li>
+<li>Match NEPATEC projects to Federal Register documents using direct FR doc number evidence.</li>
+<li>Title-only matches go to manual review only — they do not populate <code>noi_publication_date</code>.</li>
+<li>Save the final project-level <code>noi_publication_date</code> into <code>federal_register.parquet</code>.</li>
+<li>Merge <code>federal_register.parquet</code> into <code>projects_combined.parquet</code>.</li>
+</ol>
+<p><strong>Key principle:</strong> <code>noi_publication_date</code> is only ever populated from a direct FR doc number join. Title matching is a review signal, not a date source. This protects against prior-iteration contamination.</p>
+</section>
+<section id="new-evidence-extraction-step" class="level2">
+<h2 class="anchored" data-anchor-id="new-evidence-extraction-step">New Evidence Extraction Step</h2>
+<p>Add a new function in <code>phase2/code/extract/federal_register.py</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> extract_nepatec_federal_register_evidence(</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    projects: pd.DataFrame,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="op">*</span>,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    analysis_dir: Path,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>    process_types: <span class="bu">tuple</span>[<span class="bu">str</span>, ...] <span class="op">=</span> (<span class="st">&quot;EA&quot;</span>, <span class="st">&quot;EIS&quot;</span>, <span class="st">&quot;CE&quot;</span>),</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> pd.DataFrame:</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>    ...</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="use-duckdb-for-the-page-scan" class="level3">
+<h3 class="anchored" data-anchor-id="use-duckdb-for-the-page-scan">Use DuckDB for the Page Scan</h3>
+<p><strong>This scan must use DuckDB, not pandas.</strong> The EIS page file has 6,131,757 rows and the EA page file has 469,106 rows. Loading either into pandas memory would be impractical. A DuckDB scan with a <code>LIKE</code> filter on <code>page_text</code> runs in approximately 30 seconds.</p>
+<p>Pattern:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> duckdb</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>con <span class="op">=</span> duckdb.<span class="ex">connect</span>()</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>result <span class="op">=</span> con.execute(<span class="st">&quot;&quot;&quot;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="st">    SELECT p.document_id, p.page_number, p.page_text,</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="st">           d.project_id, d.file_name, d.document_title,</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="st">           d.document_type, d.main_document</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="st">    FROM read_parquet(?) AS p</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="st">    JOIN read_parquet(?) AS d USING (document_id)</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="st">    WHERE p.page_text LIKE &#39;</span><span class="sc">%F</span><span class="st">R Doc%&#39;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="st">       OR p.page_text LIKE &#39;</span><span class="sc">%f</span><span class="st">ederalregister.gov%&#39;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="st">       OR p.page_text LIKE &#39;</span><span class="sc">%F</span><span class="st">ederal Register%&#39;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="st">&quot;&quot;&quot;</span>, [pages_path, documents_path]).df()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Note that <code>pages.parquet</code> has no <code>project_id</code> column. The join through <code>documents.parquet</code> is required to get <code>project_id</code>, <code>file_name</code>, <code>document_title</code>, <code>document_type</code>, and <code>main_document</code>.</p>
+</section>
+<section id="scan-paths" class="level3">
+<h3 class="anchored" data-anchor-id="scan-paths">Scan Paths</h3>
+<pre class="text"><code>phase2/data/processed/ea/documents.parquet
+phase2/data/processed/ea/pages.parquet
+phase2/data/processed/eis/documents.parquet
+phase2/data/processed/eis/pages.parquet
+phase2/data/processed/ce/documents.parquet
+phase2/data/processed/ce/pages.parquet</code></pre>
+</section>
+<section id="prioritize-main-documents" class="level3">
+<h3 class="anchored" data-anchor-id="prioritize-main-documents">Prioritize Main Documents</h3>
+<p>The <code>documents.parquet</code> schema includes a <code>main_document</code> boolean flag. Evidence from pages in main documents should be preferred over evidence from appendices or supporting files. Include <code>main_document</code> in the per-row evidence schema and use it in evidence ranking.</p>
+</section>
+</section>
+<section id="evidence-to-extract" class="level2">
+<h2 class="anchored" data-anchor-id="evidence-to-extract">Evidence To Extract</h2>
+<section id="fr-document-numbers-primary-join-key" class="level3">
+<h3 class="anchored" data-anchor-id="fr-document-numbers-primary-join-key">FR Document Numbers (Primary Join Key)</h3>
+<p>The FR Doc. number is the primary join key to the API corpus. Extract it using a regex that handles both ASCII hyphens and Unicode dashes:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>_FR_DOC_RE <span class="op">=</span> re.<span class="bu">compile</span>(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&#39;</span><span class="ch">\[</span><span class="vs">FR Doc</span><span class="ch">\.</span><span class="op">?</span><span class="dv">\s</span><span class="op">+</span><span class="kw">(</span><span class="dv">\d</span><span class="op">{4}</span><span class="pp">[</span><span class="ch">\-\u2013\u2014</span><span class="pp">]</span><span class="dv">\d</span><span class="op">+</span><span class="kw">)</span><span class="vs">&#39;</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    re.IGNORECASE,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Before joining to the API corpus, normalize extracted numbers to ASCII hyphen:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> _normalize_fr_doc_number(raw: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">str</span>:</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;Normalize FR Doc number: replace en-dash/em-dash with ASCII hyphen.&quot;&quot;&quot;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> re.sub(<span class="vs">r&#39;</span><span class="pp">[</span><span class="ch">\u2013\u2014</span><span class="pp">]</span><span class="vs">&#39;</span>, <span class="st">&#39;-&#39;</span>, raw).strip()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Example: <code>2024–05618</code> → <code>2024-05618</code> (joins to API <code>document_number: 2024-05618</code>).</p>
+</section>
+<section id="federal-register-urls-secondary-join-key" class="level3">
+<h3 class="anchored" data-anchor-id="federal-register-urls-secondary-join-key">Federal Register URLs (Secondary Join Key)</h3>
+<p>Federal Register URLs embed the document number and can be used as an alternative extraction path:</p>
+<pre class="text"><code>federalregister.gov/documents/2024/03/18/2024-05618/...</code></pre>
+<p>Extract the document number from the URL path segment. Normalize using the same <code>_normalize_fr_doc_number</code> helper.</p>
+</section>
+<section id="volumepage-citations-contextual-signal-only-not-a-join-key" class="level3">
+<h3 class="anchored" data-anchor-id="volumepage-citations-contextual-signal-only-not-a-join-key">Volume/Page Citations (Contextual Signal Only — Not a Join Key)</h3>
+<p>Volume/page citations of the form <code>89 FR 19348</code> appear in NEPATEC text but <strong>cannot be used as join keys</strong>. The Federal Register API corpus has no <code>citation</code> field. Record the raw citation text in <code>fr_citation</code> as context, but do not attempt to join on it.</p>
+</section>
+<section id="explicit-date-text-initiation-date-signal" class="level3">
+<h3 class="anchored" data-anchor-id="explicit-date-text-initiation-date-signal">Explicit Date Text (Initiation Date Signal)</h3>
+<p>NEPATEC documents frequently cite their own publication date in prose. Extract these as initiation date signals even when no FR Doc. bracket is present:</p>
+<pre class="text"><code>&quot;Published in the Federal Register on March 18, 2024&quot;
+&quot;Federal Register, Vol. 89, No. 55, March 19, 2024&quot;
+&quot;as published at 89 FR 19348 (March 19, 2024)&quot;
+&quot;published ... on [date]&quot;</code></pre>
+<p>Store the extracted date text in <code>fr_date_text</code> and the parsed date in <code>fr_date_text_parsed</code>. These can validate a doc-number join (filed date in bracket should be ~1–5 days before publication) or provide a fallback initiation date signal for review when no doc number join succeeds.</p>
+</section>
+<section id="notice-language-proximity-filter-required" class="level3">
+<h3 class="anchored" data-anchor-id="notice-language-proximity-filter-required">Notice Language (Proximity Filter — Required)</h3>
+<p>Many Federal Register references in NEPATEC pages are not NOI records. A page may cite an FR Doc. number for a resource advisory council meeting, a rule, or an adjacent notice from a different project.</p>
+<p><strong>Require that each FR Doc. number on a page be within a reasonable proximity to at least one NOI-like phrase</strong> before treating it as evidence for this project. Accepted phrases:</p>
+<pre class="text"><code>Notice of Intent
+Intent To Prepare
+Notice of Preparation
+Notice To Prepare
+Notice of Scoping
+Notice of Public Scoping</code></pre>
+<p>If no such phrase appears near the FR Doc. number (within ~500 characters), record the FR Doc. number with <code>evidence_type = fr_doc_non_noi</code> and exclude it from the primary join path. These rows are retained in the evidence table for diagnostics.</p>
+<p>For CE pages, also accept:</p>
+<pre class="text"><code>Notice of Application
+Notice of Proposed Action
+Categorical Exclusion</code></pre>
+<p>These phrases are CE-specific initiation signals not typically present in EIS/EA documents.</p>
+</section>
+<section id="document-metadata-weak-signal-no-join" class="level3">
+<h3 class="anchored" data-anchor-id="document-metadata-weak-signal-no-join">Document Metadata (Weak Signal — No Join)</h3>
+<p>Use document metadata as supporting context when scoring candidates, not as join keys:</p>
+<pre class="text"><code>file_name contains &quot;Federal Register&quot;
+file_name contains &quot;FR Notice&quot;
+file_name contains &quot;NOI&quot;
+document_title contains &quot;Notice of Intent&quot;
+document_title contains &quot;Intent To Prepare&quot;</code></pre>
+</section>
+</section>
+<section id="new-evidence-artifact" class="level2">
+<h2 class="anchored" data-anchor-id="new-evidence-artifact">New Evidence Artifact</h2>
+<p>Write the scan output to:</p>
+<pre class="text"><code>phase2/data/analysis/federal_register/nepatec_fr_evidence.parquet</code></pre>
+<section id="caching" class="level3">
+<h3 class="anchored" data-anchor-id="caching">Caching</h3>
+<p><code>nepatec_fr_evidence.parquet</code> can be computed independently of the API corpus and <strong>should be cached across API refreshes</strong>. If this file already exists and <code>--refresh-federal-register</code> is specified without a dedicated <code>--rescan-nepatec-evidence</code> flag, load the cached file rather than re-scanning all pages. Only force a rescan when the NEPATEC processed data changes or when explicitly requested.</p>
+</section>
+<section id="schema" class="level3">
+<h3 class="anchored" data-anchor-id="schema">Schema</h3>
+<pre class="text"><code>project_id
+process_type
+project_title
+document_id
+file_name
+document_title
+document_type
+main_document
+page_number
+evidence_type               -- fr_doc_noi | fr_doc_non_noi | fr_url | fr_date_text | metadata
+fr_document_number          -- normalized to ASCII hyphen; the join key
+fr_document_number_raw      -- original extracted string (may contain en-dash)
+fr_url
+fr_citation                 -- raw vol/page citation (89 FR 19348), contextual only
+fr_date_text                -- raw extracted date prose (&quot;Published in the Federal Register on...&quot;)
+fr_date_text_parsed         -- parsed date from prose (datetime or null)
+notice_title_snippet
+evidence_context            -- surrounding page text window
+nearby_noi_phrase           -- matched NOI phrase used for proximity filter
+nearby_project_title_token_count
+evidence_rank</code></pre>
+<p>This is an evidence table, not the final match table. One project may have multiple rows.</p>
+</section>
+</section>
+<section id="improving-project-initiation-date-coverage" class="level2">
+<h2 class="anchored" data-anchor-id="improving-project-initiation-date-coverage">Improving Project Initiation Date Coverage</h2>
+<p>The Federal Register evidence layer is also an opportunity to improve <code>noi_publication_date</code> coverage beyond what the existing title-match workflow achieves, and to support initiation dates for CE projects that have no current FR coverage. Three strategies are in scope for this plan:</p>
+<section id="expand-the-api-corpus-queries-to-include-scoping-notices" class="level3">
+<h3 class="anchored" data-anchor-id="expand-the-api-corpus-queries-to-include-scoping-notices">1. Expand the API Corpus Queries to Include Scoping Notices</h3>
+<p>Some projects publish a scoping notice in the Federal Register <em>before</em> or <em>instead of</em> a formal NOI. In some agency workflows these are the same document; in others the scoping notice is a separate FR record published at the start of the scoping period — earlier than the NOI.</p>
+<p>Add these queries to <code>NOI_CORPUS_QUERIES</code>:</p>
+<pre class="text"><code>&quot;Notice of Scoping&quot;
+&quot;Notice of Public Scoping&quot;
+&quot;Scoping for Environmental Impact&quot;</code></pre>
+<p>Because a scoping notice and a formal NOI for the same project will have different document numbers, both can appear in the evidence table. When multiple FR records join for one project, apply the tie-break rule: <strong>prefer the earlier publication date as the initiation date</strong>. Send the multi-record case to manual review so a human can confirm.</p>
+<p>Note: scoping meeting dates (mentioned in NEPATEC prose) are <em>later</em> than the scoping notice publication date and are extracted from unverified text with no external anchor. They do not provide earlier or more reliable initiation signals than the scoping notice itself, and ad-hoc extraction from prose duplicates what the BERT initiation model already attempts. Scoping meeting date extraction is out of scope here; improvements to that signal belong in the BERT timeline pipeline.</p>
+</section>
+<section id="extract-explicit-federal-register-date-mentions-from-nepatec-text" class="level3">
+<h3 class="anchored" data-anchor-id="extract-explicit-federal-register-date-mentions-from-nepatec-text">2. Extract Explicit Federal Register Date Mentions from NEPATEC Text</h3>
+<p>NEPATEC documents often state their own publication date in prose. Extracting these provides a validation signal for doc-number joins and a soft initiation date for projects where the FR Doc. bracket is absent or OCR-corrupted.</p>
+<p>Example patterns:</p>
+<pre class="text"><code>&quot;Published in the Federal Register on March 18, 2024&quot;
+&quot;Federal Register, Vol. 89, No. 55, March 19, 2024&quot;
+&quot;as published at 89 FR 19348 (March 19, 2024)&quot;</code></pre>
+<p><strong>Use for join validation only.</strong> Where both a doc number join and an explicit prose date are present, check that the parsed date matches the API <code>publication_date</code> within ~10 days. A large discrepancy is a flag for review and can downgrade a high-confidence accept to review.</p>
+<p>Prose-date-only evidence (no doc number join) should never auto-populate <code>noi_publication_date</code>. The date has no external anchor — it could refer to any Federal Register record on the page.</p>
+</section>
+<section id="bert-vs.-fr-date-validation" class="level3">
+<h3 class="anchored" data-anchor-id="bert-vs.-fr-date-validation">3. BERT vs. FR Date Validation</h3>
+<p>For projects that have both a <code>bert_initiation_date</code> and an <code>noi_publication_date</code> from the FR pipeline, compare the two in the validation report:</p>
+<ul>
+<li>Agreement within ~60 days: high audit confidence.</li>
+<li>BERT date significantly earlier than FR date: BERT may have captured a pre-NOI scoping or pre-application signal (useful diagnostic, not necessarily wrong).</li>
+<li>BERT date significantly later than FR date: likely BERT misclassification of a decision or comment period date; flag for review.</li>
+</ul>
+<p>This is a <strong>validation report output only</strong> — it does not change any automated decisions in the pipeline. It provides a low-cost quality lens on BERT extraction accuracy for the projects where external ground truth exists.</p>
+</section>
+<section id="ce-initiation-dates-via-federal-register" class="level3">
+<h3 class="anchored" data-anchor-id="ce-initiation-dates-via-federal-register">CE Initiation Dates via Federal Register</h3>
+<p>CE projects do not publish NOIs, and the current corpus queries (targeting NOI language) will not return CE-specific records. Expanding corpus queries to catch CE-relevant Federal Register records (Notice of Application, Notice of Proposed Action) would require a separate set of CE-targeted queries with different acceptance logic.</p>
+<p>This is deferred. For FERC-regulated CE projects in particular, FERC eLibrary is a more reliable source of application filing dates than the Federal Register API, and a FERC eLibrary integration is a better future investment than CE-specific FR corpus queries. CE pages will still be scanned for any FR Doc. evidence that happens to be present, but all CE results go to manual review and no CE coverage improvement is expected from this plan.</p>
+</section>
+</section>
+<section id="integration-with-federal-register-refresh" class="level2">
+<h2 class="anchored" data-anchor-id="integration-with-federal-register-refresh">Integration With Federal Register Refresh</h2>
+<p>Update <code>refresh_federal_register_noi(...)</code> in <code>phase2/code/extract/federal_register.py</code> so the order becomes:</p>
+<pre class="text"><code>1. Fetch or load the Federal Register API corpus (expanded queries including scoping notices).
+2. Extract or load NEPATEC Federal Register evidence (cached if available).
+3. Join NEPATEC normalized fr_document_number to API document_number.
+4. Score direct-evidence candidates.
+5. Run title matching for projects with no direct evidence — output to review only.
+6. Select accepted, review-required, and unmatched project-level outputs.</code></pre>
+<section id="how-the-join-works" class="level3">
+<h3 class="anchored" data-anchor-id="how-the-join-works">How the Join Works</h3>
+<p>The FR document number is the join key:</p>
+<pre class="text"><code>nepatec_fr_evidence.fr_document_number  →  noi_corups.fr_document_number</code></pre>
+<p>Title and agency overlap are the <strong>acceptance gate</strong>, not alternative join keys. They determine whether a successful document-number join should be auto-accepted or sent to review. Title matching alone — without a document-number join — never populates <code>noi_publication_date</code>.</p>
+<p>Example:</p>
+<pre class="text"><code>NEPATEC page text: [FR Doc. 2024–05618 Filed 3–15–24; 8:45 am]
+Normalized:        2024-05618
+API document_number: 2024-05618                          ← join succeeds
+API title: &quot;Jackalope Wind Energy Project&quot;               ← corroboration: accept
+API publication_date: 2024-03-18                         ← becomes noi_publication_date</code></pre>
+</section>
+<section id="why-title-only-matching-is-not-a-date-source" class="level3">
+<h3 class="anchored" data-anchor-id="why-title-only-matching-is-not-a-date-source">Why Title-Only Matching Is Not a Date Source</h3>
+<p>Title matching has no temporal anchor. If a project was re-noticed after a prior iteration, title matching can return the old NOI date. The only guard against prior-iteration contamination is requiring a direct document-number join from the project’s own NEPATEC documents — which will reference the NOI for the iteration being reviewed, not an older one.</p>
+<p>Title matches are kept as a review signal only: a strong title hit with no doc number evidence means “there may be an NOI for this project but we cannot verify it automatically.”</p>
+</section>
+</section>
+<section id="direct-evidence-candidate-features" class="level2">
+<h2 class="anchored" data-anchor-id="direct-evidence-candidate-features">Direct-Evidence Candidate Features</h2>
+<p>Add new candidate features:</p>
+<pre class="text"><code>nepatec_fr_document_number_evidence   -- bool: normalized FR doc number matched API
+nepatec_fr_url_evidence               -- bool: URL-derived doc number matched API
+nepatec_notice_title_evidence         -- bool: NOI-like phrase found near FR doc number
+nepatec_fr_citation_evidence          -- bool: vol/page citation found (contextual only)
+nepatec_fr_date_text_evidence         -- bool: explicit date text found near FR reference
+nepatec_evidence_page_count           -- number of pages with FR doc evidence
+nepatec_evidence_document_count       -- number of documents with FR doc evidence
+nepatec_evidence_main_document        -- bool: any evidence came from a main_document page
+nepatec_evidence_context_match        -- bool: project title tokens appear near evidence</code></pre>
+</section>
+<section id="acceptance-rules" class="level2">
+<h2 class="anchored" data-anchor-id="acceptance-rules">Acceptance Rules</h2>
+<section id="ea-eis-high-confidence-auto-accept-noi_publication_date-populated" class="level3">
+<h3 class="anchored" data-anchor-id="ea-eis-high-confidence-auto-accept-noi_publication_date-populated">EA / EIS: High Confidence (auto-accept, noi_publication_date populated)</h3>
+<ul>
+<li>NEPATEC normalized <code>fr_document_number</code> joins to API <code>document_number</code>.</li>
+<li>The FR Doc. number passed the NOI proximity filter (within ~500 chars of a NOI-like phrase).</li>
+<li>At least one corroboration signal is present:
+<ul>
+<li>API title has strong project-title token overlap, OR</li>
+<li>Nearby NEPATEC page context has strong project-title token overlap, OR</li>
+<li>Agency, state, or process-type context agrees.</li>
+</ul></li>
+</ul>
+</section>
+<section id="ea-eis-manual-review-noi_publication_date-not-populated" class="level3">
+<h3 class="anchored" data-anchor-id="ea-eis-manual-review-noi_publication_date-not-populated">EA / EIS: Manual Review (noi_publication_date NOT populated)</h3>
+<ul>
+<li>Document number joins but all corroboration signals are weak or absent.</li>
+<li>Multiple distinct API documents are joined for one project via direct evidence.</li>
+<li>Evidence comes from an appendix or non-main-document page with mixed corroboration.</li>
+<li>FR Doc. number appears but failed the NOI proximity filter (evidence_type = fr_doc_non_noi).</li>
+<li><strong>Title-only match, any strength</strong> — document-number join is absent.</li>
+</ul>
+</section>
+<section id="ce-all-matches-go-to-manual-review" class="level3">
+<h3 class="anchored" data-anchor-id="ce-all-matches-go-to-manual-review">CE: All Matches Go to Manual Review</h3>
+<p>CE projects do not follow the standard NOI workflow. Any FR doc number found in a CE NEPATEC document — even one that passes the proximity filter and has strong corroboration — should be sent to manual review, not auto-accepted. Once CE FR coverage patterns are understood after a first pass, this rule can be revisited.</p>
+</section>
+<section id="reject-leave-unmatched" class="level3">
+<h3 class="anchored" data-anchor-id="reject-leave-unmatched">Reject / Leave Unmatched</h3>
+<ul>
+<li>The joined API record’s title/context clearly refers to a different project.</li>
+<li>Only FR doc references failed the NOI proximity filter and no URL evidence exists.</li>
+<li>Evidence is metadata-only (file_name or document_title) with no page-level FR doc number.</li>
+<li>Title match score is below threshold and no direct evidence exists.</li>
+</ul>
+<p>Do not auto-accept a document number just because it appears somewhere in the project files. EIS pages commonly contain adjacent Federal Register notices or references to related proceedings.</p>
+</section>
+</section>
+<section id="date-logic" class="level2">
+<h2 class="anchored" data-anchor-id="date-logic">Date Logic</h2>
+<p>The final timeline date should remain:</p>
+<pre class="text"><code>noi_publication_date = Federal Register API publication_date</code></pre>
+<p>Do not use the <code>Filed</code> date from <code>[FR Doc. ... Filed ...]</code> as the primary timeline date. The filed date is usually before publication. It can be used to validate a join (offset should be ~1–5 days) but is not the official Federal Register publication date.</p>
+<p>Add supporting provenance fields:</p>
+<pre class="text"><code>noi_publication_date
+noi_document_number
+noi_url
+noi_date_source
+noi_date_evidence_type
+noi_nepatec_evidence_document_id
+noi_nepatec_evidence_file_name
+noi_nepatec_evidence_page_number</code></pre>
+<p>Example:</p>
+<pre class="text"><code>noi_date_source: federal_register_api_publication_date
+noi_date_evidence_type: nepatec_fr_doc_number</code></pre>
+<section id="update-project_output_columns" class="level3">
+<h3 class="anchored" data-anchor-id="update-project_output_columns">Update <code>PROJECT_OUTPUT_COLUMNS</code></h3>
+<p>The <code>PROJECT_OUTPUT_COLUMNS</code> constant in <code>federal_register.py</code> controls which columns are written to <code>federal_register.parquet</code>. It must be updated to include the new provenance fields above (<code>noi_date_evidence_type</code>, <code>noi_nepatec_evidence_document_id</code>, <code>noi_nepatec_evidence_file_name</code>, <code>noi_nepatec_evidence_page_number</code>). Check the constant when implementing and add the new columns.</p>
+</section>
+</section>
+<section id="keep-extract_data.py-thin" class="level2">
+<h2 class="anchored" data-anchor-id="keep-extract_data.py-thin">Keep <code>extract_data.py</code> Thin</h2>
+<p>The main extraction pipeline should not own the page-scanning logic. It should continue to call the Federal Register refresh function.</p>
+<p>Default offline behavior should remain:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> run <span class="at">-n</span> nepa python phase2/code/extract/extract_data.py <span class="at">--mode</span> analysis</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This should merge existing Federal Register outputs without network calls or page scans.</p>
+<p>The full refresh should run only when explicitly requested:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> run <span class="at">-n</span> nepa python phase2/code/extract/extract_data.py <span class="at">--mode</span> analysis <span class="at">--refresh-federal-register</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This command should trigger:</p>
+<pre class="text"><code>Federal Register API corpus refresh or cache load (expanded queries)
+NEPATEC Federal Register evidence scan for EA, EIS, and CE (or load from cache)
+direct evidence matching
+title-match review generation (no auto-accept)
+project-level NOI output write
+projects_combined merge</code></pre>
+</section>
+<section id="progress-output" class="level2">
+<h2 class="anchored" data-anchor-id="progress-output">Progress Output</h2>
+<pre class="text"><code>[fr-evidence] EIS: scanning 54,297 documents / 6,131,757 pages (DuckDB)
+[fr-evidence] EIS: 4,222 pages matched LIKE filter; extracting FR Doc numbers
+[fr-evidence] EIS: found 974 projects with FR Doc evidence
+[fr-evidence] EA: scanning 14,242 documents / 469,106 pages (DuckDB)
+[fr-evidence] EA: found 69 projects with FR Doc evidence
+[fr-evidence] CE: scanning N documents / N pages (DuckDB)
+[fr-evidence] CE: found N projects with FR Doc evidence (all → review)
+[fr-evidence] cached to nepatec_fr_evidence.parquet
+[fr-match] direct document-number candidates: ...
+[fr-match] accepted (EA/EIS): ...
+[fr-match] manual review (CE + weak corroboration + title-only): ...
+[fr-match] unmatched: ...</code></pre>
+</section>
+<section id="output-files" class="level2">
+<h2 class="anchored" data-anchor-id="output-files">Output Files</h2>
+<blockquote class="blockquote">
+<p><strong>Note:</strong> This plan was implemented. Artifact names below reflect the current pipeline.</p>
+</blockquote>
+<pre class="text"><code>phase2/data/analysis/federal_register/noi_corups.parquet        # NOI FR records
+phase2/data/analysis/federal_register/noa_corpus.parquet        # NOA FR records
+phase2/data/analysis/federal_register/noi_candidates.parquet    # scored NOI candidates
+phase2/data/analysis/federal_register/noa_candidates.parquet    # scored NOA candidates
+phase2/data/analysis/federal_register/noi_manual_review_candidates.csv
+phase2/data/analysis/federal_register/noa_manual_review_candidates.csv
+phase2/data/analysis/federal_register/nepatec_fr_evidence.parquet
+phase2/data/analysis/federal_register/fr_noi_cache.json
+phase2/data/analysis/federal_register/federal_register.parquet  # primary output</code></pre>
+<p><code>federal_register.parquet</code> is the project-level output merged into <code>projects_combined.parquet</code>. Contains both <code>noi_publication_date</code> and <code>noa_availability_date</code> where auto-accepted.</p>
+<p><code>nepatec_fr_evidence.parquet</code> is the intermediate evidence table, cached across API refreshes.</p>
+<p><code>noi_manual_review_candidates.csv</code> includes projects with multiple competing high-confidence NOI candidates. <code>noa_manual_review_candidates.csv</code> includes NOA candidates requiring manual review (CE evidence, process mismatch, insufficient title overlap).</p>
+<p><code>fr_noi_fetch_report.csv</code> was part of the legacy keyword/windowed fetch path and is removed automatically during refresh.</p>
+</section>
+<section id="tests" class="level2">
+<h2 class="anchored" data-anchor-id="tests">Tests</h2>
+<p>Update <code>phase2/tests/tests/test_federal_register.py</code> with tests for:</p>
+<pre class="text"><code>FR Doc. 2024-05618 (ASCII hyphen) normalizes to 2024-05618.
+FR Doc. 2024–05618 (en-dash) normalizes to 2024-05618.
+FR Doc. 2024—05618 (em-dash) normalizes to 2024-05618.
+Federal Register URLs extract document numbers correctly.
+NOI title snippets are extracted only when NOI-like phrase is within proximity.
+FR Doc. number without nearby NOI phrase → evidence_type = fr_doc_non_noi.
+Direct document-number evidence creates a high-confidence candidate (EA/EIS).
+Direct evidence does not auto-accept when project/context conflict.
+CE direct evidence goes to review, not auto-accept.
+Multiple FR records for one project (e.g., scoping notice + NOI) go to review; earlier date preferred.
+API publication_date becomes noi_publication_date.
+Filed date is not used as noi_publication_date.
+Title-only match never populates noi_publication_date.
+fr_citation (vol/page format) is recorded but not used as a join key.
+main_document flag is included in per-row evidence output.
+fr_date_text_parsed is extracted from explicit date prose and used only for join validation.
+Large discrepancy between fr_date_text_parsed and API publication_date downgrades accept to review.</code></pre>
+</section>
+<section id="validation-after-implementation" class="level2">
+<h2 class="anchored" data-anchor-id="validation-after-implementation">Validation After Implementation</h2>
+<pre class="text"><code>How many EIS projects have extracted FR Doc numbers (after proximity filter)?
+How many extracted FR Doc numbers join to the API corpus?
+How many current ambiguous/review/unmatched EIS projects become accepted?
+How many accepted matches are based on direct NEPATEC evidence?
+How many projects have multiple competing FR document numbers?
+How many accepted dates changed vs. prior title-match results?
+How many title-only matches are in the review CSV (not auto-accepted)?
+How many CE projects have FR Doc evidence?
+How many FR Doc numbers appeared on pages but failed the NOI proximity filter?
+How many projects have both a BERT initiation date and an FR date, and how often do they agree?</code></pre>
+<p>The key metric:</p>
+<pre class="text"><code>more accepted matches with auditable NEPATEC document-number evidence,
+and no noi_publication_date from title matching alone</code></pre>
+</section>
+<section id="recommended-implementation-order" class="level2">
+<h2 class="anchored" data-anchor-id="recommended-implementation-order">Recommended Implementation Order</h2>
+<ol type="1">
+<li>Expand <code>NOI_CORPUS_QUERIES</code> to include scoping notice queries; add earlier-date tie-break rule for multi-record projects.</li>
+<li>Add <code>_normalize_fr_doc_number</code> and FR doc number extraction helpers (with en-dash support).</li>
+<li>Add NOI proximity filter helper (shared for EA/EIS; extended for CE phrases).</li>
+<li>Add explicit FR date prose extraction helper (for join validation only).</li>
+<li>Add <code>extract_nepatec_federal_register_evidence(...)</code> using DuckDB for the page scan (EA, EIS, CE).</li>
+<li>Save <code>nepatec_fr_evidence.parquet</code>; implement cache-load path.</li>
+<li>Join normalized <code>fr_document_number</code> to API corpus <code>document_number</code>.</li>
+<li>Add direct-evidence candidate features and scoring.</li>
+<li>Remove title matching from the auto-accept path; route title-only candidates to review CSV only.</li>
+<li>Apply CE review-only rule to all CE candidates regardless of corroboration strength.</li>
+<li>Update <code>PROJECT_OUTPUT_COLUMNS</code> to include new provenance fields.</li>
+<li>Add tests.</li>
+<li>Update the runbook.</li>
+<li>Run refresh and compare before/after coverage and manual review counts.</li>
+<li>Add BERT vs. FR date comparison to validation report.</li>
+</ol>
 
 
 </section>

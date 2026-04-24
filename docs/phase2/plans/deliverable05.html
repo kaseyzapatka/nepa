@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>timeline – NEPA</title>
+<title>deliverable05 – NEPA</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -3967,190 +3967,326 @@ vertical-align: -.125em;
 
 
 
-<section id="timeline-extraction" class="level1">
-<h1>Timeline Extraction</h1>
-<p><strong>Purpose:</strong> Extract initiation and decision dates for NEPA reviews using a BERT classifier with optional LLM adjudication. <strong>Input:</strong> <code>data/analysis/projects_combined.parquet</code> + regex candidate cache. <strong>Output:</strong> <code>data/analysis/timeline_{ce,ea,eis}.parquet</code>, <code>timeline_{ea,eis}_llm.parquet</code>, <code>timeline_targeted_llm.parquet</code> <strong>Cost:</strong> LLM adjudication ~$0.60–$1.00 (Claude Haiku) for EA + EIS full runs. Targeted re-adjudication ~$0.44. <strong>Prerequisites:</strong> Base dataset built (<a href="../runbooks/01_base_dataset.md">runbook 01</a>).</p>
-<blockquote class="blockquote">
-<p><strong>Note on prior organization:</strong> The targeted re-adjudication for programmatic/tiered projects was previously documented as a standalone “Deliverable 02” section in the README. It is step 7 in the full rebuild below because it operates on timeline outputs — it is a timeline operation, not a reviews operation. Reviews (<a href="../runbooks/03_reviews.md">runbook 03</a>) must still run before step 7.</p>
-</blockquote>
+<section id="d5-ce-spikes-after-major-legislation-implementation-plan" class="level1">
+<h1>D5: CE Spikes After Major Legislation — Implementation Plan</h1>
+<p><strong>Delete this file after <code>deliverable05/</code> scripts are implemented.</strong></p>
+<p>Architecture reference: <code>phase2/architecture/deliverable05.md</code></p>
 <hr>
-<section id="file-naming-convention" class="level2">
-<h2 class="anchored" data-anchor-id="file-naming-convention">File naming convention</h2>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Stage</th>
-<th>CE</th>
-<th>EA</th>
-<th>EIS</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Regex cache</td>
-<td><code>timeline_regex_ce.parquet</code></td>
-<td><code>timeline_regex_ea.parquet</code></td>
-<td><code>timeline_regex_eis.parquet</code></td>
-</tr>
-<tr class="even">
-<td>BERT training data</td>
-<td><code>bert_traindata.parquet</code></td>
-<td>← same file</td>
-<td>← same file</td>
-</tr>
-<tr class="odd">
-<td>Sample test (post-train)</td>
-<td><code>timeline_ce_sample{N}.parquet</code></td>
-<td><code>timeline_ea_sample{N}.parquet</code></td>
-<td><code>timeline_eis_sample{N}.parquet</code></td>
-</tr>
-<tr class="even">
-<td>Full BERT run</td>
-<td><code>timeline_ce.parquet</code></td>
-<td><code>timeline_ea.parquet</code></td>
-<td><code>timeline_eis.parquet</code></td>
-</tr>
-<tr class="odd">
-<td>Post LLM adjudication</td>
-<td><em>(none)</em></td>
-<td><code>timeline_ea_llm.parquet</code></td>
-<td><code>timeline_eis_llm.parquet</code></td>
-</tr>
-</tbody>
-</table>
-<p>Append <code>_v{N}</code> to sample files when iterating through multiple training rounds (e.g. <code>timeline_ce_sample20_v2.parquet</code>). Full run files are overwritten each time.</p>
+<section id="scripts-to-build" class="level2">
+<h2 class="anchored" data-anchor-id="scripts-to-build">Scripts to Build</h2>
+<ol type="1">
+<li><code>phase2/code/deliverable05/01_extract_law_citations.py</code> — [SELF-CONTAINED]</li>
+<li><code>phase2/code/deliverable05/02_analyze_spikes.R</code> — [MOSTLY SELF-CONTAINED]</li>
+</ol>
 <hr>
 </section>
-<section id="full-rebuild-patterns-or-models-changed" class="level2">
-<h2 class="anchored" data-anchor-id="full-rebuild-patterns-or-models-changed">Full rebuild (patterns or models changed)</h2>
-<p>Use when regex patterns or training logic have changed and classifiers need retraining from scratch.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 1 — Rebuild regex candidate cache for all sources</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> CE</span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EA</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--regex-prep</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/timeline_regex_{ce,ea,eis}.parquet</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 2 — Rebuild BERT training data</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Output: data/analysis/bert_traindata.parquet</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 3 — Retrain classifiers</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EA</span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> EIS</span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 4 — Smoke test on 20 projects before committing to full run</span></span>
-<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20.parquet</span>
-<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 5 — Full BERT inference</span></span>
-<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span>
-<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 6 — LLM adjudication for EA and EIS (not needed for CE at scale)</span></span>
-<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">ANTHROPIC_API_KEY</span><span class="op">=</span><span class="st">&#39;sk-ant-...&#39;</span></span>
-<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span>
-<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span>
-<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a><span class="co"># Step 7 — Targeted re-adjudication for programmatic/tiered projects</span></span>
-<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Run after step 6 AND after reviews extraction (runbook 03) is complete.</span></span>
-<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a><span class="co"># Auto-selects ~73 programmatic/tiered projects with missing initiation or decision dates.</span></span>
-<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="dt">\</span></span>
-<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea_llm.parquet,data/analysis/timeline_eis_llm.parquet <span class="dt">\</span></span>
-<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">--nonstandard-incomplete</span> <span class="dt">\</span></span>
-<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">--max-candidates</span> 125 <span class="dt">\</span></span>
-<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">--context-chars</span> 400 <span class="dt">\</span></span>
-<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">--promote-rod-language</span> <span class="dt">\</span></span>
-<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a>    <span class="at">--year-window</span> 15 <span class="dt">\</span></span>
-<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_targeted_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Step 7 flag notes:</strong> - <code>--nonstandard-incomplete</code> — filters to programmatic/tiered projects with missing dates; no manual ID file needed. - <code>--max-candidates 125</code> — raises cap from 30 (EIS default) to 125 for large programmatic EISs. - <code>--promote-rod-language</code> — promotes ROD/FONSI dates to Tier A even if BERT mislabeled them. - <code>--year-window 15</code> — drops candidates &gt;15 years before the latest found date, removing NEPA citation noise. - Targeted output is ~73 rows. Full timeline files are not modified. Patched automatically by <code>00_setup.R</code>.</p>
+<section id="extract_law_citations.py-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="extract_law_citations.py-full-specification"><code>01_extract_law_citations.py</code> — Full Specification</h2>
+<section id="environment-check-imports" class="level3">
+<h3 class="anchored" data-anchor-id="environment-check-imports">Environment check + imports</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> os</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> os.environ.get(<span class="st">&quot;CONDA_DEFAULT_ENV&quot;</span>) <span class="op">!=</span> <span class="st">&quot;nepa&quot;</span>:</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">raise</span> <span class="pp">SystemExit</span>(<span class="st">&quot;Please run in conda env &#39;nepa&#39;.&quot;</span>)</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> re</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> duckdb</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> pandas <span class="im">as</span> pd</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> pathlib <span class="im">import</span> Path</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> datetime <span class="im">import</span> datetime, timezone</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> typing <span class="im">import</span> Optional</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="constants" class="level3">
+<h3 class="anchored" data-anchor-id="constants">Constants</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>DATA_DIR <span class="op">=</span> Path(<span class="st">&quot;data&quot;</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>CE_PAGES_PATH <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;processed&quot;</span> <span class="op">/</span> <span class="st">&quot;ce&quot;</span> <span class="op">/</span> <span class="st">&quot;pages.parquet&quot;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>PROJECTS_PATH <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;analysis&quot;</span> <span class="op">/</span> <span class="st">&quot;projects_combined.parquet&quot;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>OUTPUT_PATH <span class="op">=</span> DATA_DIR <span class="op">/</span> <span class="st">&quot;analysis&quot;</span> <span class="op">/</span> <span class="st">&quot;law_citations&quot;</span> <span class="op">/</span> <span class="st">&quot;ce_law_citations.parquet&quot;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>OUTPUT_PATH.parent.mkdir(parents<span class="op">=</span><span class="va">True</span>, exist_ok<span class="op">=</span><span class="va">True</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Regex patterns by law — use word boundaries; case-insensitive</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>CITATION_PATTERNS <span class="op">=</span> {</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;ARRA&quot;</span>: [</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">American Recovery and Reinvestment Act</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;full_name&quot;</span>),</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Recovery Act</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;short_name&quot;</span>),</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">ARRA</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;acronym&quot;</span>),</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Section 1603</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;program&quot;</span>),       <span class="co"># ARRA energy grant</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Section 1705</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;program&quot;</span>),       <span class="co"># DOE loan guarantee (ARRA-era)</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;BIL&quot;</span>: [</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Bipartisan Infrastructure Law</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;full_name&quot;</span>),</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Infrastructure Investment and Jobs Act</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;full_name_alt&quot;</span>),</span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">IIJA</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;acronym&quot;</span>),</span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">BIL</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;acronym&quot;</span>),</span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;IRA&quot;</span>: [</span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Inflation Reduction Act</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;full_name&quot;</span>),</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        <span class="co"># IRA acronym needs disambiguation — require co-occurrence with energy terms</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Handled in disambiguation logic below</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Section 60101</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;program&quot;</span>),      <span class="co"># IRA clean energy provision</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Section 50265</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;program&quot;</span>),      <span class="co"># IRA direct pay</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>    <span class="st">&quot;DOE_funding&quot;</span>: [</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">DOE Loan Guarantee</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;program&quot;</span>),</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Loan Programs Office</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;program&quot;</span>),</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Title XVII</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;program&quot;</span>),</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Section 1703</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;program&quot;</span>),</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>        (<span class="vs">r&quot;</span><span class="dv">\b</span><span class="vs">Department of Energy</span><span class="dv">.</span><span class="op">*</span><span class="vs">grant</span><span class="dv">\b</span><span class="vs">&quot;</span>, <span class="st">&quot;funding&quot;</span>),</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>    ],</span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="co"># Context words required near &quot;IRA&quot; to avoid false positives (Individual Retirement Account)</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>IRA_CONTEXT_REQUIRED <span class="op">=</span> [</span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&quot;clean energy&quot;</span>, <span class="vs">r&quot;renewable&quot;</span>, <span class="vs">r&quot;solar&quot;</span>, <span class="vs">r&quot;wind&quot;</span>, <span class="vs">r&quot;climate&quot;</span>,</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&quot;greenhouse gas&quot;</span>, <span class="vs">r&quot;battery&quot;</span>, <span class="vs">r&quot;transmission&quot;</span>, <span class="vs">r&quot;electric vehicle&quot;</span>,</span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>    <span class="vs">r&quot;inflation reduction&quot;</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="core-citation-detection" class="level3">
+<h3 class="anchored" data-anchor-id="core-citation-detection">Core citation detection</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> detect_citations(text: <span class="bu">str</span>) <span class="op">-&gt;</span> <span class="bu">dict</span>:</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="co">&quot;&quot;&quot;</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">    Detect law citations in text. Returns dict of {law_name: [(pattern, match_text, context)]}.</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">    IRA acronym requires co-occurrence with energy-related terms.</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co">    &quot;&quot;&quot;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    results <span class="op">=</span> {}</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> law, patterns <span class="kw">in</span> CITATION_PATTERNS.items():</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        matches <span class="op">=</span> []</span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> pat, pat_type <span class="kw">in</span> patterns:</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> m <span class="kw">in</span> re.finditer(pat, text, re.IGNORECASE):</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Special disambiguation for IRA acronym</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>                <span class="cf">if</span> law <span class="op">==</span> <span class="st">&quot;IRA&quot;</span> <span class="kw">and</span> pat_type <span class="op">==</span> <span class="st">&quot;acronym&quot;</span>:</span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>                    <span class="co"># Check window ±200 chars for energy context</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>                    window <span class="op">=</span> text[<span class="bu">max</span>(<span class="dv">0</span>, m.start()<span class="op">-</span><span class="dv">200</span>):m.end()<span class="op">+</span><span class="dv">200</span>]</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>                    has_context <span class="op">=</span> <span class="bu">any</span>(</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>                        re.search(ctx, window, re.IGNORECASE)</span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">for</span> ctx <span class="kw">in</span> IRA_CONTEXT_REQUIRED</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>                    )</span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>                    <span class="cf">if</span> <span class="kw">not</span> has_context:</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>                        <span class="cf">continue</span>  <span class="co"># skip — likely financial IRA</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>                <span class="co"># Extract context snippet</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>                context <span class="op">=</span> text[<span class="bu">max</span>(<span class="dv">0</span>, m.start()<span class="op">-</span><span class="dv">100</span>):m.end()<span class="op">+</span><span class="dv">100</span>].strip()</span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>                matches.append({</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;pattern&quot;</span>: pat,</span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;pattern_type&quot;</span>: pat_type,</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;match_text&quot;</span>: m.group(),</span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;context&quot;</span>: context,</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>                })</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> matches:</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>            results[law] <span class="op">=</span> matches</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> results</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="main-extraction-function" class="level3">
+<h3 class="anchored" data-anchor-id="main-extraction-function">Main extraction function</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> extract_law_citations(</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    sample: Optional[<span class="bu">int</span>] <span class="op">=</span> <span class="va">None</span>,</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    output_path: Path <span class="op">=</span> OUTPUT_PATH,</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>) <span class="op">-&gt;</span> pd.DataFrame:</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    run_at <span class="op">=</span> datetime.now(timezone.utc).isoformat()</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    conn <span class="op">=</span> duckdb.<span class="ex">connect</span>()</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Get CE project list</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    projects <span class="op">=</span> conn.execute(<span class="ss">f&quot;&quot;&quot;</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="ss">        SELECT project_id</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="ss">        FROM read_parquet(&#39;</span><span class="sc">{</span>PROJECTS_PATH<span class="sc">}</span><span class="ss">&#39;)</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="ss">        WHERE process_type = &#39;CE&#39;</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="ss">    &quot;&quot;&quot;</span>).fetchdf()</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> sample:</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        projects <span class="op">=</span> projects.sample(n<span class="op">=</span><span class="bu">min</span>(sample, <span class="bu">len</span>(projects)), random_state<span class="op">=</span><span class="dv">42</span>)</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>    project_ids <span class="op">=</span> projects[<span class="st">&quot;project_id&quot;</span>].tolist()</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>    all_results <span class="op">=</span> []</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Process in batches of 200 projects</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>    batch_size <span class="op">=</span> <span class="dv">200</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span> i <span class="kw">in</span> <span class="bu">range</span>(<span class="dv">0</span>, <span class="bu">len</span>(project_ids), batch_size):</span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        batch_ids <span class="op">=</span> project_ids[i:i<span class="op">+</span>batch_size]</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        ids_str <span class="op">=</span> <span class="st">&quot;,&quot;</span>.join(<span class="ss">f&quot;&#39;</span><span class="sc">{</span>p<span class="sc">}</span><span class="ss">&#39;&quot;</span> <span class="cf">for</span> p <span class="kw">in</span> batch_ids)</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Load first 20 pages per project</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        pages <span class="op">=</span> conn.execute(<span class="ss">f&quot;&quot;&quot;</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a><span class="ss">            SELECT project_id, page_num, string_agg(page_text, &#39; &#39;) AS combined_text</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a><span class="ss">            FROM read_parquet(&#39;</span><span class="sc">{</span>CE_PAGES_PATH<span class="sc">}</span><span class="ss">&#39;)</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a><span class="ss">            WHERE project_id IN (</span><span class="sc">{</span>ids_str<span class="sc">}</span><span class="ss">)</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a><span class="ss">              AND page_num &lt;= 20</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a><span class="ss">              AND length(page_text) &gt; 50</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="ss">            GROUP BY project_id, page_num</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a><span class="ss">            ORDER BY project_id, page_num</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a><span class="ss">        &quot;&quot;&quot;</span>).fetchdf()</span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        <span class="co"># Combine all pages per project, then detect</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>        <span class="cf">for</span> project_id, proj_pages <span class="kw">in</span> pages.groupby(<span class="st">&quot;project_id&quot;</span>):</span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>            full_text <span class="op">=</span> <span class="st">&quot; &quot;</span>.join(proj_pages[<span class="st">&quot;combined_text&quot;</span>].tolist())</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>            citations <span class="op">=</span> detect_citations(full_text)</span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a>            <span class="cf">for</span> law_name, matches <span class="kw">in</span> citations.items():</span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>                <span class="co"># One row per project-law pair</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>                first_match <span class="op">=</span> matches[<span class="dv">0</span>]</span>
+<span id="cb4-48"><a href="#cb4-48" aria-hidden="true" tabindex="-1"></a>                all_results.append({</span>
+<span id="cb4-49"><a href="#cb4-49" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;project_id&quot;</span>: project_id,</span>
+<span id="cb4-50"><a href="#cb4-50" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;law_name&quot;</span>: law_name,</span>
+<span id="cb4-51"><a href="#cb4-51" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;citation_count&quot;</span>: <span class="bu">len</span>(matches),</span>
+<span id="cb4-52"><a href="#cb4-52" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;first_page&quot;</span>: proj_pages.iloc[<span class="dv">0</span>][<span class="st">&quot;page_num&quot;</span>],  <span class="co"># approx</span></span>
+<span id="cb4-53"><a href="#cb4-53" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;context_text&quot;</span>: first_match[<span class="st">&quot;context&quot;</span>][:<span class="dv">500</span>],</span>
+<span id="cb4-54"><a href="#cb4-54" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;match_type&quot;</span>: first_match[<span class="st">&quot;pattern_type&quot;</span>],</span>
+<span id="cb4-55"><a href="#cb4-55" aria-hidden="true" tabindex="-1"></a>                    <span class="st">&quot;law_citations_extraction_run_at&quot;</span>: run_at,</span>
+<span id="cb4-56"><a href="#cb4-56" aria-hidden="true" tabindex="-1"></a>                })</span>
+<span id="cb4-57"><a href="#cb4-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-58"><a href="#cb4-58" aria-hidden="true" tabindex="-1"></a>        <span class="cf">if</span> (i <span class="op">//</span> batch_size) <span class="op">%</span> <span class="dv">10</span> <span class="op">==</span> <span class="dv">0</span>:</span>
+<span id="cb4-59"><a href="#cb4-59" aria-hidden="true" tabindex="-1"></a>            <span class="bu">print</span>(<span class="ss">f&quot;Processed batch </span><span class="sc">{</span>i<span class="op">//</span>batch_size <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss"> / </span><span class="sc">{</span><span class="bu">len</span>(project_ids)<span class="op">//</span>batch_size <span class="op">+</span> <span class="dv">1</span><span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb4-60"><a href="#cb4-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-61"><a href="#cb4-61" aria-hidden="true" tabindex="-1"></a>    df <span class="op">=</span> pd.DataFrame(all_results)</span>
+<span id="cb4-62"><a href="#cb4-62" aria-hidden="true" tabindex="-1"></a>    df.to_parquet(output_path, index<span class="op">=</span><span class="va">False</span>)</span>
+<span id="cb4-63"><a href="#cb4-63" aria-hidden="true" tabindex="-1"></a>    <span class="bu">print</span>(<span class="ss">f&quot;Wrote </span><span class="sc">{</span><span class="bu">len</span>(df)<span class="sc">}</span><span class="ss"> rows to </span><span class="sc">{</span>output_path<span class="sc">}</span><span class="ss">&quot;</span>)</span>
+<span id="cb4-64"><a href="#cb4-64" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> df</span>
+<span id="cb4-65"><a href="#cb4-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-66"><a href="#cb4-66" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-67"><a href="#cb4-67" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> <span class="va">__name__</span> <span class="op">==</span> <span class="st">&quot;__main__&quot;</span>:</span>
+<span id="cb4-68"><a href="#cb4-68" aria-hidden="true" tabindex="-1"></a>    <span class="im">import</span> argparse</span>
+<span id="cb4-69"><a href="#cb4-69" aria-hidden="true" tabindex="-1"></a>    parser <span class="op">=</span> argparse.ArgumentParser()</span>
+<span id="cb4-70"><a href="#cb4-70" aria-hidden="true" tabindex="-1"></a>    parser.add_argument(<span class="st">&quot;--sample&quot;</span>, <span class="bu">type</span><span class="op">=</span><span class="bu">int</span>, default<span class="op">=</span><span class="va">None</span>)</span>
+<span id="cb4-71"><a href="#cb4-71" aria-hidden="true" tabindex="-1"></a>    args <span class="op">=</span> parser.parse_args()</span>
+<span id="cb4-72"><a href="#cb4-72" aria-hidden="true" tabindex="-1"></a>    extract_law_citations(sample<span class="op">=</span>args.sample)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
-<section id="quick-run-models-already-trained" class="level2">
-<h2 class="anchored" data-anchor-id="quick-run-models-already-trained">Quick run (models already trained)</h2>
-<p>Use when models are current and only BERT inference + adjudication outputs need refreshing.</p>
-<p><strong>CE only:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EA:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="dt">\</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea.parquet</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_ea.parquet <span class="dt">\</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>EIS:</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EIS <span class="dt">\</span></span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis.parquet</span>
-<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--llm-adjudicate</span> <span class="dt">\</span></span>
-<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">--input</span> data/analysis/timeline_eis.parquet <span class="dt">\</span></span>
-<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">--provider</span> claude <span class="dt">\</span></span>
-<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_eis_llm.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="analyze_spikes.r-full-specification" class="level2">
+<h2 class="anchored" data-anchor-id="analyze_spikes.r-full-specification"><code>02_analyze_spikes.R</code> — Full Specification</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(arrow); <span class="fu">library</span>(dplyr); <span class="fu">library</span>(lubridate); <span class="fu">library</span>(ggplot2); <span class="fu">library</span>(zoo)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>citations <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/law_citations/ce_law_citations.parquet&quot;</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>projects  <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/projects_combined.parquet&quot;</span>)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="co"># Merge on CE projects with dates</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>ce <span class="ot">&lt;-</span> projects <span class="sc">|&gt;</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(process_type <span class="sc">==</span> <span class="st">&quot;CE&quot;</span>, <span class="sc">!</span><span class="fu">is.na</span>(start_date)) <span class="sc">|&gt;</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">start_date =</span> <span class="fu">as.Date</span>(start_date))</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="co"># --- 1. Temporal trend analysis ---</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="co"># Monthly CE counts</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>monthly <span class="ot">&lt;-</span> ce <span class="sc">|&gt;</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(<span class="at">month =</span> <span class="fu">floor_date</span>(start_date, <span class="st">&quot;month&quot;</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="fu">count</span>(month, <span class="at">name =</span> <span class="st">&quot;n_projects&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">filter</span>(month <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2007-01-01&quot;</span>), month <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2025-01-01&quot;</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">arrange</span>(month) <span class="sc">|&gt;</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_smoothed =</span> <span class="fu">rollmean</span>(n_projects, <span class="at">k=</span><span class="dv">3</span>, <span class="at">fill=</span><span class="cn">NA</span>, <span class="at">align=</span><span class="st">&quot;right&quot;</span>),</span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Spike window flags</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>    <span class="at">arra_window =</span> month <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2009-03-01&quot;</span>) <span class="sc">&amp;</span> month <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2010-02-28&quot;</span>),</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="at">bil_window  =</span> month <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2021-12-01&quot;</span>) <span class="sc">&amp;</span> month <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2022-11-30&quot;</span>),</span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    <span class="at">ira_window  =</span> month <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2022-09-01&quot;</span>) <span class="sc">&amp;</span> month <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2023-08-31&quot;</span>)</span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a><span class="co"># Spike summary: mean monthly CEs in window vs. 24-month pre-law baseline</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>spike_summary <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(</span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">law=</span><span class="st">&quot;ARRA&quot;</span>,</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a>    <span class="at">window_mean =</span> monthly <span class="sc">|&gt;</span> <span class="fu">filter</span>(arra_window) <span class="sc">|&gt;</span> <span class="fu">pull</span>(n_projects) <span class="sc">|&gt;</span> <span class="fu">mean</span>(),</span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a>    <span class="at">baseline_mean =</span> monthly <span class="sc">|&gt;</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>      <span class="fu">filter</span>(month <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2007-03-01&quot;</span>), month <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2009-02-28&quot;</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pull</span>(n_projects) <span class="sc">|&gt;</span> <span class="fu">mean</span>()</span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">law=</span><span class="st">&quot;BIL&quot;</span>,</span>
+<span id="cb5-36"><a href="#cb5-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">window_mean =</span> monthly <span class="sc">|&gt;</span> <span class="fu">filter</span>(bil_window) <span class="sc">|&gt;</span> <span class="fu">pull</span>(n_projects) <span class="sc">|&gt;</span> <span class="fu">mean</span>(),</span>
+<span id="cb5-37"><a href="#cb5-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">baseline_mean =</span> monthly <span class="sc">|&gt;</span></span>
+<span id="cb5-38"><a href="#cb5-38" aria-hidden="true" tabindex="-1"></a>      <span class="fu">filter</span>(month <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2019-12-01&quot;</span>), month <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2021-11-30&quot;</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb5-39"><a href="#cb5-39" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pull</span>(n_projects) <span class="sc">|&gt;</span> <span class="fu">mean</span>()</span>
+<span id="cb5-40"><a href="#cb5-40" aria-hidden="true" tabindex="-1"></a>  ),</span>
+<span id="cb5-41"><a href="#cb5-41" aria-hidden="true" tabindex="-1"></a>  <span class="fu">tibble</span>(<span class="at">law=</span><span class="st">&quot;IRA&quot;</span>,</span>
+<span id="cb5-42"><a href="#cb5-42" aria-hidden="true" tabindex="-1"></a>    <span class="at">window_mean =</span> monthly <span class="sc">|&gt;</span> <span class="fu">filter</span>(ira_window) <span class="sc">|&gt;</span> <span class="fu">pull</span>(n_projects) <span class="sc">|&gt;</span> <span class="fu">mean</span>(),</span>
+<span id="cb5-43"><a href="#cb5-43" aria-hidden="true" tabindex="-1"></a>    <span class="at">baseline_mean =</span> monthly <span class="sc">|&gt;</span></span>
+<span id="cb5-44"><a href="#cb5-44" aria-hidden="true" tabindex="-1"></a>      <span class="fu">filter</span>(month <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2020-09-01&quot;</span>), month <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2022-08-31&quot;</span>)) <span class="sc">|&gt;</span></span>
+<span id="cb5-45"><a href="#cb5-45" aria-hidden="true" tabindex="-1"></a>      <span class="fu">pull</span>(n_projects) <span class="sc">|&gt;</span> <span class="fu">mean</span>()</span>
+<span id="cb5-46"><a href="#cb5-46" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-47"><a href="#cb5-47" aria-hidden="true" tabindex="-1"></a>) <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">spike_ratio =</span> window_mean <span class="sc">/</span> baseline_mean)</span>
+<span id="cb5-48"><a href="#cb5-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-49"><a href="#cb5-49" aria-hidden="true" tabindex="-1"></a><span class="co"># --- 2. Spike characterization ---</span></span>
+<span id="cb5-50"><a href="#cb5-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-51"><a href="#cb5-51" aria-hidden="true" tabindex="-1"></a><span class="co"># Law passage dates</span></span>
+<span id="cb5-52"><a href="#cb5-52" aria-hidden="true" tabindex="-1"></a>law_dates <span class="ot">&lt;-</span> <span class="fu">tibble</span>(</span>
+<span id="cb5-53"><a href="#cb5-53" aria-hidden="true" tabindex="-1"></a>  <span class="at">law =</span> <span class="fu">c</span>(<span class="st">&quot;ARRA&quot;</span>, <span class="st">&quot;BIL&quot;</span>, <span class="st">&quot;IRA&quot;</span>),</span>
+<span id="cb5-54"><a href="#cb5-54" aria-hidden="true" tabindex="-1"></a>  <span class="at">passage_date =</span> <span class="fu">as.Date</span>(<span class="fu">c</span>(<span class="st">&quot;2009-02-17&quot;</span>, <span class="st">&quot;2021-11-15&quot;</span>, <span class="st">&quot;2022-08-16&quot;</span>)),</span>
+<span id="cb5-55"><a href="#cb5-55" aria-hidden="true" tabindex="-1"></a>  <span class="at">window_start =</span> <span class="fu">as.Date</span>(<span class="fu">c</span>(<span class="st">&quot;2009-03-01&quot;</span>, <span class="st">&quot;2021-12-01&quot;</span>, <span class="st">&quot;2022-09-01&quot;</span>)),</span>
+<span id="cb5-56"><a href="#cb5-56" aria-hidden="true" tabindex="-1"></a>  <span class="at">window_end   =</span> <span class="fu">as.Date</span>(<span class="fu">c</span>(<span class="st">&quot;2010-02-28&quot;</span>, <span class="st">&quot;2022-11-30&quot;</span>, <span class="st">&quot;2023-08-31&quot;</span>))</span>
+<span id="cb5-57"><a href="#cb5-57" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-58"><a href="#cb5-58" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-59"><a href="#cb5-59" aria-hidden="true" tabindex="-1"></a>characterize_spike <span class="ot">&lt;-</span> <span class="cf">function</span>(ce_df, window_start, window_end, baseline_start, baseline_end) {</span>
+<span id="cb5-60"><a href="#cb5-60" aria-hidden="true" tabindex="-1"></a>  spike <span class="ot">&lt;-</span> ce_df <span class="sc">|&gt;</span> <span class="fu">filter</span>(start_date <span class="sc">&gt;=</span> window_start, start_date <span class="sc">&lt;=</span> window_end) <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">period =</span> <span class="st">&quot;spike&quot;</span>)</span>
+<span id="cb5-61"><a href="#cb5-61" aria-hidden="true" tabindex="-1"></a>  baseline <span class="ot">&lt;-</span> ce_df <span class="sc">|&gt;</span> <span class="fu">filter</span>(start_date <span class="sc">&gt;=</span> baseline_start, start_date <span class="sc">&lt;=</span> baseline_end) <span class="sc">|&gt;</span> <span class="fu">mutate</span>(<span class="at">period =</span> <span class="st">&quot;baseline&quot;</span>)</span>
+<span id="cb5-62"><a href="#cb5-62" aria-hidden="true" tabindex="-1"></a>  <span class="fu">bind_rows</span>(spike, baseline) <span class="sc">|&gt;</span></span>
+<span id="cb5-63"><a href="#cb5-63" aria-hidden="true" tabindex="-1"></a>    <span class="fu">count</span>(period, project_energy_type) <span class="sc">|&gt;</span></span>
+<span id="cb5-64"><a href="#cb5-64" aria-hidden="true" tabindex="-1"></a>    <span class="fu">group_by</span>(period) <span class="sc">|&gt;</span></span>
+<span id="cb5-65"><a href="#cb5-65" aria-hidden="true" tabindex="-1"></a>    <span class="fu">mutate</span>(<span class="at">pct =</span> n <span class="sc">/</span> <span class="fu">sum</span>(n))</span>
+<span id="cb5-66"><a href="#cb5-66" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-67"><a href="#cb5-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-68"><a href="#cb5-68" aria-hidden="true" tabindex="-1"></a>arra_char <span class="ot">&lt;-</span> <span class="fu">characterize_spike</span>(ce,</span>
+<span id="cb5-69"><a href="#cb5-69" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.Date</span>(<span class="st">&quot;2009-03-01&quot;</span>), <span class="fu">as.Date</span>(<span class="st">&quot;2010-02-28&quot;</span>),</span>
+<span id="cb5-70"><a href="#cb5-70" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.Date</span>(<span class="st">&quot;2007-03-01&quot;</span>), <span class="fu">as.Date</span>(<span class="st">&quot;2009-02-28&quot;</span>)</span>
+<span id="cb5-71"><a href="#cb5-71" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-72"><a href="#cb5-72" aria-hidden="true" tabindex="-1"></a>bil_char <span class="ot">&lt;-</span> <span class="fu">characterize_spike</span>(ce,</span>
+<span id="cb5-73"><a href="#cb5-73" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.Date</span>(<span class="st">&quot;2021-12-01&quot;</span>), <span class="fu">as.Date</span>(<span class="st">&quot;2022-11-30&quot;</span>),</span>
+<span id="cb5-74"><a href="#cb5-74" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.Date</span>(<span class="st">&quot;2019-12-01&quot;</span>), <span class="fu">as.Date</span>(<span class="st">&quot;2021-11-30&quot;</span>)</span>
+<span id="cb5-75"><a href="#cb5-75" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-76"><a href="#cb5-76" aria-hidden="true" tabindex="-1"></a>ira_char <span class="ot">&lt;-</span> <span class="fu">characterize_spike</span>(ce,</span>
+<span id="cb5-77"><a href="#cb5-77" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.Date</span>(<span class="st">&quot;2022-09-01&quot;</span>), <span class="fu">as.Date</span>(<span class="st">&quot;2023-08-31&quot;</span>),</span>
+<span id="cb5-78"><a href="#cb5-78" aria-hidden="true" tabindex="-1"></a>  <span class="fu">as.Date</span>(<span class="st">&quot;2020-09-01&quot;</span>), <span class="fu">as.Date</span>(<span class="st">&quot;2022-08-31&quot;</span>)</span>
+<span id="cb5-79"><a href="#cb5-79" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb5-80"><a href="#cb5-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-81"><a href="#cb5-81" aria-hidden="true" tabindex="-1"></a><span class="co"># --- 3. Citation rates ---</span></span>
+<span id="cb5-82"><a href="#cb5-82" aria-hidden="true" tabindex="-1"></a><span class="co"># What % of spike-window CEs have explicit law citation?</span></span>
+<span id="cb5-83"><a href="#cb5-83" aria-hidden="true" tabindex="-1"></a>citation_rates <span class="ot">&lt;-</span> ce <span class="sc">|&gt;</span></span>
+<span id="cb5-84"><a href="#cb5-84" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(</span>
+<span id="cb5-85"><a href="#cb5-85" aria-hidden="true" tabindex="-1"></a>    <span class="at">arra_window =</span> start_date <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2009-03-01&quot;</span>) <span class="sc">&amp;</span> start_date <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2010-02-28&quot;</span>),</span>
+<span id="cb5-86"><a href="#cb5-86" aria-hidden="true" tabindex="-1"></a>    <span class="at">bil_window  =</span> start_date <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2021-12-01&quot;</span>) <span class="sc">&amp;</span> start_date <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2022-11-30&quot;</span>),</span>
+<span id="cb5-87"><a href="#cb5-87" aria-hidden="true" tabindex="-1"></a>    <span class="at">ira_window  =</span> start_date <span class="sc">&gt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2022-09-01&quot;</span>) <span class="sc">&amp;</span> start_date <span class="sc">&lt;=</span> <span class="fu">as.Date</span>(<span class="st">&quot;2023-08-31&quot;</span>)</span>
+<span id="cb5-88"><a href="#cb5-88" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">|&gt;</span></span>
+<span id="cb5-89"><a href="#cb5-89" aria-hidden="true" tabindex="-1"></a>  <span class="fu">left_join</span>(citations, <span class="at">by =</span> <span class="st">&quot;project_id&quot;</span>) <span class="sc">|&gt;</span></span>
+<span id="cb5-90"><a href="#cb5-90" aria-hidden="true" tabindex="-1"></a>  <span class="fu">group_by</span>(arra_window) <span class="sc">|&gt;</span></span>
+<span id="cb5-91"><a href="#cb5-91" aria-hidden="true" tabindex="-1"></a>  <span class="fu">summarise</span>(</span>
+<span id="cb5-92"><a href="#cb5-92" aria-hidden="true" tabindex="-1"></a>    <span class="at">n =</span> <span class="fu">n</span>(),</span>
+<span id="cb5-93"><a href="#cb5-93" aria-hidden="true" tabindex="-1"></a>    <span class="at">n_cited =</span> <span class="fu">sum</span>(<span class="sc">!</span><span class="fu">is.na</span>(law_name) <span class="sc">&amp;</span> law_name <span class="sc">==</span> <span class="st">&quot;ARRA&quot;</span>),</span>
+<span id="cb5-94"><a href="#cb5-94" aria-hidden="true" tabindex="-1"></a>    <span class="at">pct_cited =</span> n_cited <span class="sc">/</span> n</span>
+<span id="cb5-95"><a href="#cb5-95" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb5-96"><a href="#cb5-96" aria-hidden="true" tabindex="-1"></a><span class="co"># Repeat for BIL, IRA</span></span>
+<span id="cb5-97"><a href="#cb5-97" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-98"><a href="#cb5-98" aria-hidden="true" tabindex="-1"></a><span class="co"># --- Outputs ---</span></span>
+<span id="cb5-99"><a href="#cb5-99" aria-hidden="true" tabindex="-1"></a><span class="fu">dir.create</span>(<span class="st">&quot;output/deliverable05&quot;</span>, <span class="at">recursive=</span><span class="cn">TRUE</span>, <span class="at">showWarnings=</span><span class="cn">FALSE</span>)</span>
+<span id="cb5-100"><a href="#cb5-100" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(monthly, <span class="st">&quot;output/deliverable05/spike_counts_monthly.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb5-101"><a href="#cb5-101" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(spike_summary, <span class="st">&quot;output/deliverable05/spike_summary.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span>
+<span id="cb5-102"><a href="#cb5-102" aria-hidden="true" tabindex="-1"></a><span class="fu">write.csv</span>(<span class="fu">bind_rows</span>(</span>
+<span id="cb5-103"><a href="#cb5-103" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(arra_char, <span class="at">law=</span><span class="st">&quot;ARRA&quot;</span>),</span>
+<span id="cb5-104"><a href="#cb5-104" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(bil_char, <span class="at">law=</span><span class="st">&quot;BIL&quot;</span>),</span>
+<span id="cb5-105"><a href="#cb5-105" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mutate</span>(ira_char, <span class="at">law=</span><span class="st">&quot;IRA&quot;</span>)</span>
+<span id="cb5-106"><a href="#cb5-106" aria-hidden="true" tabindex="-1"></a>), <span class="st">&quot;output/deliverable05/spike_characterization.csv&quot;</span>, <span class="at">row.names=</span><span class="cn">FALSE</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>Duration sub-section (add at end of script if timeline data available):</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># [NEEDS TIMELINE] — only run if CE initiation coverage &gt;= 35%</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="fu">file.exists</span>(<span class="st">&quot;data/analysis/_timeline/timeline_ce.parquet&quot;</span>)) {</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  ce_timelines <span class="ot">&lt;-</span> <span class="fu">read_parquet</span>(<span class="st">&quot;data/analysis/_timeline/timeline_ce.parquet&quot;</span>)</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Join to spike windows; compare durations</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ... similar to D3 script 05 duration calculation</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <hr>
 </section>
-<section id="filtering-and-debugging" class="level2">
-<h2 class="anchored" data-anchor-id="filtering-and-debugging">Filtering and debugging</h2>
-<p><strong>Restrict to clean energy projects only</strong> (add <code>--clean-energy</code> to any <code>--bert-run</code> command):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> EA <span class="at">--clean-energy</span> <span class="dt">\</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ea_clean.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Debug a single project</strong> (searches CE, EA, and EIS sources automatically):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--project-id</span> <span class="op">&lt;</span>UUID<span class="op">&gt;</span> --hybrid <span class="at">--use-regex-cache</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<hr>
+<section id="testing-approach" class="level2">
+<h2 class="anchored" data-anchor-id="testing-approach">Testing Approach</h2>
+<ol type="1">
+<li><strong>Script 01 smoke test:</strong> Run <code>--sample 50</code> on 50 CE projects from 2009-2010 (ARRA window). Verify citations are being detected for expected projects. Check a few manually against the source PDFs.</li>
+<li><strong>IRA false positive check:</strong> Inspect <code>context_text</code> for rows where <code>law_name == &quot;IRA&quot;</code>. Verify the context confirms clean energy meaning, not financial IRA.</li>
+<li><strong>Script 02 spike visualization:</strong> Plot <code>monthly</code> to verify the smoothed time series looks reasonable before computing spike statistics. Check that the 2009 ARRA spike is visible if NEPATEC has adequate 2009 coverage.</li>
+<li><strong>Thin ARRA data:</strong> If NEPATEC has &lt;100 CE projects from 2009, note this as a data limitation and reduce emphasis on ARRA analysis in the report.</li>
+</ol>
 </section>
-<section id="manual-training-corrections-iterative-improvement" class="level2">
-<h2 class="anchored" data-anchor-id="manual-training-corrections-iterative-improvement">Manual training corrections (iterative improvement)</h2>
-<p><strong>On the first pass, skip manual corrections entirely</strong> — run steps 1–5 above using weak supervision alone to get a working baseline. Then inspect the output, add corrections, and retrain. You do not need to get corrections right before starting.</p>
-<p>After a full run, inspect the output for systematic errors (e.g. CE projects still missing initiation dates). Corrections are added to:</p>
-<pre><code>data/analysis/manual_training_corrections.csv</code></pre>
-<p><strong>Required columns:</strong> <code>project_id</code>, <code>date</code>, <code>correct_type</code> (one of <code>decision</code>, <code>initiation</code>, <code>review</code>, <code>other</code>)</p>
-<p>Once corrections are added, you only need to re-run steps 2–5 (not step 1 — the regex cache is unchanged):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Regenerate training data with corrections applied</span></span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-generate</span></span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Retrain affected source(s)</span></span>
-<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-train</span> <span class="at">--source</span> CE</span>
-<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Smoke test</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--sample</span> 20 <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce_sample20_v2.parquet</span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Re-run full inference</span></span>
-<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> phase2/code/extract/extract_timeline.py <span class="at">--bert-run</span> <span class="at">--source</span> CE <span class="dt">\</span></span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">--output</span> data/analysis/timeline_ce.parquet</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><strong>Matching note:</strong> Corrections are matched on <code>(project_id, date)</code>. If the same date appears in multiple contexts for a project, the correction applies to all of them. You can make the match more precise by also checking <code>context</code> in the CSV (not currently implemented — avoid duplicate dates per project when possible).</p>
-<p><strong>Timing:</strong> Add corrections after inspecting <code>--bert-run</code> output and identifying a cohort of systematic misses (e.g. 20–50 CE initiation false negatives). Corrections before the first run are not useful — you need the model’s output to know what to fix. Plan on at least one correction cycle after the initial build.</p>
-<hr>
-</section>
-<section id="notes" class="level2">
-<h2 class="anchored" data-anchor-id="notes">Notes</h2>
+<section id="key-risks" class="level2">
+<h2 class="anchored" data-anchor-id="key-risks">Key Risks</h2>
 <ul>
-<li><code>--source</code> accepts <code>CE</code>, <code>EA</code>, <code>EIS</code>, or comma-separated combinations. Defaults to <code>CE</code> if omitted.</li>
-<li>spaCy enrichment runs by default during <code>--regex-prep</code>. Use <code>--no-spacy</code> to skip.</li>
-<li>Initiation class imbalance is a known bottleneck; improve via pattern expansion + weighting + manual examples.</li>
-<li>Timeline selection prioritizes strong signature cues over latest-date heuristics.</li>
-<li><code>dep_verb</code>, <code>sig_flag</code>, <code>ner_decision_signal</code> are the spaCy-enriched columns used by BERT.</li>
+<li><strong>IRA/BIL window is short:</strong> NEPATEC may end before the full 12-month window is complete. Use whatever data is available; note the truncation.</li>
+<li><strong>ARRA record quality:</strong> 2009 documents may have poor OCR or thin metadata. If ARRA citation rate is near 0% on pilot, the ARRA analysis may not be viable — scope down to BIL/IRA only.</li>
+<li><strong>Attribution vs. causation:</strong> The spike analysis is correlational. Emphasize this in the report. The citation detection provides stronger causal evidence when found.</li>
 </ul>
 
 
