@@ -33,6 +33,7 @@ Includes:
 Typical language (these are the exact phrases the extraction script detects):
 
 **Grants and direct funding:**
+
 - “federal grant” / “DOE grant” / “DOT grant” / “HUD grant” / “USDA grant” / “grant funding”
 - “federal funding” / “federal financial assistance”
 - “DOE/DOT/HUD/USDA grant” / “DOE/DOT/HUD/USDA funding”
@@ -42,27 +43,32 @@ Typical language (these are the exact phrases the extraction script detects):
 - “total award value” / “Total Project Value”
 
 **Loans and loan guarantees:**
+
 - “loan guarantee”
 - “Title XVII”
 
 **Cooperative agreements:**
+
 - “through a cooperative agreement ... partially fund”
 - “providing financial assistance to ... cooperative agreement”
 - “awarding a grant ... partially fund”
 
 **Cost sharing:**
+
 - “cost share”
 - “DOE Funding = $X / Cost Share = $X”
 - “cost-shared arrangement”
 - “Federal Cost Share ... Total Project Value”
 
 **Legislative funding authorities:**
+
 - “Inflation Reduction Act”
 - “Bipartisan Infrastructure Law” / “Bipartisan Infrastructure Act”
 - “Title XVII”
 - “ARRA” / “Recovery Act” (detected via Tier 1a DOE agency routing)
 
 **Formula-based programs:**
+
 - “formula awards” / “formula-based awards” / “formula-based grants”
 - “EECBG funding” / “DOE EECBG funding”
 - “State Energy Program (SEP) ... formula awards”
@@ -97,6 +103,7 @@ Includes:
 Typical language (these are the exact phrases the extraction script detects):
 
 **ROW applications and grants on BLM / public land:**
+
 - “application for a right-of-way grant”
 - “30-year right-of-way grant” + “BLM-administered lands” (within same passage)
 - “right-of-way (ROW)” + “public land administered by the Bureau of Land Management” (within same passage)
@@ -107,34 +114,42 @@ Typical language (these are the exact phrases the extraction script detects):
 - “rights-of-way over, upon, under, or through public lands”
 
 **ROW renewals and amendments:**
+
 - “right-of-way renewal applications”
 - “right-of-way renewal and amendment”
 - “Request to Amend Existing Authorization”
 - “amend its ROW grant”
 
 **Special use permits:**
+
 - “special use permit”
 - “current authorization with a defined ROW” + “Operation and Maintenance Plan” (either order, within same passage)
 
 **Easements:**
+
 - “temporary and permanent easements”
 - “easement has expired”
 - “easement” + “right-of-way” (within same passage; includes “easement for the right-of-way”)
 
 **Bureau of Indian Affairs:**
+
 - “Bureau of Indian Affairs is requesting a new right-of-way (ROW)”
 
 **Bureau of Reclamation:**
+
 - “lands administered by the Bureau of Reclamation” + “permissions must be sought” (within same passage)
 - “2920 Land Use Authorization”
 
 **FLPMA statutory authority:**
+
 - “Title V of the Federal Land Policy and Management Act” + “respond to requests for rights-of-way across public lands” (within same passage)
 
 **Document title (Tier 2 scan):**
+
 - “right-of-way” (any hyphen/spacing variant) appearing in the document title
 
 **Agency metadata (Tier 1a — detected without text cues):**
+
 - Agency is BLM, Bureau of Land Management, USFS, Forest Service, NPS, National Park Service, FWS / USFWS, Fish and Wildlife Service, BOR / USBR, Bureau of Reclamation
 
 Examples:
@@ -165,6 +180,7 @@ Includes:
 Typical language (these are the exact phrases the extraction script detects):
 
 **Army Corps / water permits:**
+
 - “Standard Individual Permit Application” / “Individual Permit Application”
 - “Section 404 permit application”
 - “applied for an individual permit under Section 404”
@@ -174,30 +190,35 @@ Typical language (these are the exact phrases the extraction script detects):
 - “Nationwide, Regional General, or Standard Individual Permit may be required”
 
 **NPDES:**
+
 - “National Pollutant Discharge Elimination System (NPDES) permit”
 - “NPDES permit must be obtained”
 - “NPDES ... permitting decision”
 - “Construction Storm Water General Permit is required”
 
 **Incidental take / ESA:**
+
 - “incidental take permit application”
 - “Incidental Take Permit (ITP) under Section 10(a)(1)(B)”
 - “Renewed/Amended ITP is needed”
 - “Habitat Conservation Plan and Incidental Take Permit”
 
 **FERC:**
+
 - “hydropower license”
 - “relicense” / “relicensing”
 - “application for a certificate of public convenience and necessity”
 - “NRC/FERC license amendment” (also detected near “10 CFR 50.90” or “FERC order”)
 
 **Presidential permits:**
+
 - “Amendment to Presidential Permit”
 - “Issuance of Presidential Permit PP-[number]”
 - “Presidential Permit Application Review”
 - “Presidential Permit”
 
 **NRC nuclear licenses:**
+
 - “Early Site Permit”
 - “Combined License”
 - “License Renewal” / “Subsequent License Renewal”

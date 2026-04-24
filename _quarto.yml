@@ -35,8 +35,8 @@ website:
           - text: "---"
           - text: "D1: Trigger Classification"
             href: phase2/notes/deliverable01/trigger_classification.md
-          - text: "D1: Classification Scheme"
-            href: phase2/notes/deliverable01/classification_scheme.md
+          - text: "D1: Examples"
+            href: phase2/notes/deliverable01/example_bank.md
       - text: "Presentations"
         href: presentations/presentation1.qmd
 
