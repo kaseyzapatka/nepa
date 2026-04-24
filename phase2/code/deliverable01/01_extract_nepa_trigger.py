@@ -123,9 +123,7 @@ AUTO_ACCEPT_RULE_IDS = frozenset({
 SEND_TO_TIER4_RULE_IDS = frozenset({
     "T1a_DOE_action",
     "T1a_DOE_funding",
-    "T1b_arra",
     "T3_sec404",
-    "T3_arra",
 })
 
 AUDIT_FIRST_RULE_IDS = frozenset({
@@ -189,12 +187,26 @@ FEDERAL_ACTION_VERB_PATTERNS = [
 ]
 
 FEDERAL_LAND_AUTHORIZER_PATTERNS = [
-    r'\bright.of.way\s+(?:grant|application|request)\b',
-    r'\b(?:applicant|proponent|developer|company)\b',
-    r'\bspecial\s+use\s+(?:permit|authorization)\b',
-    r'\bwould\s+(?:authorize|approve|grant|allow)\s+(?:a|the)\b',
-    r'\b(?:application|request)\s+(?:by|from)\b',
-    r'\bhas\s+(?:applied|submitted)\s+(?:an\s+application|a\s+request)\b',
+    r'\bapplication\s+for\s+a\s+right[-\s]of[-\s]way\s+grant\b',
+    r'\b30-year\s+right[-\s]of[-\s]way\s+grant\b[\s\S]{0,120}\bBLM-?\s*administered\s+lands\b',
+    r'\bright[-\s]of[-\s]way\s+renewal\s+applications?\b',
+    r'\bright[-\s]of[-\s]way\s+renewal\s+and\s+amendment\b',
+    r'\bspecial\s+use\s+permit\b',
+    r'\bcurrent\s+authorization\s+with\s+a\s+defined\s+ROW\b[\s\S]{0,80}\bOperation\s+(?:and|&)\s+Maintenance\s+Plan\b',
+    r'\btemporary\s+and\s+permanent\s+easements?\b',
+    r'\beasement\s+has\s+expired\b',
+    r'\beasement\s+for\s+the\s+right[-\s]of[-\s]way\b',
+    r'\bperpetual\s+right[-\s]of[-\s]way\s+grant\b',
+    r'\bgrant\s+a\s+perpetual\s+ROW\s+on\s+BLM\s+managed\s+public\s+land\b',
+    r'\bTitle\s+V\s+of\s+the\s+Federal\s+Land\s+Policy\s+and\s+Management\s+Act\b[\s\S]{0,180}\brespond\s+to\s+requests\s+for\s+rights?-of-way\s+across\s+public\s+lands\b',
+    r'\brights?-of-way\s+over,?\s+upon,?\s+under,?\s+or\s+through\s+public\s+lands\b',
+    r'\bright[-\s]of[-\s]way\s+\(ROW\)\b[\s\S]{0,120}\bpublic\s+land\s+administered\s+by\s+the\s+Bureau\s+of\s+Land\s+Management\b',
+    r'\brequest\s+for\s+a\s+right[-\s]of[-\s]way\b[\s\S]{0,120}\bpublic\s+land\s+managed\s+by\s+BLM\b',
+    r'\b(?:The\s+)?Bureau\s+of\s+Indian\s+Affairs\s+is\s+requesting\s+a\s+new\s+right[-\s]of[-\s]way\s*\(ROW\)\b',
+    r'\bRequest\s+to\s+Amend\s+Existing\s+Authorization\b',
+    r'\bamend\s+its\s+ROW\s+grant\b',
+    r'\blands?\s+administered\s+by\s+the\s+Bureau\s+of\s+Reclamation\b[\s\S]{0,120}\bpermissions?\s+must\s+be\s+sought\b',
+    r'\b2920\s+Land\s+Use\s+Authorization\b',
 ]
 
 # --- federal_program detection ---
@@ -243,17 +255,42 @@ TIER1B_PATTERNS = [
     (r'\bNPDES\b', 'federal_permit', 'npdes', 'high'),
     (r'(?:license\s+amendment|permit\s+application)\b', 'federal_permit', 'permit_app', 'medium'),
     # federal_land — ROW and access language
-    (r'right.of.way\s+(?:grant|application|request)\b', 'federal_land', 'row_grant', 'high'),
-    (r'special\s+use\s+(?:permit|authorization)\b', 'federal_land', 'special_use', 'high'),
-    (r'National\s+Forest\s+System\s+lands\b', 'federal_land', 'nfs_land', 'high'),
-    (r'(?:BLM|Bureau\s+of\s+Land\s+Management)\s+(?:administered\s+)?lands?\b', 'federal_land', 'blm_land', 'high'),
-    (r'crosses?\s+(?:federal|public)\s+lands?\b', 'federal_land', 'crosses_fed', 'high'),
+    (r'application\s+for\s+a\s+right[-\s]of[-\s]way\s+grant\b', 'federal_land', 'row_grant_application', 'high'),
+    (r'30-year\s+right[-\s]of[-\s]way\s+grant\b[\s\S]{0,120}BLM-?\s*administered\s+lands', 'federal_land', 'row_grant_blm', 'high'),
+    (r'right[-\s]of[-\s]way\s+renewal\s+applications?\b', 'federal_land', 'row_renewal_apps', 'high'),
+    (r'right[-\s]of[-\s]way\s+renewal\s+and\s+amendment\b', 'federal_land', 'row_renewal_amend', 'high'),
+    (r'special\s+use\s+permit\b', 'federal_land', 'special_use', 'high'),
+    (r'current\s+authorization\s+with\s+a\s+defined\s+ROW\b[\s\S]{0,120}Operation\s+(?:and|&)\s+Maintenance\s+Plan', 'federal_land', 'defined_row_omp', 'high'),
+    (r'temporary\s+and\s+permanent\s+easements?\b', 'federal_land', 'temp_perm_easement', 'high'),
+    (r'easement\s+has\s+expired\b', 'federal_land', 'easement_expired', 'high'),
+    (r'easement\s+for\s+the\s+right[-\s]of[-\s]way\b', 'federal_land', 'easement_row', 'high'),
+    (r'perpetual\s+right[-\s]of[-\s]way\s+grant\b', 'federal_land', 'perpetual_row_grant', 'high'),
+    (r'grant\s+a\s+perpetual\s+ROW\s+on\s+BLM\s+managed\s+public\s+land\b', 'federal_land', 'perpetual_row_blm', 'high'),
+    (r'Title\s+V\s+of\s+the\s+Federal\s+Land\s+Policy\s+and\s+Management\s+Act\b[\s\S]{0,180}respond\s+to\s+requests\s+for\s+rights?-of-way\s+across\s+public\s+lands', 'federal_land', 'flpma_public_land_row', 'high'),
+    (r'rights?-of-way\s+over,?\s+upon,?\s+under,?\s+or\s+through\s+public\s+lands', 'federal_land', 'public_land_row', 'high'),
+    (r'right[-\s]of[-\s]way\s+\(ROW\)\b[\s\S]{0,120}public\s+land\s+administered\s+by\s+the\s+Bureau\s+of\s+Land\s+Management', 'federal_land', 'public_land_admin_blm', 'high'),
+    (r'request\s+for\s+a\s+right[-\s]of[-\s]way\b[\s\S]{0,120}public\s+land\s+managed\s+by\s+BLM', 'federal_land', 'public_land_managed_blm', 'high'),
+    (r'(?:The\s+)?Bureau\s+of\s+Indian\s+Affairs\s+is\s+requesting\s+a\s+new\s+right[-\s]of[-\s]way\s*\(ROW\)', 'federal_land', 'bia_row', 'high'),
+    (r'lands?\s+administered\s+by\s+the\s+Bureau\s+of\s+Reclamation\b[\s\S]{0,120}permissions?\s+must\s+be\s+sought', 'federal_land', 'bor_permission', 'high'),
+    (r'\b2920\s+Land\s+Use\s+Authorization\b', 'federal_land', 'land_use_2920', 'high'),
+    (r'Request\s+to\s+Amend\s+Existing\s+Authorization', 'federal_land', 'auth_amend_title', 'medium'),
+    (r'amend\s+its\s+ROW\s+grant\b', 'federal_land', 'auth_amend_row', 'medium'),
     # federal_funding
     (r'\bTitle\s+XVII\b', 'federal_funding', 'title17', 'high'),
     (r'Inflation\s+Reduction\s+Act\b', 'federal_funding', 'ira', 'high'),
     (r'Bipartisan\s+Infrastructure\s+(?:Law|Act)\b', 'federal_funding', 'bil', 'high'),
-    (r'American\s+Recovery\s+and\s+Reinvestment\b', 'federal_funding', 'arra', 'high'),
     (r'loan\s+guarantee\b', 'federal_funding', 'loan_guarantee', 'high'),
+    (r'through\s+(?:a\s+)?cooperative\s+agreement[\s\S]{0,120}\bpartially\s+fund\b', 'federal_funding', 'coop_partial_fund', 'high'),
+    (r'providing\s+financial\s+assistance\s+to[\s\S]{0,120}\b(?:under|through)\s+(?:a\s+)?cooperative\s+agreement\b', 'federal_funding', 'fin_assist_coop', 'high'),
+    (r'\bawarding\s+a\s+grant\b[\s\S]{0,120}\bpartially\s+fund\b', 'federal_funding', 'grant_partial_fund', 'high'),
+    (r'DOE\s+Funding\s*=\s*\$?\d[\s\S]{0,120}Cost\s+Share\s*=\s*\$?\d', 'federal_funding', 'doe_cost_share', 'high'),
+    (r'provide\s+federal\s+funding\b', 'federal_funding', 'provide_fed_funding', 'high'),
+    (r'DOE.?s\s+(?:proposed\s+)?action\s+is\s+to\s+provide[\s\S]{0,160}\bcost[-\s]shared\s+arrangement\b', 'federal_funding', 'cost_shared_arrangement', 'high'),
+    (r'Federal\s+Cost\s+Share\b[\s\S]{0,120}Total\s+Project\s+Value\b', 'federal_funding', 'federal_cost_share', 'high'),
+    (r'\b(?:DOE\s+)?EECBG\s+funding\b', 'federal_funding', 'eecbg_funding', 'high'),
+    (r'\bformula(?:-based)?\s+(?:awards?|grants?)\b', 'federal_funding', 'formula_awards', 'high'),
+    (r'\b(?:State\s+Energy\s+Program|SEP|WAP)\b[\s\S]{0,120}\bformula(?:-based)?\s+(?:awards?|grants?)\b', 'federal_funding', 'program_formula_awards', 'high'),
+    (r'(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b', 'federal_funding', 'alrd_formula', 'medium'),
     (r'(?:DOE|DOT|HUD|USDA)\s+(?:grant|funding)\b', 'federal_funding', 'agency_grant', 'high'),
     (r'federal\s+(?:financial\s+assistance|grant\b)', 'federal_funding', 'fed_grant', 'medium'),
     # federal_action — agency as actor (more generic; checked last among high-priority classes)
@@ -280,19 +317,28 @@ DOC_TITLE_PATTERNS = [
 TIER3_PATTERNS_EA_EIS = TIER1B_PATTERNS
 TIER3_PATTERNS_CE = [
     pattern for pattern in TIER1B_PATTERNS
-    if pattern[2] not in {"sec404", "arra", "rmp"}
+    if pattern[2] not in {"sec404", "rmp"}
 ]
 
 TIER4_CUE_PATTERNS = {
     "federal_funding": [
-        r"\bgrant\b",
+        r"\b(?:federal\s+grant|DOE\s+grant|DOT\s+grant|HUD\s+grant|USDA\s+grant|grant\s+funding)\b",
         r"\bloan\s+guarantee\b",
-        r"\bcooperative\s+agreement\b",
+        r"\bthrough\s+(?:a\s+)?cooperative\s+agreement\b[\s\S]{0,120}\bpartially\s+fund\b",
+        r"\bproviding\s+financial\s+assistance\s+to\b[\s\S]{0,120}\b(?:under|through)\s+(?:a\s+)?cooperative\s+agreement\b",
+        r"\bawarding\s+a\s+grant\b[\s\S]{0,120}\bpartially\s+fund\b",
         r"\bfederal\s+(?:funding|financial\s+assistance)\b",
         r"\bcost\s+share\b",
         r"\bDOE\s+Funding\b",
-        r"\bwould\s+provide\s+(?:approximately\s+)?\d+",
-        r"\baward\b",
+        r"\b(?:DOE|Department\s+of\s+Energy)\b[\s\S]{0,80}\bwould\s+provide\b[\s\S]{0,120}\b(?:funds?|funding|grant|awards?|cost[-\s]share)\b",
+        r"\bcost[-\s]shared\s+arrangement\b",
+        r"\bFederal\s+Cost\s+Share\b",
+        r"\b(?:DOE\s+)?EECBG\s+funding\b",
+        r"\btotal\s+award\s+value\b",
+        r"\bTotal\s+Project\s+Value\b",
+        r"\bformula(?:-based)?\s+(?:awards?|grants?)\b",
+        r"\b(?:State\s+Energy\s+Program|SEP|WAP)\b[\s\S]{0,120}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
+        r"(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
     ],
     "federal_action": [
         r"\b(?:the\s+)?(?:agency|department|bureau|forest\s+service|western|bonneville)\s+(?:proposes?\s+to|will)\s+(?:construct|install|build|operate|implement|restore|upgrade|develop|expand|demolish)\b",
@@ -301,13 +347,26 @@ TIER4_CUE_PATTERNS = {
         r"\bproject\s+sponsor\b",
     ],
     "federal_land": [
-        r"\bright.of.way\s+(?:grant|renewal|application|request|amendment)\b",
-        r"\bspecial\s+use\s+(?:permit|authorization)\b",
-        r"\beasement\b",
-        r"\bland\s+use\s+permit\b",
-        r"\bcross(?:es|ing)?\s+(?:federal|public)\s+land",
-        r"\b(?:BLM|Bureau\s+of\s+Land\s+Management|USFS|Forest\s+Service)\b.{0,60}\b(?:land|lands|right-of-way|ROW|permit|authorization)\b",
-        r"\badministered\s+by\s+(?:BLM|the\s+Bureau\s+of\s+Land\s+Management|USFS|the\s+Forest\s+Service)\b",
+        r"\bapplication\s+for\s+a\s+right[-\s]of[-\s]way\s+grant\b",
+        r"\bspecial\s+use\s+permit\b",
+        r"\bcurrent\s+authorization\s+with\s+a\s+defined\s+ROW\b",
+        r"\bOperation\s+(?:and|&)\s+Maintenance\s+Plan\b[\s\S]{0,120}\bROW\b|\bROW\b[\s\S]{0,120}\bOperation\s+(?:and|&)\s+Maintenance\s+Plan\b",
+        r"\btemporary\s+and\s+permanent\s+easements?\b",
+        r"\beasement\s+has\s+expired\b",
+        r"\beasement\b[\s\S]{0,120}\bright[-\s]of[-\s]way\b",
+        r"\bperpetual\s+right[-\s]of[-\s]way\s+grant\b",
+        r"\bgrant\s+a\s+perpetual\s+ROW\s+on\s+BLM\s+managed\s+public\s+land\b",
+        r"\b30-year\s+right[-\s]of[-\s]way\s+grant\b[\s\S]{0,120}\bBLM-?\s*administered\s+lands\b",
+        r"\bTitle\s+V\s+of\s+the\s+Federal\s+Land\s+Policy\s+and\s+Management\s+Act\b[\s\S]{0,180}\brespond\s+to\s+requests\s+for\s+rights?-of-way\s+across\s+public\s+lands\b",
+        r"\brights?-of-way\s+over,?\s+upon,?\s+under,?\s+or\s+through\s+public\s+lands\b",
+        r"\bright[-\s]of[-\s]way\s+\(ROW\)\b[\s\S]{0,120}\bpublic\s+land\s+administered\s+by\s+the\s+Bureau\s+of\s+Land\s+Management\b",
+        r"\brequest\s+for\s+a\s+right[-\s]of[-\s]way\b[\s\S]{0,120}\bpublic\s+land\s+managed\s+by\s+BLM\b",
+        r"\bpublic\s+lands\s+managed\s+by\s+the\s+Bureau\s+of\s+Land\s+Management\b",
+        r"\b(?:The\s+)?Bureau\s+of\s+Indian\s+Affairs\s+is\s+requesting\s+a\s+new\s+right[-\s]of[-\s]way\s*\(ROW\)\b",
+        r"\blands?\s+administered\s+by\s+(?:the\s+)?Bureau\s+of\s+Reclamation\b[\s\S]{0,160}\bpermissions?\s+must\s+be\s+sought\b",
+        r"\b2920\s+Land\s+Use\s+Authorization\b",
+        r"\bRequest\s+to\s+Amend\s+Existing\s+Authorization\b",
+        r"\bamend\s+its\s+ROW\s+grant\b",
     ],
     "federal_permit": [
         r"\bpermit\s+(?:application|required|is\s+required)\b",
@@ -340,7 +399,7 @@ TIER4_CUE_PATTERNS = {
 HYPOTHESIS_TEMPLATES = {
     "federal_funding": "This text shows that a federal agency is funding, financing, or providing financial assistance, a grant, or a loan guarantee for this project.",
     "federal_action": "This text shows that a federal agency is directly implementing, constructing, installing, operating, or restoring this project.",
-    "federal_land": "This text shows that the project is located on or crosses federal land, or requires a right-of-way grant or special use permit on federal land.",
+    "federal_land": "This text shows that the project is located on or crosses federal land, or requires a right-of-way, easement, special use permit, or similar land-use authorization on federally managed land.",
     "federal_permit": "This text shows that a federal permit, license, or authorization is required for this project.",
     "federal_program": "This text shows that this is a programmatic environmental review, a resource management plan revision, or a land use plan covering a class of actions.",
     "federal_property_transaction": "This text shows that this involves a federal land exchange, conveyance, or disposal.",
@@ -515,10 +574,10 @@ CLASS_PROTOTYPES = {
         "This PEIS addresses program-wide impacts of a wind energy leasing program.",
     ],
     "federal_land": [
-        "The project requires a right-of-way grant across Bureau of Land Management land.",
-        "The proposed transmission line would cross National Forest System lands.",
-        "The applicant has applied for a special use permit on federal land.",
-        "The project is located on lands administered by the Bureau of Land Management.",
+        "The USFS purpose and need is to determine whether to issue a special use permit for the proposed transmission lines upgrade and rebuild.",
+        "BPA proposes to acquire a perpetual right-of-way grant for BPA's existing Wautoma-Rock Creek transmission line.",
+        "The Bureau of Indian Affairs is requesting a new right-of-way (ROW) for an existing 12.5kV overhead distribution line.",
+        "These temporary work areas are under lands administered by the Bureau of Reclamation (BOR) and permissions must be sought from them.",
     ],
     "federal_permit": [
         "The project requires an individual permit from the U.S. Army Corps of Engineers under Section 404.",
@@ -1571,11 +1630,17 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
             ))
         elif _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
             doe_funding_patterns = [
-                r"\b(?:loan\s+guarantee|financial\s+assistance|cooperative\s+agreement)\b",
+                r"\b(?:loan\s+guarantee|financial\s+assistance)\b",
                 r"\bTitle\s+XVII\b",
-                r"\b(?:ARRA|Recovery\s+Act|Bipartisan\s+Infrastructure|Inflation\s+Reduction\s+Act)\b",
                 r"\bfunded\s+(?:by|through|under)\b",
                 r"\b(?:DOE|Department\s+of\s+Energy)\s+(?:grant|award|funding)\b",
+                r"\bthrough\s+(?:a\s+)?cooperative\s+agreement\b[\s\S]{0,120}\bpartially\s+fund\b",
+                r"\bproviding\s+financial\s+assistance\s+to\b[\s\S]{0,120}\b(?:under|through)\s+(?:a\s+)?cooperative\s+agreement\b",
+                r"\bawarding\s+a\s+grant\b[\s\S]{0,120}\bpartially\s+fund\b",
+                r"\bFederal\s+Cost\s+Share\b",
+                r"\b(?:DOE\s+)?EECBG\s+funding\b",
+                r"\bformula(?:-based)?\s+(?:awards?|grants?)\b",
+                r"(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
             ]
             has_funding = any(re.search(p, text, re.IGNORECASE) for p in doe_funding_patterns)
             if has_funding:
