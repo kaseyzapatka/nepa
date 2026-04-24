@@ -1,4 +1,6 @@
-# NEPA Trigger Classification
+---
+title: "D1: NEPA Trigger Classification"
+---
 
 This is an explanation of the trigger definitions we want to use for this deliverable. 
 

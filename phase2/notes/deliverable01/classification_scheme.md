@@ -1,8 +1,10 @@
-# Classification Scheme: Internal Reference
+---
+title: "D1: Classification Scheme"
+---
 
 This document covers the schema design, priority logic, confidence framework, keyword dictionary, and example coding scenarios for the NEPA trigger classification pipeline.
 
-For class definitions and NLI hypothesis statements, see [`_trigger_classification.md`](_trigger_classification.md) (also published to the client website).
+For class definitions and NLI hypothesis statements, see [Trigger Classification](trigger_classification.md).
 
 ---
 

@@ -1,5 +1,0 @@
----
-title: "D1: NEPA Trigger Classification — Schema"
----
-
-{{< include ../code/deliverable01/_trigger_classification.md >}}
