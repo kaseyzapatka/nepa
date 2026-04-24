@@ -118,10 +118,14 @@ AUTO_ACCEPT_RULE_IDS = frozenset({
     "T3_agency_grant",
     "T3_blm_land",
     "T3_nfs_land",
+    "T1a_BPA_direct_action",
+    "T1a_WAPA_direct_action",
+    "T1a_CBP_direct_action",
+    "T1a_PMA_direct_action",
 })
 
 SEND_TO_TIER4_RULE_IDS = frozenset({
-    "T1a_DOE_action",
+    "T1a_DOE_direct_action",
     "T1a_DOE_funding",
     "T3_sec404",
 })
@@ -152,14 +156,12 @@ AGENCY_FUNDING_MAP = frozenset({
     "FTA", "Federal Transit Administration",
     "FHWA", "Federal Highway Administration",
 })
-AGENCY_ACTION_PRIOR_MAP = frozenset({
+AGENCY_DIRECT_ACTION_MAP = frozenset({
     "Power Marketing Administration",
     "Bonneville Power Administration",
     "Western Area Power Administration",
     "WAPA",
     "BPA",
-})
-AGENCY_ACTION_ONLY_PRIOR_MAP = frozenset({
     "CBP",
     "U.S. Customs and Border Protection",
     "Customs and Border Protection",
@@ -186,9 +188,13 @@ _AGENCY_CODE_LOOKUP = {
     "FERC": "FERC", "FAA": "FAA", "FCC": "FCC",
     "DOT": "DOT", "HUD": "HUD", "FTA": "FTA", "FHWA": "FHWA",
     "DOE": "DOE", "USACE": "USACE", "ARMY CORPS OF ENGINEERS": "USACE",
+    "BPA": "BPA", "BONNEVILLE POWER ADMINISTRATION": "BPA",
+    "WAPA": "WAPA", "WESTERN AREA POWER ADMINISTRATION": "WAPA",
+    "CBP": "CBP", "U.S. CUSTOMS AND BORDER PROTECTION": "CBP", "CUSTOMS AND BORDER PROTECTION": "CBP",
+    "POWER MARKETING ADMINISTRATION": "PMA",
 }
 
-# --- federal_action vs federal_land disambiguation ---
+# --- federal_direct_action vs federal_land disambiguation ---
 
 FEDERAL_ACTION_ACTOR_PATTERN = (
     r'(?:DOE|Department\s+of\s+Energy|NNSA|National\s+Nuclear\s+Security\s+Administration|'
@@ -409,19 +415,19 @@ TIER1B_PATTERNS = [
     (r'(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b', 'federal_funding', 'alrd_formula', 'medium'),
     (r'(?:DOE|DOT|HUD|USDA)\s+(?:grant|funding)\b', 'federal_funding', 'agency_grant', 'high'),
     (r'federal\s+(?:financial\s+assistance|grant\b)', 'federal_funding', 'fed_grant', 'medium'),
-    # federal_action — agency as actor (checked last among high-priority classes)
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b', 'federal_action', 'agency_actor_direct', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b', 'federal_action', 'agency_remove_replace', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,120}}\bconstruct,\s*own,\s*operate,\s*and\s+maintain\b', 'federal_action', 'construct_own_operate_maintain', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\b(?:constructed\s+and\s+operated|would\s+be\s+constructed\s+and\s+operated)\b', 'federal_action', 'constructed_operated', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bcontinue\s+to\s+occupy\s+and\s+maintain\s+existing\s+facilities\b[\s\S]{{0,180}}\brefurbish\s+existing\s+facilities\b', 'federal_action', 'occupy_maintain_refurbish', 'high'),
-    (FEDERAL_ACTION_STEP_OWNERSHIP_PATTERN, 'federal_action', 'ownership_transition_site_operation', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bwould\s+functionally\s+replace\b', 'federal_action', 'functional_replace', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,520}}\brebuild\s+the\s+existing\b', 'federal_action', 'rebuild_existing_facility', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,200}}\b(?:upgrade|rebuild)\b[\s\S]{{0,160}}\bby\s+removing\b[\s\S]{{0,160}}\band\s+installing\b', 'federal_action', 'upgrade_remove_install', 'high'),
-    (r'military\s+(?:installation|base|facility)\b', 'federal_action', 'military', 'high'),
-    (r'federal\s+facility\s+(?:upgrade|expansion|construction)\b', 'federal_action', 'fed_facility', 'high'),
-    (r'vegetation\s+management\b.{0,50}National\s+Forest', 'federal_action', 'usfs_veg_mgmt', 'high'),
+    # federal_direct_action — agency as actor (checked last among high-priority classes)
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b', 'federal_direct_action', 'agency_actor_direct', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b', 'federal_direct_action', 'agency_remove_replace', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,120}}\bconstruct,\s*own,\s*operate,\s*and\s+maintain\b', 'federal_direct_action', 'construct_own_operate_maintain', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\b(?:constructed\s+and\s+operated|would\s+be\s+constructed\s+and\s+operated)\b', 'federal_direct_action', 'constructed_operated', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bcontinue\s+to\s+occupy\s+and\s+maintain\s+existing\s+facilities\b[\s\S]{{0,180}}\brefurbish\s+existing\s+facilities\b', 'federal_direct_action', 'occupy_maintain_refurbish', 'high'),
+    (FEDERAL_ACTION_STEP_OWNERSHIP_PATTERN, 'federal_direct_action', 'ownership_transition_site_operation', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bwould\s+functionally\s+replace\b', 'federal_direct_action', 'functional_replace', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,520}}\brebuild\s+the\s+existing\b', 'federal_direct_action', 'rebuild_existing_facility', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,200}}\b(?:upgrade|rebuild)\b[\s\S]{{0,160}}\bby\s+removing\b[\s\S]{{0,160}}\band\s+installing\b', 'federal_direct_action', 'upgrade_remove_install', 'high'),
+    (r'military\s+(?:installation|base|facility)\b', 'federal_direct_action', 'military', 'high'),
+    (r'federal\s+facility\s+(?:upgrade|expansion|construction)\b', 'federal_direct_action', 'fed_facility', 'high'),
+    (r'vegetation\s+management\b.{0,50}National\s+Forest', 'federal_direct_action', 'usfs_veg_mgmt', 'high'),
 ]
 
 # --- Tier 2: Document title patterns ---
@@ -484,7 +490,7 @@ TIER4_CUE_PATTERNS = {
         r"\b(?:State\s+Energy\s+Program|SEP|WAP)\b[\s\S]{0,120}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
         r"(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
     ],
-    "federal_action": [
+    "federal_direct_action": [
         rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b",
         rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b",
         rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,120}}\bconstruct,\s*own,\s*operate,\s*and\s+maintain\b",
@@ -589,7 +595,7 @@ TIER4_CUE_PATTERNS = {
 
 HYPOTHESIS_TEMPLATES = {
     "federal_funding": "This text shows that a federal agency is funding, financing, or providing financial assistance for this project, including through a grant, loan, loan guarantee, cost-sharing arrangement, cooperative agreement, or formula-based award.",
-    "federal_action": "This text shows that a federal agency is the primary actor directly proposing, constructing, installing, operating, managing, upgrading, rebuilding, restoring, or otherwise implementing this project, rather than merely approving or permitting someone else's project.",
+    "federal_direct_action": "This text shows that a federal agency is the primary actor directly proposing, constructing, installing, operating, managing, upgrading, rebuilding, restoring, or otherwise implementing this project, rather than merely approving or permitting someone else's project.",
     "federal_land": "This text shows that this project is located on, crosses, or requires access to federally managed land, or that the project requires a right-of-way grant, easement, special use permit, land use authorization, or similar approval tied to use of federal land.",
     "federal_permit": "This text shows that a federal permit, license, certification, or regulatory approval is required for this project, even if the project is otherwise privately or state-led.",
     "federal_program": "This text shows that this is a programmatic, generic, site-wide, or Tier 1 environmental review covering a class of actions or a geographic area, or a broader federal planning document such as a resource management plan revision, leasing program, corridor designation, or rulemaking.",
@@ -615,18 +621,18 @@ CALIBRATION_EXAMPLES: list[tuple[str, str | None, str]] = [
      "DOE is proposing to provide federal funding to the Contra Costa Economic Partnership "
      "to support local and regional efforts to address and achieve measurable improvements "
      "in market conditions for both commercial and residential rooftop photovoltaic (PV) solar arrays."),
-    ("federal_action / DOE constructs NREL facility", "federal_action",
+    ("federal_direct_action /DOE constructs NREL facility", "federal_direct_action",
      "The Department of Energy (DOE) prepared this Final Supplemental EA to assess the potential "
      "environmental effects resulting from the proposed improvements to the RFHP. Specifically, the DOE "
      "proposes to develop, construct and operate a woodchip fuel storage silo at the National Renewable "
      "Energy Laboratory's (NREL) South Table Mountain (STM) site in Golden, Colorado."),
-    ("federal_action / Western constructs substation", "federal_action",
+    ("federal_direct_action /Western constructs substation", "federal_direct_action",
      "Western Area Power Administration (Western) will construct a new control building at the Lusk Rural "
      "Substation (LRS) located in Niobrara County, Wyoming. The proposed work at the LRS control building "
      "consists of the following; construct a new control building and associated foundation, demolish "
      "existing 69-kV switch, construct new Fault Interrupter foundations and install steel support structure "
      "and fault interrupter, and demolish existing control building."),
-    ("federal_action / Western constructs communications building", "federal_action",
+    ("federal_direct_action /Western constructs communications building", "federal_direct_action",
      "Western Area Power Administration (Western) will construct a new communications building on the Archer "
      "Microwave Site (ARW). This project will have the following components:\n"
      "* Construct a new communications building\n"
@@ -763,7 +769,7 @@ SECTION_PRIOR_WEIGHTS = {
 # --- Tier 4: Class prototype sentences for embedding similarity ---
 
 CLASS_PROTOTYPES = {
-    "federal_action": [
+    "federal_direct_action": [
         "The Forest Service proposes to implement vegetation management on National Forest land.",
         "The Bureau of Land Management will construct a new facility at the site.",
         "This federal action consists of upgrading and replacing infrastructure at an existing federal facility.",
@@ -818,7 +824,7 @@ Prefer affirmative, project-specific evidence. Distinguish a mere mention from a
 Return unknown if the evidence is insufficient.
 
 Classes:
-- federal_action: federal agency is the primary actor constructing or implementing the project
+- federal_direct_action: federal agency is the primary actor constructing or implementing the project
 - federal_program: programmatic EIS, land-use plan, rulemaking, or leasing framework
 - federal_property_transaction: land exchange, sale, disposal, transfer, or acquisition of land, land rights, easements, or other real-property interests
 - federal_land: project on or crossing federal land; ROW grant or special use permit tied to land access
@@ -840,13 +846,13 @@ Respond with JSON only:
 {{"primary": "federal_land", "secondary": ["federal_permit"], "confidence": "high", "reasoning": "..."}}"""
 
 VALID_CLASSES = frozenset({
-    "federal_action", "federal_program", "federal_property_transaction",
+    "federal_direct_action", "federal_program", "federal_property_transaction",
     "federal_land", "federal_permit", "federal_funding", "unknown",
 })
 
 TOP_LEVEL_CLASSES = [
     "federal_funding",
-    "federal_action",
+    "federal_direct_action",
     "federal_land",
     "federal_permit",
     "federal_program",
@@ -893,13 +899,13 @@ def _get_agency_code(agency: str) -> str:
 
 def _verb_class(text: str) -> Optional[str]:
     """
-    Check action vs. authorizer verb signals to distinguish federal_action from federal_land.
-    Returns 'federal_action', 'federal_land', or None if no signal found.
-    Priority: action verbs win when both are present (federal_action > federal_land).
+    Check action vs. authorizer verb signals to distinguish federal_direct_action from federal_land.
+    Returns 'federal_direct_action', 'federal_land', or None if no signal found.
+    Priority: action verbs win when both are present (federal_direct_action > federal_land).
     """
     for pat in FEDERAL_ACTION_VERB_PATTERNS:
         if re.search(pat, text, re.IGNORECASE):
-            return "federal_action"
+            return "federal_direct_action"
     for pat in FEDERAL_LAND_AUTHORIZER_PATTERNS:
         if re.search(pat, text, re.IGNORECASE):
             return "federal_land"
@@ -1095,15 +1101,13 @@ def _project_metadata_priors(project_row: pd.Series) -> list[str]:
     agency = str(project_row.get("lead_agency_harmonized") or "")
     priors: list[str] = []
     if _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
-        priors.extend(["federal_funding", "federal_action"])
+        priors.extend(["federal_funding", "federal_direct_action"])
     elif _agency_matches(agency, frozenset({"USACE", "Army Corps of Engineers"})):
         priors.extend(["federal_permit", "federal_land"])
-    elif _agency_matches(agency, AGENCY_ACTION_PRIOR_MAP):
-        priors.extend(["federal_action", "federal_land"])
-    elif _agency_matches(agency, AGENCY_ACTION_ONLY_PRIOR_MAP):
-        priors.append("federal_action")
+    elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
+        priors.append("federal_direct_action")
     elif _agency_matches(agency, AGENCY_LAND_MAP):
-        priors.extend(["federal_land", "federal_action", "federal_program"])
+        priors.extend(["federal_land", "federal_direct_action", "federal_program"])
     elif _agency_matches(agency, AGENCY_PERMIT_MAP):
         priors.append("federal_permit")
     elif _agency_matches(agency, AGENCY_FUNDING_MAP):
@@ -1601,15 +1605,13 @@ def get_candidate_classes(
     candidates.extend([cls for cls in cue_classes if cls in VALID_CLASSES and cls != "unknown"])
 
     if _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
-        candidates.extend(["federal_funding", "federal_action"])
+        candidates.extend(["federal_funding", "federal_direct_action"])
     elif _agency_matches(agency, frozenset({"USACE", "Army Corps of Engineers"})):
         candidates.extend(["federal_permit", "federal_land"])
-    elif _agency_matches(agency, AGENCY_ACTION_PRIOR_MAP):
-        candidates.extend(["federal_action", "federal_land"])
-    elif _agency_matches(agency, AGENCY_ACTION_ONLY_PRIOR_MAP):
-        candidates.append("federal_action")
+    elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
+        candidates.append("federal_direct_action")
     elif _agency_matches(agency, AGENCY_LAND_MAP):
-        candidates.extend(["federal_land", "federal_action", "federal_program"])
+        candidates.extend(["federal_land", "federal_direct_action", "federal_program"])
     elif _agency_matches(agency, AGENCY_PERMIT_MAP):
         candidates.append("federal_permit")
     elif _agency_matches(agency, AGENCY_FUNDING_MAP):
@@ -1841,11 +1843,23 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                 route_policy="auto_accept",
                 route_reason="deterministic_funding_metadata",
             ))
+        elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
+            results.append(make_result(
+                project_id=pid,
+                primary="federal_direct_action",
+                confidence="high",
+                evidence_text=agency,
+                evidence_source="agency_metadata",
+                rule_id=f"T1a_{agency_code}_direct_action",
+                manual_review=False,
+                route_policy="auto_accept",
+                route_reason="deterministic_direct_action_metadata",
+            ))
         elif _agency_matches(agency, AGENCY_LAND_MAP):
             verb_class = _verb_class(text)
             trigger = verb_class if verb_class else "federal_land"
             confidence = "high" if verb_class else "medium"
-            verb_suffix = "action" if trigger == "federal_action" else "land"
+            verb_suffix = "direct_action" if trigger == "federal_direct_action" else "land"
             results.append(make_result(
                 project_id=pid,
                 primary=trigger,
@@ -1884,14 +1898,14 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                     route_policy="tier4_candidate",
                     route_reason="doe_metadata_ambiguous",
                 ))
-            elif _verb_class(text) == "federal_action":
+            elif _verb_class(text) == "federal_direct_action":
                 results.append(make_result(
                     project_id=pid,
-                    primary="federal_action",
+                    primary="federal_direct_action",
                     confidence="medium",
                     evidence_text=agency,
                     evidence_source="agency_metadata",
-                    rule_id="T1a_DOE_action",
+                    rule_id="T1a_DOE_direct_action",
                     manual_review=True,
                     route_policy="tier4_candidate",
                     route_reason="doe_metadata_ambiguous",
