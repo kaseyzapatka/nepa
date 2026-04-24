@@ -422,19 +422,19 @@ The compound patterns are:
 These are the class-specific hypothesis statements used in Tier 4 to determine whether a document belongs to a class.
 
 - `federal_funding`
-  - This text shows that a federal agency is funding, financing, or providing financial assistance, a grant, or a loan guarantee for this project.
+  - This text shows that a federal agency is funding, financing, or providing financial assistance for this project, including through a grant, loan, loan guarantee, cost-sharing arrangement, cooperative agreement, or formula-based award.
 
 - `federal_action`
-  - This text shows that a federal agency is directly implementing, constructing, installing, operating, or restoring this project.
+  - This text shows that a federal agency is the primary actor directly proposing, constructing, installing, operating, managing, upgrading, rebuilding, restoring, or otherwise implementing this project, rather than merely approving or permitting someone else's project.
 
 - `federal_land`
-  - This text shows that the project is located on or crosses federal land, or requires a right-of-way grant or special use permit on federal land.
+  - This text shows that this project is located on, crosses, or requires access to federally managed land, or that the project requires a right-of-way grant, easement, special use permit, land use authorization, or similar approval tied to use of federal land.
 
 - `federal_permit`
-  - This text shows that a federal permit, license, or authorization is required for this project.
+  - This text shows that a federal permit, license, certification, or regulatory approval is required for this project, even if the project is otherwise privately or state-led.
 
 - `federal_program`
-  - This text shows that this is a programmatic environmental review, a resource management plan revision, or a land use plan covering a class of actions.
+  - This text shows that this is a programmatic, generic, site-wide, or Tier 1 environmental review covering a class of actions or a geographic area, or a broader federal planning document such as a resource management plan revision, leasing program, corridor designation, or rulemaking.
 
 - `federal_property_transaction`
-  - This text shows that this involves a federal land exchange, conveyance, or disposal.
+  - This text shows that this involves a federal land exchange, sale, disposal, conveyance, acquisition, or transfer of land, land rights, easements, or other real-property interests.

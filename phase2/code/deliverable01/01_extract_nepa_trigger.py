@@ -588,12 +588,12 @@ TIER4_CUE_PATTERNS = {
 }
 
 HYPOTHESIS_TEMPLATES = {
-    "federal_funding": "This text shows that a federal agency is funding, financing, or providing financial assistance, a grant, or a loan guarantee for this project.",
-    "federal_action": "This text shows that a federal agency is directly implementing, constructing, replacing, upgrading, relocating, renovating, or otherwise carrying out this project or facility action.",
-    "federal_land": "This text shows that the project is located on or crosses federal land, or requires a right-of-way, easement, special use permit, or similar land-use authorization on federally managed land.",
-    "federal_permit": "This text shows that a federal permit, license, or authorization is required for this project.",
-    "federal_program": "This text shows that this is a programmatic, generic, tier 1, or site-wide environmental review, or a broader federal planning or program document such as an integrated resource plan, leasing program, corridor designation, or land and resource management plan revision.",
-    "federal_property_transaction": "This text shows that this involves a federal land exchange, sale, disposal, transfer, or acquisition of land, land rights, easements, or other real-property interests.",
+    "federal_funding": "This text shows that a federal agency is funding, financing, or providing financial assistance for this project, including through a grant, loan, loan guarantee, cost-sharing arrangement, cooperative agreement, or formula-based award.",
+    "federal_action": "This text shows that a federal agency is the primary actor directly proposing, constructing, installing, operating, managing, upgrading, rebuilding, restoring, or otherwise implementing this project, rather than merely approving or permitting someone else's project.",
+    "federal_land": "This text shows that this project is located on, crosses, or requires access to federally managed land, or that the project requires a right-of-way grant, easement, special use permit, land use authorization, or similar approval tied to use of federal land.",
+    "federal_permit": "This text shows that a federal permit, license, certification, or regulatory approval is required for this project, even if the project is otherwise privately or state-led.",
+    "federal_program": "This text shows that this is a programmatic, generic, site-wide, or Tier 1 environmental review covering a class of actions or a geographic area, or a broader federal planning document such as a resource management plan revision, leasing program, corridor designation, or rulemaking.",
+    "federal_property_transaction": "This text shows that this involves a federal land exchange, sale, disposal, conveyance, acquisition, or transfer of land, land rights, easements, or other real-property interests.",
 }
 
 # Calibration thresholds (--calibrate mode)
