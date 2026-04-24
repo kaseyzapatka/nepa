@@ -3954,36 +3954,26 @@ vertical-align: -.125em;
 <p>Each of these 6 classes triggers NEPA review. The main trigger classes are:</p>
 <ul>
 <li><code>Federal Funding</code></li>
-<li><code>Federal Action</code></li>
 <li><code>Federal Land</code></li>
 <li><code>Federal Permit</code></li>
+<li><code>Federal Action</code></li>
 <li><code>Federal Program</code></li>
 <li><code>Federal Property Transaction</code></li>
 </ul>
-<section id="federal-funding-or-financial-assistance" class="level3">
-<h3 class="anchored" data-anchor-id="federal-funding-or-financial-assistance">1. Federal funding or financial assistance</h3>
-<p><strong>Code:</strong> <code>federal_funding</code></p>
-<p>Use when the project is undergoing NEPA review because it receives direct or indirect federal financial support.</p>
-<p>Includes:</p>
-<ul>
-<li>Federal grants (DOE, DOT, HUD, USDA)</li>
-<li>Cooperative agreements with partial federal funding</li>
-<li>Federal loans or loan guarantees (including DOE Title XVII loan guarantees)</li>
-<li>Federal cost sharing arrangements</li>
-<li>Formula-based awards (EECBG, State Energy Program, WAP)</li>
-<li>Bipartisan Infrastructure Law or Inflation Reduction Act funding</li>
-<li>ARRA / Recovery Act funding</li>
-</ul>
-<p>Typical language (these are the exact phrases the extraction script detects):</p>
+<section id="federal-funding" class="level3">
+<h3 class="anchored" data-anchor-id="federal-funding">1. Federal funding</h3>
+<hr>
+<p><strong>Coding rule:</strong> <code>Assign federal funding classification when the project receives direct or indirect federal financial support or when federal financial support is the reason the agency is involved in project approval or review</code>.</p>
 <p><strong>Grants and direct funding:</strong></p>
 <ul>
 <li>“federal grant” / “DOE grant” / “DOT grant” / “HUD grant” / “USDA grant” / “grant funding”</li>
 <li>“federal funding” / “federal financial assistance”</li>
-<li>“DOE/DOT/HUD/USDA grant” / “DOE/DOT/HUD/USDA funding”</li>
+<li>“DOE grant” / “DOE funding” / “DOT grant” / “DOT funding” / “HUD grant” / “HUD funding” / “USDA grant” / “USDA funding” (Tier 1b agency+type pattern)</li>
 <li>“provide federal funding”</li>
-<li>“DOE Funding” (in dollar-amount context)</li>
-<li>“DOE/Department of Energy … would provide … funds/funding/grant/awards/cost-share”</li>
-<li>“total award value” / “Total Project Value”</li>
+<li>“DOE Funding” (standalone; Tier 4 context scan)</li>
+<li>“DOE/Department of Energy” + “would provide” + “funds/funding/grant/awards/cost-share” (within same passage)</li>
+<li>“total award value”</li>
+<li>“Total Project Value”</li>
 </ul>
 <p><strong>Loans and loan guarantees:</strong></p>
 <ul>
@@ -3992,56 +3982,49 @@ vertical-align: -.125em;
 </ul>
 <p><strong>Cooperative agreements:</strong></p>
 <ul>
-<li>“through a cooperative agreement … partially fund”</li>
-<li>“providing financial assistance to … cooperative agreement”</li>
-<li>“awarding a grant … partially fund”</li>
+<li>“through a cooperative agreement … partially fund” (within same passage)</li>
+<li>“providing financial assistance to … under/through a cooperative agreement” (within same passage)</li>
+<li>“awarding a grant … partially fund” (within same passage)</li>
 </ul>
 <p><strong>Cost sharing:</strong></p>
 <ul>
 <li>“cost share”</li>
-<li>“DOE Funding = $X / Cost Share = $X”</li>
+<li>“DOE Funding = $[amount] … Cost Share = $[amount]” (Tier 1b; requires actual dollar figures)</li>
 <li>“cost-shared arrangement”</li>
-<li>“Federal Cost Share … Total Project Value”</li>
+<li>“DOE’s (proposed) action is to provide … cost-shared arrangement” (within same passage; Tier 1b only)</li>
+<li>“Federal Cost Share” + “Total Project Value” within same passage (Tier 1b)</li>
+<li>“Federal Cost Share” standalone (Tier 4 context scan — lower specificity)</li>
 </ul>
 <p><strong>Legislative funding authorities:</strong></p>
 <ul>
 <li>“Inflation Reduction Act”</li>
 <li>“Bipartisan Infrastructure Law” / “Bipartisan Infrastructure Act”</li>
 <li>“Title XVII”</li>
-<li>“ARRA” / “Recovery Act” (detected via Tier 1a DOE agency routing)</li>
 </ul>
 <p><strong>Formula-based programs:</strong></p>
 <ul>
-<li>“formula awards” / “formula-based awards” / “formula-based grants”</li>
+<li>“formula awards” / “formula-based awards” / “formula grants” / “formula-based grants”</li>
 <li>“EECBG funding” / “DOE EECBG funding”</li>
-<li>“State Energy Program (SEP) … formula awards”</li>
-<li>“WAP … formula awards”</li>
-<li>“Administrative and Legal Requirements Document (ALRD) … formula awards”</li>
+<li>“State Energy Program” / “SEP” / “WAP” + “formula awards/grants” within same passage</li>
+<li>“Administrative and Legal Requirements Document” / “ALRD” + “formula awards/grants” within same passage (medium confidence)</li>
 </ul>
-<p>Examples:</p>
+<p><strong>Document title (Tier 2 scan):</strong></p>
 <ul>
-<li>Transit project using Federal Transit Administration money</li>
-<li>Grid project using DOE Title XVII loan guarantee</li>
-<li>Housing or infrastructure project using HUD funds</li>
-<li>Energy efficiency project funded through an EECBG formula grant</li>
+<li>“loan guarantee” appearing in the document title</li>
 </ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_funding</code> when the project description or NEPA document indicates that federal financial support is a reason the agency is involved in project approval or review.</p>
+<p><strong>Agency metadata (Tier 1a — detected without text cues):</strong></p>
+<ul>
+<li>Agency is DOT / Department of Transportation → auto-assigned <code>federal_funding</code></li>
+<li>Agency is HUD / Department of Housing and Urban Development → auto-assigned <code>federal_funding</code></li>
+<li>Agency is FTA / Federal Transit Administration → auto-assigned <code>federal_funding</code></li>
+<li>Agency is FHWA / Federal Highway Administration → auto-assigned <code>federal_funding</code></li>
+<li>Note: DOE is ambiguous — it can indicate either <code>federal_funding</code> or <code>federal_action</code> depending on verb context; DOE projects are routed to Tier 4 for adjudication</li>
+</ul>
 </section>
-<section id="federal-land-right-of-way-easement-or-land-management-involvement" class="level3">
-<h3 class="anchored" data-anchor-id="federal-land-right-of-way-easement-or-land-management-involvement">2. Federal land, right-of-way, easement, or land management involvement</h3>
-<p><strong>Code:</strong> <code>federal_land</code></p>
-<p>Use when the project is located on, crosses, uses, or requires access to federally managed land or federally controlled property interests.</p>
-<p>Includes:</p>
-<ul>
-<li>Right-of-way grants, renewals, and amendments on BLM, USFS, NPS, Bureau of Reclamation, or tribal lands</li>
-<li>Special use permits on federal land</li>
-<li>Temporary and permanent easements across federal land, including expired easement renewals</li>
-<li>2920 Land Use Authorizations (Bureau of Reclamation)</li>
-<li>Bureau of Indian Affairs right-of-way grants</li>
-<li>Amendments to existing ROW grants or land use authorizations</li>
-<li>Federal Land Policy and Management Act (FLPMA) authorizations for rights-of-way across public lands</li>
-</ul>
-<p>Typical language (these are the exact phrases the extraction script detects):</p>
+<section id="federal-land" class="level3">
+<h3 class="anchored" data-anchor-id="federal-land">2. Federal land</h3>
+<hr>
+<p><strong>Coding rule:</strong> <code>Assign federal land classification when the project is located on, crosses, uses, or requires access to federally managed land or federally controlled property interests or when the project arises from federal land ownership, land management authority, easement authority, or right-of-way control</code>.</p>
 <p><strong>ROW applications and grants on BLM / public land:</strong></p>
 <ul>
 <li>“application for a right-of-way grant”</li>
@@ -4069,7 +4052,8 @@ vertical-align: -.125em;
 <ul>
 <li>“temporary and permanent easements”</li>
 <li>“easement has expired”</li>
-<li>“easement” + “right-of-way” (within same passage; includes “easement for the right-of-way”)</li>
+<li>“easement for the right-of-way” (Tier 1b; exact phrase)</li>
+<li>“easement” + “right-of-way” within same passage (~120 chars) (Tier 4; broader proximity match)</li>
 </ul>
 <p><strong>Bureau of Indian Affairs:</strong></p>
 <ul>
@@ -4092,45 +4076,29 @@ vertical-align: -.125em;
 <ul>
 <li>Agency is BLM, Bureau of Land Management, USFS, Forest Service, NPS, National Park Service, FWS / USFWS, Fish and Wildlife Service, BOR / USBR, Bureau of Reclamation</li>
 </ul>
-<p>Examples:</p>
-<ul>
-<li>Transmission line across BLM land requiring a 30-year ROW grant</li>
-<li>Solar project requiring a special use permit on National Forest land</li>
-<li>Expired BPA easement renewed through Bureau of Indian Affairs</li>
-<li>Pipeline ROW amendment on Bureau of Reclamation land</li>
-</ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_land</code> when the federal nexus arises from land ownership, land management authority, easement authority, or right-of-way control.</p>
 </section>
-<section id="federal-permit-license-approval-or-authorization" class="level3">
-<h3 class="anchored" data-anchor-id="federal-permit-license-approval-or-authorization">3. Federal permit, license, approval, or authorization</h3>
-<p><strong>Code:</strong> <code>federal_permit</code></p>
-<p>Use when the project needs a federal permit, license, certification, or approval, even if it is otherwise private or state-led.</p>
-<p>Includes:</p>
+<section id="federal-permit" class="level3">
+<h3 class="anchored" data-anchor-id="federal-permit">3. Federal permit</h3>
+<hr>
+<p><strong>Coding rule:</strong> <code>Assign federal permit classification when the  project needs a federal permit, license, certification, or approval--even if it is otherwise private or state-led--and the action is primarily a regulatory authorization, license, permit, or approval.</code></p>
+<p><strong>Army Corps / Section 404 permits:</strong></p>
 <ul>
-<li>U.S. Army Corps Section 404 permits (individual, standard, nationwide) and Section 10 Rivers and Harbors Act permits</li>
-<li>NPDES permits (construction stormwater general permit, point source discharge)</li>
-<li>FERC hydropower licenses, relicensing, and certificates of public convenience and necessity</li>
-<li>NRC early site permits, combined licenses, license renewals (including subsequent license renewals), and license amendments</li>
-<li>Incidental Take Permits (ITP) under ESA Section 10(a)(1)(B), including renewed/amended ITPs and Habitat Conservation Plan-linked permits</li>
-<li>Presidential Permits (cross-border infrastructure)</li>
-<li>FAA and FCC approvals — detected via agency metadata (Tier 1a), not document text cues</li>
-</ul>
-<p>Typical language (these are the exact phrases the extraction script detects):</p>
-<p><strong>Army Corps / water permits:</strong></p>
-<ul>
+<li>“Department of the Army Environmental Assessment and Statement of Finding/Findings” + “(Standard) Individual Permit Application” within same passage (Tier 1b only)</li>
 <li>“Standard Individual Permit Application” / “Individual Permit Application”</li>
 <li>“Section 404 permit application”</li>
 <li>“applied for an individual permit under Section 404”</li>
-<li>“Department of Army permit pursuant to Section 404 … Section 10 of the Rivers and Harbors”</li>
-<li>“Section 10 … Rivers and Harbors”</li>
-<li>“Nationwide Permit (NWP) Verification”</li>
-<li>“Nationwide, Regional General, or Standard Individual Permit may be required”</li>
+<li>“Department of Army permit” / “Department of the Army (DA) permit” + “Section 404” within same passage (180 chars)</li>
+<li>“Section 10” + “Rivers and Harbors” within same passage (80 chars)</li>
+<li>“Nationwide Permit (NWP) Verification” (medium confidence)</li>
+<li>“Nationwide, Regional General, or Standard Individual Permit may be required” (medium confidence)</li>
 </ul>
 <p><strong>NPDES:</strong></p>
 <ul>
-<li>“National Pollutant Discharge Elimination System (NPDES) permit”</li>
+<li>“issuance of a National Pollutant Discharge Elimination System permit” (Tier 1b; without NPDES acronym)</li>
+<li>“National Pollutant Discharge Elimination System (NPDES) permit” (Tier 1b + Tier 4; with NPDES acronym)</li>
+<li>“National Pollutant Discharge Elimination System (NPDES) Construction Storm Water General Permit is required” (full phrase, Tier 1b)</li>
 <li>“NPDES permit must be obtained”</li>
-<li>“NPDES … permitting decision”</li>
+<li>“NPDES” + “permitting decision” within same passage (80 chars)</li>
 <li>“Construction Storm Water General Permit is required”</li>
 </ul>
 <p><strong>Incidental take / ESA:</strong></p>
@@ -4143,16 +4111,15 @@ vertical-align: -.125em;
 <p><strong>FERC:</strong></p>
 <ul>
 <li>“hydropower license”</li>
-<li>“relicense” / “relicensing”</li>
+<li>“relicense” / “relicensing” (medium confidence)</li>
 <li>“application for a certificate of public convenience and necessity”</li>
-<li>“NRC/FERC license amendment” (also detected near “10 CFR 50.90” or “FERC order”)</li>
 </ul>
 <p><strong>Presidential permits:</strong></p>
 <ul>
 <li>“Amendment to Presidential Permit”</li>
+<li>“(Amendment to) Presidential Permit” (Tier 4 broader form; covers both standalone and amendment)</li>
 <li>“Issuance of Presidential Permit PP-[number]”</li>
-<li>“Presidential Permit Application Review”</li>
-<li>“Presidential Permit”</li>
+<li>“Presidential Permit Application Review” (Tier 1b only)</li>
 </ul>
 <p><strong>NRC nuclear licenses:</strong></p>
 <ul>
@@ -4160,108 +4127,227 @@ vertical-align: -.125em;
 <li>“Combined License”</li>
 <li>“License Renewal” / “Subsequent License Renewal”</li>
 <li>“issuance of renewed facility operating licenses”</li>
+<li>“NRC/FERC” + “license amendment” within same passage (80 chars) — OR — “license amendment” + “NRC/FERC/10 CFR 50.90/FERC order” within same passage (Tier 4 only)</li>
 </ul>
-<p>Examples:</p>
+<p><strong>Document title (Tier 2 scan):</strong></p>
 <ul>
-<li>Wetland fill requiring an individual Section 404 permit from USACE</li>
-<li>Hydropower relicensing action at FERC</li>
-<li>Wind project requiring an Incidental Take Permit and Habitat Conservation Plan</li>
-<li>Nuclear plant combined license or subsequent license renewal from NRC</li>
-<li>Cross-border transmission line requiring a Presidential Permit</li>
+<li>“(Standard) Individual Permit Application”</li>
+<li>“Hydropower License”</li>
+<li>“Incidental Take Permit”</li>
+<li>“Presidential Permit”</li>
+<li>“Early Site Permit”</li>
+<li>“Combined License”</li>
+<li>“(Subsequent) License Renewal”</li>
+<li>“certificate of public convenience and necessity”</li>
 </ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_permit</code> when the federal nexus is primarily a regulatory authorization, license, permit, or approval.</p>
+<p><strong>Agency metadata (Tier 1a — detected without text cues):</strong></p>
+<ul>
+<li>Agency is FERC / Federal Energy Regulatory Commission → auto-assigned <code>federal_permit</code></li>
+<li>Agency is FAA / Federal Aviation Administration → auto-assigned <code>federal_permit</code></li>
+<li>Agency is FCC / Federal Communications Commission → auto-assigned <code>federal_permit</code></li>
+</ul>
 </section>
-<section id="direct-federal-agency-action-or-federal-project-sponsor" class="level3">
-<h3 class="anchored" data-anchor-id="direct-federal-agency-action-or-federal-project-sponsor">4. Direct federal agency action or federal project sponsor</h3>
-<p><strong>Code:</strong> <code>federal_action</code></p>
-<p>Use when a federal agency is itself carrying out, constructing, adopting, managing, or directly sponsoring the action.</p>
-<p>Includes:</p>
+<section id="federal-action" class="level3">
+<h3 class="anchored" data-anchor-id="federal-action">4. Federal Action</h3>
+<hr>
+<p><strong>Coding rule:</strong> <code>Assign federal action coding when the federal agency is not just approving someone else’s project but is the primary actor proposing, implementing, constructing, adopting, managing, or directly sponsoring the action.</code></p>
+<p><strong>Recognized federal actors</strong> — the following agency names are required to appear in any compound pattern below:</p>
 <ul>
-<li>Federal construction projects</li>
-<li>Federal facility upgrades</li>
-<li>Military base actions</li>
-<li>Federal land management actions</li>
-<li>Agency-run restoration or infrastructure actions</li>
-<li>Federal leasing decisions when the agency is the primary actor</li>
+<li>DOE / Department of Energy</li>
+<li>NNSA / National Nuclear Security Administration</li>
+<li>BPA / Bonneville / Bonneville Power Administration</li>
+<li>WAPA / Western / Western Area Power Administration</li>
+<li>Reclamation / Bureau of Reclamation / USBR</li>
+<li>CBP / U.S. Customs and Border Protection</li>
+<li>Forest Service / U.S. Forest Service / USFS</li>
+<li>Bureau of Land Management / BLM</li>
+<li>NPS / National Park Service</li>
+<li>PNNL / Pacific Northwest National Laboratory</li>
 </ul>
-<p>Typical language:</p>
+<p><strong>Compound patterns (actor + intent verb + action verb — all must appear in same passage):</strong></p>
+<p>Intent verbs recognized: “proposes to” / “propose to” / “is proposing to” / “will” / “would” / “would be to” / “is to”</p>
+<p>Action verbs recognized: construct, install, build, operate, implement, manage, restore, undertake, develop, upgrade, expand, demolish, replace, retrofit, rebuild, reconductor, renovate, refurbish, relocate, repair, reconfigure, dismantle, modernize, improve</p>
+<p>The compound patterns are:</p>
 <ul>
-<li>“the agency proposes to”</li>
-<li>“federal action by”</li>
-<li>“the Bureau proposes”</li>
-<li>“the Department will construct”</li>
-<li>“the Forest Service proposes”</li>
+<li>[ACTOR] + (within 80 chars) + [INTENT VERB] + [ACTION VERB]</li>
+<li>[ACTOR] + (within 80 chars) + [INTENT VERB] + “remove and replace”</li>
+<li>[ACTOR] + (within 120 chars) + “construct, own, operate, and maintain”</li>
+<li>[ACTOR] + (within 160 chars) + “constructed and operated” / “would be constructed and operated”</li>
+<li>[ACTOR] + (within 160 chars) + “continue to occupy and maintain existing facilities” + (within 180 chars) + “refurbish existing facilities”</li>
+<li>[ACTOR] + (within 160 chars) + “would functionally replace”</li>
+<li>[ACTOR] + (within 520 chars) + “rebuild the existing”</li>
+<li>[ACTOR] + (within 200 chars) + “upgrade/rebuild” + (within 160 chars) + “by removing” + (within 160 chars) + “and installing”</li>
 </ul>
-<p>Examples:</p>
+<p><strong>Specific literal pattern (no verb structure required):</strong></p>
 <ul>
-<li>VA hospital expansion</li>
-<li>Army Corps channel dredging</li>
-<li>USFS vegetation management project</li>
+<li>“now that DOE has acquired ownership of the parcel, DOE proposes to operate and maintain the site”</li>
 </ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_action</code> when the agency is not just approving someone else’s project but is the primary actor proposing or implementing the action.</p>
+<p><strong>Specific literal pattern (no verb structure required):</strong></p>
+<ul>
+<li>“now that DOE has acquired ownership of the parcel, DOE proposes to operate and maintain the site”</li>
+</ul>
+<p><strong>Standalone patterns (no actor name required):</strong></p>
+<ul>
+<li>“federal construction” / “federal facility” / “federal installation”</li>
+<li>“military installation” / “military base” / “military facility” / “military construction”</li>
+<li>“federal facility upgrade” / “federal facility expansion” / “federal facility construction” (Tier 1b; more specific form)</li>
+<li>“vegetation management” + “National Forest” within same passage (~50 chars) (Tier 1b only)</li>
+</ul>
+<p><strong>Agency metadata (Tier 1a — detected without text cues):</strong></p>
+<ul>
+<li><strong><code>AGENCY_ACTION_PRIOR_MAP</code></strong> — sets a prior toward <code>federal_action</code>; continues through Tier 1b/2/3/4 for confirmation:
+<ul>
+<li>Power Marketing Administration</li>
+<li>Bonneville Power Administration / BPA</li>
+<li>Western Area Power Administration / WAPA</li>
+</ul></li>
+<li><strong><code>AGENCY_ACTION_ONLY_MAP</code></strong> — border infrastructure is always direct federal construction; continues through tiers:
+<ul>
+<li>CBP / U.S. Customs and Border Protection</li>
+</ul></li>
+<li>Note: DOE and USACE appear in <code>FEDERAL_ACTION_ACTOR_PATTERN</code> (used in compound text patterns above) but are classified as <code>AGENCY_AMBIGUOUS</code> in Tier 1a — they are NOT auto-assigned to <code>federal_action</code> from metadata alone; verb context from document text is required to distinguish <code>federal_action</code> from <code>federal_funding</code> (DOE) or <code>federal_permit</code> (USACE)</li>
+</ul>
 </section>
-<section id="federal-plan-program-rulemaking-or-policy-decision" class="level3">
-<h3 class="anchored" data-anchor-id="federal-plan-program-rulemaking-or-policy-decision">5. Federal plan, program, rulemaking, or policy decision</h3>
-<p><strong>Code:</strong> <code>federal_program</code></p>
-<p>Use when the action is not primarily a site-specific project, but a broader federal planning or policy action.</p>
-<p>Includes:</p>
-<ul>
-<li>Programmatic EIS</li>
-<li>Resource management plan revisions</li>
-<li>National or regional strategy documents</li>
-<li>Program-wide leasing frameworks</li>
-<li>Rulemaking or regulation changes</li>
-<li>Corridor designations or similar planning actions</li>
-</ul>
-<p>Typical language:</p>
+<section id="federal-programs" class="level3">
+<h3 class="anchored" data-anchor-id="federal-programs">5. Federal programs</h3>
+<hr>
+<p><strong>Coding rule:</strong> <code>Assign the federal program classification when the NEPA action is not primarily a site-specific project, but a broader plan, rule, policy, or program rather than a single facility or construction project.</code></p>
+<p><strong>Programmatic document identifiers (full phrases):</strong></p>
 <ul>
 <li>“programmatic environmental impact statement”</li>
-<li>“resource management plan amendment”</li>
+<li>“programmatic environmental assessment”</li>
+<li>“Draft Programmatic Environmental Impact Statement” / “Final Programmatic Environmental Impact Statement” / “Supplemental Programmatic Environmental Impact Statement”</li>
+<li>“this programmatic EIS” / “this programmatic EA” / “this programmatic Environmental…”</li>
+</ul>
+<p><strong>Programmatic acronyms and abbreviations:</strong></p>
+<ul>
+<li>“PEIS” / “DPEIS” / “FPEIS” / “SPEIS”</li>
+<li>“PEA” (programmatic environmental assessment)</li>
+<li>“SWEIS” (site-wide environmental impact statement)</li>
+<li>“SWEA” (site-wide environmental assessment)</li>
+<li>“program-wide” / “programwide”</li>
+</ul>
+<p><strong>Generic and tiered review types:</strong></p>
+<ul>
+<li>“generic environmental impact statement” / “generic environmental assessment” / “generic EIS” / “generic EA”</li>
+<li>“Tier 1 review” / “Tier 1 NEPA review” / “Tier 1 environmental impact statement” / “Tier 1 EIS” / “Tier 1 EA” / “Tier i review” / “Tier one review”</li>
+<li>“Environmental Impact Statement Tier 1” / “EIS Tier 1” / “EA Tier 1” (reversed order)</li>
+<li>“site-wide environmental impact statement” / “site-wide environmental assessment” / “sitewide environmental assessment”</li>
+</ul>
+<p><strong>Resource and land management plans:</strong></p>
+<ul>
+<li>“resource management plan amendment” / “resource management plan revision”</li>
+<li>“resource management plan” (standalone, in title or description)</li>
+<li>“revision of the … land and resource management plan” (within same passage)</li>
+<li>“final … land and resource management plan” / “proposed … land and resource management plan” (medium confidence)</li>
+</ul>
+<p><strong>Other program types:</strong></p>
+<ul>
+<li>“leasing program” / “leasing framework”</li>
+<li>“corridor designation”</li>
 <li>“rulemaking”</li>
-<li>“leasing program”</li>
 <li>“policy framework”</li>
-<li>“regional plan”</li>
 </ul>
-<p>Examples:</p>
+<p><strong>Named federal energy programs (compound patterns — both terms must appear in same passage):</strong></p>
 <ul>
-<li>Offshore wind leasing program</li>
-<li>BLM land-use planning revision</li>
-<li>Nationwide programmatic review for infrastructure corridor designations</li>
+<li>“integrated resource plan” + “programmatic environmental impact statement” / “supplemental environmental impact statement” / “draft EIS”</li>
+<li>“integrated vegetation management program” + “programmatic environmental assessment”</li>
+<li>“system-wide operations and maintenance” + “programmatic environmental assessment”</li>
+<li>“uranium leasing program” + “programmatic environmental assessment”</li>
+<li>“outer continental shelf oil and gas leasing program” + “programmatic environmental impact statement”</li>
+<li>“solar energy development in six southwestern states” + “programmatic environmental impact statement”</li>
+<li>“wind energy development on Bureau of Land Management-administered lands” + “programmatic environmental impact statement”</li>
+<li>“updates to the western solar plan” + “solar PEIS” / “programmatic environmental impact statement” — OR — “2023 draft solar PEIS”</li>
+<li>“designation of energy corridors on federal land” + “programmatic environmental impact statement”</li>
+<li>“section 368 energy corridor revisions” + “resource management plan amendment” / “environmental impact statement”</li>
+<li>“long-term experimental and management plan” + “environmental impact statement”</li>
 </ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_program</code> when the NEPA action is a broader plan, rule, policy, or program rather than a single facility or construction project.</p>
+<p><strong>Document title (Tier 2 scan):</strong></p>
+<ul>
+<li>“programmatic” / “program-wide” / “PEIS” / “PEA” appearing in the document title (with exclusion check applied)</li>
+</ul>
+<p><strong>Excluded patterns:</strong></p>
+<ul>
+<li>“programmatic agreement” → refers to a Section 106 consultation agreement, not a NEPA program review</li>
+<li>“programmatic biological opinion” → a Fish and Wildlife consultation document, not a NEPA program review</li>
+<li>“programmatic consultation” → inter-agency coordination, not NEPA</li>
+<li>“programmatic collaboration” → not NEPA</li>
+</ul>
 </section>
-<section id="federal-property-transfer-disposal-acquisition-or-conveyance" class="level3">
-<h3 class="anchored" data-anchor-id="federal-property-transfer-disposal-acquisition-or-conveyance">6. Federal property transfer, disposal, acquisition, or conveyance</h3>
-<p><strong>Code:</strong> <code>federal_property_transaction</code></p>
-<p>Use when the federal action involves transfer or disposition of land or property interests.</p>
-<p>Includes:</p>
-<ul>
-<li>Sale of federal land</li>
-<li>Land exchange</li>
-<li>Transfer of administrative control</li>
-<li>Acquisition of land by federal agency when NEPA review is tied to that action</li>
-<li>Easement conveyance or related property transaction</li>
-</ul>
-<p>Typical language:</p>
+<section id="federal-property-transaction" class="level3">
+<h3 class="anchored" data-anchor-id="federal-property-transaction">6. Federal property transaction</h3>
+<hr>
+<p><strong>Coding rule:</strong> <code>Assign federal property transaction coding when the federal action involves transfer or disposition of federally controlled land or property interests</code>.</p>
+<p><strong>Land exchange:</strong></p>
 <ul>
 <li>“land exchange”</li>
-<li>“disposal”</li>
-<li>“conveyance”</li>
-<li>“property transfer”</li>
-<li>“sale of federal parcel”</li>
+<li>“fee-for-fee land exchange”</li>
+<li>“exchange property with”</li>
+<li>“asset exchange” + “rights-of-way/easements/line easements” within same passage (medium confidence)</li>
+<li>“easement exchange” (document title only)</li>
 </ul>
-<p>Examples:</p>
+<p><strong>Disposal:</strong></p>
 <ul>
-<li>Federal land disposal for development</li>
-<li>Land exchange involving public lands</li>
+<li>“dispose of land rights” / “dispose of the underlying land rights”</li>
+<li>“land disposal”</li>
+<li>“disposal of federal land” / “disposal of federal property” (Tier 1b: requires “of federal” qualifier)</li>
+<li>“disposal” standalone (Tier 4 context scan — lower specificity)</li>
 </ul>
-<p><strong>Coding rule:</strong> Assign <code>federal_property_transaction</code> when the trigger is fundamentally about a transfer or disposition of federally controlled property.</p>
+<p><strong>Sale:</strong></p>
+<ul>
+<li>“sale of land rights”</li>
+<li>“sell in fee”</li>
+</ul>
+<p><strong>Conveyance:</strong></p>
+<ul>
+<li>“conveyance of federal land” / “conveyance of federal property” (Tier 1b: requires “of federal” qualifier)</li>
+<li>“conveyance” standalone (Tier 4 context scan — lower specificity)</li>
+</ul>
+<p><strong>Acquisition of land or easements:</strong></p>
+<ul>
+<li>“acquire land rights”</li>
+<li>“acquire several road easements”</li>
+<li>“acquire access road rights”</li>
+<li>“acquire and release access road rights”</li>
+<li>“purchase lots and easements” / “purchase two lots and easements” / “purchase lots and line easements”</li>
+<li>“land purchase and easement acquisition” (document title only)</li>
+<li>“land rights acquisition” (document title only)</li>
+</ul>
+<p><strong>Transfer of ownership or title:</strong></p>
+<ul>
+<li>“transfer ownership” + “easements/rights-of-way/associated easements/land rights” within same passage</li>
+<li>“title transfer” + “easements/rights-of-way/land rights” within same passage</li>
+<li>“title transfer” (document title — standalone)</li>
+<li>“parcel transfer” (medium confidence)</li>
+<li>“property transfer” near “transmission line” or “substation” in document title (contextual; document title only)</li>
+</ul>
+<p><strong>Document title (Tier 2 scan):</strong></p>
+<ul>
+<li>“land exchange”</li>
+<li>“land disposal”</li>
+<li>“sale of land rights”</li>
+<li>“land purchase and easement acquisition”</li>
+<li>“land rights acquisition”</li>
+<li>“easement exchange”</li>
+<li>“title transfer”</li>
+<li>“transmission line … property transfer” / “substation … property transfer” (within ~40 characters in title)</li>
+</ul>
+<p><strong>Excluded patterns:</strong></p>
+<ul>
+<li>“acquired the property as part of … land exchange” — past acquisition context, not the current action</li>
+<li>“completed a NEPA review of the land exchange” — historical reference to a prior review</li>
+<li>“no transfer of land ownership” — explicitly negates a transfer</li>
+<li>“only change would be in ownership of assets” — asset change without land conveyance</li>
+<li>“land exchanges, withdrawals, and the implementation of RMP” — background policy mention in an RMP review</li>
+<li>“disposal of land parcels” / “disposals of land parcels” — generic land management language, not a discrete transaction</li>
+<li>“land exchange could lower/allow/play a role/be considered” — conditional future reference, not a proposed action</li>
+<li>“land exchanges are considered on a case-by-case basis” — policy description, not a specific proposed action</li>
+</ul>
 </section>
-<section id="unknown-or-unclear-federal-nexus" class="level3">
-<h3 class="anchored" data-anchor-id="unknown-or-unclear-federal-nexus">7. Unknown or unclear federal nexus</h3>
-<p><strong>Code:</strong> <code>unknown</code></p>
-<p>Use when the project clearly underwent NEPA review, but the available materials do not allow reliable identification of the triggering nexus.</p>
-<p><strong>Coding rule:</strong> Assign <code>unknown</code> only after attempting structured extraction from title, description, process metadata, agencies, and document text.</p>
+<section id="unknown-or-unclear" class="level3">
+<h3 class="anchored" data-anchor-id="unknown-or-unclear">7. Unknown or unclear</h3>
+<hr>
+<p><strong>Coding rule:</strong> <code>Assign the unknown classification only after attempting structured extraction from title, description, process metadata, agencies, and document text and the available materials do not allow reliable identification of the triggering nexus.</code></p>
 </section>
 </section>
 <section id="class-hypotheses" class="level2">
@@ -4270,27 +4356,27 @@ vertical-align: -.125em;
 <ul>
 <li><code>federal_funding</code>
 <ul>
-<li>This text shows that a federal agency is funding, financing, or providing financial assistance, a grant, or a loan guarantee for this project.</li>
+<li>This text shows that a federal agency is funding, financing, or providing financial assistance for this project, including through a grant, loan, loan guarantee, cost-sharing arrangement, cooperative agreement, or formula-based award.</li>
 </ul></li>
 <li><code>federal_action</code>
 <ul>
-<li>This text shows that a federal agency is directly implementing, constructing, installing, operating, or restoring this project.</li>
+<li>This text shows that a federal agency is the primary actor directly proposing, constructing, installing, operating, managing, upgrading, rebuilding, restoring, or otherwise implementing this project, rather than merely approving or permitting someone else’s project.</li>
 </ul></li>
 <li><code>federal_land</code>
 <ul>
-<li>This text shows that the project is located on or crosses federal land, or requires a right-of-way grant or special use permit on federal land.</li>
+<li>This text shows that this project is located on, crosses, or requires access to federally managed land, or that the project requires a right-of-way grant, easement, special use permit, land use authorization, or similar approval tied to use of federal land.</li>
 </ul></li>
 <li><code>federal_permit</code>
 <ul>
-<li>This text shows that a federal permit, license, or authorization is required for this project.</li>
+<li>This text shows that a federal permit, license, certification, or regulatory approval is required for this project, even if the project is otherwise privately or state-led.</li>
 </ul></li>
 <li><code>federal_program</code>
 <ul>
-<li>This text shows that this is a programmatic environmental review, a resource management plan revision, or a land use plan covering a class of actions.</li>
+<li>This text shows that this is a programmatic, generic, site-wide, or Tier 1 environmental review covering a class of actions or a geographic area, or a broader federal planning document such as a resource management plan revision, leasing program, corridor designation, or rulemaking.</li>
 </ul></li>
 <li><code>federal_property_transaction</code>
 <ul>
-<li>This text shows that this involves a federal land exchange, conveyance, or disposal.</li>
+<li>This text shows that this involves a federal land exchange, sale, disposal, conveyance, acquisition, or transfer of land, land rights, easements, or other real-property interests.</li>
 </ul></li>
 </ul>
 
