@@ -134,6 +134,7 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 **Agency metadata (Tier 1a — detected without text cues):**
 
 - Agency is BLM, Bureau of Land Management, USFS, Forest Service, NPS, National Park Service, FWS / USFWS, Fish and Wildlife Service, BOR / USBR, Bureau of Reclamation
+- Agency is BLM / Bureau of Land Management AND sponsor contains Forest Service / USFS AND title or description contains one of: “right-of-way” / “ROW” / “withdrawal” / “Public Land Order” / “FLPMA” → auto-assigned `federal_land` (`T1a_BLM_USFS_land_control`)
 
 
 ### 3. Federal permit
@@ -149,6 +150,8 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 - “Section 404 permit application”
 - “applied for an individual permit under Section 404”
 - “Department of Army permit” / “Department of the Army (DA) permit” + “Section 404” within same passage (180 chars)
+- “Clean Water Act” only when paired in the same passage with explicit permit language such as “Section 404” + “permit” / “permit application,” “permit application,” “issue a permit” / “issue a permit with conditions,” “deny a permit,” or “Section 10”
+- Do not use bare “Clean Water Act” by itself as a permit trigger
 - “Section 10” + “Rivers and Harbors” within same passage (80 chars)
 - “Nationwide Permit (NWP) Verification” (medium confidence)
 - “Nationwide, Regional General, or Standard Individual Permit may be required” (medium confidence)

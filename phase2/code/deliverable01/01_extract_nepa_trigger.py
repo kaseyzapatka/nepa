@@ -122,6 +122,7 @@ AUTO_ACCEPT_RULE_IDS = frozenset({
     "T1a_WAPA_direct_action",
     "T1a_CBP_direct_action",
     "T1a_PMA_direct_action",
+    "T1a_BLM_USFS_land_control",
 })
 
 SEND_TO_TIER4_RULE_IDS = frozenset({
@@ -193,6 +194,35 @@ _AGENCY_CODE_LOOKUP = {
     "CBP": "CBP", "U.S. CUSTOMS AND BORDER PROTECTION": "CBP", "CUSTOMS AND BORDER PROTECTION": "CBP",
     "POWER MARKETING ADMINISTRATION": "PMA",
 }
+
+FOREST_SERVICE_SPONSOR_PATTERN = (
+    r"\b(?:USDA(?:,\s*)?)?(?:U\.?S\.?\s*)?Forest\s+Service\b|"
+    r"\bUSFS\b"
+)
+BLM_USFS_LAND_CONTROL_PATTERN = (
+    r"\bright[-\s]of[-\s]way\b|"
+    r"\bROW\b|"
+    r"\bwithdrawal\b|"
+    r"\bPublic\s+Land\s+Order\b|"
+    r"\bFLPMA\b"
+)
+CLEAN_WATER_ACT_PERMIT_CONTEXT_PATTERN = (
+    r"\bClean\s+Water\s+Act\b[\s\S]{0,180}\b(?:"
+    r"Section\s+404\b[\s\S]{0,80}\bpermit(?:\s+application)?\b|"
+    r"permit\s+application\b|"
+    r"issue\s+a\s+permit(?:\s+with\s+conditions)?\b|"
+    r"deny\s+a\s+permit\b|"
+    r"Section\s+10\b"
+    r")"
+    r"|"
+    r"\b(?:"
+    r"Section\s+404\b[\s\S]{0,80}\bpermit(?:\s+application)?\b|"
+    r"permit\s+application\b|"
+    r"issue\s+a\s+permit(?:\s+with\s+conditions)?\b|"
+    r"deny\s+a\s+permit\b|"
+    r"Section\s+10\b"
+    r")[\s\S]{0,180}\bClean\s+Water\s+Act\b"
+)
 
 # --- federal_direct_action vs federal_land disambiguation ---
 
@@ -356,6 +386,7 @@ TIER1B_PATTERNS = [
     (r'Section\s+404\s+permit\s+application\b', 'federal_permit', 'sec404', 'high'),
     (r'applied\s+for\s+an\s+individual\s+permit\s+under\s+Section\s+404\b', 'federal_permit', 'sec404_individual', 'high'),
     (r'Department\s+of\s+(?:the\s+)?Army(?:\s+\(DA\))?\s+permit\s+pursuant\s+to\s+Section\s+404\b[\s\S]{0,180}\bSection\s+10\s+of\s+the\s+Rivers\s+and\s+Harbors', 'federal_permit', 'sec404_da', 'high'),
+    (CLEAN_WATER_ACT_PERMIT_CONTEXT_PATTERN, 'federal_permit', 'clean_water_act_permit_context', 'medium'),
     (r'Section\s+10\b[\s\S]{0,80}Rivers\s+and\s+Harbors', 'federal_permit', 'sec10_rha', 'high'),
     (r'Nationwide\s+Permit\s+\(NWP\)\s+Verification\b', 'federal_permit', 'nwp_verification', 'medium'),
     (r'Nationwide,\s+Regional\s+General,\s+or\s+Standard\s+Individual\s+Permit\s+may\s+be\s+required\b', 'federal_permit', 'nwp_general_individual', 'medium'),
@@ -530,6 +561,7 @@ TIER4_CUE_PATTERNS = {
         r"\bSection\s+404\s+permit\s+application\b",
         r"\bapplied\s+for\s+an\s+individual\s+permit\s+under\s+Section\s+404\b",
         r"\bDepartment\s+of\s+(?:the\s+)?Army(?:\s+\(DA\))?\s+permit\b[\s\S]{0,180}\bSection\s+404\b",
+        CLEAN_WATER_ACT_PERMIT_CONTEXT_PATTERN,
         r"\bSection\s+10\b[\s\S]{0,80}\bRivers\s+and\s+Harbors\b",
         r"\bNationwide\s+Permit\s+\(NWP\)\s+Verification\b",
         r"\bNationwide,\s+Regional\s+General,\s+or\s+Standard\s+Individual\s+Permit\s+may\s+be\s+required\b",
@@ -1813,13 +1845,31 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
     for _, row in projects.iterrows():
         pid = row["project_id"]
         agency = str(row.get("lead_agency_harmonized") or "").strip()
+        sponsor = str(row.get("project_sponsor") or "").strip()
         text = " ".join([
             str(row.get("project_title") or ""),
             str(row.get("project_description") or ""),
         ])
         agency_code = _get_agency_code(agency)
+        land_control_match = re.search(BLM_USFS_LAND_CONTROL_PATTERN, text, re.IGNORECASE)
 
-        if _agency_matches(agency, AGENCY_PERMIT_MAP):
+        if (
+            _agency_matches(agency, frozenset({"BLM", "Bureau of Land Management"}))
+            and re.search(FOREST_SERVICE_SPONSOR_PATTERN, sponsor, re.IGNORECASE)
+            and land_control_match
+        ):
+            results.append(make_result(
+                project_id=pid,
+                primary="federal_land",
+                confidence="high",
+                evidence_text=f"{agency} | sponsor={sponsor} | text={land_control_match.group(0)}",
+                evidence_source="agency_metadata",
+                rule_id="T1a_BLM_USFS_land_control",
+                manual_review=False,
+                route_policy="auto_accept",
+                route_reason="blm_usfs_land_control_metadata",
+            ))
+        elif _agency_matches(agency, AGENCY_PERMIT_MAP):
             results.append(make_result(
                 project_id=pid,
                 primary="federal_permit",
@@ -2417,7 +2467,7 @@ def extract_nepa_triggers(
     tier5_budget: float = TIER5_HARD_STOP_BUDGET,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     projects = conn.execute(f"""
-        SELECT project_id, lead_agency_harmonized, project_title,
+        SELECT project_id, lead_agency_harmonized, project_sponsor, project_title,
                project_description, process_type, dataset_source
         FROM read_parquet('{PROJECTS_PATH}')
         WHERE {CLEAN_ENERGY_FILTER}
