@@ -76,6 +76,7 @@ PAN_WINDOW          = 600  # chars to extract after section header
 OUTPUT_COLS = [
     "project_id",
     "nepa_trigger_primary", "nepa_trigger_secondary", "nepa_trigger_multi",
+    "nepa_trigger_count", "nepa_trigger_combo", "nepa_trigger_primary_hierarchy",
     "nepa_trigger_evidence_text", "nepa_trigger_evidence_source",
     "nepa_trigger_confidence", "nepa_trigger_rule_id",
     "nepa_trigger_manual_review", "is_dual_nexus",
@@ -891,6 +892,20 @@ TOP_LEVEL_CLASSES = [
     "federal_property_transaction",
 ]
 
+# Hierarchy for resolving primary trigger when multi-label evidence exists.
+# Order = federal discretion level over the action: agency implementing > land authorization >
+# regulatory permit > financial assistance. federal_program is orthogonal (document type) and
+# wins only when the review IS the program, not a site-specific project.
+TRIGGER_HIERARCHY = [
+    "federal_program",
+    "federal_direct_action",
+    "federal_property_transaction",
+    "federal_land",
+    "federal_permit",
+    "federal_funding",
+    "unknown",
+]
+
 # Negation patterns applied to the extracted evidence sentence before accepting a match.
 # Catches CE checklist checkboxes ("No [x]") and ordinary sentence-level negations.
 _NEGATION_PATTERNS = [
@@ -976,6 +991,14 @@ _SENTENCE_MODEL = None
 _HYPOTHESIS_EMBEDDINGS = None
 _LOCAL_SCORER_KIND = None
 _CROSS_ENCODER = None
+
+
+def _hierarchy_primary(classes: list[str]) -> str:
+    """Return the highest-priority class from a multi-label list per TRIGGER_HIERARCHY."""
+    for cls in TRIGGER_HIERARCHY:
+        if cls in classes:
+            return cls
+    return "unknown"
 
 
 def _unique_preserve_order(values: list[str]) -> list[str]:
@@ -1894,17 +1917,39 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                 route_reason="deterministic_funding_metadata",
             ))
         elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
-            results.append(make_result(
-                project_id=pid,
-                primary="federal_direct_action",
-                confidence="high",
-                evidence_text=agency,
-                evidence_source="agency_metadata",
-                rule_id=f"T1a_{agency_code}_direct_action",
-                manual_review=False,
-                route_policy="auto_accept",
-                route_reason="deterministic_direct_action_metadata",
-            ))
+            # CBP is always construction/installation — no land-authorization use cases.
+            # BPA/WAPA/PMA can also hold ROW grants or property transactions; gate those to Tier 4.
+            is_cbp = _agency_matches(agency, frozenset({"CBP", "U.S. Customs and Border Protection", "Customs and Border Protection"}))
+            land_cues = re.search(
+                r'\bright[-\s]of[-\s]way\b|\bROW\b|\bperpetual\b|\beasement\b'
+                r'|\bland\s+exchange\b|\bdispose\b|\bdisposal\b|\bacquire\b|\bacquisition\b'
+                r'|\btransfer\s+ownership\b|\btitle\s+transfer\b|\bsale\s+of\s+land\b',
+                text, re.IGNORECASE,
+            )
+            if is_cbp or not land_cues:
+                results.append(make_result(
+                    project_id=pid,
+                    primary="federal_direct_action",
+                    confidence="high",
+                    evidence_text=agency,
+                    evidence_source="agency_metadata",
+                    rule_id=f"T1a_{agency_code}_direct_action",
+                    manual_review=False,
+                    route_policy="auto_accept",
+                    route_reason="deterministic_direct_action_metadata",
+                ))
+            else:
+                results.append(make_result(
+                    project_id=pid,
+                    primary="federal_direct_action",
+                    confidence="medium",
+                    evidence_text=f"{agency} | land_cues_detected",
+                    evidence_source="agency_metadata",
+                    rule_id=f"T1a_{agency_code}_direct_action_provisional",
+                    manual_review=True,
+                    route_policy="provisional",
+                    route_reason="direct_action_agency_with_land_cues",
+                ))
         elif _agency_matches(agency, AGENCY_LAND_MAP):
             verb_class = _verb_class(text)
             trigger = verb_class if verb_class else "federal_land"
@@ -2685,6 +2730,21 @@ def main() -> None:
         (final["nepa_trigger_primary"] == "federal_land") &
         (final["nepa_trigger_secondary"].apply(lambda x: "federal_permit" in x if isinstance(x, list) else False))
     )
+
+    def _sorted_multi(classes: list[str]) -> list[str]:
+        ranked = {cls: TRIGGER_HIERARCHY.index(cls) if cls in TRIGGER_HIERARCHY else 99 for cls in classes}
+        return sorted(classes, key=ranked.__getitem__)
+
+    final["nepa_trigger_count"] = final["nepa_trigger_multi"].apply(
+        lambda x: len(x) if isinstance(x, list) else 0
+    )
+    final["nepa_trigger_combo"] = final["nepa_trigger_multi"].apply(
+        lambda x: "|".join(_sorted_multi(x)) if isinstance(x, list) and x else ""
+    )
+    final["nepa_trigger_primary_hierarchy"] = final["nepa_trigger_multi"].apply(
+        lambda x: _hierarchy_primary(x) if isinstance(x, list) else "unknown"
+    )
+
     final["nepa_trigger_extraction_run_at"] = run_at
     final["nepa_trigger_llm_run_at"] = final.get("nepa_trigger_llm_run_at", "").fillna("")
 
@@ -2718,6 +2778,12 @@ def main() -> None:
     print("\n=== Evidence source distribution ===")
     print(final["nepa_trigger_evidence_source"].value_counts().to_string())
     print(f"\nDual-nexus projects (federal_land + federal_permit): {final['is_dual_nexus'].sum():,}")
+    print("\n=== Hierarchy-resolved primary distribution ===")
+    print(final["nepa_trigger_primary_hierarchy"].value_counts().to_string())
+    multi_mask = final["nepa_trigger_count"] > 1
+    print(f"\nMulti-class projects (2+ triggers): {multi_mask.sum():,}")
+    if multi_mask.any():
+        print(final.loc[multi_mask, "nepa_trigger_combo"].value_counts().head(10).to_string())
 
 
 if __name__ == "__main__":
