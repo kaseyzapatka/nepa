@@ -103,6 +103,7 @@ ESTIMATED_TIER5_COST_PER_PROJECT = 0.04  # conservative placeholder for queue gu
 LOCAL_NLI_MODEL = "cross-encoder/nli-deberta-v3-base"
 
 SETFIT_MODEL_PATH        = Path("phase2/models/trigger_setfit")
+MANUAL_LABELS_GLOB       = "phase2/data/analysis/nepa_trigger/doe_ce_sample_*.csv"
 SETFIT_CONFIDENCE_THRESHOLD = 0.80
 SETFIT_MARGIN_THRESHOLD     = 0.15
 
@@ -1872,6 +1873,61 @@ def _write_tier4_diagnostics(
         doc_scores.to_parquet(TIER4_DOC_SCORES_PATH, index=False)
 
 
+def tier0_manual_labels(projects_df: pd.DataFrame) -> list[dict[str, Any]]:
+    """
+    Tier 0: directly finalize any project that already has a manual_trigger label
+    in the hand-labeled CSVs (doe_ce_sample_*.csv).
+
+    This runs before all other tiers so labeled examples are never re-processed
+    by the pipeline, avoiding double-classification and keeping training data
+    consistent with inference outputs.
+    """
+    label_files = sorted(Path(".").glob(MANUAL_LABELS_GLOB))
+    if not label_files:
+        return []
+
+    frames = []
+    for p in label_files:
+        try:
+            frames.append(pd.read_csv(p, usecols=["project_id", "manual_trigger"]))
+        except Exception as exc:
+            log.warning("Could not read manual label file %s: %s", p, exc)
+
+    if not frames:
+        return []
+
+    labels_df = (
+        pd.concat(frames, ignore_index=True)
+        .dropna(subset=["manual_trigger"])
+        .query("manual_trigger != '' and manual_trigger != 'ambiguous'")
+        .drop_duplicates("project_id")
+    )
+
+    valid_labels = set(TOP_LEVEL_CLASSES)
+    labels_df = labels_df[labels_df["manual_trigger"].isin(valid_labels)]
+
+    in_scope = projects_df[["project_id"]].merge(labels_df, on="project_id", how="inner")
+    if in_scope.empty:
+        return []
+
+    results = []
+    for _, row in in_scope.iterrows():
+        results.append(make_result(
+            project_id=row["project_id"],
+            primary=row["manual_trigger"],
+            confidence="high",
+            evidence_text="manual_label",
+            evidence_source="description",
+            rule_id="T0_manual_label",
+            manual_review=False,
+            route_policy="auto_accept",
+            route_reason="hand_labeled_training_example",
+        ))
+
+    log.info("  → %d projects finalized from manual labels", len(results))
+    return results
+
+
 def _load_setfit_model() -> None:
     """Load SetFit model from disk if available. Silent no-op if not found."""
     global _SETFIT_MODEL, _SETFIT_LABELS
@@ -2721,6 +2777,9 @@ def extract_nepa_triggers(
 
     def _pct() -> str:
         return f"{len(finalized) / len(all_project_ids):.1%}"
+
+    log.info("Tier 0: manual labels")
+    _ingest(tier0_manual_labels(projects))
 
     log.info("Tier 1a: agency metadata")
     _ingest(tier1a_metadata(projects))
