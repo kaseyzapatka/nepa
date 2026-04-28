@@ -102,6 +102,10 @@ ESTIMATED_TIER5_COST_PER_PROJECT = 0.04  # conservative placeholder for queue gu
 
 LOCAL_NLI_MODEL = "cross-encoder/nli-deberta-v3-base"
 
+SETFIT_MODEL_PATH        = Path("phase2/models/trigger_setfit")
+SETFIT_CONFIDENCE_THRESHOLD = 0.80
+SETFIT_MARGIN_THRESHOLD     = 0.15
+
 AUTO_ACCEPT_RULE_IDS = frozenset({
     "T1a_FERC_permit",
     "T1a_FAA_permit",
@@ -991,6 +995,8 @@ _SENTENCE_MODEL = None
 _HYPOTHESIS_EMBEDDINGS = None
 _LOCAL_SCORER_KIND = None
 _CROSS_ENCODER = None
+_SETFIT_MODEL = None
+_SETFIT_LABELS: list[str] = []
 
 
 def _hierarchy_primary(classes: list[str]) -> str:
@@ -1529,7 +1535,10 @@ def build_tier4_contexts(
                         })
                         chunk_count += 1
 
-            if chunk_count == 0:
+            # Always add project description when no page text was extracted — a doc_title
+            # chunk alone (chunk_count=1) is too sparse for NLI scoring, and projects with
+            # no documents at all need the description as their only text signal.
+            if page_rows.empty:
                 fallback_text = " ".join([
                     str(project_row.get("project_title") or ""),
                     str(project_row.get("project_description") or ""),
@@ -1540,7 +1549,7 @@ def build_tier4_contexts(
                         "document_id": document_id,
                         "dataset_source": source,
                         "chunk_id": f"{pid}_fallback",
-                        "section_type": "ce_fallback" if str(source).upper() == "CE" else "first_pages",
+                        "section_type": "project_description",
                         "page_start": None,
                         "page_end": None,
                         "chunk_text": fallback_text[:3000],
@@ -1863,6 +1872,112 @@ def _write_tier4_diagnostics(
         doc_scores.to_parquet(TIER4_DOC_SCORES_PATH, index=False)
 
 
+def _load_setfit_model() -> None:
+    """Load SetFit model from disk if available. Silent no-op if not found."""
+    global _SETFIT_MODEL, _SETFIT_LABELS
+    if not SETFIT_MODEL_PATH.exists():
+        return
+    try:
+        import json
+        from setfit import SetFitModel
+        _SETFIT_MODEL = SetFitModel.from_pretrained(str(SETFIT_MODEL_PATH))
+        label_file = SETFIT_MODEL_PATH / "label_list.json"
+        if label_file.exists():
+            _SETFIT_LABELS = json.loads(label_file.read_text())
+        else:
+            _SETFIT_LABELS = list(getattr(_SETFIT_MODEL, "labels", []))
+        log.info("SetFit model loaded from %s (%d classes)", SETFIT_MODEL_PATH, len(_SETFIT_LABELS))
+    except Exception as exc:
+        log.warning("SetFit model found at %s but failed to load: %s", SETFIT_MODEL_PATH, exc)
+        _SETFIT_MODEL = None
+        _SETFIT_LABELS = []
+
+
+def _prep_setfit_text(row: Any) -> str:
+    """Build inference text from project_title + project_description (matches training prep)."""
+    title = str(row.get("project_title") or "").strip()
+    desc  = str(row.get("project_description") or "").strip()
+    if desc.startswith("[") and desc.endswith("]"):
+        try:
+            import ast
+            parsed = ast.literal_eval(desc)
+            if isinstance(parsed, list):
+                desc = " ".join(str(x) for x in parsed)
+        except Exception:
+            pass
+    return f"{title} {desc[:2000]}".strip()
+
+
+def tier3b_setfit_doe_ce(
+    project_ids: list[str],
+    projects_df: pd.DataFrame,
+) -> list[dict[str, Any]]:
+    """
+    SetFit classifier for DOE CE projects.
+
+    Runs between Tier 3 and Tier 4. Only fires when:
+      - A trained model exists at SETFIT_MODEL_PATH
+      - The project is DOE (lead_agency_harmonized) + CE (process_type)
+
+    Projects with top-class probability >= SETFIT_CONFIDENCE_THRESHOLD and
+    margin >= SETFIT_MARGIN_THRESHOLD are auto-accepted. The rest fall through
+    to Tier 4 unchanged.
+    """
+    if _SETFIT_MODEL is None or not _SETFIT_LABELS:
+        return []
+
+    import numpy as np
+
+    target = projects_df[
+        projects_df["project_id"].isin(set(project_ids))
+        & projects_df["lead_agency_harmonized"].fillna("").astype(str).str.contains(
+            "Department of Energy", case=False, na=False
+        )
+        & (projects_df["process_type"].fillna("").astype(str).str.upper() == "CE")
+    ].copy()
+
+    if target.empty:
+        return []
+
+    texts = [_prep_setfit_text(row) for _, row in target.iterrows()]
+
+    try:
+        probs = _SETFIT_MODEL.predict_proba(texts)
+        if hasattr(probs, "numpy"):
+            probs = probs.numpy()
+        probs = np.array(probs)
+    except Exception as exc:
+        log.warning("SetFit predict_proba failed (%s); skipping Tier 3b", exc)
+        return []
+
+    results = []
+    for (_, row), prob_vec in zip(target.iterrows(), probs):
+        top_idx    = int(np.argmax(prob_vec))
+        top_prob   = float(prob_vec[top_idx])
+        sorted_p   = sorted(prob_vec, reverse=True)
+        second_prob = float(sorted_p[1]) if len(sorted_p) > 1 else 0.0
+        margin     = top_prob - second_prob
+        top_class  = _SETFIT_LABELS[top_idx]
+
+        if top_class not in TOP_LEVEL_CLASSES:
+            continue
+
+        if top_prob >= SETFIT_CONFIDENCE_THRESHOLD and margin >= SETFIT_MARGIN_THRESHOLD:
+            results.append(make_result(
+                project_id=row["project_id"],
+                primary=top_class,
+                confidence="high",
+                evidence_text=f"setfit prob={top_prob:.3f} margin={margin:.3f}",
+                evidence_source="description",
+                rule_id="T3b_setfit_doe_ce",
+                manual_review=False,
+                route_policy="auto_accept",
+                route_reason="setfit_high_confidence",
+            ))
+
+    return results
+
+
 def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
     results = []
     for _, row in projects.iterrows():
@@ -1967,44 +2082,106 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                 route_reason="land_agency_metadata",
             ))
         elif _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
-            doe_funding_patterns = [
-                r"\b(?:loan\s+guarantee|financial\s+assistance)\b",
-                r"\bTitle\s+XVII\b",
-                r"\bfunded\s+(?:by|through|under)\b",
-                r"\b(?:DOE|Department\s+of\s+Energy)\s+(?:grant|award|funding)\b",
-                r"\bthrough\s+(?:a\s+)?cooperative\s+agreement\b[\s\S]{0,120}\bpartially\s+fund\b",
-                r"\bproviding\s+financial\s+assistance\s+to\b[\s\S]{0,120}\b(?:under|through)\s+(?:a\s+)?cooperative\s+agreement\b",
-                r"\bawarding\s+a\s+grant\b[\s\S]{0,120}\bpartially\s+fund\b",
-                r"\bFederal\s+Cost\s+Share\b",
-                r"\b(?:DOE\s+)?EECBG\s+funding\b",
-                r"\bformula(?:-based)?\s+(?:awards?|grants?)\b",
-                r"(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
-            ]
-            has_funding = any(re.search(p, text, re.IGNORECASE) for p in doe_funding_patterns)
-            if has_funding:
-                results.append(make_result(
-                    project_id=pid,
-                    primary="federal_funding",
-                    confidence="medium",
-                    evidence_text=agency,
-                    evidence_source="agency_metadata",
-                    rule_id="T1a_DOE_funding",
-                    manual_review=True,
-                    route_policy="tier4_candidate",
-                    route_reason="doe_metadata_ambiguous",
-                ))
-            elif _verb_class(text) == "federal_direct_action":
-                results.append(make_result(
-                    project_id=pid,
-                    primary="federal_direct_action",
-                    confidence="medium",
-                    evidence_text=agency,
-                    evidence_source="agency_metadata",
-                    rule_id="T1a_DOE_direct_action",
-                    manual_review=True,
-                    route_policy="tier4_candidate",
-                    route_reason="doe_metadata_ambiguous",
-                ))
+            # BPA/WAPA projects are organizationally under DOE but are direct-action agencies.
+            # lead_agency_harmonized = "Department of Energy" for these projects, so the
+            # AGENCY_DIRECT_ACTION_MAP branch above never fires. Check project_sponsor instead.
+            _bpa_wapa_sponsor_set = frozenset({
+                "Bonneville Power Administration", "BPA",
+                "Western Area Power Administration", "WAPA",
+                "Power Marketing Administration", "PMA",
+            })
+            if _agency_matches(sponsor, _bpa_wapa_sponsor_set):
+                _sponsor_code = (
+                    "BPA" if _agency_matches(sponsor, frozenset({"BPA", "Bonneville Power Administration"}))
+                    else "WAPA" if _agency_matches(sponsor, frozenset({"WAPA", "Western Area Power Administration"}))
+                    else "PMA"
+                )
+                _land_cues = re.search(
+                    r'\bright[-\s]of[-\s]way\b|\bROW\b|\bperpetual\b|\beasement\b'
+                    r'|\bland\s+exchange\b|\bdispose\b|\bdisposal\b|\bacquire\b|\bacquisition\b'
+                    r'|\btransfer\s+ownership\b|\btitle\s+transfer\b|\bsale\s+of\s+land\b',
+                    text, re.IGNORECASE,
+                )
+                _is_programmatic = (
+                    _is_programmatic_title(text)
+                    and not _is_programmatic_exclusion(text)
+                    and _is_programmatic_strong(text)
+                )
+                if _is_programmatic:
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_program",
+                        confidence="high",
+                        evidence_text=f"sponsor={sponsor}",
+                        evidence_source="agency_metadata",
+                        rule_id=f"T1a_{_sponsor_code}_program",
+                        manual_review=False,
+                        route_policy="auto_accept",
+                        route_reason="bpa_wapa_programmatic_ce",
+                    ))
+                elif not _land_cues:
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_direct_action",
+                        confidence="high",
+                        evidence_text=f"sponsor={sponsor}",
+                        evidence_source="agency_metadata",
+                        rule_id=f"T1a_{_sponsor_code}_direct_action",
+                        manual_review=False,
+                        route_policy="auto_accept",
+                        route_reason="deterministic_direct_action_metadata",
+                    ))
+                else:
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_direct_action",
+                        confidence="medium",
+                        evidence_text=f"sponsor={sponsor} | land_cues_detected",
+                        evidence_source="agency_metadata",
+                        rule_id=f"T1a_{_sponsor_code}_direct_action_provisional",
+                        manual_review=True,
+                        route_policy="provisional",
+                        route_reason="direct_action_sponsor_with_land_cues",
+                    ))
+            else:
+                doe_funding_patterns = [
+                    r"\b(?:loan\s+guarantee|financial\s+assistance)\b",
+                    r"\bTitle\s+XVII\b",
+                    r"\bfunded\s+(?:by|through|under)\b",
+                    r"\b(?:DOE|Department\s+of\s+Energy)\s+(?:grant|award|funding)\b",
+                    r"\bthrough\s+(?:a\s+)?cooperative\s+agreement\b[\s\S]{0,120}\bpartially\s+fund\b",
+                    r"\bproviding\s+financial\s+assistance\s+to\b[\s\S]{0,120}\b(?:under|through)\s+(?:a\s+)?cooperative\s+agreement\b",
+                    r"\bawarding\s+a\s+grant\b[\s\S]{0,120}\bpartially\s+fund\b",
+                    r"\bFederal\s+Cost\s+Share\b",
+                    r"\b(?:DOE\s+)?EECBG\s+funding\b",
+                    r"\bformula(?:-based)?\s+(?:awards?|grants?)\b",
+                    r"(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
+                ]
+                has_funding = any(re.search(p, text, re.IGNORECASE) for p in doe_funding_patterns)
+                if has_funding:
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_funding",
+                        confidence="medium",
+                        evidence_text=agency,
+                        evidence_source="agency_metadata",
+                        rule_id="T1a_DOE_funding",
+                        manual_review=True,
+                        route_policy="tier4_candidate",
+                        route_reason="doe_metadata_ambiguous",
+                    ))
+                elif _verb_class(text) == "federal_direct_action":
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_direct_action",
+                        confidence="medium",
+                        evidence_text=agency,
+                        evidence_source="agency_metadata",
+                        rule_id="T1a_DOE_direct_action",
+                        manual_review=True,
+                        route_policy="tier4_candidate",
+                        route_reason="doe_metadata_ambiguous",
+                    ))
     return results
 
 
@@ -2524,6 +2701,7 @@ def extract_nepa_triggers(
 
     all_project_ids = set(projects["project_id"])
     log.info("Processing %s clean energy projects", f"{len(all_project_ids):,}")
+    _load_setfit_model()
 
     finalized: dict[str, dict[str, Any]] = {}
     provisional: dict[str, dict[str, Any]] = {}
@@ -2560,6 +2738,11 @@ def extract_nepa_triggers(
     log.info("Tier 3: purpose-and-need / candidate section extraction")
     _ingest(tier3_purpose_and_need(_remaining(), projects, conn))
     log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+
+    if _SETFIT_MODEL is not None:
+        log.info("Tier 3b: SetFit DOE CE classifier")
+        _ingest(tier3b_setfit_doe_ce(_remaining(), projects))
+        log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
 
     tier4_ids = build_tier4_candidate_ids(all_project_ids, provisional, finalized)
     log.info("Tier 4: retrieval-first local adjudication on %s projects", f"{len(tier4_ids):,}")
