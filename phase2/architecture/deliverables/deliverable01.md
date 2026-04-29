@@ -202,6 +202,61 @@ Of 17,943 unknowns:
 
 ---
 
+## Run Results (April 2026)
+
+<!-- d1-run-results: pull this section into the D1 report -->
+
+Full pipeline run on all 20,725 clean energy projects. Tier 5 (LLM fallback) was skipped.
+
+### Tier-by-Tier Yield
+
+| Tier | Description | New Projects | Cumulative | % Resolved |
+|---|---|---:|---:|---:|
+| Tier 0 | Manual labels | 890 | 890 | 4.3% |
+| Tier 1a | Agency metadata heuristics | 5,568 | 6,458 | 31.2% |
+| Tier 1b | Title + description keywords | 1,751 | 8,209 | 39.6% |
+| Tier 2 | Document title scan | 62 | 8,271 | 39.9% |
+| Tier 3 | Purpose-and-need extraction | 435 | 8,706 | 42.0% |
+| Tier 3b | SetFit DOE CE classifier | 10,846 | 19,552 | 94.3% |
+| Tier 4 | NLI adjudication (finalized) | 37 | 19,589 | 94.5% |
+| — | Unknown (Tier 4 gates failed) | 1,136 | — | 5.5% |
+
+**Total resolved: 19,589 / 20,725 (94.5%). Unknown: 1,136 (5.5%).**
+
+Tier 3b is by far the highest-yield ML tier because DOE CEs dominate the unresolved pool after
+Tier 1 (~14K projects). The SetFit threshold was lowered from 0.80/0.15 to 0.65/0.08 to achieve
+this yield; see Known Issues for the original gate design.
+
+Tier 4 processed 1,173 projects and finalized 37 with sufficient document evidence. The remaining
+1,136 failed all three gates (`doc_score`, `margin`, `affirmative_support`) and are recorded as
+`unknown`. These are available for manual review in
+`phase2/data/analysis/nepa_trigger/unknown_codings.csv`.
+
+### Final Class Distribution
+
+| Class | Count | % of Total |
+|---|---:|---:|
+| `federal_funding` | 8,966 | 43.3% |
+| `federal_direct_action` | 6,451 | 31.1% |
+| `federal_land` | 3,672 | 17.7% |
+| `federal_program` | 367 | 1.8% |
+| `federal_permit` | 97 | 0.5% |
+| `federal_property_transaction` | 36 | 0.2% |
+| `unknown` | 1,136 | 5.5% |
+| **Total** | **20,725** | |
+
+### Unknown Pool Composition (April 2026)
+
+Of 1,136 unknowns (all `T4_local_uncertain`):
+- 758 (66.7%) are CEs
+- 239 (21.0%) are EIS
+- 139 (12.2%) are EAs
+- 897 (79.0%) have DOE as lead agency
+
+For comparison, the pre-fix run (original thresholds) produced 17,943 unknowns (86.6%).
+
+---
+
 ## Output Schema
 
 `phase2/data/analysis/nepa_trigger/projects_nepa_trigger.parquet`
