@@ -104,8 +104,8 @@ LOCAL_NLI_MODEL = "cross-encoder/nli-deberta-v3-base"
 
 SETFIT_MODEL_PATH        = Path("phase2/models/trigger_setfit")
 MANUAL_LABELS_GLOB       = "phase2/data/analysis/nepa_trigger/doe_ce_sample_*.csv"
-SETFIT_CONFIDENCE_THRESHOLD = 0.80
-SETFIT_MARGIN_THRESHOLD     = 0.15
+SETFIT_CONFIDENCE_THRESHOLD = 0.65
+SETFIT_MARGIN_THRESHOLD     = 0.08
 
 AUTO_ACCEPT_RULE_IDS = frozenset({
     "T1a_FERC_permit",
@@ -1189,10 +1189,14 @@ def should_auto_accept(result: dict[str, Any]) -> bool:
         return result.get("nepa_trigger_confidence") in ("high", "medium")
     if rule_id == "T5_llm":
         return result.get("nepa_trigger_confidence") in ("high", "medium")
-    if result.get("nepa_trigger_evidence_source") == "agency_metadata":
-        evidence_text = result.get("nepa_trigger_evidence_text", "")
-        if _agency_matches(evidence_text, AMBIGUOUS_METADATA_AGENCIES):
-            return False
+    # Auto-accept any high-confidence result not explicitly requiring T4 verification.
+    # Agency metadata for ambiguous agencies (DOE, USACE) still requires document evidence
+    # and is handled by SEND_TO_TIER4_RULE_IDS; all other high-confidence results are trusted.
+    if result.get("nepa_trigger_confidence") == "high":
+        if result.get("nepa_trigger_evidence_source") == "agency_metadata":
+            evidence_text = result.get("nepa_trigger_evidence_text", "")
+            return not _agency_matches(evidence_text, AMBIGUOUS_METADATA_AGENCIES)
+        return True
     return False
 
 
@@ -1706,7 +1710,8 @@ def run_local_nli_on_chunks(
             for candidate_class in candidate_classes_by_project.get(row.project_id, TOP_LEVEL_CLASSES):
                 pairs.append((row.chunk_text, HYPOTHESIS_TEMPLATES[candidate_class]))
                 row_meta.append((row, candidate_class))
-        predictions = _CROSS_ENCODER.predict(pairs, apply_softmax=True, show_progress_bar=False)
+        log.info("  Running NLI cross-encoder on %s (premise, hypothesis) pairs", f"{len(pairs):,}")
+        predictions = _CROSS_ENCODER.predict(pairs, apply_softmax=True, show_progress_bar=True)
         for meta, pred in zip(row_meta, predictions):
             row, candidate_class = meta
             pred_list = pred.tolist() if hasattr(pred, "tolist") else list(pred)
@@ -2124,7 +2129,7 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
         elif _agency_matches(agency, AGENCY_LAND_MAP):
             verb_class = _verb_class(text)
             trigger = verb_class if verb_class else "federal_land"
-            confidence = "high" if verb_class else "medium"
+            confidence = "high"
             verb_suffix = "direct_action" if trigger == "federal_direct_action" else "land"
             results.append(make_result(
                 project_id=pid,
@@ -2755,12 +2760,15 @@ def extract_nepa_triggers(
         projects = projects.sample(sample, random_state=42)
         log.info("Sample mode: %s projects", len(projects))
 
+    import time as _time
+
     all_project_ids = set(projects["project_id"])
     log.info("Processing %s clean energy projects", f"{len(all_project_ids):,}")
     _load_setfit_model()
 
     finalized: dict[str, dict[str, Any]] = {}
     provisional: dict[str, dict[str, Any]] = {}
+    _run_start = _time.time()
 
     def _ingest(results: list[dict[str, Any]]) -> None:
         for result in results:
@@ -2778,30 +2786,34 @@ def extract_nepa_triggers(
     def _pct() -> str:
         return f"{len(finalized) / len(all_project_ids):.1%}"
 
+    def _elapsed() -> str:
+        return f"{(_time.time() - _run_start) / 60:.1f}m"
+
     log.info("Tier 0: manual labels")
     _ingest(tier0_manual_labels(projects))
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     log.info("Tier 1a: agency metadata")
     _ingest(tier1a_metadata(projects))
-    log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     log.info("Tier 1b: title and description keywords")
     unresolved_df = projects[projects["project_id"].isin(_remaining())]
     _ingest(tier1b_title_description(unresolved_df))
-    log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     log.info("Tier 2: document title scan")
     _ingest(tier2_doc_title(_remaining(), projects, conn))
-    log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     log.info("Tier 3: purpose-and-need / candidate section extraction")
     _ingest(tier3_purpose_and_need(_remaining(), projects, conn))
-    log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     if _SETFIT_MODEL is not None:
         log.info("Tier 3b: SetFit DOE CE classifier")
         _ingest(tier3b_setfit_doe_ce(_remaining(), projects))
-        log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+        log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     tier4_ids = build_tier4_candidate_ids(all_project_ids, provisional, finalized)
     log.info("Tier 4: retrieval-first local adjudication on %s projects", f"{len(tier4_ids):,}")
@@ -2815,7 +2827,7 @@ def extract_nepa_triggers(
             finalized[result["project_id"]] = result
         else:
             tier4_low_conf[result["project_id"]] = result
-    log.info("  → %s finalized after Tier 4 (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized after Tier 4 (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     if use_llm:
         low_conf_ids = sorted(tier4_low_conf)
