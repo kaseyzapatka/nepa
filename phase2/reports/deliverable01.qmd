@@ -1,0 +1,468 @@
+---
+title: "NEPA Decarbonization Technology Analysis: Deliverable 1"
+subtitle: "Why NEPA Was Triggered — Classifying the Federal Nexus"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(arrow)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(stringr)
+library(scales)
+library(gt)
+library(here)
+
+options(arrow.skip_nul = TRUE)
+
+OUTPUT_DIR    <- here("phase2", "output", "deliverable01")
+TRIGGERS_PATH <- here("phase2", "data", "analysis", "nepa_trigger", "projects_nepa_trigger.parquet")
+PROJECTS_PATH <- here("phase2", "data", "analysis", "projects_combined.parquet")
+
+# Read only the scalar columns needed — explicitly excludes every Arrow list<string>
+# column in both parquets (nepa_trigger_secondary, project_type, project_state,
+# lead_agency_harmonized, etc.) so collect() returns a plain R tibble with no
+# arrow_list vctrs columns that would break sum() / mean().
+trigger_cols <- c(
+  "project_id", "nepa_trigger_primary", "nepa_trigger_count",
+  "nepa_trigger_confidence", "nepa_trigger_rule_id",
+  "nepa_trigger_evidence_source", "nepa_trigger_manual_review", "is_dual_nexus"
+)
+# nepa_trigger_multi and nepa_trigger_secondary are list<string> Arrow types —
+# excluded here; n_multi_label is derived from nepa_trigger_count instead.
+project_cols <- c(
+  "project_id", "project_energy_type", "process_type", "project_department"
+)
+
+triggers <- read_parquet(TRIGGERS_PATH, col_select = all_of(trigger_cols))
+projects <- read_parquet(PROJECTS_PATH, col_select = all_of(project_cols))
+
+df <- left_join(triggers, projects, by = "project_id") |>
+  filter(project_energy_type == "Clean") |>
+  collect()
+
+n_total      <- nrow(df)
+n_unknown    <- sum(df$nepa_trigger_primary == "unknown", na.rm = TRUE)
+n_resolved   <- n_total - n_unknown
+pct_resolved <- n_resolved / n_total * 100
+pct_unknown  <- n_unknown  / n_total * 100
+
+get_n <- function(cls) sum(df$nepa_trigger_primary == cls, na.rm = TRUE)
+
+n_funding      <- get_n("federal_funding")
+n_direct       <- get_n("federal_direct_action")
+n_land         <- get_n("federal_land")
+n_permit       <- get_n("federal_permit")
+n_program      <- get_n("federal_program")
+n_property     <- get_n("federal_property_transaction")
+n_dual_nexus   <- sum(df$is_dual_nexus,          na.rm = TRUE)
+n_multi_label  <- sum(df$nepa_trigger_count > 1, na.rm = TRUE)
+flag_rate      <- mean(df$nepa_trigger_manual_review, na.rm = TRUE)
+
+pct <- function(x) sprintf("%.1f%%", x / n_total * 100)
+
+# Pre-computed analysis outputs
+source_dist <- read_csv(file.path(OUTPUT_DIR, "trigger_source_distribution.csv"),
+                        show_col_types = FALSE)
+excerpts    <- read_csv(file.path(OUTPUT_DIR, "trigger_evidence_excerpts.csv"),
+                        show_col_types = FALSE)
+```
+
+## Executive Summary
+
+::: {.callout-note}
+## Key Findings
+
+- **Funding is the dominant NEPA trigger**, accounting for `r comma(n_funding)` projects
+  (`r pct(n_funding)`). DOE's grant and loan guarantee portfolio is the single largest
+  source of decarbonization NEPA reviews.
+- **Direct Action** is the second-largest class at `r comma(n_direct)` projects
+  (`r pct(n_direct)`), driven by federal power authorities (BPA, WAPA, Power Marketing
+  Administrations) building and operating transmission and generation infrastructure directly.
+- **Land** accounts for `r comma(n_land)` projects (`r pct(n_land)`)—BLM and Forest
+  Service right-of-way and special use permits for utility-scale renewables on public land.
+- **Review process profiles differ sharply by trigger**: Categorical Exclusions are dominated
+  by Funding (DOE's CE authority for grants); Environmental Impact Statements skew toward
+  Land and Direct Action; Environmental Assessments show the most balanced trigger mix.
+- **Trigger class predicts regulatory intensity**: Funding projects are overwhelmingly CEs;
+  Land and Permit generate proportionally more EAs and EISs—land disturbance and regulatory
+  licensing carry heavier review burdens than financial assistance.
+- **Technology patterns reflect nexus logic**: Transmission has the highest Direct Action
+  share (PMAs build federal lines); Solar and Wind split between Land (BLM right-of-way) and
+  Funding (DOE grants); CCS and Energy Storage skew toward Funding via DOE emerging
+  technology programs.
+- **The pipeline resolved `r sprintf("%.1f%%", pct_resolved)` of projects**
+  (`r comma(n_resolved)` of `r comma(n_total)`). The remaining `r comma(n_unknown)` projects
+  (`r sprintf("%.1f%%", pct_unknown)`) are recorded as Unknown—candidates for Tier 5 (LLM)
+  follow-up or manual review.
+- **`r comma(n_dual_nexus)` projects** carry a dual nexus (both Land *and* Permit),
+  underscoring that the primary/secondary framework captures more nuance than a single-label
+  scheme. Manual review flag rate is `r sprintf("%.1f%%", flag_rate * 100)`—within the
+  `< 5%` target.
+:::
+
+This report delivers:
+
+> Classification of the federal nexus that triggered NEPA review for all `r comma(n_total)` decarbonization technology projects in NEPATEC 2.0, broken down by review process type, lead agency department, energy technology, and geography.
+
+---
+
+# Methodology
+
+## Trigger Definitions
+
+NEPA applies whenever a federal nexus exists—but the *nature* of that nexus varies. We classify
+each project into one of seven mutually exclusive primary trigger classes using a strict priority
+ordering (highest to lowest). When evidence points to multiple classes, the higher-priority class
+wins as the primary; lower-priority matches are retained as secondary triggers.
+
+| Priority | Trigger Class | Label | Federal Nexus |
+|:---:|:---|:---|:---|
+| 1 | `federal_direct_action` | **Direct Action** | The federal agency *is* the proposer — building, operating, or managing the project (e.g., federal power lines, agency construction, military facilities) |
+| 2 | `federal_program` | **Program** | A programmatic EIS, land-use plan, or rulemaking umbrella covers the action — the NEPA review is at the policy or program level |
+| 3 | `federal_property_transaction` | **Property Transaction** | A land exchange, disposal, or conveyance of federal property is the triggering event |
+| 4 | `federal_land` | **Land** | A private or state actor seeks a right-of-way, special use permit, or lease on federal land (BLM, National Forest) |
+| 5 | `federal_permit` | **Permit** | A federal license or permit issued by a regulatory body (FERC license, FAA authorization, Section 404 dredge-and-fill) is the primary nexus |
+| 6 | `federal_funding` | **Funding** | Federal grant, loan guarantee, or financial assistance is the trigger (DOE loan program, IRA grant, Rural Energy for America) |
+| 7 | `unknown` | **Unknown** | NEPA is confirmed but the trigger cannot be reliably identified from available text or metadata |
+
+Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects have more than one trigger class detected.
+
+## Classification Pipeline
+
+Trigger classification runs in five tiers plus a manual-label seed. Each tier feeds into the
+next; a project is finalized the moment it clears a tier's acceptance gate and is never
+re-processed by later tiers. This preserves precision at each level while reserving compute-
+intensive methods for the genuinely ambiguous cases.
+
+| Tier | Method | New Projects Finalized | Cumulative | % Resolved |
+|:---|:---|---:|---:|---:|
+| Tier 0 — Manual labels | Gold-standard examples from `manual_training_corrections.csv`; cannot be overridden | 890 | 890 | 4.3% |
+| Tier 1a — Agency metadata | Deterministic mappings: known agency → trigger class (FERC → permit; BLM/USFS → land; BPA/WAPA → direct action) | 5,568 | 6,458 | 31.2% |
+| Tier 1b — Title + description | Regex patterns applied to project title and description text; specificity-ranked | 1,751 | 8,209 | 39.6% |
+| Tier 2 — Document title scan | Pattern matching on document titles from the pages corpus | 62 | 8,271 | 39.9% |
+| Tier 3 — Purpose-and-need | Regex extraction from the Purpose and Need section of EA/EIS documents | 435 | 8,706 | 42.0% |
+| Tier 3b — SetFit (DOE CE) | Fine-tuned SetFit sentence-transformer for DOE Categorical Exclusions — the largest ambiguous class (~14K projects) | 10,846 | 19,552 | 94.3% |
+| Tier 4 — NLI adjudication | Cross-encoder NLI model (`nli-deberta-v3-base`) scores retrieved document chunks against class hypotheses; three gates must pass | 37 | 19,589 | 94.5% |
+| — Unknown | All three Tier 4 gates failed; queued for Tier 5 or manual review | 1,136 | — | 5.5% |
+
+**Total resolved: `r comma(n_resolved)` / `r comma(n_total)` (`r sprintf("%.1f%%", pct_resolved)`).**
+
+The pipeline is implemented in
+[`phase2/code/deliverable01/01_extract_nepa_trigger.py`](../code/deliverable01/01_extract_nepa_trigger.py).
+The full output schema is documented in
+[`phase2/architecture/deliverables/deliverable01.md`](../architecture/deliverables/deliverable01.md).
+
+## Evidence Sources
+
+The table below shows how many projects were classified from each evidence source and at what
+confidence level. Agency Metadata reflects Tier 1a deterministic mappings; Purpose and Need
+and Project Description reflect document-level text extraction (Tiers 1b–3); Document Title
+reflects Tier 2 document title scanning.
+
+```{r}
+#| label: tbl-source-dist
+#| tbl-cap: "Trigger classification counts by evidence source and confidence level."
+
+source_label_map <- c(
+  agency_metadata  = "Agency Metadata",
+  purpose_and_need = "Purpose and Need",
+  description      = "Project Description",
+  doc_title        = "Document Title",
+  setfit_inference = "SetFit Inference",
+  manual           = "Manual Label",
+  document_text    = "Document Text"
+)
+
+source_wide <- source_dist |>
+  mutate(nepa_trigger_evidence_source = recode(
+    nepa_trigger_evidence_source, !!!source_label_map
+  )) |>
+  pivot_wider(names_from = nepa_trigger_confidence,
+              values_from = n,
+              values_fill = 0) |>
+  arrange(desc(rowSums(across(where(is.numeric))))) |>
+  mutate(Total = rowSums(across(where(is.numeric))))
+
+source_wide |>
+  gt(rowname_col = "nepa_trigger_evidence_source") |>
+  cols_label(
+    nepa_trigger_evidence_source = "Evidence Source",
+    high   = "High",
+    medium = "Medium",
+    low    = "Low",
+    Total  = "Total"
+  ) |>
+  fmt_number(columns = where(is.numeric), decimals = 0, use_seps = TRUE) |>
+  cols_align(align = "left",  columns = nepa_trigger_evidence_source) |>
+  cols_align(align = "right", columns = where(is.numeric)) |>
+  tab_spanner(label = "Confidence Level", columns = c(high, medium, low)) |>
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold"), locations = cells_stub()) |>
+  tab_style(
+    style    = cell_fill(color = "#f0f4fb"),
+    locations = cells_body(columns = Total)
+  ) |>
+  tab_options(table.font.size = px(13), data_row.padding = px(6))
+```
+
+## Next Steps and Known Gaps
+
+| Item | Status | Notes |
+|:---|:---|:---|
+| **Secondary trigger analysis** | Pending | `nepa_trigger_secondary` populated; multi-label figures deferred to next iteration |
+| **Multi-process / tiered review integration** | Future (D2 dependency) | Combining trigger class with programmatic/tiered review status requires joining D1 + D2 outputs |
+| **Tier 5 — LLM fallback** | Not run | `r comma(n_unknown)` unknowns queued; plan to resolve with enterprise AI after multi-process resolved  |
+| **Dual-nexus breakdown** | Computed | `r comma(n_dual_nexus)` projects flagged; breakdown by process type and agency available on request |
+
+---
+
+# Trigger Distribution Overview
+
+@fig-trigger-counts shows the total number of decarbonization projects in each primary trigger
+class. **Federal Funding** is by far the largest class—DOE's vast grant and loan guarantee
+portfolio generates more NEPA reviews than any other federal nexus. **Direct Federal Action** is
+second, driven by federal power authorities (BPA, WAPA) building and operating transmission and
+generation infrastructure directly. **Federal Land** is third, reflecting utility-scale renewables
+sited on BLM and National Forest lands under right-of-way or special use permits.
+
+Permit, Program, and Property Transaction together account for fewer than
+`r comma(n_permit + n_program + n_property)` projects (`r pct(n_permit + n_program + n_property)`)—
+these are real but narrow categories of federal nexus.
+
+```{r}
+#| label: fig-trigger-counts
+#| fig-cap: !expr sprintf("Primary NEPA trigger counts across %s decarbonization projects. Colors match the trigger legend used throughout this report.", comma(n_total))
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig1_trigger_counts.png"))
+```
+
+---
+
+# Trigger Type by Review Process
+
+## How triggers distribute across CE, EA, and EIS
+
+@fig-trigger-by-process shows what share of each review process is driven by each trigger class.
+The three processes reveal strikingly different trigger profiles:
+
+- **Categorical Exclusions** are dominated by Federal Funding—DOE's clean energy grant and
+  loan programs generate an enormous volume of low-complexity actions that qualify for CE-level
+  review.
+- **Environmental Assessments** show a more balanced mix: Federal Land (BLM/USFS right-of-way
+  grants for solar and wind) and Direct Federal Action (federal transmission projects) each
+  contribute meaningfully alongside Federal Funding.
+- **Environmental Impact Statements** skew heavily toward Federal Land and Direct Federal
+  Action—larger, more complex projects requiring full EIS review tend to be sited on public
+  lands or are federally constructed.
+
+```{r}
+#| label: fig-trigger-by-process
+#| fig-cap: !expr sprintf("Primary NEPA trigger type by review process across %s decarbonization projects. Percentage labels shown for segments > 5%%.", comma(n_total))
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig2_trigger_by_process.png"))
+```
+
+## What review process does each trigger class use?
+
+@fig-process-by-trigger inverts the view: for each trigger class, it shows the share of
+projects that went through CE, EA, or EIS review. This reveals the *typical regulatory pathway*
+associated with each nexus type.
+
+- **Federal Funding** is overwhelmingly resolved at the CE level—consistent with DOE's
+  categorical exclusion authority for grants and financial assistance that don't individually
+  require significant analysis.
+- **Federal Land** and **Federal Permit** produce substantially more EAs and EISs per project
+  than Funding does, reflecting the environmental scrutiny attached to land disturbance and
+  regulatory licensing.
+- **Direct Federal Action** spans all three process types: federal agencies can self-authorize
+  CEs for small actions, but larger infrastructure (transmission lines, dams) generates full EIS.
+- **Federal Program** is heavily weighted toward EIS, consistent with the programmatic EIS
+  instrument covering landscape- or policy-scale decisions.
+
+```{r}
+#| label: fig-process-by-trigger
+#| fig-cap: "Share of CE, EA, and EIS reviews within each primary trigger class. Percentage labels shown for segments > 5%."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig3_process_by_trigger.png"))
+```
+
+---
+
+# Trigger Distribution by Federal Department
+
+@fig-dept-heatmap shows trigger class distribution across federal departments—the parent cabinet
+agencies that house the lead agency for each project. Using department rather than individual
+agency names collapses the ~18+ distinct agencies into a legible set of ~8 entities.
+
+The heatmap reads row by row: each row sums to 100%, showing how a given department's projects
+are distributed across trigger classes.
+
+- **Department of Energy** projects are almost entirely Federal Funding—DOE's primary
+  mechanism for decarbonization investment is grant and loan programs rather than direct
+  construction.
+- **Department of the Interior** (primarily BLM) projects skew toward Federal Land, as
+  expected given BLM's public land jurisdiction. A secondary share shows Direct Federal Action
+  from the Bureau of Reclamation.
+- **Department of Agriculture** (Forest Service) mirrors Interior but at smaller scale—
+  National Forest special use permits for biomass, wind, and transmission lines.
+- **Major Independent Agencies** (TVA, FERC, etc.) show the highest Federal Permit
+  concentration, reflecting FERC licensing for hydropower and TVA direct construction.
+
+```{r}
+#| label: fig-dept-heatmap
+#| fig-cap: "NEPA trigger distribution by federal parent department. Each row sums to 100%. Cell text: share of that department's decarbonization projects in each trigger class."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig4_department_trigger_heatmap.png"))
+```
+
+---
+
+# Trigger Distribution by Energy Technology
+
+@fig-technology shows trigger mix across primary clean energy technology types, filtered to
+technologies with at least 50 projects. Technology assignment uses the first matching
+clean-energy NEPATEC tag per project (e.g., a project tagged Solar + Utilities is assigned
+to Solar).
+
+- **Solar** and **Wind (Onshore)** projects are driven mainly by Federal Land and Federal
+  Funding—utility-scale renewables either sit on BLM land or receive DOE financial assistance.
+- **Transmission** projects show the highest share of Direct Federal Action, consistent with
+  the Power Marketing Administrations (BPA, WAPA) building federal transmission infrastructure.
+- **Hydropower** shows a distinctive mix of Direct Federal Action (federal dams) and Federal
+  Permit (FERC licensing for non-federal hydro).
+- **Carbon Capture & Storage** and **Energy Storage** skew toward Federal Funding, reflecting
+  DOE's active grant program for emerging technologies.
+
+```{r}
+#| label: fig-technology
+#| fig-cap: "Primary NEPA trigger by energy technology type. Technologies with fewer than 50 projects excluded. Technology label = first clean-energy NEPATEC tag per project."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig5_trigger_by_technology.png"))
+```
+
+---
+
+# Geographic Distribution
+
+@fig-choropleth shows the *dominant* trigger class in each state — the trigger type with the most
+projects in that state. The map captures broad regional patterns:
+
+- **Funding** dominates most states, consistent with DOE's nationwide grant footprint.
+- **Land** dominates in the intermountain West (Nevada, Utah, Wyoming, Montana,
+  Idaho)—states with high proportions of BLM land and active solar and wind development.
+- **Direct Action** appears in states with significant federal power authority
+  infrastructure (Pacific Northwest: BPA transmission; Tennessee Valley).
+
+Note that dominant trigger is determined by project count, not by area or capacity. A state
+where a single large BLM wind project is the only clean energy project will appear as Land
+even if a dozen smaller DOE-funded projects are present.
+
+```{r}
+#| label: fig-choropleth
+#| fig-cap: "Dominant NEPA trigger by state — the trigger class with the most projects in each state. Grey = no decarbonization projects in NEPATEC 2.0. Alaska and Hawaii repositioned for display."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig6_state_choropleth.png"))
+```
+
+## County-Level Dominant Trigger
+
+@fig-county-choropleth disaggregates the state-level map to the county level, revealing more
+fine-grained geographic patterns in trigger type. Counties are colored by the dominant trigger
+class among all decarbonization projects located in that county.
+
+- The **Funding / Land boundary** maps closely onto federal land ownership: counties spanning
+  BLM or National Forest land (interior West) show Land as dominant; counties without
+  substantial federal land show Funding.
+- **Direct Action** clusters in counties with federal power authority infrastructure—Pacific
+  Northwest corridors (BPA transmission), Tennessee Valley, and Southwest transmission hubs.
+- Many rural counties host only one or two projects and are therefore colored by a single
+  project's trigger type; interpret sparse interior counties with caution.
+
+```{r}
+#| label: fig-county-choropleth
+#| fig-cap: "Dominant NEPA trigger by county — the trigger class with the most projects in each county. Counties with no NEPATEC 2.0 decarbonization projects shown in light grey. Alaska and Hawaii repositioned for display."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig7_county_choropleth.png"))
+```
+
+---
+
+# Representative Evidence Examples
+
+@tbl-excerpts shows two high-confidence classification examples per trigger class, drawn from
+high-quality evidence sources (Purpose and Need sections, project descriptions, and document
+titles). These excerpts are intended to be quotable in client reports and illustrate what the
+pipeline is detecting.
+
+```{r}
+#| label: tbl-excerpts
+#| tbl-cap: "Representative evidence text by trigger class. Two high-confidence examples per class; source limited to Purpose and Need, Project Description, and Document Title."
+
+excerpts |>
+  mutate(
+    `Evidence Text` = paste0("“", str_trunc(`Evidence Text`, 200), "”"),
+    `Project Title`  = str_trunc(`Project Title`, 60)
+  ) |>
+  select(
+    `Trigger Type`,
+    `Review Process`,
+    `Lead Agency`,
+    `Project Title`,
+    `Evidence Text`,
+    `Evidence Source`
+  ) |>
+  gt(groupname_col = "Trigger Type") |>
+  cols_label(
+    `Review Process`  = "Process",
+    `Lead Agency`     = "Lead Agency",
+    `Project Title`   = "Project",
+    `Evidence Text`   = "Evidence Text",
+    `Evidence Source` = "Source"
+  ) |>
+  cols_width(
+    `Review Process`  ~ px(55),
+    `Lead Agency`     ~ px(130),
+    `Project Title`   ~ px(160),
+    `Evidence Text`   ~ px(360),
+    `Evidence Source` ~ px(95)
+  ) |>
+  cols_align(align = "left") |>
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_style(
+    style = list(
+      cell_fill(color = "#002169"),
+      cell_text(color = "white", weight = "bold", size = px(13))
+    ),
+    locations = cells_row_groups()
+  ) |>
+  tab_style(
+    style    = cell_fill(color = "#f8f9fa"),
+    locations = cells_body(rows = seq(2, nrow(excerpts), by = 2))
+  ) |>
+  tab_options(table.font.size = px(12), data_row.padding = px(8),
+              row_group.padding = px(6))
+```
+
+---
+
+*Report generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis — Phase 2, Deliverable 1*

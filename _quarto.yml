@@ -31,12 +31,10 @@ website:
       - text: "Phase 2"
         menu:
           - text: "Overview"
-            href: phase2/reports/index.qmd
+            href: phase2/reports/index.html
           - text: "---"
-          - text: "D1: Trigger Classification"
-            href: phase2/notes/deliverable01/trigger_classification.md
-          - text: "D1: Examples"
-            href: phase2/notes/deliverable01/example_bank.md
+          - text: "Deliverable 1"
+            href: "#"
       - text: "Presentations"
         href: presentations/presentation1.qmd
 
@@ -44,3 +42,4 @@ format:
   html:
     embed-resources: true
     theme: cosmo
+    include-after-body: _includes/nav-submenu.html

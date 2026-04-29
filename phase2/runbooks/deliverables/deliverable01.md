@@ -2,7 +2,7 @@
 
 **Purpose:** Classify the federal nexus that triggers NEPA review for each clean energy project.
 **Input:** `data/analysis/projects_combined.parquet` + source-level docs/pages parquets (CE, EA, EIS).
-**Output:** `data/analysis/nepa_trigger/projects_nepa_trigger.parquet` + validation batch CSV.
+**Output:** `data/analysis/nepa_trigger/projects_nepa_trigger.parquet`, `data/analysis/nepa_trigger/projects_funding_details.parquet`, and validation batch CSV.
 **Cost:** LLM tier (optional) ~$1–4 (Claude Haiku) depending on share of unresolved cases; Tier 5 has a hard budget guardrail (default $10).
 **Scope:** 20,725 clean energy projects (`project_energy_type = 'Clean'`).
 **Scripts:**
@@ -93,6 +93,15 @@ export ANTHROPIC_API_KEY='sk-ant-...'
 conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py --use-llm
 ```
 
+### Step 4 — Refresh funding details only
+
+Regenerates `projects_funding_details.parquet` from the existing trigger output without rerunning
+the trigger classifier or rewriting `projects_nepa_trigger.parquet`.
+
+```bash
+conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py --funding-details-only
+```
+
 ---
 
 ## Sample / smoke test
@@ -124,6 +133,7 @@ conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py --
 | `--use-llm` | off | Enable Tier 5 (Claude Haiku) for uncertain cases |
 | `--force-tier5` | off | Override Tier 5 budget guardrail and send full queue |
 | `--tier5-budget` | 10.0 | Hard stop budget in USD for Tier 5 spend |
+| `--funding-details-only` | off | Regenerate `projects_funding_details.parquet` from the existing trigger output without rewriting `projects_nepa_trigger.parquet` |
 | `--sample N` | None | Random sample of N projects (for testing) |
 
 `ANTHROPIC_API_KEY` must be set in the environment when `--use-llm` is used.
@@ -152,6 +162,35 @@ One row per project. Key columns:
 | `nepa_trigger_llm_run_at` | string | ISO-8601 UTC timestamp of LLM call (empty string if Tier 5 not used) |
 
 **`nepa_trigger_evidence_source` values:** `agency_metadata`, `title`, `description`, `doc_title`, `purpose_and_need`, `document_text`, `embedding`, `llm`.
+
+### Funding details sidecar: `data/analysis/nepa_trigger/projects_funding_details.parquet`
+
+One row per project where `nepa_trigger_primary == "federal_funding"`. This sidecar is intentionally
+separate from the trigger output so funding mechanism and amount parsing can be refreshed without
+rerunning the full trigger classifier.
+
+Key columns:
+
+| Column | Type | Description |
+|---|---|---|
+| `project_id` | string | Primary key, matching a funding-primary project |
+| `federal_funding_type_primary` | string | Main mechanism: grant/award, formula grant, loan guarantee, federal loan, cooperative agreement, cost share, financial assistance, generic funding, or unknown |
+| `federal_funding_type_multi` | list<string> | All funding mechanisms detected in project-specific funding context |
+| `federal_funding_program_multi` | list<string> | Program/source labels such as `ARRA`, `EECBG`, `SEP`, `WAP`, `Title XVII`, `BIL`, `IRA`, `FOA` |
+| `federal_funding_amount_usd` | double | Evidence-backed federal amount, if exactly one non-conflicting amount is found |
+| `federal_funding_total_project_cost_usd` | double | Evidence-backed total project cost/value, if found |
+| `federal_funding_recipient_cost_share_usd` | double | Evidence-backed recipient/non-federal cost share, if found |
+| `federal_funding_share_pct` | double | Explicit funding percentage or computed federal amount / total project cost |
+| `federal_funding_evidence_text` | string | Funding-specific evidence snippet |
+| `federal_funding_evidence_source` | string | `trigger_evidence`, `project_metadata`, `doc_title`, or `document_text` |
+| `federal_funding_confidence` | string | `high`, `medium`, or `low` |
+| `federal_funding_manual_review` | bool | True for unknown mechanisms or conflicting amount candidates |
+| `federal_funding_amount_candidates_json` | string | All parsed amount/percent candidates and conflict flags |
+| `federal_funding_extraction_run_at` | string | ISO-8601 UTC timestamp of sidecar extraction |
+
+Amount coverage is partial by design. Dollar amounts are only populated when the amount is tied to
+project-specific federal funding language. Generic dollar amounts elsewhere in a NEPA document are
+not treated as federal funding amounts.
 
 ### Validation batches: `data/analysis/nepa_trigger/validation_batches.csv`
 
@@ -183,6 +222,14 @@ The script enforces these before writing output; the run fails if any assertion 
 1. **Uniqueness:** `project_id` is unique — exactly one row per project.
 2. **Scope:** all `project_id` values are in the 20,725-project clean energy set.
 3. **List column:** `nepa_trigger_secondary` is a Python list, not a JSON string.
+
+Funding sidecar assertions:
+
+1. **Funding-only scope:** sidecar project IDs exactly match `nepa_trigger_primary == "federal_funding"`.
+2. **No trigger overwrite:** `--funding-details-only` asserts that `projects_nepa_trigger.parquet` size and mtime are unchanged.
+3. **Numeric validity:** amount fields are non-negative USD values; percentages are between 0 and 100.
+4. **List columns:** funding mechanism and program multi-label fields are Python lists.
+5. **Conflict handling:** conflicting amount candidates leave primary amount fields blank and set `federal_funding_manual_review = TRUE`.
 
 ### Batch-by-rule review (manual)
 
@@ -245,6 +292,10 @@ install.packages("usmap")
 | `fig3_trigger_combinations.png` | Top 10 primary + secondary combinations |
 | `fig4_trigger_by_technology.png` | 100% stacked bar — trigger × energy technology |
 | `fig5_state_choropleth.png` | State map — dominant trigger per state |
+| `fig8_funding_mechanism_counts.png` | Federal funding mechanism counts from `projects_funding_details.parquet` |
+| `fig9_funding_program_counts.png` | Federal funding program/source label counts |
+| `fig10_funding_amount_coverage.png` | Coverage of extracted funding amount fields |
+| `federal_funding_detail_summary.csv` | Mechanism, program/source, and amount coverage summary |
 | `trigger_evidence_excerpts.csv` | 2 high-confidence quotable examples per class |
 | `trigger_source_distribution.csv` | Evidence source × confidence breakdown |
 | `trigger_rule_distribution.csv` | Top 25 rules by volume |
@@ -263,3 +314,6 @@ Fig 6 (trigger × review duration) is a placeholder — uncomment in the R scrip
 - **Document routing** uses the `dataset_source` column (`CE`, `EA`, `EIS`) from `projects_combined.parquet` to select the correct `*_documents.parquet` and `*_pages.parquet` paths.
 - **`nepa_trigger_rule_id` format:** `T{tier}_{slug}` (e.g., `T1a_BLM_land`, `T1b_row_grant`, `T3_sec404`, `T4_local_federal_funding`, `T5_llm`). Use this to trace any classification back to the exact rule that fired.
 - **Negation guard:** a regex negation filter suppresses matches in contexts like "Section 404 permit is NOT required" and CE checkbox forms where the box is unchecked (`[ ]`). This prevents the most common false-positive patterns in CE boilerplate.
+- **Funding details are sidecar-only:** grant/loan/amount extraction only runs for projects already classified as `federal_funding`. This avoids turning generic dollar amounts or unrelated grant terms in land/permit/program documents into funding facts.
+- **Grant disambiguation:** funding detail extraction suppresses land-authorization uses of "grant" such as right-of-way grants, ROW grants, easement grants, and perpetual ROW grants.
+- **Amount extraction coverage:** `federal_funding_amount_usd` is intentionally sparse. It requires an amount near project-specific federal funding language such as DOE Funding, Federal Cost Share, award/grant language, loan guarantee language, EECBG/SEP funding, or a similar cue.

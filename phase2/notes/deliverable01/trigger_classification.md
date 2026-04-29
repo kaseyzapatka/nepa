@@ -11,7 +11,7 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 - `Federal Funding`
 - `Federal Land`
 - `Federal Permit`
-- `Federal Action`
+- `Federal Direct Action`
 - `Federal Program`
 - `Federal Property Transaction`
 
@@ -75,7 +75,7 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 - Agency is HUD / Department of Housing and Urban Development → auto-assigned `federal_funding`
 - Agency is FTA / Federal Transit Administration → auto-assigned `federal_funding`
 - Agency is FHWA / Federal Highway Administration → auto-assigned `federal_funding`
-- Note: DOE is ambiguous — it can indicate either `federal_funding` or `federal_action` depending on verb context; DOE projects are routed to Tier 4 for adjudication
+- Note: DOE is ambiguous — it can indicate either `federal_funding` or `federal_direct_action` depending on verb context; DOE projects are routed to Tier 4 for adjudication
 
 
 ### 2. Federal land
@@ -134,6 +134,7 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 **Agency metadata (Tier 1a — detected without text cues):**
 
 - Agency is BLM, Bureau of Land Management, USFS, Forest Service, NPS, National Park Service, FWS / USFWS, Fish and Wildlife Service, BOR / USBR, Bureau of Reclamation
+- Agency is BLM / Bureau of Land Management AND sponsor contains Forest Service / USFS AND title or description contains one of: “right-of-way” / “ROW” / “withdrawal” / “Public Land Order” / “FLPMA” → auto-assigned `federal_land` (`T1a_BLM_USFS_land_control`)
 
 
 ### 3. Federal permit
@@ -149,6 +150,8 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 - “Section 404 permit application”
 - “applied for an individual permit under Section 404”
 - “Department of Army permit” / “Department of the Army (DA) permit” + “Section 404” within same passage (180 chars)
+- “Clean Water Act” only when paired in the same passage with explicit permit language such as “Section 404” + “permit” / “permit application,” “permit application,” “issue a permit” / “issue a permit with conditions,” “deny a permit,” or “Section 10”
+- Do not use bare “Clean Water Act” by itself as a permit trigger
 - “Section 10” + “Rivers and Harbors” within same passage (80 chars)
 - “Nationwide Permit (NWP) Verification” (medium confidence)
 - “Nationwide, Regional General, or Standard Individual Permit may be required” (medium confidence)
@@ -208,11 +211,11 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 - Agency is FCC / Federal Communications Commission → auto-assigned `federal_permit`
 
 
-### 4. Federal Action 
+### 4. Federal Direct Action
 
 ---
 
-**Coding rule:** `Assign federal action coding when the federal agency is not just approving someone else’s project but is the primary actor proposing, implementing, constructing, adopting, managing, or directly sponsoring the action.`
+**Coding rule:** `Assign federal direct action coding when the federal agency is not just approving someone else’s project but is the primary actor proposing, implementing, constructing, adopting, managing, or directly sponsoring the action.`
 
 **Recognized federal actors** — the following agency names are required to appear in any compound pattern below:
 
@@ -261,15 +264,13 @@ The compound patterns are:
 
 **Agency metadata (Tier 1a — detected without text cues):**
 
-- **`AGENCY_ACTION_PRIOR_MAP`** — sets a prior toward `federal_action`; continues through Tier 1b/2/3/4 for confirmation:
+- **`AGENCY_DIRECT_ACTION_MAP`** — auto-assigned `federal_direct_action` without further review:
   - Power Marketing Administration
   - Bonneville Power Administration / BPA
   - Western Area Power Administration / WAPA
-
-- **`AGENCY_ACTION_ONLY_MAP`** — border infrastructure is always direct federal construction; continues through tiers:
   - CBP / U.S. Customs and Border Protection
 
-- Note: DOE and USACE appear in `FEDERAL_ACTION_ACTOR_PATTERN` (used in compound text patterns above) but are classified as `AGENCY_AMBIGUOUS` in Tier 1a — they are NOT auto-assigned to `federal_action` from metadata alone; verb context from document text is required to distinguish `federal_action` from `federal_funding` (DOE) or `federal_permit` (USACE)
+- Note: DOE and USACE appear in `FEDERAL_ACTION_ACTOR_PATTERN` (used in compound text patterns above) but are classified as `AGENCY_AMBIGUOUS` in Tier 1a — they are NOT auto-assigned to `federal_direct_action` from metadata alone; verb context from document text is required to distinguish `federal_direct_action` from `federal_funding` (DOE) or `federal_permit` (USACE)
 
 
 ### 5. Federal programs
@@ -424,7 +425,7 @@ These are the class-specific hypothesis statements used in Tier 4 to determine w
 - `federal_funding`
   - This text shows that a federal agency is funding, financing, or providing financial assistance for this project, including through a grant, loan, loan guarantee, cost-sharing arrangement, cooperative agreement, or formula-based award.
 
-- `federal_action`
+- `federal_direct_action`
   - This text shows that a federal agency is the primary actor directly proposing, constructing, installing, operating, managing, upgrading, rebuilding, restoring, or otherwise implementing this project, rather than merely approving or permitting someone else's project.
 
 - `federal_land`

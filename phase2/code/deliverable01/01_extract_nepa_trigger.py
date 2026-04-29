@@ -76,6 +76,7 @@ PAN_WINDOW          = 600  # chars to extract after section header
 OUTPUT_COLS = [
     "project_id",
     "nepa_trigger_primary", "nepa_trigger_secondary", "nepa_trigger_multi",
+    "nepa_trigger_count", "nepa_trigger_combo", "nepa_trigger_primary_hierarchy",
     "nepa_trigger_evidence_text", "nepa_trigger_evidence_source",
     "nepa_trigger_confidence", "nepa_trigger_rule_id",
     "nepa_trigger_manual_review", "is_dual_nexus",
@@ -86,11 +87,30 @@ CONTEXT_CANDIDATES_PATH = OUTPUT_DIR / "context_candidates.parquet"
 TIER4_CHUNK_SCORES_PATH = OUTPUT_DIR / "tier4_chunk_scores.parquet"
 TIER4_DOC_SCORES_PATH = OUTPUT_DIR / "tier4_doc_scores.parquet"
 TIER5_QUEUE_PATH = OUTPUT_DIR / "tier5_queue.parquet"
+PROJECTS_NEPA_TRIGGER_PATH = OUTPUT_DIR / "projects_nepa_trigger.parquet"
+PROJECTS_FUNDING_DETAILS_PATH = OUTPUT_DIR / "projects_funding_details.parquet"
+
+FUNDING_DETAIL_COLS = [
+    "project_id",
+    "federal_funding_type_primary",
+    "federal_funding_type_multi",
+    "federal_funding_program_multi",
+    "federal_funding_amount_usd",
+    "federal_funding_total_project_cost_usd",
+    "federal_funding_recipient_cost_share_usd",
+    "federal_funding_share_pct",
+    "federal_funding_evidence_text",
+    "federal_funding_evidence_source",
+    "federal_funding_confidence",
+    "federal_funding_manual_review",
+    "federal_funding_amount_candidates_json",
+    "federal_funding_extraction_run_at",
+]
 
 TIER4_TOP_K = 4
-TIER4_BASE_THRESHOLD = 0.90
-TIER4_NO_PRIOR_THRESHOLD = 0.92
-TIER4_MARGIN_THRESHOLD = 0.15
+TIER4_BASE_THRESHOLD = 0.72
+TIER4_NO_PRIOR_THRESHOLD = 0.78
+TIER4_MARGIN_THRESHOLD = 0.08
 TIER4_CONTRADICTION_WINDOW = 0.10
 TIER4_SUPPORT_THRESHOLD = 0.25
 
@@ -99,7 +119,12 @@ TIER5_SOFT_WARNING = 150
 TIER5_HARD_STOP_BUDGET = 10.0
 ESTIMATED_TIER5_COST_PER_PROJECT = 0.04  # conservative placeholder for queue guardrails
 
-LOCAL_NLI_MODEL = "cross-encoder/nli-MiniLM2-L6-H768"
+LOCAL_NLI_MODEL = "cross-encoder/nli-deberta-v3-base"
+
+SETFIT_MODEL_PATH        = Path("phase2/models/trigger_setfit")
+MANUAL_LABELS_GLOB       = "phase2/data/analysis/nepa_trigger/doe_ce_sample_*.csv"
+SETFIT_CONFIDENCE_THRESHOLD = 0.65
+SETFIT_MARGIN_THRESHOLD     = 0.08
 
 AUTO_ACCEPT_RULE_IDS = frozenset({
     "T1a_FERC_permit",
@@ -118,10 +143,15 @@ AUTO_ACCEPT_RULE_IDS = frozenset({
     "T3_agency_grant",
     "T3_blm_land",
     "T3_nfs_land",
+    "T1a_BPA_direct_action",
+    "T1a_WAPA_direct_action",
+    "T1a_CBP_direct_action",
+    "T1a_PMA_direct_action",
+    "T1a_BLM_USFS_land_control",
 })
 
 SEND_TO_TIER4_RULE_IDS = frozenset({
-    "T1a_DOE_action",
+    "T1a_DOE_direct_action",
     "T1a_DOE_funding",
     "T3_sec404",
 })
@@ -152,14 +182,12 @@ AGENCY_FUNDING_MAP = frozenset({
     "FTA", "Federal Transit Administration",
     "FHWA", "Federal Highway Administration",
 })
-AGENCY_ACTION_PRIOR_MAP = frozenset({
+AGENCY_DIRECT_ACTION_MAP = frozenset({
     "Power Marketing Administration",
     "Bonneville Power Administration",
     "Western Area Power Administration",
     "WAPA",
     "BPA",
-})
-AGENCY_ACTION_ONLY_PRIOR_MAP = frozenset({
     "CBP",
     "U.S. Customs and Border Protection",
     "Customs and Border Protection",
@@ -186,9 +214,42 @@ _AGENCY_CODE_LOOKUP = {
     "FERC": "FERC", "FAA": "FAA", "FCC": "FCC",
     "DOT": "DOT", "HUD": "HUD", "FTA": "FTA", "FHWA": "FHWA",
     "DOE": "DOE", "USACE": "USACE", "ARMY CORPS OF ENGINEERS": "USACE",
+    "BPA": "BPA", "BONNEVILLE POWER ADMINISTRATION": "BPA",
+    "WAPA": "WAPA", "WESTERN AREA POWER ADMINISTRATION": "WAPA",
+    "CBP": "CBP", "U.S. CUSTOMS AND BORDER PROTECTION": "CBP", "CUSTOMS AND BORDER PROTECTION": "CBP",
+    "POWER MARKETING ADMINISTRATION": "PMA",
 }
 
-# --- federal_action vs federal_land disambiguation ---
+FOREST_SERVICE_SPONSOR_PATTERN = (
+    r"\b(?:USDA(?:,\s*)?)?(?:U\.?S\.?\s*)?Forest\s+Service\b|"
+    r"\bUSFS\b"
+)
+BLM_USFS_LAND_CONTROL_PATTERN = (
+    r"\bright[-\s]of[-\s]way\b|"
+    r"\bROW\b|"
+    r"\bwithdrawal\b|"
+    r"\bPublic\s+Land\s+Order\b|"
+    r"\bFLPMA\b"
+)
+CLEAN_WATER_ACT_PERMIT_CONTEXT_PATTERN = (
+    r"\bClean\s+Water\s+Act\b[\s\S]{0,180}\b(?:"
+    r"Section\s+404\b[\s\S]{0,80}\bpermit(?:\s+application)?\b|"
+    r"permit\s+application\b|"
+    r"issue\s+a\s+permit(?:\s+with\s+conditions)?\b|"
+    r"deny\s+a\s+permit\b|"
+    r"Section\s+10\b"
+    r")"
+    r"|"
+    r"\b(?:"
+    r"Section\s+404\b[\s\S]{0,80}\bpermit(?:\s+application)?\b|"
+    r"permit\s+application\b|"
+    r"issue\s+a\s+permit(?:\s+with\s+conditions)?\b|"
+    r"deny\s+a\s+permit\b|"
+    r"Section\s+10\b"
+    r")[\s\S]{0,180}\bClean\s+Water\s+Act\b"
+)
+
+# --- federal_direct_action vs federal_land disambiguation ---
 
 FEDERAL_ACTION_ACTOR_PATTERN = (
     r'(?:DOE|Department\s+of\s+Energy|NNSA|National\s+Nuclear\s+Security\s+Administration|'
@@ -350,6 +411,7 @@ TIER1B_PATTERNS = [
     (r'Section\s+404\s+permit\s+application\b', 'federal_permit', 'sec404', 'high'),
     (r'applied\s+for\s+an\s+individual\s+permit\s+under\s+Section\s+404\b', 'federal_permit', 'sec404_individual', 'high'),
     (r'Department\s+of\s+(?:the\s+)?Army(?:\s+\(DA\))?\s+permit\s+pursuant\s+to\s+Section\s+404\b[\s\S]{0,180}\bSection\s+10\s+of\s+the\s+Rivers\s+and\s+Harbors', 'federal_permit', 'sec404_da', 'high'),
+    (CLEAN_WATER_ACT_PERMIT_CONTEXT_PATTERN, 'federal_permit', 'clean_water_act_permit_context', 'medium'),
     (r'Section\s+10\b[\s\S]{0,80}Rivers\s+and\s+Harbors', 'federal_permit', 'sec10_rha', 'high'),
     (r'Nationwide\s+Permit\s+\(NWP\)\s+Verification\b', 'federal_permit', 'nwp_verification', 'medium'),
     (r'Nationwide,\s+Regional\s+General,\s+or\s+Standard\s+Individual\s+Permit\s+may\s+be\s+required\b', 'federal_permit', 'nwp_general_individual', 'medium'),
@@ -409,19 +471,19 @@ TIER1B_PATTERNS = [
     (r'(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b', 'federal_funding', 'alrd_formula', 'medium'),
     (r'(?:DOE|DOT|HUD|USDA)\s+(?:grant|funding)\b', 'federal_funding', 'agency_grant', 'high'),
     (r'federal\s+(?:financial\s+assistance|grant\b)', 'federal_funding', 'fed_grant', 'medium'),
-    # federal_action — agency as actor (checked last among high-priority classes)
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b', 'federal_action', 'agency_actor_direct', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b', 'federal_action', 'agency_remove_replace', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,120}}\bconstruct,\s*own,\s*operate,\s*and\s+maintain\b', 'federal_action', 'construct_own_operate_maintain', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\b(?:constructed\s+and\s+operated|would\s+be\s+constructed\s+and\s+operated)\b', 'federal_action', 'constructed_operated', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bcontinue\s+to\s+occupy\s+and\s+maintain\s+existing\s+facilities\b[\s\S]{{0,180}}\brefurbish\s+existing\s+facilities\b', 'federal_action', 'occupy_maintain_refurbish', 'high'),
-    (FEDERAL_ACTION_STEP_OWNERSHIP_PATTERN, 'federal_action', 'ownership_transition_site_operation', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bwould\s+functionally\s+replace\b', 'federal_action', 'functional_replace', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,520}}\brebuild\s+the\s+existing\b', 'federal_action', 'rebuild_existing_facility', 'high'),
-    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,200}}\b(?:upgrade|rebuild)\b[\s\S]{{0,160}}\bby\s+removing\b[\s\S]{{0,160}}\band\s+installing\b', 'federal_action', 'upgrade_remove_install', 'high'),
-    (r'military\s+(?:installation|base|facility)\b', 'federal_action', 'military', 'high'),
-    (r'federal\s+facility\s+(?:upgrade|expansion|construction)\b', 'federal_action', 'fed_facility', 'high'),
-    (r'vegetation\s+management\b.{0,50}National\s+Forest', 'federal_action', 'usfs_veg_mgmt', 'high'),
+    # federal_direct_action — agency as actor (checked last among high-priority classes)
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b', 'federal_direct_action', 'agency_actor_direct', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b', 'federal_direct_action', 'agency_remove_replace', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,120}}\bconstruct,\s*own,\s*operate,\s*and\s+maintain\b', 'federal_direct_action', 'construct_own_operate_maintain', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\b(?:constructed\s+and\s+operated|would\s+be\s+constructed\s+and\s+operated)\b', 'federal_direct_action', 'constructed_operated', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bcontinue\s+to\s+occupy\s+and\s+maintain\s+existing\s+facilities\b[\s\S]{{0,180}}\brefurbish\s+existing\s+facilities\b', 'federal_direct_action', 'occupy_maintain_refurbish', 'high'),
+    (FEDERAL_ACTION_STEP_OWNERSHIP_PATTERN, 'federal_direct_action', 'ownership_transition_site_operation', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,160}}\bwould\s+functionally\s+replace\b', 'federal_direct_action', 'functional_replace', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,520}}\brebuild\s+the\s+existing\b', 'federal_direct_action', 'rebuild_existing_facility', 'high'),
+    (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,200}}\b(?:upgrade|rebuild)\b[\s\S]{{0,160}}\bby\s+removing\b[\s\S]{{0,160}}\band\s+installing\b', 'federal_direct_action', 'upgrade_remove_install', 'high'),
+    (r'military\s+(?:installation|base|facility)\b', 'federal_direct_action', 'military', 'high'),
+    (r'federal\s+facility\s+(?:upgrade|expansion|construction)\b', 'federal_direct_action', 'fed_facility', 'high'),
+    (r'vegetation\s+management\b.{0,50}National\s+Forest', 'federal_direct_action', 'usfs_veg_mgmt', 'high'),
 ]
 
 # --- Tier 2: Document title patterns ---
@@ -484,7 +546,7 @@ TIER4_CUE_PATTERNS = {
         r"\b(?:State\s+Energy\s+Program|SEP|WAP)\b[\s\S]{0,120}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
         r"(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
     ],
-    "federal_action": [
+    "federal_direct_action": [
         rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b",
         rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b",
         rf"\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,120}}\bconstruct,\s*own,\s*operate,\s*and\s+maintain\b",
@@ -524,6 +586,7 @@ TIER4_CUE_PATTERNS = {
         r"\bSection\s+404\s+permit\s+application\b",
         r"\bapplied\s+for\s+an\s+individual\s+permit\s+under\s+Section\s+404\b",
         r"\bDepartment\s+of\s+(?:the\s+)?Army(?:\s+\(DA\))?\s+permit\b[\s\S]{0,180}\bSection\s+404\b",
+        CLEAN_WATER_ACT_PERMIT_CONTEXT_PATTERN,
         r"\bSection\s+10\b[\s\S]{0,80}\bRivers\s+and\s+Harbors\b",
         r"\bNationwide\s+Permit\s+\(NWP\)\s+Verification\b",
         r"\bNationwide,\s+Regional\s+General,\s+or\s+Standard\s+Individual\s+Permit\s+may\s+be\s+required\b",
@@ -589,7 +652,7 @@ TIER4_CUE_PATTERNS = {
 
 HYPOTHESIS_TEMPLATES = {
     "federal_funding": "This text shows that a federal agency is funding, financing, or providing financial assistance for this project, including through a grant, loan, loan guarantee, cost-sharing arrangement, cooperative agreement, or formula-based award.",
-    "federal_action": "This text shows that a federal agency is the primary actor directly proposing, constructing, installing, operating, managing, upgrading, rebuilding, restoring, or otherwise implementing this project, rather than merely approving or permitting someone else's project.",
+    "federal_direct_action": "This text shows that a federal agency is the primary actor directly proposing, constructing, installing, operating, managing, upgrading, rebuilding, restoring, or otherwise implementing this project, rather than merely approving or permitting someone else's project.",
     "federal_land": "This text shows that this project is located on, crosses, or requires access to federally managed land, or that the project requires a right-of-way grant, easement, special use permit, land use authorization, or similar approval tied to use of federal land.",
     "federal_permit": "This text shows that a federal permit, license, certification, or regulatory approval is required for this project, even if the project is otherwise privately or state-led.",
     "federal_program": "This text shows that this is a programmatic, generic, site-wide, or Tier 1 environmental review covering a class of actions or a geographic area, or a broader federal planning document such as a resource management plan revision, leasing program, corridor designation, or rulemaking.",
@@ -615,18 +678,18 @@ CALIBRATION_EXAMPLES: list[tuple[str, str | None, str]] = [
      "DOE is proposing to provide federal funding to the Contra Costa Economic Partnership "
      "to support local and regional efforts to address and achieve measurable improvements "
      "in market conditions for both commercial and residential rooftop photovoltaic (PV) solar arrays."),
-    ("federal_action / DOE constructs NREL facility", "federal_action",
+    ("federal_direct_action /DOE constructs NREL facility", "federal_direct_action",
      "The Department of Energy (DOE) prepared this Final Supplemental EA to assess the potential "
      "environmental effects resulting from the proposed improvements to the RFHP. Specifically, the DOE "
      "proposes to develop, construct and operate a woodchip fuel storage silo at the National Renewable "
      "Energy Laboratory's (NREL) South Table Mountain (STM) site in Golden, Colorado."),
-    ("federal_action / Western constructs substation", "federal_action",
+    ("federal_direct_action /Western constructs substation", "federal_direct_action",
      "Western Area Power Administration (Western) will construct a new control building at the Lusk Rural "
      "Substation (LRS) located in Niobrara County, Wyoming. The proposed work at the LRS control building "
      "consists of the following; construct a new control building and associated foundation, demolish "
      "existing 69-kV switch, construct new Fault Interrupter foundations and install steel support structure "
      "and fault interrupter, and demolish existing control building."),
-    ("federal_action / Western constructs communications building", "federal_action",
+    ("federal_direct_action /Western constructs communications building", "federal_direct_action",
      "Western Area Power Administration (Western) will construct a new communications building on the Archer "
      "Microwave Site (ARW). This project will have the following components:\n"
      "* Construct a new communications building\n"
@@ -763,7 +826,7 @@ SECTION_PRIOR_WEIGHTS = {
 # --- Tier 4: Class prototype sentences for embedding similarity ---
 
 CLASS_PROTOTYPES = {
-    "federal_action": [
+    "federal_direct_action": [
         "The Forest Service proposes to implement vegetation management on National Forest land.",
         "The Bureau of Land Management will construct a new facility at the site.",
         "This federal action consists of upgrading and replacing infrastructure at an existing federal facility.",
@@ -818,7 +881,7 @@ Prefer affirmative, project-specific evidence. Distinguish a mere mention from a
 Return unknown if the evidence is insufficient.
 
 Classes:
-- federal_action: federal agency is the primary actor constructing or implementing the project
+- federal_direct_action: federal agency is the primary actor constructing or implementing the project
 - federal_program: programmatic EIS, land-use plan, rulemaking, or leasing framework
 - federal_property_transaction: land exchange, sale, disposal, transfer, or acquisition of land, land rights, easements, or other real-property interests
 - federal_land: project on or crossing federal land; ROW grant or special use permit tied to land access
@@ -840,17 +903,31 @@ Respond with JSON only:
 {{"primary": "federal_land", "secondary": ["federal_permit"], "confidence": "high", "reasoning": "..."}}"""
 
 VALID_CLASSES = frozenset({
-    "federal_action", "federal_program", "federal_property_transaction",
+    "federal_direct_action", "federal_program", "federal_property_transaction",
     "federal_land", "federal_permit", "federal_funding", "unknown",
 })
 
 TOP_LEVEL_CLASSES = [
     "federal_funding",
-    "federal_action",
+    "federal_direct_action",
     "federal_land",
     "federal_permit",
     "federal_program",
     "federal_property_transaction",
+]
+
+# Hierarchy for resolving primary trigger when multi-label evidence exists.
+# Order = federal discretion level over the action: agency implementing > land authorization >
+# regulatory permit > financial assistance. federal_program is orthogonal (document type) and
+# wins only when the review IS the program, not a site-specific project.
+TRIGGER_HIERARCHY = [
+    "federal_program",
+    "federal_direct_action",
+    "federal_property_transaction",
+    "federal_land",
+    "federal_permit",
+    "federal_funding",
+    "unknown",
 ]
 
 # Negation patterns applied to the extracted evidence sentence before accepting a match.
@@ -867,6 +944,110 @@ _NEGATION_PATTERNS = [
     r'\bdoes\s+not\s+(?:involve|include|require|apply)\b',
     r'\bno\s+transfer\s+of\s+land\s+ownership\b',
 ]
+
+# --- Federal funding detail sidecar patterns ---
+
+FUNDING_CUE_RE = re.compile(
+    r"\b(?:"
+    r"federal\s+fund(?:ing|s)?|DOE\s+funding|Department\s+of\s+Energy\s+funding|"
+    r"grant|grants|award|awards|financial\s+assistance|loan\s+guarantee|"
+    r"guaranteed\s+loan|federal\s+loan|revolving\s+loan|cooperative\s+agreement|"
+    r"cost[-\s]?share|Federal\s+Cost\s+Share|Title\s+XVII|EECBG|ARRA|"
+    r"American\s+Recovery\s+and\s+Reinvestment\s+Act|Recovery\s+Act|"
+    r"Bipartisan\s+Infrastructure\s+(?:Law|Act)|Inflation\s+Reduction\s+Act|"
+    r"State\s+Energy\s+Program|SEP|Weatherization\s+Assistance\s+Program|WAP|"
+    r"funding\s+opportunity\s+announcement|FOA"
+    r")\b",
+    re.IGNORECASE,
+)
+
+LAND_GRANT_FALSE_POSITIVE_RE = re.compile(
+    r"\b(?:right[-\s]of[-\s]way|ROW|land\s+use|easement|perpetual)\s+grant\b|"
+    r"\bgrant\s+(?:a\s+)?(?:right[-\s]of[-\s]way|ROW|easement|perpetual)\b|"
+    r"\bROW\s+grant\b|\bright[-\s]of[-\s]way\s+\(ROW\)\s+grant\b",
+    re.IGNORECASE,
+)
+
+FUNDING_PROJECT_SPECIFIC_RE = re.compile(
+    r"\b(?:"
+    r"proposes?\s+to\s+(?:provide|award|fund|partially\s+fund|use)|"
+    r"would\s+(?:provide|award|fund|partially\s+fund|use)|"
+    r"is\s+proposing\s+to\s+(?:provide|award|fund|partially\s+fund|use)|"
+    r"selected\s+.+?\s+to\s+receive|recipient\s+of|receive[sd]?\s+.+?\s+(?:funding|grant|award)|"
+    r"DOE\s+Funding|Federal\s+Cost\s+Share|Total\s+Project\s+(?:Cost|Value)|"
+    r"amount\s+to\s+be\s+released|NEPA\s+PROVISION|Rationale?\s+for\s+determination|"
+    r"Project\s+Description|Proposed\s+Action|award\s+before\s+proceeding|"
+    r"loan\s+guarantee\s+to|cooperative\s+agreement\s+with|sub\s*grant|"
+    r"pass\s+through\s+\$|provide\s+\$|providing\s+\$|selected\s+.+?\s+\$"
+    r")\b",
+    re.IGNORECASE,
+)
+
+FUNDING_GENERIC_BOILERPLATE_RE = re.compile(
+    r"\bThese\s+actions\s+may\s+involve\s+financial\s+and\s+technical\s+assistance\b|"
+    r"\bCovered\s+actions\s+include,\s+but\s+are\s+not\s+limited\s+to\b|"
+    r"\bdo\s+not\s+include\s+rulemakings,\s+standard-settings,\s+or\s+proposed\s+DOE\s+legislation\b",
+    re.IGNORECASE,
+)
+
+MONEY_RE = re.compile(
+    r"(?:"
+    r"\$\s*(?P<dollar_amount>\d[\d,]*(?:\.\d+)?)\s*(?P<dollar_scale>million|billion|thousand|m|b|k)?"
+    r"|"
+    r"\b(?P<word_amount>\d+(?:\.\d+)?)\s*(?P<word_scale>million|billion|thousand)\s+dollars?\b"
+    r")",
+    re.IGNORECASE,
+)
+
+PERCENT_RE = re.compile(r"\b(?P<pct>\d{1,3}(?:\.\d+)?)\s*(?:%|percent)\b", re.IGNORECASE)
+
+FUNDING_MECHANISM_PATTERNS = {
+    "loan_guarantee": re.compile(r"\bloan\s+guarantee\b|\bguaranteed\s+loan\b", re.IGNORECASE),
+    "revolving_loan": re.compile(r"\brevolving\s+loan\b", re.IGNORECASE),
+    "federal_loan": re.compile(
+        r"\bfederal\s+loan\b|\bloans?\s+from\s+(?:DOE|Department\s+of\s+Energy|USDA|DOT|HUD)\b",
+        re.IGNORECASE,
+    ),
+    "cooperative_agreement": re.compile(r"\bcooperative\s+agreement\b", re.IGNORECASE),
+    "formula_grant": re.compile(
+        r"\bformula[-\s]based\s+(?:grant|award)s?\b|\bformula\s+(?:grant|award)s?\b|\bEECBG\b",
+        re.IGNORECASE,
+    ),
+    "grant_or_award": re.compile(
+        r"\b(?:federal\s+|DOE\s+|Department\s+of\s+Energy\s+)?(?:grant|grants|award|awards)\b",
+        re.IGNORECASE,
+    ),
+    "cost_share": re.compile(r"\bcost[-\s]?share(?:d|s|r|ing|ment)?\b|\bfederal\s+cost\s+share\b", re.IGNORECASE),
+    "financial_assistance": re.compile(r"\bfinancial\s+assistance\b", re.IGNORECASE),
+    "generic_funding": re.compile(
+        r"\b(?:provide|providing|provided|receive|receives|recipient\s+of)\s+(?:federal\s+)?fund(?:ing|s)?\b|"
+        r"\bfederal\s+funding\b",
+        re.IGNORECASE,
+    ),
+}
+
+FUNDING_MECHANISM_PRIORITY = [
+    "loan_guarantee",
+    "revolving_loan",
+    "federal_loan",
+    "cooperative_agreement",
+    "formula_grant",
+    "grant_or_award",
+    "cost_share",
+    "financial_assistance",
+    "generic_funding",
+]
+
+FUNDING_PROGRAM_PATTERNS = {
+    "ARRA": re.compile(r"\bAmerican\s+Recovery\s+and\s+Reinvestment\s+Act\b|\bARRA\b|\bRecovery\s+Act\b", re.IGNORECASE),
+    "EECBG": re.compile(r"\bEECBG\b|Energy\s+Efficiency\s+and\s+Conservation\s+Block\s+Grant", re.IGNORECASE),
+    "SEP": re.compile(r"\bState\s+Energy\s+Program\b|\bSEP\b", re.IGNORECASE),
+    "WAP": re.compile(r"\bWeatherization\s+Assistance\s+Program\b|\bWAP\b", re.IGNORECASE),
+    "Title XVII": re.compile(r"\bTitle\s+XVII\b", re.IGNORECASE),
+    "BIL": re.compile(r"\bBipartisan\s+Infrastructure\s+(?:Law|Act)\b|\bBIL\b", re.IGNORECASE),
+    "IRA": re.compile(r"\bInflation\s+Reduction\s+Act\b|\bIRA\b", re.IGNORECASE),
+    "FOA": re.compile(r"\bfunding\s+opportunity\s+announcement\b|\bFOA\b", re.IGNORECASE),
+}
 
 # --------------------------
 # HELPERS
@@ -893,13 +1074,13 @@ def _get_agency_code(agency: str) -> str:
 
 def _verb_class(text: str) -> Optional[str]:
     """
-    Check action vs. authorizer verb signals to distinguish federal_action from federal_land.
-    Returns 'federal_action', 'federal_land', or None if no signal found.
-    Priority: action verbs win when both are present (federal_action > federal_land).
+    Check action vs. authorizer verb signals to distinguish federal_direct_action from federal_land.
+    Returns 'federal_direct_action', 'federal_land', or None if no signal found.
+    Priority: action verbs win when both are present (federal_direct_action > federal_land).
     """
     for pat in FEDERAL_ACTION_VERB_PATTERNS:
         if re.search(pat, text, re.IGNORECASE):
-            return "federal_action"
+            return "federal_direct_action"
     for pat in FEDERAL_LAND_AUTHORIZER_PATTERNS:
         if re.search(pat, text, re.IGNORECASE):
             return "federal_land"
@@ -938,6 +1119,16 @@ _SENTENCE_MODEL = None
 _HYPOTHESIS_EMBEDDINGS = None
 _LOCAL_SCORER_KIND = None
 _CROSS_ENCODER = None
+_SETFIT_MODEL = None
+_SETFIT_LABELS: list[str] = []
+
+
+def _hierarchy_primary(classes: list[str]) -> str:
+    """Return the highest-priority class from a multi-label list per TRIGGER_HIERARCHY."""
+    for cls in TRIGGER_HIERARCHY:
+        if cls in classes:
+            return cls
+    return "unknown"
 
 
 def _unique_preserve_order(values: list[str]) -> list[str]:
@@ -1095,15 +1286,13 @@ def _project_metadata_priors(project_row: pd.Series) -> list[str]:
     agency = str(project_row.get("lead_agency_harmonized") or "")
     priors: list[str] = []
     if _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
-        priors.extend(["federal_funding", "federal_action"])
+        priors.extend(["federal_funding", "federal_direct_action"])
     elif _agency_matches(agency, frozenset({"USACE", "Army Corps of Engineers"})):
         priors.extend(["federal_permit", "federal_land"])
-    elif _agency_matches(agency, AGENCY_ACTION_PRIOR_MAP):
-        priors.extend(["federal_action", "federal_land"])
-    elif _agency_matches(agency, AGENCY_ACTION_ONLY_PRIOR_MAP):
-        priors.append("federal_action")
+    elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
+        priors.append("federal_direct_action")
     elif _agency_matches(agency, AGENCY_LAND_MAP):
-        priors.extend(["federal_land", "federal_action", "federal_program"])
+        priors.extend(["federal_land", "federal_direct_action", "federal_program"])
     elif _agency_matches(agency, AGENCY_PERMIT_MAP):
         priors.append("federal_permit")
     elif _agency_matches(agency, AGENCY_FUNDING_MAP):
@@ -1123,10 +1312,14 @@ def should_auto_accept(result: dict[str, Any]) -> bool:
         return result.get("nepa_trigger_confidence") in ("high", "medium")
     if rule_id == "T5_llm":
         return result.get("nepa_trigger_confidence") in ("high", "medium")
-    if result.get("nepa_trigger_evidence_source") == "agency_metadata":
-        evidence_text = result.get("nepa_trigger_evidence_text", "")
-        if _agency_matches(evidence_text, AMBIGUOUS_METADATA_AGENCIES):
-            return False
+    # Auto-accept any high-confidence result not explicitly requiring T4 verification.
+    # Agency metadata for ambiguous agencies (DOE, USACE) still requires document evidence
+    # and is handled by SEND_TO_TIER4_RULE_IDS; all other high-confidence results are trusted.
+    if result.get("nepa_trigger_confidence") == "high":
+        if result.get("nepa_trigger_evidence_source") == "agency_metadata":
+            evidence_text = result.get("nepa_trigger_evidence_text", "")
+            return not _agency_matches(evidence_text, AMBIGUOUS_METADATA_AGENCIES)
+        return True
     return False
 
 
@@ -1470,7 +1663,10 @@ def build_tier4_contexts(
                         })
                         chunk_count += 1
 
-            if chunk_count == 0:
+            # Always add project description when no page text was extracted — a doc_title
+            # chunk alone (chunk_count=1) is too sparse for NLI scoring, and projects with
+            # no documents at all need the description as their only text signal.
+            if page_rows.empty:
                 fallback_text = " ".join([
                     str(project_row.get("project_title") or ""),
                     str(project_row.get("project_description") or ""),
@@ -1481,7 +1677,7 @@ def build_tier4_contexts(
                         "document_id": document_id,
                         "dataset_source": source,
                         "chunk_id": f"{pid}_fallback",
-                        "section_type": "ce_fallback" if str(source).upper() == "CE" else "first_pages",
+                        "section_type": "project_description",
                         "page_start": None,
                         "page_end": None,
                         "chunk_text": fallback_text[:3000],
@@ -1601,15 +1797,13 @@ def get_candidate_classes(
     candidates.extend([cls for cls in cue_classes if cls in VALID_CLASSES and cls != "unknown"])
 
     if _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
-        candidates.extend(["federal_funding", "federal_action"])
+        candidates.extend(["federal_funding", "federal_direct_action"])
     elif _agency_matches(agency, frozenset({"USACE", "Army Corps of Engineers"})):
         candidates.extend(["federal_permit", "federal_land"])
-    elif _agency_matches(agency, AGENCY_ACTION_PRIOR_MAP):
-        candidates.extend(["federal_action", "federal_land"])
-    elif _agency_matches(agency, AGENCY_ACTION_ONLY_PRIOR_MAP):
-        candidates.append("federal_action")
+    elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
+        candidates.append("federal_direct_action")
     elif _agency_matches(agency, AGENCY_LAND_MAP):
-        candidates.extend(["federal_land", "federal_action", "federal_program"])
+        candidates.extend(["federal_land", "federal_direct_action", "federal_program"])
     elif _agency_matches(agency, AGENCY_PERMIT_MAP):
         candidates.append("federal_permit")
     elif _agency_matches(agency, AGENCY_FUNDING_MAP):
@@ -1639,7 +1833,8 @@ def run_local_nli_on_chunks(
             for candidate_class in candidate_classes_by_project.get(row.project_id, TOP_LEVEL_CLASSES):
                 pairs.append((row.chunk_text, HYPOTHESIS_TEMPLATES[candidate_class]))
                 row_meta.append((row, candidate_class))
-        predictions = _CROSS_ENCODER.predict(pairs, apply_softmax=True, show_progress_bar=False)
+        log.info("  Running NLI cross-encoder on %s (premise, hypothesis) pairs", f"{len(pairs):,}")
+        predictions = _CROSS_ENCODER.predict(pairs, apply_softmax=True, show_progress_bar=True)
         for meta, pred in zip(row_meta, predictions):
             row, candidate_class = meta
             pred_list = pred.tolist() if hasattr(pred, "tolist") else list(pred)
@@ -1806,18 +2001,197 @@ def _write_tier4_diagnostics(
         doc_scores.to_parquet(TIER4_DOC_SCORES_PATH, index=False)
 
 
+def tier0_manual_labels(projects_df: pd.DataFrame) -> list[dict[str, Any]]:
+    """
+    Tier 0: directly finalize any project that already has a manual_trigger label
+    in the hand-labeled CSVs (doe_ce_sample_*.csv).
+
+    This runs before all other tiers so labeled examples are never re-processed
+    by the pipeline, avoiding double-classification and keeping training data
+    consistent with inference outputs.
+    """
+    label_files = sorted(Path(".").glob(MANUAL_LABELS_GLOB))
+    if not label_files:
+        return []
+
+    frames = []
+    for p in label_files:
+        try:
+            frames.append(pd.read_csv(p, usecols=["project_id", "manual_trigger"]))
+        except Exception as exc:
+            log.warning("Could not read manual label file %s: %s", p, exc)
+
+    if not frames:
+        return []
+
+    labels_df = (
+        pd.concat(frames, ignore_index=True)
+        .dropna(subset=["manual_trigger"])
+        .query("manual_trigger != '' and manual_trigger != 'ambiguous'")
+        .drop_duplicates("project_id")
+    )
+
+    valid_labels = set(TOP_LEVEL_CLASSES)
+    labels_df = labels_df[labels_df["manual_trigger"].isin(valid_labels)]
+
+    in_scope = projects_df[["project_id"]].merge(labels_df, on="project_id", how="inner")
+    if in_scope.empty:
+        return []
+
+    results = []
+    for _, row in in_scope.iterrows():
+        results.append(make_result(
+            project_id=row["project_id"],
+            primary=row["manual_trigger"],
+            confidence="high",
+            evidence_text="manual_label",
+            evidence_source="description",
+            rule_id="T0_manual_label",
+            manual_review=False,
+            route_policy="auto_accept",
+            route_reason="hand_labeled_training_example",
+        ))
+
+    log.info("  → %d projects finalized from manual labels", len(results))
+    return results
+
+
+def _load_setfit_model() -> None:
+    """Load SetFit model from disk if available. Silent no-op if not found."""
+    global _SETFIT_MODEL, _SETFIT_LABELS
+    if not SETFIT_MODEL_PATH.exists():
+        return
+    try:
+        import json
+        from setfit import SetFitModel
+        _SETFIT_MODEL = SetFitModel.from_pretrained(str(SETFIT_MODEL_PATH))
+        label_file = SETFIT_MODEL_PATH / "label_list.json"
+        if label_file.exists():
+            _SETFIT_LABELS = json.loads(label_file.read_text())
+        else:
+            _SETFIT_LABELS = list(getattr(_SETFIT_MODEL, "labels", []))
+        log.info("SetFit model loaded from %s (%d classes)", SETFIT_MODEL_PATH, len(_SETFIT_LABELS))
+    except Exception as exc:
+        log.warning("SetFit model found at %s but failed to load: %s", SETFIT_MODEL_PATH, exc)
+        _SETFIT_MODEL = None
+        _SETFIT_LABELS = []
+
+
+def _prep_setfit_text(row: Any) -> str:
+    """Build inference text from project_title + project_description (matches training prep)."""
+    title = str(row.get("project_title") or "").strip()
+    desc  = str(row.get("project_description") or "").strip()
+    if desc.startswith("[") and desc.endswith("]"):
+        try:
+            import ast
+            parsed = ast.literal_eval(desc)
+            if isinstance(parsed, list):
+                desc = " ".join(str(x) for x in parsed)
+        except Exception:
+            pass
+    return f"{title} {desc[:2000]}".strip()
+
+
+def tier3b_setfit_doe_ce(
+    project_ids: list[str],
+    projects_df: pd.DataFrame,
+) -> list[dict[str, Any]]:
+    """
+    SetFit classifier for DOE CE projects.
+
+    Runs between Tier 3 and Tier 4. Only fires when:
+      - A trained model exists at SETFIT_MODEL_PATH
+      - The project is DOE (lead_agency_harmonized) + CE (process_type)
+
+    Projects with top-class probability >= SETFIT_CONFIDENCE_THRESHOLD and
+    margin >= SETFIT_MARGIN_THRESHOLD are auto-accepted. The rest fall through
+    to Tier 4 unchanged.
+    """
+    if _SETFIT_MODEL is None or not _SETFIT_LABELS:
+        return []
+
+    import numpy as np
+
+    target = projects_df[
+        projects_df["project_id"].isin(set(project_ids))
+        & projects_df["lead_agency_harmonized"].fillna("").astype(str).str.contains(
+            "Department of Energy", case=False, na=False
+        )
+        & (projects_df["process_type"].fillna("").astype(str).str.upper() == "CE")
+    ].copy()
+
+    if target.empty:
+        return []
+
+    texts = [_prep_setfit_text(row) for _, row in target.iterrows()]
+
+    try:
+        probs = _SETFIT_MODEL.predict_proba(texts)
+        if hasattr(probs, "numpy"):
+            probs = probs.numpy()
+        probs = np.array(probs)
+    except Exception as exc:
+        log.warning("SetFit predict_proba failed (%s); skipping Tier 3b", exc)
+        return []
+
+    results = []
+    for (_, row), prob_vec in zip(target.iterrows(), probs):
+        top_idx    = int(np.argmax(prob_vec))
+        top_prob   = float(prob_vec[top_idx])
+        sorted_p   = sorted(prob_vec, reverse=True)
+        second_prob = float(sorted_p[1]) if len(sorted_p) > 1 else 0.0
+        margin     = top_prob - second_prob
+        top_class  = _SETFIT_LABELS[top_idx]
+
+        if top_class not in TOP_LEVEL_CLASSES:
+            continue
+
+        if top_prob >= SETFIT_CONFIDENCE_THRESHOLD and margin >= SETFIT_MARGIN_THRESHOLD:
+            results.append(make_result(
+                project_id=row["project_id"],
+                primary=top_class,
+                confidence="high",
+                evidence_text=f"setfit prob={top_prob:.3f} margin={margin:.3f}",
+                evidence_source="description",
+                rule_id="T3b_setfit_doe_ce",
+                manual_review=False,
+                route_policy="auto_accept",
+                route_reason="setfit_high_confidence",
+            ))
+
+    return results
+
+
 def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
     results = []
     for _, row in projects.iterrows():
         pid = row["project_id"]
         agency = str(row.get("lead_agency_harmonized") or "").strip()
+        sponsor = str(row.get("project_sponsor") or "").strip()
         text = " ".join([
             str(row.get("project_title") or ""),
             str(row.get("project_description") or ""),
         ])
         agency_code = _get_agency_code(agency)
+        land_control_match = re.search(BLM_USFS_LAND_CONTROL_PATTERN, text, re.IGNORECASE)
 
-        if _agency_matches(agency, AGENCY_PERMIT_MAP):
+        if (
+            _agency_matches(agency, frozenset({"BLM", "Bureau of Land Management"}))
+            and re.search(FOREST_SERVICE_SPONSOR_PATTERN, sponsor, re.IGNORECASE)
+            and land_control_match
+        ):
+            results.append(make_result(
+                project_id=pid,
+                primary="federal_land",
+                confidence="high",
+                evidence_text=f"{agency} | sponsor={sponsor} | text={land_control_match.group(0)}",
+                evidence_source="agency_metadata",
+                rule_id="T1a_BLM_USFS_land_control",
+                manual_review=False,
+                route_policy="auto_accept",
+                route_reason="blm_usfs_land_control_metadata",
+            ))
+        elif _agency_matches(agency, AGENCY_PERMIT_MAP):
             results.append(make_result(
                 project_id=pid,
                 primary="federal_permit",
@@ -1841,11 +2215,45 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                 route_policy="auto_accept",
                 route_reason="deterministic_funding_metadata",
             ))
+        elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
+            # CBP is always construction/installation — no land-authorization use cases.
+            # BPA/WAPA/PMA can also hold ROW grants or property transactions; gate those to Tier 4.
+            is_cbp = _agency_matches(agency, frozenset({"CBP", "U.S. Customs and Border Protection", "Customs and Border Protection"}))
+            land_cues = re.search(
+                r'\bright[-\s]of[-\s]way\b|\bROW\b|\bperpetual\b|\beasement\b'
+                r'|\bland\s+exchange\b|\bdispose\b|\bdisposal\b|\bacquire\b|\bacquisition\b'
+                r'|\btransfer\s+ownership\b|\btitle\s+transfer\b|\bsale\s+of\s+land\b',
+                text, re.IGNORECASE,
+            )
+            if is_cbp or not land_cues:
+                results.append(make_result(
+                    project_id=pid,
+                    primary="federal_direct_action",
+                    confidence="high",
+                    evidence_text=agency,
+                    evidence_source="agency_metadata",
+                    rule_id=f"T1a_{agency_code}_direct_action",
+                    manual_review=False,
+                    route_policy="auto_accept",
+                    route_reason="deterministic_direct_action_metadata",
+                ))
+            else:
+                results.append(make_result(
+                    project_id=pid,
+                    primary="federal_direct_action",
+                    confidence="medium",
+                    evidence_text=f"{agency} | land_cues_detected",
+                    evidence_source="agency_metadata",
+                    rule_id=f"T1a_{agency_code}_direct_action_provisional",
+                    manual_review=True,
+                    route_policy="provisional",
+                    route_reason="direct_action_agency_with_land_cues",
+                ))
         elif _agency_matches(agency, AGENCY_LAND_MAP):
             verb_class = _verb_class(text)
             trigger = verb_class if verb_class else "federal_land"
-            confidence = "high" if verb_class else "medium"
-            verb_suffix = "action" if trigger == "federal_action" else "land"
+            confidence = "high"
+            verb_suffix = "direct_action" if trigger == "federal_direct_action" else "land"
             results.append(make_result(
                 project_id=pid,
                 primary=trigger,
@@ -1858,44 +2266,106 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                 route_reason="land_agency_metadata",
             ))
         elif _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
-            doe_funding_patterns = [
-                r"\b(?:loan\s+guarantee|financial\s+assistance)\b",
-                r"\bTitle\s+XVII\b",
-                r"\bfunded\s+(?:by|through|under)\b",
-                r"\b(?:DOE|Department\s+of\s+Energy)\s+(?:grant|award|funding)\b",
-                r"\bthrough\s+(?:a\s+)?cooperative\s+agreement\b[\s\S]{0,120}\bpartially\s+fund\b",
-                r"\bproviding\s+financial\s+assistance\s+to\b[\s\S]{0,120}\b(?:under|through)\s+(?:a\s+)?cooperative\s+agreement\b",
-                r"\bawarding\s+a\s+grant\b[\s\S]{0,120}\bpartially\s+fund\b",
-                r"\bFederal\s+Cost\s+Share\b",
-                r"\b(?:DOE\s+)?EECBG\s+funding\b",
-                r"\bformula(?:-based)?\s+(?:awards?|grants?)\b",
-                r"(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
-            ]
-            has_funding = any(re.search(p, text, re.IGNORECASE) for p in doe_funding_patterns)
-            if has_funding:
-                results.append(make_result(
-                    project_id=pid,
-                    primary="federal_funding",
-                    confidence="medium",
-                    evidence_text=agency,
-                    evidence_source="agency_metadata",
-                    rule_id="T1a_DOE_funding",
-                    manual_review=True,
-                    route_policy="tier4_candidate",
-                    route_reason="doe_metadata_ambiguous",
-                ))
-            elif _verb_class(text) == "federal_action":
-                results.append(make_result(
-                    project_id=pid,
-                    primary="federal_action",
-                    confidence="medium",
-                    evidence_text=agency,
-                    evidence_source="agency_metadata",
-                    rule_id="T1a_DOE_action",
-                    manual_review=True,
-                    route_policy="tier4_candidate",
-                    route_reason="doe_metadata_ambiguous",
-                ))
+            # BPA/WAPA projects are organizationally under DOE but are direct-action agencies.
+            # lead_agency_harmonized = "Department of Energy" for these projects, so the
+            # AGENCY_DIRECT_ACTION_MAP branch above never fires. Check project_sponsor instead.
+            _bpa_wapa_sponsor_set = frozenset({
+                "Bonneville Power Administration", "BPA",
+                "Western Area Power Administration", "WAPA",
+                "Power Marketing Administration", "PMA",
+            })
+            if _agency_matches(sponsor, _bpa_wapa_sponsor_set):
+                _sponsor_code = (
+                    "BPA" if _agency_matches(sponsor, frozenset({"BPA", "Bonneville Power Administration"}))
+                    else "WAPA" if _agency_matches(sponsor, frozenset({"WAPA", "Western Area Power Administration"}))
+                    else "PMA"
+                )
+                _land_cues = re.search(
+                    r'\bright[-\s]of[-\s]way\b|\bROW\b|\bperpetual\b|\beasement\b'
+                    r'|\bland\s+exchange\b|\bdispose\b|\bdisposal\b|\bacquire\b|\bacquisition\b'
+                    r'|\btransfer\s+ownership\b|\btitle\s+transfer\b|\bsale\s+of\s+land\b',
+                    text, re.IGNORECASE,
+                )
+                _is_programmatic = (
+                    _is_programmatic_title(text)
+                    and not _is_programmatic_exclusion(text)
+                    and _is_programmatic_strong(text)
+                )
+                if _is_programmatic:
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_program",
+                        confidence="high",
+                        evidence_text=f"sponsor={sponsor}",
+                        evidence_source="agency_metadata",
+                        rule_id=f"T1a_{_sponsor_code}_program",
+                        manual_review=False,
+                        route_policy="auto_accept",
+                        route_reason="bpa_wapa_programmatic_ce",
+                    ))
+                elif not _land_cues:
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_direct_action",
+                        confidence="high",
+                        evidence_text=f"sponsor={sponsor}",
+                        evidence_source="agency_metadata",
+                        rule_id=f"T1a_{_sponsor_code}_direct_action",
+                        manual_review=False,
+                        route_policy="auto_accept",
+                        route_reason="deterministic_direct_action_metadata",
+                    ))
+                else:
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_direct_action",
+                        confidence="medium",
+                        evidence_text=f"sponsor={sponsor} | land_cues_detected",
+                        evidence_source="agency_metadata",
+                        rule_id=f"T1a_{_sponsor_code}_direct_action_provisional",
+                        manual_review=True,
+                        route_policy="provisional",
+                        route_reason="direct_action_sponsor_with_land_cues",
+                    ))
+            else:
+                doe_funding_patterns = [
+                    r"\b(?:loan\s+guarantee|financial\s+assistance)\b",
+                    r"\bTitle\s+XVII\b",
+                    r"\bfunded\s+(?:by|through|under)\b",
+                    r"\b(?:DOE|Department\s+of\s+Energy)\s+(?:grant|award|funding)\b",
+                    r"\bthrough\s+(?:a\s+)?cooperative\s+agreement\b[\s\S]{0,120}\bpartially\s+fund\b",
+                    r"\bproviding\s+financial\s+assistance\s+to\b[\s\S]{0,120}\b(?:under|through)\s+(?:a\s+)?cooperative\s+agreement\b",
+                    r"\bawarding\s+a\s+grant\b[\s\S]{0,120}\bpartially\s+fund\b",
+                    r"\bFederal\s+Cost\s+Share\b",
+                    r"\b(?:DOE\s+)?EECBG\s+funding\b",
+                    r"\bformula(?:-based)?\s+(?:awards?|grants?)\b",
+                    r"(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b",
+                ]
+                has_funding = any(re.search(p, text, re.IGNORECASE) for p in doe_funding_patterns)
+                if has_funding:
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_funding",
+                        confidence="medium",
+                        evidence_text=agency,
+                        evidence_source="agency_metadata",
+                        rule_id="T1a_DOE_funding",
+                        manual_review=True,
+                        route_policy="tier4_candidate",
+                        route_reason="doe_metadata_ambiguous",
+                    ))
+                elif _verb_class(text) == "federal_direct_action":
+                    results.append(make_result(
+                        project_id=pid,
+                        primary="federal_direct_action",
+                        confidence="medium",
+                        evidence_text=agency,
+                        evidence_source="agency_metadata",
+                        rule_id="T1a_DOE_direct_action",
+                        manual_review=True,
+                        route_policy="tier4_candidate",
+                        route_reason="doe_metadata_ambiguous",
+                    ))
     return results
 
 
@@ -2403,7 +2873,7 @@ def extract_nepa_triggers(
     tier5_budget: float = TIER5_HARD_STOP_BUDGET,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     projects = conn.execute(f"""
-        SELECT project_id, lead_agency_harmonized, project_title,
+        SELECT project_id, lead_agency_harmonized, project_sponsor, project_title,
                project_description, process_type, dataset_source
         FROM read_parquet('{PROJECTS_PATH}')
         WHERE {CLEAN_ENERGY_FILTER}
@@ -2413,11 +2883,15 @@ def extract_nepa_triggers(
         projects = projects.sample(sample, random_state=42)
         log.info("Sample mode: %s projects", len(projects))
 
+    import time as _time
+
     all_project_ids = set(projects["project_id"])
     log.info("Processing %s clean energy projects", f"{len(all_project_ids):,}")
+    _load_setfit_model()
 
     finalized: dict[str, dict[str, Any]] = {}
     provisional: dict[str, dict[str, Any]] = {}
+    _run_start = _time.time()
 
     def _ingest(results: list[dict[str, Any]]) -> None:
         for result in results:
@@ -2435,22 +2909,34 @@ def extract_nepa_triggers(
     def _pct() -> str:
         return f"{len(finalized) / len(all_project_ids):.1%}"
 
+    def _elapsed() -> str:
+        return f"{(_time.time() - _run_start) / 60:.1f}m"
+
+    log.info("Tier 0: manual labels")
+    _ingest(tier0_manual_labels(projects))
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
+
     log.info("Tier 1a: agency metadata")
     _ingest(tier1a_metadata(projects))
-    log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     log.info("Tier 1b: title and description keywords")
     unresolved_df = projects[projects["project_id"].isin(_remaining())]
     _ingest(tier1b_title_description(unresolved_df))
-    log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     log.info("Tier 2: document title scan")
     _ingest(tier2_doc_title(_remaining(), projects, conn))
-    log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     log.info("Tier 3: purpose-and-need / candidate section extraction")
     _ingest(tier3_purpose_and_need(_remaining(), projects, conn))
-    log.info("  → %s finalized (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
+
+    if _SETFIT_MODEL is not None:
+        log.info("Tier 3b: SetFit DOE CE classifier")
+        _ingest(tier3b_setfit_doe_ce(_remaining(), projects))
+        log.info("  → %s finalized (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     tier4_ids = build_tier4_candidate_ids(all_project_ids, provisional, finalized)
     log.info("Tier 4: retrieval-first local adjudication on %s projects", f"{len(tier4_ids):,}")
@@ -2464,7 +2950,7 @@ def extract_nepa_triggers(
             finalized[result["project_id"]] = result
         else:
             tier4_low_conf[result["project_id"]] = result
-    log.info("  → %s finalized after Tier 4 (%s)", f"{len(finalized):,}", _pct())
+    log.info("  → %s finalized after Tier 4 (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
     if use_llm:
         low_conf_ids = sorted(tier4_low_conf)
@@ -2511,6 +2997,543 @@ def extract_nepa_triggers(
 
     final = pd.DataFrame(list(finalized.values()))
     return final, projects
+
+
+def _collapse_ws(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "")).strip()
+
+
+def _strip_land_grant_false_positives(text: str) -> str:
+    """Remove land-authorization grant phrases before funding mechanism scans."""
+    return LAND_GRANT_FALSE_POSITIVE_RE.sub(" ", str(text or ""))
+
+
+def _is_project_specific_funding_context(context_text: str, source: str) -> bool:
+    text = _collapse_ws(context_text)
+    if not text or not FUNDING_CUE_RE.search(text):
+        return False
+    if FUNDING_GENERIC_BOILERPLATE_RE.search(text) and not FUNDING_PROJECT_SPECIFIC_RE.search(text):
+        return False
+    if source in {"project_metadata", "trigger_evidence", "doc_title"}:
+        return True
+    return bool(FUNDING_PROJECT_SPECIFIC_RE.search(text))
+
+
+def _funding_context_windows(
+    source_texts: list[tuple[str, str]],
+    window_before: int = 420,
+    window_after: int = 760,
+    max_windows_per_source: int = 14,
+) -> list[dict[str, str]]:
+    contexts: list[dict[str, str]] = []
+    seen_hashes: set[str] = set()
+    for source, raw_text in source_texts:
+        text = _strip_land_grant_false_positives(raw_text)
+        if not text.strip():
+            continue
+        source_count = 0
+        for match in FUNDING_CUE_RE.finditer(text):
+            start = max(0, match.start() - window_before)
+            end = min(len(text), match.end() + window_after)
+            context = _collapse_ws(text[start:end])
+            if not _is_project_specific_funding_context(context, source):
+                continue
+            context_hash = _chunk_hash(context)
+            if context_hash in seen_hashes:
+                continue
+            seen_hashes.add(context_hash)
+            contexts.append({
+                "source": source,
+                "text": context,
+            })
+            source_count += 1
+            if source_count >= max_windows_per_source:
+                break
+    return contexts
+
+
+def _parse_money_match(match: re.Match) -> Optional[float]:
+    amount_raw = match.group("dollar_amount") or match.group("word_amount")
+    scale_raw = match.group("dollar_scale") or match.group("word_scale") or ""
+    if not amount_raw:
+        return None
+    try:
+        value = float(str(amount_raw).replace(",", ""))
+    except ValueError:
+        return None
+
+    scale = scale_raw.lower()
+    if scale in {"billion", "b"}:
+        value *= 1_000_000_000
+    elif scale in {"million", "m"}:
+        value *= 1_000_000
+    elif scale in {"thousand", "k"}:
+        value *= 1_000
+    if value < 0:
+        return None
+    return round(value, 2)
+
+
+def _money_candidate_kind(context: str, match: re.Match) -> str:
+    before = context[max(0, match.start() - 140): match.start()]
+    after = context[match.end(): min(len(context), match.end() + 90)]
+    label = _collapse_ws(f"{before} {after}")
+    before_tail = _collapse_ws(before[-90:])
+
+    federal_pat = (
+        r"\b(?:DOE\s*:|DOE\s+Funding|Total\s+DOE\s+Funding|Federal\s+Cost\s+Share|"
+        r"Federal\s*/|Federal\s+fund(?:ing|s)?|federal\s+share|grant|award|"
+        r"sub\s*grant|loan\s+guarantee|SEP\s+funding|EECBG\s+funding|"
+        r"Recovery\s+Act\s+funds?|amount\s+to\s+be\s+released\s+in\s+this\s+determination\s+DOE)\b"
+    )
+    total_pat = (
+        r"\b(?:Total\s+Project\s+(?:Cost|Value)|Total\s+Project|Total\s*:|overall\s+project\s+cost|"
+        r"project\s+cost)\b"
+    )
+    recipient_pat = (
+        r"\b(?:Cost\s+Share|Recipient\s+Share|Non[-\s]?Federal|Applicant\s+Share|Private\s+Share|"
+        r"recipient\s+cost)\b"
+    )
+
+    def _last_match_start(pattern: str, text: str) -> int:
+        matches = list(re.finditer(pattern, text, re.IGNORECASE))
+        return matches[-1].start() if matches else -1
+
+    federal_pos = _last_match_start(federal_pat, before_tail)
+    total_pos = _last_match_start(total_pat, before_tail)
+    recipient_pos = _last_match_start(recipient_pat, before_tail)
+
+    # Use the closest preceding label first. This prevents "DOE Funding: $x Cost Share: $y"
+    # from treating the cost-share amount as another federal funding amount.
+    if recipient_pos > max(federal_pos, total_pos):
+        return "recipient_cost_share"
+    if total_pos > max(federal_pos, recipient_pos):
+        return "total_project_cost"
+    if federal_pos >= 0 or re.search(federal_pat, label, re.IGNORECASE):
+        return "federal_amount"
+    if re.search(recipient_pat, label, re.IGNORECASE):
+        return "recipient_cost_share"
+    if re.search(total_pat, label, re.IGNORECASE):
+        return "total_project_cost"
+    return "unlabeled_amount"
+
+
+def _extract_amount_candidates(contexts: list[dict[str, str]]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    seen: set[tuple[str, float, str]] = set()
+    for context in contexts:
+        text = context["text"]
+        for match in MONEY_RE.finditer(text):
+            amount = _parse_money_match(match)
+            if amount is None:
+                continue
+            kind = _money_candidate_kind(text, match)
+            if kind == "unlabeled_amount":
+                nearby = text[max(0, match.start() - 220): min(len(text), match.end() + 220)]
+                if not FUNDING_CUE_RE.search(nearby):
+                    continue
+            evidence = _collapse_ws(text[max(0, match.start() - 180): min(len(text), match.end() + 220)])
+            key = (kind, amount, evidence[:120])
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append({
+                "amount_usd": amount,
+                "kind": kind,
+                "source": context["source"],
+                "match_text": match.group(0),
+                "evidence_text": evidence,
+            })
+    return candidates
+
+
+def _extract_percent_candidates(contexts: list[dict[str, str]]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    seen: set[tuple[float, str]] = set()
+    for context in contexts:
+        text = context["text"]
+        for match in PERCENT_RE.finditer(text):
+            try:
+                pct = float(match.group("pct"))
+            except ValueError:
+                continue
+            if pct < 0 or pct > 100:
+                continue
+            nearby = text[max(0, match.start() - 220): min(len(text), match.end() + 220)]
+            if not FUNDING_CUE_RE.search(nearby):
+                continue
+            evidence = _collapse_ws(text[max(0, match.start() - 180): min(len(text), match.end() + 220)])
+            key = (pct, evidence[:120])
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append({
+                "percent": pct,
+                "source": context["source"],
+                "match_text": match.group(0),
+                "evidence_text": evidence,
+            })
+    return candidates
+
+
+def _single_distinct_amount(candidates: list[dict[str, Any]], kind: str) -> tuple[Optional[float], bool]:
+    values = sorted({round(float(c["amount_usd"]), 2) for c in candidates if c.get("kind") == kind and c.get("amount_usd") is not None})
+    if len(values) == 1:
+        return values[0], False
+    if len(values) > 1:
+        return None, True
+    return None, False
+
+
+def _single_distinct_percent(candidates: list[dict[str, Any]]) -> tuple[Optional[float], bool]:
+    values = sorted({round(float(c["percent"]), 4) for c in candidates if c.get("percent") is not None})
+    if len(values) == 1:
+        return values[0], False
+    if len(values) > 1:
+        return None, True
+    return None, False
+
+
+def _extract_funding_mechanisms_and_programs(contexts: list[dict[str, str]]) -> tuple[list[str], list[str]]:
+    combined = "\n\n".join(context["text"] for context in contexts)
+    cleaned = _strip_land_grant_false_positives(combined)
+
+    mechanisms = [
+        mechanism
+        for mechanism, pattern in FUNDING_MECHANISM_PATTERNS.items()
+        if pattern.search(cleaned)
+    ]
+    mechanisms = [m for m in FUNDING_MECHANISM_PRIORITY if m in mechanisms]
+    programs = [
+        program
+        for program, pattern in FUNDING_PROGRAM_PATTERNS.items()
+        if pattern.search(cleaned)
+    ]
+    return mechanisms, programs
+
+
+def _best_funding_evidence_context(contexts: list[dict[str, str]], amount_candidates: list[dict[str, Any]]) -> tuple[str, str]:
+    federal_amounts = [c for c in amount_candidates if c.get("kind") == "federal_amount"]
+    if federal_amounts:
+        best = federal_amounts[0]
+        return str(best.get("evidence_text") or ""), str(best.get("source") or "")
+    if amount_candidates:
+        best = amount_candidates[0]
+        return str(best.get("evidence_text") or ""), str(best.get("source") or "")
+    if contexts:
+        return contexts[0]["text"][:900], contexts[0]["source"]
+    return "", ""
+
+
+def _extract_funding_detail_from_sources(
+    project_id: str,
+    source_texts: list[tuple[str, str]],
+    run_at: str,
+) -> dict[str, Any]:
+    contexts = _funding_context_windows(source_texts)
+    mechanisms, programs = _extract_funding_mechanisms_and_programs(contexts) if contexts else ([], [])
+    primary_mechanism = next((m for m in FUNDING_MECHANISM_PRIORITY if m in mechanisms), "unknown_funding")
+    mechanism_multi = mechanisms if mechanisms else ["unknown_funding"]
+
+    amount_candidates = _extract_amount_candidates(contexts)
+    percent_candidates = _extract_percent_candidates(contexts)
+
+    federal_amount, federal_conflict = _single_distinct_amount(amount_candidates, "federal_amount")
+    total_cost, total_conflict = _single_distinct_amount(amount_candidates, "total_project_cost")
+    recipient_share, recipient_conflict = _single_distinct_amount(amount_candidates, "recipient_cost_share")
+    explicit_pct, pct_conflict = _single_distinct_percent(percent_candidates)
+
+    computed_pct: Optional[float] = None
+    computed_pct_conflict = False
+    if federal_amount is not None and total_cost is not None and total_cost > 0:
+        computed_pct = round(100 * federal_amount / total_cost, 2)
+        if computed_pct < 0 or computed_pct > 100:
+            computed_pct = None
+            computed_pct_conflict = True
+
+    funding_share_pct = explicit_pct if explicit_pct is not None else computed_pct
+    amount_conflict = federal_conflict or total_conflict or recipient_conflict or pct_conflict or computed_pct_conflict
+    evidence_text, evidence_source = _best_funding_evidence_context(contexts, amount_candidates)
+
+    if primary_mechanism == "unknown_funding":
+        confidence = "low"
+    elif amount_conflict:
+        confidence = "medium"
+    elif federal_amount is not None or funding_share_pct is not None:
+        confidence = "high"
+    else:
+        confidence = "medium"
+
+    manual_review = amount_conflict or primary_mechanism == "unknown_funding"
+    candidates_payload = {
+        "amount_candidates": amount_candidates,
+        "percent_candidates": percent_candidates,
+        "amount_conflict": amount_conflict,
+    }
+
+    return {
+        "project_id": project_id,
+        "federal_funding_type_primary": primary_mechanism,
+        "federal_funding_type_multi": mechanism_multi,
+        "federal_funding_program_multi": programs,
+        "federal_funding_amount_usd": federal_amount,
+        "federal_funding_total_project_cost_usd": total_cost,
+        "federal_funding_recipient_cost_share_usd": recipient_share,
+        "federal_funding_share_pct": funding_share_pct,
+        "federal_funding_evidence_text": evidence_text,
+        "federal_funding_evidence_source": evidence_source,
+        "federal_funding_confidence": confidence,
+        "federal_funding_manual_review": manual_review,
+        "federal_funding_amount_candidates_json": json.dumps(candidates_payload, sort_keys=True),
+        "federal_funding_extraction_run_at": run_at,
+    }
+
+
+def _make_funding_detail_row(
+    project_row: pd.Series,
+    doc_text: str,
+    doc_title: str,
+    run_at: str,
+) -> dict[str, Any]:
+    project_metadata = " ".join([
+        str(project_row.get("project_title") or ""),
+        str(project_row.get("project_description") or ""),
+        str(project_row.get("project_sponsor") or ""),
+    ])
+    source_texts = [
+        ("trigger_evidence", str(project_row.get("nepa_trigger_evidence_text") or "")),
+        ("project_metadata", project_metadata),
+        ("doc_title", doc_title),
+        ("document_text", doc_text),
+    ]
+    return _extract_funding_detail_from_sources(str(project_row["project_id"]), source_texts, run_at)
+
+
+def _fetch_funding_preferred_document_texts(
+    funding_projects: pd.DataFrame,
+    conn: duckdb.DuckDBPyConnection,
+) -> tuple[dict[str, str], dict[str, str], dict[str, int]]:
+    doc_text_by_project: dict[str, str] = {}
+    doc_title_by_project: dict[str, str] = {}
+    page_count_by_project: dict[str, int] = {}
+
+    if funding_projects.empty:
+        return doc_text_by_project, doc_title_by_project, page_count_by_project
+
+    for source, group in funding_projects.groupby("dataset_source"):
+        source_lower = str(source).lower()
+        docs_path = DOCS_PATH_MAP.get(str(source).upper())
+        pages_path = PAGES_PATH_MAP.get(str(source).upper())
+        if docs_path is None or pages_path is None or not docs_path.exists() or not pages_path.exists():
+            continue
+
+        project_ids = group["project_id"].tolist()
+        docs = conn.execute(f"""
+            SELECT
+                project_id.value AS project_id,
+                document_id,
+                document_title,
+                file_name,
+                main_document,
+                length(coalesce(document_title, '')) AS title_len
+            FROM read_parquet('{docs_path}')
+            WHERE project_id.value IN ({_safe_sql_list(project_ids)})
+            QUALIFY row_number() OVER (
+                PARTITION BY project_id.value
+                ORDER BY upper(coalesce(main_document, '')) = 'YES' DESC,
+                         title_len DESC,
+                         document_id
+            ) = 1
+        """).fetchdf()
+        if docs.empty:
+            continue
+
+        for _, doc_row in docs.iterrows():
+            doc_title_by_project[str(doc_row["project_id"])] = str(doc_row.get("document_title") or doc_row.get("file_name") or "")
+
+        pages = conn.execute(f"""
+            SELECT document_id, page_number, page_text
+            FROM read_parquet('{pages_path}')
+            WHERE document_id IN ({_safe_sql_list(docs['document_id'].tolist())})
+              AND page_text IS NOT NULL
+        """).fetchdf()
+        if pages.empty:
+            continue
+
+        pages["page_sort"] = pages["page_number"].map(_page_sort_key)
+        pages = pages.merge(docs[["project_id", "document_id"]], on="document_id", how="left")
+        pages = pages.sort_values(["project_id", "page_sort", "page_number"])
+
+        for pid, page_group in pages.groupby("project_id"):
+            pid_str = str(pid)
+            page_text = "\n\n".join(page_group["page_text"].fillna("").astype(str).tolist())
+            doc_text_by_project[pid_str] = page_text
+            page_count_by_project[pid_str] = len(page_group)
+
+        log.info(
+            "Funding details: scanned preferred %s documents for %s %s projects",
+            source_lower.upper(),
+            f"{len(docs):,}",
+            source_lower.upper(),
+        )
+
+    return doc_text_by_project, doc_title_by_project, page_count_by_project
+
+
+def _validate_funding_details(details: pd.DataFrame, funding_project_ids: set[str]) -> None:
+    assert set(details["project_id"]) == funding_project_ids, (
+        "Funding sidecar project set must exactly match federal_funding primary projects"
+    )
+    assert details["project_id"].is_unique, "Duplicate project_ids in funding sidecar"
+
+    for col in [
+        "federal_funding_amount_usd",
+        "federal_funding_total_project_cost_usd",
+        "federal_funding_recipient_cost_share_usd",
+    ]:
+        non_null = details[col].dropna()
+        assert (non_null >= 0).all(), f"{col} contains negative values"
+
+    pct = details["federal_funding_share_pct"].dropna()
+    assert ((pct >= 0) & (pct <= 100)).all(), "Funding percentage must be between 0 and 100"
+
+    assert details["federal_funding_type_multi"].apply(isinstance, args=(list,)).all(), (
+        "federal_funding_type_multi must be list type"
+    )
+    assert details["federal_funding_program_multi"].apply(isinstance, args=(list,)).all(), (
+        "federal_funding_program_multi must be list type"
+    )
+
+
+def _write_parquet_atomic(df: pd.DataFrame, path: Path) -> None:
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    try:
+        df.to_parquet(tmp_path, index=False)
+        os.replace(tmp_path, path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+
+def _run_funding_detail_smoke_tests() -> None:
+    run_at = "smoke-test"
+    cases = [
+        (
+            "doe_funding",
+            "DOE Funding: $726,199 Cost Share: $138,114",
+            "cost_share",
+            726199.0,
+        ),
+        (
+            "loan_guarantee",
+            "FINAL ENVIRONMENTAL ASSESSMENT FOR DEPARTMENT OF ENERGY LOAN GUARANTEE TO MOJAVE SOLAR, LLC",
+            "loan_guarantee",
+            None,
+        ),
+        (
+            "eecbg_formula",
+            "ARRA appropriates funding for DOE to issue formula-based grants under EECBG for this project.",
+            "formula_grant",
+            None,
+        ),
+        (
+            "row_grant_negative",
+            "BPA proposes to acquire a perpetual right-of-way grant across BLM-managed land.",
+            "unknown_funding",
+            None,
+        ),
+    ]
+
+    for label, text, expected_type, expected_amount in cases:
+        row = _extract_funding_detail_from_sources(label, [("project_metadata", text)], run_at)
+        assert row["federal_funding_type_primary"] == expected_type, (
+            f"Funding smoke test failed for {label}: expected {expected_type}, got {row['federal_funding_type_primary']}"
+        )
+        if expected_amount is not None:
+            assert row["federal_funding_amount_usd"] == expected_amount, (
+                f"Funding amount smoke test failed for {label}: expected {expected_amount}, got {row['federal_funding_amount_usd']}"
+            )
+
+
+def extract_funding_details(
+    conn: duckdb.DuckDBPyConnection,
+    triggers: pd.DataFrame,
+    run_at: str,
+) -> pd.DataFrame:
+    _run_funding_detail_smoke_tests()
+
+    funding_ids = (
+        triggers.loc[triggers["nepa_trigger_primary"] == "federal_funding", ["project_id", "nepa_trigger_evidence_text"]]
+        .drop_duplicates("project_id")
+        .copy()
+    )
+    funding_project_ids = set(funding_ids["project_id"].astype(str))
+    if funding_ids.empty:
+        return pd.DataFrame(columns=FUNDING_DETAIL_COLS)
+
+    conn.register("_funding_trigger_ids", funding_ids)
+    funding_projects = conn.execute(f"""
+        SELECT
+            ids.project_id,
+            p.dataset_source,
+            p.process_type,
+            p.project_title,
+            p.project_description,
+            p.project_sponsor,
+            ids.nepa_trigger_evidence_text
+        FROM _funding_trigger_ids ids
+        JOIN read_parquet('{PROJECTS_PATH}') p USING (project_id)
+        WHERE {CLEAN_ENERGY_FILTER}
+    """).fetchdf()
+    try:
+        conn.unregister("_funding_trigger_ids")
+    except Exception:
+        pass
+
+    assert set(funding_projects["project_id"].astype(str)) == funding_project_ids, (
+        "Funding detail extraction can only run on clean projects already classified as federal_funding"
+    )
+
+    doc_text_by_project, doc_title_by_project, _page_count_by_project = _fetch_funding_preferred_document_texts(
+        funding_projects,
+        conn,
+    )
+
+    rows = []
+    for _, project_row in funding_projects.iterrows():
+        pid = str(project_row["project_id"])
+        rows.append(_make_funding_detail_row(
+            project_row=project_row,
+            doc_text=doc_text_by_project.get(pid, ""),
+            doc_title=doc_title_by_project.get(pid, ""),
+            run_at=run_at,
+        ))
+
+    details = pd.DataFrame(rows)
+    details = details[FUNDING_DETAIL_COLS]
+    _validate_funding_details(details, funding_project_ids)
+    return details
+
+
+def write_funding_details_sidecar(
+    conn: duckdb.DuckDBPyConnection,
+    triggers: pd.DataFrame,
+    run_at: str,
+) -> pd.DataFrame:
+    details = extract_funding_details(conn, triggers, run_at)
+    _write_parquet_atomic(details, PROJECTS_FUNDING_DETAILS_PATH)
+    log.info(
+        "Written: %s (%s funding-primary rows)",
+        PROJECTS_FUNDING_DETAILS_PATH,
+        f"{len(details):,}",
+    )
+    if not details.empty:
+        log.info(
+            "Funding amount coverage: %s rows with federal amount (%.1f%%)",
+            f"{details['federal_funding_amount_usd'].notna().sum():,}",
+            100 * details["federal_funding_amount_usd"].notna().mean(),
+        )
+    return details
 
 
 def run_calibration() -> bool:
@@ -2594,6 +3617,7 @@ def main() -> None:
     parser.add_argument("--use-llm", action="store_true", help="Enable Tier 5 Claude Haiku fallback for uncertain cases")
     parser.add_argument("--force-tier5", action="store_true", help="Override Tier 5 budget guardrail")
     parser.add_argument("--tier5-budget", type=float, default=TIER5_HARD_STOP_BUDGET, help="Hard stop budget for Tier 5")
+    parser.add_argument("--funding-details-only", action="store_true", help="Regenerate projects_funding_details.parquet from the existing trigger output; do not rerun trigger classification")
     parser.add_argument("--sample", type=int, default=None, help="Process only N projects (random sample; for testing)")
     args = parser.parse_args()
 
@@ -2609,6 +3633,21 @@ def main() -> None:
         return
 
     run_at = datetime.now(timezone.utc).isoformat()
+    if args.funding_details_only:
+        if args.sample is not None:
+            log.warning("--sample is ignored with --funding-details-only; sidecar validation requires the full funding-primary set")
+        if not PROJECTS_NEPA_TRIGGER_PATH.exists():
+            raise SystemExit(f"Missing trigger output: {PROJECTS_NEPA_TRIGGER_PATH}. Run trigger extraction first.")
+        trigger_stat_before = PROJECTS_NEPA_TRIGGER_PATH.stat()
+        triggers = pd.read_parquet(PROJECTS_NEPA_TRIGGER_PATH)
+        write_funding_details_sidecar(conn, triggers, run_at)
+        trigger_stat_after = PROJECTS_NEPA_TRIGGER_PATH.stat()
+        assert (
+            trigger_stat_before.st_mtime_ns == trigger_stat_after.st_mtime_ns
+            and trigger_stat_before.st_size == trigger_stat_after.st_size
+        ), "--funding-details-only must not rewrite projects_nepa_trigger.parquet"
+        return
+
     final, projects = extract_nepa_triggers(
         conn,
         use_llm=args.use_llm,
@@ -2621,6 +3660,21 @@ def main() -> None:
         (final["nepa_trigger_primary"] == "federal_land") &
         (final["nepa_trigger_secondary"].apply(lambda x: "federal_permit" in x if isinstance(x, list) else False))
     )
+
+    def _sorted_multi(classes: list[str]) -> list[str]:
+        ranked = {cls: TRIGGER_HIERARCHY.index(cls) if cls in TRIGGER_HIERARCHY else 99 for cls in classes}
+        return sorted(classes, key=ranked.__getitem__)
+
+    final["nepa_trigger_count"] = final["nepa_trigger_multi"].apply(
+        lambda x: len(x) if isinstance(x, list) else 0
+    )
+    final["nepa_trigger_combo"] = final["nepa_trigger_multi"].apply(
+        lambda x: "|".join(_sorted_multi(x)) if isinstance(x, list) and x else ""
+    )
+    final["nepa_trigger_primary_hierarchy"] = final["nepa_trigger_multi"].apply(
+        lambda x: _hierarchy_primary(x) if isinstance(x, list) else "unknown"
+    )
+
     final["nepa_trigger_extraction_run_at"] = run_at
     final["nepa_trigger_llm_run_at"] = final.get("nepa_trigger_llm_run_at", "").fillna("")
 
@@ -2630,9 +3684,10 @@ def main() -> None:
 
     final = final[OUTPUT_COLS]
 
-    out_path = OUTPUT_DIR / "projects_nepa_trigger.parquet"
+    out_path = PROJECTS_NEPA_TRIGGER_PATH
     final.to_parquet(out_path, index=False)
     log.info("Written: %s (%s rows)", out_path, f"{len(final):,}")
+    write_funding_details_sidecar(conn, final, run_at)
 
     batches = build_validation_batches(final, projects)
     if not batches.empty:
@@ -2654,6 +3709,12 @@ def main() -> None:
     print("\n=== Evidence source distribution ===")
     print(final["nepa_trigger_evidence_source"].value_counts().to_string())
     print(f"\nDual-nexus projects (federal_land + federal_permit): {final['is_dual_nexus'].sum():,}")
+    print("\n=== Hierarchy-resolved primary distribution ===")
+    print(final["nepa_trigger_primary_hierarchy"].value_counts().to_string())
+    multi_mask = final["nepa_trigger_count"] > 1
+    print(f"\nMulti-class projects (2+ triggers): {multi_mask.sum():,}")
+    if multi_mask.any():
+        print(final.loc[multi_mask, "nepa_trigger_combo"].value_counts().head(10).to_string())
 
 
 if __name__ == "__main__":

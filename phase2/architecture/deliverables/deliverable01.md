@@ -1,8 +1,8 @@
 # D1: NEPA Triggered — Architecture
 
-**Goal:** Classify why NEPA was triggered for each clean energy project (federal land, federal funding, federal permits, or combinations).
+**Goal:** Classify why NEPA was triggered for each clean energy project across seven classes: `federal_direct_action`, `federal_program`, `federal_property_transaction`, `federal_land`, `federal_permit`, `federal_funding`, `unknown`.
 
-**Self-contained:** Yes — runs after `extract_data.py` only.
+**Self-contained:** Yes — requires only `projects_combined.parquet` and CE/EA/EIS pages files.
 
 ---
 
@@ -10,20 +10,16 @@
 
 ```mermaid
 flowchart TD
-    A[extract_data.py] --> B[projects_combined.parquet]
-    B --> C[01_extract_nepa_trigger.py]
-    C --> |"Tier 1: agency metadata heuristics"| D{Resolved?}
-    D --> |"~60%"| G
-    D --> |"~40%"| E[Tier 2: regex on first 30 pages\nDuckDB page scan]
-    E --> F{Resolved?}
-    F --> |"~25%"| G
-    F --> |"~15%"| H[Tier 3: SetFit sentence classifier]
-    H --> I{Confident?}
-    I --> |"~10%"| G
-    I --> |"~5%"| J[Tier 4: Claude Haiku fallback]
-    J --> G[projects_nepa_trigger.parquet]
-    G --> K[02_analyze_triggers.R]
-    K --> L[output/deliverable01/]
+    A[projects_combined.parquet] --> B[Tier 0: Manual labels\n~400 projects]
+    B --> C[Tier 1a: Agency metadata\n~1,500 new]
+    C --> D[Tier 1b: Title + description keywords\n~37 new]
+    D --> E[Tier 2: Document title scan\n~282 new]
+    E --> F[Tier 3: Purpose-and-need section extraction\n~481 new]
+    F --> G[Tier 3b: SetFit DOE CE classifier\nDOE + CE only]
+    G --> H[Tier 4: Retrieval-first NLI adjudication\n~4,700 projects]
+    H --> I{Tier 5: LLM fallback\n--use-llm flag}
+    I --> J[projects_nepa_trigger.parquet]
+    J --> K[Funding detail sidecar\nprojects_funding_details.parquet]
 ```
 
 ---
@@ -32,72 +28,318 @@ flowchart TD
 
 | File | Description |
 |---|---|
-| `data/analysis/projects_combined.parquet` | Project metadata: agency, process type, energy type, land status, geography |
-| `data/processed/ce/pages.parquet` | CE document pages (DuckDB scan, first 30 pages) |
-| `data/processed/ea/pages.parquet` | EA document pages (DuckDB scan, first 30 pages) |
-| `data/processed/eis/pages.parquet` | EIS document pages (DuckDB scan, first 30 pages) |
+| `phase2/data/analysis/projects_combined.parquet` | Project metadata: agency, process type, energy type, land status, geography |
+| `phase2/data/processed/ce/pages.parquet` | CE document pages (DuckDB scan) |
+| `phase2/data/processed/ea/pages.parquet` | EA document pages (DuckDB scan) |
+| `phase2/data/processed/eis/pages.parquet` | EIS document pages (DuckDB scan) |
+
+## Sidecar Output
+
+`phase2/data/analysis/nepa_trigger/projects_funding_details.parquet` is generated after the
+primary trigger output, or independently with `--funding-details-only`. It is restricted to
+projects where `nepa_trigger_primary == "federal_funding"` and never mutates
+`projects_nepa_trigger.parquet`.
 
 ---
 
-## Key Processing Steps
+## Classification Scheme
 
-### Tier 1 — Metadata Heuristics (~60% coverage)
-Map agency to trigger type using known jurisdiction rules:
-- BLM, NPS, USFS, BOR, FWS projects → `federal_land`
-- DOE, DOD projects with funding language → `federal_funding`
-- Projects with federal permit requirements → `federal_permit`
+Seven mutually exclusive primary classes, with a strict priority ordering used when signals conflict:
 
-Handles the majority of clean energy projects because agency type is a strong proxy for federal nexus.
-Does NOT handle ambiguous cases (e.g., DOE funding on private land, or BLM permit for a non-federal project).
+| Priority | Class | Core signal |
+|---|---|---|
+| 1 | `federal_direct_action` | Federal agency is the proposing actor |
+| 2 | `federal_program` | Programmatic EIS/EA, land-use plan, rulemaking |
+| 3 | `federal_property_transaction` | Land exchange, disposal, conveyance |
+| 4 | `federal_land` | Project on federal land; ROW/SUP granted to private developer |
+| 5 | `federal_permit` | Federal permit/license is the primary nexus |
+| 6 | `federal_funding` | Federal grant, loan guarantee, financial assistance |
+| 7 | `unknown` | NEPA confirmed but trigger cannot be reliably identified |
 
-### Tier 2 — Regex (~25% additional coverage)
-Scan first 30 pages per project via DuckDB for explicit trigger language:
-- Federal land: `"federal land"`, `"public land"`, `"right-of-way"`, `"federal lands unit"`
-- Federal funding: `"DOE funding"`, `"federal grant"`, `"appropriated funds"`, `"loan guarantee"`
-- Federal permits: `"Section 404"`, `"Section 401"`, `"Clean Water Act permit"`, `"federal authorization"`
+Secondary triggers are stored in `nepa_trigger_secondary` (list) for multi-label combo analysis.
 
-Returns `trigger_regex` (list of matched trigger types) and `trigger_regex_confidence` (high/medium/low).
+---
 
-### Tier 3 — SetFit Sentence Classifier
-For projects unresolved after Tier 2, extract the top 5 most trigger-relevant sentences per project
-(using keyword scoring) and run through a SetFit multi-label classifier trained on ~100 labeled examples.
+## Tier Architecture
 
-SetFit is appropriate here because: (a) data scarcity — only ~15-20 examples per class available,
-(b) classification is sentence-level not positional, (c) fast training and inference.
+### Tier 0 — Manual Labels
+Hand-labeled gold-standard examples loaded from `manual_training_corrections.csv`. These are
+ingested first and cannot be overwritten by any subsequent tier. ~400 projects.
 
-### Tier 4 — LLM Fallback
-Claude Haiku for the remaining ~5% of projects with low-confidence results. Targeted prompt asking
-only about trigger type; structured JSON output.
+### Tier 1a — Agency Metadata Heuristics
+Maps `lead_agency_harmonized` to trigger class using known jurisdiction rules. A result from
+Tier 1a that is auto-accepted goes directly to `finalized`; others go to `provisional` and may
+be sent to Tier 4 for confirmation.
+
+Key mappings:
+- `FERC`, `FAA`, `FCC` → `federal_permit` (auto-accept)
+- `BPA`, `WAPA`, `CBP`, `PMA` → `federal_direct_action` (auto-accept)
+- `BLM`, `USFS` as authorizing agency → `federal_land` (auto-accept via `T1a_BLM_USFS_land_control`)
+- `DOE`, `USACE` → routed to Tier 4 (ambiguous without verb evidence)
+
+Adds ~1,500 projects. Highest-yield deterministic tier.
+
+### Tier 1b — Title and Description Keywords
+Applies `TIER1B_PATTERNS` (regex list) against the concatenated project title and description.
+Each pattern tuple is `(regex, class, rule_slug, confidence)`. If the resulting `rule_id`
+(`T1b_{slug}`) is in `AUTO_ACCEPT_RULE_IDS`, the result is auto-accepted; otherwise it goes
+to `provisional`.
+
+Currently auto-accepted rules: `T1b_ferc_license`, `T1b_special_use`, `T1b_row_grant`,
+`T1b_land_exchange`. All other high-confidence Tier 1b matches go to provisional.
+
+Adds ~37 projects to finalized (many more to provisional).
+
+### Tier 2 — Document Title Scan
+Scans the document titles of the first retrieved documents for each project via DuckDB.
+Applies `_is_programmatic_title`, `_is_programmatic_exclusion`, and `DOC_TITLE_PATTERNS`.
+
+Currently auto-accepted rules: `T2_doc_title_peis`, `T2_doc_title_row`,
+`T2_doc_title_permit_app`, `T2_doc_title_license_amendment`, `T2_doc_title_loan_guarantee`.
+
+Adds ~282 projects.
+
+### Tier 3 — Purpose-and-Need Section Extraction
+Extracts the "Purpose and Need" section (and related candidate sections) from document pages via
+DuckDB, then applies the same `TIER1B_PATTERNS` + additional purpose-specific patterns.
+
+Currently auto-accepted rules: `T3_npdes`, `T3_agency_grant`, `T3_blm_land`, `T3_nfs_land`.
+
+Adds ~481 projects.
+
+### Tier 3b — SetFit DOE CE Classifier
+Runs only on projects where `lead_agency_harmonized` contains "Department of Energy" AND
+`process_type == "CE"`. Uses a fine-tuned SetFit model at `phase2/models/trigger_setfit`
+(6-class logistic regression head over a sentence-transformer backbone).
+
+**How confidence works in SetFit:** `predict_proba` returns a probability vector over all
+classes, e.g. `[0.04, 0.71, 0.03, 0.14, 0.05, 0.03]`. Two gates must both pass:
+- `top_prob >= SETFIT_CONFIDENCE_THRESHOLD` (currently 0.80)
+- `margin = top_prob - second_prob >= SETFIT_MARGIN_THRESHOLD` (currently 0.15)
+
+If both gates pass, the result is auto-accepted as `confidence="high"`. If either gate fails,
+the project falls through to Tier 4 unchanged. With a logistic regression head trained on a
+small example bank, probabilities rarely concentrate above 0.80. In the April 2026 run,
+0 projects cleared the gate despite 436 inference batches.
+
+### Tier 4 — Retrieval-First NLI Adjudication
+Receives all projects not yet finalized where `should_send_to_tier4` returns True. This
+includes: projects with no provisional result, projects from ambiguous agencies (DOE, USACE),
+and projects with medium/low confidence provisionals.
+
+**How confidence works in Tier 4 NLI:** Uses `cross-encoder/nli-deberta-v3-base` (or
+`cross-encoder/nli-MiniLM2-L6-H768` as configured). For each candidate class, the model
+receives the retrieved chunk text as the premise and a natural-language hypothesis as the
+hypothesis. The entailment score is the `final_score` per chunk. Scores are aggregated
+across chunks into a per-project `doc_score` per candidate class. Three gates must all pass:
+
+1. `doc_score >= threshold`: `TIER4_BASE_THRESHOLD` (0.72) if agency metadata priors exist,
+   `TIER4_NO_PRIOR_THRESHOLD` (0.78) otherwise
+2. `margin >= TIER4_MARGIN_THRESHOLD` (0.08): top class must score at least 0.08 above second
+3. `affirmative_support`: at least one chunk must have `cue_score >= 0.25` or
+   `entailment_score >= 0.82`
+
+If all three pass, `auto_resolve=True` and the project is finalized as `confidence="high"`
+(if `doc_score >= 0.95`) or `confidence="medium"` (otherwise). If any gate fails, the
+project gets `rule_id="T4_local_uncertain"` with `confidence="low"` and is queued for Tier 5
+(or finalized as `unknown` if `--use-llm` is not set).
+
+Diagnostics written to:
+- `phase2/data/analysis/nepa_trigger/tier4_chunk_scores.parquet`
+- `phase2/data/analysis/nepa_trigger/tier4_doc_scores.parquet`
+
+### Tier 5 — LLM Fallback
+Claude Haiku receives the Tier 4 uncertain queue (target: <250 projects) with retrieved
+context chunks and returns structured JSON classification. Only runs with `--use-llm` flag.
+
+---
+
+## Routing Logic
+
+### `should_auto_accept(result)`
+Returns `True` only when:
+- `rule_id` is in `AUTO_ACCEPT_RULE_IDS` (explicit whitelist of trusted rules), OR
+- `rule_id` starts with `T4_local_` or `T4_embed_` and confidence is high/medium, OR
+- `rule_id == "T5_llm"` and confidence is high/medium
+
+### `should_send_to_tier4(result)`
+Returns `True` (send to Tier 4) when:
+- `result is None` — no provisional result exists for this project
+- `rule_id` is in `SEND_TO_TIER4_RULE_IDS` (`T1a_DOE_direct_action`, `T1a_DOE_funding`,
+  `T3_sec404`)
+- `evidence_source == "agency_metadata"` — agency-level priors need document confirmation
+- `confidence != "high"` — low/medium confidence provisionals need adjudication
+
+Returns `False` (do NOT send to Tier 4) when confidence is `"high"` and the rule is not
+in `SEND_TO_TIER4_RULE_IDS`. **This creates a logic gap:** projects with high-confidence
+provisional results from rules NOT in `AUTO_ACCEPT_RULE_IDS` are neither finalized nor sent
+to Tier 4. They fall through to `_make_unknown` at the end of the pipeline.
+
+### `_ingest(results)`
+For each result: if `should_auto_accept` → add to `finalized`. Otherwise → add to
+`provisional` (keeping the higher-confidence result if one already exists).
+
+---
+
+## Known Issues
+
+### Provisional Fallthrough (13,324 projects in April 2026 run)
+Projects can have a high-confidence provisional result that is silently discarded:
+- Rule fires → confidence="high" → `should_auto_accept` returns False (rule not in
+  `AUTO_ACCEPT_RULE_IDS`) → goes to `provisional`
+- `should_send_to_tier4` returns False (confidence=="high") → never sent to Tier 4
+- At end of pipeline: `_make_unknown` is called → appears as `unknown` in output
+
+The original provisional rule_id and evidence text ARE preserved in the unknown record's
+`nepa_trigger_evidence_text` and `nepa_trigger_evidence_source` fields. In the April 2026
+run: 12,528 of the 13,324 had `evidence_source="description"`, indicating a Tier 1b pattern
+match was silently dropped. Fix: either add those rule IDs to `AUTO_ACCEPT_RULE_IDS` or
+change `should_send_to_tier4` to also forward high-confidence provisionals to Tier 4.
+
+### SetFit Threshold Too High
+`SETFIT_CONFIDENCE_THRESHOLD = 0.80` is too strict for a logistic regression head trained on
+a small example bank. In the April 2026 run, 0 DOE CE projects cleared the gate despite 436
+inference batches. Lower to 0.60–0.65.
+
+### Unknown Pool Composition (April 2026 run)
+Of 17,943 unknowns:
+- 16,963 (94.5%) are CEs
+- 14,193 (79.1%) are DOE
+- 13,324 are `unresolved_after_tier4` (provisional fallthrough, all had a rule fire)
+- 4,619 are `T4_local_uncertain` (Tier 4 processed but all three gates failed)
+
+---
+
+## Run Results (April 2026)
+
+<!-- d1-run-results: pull this section into the D1 report -->
+
+Full pipeline run on all 20,725 clean energy projects. Tier 5 (LLM fallback) was skipped.
+
+### Tier-by-Tier Yield
+
+| Tier | Description | New Projects | Cumulative | % Resolved |
+|---|---|---:|---:|---:|
+| Tier 0 | Manual labels | 890 | 890 | 4.3% |
+| Tier 1a | Agency metadata heuristics | 5,568 | 6,458 | 31.2% |
+| Tier 1b | Title + description keywords | 1,751 | 8,209 | 39.6% |
+| Tier 2 | Document title scan | 62 | 8,271 | 39.9% |
+| Tier 3 | Purpose-and-need extraction | 435 | 8,706 | 42.0% |
+| Tier 3b | SetFit DOE CE classifier | 10,846 | 19,552 | 94.3% |
+| Tier 4 | NLI adjudication (finalized) | 37 | 19,589 | 94.5% |
+| — | Unknown (Tier 4 gates failed) | 1,136 | — | 5.5% |
+
+**Total resolved: 19,589 / 20,725 (94.5%). Unknown: 1,136 (5.5%).**
+
+Tier 3b is by far the highest-yield ML tier because DOE CEs dominate the unresolved pool after
+Tier 1 (~14K projects). The SetFit threshold was lowered from 0.80/0.15 to 0.65/0.08 to achieve
+this yield; see Known Issues for the original gate design.
+
+Tier 4 processed 1,173 projects and finalized 37 with sufficient document evidence. The remaining
+1,136 failed all three gates (`doc_score`, `margin`, `affirmative_support`) and are recorded as
+`unknown`. These are available for manual review in
+`phase2/data/analysis/nepa_trigger/unknown_codings.csv`.
+
+### Final Class Distribution
+
+| Class | Count | % of Total |
+|---|---:|---:|
+| `federal_funding` | 8,966 | 43.3% |
+| `federal_direct_action` | 6,451 | 31.1% |
+| `federal_land` | 3,672 | 17.7% |
+| `federal_program` | 367 | 1.8% |
+| `federal_permit` | 97 | 0.5% |
+| `federal_property_transaction` | 36 | 0.2% |
+| `unknown` | 1,136 | 5.5% |
+| **Total** | **20,725** | |
+
+### Unknown Pool Composition (April 2026)
+
+Of 1,136 unknowns (all `T4_local_uncertain`):
+- 758 (66.7%) are CEs
+- 239 (21.0%) are EIS
+- 139 (12.2%) are EAs
+- 897 (79.0%) have DOE as lead agency
+
+For comparison, the pre-fix run (original thresholds) produced 17,943 unknowns (86.6%).
 
 ---
 
 ## Output Schema
 
-`data/analysis/nepa_trigger/projects_nepa_trigger.parquet`
+`phase2/data/analysis/nepa_trigger/projects_nepa_trigger.parquet`
 
 | Column | Type | Description |
 |---|---|---|
 | `project_id` | str | Primary key |
-| `trigger_types` | list[str] | List of trigger types: `federal_land`, `federal_funding`, `federal_permit` |
-| `trigger_primary` | str | Most prominent trigger type |
-| `trigger_confidence` | str | `high`, `medium`, `low` |
-| `trigger_source` | str | `metadata`, `regex`, `setfit`, `llm` |
-| `trigger_context` | str | Supporting text evidence |
-| `trigger_extraction_run_at` | str | ISO-8601 UTC timestamp |
+| `nepa_trigger_primary` | str | Top-priority trigger class |
+| `nepa_trigger_secondary` | list[str] | Additional trigger classes (multi-label) |
+| `nepa_trigger_multi` | bool | True if 2+ triggers detected |
+| `nepa_trigger_count` | int | Number of trigger classes detected |
+| `nepa_trigger_combo` | str | Sorted combo string for grouping |
+| `nepa_trigger_primary_hierarchy` | str | Priority-resolved primary class |
+| `nepa_trigger_evidence_text` | str | Supporting text passage |
+| `nepa_trigger_evidence_source` | str | `description`, `document_text`, `doc_title`, `agency_metadata`, `purpose_and_need` |
+| `nepa_trigger_confidence` | str | `high`, `medium`, `low` |
+| `nepa_trigger_rule_id` | str | Rule that produced the classification |
+| `nepa_trigger_manual_review` | bool | Flagged for manual review |
+| `is_dual_nexus` | bool | True if both `federal_land` and `federal_permit` present |
+| `nepa_trigger_extraction_run_at` | str | ISO-8601 UTC timestamp for the run |
+| `nepa_trigger_llm_run_at` | str | ISO-8601 UTC timestamp for LLM call (empty if Tier 5 skipped) |
+
+### Funding Detail Sidecar Schema
+
+`phase2/data/analysis/nepa_trigger/projects_funding_details.parquet`
+
+This sidecar adds funding mechanism, program/source, and amount fields only for projects already
+classified as `federal_funding`. It can be regenerated with `--funding-details-only` without
+rerunning the trigger classifier.
+
+| Column | Type | Description |
+|---|---|---|
+| `project_id` | str | Funding-primary project ID |
+| `federal_funding_type_primary` | str | Priority-resolved funding mechanism |
+| `federal_funding_type_multi` | list[str] | All detected mechanisms |
+| `federal_funding_program_multi` | list[str] | Program/source labels (`ARRA`, `EECBG`, `SEP`, `WAP`, `Title XVII`, `BIL`, `IRA`, `FOA`) |
+| `federal_funding_amount_usd` | double | Non-conflicting federal amount, if found |
+| `federal_funding_total_project_cost_usd` | double | Total project cost/value, if found |
+| `federal_funding_recipient_cost_share_usd` | double | Recipient/non-federal cost share, if found |
+| `federal_funding_share_pct` | double | Explicit or computed federal funding share |
+| `federal_funding_evidence_text` | str | Funding-specific evidence snippet |
+| `federal_funding_evidence_source` | str | `trigger_evidence`, `project_metadata`, `doc_title`, or `document_text` |
+| `federal_funding_confidence` | str | `high`, `medium`, or `low` |
+| `federal_funding_manual_review` | bool | True for unknown mechanisms or conflicting amounts |
+| `federal_funding_amount_candidates_json` | str | Parsed candidates and conflict metadata |
+| `federal_funding_extraction_run_at` | str | ISO-8601 UTC timestamp |
 
 ---
 
 ## Methodological Notes
 
-**Why four tiers instead of just LLM?** Most triggers are unambiguous from agency metadata alone (~60%).
-Running LLM on all 20k projects would cost ~$20-40 at Haiku pricing and introduce hallucination risk for
-cases that are trivially answered by agency type. The tiered approach reserves LLM for genuine ambiguity.
+**Why a tiered pipeline instead of just LLM?** Agency metadata alone resolves ~60% of
+projects deterministically and cheaply. Running LLM on all 20K projects would cost ~$20–40
+at Haiku pricing and introduce hallucination risk for cases trivially answered by agency type.
+The tiered approach reserves LLM for genuine ambiguity (target: <250 projects).
 
-**Why SetFit over fine-tuned DeBERTa?** The trigger classification task has data scarcity (few labeled
-examples per class), not label quality issues. SetFit is designed for exactly this regime — contrastive
-learning on sentence embeddings from as few as 8-32 examples per class. DeBERTa fine-tuning would
-overfit on ~100 total examples.
+**Why SetFit for DOE CE classification?** DOE CEs are the largest ambiguous class (~14K
+projects). A fine-tuned SetFit model provides fast batched inference on MPS and requires only
+a modest labeled example bank. DeBERTa fine-tuning would overfit on the available training set.
+SetFit is appropriate for **data scarcity** (few labeled examples per class, not label quality
+issues).
 
-**Multi-label consideration:** Many projects are triggered by multiple nexus factors simultaneously
-(e.g., federal land AND DOE funding for a DOE project on BLM land). The output stores all applicable
-trigger types as a list rather than forcing single-label classification.
+**Why NLI (cross-encoder) for Tier 4?** The Tier 4 adjudication task is better framed as
+textual entailment than classification: given a retrieved passage, does it entail the hypothesis
+"this project is triggered by federal land use"? Cross-encoders compute a joint representation
+of (passage, hypothesis) and produce calibrated entailment scores. This is a **data scarcity**
+problem where expressing classes as natural language hypotheses avoids the need for labeled
+training data.
+
+**Multi-label consideration:** Many projects are triggered by multiple nexus factors
+simultaneously (e.g., federal land AND DOE funding). Primary trigger is priority-resolved for
+all figures; secondary triggers are stored separately.
+
+**Funding detail layer:** Funding mechanism and amount extraction is deliberately downstream of
+trigger classification. Grant/loan/amount parsing is restricted to `federal_funding` primary
+projects, suppresses land-authorization grant phrases such as right-of-way grants, and requires
+project-specific funding context before extracting dollar amounts. Amount coverage is expected to
+be partial; conflicting candidate amounts are preserved in JSON and flagged for manual review.
