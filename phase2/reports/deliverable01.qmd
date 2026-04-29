@@ -222,11 +222,10 @@ source_wide |>
 
 | Item | Status | Notes |
 |:---|:---|:---|
-| **Tier 5 — LLM fallback** | Not run | `r comma(n_unknown)` unknowns queued; run with `--use-llm` flag when budget approved |
 | **Secondary trigger analysis** | Pending | `nepa_trigger_secondary` populated; multi-label figures deferred to next iteration |
-| **Dual-nexus breakdown** | Computed | `r comma(n_dual_nexus)` projects flagged; breakdown by process type and agency available on request |
-| **Provisional fallthrough fix** | Resolved in current run | Original pipeline discarded high-confidence Tier 1b provisional results; SetFit threshold lowered from 0.80 → 0.65 to capture DOE CE pool |
 | **Multi-process / tiered review integration** | Future (D2 dependency) | Combining trigger class with programmatic/tiered review status requires joining D1 + D2 outputs |
+| **Tier 5 — LLM fallback** | Not run | `r comma(n_unknown)` unknowns queued; plan to resolve with enterprise AI after multi-process resolved  |
+| **Dual-nexus breakdown** | Computed | `r comma(n_dual_nexus)` projects flagged; breakdown by process type and agency available on request |
 
 ---
 

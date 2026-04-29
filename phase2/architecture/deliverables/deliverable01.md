@@ -19,6 +19,7 @@ flowchart TD
     G --> H[Tier 4: Retrieval-first NLI adjudication\n~4,700 projects]
     H --> I{Tier 5: LLM fallback\n--use-llm flag}
     I --> J[projects_nepa_trigger.parquet]
+    J --> K[Funding detail sidecar\nprojects_funding_details.parquet]
 ```
 
 ---
@@ -31,6 +32,13 @@ flowchart TD
 | `phase2/data/processed/ce/pages.parquet` | CE document pages (DuckDB scan) |
 | `phase2/data/processed/ea/pages.parquet` | EA document pages (DuckDB scan) |
 | `phase2/data/processed/eis/pages.parquet` | EIS document pages (DuckDB scan) |
+
+## Sidecar Output
+
+`phase2/data/analysis/nepa_trigger/projects_funding_details.parquet` is generated after the
+primary trigger output, or independently with `--funding-details-only`. It is restricted to
+projects where `nepa_trigger_primary == "federal_funding"` and never mutates
+`projects_nepa_trigger.parquet`.
 
 ---
 
@@ -279,6 +287,31 @@ For comparison, the pre-fix run (original thresholds) produced 17,943 unknowns (
 | `nepa_trigger_extraction_run_at` | str | ISO-8601 UTC timestamp for the run |
 | `nepa_trigger_llm_run_at` | str | ISO-8601 UTC timestamp for LLM call (empty if Tier 5 skipped) |
 
+### Funding Detail Sidecar Schema
+
+`phase2/data/analysis/nepa_trigger/projects_funding_details.parquet`
+
+This sidecar adds funding mechanism, program/source, and amount fields only for projects already
+classified as `federal_funding`. It can be regenerated with `--funding-details-only` without
+rerunning the trigger classifier.
+
+| Column | Type | Description |
+|---|---|---|
+| `project_id` | str | Funding-primary project ID |
+| `federal_funding_type_primary` | str | Priority-resolved funding mechanism |
+| `federal_funding_type_multi` | list[str] | All detected mechanisms |
+| `federal_funding_program_multi` | list[str] | Program/source labels (`ARRA`, `EECBG`, `SEP`, `WAP`, `Title XVII`, `BIL`, `IRA`, `FOA`) |
+| `federal_funding_amount_usd` | double | Non-conflicting federal amount, if found |
+| `federal_funding_total_project_cost_usd` | double | Total project cost/value, if found |
+| `federal_funding_recipient_cost_share_usd` | double | Recipient/non-federal cost share, if found |
+| `federal_funding_share_pct` | double | Explicit or computed federal funding share |
+| `federal_funding_evidence_text` | str | Funding-specific evidence snippet |
+| `federal_funding_evidence_source` | str | `trigger_evidence`, `project_metadata`, `doc_title`, or `document_text` |
+| `federal_funding_confidence` | str | `high`, `medium`, or `low` |
+| `federal_funding_manual_review` | bool | True for unknown mechanisms or conflicting amounts |
+| `federal_funding_amount_candidates_json` | str | Parsed candidates and conflict metadata |
+| `federal_funding_extraction_run_at` | str | ISO-8601 UTC timestamp |
+
 ---
 
 ## Methodological Notes
@@ -304,3 +337,9 @@ training data.
 **Multi-label consideration:** Many projects are triggered by multiple nexus factors
 simultaneously (e.g., federal land AND DOE funding). Primary trigger is priority-resolved for
 all figures; secondary triggers are stored separately.
+
+**Funding detail layer:** Funding mechanism and amount extraction is deliberately downstream of
+trigger classification. Grant/loan/amount parsing is restricted to `federal_funding` primary
+projects, suppresses land-authorization grant phrases such as right-of-way grants, and requires
+project-specific funding context before extracting dollar amounts. Amount coverage is expected to
+be partial; conflicting candidate amounts are preserved in JSON and flagged for manual review.

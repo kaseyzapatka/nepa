@@ -39,6 +39,14 @@
 # Usage:
 #   Rscript phase2/code/deliverable01/02_analyze_triggers.R
 
+
+# --------------------------
+# LIBRARIES AND SETTINGS
+# --------------------------
+
+# clear environment
+rm(list = ls())
+
 suppressPackageStartupMessages({
   library(here)
   library(arrow)
@@ -593,6 +601,11 @@ if (!is.null(funding_details) && nrow(funding_details) > 0) {
   cat(sprintf("Saved federal_funding_detail_summary.csv (%d rows)\n",
               nrow(funding_summary)))
 }
+
+
+fig8
+fig9
+fig10
 
 # --------------------------
 # FIGURE 6 — State choropleth (dominant trigger per state)
