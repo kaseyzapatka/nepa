@@ -42,4 +42,4 @@ format:
   html:
     embed-resources: true
     theme: cosmo
-    include-after-body: _includes/nav-submenu.html
+    include-after-body: includes/nav-submenu.html
