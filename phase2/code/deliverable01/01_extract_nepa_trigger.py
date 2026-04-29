@@ -87,6 +87,25 @@ CONTEXT_CANDIDATES_PATH = OUTPUT_DIR / "context_candidates.parquet"
 TIER4_CHUNK_SCORES_PATH = OUTPUT_DIR / "tier4_chunk_scores.parquet"
 TIER4_DOC_SCORES_PATH = OUTPUT_DIR / "tier4_doc_scores.parquet"
 TIER5_QUEUE_PATH = OUTPUT_DIR / "tier5_queue.parquet"
+PROJECTS_NEPA_TRIGGER_PATH = OUTPUT_DIR / "projects_nepa_trigger.parquet"
+PROJECTS_FUNDING_DETAILS_PATH = OUTPUT_DIR / "projects_funding_details.parquet"
+
+FUNDING_DETAIL_COLS = [
+    "project_id",
+    "federal_funding_type_primary",
+    "federal_funding_type_multi",
+    "federal_funding_program_multi",
+    "federal_funding_amount_usd",
+    "federal_funding_total_project_cost_usd",
+    "federal_funding_recipient_cost_share_usd",
+    "federal_funding_share_pct",
+    "federal_funding_evidence_text",
+    "federal_funding_evidence_source",
+    "federal_funding_confidence",
+    "federal_funding_manual_review",
+    "federal_funding_amount_candidates_json",
+    "federal_funding_extraction_run_at",
+]
 
 TIER4_TOP_K = 4
 TIER4_BASE_THRESHOLD = 0.72
@@ -925,6 +944,110 @@ _NEGATION_PATTERNS = [
     r'\bdoes\s+not\s+(?:involve|include|require|apply)\b',
     r'\bno\s+transfer\s+of\s+land\s+ownership\b',
 ]
+
+# --- Federal funding detail sidecar patterns ---
+
+FUNDING_CUE_RE = re.compile(
+    r"\b(?:"
+    r"federal\s+fund(?:ing|s)?|DOE\s+funding|Department\s+of\s+Energy\s+funding|"
+    r"grant|grants|award|awards|financial\s+assistance|loan\s+guarantee|"
+    r"guaranteed\s+loan|federal\s+loan|revolving\s+loan|cooperative\s+agreement|"
+    r"cost[-\s]?share|Federal\s+Cost\s+Share|Title\s+XVII|EECBG|ARRA|"
+    r"American\s+Recovery\s+and\s+Reinvestment\s+Act|Recovery\s+Act|"
+    r"Bipartisan\s+Infrastructure\s+(?:Law|Act)|Inflation\s+Reduction\s+Act|"
+    r"State\s+Energy\s+Program|SEP|Weatherization\s+Assistance\s+Program|WAP|"
+    r"funding\s+opportunity\s+announcement|FOA"
+    r")\b",
+    re.IGNORECASE,
+)
+
+LAND_GRANT_FALSE_POSITIVE_RE = re.compile(
+    r"\b(?:right[-\s]of[-\s]way|ROW|land\s+use|easement|perpetual)\s+grant\b|"
+    r"\bgrant\s+(?:a\s+)?(?:right[-\s]of[-\s]way|ROW|easement|perpetual)\b|"
+    r"\bROW\s+grant\b|\bright[-\s]of[-\s]way\s+\(ROW\)\s+grant\b",
+    re.IGNORECASE,
+)
+
+FUNDING_PROJECT_SPECIFIC_RE = re.compile(
+    r"\b(?:"
+    r"proposes?\s+to\s+(?:provide|award|fund|partially\s+fund|use)|"
+    r"would\s+(?:provide|award|fund|partially\s+fund|use)|"
+    r"is\s+proposing\s+to\s+(?:provide|award|fund|partially\s+fund|use)|"
+    r"selected\s+.+?\s+to\s+receive|recipient\s+of|receive[sd]?\s+.+?\s+(?:funding|grant|award)|"
+    r"DOE\s+Funding|Federal\s+Cost\s+Share|Total\s+Project\s+(?:Cost|Value)|"
+    r"amount\s+to\s+be\s+released|NEPA\s+PROVISION|Rationale?\s+for\s+determination|"
+    r"Project\s+Description|Proposed\s+Action|award\s+before\s+proceeding|"
+    r"loan\s+guarantee\s+to|cooperative\s+agreement\s+with|sub\s*grant|"
+    r"pass\s+through\s+\$|provide\s+\$|providing\s+\$|selected\s+.+?\s+\$"
+    r")\b",
+    re.IGNORECASE,
+)
+
+FUNDING_GENERIC_BOILERPLATE_RE = re.compile(
+    r"\bThese\s+actions\s+may\s+involve\s+financial\s+and\s+technical\s+assistance\b|"
+    r"\bCovered\s+actions\s+include,\s+but\s+are\s+not\s+limited\s+to\b|"
+    r"\bdo\s+not\s+include\s+rulemakings,\s+standard-settings,\s+or\s+proposed\s+DOE\s+legislation\b",
+    re.IGNORECASE,
+)
+
+MONEY_RE = re.compile(
+    r"(?:"
+    r"\$\s*(?P<dollar_amount>\d[\d,]*(?:\.\d+)?)\s*(?P<dollar_scale>million|billion|thousand|m|b|k)?"
+    r"|"
+    r"\b(?P<word_amount>\d+(?:\.\d+)?)\s*(?P<word_scale>million|billion|thousand)\s+dollars?\b"
+    r")",
+    re.IGNORECASE,
+)
+
+PERCENT_RE = re.compile(r"\b(?P<pct>\d{1,3}(?:\.\d+)?)\s*(?:%|percent)\b", re.IGNORECASE)
+
+FUNDING_MECHANISM_PATTERNS = {
+    "loan_guarantee": re.compile(r"\bloan\s+guarantee\b|\bguaranteed\s+loan\b", re.IGNORECASE),
+    "revolving_loan": re.compile(r"\brevolving\s+loan\b", re.IGNORECASE),
+    "federal_loan": re.compile(
+        r"\bfederal\s+loan\b|\bloans?\s+from\s+(?:DOE|Department\s+of\s+Energy|USDA|DOT|HUD)\b",
+        re.IGNORECASE,
+    ),
+    "cooperative_agreement": re.compile(r"\bcooperative\s+agreement\b", re.IGNORECASE),
+    "formula_grant": re.compile(
+        r"\bformula[-\s]based\s+(?:grant|award)s?\b|\bformula\s+(?:grant|award)s?\b|\bEECBG\b",
+        re.IGNORECASE,
+    ),
+    "grant_or_award": re.compile(
+        r"\b(?:federal\s+|DOE\s+|Department\s+of\s+Energy\s+)?(?:grant|grants|award|awards)\b",
+        re.IGNORECASE,
+    ),
+    "cost_share": re.compile(r"\bcost[-\s]?share(?:d|s|r|ing|ment)?\b|\bfederal\s+cost\s+share\b", re.IGNORECASE),
+    "financial_assistance": re.compile(r"\bfinancial\s+assistance\b", re.IGNORECASE),
+    "generic_funding": re.compile(
+        r"\b(?:provide|providing|provided|receive|receives|recipient\s+of)\s+(?:federal\s+)?fund(?:ing|s)?\b|"
+        r"\bfederal\s+funding\b",
+        re.IGNORECASE,
+    ),
+}
+
+FUNDING_MECHANISM_PRIORITY = [
+    "loan_guarantee",
+    "revolving_loan",
+    "federal_loan",
+    "cooperative_agreement",
+    "formula_grant",
+    "grant_or_award",
+    "cost_share",
+    "financial_assistance",
+    "generic_funding",
+]
+
+FUNDING_PROGRAM_PATTERNS = {
+    "ARRA": re.compile(r"\bAmerican\s+Recovery\s+and\s+Reinvestment\s+Act\b|\bARRA\b|\bRecovery\s+Act\b", re.IGNORECASE),
+    "EECBG": re.compile(r"\bEECBG\b|Energy\s+Efficiency\s+and\s+Conservation\s+Block\s+Grant", re.IGNORECASE),
+    "SEP": re.compile(r"\bState\s+Energy\s+Program\b|\bSEP\b", re.IGNORECASE),
+    "WAP": re.compile(r"\bWeatherization\s+Assistance\s+Program\b|\bWAP\b", re.IGNORECASE),
+    "Title XVII": re.compile(r"\bTitle\s+XVII\b", re.IGNORECASE),
+    "BIL": re.compile(r"\bBipartisan\s+Infrastructure\s+(?:Law|Act)\b|\bBIL\b", re.IGNORECASE),
+    "IRA": re.compile(r"\bInflation\s+Reduction\s+Act\b|\bIRA\b", re.IGNORECASE),
+    "FOA": re.compile(r"\bfunding\s+opportunity\s+announcement\b|\bFOA\b", re.IGNORECASE),
+}
 
 # --------------------------
 # HELPERS
@@ -2876,6 +2999,543 @@ def extract_nepa_triggers(
     return final, projects
 
 
+def _collapse_ws(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "")).strip()
+
+
+def _strip_land_grant_false_positives(text: str) -> str:
+    """Remove land-authorization grant phrases before funding mechanism scans."""
+    return LAND_GRANT_FALSE_POSITIVE_RE.sub(" ", str(text or ""))
+
+
+def _is_project_specific_funding_context(context_text: str, source: str) -> bool:
+    text = _collapse_ws(context_text)
+    if not text or not FUNDING_CUE_RE.search(text):
+        return False
+    if FUNDING_GENERIC_BOILERPLATE_RE.search(text) and not FUNDING_PROJECT_SPECIFIC_RE.search(text):
+        return False
+    if source in {"project_metadata", "trigger_evidence", "doc_title"}:
+        return True
+    return bool(FUNDING_PROJECT_SPECIFIC_RE.search(text))
+
+
+def _funding_context_windows(
+    source_texts: list[tuple[str, str]],
+    window_before: int = 420,
+    window_after: int = 760,
+    max_windows_per_source: int = 14,
+) -> list[dict[str, str]]:
+    contexts: list[dict[str, str]] = []
+    seen_hashes: set[str] = set()
+    for source, raw_text in source_texts:
+        text = _strip_land_grant_false_positives(raw_text)
+        if not text.strip():
+            continue
+        source_count = 0
+        for match in FUNDING_CUE_RE.finditer(text):
+            start = max(0, match.start() - window_before)
+            end = min(len(text), match.end() + window_after)
+            context = _collapse_ws(text[start:end])
+            if not _is_project_specific_funding_context(context, source):
+                continue
+            context_hash = _chunk_hash(context)
+            if context_hash in seen_hashes:
+                continue
+            seen_hashes.add(context_hash)
+            contexts.append({
+                "source": source,
+                "text": context,
+            })
+            source_count += 1
+            if source_count >= max_windows_per_source:
+                break
+    return contexts
+
+
+def _parse_money_match(match: re.Match) -> Optional[float]:
+    amount_raw = match.group("dollar_amount") or match.group("word_amount")
+    scale_raw = match.group("dollar_scale") or match.group("word_scale") or ""
+    if not amount_raw:
+        return None
+    try:
+        value = float(str(amount_raw).replace(",", ""))
+    except ValueError:
+        return None
+
+    scale = scale_raw.lower()
+    if scale in {"billion", "b"}:
+        value *= 1_000_000_000
+    elif scale in {"million", "m"}:
+        value *= 1_000_000
+    elif scale in {"thousand", "k"}:
+        value *= 1_000
+    if value < 0:
+        return None
+    return round(value, 2)
+
+
+def _money_candidate_kind(context: str, match: re.Match) -> str:
+    before = context[max(0, match.start() - 140): match.start()]
+    after = context[match.end(): min(len(context), match.end() + 90)]
+    label = _collapse_ws(f"{before} {after}")
+    before_tail = _collapse_ws(before[-90:])
+
+    federal_pat = (
+        r"\b(?:DOE\s*:|DOE\s+Funding|Total\s+DOE\s+Funding|Federal\s+Cost\s+Share|"
+        r"Federal\s*/|Federal\s+fund(?:ing|s)?|federal\s+share|grant|award|"
+        r"sub\s*grant|loan\s+guarantee|SEP\s+funding|EECBG\s+funding|"
+        r"Recovery\s+Act\s+funds?|amount\s+to\s+be\s+released\s+in\s+this\s+determination\s+DOE)\b"
+    )
+    total_pat = (
+        r"\b(?:Total\s+Project\s+(?:Cost|Value)|Total\s+Project|Total\s*:|overall\s+project\s+cost|"
+        r"project\s+cost)\b"
+    )
+    recipient_pat = (
+        r"\b(?:Cost\s+Share|Recipient\s+Share|Non[-\s]?Federal|Applicant\s+Share|Private\s+Share|"
+        r"recipient\s+cost)\b"
+    )
+
+    def _last_match_start(pattern: str, text: str) -> int:
+        matches = list(re.finditer(pattern, text, re.IGNORECASE))
+        return matches[-1].start() if matches else -1
+
+    federal_pos = _last_match_start(federal_pat, before_tail)
+    total_pos = _last_match_start(total_pat, before_tail)
+    recipient_pos = _last_match_start(recipient_pat, before_tail)
+
+    # Use the closest preceding label first. This prevents "DOE Funding: $x Cost Share: $y"
+    # from treating the cost-share amount as another federal funding amount.
+    if recipient_pos > max(federal_pos, total_pos):
+        return "recipient_cost_share"
+    if total_pos > max(federal_pos, recipient_pos):
+        return "total_project_cost"
+    if federal_pos >= 0 or re.search(federal_pat, label, re.IGNORECASE):
+        return "federal_amount"
+    if re.search(recipient_pat, label, re.IGNORECASE):
+        return "recipient_cost_share"
+    if re.search(total_pat, label, re.IGNORECASE):
+        return "total_project_cost"
+    return "unlabeled_amount"
+
+
+def _extract_amount_candidates(contexts: list[dict[str, str]]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    seen: set[tuple[str, float, str]] = set()
+    for context in contexts:
+        text = context["text"]
+        for match in MONEY_RE.finditer(text):
+            amount = _parse_money_match(match)
+            if amount is None:
+                continue
+            kind = _money_candidate_kind(text, match)
+            if kind == "unlabeled_amount":
+                nearby = text[max(0, match.start() - 220): min(len(text), match.end() + 220)]
+                if not FUNDING_CUE_RE.search(nearby):
+                    continue
+            evidence = _collapse_ws(text[max(0, match.start() - 180): min(len(text), match.end() + 220)])
+            key = (kind, amount, evidence[:120])
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append({
+                "amount_usd": amount,
+                "kind": kind,
+                "source": context["source"],
+                "match_text": match.group(0),
+                "evidence_text": evidence,
+            })
+    return candidates
+
+
+def _extract_percent_candidates(contexts: list[dict[str, str]]) -> list[dict[str, Any]]:
+    candidates: list[dict[str, Any]] = []
+    seen: set[tuple[float, str]] = set()
+    for context in contexts:
+        text = context["text"]
+        for match in PERCENT_RE.finditer(text):
+            try:
+                pct = float(match.group("pct"))
+            except ValueError:
+                continue
+            if pct < 0 or pct > 100:
+                continue
+            nearby = text[max(0, match.start() - 220): min(len(text), match.end() + 220)]
+            if not FUNDING_CUE_RE.search(nearby):
+                continue
+            evidence = _collapse_ws(text[max(0, match.start() - 180): min(len(text), match.end() + 220)])
+            key = (pct, evidence[:120])
+            if key in seen:
+                continue
+            seen.add(key)
+            candidates.append({
+                "percent": pct,
+                "source": context["source"],
+                "match_text": match.group(0),
+                "evidence_text": evidence,
+            })
+    return candidates
+
+
+def _single_distinct_amount(candidates: list[dict[str, Any]], kind: str) -> tuple[Optional[float], bool]:
+    values = sorted({round(float(c["amount_usd"]), 2) for c in candidates if c.get("kind") == kind and c.get("amount_usd") is not None})
+    if len(values) == 1:
+        return values[0], False
+    if len(values) > 1:
+        return None, True
+    return None, False
+
+
+def _single_distinct_percent(candidates: list[dict[str, Any]]) -> tuple[Optional[float], bool]:
+    values = sorted({round(float(c["percent"]), 4) for c in candidates if c.get("percent") is not None})
+    if len(values) == 1:
+        return values[0], False
+    if len(values) > 1:
+        return None, True
+    return None, False
+
+
+def _extract_funding_mechanisms_and_programs(contexts: list[dict[str, str]]) -> tuple[list[str], list[str]]:
+    combined = "\n\n".join(context["text"] for context in contexts)
+    cleaned = _strip_land_grant_false_positives(combined)
+
+    mechanisms = [
+        mechanism
+        for mechanism, pattern in FUNDING_MECHANISM_PATTERNS.items()
+        if pattern.search(cleaned)
+    ]
+    mechanisms = [m for m in FUNDING_MECHANISM_PRIORITY if m in mechanisms]
+    programs = [
+        program
+        for program, pattern in FUNDING_PROGRAM_PATTERNS.items()
+        if pattern.search(cleaned)
+    ]
+    return mechanisms, programs
+
+
+def _best_funding_evidence_context(contexts: list[dict[str, str]], amount_candidates: list[dict[str, Any]]) -> tuple[str, str]:
+    federal_amounts = [c for c in amount_candidates if c.get("kind") == "federal_amount"]
+    if federal_amounts:
+        best = federal_amounts[0]
+        return str(best.get("evidence_text") or ""), str(best.get("source") or "")
+    if amount_candidates:
+        best = amount_candidates[0]
+        return str(best.get("evidence_text") or ""), str(best.get("source") or "")
+    if contexts:
+        return contexts[0]["text"][:900], contexts[0]["source"]
+    return "", ""
+
+
+def _extract_funding_detail_from_sources(
+    project_id: str,
+    source_texts: list[tuple[str, str]],
+    run_at: str,
+) -> dict[str, Any]:
+    contexts = _funding_context_windows(source_texts)
+    mechanisms, programs = _extract_funding_mechanisms_and_programs(contexts) if contexts else ([], [])
+    primary_mechanism = next((m for m in FUNDING_MECHANISM_PRIORITY if m in mechanisms), "unknown_funding")
+    mechanism_multi = mechanisms if mechanisms else ["unknown_funding"]
+
+    amount_candidates = _extract_amount_candidates(contexts)
+    percent_candidates = _extract_percent_candidates(contexts)
+
+    federal_amount, federal_conflict = _single_distinct_amount(amount_candidates, "federal_amount")
+    total_cost, total_conflict = _single_distinct_amount(amount_candidates, "total_project_cost")
+    recipient_share, recipient_conflict = _single_distinct_amount(amount_candidates, "recipient_cost_share")
+    explicit_pct, pct_conflict = _single_distinct_percent(percent_candidates)
+
+    computed_pct: Optional[float] = None
+    computed_pct_conflict = False
+    if federal_amount is not None and total_cost is not None and total_cost > 0:
+        computed_pct = round(100 * federal_amount / total_cost, 2)
+        if computed_pct < 0 or computed_pct > 100:
+            computed_pct = None
+            computed_pct_conflict = True
+
+    funding_share_pct = explicit_pct if explicit_pct is not None else computed_pct
+    amount_conflict = federal_conflict or total_conflict or recipient_conflict or pct_conflict or computed_pct_conflict
+    evidence_text, evidence_source = _best_funding_evidence_context(contexts, amount_candidates)
+
+    if primary_mechanism == "unknown_funding":
+        confidence = "low"
+    elif amount_conflict:
+        confidence = "medium"
+    elif federal_amount is not None or funding_share_pct is not None:
+        confidence = "high"
+    else:
+        confidence = "medium"
+
+    manual_review = amount_conflict or primary_mechanism == "unknown_funding"
+    candidates_payload = {
+        "amount_candidates": amount_candidates,
+        "percent_candidates": percent_candidates,
+        "amount_conflict": amount_conflict,
+    }
+
+    return {
+        "project_id": project_id,
+        "federal_funding_type_primary": primary_mechanism,
+        "federal_funding_type_multi": mechanism_multi,
+        "federal_funding_program_multi": programs,
+        "federal_funding_amount_usd": federal_amount,
+        "federal_funding_total_project_cost_usd": total_cost,
+        "federal_funding_recipient_cost_share_usd": recipient_share,
+        "federal_funding_share_pct": funding_share_pct,
+        "federal_funding_evidence_text": evidence_text,
+        "federal_funding_evidence_source": evidence_source,
+        "federal_funding_confidence": confidence,
+        "federal_funding_manual_review": manual_review,
+        "federal_funding_amount_candidates_json": json.dumps(candidates_payload, sort_keys=True),
+        "federal_funding_extraction_run_at": run_at,
+    }
+
+
+def _make_funding_detail_row(
+    project_row: pd.Series,
+    doc_text: str,
+    doc_title: str,
+    run_at: str,
+) -> dict[str, Any]:
+    project_metadata = " ".join([
+        str(project_row.get("project_title") or ""),
+        str(project_row.get("project_description") or ""),
+        str(project_row.get("project_sponsor") or ""),
+    ])
+    source_texts = [
+        ("trigger_evidence", str(project_row.get("nepa_trigger_evidence_text") or "")),
+        ("project_metadata", project_metadata),
+        ("doc_title", doc_title),
+        ("document_text", doc_text),
+    ]
+    return _extract_funding_detail_from_sources(str(project_row["project_id"]), source_texts, run_at)
+
+
+def _fetch_funding_preferred_document_texts(
+    funding_projects: pd.DataFrame,
+    conn: duckdb.DuckDBPyConnection,
+) -> tuple[dict[str, str], dict[str, str], dict[str, int]]:
+    doc_text_by_project: dict[str, str] = {}
+    doc_title_by_project: dict[str, str] = {}
+    page_count_by_project: dict[str, int] = {}
+
+    if funding_projects.empty:
+        return doc_text_by_project, doc_title_by_project, page_count_by_project
+
+    for source, group in funding_projects.groupby("dataset_source"):
+        source_lower = str(source).lower()
+        docs_path = DOCS_PATH_MAP.get(str(source).upper())
+        pages_path = PAGES_PATH_MAP.get(str(source).upper())
+        if docs_path is None or pages_path is None or not docs_path.exists() or not pages_path.exists():
+            continue
+
+        project_ids = group["project_id"].tolist()
+        docs = conn.execute(f"""
+            SELECT
+                project_id.value AS project_id,
+                document_id,
+                document_title,
+                file_name,
+                main_document,
+                length(coalesce(document_title, '')) AS title_len
+            FROM read_parquet('{docs_path}')
+            WHERE project_id.value IN ({_safe_sql_list(project_ids)})
+            QUALIFY row_number() OVER (
+                PARTITION BY project_id.value
+                ORDER BY upper(coalesce(main_document, '')) = 'YES' DESC,
+                         title_len DESC,
+                         document_id
+            ) = 1
+        """).fetchdf()
+        if docs.empty:
+            continue
+
+        for _, doc_row in docs.iterrows():
+            doc_title_by_project[str(doc_row["project_id"])] = str(doc_row.get("document_title") or doc_row.get("file_name") or "")
+
+        pages = conn.execute(f"""
+            SELECT document_id, page_number, page_text
+            FROM read_parquet('{pages_path}')
+            WHERE document_id IN ({_safe_sql_list(docs['document_id'].tolist())})
+              AND page_text IS NOT NULL
+        """).fetchdf()
+        if pages.empty:
+            continue
+
+        pages["page_sort"] = pages["page_number"].map(_page_sort_key)
+        pages = pages.merge(docs[["project_id", "document_id"]], on="document_id", how="left")
+        pages = pages.sort_values(["project_id", "page_sort", "page_number"])
+
+        for pid, page_group in pages.groupby("project_id"):
+            pid_str = str(pid)
+            page_text = "\n\n".join(page_group["page_text"].fillna("").astype(str).tolist())
+            doc_text_by_project[pid_str] = page_text
+            page_count_by_project[pid_str] = len(page_group)
+
+        log.info(
+            "Funding details: scanned preferred %s documents for %s %s projects",
+            source_lower.upper(),
+            f"{len(docs):,}",
+            source_lower.upper(),
+        )
+
+    return doc_text_by_project, doc_title_by_project, page_count_by_project
+
+
+def _validate_funding_details(details: pd.DataFrame, funding_project_ids: set[str]) -> None:
+    assert set(details["project_id"]) == funding_project_ids, (
+        "Funding sidecar project set must exactly match federal_funding primary projects"
+    )
+    assert details["project_id"].is_unique, "Duplicate project_ids in funding sidecar"
+
+    for col in [
+        "federal_funding_amount_usd",
+        "federal_funding_total_project_cost_usd",
+        "federal_funding_recipient_cost_share_usd",
+    ]:
+        non_null = details[col].dropna()
+        assert (non_null >= 0).all(), f"{col} contains negative values"
+
+    pct = details["federal_funding_share_pct"].dropna()
+    assert ((pct >= 0) & (pct <= 100)).all(), "Funding percentage must be between 0 and 100"
+
+    assert details["federal_funding_type_multi"].apply(isinstance, args=(list,)).all(), (
+        "federal_funding_type_multi must be list type"
+    )
+    assert details["federal_funding_program_multi"].apply(isinstance, args=(list,)).all(), (
+        "federal_funding_program_multi must be list type"
+    )
+
+
+def _write_parquet_atomic(df: pd.DataFrame, path: Path) -> None:
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    try:
+        df.to_parquet(tmp_path, index=False)
+        os.replace(tmp_path, path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+
+
+def _run_funding_detail_smoke_tests() -> None:
+    run_at = "smoke-test"
+    cases = [
+        (
+            "doe_funding",
+            "DOE Funding: $726,199 Cost Share: $138,114",
+            "cost_share",
+            726199.0,
+        ),
+        (
+            "loan_guarantee",
+            "FINAL ENVIRONMENTAL ASSESSMENT FOR DEPARTMENT OF ENERGY LOAN GUARANTEE TO MOJAVE SOLAR, LLC",
+            "loan_guarantee",
+            None,
+        ),
+        (
+            "eecbg_formula",
+            "ARRA appropriates funding for DOE to issue formula-based grants under EECBG for this project.",
+            "formula_grant",
+            None,
+        ),
+        (
+            "row_grant_negative",
+            "BPA proposes to acquire a perpetual right-of-way grant across BLM-managed land.",
+            "unknown_funding",
+            None,
+        ),
+    ]
+
+    for label, text, expected_type, expected_amount in cases:
+        row = _extract_funding_detail_from_sources(label, [("project_metadata", text)], run_at)
+        assert row["federal_funding_type_primary"] == expected_type, (
+            f"Funding smoke test failed for {label}: expected {expected_type}, got {row['federal_funding_type_primary']}"
+        )
+        if expected_amount is not None:
+            assert row["federal_funding_amount_usd"] == expected_amount, (
+                f"Funding amount smoke test failed for {label}: expected {expected_amount}, got {row['federal_funding_amount_usd']}"
+            )
+
+
+def extract_funding_details(
+    conn: duckdb.DuckDBPyConnection,
+    triggers: pd.DataFrame,
+    run_at: str,
+) -> pd.DataFrame:
+    _run_funding_detail_smoke_tests()
+
+    funding_ids = (
+        triggers.loc[triggers["nepa_trigger_primary"] == "federal_funding", ["project_id", "nepa_trigger_evidence_text"]]
+        .drop_duplicates("project_id")
+        .copy()
+    )
+    funding_project_ids = set(funding_ids["project_id"].astype(str))
+    if funding_ids.empty:
+        return pd.DataFrame(columns=FUNDING_DETAIL_COLS)
+
+    conn.register("_funding_trigger_ids", funding_ids)
+    funding_projects = conn.execute(f"""
+        SELECT
+            ids.project_id,
+            p.dataset_source,
+            p.process_type,
+            p.project_title,
+            p.project_description,
+            p.project_sponsor,
+            ids.nepa_trigger_evidence_text
+        FROM _funding_trigger_ids ids
+        JOIN read_parquet('{PROJECTS_PATH}') p USING (project_id)
+        WHERE {CLEAN_ENERGY_FILTER}
+    """).fetchdf()
+    try:
+        conn.unregister("_funding_trigger_ids")
+    except Exception:
+        pass
+
+    assert set(funding_projects["project_id"].astype(str)) == funding_project_ids, (
+        "Funding detail extraction can only run on clean projects already classified as federal_funding"
+    )
+
+    doc_text_by_project, doc_title_by_project, _page_count_by_project = _fetch_funding_preferred_document_texts(
+        funding_projects,
+        conn,
+    )
+
+    rows = []
+    for _, project_row in funding_projects.iterrows():
+        pid = str(project_row["project_id"])
+        rows.append(_make_funding_detail_row(
+            project_row=project_row,
+            doc_text=doc_text_by_project.get(pid, ""),
+            doc_title=doc_title_by_project.get(pid, ""),
+            run_at=run_at,
+        ))
+
+    details = pd.DataFrame(rows)
+    details = details[FUNDING_DETAIL_COLS]
+    _validate_funding_details(details, funding_project_ids)
+    return details
+
+
+def write_funding_details_sidecar(
+    conn: duckdb.DuckDBPyConnection,
+    triggers: pd.DataFrame,
+    run_at: str,
+) -> pd.DataFrame:
+    details = extract_funding_details(conn, triggers, run_at)
+    _write_parquet_atomic(details, PROJECTS_FUNDING_DETAILS_PATH)
+    log.info(
+        "Written: %s (%s funding-primary rows)",
+        PROJECTS_FUNDING_DETAILS_PATH,
+        f"{len(details):,}",
+    )
+    if not details.empty:
+        log.info(
+            "Funding amount coverage: %s rows with federal amount (%.1f%%)",
+            f"{details['federal_funding_amount_usd'].notna().sum():,}",
+            100 * details["federal_funding_amount_usd"].notna().mean(),
+        )
+    return details
+
+
 def run_calibration() -> bool:
     """
     Validate HYPOTHESIS_TEMPLATES against the example bank before a full corpus run.
@@ -2957,6 +3617,7 @@ def main() -> None:
     parser.add_argument("--use-llm", action="store_true", help="Enable Tier 5 Claude Haiku fallback for uncertain cases")
     parser.add_argument("--force-tier5", action="store_true", help="Override Tier 5 budget guardrail")
     parser.add_argument("--tier5-budget", type=float, default=TIER5_HARD_STOP_BUDGET, help="Hard stop budget for Tier 5")
+    parser.add_argument("--funding-details-only", action="store_true", help="Regenerate projects_funding_details.parquet from the existing trigger output; do not rerun trigger classification")
     parser.add_argument("--sample", type=int, default=None, help="Process only N projects (random sample; for testing)")
     args = parser.parse_args()
 
@@ -2972,6 +3633,21 @@ def main() -> None:
         return
 
     run_at = datetime.now(timezone.utc).isoformat()
+    if args.funding_details_only:
+        if args.sample is not None:
+            log.warning("--sample is ignored with --funding-details-only; sidecar validation requires the full funding-primary set")
+        if not PROJECTS_NEPA_TRIGGER_PATH.exists():
+            raise SystemExit(f"Missing trigger output: {PROJECTS_NEPA_TRIGGER_PATH}. Run trigger extraction first.")
+        trigger_stat_before = PROJECTS_NEPA_TRIGGER_PATH.stat()
+        triggers = pd.read_parquet(PROJECTS_NEPA_TRIGGER_PATH)
+        write_funding_details_sidecar(conn, triggers, run_at)
+        trigger_stat_after = PROJECTS_NEPA_TRIGGER_PATH.stat()
+        assert (
+            trigger_stat_before.st_mtime_ns == trigger_stat_after.st_mtime_ns
+            and trigger_stat_before.st_size == trigger_stat_after.st_size
+        ), "--funding-details-only must not rewrite projects_nepa_trigger.parquet"
+        return
+
     final, projects = extract_nepa_triggers(
         conn,
         use_llm=args.use_llm,
@@ -3008,9 +3684,10 @@ def main() -> None:
 
     final = final[OUTPUT_COLS]
 
-    out_path = OUTPUT_DIR / "projects_nepa_trigger.parquet"
+    out_path = PROJECTS_NEPA_TRIGGER_PATH
     final.to_parquet(out_path, index=False)
     log.info("Written: %s (%s rows)", out_path, f"{len(final):,}")
+    write_funding_details_sidecar(conn, final, run_at)
 
     batches = build_validation_batches(final, projects)
     if not batches.empty:
