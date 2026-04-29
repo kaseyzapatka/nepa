@@ -85,23 +85,31 @@ excerpts    <- read_csv(file.path(OUTPUT_DIR, "trigger_evidence_excerpts.csv"),
 ::: {.callout-note}
 ## Key Findings
 
-- **Federal funding is the most common NEPA trigger**, accounting for
-  `r comma(n_funding)` projects (`r pct(n_funding)`)—the DOE grant, loan guarantee, and
-  financial assistance portfolio is the dominant driver of decarbonization project NEPA review.
-- **Direct federal action** is the second-largest class at `r comma(n_direct)` projects
-  (`r pct(n_direct)`), primarily federal agencies building or operating infrastructure
-  directly (BPA, WAPA, Power Marketing Administrations, Corps of Engineers).
-- **Federal land** accounts for `r comma(n_land)` projects (`r pct(n_land)`)—
-  BLM and Forest Service right-of-way and special use permits for utility-scale renewables
-  on public land.
+- **Funding is the dominant NEPA trigger**, accounting for `r comma(n_funding)` projects
+  (`r pct(n_funding)`). DOE's grant and loan guarantee portfolio is the single largest
+  source of decarbonization NEPA reviews.
+- **Direct Action** is the second-largest class at `r comma(n_direct)` projects
+  (`r pct(n_direct)`), driven by federal power authorities (BPA, WAPA, Power Marketing
+  Administrations) building and operating transmission and generation infrastructure directly.
+- **Land** accounts for `r comma(n_land)` projects (`r pct(n_land)`)—BLM and Forest
+  Service right-of-way and special use permits for utility-scale renewables on public land.
+- **Review process profiles differ sharply by trigger**: Categorical Exclusions are dominated
+  by Funding (DOE's CE authority for grants); Environmental Impact Statements skew toward
+  Land and Direct Action; Environmental Assessments show the most balanced trigger mix.
+- **Trigger class predicts regulatory intensity**: Funding projects are overwhelmingly CEs;
+  Land and Permit generate proportionally more EAs and EISs—land disturbance and regulatory
+  licensing carry heavier review burdens than financial assistance.
+- **Technology patterns reflect nexus logic**: Transmission has the highest Direct Action
+  share (PMAs build federal lines); Solar and Wind split between Land (BLM right-of-way) and
+  Funding (DOE grants); CCS and Energy Storage skew toward Funding via DOE emerging
+  technology programs.
 - **The pipeline resolved `r sprintf("%.1f%%", pct_resolved)` of projects**
   (`r comma(n_resolved)` of `r comma(n_total)`). The remaining `r comma(n_unknown)` projects
-  (`r sprintf("%.1f%%", pct_unknown)`) are recorded as Unknown / Unclassified and are
-  candidates for Tier 5 (LLM) follow-up or manual review.
-- **`r comma(n_dual_nexus)` projects** have a dual nexus (both Federal Land *and* Federal
-  Permit), underscoring that the primary/secondary framework captures more nuance than a
-  single-label scheme.
-- Manual review flag rate is `r sprintf("%.1f%%", flag_rate * 100)` — within the
+  (`r sprintf("%.1f%%", pct_unknown)`) are recorded as Unknown—candidates for Tier 5 (LLM)
+  follow-up or manual review.
+- **`r comma(n_dual_nexus)` projects** carry a dual nexus (both Land *and* Permit),
+  underscoring that the primary/secondary framework captures more nuance than a single-label
+  scheme. Manual review flag rate is `r sprintf("%.1f%%", flag_rate * 100)`—within the
   `< 5%` target.
 :::
 
@@ -120,15 +128,15 @@ each project into one of seven mutually exclusive primary trigger classes using 
 ordering (highest to lowest). When evidence points to multiple classes, the higher-priority class
 wins as the primary; lower-priority matches are retained as secondary triggers.
 
-| Priority | Trigger Class | Plain-Language Name | Federal Nexus |
+| Priority | Trigger Class | Label | Federal Nexus |
 |:---:|:---|:---|:---|
-| 1 | `federal_direct_action` | **Direct Federal Action** | The federal agency *is* the proposer — building, operating, or managing the project (e.g., federal power lines, agency construction, military facilities) |
-| 2 | `federal_program` | **Federal Program** | A programmatic EIS, land-use plan, or rulemaking umbrella covers the action — the NEPA review is at the policy or program level |
-| 3 | `federal_property_transaction` | **Federal Property Transaction** | A land exchange, disposal, or conveyance of federal property is the triggering event |
-| 4 | `federal_land` | **Federal Land** | A private or state actor seeks a right-of-way, special use permit, or lease on federal land (BLM, National Forest) |
-| 5 | `federal_permit` | **Federal Permit** | A federal license or permit issued by a regulatory body (FERC license, FAA authorization, Section 404 dredge-and-fill) is the primary nexus |
-| 6 | `federal_funding` | **Federal Funding** | Federal grant, loan guarantee, or financial assistance is the trigger (DOE loan program, IRA grant, Rural Energy for America) |
-| 7 | `unknown` | **Unknown / Unclassified** | NEPA is confirmed but the trigger cannot be reliably identified from available text or metadata |
+| 1 | `federal_direct_action` | **Direct Action** | The federal agency *is* the proposer — building, operating, or managing the project (e.g., federal power lines, agency construction, military facilities) |
+| 2 | `federal_program` | **Program** | A programmatic EIS, land-use plan, or rulemaking umbrella covers the action — the NEPA review is at the policy or program level |
+| 3 | `federal_property_transaction` | **Property Transaction** | A land exchange, disposal, or conveyance of federal property is the triggering event |
+| 4 | `federal_land` | **Land** | A private or state actor seeks a right-of-way, special use permit, or lease on federal land (BLM, National Forest) |
+| 5 | `federal_permit` | **Permit** | A federal license or permit issued by a regulatory body (FERC license, FAA authorization, Section 404 dredge-and-fill) is the primary nexus |
+| 6 | `federal_funding` | **Funding** | Federal grant, loan guarantee, or financial assistance is the trigger (DOE loan program, IRA grant, Rural Energy for America) |
+| 7 | `unknown` | **Unknown** | NEPA is confirmed but the trigger cannot be reliably identified from available text or metadata |
 
 Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects have more than one trigger class detected.
 
@@ -160,15 +168,28 @@ The full output schema is documented in
 ## Evidence Sources
 
 The table below shows how many projects were classified from each evidence source and at what
-confidence level. `agency_metadata` reflects Tier 1a deterministic mappings; `purpose_and_need`
-and `description` reflect document-level text extraction (Tiers 1b–3); `doc_title` reflects
-Tier 2 document title scanning.
+confidence level. Agency Metadata reflects Tier 1a deterministic mappings; Purpose and Need
+and Project Description reflect document-level text extraction (Tiers 1b–3); Document Title
+reflects Tier 2 document title scanning.
 
 ```{r}
 #| label: tbl-source-dist
 #| tbl-cap: "Trigger classification counts by evidence source and confidence level."
 
+source_label_map <- c(
+  agency_metadata  = "Agency Metadata",
+  purpose_and_need = "Purpose and Need",
+  description      = "Project Description",
+  doc_title        = "Document Title",
+  setfit_inference = "SetFit Inference",
+  manual           = "Manual Label",
+  document_text    = "Document Text"
+)
+
 source_wide <- source_dist |>
+  mutate(nepa_trigger_evidence_source = recode(
+    nepa_trigger_evidence_source, !!!source_label_map
+  )) |>
   pivot_wider(names_from = nepa_trigger_confidence,
               values_from = n,
               values_fill = 0) |>
@@ -218,7 +239,7 @@ second, driven by federal power authorities (BPA, WAPA) building and operating t
 generation infrastructure directly. **Federal Land** is third, reflecting utility-scale renewables
 sited on BLM and National Forest lands under right-of-way or special use permits.
 
-Federal Permit, Federal Program, and Federal Property Transaction together account for fewer than
+Permit, Program, and Property Transaction together account for fewer than
 `r comma(n_permit + n_program + n_property)` projects (`r pct(n_permit + n_program + n_property)`)—
 these are real but narrow categories of federal nexus.
 
@@ -345,15 +366,15 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig5_trigger_by_technology.png"))
 @fig-choropleth shows the *dominant* trigger class in each state — the trigger type with the most
 projects in that state. The map captures broad regional patterns:
 
-- **Federal Funding** dominates most states, consistent with DOE's nationwide grant footprint.
-- **Federal Land** dominates in the intermountain West (Nevada, Utah, Wyoming, Montana,
+- **Funding** dominates most states, consistent with DOE's nationwide grant footprint.
+- **Land** dominates in the intermountain West (Nevada, Utah, Wyoming, Montana,
   Idaho)—states with high proportions of BLM land and active solar and wind development.
-- **Direct Federal Action** appears in states with significant federal power authority
+- **Direct Action** appears in states with significant federal power authority
   infrastructure (Pacific Northwest: BPA transmission; Tennessee Valley).
 
 Note that dominant trigger is determined by project count, not by area or capacity. A state
-where a single large BLM wind project is the only clean energy project will appear as Federal
-Land even if a dozen smaller DOE-funded projects are present.
+where a single large BLM wind project is the only clean energy project will appear as Land
+even if a dozen smaller DOE-funded projects are present.
 
 ```{r}
 #| label: fig-choropleth
@@ -361,6 +382,28 @@ Land even if a dozen smaller DOE-funded projects are present.
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(OUTPUT_DIR, "fig6_state_choropleth.png"))
+```
+
+## County-Level Dominant Trigger
+
+@fig-county-choropleth disaggregates the state-level map to the county level, revealing more
+fine-grained geographic patterns in trigger type. Counties are colored by the dominant trigger
+class among all decarbonization projects located in that county.
+
+- The **Funding / Land boundary** maps closely onto federal land ownership: counties spanning
+  BLM or National Forest land (interior West) show Land as dominant; counties without
+  substantial federal land show Funding.
+- **Direct Action** clusters in counties with federal power authority infrastructure—Pacific
+  Northwest corridors (BPA transmission), Tennessee Valley, and Southwest transmission hubs.
+- Many rural counties host only one or two projects and are therefore colored by a single
+  project's trigger type; interpret sparse interior counties with caution.
+
+```{r}
+#| label: fig-county-choropleth
+#| fig-cap: "Dominant NEPA trigger by county — the trigger class with the most projects in each county. Counties with no NEPATEC 2.0 decarbonization projects shown in light grey. Alaska and Hawaii repositioned for display."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig7_county_choropleth.png"))
 ```
 
 ---
@@ -374,7 +417,7 @@ pipeline is detecting.
 
 ```{r}
 #| label: tbl-excerpts
-#| tbl-cap: "Representative evidence text by trigger class. Two high-confidence examples per class; source limited to purpose_and_need, description, and doc_title."
+#| tbl-cap: "Representative evidence text by trigger class. Two high-confidence examples per class; source limited to Purpose and Need, Project Description, and Document Title."
 
 excerpts |>
   mutate(

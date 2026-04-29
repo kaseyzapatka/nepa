@@ -11,9 +11,13 @@
 #   fig5  — Trigger × energy technology, sorted by Funding share
 #   fig6  — State choropleth (dominant trigger per state)
 #   fig7  — County choropleth (dominant trigger per county)
+#   fig8  — Federal funding mechanism counts (if funding sidecar exists)
+#   fig9  — Federal funding program/source counts (if funding sidecar exists)
+#   fig10 — Federal funding amount extraction coverage (if funding sidecar exists)
 #
 # Input:
 #   phase2/data/analysis/nepa_trigger/projects_nepa_trigger.parquet
+#   phase2/data/analysis/nepa_trigger/projects_funding_details.parquet (optional sidecar)
 #   phase2/data/analysis/projects_combined.parquet
 #
 # Output (all in phase2/output/deliverable01/):
@@ -24,6 +28,10 @@
 #   fig5_trigger_by_technology.png
 #   fig6_state_choropleth.png
 #   fig7_county_choropleth.png
+#   fig8_funding_mechanism_counts.png
+#   fig9_funding_program_counts.png
+#   fig10_funding_amount_coverage.png
+#   federal_funding_detail_summary.csv
 #   trigger_evidence_excerpts.csv
 #   trigger_source_distribution.csv
 #   trigger_rule_distribution.csv
@@ -59,6 +67,8 @@ dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 TRIGGERS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "nepa_trigger",
                             "projects_nepa_trigger.parquet")
+FUNDING_DETAILS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "nepa_trigger",
+                                  "projects_funding_details.parquet")
 PROJECTS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "projects_combined.parquet")
 
 # --------------------------
@@ -80,6 +90,19 @@ process_labels <- c(
   CE  = "Categorical Exclusion",
   EA  = "Environmental Assessment",
   EIS = "Environmental Impact Statement"
+)
+
+funding_type_labels <- c(
+  grant_or_award        = "Grant/Award",
+  formula_grant         = "Formula Grant",
+  cooperative_agreement = "Cooperative Agreement",
+  loan_guarantee        = "Loan Guarantee",
+  federal_loan          = "Federal Loan",
+  revolving_loan        = "Revolving Loan",
+  cost_share            = "Cost Share",
+  financial_assistance  = "Financial Assistance",
+  generic_funding       = "Generic Funding",
+  unknown_funding       = "Unknown Funding Type"
 )
 
 # Maps first matching clean-energy NEPATEC tag → short display label
@@ -138,6 +161,7 @@ options(arrow.skip_nul = TRUE)
 
 triggers <- read_parquet(TRIGGERS_PATH)
 projects <- read_parquet(PROJECTS_PATH)
+funding_details <- NULL
 
 df_raw <- left_join(triggers, projects, by = "project_id") |>
   filter(project_energy_type == "Clean")
@@ -177,6 +201,22 @@ df <- df |>
 cat(sprintf("Loaded %d decarbonization projects\n", nrow(df)))
 cat("Primary trigger distribution:\n")
 print(table(df$trigger_label, useNA = "ifany"))
+
+if (file.exists(FUNDING_DETAILS_PATH)) {
+  funding_details <- read_parquet(FUNDING_DETAILS_PATH) |>
+    semi_join(df |> filter(nepa_trigger_primary == "federal_funding") |> select(project_id),
+              by = "project_id") |>
+    mutate(
+      funding_type_label = recode(federal_funding_type_primary,
+                                  !!!funding_type_labels,
+                                  .default = federal_funding_type_primary)
+    )
+
+  cat(sprintf("Loaded funding details sidecar (%d funding-primary projects)\n",
+              nrow(funding_details)))
+} else {
+  cat("Funding details sidecar not found; skipping funding detail figures.\n")
+}
 
 # --------------------------
 # FIGURE 1 — Primary trigger counts (horizontal bar)
@@ -407,6 +447,154 @@ ggsave(file.path(OUTPUT_DIR, "fig5_trigger_by_technology.png"),
 cat("Saved fig5_trigger_by_technology.png\n")
 
 # --------------------------
+# FUNDING DETAIL FIGURES — Mechanisms, programs, and amount coverage
+# --------------------------
+
+if (!is.null(funding_details) && nrow(funding_details) > 0) {
+  funding_n <- nrow(funding_details)
+
+  fig8_data <- funding_details |>
+    count(funding_type_label, sort = TRUE) |>
+    mutate(
+      pct = n / funding_n,
+      funding_type_label = fct_reorder(funding_type_label, n)
+    )
+
+  fig8 <- ggplot(fig8_data,
+                 aes(x = n, y = funding_type_label)) +
+    geom_col(fill = catf_teal, show.legend = FALSE) +
+    geom_text(aes(label = sprintf("%s (%s)", comma(n), percent(pct, accuracy = 1))),
+              hjust = -0.08, size = 3.3, color = "gray20") +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
+    labs(
+      title    = "Federal Funding Mechanism Details",
+      subtitle = sprintf("Funding-primary decarbonization projects (n = %s)", comma(funding_n)),
+      x = "Number of Projects", y = NULL
+    ) +
+    theme_catf(base_size = 13)
+
+  ggsave(file.path(OUTPUT_DIR, "fig8_funding_mechanism_counts.png"),
+         fig8, width = 10, height = 5.8, dpi = 150)
+  cat("Saved fig8_funding_mechanism_counts.png\n")
+
+  funding_program_long <- funding_details |>
+    select(project_id, federal_funding_program_multi) |>
+    unnest_longer(federal_funding_program_multi,
+                  values_to = "funding_program",
+                  keep_empty = FALSE) |>
+    filter(!is.na(funding_program), nchar(funding_program) > 0)
+
+  if (nrow(funding_program_long) > 0) {
+    fig9_data <- funding_program_long |>
+      distinct(project_id, funding_program) |>
+      count(funding_program, sort = TRUE) |>
+      mutate(
+        pct = n / funding_n,
+        funding_program = fct_reorder(funding_program, n)
+      )
+
+    fig9 <- ggplot(fig9_data,
+                   aes(x = n, y = funding_program)) +
+      geom_col(fill = catf_dark_blue, show.legend = FALSE) +
+      geom_text(aes(label = sprintf("%s (%s)", comma(n), percent(pct, accuracy = 1))),
+                hjust = -0.08, size = 3.3, color = "gray20") +
+      scale_x_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
+      labs(
+        title    = "Federal Funding Program and Source Labels",
+        subtitle = "Program labels are multi-label; percentages use funding-primary projects as denominator",
+        x = "Number of Projects", y = NULL
+      ) +
+      theme_catf(base_size = 13)
+
+    ggsave(file.path(OUTPUT_DIR, "fig9_funding_program_counts.png"),
+           fig9, width = 10, height = 5.2, dpi = 150)
+    cat("Saved fig9_funding_program_counts.png\n")
+  } else {
+    cat("No funding program labels found; skipped fig9_funding_program_counts.png\n")
+  }
+
+  fig10_data <- tibble::tibble(
+    metric = c("Federal Amount", "Total Project Cost", "Recipient Cost Share", "Funding Share"),
+    n = c(
+      sum(!is.na(funding_details$federal_funding_amount_usd)),
+      sum(!is.na(funding_details$federal_funding_total_project_cost_usd)),
+      sum(!is.na(funding_details$federal_funding_recipient_cost_share_usd)),
+      sum(!is.na(funding_details$federal_funding_share_pct))
+    )
+  ) |>
+    mutate(
+      pct = n / funding_n,
+      metric = factor(metric, levels = metric)
+    )
+
+  fig10 <- ggplot(fig10_data, aes(x = metric, y = pct, fill = metric)) +
+    geom_col(show.legend = FALSE, width = 0.65) +
+    geom_text(aes(label = sprintf("%s\n%s", comma(n), percent(pct, accuracy = 1))),
+              vjust = -0.25, size = 3.4, color = "gray20") +
+    scale_y_continuous(labels = percent_format(accuracy = 1),
+                       expand = expansion(mult = c(0, 0.16))) +
+    scale_fill_catf(drop = FALSE) +
+    labs(
+      title    = "Federal Funding Amount Extraction Coverage",
+      subtitle = "Evidence-backed fields only; missing values mean no reliable amount was extracted",
+      x = NULL, y = "Share of Funding-Primary Projects"
+    ) +
+    theme_catf(base_size = 13) +
+    theme(axis.text.x = element_text(lineheight = 0.9))
+
+  ggsave(file.path(OUTPUT_DIR, "fig10_funding_amount_coverage.png"),
+         fig10, width = 9, height = 5.5, dpi = 150)
+  cat("Saved fig10_funding_amount_coverage.png\n")
+
+  mechanism_summary <- fig8_data |>
+    transmute(section = "mechanism",
+              item = as.character(funding_type_label),
+              n = n,
+              pct = pct,
+              value = NA_real_)
+
+  program_summary <- if (nrow(funding_program_long) > 0) {
+    funding_program_long |>
+      distinct(project_id, funding_program) |>
+      count(funding_program, sort = TRUE) |>
+      transmute(section = "program",
+                item = funding_program,
+                n = n,
+                pct = n / funding_n,
+                value = NA_real_)
+  } else {
+    tibble::tibble(section = character(), item = character(), n = integer(),
+                   pct = numeric(), value = numeric())
+  }
+
+  amount_summary <- bind_rows(
+    fig10_data |>
+      transmute(section = "amount_coverage",
+                item = as.character(metric),
+                n = n,
+                pct = pct,
+                value = NA_real_),
+    tibble::tibble(
+      section = "amount_distribution",
+      item = c("Median Federal Amount", "Mean Federal Amount"),
+      n = sum(!is.na(funding_details$federal_funding_amount_usd)),
+      pct = mean(!is.na(funding_details$federal_funding_amount_usd)),
+      value = c(
+        median(funding_details$federal_funding_amount_usd, na.rm = TRUE),
+        mean(funding_details$federal_funding_amount_usd, na.rm = TRUE)
+      )
+    )
+  )
+
+  funding_summary <- bind_rows(mechanism_summary, program_summary, amount_summary)
+  write.csv(funding_summary,
+            file.path(OUTPUT_DIR, "federal_funding_detail_summary.csv"),
+            row.names = FALSE)
+  cat(sprintf("Saved federal_funding_detail_summary.csv (%d rows)\n",
+              nrow(funding_summary)))
+}
+
+# --------------------------
 # FIGURE 6 — State choropleth (dominant trigger per state)
 # --------------------------
 
@@ -418,29 +606,33 @@ state_dominant <- df |>
   ungroup() |>
   rename(dominant_trigger = trigger_label)
 
-states_sf <- states(cb = TRUE, resolution = "20m", year = 2020,
-                    progress_bar = FALSE) |>
-  filter(!STUSPS %in% c("PR", "VI", "GU", "MP", "AS")) |>
-  shift_geometry() |>
-  left_join(state_dominant, by = c("STUSPS" = "state"))
+tryCatch({
+  states_sf <- states(cb = TRUE, resolution = "20m", year = 2020,
+                      progress_bar = FALSE) |>
+    filter(!STUSPS %in% c("PR", "VI", "GU", "MP", "AS")) |>
+    shift_geometry() |>
+    left_join(state_dominant, by = c("STUSPS" = "state"))
 
-fig6 <- ggplot(states_sf) +
-  geom_sf(aes(fill = dominant_trigger), color = "white", linewidth = 0.3) +
-  scale_fill_catf(name = "Dominant\nTrigger", na.value = "grey85", drop = FALSE) +
-  labs(
-    title    = "Dominant NEPA Trigger Type by State",
-    subtitle = "Most common primary trigger among decarbonization projects in each state"
-  ) +
-  theme_void(base_size = 12) +
-  theme(
-    plot.title      = element_text(face = "bold", color = catf_navy,      size = 14),
-    plot.subtitle   = element_text(color = catf_dark_blue, size = 10),
-    legend.position = "right"
-  )
+  fig6 <- ggplot(states_sf) +
+    geom_sf(aes(fill = dominant_trigger), color = "white", linewidth = 0.3) +
+    scale_fill_catf(name = "Dominant\nTrigger", na.value = "grey85", drop = FALSE) +
+    labs(
+      title    = "Dominant NEPA Trigger Type by State",
+      subtitle = "Most common primary trigger among decarbonization projects in each state"
+    ) +
+    theme_void(base_size = 12) +
+    theme(
+      plot.title      = element_text(face = "bold", color = catf_navy,      size = 14),
+      plot.subtitle   = element_text(color = catf_dark_blue, size = 10),
+      legend.position = "right"
+    )
 
-ggsave(file.path(OUTPUT_DIR, "fig6_state_choropleth.png"),
-       fig6, width = 11, height = 6, dpi = 150)
-cat("Saved fig6_state_choropleth.png\n")
+  ggsave(file.path(OUTPUT_DIR, "fig6_state_choropleth.png"),
+         fig6, width = 11, height = 6, dpi = 150)
+  cat("Saved fig6_state_choropleth.png\n")
+}, error = function(e) {
+  cat(sprintf("Skipped fig6_state_choropleth.png: %s\n", conditionMessage(e)))
+})
 
 # --------------------------
 # FIGURE 7 — County choropleth (dominant trigger per county)
@@ -458,30 +650,34 @@ county_dominant <- df |>
   ungroup() |>
   rename(dominant_trigger = trigger_label)
 
-counties_sf <- counties(cb = TRUE, resolution = "20m", year = 2020,
-                        progress_bar = FALSE) |>
-  filter(!STUSPS %in% c("PR", "VI", "GU", "MP", "AS")) |>
-  shift_geometry() |>
-  mutate(county_lower = str_to_lower(NAME)) |>
-  left_join(county_dominant, by = c("STUSPS" = "state", "county_lower"))
+tryCatch({
+  counties_sf <- counties(cb = TRUE, resolution = "20m", year = 2020,
+                          progress_bar = FALSE) |>
+    filter(!STUSPS %in% c("PR", "VI", "GU", "MP", "AS")) |>
+    shift_geometry() |>
+    mutate(county_lower = str_to_lower(NAME)) |>
+    left_join(county_dominant, by = c("STUSPS" = "state", "county_lower"))
 
-fig7 <- ggplot(counties_sf) +
-  geom_sf(aes(fill = dominant_trigger), color = "white", linewidth = 0.05) +
-  scale_fill_catf(name = "Dominant\nTrigger", na.value = "grey90", drop = FALSE) +
-  labs(
-    title    = "Dominant NEPA Trigger Type by County",
-    subtitle = "Most common primary trigger among decarbonization projects in each county"
-  ) +
-  theme_void(base_size = 12) +
-  theme(
-    plot.title      = element_text(face = "bold", color = catf_navy,      size = 14),
-    plot.subtitle   = element_text(color = catf_dark_blue, size = 10),
-    legend.position = "right"
-  )
+  fig7 <- ggplot(counties_sf) +
+    geom_sf(aes(fill = dominant_trigger), color = "white", linewidth = 0.05) +
+    scale_fill_catf(name = "Dominant\nTrigger", na.value = "grey90", drop = FALSE) +
+    labs(
+      title    = "Dominant NEPA Trigger Type by County",
+      subtitle = "Most common primary trigger among decarbonization projects in each county"
+    ) +
+    theme_void(base_size = 12) +
+    theme(
+      plot.title      = element_text(face = "bold", color = catf_navy,      size = 14),
+      plot.subtitle   = element_text(color = catf_dark_blue, size = 10),
+      legend.position = "right"
+    )
 
-ggsave(file.path(OUTPUT_DIR, "fig7_county_choropleth.png"),
-       fig7, width = 11, height = 6, dpi = 150)
-cat("Saved fig7_county_choropleth.png\n")
+  ggsave(file.path(OUTPUT_DIR, "fig7_county_choropleth.png"),
+         fig7, width = 11, height = 6, dpi = 150)
+  cat("Saved fig7_county_choropleth.png\n")
+}, error = function(e) {
+  cat(sprintf("Skipped fig7_county_choropleth.png: %s\n", conditionMessage(e)))
+})
 
 # --------------------------
 # TABLE — Representative evidence text excerpts
