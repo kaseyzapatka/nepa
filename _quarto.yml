@@ -34,7 +34,7 @@ website:
             href: phase2/reports/index.html
           - text: "---"
           - text: "Deliverable 1"
-            href: "#"
+            href: phase2/reports/deliverable01.html
       - text: "Presentations"
         href: presentations/presentation1.qmd
 
