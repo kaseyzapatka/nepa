@@ -632,7 +632,7 @@ if (funding_ready && nrow(funding_program_long) > 0) {
         "EECG = Energy Efficiency & Conservation Block Grant\n",
         "SEP = American Recovery and Reinvestment Act\n",
         "Title XVII = Energy Policy Act of 2005 §XVII (DOE loan guarantee authority)\n",
-        "WAP = Western Area Power Administration\n",
+        "WAP = Weatherization Assistance Program\n",
         "BIL = Bipartisan Infrastructure Law\n",
         "IRA = Inflation Reduction Act\n"
       )
