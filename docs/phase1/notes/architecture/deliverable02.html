@@ -4513,7 +4513,7 @@ vertical-align: -.125em;
   </li>  
         <li><hr class="dropdown-divider"></li>
         <li>
-    <a class="dropdown-item" href="../../../#" rel target>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable01.html" rel target>
  <span class="dropdown-text">Deliverable 1</span></a>
   </li>  
     </ul>
@@ -5017,7 +5017,10 @@ position: relative;
 .navbar .dropdown-submenu > .dropdown-menu {
 left: 100%;
 margin-top: -0.125rem;
+min-width: 14rem;
+position: absolute;
 top: 0;
+z-index: 1001;
 }
 .navbar .dropdown-submenu:hover > .dropdown-menu,
 .navbar .dropdown-submenu:focus-within > .dropdown-menu {
@@ -5089,8 +5092,24 @@ transform: none;
 
     deliverableItem.classList.add("dropdown-toggle");
     deliverableItem.setAttribute("aria-expanded", "false");
-    deliverableItem.setAttribute("role", "button");
+    deliverableItem.removeAttribute("data-bs-toggle");
+    deliverableItem.setAttribute("role", "menuitem");
+
+    deliverableParent.addEventListener("mouseenter", function () {
+      submenu.classList.add("show");
+      deliverableItem.setAttribute("aria-expanded", "true");
+    });
+
+    deliverableParent.addEventListener("mouseleave", function () {
+      submenu.classList.remove("show");
+      deliverableItem.setAttribute("aria-expanded", "false");
+    });
+
     deliverableItem.addEventListener("click", function (event) {
+      if (window.matchMedia("(min-width: 992px)").matches) {
+        return;
+      }
+
       event.preventDefault();
       submenu.classList.toggle("show");
       deliverableItem.setAttribute(
