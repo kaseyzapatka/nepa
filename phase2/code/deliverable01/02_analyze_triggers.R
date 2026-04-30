@@ -11,9 +11,10 @@
 #   fig5  — Trigger × energy technology, sorted by Funding share
 #   fig6  — State choropleth (dominant trigger per state)
 #   fig7  — County choropleth (dominant trigger per county)
-#   fig8  — Federal funding mechanism counts (if funding sidecar exists)
-#   fig9  — Federal funding program/source counts (if funding sidecar exists)
-#   fig10 — Federal funding amount extraction coverage (if funding sidecar exists)
+#   fig8  — Federal funding mechanism counts (requires funding sidecar)
+#   fig9  — Federal funding program/source counts (requires funding sidecar)
+#   fig10 — Federal funding amount extraction coverage (requires funding sidecar)
+#   fig11 — Federal funding amounts by mechanism (median + IQR; requires funding sidecar)
 #
 # Input:
 #   phase2/data/analysis/nepa_trigger/projects_nepa_trigger.parquet
@@ -92,6 +93,18 @@ trigger_labels <- c(
   federal_program              = "Program",
   federal_property_transaction = "Property Transaction",
   unknown                      = "Unknown"
+)
+
+# Named color vector for trigger labels — defined once, used in all trigger fill scales.
+# Unknown uses neutral grey (matching map NA fill); light_blue moved from Unknown → Permit.
+trigger_colors <- c(
+  "Funding"              = "#0047BB",  # catf_dark_blue
+  "Direct Action"        = "#00AE8D",  # catf_teal
+  "Land"                 = "#C22A90",  # catf_magenta
+  "Permit"               = "#8AB7E9",  # catf_light_blue
+  "Program"              = "#00B5E2",  # catf_blue
+  "Property Transaction" = "#75246C",  # catf_purple
+  "Unknown"              = "grey70"    # neutral grey — matches map NA aesthetic
 )
 
 process_labels <- c(
@@ -238,7 +251,7 @@ fig1 <- ggplot(fig1_data, aes(x = n, y = trigger_label, fill = trigger_label)) +
   geom_col(show.legend = TRUE) +
   geom_text(aes(label = comma(n)), hjust = -0.15, size = 3.5, color = "gray20") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.18)), labels = comma) +
-  scale_fill_catf(name = NULL, drop = FALSE) +
+  scale_fill_manual(values = trigger_colors, name = NULL, drop = FALSE) +
   labs(
     title    = "NEPA Trigger Type: Project Counts",
     subtitle = "Decarbonization projects by primary trigger classification",
@@ -281,7 +294,7 @@ fig2 <- ggplot(fig2_data,
     EA  = "Environmental\nAssessment",
     EIS = "Environmental\nImpact Statement"
   )) +
-  scale_fill_catf(name = NULL, drop = FALSE) +
+  scale_fill_manual(values = trigger_colors, name = NULL, drop = FALSE) +
   labs(
     title    = "NEPA Trigger Type by Review Process",
     subtitle = sprintf("Decarbonization projects only (n = %s)", comma(nrow(df))),
@@ -434,13 +447,12 @@ fig5 <- ggplot(fig5_data,
                aes(x = pct, y = project_technology, fill = trigger_label)) +
   geom_col(position = position_fill(), width = 0.7) +
   geom_text(
-    data    = filter(fig5_data, pct > 0.07),
-    aes(label = percent(pct, accuracy = 1)),
+    aes(label = if_else(pct > 0.10, percent(pct, accuracy = 1), "")),
     position = position_fill(vjust = 0.5),
     color = "white", size = 3, fontface = "bold"
   ) +
   scale_x_continuous(labels = percent_format(accuracy = 1)) +
-  scale_fill_catf(name = NULL, drop = FALSE) +
+  scale_fill_manual(values = trigger_colors, name = NULL, drop = FALSE) +
   labs(
     title    = "Primary NEPA Trigger by Energy Technology",
     subtitle = sprintf("Technologies with >= %d projects; sorted by Funding share", tech_min_n),
@@ -453,159 +465,6 @@ fig5 <- ggplot(fig5_data,
 ggsave(file.path(OUTPUT_DIR, "fig5_trigger_by_technology.png"),
        fig5, width = 11, height = 6.5, dpi = 150)
 cat("Saved fig5_trigger_by_technology.png\n")
-
-# --------------------------
-# FUNDING DETAIL FIGURES — Mechanisms, programs, and amount coverage
-# --------------------------
-
-if (!is.null(funding_details) && nrow(funding_details) > 0) {
-  funding_n <- nrow(funding_details)
-
-  fig8_data <- funding_details |>
-    count(funding_type_label, sort = TRUE) |>
-    mutate(
-      pct = n / funding_n,
-      funding_type_label = fct_reorder(funding_type_label, n)
-    )
-
-  fig8 <- ggplot(fig8_data,
-                 aes(x = n, y = funding_type_label)) +
-    geom_col(fill = catf_teal, show.legend = FALSE) +
-    geom_text(aes(label = sprintf("%s (%s)", comma(n), percent(pct, accuracy = 1))),
-              hjust = -0.08, size = 3.3, color = "gray20") +
-    scale_x_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
-    labs(
-      title    = "Federal Funding Mechanism Details",
-      subtitle = sprintf("Funding-primary decarbonization projects (n = %s)", comma(funding_n)),
-      x = "Number of Projects", y = NULL
-    ) +
-    theme_catf(base_size = 13)
-
-  ggsave(file.path(OUTPUT_DIR, "fig8_funding_mechanism_counts.png"),
-         fig8, width = 10, height = 5.8, dpi = 150)
-  cat("Saved fig8_funding_mechanism_counts.png\n")
-
-  funding_program_long <- funding_details |>
-    select(project_id, federal_funding_program_multi) |>
-    unnest_longer(federal_funding_program_multi,
-                  values_to = "funding_program",
-                  keep_empty = FALSE) |>
-    filter(!is.na(funding_program), nchar(funding_program) > 0)
-
-  if (nrow(funding_program_long) > 0) {
-    fig9_data <- funding_program_long |>
-      distinct(project_id, funding_program) |>
-      count(funding_program, sort = TRUE) |>
-      mutate(
-        pct = n / funding_n,
-        funding_program = fct_reorder(funding_program, n)
-      )
-
-    fig9 <- ggplot(fig9_data,
-                   aes(x = n, y = funding_program)) +
-      geom_col(fill = catf_dark_blue, show.legend = FALSE) +
-      geom_text(aes(label = sprintf("%s (%s)", comma(n), percent(pct, accuracy = 1))),
-                hjust = -0.08, size = 3.3, color = "gray20") +
-      scale_x_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
-      labs(
-        title    = "Federal Funding Program and Source Labels",
-        subtitle = "Program labels are multi-label; percentages use funding-primary projects as denominator",
-        x = "Number of Projects", y = NULL
-      ) +
-      theme_catf(base_size = 13)
-
-    ggsave(file.path(OUTPUT_DIR, "fig9_funding_program_counts.png"),
-           fig9, width = 10, height = 5.2, dpi = 150)
-    cat("Saved fig9_funding_program_counts.png\n")
-  } else {
-    cat("No funding program labels found; skipped fig9_funding_program_counts.png\n")
-  }
-
-  fig10_data <- tibble::tibble(
-    metric = c("Federal Amount", "Total Project Cost", "Recipient Cost Share", "Funding Share"),
-    n = c(
-      sum(!is.na(funding_details$federal_funding_amount_usd)),
-      sum(!is.na(funding_details$federal_funding_total_project_cost_usd)),
-      sum(!is.na(funding_details$federal_funding_recipient_cost_share_usd)),
-      sum(!is.na(funding_details$federal_funding_share_pct))
-    )
-  ) |>
-    mutate(
-      pct = n / funding_n,
-      metric = factor(metric, levels = metric)
-    )
-
-  fig10 <- ggplot(fig10_data, aes(x = metric, y = pct, fill = metric)) +
-    geom_col(show.legend = FALSE, width = 0.65) +
-    geom_text(aes(label = sprintf("%s\n%s", comma(n), percent(pct, accuracy = 1))),
-              vjust = -0.25, size = 3.4, color = "gray20") +
-    scale_y_continuous(labels = percent_format(accuracy = 1),
-                       expand = expansion(mult = c(0, 0.16))) +
-    scale_fill_catf(drop = FALSE) +
-    labs(
-      title    = "Federal Funding Amount Extraction Coverage",
-      subtitle = "Evidence-backed fields only; missing values mean no reliable amount was extracted",
-      x = NULL, y = "Share of Funding-Primary Projects"
-    ) +
-    theme_catf(base_size = 13) +
-    theme(axis.text.x = element_text(lineheight = 0.9))
-
-  ggsave(file.path(OUTPUT_DIR, "fig10_funding_amount_coverage.png"),
-         fig10, width = 9, height = 5.5, dpi = 150)
-  cat("Saved fig10_funding_amount_coverage.png\n")
-
-  mechanism_summary <- fig8_data |>
-    transmute(section = "mechanism",
-              item = as.character(funding_type_label),
-              n = n,
-              pct = pct,
-              value = NA_real_)
-
-  program_summary <- if (nrow(funding_program_long) > 0) {
-    funding_program_long |>
-      distinct(project_id, funding_program) |>
-      count(funding_program, sort = TRUE) |>
-      transmute(section = "program",
-                item = funding_program,
-                n = n,
-                pct = n / funding_n,
-                value = NA_real_)
-  } else {
-    tibble::tibble(section = character(), item = character(), n = integer(),
-                   pct = numeric(), value = numeric())
-  }
-
-  amount_summary <- bind_rows(
-    fig10_data |>
-      transmute(section = "amount_coverage",
-                item = as.character(metric),
-                n = n,
-                pct = pct,
-                value = NA_real_),
-    tibble::tibble(
-      section = "amount_distribution",
-      item = c("Median Federal Amount", "Mean Federal Amount"),
-      n = sum(!is.na(funding_details$federal_funding_amount_usd)),
-      pct = mean(!is.na(funding_details$federal_funding_amount_usd)),
-      value = c(
-        median(funding_details$federal_funding_amount_usd, na.rm = TRUE),
-        mean(funding_details$federal_funding_amount_usd, na.rm = TRUE)
-      )
-    )
-  )
-
-  funding_summary <- bind_rows(mechanism_summary, program_summary, amount_summary)
-  write.csv(funding_summary,
-            file.path(OUTPUT_DIR, "federal_funding_detail_summary.csv"),
-            row.names = FALSE)
-  cat(sprintf("Saved federal_funding_detail_summary.csv (%d rows)\n",
-              nrow(funding_summary)))
-}
-
-
-fig8
-fig9
-fig10
 
 # --------------------------
 # FIGURE 6 — State choropleth (dominant trigger per state)
@@ -691,6 +550,257 @@ tryCatch({
 }, error = function(e) {
   cat(sprintf("Skipped fig7_county_choropleth.png: %s\n", conditionMessage(e)))
 })
+
+# ---------------------------------------------------------------------------
+# FUNDING DETAIL FIGURES — fig8, fig9, fig10, fig11
+# Each block is independent; all are skipped (with a message) if the
+# projects_funding_details.parquet sidecar does not exist.
+# ---------------------------------------------------------------------------
+
+funding_ready <- !is.null(funding_details) && nrow(funding_details) > 0
+
+# Shared preamble (computed once if sidecar is present)
+if (funding_ready) {
+  funding_n <- nrow(funding_details)
+
+  funding_program_long <- funding_details |>
+    select(project_id, federal_funding_program_multi) |>
+    unnest_longer(federal_funding_program_multi,
+                  values_to = "funding_program",
+                  keep_empty = FALSE) |>
+    filter(!is.na(funding_program), nchar(funding_program) > 0)
+}
+
+# --------------------------
+# FIGURE 8 — Funding mechanism type counts
+# --------------------------
+
+if (funding_ready) {
+  fig8_data <- funding_details |>
+    count(funding_type_label, sort = TRUE) |>
+    mutate(
+      pct = n / funding_n,
+      funding_type_label = fct_reorder(funding_type_label, n)
+    )
+
+  fig8 <- ggplot(fig8_data, aes(x = n, y = funding_type_label)) +
+    geom_col(fill = catf_teal, show.legend = FALSE) +
+    geom_text(aes(label = sprintf("%s (%s)", comma(n), percent(pct, accuracy = 1))),
+              hjust = -0.08, size = 3.3, color = "gray20") +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
+    labs(
+      title    = "Federal Funding Mechanism Details",
+      subtitle = sprintf("Funding-primary decarbonization projects (n = %s)", comma(funding_n)),
+      x = "Number of Projects", y = NULL
+    ) +
+    theme_catf(base_size = 13)
+
+  ggsave(file.path(OUTPUT_DIR, "fig8_funding_mechanism_counts.png"),
+         fig8, width = 10, height = 5.8, dpi = 150)
+  cat("Saved fig8_funding_mechanism_counts.png\n")
+} else {
+  cat("Funding sidecar absent; skipped fig8_funding_mechanism_counts.png\n")
+}
+
+# --------------------------
+# FIGURE 9 — Funding program/source label counts
+# --------------------------
+
+if (funding_ready && nrow(funding_program_long) > 0) {
+  fig9_data <- funding_program_long |>
+    distinct(project_id, funding_program) |>
+    count(funding_program, sort = TRUE) |>
+    mutate(
+      pct = n / funding_n,
+      funding_program = fct_reorder(funding_program, n)
+    )
+
+  fig9 <- ggplot(fig9_data, aes(x = n, y = funding_program)) +
+    geom_col(fill = catf_dark_blue, show.legend = FALSE) +
+    geom_text(aes(label = sprintf("%s (%s)", comma(n), percent(pct, accuracy = 1))),
+              hjust = -0.08, size = 3.3, color = "gray20") +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
+    scale_y_discrete(labels = function(x) str_wrap(x, width = 38)) +
+    labs(
+      title    = "Federal Funding Program and Source Labels",
+      subtitle = "Multi-label — a project may appear under multiple programs; % denominated by all funding-primary projects",
+      x = "Number of Projects", y = NULL,
+      caption  = paste0(
+        "Acronyms:\n", 
+        "FOA = Funding Opportunity Announcement (DOE competitive grant vehicle)\n",
+        "ARRA = American Recovery and Reinvestment Act\n",
+        "EECG = Energy Efficiency & Conservation Block Grant\n",
+        "SEP = American Recovery and Reinvestment Act\n",
+        "Title XVII = Energy Policy Act of 2005 §XVII (DOE loan guarantee authority)\n",
+        "WAP = Western Area Power Administration\n",
+        "BIL = Bipartisan Infrastructure Law\n",
+        "IRA = Inflation Reduction Act\n"
+      )
+    ) +
+    theme_catf(base_size = 13) +
+    theme(
+      plot.caption  = element_text(size = rel(0.75), hjust = 0, color = "gray40",
+                                   margin = margin(t = 8)),
+      axis.text.y   = element_text(lineheight = 0.85)
+    )
+
+  ggsave(file.path(OUTPUT_DIR, "fig9_funding_program_counts.png"),
+         fig9, width = 10, height = 6.5, dpi = 150)
+  cat("Saved fig9_funding_program_counts.png\n")
+} else if (funding_ready) {
+  cat("No funding program labels found; skipped fig9_funding_program_counts.png\n")
+} else {
+  cat("Funding sidecar absent; skipped fig9_funding_program_counts.png\n")
+}
+
+# --------------------------
+# FIGURE 10 — Funding amount extraction coverage
+# --------------------------
+
+if (funding_ready) {
+  fig10_data <- tibble::tibble(
+    metric = c("Federal Amount", "Total Project Cost", "Recipient Cost Share", "Funding Share"),
+    n = c(
+      sum(!is.na(funding_details$federal_funding_amount_usd)),
+      sum(!is.na(funding_details$federal_funding_total_project_cost_usd)),
+      sum(!is.na(funding_details$federal_funding_recipient_cost_share_usd)),
+      sum(!is.na(funding_details$federal_funding_share_pct))
+    )
+  ) |>
+    mutate(pct = n / funding_n, metric = factor(metric, levels = metric))
+
+  fig10 <- ggplot(fig10_data, aes(x = metric, y = pct, fill = metric)) +
+    geom_col(show.legend = FALSE, width = 0.65) +
+    geom_text(aes(label = sprintf("%s\n%s", comma(n), percent(pct, accuracy = 1))),
+              vjust = -0.25, size = 3.4, color = "gray20") +
+    scale_y_continuous(labels = percent_format(accuracy = 1),
+                       expand = expansion(mult = c(0, 0.16))) +
+    scale_fill_catf(drop = FALSE) +
+    labs(
+      title    = "Federal Funding Amount Extraction Coverage",
+      subtitle = "Evidence-backed fields only; missing = no reliable dollar amount was extracted",
+      x = NULL, y = "Share of Funding-Primary Projects"
+    ) +
+    theme_catf(base_size = 13) +
+    theme(axis.text.x = element_text(lineheight = 0.9))
+
+  ggsave(file.path(OUTPUT_DIR, "fig10_funding_amount_coverage.png"),
+         fig10, width = 9, height = 5.5, dpi = 150)
+  cat("Saved fig10_funding_amount_coverage.png\n")
+} else {
+  cat("Funding sidecar absent; skipped fig10_funding_amount_coverage.png\n")
+}
+
+# --------------------------
+# FIGURE 11 — Federal funding amounts by mechanism (median + IQR)
+# --------------------------
+
+if (funding_ready) {
+  n_with_amount <- sum(!is.na(funding_details$federal_funding_amount_usd))
+  TOPCAP_USD    <- 1e9   # display cap; stats computed on full data
+
+  # Raw rows for box plots — exclude NA amounts; include ALL mechanism types
+  # (no minimum-n filter so every mechanism with at least one amount is shown)
+  fig11_raw <- funding_details |>
+    filter(!is.na(federal_funding_amount_usd)) |>
+    mutate(funding_type_label = fct_reorder(
+      funding_type_label, federal_funding_amount_usd, .fun = median, .na_rm = TRUE
+    ))
+
+  # Count values above the display cap for the caption
+  n_above_cap <- sum(fig11_raw$federal_funding_amount_usd > TOPCAP_USD, na.rm = TRUE)
+
+  if (nrow(fig11_raw) > 0) {
+    fig11 <- ggplot(fig11_raw,
+                    aes(x = federal_funding_amount_usd, y = funding_type_label)) +
+      geom_boxplot(
+        fill         = catf_teal,
+        color        = catf_navy,
+        alpha        = 0.75,
+        outlier.size  = 0.7,
+        outlier.alpha = 0.25,
+        outlier.color = catf_dark_blue
+      ) +
+      scale_x_continuous(
+        labels = label_dollar(scale_cut = cut_short_scale()),
+        expand = expansion(mult = c(0, 0.05))
+      ) +
+      coord_cartesian(xlim = c(0, TOPCAP_USD)) +   # clip display; stats on full data
+      labs(
+        title    = "Distribution of Federal Funding Amounts by Mechanism Type",
+        subtitle = "Box = Q1–Q3, center = median, whiskers = 1.5×IQR, dots = outliers; display capped at $1B",
+        x = "Federal Funding Amount (USD)", y = NULL,
+        caption  = sprintf(
+          paste0(
+            "Dollar amounts extracted for %s of %s funding-primary projects (%s%%).\n",
+            "Most documents do not include an explicit award figure in extractable text.\n",
+            "%s award(s) above $1B not shown; all values used when computing statistics."
+          ),
+          comma(n_with_amount), comma(funding_n),
+          round(100 * n_with_amount / funding_n, 1),
+          comma(n_above_cap)
+        )
+      ) +
+      theme_catf(base_size = 13) +
+      theme(plot.caption = element_text(size = rel(0.78), hjust = 0, color = "gray40",
+                                        margin = margin(t = 6)))
+
+    ggsave(file.path(OUTPUT_DIR, "fig11_funding_amount_distribution.png"),
+           fig11, width = 10, height = 5.8, dpi = 150)
+    cat("Saved fig11_funding_amount_distribution.png\n")
+  } else {
+    cat("Fewer than 5 projects with positive amounts per mechanism; skipped fig11.\n")
+  }
+} else {
+  cat("Funding sidecar absent; skipped fig11_funding_amount_distribution.png\n")
+}
+
+# --------------------------
+# FUNDING DETAIL SUMMARY CSV
+# --------------------------
+
+if (funding_ready) {
+  mechanism_summary <- if (exists("fig8_data")) {
+    fig8_data |>
+      transmute(section = "mechanism", item = as.character(funding_type_label),
+                n = n, pct = pct, value = NA_real_)
+  } else tibble::tibble(section=character(), item=character(), n=integer(),
+                        pct=numeric(), value=numeric())
+
+  program_summary <- if (nrow(funding_program_long) > 0) {
+    funding_program_long |>
+      distinct(project_id, funding_program) |>
+      count(funding_program, sort = TRUE) |>
+      transmute(section = "program", item = funding_program,
+                n = n, pct = n / funding_n, value = NA_real_)
+  } else tibble::tibble(section=character(), item=character(), n=integer(),
+                        pct=numeric(), value=numeric())
+
+  amount_summary <- bind_rows(
+    if (exists("fig10_data")) {
+      fig10_data |>
+        transmute(section = "amount_coverage", item = as.character(metric),
+                  n = n, pct = pct, value = NA_real_)
+    } else tibble::tibble(section=character(), item=character(), n=integer(),
+                          pct=numeric(), value=numeric()),
+    tibble::tibble(
+      section = "amount_distribution",
+      item    = c("Median Federal Amount", "Mean Federal Amount"),
+      n       = sum(!is.na(funding_details$federal_funding_amount_usd)),
+      pct     = mean(!is.na(funding_details$federal_funding_amount_usd)),
+      value   = c(
+        median(funding_details$federal_funding_amount_usd, na.rm = TRUE),
+        mean(funding_details$federal_funding_amount_usd,   na.rm = TRUE)
+      )
+    )
+  )
+
+  funding_summary <- bind_rows(mechanism_summary, program_summary, amount_summary)
+  write.csv(funding_summary,
+            file.path(OUTPUT_DIR, "federal_funding_detail_summary.csv"),
+            row.names = FALSE)
+  cat(sprintf("Saved federal_funding_detail_summary.csv (%d rows)\n", nrow(funding_summary)))
+}
 
 # --------------------------
 # TABLE — Representative evidence text excerpts
