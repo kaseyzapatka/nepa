@@ -1,0 +1,404 @@
+/*-- scss:defaults --*/
+
+// ============================================================
+// CATF Brand Colors — 3-color palette for slides
+// ============================================================
+$catf-navy:    #012169;   // Primary headings, section backgrounds, table headers
+$catf-blue:    #0047BB;   // H2 headings, links, key accents
+$catf-text:    #1A1A2E;   // All body text, bullets, captions
+
+// Supporting colors (used sparingly for backgrounds/structure only, not text)
+$catf-rule:    #0047BB;   // Borders and rules
+$catf-bg-tint: #F0F4FB;   // Very subtle slide background tint for callouts
+$catf-bg-row:  #EEF3FB;   // Table alternate row
+$white:        #FFFFFF;
+$off-white:    #F8F9FA;
+
+// ============================================================
+// Typography — Lato (loaded via include-in-header)
+// ============================================================
+$font-family-sans-serif: 'Lato', 'Helvetica Neue', Arial, sans-serif;
+$presentation-font-size-root: 34px;
+$presentation-line-height: 1.55;
+
+// Headings
+$presentation-heading-font:         'Lato', 'Helvetica Neue', Arial, sans-serif;
+$presentation-heading-color:        $catf-navy;
+$presentation-heading-font-weight:  700;
+$presentation-heading-line-height:  1.2;
+$presentation-heading-letter-spacing: -0.01em;
+
+// Links
+$link-color:       $catf-blue;
+$link-color-hover: $catf-navy;
+
+// Base
+$body-bg:    $white;
+$body-color: $catf-text;
+$code-color: $catf-blue;
+$code-bg:    $catf-bg-tint;
+
+
+/*-- scss:rules --*/
+
+// ============================================================
+// TITLE SLIDE
+// ============================================================
+.reveal .title-slide {
+  background: $catf-navy !important;
+}
+
+.reveal .title-slide h1,
+.reveal .title-slide .title {
+  color: $white !important;
+  font-size: 2.6em !important;
+  font-weight: 900 !important;
+  line-height: 1.1;
+  text-shadow: none !important;
+  background: transparent !important;
+}
+
+.reveal .title-slide .subtitle {
+  color: rgba(255,255,255,0.85) !important;
+  font-size: 1.15em !important;
+  font-weight: 300 !important;
+  margin-top: 0.5em;
+  letter-spacing: 0.02em;
+}
+
+.reveal .title-slide .author {
+  color: rgba(255,255,255,0.75) !important;
+  font-size: 0.9em !important;
+  font-weight: 400;
+  margin-top: 1.2em;
+}
+
+.reveal .title-slide .date {
+  color: rgba(255,255,255,0.65) !important;
+  font-size: 0.85em !important;
+  font-weight: 300;
+  margin-top: 0.2em;
+}
+
+// ============================================================
+// SECTION DIVIDER SLIDES  (# heading with dark background)
+// ============================================================
+.reveal section[data-background-color="#012169"] {
+  h1, h2, h3, p, li {
+    color: $white !important;
+    background-color: transparent !important;
+    text-shadow: none !important;
+    border-bottom: none !important;
+  }
+
+  h1 {
+    font-size: 2.0em;
+    font-weight: 900;
+  }
+
+  // Small subtitle text on section slides
+  p {
+    font-size: 0.85em;
+    opacity: 0.8;
+  }
+}
+
+// Ensure has-dark-background class works too (RevealJS auto-adds this)
+.reveal section.has-dark-background {
+  h1, h2, h3, p, li {
+    color: $white !important;
+    background-color: transparent !important;
+    text-shadow: none !important;
+  }
+}
+
+// ============================================================
+// STANDARD HEADINGS
+// ============================================================
+.reveal h1 {
+  font-size: 2.0em;
+  color: $catf-navy;
+  font-weight: 800;
+  background: transparent;
+}
+
+.reveal h2 {
+  font-size: 1.3em;
+  color: $catf-blue;
+  font-weight: 700;
+  border-bottom: 2px solid $catf-blue;
+  padding-bottom: 0.18em;
+  margin-bottom: 0.55em;
+  background: transparent;
+}
+
+.reveal h3 {
+  font-size: 1.0em;
+  color: $catf-navy;
+  font-weight: 700;
+  background: transparent;
+}
+
+// ============================================================
+// LOGO — positioned top-left, clear of controls and slide numbers
+// ============================================================
+.reveal .slide-logo {
+  display: block !important;
+  position: fixed !important;
+  top: 10px !important;
+  left: 12px !important;
+  bottom: auto !important;
+  right: auto !important;
+  max-height: 40px !important;
+  height: auto !important;
+  width: auto !important;
+  opacity: 0.9;
+  z-index: 50 !important;
+}
+
+// Hide logo on title slide (logo is already prominent there)
+.reveal:has(.title-slide.present) .slide-logo {
+  display: none !important;
+}
+
+// ============================================================
+// FOOTER
+// ============================================================
+.reveal .footer {
+  font-size: 0.52em;
+  color: #555;
+  background-color: $off-white;
+  border-top: 2px solid $catf-blue;
+  padding: 4px 16px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+
+  // Links in footer should look like links (blue, underlined)
+  a {
+    color: $catf-blue !important;
+    text-decoration: underline !important;
+    font-weight: 600;
+
+    &:hover { color: $catf-navy !important; }
+  }
+}
+
+// ============================================================
+// NAVIGATION CONTROLS — move to top-right
+// ============================================================
+.reveal .controls {
+  top: 8px !important;
+  right: 8px !important;
+  bottom: auto !important;
+  left: auto !important;
+  z-index: 40;
+}
+
+// ============================================================
+// SLIDE NUMBERS — centered inside the footer bar, right side
+// Override .reveal.has-logo rule which moves them to top: 8px
+// Footer total height ≈ 36px; slide number ≈ 20px → bottom: 8px centers it
+// ============================================================
+.reveal .slide-number,
+.reveal.has-logo .slide-number {
+  position: fixed !important;
+  background-color: $catf-navy;
+  color: $white;
+  font-size: 0.48em;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: 'Lato', sans-serif;
+  // Clear top positioning set by .has-logo rule
+  top: auto !important;
+  // 8px from bottom centers a ~20px element in the 36px footer bar
+  bottom: 8px !important;
+  right: 16px !important;
+  z-index: 45;
+}
+
+// ============================================================
+// PROGRESS BAR
+// ============================================================
+.reveal .progress {
+  background: rgba(0, 71, 187, 0.15);
+  color: $catf-blue;
+  height: 3px;
+}
+
+// ============================================================
+// IMAGES
+// ============================================================
+.reveal img {
+  border-radius: 4px;
+  box-shadow: 0 2px 14px rgba(0,0,0,0.12);
+  max-height: 60vh;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+}
+
+.reveal .slide-logo img,
+.reveal img.no-shadow {
+  box-shadow: none;
+}
+
+// ============================================================
+// CALLOUT / FINDING BOXES  — monochrome: white bg, blue left border
+// ============================================================
+.callout-finding {
+  background: $catf-bg-tint;
+  border-left: 4px solid $catf-blue;
+  border-radius: 3px;
+  padding: 0.45em 0.85em;
+  margin: 0.4em 0 0.6em 0;
+  font-size: 0.85em;
+  line-height: 1.5;
+  color: $catf-text;
+
+  strong { color: $catf-navy; }
+}
+
+.callout-warning {
+  background: #FFFBF0;
+  border-left: 4px solid #C8860A;
+  border-radius: 3px;
+  padding: 0.45em 0.85em;
+  margin: 0.4em 0 0.6em 0;
+  font-size: 0.8em;
+  color: $catf-text;
+}
+
+// ============================================================
+// KEY STAT / HIGHLIGHT — navy bold, no color change
+// ============================================================
+.highlight-stat {
+  color: $catf-navy;
+  font-weight: 800;
+  font-size: 1.1em;
+}
+
+// ============================================================
+// TABLES  — navy header, subtle row stripe, all text dark
+// ============================================================
+.reveal table {
+  font-size: 0.72em;
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.3em auto;
+  color: $catf-text;
+}
+
+.reveal table th {
+  background-color: $catf-navy;
+  color: $white;
+  padding: 6px 11px;
+  text-align: left;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.reveal table td {
+  padding: 5px 11px;
+  border-bottom: 1px solid #DDE3EE;
+  color: $catf-text;
+}
+
+.reveal table tr:nth-child(even) td {
+  background-color: $catf-bg-row;
+}
+
+// ============================================================
+// LISTS
+// ============================================================
+.reveal ul, .reveal ol {
+  margin-left: 1.1em;
+  color: $catf-text;
+}
+
+.reveal ul li, .reveal ol li {
+  margin-bottom: 0.3em;
+  line-height: 1.5;
+}
+
+// ============================================================
+// TWO-COLUMN LAYOUT
+// ============================================================
+.reveal .columns {
+  display: flex;
+  gap: 1.4em;
+  align-items: flex-start;
+}
+
+.reveal .column {
+  flex: 1;
+  min-width: 0;
+}
+
+// ============================================================
+// TAKEAWAY BOXES  — navy background, white text, larger text for readability
+// ============================================================
+.takeaway-box {
+  background: $catf-navy;
+  color: $white;
+  border-radius: 5px;
+  padding: 0.6em 1.0em;
+  margin: 0.3em 0;
+  // 1.55em compensates for global `smaller: true` (~0.7×) and sizes up above base
+  font-size: 1.55em;
+  line-height: 1.45;
+
+  strong { color: $white; font-weight: 800; }
+}
+
+// ============================================================
+// PDF DOWNLOAD LINK
+// ============================================================
+a.pdf-btn {
+  display: inline-block;
+  background-color: $catf-navy;
+  color: $white !important;
+  padding: 6px 18px;
+  border-radius: 18px;
+  font-size: 0.78em;
+  font-weight: 700;
+  text-decoration: none !important;
+  margin-top: 0.6em;
+  letter-spacing: 0.02em;
+
+  &:hover { background-color: $catf-blue; }
+}
+
+// ============================================================
+// CAPTION / SMALL TEXT
+// ============================================================
+.caption-text {
+  font-size: 0.58em;
+  color: #666;
+  text-align: center;
+  margin-top: 0.2em;
+}
+
+.small-text {
+  font-size: 0.78em;
+  line-height: 1.45;
+  color: $catf-text;
+}
+
+// ============================================================
+// SCROLLABLE CONTENT (for overflow slides)
+// ============================================================
+.reveal .scrollable-slide {
+  overflow-y: auto;
+  max-height: 80vh;
+}
+
+// ============================================================
+// FULL-SIZE OVERRIDE — opt specific slides out of global smaller: true
+// Apply {.full-size} to a ## slide heading to restore normal font size.
+// smaller: true ≈ 0.7× reduction; var(--r-main-font-size) resets to root.
+// ============================================================
+.reveal .slides section.full-size {
+  font-size: var(--r-main-font-size, #{$presentation-font-size-root}) !important;
+}

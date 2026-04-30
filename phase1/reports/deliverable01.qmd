@@ -1,0 +1,404 @@
+---
+title: "NEPA Decarbonization Technologies Analysis: Deliverable 1"
+subtitle: "Decarbonization Technologies Project Landscape"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    code-fold: true
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(here)
+library(knitr)
+library(kableExtra)
+library(readr)
+library(dplyr)
+library(gt)
+library(tibble)
+
+# Paths
+d1_figures <- here("phase1", "output", "deliverable1", "figures")
+d1_maps <- here("phase1", "output", "deliverable1", "maps")
+d1_tables <- here("phase1", "output", "deliverable1", "tables")
+
+# Read project overview source so this report stays synced to the canonical
+# definitions document used across deliverables.
+project_overview_path <- here("phase1", "reports", "project_overview.qmd")
+if (!file.exists(project_overview_path)) {
+  stop("Missing required file: ", project_overview_path)
+}
+project_overview_source <- readr::read_file(project_overview_path)
+project_overview_last_updated <- as.Date(file.info(project_overview_path)$mtime)
+```
+
+
+```{=html}
+<style>
+.table tfoot td { text-align: left !important; }
+</style>
+```
+
+## Executive Summary
+
+This report aims to create the following set of deliverables:
+
+> Data on number of projects tagged with decarbonization technologies within the dataset: number of projects broken down by technology (e.g., offshore and onshore wind, solar, geothermal, nuclear), lead agency, and location
+
+For a full description of how “decarbonization technologies” are defined and classified in this analysis — including inclusion/exclusion criteria and the overall project universe — see the [Project Overview](project_overview.qmd) document (last updated `r project_overview_last_updated`).
+
+---
+
+# Technology Distribution
+
+::: {.callout-tip}
+## Key Findings: Technology
+**Utilities, Electricity Transmission, and Nuclear Technology dominate** the decarbonization technology NEPA landscape. Utility and Electricity Transmission projects comprise the largest share, reflecting the infrastructure build out required to connect renewable generation to load centers. The prominence of nuclear and solar projects are interesting. When looking at how decarbonization technology tags breakdown by review process, most are granted "Categorical Exclusion (CE)" status, with Hydropower, nuclear, and wind producing projects to be notable exceptions.  
+:::
+
+The first deliverable examines how projects tagged with decarbonization technologies breakdown by technology.
+
+```{r}
+#| label: fig-technology
+#| fig-cap: "Distribution of projects tagged with decarbonization technologies by technology type. Projects may have multiple technology tags."
+
+knitr::include_graphics(file.path(d1_figures, "01_clean_energy_bar_chart.png"))
+```
+
+
+A second interesting analysis is to view how the technologies break down by review process. 
+
+```{r}
+#| label: fig-technology-by-review
+#| fig-cap: "Distribution of projects tagged with decarbonization technologies by technology type and review status. Projects may have multiple technology tags."
+
+knitr::include_graphics(file.path(d1_figures, "02_clean_energy_bar_by_process.png"))
+```
+
+
+---
+
+# Lead Department and Lead Agency
+
+::: {.callout-tip}
+## Key Finding: Agency
+**Department of Energy (DOE) dominates** decarbonization technology NEPA reviews (81% of projects), followed by Interior (17%). DOE processes the vast majority through Categorical Exclusions (CE) (96%).
+:::
+
+This section examines project counts by lead department and lead agency. @tbl-department reports counts by department and review process, @fig-dept visualizes project counts by department, and @fig-agency-process shows the process type breakdown for the two agencies with complete data coverage: DOE and BLM.
+
+::: {.callout-warning}
+**Data coverage note:** NEPATEC assembles EIS data from EPA's governmentwide EIS database (comprehensive for all agencies since 2012) but EA and CE data only from DOE and BLM. Agencies outside these two therefore appear with near-zero EA and CE counts — this reflects a data gap, not actual agency behavior. Process-type mix comparisons are only reliable for DOE and BLM.
+:::
+
+The decarbonization technology NEPA portfolio is highly concentrated: DOE alone accounts for roughly four out of every five projects. This reflects both DOE's broad mission — spanning national labs, weapons facilities, grid modernization, and loan programs — and the fact that NEPATEC's EA and CE collection is most complete for DOE. The Department of the Interior's share is driven primarily by BLM's permitting role for large-scale renewables on federal land.
+
+```{r}
+#| label: tbl-department
+#| tbl-cap: "Projects tagged with decarbonization technologies by lead federal department and NEPA process type"
+
+dept_tbl <- read_csv(file.path(d1_tables, "table2_by_department.csv"), show_col_types = FALSE) |>
+  mutate(Department = if_else(
+    Department %in% c("Department of Energy", "Department of the Interior"),
+    paste0(Department, "*"),
+    Department
+  ))
+
+dept_tbl |>
+  kable(format.args = list(big.mark = ","), escape = FALSE) |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = TRUE) |>
+  row_spec(nrow(dept_tbl), bold = TRUE)
+```
+
+::: {style="font-size: 0.85em; color: #555; margin-top: -0.75em;"}
+\* Only DOE and DOI have complete CE, EA, and EIS data in NEPATEC 2.0; all other departments are represented only via EPA's governmentwide EIS database.
+:::
+
+The raw project counts in @fig-dept confirm DOE's dominance in absolute terms. All other departments collectively account for less than 2% of the portfolio, a result that partly reflects genuine mission differences and partly the data coverage gap — those agencies appear almost exclusively through EPA's EIS database and therefore contribute only EIS records.
+
+```{r}
+#| label: fig-dept
+#| fig-cap: "Projects tagged with decarbonization technologies by lead department"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "02_departments.png"))
+```
+
+Where the coverage data is reliable — DOE and BLM — the process type mix tells a slightly different story for each. DOE processes the overwhelming majority of its decarbonization actions as Categorical Exclusions, consistent with its large volume of routine lab operations, equipment upgrades, and smaller energy projects. BLM, by contrast, processes about 10% of its actions via Environmental Assessments (EA) and Environmental Impact Statements (EIS), reflecting the greater site-specificity and environmental sensitivity of renewable energy siting decisions on federal public lands.
+
+```{r}
+#| label: fig-agency-process
+#| fig-cap: "NEPA process type distribution for the two departments with complete CE, EA, and EIS coverage in NEPATEC 2.0: DOE (all sub-agencies) and BLM. Numbers to the right show total project count."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "02_agency_process.png"))
+```
+
+
+---
+
+# Geographic Distribution
+
+::: {.callout-tip}
+## Key Finding: Geography
+Projects tagged with decarbonization technologies concentrate in the **Western states and South Carolina**. South Carolina has the most projects (largely driven by nuclear projects at the Savannah River Site), followed by Washington, California, and Idaho. The county-level map reveals clustering around major federal facilities and high-resource renewable areas (desert Southwest for solar, nuclear facilities, and national labs). There does not seem to be a clear finding for the distribution of the NEPA review process by type. 
+:::
+
+The final deliverable examines geographic location of projects. @tbl-state reports project counts by NEPA process type, @fig-state-map visualizes that with a state map, and @fig-county-map does so by county. [Click here for a complete table](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=1065723676#gid=1065723676) of project count by county, which is prohibitively large.
+
+
+
+## State-Level Distribution
+
+```{r}
+#| label: tbl-state
+#| tbl-cap: "Top 15 states by decarbonization technology project count and NEPA process type"
+
+read_csv(file.path(d1_tables, "table3_by_state.csv"), show_col_types = FALSE) |>
+  head(16) |>  # Top 15 + header info
+  kable(format.args = list(big.mark = ",")) |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = FALSE) |> 
+  footnote(
+    general = "Each project may be in multiple states, meaning totals may sum to greater than project total of 25,000.",
+    general_title = "",
+    escape = FALSE
+  )
+```
+
+```{r}
+#| label: fig-state-map
+#| fig-cap: "Projects tagged with decarbonization technologies by state. Alaska and Hawaii repositioned for display."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "09_state_choropleth.png"))
+```
+
+
+South Carolina clearly sticks out with the number of projects in the state. Click here to explore a [more detailed table](https://docs.google.com/spreadsheets/d/11J6hU15ngCQP-Quk8h2eSkwct7cmq8Zigl_XsDbpsi0/edit?gid=991995876#gid=991995876) of projects there.
+
+@fig-top-states shows the top 20 states ranked by total decarbonization technology project count. South Carolina leads with over 4,000 projects, followed by Washington, California, and Idaho. This geographic concentration reflects both the location of major federal facilities (like the Savannah River Site in South Carolina) and regions with high renewable energy potential.
+
+```{r}
+#| label: fig-top-states
+#| fig-cap: "Top 20 states by decarbonization technology project count."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "07_top_states.png"))
+```
+
+@fig-state-process examines how the NEPA process type varies across the top 15 states. While most states show a high proportion of Categorical Exclusions (CE), there is notable variation in the share of Environmental Assessments (EA) and Environmental Impact Statements (EIS). States like Washington and California show more diverse distributions across process types, suggesting a mix of project scales and complexities.
+
+```{r}
+#| label: fig-state-process
+#| fig-cap: "NEPA process type distribution across top 15 states."
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "08_state_process_type.png"))
+```
+
+
+## County-Level Distribution
+
+County-level geographic data is available for approximately **48% of projects tagged with decarbonization technologies** overall. However, coverage varies significantly by NEPA review process, as shown in @tbl-county-coverage below.
+
+```{r}
+#| label: tbl-county-coverage
+#| tbl-cap: "County data coverage by NEPA process type"
+
+tibble(
+  `Process Type` = c("CE (Categorical Exclusion)", "EA (Environmental Assessment)", "EIS (Environmental Impact Statement)", "Total"),
+  `Total Projects` = c("20,863", "622", "794", "22,279"),
+  `With County Data` = c("9,631 (46%)", "504 (81%)", "509 (64%)", "10,644 (48%)"),
+  `Missing County` = c("11,232 (54%)", "118 (19%)", "285 (36%)", "11,635 (52%)"),
+  `Recoverable` = c("Not recoverable", "~116 (98%)", "~281 (99%)", "~397 EA/EIS")
+) |>
+  gt() |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(rows = 4)
+  ) |>
+  tab_footnote(
+    footnote = "CE projects use legal land descriptions without coordinates, making county recovery infeasible. EA and EIS projects have lat/long coordinates that enable reverse geocoding.",
+    locations = cells_column_labels(columns = Recoverable)
+  ) |>
+  cols_width(
+    `Process Type` ~ px(280),
+    `Total Projects` ~ px(120),
+    `With County Data` ~ px(140),
+    `Missing County` ~ px(140),
+    `Recoverable` ~ px(150)
+  )
+```
+
+The low county coverage for CE projects (46%) reflects their streamlined documentation standards, which often use legal land descriptions rather than explicit county identifiers, or that they simply don't include easily recognizable geographic data. In contrast, **nearly all EA and EIS projects missing county data (98.5%) or about 397 projects can be recovered** through reverse geocoding using their existing lat/long coordinates. This would increase EA coverage from 81% to ~99% and EIS coverage from 64% to ~99%.
+
+At the county level, Aiken, South Carolina, has a number of projects that are largely driven by nuclear projects at the Savannah River Site that were not marked for exclusion (because they were not tagged as "Waste Management"). Boundary, Idaho also has a high count of projects, likely driven by the national labs there as well. 
+
+```{r}
+#| label: fig-county-map
+#| fig-cap: "Projects tagged with decarbonization technologies by county. Note: County data available for approximately 47% of projects."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "10_county_choropleth.png"))
+```
+
+## Process Type by Location by Review Process
+
+The following three maps show county-level project concentration by NEPA process type using a continuous gradient scale. Each map has its own legend calibrated to that process type's data distribution. CE projects dominate the highest activity counties (particularly in South Carolina and Idaho), while EA and EIS projects show more dispersed, lower-intensity geographic patterns.
+
+```{r}
+#| label: fig-choropleth-ce
+#| fig-cap: "Categorical Exclusion (CE) projects by county."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_ce.png"))
+```
+
+```{r}
+#| label: fig-choropleth-ea
+#| fig-cap: "Environmental Assessment (EA) projects by county."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_ea.png"))
+```
+
+```{r}
+#| label: fig-choropleth-eis
+#| fig-cap: "Environmental Impact Statement (EIS) projects by county."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "11_county_choropleth_eis.png"))
+```
+
+The following three maps (@fig-jenks-ce, @fig-jenks-ea, @fig-jenks-eis) provide an alternative view using Jenks natural breaks classification. Unlike the continuous gradient above, Jenks classification groups counties into classes that mathematically highlight differences between groups[^breaks]. Each map calculates its own classification breaks based on that process type's data distribution, making it easier to identify distinct tiers of project activity within each category.
+
+[^breaks]: It does this by minimizing within-class variance and maximize between-class differences
+
+```{r}
+#| label: fig-jenks-ce
+#| fig-cap: "Categorical Exclusion (CE) projects by county using Jenks natural breaks classification."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "12_county_jenks_ce.png"))
+```
+
+```{r}
+#| label: fig-jenks-ea
+#| fig-cap: "Environmental Assessment (EA) projects by county using Jenks natural breaks classification."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "12_county_jenks_ea.png"))
+```
+
+```{r}
+#| label: fig-jenks-eis
+#| fig-cap: "Environmental Impact Statement (EIS) projects by county using Jenks natural breaks classification."
+#| out-width: "100%"
+
+knitr::include_graphics(file.path(d1_maps, "12_county_jenks_eis.png"))
+```
+
+## Deeper Dive into High Project Count Counties
+
+This section examines the projects in counties with the highest project counts for each NEPA process type. The figures show technology distribution across the top 10 counties, while the tables provide a random sample of 20 projects from the top 2 counties. [Full project lists are available in the Google Sheet](FILL_IN_GOOGLE_SHEET_URL).
+
+### Top Categorical Exclusion (CE) Counties
+
+@fig-ce-tech-breakdown shows the technology distribution across the top 10 CE counties.
+
+```{r}
+#| label: fig-ce-tech-breakdown
+#| fig-cap: "Technology distribution in top 10 CE counties"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "13_deep_dive_ce_tech.png"))
+```
+
+@tbl-deep-dive-ce shows a random sample of 20 projects from the two counties with the highest CE counts.
+
+```{r}
+#| label: tbl-deep-dive-ce
+#| tbl-cap: "Sample of projects in top 2 CE counties (random 20)"
+
+ce_sample <- read_csv(file.path(d1_tables, "deep_dive_ce_sample.csv"), show_col_types = FALSE)
+
+ce_sample |>
+  kable() |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                font_size = 10) |>
+  column_spec(1, width = "45%") |>
+  column_spec(2, width = "35%") |>
+  column_spec(3, width = "20%")
+```
+
+### Top Environmental Assessment (EA) Counties
+
+@fig-ea-tech-breakdown shows the technology distribution across the top 10 EA counties.
+
+```{r}
+#| label: fig-ea-tech-breakdown
+#| fig-cap: "Technology distribution in top 10 EA counties"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "13_deep_dive_ea_tech.png"))
+```
+
+@tbl-deep-dive-ea shows a random sample of 20 projects from the two counties with the highest EA counts.
+
+```{r}
+#| label: tbl-deep-dive-ea
+#| tbl-cap: "Sample of projects in top 2 EA counties (random 20)"
+
+ea_sample <- read_csv(file.path(d1_tables, "deep_dive_ea_sample.csv"), show_col_types = FALSE)
+
+ea_sample |>
+  kable() |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                font_size = 10) |>
+  column_spec(1, width = "45%") |>
+  column_spec(2, width = "35%") |>
+  column_spec(3, width = "20%")
+```
+
+### Top Environmental Impact Statement (EIS) Counties
+
+@fig-eis-tech-breakdown shows the technology distribution across the top 10 EIS counties.
+
+```{r}
+#| label: fig-eis-tech-breakdown
+#| fig-cap: "Technology distribution in top 10 EIS counties"
+#| out-width: "90%"
+
+knitr::include_graphics(file.path(d1_figures, "13_deep_dive_eis_tech.png"))
+```
+
+@tbl-deep-dive-eis shows a random sample of 20 projects from the two counties with the highest EIS counts.
+
+```{r}
+#| label: tbl-deep-dive-eis
+#| tbl-cap: "Sample of projects in top 2 EIS counties (random 20)"
+
+eis_sample <- read_csv(file.path(d1_tables, "deep_dive_eis_sample.csv"), show_col_types = FALSE)
+
+eis_sample |>
+  kable() |>
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"),
+                full_width = FALSE,
+                font_size = 10) |>
+  column_spec(1, width = "45%") |>
+  column_spec(2, width = "35%") |>
+  column_spec(3, width = "20%")
+```
+
+---
+
+*Report generated `r Sys.Date()` | NEPA Decarbonization Technologies Analysis*

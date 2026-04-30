@@ -1,7 +1,10 @@
 # Files to ignore
 *.DS*
+Rplots.pdf
+tmp/
 *.csv
-*.pdf
+literature/*.pdf
+*.docx
 *project_overview.md
 20181101_COMMS_CATFBrandGuide.pdf
 project_overview.md
@@ -9,6 +12,9 @@ project_overview.md
 *running_todo.html
 Claude**
 notes/timeline/Refactor Architecture.md
+*advice.txt
+Refactor Architecture*
+scratch.R
 
 # Folders to ignore
 *data/
@@ -18,9 +24,14 @@ notes/timeline/Refactor Architecture.md
 *models/
 *notes/phase2/
 *docs/notes/phase2/
+phase2/plans/*
+tests/*
 
 
 # Python bytecode
 __pycache__/
 *.pyc
 /.quarto/
+
+**/*.quarto_ipynb
+phase2/where_I_left_off. txt

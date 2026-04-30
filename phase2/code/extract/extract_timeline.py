@@ -1,0 +1,6166 @@
+import os
+
+if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
+    raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
+
+# --------------------------
+# TIMELINE EXTRACTION
+# --------------------------
+# Extract dates from document text to construct project timelines
+# Strategy: Regex first to find all dates, then order them chronologically
+
+import re
+import json
+import pandas as pd
+from pathlib import Path
+from datetime import datetime
+from calendar import monthrange
+import sys
+import duckdb
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+
+# --------------------------
+# FILE PATHS
+# --------------------------
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent  # phase2/code/extract/ -> repo root
+PROCESSED_DIR = BASE_DIR / "data" / "processed"
+ANALYSIS_DIR = BASE_DIR / "phase1" / "data" / "analysis"
+PHASE2_DATA_DIR = BASE_DIR / "phase2" / "data"
+
+# Expected clean energy project counts per source (from latest extract_data.py output)
+EXPECTED_CLEAN_COUNTS = {
+    'CE':  19399,
+    'EA':  573,
+    'EIS': 753,
+}
+EXPECTED_CLEAN_TOL = 50  # flag if count drifts by more than this
+
+
+def _load_projects_combined():
+    """
+    Load the latest projects_combined output from extract_data.py.
+    """
+    projects_path = ANALYSIS_DIR / "projects_combined.parquet"
+    if not projects_path.exists():
+        print(f"Error: {projects_path} not found. Run extract_data.py first.")
+        return None
+    return pd.read_parquet(projects_path)
+
+
+def _warn_if_clean_energy_count_off(df: pd.DataFrame, sources: list = None):
+    """
+    Warn if clean energy project counts are far from expected for any source.
+    """
+    if df is None:
+        return
+    if 'dataset_source' not in df.columns or 'project_energy_type' not in df.columns:
+        return
+
+    check_sources = sources if sources else list(EXPECTED_CLEAN_COUNTS.keys())
+    for source in check_sources:
+        expected = EXPECTED_CLEAN_COUNTS.get(source)
+        if expected is None:
+            continue
+        actual = len(df[(df['dataset_source'] == source) & (df['project_energy_type'] == 'Clean')])
+        if abs(actual - expected) > EXPECTED_CLEAN_TOL:
+            print(
+                f"WARNING: {source} clean energy count is {actual:,}, expected ~{expected:,}. "
+                "If this is unexpected, rerun extract_data.py (analysis) and rebuild regex cache."
+            )
+
+
+# --------------------------
+# DATE PATTERNS
+# --------------------------
+
+# Month names for pattern matching
+MONTHS = r'(?:January|February|March|April|May|June|July|August|September|October|November|December)'
+MONTHS_SHORT = r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)'
+
+# Date patterns (ordered by specificity)
+DATE_PATTERNS = [
+    # "January 15, 2024" or "January 15 2024"
+    (rf'({MONTHS})\s+(\d{{1,2}}),?\s+(\d{{4}})', 'MDY_full'),
+    # "Jan 15, 2024" or "Jan. 15, 2024"
+    (rf'({MONTHS_SHORT})\.?\s+(\d{{1,2}}),?\s+(\d{{4}})', 'MDY_short'),
+    # "15 January 2024"
+    (rf'(\d{{1,2}})\s+({MONTHS})\s+(\d{{4}})', 'DMY_full'),
+    # "01/15/2024" or "1/15/2024" (4-digit year) — also matches spaced "12 / 17 / 2012"
+    (r'(\d{1,2})\s*/\s*(\d{1,2})\s*/\s*(\d{4})', 'numeric_slash'),
+    # "01/15/24" or "1/15/24" (2-digit year) — also matches spaced variants
+    (r'(\d{1,2})\s*/\s*(\d{1,2})\s*/\s*(\d{2})\b', 'numeric_slash_2y'),
+    # "2024-01-15" (ISO format)
+    (r'(\d{4})-(\d{1,2})-(\d{1,2})', 'ISO'),
+    # "01-15-2024" (dash with 4-digit year)
+    (r'(\d{1,2})-(\d{1,2})-(\d{4})', 'numeric_dash'),
+    # "2024.01.15" (digital signature format)
+    (r'(\d{4})\.(\d{2})\.(\d{2})', 'digital_sig'),
+    # "12.15.15" or "12.15.2015" (M.DD.YY dot format, common in BLM/BIA CE signature blocks)
+    # Guardrails: month constrained to 01-12; lookbehind/lookahead block mid-chain matches
+    # (e.g. a section number like "4.12.15" is blocked when preceded by another digit+dot)
+    (r'(?<![\d.])(0?[1-9]|1[0-2])\.(\d{2})\.(\d{2,4})(?![\d.])', 'numeric_dot'),
+    # "January 2024" (month-year only)
+    (rf'({MONTHS})\s+(\d{{4}})', 'MY_full'),
+    # "Jan 2024"
+    (rf'({MONTHS_SHORT})\.?\s+(\d{{4}})', 'MY_short'),
+]
+
+# Context keywords that indicate what type of date this is
+DATE_CONTEXT_KEYWORDS = {
+    'start': ['commenced', 'initiated', 'began', 'starting', 'start date', 'initiated on'],
+    'submission': ['submitted', 'filed', 'received', 'application date'],
+    'notice': ['notice of intent', 'NOI', 'published', 'federal register'],
+    'draft': ['draft', 'DEIS', 'DEA'],
+    'final': ['final', 'FEIS', 'FEA'],
+    'decision': ['decision', 'ROD', 'record of decision', 'FONSI', 'finding of no significant impact',
+                 'approved', 'signed', 'issued'],
+    'comment': ['comment period', 'public comment', 'comments due'],
+    'scoping': ['scoping', 'scoping period'],
+}
+
+# Context keywords that indicate a date should be EXCLUDED (law/statute years, references)
+# NOTE: These must be specific enough to avoid excluding valid document dates
+# Avoid generic terms like "nepa" which would exclude "NEPA Compliance Officer Date:"
+DATE_EXCLUSION_KEYWORDS = [
+    # Law/statute references - use specific phrases, not just acronyms
+    'act of 19', 'act of 20',  # "Act of 1969", "Act of 2000"
+    'act (19', 'act (20',      # "Act (1969)"
+    'policy act', 'preservation act', 'conservation act',
+    'management act', 'protection act', 'improvement act', 'reform act',
+    'recovery act', 'species act', 'water act', 'air act', 'lands act',
+    'statute', 'u.s.c.', 'usc', 'public law', 'p.l.', 'amended in',
+    # Bibliographic references (citations)
+    'accessed on', 'retrieved on', 'available at',
+    'et al.', 'et al,', 'eds.', 'editor', 'vol.', 'volume', 'pp.', 'pages',
+    'journal', 'proceedings', 'report no.', 'technical report',
+    'isbn', 'issn', 'doi:',
+]
+
+# Regex patterns that indicate a date is in a citation/reference (Author. Year. format)
+CITATION_PATTERNS = [
+    r'\b[A-Z][a-z]+\.\s*\d{4}\.',  # "Smith. 2005." or "BLM. 2005."
+    r'\b[A-Z]{2,}\.\s*\d{4}\.',     # "EPA. 2010." "USFWS. 2015."
+    r'\(\d{4}\)',                    # "(2005)" - parenthetical citations
+    r'\d{4}[a-z]?\)',               # "2005a)" - lettered citations
+]
+
+# Month name to number mapping
+MONTH_MAP = {
+    'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
+    'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12,
+    'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'jun': 6,
+    'jul': 7, 'aug': 8, 'sep': 9, 'sept': 9, 'oct': 10, 'nov': 11, 'dec': 12
+}
+
+
+def parse_date_match(match, pattern_type):
+    """
+    Parse a regex match into a datetime object.
+
+    Returns:
+        datetime or None
+    """
+    try:
+        groups = match.groups()
+
+        if pattern_type == 'MDY_full' or pattern_type == 'MDY_short':
+            month_str, day, year = groups
+            month = MONTH_MAP.get(month_str.lower())
+            return datetime(int(year), month, int(day))
+
+        elif pattern_type == 'DMY_full':
+            day, month_str, year = groups
+            month = MONTH_MAP.get(month_str.lower())
+            return datetime(int(year), month, int(day))
+
+        elif pattern_type == 'numeric_slash':
+            month, day, year = groups
+            return datetime(int(year), int(month), int(day))
+
+        elif pattern_type == 'numeric_slash_2y':
+            # 2-digit year: assume 2000s for 00-30, 1900s for 31-99
+            month, day, year_2d = groups
+            year_int = int(year_2d)
+            year = 2000 + year_int if year_int <= 30 else 1900 + year_int
+            return datetime(year, int(month), int(day))
+
+        elif pattern_type == 'ISO':
+            year, month, day = groups
+            return datetime(int(year), int(month), int(day))
+
+        elif pattern_type == 'numeric_dash':
+            month, day, year = groups
+            return datetime(int(year), int(month), int(day))
+
+        elif pattern_type == 'digital_sig':
+            # Digital signature format: YYYY.MM.DD
+            year, month, day = groups
+            return datetime(int(year), int(month), int(day))
+
+        elif pattern_type == 'numeric_dot':
+            # M.DD.YY or M.DD.YYYY signature block dot format
+            month, day, year_str = groups
+            year_int = int(year_str)
+            if year_int < 100:
+                year = 2000 + year_int if year_int <= 30 else 1900 + year_int
+            else:
+                year = year_int
+            if not (1970 <= year <= 2035):
+                return None
+            return datetime(year, int(month), int(day))
+
+        elif pattern_type == 'MY_full' or pattern_type == 'MY_short':
+            month_str, year = groups
+            month = MONTH_MAP.get(month_str.lower())
+            return datetime(int(year), month, 1)  # Default to first of month
+
+    except (ValueError, TypeError, KeyError):
+        return None
+
+    return None
+
+
+def extract_dates_from_filename(file_name: str) -> list:
+    """
+    Extract date strings from a filename.
+
+    Returns:
+        List of dicts: [{'date': 'YYYY-MM-DD', 'match': 'Feb 27 2023'}, ...]
+    """
+    if not file_name or not isinstance(file_name, str):
+        return []
+
+    variants = [
+        file_name,
+        file_name.replace('_', '-'),
+        file_name.replace('_', '/'),
+        re.sub(r'[_-]+', ' ', file_name),
+    ]
+
+    results = []
+    seen = set()
+
+    # Extra filename-specific pattern: YYYY/MM/DD
+    ymd_slash = re.compile(r'(\d{4})/(\d{1,2})/(\d{1,2})')
+
+    for text in variants:
+        # DATE_PATTERNS handle month names, MDY, DMY, ISO, numeric slash/dash
+        for pattern, pattern_type in DATE_PATTERNS:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                date_obj = parse_date_match(match, pattern_type)
+                if date_obj is None:
+                    continue
+                date_str = date_obj.strftime('%Y-%m-%d')
+                key = (date_str, match.group(0))
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append({'date': date_str, 'match': match.group(0)})
+
+        # YYYY/MM/DD variant
+        for match in ymd_slash.finditer(text):
+            year, month, day = match.groups()
+            try:
+                date_obj = datetime(int(year), int(month), int(day))
+            except ValueError:
+                continue
+            date_str = date_obj.strftime('%Y-%m-%d')
+            key = (date_str, match.group(0))
+            if key in seen:
+                continue
+            seen.add(key)
+            results.append({'date': date_str, 'match': match.group(0)})
+
+    # Sort by date string
+    results.sort(key=lambda x: x['date'])
+    return results
+
+
+def build_file_name_date_map(documents_df: pd.DataFrame, main_docs_only: bool = True) -> dict:
+    """
+    Build a map of project_id -> JSON list of filename date matches.
+    """
+    if documents_df is None or documents_df.empty:
+        return {}
+
+    df = documents_df.copy()
+
+    def extract_id(x):
+        if isinstance(x, dict):
+            return x.get('value', '')
+        return x
+
+    if 'project_id' in df.columns:
+        df['project_id'] = df['project_id'].apply(extract_id)
+
+    if main_docs_only and 'main_document' in df.columns:
+        df = df[df['main_document'] == 'YES']
+
+    project_map = {}
+
+    for _, row in df.iterrows():
+        project_id = row.get('project_id')
+        file_name = row.get('file_name')
+        if not project_id or not file_name:
+            continue
+        matches = extract_dates_from_filename(file_name)
+        if not matches:
+            continue
+        for m in matches:
+            m['file_name'] = file_name
+            if 'document_id' in row:
+                m['document_id'] = row.get('document_id')
+        project_map.setdefault(project_id, []).extend(matches)
+
+    # Deduplicate per project by (date, match, file_name)
+    deduped = {}
+    for project_id, items in project_map.items():
+        seen = set()
+        out = []
+        for item in items:
+            key = (item.get('date'), item.get('match'), item.get('file_name'))
+            if key in seen:
+                continue
+            seen.add(key)
+            out.append(item)
+        deduped[project_id] = json.dumps(out)
+
+    return deduped
+
+
+def _parse_document_date_value(value):
+    """
+    Parse preserved-granularity filename date values.
+
+    Accepted forms:
+    - YYYY
+    - YYYY-MM
+    - YYYY-MM-DD
+
+    Returns:
+        tuple(datetime, datetime) as earliest/latest bounds for the value
+    """
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+
+    s = str(value).strip()
+    if not s:
+        return None
+
+    try:
+        if re.fullmatch(r'\d{4}-\d{2}-\d{2}', s):
+            dt = datetime.strptime(s, '%Y-%m-%d')
+            return dt, dt
+        if re.fullmatch(r'\d{4}-\d{2}', s):
+            year, month = [int(x) for x in s.split('-')]
+            start = datetime(year, month, 1)
+            end = datetime(year, month, monthrange(year, month)[1])
+            return start, end
+        if re.fullmatch(r'\d{4}', s):
+            year = int(s)
+            return datetime(year, 1, 1), datetime(year, 12, 31)
+    except ValueError:
+        return None
+
+    return None
+
+
+def _build_project_filename_bounds_map(documents_df: pd.DataFrame, main_docs_only: bool = True) -> dict:
+    """
+    Build project-level earliest/latest bounds from document_date_from_file_name.
+
+    Returns:
+        dict[project_id] -> {'project_date_earliest_file_name': 'YYYY-MM-DD'|None,
+                             'project_date_latest_file_name': 'YYYY-MM-DD'|None}
+    """
+    if documents_df is None or documents_df.empty:
+        return {}
+
+    df = documents_df.copy()
+
+    def extract_id(x):
+        if isinstance(x, dict):
+            return x.get('value', '')
+        return x
+
+    if 'project_id' in df.columns:
+        df['project_id'] = df['project_id'].apply(extract_id)
+
+    if main_docs_only and 'main_document' in df.columns:
+        df = df[df['main_document'] == 'YES']
+
+    if 'document_date_from_file_name' not in df.columns:
+        return {}
+
+    out = {}
+    for project_id, group in df.groupby('project_id'):
+        min_dt = None
+        max_dt = None
+        for val in group['document_date_from_file_name'].tolist():
+            parsed = _parse_document_date_value(val)
+            if parsed is None:
+                continue
+            low, high = parsed
+            min_dt = low if min_dt is None or low < min_dt else min_dt
+            max_dt = high if max_dt is None or high > max_dt else max_dt
+
+        out[project_id] = {
+            'project_date_earliest_file_name': min_dt.strftime('%Y-%m-%d') if min_dt else None,
+            'project_date_latest_file_name': max_dt.strftime('%Y-%m-%d') if max_dt else None,
+        }
+
+    return out
+
+def should_exclude_date(text, match_start, match_end, window=50):
+    """
+    Check if a date should be excluded (e.g., it's a law/statute year or citation).
+
+    Args:
+        text: Full text
+        match_start: Start position of date match
+        match_end: End position of date match
+        window: Characters to look before/after
+
+    Returns:
+        bool: True if date should be excluded
+    """
+    start = max(0, match_start - window)
+    end = min(len(text), match_end + window)
+    context = text[start:end]
+    context_lower = context.lower()
+
+    # Check keyword exclusions
+    for keyword in DATE_EXCLUSION_KEYWORDS:
+        if keyword in context_lower:
+            return True
+
+    # Check citation patterns (case-sensitive for Author. Year. patterns)
+    for pattern in CITATION_PATTERNS:
+        if re.search(pattern, context):
+            return True
+
+    return False
+
+
+def get_date_context(text, match_start, match_end, window=100):
+    """
+    Extract context around a date match to determine what type of date it is.
+
+    Args:
+        text: Full text
+        match_start: Start position of date match
+        match_end: End position of date match
+        window: Characters to look before/after
+
+    Returns:
+        str: Context type ('start', 'decision', 'unknown', etc.)
+    """
+    # Get surrounding text
+    start = max(0, match_start - window)
+    end = min(len(text), match_end + window)
+    context = text[start:end].lower()
+
+    # Check for context keywords
+    for context_type, keywords in DATE_CONTEXT_KEYWORDS.items():
+        for keyword in keywords:
+            if keyword.lower() in context:
+                return context_type
+
+    return 'unknown'
+
+
+def extract_dates_from_text(text):
+    """
+    Extract all dates from a text string with their context.
+
+    Args:
+        text: String containing document text
+
+    Returns:
+        list of dicts: [{'date': datetime, 'context': str, 'match': str}, ...]
+    """
+    if not text or not isinstance(text, str):
+        return []
+
+    results = []
+    seen_dates = set()
+
+    for pattern, pattern_type in DATE_PATTERNS:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            date_obj = parse_date_match(match, pattern_type)
+
+            if date_obj is None:
+                continue
+
+            # Skip dates outside reasonable range (1990-2030) - narrowed to avoid old law years
+            if date_obj.year < 1990 or date_obj.year > 2030:
+                continue
+
+            # Skip dates that appear to be law/statute years
+            if should_exclude_date(text, match.start(), match.end()):
+                continue
+
+            # Deduplicate by date
+            date_key = date_obj.strftime('%Y-%m-%d')
+            if date_key in seen_dates:
+                continue
+            seen_dates.add(date_key)
+
+            # Get context
+            context = get_date_context(text, match.start(), match.end())
+
+            results.append({
+                'date': date_obj,
+                'date_str': date_key,
+                'context': context,
+                'match': match.group(0)
+            })
+
+    # Sort by date
+    results.sort(key=lambda x: x['date'])
+
+    return results
+
+
+# Document type category mapping (same as in extract_data.py)
+DOCUMENT_TYPE_CATEGORIES = {
+    'decision': ['ROD', 'FONSI', 'CE'],  # Decision documents - primary source for timelines
+    'final': ['FEIS', 'EA'],              # Final documents (EA can be final)
+    'draft': ['DEIS', 'DEA'],             # Draft documents
+    'other': ['OTHER', ''],               # Other/unknown documents
+}
+
+
+def classify_document_type(doc_type):
+    """Classify a document_type into a category."""
+    if pd.isna(doc_type) or doc_type == '':
+        return 'other'
+    doc_type_upper = str(doc_type).upper().strip()
+    for category, types in DOCUMENT_TYPE_CATEGORIES.items():
+        if doc_type_upper in types:
+            return category
+    return 'other'
+
+
+def build_project_timeline(project_id, pages_df, documents_df, decision_docs_only=True):
+    """
+    Build a timeline for a single project by extracting dates from documents.
+
+    Args:
+        project_id: Project ID string
+        pages_df: DataFrame with page text
+        documents_df: DataFrame with document metadata
+        decision_docs_only: If True, prioritize decision documents (ROD, FONSI, CE).
+                           Falls back to final/draft/other if no decision docs found.
+
+    Returns:
+        dict with timeline information
+    """
+    # Get documents for this project
+    project_docs = documents_df[documents_df['project_id'] == project_id].copy()
+
+    # Count documents and main documents for this project
+    document_count = len(project_docs)
+    main_document_count = 0
+    if not project_docs.empty and 'main_document' in project_docs.columns:
+        main_document_count = (project_docs['main_document'] == 'YES').sum()
+
+    if project_docs.empty:
+        return {
+            'project_id': project_id,
+            'project_dates': [],
+            'project_date_earliest': None,
+            'project_date_latest': None,
+            'project_duration_days': None,
+            'project_year': None,
+            'project_document_count': document_count,
+            'project_main_document_count': main_document_count,
+        }
+
+    # Add document type category if not present
+    if 'document_type_category' not in project_docs.columns:
+        project_docs['document_type_category'] = project_docs['document_type'].apply(classify_document_type)
+
+    all_dates = []
+    docs_used = []
+
+    # Prioritize document types: decision > final > draft > other
+    if decision_docs_only:
+        priority_order = ['decision', 'final', 'draft', 'other']
+        for doc_category in priority_order:
+            category_docs = project_docs[project_docs['document_type_category'] == doc_category]
+            if not category_docs.empty:
+                # Use this category
+                doc_ids = category_docs['document_id'].tolist()
+                docs_used = doc_category
+                break
+        else:
+            # Fallback to all docs
+            doc_ids = project_docs['document_id'].tolist()
+            docs_used = 'all'
+    else:
+        # Process all documents
+        doc_ids = project_docs['document_id'].tolist()
+        docs_used = 'all'
+
+    project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
+
+    for _, page in project_pages.iterrows():
+        dates = extract_dates_from_text(page.get('page_text', ''))
+        all_dates.extend(dates)
+
+    if not all_dates:
+        return {
+            'project_id': project_id,
+            'project_dates': [],
+            'project_date_earliest': None,
+            'project_date_latest': None,
+            'project_duration_days': None,
+            'project_year': None,
+            'project_document_count': document_count,
+            'project_main_document_count': main_document_count,
+        }
+
+    # Deduplicate and sort
+    unique_dates = {}
+    for d in all_dates:
+        key = d['date_str']
+        if key not in unique_dates:
+            unique_dates[key] = d
+        elif d['context'] != 'unknown' and unique_dates[key]['context'] == 'unknown':
+            unique_dates[key] = d  # Prefer dates with known context
+
+    sorted_dates = sorted(unique_dates.values(), key=lambda x: x['date'])
+
+    # Extract key dates
+    earliest = sorted_dates[0]['date'] if sorted_dates else None
+    latest = sorted_dates[-1]['date'] if sorted_dates else None
+
+    duration = None
+    if earliest and latest:
+        duration = (latest - earliest).days
+
+    # Try to find decision date
+    decision_dates = [d for d in sorted_dates if d['context'] == 'decision']
+    decision_date = decision_dates[-1]['date'] if decision_dates else None
+
+    # Determine project year (use decision date if available, else latest)
+    project_year = None
+    if decision_date:
+        project_year = decision_date.year
+    elif latest:
+        project_year = latest.year
+
+    # Flag projects that may need LLM review
+    # Criteria: long duration (>10 years), no decision date found, or many dates with unknown context
+    needs_llm_review = False
+    review_reasons = []
+
+    if duration and duration > 3650:  # >10 years suggests false positives
+        needs_llm_review = True
+        review_reasons.append("long_duration")
+
+    if not decision_date and len(sorted_dates) > 0:
+        needs_llm_review = True
+        review_reasons.append("no_decision_date")
+
+    unknown_count = sum(1 for d in sorted_dates if d['context'] == 'unknown')
+    if len(sorted_dates) > 0 and unknown_count / len(sorted_dates) > 0.7:
+        needs_llm_review = True
+        review_reasons.append("mostly_unknown_context")
+
+    return {
+        'project_id': project_id,
+        'project_dates': [d['date_str'] for d in sorted_dates[:20]],  # Keep first 20
+        'project_date_contexts': [d['context'] for d in sorted_dates[:20]],  # Context for each date
+        'project_date_earliest': earliest.strftime('%Y-%m-%d') if earliest else None,
+        'project_date_latest': latest.strftime('%Y-%m-%d') if latest else None,
+        'project_date_decision': decision_date.strftime('%Y-%m-%d') if decision_date else None,
+        'project_duration_days': duration,
+        'project_year': project_year,
+        'project_timeline_needs_review': needs_llm_review,
+        'project_timeline_review_reasons': review_reasons,
+        'project_timeline_doc_source': docs_used,  # Which doc type was used for extraction
+        'project_document_count': document_count,
+        'project_main_document_count': main_document_count,
+    }
+
+
+def run_timeline_extraction(sample_size=None, clean_energy_only=False, ce_only=False,
+                            decision_docs_only=True, main_docs_only=False):
+    """
+    Run timeline extraction for all projects.
+
+    Args:
+        sample_size: If set, only process this many projects
+        clean_energy_only: If True, only process clean energy projects
+        ce_only: If True, only process CE (Categorical Exclusion) projects
+        decision_docs_only: If True, prioritize decision documents for extraction
+        main_docs_only: If True, only read pages from main_document == 'YES' documents
+
+    Outputs:
+        data/analysis/projects_timeline.parquet
+    """
+    print("\n=== Timeline Extraction ===")
+
+    # Load projects
+    projects = _load_projects_combined()
+    if projects is None:
+        return
+    _warn_if_clean_energy_count_off(projects, sources=['CE'] if ce_only else None)
+    print(f"Loaded {len(projects):,} projects")
+
+    # Filter by dataset source (CE only)
+    if ce_only:
+        projects = projects[projects['dataset_source'] == 'CE']
+        print(f"Filtered to {len(projects):,} CE projects")
+
+    # Filter by energy type
+    if clean_energy_only:
+        projects = projects[projects['project_energy_type'] == 'Clean']
+        print(f"Filtered to {len(projects):,} clean energy projects")
+
+    if sample_size:
+        projects = projects.head(sample_size)
+        print(f"Sampling {len(projects):,} projects")
+
+    if main_docs_only:
+        print("Will only read pages from main_document == 'YES'")
+
+    # Process by source dataset
+    results = []
+
+    for source in projects['dataset_source'].unique():
+        print(f"\nProcessing {source} projects...")
+
+        source_projects = projects[projects['dataset_source'] == source]
+        data_dir = PROCESSED_DIR / source.lower()
+
+        pages_df = pd.read_parquet(data_dir / "pages.parquet")
+        documents_df = pd.read_parquet(data_dir / "documents.parquet")
+
+        # Clean project_id in documents
+        def extract_id(x):
+            if isinstance(x, dict):
+                return x.get('value', '')
+            return x
+
+        documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+
+        # Precompute filename date matches for this source
+        file_name_dates_map = build_file_name_date_map(
+            documents_df,
+            main_docs_only=main_docs_only
+        )
+        file_name_bounds_map = _build_project_filename_bounds_map(
+            documents_df,
+            main_docs_only=main_docs_only
+        )
+
+        # Filter to main documents only if requested
+        if main_docs_only:
+            main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
+            pages_df = pages_df[pages_df['document_id'].isin(main_doc_ids)]
+            print(f"    Filtered to {len(pages_df):,} pages from main documents")
+
+        # Process each project
+        for idx, (_, project) in enumerate(source_projects.iterrows()):
+            if idx % 100 == 0:
+                print(f"  Processing project {idx + 1}/{len(source_projects)}...")
+
+            project_id = project['project_id']
+            timeline = build_project_timeline(project_id, pages_df, documents_df, decision_docs_only)
+            timeline['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+            bounds = file_name_bounds_map.get(project_id, {})
+            timeline['project_date_earliest_file_name'] = bounds.get('project_date_earliest_file_name')
+            timeline['project_date_latest_file_name'] = bounds.get('project_date_latest_file_name')
+            results.append(timeline)
+
+    # Create results dataframe
+    results_df = pd.DataFrame(results)
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+
+    # Convert list columns to JSON for parquet
+    import json
+    results_df['project_dates'] = results_df['project_dates'].apply(json.dumps)
+    results_df['project_date_contexts'] = results_df['project_date_contexts'].apply(json.dumps)
+    results_df['project_timeline_review_reasons'] = results_df['project_timeline_review_reasons'].apply(json.dumps)
+
+    # Merge back to projects
+    projects_with_timeline = projects.merge(results_df, on='project_id', how='left')
+
+    # Save
+    output_path = PHASE2_DATA_DIR / "projects_timeline.parquet"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    projects_with_timeline.to_parquet(output_path)
+    print(f"\nSaved to: {output_path}")
+
+    # Summary
+    has_dates = projects_with_timeline['project_date_earliest'].notna()
+    has_year = projects_with_timeline['project_year'].notna()
+    needs_review = projects_with_timeline['project_timeline_needs_review'] == True
+    print(f"\nProjects with dates extracted: {has_dates.sum():,} ({has_dates.mean() * 100:.1f}%)")
+    print(f"Projects with year determined: {has_year.sum():,} ({has_year.mean() * 100:.1f}%)")
+    print(f"Projects flagged for LLM review: {needs_review.sum():,} ({needs_review.mean() * 100:.1f}%)")
+
+    if has_year.sum() > 0:
+        print(f"\nYear distribution:")
+        print(projects_with_timeline['project_year'].value_counts().sort_index().tail(10))
+
+    return projects_with_timeline
+
+
+# --------------------------
+# LLM EXTRACTION (with preprocessing)
+# --------------------------
+
+# Import preprocessing module
+from preprocess_documents import preprocess_for_timeline
+
+# Default Ollama model - llama3.2 is fast and accurate for structured extraction
+DEFAULT_LLM_MODEL = "llama3.2:3b-instruct-q4_K_M"
+
+# Context window for date extraction (chars before/after each date)
+DATE_CONTEXT_WINDOW = 80
+
+# Default cache path for hybrid regex candidates (legacy, CE-only fallback)
+REGEX_CACHE_PATH = PHASE2_DATA_DIR / "timeline_regex_ce.parquet"
+
+
+def _regex_cache_path(source: str) -> Path:
+    """Return per-source regex cache path."""
+    return PHASE2_DATA_DIR / f"timeline_regex_{source.lower()}.parquet"
+
+
+def _parse_sources(source_arg: str) -> list:
+    """Parse --source argument into list of source codes."""
+    if not source_arg:
+        return ['CE']
+    sources = [s.strip().upper() for s in source_arg.split(',')]
+    valid = {'CE', 'EA', 'EIS'}
+    for s in sources:
+        if s not in valid:
+            print(f"ERROR: Unknown source '{s}'. Valid: CE, EA, EIS")
+            sys.exit(1)
+    return sources
+
+
+# Per-source configuration
+SOURCE_CONFIG = {
+    'CE':  {'apply_gap_rule': True,  'gap_days': 730},
+    'EA':  {'apply_gap_rule': True,  'gap_days': 730},
+    'EIS': {'apply_gap_rule': False},  # EIS projects legitimately span 5-10+ years
+}
+
+
+# --------------------------
+# BERT CLASSIFIER APPROACH
+# --------------------------
+# Uses weak supervision (pattern-based auto-labeling) to train a fast classifier
+
+# Model paths
+BERT_MODEL_DIR = BASE_DIR / "models" / "timeline_classifier"
+BERT_TRAINING_DATA_PATH = PHASE2_DATA_DIR / "bert_traindata.parquet"
+MANUAL_CORRECTIONS_PATH = PHASE2_DATA_DIR / "manual_training_corrections.csv"
+BERT_MODEL_BASE_DIR = BASE_DIR / "models"
+
+
+def _bert_model_dir(source: str = None) -> Path:
+    """Return the model directory for a given source, or the default combined model."""
+    if source:
+        return BERT_MODEL_BASE_DIR / f"timeline_classifier_{source.lower()}"
+    return BERT_MODEL_DIR
+
+
+def _resolve_bert_model_dir(source: str) -> Path:
+    """Resolve model directory: prefer source-specific, fall back to combined."""
+    source_dir = _bert_model_dir(source)
+    if source_dir.exists():
+        return source_dir
+    print(f"  WARNING: No source-specific model for {source}; falling back to combined model.")
+    return BERT_MODEL_DIR
+
+# Auto-labeling patterns (ranked confidence rules)
+DECISION_PATTERNS_STRONG = [
+    r'digitally signed by',
+    r'signed by\s+\w+',
+    r'signature of',
+    r'/s/\s*\w+',  # Digital signature format
+    r'concur.*nepa compliance officer',
+    r'nepa compliance officer.*concur',
+    r'nepa compliance officer.*date',
+    r'nepa compliance officer',
+    r'authoriz(ing|ed) official',
+    r'authority and approval',
+    r'NCO Determination:',
+    r'determination and approval',
+    r'categorical exclusion determination',
+    r'categorical exclusion (determination|approval)',
+    r'decision memo',
+    r'decision memorandum',
+    r'decision record',
+    r'authorizing official.*date',
+    r'field.*manager.*signature',
+    r'field office manager determination',
+    r'field manager (acting)?',
+    r'assistant field manager',
+    r'approved.*signature',
+    r'fonsi.*signed',
+    r'rod.*signed',
+    r'decision.*signed',
+    r'approval date',
+    r'date of approval',
+    r'ce determination date',
+    r'district manager',
+    r'approval and contact information',
+    r'\d{4}\.\d{2}\.\d{2}',  # YYYY.MM.DD digital signature timestamps
+    r'finding of no significant impact',  # EA decision document
+    r'\bfonsi\b',                          # EA decision abbreviation
+    r'record of decision',                 # EIS decision document
+    r'\brod\b.*signed',                    # ROD-specific signature
+    r'joint record of decision',           # EIS joint ROD variant
+    r'record of decision.*(signed|issued)',
+    r'(selected|selection of) alternative',  # EIS final selection language
+    r'decision to implement',
+]
+
+DECISION_PATTERNS_MED = [
+    r'date determined',
+    r'field office manager',
+    r'authorizing official',
+    r'final approval',
+]
+
+DECISION_PATTERNS_WEAK = [
+    r'determination',
+    r'approval',
+]
+
+INITIATION_PATTERNS_STRONG = [
+    r'scoping meeting',
+    r'scoping period',
+    r'notice of intent',
+    r'submitted notice of intent',
+    r'\bnoi\b',
+    r'\bnoi\b.*publish',
+    r'noi published',
+    r'doe initiator signature',
+    r'application received',
+    r'application submitted',
+    r'consultation initiated',
+    r'initiation of consultation',
+    r'initiated on',
+    r'right[- ]of[- ]way application',
+    r'row application',
+    r'\brow\b application',
+    r'submitted (a )?(completed )?right[- ]of[- ]way application',
+    r'blm received (a|the) (row )?application',
+    r'initiator signature',
+    r'designation form',
+    r'notice of intent.*prepare',          # EIS-specific NOI language
+    r'intent to prepare (an )?environmental impact statement',
+    r'notice of intent.*environmental impact statement',
+    r'noi.*federal register',
+    r'notice of intent.*published',
+    r'scoping notice',
+]
+
+INITIATION_PATTERNS_MED = [
+    r'renewal application received',
+    r'by renewal application received',
+    r'project proposed',
+    r'proposed action',
+    r'designation',
+    r'nepa process started',
+    r'nepa review began',
+    r'proposal submitted',
+    r'request received',
+    r'review was initiated',
+    r'(distribution|review) (was )?initiated',
+]
+
+INITIATION_PATTERNS_WEAK = [
+    r'may require (a )?new nepa determinat',
+    r'may be categorically excluded',
+    r'categorically excluded from further nepa review',
+]
+
+# CE-specific initiation patterns for form-field and signature-block layouts.
+# These are safe to check for CE only — "date received" etc. can be ambiguous in EA/EIS
+# where it may refer to public comment receipt rather than project application intake.
+INITIATION_PATTERNS_CE_ONLY = [
+    r'doe initiator.*date',           # "DOE Initiator Signature ... Date:"
+    r'action initiating office',      # Form header field
+    r'project\s*initiator',           # Variant form label
+    r'nepa.*initiator',               # "NEPA Initiator Signature"
+    r'action.*initiating',            # "Action Initiating Office"
+    r'date\s*received\s*[:\|]',       # "Date Received:" CE intake form field
+    r'date\s*filed\s*[:\|]',          # "Date Filed:"
+    r'date\s*submitted\s*[:\|]',      # "Date Submitted:"
+    r'application\s*date\s*[:\|]',    # "Application Date:"
+]
+
+
+def _source_initiation_patterns(source: str = None) -> list:
+    """Return initiation pattern lists appropriate for the given source.
+
+    CE gets the base strong+med lists plus CE-specific form-field patterns.
+    All other sources get the base lists only.
+    """
+    base = INITIATION_PATTERNS_STRONG + INITIATION_PATTERNS_MED
+    if source and str(source).upper() == 'CE':
+        return base + INITIATION_PATTERNS_CE_ONLY
+    return base
+
+REVIEW_PATTERNS_STRONG = [
+    r'review completed',
+    r'interim review',
+    r'decision in principle',
+    r'phase\s+\d+\s+was approved',
+    r'phase\s+\d+\s+approved',
+    r'approved by\s+\w+.*(review|phase)',
+    r'realty specialist',
+    r'wildlife biologist',
+    r'scientist',
+    r'fisheries/?wildlife biologist',
+    r'recreation (planner|specialist)',
+    r'outdoor recreation planner',
+    r'natural resource specialist',
+    r'environmental coordinator',
+    r'planning & environmental coordinator',
+    r'planning and environmental coordinator',
+    r'environmental coordinator',
+    r'environmental specialist',
+    r'botanist',
+    r'archaeologist',
+    r'archeologist',
+    r'district archaeologist',
+    r'cultural resource(s)? specialist',
+    r'project officer',
+    r'shpo.*concur',
+    r'environmental clearance memorandum',
+    r'yes\s+no\s+reviewer/title\s+initials\s*&\s*date',
+    r'yes\s+no\s+reviewer',
+    r'reviewer/title\s+initials\s*&\s*date',
+    r'initial and date',
+    r'initials?\s*&\s*date',
+    r'nepa review completed',
+    r'memorandum of agreement',
+    r'\bmoa\b',
+    r'section 106',
+]
+
+REVIEW_PATTERNS_STRONG_CASE_SENSITIVE = [
+    r'\bSubject Matter Expert\b',
+    r'\bExpert\b',
+    r'\bNEPA-SME\b',
+    r'\bNEPA SME\b',
+    r'\bSME\b',
+]
+
+REVIEW_PATTERNS_MED = [
+    r'review memo',
+    r'review memorandum',
+    r'reviewed by',
+]
+
+REVIEW_PATTERNS_WEAK = [
+    r'specialist',
+]
+
+# Expiration cues (for future dates, e.g., CE expiration)
+EXPIRATION_PATTERNS_STRONG = [
+    r're-?authoriz\w*.*until',
+    r'categorical exclusion expires',
+    r'\bexpire\b',
+    r'\bexpir\w*\s+on\b',
+    r'expiration date would',
+    r'for a term of',
+    r'expiration date\s*[:]',
+    r'expiration date of',
+    r'valid until',
+    r'to begin.*completed by',  # construction schedule: "to begin ... and be completed by"
+]
+
+# Background/plan reference cues (treat as historical/other)
+HISTORICAL_CONTEXT_PATTERNS = [
+    r'resource management plan',
+    r'\brmp\b',
+    r'conformance with the applicable lup',
+    r'land use plan',
+    r'plan maintenance action',
+    r'record of decision',
+    r'was assigned to',
+    r'assigned back to',
+    r'lease was issued',
+    r'communication site was established',
+]
+
+# Hard exclusions for initiation candidates
+INITIATION_EXCLUSION_PATTERNS = [
+    r'program specific guidance',
+    r'prepared in accordance with .* guidance',
+    r'resource management plan',
+    r'\brmp\b',
+    r'land use plan',
+    r'conformance with the applicable lup',
+    r'record of decision',
+    r'plan maintenance action',
+    r'memorandum of agreement',
+    r'\bmoa\b',
+    r'section 106',
+    r'shpo.*concur',
+    r'map created',
+    r'map prepared',
+    r'form approved',
+    r'previous editions obsolete',
+    r'reviewer/title\s+initials\s*&\s*date',
+    r'initial and date',
+    r'initials?\s*&\s*date',
+    r'yes\s+no\s+reviewer',
+    r'specialist signature',
+]
+
+MEMO_DATE_PATTERNS = [
+    r'\bDATE:\b',
+    r'\bmemorandum\b',
+]
+
+DECISION_BOILERPLATE_PATTERNS = [
+    r'previous editions obsolete',
+    r'form approved\s*(omb|omg)',  # OMB boilerplate only, not "Form Status: Approved"
+    r'forms mgmt',
+    r'netl f \d+',
+    r'doe f \d+',
+    r'revised:',
+    r'reviewed:',
+]
+
+OTHER_PATTERNS_STRONG = [
+    r'map created',
+    r'map prepared',
+    r'revised \d{4}',
+    r'prepared by.*\d{4}',
+    r'\d+\s*cfr\s*\d+',
+    r'\d+\s*u\.?s\.?c',
+    r'\d+\s*fr\s*\d+',
+    r'federal register',
+    r'public law',
+    r'act of \d{4}',
+    r'program specific guidance',
+    r'prepared in accordance with .* guidance',
+]
+
+
+def auto_label_context(context: str, source: str = None) -> str:
+    """
+    Auto-label a date context using pattern matching (weak supervision).
+
+    Args:
+        context: The text context around a date
+        source: Dataset source ('CE', 'EA', 'EIS') — used to apply source-specific patterns.
+                CE gets additional form-field initiation patterns via _source_initiation_patterns().
+
+    Returns:
+        'decision', 'initiation', 'other', or None if uncertain
+    """
+    context_lower = context.lower()
+
+    # CE role override: for CE form-field signature blocks, the role that immediately
+    # precedes the date determines the label — before any pattern matching.
+    # Uses the last role in the left half of context (nearest preceding role) to
+    # correctly distinguish DOE Initiator rows from NCO/authorizing official rows
+    # even when both roles appear in the same 200-char context window.
+    if source and str(source).upper() == 'CE':
+        role = _extract_nearest_preceding_role(context)
+        if role == 'doe_initiator':
+            return 'initiation'
+        if role in ('nco', 'authorizing_official', 'field_manager'):
+            return 'decision'
+
+    # Strong/medium decision patterns take priority over review
+    for pattern in DECISION_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'decision'
+    for pattern in DECISION_PATTERNS_MED:
+        if re.search(pattern, context_lower):
+            return 'decision'
+
+    # Review patterns checked before weak decision patterns so that contexts like
+    # "approved by Environmental Specialist" are labeled 'review', not 'decision'
+    for pattern in REVIEW_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'review'
+    for pattern in REVIEW_PATTERNS_STRONG_CASE_SENSITIVE:
+        if re.search(pattern, context):
+            return 'review'
+    for pattern in REVIEW_PATTERNS_MED:
+        if re.search(pattern, context_lower):
+            return 'review'
+    for pattern in REVIEW_PATTERNS_WEAK:
+        if re.search(pattern, context_lower):
+            return 'review'
+
+    # Weak decision patterns ('determination', 'approval') after review to avoid
+    # mislabeling specialist review sign-offs as decisions
+    for pattern in DECISION_PATTERNS_WEAK:
+        if re.search(pattern, context_lower):
+            return 'decision'
+
+    # Check initiation patterns (source-specific: CE gets additional form-field patterns)
+    for pattern in _source_initiation_patterns(source):
+        if re.search(pattern, context_lower):
+            return 'initiation'
+    for pattern in INITIATION_PATTERNS_WEAK:
+        if re.search(pattern, context_lower):
+            return 'initiation'
+
+    # Check other patterns (negative examples)
+    for pattern in OTHER_PATTERNS_STRONG:
+        if re.search(pattern, context_lower):
+            return 'other'
+
+    # Return None for ambiguous cases (don't include in training)
+    return None
+
+
+def _add_inference_prefix(
+    context: str,
+    source: str,
+    doc_type: str,
+    section_label: str = '',
+    sig_flag: bool = False,
+    position_pct: float = None,
+) -> str:
+    """
+    Prepend structured prefix tokens to a context at inference time.
+
+    Must match the prefix scheme applied during training in generate_bert_training_data()
+    (_make_prefix). Includes source, doc_type, section_label, role_label (from
+    _extract_role_label), verb:Y/N (from _has_action_verb), sig_flag, and position_pct.
+
+    Only applied when source is known; no-op if source is empty.
+    """
+    if not source:
+        return context
+    src  = str(source).upper()
+    dt   = str(doc_type).upper().strip()
+    sec  = str(section_label or '').strip()
+    role = _extract_role_label(context)
+    verb = _has_action_verb(context)
+
+    parts = [f"[{src}]"]
+    if dt and dt not in ('', 'OTHER', 'UNKNOWN'):
+        parts.append(f"[{dt}]")
+    if sec:
+        parts.append(f"[sec:{sec}]")
+    if role:
+        parts.append(f"[role:{role}]")
+    if verb:
+        parts.append('[verb:Y]')
+    if sec:
+        parts.append(f"[sig:{'Y' if sig_flag else 'N'}]")
+    if position_pct is not None and position_pct >= 75:
+        parts.append('[pos:bottom]')
+    return ' '.join(parts) + ' ' + context
+
+
+_ACTION_VERB_RE = re.compile(
+    r'\b(?:signed?|approved?|authorized?|executed?|issued?|certif\w+|determin\w+)\b',
+    re.IGNORECASE,
+)
+
+
+def _has_action_verb(context: str) -> bool:
+    """True if context contains an action verb indicating a decision/signing event."""
+    return bool(_ACTION_VERB_RE.search(context))
+
+
+# CE form-field role title patterns.
+# Each named group maps to a short role label used as a BERT prefix token.
+_FORM_ROW_RE = re.compile(
+    r'(?:'
+    r'(?P<doe_initiator>doe\s+initiator|nepa\s+initiator|action\s+initiating\s+office|project\s+initiator)'
+    r'|(?P<nco>nepa\s+compliance\s+officer)'
+    r'|(?P<authorizing_official>authoriz\w+\s+official)'
+    r'|(?P<env_coordinator>environmental\s+coordinator)'
+    r'|(?P<field_manager>field\s+(?:office\s+)?manager)'
+    r'|(?P<reviewing_official>reviewing\s+offic(?:ial|er))'
+    r'|(?P<contracting_officer>contracting\s+officer)'
+    r')',
+    re.IGNORECASE,
+)
+
+
+def _extract_role_label(context: str) -> str:
+    """
+    Return the CE form-field role title associated with a date candidate context.
+
+    Searches for a role title in the context string (e.g. 'DOE Initiator', 'NEPA
+    Compliance Officer') and returns a short label used as a BERT prefix token
+    [role:X]. Returns '' if no role title is found.
+
+    Only meaningful for CE form-field text; EA/EIS prose contexts won't match.
+    """
+    m = _FORM_ROW_RE.search(context)
+    if not m:
+        return ''
+    for name, value in m.groupdict().items():
+        if value is not None:
+            return name
+    return ''
+
+
+def _extract_nearest_preceding_role(context: str) -> str:
+    """
+    Return the role label that most immediately precedes the date in context.
+
+    Contexts are centered on the date (~200 chars before + after). The role that
+    'owns' the date is the last _FORM_ROW_RE match in the left half of the context.
+    This correctly distinguishes rows in CE multi-role signature blocks where
+    _extract_role_label() (first-match) would return the wrong role.
+
+    Example — NCO date context starting with "DOE Initiator...5/24...NCO...6/13":
+      _extract_role_label()            → 'doe_initiator'  (first match, WRONG)
+      _extract_nearest_preceding_role() → 'nco'            (last match in left half, CORRECT)
+
+    Returns '' if no role found.
+    """
+    left_half = context[: len(context) // 2 + 50]
+    matches = list(_FORM_ROW_RE.finditer(left_half))
+    if not matches:
+        return ''
+    last_match = matches[-1]
+    for name, value in last_match.groupdict().items():
+        if value is not None:
+            return name
+    return ''
+
+
+def _pre_bert_triage(
+    context: str,
+    source: str = None,
+    section_label: str = '',
+    sig_flag: bool = False,
+    position_pct: float = None,
+) -> tuple:
+    """
+    Pre-BERT triage for a single date candidate at inference time.
+
+    Returns a (action, label, confidence) tuple:
+      ('hard_discard', None, 1.0)         — drop candidate, skip BERT
+      ('auto_classify', label, conf)       — skip BERT, use this label
+      ('bert', None, None)                 — send to BERT as normal
+
+    Rules (priority order):
+    1. Hard discard: references/legal section labels (dates are citations, not events)
+    2. Hard discard: boilerplate form text
+    3. Hard discard: matches OTHER_PATTERNS_STRONG (map/law/citation cues) AND no decision signal
+    4. Hard discard: historical context pattern AND no signature/decision signal
+    5. Auto decision (0.95): DECISION_PATTERNS_STRONG fires AND no REVIEW_PATTERNS_STRONG
+    6. Auto decision (0.95): signature_block section AND action verb present
+    7. Auto decision (0.92): sig_flag (role-title signal) AND action verb present
+    7b. Auto decision (0.90): CE + sig_flag + position_pct >= 75 (bottom of doc, signature area)
+    8. Auto initiation (0.95): strong initiation pattern AND no decision/review cue
+    9. Auto initiation (0.90): noi section label (EA/EIS only)
+    10. Always BERT: any REVIEW_PATTERNS_STRONG match (ambiguous sign-off vs decision)
+    11. Default: BERT
+
+    Note: dep_verb (spaCy ROOT verb) is not used here — it reliably returns only auxiliary
+    verbs ('be', 'have') on form-field and nominalized text. Use _has_action_verb() instead.
+    """
+    ctx_lower = context.lower()
+
+    # --- Hard discard rules ---
+    if section_label in ('references', 'bibliography', 'legal_citations'):
+        return ('hard_discard', None, 1.0)
+
+    if _is_decision_boilerplate(context):
+        return ('hard_discard', None, 1.0)
+
+    has_strong_decision = _has_any_regex(ctx_lower, DECISION_PATTERNS_STRONG)
+
+    if _has_any_regex(ctx_lower, OTHER_PATTERNS_STRONG) and not has_strong_decision:
+        return ('hard_discard', None, 1.0)
+
+    if _has_any_regex(ctx_lower, HISTORICAL_CONTEXT_PATTERNS) and not has_strong_decision and not sig_flag:
+        return ('hard_discard', None, 1.0)
+
+    # --- Auto-classify rules (only if no review pattern fires) ---
+    has_any_review = (
+        _has_any_regex(ctx_lower, REVIEW_PATTERNS_STRONG)
+        or _has_any_regex_case_sensitive(context, REVIEW_PATTERNS_STRONG_CASE_SENSITIVE)
+    )
+
+    # CE role override: check which form-field role immediately precedes this date.
+    # Must run before the has_strong_decision auto-classify because NCO / decision
+    # patterns in the same 200-char window would otherwise fire on DOE Initiator dates.
+    if source and str(source).upper() == 'CE':
+        ce_role = _extract_nearest_preceding_role(context)
+        if ce_role == 'doe_initiator' and not has_any_review:
+            return ('auto_classify', 'initiation', 0.95)
+        if ce_role in ('nco', 'authorizing_official', 'field_manager') and not has_any_review:
+            return ('auto_classify', 'decision', 0.95)
+
+    if has_strong_decision and not has_any_review:
+        return ('auto_classify', 'decision', 0.95)
+
+    has_action_verb = _has_action_verb(context)
+
+    if section_label == 'signature_block' and has_action_verb and not has_any_review:
+        return ('auto_classify', 'decision', 0.95)
+
+    if sig_flag and has_action_verb and not has_any_review:
+        return ('auto_classify', 'decision', 0.92)
+
+    # CE-specific: sig_flag in bottom 25% of document → likely authoritative signature block
+    # (position_pct >= 75 means last quarter of the document)
+    if (sig_flag and not has_any_review
+            and source and str(source).upper() == 'CE'
+            and position_pct is not None and position_pct >= 75):
+        return ('auto_classify', 'decision', 0.90)
+
+    # Initiation auto-classify: strong patterns only, no decision or review cue
+    has_any_decision_cue = _has_any(context, DECISION_CUES)
+    if not has_any_decision_cue and not has_any_review:
+        strong_init = INITIATION_PATTERNS_STRONG + (
+            INITIATION_PATTERNS_CE_ONLY if source and str(source).upper() == 'CE' else []
+        )
+        if _has_any_regex(ctx_lower, strong_init):
+            return ('auto_classify', 'initiation', 0.95)
+
+    if section_label == 'noi' and source and str(source).upper() in ('EA', 'EIS'):
+        return ('auto_classify', 'initiation', 0.90)
+
+    # CE determination section → treat any date as a decision candidate.
+    # Many CE determination dates fall through as 'other' without this rule because
+    # the section heading is the only reliable signal in short form-field contexts.
+    if section_label == 'ce_determination' and source and str(source).upper() == 'CE':
+        return ('auto_classify', 'decision', 0.85)
+
+    # --- Always BERT for review-adjacent contexts ---
+    if has_any_review:
+        return ('bert', None, None)
+
+    return ('bert', None, None)
+
+
+def generate_bert_training_data(
+    sample_size: int = None,
+    output_path: Path = BERT_TRAINING_DATA_PATH,
+    min_samples_per_class: int = 100,
+):
+    """
+    Generate training data for BERT classifier using weak supervision.
+
+    Uses pattern-based auto-labeling on all regex-extracted date contexts.
+
+    Args:
+        sample_size: If set, only process this many projects
+        output_path: Where to save the training data
+        min_samples_per_class: Minimum samples needed per class
+
+    Returns:
+        DataFrame with labeled training examples
+    """
+    import time
+
+    print("\n=== Generating BERT Training Data (Weak Supervision) ===")
+
+    # Load all available per-source regex caches
+    cache_dfs = []
+    for source in ['CE', 'EA', 'EIS']:
+        cache_path = _regex_cache_path(source)
+        if cache_path.exists():
+            df = pd.read_parquet(cache_path)
+            df['dataset_source'] = source
+            cache_dfs.append(df)
+            print(f"  Loaded {source}: {len(df):,} contexts")
+
+    # Fallback: legacy single-file cache
+    if not cache_dfs and REGEX_CACHE_PATH.exists():
+        print("  Using legacy regex cache (CE only)...")
+        df = pd.read_parquet(REGEX_CACHE_PATH)
+        df['dataset_source'] = 'CE'
+        cache_dfs.append(df)
+
+    if not cache_dfs:
+        print("No regex cache found. Run --regex-prep first.")
+        return None
+
+    cache_df = pd.concat(cache_dfs, ignore_index=True)
+    print(f"Total: {len(cache_df):,} date contexts")
+
+    has_section = 'section_label' in cache_df.columns and cache_df['section_label'].notna().any()
+    has_sig     = 'sig_flag' in cache_df.columns
+    if not has_section or not has_sig:
+        print("  NOTE: Cache missing section_label or sig_flag columns. "
+              "Re-run --regex-prep to add structural signal features.")
+
+    if sample_size:
+        # Sample by project to maintain diversity
+        project_ids = cache_df['project_id'].unique()
+        if len(project_ids) > sample_size:
+            project_ids = pd.Series(project_ids).sample(n=sample_size, random_state=42).tolist()
+            cache_df = cache_df[cache_df['project_id'].isin(project_ids)]
+        print(f"Sampled to {len(cache_df):,} contexts from {len(project_ids)} projects")
+
+    # Auto-label each context
+    print("Auto-labeling contexts...")
+    start = time.time()
+
+    labeled_data = []
+    label_counts = {'decision': 0, 'initiation': 0, 'review': 0, 'other': 0, 'unlabeled': 0}
+
+    for _, row in cache_df.iterrows():
+        context = row.get('context', '')
+        if not context or len(context) < 10:
+            continue
+
+        label = auto_label_context(context, source=row.get('dataset_source'))
+
+        if label:
+            labeled_data.append({
+                'context': context,
+                'label': label,
+                'date': row.get('date'),
+                'project_id': row.get('project_id'),
+                'dataset_source': row.get('dataset_source', 'CE'),
+                'doc_type': str(row.get('doc_type', '')).upper().strip(),
+            })
+            label_counts[label] += 1
+        else:
+            label_counts['unlabeled'] += 1
+
+    elapsed = time.time() - start
+    print(f"Labeled {len(labeled_data):,} contexts in {elapsed:.1f}s")
+    print(f"\nLabel distribution:")
+    for label, count in label_counts.items():
+        print(f"  {label}: {count:,}")
+
+    # Check minimum samples
+    for label in ['decision', 'initiation', 'review', 'other']:
+        if label_counts[label] < min_samples_per_class:
+            print(f"\nWARNING: Only {label_counts[label]} samples for '{label}' (min: {min_samples_per_class})")
+
+    # Create DataFrame
+    training_df = pd.DataFrame(labeled_data)
+
+    # Merge manual corrections if available
+    if MANUAL_CORRECTIONS_PATH.exists():
+        print("\nMerging manual training corrections...")
+        corrections = pd.read_csv(MANUAL_CORRECTIONS_PATH)
+        # For each correction, override auto-label where (project_id, date) matches
+        corrections_key = set(zip(corrections['project_id'], corrections['date']))
+        override_count = 0
+        for idx, row in training_df.iterrows():
+            key = (row['project_id'], row['date'])
+            if key in corrections_key:
+                match = corrections[(corrections['project_id'] == row['project_id']) &
+                                    (corrections['date'] == row['date'])]
+                if not match.empty:
+                    new_label = match.iloc[0]['correct_type']
+                    if new_label != row['label']:
+                        training_df.at[idx, 'label'] = new_label
+                        override_count += 1
+
+        print(f"  Applied {override_count} label overrides from {len(corrections)} manual corrections")
+
+        # Recount labels after corrections
+        for label in ['decision', 'initiation', 'review', 'other']:
+            count = (training_df['label'] == label).sum()
+            print(f"  {label}: {count:,}")
+    else:
+        print(f"\nNo manual corrections found at {MANUAL_CORRECTIONS_PATH}")
+
+    # Oversample EA/EIS to prevent CE domination in training
+    if 'dataset_source' in training_df.columns:
+        source_counts = training_df['dataset_source'].value_counts()
+        if len(source_counts) > 1:
+            oversample_factors = {'CE': 1, 'EA': 3, 'EIS': 3}
+            oversampled = []
+            for source, factor in oversample_factors.items():
+                subset = training_df[training_df['dataset_source'] == source]
+                if not subset.empty and factor > 1:
+                    oversampled.append(pd.concat([subset] * factor, ignore_index=True))
+                    print(f"  Oversampled {source}: {len(subset):,} x {factor} = {len(subset)*factor:,}")
+                elif not subset.empty:
+                    oversampled.append(subset)
+            training_df = pd.concat(oversampled, ignore_index=True)
+            print(f"  Total after oversampling: {len(training_df):,}")
+
+    # Prepend structured prefix tokens to each context.
+    # Includes source, doc_type, section_label, sig_flag, role, verb, and pos signals.
+    # Inference must apply the same prefix via _add_inference_prefix().
+    def _make_prefix(row):
+        src  = str(row.get('dataset_source', '')).upper()
+        dt   = str(row.get('doc_type', '')).upper().strip()
+        sec  = str(row.get('section_label') or '').strip()
+        sig  = bool(row.get('sig_flag') or row.get('ner_decision_signal') or False)
+        pos  = row.get('position_pct')
+        ctx  = str(row.get('context') or '')
+        role = _extract_role_label(ctx)
+        verb = _has_action_verb(ctx)
+
+        parts = [f"[{src}]"]
+        if dt and dt not in ('', 'OTHER', 'UNKNOWN'):
+            parts.append(f"[{dt}]")
+        if sec:
+            parts.append(f"[sec:{sec}]")
+        if role:
+            parts.append(f"[role:{role}]")
+        if verb:
+            parts.append('[verb:Y]')
+        if sec:                      # include sig token when section detected
+            parts.append(f"[sig:{'Y' if sig else 'N'}]")
+        if pos is not None and pos >= 75:
+            parts.append('[pos:bottom]')
+        return ' '.join(parts) + ' '
+
+    training_df['context'] = training_df.apply(
+        lambda r: _make_prefix(r) + str(r['context']), axis=1
+    )
+    print(f"\nApplied source+doc_type prefix to {len(training_df):,} training contexts")
+
+    training_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+
+    # Save
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    training_df.to_parquet(output_path)
+    print(f"\nSaved training data to: {output_path}")
+
+    return training_df
+
+
+# All prefix tokens emitted by _make_prefix() / _add_inference_prefix().
+# Registering these as special tokens ensures the tokenizer treats each one
+# as a single atomic unit (one embedding) rather than splitting into subwords.
+# Must be kept in sync with the prefix functions above.
+BERT_PREFIX_SPECIAL_TOKENS = [
+    # Source
+    '[CE]', '[EA]', '[EIS]',
+    # Doc types (from doc_type column; OTHER/UNKNOWN/'' excluded by prefix logic)
+    '[CE]', '[EA]', '[FONSI]', '[ROD]', '[DEA]', '[DEIS]', '[FEIS]',
+    # Section labels
+    '[sec:ce_determination]', '[sec:signature_block]', '[sec:review_checklist]',
+    '[sec:noi]', '[sec:fonsi]', '[sec:rod]',
+    '[sec:draft_eis]', '[sec:final_eis]', '[sec:ea_body]',
+    '[sec:references]', '[sec:legal_citations]',
+    # Role labels (CE form-field roles; also fire on EA/EIS when role title in context)
+    '[role:doe_initiator]', '[role:nco]', '[role:authorizing_official]',
+    '[role:env_coordinator]', '[role:field_manager]', '[role:reviewing_official]',
+    '[role:contracting_officer]',
+    # Structural signals
+    '[verb:Y]', '[sig:Y]', '[sig:N]', '[pos:bottom]',
+]
+# Deduplicate while preserving order (CE/EA appear in both source and doc_type lists)
+BERT_PREFIX_SPECIAL_TOKENS = list(dict.fromkeys(BERT_PREFIX_SPECIAL_TOKENS))
+
+
+def _register_special_tokens(tokenizer, model, mean_init: bool = False) -> int:
+    """
+    Add BERT_PREFIX_SPECIAL_TOKENS to the tokenizer and resize model embeddings.
+    Returns the number of new tokens added.
+    Only tokens not already in the vocabulary are added.
+
+    mean_init: if True, set new embeddings to the mean of existing embeddings (zero
+    variance) rather than the default random init. Use for EIS — DeBERTa v3's
+    disentangled attention can produce forward-pass NaN from outlier initial values
+    at peak LR on small datasets. CE and EA trained fine without this.
+    """
+    import torch
+    new_tokens = [t for t in BERT_PREFIX_SPECIAL_TOKENS if t not in tokenizer.get_vocab()]
+    if new_tokens:
+        orig_vocab_size = len(tokenizer)
+        tokenizer.add_tokens(new_tokens)
+        model.resize_token_embeddings(len(tokenizer))
+        if mean_init:
+            with torch.no_grad():
+                embs = model.get_input_embeddings().weight
+                mean_emb = embs[:orig_vocab_size].mean(dim=0)
+                embs[orig_vocab_size:] = mean_emb
+            print(f"  Registered {len(new_tokens)} new prefix special tokens (embeddings set to corpus mean)")
+        else:
+            print(f"  Registered {len(new_tokens)} new prefix special tokens")
+    else:
+        print("  All prefix special tokens already in tokenizer vocabulary")
+    return len(new_tokens)
+
+
+def train_bert_classifier(
+    training_data_path: Path = BERT_TRAINING_DATA_PATH,
+    model_name: str = None,
+    output_dir: Path = None,
+    epochs: int = None,
+    batch_size: int = 8,
+    max_length: int = 256,
+    test_split: float = 0.1,
+    source: str = None,
+):
+    """
+    Train a DeBERTa classifier on the auto-labeled timeline data.
+
+    Model and epoch defaults are source-aware:
+      CE  → deberta-v3-base,  3 epochs  (large dataset, bigger model justified)
+      EA/EIS → deberta-v3-small, 5 epochs  (small dataset, smaller model avoids collapse)
+      combined → deberta-v3-base, 3 epochs
+
+    Args:
+        training_data_path: Path to training data parquet
+        model_name: Hugging Face model name (None = auto-select by source)
+        output_dir: Where to save the trained model (default: source-specific or combined dir)
+        epochs: Training epochs (None = auto-select by source)
+        batch_size: Training batch size
+        max_length: Max token length (256 to accommodate source+doc_type prefixes)
+        test_split: Fraction to hold out for validation
+        source: If set ('CE', 'EA', 'EIS'), train a source-specific model on that subset.
+            Saves to models/timeline_classifier_{source.lower()}/.
+    """
+    import json
+    try:
+        from transformers import (
+            AutoTokenizer,
+            AutoModelForSequenceClassification,
+            TrainingArguments,
+            Trainer,
+            TrainerCallback,
+            DataCollatorWithPadding,
+        )
+        from datasets import Dataset
+        import numpy as np
+        from sklearn.model_selection import train_test_split as sk_train_test_split
+        from sklearn.metrics import f1_score, classification_report
+        import torch
+    except ImportError:
+        print("ERROR: transformers, datasets, sklearn, and torch libraries required.")
+        print("Install with: pip install transformers datasets torch scikit-learn sentencepiece")
+        return None, None
+
+    if output_dir is None:
+        output_dir = _bert_model_dir(source)
+
+    # Source-aware defaults: small model + more epochs for EA/EIS (small datasets);
+    # base model + fewer epochs for CE (large dataset) or combined.
+    _small_source = source in ('EA', 'EIS')
+    if model_name is None:
+        model_name = "microsoft/deberta-v3-small" if _small_source else "microsoft/deberta-v3-base"
+    if epochs is None:
+        epochs = 5 if _small_source else 3
+    # Per-source training hyperparameters — do not change without re-validating:
+    #
+    #   CE  (deberta-v3-base,  3 epochs): LR=2e-5, max_grad_norm=1.0, adam_epsilon=1e-8
+    #       mean_init=True  — base model, random init can produce outlier embeddings
+    #
+    #   EA  (deberta-v3-small, 5 epochs): LR=2e-5, max_grad_norm=1.0, adam_epsilon=1e-6
+    #       mean_init=False — small model trained fine with random init; mean embedding
+    #       of deberta-v3-small amplifies disentangled attention cross-product
+    #       adam_epsilon=1e-6 — prevents Adam from amplifying epoch-boundary batches
+    #       (default 1e-8 starves m2 estimates on small datasets → overflow at epoch 2)
+    #
+    #   EIS (deberta-v3-small, 5 epochs): LR=1e-5, max_grad_norm=1.0, adam_epsilon=1e-6
+    #       mean_init=False — same as EA
+    #       LR=1e-5 (not 2e-5) — 45k rows means warmup_steps=200 covers only ~0.4% of
+    #       training; model hits peak LR before gradients have adequately averaged
+    if source == 'EIS':
+        _learning_rate = 1e-5
+    else:  # CE and EA
+        _learning_rate = 2e-5
+    _max_grad_norm = 1.0
+
+    source_label = source or "combined"
+    print(f"\n=== Training DeBERTa Classifier ({source_label}) ===")
+    print(f"Model: {model_name}")
+    print(f"Epochs: {epochs}, Batch: {batch_size}, MaxLen: {max_length}")
+    print(f"Output: {output_dir}")
+
+    # Load training data
+    if not training_data_path.exists():
+        print(f"Training data not found at {training_data_path}")
+        print("Run --bert-generate first to create training data.")
+        return None, None
+
+    df = pd.read_parquet(training_data_path)
+    print(f"Loaded {len(df):,} total training examples")
+
+    # Source-specific filtering: filter to rows for the target source,
+    # then de-duplicate to remove oversampling artifacts from generate step.
+    if source:
+        if 'dataset_source' not in df.columns:
+            print(f"WARNING: No 'dataset_source' column — training on all rows.")
+        else:
+            df = df[df['dataset_source'] == source].copy()
+            before_dedup = len(df)
+            df = df.drop_duplicates(subset=['project_id', 'date', 'context']).reset_index(drop=True)
+            print(f"Filtered to {source}: {before_dedup:,} rows → {len(df):,} after de-duplication")
+
+    # Create label mapping
+    label2id = {'decision': 0, 'initiation': 1, 'review': 2, 'other': 3}
+    id2label = {v: k for k, v in label2id.items()}
+    df['label_id'] = df['label'].map(label2id)
+
+    # Drop rows with unmapped labels (None, unexpected strings) — these can't be
+    # tensorized and would cause a RuntimeError during training. Does not affect
+    # the regex cache or inference — only the in-memory training DataFrame.
+    null_labels = df['label_id'].isna().sum()
+    if null_labels > 0:
+        bad_labels = df.loc[df['label_id'].isna(), 'label'].value_counts().to_dict()
+        print(f"  WARNING: Dropping {null_labels} rows with unmapped labels: {bad_labels}")
+        df = df.dropna(subset=['label_id']).copy()
+    df['label_id'] = df['label_id'].astype(int)
+
+    # Check class balance
+    print("\nClass distribution:")
+    print(df['label'].value_counts())
+
+    # Project-ID-based split to prevent data leakage
+    if 'project_id' in df.columns and df['project_id'].nunique() > 1:
+        unique_projects = df['project_id'].unique()
+        train_pids, test_pids = sk_train_test_split(
+            unique_projects, test_size=test_split, random_state=42
+        )
+        train_df = df[df['project_id'].isin(train_pids)].reset_index(drop=True)
+        test_df  = df[df['project_id'].isin(test_pids)].reset_index(drop=True)
+        print(f"\nProject-ID split — Train: {len(train_df):,} rows ({len(train_pids)} projects), "
+              f"Test: {len(test_df):,} rows ({len(test_pids)} projects)")
+    else:
+        df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
+        split_idx = int(len(df_shuffled) * (1 - test_split))
+        train_df = df_shuffled[:split_idx]
+        test_df  = df_shuffled[split_idx:]
+        train_pids, test_pids = [], []
+        print(f"\nRandom split — Train: {len(train_df):,}, Test: {len(test_df):,}")
+
+    # Save split manifest for reproducibility
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        'source': source_label,
+        'model_name': model_name,
+        'train_rows': len(train_df),
+        'test_rows': len(test_df),
+        'train_project_ids': sorted([str(p) for p in train_pids]),
+        'test_project_ids':  sorted([str(p) for p in test_pids]),
+        'trained_at': pd.Timestamp.utcnow().isoformat(),
+    }
+    (output_dir / 'training_manifest.json').write_text(json.dumps(manifest, indent=2))
+
+    # Create HuggingFace datasets
+    train_dataset = Dataset.from_pandas(train_df[['context', 'label_id']])
+    test_dataset  = Dataset.from_pandas(test_df[['context', 'label_id']])
+
+    # Set PYTORCH_MPS_HIGH_WATERMARK_RATIO=0.0 before any MPS allocation.
+    # This removes PyTorch's own cap so it can allocate beyond the ~27 GB "recommended"
+    # MPS limit when macOS system processes have consumed part of that pool.
+    # Safe on this machine: training needs ~8-10 GB; 128 GB RAM has ample headroom.
+    import os
+    os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
+
+    if torch.backends.mps.is_available():
+        print(f"\nMPS available — using GPU (watermark ratio disabled, using physical RAM headroom).")
+        _device = 'mps'
+    else:
+        _device = 'cpu'
+    print(f"Loading {model_name} on {_device}...")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_name,
+        num_labels=4,
+        id2label=id2label,
+        label2id=label2id,
+    ).to(_device)
+
+    print("\nRegistering prefix special tokens...")
+    # mean_init=True for base model (CE): initializes new token embeddings to mean of
+    # existing embeddings to avoid attention overflow. Small model (EA/EIS) trained fine
+    # with random init before; mean embedding of deberta-v3-small may amplify rather than
+    # dampen the disentangled attention cross-product, so leave False for small sources.
+    _register_special_tokens(tokenizer, model, mean_init=not _small_source)
+
+    # Tokenize
+    def tokenize_fn(examples):
+        return tokenizer(
+            examples['context'],
+            truncation=True,
+            max_length=max_length,
+            padding=False,
+        )
+
+    print("Tokenizing...")
+    train_dataset = train_dataset.map(tokenize_fn, batched=True, remove_columns=['context'])
+    test_dataset  = test_dataset.map(tokenize_fn, batched=True, remove_columns=['context'])
+    train_dataset = train_dataset.rename_column('label_id', 'labels')
+    test_dataset  = test_dataset.rename_column('label_id', 'labels')
+
+    data_collator = DataCollatorWithPadding(tokenizer=tokenizer)
+
+    # Class weights (handle imbalance).
+    # Raw inverse-frequency weights are capped at 10.0 to prevent gradient explosion
+    # when a rare class (e.g. 'other') has extreme imbalance. Without the cap a single
+    # batch containing a few misclassified rare examples produces a loss spike large
+    # enough to push grad_norm to NaN and corrupt all model weights.
+    label_counts_series = train_df['label_id'].value_counts().sort_index()
+    total = label_counts_series.sum()
+    class_weights = (total / (label_counts_series * len(label_counts_series))).clip(upper=10.0)
+    class_weights = torch.tensor(class_weights.values, dtype=torch.float)
+    print("\nClass weights:")
+    for lbl, w in zip(label2id.keys(), class_weights.tolist()):
+        print(f"  {lbl}: {w:.3f}")
+
+    # Per-class F1 metrics
+    def compute_metrics(eval_pred):
+        predictions, labels = eval_pred
+        preds = np.argmax(predictions, axis=1)
+        f1_macro = f1_score(labels, preds, average='macro', zero_division=0)
+        f1_per   = f1_score(labels, preds, average=None,    zero_division=0)
+        accuracy = float((preds == labels).mean())
+        return {
+            'accuracy': accuracy,
+            'f1_macro': float(f1_macro),
+            **{f'f1_{id2label[i]}': float(f1_per[i]) for i in range(len(id2label))},
+        }
+
+    # Training arguments.
+    # gradient_accumulation_steps=4 keeps effective batch size at 32 while
+    # reducing per-step memory. fp16=False: DeBERTa can produce NaN with fp16 on MPS.
+    # use_cpu=True forces CPU when MPS headroom is insufficient; otherwise Trainer
+    # auto-detects MPS (no_cuda/use_mps_device are deprecated in transformers 5.x).
+    # adam_epsilon: default 1e-8 causes Adam to amplify gradients for low-variance
+    # parameters (effective LR = lr × m1 / (√m2 + ε) → large when ε dominates √m2).
+    # After epoch 1, accumulated moment estimates can make the first step of epoch 2
+    # overflow on outlier batches. 1e-6 keeps the denominator large enough to prevent
+    # this amplification. Use for small sources (deberta-v3-small) which are more sensitive.
+    _adam_epsilon = 1e-6 if _small_source else 1e-8
+    training_args = TrainingArguments(
+        output_dir=str(output_dir),
+        num_train_epochs=epochs,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
+        gradient_accumulation_steps=4,
+        learning_rate=_learning_rate,
+        warmup_steps=200,
+        weight_decay=0.01,
+        max_grad_norm=_max_grad_norm,
+        adam_epsilon=_adam_epsilon,
+        logging_steps=50,
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        load_best_model_at_end=True,
+        metric_for_best_model="f1_macro",
+        fp16=False,
+        use_cpu=(_device == 'cpu'),
+    )
+
+    # Trainer with weighted loss.
+    # label_smoothing=0.1: prevents the model from driving logits to extreme values
+    # (loss floor ~0.14 for 4 classes), which avoids DeBERTa v3 attention NaN.
+    # Applied to all sources — CE collapsed at peak LR when training data was smaller
+    # than expected, showing the same instability threshold as EIS.
+    _label_smoothing = 0.1
+    _nan_skips = [0]   # mutable counter so the closure can increment it
+    class WeightedTrainer(Trainer):
+        def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+            labels = inputs.pop("labels")
+            outputs = model(**inputs)
+            logits = outputs.logits
+            # MPS-specific: certain batches produce inf/nan logits from DeBERTa's
+            # disentangled attention regardless of LR or clipping.  The HF Trainer
+            # uses a fixed seed (42) so the same batch triggers this every run.
+            # Return zero loss to skip the batch without corrupting model weights.
+            if torch.isnan(logits).any() or torch.isinf(logits).any():
+                _nan_skips[0] += 1
+                print(f"\n  [NaN skip #{_nan_skips[0]}] logits overflow on this batch — skipping.")
+                zero = torch.tensor(0.0, requires_grad=True, device=logits.device)
+                return (zero, outputs) if return_outputs else zero
+            loss_fct = torch.nn.CrossEntropyLoss(
+                weight=class_weights.to(logits.device),
+                label_smoothing=_label_smoothing,
+            )
+            loss = loss_fct(logits, labels)
+            return (loss, outputs) if return_outputs else loss
+
+    trainer = WeightedTrainer(
+        model=model,
+        args=training_args,
+        train_dataset=train_dataset,
+        eval_dataset=test_dataset,
+        data_collator=data_collator,
+        compute_metrics=compute_metrics,
+    )
+
+    import time as _time
+
+    _train_start = _time.time()
+    _epoch_start = [_train_start]
+
+    from tqdm.auto import tqdm as _tqdm
+
+    class TimingCallback(TrainerCallback):
+        def on_epoch_begin(self, args, state, control, **kwargs):
+            _epoch_start[0] = _time.time()
+
+        def on_epoch_end(self, args, state, control, **kwargs):
+            epoch_secs = _time.time() - _epoch_start[0]
+            total_secs = _time.time() - _train_start
+            epoch_num  = int(state.epoch)
+            _tqdm.write(f"  Epoch {epoch_num} done — "
+                        f"epoch: {epoch_secs/60:.1f} min  |  total so far: {total_secs/60:.1f} min")
+
+        def on_log(self, _args, _state, _control, logs=None, **kwargs):
+            # tqdm.write() prints above the progress bar without being overwritten
+            if logs:
+                _tqdm.write(str({k: round(v, 4) if isinstance(v, float) else v
+                                 for k, v in logs.items()}))
+
+    trainer.add_callback(TimingCallback())
+
+    print(f"\nTraining... ({len(train_dataset):,} train steps × {epochs} epochs)")
+    trainer.train()
+
+    total_mins = (_time.time() - _train_start) / 60
+    print(f"\nTotal training time: {total_mins:.1f} min")
+
+    # Full evaluation on test set
+    print("\n=== Evaluation ===")
+    raw_preds = trainer.predict(test_dataset)
+    preds  = np.argmax(raw_preds.predictions, axis=1)
+    labels = np.array(test_df['label_id'])
+    report = classification_report(
+        labels, preds,
+        target_names=list(label2id.keys()),
+        output_dict=True,
+        zero_division=0,
+    )
+    print(classification_report(labels, preds, target_names=list(label2id.keys()), zero_division=0))
+    (output_dir / 'evaluation_report.json').write_text(json.dumps(report, indent=2))
+
+    # Confidence calibration diagnostic
+    confidences = raw_preds.predictions.max(axis=1)
+    print("Confidence calibration by predicted class:")
+    for lbl_id, lbl_name in id2label.items():
+        mask = preds == lbl_id
+        if mask.sum() > 0:
+            pct_high = (confidences[mask] >= 0.8).mean() * 100
+            pct_low  = (confidences[mask] < 0.5).mean() * 100
+            mean_c   = confidences[mask].mean()
+            flag = "  <-- possible overconfidence" if pct_high > 80 else ""
+            print(f"  {lbl_name}: mean={mean_c:.3f}  high={pct_high:.1f}%  low={pct_low:.1f}%{flag}")
+
+    # Save model and tokenizer
+    print(f"\nSaving model to {output_dir}...")
+    trainer.save_model(str(output_dir))
+    tokenizer.save_pretrained(str(output_dir))
+
+    with open(output_dir / "label_mapping.json", 'w') as f:
+        json.dump({'label2id': label2id, 'id2label': id2label}, f)
+
+    if _device == 'mps':
+        torch.mps.empty_cache()
+
+    print("Training complete!")
+    return model, tokenizer
+
+
+class BertDateClassifier:
+    """
+    Fast BERT-based classifier for date contexts.
+
+    Usage:
+        classifier = BertDateClassifier()
+        classifier.load()
+        results = classifier.classify(["context1", "context2"])
+    """
+
+    def __init__(self, model_dir: Path = BERT_MODEL_DIR):
+        self.model_dir = model_dir
+        self.model = None
+        self.tokenizer = None
+        self.label2id = None
+        self.id2label = None
+        self.device = None
+
+    def load(self):
+        """Load the trained model."""
+        try:
+            from transformers import AutoTokenizer, AutoModelForSequenceClassification
+            import torch
+        except ImportError:
+            raise ImportError("transformers and torch required. Install with: pip install transformers torch")
+
+        if not self.model_dir.exists():
+            raise FileNotFoundError(f"Model not found at {self.model_dir}. Run --bert-train first.")
+
+        print(f"Loading BERT classifier from {self.model_dir}...")
+
+        # Tokenizer loaded from model_dir already contains BERT_PREFIX_SPECIAL_TOKENS
+        # registered during training — no need to re-add them here.
+        self.tokenizer = AutoTokenizer.from_pretrained(str(self.model_dir))
+        self.model = AutoModelForSequenceClassification.from_pretrained(str(self.model_dir))
+
+        # Load label mapping
+        import json
+        with open(self.model_dir / "label_mapping.json") as f:
+            mapping = json.load(f)
+            self.label2id = mapping['label2id']
+            self.id2label = {int(k): v for k, v in mapping['id2label'].items()}
+
+        # Set device — prefer MPS (Apple GPU) > CUDA > CPU
+        if torch.cuda.is_available():
+            self.device = torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            self.device = torch.device("mps")
+        else:
+            self.device = torch.device("cpu")
+        self.model.to(self.device)
+        self.model.eval()
+
+        print(f"Model loaded on {self.device}")
+
+    def classify(self, contexts: list, batch_size: int = 32) -> list:
+        """
+        Classify a list of contexts.
+
+        Args:
+            contexts: List of context strings
+            batch_size: Batch size for inference
+
+        Returns:
+            List of dicts with 'label' and 'confidence'
+        """
+        import torch
+
+        if self.model is None:
+            self.load()
+
+        results = []
+
+        for i in range(0, len(contexts), batch_size):
+            batch = contexts[i:i + batch_size]
+
+            # Tokenize
+            inputs = self.tokenizer(
+                batch,
+                truncation=True,
+                max_length=256,
+                padding=True,
+                return_tensors="pt",
+            ).to(self.device)
+
+            # Inference — DistilBERT does not accept token_type_ids
+            inputs = {k: v for k, v in inputs.items() if k != "token_type_ids"}
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+                probs = torch.softmax(outputs.logits, dim=1)
+                predictions = torch.argmax(probs, dim=1)
+                confidences = probs.max(dim=1).values
+
+            # Convert to results
+            for pred, conf in zip(predictions.cpu().numpy(), confidences.cpu().numpy()):
+                results.append({
+                    'label': self.id2label[int(pred)],
+                    'confidence': float(conf),
+                })
+
+        return results
+
+    def classify_single(self, context: str) -> dict:
+        """Classify a single context."""
+        return self.classify([context])[0]
+
+
+def _is_decision_boilerplate(context: str) -> bool:
+    return _has_any_regex(context, DECISION_BOILERPLATE_PATTERNS)
+
+
+def _decision_strength(context: str) -> int:
+    if not context:
+        return 0
+    # Tier 4: definitive decision section headings and EA/EIS decision documents
+    if _has_any_regex(context, [
+        r'authority and approval', r'determination and approval',
+        r'record of decision', r'finding of no significant impact', r'\bfonsi\b',
+    ]):
+        return 4
+    if _has_any_regex(context, DECISION_PATTERNS_STRONG):
+        return 3
+    if _has_any_regex(context, DECISION_PATTERNS_MED):
+        return 2
+    if _has_any_regex(context, DECISION_PATTERNS_WEAK):
+        return 1
+    if _has_any(context, DECISION_CUES):
+        return 1
+    return 0
+
+
+def _has_strong_review_cue(context: str) -> bool:
+    return (
+        _has_any_regex(context, REVIEW_PATTERNS_STRONG)
+        or _has_any_regex_case_sensitive(context, REVIEW_PATTERNS_STRONG_CASE_SENSITIVE)
+    )
+
+
+def _has_strong_decision_cue(context: str) -> bool:
+    return _has_any_regex(context, DECISION_PATTERNS_STRONG)
+
+
+def _has_reviewer_checkbox(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'yes\s+no\s+reviewer/title\s+initials\s*&\s*date',
+        r'yes\s+no\s+reviewer',
+        r'reviewer/title\s+initials\s*&\s*date',
+    ])
+
+
+def _has_specialist_cue(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'environmental coordinator',
+        r'planning & environmental coordinator',
+        r'planning and environmental coordinator',
+        r'realty specialist',
+        r'wildlife biologist',
+        r'fisheries/?wildlife biologist',
+        r'recreation (planner|specialist)',
+        r'outdoor recreation planner',
+        r'natural resource specialist',
+        r'cultural resource(s)? specialist',
+        r'botanist',
+        r'archaeologist',
+        r'archeologist',
+        r'district archaeologist',
+        r'project officer',
+    ])
+
+
+def _has_authorizing_with_signature(context: str) -> bool:
+    return _has_any_regex(context, [
+        r'authorizing official.*(signed|signature|/s/|date\s*:)',
+    ])
+
+
+def _is_expiration_candidate(date_str: str, context: str) -> bool:
+    if not date_str or not context:
+        return False
+    # Strong expiration context cues apply regardless of date
+    if _has_any_regex(context, EXPIRATION_PATTERNS_STRONG):
+        return True
+    # Future dates after 2025-12-31 are also expiration candidates
+    if date_str > "2025-12-31":
+        return True
+    return False
+
+
+def _is_historical_by_year(date_str: str) -> bool:
+    if not date_str:
+        return False
+    # Any date before 2000 is historical
+    return date_str < "2000-01-01"
+
+
+def _has_historical_context(context: str) -> bool:
+    return _has_any_regex(context, HISTORICAL_CONTEXT_PATTERNS)
+
+
+def _apply_historical_gap_rule(classified_dates: list, gap_days: int = 730, enable: bool = True) -> None:
+    """
+    Tranche-based rule:
+    Find the FIRST gap > gap_days and mark all dates before that gap as historical.
+    Uses first gap to avoid over-marking recent project dates when distant future
+    references (e.g., expiration in 2024) create a second gap.
+    """
+    if not enable:
+        return
+    if not classified_dates or len(classified_dates) < 2:
+        return
+
+    # Sort by date (ISO strings safe for lexicographic order)
+    sorted_dates = sorted(classified_dates, key=lambda x: x.get('date') or "")
+
+    # Find FIRST large gap — stops at earliest break point
+    from datetime import datetime
+    cutoff_idx = None
+    for i in range(len(sorted_dates) - 1):
+        d0 = sorted_dates[i].get('date')
+        d1 = sorted_dates[i + 1].get('date')
+        if not d0 or not d1:
+            continue
+        try:
+            dt0 = datetime.strptime(d0, "%Y-%m-%d")
+            dt1 = datetime.strptime(d1, "%Y-%m-%d")
+        except Exception:
+            continue
+        if (dt1 - dt0).days > gap_days:
+            cutoff_idx = i
+            break  # First gap wins
+
+    if cutoff_idx is None:
+        return
+
+    for j in range(cutoff_idx + 1):
+        if sorted_dates[j].get('type') != 'expiration':
+            sorted_dates[j]['type'] = 'historical'
+
+
+def _select_best_decision(decision_dates: list) -> dict:
+    if not decision_dates:
+        return None
+
+    # Decision document types: dates from ROD/FONSI docs get a boost
+    DECISION_DOC_TYPES = {'ROD', 'FONSI'}
+
+    for d in decision_dates:
+        ctx = d.get('context', '')
+        d['_decision_strength'] = _decision_strength(ctx)
+        d['_boilerplate_penalty'] = -2 if _is_decision_boilerplate(ctx) else 0
+        d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
+        d['_doc_type_boost'] = 3 if str(d.get('doc_type', '')).upper().strip() in DECISION_DOC_TYPES else 0
+        d['_score'] = d['_decision_strength'] + d['_boilerplate_penalty'] + (2 * d['_confidence']) + d['_doc_type_boost']
+
+    decision_dates.sort(key=lambda x: (x['_score'], x['date']), reverse=True)
+    best = decision_dates[0]
+
+    if len(decision_dates) > 1:
+        runner_up = decision_dates[1]
+        score_gap = abs(best['_score'] - runner_up['_score'])
+        pos_gap = abs((best.get('position_pct') or 0) - (runner_up.get('position_pct') or 0))
+
+        # Only use header/footer position when cue strength is similar but positions disagree
+        if score_gap < 0.3 and pos_gap >= 20:
+            best = max([best, runner_up], key=lambda x: x.get('position_pct') or 0)
+
+    return best
+
+
+def _initiation_strength(context: str) -> int:
+    if not context:
+        return 0
+    # Strong signals
+    if _has_any_regex(context, [r'doe initiator signature', r'initiator signature']):
+        return 3
+    if _has_any_regex(context, [r'application received', r'application submitted', r'notice of intent', r'\bnoi\b', r'scoping']):
+        return 2
+    if _has_any_regex(context, [r'right[- ]of[- ]way application', r'\brow\b application', r'proposal submitted', r'request received', r'deemed the application complete']):
+        return 2
+    if _has_any_regex(context, [r'proposed action', r'project proposed', r're-submitted', r'amended and re-submitted']):
+        return 1
+    return 0
+
+
+def _is_initiation_excluded(context: str) -> bool:
+    return _has_any_regex(context, INITIATION_EXCLUSION_PATTERNS)
+
+
+def _select_best_initiation(initiation_dates: list, decision_date: str = None,
+                             source: str = None) -> dict:
+    """
+    Select the best initiation date using cue strength, confidence, doc_type, and sanity checks.
+    """
+    if not initiation_dates:
+        return None
+
+    boost_map = _INIT_DOC_TYPE_BOOST.get(str(source or '').upper(), {})
+
+    candidates = []
+    for d in initiation_dates:
+        ctx = d.get('context', '')
+        if _is_initiation_excluded(ctx):
+            continue
+        score = _initiation_strength(ctx)
+        # Hard-reject initiation dates on or after the decision date
+        if decision_date and d.get('date') and d.get('date') >= decision_date:
+            continue
+        doc_type = str(d.get('doc_type', '')).upper().strip()
+        doc_type_boost = boost_map.get(doc_type, 0)
+        d['_init_score'] = score
+        d['_confidence'] = d.get('bert_confidence', d.get('confidence_score', 0))
+        d['_score'] = d['_init_score'] + d['_confidence'] + doc_type_boost
+        candidates.append(d)
+
+    if not candidates:
+        return None
+
+    # Prefer higher score; among equal scores take earliest date.
+    # Negate score so ascending sort gives descending score + ascending date.
+    candidates.sort(key=lambda x: (-x['_score'], x['date']))
+    best = candidates[0]
+
+    return best
+
+
+def extract_with_bert(
+    dates_with_context: list,
+    classifier: BertDateClassifier = None,
+    apply_historical_gap_rule: bool = True,
+    source: str = None,
+) -> dict:
+    """
+    Classify pre-extracted dates using BERT classifier.
+
+    This replaces the LLM call in the hybrid approach with a fast BERT inference.
+
+    Args:
+        dates_with_context: List from extract_dates_with_context()
+        classifier: Pre-loaded BertDateClassifier (optional, will load if None)
+        source: Dataset source ('CE', 'EA', 'EIS') — used for source-specific scoring
+            and doc_type boost in _select_best_initiation()
+
+    Returns:
+        Dict with classified dates and summary fields (same format as LLM approach)
+    """
+    import json
+
+    result = {
+        'approach': 'bert_classifier',
+        'dates_json': '[]',
+        'n_dates_found': len(dates_with_context),
+        'decision_date': None,
+        'decision_date_source': None,
+        'decision_confidence': None,
+        'decision_date_final': None,
+        'earliest_review_date': None,
+        'latest_review_date': None,
+        'n_review_dates': 0,
+        'n_specialist_reviews': 0,
+        'application_date': None,
+        'inferred_application_date': None,
+        'initiation_date_final': None,
+        'earliest_historical_date': None,
+        'n_historical_dates': 0,
+        'expiration_date': None,
+        'error': None,
+    }
+
+    if not dates_with_context:
+        result['error'] = 'no_dates_found_by_regex'
+        return result
+
+    # Load classifier if not provided
+    if classifier is None:
+        try:
+            classifier = BertDateClassifier()
+            classifier.load()
+        except Exception as e:
+            result['error'] = f'bert_load_error: {str(e)}'
+            return result
+
+    # Extract contexts (classification uses original; cleaned saved for review)
+    original_contexts = [d.get('context', '') for d in dates_with_context]
+    cleaned_contexts = []
+    cleaned_flags = []
+    for ctx in original_contexts:
+        cleaned, flag = _clean_context(ctx)
+        cleaned_contexts.append(cleaned)
+        cleaned_flags.append(flag)
+
+    # Apply source+doc_type+enrichment prefix for classifier input
+    if source:
+        prefixed_contexts = [
+            _add_inference_prefix(ctx, source, d.get('doc_type', ''),
+                                  section_label=d.get('section_label', ''),
+                                  sig_flag=bool(d.get('sig_flag') or d.get('ner_decision_signal')),
+                                  position_pct=d.get('position_pct'))
+            for ctx, d in zip(original_contexts, dates_with_context)
+        ]
+    else:
+        prefixed_contexts = original_contexts
+
+    # Pre-BERT triage: hard_discard / auto_classify / bert
+    triage_results = [
+        _pre_bert_triage(
+            ctx,
+            source=source,
+            section_label=d.get('section_label', ''),
+            sig_flag=bool(d.get('sig_flag') or d.get('ner_decision_signal')),
+            position_pct=d.get('position_pct'),
+        )
+        for ctx, d in zip(original_contexts, dates_with_context)
+    ]
+
+    bert_indices = [i for i, (action, _, _) in enumerate(triage_results) if action == 'bert']
+    bert_contexts = [prefixed_contexts[i] for i in bert_indices]
+
+    if bert_contexts:
+        try:
+            bert_preds = classifier.classify(bert_contexts)
+        except Exception as e:
+            result['error'] = f'bert_classify_error: {str(e)}'
+            return result
+    else:
+        bert_preds = []
+
+    # Merge triage + BERT predictions in original candidate order
+    _triage_counts = {'hard_discard': 0, 'auto_classify': 0, 'bert': 0}
+    classifications = []
+    bert_iter = iter(bert_preds)
+    for action, label, conf in triage_results:
+        _triage_counts[action] += 1
+        if action == 'bert':
+            classifications.append(next(bert_iter))
+        elif action == 'auto_classify':
+            classifications.append({'label': label, 'confidence': conf, 'triage': True})
+        else:  # hard_discard
+            classifications.append({'label': 'other', 'confidence': 0.0, 'triage': 'hard_discard'})
+
+    if any(v > 0 for v in _triage_counts.values()):
+        print(f"  Triage: hard_discard={_triage_counts['hard_discard']}  "
+              f"auto_classify={_triage_counts['auto_classify']}  "
+              f"bert={_triage_counts['bert']}")
+
+    # Build classified dates list
+    classified_dates = []
+    for date_info, classification, orig_ctx, clean_ctx, clean_flag in zip(
+        dates_with_context, classifications, original_contexts, cleaned_contexts, cleaned_flags
+    ):
+        context_text = orig_ctx
+        context_for_rules = orig_ctx
+        forced_type = None
+        if _is_decision_boilerplate(context_for_rules):
+            forced_type = 'other'
+        if _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
+            forced_type = 'initiation'
+        if _has_any_regex(context_for_rules, [r'nepa compliance officer']):
+            forced_type = 'decision'
+        label = forced_type or classification['label']
+
+        # Guardrail: strong decision cues should override 'other' classification
+        if label == 'other' and _has_strong_decision_cue(context_for_rules):
+            label = 'decision'
+
+        # Guardrail: strong decision/review cues cannot be initiation
+        if label == 'initiation':
+            if _has_strong_decision_cue(context_for_rules) and not _has_any_regex(context_for_rules, [r'initiator signature', r'\binitiator\b']):
+                label = 'decision'
+            elif _has_strong_review_cue(context_for_rules):
+                label = 'review'
+
+        # Guardrail: reviewer checkbox lines are review, not decision
+        if label == 'decision' and _has_reviewer_checkbox(context_for_rules):
+            label = 'review'
+
+        # Guardrail: specialist signature lines are review, not decision
+        if label == 'decision' and _has_any_regex(context_for_rules, [r'specialist signature', r'\bspecialist\b']):
+            label = 'review'
+
+        # Guardrail: specialist cues should be review unless strong decision cues exist
+        if label == 'decision':
+            has_strong_decision = _has_strong_decision_cue(context_for_rules) or _has_any_regex(
+                context_for_rules, [r'nepa compliance officer']
+            ) or _has_authorizing_with_signature(context_for_rules)
+            if _has_specialist_cue(context_for_rules) and not has_strong_decision:
+                label = 'review'
+
+        # Guardrail: strong review cues should override decision unless strong decision cues exist
+        if label == 'decision':
+            has_strong_decision = _has_strong_decision_cue(context_for_rules) or _has_any_regex(
+                context_for_rules, [r'nepa compliance officer']
+            ) or _has_authorizing_with_signature(context_for_rules)
+            if _has_strong_review_cue(context_for_rules) and not has_strong_decision:
+                label = 'review'
+
+        # Bucket future expiration dates (post-2025-12-31)
+        if _is_expiration_candidate(date_info.get('date'), context_for_rules):
+            label = 'expiration'
+
+        # Bucket historical dates (< 2000)
+        # But don't override strong EA/EIS decision cues (FONSI, ROD, Decision Record)
+        has_ea_eis_decision_cue = _has_any_regex(context_for_rules, [
+            r'finding of no significant impact',
+            r'\bfonsi\b',
+            r'record of decision',
+            r'\brod\b',
+            r'decision record',
+            r'decision memo',
+        ])
+        if not has_ea_eis_decision_cue:
+            if _is_historical_by_year(date_info.get('date')):
+                label = 'historical'
+            elif _has_historical_context(context_for_rules):
+                label = 'historical'
+
+        # Post-BERT override: force decision for strong EA/EIS decision language
+        # BERT was trained on CE data and doesn't recognize FONSI/ROD as decision cues
+        if has_ea_eis_decision_cue and label not in ('decision', 'expiration'):
+            label = 'decision'
+
+        classified_dates.append({
+            'date': date_info['date'],
+            'type': label,
+            'source': context_text,
+            'context': context_text,
+            'context_cleaned': clean_ctx,
+            'context_cleaned_flag': clean_flag,
+            'confidence': ('high' if classification['confidence'] >= 0.8
+                           else 'medium' if classification['confidence'] >= 0.5
+                           else 'low'),
+            'bert_confidence': classification['confidence'],
+            'position_pct': date_info.get('position_pct'),
+            'doc_type': date_info.get('doc_type', ''),
+            'section_label': date_info.get('section_label', ''),
+            'triage_classified': classification.get('triage', False),
+        })
+
+    # Context-level dedupe: keep highest-confidence entry per (date, type)
+    deduped = {}
+    for d in classified_dates:
+        key = (d['date'], d['type'])
+        score = d.get('bert_confidence', 0)
+        if key not in deduped or score > deduped[key].get('bert_confidence', 0):
+            deduped[key] = d
+    classified_dates = list(deduped.values())
+
+    # Historical gap rule (after dedupe)
+    _apply_historical_gap_rule(classified_dates, gap_days=730, enable=apply_historical_gap_rule)
+
+    output_dates = [
+        {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty', '_confidence', '_score', '_doc_type_boost')}
+        for d in classified_dates
+    ]
+    result['n_dates_found'] = len(classified_dates)
+
+    # Extract summary fields
+    decision_dates = [d for d in classified_dates if d['type'] == 'decision']
+    initiation_dates = [d for d in classified_dates if d['type'] == 'initiation']
+    review_dates = [d for d in classified_dates if d['type'] == 'review']
+    expiration_dates = [d for d in classified_dates if d['type'] == 'expiration']
+    historical_dates = [d for d in classified_dates if d['type'] == 'historical']
+
+    # If no decision cues exist anywhere, treat memo DATE lines as review
+    has_decision_cues = any(
+        _has_any(d.get('context', ''), DECISION_CUES) or _has_any_regex(d.get('context', ''), DECISION_PATTERNS_STRONG)
+        for d in classified_dates
+    )
+    if not has_decision_cues:
+        for d in classified_dates:
+            if d['type'] == 'other' and _has_any_regex(d.get('context', ''), MEMO_DATE_PATTERNS):
+                d['type'] = 'review'
+
+        review_dates = [d for d in classified_dates if d['type'] == 'review']
+
+    # Decision date (cue strength, then confidence, then date)
+    if decision_dates:
+        best = _select_best_decision(decision_dates)
+        if best:
+            result['decision_date'] = best['date']
+            result['decision_date_source'] = best['source']
+            result['decision_confidence'] = best['confidence']
+            result['decision_date_final'] = best['date']
+
+    # Review dates
+    if review_dates:
+        review_dates.sort(key=lambda x: x['date'])
+        result['earliest_review_date'] = review_dates[0]['date']
+        result['latest_review_date'] = review_dates[-1]['date']
+        result['n_review_dates'] = len(review_dates)
+
+    # Initiation/application date — run through _select_best_initiation first
+    # so that application_date also respects the decision-date filter
+    if initiation_dates:
+        best_init = _select_best_initiation(initiation_dates, decision_date=result['decision_date'], source=source)
+        if best_init:
+            result['application_date'] = best_init['date']
+            result['inferred_application_date'] = best_init['date']
+            result['initiation_date_final'] = best_init['date']
+        elif review_dates:
+            # All initiation candidates rejected (e.g., all on/after decision)
+            result['inferred_application_date'] = result['earliest_review_date']
+            result['initiation_date_final'] = result['earliest_review_date']
+    elif review_dates:
+        result['inferred_application_date'] = result['earliest_review_date']
+        result['initiation_date_final'] = result['earliest_review_date']
+
+    # Expiration date (earliest)
+    if expiration_dates:
+        expiration_dates.sort(key=lambda x: x['date'])
+        result['expiration_date'] = expiration_dates[0]['date']
+
+    # Historical date (earliest + count)
+    if historical_dates:
+        historical_dates.sort(key=lambda x: x['date'])
+        result['earliest_historical_date'] = historical_dates[0]['date']
+        result['n_historical_dates'] = len(historical_dates)
+
+    # Mark final picks on existing rows; only add rows if missing
+    def _mark_final(date_str: str, target_type: str, imputed: bool, source: str = None):
+        if not date_str:
+            return
+        matched = False
+        for d in output_dates:
+            if d.get('date') == date_str:
+                # Keep original type but mark as final; also normalize to target_type
+                d['type'] = target_type
+                d['final_flag'] = True
+                d['final_imputed'] = imputed
+                matched = True
+        if not matched:
+            output_dates.append({
+                'date': date_str,
+                'type': target_type,
+                'source': source,
+                'final_flag': True,
+                'final_imputed': imputed,
+            })
+
+    _mark_final(
+        result.get('decision_date_final'),
+        'decision',
+        False,
+        result.get('decision_date_source'),
+    )
+    _mark_final(
+        result.get('initiation_date_final'),
+        'initiation',
+        bool(not initiation_dates and review_dates),
+        None,
+    )
+    result['dates_json'] = json.dumps(output_dates)
+
+    return result
+
+
+def run_bert_timeline_extraction(
+    sample_size: int = None,
+    sources: list = None,
+    clean_energy_only: bool = False,
+    main_docs_only: bool = True,
+    output_file: str = None,
+    use_regex_cache: bool = True,
+    workers: int = 4,
+):
+    """
+    Run BERT-based timeline extraction.
+
+    Much faster than LLM approach (~50-100x speedup).
+    Supports CE, EA, and EIS projects via the sources parameter.
+
+    Args:
+        sample_size: If set, only process this many projects
+        sources: List of dataset sources to process (default: ['CE'])
+        clean_energy_only: If True, only process clean energy projects
+        output_file: Custom output filename
+        use_regex_cache: Use precomputed regex cache (recommended)
+        workers: Number of parallel workers (less important for BERT)
+    """
+    import time
+
+    if sources is None:
+        sources = ['CE']
+
+    print("\n=== BERT Timeline Extraction ===")
+    print(f"Sources: {', '.join(sources)}")
+
+    # Load source-specific classifiers (fall back to combined model if not found)
+    classifiers = {}
+    for src in sources:
+        model_dir = _resolve_bert_model_dir(src)
+        try:
+            clf = BertDateClassifier(model_dir=model_dir)
+            clf.load()
+            classifiers[src] = clf
+            print(f"  Loaded classifier for {src} from {model_dir}")
+        except Exception as e:
+            print(f"ERROR: Could not load BERT classifier for {src}: {e}")
+            print(f"Run --bert-train --source {src} (or --bert-train for combined) first.")
+            return None
+
+    # Load projects
+    projects = _load_projects_combined()
+    if projects is None:
+        return None
+    _warn_if_clean_energy_count_off(projects, sources=sources)
+    print(f"Loaded {len(projects):,} projects")
+
+    # Filter by dataset source
+    projects = projects[projects['dataset_source'].isin(sources)]
+    print(f"Filtered to {len(projects):,} projects in {', '.join(sources)}")
+
+    if clean_energy_only:
+        projects = projects[projects['project_energy_type'] == 'Clean']
+        print(f"Filtered to {len(projects):,} clean energy projects")
+
+    if sample_size:
+        projects = projects.sample(n=min(sample_size, len(projects)), random_state=42)
+        print(f"Sampled {len(projects):,} projects")
+
+    if projects.empty:
+        print("No projects to process.")
+        return None
+
+    # Load documents for filename date extraction (all requested sources)
+    file_name_dates_map = {}
+    file_name_bounds_map = {}
+    for source in sources:
+        data_dir = PROCESSED_DIR / source.lower()
+        documents_df = pd.read_parquet(data_dir / "documents.parquet")
+
+        def extract_id(x):
+            if isinstance(x, dict):
+                return x.get('value', '')
+            return x
+
+        documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+
+        # For EA/EIS: build main-only map first, then fill gaps with all-docs fallback
+        source_map = build_file_name_date_map(documents_df, main_docs_only=main_docs_only)
+        source_bounds = _build_project_filename_bounds_map(documents_df, main_docs_only=main_docs_only)
+
+        if main_docs_only and source in ('EA', 'EIS'):
+            # Fallback: projects with no main docs get filename dates from all docs
+            all_map = build_file_name_date_map(documents_df, main_docs_only=False)
+            all_bounds = _build_project_filename_bounds_map(documents_df, main_docs_only=False)
+            for pid in all_map:
+                if pid not in source_map:
+                    source_map[pid] = all_map[pid]
+            for pid in all_bounds:
+                if pid not in source_bounds:
+                    source_bounds[pid] = all_bounds[pid]
+
+        file_name_dates_map.update(source_map)
+        file_name_bounds_map.update(source_bounds)
+    print(f"Built filename date map: {len(file_name_dates_map):,} projects")
+
+    # Load regex cache (per-source with legacy fallback)
+    if use_regex_cache:
+        cache_dfs = []
+        for source in sources:
+            cache_path = _regex_cache_path(source)
+            if not cache_path.exists():
+                # Fallback: try legacy single-file cache for CE
+                if source == 'CE' and REGEX_CACHE_PATH.exists():
+                    cache_path = REGEX_CACHE_PATH
+                else:
+                    print(f"Regex cache not found for {source} at {cache_path}.")
+                    print(f"Run --regex-prep --source {source} first.")
+                    return None
+            source_cache = pd.read_parquet(cache_path)
+            print(f"Loaded {source} regex cache: {len(source_cache):,} rows")
+            cache_dfs.append(source_cache)
+        regex_cache_df = pd.concat(cache_dfs, ignore_index=True)
+        print(f"Total regex cache: {len(regex_cache_df):,} rows")
+    else:
+        print("ERROR: BERT approach requires regex cache. Run --regex-prep first.")
+        return None
+
+    # Build set of imputed project IDs from regex cache
+    imputed_project_ids = set()
+    if 'main_document_imputed' in regex_cache_df.columns:
+        imputed_rows = regex_cache_df[regex_cache_df['main_document_imputed'] == True]
+        imputed_project_ids = set(imputed_rows['project_id'].unique())
+        if imputed_project_ids:
+            print(f"Projects using non-main document fallback: {len(imputed_project_ids)}")
+
+    # Process projects
+    results = []
+    total = len(projects)
+    start_time = time.time()
+
+    print(f"\nProcessing {total} projects with BERT...")
+
+    for idx, (_, project) in enumerate(projects.iterrows(), 1):
+        project_id = project['project_id']
+
+        # Get cached dates for this project
+        project_dates = regex_cache_df[regex_cache_df['project_id'] == project_id]
+        cache_cols = ['date', 'match', 'context', 'position', 'position_pct']
+        if 'doc_type' in project_dates.columns:
+            cache_cols.append('doc_type')
+        dates_with_context = project_dates[cache_cols].to_dict(orient='records')
+
+        # Classify with BERT (apply historical gap rule per source config)
+        project_source = str(project.get('dataset_source', 'CE')).upper()
+        source_cfg = SOURCE_CONFIG.get(project_source, SOURCE_CONFIG['CE'])
+        apply_gap_rule = source_cfg.get('apply_gap_rule', True)
+        classifier = classifiers.get(project_source, next(iter(classifiers.values())))
+        bert_result = extract_with_bert(
+            dates_with_context,
+            classifier,
+            apply_historical_gap_rule=apply_gap_rule,
+            source=project_source,
+        )
+
+        # NOI metadata as initiation fallback
+        noi_date = project.get('noi_publication_date')
+        if noi_date and pd.notna(noi_date):
+            noi_date_str = str(noi_date)[:10]  # YYYY-MM-DD
+            if not bert_result.get('application_date') and not bert_result.get('inferred_application_date'):
+                bert_result['inferred_application_date'] = noi_date_str
+                bert_result['initiation_date_final'] = noi_date_str
+
+        # Compute timeline_status
+        if bert_result.get('decision_date') and bert_result.get('initiation_date_final'):
+            timeline_status = 'complete'
+        elif bert_result.get('decision_date'):
+            timeline_status = 'missing_initiation'
+        elif bert_result.get('initiation_date_final'):
+            timeline_status = 'missing_decision'
+        else:
+            timeline_status = 'no_dates'
+
+        # Build result row
+        result = {
+            'project_id': project_id,
+            'bert_dates_json': bert_result.get('dates_json', '[]'),
+            'bert_n_dates_found': bert_result.get('n_dates_found', 0),
+            'bert_decision_date': bert_result.get('decision_date'),
+            'bert_decision_date_source': bert_result.get('decision_date_source'),
+            'bert_decision_confidence': bert_result.get('decision_confidence'),
+            'bert_decision_date_final': bert_result.get('decision_date_final'),
+            'bert_earliest_review_date': bert_result.get('earliest_review_date'),
+            'bert_latest_review_date': bert_result.get('latest_review_date'),
+            'bert_n_review_dates': bert_result.get('n_review_dates', 0),
+            'bert_application_date': bert_result.get('application_date'),
+            'bert_inferred_application_date': bert_result.get('inferred_application_date'),
+            'bert_initiation_date_final': bert_result.get('initiation_date_final'),
+            'bert_timeline_status': timeline_status,
+            'bert_error': bert_result.get('error'),
+            'project_file_name_dates': file_name_dates_map.get(project_id, '[]'),
+            'project_date_earliest_file_name': file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name'),
+            'project_date_latest_file_name': file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name'),
+            'main_document_imputed': project_id in imputed_project_ids,
+        }
+        results.append(result)
+
+        if idx % 100 == 0:
+            elapsed = time.time() - start_time
+            rate = idx / elapsed
+            remaining = (total - idx) / rate if rate > 0 else 0
+            print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining:.0f}s remaining")
+
+    elapsed_total = time.time() - start_time
+    print(f"\nCompleted {total} projects in {elapsed_total:.1f}s")
+    print(f"Average: {elapsed_total/total*1000:.1f}ms/project")
+
+    # Create results dataframe
+    results_df = pd.DataFrame(results)
+    results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+    projects_with_bert = projects.merge(results_df, on='project_id', how='left')
+
+    # Save
+    if output_file:
+        p = Path(output_file)
+        output_path = p if p.is_absolute() or len(p.parts) > 1 else PHASE2_DATA_DIR / p
+    else:
+        # Default: timeline_{source}.parquet (source-aware), e.g. timeline_ce.parquet
+        src_label = sources[0].lower() if len(sources) == 1 else "all"
+        output_path = PHASE2_DATA_DIR / f"timeline_{src_label}.parquet"
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    projects_with_bert.to_parquet(output_path)
+    print(f"\nSaved to: {output_path}")
+
+    # Summary (per source + total)
+    has_decision = projects_with_bert['bert_decision_date'].notna()
+    has_application = projects_with_bert['bert_application_date'].notna()
+    has_error = projects_with_bert['bert_error'].notna()
+
+    print(f"\n=== Results Summary ===")
+    print(f"Projects with decision date: {has_decision.sum():,} ({100*has_decision.mean():.1f}%)")
+    print(f"Projects with application date: {has_application.sum():,} ({100*has_application.mean():.1f}%)")
+    print(f"Projects with errors: {has_error.sum():,} ({100*has_error.mean():.1f}%)")
+
+    if len(sources) > 1:
+        print(f"\n--- Per-source breakdown ---")
+        for source in sources:
+            mask = projects_with_bert['dataset_source'] == source
+            n = mask.sum()
+            if n == 0:
+                continue
+            n_dec = (mask & has_decision).sum()
+            n_app = (mask & has_application).sum()
+            print(f"  {source}: {n:,} projects, {n_dec:,} decisions ({100*n_dec/n:.1f}%), {n_app:,} initiations ({100*n_app/n:.1f}%)")
+
+    # Timeline status summary
+    if 'bert_timeline_status' in projects_with_bert.columns:
+        print(f"\n--- Timeline Status ---")
+        print(projects_with_bert['bert_timeline_status'].value_counts().to_string())
+
+    return projects_with_bert
+
+
+# --------------------------
+# HYBRID REGEX + LLM APPROACH
+# --------------------------
+
+# Hybrid cue lists (over-inclusive by design)
+DECISION_CUES = [
+    'signed', 'signature', 'digitally signed', 'approved', 'approval',
+    'determination', 'decision', 'decision memorandum', 'final approval',
+    'authorizing official', 'field manager', 'field office manager',
+    'field office manager determination', 'nepa compliance officer',
+    'environmental coordinator', 'concur', 'date determined',
+    'record of decision', 'rod', 'joint record of decision',
+    'selected alternative', 'decision to implement',
+]
+
+INITIATION_CUES = [
+    'initiated', 'initiate', 'consultation', 'consulted', 'scoping',
+    'notice of intent', 'noi', 'submitted', 'submission', 'application received',
+    'received', 'request received', 'proposal submitted', 'prepared and submitted',
+    'comment period', '30-day comment period', 'request for', 'right-of-way application',
+    'row application', 'right of way application',
+    'document creation', 'date created', 'date prepared', 'prepared', 'drafted',
+    'revised', 'intent to prepare an environmental impact statement',
+    'noi published', 'federal register', 'scoping notice',
+]
+
+REVIEW_CUES = [
+    'review completed', 'interim', 'phase', 'decision in principle',
+    'review memo', 'review memorandum', 'reviewed by', 'nepa review',
+]
+
+# Strong exclusions (keep tight to avoid discarding useful start/creation dates)
+EXCLUSION_PATTERNS = [
+    r'\b\d+\s*FR\s*\d+\b',          # Federal Register citations
+    r'\b\d+\s*CFR\s*\d+\b',         # CFR citations
+    r'\b\d+\s*U\.?S\.?C\.?\b',      # USC citations
+    r'\bFederal Register\b',
+    r'https?://',
+    r'\bOMB Control\b',
+    r'\bPaperwork Reduction\b',
+]
+
+
+def _sentence_spans(text: str) -> list:
+    """
+    Split text into sentence-like spans with start/end indices.
+    Uses punctuation and line breaks as boundaries.
+    """
+    spans = []
+    for m in re.finditer(r'.*?(?:[.!?]+|\n{2,}|\n|$)', text, flags=re.DOTALL):
+        s = m.group(0)
+        if s and s.strip():
+            spans.append((m.start(), m.end(), s.strip()))
+    return spans
+
+
+def _expand_context(spans: list, idx: int, min_chars: int = 100) -> str:
+    """
+    Expand context to meet a minimum character length using adjacent sentences.
+    """
+    if not spans:
+        return ''
+    start_idx = end_idx = idx
+    context = spans[idx][2]
+    while len(context) < min_chars and (start_idx > 0 or end_idx < len(spans) - 1):
+        if start_idx > 0:
+            start_idx -= 1
+            context = f"{spans[start_idx][2]} {context}"
+        if len(context) >= min_chars:
+            break
+        if end_idx < len(spans) - 1:
+            end_idx += 1
+            context = f"{context} {spans[end_idx][2]}"
+    return re.sub(r'\s+', ' ', context).strip()
+
+
+def _has_any(text: str, cues: list) -> bool:
+    text_lower = text.lower()
+    return any(cue in text_lower for cue in cues)
+
+def _has_any_regex(text: str, patterns: list) -> bool:
+    text_lower = text.lower()
+    return any(re.search(pattern, text_lower) for pattern in patterns)
+
+
+def _has_any_regex_case_sensitive(text: str, patterns: list) -> bool:
+    return any(re.search(pattern, text) for pattern in patterns)
+
+def _min_context_chars_for_sentence(sent_text: str) -> int:
+    # Use tighter context for strong signature cues; expand for weaker review/initiation cues.
+    if _has_any_regex(sent_text, DECISION_PATTERNS_STRONG):
+        return 60
+    if _has_any(sent_text, INITIATION_CUES):
+        return 140
+    if _has_any(sent_text, REVIEW_CUES):
+        return 160
+    return 100
+
+
+def _is_signature_block(context: str) -> bool:
+    """
+    Return True if context appears to be an authoritative role-title signature block.
+    Requires a role indicator — 'date:' alone fires on all CE form fields and is too broad
+    (was triggering on ~48% of CE candidates).
+    """
+    return _has_any_regex(context, [
+        r'/s/\s*\w+',                               # Electronic signature: /s/ Name
+        r'\bsigned\b.*\bdate\b',                    # "Signed ... Date"
+        r'(?:doe|nepa|bpa|agency)\s+initiator',     # CE form role titles
+        r'authoriz\w+\s+official',                  # "Authorizing Official"
+        r'nepa\s+compliance\s+officer',
+        r'field\s+(?:office\s+)?manager',
+        r'environmental\s+coordinator',
+        r'reviewing\s+official',
+    ])
+
+
+def _expand_for_decision_cues(spans: list, sent_idx: int, context: str) -> str:
+    """
+    If a date is near boilerplate text but an adjacent sentence has decision cues,
+    merge the adjacent sentence to capture the signature context.
+    """
+    if not spans or sent_idx is None:
+        return context
+    if not _is_decision_boilerplate(context) and not _is_signature_block(context):
+        return context
+
+    merged = context
+
+    def _should_pull(sent: str) -> bool:
+        if not sent:
+            return False
+        return _has_any_regex(
+            sent,
+            [
+                r'initiator signature',
+                r'nepa compliance officer',
+                r'concur',
+                r'authorizing official',
+                r'field manager',
+            ],
+        )
+
+    # Pull adjacent lines with decision cues
+    if sent_idx + 1 < len(spans):
+        next_sent = spans[sent_idx + 1][2]
+        if _has_any(next_sent, DECISION_CUES) or _has_any_regex(next_sent, DECISION_PATTERNS_STRONG):
+            merged = f"{merged} {next_sent}"
+        elif _should_pull(next_sent):
+            merged = f"{merged} {next_sent}"
+    if sent_idx - 1 >= 0:
+        prev_sent = spans[sent_idx - 1][2]
+        if _has_any(prev_sent, DECISION_CUES) or _has_any_regex(prev_sent, DECISION_PATTERNS_STRONG):
+            merged = f"{prev_sent} {merged}"
+        elif _should_pull(prev_sent):
+            merged = f"{prev_sent} {merged}"
+
+    # Pull up to two prior lines if this looks like a signature/date block
+    if _is_signature_block(context) and sent_idx - 2 >= 0:
+        prev2 = spans[sent_idx - 2][2]
+        if _should_pull(prev2):
+            merged = f"{prev2} {merged}"
+
+    return re.sub(r'\\s+', ' ', merged).strip()
+
+
+def _clean_context(context: str) -> tuple:
+    """
+    Strip boilerplate lines from context while preserving original text.
+    Returns (cleaned_text, cleaned_flag).
+    """
+    if not context:
+        return "", False
+
+    original = context
+    # Line-level removal for robust boilerplate stripping
+    lines = re.split(r'[\\n\\r]+', original)
+    cleaned_lines = []
+    for line in lines:
+        line_stripped = line.strip()
+        if not line_stripped:
+            continue
+        # If the Recovery Act clause is on the same line as a signature,
+        # drop only the clause and keep the signature tail.
+        if re.search(r'Recovery Act', line_stripped, flags=re.IGNORECASE):
+            if re.search(r'Approved by|NEPA Compliance Officer|Authorizing Official|Field Office Manager|Signature|Signed by', line_stripped, flags=re.IGNORECASE):
+                split = re.split(r'Recovery Act\\)?\\s*', line_stripped, flags=re.IGNORECASE, maxsplit=1)
+                if len(split) > 1 and split[1].strip():
+                    line_stripped = split[1].strip()
+                else:
+                    continue
+            else:
+                continue
+        if re.search(r'\\bDOE F \\d+[\\w\\.\\-]*', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'\\bNETL F \\d+[\\w\\.\\-]*', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'Previous Editions Obsolete', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'Electronic Form Approved by Forms Mgmt\\.', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'Paperwork Reduction Act', line_stripped, flags=re.IGNORECASE):
+            continue
+        if re.search(r'OMB Control', line_stripped, flags=re.IGNORECASE):
+            continue
+        cleaned_lines.append(line_stripped)
+
+    cleaned = ' '.join(cleaned_lines)
+    cleaned = re.sub(r'\\s+', ' ', cleaned).strip()
+    return cleaned, cleaned != original
+
+
+def _is_excluded_context(text: str) -> bool:
+    for pattern in EXCLUSION_PATTERNS:
+        if re.search(pattern, text, flags=re.IGNORECASE):
+            return True
+    return False
+
+
+def extract_dates_with_context(
+    text: str,
+    context_window: int = DATE_CONTEXT_WINDOW,
+    min_context_chars: int = 80,
+    keep_all_candidates: bool = False,
+    dedupe_by_date: bool = True,
+) -> list:
+    """
+    Extract candidate dates from text using regex, with sentence-based context.
+
+    This is the first step of the hybrid approach:
+    1. Regex finds all dates (fast, reliable)
+    2. Context is captured for LLM classification (sentence-based, expanded if short)
+    3. Only initiation/decision candidates are kept
+
+    Args:
+        text: Full document text
+        context_window: Fallback window if sentence detection fails
+        min_context_chars: Minimum context length (expand with adjacent sentences)
+
+    Returns:
+        List of dicts: [{'date': 'YYYY-MM-DD', 'match': '01/15/2024', 'context': '...'}, ...]
+    """
+    results = []
+    seen_dates = set()
+    seen_contexts = set()
+
+    # Build sentence spans once for context extraction
+    spans = _sentence_spans(text)
+
+    # Map sentence index to date matches
+    sentence_matches = [[] for _ in spans]
+
+    for pattern, pattern_type in DATE_PATTERNS:
+        for match in re.finditer(pattern, text, re.IGNORECASE):
+            date_obj = parse_date_match(match, pattern_type)
+
+            if date_obj is None:
+                continue
+
+            # Filter to reasonable year range (but allow historical for classification)
+            if date_obj.year < 1950 or date_obj.year > 2030:
+                continue
+
+            # Skip obvious law/statute years
+            if should_exclude_date(text, match.start(), match.end(), window=30):
+                continue
+
+            date_str = date_obj.strftime('%Y-%m-%d')
+
+            # Find sentence index containing this match
+            sent_idx = None
+            for i, (s_start, s_end, _) in enumerate(spans):
+                if s_start <= match.start() < s_end:
+                    sent_idx = i
+                    break
+
+            if sent_idx is None:
+                # Fallback to window if no sentence found
+                start = max(0, match.start() - context_window)
+                end = min(len(text), match.end() + context_window)
+                context = re.sub(r'\s+', ' ', text[start:end]).strip()
+            else:
+                min_chars = max(min_context_chars, _min_context_chars_for_sentence(spans[sent_idx][2]))
+                context = _expand_context(spans, sent_idx, min_chars=min_chars)
+                context = _expand_for_decision_cues(spans, sent_idx, context)
+
+            # Exclusion filters (FR/CFR/USC/URLs/OMB)
+            if _is_excluded_context(context):
+                continue
+
+            sentence_matches[sent_idx].append({
+                'date_str': date_str,
+                'match': match.group(),
+                'position': match.start(),
+            })
+
+            # Candidate filter: keep if context has decision/initiation/review cues
+            if not keep_all_candidates:
+                if not (_has_any(context, DECISION_CUES)
+                        or _has_any(context, INITIATION_CUES)
+                        or _has_any(context, REVIEW_CUES)):
+                    continue
+
+            # Deduplicate by context to avoid duplicate signature sentences
+            context_key = re.sub(r'\s+', ' ', context).strip().lower()
+            if context_key in seen_contexts:
+                continue
+
+            # Deduplicate by date string (optional)
+            if dedupe_by_date:
+                if date_str in seen_dates:
+                    continue
+                seen_dates.add(date_str)
+            seen_contexts.add(context_key)
+
+            results.append({
+                'date': date_str,
+                'match': match.group(),
+                'context': context,
+                'position': match.start(),
+                'position_pct': match.start() / len(text) * 100 if len(text) > 0 else 0,
+            })
+
+    # Link initiation cue in sentence without date to date in next sentence
+    for i, (_, _, sent_text) in enumerate(spans):
+        if not sent_text:
+            continue
+        if not _has_any(sent_text, INITIATION_CUES):
+            continue
+        if sentence_matches[i]:
+            continue  # already has dates in this sentence
+        if i + 1 >= len(spans):
+            continue
+        if not sentence_matches[i + 1]:
+            continue
+
+        # Combine initiation sentence with next sentence context
+        combined = f"{sent_text} {spans[i + 1][2]}"
+        combined = re.sub(r'\s+', ' ', combined).strip()
+        if _is_excluded_context(combined):
+            continue
+        combined_key = combined.lower()
+
+        for m in sentence_matches[i + 1]:
+            if m['date_str'] in seen_dates:
+                continue
+            if combined_key in seen_contexts:
+                continue
+            seen_dates.add(m['date_str'])
+            seen_contexts.add(combined_key)
+            results.append({
+                'date': m['date_str'],
+                'match': m['match'],
+                'context': combined,
+                'position': m['position'],
+                'position_pct': m['position'] / len(text) * 100 if len(text) > 0 else 0,
+            })
+
+    # Sort by date
+    results.sort(key=lambda x: x['date'])
+
+    return results
+
+
+def create_classification_prompt(dates_with_context: list) -> str:
+    """
+    Create a streamlined prompt for LLM to classify pre-extracted dates.
+
+    This is much shorter than the full-document prompt because:
+    - Dates are already found by regex
+    - LLM only needs to classify based on context
+
+    Args:
+        dates_with_context: List from extract_dates_with_context()
+
+    Returns:
+        Prompt string for LLM
+    """
+    if not dates_with_context:
+        return ""
+
+    lines = [
+        "Classify each date extracted from a NEPA Categorical Exclusion document.",
+        "",
+        "Only classify the following date types:",
+        "- decision: Final approval signature (Field Manager, NEPA Compliance Officer, Authorizing Official)",
+        "- initiation: Start of the review or consultation (e.g., initiated consultation, application received, NOI, scoping)",
+        "- review: Interim review or phase approval (not final decision, not initiation)",
+        "- other: Anything else",
+        "",
+        "DATES TO CLASSIFY:",
+        ""
+    ]
+
+    for i, d in enumerate(dates_with_context, 1):
+        lines.append(f'{i}. {d["match"]} ({d["date"]})')
+        lines.append(f'   Context: "...{d["context"]}..."')
+        lines.append("")
+
+    lines.extend([
+        "Return JSON only:",
+        '{"classifications": [',
+        '  {"date": "YYYY-MM-DD", "type": "decision|initiation|review|other", "reason": "brief explanation"},',
+        '  ...',
+        ']}'
+    ])
+
+    return "\n".join(lines)
+
+
+def parse_classification_response(response_text: str, dates_with_context: list) -> dict:
+    """
+    Parse the LLM classification response.
+
+    Args:
+        response_text: Raw LLM response
+        dates_with_context: Original dates list (for fallback)
+
+    Returns:
+        Dict with classified dates and summary fields
+    """
+    import json
+
+    result = {
+        'dates_json': '[]',
+        'n_dates_found': len(dates_with_context),
+        'decision_date': None,
+        'decision_date_source': None,
+        'decision_confidence': None,
+        'earliest_review_date': None,
+        'latest_review_date': None,
+        'n_review_dates': 0,
+        'application_date': None,
+        'inferred_application_date': None,
+        'earliest_historical_date': None,
+        'n_historical_dates': 0,
+        'expiration_date': None,
+        'parse_error': None,
+        'raw_response': response_text[:500] if response_text else None,
+    }
+
+    if not response_text:
+        result['parse_error'] = 'empty_response'
+        return result
+
+    try:
+        # Find JSON in response
+        json_match = re.search(r'\{[^{}]*"classifications"\s*:\s*\[[^\]]*\][^{}]*\}', response_text, re.DOTALL)
+        if not json_match:
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+
+        if json_match:
+            parsed = json.loads(json_match.group())
+            classifications = parsed.get('classifications', [])
+
+            # Build classified dates list
+            context_map = {}
+            for orig in dates_with_context:
+                if orig.get('date') not in context_map:
+                    context_map[orig.get('date')] = {
+                        'context': orig.get('context', ''),
+                        'position_pct': orig.get('position_pct'),
+                    }
+
+            classified_dates = []
+            for c in classifications:
+                if not isinstance(c, dict):
+                    continue
+
+                date_str = normalize_date_string(c.get('date'))
+                if date_str:
+                    ctx_info = context_map.get(date_str, {})
+                    classified_dates.append({
+                        'date': date_str,
+                        'type': c.get('type', 'other'),
+                        'source': str(c.get('reason', ''))[:200],
+                        'context': ctx_info.get('context', ''),
+                        'position_pct': ctx_info.get('position_pct'),
+                        'confidence': 'high',  # LLM classified it
+                        'confidence_score': 1.0,
+                    })
+
+            # If LLM didn't return all dates, add unclassified ones
+            classified_date_strs = {d['date'] for d in classified_dates}
+            for orig in dates_with_context:
+                if orig['date'] not in classified_date_strs:
+                    classified_dates.append({
+                        'date': orig['date'],
+                        'type': 'other',
+                        'source': 'not classified by LLM',
+                        'context': orig.get('context', ''),
+                        'position_pct': orig.get('position_pct'),
+                        'confidence': 'low',
+                        'confidence_score': 0.2,
+                    })
+
+            output_dates = [
+                {k: v for k, v in d.items() if k not in ('context', '_decision_strength', '_boilerplate_penalty',
+                                                        '_confidence', '_score')}
+                for d in classified_dates
+            ]
+            result['dates_json'] = json.dumps(output_dates)
+            result['n_dates_found'] = len(classified_dates)
+
+            # Extract summary fields by type (hybrid focuses on decision/initiation)
+            decision_dates = [d for d in classified_dates if d['type'] == 'decision']
+            initiation_types = {'initiation', 'application', 'start'}
+            application_dates = [d for d in classified_dates if d['type'] in initiation_types]
+            review_types = {'review', 'specialist_review'}
+            review_dates = [d for d in classified_dates if d['type'] in review_types]
+            historical_dates = [d for d in classified_dates if d['type'] == 'historical']
+            expiration_dates = [d for d in classified_dates if d['type'] == 'expiration']
+
+            # Decision date (cue strength, then confidence, then date)
+            if decision_dates:
+                best = _select_best_decision(decision_dates)
+                if best:
+                    result['decision_date'] = best['date']
+                    result['decision_date_source'] = best['source']
+                    result['decision_confidence'] = best['confidence']
+
+            # Review dates
+            if review_dates:
+                review_dates.sort(key=lambda x: x['date'])
+                result['earliest_review_date'] = review_dates[0]['date']
+                result['latest_review_date'] = review_dates[-1]['date']
+                result['n_review_dates'] = len(review_dates)
+                result['n_specialist_reviews'] = len(review_dates)
+
+            # Initiation/application date
+            if application_dates:
+                application_dates.sort(key=lambda x: x['date'])
+                result['application_date'] = application_dates[0]['date']
+
+            # Inferred application date
+            if result['earliest_review_date'] and not result['application_date']:
+                result['inferred_application_date'] = result['earliest_review_date']
+            elif result['application_date']:
+                result['inferred_application_date'] = result['application_date']
+
+            # Historical dates
+            if historical_dates:
+                historical_dates.sort(key=lambda x: x['date'])
+                result['earliest_historical_date'] = historical_dates[0]['date']
+                result['n_historical_dates'] = len(historical_dates)
+
+            # Expiration date
+            if expiration_dates:
+                expiration_dates.sort(key=lambda x: x['date'])
+                result['expiration_date'] = expiration_dates[-1]['date']
+
+        else:
+            result['parse_error'] = 'no_json_found'
+
+    except json.JSONDecodeError as e:
+        result['parse_error'] = f'json_decode_error: {str(e)}'
+    except Exception as e:
+        result['parse_error'] = f'parse_error: {str(e)}'
+
+    return result
+
+
+def extract_with_hybrid_approach(
+    text: str,
+    model: str = DEFAULT_LLM_MODEL,
+    timeout: int = 120,
+    context_window: int = DATE_CONTEXT_WINDOW,
+    dates_with_context: list = None,
+) -> dict:
+    """
+    Extract timeline using hybrid regex + LLM approach.
+
+    1. Regex extracts all dates with context (fast)
+    2. LLM classifies each date based on context (accurate)
+
+    This is more efficient than the full-document approach:
+    - ~80% fewer tokens sent to LLM
+    - Clearer task for LLM (just classify, don't find)
+    - Regex handles date finding (what it's good at)
+    - LLM handles understanding (what it's good at)
+
+    Args:
+        text: Full document text
+        model: Ollama model name
+        timeout: Request timeout in seconds
+        context_window: Chars to capture around each date
+
+    Returns:
+        Dict with classified dates and summary fields
+    """
+    import requests
+
+    result = {
+        'llm_model': model,
+        'original_chars': len(text),
+        'approach': 'hybrid_regex_llm',
+        'error': None,
+    }
+
+    # Step 1: Extract dates with context using regex (or use precomputed cache)
+    if dates_with_context is None:
+        dates_with_context = extract_dates_with_context(text, context_window)
+    result['n_dates_regex'] = len(dates_with_context)
+
+    if not dates_with_context:
+        result['error'] = 'no_dates_found_by_regex'
+        result['dates_json'] = '[]'
+        result['n_dates_found'] = 0
+        return result
+
+    # Step 2: Create classification prompt
+    prompt = create_classification_prompt(dates_with_context)
+    result['prompt_chars'] = len(prompt)
+
+    # Step 3: Call LLM for classification
+    try:
+        response = requests.post(
+            'http://localhost:11434/api/generate',
+            json={
+                'model': model,
+                'prompt': prompt,
+                'stream': False,
+                    'options': {
+                        'temperature': 0.1,
+                        'num_predict': 256,  # Shorter response needed
+                    }
+            },
+            timeout=timeout
+        )
+
+        if response.status_code == 200:
+            llm_response = response.json().get('response', '')
+
+            # Parse classification response
+            parsed = parse_classification_response(llm_response, dates_with_context)
+            result.update(parsed)
+
+            # Add timing info
+            result['llm_eval_duration_ms'] = response.json().get('eval_duration', 0) / 1e6
+
+        else:
+            result['error'] = f'ollama_http_error: {response.status_code}'
+
+    except requests.exceptions.ConnectionError:
+        result['error'] = 'ollama_not_running'
+    except requests.exceptions.Timeout:
+        result['error'] = 'ollama_timeout'
+    except Exception as e:
+        result['error'] = f'ollama_error: {str(e)}'
+
+    return result
+
+
+def create_llm_prompt(processed_text: str) -> str:
+    """
+    Create a prompt for LLM timeline extraction - extracts ALL dates with context.
+
+    Args:
+        processed_text: Preprocessed document text (from preprocess_for_timeline)
+
+    Returns:
+        str: Prompt for LLM
+    """
+    prompt = f"""You are extracting ALL dates from a NEPA (National Environmental Policy Act) Categorical Exclusion document.
+
+DOCUMENT TEXT (key sections extracted):
+---
+{processed_text}
+---
+
+Extract EVERY date you find in the document. For each date, identify:
+
+1. DATE TYPES:
+   - "decision": Final approval by authorizing official (Field Manager, NEPA Compliance Officer, etc.)
+   - "specialist_review": Individual specialist sign-offs (wildlife biologist, archaeologist, realty specialist, etc.)
+   - "application": When proposal/application was submitted or received
+   - "historical": Prior actions, original permit/ROW issuances from past years
+   - "expiration": End dates for permits, authorizations, or comment periods
+   - "effective": When an action becomes effective
+   - "other": Any other dates that don't fit above categories
+
+2. For each date provide:
+   - The date in YYYY-MM-DD format
+   - The type from the list above
+   - A brief quote (10-20 words) showing context
+   - Confidence: high (clearly stated), medium (inferred), low (uncertain)
+
+Return JSON only:
+{{
+  "dates": [
+    {{"date": "YYYY-MM-DD", "type": "decision", "source": "Field Manager signed on...", "confidence": "high"}},
+    {{"date": "YYYY-MM-DD", "type": "specialist_review", "source": "Wildlife biologist approved...", "confidence": "high"}},
+    ...
+  ]
+}}
+
+Important:
+- Include ALL dates found, even historical ones from prior years
+- The decision date is usually the Field Manager or Authorizing Official signature date
+- Specialist review dates help establish when the review process occurred
+- If no dates found, return {{"dates": []}}
+- Return ONLY the JSON object, no other text."""
+
+    return prompt
+
+
+def normalize_date_string(val: str) -> str:
+    """
+    Normalize a date string to YYYY-MM-DD format.
+
+    Args:
+        val: Date string in various formats
+
+    Returns:
+        Normalized date string or None if invalid
+    """
+    if not val or val == 'null' or str(val).lower() == 'none':
+        return None
+
+    val_str = str(val).strip()
+
+    # Try various date formats
+    date_formats = [
+        ('%Y-%m-%d', r'^\d{4}-\d{2}-\d{2}$'),      # 2024-03-20
+        ('%m/%d/%Y', r'^\d{1,2}/\d{1,2}/\d{4}$'),  # 03/20/2024
+        ('%m/%d/%y', r'^\d{1,2}/\d{1,2}/\d{2}$'),  # 03/20/24
+        ('%m-%d-%Y', r'^\d{1,2}-\d{1,2}-\d{4}$'),  # 03-20-2024
+        ('%Y.%m.%d', r'^\d{4}\.\d{2}\.\d{2}$'),    # 2024.03.20
+    ]
+
+    for fmt, pattern in date_formats:
+        if re.match(pattern, val_str):
+            try:
+                parsed_date = datetime.strptime(val_str, fmt)
+                # Validate year range (allow historical dates for this workflow)
+                if 1950 <= parsed_date.year <= 2030:
+                    return parsed_date.strftime('%Y-%m-%d')
+            except ValueError:
+                continue
+
+    return None
+
+
+def parse_llm_response(response_text: str) -> dict:
+    """
+    Parse the LLM response to extract structured multi-date data.
+
+    Args:
+        response_text: Raw text response from LLM
+
+    Returns:
+        dict with parsed fields including all dates and summary
+    """
+    import json
+
+    # Initialize result with all fields
+    result = {
+        # All dates as JSON array
+        'dates_json': '[]',
+        'n_dates_found': 0,
+
+        # Summary fields (extracted from dates array)
+        'decision_date': None,
+        'decision_date_source': None,
+        'decision_confidence': None,
+
+        'earliest_review_date': None,
+        'latest_review_date': None,
+        'n_review_dates': 0,
+        'n_specialist_reviews': 0,
+
+        'application_date': None,
+        'inferred_application_date': None,  # Earliest review if no explicit application
+
+        'earliest_historical_date': None,
+        'n_historical_dates': 0,
+
+        'expiration_date': None,
+
+        # Metadata
+        'parse_error': None,
+        'raw_response': response_text[:500] if response_text else None,
+    }
+
+    if not response_text:
+        result['parse_error'] = 'empty_response'
+        return result
+
+    try:
+        # Try to find JSON in the response - need to match nested structure
+        # Look for {"dates": [...]} pattern
+        json_match = re.search(r'\{[^{}]*"dates"\s*:\s*\[[^\]]*\][^{}]*\}', response_text, re.DOTALL)
+        if not json_match:
+            # Fallback: try to find any JSON object
+            json_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+
+        if json_match:
+            json_str = json_match.group()
+            parsed = json.loads(json_str)
+
+            dates_list = parsed.get('dates', [])
+            if not isinstance(dates_list, list):
+                dates_list = []
+
+            # Normalize all dates and filter valid ones
+            valid_dates = []
+            for d in dates_list:
+                if not isinstance(d, dict):
+                    continue
+
+                normalized = normalize_date_string(d.get('date'))
+                if normalized:
+                    valid_dates.append({
+                        'date': normalized,
+                        'type': d.get('type', 'other'),
+                        'source': str(d.get('source', ''))[:200],  # Truncate long sources
+                        'confidence': d.get('confidence', 'medium'),
+                    })
+
+            # Store all dates as JSON
+            result['dates_json'] = json.dumps(valid_dates)
+            result['n_dates_found'] = len(valid_dates)
+
+            # Extract summary fields by type
+            decision_dates = [d for d in valid_dates if d['type'] == 'decision']
+            review_dates = [d for d in valid_dates if d['type'] in {'review', 'specialist_review'}]
+            application_dates = [d for d in valid_dates if d['type'] == 'application']
+            historical_dates = [d for d in valid_dates if d['type'] == 'historical']
+            expiration_dates = [d for d in valid_dates if d['type'] == 'expiration']
+
+            # Decision date (use latest if multiple)
+            if decision_dates:
+                decision_dates.sort(key=lambda x: x['date'])
+                latest_decision = decision_dates[-1]
+                result['decision_date'] = latest_decision['date']
+                result['decision_date_source'] = latest_decision['source']
+                result['decision_confidence'] = latest_decision['confidence']
+
+            # Specialist review dates
+            if review_dates:
+                review_dates.sort(key=lambda x: x['date'])
+                result['earliest_review_date'] = review_dates[0]['date']
+                result['latest_review_date'] = review_dates[-1]['date']
+                result['n_review_dates'] = len(review_dates)
+                result['n_specialist_reviews'] = len(review_dates)
+
+            # Application date
+            if application_dates:
+                application_dates.sort(key=lambda x: x['date'])
+                result['application_date'] = application_dates[0]['date']
+
+            # Inferred application date (earliest review if no explicit application)
+            if result['earliest_review_date'] and not result['application_date']:
+                result['inferred_application_date'] = result['earliest_review_date']
+            elif result['application_date']:
+                result['inferred_application_date'] = result['application_date']
+
+            # Historical dates
+            if historical_dates:
+                historical_dates.sort(key=lambda x: x['date'])
+                result['earliest_historical_date'] = historical_dates[0]['date']
+                result['n_historical_dates'] = len(historical_dates)
+
+            # Expiration date (use latest if multiple)
+            if expiration_dates:
+                expiration_dates.sort(key=lambda x: x['date'])
+                result['expiration_date'] = expiration_dates[-1]['date']
+
+        else:
+            result['parse_error'] = 'no_json_found'
+
+    except json.JSONDecodeError as e:
+        result['parse_error'] = f'json_decode_error: {str(e)}'
+    except Exception as e:
+        result['parse_error'] = f'parse_error: {str(e)}'
+
+    return result
+
+
+def extract_with_ollama(
+    text: str,
+    model: str = DEFAULT_LLM_MODEL,
+    timeout: int = 240,
+    preprocess: bool = True,
+) -> dict:
+    """
+    Extract timeline using local Ollama LLM with preprocessing.
+
+    Args:
+        text: Document text (will be preprocessed if preprocess=True)
+        model: Ollama model name
+        timeout: Request timeout in seconds
+        preprocess: Whether to preprocess text first
+
+    Returns:
+        dict with extracted timeline and metadata (all dates + summary fields)
+    """
+    import requests
+
+    result = {
+        # Preprocessing metadata
+        'llm_model': model,
+        'original_chars': len(text),
+        'processed_chars': 0,
+        'reduction_pct': 0,
+        'error': None,
+    }
+
+    # Preprocess if requested
+    if preprocess:
+        preprocess_result = preprocess_for_timeline(text)
+        processed_text = preprocess_result.processed_text
+        result['processed_chars'] = len(processed_text)
+        result['reduction_pct'] = preprocess_result.reduction_pct
+        result['keywords_found'] = preprocess_result.keywords_found
+    else:
+        processed_text = text[:8000]  # Truncate if not preprocessing
+        result['processed_chars'] = len(processed_text)
+
+    # Create prompt
+    prompt = create_llm_prompt(processed_text)
+    result['prompt_chars'] = len(prompt)
+
+    # Call Ollama API
+    try:
+        response = requests.post(
+            'http://localhost:11434/api/generate',
+            json={
+                'model': model,
+                'prompt': prompt,
+                'stream': False,
+                'options': {
+                    'temperature': 0.1,  # Low temperature for consistent extraction
+                    'num_predict': 1024,  # Increased for multi-date response
+                }
+            },
+            timeout=timeout
+        )
+
+        if response.status_code == 200:
+            response_data = response.json()
+            llm_response = response_data.get('response', '')
+
+            # Parse the response (now returns all dates + summary)
+            parsed = parse_llm_response(llm_response)
+            result.update(parsed)
+
+            # Add timing info if available
+            result['llm_eval_duration_ms'] = response_data.get('eval_duration', 0) / 1e6
+
+        else:
+            result['error'] = f'ollama_http_error: {response.status_code}'
+
+    except requests.exceptions.ConnectionError:
+        result['error'] = 'ollama_not_running'
+    except requests.exceptions.Timeout:
+        result['error'] = 'ollama_timeout'
+    except Exception as e:
+        result['error'] = f'ollama_error: {str(e)}'
+
+    return result
+
+
+def build_project_timeline_llm(
+    project_id: str,
+    pages_df: pd.DataFrame,
+    documents_df: pd.DataFrame,
+    model: str = DEFAULT_LLM_MODEL,
+    use_hybrid: bool = False,
+    timeout: int = 120,
+    dates_with_context: list = None,
+) -> dict:
+    """
+    Build a timeline for a single project using LLM extraction.
+
+    Extracts ALL dates with context and provides summary fields.
+
+    Args:
+        project_id: Project ID string
+        pages_df: DataFrame with page text (already filtered to main docs if needed)
+        documents_df: DataFrame with document metadata
+        model: Ollama model name
+
+    Returns:
+        dict with timeline information including all dates and summary fields
+    """
+    # Get documents for this project
+    project_docs = documents_df[documents_df['project_id'] == project_id].copy()
+
+    # Count documents
+    document_count = len(project_docs)
+    main_document_count = 0
+    if not project_docs.empty and 'main_document' in project_docs.columns:
+        main_document_count = (project_docs['main_document'] == 'YES').sum()
+
+    result = {
+        'project_id': project_id,
+        'project_document_count': document_count,
+        'project_main_document_count': main_document_count,
+
+        # All dates as JSON
+        'llm_dates_json': '[]',
+        'llm_n_dates_found': 0,
+
+        # Decision date fields
+        'llm_decision_date': None,
+        'llm_decision_date_source': None,
+        'llm_decision_confidence': None,
+
+        # Review fields
+        'llm_earliest_review_date': None,
+        'llm_latest_review_date': None,
+        'llm_n_review_dates': 0,
+        'llm_n_specialist_reviews': 0,
+
+        # Application date fields
+        'llm_application_date': None,
+        'llm_inferred_application_date': None,
+
+        # Historical dates
+        'llm_earliest_historical_date': None,
+        'llm_n_historical_dates': 0,
+
+        # Expiration
+        'llm_expiration_date': None,
+
+        # Metadata
+        'llm_model': model,
+        'llm_approach': 'hybrid' if use_hybrid else 'full_document',
+        'llm_error': None,
+        'llm_processed_chars': 0,
+        'llm_reduction_pct': 0,
+        'llm_raw_response': None,
+    }
+
+    if project_docs.empty:
+        result['llm_error'] = 'no_documents'
+        return result
+
+    # If hybrid with cached dates, skip loading page text
+    if use_hybrid and dates_with_context is not None:
+        all_text = ""
+        result['total_chars'] = 0
+    else:
+        # Get page text for this project
+        doc_ids = project_docs['document_id'].tolist()
+        project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
+
+        if project_pages.empty:
+            result['llm_error'] = 'no_pages'
+            return result
+
+        # Combine all page text
+        all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
+        result['total_chars'] = len(all_text)
+
+        if not all_text.strip():
+            result['llm_error'] = 'empty_text'
+            return result
+
+    # Extract with LLM (hybrid or full-document approach)
+    if use_hybrid:
+        llm_result = extract_with_hybrid_approach(
+            all_text,
+            model=model,
+            timeout=timeout,
+            dates_with_context=dates_with_context,
+        )
+    else:
+        llm_result = extract_with_ollama(all_text, model=model, timeout=timeout)
+
+    # Merge all results
+    result['llm_dates_json'] = llm_result.get('dates_json', '[]')
+    result['llm_n_dates_found'] = llm_result.get('n_dates_found', 0)
+
+    result['llm_decision_date'] = llm_result.get('decision_date')
+    result['llm_decision_date_source'] = llm_result.get('decision_date_source')
+    result['llm_decision_confidence'] = llm_result.get('decision_confidence')
+
+    result['llm_earliest_review_date'] = llm_result.get('earliest_review_date')
+    result['llm_latest_review_date'] = llm_result.get('latest_review_date')
+    result['llm_n_review_dates'] = llm_result.get('n_review_dates', llm_result.get('n_specialist_reviews', 0))
+    result['llm_n_specialist_reviews'] = llm_result.get('n_specialist_reviews', result['llm_n_review_dates'])
+
+    result['llm_application_date'] = llm_result.get('application_date')
+    result['llm_inferred_application_date'] = llm_result.get('inferred_application_date')
+
+    result['llm_earliest_historical_date'] = llm_result.get('earliest_historical_date')
+    result['llm_n_historical_dates'] = llm_result.get('n_historical_dates', 0)
+
+    result['llm_expiration_date'] = llm_result.get('expiration_date')
+
+    result['llm_error'] = llm_result.get('error')
+    result['llm_processed_chars'] = llm_result.get('processed_chars', 0)
+    result['llm_prompt_chars'] = llm_result.get('prompt_chars', 0)
+    result['llm_reduction_pct'] = llm_result.get('reduction_pct', 0)
+    result['llm_raw_response'] = llm_result.get('raw_response')
+
+    return result
+
+
+def run_llm_timeline_extraction(
+    sample_size: int = None,
+    clean_energy_only: bool = True,
+    ce_only: bool = True,
+    main_docs_only: bool = True,
+    model: str = DEFAULT_LLM_MODEL,
+    output_file: str = None,
+    use_hybrid: bool = False,
+    timeout: int = 120,
+    use_regex_cache: bool = False,
+    regex_cache_path: Path = REGEX_CACHE_PATH,
+    workers: int = 4,
+):
+    """
+    Run LLM-based timeline extraction for CE clean energy projects.
+
+    Args:
+        sample_size: If set, only process this many projects
+        clean_energy_only: If True, only process clean energy projects
+        ce_only: If True, only process CE (Categorical Exclusion) projects
+        main_docs_only: If True, only read pages from main_document == 'YES' documents
+        model: Ollama model name
+        output_file: Custom output filename (default: projects_timeline_llm.parquet)
+        use_hybrid: If True, use hybrid regex+LLM approach (faster)
+        timeout: Timeout in seconds per document
+
+    Returns:
+        DataFrame with results
+    """
+    approach = "hybrid regex+LLM" if use_hybrid else "full-document"
+    print(f"\n=== LLM Timeline Extraction ({approach}) ===")
+    print(f"Model: {model}")
+    print(f"Timeout: {timeout}s")
+
+    # Load projects
+    projects = _load_projects_combined()
+    if projects is None:
+        return None
+    _warn_if_clean_energy_count_off(projects, sources=['CE'] if ce_only else None)
+    print(f"Loaded {len(projects):,} projects")
+
+    # Filter by dataset source (CE only)
+    if ce_only:
+        projects = projects[projects['dataset_source'] == 'CE']
+        print(f"Filtered to {len(projects):,} CE projects")
+
+    # Filter by energy type
+    if clean_energy_only:
+        projects = projects[projects['project_energy_type'] == 'Clean']
+        print(f"Filtered to {len(projects):,} clean energy projects")
+
+    if sample_size:
+        projects = projects.sample(n=min(sample_size, len(projects)), random_state=42)
+        print(f"Sampled {len(projects):,} projects")
+
+    if projects.empty:
+        print("No projects to process after filtering.")
+        return None
+
+    # Load CE data
+    print("\nLoading CE document data...")
+    data_dir = PROCESSED_DIR / "ce"
+    pages_df = pd.read_parquet(data_dir / "pages.parquet")
+    documents_df = pd.read_parquet(data_dir / "documents.parquet")
+
+    # Clean project_id in documents
+    def extract_id(x):
+        if isinstance(x, dict):
+            return x.get('value', '')
+        return x
+
+    documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+
+    # Precompute filename date matches
+    file_name_dates_map = build_file_name_date_map(
+        documents_df,
+        main_docs_only=main_docs_only
+    )
+    file_name_bounds_map = _build_project_filename_bounds_map(
+        documents_df,
+        main_docs_only=main_docs_only
+    )
+
+    # Filter to main documents only if requested
+    if main_docs_only:
+        main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
+        pages_df = pages_df[pages_df['document_id'].isin(main_doc_ids)]
+        print(f"Filtered to {len(pages_df):,} pages from main documents")
+
+    regex_cache_df = None
+    if use_hybrid and use_regex_cache:
+        if not regex_cache_path.exists():
+            print(f"Error: regex cache not found at {regex_cache_path}. Run --regex-prep first.")
+            return None
+        regex_cache_df = pd.read_parquet(regex_cache_path)
+        print(f"Loaded regex cache: {len(regex_cache_df):,} rows")
+
+    # Process each project
+    results = []
+    total = len(projects)
+
+    print(f"\nProcessing {total} projects with LLM...")
+    print("(This may take a while)\n")
+
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    start_time = time.time()
+
+    def _run_one(project_id: str):
+        if use_hybrid and use_regex_cache and regex_cache_df is not None:
+            cached_dates = regex_cache_df[regex_cache_df['project_id'] == project_id]
+            dates_with_context = cached_dates[[
+                'date', 'match', 'context', 'position', 'position_pct'
+            ]].to_dict(orient='records')
+            result = build_project_timeline_llm(
+                project_id, pages_df, documents_df, model=model,
+                use_hybrid=True, timeout=timeout, dates_with_context=dates_with_context
+            )
+            result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+            result['project_date_earliest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name')
+            result['project_date_latest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name')
+            return result
+        result = build_project_timeline_llm(
+            project_id, pages_df, documents_df, model=model,
+            use_hybrid=use_hybrid, timeout=timeout
+        )
+        result['project_file_name_dates'] = file_name_dates_map.get(project_id, '[]')
+        result['project_date_earliest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_earliest_file_name')
+        result['project_date_latest_file_name'] = file_name_bounds_map.get(project_id, {}).get('project_date_latest_file_name')
+        return result
+
+    if workers and workers > 1:
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = []
+            for _, project in projects.iterrows():
+                futures.append(executor.submit(_run_one, project['project_id']))
+
+            for idx, fut in enumerate(as_completed(futures), 1):
+                results.append(fut.result())
+                if idx % 10 == 0:
+                    elapsed = time.time() - start_time
+                    rate = idx / elapsed
+                    remaining = (total - idx) / rate if rate > 0 else 0
+                    print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining/60:.1f} min remaining")
+    else:
+        for idx, (_, project) in enumerate(projects.iterrows(), 1):
+            project_id = project['project_id']
+            if idx % 10 == 0:
+                elapsed = time.time() - start_time
+                rate = idx / elapsed
+                remaining = (total - idx) / rate if rate > 0 else 0
+                print(f"  [{idx}/{total}] {rate:.1f} projects/sec, ~{remaining/60:.1f} min remaining")
+            results.append(_run_one(project_id))
+
+    elapsed_total = time.time() - start_time
+    print(f"\nCompleted {total} projects in {elapsed_total/60:.1f} minutes")
+    print(f"Average: {elapsed_total/total:.2f} sec/project")
+
+    # Create results dataframe
+    results_df = pd.DataFrame(results)
+
+    # Merge with project metadata
+    projects_with_llm = projects.merge(results_df, on='project_id', how='left')
+
+    # Save
+    if output_file:
+        output_path = PHASE2_DATA_DIR / output_file
+    else:
+        output_path = PHASE2_DATA_DIR / "timeline_llm.parquet"
+
+    projects_with_llm['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+    projects_with_llm.to_parquet(output_path)
+    print(f"\nSaved to: {output_path}")
+
+    # Summary
+    has_decision = projects_with_llm['llm_decision_date'].notna()
+    has_application = projects_with_llm['llm_application_date'].notna()
+    has_inferred_app = projects_with_llm['llm_inferred_application_date'].notna()
+    has_reviews = projects_with_llm['llm_n_specialist_reviews'] > 0
+    high_conf = projects_with_llm['llm_decision_confidence'] == 'high'
+    has_error = projects_with_llm['llm_error'].notna()
+
+    print(f"\n=== Results Summary ===")
+    print(f"Projects with decision date: {has_decision.sum():,} ({100*has_decision.mean():.1f}%)")
+    print(f"Projects with explicit application date: {has_application.sum():,} ({100*has_application.mean():.1f}%)")
+    print(f"Projects with inferred application date: {has_inferred_app.sum():,} ({100*has_inferred_app.mean():.1f}%)")
+    print(f"Projects with specialist reviews: {has_reviews.sum():,} ({100*has_reviews.mean():.1f}%)")
+    print(f"High confidence decisions: {high_conf.sum():,} ({100*high_conf.mean():.1f}%)")
+    print(f"Projects with errors: {has_error.sum():,} ({100*has_error.mean():.1f}%)")
+
+    # Date count distribution
+    print(f"\nDates found per project:")
+    print(projects_with_llm['llm_n_dates_found'].describe())
+
+    if has_error.sum() > 0:
+        print(f"\nError breakdown:")
+        print(projects_with_llm[has_error]['llm_error'].value_counts())
+
+    return projects_with_llm
+
+
+# ---------------------------------------------------------------------------
+# Section heading detection — builds section_label for each regex candidate
+# ---------------------------------------------------------------------------
+
+# Per-source heading patterns → canonical section_label.
+# Patterns are matched case-insensitively against full page text to build a
+# position→label map before date extraction. For each date candidate, the
+# nearest preceding heading within 1,000 chars is used as section_label.
+#
+# All-source entries are checked after source-specific entries. First match wins.
+SECTION_PATTERNS = {
+    'CE': [
+        # Standalone headings — require end-of-line to avoid matching mid-sentence
+        (r'(?:^|\n)\s*(?:AUTHORITY AND APPROVAL|DETERMINATION AND APPROVAL|CE DETERMINATION|'
+         r'CATEGORICAL EXCLUSION DETERMINATION|APPROVAL AND CONTACT)\s*(?:\n|$)', 'ce_determination'),
+        (r'(?:^|\n)\s*REVIEW CHECKLIST\s*(?:\n|$)', 'review_checklist'),
+        (r'(?:^|\n)\s*(?:COMPLIANCE CHECKLIST|ENVIRONMENTAL REVIEW FORM|'
+         r'ENVIRONMENTAL REVIEW RECORD)\s*(?:\n|$)', 'signature_block'),
+        # Inline form-field rows — DOE INITIATOR / NCO followed by name+date on same line
+        # (NETL CX designation form, BPA forms, etc.). Do NOT require end-of-line.
+        (r'(?:^|\n)\s*(?:DOE INITIATOR|INITIATOR SIGNATURE|NEPA INITIATOR|'
+         r'ACTION INITIATING OFFICE)(?=[\s:])', 'signature_block'),
+        # NETL-style CX designation form header
+        (r'(?:^|\n)\s*CATEGORICAL EXCLUSION\s*\(CX\)\s*DESIGNATION\s*FORM\s*(?:\n|$)',
+         'ce_determination'),
+    ],
+    'EA': [
+        (r'(?:^|\n)\s*(?:NOTICE OF INTENT|SCOPING NOTICE|NOTICE OF AVAILABILITY)\s*(?:\n|$)', 'noi'),
+        (r'(?:^|\n)\s*(?:FINDING OF NO SIGNIFICANT IMPACT|FONSI)\s*(?:\n|$)', 'fonsi'),
+        (r'(?:^|\n)\s*(?:ENVIRONMENTAL ASSESSMENT|DRAFT ENVIRONMENTAL ASSESSMENT|'
+         r'FINAL ENVIRONMENTAL ASSESSMENT)\s*(?:\n|$)', 'ea_body'),
+        (r'(?:^|\n)\s*(?:SCOPING|SCOPING PERIOD|PUBLIC SCOPING)\s*(?:\n|$)', 'noi'),
+    ],
+    'EIS': [
+        (r'(?:^|\n)\s*(?:RECORD OF DECISION|\bROD\b)\s*(?:\n|$)', 'rod'),
+        (r'(?:^|\n)\s*(?:NOTICE OF INTENT|SCOPING NOTICE)\s*(?:\n|$)', 'noi'),
+        (r'(?:^|\n)\s*(?:DRAFT ENVIRONMENTAL IMPACT STATEMENT|\bDEIS\b)\s*(?:\n|$)', 'draft_eis'),
+        (r'(?:^|\n)\s*(?:FINAL ENVIRONMENTAL IMPACT STATEMENT|\bFEIS\b)\s*(?:\n|$)', 'final_eis'),
+        (r'(?:^|\n)\s*(?:SCOPING|SCOPING PERIOD|PUBLIC SCOPING)\s*(?:\n|$)', 'noi'),
+    ],
+    '_ALL': [
+        (r'(?:^|\n)\s*(?:REFERENCES|BIBLIOGRAPHY|LITERATURE CITED|WORKS CITED)\s*(?:\n|$)', 'references'),
+        (r'(?:^|\n)\s*(?:LIST OF PREPARERS|PREPARERS AND REVIEWERS)\s*(?:\n|$)', 'references'),
+        # Inline legal citation markers (CFR/USC/Public Law) — not line-level headings,
+        # but flag positions where dates are almost certainly statutory, not NEPA events.
+        (r'\b\d+\s*CFR\s*\d+\b', 'legal_citations'),
+        (r'\b\d+\s*U\.?S\.?C\.?\b', 'legal_citations'),
+        (r'\bPublic Law\b', 'legal_citations'),
+    ],
+}
+
+
+def _build_section_label_map(page_text: str, source: str) -> list:
+    """
+    Scan page_text for heading patterns and return a sorted list of
+    (char_position, section_label) tuples.
+
+    Source-specific patterns are checked before the all-source patterns.
+    First match at each position wins.
+    """
+    matches = []
+    seen_positions = set()
+
+    source_patterns = SECTION_PATTERNS.get(source.upper(), []) + SECTION_PATTERNS['_ALL']
+    for pattern, label in source_patterns:
+        for m in re.finditer(pattern, page_text, re.IGNORECASE | re.MULTILINE):
+            pos = m.start()
+            if pos not in seen_positions:
+                seen_positions.add(pos)
+                matches.append((pos, label))
+
+    matches.sort(key=lambda x: x[0])
+    return matches
+
+
+def _lookup_section_label(char_pos: int, section_map: list, max_lookback: int = 1000) -> str:
+    """
+    Return the section_label for the nearest heading preceding char_pos
+    within max_lookback characters, or '' if none found.
+    """
+    label = ''
+    for pos, lbl in reversed(section_map):
+        if pos <= char_pos and (char_pos - pos) <= max_lookback:
+            label = lbl
+            break
+    return label
+
+
+# Document-type priority for fallback (non-main-document) projects.
+# Lower rank = higher priority. Documents are processed in this order.
+_DOC_TYPE_PRIORITY = {
+    'EA': {
+        'FONSI': 0, 'ROD': 1, 'DR': 2, 'DECISION RECORD': 2,
+        'FEA': 3, 'EA': 4, 'DEA': 5, 'OTHER': 6,
+    },
+    'EIS': {
+        'ROD': 0, 'FEIS': 1, 'EIS': 2, 'DEIS': 3, 'OTHER': 4,
+    },
+}
+
+
+def _get_doc_priority(doc_type: str, source: str) -> int:
+    """Return sort priority for a document type (lower = higher priority)."""
+    priority_map = _DOC_TYPE_PRIORITY.get(source, {})
+    return priority_map.get(doc_type.upper().strip(), 99)
+
+
+def _build_document_pairs_for_source(
+    source_projects: pd.DataFrame,
+    documents_df: pd.DataFrame,
+    source: str,
+    main_docs_only: bool,
+    doc_type_col: str,
+) -> tuple:
+    """
+    Build a document_pairs DataFrame for DuckDB page loading, applying per-source
+    document selection logic.
+
+    Returns:
+        (document_pairs_df, imputed_project_ids)
+        document_pairs_df columns: project_id, document_id, doc_type, doc_rank
+        imputed_project_ids: set of project_ids that used non-main-doc fallback
+    """
+    project_ids = set(source_projects["project_id"])
+    source_docs = documents_df[documents_df["project_id"].isin(project_ids)].copy()
+    doc_type_map = dict(zip(source_docs["document_id"], source_docs[doc_type_col].fillna("")))
+
+    pairs = []
+    imputed_project_ids = set()
+
+    # Pre-index by project_id once (avoids O(n_projects × n_docs) pandas scans)
+    grouped = {pid: grp for pid, grp in source_docs.groupby("project_id", sort=False)}
+
+    for project_id in project_ids:
+        project_docs = grouped.get(project_id)
+        if project_docs is None or project_docs.empty:
+            continue
+
+        selected = project_docs
+
+        if main_docs_only and "main_document" in project_docs.columns:
+            main_docs = project_docs[project_docs["main_document"] == "YES"]
+            if not main_docs.empty:
+                selected = main_docs
+            elif source in ("EA", "EIS"):
+                fallback = project_docs.copy()
+                fallback["_priority"] = fallback["document_id"].map(
+                    lambda did: _get_doc_priority(doc_type_map.get(did, ""), source)
+                )
+                selected = fallback.sort_values("_priority")
+                is_imputed = True
+                imputed_project_ids.add(project_id)
+            else:
+                continue  # CE: no fallback, skip
+
+        for rank, (_, doc_row) in enumerate(selected.iterrows()):
+            pairs.append({
+                "project_id": project_id,
+                "document_id": doc_row["document_id"],
+                "doc_type": doc_type_map.get(doc_row["document_id"], ""),
+                "doc_rank": rank,
+            })
+
+    if pairs:
+        return pd.DataFrame(pairs), imputed_project_ids
+    return pd.DataFrame(columns=["project_id", "document_id", "doc_type", "doc_rank"]), imputed_project_ids
+
+
+def _load_project_pages_bulk(
+    pages_path: Path,
+    document_pairs: pd.DataFrame,
+) -> dict:
+    """
+    Load page text for a set of documents via DuckDB join against pages.parquet.
+
+    Args:
+        pages_path: Path to source-specific pages.parquet
+        document_pairs: DataFrame with columns [project_id, document_id, doc_type, doc_rank]
+
+    Returns:
+        dict[project_id -> list[{"document_id": str, "doc_type": str, "page_text": str}]]
+        Pages are ordered by doc_rank then numeric page number within each project.
+    """
+    if document_pairs.empty:
+        return {}
+
+    pairs = document_pairs[["project_id", "document_id", "doc_type", "doc_rank"]].copy()
+    pages_path_sql = str(pages_path).replace("'", "''")
+
+    con = duckdb.connect()
+    try:
+        con.register("_doc_pairs", pairs)
+        result_df = con.execute(f"""
+            SELECT
+                d.project_id,
+                d.document_id,
+                d.doc_type,
+                p.page_text
+            FROM read_parquet('{pages_path_sql}') p
+            INNER JOIN _doc_pairs d USING (document_id)
+            ORDER BY
+                d.project_id,
+                d.doc_rank,
+                COALESCE(
+                    TRY_CAST(
+                        regexp_extract(CAST(p.page_number AS VARCHAR), '(\\d+)', 1)
+                        AS INTEGER
+                    ),
+                    1000000000
+                )
+        """).df()
+    finally:
+        con.close()
+
+    pages_by_project = {}
+    for pid, grp in result_df.groupby("project_id", sort=False):
+        pages_by_project[pid] = grp[["document_id", "doc_type", "page_text"]].to_dict("records")
+
+    return pages_by_project
+
+
+def _enrich_structural_signals(cache_df: pd.DataFrame, source: str) -> pd.DataFrame:
+    """
+    Compute structural signal columns on the cached context strings using pure regex.
+    Replaces the previous spaCy-based enrichment — no external NLP dependency required.
+
+      sig_flag          — bool: context contains a role-title signature indicator
+                          (uses _is_signature_block(), requires role title not just 'date:')
+      ner_decision_signal — bool: context contains a decision/initiation role phrase
+                            (NEPA Compliance Officer, Authorizing Official, initiator, etc.)
+
+    dep_verb (spaCy ROOT verb) has been removed — it returned only auxiliary verbs
+    ('be', 'have') on form-field text and provided no useful signal.
+    Use _has_action_verb() directly on context strings where a verb signal is needed.
+
+    Returns the input DataFrame with sig_flag and ner_decision_signal columns added.
+    """
+    _ROLE_PATTERNS = [
+        r'nepa compliance officer',
+        r'authoriz\w+ official',
+        r'\binitiator\b',
+        r'field office manager',
+        r'field manager',
+        r'environmental coordinator',
+        r'reviewing offic(?:ial|er)',
+        r'contracting officer',
+    ]
+
+    print(f"  Computing structural signals for {len(cache_df):,} {source} contexts...")
+    contexts = cache_df['context'].fillna('').tolist()
+
+    sig_flags    = [_is_signature_block(ctx) for ctx in contexts]
+    ner_signals  = [
+        any(re.search(p, ctx.lower()) for p in _ROLE_PATTERNS)
+        for ctx in contexts
+    ]
+
+    cache_df = cache_df.copy()
+    cache_df['sig_flag']             = sig_flags
+    cache_df['ner_decision_signal']  = ner_signals
+    print(f"  Structural signals complete. "
+          f"sig_flag: {sum(sig_flags):,}  "
+          f"ner_decision_signal: {sum(ner_signals):,}")
+    return cache_df
+
+
+def run_regex_prep(
+    sample_size: int = None,
+    sources: list = None,
+    clean_energy_only: bool = False,
+    main_docs_only: bool = True,
+    output_file: str = None,
+    keep_all_candidates: bool = True,
+):
+    """
+    Precompute regex candidate dates with context for hybrid LLM/BERT runs.
+
+    Saves per-source cache files to data/analysis for reuse across runs.
+    Structural signals (sig_flag, ner_decision_signal, section_label) are computed
+    with pure regex; no spaCy dependency.
+    """
+    if sources is None:
+        sources = ['CE']
+
+    print("\n=== Regex Candidate Preprocessing ===")
+    print(f"Sources: {', '.join(sources)}")
+
+    # Load projects
+    projects = _load_projects_combined()
+    if projects is None:
+        return None
+    _warn_if_clean_energy_count_off(projects, sources=sources)
+    print(f"Loaded {len(projects):,} projects")
+
+    # Filter by dataset source
+    projects = projects[projects['dataset_source'].isin(sources)]
+    print(f"Filtered to {len(projects):,} projects in {', '.join(sources)}")
+
+    # Filter by energy type
+    if clean_energy_only:
+        projects = projects[projects['project_energy_type'] == 'Clean']
+        print(f"Filtered to {len(projects):,} clean energy projects")
+
+    if sample_size:
+        projects = projects.sample(n=min(sample_size, len(projects)), random_state=42)
+        print(f"Sampled {len(projects):,} projects")
+
+    if projects.empty:
+        print("No projects to process after filtering.")
+        return None
+
+    def extract_id(x):
+        if isinstance(x, dict):
+            return x.get('value', '')
+        return x
+
+    all_results_df = []
+
+    for source in sources:
+        source_projects = projects[projects['dataset_source'] == source]
+        if source_projects.empty:
+            print(f"\nNo {source} projects to process, skipping.")
+            continue
+
+        # Load source data
+        data_dir = PROCESSED_DIR / source.lower()
+        print(f"\nLoading {source} document metadata from {data_dir}...")
+        documents_df = pd.read_parquet(data_dir / "documents.parquet")
+        documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+
+        doc_type_col = 'document_type_clean' if 'document_type_clean' in documents_df.columns else 'document_type'
+
+        print(f"  Building document selection for {len(source_projects)} {source} projects...")
+        document_pairs, imputed_project_ids = _build_document_pairs_for_source(
+            source_projects, documents_df, source, main_docs_only, doc_type_col
+        )
+
+        if document_pairs.empty:
+            print(f"  No documents selected for {source}, skipping.")
+            continue
+
+        print(f"  Loading pages for {len(document_pairs)} documents via DuckDB...")
+        pages_by_project = _load_project_pages_bulk(data_dir / "pages.parquet", document_pairs)
+        print(f"  Loaded pages for {len(pages_by_project)} projects.")
+
+        results = []
+        total = len(source_projects)
+        print(f"Processing {total} {source} projects for regex candidates...")
+
+        for idx, (_, project) in enumerate(source_projects.iterrows()):
+            if idx % 100 == 0:
+                print(f"  Processing project {idx + 1}/{total}...")
+
+            project_id = project['project_id']
+            project_recs = pages_by_project.get(project_id)
+            if not project_recs:
+                continue
+
+            is_imputed = project_id in imputed_project_ids
+
+            # Group consecutive records by document_id (already ordered by doc_rank, page_num)
+            current_doc_id = None
+            current_doc_pages = []
+            current_doc_type = ""
+
+            def _flush(doc_pages, doc_type):
+                doc_text = "\n\n".join(p for p in doc_pages if p and str(p).strip())
+                if not doc_text.strip():
+                    return
+                # Build section heading map on the full document text while it's in memory.
+                # _lookup_section_label() uses each candidate's char position to find the
+                # nearest preceding heading. 'source' is captured from the enclosing loop.
+                section_map = _build_section_label_map(doc_text, source)
+                dates_with_context = extract_dates_with_context(
+                    doc_text,
+                    min_context_chars=200,   # wider window than default 80: captures 2-4
+                                             # sentences for better section label + BERT context
+                    keep_all_candidates=keep_all_candidates,
+                    dedupe_by_date=not keep_all_candidates,
+                )
+                for d in dates_with_context:
+                    char_pos = d.get('position') or 0
+                    results.append({
+                        'project_id': project_id,
+                        'date': d.get('date'),
+                        'match': d.get('match'),
+                        'context': d.get('context'),
+                        'position': char_pos,
+                        'position_pct': d.get('position_pct'),
+                        'doc_type': doc_type,
+                        'main_document_imputed': is_imputed,
+                        'section_label': _lookup_section_label(char_pos, section_map),
+                    })
+
+            for rec in project_recs:
+                if rec['document_id'] != current_doc_id:
+                    if current_doc_id is not None:
+                        _flush(current_doc_pages, current_doc_type)
+                    current_doc_id = rec['document_id']
+                    current_doc_type = rec['doc_type']
+                    current_doc_pages = []
+                current_doc_pages.append(rec['page_text'])
+
+            _flush(current_doc_pages, current_doc_type)
+
+        if imputed_project_ids:
+            print(f"  {source}: {len(imputed_project_ids)} projects used non-main document fallback (main_document_imputed=True)")
+
+        results_df = pd.DataFrame(results)
+        results_df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+
+        # Structural signal enrichment pass — pure regex, no spaCy dependency.
+        # Adds sig_flag, ner_decision_signal columns.
+        # section_label is already present from _flush() above.
+        results_df = _enrich_structural_signals(results_df, source)
+
+        # Save per-source cache
+        if output_file:
+            cache_path = PHASE2_DATA_DIR / output_file
+        else:
+            cache_path = _regex_cache_path(source)
+
+        results_df.to_parquet(cache_path)
+        print(f"Saved {source} regex cache to: {cache_path}")
+        print(f"  {source} candidate rows: {len(results_df):,}")
+        all_results_df.append(results_df)
+
+    if all_results_df:
+        combined = pd.concat(all_results_df, ignore_index=True)
+        print(f"\nTotal candidate rows across all sources: {len(combined):,}")
+        return combined
+    return None
+
+
+# ---------------------------------------------------------------------------
+# LLM Adjudication: Post-BERT LLM pass to select best initiation/decision
+# ---------------------------------------------------------------------------
+
+# Source-specific doc_type score adjustments for INITIATION candidate selection.
+# Positive = strong initiation signal; negative = penalise (late-stage document).
+# Only doc types that actually appear in each source are listed.
+_INIT_DOC_TYPE_BOOST = {
+    'CE': {
+        # CE forms with a ce_determination section_label are decision documents;
+        # penalise them for initiation scoring. The boost here applies to the
+        # doc_type column; section_label-based boosts are handled in _pre_bert_triage().
+        'CE_DETERMINATION': -2,   # CE determination form = decision, not initiation
+    },
+    'EA': {
+        'DEA':  2,    # Draft EA = strong initiation signal (published at scoping/start)
+        'FONSI': -2,  # FONSI = decision document; penalise if found in initiation candidates
+        'FEA':  -2,   # Final EA = late-stage; penalise for initiation
+        'ROD':  -2,   # ROD exists rarely for EA (joint ROD); strongly penalise
+    },
+    'EIS': {
+        'DEIS':  2,   # Draft EIS = strong initiation signal
+        'ROD':  -2,   # ROD = decision document; penalise for initiation
+        'FEIS': -2,   # Final EIS = late-stage; penalise for initiation
+    },
+}
+
+# Doc-type priority tiers for EA/EIS adjudication
+# Decision-priority docs: most reliable for decision/approval dates
+_LLM_DECISION_DOC_TYPES = {'ROD', 'FONSI', 'DR', 'DECISION RECORD'}
+# Initiation-priority docs: most reliable for initiation/scoping dates
+_LLM_INITIATION_DOC_TYPES = {'EA', 'DEA', 'DEIS'}
+# Fallback decision docs (used only when Tier A is absent)
+_LLM_FALLBACK_DECISION_DOC_TYPES = {'EA', 'DEA', 'DEIS', 'FEIS', 'FEA', 'EIS'}
+# All known EA/EIS doc types (used for filtering vs blank/unknown)
+_LLM_KNOWN_DOC_TYPES = _LLM_DECISION_DOC_TYPES | _LLM_FALLBACK_DECISION_DOC_TYPES | {'OTHER'}
+
+
+def _filter_candidates_for_llm(candidates: list, max_candidates=50, promote_rod_language: bool = False) -> dict:
+    """
+    Filter and rank date candidates before sending to LLM adjudication.
+
+    Applies layered filtering to reduce noise, then applies tiered decision
+    selection so the LLM only sees appropriate decision candidates:
+      - Tier A (priority): FONSI, ROD, DR, Decision Record
+      - Tier B (fallback): EA, DEA, DEIS, FEIS — only used when Tier A has zero decision
+        candidates, and only if context has strong decision language.
+
+    Layers:
+      1. Dedup by date (keep best version of each date)
+      2. Confidence floor (drop very low confidence, except priority docs)
+      3. Smart type filtering (drop low-value review/other)
+      4. Doc-type priority (stricter filtering for blank/other docs)
+      5. Tiered decision gating
+      6. Hard cap at max_candidates
+
+    Args:
+        candidates: List of date dicts from BERT classification (already
+                    excluding historical/expiration).
+        max_candidates: Maximum candidates to return.
+
+    Returns:
+        dict with keys:
+          'candidates': filtered list of date dicts, sorted chronologically
+          'decision_mode': 'priority_only' | 'ea_eis_fallback' | 'no_decision_candidates'
+          'allowed_decision_dates': set of YYYY-MM-DD strings the LLM may pick
+          'n_priority_decision': int count of Tier A decision candidates
+          'n_other_decision': int count of Tier B fallback decision candidates
+    """
+    empty_result = {
+        'candidates': [],
+        'decision_mode': 'no_decision_candidates',
+        'allowed_decision_dates': set(),
+        'n_priority_decision': 0,
+        'n_other_decision': 0,
+    }
+    if not candidates:
+        return empty_result
+
+    def _get_conf(d):
+        c = d.get('bert_confidence', 0.5)
+        return c if isinstance(c, (int, float)) else 0.5
+
+    def _get_doc_type(d):
+        return str(d.get('doc_type', '')).upper().strip()
+
+    def _is_priority_doc(doc_type):
+        return doc_type in _LLM_DECISION_DOC_TYPES or doc_type in _LLM_INITIATION_DOC_TYPES
+
+    # ----- Layer 1: Dedup by date -----
+    from collections import defaultdict
+    by_date = defaultdict(list)
+    for d in candidates:
+        by_date[d.get('date', '')].append(d)
+
+    deduped = []
+    for date_str, group in by_date.items():
+        if not date_str:
+            continue
+
+        def _dedup_score(d):
+            doc_type = _get_doc_type(d)
+            doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else (
+                8 if doc_type in _LLM_INITIATION_DOC_TYPES else 0
+            )
+            type_bonus = 5 if d.get('type') in ('decision', 'initiation') else 0
+            return doc_bonus + type_bonus + _get_conf(d)
+
+        group.sort(key=_dedup_score, reverse=True)
+        best = group[0].copy()
+        if len(group) > 1:
+            best['_mentions'] = len(group)
+        deduped.append(best)
+
+    # ----- Layer 2: Confidence floor -----
+    CONFIDENCE_FLOOR = 0.3
+    filtered = []
+    dropped = []   # accumulates (candidate, reason) across all layers
+    for d in deduped:
+        if _is_priority_doc(_get_doc_type(d)) or _get_conf(d) >= CONFIDENCE_FLOOR:
+            filtered.append(d)
+        else:
+            d = d.copy()
+            d['_dropped_reason'] = 'confidence_floor'
+            dropped.append(d)
+
+    # ----- Layer 3: Smart type filtering -----
+    _decision_cues_lower = {c.lower() for c in DECISION_CUES}
+    _initiation_cues_lower = {c.lower() for c in INITIATION_CUES}
+
+    def _has_timeline_cue(d):
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        return any(cue in ctx for cue in _decision_cues_lower) or \
+               any(cue in ctx for cue in _initiation_cues_lower)
+
+    type_filtered = []
+    for d in filtered:
+        dtype = d.get('type', '')
+        is_priority = _is_priority_doc(_get_doc_type(d))
+        passes = False
+
+        if dtype in ('decision', 'initiation'):
+            passes = True
+        elif dtype == 'review':
+            passes = _get_conf(d) >= 0.5 or _has_timeline_cue(d) or is_priority
+        elif dtype == 'other':
+            passes = is_priority
+        else:
+            passes = _get_conf(d) >= 0.6
+
+        if passes:
+            type_filtered.append(d)
+        else:
+            d = d.copy()
+            d['_dropped_reason'] = 'type_filter'
+            dropped.append(d)
+
+    # ----- Layer 4: Doc-type priority -----
+    doc_filtered = []
+    for d in type_filtered:
+        doc_type = _get_doc_type(d)
+        dtype = d.get('type', '')
+
+        if doc_type in _LLM_KNOWN_DOC_TYPES:
+            doc_filtered.append(d)
+        elif (dtype in ('decision', 'initiation') and _get_conf(d) >= 0.4) or \
+             (_has_timeline_cue(d) and _get_conf(d) >= 0.4):
+            doc_filtered.append(d)
+        else:
+            d = d.copy()
+            d['_dropped_reason'] = 'doc_type_filter'
+            dropped.append(d)
+
+    # ----- Layer 5: Tiered decision classification -----
+    # Tier A (FONSI/ROD/DR) = hard constraint: if present, LLM must pick from these.
+    # Tier B fallback (EA/DEA/DEIS/FEIS) is only used when Tier A is empty.
+    # Fallback candidates can pass via:
+    #   - strong decision language, OR
+    #   - clear final-document markers (Final EA/FEIS), even if BERT mislabels
+    #     the candidate as initiation/review.
+    tier_a_decision = []
+    fallback_decision = []
+    non_decision = []
+
+    _STRONG_DECISION_PATTERNS = {
+        'signed', 'approved', 'issued', 'finding', 'fonsi',
+        'record of decision', 'decision record', 'determination',
+        'approval', 'authorized', 'authorization',
+        'selected alternative', 'joint record of decision',
+    }
+    _FINAL_DOC_DECISION_MARKERS = {
+        'final environmental assessment', 'final ea',
+        'final environmental impact statement', 'final eis', 'feis',
+    }
+    _NON_DECISION_PATTERNS = {
+        'draft', 'public review', 'comment period', 'scoping',
+        'notice of intent', 'noi', 'public comment',
+        'draft eis', 'draft environmental impact statement',
+        'notice of availability', 'noa',
+        'public hearing', 'comment deadline',
+    }
+
+    def _is_fallback_doc(doc_type):
+        return doc_type in _LLM_FALLBACK_DECISION_DOC_TYPES or doc_type not in _LLM_KNOWN_DOC_TYPES
+
+    def _has_strong_decision_language(d):
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        has_strong = any(p in ctx for p in _STRONG_DECISION_PATTERNS)
+        has_exclude = any(p in ctx for p in _NON_DECISION_PATTERNS)
+        return has_strong and not has_exclude
+
+    def _has_final_doc_decision_marker(d):
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        return any(p in ctx for p in _FINAL_DOC_DECISION_MARKERS)
+
+    _ROD_LANGUAGE_PATTERNS = [
+        r'record of decision', r'\brod\b.*sign',
+        r'finding of no significant impact', r'\bfonsi\b.*sign',
+    ]
+
+    def _has_rod_language(d):
+        import re as _re
+        ctx = str(d.get('source', '') or d.get('context', '')).lower()
+        return any(_re.search(p, ctx) for p in _ROD_LANGUAGE_PATTERNS)
+
+    for d in doc_filtered:
+        doc_type = _get_doc_type(d)
+        dtype = d.get('type', '')
+
+        if dtype == 'decision' and doc_type in _LLM_DECISION_DOC_TYPES:
+            tier_a_decision.append(d)
+        elif promote_rod_language and dtype == 'decision' and _has_rod_language(d):
+            # ROD/FONSI language in any doc type -> Tier A regardless of doc_type
+            # Handles programmatic EISs where ROD is embedded in the FEIS body
+            tier_a_decision.append(d)
+        elif dtype == 'decision':
+            # Fallback-doc decisions, or blank/other docs, must pass strong language checks.
+            if _is_fallback_doc(doc_type):
+                if _has_strong_decision_language(d) or _has_final_doc_decision_marker(d):
+                    fallback_decision.append(d)
+                else:
+                    non_decision.append(d)  # low-confidence decision date; LLM sees BERT_TYPE label
+            else:
+                non_decision.append(d)  # unknown doc type decision date; LLM sees BERT_TYPE label
+        elif dtype in ('initiation', 'review', 'other'):
+            # Promote misclassified fallback candidates if context clearly indicates
+            # a final EA/FEIS document date.
+            if _is_fallback_doc(doc_type) and _has_final_doc_decision_marker(d):
+                fallback_decision.append(d)
+            elif promote_rod_language and _has_rod_language(d):
+                # Catches BERT misclassifying a decision date as 'review' or 'other'
+                fallback_decision.append(d)
+            else:
+                non_decision.append(d)
+        else:
+            non_decision.append(d)
+
+    n_priority = len(tier_a_decision)
+    n_other_dec = len(fallback_decision)
+
+    if n_priority > 0:
+        # Hard constraint: only FONSI/ROD/DR decision dates allowed
+        decision_mode = 'priority_only'
+        allowed_decision = tier_a_decision
+    elif n_other_dec > 0:
+        # Fallback mode: only vetted EA/DEA/DEIS/FEIS decision dates allowed
+        decision_mode = 'ea_eis_fallback'
+        allowed_decision = fallback_decision
+    else:
+        decision_mode = 'no_decision_candidates'
+        allowed_decision = []
+
+    allowed_decision_dates = {d.get('date') for d in allowed_decision}
+
+    # Only allowed decision candidates are sent, plus all non-decision candidates.
+    final = allowed_decision + non_decision
+
+    # Track tier-gated drops: fallback_decision items suppressed by priority_only mode
+    if decision_mode == 'priority_only':
+        for d in fallback_decision:
+            d = d.copy()
+            d['_dropped_reason'] = 'tier_gate'
+            dropped.append(d)
+
+    # ----- Layer 6: Hard cap -----
+    if max_candidates is not None and len(final) > max_candidates:
+        def _rank_score(d):
+            doc_type = _get_doc_type(d)
+            doc_bonus = 10 if doc_type in _LLM_DECISION_DOC_TYPES else (
+                8 if doc_type in _LLM_INITIATION_DOC_TYPES else 0
+            )
+            type_bonus = 5 if d.get('type') == 'decision' else (
+                4 if d.get('type') == 'initiation' else 0
+            )
+            return doc_bonus + type_bonus + _get_conf(d)
+
+        final.sort(key=_rank_score, reverse=True)
+        cap_dropped = final[max_candidates:]
+        final = final[:max_candidates]
+        for d in cap_dropped:
+            d = d.copy()
+            d['_dropped_reason'] = 'cap'
+            dropped.append(d)
+
+    # Sort chronologically for the LLM
+    final.sort(key=lambda d: d.get('date', '9999-99-99'))
+
+    return {
+        'candidates': final,
+        'decision_mode': decision_mode,
+        'allowed_decision_dates': allowed_decision_dates,
+        'n_priority_decision': n_priority,
+        'n_other_decision': n_other_dec,
+        'dropped_candidates': dropped,
+    }
+
+
+def _build_adjudication_prompt(project_title: str, dates: list,
+                               decision_mode: str = 'priority_only',
+                               allowed_decision_dates: set = None,
+                               context_chars: int = 300,
+                               best_effort: bool = False) -> str:
+    """
+    Build a prompt for LLM adjudication of BERT-classified dates.
+
+    Args:
+        project_title: Project name for context.
+        dates: Filtered date candidate dicts.
+        decision_mode: 'priority_only', 'ea_eis_fallback', or 'no_decision_candidates'.
+        allowed_decision_dates: Set of YYYY-MM-DD strings the LLM may pick for decision.
+    """
+    date_block = []
+    for i, d in enumerate(dates, 1):
+        doc_type_str = f" [doc: {d['doc_type']}]" if d.get('doc_type') else ""
+        mentions_str = f" (appears {d['_mentions']}x)" if d.get('_mentions', 0) > 1 else ""
+        sec_str  = f" [sec:{d['section_label']}]" if d.get('section_label') else ""
+        source_text = str(d.get('source', '') or d.get('context', ''))
+        date_block.append(
+            f"{i}. DATE: {d['date']}  BERT_TYPE: {d['type']}{doc_type_str}{sec_str}{mentions_str}\n"
+            f"   CONTEXT: {source_text[:context_chars]}"
+        )
+    dates_text = "\n".join(date_block)
+
+    # Build decision constraint block based on mode
+    if decision_mode == 'priority_only':
+        allowed_str = ', '.join(sorted(allowed_decision_dates)) if allowed_decision_dates else 'none'
+        decision_constraint = (
+            f"DECISION MODE: priority_only\n"
+            f"This project has decision candidates from FONSI/ROD/Decision Record documents.\n"
+            f"You MUST pick the decision date from this set ONLY: [{allowed_str}]\n"
+            f"Do NOT use dates from EA/DEA/DEIS/FEIS or other documents for the decision."
+        )
+    elif decision_mode == 'ea_eis_fallback':
+        allowed_str = ', '.join(sorted(allowed_decision_dates)) if allowed_decision_dates else 'none'
+        decision_constraint = (
+            "DECISION MODE: ea_eis_fallback\n"
+            "This project has NO FONSI/ROD/Decision Record documents.\n"
+            "Decision candidates are limited to EA/DEA/DEIS/FEIS dates with strong decision language "
+            "or clear final-document markers (Final EA/FEIS).\n"
+            f"Preferred decision-date set: [{allowed_str}].\n"
+            "You SHOULD prioritize this set, but you may pick another candidate date if its context "
+            "more clearly indicates final approval/completion."
+        )
+    else:
+        if best_effort:
+            decision_constraint = (
+                "DECISION MODE: no_decision_candidates\n"
+                "No decision-specific candidates were pre-identified by BERT.\n"
+                "Review all provided candidates and pick the most likely project decision/approval date "
+                "(ROD, FONSI, approval signature, or final document date). "
+                "Prefer the latest date from the most authoritative document. "
+                "Only respond with null for decision_date if truly no candidate could be the decision date."
+            )
+        else:
+            decision_constraint = (
+                "DECISION MODE: no_decision_candidates\n"
+                "No high-confidence decision candidates were pre-identified.\n"
+                "Review all provided candidates and pick a decision date only if context clearly indicates "
+                "final approval/completion; otherwise respond with null."
+            )
+
+    return f"""You are an expert at reading NEPA (National Environmental Policy Act) project documents.
+
+PROJECT: {project_title}
+
+Below are date candidates extracted from this project's documents. Each has a date, the BERT model's classification, the source document type [doc: X] if known, and surrounding text context.
+
+{dates_text}
+
+YOUR TASK: Pick the single best INITIATION date and the single best DECISION date for this project.
+
+DEFINITIONS:
+- INITIATION: When the NEPA review process began — application received, notice of intent, scoping notice, or project proposal date.
+- DECISION: When the NEPA review was completed — FONSI signed, Record of Decision (ROD) signed, decision record issued, or approval/authorization date.
+
+{decision_constraint}
+
+INITIATION GUIDANCE:
+- Prefer dates from EA/DEA (or DEIS for EIS projects) that reference application, NOI, scoping, or project start.
+- FONSI/ROD/Decision Record documents rarely contain good initiation dates.
+
+RULES:
+- The initiation date must come BEFORE the decision date.
+- Prefer dates with strong decision language (signed, approved, issued, FONSI, ROD, decision record) over generic document dates.
+- Prefer dates with strong initiation language (application, notice of intent, scoping, proposed, received) over generic dates.
+- If no clear initiation date exists, respond with null.
+- If no clear decision date exists, respond with null.
+- Do NOT pick dates that refer to other projects, regulations, or historical references.
+- [sec:] labels show the document section; prefer [sec:fonsi]/[sec:rod]/[sec:ce_determination] for decision and [sec:noi]/[sec:signature_block] for initiation when relevant.
+
+Respond with ONLY valid JSON in this exact format (no other text):
+{{"initiation_date": "YYYY-MM-DD", "decision_date": "YYYY-MM-DD", "reason_initiation": "one-sentence reason", "reason_decision": "one-sentence reason"}}"""
+
+
+def _call_ollama_adjudication(prompt: str, model: str, timeout: int) -> dict:
+    """Call Ollama for a single adjudication prompt."""
+    import requests
+    try:
+        response = requests.post(
+            'http://localhost:11434/api/generate',
+            json={
+                'model': model,
+                'prompt': prompt,
+                'stream': False,
+                'options': {
+                    'temperature': 0.1,
+                    'num_predict': 200,
+                }
+            },
+            timeout=timeout
+        )
+        if response.status_code == 200:
+            return {
+                'response': response.json().get('response', ''),
+                'eval_duration_ms': response.json().get('eval_duration', 0) / 1e6,
+                'error': None,
+            }
+        else:
+            return {'response': '', 'error': f'ollama_http_error: {response.status_code}'}
+    except requests.exceptions.ConnectionError:
+        return {'response': '', 'error': 'ollama_not_running'}
+    except requests.exceptions.Timeout:
+        return {'response': '', 'error': 'ollama_timeout'}
+    except Exception as e:
+        return {'response': '', 'error': f'ollama_error: {str(e)}'}
+
+
+def _call_claude_adjudication(prompt: str, model: str, timeout: int, max_retries: int = 3) -> dict:
+    """Call Claude API for a single adjudication prompt with rate-limit retry."""
+    import requests
+    import os
+    import time as _time
+
+    api_key = os.environ.get('ANTHROPIC_API_KEY')
+    if not api_key:
+        return {'response': '', 'error': 'ANTHROPIC_API_KEY not set'}
+
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(
+                'https://api.anthropic.com/v1/messages',
+                headers={
+                    'x-api-key': api_key,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json',
+                },
+                json={
+                    'model': model,
+                    'max_tokens': 200,
+                    'temperature': 0.1,
+                    'messages': [{'role': 'user', 'content': prompt}],
+                },
+                timeout=timeout
+            )
+            if response.status_code == 200:
+                data = response.json()
+                text = data.get('content', [{}])[0].get('text', '')
+                return {
+                    'response': text,
+                    'eval_duration_ms': None,
+                    'error': None,
+                }
+            elif response.status_code in (429, 529):
+                # Rate limited (429) or service overload (529) — wait and retry
+                wait_time = int(response.headers.get('retry-after',
+                                60 if response.status_code == 529 else 30))
+                _time.sleep(wait_time)
+                continue
+            else:
+                error_msg = response.json().get('error', {}).get('message', response.text[:200])
+                return {'response': '', 'error': f'claude_api_error ({response.status_code}): {error_msg}'}
+        except requests.exceptions.Timeout:
+            return {'response': '', 'error': 'claude_timeout'}
+        except Exception as e:
+            return {'response': '', 'error': f'claude_error: {str(e)}'}
+
+    return {'response': '', 'error': 'claude_rate_limit_exhausted'}
+
+
+_PLAUSIBLE_GAP_DAYS = {
+    'CE':  (30,  2000),
+    'EA':  (60,  3000),
+    'EIS': (180, 7000),
+}
+
+
+def _validate_adjudication(
+    initiation_date_str: str,
+    decision_date_str: str,
+    source: str,
+) -> str:
+    """
+    Validate an adjudicated (initiation_date, decision_date) pair for a given source.
+
+    Returns a pipe-delimited string of flag codes, or '' if the dates are clean.
+    Possible flags:
+      date_order_error       — decision_date < initiation_date
+      gap_too_short_Nd       — gap < lower bound for source (N days)
+      gap_too_long_Nd        — gap > upper bound for source (N days)
+    """
+    from datetime import datetime as _dt
+    flags = []
+    if not initiation_date_str or not decision_date_str:
+        return ''
+    try:
+        init_dt = _dt.strptime(initiation_date_str[:10], '%Y-%m-%d')
+        dec_dt  = _dt.strptime(decision_date_str[:10],  '%Y-%m-%d')
+    except ValueError:
+        return ''
+    if dec_dt < init_dt:
+        flags.append('date_order_error')
+    else:
+        gap = (dec_dt - init_dt).days
+        lo, hi = _PLAUSIBLE_GAP_DAYS.get(str(source).upper(), (30, 7000))
+        if gap < lo:
+            flags.append(f'gap_too_short_{gap}d')
+        elif gap > hi:
+            flags.append(f'gap_too_long_{gap}d')
+    return '|'.join(flags)
+
+
+def _parse_adjudication_response(response_text: str, source: str = None) -> dict:
+    """
+    Parse JSON response from LLM adjudication.
+
+    Expected JSON keys (new timeline-level format):
+      initiation_date, decision_date,
+      reason_initiation, reason_decision,
+      flag (LLM-generated flag, distinct from validation_flag)
+
+    Legacy keys also accepted: initiation_reasoning, decision_reasoning.
+
+    Returns dict with llm_* fields plus validation_flag from _validate_adjudication().
+    """
+    import json as json_module
+    result = {
+        'llm_initiation_date': None,
+        'llm_decision_date': None,
+        'llm_initiation_reasoning': None,
+        'llm_decision_reasoning': None,
+        'reason_initiation': None,
+        'reason_decision': None,
+        'validation_flag': '',
+    }
+    if not response_text:
+        return result
+
+    # Extract JSON from response (may have prose around it)
+    text = response_text.strip()
+    start = text.find('{')
+    end = text.rfind('}')
+    if start >= 0 and end > start:
+        text = text[start:end + 1]
+
+    try:
+        parsed = json_module.loads(text)
+
+        # Date fields
+        for key in ['initiation_date', 'decision_date']:
+            val = parsed.get(key)
+            if val and str(val).lower() not in ('null', 'none', 'n/a', ''):
+                result[f'llm_{key}'] = str(val)
+
+        # Reasoning fields — accept both legacy and new key names
+        for new_key, legacy_key in [('reason_initiation', 'initiation_reasoning'),
+                                     ('reason_decision',   'decision_reasoning')]:
+            val = parsed.get(new_key) or parsed.get(legacy_key)
+            if val and str(val).lower() not in ('null', 'none', 'n/a', ''):
+                result[new_key] = str(val)
+                result[f'llm_{legacy_key}'] = str(val)  # backward compat
+
+    except json_module.JSONDecodeError:
+        pass
+
+    # Cross-date validation
+    result['validation_flag'] = _validate_adjudication(
+        result.get('llm_initiation_date'),
+        result.get('llm_decision_date'),
+        source or '',
+    )
+
+    return result
+
+
+CLAUDE_DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+LLM_ADJ_DEFAULT_MAX_CANDIDATES = 50
+LLM_ADJ_DEFAULT_CONTEXT_CHARS = 300
+LLM_ADJ_EIS_MAX_CANDIDATES = 30
+LLM_ADJ_EIS_CONTEXT_CHARS = 200
+
+
+def _apply_year_window(dates: list, window_years: int = 15) -> list:
+    """Remove dates more than window_years before the latest candidate date."""
+    if not dates:
+        return dates
+    years = [int(d['date'][:4]) for d in dates if d.get('date') and len(d.get('date', '')) >= 4]
+    if not years:
+        return dates
+    cutoff_year = max(years) - window_years
+    return [d for d in dates if d.get('date') and int(d['date'][:4]) >= cutoff_year]
+
+
+def run_llm_adjudication(
+    input_file: str,
+    model: str = DEFAULT_LLM_MODEL,
+    provider: str = 'ollama',
+    timeout: int = 120,
+    workers: int = 1,
+    sample_size: int = None,
+    output_file: str = None,
+    project_ids_file: str = None,
+    nonstandard_incomplete: bool = False,
+    override_max_candidates: int = None,
+    override_context_chars: int = None,
+    promote_rod_language: bool = False,
+    year_window: int = None,
+):
+    """
+    Run LLM adjudication on BERT timeline output.
+
+    Reads a BERT output parquet, extracts all date candidates per project,
+    sends them to an Ollama LLM for adjudication, and adds LLM picks
+    alongside the BERT picks for comparison.
+
+    Args:
+        input_file: Path to BERT output parquet (e.g., test50_ea.parquet)
+        model: Ollama model name
+        timeout: Timeout per project in seconds
+        workers: Number of parallel workers
+        output_file: Output parquet path (default: adds _llm suffix to input)
+    """
+    import json as json_module
+    import time
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    # Support comma-separated list of input files
+    input_parts = [f.strip() for f in str(input_file).split(',')]
+    input_paths = []
+    for part in input_parts:
+        p = Path(part)
+        if p.is_absolute():
+            pass  # use as-is
+        elif p.exists():
+            p = p.resolve()  # relative to cwd (e.g. data/analysis/foo.parquet)
+        else:
+            p = PHASE2_DATA_DIR / part  # bare filename relative to PHASE2_DATA_DIR
+        if not p.exists():
+            print(f"ERROR: Input file not found: {p}")
+            return None
+        input_paths.append(p)
+    input_path = input_paths[0]  # used for default output stem
+
+    # Resolve provider and model defaults
+    if provider == 'claude' and model == DEFAULT_LLM_MODEL:
+        model = CLAUDE_DEFAULT_MODEL
+    if provider == 'claude':
+        import os
+        if not os.environ.get('ANTHROPIC_API_KEY'):
+            print("ERROR: ANTHROPIC_API_KEY environment variable not set.")
+            print("  Set it with: export ANTHROPIC_API_KEY='sk-ant-...'")
+            return None
+        workers = 1  # Sequential to respect rate limits
+
+    print(f"\n=== LLM Adjudication ===")
+    print(f"Input: {', '.join(str(p) for p in input_paths)}")
+    print(f"Provider: {provider}")
+    print(f"Model: {model}")
+    print(f"Workers: {workers}")
+    print(f"Timeout: {timeout}s per project")
+
+    if len(input_paths) > 1:
+        dfs = [pd.read_parquet(p) for p in input_paths]
+        df = pd.concat(dfs, ignore_index=True).drop_duplicates('project_id')
+        print(f"Loaded {len(df):,} projects from {len(input_paths)} files")
+    else:
+        df = pd.read_parquet(input_path)
+        print(f"Loaded {len(df):,} projects")
+
+    if project_ids_file:
+        ids_path = Path(project_ids_file)
+        if not ids_path.is_absolute():
+            ids_path = ANALYSIS_DIR / project_ids_file
+        ids = pd.read_csv(ids_path, header=None)[0].astype(str).tolist()
+        df = df[df['project_id'].isin(ids)]
+        print(f"Filtered to {len(df):,} projects from --project-ids")
+
+    if nonstandard_incomplete:
+        reviews_path = ANALYSIS_DIR / 'projects_reviews.parquet'
+        if not reviews_path.exists():
+            print(f"ERROR: --nonstandard-incomplete requires {reviews_path}")
+            return None
+        reviews = pd.read_parquet(reviews_path, columns=['project_id', 'project_review_type'])
+        ns_ids = set(
+            reviews[reviews['project_review_type'].isin(['programmatic', 'tiered'])]['project_id'].astype(str)
+        )
+        is_incomplete = (
+            df['project_id'].astype(str).isin(ns_ids) &
+            (df['llm_decision_date'].isna() | df['llm_initiation_date'].isna())
+        )
+        df = df[is_incomplete]
+        print(f"--nonstandard-incomplete: {len(df):,} programmatic/tiered projects with missing dates")
+
+    if sample_size and sample_size < len(df):
+        df = df.sample(n=sample_size, random_state=42)
+        print(f"Sampled {len(df):,} projects")
+
+    # Prepare adjudication tasks
+    tasks = []
+    for idx, row in df.iterrows():
+        project_id = row['project_id']
+        project_title = row.get('project_title', 'Unknown')
+        dataset_source = str(row.get('dataset_source', '') or '').upper()
+        process_type = str(row.get('process_type', '') or '').upper()
+
+        is_eis = dataset_source == 'EIS' or process_type == 'EIS'
+        if override_max_candidates is not None:
+            max_candidates = override_max_candidates if override_max_candidates > 0 else None
+        else:
+            max_candidates = LLM_ADJ_EIS_MAX_CANDIDATES if is_eis else LLM_ADJ_DEFAULT_MAX_CANDIDATES
+        if override_context_chars is not None:
+            context_chars = override_context_chars
+        else:
+            context_chars = LLM_ADJ_EIS_CONTEXT_CHARS if is_eis else LLM_ADJ_DEFAULT_CONTEXT_CHARS
+
+        # Parse BERT dates JSON
+        dates_json = row.get('bert_dates_json', '[]')
+        try:
+            all_dates = json_module.loads(dates_json) if dates_json else []
+        except json_module.JSONDecodeError:
+            all_dates = []
+
+        # Remove historical/expiration; optionally apply year window; then filter
+        pre_filter = [
+            d for d in all_dates
+            if d.get('type') not in ('historical', 'expiration')
+        ]
+        if year_window:
+            pre_filter = _apply_year_window(pre_filter, year_window)
+        filter_result = _filter_candidates_for_llm(
+            pre_filter,
+            max_candidates=max_candidates,
+            promote_rod_language=promote_rod_language,
+        )
+
+        tasks.append({
+            'idx': idx,
+            'project_id': project_id,
+            'project_title': project_title,
+            'dataset_source': dataset_source,
+            'process_type': process_type,
+            'max_candidates': max_candidates,
+            'context_chars': context_chars,
+            'candidates': filter_result['candidates'],
+            'decision_mode': filter_result['decision_mode'],
+            'allowed_decision_dates': filter_result['allowed_decision_dates'],
+            'n_priority_decision': filter_result['n_priority_decision'],
+            'n_other_decision': filter_result['n_other_decision'],
+            'n_total_dates': len(all_dates),
+            'n_pre_filter': len(pre_filter),
+            'n_candidates': len(filter_result['candidates']),
+            'best_effort': nonstandard_incomplete,
+            'dropped_candidates': filter_result.get('dropped_candidates', []),
+        })
+
+    # Stats
+    n_with_candidates = sum(1 for t in tasks if t['n_candidates'] > 0)
+    n_no_candidates = sum(1 for t in tasks if t['n_candidates'] == 0)
+    total_pre = sum(t['n_pre_filter'] for t in tasks)
+    total_post = sum(t['n_candidates'] for t in tasks)
+    reduction_pct = (1 - total_post / total_pre) * 100 if total_pre > 0 else 0
+    n_priority_mode = sum(1 for t in tasks if t['decision_mode'] == 'priority_only')
+    n_fallback_mode = sum(1 for t in tasks if t['decision_mode'] == 'ea_eis_fallback')
+    n_no_dec_mode = sum(1 for t in tasks if t['decision_mode'] == 'no_decision_candidates')
+    print(f"Projects with candidates: {n_with_candidates}")
+    print(f"Projects with no candidates (skipped): {n_no_candidates}")
+    print(f"Candidate filtering: {total_pre:,} -> {total_post:,} ({reduction_pct:.0f}% reduction)")
+    n_eis_tasks = sum(1 for t in tasks if t['max_candidates'] == LLM_ADJ_EIS_MAX_CANDIDATES)
+    print(
+        f"Adjudication limits: default cap={LLM_ADJ_DEFAULT_MAX_CANDIDATES}, "
+        f"EIS cap={LLM_ADJ_EIS_MAX_CANDIDATES} ({n_eis_tasks} projects)"
+    )
+    print(
+        f"Decision modes: {n_priority_mode} priority_only, "
+        f"{n_fallback_mode} ea_eis_fallback, "
+        f"{n_no_dec_mode} no_decision_candidates"
+    )
+
+    # Dropped-candidate summary: count by drop reason across all tasks
+    from collections import Counter as _Counter
+    _dropped_reason_counts = _Counter()
+    for t in tasks:
+        for d in t.get('dropped_candidates', []):
+            _dropped_reason_counts[d.get('_dropped_reason', 'unknown')] += 1
+    if _dropped_reason_counts:
+        total_dropped = sum(_dropped_reason_counts.values())
+        print(f"Dropped candidates total: {total_dropped:,}")
+        for reason, count in sorted(_dropped_reason_counts.items(), key=lambda x: -x[1]):
+            print(f"  {reason}: {count:,}")
+
+    # Process with thread pool
+    results = {}
+    start_time = time.time()
+
+    def _process_one(task):
+        # Diagnostic fields included in every result
+        diag = {
+            'llm_decision_mode': task['decision_mode'],
+            'llm_n_priority_decision_candidates': task['n_priority_decision'],
+            'llm_n_other_decision_candidates': task['n_other_decision'],
+            'llm_n_fallback_decision_candidates': task['n_other_decision'],
+        }
+
+        if not task['candidates']:
+            return task['idx'], {
+                'llm_initiation_date': None,
+                'llm_decision_date': None,
+                'llm_initiation_reasoning': None,
+                'llm_decision_reasoning': None,
+                'llm_adj_error': 'no_candidates',
+                'llm_adj_n_candidates': 0,
+                'llm_adj_raw_response': None,
+                **diag,
+            }
+
+        prompt = _build_adjudication_prompt(
+            task['project_title'],
+            task['candidates'],
+            decision_mode=task['decision_mode'],
+            allowed_decision_dates=task['allowed_decision_dates'],
+            context_chars=task['context_chars'],
+            best_effort=task.get('best_effort', False),
+        )
+        if provider == 'claude':
+            llm_result = _call_claude_adjudication(prompt, model, timeout)
+        else:
+            llm_result = _call_ollama_adjudication(prompt, model, timeout)
+
+        parsed = _parse_adjudication_response(llm_result['response'], source=task.get('dataset_source'))
+        parsed['llm_adj_error'] = llm_result['error']
+        parsed['llm_adj_n_candidates'] = task['n_candidates']
+        parsed['llm_adj_prompt'] = prompt
+        parsed['llm_adj_raw_response'] = llm_result['response'][:500] if llm_result['response'] else None
+        parsed.update(diag)
+
+        # Post-parse guardrail: validate returned dates are in the candidate list.
+        # Catches hallucinated dates that look plausible but were never extracted.
+        allowed_dates = {d.get('date') for d in task['candidates'] if d.get('date')}
+
+        # Guard: initiation date must appear in the candidate list
+        init_date = parsed.get('llm_initiation_date')
+        if init_date and init_date not in allowed_dates:
+            parsed['llm_initiation_date'] = None
+            existing_err = parsed.get('llm_adj_error') or ''
+            parsed['llm_adj_error'] = (
+                f"{existing_err}|hallucination_guard_initiation" if existing_err
+                else 'hallucination_guard_initiation'
+            )
+
+        # Guard: decision date validation (priority_only mode: must be in allowed tier;
+        # other modes: must at least appear somewhere in the candidate list)
+        if task['decision_mode'] == 'priority_only':
+            allowed = task['allowed_decision_dates']
+            picked_dec = parsed.get('llm_decision_date')
+            if picked_dec and allowed and picked_dec not in allowed:
+                parsed['llm_decision_date'] = None
+                existing_err = parsed.get('llm_adj_error') or ''
+                parsed['llm_adj_error'] = (
+                    f"{existing_err}; decision_not_in_allowed_tier" if existing_err
+                    else 'decision_not_in_allowed_tier'
+                )
+        else:
+            dec_date = parsed.get('llm_decision_date')
+            if dec_date and dec_date not in allowed_dates:
+                parsed['llm_decision_date'] = None
+                existing_err = parsed.get('llm_adj_error') or ''
+                parsed['llm_adj_error'] = (
+                    f"{existing_err}|hallucination_guard_decision" if existing_err
+                    else 'hallucination_guard_decision'
+                )
+
+        return task['idx'], parsed
+
+    completed = 0
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(_process_one, t): t for t in tasks}
+        for future in as_completed(futures):
+            idx, result_dict = future.result()
+            results[idx] = result_dict
+            completed += 1
+            if completed % 5 == 0 or completed <= 3 or completed == len(tasks):
+                elapsed = time.time() - start_time
+                rate = completed / elapsed if elapsed > 0 else 0
+                remaining = (len(tasks) - completed) / rate if rate > 0 else 0
+                print(f"  {completed}/{len(tasks)} projects ({rate:.1f}/s, ~{remaining:.0f}s remaining)")
+
+    elapsed = time.time() - start_time
+    print(f"\nCompleted in {elapsed:.1f}s ({elapsed/len(tasks):.1f}s per project)")
+
+    # Merge results into DataFrame
+    for col in ['llm_initiation_date', 'llm_decision_date', 'llm_initiation_reasoning',
+                'llm_decision_reasoning', 'llm_adj_error', 'llm_adj_n_candidates', 'llm_adj_prompt', 'llm_adj_raw_response',
+                'llm_decision_mode', 'llm_n_priority_decision_candidates',
+                'llm_n_other_decision_candidates', 'llm_n_fallback_decision_candidates']:
+        df[col] = None
+
+    for idx, result_dict in results.items():
+        for col, val in result_dict.items():
+            df.at[idx, col] = val
+
+    # Summary
+    has_llm_decision = df['llm_decision_date'].notna().sum()
+    has_llm_initiation = df['llm_initiation_date'].notna().sum()
+    has_bert_decision = df['bert_decision_date'].notna().sum() if 'bert_decision_date' in df.columns else 0
+    has_bert_initiation = df['bert_initiation_date_final'].notna().sum() if 'bert_initiation_date_final' in df.columns else 0
+
+    print(f"\n=== Comparison ===")
+    print(f"{'':20s} {'BERT':>8s} {'LLM':>8s}")
+    print(f"{'Decision found':20s} {has_bert_decision:>8d} {has_llm_decision:>8d}")
+    print(f"{'Initiation found':20s} {has_bert_initiation:>8d} {has_llm_initiation:>8d}")
+
+    # Agreement stats
+    if 'bert_decision_date' in df.columns:
+        both_have_dec = df['bert_decision_date'].notna() & df['llm_decision_date'].notna()
+        if both_have_dec.any():
+            agree_dec = (df.loc[both_have_dec, 'bert_decision_date'] == df.loc[both_have_dec, 'llm_decision_date']).sum()
+            print(f"{'Decision agreement':20s} {agree_dec:>8d} / {both_have_dec.sum()}")
+    if 'bert_initiation_date_final' in df.columns:
+        both_have_init = df['bert_initiation_date_final'].notna() & df['llm_initiation_date'].notna()
+        if both_have_init.any():
+            agree_init = (df.loc[both_have_init, 'bert_initiation_date_final'] == df.loc[both_have_init, 'llm_initiation_date']).sum()
+            print(f"{'Initiation agreement':20s} {agree_init:>8d} / {both_have_init.sum()}")
+
+    # Decision mode breakdown
+    if 'llm_decision_mode' in df.columns:
+        mode_counts = df['llm_decision_mode'].value_counts().to_dict()
+        print(f"\nDecision modes: {mode_counts}")
+
+    errors = df['llm_adj_error'].dropna()
+    if not errors.empty:
+        non_skip_errors = errors[errors != 'no_candidates']
+        if not non_skip_errors.empty:
+            print(f"Errors: {non_skip_errors.value_counts().to_dict()}")
+
+    # Save output
+    if output_file:
+        p = Path(output_file)
+        if p.is_absolute():
+            out_path = p
+        elif p.parent.exists():
+            out_path = p.resolve()  # relative to cwd (e.g. data/analysis/foo.parquet)
+        else:
+            out_path = PHASE2_DATA_DIR / output_file  # bare filename relative to PHASE2_DATA_DIR
+    else:
+        stem = input_path.stem
+        out_path = input_path.parent / f"{stem}_llm.parquet"
+
+    df['run_timestamp'] = pd.Timestamp.utcnow().isoformat()
+    df.to_parquet(out_path)
+    print(f"\nSaved to: {out_path}")
+    return df
+
+
+def test_llm_extraction_sample(n_samples: int = 5, model: str = DEFAULT_LLM_MODEL):
+    """
+    Test LLM extraction on a small sample with detailed output.
+
+    Args:
+        n_samples: Number of projects to test
+        model: Ollama model name
+
+    Returns:
+        DataFrame with detailed results
+    """
+    import json as json_module
+    import time
+
+    print(f"\n=== Testing LLM Extraction ({n_samples} samples) ===")
+    print(f"Model: {model}\n")
+
+    # Load data
+    projects = _load_projects_combined()
+    if projects is None:
+        return None
+    _warn_if_clean_energy_count_off(projects, sources=['CE'])
+
+    # Filter to CE + Clean energy
+    projects = projects[
+        (projects['dataset_source'] == 'CE') &
+        (projects['project_energy_type'] == 'Clean')
+    ].sample(n=n_samples, random_state=42)
+
+    print(f"Selected {len(projects)} CE clean energy projects\n")
+
+    # Load CE data
+    pages_df = pd.read_parquet(PROCESSED_DIR / "ce" / "pages.parquet")
+    documents_df = pd.read_parquet(PROCESSED_DIR / "ce" / "documents.parquet")
+
+    def extract_id(x):
+        return x.get('value', '') if isinstance(x, dict) else x
+
+    documents_df['project_id'] = documents_df['project_id'].apply(extract_id)
+
+    # Filter to main docs
+    main_doc_ids = documents_df[documents_df['main_document'] == 'YES']['document_id'].tolist()
+    pages_df = pages_df[pages_df['document_id'].isin(main_doc_ids)]
+
+    results = []
+
+    for idx, (_, project) in enumerate(projects.iterrows(), 1):
+        project_id = project['project_id']
+        project_title = project.get('project_title', 'N/A')[:60]
+
+        print(f"{'='*70}")
+        print(f"[{idx}/{n_samples}] Project: {project_id}")
+        print(f"Title: {project_title}...")
+        print(f"{'='*70}")
+
+        # Get document info
+        project_docs = documents_df[documents_df['project_id'] == project_id]
+        doc_ids = project_docs['document_id'].tolist()
+        project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
+
+        if project_pages.empty:
+            print("  No pages found for this project\n")
+            continue
+
+        all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
+        print(f"  Total text: {len(all_text):,} chars")
+
+        # Preprocess
+        preprocess_result = preprocess_for_timeline(all_text)
+        print(f"  After preprocessing: {len(preprocess_result.processed_text):,} chars ({preprocess_result.reduction_pct:.0f}% reduction)")
+        print(f"  Keywords found: {preprocess_result.keywords_found}")
+
+        # Extract with LLM
+        print(f"\n  Calling {model}...")
+        start = time.time()
+        llm_result = extract_with_ollama(all_text, model=model)
+        elapsed = time.time() - start
+        print(f"  LLM response time: {elapsed:.1f}s")
+
+        # Show results
+        print(f"\n  RESULTS:")
+        print(f"    Total dates found: {llm_result.get('n_dates_found', 0)}")
+        print(f"\n    DECISION:")
+        print(f"      Date:       {llm_result.get('decision_date')}")
+        print(f"      Confidence: {llm_result.get('decision_confidence')}")
+        print(f"      Source:     {str(llm_result.get('decision_date_source', 'N/A'))[:80]}...")
+
+        print(f"\n    SPECIALIST REVIEWS:")
+        print(f"      Count:    {llm_result.get('n_specialist_reviews', 0)}")
+        print(f"      Earliest: {llm_result.get('earliest_review_date')}")
+        print(f"      Latest:   {llm_result.get('latest_review_date')}")
+
+        print(f"\n    APPLICATION:")
+        print(f"      Explicit: {llm_result.get('application_date')}")
+        print(f"      Inferred: {llm_result.get('inferred_application_date')}")
+
+        print(f"\n    HISTORICAL:")
+        print(f"      Count:    {llm_result.get('n_historical_dates', 0)}")
+        print(f"      Earliest: {llm_result.get('earliest_historical_date')}")
+
+        print(f"\n    EXPIRATION: {llm_result.get('expiration_date')}")
+
+        if llm_result.get('error'):
+            print(f"\n    ERROR: {llm_result.get('error')}")
+
+        # Show all dates
+        dates_json = llm_result.get('dates_json', '[]')
+        try:
+            dates_list = json_module.loads(dates_json)
+            if dates_list:
+                print(f"\n    ALL DATES EXTRACTED:")
+                for d in dates_list:
+                    print(f"      {d['date']} [{d['type']}] - {d['source'][:50]}...")
+        except Exception:
+            pass
+
+        results.append({
+            'project_id': project_id,
+            'project_title': project_title,
+            'total_chars': len(all_text),
+            'processed_chars': len(preprocess_result.processed_text),
+            'n_dates_found': llm_result.get('n_dates_found', 0),
+            'decision_date': llm_result.get('decision_date'),
+            'decision_confidence': llm_result.get('decision_confidence'),
+            'earliest_review': llm_result.get('earliest_review_date'),
+            'n_reviews': llm_result.get('n_specialist_reviews', 0),
+            'inferred_app_date': llm_result.get('inferred_application_date'),
+            'error': llm_result.get('error'),
+            'response_time_sec': elapsed,
+        })
+
+        print()
+
+    # Summary table
+    results_df = pd.DataFrame(results)
+    print("\n" + "="*70)
+    print("SUMMARY")
+    print("="*70)
+    print(results_df[[
+        'project_id', 'n_dates_found', 'decision_date',
+        'decision_confidence', 'n_reviews', 'response_time_sec'
+    ]].to_string())
+
+    return results_df
+
+
+# --------------------------
+# TESTING
+# --------------------------
+
+if __name__ == "__main__":
+    # Test date extraction
+    test_texts = [
+        "The project was approved on January 15, 2024.",
+        "Notice of Intent published in the Federal Register on 03/22/2023.",
+        "The Draft EIS was released in March 2022.",
+        "Decision Record signed December 1, 2023.",
+        "Comment period ends Jan. 30, 2024.",
+        "Project commenced on 2021-06-15 (ISO format).",
+        "No dates in this text.",
+    ]
+
+    print("Testing date extraction patterns...")
+    for text in test_texts:
+        results = extract_dates_from_text(text)
+        print(f"\nText: {text}")
+        for r in results:
+            print(f"  {r['date_str']} ({r['context']}): {r['match']}")
+
+    print("\n" + "=" * 50)
+    print("\nREGEX EXTRACTION:")
+    print("  python extract_timeline.py --run")
+    print("  python extract_timeline.py --run --sample 100")
+    print("  python extract_timeline.py --run --ce-only --clean-energy --main-docs-only")
+    print("\nLLM EXTRACTION (requires Ollama running):")
+    print("  python extract_timeline.py --llm-test 5          # Test on 5 samples")
+    print("  python extract_timeline.py --llm-run --sample 50 # Run on 50 projects")
+    print("  python extract_timeline.py --llm-run             # Run on all CE clean energy")
+
+    import argparse
+    parser = argparse.ArgumentParser(
+        description="Extract timeline dates from NEPA documents using regex or LLM"
+    )
+
+    # Filtering options
+    parser.add_argument('--run', action='store_true', help='Run regex-based extraction')
+    parser.add_argument('--sample', type=int, help='Sample size for testing')
+    parser.add_argument('--source', type=str, default=None,
+                        help='Dataset source(s): CE, EA, EIS, or comma-separated (default: CE)')
+    parser.add_argument('--clean-energy', action='store_true', help='Process clean energy only')
+    parser.add_argument('--ce-only', action='store_true', help='Process CE (Categorical Exclusion) projects only')
+    parser.add_argument('--main-docs-only', action='store_true', help='Only read pages from main_document == YES')
+    parser.add_argument('--all-docs', action='store_true', help='Use all documents (not just decision docs)')
+
+    # LLM extraction options
+    parser.add_argument('--llm-test', type=int, metavar='N',
+                        help='Test LLM extraction on N samples with detailed output')
+    parser.add_argument('--llm-run', action='store_true',
+                        help='Run LLM extraction (CE + clean energy + main docs by default)')
+    parser.add_argument('--model', type=str, default=DEFAULT_LLM_MODEL,
+                        help=f'Ollama model to use (default: {DEFAULT_LLM_MODEL})')
+    parser.add_argument('--output', type=str,
+                        help='Custom output filename for LLM results')
+    parser.add_argument('--timeout', type=int, default=120,
+                        help='Timeout in seconds per document (default: 120, use 300+ for larger models)')
+    parser.add_argument('--project-id', type=str,
+                        help='Run extraction on a single project by ID')
+    parser.add_argument('--hybrid', action='store_true',
+                        help='Use hybrid regex+LLM approach (faster, recommended)')
+    parser.add_argument('--workers', type=int, default=4,
+                        help='Number of parallel LLM workers (default: 4)')
+    parser.add_argument('--regex-prep', action='store_true',
+                        help='Precompute regex candidate cache for hybrid LLM')
+    parser.add_argument('--regex-filtered', action='store_true',
+                        help='Apply cue filtering when building regex cache (legacy behavior)')
+    parser.add_argument('--use-regex-cache', action='store_true',
+                        help='Use precomputed regex cache for hybrid LLM')
+    parser.add_argument('--regex-cache', type=str,
+                        help='Custom regex cache filename (data/analysis/...)')
+
+    # BERT classifier options
+    parser.add_argument('--bert-generate', action='store_true',
+                        help='Generate training data for BERT using weak supervision')
+    parser.add_argument('--bert-train', action='store_true',
+                        help='Train BERT classifier on auto-labeled data')
+    parser.add_argument('--bert-run', action='store_true',
+                        help='Run BERT-based timeline extraction (fast)')
+    parser.add_argument('--bert-model', type=str, default=None,
+                        help='Hugging Face model for BERT training (default: auto by source — deberta-v3-small for EA/EIS, deberta-v3-base for CE)')
+    parser.add_argument('--epochs', type=int, default=None,
+                        help='Training epochs for BERT (default: auto by source — 5 for EA/EIS, 3 for CE)')
+
+    # LLM adjudication options
+    parser.add_argument('--llm-adjudicate', action='store_true',
+                        help='Run LLM adjudication on BERT output (post-processing)')
+    parser.add_argument('--input', type=str,
+                        help='Input parquet(s) for LLM adjudication (comma-separated for multiple files)')
+    parser.add_argument('--provider', type=str, default='ollama', choices=['ollama', 'claude'],
+                        help='LLM provider for adjudication (default: ollama)')
+    parser.add_argument('--project-ids', type=str, default=None,
+                        help='File of project IDs to process (one per line, no header)')
+    parser.add_argument('--nonstandard-incomplete', action='store_true',
+                        help='Auto-filter to programmatic/tiered projects with missing LLM dates')
+    parser.add_argument('--max-candidates', type=int, default=None,
+                        help='Override max candidates per project (default: 50 EA / 30 EIS; 0 = no cap)')
+    parser.add_argument('--context-chars', type=int, default=None,
+                        help='Override context chars per candidate (default: 300 EA / 200 EIS)')
+    parser.add_argument('--promote-rod-language', action='store_true',
+                        help='Promote ROD/FONSI language candidates to Tier A in LLM adjudication')
+    parser.add_argument('--year-window', type=int, default=None,
+                        help='Remove candidate dates more than N years before the latest candidate')
+
+    args = parser.parse_args()
+
+    # Run regex extraction
+    if args.run:
+        run_timeline_extraction(
+            sample_size=args.sample,
+            clean_energy_only=args.clean_energy,
+            ce_only=args.ce_only,
+            decision_docs_only=not args.all_docs,
+            main_docs_only=args.main_docs_only
+        )
+
+    # Test LLM extraction
+    elif args.llm_test:
+        test_llm_extraction_sample(n_samples=args.llm_test, model=args.model)
+
+    # Precompute regex candidates
+    elif args.regex_prep:
+        sources = _parse_sources(args.source)
+        run_regex_prep(
+            sample_size=args.sample,
+            sources=sources,
+            clean_energy_only=True,
+            main_docs_only=True,
+            output_file=args.regex_cache,
+            keep_all_candidates=not args.regex_filtered,
+        )
+        sys.exit(0)
+
+    # Run LLM extraction on single project
+    elif args.project_id:
+        import json as json_module
+        import time
+
+        approach = "hybrid regex+LLM" if args.hybrid else "full-document LLM"
+        print(f"\n=== Single Project Extraction ({approach}) ===")
+        print(f"Project ID: {args.project_id}")
+        print(f"Model: {args.model}")
+        print(f"Timeout: {args.timeout}s")
+
+        # Search all sources for the project
+        pages_df = None
+        project_docs = pd.DataFrame()
+        for source in ['CE', 'EA', 'EIS']:
+            data_dir = PROCESSED_DIR / source.lower()
+            pages_path = data_dir / "pages.parquet"
+            docs_path = data_dir / "documents.parquet"
+            if not pages_path.exists():
+                continue
+            source_pages = pd.read_parquet(pages_path)
+            source_docs = pd.read_parquet(docs_path)
+            source_docs['project_id'] = source_docs['project_id'].apply(
+                lambda x: x.get('value', '') if isinstance(x, dict) else x
+            )
+            project_docs = source_docs[source_docs['project_id'] == args.project_id]
+            if not project_docs.empty:
+                pages_df = source_pages
+                documents_df = source_docs
+                print(f"Found project in {source} dataset")
+                break
+
+        if project_docs.empty:
+            print(f"ERROR: No documents found for project {args.project_id} in any source (CE, EA, EIS)")
+            sys.exit(1)
+
+        main_docs = project_docs[project_docs['main_document'] == 'YES']
+        doc_ids = main_docs['document_id'].tolist() if not main_docs.empty else project_docs['document_id'].tolist()
+
+        print(f"Documents found: {len(project_docs)} (main: {len(main_docs)})")
+
+        # Get page text
+        project_pages = pages_df[pages_df['document_id'].isin(doc_ids)]
+        all_text = "\n\n".join(project_pages['page_text'].dropna().tolist())
+        print(f"Total text: {len(all_text):,} chars")
+
+        # Extract using selected approach
+        print(f"\nCalling {args.model}...")
+        start = time.time()
+
+        if args.hybrid:
+            # Show what regex finds first
+            if args.use_regex_cache:
+                cache_path = PHASE2_DATA_DIR / args.regex_cache if args.regex_cache else REGEX_CACHE_PATH
+                if cache_path.exists():
+                    cache_df = pd.read_parquet(cache_path)
+                    dates_found = cache_df[cache_df['project_id'] == args.project_id][[
+                        'date', 'match', 'context', 'position', 'position_pct'
+                    ]].to_dict(orient='records')
+                else:
+                    print(f"WARNING: regex cache not found at {cache_path}, falling back to live extraction.")
+                    dates_found = extract_dates_with_context(all_text)
+            else:
+                dates_found = extract_dates_with_context(all_text)
+            print(f"Regex found {len(dates_found)} dates")
+            for d in dates_found:
+                print(f"  {d['date']} ({d['match']}): ...{d['context'][:80]}...")
+
+            result = extract_with_hybrid_approach(
+                all_text,
+                model=args.model,
+                timeout=args.timeout,
+                dates_with_context=dates_found,
+            )
+            print(f"\nPrompt size: {result.get('prompt_chars', 0):,} chars (vs ~5,000 for full-document)")
+        else:
+            result = extract_with_ollama(all_text, model=args.model, timeout=args.timeout)
+
+        elapsed = time.time() - start
+        print(f"Response time: {elapsed:.1f}s")
+
+        # Display results
+        print(f"\n{'='*60}")
+        print("RESULTS")
+        print('='*60)
+
+        if result.get('error'):
+            print(f"ERROR: {result['error']}")
+        else:
+            print(f"Dates found: {result.get('n_dates_found', 0)}")
+            print("\nDECISION:")
+            print(f"  Date: {result.get('decision_date')}")
+            print(f"  Confidence: {result.get('decision_confidence')}")
+            print(f"  Source: {str(result.get('decision_date_source', 'N/A'))[:80]}")
+
+            print("\nSPECIALIST REVIEWS:")
+            print(f"  Count: {result.get('n_specialist_reviews', 0)}")
+            print(f"  Earliest: {result.get('earliest_review_date')}")
+            print(f"  Latest: {result.get('latest_review_date')}")
+
+            print("\nAPPLICATION:")
+            print(f"  Explicit: {result.get('application_date')}")
+            print(f"  Inferred: {result.get('inferred_application_date')}")
+
+            print(f"\nHISTORICAL: {result.get('n_historical_dates', 0)} dates")
+            print(f"EXPIRATION: {result.get('expiration_date')}")
+
+            # Show all dates
+            dates_json = result.get('dates_json', '[]')
+            try:
+                dates = json_module.loads(dates_json)
+                if dates:
+                    print("\nALL DATES CLASSIFIED:")
+                    for d in dates:
+                        print(f"  {d['date']} [{d['type']}] - {d.get('source', 'N/A')[:60]}...")
+            except json_module.JSONDecodeError:
+                pass
+
+            print("\nRAW RESPONSE:")
+            print(result.get('raw_response', 'N/A')[:500])
+
+    # Run LLM extraction
+    elif args.llm_run:
+        run_llm_timeline_extraction(
+            sample_size=args.sample,
+            clean_energy_only=True,  # Default to clean energy
+            ce_only=True,            # Default to CE only
+            main_docs_only=True,     # Default to main docs only
+            model=args.model,
+            output_file=args.output,
+            use_hybrid=args.hybrid,
+            timeout=args.timeout,
+            use_regex_cache=args.use_regex_cache,
+            regex_cache_path=PHASE2_DATA_DIR / args.regex_cache if args.regex_cache else REGEX_CACHE_PATH,
+            workers=args.workers,
+        )
+
+    # Generate BERT training data
+    elif args.bert_generate:
+        generate_bert_training_data(
+            sample_size=args.sample,
+            output_path=BERT_TRAINING_DATA_PATH,
+        )
+
+    # Train BERT classifier
+    elif args.bert_train:
+        train_source = args.source.upper() if args.source else None
+        train_bert_classifier(
+            training_data_path=BERT_TRAINING_DATA_PATH,
+            model_name=args.bert_model,
+            output_dir=_bert_model_dir(train_source),
+            epochs=args.epochs,
+            source=train_source,
+        )
+
+    # Run BERT extraction
+    elif args.bert_run:
+        sources = _parse_sources(args.source)
+        run_bert_timeline_extraction(
+            sample_size=args.sample,
+            sources=sources,
+            clean_energy_only=True,
+            main_docs_only=True,
+            output_file=args.output,
+            use_regex_cache=True,
+        )
+
+    # LLM adjudication (post-BERT)
+    elif args.llm_adjudicate:
+        if not args.input:
+            print("ERROR: --llm-adjudicate requires --input <bert_output.parquet>")
+            sys.exit(1)
+        run_llm_adjudication(
+            input_file=args.input,
+            model=args.model,
+            provider=args.provider,
+            timeout=args.timeout,
+            workers=args.workers,
+            sample_size=args.sample,
+            output_file=args.output,
+            project_ids_file=args.project_ids,
+            nonstandard_incomplete=args.nonstandard_incomplete,
+            override_max_candidates=args.max_candidates,
+            override_context_chars=args.context_chars,
+            promote_rod_language=args.promote_rod_language,
+            year_window=args.year_window,
+        )

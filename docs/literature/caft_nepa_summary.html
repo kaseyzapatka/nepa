@@ -4460,24 +4460,67 @@ vertical-align: -.125em;
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link" href="../project_overview.html" rel target>
- <span class="menu-text">Project Overview</span></a>
+    <a class="nav-link" href="https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer" rel target>
+ <span class="menu-text">Document Explorer</span></a>
   </li>  
-  <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable01.html" rel target>
- <span class="menu-text">Deliverable 1</span></a>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-phase-1" role="button" data-bs-toggle="dropdown" aria-expanded="false" rel target>
+ <span class="menu-text">Phase 1</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-phase-1">    
+        <li>
+    <a class="dropdown-item" href="../phase1/reports/project_overview.html" rel target>
+ <span class="dropdown-text">Project Overview</span></a>
   </li>  
-  <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable02.html" rel target>
- <span class="menu-text">Deliverable 2</span></a>
+        <li>
+    <a class="dropdown-item" href="../phase1/reports/deliverable01.html" rel target>
+ <span class="dropdown-text">Deliverable 1</span></a>
   </li>  
-  <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable03.html" rel target>
- <span class="menu-text">Deliverable 3</span></a>
+        <li>
+    <a class="dropdown-item" href="../phase1/reports/deliverable02.html" rel target>
+ <span class="dropdown-text">Deliverable 2</span></a>
   </li>  
+        <li>
+    <a class="dropdown-item" href="../phase1/reports/deliverable03.html" rel target>
+ <span class="dropdown-text">Deliverable 3</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../phase1/reports/deliverable04.html" rel target>
+ <span class="dropdown-text">Deliverable 4</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../phase1/reports/deliverable05.html" rel target>
+ <span class="dropdown-text">Deliverable 5</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../phase1/reports/deliverable06.html" rel target>
+ <span class="dropdown-text">Deliverable 6</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../phase1/reports/key_insights.html" rel target>
+ <span class="dropdown-text">Fact Sheet</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-phase-2" role="button" data-bs-toggle="dropdown" aria-expanded="false" rel target>
+ <span class="menu-text">Phase 2</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-phase-2">    
+        <li>
+    <a class="dropdown-item" href="../phase2/reports/index.html" rel target>
+ <span class="dropdown-text">Overview</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li>
+    <a class="dropdown-item" href="../phase2/reports/deliverable01.html" rel target>
+ <span class="dropdown-text">Deliverable 1</span></a>
+  </li>  
+    </ul>
+  </li>
   <li class="nav-item">
-    <a class="nav-link" href="../reports/deliverable04.html" rel target>
- <span class="menu-text">Deliverable 4</span></a>
+    <a class="nav-link" href="../presentations/presentation1.html" rel target>
+ <span class="menu-text">Presentations</span></a>
   </li>  
 </ul>
             <div class="quarto-navbar-tools ms-auto">
@@ -4585,6 +4628,125 @@ Because they are sited in federal waters, all offshore wind projects are subject
 </section>
 
 </main> <!-- /main -->
+<style>
+.navbar .dropdown-submenu {
+position: relative;
+}
+.navbar .dropdown-submenu > .dropdown-menu {
+left: 100%;
+margin-top: -0.125rem;
+min-width: 14rem;
+position: absolute;
+top: 0;
+z-index: 1001;
+}
+.navbar .dropdown-submenu:hover > .dropdown-menu,
+.navbar .dropdown-submenu:focus-within > .dropdown-menu {
+display: block;
+}
+.navbar .dropdown-submenu > .dropdown-toggle::after {
+float: right;
+margin-left: 0.75rem;
+margin-top: 0.5rem;
+transform: rotate(-90deg);
+}
+@media (max-width: 991.98px) {
+.navbar .dropdown-submenu > .dropdown-menu {
+border: 0;
+box-shadow: none;
+left: 0;
+margin: 0;
+padding-left: 1rem;
+position: static;
+}
+.navbar .dropdown-submenu > .dropdown-toggle::after {
+transform: none;
+}
+}
+</style>
+
+<script>
+  window.document.addEventListener("DOMContentLoaded", function () {
+    const phase2Menu = window.document.querySelector("#nav-menu-phase-2 + .dropdown-menu");
+    if (!phase2Menu) {
+      return;
+    }
+
+    const menuItems = Array.from(phase2Menu.querySelectorAll("a.dropdown-item"));
+    const overviewItem = menuItems.find((item) => item.textContent.trim() === "Overview");
+    const deliverableItem = menuItems.find((item) => item.textContent.trim() === "Deliverable 1");
+    if (!overviewItem || !deliverableItem) {
+      return;
+    }
+
+    const siteRoot = overviewItem
+      .getAttribute("href")
+      .replace(/phase2\/reports\/index\.html$/, "");
+
+    const submenuItems = [
+      ["Report", "phase2/reports/deliverable01.html"],
+      ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
+      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"]
+    ];
+
+    const deliverableParent = deliverableItem.closest("li");
+    const submenu = window.document.createElement("ul");
+    submenu.className = "dropdown-menu";
+
+    submenuItems.forEach(function ([label, path]) {
+      const item = window.document.createElement("li");
+      const link = window.document.createElement("a");
+      const text = window.document.createElement("span");
+
+      link.className = "dropdown-item";
+      link.href = siteRoot + path;
+      text.className = "dropdown-text";
+      text.textContent = label;
+
+      link.appendChild(text);
+      item.appendChild(link);
+      submenu.appendChild(item);
+    });
+
+    deliverableItem.classList.add("dropdown-toggle");
+    deliverableItem.setAttribute("aria-expanded", "false");
+    deliverableItem.removeAttribute("data-bs-toggle");
+    deliverableItem.setAttribute("role", "menuitem");
+
+    deliverableParent.addEventListener("mouseenter", function () {
+      submenu.classList.add("show");
+      deliverableItem.setAttribute("aria-expanded", "true");
+    });
+
+    deliverableParent.addEventListener("mouseleave", function () {
+      submenu.classList.remove("show");
+      deliverableItem.setAttribute("aria-expanded", "false");
+    });
+
+    deliverableItem.addEventListener("click", function (event) {
+      if (window.matchMedia("(min-width: 992px)").matches) {
+        return;
+      }
+
+      event.preventDefault();
+      submenu.classList.toggle("show");
+      deliverableItem.setAttribute(
+        "aria-expanded",
+        submenu.classList.contains("show") ? "true" : "false"
+      );
+    });
+
+    window.document.addEventListener("click", function (event) {
+      if (!deliverableParent.contains(event.target)) {
+        submenu.classList.remove("show");
+        deliverableItem.setAttribute("aria-expanded", "false");
+      }
+    });
+
+    deliverableParent.classList.add("dropdown-submenu");
+    deliverableParent.appendChild(submenu);
+  });
+</script>
 <script id="quarto-html-after-body" type="application/javascript">
 window.document.addEventListener("DOMContentLoaded", function (event) {
   const toggleBodyColorMode = (bsSheetEl) => {

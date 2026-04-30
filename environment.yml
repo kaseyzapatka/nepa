@@ -1,0 +1,66 @@
+name: nepa
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - pip
+
+  # Python core pipeline
+  - pandas=2.3.*
+  - numpy=2.2.*
+  - pyarrow=22.*
+  - duckdb=1.4.*
+  - requests=2.32.*
+  - geopy=2.4.*
+  - tqdm=4.67.*
+
+  # ML / NLP / model training
+  - datasets=4.4.*
+  - transformers=4.57.*
+  - pytorch>=2.2,<3
+  - huggingface_hub=0.34.*
+  - sentence-transformers=3.*
+  - spacy=3.8.*
+  - wordcloud=1.9.*
+
+  # App + notebooks
+  - streamlit>=1.35,<2
+  - jupyterlab=4.5.*
+  - ipykernel=7.*
+
+  # Development / tests
+  - pytest=9.*
+
+  # Quarto + R reporting stack
+  - quarto
+  - r-base=4.4.*
+  - r-arrow
+  - r-classint
+  - r-dt
+  - r-ggalluvial
+  - r-ggwordcloud
+  - r-googlesheets4
+  - r-gt
+  - r-here
+  - r-jsonlite
+  - r-kableextra
+  - r-knitr
+  - r-patchwork
+  - r-purrr
+  - r-readr
+  - r-rmarkdown
+  - r-rstudioapi
+  - r-scales
+  - r-sf
+  - r-stringr
+  - r-tibble
+  - r-tidycensus
+  - r-tidyr
+  - r-tidyverse
+  - r-tigris
+  - r-zoo
+
+  # Packages only available/maintained via pip
+  - pip:
+      - anthropic>=0.40,<1
+      - en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl#sha256=1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85

@@ -1,117 +1,139 @@
-# NEPA Project Analysis: Clean Energy Environmental Reviews
+# NEPA Project: Clean Energy Environmental Reviews
 
 Analysis of clean energy projects using the National Environmental Policy Act Text Corpus (NEPATEC) 2.0 dataset from PNNL's PermitAI project.
 
-## Project Website
+**Project website:** [Working project website](https://www.kaseyzapatka.com/nepa/reports/project_overview.html)
+**Data source:** [NEPATEC 2.0 on Hugging Face](https://huggingface.co/datasets/PNNL/NEPATEC2.0)
 
-**[https://www.kaseyzapatka.com/nepa/project_overview.html](https://www.kaseyzapatka.com/nepa/project_overview.html)**
+---
 
-## Data Source
+## Repository structure
 
-This project is based on an analysis of [NEPATEC 2.0 on Hugging Face](https://huggingface.co/datasets/PNNL/NEPATEC2.0).
-
-## Database Build
-
-This pipeline produces analysis-ready parquet files in `data/analysis/`. The Federal Register NOI enrichment is generated separately and then merged into the projects output by `project_id`.
-
-1. Generate Federal Register NOI enrichment (Clean EA + Clean EIS by default):
-
-```bash
-python code/extract/federal_register.py --sample 0 --report-n 10 --fetch-raw-text
+```
+nepa/
+├── README.md                  # This file — project overview
+├── _quarto.yml                # Quarto website configuration
+├── environment.yml            # Conda environment spec (shared by phase1 + phase2)
+├── environment.lock.yml       # Locked conda dependencies
+├── admin/                     # Administrative documents and notes
+├── app/                       # Streamlit document explorer (deployed to HF Spaces)
+├── docs/                      # Built Quarto website output
+├── literature/                # Reference materials
+├── phase1/                    # Phase 1 analysis — frozen at freeze/v1.0
+│   ├── README.md              # Phase 1 pipeline documentation
+│   ├── code/                  # Extraction scripts + per-deliverable R analysis
+│   ├── data/                  # Phase 1 processed data outputs (parquet files)
+│   ├── models/                # Trained BERT timeline classifiers
+│   ├── notes/                 # Status files, architecture notes, running todo
+│   ├── output/                # Deliverable figures, tables, maps
+│   ├── reports/               # Quarto deliverable reports
+│   └── runbooks/              # Step-by-step pipeline instructions (00–08)
+├── phase2/                    # Phase 2 analysis — active development
+│   ├── README.md              # Phase 2 pipeline documentation
+│   ├── code/                  # Improved extraction scripts + deliverable POCs
+│   ├── data/                  # Phase 2 processed data outputs
+│   ├── models/                # Improved BERT model checkpoints (CE, EA, EIS)
+│   ├── notes/                 # Architecture notes, current plan, model evaluation
+│   ├── output/                # Phase 2 deliverable outputs + timeline validation
+│   ├── reports/               # Quarto reports
+│   ├── runbooks/              # Phase 2-specific pipeline docs
+│   └── tests/                 # Unit tests
+├── presentations/             # RevealJS slides (CATF stakeholder presentation)
+└── scripts/                   # Utility scripts
 ```
 
-2. Build the main dataset and merge the NOI fields into `projects_combined.parquet`:
+---
+
+## How it works
+
+Raw NEPATEC 2.0 documents are loaded and preprocessed into per-source parquet files. Python extraction scripts (`code/extract/`) use a combination of regex, BERT classifiers, and LLM adjudication to pull structured fields (dates, capacity, review type, page counts, technology) from document text. These parquet outputs feed into per-deliverable R scripts that produce figures and tables. Quarto renders the R outputs into HTML reports, which are published as a static website via `docs/`.
+
+---
+
+## Phase 1 and Phase 2
+
+| | Phase 1 | Phase 2 |
+|---|---|---|
+| Status | Frozen at `freeze/v1.0` | Active development |
+| Data pipeline | Pandas-based | DuckDB-based |
+| Timeline extraction | BERT classifier | Improved BERT + LLM hybrid adjudication |
+| Deliverables | D1–D6 complete | In progress |
+| Output location | `phase1/data/analysis/` | `phase2/data/` |
+
+**Data flow:** Phase 2 reads `phase1/data/analysis/projects_combined.parquet` as read-only input and writes all new outputs to `phase2/data/`. Phase 1 data is never modified by Phase 2 scripts.
+
+To reproduce Phase 1 exactly: `git checkout freeze/v1.0`
+
+---
+
+## Getting started
 
 ```bash
-python code/extract/extract_data.py --mode analysis
+conda env create -f environment.yml
+conda activate nepa
 ```
 
-The merge uses `project_id` and drops `project_title` from the NOI output to avoid duplicate columns. The NOI output is expected at `data/analysis/noi_federal_register.parquet`.
+Both phases share this environment. See [environment.yml](environment.yml) for the full dependency spec, or `phase1/notes/architecture/environment_setup.md` for design rationale.
 
-Note for later updates: consider tracking a run log with query statistics for reproducibility.
+- **Phase 1 pipeline:** [phase1/README.md](phase1/README.md)
+- **Phase 2 pipeline:** [phase2/README.md](phase2/README.md)
 
-## Timeline Data Build (Regex + BERT)
+---
 
-Use this after updating timeline patterns or models in `code/extract/extract_timeline.py`.
+## Build the Document Explorer (HF Spaces)
 
-The `--source` flag controls which NEPA process types to run. Accepts `CE`, `EA`, `EIS`, or comma-separated combinations. Defaults to `CE` if omitted.
+Use this workflow to deploy the Streamlit NEPA document explorer. The 7+ GB DuckDB file is stored in a Hugging Face Dataset repo (not committed to the Space).
 
-### CE (Categorical Exclusions) — default
+### 1) Build the DuckDB locally (one-time per data refresh)
 
 ```bash
-# 1. Build regex cache
-python code/extract/extract_timeline.py --regex-prep
-
-# 2. Generate BERT training data
-python code/extract/extract_timeline.py --bert-generate
-
-# 3. Train the BERT classifier
-python code/extract/extract_timeline.py --bert-train
-
-# 4. Test sample (optional)
-python code/extract/extract_timeline.py --bert-run --sample 50 --output test50_bert_vX.parquet
-
-# 5. Full run
-python code/extract/extract_timeline.py --bert-run --output projects_timeline_bert.parquet
+python phase1/code/rag/01_build_text_store.py
 ```
 
-### EA (Environmental Assessments)
+Output: `phase1/data/rag/nepa_reader.duckdb`
+
+### 2) Upload the DB to a Hugging Face Dataset repo
 
 ```bash
-# 1. Build EA regex cache
-python code/extract/extract_timeline.py --regex-prep --source EA
+HF_USERNAME="YOUR_HF_USERNAME"
+DB_REPO="nepa-document-explorer-db"
 
-# 2. Test sample
-python code/extract/extract_timeline.py --bert-run --source EA --sample 50 --output test50_ea.parquet
-
-# 3. Full run
-python code/extract/extract_timeline.py --bert-run --source EA --output projects_timeline_bert_ea.parquet
+hf repo create "${HF_USERNAME}/${DB_REPO}" --repo-type dataset || true
+hf upload "${HF_USERNAME}/${DB_REPO}" phase1/data/rag/nepa_reader.duckdb nepa_reader.duckdb --repo-type dataset
 ```
 
-### EIS (Environmental Impact Statements)
+### 3) Deploy app to a Hugging Face Docker Space
 
 ```bash
-# 1. Build EIS regex cache
-python code/extract/extract_timeline.py --regex-prep --source EIS
+SPACE_NAME="nepa-document-explorer"
+hf repo create "${HF_USERNAME}/${SPACE_NAME}" --repo-type space --space_sdk docker || true
 
-# 2. Test sample
-python code/extract/extract_timeline.py --bert-run --source EIS --sample 50 --output test50_eis.parquet
+DEPLOY_DIR="$(mktemp -d)"
+cp app/app.py "${DEPLOY_DIR}/app.py"
+cp app/requirements.txt "${DEPLOY_DIR}/requirements.txt"
 
-# 3. Full run
-python code/extract/extract_timeline.py --bert-run --source EIS --output projects_timeline_bert_eis.parquet
+cat > "${DEPLOY_DIR}/Dockerfile" <<'EOF'
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY app.py .
+ENV NEPA_DB_HF_REPO=YOUR_HF_USERNAME/nepa-document-explorer-db
+ENV NEPA_DB_HF_FILENAME=nepa_reader.duckdb
+EXPOSE 7860
+CMD ["streamlit","run","app.py","--server.address=0.0.0.0","--server.port=7860"]
+EOF
+
+hf upload "${HF_USERNAME}/${SPACE_NAME}" "${DEPLOY_DIR}" --repo-type space --commit-message "Deploy NEPA document explorer"
 ```
 
-### Multi-source runs
+If your CLI does not accept `--space_sdk`, create the Space in the HF web UI as **Docker**, then continue with the upload step.
 
-```bash
-# Build regex caches for EA + EIS together
-python code/extract/extract_timeline.py --regex-prep --source EA,EIS
+### 4) Routine updates
 
-# Run all three sources
-python code/extract/extract_timeline.py --bert-run --source CE,EA,EIS --output projects_timeline_bert_all.parquet
-```
+- **App-only update:** re-upload `app.py`, `requirements.txt`, `Dockerfile` to the Space.
+- **Data refresh:** rebuild `nepa_reader.duckdb`, re-upload to the dataset repo, then restart the Space.
 
-### Retraining with EA/EIS data
+Space URL: `https://huggingface.co/spaces/YOUR_HF_USERNAME/nepa-document-explorer`
 
-After building regex caches for EA and/or EIS, `--bert-generate` auto-discovers all available per-source caches and includes them in training data (with 3x oversampling for EA/EIS to prevent CE domination):
-
-```bash
-python code/extract/extract_timeline.py --bert-generate
-python code/extract/extract_timeline.py --bert-train
-```
-
-### Filtering by energy type
-
-Add `--clean-energy` to restrict to clean energy projects only:
-
-```bash
-python code/extract/extract_timeline.py --bert-run --source EA --clean-energy --output projects_timeline_bert_ea_clean.parquet
-```
-
-### Single project debugging
-
-The `--project-id` flag searches CE, EA, and EIS sources automatically:
-
-```bash
-python code/extract/extract_timeline.py --project-id <UUID> --hybrid --use-regex-cache
-```
+> **Note:** HF Space repos have strict storage limits on the free tier (~1 GB). Do not commit `.duckdb` into the Space repo — keep it in the dataset repo.

@@ -1,0 +1,32 @@
+# NEPA project Python dependencies (portable, project-scoped)
+# Use this for pip-only installs. The canonical full environment is ../environment.yml.
+
+# Core data pipeline
+pandas==2.3.3
+numpy==2.2.6
+pyarrow==22.0.0
+duckdb==1.4.4
+requests==2.32.5
+geopy==2.4.1
+tqdm==4.67.1
+
+# Hugging Face + BERT timeline workflows
+datasets==4.4.1
+transformers==4.57.0
+torch>=2.2,<3.0
+huggingface_hub==0.34.6
+
+# Claude API support (extract_gencap.py)
+anthropic>=0.40,<1.0
+
+# Streamlit document browser
+streamlit>=1.35,<2.0
+
+# Notebook/text analysis workflow
+spacy==3.8.11
+scattertext==0.2.2
+wordcloud==1.9.4
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl#sha256=1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85
+
+# Tests
+pytest==9.0.3
