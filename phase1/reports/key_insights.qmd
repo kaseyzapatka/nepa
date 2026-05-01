@@ -79,13 +79,8 @@ library(here)
 library(knitr)
 library(readr)
 library(arrow)
-library(jsonlite)
 
-d1_figures <- here("phase1", "output", "deliverable1", "figures")
-d2_figures <- here("phase1", "output", "deliverable2", "figures")
-d3_figures <- here("phase1", "output", "deliverable3", "figures")
-d4_figures <- here("phase1", "output", "deliverable4", "figures")
-d5_figures <- here("phase1", "output", "deliverable5", "figures")
+fs_figures <- here("phase1", "output", "factsheet", "figures")
 
 d1_technology <- read_csv(here("phase1", "output", "deliverable1", "tables", "table1_by_technology.csv"), show_col_types = FALSE)
 d1_coverage <- read_csv(here("phase1", "output", "deliverable1", "tables", "table_meeting_coverage.csv"), show_col_types = FALSE)
@@ -177,18 +172,10 @@ Across `r scales::comma(clean_total)` decarbonization actions, `r scales::percen
 
 ```{r}
 #| label: fig-energy-composition
-#| fig-cap: "NEPA process composition by energy classification. Decarbonization projects are more concentrated in Categorical Exclusions than fossil or other project types."
+#| fig-cap: "Note: NEPA process composition by energy classification. Decarbonization projects are more concentrated in Categorical Exclusions than fossil or other project types."
 #| out-width: "90%"
 
-knitr::include_graphics(file.path(d3_figures, "02_energy_type_composition.png"))
-```
-
-```{r}
-#| label: fig-energy-grouped
-#| fig-cap: "NEPA process counts by energy classification. Decarbonization actions are concentrated in Categorical Exclusions, while fossil projects show higher EA/EIS counts."
-#| out-width: "95%"
-
-knitr::include_graphics(file.path(d3_figures, "01_energy_type_grouped.png"))
+knitr::include_graphics(file.path(fs_figures, "02_energy_type_composition.png"))
 ```
 
 ### 1.2 The most comprehensive EA and CE data show that 97% of decarbonization-related actions are categorically excluded.
@@ -197,10 +184,10 @@ We have the most complete project coverage for Department of Energy (DOE) and Bu
 
 ```{r}
 #| label: fig-agency-process
-#| fig-cap: "NEPA process type distribution for departments with complete CE, EA, and EIS coverage in NEPATEC 2.0: DOE (all sub-agencies) and BLM. DOE shows overwhelming CE dominance; BLM has a more balanced mix."
+#| fig-cap: "Note: NEPA process type distribution for departments with complete CE, EA, and EIS coverage in NEPATEC 2.0: DOE (all sub-agencies) and BLM. DOE shows overwhelming CE dominance; BLM has a more balanced mix."
 #| out-width: "90%"
 
-knitr::include_graphics(file.path(d1_figures, "02_agency_process.png"))
+knitr::include_graphics(file.path(fs_figures, "02_agency_process.png"))
 ```
 
 
@@ -209,175 +196,19 @@ knitr::include_graphics(file.path(d1_figures, "02_agency_process.png"))
 Within the current technology-tagged output, there are `r scales::comma(solar_total)` solar actions total; `r scales::percent(solar_ce_pct, accuracy = 0.1)` are CEs, `r scales::percent(solar_ea_pct, accuracy = 0.1)` are EAs, and only `r scales::percent(solar_eis_pct, accuracy = 0.1)` are EISs. Given that most solar-reviewed project are granted categorical exclusions, the NEPA review process is likely not the main bottleneck for most solar activity. Other constraints such as transmission access, interconnection, land availability, agency capacity, and financing may matter more than full-scale NEPA review.
 
 ```{r}
-#| label: fig-technology-by-process
-#| fig-cap: "Decarbonization technology tags by NEPA review process. Solar is heavily CE-driven, while some technologies show higher EA/EIS shares. Non-solar bars are de-emphasized to draw attention to solar's CE dominance."
+#| label: fig-solar-duration
+#| fig-cap: "Note: Thin bar = p10 to p90, thick bar = IQR (p25 to p75), point = median."
 #| out-width: "95%"
-#| fig-width: 10
-#| fig-height: 6
 
-# --- Solar-highlight variant (key_insights only; original deliverable 1 figure unchanged) ---
+knitr::include_graphics(file.path(fs_figures, "03_duration_summary_intervals_by_process_solar.png"))
+```
 
-# CATF colors (replicated locally; no dependency on 00_setup.R)
-.catf_dark_blue <- "#0047BB"
-.catf_teal      <- "#00AE8D"
-.catf_magenta   <- "#C22A90"
-.solar_amber    <- "#D4720A"   # warm amber for the callout border
+```{r}
+#| label: fig-solar-capacity
+#| fig-cap: "Note: Violin illustrate density, while boxplots illustrate median and interquartile range. The megawatt (MW) on the y-axis is logged for visual comparison."
+#| out-width: "95%"
 
-# Technology tags (identical to deliverable 1 constants)
-.clean_tags <- c(
-  "Carbon Capture and Sequestration",
-  "Conventional Energy Production - Nuclear",
-  "Conventional Energy Production - Other",
-  "Renewable Energy Production - Biomass",
-  "Renewable Energy Production - Energy Storage",
-  "Renewable Energy Production - Geothermal",
-  "Renewable Energy Production - Hydrokinetic",
-  "Renewable Energy Production - Hydropower",
-  "Renewable Energy Production - Other",
-  "Renewable Energy Production - Solar",
-  "Renewable Energy Production - Wind, Offshore",
-  "Renewable Energy Production - Wind, Onshore",
-  "Nuclear Technology",
-  "Electricity Transmission",
-  "Utilities (electricity, gas, telecommunications)"
-)
-
-# Read only the columns needed
-.proj <- read_parquet(
-  here("phase1", "data", "analysis", "projects_combined.parquet"),
-  col_select = c("project_title", "project_type", "process_type", "project_energy_type")
-)
-
-.ce <- .proj |>
-  filter(project_energy_type == "Clean") |>
-  mutate(project_type_list = map(project_type, \(x) {
-    if (is.na(x) || x == "") return(character(0))
-    tryCatch(fromJSON(x), error = \(e) character(0))
-  }))
-
-# Row order: ascending percent_projects (bottom-to-top on the y-axis)
-.order_df <- .ce |>
-  select(project_title, project_type_list) |>
-  unnest(project_type_list) |>
-  rename(technology = project_type_list) |>
-  filter(technology %in% .clean_tags) |>
-  distinct(project_title, technology) |>
-  count(technology, name = "n") |>
-  mutate(
-    pct = 100 * n / n_distinct(.ce$project_title),
-    technology_label = case_when(
-      technology == "Renewable Energy Production - Other" ~ technology,
-      TRUE ~ str_remove(technology, "^Renewable Energy Production - ")
-    )
-  ) |>
-  arrange(pct)  # ascending -> bottom-to-top factor order
-
-.label_order <- .order_df$technology_label
-
-# Main plotting dataset
-.dat <- .ce |>
-  select(project_title, project_type_list, process_type) |>
-  unnest(project_type_list) |>
-  rename(technology = project_type_list) |>
-  filter(technology %in% .clean_tags) |>
-  distinct(project_title, technology, process_type) |>
-  count(technology, process_type, name = "n") |>
-  group_by(technology) |>
-  mutate(
-    share = n / sum(n),
-    technology_label = case_when(
-      technology == "Renewable Energy Production - Other" ~ technology,
-      TRUE ~ str_remove(technology, "^Renewable Energy Production - ")
-    )
-  ) |>
-  ungroup() |>
-  mutate(
-    technology_label = factor(technology_label, levels = .label_order),
-    is_solar = as.character(technology_label == "Solar")  # "TRUE"/"FALSE" for scale_alpha_manual
-  )
-
-.totals <- .dat |>
-  group_by(technology_label) |>
-  summarise(total = sum(n), .groups = "drop")
-
-# Numeric y-position of the Solar bar (factor level index)
-.solar_idx <- which(.label_order == "Solar")
-
-# Build the figure
-fig_solar_highlight <- ggplot(.dat,
-  aes(x = share, y = technology_label, fill = process_type)) +
-
-  # 1. Warm background stripe spanning full panel width behind the solar row
-  annotate("rect",
-    xmin = -Inf, xmax = Inf,
-    ymin = .solar_idx - 0.5, ymax = .solar_idx + 0.5,
-    fill = "#FFF3CD", color = NA
-  ) +
-
-  # 2. Stacked bars — non-solar dimmed to 20% opacity, solar at full opacity
-  geom_col(aes(alpha = is_solar), width = 0.8) +
-
-  # 3. Percentage labels inside bars (full opacity for readability throughout)
-  geom_text(
-    aes(label = ifelse(share >= 0.03, scales::percent(share, accuracy = 1), "")),
-    position = position_stack(vjust = 0.5),
-    size = 3,
-    color = "white"
-  ) +
-
-  # 4. Total project counts to the right of each bar
-  geom_text(
-    data = .totals,
-    aes(x = 1.02, y = technology_label, label = scales::comma(total)),
-    inherit.aes = FALSE,
-    hjust = 0,
-    size = 3,
-    color = "gray30"
-  ) +
-
-  # 5. Amber border framing the solar bar exactly (drawn on top of bars)
-  annotate("rect",
-    xmin = 0, xmax = 1,
-    ymin = .solar_idx - 0.4, ymax = .solar_idx + 0.4,
-    fill = NA, color = .solar_amber, linewidth = 1.5
-  ) +
-
-  scale_x_continuous(
-    labels = scales::percent,
-    breaks = seq(0, 1, by = 0.1),
-    expand = expansion(mult = c(0, 0.10))
-  ) +
-  scale_fill_manual(
-    values = c("CE" = .catf_dark_blue, "EA" = .catf_teal, "EIS" = .catf_magenta)
-  ) +
-  scale_alpha_manual(
-    values = c("FALSE" = 0.45, "TRUE" = 1.0),
-    guide = "none"
-  ) +
-  labs(
-    x = "Share of Actions",
-    y = NULL,
-    fill = "Process Type",
-    title = "Actions with Decarbonization Tag by Technology and Process Type",
-    caption = "Note: Percentage labels below 3% are excluded for readability."
-  ) +
-  theme_minimal() +
-  theme(
-    axis.text.y = element_text(size = 9),
-    legend.position = "bottom"
-  )
-
-# Save standalone PNG for circulation (highlighted variant only; does not overwrite original)
-ggsave(
-  filename = here(d1_figures, "02_clean_energy_bar_solar_highlight.png"),
-  plot = fig_solar_highlight,
-  width = 10,
-  height = 6,
-  units = "in",
-  dpi = 300
-)
-
-fig_solar_highlight
+knitr::include_graphics(file.path(fs_figures, "06_capacity_distribution_violin_box_solar.png"))
 ```
 
 ---
@@ -395,10 +226,10 @@ Tiered EAs take longer than standard EAs on average (`r ea_tiered_med` versus `r
 
 ```{r}
 #| label: fig-review-duration
-#| fig-cap: "Review duration by review type and NEPA process. Small sample sizes mean the results should be treated as directional, not definitive."
+#| fig-cap: "Note: Review duration by review type and NEPA process. Small sample sizes mean the results should be treated as directional, not definitive."
 #| out-width: "100%"
 
-knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
+knitr::include_graphics(file.path(fs_figures, "02_duration.png"))
 ```
 
 ### 2.2 Increased interagency coordination could meaningfully impact efficiency gains
@@ -407,9 +238,9 @@ knitr::include_graphics(file.path(d2_figures, "02_duration.png"))
 
 ```{r}
 #| label: fig-collaboration-hubs
-#| fig-cap: "Federal departments ranked by bridge score. DOE is the dominant collaboration hub across the interagency network."
+#| fig-cap: "Note: Federal departments ranked by bridge score. DOE is the dominant collaboration hub across the interagency network. Bar length shows bridge score and label shows most frequent partner."
 #| out-width: "100%"
-knitr::include_graphics(file.path(d4_figures, "fig_department_collaboration_hubs.png"))
+knitr::include_graphics(file.path(fs_figures, "fig_department_collaboration_hubs.png"))
 ```
 
 
@@ -417,10 +248,10 @@ The flow diagram below offers a complementary view of the same pattern. Each ban
 
 ```{r}
 #| label: fig-department-sankey
-#| fig-cap: "Cross-department project flows for the top six departments by collaborative activity. Flow width reflects the number of shared project ties."
+#| fig-cap: "Note: Cross-department project flows for the top six departments by collaborative activity. Flow width reflects the number of shared project ties."
 #| out-width: "100%"
 
-knitr::include_graphics(file.path(d4_figures, "fig_department_sankey_filtered.png"))
+knitr::include_graphics(file.path(fs_figures, "fig_department_sankey_filtered.png"))
 ```
 
 
@@ -437,30 +268,30 @@ There is considerable variation in average page length of documents over time. U
 
 ```{r}
 #| label: fig-pages-over-time
-#| fig-cap: "Regulatory page counts over time, with FRA enactment marked by the vertical red line. Post-FRA lengths decline, but the sample remains limited."
+#| fig-cap: "Note: Points represent individual projects (colored by FRA period); the solid line represents a 3-month rolling average computed separately for Pre- and Post-FRA."
 #| out-width: "100%"
 
-knitr::include_graphics(file.path(d5_figures, "05_pages_over_time_break.png"))
+knitr::include_graphics(file.path(fs_figures, "05_pages_over_time_break.png"))
 ```
 
 Viewed another way, our analysis shows a real but modest post-FRA shift in document length pre- and post-FRA. Average and median regulatory page counts mostly decline after the FRA threshold, which is consistent with agencies responding to the new statutory limits. 
 
 ```{r}
 #| label: fig-pre-post
-#| fig-cap: "Mean regulatory pages for decarbonization EA and EIS projects, before and after FRA enactment."
+#| fig-cap: "Note: Bar height represents the mean regulatory pages, while diamond represents the median. Project reviews are classified by their decision date."
 #| out-width: "90%"
 
-knitr::include_graphics(file.path(d5_figures, "05_pages_pre_post_fra.png"))
+knitr::include_graphics(file.path(fs_figures, "05_pages_pre_post_fra.png"))
 ```
 
 Ultimately, it's likely that instituting page limits had some effect, but the evidence is not yet definitive: `r scales::percent(ea_compliant_pct, accuracy = 1)` of post-FRA EAs are compliant with the 75-page limit; and `r scales::percent(eis_exceeds_standard_pct, accuracy = 1)` of EISs fall within the 151--300 page limit, with another `r scales::percent(eis_compliant_pct, accuracy = 1)` potentially being compliant under the "extraordinary complexity" exception for under 300 pages. The practical conclusion is that the FRA has changed incentives, but not yet produced consistent compliance. A fuller assessment will require more decisions from EA and EIS projects initiated after June 3, 2023 to be completed.
 
 ```{r}
 #| label: fig-compliance
-#| fig-cap: "FRA page limit compliance for post-FRA decarbonization projects. EISs between 151 and 300 pages may still qualify under the extraordinary-complexity provision."
+#| fig-cap: "Note: EA limit: 75 pages | EIS limit: 150 pages (300 for extraordinarily complex)."
 #| out-width: "90%"
 
-knitr::include_graphics(file.path(d5_figures, "05_fra_compliance.png"))
+knitr::include_graphics(file.path(fs_figures, "05_fra_compliance.png"))
 ```
 
 
@@ -486,8 +317,19 @@ Several considerations from the fact sheet should remain front-of-mind when tran
 
 - Review quality, agency learning, and public legitimacy matter alongside speed. DOI's recent production of EISs in as little as two weeks is a salient example: a document of that scope produced on that timeline raises serious questions about whether meaningful analysis took place, regardless of what the formal record shows. Rushing NEPA reviews may trade short-term permitting speed for downstream litigation risk and larger-than-expected environmental impact — the opposite of what well-designed reform should produce.
 
-**Some of the most important questions remain outside of the scope of work for this first phase.** 
+**Some of the most important questions remain outside of the scope of work for this first phase.**
 
 - In particular, the present work does not directly test whether NEPA was the actual cause of project delay, what were the main triggers of NEPA review, nor does it comprehensively analyze when agencies may have relied on CEs too aggressively.
 
+---
+
+# Appendix: Scope of Analysis
+
+```{r}
+#| label: fig-energy-type-counts
+#| fig-cap: "Note: NEPA reviews by energy type. Decarbonization technologies account for roughly one-third of all reviews in the database."
+#| out-width: "80%"
+
+knitr::include_graphics(file.path(fs_figures, "00_energy_type_breakdown.png"))
+```
 
