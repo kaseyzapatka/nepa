@@ -1241,4 +1241,76 @@ ggsave(file.path(out_dir, "00_energy_type_breakdown.png"),
        fig_appendix, width = 8, height = 5, dpi = 300)
 message("  Saved: 00_energy_type_breakdown.png")
 
+# ---------------------------------------------------------------------------
+# Fig 11 — EIS co-agency signals by lead department
+#          (fig_eis_coagency_by_department.png)
+# ---------------------------------------------------------------------------
+message("\n--- Fig 11: EIS co-agency signals by lead department ---")
+
+coagency_path <- here("phase1", "data", "analysis", "coagency_projects.parquet")
+if (!file.exists(coagency_path)) {
+  warning("Missing coagency_projects.parquet — skipping Fig 11")
+} else {
+  coagency <- read_parquet(coagency_path)
+
+  eis_coagency <- clean_energy %>%
+    filter(process_type == "EIS", !is.na(project_department), project_department != "") %>%
+    left_join(
+      coagency %>% select(project_id, dataset_source, project_multi_agency),
+      by = c("project_id", "dataset_source")
+    ) %>%
+    mutate(has_coagency = coalesce(project_multi_agency, FALSE))
+
+  dept_coagency_summary <- eis_coagency %>%
+    group_by(project_department) %>%
+    summarise(
+      total_eis      = n(),
+      coagency_count = sum(has_coagency),
+      coagency_pct   = coagency_count / total_eis,
+      .groups        = "drop"
+    ) %>%
+    filter(total_eis >= 5) %>%
+    arrange(desc(coagency_count))
+
+  message("  Departments with ≥5 EIS reviews: ", nrow(dept_coagency_summary))
+  print(dept_coagency_summary)
+
+  fig11 <- dept_coagency_summary %>%
+    mutate(
+      department = str_replace(project_department, "^Department of (the )?", "Dept. of "),
+      department = fct_reorder(department, coagency_count)
+    ) %>%
+    ggplot(aes(x = coagency_count, y = department, fill = coagency_pct)) +
+    geom_col(width = 0.7) +
+    geom_text(
+      aes(label = paste0(coagency_count, " (", scales::percent(coagency_pct, accuracy = 1), ")")),
+      hjust = -0.1, size = 3, color = "gray20"
+    ) +
+    scale_fill_gradientn(
+      colors = c(catf_light_blue, catf_dark_blue, catf_navy),
+      labels = scales::percent_format(accuracy = 1)
+    ) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.25))) +
+    labs(
+      title   = "EIS Reviews With Co-Agency Signals, by Lead Department",
+      x       = "Number of EIS reviews with co-agency signal",
+      y       = NULL,
+      fill    = "Share of dept.\nEIS reviews",
+      caption = str_wrap(paste0(
+        "Note: Co-agency signal = high-confidence text detection of cooperating or co-lead agency ",
+        "language in the EIS document. EIS records store only a single lead agency, so department ",
+        "pairs cannot be derived; this figure shows which departments' EIS reviews most frequently ",
+        "involve other agencies. Departments with fewer than 5 EIS reviews excluded. ",
+        "n = ", scales::comma(sum(dept_coagency_summary$coagency_count)), " of ",
+        scales::comma(sum(dept_coagency_summary$total_eis)), " clean-energy EIS reviews."
+      ), width = 110)
+    ) +
+    theme_catf() +
+    theme(legend.position = "right")
+
+  ggsave(file.path(out_dir, "fig_eis_coagency_by_department.png"),
+         fig11, width = 10, height = 6, dpi = 300)
+  message("  Saved: fig_eis_coagency_by_department.png")
+}
+
 message("\n=== Done. All factsheet figures written to: ", out_dir, " ===")
