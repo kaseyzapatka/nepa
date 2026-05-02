@@ -306,7 +306,7 @@ department_links %>%
 
 ```{r}
 #| label: tbl-department-hubs
-#| tbl-cap: "Department collaboration hubs in strict metadata multi-department projects"
+#| tbl-cap: "Department collaboration hubs in parsed clean-energy EIS co-agency projects"
 
 department_hubs <- read_csv(
   file.path(d4_tables, "table_department_collaboration_hubs.csv"),
@@ -343,23 +343,23 @@ department_hubs %>%
 
 ```{r}
 #| label: fig-department-hubs
-#| fig-cap: "Department collaboration hubs. Bars show bridge score; labels show each department's most frequent partner."
+#| fig-cap: "Department collaboration hubs from parsed EIS co-agency pairs. Bars show bridge score; labels show each department's most frequent partner."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(d4_figures, "fig_department_collaboration_hubs.png"))
 ```
 
-DOE stands out as the clear hub of the multi-department network, with a bridge score (26) more than three times that of DOI (9). Its dominance reflects both the sheer number of partner agencies (9 unique departments) and the high volume of shared project ties. DOI is a meaningful secondary hub, with its strongest partnership running back to DOE. All other departments are more peripheral—connecting to one or two partners and typically anchored to DOE as their primary collaborator.
+The parsed EIS co-agency network is broader than the strict metadata-only view. DOI, DOD, DOE, and EPA form the central cluster of department-level collaboration, with DOI carrying the largest number of collaborative project ties. This suggests that collaboration complexity is not only a DOE-centered metadata phenomenon; it also reflects EIS text signals where DOI, DOD, EPA, and USDA frequently appear as partners.
 
 ```{r}
 #| label: fig-department-sankey
 #| fig-cap: "Cross-department project flows. Flow width reflects number of shared projects."
 #| out-width: "100%"
 
-knitr::include_graphics(file.path(d4_figures, "fig_department_sankey.png"))
+knitr::include_graphics(file.path(d4_figures, "fig_department_sankey_filtered.png"))
 ```
 
-The Sankey confirms the hub-and-spoke character of multi-department collaboration: DOE is the dominant node on both sides of the diagram, with the largest flows connecting it to DOD, DOI, and USDA on the left and back to DOI, Homeland Security, and Commerce on the right. The right side of the diagram has more nodes than the left, reflecting the variety of secondary partners DOE draws in depending on project type. Most other department-to-department pathways carry only one or two shared projects and appear as thin ribbons at the base of the diagram.
+The Sankey adds direction to the same network by flowing from the lead or responsible department to cooperating or participating partner departments. This separates the directional coordination story from the undirected hub score: the hub figure asks which departments are most connected overall, while the Sankey asks which lead departments are connected to which named partner departments.
 
 ## Word Clouds by NEPA Process Type
 
