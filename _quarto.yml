@@ -26,8 +26,6 @@ website:
             href: phase1/reports/deliverable05.qmd
           - text: "Deliverable 6"
             href: phase1/reports/deliverable06.qmd
-          - text: "Fact Sheet"
-            href: phase1/reports/key_insights.qmd
       - text: "Phase 2"
         menu:
           - text: "Overview"

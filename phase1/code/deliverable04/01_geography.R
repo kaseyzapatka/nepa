@@ -682,66 +682,121 @@ write_csv(tbl_department_links, here(tables_dir, "table_by_department.csv"))
 
 
 #
-# Department Collaboration Hubs (Creative Relationship Table)
+# Department Collaboration Hubs (Parsed Co-agency Sidecar)
 # ----------------------------------------------------
-cat("\nCreating department collaboration hubs table...\n")
+cat("\nCreating department collaboration hubs table from parsed coagency pairs...\n")
 
-department_projects <- multi_department_metadata_only %>%
+COAGENCY_PAIRS_PATH <- here("phase1", "data", "analysis", "coagency_department_pairs.parquet")
+COAGENCY_NAME_HITS_PATH <- here("phase1", "data", "analysis", "coagency_name_hits.parquet")
+if (!file.exists(COAGENCY_PAIRS_PATH)) {
+  stop(
+    "Missing parsed coagency pairs at ", COAGENCY_PAIRS_PATH,
+    ". Run: conda run -n nepa python phase1/code/extract/extract_coagency_names.py --run"
+  )
+}
+if (!file.exists(COAGENCY_NAME_HITS_PATH)) {
+  stop(
+    "Missing parsed coagency name hits at ", COAGENCY_NAME_HITS_PATH,
+    ". Run: conda run -n nepa python phase1/code/extract/extract_coagency_names.py --run"
+  )
+}
+
+# "Other / Unclassified" is excluded from all hub and Sankey figures.
+# These 11 EIS projects have lead_agency = [""] and project_department = "Other / Unclassified"
+# in the base dataset. The name extractor found cooperating agencies but no lead role in the
+# document text, so _build_department_pairs() fell back to project_department. The result is
+# an artificial pseudo-lead that aggregates diverse cooperating agencies from 11 unrelated
+# projects, inflating its bridge score. These are a missing-data issue in the base dataset
+# (BOEM offshore wind and privately-led transmission projects not mapped to a department),
+# not a real collaborative department.
+coagency_department_pairs <- read_parquet(COAGENCY_PAIRS_PATH) %>%
+  filter(
+    !is.na(department_1), !is.na(department_2),
+    department_1 != department_2,
+    department_1 != "Other / Unclassified",
+    department_2 != "Other / Unclassified"
+  ) %>%
   mutate(
-    department_list = map(lead_agency, ~ {
-      agencies <- parse_jsonish_vector(.x)
-      depts <- unique(map_chr(agencies, map_agency_to_department))
-      sort(depts[depts != ""])
-    })
+    department_a = pmin(department_1, department_2),
+    department_b = pmax(department_1, department_2),
+    department_pair_key = paste(department_a, department_b, sep = " | ")
   ) %>%
-  filter(lengths(department_list) >= 2)
+  distinct(project_id, process_type, department_a, department_b, department_pair_key)
 
-department_pairs <- department_projects %>%
-  transmute(
-    project_id,
-    department_pairs = map(department_list, ~ {
-      combo <- combn(.x, 2, simplify = FALSE)
-      tibble(
-        department_1 = map_chr(combo, 1),
-        department_2 = map_chr(combo, 2)
+coagency_department_pairs_eis <- coagency_department_pairs %>%
+  filter(process_type == "EIS")
+
+build_hub_tables <- function(pair_df) {
+  pair_counts <- pair_df %>%
+    count(department_a, department_b, name = "shared_projects", sort = TRUE)
+
+  hub_tbl <- bind_rows(
+    pair_counts %>%
+      transmute(department = department_a, partner = department_b, shared_projects),
+    pair_counts %>%
+      transmute(department = department_b, partner = department_a, shared_projects)
+  ) %>%
+    group_by(department) %>%
+    summarise(
+      `Unique partner departments` = n_distinct(partner),
+      `Collaborative project ties` = sum(shared_projects),
+      `Most frequent partner` = partner[which.max(shared_projects)],
+      `Projects with top partner` = max(shared_projects),
+      `Bridge score` = round(`Unique partner departments` * log1p(`Collaborative project ties`), 2),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(`Bridge score`), desc(`Collaborative project ties`))
+
+  list(pair_counts = pair_counts, hub_tbl = hub_tbl)
+}
+
+HUB_CAPTION <- str_wrap(paste0(
+  "Bridge score = unique partner departments × log(1 + total shared project ties). ",
+  "DOD activity is driven primarily by the U.S. Army Corps of Engineers (USACE), which ",
+  "routinely serves as a cooperating agency on projects affecting waterways or wetlands. ",
+  "Ties are deduplicated by project and department pair."
+), width = 130)
+
+plot_hub_table <- function(hub_tbl, subtitle, caption = HUB_CAPTION) {
+  max_ties <- max(hub_tbl[["Collaborative project ties"]], na.rm = TRUE)
+  hub_tbl %>%
+    mutate(department = fct_reorder(department, `Bridge score`)) %>%
+    ggplot(aes(x = `Bridge score`, y = department, fill = `Collaborative project ties`)) +
+    geom_col(width = 0.7) +
+    geom_text(
+      aes(label = `Most frequent partner`),
+      hjust = 0,
+      nudge_x = 0.15,
+      size = 3,
+      color = catf_navy
+    ) +
+    scale_fill_gradientn(
+      colors = c(catf_light_blue, catf_dark_blue, catf_navy),
+      limits = c(0, max_ties),
+      breaks = pretty(c(0, max_ties), n = 5),
+      guide = guide_colorbar(
+        barwidth  = unit(8, "cm"),
+        barheight = unit(0.45, "cm"),
+        title.position = "top",
+        title.hjust    = 0.5
       )
-    })
-  ) %>%
-  unnest(department_pairs)
+    ) +
+    scale_x_continuous(expand = expansion(mult = c(0, 0.45))) +
+    labs(
+      title    = "Department Collaboration Hubs",
+      subtitle = subtitle,
+      x        = "Bridge score",
+      y        = NULL,
+      fill     = "Collaborative project ties",
+      caption  = caption
+    ) +
+    theme_catf()
+}
 
-# Add reversed pairs so every department appears on both sides of the Sankey
-department_pairs <- bind_rows(
-  department_pairs,
-  department_pairs %>% rename(department_1 = department_2, department_2 = department_1)
-)
-
-pair_counts <- department_pairs %>%
-  count(department_1, department_2, name = "shared_projects", sort = TRUE)
-
-tbl_department_collaboration_hubs <- bind_rows(
-  pair_counts %>%
-    transmute(
-      department = department_1,
-      partner = department_2,
-      shared_projects
-    ),
-  pair_counts %>%
-    transmute(
-      department = department_2,
-      partner = department_1,
-      shared_projects
-    )
-) %>%
-  group_by(department) %>%
-  summarise(
-    `Unique partner departments` = n_distinct(partner),
-    `Collaborative project ties` = sum(shared_projects),
-    `Most frequent partner` = partner[which.max(shared_projects)],
-    `Projects with top partner` = max(shared_projects),
-    `Bridge score` = round(`Unique partner departments` * log1p(`Collaborative project ties`), 2),
-    .groups = "drop"
-  ) %>%
-  arrange(desc(`Bridge score`), desc(`Collaborative project ties`))
+hub_eis <- build_hub_tables(coagency_department_pairs_eis)
+pair_counts <- hub_eis$pair_counts %>%
+  rename(department_1 = department_a, department_2 = department_b)
+tbl_department_collaboration_hubs <- hub_eis$hub_tbl
 
 write_csv(
   tbl_department_collaboration_hubs,
@@ -749,30 +804,10 @@ write_csv(
 )
 print(tbl_department_collaboration_hubs)
 
-
-# Figure for collaboration hubs
-fig_department_collaboration_hubs <- tbl_department_collaboration_hubs %>%
-  mutate(department = fct_reorder(department, `Bridge score`)) %>%
-  ggplot(aes(x = `Bridge score`, y = department, fill = `Collaborative project ties`)) +
-  geom_col(width = 0.7) +
-  geom_text(
-    aes(label = `Most frequent partner`),
-    hjust = 0,
-    nudge_x = 0.15,
-    size = 3,
-    color = catf_navy
-  ) +
-  scale_fill_gradientn(colors = c(catf_light_blue, catf_dark_blue, catf_navy)) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.45))) +
-  labs(
-    title = "Department Collaboration Hubs",
-    subtitle = "Bar length shows bridge score; labels show most frequent partner",
-    x = "Bridge score",
-    y = NULL,
-    fill = "Collaborative\nproject ties",
-    caption = "Bridge score is a normalized measure of cross-department collaboration ties (unique partner departments × log(1 + total shared project ties))."
-  ) +
-  theme_catf()
+fig_department_collaboration_hubs <- plot_hub_table(
+  tbl_department_collaboration_hubs,
+  "EIS projects only; labels show most frequent partner"
+)
 
 ggsave(
   filename = here(figures_dir, "fig_department_collaboration_hubs.png"),
@@ -784,8 +819,57 @@ ggsave(
 )
 
 # Sankey/alluvial view of cross-department ties
+lead_roles <- c("lead", "responsible_federal_agency", "joint_lead", "co_lead", "lead_metadata")
+partner_roles <- c("cooperating", "participating")
+
+coagency_name_hits <- read_parquet(COAGENCY_NAME_HITS_PATH) %>%
+  filter(
+    process_type == "EIS",
+    coalesce(is_federal, FALSE),
+    !is.na(department),
+    department != ""
+  )
+
+lead_departments <- coagency_name_hits %>%
+  filter(role %in% lead_roles) %>%
+  distinct(project_id, dataset_source, source_department = department)
+
+partner_departments <- coagency_name_hits %>%
+  filter(role %in% partner_roles) %>%
+  distinct(project_id, dataset_source, target_department = department)
+
+fallback_lead_departments <- partner_departments %>%
+  distinct(project_id, dataset_source) %>%
+  anti_join(
+    lead_departments %>% distinct(project_id, dataset_source),
+    by = c("project_id", "dataset_source")
+  ) %>%
+  left_join(
+    clean_energy %>%
+      filter(process_type == "EIS") %>%
+      distinct(project_id, dataset_source, project_department),
+    by = c("project_id", "dataset_source")
+  ) %>%
+  # Exclude "Other / Unclassified" — same reason as the pairs filter above.
+  filter(!is.na(project_department), project_department != "",
+         project_department != "Other / Unclassified") %>%
+  transmute(project_id, dataset_source, source_department = project_department)
+
+directional_department_pairs <- bind_rows(lead_departments, fallback_lead_departments) %>%
+  inner_join(
+    partner_departments,
+    by = c("project_id", "dataset_source"),
+    relationship = "many-to-many"
+  ) %>%
+  filter(source_department != target_department) %>%
+  distinct(project_id, dataset_source, source_department, target_department)
+
+directional_pair_counts <- directional_department_pairs %>%
+  count(source_department, target_department, name = "shared_projects", sort = TRUE) %>%
+  rename(department_1 = source_department, department_2 = target_department)
+
 base_department_sankey <- ggplot(
-  pair_counts,
+  directional_pair_counts,
   aes(axis1 = department_1, axis2 = department_2, y = shared_projects)
 ) +
   ggalluvial::geom_alluvium(
@@ -803,10 +887,10 @@ base_department_sankey <- ggplot(
     labels = NULL,
     expand = c(0.03, 0.03)
   ) +
-  scale_fill_manual(values = rep(catf_palette, length.out = n_distinct(pair_counts$department_1))) +
+  scale_fill_manual(values = rep(catf_palette, length.out = n_distinct(directional_pair_counts$department_1))) +
   labs(
-    title = "Cross-Department Project Flows",
-    subtitle = "Departments only (agencies rolled up to department level); flow width reflects shared projects",
+    title = "Lead Department to Partner Department Flows",
+    subtitle = "EIS projects only; flow direction runs from lead/responsible department to cooperating or participating department",
     y = NULL,
     x = NULL
   ) +
@@ -864,8 +948,8 @@ ggsave(
 #
 # Filtered Sankey: Top Departments Only
 # ----------------------------------------------------
-# Threshold rationale: compute total shared-project ties per department (summing
-# pair_counts as source; symmetric data so this equals total as destination).
+# Threshold rationale: compute total shared-project ties per department across
+# both lead/responsible and partner positions.
 # Departments below the threshold are peripheral collaborators — they add visual
 # clutter without meaningfully shifting the story. A threshold of 20 retains the
 # core agencies that drive clean-energy NEPA collaboration and drops the tail.
@@ -873,8 +957,13 @@ cat("\nCreating filtered department Sankey (top departments only)...\n")
 
 DEPT_TOP_N <- 6  # keep the N most collaborative departments
 
-dept_totals <- pair_counts |>
-  group_by(department = department_1) |>
+dept_totals <- bind_rows(
+  directional_pair_counts %>%
+    transmute(department = department_1, shared_projects),
+  directional_pair_counts %>%
+    transmute(department = department_2, shared_projects)
+) |>
+  group_by(department) |>
   summarise(total_ties = sum(shared_projects), .groups = "drop") |>
   arrange(desc(total_ties))
 
@@ -895,7 +984,7 @@ cat(sprintf(
 ))
 
 # Filter to pairs where BOTH departments clear the threshold
-pair_counts_filtered <- pair_counts |>
+pair_counts_filtered <- directional_pair_counts |>
   filter(department_1 %in% top_depts, department_2 %in% top_depts)
 
 # Order strata: largest department (most ties) at top → set factor levels descending
@@ -946,12 +1035,16 @@ base_department_sankey_filtered <- ggplot(
     values = rep(catf_palette, length.out = n_distinct(pair_counts_filtered$department_1))
   ) +
   labs(
-    title = "Cross-Department Project Flows",
+    title = "Lead Department to Partner Department Flows",
     subtitle = paste0(
       "Top ", length(top_depts), " departments by collaborative activity; ",
-      "flow width reflects shared projects"
+      "EIS projects only; direction is lead/responsible department to partner department"
     ),
-    caption = str_wrap(excluded_label, width = 200),
+    caption = str_wrap(paste0(
+      excluded_label, " ",
+      "DOD activity is driven primarily by the U.S. Army Corps of Engineers (USACE), ",
+      "which routinely serves as a cooperating agency on projects affecting waterways or wetlands."
+    ), width = 200),
     y = NULL,
     x = NULL
   ) +
