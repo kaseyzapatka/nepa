@@ -671,79 +671,68 @@ message("  Saved: 02_duration.png")
 # ---------------------------------------------------------------------------
 message("\n--- Fig 6: Collaboration hubs (EIS only) ---")
 
-# project_multi_department (metadata flag) is what drives lead_agency having multiple entries.
-# project_multi_agency (text-signal, from coagency_projects.parquet) does NOT guarantee
-# lead_agency has >1 agency — those projects still show only 1 department after parsing.
-# So we use project_multi_department throughout; fall back to all process types if EIS has 0.
-multi_dept_eis <- clean_energy %>%
-  filter(project_multi_department == TRUE, process_type == "EIS")
-message("  EIS multi-department projects (metadata): ", nrow(multi_dept_eis))
-
-fig6_scope_label <- "EIS projects only"
-if (nrow(multi_dept_eis) == 0) {
-  warning("No EIS multi-department projects in metadata — falling back to all process types")
-  multi_dept_eis <- clean_energy %>% filter(project_multi_department == TRUE)
-  fig6_scope_label <- "all process types"
-  message("  Fallback: all process types, n = ", nrow(multi_dept_eis))
+coagency_pairs_path <- here("phase1", "data", "analysis", "coagency_department_pairs.parquet")
+coagency_name_hits_path <- here("phase1", "data", "analysis", "coagency_name_hits.parquet")
+if (!file.exists(coagency_pairs_path)) {
+  stop(
+    "Missing parsed coagency pairs at ", coagency_pairs_path,
+    ". Run: conda run -n nepa python phase1/code/extract/extract_coagency_names.py --run"
+  )
+}
+if (!file.exists(coagency_name_hits_path)) {
+  stop(
+    "Missing parsed coagency name hits at ", coagency_name_hits_path,
+    ". Run: conda run -n nepa python phase1/code/extract/extract_coagency_names.py --run"
+  )
 }
 
-message("  Final Fig 6 scope: ", fig6_scope_label)
-
-department_projects_eis <- multi_dept_eis %>%
+# "Other / Unclassified" is excluded from all hub and Sankey figures.
+# These 11 EIS projects have lead_agency = [""] and project_department = "Other / Unclassified"
+# in the base dataset. The name extractor found cooperating agencies but no lead role in the
+# document text, so _build_department_pairs() fell back to project_department. The result is
+# an artificial pseudo-lead that aggregates diverse cooperating agencies from 11 unrelated
+# projects, inflating its bridge score. These are a missing-data issue in the base dataset
+# (BOEM offshore wind and privately-led transmission projects not mapped to a department),
+# not a real collaborative department.
+coagency_department_pairs <- read_parquet(coagency_pairs_path) %>%
+  filter(
+    !is.na(department_1), !is.na(department_2),
+    department_1 != department_2,
+    department_1 != "Other / Unclassified",
+    department_2 != "Other / Unclassified"
+  ) %>%
   mutate(
-    department_list = map(lead_agency, ~ {
-      agencies <- parse_jsonish_vector(.x)
-      depts    <- unique(map_chr(agencies, map_agency_to_department))
-      sort(depts[depts != ""])
-    })
+    department_a = pmin(department_1, department_2),
+    department_b = pmax(department_1, department_2),
+    department_pair_key = paste(department_a, department_b, sep = " | ")
   ) %>%
-  filter(lengths(department_list) >= 2)
+  distinct(project_id, process_type, department_a, department_b, department_pair_key)
 
-message("  Projects with ≥2 departments: ", nrow(department_projects_eis))
+build_hub_tables <- function(pair_df) {
+  pair_counts <- pair_df %>%
+    count(department_a, department_b, name = "shared_projects", sort = TRUE)
 
-if (nrow(department_projects_eis) == 0) {
-  stop("Fig 6: no projects with ≥2 identifiable departments after all fallbacks — cannot generate figure")
+  hub_tbl <- bind_rows(
+    pair_counts %>% transmute(department = department_a, partner = department_b, shared_projects),
+    pair_counts %>% transmute(department = department_b, partner = department_a, shared_projects)
+  ) %>%
+    group_by(department) %>%
+    summarise(
+      `Unique partner departments` = n_distinct(partner),
+      `Collaborative project ties` = sum(shared_projects),
+      `Most frequent partner`      = partner[which.max(shared_projects)],
+      `Projects with top partner`  = max(shared_projects),
+      `Bridge score`               = round(`Unique partner departments` * log1p(`Collaborative project ties`), 2),
+      .groups = "drop"
+    ) %>%
+    arrange(desc(`Bridge score`), desc(`Collaborative project ties`))
+
+  list(pair_counts = pair_counts, hub_tbl = hub_tbl)
 }
 
-department_pairs_eis <- department_projects_eis %>%
-  transmute(
-    project_id,
-    department_pairs = map(department_list, ~ {
-      combo <- combn(.x, 2, simplify = FALSE)
-      tibble(
-        department_1 = map_chr(combo, 1),
-        department_2 = map_chr(combo, 2)
-      )
-    })
-  ) %>%
-  unnest(department_pairs)
-
-if (nrow(department_pairs_eis) == 0 || !all(c("department_1", "department_2") %in% names(department_pairs_eis))) {
-  stop("Fig 6: unnest produced no department pairs — check lead_agency values")
-}
-
-department_pairs_eis <- bind_rows(
-  department_pairs_eis,
-  department_pairs_eis %>% rename(department_1 = department_2, department_2 = department_1)
-)
-
-pair_counts_eis <- department_pairs_eis %>%
-  count(department_1, department_2, name = "shared_projects", sort = TRUE)
-
-tbl_collab_hubs_eis <- bind_rows(
-  pair_counts_eis %>% transmute(department = department_1, partner = department_2, shared_projects),
-  pair_counts_eis %>% transmute(department = department_2, partner = department_1, shared_projects)
-) %>%
-  group_by(department) %>%
-  summarise(
-    `Unique partner departments` = n_distinct(partner),
-    `Collaborative project ties` = sum(shared_projects),
-    `Most frequent partner`      = partner[which.max(shared_projects)],
-    `Projects with top partner`  = max(shared_projects),
-    `Bridge score`               = round(`Unique partner departments` * log1p(`Collaborative project ties`), 2),
-    .groups = "drop"
-  ) %>%
-  arrange(desc(`Bridge score`), desc(`Collaborative project ties`))
+hub_eis <- build_hub_tables(coagency_department_pairs %>% filter(process_type == "EIS"))
+pair_counts_eis <- hub_eis$pair_counts
+tbl_collab_hubs_eis <- hub_eis$hub_tbl
 
 message("  Collaboration hubs (EIS only):")
 print(tbl_collab_hubs_eis)
@@ -756,18 +745,28 @@ fig6 <- tbl_collab_hubs_eis %>%
     aes(label = `Most frequent partner`),
     hjust = 0, nudge_x = 0.15, size = 3, color = catf_navy
   ) +
-  scale_fill_gradientn(colors = c(catf_light_blue, catf_dark_blue, catf_navy)) +
+  scale_fill_gradientn(
+    colors = c(catf_light_blue, catf_dark_blue, catf_navy),
+    breaks = pretty(c(0, max(tbl_collab_hubs_eis[["Collaborative project ties"]], na.rm = TRUE)), n = 5),
+    guide  = guide_colorbar(
+      barwidth       = unit(8, "cm"),
+      barheight      = unit(0.45, "cm"),
+      title.position = "top",
+      title.hjust    = 0.5
+    )
+  ) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.45))) +
   labs(
     title    = "Department Collaboration Hubs",
-    subtitle = paste0(str_to_sentence(fig6_scope_label), ". Bar length shows bridge score; labels show most frequent partner"),
+    subtitle = "EIS projects only. Bar length shows bridge score; labels show most frequent partner",
     x        = "Bridge score",
     y        = NULL,
-    fill     = "Collaborative\nproject ties",
+    fill     = "Collaborative project ties",
     caption  = str_wrap(paste0(
       "Note: Bridge score = unique partner departments × log(1 + total shared project ties). ",
-      "Restricted to decarbonization ", fig6_scope_label, ". ",
-      "Bar length shows bridge score and label shows most frequent partner."
+      "DOD activity is driven primarily by the U.S. Army Corps of Engineers (USACE), which ",
+      "routinely serves as a cooperating agency on projects affecting waterways or wetlands. ",
+      "Ties are parsed from co-agency document text and deduplicated by project and department pair."
     ), width = 130)
   ) +
   theme_catf()
@@ -781,43 +780,60 @@ message("  Saved: fig_department_collaboration_hubs.png")
 # ---------------------------------------------------------------------------
 message("\n--- Fig 7: Sankey ---")
 
-# All-process multi-department projects (metadata flag only, all process types)
-dept_projects_sankey <- clean_energy %>%
-  filter(project_multi_department == TRUE) %>%
-  mutate(
-    department_list = map(lead_agency, ~ {
-      agencies <- parse_jsonish_vector(.x)
-      depts    <- unique(map_chr(agencies, map_agency_to_department))
-      sort(depts[depts != ""])
-    })
+lead_roles_sankey <- c("lead", "responsible_federal_agency", "joint_lead", "co_lead", "lead_metadata")
+partner_roles_sankey <- c("cooperating", "participating")
+
+coagency_name_hits_sankey <- read_parquet(coagency_name_hits_path) %>%
+  filter(
+    process_type == "EIS",
+    coalesce(is_federal, FALSE),
+    !is.na(department),
+    department != ""
+  )
+
+lead_departments_sankey <- coagency_name_hits_sankey %>%
+  filter(role %in% lead_roles_sankey) %>%
+  distinct(project_id, dataset_source, source_department = department)
+
+partner_departments_sankey <- coagency_name_hits_sankey %>%
+  filter(role %in% partner_roles_sankey) %>%
+  distinct(project_id, dataset_source, target_department = department)
+
+fallback_lead_departments_sankey <- partner_departments_sankey %>%
+  distinct(project_id, dataset_source) %>%
+  anti_join(
+    lead_departments_sankey %>% distinct(project_id, dataset_source),
+    by = c("project_id", "dataset_source")
   ) %>%
-  filter(lengths(department_list) >= 2)
-
-dept_pairs_sankey <- dept_projects_sankey %>%
-  transmute(
-    project_id,
-    department_pairs = map(department_list, ~ {
-      combo <- combn(.x, 2, simplify = FALSE)
-      tibble(
-        department_1 = map_chr(combo, 1),
-        department_2 = map_chr(combo, 2)
-      )
-    })
+  left_join(
+    clean_energy %>%
+      filter(process_type == "EIS") %>%
+      distinct(project_id, dataset_source, project_department),
+    by = c("project_id", "dataset_source")
   ) %>%
-  unnest(department_pairs)
+  # Exclude "Other / Unclassified" — same reason as the pairs filter above.
+  filter(!is.na(project_department), project_department != "",
+         project_department != "Other / Unclassified") %>%
+  transmute(project_id, dataset_source, source_department = project_department)
 
-dept_pairs_sankey <- bind_rows(
-  dept_pairs_sankey,
-  dept_pairs_sankey %>% rename(department_1 = department_2, department_2 = department_1)
-)
-
-pair_counts_sankey <- dept_pairs_sankey %>%
-  count(department_1, department_2, name = "shared_projects", sort = TRUE)
+pair_counts_sankey <- bind_rows(lead_departments_sankey, fallback_lead_departments_sankey) %>%
+  inner_join(
+    partner_departments_sankey,
+    by = c("project_id", "dataset_source"),
+    relationship = "many-to-many"
+  ) %>%
+  filter(source_department != target_department) %>%
+  distinct(project_id, dataset_source, source_department, target_department) %>%
+  count(source_department, target_department, name = "shared_projects", sort = TRUE) %>%
+  rename(department_1 = source_department, department_2 = target_department)
 
 DEPT_TOP_N <- 6
 
-dept_totals_sankey <- pair_counts_sankey %>%
-  group_by(department = department_1) %>%
+dept_totals_sankey <- bind_rows(
+  pair_counts_sankey %>% transmute(department = department_1, shared_projects),
+  pair_counts_sankey %>% transmute(department = department_2, shared_projects)
+) %>%
+  group_by(department) %>%
   summarise(total_ties = sum(shared_projects), .groups = "drop") %>%
   arrange(desc(total_ties))
 
@@ -865,10 +881,13 @@ fig7 <- ggplot(
     values = rep(catf_palette, length.out = n_distinct(pair_counts_filtered_sankey$department_1))
   ) +
   labs(
-    title   = "Cross-Department Project Flows",
+    title   = "Lead Department to Partner Department Flows",
     caption = str_wrap(paste0(
       "Top ", length(top_depts_sankey), " departments by collaborative activity; ",
-      "flow width reflects shared projects. ", excluded_label_sankey
+      "EIS projects only; direction is lead/responsible department to partner department. ",
+      "DOD activity is driven primarily by the U.S. Army Corps of Engineers (USACE), which ",
+      "routinely serves as a cooperating agency on projects affecting waterways or wetlands. ",
+      excluded_label_sankey
     ), width = 160),
     y = NULL,
     x = NULL
@@ -1298,9 +1317,9 @@ if (!file.exists(coagency_path)) {
       fill    = "Share of dept.\nEIS reviews",
       caption = str_wrap(paste0(
         "Note: Co-agency signal = high-confidence text detection of cooperating or co-lead agency ",
-        "language in the EIS document. EIS records store only a single lead agency, so department ",
-        "pairs cannot be derived; this figure shows which departments' EIS reviews most frequently ",
-        "involve other agencies. Departments with fewer than 5 EIS reviews excluded. ",
+        "language in the EIS document. This figure shows which lead departments' EIS reviews most ",
+        "frequently involve other agencies; parsed partner names are used separately for the ",
+        "collaboration hub and Sankey figures. Departments with fewer than 5 EIS reviews excluded. ",
         "n = ", scales::comma(sum(dept_coagency_summary$coagency_count)), " of ",
         scales::comma(sum(dept_coagency_summary$total_eis)), " clean-energy EIS reviews."
       ), width = 110)

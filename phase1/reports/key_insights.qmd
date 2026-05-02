@@ -134,6 +134,10 @@ eis_tiered_med <- d2_duration %>% filter(process_type == "EIS", review_type == "
 
 doe_bridge <- d4_hubs %>% filter(department == "Department of Energy") %>% pull(`Bridge score`)
 doi_bridge <- d4_hubs %>% filter(department == "Department of the Interior") %>% pull(`Bridge score`)
+top_hub <- d4_hubs %>% slice_max(`Bridge score`, n = 1, with_ties = FALSE)
+top_ties <- d4_hubs %>% slice_max(`Collaborative project ties`, n = 1, with_ties = FALSE)
+top_hub_bridge <- top_hub[["Bridge score"]]
+top_ties_count <- top_ties[["Collaborative project ties"]]
 
 ea_post_fra_total <- d5_compliance %>% filter(process_type == "EA") %>% pull(total) %>% first()
 eis_post_fra_total <- d5_compliance %>% filter(process_type == "EIS") %>% pull(total) %>% first()
@@ -234,17 +238,17 @@ knitr::include_graphics(file.path(fs_figures, "02_duration.png"))
 
 ### 2.2 Increased interagency coordination could meaningfully impact efficiency gains
 
-[Previous CATF research](https://www.catf.us/resource/evidence-based-recommendations-overcoming-barriers-federal-transmission-permitting/) on transmission permitting has demonstrated that insufficient support for agency coordination, cooperation, and capacity contributes to longer permitting timelines. This research builds on that finding by mapping which agencies collaborate the most on NEPA reviews. We find that The Department of Energy (DOE) stands out as the clear hub of the multi-department network, with a bridge score of `r round(doe_bridge, 1)` compared with `r round(doi_bridge, 1)` for The Department of the Interior (DOI). That suggests that improving DOE-DOI collaboration through targeted staffing increases, memoranda of understanding, and other mechanisms may have outsized impact on review timelines. Its dominance reflects both the sheer number of partner agencies (9 unique departments) and the high volume of shared project ties. DOI is a meaningful secondary hub, with its strongest partnership running back to DOE. All other departments are more peripheral—connecting to one or two partners and typically anchored to DOE as their primary collaborator. This indicates that improving DOE-DOI collaboration through targeted staffing increases, memoranda of understanding, and other mechanisms may have outsized impact on improving review timelines.
+[Previous CATF research](https://www.catf.us/resource/evidence-based-recommendations-overcoming-barriers-federal-transmission-permitting/) on transmission permitting has demonstrated that insufficient support for agency coordination, cooperation, and capacity contributes to longer permitting timelines. This research builds on that finding by mapping which agencies collaborate the most on NEPA reviews. Using parsed co-agency names from review documents, the strongest collaboration hubs are concentrated in DOE, DOI, DOD, EPA, and USDA. `r top_hub$department` ranks highest by bridge score (`r round(top_hub_bridge, 1)`), while `r top_ties$department` carries the largest number of collaborative project ties (`r top_ties_count`). That suggests that targeted staffing, memoranda of understanding, and other coordination mechanisms should focus on the recurring federal partner network rather than only the formal lead agency.
 
 ```{r}
 #| label: fig-collaboration-hubs
-#| fig-cap: "Note: Federal departments ranked by bridge score. DOE is the dominant collaboration hub across the interagency network. Bar length shows bridge score and label shows most frequent partner."
+#| fig-cap: "Note: Federal departments ranked by bridge score using parsed co-agency relationships. Bar length shows bridge score and label shows most frequent partner."
 #| out-width: "100%"
 knitr::include_graphics(file.path(fs_figures, "fig_department_collaboration_hubs.png"))
 ```
 
 
-The flow diagram below offers a complementary view of the same pattern. Each band connects two departments, with width proportional to the number of shared project ties. You read this figure from left to right: the department on the left shows to which departments on the right all of project collaborations flow. DOE anchors the network on one side, with flows extending to every other major collaborating department on the right-hand side. DOI is the most substantial secondary node, with its largest flow running to DOE. The remaining departments — Agriculture, Defense, Homeland Security, and Commerce — connect primarily to DOE, reinforcing its role as the essential intermediary for cross-agency decarbonization work.
+The flow diagram below offers a complementary view of the same pattern for EIS projects. Each band flows from the lead or responsible department to a cooperating or participating partner department, with width proportional to the number of shared project ties. The network is concentrated among a small group of repeat partners, but the direction makes clear whether a department is primarily leading reviews, partnering on reviews, or doing both.
 
 ```{r}
 #| label: fig-department-sankey
@@ -332,4 +336,3 @@ Several considerations from the fact sheet should remain front-of-mind when tran
 
 knitr::include_graphics(file.path(fs_figures, "00_energy_type_breakdown.png"))
 ```
-

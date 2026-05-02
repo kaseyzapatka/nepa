@@ -19,6 +19,7 @@ library(sf)
 library(tidycensus)
 library(tigris)
 library(ggwordcloud)
+library(ggalluvial)
 
 source(here::here("phase1", "code", "utils", "utils.R"))
 
