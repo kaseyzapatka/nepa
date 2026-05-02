@@ -396,6 +396,22 @@ duration_summary_solar <- duration_complete_solar %>%
 message("  Solar projects in duration summary: ", sum(duration_summary_solar$n))
 print(duration_summary_solar)
 
+# All-decarb median per process type (reference lines)
+decarb_medians <- timeline_for_solar %>%
+  filter(project_energy_type == "Clean", !is.na(process_group), timeline_complete) %>%
+  mutate(duration_months = bert_duration_days / 30.44) %>%
+  filter(!is.na(duration_months), duration_months >= 0) %>%
+  group_by(process_group) %>%
+  summarise(decarb_median = median(duration_months, na.rm = TRUE), .groups = "drop") %>%
+  filter(process_group != "CE") %>%   # CE solar ≈ CE decarb (~1 mo); no contrast to show
+  mutate(
+    y_pos   = match(as.character(process_group), process_levels),
+    label_y = y_pos - 0.52
+  )
+
+message("  All-decarb medians:")
+print(decarb_medians)
+
 fig3 <- ggplot(duration_summary_solar, aes(y = process_group, color = process_group)) +
   geom_segment(aes(x = p10, xend = p90, yend = process_group), linewidth = 1.8, alpha = 0.35) +
   geom_segment(aes(x = p25, xend = p75, yend = process_group), linewidth = 5.5, alpha = 0.55) +
@@ -407,6 +423,21 @@ fig3 <- ggplot(duration_summary_solar, aes(y = process_group, color = process_gr
   geom_text(
     aes(x = p90, label = paste0("n=", scales::comma(n))),
     nudge_x = 1.2, hjust = 0, size = 3, color = "gray30"
+  ) +
+  # Dashed tick at all-decarb median for each process type
+  geom_segment(
+    data = decarb_medians,
+    aes(x = decarb_median, xend = decarb_median,
+        y = y_pos - 0.32, yend = y_pos + 0.32),
+    linetype = "dashed", color = "gray35", linewidth = 0.85,
+    inherit.aes = FALSE
+  ) +
+  geom_text(
+    data = decarb_medians,
+    aes(x = decarb_median, y = label_y,
+        label = paste0("All decarb: ~", round(decarb_median), " months")),
+    size = 2.7, color = "gray35", hjust = 0.5,
+    inherit.aes = FALSE
   ) +
   scale_color_catf(drop = FALSE) +
   scale_x_continuous(
@@ -1199,7 +1230,7 @@ fig10 <- ggplot(compliance_summary, aes(x = process_type, y = n, fill = complian
     y       = "Number of Projects",
     fill    = NULL,
     caption = str_wrap(paste0(
-      "Note: EA limit: 75 pages | EIS limit: 150 pages (300 for extraordinarily complex). "), width = 160)
+      "Note: Analysis is limited to 20,725 decarbonization NEPA reviews. EA limit: 75 pages | EIS limit: 150 pages (300 for extraordinarily complex). "), width = 160)
   ) +
   theme_catf() +
   theme(legend.position = "bottom", plot.margin = margin(5, 40, 5, 5))
