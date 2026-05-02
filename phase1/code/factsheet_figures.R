@@ -169,12 +169,16 @@ fig1 <- fig1_data %>%
       "Note: NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
       "EIS (Environmental Impact Statement). ",
       "Percentages calculated within each energy type category. ",
-      "Percentages below 5% omitted for clarity."
+      "Percentage labels below 5% omitted for clarity."
     ), width = 150)
   ) +
   scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
   scale_fill_catf() +
-  theme_catf()
+  theme_catf() + 
+  theme(
+    legend.position   = "bottom",
+    panel.grid.major.y = element_blank()
+  ) 
 
 ggsave(file.path(out_dir, "02_energy_type_composition.png"), fig1, width = 10, height = 5, dpi = 300)
 message("  Saved: 02_energy_type_composition.png")
@@ -270,16 +274,11 @@ fig2 <- coverage_verified %>%
   ) +
   scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.08))) +
   scale_fill_manual(values = c("CE" = catf_dark_blue, "EA" = catf_teal, "EIS" = catf_magenta)) +
-  theme_minimal() +
+  theme_catf() +
   theme(
     legend.position   = "bottom",
-    axis.text.x       = element_blank(),
-    axis.ticks.x      = element_blank(),
-    axis.line.x       = element_blank(),
-    axis.text.y       = element_text(size = 9),
     panel.grid.major.y = element_blank(),
-    plot.caption      = element_text(size = 8, color = "gray40", hjust = 0),
-    plot.margin       = margin(10, 30, 10, 10)
+    plot.caption      = element_text(size = 8, color = "gray40", hjust = 0)
   )
 
 ggsave(file.path(out_dir, "02_agency_process.png"), fig2, width = 10, height = 5, dpi = 300)
@@ -415,7 +414,7 @@ fig3 <- ggplot(duration_summary_solar, aes(y = process_group, color = process_gr
     expand = expansion(mult = c(0.02, 0.12))
   ) +
   labs(
-    title = "NEPA Reviews for Solar Projects\nAre Completed More Quickly Than for Decarbonization Projects as a Whole",
+    title = "NEPA Reviews for Solar Projects Are Completed More Quickly Than for Decarbonization\nProjects as a Whole",
     x     = "Duration (months)",
     y     = "Review Process",
     color = NULL
@@ -502,7 +501,7 @@ fig4 <- gencap_reasonable %>%
     title   = "Solar Projects With Higher Generation Capacities Are More Likely to Go Through More Intensive\nLevels of NEPA Review",
     x       = "Process Type",
     y       = "Generation Capacity (MW, log scale)",
-    caption = str_wrap("Note: Violin illustrate density, while boxplots illustrate median and interquartile range. The megawatt (MW) on the y-axis is logged for visual comparison.", width = 160)
+    caption = str_wrap("Note: Violin plots illustrate density, while boxplots illustrate median and interquartile range. The generation capacity (in megawatts (MW)) on the y-axis is logged for visual comparison.", width = 180)
   ) +
   scale_y_log10(
     breaks = c(1, 5, 10, 50, 100, 500, 1000, 5000),
@@ -763,11 +762,7 @@ fig6 <- tbl_collab_hubs_eis %>%
     y        = NULL,
     fill     = "Collaborative project ties",
     caption  = str_wrap(paste0(
-      "Note: Bridge score = unique partner departments × log(1 + total shared project ties). ",
-      "DOD activity is driven primarily by the U.S. Army Corps of Engineers (USACE), which ",
-      "routinely serves as a cooperating agency on projects affecting waterways or wetlands. ",
-      "Ties are parsed from co-agency document text and deduplicated by project and department pair."
-    ), width = 130)
+      "Note: Bridge score = unique partner departments × log(1 + total shared project ties)."), width = 130)
   ) +
   theme_catf()
 
@@ -843,9 +838,9 @@ DEPT_THRESHOLD_SANKEY <- dept_totals_sankey %>% filter(department %in% top_depts
 
 excluded_label_sankey <- if (length(excluded_depts_sankey) > 0) {
   paste0(
-    "Note: Showing top ", length(top_depts_sankey), " of ", nrow(dept_totals_sankey),
+    "Showing top ", length(top_depts_sankey), " of ", nrow(dept_totals_sankey),
     " departments by collaborative activity (minimum ", DEPT_THRESHOLD_SANKEY,
-    " shared project ties). Excluded (", length(excluded_depts_sankey), "): ",
+    " shared project ties). Excluded departments (", length(excluded_depts_sankey), "): ",
     paste(excluded_depts_sankey, collapse = "; "), "."
   )
 } else {
@@ -884,11 +879,9 @@ fig7 <- ggplot(
     title   = "Lead Department to Partner Department Flows",
     caption = str_wrap(paste0(
       "Top ", length(top_depts_sankey), " departments by collaborative activity; ",
-      "EIS projects only; direction is lead/responsible department to partner department. ",
-      "DOD activity is driven primarily by the U.S. Army Corps of Engineers (USACE), which ",
-      "routinely serves as a cooperating agency on projects affecting waterways or wetlands. ",
+      "EIS projects only. ",
       excluded_label_sankey
-    ), width = 160),
+    ), width = 240),
     y = NULL,
     x = NULL
   ) +
@@ -1206,12 +1199,7 @@ fig10 <- ggplot(compliance_summary, aes(x = process_type, y = n, fill = complian
     y       = "Number of Projects",
     fill    = NULL,
     caption = str_wrap(paste0(
-      "Note: EA limit: 75 pages | EIS limit: 150 pages (300 for extraordinarily complex). ",
-      "n = ", comma(sum(compliance_summary$n[compliance_summary$process_type == "EA"])),
-      " EA, ",
-      comma(sum(compliance_summary$n[compliance_summary$process_type == "EIS"])),
-      " EIS post-FRA projects."
-    ), width = 160)
+      "Note: EA limit: 75 pages | EIS limit: 150 pages (300 for extraordinarily complex). "), width = 160)
   ) +
   theme_catf() +
   theme(legend.position = "bottom", plot.margin = margin(5, 40, 5, 5))
