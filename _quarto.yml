@@ -5,6 +5,7 @@ project:
     - "**/*.qmd"
     - "**/*.md"
     - "!phase1/reports/key_insights.qmd"
+    - "!admin/**"
   post-render:
     - scripts/render_pdfs.sh
 
