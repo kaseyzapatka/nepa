@@ -1,6 +1,10 @@
 project:
   type: website
   output-dir: docs
+  render:
+    - "**/*.qmd"
+    - "**/*.md"
+    - "!phase1/reports/key_insights.qmd"
   post-render:
     - scripts/render_pdfs.sh
 
