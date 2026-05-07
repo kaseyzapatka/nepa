@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>NEPA – extract_data</title>
+<title>NEPA – funding_mechanism</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -18,40 +18,6 @@ ul.task-list{list-style: none;}
 ul.task-list li input[type="checkbox"] {
 width: 0.8em;
 margin: 0 0.8em 0.2em -1em;  vertical-align: middle;
-}
-
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-{ counter-reset: source-line 0; }
-pre.numberSource code > span
-{ position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-{ content: counter(source-line);
-position: relative; left: -1em; text-align: right; vertical-align: baseline;
-border: none; display: inline-block;
--webkit-touch-callout: none; -webkit-user-select: none;
--khtml-user-select: none; -moz-user-select: none;
--ms-user-select: none; user-select: none;
-padding: 0 4px; width: 4em;
-}
-pre.numberSource { margin-left: 3em; padding-left: 4px; }
-div.sourceCode
-{ }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
 </style>
 
@@ -4569,200 +4535,158 @@ vertical-align: -.125em;
 
 
 
-<section id="extract_data.py-pipeline-architecture" class="level1">
-<h1>extract_data.py — Pipeline Architecture</h1>
-<p><strong>Script:</strong> <code>phase2/code/extract/extract_data.py</code></p>
-<p><strong>Purpose:</strong> Main entry point for the Phase 2 data pipeline. Downloads raw NEPATEC data, builds analysis-ready parquet files, and merges enrichment artifacts (Federal Register NOI, timeline data). Every downstream deliverable script starts from <code>projects_combined.parquet</code> produced here.</p>
-<hr>
-<section id="data-flow" class="level2">
-<h2 class="anchored" data-anchor-id="data-flow">Data Flow</h2>
-<pre class="mermaid"><code>flowchart TD
-    A[NEPATEC HuggingFace dataset] --&gt;|--mode extract| B[phase2/data/processed/\nea/ eis/ ce/ parquets]
-    B --&gt;|--mode analysis| C[run_raw_extraction\nenrich_project_descriptions]
-    C --&gt; D[create_combined_projects]
-    D --&gt; E{--refresh-federal-register?}
-    E --&gt;|Yes| F[federal_register.py\nrefresh_federal_register_noi]
-    E --&gt;|No| G[merge existing\nfederal_register.parquet]
-    F --&gt; H[projects_combined.parquet]
-    G --&gt; H
-    D --&gt; I[create_combined_processes]
-    D --&gt; J[create_combined_documents]
-    I --&gt; K[processes_combined.parquet]
-    J --&gt; L[documents_combined.parquet]</code></pre>
-<hr>
-</section>
-<section id="modes" class="level2">
-<h2 class="anchored" data-anchor-id="modes">Modes</h2>
+<section id="federal-funding-mechanism-details" class="level1">
+<h1>Federal Funding Mechanism Details</h1>
+<section id="current-schema-and-cues" class="level2">
+<h2 class="anchored" data-anchor-id="current-schema-and-cues">Current Schema And Cues</h2>
 <table class="table">
 <colgroup>
-<col style="width: 50%">
-<col style="width: 50%">
+<col style="width: 18%">
+<col style="width: 25%">
+<col style="width: 18%">
+<col style="width: 18%">
+<col style="width: 18%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>Mode</th>
-<th>What it does</th>
+<th>Label</th>
+<th style="text-align: right;">Count</th>
+<th>Logic</th>
+<th>Examples of text cues</th>
+<th>Summary</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>--mode extract</code></td>
-<td>Downloads EA, EIS, CE datasets from HuggingFace and writes <code>data/processed/{ea,eis,ce}/</code>. Requires internet.</td>
+<td>Grant/Award</td>
+<td style="text-align: right;">5,194</td>
+<td>Matches explicit grant or award terms.</td>
+<td><code>grant</code>, <code>grants</code>, <code>award</code>, <code>awards</code>, <code>DOE grant</code>, <code>federal grant</code>, <code>grant award</code>, <code>selected for funding</code>.</td>
+<td>A project where the evidence identifies a grant or award, but not a more specific higher-priority mechanism such as loan guarantee, cooperative agreement, or formula grant.</td>
 </tr>
 <tr class="even">
-<td><code>--mode analysis</code></td>
-<td>Builds <code>projects_combined.parquet</code> from existing processed data. Default; fully offline unless <code>--refresh-federal-register</code>.</td>
+<td>Unknown Funding Type</td>
+<td style="text-align: right;">2,692</td>
+<td>The project was classified as funding-triggered, but the sidecar did not find a recognized mechanism cue in its funding evidence windows.</td>
+<td>Blank sidecar evidence; FOA header only; manual funding label without a mechanism; model-based funding label without extractable funding text.</td>
+<td>Funding may be real, but the instrument type was not identified. This is the weakest bucket and should be treated as unresolved, not as a meaningful funding mechanism.</td>
 </tr>
 <tr class="odd">
-<td><code>--mode all</code></td>
-<td>Both — download then build.</td>
+<td>Formula Grant</td>
+<td style="text-align: right;">555</td>
+<td>Matches formula grant language or EECBG.</td>
+<td><code>formula grant</code>, <code>formula-based grant</code>, <code>formula award</code>, <code>EECBG</code>, <code>State Energy Program Formula Grants</code>.</td>
+<td>A grant allocated by formula, often through DOE block-grant or state-energy-program channels.</td>
+</tr>
+<tr class="even">
+<td>Generic Funding</td>
+<td style="text-align: right;">201</td>
+<td>Matches broad funding language but no explicit instrument.</td>
+<td><code>DOE would provide funds</code>, <code>DOE funding</code>, <code>federal funding</code>, <code>recipient of federal funding</code>, <code>would receive federal funds</code>.</td>
+<td>The text clearly says federal money supports the project, but does not say whether the vehicle is a grant, loan, cooperative agreement, etc.</td>
+</tr>
+<tr class="odd">
+<td>Revolving Loan</td>
+<td style="text-align: right;">131</td>
+<td>Matches revolving loan language.</td>
+<td><code>revolving loan</code>, <code>Revolving Loan Fund</code>, <code>Energy Bank Revolving Loan Program</code>.</td>
+<td>A loan mechanism where repayments replenish a fund for future lending.</td>
+</tr>
+<tr class="even">
+<td>Financial Assistance</td>
+<td style="text-align: right;">71</td>
+<td>Matches the formal phrase <code>financial assistance</code>.</td>
+<td><code>financial assistance</code>, <code>active financial assistance agreement</code>, <code>provide financial assistance</code>.</td>
+<td>Formal federal financial-assistance language, but not specific enough to call it a grant, loan, or cooperative agreement unless those cues also appear.</td>
+</tr>
+<tr class="odd">
+<td>Loan Guarantee</td>
+<td style="text-align: right;">59</td>
+<td>Matches loan guarantee language.</td>
+<td><code>loan guarantee</code>, <code>guaranteed loan</code>, <code>issue a loan guarantee</code>, <code>provide a loan guarantee to</code>.</td>
+<td>The federal role is backing or guaranteeing a loan rather than directly granting funds.</td>
+</tr>
+<tr class="even">
+<td>Cooperative Agreement</td>
+<td style="text-align: right;">50</td>
+<td>Matches cooperative agreement language.</td>
+<td><code>cooperative agreement</code>, <code>under the terms of the cooperative agreement</code>, <code>cooperative agreement with</code>.</td>
+<td>A specific federal assistance instrument with substantial agency involvement. This outranks cost-share if both are present.</td>
+</tr>
+<tr class="odd">
+<td>Cost Share</td>
+<td style="text-align: right;">13</td>
+<td>Matches cost-share language, but only becomes primary if no higher-priority mechanism is found.</td>
+<td><code>cost share</code>, <code>cost-shared arrangement</code>, <code>federal cost share</code>, <code>cost share funds</code>.</td>
+<td>A financing structure where federal and non-federal parties split costs. It is not always the instrument itself, so many cost-share projects are counted under Grant/Award or Cooperative Agreement instead.</td>
 </tr>
 </tbody>
 </table>
-<hr>
 </section>
-<section id="key-output-projects_combined.parquet" class="level2">
-<h2 class="anchored" data-anchor-id="key-output-projects_combined.parquet">Key Output: <code>projects_combined.parquet</code></h2>
-<p>One row per NEPA project. Primary key: <code>project_id</code>.</p>
+<section id="proposed-tighter-schema" class="level2">
+<h2 class="anchored" data-anchor-id="proposed-tighter-schema">Proposed Tighter Schema</h2>
 <table class="table">
 <colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>Column group</th>
-<th>Source</th>
-<th>Description</th>
+<th>Label</th>
+<th>Combines current labels/cues</th>
+<th>Logic</th>
+<th>Examples of cues</th>
+<th>Rationale for change</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>project_id</code>, <code>project_title</code>, <code>project_type</code>, <code>project_sponsor</code></td>
-<td>Raw NEPATEC</td>
-<td>Core project identity</td>
+<td>Grants and Awards</td>
+<td><code>grant_or_award</code>, <code>formula_grant</code>; optionally FOA-backed awards where project-specific award language appears.</td>
+<td>Group explicit grant/award language and formula-allocation grant language; classify FOA cases here only when FOA appears near project-specific award or recipient language.</td>
+<td><code>grant</code>, <code>award</code>, <code>grant award</code>, <code>formula grant</code>, <code>formula-based award</code>, <code>EECBG</code>, <code>selected to receive</code>, <code>recipient of</code>, <code>Funding Opportunity Announcement</code> near <code>grant</code> or <code>award</code>.</td>
+<td>This is the dominant category. Formula grants are still worth retaining as a subtype because they represent a different allocation channel.</td>
 </tr>
 <tr class="even">
-<td><code>process_type</code></td>
-<td>NEPATEC processes table</td>
-<td><code>EA</code>, <code>EIS</code>, or <code>CE</code></td>
+<td>Loans and Loan Support</td>
+<td><code>loan_guarantee</code>, <code>federal_loan</code>, <code>revolving_loan</code>.</td>
+<td>Group debt-related funding mechanisms where the federal role is lending, guaranteeing a loan, or capitalizing a revolving loan fund.</td>
+<td><code>loan guarantee</code>, <code>guaranteed loan</code>, <code>federal loan</code>, <code>loan from DOE</code>, <code>revolving loan</code>, <code>Revolving Loan Fund</code>.</td>
+<td>These are all debt-related mechanisms and are easier to understand as one family with subtypes.</td>
 </tr>
 <tr class="odd">
-<td><code>lead_agency</code>, <code>lead_agency_harmonized</code>, <code>project_department</code></td>
-<td>Agency classification</td>
-<td>Normalized agency and DOI/USFS/DOE etc. department</td>
+<td>Cooperative Agreements</td>
+<td><code>cooperative_agreement</code>.</td>
+<td>Keep explicit cooperative-agreement language separate because it names a specific federal assistance instrument.</td>
+<td><code>cooperative agreement</code>, <code>under the terms of the cooperative agreement</code>, <code>cooperative agreement with</code>, <code>through a cooperative agreement</code>.</td>
+<td>This is a distinct federal assistance instrument and should stay separate when explicitly detected.</td>
 </tr>
 <tr class="even">
-<td><code>project_energy_type</code>, <code>project_energy_type_strict</code></td>
-<td><code>classify_energy.py</code></td>
-<td><code>Clean</code>, <code>Other</code>; strict version applies tighter criteria</td>
+<td>Cost-Shared Federal Assistance</td>
+<td><code>cost_share</code>, plus projects where cost-share appears alongside grant/award/cooperative-agreement cues.</td>
+<td>Treat cost share as a financing attribute whenever the evidence describes a federal/non-federal split, even if another mechanism is the primary instrument.</td>
+<td><code>cost share</code>, <code>cost-shared arrangement</code>, <code>federal cost share</code>, <code>recipient cost share</code>, <code>DOE share</code>, <code>non-Federal share</code>.</td>
+<td>Cost share is better treated as an attribute or flag, not a mutually exclusive mechanism.</td>
 </tr>
 <tr class="odd">
-<td><code>project_state</code>, <code>project_county</code>, <code>project_lat</code>, <code>project_lon</code></td>
-<td><code>parse_location.py</code></td>
-<td>Geography</td>
+<td>Other Financial Assistance</td>
+<td><code>financial_assistance</code>, weak <code>generic_funding</code> with affirmative project-specific support language.</td>
+<td>Group affirmative funding language where the project clearly receives federal support but the instrument is not named.</td>
+<td><code>financial assistance</code>, <code>DOE would provide funds</code>, <code>DOE funding</code>, <code>federal funding</code>, <code>recipient of federal funding</code>, <code>would receive federal funds</code>.</td>
+<td>This captures real federal funding evidence where the instrument is not named.</td>
 </tr>
 <tr class="even">
-<td><code>project_multi_state</code>, <code>project_multi_county</code>, <code>project_multi_department</code></td>
-<td>Derived flags</td>
-<td>Multi-jurisdiction indicators</td>
-</tr>
-<tr class="odd">
-<td><code>project_has_decision_doc</code>, <code>project_has_final_doc</code>, <code>project_has_draft_doc</code></td>
-<td>Documents table</td>
-<td>Document availability flags</td>
-</tr>
-<tr class="even">
-<td><code>noi_publication_date</code>, <code>noi_document_number</code>, <code>noi_match_status</code></td>
-<td><code>federal_register.py</code></td>
-<td>Federal Register NOI enrichment</td>
-</tr>
-<tr class="odd">
-<td><code>noa_availability_date</code>, <code>noa_document_number</code>, <code>noa_match_status</code></td>
-<td><code>federal_register.py</code></td>
-<td>Federal Register NOA enrichment (FEIS/FONSI end-of-process signal)</td>
-</tr>
-<tr class="even">
-<td><code>project_is_military_nuclear</code>, <code>project_is_nuclear_waste</code></td>
-<td>Exclusion lists</td>
-<td>Manual filter flags</td>
+<td>Unresolved / Needs Review</td>
+<td><code>unknown_funding</code>, especially blank sidecar evidence or FOA/header-only cases.</td>
+<td>Use only when the main classifier says the project is funding-triggered but the detail extractor cannot recover project-specific mechanism evidence.</td>
+<td>Blank sidecar evidence; <code>setfit prob=...</code> only; <code>manual_label</code> only; FOA header only; <code>American Recovery and Reinvestment Act: [x]</code> without grant/award/loan language.</td>
+<td>This should not be interpreted as a mechanism. It is an extraction-quality bucket.</td>
 </tr>
 </tbody>
 </table>
-<hr>
-</section>
-<section id="energy-classification" class="level2">
-<h2 class="anchored" data-anchor-id="energy-classification">Energy Classification</h2>
-<p>Clean energy projects are identified from NEPATEC metadata (project type, sponsor, title keywords). Two classification levels:</p>
-<ul>
-<li><code>project_energy_type = &quot;Clean&quot;</code> — broad filter, includes borderline cases flagged by <code>project_energy_type_questions</code></li>
-<li><code>project_energy_type_strict = &quot;Clean&quot;</code> — tighter; used for conservative analysis cuts</li>
-</ul>
-<p>Military/nuclear waste exclusions are applied via curated ID lists in <code>data/analysis/exclusions/</code>. Projects reclassified to <code>&quot;Other&quot;</code> retain the <code>project_military_to_exclude</code> or <code>project_nuclear_waste_to_exclude</code> flag for auditability.</p>
-<p><strong>Note:</strong> The current Phase 2 analysis uses <code>n_clean = 20,725</code> projects where <code>project_energy_type == &quot;Clean&quot;</code>.</p>
-<hr>
-</section>
-<section id="federal-register-noinoa-merge" class="level2">
-<h2 class="anchored" data-anchor-id="federal-register-noinoa-merge">Federal Register NOI/NOA Merge</h2>
-<p>The Federal Register enrichment is intentionally <strong>opt-in</strong> at refresh time:</p>
-<pre><code>Default (offline):
-  → merges data/analysis/federal_register/federal_register.parquet if present
-  → if does not exist, projects get null NOI/NOA fields (not an error)
-
-With --refresh-federal-register:
-  → calls federal_register.py refresh_federal_register_noi()
-  → runs NEPATEC page scan (DuckDB) + targeted FR API fetches
-  → rewrites federal_register.parquet, then merges</code></pre>
-<p>This keeps normal analysis runs fast and deterministic. See <a href="../../../phase2/architecture/code/federal_register.html">federal_register.md</a> for NOI/NOA matching architecture and <a href="../../../phase2/runbooks/federal_register.html">runbooks/federal_register.md</a> for refresh commands.</p>
-<hr>
-</section>
-<section id="cli-reference" class="level2">
-<h2 class="anchored" data-anchor-id="cli-reference">CLI Reference</h2>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Default: build analysis parquets offline</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> run <span class="at">-n</span> nepa python phase2/code/extract/extract_data.py <span class="at">--mode</span> analysis</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Build + refresh Federal Register NOI (network required)</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> run <span class="at">-n</span> nepa python phase2/code/extract/extract_data.py <span class="at">--mode</span> analysis <span class="at">--refresh-federal-register</span></span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Download raw data from HuggingFace (first-time setup)</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> run <span class="at">-n</span> nepa python phase2/code/extract/extract_data.py <span class="at">--mode</span> extract</span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Full rebuild from scratch</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> run <span class="at">-n</span> nepa python phase2/code/extract/extract_data.py <span class="at">--mode</span> all</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<hr>
-</section>
-<section id="other-outputs" class="level2">
-<h2 class="anchored" data-anchor-id="other-outputs">Other Outputs</h2>
-<table class="table">
-<colgroup>
-<col style="width: 50%">
-<col style="width: 50%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>File</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>data/analysis/processes_combined.parquet</code></td>
-<td>One row per NEPA process (process_type, lead_agency, dates)</td>
-</tr>
-<tr class="even">
-<td><code>data/analysis/documents_combined.parquet</code></td>
-<td>One row per NEPA document with classification flags</td>
-</tr>
-</tbody>
-</table>
-<hr>
-</section>
-<section id="design-notes" class="level2">
-<h2 class="anchored" data-anchor-id="design-notes">Design Notes</h2>
-<p><strong>Why DuckDB for page scanning?</strong> The full NEPATEC corpus is ~6M+ pages across EA/EIS/CE parquets — too large to load into pandas. All page-level operations (FR doc number scan, regex extraction, section detection) use DuckDB <code>read_parquet()</code> with predicate pushdown.</p>
-<p><strong>Why is FR refresh opt-in?</strong> The NEPATEC page scan takes 30–60 seconds, and the FR API calls add network latency. Analysis runs that don’t need updated NOI dates should remain fast and reproducible without external dependencies.</p>
-<p><strong>Why no timeline merge here?</strong> Timeline data (<code>timeline_*.parquet</code>) is merged at the deliverable level rather than baked into <code>projects_combined.parquet</code>. This keeps the base dataset stable across different timeline pipeline iterations and lets deliverables choose which timeline artifact to use.</p>
 
 
 </section>
