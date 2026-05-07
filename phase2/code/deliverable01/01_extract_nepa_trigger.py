@@ -122,7 +122,7 @@ ESTIMATED_TIER5_COST_PER_PROJECT = 0.04  # conservative placeholder for queue gu
 LOCAL_NLI_MODEL = "cross-encoder/nli-deberta-v3-base"
 
 SETFIT_MODEL_PATH        = Path("phase2/models/trigger_setfit")
-MANUAL_LABELS_GLOB       = "phase2/data/analysis/nepa_trigger/doe_ce_sample_*.csv"
+MANUAL_LABELS_GLOB       = "phase2/data/analysis/nepa_trigger/doe_ce_sample*.csv"
 SETFIT_CONFIDENCE_THRESHOLD = 0.65
 SETFIT_MARGIN_THRESHOLD     = 0.08
 
