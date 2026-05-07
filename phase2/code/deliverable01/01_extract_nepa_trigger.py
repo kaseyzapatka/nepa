@@ -122,7 +122,15 @@ ESTIMATED_TIER5_COST_PER_PROJECT = 0.04  # conservative placeholder for queue gu
 LOCAL_NLI_MODEL = "cross-encoder/nli-deberta-v3-base"
 
 SETFIT_MODEL_PATH        = Path("phase2/models/trigger_setfit")
-MANUAL_LABELS_GLOB       = "phase2/data/analysis/nepa_trigger/doe_ce_sample*.csv"
+# Ground-truth label files used as Tier 0 pass-through during inference so that
+# training examples are never re-classified by the pipeline. Named by the model
+# each file feeds: SetFit (DOE CE classifier) and NLI (EA/EIS classifier).
+SETFIT_TRAINING_FILES    = (
+    OUTPUT_DIR / "doe_ce_samples.csv",
+)
+NLI_TRAINING_FILES       = (
+    OUTPUT_DIR / "ea_eis_samples.csv",
+)
 SETFIT_CONFIDENCE_THRESHOLD = 0.65
 SETFIT_MARGIN_THRESHOLD     = 0.08
 
@@ -2001,25 +2009,22 @@ def _write_tier4_diagnostics(
         doc_scores.to_parquet(TIER4_DOC_SCORES_PATH, index=False)
 
 
-def tier0_manual_labels(projects_df: pd.DataFrame) -> list[dict[str, Any]]:
-    """
-    Tier 0: directly finalize any project that already has a manual_trigger label
-    in the hand-labeled CSVs (doe_ce_sample_*.csv).
-
-    This runs before all other tiers so labeled examples are never re-processed
-    by the pipeline, avoiding double-classification and keeping training data
-    consistent with inference outputs.
-    """
-    label_files = sorted(Path(".").glob(MANUAL_LABELS_GLOB))
-    if not label_files:
+def _load_label_files(
+    files: tuple,
+    rule_id: str,
+    route_reason: str,
+    projects_df: pd.DataFrame,
+) -> list[dict[str, Any]]:
+    existing = [p for p in files if p.exists()]
+    if not existing:
         return []
 
     frames = []
-    for p in label_files:
+    for p in existing:
         try:
             frames.append(pd.read_csv(p, usecols=["project_id", "manual_trigger"]))
         except Exception as exc:
-            log.warning("Could not read manual label file %s: %s", p, exc)
+            log.warning("Could not read label file %s: %s", p, exc)
 
     if not frames:
         return []
@@ -2028,30 +2033,51 @@ def tier0_manual_labels(projects_df: pd.DataFrame) -> list[dict[str, Any]]:
         pd.concat(frames, ignore_index=True)
         .dropna(subset=["manual_trigger"])
         .query("manual_trigger != '' and manual_trigger != 'ambiguous'")
-        .drop_duplicates("project_id")
+        .drop_duplicates("project_id", keep="last")
     )
-
-    valid_labels = set(TOP_LEVEL_CLASSES)
-    labels_df = labels_df[labels_df["manual_trigger"].isin(valid_labels)]
+    labels_df = labels_df[labels_df["manual_trigger"].isin(set(TOP_LEVEL_CLASSES))]
 
     in_scope = projects_df[["project_id"]].merge(labels_df, on="project_id", how="inner")
     if in_scope.empty:
         return []
 
-    results = []
-    for _, row in in_scope.iterrows():
-        results.append(make_result(
+    return [
+        make_result(
             project_id=row["project_id"],
             primary=row["manual_trigger"],
             confidence="high",
             evidence_text="manual_label",
             evidence_source="description",
-            rule_id="T0_manual_label",
+            rule_id=rule_id,
             manual_review=False,
             route_policy="auto_accept",
-            route_reason="hand_labeled_training_example",
-        ))
+            route_reason=route_reason,
+        )
+        for _, row in in_scope.iterrows()
+    ]
 
+
+def tier0_manual_labels(projects_df: pd.DataFrame) -> list[dict[str, Any]]:
+    """
+    Tier 0: directly finalize any project that already has a manual_trigger label
+    in one of the hand-labeled training CSVs (SETFIT_TRAINING_FILES or
+    NLI_TRAINING_FILES). Runs before all other tiers so training examples are
+    never re-processed by the pipeline.
+    """
+    combined = (
+        _load_label_files(
+            SETFIT_TRAINING_FILES, "T0_setfit_training", "setfit_training_example", projects_df
+        )
+        + _load_label_files(
+            NLI_TRAINING_FILES, "T0_nli_training", "nli_training_example", projects_df
+        )
+    )
+    # Deduplicate across file groups: NLI labels override SetFit labels for any
+    # project_id that appears in both files.
+    seen: dict[str, dict] = {}
+    for r in combined:
+        seen[r["project_id"]] = r
+    results = list(seen.values())
     log.info("  → %d projects finalized from manual labels", len(results))
     return results
 
