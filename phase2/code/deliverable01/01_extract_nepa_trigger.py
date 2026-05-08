@@ -159,6 +159,10 @@ AUTO_ACCEPT_RULE_IDS = frozenset({
     "T1a_PMA_pma",
     "T1a_CBP_direct_action",
     "T1a_BLM_USFS_land_control",
+    "T1b_doe_export_auth",
+    "T1b_presidential_permit_decision",
+    "T1b_doe_gas_export_auth",
+    "T1b_pma_name_in_description",
 })
 
 SEND_TO_TIER4_RULE_IDS = frozenset({
@@ -450,6 +454,15 @@ TIER1B_PATTERNS = [
     (r'Amendment\s+to\s+Presidential\s+Permit\b', 'federal_permit', 'presidential_permit_amend', 'high'),
     (r'Issuance\s+of\s+Presidential\s+Permit\s+PP-\d+\b', 'federal_permit', 'presidential_permit_issue', 'high'),
     (r'Presidential\s+Permit\s+Application\s+Review\b', 'federal_permit', 'presidential_permit_review', 'high'),
+    # "granting or denying a Presidential Permit" — DOE cross-border transmission EA framing
+    (r'granting\s+or\s+denying\s+a\s+Presidential\s+Permit\b', 'federal_permit', 'presidential_permit_decision', 'high'),
+    # DOE Section 202(e) electricity export authorizations under the Federal Power Act
+    (r'electricity\s+export\s+authorization\b', 'federal_permit', 'doe_export_auth', 'high'),
+    (r'export\s+electricity\b[\s\S]{0,100}\bSection\s+202\(e\)', 'federal_permit', 'doe_export_auth', 'high'),
+    # DOE Natural Gas Act / LNG export authorizations (same DOE permit structure as electricity)
+    (r'(?:LNG|liquefaction|natural\s+gas)\s+export\s+authorization\b', 'federal_permit', 'doe_gas_export_auth', 'high'),
+    # PMA full name in project description — catches NEPATEC records listing DOE instead of BPA/WAPA/TVA
+    (r'\b(?:Western\s+Area\s+Power\s+Administration|Bonneville\s+Power\s+Administration|Southwestern\s+Power\s+Administration|Southeastern\s+Power\s+Administration|Tennessee\s+Valley\s+Authority)\b', 'pma', 'pma_name_in_description', 'high'),
     (r'\bEarly\s+Site\s+Permit\b', 'federal_permit', 'early_site_permit', 'high'),
     (r'\bCombined\s+License\b', 'federal_permit', 'combined_license', 'high'),
     (r'\b(?:Subsequent\s+)?License\s+Renewal\b', 'federal_permit', 'license_renewal', 'high'),
@@ -657,6 +670,16 @@ TIER4_CUE_PATTERNS = {
         r"\bgeneric\s+(?:environmental\s+impact\s+statement|EIS|GEIS)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b",
         r"\bgeneric\s+(?:environmental\s+assessment|EA|GEA)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b",
         r"\bNUREG-1437\b",
+        # DOE electricity/gas export authorizations (Section 202(e) FPA; Natural Gas Act)
+        r"\belectricity\s+export\s+authorization\b",
+        r"\bSection\s+202\(e\)\b[\s\S]{0,120}\b(?:export|DOE|Department\s+of\s+Energy)\b",
+        r"\b(?:LNG|liquefaction|natural\s+gas)\s+export\s+authorization\b",
+        # DOE Presidential Permit for cross-border transmission ("granting or denying" framing)
+        r"\bgranting\s+or\s+denying\s+a\s+Presidential\s+Permit\b",
+        # FERC as document author — only fires when FERC literally prepared the EIS/EA
+        r"\bprepared\s+by\s+the\s+Federal\s+Energy\s+Regulatory\s+Commission\b",
+        # FERC + hydroelectric within 100 chars — catches hydro license review language
+        r"\bFederal\s+Energy\s+Regulatory\s+Commission[\s\S]{0,100}(?:hydroelectric|hydropower)\b",
     ],
     "pma": [
         r"\b(?:Bonneville\s+Power\s+Administration|BPA)\b",
@@ -863,9 +886,14 @@ CE_SECTION_PATTERNS = [
 EA_EIS_SECTION_PATTERNS = [
     ("purpose_and_need", r"(?i)\bpurpose\s+and\s+need\b"),
     ("need_for_action", r"(?i)\bneed\s+for\s+(?:federal\s+)?action\b"),
-    ("proposed_action", r"(?i)\bproposed\s+(?:federal\s+)?action\b"),
+    # Broader proposed-action header variants (32–34% coverage in EA/EIS corpus)
+    ("proposed_action", r"(?i)\b(?:proposed\s+(?:federal\s+)?action(?:\s+and\s+alternatives?)?|description\s+of\s+(?:the\s+)?proposed\s+(?:federal\s+)?action|proposed\s+federal\s+undertaking)\b"),
     ("decision", r"(?i)\bdecision\s+to\s+be\s+made\b"),
     ("agency_action", r"(?i)\b(?:agency\s+action|federal\s+action)\b"),
+    # Regulatory framework: cites FLPMA, CFR parts, Section 404, etc. — high precision trigger signal
+    ("regulatory_framework", r"(?i)\b(?:regulatory\s+(?:framework|context|requirements?|background|setting)|legal\s+(?:framework|background|authority|requirements?)|statutory\s+(?:background|authority|requirements?)|applicable\s+(?:laws?\s+(?:and\s+)?regulations?|statutes?\s+and\s+regulations?)|federal\s+regulatory\s+(?:framework|requirements?))\b"),
+    # Executive summary: concentrates agency role + proposed action in one passage (6–9% coverage)
+    ("executive_summary", r"(?i)\bexecutive\s+summary\b"),
 ]
 
 SECTION_PRIOR_WEIGHTS = {
@@ -875,10 +903,12 @@ SECTION_PRIOR_WEIGHTS = {
     "need_for_action": 0.18,
     "proposed_action": 0.18,
     "agency_action": 0.18,
+    "regulatory_framework": 0.16,
     "project_description": 0.15,
     "decision": 0.10,
     "funding": 0.15,
     "cue_window": 0.12,
+    "executive_summary": 0.12,
     "ce_fallback": 0.08,
 }
 
@@ -1535,7 +1565,7 @@ def extract_ea_eis_candidate_sections(
     section_text: str,
     cue_text: Optional[str] = None,
 ) -> list[dict[str, Any]]:
-    sections = _extract_section_windows(section_text, EA_EIS_SECTION_PATTERNS, window=2000, max_sections=8)
+    sections = _extract_section_windows(section_text, EA_EIS_SECTION_PATTERNS, window=2000, max_sections=10)
     sections.extend(_extract_cue_windows(cue_text if cue_text is not None else section_text))
     return sections
 
@@ -2678,10 +2708,42 @@ def tier4_retrieval_local(
         if pid in project_lookup.index
     }
 
-    chunk_scores = run_local_nli_on_chunks(contexts, candidate_classes_by_project)
+    # Zero-score bypass: projects where every retrieved chunk has retrieval_score == 0.0
+    # have no cue signal (all boilerplate). Running NLI on them produces near-zero entailment
+    # scores across all classes and yields unreliable results. Route directly to Tier 5 instead.
+    zero_score_ids: set[str] = set()
+    if not contexts.empty:
+        max_retrieval = contexts.groupby("project_id")["retrieval_score"].max()
+        zero_score_ids = set(max_retrieval[max_retrieval == 0.0].index)
+
+    nli_contexts = contexts[~contexts["project_id"].isin(zero_score_ids)].copy() if zero_score_ids else contexts
+
+    chunk_scores = run_local_nli_on_chunks(nli_contexts, candidate_classes_by_project)
     doc_scores = aggregate_tier4_scores(chunk_scores)
     results: list[dict[str, Any]] = []
     covered_ids = set()
+
+    if zero_score_ids:
+        log.info(
+            "  Tier 4 zero-score bypass: %d projects skipped NLI (no cue signal) → Tier 5 queue",
+            len(zero_score_ids),
+        )
+        for pid in sorted(zero_score_ids):
+            provisional_result = provisional.get(pid, {})
+            results.append(make_result(
+                project_id=pid,
+                primary="unknown",
+                confidence="low",
+                evidence_text="no retrieval signal in document chunks",
+                evidence_source="document_text",
+                rule_id="T4_local_uncertain",
+                manual_review=True,
+                route_policy="tier5_candidate",
+                route_reason="zero_retrieval_score",
+                provisional_rule_id=provisional_result.get("nepa_trigger_rule_id", ""),
+                provisional_confidence=provisional_result.get("nepa_trigger_confidence", ""),
+            ))
+        covered_ids.update(zero_score_ids)
 
     if not doc_scores.empty:
         for _, row in doc_scores.iterrows():
@@ -2986,7 +3048,8 @@ def extract_nepa_triggers(
         for result in results:
             pid = result["project_id"]
             if should_auto_accept(result):
-                finalized[pid] = result
+                if pid not in finalized:  # earlier tier's auto-accept takes precedence
+                    finalized[pid] = result
             else:
                 existing = provisional.get(pid)
                 if existing is None or _result_confidence_rank(result) >= _result_confidence_rank(existing):
