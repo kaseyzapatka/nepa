@@ -28,7 +28,7 @@ library(here)
 options(arrow.skip_nul = TRUE)
 
 OUTPUT_DIR    <- here("phase2", "output", "deliverable01")
-TRIGGERS_PATH <- here("phase2", "data", "analysis", "nepa_trigger", "projects_nepa_trigger.parquet")
+TRIGGERS_PATH <- here("phase2", "data", "analysis", "deliverable01", "projects_nepa_trigger.parquet")
 PROJECTS_PATH <- here("phase2", "data", "analysis", "projects_combined.parquet")
 
 # Read only the scalar columns needed — explicitly excludes every Arrow list<string>

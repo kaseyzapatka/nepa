@@ -17,8 +17,8 @@
 #   fig11 — Federal funding amounts by mechanism (median + IQR; requires funding sidecar)
 #
 # Input:
-#   phase2/data/analysis/nepa_trigger/projects_nepa_trigger.parquet
-#   phase2/data/analysis/nepa_trigger/projects_funding_details.parquet (optional sidecar)
+#   phase2/data/analysis/deliverable01/projects_nepa_trigger.parquet
+#   phase2/data/analysis/deliverable01/projects_funding_details.parquet (optional sidecar)
 #   phase2/data/analysis/projects_combined.parquet
 #
 # Output (all in phase2/output/deliverable01/):
@@ -74,9 +74,9 @@ BASE_DIR   <- here::here()
 OUTPUT_DIR <- file.path(BASE_DIR, "phase2", "output", "deliverable01")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
-TRIGGERS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "nepa_trigger",
+TRIGGERS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "deliverable01",
                             "projects_nepa_trigger.parquet")
-FUNDING_DETAILS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "nepa_trigger",
+FUNDING_DETAILS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "deliverable01",
                                   "projects_funding_details.parquet")
 PROJECTS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "projects_combined.parquet")
 
