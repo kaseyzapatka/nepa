@@ -9,7 +9,7 @@ Usage:
     python phase2/code/deliverable01/02_train_setfit_trigger.py
 
 The script auto-discovers labeled CSVs in:
-    phase2/data/analysis/nepa_trigger/doe_ce_sample*.csv
+    phase2/data/training/deliverable01/doe_ce_sample*.csv
 
 Only rows with a non-empty, non-ambiguous manual_trigger are used.
 Re-run this script whenever you add more labeled rows.
@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 # Paths
 # ---------------------------------------------------------------------------
 REPO_ROOT      = Path(__file__).resolve().parents[3]
-LABELED_GLOB   = "phase2/data/analysis/nepa_trigger/doe_ce_sample*.csv"
+LABELED_GLOB   = "phase2/data/training/deliverable01/doe_ce_sample*.csv"
 MODEL_OUT_DIR  = REPO_ROOT / "phase2/models/trigger_setfit"
 BASE_MODEL     = "sentence-transformers/all-MiniLM-L6-v2"
 

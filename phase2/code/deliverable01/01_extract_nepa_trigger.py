@@ -24,8 +24,8 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 #   python 01_extract_nepa_trigger.py --use-llm          # full run + Haiku on low-confidence
 #
 # Output:
-#   data/analysis/nepa_trigger/projects_nepa_trigger.parquet  (one row per project)
-#   data/analysis/nepa_trigger/validation_batches.csv          (flagged cases grouped by rule)
+#   data/analysis/deliverable01/projects_nepa_trigger.parquet  (one row per project)
+#   data/validation/deliverable01/validation_batches.csv        (flagged cases grouped by rule)
 
 import argparse
 import hashlib
@@ -49,9 +49,13 @@ log = logging.getLogger(__name__)
 
 BASE_DIR     = Path(__file__).resolve().parent.parent.parent  # repo root
 DATA_DIR     = BASE_DIR / "data"
-ANALYSIS_DIR = DATA_DIR / "analysis"
-OUTPUT_DIR   = ANALYSIS_DIR / "nepa_trigger"
+ANALYSIS_DIR  = DATA_DIR / "analysis"
+OUTPUT_DIR    = ANALYSIS_DIR / "deliverable01"
+TRAINING_DIR  = DATA_DIR / "training" / "deliverable01"
+VALIDATION_DIR = DATA_DIR / "validation" / "deliverable01"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+TRAINING_DIR.mkdir(parents=True, exist_ok=True)
+VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
 
 PROJECTS_PATH  = ANALYSIS_DIR / "projects_combined.parquet"
 CE_PAGES_PATH  = DATA_DIR / "processed" / "ce"  / "pages.parquet"
@@ -126,10 +130,10 @@ SETFIT_MODEL_PATH        = Path("phase2/models/trigger_setfit")
 # training examples are never re-classified by the pipeline. Named by the model
 # each file feeds: SetFit (DOE CE classifier) and NLI (EA/EIS classifier).
 SETFIT_TRAINING_FILES    = (
-    OUTPUT_DIR / "doe_ce_samples.csv",
+    TRAINING_DIR / "doe_ce_samples.csv",
 )
 NLI_TRAINING_FILES       = (
-    OUTPUT_DIR / "ea_eis_samples.csv",
+    TRAINING_DIR / "ea_eis_samples.csv",
 )
 SETFIT_CONFIDENCE_THRESHOLD = 0.65
 SETFIT_MARGIN_THRESHOLD     = 0.08
@@ -3843,7 +3847,7 @@ def main() -> None:
 
     batches = build_validation_batches(final, projects)
     if not batches.empty:
-        batch_path = OUTPUT_DIR / "validation_batches.csv"
+        batch_path = VALIDATION_DIR / "validation_batches.csv"
         batches.to_csv(batch_path, index=False)
         log.info(
             "Validation batches: %s sampled rows across %s batches → %s",
