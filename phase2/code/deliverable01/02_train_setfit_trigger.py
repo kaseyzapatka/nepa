@@ -9,7 +9,7 @@ Usage:
     python phase2/code/deliverable01/02_train_setfit_trigger.py
 
 The script auto-discovers labeled CSVs in:
-    phase2/data/analysis/nepa_trigger/doe_ce_sample_*.csv
+    phase2/data/analysis/nepa_trigger/doe_ce_sample*.csv
 
 Only rows with a non-empty, non-ambiguous manual_trigger are used.
 Re-run this script whenever you add more labeled rows.
@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 # Paths
 # ---------------------------------------------------------------------------
 REPO_ROOT      = Path(__file__).resolve().parents[3]
-LABELED_GLOB   = "phase2/data/analysis/nepa_trigger/doe_ce_sample_*.csv"
+LABELED_GLOB   = "phase2/data/analysis/nepa_trigger/doe_ce_sample*.csv"
 MODEL_OUT_DIR  = REPO_ROOT / "phase2/models/trigger_setfit"
 BASE_MODEL     = "sentence-transformers/all-MiniLM-L6-v2"
 
@@ -46,6 +46,7 @@ VALID_LABELS = {
     "federal_permit",
     "federal_program",
     "federal_property_transaction",
+    "pma",
 }
 
 # ---------------------------------------------------------------------------
@@ -119,6 +120,13 @@ def train(df: pd.DataFrame) -> None:
         except ImportError:
             log.error("setfit and datasets packages are required. Install with: pip install setfit datasets")
             sys.exit(1)
+
+    # Drop classes with fewer than 2 examples — too small for stratified split
+    class_counts = df["manual_trigger"].value_counts()
+    small_classes = class_counts[class_counts < 2].index.tolist()
+    if small_classes:
+        log.warning("Dropping classes with < 2 examples (handled by deterministic rules): %s", small_classes)
+        df = df[~df["manual_trigger"].isin(small_classes)].copy()
 
     labels = sorted(df["manual_trigger"].unique().tolist())
     log.info("Training with %d classes: %s", len(labels), labels)

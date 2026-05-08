@@ -92,11 +92,13 @@ trigger_labels <- c(
   federal_permit               = "Permit",
   federal_program              = "Program",
   federal_property_transaction = "Property Transaction",
+  pma                          = "PMA/TVA",
   unknown                      = "Unknown"
 )
 
 # Named color vector for trigger labels — defined once, used in all trigger fill scales.
 # Unknown uses neutral grey (matching map NA fill); light_blue moved from Unknown → Permit.
+# PMA/TVA uses amber (#F2A900) — distinct from the existing seven-color palette.
 trigger_colors <- c(
   "Funding"              = "#0047BB",  # catf_dark_blue
   "Direct Action"        = "#00AE8D",  # catf_teal
@@ -104,6 +106,7 @@ trigger_colors <- c(
   "Permit"               = "#8AB7E9",  # catf_light_blue
   "Program"              = "#00B5E2",  # catf_blue
   "Property Transaction" = "#75246C",  # catf_purple
+  "PMA/TVA"              = "#F2A900",  # amber
   "Unknown"              = "grey70"    # neutral grey — matches map NA aesthetic
 )
 
