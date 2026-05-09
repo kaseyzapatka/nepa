@@ -17,8 +17,8 @@
 #   fig11 — Federal funding amounts by mechanism (median + IQR; requires funding sidecar)
 #
 # Input:
-#   phase2/data/analysis/nepa_trigger/projects_nepa_trigger.parquet
-#   phase2/data/analysis/nepa_trigger/projects_funding_details.parquet (optional sidecar)
+#   phase2/data/analysis/deliverable01/projects_nepa_trigger.parquet
+#   phase2/data/analysis/deliverable01/projects_funding_details.parquet (optional sidecar)
 #   phase2/data/analysis/projects_combined.parquet
 #
 # Output (all in phase2/output/deliverable01/):
@@ -74,9 +74,9 @@ BASE_DIR   <- here::here()
 OUTPUT_DIR <- file.path(BASE_DIR, "phase2", "output", "deliverable01")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
-TRIGGERS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "nepa_trigger",
+TRIGGERS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "deliverable01",
                             "projects_nepa_trigger.parquet")
-FUNDING_DETAILS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "nepa_trigger",
+FUNDING_DETAILS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "deliverable01",
                                   "projects_funding_details.parquet")
 PROJECTS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "projects_combined.parquet")
 
@@ -92,11 +92,13 @@ trigger_labels <- c(
   federal_permit               = "Permit",
   federal_program              = "Program",
   federal_property_transaction = "Property Transaction",
+  pma                          = "PMA/TVA",
   unknown                      = "Unknown"
 )
 
 # Named color vector for trigger labels — defined once, used in all trigger fill scales.
 # Unknown uses neutral grey (matching map NA fill); light_blue moved from Unknown → Permit.
+# PMA/TVA uses amber (#F2A900) — distinct from the existing seven-color palette.
 trigger_colors <- c(
   "Funding"              = "#0047BB",  # catf_dark_blue
   "Direct Action"        = "#00AE8D",  # catf_teal
@@ -104,6 +106,7 @@ trigger_colors <- c(
   "Permit"               = "#8AB7E9",  # catf_light_blue
   "Program"              = "#00B5E2",  # catf_blue
   "Property Transaction" = "#75246C",  # catf_purple
+  "PMA/TVA"              = "#F2A900",  # amber
   "Unknown"              = "grey70"    # neutral grey — matches map NA aesthetic
 )
 
@@ -114,6 +117,8 @@ process_labels <- c(
 )
 
 funding_type_labels <- c(
+  pmc_nd_form           = "EERE Grant (PMC-ND Form)",
+  arpa_e                = "ARPA-E Award",
   grant_or_award        = "Grant/Award",
   formula_grant         = "Formula Grant",
   cooperative_agreement = "Cooperative Agreement",
@@ -365,7 +370,8 @@ cat("Saved fig3_process_by_trigger.png\n")
 # --------------------------
 # FIGURE 4 — Federal department × trigger heatmap
 # --------------------------
-# Sorted by Unknown share: departments with most unresolved projects at bottom.
+# Sorted by total N descending (largest department at top).
+# Includes a "Total N" column on the right; legend below figure.
 
 dept_trigger <- df |>
   filter(!is.na(department)) |>
@@ -374,16 +380,23 @@ dept_trigger <- df |>
   mutate(pct = n / sum(n), total = sum(n)) |>
   ungroup()
 
-# Sort departments: highest Unknown share at bottom (first factor level)
-unknown_dept_order <- dept_trigger |>
-  filter(as.character(trigger_label) == "Unknown") |>
-  arrange(desc(pct)) |>
+# Sort departments: largest total N at top (ggplot y-axis: bottom = first level)
+dept_order <- dept_trigger |>
+  distinct(department, total) |>
+  arrange(total) |>   # ascending so largest is rendered at top
   pull(department)
-no_unknown_depts <- setdiff(unique(dept_trigger$department), unknown_dept_order)
-dept_order <- c(unknown_dept_order, no_unknown_depts)  # highest Unknown → bottom
 
 dept_trigger <- dept_trigger |>
   mutate(department = factor(department, levels = dept_order))
+
+# Totals data for the right-hand "N" column
+dept_totals <- dept_trigger |>
+  distinct(department, total) |>
+  mutate(trigger_label = factor("N", levels = c(levels(dept_trigger$trigger_label), "N")))
+
+# Extend trigger_label factor to include the "N" sentinel column
+dept_trigger <- dept_trigger |>
+  mutate(trigger_label = factor(trigger_label, levels = c(levels(trigger_label), "N")))
 
 fig4 <- ggplot(dept_trigger,
                aes(x = trigger_label, y = department, fill = pct)) +
@@ -393,26 +406,35 @@ fig4 <- ggplot(dept_trigger,
         color  = if_else(pct > 0.25, "white", catf_navy)),
     size = 3, fontface = "bold"
   ) +
+  # Total N column — no fill tile, just right-aligned count label
+  geom_text(
+    data = dept_totals,
+    aes(x = trigger_label, y = department, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    color = catf_navy, size = 3, fontface = "bold"
+  ) +
   scale_color_identity() +
   scale_fill_gradientn(
     colors = c(catf_light_blue, catf_dark_blue, catf_navy),
     labels = percent_format(accuracy = 1),
-    name   = "Share of\ndepartment\nprojects"
+    name   = "Share of department projects",
+    na.value = "white"
   ) +
   scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
   labs(
     title    = "NEPA Trigger Distribution by Federal Department",
-    subtitle = "Share of each department's decarbonization projects per trigger class",
+    subtitle = "Share of each department's decarbonization projects per trigger class; N = total projects",
     x = NULL, y = NULL
   ) +
   theme_catf(base_size = 12) +
   theme(
-    axis.text.x     = element_text(lineheight = 0.85),
-    legend.position = "right"
+    axis.text.x      = element_text(lineheight = 0.85),
+    legend.position  = "bottom",
+    legend.key.width = unit(2, "cm")
   )
 
 ggsave(file.path(OUTPUT_DIR, "fig4_department_trigger_heatmap.png"),
-       fig4, width = 12, height = 6, dpi = 150)
+       fig4, width = 13, height = 7, dpi = 150)
 cat("Saved fig4_department_trigger_heatmap.png\n")
 
 # --------------------------

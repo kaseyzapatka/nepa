@@ -24,8 +24,8 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 #   python 01_extract_nepa_trigger.py --use-llm          # full run + Haiku on low-confidence
 #
 # Output:
-#   data/analysis/nepa_trigger/projects_nepa_trigger.parquet  (one row per project)
-#   data/analysis/nepa_trigger/validation_batches.csv          (flagged cases grouped by rule)
+#   data/analysis/deliverable01/projects_nepa_trigger.parquet  (one row per project)
+#   data/validation/deliverable01/validation_batches.csv        (flagged cases grouped by rule)
 
 import argparse
 import hashlib
@@ -49,9 +49,13 @@ log = logging.getLogger(__name__)
 
 BASE_DIR     = Path(__file__).resolve().parent.parent.parent  # repo root
 DATA_DIR     = BASE_DIR / "data"
-ANALYSIS_DIR = DATA_DIR / "analysis"
-OUTPUT_DIR   = ANALYSIS_DIR / "nepa_trigger"
+ANALYSIS_DIR  = DATA_DIR / "analysis"
+OUTPUT_DIR    = ANALYSIS_DIR / "deliverable01"
+TRAINING_DIR  = DATA_DIR / "training" / "deliverable01"
+VALIDATION_DIR = DATA_DIR / "validation" / "deliverable01"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+TRAINING_DIR.mkdir(parents=True, exist_ok=True)
+VALIDATION_DIR.mkdir(parents=True, exist_ok=True)
 
 PROJECTS_PATH  = ANALYSIS_DIR / "projects_combined.parquet"
 CE_PAGES_PATH  = DATA_DIR / "processed" / "ce"  / "pages.parquet"
@@ -126,10 +130,10 @@ SETFIT_MODEL_PATH        = Path("phase2/models/trigger_setfit")
 # training examples are never re-classified by the pipeline. Named by the model
 # each file feeds: SetFit (DOE CE classifier) and NLI (EA/EIS classifier).
 SETFIT_TRAINING_FILES    = (
-    OUTPUT_DIR / "doe_ce_samples.csv",
+    TRAINING_DIR / "doe_ce_samples.csv",
 )
 NLI_TRAINING_FILES       = (
-    OUTPUT_DIR / "ea_eis_samples.csv",
+    TRAINING_DIR / "ea_eis_samples.csv",
 )
 SETFIT_CONFIDENCE_THRESHOLD = 0.65
 SETFIT_MARGIN_THRESHOLD     = 0.08
@@ -151,11 +155,18 @@ AUTO_ACCEPT_RULE_IDS = frozenset({
     "T3_agency_grant",
     "T3_blm_land",
     "T3_nfs_land",
-    "T1a_BPA_direct_action",
-    "T1a_WAPA_direct_action",
+    "T1a_BPA_pma",
+    "T1a_WAPA_pma",
+    "T1a_SEPA_pma",
+    "T1a_SWPA_pma",
+    "T1a_TVA_pma",
+    "T1a_PMA_pma",
     "T1a_CBP_direct_action",
-    "T1a_PMA_direct_action",
     "T1a_BLM_USFS_land_control",
+    "T1b_doe_export_auth",
+    "T1b_presidential_permit_decision",
+    "T1b_doe_gas_export_auth",
+    "T1b_pma_name_in_description",
 })
 
 SEND_TO_TIER4_RULE_IDS = frozenset({
@@ -190,12 +201,15 @@ AGENCY_FUNDING_MAP = frozenset({
     "FTA", "Federal Transit Administration",
     "FHWA", "Federal Highway Administration",
 })
+AGENCY_PMA_MAP = frozenset({
+    "Power Marketing Administration", "PMA",
+    "Bonneville Power Administration", "BPA",
+    "Western Area Power Administration", "WAPA",
+    "Southeastern Power Administration", "SEPA",
+    "Southwestern Power Administration", "SWPA",
+    "Tennessee Valley Authority", "TVA",
+})
 AGENCY_DIRECT_ACTION_MAP = frozenset({
-    "Power Marketing Administration",
-    "Bonneville Power Administration",
-    "Western Area Power Administration",
-    "WAPA",
-    "BPA",
     "CBP",
     "U.S. Customs and Border Protection",
     "Customs and Border Protection",
@@ -224,6 +238,9 @@ _AGENCY_CODE_LOOKUP = {
     "DOE": "DOE", "USACE": "USACE", "ARMY CORPS OF ENGINEERS": "USACE",
     "BPA": "BPA", "BONNEVILLE POWER ADMINISTRATION": "BPA",
     "WAPA": "WAPA", "WESTERN AREA POWER ADMINISTRATION": "WAPA",
+    "SEPA": "SEPA", "SOUTHEASTERN POWER ADMINISTRATION": "SEPA",
+    "SWPA": "SWPA", "SOUTHWESTERN POWER ADMINISTRATION": "SWPA",
+    "TVA": "TVA", "TENNESSEE VALLEY AUTHORITY": "TVA",
     "CBP": "CBP", "U.S. CUSTOMS AND BORDER PROTECTION": "CBP", "CUSTOMS AND BORDER PROTECTION": "CBP",
     "POWER MARKETING ADMINISTRATION": "PMA",
 }
@@ -332,24 +349,28 @@ PROGRAMMATIC_STRONG_PATTERNS = [
     r'\b(?:dpeis|fpeis|speis|peis|pea)\b',
     r'this\s+programmatic\s+(?:eis|ea|environmental)',
     r'this\s+(?:peis|pea)\s+(?:analyzes|addresses|evaluates)',
-    r'\bgeneric\s+(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b',
     r'\btier\s*(?:1|i|one)\s+(?:nepa\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b',
     r'\b(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\s+tier\s*(?:1|i|one)\b',
     r'\bsite[-\s]?wide\s+environmental\s+(?:impact\s+statement|assessment)\b',
     r'\b(?:sweis|swea)\b',
     r'\b(?:\d{4}\s+)?integrated\s+resource\s+plan\b',
+    r'\blong-term\s+experimental\s+and\s+management\s+plan\b[\s\S]{0,160}\benvironmental\s+impact\s+statement\b',
+]
+
+# Patterns for federal_land programmatic reviews (land-management PEISs/PEAs).
+# Used in tier1a to detect PMA/TVA sponsor projects that are land-management programs.
+FEDERAL_LAND_PROGRAM_PATTERNS = [
     r'\brevision\s+of\s+the\b[\s\S]{0,160}\bland\s+and\s+resource\s+management\s+plan\b',
     r'\b(?:final|proposed)\b[\s\S]{0,120}\bland\s+and\s+resource\s+management\s+plan\b',
     r'\bintegrated\s+vegetation\s+management\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b',
     r'\bsystem-wide\s+operations\s+and\s+maintenance\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b',
-    r'\buranium\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b',
-    r'\bouter\s+continental\s+shelf\s+oil\s+and\s+gas\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b',
+    r'\buranium\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+(?:assessment|impact\s+statement)\b',
+    r'\bouter\s+continental\s+shelf\s+(?:oil\s+and\s+gas\s+)?leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b',
     r'\bsolar\s+energy\s+development\s+in\s+six\s+southwestern\s+states\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b',
     r'\bwind\s+energy\s+development\s+on\s+bureau\s+of\s+land\s+management-administered\s+lands\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b',
     r'\b(?:updates?\s+to\s+the\s+western\s+solar\s+plan|2023\s+draft\s+solar\s+peis)\b[\s\S]{0,160}\b(?:solar\s+peis|programmatic\s+environmental\s+impact\s+statement)\b|\b2023\s+draft\s+solar\s+peis\b',
     r'\bdesignation\s+of\s+energy\s+corridors\s+on\s+federal\s+land\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b',
     r'\bsection\s+368\s+energy\s+corridor\s+revisions\b[\s\S]{0,160}\b(?:resource\s+management\s+plan\s+amendment|environmental\s+impact\s+statement)\b',
-    r'\blong-term\s+experimental\s+and\s+management\s+plan\b[\s\S]{0,160}\benvironmental\s+impact\s+statement\b',
 ]
 PROGRAMMATIC_EXCLUSION_PATTERNS = [
     r'programmatic\s+agreement',
@@ -378,24 +399,29 @@ TIER1B_PATTERNS = [
     # federal_program — most distinctive; check before land/permit patterns
     (r'programmatic\s+environmental\s+impact\s+statement', 'federal_program', 'peis', 'high'),
     (r'programmatic\s+environmental\s+assessment', 'federal_program', 'pea', 'high'),
+    # Generic nuclear EIS/EA must come BEFORE generic_review — nuclear context → federal_permit, not federal_program
+    (r'generic\s+(?:environmental\s+impact\s+statement|eis|geis)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_eis', 'high'),
+    (r'generic\s+(?:environmental\s+assessment|ea|gea)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_ea', 'high'),
+    (r'\bNUREG-1437\b', 'federal_permit', 'nureg1437_geis', 'high'),
     (r'generic\s+(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'generic_review', 'high'),
     (r'tier\s*(?:1|i|one)\s+(?:nepa\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'tier1_review', 'high'),
     (r'(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\s+tier\s*(?:1|i|one)\b', 'federal_program', 'tier1_review_rev', 'high'),
     (r'site[-\s]?wide\s+environmental\s+(?:impact\s+statement|assessment)\b', 'federal_program', 'sitewide_review', 'high'),
     (r'\b(?:SWEIS|SWEA)\b', 'federal_program', 'sitewide_acronym', 'high'),
     (r'(?:\d{4}\s+)?integrated\s+resource\s+plan\b[\s\S]{0,160}\b(?:programmatic\s+environmental\s+impact\s+statement|supplemental\s+environmental\s+impact\s+statement|draft\s+eis)\b', 'federal_program', 'integrated_resource_plan', 'high'),
-    (r'revision\s+of\s+the\b[\s\S]{0,160}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_program', 'lrm_plan_revision', 'high'),
-    (r'(?:final|proposed)\b[\s\S]{0,120}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_program', 'lrm_plan_title', 'medium'),
-    (r'integrated\s+vegetation\s+management\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b', 'federal_program', 'ivm_program_pea', 'high'),
-    (r'system-wide\s+operations\s+and\s+maintenance\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b', 'federal_program', 'systemwide_om_pea', 'high'),
-    (r'uranium\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b', 'federal_program', 'uranium_leasing_pea', 'high'),
-    (r'outer\s+continental\s+shelf\s+oil\s+and\s+gas\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_program', 'ocs_leasing_peis', 'high'),
-    (r'solar\s+energy\s+development\s+in\s+six\s+southwestern\s+states\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_program', 'solar_program_peis', 'high'),
-    (r'wind\s+energy\s+development\s+on\s+bureau\s+of\s+land\s+management-administered\s+lands\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_program', 'wind_program_peis', 'high'),
-    (r'(?:updates?\s+to\s+the\s+western\s+solar\s+plan\b[\s\S]{0,160}\b(?:solar\s+peis|programmatic\s+environmental\s+impact\s+statement)\b)|(?:2023\s+draft\s+solar\s+peis\b)', 'federal_program', 'western_solar_peis', 'high'),
-    (r'designation\s+of\s+energy\s+corridors\s+on\s+federal\s+land\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_program', 'energy_corridors_peis', 'high'),
-    (r'section\s+368\s+energy\s+corridor\s+revisions\b[\s\S]{0,160}\b(?:resource\s+management\s+plan\s+amendment|environmental\s+impact\s+statement)\b', 'federal_program', 'section368_corridor', 'high'),
     (r'long-term\s+experimental\s+and\s+management\s+plan\b[\s\S]{0,160}\benvironmental\s+impact\s+statement\b', 'federal_program', 'ltemp_eis', 'high'),
+    # federal_land — land-management and leasing program PEISs/PEAs (moved from federal_program)
+    (r'revision\s+of\s+the\b[\s\S]{0,160}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_land', 'lrm_plan_revision', 'high'),
+    (r'(?:final|proposed)\b[\s\S]{0,120}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_land', 'lrm_plan_title', 'medium'),
+    (r'integrated\s+vegetation\s+management\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b', 'federal_land', 'ivm_program_pea', 'high'),
+    (r'system-wide\s+operations\s+and\s+maintenance\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+assessment\b', 'federal_land', 'systemwide_om_pea', 'high'),
+    (r'uranium\s+leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+(?:assessment|impact\s+statement)\b', 'federal_land', 'uranium_leasing_pea', 'high'),
+    (r'outer\s+continental\s+shelf\s+(?:oil\s+and\s+gas\s+)?leasing\s+program\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_land', 'ocs_leasing_peis', 'high'),
+    (r'solar\s+energy\s+development\s+in\s+six\s+southwestern\s+states\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_land', 'solar_program_peis', 'high'),
+    (r'wind\s+energy\s+development\s+on\s+bureau\s+of\s+land\s+management-administered\s+lands\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_land', 'wind_program_peis', 'high'),
+    (r'(?:updates?\s+to\s+the\s+western\s+solar\s+plan\b[\s\S]{0,160}\b(?:solar\s+peis|programmatic\s+environmental\s+impact\s+statement)\b)|(?:2023\s+draft\s+solar\s+peis\b)', 'federal_land', 'western_solar_peis', 'high'),
+    (r'designation\s+of\s+energy\s+corridors\s+on\s+federal\s+land\b[\s\S]{0,160}\bprogrammatic\s+environmental\s+impact\s+statement\b', 'federal_land', 'energy_corridors_peis', 'high'),
+    (r'section\s+368\s+energy\s+corridor\s+revisions\b[\s\S]{0,160}\b(?:resource\s+management\s+plan\s+amendment|environmental\s+impact\s+statement)\b', 'federal_land', 'section368_corridor', 'high'),
     # federal_property_transaction
     (r'land\s+exchange\b', 'federal_property_transaction', 'land_exchange', 'high'),
     (r'fee[-\s]for[-\s]fee\s+land\s+exchange\b', 'federal_property_transaction', 'fee_land_exchange', 'high'),
@@ -436,6 +462,15 @@ TIER1B_PATTERNS = [
     (r'Amendment\s+to\s+Presidential\s+Permit\b', 'federal_permit', 'presidential_permit_amend', 'high'),
     (r'Issuance\s+of\s+Presidential\s+Permit\s+PP-\d+\b', 'federal_permit', 'presidential_permit_issue', 'high'),
     (r'Presidential\s+Permit\s+Application\s+Review\b', 'federal_permit', 'presidential_permit_review', 'high'),
+    # "granting or denying a Presidential Permit" — DOE cross-border transmission EA framing
+    (r'granting\s+or\s+denying\s+a\s+Presidential\s+Permit\b', 'federal_permit', 'presidential_permit_decision', 'high'),
+    # DOE Section 202(e) electricity export authorizations under the Federal Power Act
+    (r'electricity\s+export\s+authorization\b', 'federal_permit', 'doe_export_auth', 'high'),
+    (r'export\s+electricity\b[\s\S]{0,100}\bSection\s+202\(e\)', 'federal_permit', 'doe_export_auth', 'high'),
+    # DOE Natural Gas Act / LNG export authorizations (same DOE permit structure as electricity)
+    (r'(?:LNG|liquefaction|natural\s+gas)\s+export\s+authorization\b', 'federal_permit', 'doe_gas_export_auth', 'high'),
+    # PMA full name in project description — catches NEPATEC records listing DOE instead of BPA/WAPA/TVA
+    (r'\b(?:Western\s+Area\s+Power\s+Administration|Bonneville\s+Power\s+Administration|Southwestern\s+Power\s+Administration|Southeastern\s+Power\s+Administration|Tennessee\s+Valley\s+Authority)\b', 'pma', 'pma_name_in_description', 'high'),
     (r'\bEarly\s+Site\s+Permit\b', 'federal_permit', 'early_site_permit', 'high'),
     (r'\bCombined\s+License\b', 'federal_permit', 'combined_license', 'high'),
     (r'\b(?:Subsequent\s+)?License\s+Renewal\b', 'federal_permit', 'license_renewal', 'high'),
@@ -479,6 +514,15 @@ TIER1B_PATTERNS = [
     (r'(?:Administrative\s+(?:and\s+)?Legal\s+Requirements\s+Document|\bALRD\b)[\s\S]{0,160}\bformula(?:-based)?\s+(?:awards?|grants?)\b', 'federal_funding', 'alrd_formula', 'medium'),
     (r'(?:DOE|DOT|HUD|USDA)\s+(?:grant|funding)\b', 'federal_funding', 'agency_grant', 'high'),
     (r'federal\s+(?:financial\s+assistance|grant\b)', 'federal_funding', 'fed_grant', 'medium'),
+    # federal_land — vegetation management on National Forest land (moved from federal_direct_action)
+    (r'vegetation\s+management\b.{0,50}National\s+Forest', 'federal_land', 'usfs_veg_mgmt', 'high'),
+    # pma — Power Marketing Administration + Tennessee Valley Authority
+    (r'\b(?:Bonneville\s+Power\s+Administration|BPA)\b[\s\S]{0,80}\b(?:proposes?\s+to|will|would)\b', 'pma', 'bpa_actor', 'high'),
+    (r'\b(?:Western\s+Area\s+Power\s+Administration|WAPA)\b[\s\S]{0,80}\b(?:proposes?\s+to|will|would)\b', 'pma', 'wapa_actor', 'high'),
+    (r'\b(?:Southeastern\s+Power\s+Administration|SEPA)\b[\s\S]{0,80}\b(?:proposes?\s+to|will|would)\b', 'pma', 'sepa_actor', 'high'),
+    (r'\b(?:Southwestern\s+Power\s+Administration|SWPA)\b[\s\S]{0,80}\b(?:proposes?\s+to|will|would)\b', 'pma', 'swpa_actor', 'high'),
+    (r'\b(?:Tennessee\s+Valley\s+Authority|TVA)\b[\s\S]{0,80}\b(?:proposes?\s+to|will|would)\b', 'pma', 'tva_actor', 'high'),
+    (r'\bPower\s+Marketing\s+Administration\b', 'pma', 'pma_generic', 'medium'),
     # federal_direct_action — agency as actor (checked last among high-priority classes)
     (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+{FEDERAL_ACTION_DIRECT_VERB_PATTERN}\b', 'federal_direct_action', 'agency_actor_direct', 'high'),
     (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,80}}\b{FEDERAL_ACTION_INTRO_PATTERN}\s+remove\s+and\s+replace\b', 'federal_direct_action', 'agency_remove_replace', 'high'),
@@ -491,7 +535,6 @@ TIER1B_PATTERNS = [
     (rf'\b{FEDERAL_ACTION_ACTOR_PATTERN}\b[\s\S]{{0,200}}\b(?:upgrade|rebuild)\b[\s\S]{{0,160}}\bby\s+removing\b[\s\S]{{0,160}}\band\s+installing\b', 'federal_direct_action', 'upgrade_remove_install', 'high'),
     (r'military\s+(?:installation|base|facility)\b', 'federal_direct_action', 'military', 'high'),
     (r'federal\s+facility\s+(?:upgrade|expansion|construction)\b', 'federal_direct_action', 'fed_facility', 'high'),
-    (r'vegetation\s+management\b.{0,50}National\s+Forest', 'federal_direct_action', 'usfs_veg_mgmt', 'high'),
 ]
 
 # --- Tier 2: Document title patterns ---
@@ -499,14 +542,18 @@ TIER1B_PATTERNS = [
 # Programmatic detection uses PROGRAMMATIC_TITLE_PATTERNS + exclusion check (handled separately).
 
 DOC_TITLE_PATTERNS = [
+    # Nuclear generic EIS/EA → federal_permit; must precede generic_review
+    (r'generic\s+(?:environmental\s+impact\s+statement|eis|geis)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_eis'),
+    (r'generic\s+(?:environmental\s+assessment|ea|gea)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_ea'),
+    (r'\bNUREG-1437\b', 'federal_permit', 'nureg1437_geis'),
     (r'generic\s+(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'generic_review'),
     (r'tier\s*(?:1|i|one)\s+(?:nepa\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'tier1_review'),
     (r'(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\s+tier\s*(?:1|i|one)\b', 'federal_program', 'tier1_review_rev'),
     (r'site[-\s]?wide\s+environmental\s+(?:impact\s+statement|assessment)\b', 'federal_program', 'sitewide_review'),
     (r'\b(?:SWEIS|SWEA)\b', 'federal_program', 'sitewide_acronym'),
     (r'(?:\d{4}\s+)?integrated\s+resource\s+plan\b', 'federal_program', 'integrated_resource_plan'),
-    (r'revision\s+of\s+the\b[\s\S]{0,160}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_program', 'lrm_plan_revision'),
-    (r'(?:final|proposed)\b[\s\S]{0,120}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_program', 'lrm_plan_title'),
+    (r'revision\s+of\s+the\b[\s\S]{0,160}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_land', 'lrm_plan_revision'),
+    (r'(?:final|proposed)\b[\s\S]{0,120}\bland\s+and\s+resource\s+management\s+plan\b', 'federal_land', 'lrm_plan_title'),
     (r'land\s+exchange', 'federal_property_transaction', 'land_exchange'),
     (r'land\s+disposal\b', 'federal_property_transaction', 'land_disposal'),
     (r'sale\s+of\s+land\s+rights\b', 'federal_property_transaction', 'sale_land_rights'),
@@ -588,6 +635,18 @@ TIER4_CUE_PATTERNS = {
         r"\b2920\s+Land\s+Use\s+Authorization\b",
         r"\bRequest\s+to\s+Amend\s+Existing\s+Authorization\b",
         r"\bamend\s+its\s+ROW\s+grant\b",
+        r"\bvegetation\s+management\b[\s\S]{0,60}\bNational\s+Forest\b",
+        r"\bRevision\s+of\s+the\b[\s\S]{0,160}\bLand\s+and\s+Resource\s+Management\s+Plan\b",
+        r"\b(?:Final|Proposed)\b[\s\S]{0,120}\bLand\s+and\s+Resource\s+Management\s+Plan\b",
+        r"\bIntegrated\s+Vegetation\s+Management\s+Program\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Assessment\b",
+        r"\bSystem-wide\s+Operations\s+and\s+Maintenance\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Assessment\b",
+        r"\bUranium\s+Leasing\s+Program\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+(?:Assessment|Impact\s+Statement)\b",
+        r"\bOuter\s+Continental\s+Shelf\s+(?:Oil\s+and\s+Gas\s+)?Leasing\s+Program\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b",
+        r"\bSolar\s+Energy\s+Development\s+in\s+Six\s+Southwestern\s+States\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b",
+        r"\bWind\s+Energy\s+Development\s+on\s+Bureau\s+of\s+Land\s+Management-Administered\s+Lands\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b",
+        r"\b(?:Updates?\s+to\s+the\s+Western\s+Solar\s+Plan|2023\s+Draft\s+Solar\s+PEIS)\b",
+        r"\bDesignation\s+of\s+Energy\s+Corridors\s+on\s+Federal\s+Land\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b",
+        r"\bSection\s+368\s+Energy\s+Corridor\s+Revisions\b[\s\S]{0,160}\b(?:Resource\s+Management\s+Plan\s+Amendment|Environmental\s+Impact\s+Statement)\b",
     ],
     "federal_permit": [
         r"\b(?:Standard\s+)?Individual\s+Permit\s+Application\b",
@@ -616,6 +675,27 @@ TIER4_CUE_PATTERNS = {
         r"\b(?:Subsequent\s+)?License\s+Renewal\b",
         r"\bissuance\s+of\s+renewed\s+facility\s+operating\s+licenses\b",
         r"\b(?:NRC|FERC)\b[\s\S]{0,80}\blicense\s+amendment\b|\blicense\s+amendment\b[\s\S]{0,80}(?:NRC|FERC|10\s+CFR\s+50\.90|FERC\s+order)\b",
+        r"\bgeneric\s+(?:environmental\s+impact\s+statement|EIS|GEIS)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b",
+        r"\bgeneric\s+(?:environmental\s+assessment|EA|GEA)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b",
+        r"\bNUREG-1437\b",
+        # DOE electricity/gas export authorizations (Section 202(e) FPA; Natural Gas Act)
+        r"\belectricity\s+export\s+authorization\b",
+        r"\bSection\s+202\(e\)\b[\s\S]{0,120}\b(?:export|DOE|Department\s+of\s+Energy)\b",
+        r"\b(?:LNG|liquefaction|natural\s+gas)\s+export\s+authorization\b",
+        # DOE Presidential Permit for cross-border transmission ("granting or denying" framing)
+        r"\bgranting\s+or\s+denying\s+a\s+Presidential\s+Permit\b",
+        # FERC as document author — only fires when FERC literally prepared the EIS/EA
+        r"\bprepared\s+by\s+the\s+Federal\s+Energy\s+Regulatory\s+Commission\b",
+        # FERC + hydroelectric within 100 chars — catches hydro license review language
+        r"\bFederal\s+Energy\s+Regulatory\s+Commission[\s\S]{0,100}(?:hydroelectric|hydropower)\b",
+    ],
+    "pma": [
+        r"\b(?:Bonneville\s+Power\s+Administration|BPA)\b",
+        r"\b(?:Western\s+Area\s+Power\s+Administration|WAPA)\b",
+        r"\b(?:Southeastern\s+Power\s+Administration|SEPA)\b",
+        r"\b(?:Southwestern\s+Power\s+Administration|SWPA)\b",
+        r"\b(?:Tennessee\s+Valley\s+Authority|TVA)\b",
+        r"\bPower\s+Marketing\s+Administration\b|\bPMA\b",
     ],
     "federal_program": [
         r"\bprogrammatic\s+environmental\s+(?:impact\s+statement|assessment)\b",
@@ -623,23 +703,11 @@ TIER4_CUE_PATTERNS = {
         r"\b(?:DPEIS|FPEIS|SPEIS|PEIS|PEA)\b",
         r"\bthis\s+programmatic\s+(?:EIS|EA|environmental)\b",
         r"\bthis\s+GEIS\b",
-        r"\bgeneric\s+(?:environmental\s+(?:impact\s+statement|assessment)|EIS|EA)\b",
         r"\btier\s*(?:1|I|one)\s+(?:NEPA\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|EIS|EA)\b",
         r"\b(?:environmental\s+(?:impact\s+statement|assessment)|EIS|EA)\s+tier\s*(?:1|I|one)\b",
         r"\bsite[-\s]?wide\s+environmental\s+(?:impact\s+statement|assessment)\b",
         r"\b(?:SWEIS|SWEA)\b",
         r"\b(?:\d{4}\s+)?Integrated\s+Resource\s+Plan\b[\s\S]{0,160}\b(?:Programmatic\s+Environmental\s+Impact\s+Statement|Supplemental\s+Environmental\s+Impact\s+Statement|Draft\s+EIS)\b",
-        r"\bRevision\s+of\s+the\b[\s\S]{0,160}\bLand\s+and\s+Resource\s+Management\s+Plan\b",
-        r"\b(?:Final|Proposed)\b[\s\S]{0,120}\bLand\s+and\s+Resource\s+Management\s+Plan\b",
-        r"\bIntegrated\s+Vegetation\s+Management\s+Program\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Assessment\b|\bProgrammatic\s+Environmental\s+Assessment\b[\s\S]{0,160}\bIntegrated\s+Vegetation\s+Management\s+Program\b",
-        r"\bSystem-wide\s+Operations\s+and\s+Maintenance\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Assessment\b|\bProgrammatic\s+Environmental\s+Assessment\b[\s\S]{0,160}\bSystem-wide\s+Operations\s+and\s+Maintenance\b",
-        r"\bUranium\s+Leasing\s+Program\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Assessment\b|\bProgrammatic\s+Environmental\s+Assessment\b[\s\S]{0,160}\bUranium\s+Leasing\s+Program\b",
-        r"\bOuter\s+Continental\s+Shelf\s+Oil\s+and\s+Gas\s+Leasing\s+Program\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b|\bProgrammatic\s+Environmental\s+Impact\s+Statement\b[\s\S]{0,160}\bOuter\s+Continental\s+Shelf\s+Oil\s+and\s+Gas\s+Leasing\s+Program\b",
-        r"\bSolar\s+Energy\s+Development\s+in\s+Six\s+Southwestern\s+States\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b|\bProgrammatic\s+Environmental\s+Impact\s+Statement\b[\s\S]{0,160}\bSolar\s+Energy\s+Development\s+in\s+Six\s+Southwestern\s+States\b",
-        r"\bWind\s+Energy\s+Development\s+on\s+Bureau\s+of\s+Land\s+Management-Administered\s+Lands\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b|\bProgrammatic\s+Environmental\s+Impact\s+Statement\b[\s\S]{0,160}\bWind\s+Energy\s+Development\s+on\s+Bureau\s+of\s+Land\s+Management-Administered\s+Lands\b",
-        r"\b(?:Updates?\s+to\s+the\s+Western\s+Solar\s+Plan\b[\s\S]{0,160}\b(?:Solar\s+PEIS|Programmatic\s+Environmental\s+Impact\s+Statement)\b)|(?:2023\s+Draft\s+Solar\s+PEIS\b)",
-        r"\bDesignation\s+of\s+Energy\s+Corridors\s+on\s+Federal\s+Land\b[\s\S]{0,160}\bProgrammatic\s+Environmental\s+Impact\s+Statement\b|\bProgrammatic\s+Environmental\s+Impact\s+Statement\b[\s\S]{0,160}\bDesignation\s+of\s+Energy\s+Corridors\s+on\s+Federal\s+Land\b",
-        r"\bSection\s+368\s+Energy\s+Corridor\s+Revisions\b[\s\S]{0,160}\b(?:Resource\s+Management\s+Plan\s+Amendment|Environmental\s+Impact\s+Statement)\b",
         r"\bLong-Term\s+Experimental\s+and\s+Management\s+Plan\b[\s\S]{0,160}\bEnvironmental\s+Impact\s+Statement\b",
     ],
     "federal_property_transaction": [
@@ -665,6 +733,7 @@ HYPOTHESIS_TEMPLATES = {
     "federal_permit": "This text shows that a federal permit, license, certification, or regulatory approval is required for this project, even if the project is otherwise privately or state-led.",
     "federal_program": "This text shows that this is a programmatic, generic, site-wide, or Tier 1 environmental review covering a class of actions or a geographic area, or a broader federal planning document such as a resource management plan revision, leasing program, corridor designation, or rulemaking.",
     "federal_property_transaction": "This text shows that this involves a federal land exchange, sale, disposal, conveyance, acquisition, or transfer of land, land rights, easements, or other real-property interests.",
+    "pma": "This text shows that Bonneville Power Administration (BPA), Western Area Power Administration (WAPA), Southeastern Power Administration (SEPA), Southwestern Power Administration (SWPA), or Tennessee Valley Authority (TVA) is the lead or sponsoring agency proposing or implementing this project.",
 }
 
 # Calibration thresholds (--calibrate mode)
@@ -745,6 +814,19 @@ CALIBRATION_EXAMPLES: list[tuple[str, str | None, str]] = [
      "2025 Integrated Resource Plan and Programmatic Environmental Impact Statement"),
     ("federal_program / energy corridors PEIS title", "federal_program",
      "Final Programmatic Environmental Impact Statement, Designation of Energy Corridors on Federal Land in the 11 Western States"),
+    ("pma / WAPA constructs substation control building", "pma",
+     "Western Area Power Administration (Western) will construct a new control building at the Lusk Rural "
+     "Substation (LRS) located in Niobrara County, Wyoming. The proposed work at the LRS control building "
+     "consists of the following; construct a new control building and associated foundation, demolish "
+     "existing 69-kV switch, construct new Fault Interrupter foundations and install steel support structure "
+     "and fault interrupter, and demolish existing control building."),
+    ("pma / BPA radio antenna replacement", "pma",
+     "Bonneville Power Administration (BPA) proposes to replace and upgrade the existing radio antennas "
+     "at its substations. The proposed work will be conducted at multiple BPA substation sites throughout "
+     "the Pacific Northwest."),
+    ("pma / TVA transmission upgrade", "pma",
+     "The Tennessee Valley Authority (TVA) proposes to construct a new 500-kV transmission line and "
+     "associated substation facilities in Tennessee to improve grid reliability and support regional load growth."),
     ("federal_property_transaction / land exchange in title", "federal_property_transaction",
      "Falls Creek Hydroelectric Project and Land Exchange"),
     ("federal_property_transaction / DOE multi-party land exchange", "federal_property_transaction",
@@ -812,9 +894,14 @@ CE_SECTION_PATTERNS = [
 EA_EIS_SECTION_PATTERNS = [
     ("purpose_and_need", r"(?i)\bpurpose\s+and\s+need\b"),
     ("need_for_action", r"(?i)\bneed\s+for\s+(?:federal\s+)?action\b"),
-    ("proposed_action", r"(?i)\bproposed\s+(?:federal\s+)?action\b"),
+    # Broader proposed-action header variants (32–34% coverage in EA/EIS corpus)
+    ("proposed_action", r"(?i)\b(?:proposed\s+(?:federal\s+)?action(?:\s+and\s+alternatives?)?|description\s+of\s+(?:the\s+)?proposed\s+(?:federal\s+)?action|proposed\s+federal\s+undertaking)\b"),
     ("decision", r"(?i)\bdecision\s+to\s+be\s+made\b"),
     ("agency_action", r"(?i)\b(?:agency\s+action|federal\s+action)\b"),
+    # Regulatory framework: cites FLPMA, CFR parts, Section 404, etc. — high precision trigger signal
+    ("regulatory_framework", r"(?i)\b(?:regulatory\s+(?:framework|context|requirements?|background|setting)|legal\s+(?:framework|background|authority|requirements?)|statutory\s+(?:background|authority|requirements?)|applicable\s+(?:laws?\s+(?:and\s+)?regulations?|statutes?\s+and\s+regulations?)|federal\s+regulatory\s+(?:framework|requirements?))\b"),
+    # Executive summary: concentrates agency role + proposed action in one passage (6–9% coverage)
+    ("executive_summary", r"(?i)\bexecutive\s+summary\b"),
 ]
 
 SECTION_PRIOR_WEIGHTS = {
@@ -824,10 +911,12 @@ SECTION_PRIOR_WEIGHTS = {
     "need_for_action": 0.18,
     "proposed_action": 0.18,
     "agency_action": 0.18,
+    "regulatory_framework": 0.16,
     "project_description": 0.15,
     "decision": 0.10,
     "funding": 0.15,
     "cue_window": 0.12,
+    "executive_summary": 0.12,
     "ce_fallback": 0.08,
 }
 
@@ -876,6 +965,14 @@ CLASS_PROTOTYPES = {
         "BPA proposes to sell its substation, including land rights, to the city.",
         "The agency proposes to transfer ownership of the transmission line and associated easements to the local utility.",
     ],
+    "pma": [
+        "Bonneville Power Administration (BPA) proposes to replace and upgrade the existing radio antennas at its substations.",
+        "Western Area Power Administration (Western) will construct a new control building at the Lusk Rural Substation.",
+        "WAPA would construct, own, operate, and maintain an interconnection switchyard in the project area.",
+        "The Tennessee Valley Authority (TVA) proposes to install new transmission lines and associated equipment.",
+        "Southeastern Power Administration (SEPA) is proposing to upgrade existing facilities at its hydropower project.",
+        "The Southwestern Power Administration (SWPA) proposes to reconductor existing transmission lines.",
+    ],
 }
 
 # --- Tier 5: Claude Haiku prompt ---
@@ -889,11 +986,12 @@ Prefer affirmative, project-specific evidence. Distinguish a mere mention from a
 Return unknown if the evidence is insufficient.
 
 Classes:
-- federal_direct_action: federal agency is the primary actor constructing or implementing the project
-- federal_program: programmatic EIS, land-use plan, rulemaking, or leasing framework
+- pma: Power Marketing Administration (PMA) or Tennessee Valley Authority (TVA) — BPA, WAPA, SEPA, SWPA, or TVA — is the lead or sponsoring agency; use even when land or permit cues are also present
+- federal_direct_action: federal agency (non-PMA/TVA) is the primary actor constructing or implementing the project
+- federal_program: programmatic EIS, site-wide review, Tier 1 review, integrated resource plan, rulemaking, or policy framework (not primarily land-management on federal lands)
 - federal_property_transaction: land exchange, sale, disposal, transfer, or acquisition of land, land rights, easements, or other real-property interests
-- federal_land: project on or crossing federal land; ROW grant or special use permit tied to land access
-- federal_permit: federal permit, license, or authorization is the primary nexus
+- federal_land: project on or crossing federal land; ROW grant, special use permit, land-use plan, resource management plan, leasing program on federal lands, or land-management programmatic review
+- federal_permit: federal permit, license, or authorization is the primary nexus; includes generic nuclear EIS/EA (GEIS/GEA/NUREG-1437) for NRC license renewal
 - federal_funding: federal grant, loan guarantee, or financial assistance
 - unknown: cannot determine from the text provided
 
@@ -912,12 +1010,13 @@ Respond with JSON only:
 
 VALID_CLASSES = frozenset({
     "federal_direct_action", "federal_program", "federal_property_transaction",
-    "federal_land", "federal_permit", "federal_funding", "unknown",
+    "federal_land", "federal_permit", "federal_funding", "pma", "unknown",
 })
 
 TOP_LEVEL_CLASSES = [
     "federal_funding",
     "federal_direct_action",
+    "pma",
     "federal_land",
     "federal_permit",
     "federal_program",
@@ -925,12 +1024,12 @@ TOP_LEVEL_CLASSES = [
 ]
 
 # Hierarchy for resolving primary trigger when multi-label evidence exists.
-# Order = federal discretion level over the action: agency implementing > land authorization >
-# regulatory permit > financial assistance. federal_program is orthogonal (document type) and
-# wins only when the review IS the program, not a site-specific project.
+# pma sits above federal_land and federal_permit so PMA/TVA-led projects stay primary=pma
+# even when ROW, easement, or permit cues are also present.
 TRIGGER_HIERARCHY = [
     "federal_program",
     "federal_direct_action",
+    "pma",
     "federal_property_transaction",
     "federal_land",
     "federal_permit",
@@ -1021,6 +1120,17 @@ FUNDING_MECHANISM_PATTERNS = {
         r"\bformula[-\s]based\s+(?:grant|award)s?\b|\bformula\s+(?:grant|award)s?\b|\bEECBG\b",
         re.IGNORECASE,
     ),
+    # DOE EERE PMC-ND determination form: presence of both RECIPIENT: and
+    # "Procurement Instrument Number" reliably identifies a federal grant/award.
+    "pmc_nd_form": re.compile(
+        r"(?=[\s\S]*RECIPIENT\s*:)(?=[\s\S]*Procurement\s+Instrument\s+Number)",
+        re.IGNORECASE,
+    ),
+    # All ARPA-E projects are competitively awarded federal grants.
+    "arpa_e": re.compile(
+        r"\bARPA[-\s]?E\b|\bAdvanced\s+Research\s+Projects\s+Agency[-\s–—]*Energy\b",
+        re.IGNORECASE,
+    ),
     "grant_or_award": re.compile(
         r"\b(?:federal\s+|DOE\s+|Department\s+of\s+Energy\s+)?(?:grant|grants|award|awards)\b",
         re.IGNORECASE,
@@ -1040,6 +1150,8 @@ FUNDING_MECHANISM_PRIORITY = [
     "federal_loan",
     "cooperative_agreement",
     "formula_grant",
+    "pmc_nd_form",
+    "arpa_e",
     "grant_or_award",
     "cost_share",
     "financial_assistance",
@@ -1292,9 +1404,15 @@ def _apply_pattern_list(
 
 def _project_metadata_priors(project_row: pd.Series) -> list[str]:
     agency = str(project_row.get("lead_agency_harmonized") or "")
+    sponsor = str(project_row.get("project_sponsor") or "")
     priors: list[str] = []
-    if _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
-        priors.extend(["federal_funding", "federal_direct_action"])
+    if _agency_matches(agency, AGENCY_PMA_MAP) or _agency_matches(sponsor, AGENCY_PMA_MAP):
+        priors.append("pma")
+    elif _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
+        if _agency_matches(sponsor, AGENCY_PMA_MAP):
+            priors.append("pma")
+        else:
+            priors.extend(["federal_funding", "federal_direct_action"])
     elif _agency_matches(agency, frozenset({"USACE", "Army Corps of Engineers"})):
         priors.extend(["federal_permit", "federal_land"])
     elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
@@ -1468,7 +1586,7 @@ def extract_ea_eis_candidate_sections(
     section_text: str,
     cue_text: Optional[str] = None,
 ) -> list[dict[str, Any]]:
-    sections = _extract_section_windows(section_text, EA_EIS_SECTION_PATTERNS, window=2000, max_sections=8)
+    sections = _extract_section_windows(section_text, EA_EIS_SECTION_PATTERNS, window=2000, max_sections=10)
     sections.extend(_extract_cue_windows(cue_text if cue_text is not None else section_text))
     return sections
 
@@ -1804,8 +1922,14 @@ def get_candidate_classes(
 
     candidates.extend([cls for cls in cue_classes if cls in VALID_CLASSES and cls != "unknown"])
 
-    if _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
-        candidates.extend(["federal_funding", "federal_direct_action"])
+    sponsor = str(project_row.get("project_sponsor") or "")
+    if _agency_matches(agency, AGENCY_PMA_MAP) or _agency_matches(sponsor, AGENCY_PMA_MAP):
+        candidates.extend(["pma", "federal_land", "federal_permit"])
+    elif _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
+        if _agency_matches(sponsor, AGENCY_PMA_MAP):
+            candidates.extend(["pma", "federal_land", "federal_permit"])
+        else:
+            candidates.extend(["federal_funding", "federal_direct_action"])
     elif _agency_matches(agency, frozenset({"USACE", "Army Corps of Engineers"})):
         candidates.extend(["federal_permit", "federal_land"])
     elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
@@ -2241,17 +2365,40 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                 route_policy="auto_accept",
                 route_reason="deterministic_funding_metadata",
             ))
-        elif _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
-            # CBP is always construction/installation — no land-authorization use cases.
-            # BPA/WAPA/PMA can also hold ROW grants or property transactions; gate those to Tier 4.
+        elif _agency_matches(agency, AGENCY_PMA_MAP) or _agency_matches(agency, AGENCY_DIRECT_ACTION_MAP):
+            # PMA/TVA agencies → primary=pma; CBP → primary=federal_direct_action.
+            is_pma = _agency_matches(agency, AGENCY_PMA_MAP)
             is_cbp = _agency_matches(agency, frozenset({"CBP", "U.S. Customs and Border Protection", "Customs and Border Protection"}))
-            land_cues = re.search(
-                r'\bright[-\s]of[-\s]way\b|\bROW\b|\bperpetual\b|\beasement\b'
-                r'|\bland\s+exchange\b|\bdispose\b|\bdisposal\b|\bacquire\b|\bacquisition\b'
-                r'|\btransfer\s+ownership\b|\btitle\s+transfer\b|\bsale\s+of\s+land\b',
-                text, re.IGNORECASE,
-            )
-            if is_cbp or not land_cues:
+            if is_pma:
+                land_cues = re.search(
+                    r'\bright[-\s]of[-\s]way\b|\bROW\b|\bperpetual\b|\beasement\b'
+                    r'|\bland\s+exchange\b|\bdispose\b|\bdisposal\b|\bacquire\b|\bacquisition\b'
+                    r'|\btransfer\s+ownership\b|\btitle\s+transfer\b|\bsale\s+of\s+land\b',
+                    text, re.IGNORECASE,
+                )
+                permit_cues = re.search(
+                    r'\bright[-\s]of[-\s]way\s+grant\b|\bspecial\s+use\s+permit\b|\bSection\s+404\b'
+                    r'|\bNPDES\b|\bferc\s+license\b|\blicense\s+renewal\b',
+                    text, re.IGNORECASE,
+                )
+                secondary = []
+                if land_cues:
+                    secondary.append("federal_land")
+                if permit_cues:
+                    secondary.append("federal_permit")
+                results.append(make_result(
+                    project_id=pid,
+                    primary="pma",
+                    confidence="high",
+                    evidence_text=agency,
+                    evidence_source="agency_metadata",
+                    rule_id=f"T1a_{agency_code}_pma",
+                    secondary=secondary,
+                    manual_review=False,
+                    route_policy="auto_accept",
+                    route_reason="deterministic_pma_metadata",
+                ))
+            elif is_cbp:
                 results.append(make_result(
                     project_id=pid,
                     primary="federal_direct_action",
@@ -2262,18 +2409,6 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                     manual_review=False,
                     route_policy="auto_accept",
                     route_reason="deterministic_direct_action_metadata",
-                ))
-            else:
-                results.append(make_result(
-                    project_id=pid,
-                    primary="federal_direct_action",
-                    confidence="medium",
-                    evidence_text=f"{agency} | land_cues_detected",
-                    evidence_source="agency_metadata",
-                    rule_id=f"T1a_{agency_code}_direct_action_provisional",
-                    manual_review=True,
-                    route_policy="provisional",
-                    route_reason="direct_action_agency_with_land_cues",
                 ))
         elif _agency_matches(agency, AGENCY_LAND_MAP):
             verb_class = _verb_class(text)
@@ -2292,18 +2427,16 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                 route_reason="land_agency_metadata",
             ))
         elif _agency_matches(agency, frozenset({"DOE", "Department of Energy"})):
-            # BPA/WAPA projects are organizationally under DOE but are direct-action agencies.
+            # PMA/TVA projects are organizationally under DOE but are PMA-category agencies.
             # lead_agency_harmonized = "Department of Energy" for these projects, so the
-            # AGENCY_DIRECT_ACTION_MAP branch above never fires. Check project_sponsor instead.
-            _bpa_wapa_sponsor_set = frozenset({
-                "Bonneville Power Administration", "BPA",
-                "Western Area Power Administration", "WAPA",
-                "Power Marketing Administration", "PMA",
-            })
-            if _agency_matches(sponsor, _bpa_wapa_sponsor_set):
+            # AGENCY_PMA_MAP branch above never fires. Check project_sponsor instead.
+            if _agency_matches(sponsor, AGENCY_PMA_MAP):
                 _sponsor_code = (
                     "BPA" if _agency_matches(sponsor, frozenset({"BPA", "Bonneville Power Administration"}))
                     else "WAPA" if _agency_matches(sponsor, frozenset({"WAPA", "Western Area Power Administration"}))
+                    else "SEPA" if _agency_matches(sponsor, frozenset({"SEPA", "Southeastern Power Administration"}))
+                    else "SWPA" if _agency_matches(sponsor, frozenset({"SWPA", "Southwestern Power Administration"}))
+                    else "TVA" if _agency_matches(sponsor, frozenset({"TVA", "Tennessee Valley Authority"}))
                     else "PMA"
                 )
                 _land_cues = re.search(
@@ -2312,47 +2445,28 @@ def tier1a_metadata(projects: pd.DataFrame) -> list[dict[str, Any]]:
                     r'|\btransfer\s+ownership\b|\btitle\s+transfer\b|\bsale\s+of\s+land\b',
                     text, re.IGNORECASE,
                 )
-                _is_programmatic = (
-                    _is_programmatic_title(text)
-                    and not _is_programmatic_exclusion(text)
-                    and _is_programmatic_strong(text)
+                _permit_cues = re.search(
+                    r'\bright[-\s]of[-\s]way\s+grant\b|\bspecial\s+use\s+permit\b|\bSection\s+404\b'
+                    r'|\bNPDES\b|\bferc\s+license\b|\blicense\s+renewal\b',
+                    text, re.IGNORECASE,
                 )
-                if _is_programmatic:
-                    results.append(make_result(
-                        project_id=pid,
-                        primary="federal_program",
-                        confidence="high",
-                        evidence_text=f"sponsor={sponsor}",
-                        evidence_source="agency_metadata",
-                        rule_id=f"T1a_{_sponsor_code}_program",
-                        manual_review=False,
-                        route_policy="auto_accept",
-                        route_reason="bpa_wapa_programmatic_ce",
-                    ))
-                elif not _land_cues:
-                    results.append(make_result(
-                        project_id=pid,
-                        primary="federal_direct_action",
-                        confidence="high",
-                        evidence_text=f"sponsor={sponsor}",
-                        evidence_source="agency_metadata",
-                        rule_id=f"T1a_{_sponsor_code}_direct_action",
-                        manual_review=False,
-                        route_policy="auto_accept",
-                        route_reason="deterministic_direct_action_metadata",
-                    ))
-                else:
-                    results.append(make_result(
-                        project_id=pid,
-                        primary="federal_direct_action",
-                        confidence="medium",
-                        evidence_text=f"sponsor={sponsor} | land_cues_detected",
-                        evidence_source="agency_metadata",
-                        rule_id=f"T1a_{_sponsor_code}_direct_action_provisional",
-                        manual_review=True,
-                        route_policy="provisional",
-                        route_reason="direct_action_sponsor_with_land_cues",
-                    ))
+                _secondary = []
+                if _land_cues:
+                    _secondary.append("federal_land")
+                if _permit_cues:
+                    _secondary.append("federal_permit")
+                results.append(make_result(
+                    project_id=pid,
+                    primary="pma",
+                    confidence="high",
+                    evidence_text=f"sponsor={sponsor}",
+                    evidence_source="agency_metadata",
+                    rule_id=f"T1a_{_sponsor_code}_pma",
+                    secondary=_secondary,
+                    manual_review=False,
+                    route_policy="auto_accept",
+                    route_reason="deterministic_pma_sponsor_metadata",
+                ))
             else:
                 doe_funding_patterns = [
                     r"\b(?:loan\s+guarantee|financial\s+assistance)\b",
@@ -2615,10 +2729,42 @@ def tier4_retrieval_local(
         if pid in project_lookup.index
     }
 
-    chunk_scores = run_local_nli_on_chunks(contexts, candidate_classes_by_project)
+    # Zero-score bypass: projects where every retrieved chunk has retrieval_score == 0.0
+    # have no cue signal (all boilerplate). Running NLI on them produces near-zero entailment
+    # scores across all classes and yields unreliable results. Route directly to Tier 5 instead.
+    zero_score_ids: set[str] = set()
+    if not contexts.empty:
+        max_retrieval = contexts.groupby("project_id")["retrieval_score"].max()
+        zero_score_ids = set(max_retrieval[max_retrieval == 0.0].index)
+
+    nli_contexts = contexts[~contexts["project_id"].isin(zero_score_ids)].copy() if zero_score_ids else contexts
+
+    chunk_scores = run_local_nli_on_chunks(nli_contexts, candidate_classes_by_project)
     doc_scores = aggregate_tier4_scores(chunk_scores)
     results: list[dict[str, Any]] = []
     covered_ids = set()
+
+    if zero_score_ids:
+        log.info(
+            "  Tier 4 zero-score bypass: %d projects skipped NLI (no cue signal) → Tier 5 queue",
+            len(zero_score_ids),
+        )
+        for pid in sorted(zero_score_ids):
+            provisional_result = provisional.get(pid, {})
+            results.append(make_result(
+                project_id=pid,
+                primary="unknown",
+                confidence="low",
+                evidence_text="no retrieval signal in document chunks",
+                evidence_source="document_text",
+                rule_id="T4_local_uncertain",
+                manual_review=True,
+                route_policy="tier5_candidate",
+                route_reason="zero_retrieval_score",
+                provisional_rule_id=provisional_result.get("nepa_trigger_rule_id", ""),
+                provisional_confidence=provisional_result.get("nepa_trigger_confidence", ""),
+            ))
+        covered_ids.update(zero_score_ids)
 
     if not doc_scores.empty:
         for _, row in doc_scores.iterrows():
@@ -2923,7 +3069,8 @@ def extract_nepa_triggers(
         for result in results:
             pid = result["project_id"]
             if should_auto_accept(result):
-                finalized[pid] = result
+                if pid not in finalized:  # earlier tier's auto-accept takes precedence
+                    finalized[pid] = result
             else:
                 existing = provisional.get(pid)
                 if existing is None or _result_confidence_rank(result) >= _result_confidence_rank(existing):
@@ -3717,7 +3864,7 @@ def main() -> None:
 
     batches = build_validation_batches(final, projects)
     if not batches.empty:
-        batch_path = OUTPUT_DIR / "validation_batches.csv"
+        batch_path = VALIDATION_DIR / "validation_batches.csv"
         batches.to_csv(batch_path, index=False)
         log.info(
             "Validation batches: %s sampled rows across %s batches → %s",
