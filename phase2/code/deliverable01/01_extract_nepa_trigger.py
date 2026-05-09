@@ -399,6 +399,10 @@ TIER1B_PATTERNS = [
     # federal_program — most distinctive; check before land/permit patterns
     (r'programmatic\s+environmental\s+impact\s+statement', 'federal_program', 'peis', 'high'),
     (r'programmatic\s+environmental\s+assessment', 'federal_program', 'pea', 'high'),
+    # Generic nuclear EIS/EA must come BEFORE generic_review — nuclear context → federal_permit, not federal_program
+    (r'generic\s+(?:environmental\s+impact\s+statement|eis|geis)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_eis', 'high'),
+    (r'generic\s+(?:environmental\s+assessment|ea|gea)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_ea', 'high'),
+    (r'\bNUREG-1437\b', 'federal_permit', 'nureg1437_geis', 'high'),
     (r'generic\s+(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'generic_review', 'high'),
     (r'tier\s*(?:1|i|one)\s+(?:nepa\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'tier1_review', 'high'),
     (r'(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\s+tier\s*(?:1|i|one)\b', 'federal_program', 'tier1_review_rev', 'high'),
@@ -512,10 +516,6 @@ TIER1B_PATTERNS = [
     (r'federal\s+(?:financial\s+assistance|grant\b)', 'federal_funding', 'fed_grant', 'medium'),
     # federal_land — vegetation management on National Forest land (moved from federal_direct_action)
     (r'vegetation\s+management\b.{0,50}National\s+Forest', 'federal_land', 'usfs_veg_mgmt', 'high'),
-    # federal_permit — generic nuclear EIS/EA (GEIS/GEA + nuclear/NRC/reactor cue)
-    (r'generic\s+(?:environmental\s+impact\s+statement|eis|geis)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_eis', 'high'),
-    (r'generic\s+(?:environmental\s+assessment|ea|gea)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_ea', 'high'),
-    (r'\bNUREG-1437\b', 'federal_permit', 'nureg1437_geis', 'high'),
     # pma — Power Marketing Administration + Tennessee Valley Authority
     (r'\b(?:Bonneville\s+Power\s+Administration|BPA)\b[\s\S]{0,80}\b(?:proposes?\s+to|will|would)\b', 'pma', 'bpa_actor', 'high'),
     (r'\b(?:Western\s+Area\s+Power\s+Administration|WAPA)\b[\s\S]{0,80}\b(?:proposes?\s+to|will|would)\b', 'pma', 'wapa_actor', 'high'),
@@ -542,6 +542,10 @@ TIER1B_PATTERNS = [
 # Programmatic detection uses PROGRAMMATIC_TITLE_PATTERNS + exclusion check (handled separately).
 
 DOC_TITLE_PATTERNS = [
+    # Nuclear generic EIS/EA → federal_permit; must precede generic_review
+    (r'generic\s+(?:environmental\s+impact\s+statement|eis|geis)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_eis'),
+    (r'generic\s+(?:environmental\s+assessment|ea|gea)\b[\s\S]{0,200}\b(?:nuclear|NRC|reactor|license\s+renewal)\b', 'federal_permit', 'generic_nuclear_ea'),
+    (r'\bNUREG-1437\b', 'federal_permit', 'nureg1437_geis'),
     (r'generic\s+(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'generic_review'),
     (r'tier\s*(?:1|i|one)\s+(?:nepa\s+)?(?:review|environmental\s+(?:impact\s+statement|assessment)|eis|ea)\b', 'federal_program', 'tier1_review'),
     (r'(?:environmental\s+(?:impact\s+statement|assessment)|eis|ea)\s+tier\s*(?:1|i|one)\b', 'federal_program', 'tier1_review_rev'),
@@ -1116,6 +1120,17 @@ FUNDING_MECHANISM_PATTERNS = {
         r"\bformula[-\s]based\s+(?:grant|award)s?\b|\bformula\s+(?:grant|award)s?\b|\bEECBG\b",
         re.IGNORECASE,
     ),
+    # DOE EERE PMC-ND determination form: presence of both RECIPIENT: and
+    # "Procurement Instrument Number" reliably identifies a federal grant/award.
+    "pmc_nd_form": re.compile(
+        r"(?=[\s\S]*RECIPIENT\s*:)(?=[\s\S]*Procurement\s+Instrument\s+Number)",
+        re.IGNORECASE,
+    ),
+    # All ARPA-E projects are competitively awarded federal grants.
+    "arpa_e": re.compile(
+        r"\bARPA[-\s]?E\b|\bAdvanced\s+Research\s+Projects\s+Agency[-\s–—]*Energy\b",
+        re.IGNORECASE,
+    ),
     "grant_or_award": re.compile(
         r"\b(?:federal\s+|DOE\s+|Department\s+of\s+Energy\s+)?(?:grant|grants|award|awards)\b",
         re.IGNORECASE,
@@ -1135,6 +1150,8 @@ FUNDING_MECHANISM_PRIORITY = [
     "federal_loan",
     "cooperative_agreement",
     "formula_grant",
+    "pmc_nd_form",
+    "arpa_e",
     "grant_or_award",
     "cost_share",
     "financial_assistance",
