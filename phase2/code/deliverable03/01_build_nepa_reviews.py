@@ -8,7 +8,7 @@
 #   --reviews     projects_nepa_reviews.parquet   base table: tech_group, process_type, triggers
 #   --ce          ce_citations.parquet            one row per (project_id, CE citation)
 #   --visual      projects_visual_impacts.parquet semantic search for visual impact sections
-#   --geothermal  projects_geothermal_og.parquet  BLM geothermal + oil/gas subset
+#   --geothermal  projects_geothermal_og.parquet  clean geothermal + oil/gas subset
 #
 # Usage:
 #   python phase2/code/deliverable03/01_build_nepa_reviews.py              # all modules
@@ -116,25 +116,41 @@ def build_reviews(conn: duckdb.DuckDBPyConnection,
     log("build_reviews: starting", pct=0)
     run_at = datetime.now(timezone.utc).isoformat()
 
-    # Optional random sample — applied to projects before joins
-    sample_clause = f"USING SAMPLE {sample}" if sample else ""
+    # Optional random sample — wrapped as a subquery so JOIN clauses parse cleanly.
+    # DuckDB's USING SAMPLE cannot appear between a table alias and a JOIN keyword.
+    # Scope to the 31,508 analysis universe: Clean (20,725) + Fossil (10,783).
+    # "Other" projects are excluded — they are not energy projects and would
+    # contaminate tech_group and energy_group distributions.
+    # The WHERE filter must be in an inner subquery so USING SAMPLE draws from
+    # the already-filtered 31,508 rows, not the full 61k+ table.
+    scoped = f"SELECT * FROM read_parquet('{PROJECTS_PATH}') WHERE project_energy_type IN ('Clean', 'Fossil')"
+    projects_src = (
+        f"(SELECT * FROM ({scoped}) USING SAMPLE {sample} ROWS)"
+        if sample else
+        f"({scoped})"
+    )
 
-    # Check which optional inputs exist; skip joins gracefully if not
+    # process_type is in projects_combined.parquet directly (p.process_type).
+    # projects_reviews.parquet would add is_linear — use it if present, else NULL.
     reviews_join = (
         f"LEFT JOIN read_parquet('{REVIEWS_PATH}') r ON p.project_id = r.project_id"
         if REVIEWS_PATH.exists() else ""
     )
+    is_linear_col = "r.is_linear," if REVIEWS_PATH.exists() else "NULL AS is_linear,"
+
     triggers_join = (
         f"LEFT JOIN read_parquet('{TRIGGERS_PATH}') t ON p.project_id = t.project_id"
         if TRIGGERS_PATH.exists() else ""
     )
-    reviews_cols = "r.process_type, r.is_linear," if REVIEWS_PATH.exists() else "NULL AS process_type, NULL AS is_linear,"
     triggers_cols = "t.nepa_trigger_primary" if TRIGGERS_PATH.exists() else "NULL AS nepa_trigger_primary"
 
     if not REVIEWS_PATH.exists():
-        log("build_reviews: WARNING -- projects_reviews.parquet not found; process_type/is_linear will be NULL")
+        log("build_reviews: projects_reviews.parquet not found; is_linear will be NULL (process_type read from projects_combined)")
     if not TRIGGERS_PATH.exists():
         log("build_reviews: WARNING -- projects_nepa_trigger.parquet not found; nepa_trigger_primary will be NULL")
+    else:
+        n_trigger = conn.execute(f"SELECT count(DISTINCT project_id) FROM read_parquet('{TRIGGERS_PATH}')").fetchone()[0]
+        log(f"build_reviews: trigger file has {n_trigger:,} projects (clean energy only; fossil will have NULL triggers)")
 
     # All joins + tech_group derivation in one DuckDB query.
     # project_type is stored as a list or JSON string; cast to VARCHAR for regex matching.
@@ -149,32 +165,73 @@ def build_reviews(conn: duckdb.DuckDBPyConnection,
             p.project_lat,
             p.project_lon,
             p.project_type,
+            -- tech_group maps NEPATEC project_type labels to display categories.
+            -- project_type is a JSON array; casting to VARCHAR lets us substring-match
+            -- the known taxonomy labels (see phase1/notes/project_types.txt).
+            -- Clean and fossil labels are gated by project_energy_type so cross-tagged
+            -- records do not leak across comparison groups.
             CASE
-                WHEN regexp_matches(lower(p.project_type::VARCHAR), 'wind')
-                    THEN 'Wind'
-                WHEN regexp_matches(lower(p.project_type::VARCHAR), 'solar|photovoltaic|\\bpv\\b')
-                    THEN 'Solar'
-                WHEN regexp_matches(lower(p.project_type::VARCHAR), 'transmission')
-                    THEN 'Transmission'
-                WHEN regexp_matches(lower(p.project_type::VARCHAR), 'geothermal')
+                -- Clean: Renewable Energy Production labels
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Geothermal%'
                     THEN 'Geothermal'
-                WHEN regexp_matches(lower(p.project_type::VARCHAR), 'natural gas|lng|methane')
-                    THEN 'Natural Gas'
-                WHEN regexp_matches(lower(p.project_type::VARCHAR), 'oil|petroleum')
-                    THEN 'Oil & Gas'
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Wind%'
+                    THEN 'Wind'
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Solar%'
+                    THEN 'Solar'
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Electricity Transmission%'
+                    THEN 'Transmission'
+                WHEN p.project_energy_type = 'Clean'
+                    AND (
+                        p.project_type::VARCHAR LIKE '%Hydropower%'
+                        OR p.project_type::VARCHAR LIKE '%Hydrokinetic%'
+                    )
+                    THEN 'Hydropower'
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Biomass%'
+                    THEN 'Biomass'
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Energy Storage%'
+                    THEN 'Energy Storage'
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Carbon Capture%'
+                    THEN 'CCS'
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Nuclear%'
+                    THEN 'Nuclear'
+                -- Fossil: exact NEPATEC fossil labels (land-based and offshore are separate NEPATEC categories)
+                WHEN p.project_energy_type = 'Fossil'
+                    AND p.project_type::VARCHAR LIKE '%Land-based Oil%'
+                    THEN 'Land-based Oil & Gas'
+                WHEN p.project_energy_type = 'Fossil'
+                    AND p.project_type::VARCHAR LIKE '%Offshore Oil%'
+                    THEN 'Offshore Oil & Gas'
+                WHEN p.project_energy_type = 'Fossil'
+                    AND p.project_type::VARCHAR LIKE '%Coal%'
+                    THEN 'Coal'
+                WHEN p.project_energy_type = 'Fossil'
+                    AND p.project_type::VARCHAR LIKE '%Pipeline%'
+                    THEN 'Pipeline'
+                WHEN p.project_energy_type = 'Fossil'
+                    AND p.project_type::VARCHAR LIKE '%Rural Energy%'
+                    THEN 'Rural Energy'
+                -- Fallbacks by energy type (catches multi-label projects with no
+                -- primary energy label, e.g. ["Research and Development", "Utilities"])
                 WHEN p.project_energy_type = 'Clean'  THEN 'Other Clean'
-                WHEN p.project_energy_type = 'Fossil' THEN 'Other Fossil'
-                ELSE 'Other'
+                ELSE 'Other Fossil'
             END AS tech_group,
             CASE
                 WHEN p.project_energy_type = 'Clean'  THEN 'Decarbonization'
                 WHEN p.project_energy_type = 'Fossil' THEN 'Fossil Fuel'
-                ELSE 'Other'
             END AS energy_group,
-            {reviews_cols}
+            p.process_type,
+            {is_linear_col}
             {triggers_cols},
             '{run_at}' AS nepa_reviews_extraction_run_at
-        FROM read_parquet('{PROJECTS_PATH}') p {sample_clause}
+        FROM {projects_src} p
         {reviews_join}
         {triggers_join}
     """).fetchdf()
@@ -327,14 +384,15 @@ def _build_pages_query(pages_path: Path, docs_path: Path,
               AND length(page_text) > 100
             ORDER BY project_id, {pnum}
         """
-    # pages only have document_id; join through documents.parquet to get project_id
+    # pages only have document_id; join through documents.parquet to get project_id.
+    # documents.parquet stores project_id as STRUCT("value" VARCHAR) — unwrap with .value
     return f"""
-        SELECT d.project_id, p.{pnum} AS page_num, p.page_text
+        SELECT d.project_id.value AS project_id, p.{pnum} AS page_num, p.page_text
         FROM read_parquet('{pages_path}') p
         JOIN read_parquet('{docs_path}') d USING (document_id)
-        WHERE d.project_id IN ({ids_str})
+        WHERE d.project_id.value IN ({ids_str})
           AND length(p.page_text) > 100
-        ORDER BY d.project_id, p.{pnum}
+        ORDER BY d.project_id.value, p.{pnum}
     """
 
 
@@ -363,8 +421,9 @@ def extract_visual_impacts(conn: duckdb.DuckDBPyConnection,
         if schema_key == "project_id":
             id_src = f"SELECT DISTINCT project_id FROM read_parquet('{pages_path}')"
         else:
+            # documents.parquet stores project_id as STRUCT("value" VARCHAR) — unwrap with .value
             id_src = (
-                f"SELECT DISTINCT d.project_id "
+                f"SELECT DISTINCT d.project_id.value AS project_id "
                 f"FROM read_parquet('{pages_path}') p "
                 f"JOIN read_parquet('{docs_path}') d USING (document_id)"
             )
@@ -470,7 +529,7 @@ def extract_visual_impacts(conn: duckdb.DuckDBPyConnection,
 # --------------------------
 
 def build_geothermal_og(conn: duckdb.DuckDBPyConnection) -> None:
-    """Subset the base reviews table to BLM geothermal + oil/gas projects."""
+    """Subset the base reviews table to Clean geothermal + all oil/gas projects."""
     log("build_geothermal_og: starting", pct=90)
 
     if not REVIEWS_OUT.exists():
@@ -480,9 +539,8 @@ def build_geothermal_og(conn: duckdb.DuckDBPyConnection) -> None:
     df = conn.execute(f"""
         SELECT *
         FROM read_parquet('{REVIEWS_OUT}')
-        WHERE tech_group IN ('Geothermal', 'Oil & Gas', 'Natural Gas')
-          AND regexp_matches(lead_agency_harmonized::VARCHAR,
-                             'BLM|Bureau of Land Management')
+        WHERE (tech_group = 'Geothermal' AND project_energy_type = 'Clean')
+           OR tech_group IN ('Land-based Oil & Gas', 'Offshore Oil & Gas')
     """).fetchdf()
 
     df.to_parquet(GEO_OG_OUT, index=False)
