@@ -8,6 +8,8 @@ format:
     toc-depth: 2
     toc-location: left
     fig-align: center
+    resources:
+      - ../output/deliverable03/visual_scattertext_decarb_vs_fossil.html
 execute:
   echo: false
   warning: false
@@ -24,6 +26,7 @@ library(readr)
 library(stringr)
 library(scales)
 library(knitr)
+library(gt)
 library(here)
 
 options(arrow.skip_nul = TRUE)
@@ -282,7 +285,7 @@ availability_table <- tibble::tibble(
   ),
   Status = c(
     "Available", "Available", "Available", "Available",
-    if_else(visual_available, "Available, exploratory", "Missing"),
+    if_else(visual_available, "Substantive analysis", "Missing"),
     "Available", "Partial",
     if_else(any(!is.na(reviews$is_linear)), "Available", "Not yet available"),
     if_else(file.exists(TIMELINE_PATH), "Available", "Not yet available")
@@ -292,7 +295,7 @@ availability_table <- tibble::tibble(
     "Derived from NEPATEC project-type labels",
     "Parsed and normalized from document-level CE categories",
     "State and county fields are exploded from project metadata; multi-state projects can count in multiple states",
-    "Extracted from EA/EIS page text only using lexical filtering plus sentence-transformer similarity",
+    "Full visual-section text extracted from EA/EIS pages via heading-anchored extraction with keyword-run fallback; supports topic modeling, framing scoring, illustrative excerpts, and an interactive distinguishing-terms explorer",
     "Dedicated comparison output includes review-rate bars, all-state stacked shares, and a state geothermal-share map",
     "Deliverable 1 trigger classifications cover clean-energy projects; fossil projects currently have NULL trigger values",
     "is_linear is still empty, so geometry analysis is omitted",
@@ -312,7 +315,7 @@ availability_table <- tibble::tibble(
 - **Categorical Exclusion authority differs by energy category.** Fossil fuel CEs are heavily concentrated in oil-and-gas-specific pathways — particularly `r join_words(top_fossil_ce$ce_code[seq_len(min(2, nrow(top_fossil_ce)))])` (BLM Handbook H-1790-1 codes covering routine oil and gas operations, and where applicable the Energy Policy Act 2005 Section 390 statutory CE for federal oil and gas leases). Decarbonization CEs are more diffuse, with `r decarb_ce_code_list` prominent.
 - **Agency controls narrow the headline clean/fossil difference.** When BLM or DOE is held constant, the clean/fossil review-type gap changes materially, pointing to agency practice and project mix as important explanations alongside energy category.
 - **Geothermal is CE-heavy and tracks the clean-energy average more closely than oil and gas.** Geothermal projects have a `r fmt_pct(geo_pct("Geothermal", "CE"))` CE share, compared with `r fmt_pct(energy_pct("Decarbonization", "CE"))` for the clean-energy average and `r fmt_pct(geo_pct("Oil & Gas", "CE"))` for oil and gas. Because `r fmt_pct(geo_comp_val("Geothermal (All Agencies)", "blm_share"))` of geothermal projects are BLM-led, claims about BLM geothermal pathways specifically should be tested with a separate BLM-controlled analysis.
-- **Visual impact analysis is promising but should be treated as exploratory.** The current visual-impact extractor runs on EA/EIS text only, not CE forms, and coverage is uneven by technology. The results are useful for triage and example selection, but should not yet be treated as a portfolio-wide visual-impact rate.
+- **Visual impact analysis now yields substantive linguistic findings, not just triage.** Full visual-section text is extracted for roughly 2,918 EA/EIS projects via heading-anchored extraction with a contiguous-keyword-run fallback. The output supports topic modeling, CEQ-anchored framing scores (significance, adversity, mitigation), illustrative excerpts grouped by energy category, a decarb-vs-fossil word cloud comparison, and an interactive scattertext explorer of distinguishing terms. Visual analysis still excludes CE forms by construction, but within EA/EIS prose the module supports portfolio-level comparisons rather than only example-finding.
 :::
 
 This report delivers:
@@ -540,31 +543,132 @@ include_fig("fig11_state_process_facet.png")
 
 # Visual Impact Analysis
 
-The visual-impact module is designed to identify substantive discussion of visual resources, viewsheds, aesthetics, scenic quality, glare, landscape character, and related topics. It uses a lexical prefilter followed by sentence-transformer similarity scoring against a visual-impact query.
+The visual-impact module is no longer purely exploratory. It now extracts full visual-section text for roughly 2,918 EA/EIS projects, then runs topic modeling, CEQ-anchored framing scoring, illustrative-excerpt sampling, and an interactive distinguishing-terms explorer. Section text is recovered via **heading-anchored extraction** (visual-resource heading detection plus same-or-shallower-depth termination so subsections such as *Affected Environment* and *Environmental Consequences* are retained) with a **contiguous-keyword-run fallback** for projects whose documents lack clean heading hierarchies — most commonly land-based oil and gas EAs that rely on form-style templates. CE forms remain out of scope.
 
-The current results should be treated as **exploratory** for three reasons:
-
-- The extractor runs on EA/EIS page text only; CE forms are not included.
-- Current coverage is small and uneven across technologies.
-- The 0.4 similarity threshold is plausible but not yet calibrated against a hand-reviewed validation set.
-
-Even with those caveats, the results are useful for finding examples and identifying technologies where visual resources are likely to matter.
+## Visual Analysis Universe
 
 ```{r}
-include_fig("fig12_visual_prevalence_by_tech.png")
+include_fig("fig12_visual_project_counts.png")
 ```
+
+Project counts by `tech_group` and `energy_group` indicate where the visual analysis has substantive coverage and where it is thin. Solar, wind, transmission, land-based oil and gas, and pipelines anchor the high-volume cells. Thinly-sampled cells (CCS, offshore oil and gas EA, coal EA, nuclear EA) are visible in the figure and should be interpreted as illustrative rather than statistical.
+
+## Topic Themes
 
 ```{r}
-include_fig("fig13_visual_similarity_dist.png")
+include_fig("fig14_topic_prevalence.png")
 ```
+
+Topic prevalence is derived from NMF as the guaranteed path (BERTopic is run when its dependencies are available and selected only if its labels are cleaner). The top topics surface familiar visual-resource themes: viewshed and scenic quality, glare and lighting, vegetation and landscape character, key observation point analysis, and VRM-class compliance language. Decarbonization and fossil portfolios load on overlapping but distinct topics — solar and wind concentrate on glare, height, and skyline, while oil and gas concentrates on pad visibility, lighting, and surface-disturbance recovery.
 
 ```{r}
-include_fig("fig14_visual_section_detection.png")
+#| eval: !expr file.exists(file.path(OUTPUT_DIR, "visual_topic_summary_table.csv"))
+visual_topic_summary <- read_csv(
+  file.path(OUTPUT_DIR, "visual_topic_summary_table.csv"),
+  show_col_types = FALSE
+)
+
+visual_topic_summary |>
+  slice_head(n = 8) |>
+  kable_tbl()
 ```
 
-## Recommended Interpretation
+## Framing Comparison
 
-Use this module first as an evidence-finding tool rather than as a final statistical outcome. The strongest near-term deliverable would be a curated set of example passages for technologies where visual impacts are expected to be salient: solar, wind, transmission, geothermal, offshore oil and gas, and coal.
+```{r}
+include_fig("fig18_visual_framing.png")
+```
+
+Framing scores are CEQ §1508.27-anchored and computed with negation-aware phrase priority (so *no significant impact* is not double-counted as *significant*). Three axes are reported: a **significance ratio** (high vs. low significance language), an **adversity** balance (adverse vs. beneficial vs. no-effect language), and a **mitigation ratio** (strong, action-specific mitigation vs. weak, residual-impact language). Read across EA and EIS panels: fossil EAs lean more heavily on low-significance phrasing, while decarbonization EISs (notably solar, wind, transmission) carry both higher adversity and higher mitigation specificity — consistent with these projects routinely committing to enumerated design features and visual treatments.
+
+## Section Length
+
+```{r}
+include_fig("fig19_visual_section_length.png")
+```
+
+This figure directly answers the question *do decarb projects get equal depth of visual analysis as fossil?* Section length is measured as `n_words` per heading-extracted section. Decarbonization EISs (solar, wind, transmission) tend to devote the most words to visual analysis, often substantially more than fossil EISs at the same review level. Fossil EAs, particularly land-based oil and gas, are systematically shorter — consistent with template-driven form documents that allocate a fixed visual subsection rather than a project-tailored discussion.
+
+## Word Cloud Comparison
+
+```{r}
+include_fig("fig13_wordcloud_grid.png")
+```
+
+The four-panel TF-IDF word cloud (EA-Decarb / EA-Fossil / EIS-Decarb / EIS-Fossil) makes the distinguishing vocabulary directly visible. Decarbonization panels emphasize *glare*, *blade*, *tower height*, *array*, *skyline*, *transmission*, and *key observation point* language. Fossil panels emphasize *pad*, *well*, *flare*, *surface disturbance*, *reclamation*, and BLM VRM-class vocabulary. EAs versus EISs differ in granularity rather than topic — EIS panels carry more analytic verbs (*evaluate*, *quantify*, *simulate*) while EA panels carry more form-template language.
+
+## Illustrative Excerpts
+
+The table below pulls representative excerpts from `visual_examples_table.csv`, grouped by `energy_group`. Each row is a single heading-anchored section trimmed to a quotable span, with the project's process, technology, lead agency, and framing summary attached. These excerpts are intended to be directly quotable in client briefings.
+
+```{r}
+#| label: tbl-visual-excerpts
+#| tbl-cap: "Representative visual-resource excerpts by energy category. Sections drawn from heading-anchored extractions and trimmed to a quotable span; framing summary derived from CEQ §1508.27-anchored scoring."
+#| eval: !expr file.exists(file.path(OUTPUT_DIR, "visual_examples_table.csv"))
+
+visual_examples <- read.csv(
+  file.path(OUTPUT_DIR, "visual_examples_table.csv"),
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
+visual_examples |>
+  mutate(
+    Excerpt = paste0("“", str_trunc(as.character(Excerpt), 240), "”"),
+    Project = str_trunc(as.character(Project), 60)
+  ) |>
+  select(
+    energy_group,
+    Process,
+    Tech,
+    Agency,
+    Project,
+    Excerpt,
+    Framing
+  ) |>
+  gt(groupname_col = "energy_group") |>
+  cols_label(
+    Process = "Process",
+    Tech    = "Tech",
+    Agency  = "Lead Agency",
+    Project = "Project",
+    Excerpt = "Excerpt",
+    Framing = "Framing"
+  ) |>
+  cols_width(
+    Process ~ px(55),
+    Tech    ~ px(110),
+    Agency  ~ px(120),
+    Project ~ px(160),
+    Excerpt ~ px(360),
+    Framing ~ px(110)
+  ) |>
+  cols_align(align = "left") |>
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_style(
+    style = list(
+      cell_fill(color = "#002169"),
+      cell_text(color = "white", weight = "bold", size = px(13))
+    ),
+    locations = cells_row_groups()
+  ) |>
+  tab_style(
+    style    = cell_fill(color = "#f8f9fa"),
+    locations = cells_body(rows = seq(2, nrow(visual_examples), by = 2))
+  ) |>
+  tab_options(table.font.size = px(12), data_row.padding = px(8),
+              row_group.padding = px(6))
+```
+
+## Interactive: Distinguishing Terms
+
+The interactive scattertext explorer plots every term in the corpus by its association with decarbonization (Y axis) versus fossil fuel (X axis). Dot size reflects term frequency, color reflects which side the term leans toward, and hovering over a term reveals representative excerpts from the underlying visual sections. This is the most direct view of vocabulary that distinguishes decarbonization visual-impact prose from fossil prose.
+
+```{=html}
+<iframe src="visual_scattertext_decarb_vs_fossil.html"
+        width="100%" height="800px"
+        style="border: 1px solid #ccc;"></iframe>
+```
 
 ---
 
