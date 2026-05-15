@@ -63,7 +63,7 @@ theme_catf <- function(base_size = 11, base_family = "Helvetica") {
                                               color = catf_navy, margin = ggplot2::margin(b = 10)),
       plot.subtitle   = ggplot2::element_text(size = ggplot2::rel(0.9),
                                               color = catf_dark_blue, margin = ggplot2::margin(b = 10)),
-      plot.caption    = ggplot2::element_text(size = ggplot2::rel(0.8), color = "gray50", hjust = 1),
+      plot.caption    = ggplot2::element_text(size = ggplot2::rel(0.8), color = "gray50", hjust = 0),
       axis.title      = ggplot2::element_text(size = ggplot2::rel(0.9), color = catf_navy),
       axis.text       = ggplot2::element_text(size = ggplot2::rel(0.85), color = "gray30"),
       axis.line       = ggplot2::element_line(color = "gray70", linewidth = 0.3),
