@@ -111,6 +111,8 @@ VISUAL_TOPICS_PATH        <- file.path(D03_DIR, "visual_topics.parquet")
 VISUAL_TOPIC_SUMMARY_PATH <- file.path(D03_DIR, "visual_topic_summary.parquet")
 VISUAL_FRAMING_PATH       <- file.path(D03_DIR, "visual_framing.parquet")
 VISUAL_EXAMPLES_PATH      <- file.path(D03_DIR, "visual_examples.parquet")
+VISUAL_TOPIC_TERMS_PATH   <- file.path(OUTPUT_DIR, "visual_topic_terms_detail.csv")
+VISUAL_TOPIC_EXCERPTS_PATH <- file.path(OUTPUT_DIR, "visual_topic_excerpts.csv")
 
 # --------------------------
 # BRAND CONSTANTS
@@ -839,17 +841,48 @@ if (!VISUAL_TEXT_AVAILABLE) {
 
     if (!exists("vtext")) vtext <- read_parquet(VISUAL_TEXT_PATH)
 
-    # NEPA stopword list (mirrors Python NEPA_STOPWORDS in spirit; tidytext's
-    # stop_words covers SMART/onix/snowball, supplemented with NEPA boilerplate)
+    # NEPA stopword list — covers NEPA boilerplate, visual-section universal
+    # terms, agency jargon, and geographic/measurement fillers. Terms that
+    # appear equally in all four cells have near-zero TF-IDF and just add noise.
     nepa_stop <- c(
+      # NEPA process boilerplate
       "project", "alternative", "alternatives", "action", "actions",
-      "proposed", "would", "may", "area", "areas", "site", "sites",
-      "section", "appendix", "table", "figure", "page", "pages", "see",
-      "also", "et", "al", "e.g", "i.e", "etc", "u.s", "us",
-      "impact", "impacts", "effect", "effects", "resource", "resources",
-      "environmental", "environment", "analysis", "analyses", "review",
-      "agency", "federal", "blm", "doe", "nepa", "ea", "eis",
-      "page_break", "pagebreak", "draft", "final"
+      "proposed", "would", "may", "shall", "must", "could", "might",
+      "area", "areas", "site", "sites", "section", "sections",
+      "appendix", "table", "figure", "page", "pages", "see", "also",
+      "et", "al", "e.g", "i.e", "etc", "u.s", "us",
+      "impact", "impacts", "effect", "effects", "affect", "affects",
+      "resource", "resources", "environmental", "environment",
+      "analysis", "analyses", "review", "assessment",
+      "agency", "agencies", "federal", "department", "bureau", "office",
+      "blm", "doe", "nepa", "ea", "eis", "bor", "fws", "usfs", "army",
+      "page_break", "pagebreak", "draft", "final", "deis", "feis",
+      "applicant", "operator", "lessee", "permittee",
+      # visual-section universal terms (appear in all cells equally)
+      "visual", "scenic", "landscape", "aesthetics", "aesthetic",
+      "viewshed", "view", "views", "scenery", "character",
+      # BLM VRM framework jargon (splits cells by admin framework, not impact type)
+      "vrm", "kop", "class", "lands", "land", "management",
+      "plan", "plans", "planning",
+      # measurement and geographic fillers
+      "acres", "miles", "mile", "feet", "foot", "percent",
+      "road", "roads", "surface", "adjacent", "within", "along",
+      "near", "around", "north", "south", "east", "west",
+      "northern", "southern", "eastern", "western",
+      "county", "state", "national", "public",
+      "located", "location", "locations",
+      # project lifecycle boilerplate
+      "construction", "operation", "operations", "facilities", "facility",
+      "development", "activities", "activity", "during", "after", "before",
+      "long", "term", "short", "existing", "new", "proposed",
+      # common qualifiers that span all groups
+      "significant", "less", "greater", "high", "low", "level",
+      "potential", "potentially", "associated", "result", "results",
+      "expected", "anticipated", "approximately", "generally", "typically",
+      "water", "vegetation", "habitat", "species", "soil",
+      # process verbs
+      "considered", "evaluated", "identified", "determined", "described",
+      "include", "includes", "including", "require", "requires"
     )
 
     wc_text <- vtext |>
@@ -1248,6 +1281,120 @@ if (!VISUAL_EXAMPLES_AVAILABLE) {
     }
   }, error = function(e) {
     message(sprintf("Examples table skipped: %s", conditionMessage(e)))
+  })
+}
+
+# ---------------------------------------------------------------------------
+# fig14b — Topic term weights (companion to fig14)
+# Faceted lollipop chart: top 10 NMF terms per topic, sized by component weight.
+# ---------------------------------------------------------------------------
+if (!file.exists(VISUAL_TOPIC_TERMS_PATH)) {
+  message("fig14b skipped: visual_topic_terms_detail.csv not found.")
+} else {
+  tryCatch({
+    topic_terms <- read.csv(VISUAL_TOPIC_TERMS_PATH, stringsAsFactors = FALSE) |>
+      filter(model == "nmf", rank <= 10)
+
+    # Join in human-readable label from topic summary if available
+    if (file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
+      ts_labels <- read_parquet(VISUAL_TOPIC_SUMMARY_PATH) |>
+        filter(model == "nmf") |>
+        select(topic_id, label, n_total)
+      topic_terms <- topic_terms |>
+        left_join(ts_labels, by = "topic_id") |>
+        mutate(panel_label = paste0("Topic ", topic_id, ": ", label,
+                                    " (n=", scales::comma(n_total), ")"))
+    } else {
+      topic_terms <- topic_terms |>
+        mutate(panel_label = paste0("Topic ", topic_id, ": ", topic_label))
+    }
+
+    topic_terms <- topic_terms |>
+      mutate(
+        term = fct_reorder(term, weight),
+        panel_label = factor(panel_label)
+      )
+
+    ggplot(topic_terms, aes(x = weight, y = term)) +
+      geom_segment(aes(xend = 0, yend = term), color = "grey70", linewidth = 0.5) +
+      geom_point(aes(size = weight), color = catf_dark_blue, alpha = 0.85) +
+      scale_size_continuous(range = c(1.5, 5), guide = "none") +
+      facet_wrap(~ panel_label, scales = "free_y", ncol = 2) +
+      labs(
+        x = "NMF component weight (higher = more characteristic of topic)",
+        y = NULL,
+        title = "Top 10 Terms per Visual-Impact Topic (NMF)",
+        subtitle = "Term weight reflects how strongly each word characterises its topic relative to others",
+        caption = DATA_CAPTION
+      ) +
+      theme_catf() +
+      theme(
+        strip.text     = element_text(size = 8, face = "bold", hjust = 0),
+        axis.text.y    = element_text(size = 8),
+        panel.grid.major.y = element_blank(),
+        panel.grid.major.x = element_line(color = "grey90")
+      )
+
+    save_fig("fig14b_topic_terms.png", width = 13, height = 10)
+  }, error = function(e) {
+    message(sprintf("fig14b skipped: %s", conditionMessage(e)))
+  })
+}
+
+# ---------------------------------------------------------------------------
+# fig14c — Topic excerpt table (companion text examples)
+# ---------------------------------------------------------------------------
+if (!file.exists(VISUAL_TOPIC_EXCERPTS_PATH)) {
+  message("fig14c skipped: visual_topic_excerpts.csv not found.")
+} else {
+  tryCatch({
+    excerpts <- read.csv(VISUAL_TOPIC_EXCERPTS_PATH, stringsAsFactors = FALSE)
+
+    # Truncate excerpts to ~250 chars for display
+    excerpts <- excerpts |>
+      mutate(
+        excerpt_short = ifelse(nchar(excerpt) > 250,
+                               paste0(substr(excerpt, 1, 247), "..."),
+                               excerpt),
+        cell = paste0(energy_group, " | ", tech_group)
+      ) |>
+      select(topic_id, topic_label, cell, excerpt_short)
+
+    write.csv(excerpts,
+              file.path(OUTPUT_DIR, "visual_topic_excerpts_table.csv"),
+              row.names = FALSE)
+
+    tryCatch({
+      suppressPackageStartupMessages(library(gt))
+      gt_exc <- excerpts |>
+        rename(
+          `Topic` = topic_label,
+          `Energy · Technology` = cell,
+          `Example text` = excerpt_short
+        ) |>
+        select(-topic_id) |>
+        gt::gt(groupname_col = "Topic") |>
+        gt::cols_align(align = "left") |>
+        gt::tab_style(
+          style    = gt::cell_text(weight = "bold"),
+          locations = gt::cells_row_groups()
+        ) |>
+        gt::tab_options(
+          table.font.size   = gt::px(11),
+          data_row.padding  = gt::px(6),
+          row_group.padding = gt::px(5)
+        ) |>
+        gt::tab_header(
+          title    = "Visual-Impact Topic Examples",
+          subtitle = "Three representative excerpts per NMF topic"
+        )
+      gt::gtsave(gt_exc, file.path(OUTPUT_DIR, "visual_topic_excerpts_table.html"))
+      message("fig14c: wrote visual_topic_excerpts_table.html")
+    }, error = function(e) {
+      message(sprintf("fig14c HTML skipped (gt error): %s", conditionMessage(e)))
+    })
+  }, error = function(e) {
+    message(sprintf("fig14c skipped: %s", conditionMessage(e)))
   })
 }
 

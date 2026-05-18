@@ -2,18 +2,19 @@
 # DELIVERABLE 3: NEPA Review Patterns — Data Builder
 # --------------------------
 # Builds all analysis datasets for D03 (fossil vs. decarbonization review patterns).
-# Follows the same single-Python-script pattern as deliverable01.
 #
 # Modules (each has its own output parquet; default runs all):
-#   --reviews     projects_nepa_reviews.parquet   base table: tech_group, process_type, triggers
-#   --ce          ce_citations.parquet            one row per (project_id, CE citation)
-#   --visual      projects_visual_impacts.parquet semantic search for visual impact sections
-#   --geothermal  projects_geothermal_og.parquet  clean geothermal + oil/gas subset
+#   --reviews       projects_nepa_reviews.parquet   base table: tech_group, process_type, triggers
+#   --ce            ce_citations.parquet            one row per (project_id, CE citation)
+#   --visual        projects_visual_impacts.parquet semantic search for visual impact sections
+#   --section-layer Use pre-built section layer from 01_identify_visual_impact_candidates.py
+#                   (fast; no page-reading or embeddings). Runs framing, topics, examples, QA.
+#   --geothermal    projects_geothermal_og.parquet  clean geothermal + oil/gas subset
 #
-# Usage:
-#   python phase2/code/deliverable03/01_build_nepa_reviews.py              # all modules
-#   python phase2/code/deliverable03/01_build_nepa_reviews.py --reviews    # base only (fast)
-#   python phase2/code/deliverable03/01_build_nepa_reviews.py --visual --sample 20
+# Recommended usage (preferred pipeline):
+#   conda run -n nepa python phase2/code/deliverable03/01_identify_visual_impact_candidates.py
+#   conda run -n nepa python phase2/code/deliverable03/02_build_nepa_reviews.py --section-layer
+#   Rscript phase2/code/deliverable03/04_analyze_nepa_reviews.R
 #
 # Output: phase2/data/analysis/deliverable03/
 
@@ -77,6 +78,10 @@ CE_OUT       = OUT_DIR / "ce_citations.parquet"
 VISUAL_OUT   = OUT_DIR / "projects_visual_impacts.parquet"
 GEO_OG_OUT   = OUT_DIR / "projects_geothermal_og.parquet"
 
+# Outputs from 01_identify_visual_impact_candidates.py (section-layer pipeline)
+VISUAL_IMPACT_SECTIONS_SRC  = OUT_DIR / "visual_impact_sections_from_document_sections.parquet"
+PROJECTS_VISUAL_TEXT_SRC    = OUT_DIR / "projects_visual_text_from_document_sections.parquet"
+
 # Stage 1-8 outputs (new visual pipeline)
 VISUAL_SECTIONS_OUT     = OUT_DIR / "visual_sections.parquet"
 PROJECTS_VISUAL_TEXT    = OUT_DIR / "projects_visual_text.parquet"
@@ -90,8 +95,10 @@ VISUAL_QA_SAMPLE_OUT    = OUT_DIR / "visual_qa_sample.parquet"
 # HTML / CSV outputs land in phase2/output/deliverable03/
 OUTPUT_DIR = BASE_DIR / "output" / "deliverable03"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-VISUAL_SCATTERTEXT_HTML = OUTPUT_DIR / "visual_scattertext_decarb_vs_fossil.html"
-VISUAL_QA_SAMPLE_CSV    = OUTPUT_DIR / "visual_qa_sample.csv"
+VISUAL_SCATTERTEXT_HTML   = OUTPUT_DIR / "visual_scattertext_decarb_vs_fossil.html"
+VISUAL_QA_SAMPLE_CSV      = OUTPUT_DIR / "visual_qa_sample.csv"
+VISUAL_TOPIC_TERMS_CSV    = OUTPUT_DIR / "visual_topic_terms_detail.csv"
+VISUAL_TOPIC_EXCERPTS_CSV = OUTPUT_DIR / "visual_topic_excerpts.csv"
 
 # --------------------------
 # VISUAL IMPACT CONSTANTS
@@ -638,7 +645,70 @@ NEPA_DOMAIN_STOPWORDS = {
     "resource", "resources", "environmental", "environment",
     # numerics that sneak past min_df
     "one", "two", "three", "four", "five", "ten", "first", "second",
+    # visual-section boilerplate: these appear in every cell equally
+    # and would dominate NMF without stoppping
+    "visual", "scenic", "landscape", "aesthetics", "aesthetic",
+    "viewshed", "view", "views", "scenery",
+    # BLM / agency-specific jargon that splits topics by admin framework
+    # rather than by visual impact type
+    "blm", "vrm", "kop", "class", "lands", "land",
+    "management", "plan", "plans", "planning",
+    # measurement / geographic fillers
+    "acres", "miles", "mile", "feet", "road", "roads", "surface",
+    "adjacent", "within", "along", "near", "around",
+    # project-lifecycle boilerplate
+    "construction", "operation", "operations", "facilities", "facility",
+    "development", "activities", "activity", "during", "after",
+    "long", "term", "short", "existing", "new",
+    # common NEPA qualifiers
+    "impact", "impacts", "effect", "effects", "affect", "affects",
+    "significant", "less", "greater", "high", "low", "level",
+    "water", "vegetation", "habitat", "species", "soil",
+    "county", "state", "national", "public",
 }
+
+# Regex matching sentences that discuss visual impacts (as opposed to project
+# description sentences). Used to pre-filter text before NMF so the model
+# finds impact-TYPE topics rather than project-TYPE topics.
+_VISUAL_IMPACT_SENT_RE = re.compile(
+    r"\b("
+    r"glare|glint|reflect(?:ion|ive|ivity)|non.reflective|anti.reflective|"
+    r"flicker|shadow flicker|stroboscopic|"
+    r"viewshed|view shed|line of sight|seen from|visible from|"
+    r"visual contrast|contrast rating|visual character|"
+    r"landscape character|visual quality|visual dominance|visual intrusion|"
+    r"scenic quality|scenic integrity|scenic resources|"
+    r"foreground|middleground|middle ground|background|"
+    r"night sky|dark sky|light pollution|skyglow|astronomical|"
+    r"skyline|ridgeline|silhouette|"
+    r"observer|viewer|sensitive viewer|viewer sensitivity|"
+    r"color treatment|paint|painted|non.reflective coating|"
+    r"screening|vegetative screen|visual screen|"
+    r"visible|visibility|visually|"
+    r"shadow|shade|shading|"
+    r"aesthetic character|aesthetic quality|"
+    r"color|colour|form|texture|line.*horizon"
+    r")\b",
+    re.IGNORECASE,
+)
+
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def _extract_impact_sentences(text: str) -> str:
+    """Return only sentences containing visual impact vocabulary.
+
+    Strips project-description sentences (which dominate and mislead NMF)
+    and keeps only the impact-discussion content. Falls back to full text
+    if fewer than 3 sentences match, to avoid empty documents.
+    """
+    if not text:
+        return ""
+    sentences = _SENT_SPLIT_RE.split(text)
+    kept = [s for s in sentences if _VISUAL_IMPACT_SENT_RE.search(s)]
+    if len(kept) < 3:
+        return text
+    return " ".join(kept)
 
 
 def _make_nepa_stopwords() -> frozenset:
@@ -1146,6 +1216,73 @@ def _count_framing_axes(text: str) -> dict:
     }
 
 
+def adapt_section_layer() -> None:
+    """Bridge 01_identify_visual_impact_candidates.py outputs into the schema
+    expected by build_framing(), build_topics(), build_examples(), build_qa_sample().
+
+    Reads:
+      visual_impact_sections_from_document_sections.parquet  (section-level)
+      projects_visual_text_from_document_sections.parquet    (project-level)
+    Writes:
+      visual_sections.parquet      (section-level, consumed by build_examples + build_qa_sample)
+      projects_visual_text.parquet (project-level, consumed by build_framing + build_topics)
+    """
+    log("adapt_section_layer: starting Stage 1", pct=50)
+
+    for src, label in [
+        (VISUAL_IMPACT_SECTIONS_SRC, "visual_impact_sections"),
+        (PROJECTS_VISUAL_TEXT_SRC, "projects_visual_text"),
+    ]:
+        if not src.exists():
+            log(
+                f"adapt_section_layer: ERROR -- {src.name} not found; "
+                "run 01_identify_visual_impact_candidates.py first"
+            )
+            return
+
+    run_at = datetime.now(timezone.utc).isoformat()
+    _marker_re = re.compile(r"\[\[.*?\]\]\n?", re.DOTALL)
+
+    # --- Section-level ---
+    sections = pd.read_parquet(VISUAL_IMPACT_SECTIONS_SRC)
+    sections["extraction_method"] = sections["extraction_unit"].map(
+        {"structural_heading": "heading_anchored", "full_section_fallback": "keyword_run"}
+    ).fillna("keyword_run")
+    sections = sections.rename(columns={
+        "section_words": "n_words",
+        "section_chars": "n_chars",
+        "section_topic_guess": "canonical_topic",
+    })
+    sections["extraction_run_at"] = run_at
+    sections.to_parquet(VISUAL_SECTIONS_OUT, index=False)
+    log(
+        f"adapt_section_layer: wrote {len(sections):,} sections -> {VISUAL_SECTIONS_OUT.name}",
+        pct=55,
+    )
+
+    # --- Project-level ---
+    proj = pd.read_parquet(PROJECTS_VISUAL_TEXT_SRC)
+    proj["visual_text"] = proj["visual_section_text"].fillna("")
+    proj["visual_text_clean"] = proj["visual_text"].apply(
+        lambda t: _marker_re.sub("", t).strip()
+    )
+    proj = proj.rename(columns={
+        "n_visual_sections": "n_sections",
+        "visual_section_words": "n_words",
+    })
+    proj["n_chars"] = proj["visual_text"].str.len()
+    proj["has_heading_extraction"] = proj["best_candidate_priority"] <= 3
+    proj["fallback_used"] = proj["best_candidate_priority"] > 3
+    proj["canonical_topics_found"] = [[] for _ in range(len(proj))]
+    proj["n_pages_covered"] = 0
+    proj["extraction_run_at"] = run_at
+    proj.to_parquet(PROJECTS_VISUAL_TEXT, index=False)
+    log(
+        f"adapt_section_layer: wrote {len(proj):,} projects -> {PROJECTS_VISUAL_TEXT.name}",
+        pct=60,
+    )
+
+
 def build_framing(conn: duckdb.DuckDBPyConnection) -> None:
     """Compute CEQ-aligned framing axes per project. Writes visual_framing.parquet."""
     log("build_framing: starting Stage 2", pct=70)
@@ -1250,7 +1387,7 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
     )
 
     train_texts = train_df["visual_text_clean"].fillna("").tolist()
-    rest_texts = rest_df["visual_text_clean"].fillna("").tolist()
+    rest_texts  = rest_df["visual_text_clean"].fillna("").tolist()
 
     # Guard against tiny corpora (e.g. --sample)
     n_components = min(12, max(2, len(train_texts) // 10))
@@ -1282,13 +1419,35 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
         topic_rest = np.array([], dtype=int)
         prob_rest = np.array([], dtype=float)
 
-    # Top terms per topic
+    # Top terms per topic — pull top 12 by NMF component weight, then build
+    # a label that surfaces visual impact vocabulary before project-type terms.
+    # e.g. wind topic: top terms are [wind, turbine, turbines, flicker,
+    # shadow flicker, ...] → label becomes "shadow flicker / flicker / turbine"
+    _IMPACT_LABEL_VOCAB = frozenset({
+        "shadow flicker", "flicker", "flicker frequency",
+        "glare", "glint", "reflection", "reflective", "anti reflective",
+        "contrast", "contrast rating", "visual contrast", "visual intrusion",
+        "night sky", "dark sky", "light pollution", "skyglow",
+        "viewshed", "view shed", "line of sight",
+        "silhouette", "ridgeline", "skyline",
+        "shadow", "shade",
+        "sensitive viewer", "viewer sensitivity",
+        "foreground", "middleground", "background",
+        "color treatment", "screening",
+    })
+
     feature_names = np.array(vect.get_feature_names_out())
     top_terms_by_topic: list[list[str]] = []
+    topic_labels: list[str] = []
     for t in range(nmf.components_.shape[0]):
-        idx = np.argsort(nmf.components_[t])[::-1][:5]
-        top_terms_by_topic.append(feature_names[idx].tolist())
-    topic_labels = [" / ".join(terms[:3]) for terms in top_terms_by_topic]
+        idx = np.argsort(nmf.components_[t])[::-1][:12]
+        terms = feature_names[idx].tolist()
+        top_terms_by_topic.append(terms[:5])
+        # Build label: impact vocab terms first, then fill with top terms
+        impact = [w for w in terms if w in _IMPACT_LABEL_VOCAB]
+        other  = [w for w in terms if w not in _IMPACT_LABEL_VOCAB]
+        ordered = impact[:2] + other[:max(0, 3 - len(impact))]
+        topic_labels.append(" / ".join(ordered[:3]) if ordered else " / ".join(terms[:3]))
 
     # --- Optional BERTopic ---
     bertopic_train_topics = None
@@ -1442,6 +1601,139 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
     summary_df = pd.DataFrame(summary_rows)
     summary_df.to_parquet(VISUAL_TOPIC_SUMMARY, index=False)
     log(f"build_topics: wrote {len(summary_df):,} topic-summary rows -> {VISUAL_TOPIC_SUMMARY.name}", pct=85)
+
+    # --- LDA comparison ---
+    try:
+        from sklearn.feature_extraction.text import CountVectorizer
+        from sklearn.decomposition import LatentDirichletAllocation
+
+        log("build_topics: running LDA comparison")
+        count_vect = CountVectorizer(
+            stop_words=nepa_stop,
+            ngram_range=(1, 2),
+            min_df=5,
+            max_df=0.7,
+            max_features=10000,
+        )
+        Xtr_count = count_vect.fit_transform(train_texts)
+        lda = LatentDirichletAllocation(
+            n_components=n_components,
+            random_state=42,
+            max_iter=20,
+            learning_method="online",
+            doc_topic_prior=0.1,
+            topic_word_prior=0.01,
+        )
+        lda.fit(Xtr_count)
+        lda_fn = np.array(count_vect.get_feature_names_out())
+        lda_top_terms: list[list[str]] = []
+        lda_labels: list[str] = []
+        for t in range(lda.components_.shape[0]):
+            idx = np.argsort(lda.components_[t])[::-1][:12]
+            terms = lda_fn[idx].tolist()
+            lda_top_terms.append(terms[:5])
+            impact = [w for w in terms if w in _IMPACT_LABEL_VOCAB]
+            other  = [w for w in terms if w not in _IMPACT_LABEL_VOCAB]
+            ordered = impact[:2] + other[:max(0, 3 - len(impact))]
+            lda_labels.append(" / ".join(ordered[:3]) if ordered else " / ".join(terms[:3]))
+        log(f"build_topics: LDA labels: {lda_labels}")
+
+        # Add LDA rows to summary (model='lda')
+        Xtr_lda = lda.transform(Xtr_count)
+        lda_pid_topic = {
+            pid: int(Xtr_lda[i].argmax())
+            for i, pid in enumerate(train_df["project_id"])
+        }
+        lda_summary_rows: list[dict] = []
+        for t in range(lda.components_.shape[0]):
+            pids_in_t = [p for p, tp in lda_pid_topic.items() if tp == t]
+            sub = joined[joined["project_id"].isin(pids_in_t)]
+            if sub.empty:
+                continue
+            lda_summary_rows.append({
+                "model": "lda",
+                "topic_id": int(t),
+                "label": lda_labels[t],
+                "top_terms": lda_top_terms[t],
+                "n_total": int(len(sub)),
+                "n_decarb": int((sub["energy_group"] == "Decarbonization").sum()),
+                "n_fossil": int((sub["energy_group"] == "Fossil Fuel").sum()),
+                "n_ea": int((sub["process_type"] == "EA").sum()),
+                "n_eis": int((sub["process_type"] == "EIS").sum()),
+                "top_tech_groups": sub["tech_group"].value_counts().head(3).index.tolist(),
+                "representative_doc_ids": sub.sort_values("topic_nmf_prob", ascending=False)["project_id"].head(3).tolist(),
+                "topic_summary_run_at": run_at,
+            })
+        if lda_summary_rows:
+            lda_df = pd.DataFrame(lda_summary_rows)
+            combined_summary = pd.concat([summary_df, lda_df], ignore_index=True)
+            combined_summary.to_parquet(VISUAL_TOPIC_SUMMARY, index=False)
+            log(f"build_topics: added {len(lda_df)} LDA topic rows to summary")
+    except Exception as e:
+        log(f"build_topics: LDA comparison failed ({e}); NMF results unchanged")
+
+    # --- Export per-topic term weights (companion figure data) ---
+    term_rows: list[dict] = []
+    for t in range(nmf.components_.shape[0]):
+        if not any(r["topic_id"] == t and r["model"] == "nmf" for r in summary_rows):
+            continue  # skip empty topics
+        label = topic_labels[t]
+        weights = nmf.components_[t]
+        idx = np.argsort(weights)[::-1][:15]
+        for rank, i in enumerate(idx):
+            term_rows.append({
+                "model": "nmf",
+                "topic_id": int(t),
+                "topic_label": label,
+                "rank": rank + 1,
+                "term": feature_names[i],
+                "weight": float(weights[i]),
+            })
+    pd.DataFrame(term_rows).to_csv(VISUAL_TOPIC_TERMS_CSV, index=False)
+    log(f"build_topics: wrote topic term weights -> {VISUAL_TOPIC_TERMS_CSV.name}")
+
+    # --- Export topic excerpts for companion table ---
+    if VISUAL_SECTIONS_OUT.exists():
+        sections_df = pd.read_parquet(VISUAL_SECTIONS_OUT,
+                                      columns=["project_id", "energy_group", "tech_group",
+                                               "process_type", "section_text", "n_words",
+                                               "extraction_method"])
+        exc_rows: list[dict] = []
+        pid_topic_map = {**{p: t for p, t in zip(train_df["project_id"], topic_train)},
+                         **{p: t for p, t in zip(rest_df["project_id"], topic_rest)}}
+        pid_prob_map  = {**{p: float(pr) for p, pr in zip(train_df["project_id"], prob_train)},
+                         **{p: float(pr) for p, pr in zip(rest_df["project_id"], prob_rest)}}
+        for t in sorted({r["topic_id"] for r in summary_rows if r["model"] == "nmf"}):
+            label = topic_labels[t]
+            # Pick top-probability projects for this topic; take heading-anchored sections
+            pids = sorted(
+                [(p, pid_prob_map.get(p, 0)) for p, tp in pid_topic_map.items() if tp == t],
+                key=lambda x: -x[1],
+            )[:20]
+            pid_set = {p for p, _ in pids}
+            subs = sections_df[
+                sections_df["project_id"].isin(pid_set)
+                & (sections_df["extraction_method"] == "heading_anchored")
+                & sections_df["n_words"].between(80, 600)
+            ]
+            for pid, _ in pids:
+                row = subs[subs["project_id"] == pid]
+                if row.empty:
+                    continue
+                row = row.iloc[0]
+                excerpt = row["section_text"][:600].strip().replace("\n", " ")
+                exc_rows.append({
+                    "topic_id": int(t),
+                    "topic_label": label,
+                    "energy_group": row["energy_group"],
+                    "tech_group": row["tech_group"],
+                    "process_type": row["process_type"],
+                    "excerpt": excerpt,
+                })
+                if len([r for r in exc_rows if r["topic_id"] == t]) >= 3:
+                    break
+        pd.DataFrame(exc_rows).to_csv(VISUAL_TOPIC_EXCERPTS_CSV, index=False)
+        log(f"build_topics: wrote topic excerpts -> {VISUAL_TOPIC_EXCERPTS_CSV.name}")
 
 
 # ==========================================================================
@@ -1759,13 +2051,20 @@ if __name__ == "__main__":
         help="Build projects_visual_impacts.parquet (slow; runs sentence-transformers)",
     )
     parser.add_argument(
+        "--section-layer", action="store_true",
+        help=(
+            "Use pre-built section layer from 01_identify_visual_impact_candidates.py. "
+            "Adapts its outputs then runs framing, topics, examples, QA. Fast — no page I/O."
+        ),
+    )
+    parser.add_argument(
         "--geothermal", action="store_true",
         help="Build projects_geothermal_og.parquet (requires --reviews to have run first)",
     )
     args = parser.parse_args()
 
     conn     = duckdb.connect()
-    any_flag = args.reviews or args.ce or args.visual or args.geothermal
+    any_flag = args.reviews or args.ce or args.visual or args.section_layer or args.geothermal
 
     if not any_flag:
         run_all(conn, args.sample)
@@ -1773,8 +2072,7 @@ if __name__ == "__main__":
         if args.reviews:    build_reviews(conn, args.sample)
         if args.ce:         build_ce_citations(conn, args.sample)
         if args.visual:
-            # Legacy extractor (untouched) — produces projects_visual_impacts.parquet
-            # for fig12-14 calibration.
+            # Legacy extractor — produces projects_visual_impacts.parquet for calibration.
             extract_visual_impacts(conn, args.sample)
             # New visual pipeline (Stages 1-5, 8)
             extract_visual_sections(conn, args.sample)
@@ -1782,6 +2080,15 @@ if __name__ == "__main__":
             build_topics(conn)
             build_examples(conn)
             build_scattertext(conn)   # internally guards optional import
+            build_qa_sample(conn)
+        if args.section_layer:
+            # Preferred pipeline: bridges 01_identify_visual_impact_candidates.py outputs
+            # into the schema expected by framing/topics/examples without re-reading pages.
+            adapt_section_layer()
+            build_framing(conn)
+            build_topics(conn)
+            build_examples(conn)
+            build_scattertext(conn)
             build_qa_sample(conn)
         if args.geothermal: build_geothermal_og(conn)
         log("Done.", pct=100)

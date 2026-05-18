@@ -599,52 +599,57 @@ The four-panel TF-IDF word cloud (EA-Decarb / EA-Fossil / EIS-Decarb / EIS-Fossi
 
 ## Illustrative Excerpts
 
-The table below pulls representative excerpts from `visual_examples_table.csv`, grouped by `energy_group`. Each row is a single heading-anchored section trimmed to a quotable span, with the project's process, technology, lead agency, and framing summary attached. These excerpts are intended to be directly quotable in client briefings.
+The table below pulls representative excerpts from heading-anchored visual impact sections, grouped by energy category. Each row is a full section as extracted, showing the project's process type, technology, lead agency, and the relevant passage. These excerpts are intended to be directly quotable in client briefings.
 
 ```{r}
 #| label: tbl-visual-excerpts
-#| tbl-cap: "Representative visual-resource excerpts by energy category. Sections drawn from heading-anchored extractions and trimmed to a quotable span; framing summary derived from CEQ §1508.27-anchored scoring."
-#| eval: !expr file.exists(file.path(OUTPUT_DIR, "visual_examples_table.csv"))
+#| tbl-cap: "Representative visual-resource excerpts by energy category. Sections drawn from heading-anchored extractions; full excerpt text shown."
+
+tbl_excerpts_path <- file.path(OUTPUT_DIR, "visual_examples_table.csv")
+if (!file.exists(tbl_excerpts_path)) {
+  cat("*[visual_examples_table.csv not yet generated -- run build_topics()]*\n")
+  knitr::knit_exit()
+}
 
 visual_examples <- read.csv(
-  file.path(OUTPUT_DIR, "visual_examples_table.csv"),
+  tbl_excerpts_path,
   stringsAsFactors = FALSE,
   check.names = FALSE
 )
 
 visual_examples |>
   mutate(
-    Excerpt = paste0("“", str_trunc(as.character(Excerpt), 240), "”"),
-    Project = str_trunc(as.character(Project), 60)
+    excerpt = paste0("\u201c", as.character(excerpt), "\u201d"),
+    project_title = as.character(project_title)
   ) |>
   select(
     energy_group,
-    Process,
-    Tech,
-    Agency,
-    Project,
-    Excerpt,
-    Framing
+    process_type,
+    tech_group,
+    lead_agency,
+    project_title,
+    excerpt
   ) |>
   gt(groupname_col = "energy_group") |>
   cols_label(
-    Process = "Process",
-    Tech    = "Tech",
-    Agency  = "Lead Agency",
-    Project = "Project",
-    Excerpt = "Excerpt",
-    Framing = "Framing"
+    process_type  = "Process",
+    tech_group    = "Tech",
+    lead_agency   = "Lead Agency",
+    project_title = "Project",
+    excerpt       = "Excerpt"
   ) |>
   cols_width(
-    Process ~ px(55),
-    Tech    ~ px(110),
-    Agency  ~ px(120),
-    Project ~ px(160),
-    Excerpt ~ px(360),
-    Framing ~ px(110)
+    process_type  ~ px(55),
+    tech_group    ~ px(110),
+    lead_agency   ~ px(120),
+    project_title ~ px(180),
+    excerpt       ~ px(480)
   ) |>
   cols_align(align = "left") |>
-  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
   tab_style(
     style = list(
       cell_fill(color = "#002169"),
@@ -656,8 +661,12 @@ visual_examples |>
     style    = cell_fill(color = "#f8f9fa"),
     locations = cells_body(rows = seq(2, nrow(visual_examples), by = 2))
   ) |>
-  tab_options(table.font.size = px(12), data_row.padding = px(8),
-              row_group.padding = px(6))
+  tab_options(
+    table.font.size   = px(12),
+    data_row.padding  = px(8),
+    row_group.padding = px(6),
+    table.width       = pct(100)
+  )
 ```
 
 ## Interactive: Distinguishing Terms
