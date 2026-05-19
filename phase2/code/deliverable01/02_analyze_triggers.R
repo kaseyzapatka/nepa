@@ -265,7 +265,7 @@ fig1 <- ggplot(fig1_data, aes(x = n, y = trigger_label, fill = trigger_label)) +
   theme_catf(base_size = 13) +
   theme(
     legend.position = "bottom",
-    axis.text.y     = element_blank()
+    axis.text.y     = element_text(color = "gray30")
   ) +
   guides(fill = guide_legend(nrow = 2, byrow = TRUE, reverse = TRUE))
 
@@ -340,6 +340,9 @@ ce_order <- data.frame(trigger_label = trigger_order, stringsAsFactors = FALSE) 
 fig3_data <- fig3_data |>
   mutate(trigger_label = factor(trigger_label, levels = ce_order))
 
+fig3_totals <- fig3_data |>
+  distinct(trigger_label, total)
+
 fig3 <- ggplot(fig3_data,
                aes(x = pct, y = trigger_label, fill = process_type)) +
   geom_col(position = position_fill(), width = 0.65) +
@@ -349,7 +352,19 @@ fig3 <- ggplot(fig3_data,
     position = position_fill(vjust = 0.5),
     color = "white", size = 3.5, fontface = "bold"
   ) +
-  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  geom_text(
+    data = fig3_totals,
+    aes(x = 1.09, y = trigger_label, label = comma(total)),
+    inherit.aes = FALSE,
+    hjust = 1,
+    color = catf_navy, size = 3.5, fontface = "bold"
+  ) +
+  scale_x_continuous(
+    labels = percent_format(accuracy = 1),
+    breaks = seq(0, 1, by = 0.25),
+    limits = c(0, 1.1),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
   scale_fill_manual(
     values = c(CE = catf_teal, EA = catf_dark_blue, EIS = catf_navy),
     labels = process_labels,
@@ -357,7 +372,7 @@ fig3 <- ggplot(fig3_data,
   ) +
   labs(
     title    = "Review Process Mix by NEPA Trigger Type",
-    subtitle = "Share of CE, EA, and EIS within each trigger class — sorted by CE share",
+    subtitle = "Sorted by CE share; right labels show total projects",
     x = "Share of Projects", y = NULL
   ) +
   theme_catf(base_size = 13) +
@@ -465,6 +480,9 @@ fig5_data <- fig5_data |>
   mutate(project_technology = factor(project_technology,
                                      levels = c(funding_tech_order, no_funding_techs)))
 
+fig5_totals <- fig5_data |>
+  distinct(project_technology, total)
+
 fig5 <- ggplot(fig5_data,
                aes(x = pct, y = project_technology, fill = trigger_label)) +
   geom_col(position = position_fill(), width = 0.7) +
@@ -473,11 +491,23 @@ fig5 <- ggplot(fig5_data,
     position = position_fill(vjust = 0.5),
     color = "white", size = 3, fontface = "bold"
   ) +
-  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  geom_text(
+    data = fig5_totals,
+    aes(x = 1.09, y = project_technology, label = comma(total)),
+    inherit.aes = FALSE,
+    hjust = 1,
+    color = catf_navy, size = 3.5, fontface = "bold"
+  ) +
+  scale_x_continuous(
+    labels = percent_format(accuracy = 1),
+    breaks = seq(0, 1, by = 0.25),
+    limits = c(0, 1.1),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
   scale_fill_manual(values = trigger_colors, name = NULL, drop = FALSE) +
   labs(
     title    = "Primary NEPA Trigger by Energy Technology",
-    subtitle = sprintf("Technologies with >= %d projects; sorted by Funding share", tech_min_n),
+    subtitle = sprintf("Technologies with >= %d projects, sorted by Funding share; right labels show total projects", tech_min_n),
     x = "Share of Projects", y = NULL
   ) +
   theme_catf(base_size = 13) +
