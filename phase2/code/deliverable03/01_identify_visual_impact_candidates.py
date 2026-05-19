@@ -152,6 +152,19 @@ def build_visual_candidates(
               AND s.section_words >= 30
               AND NOT s.very_long_section
               AND NOT s.large_page_span
+              -- Exclude administrative/reference sections that are never visual content
+              -- Note: 'consultation' excluded here only at heading level; body-level
+              -- credit-list detection handles consultation sections with embedded preparers.
+              AND regexp_extract(
+                  lower(coalesce(s.heading_title, '')),
+                  '\b(references?|bibliography|preparers?|list of preparers|literature cited|acronyms?|abbreviations?|table of contents|executive summary|boilerplate)\b'
+              ) = ''
+              -- Exclude Wild and Scenic Rivers unless it has substantive visual-impact signal
+              AND NOT (
+                  regexp_extract(lower(coalesce(s.heading_title, '')), '\bwild and scenic\b') != ''
+                  AND s.visual_term_count < 8
+                  AND s.impact_term_count < 3
+              )
         ),
         candidates AS (
             SELECT *
@@ -211,11 +224,29 @@ def build_visual_candidates(
             END AS extraction_unit,
             section_text
         FROM ranked
-        WHERE candidate_priority <= 3
-           OR (
-               project_best_priority > 3
-               AND candidate_rank <= {max_fallback_per_project}
-           )
+        WHERE (
+            -- Priority 1: explicit visual heading — require real signal, not just heading match.
+            -- Keeps: (both visual+impact terms present) OR (long section with visual terms)
+            -- OR (heading is a specific impact subtype like shadow flicker/glare that
+            --     has specialized vocabulary underrepresented in generic term counts)
+            (candidate_priority = 1 AND (
+                (visual_term_count >= 1 AND impact_term_count >= 1)
+                OR (section_words >= 200 AND visual_term_count >= 2)
+                OR regexp_extract(
+                    lower(coalesce(heading_title, '')),
+                    '\b(shadow flicker|glare|glint|night sky|dark sky|light pollution|skyglow)\b'
+                ) != ''
+            ))
+            -- Priority 2: inferred from parent heading — require minimum signal
+            -- (catches References/Noise/Cultural sections parented under Visual Resources)
+            OR (candidate_priority = 2 AND visual_term_count >= 3 AND impact_term_count >= 1)
+            -- Priority 3: combined-resource heading — require stronger signal
+            OR (candidate_priority = 3 AND visual_term_count >= 5 AND impact_term_count >= 2)
+        )
+        OR (
+            project_best_priority > 3
+            AND candidate_rank <= {max_fallback_per_project}
+        )
     """)
 
     con.execute(f"""

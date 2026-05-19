@@ -561,25 +561,13 @@ include_fig("fig14_topic_prevalence.png")
 
 Topic prevalence is derived from NMF as the guaranteed path (BERTopic is run when its dependencies are available and selected only if its labels are cleaner). The top topics surface familiar visual-resource themes: viewshed and scenic quality, glare and lighting, vegetation and landscape character, key observation point analysis, and VRM-class compliance language. Decarbonization and fossil portfolios load on overlapping but distinct topics — solar and wind concentrate on glare, height, and skyline, while oil and gas concentrates on pad visibility, lighting, and surface-disturbance recovery.
 
-```{r}
-#| eval: !expr file.exists(file.path(OUTPUT_DIR, "visual_topic_summary_table.csv"))
-visual_topic_summary <- read_csv(
-  file.path(OUTPUT_DIR, "visual_topic_summary_table.csv"),
-  show_col_types = FALSE
-)
-
-visual_topic_summary |>
-  slice_head(n = 8) |>
-  kable_tbl()
-```
-
 ## Framing Comparison
 
 ```{r}
 include_fig("fig18_visual_framing.png")
 ```
 
-Framing scores are CEQ §1508.27-anchored and computed with negation-aware phrase priority (so *no significant impact* is not double-counted as *significant*). Three axes are reported: a **significance ratio** (high vs. low significance language), an **adversity** balance (adverse vs. beneficial vs. no-effect language), and a **mitigation ratio** (strong, action-specific mitigation vs. weak, residual-impact language). Read across EA and EIS panels: fossil EAs lean more heavily on low-significance phrasing, while decarbonization EISs (notably solar, wind, transmission) carry both higher adversity and higher mitigation specificity — consistent with these projects routinely committing to enumerated design features and visual treatments.
+Framing scores are CEQ §1508.27-anchored and computed with negation-aware phrase priority (so *no significant impact* is not double-counted as *significant*). Three axes are reported: a **significance ratio** (high vs. low significance language), an **adversity** balance (adverse vs. beneficial vs. no-effect language), and a **mitigation ratio** (strong, action-specific mitigation vs. weak, residual-impact language). Comparing the two portfolios directly: decarbonization projects carry meaningfully higher adversity ratios than fossil fuel projects — that is, their visual sections use more negative, adverse-impact language. This is not because solar and wind are more harmful to visual resources; it reflects that wind, solar, and transmission EISs dedicate more space to documenting specific adverse effects and then committing to enumerated mitigation measures (glare analysis, viewshed modeling, color treatment, vegetation screening). Fossil EAs, by contrast, rely more heavily on low-significance boilerplate that minimizes explicit adversity framing. The higher mitigation ratio in the decarbonization portfolio is the counterpart: more explicit impact acknowledgment pairs with more explicit mitigation specificity.
 
 ## Section Length
 
@@ -587,7 +575,7 @@ Framing scores are CEQ §1508.27-anchored and computed with negation-aware phras
 include_fig("fig19_visual_section_length.png")
 ```
 
-This figure directly answers the question *do decarb projects get equal depth of visual analysis as fossil?* Section length is measured as `n_words` per heading-extracted section. Decarbonization EISs (solar, wind, transmission) tend to devote the most words to visual analysis, often substantially more than fossil EISs at the same review level. Fossil EAs, particularly land-based oil and gas, are systematically shorter — consistent with template-driven form documents that allocate a fixed visual subsection rather than a project-tailored discussion.
+This figure directly answers the question *do decarb projects get equal depth of visual analysis as fossil?* Section length is measured as `n_words` per heading-extracted section, with EA and EIS combined within each panel. Across both energy portfolios, technology drives more variation than review type: solar and wind installations tend to receive the longest dedicated visual sections, driven by glare analyses, viewshed modeling, and VRM-class compliance write-ups. Land-based oil and gas, despite its large project volume, shows shorter median section lengths — consistent with template-driven form documents that allocate a fixed visual subsection rather than a project-tailored discussion. The two-panel layout makes clear where the portfolios diverge: decarbonization skews toward the high end of section length, while fossil fuel shows a tighter, lower distribution.
 
 ## Word Cloud Comparison
 
@@ -595,7 +583,7 @@ This figure directly answers the question *do decarb projects get equal depth of
 include_fig("fig13_wordcloud_grid.png")
 ```
 
-The four-panel TF-IDF word cloud (EA-Decarb / EA-Fossil / EIS-Decarb / EIS-Fossil) makes the distinguishing vocabulary directly visible. Decarbonization panels emphasize *glare*, *blade*, *tower height*, *array*, *skyline*, *transmission*, and *key observation point* language. Fossil panels emphasize *pad*, *well*, *flare*, *surface disturbance*, *reclamation*, and BLM VRM-class vocabulary. EAs versus EISs differ in granularity rather than topic — EIS panels carry more analytic verbs (*evaluate*, *quantify*, *simulate*) while EA panels carry more form-template language.
+This two-panel TF-IDF word cloud shows the bigrams that most distinguish each portfolio from the other (EA and EIS combined within each panel). The decarbonization panel is dominated by *shadow flicker*, *transmission line*, *key observation*, *solar panels*, *anti-reflective*, *viewer sensitivity*, and *light pollution* — vocabulary specific to the glare, shadow, and skyline analyses required for wind and solar. The fossil fuel panel surfaces *contrast rating*, *compressor station*, *wilderness characteristics*, *permanent change*, *integrity objective*, and *major modification* — reflecting pipeline and O&G project language around BLM visual contrast scoring and the lasting footprint of surface disturbance.
 
 ## Illustrative Excerpts
 

@@ -645,6 +645,9 @@ NEPA_DOMAIN_STOPWORDS = {
     "resource", "resources", "environmental", "environment",
     # numerics that sneak past min_df
     "one", "two", "three", "four", "five", "ten", "first", "second",
+    # Roman numerals — BLM VRM class designations ("Class II VRM", "Class III")
+    # cause ii, iii, iv etc. to dominate NMF topics; stop them here
+    "ii", "iii", "iv", "vi", "vii", "viii", "ix", "xi", "xii",
     # visual-section boilerplate: these appear in every cell equally
     # and would dominate NMF without stoppping
     "visual", "scenic", "landscape", "aesthetics", "aesthetic",
@@ -653,6 +656,10 @@ NEPA_DOMAIN_STOPWORDS = {
     # rather than by visual impact type
     "blm", "vrm", "kop", "class", "lands", "land",
     "management", "plan", "plans", "planning",
+    # Near-universal visual-section terms that appear in 50-65% of documents
+    # and fuse otherwise distinct topics (confirmed via nmf_vocab_diagnostic.csv)
+    "quality", "character", "change", "changes", "natural",
+    "conditions", "features", "visible", "based", "following",
     # measurement / geographic fillers
     "acres", "miles", "mile", "feet", "road", "roads", "surface",
     "adjacent", "within", "along", "near", "around",
@@ -672,22 +679,21 @@ NEPA_DOMAIN_STOPWORDS = {
 # finds impact-TYPE topics rather than project-TYPE topics.
 _VISUAL_IMPACT_SENT_RE = re.compile(
     r"\b("
-    r"glare|glint|reflect(?:ion|ive|ivity)|non.reflective|anti.reflective|"
-    r"flicker|shadow flicker|stroboscopic|"
-    r"viewshed|view shed|line of sight|seen from|visible from|"
-    r"visual contrast|contrast rating|visual character|"
-    r"landscape character|visual quality|visual dominance|visual intrusion|"
-    r"scenic quality|scenic integrity|scenic resources|"
-    r"foreground|middleground|middle ground|background|"
-    r"night sky|dark sky|light pollution|skyglow|astronomical|"
-    r"skyline|ridgeline|silhouette|"
-    r"observer|viewer|sensitive viewer|viewer sensitivity|"
-    r"color treatment|paint|painted|non.reflective coating|"
-    r"screening|vegetative screen|visual screen|"
-    r"visible|visibility|visually|"
-    r"shadow|shade|shading|"
-    r"aesthetic character|aesthetic quality|"
-    r"color|colour|form|texture|line.*horizon"
+    # Specific visual impact terms — strong enough to identify impact sentences alone
+    r"shadow flicker|flicker frequency|stroboscopic effect|"
+    r"glare|glint|anti.reflective|non.reflective coating|"
+    r"night sky|dark sky|light pollution|skyglow|astronomical seeing|"
+    r"viewshed|view shed|line of sight|key observation point|"
+    r"visual contrast|contrast rating|vividness|intactness|unity|"
+    r"scenic integrity|scenic quality|scenic class|"
+    r"visual character|landscape character|"
+    r"silhouette|ridgeline.*view|skyline.*view|"
+    r"sensitive viewer|viewer sensitivity|"
+    r"visual intrusion|visual dominance|out of character|"
+    r"dominant.*element|subordinate.*element|"
+    r"visual resource management|VRM class|"
+    r"foreground.*view|middleground.*view|background.*view|"
+    r"color treatment|vegetative screen|visual screen"
     r")\b",
     re.IGNORECASE,
 )
@@ -709,6 +715,80 @@ def _extract_impact_sentences(text: str) -> str:
     if len(kept) < 3:
         return text
     return " ".join(kept)
+
+
+_DOT_LEADER_LINE_RE = re.compile(r"\.{4,}")
+_PROJECT_CODE_RE = re.compile(r"\b[A-Z]{2,6}[-_]\d{3,}\b")
+_PAGE_XREF_RE = re.compile(
+    r"\b(?:see\s+)?(?:section|chapter|appendix|figure|table|page|p\.)\s*[\d\-\.]+\b",
+    re.IGNORECASE,
+)
+
+# --- Noise-line filters (table spillage, OCR garbage, boilerplate) ---
+# These patterns generalize from the examples in visual_impact_to_remove.txt:
+#   - VRM/VRI class acreage tables: rows of "Class II: 1 Class III: 426 ..."
+#   - Emissions comparison tables: "Tank -- -- -- -- 61,176 -- --"
+#   - OCR garbage from scanned PDFs: "I I I ~ -==--=- .,, D> CD ::::,"
+#   - URL-only lines
+#   - Lines dominated by numbers (acreage summaries, census tables)
+
+_VRM_CLASS_RE = re.compile(r"\bClass\s+(I{1,3}V?|IV)\b", re.IGNORECASE)
+_DASH_CELL_RE = re.compile(r"--")
+_URL_RE = re.compile(r"https?://")
+# Characters outside normal prose: tildes, equals runs, angle chars, box-drawing
+_OCR_JUNK_RE = re.compile(r"[~=<>|\\@#^*─-╿▀-▟::::,]{2,}")
+_NUMERIC_TOKEN_RE = re.compile(r"^\d[\d,\.%]*$")
+
+
+def _is_noisy_line(line: str) -> bool:
+    """Return True if the line looks like table spillage, OCR garbage, or boilerplate.
+
+    Calibrated against examples in phase2/notes/deliverable03/visual_impact_to_remove.txt.
+    """
+    stripped = line.strip()
+    if not stripped:
+        return False
+    # URL lines (FERC/EPA/BLM website references embedded in sections)
+    if _URL_RE.search(stripped):
+        return True
+    # Dash-table lines (emissions comparison tables with -- -- -- patterns)
+    if stripped.count("--") >= 3:
+        return True
+    # VRM/VRI class acreage tables: 3+ "Class I/II/III/IV" tokens on one line
+    if len(_VRM_CLASS_RE.findall(stripped)) >= 3:
+        return True
+    # OCR garbage: 2+ consecutive special-character runs (tildes, equals, box chars)
+    if _OCR_JUNK_RE.search(stripped):
+        return True
+    # Numeric-heavy lines: >45% of whitespace tokens are pure numbers/percentages
+    tokens = stripped.split()
+    if len(tokens) >= 6:
+        n_num = sum(1 for t in tokens if _NUMERIC_TOKEN_RE.match(t.rstrip(",.")))
+        if n_num / len(tokens) > 0.45:
+            return True
+    return False
+
+
+def _clean_for_analysis(text: str) -> str:
+    """Pre-clean text before sentence filtering for visual_analysis_text.
+
+    Strips TOC dot-leader lines, table spillage, OCR garbage, URL lines,
+    project ID codes, and page cross-references. Does NOT strip agency
+    acronyms (handled by NMF stopwords) or location names (handled by
+    project-level TF-IDF frequency filter in R).
+    """
+    if not text:
+        return ""
+    lines = [
+        ln for ln in text.splitlines()
+        if not _DOT_LEADER_LINE_RE.search(ln)   # drop TOC dot-leader lines
+        and not _is_noisy_line(ln)               # drop table spillage / OCR garbage
+    ]
+    cleaned = " ".join(lines)
+    cleaned = _PROJECT_CODE_RE.sub(" ", cleaned)
+    cleaned = _PAGE_XREF_RE.sub(" ", cleaned)
+    cleaned = _WS_COLLAPSE_RE.sub(" ", cleaned).strip()
+    return cleaned
 
 
 def _make_nepa_stopwords() -> frozenset:
@@ -1253,6 +1333,76 @@ def adapt_section_layer() -> None:
         "section_chars": "n_chars",
         "section_topic_guess": "canonical_topic",
     })
+
+    # Post-hoc: drop administrative/reference headings that 01_ may still pass through
+    # (e.g. child sections of Visual Resources chapters: References, Preparers, Acronyms)
+    _JUNK_HDG_RE = re.compile(
+        r"\b(references?|bibliography|preparers?|list of preparers|"
+        r"literature cited|acronyms?|abbreviations?|"
+        r"table of contents|executive summary|boilerplate)\b",
+        re.IGNORECASE,
+    )
+    # Body-level credit/preparer-list detector: catches preparer sections whose
+    # heading doesn't match _JUNK_HDG_RE (e.g. "Consultation and Coordination"
+    # that is actually a list of contacts, not a substantive discussion).
+    _CREDIT_LIST_RE = re.compile(
+        r"^\s*(?:prepared by|preparation by|project team|contributors?|"
+        r"credits?|document control|notices?)\b",
+        re.IGNORECASE | re.MULTILINE,
+    )
+    _DOT_LEADER_RE = re.compile(r"\.{4,}")
+
+    def _is_junk_body(text: str) -> bool:
+        if not text:
+            return False
+        lines = [l for l in text.strip().splitlines() if l.strip()]
+        if not lines:
+            return False
+        # >30% of lines contain dot leaders → TOC entry
+        dot_count = sum(1 for l in lines if _DOT_LEADER_RE.search(l))
+        if len(lines) > 0 and dot_count / len(lines) > 0.30:
+            return True
+        # Starts with preparer/credit boilerplate
+        if _CREDIT_LIST_RE.match(text.strip()):
+            return True
+        return False
+    # --- Heading-level junk filter ---
+    n_before = len(sections)
+    sections = sections[
+        ~sections["heading_title"].fillna("").apply(lambda h: bool(_JUNK_HDG_RE.search(h)))
+    ].copy()
+    log(
+        f"adapt_section_layer: dropped {n_before - len(sections)} junk-heading sections "
+        f"({len(sections):,} remaining)"
+    )
+
+    # --- Body-level junk filter (TOC dot-leaders, credit/preparer lists) ---
+    n_before = len(sections)
+    sections = sections[
+        ~sections["section_text"].fillna("").apply(_is_junk_body)
+    ].copy()
+    log(
+        f"adapt_section_layer: dropped {n_before - len(sections)} junk-body sections "
+        f"({len(sections):,} remaining)"
+    )
+
+    # --- Within-project deduplication ---
+    # Hash first 500 + last 500 chars + total length to catch sections sharing
+    # boilerplate intros but differing in body content.
+    def _section_hash(t: str) -> str:
+        t = str(t)
+        return f"{t[:500]}||{t[-500:]}||{len(t)}"
+
+    n_before = len(sections)
+    sections["_dedup_key"] = sections["section_text"].apply(_section_hash)
+    sections = sections.drop_duplicates(subset=["project_id", "_dedup_key"]).drop(
+        columns=["_dedup_key"]
+    )
+    log(
+        f"adapt_section_layer: dropped {n_before - len(sections)} duplicate sections "
+        f"({len(sections):,} remaining)"
+    )
+
     sections["extraction_run_at"] = run_at
     sections.to_parquet(VISUAL_SECTIONS_OUT, index=False)
     log(
@@ -1265,6 +1415,14 @@ def adapt_section_layer() -> None:
     proj["visual_text"] = proj["visual_section_text"].fillna("")
     proj["visual_text_clean"] = proj["visual_text"].apply(
         lambda t: _marker_re.sub("", t).strip()
+    )
+    # Sentence-filtered text for topic modeling / word clouds.
+    # Pre-clean removes dot-leader lines, project codes, and page cross-references
+    # before sentence filtering, so those artifacts don't anchor topic features.
+    proj["visual_analysis_text"] = (
+        proj["visual_text_clean"]
+        .apply(_clean_for_analysis)
+        .apply(_extract_impact_sentences)
     )
     proj = proj.rename(columns={
         "n_visual_sections": "n_sections",
@@ -1382,15 +1540,19 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
         stop_words=nepa_stop,
         ngram_range=(1, 2),
         min_df=5,
-        max_df=0.7,
+        max_df=0.55,
         max_features=10000,
     )
 
-    train_texts = train_df["visual_text_clean"].fillna("").tolist()
-    rest_texts  = rest_df["visual_text_clean"].fillna("").tolist()
+    # Prefer sentence-filtered analysis text; fall back to full clean text
+    _analysis_col = "visual_analysis_text" if "visual_analysis_text" in train_df.columns else "visual_text_clean"
+    train_texts = train_df[_analysis_col].fillna(train_df["visual_text_clean"]).fillna("").tolist()
+    rest_texts  = rest_df[_analysis_col].fillna(rest_df["visual_text_clean"]).fillna("").tolist()
 
-    # Guard against tiny corpora (e.g. --sample)
-    n_components = min(12, max(2, len(train_texts) // 10))
+    # Cap at 4 topics: contrast dominates too many components at higher counts.
+    # The corpus has ~4 cleanly separable visual impact types:
+    # shadow flicker, glare/night-sky, VRM contrast/scenic quality, corridor/O&G.
+    n_components = min(4, max(2, len(train_texts) // 10))
     if len(train_texts) < 5:
         log("build_topics: WARNING -- too few documents for NMF; writing empty outputs")
         pd.DataFrame({"project_id": proj["project_id"]}).to_parquet(VISUAL_TOPICS_OUT, index=False)
@@ -1404,6 +1566,41 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
         pd.DataFrame({"project_id": proj["project_id"]}).to_parquet(VISUAL_TOPICS_OUT, index=False)
         pd.DataFrame().to_parquet(VISUAL_TOPIC_SUMMARY, index=False)
         return
+
+    # --- Vocab diagnostic: show what min_df/max_df dropped (todo: inspect each run) ---
+    _diag_vect = TfidfVectorizer(
+        stop_words=nepa_stop,
+        ngram_range=(1, 2),
+        min_df=1,
+        max_df=1.0,
+        max_features=100_000,
+    )
+    _diag_vect.fit(train_texts)
+    _diag_names = _diag_vect.get_feature_names_out()
+    _diag_matrix = _diag_vect.transform(train_texts)
+    _doc_freqs = (_diag_matrix > 0).sum(axis=0).A1
+    _n_docs = len(train_texts)
+    _kept = set(vect.vocabulary_.keys())
+    _diag_rows = []
+    for _term, _df in zip(_diag_names, _doc_freqs):
+        if _term in _kept:
+            _status = "kept"
+        elif _df < vect.min_df:
+            _status = "dropped_rare"
+        elif _df / _n_docs > vect.max_df:
+            _status = "dropped_universal"
+        else:
+            _status = "dropped_max_features"
+        _diag_rows.append({
+            "term": _term,
+            "doc_freq": int(_df),
+            "pct_docs": round(_df / _n_docs * 100, 1),
+            "status": _status,
+        })
+    _diag_df = pd.DataFrame(_diag_rows).sort_values(["status", "doc_freq"], ascending=[True, False])
+    _diag_path = OUTPUT_DIR / "nmf_vocab_diagnostic.csv"
+    _diag_df.to_csv(_diag_path, index=False)
+    log(f"build_topics: wrote vocab diagnostic ({len(_diag_df):,} terms) -> {_diag_path.name}")
 
     nmf = NMF(n_components=n_components, random_state=42, max_iter=400, alpha_W=0.001)
     W_train = nmf.fit_transform(Xtr)

@@ -795,17 +795,34 @@ if (!VISUAL_TEXT_AVAILABLE) {
       mutate(
         energy_group = factor(energy_group, levels = ENERGY_LEVELS),
         tech_group   = fct_reorder(tech_group, n_projects, .fun = sum)
-      )
+      ) |>
+      group_by(energy_group) |>
+      mutate(rank_in_group = rank(n_projects, ties.method = "first"),
+             n_in_group    = n()) |>
+      ungroup()
+
+    # Gradient colors: darkest = highest frequency within each portfolio
+    decarb_rows <- universe |> filter(energy_group == "Decarbonization") |>
+      arrange(rank_in_group)
+    fossil_rows <- universe |> filter(energy_group == "Fossil Fuel") |>
+      arrange(rank_in_group)
+    decarb_pal <- colorRampPalette(c("#A8D0F0", catf_navy))(nrow(decarb_rows))
+    fossil_pal <- colorRampPalette(c("#F5C0B0", "#7B241C"))(nrow(fossil_rows))
+    tech12_colors <- c(
+      setNames(decarb_pal, decarb_rows$tech_group),
+      setNames(fossil_pal, fossil_rows$tech_group)
+    )
+    universe <- universe |>
+      mutate(fill_color = tech12_colors[as.character(tech_group)])
 
     if (nrow(universe) == 0) {
       message("fig12 skipped: no EA/EIS rows after filtering.")
     } else {
-      ggplot(universe, aes(x = tech_group, y = n_projects, fill = tech_group)) +
-        geom_col(position = position_dodge(width = 0.85), width = 0.8) +
+      ggplot(universe, aes(x = tech_group, y = n_projects, fill = fill_color)) +
+        geom_col(width = 0.8) +
         geom_text(aes(label = scales::comma(n_projects)),
-                  position = position_dodge(width = 0.85),
                   hjust = -0.15, size = 3, color = catf_navy) +
-        scale_fill_manual(values = tech_colors, guide = "none") +
+        scale_fill_identity(guide = "none") +
         scale_y_continuous(labels = scales::comma,
                            expand = expansion(mult = c(0, 0.18))) +
         facet_wrap(~ energy_group, scales = "free_y") +
@@ -882,38 +899,54 @@ if (!VISUAL_TEXT_AVAILABLE) {
       "water", "vegetation", "habitat", "species", "soil",
       # process verbs
       "considered", "evaluated", "identified", "determined", "described",
-      "include", "includes", "including", "require", "requires"
+      "include", "includes", "including", "require", "requires",
+      # Roman numerals -- BLM VRM class designations cause ii/iii/iv to dominate
+      "ii", "iii", "iv", "vi", "vii", "viii", "ix", "xi", "xii"
     )
 
     wc_text <- vtext |>
       filter(energy_group %in% ENERGY_LEVELS,
              process_type %in% c("EA", "EIS"),
-             !is.na(visual_text_clean) | !is.na(visual_text)) |>
-      mutate(
-        text = dplyr::coalesce(visual_text_clean, visual_text),
-        cell = paste(process_type, energy_group, sep = "-")
-      ) |>
-      select(project_id, cell, text)
+             !is.na(visual_analysis_text),
+             nchar(visual_analysis_text) > 100) |>
+      mutate(cell = energy_group) |>
+      select(project_id, cell, text = visual_analysis_text)
 
     if (nrow(wc_text) == 0) {
       message("fig13 skipped: no rows after filtering visual_text.")
     } else {
-      # Aggregate text to the cell level → one "document" per cell for TF-IDF
-      wc_tokens <- wc_text |>
-        group_by(cell) |>
-        summarise(text = paste(text, collapse = " "), .groups = "drop") |>
-        tidytext::unnest_tokens(word, text) |>
-        filter(!word %in% tidytext::stop_words$word,
-               !word %in% nepa_stop,
-               str_detect(word, "^[a-z]+$"),
-               nchar(word) >= 4) |>
-        count(cell, word, sort = TRUE)
+      # Project-level bigram TF-IDF aggregated to cell level.
+      # Keeps one TF-IDF score per (project, bigram), then sums across projects
+      # in a cell and requires n_projects >= 10. This prevents any single large
+      # project from dominating the cell vocabulary with proper nouns / location names.
+      wc_tokens_raw <- wc_text |>
+        tidytext::unnest_ngrams(bigram, text, n = 2) |>
+        tidyr::separate(bigram, c("w1", "w2"), sep = " ", remove = TRUE) |>
+        filter(
+          !w1 %in% tidytext::stop_words$word, !w2 %in% tidytext::stop_words$word,
+          !w1 %in% nepa_stop, !w2 %in% nepa_stop,
+          str_detect(w1, "^[a-z]{3,}$"), str_detect(w2, "^[a-z]{3,}$"),
+          !str_detect(w1, "^[bcdfghjklmnpqrstvwxyz]{3,}$"),
+          !str_detect(w2, "^[bcdfghjklmnpqrstvwxyz]{3,}$")
+        ) |>
+        tidyr::unite(bigram, w1, w2, sep = " ") |>
+        count(project_id, cell, bigram)
 
-      wc_tfidf <- wc_tokens |>
-        tidytext::bind_tf_idf(word, cell, n) |>
+      wc_tfidf <- wc_tokens_raw |>
+        tidytext::bind_tf_idf(bigram, project_id, n) |>
+        group_by(cell, bigram) |>
+        summarise(
+          tf_idf     = sum(tf_idf),
+          n_projects = n_distinct(project_id),
+          .groups    = "drop"
+        ) |>
+        filter(n_projects >= 10) |>
+        rename(word = bigram) |>
         group_by(cell) |>
         slice_max(tf_idf, n = 60, with_ties = FALSE) |>
         ungroup()
+
+
 
       make_wc_panel <- function(cell_name, panel_color) {
         d <- wc_tfidf |> filter(cell == cell_name)
@@ -939,21 +972,19 @@ if (!VISUAL_TEXT_AVAILABLE) {
                 axis.ticks  = element_blank())
       }
 
-      p_ea_d  <- make_wc_panel("EA-Decarbonization", catf_navy)
-      p_ea_f  <- make_wc_panel("EA-Fossil Fuel",     FOSSIL_RED)
-      p_eis_d <- make_wc_panel("EIS-Decarbonization", catf_navy)
-      p_eis_f <- make_wc_panel("EIS-Fossil Fuel",     FOSSIL_RED)
+      p_d <- make_wc_panel("Decarbonization", catf_navy)
+      p_f <- make_wc_panel("Fossil Fuel",     FOSSIL_RED)
 
-      wc_grid <- (p_ea_d | p_ea_f) / (p_eis_d | p_eis_f) +
+      wc_grid <- (p_d | p_f) +
         patchwork::plot_annotation(
-          title    = "Distinguishing Visual-Impact Vocabulary",
-          subtitle = "Top 60 TF-IDF terms per cell (cell vs. all-other-cells combined)",
+          title    = "Distinguishing Visual-Impact Vocabulary: Decarbonization vs. Fossil Fuel",
+          subtitle = "Top 60 TF-IDF bigrams per portfolio (each portfolio vs. the other)",
           caption  = DATA_CAPTION,
           theme    = theme_catf()
         )
 
       ggsave(file.path(OUTPUT_DIR, "fig13_wordcloud_grid.png"),
-             wc_grid, width = 12, height = 9, dpi = 300)
+             wc_grid, width = 12, height = 6, dpi = 300)
     }
   }, error = function(e) {
     message(sprintf("fig13 skipped: %s", conditionMessage(e)))
@@ -1079,13 +1110,13 @@ if (!VISUAL_FRAMING_AVAILABLE) {
     framing_axes <- framing |>
       filter(energy_group %in% ENERGY_LEVELS,
              process_type %in% c("EA", "EIS")) |>
-      select(project_id, energy_group, process_type,
+      select(project_id, energy_group,
              any_of(c("significance_ratio", "adversity_ratio", "mitigation_ratio"))) |>
       pivot_longer(any_of(c("significance_ratio", "adversity_ratio",
                             "mitigation_ratio")),
                    names_to = "axis", values_to = "value") |>
       filter(!is.na(value)) |>
-      group_by(axis, energy_group, process_type) |>
+      group_by(axis, energy_group) |>
       summarise(mean_ratio = mean(value, na.rm = TRUE),
                 n_projects = n(), .groups = "drop") |>
       mutate(
@@ -1096,40 +1127,35 @@ if (!VISUAL_FRAMING_AVAILABLE) {
                       levels = c("Significance (high / total)",
                                  "Adversity (negative / total)",
                                  "Mitigation strength (strong / total)")),
-        energy_group = factor(energy_group, levels = ENERGY_LEVELS),
-        process_type = factor(process_type, levels = c("EA", "EIS")),
-        cell         = paste(energy_group, process_type, sep = " — ")
+        energy_group = factor(energy_group, levels = ENERGY_LEVELS)
       )
 
     if (nrow(framing_axes) == 0) {
       message("fig18 skipped: no framing rows after filtering.")
     } else {
       fram_fill <- c(
-        "Decarbonization — EA"  = catf_dark_blue,
-        "Decarbonization — EIS" = catf_navy,
-        "Fossil Fuel — EA"      = FOSSIL_RED,
-        "Fossil Fuel — EIS"     = "#7B241C"
+        "Decarbonization" = catf_navy,
+        "Fossil Fuel"     = FOSSIL_RED
       )
 
       ggplot(framing_axes,
-             aes(x = cell, y = mean_ratio, fill = cell)) +
-        geom_col(width = 0.7) +
+             aes(x = energy_group, y = mean_ratio, fill = energy_group)) +
+        geom_col(width = 0.6) +
         geom_text(aes(label = scales::percent(mean_ratio, accuracy = 1)),
-                  vjust = -0.4, size = 3, color = catf_navy) +
+                  vjust = -0.4, size = 3.5, color = catf_navy) +
         scale_fill_manual(values = fram_fill, guide = "none") +
         scale_y_continuous(labels = scales::percent_format(accuracy = 1),
                            expand = expansion(mult = c(0, 0.18))) +
         facet_wrap(~ axis, ncol = 1, scales = "free_y") +
         labs(x = NULL, y = "Mean project-level ratio",
-             title = "Visual-Impact Framing by Energy Category and Review Type",
-             subtitle = "CEQ-axis lexicon ratios; one bar per (energy_group × process_type) cell",
+             title = "Visual-Impact Framing: Decarbonization vs. Fossil Fuel",
+             subtitle = "CEQ-axis lexicon ratios averaged across all EA/EIS projects",
              caption = paste0(
                DATA_CAPTION, "\n",
                "Significance = high / (high + low); Adversity = negative / (negative + positive); ",
                "Mitigation = strong / (strong + weak)."
              )) +
-        theme_catf() +
-        theme(axis.text.x = element_text(angle = 20, hjust = 1))
+        theme_catf()
       save_fig("fig18_visual_framing.png", height = 10)
     }
   }, error = function(e) {
@@ -1148,13 +1174,14 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
 
     sec_box <- sections |>
       filter(extraction_method == "heading_anchored",
+             energy_group %in% ENERGY_LEVELS,
              !is.na(tech_group),
              !tech_group %in% c("Other", "Other Clean", "Other Fossil"),
              process_type %in% c("EA", "EIS"),
              !is.na(n_words),
              n_words > 0) |>
       mutate(
-        process_type = factor(process_type, levels = c("EA", "EIS")),
+        energy_group = factor(energy_group, levels = ENERGY_LEVELS),
         tech_group   = fct_reorder(tech_group, n_words, .fun = median)
       )
 
@@ -1165,11 +1192,11 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
         geom_boxplot(outlier.size = 0.4, alpha = 0.85) +
         scale_fill_manual(values = tech_colors, guide = "none") +
         scale_y_log10(labels = scales::comma) +
-        facet_wrap(~ process_type, nrow = 1) +
+        facet_wrap(~ energy_group, nrow = 1) +
         coord_flip() +
         labs(x = NULL, y = "Section length (words, log scale)",
-             title = "Heading-Anchored Visual Section Length by Technology",
-             subtitle = "Only sections detected via canonical visual-resource headings (extraction_method = heading_anchored)",
+             title = "Visual Section Length by Technology: Decarbonization vs. Fossil Fuel",
+             subtitle = "Heading-anchored sections only; EA and EIS combined within each panel",
              caption = DATA_CAPTION) +
         theme_catf()
       save_fig("fig19_visual_section_length.png", height = 8)
