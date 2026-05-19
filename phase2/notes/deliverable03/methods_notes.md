@@ -41,14 +41,20 @@ Uses `visual_analysis_text` — the project's visual section text after two clea
 ### Step 2 — TF-IDF vectorizer (lines ~1489–1495)
 
 ```
-ngram_range=(1, 2)   # unigrams + bigrams
+ngram_range=(1, 3)   # unigrams + bigrams + trigrams
 min_df=5             # term must appear in ≥5 projects (drops rare project-specific terms)
-max_df=0.7           # term must appear in ≤70% of projects (drops near-universal terms)
-max_features=10,000  # vocabulary cap
+max_df=0.55          # term must appear in ≤55% of projects (drops near-universal terms)
+max_features=10,000  # vocabulary cap — DO NOT raise above 10k (see note below)
 stop_words=nepa_stop # NEPA_DOMAIN_STOPWORDS + sklearn English stops
 ```
 
-Every run writes `phase2/output/deliverable03/nmf_vocab_diagnostic.csv` showing which terms were kept, dropped as rare (`doc_freq < 5`), or dropped as universal (`pct_docs > 70%`). Inspect this file to verify the filters are behaving as intended.
+**Critical: keep `max_features=10,000`.** Raising to 15,000 adds low-discrimination terms that cause NMF to produce only 2 meaningful topics (the other 2 components learn near-identical patterns and get zero project assignments at argmax). Empirically tested: trigrams + 10k features restores all 4 topics; trigrams + 15k features collapses to 2.
+
+**`scenic` is in `NEPA_DOMAIN_STOPWORDS`.** The bigram `scenic quality` appears in 42.6% of documents — frequent enough that, when `scenic` is a free token, NMF anchors 3 of its 4 components to this one boilerplate phrase and collapses the topic structure. `visual` and `visible` are intentionally *not* stopped: their bigrams (`visual contrast` 36%, `visual character` 36%) are below max_df=0.55 and provide useful signal. `landscape` is also free but its unigram (66%) is dropped by max_df; its bigram `landscape character` (30%) survives and is discriminating.
+
+**`max_df=0.55` keeps `contrast` (45.1%) in vocabulary.** At max_df=0.4, `contrast` was dropped, collapsing the VRM contrast rating topic. At 0.55, it survives and anchors Topics 0 and 3.
+
+Every run writes `phase2/output/deliverable03/nmf_vocab_diagnostic.csv` showing which terms were kept, dropped as rare (`doc_freq < 5`), or dropped as universal (`pct_docs > 55%`). Inspect this file to verify the filters are behaving as intended.
 
 ### Step 3 — NMF factorization (lines ~1505, 1520)
 
@@ -80,16 +86,26 @@ Pulls the top 12 terms per topic by NMF component weight. Labels prioritize term
 
 ## The Current Topics (4-topic run)
 
-After capping at 4 topics and adding Roman numeral stopwords, the expected topic structure is:
+Current 4-topic structure (as of May 2026 run; ngram=(1,3), max_df=0.55, max_features=10k, scenic stopped):
 
-| Topic | Expected vocabulary | Interpretation |
-|-------|---------------------|----------------|
-| 0 | shadow, flicker, turbine, blade, frequency | Wind turbine shadow flicker analysis |
-| 1 | glare, glint, anti-reflective, panel, coating, night sky | Solar glare / light pollution |
-| 2 | contrast, rating, color, form, texture, vividness | BLM VRM contrast rating methodology |
-| 3 | pipeline, corridor, pad, well, reclamation, disturbance | O&G / pipeline corridor impacts |
+| Topic | n (projects) | Top discriminating terms | Interpretation |
+|-------|-------------|--------------------------|----------------|
+| 0 | 432 (299 decarb, 133 fossil) | contrast, visual contrast, rating, objectives, glare, **solar**, sensitivity, moderate, contrast rating | **VRM Contrast Rating & Solar Glare** — BLM VRM rating methodology applied to solar and transmission projects; glare from panels; VRI sensitivity; moderate contrast outcomes |
+| 1 | 69 (66 decarb, 3 fossil) | **shadow, flicker, shadow flicker**, turbine, wind, turbines, hours, receptor, year, wind turbine | **Wind Turbine Shadow Flicker** — specialized analysis of rotating-blade shadow cast on nearby receptors; annual shadow hours vs. regulatory thresholds |
+| 2 | 804 (448 decarb, 356 fossil) | transmission, light, visual character, river, line, lighting, industrial, **structures, plant**, glare, terminal, station, byway, natural, integrity | **Industrial & Infrastructure Corridors** — O&G, pipeline, and transmission projects; structures and industrial facilities; river corridor crossings; scenic byways; artificial lighting impacts |
+| 3 | 286 (103 decarb, 183 fossil) | objectives, contrast, **managed, integrity, vri**, landscape character, classes, dominate, sensitivity | **BLM VRM Objectives & Landscape Management** — formal VRM compliance framework for O&G/pipeline EIS; managed VRM classes; Visual Resource Inventory; dominance; scenic integrity objectives |
 
-Topic 2 (contrast/color/form) reflects BLM's Visual Resource Management framework, which uses a standardized vocabulary of *form*, *line*, *color*, *texture*, *vividness* to score how much a project contrasts with surrounding landscape character. This methodology appears across multiple project types on BLM-managed land and is expected to be the broadest topic.
+**Term-weight profile notes** (from fig14b):
+- Topic 1 has a very sharp elbow: shadow/flicker/shadow flicker weights (1.2) are 3× the next term. Textbook coherent topic.
+- Topic 0: smooth decline; "contrast" at 0.80 is the anchor but solar/glare secondary terms distinguish it from Topic 3.
+- Topic 3: objectives and contrast nearly tied at 0.38/0.37; distinguished from Topic 0 by managed/vri/classes vocabulary.
+- Topic 2: completely **flat profile** — all 10 terms between 0.20–0.24. This is a residual catch-all for infrastructure/corridor projects, not a poorly-separated topic. These project types genuinely share visual-impact prose and NMF cannot further discriminate them.
+
+**Why does "contrast" appear in Topics 0 AND 3?** NMF components are additive basis vectors, not exclusive clusters. "Contrast" appears in ~45% of all documents (the most common visual-impact term after boilerplate). Both components have non-zero loadings for it — the assignments are made by argmax, so a document goes to whichever component has the highest total weight. The interpretive distinction is in the secondary vocabulary, not the primary anchor term.
+
+**Why is the NMF auto-label for Topic 2 "glare / transmission / light" when glare has higher weight in Topic 0?** Label artifact: the auto-labeler prioritizes impact-vocabulary terms (`_IMPACT_LABEL_VOCAB`), picking "glare" as the first such term in Topic 2's term list. The actual weight of glare in Topic 2 (0.20) is lower than in Topic 0 (0.38). Use the interpretive labels in all figures, not the auto-generated labels.
+
+**Should we use 3 topics instead of 4?** 3 topics (merge 0+3 into "VRM contrast") would simplify but lose the solar/glare vs. O&G compliance distinction. 5+ topics would produce more flat-profile residual bins without meaningful new themes. 4 is the right number given this corpus.
 
 ---
 
@@ -138,6 +154,46 @@ VADER, TextBlob, and similar tools would classify nearly all NEPA text as "negat
 4. **LLM-based structured scoring**: Ask Claude to read each visual section and return structured scores (impact direction, severity, mitigation quality). Most accurate but expensive at scale (~1,600 projects).
 
 The current CEQ lexicon approach is appropriate for the scale and interpretability requirements of this project. Option 3 (zero-shot NLI) is the most practical upgrade path.
+
+---
+
+## VRM Compliance Flag (Option A)
+
+Two new regex patterns (`VRM_MEETS_RE`, `VRM_EXCEEDS_RE`) are applied per sentence in `_count_framing_axes()` and exposed in `build_framing()` output:
+
+- `vrm_compliance_flag` — True if any sentence asserts the project *meets* VRM objectives and no sentence asserts it *exceeds* them.
+- `vrm_noncompliant_flag` — True if any sentence asserts the project *exceeds* VRM class objectives.
+- `vrm_meets` / `vrm_exceeds` — raw counts per project.
+
+**Compliance terms**: *consistent with...objective/class/VRM*, *meets...objective/class/VRM*, *within...VRM...class*, *no adverse contrast*, *would comply*, *in compliance with*.
+
+**Non-compliance terms**: *exceed...objective/class/VRM*, *would not meet...objective/class/VRM*, *inconsistent with...objective/class/VRM*, *above...VRM...class*, *strong contrast...exceed*.
+
+After NMF topic assignment, `build_topics()` writes `vrm_topic_compliance_diagnostic.csv` cross-tabbing VRM-citing projects by topic × compliance flag. Inspect this file to determine whether compliant and non-compliant VRM findings cluster into separate NMF topics. If they do not, keep the contrast topic unified (Option D) and rely on the element-level analysis (fig21) for differentiation.
+
+---
+
+## VRM Element-Level Contrast Rating Extraction (fig21)
+
+`build_vrm_elements()` extracts per-element BLM VRM contrast ratings from visual section text. Elements: **form**, **line**, **color**, **texture**, **scale**, **vividness**. Ratings normalized to: **None**, **Weak**, **Moderate**, **Strong**.
+
+### Four extraction patterns (in priority order):
+1. **Table/list**: `Form: Strong` — element then rating, separated by `:`, `—`, or whitespace.
+2. **Contrast-of**: `contrast of form: strong` — explicit "contrast of/in element" phrasing.
+3. **Rating-then-contrast**: `strong contrast in form` — rating word precedes "contrast in/of element".
+4. **Rating-element-contrast**: `strong form contrast` — rating word precedes element word before "contrast".
+
+When multiple ratings are found for the same element (e.g., from multiple sections), the **strongest** is kept.
+
+### Outputs:
+- `vrm_elements.parquet` — long format: one row per (project_id × element × rating).
+- `vrm_elements_summary.csv` — element × energy_group × rating with n_projects and %.
+- `fig21_vrm_elements.png` — 100% stacked bar, faceted by Decarbonization vs Fossil Fuel.
+
+### Interpretation guidance:
+- Coverage will be partial (~20–40% of projects): only EIS documents with explicit VRM methodology tables use the element-level vocabulary. EA documents and non-BLM projects rarely do.
+- Low coverage does not invalidate the finding — it identifies which project types use the formal VRM rating framework.
+- Compare decarb vs fossil distributions to see whether wind/solar projects get different element-level contrast ratings than O&G corridor projects.
 
 ---
 

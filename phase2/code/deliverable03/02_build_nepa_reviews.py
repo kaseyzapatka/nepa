@@ -91,6 +91,7 @@ VISUAL_TOPICS_OUT       = OUT_DIR / "visual_topics.parquet"
 VISUAL_TOPIC_SUMMARY    = OUT_DIR / "visual_topic_summary.parquet"
 VISUAL_EXAMPLES_OUT     = OUT_DIR / "visual_examples.parquet"
 VISUAL_QA_SAMPLE_OUT    = OUT_DIR / "visual_qa_sample.parquet"
+VISUAL_VRM_ELEMENTS_OUT = OUT_DIR / "vrm_elements.parquet"
 
 # HTML / CSV outputs land in phase2/output/deliverable03/
 OUTPUT_DIR = BASE_DIR / "output" / "deliverable03"
@@ -99,6 +100,8 @@ VISUAL_SCATTERTEXT_HTML   = OUTPUT_DIR / "visual_scattertext_decarb_vs_fossil.ht
 VISUAL_QA_SAMPLE_CSV      = OUTPUT_DIR / "visual_qa_sample.csv"
 VISUAL_TOPIC_TERMS_CSV    = OUTPUT_DIR / "visual_topic_terms_detail.csv"
 VISUAL_TOPIC_EXCERPTS_CSV = OUTPUT_DIR / "visual_topic_excerpts.csv"
+VRM_ELEMENTS_SUMMARY_CSV  = OUTPUT_DIR / "vrm_elements_summary.csv"
+VISUAL_TOPIC_ELBOW_CSV    = OUTPUT_DIR / "nmf_elbow_data.csv"
 
 # --------------------------
 # VISUAL IMPACT CONSTANTS
@@ -610,6 +613,25 @@ VRM_CLASS = re.compile(
     r"\bClass\s+(I{1,3}|IV)\b[^.]{0,40}\bVRM\b",
     re.I,
 )
+# VRM compliance outcome regexes (Option A: post-hoc compliance flag).
+# Detects sentences that assert the project meets OR exceeds VRM class objectives.
+# Used in build_framing() and cross-tabbed against NMF topics in build_topics().
+VRM_MEETS_RE = re.compile(
+    r"\b(consistent\s+with.{0,40}(objective|class|VRM)|"
+    r"meets?\s+.{0,30}(objective|class|VRM)|"
+    r"within\s+.{0,20}VRM.{0,20}class|"
+    r"no\s+(adverse|strong)\s+contrast|"
+    r"would\s+comply|in\s+compliance\s+with)\b",
+    re.IGNORECASE,
+)
+VRM_EXCEEDS_RE = re.compile(
+    r"\b(exceed.{0,40}(objective|class|VRM)|"
+    r"would\s+not\s+meet.{0,40}(objective|class|VRM)|"
+    r"inconsistent\s+with.{0,40}(objective|class|VRM)|"
+    r"above\s+.{0,20}VRM.{0,20}class|"
+    r"strong\s+contrast.{0,30}exceed)\b",
+    re.IGNORECASE,
+)
 
 # Sentence splitter
 SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
@@ -648,18 +670,23 @@ NEPA_DOMAIN_STOPWORDS = {
     # Roman numerals — BLM VRM class designations ("Class II VRM", "Class III")
     # cause ii, iii, iv etc. to dominate NMF topics; stop them here
     "ii", "iii", "iv", "vi", "vii", "viii", "ix", "xi", "xii",
-    # visual-section boilerplate: these appear in every cell equally
-    # and would dominate NMF without stoppping
-    "visual", "scenic", "landscape", "aesthetics", "aesthetic",
-    "viewshed", "view", "views", "scenery",
+    # visual-section boilerplate: near-universal terms stopped here.
+    # "visual" and "visible" are intentionally NOT stopped — their bigrams
+    # (visual contrast, visual character, visible from) are discriminating signal
+    # and appear at 35–36% doc frequency, well within max_df.
+    # "scenic" IS stopped because its dominant bigram "scenic quality" appears
+    # in 42.6% of docs and causes NMF to collapse all topics into one cluster.
+    # Other scenic X bigrams (scenic byway, scenic integrity) are low-frequency
+    # enough to tolerate this loss.
+    "aesthetics", "aesthetic", "viewshed", "view", "views", "scenery",
+    "scenic",
     # BLM / agency-specific jargon that splits topics by admin framework
     # rather than by visual impact type
     "blm", "vrm", "kop", "class", "lands", "land",
     "management", "plan", "plans", "planning",
-    # Near-universal visual-section terms that appear in 50-65% of documents
-    # and fuse otherwise distinct topics (confirmed via nmf_vocab_diagnostic.csv)
-    "quality", "character", "change", "changes", "natural",
-    "conditions", "features", "visible", "based", "following",
+    # NOTE: "visual" and "visible" kept out of stopwords so bigrams survive.
+    # max_df=0.55 drops near-universal unigrams (visual 89%, landscape 66%) while
+    # preserving discriminating bigrams like "visual contrast" (36%), "visual character" (36%).
     # measurement / geographic fillers
     "acres", "miles", "mile", "feet", "road", "roads", "surface",
     "adjacent", "within", "along", "near", "around",
@@ -679,7 +706,7 @@ NEPA_DOMAIN_STOPWORDS = {
 # finds impact-TYPE topics rather than project-TYPE topics.
 _VISUAL_IMPACT_SENT_RE = re.compile(
     r"\b("
-    # Specific visual impact terms — strong enough to identify impact sentences alone
+    # Core visual impact terms
     r"shadow flicker|flicker frequency|stroboscopic effect|"
     r"glare|glint|anti.reflective|non.reflective coating|"
     r"night sky|dark sky|light pollution|skyglow|astronomical seeing|"
@@ -693,7 +720,18 @@ _VISUAL_IMPACT_SENT_RE = re.compile(
     r"dominant.*element|subordinate.*element|"
     r"visual resource management|VRM class|"
     r"foreground.*view|middleground.*view|background.*view|"
-    r"color treatment|vegetative screen|visual screen"
+    r"color treatment|vegetative screen|visual screen|"
+    # Category A: viewpoint and prominence language
+    r"visible from|seen from|above the ridgeline|visually prominent|panoramic|"
+    # Category B: Forest Service VQO and BLM SIO terminology
+    r"visual quality objective|scenic integrity objective|partial retention|foreground zone|"
+    # Category C: sensitive viewpoints and travel corridors
+    r"travel corridor|scenic byway|sensitive viewpoint|"
+    # Category D: plain impact descriptors (complement existing visual-intrusion terms)
+    r"dominate.*view|intrude[sd]?\b|natural setting|rural character|"
+    # Category E: VRM compliance outcome language
+    r"consistent with.{0,40}objective|exceeds?.{0,40}objective|"
+    r"strong contrast|meets?.{0,40}objective|would not meet|exceed.{0,40}class"
     r")\b",
     re.IGNORECASE,
 )
@@ -754,8 +792,10 @@ def _is_noisy_line(line: str) -> bool:
     # Dash-table lines (emissions comparison tables with -- -- -- patterns)
     if stripped.count("--") >= 3:
         return True
-    # VRM/VRI class acreage tables: 3+ "Class I/II/III/IV" tokens on one line
-    if len(_VRM_CLASS_RE.findall(stripped)) >= 3:
+    # VRM/VRI class acreage tables: 5+ "Class I/II/III/IV" tokens on one line
+    # (threshold raised from 3: narrative sentences like "Class II and Class III areas,
+    # must comply with Class II standards" had exactly 3 mentions and were wrongly dropped)
+    if len(_VRM_CLASS_RE.findall(stripped)) >= 5:
         return True
     # OCR garbage: 2+ consecutive special-character runs (tildes, equals, box chars)
     if _OCR_JUNK_RE.search(stripped):
@@ -1254,6 +1294,8 @@ def _count_framing_axes(text: str) -> dict:
     mit_weak = 0
     mit_specific: set[str] = set()
     vrm_classes: set[str] = set()
+    vrm_meets = 0
+    vrm_exceeds = 0
 
     sentences = SENTENCE_SPLIT_RE.split(text)
     for sent in sentences:
@@ -1286,6 +1328,8 @@ def _count_framing_axes(text: str) -> dict:
             cls = m.group(1) or m.group(2)
             if cls:
                 vrm_classes.add(cls.upper())
+        vrm_meets += len(VRM_MEETS_RE.findall(sent))
+        vrm_exceeds += len(VRM_EXCEEDS_RE.findall(sent))
 
     return {
         "sig_low": low, "sig_high": high,
@@ -1293,6 +1337,8 @@ def _count_framing_axes(text: str) -> dict:
         "mit_strong": mit_strong, "mit_weak": mit_weak,
         "mit_specific_terms": sorted(mit_specific),
         "vrm_classes": sorted(vrm_classes),
+        "vrm_meets": vrm_meets,
+        "vrm_exceeds": vrm_exceeds,
     }
 
 
@@ -1484,6 +1530,10 @@ def build_framing(conn: duckdb.DuckDBPyConnection) -> None:
             "mitigation_specific_terms": counts["mit_specific_terms"],
             "vrm_class_cited": bool(counts["vrm_classes"]),
             "vrm_classes": counts["vrm_classes"],
+            "vrm_meets": counts["vrm_meets"],
+            "vrm_exceeds": counts["vrm_exceeds"],
+            "vrm_compliance_flag": counts["vrm_meets"] > 0 and counts["vrm_exceeds"] == 0,
+            "vrm_noncompliant_flag": counts["vrm_exceeds"] > 0,
             "framing_run_at": run_at,
         })
 
@@ -1538,7 +1588,7 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
 
     vect = TfidfVectorizer(
         stop_words=nepa_stop,
-        ngram_range=(1, 2),
+        ngram_range=(1, 3),
         min_df=5,
         max_df=0.55,
         max_features=10000,
@@ -1570,7 +1620,7 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
     # --- Vocab diagnostic: show what min_df/max_df dropped (todo: inspect each run) ---
     _diag_vect = TfidfVectorizer(
         stop_words=nepa_stop,
-        ngram_range=(1, 2),
+        ngram_range=(1, 3),
         min_df=1,
         max_df=1.0,
         max_features=100_000,
@@ -1869,6 +1919,49 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
     except Exception as e:
         log(f"build_topics: LDA comparison failed ({e}); NMF results unchanged")
 
+    # --- Option A: VRM compliance diagnostic ---
+    # Cross-tab NMF topic assignments with VRM compliance/non-compliance flags
+    # to check whether compliant and non-compliant VRM findings cluster separately.
+    # If they do, Option A (compliance flag) is sufficient. If not, Option D
+    # (keep contrast topic unified) plus the element-level analysis is preferred.
+    try:
+        if VISUAL_FRAMING_OUT.exists():
+            _framing_diag = pd.read_parquet(
+                VISUAL_FRAMING_OUT,
+                columns=["project_id", "vrm_class_cited",
+                         "vrm_meets", "vrm_exceeds",
+                         "vrm_compliance_flag", "vrm_noncompliant_flag"]
+            )
+            _topics_framing = topics_df[["project_id", "topic_nmf", "topic_nmf_prob"]].merge(
+                _framing_diag, on="project_id", how="left"
+            )
+            _vrm_proj = _topics_framing[
+                _topics_framing["vrm_class_cited"].fillna(False)
+                | (_topics_framing["vrm_meets"].fillna(0) > 0)
+                | (_topics_framing["vrm_exceeds"].fillna(0) > 0)
+            ].copy()
+            if not _vrm_proj.empty:
+                _diag = (
+                    _vrm_proj
+                    .groupby(["topic_nmf", "vrm_compliance_flag", "vrm_noncompliant_flag"])
+                    .agg(n_projects=("project_id", "count"))
+                    .reset_index()
+                )
+                _diag["topic_label"] = _diag["topic_nmf"].map(
+                    {i: lbl for i, lbl in enumerate(topic_labels)}
+                )
+                _diag_path = OUTPUT_DIR / "vrm_topic_compliance_diagnostic.csv"
+                _diag.to_csv(_diag_path, index=False)
+                log(f"build_topics: wrote VRM compliance diagnostic -> {_diag_path.name}")
+                for _t, _lbl in enumerate(topic_labels):
+                    _sub = _vrm_proj[_vrm_proj["topic_nmf"] == _t]
+                    _n_meets = int(_sub["vrm_compliance_flag"].fillna(False).sum())
+                    _n_exc = int(_sub["vrm_noncompliant_flag"].fillna(False).sum())
+                    if (_n_meets + _n_exc) >= 5:
+                        log(f"  Topic {_t} ({_lbl}): {_n_meets} compliant, {_n_exc} non-compliant")
+    except Exception as _vrm_e:
+        log(f"build_topics: VRM compliance diagnostic failed ({_vrm_e}); skipping")
+
     # --- Export per-topic term weights (companion figure data) ---
     term_rows: list[dict] = []
     for t in range(nmf.components_.shape[0]):
@@ -1888,6 +1981,30 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
             })
     pd.DataFrame(term_rows).to_csv(VISUAL_TOPIC_TERMS_CSV, index=False)
     log(f"build_topics: wrote topic term weights -> {VISUAL_TOPIC_TERMS_CSV.name}")
+
+    # --- Elbow / coherence data for k-selection validation figure ---
+    try:
+        elbow_rows: list[dict] = []
+        for _k in range(2, 9):
+            _nmf_k = NMF(n_components=_k, random_state=42, max_iter=400, alpha_W=0.001)
+            _W_k = _nmf_k.fit_transform(Xtr)
+            _assign = np.argmax(_W_k, axis=1)
+            # Per-topic sharpness = std of top-10 component weights (higher = more discriminating)
+            _sharpness = []
+            for _t in range(_k):
+                _top_w = np.sort(_nmf_k.components_[_t])[-10:][::-1]
+                _sharpness.append(float(np.std(_top_w)))
+            elbow_rows.append({
+                "k": int(_k),
+                "reconstruction_error": float(_nmf_k.reconstruction_err_),
+                "mean_sharpness": float(np.mean(_sharpness)),
+                "min_sharpness": float(np.min(_sharpness)),
+                "n_nonempty_topics": int(sum(1 for _t in range(_k) if (_assign == _t).sum() > 0)),
+            })
+        pd.DataFrame(elbow_rows).to_csv(VISUAL_TOPIC_ELBOW_CSV, index=False)
+        log(f"build_topics: wrote elbow data (k=2–8) -> {VISUAL_TOPIC_ELBOW_CSV.name}")
+    except Exception as _elbow_e:
+        log(f"build_topics: elbow computation failed ({_elbow_e}); skipping")
 
     # --- Export topic excerpts for companion table ---
     if VISUAL_SECTIONS_OUT.exists():
@@ -2224,6 +2341,155 @@ def run_all(conn: duckdb.DuckDBPyConnection, sample: Optional[int]) -> None:
 # CLI
 # --------------------------
 
+# ==========================================================================
+# VRM Element-Level Contrast Rating Extraction
+# ==========================================================================
+
+_VRM_RATING_NORM = {
+    "none": "None", "negligible": "None", "no": "None",
+    "weak": "Weak", "low": "Weak", "minor": "Weak", "slight": "Weak",
+    "moderate": "Moderate", "medium": "Moderate",
+    "strong": "Strong", "high": "Strong", "major": "Strong",
+}
+_VRM_RATING_ORDER = {"None": 0, "Weak": 1, "Moderate": 2, "Strong": 3}
+_VRM_ELEMENTS = ["form", "line", "color", "texture", "scale", "vividness"]
+
+
+def _extract_vrm_element_ratings(text: str) -> dict:
+    """Extract per-element VRM contrast ratings from visual section text.
+
+    Handles four common formats:
+      1. Table: "Form: Strong"  "Line - Moderate"
+      2. Contrast-of: "contrast of form: strong"
+      3. Rating-then-contrast: "strong contrast in form"
+      4. Rating-element-contrast: "strong form contrast"
+
+    Returns dict mapping element -> normalized rating (None/Weak/Moderate/Strong).
+    When multiple ratings found for the same element, keeps the strongest.
+    """
+    if not text:
+        return {}
+
+    _rating_pat = r"(none|negligible|weak|low|minor|slight|moderate|medium|strong|high|major)"
+    _elem_pat   = r"(form|line|color|texture|scale|vividness)"
+    _sep        = r"[:\s\-\u2013\u2014]{1,6}"
+
+    found: dict = {}
+
+    def _record(elem: str, rating_word: str) -> None:
+        elem = elem.lower()
+        rating = _VRM_RATING_NORM.get(rating_word.lower())
+        if not rating:
+            return
+        if elem not in found or _VRM_RATING_ORDER[rating] > _VRM_RATING_ORDER[found[elem]]:
+            found[elem] = rating
+
+    # Pattern 1: element then rating (table / list format)
+    for m in re.finditer(_elem_pat + _sep + _rating_pat, text, re.IGNORECASE):
+        _record(m.group(1), m.group(2))
+
+    # Pattern 2: "contrast of|in element: rating"
+    for m in re.finditer(
+        r"\bcontrast\s+(?:of|in)\s+" + _elem_pat + r"(?:\s+contrast)?" + _sep + _rating_pat,
+        text, re.IGNORECASE
+    ):
+        _record(m.group(1), m.group(2))
+
+    # Pattern 3: "rating contrast in|of element"
+    for m in re.finditer(
+        _rating_pat + r"\s+contrast\s+(?:in|of)\s+" + _elem_pat,
+        text, re.IGNORECASE
+    ):
+        _record(m.group(2), m.group(1))
+
+    # Pattern 4: "rating element contrast" (e.g. "strong form contrast")
+    for m in re.finditer(
+        _rating_pat + r"\s+" + _elem_pat + r"\s+contrast\b",
+        text, re.IGNORECASE
+    ):
+        _record(m.group(2), m.group(1))
+
+    return found
+
+
+def build_vrm_elements(conn: duckdb.DuckDBPyConnection) -> None:
+    """Extract BLM VRM element-level contrast ratings per project.
+
+    Reads projects_visual_text.parquet, applies regex patterns to extract
+    form/line/color/texture/scale contrast ratings, and writes:
+      - vrm_elements.parquet   (long: project_id x element x rating)
+      - vrm_elements_summary.csv  (element x energy_group x rating counts/pct)
+
+    Complements build_framing() (Option A compliance flag) with element-level
+    detail on WHERE the contrast occurs (form, line, color, etc.) and at what
+    severity, broken out by Decarbonization vs Fossil Fuel.
+    """
+    log("build_vrm_elements: starting", pct=88)
+    if not PROJECTS_VISUAL_TEXT.exists():
+        log("build_vrm_elements: ERROR -- projects_visual_text.parquet missing; skipping")
+        return
+
+    run_at = datetime.now(timezone.utc).isoformat()
+    proj = pd.read_parquet(
+        PROJECTS_VISUAL_TEXT,
+        columns=["project_id", "energy_group", "tech_group", "process_type", "visual_text"]
+    )
+
+    element_rows: list[dict] = []
+    for _, row in proj.iterrows():
+        ratings = _extract_vrm_element_ratings(str(row["visual_text"] or ""))
+        for elem, rating in ratings.items():
+            element_rows.append({
+                "project_id": row["project_id"],
+                "energy_group": row["energy_group"],
+                "tech_group": row["tech_group"],
+                "process_type": row["process_type"],
+                "element": elem,
+                "rating": rating,
+                "vrm_elements_run_at": run_at,
+            })
+
+    if not element_rows:
+        log("build_vrm_elements: WARNING -- no element ratings found; writing empty output")
+        pd.DataFrame().to_parquet(VISUAL_VRM_ELEMENTS_OUT, index=False)
+        return
+
+    elem_df = pd.DataFrame(element_rows)
+    elem_df.to_parquet(VISUAL_VRM_ELEMENTS_OUT, index=False)
+    log(
+        f"build_vrm_elements: wrote {len(elem_df):,} element-rating rows"
+        f" -> {VISUAL_VRM_ELEMENTS_OUT.name}",
+        pct=90,
+    )
+
+    # --- Summary: element x energy_group x rating ---
+    # n_projects per cell (project_id deduplicated since one project can yield
+    # multiple ratings per element if the section mentions it more than once)
+    summary = (
+        elem_df
+        .groupby(["element", "energy_group", "rating"])["project_id"]
+        .nunique()
+        .reset_index(name="n_projects")
+    )
+    totals = (
+        elem_df
+        .groupby(["element", "energy_group"])["project_id"]
+        .nunique()
+        .reset_index(name="n_total")
+    )
+    summary = summary.merge(totals, on=["element", "energy_group"])
+    summary["pct"] = (summary["n_projects"] / summary["n_total"] * 100).round(1)
+    summary.to_csv(VRM_ELEMENTS_SUMMARY_CSV, index=False)
+    log(f"build_vrm_elements: wrote summary -> {VRM_ELEMENTS_SUMMARY_CSV.name}")
+
+    n_with = elem_df["project_id"].nunique()
+    n_tot = len(proj)
+    log(
+        f"build_vrm_elements: {n_with}/{n_tot} projects have element ratings"
+        f" ({100 * n_with / max(1, n_tot):.1f}%)"
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description=(
@@ -2284,6 +2550,7 @@ if __name__ == "__main__":
             adapt_section_layer()
             build_framing(conn)
             build_topics(conn)
+            build_vrm_elements(conn)
             build_examples(conn)
             build_scattertext(conn)
             build_qa_sample(conn)
