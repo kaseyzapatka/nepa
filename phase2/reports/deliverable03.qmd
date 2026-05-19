@@ -553,39 +553,13 @@ include_fig("fig12_visual_project_counts.png")
 
 Project counts by `tech_group` and `energy_group` indicate where the visual analysis has substantive coverage and where it is thin. Solar, wind, transmission, land-based oil and gas, and pipelines anchor the high-volume cells. Thinly-sampled cells (CCS, offshore oil and gas EA, coal EA, nuclear EA) are visible in the figure and should be interpreted as illustrative rather than statistical.
 
-## Topic Themes
+## Word Cloud Comparison
 
 ```{r}
-include_fig("fig14_topic_prevalence.png")
+include_fig("fig13_wordcloud_grid.png")
 ```
 
-Topic prevalence is derived from NMF as the guaranteed path (BERTopic is run when its dependencies are available and selected only if its labels are cleaner). The top topics surface familiar visual-resource themes: viewshed and scenic quality, glare and lighting, vegetation and landscape character, key observation point analysis, and VRM-class compliance language. Decarbonization and fossil portfolios load on overlapping but distinct topics — solar and wind concentrate on glare, height, and skyline, while oil and gas concentrates on pad visibility, lighting, and surface-disturbance recovery.
-
-## Framing Comparison
-
-```{r}
-include_fig("fig18_visual_framing.png")
-```
-
-Framing scores are CEQ §1508.27-anchored and computed with negation-aware phrase matching, so *no significant adverse impact* counts as low-adversity rather than high-significance. Three axes are measured:
-
-- **Significance ratio**: proportion of visual-impact sentences using high-significance language (*substantial*, *major*, *severe*) vs. low-significance language (*minor*, *negligible*, *less than significant*).
-- **Adversity ratio**: proportion of directional-impact sentences using negative language (*adverse*, *detrimental*, *degrade*, *harm*) vs. positive or no-effect language (*beneficial*, *enhance*, *no effect*).
-- **Mitigation ratio**: proportion of mitigation sentences with strong, action-specific commitments (*shall install*, *required to*, *design feature*) vs. weak or residual language (*residual impact*, *unavoidable*, *cannot fully mitigate*).
-
-```{r}
-#| label: tbl-framing-examples
-#| tbl-cap: "Representative sentences illustrating each framing measure, drawn from projects at the high and low end of each ratio."
-tbl_ex_path <- file.path(OUTPUT_DIR, "framing_examples.csv")
-if (file.exists(tbl_ex_path)) {
-  read.csv(tbl_ex_path, stringsAsFactors = FALSE, check.names = FALSE) |>
-    knitr::kable(col.names = c("Measure", "Framing", "Sample text"))
-} else {
-  cat("*[framing_examples.csv not yet generated — re-run 04_analyze_nepa_reviews.R]*\n")
-}
-```
-
-Comparing the two portfolios: decarbonization projects carry meaningfully higher adversity ratios than fossil fuel projects. This is not because solar and wind are more harmful to visual resources — it reflects that wind, solar, and transmission EISs document specific adverse effects explicitly and then commit to enumerated mitigation measures (glare analysis, viewshed modeling, color treatment, vegetation screening). Fossil EAs rely more heavily on low-significance boilerplate that minimizes explicit adversity framing. The higher mitigation ratio in the decarbonization portfolio is the counterpart: more explicit impact acknowledgment pairs with more explicit mitigation specificity.
+This two-panel TF-IDF word cloud shows the bigrams that most distinguish each portfolio from the other (EA and EIS combined within each panel). The decarbonization panel is dominated by *shadow flicker*, *transmission line*, *key observation*, *solar panels*, *anti-reflective*, *viewer sensitivity*, and *light pollution* — vocabulary specific to the glare, shadow, and skyline analyses required for wind and solar. The fossil fuel panel surfaces *contrast rating*, *compressor station*, *wilderness characteristics*, *permanent change*, *integrity objective*, and *major modification* — reflecting pipeline and O&G project language around BLM visual contrast scoring and the lasting footprint of surface disturbance.
 
 ## Section Length
 
@@ -594,14 +568,6 @@ include_fig("fig19_visual_section_length.png")
 ```
 
 This figure directly answers the question *do decarb projects get equal depth of visual analysis as fossil?* Section length is measured as `n_words` per heading-extracted section, sorted by median length with the longest at top. Blue boxes are Decarbonization technology types; red boxes are Fossil Fuel. Transmission, wind, and solar installations cluster near the top — these projects routinely produce long dedicated visual sections driven by glare analyses, viewshed modeling, and VRM-class compliance write-ups. Land-based oil and gas and pipeline projects sit in the middle of the range, despite their large project volume, reflecting template-driven form documents that allocate a fixed visual subsection. The overlap between portfolios is visible — some fossil technology types (rural energy, offshore oil and gas) have section lengths comparable to mid-tier decarb technologies — but decarb dominates the high end.
-
-## Word Cloud Comparison
-
-```{r}
-include_fig("fig13_wordcloud_grid.png")
-```
-
-This two-panel TF-IDF word cloud shows the bigrams that most distinguish each portfolio from the other (EA and EIS combined within each panel). The decarbonization panel is dominated by *shadow flicker*, *transmission line*, *key observation*, *solar panels*, *anti-reflective*, *viewer sensitivity*, and *light pollution* — vocabulary specific to the glare, shadow, and skyline analyses required for wind and solar. The fossil fuel panel surfaces *contrast rating*, *compressor station*, *wilderness characteristics*, *permanent change*, *integrity objective*, and *major modification* — reflecting pipeline and O&G project language around BLM visual contrast scoring and the lasting footprint of surface disturbance.
 
 ## Illustrative Excerpts
 
@@ -623,7 +589,13 @@ visual_examples <- read.csv(
   check.names = FALSE
 )
 
-visual_examples |>
+# Limit to 6 rows per energy group so decarb and fossil are balanced
+visual_examples_display <- visual_examples |>
+  dplyr::group_by(energy_group) |>
+  dplyr::slice_head(n = 6) |>
+  dplyr::ungroup()
+
+visual_examples_display |>
   mutate(
     excerpt = paste0("\u201c", as.character(excerpt), "\u201d"),
     project_title = as.character(project_title)
@@ -665,7 +637,7 @@ visual_examples |>
   ) |>
   tab_style(
     style    = cell_fill(color = "#f8f9fa"),
-    locations = cells_body(rows = seq(2, nrow(visual_examples), by = 2))
+    locations = cells_body(rows = seq(2, nrow(visual_examples_display), by = 2))
   ) |>
   tab_options(
     table.font.size   = px(12),
@@ -674,6 +646,145 @@ visual_examples |>
     table.width       = pct(100)
   )
 ```
+
+## Framing Comparison
+
+```{r}
+include_fig("fig18_visual_framing.png")
+```
+
+Framing scores are CEQ §1508.27-anchored and computed with negation-aware phrase matching, so *no significant adverse impact* counts as low-adversity rather than high-significance. Three axes are measured:
+
+- **Significance ratio**: proportion of visual-impact sentences using high-significance language (*substantial*, *major*, *severe*) vs. low-significance language (*minor*, *negligible*, *less than significant*).
+- **Adversity ratio**: proportion of directional-impact sentences using negative language (*adverse*, *detrimental*, *degrade*, *harm*) vs. positive or no-effect language (*beneficial*, *enhance*, *no effect*).
+- **Mitigation ratio**: proportion of mitigation sentences with strong, action-specific commitments (*shall install*, *required to*, *design feature*) vs. weak or residual language (*residual impact*, *unavoidable*, *cannot fully mitigate*).
+
+```{r}
+#| label: tbl-framing-examples
+#| tbl-cap: "Representative sentences illustrating each framing measure, drawn from projects at the high and low end of each ratio, grouped by portfolio."
+tbl_ex_path <- file.path(OUTPUT_DIR, "framing_examples.csv")
+if (file.exists(tbl_ex_path)) {
+  library(gt)
+  framing_tbl <- read.csv(tbl_ex_path, stringsAsFactors = FALSE, check.names = FALSE)
+  framing_tbl |>
+    gt(groupname_col = "energy_group") |>
+    cols_label(Measure = "Measure", Framing = "Framing",
+               `Sample text` = "Sample text") |>
+    cols_width(
+      Measure ~ px(90),
+      Framing ~ px(80),
+      `Sample text` ~ px(520)
+    ) |>
+    cols_align(align = "left") |>
+    tab_style(
+      style = cell_text(weight = "bold"),
+      locations = cells_column_labels()
+    ) |>
+    tab_style(
+      style = list(
+        cell_fill(color = "#012169"),
+        cell_text(color = "white", weight = "bold", size = px(13))
+      ),
+      locations = cells_row_groups()
+    ) |>
+    tab_style(
+      style    = cell_fill(color = "#f8f9fa"),
+      locations = cells_body(rows = seq(2, nrow(framing_tbl), by = 2))
+    ) |>
+    tab_options(
+      table.font.size   = px(12),
+      data_row.padding  = px(8),
+      row_group.padding = px(6),
+      table.width       = pct(100)
+    )
+} else {
+  cat("*[framing_examples.csv not yet generated -- re-run 04_analyze_nepa_reviews.R]*\n")
+}
+```
+
+Comparing the two portfolios: decarbonization projects carry meaningfully higher adversity ratios than fossil fuel projects. This is not because solar and wind are more harmful to visual resources — it reflects that wind, solar, and transmission EISs document specific adverse effects explicitly and then commit to enumerated mitigation measures (glare analysis, viewshed modeling, color treatment, vegetation screening). Fossil EAs rely more heavily on low-significance boilerplate that minimizes explicit adversity framing. The higher mitigation ratio in the decarbonization portfolio is the counterpart: more explicit impact acknowledgment pairs with more explicit mitigation specificity.
+
+## Topic Themes
+
+```{r}
+include_fig("fig14_topic_prevalence.png")
+```
+
+```{r}
+#| label: tbl-topic-summary
+topic_terms_path <- file.path(OUTPUT_DIR, "visual_topic_terms_detail.csv")
+topic_sum_path   <- file.path(here("phase2","data","analysis","deliverable03"),
+                              "visual_topic_summary.parquet")
+
+if (file.exists(topic_terms_path) && file.exists(topic_sum_path)) {
+  TOPIC_INTERP_R <- c(
+    "shadow / flicker"                        = "Wind Turbine Shadow Flicker",
+    "contrast / visual contrast"              = "VRM Contrast Rating & Solar Glare",
+    "glare / transmission / light"            = "Industrial & Infrastructure Corridors",
+    "contrast / visual contrast / objectives" = "BLM VRM Objectives & Landscape Management"
+  )
+  TOPIC_DESC <- c(
+    "Wind Turbine Shadow Flicker"               = "Rotating turbine blades cast moving shadows on nearby receptors. Analysis quantifies annual shadow hours per receptor and compares against regulatory thresholds (often 30 hours/year).",
+    "VRM Contrast Rating & Solar Glare"         = "BLM VRM contrast rating methodology applied to solar and transmission projects. Documents score contrast of form, line, color, and texture against the characteristic landscape; glare from panels is a secondary element.",
+    "Industrial & Infrastructure Corridors"     = "Visual impact of linear and industrial facilities — O&G pipelines, transmission lines, LNG terminals, substations. Language centers on structures, lighting, visual character of river and byway viewsheds.",
+    "BLM VRM Objectives & Landscape Management" = "Formal BLM VRM compliance framework: managed VRM classes, Visual Resource Inventory sensitivity, dominance, landscape character, and scenic integrity objectives. Primarily O&G and pipeline EIS documents on BLM land."
+  )
+
+  tt <- read.csv(topic_terms_path, stringsAsFactors = FALSE) |>
+    filter(model == "nmf", rank <= 12)
+  ts <- arrow::read_parquet(topic_sum_path) |>
+    filter(model == "nmf") |>
+    mutate(
+      auto_label  = label,
+      interp      = dplyr::coalesce(TOPIC_INTERP_R[auto_label], auto_label),
+      description = dplyr::coalesce(TOPIC_DESC[interp], "")
+    )
+
+  top_terms_str <- tt |>
+    group_by(topic_id) |>
+    summarise(terms = paste(term, collapse = ", "), .groups = "drop")
+
+  topic_tbl <- ts |>
+    left_join(top_terms_str, by = "topic_id") |>
+    arrange(topic_id) |>
+    select(interp, description, n_total, n_decarb, n_fossil, terms) |>
+    rename(
+      Theme        = interp,
+      Description  = description,
+      Projects     = n_total,
+      Decarb       = n_decarb,
+      Fossil       = n_fossil,
+      `Top terms`  = terms
+    )
+
+  topic_tbl |>
+    gt() |>
+    tab_header(title = "Table 3: NMF Visual-Impact Topic Summary") |>
+    cols_width(
+      Theme       ~ px(180),
+      Description ~ px(260),
+      Projects    ~ px(65),
+      Decarb      ~ px(60),
+      Fossil      ~ px(60),
+      `Top terms` ~ px(280)
+    ) |>
+    tab_style(
+      style    = list(cell_fill(color = "#012169"), cell_text(color = "white", weight = "bold")),
+      locations = cells_column_labels()
+    ) |>
+    tab_style(
+      style    = cell_text(weight = "bold"),
+      locations = cells_body(columns = Theme)
+    ) |>
+    tab_options(table.font.size = px(12))
+}
+```
+
+```{r}
+include_fig("fig14b_topic_terms.png")
+```
+
+Four topics emerge from NMF applied to the sentence-filtered visual-impact text (~1,310 heading-anchored documents). Topic 1 (Shadow Flicker) is the most coherent — shadow, flicker, and shadow flicker together have weights 3× higher than any secondary term, reflecting a highly distinctive specialized vocabulary unique to wind projects. Topics 0 and 3 both revolve around VRM contrast methodology but separate on secondary vocabulary: Topic 0 skews toward solar panel glare, VRI sensitivity ratings, and moderate-contrast outcomes; Topic 3 toward BLM VRM compliance framing — managed classes, VRI, dominance, landscape character, and scenic integrity objectives. Topic 2 shows a flat term-weight profile (all 10 terms within a narrow 0.20–0.24 band), indicating it is a residual category for O&G, pipeline, and transmission projects that share enough visual-impact prose that NMF cannot further discriminate them. This flatness is a property of the corpus, not a modeling failure — these project types genuinely use overlapping infrastructure-corridor language.
 
 ## Interactive: Distinguishing Terms
 

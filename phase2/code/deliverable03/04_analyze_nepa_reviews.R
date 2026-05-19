@@ -104,6 +104,18 @@ VISUAL_PATH   <- file.path(D03_DIR, "projects_visual_impacts.parquet")
 GEO_OG_PATH   <- file.path(D03_DIR, "projects_geothermal_og.parquet")
 TIMELINE_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "timeline.parquet")
 
+# Human-readable interpretive labels for NMF topics.
+# Keys are the auto-generated term labels from the Python pipeline.
+# If a run produces different auto-labels (e.g., after vocabulary changes),
+# add the new label string here — unmatched labels fall through to their
+# auto-generated form unchanged.
+TOPIC_INTERP <- c(
+  "shadow / flicker"                        = "Wind Turbine Shadow Flicker",
+  "contrast / visual contrast"              = "VRM Contrast Rating & Solar Glare",
+  "glare / transmission / light"            = "Industrial & Infrastructure Corridors",
+  "contrast / visual contrast / objectives" = "BLM VRM Objectives & Landscape Management"
+)
+
 # New visual-impact pipeline parquets (Stage 1–4 outputs)
 VISUAL_SECTIONS_PATH      <- file.path(D03_DIR, "visual_sections.parquet")
 VISUAL_TEXT_PATH          <- file.path(D03_DIR, "projects_visual_text.parquet")
@@ -113,6 +125,7 @@ VISUAL_FRAMING_PATH       <- file.path(D03_DIR, "visual_framing.parquet")
 VISUAL_EXAMPLES_PATH      <- file.path(D03_DIR, "visual_examples.parquet")
 VISUAL_TOPIC_TERMS_PATH   <- file.path(OUTPUT_DIR, "visual_topic_terms_detail.csv")
 VISUAL_TOPIC_EXCERPTS_PATH <- file.path(OUTPUT_DIR, "visual_topic_excerpts.csv")
+VRM_ELEMENTS_PATH          <- file.path(D03_DIR, "vrm_elements.parquet")
 
 # --------------------------
 # BRAND CONSTANTS
@@ -230,6 +243,7 @@ VISUAL_TOPICS_AVAILABLE   <- file.exists(VISUAL_TOPICS_PATH) ||
                              file.exists(VISUAL_TOPIC_SUMMARY_PATH)
 VISUAL_FRAMING_AVAILABLE  <- file.exists(VISUAL_FRAMING_PATH)
 VISUAL_EXAMPLES_AVAILABLE <- file.exists(VISUAL_EXAMPLES_PATH)
+VRM_ELEMENTS_AVAILABLE    <- file.exists(VRM_ELEMENTS_PATH)
 
 ce_cits_raw <- if (CE_AVAILABLE) read_parquet(CE_PATH) else NULL
 # Consolidate all Section 390 variants (Energy Policy Act / National Energy Policy Act /
@@ -801,7 +815,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
       message("fig12 skipped: no EA/EIS rows after filtering.")
     } else {
       ggplot(universe, aes(x = tech_group, y = n_projects, fill = energy_group)) +
-        geom_col(width = 0.8) +
+        geom_col(width = 0.8, alpha = 0.7) +
         geom_text(aes(label = scales::comma(n_projects)),
                   hjust = -0.15, size = 3, color = catf_navy) +
         scale_fill_manual(values = c("Decarbonization" = catf_navy,
@@ -926,7 +940,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
         filter(n_projects >= 10) |>
         rename(word = bigram) |>
         group_by(cell) |>
-        slice_max(tf_idf, n = 60, with_ties = FALSE) |>
+        slice_max(tf_idf, n = 45, with_ties = FALSE) |>
         ungroup()
 
 
@@ -961,7 +975,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
       wc_grid <- (p_d | p_f) +
         patchwork::plot_annotation(
           title    = "Distinguishing Visual-Impact Vocabulary: Decarbonization vs. Fossil Fuel",
-          subtitle = "Top 60 TF-IDF bigrams per portfolio (each portfolio vs. the other)",
+          subtitle = "Top 45 TF-IDF bigrams per portfolio (each portfolio vs. the other)",
           caption  = DATA_CAPTION,
           theme    = theme_catf()
         )
@@ -997,12 +1011,14 @@ if (!file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
       topic_summary |> filter(model == chosen_model)
     } else topic_summary
 
-    # Pick top 10 by total project count
+    # Pick top 10 by total project count; apply interpretive labels
     top10 <- topic_chosen |>
       arrange(desc(n_total)) |>
       slice_head(n = 10) |>
-      mutate(label = ifelse(is.na(label) | label == "",
-                            paste0("topic_", topic_id), label))
+      mutate(
+        auto_label = ifelse(is.na(label) | label == "", paste0("topic_", topic_id), label),
+        label      = dplyr::coalesce(TOPIC_INTERP[auto_label], auto_label)
+      )
 
     if (nrow(top10) == 0 ||
         !all(c("n_decarb", "n_fossil") %in% names(top10))) {
@@ -1024,7 +1040,7 @@ if (!file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
                       "Fossil Fuel"     = "#7B241C")
 
       ggplot(topic_long, aes(x = label, y = n, fill = energy_group)) +
-        geom_col(position = position_dodge(width = 0.8), width = 0.75) +
+        geom_col(position = position_dodge(width = 0.8), width = 0.75, alpha = 0.7) +
         geom_text(aes(label = scales::comma(n)),
                   position = position_dodge(width = 0.8),
                   hjust = -0.15, size = 2.8, color = catf_navy) +
@@ -1034,8 +1050,7 @@ if (!file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
         coord_flip() +
         labs(x = NULL, y = "Projects with Topic", fill = NULL,
              title = "Top Visual-Impact Topics by Energy Category",
-             subtitle = sprintf("Top 10 topics (%s model); side-by-side decarb vs. fossil project counts",
-                                if (is.na(chosen_model)) "single" else chosen_model),
+             subtitle = "NMF topic model; interpretive labels assigned from top discriminating terms",
              caption = DATA_CAPTION) +
         theme_catf() +
         theme(legend.position = "bottom")
@@ -1123,7 +1138,7 @@ if (!VISUAL_FRAMING_AVAILABLE) {
 
       ggplot(framing_axes,
              aes(x = energy_group, y = mean_ratio, fill = energy_group)) +
-        geom_col(width = 0.6) +
+        geom_col(width = 0.6, alpha = 0.7) +
         geom_text(aes(label = scales::percent(mean_ratio, accuracy = 1)),
                   vjust = -0.4, size = 3.5, color = catf_navy) +
         scale_fill_manual(values = fram_fill, guide = "none") +
@@ -1155,9 +1170,8 @@ tryCatch({
   if (!exists("vtext"))   vtext   <- read_parquet(VISUAL_TEXT_PATH)
 
   fd <- framing |>
-    left_join(vtext |> select(project_id, visual_analysis_text,
-                              process_type, energy_group), by = "project_id") |>
-    filter(!is.na(visual_analysis_text), nchar(visual_analysis_text) > 200)
+    left_join(vtext |> select(project_id, visual_text_clean), by = "project_id") |>
+    filter(!is.na(visual_text_clean), nchar(visual_text_clean) > 200)
 
   if (!"adversity_ratio" %in% names(fd)) {
     neg_col <- if ("adv_neg" %in% names(fd)) "adv_neg" else "adv_neg_count"
@@ -1171,40 +1185,60 @@ tryCatch({
     )
   }
 
-  pick_sent <- function(text, pattern, max_chars = 260) {
+  pick_sent <- function(text, pattern, max_chars = 700) {
     if (is.na(text)) return(NA_character_)
-    sents <- str_squish(unlist(str_split(text, "(?<=[.!?])\\s+")))
+    # Split on sentence boundaries AND newlines to handle paragraph-style text
+    raw <- unlist(str_split(text, "(?<=[.!?])\\s+|\\n+"))
+    sents <- str_squish(raw)
+    sents <- sents[nchar(sents) >= 50]
     for (s in sents) {
-      if (str_detect(tolower(s), pattern) && nchar(s) >= 50 && nchar(s) <= max_chars)
-        return(s)
+      if (str_detect(tolower(s), pattern) && nchar(s) <= max_chars)
+        return(str_trunc(s, 350))
     }
     NA_character_
   }
 
+  # Pre-filter fd by energy_group before picking examples; avoids scoping
+  # issues with closures and tibble subsetting inside get_ex.
   get_ex <- function(df, ratio_col, high, kw) {
-    d <- if (high) arrange(df, desc(.data[[ratio_col]])) else arrange(df, .data[[ratio_col]])
-    d <- filter(d, !is.na(.data[[ratio_col]]))
+    d <- as.data.frame(df)
+    d <- if (high) d[order(-d[[ratio_col]], na.last = TRUE), ] else d[order(d[[ratio_col]], na.last = TRUE), ]
+    d <- d[!is.na(d[[ratio_col]]), ]
     for (i in seq_len(min(nrow(d), 80))) {
-      s <- pick_sent(d$visual_analysis_text[i], kw)
+      s <- pick_sent(d$visual_text_clean[i], kw)
       if (!is.na(s)) return(s)
     }
     NA_character_
   }
 
-  framing_ex <- tibble::tribble(
-    ~Measure,       ~Framing,   ~`Sample text`,
-    "Significance", "High",     get_ex(fd, "significance_ratio", TRUE,
-                                  "significant|major|substantial|severe"),
-    "Significance", "Low",      get_ex(fd, "significance_ratio", FALSE,
-                                  "less than significant|not significant|negligible|minor"),
-    "Adversity",    "Negative", get_ex(fd, "adversity_ratio",    TRUE,
-                                  "adverse|detrimental|degrad|harm"),
-    "Adversity",    "Positive", get_ex(fd, "adversity_ratio",    FALSE,
-                                  "beneficial|enhance|improve|no adverse|no effect"),
-    "Mitigation",   "Strong",   get_ex(fd, "mitigation_ratio",   TRUE,
-                                  "shall|will install|required to|committed to|painted"),
-    "Mitigation",   "Weak",     get_ex(fd, "mitigation_ratio",   FALSE,
-                                  "residual|unavoidable|cannot be fully|cannot fully|remain")
+  mk_rows <- function(eg) {
+    fd_eg <- fd[which(fd$energy_group == eg), ]
+    tibble::tribble(
+      ~energy_group, ~Measure, ~Framing, ~`Sample text`,
+      eg, "Significance", "High",
+      get_ex(fd_eg, "significance_ratio", TRUE,
+             "\\bsignificant\\b|\\bmajor\\b|\\bsubstantial\\b|\\bsevere\\b"),
+      eg, "Significance", "Low",
+      get_ex(fd_eg, "significance_ratio", FALSE,
+             "less than significant|not significant|\\bnegligible\\b|\\bminor\\b"),
+      eg, "Adversity",    "Negative",
+      get_ex(fd_eg, "adversity_ratio", TRUE,
+             "adverse|detrimental|degrad|harm"),
+      eg, "Adversity",    "Positive",
+      get_ex(fd_eg, "adversity_ratio", FALSE,
+             "beneficial|enhance|improve|no adverse|no effect"),
+      eg, "Mitigation",   "Strong",
+      get_ex(fd_eg, "mitigation_ratio", TRUE,
+             "shall|will install|required to|committed to|painted"),
+      eg, "Mitigation",   "Weak",
+      get_ex(fd_eg, "mitigation_ratio", FALSE,
+             "residual|unavoidable|cannot be fully|cannot fully|remain")
+    )
+  }
+
+  framing_ex <- dplyr::bind_rows(
+    mk_rows("Decarbonization"),
+    mk_rows("Fossil Fuel")
   )
 
   write.csv(framing_ex, file.path(OUTPUT_DIR, "framing_examples.csv"), row.names = FALSE)
@@ -1253,6 +1287,76 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
     }
   }, error = function(e) {
     message(sprintf("fig19 skipped: %s", conditionMessage(e)))
+  })
+}
+
+# ---------------------------------------------------------------------------
+# fig21 -- VRM element-level contrast rating distribution
+# ---------------------------------------------------------------------------
+if (!VRM_ELEMENTS_AVAILABLE) {
+  message("fig21 skipped: vrm_elements.parquet not found.")
+} else {
+  tryCatch({
+    vrm_el <- read_parquet(VRM_ELEMENTS_PATH)
+    vrm_el <- vrm_el |>
+      dplyr::filter(
+        !is.na(rating), !is.na(element),
+        energy_group %in% c("Decarbonization", "Fossil Fuel")
+      ) |>
+      dplyr::mutate(
+        element      = stringr::str_to_title(element),
+        rating       = factor(rating, levels = c("None", "Weak", "Moderate", "Strong")),
+        energy_group = factor(energy_group, levels = c("Decarbonization", "Fossil Fuel"))
+      )
+
+    if (nrow(vrm_el) < 10) {
+      message("fig21 skipped: too few VRM element rows.")
+    } else {
+      vrm_pct <- vrm_el |>
+        dplyr::group_by(energy_group, element, rating) |>
+        dplyr::summarise(n_projects = dplyr::n_distinct(project_id), .groups = "drop") |>
+        dplyr::group_by(energy_group, element) |>
+        dplyr::mutate(
+          n_total = sum(n_projects),
+          pct     = 100 * n_projects / n_total
+        ) |>
+        dplyr::ungroup()
+
+      rating_colors <- c(
+        "None"     = "#D3D3D3",
+        "Weak"     = "#8AB7E9",
+        "Moderate" = "#0047BB",
+        "Strong"   = "#012169"
+      )
+
+      p21 <- ggplot(vrm_pct, aes(x = element, y = pct, fill = rating)) +
+        geom_col(position = "stack", width = 0.7) +
+        facet_wrap(~ energy_group, ncol = 2) +
+        scale_fill_manual(values = rating_colors, name = "Contrast Rating") +
+        scale_y_continuous(
+          labels = scales::label_percent(scale = 1),
+          expand = expansion(mult = c(0, 0.05))
+        ) +
+        labs(
+          title    = "VRM Element-Level Contrast Ratings by Energy Category",
+          subtitle = "Share of projects with each contrast rating per BLM VRM element",
+          x = "VRM Element", y = "% of Projects"
+        ) +
+        theme_bw(base_size = 11) +
+        theme(
+          axis.text.x        = element_text(angle = 30, hjust = 1),
+          legend.position    = "right",
+          panel.grid.major.x = element_blank(),
+          strip.background   = element_rect(fill = catf_navy),
+          strip.text         = element_text(color = "white", face = "bold")
+        )
+
+      print(p21)
+      save_fig("fig21_vrm_elements.png", height = 6, width = 10)
+      message("fig21: VRM element-level ratings chart written.")
+    }
+  }, error = function(e) {
+    message(sprintf("fig21 skipped: %s", conditionMessage(e)))
   })
 }
 
@@ -1372,11 +1476,15 @@ if (!file.exists(VISUAL_TOPIC_TERMS_PATH)) {
     topic_terms <- read.csv(VISUAL_TOPIC_TERMS_PATH, stringsAsFactors = FALSE) |>
       filter(model == "nmf", rank <= 10)
 
-    # Join in human-readable label from topic summary if available
+    # Join in human-readable label from topic summary; apply interpretive labels
     if (file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
       ts_labels <- read_parquet(VISUAL_TOPIC_SUMMARY_PATH) |>
         filter(model == "nmf") |>
-        select(topic_id, label, n_total)
+        select(topic_id, label, n_total) |>
+        mutate(
+          auto_label = label,
+          label      = dplyr::coalesce(TOPIC_INTERP[auto_label], auto_label)
+        )
       topic_terms <- topic_terms |>
         left_join(ts_labels, by = "topic_id") |>
         mutate(panel_label = paste0("Topic ", topic_id, ": ", label,
