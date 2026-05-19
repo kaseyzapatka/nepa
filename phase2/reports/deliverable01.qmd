@@ -196,7 +196,7 @@ source_wide <- source_dist |>
   mutate(Total = rowSums(across(where(is.numeric))))
 
 source_wide |>
-  gt(rowname_col = "nepa_trigger_evidence_source") |>
+  gt() |>
   cols_label(
     nepa_trigger_evidence_source = "Evidence Source",
     high   = "High",
@@ -204,18 +204,29 @@ source_wide |>
     low    = "Low",
     Total  = "Total"
   ) |>
+  cols_width(
+    nepa_trigger_evidence_source ~ pct(44),
+    high                         ~ pct(14),
+    medium                       ~ pct(14),
+    low                          ~ pct(14),
+    Total                        ~ pct(14)
+  ) |>
   fmt_number(columns = where(is.numeric), decimals = 0, use_seps = TRUE) |>
   cols_align(align = "left",  columns = nepa_trigger_evidence_source) |>
   cols_align(align = "right", columns = where(is.numeric)) |>
   tab_spanner(label = "Confidence Level", columns = c(high, medium, low)) |>
   tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
-  tab_style(style = cell_text(weight = "bold"), locations = cells_stub()) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(columns = nepa_trigger_evidence_source)
+  ) |>
   tab_style(
     style    = cell_fill(color = "#f0f4fb"),
     locations = cells_body(columns = Total)
   ) |>
   tab_options(table.font.size = px(16), data_row.padding = px(10),
-              column_labels.font.size = px(16), table.width = pct(100))
+              column_labels.font.size = px(16), container.width = "100%",
+              table.width = "100%", table.layout = "fixed")
 ```
 
 ## Next Steps and Known Gaps
@@ -290,7 +301,7 @@ associated with each nexus type.
 
 ```{r}
 #| label: fig-process-by-trigger
-#| fig-cap: "Share of CE, EA, and EIS reviews within each primary trigger class. Percentage labels shown for segments > 5%."
+#| fig-cap: "Share of CE, EA, and EIS reviews within each primary trigger class. Percentage labels shown for segments > 5%; right-side labels show total project counts."
 #| out-width: "90%"
 
 knitr::include_graphics(file.path(OUTPUT_DIR, "fig3_process_by_trigger.png"))
@@ -342,7 +353,7 @@ to Solar).
 
 ```{r}
 #| label: fig-technology
-#| fig-cap: "Primary NEPA trigger by energy technology type. Technologies with fewer than 50 projects excluded. Technology label = first clean-energy NEPATEC tag per project."
+#| fig-cap: "Primary NEPA trigger by energy technology type. Technologies with fewer than 50 projects excluded. Right-side labels show total project counts; technology label = first clean-energy NEPATEC tag per project."
 #| out-width: "100%"
 
 knitr::include_graphics(file.path(OUTPUT_DIR, "fig5_trigger_by_technology.png"))
