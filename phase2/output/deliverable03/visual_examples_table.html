@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<style>body{background-color:white;}</style>
+
+
+</head>
+<body>
+<div id="mpyvshtoip" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+  <style>html {
+  font-family: Helvetica;
+}
+
+#mpyvshtoip .gt_table {
+  display: table;
+  border-collapse: collapse;
+  margin-left: auto;
+  margin-right: auto;
+  color: #333333;
+  font-size: 12px;
+  font-weight: normal;
+  font-style: normal;
+  background-color: #FFFFFF;
+  width: auto;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #A8A8A8;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #A8A8A8;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_heading {
+  background-color: #FFFFFF;
+  text-align: center;
+  border-bottom-color: #FFFFFF;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_caption {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+#mpyvshtoip .gt_title {
+  color: #333333;
+  font-size: 125%;
+  font-weight: initial;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-color: #FFFFFF;
+  border-bottom-width: 0;
+}
+
+#mpyvshtoip .gt_subtitle {
+  color: #333333;
+  font-size: 85%;
+  font-weight: initial;
+  padding-top: 0;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-color: #FFFFFF;
+  border-top-width: 0;
+}
+
+#mpyvshtoip .gt_bottom_border {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_col_headings {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_col_heading {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  overflow-x: hidden;
+}
+
+#mpyvshtoip .gt_column_spanner_outer {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: normal;
+  text-transform: inherit;
+  padding-top: 0;
+  padding-bottom: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+#mpyvshtoip .gt_column_spanner_outer:first-child {
+  padding-left: 0;
+}
+
+#mpyvshtoip .gt_column_spanner_outer:last-child {
+  padding-right: 0;
+}
+
+#mpyvshtoip .gt_column_spanner {
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: bottom;
+  padding-top: 5px;
+  padding-bottom: 5px;
+  overflow-x: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+#mpyvshtoip .gt_group_heading {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  padding-left: 5px;
+  padding-right: 5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  text-align: left;
+}
+
+#mpyvshtoip .gt_empty_group_heading {
+  padding: 0.5px;
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  vertical-align: middle;
+}
+
+#mpyvshtoip .gt_from_md > :first-child {
+  margin-top: 0;
+}
+
+#mpyvshtoip .gt_from_md > :last-child {
+  margin-bottom: 0;
+}
+
+#mpyvshtoip .gt_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  margin: 10px;
+  border-top-style: solid;
+  border-top-width: 1px;
+  border-top-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 1px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 1px;
+  border-right-color: #D3D3D3;
+  vertical-align: middle;
+  overflow-x: hidden;
+}
+
+#mpyvshtoip .gt_stub {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#mpyvshtoip .gt_stub_row_group {
+  color: #333333;
+  background-color: #FFFFFF;
+  font-size: 100%;
+  font-weight: initial;
+  text-transform: inherit;
+  border-right-style: solid;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+  padding-left: 5px;
+  padding-right: 5px;
+  vertical-align: top;
+}
+
+#mpyvshtoip .gt_row_group_first td {
+  border-top-width: 2px;
+}
+
+#mpyvshtoip .gt_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#mpyvshtoip .gt_first_summary_row {
+  border-top-style: solid;
+  border-top-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_first_summary_row.thick {
+  border-top-width: 2px;
+}
+
+#mpyvshtoip .gt_last_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_grand_summary_row {
+  color: #333333;
+  background-color: #FFFFFF;
+  text-transform: inherit;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#mpyvshtoip .gt_first_grand_summary_row {
+  padding-top: 8px;
+  padding-bottom: 8px;
+  padding-left: 5px;
+  padding-right: 5px;
+  border-top-style: double;
+  border-top-width: 6px;
+  border-top-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_striped {
+  background-color: rgba(128, 128, 128, 0.05);
+}
+
+#mpyvshtoip .gt_table_body {
+  border-top-style: solid;
+  border-top-width: 2px;
+  border-top-color: #D3D3D3;
+  border-bottom-style: solid;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_footnotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_footnote {
+  margin: 0px;
+  font-size: 90%;
+  padding-left: 4px;
+  padding-right: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#mpyvshtoip .gt_sourcenotes {
+  color: #333333;
+  background-color: #FFFFFF;
+  border-bottom-style: none;
+  border-bottom-width: 2px;
+  border-bottom-color: #D3D3D3;
+  border-left-style: none;
+  border-left-width: 2px;
+  border-left-color: #D3D3D3;
+  border-right-style: none;
+  border-right-width: 2px;
+  border-right-color: #D3D3D3;
+}
+
+#mpyvshtoip .gt_sourcenote {
+  font-size: 90%;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#mpyvshtoip .gt_left {
+  text-align: left;
+}
+
+#mpyvshtoip .gt_center {
+  text-align: center;
+}
+
+#mpyvshtoip .gt_right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#mpyvshtoip .gt_font_normal {
+  font-weight: normal;
+}
+
+#mpyvshtoip .gt_font_bold {
+  font-weight: bold;
+}
+
+#mpyvshtoip .gt_font_italic {
+  font-style: italic;
+}
+
+#mpyvshtoip .gt_super {
+  font-size: 65%;
+}
+
+#mpyvshtoip .gt_footnote_marks {
+  font-style: italic;
+  font-weight: normal;
+  font-size: 75%;
+  vertical-align: 0.4em;
+}
+
+#mpyvshtoip .gt_asterisk {
+  font-size: 100%;
+  vertical-align: 0;
+}
+
+#mpyvshtoip .gt_indent_1 {
+  text-indent: 5px;
+}
+
+#mpyvshtoip .gt_indent_2 {
+  text-indent: 10px;
+}
+
+#mpyvshtoip .gt_indent_3 {
+  text-indent: 15px;
+}
+
+#mpyvshtoip .gt_indent_4 {
+  text-indent: 20px;
+}
+
+#mpyvshtoip .gt_indent_5 {
+  text-indent: 25px;
+}
+</style>
+  <table class="gt_table">
+  <thead class="gt_header">
+    <tr>
+      <td colspan="6" class="gt_heading gt_title gt_font_normal" style>Illustrative Visual-Impact Excerpts</td>
+    </tr>
+    <tr>
+      <td colspan="6" class="gt_heading gt_subtitle gt_font_normal gt_bottom_border" style>Heading-anchored sections, 150–500 words; grouped by energy category</td>
+    </tr>
+  </thead>
+  <thead class="gt_col_headings">
+    <tr>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" style="font-weight: bold;" scope="col" id="Process">Process</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" style="font-weight: bold;" scope="col" id="Technology">Technology</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" style="font-weight: bold;" scope="col" id="Lead Agency">Lead Agency</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" style="font-weight: bold;" scope="col" id="Project">Project</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" style="font-weight: bold;" scope="col" id="Excerpt">Excerpt</th>
+      <th class="gt_col_heading gt_columns_bottom_border gt_left" rowspan="1" colspan="1" style="font-weight: bold;" scope="col" id="Framing">Framing</th>
+    </tr>
+  </thead>
+  <tbody class="gt_table_body">
+    <tr class="gt_group_heading_row">
+      <th colspan="6" class="gt_group_heading" style="background-color: #002169; color: #FFFFFF; font-size: 13px; font-weight: bold;" scope="colgroup" id="Decarbonization">Decarbonization</th>
+    </tr>
+    <tr class="gt_row_group_first"><td headers="Decarbonization  process_type" class="gt_row gt_left">EA</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left">Biomass</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left">Department of Energy</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left">Chariton Valley Biomass Project</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left">“OGS Site
+The Proposed Action would not significantly impact the current aesthetics or viewscapes at or near the
+OGS plant. Although the proposed new buildings would be built on slightly higher ground than the OGS
+plant, they would be small and low (approximately 11 meters [36 feet] maximum height...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EIS</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Biomass</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">Forest Service</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">Mt. Bachelor Ski Area Improvements Project</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“ The proposed on-mountain projects, particularly the Eastside pod and the mountain bike park, may adversely impact scenic resources in the middleground and background as viewed from sensitive viewpoints along Hwys. 45 and 46 (The Cascade Lakes National Scenic Byway).  The proposed base area imp...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left">EIS</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left">Geothermal</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left">Forest Service</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left">Big Creek Geothermal Leasing Project, Salmon-Cobalt and N...</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left">“Alternative 1 (Preferred Alternative): No Action (Deny Consent) Under the No Action Alternative, the Forest Service would deny consent for geothermal leasing on lands in the project area. These lands would be managed to be consistent with the LRMP. Authorized activities, including dispersed recre...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EIS</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Geothermal</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">[]</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">Hawai‘i Clean Energy</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“Sensitive locations such as coastal scenic resources from public viewing points and coastal highways;
+State, National, and National Historical Parks; and reserves protected by the Natural Area Reserves
+System, and residential and recreational areas should be considered when locating a natural gas...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Mitigation-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left">EIS</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left">Hydropower</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left">Department of Energy</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left">Hydropower Licenses: Wilder Hydroelectric Project, Federa...</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left">“Other than installing a new minimum flow turbine at Bellows Falls and releasing a 300 cfs minimum flow into the bypassed reach, Great River does not propose any measures that would change the aesthetic character of any of the Wilder, Bellows Falls, or Vernon project facilities. However, the propo...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EIS</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Hydropower</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">Bureau of Reclamation</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">Reinitiation of Consultation on the Coordinated Long-Term...</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“Visual Resources of Land Irrigated with CVP and Visual Resources at Reservoirs that Store CVP and SWP Water Recreation Resources Recreation Resources at Reservoirs that Store CVP and SWP Water Recreation Resources in Rivers downstream of CVP and SWP Reservoirs Reduced opportunities for Striped Ba...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Mitigation-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left">EIS</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left">Nuclear</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left">Nuclear Regulatory Commission</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left">Seabrook Station License Renewal</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left">“The aesthetics impact analysis focuses on the degree of contrast between the natural gas-fired
+alternative and the surrounding landscape and the visibility of the natural gas-fired plant.
+The power block of the NGCC alternative would look very similar to the Seabrook power block.
+The addition of ...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EA</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Nuclear</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">Bureau of Land Management</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">USGS Groundwater Monitoring Well</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“The project area is within a designated Visual Resource Management Class III area. The objective of Class III is to partially retain the existing character of the landscape. Management activities may attract attention, but not dominate the view of the casual observer. The proposed action would no...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Mitigation-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left">EA</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left">Other Clean</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left">Bureau of Land Management</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left">Ross Point Recreation Site</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left">“The Coeur d’Alene RMP designated the landscape in and around the project area as Visual Resource Management (VRM) Class II. The objective for this management class is to retain the existing characteristic landscape. The level of change to any of the basic landscape elements due to management acti...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EA</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Other Clean</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">Bureau of Land Management</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">ASTAC Terrestrial Fiber Optic Cable between Atqasuk and U...</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“Alternative A: Proposed Action Specific impacts to VRM activities are discussed and were analyzed most recently in the 2012 BLM NPR-A IAP/EIS. The majority of the fiber optic cable would be on the ground and not affect VRM. The portion of the proposed action that has the potential to affect VRM i...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Mitigation-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left">EA</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left">Solar</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left">Department of Energy</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left">DEPARTMENT OF ENERGY LOAN GUARANTEE TO ABENGOA SOLAR INC....</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left">“Although development of the Solana CSP Project would result in a change to the existing visual
+landscape through the introduction of the solar plant and transmission line, the overall visual
+impact would be very small. Due to a number of existing agricultural, transportation, and utility
+Chapter ...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EA</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Solar</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">Bureau of Land Management</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">IP Athos Renewable Energy Project 220-kV Generation Tie-L...</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“No
+Impacts on visual resources will consist of the presence of vehicles
+during weed treatments, which will only be temporary in nature.
+Waste, Hazardous or Solid
+No
+A Phase I Environmental Site Assessment was completed for the IP
+Athos Project (Stantec, 2018). It did not identify any specific pot...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left">EA</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left">Transmission</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left">Bureau of Land Management</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left">King to Wood River 138 Kilovolt Transmission Line Rebuild</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left">“The existing powerline was in its current location when the VRM inventory and management
+classes were established in the 1980s. Although many of the new pole structures would be
+approximately 10 feet taller than the current wood structures, the effects to visual resources
+resulting from the upgra...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EA</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Transmission</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">Bureau of Land Management</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">Pesticide Use Proposal</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“NP
+No wild and scenic rivers are present within the Project Area.
+Wilderness and
+Wilderness Study Areas
+NI
+Four BLM Wilderness Areas are within 1 mile of the ELM alignment,
+including Rodman Mountains Wilderness, Kelso Dunes Wilderness, Bristol
+Mountains Wilderness, and Dead Mountain Wilderness (C...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Significance-framed</td></tr>
+    <tr><td headers="Decarbonization  process_type" class="gt_row gt_left">EIS</td>
+<td headers="Decarbonization  tech_group" class="gt_row gt_left">Wind</td>
+<td headers="Decarbonization  lead_agency" class="gt_row gt_left">United States Fish and Wildlife Service</td>
+<td headers="Decarbonization  project_title" class="gt_row gt_left">Skookumchuck Wind Energy Project Proposed Habitat Conserv...</td>
+<td headers="Decarbonization  excerpt" class="gt_row gt_left">“Views of construction activities would primarily occur as a result of transit of large construction equipment and other supplies on public roads but would be limited to viewers who travel on those roads. Active construction is less likely to be visible where it occurs away from roads, except in a...”</td>
+<td headers="Decarbonization  framing_summary" class="gt_row gt_left">Significance-framed</td></tr>
+    <tr class="gt_group_heading_row">
+      <th colspan="6" class="gt_group_heading" style="background-color: #002169; color: #FFFFFF; font-size: 13px; font-weight: bold;" scope="colgroup" id="Fossil Fuel">Fossil Fuel</th>
+    </tr>
+    <tr class="gt_row_group_first"><td headers="Fossil Fuel  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EA</td>
+<td headers="Fossil Fuel  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Coal</td>
+<td headers="Fossil Fuel  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">Bureau of Land Management</td>
+<td headers="Fossil Fuel  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">Warrior Met Coal Mining, LLC Mine No. 4 Expansion Coal Lease</td>
+<td headers="Fossil Fuel  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“The objective of VRM Class IV is to provide for management activities that require significant
+modification of the existing landscape or the existing character of the natural and cultural
+landscape. Planned subsidence anticipates a maximum of only 2.20 feet (McGehee 2008) while
+the topography com...”</td>
+<td headers="Fossil Fuel  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Significance-framed</td></tr>
+    <tr><td headers="Fossil Fuel  process_type" class="gt_row gt_left">EIS</td>
+<td headers="Fossil Fuel  tech_group" class="gt_row gt_left">Coal</td>
+<td headers="Fossil Fuel  lead_agency" class="gt_row gt_left">Office of Surface Mining Reclamation and Enforcement</td>
+<td headers="Fossil Fuel  project_title" class="gt_row gt_left">Stream Protection Rule</td>
+<td headers="Fossil Fuel  excerpt" class="gt_row gt_left">“This section considers the potential effects of the Alternatives on changes in land use, utilities, infrastructure, visual resources, and noise. Recreation is treated separately in Section 4.3.3. Chapter 3 describes general characteristics of the coal regions in relation to land use, utilities, i...”</td>
+<td headers="Fossil Fuel  framing_summary" class="gt_row gt_left">Mitigation-framed</td></tr>
+    <tr><td headers="Fossil Fuel  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EA</td>
+<td headers="Fossil Fuel  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Land-based Oil &amp; Gas</td>
+<td headers="Fossil Fuel  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">Bureau of Land Management</td>
+<td headers="Fossil Fuel  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">Midway Sunset; Monarch Master Development Plan</td>
+<td headers="Fossil Fuel  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“The interim visual resource management objective of this project site is assigned as Class IV. Class IV
+management objectives allow for major modification of the landscape; as such, no visual contrast rating is
+needed for this project.
+Portions of the project area may be visible from Twenty Five ...”</td>
+<td headers="Fossil Fuel  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Significance-framed</td></tr>
+    <tr><td headers="Fossil Fuel  process_type" class="gt_row gt_left">EIS</td>
+<td headers="Fossil Fuel  tech_group" class="gt_row gt_left">Land-based Oil &amp; Gas</td>
+<td headers="Fossil Fuel  lead_agency" class="gt_row gt_left">Bureau of Land Management</td>
+<td headers="Fossil Fuel  project_title" class="gt_row gt_left">Moab Master Leasing Plan</td>
+<td headers="Fossil Fuel  excerpt" class="gt_row gt_left">“Add information about natural soundscapes in relation to the National Park Service. Section 3.18.1 (Visual Resource Management/Auditory Management/Resource Overview), Natural Soundscapes Description of Changes Location in MLP/FEIS Add text to acknowledge the importance of National Park Service vi...”</td>
+<td headers="Fossil Fuel  framing_summary" class="gt_row gt_left">Mitigation-framed</td></tr>
+    <tr><td headers="Fossil Fuel  process_type" class="gt_row gt_left" style="background-color: #F8F9FA;">EIS</td>
+<td headers="Fossil Fuel  tech_group" class="gt_row gt_left" style="background-color: #F8F9FA;">Pipeline</td>
+<td headers="Fossil Fuel  lead_agency" class="gt_row gt_left" style="background-color: #F8F9FA;">Corps of Engineers--Civil Works</td>
+<td headers="Fossil Fuel  project_title" class="gt_row gt_left" style="background-color: #F8F9FA;">Lake Ralph Hall Regional Water Supply Reservoir Project</td>
+<td headers="Fossil Fuel  excerpt" class="gt_row gt_left" style="background-color: #F8F9FA;">“During construction of the proposed dam and embankment the viewshed of travelers along FM 1550, FM 904, and SH 34 would be affected as the construction would be visible from the roadway. Impacts to visual resources related to construction of the proposed dam, reservoir, and principal and emergenc...”</td>
+<td headers="Fossil Fuel  framing_summary" class="gt_row gt_left" style="background-color: #F8F9FA;">Significance-framed</td></tr>
+    <tr><td headers="Fossil Fuel  process_type" class="gt_row gt_left">EIS</td>
+<td headers="Fossil Fuel  tech_group" class="gt_row gt_left">Pipeline</td>
+<td headers="Fossil Fuel  lead_agency" class="gt_row gt_left">Department of Energy</td>
+<td headers="Fossil Fuel  project_title" class="gt_row gt_left">Northern Lights 2023 Expansion Project</td>
+<td headers="Fossil Fuel  excerpt" class="gt_row gt_left">“The Princeton Extension would cross Census Tract 301.05, Block Group 3, which was identified as having a higher low-income population compared to the county. A new valve and RMV would be installed at an existing launcher facility within this block group. The closest residential structure is about...”</td>
+<td headers="Fossil Fuel  framing_summary" class="gt_row gt_left">Mitigation-framed</td></tr>
+  </tbody>
+  
+  
+</table>
+</div>
+</body>
+</html>
