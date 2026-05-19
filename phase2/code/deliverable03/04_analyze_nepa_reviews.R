@@ -795,44 +795,27 @@ if (!VISUAL_TEXT_AVAILABLE) {
       mutate(
         energy_group = factor(energy_group, levels = ENERGY_LEVELS),
         tech_group   = fct_reorder(tech_group, n_projects, .fun = sum)
-      ) |>
-      group_by(energy_group) |>
-      mutate(rank_in_group = rank(n_projects, ties.method = "first"),
-             n_in_group    = n()) |>
-      ungroup()
-
-    # Gradient colors: darkest = highest frequency within each portfolio
-    decarb_rows <- universe |> filter(energy_group == "Decarbonization") |>
-      arrange(rank_in_group)
-    fossil_rows <- universe |> filter(energy_group == "Fossil Fuel") |>
-      arrange(rank_in_group)
-    decarb_pal <- colorRampPalette(c("#A8D0F0", catf_navy))(nrow(decarb_rows))
-    fossil_pal <- colorRampPalette(c("#F5C0B0", "#7B241C"))(nrow(fossil_rows))
-    tech12_colors <- c(
-      setNames(decarb_pal, decarb_rows$tech_group),
-      setNames(fossil_pal, fossil_rows$tech_group)
-    )
-    universe <- universe |>
-      mutate(fill_color = tech12_colors[as.character(tech_group)])
+      )
 
     if (nrow(universe) == 0) {
       message("fig12 skipped: no EA/EIS rows after filtering.")
     } else {
-      ggplot(universe, aes(x = tech_group, y = n_projects, fill = fill_color)) +
+      ggplot(universe, aes(x = tech_group, y = n_projects, fill = energy_group)) +
         geom_col(width = 0.8) +
         geom_text(aes(label = scales::comma(n_projects)),
                   hjust = -0.15, size = 3, color = catf_navy) +
-        scale_fill_identity(guide = "none") +
+        scale_fill_manual(values = c("Decarbonization" = catf_navy,
+                                     "Fossil Fuel"     = "#7B241C"),
+                          name = NULL) +
         scale_y_continuous(labels = scales::comma,
                            expand = expansion(mult = c(0, 0.18))) +
-        facet_wrap(~ energy_group, scales = "free_y") +
         coord_flip() +
         labs(x = NULL, y = "Projects in Visual Analysis Universe",
              title = "Visual Impact Analysis Universe by Technology",
-             subtitle = "EA and EIS only; one row per project from projects_visual_text.parquet",
+             subtitle = "EA and EIS only; sorted by total project count",
              caption = DATA_CAPTION) +
         theme_catf() +
-        theme(legend.position = "none")
+        theme(legend.position = "bottom")
       save_fig("fig12_visual_project_counts.png", height = 8)
     }
   }, error = function(e) {
@@ -973,7 +956,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
       }
 
       p_d <- make_wc_panel("Decarbonization", catf_navy)
-      p_f <- make_wc_panel("Fossil Fuel",     FOSSIL_RED)
+      p_f <- make_wc_panel("Fossil Fuel",     "#7B241C")
 
       wc_grid <- (p_d | p_f) +
         patchwork::plot_annotation(
@@ -1037,8 +1020,8 @@ if (!file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
           label        = fct_reorder(label, n, .fun = sum)
         )
 
-      topic_fill <- c("Decarbonization" = catf_dark_blue,
-                      "Fossil Fuel"     = FOSSIL_RED)
+      topic_fill <- c("Decarbonization" = catf_navy,
+                      "Fossil Fuel"     = "#7B241C")
 
       ggplot(topic_long, aes(x = label, y = n, fill = energy_group)) +
         geom_col(position = position_dodge(width = 0.8), width = 0.75) +
@@ -1135,7 +1118,7 @@ if (!VISUAL_FRAMING_AVAILABLE) {
     } else {
       fram_fill <- c(
         "Decarbonization" = catf_navy,
-        "Fossil Fuel"     = FOSSIL_RED
+        "Fossil Fuel"     = "#7B241C"
       )
 
       ggplot(framing_axes,
@@ -1163,6 +1146,70 @@ if (!VISUAL_FRAMING_AVAILABLE) {
   })
 }
 
+
+# ---------------------------------------------------------------------------
+# Framing examples table -- one high/low sentence per measure
+# ---------------------------------------------------------------------------
+tryCatch({
+  if (!exists("framing")) framing <- read_parquet(VISUAL_FRAMING_PATH)
+  if (!exists("vtext"))   vtext   <- read_parquet(VISUAL_TEXT_PATH)
+
+  fd <- framing |>
+    left_join(vtext |> select(project_id, visual_analysis_text,
+                              process_type, energy_group), by = "project_id") |>
+    filter(!is.na(visual_analysis_text), nchar(visual_analysis_text) > 200)
+
+  if (!"adversity_ratio" %in% names(fd)) {
+    neg_col <- if ("adv_neg" %in% names(fd)) "adv_neg" else "adv_neg_count"
+    pos_col <- if ("adv_pos" %in% names(fd)) "adv_pos" else "adv_pos_count"
+    fd <- fd |> mutate(
+      adversity_ratio = ifelse(
+        (.data[[neg_col]] + .data[[pos_col]]) > 0,
+        .data[[neg_col]] / (.data[[neg_col]] + .data[[pos_col]]),
+        NA_real_
+      )
+    )
+  }
+
+  pick_sent <- function(text, pattern, max_chars = 260) {
+    if (is.na(text)) return(NA_character_)
+    sents <- str_squish(unlist(str_split(text, "(?<=[.!?])\\s+")))
+    for (s in sents) {
+      if (str_detect(tolower(s), pattern) && nchar(s) >= 50 && nchar(s) <= max_chars)
+        return(s)
+    }
+    NA_character_
+  }
+
+  get_ex <- function(df, ratio_col, high, kw) {
+    d <- if (high) arrange(df, desc(.data[[ratio_col]])) else arrange(df, .data[[ratio_col]])
+    d <- filter(d, !is.na(.data[[ratio_col]]))
+    for (i in seq_len(min(nrow(d), 80))) {
+      s <- pick_sent(d$visual_analysis_text[i], kw)
+      if (!is.na(s)) return(s)
+    }
+    NA_character_
+  }
+
+  framing_ex <- tibble::tribble(
+    ~Measure,       ~Framing,   ~`Sample text`,
+    "Significance", "High",     get_ex(fd, "significance_ratio", TRUE,
+                                  "significant|major|substantial|severe"),
+    "Significance", "Low",      get_ex(fd, "significance_ratio", FALSE,
+                                  "less than significant|not significant|negligible|minor"),
+    "Adversity",    "Negative", get_ex(fd, "adversity_ratio",    TRUE,
+                                  "adverse|detrimental|degrad|harm"),
+    "Adversity",    "Positive", get_ex(fd, "adversity_ratio",    FALSE,
+                                  "beneficial|enhance|improve|no adverse|no effect"),
+    "Mitigation",   "Strong",   get_ex(fd, "mitigation_ratio",   TRUE,
+                                  "shall|will install|required to|committed to|painted"),
+    "Mitigation",   "Weak",     get_ex(fd, "mitigation_ratio",   FALSE,
+                                  "residual|unavoidable|cannot be fully|cannot fully|remain")
+  )
+
+  write.csv(framing_ex, file.path(OUTPUT_DIR, "framing_examples.csv"), row.names = FALSE)
+  message("framing_examples.csv written")
+}, error = function(e) message(sprintf("framing examples skipped: %s", conditionMessage(e))))
 # ---------------------------------------------------------------------------
 # fig19 — Section length boxplot (heading-anchored sections only)
 # ---------------------------------------------------------------------------
@@ -1188,18 +1235,21 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
     if (nrow(sec_box) == 0) {
       message("fig19 skipped: no heading-anchored sections after filtering.")
     } else {
-      ggplot(sec_box, aes(x = tech_group, y = n_words, fill = tech_group)) +
-        geom_boxplot(outlier.size = 0.4, alpha = 0.85) +
-        scale_fill_manual(values = tech_colors, guide = "none") +
-        scale_y_log10(labels = scales::comma) +
-        facet_wrap(~ energy_group, nrow = 1) +
+      ggplot(sec_box, aes(x = tech_group, y = n_words, fill = energy_group)) +
+        geom_boxplot(outlier.size = 0.4, alpha = 0.7) +
+        scale_fill_manual(values = c("Decarbonization" = catf_navy,
+                                     "Fossil Fuel"     = "#7B241C"),
+                          name = NULL) +
+        scale_y_log10(labels = scales::comma,
+                      breaks = c(100, 500, 1000, 5000, 10000)) +
         coord_flip() +
         labs(x = NULL, y = "Section length (words, log scale)",
              title = "Visual Section Length by Technology: Decarbonization vs. Fossil Fuel",
-             subtitle = "Heading-anchored sections only; EA and EIS combined within each panel",
+             subtitle = "Heading-anchored sections only; sorted by median; blue = Decarbonization, red = Fossil Fuel",
              caption = DATA_CAPTION) +
-        theme_catf()
-      save_fig("fig19_visual_section_length.png", height = 8)
+        theme_catf() +
+        theme(legend.position = "bottom")
+      save_fig("fig19_visual_section_length.png", height = 9)
     }
   }, error = function(e) {
     message(sprintf("fig19 skipped: %s", conditionMessage(e)))
