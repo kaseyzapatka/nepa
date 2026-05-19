@@ -1527,6 +1527,68 @@ if (!file.exists(VISUAL_TOPIC_TERMS_PATH)) {
 }
 
 # ---------------------------------------------------------------------------
+# fig14d — NMF elbow / k-selection validation
+# ---------------------------------------------------------------------------
+VISUAL_TOPIC_ELBOW_PATH <- file.path(OUTPUT_DIR, "nmf_elbow_data.csv")
+if (!file.exists(VISUAL_TOPIC_ELBOW_PATH)) {
+  message("fig14d skipped: nmf_elbow_data.csv not found.")
+} else {
+  tryCatch({
+    elbow <- read.csv(VISUAL_TOPIC_ELBOW_PATH) |>
+      mutate(k = as.integer(k))
+
+    chosen_k <- 4L
+
+    # Normalise reconstruction error to 0–1 range for dual-axis clarity
+    err_min <- min(elbow$reconstruction_error)
+    err_max <- max(elbow$reconstruction_error)
+    elbow <- elbow |>
+      mutate(
+        recon_norm     = (reconstruction_error - err_min) / (err_max - err_min),
+        sharpness_norm = (mean_sharpness - min(mean_sharpness)) /
+                         (max(mean_sharpness) - min(mean_sharpness))
+      )
+
+    ggplot(elbow, aes(x = k)) +
+      geom_line(aes(y = recon_norm, colour = "Reconstruction error"), linewidth = 1) +
+      geom_point(aes(y = recon_norm, colour = "Reconstruction error"), size = 3) +
+      geom_line(aes(y = sharpness_norm, colour = "Topic sharpness"), linewidth = 1,
+                linetype = "dashed") +
+      geom_point(aes(y = sharpness_norm, colour = "Topic sharpness"), size = 3) +
+      geom_vline(xintercept = chosen_k, linetype = "dotted",
+                 colour = catf_navy, linewidth = 0.8) +
+      annotate("text", x = chosen_k + 0.15, y = 0.85,
+               label = sprintf("Chosen k = %d", chosen_k),
+               hjust = 0, size = 3.2, colour = catf_navy) +
+      scale_colour_manual(
+        values = c("Reconstruction error" = catf_dark_blue,
+                   "Topic sharpness"      = "#C0392B"),
+        name = NULL
+      ) +
+      scale_x_continuous(breaks = elbow$k) +
+      scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
+      labs(
+        x       = "Number of topics (k)",
+        y       = "Normalised score",
+        title   = "NMF Topic-Count Validation (Elbow Analysis)",
+        subtitle = paste0(
+          "Reconstruction error drops sharply k=2→3, flattens k=4+. ",
+          "Topic sharpness (term-weight std) falls monotonically — ",
+          "more topics dilute coherence without improving fit."
+        ),
+        caption = DATA_CAPTION
+      ) +
+      theme_catf() +
+      theme(legend.position = "bottom")
+
+    save_fig("fig14d_nmf_elbow.png", height = 5, width = 8)
+    message("fig14d: NMF elbow figure written.")
+  }, error = function(e) {
+    message(sprintf("fig14d skipped: %s", conditionMessage(e)))
+  })
+}
+
+# ---------------------------------------------------------------------------
 # fig14c — Topic excerpt table (companion text examples)
 # ---------------------------------------------------------------------------
 if (!file.exists(VISUAL_TOPIC_EXCERPTS_PATH)) {

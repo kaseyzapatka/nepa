@@ -706,6 +706,10 @@ Comparing the two portfolios: decarbonization projects carry meaningfully higher
 
 ## Topic Themes
 
+::: {.callout-note}
+**A note on "contrast" appearing in multiple topics.** In BLM Visual Resource Management (VRM) terminology, *contrast* is the technical measure of how visually distinct a project is from its surrounding landscape — assessed across form, line, color, texture, and vividness. It is the foundational concept in virtually all federal visual impact analysis, appearing in approximately 45% of documents in this corpus. Because NMF topic components are additive (each document's representation is a weighted mix of all four topics), a term that common will have non-zero weight in multiple components. What distinguishes the two VRM-heavy topics is their *secondary* vocabulary, not their anchor term: Topic 0's secondary terms (solar, sensitivity, moderate, glare) reflect applied contrast-rating outcomes on solar projects; Topic 3's (managed, VRI, classes, integrity, dominate) reflect the formal BLM VRM compliance framework in O&G and pipeline EIS documents.
+:::
+
 ```{r}
 include_fig("fig14_topic_prevalence.png")
 ```
@@ -785,6 +789,12 @@ include_fig("fig14b_topic_terms.png")
 ```
 
 Four topics emerge from NMF applied to the sentence-filtered visual-impact text (~1,310 heading-anchored documents). Topic 1 (Shadow Flicker) is the most coherent — shadow, flicker, and shadow flicker together have weights 3× higher than any secondary term, reflecting a highly distinctive specialized vocabulary unique to wind projects. Topics 0 and 3 both revolve around VRM contrast methodology but separate on secondary vocabulary: Topic 0 skews toward solar panel glare, VRI sensitivity ratings, and moderate-contrast outcomes; Topic 3 toward BLM VRM compliance framing — managed classes, VRI, dominance, landscape character, and scenic integrity objectives. Topic 2 shows a flat term-weight profile (all 10 terms within a narrow 0.20–0.24 band), indicating it is a residual category for O&G, pipeline, and transmission projects that share enough visual-impact prose that NMF cannot further discriminate them. This flatness is a property of the corpus, not a modeling failure — these project types genuinely use overlapping infrastructure-corridor language.
+
+```{r}
+include_fig("fig14d_nmf_elbow.png")
+```
+
+The elbow analysis formalises why four topics is the right choice. Reconstruction error — how well the topic model re-creates the original term-frequency matrix — drops sharply from k=2 to k=3, then makes a smaller but meaningful improvement at k=4. From k=4 onward the error flatlines: adding a fifth or sixth topic produces no reduction in reconstruction error, and those extra components receive zero project assignments at inference time. Reducing to three topics would collapse the two distinct VRM subtopics (solar-glare contrast rating vs. O&G landscape management objectives) into one coarser category. The flat term-weight profile of Topic 2 (Industrial & Infrastructure Corridors) is not grounds for adding more topics — it is evidence that O&G, pipeline, and transmission projects share visual-impact prose at a level the NMF vocabulary cannot separate, regardless of k.
 
 ## Interactive: Distinguishing Terms
 

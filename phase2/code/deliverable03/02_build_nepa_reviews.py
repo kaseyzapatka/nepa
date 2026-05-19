@@ -101,6 +101,7 @@ VISUAL_QA_SAMPLE_CSV      = OUTPUT_DIR / "visual_qa_sample.csv"
 VISUAL_TOPIC_TERMS_CSV    = OUTPUT_DIR / "visual_topic_terms_detail.csv"
 VISUAL_TOPIC_EXCERPTS_CSV = OUTPUT_DIR / "visual_topic_excerpts.csv"
 VRM_ELEMENTS_SUMMARY_CSV  = OUTPUT_DIR / "vrm_elements_summary.csv"
+VISUAL_TOPIC_ELBOW_CSV    = OUTPUT_DIR / "nmf_elbow_data.csv"
 
 # --------------------------
 # VISUAL IMPACT CONSTANTS
@@ -1980,6 +1981,30 @@ def build_topics(conn: duckdb.DuckDBPyConnection) -> None:
             })
     pd.DataFrame(term_rows).to_csv(VISUAL_TOPIC_TERMS_CSV, index=False)
     log(f"build_topics: wrote topic term weights -> {VISUAL_TOPIC_TERMS_CSV.name}")
+
+    # --- Elbow / coherence data for k-selection validation figure ---
+    try:
+        elbow_rows: list[dict] = []
+        for _k in range(2, 9):
+            _nmf_k = NMF(n_components=_k, random_state=42, max_iter=400, alpha_W=0.001)
+            _W_k = _nmf_k.fit_transform(Xtr)
+            _assign = np.argmax(_W_k, axis=1)
+            # Per-topic sharpness = std of top-10 component weights (higher = more discriminating)
+            _sharpness = []
+            for _t in range(_k):
+                _top_w = np.sort(_nmf_k.components_[_t])[-10:][::-1]
+                _sharpness.append(float(np.std(_top_w)))
+            elbow_rows.append({
+                "k": int(_k),
+                "reconstruction_error": float(_nmf_k.reconstruction_err_),
+                "mean_sharpness": float(np.mean(_sharpness)),
+                "min_sharpness": float(np.min(_sharpness)),
+                "n_nonempty_topics": int(sum(1 for _t in range(_k) if (_assign == _t).sum() > 0)),
+            })
+        pd.DataFrame(elbow_rows).to_csv(VISUAL_TOPIC_ELBOW_CSV, index=False)
+        log(f"build_topics: wrote elbow data (k=2–8) -> {VISUAL_TOPIC_ELBOW_CSV.name}")
+    except Exception as _elbow_e:
+        log(f"build_topics: elbow computation failed ({_elbow_e}); skipping")
 
     # --- Export topic excerpts for companion table ---
     if VISUAL_SECTIONS_OUT.exists():
