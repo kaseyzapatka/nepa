@@ -144,10 +144,10 @@ process_labels <- c(
 )
 
 energy_colors <- c(
-  "Clean"          = catf_dark_blue,
-  "Fossil"         = catf_navy,
-  "Decarbonization" = catf_dark_blue,
-  "Fossil Fuel"    = catf_navy
+  "Clean"           = catf_navy,
+  "Fossil"          = "#7B241C",
+  "Decarbonization" = catf_navy,
+  "Fossil Fuel"     = "#7B241C"
 )
 
 tech_colors <- c(
@@ -488,8 +488,9 @@ top_codes <- ce_cits |>
   slice_head(n = 15) |>
   mutate(ce_code = reorder(ce_code, n))
 
-ggplot(top_codes, aes(x = n, y = ce_code)) +
-  geom_col(fill = catf_dark_blue) +
+ggplot(top_codes, aes(x = n, y = ce_code, fill = n)) +
+  geom_col() +
+  scale_fill_gradient(low = catf_light_blue, high = catf_navy, guide = "none") +
   geom_text(aes(label = scales::comma(n)), hjust = -0.1, size = 3, color = catf_navy) +
   scale_x_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.15))) +
   labs(x = "Number of Documents", y = NULL,
@@ -526,7 +527,7 @@ ce_by_energy <- ce_by_energy_all |>
   filter(ce_code %in% top_fig5_codes) |>
   mutate(ce_code = factor(ce_code, levels = top_fig5_codes))
 
-fig5_fill <- c("Decarbonization" = catf_dark_blue, "Fossil Fuel" = FOSSIL_RED)
+fig5_fill <- c("Decarbonization" = catf_navy, "Fossil Fuel" = FOSSIL_RED)
 
 ggplot(ce_by_energy, aes(x = n, y = ce_code, fill = energy_group)) +
   geom_col(position = "dodge") +
@@ -544,7 +545,23 @@ ggplot(ce_by_energy, aes(x = n, y = ce_code, fill = energy_group)) +
   )
 save_fig("fig5_ce_by_energy.png", height = 9)
 
-# Fig 6 — CE heatmap by agency ----
+# Fig 6 — CE heatmap by agency (CE codes on y, agencies on x with abbreviations) ----
+AGENCY_ABBR <- c(
+  "Bureau of Land Management"            = "BLM",
+  "U.S. Forest Service"                  = "USFS",
+  "Forest Service"                       = "USFS",
+  "Department of Energy"                 = "DOE",
+  "Federal Energy Regulatory Commission" = "FERC",
+  "Bureau of Indian Affairs"             = "BIA",
+  "Army Corps of Engineers"              = "USACE",
+  "National Park Service"                = "NPS",
+  "Bureau of Reclamation"                = "BOR",
+  "Fish and Wildlife Service"            = "FWS",
+  "Department of Transportation"         = "DOT",
+  "Western Area Power Administration"    = "WAPA",
+  "Bonneville Power Administration"      = "BPA"
+)
+
 top5_agencies <- ce_cits |>
   left_join(df |> select(project_id, lead_agency_harmonized), by = "project_id") |>
   mutate(agency = map_chr(lead_agency_harmonized, parse_json_first)) |>
@@ -559,29 +576,40 @@ ce_heatmap <- ce_cits |>
   filter(agency %in% top5_agencies, ce_code %in% levels(top_codes$ce_code)) |>
   count(agency, ce_code) |>
   group_by(agency) |>
-  mutate(pct = n / sum(n))
+  mutate(
+    pct        = n / sum(n),
+    agency_abbr = dplyr::coalesce(AGENCY_ABBR[agency], agency)
+  )
 
-ggplot(ce_heatmap, aes(x = ce_code, y = agency, fill = pct)) +
+# Build the abbreviation key for the caption
+present_agencies <- ce_heatmap |> dplyr::distinct(agency, agency_abbr) |>
+  dplyr::arrange(agency_abbr)
+abbr_key <- paste(
+  apply(present_agencies, 1, function(r) paste0(r["agency_abbr"], " = ", r["agency"])),
+  collapse = "; "
+)
+
+ggplot(ce_heatmap, aes(x = agency_abbr, y = ce_code, fill = pct)) +
   geom_tile(color = "white") +
   scale_fill_gradient(
     low    = "#deebf7",
     high   = catf_navy,
     labels = percent_format(),
-    guide  = guide_colorbar(barwidth = unit(12, "cm"), barheight = unit(0.4, "cm"),
+    guide  = guide_colorbar(barwidth = unit(8, "cm"), barheight = unit(0.4, "cm"),
                             title.position = "top", title.hjust = 0.5)
   ) +
-  labs(x = "CE Code", y = NULL, fill = "% of Agency CEs",
+  labs(x = NULL, y = "CE Code", fill = "% of Agency CEs",
        title = "CE Citation Heatmap by Agency",
-       caption = paste0(DATA_CAPTION, "\n", CE_CODE_FOOTNOTE)) +
+       caption = paste0(DATA_CAPTION, "\nAgencies: ", abbr_key,
+                        "\n", CE_CODE_FOOTNOTE)) +
   theme_catf() +
   theme(
-    axis.text.x     = element_text(angle = 45, hjust = 1),
     legend.position = "bottom",
     plot.caption    = element_text(size = rel(0.75), hjust = 0,
                                    color = "gray40", margin = margin(t = 8),
                                    lineheight = 1.3)
   )
-save_fig("fig6_ce_by_agency.png", width = 12, height = 7)
+save_fig("fig6_ce_by_agency.png", width = 10, height = 7)
 
 # CE cross-tab: by trigger and geometry ----
 ce_by_trigger <- ce_cits |>
@@ -648,7 +676,8 @@ state_counts <- location_data |>
 write.csv(state_counts, file.path(OUTPUT_DIR, "geo_state_counts.csv"), row.names = FALSE)
 
 # Fig 7 & 8 — State choropleths (sqrt scale) ----
-make_state_map <- function(energy, title_suffix) {
+make_state_map <- function(energy, title_suffix,
+                           fill_low = "#deebf7", fill_high = catf_navy) {
   data <- state_counts |>
     filter(energy_group == energy) |>
     right_join(us_states, by = c("project_state" = "NAME")) |>
@@ -658,8 +687,8 @@ make_state_map <- function(energy, title_suffix) {
   ggplot(data) +
     geom_sf(aes(fill = n_projects), color = "white", linewidth = 0.2) +
     scale_fill_gradient(
-      low    = "#deebf7",
-      high   = catf_navy,
+      low    = fill_low,
+      high   = fill_high,
       labels = scales::comma,
       name   = "Count of projects",
       guide  = guide_colorbar(barwidth = unit(8, "cm"), barheight = unit(0.5, "cm"),
@@ -676,7 +705,8 @@ make_state_map <- function(energy, title_suffix) {
 make_state_map("Decarbonization", "Decarbonization Technologies")
 save_fig("fig7_state_decarb.png", width = 12, height = 7)
 
-make_state_map("Fossil Fuel", "Fossil Fuel Technologies")
+make_state_map("Fossil Fuel", "Fossil Fuel Technologies",
+               fill_low = "#FADBD8", fill_high = "#7B241C")
 save_fig("fig8_state_fossil.png", width = 12, height = 7)
 
 # Fig 9 & 10 — County choropleths (Jenks breaks) ----
@@ -699,7 +729,7 @@ shared_breaks <- unique(shared_breaks)
 if (length(shared_breaks) < 2)
   shared_breaks <- c(0, max(all_county_n, na.rm = TRUE) + 1)
 
-make_county_map <- function(energy, title_suffix) {
+make_county_map <- function(energy, title_suffix, palette = "Blues") {
   data <- county_counts |>
     filter(energy_group == energy) |>
     mutate(jenks = cut(n_projects, shared_breaks, include.lowest = TRUE))
@@ -712,7 +742,7 @@ make_county_map <- function(energy, title_suffix) {
     geom_sf(data = county_sf, aes(fill = jenks), color = NA) +
     geom_sf(data = us_states, fill = NA, color = "grey40", linewidth = 0.3) +
     scale_fill_brewer(
-      palette  = "Blues",
+      palette  = palette,
       name     = "Count of projects",
       na.value = "grey95",
       drop     = FALSE
@@ -731,11 +761,12 @@ make_county_map <- function(energy, title_suffix) {
 make_county_map("Decarbonization", "Decarbonization Technologies")
 save_fig("fig9_county_decarb.png", width = 14, height = 8)
 
-make_county_map("Fossil Fuel", "Fossil Fuel Technologies")
+make_county_map("Fossil Fuel", "Fossil Fuel Technologies", palette = "Reds")
 save_fig("fig10_county_fossil.png", width = 14, height = 8)
 
-# Fig 11 — State facet: energy × process type (2×3 grid) ----
-# Build a complete grid (energy × process × state) so no NA facet panels appear.
+# Fig 11 — State facet: energy × process type (two patchwork rows, separate color scales) ----
+suppressPackageStartupMessages(library(patchwork))
+
 state_pct_raw <- location_data |>
   filter(!is.na(energy_group), !is.na(process_type)) |>
   count(energy_group, project_state, process_type) |>
@@ -755,25 +786,41 @@ state_process <- crossing(
   left_join(us_states, by = c("project_state" = "NAME")) |>
   st_as_sf()
 
-ggplot(state_process) +
-  geom_sf(aes(fill = pct), color = "white", linewidth = 0.1) +
-  scale_fill_gradient(
-    low    = "#deebf7",
-    high   = catf_navy,
-    labels = percent_format(),
-    name   = "Share of\nProjects",
-    guide  = guide_colorbar(barwidth = unit(5, "cm"), barheight = unit(0.4, "cm"),
-                            title.position = "top", title.hjust = 0.5)
-  ) +
-  facet_grid(energy_group ~ process_type,
-             labeller = labeller(process_type = as_labeller(process_labels))) +
-  coord_sf(datum = NA) +
-  labs(title    = "Process Type Share by State and Energy Category",
-       subtitle = "Share within each energy category × state: of all projects in a state, what fraction went through each review type",
-       caption  = DATA_CAPTION) +
-  theme_void() +
-  theme_catf() +
-  theme(legend.position = "bottom")
+make_state_process_row <- function(eg, fill_low, fill_high) {
+  sp_data <- state_process |> dplyr::filter(energy_group == eg)
+  ggplot(sp_data) +
+    geom_sf(aes(fill = pct), color = "white", linewidth = 0.1) +
+    scale_fill_gradient(
+      low    = fill_low,
+      high   = fill_high,
+      labels = percent_format(),
+      name   = "Share of\nProjects",
+      guide  = guide_colorbar(barwidth = unit(4, "cm"), barheight = unit(0.4, "cm"),
+                              title.position = "top", title.hjust = 0.5)
+    ) +
+    facet_wrap(~ process_type,
+               labeller = labeller(process_type = as_labeller(process_labels)),
+               nrow = 1) +
+    coord_sf(datum = NA) +
+    labs(title = eg) +
+    theme_void() +
+    theme_catf() +
+    theme(
+      legend.position = "bottom",
+      plot.title      = element_text(face = "bold", hjust = 0)
+    )
+}
+
+p11_decarb <- make_state_process_row("Decarbonization", "#deebf7", catf_navy)
+p11_fossil <- make_state_process_row("Fossil Fuel",     "#FADBD8", "#7B241C")
+
+(p11_decarb / p11_fossil) +
+  plot_annotation(
+    title    = "Process Type Share by State and Energy Category",
+    subtitle = "Share within each energy category × state: of all projects in a state, what fraction went through each review type",
+    caption  = DATA_CAPTION,
+    theme    = theme_catf()
+  )
 save_fig("fig11_state_process_facet.png", width = 14, height = 9)
 
 cat("  Section 3 done.\n")
@@ -940,7 +987,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
         filter(n_projects >= 10) |>
         rename(word = bigram) |>
         group_by(cell) |>
-        slice_max(tf_idf, n = 45, with_ties = FALSE) |>
+        slice_max(tf_idf, n = 30, with_ties = FALSE) |>
         ungroup()
 
 
@@ -975,7 +1022,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
       wc_grid <- (p_d | p_f) +
         patchwork::plot_annotation(
           title    = "Distinguishing Visual-Impact Vocabulary: Decarbonization vs. Fossil Fuel",
-          subtitle = "Top 45 TF-IDF bigrams per portfolio (each portfolio vs. the other)",
+          subtitle = "Top 30 TF-IDF bigrams per portfolio (each portfolio vs. the other)",
           caption  = DATA_CAPTION,
           theme    = theme_catf()
         )
@@ -1032,7 +1079,7 @@ if (!file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
           energy_group = recode(energy_group,
                                 n_decarb = "Decarbonization",
                                 n_fossil = "Fossil Fuel"),
-          energy_group = factor(energy_group, levels = ENERGY_LEVELS),
+          energy_group = factor(energy_group, levels = rev(ENERGY_LEVELS)),
           label        = fct_reorder(label, n, .fun = sum)
         )
 
@@ -1050,7 +1097,7 @@ if (!file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
         coord_flip() +
         labs(x = NULL, y = "Projects with Topic", fill = NULL,
              title = "Top Visual-Impact Topics by Energy Category",
-             subtitle = "NMF topic model; interpretive labels assigned from top discriminating terms",
+             subtitle = sprintf("%d topics (NMF); interpretive labels assigned from top discriminating terms", nrow(top10)),
              caption = DATA_CAPTION) +
         theme_catf() +
         theme(legend.position = "bottom")
@@ -1147,11 +1194,12 @@ if (!VISUAL_FRAMING_AVAILABLE) {
         facet_wrap(~ axis, ncol = 1, scales = "free_y") +
         labs(x = NULL, y = "Mean project-level ratio",
              title = "Visual-Impact Framing: Decarbonization vs. Fossil Fuel",
-             subtitle = "CEQ-axis lexicon ratios averaged across all EA/EIS projects",
+             subtitle = "Mean project-level framing score per axis, averaged across all EA/EIS projects with matching text",
              caption = paste0(
                DATA_CAPTION, "\n",
-               "Significance = high / (high + low); Adversity = negative / (negative + positive); ",
-               "Mitigation = strong / (strong + weak)."
+               "Significance: share of sentences using high-severity language (substantial, major, severe).\n",
+               "Adversity: share of directional sentences framing the impact as adverse vs. beneficial or no-effect.\n",
+               "Mitigation strength: share of mitigation sentences with specific, action-level commitments."
              )) +
         theme_catf()
       save_fig("fig18_visual_framing.png", height = 10)
@@ -1292,11 +1340,14 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
 
 # ---------------------------------------------------------------------------
 # fig21 -- VRM element-level contrast rating distribution
+# Two-panel patchwork: Decarbonization (navy) | Fossil Fuel (red)
 # ---------------------------------------------------------------------------
 if (!VRM_ELEMENTS_AVAILABLE) {
   message("fig21 skipped: vrm_elements.parquet not found.")
 } else {
   tryCatch({
+    suppressPackageStartupMessages(library(patchwork))
+
     vrm_el <- read_parquet(VRM_ELEMENTS_PATH)
     vrm_el <- vrm_el |>
       dplyr::filter(
@@ -1322,37 +1373,79 @@ if (!VRM_ELEMENTS_AVAILABLE) {
         ) |>
         dplyr::ungroup()
 
-      rating_colors <- c(
-        "None"     = "#D3D3D3",
-        "Weak"     = "#8AB7E9",
-        "Moderate" = "#0047BB",
+      decarb_colors <- c(
+        "None"     = "#D6EAF8",
+        "Weak"     = "#7FB3D3",
+        "Moderate" = "#1A5276",
         "Strong"   = "#012169"
       )
+      fossil_colors <- c(
+        "None"     = "#FADBD8",
+        "Weak"     = "#E59866",
+        "Moderate" = "#CA6F1E",
+        "Strong"   = "#7B241C"
+      )
 
-      p21 <- ggplot(vrm_pct, aes(x = element, y = pct, fill = rating)) +
-        geom_col(position = "stack", width = 0.7) +
-        facet_wrap(~ energy_group, ncol = 2) +
-        scale_fill_manual(values = rating_colors, name = "Contrast Rating") +
-        scale_y_continuous(
-          labels = scales::label_percent(scale = 1),
-          expand = expansion(mult = c(0, 0.05))
-        ) +
-        labs(
+      rating_levels <- c("None", "Weak", "Moderate", "Strong")
+      all_elements  <- sort(unique(vrm_el$element))
+
+      make_vrm_panel <- function(eg_data, colors, eg_label, title_color,
+                                 show_legend = TRUE, reverse = TRUE) {
+        # Ensure all elements and ratings appear even when data is absent
+        complete_grid <- tidyr::crossing(
+          element = all_elements,
+          rating  = factor(rating_levels, levels = rating_levels)
+        )
+        panel_data <- complete_grid |>
+          dplyr::left_join(eg_data, by = c("element", "rating")) |>
+          tidyr::replace_na(list(pct = 0)) |>
+          dplyr::mutate(rating = factor(rating, levels = rating_levels))
+
+        ggplot(panel_data, aes(x = element, y = pct, fill = rating)) +
+          geom_col(position = "stack", width = 0.7) +
+          scale_fill_manual(
+            values = colors,
+            name   = "Contrast\nRating",
+            guide  = if (show_legend) guide_legend(reverse = reverse) else "none"
+          ) +
+          scale_y_continuous(
+            labels = scales::label_percent(scale = 1),
+            expand = expansion(mult = c(0, 0.05))
+          ) +
+          labs(title = eg_label, x = NULL, y = "% of Projects") +
+          theme_catf() +
+          theme(
+            axis.text.x        = element_text(angle = 0, hjust = 0.5),
+            legend.position    = if (show_legend) "right" else "none",
+            panel.grid.major.x = element_blank(),
+            plot.title         = element_text(face = "bold", color = title_color)
+          )
+      }
+
+      p21a <- make_vrm_panel(
+        vrm_pct |> dplyr::filter(energy_group == "Decarbonization"),
+        decarb_colors, "Decarbonization", catf_navy,
+        show_legend = TRUE, reverse = TRUE
+      )
+      p21b <- make_vrm_panel(
+        vrm_pct |> dplyr::filter(energy_group == "Fossil Fuel"),
+        fossil_colors, "Fossil Fuel", "#7B241C",
+        show_legend = TRUE, reverse = FALSE
+      )
+
+      p21 <- (p21a | p21b) +
+        plot_annotation(
           title    = "VRM Element-Level Contrast Ratings by Energy Category",
-          subtitle = "Share of projects with each contrast rating per BLM VRM element",
-          x = "VRM Element", y = "% of Projects"
-        ) +
-        theme_bw(base_size = 11) +
-        theme(
-          axis.text.x        = element_text(angle = 30, hjust = 1),
-          legend.position    = "right",
-          panel.grid.major.x = element_blank(),
-          strip.background   = element_rect(fill = catf_navy),
-          strip.text         = element_text(color = "white", face = "bold")
+          subtitle = paste0(
+            "BLM VRM elements rated None (lightest) → Strong (darkest). Coverage ~4% of corpus (BLM EIS with formal VRM tables).\n",
+            "Scale column: Decarbonization = 1 project rated None; Fossil Fuel = no data recorded."
+          ),
+          caption  = DATA_CAPTION,
+          theme    = theme_catf()
         )
 
-      print(p21)
-      save_fig("fig21_vrm_elements.png", height = 6, width = 10)
+      ggsave(file.path(OUTPUT_DIR, "fig21_vrm_elements.png"),
+             p21, width = 12, height = 6, dpi = 300)
       message("fig21: VRM element-level ratings chart written.")
     }
   }, error = function(e) {
@@ -1371,7 +1464,20 @@ if (!VISUAL_EXAMPLES_AVAILABLE) {
       library(gt)
     })
 
-    examples <- read_parquet(VISUAL_EXAMPLES_PATH)
+    examples <- read_parquet(VISUAL_EXAMPLES_PATH) |>
+      filter(!stringr::str_detect(project_title, "Hawai.i Clean Energy|Stream Protection Rule"))
+
+    # Replace excerpt with visual_analysis_text (the model input text), falling
+    # back to the original excerpt if visual_analysis_text is absent or empty.
+    if (!exists("vtext")) vtext <- read_parquet(VISUAL_TEXT_PATH)
+    vat <- vtext |> select(project_id, visual_analysis_text)
+    examples <- examples |>
+      left_join(vat, by = "project_id") |>
+      mutate(excerpt = dplyr::coalesce(
+        ifelse(is.na(visual_analysis_text) | nchar(visual_analysis_text) < 50,
+               NA_character_, visual_analysis_text),
+        as.character(excerpt)
+      ))
 
     # Defensive: coerce list-valued columns (e.g. agency JSON arrays) to scalar
     # strings before passing to gt.
@@ -1402,7 +1508,7 @@ if (!VISUAL_EXAMPLES_AVAILABLE) {
         energy_group   = factor(energy_group, levels = ENERGY_LEVELS),
         project_title  = stringr::str_trunc(as.character(project_title), 60),
         excerpt        = paste0("“",
-                                stringr::str_trunc(as.character(excerpt), 300),
+                                stringr::str_trunc(as.character(excerpt), 600),
                                 "”"),
         framing_summary = ifelse(is.na(framing_summary) | framing_summary == "",
                                   "-", framing_summary)
@@ -1454,11 +1560,10 @@ if (!VISUAL_EXAMPLES_AVAILABLE) {
         ) |>
         gt::tab_header(
           title    = "Illustrative Visual-Impact Excerpts",
-          subtitle = "Heading-anchored sections, 150–500 words; grouped by energy category"
+          subtitle = "Visual-impact section text (model input); grouped by energy category"
         )
 
-      gt::gtsave(gt_tbl,
-                 filename = file.path(OUTPUT_DIR, "visual_examples_table.html"))
+      message("Examples table: CSV written (HTML output removed).")
     }
   }, error = function(e) {
     message(sprintf("Examples table skipped: %s", conditionMessage(e)))
@@ -1476,46 +1581,52 @@ if (!file.exists(VISUAL_TOPIC_TERMS_PATH)) {
     topic_terms <- read.csv(VISUAL_TOPIC_TERMS_PATH, stringsAsFactors = FALSE) |>
       filter(model == "nmf", rank <= 10)
 
-    # Join in human-readable label from topic summary; apply interpretive labels
     if (file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
       ts_labels <- read_parquet(VISUAL_TOPIC_SUMMARY_PATH) |>
         filter(model == "nmf") |>
         select(topic_id, label, n_total) |>
         mutate(
-          auto_label = label,
-          label      = dplyr::coalesce(TOPIC_INTERP[auto_label], auto_label)
+          auto_label  = label,
+          label       = dplyr::coalesce(TOPIC_INTERP[auto_label], auto_label)
         )
       topic_terms <- topic_terms |>
         left_join(ts_labels, by = "topic_id") |>
-        mutate(panel_label = paste0("Topic ", topic_id, ": ", label,
-                                    " (n=", scales::comma(n_total), ")"))
+        mutate(panel_label = paste0(label, " (n=", scales::comma(n_total), ")"))
     } else {
       topic_terms <- topic_terms |>
-        mutate(panel_label = paste0("Topic ", topic_id, ": ", topic_label))
+        mutate(panel_label = as.character(topic_id))
     }
 
+    n_topics <- length(unique(topic_terms$topic_id))
+
+    # Order panels by descending n_total; terms within each panel descending by weight
+    panel_order <- topic_terms |>
+      dplyr::distinct(panel_label, n_total) |>
+      dplyr::arrange(dplyr::desc(n_total)) |>
+      dplyr::pull(panel_label)
+
     topic_terms <- topic_terms |>
-      mutate(
-        term = fct_reorder(term, weight),
-        panel_label = factor(panel_label)
-      )
+      group_by(panel_label) |>
+      mutate(term = fct_reorder(term, weight, .desc = FALSE)) |>
+      ungroup() |>
+      mutate(panel_label = factor(panel_label, levels = panel_order))
 
     ggplot(topic_terms, aes(x = weight, y = term)) +
-      geom_segment(aes(xend = 0, yend = term), color = "grey70", linewidth = 0.5) +
+      geom_segment(aes(xend = 0, yend = term), color = "grey80", linewidth = 0.4) +
       geom_point(aes(size = weight), color = catf_dark_blue, alpha = 0.85) +
       scale_size_continuous(range = c(1.5, 5), guide = "none") +
       facet_wrap(~ panel_label, scales = "free_y", ncol = 2) +
       labs(
         x = "NMF component weight (higher = more characteristic of topic)",
         y = NULL,
-        title = "Top 10 Terms per Visual-Impact Topic (NMF)",
+        title = sprintf("Top %d Terms per Visual-Impact Topic (NMF)", n_topics),
         subtitle = "Term weight reflects how strongly each word characterises its topic relative to others",
         caption = DATA_CAPTION
       ) +
       theme_catf() +
       theme(
-        strip.text     = element_text(size = 8, face = "bold", hjust = 0),
-        axis.text.y    = element_text(size = 8),
+        strip.text         = element_text(size = 8, face = "bold", hjust = 0),
+        axis.text.y        = element_text(size = 8),
         panel.grid.major.y = element_blank(),
         panel.grid.major.x = element_line(color = "grey90")
       )
@@ -1539,47 +1650,31 @@ if (!file.exists(VISUAL_TOPIC_ELBOW_PATH)) {
 
     chosen_k <- 4L
 
-    # Normalise reconstruction error to 0–1 range for dual-axis clarity
+    # Normalise reconstruction error to 0–1 range
     err_min <- min(elbow$reconstruction_error)
     err_max <- max(elbow$reconstruction_error)
     elbow <- elbow |>
-      mutate(
-        recon_norm     = (reconstruction_error - err_min) / (err_max - err_min),
-        sharpness_norm = (mean_sharpness - min(mean_sharpness)) /
-                         (max(mean_sharpness) - min(mean_sharpness))
-      )
+      mutate(recon_norm = (reconstruction_error - err_min) / (err_max - err_min))
 
     ggplot(elbow, aes(x = k)) +
-      geom_line(aes(y = recon_norm, colour = "Reconstruction error"), linewidth = 1) +
-      geom_point(aes(y = recon_norm, colour = "Reconstruction error"), size = 3) +
-      geom_line(aes(y = sharpness_norm, colour = "Topic sharpness"), linewidth = 1,
-                linetype = "dashed") +
-      geom_point(aes(y = sharpness_norm, colour = "Topic sharpness"), size = 3) +
+      geom_line(aes(y = recon_norm), colour = catf_dark_blue, linewidth = 1) +
+      geom_point(aes(y = recon_norm), colour = catf_dark_blue, size = 3) +
       geom_vline(xintercept = chosen_k, linetype = "dotted",
                  colour = catf_navy, linewidth = 0.8) +
       annotate("text", x = chosen_k + 0.15, y = 0.85,
                label = sprintf("Chosen k = %d", chosen_k),
                hjust = 0, size = 3.2, colour = catf_navy) +
-      scale_colour_manual(
-        values = c("Reconstruction error" = catf_dark_blue,
-                   "Topic sharpness"      = "#C0392B"),
-        name = NULL
-      ) +
       scale_x_continuous(breaks = elbow$k) +
       scale_y_continuous(labels = scales::percent, limits = c(0, 1)) +
       labs(
-        x       = "Number of topics (k)",
-        y       = "Normalised score",
-        title   = "NMF Topic-Count Validation (Elbow Analysis)",
-        subtitle = paste0(
-          "Reconstruction error drops sharply k=2→3, flattens k=4+. ",
-          "Topic sharpness (term-weight std) falls monotonically — ",
-          "more topics dilute coherence without improving fit."
-        ),
-        caption = DATA_CAPTION
+        x        = "Number of topics (k)",
+        y        = "Normalised reconstruction error",
+        title    = "NMF Topic-Count Validation (Elbow Analysis)",
+        subtitle = "Reconstruction error drops sharply k=2→3, flattens at k=4+; k=5+ adds no improvement.",
+        caption  = DATA_CAPTION
       ) +
       theme_catf() +
-      theme(legend.position = "bottom")
+      theme(legend.position = "none")
 
     save_fig("fig14d_nmf_elbow.png", height = 5, width = 8)
     message("fig14d: NMF elbow figure written.")
@@ -1635,8 +1730,7 @@ if (!file.exists(VISUAL_TOPIC_EXCERPTS_PATH)) {
           title    = "Visual-Impact Topic Examples",
           subtitle = "Three representative excerpts per NMF topic"
         )
-      gt::gtsave(gt_exc, file.path(OUTPUT_DIR, "visual_topic_excerpts_table.html"))
-      message("fig14c: wrote visual_topic_excerpts_table.html")
+      message("fig14c: topic excerpts table built (HTML output removed).")
     }, error = function(e) {
       message(sprintf("fig14c HTML skipped (gt error): %s", conditionMessage(e)))
     })

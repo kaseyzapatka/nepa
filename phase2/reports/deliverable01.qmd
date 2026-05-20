@@ -81,6 +81,13 @@ excerpts    <- read_csv(file.path(OUTPUT_DIR, "trigger_evidence_excerpts.csv"),
 
 # Funding deep-dive figures are optional (require the funding sidecar to exist)
 has_funding_figs <- file.exists(file.path(OUTPUT_DIR, "fig8_funding_mechanism_counts.png"))
+large_finance_path <- file.path(OUTPUT_DIR, "large_finance_mechanisms.csv")
+has_large_finance_table <- file.exists(large_finance_path)
+large_finance_amounts <- if (has_large_finance_table) {
+  read_csv(large_finance_path, show_col_types = FALSE)
+} else {
+  tibble::tibble()
+}
 ```
 
 ## Executive Summary
@@ -215,7 +222,8 @@ source_wide |>
   cols_align(align = "left",  columns = nepa_trigger_evidence_source) |>
   cols_align(align = "right", columns = where(is.numeric)) |>
   tab_spanner(label = "Confidence Level", columns = c(high, medium, low)) |>
-  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold", align = "left"),
+            locations = cells_column_labels()) |>
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_body(columns = nepa_trigger_evidence_source)
@@ -418,17 +426,50 @@ mechanism type. **A note on coverage:** dollar amounts are extracted only when t
 contains an explicit award figure — most NEPA documents do not. As a result, only a fraction of
 the `r comma(n_funding)` Funding-primary projects have an extracted amount; the caption reports
 the exact count. Despite the limited coverage, the distributions are informative about typical
-award sizes within each mechanism type. The display is capped at $1B so that a small number of
-very large loan guarantees do not compress the rest of the chart; outliers above that threshold
-are noted in the caption and excluded from the view (but included in the boxplot statistics).
+award sizes within each mechanism type. @fig-funding-amounts focuses on common grant-scale
+mechanisms, excludes classes with fewer than 10 extracted amounts, and top-codes large grant-scale
+awards at $5 million so the main distribution remains legible. The larger loan guarantee and
+cooperative agreement records are shown separately in @tbl-large-finance-mechanisms.
 
 ```{r}
 #| label: fig-funding-amounts
-#| fig-cap: "Distribution of federal funding amounts by mechanism type (display capped at $1B). Box = Q1–Q3, center = median, whiskers = 1.5×IQR, dots = outliers. Only projects with extracted dollar amounts included; see caption for coverage rate."
+#| fig-cap: "Distribution of common grant-scale federal funding amounts by mechanism type. Classes with fewer than 10 extracted amounts are excluded; values above $5M are top-coded at $5M+. Violin = distribution shape; box = Q1–Q3 with median; right-side labels show extracted amount counts."
 #| out-width: "95%"
 #| eval: !expr has_funding_figs
 
 knitr::include_graphics(file.path(OUTPUT_DIR, "fig11_funding_amount_distribution.png"))
+```
+
+```{r}
+#| label: tbl-large-finance-mechanisms
+#| tbl-cap: !expr sprintf("Large finance mechanisms with extracted federal funding amounts. These %s loan guarantee and cooperative agreement records are shown as a table rather than scaled with the grant-size distributions.", comma(nrow(large_finance_amounts)))
+#| eval: !expr has_large_finance_table
+
+large_finance_amounts |>
+  transmute(
+    `Mechanism` = mechanism,
+    `Federal Amount` = federal_amount_usd,
+    `Project` = project_title,
+    `Source Text` = source_text
+  ) |>
+  gt() |>
+  fmt_currency(columns = `Federal Amount`, decimals = 0) |>
+  cols_width(
+    `Mechanism`      ~ px(150),
+    `Federal Amount` ~ px(130),
+    `Project`        ~ px(270),
+    `Source Text`    ~ px(500)
+  ) |>
+  cols_align(align = "left", columns = c(`Mechanism`, `Project`, `Source Text`)) |>
+  cols_align(align = "right", columns = `Federal Amount`) |>
+  tab_style(style = cell_text(weight = "bold", align = "left"),
+            locations = cells_column_labels()) |>
+  tab_footnote(
+    footnote = "DOE is the lead agency for all records shown.",
+    locations = cells_column_labels(columns = `Mechanism`)
+  ) |>
+  tab_options(table.font.size = px(12), data_row.padding = px(6),
+              column_labels.font.size = px(12), table.width = "100%")
 ```
 
 ---
@@ -486,16 +527,16 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig7_county_choropleth.png"))
 
 @tbl-excerpts shows two high-confidence classification examples per trigger class, drawn from
 high-quality evidence sources (Purpose and Need sections, project descriptions, and document
-titles). These excerpts are intended to be quotable in client reports and illustrate what the
-pipeline is detecting.
+titles). These excerpts are selected to show visible trigger-specific language and are intended
+to be quotable in client reports.
 
 ```{r}
 #| label: tbl-excerpts
-#| tbl-cap: "Representative evidence text by trigger class. Two high-confidence examples per class; source limited to Purpose and Need, Project Description, and Document Title."
+#| tbl-cap: "Representative evidence text by trigger class. Two high-confidence examples per class; source limited to Purpose and Need, Project Description, and Document Title. Excerpts are selected around trigger-specific cue language."
 
 excerpts |>
   mutate(
-    `Evidence Text` = paste0("“", str_trunc(`Evidence Text`, 200), "”"),
+    `Evidence Text` = paste0("“", `Evidence Text`, "”"),
     `Project Title`  = str_trunc(`Project Title`, 60)
   ) |>
   select(
@@ -518,11 +559,12 @@ excerpts |>
     `Review Process`  ~ px(55),
     `Lead Agency`     ~ px(130),
     `Project Title`   ~ px(160),
-    `Evidence Text`   ~ px(360),
+    `Evidence Text`   ~ px(600),
     `Evidence Source` ~ px(95)
   ) |>
   cols_align(align = "left") |>
-  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold", align = "left"),
+            locations = cells_column_labels()) |>
   tab_style(
     style = list(
       cell_fill(color = "#002169"),
@@ -535,7 +577,8 @@ excerpts |>
     locations = cells_body(rows = seq(2, nrow(excerpts), by = 2))
   ) |>
   tab_options(table.font.size = px(12), data_row.padding = px(8),
-              row_group.padding = px(6))
+              row_group.padding = px(6), table.width = "100%",
+              container.width = "100%")
 ```
 
 ---
