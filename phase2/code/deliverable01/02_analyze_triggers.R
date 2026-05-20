@@ -189,6 +189,12 @@ triggers <- read_parquet(TRIGGERS_PATH)
 projects <- read_parquet(PROJECTS_PATH)
 funding_details <- NULL
 
+# Known false-positive amount extraction: the Severstal Dearborn text says the
+# $348 million was non-federal funding, not DOE loan-guarantee funding.
+funding_amount_false_positive_project_ids <- c(
+  "0729d74c9cd0785005c5a760c2017e70"
+)
+
 df_raw <- left_join(triggers, projects, by = "project_id") |>
   filter(project_energy_type == "Clean")
 
@@ -235,7 +241,12 @@ if (file.exists(FUNDING_DETAILS_PATH)) {
     mutate(
       funding_type_label = recode(federal_funding_type_primary,
                                   !!!funding_type_labels,
-                                  .default = federal_funding_type_primary)
+                                  .default = federal_funding_type_primary),
+      federal_funding_amount_usd = if_else(
+        project_id %in% funding_amount_false_positive_project_ids,
+        NA_real_,
+        federal_funding_amount_usd
+      )
     )
 
   cat(sprintf("Loaded funding details sidecar (%d funding-primary projects)\n",
@@ -749,56 +760,169 @@ if (funding_ready) {
 
 if (funding_ready) {
   n_with_amount <- sum(!is.na(funding_details$federal_funding_amount_usd))
-  TOPCAP_USD    <- 1e9   # display cap; stats computed on full data
+  TOPCODE_USD   <- 5e6
+  MIN_AMOUNT_N  <- 10
+  large_finance_types <- c("Loan Guarantee", "Cooperative Agreement")
 
-  # Raw rows for box plots — exclude NA amounts; include ALL mechanism types
-  # (no minimum-n filter so every mechanism with at least one amount is shown)
+  large_finance_amounts <- funding_details |>
+    filter(!is.na(federal_funding_amount_usd)) |>
+    filter(funding_type_label %in% large_finance_types) |>
+    left_join(
+      df |>
+        distinct(project_id, process_label, agency_name, project_title),
+      by = "project_id"
+    ) |>
+    transmute(
+      mechanism = funding_type_label,
+      project_title = project_title,
+      federal_amount_usd = federal_funding_amount_usd,
+      source_text = str_squish(federal_funding_evidence_text)
+    ) |>
+    arrange(mechanism, desc(federal_amount_usd), project_title)
+
+  write.csv(large_finance_amounts,
+            file.path(OUTPUT_DIR, "large_finance_mechanisms.csv"),
+            row.names = FALSE)
+  cat(sprintf("Saved large_finance_mechanisms.csv (%d rows)\n",
+              nrow(large_finance_amounts)))
+
+  grant_scale_counts <- funding_details |>
+    filter(!is.na(federal_funding_amount_usd)) |>
+    filter(!funding_type_label %in% large_finance_types) |>
+    count(funding_type_label, name = "n_amounts")
+
+  low_n_grant_classes <- grant_scale_counts |>
+    filter(n_amounts < MIN_AMOUNT_N)
+
+  included_grant_types <- grant_scale_counts |>
+    filter(n_amounts >= MIN_AMOUNT_N) |>
+    pull(funding_type_label)
+
   fig11_raw <- funding_details |>
     filter(!is.na(federal_funding_amount_usd)) |>
-    mutate(funding_type_label = fct_reorder(
-      funding_type_label, federal_funding_amount_usd, .fun = median, .na_rm = TRUE
-    ))
+    filter(funding_type_label %in% included_grant_types) |>
+    mutate(
+      federal_funding_amount_display_usd = pmin(
+        federal_funding_amount_usd,
+        TOPCODE_USD
+      ),
+      funding_type_label = fct_reorder(
+        funding_type_label, federal_funding_amount_usd, .fun = median, .na_rm = TRUE
+      )
+    )
 
-  # Count values above the display cap for the caption
-  n_above_cap <- sum(fig11_raw$federal_funding_amount_usd > TOPCAP_USD, na.rm = TRUE)
+  fig11_n_labels <- fig11_raw |>
+    distinct(funding_type_label, project_id) |>
+    count(funding_type_label, name = "n_amounts") |>
+    mutate(
+      n_label = comma(n_amounts),
+      x_label = TOPCODE_USD * 1.07
+    )
+
+  fig11_medians <- fig11_raw |>
+    group_by(funding_type_label) |>
+    summarise(
+      median_amount = median(federal_funding_amount_usd, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    mutate(
+      median_x = pmin(median_amount, TOPCODE_USD),
+      median_label = sprintf(
+        "median %s",
+        dollar(median_amount, scale_cut = cut_short_scale())
+      )
+    )
+
+  n_topcoded <- sum(
+    fig11_raw$federal_funding_amount_usd > TOPCODE_USD,
+    na.rm = TRUE
+  )
+  n_low_n_classes <- nrow(low_n_grant_classes)
+  n_low_n_records <- sum(low_n_grant_classes$n_amounts)
+
+  dollar_topcode_labels <- function(x) {
+    if_else(
+      near(x, TOPCODE_USD),
+      paste0(dollar(TOPCODE_USD, scale_cut = cut_short_scale()), "+"),
+      dollar(x, scale_cut = cut_short_scale())
+    )
+  }
 
   if (nrow(fig11_raw) > 0) {
     fig11 <- ggplot(fig11_raw,
-                    aes(x = federal_funding_amount_usd, y = funding_type_label)) +
+                    aes(x = federal_funding_amount_display_usd,
+                        y = funding_type_label)) +
+      geom_violin(
+        fill = catf_teal,
+        color = NA,
+        alpha = 0.35,
+        trim = TRUE,
+        orientation = "y"
+      ) +
       geom_boxplot(
-        fill         = catf_teal,
+        width        = 0.24,
+        fill         = "white",
         color        = catf_navy,
         alpha        = 0.75,
+        linewidth    = 0.55,
         outlier.size  = 0.7,
         outlier.alpha = 0.25,
-        outlier.color = catf_dark_blue
+        outlier.color = catf_dark_blue,
+        orientation   = "y"
+      ) +
+      geom_text(
+        data = fig11_medians,
+        aes(x = median_x, y = funding_type_label, label = median_label),
+        inherit.aes = FALSE,
+        hjust = -0.08,
+        color = catf_navy, size = 2.8, fontface = "italic"
+      ) +
+      geom_text(
+        data = fig11_n_labels,
+        aes(x = x_label, y = funding_type_label, label = n_label),
+        inherit.aes = FALSE,
+        hjust = 0,
+        color = catf_navy, size = 3.2, fontface = "bold"
       ) +
       scale_x_continuous(
-        labels = label_dollar(scale_cut = cut_short_scale()),
-        expand = expansion(mult = c(0, 0.05))
+        breaks = seq(0, TOPCODE_USD, by = 1e6),
+        labels = dollar_topcode_labels,
+        expand = expansion(mult = c(0, 0))
       ) +
-      coord_cartesian(xlim = c(0, TOPCAP_USD)) +   # clip display; stats on full data
+      coord_cartesian(xlim = c(0, TOPCODE_USD * 1.14)) +
       labs(
-        title    = "Distribution of Federal Funding Amounts by Mechanism Type",
-        subtitle = "Box = Q1–Q3, center = median, whiskers = 1.5×IQR, dots = outliers; display capped at $1B",
+        title    = "Common Grant-Scale Federal Funding Amounts",
+        subtitle = sprintf(
+          "Mechanism classes with >= %s extracted amounts; values above %s are top-coded",
+          MIN_AMOUNT_N,
+          dollar(TOPCODE_USD, scale_cut = cut_short_scale())
+        ),
         x = "Federal Funding Amount (USD)", y = NULL,
         caption  = sprintf(
           paste0(
             "Dollar amounts extracted for %s of %s funding-primary projects (%s%%).\n",
             "Most documents do not include an explicit award figure in extractable text.\n",
-            "%s award(s) above $1B not shown; all values used when computing statistics."
+            "Figure excludes %s large-finance record(s) shown in the table below.\n",
+            "It also excludes %s grant-scale class(es) with fewer than %s extracted amounts (%s record(s)).\n",
+            "%s grant-scale award(s) above %s are top-coded at %s."
           ),
           comma(n_with_amount), comma(funding_n),
           round(100 * n_with_amount / funding_n, 1),
-          comma(n_above_cap)
+          comma(nrow(large_finance_amounts)),
+          comma(n_low_n_classes), comma(MIN_AMOUNT_N), comma(n_low_n_records),
+          comma(n_topcoded),
+          dollar(TOPCODE_USD, scale_cut = cut_short_scale()),
+          dollar(TOPCODE_USD, scale_cut = cut_short_scale())
         )
       ) +
       theme_catf(base_size = 13) +
-      theme(plot.caption = element_text(size = rel(0.78), hjust = 0, color = "gray40",
-                                        margin = margin(t = 6)))
+      theme(
+        plot.caption = element_text(size = rel(0.78), hjust = 0, color = "gray40",
+                                    margin = margin(t = 6))
+      )
 
     ggsave(file.path(OUTPUT_DIR, "fig11_funding_amount_distribution.png"),
-           fig11, width = 10, height = 5.8, dpi = 150)
+           fig11, width = 10.5, height = 5.8, dpi = 150)
     cat("Saved fig11_funding_amount_distribution.png\n")
   } else {
     cat("Fewer than 5 projects with positive amounts per mechanism; skipped fig11.\n")
