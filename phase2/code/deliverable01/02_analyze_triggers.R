@@ -730,15 +730,15 @@ if (funding_ready) {
       sum(!is.na(funding_details$federal_funding_share_pct))
     )
   ) |>
+    arrange(desc(n)) |>
     mutate(pct = n / funding_n, metric = factor(metric, levels = metric))
 
-  fig10 <- ggplot(fig10_data, aes(x = metric, y = pct, fill = metric)) +
-    geom_col(show.legend = FALSE, width = 0.65) +
+  fig10 <- ggplot(fig10_data, aes(x = metric, y = pct)) +
+    geom_col(fill = catf_teal, show.legend = FALSE, width = 0.65) +
     geom_text(aes(label = sprintf("%s\n%s", comma(n), percent(pct, accuracy = 1))),
               vjust = -0.25, size = 3.4, color = "gray20") +
     scale_y_continuous(labels = percent_format(accuracy = 1),
                        expand = expansion(mult = c(0, 0.16))) +
-    scale_fill_catf(drop = FALSE) +
     labs(
       title    = "Federal Funding Amount Extraction Coverage",
       subtitle = "Evidence-backed fields only; missing = no reliable dollar amount was extracted",
@@ -982,25 +982,155 @@ if (funding_ready) {
 # TABLE — Representative evidence text excerpts
 # --------------------------
 
-set.seed(42)
-excerpts <- df |>
+trigger_cue_patterns <- c(
+  "Funding" = paste0(
+    "\\b(",
+    "DOE funding|federal funding|financial assistance|grant|grants|",
+    "loan guarantee|award|awarded|funded by|funds?|EECBG|",
+    "formula grant|cooperative agreement",
+    ")\\b"
+  ),
+  "Land" = paste0(
+    "\\b(",
+    "federal land|public lands?|National Forest|Forest Service|BLM|",
+    "right[- ]of[- ]way|special use permit|special use authorization|",
+    "land exchange|easement",
+    ")\\b"
+  ),
+  "PMA/TVA" = paste0(
+    "\\b(",
+    "Western Area Power Administration|WAPA|Bonneville Power Administration|",
+    "BPA|Tennessee Valley Authority|TVA|power marketing authority|",
+    "power purchase agreement|transmission service|integration project",
+    ")\\b"
+  ),
+  "Direct Action" = paste0(
+    "\\b(",
+    "DOE proposes|DOE is proposing|DOE would|NREL proposes|NREL would|",
+    "the proposed action|proposed federal action|federal action|",
+    "BPA proposes|USACE proposes",
+    ")\\b"
+  ),
+  "Program" = paste0(
+    "\\b(",
+    "programmatic|site[- ]wide|generic environmental impact statement|",
+    "programmatic environmental impact statement|programmatic EIS|PEIS|",
+    "site[- ]wide environmental assessment|site[- ]wide environmental impact statement|",
+    "master plan",
+    ")\\b"
+  ),
+  "Permit" = paste0(
+    "\\b(",
+    "permit|authorization|license|licence|right[- ]of[- ]way authorization|",
+    "electricity export authorization|Presidential permit|certificate",
+    ")\\b"
+  ),
+  "Property Transaction" = paste0(
+    "\\b(",
+    "land exchange|conveyance|transfer|dispose|disposal|sale|purchase|",
+    "property transaction|acquisition|lease|easement",
+    ")\\b"
+  )
+)
+
+clean_evidence_text <- function(text) {
+  if (is.na(text)) return("")
+  str_squish(str_replace_all(as.character(text), "\\\\n|\\\\r|\\\\t", " "))
+}
+
+has_trigger_cue <- function(text, trigger) {
+  pattern <- trigger_cue_patterns[[as.character(trigger)]]
+  if (is.null(pattern) || is.na(pattern) || !nzchar(pattern)) return(FALSE)
+  str_detect(clean_evidence_text(text), regex(pattern, ignore_case = TRUE))
+}
+
+make_trigger_excerpt <- function(text, trigger, width = 600) {
+  clean_text <- clean_evidence_text(text)
+  pattern <- trigger_cue_patterns[[as.character(trigger)]]
+  if (is.null(pattern) || is.na(pattern) || !nzchar(pattern)) {
+    return(str_trunc(clean_text, width))
+  }
+
+  loc <- str_locate(clean_text, regex(pattern, ignore_case = TRUE))[1, ]
+  if (any(is.na(loc))) return(str_trunc(clean_text, width))
+
+  before <- floor(width * 0.35)
+  start <- max(1, loc[[1]] - before)
+  end <- min(nchar(clean_text), start + width - 1)
+  start <- max(1, end - width + 1)
+  if (start == 1 && loc[[1]] > 30 &&
+      str_detect(substr(clean_text, 1, 1), "^[a-z]$")) {
+    start <- max(1, loc[[1]] - 10)
+    end <- min(nchar(clean_text), start + width - 1)
+  }
+
+  excerpt <- substr(clean_text, start, end)
+  if (start > 1) excerpt <- paste0("...", str_trim(excerpt))
+  if (end < nchar(clean_text)) excerpt <- paste0(str_trim(excerpt), "...")
+  if (nchar(excerpt) > 80 &&
+      !str_detect(str_sub(excerpt, -1), "[.!?;:)\\]]")) {
+    excerpt <- paste0(str_trim(excerpt), "...")
+  }
+  excerpt
+}
+
+excerpt_candidates <- df |>
   filter(
     nepa_trigger_confidence == "high",
     nepa_trigger_evidence_source %in% c("purpose_and_need", "description", "doc_title"),
     !is.na(nepa_trigger_evidence_text),
-    nchar(nepa_trigger_evidence_text) > 30
+    nchar(nepa_trigger_evidence_text) > 80,
+    trigger_label != "Unknown"
   ) |>
+  mutate(
+    evidence_clean = map_chr(nepa_trigger_evidence_text, clean_evidence_text),
+    has_cue = map2_lgl(evidence_clean, trigger_label, has_trigger_cue),
+    starts_mid_word = str_detect(evidence_clean, "^[a-z]"),
+    is_toc_like = str_detect(
+      evidence_clean,
+      regex(paste0(
+        "table of contents|list of tables|list of figures|\\.{5,}|",
+        "Appendix [A-Z]|Acronym/Abbreviation|Contents Page|\\bDefinition\\b|",
+        "EXPONENTIAL NOTATION|standard operating procedures|",
+        "Contributors to the Supplement|Organizations Contacted"
+      ),
+            ignore_case = TRUE)
+    ),
+    has_action_language = str_detect(
+      evidence_clean,
+      regex(paste0(
+        "\\b(",
+        "proposes?|proposed|would|applied|authoriz|issuance|issue|grant|",
+        "construct|operate|lease|land exchange|permit|license|funding|",
+        "financial assistance",
+        ")\\b"
+      ), ignore_case = TRUE)
+    ),
+    evidence_source_rank = case_when(
+      nepa_trigger_evidence_source == "purpose_and_need" ~ 1L,
+      nepa_trigger_evidence_source == "description" ~ 2L,
+      nepa_trigger_evidence_source == "doc_title" ~ 3L,
+      TRUE ~ 9L
+    ),
+    evidence_length_score = pmin(nchar(evidence_clean), 900L)
+  )
+
+excerpts <- excerpt_candidates |>
+  filter(has_cue, !is_toc_like) |>
+  distinct(trigger_label, project_id, .keep_all = TRUE) |>
+  arrange(trigger_label, evidence_source_rank, starts_mid_word, desc(has_action_language),
+          desc(evidence_length_score), project_title) |>
   group_by(trigger_label) |>
-  slice_sample(n = 2) |>
-  select(
+  slice_head(n = 2) |>
+  ungroup() |>
+  transmute(
     `Trigger Type`   = trigger_label,
     `Review Process` = process_type,
     `Lead Agency`    = agency_name,
     `Project Title`  = project_title,
-    `Evidence Text`  = nepa_trigger_evidence_text,
+    `Evidence Text`  = map2_chr(nepa_trigger_evidence_text, trigger_label, make_trigger_excerpt),
     `Evidence Source`= nepa_trigger_evidence_source
   ) |>
-  ungroup() |>
   arrange(`Trigger Type`)
 
 write.csv(excerpts, file.path(OUTPUT_DIR, "trigger_evidence_excerpts.csv"),

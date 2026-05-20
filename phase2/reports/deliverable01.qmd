@@ -222,7 +222,8 @@ source_wide |>
   cols_align(align = "left",  columns = nepa_trigger_evidence_source) |>
   cols_align(align = "right", columns = where(is.numeric)) |>
   tab_spanner(label = "Confidence Level", columns = c(high, medium, low)) |>
-  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold", align = "left"),
+            locations = cells_column_labels()) |>
   tab_style(
     style = cell_text(weight = "bold"),
     locations = cells_body(columns = nepa_trigger_evidence_source)
@@ -461,7 +462,8 @@ large_finance_amounts |>
   ) |>
   cols_align(align = "left", columns = c(`Mechanism`, `Project`, `Source Text`)) |>
   cols_align(align = "right", columns = `Federal Amount`) |>
-  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold", align = "left"),
+            locations = cells_column_labels()) |>
   tab_footnote(
     footnote = "DOE is the lead agency for all records shown.",
     locations = cells_column_labels(columns = `Mechanism`)
@@ -525,16 +527,16 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig7_county_choropleth.png"))
 
 @tbl-excerpts shows two high-confidence classification examples per trigger class, drawn from
 high-quality evidence sources (Purpose and Need sections, project descriptions, and document
-titles). These excerpts are intended to be quotable in client reports and illustrate what the
-pipeline is detecting.
+titles). These excerpts are selected to show visible trigger-specific language and are intended
+to be quotable in client reports.
 
 ```{r}
 #| label: tbl-excerpts
-#| tbl-cap: "Representative evidence text by trigger class. Two high-confidence examples per class; source limited to Purpose and Need, Project Description, and Document Title."
+#| tbl-cap: "Representative evidence text by trigger class. Two high-confidence examples per class; source limited to Purpose and Need, Project Description, and Document Title. Excerpts are selected around trigger-specific cue language."
 
 excerpts |>
   mutate(
-    `Evidence Text` = paste0("“", str_trunc(`Evidence Text`, 200), "”"),
+    `Evidence Text` = paste0("“", `Evidence Text`, "”"),
     `Project Title`  = str_trunc(`Project Title`, 60)
   ) |>
   select(
@@ -557,11 +559,12 @@ excerpts |>
     `Review Process`  ~ px(55),
     `Lead Agency`     ~ px(130),
     `Project Title`   ~ px(160),
-    `Evidence Text`   ~ px(360),
+    `Evidence Text`   ~ px(600),
     `Evidence Source` ~ px(95)
   ) |>
   cols_align(align = "left") |>
-  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold", align = "left"),
+            locations = cells_column_labels()) |>
   tab_style(
     style = list(
       cell_fill(color = "#002169"),
@@ -574,7 +577,8 @@ excerpts |>
     locations = cells_body(rows = seq(2, nrow(excerpts), by = 2))
   ) |>
   tab_options(table.font.size = px(12), data_row.padding = px(8),
-              row_group.padding = px(6))
+              row_group.padding = px(6), table.width = "100%",
+              container.width = "100%")
 ```
 
 ---
