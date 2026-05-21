@@ -21,7 +21,7 @@ These are **not runbooks** (step-by-step execution guides — those live in `run
 |---|---|---|
 | [deliverables/deliverable01.md](deliverables/deliverable01.md) | D1: NEPA Triggered | Yes |
 | deliverables/deliverable02.md *(pending)* | D2: Significant Impact Factors | Yes |
-| deliverables/deliverable03.md *(pending)* | D3: NEPA Review Process Application | Partially (scripts 01–04 yes; script 05 needs timeline) |
+| [deliverables/deliverable03.md](deliverables/deliverable03.md) | D3: NEPA Review Process Application | Partially (scripts 01–04 yes; script 05 needs timeline) |
 | deliverables/deliverable04.md *(pending)* | D4: Timelines | No — requires timeline pipeline |
 | deliverables/deliverable05.md *(pending)* | D5: CE Spikes After Major Legislation | Mostly (count analysis yes; duration sub-analysis needs timeline) |
 | deliverables/deliverable06.md *(pending)* | D6: Patterns in FONSIs | Yes |
