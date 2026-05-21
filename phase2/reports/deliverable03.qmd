@@ -202,7 +202,7 @@ top_states <- function(group) {
 }
 
 make_state_gt <- function(group) {
-  hdr_color <- if (group == "Decarbonization") "#002169" else "#7B241C"
+  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#7B241CB3"
   raw <- state_counts |>
     filter(energy_group == group) |>
     arrange(desc(n_projects), project_state) |>
@@ -220,14 +220,14 @@ make_state_gt <- function(group) {
     cols_align(align = "left") |>
     tab_style(
       style    = list(cell_fill(color = hdr_color),
-                      cell_text(color = "white", weight = "bold")),
+                      cell_text(color = "white", weight = "bold", align = "left")),
       locations = cells_column_labels()
     ) |>
     tab_options(table.font.size = px(12), table.width = pct(100))
 }
 
 make_ce_gt <- function(tbl, group) {
-  hdr_color <- if (group == "Decarbonization") "#002169" else "#7B241C"
+  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#7B241CB3"
   raw <- tbl |>
     transmute(`CE Citation` = ce_code, Documents = n)
   color_fn <- scales::col_numeric(palette = c("white", hdr_color), domain = c(0, NA))
@@ -242,7 +242,7 @@ make_ce_gt <- function(tbl, group) {
     cols_align(align = "left") |>
     tab_style(
       style    = list(cell_fill(color = hdr_color),
-                      cell_text(color = "white", weight = "bold")),
+                      cell_text(color = "white", weight = "bold", align = "left")),
       locations = cells_column_labels()
     ) |>
     tab_options(table.font.size = px(12), table.width = pct(100))
@@ -278,7 +278,14 @@ geo_comp_val <- function(group, col) {
 }
 
 geo_comp_table <- geo_comp |>
+  mutate(
+    row_group = if_else(
+      group %in% c("Geothermal (All Agencies)", "Oil & Gas (All Agencies)"),
+      "Technology Groups", "Portfolio Averages"
+    )
+  ) |>
   transmute(
+    row_group,
     `Comparison Group` = group,
     Projects = fmt_n(n),
     `CE Share` = fmt_pct(ce_share),
@@ -286,7 +293,8 @@ geo_comp_table <- geo_comp |>
     `Federal-Land Trigger Share` = if_else(is.na(federal_land_trigger_share),
                                            "Not yet classified",
                                            fmt_pct(federal_land_trigger_share))
-  )
+  ) |>
+  mutate(row_group = factor(row_group, levels = c("Technology Groups", "Portfolio Averages")))
 
 geo_state_wide <- geo_state |>
   select(tech_group, project_state, n, total, pct) |>
@@ -315,8 +323,8 @@ analysis_universe_table <- tibble::tibble(
 
 pipeline_table <- tibble::tibble(
   Script = c(
-    "phase2/code/deliverable03/01_build_nepa_reviews.py",
-    "phase2/code/deliverable03/02_analyze_nepa_reviews.R"
+    "phase2/code/deliverable03/02_build_nepa_reviews.py",
+    "phase2/code/deliverable03/04_analyze_nepa_reviews.R"
   ),
   Role = c(
     "Builds project-level review data, normalized CE citations, visual-impact extraction outputs, and the all-agency geothermal/oil-and-gas subset",
@@ -324,18 +332,18 @@ pipeline_table <- tibble::tibble(
   )
 )
 
-availability_table <- tibble::tibble(
+availability_table_raw <- tibble::tibble(
   Component = c(
     "Review process type", "Technology group", "CE citations", "Geography",
     "Visual impacts", "Geothermal vs. oil and gas", "NEPA trigger",
     "Linear vs. non-linear geometry", "Timelines"
   ),
   Status = c(
-    "Available", "Available", "Available", "Available",
-    if_else(visual_available, "Substantive analysis", "Missing"),
-    "Available", "Partial",
-    if_else(any(!is.na(reviews$is_linear)), "Available", "Not yet available"),
-    if_else(file.exists(TIMELINE_PATH), "Available", "Not yet available")
+    "Complete", "Complete", "Complete", "Complete",
+    "Complete",
+    "Complete", "Partial",
+    if_else(any(!is.na(reviews$is_linear)), "Complete", "**Not yet available**"),
+    if_else(file.exists(TIMELINE_PATH), "Complete", "**Not yet available**")
   ),
   Notes = c(
     "CE, EA, and EIS populated for clean and fossil projects",
@@ -349,26 +357,40 @@ availability_table <- tibble::tibble(
     "Duration analysis is omitted unless phase2/data/analysis/timeline.parquet exists"
   )
 )
+
+availability_table <- availability_table_raw |>
+  mutate(.sort = dplyr::case_when(
+    stringr::str_detect(Status, "Not yet available") ~ 3L,
+    Status == "Partial"                              ~ 2L,
+    TRUE                                             ~ 1L
+  )) |>
+  dplyr::arrange(.sort) |>
+  dplyr::select(-.sort)
 ```
 
 ## Executive Summary
 
-::: {.callout-note}
+::: callout-note
 ## Key Findings
 
-- **Decarbonization projects are more often resolved through Categorical Exclusions than fossil fuel projects.** Across `r fmt_n(n_decarb)` decarbonization projects, `r fmt_pct(energy_pct("Decarbonization", "CE"))` are CEs, `r fmt_pct(energy_pct("Decarbonization", "EA"))` are EAs, and `r fmt_pct(energy_pct("Decarbonization", "EIS"))` are EISs. Across `r fmt_n(n_fossil)` fossil fuel projects, `r fmt_pct(energy_pct("Fossil Fuel", "CE"))` are CEs, `r fmt_pct(energy_pct("Fossil Fuel", "EA"))` are EAs, and `r fmt_pct(energy_pct("Fossil Fuel", "EIS"))` are EISs.
-- **Technology group is a stronger predictor of review type than the clean/fossil category alone.** The highest EIS-share technologies — `r top_eis_names` — span both fossil and clean categories, illustrating that project type and federal nexus drive review intensity as much as the clean/fossil designation. The most CE-heavy technologies are `r top_ce_names`.
-- **Categorical Exclusion authority differs by energy category.** Fossil fuel CEs are heavily concentrated in oil-and-gas-specific pathways — particularly `r join_words(top_fossil_ce$ce_code[seq_len(min(2, nrow(top_fossil_ce)))])` (BLM Handbook H-1790-1 codes covering routine oil and gas operations, and where applicable the Energy Policy Act 2005 Section 390 statutory CE for federal oil and gas leases). Decarbonization CEs are more diffuse, with `r decarb_ce_code_list` prominent.
-- **Agency controls narrow the headline clean/fossil difference.** When BLM or DOE is held constant, the clean/fossil review-type gap changes materially, pointing to agency practice and project mix as important explanations alongside energy category.
-- **Geothermal is CE-heavy and tracks the clean-energy average more closely than oil and gas.** Geothermal projects have a `r fmt_pct(geo_pct("Geothermal", "CE"))` CE share, compared with `r fmt_pct(energy_pct("Decarbonization", "CE"))` for the clean-energy average and `r fmt_pct(geo_pct("Oil & Gas", "CE"))` for oil and gas. Because `r fmt_pct(geo_comp_val("Geothermal (All Agencies)", "blm_share"))` of geothermal projects are BLM-led, claims about BLM geothermal pathways specifically should be tested with a separate BLM-controlled analysis.
-- **Visual impact analysis now yields substantive linguistic findings, not just triage.** Full visual-section text is extracted for roughly 2,918 EA/EIS projects via heading-anchored extraction with a contiguous-keyword-run fallback. The output supports topic modeling, CEQ-anchored framing scores (significance, adversity, mitigation), illustrative excerpts grouped by energy category, a decarb-vs-fossil word cloud comparison, and an interactive scattertext explorer of distinguishing terms. Visual analysis still excludes CE forms by construction, but within EA/EIS prose the module supports portfolio-level comparisons rather than only example-finding.
+-   **Decarbonization projects are more often resolved through Categorical Exclusions than fossil fuel projects.** Across `r fmt_n(n_decarb)` decarbonization projects, `r fmt_pct(energy_pct("Decarbonization", "CE"))` are CEs, compared to `r fmt_pct(energy_pct("Fossil Fuel", "CE"))` across `r fmt_n(n_fossil)` fossil fuel projects (see @fig-review-rates-energy).
+-   **Agency controls narrow the headline decarb/fossil difference.** The overall decarb/fossil gap for CEs is 9%. Within DOE, that gap persists at 8%; within BLM it narrows to just 2%. Agency practice and project mix are important explanations alongside energy category (see @fig-within-agency).
+-   **Categorical Exclusions are more concentrated in fossil fuel than decarbonization projects.** Fossil fuel CEs are heavily concentrated in oil-and-gas-specific pathways — particularly `r join_words(top_fossil_ce$ce_code[seq_len(min(2, nrow(top_fossil_ce)))])`, whereas decarbonization CEs are more diffuse `r decarb_ce_code_list` (see @fig-ce-by-energy).
+-   **Fossil fuel projects are more geographically concentrated.** Fossil fuel projects are more geographically concentrated in Interior West states (WY, NM, CA, CO, and TX), whereas decarbonization projects are more spread out across the West (WA, CA, OR, ID, AZ, NV, WY) (see @fig-state-decarb–@fig-state-process-fossil).
+-   **Geothermal is CE-heavy and geographically distinct from oil and gas.** Geothermal and Oil & Gas CE projects track the overall averages fairly closely at 94% and 85%, respectively. Fossil fuel dominates most states, with geothermal concentrated in a smaller set of states (see @fig-geo-og-states and @fig-geo-og-map).
+-   **The visual impact analysis treats Fossil and Decarb similarly.**
+    -   **Section Length.** Visual impact sections are roughly equal in median length across portfolios, though most fossil project types — rural energy and offshore oil & gas — have longer average sections.
+    -   **Framing analysis.** Results suggest *decarb* scores higher on negative visual adversity scores (sentences framing impact as negative) but *fossil* scores higher on (sentences with specific commitments to correct), likely reflecting decarb projects acknowledging visual effects more explicitly but addressing them through design standards and programmatic commitments rather than project-level enumerated actions.
+    -   **Wordcloud.** Results for *decarb* focus on transmission lines, cooling towers, and shadow flickers connected to turbines, whereas *fossil* focuses on compression stations, power plants, contrast rating and light pollution that "attract attention".
+    - **Topic modeling.** The dominant finding is that visual impact prose **clusters by project type and regulatory context rather than by energy category** — the two largest topics each span both portfolios, and the most coherent topic (shadow flicker) is entirely technology-specific. Wind and solar EISs concentrate in the contrast-rating topic; O&G and pipeline EISs split between the infrastructure-corridor topic and the formal VRM-objectives topic depending on whether they operate under a BLM plan of development.
+
 :::
 
 This report delivers:
 
 > A comparison of how fossil fuel and decarbonization projects move through NEPA, including CE/EA/EIS rates by technology, categorical exclusion citation patterns, geographic distributions, visual-impact discussion patterns, and an all-agency geothermal vs. oil-and-gas comparison.
 
----
+------------------------------------------------------------------------
 
 # Methodology
 
@@ -398,7 +420,7 @@ The main project-level output is `phase2/data/analysis/deliverable03/projects_ne
 kable_tbl(availability_table)
 ```
 
----
+------------------------------------------------------------------------
 
 # Review Type Patterns
 
@@ -409,44 +431,20 @@ Decarbonization projects are more CE-heavy than fossil fuel projects. Fossil fue
 The distinction is especially pronounced for EAs. Fossil fuel projects have a `r fmt_pct(energy_pct("Fossil Fuel", "EA"))` EA share, compared with `r fmt_pct(energy_pct("Decarbonization", "EA"))` for decarbonization projects. EIS rates are closer but still higher for fossil fuel projects: `r fmt_pct(energy_pct("Fossil Fuel", "EIS"))` vs. `r fmt_pct(energy_pct("Decarbonization", "EIS"))`.
 
 ```{r}
-#| fig-cap: "Figure D3.1: NEPA review type rates by energy category (Decarbonization vs. Fossil Fuel)."
+#| label: fig-review-rates-energy
+#| fig-cap: "NEPA review type rates by energy category (Decarbonization vs. Fossil Fuel)."
 include_fig("fig1_review_rates_by_energy.png")
 ```
 
 ## Review Type by Technology
 
-The technology view shows why the clean/fossil headline should not be overinterpreted. Some clean technologies have materially higher EIS shares than the clean-energy average. Some fossil categories remain highly CE-heavy because many oil and gas actions are processed through repeatable BLM or statutory CE pathways.
-
-Highest EIS shares by technology:
-
-```{r}
-top_eis_tech |>
-  transmute(
-    Technology = tech_group,
-    Projects = fmt_n(total),
-    `CE Share` = fmt_pct(CE),
-    `EA Share` = fmt_pct(EA),
-    `EIS Share` = fmt_pct(EIS)
-  ) |>
-  kable_tbl()
-```
-
-Most CE-heavy technologies:
-
-```{r}
-top_ce_tech |>
-  transmute(
-    Technology = tech_group,
-    Projects = fmt_n(total),
-    `CE Share` = fmt_pct(CE)
-  ) |>
-  kable_tbl()
-```
+The technology view shows why the clean/fossil headline should not be overinterpreted. Some clean technologies have materially higher EIS shares than the decarbonization average. Some fossil categories remain highly CE-heavy because many oil and gas actions are processed through repeatable BLM or statutory CE pathways.
 
 The figure below plots CE, EA, and EIS shares for all technology groups, sorted by categorical exclusion share from highest to lowest. The spread — from near-universal CE use (CCS, nuclear) to double-digit EIS rates (hydropower, wind) — illustrates that a project's technology type predicts its review pathway as reliably as its clean/fossil designation.
 
 ```{r}
-#| fig-cap: "Figure D3.2: CE, EA, and EIS shares by technology group, sorted by CE share."
+#| label: fig-review-rates-tech
+#| fig-cap: "CE, EA, and EIS shares by technology group, sorted by CE share."
 include_fig("fig2_review_rates_by_tech.png")
 ```
 
@@ -459,32 +457,24 @@ A planned breakdown by project geometry (linear infrastructure such as transmiss
 Agency controls help separate technology effects from agency practice. Within-agency review profiles are generated from the latest `review_rates_within_blm.csv` and `review_rates_within_doe.csv` outputs.
 
 ```{r}
-kable_tbl(agency_table)
+#| label: fig-within-agency
+#| fig-cap: "Within-agency NEPA review type shares — BLM and DOE by energy category. Blue bars = Decarbonization; red bars = Fossil Fuel. Facets show BLM (top) and DOE (bottom)."
+include_fig("fig1b_within_agency.png")
 ```
 
 The BLM comparison is the more informative of the two: within a single land-management agency, the clean/fossil CE gap narrows relative to the headline rate, indicating that federal land exposure and repeatable permitting pathways — not energy category alone — drive a meaningful share of the headline difference. The DOE comparison points in a different direction: clean-energy DOE reviews are overwhelmingly CEs, likely because the DOE clean portfolio contains many financial-assistance and low-disturbance actions, while DOE fossil projects include a smaller and more heterogeneous set.
 
----
+------------------------------------------------------------------------
 
 # Categorical Exclusion Citations
 
 ## Most-Cited CE Authorities
 
-The CE citation distribution is concentrated in a relatively small set of authorities. The top normalized citations in the current output are:
+The CE citation distribution is concentrated in a relatively small set of authorities. These codes should be interpreted as document-level citation counts, not unique project counts. A project can have multiple CE citations, and some agency manuals encode several closely related categorical exclusions separately.
 
 ```{r}
-top_ce_all |>
-  transmute(
-    `CE Citation` = ce_code,
-    Documents = fmt_n(n)
-  ) |>
-  kable_tbl()
-```
-
-These codes should be interpreted as document-level citation counts, not unique project counts. A project can have multiple CE citations, and some agency manuals encode several closely related categorical exclusions separately.
-
-```{r}
-#| fig-cap: "Figure D3.3: Top 15 most-cited CE authorities across all projects (gradient: dark = most cited)."
+#| label: fig-top-ce-codes
+#| fig-cap: "Top 15 most-cited CE authorities across all projects (gradient: dark = most cited)."
 include_fig("fig4_top_ce_codes.png")
 ```
 
@@ -494,23 +484,25 @@ The clean and fossil CE portfolios rely on different legal and administrative pa
 
 Top CE citations by portfolio (decarbonization left, fossil fuel right):
 
-:::: {.columns}
+::: columns
 ::: {.column width="50%"}
 ```{r}
 make_ce_gt(top_decarb_ce, "Decarbonization")
 ```
 :::
+
 ::: {.column width="50%"}
 ```{r}
 make_ce_gt(top_fossil_ce, "Fossil Fuel")
 ```
 :::
-::::
+:::
 
 The fossil distribution is dominated by oil-and-gas-specific pathways, especially Section 390. The decarbonization distribution is more mixed, reflecting a broader set of technologies and agencies.
 
 ```{r}
-#| fig-cap: "Figure D3.4: Top CE citations by energy category (Decarbonization = navy, Fossil Fuel = red)."
+#| label: fig-ce-by-energy
+#| fig-cap: "Top CE citations by energy category (Decarbonization = navy, Fossil Fuel = red)."
 include_fig("fig5_ce_by_energy.png")
 ```
 
@@ -519,7 +511,8 @@ include_fig("fig5_ce_by_energy.png")
 Agency-specific CE citation patterns are central to the story. The same high-level review type, "Categorical Exclusion", can reflect very different institutional routines depending on whether the action is BLM oil and gas, BLM right-of-way work, DOE funding, or another agency's infrastructure program.
 
 ```{r}
-#| fig-cap: "Figure D3.5: CE citation heatmap — CE codes (y-axis) by lead agency (x-axis). Fill intensity = share of each agency's CE citations. Agency abbreviations listed in figure caption."
+#| label: fig-ce-heatmap
+#| fig-cap: "CE citation heatmap — CE codes (y-axis) by lead agency (x-axis). Fill intensity = share of each agency's CE citations. Agency abbreviations listed in figure caption."
 include_fig("fig6_ce_by_agency.png")
 ```
 
@@ -531,9 +524,9 @@ The CE-by-trigger table is currently limited to clean-energy projects because De
 kable_tbl(ce_trigger_table)
 ```
 
-This is a high-value area for expansion once fossil triggers are classified. It would allow the client to distinguish "fossil projects use more CEs" from "specific fossil authorities create repeatable CE pathways."
+This is a high-value area for expansion once fossil triggers are classified. It would allow us to distinguish "fossil projects use more CEs" from "specific fossil authorities create repeatable CE pathways."
 
----
+------------------------------------------------------------------------
 
 # Geographic Distribution
 
@@ -543,28 +536,31 @@ The maps and tables count project-state records, so projects spanning multiple s
 
 Top states by project-state count (decarbonization left, fossil fuel right):
 
-:::: {.columns}
+::: columns
 ::: {.column width="50%"}
 ```{r}
 make_state_gt("Decarbonization")
 ```
 :::
+
 ::: {.column width="50%"}
 ```{r}
 make_state_gt("Fossil Fuel")
 ```
 :::
-::::
+:::
 
 The fossil map is more visibly concentrated in Interior West oil-and-gas states. The decarbonization map is broader, with strong concentrations in the West, Pacific Northwest, California, and selected Southeastern and Atlantic states.
 
 ```{r}
-#| fig-cap: "Figure D3.6: Decarbonization project counts by state (navy gradient, darker = more projects)."
+#| label: fig-state-decarb
+#| fig-cap: "Decarbonization project counts by state (navy gradient, darker = more projects)."
 include_fig("fig7_state_decarb.png")
 ```
 
 ```{r}
-#| fig-cap: "Figure D3.7: Fossil fuel project counts by state (red gradient, darker = more projects)."
+#| label: fig-state-fossil
+#| fig-cap: "Fossil fuel project counts by state (red gradient, darker = more projects)."
 include_fig("fig8_state_fossil.png")
 ```
 
@@ -573,25 +569,102 @@ include_fig("fig8_state_fossil.png")
 County maps provide a more granular view of project geography. They show fossil fuel activity clustering in oil-and-gas regions and decarbonization activity spreading across renewable, transmission, and federal-power geographies.
 
 ```{r}
-#| fig-cap: "Figure D3.8: Decarbonization project counts by county (Jenks breaks, blues)."
+#| label: fig-county-decarb
+#| fig-cap: "Decarbonization project counts by county (Jenks breaks, light to navy)."
 include_fig("fig9_county_decarb.png")
 ```
 
 ```{r}
-#| fig-cap: "Figure D3.9: Fossil fuel project counts by county (Jenks breaks, shared scale, reds)."
+#| label: fig-county-fossil
+#| fig-cap: "Fossil fuel project counts by county (Jenks breaks, shared scale, light to maroon)."
 include_fig("fig10_county_fossil.png")
 ```
 
 ## Process Type by State
 
-The state-by-process map helps identify where the same energy category receives different review intensity. This can support targeted client questions, for example whether high-EIS states reflect project size, federal land exposure, agency practice, technology mix, or state-specific project portfolios.
+The state-by-process maps show each state's share of all national projects of a given review type **within its energy category** — for example, Texas Decarbonization CE projects as a share of all Decarbonization CE projects nationally. Colors use a square-root scale to surface variation when one or two states dominate. This helps identify where review activity concentrates by type, and supports targeted questions — for example, whether EIS-heavy states reflect project size, federal land exposure, agency practice, technology mix, or state-specific project portfolios.
 
 ```{r}
-#| fig-cap: "Figure D3.10: Process type share by state — Decarbonization (navy) and Fossil Fuel (red) shown with separate color scales."
-include_fig("fig11_state_process_facet.png")
+#| label: fig-state-process-decarb
+#| fig-cap: "Each state's share of all Decarbonization projects by process type (e.g., Texas Decarbonization CE ÷ all Decarbonization CE nationally). Color scale is square-root transformed to surface geographic variation."
+include_fig("fig11a_state_process_decarb.png")
 ```
 
----
+```{r}
+#| label: fig-state-process-fossil
+#| fig-cap: "Each state's share of all Fossil Fuel projects by process type (e.g., Texas Fossil Fuel CE ÷ all Fossil Fuel CE nationally). Color scale is square-root transformed to surface geographic variation."
+include_fig("fig11b_state_process_fossil.png")
+```
+
+------------------------------------------------------------------------
+
+# Geothermal vs. Oil and Gas
+
+This comparison covers **all lead agencies** — BLM, USFS, DOE, and others. The Python builder classifies geothermal only within clean-energy projects and subsets the project table to clean geothermal, land-based oil and gas, and offshore oil and gas. The R analysis collapses land-based and offshore oil and gas into a single `Oil & Gas` comparison group.
+
+Across all agencies, geothermal tracks closely with the decarbonization average. Geothermal has a `r fmt_pct(geo_pct("Geothermal", "CE"))` CE share, compared with `r fmt_pct(energy_pct("Decarbonization", "CE"))` for the full decarbonization portfolio. Oil and gas is more review-intensive, with a `r fmt_pct(geo_pct("Oil & Gas", "CE"))` CE share and a higher EA share.
+
+```{r}
+geo_og_wide |>
+  filter(comparison_group %in% c("Geothermal", "Oil & Gas")) |>
+  transmute(
+    `Comparison Group` = comparison_group,
+    Projects = fmt_n(total),
+    `CE Share` = fmt_pct(CE),
+    `EA Share` = fmt_pct(EA),
+    `EIS Share` = fmt_pct(EIS)
+  ) |>
+  kable_tbl()
+```
+
+This figure answers a broad technology-comparison question: how geothermal projects compare with oil-and-gas projects across all lead agencies. It does **not** isolate public-land or BLM permitting pathways.
+
+```{r}
+geo_comp_table |>
+  gt(groupname_col = "row_group") |>
+  cols_align(align = "left") |>
+  tab_style(
+    style    = list(cell_fill(color = "#012169"),
+                    cell_text(color = "white", weight = "bold", align = "left")),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style    = list(cell_fill(color = "#E8ECF4"),
+                    cell_text(weight = "bold")),
+    locations = cells_row_groups()
+  ) |>
+  tab_style(
+    style    = cell_borders(sides = "bottom", color = "#012169", weight = px(2)),
+    locations = cells_body(rows = `Comparison Group` == "Oil & Gas (All Agencies)")
+  ) |>
+  tab_options(table.font.size = px(12), table.width = pct(100))
+```
+
+This is potentially one of the most important findings in the deliverable, but it should be framed carefully. If the policy question is whether geothermal generally moves through NEPA more like decarbonization or oil and gas, the all-agency comparison suggests geothermal is closer to the decarbonization average. If the policy question is whether **BLM geothermal development** faces a pathway more similar to oil and gas, that should be tested with a separate BLM-controlled geothermal sensitivity analysis.
+
+```{r}
+#| label: fig-geo-og-rates
+#| fig-cap: "CE/EA/EIS rates — Geothermal vs. Oil & Gas (all lead agencies)."
+include_fig("fig15_geo_og_rates.png")
+```
+
+The state share figure shows all states with geothermal or oil-and-gas projects, ordered by geothermal share. `r top_geo_state$project_state` is the most geothermal-dominant state in this comparison, with `r fmt_n(top_geo_state[["n_Geothermal"]])` geothermal projects and `r fmt_n(top_geo_state[["n_Oil & Gas"]])` oil-and-gas projects. Among states with at least 100 geothermal plus oil-and-gas projects, `r top_geo_high_count_state$project_state` has the highest geothermal share, with `r fmt_n(top_geo_high_count_state[["n_Geothermal"]])` geothermal projects and `r fmt_n(top_geo_high_count_state[["n_Oil & Gas"]])` oil-and-gas projects.
+
+```{r}
+#| label: fig-geo-og-states
+#| fig-cap: "Geothermal vs. Oil & Gas project shares by state, ordered by geothermal share."
+include_fig("fig16_geo_og_states.png")
+```
+
+The state map encodes the same geothermal share metric as a diverging color scale: blue states are geothermal-dominant, red states are oil-and-gas-dominant, and purple indicates a roughly equal split between the two. States with no projects in either category are shown in grey.
+
+```{r}
+#| label: fig-geo-og-map
+#| fig-cap: "State-level geothermal vs. oil-and-gas dominance map (diverging scale: blue = geothermal-dominant, red = oil-and-gas-dominant)."
+include_fig("fig17_geo_og_state_map.png")
+```
+
+------------------------------------------------------------------------
 
 # Visual Impact Analysis
 
@@ -600,7 +673,8 @@ The visual-impact module is no longer purely exploratory. It now extracts full v
 ## Visual Analysis Universe
 
 ```{r}
-#| fig-cap: "Figure D3.11: Visual analysis universe — project counts by technology and energy category."
+#| label: fig-visual-universe
+#| fig-cap: "Visual analysis universe — project counts by technology and energy category."
 include_fig("fig12_visual_project_counts.png")
 ```
 
@@ -611,22 +685,32 @@ Project counts by `tech_group` and `energy_group` indicate where the visual anal
 This two-panel TF-IDF word cloud shows the bigrams that most distinguish each portfolio from the other (EA and EIS combined within each panel). The decarbonization panel is dominated by *shadow flicker*, *transmission line*, *key observation*, *solar panels*, *anti-reflective*, *viewer sensitivity*, and *light pollution* — vocabulary specific to the glare, shadow, and skyline analyses required for wind and solar. The fossil fuel panel surfaces *contrast rating*, *compressor station*, *wilderness characteristics*, *permanent change*, *integrity objective*, and *major modification* — reflecting pipeline and O&G project language around BLM visual contrast scoring and the lasting footprint of surface disturbance.
 
 ```{r}
-#| fig-cap: "Figure D3.12: TF-IDF word clouds — bigrams most distinctive to each portfolio (EA and EIS combined). Top 30 terms per panel."
+#| label: fig-wordcloud
+#| fig-cap: "TF-IDF word clouds — bigrams most distinctive to each portfolio (EA and EIS combined). Top 30 terms per panel."
 include_fig("fig13_wordcloud_grid.png")
 ```
 
 ## Section Length
 
-This figure directly answers the question *do decarb projects get equal depth of visual analysis as fossil?* Section length is measured as `n_words` per heading-extracted section, sorted by median length with the longest at top. Blue boxes are Decarbonization technology types; red boxes are Fossil Fuel. Transmission, wind, and solar installations cluster near the top — these projects routinely produce long dedicated visual sections driven by glare analyses, viewshed modeling, and VRM-class compliance write-ups. Land-based oil and gas and pipeline projects sit in the middle of the range, despite their large project volume, reflecting template-driven form documents that allocate a fixed visual subsection. The overlap between portfolios is visible — some fossil technology types (rural energy, offshore oil and gas) have section lengths comparable to mid-tier decarb technologies — but decarb dominates the high end.
+At the portfolio level, decarbonization and fossil fuel projects produce visual sections of similar median length, but the decarbonization distribution is wider — driven by wind, solar, and transmission EISs that generate long dedicated glare and viewshed sections.
 
 ```{r}
-#| fig-cap: "Figure D3.13: Visual section length (words) by technology group — Decarbonization (navy) vs. Fossil Fuel (red). Sorted by median; heading-anchored sections only."
+#| label: fig-section-length-energy
+#| fig-cap: "Visual section length (words) by energy category — Decarbonization (navy) vs. Fossil Fuel (red). Heading-anchored EA/EIS sections only; sorted by median."
+include_fig("fig19a_section_length_energy.png")
+```
+
+Breaking this down by technology reveals where the variation originates. Blue boxes are Decarbonization technology types; red boxes are Fossil Fuel. Transmission, wind, and solar cluster at the top; land-based oil and gas and pipeline projects sit in the middle of the range, reflecting template-driven form documents that allocate a fixed visual subsection.
+
+```{r}
+#| label: fig-section-length-tech
+#| fig-cap: "Visual section length (words) by technology group — Decarbonization (navy) vs. Fossil Fuel (red). Sorted by median; heading-anchored sections only."
 include_fig("fig19_visual_section_length.png")
 ```
 
 ## Illustrative Excerpts
 
-The table below pulls representative passages from the visual-impact section text used as input to the topic and framing models, grouped by energy category. Each row shows the project's process type, technology, lead agency, and a passage drawn from the sentence-filtered visual analysis text. These excerpts are intended to be directly quotable in client briefings.
+The table below pulls representative passages from the visual-impact section text used as input to the topic and framing models, grouped by energy category. Each row shows the project's process type, technology, lead agency, and a passage drawn from the sentence-filtered visual analysis text. These excerpts are intended to be directly quotable in briefings.
 
 ```{r}
 #| label: tbl-visual-excerpts
@@ -677,12 +761,12 @@ visual_examples_display |>
   ) |>
   cols_align(align = "left") |>
   tab_style(
-    style = cell_text(weight = "bold"),
+    style = cell_text(weight = "bold", align = "left"),
     locations = cells_column_labels()
   ) |>
   tab_style(
     style = list(
-      cell_fill(color = "#002169"),
+      cell_fill(color = "#002169B3"),
       cell_text(color = "white", weight = "bold", size = px(13))
     ),
     locations = cells_row_groups()
@@ -703,14 +787,15 @@ visual_examples_display |>
 
 Framing scores are CEQ §1508.27-anchored and computed with negation-aware phrase matching, so *no significant adverse impact* counts as low-adversity rather than high-significance. Three axes are measured:
 
-- **Significance**: share of visual-impact sentences using high-severity language (*substantial*, *major*, *severe*) vs. low-severity language (*minor*, *negligible*, *less than significant*).
-- **Adversity**: share of directional-impact sentences framing impact as negative (*adverse*, *detrimental*, *degrade*, *harm*) vs. positive or no-effect (*beneficial*, *enhance*, *no effect*).
-- **Mitigation strength**: share of mitigation sentences with specific, action-level commitments (*shall install*, *required to*, *design feature*) vs. weak or residual language (*residual impact*, *unavoidable*, *cannot fully mitigate*).
+-   **Significance**: share of visual-impact sentences using high-severity language (*substantial*, *major*, *severe*) vs. low-severity language (*minor*, *negligible*, *less than significant*).
+-   **Adversity**: share of directional-impact sentences framing impact as negative (*adverse*, *detrimental*, *degrade*, *harm*) vs. positive or no-effect (*beneficial*, *enhance*, *no effect*).
+-   **Mitigation strength**: share of mitigation sentences with specific, action-level commitments (*shall install*, *required to*, *design feature*) vs. weak or residual language (*residual impact*, *unavoidable*, *cannot fully mitigate*).
 
 This approach is conceptually similar to sentiment analysis, but uses domain-specific lexicons rather than general-purpose sentiment tools. Standard sentiment tools (VADER, TextBlob) would score nearly all NEPA text as strongly negative — the word *impact* alone triggers a negative score — because they are trained on social media and reviews where "impact" carries negative valence. In NEPA, "impact" is a neutral term of art; a finding of "no significant adverse impact" is a positive outcome but would register as strongly negative under general sentiment scoring. The framing measures here are calibrated to the actual meaning of CEQ terminology.
 
 ```{r}
-#| fig-cap: "Figure D3.14: CEQ §1508.27-anchored framing scores by energy category — significance, adversity, and mitigation strength. Negation-aware phrase matching."
+#| label: fig-framing
+#| fig-cap: "CEQ §1508.27-anchored framing scores by energy category — significance, adversity, and mitigation strength. Negation-aware phrase matching."
 include_fig("fig18_visual_framing.png")
 ```
 
@@ -741,12 +826,12 @@ if (file.exists(tbl_ex_path)) {
     ) |>
     cols_align(align = "left") |>
     tab_style(
-      style = cell_text(weight = "bold"),
-      locations = cells_column_labels()
+      style = cell_text(weight = "bold", align = "left"),
+        locations = cells_column_labels()
     ) |>
     tab_style(
       style = list(
-        cell_fill(color = "#012169"),
+        cell_fill(color = "#002169B3", alpha = 0.7),
         cell_text(color = "white", weight = "bold", size = px(13))
       ),
       locations = cells_row_groups()
@@ -770,40 +855,44 @@ if (file.exists(tbl_ex_path)) {
 }
 ```
 
-Comparing the two portfolios: decarbonization projects carry meaningfully higher adversity scores than fossil fuel projects. This is not because solar and wind are more harmful to visual resources — it reflects that wind, solar, and transmission EISs document specific adverse effects explicitly and then commit to enumerated mitigation measures (glare analysis, viewshed modeling, color treatment, vegetation screening). Fossil EAs rely more heavily on low-significance boilerplate that minimizes explicit adversity framing. The higher mitigation strength score in the decarbonization portfolio is the counterpart: more explicit impact acknowledgment pairs with more explicit mitigation specificity.
+Comparing the two portfolios: decarbonization projects carry meaningfully higher adversity scores than fossil fuel projects. This is not because solar and wind are more harmful to visual resources — it reflects that wind, solar, and transmission EISs document site-specific adverse effects explicitly (viewshed intrusion, glare, landscape character alteration) rather than relying on residual or no-effect language. Fossil fuel documents score higher on significance framing, likely because oil and gas EAs invoke CEQ significance thresholds and context language more routinely as a matter of form. Fossil fuel documents also score higher on both mitigation ratio and mitigation specificity — projects subject to formal BLM mitigation plans or Record of Decision commitments produce more enumerated, action-level language (*shall install*, *required to*, *design feature*) even when adversity framing is lower. The decarbonization portfolio's higher adversity framing without a corresponding mitigation specificity premium likely reflects that wind and solar EISs acknowledge site-specific visual effects explicitly but address them through design standards and programmatic commitments rather than project-level enumerated actions.
+
+A typical decarbonization EIS will name the impact directly — *"moderate, long-term adverse impacts due to altering the scenic attractiveness rating from typical to indistinctive"* — and resolve it by invoking a design standard: *"anti-reflective PV panel surfaces would minimize glare"* or *"deviations must repeat the form, line, color, and texture of the surrounding landscape"* (USFS Scenic Integrity Objective). A fossil fuel EA under a formal BLM plan of development tends to write it differently: *"operator shall install opaque screening of specified height along the north perimeter"* or *"facilities required to use earth-tone paint matching an approved Munsell color"* — inspectable, project-specific commitments that produce more action-level language by default. The higher fossil fuel mitigation specificity score is therefore a product of the BLM permit-and-plan regime for oil and gas rather than evidence of stronger mitigation outcomes.
 
 ## VRM Contrast Analysis
 
-Among projects with sufficient detail for element-level extraction (~4% of the corpus, primarily BLM EIS documents with formal VRM contrast rating tables), the dominant contrast elements are form and line — reflecting that project structures and linear disturbances are the primary visual concern. Color and texture contrasts are rated moderate-to-strong for a portion of projects, particularly solar arrays and pipeline corridors where surface treatment differs from the surrounding landscape.
+Among projects with sufficient detail for element-level extraction (\~4% of the corpus, primarily BLM EIS documents with formal VRM contrast rating tables), the dominant contrast elements are form and line — reflecting that project structures and linear disturbances are the primary visual concern. Color and texture contrasts are rated moderate-to-strong for a portion of projects, particularly solar arrays and pipeline corridors where surface treatment differs from the surrounding landscape.
 
-Two data-coverage notes for the Scale column: the Decarbonization panel shows a 100% "None" bar (light blue) for Scale — this reflects a single project with a recorded "None" rating, so the bar represents one data point, not a systematic finding. The Fossil Fuel panel shows an empty column for Scale — no projects in the corpus have a Scale contrast rating recorded in their VRM tables. Both columns should be interpreted as data-sparse rather than as evidence that scale is visually unimportant.
+Elements with fewer than 5 projects recorded across both energy categories are excluded from the chart — Scale is the primary example, appearing in only one decarbonization project and no fossil fuel projects. The chart shows rated projects only (Weak, Moderate, Strong); projects with no recorded contrast for a given element are excluded.
 
 ```{r}
-#| fig-cap: "Figure D3.15: BLM VRM element-level contrast ratings — Decarbonization (navy scale) and Fossil Fuel (red scale). Coverage ~4% of corpus (BLM EIS with formal VRM contrast tables)."
+#| label: fig-vrm-elements
+#| fig-cap: "BLM VRM element-level contrast ratings — Decarbonization (navy scale) and Fossil Fuel (red scale). Coverage ~4% of corpus (BLM EIS with formal VRM contrast tables)."
 include_fig("fig21_vrm_elements.png")
 ```
 
 ## Topic Analysis
 
-::: {.callout-note}
-**A note on "contrast" appearing in multiple topics.** In BLM Visual Resource Management (VRM) terminology, *contrast* is the technical measure of how visually distinct a project is from its surrounding landscape — assessed across form, line, color, texture, and vividness. It is the foundational concept in virtually all federal visual impact analysis, appearing in approximately 45% of documents in this corpus. Because NMF topic components are additive (each document's representation is a weighted mix of all four topics), a term that common will have non-zero weight in multiple components. What distinguishes the two VRM-heavy topics is their *secondary* vocabulary, not their anchor term: Topic 0's secondary terms (solar, sensitivity, moderate, glare) reflect applied contrast-rating outcomes on solar projects; Topic 3's (managed, VRI, classes, integrity, dominate) reflect the formal BLM VRM compliance framework in O&G and pipeline EIS documents.
+::: callout-note
+**A note on "contrast" appearing in multiple topics.** In BLM Visual Resource Management (VRM) terminology, *contrast* is the technical measure of how visually distinct a project is from its surrounding landscape — assessed across form, line, color, texture, and vividness. It is the foundational concept in virtually all federal visual impact analysis, appearing in approximately 45% of documents in this corpus. Because NMF topic components are additive (each document's representation is a weighted mix of all four topics), a term that common across the corpus will have non-zero weight in multiple components. What distinguishes the two VRM-heavy topics is their *secondary* vocabulary, not their anchor term: Topic 0's secondary terms (solar, sensitivity, moderate, glare) reflect applied contrast-rating outcomes on solar projects; Topic 3's (managed, VRI, classes, integrity, dominate) reflect the formal BLM VRM compliance framework in O&G and pipeline EIS documents.
 :::
 
-Four topics emerge from NMF applied to the sentence-filtered visual-impact text (~1,310 heading-anchored documents), ordered below by project count (largest first):
+Four topics emerge from NMF applied to the sentence-filtered visual-impact text (\~1,310 heading-anchored documents), ordered below by project count (largest first):
 
-- **Industrial & Infrastructure Corridors** (n ≈ 804): The largest topic. Visual impact of linear and industrial facilities — O&G pipelines, transmission lines, LNG terminals, substations. The term-weight profile is notably flat (all top terms between 0.20–0.24), reflecting that these project types genuinely share overlapping infrastructure-corridor language that NMF cannot further discriminate. This is a corpus property, not a modeling failure.
-- **VRM Contrast Rating & Solar Glare** (n ≈ 432): BLM VRM contrast rating methodology applied to solar and transmission projects. Sections score contrast of form, line, color, and texture against the characteristic landscape; glare from panels is a secondary element. Dominated by the vocabulary of applied contrast outcomes: *moderate*, *solar*, *sensitivity*, *glare*.
-- **BLM VRM Objectives & Landscape Management** (n ≈ 286): Formal BLM VRM compliance framework used primarily in O&G and pipeline EIS documents on BLM land. Distinguished from Topic 2 by its secondary vocabulary: *managed*, *VRI*, *classes*, *integrity*, *dominate*, *landscape character*, *scenic integrity objectives*.
-- **Wind Turbine Shadow Flicker** (n ≈ 69): The most coherent topic — *shadow*, *flicker*, and *shadow flicker* together have weights 3× higher than any secondary term. This specialized vocabulary is unique to wind projects and identifies a textbook-coherent NMF cluster.
+-   **Industrial & Infrastructure Corridors** (n ≈ 804): The largest topic. Visual impact of linear and industrial facilities — O&G pipelines, transmission lines, LNG terminals, substations. The term-weight profile is notably flat (all top terms between 0.20–0.24), reflecting that these project types genuinely share overlapping infrastructure-corridor language that NMF cannot further discriminate. This is a corpus property, not a modeling failure.
+-   **VRM Contrast Rating & Solar Glare** (n ≈ 432): BLM VRM contrast rating methodology applied to solar and transmission projects. Sections score contrast of form, line, color, and texture against the characteristic landscape; glare from panels is a secondary element. Dominated by the vocabulary of applied contrast outcomes: *moderate*, *solar*, *sensitivity*, *glare*.
+-   **BLM VRM Objectives & Landscape Management** (n ≈ 286): Formal BLM VRM compliance framework used primarily in O&G and pipeline EIS documents on BLM land. Distinguished from Topic 2 by its secondary vocabulary: *managed*, *VRI*, *classes*, *integrity*, *dominate*, *landscape character*, *scenic integrity objectives*.
+-   **Wind Turbine Shadow Flicker** (n ≈ 69): The most coherent topic — *shadow*, *flicker*, and *shadow flicker* together have weights 3× higher than any secondary term. This specialized vocabulary is unique to wind projects and identifies a textbook-coherent NMF cluster.
 
 ```{r}
-#| fig-cap: "Figure D3.16: NMF topic prevalence — project count by topic and energy category."
+#| label: fig-topic-prevalence
+#| fig-cap: "NMF topic prevalence — project count by topic and energy category."
 include_fig("fig14_topic_prevalence.png")
 ```
 
 ```{r}
 #| label: tbl-topic-summary
-#| tbl-cap: "NMF visual-impact topic summary ordered by project count. Top discriminating terms and topic descriptions from sentence-filtered visual sections."
+#| tbl-cap: "NMF Visual-Impact Topic Summary."
 topic_terms_path <- file.path(OUTPUT_DIR, "visual_topic_terms_detail.csv")
 topic_sum_path   <- file.path(here("phase2","data","analysis","deliverable03"),
                               "visual_topic_summary.parquet")
@@ -848,14 +937,15 @@ if (file.exists(topic_terms_path) && file.exists(topic_sum_path)) {
 
   topic_tbl |>
     gt() |>
-    tab_header(title = "Table 3: NMF Visual-Impact Topic Summary") |>
     cols_width(
       Topic       ~ px(140),
       `Top terms` ~ px(280),
       Description ~ px(370)
     ) |>
+    cols_align(align = "left") |>
     tab_style(
-      style    = list(cell_fill(color = "#012169"), cell_text(color = "white", weight = "bold")),
+      style    = list(cell_fill(color = "#002169B3"),
+                      cell_text(color = "white", weight = "bold", align = "left")),
       locations = cells_column_labels()
     ) |>
     tab_style(
@@ -867,7 +957,8 @@ if (file.exists(topic_terms_path) && file.exists(topic_sum_path)) {
 ```
 
 ```{r}
-#| fig-cap: "Figure D3.17: Top NMF term weights per topic (lollipop chart). Panels ordered by project count (largest first). Weights are not probabilities — compare within panels only."
+#| label: fig-topic-terms
+#| fig-cap: "Top NMF term weights per topic (lollipop chart). Panels ordered by project count (largest first). Weights are not probabilities — compare within panels only."
 include_fig("fig14b_topic_terms.png")
 ```
 
@@ -876,7 +967,8 @@ include_fig("fig14b_topic_terms.png")
 The elbow analysis formalises why four topics is the right choice. Reconstruction error — how well the topic model re-creates the original term-frequency matrix — drops sharply from k=2 to k=3, then makes a smaller but meaningful improvement at k=4. From k=4 onward the error flatlines: adding a fifth or sixth topic produces no reduction in reconstruction error, and those extra components receive zero project assignments at inference time. Reducing to three topics would collapse the two distinct VRM subtopics (solar-glare contrast rating vs. O&G landscape management objectives) into one coarser category. The flat term-weight profile of Topic 2 (Industrial & Infrastructure Corridors) is not grounds for adding more topics — it is evidence that O&G, pipeline, and transmission projects share visual-impact prose at a level the NMF vocabulary cannot separate, regardless of k.
 
 ```{r}
-#| fig-cap: "Figure D3.18: NMF topic-count validation — normalised reconstruction error by k. Dotted line marks chosen k=4."
+#| label: fig-nmf-elbow
+#| fig-cap: "NMF topic-count validation — normalised reconstruction error by k. Dotted line marks chosen k=4."
 include_fig("fig14d_nmf_elbow.png")
 ```
 
@@ -895,67 +987,19 @@ if (file.exists(scattertext_path)) {
 }
 ```
 
----
-
-# Geothermal vs. Oil and Gas
-
-This comparison covers **all lead agencies** — BLM, USFS, DOE, and others. The Python builder classifies geothermal only within clean-energy projects and subsets the project table to clean geothermal, land-based oil and gas, and offshore oil and gas. The R analysis collapses land-based and offshore oil and gas into a single `Oil & Gas` comparison group.
-
-Across all agencies, geothermal tracks closely with the clean-energy average. Geothermal has a `r fmt_pct(geo_pct("Geothermal", "CE"))` CE share, compared with `r fmt_pct(energy_pct("Decarbonization", "CE"))` for the full clean-energy portfolio. Oil and gas is more review-intensive, with a `r fmt_pct(geo_pct("Oil & Gas", "CE"))` CE share and a higher EA share.
-
-```{r}
-geo_og_wide |>
-  filter(comparison_group %in% c("Geothermal", "Oil & Gas")) |>
-  transmute(
-    `Comparison Group` = comparison_group,
-    Projects = fmt_n(total),
-    `CE Share` = fmt_pct(CE),
-    `EA Share` = fmt_pct(EA),
-    `EIS Share` = fmt_pct(EIS)
-  ) |>
-  kable_tbl()
-```
-
-This figure answers a broad technology-comparison question: how geothermal projects compare with oil-and-gas projects across all lead agencies. It does **not** isolate public-land or BLM permitting pathways.
-
-```{r}
-kable_tbl(geo_comp_table)
-```
-
-This is potentially one of the most client-relevant findings in the deliverable, but it should be framed carefully. If the policy question is whether geothermal generally moves through NEPA more like clean energy or oil and gas, the all-agency comparison suggests geothermal is closer to the clean-energy average. If the policy question is whether **BLM geothermal development** faces a pathway more similar to oil and gas, that should be tested with a separate BLM-controlled geothermal sensitivity analysis.
-
-```{r}
-#| fig-cap: "Figure D3.19: CE/EA/EIS rates — Geothermal vs. Oil & Gas (all lead agencies)."
-include_fig("fig15_geo_og_rates.png")
-```
-
-The state share figure shows all states with geothermal or oil-and-gas projects, ordered by geothermal share. `r top_geo_state$project_state` is the most geothermal-dominant state in this comparison, with `r fmt_n(top_geo_state[["n_Geothermal"]])` geothermal projects and `r fmt_n(top_geo_state[["n_Oil & Gas"]])` oil-and-gas projects. Among states with at least 100 geothermal plus oil-and-gas projects, `r top_geo_high_count_state$project_state` has the highest geothermal share, with `r fmt_n(top_geo_high_count_state[["n_Geothermal"]])` geothermal projects and `r fmt_n(top_geo_high_count_state[["n_Oil & Gas"]])` oil-and-gas projects.
-
-```{r}
-#| fig-cap: "Figure D3.20: Geothermal vs. Oil & Gas project shares by state, ordered by geothermal share."
-include_fig("fig16_geo_og_states.png")
-```
-
-The state map encodes the same geothermal share metric as a diverging color scale: blue states are geothermal-dominant, red states are oil-and-gas-dominant, and purple indicates a roughly equal split between the two. States with no projects in either category are shown in grey.
-
-```{r}
-#| fig-cap: "Figure D3.21: State-level geothermal vs. oil-and-gas dominance map (diverging scale: blue = geothermal-dominant, red = oil-and-gas-dominant)."
-include_fig("fig17_geo_og_state_map.png")
-```
-
----
+------------------------------------------------------------------------
 
 # Timelines
 
 Timeline data — initiation date, decision date, and computed review duration — are not yet available in the analysis database. When `phase2/data/analysis/timeline.parquet` is built and audited for coverage, this section will include:
 
-- **Coverage table:** how many projects have both initiation and decision dates, broken out by energy category and process type
-- **Duration by regulatory period and process type:** median review length before and after the 2020 CEQ rule revision and the 2023 Fiscal Responsibility Act
-- **Clean vs. fossil duration comparison:** controlled within process type to isolate the energy-category effect
+-   **Coverage table:** how many projects have both initiation and decision dates, broken out by energy category and process type
+-   **Duration by regulatory period and process type:** median review length before and after the 2020 CEQ rule revision and the 2023 Fiscal Responsibility Act
+-   **Clean vs. fossil duration comparison:** controlled within process type to isolate the energy-category effect
 
 See the Known Gaps table for current status.
 
----
+------------------------------------------------------------------------
 
 # Known Gaps and Cautions
 
@@ -966,8 +1010,6 @@ tibble::tibble(
     "Timeline data are missing",
     "Linear geometry is missing",
     "All-agency geothermal blends different pathways",
-    "Visual-impact coverage is uneven",
-    "CE citation normalization is useful but incomplete",
     "State and county counts can duplicate multi-state projects"
   ),
   `Why It Matters` = c(
@@ -975,39 +1017,35 @@ tibble::tibble(
     "Cannot yet compare review duration or pre/post reform periods",
     "Cannot yet compare transmission/pipelines against point or area projects",
     "The current geothermal comparison is not a BLM/public-land control",
-    "Current visual rates are not portfolio-wide estimates",
-    "Similar DOI/BLM citations may still appear as separate variants",
     "Geography maps show footprint, not unique project counts"
   ),
   `Recommended Treatment` = c(
     "Extend Deliverable 1 trigger logic to fossil projects before making trigger-based clean/fossil claims",
     "Omit duration claims until timeline.parquet exists and coverage is audited",
     "Add geometry derivation before interpreting infrastructure corridor effects",
-    "Add a BLM-only geothermal sensitivity analysis if the client wants a public-land development comparison",
-    "Treat as an exploratory retrieval and QA module",
-    "Build a CE-code crosswalk that maps raw citations to canonical authorities",
+    "Add a BLM-only geothermal sensitivity analysis for a controlled public-land development comparison",
     "Label outputs as project-state or project-county records when relevant"
   )
 ) |>
   kable_tbl()
 ```
 
----
+------------------------------------------------------------------------
 
 # Reproduction
 
 Run from the repository root in the `nepa` conda environment:
 
-```bash
-conda run -n nepa python phase2/code/deliverable03/01_build_nepa_reviews.py
-Rscript phase2/code/deliverable03/02_analyze_nepa_reviews.R
+``` bash
+conda run -n nepa python phase2/code/deliverable03/02_build_nepa_reviews.py
+Rscript phase2/code/deliverable03/04_analyze_nepa_reviews.R
 ```
 
 Outputs are written to:
 
-- `phase2/data/analysis/deliverable03/`
-- `phase2/output/deliverable03/`
+-   `phase2/data/analysis/deliverable03/`
+-   `phase2/output/deliverable03/`
 
----
+------------------------------------------------------------------------
 
-*Draft generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis - Phase 2, Deliverable 3*
+*Draft generated `r Sys.Date()` \| NEPA Decarbonization Technology Analysis - Phase 2, Deliverable 3*

@@ -180,6 +180,21 @@ save_fig <- function(name, width = FIG_W, height = FIG_H) {
   invisible(NULL)
 }
 
+# Dual color scheme shared across fig1, fig1b (within-agency), and fig2 (by tech):
+# clean = blue shades, fossil = red shades — mirrors CE/EA/EIS intensity hierarchy
+dual_process_colors <- c(
+  "Decarb EIS"  = catf_navy,        # #012169 — matches Decarbonization fill in fig5
+  "Decarb EA"   = catf_dark_blue,   # #0047BB
+  "Decarb CE"   = catf_light_blue,  # #8AB7E9
+  "Fossil EIS"  = "#7B241C",        # dark maroon — matches Fossil Fuel fill in fig5
+  "Fossil EA"   = "#A93226",        # medium maroon (consistent hue family)
+  "Fossil CE"   = "#D98880"         # light mauve   (consistent hue family)
+)
+dual_process_labels <- c(
+  "Decarb EIS" = "EIS",   "Decarb EA"  = "EA",    "Decarb CE"  = "CE",
+  "Fossil EIS" = "EIS",   "Fossil EA"  = "EA",    "Fossil CE"  = "CE"
+)
+
 # --------------------------
 # INLINE HELPERS
 # --------------------------
@@ -289,21 +304,47 @@ rate_by_energy <- df |>
   ungroup() |>
   mutate(
     energy_group = factor(energy_group, levels = c("Fossil Fuel", "Decarbonization")),
-    process_type = factor(process_type, levels = c("EIS", "EA", "CE"))
+    process_type = factor(process_type, levels = c("EIS", "EA", "CE")),
+    fill_key = factor(
+      paste0(if_else(energy_group == "Fossil Fuel", "Fossil", "Decarb"), " ", process_type),
+      levels = names(dual_process_colors)
+    )
   )
 
-ggplot(rate_by_energy, aes(x = energy_group, y = pct, fill = process_type)) +
+energy_bar_totals <- rate_by_energy |>
+  group_by(energy_group) |>
+  summarise(total_n = sum(n), .groups = "drop")
+
+ggplot(rate_by_energy, aes(x = energy_group, y = pct, fill = fill_key)) +
   geom_col(position = position_stack(reverse = TRUE)) +
   geom_text(aes(label = scales::percent(pct, accuracy = 1)),
             position = position_stack(reverse = TRUE, vjust = 0.5),
             color = "white", size = 3.5, fontface = "bold") +
-  scale_fill_manual(values = process_colors, labels = process_labels) +
-  scale_y_continuous(labels = percent_format()) +
+  geom_text(data = energy_bar_totals,
+            aes(x = energy_group, y = 1.0, label = scales::comma(total_n)),
+            inherit.aes = FALSE,
+            hjust = -0.15, size = 3, color = "grey30") +
+  scale_fill_manual(
+    values = dual_process_colors,
+    labels = dual_process_labels,
+    breaks = names(dual_process_colors),
+    guide  = guide_legend(
+      title  = "Review Type",
+      nrow   = 2,
+      byrow  = TRUE,
+      override.aes = list(
+        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#A93226", "#D98880")
+      )
+    )
+  ) +
+  scale_y_continuous(labels = percent_format(),
+                     expand = expansion(mult = c(0, 0.12))) +
   coord_flip() +
   labs(x = NULL, y = "Share of Projects", fill = "Review Type",
        title = "NEPA Review Type by Energy Category",
        caption = paste0(
          DATA_CAPTION, "\n",
+         "Blue bars = Decarbonization projects; red bars = Fossil Fuel projects.\n",
          "Decarbonization includes wind, solar, electricity transmission, geothermal, hydropower,\n",
          "biomass, energy storage, carbon capture and sequestration (CCS), and nuclear\n",
          "(20,725 projects). Fossil Fuel includes land-based oil & gas, offshore oil & gas,\n",
@@ -336,22 +377,8 @@ rate_by_tech <- rate_by_tech |>
     process_type = factor(process_type, levels = c("EIS", "EA", "CE"))
   )
 
-# Dual color scheme: clean = blue shades, fossil = red shades (mirroring CE/EA/EIS hierarchy)
 fossil_tech_groups <- c("Land-based Oil & Gas", "Offshore Oil & Gas", "Coal",
                         "Pipeline", "Rural Energy", "Other Fossil")
-
-dual_process_colors <- c(
-  "Decarb EIS"  = catf_navy,
-  "Decarb EA"   = catf_dark_blue,
-  "Decarb CE"   = catf_light_blue,
-  "Fossil EIS"  = "#7B241C",
-  "Fossil EA"   = "#E74C3C",
-  "Fossil CE"   = "#F1948A"
-)
-dual_process_labels <- c(
-  "Decarb EIS" = "EIS",   "Decarb EA"  = "EA",    "Decarb CE"  = "CE",
-  "Fossil EIS" = "EIS",   "Fossil EA"  = "EA",    "Fossil CE"  = "CE"
-)
 
 rate_by_tech <- rate_by_tech |>
   mutate(
@@ -361,6 +388,11 @@ rate_by_tech <- rate_by_tech |>
       levels = names(dual_process_colors)
     )
   )
+
+tech_totals <- rate_by_tech |>
+  group_by(tech_group) |>
+  summarise(total = sum(n), .groups = "drop") |>
+  mutate(tech_group = factor(tech_group, levels = ce_order_complete))
 
 axis_label_colors <- ifelse(
   levels(rate_by_tech$tech_group) %in% fossil_tech_groups,
@@ -372,6 +404,10 @@ ggplot(rate_by_tech, aes(x = tech_group, y = pct, fill = fill_key)) +
   geom_text(aes(label = ifelse(pct >= 0.04, scales::percent(pct, accuracy = 1), "")),
             position = position_stack(reverse = TRUE, vjust = 0.5),
             color = "white", size = 3) +
+  geom_text(data = tech_totals,
+            aes(x = tech_group, y = 1.0, label = scales::comma(total)),
+            inherit.aes = FALSE,
+            hjust = -0.15, size = 2.8, color = "grey30") +
   scale_fill_manual(
     values = dual_process_colors,
     labels = dual_process_labels,
@@ -381,11 +417,12 @@ ggplot(rate_by_tech, aes(x = tech_group, y = pct, fill = fill_key)) +
       nrow   = 2,
       byrow  = TRUE,
       override.aes = list(
-        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#E74C3C", "#F1948A")
+        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#A93226", "#D98880")
       )
     )
   ) +
-  scale_y_continuous(labels = percent_format()) +
+  scale_y_continuous(labels = percent_format(),
+                     expand = expansion(mult = c(0, 0.12))) +
   coord_flip() +
   labs(x = NULL, y = "Share of Projects", fill = "Review Type",
        title = "NEPA Review Type by Technology",
@@ -471,6 +508,70 @@ within_doe <- df |>
 
 write.csv(within_blm, file.path(OUTPUT_DIR, "review_rates_within_blm.csv"), row.names = FALSE)
 write.csv(within_doe, file.path(OUTPUT_DIR, "review_rates_within_doe.csv"), row.names = FALSE)
+
+# Fig 1b — Within-agency comparison stacked bar, faceted by BLM / DOE ----
+# Energy label factor: Fossil Fuel first (bottom), Decarbonization second (top)
+agency_bar_data <- bind_rows(
+  within_blm |> mutate(Agency = "BLM"),
+  within_doe |> mutate(Agency = "DOE")
+) |>
+  mutate(
+    energy_label = if_else(project_energy_type == "Clean", "Decarbonization", "Fossil Fuel"),
+    energy_label = factor(energy_label, levels = c("Fossil Fuel", "Decarbonization")),
+    is_fossil    = project_energy_type == "Fossil",
+    fill_key     = factor(
+      paste0(if_else(is_fossil, "Fossil", "Decarb"), " ", process_type),
+      levels = names(dual_process_colors)
+    ),
+    process_type = factor(process_type, levels = c("EIS", "EA", "CE"))
+  )
+
+agency_bar_totals <- agency_bar_data |>
+  group_by(Agency, energy_label) |>
+  summarise(total_n = sum(n), .groups = "drop")
+
+ggplot(agency_bar_data, aes(x = energy_label, y = pct, fill = fill_key)) +
+  geom_col(position = position_stack(reverse = TRUE)) +
+  geom_text(aes(label = ifelse(pct >= 0.04, scales::percent(pct, accuracy = 1), "")),
+            position = position_stack(reverse = TRUE, vjust = 0.5),
+            color = "white", size = 3.5, fontface = "bold") +
+  scale_fill_manual(
+    values = dual_process_colors,
+    labels = dual_process_labels,
+    breaks = names(dual_process_colors),
+    guide  = guide_legend(
+      title  = "Review Type",
+      nrow   = 2,
+      byrow  = TRUE,
+      override.aes = list(
+        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#A93226", "#D98880")
+      )
+    )
+  ) +
+  geom_text(data = agency_bar_totals,
+            aes(x = energy_label, y = 1.01,
+                label = scales::comma(total_n)),
+            hjust = 0, size = 3, color = "grey30",
+            fontface = "plain", inherit.aes = FALSE) +
+  scale_y_continuous(labels = percent_format(), expand = expansion(mult = c(0, 0.15))) +
+  coord_flip() +
+  facet_wrap(~ Agency, ncol = 1, strip.position = "top") +
+  labs(x = NULL, y = "Share of Projects", fill = "Review Type",
+       title = "Within-Agency NEPA Review Type: BLM and DOE",
+       subtitle = "Blue bars = Decarbonization; red bars = Fossil Fuel",
+       caption = paste0(DATA_CAPTION,
+                        "\nBLM = Bureau of Land Management; DOE = Department of Energy.")) +
+  theme_catf() +
+  theme(
+    legend.position = "bottom",
+    axis.text.y     = element_text(
+      color = rep(c(FOSSIL_RED, catf_navy),  # Fossil Fuel (bottom), Decarbonization (top)
+                  times = length(unique(agency_bar_data$Agency)))
+    ),
+    plot.caption    = element_text(hjust = 0)
+  )
+save_fig("fig1b_within_agency.png", height = 6)
+
 cat("  Section 1 done.\n")
 
 
@@ -490,7 +591,7 @@ top_codes <- ce_cits |>
 
 ggplot(top_codes, aes(x = n, y = ce_code, fill = n)) +
   geom_col() +
-  scale_fill_gradient(low = catf_light_blue, high = catf_navy, guide = "none") +
+  scale_fill_gradient(low = "#BFC9E0", high = catf_navy, guide = "none") +
   geom_text(aes(label = scales::comma(n)), hjust = -0.1, size = 3, color = catf_navy) +
   scale_x_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.15))) +
   labs(x = "Number of Documents", y = NULL,
@@ -525,14 +626,21 @@ top_fig5_codes <- c(not_in_decarb, decarb_order)
 
 ce_by_energy <- ce_by_energy_all |>
   filter(ce_code %in% top_fig5_codes) |>
-  mutate(ce_code = factor(ce_code, levels = top_fig5_codes))
+  mutate(
+    ce_code      = factor(ce_code, levels = top_fig5_codes),
+    # Fossil Fuel first (bottom of dodge), Decarbonization second (top)
+    energy_group = factor(energy_group, levels = c("Fossil Fuel", "Decarbonization"))
+  )
 
-fig5_fill <- c("Decarbonization" = catf_navy, "Fossil Fuel" = FOSSIL_RED)
+fig5_fill <- c("Decarbonization" = catf_navy, "Fossil Fuel" = "#7B241C")
 
 ggplot(ce_by_energy, aes(x = n, y = ce_code, fill = energy_group)) +
-  geom_col(position = "dodge") +
+  geom_col(position = "dodge", alpha = 0.7) +
+  geom_text(aes(label = scales::comma(n)),
+            position = position_dodge(width = 0.9),
+            hjust = -0.1, size = 2.8, color = "grey30") +
   scale_fill_manual(values = fig5_fill) +
-  scale_x_continuous(labels = scales::comma) +
+  scale_x_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.18))) +
   labs(x = "Documents", y = NULL, fill = NULL,
        title = "Top CE Citations by Energy Category",
        caption = paste0(DATA_CAPTION, "\n", CE_CODE_FOOTNOTE)) +
@@ -559,30 +667,62 @@ AGENCY_ABBR <- c(
   "Fish and Wildlife Service"            = "FWS",
   "Department of Transportation"         = "DOT",
   "Western Area Power Administration"    = "WAPA",
-  "Bonneville Power Administration"      = "BPA"
+  "Bonneville Power Administration"      = "BPA",
+  "Department of Agriculture"            = "DOA",
+  "U.S. Department of Agriculture"       = "DOA",
+  "Department of Homeland Security"      = "DHS",
+  "U.S. Department of Homeland Security" = "DHS"
 )
 
-top5_agencies <- ce_cits |>
+# Search broadly (top 20) to ensure all 5 desired agencies are captured
+all_agencies_ranked <- ce_cits |>
   left_join(df |> select(project_id, lead_agency_harmonized), by = "project_id") |>
   mutate(agency = map_chr(lead_agency_harmonized, parse_json_first)) |>
   filter(!is.na(agency)) |>
   count(agency, sort = TRUE) |>
-  slice_head(n = 5) |>
+  slice_head(n = 20) |>
   pull(agency)
+
+# X-axis: exactly these 5 abbreviations, in this order
+AGENCY_X_ORDER <- c("BLM", "DOE", "DOT", "DHS", "DOA")
+
+# Y-axis order: match CE_CODE_FOOTNOTE order (read top-to-bottom in chart = first in footnotes)
+# Factor levels bottom-to-top = reverse of footnote order so top of chart = first in footnotes
+FOOTNOTE_CE_ORDER <- c("B1.3", "B3.1", "B3.6", "B5.1",
+                       "516 DM 6", "516 DM 11.9", "EPAct 2005 §390", "A9")
 
 ce_heatmap <- ce_cits |>
   left_join(df |> select(project_id, lead_agency_harmonized), by = "project_id") |>
   mutate(agency = map_chr(lead_agency_harmonized, parse_json_first)) |>
-  filter(agency %in% top5_agencies, ce_code %in% levels(top_codes$ce_code)) |>
+  filter(agency %in% all_agencies_ranked, ce_code %in% levels(top_codes$ce_code)) |>
   count(agency, ce_code) |>
   group_by(agency) |>
   mutate(
-    pct        = n / sum(n),
+    pct         = n / sum(n),
     agency_abbr = dplyr::coalesce(AGENCY_ABBR[agency], agency)
+  ) |>
+  # Keep only the 5 explicitly desired agencies; drop Interior, GSA, etc.
+  filter(agency_abbr %in% AGENCY_X_ORDER)
+
+# Order x-axis to exactly AGENCY_X_ORDER (drop any not present in data)
+present_abbrs   <- unique(ce_heatmap$agency_abbr)
+x_order_present <- intersect(AGENCY_X_ORDER, present_abbrs)
+
+# Order y-axis: footnote codes top-to-bottom (= reversed as factor levels), others at bottom
+heatmap_codes    <- levels(top_codes$ce_code)
+footnote_present <- rev(FOOTNOTE_CE_ORDER)[rev(FOOTNOTE_CE_ORDER) %in% heatmap_codes]
+other_codes      <- setdiff(heatmap_codes, FOOTNOTE_CE_ORDER)
+y_order          <- c(other_codes, footnote_present)  # last level = top of chart
+
+ce_heatmap <- ce_heatmap |>
+  mutate(
+    agency_abbr = factor(agency_abbr, levels = x_order_present),
+    ce_code     = factor(ce_code, levels = y_order)
   )
 
-# Build the abbreviation key for the caption
-present_agencies <- ce_heatmap |> dplyr::distinct(agency, agency_abbr) |>
+# Build abbreviation key in x-axis order for caption
+present_agencies <- ce_heatmap |>
+  dplyr::distinct(agency, agency_abbr) |>
   dplyr::arrange(agency_abbr)
 abbr_key <- paste(
   apply(present_agencies, 1, function(r) paste0(r["agency_abbr"], " = ", r["agency"])),
@@ -729,7 +869,7 @@ shared_breaks <- unique(shared_breaks)
 if (length(shared_breaks) < 2)
   shared_breaks <- c(0, max(all_county_n, na.rm = TRUE) + 1)
 
-make_county_map <- function(energy, title_suffix, palette = "Blues") {
+make_county_map <- function(energy, title_suffix, fill_low, fill_high) {
   data <- county_counts |>
     filter(energy_group == energy) |>
     mutate(jenks = cut(n_projects, shared_breaks, include.lowest = TRUE))
@@ -737,12 +877,17 @@ make_county_map <- function(energy, title_suffix, palette = "Blues") {
   county_sf <- us_counties |>
     left_join(data, by = c("NAME" = "project_county", "state_name" = "first_state"))
 
+  jenks_levels <- levels(data$jenks)
+  n_levels     <- length(jenks_levels)
+  pal          <- colorRampPalette(c(fill_low, fill_high))(n_levels)
+  names(pal)   <- jenks_levels
+
   ggplot() +
     geom_sf(data = us_counties, fill = "grey95", color = "white", linewidth = 0.1) +
     geom_sf(data = county_sf, aes(fill = jenks), color = NA) +
     geom_sf(data = us_states, fill = NA, color = "grey40", linewidth = 0.3) +
-    scale_fill_brewer(
-      palette  = palette,
+    scale_fill_manual(
+      values   = pal,
       name     = "Count of projects",
       na.value = "grey95",
       drop     = FALSE
@@ -758,10 +903,12 @@ make_county_map <- function(energy, title_suffix, palette = "Blues") {
     theme(legend.position = "bottom")
 }
 
-make_county_map("Decarbonization", "Decarbonization Technologies")
+make_county_map("Decarbonization", "Decarbonization Technologies",
+                fill_low = "#deebf7", fill_high = catf_navy)
 save_fig("fig9_county_decarb.png", width = 14, height = 8)
 
-make_county_map("Fossil Fuel", "Fossil Fuel Technologies", palette = "Reds")
+make_county_map("Fossil Fuel", "Fossil Fuel Technologies",
+                fill_low = "#FADBD8", fill_high = "#7B241C")
 save_fig("fig10_county_fossil.png", width = 14, height = 8)
 
 # Fig 11 — State facet: energy × process type (two patchwork rows, separate color scales) ----
@@ -770,7 +917,7 @@ suppressPackageStartupMessages(library(patchwork))
 state_pct_raw <- location_data |>
   filter(!is.na(energy_group), !is.na(process_type)) |>
   count(energy_group, project_state, process_type) |>
-  group_by(energy_group, project_state) |>
+  group_by(energy_group, process_type) |>
   mutate(pct = n / sum(n)) |>
   ungroup()
 
@@ -786,23 +933,36 @@ state_process <- crossing(
   left_join(us_states, by = c("project_state" = "NAME")) |>
   st_as_sf()
 
-make_state_process_row <- function(eg, fill_low, fill_high) {
-  sp_data <- state_process |> dplyr::filter(energy_group == eg)
+make_state_process_row <- function(eg, fill_low, fill_high, title_suffix = "") {
+  sp_data  <- state_process |> dplyr::filter(energy_group == eg)
+  pct_max  <- max(sp_data$pct, na.rm = TRUE)
+  # 5 breaks evenly spaced on the sqrt scale → back-transformed to pct values
+  # This guarantees no label overlap regardless of the data range
+  sqrt_pts <- seq(0, sqrt(pct_max), length.out = 5)
+  pct_brks <- unique(round(sqrt_pts^2, 4))
+
   ggplot(sp_data) +
     geom_sf(aes(fill = pct), color = "white", linewidth = 0.1) +
     scale_fill_gradient(
       low    = fill_low,
       high   = fill_high,
-      labels = percent_format(),
-      name   = "Share of\nProjects",
-      guide  = guide_colorbar(barwidth = unit(4, "cm"), barheight = unit(0.4, "cm"),
-                              title.position = "top", title.hjust = 0.5)
+      trans  = "sqrt",
+      breaks = pct_brks,
+      labels = percent_format(accuracy = 0.1),
+      name   = "Share of type total",
+      guide  = guide_colorbar(barwidth = unit(10, "cm"), barheight = unit(0.4, "cm"),
+                              title.position = "top", title.hjust = 0.5,
+                              ticks.colour = "grey40", frame.colour = "grey40")
     ) +
     facet_wrap(~ process_type,
                labeller = labeller(process_type = as_labeller(process_labels)),
                nrow = 1) +
     coord_sf(datum = NA) +
-    labs(title = eg) +
+    labs(
+      title    = paste("Process Type Distribution —", eg),
+      subtitle = "Each state's share of all national projects within that energy category and process type (√-scaled)",
+      caption  = DATA_CAPTION
+    ) +
     theme_void() +
     theme_catf() +
     theme(
@@ -814,14 +974,11 @@ make_state_process_row <- function(eg, fill_low, fill_high) {
 p11_decarb <- make_state_process_row("Decarbonization", "#deebf7", catf_navy)
 p11_fossil <- make_state_process_row("Fossil Fuel",     "#FADBD8", "#7B241C")
 
-(p11_decarb / p11_fossil) +
-  plot_annotation(
-    title    = "Process Type Share by State and Energy Category",
-    subtitle = "Share within each energy category × state: of all projects in a state, what fraction went through each review type",
-    caption  = DATA_CAPTION,
-    theme    = theme_catf()
-  )
-save_fig("fig11_state_process_facet.png", width = 14, height = 9)
+p11_decarb
+save_fig("fig11a_state_process_decarb.png", width = 14, height = 5.5)
+
+p11_fossil
+save_fig("fig11b_state_process_fossil.png", width = 14, height = 5.5)
 
 cat("  Section 3 done.\n")
 
@@ -1293,7 +1450,63 @@ tryCatch({
   message("framing_examples.csv written")
 }, error = function(e) message(sprintf("framing examples skipped: %s", conditionMessage(e))))
 # ---------------------------------------------------------------------------
-# fig19 — Section length boxplot (heading-anchored sections only)
+# fig19a — Section length boxplot collapsed to energy category only
+# ---------------------------------------------------------------------------
+if (!VISUAL_SECTIONS_AVAILABLE) {
+  message("fig19a skipped: visual_sections.parquet not found.")
+} else {
+  tryCatch({
+    sections <- read_parquet(VISUAL_SECTIONS_PATH)
+
+    sec_box_energy <- sections |>
+      filter(extraction_method == "heading_anchored",
+             energy_group %in% ENERGY_LEVELS,
+             !is.na(tech_group),
+             !tech_group %in% c("Other", "Other Clean", "Other Fossil"),
+             process_type %in% c("EA", "EIS"),
+             !is.na(n_words),
+             n_words > 0) |>
+      mutate(
+        energy_group = fct_reorder(
+          factor(energy_group, levels = ENERGY_LEVELS),
+          n_words, .fun = median
+        )
+      )
+
+    if (nrow(sec_box_energy) == 0) {
+      message("fig19a skipped: no heading-anchored sections after filtering.")
+    } else {
+      energy_sec_n <- sec_box_energy |>
+        dplyr::count(energy_group, name = "n_obs") |>
+        dplyr::mutate(energy_group = factor(energy_group,
+                                            levels = levels(sec_box_energy$energy_group)))
+
+      ggplot(sec_box_energy, aes(x = energy_group, y = n_words, fill = energy_group)) +
+        geom_boxplot(outlier.size = 0.5, alpha = 0.7, width = 0.5) +
+        geom_text(data = energy_sec_n,
+                  aes(x = energy_group, y = Inf, label = scales::comma(n_obs)),
+                  inherit.aes = FALSE, hjust = -0.15, size = 2.8, color = "grey30") +
+        scale_fill_manual(values = c("Decarbonization" = catf_navy,
+                                     "Fossil Fuel"     = "#7B241C"),
+                          name = NULL) +
+        scale_y_log10(labels = scales::comma,
+                      breaks = c(100, 500, 1000, 5000, 10000),
+                      expand = expansion(mult = c(0.05, 0.25))) +
+        coord_flip() +
+        labs(x = NULL, y = "Section length (words, log scale)",
+             title = "Visual Section Length by Energy Category",
+             subtitle = "Heading-anchored sections only (EA/EIS); sorted by median",
+             caption = DATA_CAPTION) +
+        theme_catf() +
+        theme(legend.position = "none")
+      save_fig("fig19a_section_length_energy.png", height = 3.5)
+    }
+  }, error = function(e) {
+    message(sprintf("fig19a skipped: %s", conditionMessage(e)))
+  })
+}
+
+# fig19 — Section length boxplot by tech_group (heading-anchored sections only)
 # ---------------------------------------------------------------------------
 if (!VISUAL_SECTIONS_AVAILABLE) {
   message("fig19 skipped: visual_sections.parquet not found.")
@@ -1317,13 +1530,21 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
     if (nrow(sec_box) == 0) {
       message("fig19 skipped: no heading-anchored sections after filtering.")
     } else {
+      tech_sec_n <- sec_box |>
+        dplyr::count(tech_group, name = "n_obs") |>
+        dplyr::mutate(tech_group = factor(tech_group, levels = levels(sec_box$tech_group)))
+
       ggplot(sec_box, aes(x = tech_group, y = n_words, fill = energy_group)) +
         geom_boxplot(outlier.size = 0.4, alpha = 0.7) +
+        geom_text(data = tech_sec_n,
+                  aes(x = tech_group, y = Inf, label = scales::comma(n_obs)),
+                  inherit.aes = FALSE, hjust = -0.15, size = 2.8, color = "grey30") +
         scale_fill_manual(values = c("Decarbonization" = catf_navy,
                                      "Fossil Fuel"     = "#7B241C"),
                           name = NULL) +
         scale_y_log10(labels = scales::comma,
-                      breaks = c(100, 500, 1000, 5000, 10000)) +
+                      breaks = c(100, 500, 1000, 5000, 10000),
+                      expand = expansion(mult = c(0.05, 0.25))) +
         coord_flip() +
         labs(x = NULL, y = "Section length (words, log scale)",
              title = "Visual Section Length by Technology: Decarbonization vs. Fossil Fuel",
@@ -1352,11 +1573,12 @@ if (!VRM_ELEMENTS_AVAILABLE) {
     vrm_el <- vrm_el |>
       dplyr::filter(
         !is.na(rating), !is.na(element),
+        rating != "None",
         energy_group %in% c("Decarbonization", "Fossil Fuel")
       ) |>
       dplyr::mutate(
         element      = stringr::str_to_title(element),
-        rating       = factor(rating, levels = c("None", "Weak", "Moderate", "Strong")),
+        rating       = factor(rating, levels = c("Weak", "Moderate", "Strong")),
         energy_group = factor(energy_group, levels = c("Decarbonization", "Fossil Fuel"))
       )
 
@@ -1374,23 +1596,29 @@ if (!VRM_ELEMENTS_AVAILABLE) {
         dplyr::ungroup()
 
       decarb_colors <- c(
-        "None"     = "#D6EAF8",
-        "Weak"     = "#7FB3D3",
-        "Moderate" = "#1A5276",
-        "Strong"   = "#012169"
+        "Weak"     = "#BFC9E0",  # light blue
+        "Moderate" = "#3D6DB0",  # mid-blue
+        "Strong"   = "#012169"   # catf_navy
       )
       fossil_colors <- c(
-        "None"     = "#FADBD8",
-        "Weak"     = "#E59866",
-        "Moderate" = "#CA6F1E",
-        "Strong"   = "#7B241C"
+        "Weak"     = "#F5CEC9",  # light pink
+        "Moderate" = "#C0392B",  # mid-red
+        "Strong"   = "#7B241C"   # dark maroon
       )
 
-      rating_levels <- c("None", "Weak", "Moderate", "Strong")
-      all_elements  <- sort(unique(vrm_el$element))
+      rating_levels <- c("Weak", "Moderate", "Strong")
+
+      # Compute per-element total n across both groups; drop elements with < 5 total
+      # projects (e.g. Scale) to avoid misleading single-project bars.
+      element_totals <- vrm_el |>
+        dplyr::group_by(element) |>
+        dplyr::summarise(n_total_global = dplyr::n_distinct(project_id), .groups = "drop") |>
+        dplyr::filter(n_total_global >= 5)
+
+      all_elements  <- sort(element_totals$element)
 
       make_vrm_panel <- function(eg_data, colors, eg_label, title_color,
-                                 show_legend = TRUE, reverse = TRUE) {
+                                 show_legend = TRUE) {
         # Ensure all elements and ratings appear even when data is absent
         complete_grid <- tidyr::crossing(
           element = all_elements,
@@ -1401,51 +1629,65 @@ if (!VRM_ELEMENTS_AVAILABLE) {
           tidyr::replace_na(list(pct = 0)) |>
           dplyr::mutate(rating = factor(rating, levels = rating_levels))
 
-        ggplot(panel_data, aes(x = element, y = pct, fill = rating)) +
-          geom_col(position = "stack", width = 0.7) +
+        element_n <- eg_data |>
+          dplyr::distinct(element, n_total) |>
+          dplyr::filter(!is.na(n_total)) |>
+          dplyr::mutate(element = factor(element, levels = all_elements))
+
+        ggplot(panel_data, aes(y = element, x = pct, fill = rating)) +
+          geom_col(position = "stack", width = 0.65, alpha = 0.7) +
+          geom_text(data = element_n,
+                    aes(y = element, x = 101, label = scales::comma(n_total)),
+                    inherit.aes = FALSE, hjust = 0, size = 2.8, color = "grey40") +
           scale_fill_manual(
             values = colors,
-            name   = "Contrast\nRating",
-            guide  = if (show_legend) guide_legend(reverse = reverse) else "none"
+            name   = "Contrast Rating",
+            guide  = if (show_legend) {
+              guide_legend(reverse = TRUE, direction = "horizontal",
+                           title.position = "top", title.hjust = 0.5,
+                           label.position = "bottom")
+            } else "none"
           ) +
-          scale_y_continuous(
+          scale_x_continuous(
             labels = scales::label_percent(scale = 1),
-            expand = expansion(mult = c(0, 0.05))
+            limits = c(0, 100),
+            expand = expansion(mult = c(0, 0))
           ) +
-          labs(title = eg_label, x = NULL, y = "% of Projects") +
+          coord_cartesian(clip = "off") +
+          labs(title = eg_label, y = NULL, x = "% of Projects") +
           theme_catf() +
           theme(
-            axis.text.x        = element_text(angle = 0, hjust = 0.5),
-            legend.position    = if (show_legend) "right" else "none",
-            panel.grid.major.x = element_blank(),
-            plot.title         = element_text(face = "bold", color = title_color)
+            axis.text.y        = element_text(hjust = 1),
+            legend.position    = if (show_legend) "bottom" else "none",
+            legend.direction   = "horizontal",
+            panel.grid.major.y = element_blank(),
+            plot.title         = element_text(face = "bold", color = title_color),
+            plot.margin        = margin(t = 5, r = 45, b = 5, l = 5)
           )
       }
 
       p21a <- make_vrm_panel(
         vrm_pct |> dplyr::filter(energy_group == "Decarbonization"),
-        decarb_colors, "Decarbonization", catf_navy,
-        show_legend = TRUE, reverse = TRUE
+        decarb_colors, "Decarbonization", catf_navy, show_legend = TRUE
       )
       p21b <- make_vrm_panel(
         vrm_pct |> dplyr::filter(energy_group == "Fossil Fuel"),
-        fossil_colors, "Fossil Fuel", "#7B241C",
-        show_legend = TRUE, reverse = FALSE
+        fossil_colors, "Fossil Fuel", "#7B241C", show_legend = TRUE
       )
 
       p21 <- (p21a | p21b) +
         plot_annotation(
           title    = "VRM Element-Level Contrast Ratings by Energy Category",
           subtitle = paste0(
-            "BLM VRM elements rated None (lightest) → Strong (darkest). Coverage ~4% of corpus (BLM EIS with formal VRM tables).\n",
-            "Scale column: Decarbonization = 1 project rated None; Fossil Fuel = no data recorded."
+            "BLM VRM elements rated Weak (lightest) → Strong (darkest). Coverage ~4% of corpus (BLM EIS with formal VRM tables).\n",
+            "Elements with fewer than 5 projects across both categories are excluded."
           ),
           caption  = DATA_CAPTION,
           theme    = theme_catf()
         )
 
       ggsave(file.path(OUTPUT_DIR, "fig21_vrm_elements.png"),
-             p21, width = 12, height = 6, dpi = 300)
+             p21, width = 12, height = 7, dpi = 300)
       message("fig21: VRM element-level ratings chart written.")
     }
   }, error = function(e) {
@@ -1605,16 +1847,21 @@ if (!file.exists(VISUAL_TOPIC_TERMS_PATH)) {
       dplyr::arrange(dplyr::desc(n_total)) |>
       dplyr::pull(panel_label)
 
-    topic_terms <- topic_terms |>
-      group_by(panel_label) |>
-      mutate(term = fct_reorder(term, weight, .desc = FALSE)) |>
-      ungroup() |>
-      mutate(panel_label = factor(panel_label, levels = panel_order))
+    suppressPackageStartupMessages(library(tidytext))
 
-    ggplot(topic_terms, aes(x = weight, y = term)) +
-      geom_segment(aes(xend = 0, yend = term), color = "grey80", linewidth = 0.4) +
+    # reorder_within creates per-panel factor levels so each facet is independently
+    # ordered by descending weight (highest at top when ggplot renders bottom-to-top)
+    topic_terms <- topic_terms |>
+      mutate(
+        term_ordered = tidytext::reorder_within(term, weight, panel_label),
+        panel_label  = factor(panel_label, levels = panel_order)
+      )
+
+    ggplot(topic_terms, aes(x = weight, y = term_ordered)) +
+      geom_segment(aes(xend = 0, yend = term_ordered), color = "grey80", linewidth = 0.4) +
       geom_point(aes(size = weight), color = catf_dark_blue, alpha = 0.85) +
       scale_size_continuous(range = c(1.5, 5), guide = "none") +
+      tidytext::scale_y_reordered() +
       facet_wrap(~ panel_label, scales = "free_y", ncol = 2) +
       labs(
         x = "NMF component weight (higher = more characteristic of topic)",
@@ -1780,8 +2027,8 @@ fig15_colors <- c(
   "Geothermal EA"  = catf_dark_blue,
   "Geothermal CE"  = catf_light_blue,
   "Oil & Gas EIS"  = "#7B241C",
-  "Oil & Gas EA"   = "#E74C3C",
-  "Oil & Gas CE"   = "#F1948A"
+  "Oil & Gas EA"   = "#A93226",
+  "Oil & Gas CE"   = "#D98880"
 )
 
 fig15_labels <- c(
@@ -1802,13 +2049,13 @@ ggplot(rate_compare, aes(x = tech_group, y = pct, fill = fill_key)) +
       nrow  = 2,
       byrow = TRUE,
       override.aes = list(
-        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#E74C3C", "#F1948A")
+        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#A93226", "#D98880")
       )
     )
   ) +
   geom_text(data = rate_compare_totals,
             aes(x = tech_group, y = 1.01,
-                label = paste0("n = ", scales::comma(total_n))),
+                label = scales::comma(total_n)),
             hjust = 0, size = 3.5, color = catf_navy,
             fontface = "plain", inherit.aes = FALSE) +
   scale_y_continuous(labels = percent_format(),
@@ -1857,13 +2104,20 @@ fig16_colors <- c(
   "Oil & Gas"  = FOSSIL_RED
 )
 
+state_total_labels <- geo_og_state |>
+  dplyr::distinct(project_state, total)
+
 ggplot(geo_og_state, aes(x = project_state, y = pct, fill = tech_group)) +
-  geom_col(position = position_stack(reverse = TRUE)) +
+  geom_col(position = position_stack(reverse = TRUE), alpha = 0.7) +
   geom_text(aes(label = ifelse(pct >= 0.05, scales::percent(pct, accuracy = 1), "")),
             position = position_stack(reverse = TRUE, vjust = 0.5),
             color = "white", size = 3) +
+  geom_text(data = state_total_labels,
+            aes(x = project_state, y = 1.0, label = scales::comma(total)),
+            inherit.aes = FALSE, hjust = -0.15, size = 2.3, color = "grey30") +
   scale_fill_manual(values = fig16_colors) +
-  scale_y_continuous(labels = percent_format()) +
+  scale_y_continuous(labels = percent_format(),
+                     expand = expansion(mult = c(0, 0.12))) +
   coord_flip() +
   labs(x = NULL, y = "Share of Projects", fill = NULL,
        title = "Geothermal vs. Oil & Gas Share by State",
@@ -1934,11 +2188,14 @@ visual_section_pct_for <- function(ids) {
 clean_ids  <- df$project_id[df$project_energy_type == "Clean" & !is.na(df$process_type)]
 fossil_ids <- df$project_id[df$project_energy_type == "Fossil" & !is.na(df$process_type)]
 geo_ids    <- geo_og$project_id[geo_og$tech_group == "Geothermal" & !is.na(geo_og$process_type)]
+og_ids     <- geo_og$project_id[
+  geo_og$tech_group %in% c("Land-based Oil & Gas", "Offshore Oil & Gas") &
+    !is.na(geo_og$process_type)]
 
 clean_avg <- df |>
   filter(project_energy_type == "Clean", !is.na(process_type)) |>
   summarise(
-    group                      = "Clean Energy Average",
+    group                      = "Decarbonization Average",
     n                          = n(),
     ce_share                   = mean(process_type == "CE"),
     blm_share                  = mean(
@@ -1980,7 +2237,24 @@ geo_avg <- geo_og |>
     visual_section_pct         = visual_section_pct_for(geo_ids)
   )
 
-comparison_table <- bind_rows(clean_avg, fossil_avg, geo_avg) |>
+og_avg <- geo_og |>
+  filter(tech_group %in% c("Land-based Oil & Gas", "Offshore Oil & Gas"),
+         !is.na(process_type)) |>
+  summarise(
+    group                      = "Oil & Gas (All Agencies)",
+    n                          = n(),
+    ce_share                   = mean(process_type == "CE"),
+    blm_share                  = mean(
+      map_lgl(lead_agency_harmonized,
+              ~ safe_agency_match(.x, "BLM|Bureau of Land Management")),
+      na.rm = TRUE
+    ),
+    federal_land_trigger_share = mean(nepa_trigger_primary == "federal_land", na.rm = TRUE),
+    visual_section_pct         = NA_real_
+  )
+
+# Order: technology groups first (Geothermal, Oil & Gas), then portfolio averages
+comparison_table <- bind_rows(geo_avg, og_avg, clean_avg, fossil_avg) |>
   select(group, n, ce_share, blm_share, federal_land_trigger_share, visual_section_pct)
 
 write.csv(comparison_table,
