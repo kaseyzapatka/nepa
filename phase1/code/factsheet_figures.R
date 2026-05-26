@@ -184,6 +184,237 @@ ggsave(file.path(out_dir, "02_energy_type_composition.png"), fig1, width = 10, h
 message("  Saved: 02_energy_type_composition.png")
 
 # ---------------------------------------------------------------------------
+# Fig 1b — Energy type composition, BLM projects only
+#           (02_energy_type_composition_BLM.png)
+# ---------------------------------------------------------------------------
+message("\n--- Fig 1b: Energy type composition (BLM only) ---")
+
+blm_project_ids <- projects %>%
+  explode_column("lead_agency") %>%
+  filter(!is.na(lead_agency) & lead_agency != "") %>%
+  mutate(
+    lead_agency_exp = lead_agency %>%
+      str_replace("^DOE\\s*-\\s*",  "Department of Energy - ") %>%
+      str_replace("^DOI\\s*-\\s*",  "Department of the Interior - ") %>%
+      str_replace("^USDA\\s*-\\s*", "Department of Agriculture - ") %>%
+      str_replace("^DOD\\s*-\\s*",  "Department of Defense - ") %>%
+      str_replace("^DOT\\s*-\\s*",  "Department of Transportation - "),
+    lead_agency_harmonized = if_else(
+      str_detect(lead_agency_exp, " - "),
+      str_extract(lead_agency_exp, "(?<= - ).+$") %>% str_trim(),
+      lead_agency_exp
+    )
+  ) %>%
+  filter(str_detect(lead_agency_harmonized, regex("bureau of land management", ignore_case = TRUE))) %>%
+  distinct(project_id)
+
+blm_projects <- projects %>% semi_join(blm_project_ids, by = "project_id")
+message("  BLM projects: ", nrow(blm_projects))
+
+fig1b_data <- blm_projects %>%
+  group_by(project_energy_type, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(project_energy_type) %>%
+  mutate(total_energy_type = sum(n), pct = 100 * n / total_energy_type) %>%
+  ungroup() %>%
+  mutate(project_energy_type = if_else(project_energy_type == "Clean", "Decarbonized",
+                                       project_energy_type),
+         project_energy_type = factor(project_energy_type,
+                                      levels = c("Fossil", "Decarbonized", "Other")))
+
+fig1b_totals <- fig1b_data %>%
+  distinct(project_energy_type, total_energy_type)
+
+fig1b <- fig1b_data %>%
+  ggplot(aes(x = project_energy_type, y = pct, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(pct > 5, paste0(round(pct, 0), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 3.5, fontface = "bold"
+  ) +
+  geom_text(
+    data = fig1b_totals,
+    aes(x = project_energy_type, y = 101,
+        label = scales::comma(total_energy_type)),
+    inherit.aes = FALSE, hjust = 0, size = 3, color = "gray30"
+  ) +
+  coord_flip() +
+  labs(
+    title   = "BLM Review Types by Energy Category",
+    x       = NULL,
+    y       = "Share of Reviews",
+    fill    = "Review Type",
+    caption = str_wrap(paste0(
+      "Note: BLM projects identified via lead_agency field. ",
+      "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
+      "EIS (Environmental Impact Statement). ",
+      "Percentages calculated within each energy type category. ",
+      "Percentage labels below 5% omitted for clarity."
+    ), width = 150)
+  ) +
+  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_catf() +
+  theme_catf() +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank()
+  )
+
+ggsave(file.path(out_dir, "02_energy_type_composition_BLM.png"),
+       fig1b, width = 10, height = 5, dpi = 300)
+message("  Saved: 02_energy_type_composition_BLM.png")
+
+# ---------------------------------------------------------------------------
+# Fig 1c — Energy type composition, DOE projects only
+#           (02_energy_type_composition_DOE.png)
+# ---------------------------------------------------------------------------
+message("\n--- Fig 1c: Energy type composition (DOE only) ---")
+
+doe_project_ids <- projects %>%
+  explode_column("lead_agency") %>%
+  filter(!is.na(lead_agency) & lead_agency != "") %>%
+  mutate(
+    lead_agency_exp = lead_agency %>%
+      str_replace("^DOE\\s*-\\s*",  "Department of Energy - ") %>%
+      str_replace("^DOI\\s*-\\s*",  "Department of the Interior - ") %>%
+      str_replace("^USDA\\s*-\\s*", "Department of Agriculture - ") %>%
+      str_replace("^DOD\\s*-\\s*",  "Department of Defense - ") %>%
+      str_replace("^DOT\\s*-\\s*",  "Department of Transportation - "),
+    lead_agency_harmonized = if_else(
+      str_detect(lead_agency_exp, " - "),
+      str_extract(lead_agency_exp, "(?<= - ).+$") %>% str_trim(),
+      lead_agency_exp
+    )
+  ) %>%
+  filter(str_detect(lead_agency_harmonized, regex("^department of energy$", ignore_case = TRUE))) %>%
+  distinct(project_id)
+
+doe_projects <- projects %>% semi_join(doe_project_ids, by = "project_id")
+message("  DOE projects: ", nrow(doe_projects))
+
+fig1c_data <- doe_projects %>%
+  group_by(project_energy_type, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(project_energy_type) %>%
+  mutate(total_energy_type = sum(n), pct = 100 * n / total_energy_type) %>%
+  ungroup() %>%
+  mutate(
+    project_energy_type = if_else(project_energy_type == "Clean", "Decarbonized",
+                                  project_energy_type),
+    project_energy_type = factor(project_energy_type,
+                                 levels = c("Fossil", "Decarbonized", "Other"))
+  )
+
+fig1c_totals <- fig1c_data %>% distinct(project_energy_type, total_energy_type)
+
+fig1c <- fig1c_data %>%
+  ggplot(aes(x = project_energy_type, y = pct, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(pct > 5, paste0(round(pct, 0), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 3.5, fontface = "bold"
+  ) +
+  geom_text(
+    data = fig1c_totals,
+    aes(x = project_energy_type, y = 101,
+        label = scales::comma(total_energy_type)),
+    inherit.aes = FALSE, hjust = 0, size = 3, color = "gray30"
+  ) +
+  coord_flip() +
+  labs(
+    title   = "DOE Review Types by Energy Category",
+    x       = NULL,
+    y       = "Share of Reviews",
+    fill    = "Review Type",
+    caption = str_wrap(paste0(
+      "Note: DOE projects identified via lead_agency field. ",
+      "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
+      "EIS (Environmental Impact Statement). ",
+      "Percentages calculated within each energy type category. ",
+      "Percentage labels below 5% omitted for clarity."
+    ), width = 150)
+  ) +
+  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_catf() +
+  theme_catf() +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank()
+  )
+
+ggsave(file.path(out_dir, "02_energy_type_composition_DOE.png"),
+       fig1c, width = 10, height = 5, dpi = 300)
+message("  Saved: 02_energy_type_composition_DOE.png")
+
+# ---------------------------------------------------------------------------
+# Fig 1d — Energy type composition, all non-DOE/non-BLM projects
+#           (02_energy_type_composition_OTHER.png)
+# ---------------------------------------------------------------------------
+message("\n--- Fig 1d: Energy type composition (Other agencies) ---")
+
+other_projects <- projects %>%
+  anti_join(doe_project_ids, by = "project_id") %>%
+  anti_join(blm_project_ids, by = "project_id")
+message("  Other-agency projects: ", nrow(other_projects))
+
+fig1d_data <- other_projects %>%
+  group_by(project_energy_type, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(project_energy_type) %>%
+  mutate(total_energy_type = sum(n), pct = 100 * n / total_energy_type) %>%
+  ungroup() %>%
+  mutate(
+    project_energy_type = if_else(project_energy_type == "Clean", "Decarbonized",
+                                  project_energy_type),
+    project_energy_type = factor(project_energy_type,
+                                 levels = c("Fossil", "Decarbonized", "Other"))
+  )
+
+fig1d_totals <- fig1d_data %>% distinct(project_energy_type, total_energy_type)
+
+fig1d <- fig1d_data %>%
+  ggplot(aes(x = project_energy_type, y = pct, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(pct > 5, paste0(round(pct, 0), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 3.5, fontface = "bold"
+  ) +
+  geom_text(
+    data = fig1d_totals,
+    aes(x = project_energy_type, y = 101,
+        label = scales::comma(total_energy_type)),
+    inherit.aes = FALSE, hjust = 0, size = 3, color = "gray30"
+  ) +
+  coord_flip() +
+  labs(
+    title   = "Review Types by Energy Category — All Other Agencies (Excluding DOE and BLM)",
+    x       = NULL,
+    y       = "Share of Reviews",
+    fill    = "Review Type",
+    caption = str_wrap(paste0(
+      "Note: Includes all projects where neither DOE nor BLM is the lead agency. ",
+      "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
+      "EIS (Environmental Impact Statement). ",
+      "Percentages calculated within each energy type category. ",
+      "Percentage labels below 5% omitted for clarity."
+    ), width = 150)
+  ) +
+  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_catf() +
+  theme_catf() +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank()
+  )
+
+ggsave(file.path(out_dir, "02_energy_type_composition_OTHER.png"),
+       fig1d, width = 10, height = 5, dpi = 300)
+message("  Saved: 02_energy_type_composition_OTHER.png")
+
+# ---------------------------------------------------------------------------
 # Fig 2 — Agency process: DOE + BLM (02_agency_process.png)
 # ---------------------------------------------------------------------------
 message("\n--- Fig 2: Agency process (DOE + BLM) ---")
