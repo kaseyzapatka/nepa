@@ -5,7 +5,7 @@ All scripts require `conda activate nepa`.
 
 ---
 
-## Full Rebuild (all four steps in order)
+## Full Rebuild — EA/EIS pipeline (scripts 01–04)
 
 ```bash
 # Step 1: Scan NEPATEC for DOE doc numbers embedded in PDF text
@@ -22,6 +22,26 @@ CONDA_DEFAULT_ENV=nepa python phase2/code/api/doe_register/04_build_doe_dates.py
 ```
 
 Expected total runtime: ~25–35 minutes (03 is the bottleneck).
+
+---
+
+## Full Rebuild — CE/CX pipeline (script 05)
+
+```bash
+# Crawl all energy.gov CX listing pages (~60 min, 1 req/sec, 3,558 pages)
+CONDA_DEFAULT_ENV=nepa python phase2/code/api/doe_register/05_fetch_cx_register.py
+```
+
+Skips the crawl if output already exists. Use `--refetch` to re-crawl (e.g., after a
+significant time gap — energy.gov adds new CX records continuously).
+
+```bash
+# Test run (50 pages, ~1 min)
+CONDA_DEFAULT_ENV=nepa python phase2/code/api/doe_register/05_fetch_cx_register.py --sample 50
+
+# Dry run: discover page count only
+CONDA_DEFAULT_ENV=nepa python phase2/code/api/doe_register/05_fetch_cx_register.py --dry-run
+```
 
 ---
 
@@ -49,8 +69,22 @@ CONDA_DEFAULT_ENV=nepa python phase2/code/api/doe_register/03_fetch_project_page
 | `doe_project_page_cache.json` | Raw HTTP cache for individual pages (367 entries) |
 | `doe_eplanning_dates.parquet` | Final output — one row per project (516 rows) |
 | `doe_manual_review.csv` | Projects with `acceptance=review` for human inspection |
+| `doe_cx_register.parquet` | CE determination dates — one row per CX number (~35,580 rows) |
 
 All files are in `phase2/data/analysis/doe_register/`.
+
+### `doe_cx_register.parquet` schema
+
+| Column | Notes |
+|--------|-------|
+| `cx_number` | Integer CX identifier (matches `cx-NNNNNN.pdf` filenames in NEPATEC) |
+| `cx_date` | ISO-8601 CE determination date (100% coverage) |
+| `cx_date_raw` | Raw display date string ("December 2, 2014") |
+| `office` | DOE operations office, e.g. "Savannah River Operations Office" (~partial coverage) |
+| `location` | State/region, e.g. "South Carolina" (~partial coverage) |
+| `cx_codes` | CE codes applied, e.g. "B3.6, A9" (~partial coverage) |
+| `cx_title` | Project description from listing summary |
+| `fetched_at` | ISO-8601 UTC crawl timestamp |
 
 ---
 

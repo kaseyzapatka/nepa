@@ -2,11 +2,20 @@
 
 ## Overview
 
-Fetches decision (FONSI/ROD) and initiation (NOI) dates for DOE EA and EIS projects from
-public energy.gov pages. Outputs a project-level date table that feeds directly into the
-D4 timeline pipeline as high-confidence Tier A metadata packets.
+Fetches dates for DOE NEPA projects from public energy.gov pages. Two separate pipelines:
+
+**EA/EIS pipeline (scripts 01–04):** Extracts DOE/EA-NNNN and DOE/EIS-NNNN document numbers
+from NEPATEC PDF text, then fetches FONSI/ROD/NOI dates from energy.gov listing and project
+pages. Outputs a project-level date table (decision + initiation) for D4.
+
+**CE/CX pipeline (script 05):** Bulk-crawls the energy.gov CX listing (~35,580 records,
+3,558 pages) to build a `cx_number → date / office / location` lookup table. CE determination
+date is the only available NEPA date for CE projects (no initiation/NOI required). Join to
+NEPATEC using the CX number from the document filename (`cx-NNNNNN.pdf`).
 
 ```
+━━━ EA / EIS pipeline ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 NEPATEC pages (DuckDB)
         │
         ▼
@@ -17,10 +26,9 @@ NEPATEC pages (DuckDB)
         ▼                                                          ▼
 02_fetch_doe_register.py                           03_fetch_project_pages.py
 (energy.gov listing pages)                         (individual project pages)
-  /nepa/listings/eis-0001-...                       /nepa/listings/ea-NNNN-documents-...
-  ROD listing: 36 pages, 80 records                 Per doc: FONSI, ROD, NOI dates
-  FONSI listing: 85 pages, 233 records              Covers ~85% of doc numbers not
-        │                                           found in listings
+  ROD listing: 36 pages, 80 records                Per doc: FONSI, ROD, NOI dates
+  FONSI listing: 85 pages, 233 records             Covers ~85% of doc numbers not
+        │                                          found in listings
         ▼                                                          │
 doe_rod_lookup.parquet (80)                                        │
 doe_fonsi_lookup.parquet (233)                                     │
@@ -41,6 +49,23 @@ doe_eplanning_dates.parquet
 D4 pipeline (01_build_timeline_index.py → 02_retrieve_timeline_contexts.py)
   source_tier="metadata", confidence=5.0
   retrieval_reason="doe_register_decision" | "doe_register_initiation"
+
+━━━ CE / CX pipeline ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+energy.gov CX listing
+  /nepa/listings/categorical-exclusion-cx-determinations-date
+  ~3,558 pages, 10 records/page, ~35,580 determinations
+        │
+        ▼
+05_fetch_cx_register.py
+  - Parses cx_number from article URL (/nepa/articles/cx-NNNNNN-...)
+  - Extracts: cx_date, office, location, cx_codes, cx_title
+  - Rate: 1 req/sec, ~60 min full run
+        │
+        ▼
+doe_cx_register.parquet
+  (~35,580 rows, one per CX number)
+  Join key: cx_number (int) ↔ NEPATEC filename cx-NNNNNN.pdf
 ```
 
 ---
@@ -155,8 +180,12 @@ overriding any BERT/LLM output for these projects.
 
 ## Known Limitations
 
-1. **CX (CE) dates**: Not available. energy.gov portal does not expose CE records publicly
-   without authentication. EPA CDX also requires CDX account login.
+1. **CX (CE) dates**: Available via `05_fetch_cx_register.py`. energy.gov CX listing is
+   fully public (~35,580 records). NEPATEC `cx-NNNNNN.pdf` filenames map directly to
+   energy.gov CX numbers for ~95%+ of DOE CE projects. Rare exception: some site-specific
+   projects were retroactively uploaded to energy.gov under a new central number (e.g.,
+   Paducah CX-019733 → energy.gov CX-270467); these won't match by number and will silently
+   get no date.
 2. **DOE EA initiation**: NOI is rarely published for EA documents; initiation dates must
    come from other signals (e.g., Federal Register notices via D4 script 01).
 3. **EIS coverage gap**: Only 22% of clean energy EIS projects matched, primarily because

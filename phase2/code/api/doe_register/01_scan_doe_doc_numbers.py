@@ -36,25 +36,31 @@ OUTPUT_PATH = OUT_DIR / "doe_case_evidence.parquet"
 
 SOURCE_MAP = {"EA": "ea", "EIS": "eis"}
 
-# DOE/EA-NNNN and DOE/EIS-NNNN (with optional supplement suffix)
+# DOE/EA-NNNN and DOE/EIS-NNNN (with optional supplement suffix).
+# Also matches NNSA/EA-NNNN and NNSA/EIS-NNNN (National Nuclear Security Administration
+# occasionally uses its own prefix on documents but uses the same numbering system).
 DOE_DOC_RE = re.compile(
-    r"\bDOE/(EA-\d{4}|EIS-\d{4}(?:[-‐-―](?:S\d+|SA[-\s]?\d+))?)\b",
+    r"\b(?:DOE|NNSA)/(EA-\d{4}|EIS-\d{4}(?:[-‐-―](?:S\d+|SA[-\s]?\d+))?)\b",
     re.IGNORECASE,
 )
 
 
 def _normalize_doc_number(raw: str) -> str:
-    """Normalize to uppercase, ASCII hyphens, no spaces in suffix."""
+    """Normalize to uppercase, ASCII hyphens, no spaces in suffix.
+    NNSA/ prefix is canonicalized to DOE/ since they share the same numbering system."""
     n = raw.upper()
     # Replace en-dash/em-dash with hyphen
     n = re.sub(r"[‐-―]", "-", n)
     # Remove spaces within suffix (e.g. "SA- 10" → "SA-10")
     n = re.sub(r"(SA-)\s+(\d)", r"\1\2", n)
+    # Canonicalize NNSA/ → DOE/ so downstream joins work uniformly
+    n = re.sub(r"^NNSA/", "DOE/", n)
     return n
 
 
 def _classify_doc_number(doc_number: str) -> tuple[str, str]:
-    """Return (doc_type, base_number). E.g. DOE/EIS-0391-SA-05 → ('EIS-SA', 'DOE/EIS-0391')."""
+    """Return (doc_type, base_number). E.g. DOE/EIS-0391-SA-05 → ('EIS-SA', 'DOE/EIS-0391').
+    NNSA/ is already canonicalized to DOE/ by _normalize_doc_number."""
     m = re.match(r"DOE/(EA|EIS)-(\d{4})(.*)", doc_number)
     if not m:
         return "unknown", doc_number
@@ -246,11 +252,16 @@ def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
 
+    # Use lead_agency (not lead_agency_harmonized) so that all DOE sub-agencies are
+    # included: Power Marketing Administration (BPA/WAPA/SWPA/SEPA/SPP), National
+    # Nuclear Security Administration, Energy Programs, Environmental and Other Defense
+    # Activities, etc. lead_agency_harmonized strips the "Department of Energy" parent
+    # from sub-agency rows, causing those projects to be silently excluded.
     print("Loading DOE project IDs from projects_combined ...")
     projects = con.execute(f"""
         SELECT project_id, process_type
         FROM read_parquet('{PROJECTS_PATH}')
-        WHERE lower(lead_agency_harmonized) LIKE '%department of energy%'
+        WHERE lower(lead_agency) LIKE '%department of energy%'
           AND process_type IN ({','.join("'" + p + "'" for p in args.process)})
     """).df()
     doe_project_ids = set(projects["project_id"].tolist())
