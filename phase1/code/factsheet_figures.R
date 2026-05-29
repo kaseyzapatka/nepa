@@ -1246,17 +1246,38 @@ tbl_hubs_corps <- hub_corps$hub_tbl
 message("  Hubs (Corps breakout):")
 print(tbl_hubs_corps)
 
-fig7b <- tbl_hubs_corps %>%
-  mutate(department = fct_reorder(department, `Bridge score`)) %>%
-  ggplot(aes(x = `Bridge score`, y = department, fill = `Collaborative project ties`)) +
-  geom_col(width = 0.7) +
+plot_data_7b <- tbl_hubs_corps %>%
+  mutate(
+    is_usace   = department == "U.S. Army Corps of Engineers" |
+                 `Most frequent partner` == "U.S. Army Corps of Engineers",
+    department = fct_reorder(department, `Bridge score`)
+  )
+
+axis_colors_7b <- if_else(
+  levels(plot_data_7b$department) == "U.S. Army Corps of Engineers",
+  "#75246C", catf_navy
+)
+
+fig7b <- plot_data_7b %>%
+  ggplot(aes(x = `Bridge score`, y = department)) +
+  geom_col(aes(fill = `Collaborative project ties`), width = 0.7) +
+  geom_col(data = ~filter(., is_usace), fill = "#75246C", width = 0.7) +
+  # Text labels: USACE partner rows in purple
   geom_text(
+    data = ~filter(., `Most frequent partner` == "U.S. Army Corps of Engineers"),
+    aes(label = `Most frequent partner`),
+    hjust = 0, nudge_x = 0.15, size = 3, color = "#75246C"
+  ) +
+  # Text labels: all other rows in navy
+  geom_text(
+    data = ~filter(., `Most frequent partner` != "U.S. Army Corps of Engineers"),
     aes(label = `Most frequent partner`),
     hjust = 0, nudge_x = 0.15, size = 3, color = catf_navy
   ) +
   scale_fill_gradientn(
     colors = c(catf_light_blue, catf_dark_blue, catf_navy),
     breaks = pretty(c(0, max(tbl_hubs_corps[["Collaborative project ties"]], na.rm = TRUE)), n = 5),
+    name   = "Collaborative project ties",
     guide  = guide_colorbar(
       barwidth       = unit(8, "cm"),
       barheight      = unit(0.45, "cm"),
@@ -1266,17 +1287,21 @@ fig7b <- tbl_hubs_corps %>%
   ) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.45))) +
   labs(
-    title    = "Department Collaboration Hubs",
-    subtitle = "EIS projects only; U.S. Army Corps of Engineers shown separately from Dept. of Defense",
+    title    = "Department Collaboration Hubs — U.S. Army Corps of Engineers Shown Separately",
+    subtitle = "EIS projects only; U.S. Army Corps of Engineers shown separately from Dept. of Defense\nBar length shows bridge score; labels show most frequent partner",
     x        = "Bridge score",
     y        = NULL,
-    fill     = "Collaborative project ties",
     caption  = str_wrap(paste0(
       "Note: Bridge score = unique partner departments × log(1 + total shared project ties). ",
-      "U.S. Army Corps of Engineers is separated from the remainder of the Department of Defense."
-    ), width = 130)
+      "Purple labels indicate U.S. Army Corps of Engineers as the most frequent partner; ",
+      "purple department names indicate the Corps itself. ",
+      "Bridge scores in this figure are higher than in the combined-DOD version because splitting ",
+      "USACE out adds it as a distinct partner for departments that previously counted the entire ",
+      "DOD as one partner, increasing both unique-partner counts and tie totals."
+    ), width = 140)
   ) +
-  theme_catf()
+  theme_catf() +
+  theme(axis.text.y = element_text(color = axis_colors_7b))
 
 ggsave(file.path(out_dir, "fig_department_collaboration_hubs_corps.png"),
        fig7b, width = 10, height = 6.5, dpi = 300)
