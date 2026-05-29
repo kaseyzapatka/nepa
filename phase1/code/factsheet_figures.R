@@ -1345,8 +1345,8 @@ fig8b <- ggplot(
   ggalluvial::geom_stratum(width = 1/8, fill = "gray96", color = "gray60") +
   geom_text(
     stat      = ggalluvial::StatStratum,
-    aes(label = str_wrap(after_stat(stratum), width = 14)),
-    hjust     = 0.5, size = 3.2, lineheight = 0.9, color = "gray20"
+    aes(label = str_wrap(after_stat(stratum), width = 18)),
+    hjust     = 0.5, size = 3.0, lineheight = 0.9, color = "gray20"
   ) +
   scale_x_discrete(limits = c("axis1", "axis2"), labels = NULL, expand = c(0.03, 0.03)) +
   scale_fill_manual(
