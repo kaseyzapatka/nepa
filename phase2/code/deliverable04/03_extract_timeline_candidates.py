@@ -44,6 +44,9 @@ MONTHS_SHORT = r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)"
 DATE_PATTERNS = [
     (rf"({MONTHS_FULL})\s+(\d{{1,2}}),?\s+(\d{{4}})", "MDY_full"),
     (rf"({MONTHS_SHORT})\.?\s+(\d{{1,2}}),?\s+(\d{{4}})", "MDY_short"),
+    # Ordinal day suffixes: "September 3rd, 2020" / "Jan 1st, 2021"
+    (rf"({MONTHS_FULL})\s+(\d{{1,2}})(?:st|nd|rd|th),?\s+(\d{{4}})", "MDY_ordinal"),
+    (rf"({MONTHS_SHORT})\.?\s+(\d{{1,2}})(?:st|nd|rd|th),?\s+(\d{{4}})", "MDY_short_ordinal"),
     (rf"(\d{{1,2}})\s+({MONTHS_FULL})\s+(\d{{4}})", "DMY_full"),
     (r"(\d{1,2})\s*/\s*(\d{1,2})\s*/\s*(\d{4})", "numeric_slash"),
     (r"(\d{1,2})\s*/\s*(\d{1,2})\s*/\s*(\d{2})\b", "numeric_slash_2y"),
@@ -53,6 +56,10 @@ DATE_PATTERNS = [
     (r"(?<![\d.])(0?[1-9]|1[0-2])\.(\d{2})\.(\d{2,4})(?![\d.])", "numeric_dot"),
     (rf"({MONTHS_FULL})\s+(\d{{4}})", "MY_full"),
     (rf"({MONTHS_SHORT})\.?\s+(\d{{4}})", "MY_short"),
+    # NEPA case number year fallback: "DOI-BLM-WY-P070-2019-0035-CX" → year 2019
+    # Region codes vary: 2-char state (WY), 4-char region (ORWA), or mixed (AK-020).
+    # Last resort for CEs whose only date signal is the case number header.
+    (r"DOI-[A-Z]{2,4}-[A-Z]{2,4}-[A-Z0-9]+-(\d{4})-\d{4,}", "nepa_case_year"),
 ]
 
 COMPILED_PATTERNS = [
@@ -74,7 +81,8 @@ EXCLUSION_KEYWORDS = [
     "policy act", "preservation act", "conservation act",
     "management act", "protection act", "improvement act", "reform act",
     "recovery act", "species act", "water act", "air act", "lands act",
-    "statute", "u.s.c.", " usc ", "public law", "p.l.", "amended in",
+    # "statute" removed: "Not Established by Statute" is a BLM CE form label, not a citation
+    "u.s.c.", " usc ", "public law", "p.l.", "amended in",
     "accessed on", "retrieved on", "available at",
     "et al.", "et al,", "eds.", "vol.", "pp.", "journal", "doi:",
     "isbn", "issn", "proceedings", "report no.",
@@ -203,7 +211,7 @@ def _parse_match(match: re.Match, ptype: str) -> tuple[datetime | None, str]:
     """Return (datetime_or_None, granularity)."""
     try:
         g = match.groups()
-        if ptype in ("MDY_full", "MDY_short"):
+        if ptype in ("MDY_full", "MDY_short", "MDY_ordinal", "MDY_short_ordinal"):
             month = MONTH_MAP.get(g[0].lower())
             return datetime(int(g[2]), month, int(g[1])), "day"
         if ptype == "DMY_full":
@@ -231,6 +239,11 @@ def _parse_match(match: re.Match, ptype: str) -> tuple[datetime | None, str]:
         if ptype in ("MY_full", "MY_short"):
             month = MONTH_MAP.get(g[0].lower())
             return datetime(int(g[1]), month, 1), "month"
+        if ptype == "nepa_case_year":
+            yr = int(g[0])
+            if not (1970 <= yr <= 2035):
+                return None, "unknown"
+            return datetime(yr, 7, 1), "year"
     except (ValueError, TypeError, KeyError):
         return None, "unknown"
     return None, "unknown"
@@ -298,6 +311,8 @@ def _prelabel_role(
         return "clear_decision", 5.0, ["doe_register_tier_a"], []
     if source_tier == "metadata" and "doe_register_initiation" in (retrieval_reason or ""):
         return "clear_initiation", 5.0, ["doe_register_tier_a"], []
+    if source_tier == "metadata" and "doe_cx_register_decision" in (retrieval_reason or ""):
+        return "clear_decision", 5.0, ["doe_cx_register_tier_a"], []
 
     # Metadata / FR NOI
     if source_tier == "metadata" and "noi" in (retrieval_reason or ""):
@@ -354,6 +369,10 @@ def _prelabel_role(
         if document_type_category == "final" and len(context.split()) <= 18:
             return "proxy_decision", 1.5, pos_cues, neg_cues
         return "proxy_initiation", 1.0, pos_cues, neg_cues
+
+    # NEPA case number year: last-resort fallback — only wins if nothing else is available
+    if ptype == "nepa_case_year":
+        return "proxy_decision", 0.5, ["nepa_case_number_year"], []
 
     # numeric_dot: require signature/form context for CE, else unknown
     if ptype == "numeric_dot":

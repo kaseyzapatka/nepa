@@ -423,6 +423,22 @@ def select_dates_for_project(
     if initiation_is_proxy and decision_is_proxy:
         flags.append("proxy_only")
 
+    # Year-granularity flags: year-proxy dates are kept for cohort analysis but
+    # must never be used for duration calculations or treated as precise dates.
+    # Flag them explicitly so downstream analysis can filter or cross-check.
+    if decision_granularity == "year":
+        flags.append("year_proxy_decision")
+    if initiation_granularity == "year":
+        flags.append("year_proxy_initiation")
+
+    # Cross-check: if we have a year-proxy decision and a real initiation date,
+    # flag if they imply an implausible order (decision year < initiation year).
+    if decision_granularity == "year" and has_init and initiation_date_str:
+        proxy_year = int(decision_date_str[:4])
+        init_year = int(initiation_date_str[:4])
+        if proxy_year < init_year:
+            flags.append("proxy_year_before_initiation")
+
     # duration_days: only when both day-granularity
     duration_days: int | None = None
     if (

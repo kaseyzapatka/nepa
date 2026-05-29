@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 PHASE2 = ROOT / "phase2"
 ANALYSIS_DIR = PHASE2 / "data" / "analysis"
 BLM_DIR = ANALYSIS_DIR / "blm_register"
@@ -33,7 +33,7 @@ EVIDENCE_PATH = BLM_DIR / "nepatec_case_evidence.parquet"
 REGISTER_PATH = BLM_DIR / "blm_register_records.parquet"
 OUTPUT_PATH = BLM_DIR / "blm_eplanning_dates.parquet"
 REVIEW_PATH = BLM_DIR / "blm_manual_review.csv"
-PROJECTS_PATH = ANALYSIS_DIR / "projects_combined.parquet"
+PROJECTS_PATH = ANALYSIS_DIR / "processes_combined.parquet"
 
 
 def _normalize_date(raw: str | None) -> str | None:
@@ -73,8 +73,8 @@ def main() -> None:
     evidence = pd.read_parquet(EVIDENCE_PATH)
     register = pd.read_parquet(REGISTER_PATH)
     projects = pd.read_parquet(PROJECTS_PATH)[
-        ["project_id", "process_type", "lead_agency_harmonized"]
-    ]
+        ["project_id", "process_type", "lead_agency"]
+    ].rename(columns={"lead_agency": "lead_agency_harmonized"})
 
     print(f"Evidence rows: {len(evidence)} ({evidence['project_id'].nunique()} projects)")
     print(f"Register records: {len(register)} ({register['case_number'].nunique()} case numbers)")
@@ -122,8 +122,15 @@ def main() -> None:
     best_accepted = accepted.drop_duplicates(subset=["project_id"], keep="first")
 
     # All BLM projects
+    def _is_blm(val) -> bool:
+        if val is None:
+            return False
+        if isinstance(val, list):
+            return any("bureau of land" in str(v).lower() for v in val)
+        return "bureau of land" in str(val).lower()
+
     blm_projects = projects[
-        projects["lead_agency_harmonized"].str.lower().str.contains("bureau of land", na=False)
+        projects["lead_agency_harmonized"].apply(_is_blm)
     ].copy()
 
     output = blm_projects.merge(

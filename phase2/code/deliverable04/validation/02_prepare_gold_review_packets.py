@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 PHASE2 = ROOT / "phase2"
 ANALYSIS_DIR = PHASE2 / "data" / "analysis"
 TIMELINE_DIR = ANALYSIS_DIR / "timeline"

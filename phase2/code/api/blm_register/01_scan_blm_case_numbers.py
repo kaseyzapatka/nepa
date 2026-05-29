@@ -24,7 +24,7 @@ from pathlib import Path
 import duckdb
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 PHASE2 = ROOT / "phase2"
 ANALYSIS_DIR = PHASE2 / "data" / "analysis"
 PROCESSED_DIR = PHASE2 / "data" / "processed"

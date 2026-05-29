@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 PHASE2 = ROOT / "phase2"
 TIMELINE_DIR = PHASE2 / "data" / "analysis" / "timeline"
 GOLD_DIR = TIMELINE_DIR / "gold"

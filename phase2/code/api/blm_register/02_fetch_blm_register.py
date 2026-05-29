@@ -37,7 +37,7 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-ROOT = Path(__file__).resolve().parents[3]
+ROOT = Path(__file__).resolve().parents[4]
 PHASE2 = ROOT / "phase2"
 ANALYSIS_DIR = PHASE2 / "data" / "analysis"
 BLM_DIR = ANALYSIS_DIR / "blm_register"

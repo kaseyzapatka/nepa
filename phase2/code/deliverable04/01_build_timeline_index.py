@@ -32,6 +32,7 @@ PROJECTS_PATH = ANALYSIS_DIR / "projects_combined.parquet"
 DOCUMENTS_PATH = ANALYSIS_DIR / "documents_combined.parquet"
 BLM_DATES_PATH = ANALYSIS_DIR / "blm_register" / "blm_eplanning_dates.parquet"
 DOE_DATES_PATH = ANALYSIS_DIR / "doe_register" / "doe_eplanning_dates.parquet"
+DOE_CX_DATES_PATH = ANALYSIS_DIR / "doe_register" / "doe_cx_dates.parquet"
 OUTPUT_PATH = TIMELINE_DIR / "timeline_document_index.parquet"
 
 SOURCE_MAP = {"CE": "ce", "EA": "ea", "EIS": "eis"}
@@ -83,7 +84,8 @@ APPENDIX_TYPE_RE = re.compile(
     r"\b("
     r"appendix|attachment|exhibit|technical\s+report|resource\s+report|"
     r"biological\s+assessment|cultural\s+report|survey|map|figure|"
-    r"comment|response|reference|bibliography"
+    r"comment|response|reference|bibliography|"
+    r"mitigation\s+plan|monitoring\s+plan|weed\s+management|dust\s+control"
     r")\b",
     re.IGNORECASE,
 )
@@ -125,8 +127,8 @@ INITIATION_DOC_SCORES: dict[str, float] = {
     "apd": 4.0, "right-of-way application": 4.0,
     "plan of development": 3.5, "pod": 3.5,
     "license application": 4.0, "project proposal": 3.0,
-    "draft ea": 1.5, "draft environmental assessment": 1.5,
-    "draft eis": 1.5, "draft environmental impact statement": 1.5,
+    "draft ea": 1.5, "draft environmental assessment": 1.5, "dea": 1.5,
+    "draft eis": 1.5, "draft environmental impact statement": 1.5, "deis": 1.5,
 }
 
 MAIN_DOC_BONUS = 1.5
@@ -212,6 +214,10 @@ def _compute_scores(row: dict) -> dict:
     elif scan_priority_score >= 3.0:
         scan_priority = "priority_2"
     elif scan_priority_score >= 1.0:
+        scan_priority = "priority_3"
+    elif str(row.get("process_type", "")).upper() in ("EIS", "ENVIRONMENTAL IMPACT STATEMENT"):
+        # Never defer EIS documents — even unrecognized types may contain ROD language.
+        # Defer was designed for low-value CE form pages, not EIS documents.
         scan_priority = "priority_3"
     else:
         scan_priority = "defer"
@@ -386,6 +392,19 @@ def build_index(project_ids: list[str] | None, process_types: list[str]) -> pd.D
                     "doe_decision_tier_a_eligible", "doe_initiation_tier_a_eligible"):
             proj_sub[col] = None
 
+    # DOE CX register Tier A — CE determination dates via cx-NNNNNN.pdf filename join
+    if DOE_CX_DATES_PATH.exists():
+        doe_cx_df = pd.read_parquet(DOE_CX_DATES_PATH, columns=[
+            "project_id", "cx_number",
+            "doe_cx_decision_date", "doe_cx_decision_date_type", "doe_cx_tier_a_eligible",
+        ])
+        proj_sub = proj_sub.merge(doe_cx_df, on="project_id", how="left")
+        proj_sub["doe_cx_tier_a_eligible"] = proj_sub["doe_cx_tier_a_eligible"].fillna(False)
+    else:
+        for col in ("cx_number", "doe_cx_decision_date", "doe_cx_decision_date_type",
+                    "doe_cx_tier_a_eligible"):
+            proj_sub[col] = None
+
     # Merge burden onto projects, then join to documents
     proj_sub = proj_sub.merge(burden, on="project_id", how="left")
     proj_sub["project_doc_count"] = proj_sub["project_doc_count"].fillna(
@@ -431,6 +450,8 @@ def build_index(project_ids: list[str] | None, process_types: list[str]) -> pd.D
         "doe_doc_number", "doe_match_status",
         "doe_decision_date", "doe_decision_date_type", "doe_decision_tier_a_eligible",
         "doe_initiation_date", "doe_initiation_tier_a_eligible",
+        "cx_number", "doe_cx_decision_date", "doe_cx_decision_date_type",
+        "doe_cx_tier_a_eligible",
         "index_run_at",
     ]
     # Drop any columns not present
@@ -484,6 +505,8 @@ def main() -> None:
     if "doe_decision_tier_a_eligible" in proj_dedup.columns:
         print(f"doe_decision_tier_a_eligible: {proj_dedup['doe_decision_tier_a_eligible'].sum()} projects")
         print(f"doe_initiation_tier_a_eligible: {proj_dedup['doe_initiation_tier_a_eligible'].sum()} projects")
+    if "doe_cx_tier_a_eligible" in proj_dedup.columns:
+        print(f"doe_cx_tier_a_eligible: {proj_dedup['doe_cx_tier_a_eligible'].sum()} projects")
 
     index_df.to_parquet(OUTPUT_PATH, index=False)
     print(f"\nWrote: {OUTPUT_PATH}")

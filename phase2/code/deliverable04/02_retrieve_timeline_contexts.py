@@ -355,6 +355,44 @@ def build_tier_a_packets(
                 "created_at": run_at,
             })
 
+    # DOE CX register Tier A — CE determination date (via cx-NNNNNN.pdf filename)
+    if project_row.get("doe_cx_tier_a_eligible"):
+        cx_date = project_row.get("doe_cx_decision_date")
+        if pd.notna(cx_date):
+            cx_str = str(cx_date)
+            cx_num = project_row.get("cx_number") or ""
+            context = f"DOE CX Register determination date (cx-{cx_num}): {cx_str}"
+            packets.append({
+                "context_packet_id": _packet_id(project_id, None, "tier_a", f"doe_cx_decision_{cx_str}"),
+                "project_id": project_id,
+                "process_type": project_row["process_type"],
+                "document_id": None,
+                "document_title": None,
+                "document_type_clean": "categorical exclusion determination",
+                "document_type_category": "decision",
+                "main_document": None,
+                "section_id": None,
+                "page_start": None,
+                "page_end": None,
+                "page_numbers": "[]",
+                "retrieval_mode": "first_pass",
+                "retrieval_reason": "doe_cx_register_decision",
+                "source_tier": "metadata",
+                "retrieval_tier": "tier_a",
+                "retrieval_score": 5.0,
+                "initiation_page_score": 0.0,
+                "decision_page_score": 5.0,
+                "negative_page_score": 0.0,
+                "heading_title": None,
+                "parent_heading_title": None,
+                "context_text": context,
+                "context_chars": len(context),
+                "estimated_tokens": max(1, len(context) // 4),
+                "context_hash": _text_hash(context),
+                "api_eligible": True,
+                "created_at": run_at,
+            })
+
     return packets
 
 
@@ -740,6 +778,7 @@ def retrieve_for_process(
         "blm_initiation_tier_a_eligible", "blm_initiation_date",
         "doe_decision_tier_a_eligible", "doe_decision_date", "doe_decision_date_type",
         "doe_initiation_tier_a_eligible", "doe_initiation_date", "doe_doc_number",
+        "doe_cx_tier_a_eligible", "doe_cx_decision_date", "cx_number",
     ]
     proj_tier_a_cols = [c for c in proj_tier_a_cols if c in proc_index.columns]
     proj_meta = (
