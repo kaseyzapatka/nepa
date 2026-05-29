@@ -1165,6 +1165,221 @@ ggsave(file.path(out_dir, "fig_department_sankey_filtered.png"),
 message("  Saved: fig_department_sankey_filtered.png")
 
 # ---------------------------------------------------------------------------
+# Fig 7b — Collaboration hubs with Corps breakout
+#          (fig_department_collaboration_hubs_corps.png)
+# Fig 8b — Sankey with Corps breakout
+#          (fig_department_sankey_filtered_corps.png)
+#
+# U.S. Army Corps of Engineers is separated from "Department of Defense".
+# All other DOD agencies (Army, Air Force, Navy, generic DOD) remain as
+# "Department of Defense". Analysis otherwise identical to Figs 7 and 8:
+# lead-to-partner pairs + joint/co-lead pairs + project_department fallback
+# for EIS projects where no lead agency is identified in document text.
+# ---------------------------------------------------------------------------
+message("\n--- Figs 7b/8b: Corps breakout ---")
+
+coagency_hits_corps <- coagency_name_hits_sankey %>%
+  mutate(
+    department = if_else(
+      agency_normalized == "U.S. Army Corps of Engineers",
+      "U.S. Army Corps of Engineers",
+      department
+    )
+  ) %>%
+  filter(department != "Other / Unclassified")
+
+# Lead/partner sets — shared by both hub and Sankey
+lead_depts_corps <- coagency_hits_corps %>%
+  filter(role %in% lead_roles_sankey) %>%
+  distinct(project_id, dataset_source, source_dept = department)
+
+partner_depts_corps <- coagency_hits_corps %>%
+  filter(role %in% partner_roles_sankey) %>%
+  distinct(project_id, dataset_source, target_dept = department)
+
+# Fallback: use project_department for EIS with partners but no text-identified lead
+# (matches the Python _build_department_pairs fallback logic)
+fallback_corps <- partner_depts_corps %>%
+  distinct(project_id, dataset_source) %>%
+  anti_join(lead_depts_corps %>% distinct(project_id, dataset_source),
+            by = c("project_id", "dataset_source")) %>%
+  left_join(
+    clean_energy %>%
+      filter(process_type == "EIS") %>%
+      distinct(project_id, dataset_source, project_department),
+    by = c("project_id", "dataset_source")
+  ) %>%
+  filter(!is.na(project_department), project_department != "",
+         project_department != "Other / Unclassified") %>%
+  transmute(project_id, dataset_source, source_dept = project_department)
+
+all_leads_corps <- bind_rows(lead_depts_corps, fallback_corps)
+
+# Hub pairs: lead-to-partner + joint/co-lead combinations
+lead_to_partner_corps <- all_leads_corps %>%
+  inner_join(partner_depts_corps, by = c("project_id", "dataset_source"),
+             relationship = "many-to-many") %>%
+  filter(source_dept != target_dept) %>%
+  distinct(project_id, dataset_source, source_dept, target_dept) %>%
+  transmute(project_id,
+            department_a = pmin(source_dept, target_dept),
+            department_b = pmax(source_dept, target_dept))
+
+joint_lead_corps <- all_leads_corps %>%
+  group_by(project_id, dataset_source) %>%
+  summarise(depts = list(sort(unique(source_dept))), .groups = "drop") %>%
+  filter(lengths(depts) > 1) %>%
+  mutate(pairs = map(depts, function(d) {
+    m <- combn(d, 2)
+    tibble(department_a = m[1, ], department_b = m[2, ])
+  })) %>%
+  select(-depts) %>%
+  unnest(pairs) %>%
+  distinct(project_id, department_a, department_b)
+
+pair_rows_corps <- bind_rows(lead_to_partner_corps, joint_lead_corps) %>%
+  distinct(project_id, department_a, department_b)
+
+hub_corps      <- build_hub_tables(pair_rows_corps)
+tbl_hubs_corps <- hub_corps$hub_tbl
+
+message("  Hubs (Corps breakout):")
+print(tbl_hubs_corps)
+
+fig7b <- tbl_hubs_corps %>%
+  mutate(department = fct_reorder(department, `Bridge score`)) %>%
+  ggplot(aes(x = `Bridge score`, y = department, fill = `Collaborative project ties`)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = `Most frequent partner`),
+    hjust = 0, nudge_x = 0.15, size = 3, color = catf_navy
+  ) +
+  scale_fill_gradientn(
+    colors = c(catf_light_blue, catf_dark_blue, catf_navy),
+    breaks = pretty(c(0, max(tbl_hubs_corps[["Collaborative project ties"]], na.rm = TRUE)), n = 5),
+    guide  = guide_colorbar(
+      barwidth       = unit(8, "cm"),
+      barheight      = unit(0.45, "cm"),
+      title.position = "top",
+      title.hjust    = 0.5
+    )
+  ) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.45))) +
+  labs(
+    title    = "Department Collaboration Hubs",
+    subtitle = "EIS projects only; U.S. Army Corps of Engineers shown separately from Dept. of Defense",
+    x        = "Bridge score",
+    y        = NULL,
+    fill     = "Collaborative project ties",
+    caption  = str_wrap(paste0(
+      "Note: Bridge score = unique partner departments × log(1 + total shared project ties). ",
+      "U.S. Army Corps of Engineers is separated from the remainder of the Department of Defense."
+    ), width = 130)
+  ) +
+  theme_catf()
+
+ggsave(file.path(out_dir, "fig_department_collaboration_hubs_corps.png"),
+       fig7b, width = 10, height = 6.5, dpi = 300)
+message("  Saved: fig_department_collaboration_hubs_corps.png")
+
+# Sankey with Corps breakout — reuse all_leads_corps and partner_depts_corps
+pair_counts_corps <- all_leads_corps %>%
+  rename(source_department = source_dept) %>%
+  inner_join(
+    partner_depts_corps %>% rename(target_department = target_dept),
+    by = c("project_id", "dataset_source"),
+    relationship = "many-to-many"
+  ) %>%
+  filter(
+    source_department != target_department,
+    source_department != "Other / Unclassified",
+    target_department != "Other / Unclassified"
+  ) %>%
+  distinct(project_id, dataset_source, source_department, target_department) %>%
+  count(source_department, target_department, name = "shared_projects", sort = TRUE) %>%
+  rename(department_1 = source_department, department_2 = target_department)
+
+dept_totals_corps <- bind_rows(
+  pair_counts_corps %>% transmute(department = department_1, shared_projects),
+  pair_counts_corps %>% transmute(department = department_2, shared_projects)
+) %>%
+  group_by(department) %>%
+  summarise(total_ties = sum(shared_projects), .groups = "drop") %>%
+  arrange(desc(total_ties))
+
+top_depts_corps      <- dept_totals_corps %>% slice_head(n = DEPT_TOP_N) %>% pull(department)
+excluded_depts_corps <- dept_totals_corps %>% filter(!department %in% top_depts_corps) %>% pull(department)
+DEPT_THRESHOLD_CORPS <- dept_totals_corps %>% filter(department %in% top_depts_corps) %>% pull(total_ties) %>% min()
+
+excluded_label_corps <- if (length(excluded_depts_corps) > 0) {
+  paste0(
+    "Showing top ", length(top_depts_corps), " of ", nrow(dept_totals_corps),
+    " departments by collaborative activity (minimum ", DEPT_THRESHOLD_CORPS,
+    " shared project ties). Excluded departments (", length(excluded_depts_corps), "): ",
+    paste(excluded_depts_corps, collapse = "; "), "."
+  )
+} else {
+  "All departments shown."
+}
+
+dept_order_corps <- dept_totals_corps %>%
+  filter(department %in% top_depts_corps) %>%
+  arrange(desc(total_ties)) %>%
+  pull(department)
+
+message("  Top departments (Corps breakout):")
+print(dept_totals_corps)
+
+pair_counts_filtered_corps <- pair_counts_corps %>%
+  filter(department_1 %in% top_depts_corps, department_2 %in% top_depts_corps) %>%
+  mutate(
+    department_1 = factor(department_1, levels = dept_order_corps),
+    department_2 = factor(department_2, levels = dept_order_corps)
+  )
+
+fig8b <- ggplot(
+  pair_counts_filtered_corps,
+  aes(axis1 = department_1, axis2 = department_2, y = shared_projects)
+) +
+  ggalluvial::geom_alluvium(aes(fill = department_1), width = 1/10, alpha = 0.8) +
+  ggalluvial::geom_stratum(width = 1/8, fill = "gray96", color = "gray60") +
+  geom_text(
+    stat      = ggalluvial::StatStratum,
+    aes(label = str_wrap(after_stat(stratum), width = 18)),
+    hjust     = 0.5, size = 3.5, lineheight = 0.9, color = "gray20"
+  ) +
+  scale_x_discrete(limits = c("axis1", "axis2"), labels = NULL, expand = c(0.03, 0.03)) +
+  scale_fill_manual(
+    values = rep(catf_palette, length.out = n_distinct(pair_counts_filtered_corps$department_1))
+  ) +
+  labs(
+    title    = "Lead Department to Partner Department Flows",
+    subtitle = "U.S. Army Corps of Engineers shown separately from Dept. of Defense; EIS projects only",
+    caption  = str_wrap(paste0(
+      "Note: U.S. Army Corps of Engineers is shown separately from the remainder of the ",
+      "Department of Defense. Top ", length(top_depts_corps), " departments by collaborative ",
+      "activity; EIS projects only. ", excluded_label_corps
+    ), width = 240),
+    y = NULL, x = NULL
+  ) +
+  theme_catf() +
+  theme(
+    legend.position  = "none",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title       = element_blank(),
+    axis.text        = element_blank(),
+    axis.ticks       = element_blank(),
+    axis.line        = element_blank(),
+    plot.caption     = element_text(hjust = 0, size = 8, color = "gray40", margin = margin(t = 10)),
+    plot.margin      = margin(10, 10, 15, 10)
+  )
+
+ggsave(file.path(out_dir, "fig_department_sankey_filtered_corps.png"),
+       fig8b, width = 13, height = 7, dpi = 300)
+message("  Saved: fig_department_sankey_filtered_corps.png")
+
+# ---------------------------------------------------------------------------
 # Pages data: shared pipeline for Figs 8, 9, 10
 # ---------------------------------------------------------------------------
 message("\n--- Loading pages data (Figs 8-10) ---")
