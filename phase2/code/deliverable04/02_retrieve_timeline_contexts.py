@@ -396,6 +396,75 @@ def build_tier_a_packets(
     return packets
 
 
+def build_tier_a_filename_packets(
+    doc_rows: pd.DataFrame,
+    project_id: str,
+    process_type: str,
+    run_at: str,
+) -> list[dict]:
+    """Tier A: document filename dates on decision-type documents.
+
+    NEPATEC's document_date_from_file_name contains dates parsed from filenames
+    such as 'fonsi-ea-1590-wessington-springs-wind-2008-04-14.pdf' → 2008-04-14.
+    When the document is a decision type (ROD, FONSI, CE determination) and the
+    filename carries a date, that date is a reliable Tier A signal.
+    Score 3.0 — below register sources (5.0) but above document text.
+    (Phase 1: build_file_name_date_map + build_project_timeline filename logic)
+    """
+    DECISION_DOC_TYPES = {
+        "rod", "fonsi", "decision record", "decision notice",
+        "categorical exclusion", "ce determination", "ce", "cx",
+        "final ea", "final environmental assessment",
+    }
+    packets: list[dict] = []
+
+    for _, doc in doc_rows.iterrows():
+        fn_date = doc.get("document_date_from_file_name")
+        if not fn_date or pd.isna(fn_date):
+            continue
+        doc_type = str(doc.get("document_type_clean") or doc.get("document_type") or "").lower().strip()
+        if not any(dt in doc_type for dt in DECISION_DOC_TYPES):
+            continue
+        try:
+            date_str = pd.Timestamp(fn_date).strftime("%Y-%m-%d")
+        except Exception:
+            continue
+        doc_id = doc.get("document_id")
+        context = f"Document filename date ({doc_type}): {date_str}"
+        packets.append({
+            "context_packet_id": _packet_id(project_id, doc_id, "tier_a", f"filename_{date_str}"),
+            "project_id": project_id,
+            "process_type": process_type,
+            "document_id": doc_id,
+            "document_title": doc.get("document_title"),
+            "document_type_clean": doc.get("document_type_clean"),
+            "document_type_category": doc.get("document_type_category"),
+            "main_document": doc.get("main_document"),
+            "section_id": None,
+            "page_start": None,
+            "page_end": None,
+            "page_numbers": "[]",
+            "retrieval_mode": "first_pass",
+            "retrieval_reason": "filename_date_decision_doc",
+            "source_tier": "metadata",
+            "retrieval_tier": "tier_a",
+            "retrieval_score": 3.0,
+            "initiation_page_score": 0.0,
+            "decision_page_score": 3.0,
+            "negative_page_score": 0.0,
+            "heading_title": None,
+            "parent_heading_title": None,
+            "context_text": context,
+            "context_chars": len(context),
+            "estimated_tokens": max(1, len(context) // 4),
+            "context_hash": _text_hash(context),
+            "api_eligible": True,
+            "created_at": run_at,
+        })
+
+    return packets
+
+
 def build_tier_b_packets(
     doc_rows: pd.DataFrame,
     pages_df: pd.DataFrame,
@@ -478,7 +547,7 @@ def build_tier_b_packets(
                 "negative_page_score": neg_s,
                 "heading_title": None,
                 "parent_heading_title": None,
-                "context_text": _truncate(text, 2000),
+                "context_text": _truncate(text, 30_000 if reason in ("ce_small_doc_all_pages", "ce_expanded_all_pages") else 2000),
                 "context_chars": len(text),
                 "estimated_tokens": max(1, len(text) // 4),
                 "context_hash": _text_hash(text),
@@ -681,8 +750,24 @@ def process_project(
 
     packets: list[dict] = []
 
-    # Tier A: structured metadata
+    # Tier A: structured metadata (register dates, NOI date)
     packets.extend(build_tier_a_packets(project_row, run_at))
+
+    # Tier A: filename dates on decision documents (Phase 1 capability)
+    packets.extend(build_tier_a_filename_packets(doc_rows, project_id, process_type, run_at))
+
+    # Skip document retrieval (Tiers B–D) for projects that are fully resolved via
+    # Tier A metadata — both decision AND initiation dates are confirmed from the
+    # BLM ePlanning register. Document text can't improve on these dates and
+    # only adds noise and processing time.
+    # NOTE: DOE CX projects are deliberately NOT skipped here — they have a decision
+    # date from the register but typically need document retrieval for initiation.
+    blm_fully_resolved = (
+        project_row.get("blm_decision_tier_a_eligible")
+        and project_row.get("blm_initiation_tier_a_eligible")
+    )
+    if blm_fully_resolved:
+        return packets  # Tier A only — document retrieval skipped
 
     # Tier B: page slices from high-priority documents
     packets.extend(build_tier_b_packets(doc_rows, pages_df, project_id, process_type, run_at))
@@ -822,12 +907,22 @@ def main() -> None:
     parser.add_argument("--run-dir", help="Override output directory (default: auto-derived from --sample-ids or the main timeline/ dir).")
     args = parser.parse_args()
 
-    # Resolve run directory: sample runs are isolated from the main timeline/ directory
-    # so they never overwrite the canonical full-corpus outputs.
+    ALL_PROCESS_TYPES = {"CE", "EA", "EIS"}
+    is_subset_run = set(args.process) != ALL_PROCESS_TYPES
+
+    # Resolve run directory: sample runs and subset-process runs are isolated from the
+    # main timeline/ directory so they never overwrite the canonical full-corpus outputs.
     if args.run_dir:
         run_dir = Path(args.run_dir)
     elif args.sample_ids:
         run_dir = TIMELINE_DIR / "sample_runs" / Path(args.sample_ids).stem
+    elif is_subset_run:
+        # Auto-isolate subset runs to prevent overwriting full-corpus packets.
+        process_key = "_".join(sorted(args.process))
+        run_dir = TIMELINE_DIR / "process_runs" / process_key
+        print(f"[GUARD] --process subset detected ({args.process}). Isolating output to:")
+        print(f"        {run_dir}")
+        print(f"        Pass --run-dir explicitly to override this location.")
     else:
         run_dir = TIMELINE_DIR
     output_path = run_dir / "timeline_context_packets.parquet"

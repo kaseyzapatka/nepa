@@ -77,40 +77,94 @@ MONTH_MAP = {
 # Exclusion patterns (legal/bibliographic/map)
 # ---------------------------------------------------------------------------
 EXCLUSION_KEYWORDS = [
+    # Law/statute references
     "act of 19", "act of 20", "act (19", "act (20",
     "policy act", "preservation act", "conservation act",
     "management act", "protection act", "improvement act", "reform act",
     "recovery act", "species act", "water act", "air act", "lands act",
     # "statute" removed: "Not Established by Statute" is a BLM CE form label, not a citation
     "u.s.c.", " usc ", "public law", "p.l.", "amended in",
+    # Bibliographic references
     "accessed on", "retrieved on", "available at",
     "et al.", "et al,", "eds.", "vol.", "pp.", "journal", "doi:",
     "isbn", "issn", "proceedings", "report no.",
+    # Expiration / validity dates — not decision dates (Phase 1: EXPIRATION_PATTERNS_STRONG)
+    "expiration date", "valid until", "expires on", "for a term of",
+    "categorical exclusion expires", "re-authoriz",
+    # URL references
+    "http://", "https://",
+    # OMB / form boilerplate (Phase 1: DECISION_BOILERPLATE_PATTERNS)
+    "paperwork reduction", "omb control", "previous editions obsolete",
+    "forms mgmt",
+    # DOE/NETL form revision date stamps, e.g. "DOE F 540.1 (12/2010)"
+    "doe f ", "netl f ",
+    # Map preparation dates (complement to REJECT_CUES which has "map created/printed")
+    "map prepared",
+]
+
+# Regex-based exclusions — applied to context window around each date match.
+# These catch technical citation formats that simple keyword matching misses.
+# (Phase 1: EXCLUSION_PATTERNS and CITATION_PATTERNS)
+EXCLUSION_RE = [
+    re.compile(r'\b\d+\s*cfr\s*\d+', re.IGNORECASE),      # "40 CFR 1508"
+    re.compile(r'\b\d+\s*fr\s*\d+', re.IGNORECASE),        # "80 FR 12345"
+    re.compile(r'\b[A-Z][a-z]+\.\s*\d{4}\.'),              # "Smith. 2005."
+    re.compile(r'\b[A-Z]{2,}\.\s*\d{4}\.'),                # "EPA. 2010."
 ]
 
 # ---------------------------------------------------------------------------
 # Role cue patterns — positive
 # ---------------------------------------------------------------------------
 
-# Clear initiation
+# Clear initiation — strong cues
+# Phase 1 patterns ported: designation form, initiator signature, doe initiator signature,
+# consultation initiated, initiation of consultation, initiated on, intent to prepare EIS
 CLEAR_INITIATION_STRONG = re.compile(
     r"\b("
-    r"application\s+received|application\s+submitted|submitted\s+(?:a|an|the)?\s*(?:right|application|permit|plan|request)|"
-    r"blm\s+received|agency\s+received|(?:noi|notice\s+of\s+intent)\s+(?:published|issued|submitted)|"
+    r"application\s+received|application\s+submitted|"
+    r"submitted\s+(?:a|an|the)?\s*(?:completed\s+)?(?:right|application|permit|plan|request)|"
+    r"blm\s+received\s+(?:a|an|the)\s+(?:row\s+)?application|"
+    r"blm\s+received|agency\s+received|"
+    r"(?:noi|notice\s+of\s+intent)\s+(?:published|issued|submitted)|"
     r"scoping\s+period\s+(?:began|started|initiated|opened)|"
     r"notice\s+of\s+intent\s+was\s+published|"
     r"(?:federal\s+register).*notice\s+of\s+intent|"
-    r"environmental\s+review\s+(?:began|initiated|started)"
+    r"environmental\s+review\s+(?:began|initiated|started)|"
+    r"doe\s+initiator\s+signature|initiator\s+signature|"
+    r"consultation\s+initiated|initiation\s+of\s+consultation|"
+    r"initiated\s+on|"
+    r"designation\s+form|"
+    r"intent\s+to\s+prepare\s+(?:an?\s+)?environmental\s+impact\s+statement|"
+    r"submitted\s+(?:a\s+)?(?:completed\s+)?right[-\s]of[-\s]way\s+application"
     r")\b",
     re.IGNORECASE,
 )
 
+# Clear initiation — medium cues
+# Phase 1 additions: renewal application received, project proposed, nepa process started,
+# nepa review began, request received, review was initiated
 CLEAR_INITIATION_MED = re.compile(
     r"\b("
     r"(?:application|request|permit|apd|plan\s+of\s+development|pod|right[-\s]of[-\s]way|"
     r"license\s+application|row)\s+(?:date|filed|submitted|received)|"
     r"(?:date\s+(?:of\s+)?)?(?:application|request|submission|filing|receipt)|"
-    r"doe\s+initiator|nepa\s+initiator|action\s+initiating|nepa\s+initiation"
+    r"doe\s+initiator|nepa\s+initiator|action\s+initiating|nepa\s+initiation|"
+    r"renewal\s+application\s+received|"
+    r"project\s+proposed|"
+    r"nepa\s+(?:process|review)\s+(?:started|began|initiated)|"
+    r"request\s+received|"
+    r"review\s+was\s+initiated|"
+    r"(?:distribution|review)\s+(?:was\s+)?initiated|"
+    r"nepa\s+clause\s+prepared\s+by|"   # DOE EECBG form: "NEPA clause prepared by OCC [person date]"
+    r"prepared\s+by\s+occ|"             # Office of Chief Counsel preparation date
+    r"clause\s+prepared\s+by|"
+    # Phase 1: INITIATION_PATTERNS additions not previously ported
+    r"deemed\s+the\s+application\s+complete|"    # formal ROW/permit start of NEPA review
+    r"amended\s+and\s+re[-\s]submitted|"         # resubmission = initiation
+    r"re[-\s]submitted\s+(?:a|the)\s+application|"
+    r"30[-\s]day\s+comment\s+period|"            # initiation-adjacent
+    r"date\s+(?:created|prepared)|document\s+creation|"  # proxy initiation from document metadata
+    r"drafted"
     r")\b",
     re.IGNORECASE,
 )
@@ -121,21 +175,38 @@ CE_INITIATOR_ROLE = re.compile(
     re.IGNORECASE,
 )
 
-# Clear decision
+# Clear decision — strong cues
+# Phase 1 additions: digitally signed by, /s/ signature notation, YYYY.MM.DD timestamp,
+# NCO determination, authority and approval, decision memo(randum), ce determination date,
+# selection of alternative (EIS), decision to implement, joint record of decision,
+# field office manager determination, nepa compliance officer (standalone), concur+NCO
 CLEAR_DECISION_STRONG = re.compile(
     r"\b("
     r"fonsi\s+(?:was\s+)?(?:signed|issued|approved|dated)|"
     r"finding\s+of\s+no\s+significant\s+impact\s+(?:was\s+)?(?:signed|issued|dated)|"
     r"record\s+of\s+decision[,\s]+(?:was\s+)?(?:signed|issued|dated)|"
+    r"joint\s+record\s+of\s+decision|"
     r"rod\s+(?:was\s+)?(?:signed|issued|dated)|"
     r"(?:signed|issued)\s+(?:the\s+)?(?:rod|record\s+of\s+decision|fonsi|finding\s+of\s+no)|"
-    r"decision\s+(?:record|notice)\s+(?:was\s+)?(?:signed|issued|dated)|"
+    r"decision\s+(?:record|notice|memo(?:randum)?)\s+(?:was\s+)?(?:signed|issued|dated)|"
+    r"decision\s+memo(?:randum)?|"
     r"categorical\s+exclusion\s+(?:determination|approved|signed)|"
     r"(?:ce|cx)\s+(?:determination|approved|signed)|"
+    r"ce\s+determination\s+date|cx\s+determination\s+date|"
     r"(?:date\s+)?signed\s+(?:by|on).*(?:field\s+manager|district\s+manager|authorizing\s+official)|"
-    r"nepa\s+compliance\s+officer.*date|"
-    r"date\s+of\s+(?:decision|approval|determination)"
-    r")\b",
+    r"field\s+office\s+manager\s+determination|"
+    r"nepa\s+compliance\s+officer.*(?:date|concur)|"
+    r"concur.*nepa\s+compliance\s+officer|"
+    r"nepa\s+compliance\s+officer|"
+    r"NCO\s+determination|"
+    r"authority\s+and\s+approval|determination\s+and\s+approval|"
+    r"date\s+of\s+(?:decision|approval|determination)|"
+    r"digitally\s+signed\s+by|"
+    r"(?:selected|selection\s+of)\s+(?:the\s+)?(?:preferred\s+)?alternative|"
+    r"decision\s+to\s+implement"
+    r")\b"
+    r"|/s/\s*\w+"           # digital signature notation (no word boundary needed)
+    r"|\b\d{4}\.\d{2}\.\d{2}\b",  # YYYY.MM.DD timestamp in digital signatures
     re.IGNORECASE,
 )
 
@@ -152,23 +223,45 @@ PROXY_DECISION_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Clear decision — medium cues
+# Phase 1 additions: date determined, field office manager (standalone), final approval
 CLEAR_DECISION_MED = re.compile(
     r"\b("
     r"(?:approved|signed|authorized|determined)\s+(?:by|on|this)|"
-    r"(?:field\s+manager|district\s+manager|authorizing\s+official|"
+    r"(?:field\s+manager|district\s+manager|field\s+office\s+manager|"
+    r"assistant\s+field\s+manager|authorizing\s+official|"
     r"nepa\s+compliance\s+officer|certifying\s+official)\s+(?:signature|date|signed)|"
-    r"decision\s+date|date\s+approved|date\s+signed"
+    r"decision\s+date|date\s+approved|date\s+signed|"
+    r"date\s+determined|"
+    r"approval\s+date|date\s+of\s+approval|"
+    r"final\s+approval"
     r")\b",
     re.IGNORECASE,
 )
 
-# Review / specialist (not decision)
+# Review / specialist signatures (not decision dates)
+# Phase 1 additions: realty specialist, recreation planner/specialist, natural resource
+# specialist, environmental coordinator, botanist, project officer, MOA, SME roles,
+# environmental clearance memorandum, reviewer/initials table headers, nepa review completed
 REVIEW_CUES = re.compile(
     r"\b("
-    r"environmental\s+specialist|wildlife\s+biologist|archaeologist|"
-    r"cultural\s+resource\s+specialist|shpo|section\s+106|"
+    r"environmental\s+specialist|wildlife\s+biologist|archaeologist|archeologist|"
+    r"cultural\s+resource(?:s)?\s+specialist|shpo|section\s+106|"
     r"review\s+completed|interim\s+review|phase\s+approval|"
-    r"concurrence\s+(?:received|date)|coordination\s+date"
+    r"concurrence\s+(?:received|date)|coordination\s+date|"
+    r"realty\s+specialist|"
+    r"recreation\s+(?:planner|specialist)|outdoor\s+recreation\s+planner|"
+    r"natural\s+resource\s+specialist|"
+    r"environmental\s+coordinator|planning\s+(?:and|&)\s+environmental\s+coordinator|"
+    r"botanist|"
+    r"project\s+officer|"
+    r"fisheries(?:/wildlife)?\s+biologist|"
+    r"environmental\s+clearance\s+memorandum|"
+    r"yes\s+no\s+reviewer|reviewer.*title.*initials|"
+    r"initial\s+and\s+date|initials?\s*(?:&|and)\s*date|"
+    r"nepa\s+review\s+completed|"
+    r"\bmoa\b|memorandum\s+of\s+agreement|"
+    r"subject\s+matter\s+expert|NEPA-SME|NEPA\s+SME"
     r")\b",
     re.IGNORECASE,
 )
@@ -187,8 +280,15 @@ HISTORICAL_CUES = re.compile(
 REJECT_CUES = re.compile(
     r"\b("
     r"omb\s+(?:control|approval)|form\s+approved|prepared\s+by|"
-    r"downloaded|accessed\s+on|retrieved\s+on|revision\s+date|"
-    r"map\s+(?:date|created|printed)|figure\s+\d+|table\s+\d+"
+    r"downloaded|accessed\s+on|retrieved\s+on|revision\s+date|revised\s+\d{4}|"
+    r"map\s+(?:date|created|printed|prepared)|figure\s+\d+|table\s+\d+|"
+    # Phase 1: INITIATION_EXCLUSION_PATTERNS — contexts that produce false initiation dates
+    r"program\s+specific\s+guidance|"
+    r"prepared\s+in\s+accordance\s+with.*guidance|"
+    r"resource\s+management\s+plan|\brmp\b|land\s+use\s+plan|"
+    r"conformance\s+with\s+the\s+applicable\s+lup|"
+    r"plan\s+maintenance\s+action|"
+    r"specialist\s+signature"
     r")\b",
     re.IGNORECASE,
 )
@@ -277,6 +377,11 @@ def _should_reject_date(
         if kw in ctx_lower:
             return True, f"exclusion_keyword:{kw}"
 
+    # Regex-based exclusions (CFR/FR citations, author-year bibliographic patterns)
+    for pat in EXCLUSION_RE:
+        if pat.search(context):
+            return True, "exclusion_regex"
+
     # Metadata-only sources bypass text-based exclusions
     if source_tier == "metadata":
         return False, ""
@@ -313,6 +418,11 @@ def _prelabel_role(
         return "clear_initiation", 5.0, ["doe_register_tier_a"], []
     if source_tier == "metadata" and "doe_cx_register_decision" in (retrieval_reason or ""):
         return "clear_decision", 5.0, ["doe_cx_register_tier_a"], []
+
+    # Filename Tier A — date from decision document filename (e.g. fonsi-ea-...-2008-04-14.pdf)
+    # Score 3.0: below authoritative register sources (5.0) but above text extraction.
+    if source_tier == "metadata" and "filename_date_decision_doc" in (retrieval_reason or ""):
+        return "clear_decision", 3.0, ["filename_date_tier_a"], []
 
     # Metadata / FR NOI
     if source_tier == "metadata" and "noi" in (retrieval_reason or ""):
@@ -611,6 +721,20 @@ def main() -> None:
 
     print(f"Loading context packets: {packets_path}")
     packets_df = pd.read_parquet(packets_path)
+
+    # Guard: refuse to write subset data to the main TIMELINE_DIR output.
+    # A partial packets file (e.g. EIS-only from a --process run) would overwrite
+    # the full-corpus candidates and silently lose CE/EA data.
+    ALL_PROCESS_TYPES = {"CE", "EA", "EIS"}
+    packets_process_types = set(packets_df["process_type"].unique())
+    if run_dir == TIMELINE_DIR and packets_process_types != ALL_PROCESS_TYPES:
+        raise SystemExit(
+            f"[GUARD] Input packets contain only {packets_process_types}, not all process types.\n"
+            f"Writing subset data to {output_path} would overwrite the full-corpus candidates.\n"
+            f"Use --run-dir to isolate this run, or re-run 02_retrieve_timeline_contexts.py "
+            f"without --process to restore full-corpus packets."
+        )
+
     packets_df = packets_df[packets_df["process_type"].isin(args.process)]
     if project_ids:
         packets_df = packets_df[packets_df["project_id"].isin(project_ids)]
