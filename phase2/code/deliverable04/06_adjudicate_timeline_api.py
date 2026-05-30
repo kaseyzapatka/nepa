@@ -536,12 +536,24 @@ def _apply_adjudication_results(
                 cid = upd.get(id_col)
                 if not cid or cand_idx.empty or cid not in cand_idx.index:
                     continue
+                # Don't let LLM adjudication overwrite a date that script 04 already
+                # resolved via midpoint imputation — the LLM was only queued to find
+                # the OTHER role (e.g. missing initiation), not to improve this one.
+                if "midpoint_imputed" in dates_df.columns:
+                    already_imputed = dates_df.loc[mask, "midpoint_imputed"].iloc[0]
+                    existing_date = dates_df.loc[mask, f"{role}_date"].iloc[0]
+                    if already_imputed and pd.notna(existing_date):
+                        continue
                 cand = cand_idx.loc[cid]
+                new_gran = cand.get("date_granularity", "day")
                 dates_df.loc[mask, f"{role}_date"] = cand.get("parsed_date")
-                dates_df.loc[mask, f"{role}_date_granularity"] = cand.get("date_granularity", "day")
+                dates_df.loc[mask, f"{role}_date_granularity"] = new_gran
                 dates_df.loc[mask, f"{role}_source_type"] = "api_adjudication"
                 dates_df.loc[mask, f"{role}_confidence"] = cand.get("role_confidence", "medium")
                 dates_df.loc[mask, f"{role}_evidence_text"] = str(cand.get("context_text", ""))[:300]
+                # If API returned a day-level date, it supersedes any midpoint imputation.
+                if new_gran == "day" and "midpoint_imputed" in dates_df.columns:
+                    dates_df.loc[mask, "midpoint_imputed"] = False
                 existing_flags = str(dates_df.loc[mask, "timeline_flags"].iloc[0])
                 new_flags = "|".join(filter(None, [existing_flags, "api_adjudicated"]))
                 dates_df.loc[mask, "timeline_flags"] = new_flags
@@ -558,6 +570,9 @@ def _apply_adjudication_results(
                 dates_df.loc[mask, f"{role}_source_type"] = "api_adjudication"
                 dates_df.loc[mask, f"{role}_confidence"] = "medium"
                 dates_df.loc[mask, f"{role}_evidence_text"] = str(upd.get(ev_col, ""))[:300]
+                # Recovery dates come as YYYY-MM-DD strings; if day-level, clear imputation flag.
+                if isinstance(val, str) and len(val) == 10 and "midpoint_imputed" in dates_df.columns:
+                    dates_df.loc[mask, "midpoint_imputed"] = False
                 existing_flags = str(dates_df.loc[mask, "timeline_flags"].iloc[0])
                 new_flags = "|".join(filter(None, [existing_flags, "api_recovery"]))
                 dates_df.loc[mask, "timeline_flags"] = new_flags

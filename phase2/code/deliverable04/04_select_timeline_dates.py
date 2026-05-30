@@ -328,13 +328,24 @@ def select_dates_for_project(
         (initiation_cands["candidate_role"] == "clear_initiation") &
         (initiation_cands["ranking_score"] > 0)
     ]
-    # Apply chronology filter: must be before decision
+    # Apply chronology filter: initiation must precede decision.
+    # When the decision date is year-granularity (nepa_case_year, resolves to YYYY-07-01),
+    # use a year-level comparison to avoid discarding real initiations that fall after
+    # July 1 in the same year (e.g. BLM register start date 2021-07-23 vs proxy 2021-07-01).
     if selected_decision_date is not None:
-        clear_init = clear_init[
-            clear_init["_parsed_date"].apply(
-                lambda d: pd.notna(d) and d < selected_decision_date
-            )
-        ]
+        if decision_granularity == "year":
+            dec_year = selected_decision_date.year
+            clear_init = clear_init[
+                clear_init["_parsed_date"].apply(
+                    lambda d: pd.notna(d) and d.year <= dec_year
+                )
+            ]
+        else:
+            clear_init = clear_init[
+                clear_init["_parsed_date"].apply(
+                    lambda d: pd.notna(d) and d < selected_decision_date
+                )
+            ]
 
     if not clear_init.empty:
         best_initiation = clear_init.loc[clear_init["ranking_score"].idxmax()]
@@ -345,11 +356,19 @@ def select_dates_for_project(
             (initiation_cands["ranking_score"] > -2)
         ]
         if selected_decision_date is not None:
-            proxy_init = proxy_init[
-                proxy_init["_parsed_date"].apply(
-                    lambda d: pd.notna(d) and d < selected_decision_date
-                )
-            ]
+            if decision_granularity == "year":
+                dec_year = selected_decision_date.year
+                proxy_init = proxy_init[
+                    proxy_init["_parsed_date"].apply(
+                        lambda d: pd.notna(d) and d.year <= dec_year
+                    )
+                ]
+            else:
+                proxy_init = proxy_init[
+                    proxy_init["_parsed_date"].apply(
+                        lambda d: pd.notna(d) and d < selected_decision_date
+                    )
+                ]
         if not proxy_init.empty:
             best_initiation = proxy_init.loc[proxy_init["ranking_score"].idxmax()]
             initiation_is_proxy = True
@@ -484,6 +503,7 @@ def select_dates_for_project(
         "duration_days": duration_days,
         "timeline_status": timeline_status,
         "timeline_flags": "|".join(flags) if flags else "",
+        "midpoint_imputed": False,  # set to True by apply_month_midpoint_imputation after corrections
         "timeline_run_at": datetime.now(timezone.utc).isoformat(),
     }, cands
 
@@ -511,6 +531,7 @@ def _empty_project_result(process_type: str) -> dict:
         "duration_days": None,
         "timeline_status": "missing_both",
         "timeline_flags": "missing_initiation|missing_decision",
+        "midpoint_imputed": False,
         "timeline_run_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -563,6 +584,45 @@ def apply_manual_corrections(
             new_flags = "|".join(filter(None, [existing_flags, "manual_override"]))
             dates_df.loc[mask, "timeline_flags"] = new_flags
 
+    return dates_df
+
+
+def apply_month_midpoint_imputation(dates_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Replace month-granularity dates with the 15th of that month and flag them.
+
+    Called AFTER manual corrections so imputation only touches dates that have
+    survived all selection and correction passes — i.e., month-year is genuinely
+    the best available evidence.  Script 06 (API adjudication) can override these
+    by writing a day-level date and setting midpoint_imputed = False.
+
+    Applies to both decision_date and initiation_date when granularity == "month".
+    Day-level and year-level dates are never touched.
+    """
+    if "midpoint_imputed" not in dates_df.columns:
+        dates_df["midpoint_imputed"] = False
+
+    imputed_mask = pd.Series(False, index=dates_df.index)
+
+    for role in ("decision", "initiation"):
+        gran_col = f"{role}_date_granularity"
+        date_col = f"{role}_date"
+        if gran_col not in dates_df.columns or date_col not in dates_df.columns:
+            continue
+        month_mask = (
+            dates_df[gran_col] == "month"
+        ) & dates_df[date_col].notna()
+        if not month_mask.any():
+            continue
+        dates_df.loc[month_mask, date_col] = dates_df.loc[month_mask, date_col].apply(
+            lambda d: d[:8] + "15" if isinstance(d, str) and len(d) >= 8 else d
+        )
+        imputed_mask |= month_mask
+
+    dates_df.loc[imputed_mask, "midpoint_imputed"] = True
+    n = imputed_mask.sum()
+    if n > 0:
+        print(f"  Midpoint imputation applied to {n:,} projects (month-granularity dates → day 15).")
     return dates_df
 
 
@@ -763,6 +823,18 @@ def main() -> None:
 
     print(f"Loading candidates: {candidates_path}")
     candidates_df = pd.read_parquet(candidates_path)
+
+    # Guard: refuse to write subset data to the main TIMELINE_DIR output.
+    ALL_PROCESS_TYPES = {"CE", "EA", "EIS"}
+    candidates_process_types = set(candidates_df["process_type"].unique())
+    if run_dir == TIMELINE_DIR and candidates_process_types != ALL_PROCESS_TYPES:
+        raise SystemExit(
+            f"[GUARD] Candidates file contains only {candidates_process_types}, not all process types.\n"
+            f"Writing subset data to {dates_path} would overwrite the full-corpus dates.\n"
+            f"Use --run-dir to isolate this run, or restore full-corpus candidates by re-running "
+            f"scripts 02 and 03 without --process."
+        )
+
     candidates_df = candidates_df[candidates_df["process_type"].isin(args.process)]
     if project_ids:
         candidates_df = candidates_df[candidates_df["project_id"].isin(project_ids)]
@@ -816,6 +888,10 @@ def main() -> None:
     if not corrections_df.empty:
         dates_df = apply_manual_corrections(dates_df, corrections_df)
         print(f"Applied manual corrections to {dates_df['timeline_flags'].str.contains('manual_override', na=False).sum()} projects.")
+
+    # Apply month midpoint imputation — only after all corrections so this is truly last-resort
+    print("Applying month midpoint imputation...")
+    dates_df = apply_month_midpoint_imputation(dates_df)
 
     # Save project dates
     if args.append and dates_path.exists():

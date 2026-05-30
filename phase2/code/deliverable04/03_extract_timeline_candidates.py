@@ -93,6 +93,8 @@ EXCLUSION_KEYWORDS = [
     "categorical exclusion expires", "re-authoriz",
     # URL references
     "http://", "https://",
+    # Print-on-recycled boilerplate on document covers (false proxy dates)
+    "printed on recycled",
     # OMB / form boilerplate (Phase 1: DECISION_BOILERPLATE_PATTERNS)
     "paperwork reduction", "omb control", "previous editions obsolete",
     "forms mgmt",
@@ -125,11 +127,13 @@ CLEAR_INITIATION_STRONG = re.compile(
     r"submitted\s+(?:a|an|the)?\s*(?:completed\s+)?(?:right|application|permit|plan|request)|"
     r"blm\s+received\s+(?:a|an|the)\s+(?:row\s+)?application|"
     r"blm\s+received|agency\s+received|"
-    r"(?:noi|notice\s+of\s+intent)\s+(?:published|issued|submitted)|"
+    r"(?:noi|notice\s+of\s+intent)\s+(?:was\s+)?(?:published|issued|submitted)|"
     r"scoping\s+period\s+(?:began|started|initiated|opened)|"
     r"notice\s+of\s+intent\s+was\s+published|"
     r"(?:federal\s+register).*notice\s+of\s+intent|"
     r"environmental\s+review\s+(?:began|initiated|started)|"
+    r"external\s+scoping\s+(?:was\s+)?(?:conducted|initiated|begun)|"
+    r"posted\s+(?:on|to)\s+(?:the\s+)?(?:on[-\s]?line\s+)?nepa\s+register|"
     r"doe\s+initiator\s+signature|initiator\s+signature|"
     r"consultation\s+initiated|initiation\s+of\s+consultation|"
     r"initiated\s+on|"
@@ -164,7 +168,8 @@ CLEAR_INITIATION_MED = re.compile(
     r"re[-\s]submitted\s+(?:a|the)\s+application|"
     r"30[-\s]day\s+comment\s+period|"            # initiation-adjacent
     r"date\s+(?:created|prepared)|document\s+creation|"  # proxy initiation from document metadata
-    r"drafted"
+    r"drafted|"
+    r"comment\s+period\s+(?:was|ran|began|started|opened|ended|closed)"  # scoping/comment period dates
     r")\b",
     re.IGNORECASE,
 )
@@ -207,6 +212,37 @@ CLEAR_DECISION_STRONG = re.compile(
     r")\b"
     r"|/s/\s*\w+"           # digital signature notation (no word boundary needed)
     r"|\b\d{4}\.\d{2}\.\d{2}\b",  # YYYY.MM.DD timestamp in digital signatures
+    re.IGNORECASE,
+)
+
+# Decision-keyword-only subset of CLEAR_DECISION_STRONG — excludes the generic /s/ and
+# YYYY.MM.DD branches. Used to verify that a CLEAR_DECISION_STRONG hit was driven by
+# actual decision language, not just a specialist's /s/ signature on a face sheet.
+CLEAR_DECISION_KEYWORDS_RE = re.compile(
+    r"\b("
+    r"fonsi\s+(?:was\s+)?(?:signed|issued|approved|dated)|"
+    r"finding\s+of\s+no\s+significant\s+impact\s+(?:was\s+)?(?:signed|issued|dated)|"
+    r"record\s+of\s+decision[,\s]+(?:was\s+)?(?:signed|issued|dated)|"
+    r"joint\s+record\s+of\s+decision|"
+    r"rod\s+(?:was\s+)?(?:signed|issued|dated)|"
+    r"(?:signed|issued)\s+(?:the\s+)?(?:rod|record\s+of\s+decision|fonsi|finding\s+of\s+no)|"
+    r"decision\s+(?:record|notice|memo(?:randum)?)\s+(?:was\s+)?(?:signed|issued|dated)|"
+    r"decision\s+memo(?:randum)?|"
+    r"categorical\s+exclusion\s+(?:determination|approved|signed)|"
+    r"(?:ce|cx)\s+(?:determination|approved|signed)|"
+    r"ce\s+determination\s+date|cx\s+determination\s+date|"
+    r"(?:date\s+)?signed\s+(?:by|on).*(?:field\s+manager|district\s+manager|authorizing\s+official)|"
+    r"field\s+office\s+manager\s+determination|"
+    r"nepa\s+compliance\s+officer.*(?:date|concur)|"
+    r"concur.*nepa\s+compliance\s+officer|"
+    r"nepa\s+compliance\s+officer|"
+    r"NCO\s+determination|"
+    r"authority\s+and\s+approval|determination\s+and\s+approval|"
+    r"date\s+of\s+(?:decision|approval|determination)|"
+    r"digitally\s+signed\s+by|"
+    r"(?:selected|selection\s+of)\s+(?:the\s+)?(?:preferred\s+)?alternative|"
+    r"decision\s+to\s+implement"
+    r")\b",
     re.IGNORECASE,
 )
 
@@ -435,6 +471,16 @@ def _prelabel_role(
 
     # Check strong cues first
     if CLEAR_DECISION_STRONG.search(context):
+        # Disambiguate specialist face sheets: the /s/ branch of CLEAR_DECISION_STRONG
+        # fires on any signature, including multi-specialist review sheets. When the
+        # decision signal came only from /s/ or YYYY.MM.DD (not decision keywords), treat
+        # as a specialist sheet if: (a) 3+ /s/ patterns appear (multi-reviewer grid), or
+        # (b) REVIEW_CUES confirms a specialist role is present.
+        if not CLEAR_DECISION_KEYWORDS_RE.search(context):
+            slash_s_count = len(re.findall(r"/s/", context, re.IGNORECASE))
+            if slash_s_count >= 3 or REVIEW_CUES.search(context):
+                neg_cues.append("specialist_sig_sheet")
+                return "review", 2.0, pos_cues, neg_cues
         pos_cues.append("decision_strong")
         return "clear_decision", 5.0, pos_cues, neg_cues
 
