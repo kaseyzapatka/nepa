@@ -184,9 +184,13 @@ Applies 14 date regex patterns to every context packet's `context_text`. Pattern
 
 **Numeric dot guardrail:** `numeric_dot` (`M.DD.YY`) is only accepted when the surrounding context contains a signature, role title, or approval cue — otherwise version numbers and section numbers produce false hits.
 
-**Exclusion rules:** Future dates, pre-1970 dates (hard reject for CE/EA; soft reject for EIS), legal/statutory citation keywords (`EXCLUSION_KEYWORDS` list of ~30 phrases including "act of 19", "u.s.c.", "public law", "doi:", "isbn"), reject cues (OMB, "form approved", "prepared by", "downloaded", "revision date", "map date").
+**Exclusion rules:** Future dates, pre-1970 dates (hard reject for CE/EA; soft reject for EIS), legal/statutory citation keywords (`EXCLUSION_KEYWORDS` — ~35 phrases including "act of 19", "u.s.c.", "public law", "doi:", "isbn", "expiration date", "valid until", "expires on", "categorical exclusion expires", "printed on recycled", "doe f ", "previous editions obsolete"), regex-based exclusions (`EXCLUSION_RE` — CFR citations `\d+ cfr \d+`, FR volume citations `\d+ fr \d+`, author-year bibliographic patterns), and reject cues (OMB, "form approved", "prepared by", "downloaded", "revision date", "revised YYYY", "map date/created/printed/prepared").
 
-**Role prelabeling** (`_prelabel_role`): assigns `candidate_role` and `role_confidence` (0–5 scale). Tier A metadata packets are prelabeled deterministically based on `retrieval_reason` — BLM/DOE register sources always produce `clear_decision` or `clear_initiation` with confidence 5.0. For document text: `CLEAR_DECISION_STRONG` and `CLEAR_INITIATION_STRONG` patterns are checked first (confidence 5.0); `HISTORICAL_CUES` and `REJECT_CUES` are checked before medium-strength patterns; `CLEAR_DECISION_MED` and `CLEAR_INITIATION_MED` produce confidence 3.0. `REVIEW_CUES` (environmental specialist, SHPO, Section 106) produce `candidate_role = "review"`. Candidates not matching any cue get `candidate_role = "unknown"` with confidence 1.0.
+**Role prelabeling** (`_prelabel_role`): assigns `candidate_role` and `role_confidence` (0–5 scale). Tier A metadata packets are prelabeled deterministically based on `retrieval_reason` — BLM/DOE register sources always produce `clear_decision` or `clear_initiation` with confidence 5.0. Filename Tier A packets (`retrieval_reason = "filename_date_decision_doc"`) produce `clear_decision` with confidence 3.0. For document text: `CLEAR_DECISION_STRONG` and `CLEAR_INITIATION_STRONG` patterns are checked first (confidence 5.0); `HISTORICAL_CUES` and `REJECT_CUES` are checked before medium-strength patterns; `CLEAR_DECISION_MED` and `CLEAR_INITIATION_MED` produce confidence 3.0. `REVIEW_CUES` (environmental specialist, SHPO, Section 106) produce `candidate_role = "review"`. Candidates not matching any cue get `candidate_role = "unknown"` with confidence 1.0.
+
+**Specialist /s/ face-sheet disambiguation:** `CLEAR_DECISION_STRONG` includes a `/s/` branch that matches any digital signature notation. On multi-specialist face sheets (e.g. BLM EA cover pages with cultural resources, paleontology, range rows), multiple `/s/` patterns fire without any actual decision keyword. The `CLEAR_DECISION_KEYWORDS_RE` pattern (same as `CLEAR_DECISION_STRONG` minus the `/s/` and `YYYY.MM.DD` branches) is used to detect this case: if the decision-strong match was driven only by `/s/` and 3+ signature instances appear in the context (or `REVIEW_CUES` matches a specialist role), the candidate is downgraded to `review` role.
+
+**Key `CLEAR_INITIATION_STRONG` additions (Phase 2):** `"external scoping was conducted"`, `"posted (on/to) the (online) NEPA register"`, `(?:noi|notice\s+of\s+intent)\s+(?:was\s+)?(?:published|issued|submitted)` (note the optional `was` — NEPATEC text consistently uses passive past tense). **Key `CLEAR_INITIATION_MED` additions:** `"comment period was/ran/began/started/opened"` (9,280 candidate contexts); `"deemed the application complete"`, `"amended and re-submitted"`, `"30-day comment period"`, `"date created/prepared"`, `"drafted"`.
 
 CE initiator-role field handling: `CE_INITIATOR_ROLE` pattern (`doe initiator`, `nepa initiator`, `action initiating office`) triggers `candidate_role = "clear_initiation"` only when the form-role context is not mixed with decision text.
 
@@ -207,7 +211,7 @@ Implements two-pass selection to avoid circular chronology scoring:
 
 **Historical gap rule:** For CE and EA, dates that appear before a gap of > 730 days (`GAP_DAYS = 730`) relative to the cluster of dates are flagged `historical_gap_candidate` and have their `negative_penalty` increased. EIS is exempt (`EIS_GAP_EXEMPT = True`) because EIS reviews legitimately span many years.
 
-**Pass 2 (initiation).** Re-score `clear_initiation` and `proxy_initiation` candidates using the selected decision date as a chronology anchor. Dates after the selected decision receive a −5 `chronology_signal` penalty. Best clear initiation before the selected decision is chosen.
+**Pass 2 (initiation).** Re-score `clear_initiation` and `proxy_initiation` candidates using the selected decision date as a chronology anchor. Dates after the selected decision receive a −5 `chronology_signal` penalty. Best clear initiation before the selected decision is chosen. **Chronology filter granularity fix:** when the selected decision date has `granularity = "year"` (i.e. a `nepa_case_year` proxy normalized to `YYYY-07-01`), the filter uses year-level comparison (`d.year <= decision_year`) instead of a strict day comparison. Without this, Tier A BLM register initiation dates that fall in the same year but after July 1 (e.g. `2021-07-23` vs proxy `2021-07-01`) were incorrectly excluded. This fix recovers ~4,163 previously lost BLM initiation dates.
 
 **Timeline status** is assigned from the combination of which dates exist, proxy flags, and ordering validity:
 - `complete_clear` — both dates non-null, ordered, neither is proxy
@@ -222,9 +226,15 @@ Implements two-pass selection to avoid circular chronology scoring:
 
 Manual corrections from `timeline_manual_corrections.parquet` are applied after deterministic selection, with `manual_override` added to `timeline_flags`.
 
+**Month midpoint imputation (`apply_month_midpoint_imputation`).** After manual corrections — making it a true last-resort step — any remaining project where `decision_date_granularity == "month"` or `initiation_date_granularity == "month"` has its date adjusted from day 1 to day 15 (`YYYY-MM-15`), and `midpoint_imputed` is set to `True`. This is the pipeline's terminal fallback for month-year evidence (e.g. an EA cover page dated "November 2018" with no signed FONSI): midpoint imputation avoids systematic bias toward the first of the month while keeping the date usable for duration analysis. The `midpoint_imputed` flag lets downstream R analysis and the LLM adjudication step distinguish these estimates from authoritative day-level dates.
+
+**Pipeline ordering:** API/Register (Tier A) → Regex extraction (script 03) → BERT/BART scoring + selection (script 04) → Midpoint imputation (script 04 final pass) → LLM adjudication (script 06). Midpoint imputation runs before LLM adjudication so that projects with month-year dates are not sent to the LLM unnecessarily — they are already resolved to a usable estimate. Only projects with a completely missing date (`missing_decision`, `missing_both`) trigger LLM adjudication.
+
 ### 06_adjudicate_timeline_api.py — Optional LLM Adjudication
 
 Uses Claude Haiku (`claude-haiku-4-5-20251001`) in two modes. **Candidate adjudication** sends compact packets (project title, process type, agency, top 40 candidates with scores and 300–500 char evidence contexts) for projects with missing or conflicting dates. Returned dates must be from the existing candidate set — hallucination guardrail rejects dates not present in the input. **Document recovery** sends top 3–10 page/section chunks (strict token cap) and validates returned dates by re-running the regex parser over the supplied context. All calls are cached by `project_id + context_hash + model`. Outputs update `timeline_project_dates.parquet` and append to `timeline_api_adjudications.parquet`.
+
+**Midpoint imputation interaction:** Projects with `midpoint_imputed = True` are excluded from the LLM adjudication queue for the role that is already imputed — since the LLM would see the same document text and return the same month-year date. A guard in `_apply_adjudication_results` prevents the LLM from overwriting a midpoint-imputed date when the project was queued for the other role (e.g. missing initiation). If the API does return a day-level date for a previously imputed role, `midpoint_imputed` is reset to `False`.
 
 ### 07_run_full_corpus_timelines.py — Orchestration
 
@@ -428,7 +438,8 @@ Full corpus run completed 2026-05-29. All 61,881 projects in `projects_combined.
 | `decision_page_number` | object | Source page number, nullable |
 | `duration_days` | float64 | `decision_date - initiation_date`; NULL unless both dates have `granularity = "day"` |
 | `timeline_status` | object | `complete_clear`, `complete_with_proxy`, `missing_initiation`, `missing_decision`, `missing_both`, `invalid_order`, `manual_review` |
-| `timeline_flags` | object | Pipe-delimited diagnostics: `non_day_granularity`, `proxy_decision`, `proxy_initiation`, `same_day`, `duration_gt_25y`, `missing_initiation`, `fr_noi_selected`, `api_adjudicated`, `manual_override`, etc. |
+| `timeline_flags` | object | Pipe-delimited diagnostics: `non_day_granularity`, `proxy_decision`, `proxy_initiation`, `same_day`, `duration_gt_25y`, `missing_initiation`, `fr_noi_selected`, `api_adjudicated`, `manual_override`, `imputed_month_midpoint_decision`, `imputed_month_midpoint_initiation`, etc. |
+| `midpoint_imputed` | bool | True when either date was adjusted from day 1 to day 15 by month midpoint imputation. Reset to False if script 06 later recovers a day-level date. |
 | `timeline_run_at` | object | ISO-8601 UTC run timestamp |
 
 ### timeline_candidates.parquet (key columns)
@@ -470,6 +481,8 @@ Full corpus run completed 2026-05-29. All 61,881 projects in `projects_combined.
 - **Confidence calibration not yet validated.** The `*_confidence` fields (`high`, `medium`, `low`) are assigned by deterministic rules based on source tier and role cue strength; they have not been validated against a gold label set. Gold labels from scripts 10–13 are needed before these fields should be used as quality gates.
 
 - **CE initiation coverage is intentionally low.** Clear initiation evidence is structurally rare in CE documents. DOE CE forms sometimes contain an initiator role field, but the date is often a worksheet date or review date rather than a federal application-received date. Per plan §5, missing CE initiation is a valid outcome and should not be imputed. CE `complete_clear` duration rows are potentially selective for longer, more documented projects.
+
+- **Month midpoint imputation expands `duration_days` coverage.** `midpoint_imputed = True` projects have their month-year dates stored as `YYYY-MM-15` with `granularity = "day"`, making them eligible for `duration_days` calculation. These durations carry ±15 day uncertainty. Filter on `midpoint_imputed = FALSE` for analyses that require exact day-level precision.
 
 - **`duration_days` NULL when granularity is not `day`.** Per the plan precision rule, `duration_days` is NULL for any project where either date has `granularity` of `month`, `year`, or `unknown`. The `non_day_granularity` flag is set in `timeline_flags` for these rows. Analysis scripts must not silently convert NULL durations to zero.
 

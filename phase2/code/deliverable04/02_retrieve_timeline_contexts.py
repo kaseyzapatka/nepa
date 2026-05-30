@@ -426,8 +426,14 @@ def build_tier_a_filename_packets(
         if not any(dt in doc_type for dt in DECISION_DOC_TYPES):
             continue
         try:
-            date_str = pd.Timestamp(fn_date).strftime("%Y-%m-%d")
+            ts = pd.Timestamp(fn_date)
+            date_str = ts.strftime("%Y-%m-%d")
         except Exception:
+            continue
+        # NEPATEC stores year-only filename dates as YYYY-01-01. These are not
+        # real dates and produce bogus decision signals that kill valid BLM register
+        # initiation dates via the chronology filter.
+        if ts.month == 1 and ts.day == 1:
             continue
         doc_id = doc.get("document_id")
         context = f"Document filename date ({doc_type}): {date_str}"
