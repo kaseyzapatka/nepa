@@ -13,6 +13,10 @@
 #   phase2/output/deliverable04/d4_duration_by_period.csv
 #   phase2/output/deliverable04/d4_proxy_sensitivity.csv
 #   phase2/output/deliverable04/d4_coverage_diagnostics.csv
+#   phase2/output/deliverable04/fig_d4_coverage_by_process.png
+#   phase2/output/deliverable04/fig_d4_duration_histogram.png
+#   phase2/output/deliverable04/fig_d4_fra_comparison.png
+#   phase2/output/deliverable04/fig_d4_duration_trend.png
 #
 # Usage:
 #   Rscript phase2/code/deliverable04/08_analyze_timelines.R
@@ -302,3 +306,109 @@ cat("\nFRA period comparison (post 2023-08-16 vs prior):\n")
 print(fra_comparison |> select(process_type, period, n, median_months, p25_days, p75_days))
 
 cat("\nAll output files written to:", OUTPUT, "\n")
+
+# ---------------------------------------------------------------------------
+# 8. Figures
+# ---------------------------------------------------------------------------
+
+CATF_NAVY <- "#012169"
+CATF_BLUE <- "#0047BB"
+PROCESS_COLORS <- c("CE" = "#4DAF4A", "EA" = CATF_BLUE, "EIS" = CATF_NAVY)
+
+# Fig 1: Coverage stacked bar — decision / initiation / none, by process type
+coverage_fig <- dates |>
+  mutate(
+    has_decision   = !is.na(decision_date),
+    has_initiation = !is.na(initiation_date),
+    coverage_group = case_when(
+      has_decision & has_initiation ~ "Both dates",
+      has_decision                  ~ "Decision only",
+      has_initiation                ~ "Initiation only",
+      TRUE                          ~ "No date"
+    )
+  ) |>
+  count(process_type, coverage_group) |>
+  group_by(process_type) |>
+  mutate(pct = n / sum(n)) |>
+  ungroup() |>
+  mutate(coverage_group = factor(coverage_group,
+    levels = c("Both dates", "Decision only", "Initiation only", "No date")))
+
+p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverage_group)) +
+  geom_col(width = 0.6) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_fill_manual(values = c(
+    "Both dates"     = CATF_NAVY,
+    "Decision only"  = CATF_BLUE,
+    "Initiation only"= "#6BAED6",
+    "No date"        = "#CCCCCC"
+  )) +
+  labs(title = "D4 Timeline Coverage by Review Type",
+       x = NULL, y = "Share of projects", fill = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+ggsave(file.path(OUTPUT, "fig_d4_coverage_by_process.png"),
+       p_coverage, width = 7, height = 5, dpi = 150)
+message("Wrote fig_d4_coverage_by_process.png")
+
+# Fig 2: Duration histogram by process type (complete_clear, day granularity)
+dur_plot <- headline |>
+  filter(duration_days > 0, duration_days < 365 * 15) |>
+  mutate(duration_years = duration_days / 365.25)
+
+p_hist <- ggplot(dur_plot, aes(x = duration_years, fill = process_type)) +
+  geom_histogram(bins = 40, color = "white", linewidth = 0.2) +
+  facet_wrap(~process_type, scales = "free_y", ncol = 1) +
+  scale_fill_manual(values = PROCESS_COLORS, guide = "none") +
+  scale_x_continuous(breaks = 0:15, labels = function(x) paste0(x, "y")) +
+  labs(title = "D4 Review Duration Distribution (complete_clear only)",
+       x = "Duration (years)", y = "Projects") +
+  theme_minimal(base_size = 12)
+
+ggsave(file.path(OUTPUT, "fig_d4_duration_histogram.png"),
+       p_hist, width = 7, height = 8, dpi = 150)
+message("Wrote fig_d4_duration_histogram.png")
+
+# Fig 3: FRA pre/post comparison — median duration bar chart
+fra_fig <- fra_comparison |>
+  mutate(period = factor(period, levels = c("pre_FRA", "post_FRA"),
+                         labels = c("Pre-FRA\n(before Aug 2023)", "Post-FRA\n(Aug 2023+)")))
+
+p_fra <- ggplot(fra_fig, aes(x = period, y = median_months, fill = period)) +
+  geom_col(width = 0.5) +
+  geom_text(aes(label = paste0(round(median_months, 1), " mo\n(n=", n, ")")),
+            vjust = -0.3, size = 3.2) +
+  facet_wrap(~process_type, ncol = 3) +
+  scale_fill_manual(values = c("Pre-FRA\n(before Aug 2023)" = CATF_BLUE,
+                               "Post-FRA\n(Aug 2023+)" = CATF_NAVY), guide = "none") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+  labs(title = "D4 Median Review Duration: Pre vs Post FRA (Aug 16, 2023)",
+       x = NULL, y = "Median duration (months)") +
+  theme_minimal(base_size = 12)
+
+ggsave(file.path(OUTPUT, "fig_d4_fra_comparison.png"),
+       p_fra, width = 9, height = 5, dpi = 150)
+message("Wrote fig_d4_fra_comparison.png")
+
+# Fig 4: Duration trend by year (median, complete_clear)
+p_trend <- ggplot(dur_year |> filter(n >= 5),
+                  aes(x = decision_year, y = median_months, color = process_type)) +
+  geom_line(linewidth = 0.8) +
+  geom_point(aes(size = n), alpha = 0.7) +
+  geom_vline(xintercept = c(2009, 2021, 2022, 2023.6),
+             linetype = "dashed", color = "grey50", linewidth = 0.5) +
+  annotate("text", x = c(2009, 2021, 2022, 2023.6), y = Inf,
+           label = c("ARRA", "BIL", "IRA", "FRA"),
+           vjust = 1.5, hjust = -0.1, size = 3, color = "grey40") +
+  scale_color_manual(values = PROCESS_COLORS) +
+  scale_size_continuous(range = c(1, 4), guide = "none") +
+  scale_x_continuous(breaks = seq(1990, 2026, 5)) +
+  labs(title = "D4 Median Review Duration by Year (complete_clear, n≥5)",
+       x = "Decision year", y = "Median duration (months)", color = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "bottom")
+
+ggsave(file.path(OUTPUT, "fig_d4_duration_trend.png"),
+       p_trend, width = 10, height = 5, dpi = 150)
+message("Wrote fig_d4_duration_trend.png")

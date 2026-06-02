@@ -36,6 +36,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+import duckdb
 import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -61,6 +62,10 @@ MAX_DURATION_YEARS = 25
 
 SOURCE_STRENGTH = {
     "tier_a": 5,
+    # CE project description: source_strength=4 so descriptions with clear initiation/decision
+    # cues rank above generic document body text (3) but below authoritative register dates (5)
+    # and strong signed-document signals (tier_a doc_priority boosts push those to 14+).
+    "ce_description": 4,
     "tier_b": 3,
     "tier_c": 3,
     "tier_d": 2,
@@ -134,7 +139,14 @@ def _compute_candidate_score(
     section_priority = 0.0
     if any(kw in heading for kw in ["decision", "record of decision", "fonsi", "approval"]):
         section_priority = 3.0
-    elif any(kw in heading for kw in ["introduction", "background", "purpose and need", "scoping"]):
+    elif any(kw in heading for kw in [
+        "introduction", "background", "purpose and need", "scoping",
+        "proposed action", "description of proposed action",
+    ]):
+        # "description of proposed action" is the heading on ce_description packets —
+        # gives them the same section boost as background/purpose sections so they
+        # rank above document body text without a section context (section_priority=0)
+        # but not above decision-section or decision-document signals.
         section_priority = 2.0
     elif any(kw in heading for kw in ["references", "bibliography", "appendix", "preparers"]):
         section_priority = -2.0
@@ -183,6 +195,17 @@ def _compute_candidate_score(
         negative_penalty += 3.0
     if row.get("historical_gap_candidate"):
         negative_penalty += 2.0
+
+    # July-1 year-proxy penalty: YYYY-07-01 dates are frequently constructed from a
+    # NEPA case number year (DOI-BLM-...-2015-...) rather than an explicit document
+    # date. A real specific date (e.g. 08/18/2015) on the same page will beat this
+    # by ≥1 point. Legitimate July-1 decisions still win if other evidence supports them.
+    try:
+        _d = date.fromisoformat(str(row["parsed_date"]))
+        if _d.month == 7 and _d.day == 1:
+            negative_penalty += 2.0
+    except (ValueError, TypeError, KeyError):
+        pass
 
     total = (
         source_strength + role_cue_strength + doc_priority + section_priority
@@ -246,7 +269,13 @@ def select_dates_for_project(
     )
 
     # --- Pass 1: Score and select decision ---
-    decision_cands = cands[cands["candidate_role"].isin(["clear_decision", "proxy_decision"])].copy()
+    # body_text = date in a decision doc with no role cue. Included in the pool so it can
+    # serve as a last-resort decision proxy (selected only if no clear/proxy decision
+    # exists). Once the classifier runs, body_text candidates carry a model score and this
+    # fallback is superseded.
+    decision_cands = cands[
+        cands["candidate_role"].isin(["clear_decision", "proxy_decision", "body_text"])
+    ].copy()
     decision_cands["ranking_score"] = [
         _compute_candidate_score(r, "decision", None, index_map)
         for r in decision_cands.to_dict("records")
@@ -279,6 +308,15 @@ def select_dates_for_project(
         if not proxy_dec.empty:
             best_decision = proxy_dec.loc[proxy_dec["ranking_score"].idxmax()]
             decision_is_proxy = True
+        else:
+            # Last resort: a date in a decision doc with no role cue. Always a proxy.
+            body_dec = decision_cands[
+                (decision_cands["candidate_role"] == "body_text") &
+                (decision_cands["ranking_score"] > -2)
+            ]
+            if not body_dec.empty:
+                best_decision = body_dec.loc[body_dec["ranking_score"].idxmax()]
+                decision_is_proxy = True
 
     if best_decision is not None:
         try:
@@ -288,7 +326,7 @@ def select_dates_for_project(
                 decision_granularity = best_decision.get("date_granularity", "day")
                 decision_source_type = best_decision.get("candidate_source_type", "document_text")
                 decision_confidence = best_decision.get("role_confidence", "medium")
-                decision_is_proxy = best_decision.get("candidate_role") == "proxy_decision"
+                decision_is_proxy = best_decision.get("candidate_role") in ("proxy_decision", "body_text")
                 decision_evidence_text = str(best_decision.get("context_text", ""))[:300]
                 decision_document_id = best_decision.get("document_id")
                 decision_page_number = best_decision.get("page_number")
@@ -406,8 +444,21 @@ def select_dates_for_project(
         init_d = date.fromisoformat(initiation_date_str)
         dec_d = date.fromisoformat(decision_date_str)
         if init_d > dec_d:
-            timeline_status = "invalid_order"
-            flags.append("invalid_order")
+            # Year-granularity proxy decisions (nepa_case_year → YYYY-07-01) mechanically
+            # precede BLM Register initiation dates from the same year. The July-1
+            # placeholder carries no real ordering information, so discard the proxy
+            # and fall through to missing_decision rather than flagging invalid_order.
+            if decision_granularity == "year" and init_d.year <= dec_d.year:
+                has_dec = False
+                decision_date_str = None
+                decision_granularity = "unknown"
+                decision_is_proxy = False
+                timeline_status = "missing_decision"
+                flags.append("nepa_case_year_proxy_discarded")
+                flags.append("missing_decision")
+            else:
+                timeline_status = "invalid_order"
+                flags.append("invalid_order")
         elif init_d == dec_d:
             flags.append(SAME_DAY_DURATION_FLAG)
             if process_type == "CE":
@@ -584,6 +635,63 @@ def apply_manual_corrections(
             new_flags = "|".join(filter(None, [existing_flags, "manual_override"]))
             dates_df.loc[mask, "timeline_flags"] = new_flags
 
+    return dates_df
+
+
+def apply_deis_only_flags(dates_df: pd.DataFrame, index_path: Path) -> pd.DataFrame:
+    """
+    Flag EIS projects that have a DEIS in the index but no FEIS or ROD.
+
+    These projects have missing_decision not because of a regex failure but because
+    no decision document exists in NEPATEC. Flagging them lets the report distinguish
+    "structurally unresolvable" from "solvable with better retrieval or LLM recovery".
+    """
+    if not index_path.exists():
+        return dates_df
+
+    con = duckdb.connect()
+
+    # For each EIS project: does it have a final/ROD doc? A draft doc?
+    doc_profile = con.execute(f"""
+        SELECT project_id,
+            MAX(CASE WHEN document_type_category IN ('final','decision')
+                          OR LOWER(document_type_clean) IN ('feis','final eis','rod','record of decision')
+                     THEN 1 ELSE 0 END) AS has_final_or_rod,
+            MAX(CASE WHEN document_type_category = 'draft'
+                          OR LOWER(document_type_clean) IN ('deis','draft eis')
+                     THEN 1 ELSE 0 END) AS has_deis
+        FROM read_parquet('{index_path}')
+        WHERE process_type = 'EIS'
+        GROUP BY project_id
+    """).df()
+
+    deis_only_ids = set(
+        doc_profile.loc[
+            (doc_profile["has_final_or_rod"] == 0) & (doc_profile["has_deis"] == 1),
+            "project_id",
+        ]
+    )
+
+    mask = (
+        dates_df["process_type"] == "EIS"
+    ) & (
+        dates_df["decision_date"].isna()
+    ) & (
+        dates_df["project_id"].isin(deis_only_ids)
+    )
+
+    def _add_flag(flags: str, new_flag: str) -> str:
+        parts = [f for f in flags.split("|") if f]
+        if new_flag not in parts:
+            parts.append(new_flag)
+        return "|".join(parts)
+
+    dates_df.loc[mask, "timeline_flags"] = dates_df.loc[mask, "timeline_flags"].apply(
+        lambda f: _add_flag(str(f) if pd.notna(f) else "", "deis_only")
+    )
+    n = mask.sum()
+    if n > 0:
+        print(f"  deis_only flag applied to {n:,} EIS projects (DEIS in index, no FEIS or ROD).")
     return dates_df
 
 
@@ -892,6 +1000,10 @@ def main() -> None:
     # Apply month midpoint imputation — only after all corrections so this is truly last-resort
     print("Applying month midpoint imputation...")
     dates_df = apply_month_midpoint_imputation(dates_df)
+
+    # Flag EIS projects that have DEIS but no FEIS/ROD — structurally unresolvable by regex
+    print("Applying deis_only flags...")
+    dates_df = apply_deis_only_flags(dates_df, INDEX_PATH)
 
     # Save project dates
     if args.append and dates_path.exists():

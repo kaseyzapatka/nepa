@@ -89,8 +89,10 @@ EXCLUSION_KEYWORDS = [
     "et al.", "et al,", "eds.", "vol.", "pp.", "journal", "doi:",
     "isbn", "issn", "proceedings", "report no.",
     # Expiration / validity dates — not decision dates (Phase 1: EXPIRATION_PATTERNS_STRONG)
-    "expiration date", "valid until", "expires on", "for a term of",
+    "expiration date", "valid until", "expires on", "expiry", "for a term of",
     "categorical exclusion expires", "re-authoriz",
+    # Operational/interim management dates — duration of field actions, not NEPA decisions
+    "remain in place until", "protective fencing",
     # URL references
     "http://", "https://",
     # Print-on-recycled boilerplate on document covers (false proxy dates)
@@ -102,6 +104,11 @@ EXCLUSION_KEYWORDS = [
     "doe f ", "netl f ",
     # Map preparation dates (complement to REJECT_CUES which has "map created/printed")
     "map prepared",
+    # Engineering drawing sheet fields — "DATE:" fields in CAD/GIS sheets attached to EIS
+    "drawn by", "checked by", "issued for bid", "issued for construction",
+    "drawing number", "sheet number",
+    # Comment response table headers — commenter date columns in EA/EIS appendices
+    "commenter (name", "commenter name", "commenter organization",
 ]
 
 # Regex-based exclusions — applied to context window around each date match.
@@ -128,6 +135,8 @@ CLEAR_INITIATION_STRONG = re.compile(
     r"blm\s+received\s+(?:a|an|the)\s+(?:row\s+)?application|"
     r"blm\s+received|agency\s+received|"
     r"(?:noi|notice\s+of\s+intent)\s+(?:was\s+)?(?:published|issued|submitted)|"
+    r"notice\s+of\s+intent\s+to\s+prepare\s+(?:a|an|the|this)?\s*(?:supplemental\s+|revised\s+)?(?:environmental\s+impact\s+statement|eis)\s+(?:was\s+)?(?:published|issued|submitted|filed)|"
+    r"initiated\s+the\s+scoping\s+process\s+by\s+publishing|"
     r"scoping\s+period\s+(?:began|started|initiated|opened)|"
     r"notice\s+of\s+intent\s+was\s+published|"
     r"(?:federal\s+register).*notice\s+of\s+intent|"
@@ -199,6 +208,7 @@ CLEAR_DECISION_STRONG = re.compile(
     r"(?:ce|cx)\s+(?:determination|approved|signed)|"
     r"ce\s+determination\s+date|cx\s+determination\s+date|"
     r"(?:date\s+)?signed\s+(?:by|on).*(?:field\s+manager|district\s+manager|authorizing\s+official)|"
+    r"signature\s+of\s+(?:authorized|authorizing|approving)\s+officer|"
     r"field\s+office\s+manager\s+determination|"
     r"nepa\s+compliance\s+officer.*(?:date|concur)|"
     r"concur.*nepa\s+compliance\s+officer|"
@@ -232,6 +242,7 @@ CLEAR_DECISION_KEYWORDS_RE = re.compile(
     r"(?:ce|cx)\s+(?:determination|approved|signed)|"
     r"ce\s+determination\s+date|cx\s+determination\s+date|"
     r"(?:date\s+)?signed\s+(?:by|on).*(?:field\s+manager|district\s+manager|authorizing\s+official)|"
+    r"signature\s+of\s+(?:authorized|authorizing|approving)\s+officer|"
     r"field\s+office\s+manager\s+determination|"
     r"nepa\s+compliance\s+officer.*(?:date|concur)|"
     r"concur.*nepa\s+compliance\s+officer|"
@@ -270,7 +281,13 @@ CLEAR_DECISION_MED = re.compile(
     r"decision\s+date|date\s+approved|date\s+signed|"
     r"date\s+determined|"
     r"approval\s+date|date\s+of\s+approval|"
-    r"final\s+approval"
+    r"final\s+approval|"
+    # Phase 1: standalone ROD/FONSI language — catches cover pages and references where
+    # the verb (signed/issued/dated) is absent. Lower confidence than the strong pattern.
+    r"(?:final\s+)?record\s+of\s+decision|"
+    r"finding\s+of\s+no\s+significant\s+impact|"
+    r"\bfonsi\b|"
+    r"\brod\s+(?:for|of|dated|for\s+the)"
     r")\b",
     re.IGNORECASE,
 )
@@ -307,9 +324,22 @@ HISTORICAL_CUES = re.compile(
     r"\b("
     r"(?:resource\s+management|land\s+use)\s+plan|rmp|lup|programmatic\s+eis|"
     r"prior\s+rod|previous\s+(?:eis|ea)|old\s+(?:lease|plan)|"
-    r"communication\s+site\s+established|lease\s+issued|historical"
+    r"communication\s+site\s+established|lease\s+issued|historical|"
+    r"(?:was\s+)?granted\s+a\s+(?:row|right[-\s]of[-\s]way)|"
+    r"(?:row|right[-\s]of[-\s]way)\s+(?:was\s+)?(?:granted|issued)\s+on|"
+    r"previously\s+(?:authorized|approved|granted)"
     r")\b",
     re.IGNORECASE,
+)
+
+# Sub-process consultation initiation — "tribal/cultural consultation was initiated on
+# [date]" describes a NHPA Section 106 or ESA sub-process start, not NEPA initiation.
+# Must fire BEFORE CLEAR_INITIATION_STRONG so "initiated on" doesn't misclassify these.
+SUBCONSULTATION_INITIATED_RE = re.compile(
+    r"\b(tribal|native\s+american|cultural\s+resource|section\s+106)\b"
+    r".{0,200}\b(consultation|coordination)\b.{0,200}"
+    r"\b(initiated|was\s+initiated|began|started)\b",
+    re.IGNORECASE | re.DOTALL,
 )
 
 # Hard reject
@@ -324,7 +354,13 @@ REJECT_CUES = re.compile(
     r"resource\s+management\s+plan|\brmp\b|land\s+use\s+plan|"
     r"conformance\s+with\s+the\s+applicable\s+lup|"
     r"plan\s+maintenance\s+action|"
-    r"specialist\s+signature"
+    r"specialist\s+signature|"
+    # Engineering drawing sheet metadata — CAD/GIS drawing title blocks attached to EIS
+    r"(?:drawn|checked|approved)\s+by\s*:|issued\s+for\s+(?:bid|construction)|"
+    r"drawing\s+(?:number|no\.?)\s*:|revision\s+(?:number|no\.?)?\s*:|"
+    # Comment response table dates — appended letter/commenter tables in EA/EIS appendices
+    r"commenter\s+(?:name|organization)|"
+    r"(?:name|organization)[,;]\s+date[,;]\s+comment"
     r")\b",
     re.IGNORECASE,
 )
@@ -469,7 +505,20 @@ def _prelabel_role(
             return "proxy_decision", 1.5, ["filename_or_title"], []
         return "proxy_initiation", 1.5, ["filename_or_title"], []
 
-    # Check strong cues first
+    # NEPA case number years are always last-resort fallback — never promote via text cues.
+    # "Field Manager Date DOI-BLM-...-2015-..." has decision language but the date came from
+    # the case number, so it must stay a low-confidence proxy regardless of surrounding text.
+    if ptype == "nepa_case_year":
+        return "proxy_decision", 0.5, ["nepa_case_number_year"], []
+
+    # Historical cues: checked BEFORE decision cues because a past ROW grant / prior EIS
+    # reference is definitionally non-current and can never be the active decision date,
+    # even when the surrounding block also contains decision language.
+    if HISTORICAL_CUES.search(context):
+        neg_cues.append("historical_cue")
+        return "historical", 0.0, pos_cues, neg_cues
+
+    # Check strong decision cues
     if CLEAR_DECISION_STRONG.search(context):
         # Disambiguate specialist face sheets: the /s/ branch of CLEAR_DECISION_STRONG
         # fires on any signature, including multi-specialist review sheets. When the
@@ -484,13 +533,15 @@ def _prelabel_role(
         pos_cues.append("decision_strong")
         return "clear_decision", 5.0, pos_cues, neg_cues
 
+    # Sub-process consultation: "tribal/cultural/Section 106 consultation was initiated"
+    # is a NHPA/ESA subprocess start, not the NEPA process initiation itself.
+    if SUBCONSULTATION_INITIATED_RE.search(context):
+        neg_cues.append("subconsultation_initiated")
+        return "historical", 0.0, pos_cues, neg_cues
+
     if CLEAR_INITIATION_STRONG.search(context):
         pos_cues.append("initiation_strong")
         return "clear_initiation", 5.0, pos_cues, neg_cues
-
-    if HISTORICAL_CUES.search(context):
-        neg_cues.append("historical_cue")
-        return "historical", 0.0, pos_cues, neg_cues
 
     if REJECT_CUES.search(context):
         neg_cues.append("reject_cue")
@@ -520,15 +571,13 @@ def _prelabel_role(
     #   everything else → proxy_initiation
     if ptype in ("MY_full", "MY_short"):
         if document_type_category == "decision" and len(context.split()) <= 18:
-            pos_cues.append("doc_type_decision")
-            return "clear_decision", 2.0, pos_cues, neg_cues
+            # Short month-year in a decision doc: likely a cover/signature month, but no
+            # explicit cue. Holding category for the classifier, not an auto clear_decision.
+            pos_cues.append("body_text")
+            return "body_text", 2.0, pos_cues, neg_cues
         if document_type_category == "final" and len(context.split()) <= 18:
             return "proxy_decision", 1.5, pos_cues, neg_cues
         return "proxy_initiation", 1.0, pos_cues, neg_cues
-
-    # NEPA case number year: last-resort fallback — only wins if nothing else is available
-    if ptype == "nepa_case_year":
-        return "proxy_decision", 0.5, ["nepa_case_number_year"], []
 
     # numeric_dot: require signature/form context for CE, else unknown
     if ptype == "numeric_dot":
@@ -536,12 +585,21 @@ def _prelabel_role(
             return "clear_decision", 3.0, ["signature_block"], neg_cues
         return "unknown", 1.0, pos_cues, neg_cues
 
-    # Dates in decision-labeled documents without explicit text cues. The document
-    # itself is the decision artifact, so treat these as clear_decision at low confidence
-    # rather than proxy — they are not references to an external decision.
+    # Dates in decision-labeled documents without explicit text cues. There is NO
+    # role evidence in the text — only the document type suggests a decision context.
+    # Label these "body_text": a holding category for dates the regex cannot resolve.
+    # The classifier (script 04) is responsible for promoting/demoting body_text
+    # candidates; selection (script 05) only falls back to them as a last resort.
+    # Guard: comment-period language in a FONSI/ROD is a public comment date, not a decision.
     if document_type_category == "decision":
-        pos_cues.append("doc_type_decision")
-        return "clear_decision", 2.0, pos_cues, neg_cues
+        # Comment/scoping period dates inside a FONSI/CE are public-process dates,
+        # not decision dates — regardless of whether they match a specific verb pattern.
+        ctx_lower = context.lower()
+        if "comment period" in ctx_lower or "scoping period" in ctx_lower or "notice of proposed action" in ctx_lower:
+            neg_cues.append("comment_period_in_decision_doc")
+            return "proxy_initiation", 1.0, pos_cues, neg_cues
+        pos_cues.append("body_text")
+        return "body_text", 2.0, pos_cues, neg_cues
 
     return "unknown", 1.5, pos_cues, neg_cues
 
@@ -617,6 +675,7 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                     "classifier_score": None,
                     "api_label": None,
                     "api_call_id": None,
+                    "context_window_hash": hashlib.sha1(" ".join(context_clean.split()).encode()).hexdigest()[:16],
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 }]
         return []
@@ -662,6 +721,12 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                 if role == "reject" and not heading:
                     continue
 
+                # Minimum context guard: very short contexts (<40 chars, non-metadata)
+                # have no meaningful signal for BERT and are often just date + name fragments.
+                # Allow short contexts only when they carry an explicit strong cue.
+                if len(block) < 40 and role not in ("clear_decision", "clear_initiation") and source_tier != "metadata":
+                    continue
+
                 # Estimate position in document
                 pos_pct: float | None = None
                 if packet.get("page_start") is not None and packet.get("page_end") is not None:
@@ -675,6 +740,12 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                 candidate_id = hashlib.sha1(
                     f"{packet['project_id']}|{packet.get('document_id')}|{packet.get('page_start')}|{date_str}|{block_norm}".encode()
                 ).hexdigest()[:20]
+                # Stable hash of the context text itself — survives candidate_id changes
+                # caused by pipeline re-runs. Used by gold label import as a secondary join key
+                # so labels don't need to be re-done when page numbers or logic change.
+                context_window_hash = hashlib.sha1(
+                    " ".join(block.split()).encode()
+                ).hexdigest()[:16]
 
                 candidates.append({
                     "candidate_id": candidate_id,
@@ -711,6 +782,7 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                     "classifier_score": None,
                     "api_label": None,
                     "api_call_id": None,
+                    "context_window_hash": context_window_hash,
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 })
 

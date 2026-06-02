@@ -39,6 +39,7 @@ TIMELINE_DIR = ANALYSIS_DIR / "timeline"
 SECTIONS_PATH = ANALYSIS_DIR / "document_sections.parquet"
 INDEX_PATH = TIMELINE_DIR / "timeline_document_index.parquet"
 OUTPUT_PATH = TIMELINE_DIR / "timeline_context_packets.parquet"
+PROJECTS_PATH = ANALYSIS_DIR / "projects_combined.parquet"
 
 SOURCE_MAP = {"CE": "ce", "EA": "ea", "EIS": "eis"}
 
@@ -156,6 +157,79 @@ def _truncate(text: str, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[:max_chars - 3].rstrip() + "..."
+
+
+def _parse_project_description(raw: str | None) -> str:
+    """Parse project_description from its JSON list format into plain text."""
+    if not raw:
+        return ""
+    text = str(raw).strip()
+    if text.startswith("["):
+        try:
+            items = json.loads(text)
+            if isinstance(items, list):
+                text = "\n".join(str(x) for x in items if x)
+        except (json.JSONDecodeError, TypeError):
+            pass
+    text = re.sub(r"\*\*", "", text)
+    return " ".join(text.split())
+
+
+def build_ce_description_packets(
+    project_row: pd.Series,
+    run_at: str,
+) -> list[dict]:
+    """Tier B: CE project description as initiation date context.
+
+    project_description contains the 'Description of Proposed Action' extracted from
+    the CE form — 100% coverage, median ~840 chars. ~15% of CE descriptions contain a
+    date, and of those ~54% have initiation-language ('submitted', 'received', etc.).
+    This is among the best available initiation date sources for CEs that lack a BLM
+    Register start date.
+
+    Uses source_tier='page_slice' so script 03 runs the full sentence-level extraction
+    pipeline across the whole text (the metadata branch returns on the first match only,
+    which is designed for single-value register strings, not paragraph text).
+    """
+    raw = project_row.get("project_description")
+    if not raw:
+        return []
+    text = _parse_project_description(raw)
+    if len(text) < 50:
+        return []
+
+    project_id = project_row["project_id"]
+    text_trunc = _truncate(text, 4000)
+    return [{
+        "context_packet_id": _packet_id(project_id, None, "tier_b", "ce_description"),
+        "project_id": project_id,
+        "process_type": "CE",
+        "document_id": None,
+        "document_title": None,
+        "document_type_clean": None,
+        "document_type_category": None,
+        "main_document": None,
+        "section_id": None,
+        "page_start": None,
+        "page_end": None,
+        "page_numbers": "[]",
+        "retrieval_mode": "first_pass",
+        "retrieval_reason": "ce_project_description",
+        "source_tier": "page_slice",
+        "retrieval_tier": "ce_description",
+        "retrieval_score": 2.0,
+        "initiation_page_score": 2.0,
+        "decision_page_score": 0.0,
+        "negative_page_score": 0.0,
+        "heading_title": "Description of Proposed Action",
+        "parent_heading_title": None,
+        "context_text": text_trunc,
+        "context_chars": len(text),
+        "estimated_tokens": max(1, len(text) // 4),
+        "context_hash": _text_hash(text_trunc),
+        "api_eligible": True,
+        "created_at": run_at,
+    }]
 
 
 def build_tier_a_packets(
@@ -728,7 +802,7 @@ def build_tier_d_packets(
 
 def deduplicate_packets(packets: list[dict]) -> list[dict]:
     """Remove duplicate packets by context_hash, keeping the highest tier."""
-    tier_order = {"tier_a": 0, "tier_b": 1, "tier_c": 2, "tier_d": 3, "tier_e": 4}
+    tier_order = {"tier_a": 0, "ce_description": 0.5, "tier_b": 1, "tier_c": 2, "tier_d": 3, "tier_e": 4}
     seen: dict[str, dict] = {}
     for p in packets:
         h = p["context_hash"]
@@ -775,6 +849,11 @@ def process_project(
     if blm_fully_resolved:
         return packets  # Tier A only — document retrieval skipped
 
+    # CE project description — paragraph text from the 'Description of Proposed Action'
+    # field; 100% coverage for CEs, often contains application submission dates.
+    if process_type == "CE":
+        packets.extend(build_ce_description_packets(project_row, run_at))
+
     # Tier B: page slices from high-priority documents
     packets.extend(build_tier_b_packets(doc_rows, pages_df, project_id, process_type, run_at))
 
@@ -791,7 +870,7 @@ def process_project(
     # Apply per-project cap
     if len(packets) > cap:
         # Prioritize by tier then retrieval_score
-        tier_order = {"tier_a": 0, "tier_b": 1, "tier_c": 2, "tier_d": 3}
+        tier_order = {"tier_a": 0, "ce_description": 0.5, "tier_b": 1, "tier_c": 2, "tier_d": 3}
         packets.sort(
             key=lambda p: (tier_order.get(p["retrieval_tier"], 9), -p["retrieval_score"])
         )
@@ -878,6 +957,16 @@ def retrieve_for_process(
         .set_index("project_id")
     )
 
+    # CE project descriptions — loaded once per process run for description-based initiation
+    ce_desc_map: dict[str, str] = {}
+    if process_type == "CE" and PROJECTS_PATH.exists():
+        desc_df = pd.read_parquet(PROJECTS_PATH, columns=["project_id", "project_description"])
+        desc_df = desc_df[desc_df["project_id"].isin(set(projects))]
+        ce_desc_map = dict(
+            zip(desc_df["project_id"], desc_df["project_description"].fillna(""))
+        )
+        print(f"  Loaded {len(ce_desc_map):,} CE project descriptions")
+
     all_packets: list[dict] = []
     for i, project_id in enumerate(projects):
         if i % 500 == 0 and i > 0:
@@ -892,6 +981,8 @@ def retrieve_for_process(
 
         project_row = proj_meta.loc[project_id].copy() if project_id in proj_meta.index else pd.Series()
         project_row["project_id"] = project_id
+        if process_type == "CE":
+            project_row["project_description"] = ce_desc_map.get(project_id, "")
 
         packets = process_project(project_row, doc_rows, pages_df, sections_df, run_at)
         all_packets.extend(packets)

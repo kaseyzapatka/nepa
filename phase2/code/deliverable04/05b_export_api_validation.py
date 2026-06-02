@@ -131,9 +131,26 @@ def main() -> None:
         api_rows["doe_doc_number"] = None
         api_rows["doe_ep_url"] = None
 
-    # Derive source labels
+    # Derive source labels from evidence text heuristic
     api_rows["decision_source_label"] = api_rows["decision_evidence_text"].apply(_source_label)
     api_rows["initiation_source_label"] = api_rows["initiation_evidence_text"].apply(_source_label)
+
+    # Override 1: year-granularity dates are always NEPA case number proxies regardless
+    # of evidence text (which shows surrounding document context, not an API label).
+    year_dec = api_rows["decision_date_granularity"] == "year"
+    api_rows.loc[year_dec, "decision_source_label"] = "NEPA Case Number (proxy)"
+    year_init = api_rows["initiation_date_granularity"] == "year"
+    api_rows.loc[year_init, "initiation_source_label"] = "NEPA Case Number (proxy)"
+
+    # Override 2: rows included due to an API *initiation* date may have a document-text
+    # *decision* date. Use the actual source_type column from the dates parquet to correct.
+    if "decision_source_type" in api_rows.columns:
+        doc_text_dec = (api_rows["decision_source_type"] == "document_text") & \
+                       (api_rows["decision_source_label"] == "metadata")
+        api_rows.loc[doc_text_dec, "decision_source_label"] = "Document Text"
+        doc_text_init = (api_rows["initiation_source_type"] == "document_text") & \
+                        (api_rows["initiation_source_label"] == "metadata")
+        api_rows.loc[doc_text_init, "initiation_source_label"] = "Document Text"
 
     # Derive best verification URL per row
     def _pick_url(row):

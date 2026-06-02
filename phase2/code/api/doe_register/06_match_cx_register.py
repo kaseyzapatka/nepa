@@ -36,8 +36,10 @@ CX_REG_PATH = PHASE2 / "data" / "analysis" / "doe_register" / "doe_cx_register.p
 OUTPUT_PATH = PHASE2 / "data" / "analysis" / "doe_register" / "doe_cx_dates.parquet"
 
 # Filename pattern: (path/)cx-NNNNNN(.pdf or -slug.pdf)
-# Matches pure DOE portal filenames; excludes BLM-style "DOI-BLM-...-CX-NNNNN.pdf"
-CX_FILENAME_RE = r"(^|/)cx-[0-9]{4,7}(-|[.]pdf)"
+# Case-insensitive: energy.gov portal uses lowercase "cx-019096.pdf" but WAPA and some
+# DOE offices use uppercase "CX-026345.pdf". Both map to the same integer cx_number.
+# Excludes BLM-style "DOI-BLM-...-CX-NNNNN.pdf" (those have a leading slash + DOI- prefix).
+CX_FILENAME_RE = r"(?i)(^|/)cx-[0-9]{4,7}(-|[.]pdf)"
 
 
 def main() -> None:
@@ -59,11 +61,11 @@ def main() -> None:
                 document_id AS document_id,
                 file_name,
                 TRY_CAST(
-                    regexp_extract(file_name, 'cx-([0-9]+)', 1)
+                    regexp_extract(lower(file_name), 'cx-([0-9]+)', 1)
                 AS INTEGER) AS cx_number
             FROM read_parquet('{CE_DOCS_PATH}')
             WHERE regexp_matches(file_name, '{CX_FILENAME_RE}')
-              AND regexp_extract(file_name, 'cx-([0-9]+)', 1) != ''
+              AND regexp_extract(lower(file_name), 'cx-([0-9]+)', 1) != ''
         ),
         joined AS (
             SELECT

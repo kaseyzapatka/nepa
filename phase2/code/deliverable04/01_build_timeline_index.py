@@ -115,7 +115,11 @@ DECISION_DOC_SCORES: dict[str, float] = {
     # EIS
     "rod": 5.0, "record of decision": 5.0,
     "joint record of decision": 5.0,
-    "final eis": 2.5, "final environmental impact statement": 2.5,
+    # FEIS raised to 3.5 (was 2.5) so non-main FEIS documents reach priority_2
+    # without needing the main_doc bonus.  Nearly every missing-decision EIS has
+    # only a FEIS available — keeping it at priority_3 (Tier D only) means ROD
+    # dates buried past page 6 were never scanned.
+    "feis": 3.5, "final eis": 3.5, "final environmental impact statement": 3.5,
     # Generic
     "decision": 3.0, "approval": 2.5,
 }

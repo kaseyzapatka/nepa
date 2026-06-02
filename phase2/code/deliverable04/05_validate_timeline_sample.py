@@ -12,7 +12,7 @@ Inputs:
     phase2/data/analysis/timeline/timeline_candidates.parquet
 
 Outputs:
-    phase2/output/deliverable04/timeline_sample100_review_packet.csv   (prepare-review)
+    phase2/output/deliverable04/timeline_sample100_review_packet.csv   (prepare-review, reviewer-facing)
     phase2/data/analysis/timeline/timeline_validation_sample.parquet   (validate)
     phase2/output/deliverable04/timeline_sample100_validation_projects.csv
     phase2/output/deliverable04/timeline_sample100_validation_summary.csv
@@ -51,6 +51,26 @@ REVIEW_PACKET_PATH = OUTPUT_DIR / "timeline_sample100_review_packet.csv"
 VALIDATION_PROJECTS_PATH = OUTPUT_DIR / "timeline_sample100_validation_projects.csv"
 VALIDATION_SUMMARY_PATH = OUTPUT_DIR / "timeline_sample100_validation_summary.csv"
 RULE_DIAGNOSTICS_PATH = OUTPUT_DIR / "timeline_sample100_rule_diagnostics.csv"
+
+SIMPLE_REVIEW_COLUMNS = [
+    "sample_id",
+    "project_id",
+    "project_title",
+    "process_type",
+    "project_energy_type",
+    "lead_agency",
+    "suggested_initiation_date",
+    "suggested_initiation_evidence",
+    "top_initiation_candidates",
+    "review_initiation_date",
+    "review_initiation_notes",
+    "suggested_decision_date",
+    "suggested_decision_evidence",
+    "top_decision_candidates",
+    "review_decision_date",
+    "review_decision_notes",
+    "reviewer",
+]
 
 # Acceptance thresholds (plan section 8)
 THRESHOLDS = {
@@ -203,6 +223,59 @@ def prepare_review(
     packet["top_decision_candidates"] = packet["project_id"].map(top_dec_map)
 
     return packet
+
+
+def _clean_review_text(value: object) -> str:
+    if value is None or pd.isna(value):
+        return ""
+    return " ".join(str(value).split())
+
+
+def _packet_series(packet: pd.DataFrame, column: str) -> pd.Series:
+    if column in packet.columns:
+        return packet[column].map(_clean_review_text)
+    return pd.Series([""] * len(packet), index=packet.index)
+
+
+def prepare_simple_review_packet(packet: pd.DataFrame) -> pd.DataFrame:
+    """
+    Produce a reviewer-facing packet with two rows per project.
+
+    This keeps only the fields a reviewer needs to confirm or replace the
+    suggested dates.
+    """
+    process_col = "process_type"
+    if process_col not in packet.columns and "process_type_x" in packet.columns:
+        process_col = "process_type_x"
+    elif process_col not in packet.columns and "process_type_y" in packet.columns:
+        process_col = "process_type_y"
+
+    lead_col = "lead_agency_summary"
+    if lead_col not in packet.columns and "lead_agency_harmonized" in packet.columns:
+        lead_col = "lead_agency_harmonized"
+
+    base = pd.DataFrame({
+        "sample_id": _packet_series(packet, "sample_id"),
+        "project_id": _packet_series(packet, "project_id"),
+        "project_title": _packet_series(packet, "project_title"),
+        "process_type": _packet_series(packet, process_col),
+        "project_energy_type": _packet_series(packet, "project_energy_type"),
+        "lead_agency": _packet_series(packet, lead_col),
+        "suggested_initiation_date": _packet_series(packet, "pipeline_initiation_date"),
+        "suggested_initiation_evidence": _packet_series(packet, "pipeline_initiation_evidence"),
+        "top_initiation_candidates": _packet_series(packet, "top_initiation_candidates"),
+        "review_initiation_date": "",
+        "review_initiation_notes": "",
+        "suggested_decision_date": _packet_series(packet, "pipeline_decision_date"),
+        "suggested_decision_evidence": _packet_series(packet, "pipeline_decision_evidence"),
+        "top_decision_candidates": _packet_series(packet, "top_decision_candidates"),
+        "review_decision_date": "",
+        "review_decision_notes": "",
+    })
+
+    out = base.loc[base.index.repeat(2)].reset_index(drop=True)
+    out["reviewer"] = ["reviewer_1", "reviewer_2"] * len(base)
+    return out[SIMPLE_REVIEW_COLUMNS]
 
 
 # ---------------------------------------------------------------------------
@@ -569,7 +642,8 @@ def main() -> None:
 
         print(f"Building review packet for {len(sample_ids)} projects...")
         packet = prepare_review(sample_df, dates_sub, cands_sub)
-        packet.to_csv(REVIEW_PACKET_PATH, index=False)
+        simple_packet = prepare_simple_review_packet(packet)
+        simple_packet.to_csv(REVIEW_PACKET_PATH, index=False)
         print(f"Wrote: {REVIEW_PACKET_PATH}")
         n_pipeline_init = packet["pipeline_initiation_date"].notna().sum()
         n_pipeline_dec = packet["pipeline_decision_date"].notna().sum()
@@ -582,6 +656,14 @@ def main() -> None:
 
         print(f"Loading reviewed packet: {reviewed_path}")
         reviewed_df = pd.read_csv(reviewed_path)
+        required_gold_cols = ["gold_initiation_type", "gold_decision_type"]
+        missing_gold_cols = [c for c in required_gold_cols if c not in reviewed_df.columns]
+        if missing_gold_cols:
+            raise ValueError(
+                "Reviewed packet is missing validation columns "
+                f"{missing_gold_cols}. Use a reviewed file with gold_* columns, "
+                "or validate a normalized split with --gold-split."
+            )
         reviewed_df = validate_gold_columns(reviewed_df)
 
         # Check that gold columns have been filled

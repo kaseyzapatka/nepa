@@ -100,7 +100,7 @@ flowchart TD
 
 | File | Description |
 |---|---|
-| `phase2/data/analysis/projects_combined.parquet` | Project metadata including `process_type`, `project_energy_type`, agency, FR fields (`noi_publication_date`, `noi_match_status`, `noi_match_confidence`, `noa_availability_date`, `noa_match_status`) |
+| `phase2/data/analysis/projects_combined.parquet` | Project metadata including `process_type`, `project_energy_type`, agency, FR fields (`noi_publication_date`, `noi_match_status`, `noi_match_confidence`, `noa_availability_date`, `noa_match_status`), and `project_description` (used by script 02 for CE initiation extraction — see §CE Project Description Source below) |
 | `phase2/data/analysis/documents_combined.parquet` | Cross-source document rollup with harmonized `document_type_clean`, `document_type_category`, `main_document`, `document_date_from_file_name` |
 | `phase2/data/processed/ce/pages.parquet` | CE document page text (DuckDB scan only — never `pd.read_parquet`) |
 | `phase2/data/processed/ea/pages.parquet` | EA document page text |
@@ -172,6 +172,10 @@ Produces `timeline_context_packets.parquet`. Pages are loaded via DuckDB (`read_
 
 **Tier D — Page keyword scoring.** Scores all pages in `priority_1`, `priority_2`, and `priority_3` documents by `INITIATION_CUES` + `DECISION_CUES` matches; takes the top 10 by `retrieval_score`. Deduplicates against Tier B/C by `context_hash`, keeping the higher-tier packet.
 
+**CE Project Description Source.** For CE projects that are not BLM-fully-resolved (i.e., don't have both a BLM register initiation and decision date), script 02 loads `project_description` from `projects_combined.parquet` and emits one additional context packet per project with `retrieval_tier = "ce_description"` and `source_tier = "page_slice"`. The description is the "Description of Proposed Action" section extracted from the CE form — 100% coverage for CEs, median ~840 characters. Approximately 15% of CE descriptions contain at least one date, and of those ~54% include initiation-language ("submitted", "received", "filed"), making this a meaningful additional initiation source for BLM CEs that lack a register start date.
+
+`source_tier = "page_slice"` (not `"metadata"`) is intentional: the metadata branch of script 03 returns on the first date match only (designed for single-value register strings), whereas the page_slice path runs the full sentence-level extraction across the whole text. The description is parsed from its JSON list format (`["text..."]`) and markdown bold markers are stripped before extraction. Packet cap priority for `ce_description` is between `tier_a` (highest) and `tier_b`.
+
 **Per-project packet caps:** CE: 25, EA: 75, EIS: 150. When a project exceeds its cap, packets are sorted by tier order then descending retrieval score and trimmed.
 
 Sample runs use isolated output directories (`timeline/sample_runs/<ids_stem>/`) to prevent overwriting full-corpus outputs.
@@ -184,9 +188,21 @@ Applies 14 date regex patterns to every context packet's `context_text`. Pattern
 
 **Numeric dot guardrail:** `numeric_dot` (`M.DD.YY`) is only accepted when the surrounding context contains a signature, role title, or approval cue — otherwise version numbers and section numbers produce false hits.
 
-**Exclusion rules:** Future dates, pre-1970 dates (hard reject for CE/EA; soft reject for EIS), legal/statutory citation keywords (`EXCLUSION_KEYWORDS` — ~35 phrases including "act of 19", "u.s.c.", "public law", "doi:", "isbn", "expiration date", "valid until", "expires on", "categorical exclusion expires", "printed on recycled", "doe f ", "previous editions obsolete"), regex-based exclusions (`EXCLUSION_RE` — CFR citations `\d+ cfr \d+`, FR volume citations `\d+ fr \d+`, author-year bibliographic patterns), and reject cues (OMB, "form approved", "prepared by", "downloaded", "revision date", "revised YYYY", "map date/created/printed/prepared").
+**Exclusion rules:** Future dates, pre-1970 dates (hard reject for CE/EA; soft reject for EIS), legal/statutory citation keywords (`EXCLUSION_KEYWORDS` — ~35 phrases including "act of 19", "u.s.c.", "public law", "doi:", "isbn", "expiration date", "valid until", "expires on", "expiry", "categorical exclusion expires", "printed on recycled", "doe f ", "previous editions obsolete", "remain in place until", "protective fencing"), regex-based exclusions (`EXCLUSION_RE` — CFR citations `\d+ cfr \d+`, FR volume citations `\d+ fr \d+`, author-year bibliographic patterns), and reject cues (OMB, "form approved", "prepared by", "downloaded", "revision date", "revised YYYY", "map date/created/printed/prepared"). The keywords `"expiry"`, `"remain in place until"`, and `"protective fencing"` were added to exclude ROW/lease expiry dates in renewal CE backgrounds and operational field-management duration dates (e.g., "protective fencing would remain in place until 8/17/08") that appeared as spurious `clear_decision` candidates in CE Decision Records.
 
-**Role prelabeling** (`_prelabel_role`): assigns `candidate_role` and `role_confidence` (0–5 scale). Tier A metadata packets are prelabeled deterministically based on `retrieval_reason` — BLM/DOE register sources always produce `clear_decision` or `clear_initiation` with confidence 5.0. Filename Tier A packets (`retrieval_reason = "filename_date_decision_doc"`) produce `clear_decision` with confidence 3.0. For document text: `CLEAR_DECISION_STRONG` and `CLEAR_INITIATION_STRONG` patterns are checked first (confidence 5.0); `HISTORICAL_CUES` and `REJECT_CUES` are checked before medium-strength patterns; `CLEAR_DECISION_MED` and `CLEAR_INITIATION_MED` produce confidence 3.0. `REVIEW_CUES` (environmental specialist, SHPO, Section 106) produce `candidate_role = "review"`. Candidates not matching any cue get `candidate_role = "unknown"` with confidence 1.0.
+**Role prelabeling** (`_prelabel_role`): assigns `candidate_role` and `role_confidence` (0–5 scale). The evaluation order within `_prelabel_role` is:
+
+1. **Tier A metadata early returns** — BLM/DOE register `retrieval_reason` strings produce `clear_decision` or `clear_initiation` at confidence 5.0 without reading context text. Filename Tier A (`filename_date_decision_doc`) produces `clear_decision` at confidence 3.0.
+2. **`nepa_case_year` early return** — dates extracted via the NEPA case-number year pattern (`DOI-BLM-...-2022-...` → 2022-07-01) always return `proxy_decision` at confidence 0.5, regardless of any decision language in the surrounding context. This prevents text cues like "Field Manager Date" from upgrading a case-number year to `clear_decision`.
+3. **`HISTORICAL_CUES` (before decision cues)** — if the context contains historical-reference language ("was granted a ROW on", "prior ROD", "resource management plan", "communication site established"), the candidate is immediately labeled `historical` at confidence 0.0. This check runs **before** `CLEAR_DECISION_STRONG` so that historical dates embedded in decision documents (e.g., a CE body referencing a 1988 ROW grant) are not mistakenly promoted to `clear_decision` by decision-language elsewhere in the same context block.
+4. **`CLEAR_DECISION_STRONG`** — confidence 5.0. Key patterns: FONSI/ROD/CE determination signed or issued; "digitally signed by"; "SIGNATURE OF AUTHORIZED OFFICER" (standard BLM CE form section header for the approving official's signature block — added after this pattern was misclassified as `review` when "Planning and Environmental Coordinator" appeared in the same context block); "NEPA compliance officer"; "NCO determination"; "authority and approval"; YYYY.MM.DD digital-signature timestamps; `/s/ <name>` notation.
+5. **`CLEAR_INITIATION_STRONG`** — confidence 5.0.
+6. **`REJECT_CUES`** — confidence 0.0.
+7. **`CLEAR_DECISION_MED`** / **`CLEAR_INITIATION_MED`** — confidence 3.0.
+8. **`REVIEW_CUES`** — specialist roles (environmental specialist, SHPO, Section 106); confidence 2.0.
+9. **FEIS/EA proxy**, **month-year**, **document-type fallback**, **unknown** — in order.
+
+Candidates not matching any cue get `candidate_role = "unknown"` with confidence 1.0–1.5.
 
 **Specialist /s/ face-sheet disambiguation:** `CLEAR_DECISION_STRONG` includes a `/s/` branch that matches any digital signature notation. On multi-specialist face sheets (e.g. BLM EA cover pages with cultural resources, paleontology, range rows), multiple `/s/` patterns fire without any actual decision keyword. The `CLEAR_DECISION_KEYWORDS_RE` pattern (same as `CLEAR_DECISION_STRONG` minus the `/s/` and `YYYY.MM.DD` branches) is used to detect this case: if the decision-strong match was driven only by `/s/` and 3+ signature instances appear in the context (or `REVIEW_CUES` matches a specialist role), the candidate is downgraded to `review` role.
 
@@ -213,13 +229,15 @@ Implements two-pass selection to avoid circular chronology scoring:
 
 **Pass 2 (initiation).** Re-score `clear_initiation` and `proxy_initiation` candidates using the selected decision date as a chronology anchor. Dates after the selected decision receive a −5 `chronology_signal` penalty. Best clear initiation before the selected decision is chosen. **Chronology filter granularity fix:** when the selected decision date has `granularity = "year"` (i.e. a `nepa_case_year` proxy normalized to `YYYY-07-01`), the filter uses year-level comparison (`d.year <= decision_year`) instead of a strict day comparison. Without this, Tier A BLM register initiation dates that fall in the same year but after July 1 (e.g. `2021-07-23` vs proxy `2021-07-01`) were incorrectly excluded. This fix recovers ~4,163 previously lost BLM initiation dates.
 
+**`nepa_case_year` proxy discard.** After both dates are selected, if the decision date came from a `nepa_case_year` candidate (`date_granularity = "year"`, normalized to YYYY-07-01) AND the selected initiation date falls in the same year or later (`init_d.year <= dec_d.year`), the proxy decision is discarded and the project is re-labeled `missing_decision` with the flag `nepa_case_year_proxy_discarded`. This prevents the July-1 placeholder from generating false `invalid_order` statuses when a BLM register initiation date from later in the same year (e.g. August 17) is correctly selected. A real `invalid_order` (decision before initiation across different years, or within the same year with non-proxy evidence) is still preserved.
+
 **Timeline status** is assigned from the combination of which dates exist, proxy flags, and ordering validity:
 - `complete_clear` — both dates non-null, ordered, neither is proxy
 - `complete_with_proxy` — both dates non-null, ordered, at least one is proxy
 - `missing_initiation` — decision exists, no initiation
-- `missing_decision` — initiation exists, no decision
+- `missing_decision` — initiation exists, no decision; also set when a `nepa_case_year` proxy is discarded (see above)
 - `missing_both` — neither endpoint
-- `invalid_order` — decision before initiation
+- `invalid_order` — decision before initiation (excludes same-year `nepa_case_year` artifact — see above)
 - `manual_review` — flagged for human resolution
 
 `duration_days` is populated only when both selected dates have `date_granularity == "day"`.
@@ -357,15 +375,32 @@ Role confidence uses a 0–5 scale: 5.0 = Tier A or strong pattern; 3.0 = medium
 
 | Component | Range | Primary driver |
 |---|---:|---|
-| `source_strength` | 0–5 | Tier A metadata = 5; page_slice/section = 3; page_keyword = 2 |
+| `source_strength` | 0–5 | Tier A metadata = 5; **ce_description = 4**; page_slice/section/tier_b/tier_c = 3; page_keyword/tier_d = 2 |
 | `role_cue_strength` | 0–5 | From `role_confidence` value |
 | `document_priority` | −3 to +5 | `DOCUMENT_TYPE_SCORES` dict; ROD/FONSI/CE determination = 5.0; appendix = −2.5 |
-| `section_priority` | −2 to +3 | Decision/initiation section headings get boosts; references/bibliography get penalties |
+| `section_priority` | −2 to +3 | Decision/approval headings = +3; introduction/background/purpose and need/scoping/**proposed action**/**description of proposed action** = +2; references/bibliography/appendix = −2 |
 | `page_priority` | 0–3 | Capped from retrieval score / 3 |
 | `position_signal` | −1 to +1.5 | Bottom-of-document boost for CE decisions |
 | `chronology_signal` | −5 to +2 | Strong penalty for initiation after selected decision |
 | `repeated_mention_signal` | 0–1 | Small boost for consistent repeated mentions only |
 | `negative_penalty` | 0–8 | Historical gap flag; strong negative context; reject cues dominate weak positive scores |
+
+**Candidate ranking hierarchy (designed scores for common scenarios):**
+
+| Scenario | Approx. score | Beats description? |
+|---|---:|---|
+| Register Tier A (BLM/DOE, initiation or decision) | 10 | — (above all) |
+| CE determination doc + signed (SIGNATURE OF AUTHORIZED OFFICER, decision section) | 17 | Yes ✓ |
+| CE determination doc + medium cue | 15 | Yes ✓ |
+| **CE description + medium cue** (submitted on, filed, received) | **9.7** | — (baseline) |
+| **CE description + strong cue** (application received, NOI published) | **11.7** | — (baseline) |
+| **CE description + no cue** (date with no initiation language) | 7.7 | No (below most doc scans) |
+| Document body: background section + medium cue | 9 | No — description wins ✓ |
+| Document body: no section + medium cue | 7 | No — description wins ✓ |
+| Strong cue in unlabeled page (no doc type or section) | 9 | No — edge case; in practice signature blocks appear in decision-type docs |
+| Document body: no section + low cue | 5 | No — description wins ✓ |
+
+The hierarchy ensures CE description dates with initiation/decision language (submitted, filed, authorized) rank above generic document body text, while clear signed-document signals (decision-type documents, decision-section headings) always win.
 
 ---
 
