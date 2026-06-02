@@ -1,0 +1,202 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>D6 FONSI opportunity scan</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 2rem; color: #222; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { border: 1px solid #ddd; padding: 0.45rem; vertical-align: top; }
+th { background: #f2f4f6; text-align: left; }
+.note { max-width: 70rem; color: #444; }
+</style></head><body>
+<h1>D6 FONSI Opportunity Scan</h1>
+<p>Generated 2026-06-02T15:44:06.024774+00:00. This is a review aid, not a legal sufficiency determination.</p>
+<p class="note">CE Explorer similarity scores rank material for manual review. CE-track
+classification is frequently metadata-only, so CE shares must be read together with the
+classification-coverage columns in the CSV matrix. EIS share is a composition metric, not
+an escalation rate.</p>
+<table border="1" class="dataframe matrix">
+  <thead>
+    <tr style="text-align: right;">
+      <th>archetype_label</th>
+      <th>recommendation_tier</th>
+      <th>n_fonsi_projects</th>
+      <th>fonsi_share</th>
+      <th>ce_share</th>
+      <th>eis_share</th>
+      <th>mitigation_dependence_share</th>
+      <th>assessment_total</th>
+      <th>strongest_same_agency_ce</th>
+      <th>gating_flags</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Oil and gas</td>
+      <td>deprioritize</td>
+      <td>215</td>
+      <td>0.0192</td>
+      <td>0.9704</td>
+      <td>0.0061</td>
+      <td>0.6558</td>
+      <td>9</td>
+      <td>DOE | DOE-1--5-84 | B5.13 EXPERIMENTAL WELLS FOR INJECTION OF SMALL QUANTITIES OF CARBON DIOXIDE. Siting, construction, operation, plugging, and abandonment of experimental wells for the injection of small quantities of carbon dioxide (and other incidentally co-captured gases) in locally characterized, geologically secure storage formations at or near existing carbon dioxide sources to determine the suitability of the formations for large-scale sequestration, provided that (1) The characterization has verified a low potential for seismicity, subsidence, and contamination of freshwater aquifers; (2) the wells are otherwise in accordance with applicable requirements, best practices, and DOE protocols, including those that protect against uncontrolled releases of harmful materials; and (3) the wells and associated drilling activities are sufficiently remote so that they would not have the potential to cause significant impacts related to noise and other vibrations. Wells may be used for enhanced oil or natural gas recovery or for secure storage of carbon dioxide in saline formations or other secure formations. Over the duration of a project, the wells would be used to inject, in aggregate, less than 500,000 tons of carbon dioxide into the geologic formation. Covered actions exclude activities in aquatic environments. (See B3.16 of this appendix for activities in aquatic environments.) | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["comparison_only_archetype", "high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Other clean-energy action</td>
+      <td>deprioritize</td>
+      <td>9</td>
+      <td>0.0068</td>
+      <td>0.9721</td>
+      <td>0.0158</td>
+      <td>0.4444</td>
+      <td>5</td>
+      <td>DOE | DOE-1--5-76 | B5.4 REPAIR OR REPLACEMENT OF PIPELINES. Repair, replacement, upgrading, rebuilding, or minor relocation of pipelines within existing rights-of-way, provided that the actions are in accordance with applicable requirements (such as Army Corps of Engineers permits under section 404 of the Clean Water Act). Pipelines may convey materials including, but not limited to, air, brine, carbon dioxide, geothermal system fluids, hydrogen gas, natural gas, nitrogen gas, oil, produced water, steam, and water. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["comparison_only_archetype", "unresolved_boundary_cases"]</td>
+    </tr>
+    <tr>
+      <td>Facility upgrade</td>
+      <td>review</td>
+      <td>216</td>
+      <td>0.0222</td>
+      <td>0.9697</td>
+      <td>0.0055</td>
+      <td>0.6574</td>
+      <td>9</td>
+      <td>DOE | DOE-1--5-85 | B5.14 COMBINED HEAT AND POWER OR COGENERATION SYSTEMS. Conversion to, replacement of, or modification of combined heat and power or cogeneration systems (the sequential or simultaneous production of multiple forms of energy, such as thermal and electrical energy, in a single integrated system) at existing facilities, provided that the conversion, replacement, or modification would not have the potential to cause a significant increase in the quantity or rate of air emissions and would not have the potential to cause significant impacts to water resources. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Electricity transmission</td>
+      <td>review</td>
+      <td>178</td>
+      <td>0.0209</td>
+      <td>0.9508</td>
+      <td>0.0234</td>
+      <td>0.7022</td>
+      <td>9</td>
+      <td>DOE | DOE-1--4-69 | B4.11 ELECTRIC POWER SUBSTATIONS AND INTERCONNECTION FACILITIES. Construction or modification of electric power substations or interconnection facilities (including, but not limited to, switching stations and support facilities). | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Site characterization</td>
+      <td>review</td>
+      <td>83</td>
+      <td>0.0279</td>
+      <td>0.9680</td>
+      <td>0.0020</td>
+      <td>0.6747</td>
+      <td>9</td>
+      <td>DOE | DOE-1--3-43 | B3.1 SITE CHARACTERIZATION AND ENVIRONMENTAL MONITORING. Site characterization and environmental monitoring (including, but not limited to, siting, construction, modification, operation, and dismantlement and removal or otherwise proper closure (such as of a well) of characterization and monitoring devices, and siting, construction, and associated operation of a small-scale laboratory building or renovation of a room in an existing building for sample analysis). Such activities would be designed in conformance with applicable requirements and use best management practices to limit the potential effects of any resultant ground disturbance. Covered activities include, but are not limited to, site characterization and environmental monitoring under CERCLA and RCRA. (This class of actions excludes activities in aquatic environments. See B3.16 of this appendix for such activities.) Specific activities include, but are not limited to: (a) Geological, geophysical (such as gravity, magnetic, electrical, seismic, radar, and temperature gradient), geochemical, and engineering surveys and mapping, and the establishment of survey marks. Seismic techniques would not include large-scale reflection or refraction testing; (b) Installation and operation of field instruments (such as stream-gauging stations or flow-measuring devices, telemetry systems, geochemical monitoring tools, and geophysical exploration tools); (c) Drilling of wells for sampling or monitoring of groundwater or the vadose (unsaturated) zone, well logging, and installation of water-level recording devices in wells; (d) Aquifer and underground reservoir response testing; (e) Installation and operation of ambient air monitoring equipment; (f) Sampling and characterization of water, soil, rock, or contaminants (such as drilling using truck- or mobile-scale equipment, and modification, use, and plugging of boreholes); (g) Sampling and characterization of water effluents, air emissions, or solid waste streams; (h) Installation and operation of meteorological towers and associated activities (such as assessment of potential wind energy resources); (i) Sampling of flora or fauna; and (j) Archeological, historic, and cultural resource identification in compliance with 36 CFR part 800 and 43 CFR part 7. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Hydropower</td>
+      <td>review</td>
+      <td>60</td>
+      <td>0.0500</td>
+      <td>0.8925</td>
+      <td>0.0517</td>
+      <td>0.7167</td>
+      <td>9</td>
+      <td>DOE | DOE-1--5-95 | B5.24 DROP-IN HYDROELECTRIC SYSTEMS. The installation, modification, operation, and removal of commercially available small-scale, drop-in, run-of-the-river hydroelectric systems that would (1) Involve no water storage or water diversion from the stream or river channel where the system is installed and (2) not have the potential to cause significant impacts on water quality, temperature, flow, or volume. Covered systems would be located up-gradient of an existing anadromous fish barrier that is not planned for removal and where fish passage retrofit is not planned and where there would not be the potential for significant impacts to threatened or endangered species or other species of concern (as identified in B(4)(ii) of this appendix). Covered actions would involve no major construction or modification of stream or river channels, and the hydroelectric systems would be placed and secured in the channel without the use of heavy equipment. Covered actions would be in accordance with applicable requirements (such as local land use and zoning requirements) in the proposed project area and would incorporate appropriate control technologies and best management practices. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Solar energy</td>
+      <td>review</td>
+      <td>59</td>
+      <td>0.0193</td>
+      <td>0.9499</td>
+      <td>0.0242</td>
+      <td>0.7288</td>
+      <td>9</td>
+      <td>DOE | DOE-1--5-88 | B5.17 SOLAR THERMAL SYSTEMS. The installation, modification, operation, and removal of commercially available small-scale solar thermal systems (including, but not limited to, solar hot water systems) located on or contiguous to a building, and if located on land, generally comprising less than 10 acres within a previously disturbed or developed area. Covered actions would be in accordance with applicable requirements (such as local land use and zoning requirements) in the proposed project area and would incorporate appropriate control technologies and best management practices. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Energy storage</td>
+      <td>review</td>
+      <td>47</td>
+      <td>0.0236</td>
+      <td>0.9599</td>
+      <td>0.0115</td>
+      <td>0.6170</td>
+      <td>9</td>
+      <td>DOE | DOE-1--4-72 | B4.14 CONSTRUCTION AND OPERATION OF ELECTROCHEMICAL-BATTERY OR FLYWHEEL ENERGY STORAGE SYSTEMS. Construction, operation, upgrade, or decommissioning of an electrochemical-battery or flywheel energy storage system within a previously disturbed or developed area or within a small (as discussed at 10 CFR 1021.410(g)(2)) area contiguous to a previously disturbed or developed area. Covered actions would be in accordance with applicable requirements (such as land use and zoning requirements) in the proposed project area and the integral elements listed at the start of appendix B of this part, and would incorporate appropriate safety standards (including the current National Fire Protection Association 855, Standard for the Installation of Stationary Energy Storage Systems), design and construction standards, control technologies, and best management practices. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Wind energy</td>
+      <td>review</td>
+      <td>30</td>
+      <td>0.0494</td>
+      <td>0.9077</td>
+      <td>0.0379</td>
+      <td>0.6333</td>
+      <td>9</td>
+      <td>DOE | DOE-1--5-89 | B5.18 WIND TURBINES. The installation, modification, operation, and removal of a small number (generally not more than 2) of commercially available wind turbines, with a total height generally less than 200 feet (measured from the ground to the maximum height of blade rotation) that (1) Are located within a previously disturbed or developed area; (2) are located more than 10 nautical miles (about 11.5 miles) from an airport or aviation navigation aid; (3) are located more than 1.5 nautical miles (about 1.7 miles) from National Weather Service or Federal Aviation Administration Doppler weather radar; (4) would not have the potential to cause significant impacts on bird or bat populations; and (5) are sited or designed such that the project would not have the potential to cause significant impacts to persons (such as from shadow flicker and other visual effects, and noise). Covered actions would be in accordance with applicable requirements (such as local land use and zoning requirements) in the proposed project area and would incorporate appropriate control technologies and best management practices. Covered actions include only those related to wind turbines to be installed on land. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Geothermal exploration</td>
+      <td>review</td>
+      <td>21</td>
+      <td>0.0434</td>
+      <td>0.9545</td>
+      <td>0.0000</td>
+      <td>0.8571</td>
+      <td>9</td>
+      <td>DOE | DOE-1--3-58 | B3.16 RESEARCH ACTIVITIES IN AQUATIC ENVIRONMENTS. Small-scale, temporary surveying, site characterization, and research activities in aquatic environments, limited to: (a) Acquisition of rights-of-way, easements, and temporary use permits; (b) Installation, operation, and removal of passive scientific measurement devices, including, but not limited to, antennae, tide gauges, flow testing equipment for existing wells, weighted hydrophones, salinity measurement devices, and water quality measurement devices; (c) Natural resource inventories, data and sample collection, environmental monitoring, and basic and applied research, excluding (1) large-scale vibratory coring techniques and (2) seismic activities other than passive techniques; and (d) Surveying and mapping. These activities would be conducted in accordance with, where applicable, an approved spill prevention, control, and response plan and would incorporate appropriate control technologies and best management practices. None of the activities listed above would occur within the boundary of an established marine sanctuary or wildlife refuge, a governmentally proposed marine sanctuary, or wildlife refuge, or a governmentally recognized area of high biological sensitivity, unless authorized by the agency responsible for such refuge, sanctuary, or area (or after consultation with the responsible agency, if no authorization is required). If the proposed activities would occur outside such refuge, sanctuary, or area and if the activities would have the potential to cause impacts within such refuge, sanctuary, or area, then the responsible agency shall be consulted in order to determine whether authorization is required and whether such activities would have the potential to cause significant impacts on such refuge, sanctuary, or area. Areas of high biological sensitivity include, but are not limited to, areas of known ecological importance, whale and marine mammal mating and calving/pupping areas, and fish and invertebrate spawning and nursery areas recognized as being limited or unique and vulnerable to perturbation; these areas can occur in bays, estuaries, near shore, and far offshore, and may vary seasonally. No permanent facilities or devices would be constructed or installed. Covered actions do not include drilling of resource exploration or extraction wells. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Pipeline</td>
+      <td>review</td>
+      <td>21</td>
+      <td>0.0995</td>
+      <td>0.8768</td>
+      <td>0.0190</td>
+      <td>0.6190</td>
+      <td>9</td>
+      <td>DOE | DOE-1--5-76 | B5.4 REPAIR OR REPLACEMENT OF PIPELINES. Repair, replacement, upgrading, rebuilding, or minor relocation of pipelines within existing rights-of-way, provided that the actions are in accordance with applicable requirements (such as Army Corps of Engineers permits under section 404 of the Clean Water Act). Pipelines may convey materials including, but not limited to, air, brine, carbon dioxide, geothermal system fluids, hydrogen gas, natural gas, nitrogen gas, oil, produced water, steam, and water. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence"]</td>
+    </tr>
+    <tr>
+      <td>Hydrogen</td>
+      <td>review</td>
+      <td>14</td>
+      <td>0.0268</td>
+      <td>0.9674</td>
+      <td>0.0038</td>
+      <td>0.2857</td>
+      <td>7</td>
+      <td>DOE | DOE-1--3-51 | B3.9 PROJECTS TO REDUCE EMISSIONS AND WASTE GENERATION. Projects to reduce emissions and waste generation at existing fossil or alternative fuel combustion or utilization facilities, provided that these projects would not have the potential to cause a significant increase in the quantity or rate of air emissions. For this category of actions, ‘‘fuel’’ includes, but is not limited to, coal, oil, natural gas, hydrogen, syngas, and biomass; but ‘‘fuel’’ does not include nuclear fuel. Covered actions include, but are not limited to: (a) Test treatment of the throughput product (solid, liquid, or gas) generated at an existing and fully operational fuel combustion or utilization facility; (b) Addition or replacement of equipment for reduction or control of sulfur dioxide, oxides of nitrogen, or other regulated substances that requires only minor modification to the existing structures at an existing fuel combustion or utilization facility, for which the existing use remains essentially unchanged; (c) Addition or replacement of equipment for reduction or control of sulfur dioxide, oxides of nitrogen, or other regulated substances that involves no permanent change in the quantity or quality of fuel burned or used and involves no permanent change in the capacity factor of the fuel combustion or utilization facility; and (d) Addition or modification of equipment for capture and control of carbon dioxide or other regulated substances, provided that adequate infrastructure is in place to manage such substances. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>[]</td>
+    </tr>
+    <tr>
+      <td>Geothermal development</td>
+      <td>review</td>
+      <td>6</td>
+      <td>0.0144</td>
+      <td>0.9519</td>
+      <td>0.0288</td>
+      <td>0.3333</td>
+      <td>7</td>
+      <td>DOE | DOE-1--3-49 | B3.7 NEW TERRESTRIAL INFILL EXPLORATORY AND EXPERIMENTAL WELLS. Siting, construction, and operation of new terrestrial infill exploratory and experimental (test) wells, for either extraction or injection use, in a locally characterized geological formation in a field that contains existing operating wells, properly abandoned wells, or unminable coal seams containing natural gas, provided that the site characterization has verified a low potential for seismicity, subsidence, and contamination of freshwater aquifers, and the actions are otherwise consistent with applicable best practices and DOE protocols, including those that protect against uncontrolled releases of harmful materials. Such wells may include those for brine, carbon dioxide, coalbed methane, gas hydrate, geothermal, natural gas, and oil. Uses for carbon sequestration wells include, but are not limited to, the study of saline formations, enhanced oil recovery, and enhanced coalbed methane extraction. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["unresolved_boundary_cases"]</td>
+    </tr>
+    <tr>
+      <td>Carbon management</td>
+      <td>review</td>
+      <td>6</td>
+      <td>0.0045</td>
+      <td>0.9925</td>
+      <td>0.0008</td>
+      <td>0.8333</td>
+      <td>6</td>
+      <td>DOE | DOE-1--3-51 | B3.9 PROJECTS TO REDUCE EMISSIONS AND WASTE GENERATION. Projects to reduce emissions and waste generation at existing fossil or alternative fuel combustion or utilization facilities, provided that these projects would not have the potential to cause a significant increase in the quantity or rate of air emissions. For this category of actions, ‘‘fuel’’ includes, but is not limited to, coal, oil, natural gas, hydrogen, syngas, and biomass; but ‘‘fuel’’ does not include nuclear fuel. Covered actions include, but are not limited to: (a) Test treatment of the throughput product (solid, liquid, or gas) generated at an existing and fully operational fuel combustion or utilization facility; (b) Addition or replacement of equipment for reduction or control of sulfur dioxide, oxides of nitrogen, or other regulated substances that requires only minor modification to the existing structures at an existing fuel combustion or utilization facility, for which the existing use remains essentially unchanged; (c) Addition or replacement of equipment for reduction or control of sulfur dioxide, oxides of nitrogen, or other regulated substances that involves no permanent change in the quantity or quality of fuel burned or used and involves no permanent change in the capacity factor of the fuel combustion or utilization facility; and (d) Addition or modification of equipment for capture and control of carbon dioxide or other regulated substances, provided that adequate infrastructure is in place to manage such substances. | https://www.ecfr.gov/current/title-10/chapter-X/part-1021</td>
+      <td>["high_case_specific_mitigation_dependence", "unresolved_boundary_cases"]</td>
+    </tr>
+  </tbody>
+</table>
+</body></html>
