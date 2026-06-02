@@ -33,6 +33,11 @@ PACKETS_PATH = TIMELINE_DIR / "timeline_context_packets.parquet"
 INDEX_PATH = TIMELINE_DIR / "timeline_document_index.parquet"
 OUTPUT_PATH = TIMELINE_DIR / "timeline_candidates.parquet"
 
+# The single human-labeling sample for SetFit training (emitted at end of a full run).
+OUTPUT_DIR = PHASE2 / "output" / "deliverable04"
+LABELING_SAMPLE_PATH = OUTPUT_DIR / "labeling_sample.csv"
+LABELING_SAMPLE_SIZE = 300  # total rows, stratified across process_type x candidate_role
+
 RUN_DATE = datetime.now(timezone.utc).date()
 
 # ---------------------------------------------------------------------------
@@ -48,12 +53,18 @@ DATE_PATTERNS = [
     (rf"({MONTHS_FULL})\s+(\d{{1,2}})(?:st|nd|rd|th),?\s+(\d{{4}})", "MDY_ordinal"),
     (rf"({MONTHS_SHORT})\.?\s+(\d{{1,2}})(?:st|nd|rd|th),?\s+(\d{{4}})", "MDY_short_ordinal"),
     (rf"(\d{{1,2}})\s+({MONTHS_FULL})\s+(\d{{4}})", "DMY_full"),
+    # Day-first short month, e.g. "30 Oct 2015" / "30 Oct. 2015". Without this the
+    # bare MY_short pattern below captures only "Oct 2015" and drops the day.
+    (rf"(\d{{1,2}})\s+({MONTHS_SHORT})\.?\s+(\d{{4}})", "DMY_short"),
     (r"(\d{1,2})\s*/\s*(\d{1,2})\s*/\s*(\d{4})", "numeric_slash"),
     (r"(\d{1,2})\s*/\s*(\d{1,2})\s*/\s*(\d{2})\b", "numeric_slash_2y"),
     (r"(\d{4})-(\d{1,2})-(\d{1,2})", "ISO"),
     (r"(\d{1,2})-(\d{1,2})-(\d{4})", "numeric_dash"),
     (r"(\d{4})\.(\d{2})\.(\d{2})", "digital_sig"),
-    (r"(?<![\d.])(0?[1-9]|1[0-2])\.(\d{2})\.(\d{2,4})(?![\d.])", "numeric_dot"),
+    # Dotted dates: require a TWO-digit month (01-12), i.e. XX.XX.XX or XX.XX.XXXX.
+    # A single-digit leading group is almost always a citation / section / lot number,
+    # not a date (e.g. "PMC-EF2a (2.04.02)", "Lots 7.10.15") — those are now excluded.
+    (r"(?<![\d.])(0[1-9]|1[0-2])\.(\d{2})\.(\d{2,4})(?![\d.])", "numeric_dot"),
     (rf"({MONTHS_FULL})\s+(\d{{4}})", "MY_full"),
     (rf"({MONTHS_SHORT})\.?\s+(\d{{4}})", "MY_short"),
     # NEPA case number year fallback: "DOI-BLM-WY-P070-2019-0035-CX" → year 2019
@@ -72,6 +83,65 @@ MONTH_MAP = {
     "jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6,
     "jul": 7, "aug": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12,
 }
+
+# ---------------------------------------------------------------------------
+# Anchored model context — the text the classifier (04) and labeler read.
+# The target date is wrapped in [[ ]] markers so the model knows WHICH date it is
+# scoring even when several dates share the window (common in EIS narrative and CE
+# signature tables). The window is centered on the date so it survives the encoder's
+# token-truncation, expanded to sentence boundaries, then capped per process type.
+# Char caps approximate the token targets CE~100 / EA~150 / EIS~200 (≈4 chars/token).
+# ---------------------------------------------------------------------------
+MODEL_CONTEXT_CHARS = {"CE": 400, "EA": 600, "EIS": 800}
+DATE_MARKER_OPEN = "[["
+DATE_MARKER_CLOSE = "]]"
+_SENT_BOUNDARY = re.compile(r"[.!?]\s+")
+
+
+def _build_model_context(full_text: str, ds: int, de: int, process_type: str) -> str:
+    """
+    Build a date-centered, sentence-bounded, capped, marker-wrapped window.
+    full_text is the normalized packet text; [ds, de) is the date span within it.
+    """
+    cap = MODEL_CONTEXT_CHARS.get(process_type, 600)
+    n = len(full_text)
+    if not (0 <= ds < de <= n):
+        return full_text[:cap]
+
+    # Sentence boundaries; expand to the sentence containing the date, then enforce cap.
+    bounds = [0] + [m.end() for m in _SENT_BOUNDARY.finditer(full_text)] + [n]
+    s = max([b for b in bounds if b <= ds], default=0)
+    e = min([b for b in bounds if b >= de], default=n)
+    if e - s > cap:
+        # Too long for one sentence — center a cap-sized window on the date instead,
+        # so the marked date is never truncated away by the encoder.
+        center = (ds + de) // 2
+        s = max(0, center - cap // 2)
+        e = min(n, s + cap)
+        s = max(0, e - cap)
+
+    rel_s, rel_e = ds - s, de - s
+    body = full_text[s:e]
+    if 0 <= rel_s < rel_e <= len(body):
+        body = (body[:rel_s] + DATE_MARKER_OPEN + body[rel_s:rel_e]
+                + DATE_MARKER_CLOSE + body[rel_e:])
+    return ("..." if s > 0 else "") + body + ("..." if e < n else "")
+
+
+def _suppress_contained(matches: list[tuple]) -> list[tuple]:
+    """
+    Drop matches whose character span is contained within a strictly longer match.
+    Keeps the longest date at each position so "30 Oct 2015" wins over "Oct 2015".
+    Each match tuple is (start, end, m, ptype, parsed, granularity).
+    """
+    kept: list[tuple] = []
+    for cand in sorted(matches, key=lambda t: (t[1] - t[0]), reverse=True):
+        cs, ce = cand[0], cand[1]
+        if any(ks <= cs and ce <= ke and (ke - ks) > (ce - cs) for ks, ke, *_ in kept):
+            continue
+        kept.append(cand)
+    return kept
+
 
 # ---------------------------------------------------------------------------
 # Exclusion patterns (legal/bibliographic/map)
@@ -386,7 +456,7 @@ def _parse_match(match: re.Match, ptype: str) -> tuple[datetime | None, str]:
         if ptype in ("MDY_full", "MDY_short", "MDY_ordinal", "MDY_short_ordinal"):
             month = MONTH_MAP.get(g[0].lower())
             return datetime(int(g[2]), month, int(g[1])), "day"
-        if ptype == "DMY_full":
+        if ptype in ("DMY_full", "DMY_short"):
             month = MONTH_MAP.get(g[1].lower())
             return datetime(int(g[2]), month, int(g[0])), "day"
         if ptype == "numeric_slash":
@@ -656,6 +726,9 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                     "date_granularity": granularity,
                     "context_text": context_clean,
                     "context_cleaned": context_clean,
+                    # Metadata candidates are Tier A (exempt from the classifier); keep the
+                    # column present for schema consistency.
+                    "model_context": context_clean,
                     "document_title": packet.get("document_title"),
                     "file_name": None,
                     "document_type_clean": document_type_clean,
@@ -693,12 +766,18 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
         block = block.strip()
         if not block:
             continue
+        # Collect all date matches in this block across patterns, then drop any match
+        # whose span sits inside a longer match (e.g. "Oct 2015" inside "30 Oct 2015")
+        # so the most complete date wins instead of being artificially subset.
+        raw_matches: list[tuple] = []
         for compiled, ptype in COMPILED_PATTERNS:
             for m in compiled.finditer(block):
                 parsed, granularity = _parse_match(m, ptype)
                 if parsed is None:
                     continue
+                raw_matches.append((m.start(), m.end(), m, ptype, parsed, granularity))
 
+        for _ms, _me, m, ptype, parsed, granularity in _suppress_contained(raw_matches):
                 reject, _ = _should_reject_date(
                     parsed, block, process_type, source_tier
                 )
@@ -737,6 +816,19 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                     except (ValueError, TypeError):
                         pass
 
+                # Anchored model context: locate this date in the full packet text and
+                # build a centered, sentence-bounded, capped, [[marker]]-wrapped window.
+                raw_date = m.group(0)
+                blk_off = context_clean.find(block)
+                abs_ds = blk_off + _ms if blk_off >= 0 else context_clean.find(raw_date)
+                if abs_ds < 0:
+                    abs_ds = context_clean.find(raw_date)
+                abs_de = abs_ds + len(raw_date) if abs_ds >= 0 else -1
+                model_ctx = (
+                    _build_model_context(context_clean, abs_ds, abs_de, process_type)
+                    if abs_ds >= 0 else block
+                )
+
                 candidate_id = hashlib.sha1(
                     f"{packet['project_id']}|{packet.get('document_id')}|{packet.get('page_start')}|{date_str}|{block_norm}".encode()
                 ).hexdigest()[:20]
@@ -758,11 +850,12 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                     "source_tier": source_tier,
                     "retrieval_tier": packet.get("retrieval_tier"),
                     "candidate_source_type": "document_text",
-                    "raw_date_text": m.group(0),
+                    "raw_date_text": raw_date,
                     "parsed_date": date_str,
                     "date_granularity": granularity,
                     "context_text": block,
                     "context_cleaned": block_norm + ("..." if len(block) > 100 else ""),
+                    "model_context": model_ctx,
                     "document_title": packet.get("document_title"),
                     "file_name": None,
                     "document_type_clean": document_type_clean,
@@ -799,6 +892,61 @@ def add_repeated_mention_counts(candidates_df: pd.DataFrame) -> pd.DataFrame:
         .reset_index(name="date_mention_count")
     )
     return candidates_df.merge(counts, on=["project_id", "parsed_date"], how="left")
+
+
+def emit_labeling_sample(df: pd.DataFrame, path: Path = LABELING_SAMPLE_PATH,
+                         n: int = LABELING_SAMPLE_SIZE) -> None:
+    """
+    Write the single human-labeling sample used to train the SetFit classifier.
+
+    One row per candidate, stratified across process_type x candidate_role so every
+    class is represented. The reviewer fills the `label` column with exactly one of:
+        initiation | decision | neither
+    (04_classify_candidates.py --train maps these to the two-head targets.)
+
+    Guarded: never overwrites a labeling_sample.csv that already has labels filled in —
+    it writes labeling_sample.regenerated.csv instead so manual work is never lost.
+    """
+    if df.empty:
+        return
+    # Exclude trivial Tier A metadata candidates (authoritative; not worth labeling).
+    pool = df[df["rule_ids"] != "metadata_tier_a"].copy()
+    if pool.empty:
+        pool = df.copy()
+
+    cells = pool.groupby(["process_type", "candidate_role"], dropna=False)
+    per_cell = max(3, n // max(1, cells.ngroups))
+    parts = [g.sample(n=min(len(g), per_cell), random_state=42) for _, g in cells]
+    sample = pd.concat(parts, ignore_index=True)
+    if len(sample) > n:
+        sample = sample.sample(n=n, random_state=42).reset_index(drop=True)
+
+    sample["stratum"] = (sample["process_type"].astype(str) + "/"
+                         + sample["candidate_role"].astype(str))
+    sample["label"] = ""   # reviewer fills: initiation | decision | neither
+    sample["notes"] = ""
+    cols = ["candidate_id", "project_id", "process_type", "candidate_role",
+            "role_confidence_score", "parsed_date", "date_granularity",
+            "document_type_clean", "heading_title", "raw_date_text",
+            "model_context", "stratum", "label", "notes"]
+    sample = sample[[c for c in cols if c in sample.columns]]
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        try:
+            prev = pd.read_csv(path)
+            if "label" in prev.columns and prev["label"].fillna("").astype(str).str.strip().ne("").any():
+                alt = path.with_name("labeling_sample.regenerated.csv")
+                sample.to_csv(alt, index=False)
+                print(f"[guard] {path.name} already has labels — wrote fresh sample to "
+                      f"{alt.name} instead (your labeled file is untouched).")
+                return
+        except Exception:
+            pass
+    sample.to_csv(path, index=False)
+    print(f"Wrote labeling sample: {path}  ({len(sample)} rows)")
+    print("  Fill the 'label' column with: initiation | decision | neither, "
+          "then run 04_classify_candidates.py --train")
 
 
 def main() -> None:
@@ -906,6 +1054,11 @@ def main() -> None:
 
     df.to_parquet(output_path, index=False)
     print(f"\nWrote: {output_path}")
+
+    # Emit the human-labeling sample only on a full-corpus run (run_dir == TIMELINE_DIR),
+    # so the SetFit training sample is representative of the whole corpus.
+    if run_dir == TIMELINE_DIR:
+        emit_labeling_sample(df)
 
 
 if __name__ == "__main__":

@@ -88,6 +88,9 @@ GOLD_DIR = TIMELINE_DIR / "gold"
 OUTPUT_DIR = PHASE2 / "output" / "deliverable04"
 
 CANDIDATES_PATH = TIMELINE_DIR / "timeline_candidates.parquet"
+# Primary training source: the simple human-labeled sample emitted by 03 (label column:
+# initiation | decision | neither). Falls back to the formal gold training table.
+LABELING_SAMPLE_PATH = OUTPUT_DIR / "labeling_sample.csv"
 TRAINING_PATH = GOLD_DIR / "timeline_gold_candidate_training.parquet"
 GOLD_CANDIDATES_PATH = GOLD_DIR / "timeline_gold_candidates.parquet"  # has 'split'
 MODEL_DIR = TIMELINE_DIR / "models" / "candidate_classifier"
@@ -112,10 +115,14 @@ LABEL_THRESHOLD = 0.5
 # Input construction + label derivation
 # ---------------------------------------------------------------------------
 def build_input_text(row: pd.Series) -> str:
-    """Prepend a process token so one shared model can specialise per process."""
+    """
+    Prepend a process token so one shared model can specialise per process, and use the
+    anchored `model_context` (target date wrapped in [[ ]]) so the model knows WHICH date
+    it is scoring. Falls back to context_text if model_context is absent (older parquets).
+    """
     proc = str(row.get("process_type") or "NA").strip().upper()
     heading = str(row.get("heading_title") or "").strip()
-    context = str(row.get("context_text") or row.get("context_cleaned") or "").strip()
+    context = str(row.get("model_context") or row.get("context_text") or row.get("context_cleaned") or "").strip()
     head = f"[{proc}]"
     if heading:
         return f"{head} {heading} :: {context}"
@@ -269,24 +276,49 @@ def load_model(model_dir: Path) -> tuple[TimelineClassifier | None, dict]:
 # ---------------------------------------------------------------------------
 # Modes
 # ---------------------------------------------------------------------------
+def _labels_from_label_col(series: pd.Series) -> np.ndarray:
+    """Map the simple `label` column (initiation|decision|neither) to two-head targets."""
+    s = series.fillna("").astype(str).str.strip().str.lower()
+    valid = {"initiation", "decision", "neither"}
+    bad = sorted(set(s) - valid)
+    if bad:
+        print(f"WARNING: ignoring unrecognized label values {bad} "
+              "(use exactly: initiation | decision | neither).")
+    init = s.eq("initiation").astype(int).to_numpy()
+    dec = s.eq("decision").astype(int).to_numpy()
+    return np.stack([init, dec], axis=1)
+
+
 def run_train(backend_name: str, model_dir: Path) -> None:
-    if not TRAINING_PATH.exists():
+    # Primary path: the simple human-labeled sample from 03 (label column).
+    if LABELING_SAMPLE_PATH.exists():
+        df = pd.read_csv(LABELING_SAMPLE_PATH)
+        if "label" not in df.columns:
+            raise SystemExit(f"{LABELING_SAMPLE_PATH} has no 'label' column.")
+        df = df[df["label"].fillna("").astype(str).str.strip().ne("")]
+        if df.empty:
+            raise SystemExit(
+                f"{LABELING_SAMPLE_PATH} has no filled labels yet.\n"
+                "Fill the 'label' column with initiation | decision | neither, then re-run."
+            )
+        labels = _labels_from_label_col(df["label"])
+        src = LABELING_SAMPLE_PATH.name
+    elif TRAINING_PATH.exists():
+        df = pd.read_parquet(TRAINING_PATH)
+        df = df[df["gold_candidate_role"].fillna("").astype(str).str.strip().ne("")]
+        if df.empty:
+            raise SystemExit("Training table has no labeled rows (gold_candidate_role empty).")
+        labels = roles_to_labels(df["gold_candidate_role"])
+        src = TRAINING_PATH.name
+    else:
         raise SystemExit(
-            f"No training table at {TRAINING_PATH}.\n"
-            "Produce gold labels first: labeling/ pipeline -> "
-            "timeline_gold_candidate_training.parquet.\n"
-            "NOTE: the current gold columns are regex echoes; train only on a "
-            "real labeled set (see the D4 to-do)."
+            f"No labels found. Fill {LABELING_SAMPLE_PATH} (label column: "
+            "initiation | decision | neither), or build the formal gold training table."
         )
-    df = pd.read_parquet(TRAINING_PATH)
-    df = df[df["gold_candidate_role"].fillna("").astype(str).str.strip().ne("")]
-    if df.empty:
-        raise SystemExit("Training table has no labeled rows (gold_candidate_role empty).")
 
     texts = [build_input_text(r) for _, r in df.iterrows()]
-    labels = roles_to_labels(df["gold_candidate_role"])
 
-    print(f"Training {backend_name} on {len(texts)} candidates "
+    print(f"Training {backend_name} on {len(texts)} labeled rows from {src} "
           f"(init={int(labels[:,0].sum())}, decision={int(labels[:,1].sum())}).")
     backend = make_backend(backend_name)
     backend.train(texts, labels)

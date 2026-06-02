@@ -134,7 +134,9 @@ def _confidence(v: object) -> str:
 def _build_prompt(cands: pd.DataFrame) -> str:
     lines = []
     for _, c in cands.iterrows():
-        ctx = _clean(c.get("context_text"))[:MAX_CONTEXT_CHARS]
+        # Prefer the anchored model_context ([[date]] markers) so the LLM scores the
+        # right date; fall back to context_text for older packets.
+        ctx = _clean(c.get("model_context") or c.get("context_text"))[:MAX_CONTEXT_CHARS]
         heading = _clean(c.get("heading_title"))
         doctype = _clean(c.get("document_type_clean"))
         lines.append(
