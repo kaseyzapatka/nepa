@@ -546,6 +546,7 @@ def _make_candidate_sql(
     source: str,
     main_filter: str,
     target_join: str,
+    metadata_join: str,
 ) -> str:
     """
     Build the SQL that splits every page into lines, detects repeated lines
@@ -574,9 +575,7 @@ def _make_candidate_sql(
             p.page_text
         FROM read_parquet('__PP__') p
         JOIN read_parquet('__DP__') d USING (document_id)
-        JOIN read_parquet('__RP__') r
-          ON d.project_id.value = r.project_id
-         AND r.process_type = '__SRC__'
+        __MJ__
         __TJ__
         WHERE length(p.page_text) > 50
           __MF__
@@ -655,7 +654,7 @@ def _make_candidate_sql(
         .replace("__SRC__", source)
         .replace("__PP__", sql_quote(pages_path))
         .replace("__DP__", sql_quote(docs_path))
-        .replace("__RP__", sql_quote(D03_REVIEWS))
+        .replace("__MJ__", metadata_join)
         .replace("__TJ__", target_join)
         .replace("__MF__", main_filter)
     )
@@ -666,6 +665,7 @@ def fetch_all_candidates(
     processes: list[str],
     main_only: bool,
     target_projects: Optional[pd.DataFrame],
+    target_documents: Optional[Path],
 ) -> pd.DataFrame:
     """
     Phase 1: run the vectorised DuckDB candidate query for each process type
@@ -677,13 +677,16 @@ def fetch_all_candidates(
         docs_path = PROCESSED_DIR / source.lower() / "documents.parquet"
         main_filter = (
             "AND coalesce(nullif(d.main_document, ''), 'YES') <> 'NO'"
-            if main_only else ""
+            if main_only and target_documents is None else ""
         )
         target_join = (
             "JOIN target_projects tp ON r.project_id = tp.project_id"
             if target_projects is not None else ""
         )
-        sql = _make_candidate_sql(pages_path, docs_path, source, main_filter, target_join)
+        metadata_join = document_metadata_join(source, target_documents)
+        sql = _make_candidate_sql(
+            pages_path, docs_path, source, main_filter, target_join, metadata_join
+        )
         log(f"  scanning {source} pages for heading candidates...")
         df = conn.execute(sql).fetchdf()
         log(f"  {source}: {len(df):,} candidates from {df['document_id'].nunique():,} documents")
@@ -980,6 +983,7 @@ def target_project_ids(
     processes: list[str],
     sample: Optional[int],
     project_ids: Optional[list[str]],
+    target_documents: Optional[Path],
 ) -> Optional[pd.DataFrame]:
     keep: list[str] = []
     if project_ids:
@@ -992,9 +996,10 @@ def target_project_ids(
 
     if sample:
         processes_sql = ", ".join(f"'{p}'" for p in processes)
+        metadata_path = target_documents or D03_REVIEWS
         ids = conn.execute(f"""
             SELECT DISTINCT project_id
-            FROM read_parquet('{D03_REVIEWS}')
+            FROM read_parquet('{sql_quote(metadata_path)}')
             WHERE process_type IN ({processes_sql})
             ORDER BY project_id
         """).fetchdf()["project_id"].tolist()
@@ -1012,11 +1017,16 @@ def page_reader(
     batch_size: int,
     main_only: bool,
     target_projects: Optional[pd.DataFrame],
+    target_documents: Optional[Path],
 ):
     pages_path = PROCESSED_DIR / source.lower() / "pages.parquet"
     docs_path = PROCESSED_DIR / source.lower() / "documents.parquet"
-    main_filter = "AND coalesce(nullif(d.main_document, ''), 'YES') <> 'NO'" if main_only else ""
+    main_filter = (
+        "AND coalesce(nullif(d.main_document, ''), 'YES') <> 'NO'"
+        if main_only and target_documents is None else ""
+    )
     target_join = "JOIN target_projects tp ON r.project_id = tp.project_id" if target_projects is not None else ""
+    metadata_join = document_metadata_join(source, target_documents)
 
     query = f"""
         SELECT
@@ -1036,15 +1046,33 @@ def page_reader(
             p.page_text
         FROM read_parquet('{pages_path}') p
         JOIN read_parquet('{docs_path}') d USING (document_id)
-        JOIN read_parquet('{D03_REVIEWS}') r
-          ON d.project_id.value = r.project_id
-         AND r.process_type = '{source}'
+        {metadata_join}
         {target_join}
         WHERE length(p.page_text) > 50
           {main_filter}
         ORDER BY r.project_id, d.document_id, page_num
     """
     return conn.execute(query).fetch_record_batch(rows_per_batch=batch_size)
+
+
+def document_metadata_join(source: str, target_documents: Optional[Path]) -> str:
+    """
+    Return the metadata join for the standard project universe or an explicit
+    document allowlist. The allowlist is intentionally authoritative: every
+    listed document is scanned even when its source metadata marks it as a
+    supporting document.
+    """
+    if target_documents is not None:
+        return f"""
+        JOIN read_parquet('{sql_quote(target_documents)}') r
+          ON d.document_id = r.document_id
+         AND r.process_type = '{sql_quote(source)}'
+        """
+    return f"""
+        JOIN read_parquet('{sql_quote(D03_REVIEWS)}') r
+          ON d.project_id.value = r.project_id
+         AND r.process_type = '{sql_quote(source)}'
+    """
 
 
 def flush_document_fast(
@@ -1249,6 +1277,7 @@ def build_document_sections(
     qa_output: Path,
     batch_size: int,
     flush_sections: int,
+    target_documents: Optional[Path] = None,
 ) -> None:
     """
     3-phase pipeline:
@@ -1265,7 +1294,9 @@ def build_document_sections(
     qa_output.parent.mkdir(parents=True, exist_ok=True)
 
     conn = duckdb.connect()
-    target_projects = target_project_ids(conn, processes, sample, project_ids)
+    target_projects = target_project_ids(
+        conn, processes, sample, project_ids, target_documents
+    )
     if target_projects is not None:
         conn.register("target_projects", target_projects)
         sample_msg = f"sample={sample}" if sample else "sample=None"
@@ -1276,7 +1307,9 @@ def build_document_sections(
     # Phase 1: DuckDB candidate extraction
     # ------------------------------------------------------------------
     log("Phase 1: extracting heading candidates via DuckDB (vectorised)...")
-    candidates_df = fetch_all_candidates(conn, processes, main_only, target_projects)
+    candidates_df = fetch_all_candidates(
+        conn, processes, main_only, target_projects, target_documents
+    )
     log(
         f"Phase 1 done: {len(candidates_df):,} candidate lines from "
         f"{candidates_df['document_id'].nunique() if not candidates_df.empty else 0:,} documents"
@@ -1324,8 +1357,13 @@ def build_document_sections(
                 pending_sections = []
 
         for source in processes:
-            log(f"  reading {source} pages ({'main only' if main_only else 'all documents'})")
-            reader = page_reader(conn, source, batch_size, main_only, target_projects)
+            scope = "target manifest" if target_documents is not None else (
+                "main only" if main_only else "all documents"
+            )
+            log(f"  reading {source} pages ({scope})")
+            reader = page_reader(
+                conn, source, batch_size, main_only, target_projects, target_documents
+            )
             current_key: Optional[tuple[str, str]] = None
             current_meta: Optional[dict] = None
             current_pages: list[tuple[int, str]] = []
@@ -1435,6 +1473,16 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--batch-size", type=int, default=50_000)
     parser.add_argument(
+        "--target-documents",
+        type=Path,
+        default=None,
+        help=(
+            "Optional document allowlist parquet with document_id, project_id, "
+            "process_type, energy_group, tech_group, and lead_agency_harmonized. "
+            "Listed supporting documents are included regardless of main_document."
+        ),
+    )
+    parser.add_argument(
         "--flush-sections",
         type=int,
         default=50_000,
@@ -1456,4 +1504,5 @@ if __name__ == "__main__":
         qa_output=args.qa_output,
         batch_size=args.batch_size,
         flush_sections=args.flush_sections,
+        target_documents=args.target_documents,
     )

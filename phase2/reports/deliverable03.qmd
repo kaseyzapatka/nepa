@@ -120,7 +120,47 @@ chi_res <- chisq.test(mat)
 cramers_v <- sqrt(chi_res$statistic / (sum(mat) * (min(dim(mat)) - 1)))
 chi_p_label <- if (chi_res$p.value < 0.001) "< 0.001" else sprintf("%.3f", chi_res$p.value)
 
-tech_rates <- reviews |>
+# Multi-tag technology attribution: count a project under EVERY technology it is
+# tagged with (Phase-1 Deliverable 1 parity), rather than the first-match-wins
+# scalar tech_group from 02_build_nepa_reviews.py. Taxonomy mirrors the CASE in
+# that build script and the explode_tech_tags() helper in 04_analyze_nepa_reviews.R.
+# This is the data twin of fig2; a multi-tagged project appears in multiple groups.
+tech_tag_patterns <- tibble::tribble(
+  ~tech_label,            ~pattern,                    ~group,
+  "Geothermal",           "Geothermal",                "Decarbonization",
+  "Wind",                 "Wind",                      "Decarbonization",
+  "Solar",                "Solar",                     "Decarbonization",
+  "Transmission",         "Electricity Transmission",  "Decarbonization",
+  "Hydropower",           "Hydropower|Hydrokinetic",   "Decarbonization",
+  "Biomass",              "Biomass",                   "Decarbonization",
+  "Energy Storage",       "Energy Storage",            "Decarbonization",
+  "CCS",                  "Carbon Capture",            "Decarbonization",
+  "Nuclear",              "Nuclear",                   "Decarbonization",
+  "Land-based Oil & Gas", "Land-based Oil",            "Fossil Fuel",
+  "Offshore Oil & Gas",   "Offshore Oil",              "Fossil Fuel",
+  "Coal",                 "Coal",                      "Fossil Fuel",
+  "Pipeline",             "Pipeline",                  "Fossil Fuel",
+  "Rural Energy",         "Rural Energy",              "Fossil Fuel"
+)
+explode_tech_tags <- function(data) {
+  base <- data |> mutate(.row = dplyr::row_number())
+  long <- do.call(bind_rows, lapply(seq_len(nrow(tech_tag_patterns)), function(i) {
+    p <- tech_tag_patterns[i, ]
+    base |>
+      filter(energy_group == p$group, str_detect(project_type, regex(p$pattern))) |>
+      transmute(.row, tech_group = p$tech_label)
+  }))
+  matched <- unique(long$.row)
+  other <- base |>
+    filter(!.row %in% matched) |>
+    transmute(.row, tech_group = if_else(energy_group == "Decarbonization",
+                                         "Other Clean", "Other Fossil"))
+  bind_rows(long, other) |>
+    left_join(base |> select(-tech_group), by = ".row") |>
+    select(-.row)
+}
+
+tech_rates <- explode_tech_tags(reviews) |>
   filter(!is.na(process_type), !is.na(tech_group)) |>
   count(tech_group, process_type, name = "n") |>
   group_by(tech_group) |>
@@ -444,7 +484,7 @@ The figure below plots CE, EA, and EIS shares for all technology groups, sorted 
 
 ```{r}
 #| label: fig-review-rates-tech
-#| fig-cap: "CE, EA, and EIS shares by technology group, sorted by CE share."
+#| fig-cap: "CE, EA, and EIS shares by technology group, sorted by CE share. Projects may carry multiple technology tags and are counted under each, so the project counts shown sum to more than the total number of projects."
 include_fig("fig2_review_rates_by_tech.png")
 ```
 

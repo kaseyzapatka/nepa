@@ -184,6 +184,237 @@ ggsave(file.path(out_dir, "02_energy_type_composition.png"), fig1, width = 10, h
 message("  Saved: 02_energy_type_composition.png")
 
 # ---------------------------------------------------------------------------
+# Fig 1b — Energy type composition, BLM projects only
+#           (02_energy_type_composition_BLM.png)
+# ---------------------------------------------------------------------------
+message("\n--- Fig 1b: Energy type composition (BLM only) ---")
+
+blm_project_ids <- projects %>%
+  explode_column("lead_agency") %>%
+  filter(!is.na(lead_agency) & lead_agency != "") %>%
+  mutate(
+    lead_agency_exp = lead_agency %>%
+      str_replace("^DOE\\s*-\\s*",  "Department of Energy - ") %>%
+      str_replace("^DOI\\s*-\\s*",  "Department of the Interior - ") %>%
+      str_replace("^USDA\\s*-\\s*", "Department of Agriculture - ") %>%
+      str_replace("^DOD\\s*-\\s*",  "Department of Defense - ") %>%
+      str_replace("^DOT\\s*-\\s*",  "Department of Transportation - "),
+    lead_agency_harmonized = if_else(
+      str_detect(lead_agency_exp, " - "),
+      str_extract(lead_agency_exp, "(?<= - ).+$") %>% str_trim(),
+      lead_agency_exp
+    )
+  ) %>%
+  filter(str_detect(lead_agency_harmonized, regex("bureau of land management", ignore_case = TRUE))) %>%
+  distinct(project_id)
+
+blm_projects <- projects %>% semi_join(blm_project_ids, by = "project_id")
+message("  BLM projects: ", nrow(blm_projects))
+
+fig1b_data <- blm_projects %>%
+  group_by(project_energy_type, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(project_energy_type) %>%
+  mutate(total_energy_type = sum(n), pct = 100 * n / total_energy_type) %>%
+  ungroup() %>%
+  mutate(project_energy_type = if_else(project_energy_type == "Clean", "Decarbonized",
+                                       project_energy_type),
+         project_energy_type = factor(project_energy_type,
+                                      levels = c("Fossil", "Decarbonized", "Other")))
+
+fig1b_totals <- fig1b_data %>%
+  distinct(project_energy_type, total_energy_type)
+
+fig1b <- fig1b_data %>%
+  ggplot(aes(x = project_energy_type, y = pct, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(pct > 5, paste0(round(pct, 0), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 3.5, fontface = "bold"
+  ) +
+  geom_text(
+    data = fig1b_totals,
+    aes(x = project_energy_type, y = 101,
+        label = scales::comma(total_energy_type)),
+    inherit.aes = FALSE, hjust = 0, size = 3, color = "gray30"
+  ) +
+  coord_flip() +
+  labs(
+    title   = "BLM Review Types by Energy Category",
+    x       = NULL,
+    y       = "Share of Reviews",
+    fill    = "Review Type",
+    caption = str_wrap(paste0(
+      "Note: BLM projects identified via lead_agency field. ",
+      "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
+      "EIS (Environmental Impact Statement). ",
+      "Percentages calculated within each energy type category. ",
+      "Percentage labels below 5% omitted for clarity."
+    ), width = 150)
+  ) +
+  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_catf() +
+  theme_catf() +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank()
+  )
+
+ggsave(file.path(out_dir, "02_energy_type_composition_BLM.png"),
+       fig1b, width = 10, height = 5, dpi = 300)
+message("  Saved: 02_energy_type_composition_BLM.png")
+
+# ---------------------------------------------------------------------------
+# Fig 1c — Energy type composition, DOE projects only
+#           (02_energy_type_composition_DOE.png)
+# ---------------------------------------------------------------------------
+message("\n--- Fig 1c: Energy type composition (DOE only) ---")
+
+doe_project_ids <- projects %>%
+  explode_column("lead_agency") %>%
+  filter(!is.na(lead_agency) & lead_agency != "") %>%
+  mutate(
+    lead_agency_exp = lead_agency %>%
+      str_replace("^DOE\\s*-\\s*",  "Department of Energy - ") %>%
+      str_replace("^DOI\\s*-\\s*",  "Department of the Interior - ") %>%
+      str_replace("^USDA\\s*-\\s*", "Department of Agriculture - ") %>%
+      str_replace("^DOD\\s*-\\s*",  "Department of Defense - ") %>%
+      str_replace("^DOT\\s*-\\s*",  "Department of Transportation - "),
+    lead_agency_harmonized = if_else(
+      str_detect(lead_agency_exp, " - "),
+      str_extract(lead_agency_exp, "(?<= - ).+$") %>% str_trim(),
+      lead_agency_exp
+    )
+  ) %>%
+  filter(str_detect(lead_agency_harmonized, regex("^department of energy$", ignore_case = TRUE))) %>%
+  distinct(project_id)
+
+doe_projects <- projects %>% semi_join(doe_project_ids, by = "project_id")
+message("  DOE projects: ", nrow(doe_projects))
+
+fig1c_data <- doe_projects %>%
+  group_by(project_energy_type, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(project_energy_type) %>%
+  mutate(total_energy_type = sum(n), pct = 100 * n / total_energy_type) %>%
+  ungroup() %>%
+  mutate(
+    project_energy_type = if_else(project_energy_type == "Clean", "Decarbonized",
+                                  project_energy_type),
+    project_energy_type = factor(project_energy_type,
+                                 levels = c("Fossil", "Decarbonized", "Other"))
+  )
+
+fig1c_totals <- fig1c_data %>% distinct(project_energy_type, total_energy_type)
+
+fig1c <- fig1c_data %>%
+  ggplot(aes(x = project_energy_type, y = pct, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(pct > 5, paste0(round(pct, 0), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 3.5, fontface = "bold"
+  ) +
+  geom_text(
+    data = fig1c_totals,
+    aes(x = project_energy_type, y = 101,
+        label = scales::comma(total_energy_type)),
+    inherit.aes = FALSE, hjust = 0, size = 3, color = "gray30"
+  ) +
+  coord_flip() +
+  labs(
+    title   = "DOE Review Types by Energy Category",
+    x       = NULL,
+    y       = "Share of Reviews",
+    fill    = "Review Type",
+    caption = str_wrap(paste0(
+      "Note: DOE projects identified via lead_agency field. ",
+      "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
+      "EIS (Environmental Impact Statement). ",
+      "Percentages calculated within each energy type category. ",
+      "Percentage labels below 5% omitted for clarity."
+    ), width = 150)
+  ) +
+  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_catf() +
+  theme_catf() +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank()
+  )
+
+ggsave(file.path(out_dir, "02_energy_type_composition_DOE.png"),
+       fig1c, width = 10, height = 5, dpi = 300)
+message("  Saved: 02_energy_type_composition_DOE.png")
+
+# ---------------------------------------------------------------------------
+# Fig 1d — Energy type composition, all non-DOE/non-BLM projects
+#           (02_energy_type_composition_OTHER.png)
+# ---------------------------------------------------------------------------
+message("\n--- Fig 1d: Energy type composition (Other agencies) ---")
+
+other_projects <- projects %>%
+  anti_join(doe_project_ids, by = "project_id") %>%
+  anti_join(blm_project_ids, by = "project_id")
+message("  Other-agency projects: ", nrow(other_projects))
+
+fig1d_data <- other_projects %>%
+  group_by(project_energy_type, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(project_energy_type) %>%
+  mutate(total_energy_type = sum(n), pct = 100 * n / total_energy_type) %>%
+  ungroup() %>%
+  mutate(
+    project_energy_type = if_else(project_energy_type == "Clean", "Decarbonized",
+                                  project_energy_type),
+    project_energy_type = factor(project_energy_type,
+                                 levels = c("Fossil", "Decarbonized", "Other"))
+  )
+
+fig1d_totals <- fig1d_data %>% distinct(project_energy_type, total_energy_type)
+
+fig1d <- fig1d_data %>%
+  ggplot(aes(x = project_energy_type, y = pct, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(pct > 5, paste0(round(pct, 0), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 3.5, fontface = "bold"
+  ) +
+  geom_text(
+    data = fig1d_totals,
+    aes(x = project_energy_type, y = 101,
+        label = scales::comma(total_energy_type)),
+    inherit.aes = FALSE, hjust = 0, size = 3, color = "gray30"
+  ) +
+  coord_flip() +
+  labs(
+    title   = "Review Types by Energy Category — All Other Agencies (Excluding DOE and BLM)",
+    x       = NULL,
+    y       = "Share of Reviews",
+    fill    = "Review Type",
+    caption = str_wrap(paste0(
+      "Note: Includes all projects where neither DOE nor BLM is the lead agency. ",
+      "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
+      "EIS (Environmental Impact Statement). ",
+      "Percentages calculated within each energy type category. ",
+      "Percentage labels below 5% omitted for clarity."
+    ), width = 150)
+  ) +
+  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_catf() +
+  theme_catf() +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank()
+  )
+
+ggsave(file.path(out_dir, "02_energy_type_composition_OTHER.png"),
+       fig1d, width = 10, height = 5, dpi = 300)
+message("  Saved: 02_energy_type_composition_OTHER.png")
+
+# ---------------------------------------------------------------------------
 # Fig 2 — Agency process: DOE + BLM (02_agency_process.png)
 # ---------------------------------------------------------------------------
 message("\n--- Fig 2: Agency process (DOE + BLM) ---")
@@ -932,6 +1163,249 @@ fig7 <- ggplot(
 ggsave(file.path(out_dir, "fig_department_sankey_filtered.png"),
        fig7, width = 13, height = 7, dpi = 300)
 message("  Saved: fig_department_sankey_filtered.png")
+
+# ---------------------------------------------------------------------------
+# Fig 7b — Collaboration hubs with Corps breakout
+#          (fig_department_collaboration_hubs_corps.png)
+# Fig 8b — Sankey with Corps breakout
+#          (fig_department_sankey_filtered_corps.png)
+#
+# U.S. Army Corps of Engineers is separated from "Department of Defense".
+# All other DOD agencies (Army, Air Force, Navy, generic DOD) remain as
+# "Department of Defense". Analysis otherwise identical to Figs 7 and 8:
+# lead-to-partner pairs + joint/co-lead pairs + project_department fallback
+# for EIS projects where no lead agency is identified in document text.
+# ---------------------------------------------------------------------------
+message("\n--- Figs 7b/8b: Corps breakout ---")
+
+coagency_hits_corps <- coagency_name_hits_sankey %>%
+  mutate(
+    department = if_else(
+      agency_normalized == "U.S. Army Corps of Engineers",
+      "U.S. Army Corps of Engineers",
+      department
+    )
+  ) %>%
+  filter(department != "Other / Unclassified")
+
+# Lead/partner sets — shared by both hub and Sankey
+lead_depts_corps <- coagency_hits_corps %>%
+  filter(role %in% lead_roles_sankey) %>%
+  distinct(project_id, dataset_source, source_dept = department)
+
+partner_depts_corps <- coagency_hits_corps %>%
+  filter(role %in% partner_roles_sankey) %>%
+  distinct(project_id, dataset_source, target_dept = department)
+
+# Fallback: use project_department for EIS with partners but no text-identified lead
+# (matches the Python _build_department_pairs fallback logic)
+fallback_corps <- partner_depts_corps %>%
+  distinct(project_id, dataset_source) %>%
+  anti_join(lead_depts_corps %>% distinct(project_id, dataset_source),
+            by = c("project_id", "dataset_source")) %>%
+  left_join(
+    clean_energy %>%
+      filter(process_type == "EIS") %>%
+      distinct(project_id, dataset_source, project_department),
+    by = c("project_id", "dataset_source")
+  ) %>%
+  filter(!is.na(project_department), project_department != "",
+         project_department != "Other / Unclassified") %>%
+  transmute(project_id, dataset_source, source_dept = project_department)
+
+all_leads_corps <- bind_rows(lead_depts_corps, fallback_corps)
+
+# Hub pairs: lead-to-partner + joint/co-lead combinations
+lead_to_partner_corps <- all_leads_corps %>%
+  inner_join(partner_depts_corps, by = c("project_id", "dataset_source"),
+             relationship = "many-to-many") %>%
+  filter(source_dept != target_dept) %>%
+  distinct(project_id, dataset_source, source_dept, target_dept) %>%
+  transmute(project_id,
+            department_a = pmin(source_dept, target_dept),
+            department_b = pmax(source_dept, target_dept))
+
+joint_lead_corps <- all_leads_corps %>%
+  group_by(project_id, dataset_source) %>%
+  summarise(depts = list(sort(unique(source_dept))), .groups = "drop") %>%
+  filter(lengths(depts) > 1) %>%
+  mutate(pairs = map(depts, function(d) {
+    m <- combn(d, 2)
+    tibble(department_a = m[1, ], department_b = m[2, ])
+  })) %>%
+  select(-depts) %>%
+  unnest(pairs) %>%
+  distinct(project_id, department_a, department_b)
+
+pair_rows_corps <- bind_rows(lead_to_partner_corps, joint_lead_corps) %>%
+  distinct(project_id, department_a, department_b)
+
+hub_corps      <- build_hub_tables(pair_rows_corps)
+tbl_hubs_corps <- hub_corps$hub_tbl
+
+message("  Hubs (Corps breakout):")
+print(tbl_hubs_corps)
+
+plot_data_7b <- tbl_hubs_corps %>%
+  mutate(
+    is_usace   = department == "U.S. Army Corps of Engineers" |
+                 `Most frequent partner` == "U.S. Army Corps of Engineers",
+    department = fct_reorder(department, `Bridge score`)
+  )
+
+axis_colors_7b <- if_else(
+  levels(plot_data_7b$department) == "U.S. Army Corps of Engineers",
+  "#75246C", catf_navy
+)
+
+fig7b <- plot_data_7b %>%
+  ggplot(aes(x = `Bridge score`, y = department)) +
+  geom_col(aes(fill = `Collaborative project ties`), width = 0.7) +
+  geom_col(data = ~filter(., is_usace), fill = "#75246C", width = 0.7) +
+  # Text labels: USACE partner rows in purple
+  geom_text(
+    data = ~filter(., `Most frequent partner` == "U.S. Army Corps of Engineers"),
+    aes(label = `Most frequent partner`),
+    hjust = 0, nudge_x = 0.15, size = 3, color = "#75246C"
+  ) +
+  # Text labels: all other rows in navy
+  geom_text(
+    data = ~filter(., `Most frequent partner` != "U.S. Army Corps of Engineers"),
+    aes(label = `Most frequent partner`),
+    hjust = 0, nudge_x = 0.15, size = 3, color = catf_navy
+  ) +
+  scale_fill_gradientn(
+    colors = c(catf_light_blue, catf_dark_blue, catf_navy),
+    breaks = pretty(c(0, max(tbl_hubs_corps[["Collaborative project ties"]], na.rm = TRUE)), n = 5),
+    name   = "Collaborative project ties",
+    guide  = guide_colorbar(
+      barwidth       = unit(8, "cm"),
+      barheight      = unit(0.45, "cm"),
+      title.position = "top",
+      title.hjust    = 0.5
+    )
+  ) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.45))) +
+  labs(
+    title    = "Department Collaboration Hubs — U.S. Army Corps of Engineers Shown Separately",
+    subtitle = "EIS projects only; U.S. Army Corps of Engineers shown separately from Dept. of Defense\nBar length shows bridge score; labels show most frequent partner",
+    x        = "Bridge score",
+    y        = NULL,
+    caption  = str_wrap(paste0(
+      "Note: Bridge score = unique partner departments × log(1 + total shared project ties). ",
+      "Purple labels indicate U.S. Army Corps of Engineers as the most frequent partner; ",
+      "purple department names indicate the Corps itself. ",
+      "Bridge scores in this figure are higher than in the combined-DOD version because splitting ",
+      "USACE out adds it as a distinct partner for departments that previously counted the entire ",
+      "DOD as one partner, increasing both unique-partner counts and tie totals."
+    ), width = 140)
+  ) +
+  theme_catf() +
+  theme(axis.text.y = element_text(color = axis_colors_7b))
+
+ggsave(file.path(out_dir, "fig_department_collaboration_hubs_corps.png"),
+       fig7b, width = 10, height = 6.5, dpi = 300)
+message("  Saved: fig_department_collaboration_hubs_corps.png")
+
+# Sankey with Corps breakout — reuse all_leads_corps and partner_depts_corps
+pair_counts_corps <- all_leads_corps %>%
+  rename(source_department = source_dept) %>%
+  inner_join(
+    partner_depts_corps %>% rename(target_department = target_dept),
+    by = c("project_id", "dataset_source"),
+    relationship = "many-to-many"
+  ) %>%
+  filter(
+    source_department != target_department,
+    source_department != "Other / Unclassified",
+    target_department != "Other / Unclassified"
+  ) %>%
+  distinct(project_id, dataset_source, source_department, target_department) %>%
+  count(source_department, target_department, name = "shared_projects", sort = TRUE) %>%
+  rename(department_1 = source_department, department_2 = target_department)
+
+dept_totals_corps <- bind_rows(
+  pair_counts_corps %>% transmute(department = department_1, shared_projects),
+  pair_counts_corps %>% transmute(department = department_2, shared_projects)
+) %>%
+  group_by(department) %>%
+  summarise(total_ties = sum(shared_projects), .groups = "drop") %>%
+  arrange(desc(total_ties))
+
+top_depts_corps      <- dept_totals_corps %>% slice_head(n = DEPT_TOP_N) %>% pull(department)
+excluded_depts_corps <- dept_totals_corps %>% filter(!department %in% top_depts_corps) %>% pull(department)
+DEPT_THRESHOLD_CORPS <- dept_totals_corps %>% filter(department %in% top_depts_corps) %>% pull(total_ties) %>% min()
+
+excluded_label_corps <- if (length(excluded_depts_corps) > 0) {
+  paste0(
+    "Showing top ", length(top_depts_corps), " of ", nrow(dept_totals_corps),
+    " departments by collaborative activity (minimum ", DEPT_THRESHOLD_CORPS,
+    " shared project ties). Excluded departments (", length(excluded_depts_corps), "): ",
+    paste(excluded_depts_corps, collapse = "; "), "."
+  )
+} else {
+  "All departments shown."
+}
+
+dept_order_corps <- dept_totals_corps %>%
+  filter(department %in% top_depts_corps) %>%
+  arrange(desc(total_ties)) %>%
+  pull(department)
+
+message("  Top departments (Corps breakout):")
+print(dept_totals_corps)
+
+pair_counts_filtered_corps <- pair_counts_corps %>%
+  filter(department_1 %in% top_depts_corps, department_2 %in% top_depts_corps) %>%
+  mutate(
+    department_1 = factor(department_1, levels = dept_order_corps),
+    department_2 = factor(department_2, levels = dept_order_corps)
+  )
+
+fig8b <- ggplot(
+  pair_counts_filtered_corps,
+  aes(axis1 = department_1, axis2 = department_2, y = shared_projects)
+) +
+  ggalluvial::geom_alluvium(aes(fill = department_1), width = 1/10, alpha = 0.8) +
+  ggalluvial::geom_stratum(width = 1/8, fill = "gray96", color = "gray60") +
+  geom_text(
+    stat      = ggalluvial::StatStratum,
+    aes(label = str_wrap(after_stat(stratum), width = 18),
+        size  = if_else(as.character(after_stat(stratum)) == "Environmental Protection Agency",
+                        2.5, 3.0)),
+    hjust = 0.5, lineheight = 0.9, color = "gray20"
+  ) +
+  scale_size_identity() +
+  scale_x_discrete(limits = c("axis1", "axis2"), labels = NULL, expand = c(0.03, 0.03)) +
+  scale_fill_manual(
+    values = rep(catf_palette, length.out = n_distinct(pair_counts_filtered_corps$department_1))
+  ) +
+  labs(
+    title    = "Lead Department to Partner Department Flows",
+    subtitle = "U.S. Army Corps of Engineers shown separately from Dept. of Defense; EIS projects only",
+    caption  = str_wrap(paste0(
+      "Note: U.S. Army Corps of Engineers is shown separately from the remainder of the ",
+      "Department of Defense. Top ", length(top_depts_corps), " departments by collaborative ",
+      "activity; EIS projects only. ", excluded_label_corps
+    ), width = 240),
+    y = NULL, x = NULL
+  ) +
+  theme_catf() +
+  theme(
+    legend.position  = "none",
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.title       = element_blank(),
+    axis.text        = element_blank(),
+    axis.ticks       = element_blank(),
+    axis.line        = element_blank(),
+    plot.caption     = element_text(hjust = 0, size = 8, color = "gray40", margin = margin(t = 10)),
+    plot.margin      = margin(10, 10, 15, 10)
+  )
+
+ggsave(file.path(out_dir, "fig_department_sankey_filtered_corps.png"),
+       fig8b, width = 13, height = 7, dpi = 300)
+message("  Saved: fig_department_sankey_filtered_corps.png")
 
 # ---------------------------------------------------------------------------
 # Pages data: shared pipeline for Figs 8, 9, 10
