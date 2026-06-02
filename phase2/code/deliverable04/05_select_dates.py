@@ -19,8 +19,8 @@ Outputs:
     phase2/output/deliverable04/timeline_manual_review_queue.csv
 
 Usage:
-    python 04_select_timeline_dates.py [--process CE EA EIS] [--sample-ids path]
-    python 04_select_timeline_dates.py --import-corrections filled_queue.csv
+    python 05_select_dates.py [--process CE EA EIS] [--sample-ids path]
+    python 05_select_dates.py --import-corrections filled_queue.csv
 """
 
 import os
@@ -918,7 +918,7 @@ def main() -> None:
     # INDEX_PATH and CORRECTIONS_PATH always live in the main timeline/ dir.
 
     if not candidates_path.exists():
-        raise FileNotFoundError(f"Candidates not found: {candidates_path}\nRun 03_extract_timeline_candidates.py first.")
+        raise FileNotFoundError(f"Candidates not found: {candidates_path}\nRun 03_extract_candidates.py first.")
 
     project_ids: set[str] | None = None
     if args.sample_ids:

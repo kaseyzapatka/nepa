@@ -19,8 +19,8 @@ Outputs:
     phase2/output/deliverable04/timeline_sample100_rule_diagnostics.csv
 
 Usage:
-    python 05_validate_timeline_sample.py --prepare-review
-    python 05_validate_timeline_sample.py --validate --reviewed-packet timeline_sample100_review_packet.csv
+    python 07_validate.py --prepare-review
+    python 07_validate.py --validate --reviewed-packet timeline_sample100_review_packet.csv
 """
 
 import os
@@ -622,13 +622,13 @@ def main() -> None:
 
     # Load stable sample
     if not SAMPLE_PATH.exists():
-        raise FileNotFoundError(f"Sample not found: {SAMPLE_PATH}\nRun 00_sample_timeline_projects.py first.")
+        raise FileNotFoundError(f"Sample not found: {SAMPLE_PATH}\nRun 00_sample.py first.")
     sample_df = pd.read_csv(SAMPLE_PATH)
     print(f"Sample: {len(sample_df)} projects")
 
     if args.prepare_review:
         if not DATES_PATH.exists():
-            raise FileNotFoundError(f"Pipeline dates not found: {DATES_PATH}\nRun 04_select_timeline_dates.py first.")
+            raise FileNotFoundError(f"Pipeline dates not found: {DATES_PATH}\nRun 05_select_dates.py first.")
         if not CANDIDATES_PATH.exists():
             raise FileNotFoundError(f"Candidates not found: {CANDIDATES_PATH}")
 

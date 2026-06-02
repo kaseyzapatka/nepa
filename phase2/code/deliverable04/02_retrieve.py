@@ -12,8 +12,8 @@ Outputs:
     phase2/data/analysis/timeline/timeline_context_packets.parquet
 
 Usage:
-    python 02_retrieve_timeline_contexts.py [--process CE EA EIS] [--sample-ids path]
-    python 02_retrieve_timeline_contexts.py --process CE --sample-ids ids.txt
+    python 02_retrieve.py [--process CE EA EIS] [--sample-ids path]
+    python 02_retrieve.py --process CE --sample-ids ids.txt
 """
 
 import os
@@ -1026,7 +1026,7 @@ def main() -> None:
 
     if output_path.exists() and not args.force and not args.sample_ids and not args.append:
         print(f"Output already exists: {output_path}")
-        print("Re-run only when 01_build_timeline_index.py output changes (new registers, NEPATEC update).")
+        print("Re-run only when 01_index.py output changes (new registers, NEPATEC update).")
         print("Pass --force to overwrite.")
         return
 
@@ -1037,7 +1037,7 @@ def main() -> None:
         print(f"Filtering to {len(project_ids)} sample project IDs.")
 
     if not INDEX_PATH.exists():
-        raise FileNotFoundError(f"Index not found: {INDEX_PATH}\nRun 01_build_timeline_index.py first.")
+        raise FileNotFoundError(f"Index not found: {INDEX_PATH}\nRun 01_index.py first.")
 
     run_dir.mkdir(parents=True, exist_ok=True)
     run_at = datetime.now(timezone.utc).isoformat()

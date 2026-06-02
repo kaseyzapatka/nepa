@@ -2,7 +2,7 @@
 
 **Goal:** Extract initiation and decision dates for all NEPA projects in the corpus (CE, EA, EIS), produce a project-level timeline database supporting duration analysis, coverage diagnostics, and regulatory-period comparisons.
 
-**Self-contained:** Partially. The core extraction pipeline (scripts 01–07) requires only `projects_combined.parquet`, `documents_combined.parquet`, and the processed pages/sections files. The Tier A metadata sources (scripts `api/blm_register/09a–09c` and `api/doe_register/01–06`) require network access to BLM ePlanning and energy.gov to build their lookup tables, but those outputs are cached as parquets and do not need to be re-fetched on each pipeline run.
+**Self-contained:** Partially. The core extraction pipeline (scripts 01–05 + `_run.py`) requires only `projects_combined.parquet`, `documents_combined.parquet`, and the processed pages/sections files. The Tier A metadata sources (scripts `api/blm_register/09a–09c` and `api/doe_register/01–06`) require network access to BLM ePlanning and energy.gov to build their lookup tables, but those outputs are cached as parquets and do not need to be re-fetched on each pipeline run.
 
 ---
 
@@ -10,32 +10,35 @@
 
 ### Pipeline scripts — `phase2/code/deliverable04/`
 
-Run in numbered order. Scripts 01–07 form the core extraction pipeline; `validation/` scripts are run separately to build and evaluate the gold set.
+Run in numbered order: `01` → `02` → `03` → `04` → `05` (→ `06`). The pipeline was flat-renumbered (2026-06-01) to insert the classifier at `04` and bump selection to `05`; helper/analysis scripts dropped their numbers, the orchestrator became `_run.py`, and the old `validation/` folder is now `labeling/`. `labeling/` scripts build and label the gold set separately.
 
 | Script | What it does |
 |---|---|
-| `00_sample_timeline_projects.py` | Build the stratified 100-project gold sample (34 CE / 33 EA / 33 EIS, energy-type balanced, seed 20260527) used for validation design. |
-| `00b_build_document_sections.py` | Check staleness and rebuild `document_sections.parquet` from the full CE/EA/EIS corpus when missing or stale. |
-| `01_build_timeline_index.py` | Join projects, documents, and all Tier A register sources into `timeline_document_index.parquet` with document role scores, appendix flags, and scan priority. |
-| `02_retrieve_timeline_contexts.py` | Execute the five-tier retrieval strategy (metadata, page slices, sections, keyword scoring, recovery) and write `timeline_context_packets.parquet`. |
-| `03_extract_timeline_candidates.py` | Apply the full date-regex suite to context packets, prelabel each candidate's role (clear_decision, clear_initiation, proxy, review, historical, reject), and write `timeline_candidates.parquet`. |
-| `04_select_timeline_dates.py` | Two-pass scoring and selection of best decision and initiation dates per project; writes `timeline_project_dates.parquet` and the manual review queue. |
-| `05_validate_timeline_sample.py` | Prepare annotatable review packets from the 100-project sample or run granularity-aware validation against filled gold labels. |
-| `05b_export_api_validation.py` | Export projects with any API-sourced Tier A date to a flat CSV for manual spot-checking, with source labels and register URLs. |
-| `06_adjudicate_timeline_api.py` | Optional LLM adjudication (Claude Haiku) for projects with missing or conflicting dates; two modes: candidate-packet adjudication and document-recovery. |
-| `07_run_full_corpus_timelines.py` | Orchestration wrapper that shards projects by process type and hash bucket, calls scripts 02–04 (and optionally 06), and maintains a run manifest. |
-| `08_analyze_timelines.R` | Produce headline duration tables, FRA-breakpoint comparisons, coverage diagnostics, and proxy-sensitivity summaries from the D4 database. |
+| `00_sample.py` | Build the stratified 100-project gold sample (34 CE / 33 EA / 33 EIS, energy-type balanced, seed 20260527) used for validation design. |
+| `00b_sections.py` | Check staleness and rebuild `document_sections.parquet` from the full CE/EA/EIS corpus when missing or stale. |
+| `01_index.py` | Join projects, documents, and all Tier A register sources into `timeline_document_index.parquet` with document role scores, appendix flags, and scan priority. |
+| `02_retrieve.py` | Execute the five-tier retrieval strategy (metadata, page slices, sections, keyword scoring, recovery) and write `timeline_context_packets.parquet`. |
+| `03_extract_candidates.py` | Apply the full date-regex suite to context packets, prelabel each candidate's role (clear_decision, clear_initiation, proxy, review, historical, `body_text`, reject), and write `timeline_candidates.parquet`. |
+| `04_classify_candidates.py` | **Learned scorer.** Two-head model (P_initiation, P_decision) over the ambiguous candidate pool (`role_confidence_score < 5.0`, plus `body_text`/`unknown`; 5.0 register/strong-cue rows and review/historical/reject are exempt). One shared-encoder SetFit model with a `[CE]/[EA]/[EIS]` process token and multi-label head; backend-pluggable (SetFit now → DeBERTa-v3 later). Writes `p_initiation`, `p_decision`, `classifier_*` columns. Passes through with neutral scores if no model is trained yet. |
+| `05_select_dates.py` | Two-pass scoring and selection of best decision and initiation dates per project; writes `timeline_project_dates.parquet` and the manual review queue. (`body_text` is a last-resort decision proxy until the classifier supersedes it.) |
+| `06_adjudicate_llm.py` | Optional LLM adjudication (Claude Haiku) for projects with missing or conflicting dates; two modes: candidate-packet adjudication and document-recovery. |
+| `07_validate.py` | Prepare annotatable review packets from the 100-project sample or run granularity-aware validation against filled gold labels. |
+| `_run.py` | Orchestration wrapper that shards projects by process type and hash bucket, calls scripts 02 → 03 → 04 → 05 (and optionally 06), and maintains a run manifest. |
+| `08_analyze.R` | Produce headline duration tables, FRA-breakpoint comparisons, coverage diagnostics, and proxy-sensitivity summaries from the D4 database. |
+| `export_api_validation.py` | (helper) Export projects with any API-sourced Tier A date to a flat CSV for manual spot-checking, with source labels and register URLs. |
+| `build_review_packet.py` | (helper) Build a human-QC review packet from candidate output with pre-computed preferred initiation/decision candidates. |
 
-### Validation scripts — `phase2/code/deliverable04/validation/`
+### Labeling scripts — `phase2/code/deliverable04/labeling/`
 
-Run once (or after major pipeline changes) to build and evaluate the labeled gold set. Not part of the routine extraction pipeline.
+Run once (or after major pipeline changes) to build, label, and import the gold set. Not part of the routine extraction pipeline. **The classifier (`04`) trains only on labels produced here.**
 
 | Script | What it does |
 |---|---|
 | `01_build_gold_samples.py` | Build stratified gold split definitions (diagnostic, training, enriched) and write per-split CSV and ID files for labeling batches. |
 | `02_prepare_gold_review_packets.py` | Create per-batch project-level and candidate-level review CSVs from gold split definitions and current pipeline outputs. |
-| `03_import_gold_labels.py` | Validate and import reviewed gold CSVs into normalized Parquet tables under `timeline/gold/`, including inter-rater reliability tables. |
-| `04_codex_prelabel_gold_packets.py` | Pre-fill `gold_*` fields in review packet copies from current pipeline outputs so human reviewers only need to verify/correct rather than label from scratch. |
+| `05_llm_label_candidates.py` | **LLM gold-labeler.** Sends each project's candidates to Claude, assigns a role to every candidate and names THE initiation/decision date, and writes import-ready `*_llm_labeled.csv`. This is the real labeler. |
+| `03_import_gold_labels.py` | Validate and import labeled CSVs into normalized Parquet tables under `timeline/gold/` (incl. `timeline_gold_candidate_training.parquet`, the classifier's training input) and inter-rater reliability tables. |
+| `04_codex_prelabel_gold_packets.py` | ⚠️ Mechanical **regex echo**, NOT an LLM pass — copies `candidate_role` into `gold_candidate_role`. Baseline/scaffold only; never train on its output. Use `05_llm_label_candidates.py` instead. |
 
 ### API data-collection scripts — `phase2/code/api/`
 
@@ -64,33 +67,33 @@ flowchart TD
     C[DOE ePlanning + energy.gov CX\n01→02→03→04→05→06] --> D[doe_eplanning_dates.parquet\ndoe_cx_dates.parquet]
     E[Federal Register API\nfederal_register.py] --> F[noi_publication_date in\nprojects_combined.parquet]
 
-    G[projects_combined.parquet] --> H[01_build_timeline_index.py]
+    G[projects_combined.parquet] --> H[01_index.py]
     I[documents_combined.parquet] --> H
     B --> H
     D --> H
     F --> H
     H --> J[timeline_document_index.parquet]
 
-    J --> K[02_retrieve_timeline_contexts.py]
+    J --> K[02_retrieve.py]
     L[pages.parquet CE/EA/EIS] --> K
     M[document_sections.parquet\n00b wrapper] --> K
     K --> N[timeline_context_packets.parquet]
 
-    N --> O[03_extract_timeline_candidates.py]
+    N --> O[03_extract_candidates.py]
     O --> P[timeline_candidates.parquet]
 
-    P --> Q[04_select_timeline_dates.py]
+    P --> Q[05_select_dates.py]
     Q --> R[timeline_project_dates.parquet]
     Q --> S[timeline_manual_review_queue.csv]
 
-    R --> T[05_validate_timeline_sample.py]
+    R --> T[07_validate.py]
     T --> U[timeline_sample100_review_packet.csv\nvalidation_projects.csv\nvalidation_summary.csv]
 
-    R --> V[06_adjudicate_timeline_api.py\noptional]
+    R --> V[06_adjudicate_llm.py\noptional]
     V --> W[timeline_api_adjudications.parquet]
     V --> R
 
-    R --> X[08_analyze_timelines.R]
+    R --> X[08_analyze.R]
     X --> Y[d4_duration_summary.csv\nd4_coverage_by_process.csv\nd4_duration_by_period.csv]
 ```
 
@@ -105,7 +108,7 @@ flowchart TD
 | `phase2/data/processed/ce/pages.parquet` | CE document page text (DuckDB scan only — never `pd.read_parquet`) |
 | `phase2/data/processed/ea/pages.parquet` | EA document page text |
 | `phase2/data/processed/eis/pages.parquet` | EIS document page text |
-| `phase2/data/analysis/document_sections.parquet` | Section-level text with heading titles; rebuilt by `00b_build_document_sections.py` when stale |
+| `phase2/data/analysis/document_sections.parquet` | Section-level text with heading titles; rebuilt by `00b_sections.py` when stale |
 | `phase2/data/analysis/blm_register/blm_eplanning_dates.parquet` | BLM ePlanning accepted initiation and decision dates by project_id |
 | `phase2/data/analysis/doe_register/doe_eplanning_dates.parquet` | DOE ePlanning FONSI/ROD dates for EA/EIS projects |
 | `phase2/data/analysis/doe_register/doe_cx_dates.parquet` | DOE CX determination dates for CE projects, matched via `cx-NNNNNN.pdf` filenames |
@@ -134,17 +137,17 @@ Figures and tables are written under `phase2/output/deliverable04/`.
 
 ## Module Architecture
 
-### 00_sample_timeline_projects.py — Balanced Validation Sample
+### 00_sample.py — Balanced Validation Sample
 
 Draws a 100-project stratified sample from `projects_combined.parquet` with quotas of 34 CE / 33 EA / 33 EIS, each process further divided equally across Clean / Fossil / Other energy types. Seed `20260527` is fixed. This sample is used as the calibration set for scripts 05 and 10–13. It reads only project and document metadata — no pipeline outputs — so it is stable across pipeline reruns.
 
 Outputs: `phase2/output/deliverable04/timeline_sample100.csv`, `timeline_sample100_summary.csv`.
 
-### 00b_build_document_sections.py — Section Index Wrapper
+### 00b_sections.py — Section Index Wrapper
 
 Thin D4 wrapper around `phase2/code/extract/build_document_sections.py`. Checks whether `document_sections.parquet` is stale relative to source pages (threshold: 30 days) and rebuilds it over the full CE/EA/EIS corpus when needed. Writes D4-specific section QA diagnostics used by Tier C retrieval.
 
-### 01_build_timeline_index.py — Project-Document Index
+### 01_index.py — Project-Document Index
 
 Joins `projects_combined.parquet` and `documents_combined.parquet` into a flat project-document index, then merges the three Tier A register outputs (BLM ePlanning, DOE ePlanning, DOE CX). Each document row receives:
 
@@ -160,7 +163,7 @@ Joins `projects_combined.parquet` and `documents_combined.parquet` into a flat p
 
 The script asserts that all required FR fields exist in `projects_combined.parquet` and raises a `ValueError` with diagnostics if any are missing, preventing silent Tier A candidate drops from field name changes.
 
-### 02_retrieve_timeline_contexts.py — Five-Tier Context Retrieval
+### 02_retrieve.py — Five-Tier Context Retrieval
 
 Produces `timeline_context_packets.parquet`. Pages are loaded via DuckDB (`read_parquet`) never `pd.read_parquet`, then pre-grouped by `document_id` into a dict for O(1) per-project lookup. Sections are also loaded once per process type via DuckDB with a process-type filter to avoid pulling all process types into RAM.
 
@@ -180,7 +183,7 @@ Produces `timeline_context_packets.parquet`. Pages are loaded via DuckDB (`read_
 
 Sample runs use isolated output directories (`timeline/sample_runs/<ids_stem>/`) to prevent overwriting full-corpus outputs.
 
-### 03_extract_timeline_candidates.py — Date Extraction and Role Prelabeling
+### 03_extract_candidates.py — Date Extraction and Role Prelabeling
 
 Applies 14 date regex patterns to every context packet's `context_text`. Patterns cover: full month-name (`MDY_full`), abbreviated month-name (`MDY_short`), ordinal day variants, DMY order, numeric slash (2- and 4-digit year), ISO, numeric dash, digital signature (`YYYY.MM.DD`), numeric dot (`M.DD.YY`), month-year (`MY_full`, `MY_short`), and a NEPA case-number year fallback (`nepa_case_year`).
 
@@ -210,7 +213,7 @@ Candidates not matching any cue get `candidate_role = "unknown"` with confidence
 
 CE initiator-role field handling: `CE_INITIATOR_ROLE` pattern (`doe initiator`, `nepa initiator`, `action initiating office`) triggers `candidate_role = "clear_initiation"` only when the form-role context is not mixed with decision text.
 
-### 04_select_timeline_dates.py — Scoring and Date Selection
+### 05_select_dates.py — Scoring and Date Selection
 
 Implements two-pass selection to avoid circular chronology scoring:
 
@@ -246,17 +249,17 @@ Manual corrections from `timeline_manual_corrections.parquet` are applied after 
 
 **Month midpoint imputation (`apply_month_midpoint_imputation`).** After manual corrections — making it a true last-resort step — any remaining project where `decision_date_granularity == "month"` or `initiation_date_granularity == "month"` has its date adjusted from day 1 to day 15 (`YYYY-MM-15`), and `midpoint_imputed` is set to `True`. This is the pipeline's terminal fallback for month-year evidence (e.g. an EA cover page dated "November 2018" with no signed FONSI): midpoint imputation avoids systematic bias toward the first of the month while keeping the date usable for duration analysis. The `midpoint_imputed` flag lets downstream R analysis and the LLM adjudication step distinguish these estimates from authoritative day-level dates.
 
-**Pipeline ordering:** API/Register (Tier A) → Regex extraction (script 03) → BERT/BART scoring + selection (script 04) → Midpoint imputation (script 04 final pass) → LLM adjudication (script 06). Midpoint imputation runs before LLM adjudication so that projects with month-year dates are not sent to the LLM unnecessarily — they are already resolved to a usable estimate. Only projects with a completely missing date (`missing_decision`, `missing_both`) trigger LLM adjudication.
+**Pipeline ordering:** API/Register (Tier A) → Regex extraction (script 03) → classifier scoring (script 04) → selection (script 05) → Midpoint imputation (script 05 final pass) → LLM adjudication (script 06). Midpoint imputation runs before LLM adjudication so that projects with month-year dates are not sent to the LLM unnecessarily — they are already resolved to a usable estimate. Only projects with a completely missing date (`missing_decision`, `missing_both`) trigger LLM adjudication.
 
-### 06_adjudicate_timeline_api.py — Optional LLM Adjudication
+### 06_adjudicate_llm.py — Optional LLM Adjudication
 
 Uses Claude Haiku (`claude-haiku-4-5-20251001`) in two modes. **Candidate adjudication** sends compact packets (project title, process type, agency, top 40 candidates with scores and 300–500 char evidence contexts) for projects with missing or conflicting dates. Returned dates must be from the existing candidate set — hallucination guardrail rejects dates not present in the input. **Document recovery** sends top 3–10 page/section chunks (strict token cap) and validates returned dates by re-running the regex parser over the supplied context. All calls are cached by `project_id + context_hash + model`. Outputs update `timeline_project_dates.parquet` and append to `timeline_api_adjudications.parquet`.
 
 **Midpoint imputation interaction:** Projects with `midpoint_imputed = True` are excluded from the LLM adjudication queue for the role that is already imputed — since the LLM would see the same document text and return the same month-year date. A guard in `_apply_adjudication_results` prevents the LLM from overwriting a midpoint-imputed date when the project was queued for the other role (e.g. missing initiation). If the API does return a day-level date for a previously imputed role, `midpoint_imputed` is reset to `False`.
 
-### 07_run_full_corpus_timelines.py — Orchestration
+### _run.py — Orchestration
 
-Shards all projects by process type and SHA-1 hash bucket (default: 5 shards per process). For each shard, calls scripts 02–04 via subprocess using `--sample-ids` with a temporary shard ID file, with optional `--with-api` flag to also call script 06. Maintains a run manifest with shard status (started / completed / failed), row counts, input file hashes, and timing. Completed shards are skipped on re-runs unless `--force` is passed.
+Shards all projects by process type and SHA-1 hash bucket (default: 5 shards per process). For each shard, calls scripts 02 → 03 → 04 → 05 via subprocess using `--sample-ids` with a temporary shard ID file, with optional `--with-api` flag to also call script 06. Maintains a run manifest with shard status (started / completed / failed), row counts, input file hashes, and timing. Completed shards are skipped on re-runs unless `--force` is passed.
 
 ### 10–13 — Gold Set Workflow
 
@@ -267,7 +270,7 @@ Four scripts that form a complete gold-label annotation pipeline:
 - **13_codex_prelabel_gold_packets.py** — pre-fills `gold_*` columns in review packet copies from the current pipeline's best candidate per project, so reviewers verify rather than label from scratch
 - **12_import_gold_labels.py** — validates reviewed CSVs (checks date formats, role enumerations, required fields), writes normalized Parquet tables under `timeline/gold/`, computes inter-rater reliability (`timeline_gold_irr.parquet`), and produces a `reconciliation_queue.csv` for disagreements
 
-### 08_analyze_timelines.R — Duration Analysis
+### 08_analyze.R — Duration Analysis
 
 Reads from `timeline_project_dates.parquet` and optionally joins `timeline_document_index.parquet` for burden stratification. Headline analysis uses only `timeline_status == "complete_clear"`. Sensitivity analysis uses `complete_with_proxy`. Required regulatory breakpoints: FRA effective date `2023-08-16`, ARRA `2009-02-17`, BIL `2021-11-15`, IRA `2022-08-16`. Outputs include duration summary, coverage-by-process, duration-by-period, proxy sensitivity, and coverage diagnostics CSVs.
 
@@ -275,7 +278,7 @@ Reads from `timeline_project_dates.parquet` and optionally joins `timeline_docum
 
 ## Tier A Metadata Sources
 
-All Tier A sources produce structured date records that bypass document retrieval and are ingested as synthetic context packets with `retrieval_score = 5.0`. They are merged into `timeline_document_index.parquet` by `01_build_timeline_index.py` and emitted as packets by `02_retrieve_timeline_contexts.py`.
+All Tier A sources produce structured date records that bypass document retrieval and are ingested as synthetic context packets with `retrieval_score = 5.0`. They are merged into `timeline_document_index.parquet` by `01_index.py` and emitted as packets by `02_retrieve.py`.
 
 ### BLM ePlanning (scripts 09a → 09b → 09c)
 
@@ -507,7 +510,7 @@ Full corpus run completed 2026-05-29. All 61,881 projects in `projects_combined.
 
 ## Known Issues and Cautions
 
-- **EIS decision coverage gap (48.1% vs Phase 1 75.2%).** Root cause: two compounding factors. First, many EIS projects have all documents scored as `scan_priority = "defer"` because no document title or type matches the decision or initiation score dictionaries (e.g., numbered EIS volumes without explicit type labels). These projects receive no Tier B/C/D retrieval. Second, the current pipeline uses regex candidate extraction rather than the fine-tuned BERT model used in Phase 1. Tier E recovery is the near-term remediation path; better EIS document type classification in `01_build_timeline_index.py` is the longer-term fix.
+- **EIS decision coverage gap (48.1% vs Phase 1 75.2%).** Root cause: two compounding factors. First, many EIS projects have all documents scored as `scan_priority = "defer"` because no document title or type matches the decision or initiation score dictionaries (e.g., numbered EIS volumes without explicit type labels). These projects receive no Tier B/C/D retrieval. Second, the current pipeline uses regex candidate extraction rather than the fine-tuned BERT model used in Phase 1. Tier E recovery is the near-term remediation path; better EIS document type classification in `01_index.py` is the longer-term fix.
 
 - **Year-proxy dates (11,348 projects).** These are CE projects where the only date evidence is the NEPA case-number year extracted by the `nepa_case_year` pattern (e.g. `DOI-BLM-WY-P070-2019-0035-CX` → year 2019, stored as 2019-07-01, `date_granularity = "year"`). They are counted in decision coverage but flagged `proxy_decision = True` and excluded from `duration_days`. Do not include these in headline duration analysis without explicit sensitivity framing.
 
@@ -539,7 +542,7 @@ Full corpus run completed 2026-05-29. All 61,881 projects in `projects_combined.
 
 **Why BLM initiation coverage (13,854) is high but BLM decision coverage (1,392) is low.** BLM ePlanning reliably stores a project "Start Date" corresponding to the application or review initiation. Decision dates (FONSI, ROD) are populated less consistently — many BLM EA projects in ePlanning are in-progress or have decision dates in fields the scraper does not reach. This asymmetry is expected and reflects BLM ePlanning data quality, not a pipeline bug.
 
-**FRA breakpoint (2023-08-16).** Duration analysis must report pre/post breakpoints at this CEQ final rule effective date. `08_analyze_timelines.R` implements `FRA_CUT_DATE <- as.Date("2023-08-16")` as the primary regulatory breakpoint. Do not use the proposed-rule date or any other proxy date for the FRA cutoff.
+**FRA breakpoint (2023-08-16).** Duration analysis must report pre/post breakpoints at this CEQ final rule effective date. `08_analyze.R` implements `FRA_CUT_DATE <- as.Date("2023-08-16")` as the primary regulatory breakpoint. Do not use the proposed-rule date or any other proxy date for the FRA cutoff.
 
 ---
 
@@ -553,7 +556,7 @@ Scripts 10–13 implement a structured multi-pass gold-labeling workflow. The wo
 4. Human reviewer fills or corrects gold columns in the CSV
 5. `12_import_gold_labels.py` — import, validate, and normalize into `timeline/gold/` Parquet tables; produces inter-rater reliability report and reconciliation queue for disagreements
 
-The `05_validate_timeline_sample.py` script operates on the original 100-project stratified sample from script 00. In `--prepare-review` mode it writes an annotatable review packet; in `--validate` mode it computes granularity-aware match statistics against filled gold labels using the acceptance thresholds:
+The `07_validate.py` script operates on the original 100-project stratified sample from script 00. In `--prepare-review` mode it writes an annotatable review packet; in `--validate` mode it computes granularity-aware match statistics against filled gold labels using the acceptance thresholds:
 
 - Decision precision >= 95% for CE, EA, and EIS
 - Clear initiation precision >= 90% for EA/EIS; >= 85% for CE
@@ -584,30 +587,30 @@ conda run -n nepa python phase2/code/api/doe_register/05_fetch_cx_register.py
 conda run -n nepa python phase2/code/api/doe_register/06_match_cx_register.py
 
 # Section index (rebuild if stale)
-conda run -n nepa python phase2/code/deliverable04/00b_build_document_sections.py
+conda run -n nepa python phase2/code/deliverable04/00b_sections.py
 
 # Document index (run after any register source changes)
-conda run -n nepa python phase2/code/deliverable04/01_build_timeline_index.py
+conda run -n nepa python phase2/code/deliverable04/01_index.py
 
 # Full corpus extraction (sharded, resumes from completed shards)
-conda run -n nepa python phase2/code/deliverable04/07_run_full_corpus_timelines.py --process CE EA EIS --shards 5
+conda run -n nepa python phase2/code/deliverable04/_run.py --process CE EA EIS --shards 5
 
 # Optional: API adjudication for unresolved EA/EIS
-conda run -n nepa python phase2/code/deliverable04/07_run_full_corpus_timelines.py --with-api --process EA EIS
+conda run -n nepa python phase2/code/deliverable04/_run.py --with-api --process EA EIS
 
 # Spot-check API-sourced dates
-conda run -n nepa python phase2/code/deliverable04/05b_export_api_validation.py
+conda run -n nepa python phase2/code/deliverable04/export_api_validation.py
 
 # Duration analysis
-Rscript phase2/code/deliverable04/08_analyze_timelines.R
+Rscript phase2/code/deliverable04/08_analyze.R
 ```
 
 Sample run (100-project validation sample):
 
 ```bash
-conda run -n nepa python phase2/code/deliverable04/01_build_timeline_index.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
-conda run -n nepa python phase2/code/deliverable04/02_retrieve_timeline_contexts.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
-conda run -n nepa python phase2/code/deliverable04/03_extract_timeline_candidates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
-conda run -n nepa python phase2/code/deliverable04/04_select_timeline_dates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
-conda run -n nepa python phase2/code/deliverable04/05_validate_timeline_sample.py --prepare-review
+conda run -n nepa python phase2/code/deliverable04/01_index.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
+conda run -n nepa python phase2/code/deliverable04/02_retrieve.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
+conda run -n nepa python phase2/code/deliverable04/03_extract_candidates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
+conda run -n nepa python phase2/code/deliverable04/05_select_dates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
+conda run -n nepa python phase2/code/deliverable04/07_validate.py --prepare-review
 ```

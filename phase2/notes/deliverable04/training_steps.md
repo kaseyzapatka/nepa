@@ -48,11 +48,11 @@ Run once after major pipeline changes (FEIS priority boost, new patterns, etc.).
 **A1. Full pipeline re-run** (~3 hours, unattended):
 ```bash
 cd /Users/Dora/git/consulting/nepa
-conda run -n nepa python phase2/code/deliverable04/01_build_timeline_index.py
-conda run -n nepa python phase2/code/deliverable04/02_retrieve_timeline_contexts.py --force
-conda run -n nepa python phase2/code/deliverable04/03_extract_timeline_candidates.py --force
-conda run -n nepa python phase2/code/deliverable04/04_select_timeline_dates.py --force
-conda run -n nepa python phase2/code/deliverable04/05_validate_timeline_sample.py --prepare-review
+conda run -n nepa python phase2/code/deliverable04/01_index.py
+conda run -n nepa python phase2/code/deliverable04/02_retrieve.py --force
+conda run -n nepa python phase2/code/deliverable04/03_extract_candidates.py --force
+conda run -n nepa python phase2/code/deliverable04/05_select_dates.py --force
+conda run -n nepa python phase2/code/deliverable04/07_validate.py --prepare-review
 ```
 
 **A2. Rebuild gold splits from fresh pipeline output** (ONE-TIME, deliberate — do this once after the pipeline stabilizes, then never again with `--overwrite-existing`):
@@ -158,7 +158,7 @@ via the API, then spot-check 15–20% manually. This produces ~7,000 labels over
 
 To pseudo-label:
 ```bash
-conda run -n nepa python phase2/code/deliverable04/06_adjudicate_timeline_api.py \
+conda run -n nepa python phase2/code/deliverable04/06_adjudicate_llm.py \
     --mode candidate_adjudication --process EA EIS
 ```
 

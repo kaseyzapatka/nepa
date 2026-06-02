@@ -6,9 +6,9 @@ and is not stale relative to the source pages data. Writes D4-specific section Q
 diagnostics used by retrieval scoring.
 
 Usage:
-    python 00b_build_document_sections.py [--check-only] [--force] [--process EA EIS CE]
-    python 00b_build_document_sections.py --force  # rebuild unconditionally
-    python 00b_build_document_sections.py --check-only  # report staleness without rebuilding
+    python 00b_sections.py [--check-only] [--force] [--process EA EIS CE]
+    python 00b_sections.py --force  # rebuild unconditionally
+    python 00b_sections.py --check-only  # report staleness without rebuilding
 """
 
 import os

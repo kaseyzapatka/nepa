@@ -17,8 +17,8 @@ Writes:
     phase2/output/deliverable04/api_date_validation.csv
 
 Usage:
-    python 05b_export_api_validation.py
-    python 05b_export_api_validation.py --dates-path path/to/timeline_project_dates.parquet
+    python export_api_validation.py
+    python export_api_validation.py --dates-path path/to/timeline_project_dates.parquet
 """
 
 import os

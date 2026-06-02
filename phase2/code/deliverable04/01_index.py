@@ -6,8 +6,8 @@ timeline_document_index.parquet with document role scores, appendix flags,
 scan priority, and NOI Tier A eligibility.
 
 Usage:
-    python 01_build_timeline_index.py [--sample-ids path/to/ids.txt]
-    python 01_build_timeline_index.py --process CE EA EIS
+    python 01_index.py [--sample-ids path/to/ids.txt]
+    python 01_index.py --process CE EA EIS
 """
 
 import os

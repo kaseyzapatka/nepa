@@ -6,10 +6,10 @@ project-id hash bucket. Maintains a manifest with shard status, input hashes,
 and row counts. Resumes from completed shards by default.
 
 Usage:
-    python 07_run_full_corpus_timelines.py [--process CE EA EIS] [--shards 10]
-    python 07_run_full_corpus_timelines.py --force              # rerun all shards
-    python 07_run_full_corpus_timelines.py --with-api --process EA EIS
-    python 07_run_full_corpus_timelines.py --dry-run --shards 2 --process CE
+    python _run.py [--process CE EA EIS] [--shards 10]
+    python _run.py --force              # rerun all shards
+    python _run.py --with-api --process EA EIS
+    python _run.py --dry-run --shards 2 --process CE
 """
 
 import os
@@ -139,12 +139,13 @@ def run_shard(
     write_shard_ids(project_ids, shard_tmp)
 
     stages = [
-        ("02_retrieve_timeline_contexts.py", "retrieval"),
-        ("03_extract_timeline_candidates.py", "candidates"),
-        ("04_select_timeline_dates.py", "selection"),
+        ("02_retrieve.py", "retrieval"),
+        ("03_extract_candidates.py", "candidates"),
+        ("04_classify_candidates.py", "classification"),
+        ("05_select_dates.py", "selection"),
     ]
     if with_api:
-        stages.append(("06_adjudicate_timeline_api.py", "api"))
+        stages.append(("06_adjudicate_llm.py", "api"))
 
     for script_name, stage in stages:
         if not force and is_shard_complete(manifest, process_type, shard_id, stage):
@@ -218,9 +219,9 @@ def run_shard(
 
 def check_and_rebuild_sections(process_types: list[str], dry_run: bool) -> None:
     """Ensure document_sections.parquet is current before the full run."""
-    build_script = D4_CODE / "00b_build_document_sections.py"
+    build_script = D4_CODE / "00b_sections.py"
     if not build_script.exists():
-        print("WARNING: 00b_build_document_sections.py not found; skipping section check.")
+        print("WARNING: 00b_sections.py not found; skipping section check.")
         return
     args = ["--process"] + [p for p in process_types if p != "CE"]  # CE optional per policy
     if dry_run:
@@ -254,7 +255,7 @@ def main() -> None:
     if not (TIMELINE_DIR / "timeline_document_index.parquet").exists() or args.force:
         print("Building timeline index...")
         success, err = run_script(
-            "01_build_timeline_index.py",
+            "01_index.py",
             ["--process"] + args.process,
             dry_run=args.dry_run,
         )

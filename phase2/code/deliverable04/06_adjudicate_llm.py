@@ -17,9 +17,9 @@ Outputs:
     phase2/data/analysis/timeline/timeline_project_dates.parquet    (updated)
 
 Usage:
-    python 06_adjudicate_timeline_api.py --mode candidate_adjudication [--process CE EA EIS]
-    python 06_adjudicate_timeline_api.py --mode document_recovery --process EIS
-    python 06_adjudicate_timeline_api.py --dry-run --process EA --sample 10
+    python 06_adjudicate_llm.py --mode candidate_adjudication [--process CE EA EIS]
+    python 06_adjudicate_llm.py --mode document_recovery --process EIS
+    python 06_adjudicate_llm.py --dry-run --process EA --sample 10
 """
 
 import os
@@ -597,7 +597,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if not DATES_PATH.exists():
-        raise FileNotFoundError(f"Dates not found: {DATES_PATH}\nRun 04_select_timeline_dates.py first.")
+        raise FileNotFoundError(f"Dates not found: {DATES_PATH}\nRun 05_select_dates.py first.")
     if not CANDIDATES_PATH.exists():
         raise FileNotFoundError(f"Candidates not found: {CANDIDATES_PATH}")
 

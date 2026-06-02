@@ -1,5 +1,5 @@
 """
-09_build_review_packet.py
+build_review_packet.py
 =========================
 Builds a human-QC review packet from the pipeline's candidate output, adding
 pre-computed preferred_initiation_candidate and preferred_decision_candidate
@@ -12,14 +12,14 @@ differences) before reviewers ever open the file.
 Usage
 -----
     # Build a fresh packet from the pipeline's candidate output:
-    python phase2/code/deliverable04/09_build_review_packet.py \
+    python phase2/code/deliverable04/build_review_packet.py \
         --packet   phase2/output/deliverable04/timeline_sample100_review_packet.csv \
         --output   phase2/output/deliverable04/timeline_review_packet_v2.csv \
         --reviewers 2          # number of blank reviewer rows to emit per project
 
 Input expectation
 -----------------
-The --packet file must contain columns produced by 05_validate_timeline_sample.py:
+The --packet file must contain columns produced by 07_validate.py:
     top_initiation_candidates, top_decision_candidates,
     suggested_initiation_date, suggested_initiation_evidence,
     suggested_decision_date, suggested_decision_evidence

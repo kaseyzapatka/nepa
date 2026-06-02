@@ -9,7 +9,7 @@ Outputs:
     phase2/data/analysis/timeline/timeline_candidates.parquet
 
 Usage:
-    python 03_extract_timeline_candidates.py [--process CE EA EIS] [--sample-ids path]
+    python 03_extract_candidates.py [--process CE EA EIS] [--sample-ids path]
 """
 
 import os
@@ -824,12 +824,12 @@ def main() -> None:
 
     if output_path.exists() and not args.force and not args.sample_ids and not args.append:
         print(f"Output already exists: {output_path}")
-        print("Re-run only when 02_retrieve_timeline_contexts.py output changes.")
+        print("Re-run only when 02_retrieve.py output changes.")
         print("Pass --force to overwrite.")
         return
 
     if not packets_path.exists():
-        raise FileNotFoundError(f"Context packets not found: {packets_path}\nRun 02_retrieve_timeline_contexts.py first.")
+        raise FileNotFoundError(f"Context packets not found: {packets_path}\nRun 02_retrieve.py first.")
 
     project_ids: set[str] | None = None
     if args.sample_ids:
@@ -849,7 +849,7 @@ def main() -> None:
         raise SystemExit(
             f"[GUARD] Input packets contain only {packets_process_types}, not all process types.\n"
             f"Writing subset data to {output_path} would overwrite the full-corpus candidates.\n"
-            f"Use --run-dir to isolate this run, or re-run 02_retrieve_timeline_contexts.py "
+            f"Use --run-dir to isolate this run, or re-run 02_retrieve.py "
             f"without --process to restore full-corpus packets."
         )
 
@@ -875,7 +875,7 @@ def main() -> None:
     df = pd.DataFrame(all_candidates)
     df = add_repeated_mention_counts(df)
 
-    # Initialize scoring columns to zero — populated by 04_select_timeline_dates.py
+    # Initialize scoring columns to zero — populated by 05_select_dates.py
     for col in [
         "source_strength", "role_cue_strength", "document_priority",
         "section_priority", "page_priority", "position_signal",

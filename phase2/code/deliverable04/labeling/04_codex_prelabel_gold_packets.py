@@ -1,5 +1,12 @@
 """
-Create Codex-labeled review packet copies for gold-standard timeline review.
+Mechanical (regex-echo) prelabel of gold review packets — NOT an LLM pass.
+
+WARNING: despite the "codex" name, this script does NOT call any model. It copies
+the regex candidate_role into gold_candidate_role and derives gold_selected_for
+from the pipeline's selected_for_* flags (see label_candidates()). The result is
+a regex echo, useful only as a baseline / scaffold. Do NOT train the classifier
+on this output — use labeling/05_llm_label_candidates.py (real LLM labels) or
+human review instead.
 
 This is a prelabeling pass, not final human-verified gold. It fills gold_* fields
 where the refreshed D4 candidate/selection outputs provide candidate-backed
