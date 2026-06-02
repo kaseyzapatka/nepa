@@ -354,8 +354,61 @@ ggplot(rate_by_energy, aes(x = energy_group, y = pct, fill = fill_key)) +
   theme(legend.position = "bottom", plot.caption = element_text(hjust = 0))
 save_fig("fig1_review_rates_by_energy.png")
 
+# --------------------------
+# MULTI-TAG TECHNOLOGY ATTRIBUTION (Phase-1 Deliverable 1 parity)
+# --------------------------
+# The base reviews table assigns each project ONE tech_group via a first-match
+# CASE in 02_build_nepa_reviews.py (e.g., a solar+transmission project -> Solar).
+# Phase-1 Deliverable 1 instead counts a project under EVERY technology it is
+# tagged with. To match that behavior in the technology figure (fig2), we explode
+# the raw project_type array and attribute each project to ALL of its matching
+# technology display-groups. The taxonomy below mirrors the CASE in
+# 02_build_nepa_reviews.py exactly; projects with no recognized energy label fall
+# back to "Other Clean"/"Other Fossil" (identical to the scalar behavior).
+# NOTE: a multi-tagged project is counted in multiple bars, so the bar totals sum
+# to more than the project count -- this is intentional (see fig caption).
+tech_tag_patterns <- tibble::tribble(
+  ~tech_label,            ~pattern,                    ~group,
+  "Geothermal",           "Geothermal",                "Decarbonization",
+  "Wind",                 "Wind",                      "Decarbonization",
+  "Solar",                "Solar",                     "Decarbonization",
+  "Transmission",         "Electricity Transmission",  "Decarbonization",
+  "Hydropower",           "Hydropower|Hydrokinetic",   "Decarbonization",
+  "Biomass",              "Biomass",                   "Decarbonization",
+  "Energy Storage",       "Energy Storage",            "Decarbonization",
+  "CCS",                  "Carbon Capture",            "Decarbonization",
+  "Nuclear",              "Nuclear",                   "Decarbonization",
+  "Land-based Oil & Gas", "Land-based Oil",            "Fossil Fuel",
+  "Offshore Oil & Gas",   "Offshore Oil",              "Fossil Fuel",
+  "Coal",                 "Coal",                      "Fossil Fuel",
+  "Pipeline",             "Pipeline",                  "Fossil Fuel",
+  "Rural Energy",         "Rural Energy",              "Fossil Fuel"
+)
+
+# Returns one row per (project, matching technology display-group). Other columns
+# (process_type, energy_group, project_id, ...) are carried through unchanged.
+explode_tech_tags <- function(data) {
+  base <- data |> mutate(.row = row_number())
+  long <- purrr::pmap_dfr(tech_tag_patterns, function(tech_label, pattern, group) {
+    base |>
+      filter(energy_group == group, str_detect(project_type, regex(pattern))) |>
+      transmute(.row, tech_group = tech_label)
+  })
+  matched <- unique(long$.row)
+  other <- base |>
+    filter(!.row %in% matched) |>
+    transmute(.row, tech_group = if_else(energy_group == "Decarbonization",
+                                         "Other Clean", "Other Fossil"))
+  bind_rows(long, other) |>
+    left_join(base |> select(-tech_group), by = ".row") |>
+    select(-.row)
+}
+
+tech_long <- explode_tech_tags(df)
+
 # Fig 2 — CE/EA/EIS rates by tech_group (sorted by CE share) ----
-rate_by_tech <- df |>
+# Multi-tag: a project contributes to every technology it is tagged with.
+rate_by_tech <- tech_long |>
   filter(!is.na(process_type), !is.na(tech_group), !tech_group %in% c("Other")) |>
   count(tech_group, process_type) |>
   group_by(tech_group) |>
@@ -429,7 +482,9 @@ ggplot(rate_by_tech, aes(x = tech_group, y = pct, fill = fill_key)) +
        caption = paste0(
          DATA_CAPTION, "\n",
          "Blue bars = Decarbonization projects; red bars = Fossil Fuel projects. ",
-         "CCS = Carbon Capture and Sequestration/Storage."
+         "CCS = Carbon Capture and Sequestration/Storage.\n",
+         "Projects may carry multiple technology tags and are counted under each; ",
+         "bar totals therefore exceed the project count."
        )) +
   theme_catf() +
   theme(
