@@ -95,33 +95,35 @@ MONTH_MAP = {
 # token-truncation, expanded to sentence boundaries, then capped per process type.
 # Char caps approximate the token targets CE~100 / EA~150 / EIS~200 (≈4 chars/token).
 # ---------------------------------------------------------------------------
-MODEL_CONTEXT_CHARS = {"CE": 400, "EA": 600, "EIS": 800}
+# Per-process window size (chars) for the candidate-evidence context. Fuller than a
+# single sentence, but bounded — never the whole document. EIS gets more (narrative);
+# CE less (dense forms). Note: SetFit (all-MiniLM, 256 tokens ≈ ~1024 chars) truncates
+# the far tail at inference, but the date is centered so it is always within budget.
+MODEL_CONTEXT_CHARS = {"CE": 900, "EA": 1200, "EIS": 1500}
 DATE_MARKER_OPEN = "[["
 DATE_MARKER_CLOSE = "]]"
 _SENT_BOUNDARY = re.compile(r"[.!?]\s+")
 
 
-def _build_model_context(full_text: str, ds: int, de: int, process_type: str) -> str:
+def _build_model_context(full_text: str, ds: int, de: int, process_type: str,
+                         cap: int | None = None) -> str:
     """
-    Build a date-centered, sentence-bounded, capped, marker-wrapped window.
+    Build a date-centered window of ~`cap` chars (the candidate evidence), with the
+    target date wrapped in [[ ]]. Bounded — it fills toward the cap around the date
+    rather than collapsing to the single sentence the date sits in.
     full_text is the normalized packet text; [ds, de) is the date span within it.
     """
-    cap = MODEL_CONTEXT_CHARS.get(process_type, 600)
+    if cap is None:
+        cap = MODEL_CONTEXT_CHARS.get(process_type, 1200)
     n = len(full_text)
     if not (0 <= ds < de <= n):
         return full_text[:cap]
 
-    # Sentence boundaries; expand to the sentence containing the date, then enforce cap.
-    bounds = [0] + [m.end() for m in _SENT_BOUNDARY.finditer(full_text)] + [n]
-    s = max([b for b in bounds if b <= ds], default=0)
-    e = min([b for b in bounds if b >= de], default=n)
-    if e - s > cap:
-        # Too long for one sentence — center a cap-sized window on the date instead,
-        # so the marked date is never truncated away by the encoder.
-        center = (ds + de) // 2
-        s = max(0, center - cap // 2)
-        e = min(n, s + cap)
-        s = max(0, e - cap)
+    # Center a cap-sized window on the date; clamp to text bounds.
+    center = (ds + de) // 2
+    s = max(0, center - cap // 2)
+    e = min(n, s + cap)
+    s = max(0, e - cap)
 
     rel_s, rel_e = ds - s, de - s
     body = full_text[s:e]
@@ -960,21 +962,22 @@ def emit_labeling_sample(df: pd.DataFrame, packets_df: pd.DataFrame | None = Non
         print(f"Wrote locked selection: {ids_path} ({len(sample)} ids) — "
               "re-runs will reuse these exact candidates.")
 
-    # 2) full_context: complete packet text with the target date marked (no truncation).
+    # 2) Rebuild the candidate-evidence context (bounded window centered on the date)
+    #    from the full packet text, so the sample reflects the current windowing logic.
     pkt_map: dict = {}
     if packets_df is not None and "context_packet_id" in packets_df.columns:
         pk = packets_df[["context_packet_id", "context_text"]].drop_duplicates("context_packet_id")
         pkt_map = dict(zip(pk["context_packet_id"], pk["context_text"]))
 
-    def _full(row) -> str:
+    def _ctx(row) -> str:
         txt = " ".join(str(pkt_map.get(row.get("context_packet_id")) or row.get("context_text") or "").split())
         dt = str(row.get("raw_date_text") or "")
         i = txt.find(dt) if dt else -1
-        if i >= 0:
-            txt = txt[:i] + DATE_MARKER_OPEN + dt + DATE_MARKER_CLOSE + txt[i + len(dt):]
-        return txt or str(row.get("model_context") or "")
+        if i < 0:
+            return str(row.get("model_context") or "")
+        return _build_model_context(txt, i, i + len(dt), row.get("process_type"))
 
-    sample["full_context"] = sample.apply(_full, axis=1)
+    sample["model_context"] = sample.apply(_ctx, axis=1)
 
     # 3) Carry over any existing labels by candidate_id.
     prev_labels: dict = {}
@@ -998,14 +1001,14 @@ def emit_labeling_sample(df: pd.DataFrame, packets_df: pd.DataFrame | None = Non
     cols = ["candidate_id", "project_id", "process_type", "candidate_role",
             "role_confidence_score", "parsed_date", "date_granularity",
             "document_type_clean", "heading_title", "raw_date_text",
-            "full_context", "model_context", "stratum", "label", "notes"]
+            "model_context", "stratum", "label", "notes"]
     sample = sample[[c for c in cols if c in sample.columns]]
 
     path.parent.mkdir(parents=True, exist_ok=True)
     sample.to_csv(path, index=False)
     print(f"Wrote labeling sample: {path}  ({len(sample)} rows; {carried} labels carried over)")
-    print("  Read 'full_context' to label; fill 'label' with: initiation | decision | neither, "
-          "then run 04_classify_candidates.py --train")
+    print("  Read 'model_context' (candidate evidence) to label; fill 'label' with: "
+          "initiation | decision | neither, then run 04_classify_candidates.py --train")
 
 
 def main() -> None:
