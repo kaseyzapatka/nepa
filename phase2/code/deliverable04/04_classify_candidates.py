@@ -104,8 +104,12 @@ LABEL_ORDER = ["initiation", "decision"]
 
 INITIATION_ROLES = {"clear_initiation", "proxy_initiation"}
 DECISION_ROLES = {"clear_decision", "proxy_decision"}
-ELIGIBLE_ROLES = INITIATION_ROLES | DECISION_ROLES | {"body_text", "unknown"}
-EXEMPT_ROLES = {"review", "historical", "reject"}
+# historical is ELIGIBLE (not exempt): an audit (2026-06-02) showed regex "historical" is
+# only ~16% reliably historical — it sweeps in real Field-Manager/NEPA-officer signature
+# dates. Scoring it lets the classifier rescue those misfiles (genuine historicals score low
+# on both heads and stay out; misfiled signatures score high P_decision and get recovered).
+ELIGIBLE_ROLES = INITIATION_ROLES | DECISION_ROLES | {"body_text", "unknown", "historical"}
+EXEMPT_ROLES = {"review", "reject"}
 
 # Decision threshold for the discrete classifier_label (ranking uses raw probs).
 LABEL_THRESHOLD = 0.5

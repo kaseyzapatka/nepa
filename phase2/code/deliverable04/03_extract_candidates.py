@@ -389,15 +389,22 @@ REVIEW_CUES = re.compile(
     re.IGNORECASE,
 )
 
-# Historical / legal
+# Historical / legal — GENUINE past-event cues only.
+# Removed bare lup / rmp / "resource management plan" / "land use plan" / bare "historical":
+# they fire on BLM CE form boilerplate ("LUP Conformance & CX Confirmation" is on every BLM
+# CE) and checklist labels ("Cultural or Historical [ ]"), which — because HISTORICAL_CUES is
+# checked before CLEAR_DECISION_STRONG — was stamping real Field-Manager/NEPA-officer signature
+# dates as historical. Audit (2026-06-02): only ~16% of historical candidates had genuine
+# past-event phrasing; ~13% were pure form-boilerplate contamination. Keep only event cues
+# that describe a PRIOR dated action.
 HISTORICAL_CUES = re.compile(
     r"\b("
-    r"(?:resource\s+management|land\s+use)\s+plan|rmp|lup|programmatic\s+eis|"
-    r"prior\s+rod|previous\s+(?:eis|ea)|old\s+(?:lease|plan)|"
-    r"communication\s+site\s+established|lease\s+issued|historical|"
+    r"prior\s+rod|previous\s+(?:eis|ea|rod|decision)|prior\s+(?:eis|ea|decision)|"
+    r"old\s+(?:lease|plan)|"
+    r"communication\s+site\s+established|lease\s+issued\s+on|"
     r"(?:was\s+)?granted\s+a\s+(?:row|right[-\s]of[-\s]way)|"
     r"(?:row|right[-\s]of[-\s]way)\s+(?:was\s+)?(?:granted|issued)\s+on|"
-    r"previously\s+(?:authorized|approved|granted)"
+    r"previously\s+(?:authorized|approved|granted|issued|prepared)"
     r")\b",
     re.IGNORECASE,
 )
