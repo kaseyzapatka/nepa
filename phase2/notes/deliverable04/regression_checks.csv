@@ -1,0 +1,4 @@
+project_id,expected_initiation,expected_decision,expected_status,expected_flag,note
+73545c5b-c613-34b8-d9d7-5cd56655c11f,2021-12-07,2022-01-04,complete_with_proxy,date_determined_initiation,DOE CX: Date Determined recovered as initiation; NCO signature as decision
+1432bb2a-2ccb-8c04-a4f0-681fbc693827,2010-05-05,2010-05-26,complete_with_proxy,date_determined_initiation,DOE CX: recovers even when a register date coincides (signature becomes decision)
+62a8bc65-86d2-603e-41f6-75ace66f2d02,,2017-11-01,missing_initiation,,Counter-case: lone Date Determined stays the decision; no initiation recovered
