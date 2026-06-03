@@ -36,6 +36,7 @@ knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
 # Paths
 ce_figures <- here("phase1", "output", "_project_overview", "figures")
+ce_tables <- here("phase1", "output", "_project_overview", "tables")
 ```
 
 # Project Overview
@@ -282,48 +283,43 @@ knitr::include_graphics(file.path(ce_figures, "00_fig_clean_energy_by_review.png
 
 ## What Qualifies as Decarbonization Technology?
 
-@tbl-energy-tags enumerates the CATF-defined 14 decarbonization technology and 5 fossil fuel categories used to identify decarbonization technology vs fossil fuel energy projects in the NEPA database. While projects often have multiple tags, a "decarbonization technology" project is identified as having at least one of the 14 tags _AND_ no fossil fuel tags.
+@tbl-energy-tags enumerates the CATF-defined decarbonization technology and fossil fuel project type tags used to identify decarbonization technology vs fossil fuel energy projects in the NEPA database. The table also reports project counts for each tag. While projects often have multiple tags, a "decarbonization technology" project is identified as having at least one decarbonization technology tag _AND_ no fossil fuel tags.
 
 ```{r}
 #| label: tbl-energy-tags
 #| tbl-cap: "Project type tags used to classify clean vs. fossil energy projects"
 #| echo: false
 
-tibble(
-  `Decarbonization Technology Tags` = c(
-    "Carbon Capture and Sequestration",
-    "Conventional Energy Production - Nuclear",
-    "Conventional Energy Production - Other",
-    "Electricity Transmission",
-    "Nuclear Technology",
-    "Renewable Energy Production*",
-    "Utilities (electricity, gas, telecommunications)"
-  ),
-  `Fossil Energy Tags` = c(
-    "Conventional Energy Production - Coal",
-    "Conventional Energy Production - Land-based Oil & Gas",
-    "Conventional Energy Production - Offshore Oil and Gas",
-    "Conventional Energy Production - Rural Energy",
-    "Pipelines",
-    "",
-    ""
-  )
+energy_tag_counts <- read_csv(
+  file.path(ce_tables, "table1_energy_tag_counts.csv"),
+  show_col_types = FALSE
 ) |>
-  gt() |>
-  tab_style(
-    style = cell_text(color = "#999999"),
-    locations = cells_body(
-      columns = `Fossil Energy Tags`,
-      rows = `Fossil Energy Tags` == ""
+  mutate(
+    `Energy Category` = factor(
+      `Energy Category`,
+      levels = c("Decarbonization Technology", "Fossil Fuel")
     )
   ) |>
-  tab_footnote(
-    footnote = "Includes Biomass, Energy Storage, Geothermal, Hydrokinetic, Hydropower, Solar, Wind (Offshore & Onshore), and \nOther",
-    locations = cells_body(columns = `Decarbonization Technology Tags`, rows = 6)
-  ) |>
+  arrange(`Energy Category`, desc(Projects), `Project Type Tag`)
+
+energy_tag_counts |>
+  gt(groupname_col = "Energy Category") |>
+  fmt_number(columns = Projects, decimals = 0) |>
   cols_width(
-    `Decarbonization Technology Tags` ~ px(350),
-    `Fossil Energy Tags` ~ px(350)
+    `Project Type Tag` ~ px(420),
+    Projects ~ px(120)
+  ) |>
+  tab_footnote(
+    footnote = "Includes Biomass, Energy Storage, Geothermal, Hydrokinetic, Hydropower, Solar, Wind (Offshore & Onshore), and Other",
+    locations = cells_body(
+      columns = `Project Type Tag`,
+      rows = `Project Type Tag` == "Renewable Energy Production"
+    )
+  ) |>
+  tab_options(
+    column_labels.hidden = TRUE,
+    row_group.font.weight = "bold",
+    footnotes.marks = "numbers"
   )
 ```
 

@@ -1738,7 +1738,7 @@ fig_appendix <- energy_type_summary %>%
   ) +
   labs(
     x     = NULL,
-    y     = "Number of Projects",
+    y     = "Number of Reviews",
     title = "NEPA Reviews by Energy Type"
   ) +
   scale_y_continuous(labels = scales::comma, expand = expansion(mult = c(0, 0.15))) +
