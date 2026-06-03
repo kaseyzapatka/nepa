@@ -114,6 +114,10 @@ EXEMPT_ROLES = {"review", "reject"}
 # Decision threshold for the discrete classifier_label (ranking uses raw probs).
 LABEL_THRESHOLD = 0.5
 
+# Fraction of the labeled sample held out by --train for self-contained validation
+# (no separate gold test set required).
+HOLDOUT_FRACTION = 0.2
+
 
 # ---------------------------------------------------------------------------
 # Input construction + label derivation
@@ -321,25 +325,60 @@ def run_train(backend_name: str, model_dir: Path) -> None:
         )
 
     texts = [build_input_text(r) for _, r in df.iterrows()]
+    n = len(texts)
+    n_neither = int((labels.sum(axis=1) == 0).sum())
+    print(f"Loaded {n} labeled rows from {src} "
+          f"(init={int(labels[:,0].sum())}, decision={int(labels[:,1].sum())}, neither={n_neither}).")
 
-    print(f"Training {backend_name} on {len(texts)} labeled rows from {src} "
-          f"(init={int(labels[:,0].sum())}, decision={int(labels[:,1].sum())}).")
+    # Stratified hold-out so --train also validates without a separate gold test set.
+    cls = labels[:, 0] * 1 + labels[:, 1] * 2  # 0=neither, 1=initiation, 2=decision
+    try:
+        from sklearn.model_selection import train_test_split
+        idx = np.arange(n)
+        tr_idx, te_idx = train_test_split(
+            idx, test_size=HOLDOUT_FRACTION, random_state=42, stratify=cls
+        )
+    except Exception as e:
+        print(f"WARNING: stratified split failed ({e}); training on all rows, no hold-out eval.")
+        tr_idx, te_idx = np.arange(n), np.array([], dtype=int)
+
+    print(f"Training {backend_name} on {len(tr_idx)} rows; holding out {len(te_idx)} for validation.")
     backend = make_backend(backend_name)
-    backend.train(texts, labels)
+    backend.train([texts[i] for i in tr_idx], labels[tr_idx])
+
+    metrics: dict = {}
+    if len(te_idx):
+        te_prob = backend.predict_proba([texts[i] for i in te_idx])
+        te_true = labels[te_idx]
+        te_pred = (te_prob >= LABEL_THRESHOLD).astype(int)
+        print(f"\nHold-out validation ({len(te_idx)} rows):")
+        for i, head in enumerate(LABEL_ORDER):
+            tp = int(((te_pred[:, i] == 1) & (te_true[:, i] == 1)).sum())
+            fp = int(((te_pred[:, i] == 1) & (te_true[:, i] == 0)).sum())
+            fn = int(((te_pred[:, i] == 0) & (te_true[:, i] == 1)).sum())
+            prec = tp / (tp + fp) if (tp + fp) else 0.0
+            rec = tp / (tp + fn) if (tp + fn) else 0.0
+            f1 = 2 * prec * rec / (prec + rec) if (prec + rec) else 0.0
+            print(f"  {head:11s} P={prec:.3f} R={rec:.3f} F1={f1:.3f} (tp={tp} fp={fp} fn={fn})")
+            metrics[head] = {"precision": round(prec, 3), "recall": round(rec, 3),
+                             "f1": round(f1, 3), "tp": tp, "fp": fp, "fn": fn}
 
     backend.save(model_dir)
     meta = {
         "backend": backend_name,
         "base_model": getattr(backend, "base_model", None),
         "label_order": LABEL_ORDER,
-        "n_train": len(texts),
+        "n_labeled": n,
+        "n_train": int(len(tr_idx)),
+        "n_holdout": int(len(te_idx)),
         "n_init_pos": int(labels[:, 0].sum()),
         "n_decision_pos": int(labels[:, 1].sum()),
+        "holdout_metrics": metrics,
         "trained_at": datetime.now(timezone.utc).isoformat(),
         "model_version": datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"),
     }
     (model_dir / "classifier_meta.json").write_text(json.dumps(meta, indent=2))
-    print(f"Saved model + meta to {model_dir} (version {meta['model_version']}).")
+    print(f"\nSaved model + meta to {model_dir} (version {meta['model_version']}).")
 
 
 def run_eval(model_dir: Path) -> None:
