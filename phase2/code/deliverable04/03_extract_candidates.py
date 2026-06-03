@@ -808,6 +808,13 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                     document_type_category=packet.get("document_type_category"),
                 )
 
+                # Tag a "Date Determined: <date>" date (DOE CX form). Stays clear_decision
+                # (so a lone Date-Determined is the decision), but 05 can recover it as a CE
+                # initiation when a separate, later decision (e.g. NCO signature) also exists.
+                if re.search(r"date\s+determined\s*:?\s*$",
+                             block[max(0, _ms - 40):_ms], re.IGNORECASE):
+                    pos_cues = pos_cues + ["date_determined"]
+
                 # Skip clear rejects
                 if role == "reject" and not heading:
                     continue

@@ -427,6 +427,50 @@ def select_dates_for_project(
         except Exception:
             pass
 
+    # --- DOE CX "Date Determined" initiation recovery (deterministic rule, CE) ---
+    # A DOE CX form often has a "Date Determined: <d1>" plus a later signature "<d2>".
+    # When both exist (d1 < d2) and no other initiation was found, set decision = the
+    # later signature and recover the earlier Date Determined as a proxy initiation
+    # (a CE processing-start bracket). Accepted deterministically (it precedes the
+    # decision) -> no classifier, no LLM adjudication.
+    # Per project decision (2026-06-02): this RECOVERS EVEN WHEN a register determination
+    # date coincides with the Date Determined — the later signature becomes the decision.
+    # Guard (counter-case): a lone Date Determined with no later signature stays the
+    # decision (the block below requires a later non-Date-Determined decision date).
+    date_determined_init_used = False
+    if process_type == "CE" and initiation_date_str is None:
+        dd_flag = cands["positive_cue_flags"].fillna("").str.contains("date_determined")
+        dd_cands = cands[dd_flag & cands["_parsed_date"].notna()]
+        if not dd_cands.empty:
+            dd_date = dd_cands["_parsed_date"].min()  # the Date Determined (earliest if several)
+            sig = cands[
+                cands["candidate_role"].isin(["clear_decision", "proxy_decision"])
+                & ~dd_flag & cands["_parsed_date"].notna()
+                & (cands["_parsed_date"] > dd_date)
+            ]
+            if not sig.empty:
+                s = sig.sort_values("_parsed_date").iloc[-1]   # latest signature = decision
+                dd = dd_cands[dd_cands["_parsed_date"] == dd_date].iloc[0]
+                decision_date_str = s["_parsed_date"].isoformat()
+                decision_granularity = s.get("date_granularity", "day")
+                decision_source_type = s.get("candidate_source_type", "document_text")
+                decision_confidence = s.get("role_confidence", "high")
+                decision_is_proxy = s.get("candidate_role") == "proxy_decision"
+                decision_evidence_text = str(s.get("context_text", ""))[:300]
+                decision_document_id = s.get("document_id")
+                decision_page_number = s.get("page_number")
+                selected_decision_id = s.get("candidate_id")
+                initiation_date_str = dd["_parsed_date"].isoformat()
+                initiation_granularity = dd.get("date_granularity", "day")
+                initiation_source_type = dd.get("candidate_source_type", "document_text")
+                initiation_confidence = "medium"
+                initiation_is_proxy = True
+                initiation_evidence_text = str(dd.get("context_text", ""))[:300]
+                initiation_document_id = dd.get("document_id")
+                initiation_page_number = dd.get("page_number")
+                selected_initiation_id = dd.get("candidate_id")
+                date_determined_init_used = True
+
     # --- Mark selected candidates ---
     if selected_decision_id:
         cands.loc[cands["candidate_id"] == selected_decision_id, "selected_for_decision"] = True
@@ -438,6 +482,8 @@ def select_dates_for_project(
     has_dec = decision_date_str is not None
 
     flags: list[str] = []
+    if date_determined_init_used:
+        flags.append("date_determined_initiation")
     timeline_status = "missing_both"
 
     if has_init and has_dec:
