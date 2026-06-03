@@ -35,14 +35,14 @@ tech_data |> glimpse()
 # Deliverable: Decarbonization Technology Bar Chart (by technology)
 # ----------------------------------------
 clean_energy_summary <- clean_energy_parsed %>%
-  select(project_title, project_type_list) %>%
+  select(project_id, project_type_list) %>%
   unnest(project_type_list) %>%
   rename(technology = project_type_list) %>%
   filter(technology %in% clean_energy_tags) %>%
-  distinct(project_title, technology) %>%
+  distinct(project_id, technology) %>%
   count(technology, name = "n") %>%
   mutate(
-    percent_projects = 100 * n / n_distinct(clean_energy$project_title),
+    percent_projects = 100 * n / n_distinct(clean_energy$project_id),
     # Clean up labels: remove "Renewable Energy Production - " except for "Other"
     technology_label = case_when(
       technology == "Renewable Energy Production - Other" ~ technology,
@@ -86,11 +86,11 @@ ggsave(
 # Decarbonization Technology Bar Chart by Technology and Process Type (100% stacked)
 # --------------------------------------------------------------------
 clean_energy_summary_by_process <- clean_energy_parsed %>%
-  select(project_title, project_type_list, process_type) %>%
+  select(project_id, project_type_list, process_type) %>%
   unnest(project_type_list) %>%
   rename(technology = project_type_list) %>%
   filter(technology %in% clean_energy_tags) %>%
-  distinct(project_title, technology, process_type) %>%
+  distinct(project_id, technology, process_type) %>%
   count(technology, process_type, name = "n") %>%
   group_by(technology) %>%
   mutate(
@@ -172,7 +172,41 @@ ggsave(
   dpi = 300
 )
 
+solar_highlight <- tech_totals %>%
+  filter(as.character(technology_label) == "Solar")
 
+fig_clean_energy_bar_solar_highlight <- fig_clean_energy_bar_by_process +
+  geom_tile(
+    data = solar_highlight,
+    aes(x = 0.5, y = technology_label),
+    inherit.aes = FALSE,
+    width = 1,
+    height = 0.9,
+    fill = NA,
+    color = "#F5A623",
+    linewidth = 1.4
+  )
+
+ggsave(
+  filename = here(figures_dir, "02_clean_energy_bar_solar_highlight.png"),
+  plot = fig_clean_energy_bar_solar_highlight,
+  width = 10,
+  height = 6,
+  units = "in",
+  dpi = 300
+)
+
+factsheet_figures_dir <- here("phase1", "output", "factsheet", "figures")
+if (dir.exists(factsheet_figures_dir)) {
+  ggsave(
+    filename = file.path(factsheet_figures_dir, "02_clean_energy_bar_solar_highlight.png"),
+    plot = fig_clean_energy_bar_solar_highlight,
+    width = 10,
+    height = 6,
+    units = "in",
+    dpi = 300
+  )
+}
 
 
 # --------------------------
