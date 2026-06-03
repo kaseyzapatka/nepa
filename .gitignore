@@ -10,8 +10,8 @@ literature/*.pdf
 project_overview.md
 *running_todo.md
 *running_todo.html
-Claude**
 .claude/
+.codex/
 notes/timeline/Refactor Architecture.md
 *advice.txt
 Refactor Architecture*

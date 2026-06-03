@@ -25,11 +25,11 @@ summarise_energy_tag_counts <- function(df, energy_type, tag_map, category_label
   tag_counts <- df %>%
     filter(project_energy_type == energy_type) %>%
     mutate(project_type_list = map(project_type, fromJSON)) %>%
-    select(project_title, project_type_list) %>%
+    select(project_id, project_type_list) %>%
     unnest(project_type_list) %>%
     rename(raw_tag = project_type_list) %>%
     inner_join(tag_map, by = "raw_tag") %>%
-    distinct(project_title, `Project Type Tag`) %>%
+    distinct(project_id, `Project Type Tag`) %>%
     count(`Project Type Tag`, name = "Projects") %>%
     mutate(`Energy Category` = category_label)
 
@@ -54,8 +54,8 @@ fossil_energy_table_tags <- tibble(
   tag_order = seq_along(fossil_energy_tags)
 )
 
-# Mirrors the Deliverable 01 Figure 1 counting architecture:
-# parse project_type JSON, unnest tags, keep one project-title/tag pair,
+# Mirrors the Deliverable 01 technology counting architecture:
+# parse project_type JSON, unnest tags, keep one project-id/tag pair,
 # then count projects by table row within the final energy classification.
 energy_tag_counts <- bind_rows(
   summarise_energy_tag_counts(
