@@ -246,6 +246,17 @@ cat("Loading review data...\n")
 df <- read_parquet(REVIEWS_PATH)
 cat(sprintf("  projects_nepa_reviews: %s rows\n", scales::comma(nrow(df))))
 
+# The reviews table (df) is the single source of truth for tech_group. The visual
+# parquets baked in a tech_group at their (earlier) build time, so refresh it from
+# df by project_id to guarantee every figure uses the current canonical taxonomy
+# (incl. Utilities / Other Renewable / Other Conventional).
+refresh_tech_group <- function(data) {
+  if (!"project_id" %in% names(data)) return(data)
+  data |>
+    select(-any_of("tech_group")) |>
+    left_join(df |> distinct(project_id, tech_group), by = "project_id")
+}
+
 CE_AVAILABLE     <- file.exists(CE_PATH)
 VISUAL_AVAILABLE <- file.exists(VISUAL_PATH)
 GEO_OG_AVAILABLE <- file.exists(GEO_OG_PATH)
@@ -378,6 +389,9 @@ tech_tag_patterns <- tibble::tribble(
   "Energy Storage",       "Energy Storage",            "Decarbonization",
   "CCS",                  "Carbon Capture",            "Decarbonization",
   "Nuclear",              "Nuclear",                   "Decarbonization",
+  "Utilities",            "Utilities",                 "Decarbonization",
+  "Other Renewable",      "Renewable Energy Production - Other",   "Decarbonization",
+  "Other Conventional",   "Conventional Energy Production - Other", "Decarbonization",
   "Land-based Oil & Gas", "Land-based Oil",            "Fossil Fuel",
   "Offshore Oil & Gas",   "Offshore Oil",              "Fossil Fuel",
   "Coal",                 "Coal",                      "Fossil Fuel",
@@ -1057,7 +1071,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
   message("fig12 skipped: projects_visual_text.parquet not found.")
 } else {
   tryCatch({
-    vtext <- read_parquet(VISUAL_TEXT_PATH)
+    vtext <- read_parquet(VISUAL_TEXT_PATH) |> refresh_tech_group()
 
     universe <- vtext |>
       filter(!is.na(tech_group),
@@ -1112,7 +1126,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
       library(patchwork)
     })
 
-    if (!exists("vtext")) vtext <- read_parquet(VISUAL_TEXT_PATH)
+    if (!exists("vtext")) vtext <- read_parquet(VISUAL_TEXT_PATH) |> refresh_tech_group()
 
     # NEPA stopword list — covers NEPA boilerplate, visual-section universal
     # terms, agency jargon, and geographic/measurement fillers. Terms that
@@ -1341,7 +1355,7 @@ if (!VISUAL_FRAMING_AVAILABLE) {
     )
     if (length(framing_join_cols) < 2) {
       base_lookup <- if (VISUAL_TEXT_AVAILABLE) {
-        if (!exists("vtext")) vtext <- read_parquet(VISUAL_TEXT_PATH)
+        if (!exists("vtext")) vtext <- read_parquet(VISUAL_TEXT_PATH) |> refresh_tech_group()
         vtext |> select(project_id, energy_group, process_type)
       } else {
         df |> select(project_id, energy_group, process_type)
@@ -1511,7 +1525,7 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
   message("fig19a skipped: visual_sections.parquet not found.")
 } else {
   tryCatch({
-    sections <- read_parquet(VISUAL_SECTIONS_PATH)
+    sections <- read_parquet(VISUAL_SECTIONS_PATH) |> refresh_tech_group()
 
     sec_box_energy <- sections |>
       filter(extraction_method == "heading_anchored",
@@ -1567,7 +1581,7 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
   message("fig19 skipped: visual_sections.parquet not found.")
 } else {
   tryCatch({
-    sections <- read_parquet(VISUAL_SECTIONS_PATH)
+    sections <- read_parquet(VISUAL_SECTIONS_PATH) |> refresh_tech_group()
 
     sec_box <- sections |>
       filter(extraction_method == "heading_anchored",
@@ -1766,7 +1780,7 @@ if (!VISUAL_EXAMPLES_AVAILABLE) {
 
     # Replace excerpt with visual_analysis_text (the model input text), falling
     # back to the original excerpt if visual_analysis_text is absent or empty.
-    if (!exists("vtext")) vtext <- read_parquet(VISUAL_TEXT_PATH)
+    if (!exists("vtext")) vtext <- read_parquet(VISUAL_TEXT_PATH) |> refresh_tech_group()
     vat <- vtext |> select(project_id, visual_analysis_text)
     examples <- examples |>
       left_join(vat, by = "project_id") |>
