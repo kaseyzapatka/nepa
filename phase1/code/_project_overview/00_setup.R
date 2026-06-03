@@ -25,10 +25,12 @@ source(here::here("phase1", "code", "utils", "utils.R"))
 data_path <- here("phase1", "data", "analysis", "projects_combined.parquet")
 output_dir <- here("phase1", "output", "_project_overview")
 figures_dir <- here("phase1", "output", "_project_overview", "figures")
+tables_dir <- here("phase1", "output", "_project_overview", "tables")
 
 # Create output directories if they don't exist
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 dir.create(figures_dir, showWarnings = FALSE, recursive = TRUE)
+dir.create(tables_dir, showWarnings = FALSE, recursive = TRUE)
 
 # --------------------------
 # LOAD DATA
@@ -69,6 +71,14 @@ clean_energy_tags <- c(
   "Nuclear Technology",
   "Electricity Transmission",
   "Utilities (electricity, gas, telecommunications)"
+)
+
+fossil_energy_tags <- c(
+  "Conventional Energy Production - Coal",
+  "Conventional Energy Production - Land-based Oil & Gas",
+  "Conventional Energy Production - Offshore Oil and Gas",
+  "Conventional Energy Production - Rural Energy",
+  "Pipelines"
 )
 
 # --------------------------

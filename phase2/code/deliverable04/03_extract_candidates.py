@@ -36,6 +36,9 @@ OUTPUT_PATH = TIMELINE_DIR / "timeline_candidates.parquet"
 # The single human-labeling sample for SetFit training (emitted at end of a full run).
 OUTPUT_DIR = PHASE2 / "output" / "deliverable04"
 LABELING_SAMPLE_PATH = OUTPUT_DIR / "labeling_sample.csv"
+# Locked selection: the chosen candidate_ids are persisted here so re-runs reproduce the
+# exact same candidates (delete this file to re-draw a fresh sample).
+LABELING_SAMPLE_IDS_PATH = OUTPUT_DIR / "labeling_sample_ids.txt"
 LABELING_SAMPLE_SIZE = 300  # total rows, stratified across process_type x candidate_role
 
 RUN_DATE = datetime.now(timezone.utc).date()
@@ -92,33 +95,35 @@ MONTH_MAP = {
 # token-truncation, expanded to sentence boundaries, then capped per process type.
 # Char caps approximate the token targets CE~100 / EA~150 / EIS~200 (≈4 chars/token).
 # ---------------------------------------------------------------------------
-MODEL_CONTEXT_CHARS = {"CE": 400, "EA": 600, "EIS": 800}
+# Per-process window size (chars) for the candidate-evidence context. Fuller than a
+# single sentence, but bounded — never the whole document. EIS gets more (narrative);
+# CE less (dense forms). Note: SetFit (all-MiniLM, 256 tokens ≈ ~1024 chars) truncates
+# the far tail at inference, but the date is centered so it is always within budget.
+MODEL_CONTEXT_CHARS = {"CE": 900, "EA": 1200, "EIS": 1500}
 DATE_MARKER_OPEN = "[["
 DATE_MARKER_CLOSE = "]]"
 _SENT_BOUNDARY = re.compile(r"[.!?]\s+")
 
 
-def _build_model_context(full_text: str, ds: int, de: int, process_type: str) -> str:
+def _build_model_context(full_text: str, ds: int, de: int, process_type: str,
+                         cap: int | None = None) -> str:
     """
-    Build a date-centered, sentence-bounded, capped, marker-wrapped window.
+    Build a date-centered window of ~`cap` chars (the candidate evidence), with the
+    target date wrapped in [[ ]]. Bounded — it fills toward the cap around the date
+    rather than collapsing to the single sentence the date sits in.
     full_text is the normalized packet text; [ds, de) is the date span within it.
     """
-    cap = MODEL_CONTEXT_CHARS.get(process_type, 600)
+    if cap is None:
+        cap = MODEL_CONTEXT_CHARS.get(process_type, 1200)
     n = len(full_text)
     if not (0 <= ds < de <= n):
         return full_text[:cap]
 
-    # Sentence boundaries; expand to the sentence containing the date, then enforce cap.
-    bounds = [0] + [m.end() for m in _SENT_BOUNDARY.finditer(full_text)] + [n]
-    s = max([b for b in bounds if b <= ds], default=0)
-    e = min([b for b in bounds if b >= de], default=n)
-    if e - s > cap:
-        # Too long for one sentence — center a cap-sized window on the date instead,
-        # so the marked date is never truncated away by the encoder.
-        center = (ds + de) // 2
-        s = max(0, center - cap // 2)
-        e = min(n, s + cap)
-        s = max(0, e - cap)
+    # Center a cap-sized window on the date; clamp to text bounds.
+    center = (ds + de) // 2
+    s = max(0, center - cap // 2)
+    e = min(n, s + cap)
+    s = max(0, e - cap)
 
     rel_s, rel_e = ds - s, de - s
     body = full_text[s:e]
@@ -901,37 +906,98 @@ def add_repeated_mention_counts(candidates_df: pd.DataFrame) -> pd.DataFrame:
     return candidates_df.merge(counts, on=["project_id", "parsed_date"], how="left")
 
 
-def emit_labeling_sample(df: pd.DataFrame, path: Path = LABELING_SAMPLE_PATH,
+def _hash_rank(cid: object) -> int:
+    """Deterministic per-candidate rank (stable across runs, independent of df order)."""
+    return int(hashlib.sha1(str(cid).encode()).hexdigest(), 16)
+
+
+def emit_labeling_sample(df: pd.DataFrame, packets_df: pd.DataFrame | None = None,
+                         path: Path = LABELING_SAMPLE_PATH,
+                         ids_path: Path = LABELING_SAMPLE_IDS_PATH,
                          n: int = LABELING_SAMPLE_SIZE) -> None:
     """
     Write the single human-labeling sample used to train the SetFit classifier.
 
-    One row per candidate, stratified across process_type x candidate_role so every
-    class is represented. The reviewer fills the `label` column with exactly one of:
-        initiation | decision | neither
-    (04_classify_candidates.py --train maps these to the two-head targets.)
+    - REPLICABLE: the chosen candidate_ids are persisted to `ids_path`. If it exists,
+      the exact same candidates are re-pulled on every re-run (only their columns
+      refresh). Delete `ids_path` to draw a fresh selection.
+    - FULL CONTEXT: `full_context` is the complete packet text (target date wrapped in
+      [[ ]]) so you can label accurately — no truncation. `model_context` (the capped,
+      token-budgeted window the model actually trains/infers on) is kept alongside.
+    - LABEL CARRY-OVER: any labels already filled in an existing labeling_sample.csv are
+      preserved by candidate_id, so re-running never loses your work.
 
-    Guarded: never overwrites a labeling_sample.csv that already has labels filled in —
-    it writes labeling_sample.regenerated.csv instead so manual work is never lost.
+    Reviewer fills the `label` column with exactly one of: initiation | decision | neither.
     """
     if df.empty:
         return
-    # Exclude trivial Tier A metadata candidates (authoritative; not worth labeling).
     pool = df[df["rule_ids"] != "metadata_tier_a"].copy()
     if pool.empty:
         pool = df.copy()
 
-    cells = pool.groupby(["process_type", "candidate_role"], dropna=False)
-    per_cell = max(3, n // max(1, cells.ngroups))
-    parts = [g.sample(n=min(len(g), per_cell), random_state=42) for _, g in cells]
-    sample = pd.concat(parts, ignore_index=True)
-    if len(sample) > n:
-        sample = sample.sample(n=n, random_state=42).reset_index(drop=True)
+    # 1) Determine the locked selection (replicable).
+    if ids_path.exists():
+        selected = [x.strip() for x in ids_path.read_text().splitlines() if x.strip()]
+        sample = pool[pool["candidate_id"].isin(set(selected))].copy()
+        missing = len(selected) - sample["candidate_id"].nunique()
+        if missing:
+            print(f"[labeling sample] {missing} previously-selected candidates no longer "
+                  "exist (regex changed); keeping the rest.")
+        order = {cid: i for i, cid in enumerate(selected)}
+        sample = (sample.assign(_o=sample["candidate_id"].map(order))
+                  .sort_values("_o").drop(columns="_o"))
+    else:
+        cells = pool.groupby(["process_type", "candidate_role"], dropna=False)
+        per_cell = max(3, n // max(1, cells.ngroups))
+        parts = []
+        for _, g in cells:
+            gg = g.assign(_h=g["candidate_id"].map(_hash_rank)).sort_values("_h")
+            parts.append(gg.head(min(len(gg), per_cell)).drop(columns="_h"))
+        sample = pd.concat(parts, ignore_index=True)
+        if len(sample) > n:
+            sample = (sample.assign(_h=sample["candidate_id"].map(_hash_rank))
+                      .sort_values("_h").head(n).drop(columns="_h").reset_index(drop=True))
+        ids_path.parent.mkdir(parents=True, exist_ok=True)
+        ids_path.write_text("\n".join(sample["candidate_id"].astype(str)))
+        print(f"Wrote locked selection: {ids_path} ({len(sample)} ids) — "
+              "re-runs will reuse these exact candidates.")
 
+    # 2) Rebuild the candidate-evidence context (bounded window centered on the date)
+    #    from the full packet text, so the sample reflects the current windowing logic.
+    pkt_map: dict = {}
+    if packets_df is not None and "context_packet_id" in packets_df.columns:
+        pk = packets_df[["context_packet_id", "context_text"]].drop_duplicates("context_packet_id")
+        pkt_map = dict(zip(pk["context_packet_id"], pk["context_text"]))
+
+    def _ctx(row) -> str:
+        txt = " ".join(str(pkt_map.get(row.get("context_packet_id")) or row.get("context_text") or "").split())
+        dt = str(row.get("raw_date_text") or "")
+        i = txt.find(dt) if dt else -1
+        if i < 0:
+            return str(row.get("model_context") or "")
+        return _build_model_context(txt, i, i + len(dt), row.get("process_type"))
+
+    sample["model_context"] = sample.apply(_ctx, axis=1)
+
+    # 3) Carry over any existing labels by candidate_id.
+    prev_labels: dict = {}
+    if path.exists():
+        try:
+            prev = pd.read_csv(path)
+            if "label" in prev.columns:
+                for _, r in prev.iterrows():
+                    raw = r.get("label")
+                    lab = "" if pd.isna(raw) else str(raw).strip()
+                    if lab and lab.lower() not in ("nan", "none"):
+                        prev_labels[str(r.get("candidate_id"))] = lab
+        except Exception:
+            pass
     sample["stratum"] = (sample["process_type"].astype(str) + "/"
                          + sample["candidate_role"].astype(str))
-    sample["label"] = ""   # reviewer fills: initiation | decision | neither
+    sample["label"] = sample["candidate_id"].astype(str).map(prev_labels).fillna("")
     sample["notes"] = ""
+    carried = int((sample["label"].str.strip() != "").sum())
+
     cols = ["candidate_id", "project_id", "process_type", "candidate_role",
             "role_confidence_score", "parsed_date", "date_granularity",
             "document_type_clean", "heading_title", "raw_date_text",
@@ -939,21 +1005,10 @@ def emit_labeling_sample(df: pd.DataFrame, path: Path = LABELING_SAMPLE_PATH,
     sample = sample[[c for c in cols if c in sample.columns]]
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        try:
-            prev = pd.read_csv(path)
-            if "label" in prev.columns and prev["label"].fillna("").astype(str).str.strip().ne("").any():
-                alt = path.with_name("labeling_sample.regenerated.csv")
-                sample.to_csv(alt, index=False)
-                print(f"[guard] {path.name} already has labels — wrote fresh sample to "
-                      f"{alt.name} instead (your labeled file is untouched).")
-                return
-        except Exception:
-            pass
     sample.to_csv(path, index=False)
-    print(f"Wrote labeling sample: {path}  ({len(sample)} rows)")
-    print("  Fill the 'label' column with: initiation | decision | neither, "
-          "then run 04_classify_candidates.py --train")
+    print(f"Wrote labeling sample: {path}  ({len(sample)} rows; {carried} labels carried over)")
+    print("  Read 'model_context' (candidate evidence) to label; fill 'label' with: "
+          "initiation | decision | neither, then run 04_classify_candidates.py --train")
 
 
 def main() -> None:
@@ -1065,7 +1120,7 @@ def main() -> None:
     # Emit the human-labeling sample only on a full-corpus run (run_dir == TIMELINE_DIR),
     # so the SetFit training sample is representative of the whole corpus.
     if run_dir == TIMELINE_DIR:
-        emit_labeling_sample(df)
+        emit_labeling_sample(df, packets_df)
 
 
 if __name__ == "__main__":

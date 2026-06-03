@@ -243,6 +243,19 @@ def build_reviews(conn: duckdb.DuckDBPyConnection,
                 WHEN p.project_energy_type = 'Clean'
                     AND p.project_type::VARCHAR LIKE '%Nuclear%'
                     THEN 'Nuclear'
+                -- Generic clean labels from the canonical taxonomy (phase2/notes/project_types.txt).
+                -- Listed AFTER the specific technologies so first-match still prefers a
+                -- specific tech (e.g. ["Solar","Utilities"] -> Solar); a project whose only
+                -- clean label is one of these lands here instead of "Other Clean".
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Utilities%'
+                    THEN 'Utilities'
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Renewable Energy Production - Other%'
+                    THEN 'Other Renewable'
+                WHEN p.project_energy_type = 'Clean'
+                    AND p.project_type::VARCHAR LIKE '%Conventional Energy Production - Other%'
+                    THEN 'Other Conventional'
                 -- Fossil: exact NEPATEC fossil labels (land-based and offshore are separate NEPATEC categories)
                 WHEN p.project_energy_type = 'Fossil'
                     AND p.project_type::VARCHAR LIKE '%Land-based Oil%'
