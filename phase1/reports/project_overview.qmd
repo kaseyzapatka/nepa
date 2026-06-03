@@ -283,7 +283,7 @@ knitr::include_graphics(file.path(ce_figures, "00_fig_clean_energy_by_review.png
 
 ## What Qualifies as Decarbonization Technology?
 
-@tbl-energy-tags enumerates the CATF-defined decarbonization technology and fossil fuel project type tags used to identify decarbonization technology vs fossil fuel energy projects in the NEPA database. The table also reports project counts for each tag. While projects often have multiple tags, a "decarbonization technology" project is identified as having at least one decarbonization technology tag _AND_ no fossil fuel tags.
+@tbl-energy-tags enumerates the CATF-defined decarbonization technology and fossil fuel project type tags used to identify decarbonization technology vs fossil fuel energy projects in the NEPA database. The table also reports project counts for each tag or tag family. While projects often have multiple tags, a "decarbonization technology" project is identified as having at least one decarbonization technology tag _AND_ no fossil fuel tags.
 
 ```{r}
 #| label: tbl-energy-tags
