@@ -815,6 +815,21 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                              block[max(0, _ms - 40):_ms], re.IGNORECASE):
                     pos_cues = pos_cues + ["date_determined"]
 
+                # DOE Initiator signature date = CE initiation. A date in the "DOE Initiator
+                # Signature" block (which precedes the "NEPA Compliance Officer" block) marks
+                # the program office initiating the review — relabel as initiation even though
+                # the surrounding CX boilerplate reads as a decision. Detection: the nearest
+                # preceding "initiator" label is closer than any preceding "compliance officer".
+                _pre = block[:_ms].lower()
+                _init_pos = max(_pre.rfind("initiator signature"), _pre.rfind("doe initiator"))
+                _nco_pos = max(_pre.rfind("compliance officer"), _pre.rfind("nepa compliance"))
+                if _init_pos >= 0 and _init_pos > _nco_pos:
+                    role = "clear_initiation"
+                    conf = 5.0
+                    pos_cues = [c for c in pos_cues
+                                if c not in ("decision_strong", "decision_med", "doc_type_decision")]
+                    pos_cues = pos_cues + ["doe_initiator_signature"]
+
                 # Skip clear rejects
                 if role == "reject" and not heading:
                     continue
