@@ -938,18 +938,20 @@ def emit_labeling_sample(df: pd.DataFrame, packets_df: pd.DataFrame | None = Non
                          ids_path: Path = LABELING_SAMPLE_IDS_PATH,
                          n: int = LABELING_SAMPLE_SIZE) -> None:
     """
-    Write the single human-labeling sample used to train the SetFit classifier.
+    Write (or expand) the human-labeling sample used to train the SetFit classifier.
 
-    - REPLICABLE: the chosen candidate_ids are persisted to `ids_path`. If it exists,
-      the exact same candidates are re-pulled on every re-run (only their columns
-      refresh). Delete `ids_path` to draw a fresh selection.
-    - FULL CONTEXT: `full_context` is the complete packet text (target date wrapped in
-      [[ ]]) so you can label accurately — no truncation. `model_context` (the capped,
-      token-budgeted window the model actually trains/infers on) is kept alongside.
-    - LABEL CARRY-OVER: any labels already filled in an existing labeling_sample.csv are
-      preserved by candidate_id, so re-running never loses your work.
+    REPLICABLE: Chosen candidate_ids are persisted to `ids_path`. If the file exists
+    with fewer IDs than `n`, additional candidates are drawn using the same
+    stratified hash-rank protocol and appended — the existing IDs are never
+    replaced. Delete `ids_path` to start a completely fresh draw.
 
-    Reviewer fills the `label` column with exactly one of: initiation | decision | neither.
+    SAFE: Existing labels and notes in labeling_sample.csv are carried forward by
+    candidate_id on every re-run. Non-empty values are never overwritten.
+
+    GROWABLE: Call with a larger `n` (e.g. via --emit-labeling-sample --labeling-sample-n 800)
+    to expand the sample without re-running the full extraction pipeline.
+
+    Reviewer fills the `label` column with: initiation | decision | neither.
     """
     if df.empty:
         return
@@ -957,34 +959,51 @@ def emit_labeling_sample(df: pd.DataFrame, packets_df: pd.DataFrame | None = Non
     if pool.empty:
         pool = df.copy()
 
-    # 1) Determine the locked selection (replicable).
+    # 1) Load existing locked IDs (if any). Expand if current count < n.
+    existing_ids: list[str] = []
     if ids_path.exists():
-        selected = [x.strip() for x in ids_path.read_text().splitlines() if x.strip()]
-        sample = pool[pool["candidate_id"].isin(set(selected))].copy()
-        missing = len(selected) - sample["candidate_id"].nunique()
-        if missing:
-            print(f"[labeling sample] {missing} previously-selected candidates no longer "
-                  "exist (regex changed); keeping the rest.")
-        order = {cid: i for i, cid in enumerate(selected)}
-        sample = (sample.assign(_o=sample["candidate_id"].map(order))
-                  .sort_values("_o").drop(columns="_o"))
-    else:
-        cells = pool.groupby(["process_type", "candidate_role"], dropna=False)
-        per_cell = max(3, n // max(1, cells.ngroups))
+        existing_ids = [x.strip() for x in ids_path.read_text().splitlines() if x.strip()]
+
+    if len(existing_ids) < n:
+        # Draw additional candidates to reach n, skipping already-selected IDs.
+        n_needed = n - len(existing_ids)
+        existing_set = set(existing_ids)
+        available = pool[~pool["candidate_id"].isin(existing_set)].copy()
+        cells = available.groupby(["process_type", "candidate_role"], dropna=False)
+        per_cell = max(3, n_needed // max(1, cells.ngroups))
         parts = []
         for _, g in cells:
             gg = g.assign(_h=g["candidate_id"].map(_hash_rank)).sort_values("_h")
             parts.append(gg.head(min(len(gg), per_cell)).drop(columns="_h"))
-        sample = pd.concat(parts, ignore_index=True)
-        if len(sample) > n:
-            sample = (sample.assign(_h=sample["candidate_id"].map(_hash_rank))
-                      .sort_values("_h").head(n).drop(columns="_h").reset_index(drop=True))
+        new_df = pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+        if len(new_df) > n_needed:
+            new_df = (new_df.assign(_h=new_df["candidate_id"].map(_hash_rank))
+                      .sort_values("_h").head(n_needed).drop(columns="_h").reset_index(drop=True))
+        new_ids = list(new_df["candidate_id"].astype(str)) if not new_df.empty else []
+        all_ids = existing_ids + new_ids
         ids_path.parent.mkdir(parents=True, exist_ok=True)
-        ids_path.write_text("\n".join(sample["candidate_id"].astype(str)))
-        print(f"Wrote locked selection: {ids_path} ({len(sample)} ids) — "
-              "re-runs will reuse these exact candidates.")
+        ids_path.write_text("\n".join(all_ids))
+        added = len(new_ids)
+        if existing_ids:
+            print(f"[labeling sample] Expanded: {len(existing_ids)} → {len(all_ids)} IDs "
+                  f"({added} new, {n_needed - added} unavailable).")
+        else:
+            print(f"Wrote locked selection: {ids_path} ({len(all_ids)} ids) — "
+                  "re-runs will reuse these exact candidates.")
+    else:
+        all_ids = existing_ids
 
-    # 2) Rebuild the candidate-evidence context (bounded window centered on the date)
+    # 2) Pull the locked selection from pool; warn about missing candidates.
+    sample = pool[pool["candidate_id"].isin(set(all_ids))].copy()
+    missing = len(all_ids) - sample["candidate_id"].nunique()
+    if missing:
+        print(f"[labeling sample] {missing} previously-selected candidates no longer "
+              "exist (regex changed); keeping the rest.")
+    order = {cid: i for i, cid in enumerate(all_ids)}
+    sample = (sample.assign(_o=sample["candidate_id"].map(order))
+              .sort_values("_o").drop(columns="_o"))
+
+    # 3) Rebuild the candidate-evidence context (bounded window centered on the date)
     #    from the full packet text, so the sample reflects the current windowing logic.
     pkt_map: dict = {}
     if packets_df is not None and "context_packet_id" in packets_df.columns:
@@ -1001,24 +1020,30 @@ def emit_labeling_sample(df: pd.DataFrame, packets_df: pd.DataFrame | None = Non
 
     sample["model_context"] = sample.apply(_ctx, axis=1)
 
-    # 3) Carry over any existing labels by candidate_id.
+    # 4) Carry over existing labels AND notes by candidate_id. Never overwrite non-empty values.
     prev_labels: dict = {}
+    prev_notes: dict = {}
     if path.exists():
         try:
             prev = pd.read_csv(path)
-            if "label" in prev.columns:
-                for _, r in prev.iterrows():
-                    raw = r.get("label")
-                    lab = "" if pd.isna(raw) else str(raw).strip()
-                    if lab and lab.lower() not in ("nan", "none"):
-                        prev_labels[str(r.get("candidate_id"))] = lab
+            for _, r in prev.iterrows():
+                cid = str(r.get("candidate_id"))
+                raw_lab = r.get("label")
+                lab = "" if pd.isna(raw_lab) else str(raw_lab).strip()
+                if lab and lab.lower() not in ("nan", "none"):
+                    prev_labels[cid] = lab
+                raw_note = r.get("notes")
+                note = "" if pd.isna(raw_note) else str(raw_note).strip()
+                if note and note.lower() not in ("nan", "none"):
+                    prev_notes[cid] = note
         except Exception:
             pass
     sample["stratum"] = (sample["process_type"].astype(str) + "/"
                          + sample["candidate_role"].astype(str))
     sample["label"] = sample["candidate_id"].astype(str).map(prev_labels).fillna("")
-    sample["notes"] = ""
-    carried = int((sample["label"].str.strip() != "").sum())
+    sample["notes"] = sample["candidate_id"].astype(str).map(prev_notes).fillna("")
+    carried_labels = int((sample["label"].str.strip() != "").sum())
+    carried_notes = int((sample["notes"].str.strip() != "").sum())
 
     cols = ["candidate_id", "project_id", "process_type", "candidate_role",
             "role_confidence_score", "parsed_date", "date_granularity",
@@ -1028,7 +1053,8 @@ def emit_labeling_sample(df: pd.DataFrame, packets_df: pd.DataFrame | None = Non
 
     path.parent.mkdir(parents=True, exist_ok=True)
     sample.to_csv(path, index=False)
-    print(f"Wrote labeling sample: {path}  ({len(sample)} rows; {carried} labels carried over)")
+    print(f"Wrote labeling sample: {path}  "
+          f"({len(sample)} rows; {carried_labels} labels, {carried_notes} notes carried over)")
     print("  Read 'model_context' (candidate evidence) to label; fill 'label' with: "
           "initiation | decision | neither, then run 04_classify_candidates.py --train")
 
@@ -1042,7 +1068,31 @@ def main() -> None:
     parser.add_argument("--append", action="store_true")
     parser.add_argument("--force", action="store_true", help="Overwrite existing output even if it already exists.")
     parser.add_argument("--run-dir", help="Override run directory (reads packets from here, writes candidates here).")
+    parser.add_argument(
+        "--emit-labeling-sample", action="store_true",
+        help="Emit (or expand) the labeling sample from the existing candidates parquet "
+             "without re-running extraction. Use --labeling-sample-n to set the target size.",
+    )
+    parser.add_argument(
+        "--labeling-sample-n", type=int, default=None,
+        help=f"Target total size for the labeling sample (default: {LABELING_SAMPLE_SIZE}). "
+             "If the locked IDs file already has this many entries, nothing is added.",
+    )
     args = parser.parse_args()
+
+    # Standalone mode: emit/expand the labeling sample without touching extraction outputs.
+    if args.emit_labeling_sample:
+        if not OUTPUT_PATH.exists():
+            raise FileNotFoundError(
+                f"Candidates parquet not found: {OUTPUT_PATH}\n"
+                "Run the full extraction pipeline first."
+            )
+        target_n = args.labeling_sample_n or LABELING_SAMPLE_SIZE
+        print(f"Loading candidates: {OUTPUT_PATH}")
+        df_cands = pd.read_parquet(OUTPUT_PATH)
+        print(f"  {len(df_cands):,} candidates loaded.")
+        emit_labeling_sample(df_cands, n=target_n)
+        return
 
     # Resolve run directory — matches the logic in script 02.
     if args.run_dir:
@@ -1133,6 +1183,12 @@ def main() -> None:
 
     if args.append and output_path.exists():
         existing = pd.read_parquet(output_path)
+        if project_ids:
+            # Drop existing rows for this shard's projects so updated flags win.
+            # Without this, drop_duplicates("candidate_id") keeps the first (old) row,
+            # discarding any new positive_cue_flags (e.g. date_determined) added since
+            # the last full run.
+            existing = existing[~existing["project_id"].isin(project_ids)]
         df = pd.concat([existing, df], ignore_index=True).drop_duplicates("candidate_id")
         print(f"After merge with existing: {len(df):,}")
 
