@@ -54,6 +54,23 @@ MAX_CANDIDATES = 40
 MAX_RECOVERY_PAGES = 10
 RETRY_SLEEP = 2.0
 
+# --- Classifier-driven routing (06 now consumes 04's confidence scores) ---------------
+# A project is routed to the LLM when, on top of the regex-status triggers, its best
+# candidate's classifier confidence is below this. Uses raw max(p_init, p_decision) today;
+# swap to the calibrated probability once calibration lands (then the threshold is meaningful).
+ROUTE_CONF_THRESHOLD = 0.70
+# ...or when >= COMPETE_DECISION_MIN_N candidates both look like a decision (which signature
+# wins is genuinely ambiguous -> worth an LLM look).
+COMPETE_DECISION_PROB = 0.50
+COMPETE_DECISION_MIN_N = 2
+# Regex-authoritative candidates (role_confidence_score >= this) are treated as fully
+# confident and never trigger low-confidence routing — 04 leaves them unscored by design.
+AUTHORITATIVE_CONF = 5.0
+# Packets sent per routed project, ranked by classifier score (then ranking_score).
+# NOTE: set to 3 per request. At current init/decision F1 (~0.55) the true date can rank
+# below 3, so this risks pruning it before the LLM sees it — revisit after calibration.
+ROUTED_TOPK = 3
+
 
 # ---------------------------------------------------------------------------
 # Budget controls
@@ -115,7 +132,11 @@ def _build_candidate_prompt(
     current_flags: str,
 ) -> tuple[str, list[str]]:
     """Build the candidate adjudication prompt and return (prompt_text, candidate_ids)."""
-    cand_rows = candidates.nlargest(MAX_CANDIDATES, "ranking_score")
+    # Rank by classifier confidence first (falls back to ranking_score when the pool
+    # is unscored or columns are absent), then keep the top ROUTED_TOPK packets.
+    rank_cols = [c for c in ("classifier_score", "ranking_score") if c in candidates.columns]
+    cand_rows = (candidates.sort_values(rank_cols, ascending=False)
+                 if rank_cols else candidates).head(ROUTED_TOPK)
     cand_ids = cand_rows["candidate_id"].tolist()
 
     cand_lines = []
@@ -124,6 +145,7 @@ def _build_candidate_prompt(
             f"  id={row['candidate_id']} date={row.get('parsed_date')} "
             f"role={row.get('candidate_role')} conf={row.get('role_confidence')} "
             f"score={row.get('ranking_score', 0):.1f} "
+            f"p_init={row.get('p_initiation', 0):.2f} p_dec={row.get('p_decision', 0):.2f} "
             f"doc_type={str(row.get('document_type_clean', ''))[:30]} "
             f"section={str(row.get('heading_title', ''))[:30]}\n"
             f"    context: {str(row.get('context_text', ''))[:400]}"
@@ -286,12 +308,32 @@ def _validate_recovery_response(response: dict) -> tuple[str | None, str | None,
 # Select projects needing adjudication
 # ---------------------------------------------------------------------------
 
+def _classifier_route_signal(candidates_df: pd.DataFrame) -> pd.DataFrame:
+    """Per-project classifier signals for routing: best confidence, # competing-decision
+    candidates, and how many candidates were actually scored. Regex-authoritative
+    candidates (role_confidence_score >= AUTHORITATIVE_CONF) count as fully confident."""
+    c = candidates_df.copy()
+    rconf = pd.to_numeric(c.get("role_confidence_score"), errors="coerce").fillna(0.0)
+    cscore = pd.to_numeric(c.get("classifier_score"), errors="coerce").fillna(0.0)
+    p_dec = pd.to_numeric(c.get("p_decision"), errors="coerce").fillna(0.0)
+    # Authoritative regex candidates are confident even though 04 leaves them unscored.
+    c["_eff_conf"] = cscore.where(rconf < AUTHORITATIVE_CONF, 1.0)
+    c["_compete_dec"] = (p_dec >= COMPETE_DECISION_PROB).astype(int)
+    c["_scored"] = (cscore > 0).astype(int)
+    g = c.groupby("project_id")
+    return pd.DataFrame({
+        "best_conf": g["_eff_conf"].max(),
+        "n_compete": g["_compete_dec"].sum(),
+        "n_scored": g["_scored"].sum(),
+    })
+
+
 def _select_adjudication_queue(
     dates_df: pd.DataFrame,
     candidates_df: pd.DataFrame,
     process_types: list[str],
 ) -> pd.DataFrame:
-    """Select projects that need candidate adjudication (plan §7)."""
+    """Select projects that need candidate adjudication (plan §7 + classifier confidence)."""
     sub = dates_df[dates_df["process_type"].isin(process_types)].copy()
 
     # Already complete and high-confidence: skip
@@ -301,11 +343,20 @@ def _select_adjudication_queue(
     has_cands = set(candidates_df["project_id"].unique())
     sub = sub[sub["project_id"].isin(has_cands)]
 
+    # Classifier-confidence triggers (in addition to the regex-status triggers below).
+    sig = _classifier_route_signal(candidates_df)
+    best_conf = sub["project_id"].map(sig["best_conf"])      # NaN if no scored cands -> no conf trigger
+    n_compete = sub["project_id"].map(sig["n_compete"]).fillna(0)
+    n_scored = sub["project_id"].map(sig["n_scored"]).fillna(0)
+    low_confidence = (n_scored > 0) & (best_conf < ROUTE_CONF_THRESHOLD)
+    competing_decisions = n_compete >= COMPETE_DECISION_MIN_N
+
     # Specific triggers from plan §7
     needs_adj = (
         sub["timeline_status"].isin(["missing_initiation", "missing_decision", "invalid_order"]) |
         sub["timeline_flags"].str.contains("multiple_high_score_candidates", na=False) |
-        ((sub["timeline_status"] == "missing_both") & sub["project_id"].isin(has_cands))
+        ((sub["timeline_status"] == "missing_both") & sub["project_id"].isin(has_cands)) |
+        low_confidence | competing_decisions
     )
     return sub[needs_adj]
 
