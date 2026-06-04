@@ -45,3 +45,14 @@ DOE CX forms often carry both a "Date Determined: <d1>" and a later NEPA Complia
 Implemented in `05_select_dates.py` (CE only): if a `date_determined`-flagged candidate exists and a later non-Date-Determined decision-type candidate exists, decision = latest such signature, initiation = the Date Determined (proxy). Tagged in `03_extract_candidates.py` via the `date_determined` positive cue.
 
 Caveat: this proxy measures internal CX processing time, not full NEPA review duration; it is flagged `date_determined_initiation` + `initiation_is_proxy` so downstream analysis can include/exclude it. **Takes effect after a full `03`→`05` re-run** (03 adds the `date_determined` flag to the candidates parquet).
+
+## Train/test split (`split` column) — FROZEN
+`labeling_sample.csv` is the **single source of truth** for classifier labels (`04_classify_candidates.py --train`); the former candidate-level `gold/` apparatus is retired. The `split` column holds `train | test`:
+
+- The **test** set is **frozen**: assigned once via a stratified (process × label) 20% draw, seed 42 (158→154 rows: 18 initiation, 18 decision, 118 neither; balanced across CE/EA/EIS). It is the same set `--train` validates on and `--eval` scores.
+- **New labels added later default to `train`** (blank `split` → train). Never extend the test set — that keeps "F1 went up" comparable across label-expansion rounds and prevents leakage. Re-freeze the test set only deliberately (e.g., a `test_v2`), never incidentally.
+- `--eval` also writes misclassified test rows to `output/deliverable04/classifier_eval_errors.csv` (3-class confusion + per-process + per-regex-role breakdowns print to stdout). Use that file to pick the next rows to label (active learning) and to catch label errors.
+
+Keep proxy / Date-Determined rows **in** training: the regex `proxy_*` roles are ~73–97% truly `neither` (cover-month / case-number false positives), and teaching the classifier to correct them is its core job. The CE Date-Determined → proxy-initiation *pairing* remains owned deterministically by `05_select_dates.py`; the classifier does not decide it.
+
+> Distinct from **project-level gold** (`07_validate.py`, `timeline_gold_projects.parquet`): that is end-to-end validation of final selected dates against hand-checked project dates, and is unaffected by the candidate-level gold removal.
