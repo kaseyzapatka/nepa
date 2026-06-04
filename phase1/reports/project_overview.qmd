@@ -47,7 +47,7 @@ This document is a good reference for how to contextualize this project, the pro
 
 Federal environmental permitting—and, relatedly, the National Environmental Policy Act (NEPA)—has often been blamed as a core contributor to delays in infrastructure deployment. However, research to date on NEPA has been hindered by federal agency data management practices: NEPA documents are scattered across numerous agency databases, often in machine-unreadable formats, and typically lack basic metadata and other identifiers. As such, researchers have had to craft bespoke subsets of NEPA data from which to glean insights—a time-consuming task that has limited the information available about NEPA's effectiveness and paved the way for a national permitting reform conversation rife with anecdotes and cherry-picked information.  
 
-The newly released National Environmental Policy Act Text Corpus (NEPATEC) 2.0 dataset from the Pacific Northwest National Laboratory's (PNNL's) PermitAI project has the potential to add new, more comprehensive evidence into this conversation. PNNL has built and released a comprehensive dataset of past environmental reviews and permitting documents containing millions of pages and billions of words in machine-readable JSON format. The database contains more than 120,000 NEPA documents^[categorical exclusions, draft and final environmental assessments, draft and final environmental impact statements, records of decision, findings of no significant impact, and other supporting documentation] from 60,000 projects prepared by more than 60 different agencies. Each document contains metadata for (as applicable):
+The newly released National Environmental Policy Act Text Corpus (NEPATEC) 2.0 dataset from the Pacific Northwest National Laboratory's (PNNL's) PermitAI project has the potential to add new, more comprehensive evidence into this conversation. PNNL has built and released a comprehensive dataset of past environmental reviews and permitting documents containing millions of pages and billions of words in machine-readable JSON format. The database contains more than 120,000 NEPA documents^[Including, for example, categorical exclusions, draft and final environmental assessments, draft and final environmental impact statements, records of decision, findings of no significant impact, and other supporting documentation.] from 60,000 projects prepared by more than 60 different agencies. Each document contains metadata for (as applicable):
 
 * Lead agency
 * Category
@@ -283,11 +283,11 @@ knitr::include_graphics(file.path(ce_figures, "00_fig_clean_energy_by_review.png
 
 ## What Qualifies as Decarbonization Technology?
 
-@tbl-energy-tags enumerates the CATF-defined decarbonization technology and fossil fuel project type tags used to identify decarbonization technology vs fossil fuel energy projects in the NEPA database. The table also reports project counts for each tag or tag family. While projects often have multiple tags, a "decarbonization technology" project is identified as having at least one decarbonization technology tag _AND_ no fossil fuel tags.
+@tbl-energy-tags enumerates the CATF-defined decarbonization technology and fossil fuel project type tags used to identify decarbonization technology vs fossil fuel energy projects in the NEPA database. The table also reports project counts for each tag or tag family. While projects often have multiple tags, a "decarbonization technology" project is identified as having at least one decarbonization technology tag _AND_ no fossil fuel tags. As a result, the total count by technology type will always be greater than the total count by energy type (e.g., see @fig-energy-type) because multi-tag technology projects appear in more than one technology category.
 
 ```{r}
 #| label: tbl-energy-tags
-#| tbl-cap: "Project type tags used to classify clean vs. fossil energy projects"
+#| tbl-cap: "Project type tags used to classify decarbonization vs. fossil energy technologies"
 #| echo: false
 
 energy_tag_counts <- read_csv(
@@ -323,7 +323,7 @@ energy_tag_counts |>
   )
 ```
 
-@fig-energy-type shows the overall distribution of projects in the NEPATEC 2.0 database by energy type. Decarbonization technology projects comprise roughly 37% of all projects in the database, while fossil fuel projects represent 18%, and other (non-energy) projects make up 45% of the total. This breakdown helps contextualize the decarbonization technology subset analyzed in subsequent deliverables within the broader universe of federal environmental reviews.
+@fig-energy-type shows the overall distribution of projects in the NEPATEC 2.0 database by energy type. Decarbonization technology projects comprise roughly 34% of all projects in the database, while fossil fuel projects represent just over 17%, and other (non-energy) projects make up 49% of the total. This breakdown helps contextualize the decarbonization technology subset analyzed in subsequent deliverables within the broader universe of federal environmental reviews.
 
 ```{r}
 #| label: fig-energy-type
