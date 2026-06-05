@@ -242,9 +242,11 @@ def run_fit() -> None:
         print(f"  (diagnostics skipped: {e})")
 
     print(
-        "\nNote: calibrators are fit on 154 frozen-test rows (18 positives per head). "
-        "Platt scaling is reliable at this size but precision estimates in the curve "
-        "at high τ (few test rows above threshold) will be directional, not precise."
+        f"\nNote: calibrators are fit on {len(df)} frozen-test rows "
+        f"(initiation={int(y_true[:, 0].sum())}, decision={int(y_true[:, 1].sum())} positives). "
+        "Platt scaling; precision estimates in the curve at very high τ (few test rows above "
+        "threshold) are directional. test_v2 is positive-heavy, so curve precision is optimistic "
+        "vs deployment — read deployment precision off the full-pool operating point."
     )
     print(f"\nSaved calibrators:")
     print(f"  {CAL_INIT_PATH}")
