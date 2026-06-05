@@ -460,6 +460,20 @@ def run_train(backend_name: str, model_dir: Path) -> None:
     (model_dir / "classifier_meta.json").write_text(json.dumps(meta, indent=2))
     print(f"\nSaved model + meta to {model_dir} (version {meta['model_version']}).")
 
+    # Refresh diagnostics owned by the train step (01 inventory, 02 progression, and the
+    # frozen-test 03/04 when a test split exists). Best-effort: never fail a train on a
+    # diagnostics hiccup.
+    try:
+        import _diagnostics as diag
+        diag.write_label_inventory(df)
+        diag.update_metrics_by_round(meta)
+        if n_te:
+            diag.write_confusion(te_df, te_prob)
+            diag.write_per_process(te_df, te_prob, te_true)
+        print(f"  diagnostics updated -> {diag.DIAG_DIR}")
+    except Exception as e:
+        print(f"  (diagnostics skipped: {e})")
+
 
 def run_eval(model_dir: Path) -> None:
     model, meta = load_model(model_dir)
@@ -476,6 +490,15 @@ def run_eval(model_dir: Path) -> None:
     y_prob = model.predict_proba(texts)
     _head_metrics(y_true, y_prob, f"Frozen-test eval (model {meta.get('model_version')})")
     _error_report(df, y_true, y_prob)
+
+    # Refresh the frozen-test confusion + per-process diagnostics (03, 04).
+    try:
+        import _diagnostics as diag
+        diag.write_confusion(df, y_prob)
+        diag.write_per_process(df, y_prob, y_true)
+        print(f"  diagnostics updated -> {diag.DIAG_DIR}")
+    except Exception as e:
+        print(f"  (diagnostics skipped: {e})")
 
 
 def run_score(args: argparse.Namespace, model_dir: Path) -> None:

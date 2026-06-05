@@ -132,11 +132,23 @@ def _build_candidate_prompt(
     current_flags: str,
 ) -> tuple[str, list[str]]:
     """Build the candidate adjudication prompt and return (prompt_text, candidate_ids)."""
+    # Drop candidates the classifier predicted `neither`: only init/decision candidates are
+    # worth the LLM's context. Fall back to the full set when nothing is predicted-positive
+    # (e.g. an unscored pool, or a project whose every candidate scored neither — better to
+    # send the best-available than an empty packet). Regex-authoritative candidates
+    # (role_confidence_score >= AUTHORITATIVE_CONF) are kept even if 04 left them unscored.
+    pool = candidates
+    if "classifier_label" in candidates.columns:
+        lbl = candidates["classifier_label"].fillna("").astype(str).str.strip().str.lower()
+        rconf = pd.to_numeric(candidates.get("role_confidence_score"), errors="coerce").fillna(0.0)
+        keep = lbl.isin(("initiation", "decision")) | (rconf >= AUTHORITATIVE_CONF)
+        if keep.any():
+            pool = candidates[keep]
     # Rank by classifier confidence first (falls back to ranking_score when the pool
     # is unscored or columns are absent), then keep the top ROUTED_TOPK packets.
-    rank_cols = [c for c in ("classifier_score", "ranking_score") if c in candidates.columns]
-    cand_rows = (candidates.sort_values(rank_cols, ascending=False)
-                 if rank_cols else candidates).head(ROUTED_TOPK)
+    rank_cols = [c for c in ("classifier_score", "ranking_score") if c in pool.columns]
+    cand_rows = (pool.sort_values(rank_cols, ascending=False)
+                 if rank_cols else pool).head(ROUTED_TOPK)
     cand_ids = cand_rows["candidate_id"].tolist()
 
     cand_lines = []
