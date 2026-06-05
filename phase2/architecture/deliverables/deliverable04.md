@@ -19,7 +19,8 @@ Run in numbered order: `01` → `02` → `03` → `04` → `05` (→ `06`). The 
 | `01_index.py` | Join projects, documents, and all Tier A register sources into `timeline_document_index.parquet` with document role scores, appendix flags, and scan priority. |
 | `02_retrieve.py` | Execute the five-tier retrieval strategy (metadata, page slices, sections, keyword scoring, recovery) and write `timeline_context_packets.parquet`. |
 | `03_extract_candidates.py` | Apply the full date-regex suite to context packets, prelabel each candidate's role (clear_decision, clear_initiation, proxy, review, historical, `body_text`, reject), and write `timeline_candidates.parquet`. |
-| `04_classify_candidates.py` | **Learned scorer.** Two-head model (P_initiation, P_decision) over the ambiguous candidate pool (`role_confidence_score < 5.0`, plus `body_text`/`unknown`; 5.0 register/strong-cue rows and review/historical/reject are exempt). One shared-encoder SetFit model with a `[CE]/[EA]/[EIS]` process token and multi-label head; backend-pluggable (SetFit now → DeBERTa-v3 later). Writes `p_initiation`, `p_decision`, `classifier_*` columns. Passes through with neutral scores if no model is trained yet. |
+| `04_classify_candidates.py` | **Learned scorer.** Two-head model (P_initiation, P_decision) over the ambiguous candidate pool (`role_confidence_score < 5.0`, plus `body_text`/`unknown`; 5.0 register/strong-cue rows and review/reject are exempt). One shared-encoder SetFit model with a `[CE]/[EA]/[EIS]` process token and multi-label head; backend-pluggable (SetFit now → DeBERTa-v3 later). Writes `p_initiation`, `p_decision`, `classifier_*` columns. Passes through with neutral scores if no model is trained yet. |
+| `04b_calibrate.py` | Fit Platt calibrators on the frozen candidate-label test split, write `calibrator_init.pkl`/`calibrator_dec.pkl`, produce `calibration_curve.csv`, and optionally write `p_init_cal`/`p_dec_cal` back to `timeline_candidates.parquet`. |
 | `05_select_dates.py` | Two-pass scoring and selection of best decision and initiation dates per project; writes `timeline_project_dates.parquet` and the manual review queue. (`body_text` is a last-resort decision proxy until the classifier supersedes it.) |
 | `06_adjudicate_llm.py` | Optional LLM adjudication (Claude Haiku) for projects with missing or conflicting dates; two modes: candidate-packet adjudication and document-recovery. |
 | `07_validate.py` | Prepare annotatable review packets from the 100-project sample or run granularity-aware validation against filled gold labels. |
@@ -81,6 +82,11 @@ flowchart TD
 
     N --> O[03_extract_candidates.py]
     O --> P[timeline_candidates.parquet]
+    P --> C4[04_classify_candidates.py]
+    C4 --> P
+    C4 --> C4B[04b_calibrate.py\noptional]
+    C4B --> C4O[calibrator_*.pkl\ncalibration_curve.csv]
+    C4B --> P
 
     P --> Q[05_select_dates.py]
     Q --> R[timeline_project_dates.parquet]
@@ -122,16 +128,17 @@ All analysis parquets are written under `phase2/data/analysis/timeline/`.
 | File | Description |
 |---|---|
 | `timeline_project_dates.parquet` | One row per project: selected initiation and decision dates, granularity, confidence, proxy flags, duration, timeline_status |
-| `timeline_candidates.parquet` | One row per date-context candidate: all extracted date evidence with scoring components and role pre-labels |
+| `timeline_candidates.parquet` | One row per date-context candidate: all extracted date evidence with scoring components, role pre-labels, classifier scores, and optional calibrated classifier scores |
 | `timeline_context_packets.parquet` | One row per retrieved context span: retrieval audit trail with tier, reason, scores |
 | `timeline_document_index.parquet` | One row per project-document: document role scores, scan priority, Tier A eligibility flags |
 | `timeline_run_manifest.parquet` | One row per run shard: status, row counts, input hashes, timing |
+| `models/candidate_classifier/calibrator_init.pkl` / `calibrator_dec.pkl` | Platt calibrators fitted by `04b_calibrate.py` on the frozen candidate-label test split |
 | `gold/timeline_gold_splits.parquet` | Gold sample split definitions for labeling batches |
 | `gold/timeline_gold_projects.parquet` | Finalized gold project-level date labels |
 | `gold/timeline_gold_candidates.parquet` | Finalized gold candidate-role labels |
 | `gold/timeline_gold_candidate_training.parquet` | Training-ready candidate examples with labels |
 
-Figures and tables are written under `phase2/output/deliverable04/`.
+Figures and tables are written under `phase2/output/deliverable04/`, including `calibration_curve.csv`.
 
 ---
 
@@ -212,6 +219,18 @@ Candidates not matching any cue get `candidate_role = "unknown"` with confidence
 **Key `CLEAR_INITIATION_STRONG` additions (Phase 2):** `"external scoping was conducted"`, `"posted (on/to) the (online) NEPA register"`, `(?:noi|notice\s+of\s+intent)\s+(?:was\s+)?(?:published|issued|submitted)` (note the optional `was` — NEPATEC text consistently uses passive past tense). **Key `CLEAR_INITIATION_MED` additions:** `"comment period was/ran/began/started/opened"` (9,280 candidate contexts); `"deemed the application complete"`, `"amended and re-submitted"`, `"30-day comment period"`, `"date created/prepared"`, `"drafted"`.
 
 CE initiator-role field handling: `CE_INITIATOR_ROLE` pattern (`doe initiator`, `nepa initiator`, `action initiating office`) triggers `candidate_role = "clear_initiation"` only when the form-role context is not mixed with decision text.
+
+### 04_classify_candidates.py — Learned Candidate Scoring
+
+The classifier sits between candidate extraction and date selection. It trains from the single human-labeled source file, `phase2/output/deliverable04/labeling_sample.csv`, whose `split` column is frozen so new active-learning rows default to `train` and never leak into the test set. The current production model is a SetFit shared encoder with two one-vs-rest heads in fixed order: `p_initiation` then `p_decision`.
+
+Input text is built from a process token plus the anchored candidate context (`model_context` when present, falling back to `context_text`/`context_cleaned`). The model scores only ambiguous candidates: eligible roles are clear/proxy initiation, clear/proxy decision, `body_text`, `unknown`, and `historical` with `role_confidence_score < 5.0`; register and strong-cue rows at 5.0 bypass the classifier as deterministic evidence. The scorer writes `p_initiation`, `p_decision`, `classifier_label`, `classifier_score`, backend, model version, and run timestamp back to `timeline_candidates.parquet`.
+
+### 04b_calibrate.py — Probability Calibration and Operating Curve
+
+`04b_calibrate.py` imports `04_classify_candidates.py` through `importlib` because the module name starts with a digit, then reuses its model loader, text builder, path constants, frozen split value, and label order. `--fit` scores the frozen 154-row test split with the current classifier and fits two Platt calibrators (`LogisticRegression` on one raw probability feature per head). Platt is used instead of isotonic regression because the frozen test has only 18 positives per head.
+
+`--curve` applies the calibrators to the scored pool for the current classifier model version and writes `phase2/output/deliverable04/calibration_curve.csv` with threshold, auto-resolved candidate count, routed candidate count, estimated Haiku input-token cost, and frozen-test precision by head and combined positive label. `--apply` is optional; it writes `p_init_cal` and `p_dec_cal` back to `timeline_candidates.parquet` for rows matching the current classifier version.
 
 ### 05_select_dates.py — Scoring and Date Selection
 
@@ -448,6 +467,10 @@ Full corpus run completed 2026-05-29. All 61,881 projects in `projects_combined.
 
 11,348 projects have a decision date with `date_granularity = "year"` — these are NEPA case-number year proxies used as last-resort estimates for CE projects whose document text yielded no clearer date. These are included in coverage counts above but flagged with `proxy_decision = True` and excluded from headline duration calculations.
 
+### Classifier Calibration Curve
+
+Candidate classifier calibration was built 2026-06-04 from model `20260604T060644Z` using the 154-row frozen test split (18 initiation positives, 18 decision positives). The calibrated operating curve covers 285,747 scored candidates. Platt calibration compresses the raw SetFit high-score cluster: no candidate has calibrated max confidence at or above 0.60. The lowest threshold with frozen-test `precision_combined >= 0.85` is `tau = 0.10`, which auto-resolves 56,271 candidates (19.69%) and routes 229,476 candidates, with estimated Haiku input-token cost of $91.79 under the rough 500-token-per-candidate assumption. The curve is candidate-level, not project-level; Phase 3 must translate it into a project queue threshold before changing `06_adjudicate_llm.py`.
+
 ---
 
 ## Output Schema
@@ -516,7 +539,7 @@ Full corpus run completed 2026-05-29. All 61,881 projects in `projects_combined.
 
 - **10,237 projects with zero candidates.** These projects have context packets (most have 60,922 packets covering them) but no date regex matches survived filtering. Primary causes: documents containing only images/scanned PDFs with no OCR text, very short CE memos with no dates in the scanned text, and documents where all dates were excluded by legal/statutory citation filters. Manual review or Tier E document-recovery API calls are needed for high-priority cases.
 
-- **Confidence calibration not yet validated.** The `*_confidence` fields (`high`, `medium`, `low`) are assigned by deterministic rules based on source tier and role cue strength; they have not been validated against a gold label set. Gold labels from scripts 10–13 are needed before these fields should be used as quality gates.
+- **Rule confidence and classifier calibration are separate.** The `*_confidence` fields (`high`, `medium`, `low`) are deterministic labels based on source tier and role cue strength. The calibrated classifier probabilities are `p_init_cal`/`p_dec_cal` from `04b_calibrate.py` and apply only to candidates scored by `04_classify_candidates.py`.
 
 - **CE initiation coverage is intentionally low.** Clear initiation evidence is structurally rare in CE documents. DOE CE forms sometimes contain an initiator role field, but the date is often a worksheet date or review date rather than a federal application-received date. Per plan §5, missing CE initiation is a valid outcome and should not be imputed. CE `complete_clear` duration rows are potentially selective for longer, more documented projects.
 
@@ -534,7 +557,7 @@ Full corpus run completed 2026-05-29. All 61,881 projects in `projects_combined.
 
 **Why separate retrieval from extraction?** Prior Phase 1 BERT/LLM approaches made the text selection and date interpretation steps opaque — the model received a context window and returned a date with no intermediate audit trail. The Phase 2 design writes explicit context packets (`timeline_context_packets.parquet`) and explicit candidates (`timeline_candidates.parquet`) so every selected date can be traced to its source tier, retrieval reason, evidence text, and scoring components. This is essential for debugging coverage gaps and for building gold labels that can improve future iterations.
 
-**Why no BERT in the production path?** BERT fine-tuning is appropriate when the bottleneck is label quality (enough examples exist but they need accurate labels). Phase 2 prioritizes a deterministic baseline that can be fully audited and reproduced before adding a classifier layer. Per plan §6: a classifier should only be adopted if gold-label validation shows it improves precision/recall beyond deterministic scoring. SetFit is explicitly ruled out for timeline date classification (label quality problem, not data scarcity).
+**Why SetFit plus Platt calibration?** Candidate-level labels are still scarce, so the production classifier uses SetFit as a lightweight shared encoder rather than a fully fine-tuned transformer. The two heads provide useful ranking scores but their raw probabilities are not reliable thresholds; `04b_calibrate.py` fits one Platt sigmoid per head on the frozen test split so routing thresholds are tied to observed precision instead of raw SetFit score scale.
 
 **Why NEPA case-number year proxies?** BLM CE case numbers (`DOI-BLM-WY-P070-2019-0035-CX`) embed the fiscal year in a fixed position. For CE projects with no other date signal, this year is the only deterministic evidence available without fetching the BLM ePlanning register. The `nepa_case_year` pattern preserves these as year-granularity proxies rather than dropping the project from all coverage, while `date_granularity = "year"` and `proxy_decision = True` ensure they cannot silently contaminate headline duration calculations.
 
@@ -562,7 +585,7 @@ The `07_validate.py` script operates on the original 100-project stratified samp
 - Clear initiation precision >= 90% for EA/EIS; >= 85% for CE
 - Invalid-order rate < 2%
 
-As of 2026-05-29, no gold labels have been reviewed; confidence calibration is pending.
+As of 2026-06-04, candidate-level classifier calibration has been built from the frozen test split, but project-level validation against `07_validate.py` gold labels remains pending.
 
 ---
 
@@ -595,6 +618,12 @@ conda run -n nepa python phase2/code/deliverable04/01_index.py
 # Full corpus extraction (sharded, resumes from completed shards)
 conda run -n nepa python phase2/code/deliverable04/_run.py --process CE EA EIS --shards 5
 
+# Classifier calibration (rerun after retraining 04)
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/04b_calibrate.py --fit
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/04b_calibrate.py --curve
+# Optional, only if downstream scripts consume calibrated probabilities directly:
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/04b_calibrate.py --apply
+
 # Optional: API adjudication for unresolved EA/EIS
 conda run -n nepa python phase2/code/deliverable04/_run.py --with-api --process EA EIS
 
@@ -611,6 +640,7 @@ Sample run (100-project validation sample):
 conda run -n nepa python phase2/code/deliverable04/01_index.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
 conda run -n nepa python phase2/code/deliverable04/02_retrieve.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
 conda run -n nepa python phase2/code/deliverable04/03_extract_candidates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
+conda run -n nepa python phase2/code/deliverable04/04_classify_candidates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
 conda run -n nepa python phase2/code/deliverable04/05_select_dates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
 conda run -n nepa python phase2/code/deliverable04/07_validate.py --prepare-review
 ```
