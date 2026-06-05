@@ -99,3 +99,4 @@ load_timeline_navigator(
 )
 
 show()
+nxt()

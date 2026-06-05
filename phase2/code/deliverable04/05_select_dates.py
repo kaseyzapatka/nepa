@@ -56,6 +56,36 @@ EIS_GAP_EXEMPT = True
 SAME_DAY_DURATION_FLAG = "same_day"
 MAX_DURATION_YEARS = 25
 
+# --- Selection-disambiguation rules (2026-06-04) -------------------------------------------
+# Earliest-wins for initiation: among initiation candidates scoring within this margin of the
+# best, pick the EARLIEST date (initiation = the first qualifying start signal, e.g. the first
+# of two scoping periods). Kept tight (1.0) so only genuinely near-tied candidates compete —
+# a looser margin lets a low-quality earlier candidate (case-number/citation month) steal the
+# slot, because today this tiebreak runs on REGEX ranking_score, not classifier confidence.
+# TODO: once classifier p_initiation is wired into selection, gate this on p_init instead.
+INIT_EARLIEST_SCORE_MARGIN = 1.0
+# A bare month-granularity date may stand in as a DECISION only for these processes: the CX
+# cover month IS the determination for a CE. For EA/EIS the real decision is a dated ROD/FONSI,
+# so a month-only date is dropped from the decision pool and the project routes to 06 for a
+# precise date instead of locking in a coarse one.
+MONTH_DECISION_PROCESSES = {"CE"}
+
+# --- Classifier-into-selection weights (2026-06-04) ----------------------------------------
+# The two-head classifier (p_initiation / p_decision) finally drives selection, not just 06
+# routing. Used as an additive ranking term on the role-appropriate head; calibrated probs
+# (p_init_cal / p_dec_cal from 04b --apply) are preferred when present, else raw p_*.
+CLASSIFIER_WEIGHT = 5.0            # weight on the role-appropriate classifier probability
+CLASSIFIER_DISAGREE_PENALTY = 3.0  # penalty when the OTHER head is more confident (looks like the other thing)
+# Granularity confidence: a precise day beats a coarse month/year.
+GRANULARITY_BONUS = {"day": 1.0, "month": 0.0, "year": -1.0}
+# Cross-candidate agreement: corroboration when multiple candidates resolve to the same date.
+AGREEMENT_WEIGHT = 0.5
+AGREEMENT_CAP = 1.5
+# Process-specific plausible review durations (days). Pairs outside the band are FLAGGED for
+# review/06, not discarded — a sanity check, not a hard filter.
+DURATION_PLAUSIBLE_MAX_DAYS = {"CE": 5 * 365, "EA": 7 * 365, "EIS": 12 * 365}
+DURATION_PLAUSIBLE_MIN_DAYS = {"CE": 0, "EA": 0, "EIS": 90}
+
 # ---------------------------------------------------------------------------
 # Scoring weights / component ranges (plan §5 table)
 # ---------------------------------------------------------------------------
@@ -117,15 +147,29 @@ def _doc_type_score(dtype_clean: str | None) -> float:
     return 0.0
 
 
-def _compute_candidate_score(
+def _classifier_probs(row: dict) -> tuple[float, float]:
+    """Role-appropriate classifier probabilities, preferring calibrated (p_*_cal, written by
+    04b --apply) over raw (p_initiation / p_decision) when present. Returns (p_init, p_dec)."""
+    def _num(*keys: str) -> float:
+        for k in keys:
+            v = row.get(k)
+            if v is not None:
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    pass
+        return 0.0
+    return _num("p_init_cal", "p_initiation"), _num("p_dec_cal", "p_decision")
+
+
+def candidate_score_components(
     row: dict,
     role: str,  # "decision" or "initiation"
     selected_decision_date: date | None,
-    index_map: dict,  # project_id -> {decision_doc_score, initiation_doc_score, ...}
-) -> float:
-    """
-    Compute the composite ranking_score for a candidate.
-    """
+) -> dict[str, float]:
+    """Named additive components of a candidate's ranking_score. Returned as a dict so the same
+    feature set can later feed a learned ranker (LightGBM) without re-deriving the inputs — the
+    heuristic score is just sum(components.values())."""
     source_tier = row.get("retrieval_tier") or row.get("source_tier") or "page_keyword"
     source_strength = SOURCE_STRENGTH.get(source_tier, 1)
 
@@ -154,17 +198,36 @@ def _compute_candidate_score(
     # Page priority (use retrieval score from context packet as proxy)
     page_priority = min(3.0, max(0.0, float(row.get("retrieval_score", 0) or 0) / 3.0))
 
-    # Position signal: if page_number is a number and document has pages, estimate bottom-of-doc
+    # Position signal — ROLE-AWARE: decision dates (signatures, Decision Record) cluster at the
+    # END of CE/EA forms; initiation dates (NOI / scoping / application-received) near the START.
+    # A "decision" date on page 1 (or an "initiation" date on the last page) is suspect.
     position_signal = 0.0
-    if row.get("position_pct") is not None:
-        pos = float(row["position_pct"])
-        if pos > 0.85:
-            position_signal = 1.5  # bottom of document boost for CE decisions
-        elif pos < 0.10:
-            position_signal = 0.5  # header pages modest boost
+    pos_raw = row.get("position_pct")
+    if pos_raw is not None:
+        try:
+            pos = float(pos_raw)
+            if role == "decision":
+                position_signal = 1.5 if pos > 0.85 else (-0.5 if pos < 0.10 else 0.0)
+            else:  # initiation
+                position_signal = 1.5 if pos < 0.15 else (-0.5 if pos > 0.90 else 0.0)
+        except (TypeError, ValueError):
+            pass
 
-    # Classifier signal (not yet available — zero)
-    classifier_signal = 0.0
+    # Classifier signal — the two-head model drives selection. Boost the role-appropriate head;
+    # penalise when the OTHER head is more confident (this date looks like the other milestone).
+    p_init, p_dec = _classifier_probs(row)
+    own, other = (p_dec, p_init) if role == "decision" else (p_init, p_dec)
+    classifier_signal = CLASSIFIER_WEIGHT * own
+    if other > own:
+        classifier_signal -= CLASSIFIER_DISAGREE_PENALTY * (other - own)
+
+    # Granularity confidence: a precise day beats a coarse month / year.
+    granularity_signal = GRANULARITY_BONUS.get(str(row.get("date_granularity") or ""), 0.0)
+
+    # Cross-candidate agreement: corroboration when multiple candidates resolve to the same date
+    # (precomputed per project into _agreement_count by select_dates_for_project).
+    agreement_count = int(row.get("_agreement_count", 1) or 1)
+    agreement_signal = min(AGREEMENT_CAP, max(0, agreement_count - 1) * AGREEMENT_WEIGHT)
 
     # Chronology signal (only used in pass 2 for initiation)
     chronology_signal = 0.0
@@ -207,12 +270,30 @@ def _compute_candidate_score(
     except (ValueError, TypeError, KeyError):
         pass
 
-    total = (
-        source_strength + role_cue_strength + doc_priority + section_priority
-        + page_priority + position_signal + classifier_signal
-        + chronology_signal + repeated_mention_signal - negative_penalty
-    )
-    return total
+    return {
+        "source_strength": float(source_strength),
+        "role_cue_strength": float(role_cue_strength),
+        "doc_priority": float(doc_priority),
+        "section_priority": float(section_priority),
+        "page_priority": float(page_priority),
+        "position_signal": float(position_signal),
+        "classifier_signal": float(classifier_signal),
+        "granularity_signal": float(granularity_signal),
+        "agreement_signal": float(agreement_signal),
+        "chronology_signal": float(chronology_signal),
+        "repeated_mention_signal": float(repeated_mention_signal),
+        "negative_penalty": -float(negative_penalty),
+    }
+
+
+def _compute_candidate_score(
+    row: dict,
+    role: str,  # "decision" or "initiation"
+    selected_decision_date: date | None,
+    index_map: dict,  # retained for signature compatibility (callers pass it); unused here
+) -> float:
+    """Composite ranking_score = sum of the named components in candidate_score_components."""
+    return sum(candidate_score_components(row, role, selected_decision_date).values())
 
 
 def _apply_historical_gap_rule(
@@ -245,6 +326,27 @@ def _apply_historical_gap_rule(
     return {d for d in sorted_dates if d < gap_cutoff}
 
 
+def _select_best_decision(df: pd.DataFrame) -> pd.Series:
+    """Pick the best decision candidate, PREFERRING day-granularity over coarser dates (a
+    signature / decision-record day beats a document cover month) and breaking ties by
+    ranking_score. Falls back to the full set when no day-granularity candidate exists."""
+    pool = df
+    day = df[df["date_granularity"] == "day"]
+    if not day.empty:
+        pool = day
+    return pool.loc[pool["ranking_score"].idxmax()]
+
+
+def _select_earliest_initiation(df: pd.DataFrame) -> pd.Series:
+    """Pick the EARLIEST initiation candidate among those scoring within
+    INIT_EARLIEST_SCORE_MARGIN of the top score (initiation = first qualifying start signal);
+    tie-break on higher ranking_score."""
+    top = df["ranking_score"].max()
+    pool = df[df["ranking_score"] >= top - INIT_EARLIEST_SCORE_MARGIN].copy()
+    pool = pool.sort_values(["_parsed_date", "ranking_score"], ascending=[True, False])
+    return pool.iloc[0]
+
+
 def select_dates_for_project(
     cands: pd.DataFrame,
     process_type: str,
@@ -260,6 +362,13 @@ def select_dates_for_project(
     # Parse dates
     cands = cands.copy()
     cands["_parsed_date"] = pd.to_datetime(cands["parsed_date"], errors="coerce").dt.date
+
+    # Cross-candidate agreement: how many candidates in THIS project resolve to the same date
+    # (corroboration signal consumed by candidate_score_components via _agreement_count).
+    _date_counts = cands["_parsed_date"].value_counts(dropna=True)
+    cands["_agreement_count"] = (
+        cands["_parsed_date"].map(_date_counts).fillna(1).astype(int)
+    )
 
     # --- Historical gap flagging (before either pass) ---
     valid_dates = cands["_parsed_date"].dropna().tolist()
@@ -282,6 +391,16 @@ def select_dates_for_project(
     ]
     cands.loc[decision_cands.index, "ranking_score"] = decision_cands["ranking_score"]
 
+    # Rule: a bare month-granularity date can be the DECISION only for CE. For EA/EIS drop it
+    # from the pool so a cover month never locks in as the decision — the project routes to 06
+    # to find a precise ROD/FONSI date instead.
+    month_decision_suppressed = False
+    if process_type not in MONTH_DECISION_PROCESSES:
+        is_month = decision_cands["date_granularity"].eq("month")
+        if is_month.any():
+            month_decision_suppressed = True
+            decision_cands = decision_cands[~is_month]
+
     best_decision = None
     selected_decision_id = None
     decision_date_str = None
@@ -299,14 +418,14 @@ def select_dates_for_project(
         (decision_cands["ranking_score"] > 0)
     ]
     if not clear_dec.empty:
-        best_decision = clear_dec.loc[clear_dec["ranking_score"].idxmax()]
+        best_decision = _select_best_decision(clear_dec)
     else:
         proxy_dec = decision_cands[
             (decision_cands["candidate_role"] == "proxy_decision") &
             (decision_cands["ranking_score"] > -2)
         ]
         if not proxy_dec.empty:
-            best_decision = proxy_dec.loc[proxy_dec["ranking_score"].idxmax()]
+            best_decision = _select_best_decision(proxy_dec)
             decision_is_proxy = True
         else:
             # Last resort: a date in a decision doc with no role cue. Always a proxy.
@@ -315,7 +434,7 @@ def select_dates_for_project(
                 (decision_cands["ranking_score"] > -2)
             ]
             if not body_dec.empty:
-                best_decision = body_dec.loc[body_dec["ranking_score"].idxmax()]
+                best_decision = _select_best_decision(body_dec)
                 decision_is_proxy = True
 
     if best_decision is not None:
@@ -361,6 +480,7 @@ def select_dates_for_project(
     initiation_evidence_text = None
     initiation_document_id = None
     initiation_page_number = None
+    initiation_earliest_used = False  # set when earliest-wins disambiguated >1 candidate
 
     clear_init = initiation_cands[
         (initiation_cands["candidate_role"] == "clear_initiation") &
@@ -386,7 +506,8 @@ def select_dates_for_project(
             ]
 
     if not clear_init.empty:
-        best_initiation = clear_init.loc[clear_init["ranking_score"].idxmax()]
+        best_initiation = _select_earliest_initiation(clear_init)
+        initiation_earliest_used = len(clear_init) > 1
     else:
         # Proxy fallback (sensitivity only)
         proxy_init = initiation_cands[
@@ -408,8 +529,9 @@ def select_dates_for_project(
                     )
                 ]
         if not proxy_init.empty:
-            best_initiation = proxy_init.loc[proxy_init["ranking_score"].idxmax()]
+            best_initiation = _select_earliest_initiation(proxy_init)
             initiation_is_proxy = True
+            initiation_earliest_used = len(proxy_init) > 1
 
     if best_initiation is not None:
         try:
@@ -484,6 +606,12 @@ def select_dates_for_project(
     flags: list[str] = []
     if date_determined_init_used:
         flags.append("date_determined_initiation")
+    # Selection-disambiguation rules (2026-06-04): surface when they fired so 06 / review can see it.
+    if month_decision_suppressed and not has_dec:
+        # A non-CE month-only decision was dropped; 06 should hunt for a precise ROD/FONSI date.
+        flags.append("month_decision_suppressed_non_ce")
+    if initiation_earliest_used:
+        flags.append("initiation_earliest_selected")
     timeline_status = "missing_both"
 
     if has_init and has_dec:
@@ -570,6 +698,16 @@ def select_dates_for_project(
     else:
         if has_init and has_dec and initiation_granularity != "day":
             flags.append("non_day_granularity")
+
+    # Duration plausibility (day-granularity pairs only): a sanity check by process type. Out-of-band
+    # durations are FLAGGED for review/06, never discarded — the selected pair may still be right.
+    if duration_days is not None:
+        hi = DURATION_PLAUSIBLE_MAX_DAYS.get(process_type)
+        lo = DURATION_PLAUSIBLE_MIN_DAYS.get(process_type)
+        if hi is not None and duration_days > hi:
+            flags.append("implausible_duration_long")
+        elif lo is not None and duration_days < lo:
+            flags.append("implausible_duration_short")
 
     # Check for multiple high-score candidates (tie situation)
     if not clear_dec.empty and len(clear_dec[clear_dec["ranking_score"] >= (clear_dec["ranking_score"].max() - 1)]) > 1:

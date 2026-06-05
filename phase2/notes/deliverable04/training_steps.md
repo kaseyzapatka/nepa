@@ -1,6 +1,15 @@
 # D4 Timeline Classifier — Training & Workflow
 
-_Last updated: 2026-06-04. Phase 1 (active-learning loop) complete. Phase 2 (calibration + operating curve) is next._
+_Last updated: 2026-06-05. Phases 1–2 COMPLETE (active-learning, corpus build-out to ~1k/head,
+test re-freeze to `test_v2`, calibration). Phase 3 (project-gold → LightGBM ranker → 06 retuning)
+is the active work. For a narrative of the latest session see `where_I_left_off.md`._
+
+> **TL;DR of current state (2026-06-05):** retrained SetFit on the rebuilt ~1k/head balanced corpus,
+> measured on the new 894-row `test_v2`: **initiation F1 = 0.896, decision F1 = 0.892** (both heads,
+> the 85–90% target). Calibrated probs now reach ~0.87 (was capped ~0.55); pool re-scored
+> (`20260605T082856Z`) and **`p_init_cal`/`p_dec_cal` written to all 285,747 candidates**. The
+> classifier is no longer the bottleneck — **initiation date coverage** and **selection/routing** are.
+> See "CURRENT STATE (2026-06-05)" below; the older 2026-06-04 state is kept beneath it as history.
 
 ---
 
@@ -18,18 +27,24 @@ Emit uncertain batch → label (rules in `labeling_rules.md`) → retrain → co
 test. Two rounds completed; decision head plateaued at F1=0.737 and init gains are diminishing
 (+0.059 R1, +0.034 R2). AL loop declared done. See results table in "Current state" below.
 
-**Phase 2 — Calibrate + build the operating curve.**
-SetFit head outputs are uncalibrated (`p` caps ~0.735), so `0.5`/`0.7` thresholds are meaningless. Calibration teaches the model what its confidence scores really mean, so instead of guessing whether a score like 0.70 is trustworthy, you know from past data roughly how often predictions with that score are actually correct and can decide when to trust the model versus send the case for further review.
-So we want to fit Platt/isotonic calibration on the frozen test, then produce a curve: for each threshold τ →
-(auto-resolved %, precision at τ, # routed to LLM, est. API cost). This curve is both the
-**confidence story** for the deliverable and the knob for routing thresholds.
+**Phase 2 — Calibrate + build the operating curve. ✅ COMPLETE (2026-06-05).**
+Built `04b_calibrate.py` (Platt calibrators, per-candidate + per-project operating curve, `--apply`).
+After the corpus build-out + retrain, calibrated probs now reach ~0.87 and candidate precision is
+~0.88–0.91 across the usable τ range. Diagnostics 05–07 auto-refresh from `04b`. (Build spec kept
+below as history.)
 
-**Phase 3 — Wire confidence into selection + routing.**
-- `05_select_dates.py`: derive a per-project **timeline confidence** from the selected
-  candidates' calibrated probs; add `low_confidence` / `conflicting` statuses.
-- `06_adjudicate_llm.py`: routing already consumes classifier confidence (queue trigger +
-  top-k packets — see below). Re-tune `ROUTE_CONF_THRESHOLD` against calibrated probs and
-  revisit `ROUTED_TOPK` (currently 3 — risky at F1 ~0.55; the true date can rank below 3).
+**Phase 3 — Project-gold → LightGBM ranker → 06 retuning. ◀ ACTIVE.**
+The classifier is strong; the gap is now turning scores into the *right final dates*.
+- **Project-gold labeling** (`project_gold_labeling.md`): ~300+ projects, the true init/decision
+  `candidate_id` each. Double duty — trains the ranker AND fills the missing `07_validate` gold.
+- **LightGBM ranker** (`05b_rank.py`, already written): learns "which candidate is THE init/decision"
+  from the full feature set (calibrated probs + every structural signal), not just the classifier
+  score. `--train`/`--eval`/`--apply` write `learned_init_score`/`learned_decision_score` to the pool.
+- **`05_select_dates.py`**: already consumes calibrated probs via `candidate_score_components`
+  (`classifier_signal` wired); next, prefer the learned ranker scores when present (4-line hook in
+  `05b_rank.py` docstring). The 3 disambiguation rules (earliest-init, day>month, CE-month-only) stay.
+- **`06_adjudicate_llm.py`**: re-tune `ROUTE_CONF_THRESHOLD`/`ROUTED_TOPK` against the new calibrated
+  probs (see "06 RETUNING STEPS" below).
 
 **Phase 4 — Run LLM adjudication + measure lift.**
 Run `06 --mode candidate_adjudication` on the routed queue; measure coverage gain and $ cost.
@@ -47,7 +62,54 @@ Remove the candidate-level gold scripts (`labeling/01–05`) and data dirs
 `07_validate.py` (`timeline_gold_projects.parquet`) — that's separate end-to-end validation.
 
 
-## Current state (2026-06-04)
+## CURRENT STATE (2026-06-05)
+
+**Labels:** `labeling_sample.csv` now holds **4,471 labeled rows** after the corpus build-out
+(Codex-labeled, positive-rich emission + EA/EIS balancing pass). The test set was **re-frozen once**
+as `test_v2` (a deliberate revamp: the old 18/18/118 was too small at 1k/head). Protocol unchanged:
+`split` frozen, new labels default to `train`. **Old baseline/R1/R2 F1 (on the 154-row test) are
+superseded** — not comparable to `test_v2` numbers.
+
+| | train | test_v2 |
+|---|---:|---:|
+| initiation | 988 | 247 |
+| decision | 1,072 | 268 |
+| neither | 1,517 | 379 |
+| **total** | **3,577** | **894** |
+
+**Model `20260605T082856Z`** (SetFit, MiniLM-L6, 3,577 train rows) — frozen-test (`test_v2`, 894 rows):
+
+| Head | P | R | **F1** |
+|---|---|---|---|
+| initiation | 0.882 | 0.911 | **0.896** |
+| decision | 0.877 | 0.907 | **0.892** |
+
+Per-process F1: CE init 0.962 / dec 0.945; EA 0.822 / 0.860; **EIS 0.750 / 0.699** (EIS decision is
+the remaining soft spot — the ROD-vs-issuance/comment/schedule boundary). Confusion is clean: heads
+almost never confuse each other; ~all errors are at the `neither` boundary.
+
+**Calibration (`04b`) rebuilt on `test_v2` + the new model.** Calibrated probs now reach ~0.87 (top
+bin → 0.87 cal / 0.99 actual positive). Operating curve (full pool, 285,747 cands / 35,090 projects):
+
+- Candidate precision ~0.88 at τ=0.5 → ~0.91 at τ=0.85; **94% of positive-predicted candidates clear
+  τ=0.70 at ~0.89 precision.**
+- Project-level **both-dates auto ≈ 10–12%**, **≥1-date auto ≈ 65%** — the "both" ceiling is gated by
+  *initiation date coverage*, not classifier quality (many projects lack a confident init candidate).
+- Cost was never the constraint (~$37 to route everything). Optimize for accuracy/coverage.
+- `p_init_cal` / `p_dec_cal` written to all 285,747 candidates (`04b --apply`) — `05`/`06` consume them.
+
+**Caveat:** `test_v2` is positive-heavy (~55%) vs the real pool (~10%), so test precision is optimistic
+— read **deployment** precision off the operating curve (full pool), not the test set.
+
+**Diagnostics:** `phase2/output/deliverable04/diagnostics/01–07*.csv`, auto-refreshed by `04`/`04b`
+(`02_metrics_by_round.csv` is the progression; note it still seeds the old-test rounds — the
+`test_v2` rows are the comparable ones going forward).
+
+**Backups:** `labeling_sample.pre_refreeze.csv` (pre-test_v2), `labeling_sample.pre_al1.csv`.
+
+---
+
+## Current state (2026-06-04) — HISTORICAL (superseded by the 2026-06-05 section above)
 
 **Single source of truth for labels:** `phase2/output/deliverable04/labeling_sample.csv`
 (1,168 rows). The `split` column is **frozen**: 1,014 `train` / 154 `test`. New labels added later
@@ -131,7 +193,60 @@ Backup of pre-round-1 labels: `labeling_sample.pre_al1.csv`.
 
 ---
 
-## IMMEDIATE NEXT STEPS — PHASE 2 (calibration)
+## NEXT STEPS — PHASE 3 (project-gold → ranker → 06 retuning)
+
+All commands from repo root with the env active (`CONDA_DEFAULT_ENV=nepa`).
+
+### 1. Project-gold labeling (intensive; produces ranker data + 07 gold)
+Follow `project_gold_labeling.md` end to end: emit ~300+ projects → label the true init/decision
+`candidate_id` per project → apply into `project_gold_sample.csv` → build
+`timeline_gold_projects.parquet`. This is the gating task for both the ranker and end-to-end
+validation. It's the judgment-heavy step — pace it, it's resumable.
+
+### 2. Train the LightGBM ranker (`05b_rank.py`, already written)
+```bash
+pip install lightgbm     # one-time — NOT yet in the nepa env
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/05b_rank.py --train   # init + decision rankers; held-out top-1/MRR
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/05b_rank.py --eval
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/05b_rank.py --apply   # writes learned_init_score / learned_decision_score
+```
+Then wire `05` to prefer the learned scores (4-line hook in `05b_rank.py`'s docstring); the
+disambiguation rules + chronology filter in `05` stay on top.
+
+### 3. 06 RETUNING STEPS (now that calibrated probs exist)
+The new operating curve (06/07 diagnostics) makes `ROUTE_CONF_THRESHOLD` meaningful. To re-tune:
+1. **Re-score sizing first:** `06 --mode candidate_adjudication --dry-run --sample 50` to see how many
+   projects route and the per-project packet under current constants.
+2. **Set `ROUTE_CONF_THRESHOLD` from the curve:** in `06_adjudicate_llm.py`, the threshold is compared
+   to the project's best classifier confidence. With calibration, pick τ from
+   `diagnostics/07_operating_curve_project.csv` — the lowest τ where candidate `precision_combined`
+   is acceptable (≈0.88 across the band). A value around **0.50–0.60 (calibrated)** auto-resolves the
+   confident dates while routing the genuinely uncertain ones. **Also switch `06` to read the
+   calibrated `p_init_cal`/`p_dec_cal`** (it currently reads raw `p_decision` in `_classifier_route_signal`
+   and the packet builder — point those at the `*_cal` columns now that `04b --apply` has written them).
+3. **Raise `ROUTED_TOPK` 3 → 5:** at the old F1 the true date could rank below 3; less risky now but 5
+   is cheap insurance (one-line constant).
+4. **Re-confirm the neither-filter** in `_build_candidate_prompt` (already added) is dropping
+   classifier-`neither` candidates so only init/decision packets reach Claude.
+5. **Size the real run:** `06 --dry-run` over the full routed queue → confirm project count + est cost
+   (cost is ~$37 ceiling for the whole pool; not a constraint). Then run for real on a sample, validate
+   against the new `timeline_gold_projects.parquet` via `07_validate.py`.
+
+`06` routing constants live near the top of `06_adjudicate_llm.py`:
+`ROUTE_CONF_THRESHOLD`, `COMPETE_DECISION_PROB`, `COMPETE_DECISION_MIN_N`, `ROUTED_TOPK`,
+`AUTHORITATIVE_CONF`.
+
+### 4. EIS decision soft spot (optional, parallel)
+EIS decision F1 = 0.699 is the weakest cell. If end-to-end EIS decision accuracy is poor, a small
+targeted labeling pass on EIS decision (focusing the ROD-vs-issuance/comment/schedule boundary —
+the residual error mode from the build-out QC) would help most.
+
+---
+
+## HISTORICAL SPEC — PHASE 2 calibration build (✅ DONE; kept for reference)
+
+_`04b_calibrate.py` is built and run. The spec below is how it was designed — retained for context,
+not an action item._
 
 All commands from repo root with the env active: `conda activate nepa`.
 
@@ -362,14 +477,19 @@ uncertainty slice. `06` routing constants: `ROUTE_CONF_THRESHOLD=0.70`,
 | What | Path |
 |---|---|
 | Classifier (train/eval/score/emit-batch) | `phase2/code/deliverable04/04_classify_candidates.py` |
-| Labels (sole source, frozen split) | `phase2/output/deliverable04/labeling_sample.csv` |
+| **Calibration + operating curve** | `phase2/code/deliverable04/04b_calibrate.py` (`--fit`/`--curve`/`--apply`) |
+| Labels (sole source, frozen split `test_v2`) | `phase2/output/deliverable04/labeling_sample.csv` |
 | Labeling codebook + split protocol | `phase2/notes/deliverable04/labeling_rules.md` |
-| Model + meta (frozen-test metrics) | `phase2/data/analysis/timeline/models/candidate_classifier/` |
-| Eval errors (active-learning fuel) | `phase2/output/deliverable04/classifier_eval_errors.csv` |
-| Scored candidate pool | `phase2/data/analysis/timeline/timeline_candidates.parquet` |
-| Date selection | `phase2/code/deliverable04/05_select_dates.py` |
+| Classifier model + meta + calibrators | `phase2/data/analysis/timeline/models/candidate_classifier/` |
+| Eval errors / diagnostics | `phase2/output/deliverable04/classifier_eval_errors.csv`, `diagnostics/01–07*.csv` |
+| Scored candidate pool (+ `p_*_cal`) | `phase2/data/analysis/timeline/timeline_candidates.parquet` |
+| Date selection (classifier-integrated) | `phase2/code/deliverable04/05_select_dates.py` |
+| **Learned selection ranker (LightGBM)** | `phase2/code/deliverable04/05b_rank.py` (`--train`/`--eval`/`--apply`) |
 | LLM adjudication / routing | `phase2/code/deliverable04/06_adjudicate_llm.py` |
 | Project-level validation (KEEP) | `phase2/code/deliverable04/07_validate.py` |
+| Shared diagnostics writers | `phase2/code/deliverable04/_diagnostics.py` |
+| Build-out / re-freeze / emit helpers | `_emit_buildout.py`, `_emit_eaeis.py`, `_drop_blanks.py`, `_refreeze_test.py` |
+| Labeling specs (handoff) | `build_out_training.md`, `project_gold_labeling.md`, `where_I_left_off.md` |
 
 ---
 
@@ -387,13 +507,17 @@ uncertainty slice. `06` routing constants: `ROUTE_CONF_THRESHOLD=0.70`,
 - **Hot paths vectorized** (`compute_eligible_mask`, `build_input_texts`) — no row-wise
   apply/iterrows on the 414k pool. Future runs: launch unbuffered + progress bar.
 
-## Open caveats
+## Open caveats (current, 2026-06-05)
 
-- **Probabilities uncalibrated** (bimodal: ~90% near 0, then jump to 0.85+ at p95). Phase 2 is
-  the fix — do not trust any threshold until Platt calibration is fitted and the operating curve
-  is built. Raw `max(p_init)=0.893`, `max(p_dec)=0.927` as of model `20260604T060644Z`.
-- **`ROUTED_TOPK=3`** likely too low at current F1 — raise to 5 once calibrated thresholds
-  are set (one-line knob in `06`).
-- **Init recall ceiling**: 6 persistent FNs on the frozen test; 3 are hard/ambiguous cases,
-  1 is an exempt role that never scores in production. Accept this as the SetFit floor.
-- Two distinct "gold" concepts: candidate-level (retired) vs project-level `07_validate` (kept).
+- **Calibration is DONE** (the old "uncalibrated" caveat is resolved). Calibrated probs reach ~0.87;
+  read deployment precision off the operating curve, not `test_v2` (which is positive-heavy).
+- **Initiation date coverage is the real ceiling** on full-project auto-resolution (~10–12% both-dates,
+  ~65% ≥1-date). Many projects lack a confident init candidate — a coverage/extraction problem, not a
+  classifier problem. The ranker + 06 don't fix missing candidates.
+- **EIS decision F1 = 0.699** is the weakest cell (ROD-vs-issuance/comment/schedule boundary). Build-out
+  QC found a residual error mode of schedule/"Prepare ROD" dates labeled `decision`.
+- **`06` still reads raw `p_decision`** in routing/packets — point it at `p_dec_cal`/`p_init_cal` during
+  retuning (see Phase 3 step 3). `ROUTED_TOPK=3` → raise to 5.
+- **LightGBM not installed** in the `nepa` env — `pip install lightgbm` before running `05b_rank.py`.
+- Two distinct "gold" concepts: candidate-level (retired) vs project-level `07_validate`
+  (`timeline_gold_projects.parquet`, still missing — the project-gold pass fills it).
