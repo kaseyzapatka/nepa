@@ -12,10 +12,14 @@
 
 This is **much smaller** than the candidate build-out (~300 projects, not thousands of candidates),
 but each project requires *judgment*: read the project's candidate options and pick the right ones.
+**Aim for 300; 400–500 is better** (LightGBM trains a few hundred groups — more groups = a sturdier
+ranker). It is the intensive judgment task, so pace it; it is fully resumable.
 
-**Run this AFTER the candidate build-out + SetFit retrain + `04b --apply`** — the options view shows
-each candidate's classifier probability, and those are only trustworthy once the init head is
-retrained on the enriched labels.
+**Prerequisites are already DONE** (as of 2026-06-05): the candidate build-out, the SetFit retrain
+to `test_v2` (frozen-test F1 init 0.896 / decision 0.892), and `04b --apply` have all run — so the
+pool already carries trustworthy **calibrated** classifier probs (`p_init_cal` / `p_dec_cal`). The
+ranker script (`05b_rank.py`) is **already written**; this gold pass produces the data it trains on.
+Just start at Step 1.
 
 ---
 
@@ -114,9 +118,11 @@ with open(OPTIONS, "a") as f:
         c = df[df["project_id"] == pid].sort_values("parsed_date")
         f.write(f"\n===== project {pid} [{proc}] — {len(c)} candidates =====\n")
         for _, r in c.iterrows():
+            # prefer calibrated probs (written by 04b --apply); fall back to raw
+            pi = r.get("p_init_cal", r.get("p_initiation")); pdc = r.get("p_dec_cal", r.get("p_decision"))
             f.write(f"  id={r['candidate_id']} date={r.get('parsed_date')} "
                     f"gran={r.get('date_granularity')} role={r.get('candidate_role')} "
-                    f"p_init={float(r.get('p_initiation') or 0):.2f} p_dec={float(r.get('p_decision') or 0):.2f}\n")
+                    f"p_init={float(pi or 0):.2f} p_dec={float(pdc or 0):.2f}\n")
             f.write(f"     {excerpt(r.get('model_context'))}\n")
 print(f"Emitted {len(picks)} projects -> {SAMPLE.name} (options -> {OPTIONS.name}).")
 ```
@@ -238,9 +244,26 @@ print(f"Wrote {len(gold)} gold projects -> {out}")
 CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/_build_project_gold_parquet.py
 ```
 
-That parquet is the input both to `07_validate.py` (end-to-end accuracy) **and** to the future
-`05b_rank.py` trainer (the per-project target candidate). After it exists, ping me and I'll build the
-LightGBM ranker on it.
+That parquet is the input to `07_validate.py` (end-to-end accuracy). The **`project_gold_sample.csv`**
+itself (the per-project candidate_ids) is what the **already-written** `05b_rank.py` trains on.
+
+---
+
+## Step 6 — Train the LightGBM ranker (after gold is labeled)
+
+`05b_rank.py` is already written. Once `project_gold_sample.csv` has ~300+ filled rows:
+
+```bash
+pip install lightgbm                      # one-time (not yet in the nepa env)
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/05b_rank.py --train   # fits init + decision rankers, reports held-out top-1/MRR
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/05b_rank.py --eval    # held-out top-1 accuracy per head/process
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/05b_rank.py --apply   # writes learned_init_score / learned_decision_score to the pool
+```
+
+`05b` auto-assigns a stratified 80/20 train/test split over the gold projects (seed 42), trains one
+lambdarank model per head on the full feature set (calibrated probs + every structural signal), and
+measures **top-1 accuracy** (does the ranker's #1 candidate == the gold pick?). After `--apply`, wire
+`05` to prefer the learned scores (the exact 4-line hook is in `05b_rank.py`'s docstring).
 
 ---
 
