@@ -123,10 +123,17 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
                 "position_pct", "section_position_pct", "repeated_mention_signal",
                 "negative_penalty", "date_mention_count"]:
         f[col] = pd.to_numeric(df.get(col), errors="coerce")
-    # cross-candidate agreement (per the frame passed in; for a single project's candidates this is
-    # the within-project count) and granularity as an ordinal
+    # Cross-candidate agreement: how many candidates resolve to the same date — computed
+    # PER PROJECT so it's identical at train / eval / apply time (a global value_counts over the
+    # whole pool would give wildly different magnitudes and corrupt --apply scores).
     pdates = pd.to_datetime(df.get("parsed_date"), errors="coerce")
-    f["agreement_count"] = pdates.map(pdates.value_counts()).fillna(1).astype(float)
+    if "project_id" in df.columns:
+        f["agreement_count"] = (
+            pdates.groupby(df["project_id"]).transform(lambda s: s.map(s.value_counts()))
+            .fillna(1).astype(float)
+        )
+    else:
+        f["agreement_count"] = pdates.map(pdates.value_counts()).fillna(1).astype(float)
     f["granularity_num"] = df.get("date_granularity").map(GRAN_NUM).astype(float)
     f = f[NUM_FEATURES].fillna(0.0)
     for c in CAT_FEATURES:
@@ -163,7 +170,7 @@ def _group_frame(cand: pd.DataFrame, gold: pd.DataFrame, idcol: str) -> tuple[pd
     """Build the per-project ranking frame for one head: candidates of each gold project, sorted so
     project groups are contiguous, with relevance=1 on the gold candidate. Projects whose gold pick
     is 'none'/missing (no positive) are dropped — lambdarank needs a relevant item per group."""
-    gmap = {r.project_id: r[idcol] for r in gold.itertuples()
+    gmap = {r.project_id: getattr(r, idcol) for r in gold.itertuples()
             if str(getattr(r, idcol)).strip() not in ("", "none")}
     sub = cand[cand["project_id"].isin(gmap)].copy()
     sub = sub.sort_values("project_id")
@@ -199,7 +206,7 @@ def _fit_one(LGBMRanker, X, y, groups):
 
 def _topk_metrics(model, cand: pd.DataFrame, gold: pd.DataFrame, idcol: str) -> dict:
     """Top-1 accuracy + MRR on a set of gold projects (those with a real gold candidate)."""
-    gmap = {r.project_id: r[idcol] for r in gold.itertuples()
+    gmap = {r.project_id: getattr(r, idcol) for r in gold.itertuples()
             if str(getattr(r, idcol)).strip() not in ("", "none")}
     hits, rr, n = 0, 0.0, 0
     per_proc: dict[str, list[int]] = {}

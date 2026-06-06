@@ -56,6 +56,10 @@ EIS_GAP_EXEMPT = True
 SAME_DAY_DURATION_FLAG = "same_day"
 MAX_DURATION_YEARS = 25
 
+# Toggle: consume 05b's learned ranker scores (learned_*_score) to RE-RANK among eligible
+# candidates. Set D4_USE_LEARNED_RANKER=0 to fall back to the pure heuristic (for A/B baselining).
+USE_LEARNED_RANKER = os.environ.get("D4_USE_LEARNED_RANKER", "1") == "1"
+
 # --- Selection-disambiguation rules (2026-06-04) -------------------------------------------
 # Earliest-wins for initiation: among initiation candidates scoring within this margin of the
 # best, pick the EARLIEST date (initiation = the first qualifying start signal, e.g. the first
@@ -329,7 +333,8 @@ def _apply_historical_gap_rule(
 def _select_best_decision(df: pd.DataFrame) -> pd.Series:
     """Pick the best decision candidate, PREFERRING day-granularity over coarser dates (a
     signature / decision-record day beats a document cover month) and breaking ties by
-    ranking_score. Falls back to the full set when no day-granularity candidate exists."""
+    ranking_score. Falls back to the full set when no day-granularity candidate exists.
+    (When the learned ranker is on, ranking_score holds the learned score for eligible rows.)"""
     pool = df
     day = df[df["date_granularity"] == "day"]
     if not day.empty:
@@ -389,6 +394,14 @@ def select_dates_for_project(
         _compute_candidate_score(r, "decision", None, index_map)
         for r in decision_cands.to_dict("records")
     ]
+    # learned ranker (05b): when on, its score REPLACES the heuristic ranking_score. The lambdarank
+    # score is higher for clearer cases, so the eligibility gates below (`> 0` / `> -2`) double as a
+    # confidence threshold — a project whose candidates all score low yields no decision (correct when
+    # the project genuinely has none). Set D4_USE_LEARNED_RANKER=0 to fall back to the heuristic.
+    if USE_LEARNED_RANKER and "learned_decision_score" in cands.columns:
+        decision_cands["ranking_score"] = pd.to_numeric(
+            decision_cands["learned_decision_score"], errors="coerce"
+        ).fillna(decision_cands["ranking_score"])
     cands.loc[decision_cands.index, "ranking_score"] = decision_cands["ranking_score"]
 
     # Rule: a bare month-granularity date can be the DECISION only for CE. For EA/EIS drop it
@@ -468,6 +481,12 @@ def select_dates_for_project(
         _compute_candidate_score(r, "initiation", selected_decision_date, index_map)
         for r in initiation_cands.to_dict("records")
     ]
+    # learned ranker: when on, its score replaces the heuristic ranking_score (gate doubles as a
+    # confidence threshold). D4_USE_LEARNED_RANKER=0 falls back to the heuristic.
+    if USE_LEARNED_RANKER and "learned_init_score" in cands.columns:
+        initiation_cands["ranking_score"] = pd.to_numeric(
+            initiation_cands["learned_init_score"], errors="coerce"
+        ).fillna(initiation_cands["ranking_score"])
     cands.loc[initiation_cands.index, "ranking_score"] = initiation_cands["ranking_score"]
 
     best_initiation = None
