@@ -24,7 +24,7 @@ WS = TRAINING / "_ranker_eis_labeling_batch.csv"
 RANKER = TRAINING / "ranker.csv"
 FROZEN = TRAINING / "frozen_eval_ids.txt"
 BACKUPS = TRAINING / "_backups"
-SEED, FROZEN_EVAL_TARGET = 42, 50
+SEED, FROZEN_EVAL_TARGET = 42, 28   # ~28 eval leaves ~50 EIS positives for training (of ~78 total)
 VALID_TYPES = {"rod", "feis", "none"}
 NOTE = {"rod": "verified_rod", "feis": "verified_feis_fallback", "none": "verified_none"}
 
@@ -54,6 +54,22 @@ for pid, grp in ws.groupby("project_id"):
         picks[pid] = ("none", "none", NOTE["none"])
     else:
         warn.append(f"{pid}: no gold_pick and no 'none' -> UNLABELED, skipped")
+
+# ---- incorporate the focused FEIS-fallback re-label (overrides the ROD-first-suppressed 'none') ----
+FOCUSED = WS.parent / "_ranker_feis_fallback_batch.csv"
+if FOCUSED.exists():
+    fw = pd.read_csv(FOCUSED, dtype=str, keep_default_na=False)
+    fw["_pick"] = fw.gold_pick.str.strip().str.lower().isin({"yes", "y", "true", "1", "x"})
+    n_over = 0
+    for pid, grp in fw.groupby("project_id"):
+        ch = grp[grp._pick]
+        if len(ch):
+            cid = str(ch.iloc[0].candidate_id)
+            if cid in pool_ids:
+                picks[pid] = (cid, "feis", NOTE["feis"]); n_over += 1
+            else:
+                warn.append(f"{pid}: focused FEIS pick {cid} not in pool -> skipped")
+    print(f"focused FEIS-fallback: overrode {n_over} projects none -> feis")
 
 print(f"worksheet projects: {ws.project_id.nunique()} | usable picks: {len(picks)}")
 by_t = pd.Series([t for _, t, _ in picks.values()]).value_counts().to_dict()
