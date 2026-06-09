@@ -39,7 +39,10 @@ suppressPackageStartupMessages({
 PHASE2  <- here::here("phase2")
 DATA    <- file.path(PHASE2, "data", "analysis", "timeline")
 OUTPUT  <- file.path(PHASE2, "output", "deliverable04")
-dir.create(OUTPUT, recursive = TRUE, showWarnings = FALSE)
+DIAG    <- file.path(OUTPUT, "diagnostics")   # generated CSV tables (reorg: kept out of root)
+FIGS    <- file.path(OUTPUT, "figures")       # generated PNG charts
+dir.create(DIAG, recursive = TRUE, showWarnings = FALSE)
+dir.create(FIGS, recursive = TRUE, showWarnings = FALSE)
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -168,10 +171,10 @@ dur_agency  <- duration_summary(
   c("process_type")  # placeholder — expand with agency join if available
 )
 
-write_csv(dur_process, file.path(OUTPUT, "d4_duration_summary.csv"))
+write_csv(dur_process, file.path(DIAG, "d4_duration_summary.csv"))
 message("Wrote d4_duration_summary.csv")
 
-write_csv(dur_period,  file.path(OUTPUT, "d4_duration_by_period.csv"))
+write_csv(dur_period,  file.path(DIAG, "d4_duration_by_period.csv"))
 message("Wrote d4_duration_by_period.csv")
 
 # ---------------------------------------------------------------------------
@@ -189,7 +192,7 @@ endpoint_coverage <- dates |>
     median_endpoint_days = median(endpoint_duration_days, na.rm = TRUE),
     .groups = "drop"
   )
-write_csv(endpoint_coverage, file.path(OUTPUT, "d4_endpoint_coverage.csv"))
+write_csv(endpoint_coverage, file.path(DIAG, "d4_endpoint_coverage.csv"))
 message("Wrote d4_endpoint_coverage.csv")
 
 # ---------------------------------------------------------------------------
@@ -225,8 +228,8 @@ coverage_energy <- dates |>
     .groups = "drop"
   )
 
-write_csv(coverage,        file.path(OUTPUT, "d4_coverage_by_process.csv"))
-write_csv(coverage_energy, file.path(OUTPUT, "d4_coverage_diagnostics.csv"))
+write_csv(coverage,        file.path(DIAG, "d4_coverage_by_process.csv"))
+write_csv(coverage_energy, file.path(DIAG, "d4_coverage_diagnostics.csv"))
 message("Wrote d4_coverage_by_process.csv, d4_coverage_diagnostics.csv")
 
 # ---------------------------------------------------------------------------
@@ -257,7 +260,7 @@ if (PROXY_SENSITIVITY) {
     ) |>
     mutate(dataset = if_else(uses_proxy, "with_proxy", "clear_only"))
 
-  write_csv(sensitivity_summary, file.path(OUTPUT, "d4_proxy_sensitivity.csv"))
+  write_csv(sensitivity_summary, file.path(DIAG, "d4_proxy_sensitivity.csv"))
   message("Wrote d4_proxy_sensitivity.csv")
 }
 
@@ -275,7 +278,7 @@ dur_year <- headline |>
   ) |>
   mutate(median_months = round(median_days / 30.44, 1))
 
-write_csv(dur_year, file.path(OUTPUT, "d4_duration_by_year.csv"))
+write_csv(dur_year, file.path(DIAG, "d4_duration_by_year.csv"))
 message("Wrote d4_duration_by_year.csv")
 
 # ---------------------------------------------------------------------------
@@ -295,7 +298,7 @@ fra_comparison <- headline |>
   ) |>
   mutate(median_months = round(median_days / 30.44, 1))
 
-write_csv(fra_comparison, file.path(OUTPUT, "d4_fra_comparison.csv"))
+write_csv(fra_comparison, file.path(DIAG, "d4_fra_comparison.csv"))
 message("Wrote d4_fra_comparison.csv")
 
 # ---------------------------------------------------------------------------
@@ -313,7 +316,7 @@ flag_summary <- flags_raw |>
   summarise(n = n(), .groups = "drop") |>
   arrange(process_type, desc(n))
 
-write_csv(flag_summary, file.path(OUTPUT, "d4_flag_summary.csv"))
+write_csv(flag_summary, file.path(DIAG, "d4_flag_summary.csv"))
 message("Wrote d4_flag_summary.csv")
 
 # ---------------------------------------------------------------------------
@@ -390,7 +393,7 @@ p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverag
   theme_minimal(base_size = 12) +
   theme(legend.position = "bottom")
 
-ggsave(file.path(OUTPUT, "fig_d4_coverage_by_process.png"),
+ggsave(file.path(FIGS, "fig_d4_coverage_by_process.png"),
        p_coverage, width = 7, height = 5, dpi = 150)
 message("Wrote fig_d4_coverage_by_process.png")
 
@@ -408,7 +411,7 @@ p_hist <- ggplot(dur_plot, aes(x = duration_years, fill = process_type)) +
        x = "Duration (years)", y = "Projects") +
   theme_minimal(base_size = 12)
 
-ggsave(file.path(OUTPUT, "fig_d4_duration_histogram.png"),
+ggsave(file.path(FIGS, "fig_d4_duration_histogram.png"),
        p_hist, width = 7, height = 8, dpi = 150)
 message("Wrote fig_d4_duration_histogram.png")
 
@@ -429,7 +432,7 @@ p_fra <- ggplot(fra_fig, aes(x = period, y = median_months, fill = period)) +
        x = NULL, y = "Median duration (months)") +
   theme_minimal(base_size = 12)
 
-ggsave(file.path(OUTPUT, "fig_d4_fra_comparison.png"),
+ggsave(file.path(FIGS, "fig_d4_fra_comparison.png"),
        p_fra, width = 9, height = 5, dpi = 150)
 message("Wrote fig_d4_fra_comparison.png")
 
@@ -451,6 +454,6 @@ p_trend <- ggplot(dur_year |> filter(n >= 5),
   theme_minimal(base_size = 12) +
   theme(legend.position = "bottom")
 
-ggsave(file.path(OUTPUT, "fig_d4_duration_trend.png"),
+ggsave(file.path(FIGS, "fig_d4_duration_trend.png"),
        p_trend, width = 10, height = 5, dpi = 150)
 message("Wrote fig_d4_duration_trend.png")

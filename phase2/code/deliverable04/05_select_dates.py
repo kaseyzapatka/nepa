@@ -348,6 +348,13 @@ EIS_FINAL_EIS_ENABLED = False       # deterministic final_eis_date population (s
 # gold-rank check (true ROD top-5 90%, true FEIS top-5 95% after the 3-head rebuild + doc-type gate).
 EIS_TIERED_DECISION = True
 
+# Routing gate for 06 (LLM adjudication). A project's decision routes to the LLM when the selected
+# candidate's calibrated confidence is below this (ambiguous), or when no decision was picked but
+# eligible candidates exist (the LLM may resolve one), or when several candidates tie. Above the
+# threshold the deterministic pick is taken as final (no LLM). Set to 0.7 to match the bimodal
+# calibrated score distribution (clear picks cluster >=0.7). Tracked per project as route_to_llm.
+LLM_ROUTE_THRESHOLD = 0.7
+
 # Explicit "Record of Decision ... signed/issued/dated/approved" language — used as ROD evidence
 # for EIS candidates that sit outside a ROD-typed document (mislabeled doc types).
 EIS_ROD_LANG_RE = re.compile(
@@ -930,6 +937,20 @@ def select_dates_for_project(
                 if conflict:
                     flags.append("rod_feis_conflict")
 
+    # --- Routing gate for 06 (LLM adjudication): confidence of the selected decision ---
+    decision_confidence_cal = 0.0
+    if best_decision is not None:
+        _cal_key = "p_feis_cal" if decision_is_feis_fallback else "p_dec_cal"
+        try:
+            decision_confidence_cal = float(best_decision.get(_cal_key) or 0.0)
+        except (TypeError, ValueError):
+            decision_confidence_cal = 0.0
+    route_to_llm = bool(
+        (has_dec and decision_confidence_cal < LLM_ROUTE_THRESHOLD)   # ambiguous deterministic pick
+        or (not has_dec and len(decision_cands) > 0)                  # no pick but candidates exist
+        or ("multiple_high_score_candidates" in flags)                # competing candidates
+    )
+
     return {
         "project_id": cands["project_id"].iloc[0],
         "process_type": process_type,
@@ -951,6 +972,8 @@ def select_dates_for_project(
         "decision_page_number": str(decision_page_number) if decision_page_number is not None else None,
         "has_rod": bool(has_rod),
         "decision_is_feis_fallback": bool(decision_is_feis_fallback),
+        "decision_confidence_cal": round(decision_confidence_cal, 4),
+        "route_to_llm": bool(route_to_llm),
         "final_eis_date": final_eis["final_eis_date"],
         "final_eis_date_granularity": final_eis["final_eis_date_granularity"],
         "final_eis_source_type": final_eis["final_eis_source_type"],
@@ -989,6 +1012,8 @@ def _empty_project_result(process_type: str) -> dict:
         "decision_page_number": None,
         "has_rod": False,
         "decision_is_feis_fallback": False,
+        "decision_confidence_cal": 0.0,
+        "route_to_llm": False,
         "final_eis_date": None,
         "final_eis_date_granularity": "unknown",
         "final_eis_source_type": None,
