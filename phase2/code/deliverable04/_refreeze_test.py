@@ -17,7 +17,7 @@ import pandas as pd
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
-LAB = ROOT / "phase2/output/deliverable04/labeling_sample.csv"
+LAB = ROOT / "phase2/training/deliverable04/classifier.csv"
 TEST_FRACTION = 0.20
 FLOOR_PER_CELL = 10    # min test rows per process x label cell (cells are all >=200 now, so non-binding)
 SEED = 42

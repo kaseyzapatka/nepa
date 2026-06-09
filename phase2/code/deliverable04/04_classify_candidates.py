@@ -87,6 +87,7 @@ PHASE2 = ROOT / "phase2"
 ANALYSIS_DIR = PHASE2 / "data" / "analysis"
 TIMELINE_DIR = ANALYSIS_DIR / "timeline"
 OUTPUT_DIR = PHASE2 / "output" / "deliverable04"
+TRAINING_DIR = PHASE2 / "training" / "deliverable04"   # label INPUTS (classifier.csv, ranker.csv)
 
 CANDIDATES_PATH = TIMELINE_DIR / "timeline_candidates.parquet"
 # Single source of truth for labels: the human-labeled sample (03 emits it; humans fill the
@@ -95,13 +96,13 @@ CANDIDATES_PATH = TIMELINE_DIR / "timeline_candidates.parquet"
 # default to `train`, so the test set never grows or leaks. The former gold/ candidate-level
 # training+test apparatus is retired (it held regex echoes, not human gold). NOTE: this is
 # distinct from the project-level gold used by 07_validate.py for end-to-end validation.
-LABELING_SAMPLE_PATH = OUTPUT_DIR / "labeling_sample.csv"
+LABELING_SAMPLE_PATH = TRAINING_DIR / "classifier.csv"   # was output/labeling_sample.csv
 MODEL_DIR = TIMELINE_DIR / "models" / "candidate_classifier"
 # SetFit writes a training checkpoint every save_steps (~260MB each). Pin it to a fixed, gitignored
 # path under models/ (covered by .gitignore `*models/`) so checkpoints never scatter into the CWD
 # (`./checkpoints/`) at whatever directory training is launched from, and never enter git.
 CHECKPOINT_DIR = TIMELINE_DIR / "models" / "_setfit_checkpoints"
-EVAL_ERRORS_PATH = OUTPUT_DIR / "classifier_eval_errors.csv"  # misclassified test rows (--eval)
+EVAL_ERRORS_PATH = OUTPUT_DIR / "diagnostics" / "classifier_eval_errors.csv"  # misclassified test rows (--eval)
 
 DEFAULT_BACKEND = "setfit"
 DEFAULT_BASE_MODEL = "sentence-transformers/all-MiniLM-L6-v2"

@@ -11,7 +11,7 @@ import pandas as pd
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("sel05", HERE / "05_select_dates.py")
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-AUD = HERE.parents[2] / "phase2" / "output" / "deliverable04" / "eis_audit"
+AUD = HERE.parents[2] / "phase2" / "training" / "deliverable04" / "eis_validation"
 
 cands = pd.read_parquet(m.CANDIDATES_PATH)
 cands = cands[cands.process_type == "EIS"]

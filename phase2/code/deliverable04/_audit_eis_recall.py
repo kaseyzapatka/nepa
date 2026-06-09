@@ -22,7 +22,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[3]
 TL = ROOT / "phase2" / "data" / "analysis" / "timeline"
-OUT = ROOT / "phase2" / "output" / "deliverable04" / "eis_audit"
+OUT = ROOT / "phase2" / "training" / "deliverable04" / "eis_validation"
 OUT.mkdir(parents=True, exist_ok=True)
 
 IDX_PATH = TL / "timeline_document_index.parquet"

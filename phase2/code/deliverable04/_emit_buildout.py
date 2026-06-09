@@ -9,7 +9,7 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 
 ROOT = Path(__file__).resolve().parents[3]
 CAND = ROOT / "phase2/data/analysis/timeline/timeline_candidates.parquet"
-LAB = ROOT / "phase2/output/deliverable04/labeling_sample.csv"
+LAB = ROOT / "phase2/training/deliverable04/classifier.csv"
 
 QUOTAS = {
     "clear_initiation": 1200,

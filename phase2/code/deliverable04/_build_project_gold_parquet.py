@@ -9,7 +9,7 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 
 
 ROOT = Path(__file__).resolve().parents[3]
-SAMPLE = ROOT / "phase2/output/deliverable04/project_gold_sample.csv"
+SAMPLE = ROOT / "phase2/training/deliverable04/ranker.csv"
 CANDIDATES = ROOT / "phase2/data/analysis/timeline/timeline_candidates.parquet"
 OUTPUT = (
     ROOT

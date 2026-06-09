@@ -12,7 +12,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[3]
 TL = ROOT / "phase2" / "data" / "analysis" / "timeline"
-AUD = ROOT / "phase2" / "output" / "deliverable04" / "eis_audit"
+AUD = ROOT / "phase2" / "training" / "deliverable04" / "eis_validation"
 
 cand = pd.read_parquet(TL / "timeline_candidates.parquet")
 eis = cand[cand.process_type == "EIS"].copy()

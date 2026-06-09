@@ -23,8 +23,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[3]
 TL = ROOT / "phase2" / "data" / "analysis" / "timeline"
 OUT = ROOT / "phase2" / "output" / "deliverable04"
-AUD = OUT / "eis_audit"
-LAB = OUT / "labeling_sample.csv"
+AUD = ROOT / "phase2" / "training" / "deliverable04" / "eis_validation"
+LAB = ROOT / "phase2" / "training" / "deliverable04" / "classifier.csv"
 SEED = 42
 DECISION_EMIT_N, FEIS_EMIT_N = 200, 250
 PER_PROJECT_CAP = 6

@@ -20,8 +20,8 @@ import pandas as pd
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("sel05", HERE / "05_select_dates.py")
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-AUD = HERE.parents[2] / "phase2" / "output" / "deliverable04" / "eis_audit"
-GOLD = m.OUTPUT_DIR / "project_gold_sample.csv"
+AUD = HERE.parents[2] / "phase2" / "training" / "deliverable04" / "eis_validation"
+GOLD = m.PHASE2 / "training" / "deliverable04" / "ranker.csv"
 
 cand = pd.read_parquet(m.CANDIDATES_PATH,
     columns=["candidate_id", "project_id", "process_type", "parsed_date", "candidate_role",

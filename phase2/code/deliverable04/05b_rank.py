@@ -78,9 +78,10 @@ def _load_05():
 _05 = _load_05()
 TIMELINE_DIR = _05.TIMELINE_DIR
 OUTPUT_DIR = _05.OUTPUT_DIR
+TRAINING_DIR = _05.PHASE2 / "training" / "deliverable04"   # label INPUTS
 CANDIDATES_PATH = _05.CANDIDATES_PATH
 
-GOLD_SAMPLE_PATH = OUTPUT_DIR / "project_gold_sample.csv"
+GOLD_SAMPLE_PATH = TRAINING_DIR / "ranker.csv"   # was output/project_gold_sample.csv
 RANKER_DIR = TIMELINE_DIR / "models" / "candidate_ranker"
 RANKER_INIT_PATH = RANKER_DIR / "ranker_init.pkl"
 RANKER_DEC_PATH = RANKER_DIR / "ranker_decision.pkl"

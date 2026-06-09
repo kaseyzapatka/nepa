@@ -10,7 +10,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[3]
 CAND = ROOT / "phase2/data/analysis/timeline/timeline_candidates.parquet"
-SAMPLE = ROOT / "phase2/output/deliverable04/project_gold_sample.csv"
+SAMPLE = ROOT / "phase2/training/deliverable04/ranker.csv"
 OPTIONS = ROOT / "phase2/output/deliverable04/project_gold_options.txt"
 PER_PROCESS = 100
 SEED = 42

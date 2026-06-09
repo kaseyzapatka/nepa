@@ -13,7 +13,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[3]
 TL = ROOT / "phase2" / "data" / "analysis" / "timeline"
-LAB = ROOT / "phase2" / "output" / "deliverable04" / "labeling_sample.csv"
+LAB = ROOT / "phase2" / "training" / "deliverable04" / "classifier.csv"
 SEED, TARGET, PER_PROJECT_CAP = 42, 350, 5
 
 # Final-EIS publication signal: "final EIS" within ~80 chars of a publish/file/availability verb,

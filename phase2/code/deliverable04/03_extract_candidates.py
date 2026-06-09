@@ -34,11 +34,13 @@ INDEX_PATH = TIMELINE_DIR / "timeline_document_index.parquet"
 OUTPUT_PATH = TIMELINE_DIR / "timeline_candidates.parquet"
 
 # The single human-labeling sample for SetFit training (emitted at end of a full run).
+# Label assets are INPUTS, so they live under training/ (not output/, which is regenerable).
 OUTPUT_DIR = PHASE2 / "output" / "deliverable04"
-LABELING_SAMPLE_PATH = OUTPUT_DIR / "labeling_sample.csv"
+TRAINING_DIR = PHASE2 / "training" / "deliverable04"
+LABELING_SAMPLE_PATH = TRAINING_DIR / "classifier.csv"   # was output/labeling_sample.csv
 # Locked selection: the chosen candidate_ids are persisted here so re-runs reproduce the
 # exact same candidates (delete this file to re-draw a fresh sample).
-LABELING_SAMPLE_IDS_PATH = OUTPUT_DIR / "labeling_sample_ids.txt"
+LABELING_SAMPLE_IDS_PATH = TRAINING_DIR / "classifier_ids.txt"
 LABELING_SAMPLE_SIZE = 300  # total rows, stratified across process_type x candidate_role
 
 RUN_DATE = datetime.now(timezone.utc).date()
