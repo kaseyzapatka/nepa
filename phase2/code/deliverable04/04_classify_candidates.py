@@ -97,6 +97,10 @@ CANDIDATES_PATH = TIMELINE_DIR / "timeline_candidates.parquet"
 # distinct from the project-level gold used by 07_validate.py for end-to-end validation.
 LABELING_SAMPLE_PATH = OUTPUT_DIR / "labeling_sample.csv"
 MODEL_DIR = TIMELINE_DIR / "models" / "candidate_classifier"
+# SetFit writes a training checkpoint every save_steps (~260MB each). Pin it to a fixed, gitignored
+# path under models/ (covered by .gitignore `*models/`) so checkpoints never scatter into the CWD
+# (`./checkpoints/`) at whatever directory training is launched from, and never enter git.
+CHECKPOINT_DIR = TIMELINE_DIR / "models" / "_setfit_checkpoints"
 EVAL_ERRORS_PATH = OUTPUT_DIR / "classifier_eval_errors.csv"  # misclassified test rows (--eval)
 
 DEFAULT_BACKEND = "setfit"
@@ -224,7 +228,10 @@ class SetFitBackend(TimelineClassifier):
         )
         # num_iterations=12: embedding_loss plateaued by ~iter 4 in the 20-iter run (see eis_audit
         # progress notes); 12 keeps a safety margin while ~halving CPU wall-clock on the Intel box.
-        args = TrainingArguments(batch_size=16, num_epochs=1, num_iterations=12)
+        # output_dir pins checkpoints to a fixed gitignored path (not the launch-CWD's ./checkpoints).
+        CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+        args = TrainingArguments(batch_size=16, num_epochs=1, num_iterations=12,
+                                 output_dir=str(CHECKPOINT_DIR))
         trainer = Trainer(model=self._model, args=args, train_dataset=train_ds)
         trainer.train()
 
