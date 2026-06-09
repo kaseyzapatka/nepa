@@ -96,6 +96,30 @@ dates <- dates_raw |>
 
     has_proxy_flag  = str_detect(coalesce(timeline_flags, ""), "proxy"),
     is_proxy_only   = str_detect(coalesce(timeline_flags, ""), "proxy_only"),
+
+    # --- Endpoint (Phase C, C7): ROD/decision if present, else Final-EIS (EIS fallback). ---
+    # Kept SEPARATE from decision_date so duration_days and the reg_period tables above remain
+    # strictly decision/ROD-based. A FEIS endpoint never enters decision_date or reg_period.
+    final_eis_date = as.Date(final_eis_date),
+    endpoint_date  = coalesce(decision_date, final_eis_date),
+    endpoint_source_type = case_when(
+      !is.na(decision_date)  ~ "decision",     # ROD (EIS) / FONSI (EA) / determination (CE)
+      !is.na(final_eis_date) ~ "final_eis",    # EIS fallback when no ROD
+      TRUE                   ~ NA_character_
+    ),
+    endpoint_date_granularity = case_when(
+      !is.na(decision_date)  ~ decision_date_granularity,
+      !is.na(final_eis_date) ~ final_eis_date_granularity,
+      TRUE                   ~ "unknown"
+    ),
+    # Exact endpoint duration only when BOTH ends are day-level (else NA — never invented).
+    endpoint_duration_days = if_else(
+      !is.na(initiation_date) & !is.na(endpoint_date) &
+        initiation_date_granularity == "day" & endpoint_date_granularity == "day" &
+        endpoint_date >= initiation_date,
+      as.integer(endpoint_date - initiation_date),
+      NA_integer_
+    ),
   )
 
 # Headline analysis: complete_clear only (plan §12)
@@ -149,6 +173,24 @@ message("Wrote d4_duration_summary.csv")
 
 write_csv(dur_period,  file.path(OUTPUT, "d4_duration_by_period.csv"))
 message("Wrote d4_duration_by_period.csv")
+
+# ---------------------------------------------------------------------------
+# 1b. Endpoint coverage & duration (Phase C: ROD-endpoint vs FEIS-endpoint, reported separately)
+# ---------------------------------------------------------------------------
+
+endpoint_coverage <- dates |>
+  group_by(process_type, endpoint_source_type) |>
+  summarise(
+    n_projects        = n(),
+    n_with_endpoint   = sum(!is.na(endpoint_date)),
+    n_feis_proxy      = sum(coalesce(final_eis_is_proxy, FALSE) &
+                              endpoint_source_type == "final_eis", na.rm = TRUE),
+    n_day_duration    = sum(!is.na(endpoint_duration_days)),
+    median_endpoint_days = median(endpoint_duration_days, na.rm = TRUE),
+    .groups = "drop"
+  )
+write_csv(endpoint_coverage, file.path(OUTPUT, "d4_endpoint_coverage.csv"))
+message("Wrote d4_endpoint_coverage.csv")
 
 # ---------------------------------------------------------------------------
 # 2. Coverage diagnostics

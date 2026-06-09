@@ -103,8 +103,11 @@ DEFAULT_BACKEND = "setfit"
 DEFAULT_BASE_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 TEST_SPLIT_VALUE = "test"  # value in the labeling_sample.csv `split` column
 
-# Two heads, fixed order: column 0 = initiation, column 1 = decision.
-LABEL_ORDER = ["initiation", "decision"]
+# Three heads, fixed order: 0 = initiation, 1 = decision (ROD for EIS), 2 = final_eis (EIS Final-EIS
+# publication / Notice of Availability). Independent binary one-vs-rest heads — the "binary heads,
+# not 7-way multiclass" design, extended by one head. Existing initiation/decision/neither rows are
+# automatically final_eis-NEGATIVES, so adding the head needs NO relabeling of existing data.
+LABEL_ORDER = ["initiation", "decision", "final_eis"]
 
 INITIATION_ROLES = {"clear_initiation", "proxy_initiation"}
 DECISION_ROLES = {"clear_decision", "proxy_decision"}
@@ -219,7 +222,9 @@ class SetFitBackend(TimelineClassifier):
         train_ds = Dataset.from_dict(
             {"text": list(texts), "label": [list(map(int, row)) for row in labels]}
         )
-        args = TrainingArguments(batch_size=16, num_epochs=1, num_iterations=20)
+        # num_iterations=12: embedding_loss plateaued by ~iter 4 in the 20-iter run (see eis_audit
+        # progress notes); 12 keeps a safety margin while ~halving CPU wall-clock on the Intel box.
+        args = TrainingArguments(batch_size=16, num_epochs=1, num_iterations=12)
         trainer = Trainer(model=self._model, args=args, train_dataset=train_ds)
         trainer.train()
 
@@ -227,7 +232,7 @@ class SetFitBackend(TimelineClassifier):
         if self._model is None:
             raise RuntimeError("SetFit model not loaded.")
         probs = self._model.predict_proba(list(texts))
-        return _to_two_probs(probs)
+        return _to_label_probs(probs)
 
     def save(self, path: Path) -> None:
         path.mkdir(parents=True, exist_ok=True)
@@ -269,17 +274,15 @@ class TransformerBackend(TimelineClassifier):
         raise NotImplementedError
 
 
-def _to_two_probs(probs) -> np.ndarray:
-    """Normalise a backend's probability output to a clean (N, 2) array."""
+def _to_label_probs(probs) -> np.ndarray:
+    """Normalise a backend's probability output to (N, k) where k = number of heads the loaded
+    model actually has. Does NOT pad to len(LABEL_ORDER): a legacy 2-head model returns (N, 2) and
+    run_score guards the optional 3rd (final_eis) column accordingly — so a 3-head LABEL_ORDER stays
+    backward-compatible with a model trained before the head was added."""
     arr = np.asarray(probs, dtype=float)
     if arr.ndim == 1:
         arr = arr.reshape(-1, 1)
-    if arr.shape[1] == 2:
-        return arr
-    # one-vs-rest may emit per-label (N, n_labels) already; otherwise pad/trim
-    if arr.shape[1] == 1:
-        return np.hstack([arr, arr])
-    return arr[:, :2]
+    return arr
 
 
 def make_backend(name: str) -> TimelineClassifier:
@@ -307,16 +310,16 @@ def load_model(model_dir: Path) -> tuple[TimelineClassifier | None, dict]:
 # Modes
 # ---------------------------------------------------------------------------
 def _labels_from_label_col(series: pd.Series) -> np.ndarray:
-    """Map the simple `label` column (initiation|decision|neither) to two-head targets."""
+    """Map the `label` column (initiation|decision|final_eis|neither) to multi-head targets,
+    one column per LABEL_ORDER head. `neither` is all-zeros."""
     s = series.fillna("").astype(str).str.strip().str.lower()
-    valid = {"initiation", "decision", "neither"}
+    valid = set(LABEL_ORDER) | {"neither"}
     bad = sorted(set(s) - valid)
     if bad:
         print(f"WARNING: ignoring unrecognized label values {bad} "
-              "(use exactly: initiation | decision | neither).")
-    init = s.eq("initiation").astype(int).to_numpy()
-    dec = s.eq("decision").astype(int).to_numpy()
-    return np.stack([init, dec], axis=1)
+              f"(use exactly: {' | '.join(LABEL_ORDER)} | neither).")
+    cols = [s.eq(name).astype(int).to_numpy() for name in LABEL_ORDER]
+    return np.stack(cols, axis=1)
 
 
 def _load_labeled_sample() -> pd.DataFrame:
@@ -527,7 +530,7 @@ def run_score(args: argparse.Namespace, model_dir: Path) -> None:
 
     # Ensure columns exist.
     for col, default in [
-        ("p_initiation", 0.0), ("p_decision", 0.0),
+        ("p_initiation", 0.0), ("p_decision", 0.0), ("p_final_eis", 0.0),
         ("classifier_label", ""), ("classifier_score", 0.0),
         ("classifier_backend", ""), ("classifier_model_version", ""),
         ("classifier_run_at", ""),
@@ -553,14 +556,28 @@ def run_score(args: argparse.Namespace, model_dir: Path) -> None:
     texts = build_input_texts(sub)
     probs = model.predict_proba(texts)
     p_init, p_dec = probs[:, 0], probs[:, 1]
+    # final_eis is the 3rd head; guard for legacy 2-head models so scoring stays backward-compatible.
+    p_feis = probs[:, 2] if probs.shape[1] > 2 else np.zeros_like(p_init)
+
+    # Document-type gate: a final-EIS publication date definitionally comes from a final EIS
+    # document, so zero p_final_eis for non-FEIS-typed candidates. On the frozen test this lifts
+    # final_eis precision 0.50->0.74 (drops 18 non-FEIS false positives) at a 0.977 recall ceiling
+    # (only 1/44 true positives live outside an FEIS doc). Every downstream consumer (argmax label,
+    # ranker, 04b --apply, 05 selection, 06 routing) inherits the gate from this single rule.
+    is_feis = (sub["document_type_clean"].astype(str).str.upper().str.strip() == "FEIS").to_numpy()
+    n_gated = int((~is_feis & (p_feis > 0)).sum())
+    p_feis = np.where(is_feis, p_feis, 0.0)
+    print(f"Doc-type gate: p_final_eis zeroed on {int((~is_feis).sum())} non-FEIS candidates "
+          f"({n_gated} had p_final_eis>0).")
 
     df.loc[eligible_mask, "p_initiation"] = p_init
     df.loc[eligible_mask, "p_decision"] = p_dec
-    df.loc[eligible_mask, "classifier_score"] = np.maximum(p_init, p_dec)
-    labels = np.where(
-        (p_init < LABEL_THRESHOLD) & (p_dec < LABEL_THRESHOLD), "neither",
-        np.where(p_init >= p_dec, "initiation", "decision"),
-    )
+    df.loc[eligible_mask, "p_final_eis"] = p_feis
+    stack = np.vstack([p_init, p_dec, p_feis]).T
+    df.loc[eligible_mask, "classifier_score"] = stack.max(axis=1)
+    # 3-way argmax with a `neither` floor (all heads below threshold -> neither).
+    head_names = np.array(LABEL_ORDER)
+    labels = np.where(stack.max(axis=1) < LABEL_THRESHOLD, "neither", head_names[stack.argmax(axis=1)])
     df.loc[eligible_mask, "classifier_label"] = labels
     df.loc[eligible_mask, "classifier_backend"] = meta.get("backend", "")
     df.loc[eligible_mask, "classifier_model_version"] = meta.get("model_version", "")
@@ -577,7 +594,7 @@ def _write_back(df: pd.DataFrame, run_dir: Path, candidates_path: Path, append: 
         full = pd.read_parquet(candidates_path)
         scored = df.set_index("candidate_id")
         score_cols = [
-            "p_initiation", "p_decision", "classifier_label", "classifier_score",
+            "p_initiation", "p_decision", "p_final_eis", "classifier_label", "classifier_score",
             "classifier_backend", "classifier_model_version", "classifier_run_at",
         ]
         for col in score_cols:

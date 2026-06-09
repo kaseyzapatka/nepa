@@ -3,6 +3,15 @@
 _Updated June 5, 2026. This is the current handoff for date selection, the learned ranker,
 EIS coverage, and next steps. It replaces the previous pending-run narrative._
 
+> **UPDATE 2026-06-08 — EIS Phase A/B/C landed; numbers below are partly stale.** The active EIS
+> work and current status live in **`phase2/plans/eis_audit.md`** (see its "Progress / Status"
+> section). What changed since this note: production `timeline_project_dates.parquet` is now
+> **59,215 rows** (all 4,130 EIS present; was 58,551), with new `final_eis_*` columns; EIS confirmed
+> ROD coverage 297→**542** and a flagged `final_eis_date` endpoint (1,952). Phase C is **implemented
+> but UNVALIDATED** — ROD-promotion and FEIS precision gates are pending a Codex labeling pass
+> (`eis_audit/eis_rod_promotion_sample.csv`, `eis_feis_sample.csv`). Backups in
+> `timeline/_backup_phaseBC/`. The EIS coverage tables further down this file pre-date that run._
+
 ## Core Issues
 
 1. Initiation selection is weakest, particularly EIS: held-out date accuracy is 0.412.
