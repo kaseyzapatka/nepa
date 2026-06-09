@@ -339,7 +339,14 @@ def _apply_historical_gap_rule(
 # authoritative register RODs; all other EIS decisions and the Final-EIS endpoint are left missing.
 # Flip these to True once the classifier/LLM resolution is validated.
 EIS_DETERMINISTIC_DOC_ROD = False   # document-text ROD tiers (clear/body/proxy/rod_lang)
-EIS_FINAL_EIS_ENABLED = False       # deterministic final_eis_date population
+EIS_FINAL_EIS_ENABLED = False       # deterministic final_eis_date population (separate field)
+# Tiered EIS decision: ROD-first, FEIS-fallback. Per project, has_rod = does any ROD-eligible
+# candidate exist (register ROD / ROD-typed doc / explicit ROD language). If yes, the decision pool
+# is ROD-eligible candidates ONLY (ranker orders within). If no, the decision falls back to FEIS-doc
+# candidates ordered by the calibrated final_eis head (p_feis_cal), flagged decision_is_feis_fallback.
+# ROD outranks FEIS by CONSTRUCTION (FEIS never enters the pool when a ROD exists). Validated by the
+# gold-rank check (true ROD top-5 90%, true FEIS top-5 95% after the 3-head rebuild + doc-type gate).
+EIS_TIERED_DECISION = True
 
 # Explicit "Record of Decision ... signed/issued/dated/approved" language — used as ROD evidence
 # for EIS candidates that sit outside a ROD-typed document (mislabeled doc types).
@@ -351,51 +358,72 @@ EIS_ROD_LANG_RE = re.compile(
 )
 
 
-def _select_eis_decision(decision_cands: pd.DataFrame) -> tuple[Optional[pd.Series], Optional[str]]:
-    """EIS-only deterministic ROD selection (Phase C, solution 1).
-
-    Eligibility is ROD EVIDENCE, not the broad `clear_decision` regex role and NOT the
-    learned-score gate. The LightGBM ranker never trained on `none` projects, so its
-    `learned_decision_score` is an ordering — not an existence test (Phase A: 99.7% of blocked
-    ROD candidates score <= 0, yet they sit in real ROD documents). A candidate is ROD-eligible
-    when it (1) is a register-typed ROD (metadata tier-A `clear_decision`), (2) sits in a
-    ROD-typed document, or (3) carries explicit "Record of Decision ... signed/issued/dated"
-    language. The ranker (already in `ranking_score`) only ORDERS eligible candidates.
-
-    Tiered by role for precision: clear ROD > proxy-in-ROD-doc > body_text-in-ROD-doc. This
-    deliberately EXCLUDES `clear_decision` dates that are FONSI / CE / "selected alternative"
-    in non-ROD documents (clear_decision is broader than ROD), and excludes FEIS-doc dates
-    (those route to `final_eis_date`). Returns (best_row | None, eis_rod_flag | None).
-    """
+def _eis_rod_pool(decision_cands: pd.DataFrame) -> pd.DataFrame:
+    """ROD-eligible decision candidates: (1) register-typed ROD (metadata `clear_decision`),
+    (2) date in a ROD-typed document, or (3) explicit "Record of Decision ... signed/issued/dated"
+    language. Deliberately EXCLUDES broad `clear_decision` dates in FONSI/CE/"selected alternative"
+    non-ROD documents, and excludes FEIS-doc dates (those are the FEIS fallback, not a ROD)."""
     if decision_cands.empty:
-        return None, None
-    is_register_rod = (
-        decision_cands["candidate_source_type"].astype(str).eq("metadata")
-        & decision_cands["candidate_role"].eq("clear_decision")
-    )
-    if not EIS_DETERMINISTIC_DOC_ROD:
-        # Step 4: emit ONLY authoritative register RODs deterministically. Document-text RODs are
-        # left missing (Step-1 audit: they mis-pick) for the classifier -> ranker -> LLM path.
-        reg = decision_cands[is_register_rod]
-        if not reg.empty:
-            return _select_best_decision(reg), "eis_rod_register"
-        return None, None
+        return decision_cands
+    src = decision_cands["candidate_source_type"].astype(str)
+    role = decision_cands["candidate_role"]
     dtc = decision_cands["document_type_clean"].astype(str).str.upper()
+    is_register_rod = src.eq("metadata") & role.eq("clear_decision")
     is_rod_doc = dtc.eq("ROD")
     has_rod_lang = decision_cands["context_text"].fillna("").map(
         lambda t: bool(EIS_ROD_LANG_RE.search(str(t)))
     )
-    role = decision_cands["candidate_role"]
-    tier1 = decision_cands[role.eq("clear_decision") & (is_register_rod | is_rod_doc | has_rod_lang)]
-    if not tier1.empty:
-        return _select_best_decision(tier1), "eis_rod_clear"
-    tier2 = decision_cands[role.eq("proxy_decision") & is_rod_doc]
-    if not tier2.empty:
-        return _select_best_decision(tier2), "eis_rod_proxy"
-    tier3 = decision_cands[role.eq("body_text") & is_rod_doc]
-    if not tier3.empty:
-        return _select_best_decision(tier3), "eis_rod_body"
-    return None, None
+    return decision_cands[is_register_rod | is_rod_doc | has_rod_lang]
+
+
+def _eis_feis_pool(cands: pd.DataFrame) -> pd.DataFrame:
+    """FEIS-doc candidates eligible as the FALLBACK decision when a project has no ROD. Ordered by
+    the calibrated final_eis head (p_feis_cal, gated to FEIS docs); falls back to raw p_final_eis,
+    then any FEIS-doc date. Month-granularity FEIS dates are KEPT (NOA dates are often month-level)."""
+    feis = cands[
+        cands["document_type_clean"].astype(str).str.upper().eq("FEIS")
+        & cands["_parsed_date"].notna()
+    ].copy()
+    if feis.empty:
+        return feis
+    feis["ranking_score"] = (
+        pd.to_numeric(feis.get("p_feis_cal"), errors="coerce")
+        .fillna(pd.to_numeric(feis.get("p_final_eis"), errors="coerce"))
+        .fillna(0.0)
+    )
+    return feis
+
+
+def _select_eis_decision(
+    decision_cands: pd.DataFrame, cands: pd.DataFrame
+) -> tuple[Optional[pd.Series], Optional[str], bool, bool]:
+    """Tiered EIS decision: ROD-first, FEIS-fallback.
+
+    has_rod = the project has >=1 ROD-eligible candidate. ROD outranks FEIS BY CONSTRUCTION:
+    FEIS candidates only enter the decision pool when has_rod is False. Within the chosen pool the
+    ranker (`ranking_score`; FEIS ordered by p_feis_cal) picks the best. The `none` outcome (no ROD,
+    no FEIS) is correct for projects with neither. Returns
+    (best_row|None, flag|None, has_rod, is_feis_fallback).
+    """
+    if not EIS_TIERED_DECISION:
+        # Reversible fallback: emit ONLY authoritative register RODs (the prior Step-4 behavior).
+        is_register_rod = (
+            decision_cands["candidate_source_type"].astype(str).eq("metadata")
+            & decision_cands["candidate_role"].eq("clear_decision")
+        )
+        reg = decision_cands[is_register_rod] if not decision_cands.empty else decision_cands
+        if not reg.empty:
+            return _select_best_decision(reg), "eis_rod_register", True, False
+        return None, None, False, False
+
+    rod_pool = _eis_rod_pool(decision_cands)
+    has_rod = not rod_pool.empty
+    if has_rod:
+        return _select_best_decision(rod_pool), "eis_rod", True, False
+    feis = _eis_feis_pool(cands)
+    if not feis.empty:
+        return _select_best_decision(feis), "eis_feis_fallback", False, True
+    return None, None, False, False
 
 
 # Explicit Final-EIS publication / availability / filing language (EIS only). Used to promote a
@@ -558,9 +586,13 @@ def select_dates_for_project(
     decision_page_number = None
 
     eis_rod_flag: str | None = None
+    has_rod = False
+    decision_is_feis_fallback = False
     if process_type == "EIS":
-        # Phase C (solution 1): deterministic EIS-ROD eligibility; ranker orders only.
-        best_decision, eis_rod_flag = _select_eis_decision(decision_cands)
+        # Tiered: ROD-first (ranker orders ROD-eligible), FEIS-fallback when has_rod is False.
+        best_decision, eis_rod_flag, has_rod, decision_is_feis_fallback = _select_eis_decision(
+            decision_cands, cands
+        )
         # clear_dec is referenced later for the multiple_high_score flag; keep it meaningful.
         clear_dec = decision_cands[decision_cands["candidate_role"] == "clear_decision"]
     else:
@@ -917,6 +949,8 @@ def select_dates_for_project(
         "decision_evidence_text": decision_evidence_text,
         "decision_document_id": decision_document_id,
         "decision_page_number": str(decision_page_number) if decision_page_number is not None else None,
+        "has_rod": bool(has_rod),
+        "decision_is_feis_fallback": bool(decision_is_feis_fallback),
         "final_eis_date": final_eis["final_eis_date"],
         "final_eis_date_granularity": final_eis["final_eis_date_granularity"],
         "final_eis_source_type": final_eis["final_eis_source_type"],
@@ -953,6 +987,8 @@ def _empty_project_result(process_type: str) -> dict:
         "decision_evidence_text": None,
         "decision_document_id": None,
         "decision_page_number": None,
+        "has_rod": False,
+        "decision_is_feis_fallback": False,
         "final_eis_date": None,
         "final_eis_date_granularity": "unknown",
         "final_eis_source_type": None,
