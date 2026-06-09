@@ -85,8 +85,9 @@ catf_light_blue <- "#8AB7E9"
 catf_navy       <- "#012169"
 
 PROCESS_COLORS <- c("CE" = catf_lime, "EA" = catf_dark_blue, "EIS" = catf_navy)
-ENERGY_LEVELS  <- c("Decarb", "Fossil", "Other")
-ENERGY_COLORS  <- c("Decarb" = catf_teal, "Fossil" = catf_magenta, "Other" = catf_light_blue)
+ENERGY_LEVELS         <- c("Decarb", "Fossil", "Other")
+ENERGY_COLORS         <- c("Decarb" = catf_teal, "Fossil" = catf_magenta, "Other" = catf_light_blue)
+ENERGY_PROCESS_COLORS <- c("Decarb" = catf_lime, "Fossil" = catf_dark_blue, "Other" = catf_navy)
 
 theme_catf <- function(base_size = 11, base_family = "Helvetica") {
   theme_minimal(base_size = base_size, base_family = base_family) +
@@ -494,19 +495,20 @@ fra_fig <- fra_comparison |>
   mutate(period = factor(period, levels = c("pre_FRA", "post_FRA"),
                          labels = c("Pre-FRA\n(before Aug 2023)", "Post-FRA\n(Aug 2023+)")))
 
-p_fra <- ggplot(fra_fig, aes(x = period, y = median_months, fill = period)) +
-  geom_col(width = 0.5) +
+p_fra <- ggplot(fra_fig, aes(x = period, y = median_months, fill = process_type)) +
+  geom_col(aes(alpha = period), width = 0.5) +
   geom_text(aes(label = paste0(round(median_months, 1), " mo\n(n=", n, ")")),
             vjust = -0.3, size = 3.2) +
   facet_wrap(~process_type, ncol = 3) +
-  scale_fill_manual(
-    values = c("Pre-FRA\n(before Aug 2023)" = catf_light_blue,
-               "Post-FRA\n(Aug 2023+)"      = catf_dark_blue),
+  scale_fill_manual(values = PROCESS_COLORS, guide = "none") +
+  scale_alpha_manual(
+    values = c("Pre-FRA\n(before Aug 2023)" = 0.35, "Post-FRA\n(Aug 2023+)" = 1.0),
     guide = "none"
   ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
   labs(
-    title = "D4 Median Review Duration: Pre vs Post FRA (Aug 16, 2023)",
+    title    = "D4 Median Review Duration: Pre vs Post FRA (Aug 16, 2023)",
+    subtitle = "Lighter bar = Pre-FRA (before Aug 2023)  |  Solid bar = Post-FRA (Aug 2023+)",
     x = NULL, y = "Median duration (months)"
   )
 
@@ -671,14 +673,6 @@ message("Wrote fig_d4_duration_summary_intervals.png")
 
 max_spans_per_process <- 300
 
-span_colors <- c(
-  "< 6 months"  = catf_lime,
-  "6-12 months" = catf_teal,
-  "1-2 years"   = catf_dark_blue,
-  "2-5 years"   = catf_purple,
-  ">= 5 years"  = catf_navy
-)
-
 spans_df <- dates |>
   filter(
     !is.na(process_group),
@@ -688,15 +682,7 @@ spans_df <- dates |>
     decision_date >= initiation_date
   ) |>
   mutate(
-    duration_months = as.numeric(decision_date - initiation_date) / 30.44,
-    duration_bin = case_when(
-      duration_months < 6  ~ "< 6 months",
-      duration_months < 12 ~ "6-12 months",
-      duration_months < 24 ~ "1-2 years",
-      duration_months < 60 ~ "2-5 years",
-      TRUE                 ~ ">= 5 years"
-    ),
-    duration_bin = factor(duration_bin, levels = names(span_colors))
+    duration_months = as.numeric(decision_date - initiation_date) / 30.44
   ) |>
   group_by(process_group) |>
   arrange(duration_months, .by_group = TRUE) |>
@@ -717,12 +703,12 @@ fig_timeline_spans <- ggplot(spans_df) +
     aes(
       x = initiation_date, xend = decision_date,
       y = project_order,   yend = project_order,
-      color = duration_bin
+      color = process_group
     ),
     alpha = 0.8, linewidth = 0.45
   ) +
   facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
-  scale_color_manual(values = span_colors, drop = FALSE) +
+  scale_color_manual(values = PROCESS_COLORS, guide = "none") +
   labs(
     title    = "Review Timelines by Process Type",
     subtitle = paste0(
@@ -730,8 +716,7 @@ fig_timeline_spans <- ggplot(spans_df) +
       comma(max_spans_per_process), " per process)"
     ),
     x = "Date",
-    y = "Reviews (sorted by duration)",
-    color = "Duration"
+    y = "Reviews (sorted by duration)"
   ) +
   theme(
     legend.position    = "top",
@@ -806,7 +791,7 @@ dur_energy <- headline |>
 p_hist_energy <- ggplot(dur_energy, aes(x = duration_years, fill = energy_type)) +
   geom_histogram(bins = 35, color = "white", linewidth = 0.15) +
   facet_grid(process_group ~ energy_type, scales = "free_y") +
-  scale_fill_manual(values = ENERGY_COLORS, guide = "none") +
+  scale_fill_manual(values = ENERGY_PROCESS_COLORS, guide = "none") +
   scale_x_continuous(breaks = c(0, 5, 10, 15), labels = function(x) paste0(x, "y")) +
   labs(
     title    = "Review Duration Distribution by Process and Energy Type",
@@ -853,7 +838,7 @@ fig_intervals_energy <- ggplot(interval_energy, aes(y = energy_type, color = ene
     nudge_y = 0.3, hjust = 0.5, size = 2.7, fontface = "bold", color = "gray20"
   ) +
   facet_wrap(~process_group, ncol = 1, scales = "free_x") +
-  scale_color_manual(values = ENERGY_COLORS, drop = FALSE) +
+  scale_color_manual(values = ENERGY_PROCESS_COLORS, drop = FALSE) +
   scale_x_continuous(
     labels = label_number(accuracy = 1),
     expand = expansion(mult = c(0.05, 0.05))
@@ -890,21 +875,22 @@ fra_energy <- headline |>
                     labels = c("Pre-FRA", "Post-FRA"))
   )
 
-p_fra_energy <- ggplot(fra_energy, aes(x = period, y = median_months, fill = period)) +
-  geom_col(width = 0.55) +
+p_fra_energy <- ggplot(fra_energy, aes(x = period, y = median_months, fill = energy_type)) +
+  geom_col(aes(alpha = period), width = 0.55) +
   geom_text(
     aes(label = paste0(round(median_months, 1), " mo\n(n=", n, ")")),
     vjust = -0.25, size = 2.6
   ) +
   facet_grid(process_type ~ energy_type, scales = "free_y") +
-  scale_fill_manual(
-    values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue),
+  scale_fill_manual(values = ENERGY_PROCESS_COLORS, guide = "none") +
+  scale_alpha_manual(
+    values = c("Pre-FRA" = 0.35, "Post-FRA" = 1.0),
     guide = "none"
   ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.28))) +
   labs(
     title    = "Median Review Duration Pre vs Post FRA by Energy Type",
-    subtitle = "FRA cutoff: Aug 16, 2023  |  Rows = NEPA process, columns = energy type",
+    subtitle = "Lighter bar = Pre-FRA  |  Solid bar = Post-FRA  |  Rows = NEPA process, columns = energy type",
     x = NULL, y = "Median duration (months)"
   )
 
@@ -935,7 +921,7 @@ fig_by_year_energy <- ggplot(year_counts_energy,
   facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
   scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
-  scale_fill_manual(values = ENERGY_COLORS) +
+  scale_fill_manual(values = ENERGY_PROCESS_COLORS) +
   labs(
     title    = "Decarbonization Reviews by Decision Year and Energy Type",
     subtitle = "Stacked bars show energy type composition. Dashed lines mark major legislation.",
