@@ -60,6 +60,21 @@ def topk(s, k):
     return 100 * (s <= k).mean() if len(s) else float("nan")
 
 
+# frozen-eval registry: the ONLY projects on which the RANKER metric is honest (it trained on the
+# rest). The classifier (p_dec_cal/p_feis_cal) trained on classifier.csv, not ranker.csv, so its
+# numbers are reported on all located gold.
+_fe = AUD.parent / "frozen_eval_ids.txt"   # training/deliverable04/frozen_eval_ids.txt
+FROZEN_EVAL = {ln.strip() for ln in _fe.read_text().splitlines() if ln.strip()} if _fe.exists() else set()
+
+
+def _ranker_line(df):
+    ev = df[df.is_eval]
+    if not len(ev):
+        return "  RANKER rank: no frozen-eval projects located (need more labeled eval)."
+    return (f"  RANKER rank (learned_decision_score, FROZEN-EVAL only, n={len(ev)}): "
+            f"#1 {topk(ev.rank_rnk,1):.0f}% | top-3 {topk(ev.rank_rnk,3):.0f}% | top-5 {topk(ev.rank_rnk,5):.0f}%")
+
+
 # ---- ROD ----
 rod = pd.read_csv(AUD / "eis_rod_promotion_sample_labeled.csv")
 R = []
@@ -71,18 +86,19 @@ for _, r in rod.iterrows():
     if m is not None:
         R.append({"p_dec_cal": m.p_dec_cal.max(),
                   "rank_dec": m.rank_dec.min(), "rank_rnk": m.rank_rnk.min(),
-                  "n": n_by_proj.get(r.project_id)})
+                  "n": n_by_proj.get(r.project_id),
+                  "is_eval": str(r.project_id) in FROZEN_EVAL})
 R = pd.DataFrame(R)
 
 print("=== GOLD-RANK CHECK (3-head + gate, granularity-aware matching) ===")
+print(f"frozen-eval registry: {len(FROZEN_EVAL)} protected project_ids (ranker metric uses only these)")
 print(f"\n--- ROD: true ROD candidate located in pool: {len(R)} ---")
 if len(R):
-    print(f"p_dec_cal of true ROD: median {R.p_dec_cal.median():.3f} | "
-          f">=0.5 {100*(R.p_dec_cal>=0.5).mean():.0f}% | >=0.7 {100*(R.p_dec_cal>=0.7).mean():.0f}%")
-    print(f"CLASSIFIER rank (p_dec_cal): #1 {topk(R.rank_dec,1):.0f}% | top-3 {topk(R.rank_dec,3):.0f}% | "
-          f"top-5 {topk(R.rank_dec,5):.0f}% (median rank {R.rank_dec.median():.0f}, median n {R.n.median():.0f})")
-    print(f"RANKER rank (learned_decision_score): #1 {topk(R.rank_rnk,1):.0f}% | "
-          f"top-3 {topk(R.rank_rnk,3):.0f}% | top-5 {topk(R.rank_rnk,5):.0f}%  [stale: trained on OLD scores]")
+    print(f"p_dec_cal of true ROD (all {len(R)}, classifier not trained on ranker.csv): "
+          f"median {R.p_dec_cal.median():.3f} | >=0.5 {100*(R.p_dec_cal>=0.5).mean():.0f}%")
+    print(f"CLASSIFIER rank (p_dec_cal, all {len(R)}): #1 {topk(R.rank_dec,1):.0f}% | top-3 {topk(R.rank_dec,3):.0f}% | "
+          f"top-5 {topk(R.rank_dec,5):.0f}% (median rank {R.rank_dec.median():.0f})")
+    print(_ranker_line(R))
     print("BASELINE (pre-rebuild): classifier median p_dec_cal 0.047, rank ~6")
 
 # ---- FEIS ----

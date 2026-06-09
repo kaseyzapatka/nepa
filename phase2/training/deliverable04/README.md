@@ -11,7 +11,7 @@ from `output/` so inputs and outputs are cleanly separated.)
 | `classifier.csv` | the SetFit candidate classifier (`04`) | **candidate-level** (one row per date candidate) | `label` ∈ {initiation, decision, final_eis, neither}, `split` ∈ {train, test} |
 | `ranker.csv` | the LightGBM ranker (`05b`) | **project-level** (one row per project) | `initiation_candidate_id`, `decision_candidate_id` (the true picks), `split` |
 | `eis_validation/` | held-out yardstick | project-level, Codex-verified | `eis_{rod,feis}_*_sample_labeled.csv` (true ROD / FEIS dates) |
-| `frozen_eval_ids.txt` | *(to be added)* the eval registry | — | project_ids reserved for evaluation, **never** trained on |
+| `frozen_eval_ids.txt` | the eval registry | — | project_ids reserved for evaluation, **never** trained on (05b hard-fails if any train id is here) |
 | `_backups/` | timestamped backups | — | gitignored |
 
 The two files differ in **row shape** because they train different models (per-candidate label vs.

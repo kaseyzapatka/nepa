@@ -82,6 +82,30 @@ TRAINING_DIR = _05.PHASE2 / "training" / "deliverable04"   # label INPUTS
 CANDIDATES_PATH = _05.CANDIDATES_PATH
 
 GOLD_SAMPLE_PATH = TRAINING_DIR / "ranker.csv"   # was output/project_gold_sample.csv
+# Guardrail registry: project_ids reserved for evaluation that must NEVER be trained on.
+# A label is training XOR evaluation. run_train hard-fails if any train project is in here.
+FROZEN_EVAL_IDS_PATH = TRAINING_DIR / "frozen_eval_ids.txt"
+
+
+def _load_frozen_eval_ids() -> set[str]:
+    if not FROZEN_EVAL_IDS_PATH.exists():
+        return set()
+    return {ln.strip() for ln in FROZEN_EVAL_IDS_PATH.read_text().splitlines() if ln.strip()}
+
+
+def _assert_no_eval_leak(train_gold: pd.DataFrame) -> None:
+    """Hard-fail if any training project is in the frozen-eval registry (train/eval contamination)."""
+    frozen = _load_frozen_eval_ids()
+    leak = set(train_gold["project_id"].astype(str)) & frozen
+    if leak:
+        raise SystemExit(
+            f"[GUARDRAIL] {len(leak)} training project(s) are in the frozen-eval registry "
+            f"({FROZEN_EVAL_IDS_PATH.name}) — that is train/eval contamination. Offending ids: "
+            f"{sorted(leak)[:5]}{'…' if len(leak) > 5 else ''}. Mark them split=test in ranker.csv "
+            f"or remove them from the registry."
+        )
+    if frozen:
+        print(f"  guardrail OK: {len(frozen)} frozen-eval ids, none in the train split.")
 RANKER_DIR = TIMELINE_DIR / "models" / "candidate_ranker"
 RANKER_INIT_PATH = RANKER_DIR / "ranker_init.pkl"
 RANKER_DEC_PATH = RANKER_DIR / "ranker_decision.pkl"
@@ -242,6 +266,7 @@ def run_train() -> None:
     gold = _load_gold()
     cand = pd.read_parquet(CANDIDATES_PATH)
     tr, te = gold[gold["split"] == "train"], gold[gold["split"] == "test"]
+    _assert_no_eval_leak(tr)   # guardrail: training must never include a frozen-eval project
     print(f"Gold: {len(gold)} projects ({len(tr)} train / {len(te)} test).")
 
     RANKER_DIR.mkdir(parents=True, exist_ok=True)
