@@ -476,8 +476,12 @@ def run_apply() -> None:
     # 3rd head: only present once the pool is re-scored with the 3-head model (writes p_final_eis).
     if "p_final_eis" in df.columns:
         p_f_raw = pd.to_numeric(df.loc[mask, "p_final_eis"], errors="coerce").fillna(0.0).to_numpy()
-        df.loc[mask, "p_feis_cal"] = _calibrate_one(p_f_raw, cal_feis)
-        feis_note = "incl. p_feis_cal"
+        p_f_cal = _calibrate_one(p_f_raw, cal_feis)
+        # Preserve the scoring-time doc-type gate: the balanced calibrator maps raw 0 -> ~0.24,
+        # which would re-inflate p_feis_cal on gated non-FEIS candidates. Force gated rows back to 0.
+        p_f_cal = np.where(p_f_raw > 0, p_f_cal, 0.0)
+        df.loc[mask, "p_feis_cal"] = p_f_cal
+        feis_note = "incl. p_feis_cal (doc-type gate preserved)"
     else:
         feis_note = "p_final_eis not in pool yet -> p_feis_cal left NaN (re-score with 3-head model first)"
     df.to_parquet(CANDIDATES_PATH, index=False)

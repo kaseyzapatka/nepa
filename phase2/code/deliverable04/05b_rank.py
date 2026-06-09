@@ -93,7 +93,7 @@ SEED = 42
 # agreement_count + granularity_num. Categoricals are passed to LightGBM as native categories.
 GRAN_NUM = {"day": 2.0, "month": 1.0, "year": 0.0}
 NUM_FEATURES = [
-    "p_init_cal", "p_dec_cal", "p_initiation", "p_decision",
+    "p_init_cal", "p_dec_cal", "p_feis_cal", "p_final_eis", "p_initiation", "p_decision",
     "role_confidence_score", "source_strength", "role_cue_strength",
     "document_priority", "section_priority", "page_priority", "position_signal",
     "position_pct", "section_position_pct", "repeated_mention_signal",
@@ -116,6 +116,11 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     pd_ = pd.to_numeric(df.get("p_decision"), errors="coerce")
     f["p_init_cal"] = pd.to_numeric(df.get("p_init_cal"), errors="coerce").fillna(pi)
     f["p_dec_cal"] = pd.to_numeric(df.get("p_dec_cal"), errors="coerce").fillna(pd_)
+    # final_eis head (EIS FEIS-as-decision fallback): p_feis_cal is the calibrated score, gated to
+    # FEIS docs; fall back to raw p_final_eis when --apply (04b) hasn't run. 0 for non-EIS/non-FEIS.
+    pf = pd.to_numeric(df.get("p_final_eis"), errors="coerce")
+    f["p_feis_cal"] = pd.to_numeric(df.get("p_feis_cal"), errors="coerce").fillna(pf)
+    f["p_final_eis"] = pf
     f["p_initiation"] = pi
     f["p_decision"] = pd_
     for col in ["role_confidence_score", "source_strength", "role_cue_strength",
