@@ -23,6 +23,7 @@ scratch.R
 *admin/
 *output/samples
 *models/
+*checkpoints/
 *notes/phase2/
 *docs/notes/phase2/
 phase2/plans/*
