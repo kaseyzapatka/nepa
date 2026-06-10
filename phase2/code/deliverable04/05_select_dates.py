@@ -535,6 +535,14 @@ EA_MONTH_NEG_RE = re.compile(
     r"literature|report\s+to|\bet\s+al\b|\bvol\.|\bpp?\.",
     re.IGNORECASE,
 )
+# Hard negatives for the strong-cue document day tier (Phase C). role_confidence_score==5.0 already
+# means CLEAR_DECISION_STRONG matched, but guard the known leaks: preparer dates, NOA/availability,
+# comment/scoping periods, citations.
+EA_STRONG_NEG_RE = re.compile(
+    r"prepared\s+by|preparer|\bnoa\b|made\s+available|availability|comment\s+period|"
+    r"scoping|\d+\s*cfr|\bfr\b\s*\d|accessed|https?:|\bet\s+al\b",
+    re.IGNORECASE,
+)
 
 
 def _select_ea_decision(
@@ -585,6 +593,26 @@ def _select_ea_decision(
         reg = reg[reg["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)]
         if not reg.empty:
             return _select_best_decision(reg), "ea_decision_register"
+    # Tier EA-2 (Phase C): strong-cue document day date — a real FONSI / Decision-Record /
+    # Field-Manager signature (role_confidence_score == 5.0 means CLEAR_DECISION_STRONG matched),
+    # eligible REGARDLESS of the learned-score gate. This is what makes the full-read pay off: the
+    # newly-surfaced signature dates would otherwise be re-dropped by the ranker gate. The ranker
+    # still ORDERS within this tier (via _select_best_decision -> ranking_score); it does not gate.
+    today = date.today()
+    strong = decision_cands[
+        decision_cands["candidate_role"].eq("clear_decision")
+        & decision_cands["date_granularity"].eq("day")
+        & (pd.to_numeric(decision_cands["role_confidence_score"], errors="coerce") >= 5.0)
+        & decision_cands["_parsed_date"].notna()
+    ]
+    if not strong.empty:
+        sctx = strong["context_text"].fillna("")
+        strong = strong[
+            strong["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)
+            & ~sctx.str.contains(EA_STRONG_NEG_RE)
+        ]
+        if not strong.empty:
+            return _select_best_decision(strong), "ea_decision_strong_text"
     # Last resort: no-FONSI Final-EA month proxy (read from full `cands`; see docstring). Event-bound:
     # the month context must read like an FEA/FONSI/Decision issuance and carry no citation/
     # construction/scoping/programmatic hard-negative cue.
