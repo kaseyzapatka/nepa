@@ -638,6 +638,77 @@ def build_tier_b_packets(
     return packets
 
 
+EA_DECISION_FULL_READ_THRESHOLD = 4.5   # decision_doc_score for the FONSI/ROD/decision doc
+EA_FULL_READ_CHARS = 8000               # higher than tier_b's 2000 so a bottom-of-page signature survives
+
+
+def build_ea_decision_full_read_packets(
+    doc_rows: pd.DataFrame,
+    pages_df: pd.DataFrame,
+    project_id: str,
+    process_type: str,
+    run_at: str,
+) -> list[dict]:
+    """EA-only (Phase C): full-text read of the identified decision document(s).
+
+    The EA decision is a short standalone FONSI/ROD (median 4 pp). First/last/cue sampling misses the
+    signature page ~half the time (Phase 1 vs Phase 2 candidate comparison), so EVERY page of each
+    `decision_doc_score >= 4.5` document is emitted, at a higher char limit and with no first/last
+    subsetting. A distinct tier (`ea_decision_full_read`) lets the cap/dedup prioritize these pages.
+    EA-only by guard; CE/EIS retrieval is byte-identical.
+    """
+    packets: list[dict] = []
+    if process_type != "EA" or "decision_doc_score" not in doc_rows.columns:
+        return packets
+    dec_docs = doc_rows[
+        pd.to_numeric(doc_rows["decision_doc_score"], errors="coerce") >= EA_DECISION_FULL_READ_THRESHOLD
+    ]
+    for _, doc in dec_docs.iterrows():
+        doc_id = doc["document_id"]
+        doc_pages = pages_df[pages_df["document_id"] == doc_id]
+        if doc_pages.empty:
+            continue
+        for _, page in doc_pages.iterrows():
+            text = _clean_text(page.get("page_text"))
+            if not text:
+                continue
+            page_num = str(page.get("page_number", ""))
+            init_s, dec_s, neg_s = _score_page(text)
+            # +2.0 boost so decision-doc pages rank above generic tier_d under the per-project cap.
+            retrieval_score = init_s + dec_s - 0.5 * neg_s + 2.0
+            packets.append({
+                "context_packet_id": _packet_id(project_id, doc_id, "ea_full_read", page_num),
+                "project_id": project_id,
+                "process_type": process_type,
+                "document_id": doc_id,
+                "document_title": doc.get("document_title"),
+                "document_type_clean": doc.get("document_type_clean"),
+                "document_type_category": doc.get("document_type_category"),
+                "main_document": doc.get("main_document"),
+                "section_id": None,
+                "page_start": page_num,
+                "page_end": page_num,
+                "page_numbers": json.dumps([page_num]),
+                "retrieval_mode": "first_pass",
+                "retrieval_reason": "ea_decision_full_read",
+                "source_tier": "page_slice",
+                "retrieval_tier": "ea_decision_full_read",
+                "retrieval_score": retrieval_score,
+                "initiation_page_score": init_s,
+                "decision_page_score": dec_s,
+                "negative_page_score": neg_s,
+                "heading_title": None,
+                "parent_heading_title": None,
+                "context_text": _truncate(text, EA_FULL_READ_CHARS),
+                "context_chars": len(text),
+                "estimated_tokens": max(1, len(text) // 4),
+                "context_hash": _text_hash(text),
+                "api_eligible": True,
+                "created_at": run_at,
+            })
+    return packets
+
+
 def build_tier_c_packets(
     doc_rows: pd.DataFrame,
     sections_df: pd.DataFrame,
@@ -802,7 +873,7 @@ def build_tier_d_packets(
 
 def deduplicate_packets(packets: list[dict]) -> list[dict]:
     """Remove duplicate packets by context_hash, keeping the highest tier."""
-    tier_order = {"tier_a": 0, "ce_description": 0.5, "tier_b": 1, "tier_c": 2, "tier_d": 3, "tier_e": 4}
+    tier_order = {"tier_a": 0, "ce_description": 0.5, "ea_decision_full_read": 0.8, "tier_b": 1, "tier_c": 2, "tier_d": 3, "tier_e": 4}
     seen: dict[str, dict] = {}
     for p in packets:
         h = p["context_hash"]
@@ -857,6 +928,13 @@ def process_project(
     # Tier B: page slices from high-priority documents
     packets.extend(build_tier_b_packets(doc_rows, pages_df, project_id, process_type, run_at))
 
+    # Phase C (EA only): full-text read of the decision document(s) — recovers signature dates that
+    # first/last/cue sampling misses on the short FONSI/ROD. Additive; deduped against tier_b below.
+    if process_type == "EA":
+        packets.extend(
+            build_ea_decision_full_read_packets(doc_rows, pages_df, project_id, process_type, run_at)
+        )
+
     # Tier C: sections (EA/EIS or long CE only)
     if not sections_df.empty:
         packets.extend(build_tier_c_packets(doc_rows, sections_df, project_id, process_type, run_at))
@@ -870,7 +948,7 @@ def process_project(
     # Apply per-project cap
     if len(packets) > cap:
         # Prioritize by tier then retrieval_score
-        tier_order = {"tier_a": 0, "ce_description": 0.5, "tier_b": 1, "tier_c": 2, "tier_d": 3}
+        tier_order = {"tier_a": 0, "ce_description": 0.5, "ea_decision_full_read": 0.8, "tier_b": 1, "tier_c": 2, "tier_d": 3}
         packets.sort(
             key=lambda p: (tier_order.get(p["retrieval_tier"], 9), -p["retrieval_score"])
         )
