@@ -62,6 +62,12 @@ LABEL_ORDER = _04.LABEL_ORDER
 
 CAL_INIT_PATH = MODEL_DIR / "calibrator_init.pkl"
 CAL_DEC_PATH = MODEL_DIR / "calibrator_dec.pkl"
+CAL_FEIS_PATH = MODEL_DIR / "calibrator_feis.pkl"  # 3rd head (EIS-only final_eis fallback)
+
+
+def _calibrate_one(raw, cal) -> np.ndarray:
+    """Platt-calibrate a single head's raw probabilities -> calibrated P(positive)."""
+    return cal.predict_proba(np.asarray(raw, dtype=float).reshape(-1, 1))[:, 1]
 # Operating-curve CSVs are written into diagnostics/ via _diagnostics.write_operating_curves.
 
 # Claude Haiku 4.5 pricing (input tokens only; context is the cost driver).
@@ -89,7 +95,7 @@ def _load_labeling_sample() -> pd.DataFrame:
     df["split"] = df["split"].fillna("train").astype(str).str.strip().replace("", "train")
     df["label"] = df["label"].fillna("").astype(str).str.strip().str.lower()
     df = df[df["label"].ne("")].copy()
-    bad = sorted(set(df["label"]) - {"initiation", "decision", "neither"})
+    bad = sorted(set(df["label"]) - {"initiation", "decision", "neither", "final_eis"})
     if bad:
         raise SystemExit(
             "Unrecognized label values in labeling_sample.csv: "
@@ -116,20 +122,24 @@ def _score_test_rows() -> tuple[pd.DataFrame, np.ndarray, np.ndarray, dict]:
     texts = [build_input_text(r) for _, r in df.iterrows()]
     y_prob = np.asarray(model.predict_proba(texts), dtype=float)
     if y_prob.ndim != 2 or y_prob.shape[1] < 2:
-        raise SystemExit(f"Expected model.predict_proba to return shape (N, 2); got {y_prob.shape}.")
-    y_prob = y_prob[:, :2]
+        raise SystemExit(f"Expected model.predict_proba to return shape (N, k>=2); got {y_prob.shape}.")
+    # Ensure a 3rd (final_eis) column; a legacy 2-head model -> zeros (head never fires).
+    if y_prob.shape[1] < 3:
+        y_prob = np.hstack([y_prob, np.zeros((y_prob.shape[0], 3 - y_prob.shape[1]))])
+    y_prob = y_prob[:, :3]
     y_true = np.stack(
         [
             df["label"].eq("initiation").astype(int).to_numpy(),
             df["label"].eq("decision").astype(int).to_numpy(),
+            df["label"].eq("final_eis").astype(int).to_numpy(),
         ],
         axis=1,
     )
     return df.reset_index(drop=True), y_prob, y_true, meta
 
 
-def _load_calibrators() -> tuple[LogisticRegression, LogisticRegression]:
-    missing = [p for p in [CAL_INIT_PATH, CAL_DEC_PATH] if not p.exists()]
+def _load_calibrators() -> tuple[LogisticRegression, LogisticRegression, LogisticRegression]:
+    missing = [p for p in [CAL_INIT_PATH, CAL_DEC_PATH, CAL_FEIS_PATH] if not p.exists()]
     if missing:
         raise SystemExit(
             "Missing calibrator file(s): "
@@ -140,7 +150,9 @@ def _load_calibrators() -> tuple[LogisticRegression, LogisticRegression]:
         cal_init = pickle.load(f)
     with open(CAL_DEC_PATH, "rb") as f:
         cal_dec = pickle.load(f)
-    return cal_init, cal_dec
+    with open(CAL_FEIS_PATH, "rb") as f:
+        cal_feis = pickle.load(f)
+    return cal_init, cal_dec, cal_feis
 
 
 def _calibrated_probs(
@@ -212,7 +224,7 @@ def run_fit() -> None:
     )
     print(
         f"Test positives: initiation={int(y_true[:, 0].sum())}, "
-        f"decision={int(y_true[:, 1].sum())}."
+        f"decision={int(y_true[:, 1].sum())}, final_eis={int(y_true[:, 2].sum())}."
     )
 
     cal_init = LogisticRegression(C=1.0, solver="lbfgs").fit(
@@ -223,16 +235,26 @@ def run_fit() -> None:
         y_prob[:, 1].reshape(-1, 1),
         y_true[:, 1],
     )
+    # 3rd head: class_weight='balanced' — final_eis is rare on the frozen test (~44 pos),
+    # so an unweighted Platt fit collapses toward the negative prior.
+    cal_feis = LogisticRegression(C=1.0, solver="lbfgs", class_weight="balanced").fit(
+        y_prob[:, 2].reshape(-1, 1),
+        y_true[:, 2],
+    )
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     with open(CAL_INIT_PATH, "wb") as f:
         pickle.dump(cal_init, f)
     with open(CAL_DEC_PATH, "wb") as f:
         pickle.dump(cal_dec, f)
+    with open(CAL_FEIS_PATH, "wb") as f:
+        pickle.dump(cal_feis, f)
 
     p_i_cal, p_d_cal = _calibrated_probs(y_prob[:, 0], y_prob[:, 1], cal_init, cal_dec)
+    p_f_cal = _calibrate_one(y_prob[:, 2], cal_feis)
     _print_bin_table("p_initiation", y_prob[:, 0], p_i_cal, y_true[:, 0])
     _print_bin_table("p_decision", y_prob[:, 1], p_d_cal, y_true[:, 1])
+    _print_bin_table("p_final_eis", y_prob[:, 2], p_f_cal, y_true[:, 2])
 
     # Diagnostic 05 — calibration reliability bins (refreshed by the fit step).
     try:
@@ -251,6 +273,7 @@ def run_fit() -> None:
     print(f"\nSaved calibrators:")
     print(f"  {CAL_INIT_PATH}")
     print(f"  {CAL_DEC_PATH}")
+    print(f"  {CAL_FEIS_PATH}")
 
 
 def _precision_at_thresholds(
@@ -305,7 +328,7 @@ def _project_aggregates(pool: pd.DataFrame, p_i_cal: np.ndarray, p_d_cal: np.nda
 
 
 def run_curve() -> None:
-    cal_init, cal_dec = _load_calibrators()
+    cal_init, cal_dec, _cal_feis = _load_calibrators()  # routing curve uses init/decision only
     test_df, y_prob_test, y_true_test, meta = _score_test_rows()
     model_version = _model_version(meta)
     pool = _load_versioned_pool(model_version)
@@ -425,14 +448,14 @@ def run_curve() -> None:
               f"est_cost ${rec['est_cost_usd']:.2f}.")
 
 
-def run_apply() -> None:
-    cal_init, cal_dec = _load_calibrators()
+def run_apply(cand_path: Path = CANDIDATES_PATH) -> None:
+    cal_init, cal_dec, cal_feis = _load_calibrators()
     model_version = _model_version()
-    if not CANDIDATES_PATH.exists():
-        raise SystemExit(f"Missing candidate pool: {CANDIDATES_PATH}")
-    df = pd.read_parquet(CANDIDATES_PATH)
+    if not cand_path.exists():
+        raise SystemExit(f"Missing candidate pool: {cand_path}")
+    df = pd.read_parquet(cand_path)
     if "classifier_model_version" not in df.columns:
-        raise SystemExit(f"{CANDIDATES_PATH} has no classifier_model_version column.")
+        raise SystemExit(f"{cand_path} has no classifier_model_version column.")
     mask = df["classifier_model_version"].eq(model_version)
     n = int(mask.sum())
     if n == 0:
@@ -440,7 +463,7 @@ def run_apply() -> None:
             f"No candidates found with classifier_model_version == {model_version!r}."
         )
 
-    for col in ["p_init_cal", "p_dec_cal"]:
+    for col in ["p_init_cal", "p_dec_cal", "p_feis_cal"]:
         if col not in df.columns:
             df[col] = np.nan
 
@@ -449,8 +472,20 @@ def run_apply() -> None:
     p_i_cal, p_d_cal = _calibrated_probs(p_i_raw, p_d_raw, cal_init, cal_dec)
     df.loc[mask, "p_init_cal"] = p_i_cal
     df.loc[mask, "p_dec_cal"] = p_d_cal
-    df.to_parquet(CANDIDATES_PATH, index=False)
-    print(f"Applied calibrated scores to {n:,} candidates.")
+
+    # 3rd head: only present once the pool is re-scored with the 3-head model (writes p_final_eis).
+    if "p_final_eis" in df.columns:
+        p_f_raw = pd.to_numeric(df.loc[mask, "p_final_eis"], errors="coerce").fillna(0.0).to_numpy()
+        p_f_cal = _calibrate_one(p_f_raw, cal_feis)
+        # Preserve the scoring-time doc-type gate: the balanced calibrator maps raw 0 -> ~0.24,
+        # which would re-inflate p_feis_cal on gated non-FEIS candidates. Force gated rows back to 0.
+        p_f_cal = np.where(p_f_raw > 0, p_f_cal, 0.0)
+        df.loc[mask, "p_feis_cal"] = p_f_cal
+        feis_note = "incl. p_feis_cal (doc-type gate preserved)"
+    else:
+        feis_note = "p_final_eis not in pool yet -> p_feis_cal left NaN (re-score with 3-head model first)"
+    df.to_parquet(cand_path, index=False)
+    print(f"Applied calibrated scores to {n:,} candidates ({feis_note}).")
 
 
 def main() -> None:
@@ -460,13 +495,15 @@ def main() -> None:
     parser.add_argument("--fit", action="store_true", help="Fit Platt calibrators on frozen test.")
     parser.add_argument("--curve", action="store_true", help="Build operating curve (requires --fit first).")
     parser.add_argument("--apply", action="store_true", help="Write p_init_cal/p_dec_cal back to candidates parquet.")
+    parser.add_argument("--run-dir", help="Isolated run dir: read/write timeline_candidates.parquet here instead of the main pool.")
     args = parser.parse_args()
     if args.fit:
         run_fit()
     if args.curve:
         run_curve()
     if args.apply:
-        run_apply()
+        cand_path = (Path(args.run_dir) / "timeline_candidates.parquet") if args.run_dir else CANDIDATES_PATH
+        run_apply(cand_path)
     if not (args.fit or args.curve or args.apply):
         parser.print_help()
 

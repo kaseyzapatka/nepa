@@ -56,6 +56,10 @@ EIS_GAP_EXEMPT = True
 SAME_DAY_DURATION_FLAG = "same_day"
 MAX_DURATION_YEARS = 25
 
+# Toggle: consume 05b's learned ranker scores (learned_*_score) to RE-RANK among eligible
+# candidates. Set D4_USE_LEARNED_RANKER=0 to fall back to the pure heuristic (for A/B baselining).
+USE_LEARNED_RANKER = os.environ.get("D4_USE_LEARNED_RANKER", "1") == "1"
+
 # --- Selection-disambiguation rules (2026-06-04) -------------------------------------------
 # Earliest-wins for initiation: among initiation candidates scoring within this margin of the
 # best, pick the EARLIEST date (initiation = the first qualifying start signal, e.g. the first
@@ -326,10 +330,178 @@ def _apply_historical_gap_rule(
     return {d for d in sorted_dates if d < gap_cutoff}
 
 
+# --- Phase C gating (Step 4, 2026-06-08) ---------------------------------------------------------
+# The Step-1 recall audit on the Codex-labeled gold showed the deterministic document-text EIS
+# selection is unreliable: the rod_lang/proxy tiers FABRICATE on no-ROD projects (bucket 1), and
+# the clear/body tiers MIS-PICK among in-pool candidates (bucket 2). Recall is good (the true date
+# is almost always already a candidate), so resolution belongs to the classifier -> ranker -> LLM
+# path (Steps 2-3), NOT to deterministic selection. Until that path is built, EIS emits ONLY
+# authoritative register RODs; all other EIS decisions and the Final-EIS endpoint are left missing.
+# Flip these to True once the classifier/LLM resolution is validated.
+EIS_DETERMINISTIC_DOC_ROD = False   # document-text ROD tiers (clear/body/proxy/rod_lang)
+EIS_FINAL_EIS_ENABLED = False       # deterministic final_eis_date population (separate field)
+# Tiered EIS decision: ROD-first, FEIS-fallback. Per project, has_rod = does any ROD-eligible
+# candidate exist (register ROD / ROD-typed doc / explicit ROD language). If yes, the decision pool
+# is ROD-eligible candidates ONLY (ranker orders within). If no, the decision falls back to FEIS-doc
+# candidates ordered by the calibrated final_eis head (p_feis_cal), flagged decision_is_feis_fallback.
+# ROD outranks FEIS by CONSTRUCTION (FEIS never enters the pool when a ROD exists). Validated by the
+# gold-rank check (true ROD top-5 90%, true FEIS top-5 95% after the 3-head rebuild + doc-type gate).
+EIS_TIERED_DECISION = True
+
+# Routing gate for 06 (LLM adjudication). A project's decision routes to the LLM when the selected
+# candidate's calibrated confidence is below this (ambiguous), or when no decision was picked but
+# eligible candidates exist (the LLM may resolve one), or when several candidates tie. Above the
+# threshold the deterministic pick is taken as final (no LLM). Set to 0.7 to match the bimodal
+# calibrated score distribution (clear picks cluster >=0.7). Tracked per project as route_to_llm.
+LLM_ROUTE_THRESHOLD = 0.7
+
+# Explicit "Record of Decision ... signed/issued/dated/approved" language — used as ROD evidence
+# for EIS candidates that sit outside a ROD-typed document (mislabeled doc types).
+EIS_ROD_LANG_RE = re.compile(
+    r"record\s+of\s+decision[\s,]*(?:was\s+|is\s+|has\s+been\s+)?(?:sign|issu|approv|dat)"
+    r"|\brod\b[\s,]*(?:was\s+|is\s+|has\s+been\s+)?(?:sign|issu|approv|dat)"
+    r"|(?:sign|issu|approv)\w*\s+(?:the\s+)?(?:rod|record\s+of\s+decision)",
+    re.IGNORECASE,
+)
+
+
+def _eis_rod_pool(decision_cands: pd.DataFrame) -> pd.DataFrame:
+    """ROD-eligible decision candidates: (1) register-typed ROD (metadata `clear_decision`),
+    (2) date in a ROD-typed document, or (3) explicit "Record of Decision ... signed/issued/dated"
+    language. Deliberately EXCLUDES broad `clear_decision` dates in FONSI/CE/"selected alternative"
+    non-ROD documents, and excludes FEIS-doc dates (those are the FEIS fallback, not a ROD)."""
+    if decision_cands.empty:
+        return decision_cands
+    src = decision_cands["candidate_source_type"].astype(str)
+    role = decision_cands["candidate_role"]
+    dtc = decision_cands["document_type_clean"].astype(str).str.upper()
+    is_register_rod = src.eq("metadata") & role.eq("clear_decision")
+    is_rod_doc = dtc.eq("ROD")
+    has_rod_lang = decision_cands["context_text"].fillna("").map(
+        lambda t: bool(EIS_ROD_LANG_RE.search(str(t)))
+    )
+    return decision_cands[is_register_rod | is_rod_doc | has_rod_lang]
+
+
+def _eis_feis_pool(cands: pd.DataFrame) -> pd.DataFrame:
+    """FEIS-doc candidates eligible as the FALLBACK decision when a project has no ROD. Ordered by
+    the calibrated final_eis head (p_feis_cal, gated to FEIS docs); falls back to raw p_final_eis,
+    then any FEIS-doc date. Month-granularity FEIS dates are KEPT (NOA dates are often month-level)."""
+    feis = cands[
+        cands["document_type_clean"].astype(str).str.upper().eq("FEIS")
+        & cands["_parsed_date"].notna()
+    ].copy()
+    if feis.empty:
+        return feis
+    feis["ranking_score"] = (
+        pd.to_numeric(feis.get("p_feis_cal"), errors="coerce")
+        .fillna(pd.to_numeric(feis.get("p_final_eis"), errors="coerce"))
+        .fillna(0.0)
+    )
+    return feis
+
+
+def _select_eis_decision(
+    decision_cands: pd.DataFrame, cands: pd.DataFrame
+) -> tuple[Optional[pd.Series], Optional[str], bool, bool]:
+    """Tiered EIS decision: ROD-first, FEIS-fallback.
+
+    has_rod = the project has >=1 ROD-eligible candidate. ROD outranks FEIS BY CONSTRUCTION:
+    FEIS candidates only enter the decision pool when has_rod is False. Within the chosen pool the
+    ranker (`ranking_score`; FEIS ordered by p_feis_cal) picks the best. The `none` outcome (no ROD,
+    no FEIS) is correct for projects with neither. Returns
+    (best_row|None, flag|None, has_rod, is_feis_fallback).
+    """
+    if not EIS_TIERED_DECISION:
+        # Reversible fallback: emit ONLY authoritative register RODs (the prior Step-4 behavior).
+        is_register_rod = (
+            decision_cands["candidate_source_type"].astype(str).eq("metadata")
+            & decision_cands["candidate_role"].eq("clear_decision")
+        )
+        reg = decision_cands[is_register_rod] if not decision_cands.empty else decision_cands
+        if not reg.empty:
+            return _select_best_decision(reg), "eis_rod_register", True, False
+        return None, None, False, False
+
+    rod_pool = _eis_rod_pool(decision_cands)
+    has_rod = not rod_pool.empty
+    if has_rod:
+        return _select_best_decision(rod_pool), "eis_rod", True, False
+    feis = _eis_feis_pool(cands)
+    if not feis.empty:
+        return _select_best_decision(feis), "eis_feis_fallback", False, True
+    return None, None, False, False
+
+
+# Explicit Final-EIS publication / availability / filing language (EIS only). Used to promote a
+# FEIS-document date from a cover-proxy to an explicit Final-EIS publication date.
+EIS_FEIS_PUB_RE = re.compile(
+    r"notice\s+of\s+availability"
+    r"|\bnoa\b"
+    r"|(?:final\s+(?:eis|environmental\s+impact\s+statement)|feis)\s+(?:was\s+)?"
+    r"(?:filed|filing|publish\w*|releas\w*|issu\w*|made\s+available|available)"
+    r"|(?:fil(?:ed|ing)|publish\w*|releas\w*|made\s+available)\s+(?:the\s+)?"
+    r"(?:final\s+(?:eis|environmental\s+impact\s+statement)|feis)"
+    r"|availability\s+of\s+the\s+final",
+    re.IGNORECASE,
+)
+
+_EMPTY_FINAL_EIS = {
+    "final_eis_date": None,
+    "final_eis_date_granularity": "unknown",
+    "final_eis_source_type": None,
+    "final_eis_is_proxy": False,
+    "final_eis_confidence": "missing",
+    "final_eis_evidence_text": None,
+    "final_eis_document_id": None,
+    "final_eis_page_number": None,
+    "_multiple": False,
+}
+
+
+def _select_eis_final_eis(cands: pd.DataFrame) -> dict:
+    """EIS-only (Phase C, solution 2): pick the Final-EIS publication/availability date from
+    EXISTING candidates in FEIS-typed documents (Phase A: 84.7% of FEIS-no-ROD projects already
+    have one). Deterministic, no ranker. `document_type_clean == 'FEIS'` is the EIS-specific
+    filter (Final EA is `document_type_clean == 'EA'`). Tier: explicit FEIS
+    publication/filing/availability/NOA language (clear) > cover-date proxy. Earliest availability
+    wins; `_multiple` flags materially conflicting dates within the chosen tier.
+
+    This is written to `final_eis_date` ONLY — never to `decision_date` (08 derives the endpoint
+    as ROD-else-FEIS separately) and it never changes `timeline_status`.
+    """
+    feis = cands[
+        cands["document_type_clean"].astype(str).str.upper().eq("FEIS")
+        & cands["_parsed_date"].notna()
+    ].copy()
+    if feis.empty:
+        return dict(_EMPTY_FINAL_EIS)
+    explicit = feis[feis["context_text"].fillna("").map(lambda t: bool(EIS_FEIS_PUB_RE.search(str(t))))]
+    is_proxy = explicit.empty
+    pool = feis if is_proxy else explicit
+    day = pool[pool["date_granularity"] == "day"]
+    if not day.empty:
+        pool = day
+    multiple = pool["_parsed_date"].nunique() > 1
+    pick = pool.sort_values("_parsed_date").iloc[0]  # earliest availability
+    return {
+        "final_eis_date": pick["_parsed_date"].isoformat(),
+        "final_eis_date_granularity": pick.get("date_granularity", "day"),
+        "final_eis_source_type": pick.get("candidate_source_type", "document_text"),
+        "final_eis_is_proxy": bool(is_proxy),
+        "final_eis_confidence": "medium" if is_proxy else "high",
+        "final_eis_evidence_text": str(pick.get("context_text", ""))[:300],
+        "final_eis_document_id": pick.get("document_id"),
+        "final_eis_page_number": str(pick.get("page_number")) if pick.get("page_number") is not None else None,
+        "_multiple": bool(multiple),
+    }
+
+
 def _select_best_decision(df: pd.DataFrame) -> pd.Series:
     """Pick the best decision candidate, PREFERRING day-granularity over coarser dates (a
     signature / decision-record day beats a document cover month) and breaking ties by
-    ranking_score. Falls back to the full set when no day-granularity candidate exists."""
+    ranking_score. Falls back to the full set when no day-granularity candidate exists.
+    (When the learned ranker is on, ranking_score holds the learned score for eligible rows.)"""
     pool = df
     day = df[df["date_granularity"] == "day"]
     if not day.empty:
@@ -345,6 +517,121 @@ def _select_earliest_initiation(df: pd.DataFrame) -> pd.Series:
     pool = df[df["ranking_score"] >= top - INIT_EARLIEST_SCORE_MARGIN].copy()
     pool = pool.sort_values(["_parsed_date", "ranking_score"], ascending=[True, False])
     return pool.iloc[0]
+
+
+EA_FINAL_DOC_TYPES = {"EA", "FONSI", "ROD"}  # Final-EA/FONSI/ROD; excludes DEA (draft)
+# Event-binding for the no-FONSI month proxy: the month must read like a Final-EA / FONSI / Decision
+# issuance, NOT a citation, construction schedule, scoping note, or programmatic reference. `03`
+# labels every month in a final doc as a proxy, so the selector must do the binding.
+EA_MONTH_ISSUANCE_RE = re.compile(
+    r"finding\s+of\s+no\s+significant\s+impact|\bfonsi\b|decision\s+(?:record|notice|memo)|"
+    r"environmental\s+assessment|categorical\s+exclusion|\bdetermination\b",
+    re.IGNORECASE,
+)
+EA_MONTH_NEG_RE = re.compile(
+    r"printing\s+office|\bpress\b|construction|anticipat|operation|conducted|"
+    r"scoping|review(?:ed|\s+was)|received|accessed|https?:|\d+\s*cfr|\bfr\b\s*\d|prepared\s+by|"
+    r"comment\s+period|standards\s+and\s+guidelines|land\s+health|general\s+plan|"
+    r"literature|report\s+to|\bet\s+al\b|\bvol\.|\bpp?\.",
+    re.IGNORECASE,
+)
+# Hard negatives for the strong-cue document day tier (Phase C). role_confidence_score==5.0 already
+# means CLEAR_DECISION_STRONG matched, but guard the known leaks: preparer dates, NOA/availability,
+# comment/scoping periods, citations.
+EA_STRONG_NEG_RE = re.compile(
+    r"prepared\s+by|preparer|\bnoa\b|made\s+available|availability|comment\s+period|"
+    r"scoping|\d+\s*cfr|\bfr\b\s*\d|accessed|https?:|\bet\s+al\b",
+    re.IGNORECASE,
+)
+
+
+def _select_ea_decision(
+    decision_cands: pd.DataFrame, cands: pd.DataFrame, has_fonsi: bool
+) -> tuple[Optional[pd.Series], Optional[str]]:
+    """EA decision selection (ea_audit.md Phase B).
+
+    Tier order: existing cascade (clear>0 -> proxy>-2 -> body>-2), returned UNCHANGED so
+    cascade-resolved EA projects stay byte-identical; then a register gap-fill; then, as a last
+    resort, a no-FONSI Final-EA month proxy.
+
+      - Register gap-fill: an authoritative BLM/DOE Tier A *day* register date, eligible regardless
+        of the learned-score gate that currently drops it (the documented selection bug; §5.1).
+      - No-FONSI month proxy: when the project has NO FONSI document and no day decision was found,
+        a month-granularity Final-EA/ROD issuance date stands in as a flagged proxy (midpoint
+        imputation later resolves it to the 15th; granularity stays "month" so no exact duration).
+        Months are read from the FULL `cands` because the upstream month-suppression strips them
+        from `decision_cands` (intended for the normal pool; this tier is a gated exception).
+
+    Returns (best_row|None, reason|None); `reason` is set only for the register / month tiers so
+    cascade-resolved rows gain no new flag.
+    """
+    clear = decision_cands[
+        (decision_cands["candidate_role"] == "clear_decision") & (decision_cands["ranking_score"] > 0)
+    ]
+    if not clear.empty:
+        return _select_best_decision(clear), None
+    proxy = decision_cands[
+        (decision_cands["candidate_role"] == "proxy_decision") & (decision_cands["ranking_score"] > -2)
+    ]
+    if not proxy.empty:
+        return _select_best_decision(proxy), None
+    body = decision_cands[
+        (decision_cands["candidate_role"] == "body_text") & (decision_cands["ranking_score"] > -2)
+    ]
+    if not body.empty:
+        return _select_best_decision(body), None
+    # Tier EA-1: authoritative BLM/DOE day register date — eligible regardless of learned score.
+    reg = decision_cands[
+        decision_cands["source_tier"].astype(str).eq("metadata")
+        & decision_cands["retrieval_tier"].astype(str).eq("tier_a")
+        & decision_cands["candidate_role"].eq("clear_decision")
+        & decision_cands["date_granularity"].eq("day")
+        & decision_cands["_parsed_date"].notna()
+    ]
+    if not reg.empty:
+        today = date.today()
+        reg = reg[reg["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)]
+        if not reg.empty:
+            return _select_best_decision(reg), "ea_decision_register"
+    # Tier EA-2 (Phase C): strong-cue document day date — a real FONSI / Decision-Record /
+    # Field-Manager signature (role_confidence_score == 5.0 means CLEAR_DECISION_STRONG matched),
+    # eligible REGARDLESS of the learned-score gate. This is what makes the full-read pay off: the
+    # newly-surfaced signature dates would otherwise be re-dropped by the ranker gate. The ranker
+    # still ORDERS within this tier (via _select_best_decision -> ranking_score); it does not gate.
+    today = date.today()
+    strong = decision_cands[
+        decision_cands["candidate_role"].eq("clear_decision")
+        & decision_cands["date_granularity"].eq("day")
+        & (pd.to_numeric(decision_cands["role_confidence_score"], errors="coerce") >= 5.0)
+        & decision_cands["_parsed_date"].notna()
+    ]
+    if not strong.empty:
+        sctx = strong["context_text"].fillna("")
+        strong = strong[
+            strong["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)
+            & ~sctx.str.contains(EA_STRONG_NEG_RE)
+        ]
+        if not strong.empty:
+            return _select_best_decision(strong), "ea_decision_strong_text"
+    # Last resort: no-FONSI Final-EA month proxy (read from full `cands`; see docstring). Event-bound:
+    # the month context must read like an FEA/FONSI/Decision issuance and carry no citation/
+    # construction/scoping/programmatic hard-negative cue.
+    if not has_fonsi:
+        today = date.today()
+        ctx = cands["context_text"].fillna("")
+        month = cands[
+            cands["candidate_role"].isin(["clear_decision", "proxy_decision"])
+            & cands["date_granularity"].eq("month")
+            & cands["document_type_clean"].astype(str).str.upper().isin(EA_FINAL_DOC_TYPES)
+            & cands["_parsed_date"].notna()
+            & ctx.str.contains(EA_MONTH_ISSUANCE_RE)
+            & ~ctx.str.contains(EA_MONTH_NEG_RE)
+        ]
+        if not month.empty:
+            month = month[month["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)]
+            if not month.empty:
+                return _select_best_decision(month), "ea_decision_fea_month"
+    return None, None
 
 
 def select_dates_for_project(
@@ -389,6 +676,14 @@ def select_dates_for_project(
         _compute_candidate_score(r, "decision", None, index_map)
         for r in decision_cands.to_dict("records")
     ]
+    # learned ranker (05b): when on, its score REPLACES the heuristic ranking_score. The lambdarank
+    # score is higher for clearer cases, so the eligibility gates below (`> 0` / `> -2`) double as a
+    # confidence threshold — a project whose candidates all score low yields no decision (correct when
+    # the project genuinely has none). Set D4_USE_LEARNED_RANKER=0 to fall back to the heuristic.
+    if USE_LEARNED_RANKER and "learned_decision_score" in cands.columns:
+        decision_cands["ranking_score"] = pd.to_numeric(
+            decision_cands["learned_decision_score"], errors="coerce"
+        ).fillna(decision_cands["ranking_score"])
     cands.loc[decision_cands.index, "ranking_score"] = decision_cands["ranking_score"]
 
     # Rule: a bare month-granularity date can be the DECISION only for CE. For EA/EIS drop it
@@ -412,30 +707,53 @@ def select_dates_for_project(
     decision_document_id = None
     decision_page_number = None
 
-    # Only select from clear_decision in pass 1 (proxies only if no clear found)
-    clear_dec = decision_cands[
-        (decision_cands["candidate_role"] == "clear_decision") &
-        (decision_cands["ranking_score"] > 0)
-    ]
-    if not clear_dec.empty:
-        best_decision = _select_best_decision(clear_dec)
-    else:
-        proxy_dec = decision_cands[
-            (decision_cands["candidate_role"] == "proxy_decision") &
-            (decision_cands["ranking_score"] > -2)
+    eis_rod_flag: str | None = None
+    has_rod = False
+    decision_is_feis_fallback = False
+    ea_decision_reason: str | None = None
+    if process_type == "EIS":
+        # Tiered: ROD-first (ranker orders ROD-eligible), FEIS-fallback when has_rod is False.
+        best_decision, eis_rod_flag, has_rod, decision_is_feis_fallback = _select_eis_decision(
+            decision_cands, cands
+        )
+        # clear_dec is referenced later for the multiple_high_score flag; keep it meaningful.
+        clear_dec = decision_cands[decision_cands["candidate_role"] == "clear_decision"]
+    elif process_type == "EA":
+        # EA Phase B: existing cascade first (byte-identical when it resolves), then register
+        # gap-fill, then a no-FONSI Final-EA month proxy (last resort). has_fonsi comes from the
+        # document index (all docs), not candidates (a FONSI can exist but not be retrieved).
+        pid = cands["project_id"].iloc[0] if not cands.empty else None
+        has_fonsi = bool(index_map.get(pid, {}).get("has_fonsi", False))
+        best_decision, ea_decision_reason = _select_ea_decision(decision_cands, cands, has_fonsi)
+        clear_dec = decision_cands[
+            (decision_cands["candidate_role"] == "clear_decision") &
+            (decision_cands["ranking_score"] > 0)
         ]
-        if not proxy_dec.empty:
-            best_decision = _select_best_decision(proxy_dec)
-            decision_is_proxy = True
+    else:
+        # CE / EA unchanged: clear_decision in pass 1 (proxies only if no clear found).
+        clear_dec = decision_cands[
+            (decision_cands["candidate_role"] == "clear_decision") &
+            (decision_cands["ranking_score"] > 0)
+        ]
+        if not clear_dec.empty:
+            best_decision = _select_best_decision(clear_dec)
         else:
-            # Last resort: a date in a decision doc with no role cue. Always a proxy.
-            body_dec = decision_cands[
-                (decision_cands["candidate_role"] == "body_text") &
+            proxy_dec = decision_cands[
+                (decision_cands["candidate_role"] == "proxy_decision") &
                 (decision_cands["ranking_score"] > -2)
             ]
-            if not body_dec.empty:
-                best_decision = _select_best_decision(body_dec)
+            if not proxy_dec.empty:
+                best_decision = _select_best_decision(proxy_dec)
                 decision_is_proxy = True
+            else:
+                # Last resort: a date in a decision doc with no role cue. Always a proxy.
+                body_dec = decision_cands[
+                    (decision_cands["candidate_role"] == "body_text") &
+                    (decision_cands["ranking_score"] > -2)
+                ]
+                if not body_dec.empty:
+                    best_decision = _select_best_decision(body_dec)
+                    decision_is_proxy = True
 
     if best_decision is not None:
         try:
@@ -446,6 +764,9 @@ def select_dates_for_project(
                 decision_source_type = best_decision.get("candidate_source_type", "document_text")
                 decision_confidence = best_decision.get("role_confidence", "medium")
                 decision_is_proxy = best_decision.get("candidate_role") in ("proxy_decision", "body_text")
+                # A no-FONSI Final-EA month is inherently a coarse proxy regardless of its role cue.
+                if ea_decision_reason == "ea_decision_fea_month":
+                    decision_is_proxy = True
                 decision_evidence_text = str(best_decision.get("context_text", ""))[:300]
                 decision_document_id = best_decision.get("document_id")
                 decision_page_number = best_decision.get("page_number")
@@ -468,6 +789,12 @@ def select_dates_for_project(
         _compute_candidate_score(r, "initiation", selected_decision_date, index_map)
         for r in initiation_cands.to_dict("records")
     ]
+    # learned ranker: when on, its score replaces the heuristic ranking_score (gate doubles as a
+    # confidence threshold). D4_USE_LEARNED_RANKER=0 falls back to the heuristic.
+    if USE_LEARNED_RANKER and "learned_init_score" in cands.columns:
+        initiation_cands["ranking_score"] = pd.to_numeric(
+            initiation_cands["learned_init_score"], errors="coerce"
+        ).fillna(initiation_cands["ranking_score"])
     cands.loc[initiation_cands.index, "ranking_score"] = initiation_cands["ranking_score"]
 
     best_initiation = None
@@ -612,6 +939,10 @@ def select_dates_for_project(
         flags.append("month_decision_suppressed_non_ce")
     if initiation_earliest_used:
         flags.append("initiation_earliest_selected")
+    if eis_rod_flag:
+        flags.append(eis_rod_flag)
+    if ea_decision_reason:
+        flags.append(ea_decision_reason)
     timeline_status = "missing_both"
 
     if has_init and has_dec:
@@ -716,6 +1047,42 @@ def select_dates_for_project(
     if decision_confidence == "low" or initiation_confidence == "low":
         flags.append("low_confidence_selection")
 
+    # --- Phase C (solution 2): Final-EIS endpoint (EIS only; separate from decision_date) ---
+    final_eis = dict(_EMPTY_FINAL_EIS)
+    if process_type == "EIS" and EIS_FINAL_EIS_ENABLED:
+        final_eis = _select_eis_final_eis(cands)
+        if final_eis.get("final_eis_date"):
+            if final_eis.get("_multiple"):
+                flags.append("final_eis_multiple_dates")
+            # C6 chronology: a ROD should follow the FEIS. Flag conflicts (granularity-aware);
+            # never auto-replace the ROD (Phase A: 13/90 ROD-before-FEIS — too frequent to reject).
+            if decision_date_str:
+                rod_d = date.fromisoformat(decision_date_str)
+                feis_d = date.fromisoformat(final_eis["final_eis_date"])
+                feg = final_eis["final_eis_date_granularity"]
+                if decision_granularity == "year" or feg == "year":
+                    conflict = rod_d.year < feis_d.year
+                elif decision_granularity == "month" or feg == "month":
+                    conflict = (rod_d.year, rod_d.month) < (feis_d.year, feis_d.month)
+                else:
+                    conflict = rod_d < feis_d
+                if conflict:
+                    flags.append("rod_feis_conflict")
+
+    # --- Routing gate for 06 (LLM adjudication): confidence of the selected decision ---
+    decision_confidence_cal = 0.0
+    if best_decision is not None:
+        _cal_key = "p_feis_cal" if decision_is_feis_fallback else "p_dec_cal"
+        try:
+            decision_confidence_cal = float(best_decision.get(_cal_key) or 0.0)
+        except (TypeError, ValueError):
+            decision_confidence_cal = 0.0
+    route_to_llm = bool(
+        (has_dec and decision_confidence_cal < LLM_ROUTE_THRESHOLD)   # ambiguous deterministic pick
+        or (not has_dec and len(decision_cands) > 0)                  # no pick but candidates exist
+        or ("multiple_high_score_candidates" in flags)                # competing candidates
+    )
+
     return {
         "project_id": cands["project_id"].iloc[0],
         "process_type": process_type,
@@ -735,6 +1102,18 @@ def select_dates_for_project(
         "decision_evidence_text": decision_evidence_text,
         "decision_document_id": decision_document_id,
         "decision_page_number": str(decision_page_number) if decision_page_number is not None else None,
+        "has_rod": bool(has_rod),
+        "decision_is_feis_fallback": bool(decision_is_feis_fallback),
+        "decision_confidence_cal": round(decision_confidence_cal, 4),
+        "route_to_llm": bool(route_to_llm),
+        "final_eis_date": final_eis["final_eis_date"],
+        "final_eis_date_granularity": final_eis["final_eis_date_granularity"],
+        "final_eis_source_type": final_eis["final_eis_source_type"],
+        "final_eis_is_proxy": final_eis["final_eis_is_proxy"],
+        "final_eis_confidence": final_eis["final_eis_confidence"],
+        "final_eis_evidence_text": final_eis["final_eis_evidence_text"],
+        "final_eis_document_id": final_eis["final_eis_document_id"],
+        "final_eis_page_number": final_eis["final_eis_page_number"],
         "duration_days": duration_days,
         "timeline_status": timeline_status,
         "timeline_flags": "|".join(flags) if flags else "",
@@ -763,6 +1142,18 @@ def _empty_project_result(process_type: str) -> dict:
         "decision_evidence_text": None,
         "decision_document_id": None,
         "decision_page_number": None,
+        "has_rod": False,
+        "decision_is_feis_fallback": False,
+        "decision_confidence_cal": 0.0,
+        "route_to_llm": False,
+        "final_eis_date": None,
+        "final_eis_date_granularity": "unknown",
+        "final_eis_source_type": None,
+        "final_eis_is_proxy": False,
+        "final_eis_confidence": "missing",
+        "final_eis_evidence_text": None,
+        "final_eis_document_id": None,
+        "final_eis_page_number": None,
         "duration_days": None,
         "timeline_status": "missing_both",
         "timeline_flags": "missing_initiation|missing_decision",
@@ -877,6 +1268,41 @@ def apply_deis_only_flags(dates_df: pd.DataFrame, index_path: Path) -> pd.DataFr
     if n > 0:
         print(f"  deis_only flag applied to {n:,} EIS projects (DEIS in index, no FEIS or ROD).")
     return dates_df
+
+
+def reconcile_eis_universe(
+    dates_df: pd.DataFrame,
+    index_path: Path,
+    project_ids: set[str] | None,
+) -> pd.DataFrame:
+    """Phase B — EIS universe completeness.
+
+    The selection loop only visits projects that have candidates, so EIS projects with no
+    surviving candidates (Phase A: 664 — 223 with no packets, 441 with packets but no
+    candidates) never get an output row and silently vanish. Append a `missing_both` stub
+    for every EIS project in the index that is absent from `dates_df`.
+
+    EIS-only by design: recovering CE/EA dropped rows is deferred (Phase D) because it would
+    change CE/EA output. Runs BEFORE manual corrections / midpoint / deis_only flags so the
+    stubs still receive them. (Phase A confirmed none of the 664 carry a register ROD/NOI
+    date, so the stubs are genuinely `missing_both`; the ordering is kept as a safeguard.)
+    """
+    if not index_path.exists():
+        return dates_df
+    idx = pd.read_parquet(index_path, columns=["project_id", "process_type"])
+    eis_universe = set(idx.loc[idx["process_type"] == "EIS", "project_id"].unique())
+    if project_ids is not None:
+        eis_universe &= project_ids
+    missing = sorted(eis_universe - set(dates_df["project_id"]))
+    if not missing:
+        return dates_df
+    stubs = []
+    for pid in missing:
+        row = _empty_project_result("EIS")
+        row["project_id"] = pid
+        stubs.append(row)
+    print(f"  EIS universe reconciliation: added {len(missing):,} missing EIS projects as missing_both.")
+    return pd.concat([dates_df, pd.DataFrame(stubs)], ignore_index=True)
 
 
 def apply_month_midpoint_imputation(dates_df: pd.DataFrame) -> pd.DataFrame:
@@ -1135,11 +1561,16 @@ def main() -> None:
     # Load index for document type scoring
     index_map: dict = {}
     if INDEX_PATH.exists():
-        idx = pd.read_parquet(INDEX_PATH, columns=["project_id", "decision_doc_score", "initiation_doc_score"])
+        idx = pd.read_parquet(
+            INDEX_PATH,
+            columns=["project_id", "decision_doc_score", "initiation_doc_score", "document_type_clean"],
+        )
+        idx["_is_fonsi"] = idx["document_type_clean"].astype(str).str.upper().str.contains("FONSI")
         for pid, grp in idx.groupby("project_id"):
             index_map[pid] = {
                 "decision_doc_score": grp["decision_doc_score"].max(),
                 "initiation_doc_score": grp["initiation_doc_score"].max(),
+                "has_fonsi": bool(grp["_is_fonsi"].any()),
             }
 
     # Load manual corrections if available
@@ -1175,6 +1606,11 @@ def main() -> None:
         return
 
     dates_df = pd.DataFrame(project_dates_rows)
+
+    # Phase B: EIS universe completeness — add missing_both rows for EIS projects with no
+    # candidates (else they vanish from the output). Before corrections/midpoint/deis flags.
+    if "EIS" in args.process:
+        dates_df = reconcile_eis_universe(dates_df, INDEX_PATH, project_ids)
 
     # Apply manual corrections
     if not corrections_df.empty:

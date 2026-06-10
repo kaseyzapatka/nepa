@@ -1,0 +1,120 @@
+# QC RE-REVIEW — EA/EIS decision labels flagged as possible issuance/comment dates
+# Question for each: is the [[marked date]] the ACTUAL decision (ROD/FONSI/signature/CX determination)?
+# If it is an EIS/EA *issuance* date, Notice of Availability, DEIS/FEIS publication, comment-period, or hearing date -> change to neither
+# (the decision is the separate ROD/FONSI). If it is a scoping/NOI/application date -> change to initiation. Otherwise keep decision.
+# 23 rows to review.
+
+candidate_id: 5b8e587ba0260ea87f72  [EIS]  current_label: decision
+  marked_date: May 18, 2009
+  current_notes: Decision: authorizing official signature, quote 'decision was signed by Forest Supervisor Kevin Martin on May 18, 2009. In July 2009, the'.
+  context: ...xtent of environmental analysis necessary for making an informed decision. Three responses were received from the public following the 30-day comment period on the May 2009 EA. All comment letters and attachments were reviewed. Comments received and the Forest Service’s responses to those comments are located in Appendix G of this document and are incorporated in the project file of this FSEIS. Cobbler II EA was listed in the 2009 Fall edition of the Umatilla National Forest’s SOPA. A scoping
+
+candidate_id: 4cf216385c08f2dbf2a5  [EIS]  current_label: decision
+  marked_date: December 20, 2009
+  current_notes: Decision: authorizing official signature, quote 'decision was signed by Forest Supervisor Kevin Martin on May 18 2009 In July 2009 the'.
+  context: ...ere reviewed by the responsible official and ID team. These comments were then used to identify issues, alternatives to the proposed action, and to determine the extent of environmental analysis necessary for making an informed decision. Three responses were received from the public following the 30-day comment period on the May 2009 EA. All comment letters and attachments were reviewed. Comments received and the Forest Service’s responses to those comments are located in Appendix G of this d
+
+candidate_id: c68cded77dd15801ae73  [EIS]  current_label: decision
+  marked_date: October 11, 2017
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'notice published) 25 Record of Decision rescinded FHWA issued notice that the ROD is rescinded'.
+  context: ... or Concurrence Point Information Provided or Action Taken Who Contacted for Response Information or Action Requested Number of Days to Complete Activity Estimated Date of Completion 24 Statute of Limitations (SOL) notice published in Federal Register announcing final action has been taken (Final EIS/ROD) in NEPA phase SOL notice Federal Register SOL published in Federal Register announcing final action taken (Final EIS/ROD) in NEPA phase 7 calendar days for SOL notice publication; 150 calend
+
+candidate_id: b687efffba823222d4ed  [EIS]  current_label: decision
+  marked_date: May 31, 2000
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'for 2 to 3 years. A ROD approving development and operation of a modified'.
+  context: 2 3. The decommissioning phase will begin when the geothermal plant ceases to operate and will end when all plant-related facilities are removed and all areas disturbed by the Project are restored to acceptable conditions. This phase is expected to last for 2 to 3 years. A ROD approving development and operation of a modified Alternative 6, as amended by the ROD, was issued by the Klamath and Modoc National Forests and Alturas Field Office of the BLM on [[May 31, 2000]]. On August 9, 2000, the S
+
+candidate_id: c0201d8a761503469e0a  [EIS]  current_label: decision
+  marked_date: March 3, 2015
+  current_notes: Decision: Decision Record/ROD, quote 'Register Summer 2016 Record of Decision (ROD) signed for LWI only2 Summer 2016 2 Military'.
+  context: Final EIS Land-Water Interface and Service Pier Extension 1–14  Chapter 1 — Introduction July 2016 Table 1–3. Actual and Projected Schedule with Key Dates Identified Milestone Date Notice of Intent Published in Federal Register February 1, 2013 Scoping Period (45 days) February 1 – March 17, 2013 Scoping Meeting Dates Poulsbo, WA: February 21, 2013 Chimacum, WA: February 20, 2013 NOA DEIS published in Federal Register February 13, 2015 DEIS Public Comment Period (60 days) February 13 – April 13
+
+candidate_id: 89ba5204b62a4b92a082  [EIS]  current_label: decision
+  marked_date: November 2012
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'Washington to Crane NSWC ROD issued by FHWA: January 2010 Construction complete'.
+  context: I-69 EVANSVILLE TO INDIANAPOLIS TIER 2 STUDIES Section 6—Final Environmental Impact Statement 1-14 Chapter 1 – Background • Section 3, Washington to Crane NSWC ROD issued by FHWA: January 2010 Construction complete: [[November 2012]] • Section 4, Crane NSWC to Bloomington ROD issued by FHWA: September 2011 Construction complete: December 2015 • Section 5, Bloomington tor Martinsville ROD issued by FHWA: August 2013 Currently under construction As shown above, Tier 2 NEPA studies are complete and
+
+candidate_id: e1aac29c553de85f8cec  [EIS]  current_label: decision
+  marked_date: June 26, 2013
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote '2013, and signed a record of decision (ROD) on June 26, 2013. A Notice of Availability'.
+  context: ...s a cooperating agency in the NEPA process. Following the release of the Draft EIS, and with assistance from WAPA and other cooperating agencies, the BLM prepared a Final EIS that was released on May 17, 2013 (78 FR 29131). In addition to WAPA, other cooperating agencies involved in the Project included the U.S. Department of Interior, Bureau of Reclamation, Lower Colorado Region, and the National Park Service, Lake Mead National Recreation Area; the Hualapai Tribe, Department of Cultural Res
+
+candidate_id: 52308db02bbe25e64fc0  [EIS]  current_label: decision
+  marked_date: March 24, 2004
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'the issuance of the ROD, were also considered. 1.2.3 Tier 1 ROD FHWA issued'.
+  context: I-69 EVANSVILLE TO INDIANAPOLIS TIER 2 STUDIES Section 6—Draft Environmental Impact Statement 1-10 Chapter 1 – Background The Tier 1 FEIS was published December 5, 2003. Although no comment period is required for an FEIS under FHWA regulations, FHWA and INDOT established a 47-day period for submittal of comments on the Tier 1 FEIS, ending February 2, 2004. Comments received following the end of the comment period, but prior to the issuance of the ROD, were also considered. 1.2.3 Tier 1 ROD FHWA 
+
+candidate_id: 0d9151fb649790eceb7b  [EIS]  current_label: decision
+  marked_date: August 18, 2003
+  current_notes: Decision: Decision Record/ROD, quote 'Monmouth IL and received a Record of Decision 2003 ROD on August 18 2003 Since the'.
+  context: Executive Summary US 34 Supplemental Draft EIS ES-1 Executive Summary ES-1 Introduction The Illinois Department of Transportation (IDOT), in cooperation with the Federal Highway Administration (FHWA) has completed a Supplemental Draft Environmental Impact Statement (SDEIS) for a proposed transportation project designed to improve US Route 34 (US 34) in Henderson County, Illinois from west of Carman Road near Gulfport, Illinois (IL) to just east of Township Road (TR) 111. This SDEIS is supplement
+
+candidate_id: f3fdadf2d8a39008bda5  [EIS]  current_label: decision
+  marked_date: September 12, 2007
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'Travel Plan Revision Record of Decision and Final Supplemental Environmental Impact Statement'.
+  context: ...onse to the decision, the Forest Service initiated additional analysis through a supplemental environmental impact statement. A NOI to prepare a Supplemental EIS (“SEIS”) to the Ogden Travel Plan Revision FEIS was published in the Federal Register on July 24, 2006. The Forest Service created a Draft SEIS (“DSEIS”) which was issued on March 27, 2007. A NOA for the DSEIS was published in the Federal Register on April 6, 2007. Legal Notices for the DSEIS were printed in the Standard Examiner on 
+
+candidate_id: bc8e44b40aee3530c85a  [EIS]  current_label: decision
+  marked_date: August 1994
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'assessment (DOE 1994b); a Finding of No Significant Impact was issued in August 1994, Additional storage'.
+  context: ...14-cubic-nreter (30,000-gallon) solvent tanks in H-Area to replace these ‘E I tanks (WSRC 1993d). Based oltlleexpectedwastef orecast,tlleses olventta~,kswouldprovide sufficient storage capacity (Hess 1995c), Under the no-action alternative, DOE would also need to construct two additional 114-cubic-meter (30,000-gallon) storage tanks in E-Area in 1995, one for aqueous liquid waste and one for organic waste. These tanks would be similar to solvent storage tanks proposed for H-Area. DOE would ad
+
+candidate_id: c5ac2e8d1b01900954bb  [EIS]  current_label: decision
+  marked_date: October 1998
+  current_notes: Decision: Decision Record/ROD, quote 'which BLM will issue a Record of Decision that publicly states its decision. Developments on'.
+  context: ... measures. The first step in any EIS is to ask the public for help in identifying the key issues for the project. This step is called scoping, and it is important because it helps guide the specialists preparing the EIS. The comments received during scoping will help determine what issues and alternatives will be examined in the EIS. After scoping, BLM will analyze the comments and publish a draft EIS for public review. This review includes public meetings and a 45-day period during which com
+
+candidate_id: afb0b229dbaf2c1a800f  [EIS]  current_label: decision
+  marked_date: DECEMBER 2015
+  current_notes: Decision: Decision Record/ROD, quote 'administrative record, a Record of Decision (ROD) will be signed by the Secretary of the Navy'.
+  context: FALLON RANGE TRAINING COMPLEX FINAL EIS [[DECEMBER 2015]] PURPOSE AND NEED FOR THE PROPOSED ACTION 1-8 Finally, after consideration of the administrative record, a Record of Decision (ROD) will be signed by the Secretary of the Navy. The ROD will document the Navy’s final decision on the Proposed Action, the rationale behind that decision, and any commitments to mitigation and monitoring. A Notice of Availability of the Record of Decision will be published in the Federal Register, and the ROD wi
+
+candidate_id: 2903afe69a5382bbe6a6  [EIS]  current_label: decision
+  marked_date: April 2013
+  current_notes: Decision: Decision Record/ROD, quote 'Vernal Field Office. Record of Decision and Approved Resource Management Plan. Prepared by'.
+  context: TransWest Express EIS References R-49 Draft EIS – Lead Agency Review [[April 2013]] . 2008b. Vernal Field Office. Record of Decision and Approved Resource Management Plan. Prepared by the Vernal Field Office. Internet website: http://www.blm.gov/ut/st/en/prog/planning/existing_plans.html. Accessed October 2012. . 2008c. Moab Field Office. Record of Decision and Approved Resource Management Plan and FEIS, October 2008. Prepared by the Moab Field Office. Internet website: http://www.blm.gov/ut/st/
+
+candidate_id: 94f7f766b31e25203a5b  [EIS]  current_label: decision
+  marked_date: May 19, 2021
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote '18, 2021 FAA Issues Record of Decision April 19, 2021 Wetland Permit Issued (if needed)'.
+  context: ...egarding Essential Fish Habitat (EFH) Consultation July 15, 2019 Concurrence Point 2 – Alternatives to be Carried Forward for Analysis October 7, 2019 Floodplain Assessment October 14, 2019 Wetland Assessment October 14, 2019 Pre-construction Notification/Joint Application for Wetlands Permit Received by U.S. Army Corps of Engineers October 14, 2019 NMFS Receives the Complete EFH Assessment to Initiate EFH Consultation October 14, 2019 NMFS Issues a Response to the EFH Consultation Request De
+
+candidate_id: 9c047c8e887d2da49b48  [EIS]  current_label: decision
+  marked_date: March 25, 2016
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'March 8 2013 and the Record of Decision was signed on March 25 2016 Two appeals'.
+  context: ...ber 2016 Okanogan-Wenatchee National Forest Government-to-government letters were mailed to the Yakama Indian Nation and the Confederated Tribes of the Colville Reservation in June, 2005, requesting consultation on the proposal. Neither tribe identified concerns about the proposal. Consultation with the US Fish and Wildlife Service and the National Marine Fisheries Service was completed, and both agencies issued concurrence letters. Consultation with the State Historic Preservation Office was
+
+candidate_id: fe2539f8a5619f1fb0f5  [EIS]  current_label: decision
+  marked_date: April 28, 1995
+  current_notes: Decision: Decision Record/ROD, quote '28 1995 and the Record of Decision was issued on June 1 1995 An amended Record'.
+  context: 2-14 mental restoration at INEL. The fuel considered consists of that generated by DOE production reactors and by research and development reactors; naval reactors; foreign research reactors; other miscellaneous generators; and special-case commercial reactors. The final Programmatic SNF and INEL EIS was issued [[April 28, 1995]], and the Record of Decision was issued on June 1, 1995. An amended Record of Decision (61 FR 9441) was issued on March 8, 1996. Naval spent nuclear fuel is analyzed in 
+
+candidate_id: e18c10af82dde0f4c57f  [EIS]  current_label: decision
+  marked_date: July 2016
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'closure methods. The ROD was issued in July 2016. Colbert Fossil Plant'.
+  context: ...s for various projects remain relevant, including the BRF Ash Impoundment Closure Project Supplemental EA and FONSI (2019), BRF Decontamination and Decontamination EA and FONSI (2023), BRF Landfill-Management of Coal Combustion Residuals EIS (2016), and BRF Potential Retirement EA and FONSI 2019. Closure of Coal Combustion Residual Impoundments EIS (2016) The Ash Impoundment Closure Programmatic EIS was used to support the implementation of TVA’s goal to eliminate all wet coal combustion resi
+
+candidate_id: dd7caedcd5604acbd16e  [EA]  current_label: decision
+  marked_date: June 30, 2020
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'EA and the unsigned FONSI were available for a 15-day public review and comment'.
+  context: ...information to prepare the EA, including existing data inventories, online resources, and information collected onsite. Documentation of the physical site characteristics and site conditions relied on aerial imagery, United States Geologic Survey (USGS) topographic mapping, and reconnaissance site visits. No major issues of concern were identified during internal scoping. External Scoping External scoping was conducted by posting these projects on the SSDO’s on-line NEPA register in ePlanning
+
+candidate_id: ea813ea7c08885fa23de  [EIS]  current_label: decision
+  marked_date: October 2002
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'Project – BPA signed a Record of Decision (ROD) in October 2002. Minor construction will'.
+  context: ...omplies with the management objectives of the Hanford Reach National Monument and the presidential proclamation establishing the National Monument. • The USDOE has two decisions to make: – Whether the project complies with management plans for the Hanford Site. – Whether the project complies with the management objectives of the Hanford Reach National Monument, which includes the Saddle Mountain Unit. This decision must be made in conjunction with the USFWS. More information about federal, st
+
+candidate_id: 7569c031e94093858e71  [EA]  current_label: decision
+  marked_date: June 24, 2020
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'and a draft unsigned Finding of No Significant Impact FONSI to the e-Planning website for a'.
+  context: ...dress specific resource concerns consistent with management decisions in the applicable RMPs, as required by Title 43 Code of Federal Regulations 3131.3. On April 6, 2020 the BLM initiated a scoping comment period by uploading project information to the BLM’s NEPA e-Planning website and mailing notices to interested parties (including private surface owners), tribes, and local, State, and Federal agencies. On May 26, 2020 the BLM posted the EA (DOI-BLM-MT-0000-2020-0004-EA) and a draft unsign
+
+candidate_id: cb9e1cf09b6f792c676e  [EA]  current_label: decision
+  marked_date: October 1999
+  current_notes: Decision: decision/FONSI/ROD signed or issued, quote 'issued early in 1999. A ROD (DOE 1999c) was issued in September 1999, and a Mitigation'.
+  context: Final EA for Proposed Closure of the Airport Landfills within TA-73 at LANL Page 18 of 44 2.4.2 Final Site-Wide Environmental Impact Statement for the Continued Operation of the Los Alamos National Laboratory (SWEIS) The Final LANL SWEIS (DOE 1999b) was issued early in 1999. A ROD (DOE 1999c) was issued in September 1999, and a Mitigation Action Plan was issued in [[October 1999]] (DOE 1999d). The SWEIS explained that environmental restoration at LANL was being performed by a LANL organization e
+
+candidate_id: e772190bda7007229141  [EIS]  current_label: decision
+  marked_date: May 1990
+  current_notes: Decision: Decision Record/ROD, quote 'in May 1990. The Record of Decision approving the airport and conveying the land was issued'.
+  context: ...7 The BLM also governed the sites according to the 1973 Management Framework Plan.8 The RMP, when finalized, would have required scenic protection for corridors on both sides of Utah Highway U-276, which subsequently included the airport site. The 1989 RMP nominated the area for protection as the Scenic Highway Corridor ACEC. Therefore, in order to permit conveyance, the BLM had to amend the land plan, which required compliance with NEPA. The FAA issued the draft EIS (hereinafter DEIS) on Jan

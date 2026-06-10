@@ -34,11 +34,13 @@ INDEX_PATH = TIMELINE_DIR / "timeline_document_index.parquet"
 OUTPUT_PATH = TIMELINE_DIR / "timeline_candidates.parquet"
 
 # The single human-labeling sample for SetFit training (emitted at end of a full run).
+# Label assets are INPUTS, so they live under training/ (not output/, which is regenerable).
 OUTPUT_DIR = PHASE2 / "output" / "deliverable04"
-LABELING_SAMPLE_PATH = OUTPUT_DIR / "labeling_sample.csv"
+TRAINING_DIR = PHASE2 / "training" / "deliverable04"
+LABELING_SAMPLE_PATH = TRAINING_DIR / "classifier.csv"   # was output/labeling_sample.csv
 # Locked selection: the chosen candidate_ids are persisted here so re-runs reproduce the
 # exact same candidates (delete this file to re-draw a fresh sample).
-LABELING_SAMPLE_IDS_PATH = OUTPUT_DIR / "labeling_sample_ids.txt"
+LABELING_SAMPLE_IDS_PATH = TRAINING_DIR / "classifier_ids.txt"
 LABELING_SAMPLE_SIZE = 300  # total rows, stratified across process_type x candidate_role
 
 RUN_DATE = datetime.now(timezone.utc).date()
@@ -332,6 +334,23 @@ CLEAR_DECISION_KEYWORDS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# EA-only (Phase C): approving-authority titles. A BLM/agency FONSI signature block lists
+# recommenders/reviewers (specialists) AND the approving official together, so the generic
+# specialist-sheet disambiguation wrongly downgrades the whole block — including the approving
+# signature, which IS the decision — to `review`. When one of these decision-authority titles is
+# present, an EA signature date is treated as a real decision. EA-scoped so CE/EIS specialist-sheet
+# handling is untouched.
+EA_DECISION_AUTHORITY_RE = re.compile(
+    r"\b(?:"
+    r"field\s+(?:office\s+)?manager|district\s+manager|"
+    r"assistant\s+field\s+manager|acting\s+field\s+manager|"
+    r"authorizing\s+official|approving\s+official|"
+    r"(?:deputy\s+|associate\s+)?state\s+director|area\s+manager|"
+    r"district\s+ranger|forest\s+supervisor"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Proxy decision: FEIS/EA publication dates serve as upper bound for ROD/FONSI
 PROXY_DECISION_RE = re.compile(
     r"\b("
@@ -508,13 +527,18 @@ def _should_reject_date(
     context: str,
     process_type: str,
     source_tier: str,
+    date_span: tuple[int, int] | None = None,
 ) -> tuple[bool, str]:
     """
     Return (reject, reason) applying the plan §4 exclusion rules.
     Does not reject month-year candidates; those are granularity=month.
-    """
-    ctx_lower = context.lower()
 
+    For CE, when ``date_span`` (the date match's char offsets within ``context``) is
+    supplied, the keyword/citation exclusions are scoped to a ±60-char window around the
+    date. This stops a bottom-of-form CE signature date from being killed by an unrelated
+    'expires on' / statute citation elsewhere on the same dense form page. EA/EIS keep the
+    whole-block scan (date_span is not passed for them) so their behavior is unchanged.
+    """
     # Future date check
     if parsed_date.date() > RUN_DATE:
         return True, "future_date"
@@ -526,14 +550,23 @@ def _should_reject_date(
         # Soft reject: allow only with strong evidence (handled in scoring/selection)
         return True, "pre_1970_eis_reject"
 
+    # Window the citation/keyword exclusions to the immediate neighborhood of the date
+    # (CE only). All other paths scan the whole block as before.
+    if process_type == "CE" and date_span is not None:
+        ds, de = date_span
+        excl_text = context[max(0, ds - 60):de + 60]
+    else:
+        excl_text = context
+    excl_lower = excl_text.lower()
+
     # Legal/statutory citation exclusions
     for kw in EXCLUSION_KEYWORDS:
-        if kw in ctx_lower:
+        if kw in excl_lower:
             return True, f"exclusion_keyword:{kw}"
 
     # Regex-based exclusions (CFR/FR citations, author-year bibliographic patterns)
     for pat in EXCLUSION_RE:
-        if pat.search(context):
+        if pat.search(excl_text):
             return True, "exclusion_regex"
 
     # Metadata-only sources bypass text-based exclusions
@@ -553,6 +586,7 @@ def _prelabel_role(
     retrieval_reason: str | None,
     ptype: str,
     document_type_category: str | None = None,
+    process_type: str | None = None,
 ) -> tuple[str, float, list[str], list[str]]:
     """
     Return (candidate_role, role_confidence_float, positive_cue_flags, negative_cue_flags).
@@ -610,6 +644,13 @@ def _prelabel_role(
         if not CLEAR_DECISION_KEYWORDS_RE.search(context):
             slash_s_count = len(re.findall(r"/s/", context, re.IGNORECASE))
             if slash_s_count >= 3 or REVIEW_CUES.search(context):
+                # EA-only escape: a FONSI signature block lists specialists/recommenders AND the
+                # approving official together; the approving-authority signature IS the decision.
+                # When a decision-authority title is present, keep an EA signature date as a decision
+                # rather than downgrading the whole block to review. CE/EIS handling is unchanged.
+                if process_type == "EA" and EA_DECISION_AUTHORITY_RE.search(context):
+                    pos_cues.append("ea_decision_authority")
+                    return "clear_decision", 5.0, pos_cues, neg_cues
                 neg_cues.append("specialist_sig_sheet")
                 return "review", 2.0, pos_cues, neg_cues
         pos_cues.append("decision_strong")
@@ -718,6 +759,7 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                 role, conf, pos_cues, neg_cues = _prelabel_role(
                     context_clean, source_tier, retrieval_reason, ptype,
                     document_type_category=packet.get("document_type_category"),
+                    process_type=process_type,
                 )
                 candidate_id = hashlib.sha1(
                     f"{packet['project_id']}|{packet.get('document_id')}|{packet.get('page_start')}|{parsed.date()}|{context_clean[:50]}".encode()
@@ -791,7 +833,7 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
 
         for _ms, _me, m, ptype, parsed, granularity in _suppress_contained(raw_matches):
                 reject, _ = _should_reject_date(
-                    parsed, block, process_type, source_tier
+                    parsed, block, process_type, source_tier, (_ms, _me)
                 )
                 if reject:
                     continue
@@ -806,6 +848,7 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                 role, conf, pos_cues, neg_cues = _prelabel_role(
                     block, source_tier, retrieval_reason, ptype,
                     document_type_category=packet.get("document_type_category"),
+                    process_type=process_type,
                 )
 
                 # Tag a "Date Determined: <date>" date (DOE CX form). Stays clear_decision

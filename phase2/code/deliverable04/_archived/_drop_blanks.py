@@ -10,7 +10,7 @@ import pandas as pd
 
 LAB = (
     Path(__file__).resolve().parents[3]
-    / "phase2/output/deliverable04/labeling_sample.csv"
+    / "phase2/training/deliverable04/classifier.csv"
 )
 df = pd.read_csv(LAB)
 before = len(df)

@@ -10,7 +10,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[3]
 CAND = ROOT / "phase2/data/analysis/timeline/timeline_candidates.parquet"
-LAB = ROOT / "phase2/output/deliverable04/labeling_sample.csv"
+LAB = ROOT / "phase2/training/deliverable04/classifier.csv"
 QUOTAS = {
     ("EA", "clear_decision"): 350,
     ("EA", "clear_initiation"): 250,

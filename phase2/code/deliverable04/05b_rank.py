@@ -78,9 +78,34 @@ def _load_05():
 _05 = _load_05()
 TIMELINE_DIR = _05.TIMELINE_DIR
 OUTPUT_DIR = _05.OUTPUT_DIR
+TRAINING_DIR = _05.PHASE2 / "training" / "deliverable04"   # label INPUTS
 CANDIDATES_PATH = _05.CANDIDATES_PATH
 
-GOLD_SAMPLE_PATH = OUTPUT_DIR / "project_gold_sample.csv"
+GOLD_SAMPLE_PATH = TRAINING_DIR / "ranker.csv"   # was output/project_gold_sample.csv
+# Guardrail registry: project_ids reserved for evaluation that must NEVER be trained on.
+# A label is training XOR evaluation. run_train hard-fails if any train project is in here.
+FROZEN_EVAL_IDS_PATH = TRAINING_DIR / "frozen_eval_ids.txt"
+
+
+def _load_frozen_eval_ids() -> set[str]:
+    if not FROZEN_EVAL_IDS_PATH.exists():
+        return set()
+    return {ln.strip() for ln in FROZEN_EVAL_IDS_PATH.read_text().splitlines() if ln.strip()}
+
+
+def _assert_no_eval_leak(train_gold: pd.DataFrame) -> None:
+    """Hard-fail if any training project is in the frozen-eval registry (train/eval contamination)."""
+    frozen = _load_frozen_eval_ids()
+    leak = set(train_gold["project_id"].astype(str)) & frozen
+    if leak:
+        raise SystemExit(
+            f"[GUARDRAIL] {len(leak)} training project(s) are in the frozen-eval registry "
+            f"({FROZEN_EVAL_IDS_PATH.name}) — that is train/eval contamination. Offending ids: "
+            f"{sorted(leak)[:5]}{'…' if len(leak) > 5 else ''}. Mark them split=test in ranker.csv "
+            f"or remove them from the registry."
+        )
+    if frozen:
+        print(f"  guardrail OK: {len(frozen)} frozen-eval ids, none in the train split.")
 RANKER_DIR = TIMELINE_DIR / "models" / "candidate_ranker"
 RANKER_INIT_PATH = RANKER_DIR / "ranker_init.pkl"
 RANKER_DEC_PATH = RANKER_DIR / "ranker_decision.pkl"
@@ -93,7 +118,7 @@ SEED = 42
 # agreement_count + granularity_num. Categoricals are passed to LightGBM as native categories.
 GRAN_NUM = {"day": 2.0, "month": 1.0, "year": 0.0}
 NUM_FEATURES = [
-    "p_init_cal", "p_dec_cal", "p_initiation", "p_decision",
+    "p_init_cal", "p_dec_cal", "p_feis_cal", "p_final_eis", "p_initiation", "p_decision",
     "role_confidence_score", "source_strength", "role_cue_strength",
     "document_priority", "section_priority", "page_priority", "position_signal",
     "position_pct", "section_position_pct", "repeated_mention_signal",
@@ -116,6 +141,11 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
     pd_ = pd.to_numeric(df.get("p_decision"), errors="coerce")
     f["p_init_cal"] = pd.to_numeric(df.get("p_init_cal"), errors="coerce").fillna(pi)
     f["p_dec_cal"] = pd.to_numeric(df.get("p_dec_cal"), errors="coerce").fillna(pd_)
+    # final_eis head (EIS FEIS-as-decision fallback): p_feis_cal is the calibrated score, gated to
+    # FEIS docs; fall back to raw p_final_eis when --apply (04b) hasn't run. 0 for non-EIS/non-FEIS.
+    pf = pd.to_numeric(df.get("p_final_eis"), errors="coerce")
+    f["p_feis_cal"] = pd.to_numeric(df.get("p_feis_cal"), errors="coerce").fillna(pf)
+    f["p_final_eis"] = pf
     f["p_initiation"] = pi
     f["p_decision"] = pd_
     for col in ["role_confidence_score", "source_strength", "role_cue_strength",
@@ -123,10 +153,17 @@ def build_features(df: pd.DataFrame) -> pd.DataFrame:
                 "position_pct", "section_position_pct", "repeated_mention_signal",
                 "negative_penalty", "date_mention_count"]:
         f[col] = pd.to_numeric(df.get(col), errors="coerce")
-    # cross-candidate agreement (per the frame passed in; for a single project's candidates this is
-    # the within-project count) and granularity as an ordinal
+    # Cross-candidate agreement: how many candidates resolve to the same date — computed
+    # PER PROJECT so it's identical at train / eval / apply time (a global value_counts over the
+    # whole pool would give wildly different magnitudes and corrupt --apply scores).
     pdates = pd.to_datetime(df.get("parsed_date"), errors="coerce")
-    f["agreement_count"] = pdates.map(pdates.value_counts()).fillna(1).astype(float)
+    if "project_id" in df.columns:
+        f["agreement_count"] = (
+            pdates.groupby(df["project_id"]).transform(lambda s: s.map(s.value_counts()))
+            .fillna(1).astype(float)
+        )
+    else:
+        f["agreement_count"] = pdates.map(pdates.value_counts()).fillna(1).astype(float)
     f["granularity_num"] = df.get("date_granularity").map(GRAN_NUM).astype(float)
     f = f[NUM_FEATURES].fillna(0.0)
     for c in CAT_FEATURES:
@@ -163,7 +200,7 @@ def _group_frame(cand: pd.DataFrame, gold: pd.DataFrame, idcol: str) -> tuple[pd
     """Build the per-project ranking frame for one head: candidates of each gold project, sorted so
     project groups are contiguous, with relevance=1 on the gold candidate. Projects whose gold pick
     is 'none'/missing (no positive) are dropped — lambdarank needs a relevant item per group."""
-    gmap = {r.project_id: r[idcol] for r in gold.itertuples()
+    gmap = {r.project_id: getattr(r, idcol) for r in gold.itertuples()
             if str(getattr(r, idcol)).strip() not in ("", "none")}
     sub = cand[cand["project_id"].isin(gmap)].copy()
     sub = sub.sort_values("project_id")
@@ -199,7 +236,7 @@ def _fit_one(LGBMRanker, X, y, groups):
 
 def _topk_metrics(model, cand: pd.DataFrame, gold: pd.DataFrame, idcol: str) -> dict:
     """Top-1 accuracy + MRR on a set of gold projects (those with a real gold candidate)."""
-    gmap = {r.project_id: r[idcol] for r in gold.itertuples()
+    gmap = {r.project_id: getattr(r, idcol) for r in gold.itertuples()
             if str(getattr(r, idcol)).strip() not in ("", "none")}
     hits, rr, n = 0, 0.0, 0
     per_proc: dict[str, list[int]] = {}
@@ -229,6 +266,7 @@ def run_train() -> None:
     gold = _load_gold()
     cand = pd.read_parquet(CANDIDATES_PATH)
     tr, te = gold[gold["split"] == "train"], gold[gold["split"] == "test"]
+    _assert_no_eval_leak(tr)   # guardrail: training must never include a frozen-eval project
     print(f"Gold: {len(gold)} projects ({len(tr)} train / {len(te)} test).")
 
     RANKER_DIR.mkdir(parents=True, exist_ok=True)
@@ -271,8 +309,8 @@ def run_eval() -> None:
               f"(n={m['n_projects']}) per-process={m['per_process_top1']}")
 
 
-def run_apply() -> None:
-    cand = pd.read_parquet(CANDIDATES_PATH)
+def run_apply(cand_path: Path = CANDIDATES_PATH) -> None:
+    cand = pd.read_parquet(cand_path)
     n_written = 0
     for head, _idcol, scorecol, path in HEADS:
         if not path.exists():
@@ -284,9 +322,9 @@ def run_apply() -> None:
         n_written += 1
         print(f"  wrote {scorecol}")
     if n_written:
-        cand.to_parquet(CANDIDATES_PATH, index=False)
+        cand.to_parquet(cand_path, index=False)
         print(f"Applied learned ranker scores to {len(cand):,} candidates "
-              f"({n_written} head(s)) -> {CANDIDATES_PATH.name}")
+              f"({n_written} head(s)) -> {cand_path}")
     else:
         print("No rankers found; nothing written. Run --train first.")
 
@@ -296,13 +334,15 @@ def main() -> None:
     ap.add_argument("--train", action="store_true", help="Fit both rankers on the gold train split.")
     ap.add_argument("--eval", action="store_true", help="Top-1 / MRR on the held-out gold split.")
     ap.add_argument("--apply", action="store_true", help="Write learned_*_score columns to the pool.")
+    ap.add_argument("--run-dir", help="Isolated run dir: read/write timeline_candidates.parquet here instead of the main pool.")
     args = ap.parse_args()
     if args.train:
         run_train()
     if args.eval:
         run_eval()
     if args.apply:
-        run_apply()
+        cand_path = (Path(args.run_dir) / "timeline_candidates.parquet") if args.run_dir else CANDIDATES_PATH
+        run_apply(cand_path)
     if not (args.train or args.eval or args.apply):
         ap.print_help()
 

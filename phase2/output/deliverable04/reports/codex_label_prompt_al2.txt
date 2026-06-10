@@ -1,0 +1,672 @@
+# D4 Candidate Labeling — Active-Learning Round 2 (200 rows)
+
+You are labeling timeline date candidates extracted from NEPA review documents.
+Each candidate is a specific date pulled from a document. Your job is to decide
+what the [[marked date]] represents.
+
+## Output format
+Return a **self-contained Python script** named `apply_labels_al2.py` that merges
+your labels directly into `labeling_sample.csv`. The user will run it from the repo
+root with `python phase2/output/deliverable04/apply_labels_al2.py`.
+
+The script must:
+1. Define `LABELS` — a list of 200 dicts, one per candidate, in the same order as
+   the input, each with three keys:
+     - `candidate_id` — copy exactly as given
+     - `label` — one of: `initiation` | `decision` | `neither`
+     - `notes` — one sentence: the rule that applies + a short direct quote from the
+       context excerpt that clinched the decision (≤ 20 words from the excerpt, in quotes).
+       Example: `"Scoping started: 'scoping letter was sent to cooperating agencies on this date'"`
+2. Load `phase2/output/deliverable04/labeling_sample.csv`
+3. Merge `label` and `notes` from `LABELS` into the loaded DataFrame on `candidate_id`
+4. Write the result back to the same path (overwrite in place)
+5. Print a confirmation: `"Applied N labels to labeling_sample.csv"`
+
+The script must be fully self-contained (imports only `pandas`). No other output.
+
+Valid labels: `initiation` | `decision` | `neither`
+
+---
+
+## Labeling rules
+
+**`initiation`** — the NEPA process started:
+- NOI published in the Federal Register ("NOI was published … which initiated the scoping period")
+- Application / SF-299 / ROW / permit filed or received ("BLM received an application")
+- Scoping started: "opened a 30-day scoping period", "scoping letter was sent", "external scoping notices sent out"
+- FERC "approved entry to the pre-filing process"
+- DOE Initiator signature (program office initiating the CX — distinct from the NEPA Compliance Officer)
+- "Posted to the NEPA Register / ePlanning website"
+
+**`decision`** — the agency decided:
+- NEPA Compliance Officer signature / "Date Determined" (when it is the operative determination)
+- Field Manager / Field Office Manager / authorizing-official authorization signature
+- "It is my decision …", Decision Record date, FONSI cover month, "DOE issued a FONSI on"
+- ROW grant issued; BLM CX form "Date:" header and CX/Decision-Record cover months
+- USACE permit decision / appeal-options notification
+
+**`neither`** — everything else:
+- Specialist/reviewer signatures (wildlife, cultural, realty, biology, NEPA-coordinator)
+- SHPO/USFWS/tribal consultation dates (Section 106, ESA): concurrences, responses, meetings, BA submissions
+- Comment-period end dates, protest/objection-period end dates, Draft EA/EIS release (mid-process)
+- EA/EIS/DEIS/FEIS document cover months (the decision is the FONSI/ROD, not the analysis doc)
+- NEPA case numbers parsed as dates; bibliographic / Federal Register citations; map/figure/drawing dates
+- Permit term/expiration dates, prior grants/leases/RODs (historical), survey/inspection/field-visit dates
+
+**Tie-breakers:**
+- A CX document cover month → `decision` (the CX IS the determination)
+- An EA/EIS document cover month → `neither` (the decision is the separate FONSI/ROD)
+- Label only the `[[marked]]` date; ignore other dates in the window
+- A survey/meeting/inspection conducted "on" a date is `neither`, even next to a milestone
+
+**Key reminder:** The `candidate_role` column shows the regex system's *guess* — it is
+often wrong. Ignore it and label purely from the `[[marked date]]` in the context excerpt.
+
+---
+
+## Candidates to label
+
+Format per row:
+  [N] candidate_id | process_type | candidate_role (regex guess, ignore) | raw_date_text
+  Context: ...text with [[marked date]]...
+
+
+[1] c7f76054f331daa7d53b | EIS | clear_initiation | September 9, 2020
+Context: ...y potential issues, concerns, and additional alternatives that might be considered. The public comment period closed on [[September 9, 2020]]. NMFS also received public comments during a public hearing on August 27, 2020. Thirteen members of the public attended the public hearing. Public comments made during the hearing were similar in nature and s...
+
+[2] 2da5f1d39e576f18b686 | EIS | clear_initiation | April 19, 2006
+Context: ...ver Regional Coal Team (PRRCT) public meetings held on April 24, 2005, in Gillette, Wyoming (Belle Ayr North Tract), on [[April 19, 2006]] in Casper, Wyoming (Caballo West and West Coal Creek Tracts), and on January 18, 2007, in Gillette, Wyoming (Maysdorf II Tract). Each of the applicants presented information about their existing mine and pending...
+
+[3] 71870848c5781613d50f | EIS | clear_initiation | August 26, 2013
+Context: ...he TSF would be developed in the Hackberry Gulch area and no BLM decisions would be required. 5.0 PUBLIC INVOLVEMENT On [[August 26, 2013]], the Corps published their Notice of Intent (NOI) to prepare an EIS for this Project in the Federal Register. A 60-day EIS scoping process was initiated to solicit comments about the Project. The USACE held two...
+
+[4] 6e84b3e143b3a5a11dcb | EIS | clear_initiation | June 7, 2021
+Context: ...to identify any new, materially significant information 4 relevant to the applicable Category 2 issues addressed in its [[June 7, 2021]], application, and 5 determined that there was no new and significant information identified since the SLR 6 application was submitted. The NRC staff then resumed its environmental review of Duke 7 Energy’s SLR sup...
+
+[5] e575326fb391b59530d1 | EIS | clear_initiation | June 7, 2021
+Context: ...to identify any new, materially significant information 4 relevant to the applicable Category 2 issues addressed in its [[June 7, 2021]], application, and 5 determined that there was no new and significant information identified since the SLR 6 application was submitted. The NRC staff then resumed its environmental review of Duke 7 Energy’s SLR sup...
+
+[6] b1cf6d642f5403d4f2de | CE | clear_initiation | 12/05/2022
+Context: ...REAU OF LAND MANAGEMENT Applegate Field Office Alturas, California (530) 233-4666 www.blm.gov/california Date Prepared: [[12/05/2022]] Project: ROW Renewals 12/05/2022.mxd 0 1 Miles 2 Right-of-Way (ROW) Location Right-of-Way (ROW) Locations Bureau of Land Management Fig. 2. Map For #CACA 17699 & CACA 19517 showing the roads ROWs being renewed. A OF...
+
+[7] 23a04b870edf74be726c | EIS | clear_initiation | June 2008
+Context: ...eld, it was expected that the license application (LA) for a Yucca Mountain repository would be submitted to the NRC by [[June 2008]]. Waiting four years to complete the Draft EIS is not acceptable, particularly given that, in the interim and without opportunity for comment, the Yucca Mountain repository was eliminated from consideration as an alte...
+
+[8] 486c078118bd79ad908f | EIS | clear_initiation | June 2008
+Context: ...eld, it was expected that the license application (LA) for a Yucca Mountain repository would be submitted to the NRC by [[June 2008]]. Waiting four years to complete the Draft EIS is not acceptable, particularly given that, in the interim and without opportunity for comment, the Yucca Mountain repository was eliminated from consideration as an alte...
+
+[9] e2d99e234b82150ba6c3 | CE | clear_initiation | 06/21/2021
+Context: ...Exhibit A- Location Map IDI 29170 Renewal Exhibit A Idaho Power Company 34.5 KV Distribution Line NCA/BOP Date Created: [[06/21/2021]] Created by: C Gardner 08 09 10 T. 4 S., R. 7 E. ELMORE COUNTY 17 16 15 BOP/NCA Existing Rw Bureau of Land Management (BLM) Private Existing Rw Bureau of Reclamation 0 0.35 0.7 Miles No warranty is made by the Bureau...
+
+[10] b74cf40be0345645c170 | CE | clear_initiation | February 19, 2020
+Context: ... East Twin Falls, Idaho 83301 NATIONAL SYSTEM OF PUBLIC, LANDS US. DEPARTMENT OF THE INTERIOR BUREAU OF LAND MANAGEMENT [[February 19, 2020]] MEMORANDUM TO: Field Manager FROM: Isaac Whitman, Rangeland Management Specialist SUBJECT: Transfer Grazing Preference in the Poison Butte (01050) Allotment from CE Brackett Cattle Co. to Brackett Ranches Lim...
+
+[11] 27cfa34e12ea4f079f77 | EA | clear_initiation | February 2011
+Context: ...op the renewable wind resource. ISSUES RAISED BY THE PUBLIC Public scoping was conducted for the Project in January and [[February 2011]] and included informational pamphlets that were mailed to local residents and businesses, as well as an open-house meeting in Williams, Arizona. Issues raised during sc...
+
+[12] 721a64911dbfa7f69787 | EIS | clear_initiation | November 12, 2021
+Context: ...cation and Establishing Intervention Deadline for the Project and the notice appeared in the FR on October 26, 2020. On [[November 12, 2021]], the Commission issued a second Notice of Amendment to Application and Establishing Intervention Deadline and the notice appeared in the FR on November 18, 2021. The notices described ways to become involved ...
+
+[13] 1508cef6bc850c7a1c07 | EIS | clear_initiation | April 29, 2005
+Context: ... due to the high price of LNG imports. Cove Point received its first commercial delivery in 23 years in August 2003. On [[April 29, 2005]], the FERC issued a notice of application for authorization to expand the existing Cove Point LNG terminal by: (1) adding two new storage tanks to increase send-out capability and storage; and (2) constructing fi...
+
+[14] e92f4d8da599e6a3fa7b | EIS | clear_initiation | April 29, 2005
+Context: ... due to the high price of LNG imports. Cove Point received its first commercial delivery in 23 years in August 2003. On [[April 29, 2005]], the FERC issued a notice of application for authorization to expand the existing Cove Point LNG terminal by: (1) adding two new storage tanks to increase send-out capability and storage; and (2) constructing fi...
+
+[15] 496627a6b2e13b2e7cfc | EIS | clear_initiation | September 2016
+Context: ...mendment of their existing right-of-way on public land (Serial Number NM-114438, cross references BLM AZA-35058) issued [[September 2016]]; updated applications were subsequently submitted on December 21, 2020, and September 14, 2021. The application to amend an earlier EIS and existing right-of-way authorization includes proposed right-of-way comp...
+
+[16] eb241ec2803922b487f9 | CE | clear_initiation | July 1, 2013
+Context: ...lication included blading and maintaining approximately three miles of Stagecoach Road. This application was amended on [[July 1, 2013]], by request from applicant to eliminate the Stagecoach Road portion. Upon approval, the ROW AZA 36188 will be for 30 years, and will expire on December 31, 2042. Decision: Based on a review of the project describe...
+
+[17] b765341f5cdab35865bc | EIS | clear_initiation | January 7, 2020
+Context: ...refore, on January 6, 2020, USEPA requested that the application documents be resubmitted with requisite signatures. On [[January 7, 2020]], TGL forwarded a signed PSD Application, including a signed Case-by-Case MACT Analysis. TGL’s revised Title V Permit Application, including TCEQ Tit...
+
+[18] 403bf66017d4eba2817f | CE | clear_initiation | October 31, 2017
+Context: ...periodically changed in response to management needs or circumstances. (Continued on page 2) OMB NO. 1004-0041 Expires: [[October 31, 2017]] For BLM Use - Transferor Anthorization Number: APPLICATION TO TRANSFER GRAZING PREFERENCE FROM BASE PROPERTY To Be Completed by TRANSFEROR: I, (Print Transferor Name), POCOR RANCH LLC herein request that BLM t...
+
+[19] ea0c5f7703772ebbaa67 | EIS | clear_initiation | December 2020
+Context: ... Federal Lands Amendment to Right-of-Way Grant NM-114438 SunZia Transmission, LLC SunZia Southwest Transmission Project [[December 2020]] Attachment A4: Application Component 4 – SunZia West Substation b) Related structures and facilities: As described in the 2013 Final EIS Section 2.4 and Plan of Development (POD) Section 3, SunZia Project facilit...
+
+[20] 280990e4f0d0c59c0809 | EIS | clear_initiation | May 19, 2010
+Context: ...2 The discussion of the freight issue was deliberately excluded from all three of the open houses held on May 18, 2010, [[May 19, 2010]] and May 20, 2010. 12.1.5 The only opportunity the public was given by Hennepin County to discuss the freight rail re-route was at the PMT meetings discussed in section 12.1.5. However, any discussion of possible a...
+
+[21] 604ea1bcaad56076783a | EIS | clear_initiation | April 2, 2014
+Context: ...ensuring that public needs are understood by the agencies. 5.1.1 Public Scoping Period The scoping comment period began [[April 2, 2014]], with the publication of the Notice of Intent (NOI) to prepare an EIS in the Federal Register (FR). The NOI notified the public of the Bureau of Land Management’s (BLM’s) intent to prepare an EIS for Previously I...
+
+[22] 3d8ab4123dad2f3c4202 | CE | clear_initiation | 6/3/2013
+Context: ... page FORM APPROVED OMB NO. 1004-0189 Expires: April 30, 2012 FOR AGENCY USE ONLY Application Number N-92138 Date filed [[6/3/2013]] 3. TELEPHONE (area code) Applicant (702) 668-8171 Authorized Agent 2. Name, title, and address of authorized agent if different from Item 1 (include zip code) Cal Starman 5. Specify what application is for: (check one...
+
+[23] 6d63ad7f60d6f9e43fb0 | EA | clear_initiation | February 29, 2016
+Context: ...ry 22, 2016. Approximately 260 people were in attendance at the RMR Country Club. The comment period was extended until [[February 29, 2016]] to allow residents to subm...
+
+[24] e8d7791722585976ecd8 | EA | clear_initiation | February 29, 2016
+Context: ...ry 22, 2016. Approximately 260 people were in attendance at the RMR Country Club. The comment period was extended until [[February 29, 2016]] to allow residents to subm...
+
+[25] 71401a3bcf9b03c8485d | EIS | clear_initiation | October 2016
+Context: ..., 2016. USACE met again with Kuukpik on June 29 and August 10, 2016. ASRC formally requested consultation with USACE in [[October 2016]] regarding development of the EIS and subsequent permitting. USACE met with ASRC on December 2, 2016. Page 6-1
+
+[26] d7db3991119d6e696bf9 | EIS | clear_initiation | June 1, 2023
+Context: ...Scoping Items. The meeting was in person and all scoping questions were to be submitted through the county’s website by [[June 1, 2023]]. No recordings of meeting were performed. One public comment was submitted through CCWA’s website regarding potential downstream impacts. Sponsor responded to the comment and posting the same on its website. Docum...
+
+[27] d7f5872d944c777feabc | CE | clear_initiation | April 18, 2018
+Context: ... known as Cedar Mesa, Indian Creek, Valley of the Gods, Comb Ridge, and Bluff, Utah. Description of Proposed Action: On [[April 18, 2018]], Utah Office of Tourism filed film permit application UTU-093301 for seven days of filming May 13 to May 19, 2018. The company has proposed filming four groups of land users to promote tourism in San Juan County...
+
+[28] 055b7f6ac765eb94a127 | EIS | clear_initiation | June 26, 2019
+Context: ...articipate in the decision-making process. The USCG and MARAD issued a Notice of Application in the Federal Register on [[June 26, 2019]], to document receipt of the TGL application. The NOI was published July 3, 2019, and includ...
+
+[29] aea766710cb1699a6112 | CE | clear_initiation | September 15, 2015
+Context: ...on Well/Application to Drill General Location of Proposed Action: 5 Miles Northwest of Nuiqsut Date of Proposed Action: [[September 15, 2015]] Start Date Description of Proposed Action: The applicant, ConocoPhillips Alaska, Inc. (CPAI), has requested approval from the Bureau of Land Management (BLM) of an Application for Permit to Drill (APD) on la...
+
+[30] 53f47a3fe8ab710da8cb | EIS | clear_initiation | 4/13/2010
+Context: ...ordination Meeting 4/12/2010 Community, ADOT, FHWAd, MAG, Members of U.S. House of Representatives Congressional Update [[4/13/2010]] Community Cultural Resources Standing Committee, ADOT, consultant Meeting on right-of-entry application 4/13/2010 Community Natural Resources Standing Committee, ADOT, consultant Meeting on right-of-entry application...
+
+[31] b51df3503203b6300140 | EIS | clear_initiation | 4/13/2010
+Context: ...ordination Meeting 4/12/2010 Community, ADOT, FHWAd, MAG, Members of U.S. House of Representatives Congressional Update [[4/13/2010]] Community Cultural Resources Standing Committee, ADOT, consultant Meeting on right-of-entry application 4/13/2010 Community Natural Resources Standing Committee, ADOT, consultant Meeting on right-of-entry application...
+
+[32] dacf9a98777a6a143499 | EA | clear_initiation | 02/15/2012
+Context: ...ollowing methods:  10/31/2011: BLM issued a news release to the public for a public scoping period (02/01/2012 through [[02/15/2012]])  10/31/2011: BLM sent public scoping letters to adjacent landowners and stakeholders to request public comments on the proposed sale  03/01/2012: BLM posted this project on the Lower Sonoran Field Office NEPA web...
+
+[33] 6f0eb0d464e691a8baaf | EIS | clear_initiation | March 2, 2009
+Context: ...nuary 21, 2009 Texas CEQ January 22, 2009; corrected January 29, 2009 Texas Historical Commission February 20, 2009 FWS [[March 2, 2009]] A revised scoping document (SD2), addressing these comments, was issued on March 9, 2009. 1.4.2 Interventions and Comments on the Application and Offer of Settlement On August 1, 2012, the Authorities and the par...
+
+[34] 52beac3194238721cbf7 | EIS | clear_initiation | April 4, 2022
+Context: ...“Notice of Withdrawal Application and Notice of Public Meetings” for the application process in the Federal Register on [[April 4, 2022]]. The Army published a NOI for the LEIS in the Federal Register on September 9, 2022. The Army placed Notices for the June 7 and 8 meetings in the Yuma Sun and Bajo el Sol on July 13, 2022, and in the Desert Messe...
+
+[35] 741d1dc311e9098eb128 | CE | clear_initiation | October 22, 2018
+Context: ...oposed Action: Boise Meridian, Idaho T. 2 N., R. 4 W., sec. 35, lot 1. See Exhibit A Description of Proposed Action: On [[October 22, 2018]], the Owyhee Field Office received a request for a Land Use Permit (LUP) renewal from Honeygold of Nampa, Inc. for one existing apiary site. The Land Use Permit would be used for 7 months out of the year and th...
+
+[36] bfbbcab4d00847f166b9 | EIS | clear_initiation | February 16, 2017
+Context: ...he MAR was included by TransCanada Keystone Pipeline, L.P. (Keystone) as an alternative to its Preferred Route in their [[February 16, 2017]] application to the Nebraska Public Service Commission (Nebraska PSC) seeking approval for the Keystone XL Project. Keystone’s Preferred Route was considered in the Department’s 2014 Final Supplemental Environ...
+
+[37] 15791deaab3db6b93105 | CE | clear_initiation | May 19, 2014
+Context: ... Applicant has pursued diligently the development of the lease by submitting to the BLM a Notice of Staking followed on [[May 19, 2014]], by the submission of an Application for Permit to Drill (APD) for the Federal SR 31-32 (23-14) well. Review of the APD was halted based on the need to address a National Environmental Policy Act (NEPA) deficiency...
+
+[38] 5da611fcc4c294568a9a | EIS | clear_initiation | January 18, 2007
+Context: ...006 in Casper, Wyoming. The PRRCT reviewed the Porcupine maintenance coal lease application at a public meeting held on [[January 18, 2007]] in Casper, Wyoming. Each of the applicants presented information about their existing mine and pending lease application to the PRRCT at those meetings. The PRRCT recommended that the BLM continue to process a...
+
+[39] e9a1426e2fb0b0e4f69e | EIS | clear_initiation | January 18, 2007
+Context: ...006 in Casper, Wyoming. The PRRCT reviewed the Porcupine maintenance coal lease application at a public meeting held on [[January 18, 2007]] in Casper, Wyoming. Each of the applicants presented information about their existing mine and pending lease application to the PRRCT at those meetings. The PRRCT recommended that the BLM continue to process a...
+
+[40] 0c2f90bb343bf358ba83 | CE | clear_initiation | 8/1/2016
+Context: ...-2017-0102-CX Scythian LTD renewal for an access road to the China Draw #5 Serial Number: NM 136094 Proposed Action: On [[8/1/2016]] the Bureau of Land Management (BLM) received a right-of-way (ROW) application for the renewal for an access road to the China Draw #5. The ROW is 24 feet in width by 802.56 feet in length, aggregating .442 acres of pu...
+
+[41] d54f380b9240c4ea9422 | EIS | clear_initiation | December 4, 2018
+Context: ...CN), Seminole Nation of Oklahoma (SNO), Seminole Tribe of Florida (STF), and Tunica-Biloxi Tribe of Louisiana (TBTL) on [[December 4, 2018]]. Additionally, a general scoping meeting was conducted on January 10, 2019, at CEMVN with Facebook Live Streaming, which requested feedback as well. Feedback from the public scoping meeting did not result in f...
+
+[42] 03afca6202f4c989928b | EA | clear_initiation | November 25, 1991
+Context: ...new coal-fired heating system for the Winnett School District is part of this energy conservation program. Submitted on [[November 25, 1991]], the School's Institutional Conservation Program grant application has been evaluated for grant assistance under the Department's applicable Institutional Conservation Programs guidelines. The District's buil...
+
+[43] b192d93a8f0a90bdf49c | EIS | clear_initiation | February 1, 2012
+Context: ...1, 2011 NMFS October 11, 2011 A revised scoping document (Scoping Document 2), addressing these comments, was issued on [[February 1, 2012]]. 1.4.2 Interventions On July 31, 2014, the Commission issued a notice that Juneau Hydro had filed an application for an original license for the Sweetheart Lake Project. This notice set September 29, 2014, as ...
+
+[44] e3dbb2baf9b3d40d7d64 | EIS | clear_initiation | October 15, 2013
+Context: ...impact statement was published in the Salt Lake Tribune on August 30, 2013. The official 45-day comment period ended on [[October 15, 2013]]. However, comments received after that date were accepted in conjunction with the federal government furlough which began on October 1, 2013. A legal notice informing persons or organizations who had made sp.....
+
+[45] a566358ab9c273cea4da | EIS | clear_initiation | September 6, 2016
+Context: ...t 24, 2016 Marganne Oxley August 24, 2016 Commenting Entity Date Filed Dave Wirth National Park Service August 31, 2016 [[September 6, 2016]] Rod Neterer September 6, 2016 Klamath Tribes September 7, 2016 Oregon Water Resources Department September 8, 2016 Oregon Department of Fish and Wildlife September 9, 2016 Matthew Iversen September 9, 2016 Ma...
+
+[46] f67534ae6ba0606d46ec | EIS | clear_initiation | September 6, 2016
+Context: ...t 24, 2016 Marganne Oxley August 24, 2016 Commenting Entity Date Filed Dave Wirth National Park Service August 31, 2016 [[September 6, 2016]] Rod Neterer September 6, 2016 Klamath Tribes September 7, 2016 Oregon Water Resources Department September 8, 2016 Oregon Department of Fish and Wildlife September 9, 2016 Matthew Iversen September 9, 2016 Ma...
+
+[47] 35ab6c2a13e637f8bfc7 | EIS | clear_initiation | June 13, 2013
+Context: ... June 20, 2013 National Oceanic and Atmospheric Administration 1305 East-West Highway Silver Spring, Maryland Thursday, [[June 13, 2013]] Courtyard by Marriott, Gulfport Beachfront 1600 East Beach Boulevard Gulfport, Mississippi 6.3.2 Comments Received During Scoping During the initial scoping period, November 18 to December 22, 2004, the NMFS rece...
+
+[48] 584ad025bcc04fff0f1a | EIS | clear_initiation | 21 May 2003
+Context: ...es were asked to help identify environmental concerns and issues in the corridor. An agency scoping meeting was held on [[21 May 2003]] to solicit additional agency comments regarding the project. Letters of notification for the meeting were mailed on 1 April 2003 to about 44 agencies representing interests in the corridor. These letters invited th...
+
+[49] 70ddde3cf12aede99336 | CE | clear_initiation | October 22, 2021
+Context: ...to exceed 5 years or material removal of up to 20,000 cubic yards, whichever occurs first. Through an application dated [[October 22, 2021]], the applicant requested a new grant to replace their FUP for the East Magic Community Pit, which expired in October of 2021. The East Magic Community Pit is a 40-acre mineral material site that was opened in ...
+
+[50] 629872a0cd56fc243033 | EIS | clear_initiation | March 28, 2017
+Context: ...nts on the proposed withdrawal application and scoping comments on issues to be analyzed in the EIS must be received by [[March 28, 2017]]. Please clearly indicate whether comments are in regard to the withdrawal application or scoping comments on the EIS. The date(s) and location(s) of meetings related to the proposed withdrawal and scoping meetin...
+
+[51] fa949a4baf11bfe45d08 | CE | clear_initiation | November 7, 2017
+Context: ...ounding to the 160 acres of BLM. Randall and Beth Cole submitted the Preference Transfer Application for this action on [[November 7, 2017]]. The 160 acres and 36 AUM's on the BLM would be available year round for cattle. A ten year lease would be issued to Randall E. and Beth A. Cole. Approximately 130 acres of the BLM involved in the proposed tra...
+
+[52] 596e14c7a61b5f675c0a | EIS | clear_initiation | August 2010
+Context: ...enito County, CA. The original permit application was received in April 2010 and an updated application was received in [[August 2010]]. The application was submitted by Solargen Energy, Incorporated and has since been assumed by Panoche Valley Solar LLC (Applicant). The Corps, as the lead agency responsible for compliance with the National Environ...
+
+[53] 194f6c74a7ffa8db29c5 | CE | clear_initiation | August 24, 2021
+Context: ..., SESE, See exhibit C for additional legal land descriptions and Exhibit A attached. Description of Proposed Action: On [[August 24, 2021]], this office received a request from Syringa Networks LLC for a new buried fiberoptic line ROW. The ROW to be used year-round, is located in Ada and Elmore Counties, Idaho, and consist of a 10ft wide x 303,493f...
+
+[54] 7a9dd4f6a229ec88bc75 | CE | clear_initiation | December 8, 2020
+Context: ...County, UT Description of Proposed Action: RSA Films, Inc. sent the BLM Price Field Office a film permit application on [[December 8, 2020]]. The applicant proposes to film video content for a Chevrolet pickup truck commercial. The proposed filming locations are near Swasey's Cabin, the Devil's Racetrack, and approximately two miles west of Ghost R...
+
+[55] 04c7ea116f6b6f52e006 | CE | clear_initiation | July 2, 2019
+Context: ...posed Action: Hunter Canyon Trail Salt Lake Meridian T. 26S., R. 21 E., sec. 27, 34. Description of Proposed Action: On [[July 2, 2019]], Arlo Furst, on behalf of Instagram, filed film permit application UTU- 94489 to film on Bureau of Land Management (BLM) land administered by the Moab Field Office. Mr. Furst proposed to film one day of motion and...
+
+[56] 0d744c5e22cce4ed0792 | EIS | clear_initiation | May 2010
+Context: ...ounty for the permit. Additional application information was filed with the County in November 2009, February 2010, and [[May 2010]]. As a cooperating agency in this NEPA EIS, the County of San Diego has provided information to DOE related to topics within the County’s jurisdiction and expertise. The County does not expect to use this EIS to help f...
+
+[57] 2cd28148a7b1182e327b | EIS | clear_initiation | May 2010
+Context: ...ounty for the permit. Additional application information was filed with the County in November 2009, February 2010, and [[May 2010]]. As a cooperating agency in this NEPA EIS, the County of San Diego has provided information to DOE related to topics within the County’s jurisdiction and expertise. The County does not expect to use this EIS to help f...
+
+[58] 0d0b118def6f44610f05 | EIS | clear_initiation | March 3, 2017
+Context: ...OI, Spire filed with the Commission a potential pipeline route alternative in St. Louis County, Missouri. Therefore, on [[March 3, 2017]], the Commission issued a Supplemental Notice of Intent to Prepare an Environmental Assessment for the Proposed Spire STL Pipeline Project and Request for Comments on Environmental Issues. The NOI and supplemental...
+
+[59] c4f22191ed039edaa94a | EIS | clear_initiation | March 3, 2017
+Context: ...OI, Spire filed with the Commission a potential pipeline route alternative in St. Louis County, Missouri. Therefore, on [[March 3, 2017]], the Commission issued a Supplemental Notice of Intent to Prepare an Environmental Assessment for the Proposed Spire STL Pipeline Project and Request for Comments on Environmental Issues. The NOI and supplemental...
+
+[60] 1b809547219fd8dd788b | EA | clear_initiation | June 18, 2015
+Context: ...ished in local newspapers. Cameron LNG also established a webpage and a telephone hotline for the Expansion Project. On [[June 18, 2015]], we issued a Notice of Intent to Prepare an Environmental Assessment for the Planned Cameron LNG Expansion Project and Request for Comments on Environmental Issues (NOI).3 This NOI, which identified a 30-day publ...
+
+[61] faf60df647aa03a67db8 | CE | body_text | 12/8/2021
+Context: ...min BLM SITLA USFS Tribal NCA_Boundary UDWR Snow Canyon Trail Rides 2021 USFS Water Courses USP St. George Field Office [[12/8/2021]] ZION 3654 PARK Virgin Test Hur SCENIC BYWAY Snow Canyon Trail Rides Map 6 Virgin 3549 38703 37622 Location within St. George Field Office 0 0.75 1.5 Miles No warranty is made by the BLM for use of the data for purpos...
+
+[62] d7f7365caceeacb4dfb7 | EA | clear_decision | 11/15/2005
+Context: ... Change Number: 2 Last Saved On: 8/26/2005 10:38 AM Last Saved By: test Total Editing Time: 41 Minutes Last Printed On: [[11/15/2005]] 4:23 PM As of Last Complete Printing Number of Pages: 10 Number of Words: 4,169 (approx.) Number of Characters: 23,767 (approx.)
+
+[63] d7df7a96b8449c31ce43 | CE | body_text | 3/2/2021
+Context: ...t", will be used to control introduction/spread of invasive species/noxious weeds. Signature and Date: Stephanie Bauer, [[3/2/2021]] Categorical Exclusion Record Page 9
+
+[64] 872059dbac5b92c24ab7 | EIS | clear_decision | April 6, 2012
+Context: ...d no formal applications had been filed with the FERC. The request to use our pre-filing review process was approved on [[April 6, 2012]]. Pre-filing Docket No. PF12-8-000 was established for the project to place information filed by Lake Charles LNG and Trunkline, and related documents issued by the FERC, into the public record. The pre-filing rev...
+
+[65] 2592de4e6f249b41f33c | CE | body_text | 11/20/2015
+Context: ... prior to ground disturbance and not proceed prior to written approval. AUTHORIZING OFFICIAL: NAME: FOR Rem Hawes DATE: [[11/20/2015]] Attachment 4-5 AZ-1790-1 August 2013 TITLE: Hassayampa Field Manager Note: The signed conclusion on this compliance record is part of an interim step in the BLM's internal decision process and does not constitute an...
+
+[66] 9d97915cb88b46ba04a0 | CE | body_text | Nov 24, 2020
+Context: ...ARTMENT OF THE INTERIOR BUREAU OF LAND MANAGEMENT CATEGORICAL EXCLUSION REDWASH 3D SEISMIC DOI-BLM-UT-G010-2020-0092-CX [[Nov 24, 2020]] Location: On State, Federal and Private Lands In the Red Wash Area Southeast of Vernal Utah, USA 84078 Applicant/Address: Middle Fork Energy Partners, LLC 1515 Wynkoop St Suite 650 Denver, CO. USA 80202 Vernal Fie...
+
+[67] 97669e55f17ee24cca42 | EIS | body_text | August 26, 2013
+Context: ...he TSF would be developed in the Hackberry Gulch area and no BLM decisions would be required. 5.0 PUBLIC INVOLVEMENT On [[August 26, 2013]], the Corps published their Notice of Intent (NOI) to prepare an EIS for this Project in the Federal Register. A 60-day EIS scoping process was initiated to solicit comments about the Project. The USACE held two...
+
+[68] 413f3e6dfdfba8c2bab3 | EIS | unknown | May 30, 2012
+Context: ...his collaborative project. Scoping letter. The initial scoping letter dated April 25, 2012, was mailed to the public. A [[May 30, 2012]], addendum to that letter clarifying that commenters during either the scoping period or the comment period on the draft environmental impact statement (“EIS”) had standing to participate in the objection process w...
+
+[69] 797b22c5d2aca0aa98a0 | EIS | unknown | July 9, 2013
+Context: ...ed in the Federal Register on April 11, 2012.  A scoping period was provided for 30 days, ending on June 6, 2012.  On [[July 9, 2013]], a notice that the Draft EIS was available for review and comment was sent to 36 interested parties who responded to the scoping letter or otherwise expressed interest in the Gore Creek Restoration project.  On J...
+
+[70] 1631133e89e66dd70cca | EIS | unknown | December 1, 2016
+Context: ...rating, and maintaining a new CCR Landfill at SHF. The NOI initiated a 30-day public scoping period, which concluded on [[December 1, 2016]]. In addition to the NOI in the Federal Register, TVA sent notification of the NOI to local and state government entities and federal agencies, published notices regarding this effort in local newspapers; issue...
+
+[71] 3311704f647441cad5d6 | EIS | unknown | March 5, 2013
+Context: ...non-governmental organizations, and (CPE-NC). Concerns expressed from the attendees are documented in Appendix A.  The [[March 5, 2013]] PRT Meeting included the following: The USACE provided an introduction to the NEPA process and the USACE’s involvement as the lead Federal agency in the process. They also described the role of the PRT and the 3r...
+
+[72] cbed3ed42174f15358bc | EIS | unknown | March 5, 2013
+Context: ...non-governmental organizations, and (CPE-NC). Concerns expressed from the attendees are documented in Appendix A.  The [[March 5, 2013]] PRT Meeting included the following: The USACE provided an introduction to the NEPA process and the USACE’s involvement as the lead Federal agency in the process. They also described the role of the PRT and the 3r...
+
+[73] 9a08ee149313bd272382 | CE | body_text | September 30, 2022
+Context: ...nmentally sensitive resource. Signed: /s/ Michael J. O'Connell Michael J. O'Connell Environmental Protection Specialist [[September 30, 2022]] Date
+
+[74] c737a2e84f30391ae40d | CE | body_text | February 19, 2020
+Context: ... East Twin Falls, Idaho 83301 NATIONAL SYSTEM OF PUBLIC, LANDS US. DEPARTMENT OF THE INTERIOR BUREAU OF LAND MANAGEMENT [[February 19, 2020]] MEMORANDUM TO: Field Manager FROM: Isaac Whitman, Rangeland Management Specialist SUBJECT: Transfer Grazing Preference in the Poison Butte (01050) Allotment from CE Brackett Cattle Co. to Brackett Ranches Lim...
+
+[75] 14abd6b6051a5765fea3 | CE | body_text | 2/17/17
+Context: ...and gravel supplies from public land: No d. location of equipment storage areas: None, road already constructed Version [[2/17/17]] WYW 186047 RECEIVED 02/21/17 02:59 PM BLM WHPD/CASPER FIELD OFFICE ==End of OCR for page 11== ==Start of OCR for page 12== Access Road to Patterson 3874-8N WELL 5. Government Agencies Involved a. are Corps of Engineers...
+
+[76] 25a6717dfc19eab52276 | CE | body_text | January 31, 2023
+Context: ...nated communication site boundaries. The full Plan of Development is included as Attachment A. Assignment AZA 21788: On [[January 31, 2023]], Cactus Intertie Inc. (Cactus) submitted an application requesting the assignment of Communication Use Lease AZA 21788, currently held by E&T Sites. The existing lease authorizes a 12' x 18' fiberglass buildin...
+
+[77] 010422a38ce04409ce4e | CE | body_text | October 22, 2018
+Context: ...cated entirely along existing access roads. There is no ground disturbance proposed. The project would begin and end on [[October 22, 2018]] and should take approximately 6 hours to complete. The breaker replacement undertaken by AEPCO is anticipated to start and end in February 2019. There are no special conditions attached to this proposal. Categ...
+
+[78] 634e0367ee60de995512 | EIS | unknown | May 9, 2020
+Context: ... materials on the project website (www.B21EIS.com) on March 27, 2020, and extended 19 the public commenting deadline to [[May 9, 2020]]. For those without access to the website, 20 a request for a mailed hardcopy package of scoping materials could be submitted to 21 Ellsworth AFB and Dyess AFB Public Affairs offices, as provided in all public notic...
+
+[79] 1952bb90c118c3264977 | EIS | proxy_initiation | June 2015
+Context: ...e ESJ U.S. Transmission Line, the Mexican Transmission Line and the Mexican Wind Farm were completed and operational by [[June 2015]]. In December 2012. several parties brought an action under the Administrative Procedure Act (APA), 5 U.S.C. § 706(2), in the United States District Court, Southern District of California to challenge PP-334. Backcoun...
+
+[80] 7186685c33f89b94aa99 | EIS | proxy_decision | June 2015
+Context: ...e ESJ U.S. Transmission Line, the Mexican Transmission Line and the Mexican Wind Farm were completed and operational by [[June 2015]]. In December 2012. several parties brought an action under the Administrative Procedure Act (APA), 5 U.S.C. § 706(2), in the United States District Court, Southern District of California to challenge PP-334. Backcoun...
+
+[81] e2377b95dea654b4977f | EA | proxy_initiation | July 2010
+Context: Baldwin Wind, LLC Final Environmental Assessment Baldwin Wind Energy Center [[July 2010]] 77 4.0 AGENCIES CONTACTED/CONSULTED A public scoping meeting was held on October 21, 2009 in Wilton, ND. A second meeting was held on April 7, 2010. Several federal, state, and local agencies were invited to the meet...
+
+[82] 20f3db64201a2d9599db | EA | proxy_initiation | February 2011
+Context: ...op the renewable wind resource. ISSUES RAISED BY THE PUBLIC Public scoping was conducted for the Project in January and [[February 2011]] and included informational pamphlets that were mailed to local residents and businesses, as well as an open-house meeting in Williams, Arizona. Issues raised during sc...
+
+[83] 3075d561ab47b8cf742a | CE | body_text | July 31, 2018
+Context: ...MENT OF THE INTERIOR BUREAU OF LAND MANAGEMENT BLM Sunset Allotment Grazing Preference Transfer DOI-BLM-MT-L030-0021-CX [[July 31, 2018]] PROPOSED ACTION AND MITIGATION MEASURES Description of the Proposed Action: #1 - Transfer Grazing Preference (160 AUMs) in the #06484 Sunset grazing allotment from Chad and Stephanie Murnin (previous base propert...
+
+[84] e000168653f82500a34e | CE | body_text | 12/04/2020
+Context: ...esticides/herbicides shall be approved in writing by the authorized officer prior to such use. Attachment B Stipulation [[12/04/2020]] As of the date of this grant, the following is deemed necessary by the authorized officer if using herbicides: i. If herbicides are to be used, a Pesticide Use Proposal (PUP) will be applied for from the BLM 30 days...
+
+[85] fab61e6feb8017c806d2 | CE | proxy_decision | DOI-BLM-UT-W020-2024-0005
+Context: ...avors granting the stay VII. APPROVAL [Signature] April 16, 2024 Cindy L. Ledbetter, Field Manager Date Decision Record [[DOI-BLM-UT-W020-2024-0005]]-CX 2
+
+[86] 1618a64f0c3d16dc1bea | EIS | proxy_initiation | March 2019
+Context: [[March 2019]] Miles City Field Office Supplemental EIS and RMPA i Scoping Report TABLE OF CONTENTS Chapter Page CHAPTER 1. INTRODUCTION ................................................................................................
+
+[87] 092dc18268cc82e66a58 | EIS | unknown | June 23, 2022
+Context: ...egion Northwest (June 8, 15, 20, 23, and July 7, 2022) Naval Base Kitsap (June 8, 16, 23, and July 7, 2022 – Facebook) ([[June 23, 2022]] – Twitter) Puget Sound Naval Shipyard and Intermediate Maintenance Facility (June 8 and 16, 2022) Stakeholder letter mailed to 93 recipients (elected officials, potential cooperating agencies, non-government orga...
+
+[88] f30db82180392a71513f | EIS | unknown | June 7, 2022
+Context: ...nment organizations, and any state or federal agency managing a resource that could be impacted by the Proposed Action) [[June 7, 2022]] Postcards mailed to 62 recipients. Postcards were sent to t...
+
+[89] 2aeaa28d79e1b53fc2d6 | EIS | unknown | 15 October 2014
+Context: ...rps of Engineers, Sacramento District Summary Draft Environmental Impact Statement River Islands at Lathrop, Phase 2B S-[[15 October 2014]] S.7 Public and Agency Involvement in EIS Development The Corps published the Notice of Intent (NOI) for this EIS in the Federal Register on June 10, 2005 (see Appendix A for the full text of the NOI), and hoste...
+
+[90] 2c78ecd43e9495401313 | EIS | unknown | 15 October 2014
+Context: ...rps of Engineers, Sacramento District Summary Draft Environmental Impact Statement River Islands at Lathrop, Phase 2B S-[[15 October 2014]] S.7 Public and Agency Involvement in EIS Development The Corps published the Notice of Intent (NOI) for this EIS in the Federal Register on June 10, 2005 (see Appendix A for the full text of the NOI), and hoste...
+
+[91] 871042919c2c08a8bd6d | EIS | unknown | July 24, 2009
+Context: ...be addressed. Scoping documents (SD1s) were distributed to interested agencies and others for the York Haven Project on [[July 24, 2009]], and for the Muddy Run and Conowingo Projects on May 11, 2009. A publicly noticed scoping meeting for the York Haven Project was held in New Cumberland, Pennsylvania, during the evening of August 26, 2009, and a ...
+
+[92] 3c046d0b3e24cd3f41c2 | CE | body_text | April 10, 2019
+Context: ...uary 24, 2020. Background The Lease is located within and is committed to the Homestead Unit (Unit), approved effective [[April 10, 2019]]. The Applicant submitted an Application for Permit to Drill (APD) for a proposed Federal oil and gas well, the Homestead Unit Federal #1. The well would be located in Section 2, T11S, and R97W. At this time, the...
+
+[93] 3ed2b8f98b4c184c1e93 | EIS | unknown | May 12, 1993
+Context: ...am. The USACE New Orleans District held a scoping meeting for a proposed hurricane and storm damage reduction system on [[May 12, 1993]], in Houma, Louisiana and written comments were accepted from April 7 to May 24, 1993. Eleven letters were provided to the USACE and 52 individuals attended the scoping meeting. A scoping document that summarized c...
+
+[94] aff70b1d0f440206aa0e | EIS | unknown | May 12, 1993
+Context: ...am. The USACE New Orleans District held a scoping meeting for a proposed hurricane and storm damage reduction system on [[May 12, 1993]], in Houma, Louisiana and written comments were accepted from April 7 to May 24, 1993. Eleven letters were provided to the USACE and 52 individuals attended the scoping meeting. A scoping document that summarized c...
+
+[95] 3631ba491bc9c503f6e9 | CE | body_text | 6/27/2019
+Context: ...stem: NAD 1983 UTM Zone 12N Reference System: U.S. PLSS GSRB&M Scale: 1:7,242 at 8.5x11 page output User: bhansen Date: [[6/27/2019]] NEVADA UTAH Mohave County Coconino County ARIZONA No warranty is made by the Bureau of Land Management (BLM) regarding the accuracy or completeness of this map. This map is representational and is to be used as inten...
+
+[96] 99526ef9b1a9e357a583 | EA | unknown | 8/7/2002
+Context: ...ge Number: Last Saved On: 7/31/2002 4:25 PM Last Saved By: Barbara Morgan Total Editing Time: 1 Minute Last Printed On: [[8/7/2002]] 9:23 AM As of Last Complete Printing Number of Pages: 6 Number of Words: 1,923 (approx.) Number of Characters: 10,963 (approx.)
+
+[97] 32034137a688f324b29a | CE | body_text | July 15, 2020
+Context: ...Signed: /s/Robert W. Shull Robert W Shull Contract Environmental Protection Specialist CorSource Technology Group Date: [[July 15, 2020]]
+
+[98] 4d6e04e4eaeb8539e297 | CE | body_text | 03/01/2009
+Context: ...otment continues to meet Land Health Standards, as a result of the previous lease Authorization #2500975 with a Term of [[03/01/2009]] to 02/28/2019 having a completed Land Health Assessment. The BLM has received all appropriate documentation to process the permit issuance. The proposed action applies to the administrative action of processing and ...
+
+[99] bd9e278df48092286998 | EA | unknown | January 18, 2023
+Context: ...ad an opportunity to participate via online, email and physical mail. A virtual information sharing meeting was held on [[January 18, 2023]]. Nine (9) people attended the virtual meeting. The BLM received 79 comments by email, letter, and the ePlanning website to consider. Based on internal and public input, the following issues were identified for...
+
+[100] 940da095109b511d4eaf | CE | body_text | 01/06/2020
+Context: ...TMENT OF THE INTERIOR BUREAU OF LAND MANAGEMENT United States Department of the Interior Bureau of Land Management Date [[01/06/2020]] Categorical Exclusion DOI-BLM-CA-C050-2019-0008 Emergency Stabilization and Rehabilitation (ESR) Response Kincade Fire 2019 Fire Burn Perimeter Sonoma and Lake Counties, California Bureau of Land Management - Region...
+
+[101] 4e252970a13cfa38e35a | CE | body_text | 5/18/2023
+Context: ... been reviewed, and none of the extraordinary circumstances described in 43 CFR 46.215 apply. [Signature] Field Manager [[5/18/2023]] Date DOI-BLM-N020-2023-0015-CX 3 Appendix A. Stipulations STIPULATIONS FOR COC-80934 1. The ROW/R&PP ROW/lease/Holder (Holder) shall contact the authorized officer at least 5 (five) days prior to the anticipated star...
+
+[102] 9a14ca95ef2128f79a0f | EA | proxy_initiation | December 20, 2019
+Context: ...iod ended on November 28, 2019. The BLM received no comments to consider. An additional comment period occurred between [[December 20, 2019]] and February 3, 2020 for the Notice of Realty Action published in the Federal Register. The BLM sent notifications of the notice’s availability to 14 individuals, organizations or agencies. The BLM received o...
+
+[103] 55cb71b586a62ca19d6a | EIS | unknown | November 30, 2012
+Context: ...ess, the Forest Service mailed a scoping letter describing the proposed action to 395 potentially interested parties on [[November 30, 2012]]. To solicit input on the proposed actions the Forest Service held two public meetings: January 17, 2013, in Grangeville, Idaho; and January 28, 2013, in Elk City, Idaho The Forest received twenty–five comment...
+
+[104] c4b236f2462db17e6ef5 | EIS | unknown | November 30, 2012
+Context: ...ess, the Forest Service mailed a scoping letter describing the proposed action to 395 potentially interested parties on [[November 30, 2012]]. To solicit input on the proposed actions the Forest Service held two public meetings: January 17, 2013, in Grangeville, Idaho; and January 28, 2013, in Elk City, Idaho The Forest received twenty–five comment...
+
+[105] 2f2b0592a74078e8645e | CE | body_text | July 30, 2015
+Context: ...6-57 to 60 the private property owners representatives. The BLM sent a post-onsite deficiency letter to the operator on [[July 30, 2015]]. The APD identified deficiencies were responded to by Yates on September 15 and October 28, 2015. Drilling, Construction & Production design features include: * There will be two well pads constructed, each conta...
+
+[106] 6aa0e7a3f99d7a87feed | EA | unknown | May 31, 2012
+Context: ...re received from the Idaho Conservation League and Boise County. The following preliminary issues were discussed at the [[May 31, 2012]] meeting and several of these issues were raised in the comments received during scoping for the NEPA document: Air Quality - Air quality could be impacted on a short-term basis from increased particulates as mater...
+
+[107] 60942f54fc16297fc637 | EA | body_text | August 22, 2017
+Context: ...highly controversial. The BLM SFO notified the two adjacent landowners or their legal representatives in a letter dated [[August 22, 2017]] of the need to remove the failing revetment following the 2017 peak discharge to prevent further safety concerns. The BLM Project Lead and the Field Manager talked to the family member who is t...
+
+[108] a5e7454d941b2f075f55 | EA | body_text | August 22, 2017
+Context: ...highly controversial. The BLM SFO notified the two adjacent landowners or their legal representatives in a letter dated [[August 22, 2017]] of the need to remove the failing revetment following the 2017 peak discharge to prevent further safety concerns. The BLM Project Lead and the Field Manager talked to the family member who is t...
+
+[109] 4a508d723c3859c297d9 | CE | body_text | March 2019
+Context: ...d Field Office on March 25, 2019. Notification of preparation of this proposal was provided on the ePlanning website in [[March 2019]]. It was determined that the nature of the action is routine and that further public notification would not be necessary. Decision and Rationale on Action: I have decided to implement the proposed action for Merit En...
+
+[110] d3363d90153e6d911fd0 | CE | body_text | 06/15/2021
+Context: ...t, Worland Field Office, Wyoming 1. The applicant shall adhere to practices as outlined in the submitted sundries dated [[06/15/2021]]. Operations that deviate from the approved sundries shall receive prior written approval from the Authorized Officer. This Sundry Notice is valid for a period of two years from the approval date. 2. The operator wil...
+
+[111] 4d56b3eb9bf2ba4981a0 | EIS | unknown | November 8, 1996
+Context: ...ng meeting. EPA published a Notice of Availability of a Draft Environmental Impact Statement in the Federal Register on [[November 8, 1996]], and BLM published a Notice of Availability of a Draft Environmental Impact Statement and Notice of Public Hearing in the Federal Register on November 14, 1996. Attorney General Consultation. After a coal leas...
+
+[112] 8dd99edefa9ae122493e | CE | body_text | September 19, 2017
+Context: ...in Ownership Assignment Location of Proposed Action: See Attached Legal Descriptions Description of Proposed Action: On [[September 19, 2017]], a Membership Interest Purchase Agreement was executed between Milford Wind Corridor, LLC and Utah Wind Holding, LLC. Milford Wind Corridor Phase I, LLC and Milford Wind Corridor Phase II, LLC, was a subsidi...
+
+[113] 560ae5d0cf66d8e813ff | EIS | unknown | November 1, 2011
+Context: ...open houses and events in Pima, Pinal, and Maricopa counties beginning on October 7, 2011, with the final event held on [[November 1, 2011]]. A total of 141 people signed in at the scoping open houses, and hundreds more stopped by ADOT booths at community events and spoke with ADOT members. The scoping process included eight public scoping open hou...
+
+[114] 43f6113f82cc8a41a05f | EIS | unknown | December 9, 2014
+Context: ...014 • San Francisco, CA—Thursday, December 4, 2014 • Tucson, AZ—Thursday, December 4, 2014 • Kansas City, MO - Tuesday, [[December 9, 2014]] • New Orleans, LA—Thursday, December 11, 2014 • New York, NY—Monday, December 15, 2014 The Scoping Summary Report can be found in Appendix B, First Responder Network Authority Nationwide Public Safety Broadban...
+
+[115] 95944cd127f1b7756a1d | EIS | unknown | December 9, 2014
+Context: ...014 • San Francisco, CA—Thursday, December 4, 2014 • Tucson, AZ—Thursday, December 4, 2014 • Kansas City, MO - Tuesday, [[December 9, 2014]] • New Orleans, LA—Thursday, December 11, 2014 • New York, NY—Monday, December 15, 2014 The Scoping Summary Report can be found in Appendix B, First Responder Network Authority Nationwide Public Safety Broadban...
+
+[116] c6d59a3ca11f187e67da | CE | body_text | 5/25/2021
+Context: ...BLM REI Canyoneering NPS REI Campsites Private SITLA REI Climbing Tribal NCA_Boundary UDWR USFS St. George Field Office [[5/25/2021]] REI Proposed Areas of Use Map 9 3916 Clara 4290 Location within St. George Field Office 0 0.4 0.8 Miles N Upper Sand Cove Res No warranty is made by the BLM for use of the data for purposes not intended by the BLM. T...
+
+[117] ec3034c0ff3fc28bddde | CE | clear_decision | May 4, 2022
+Context: ...mental Coordinator: Gina Ginouves Date: May 2, 2022 Authorizing Official: Paul N. Briggs Cedar City Field Manager Date: [[May 4, 2022]]. Attachments 1. Operating Plan 2. SRP Application Attachment 1: Operating Plan SPECIAL RECREATION PERMIT GUIDING & OUTFITTING OPERATING PLAN The operating plan must accurately identify the use and activities, the u...
+
+[118] 385de897537c331a67e8 | EIS | unknown | August 22, 2022
+Context: ...-13 CHAPTER 5 PUBLIC SCOPING COMMENTS GSA invited comments for scoping of this EIS during the scoping period (July 14 – [[August 22, 2022]]), including on the key topics that should be covered in the EIS; examples of potential adverse and beneficial impacts from the proposed project; and any other additional, relevant information available. 5.1 COL...
+
+[119] d4c51eb869cbea29e941 | CE | clear_decision | 7/24/15
+Context: ...ngsfield St. Lakewood, Colorado 80215 NAME OF PREPARER: Thane Stranathan NAME OF ENVIRONMENTAL COORDINATOR: Handel DATE [[7/24/15]] SIGNATURE OF AUTHORIZED OFFICIAL Barbara Sharrow Barbara Sharrow Field Manager Uncompahgre Field Office DATE SIGNED 7-27-15
+
+[120] af5544f8bbab3ee756e4 | EIS | unknown | May 19, 2010
+Context: ...2 The discussion of the freight issue was deliberately excluded from all three of the open houses held on May 18, 2010, [[May 19, 2010]] and May 20, 2010. 12.1.5 The only opportunity the public was given by Hennepin County to discuss the freight rail re-route was at the PMT meetings discussed in section 12.1.5. However, any discussion of possible a...
+
+[121] 03d9bc60aeb9a63a875d | EIS | clear_decision | January 2002
+Context: ...oject after the Environmental Assessment (EA) and Finding of No Significant Impact (FONSI) were completed (May 2001 and [[January 2002]], respectively). The project was legally challenged. The ruling of the court primarily centered on a few key issues including logical termini, errors in statistical crash data, and whether the EA/FONSI took a “hard...
+
+[122] 49481f5ab52d12ded77c | EIS | clear_decision | January 2002
+Context: ...oject after the Environmental Assessment (EA) and Finding of No Significant Impact (FONSI) were completed (May 2001 and [[January 2002]], respectively). The project was legally challenged. The ruling of the court primarily centered on a few key issues including logical termini, errors in statistical crash data, and whether the EA/FONSI took a “hard...
+
+[123] 4d06562fe0812d6a635a | EIS | unknown | May 14, 2009
+Context: ... Impact Statement for the Abengoa Biorefinery Project near Hugoton, KS” (74 FR 19543). The Department also published on [[May 14, 2009]], a press release that was provided to eight newspapers and four radio stations in southwestern Kansas. DOE issued the amended notice and press release to inform the public about changes in the Abengoa Biorefinery ...
+
+[124] f8d52d101493a45d92d4 | EIS | proxy_initiation | October 2016
+Context: Glen Canyon Dam Long-Term Experimental and Management Plan [[October 2016]] Final Environmental Impact Statement 1-13 1.5 SCOPE OF THE EIS On December 10, 2009, then Secretary of the Interior Ken Salazar announced the need to develop the LTEMP for Glen Canyon Dam. The Secretary emphasized...
+
+[125] 1d2c883b312b8db25493 | CE | body_text | 02/01/18
+Context: ...significant impacts on public health and safety? No No Wastes, Hazardous or Solid Recreation Kevin Church Jason Oles KC [[02/01/18]] JO 3/19/2018 Section 1.2 Impacts on Natural Resources or Unique Geographic Characteristics 2. Have significant impacts on such natural resources and unique geographic characteristics as historic or cultural resources;...
+
+[126] 5eb4f30d6097fea89409 | CE | body_text | August 2, 2018
+Context: ...ment of the Navy to Project and to Proposed Transmission Line, U.S. Navy (U.S. Navy 1988) A site visit was conducted on [[August 2, 2018]] with Rodger Prominski of Coso Operating Company. 4.1 Screening of Extraordinary Circumstances The following extraordinary circumstances apply to individual actions within categorical exclusions (43 CFR 46.215). ...
+
+[127] df049db29fe3b349186e | CE | body_text | August 2, 2018
+Context: ...ment of the Navy to Project and to Proposed Transmission Line, U.S. Navy (U.S. Navy 1988) A site visit was conducted on [[August 2, 2018]] with Rodger Prominski of Coso Operating Company. 4.1 Screening of Extraordinary Circumstances The following extraordinary circumstances apply to individual actions within categorical exclusions (43 CFR 46.215). ...
+
+[128] 05f5f81b864364d77788 | EIS | unknown | May 27, 2022
+Context: ...l Issues for the Proposed Ohio Valley Connector Expansion Project (NOS), which was published in the Federal Register on [[May 27, 2022]]. On July 7, 2022, FERC issued a Notice of Intent to Prepare an Environmental Impact Statement for the Proposed Ohio Valley Connector Expansion Project, request for Comments on Environmental Issues, and Schedule fo...
+
+[129] 5db1b7b4b66e0abe16c0 | EA | unknown | November 17, 2016
+Context: ...anning website on June 20, 2017. Government to government consultation was conducted with the Shoshone-Paiute Tribes on [[November 17, 2016]], February 16, 2017, and May 18, 2017 and the Shoshone-Bannock Tribes on May 17, 2017. Also, none of the factors found at 43 CFR § 2804.26(a)(1-4) warrant not gra...
+
+[130] a3ee33640eb547b6aa4f | EA | unknown | November 17, 2016
+Context: ...anning website on June 20, 2017. Government to government consultation was conducted with the Shoshone-Paiute Tribes on [[November 17, 2016]], February 16, 2017, and May 18, 2017 and the Shoshone-Bannock Tribes on May 17, 2017. Also, none of the factors found at 43 CFR § 2804.26(a)(1-4) warrant not gra...
+
+[131] 170a8b7bdaec283dff7e | EIS | proxy_initiation | March 2019
+Context: [[March 2019]] Buffalo Field Office Supplemental EIS and RMPA Scoping Comments 98 Letter Number: 19 First Name: Jon Last Name: Kapecki Organization: Individual Full Text: As both a citizen and a scientist, I want to take this oppo...
+
+[132] 70e95d9954f6ae4f0b03 | CE | body_text | 3/11/2021
+Context: ...s. This product was developed through digital means and may be updated without notification. NAD 83. UTM Zone IIN Date: [[3/11/2021]] DOI-BLM-NV-B020-2021-0027-CX N-100111 Nye County 6 EXHIBIT B STIPULATIONS 1. In case of change of address, the Holder shall immediately notify the BLM Authorized Officer. 2. In the event that the public land underlyi...
+
+[133] d6c3d457f099dde4039f | CE | body_text | 4/30/19
+Context: ...ATION III (A). CX Applicability/Exception Review Date Internal Scoping Initiated: 4/12/19 Date Internal Scoping Closed: [[4/30/19]] Applies? Yes No NAME EXTRAORDINARY CIRCUMSTANCE (EXCEPTION) SIGNATURE* DATE *Signature indicates that I have reviewed the project to determine the applicability of an extraordinary circumstance. In accordance with 43 C...
+
+[134] 2043cea1a28ed0bf8be4 | EIS | unknown | February 17, 2017
+Context: ...nce fleet viability. 3.4 PUBLIC SCOPING Notice of Intent and Scoping Process NMFS published a Notice of Intent (NOI) on [[February 17, 2017]] to announce its intent to develop an amendment (later named Amendment 23) and prepare an Environmental Impact Statement (EIS) to analyze the impacts of the proposed management alternatives. The announcement s...
+
+[135] f6775d0f2b6d4325a4bf | EIS | unknown | February 17, 2017
+Context: ...nce fleet viability. 3.4 PUBLIC SCOPING Notice of Intent and Scoping Process NMFS published a Notice of Intent (NOI) on [[February 17, 2017]] to announce its intent to develop an amendment (later named Amendment 23) and prepare an Environmental Impact Statement (EIS) to analyze the impacts of the proposed management alternatives. The announcement s...
+
+[136] b1693ddaa902ed54dd47 | CE | body_text | 10/8/2015
+Context: ...NAL SYSTEM OF PUBLIC LANDS U.S. DEPARTMENT OF THE INTERIOR BUREAu OF LAND MANAGEMENT In Reply Refer To: (LLUTC020) 4120 [[10/8/2015]] CERTIFIED MAIL NO. 7014 3490 0000 2560 0270 David Brinkerhoff PO BOX 153 Bicknell, UT 84715 Dear Mr. Brinkerhoff: Enclosed please find a Grazing Permit (2 copies) that reflects the recent grazing transfer request to ...
+
+[137] 5380656876b503ffa0b2 | EIS | unknown | September 19, 2011
+Context: ...raft EIS Process The Notice of Intent (NOI) initiated a public comment-scoping period that began on July 8 and ended on [[September 19, 2011]]. During that period, NASA hosted the following series of public scoping meetings: • August 16, 2011: Chatsworth Hotel, 9777 Topanga Canyon Road, Chatsworth, CA 91311 • August 17, 2011: Grand Vista, 999 Encha...
+
+[138] 0fdb5290064277546315 | EIS | clear_decision | August 7, 2012
+Context: ...om DOE to export 16.0 MTPA of LNG (equivalent to 2.2 Bcf/d of vaporized natural gas) to FTA countries over 30 years; on [[August 7, 2012]], Sabine Pass LNG received approval from the DOE to export the same volume of LNG to non-FTA countries over the same period. On July 11, 2013 and July 12, 2013, Sabine Pass LNG received DOE approval for LNG expor...
+
+[139] b37b8bdf5eabd558433e | EIS | clear_decision | August 7, 2012
+Context: ...om DOE to export 16.0 MTPA of LNG (equivalent to 2.2 Bcf/d of vaporized natural gas) to FTA countries over 30 years; on [[August 7, 2012]], Sabine Pass LNG received approval from the DOE to export the same volume of LNG to non-FTA countries over the same period. On July 11, 2013 and July 12, 2013, Sabine Pass LNG received DOE approval for LNG expor...
+
+[140] 429b97b61b0e574db20d | CE | body_text | 11/14/13
+Context: ...onship to other actions with individually Insignificant but cumulatively significant environmental effects. [2.6] Rhees [[11/14/13]] 11/14/17 [ ] Amelia Taylor (11) Have a disproportionately high and adverse effect on low income or minority populations (Executive Order 12898). [2.10] 14/7 III (B). Critical Resources Review \\Wmazsf3ds1.blm.doi.net\...
+
+[141] 31dc6982ad264e5e5e33 | EIS | unknown | November 3, 2014
+Context: Lolo Insect & Disease project 12 18, 2013, [[November 3, 2014]], March 16, 2015, July 12, 2017, and October 18, 2017). During staff-to-staff coordination in the field, staff-to-staff office meetings, or at quarterly meetings, the Tribe expressed concerns about old growth, ...
+
+[142] b2eb2871ad2d91bf3628 | CE | clear_decision | June 2012
+Context: ...nd does not require an EA or EIS. Approved by: Leon Thomas Field Manager Sierra Front Field Office 11-16-12 (date) SFFO [[June 2012]]
+
+[143] 88f897f8b838fd582f15 | EIS | unknown | February 5, 1999
+Context: ...s is described on FEIS page 1-24. Comment letters received are in the analysis file. The date on the earliest letter is [[February 5, 1999]]. The earliest date of correspondence from the commente...
+
+[144] b971b47276e992ec68e5 | EIS | unknown | February 5, 1999
+Context: ...s is described on FEIS page 1-24. Comment letters received are in the analysis file. The date on the earliest letter is [[February 5, 1999]]. The earliest date of correspondence from the commente...
+
+[145] d43ce72b8e49663a5027 | CE | body_text | July 19, 2013
+Context: ...to review under the National Environmental Policy Act (NEPA). On August 1, 2013, the BLM notified the claimant that his [[July 19, 2013]] notice was complete. AA-93612 1 This CX and the subsequent land use authorization, if granted, applies only to Raw TV's proposed aerial and on-the-ground filming activities and associated tent camping needs. Appl...
+
+[146] 8408cdcf083f3489232e | CE | proxy_initiation | April 2022
+Context: ...nterior Bureau of Land Management TCT West, Inc. ROW WYW-165425 Decision Record (DR) BLM Wyoming – Worland Field Office [[April 2022]] DOI-BLM-WY-R010-2022-0015-CX Worland Field Office 101 South 23rd Street Worland, Wyoming 82401 307-347-5100 307-347-5228 (FAX) Decision Record TCT West, Inc. ROW WYW-165425 DOI-BLM-WY-R010-2022-0015-CX INTRODUCTION:...
+
+[147] 3756dad98362e21b21e2 | EIS | clear_decision | November 2000
+Context: ...et a projected deficit in water availability. The DEIS was published in April 1999. A Final EIS (FEIS) was published in [[November 2000]] identifying the construction of the Hunter Lake Reservoir as the preferred alternative; however, a final NEPA decision document (Record of Decision) was not issued. Between 2000 and 2010, negotiations continued b...
+
+[148] 867782b71de494945386 | EIS | unknown | November 18, 2013
+Context: How to Provide Comments Public Scoping Comment Period: August 16, 2013 through [[November 18, 2013]] Online comment form via the website: www.millenniumbulkeiswa.gov Email: comments@millenniumbulkeiswa.gov Postal Service: Millennium Bulk Terminals Longview EIS c/o ICF International 710 Second Avenue, Suite 5...
+
+[149] 2d24800a6c81d874717d | EIS | unknown | May 30, 2012
+Context: ...House Meetings During the Scoping Period Date Location Host Forest Public Attendance May 29, 2012 Ventura Los Padres 20 [[May 30, 2012]] Arcadia Angeles 70 May 31, 2012 San Bernardino San Bernardino 17 May 31, 2012 Acton Angeles 22 May 31, 2012 Ramona Cleveland 39 May 31, 2012 Santa Maria Los Padres 8 June 1, 2012 Frazier Park Los Padres 40 June 5,...
+
+[150] ab47dd47fcd06c11816a | CE | body_text | 2/25/2019
+Context: ...rther environmental analysis is required. MITIGATION MEASURES/OTHER REMARKS: APPROVING OFFICIAL: /s/ Aron C. King DATE: [[2/25/2019]] TITLE: Yuma Field Manager Note: the signed conclusion on this compliance records is part of an interim step in the BLM's internal decision process and does not constitute an appealable decision. A separate decision t...
+
+[151] 8f1a052a642889a6f981 | CE | clear_decision | Sep 28, 2011
+Context: ...may be categorically excluded from further review. **NEPA Compliance Officer**: Andrew R. Grainger **Date Determined**: [[Sep 28, 2011]] **Comments**: LWO-F-2011-0092, Rev.0 [Image of "Submit via Email", "Submit to Website", "Print Form for Records" buttons below signature area]
+
+[152] 2a3ea8f730ad1323d5a4 | EIS | unknown | February 25, 2009
+Context: 8519 Federal Register / Vol. 74, No. 36 / Wednesday, [[February 25, 2009]] / Notices scoping process] in preparing such an EIS.’’ Identification of Environmental Issues When publishing its notice of intent to prepare an EA on August 4, 2008, DOE opened a 30-day scoping period during...
+
+[153] bbafeb126dbfa07a6955 | EIS | unknown | February 25, 2009
+Context: 8519 Federal Register / Vol. 74, No. 36 / Wednesday, [[February 25, 2009]] / Notices scoping process] in preparing such an EIS.’’ Identification of Environmental Issues When publishing its notice of intent to prepare an EA on August 4, 2008, DOE opened a 30-day scoping period during...
+
+[154] 693c0a4e9f15c9501b34 | CE | body_text | 5/25/2021
+Context: ...BLM REI Canyoneering NPS REI Campsites Private SITLA REI Climbing Tribal NCA_Boundary UDWR USFS St. George Field Office [[5/25/2021]] REI Proposed Areas of Use Map 1 3221 Beaver Dam Wash Beaver Dam Wash NCA 3001 3378 Indian 3267 Reber Burgess Wash Beaver Dam Wash NCA Canyon Crazy Spring Sam Spring Wash Reber Spring Middle Spring 3582 BEAVER DAM WAS...
+
+[155] 036a14e5b195679e7968 | CE | body_text | 01/23/2024
+Context: ...Edward A. Kraft Field Manager North Dakota Field Office Date 3 Exhibit A: Location Map XTO Holdings, LLC NDMT 105848786 [[01/23/2024]] T148N R096W 33 Dunn COUNTY 34 N CAUTION: Land Ownership data is derived from less accurate data than the 1:21000 scale base map. Therefore, land ownership may not be shown for parcels smaller than 40 acres, and land...
+
+[156] 314431c8ce7d2332e438 | EIS | unknown | April 13, 2013
+Context: ...n 60 days of the date on the NAP. Should you decide to submit an RF A form, it must be received at the above address by [[April 13, 2013]]. It is not necessary to submit an RF A form to the Division office if you do not object to the decision in this letter. This verification is valid for five years from the date of this letter, unless new informat...
+
+[157] b22aaa947be35d15f1c6 | CE | body_text | 3/11/2016
+Context: ...nd that no further environmental analysis is required. /s/ Dennis C. Teitzel Dennis C. Teitzel Glennallen Field Manager [[3/11/2016]] Date
+
+[158] 7e5e0556a7299ef3178f | CE | proxy_decision | DOI-BLM-CO-F020-2018-0049
+Context: ...reau of Land Management Royal Gorge Field Office 3028 E. Main Street Cañon City, CO 81212 CATEGORICAL EXCLUSION NUMBER: [[DOI-BLM-CO-F020-2018-0049]] CX CASEFILE/PROJECT NUMBER (optional): COC-44113, COC-46386 PROJECT NAME: Custer and Huerfano County Rights-of-way (ROW) Renewals PLANNING UNIT: Grape Creek Subregion #7 (COC-44113) Huerfano Subregion...
+
+[159] d9fc3b88c8a95bc7f016 | EIS | clear_decision | December 15, 2005
+Context: ... on BLM-Administered Lands in the Western United States (Wind PEIS). The Record of Decision for the Wind PEIS signed on [[December 15, 2005]] established a Wind Energy Development Program for the BLM. Elements of the Wind Energy Development Program include: (1) an assessment of wind energy development potential on BLM-administered lands through 202...
+
+[160] e083e28e01fcceb350be | EIS | proxy_initiation | October 2016
+Context: ..., 2016. USACE met again with Kuukpik on June 29 and August 10, 2016. ASRC formally requested consultation with USACE in [[October 2016]] regarding development of the EIS and subsequent permitting. USACE met with ASRC on December 2, 2016. Page 6-1
+
+[161] cade38c0401418407882 | EIS | unknown | June 1, 2023
+Context: ...Scoping Items. The meeting was in person and all scoping questions were to be submitted through the county’s website by [[June 1, 2023]]. No recordings of meeting were performed. One public comment was submitted through CCWA’s website regarding potential downstream impacts. Sponsor responded to the comment and posting the same on its website. Docum...
+
+[162] 713349d746166ae81c9a | CE | body_text | July 2017
+Context: ...Management Winnemucca District Humboldt River Field Office 5100 East Winnemucca Blvd. Winnemucca, NV 89445 775-623-1500 [[July 2017]] NATIONAL SYSTEM OF PUBLIC LANDS U.S. DEPARTMENT OF THE INTERIOR BUREAU OF LAND MANAGEMENT Categorical Exclusion Harney Electric Cooperative, Inc. Right-of-Way Renewal Humboldt River Field Office Winnemucca, Nevada 89...
+
+[163] f47bfc3afefea0f0d963 | CE | body_text | July 18, 2019
+Context: ...mber: 270-441-5031 PPPO Project Coordinator: Tracey Duncan Telephone Number: 270-441-6862 Forecast Activity start date: [[July 18, 2019]] Estimated cost: $5,000,000 Activity location: PORTS/PAD Other [ ] PORTS [x] PAD [x] Activity description: This should be a brief but thorough description of the proposed activity. Be very specific in explaining t...
+
+[164] 1b5f5279900050ccc52a | EIS | unknown | November 7, 2013
+Context: ... proposed project on September 23, 2013, in the Federal Register (78 FR 58270). The comment period for the NOI ended on [[November 7, 2013]]. The NOP, NOI, and public notice were also made available to the public on the CPUC’s website for the proposed project at: http://www.cpuc.ca.gov/environment/info/dudek/CNF/CNF.htm. I.1.2 Public Scoping Meetin...
+
+[165] 44a628ce68d2bd8fc636 | CE | body_text | September 28, 2017
+Context: ...e: 0.050 New Disturbance Acreage: 0.00 Applicant: Central Telephone Company d/b/a CenturyLink Description of Project On [[September 28, 2017]], Central Telephone Company d/b/a Centurylink applied for the renewal to right-of-way (ROW) N-43344. The Proposed Action includes the renewal of existing 6' x 329.80' of existing PVC underground conduit and c...
+
+[166] b1f65ab78d62707a5afb | EIS | proxy_initiation | June 2009
+Context: ...ied as the NextEra Ford Dry Lake Solar Power Plant on BLM-administered land in Eastern Riverside County, California. In [[June 2009]], the Applicant notified BLM that the company name was being changed to Genesis Solar, LLC, and the Proposed Action became known as the Genesis Solar Energy Project (GSEP or Proposed Action). The Proposed Action would...
+
+[167] 6497ea716b436c2c5dbe | EA | proxy_initiation | April 10, 2023
+Context: ...M national NEPA project register, ePlanning, on March 10, 2023, commencing a 30-day public comment period that ended on [[April 10, 2023]]. Comments on the draft EA were accepted on the ePlanning project website at https://eplanning.blm.gov/eplanning-ui/project/2022413/510. Three comments were received, and one comment resulted in a revised Section...
+
+[168] 96031ea13fbd2f3225a3 | EIS | unknown | 09/26/2011
+Context: ...entification of what are and what are not the real issues (1501.7) This project had two scoping periods (11/01/2010 and [[09/26/2011]]) because the Forest felt there was enough change between the original proposed action and the modified that it would be appropriate to scope again. Using the process for NEPA compliance, if an EA cannot determine wh...
+
+[169] 2a3e093b7ab011c9b9db | EA | unknown | July 14, 2010
+Context: ...zed land users in the area, SRP holders and applicants, and Tribes which provided a 35-day public comment period ending [[July 14, 2010]]. A total of 24 comment letters were received. Comments received through the public and agency involvement process are described in sections 5.2 and 5.3 below. 5.2 Persons, Groups and Agencies Consulted Table 7: C...
+
+[170] 376c45bee3eeefc6b428 | CE | body_text | July 9, 2013
+Context: ...May 6, 2013, to sign a waiver for BLM to sell mineral materials from his mining claims. Mr. Bauman signed the waiver on [[July 9, 2013]]. If the operator of the contract suspects he/she encountered gold the operator shall contact BLM. The potential gold bearing material shall be stockpiled at the site for Mr. Bauman of Searchlight Exploration and/o...
+
+[171] fad9b689326a05952e25 | EIS | unknown | January 15, 2012
+Context: ...scoping period, which closed on March 23, 2012. News Release A news release was provided to local news organizations on [[January 15, 2012]]. This news release announced the scoping period for the LUPA/EIS process and provided information about the open houses. Scoping Open Houses The BLM hosted four open houses to provide the public with opportuni...
+
+[172] 339fc6b10af351891f23 | EIS | unknown | June 26, 2017
+Context: ... in the Federal Register on April 26, 2017; it allowed 60 days for public comment on the proposal from April 26 through [[June 26, 2017]]. Two additional commenters responded during this time. A detailed summary of scoping comments and responses can be found in the project file. 1.8 Issues Using the comments from the public, other agencies, and the...
+
+[173] 9fcf42a0b5ab813f4245 | EIS | unknown | June 26, 2017
+Context: ... in the Federal Register on April 26, 2017; it allowed 60 days for public comment on the proposal from April 26 through [[June 26, 2017]]. Two additional commenters responded during this time. A detailed summary of scoping comments and responses can be found in the project file. 1.8 Issues Using the comments from the public, other agencies, and the...
+
+[174] 7a3eae6034cb9cd46ba2 | CE | clear_decision | 6/24/19
+Context: ...ed from further environmental analysis. D: Signature Authorizing Official: [Signature] Chris Conrad Field Manager Date: [[6/24/19]] Contact Person For additional information concerning this CX review, contact Jaydon Mead, Realty Specialist BLM Price Field Office 125 South 600 West Price, UT 84501 Phone: (435) 636-3646 Fax: (435) 636-3657 DOI-BLM-UT...
+
+[175] 8990000e2a37f3bb5370 | EA | proxy_initiation | January 2010
+Context: ...ividuals. The project appeared in the online Four Rivers Field Office Schedule of Proposed Actions in December 2009 and [[January 2010]]. A copy of this EA is available upon request from: BUREAU OF LAND MANAGEMENT Boise District Four Rivers Field Office 3948 Development Avenue Boise, Idaho 83705-5389. Scoping packages were distributed to adjacent l...
+
+[176] 42a780eaf9e9c96a9deb | EIS | unknown | March 15, 2019
+Context: ...e, is presented in Table 1-1. Draft EIS Public Review A Notice of Availability was published in the Federal Register on [[March 15, 2019]] and the Yuma Sun on March 15 and 31, 2019, announcing the availability of the Draft...
+
+[177] c3653306b6b458e94e07 | EIS | unknown | April 26, 2017
+Context: ...nt effects which may result from the proposed action. A Notice of Intent (NOI) was published in the Federal Register on [[April 26, 2017]]; it allowed 60 days for public comment on the proposal from April 26 through June 26, 2017. Two additional commenters responded during this time. A detailed summary of scoping comments and responses can be found...
+
+[178] f07dc41d52eb7f3464a6 | EIS | unknown | April 26, 2017
+Context: ...nt effects which may result from the proposed action. A Notice of Intent (NOI) was published in the Federal Register on [[April 26, 2017]]; it allowed 60 days for public comment on the proposal from April 26 through June 26, 2017. Two additional commenters responded during this time. A detailed summary of scoping comments and responses can be found...
+
+[179] 509af706ba7767c957cb | CE | clear_decision | 5/24/17
+Context: ... appeal is served.. Authorized Officer (Print Name and Title): Richard Roy, Three Rivers Field Manager Signature: Date: [[5/24/17]] OR020-1791-01 (Revised January 2010) Hayes Allotment #7036 Water Development Maintenance CX own Flat 18 Mud Ridge Arrowhead Butte, Road 19 3 20 Palmer Spring Headache Reservoir Skull Creek Road 29 31 32 17 Wire Fence R...
+
+[180] 7b4dde2a022310077016 | EIS | unknown | February 28, 2020
+Context: ...e 2020 Date Meeting Type Meeting Agenda February 14, 2020 Parking Working Group2 Meeting Discussion of parking program. [[February 28, 2020]] Parking Working Group2 Meeting Discussion of parking program. March 6, 2020 Parking Working Group2 Meeting Discussion of parking program. 1. Representatives of DCOP, including DC SHPO, and DDOT. 2. The Parkin...
+
+[181] 1436750fec95f14319f3 | CE | body_text | October 17, 2016
+Context: ...the event would be in accordance with the permit's general and specific stipulations. CONSULTATION AND COORDINATION: On [[October 17, 2016]], this project was brought before an Interdisciplinary Team consisting of BLM specialists. Originally when this activity was proposed in 2013, BLM specialists visited proposed launch site locations to determine...
+
+[182] 10e5153522ba71fdd678 | EA | unknown | October 4, 2012
+Context: ...es and Utilities • Socioeconomics • Hazardous Materials/Soils • Cultural Resources 1.5.2 Water Resources BLM Scoping On [[October 4, 2012]], the BLM condu...
+
+[183] 760bc08ea27e1246fd26 | EA | unknown | October 4, 2012
+Context: ...es and Utilities • Socioeconomics • Hazardous Materials/Soils • Cultural Resources 1.5.2 Water Resources BLM Scoping On [[October 4, 2012]], the BLM condu...
+
+[184] b1f1561ca5338b2d876f | EIS | unknown | September 7, 2012
+Context: ... 77, No. 139, p. 42488), initiating a 30-day 13 scoping period; this period was extended by nearly 20 days to end on 14 [[September 7, 2012]]. The NOI was published in the Hollister Free Lance on July 31, 15 2012, and on August 3, 2012. Also, it was mailed to federal, state, and local 16 agencies, organizations, and individuals known to have an int...
+
+[185] 2694fc1d8cbc495c57cb | CE | body_text | July 2019
+Context: ...and Field Office on July 8, 2019. Notification of preparation of this proposal was provided on the ePlanning website in [[July 2019]]. It was determined that the nature of the action is routine and that further public notification would not be necessary. Decision and Rationale on Action: I have decided to implement the proposed action for Merit Ene...
+
+[186] fac4b1e16bd11d9915d5 | EIS | unknown | September 20, 2021
+Context: The Institute for Policy Integrity at New York University School of Law enclosed documents mentioned in its [[September 20, 2021]] letter can be found on ferc.gov docket CP20-484 accession no. 20210920-5024.
+
+[187] ba04c49fa507bbd4048b | CE | proxy_decision | DOI-BLM-MT-C020-2023-0041
+Context: ... Department of the Interior Bureau of Land Management Categorical Exclusion Custer/Fallon County Allotment Transfers CX [[DOI-BLM-MT-C020-2023-0041]]-CX April 2023 Miles City Field Office 111 Garryowen Road Miles City, Montana, 50301 DESCRIPTION OF THE PROPOSED ACTION AND ANY APPLICABLE MITIGATION MEASURES BLM Office NEPA PROJECT NUMBER PROPOSED AC...
+
+[188] ecb4f9081886fe609611 | CE | proxy_decision | DOI-BLM-MT-C020-2023-0041
+Context: ... Department of the Interior Bureau of Land Management Categorical Exclusion Custer/Fallon County Allotment Transfers CX [[DOI-BLM-MT-C020-2023-0041]]-CX April 2023 Miles City Field Office 111 Garryowen Road Miles City, Montana, 50301 DESCRIPTION OF THE PROPOSED ACTION AND ANY APPLICABLE MITIGATION MEASURES BLM Office NEPA PROJECT NUMBER PROPOSED AC...
+
+[189] d7b212a0134cbd2d78e8 | CE | proxy_initiation | December 2018
+Context: ... DATE: 10/09/2017 EXHIBIT 9 SHEET 1 OF 1 U.S. Department of the Interior Bureau of Land Management Rawlins Field Office [[December 2018]] DECISION RECORD BP America Production Company Chain Lakes 32-10H 10-inch temporary lay flat hose ROW: WYW-186657 Amendment 3 DOI-BLM-WY-D030-2019-0020-CX Decision I have reviewed the attached Categorical Exclusio...
+
+[190] 123a07a1ebb5b60739f9 | CE | proxy_decision | DOI-BLM-ORWA-V000-2023-0014
+Context: ...ents a real estate transaction has occurred. Decision Record Based on the enclosed Categorical Exclusion Documentation, [[DOI-BLM-ORWA-V000-2023-0014]] CX, I have determined that the proposed action to Transfer Grazing Preference and Permit involves no significant impacts to the human environment and requires no further environmental analysis. It i...
+
+[191] 4d5d9211f023abf9d852 | CE | proxy_initiation | February 2018
+Context: United States Department of the Interior Bureau of Land Management Categorical Exclusion DOI-BLM-CO-SO50-2018-0012 CX [[February 2018]] Assignment of Right-of-Way – Access Road Location: Montrose County, Colorado U.S. Department of the Interior Bureau of Land Management Uncompahgre Field Office 2465 South Townsend Avenue Montrose, CO 81401 Phone:...
+
+[192] 3b2b9c649a2478ee6aec | CE | body_text | March 28, 2001
+Context: ...ebruary 25, 1920 (30 U.S.C. 185), as amended. On August 16, 1999, the ROW was assigned to Wildhorse Energy Partners. On [[March 28, 2001]], the ROW as assigned to TBI Field Services, Inc. On November 6, 2001, the ROW was assigned to Canyon Gas Resources, Inc. On April 30, 2008, the right of way was assigned to ETC Canyon Pipeline, LLC due to a name...
+
+[193] 391fa28ffc5721a6d17e | CE | body_text | 10/8/2020
+Context: ...ecialist, Monticello Field Office, phone 435-587-1522 E. Signature Authorizing Official: for Amber Denton Johnson Date: [[10/8/2020]] Acting Field Manager F. Attachments • Table of Extraordinary Circumstances • Map of Right-of-Way UTU-95275 DOI-BLM-UT-Y020-2021-0001-CX 3 Attachment 1: Table 1: Table of Extraordinary Circumstances Extraordinary Circ...
+
+[194] 4a5fbc1d338275ac3c04 | CE | historical | 1/3/18
+Context: ... further environmental analysis is required. for [Signature] Vanessa L. Hice Assistant Field Manager, Division of Lands [[1/3/18]] Date Categorical Exclusion DOI-BLM-NV-S010-2017-0126 Map Section 6, Lot 7 [Image showing KMW-1R, KMW-20, MW-36] Existing KMW-1 will be replaced with KMW-1R Previously authorized KMW-20 Section 7, Lot 1 [Image showing MW...
+
+[195] 6937f2068b5a9abcd319 | CE | body_text | November 7, 2020
+Context: ...asins or Judith Mountains, see file for filming areas. They are planning on hunting and filming from October 28 through [[November 7, 2020]]. The purpose of this action is to analyze the proponent's application for a commercial film permit. The need for the action is established by the BLM's responsibility under FLPMA to respond to a request for a ...
+
+[196] 6e708055d38f4a67e849 | EIS | unknown | October 26, 2004
+Context: ... after March 30, 2005. 2 Final FR/EIS dates are to be determined (TBD) USACE hosted public scoping meetings on Tuesday, [[October 26, 2004]], in Littleton, Colorado, and Wednesday, October 27, 2004, in Greeley, Colorado. In addition to representatives of USACE and its contractor Tetra Tech EC, Inc., 18 people attended the Littleton meeting and 1 pe...
+
+[197] 5a08cc45a279ad6a25bd | EA | unknown | April 23, 2002
+Context: ...tion at LANL _____________________________________________________________________________________________ DOE OLASO 17 [[April 23, 2002]] would be required to segregate these materials for recycling. Waste Minimization Plans would be developed for each construction project. The new buildings would be heated by natural gas-fired boilers. New refrig...
+
+[198] 891b0301636884c2526f | EA | proxy_initiation | July 2020
+Context: ...hich 3 were substantive and supportive. Public comment flyers were also published on the eplanning website beginning in [[July 2020]], no comments were received via eplanning. This project was published to the BLM National NEPA Register online at: https://eplanning.blm.gov/epl-front- office/eplanning/planAndProjectSite.do?methodName=dispatchToPatte...
+
+[199] 59c28cadc74d217c5ebd | CE | body_text | 2/16/2016
+Context: ...ure Authorizing Official: Paul Whitman (Signature) Name: Todd Forbes Title: Field Manager, Lakeview Resource Area Date: [[2/16/2016]] E: Contact Person For additional information concerning this CX review, contact James Price, Wild Horse and Burro specialist, Lakeview Resource Area, Bureau of Land Management, 1301 South G Street, Lakeview, OR 97630...
+
+[200] efa0e53e8de8569a9021 | EIS | proxy_initiation | April 2017
+Context: ... Programmatic Environmental Impact Statement Chapter 1 FirstNet Nationwide Public Safety Broadband Network Introduction [[April 2017]] 1-11 This section provides an overview of the overall PEIS public involvement process (see Section 1.7.1) and, more specifically, the scoping process for the Draft PEISs (see Section 1.7.2) and public comments made ...
