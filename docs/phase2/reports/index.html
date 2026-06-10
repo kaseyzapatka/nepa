@@ -4496,10 +4496,6 @@ vertical-align: -.125em;
     <a class="dropdown-item" href="../../phase1/reports/deliverable06.html" rel target>
  <span class="dropdown-text">Deliverable 6</span></a>
   </li>  
-        <li>
-    <a class="dropdown-item" href="../../phase1/reports/key_insights.html" rel target>
- <span class="dropdown-text">Fact Sheet</span></a>
-  </li>  
     </ul>
   </li>
   <li class="nav-item dropdown ">
@@ -4515,6 +4511,10 @@ vertical-align: -.125em;
         <li>
     <a class="dropdown-item" href="../../phase2/reports/deliverable01.html" rel target>
  <span class="dropdown-text">Deliverable 1</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../phase2/reports/deliverable03.html" rel target>
+ <span class="dropdown-text">Deliverable 3</span></a>
   </li>  
     </ul>
   </li>
@@ -4626,14 +4626,14 @@ transform: none;
       return;
     }
 
-    const siteRoot = overviewItem
-      .getAttribute("href")
-      .replace(/phase2\/reports\/index\.html$/, "");
+    const siteRoot = deliverableItem.href
+      .replace(/phase2\/reports\/deliverable01\.html$/, "");
 
     const submenuItems = [
       ["Report", "phase2/reports/deliverable01.html"],
       ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
-      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"]
+      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
+      ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
     ];
 
     const deliverableParent = deliverableItem.closest("li");

@@ -1,7 +1,8 @@
 # --------------------------
-# DECARBONIZTION TECHNOLOGY DEFINITIONS: FIGURES
+# DECARBONIZATION TECHNOLOGY DEFINITIONS: TABLES AND FIGURES
 # --------------------------
-# Produces figures for 00_project_overview.qmd:
+# Produces tables and figures for project_overview.qmd:
+#   - Clean and fossil project type tag counts
 #   - Projects by NEPA review process (all projects)
 #   - Decarbonization technology projects by NEPA review process
 #   - Energy type breakdown (Clean, Fossil, Other)
@@ -11,6 +12,75 @@
 # --------------------------
 
 source(here::here("phase1", "code", "_project_overview", "00_setup.R"))
+
+# --------------------------
+# TABLES
+# --------------------------
+
+summarise_energy_tag_counts <- function(df, energy_type, tag_map, category_label) {
+  tag_reference <- tag_map %>%
+    distinct(`Project Type Tag`, tag_order) %>%
+    mutate(`Energy Category` = category_label)
+
+  tag_counts <- df %>%
+    filter(project_energy_type == energy_type) %>%
+    mutate(project_type_list = map(project_type, fromJSON)) %>%
+    select(project_id, project_type_list) %>%
+    unnest(project_type_list) %>%
+    rename(raw_tag = project_type_list) %>%
+    inner_join(tag_map, by = "raw_tag") %>%
+    distinct(project_id, raw_tag, `Project Type Tag`) %>%
+    count(`Project Type Tag`, name = "Projects") %>%
+    mutate(`Energy Category` = category_label)
+
+  tag_reference %>%
+    left_join(tag_counts, by = c("Energy Category", "Project Type Tag")) %>%
+    mutate(Projects = replace_na(Projects, 0L))
+}
+
+clean_energy_table_tags <- tibble(raw_tag = clean_energy_tags) %>%
+  mutate(
+    `Project Type Tag` = if_else(
+      str_starts(raw_tag, "Renewable Energy Production -"),
+      "Renewable Energy Production",
+      raw_tag
+    ),
+    tag_order = dense_rank(match(`Project Type Tag`, unique(`Project Type Tag`)))
+  )
+
+fossil_energy_table_tags <- tibble(
+  raw_tag = fossil_energy_tags,
+  `Project Type Tag` = fossil_energy_tags,
+  tag_order = seq_along(fossil_energy_tags)
+)
+
+# Mirrors the Deliverable 01 technology counting architecture:
+# parse project_type JSON, unnest tags, keep one project-id/tag pair,
+# then sum raw tags by table row within the final energy classification.
+energy_tag_counts <- bind_rows(
+  summarise_energy_tag_counts(
+    projects,
+    energy_type = "Clean",
+    tag_map = clean_energy_table_tags,
+    category_label = "Decarbonization Technology"
+  ),
+  summarise_energy_tag_counts(
+    projects,
+    energy_type = "Fossil",
+    tag_map = fossil_energy_table_tags,
+    category_label = "Fossil Fuel"
+  )
+) %>%
+  arrange(
+    factor(`Energy Category`,
+           levels = c("Decarbonization Technology", "Fossil Fuel")),
+    desc(Projects),
+    tag_order
+  ) %>%
+  select(`Energy Category`, `Project Type Tag`, Projects)
+
+write_csv(energy_tag_counts, file.path(tables_dir, "table1_energy_tag_counts.csv"))
+cat("Saved table: table1_energy_tag_counts.csv\n")
 
 # --------------------------
 # FIGURES
@@ -140,4 +210,5 @@ ggsave(
 # --------------------------
 
 cat("\n=== Decarbonization Technology Definitions Script Complete ===\n")
+cat("Tables saved to:", tables_dir, "\n")
 cat("Figures saved to:", figures_dir, "\n")

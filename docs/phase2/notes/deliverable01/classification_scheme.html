@@ -4496,10 +4496,6 @@ vertical-align: -.125em;
     <a class="dropdown-item" href="../../../phase1/reports/deliverable06.html" rel target>
  <span class="dropdown-text">Deliverable 6</span></a>
   </li>  
-        <li>
-    <a class="dropdown-item" href="../../../phase1/reports/key_insights.html" rel target>
- <span class="dropdown-text">Fact Sheet</span></a>
-  </li>  
     </ul>
   </li>
   <li class="nav-item dropdown ">
@@ -4515,6 +4511,10 @@ vertical-align: -.125em;
         <li>
     <a class="dropdown-item" href="../../../phase2/reports/deliverable01.html" rel target>
  <span class="dropdown-text">Deliverable 1</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable03.html" rel target>
+ <span class="dropdown-text">Deliverable 3</span></a>
   </li>  
     </ul>
   </li>
@@ -4624,9 +4624,10 @@ vertical-align: -.125em;
 <li><code>federal_funding</code></li>
 <li><code>federal_land</code></li>
 <li><code>federal_permit</code></li>
-<li><code>federal_action</code></li>
+<li><code>federal_direct_action</code></li>
 <li><code>federal_program</code></li>
 <li><code>federal_property_transaction</code></li>
+<li><code>pma</code> <em>(Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA))</em></li>
 <li><code>unknown</code></li>
 </ul>
 </section>
@@ -4662,16 +4663,17 @@ vertical-align: -.125em;
 <h3 class="anchored" data-anchor-id="suggested-priority-order-for-primary-trigger-assignment">Suggested priority order for primary trigger assignment</h3>
 <p>Use this only when the text is ambiguous.</p>
 <ol type="1">
-<li><code>federal_action</code></li>
-<li><code>federal_program</code></li>
+<li><code>federal_direct_action</code></li>
+<li><code>pma</code> <em>(Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA))</em></li>
 <li><code>federal_property_transaction</code></li>
 <li><code>federal_land</code></li>
 <li><code>federal_permit</code></li>
+<li><code>federal_program</code></li>
 <li><code>federal_funding</code></li>
 <li><code>unknown</code></li>
 </ol>
-<p><strong>Why this order:</strong> Gives priority to the federal role when the agency is the principal actor or decision-maker, rather than simply one source of support or one regulatory checkpoint.</p>
-<p>Examples: - If BLM is approving a right-of-way across federal land, <code>federal_land</code> is often more informative than <code>federal_permit</code> - If DOE is building or directly implementing the action, <code>federal_action</code> should outrank <code>federal_funding</code> - If the document is a programmatic plan, <code>federal_program</code> should outrank narrower project features</p>
+<p><strong>Why this order:</strong> Gives priority to the federal role when the agency is the principal actor or decision-maker, rather than simply one source of support or one regulatory checkpoint. PMA/TVA projects are elevated above land and permit because the agency identity is the clearest nexus signal for those entities.</p>
+<p>Examples: - If BLM is approving a right-of-way across federal land, <code>federal_land</code> is often more informative than <code>federal_permit</code> - If DOE is building or directly implementing the action, <code>federal_direct_action</code> should outrank <code>federal_funding</code> - If the document is a programmatic plan, <code>federal_program</code> should outrank narrower project features - If BPA, WAPA, SEPA, SWPA, or TVA is the lead agency, assign <code>pma</code> as primary even when the project also crosses federal land or requires a permit</p>
 <hr>
 </section>
 </section>
@@ -4700,7 +4702,13 @@ vertical-align: -.125em;
 </section>
 <section id="federal_program" class="level3">
 <h3 class="anchored" data-anchor-id="federal_program"><code>federal_program</code></h3>
-<p>Indicative terms: programmatic EIS, PEIS, resource management plan, land use plan, policy, rulemaking, corridor designation, leasing program, program-wide, nationwide, regional plan</p>
+<p>Indicative terms: programmatic EIS, PEIS, site-wide EIS (SWEIS), Tier 1 review, policy, rulemaking, integrated resource plan, program-wide, nationwide, regional plan</p>
+<p>Note: land-management programmatic reviews (e.g., vegetation management PEAs, leasing program PEIS on federal lands, BLM wind/solar PEIS, Western Solar Plan, Section 368 corridor PEIS) are classified as <code>federal_land</code>, not <code>federal_program</code>.</p>
+</section>
+<section id="pma-power-marketing-administration-pma-tennessee-valley-authority-tva" class="level3">
+<h3 class="anchored" data-anchor-id="pma-power-marketing-administration-pma-tennessee-valley-authority-tva"><code>pma</code> — Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA)</h3>
+<p>Indicative terms: Bonneville Power Administration, BPA, Western Area Power Administration, WAPA, Southeastern Power Administration, SEPA, Southwestern Power Administration, SWPA, Power Marketing Administration, Tennessee Valley Authority, TVA</p>
+<p>Agencies: BPA, WAPA, SEPA, SWPA, TVA, and any generic PMA. Assign <code>pma</code> as the primary trigger whenever one of these entities is the lead or sponsoring agency, even when the project also involves federal land (e.g., transmission line ROW grants) or permits. Add <code>federal_land</code> or <code>federal_permit</code> as secondary triggers when applicable.</p>
 </section>
 <section id="federal_property_transaction" class="level3">
 <h3 class="anchored" data-anchor-id="federal_property_transaction"><code>federal_property_transaction</code></h3>
@@ -4768,8 +4776,8 @@ vertical-align: -.125em;
 <h3 class="anchored" data-anchor-id="example-4-forest-service-vegetation-management-project">Example 4: Forest Service vegetation management project</h3>
 <p>Evidence: Forest Service proposes thinning and fuel reduction on National Forest lands.</p>
 <ul>
-<li><code>nepa_trigger_primary = federal_action</code></li>
-<li><code>nepa_trigger_secondary = federal_land</code> optional if you want to separately record land context</li>
+<li><code>nepa_trigger_primary = federal_land</code></li>
+<li><code>nepa_trigger_secondary = federal_direct_action</code> optional if you want to separately record that the agency is the direct actor</li>
 <li><code>confidence = high</code></li>
 </ul>
 </section>
@@ -4781,8 +4789,18 @@ vertical-align: -.125em;
 <li><code>confidence = high</code></li>
 </ul>
 </section>
-<section id="example-6-ambiguous-energy-project" class="level3">
-<h3 class="anchored" data-anchor-id="example-6-ambiguous-energy-project">Example 6: Ambiguous energy project</h3>
+<section id="example-6-bpa-transmission-line-with-row-on-federal-land" class="level3">
+<h3 class="anchored" data-anchor-id="example-6-bpa-transmission-line-with-row-on-federal-land">Example 6: BPA transmission line with ROW on federal land</h3>
+<p>Evidence: Bonneville Power Administration proposes to rebuild a 230-kV transmission line; project requires a right-of-way grant across BLM-administered land.</p>
+<ul>
+<li><code>nepa_trigger_primary = pma</code></li>
+<li><code>nepa_trigger_secondary = federal_land</code> (ROW grant on BLM land recorded as secondary nexus)</li>
+<li><code>confidence = high</code></li>
+</ul>
+<p>Note: <code>pma</code> takes priority over <code>federal_land</code> because BPA is the lead agency and primary actor. The land nexus is real but secondary.</p>
+</section>
+<section id="example-7-ambiguous-energy-project" class="level3">
+<h3 class="anchored" data-anchor-id="example-7-ambiguous-energy-project">Example 7: Ambiguous energy project</h3>
 <p>Evidence: DOE appears in metadata; document mentions funding and approvals but not clearly; no explicit statement of the federal nexus.</p>
 <ul>
 <li><code>nepa_trigger_primary = unknown</code> or best inferred category</li>
@@ -4869,14 +4887,14 @@ transform: none;
       return;
     }
 
-    const siteRoot = overviewItem
-      .getAttribute("href")
-      .replace(/phase2\/reports\/index\.html$/, "");
+    const siteRoot = deliverableItem.href
+      .replace(/phase2\/reports\/deliverable01\.html$/, "");
 
     const submenuItems = [
       ["Report", "phase2/reports/deliverable01.html"],
       ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
-      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"]
+      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
+      ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
     ];
 
     const deliverableParent = deliverableItem.closest("li");

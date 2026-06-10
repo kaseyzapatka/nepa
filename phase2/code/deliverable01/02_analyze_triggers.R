@@ -17,8 +17,8 @@
 #   fig11 — Federal funding amounts by mechanism (median + IQR; requires funding sidecar)
 #
 # Input:
-#   phase2/data/analysis/nepa_trigger/projects_nepa_trigger.parquet
-#   phase2/data/analysis/nepa_trigger/projects_funding_details.parquet (optional sidecar)
+#   phase2/data/analysis/deliverable01/projects_nepa_trigger.parquet
+#   phase2/data/analysis/deliverable01/projects_funding_details.parquet (optional sidecar)
 #   phase2/data/analysis/projects_combined.parquet
 #
 # Output (all in phase2/output/deliverable01/):
@@ -74,9 +74,9 @@ BASE_DIR   <- here::here()
 OUTPUT_DIR <- file.path(BASE_DIR, "phase2", "output", "deliverable01")
 dir.create(OUTPUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
-TRIGGERS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "nepa_trigger",
+TRIGGERS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "deliverable01",
                             "projects_nepa_trigger.parquet")
-FUNDING_DETAILS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "nepa_trigger",
+FUNDING_DETAILS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "deliverable01",
                                   "projects_funding_details.parquet")
 PROJECTS_PATH <- file.path(BASE_DIR, "phase2", "data", "analysis", "projects_combined.parquet")
 
@@ -92,11 +92,13 @@ trigger_labels <- c(
   federal_permit               = "Permit",
   federal_program              = "Program",
   federal_property_transaction = "Property Transaction",
+  pma                          = "PMA/TVA",
   unknown                      = "Unknown"
 )
 
 # Named color vector for trigger labels — defined once, used in all trigger fill scales.
 # Unknown uses neutral grey (matching map NA fill); light_blue moved from Unknown → Permit.
+# PMA/TVA uses amber (#F2A900) — distinct from the existing seven-color palette.
 trigger_colors <- c(
   "Funding"              = "#0047BB",  # catf_dark_blue
   "Direct Action"        = "#00AE8D",  # catf_teal
@@ -104,6 +106,7 @@ trigger_colors <- c(
   "Permit"               = "#8AB7E9",  # catf_light_blue
   "Program"              = "#00B5E2",  # catf_blue
   "Property Transaction" = "#75246C",  # catf_purple
+  "PMA/TVA"              = "#F2A900",  # amber
   "Unknown"              = "grey70"    # neutral grey — matches map NA aesthetic
 )
 
@@ -114,6 +117,8 @@ process_labels <- c(
 )
 
 funding_type_labels <- c(
+  pmc_nd_form           = "EERE Grant (PMC-ND Form)",
+  arpa_e                = "ARPA-E Award",
   grant_or_award        = "Grant/Award",
   formula_grant         = "Formula Grant",
   cooperative_agreement = "Cooperative Agreement",
@@ -184,6 +189,12 @@ triggers <- read_parquet(TRIGGERS_PATH)
 projects <- read_parquet(PROJECTS_PATH)
 funding_details <- NULL
 
+# Known false-positive amount extraction: the Severstal Dearborn text says the
+# $348 million was non-federal funding, not DOE loan-guarantee funding.
+funding_amount_false_positive_project_ids <- c(
+  "0729d74c9cd0785005c5a760c2017e70"
+)
+
 df_raw <- left_join(triggers, projects, by = "project_id") |>
   filter(project_energy_type == "Clean")
 
@@ -230,7 +241,12 @@ if (file.exists(FUNDING_DETAILS_PATH)) {
     mutate(
       funding_type_label = recode(federal_funding_type_primary,
                                   !!!funding_type_labels,
-                                  .default = federal_funding_type_primary)
+                                  .default = federal_funding_type_primary),
+      federal_funding_amount_usd = if_else(
+        project_id %in% funding_amount_false_positive_project_ids,
+        NA_real_,
+        federal_funding_amount_usd
+      )
     )
 
   cat(sprintf("Loaded funding details sidecar (%d funding-primary projects)\n",
@@ -260,7 +276,7 @@ fig1 <- ggplot(fig1_data, aes(x = n, y = trigger_label, fill = trigger_label)) +
   theme_catf(base_size = 13) +
   theme(
     legend.position = "bottom",
-    axis.text.y     = element_blank()
+    axis.text.y     = element_text(color = "gray30")
   ) +
   guides(fill = guide_legend(nrow = 2, byrow = TRUE, reverse = TRUE))
 
@@ -335,6 +351,9 @@ ce_order <- data.frame(trigger_label = trigger_order, stringsAsFactors = FALSE) 
 fig3_data <- fig3_data |>
   mutate(trigger_label = factor(trigger_label, levels = ce_order))
 
+fig3_totals <- fig3_data |>
+  distinct(trigger_label, total)
+
 fig3 <- ggplot(fig3_data,
                aes(x = pct, y = trigger_label, fill = process_type)) +
   geom_col(position = position_fill(), width = 0.65) +
@@ -344,7 +363,19 @@ fig3 <- ggplot(fig3_data,
     position = position_fill(vjust = 0.5),
     color = "white", size = 3.5, fontface = "bold"
   ) +
-  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  geom_text(
+    data = fig3_totals,
+    aes(x = 1.09, y = trigger_label, label = comma(total)),
+    inherit.aes = FALSE,
+    hjust = 1,
+    color = catf_navy, size = 3.5, fontface = "bold"
+  ) +
+  scale_x_continuous(
+    labels = percent_format(accuracy = 1),
+    breaks = seq(0, 1, by = 0.25),
+    limits = c(0, 1.1),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
   scale_fill_manual(
     values = c(CE = catf_teal, EA = catf_dark_blue, EIS = catf_navy),
     labels = process_labels,
@@ -352,7 +383,7 @@ fig3 <- ggplot(fig3_data,
   ) +
   labs(
     title    = "Review Process Mix by NEPA Trigger Type",
-    subtitle = "Share of CE, EA, and EIS within each trigger class — sorted by CE share",
+    subtitle = "Sorted by CE share; right labels show total projects",
     x = "Share of Projects", y = NULL
   ) +
   theme_catf(base_size = 13) +
@@ -365,7 +396,8 @@ cat("Saved fig3_process_by_trigger.png\n")
 # --------------------------
 # FIGURE 4 — Federal department × trigger heatmap
 # --------------------------
-# Sorted by Unknown share: departments with most unresolved projects at bottom.
+# Sorted by total N descending (largest department at top).
+# Includes a "Total N" column on the right; legend below figure.
 
 dept_trigger <- df |>
   filter(!is.na(department)) |>
@@ -374,16 +406,23 @@ dept_trigger <- df |>
   mutate(pct = n / sum(n), total = sum(n)) |>
   ungroup()
 
-# Sort departments: highest Unknown share at bottom (first factor level)
-unknown_dept_order <- dept_trigger |>
-  filter(as.character(trigger_label) == "Unknown") |>
-  arrange(desc(pct)) |>
+# Sort departments: largest total N at top (ggplot y-axis: bottom = first level)
+dept_order <- dept_trigger |>
+  distinct(department, total) |>
+  arrange(total) |>   # ascending so largest is rendered at top
   pull(department)
-no_unknown_depts <- setdiff(unique(dept_trigger$department), unknown_dept_order)
-dept_order <- c(unknown_dept_order, no_unknown_depts)  # highest Unknown → bottom
 
 dept_trigger <- dept_trigger |>
   mutate(department = factor(department, levels = dept_order))
+
+# Totals data for the right-hand "N" column
+dept_totals <- dept_trigger |>
+  distinct(department, total) |>
+  mutate(trigger_label = factor("N", levels = c(levels(dept_trigger$trigger_label), "N")))
+
+# Extend trigger_label factor to include the "N" sentinel column
+dept_trigger <- dept_trigger |>
+  mutate(trigger_label = factor(trigger_label, levels = c(levels(trigger_label), "N")))
 
 fig4 <- ggplot(dept_trigger,
                aes(x = trigger_label, y = department, fill = pct)) +
@@ -393,26 +432,35 @@ fig4 <- ggplot(dept_trigger,
         color  = if_else(pct > 0.25, "white", catf_navy)),
     size = 3, fontface = "bold"
   ) +
+  # Total N column — no fill tile, just right-aligned count label
+  geom_text(
+    data = dept_totals,
+    aes(x = trigger_label, y = department, label = scales::comma(total)),
+    inherit.aes = FALSE,
+    color = catf_navy, size = 3, fontface = "bold"
+  ) +
   scale_color_identity() +
   scale_fill_gradientn(
     colors = c(catf_light_blue, catf_dark_blue, catf_navy),
     labels = percent_format(accuracy = 1),
-    name   = "Share of\ndepartment\nprojects"
+    name   = "Share of department projects",
+    na.value = "white"
   ) +
   scale_x_discrete(labels = function(x) str_wrap(x, width = 10)) +
   labs(
     title    = "NEPA Trigger Distribution by Federal Department",
-    subtitle = "Share of each department's decarbonization projects per trigger class",
+    subtitle = "Share of each department's decarbonization projects per trigger class; N = total projects",
     x = NULL, y = NULL
   ) +
   theme_catf(base_size = 12) +
   theme(
-    axis.text.x     = element_text(lineheight = 0.85),
-    legend.position = "right"
+    axis.text.x      = element_text(lineheight = 0.85),
+    legend.position  = "bottom",
+    legend.key.width = unit(2, "cm")
   )
 
 ggsave(file.path(OUTPUT_DIR, "fig4_department_trigger_heatmap.png"),
-       fig4, width = 12, height = 6, dpi = 150)
+       fig4, width = 13, height = 7, dpi = 150)
 cat("Saved fig4_department_trigger_heatmap.png\n")
 
 # --------------------------
@@ -443,6 +491,9 @@ fig5_data <- fig5_data |>
   mutate(project_technology = factor(project_technology,
                                      levels = c(funding_tech_order, no_funding_techs)))
 
+fig5_totals <- fig5_data |>
+  distinct(project_technology, total)
+
 fig5 <- ggplot(fig5_data,
                aes(x = pct, y = project_technology, fill = trigger_label)) +
   geom_col(position = position_fill(), width = 0.7) +
@@ -451,11 +502,23 @@ fig5 <- ggplot(fig5_data,
     position = position_fill(vjust = 0.5),
     color = "white", size = 3, fontface = "bold"
   ) +
-  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  geom_text(
+    data = fig5_totals,
+    aes(x = 1.09, y = project_technology, label = comma(total)),
+    inherit.aes = FALSE,
+    hjust = 1,
+    color = catf_navy, size = 3.5, fontface = "bold"
+  ) +
+  scale_x_continuous(
+    labels = percent_format(accuracy = 1),
+    breaks = seq(0, 1, by = 0.25),
+    limits = c(0, 1.1),
+    expand = expansion(mult = c(0, 0.01))
+  ) +
   scale_fill_manual(values = trigger_colors, name = NULL, drop = FALSE) +
   labs(
     title    = "Primary NEPA Trigger by Energy Technology",
-    subtitle = sprintf("Technologies with >= %d projects; sorted by Funding share", tech_min_n),
+    subtitle = sprintf("Technologies with >= %d projects, sorted by Funding share; right labels show total projects", tech_min_n),
     x = "Share of Projects", y = NULL
   ) +
   theme_catf(base_size = 13) +
@@ -632,7 +695,7 @@ if (funding_ready && nrow(funding_program_long) > 0) {
         "EECG = Energy Efficiency & Conservation Block Grant\n",
         "SEP = American Recovery and Reinvestment Act\n",
         "Title XVII = Energy Policy Act of 2005 §XVII (DOE loan guarantee authority)\n",
-        "WAP = Western Area Power Administration\n",
+        "WAP = Weatherization Assistance Program\n",
         "BIL = Bipartisan Infrastructure Law\n",
         "IRA = Inflation Reduction Act\n"
       )
@@ -667,15 +730,15 @@ if (funding_ready) {
       sum(!is.na(funding_details$federal_funding_share_pct))
     )
   ) |>
+    arrange(desc(n)) |>
     mutate(pct = n / funding_n, metric = factor(metric, levels = metric))
 
-  fig10 <- ggplot(fig10_data, aes(x = metric, y = pct, fill = metric)) +
-    geom_col(show.legend = FALSE, width = 0.65) +
+  fig10 <- ggplot(fig10_data, aes(x = metric, y = pct)) +
+    geom_col(fill = catf_teal, show.legend = FALSE, width = 0.65) +
     geom_text(aes(label = sprintf("%s\n%s", comma(n), percent(pct, accuracy = 1))),
               vjust = -0.25, size = 3.4, color = "gray20") +
     scale_y_continuous(labels = percent_format(accuracy = 1),
                        expand = expansion(mult = c(0, 0.16))) +
-    scale_fill_catf(drop = FALSE) +
     labs(
       title    = "Federal Funding Amount Extraction Coverage",
       subtitle = "Evidence-backed fields only; missing = no reliable dollar amount was extracted",
@@ -697,56 +760,169 @@ if (funding_ready) {
 
 if (funding_ready) {
   n_with_amount <- sum(!is.na(funding_details$federal_funding_amount_usd))
-  TOPCAP_USD    <- 1e9   # display cap; stats computed on full data
+  TOPCODE_USD   <- 5e6
+  MIN_AMOUNT_N  <- 10
+  large_finance_types <- c("Loan Guarantee", "Cooperative Agreement")
 
-  # Raw rows for box plots — exclude NA amounts; include ALL mechanism types
-  # (no minimum-n filter so every mechanism with at least one amount is shown)
+  large_finance_amounts <- funding_details |>
+    filter(!is.na(federal_funding_amount_usd)) |>
+    filter(funding_type_label %in% large_finance_types) |>
+    left_join(
+      df |>
+        distinct(project_id, process_label, agency_name, project_title),
+      by = "project_id"
+    ) |>
+    transmute(
+      mechanism = funding_type_label,
+      project_title = project_title,
+      federal_amount_usd = federal_funding_amount_usd,
+      source_text = str_squish(federal_funding_evidence_text)
+    ) |>
+    arrange(mechanism, desc(federal_amount_usd), project_title)
+
+  write.csv(large_finance_amounts,
+            file.path(OUTPUT_DIR, "large_finance_mechanisms.csv"),
+            row.names = FALSE)
+  cat(sprintf("Saved large_finance_mechanisms.csv (%d rows)\n",
+              nrow(large_finance_amounts)))
+
+  grant_scale_counts <- funding_details |>
+    filter(!is.na(federal_funding_amount_usd)) |>
+    filter(!funding_type_label %in% large_finance_types) |>
+    count(funding_type_label, name = "n_amounts")
+
+  low_n_grant_classes <- grant_scale_counts |>
+    filter(n_amounts < MIN_AMOUNT_N)
+
+  included_grant_types <- grant_scale_counts |>
+    filter(n_amounts >= MIN_AMOUNT_N) |>
+    pull(funding_type_label)
+
   fig11_raw <- funding_details |>
     filter(!is.na(federal_funding_amount_usd)) |>
-    mutate(funding_type_label = fct_reorder(
-      funding_type_label, federal_funding_amount_usd, .fun = median, .na_rm = TRUE
-    ))
+    filter(funding_type_label %in% included_grant_types) |>
+    mutate(
+      federal_funding_amount_display_usd = pmin(
+        federal_funding_amount_usd,
+        TOPCODE_USD
+      ),
+      funding_type_label = fct_reorder(
+        funding_type_label, federal_funding_amount_usd, .fun = median, .na_rm = TRUE
+      )
+    )
 
-  # Count values above the display cap for the caption
-  n_above_cap <- sum(fig11_raw$federal_funding_amount_usd > TOPCAP_USD, na.rm = TRUE)
+  fig11_n_labels <- fig11_raw |>
+    distinct(funding_type_label, project_id) |>
+    count(funding_type_label, name = "n_amounts") |>
+    mutate(
+      n_label = comma(n_amounts),
+      x_label = TOPCODE_USD * 1.07
+    )
+
+  fig11_medians <- fig11_raw |>
+    group_by(funding_type_label) |>
+    summarise(
+      median_amount = median(federal_funding_amount_usd, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    mutate(
+      median_x = pmin(median_amount, TOPCODE_USD),
+      median_label = sprintf(
+        "median %s",
+        dollar(median_amount, scale_cut = cut_short_scale())
+      )
+    )
+
+  n_topcoded <- sum(
+    fig11_raw$federal_funding_amount_usd > TOPCODE_USD,
+    na.rm = TRUE
+  )
+  n_low_n_classes <- nrow(low_n_grant_classes)
+  n_low_n_records <- sum(low_n_grant_classes$n_amounts)
+
+  dollar_topcode_labels <- function(x) {
+    if_else(
+      near(x, TOPCODE_USD),
+      paste0(dollar(TOPCODE_USD, scale_cut = cut_short_scale()), "+"),
+      dollar(x, scale_cut = cut_short_scale())
+    )
+  }
 
   if (nrow(fig11_raw) > 0) {
     fig11 <- ggplot(fig11_raw,
-                    aes(x = federal_funding_amount_usd, y = funding_type_label)) +
+                    aes(x = federal_funding_amount_display_usd,
+                        y = funding_type_label)) +
+      geom_violin(
+        fill = catf_teal,
+        color = NA,
+        alpha = 0.35,
+        trim = TRUE,
+        orientation = "y"
+      ) +
       geom_boxplot(
-        fill         = catf_teal,
+        width        = 0.24,
+        fill         = "white",
         color        = catf_navy,
         alpha        = 0.75,
+        linewidth    = 0.55,
         outlier.size  = 0.7,
         outlier.alpha = 0.25,
-        outlier.color = catf_dark_blue
+        outlier.color = catf_dark_blue,
+        orientation   = "y"
+      ) +
+      geom_text(
+        data = fig11_medians,
+        aes(x = median_x, y = funding_type_label, label = median_label),
+        inherit.aes = FALSE,
+        hjust = -0.08,
+        color = catf_navy, size = 2.8, fontface = "italic"
+      ) +
+      geom_text(
+        data = fig11_n_labels,
+        aes(x = x_label, y = funding_type_label, label = n_label),
+        inherit.aes = FALSE,
+        hjust = 0,
+        color = catf_navy, size = 3.2, fontface = "bold"
       ) +
       scale_x_continuous(
-        labels = label_dollar(scale_cut = cut_short_scale()),
-        expand = expansion(mult = c(0, 0.05))
+        breaks = seq(0, TOPCODE_USD, by = 1e6),
+        labels = dollar_topcode_labels,
+        expand = expansion(mult = c(0, 0))
       ) +
-      coord_cartesian(xlim = c(0, TOPCAP_USD)) +   # clip display; stats on full data
+      coord_cartesian(xlim = c(0, TOPCODE_USD * 1.14)) +
       labs(
-        title    = "Distribution of Federal Funding Amounts by Mechanism Type",
-        subtitle = "Box = Q1–Q3, center = median, whiskers = 1.5×IQR, dots = outliers; display capped at $1B",
+        title    = "Common Grant-Scale Federal Funding Amounts",
+        subtitle = sprintf(
+          "Mechanism classes with >= %s extracted amounts; values above %s are top-coded",
+          MIN_AMOUNT_N,
+          dollar(TOPCODE_USD, scale_cut = cut_short_scale())
+        ),
         x = "Federal Funding Amount (USD)", y = NULL,
         caption  = sprintf(
           paste0(
             "Dollar amounts extracted for %s of %s funding-primary projects (%s%%).\n",
             "Most documents do not include an explicit award figure in extractable text.\n",
-            "%s award(s) above $1B not shown; all values used when computing statistics."
+            "Figure excludes %s large-finance record(s) shown in the table below.\n",
+            "It also excludes %s grant-scale class(es) with fewer than %s extracted amounts (%s record(s)).\n",
+            "%s grant-scale award(s) above %s are top-coded at %s."
           ),
           comma(n_with_amount), comma(funding_n),
           round(100 * n_with_amount / funding_n, 1),
-          comma(n_above_cap)
+          comma(nrow(large_finance_amounts)),
+          comma(n_low_n_classes), comma(MIN_AMOUNT_N), comma(n_low_n_records),
+          comma(n_topcoded),
+          dollar(TOPCODE_USD, scale_cut = cut_short_scale()),
+          dollar(TOPCODE_USD, scale_cut = cut_short_scale())
         )
       ) +
       theme_catf(base_size = 13) +
-      theme(plot.caption = element_text(size = rel(0.78), hjust = 0, color = "gray40",
-                                        margin = margin(t = 6)))
+      theme(
+        plot.caption = element_text(size = rel(0.78), hjust = 0, color = "gray40",
+                                    margin = margin(t = 6))
+      )
 
     ggsave(file.path(OUTPUT_DIR, "fig11_funding_amount_distribution.png"),
-           fig11, width = 10, height = 5.8, dpi = 150)
+           fig11, width = 10.5, height = 5.8, dpi = 150)
     cat("Saved fig11_funding_amount_distribution.png\n")
   } else {
     cat("Fewer than 5 projects with positive amounts per mechanism; skipped fig11.\n")
@@ -806,25 +982,155 @@ if (funding_ready) {
 # TABLE — Representative evidence text excerpts
 # --------------------------
 
-set.seed(42)
-excerpts <- df |>
+trigger_cue_patterns <- c(
+  "Funding" = paste0(
+    "\\b(",
+    "DOE funding|federal funding|financial assistance|grant|grants|",
+    "loan guarantee|award|awarded|funded by|funds?|EECBG|",
+    "formula grant|cooperative agreement",
+    ")\\b"
+  ),
+  "Land" = paste0(
+    "\\b(",
+    "federal land|public lands?|National Forest|Forest Service|BLM|",
+    "right[- ]of[- ]way|special use permit|special use authorization|",
+    "land exchange|easement",
+    ")\\b"
+  ),
+  "PMA/TVA" = paste0(
+    "\\b(",
+    "Western Area Power Administration|WAPA|Bonneville Power Administration|",
+    "BPA|Tennessee Valley Authority|TVA|power marketing authority|",
+    "power purchase agreement|transmission service|integration project",
+    ")\\b"
+  ),
+  "Direct Action" = paste0(
+    "\\b(",
+    "DOE proposes|DOE is proposing|DOE would|NREL proposes|NREL would|",
+    "the proposed action|proposed federal action|federal action|",
+    "BPA proposes|USACE proposes",
+    ")\\b"
+  ),
+  "Program" = paste0(
+    "\\b(",
+    "programmatic|site[- ]wide|generic environmental impact statement|",
+    "programmatic environmental impact statement|programmatic EIS|PEIS|",
+    "site[- ]wide environmental assessment|site[- ]wide environmental impact statement|",
+    "master plan",
+    ")\\b"
+  ),
+  "Permit" = paste0(
+    "\\b(",
+    "permit|authorization|license|licence|right[- ]of[- ]way authorization|",
+    "electricity export authorization|Presidential permit|certificate",
+    ")\\b"
+  ),
+  "Property Transaction" = paste0(
+    "\\b(",
+    "land exchange|conveyance|transfer|dispose|disposal|sale|purchase|",
+    "property transaction|acquisition|lease|easement",
+    ")\\b"
+  )
+)
+
+clean_evidence_text <- function(text) {
+  if (is.na(text)) return("")
+  str_squish(str_replace_all(as.character(text), "\\\\n|\\\\r|\\\\t", " "))
+}
+
+has_trigger_cue <- function(text, trigger) {
+  pattern <- trigger_cue_patterns[[as.character(trigger)]]
+  if (is.null(pattern) || is.na(pattern) || !nzchar(pattern)) return(FALSE)
+  str_detect(clean_evidence_text(text), regex(pattern, ignore_case = TRUE))
+}
+
+make_trigger_excerpt <- function(text, trigger, width = 600) {
+  clean_text <- clean_evidence_text(text)
+  pattern <- trigger_cue_patterns[[as.character(trigger)]]
+  if (is.null(pattern) || is.na(pattern) || !nzchar(pattern)) {
+    return(str_trunc(clean_text, width))
+  }
+
+  loc <- str_locate(clean_text, regex(pattern, ignore_case = TRUE))[1, ]
+  if (any(is.na(loc))) return(str_trunc(clean_text, width))
+
+  before <- floor(width * 0.35)
+  start <- max(1, loc[[1]] - before)
+  end <- min(nchar(clean_text), start + width - 1)
+  start <- max(1, end - width + 1)
+  if (start == 1 && loc[[1]] > 30 &&
+      str_detect(substr(clean_text, 1, 1), "^[a-z]$")) {
+    start <- max(1, loc[[1]] - 10)
+    end <- min(nchar(clean_text), start + width - 1)
+  }
+
+  excerpt <- substr(clean_text, start, end)
+  if (start > 1) excerpt <- paste0("...", str_trim(excerpt))
+  if (end < nchar(clean_text)) excerpt <- paste0(str_trim(excerpt), "...")
+  if (nchar(excerpt) > 80 &&
+      !str_detect(str_sub(excerpt, -1), "[.!?;:)\\]]")) {
+    excerpt <- paste0(str_trim(excerpt), "...")
+  }
+  excerpt
+}
+
+excerpt_candidates <- df |>
   filter(
     nepa_trigger_confidence == "high",
     nepa_trigger_evidence_source %in% c("purpose_and_need", "description", "doc_title"),
     !is.na(nepa_trigger_evidence_text),
-    nchar(nepa_trigger_evidence_text) > 30
+    nchar(nepa_trigger_evidence_text) > 80,
+    trigger_label != "Unknown"
   ) |>
+  mutate(
+    evidence_clean = map_chr(nepa_trigger_evidence_text, clean_evidence_text),
+    has_cue = map2_lgl(evidence_clean, trigger_label, has_trigger_cue),
+    starts_mid_word = str_detect(evidence_clean, "^[a-z]"),
+    is_toc_like = str_detect(
+      evidence_clean,
+      regex(paste0(
+        "table of contents|list of tables|list of figures|\\.{5,}|",
+        "Appendix [A-Z]|Acronym/Abbreviation|Contents Page|\\bDefinition\\b|",
+        "EXPONENTIAL NOTATION|standard operating procedures|",
+        "Contributors to the Supplement|Organizations Contacted"
+      ),
+            ignore_case = TRUE)
+    ),
+    has_action_language = str_detect(
+      evidence_clean,
+      regex(paste0(
+        "\\b(",
+        "proposes?|proposed|would|applied|authoriz|issuance|issue|grant|",
+        "construct|operate|lease|land exchange|permit|license|funding|",
+        "financial assistance",
+        ")\\b"
+      ), ignore_case = TRUE)
+    ),
+    evidence_source_rank = case_when(
+      nepa_trigger_evidence_source == "purpose_and_need" ~ 1L,
+      nepa_trigger_evidence_source == "description" ~ 2L,
+      nepa_trigger_evidence_source == "doc_title" ~ 3L,
+      TRUE ~ 9L
+    ),
+    evidence_length_score = pmin(nchar(evidence_clean), 900L)
+  )
+
+excerpts <- excerpt_candidates |>
+  filter(has_cue, !is_toc_like) |>
+  distinct(trigger_label, project_id, .keep_all = TRUE) |>
+  arrange(trigger_label, evidence_source_rank, starts_mid_word, desc(has_action_language),
+          desc(evidence_length_score), project_title) |>
   group_by(trigger_label) |>
-  slice_sample(n = 2) |>
-  select(
+  slice_head(n = 2) |>
+  ungroup() |>
+  transmute(
     `Trigger Type`   = trigger_label,
     `Review Process` = process_type,
     `Lead Agency`    = agency_name,
     `Project Title`  = project_title,
-    `Evidence Text`  = nepa_trigger_evidence_text,
+    `Evidence Text`  = map2_chr(nepa_trigger_evidence_text, trigger_label, make_trigger_excerpt),
     `Evidence Source`= nepa_trigger_evidence_source
   ) |>
-  ungroup() |>
   arrange(`Trigger Type`)
 
 write.csv(excerpts, file.path(OUTPUT_DIR, "trigger_evidence_excerpts.csv"),

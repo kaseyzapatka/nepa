@@ -1,0 +1,16 @@
+{
+  "created_at": "2026-05-28T18:49:11.887163+00:00",
+  "ids_hash": "03699e08448c7ff6386555a069e783b3c5305beff60b63d312199a0e4985b809",
+  "n": 500,
+  "sample_seed": 20260528,
+  "source_input_hashes": {
+    "phase2/data/analysis/projects_combined.parquet": "fd49d99fc13513cb474defc47c4751e6b20d479945a8974217ae1e471c60b116",
+    "phase2/data/analysis/timeline/timeline_candidates.parquet": "823de4957255be00c8669544e35f3466c38f5cfc3fb66f97ea003831b5363a9b",
+    "phase2/data/analysis/timeline/timeline_context_packets.parquet": "c611a86479379487d914d8d50388f5dcc2484f02b5bdbdaf1dc03be5fee7932a",
+    "phase2/data/analysis/timeline/timeline_document_index.parquet": "4ca4fa2be093860388fbb88b894971cf502f57485463dd99094af27e6a16fa2a",
+    "phase2/data/analysis/timeline/timeline_project_dates.parquet": "653779bbd950fa89903925a09943f1f4f44b3294519c740a3d41d90f71cef197",
+    "phase2/output/deliverable04/timeline_manual_review_queue.csv": "da68d95927b10950c357590b1ce691334cde4cf2bb831d3a0d9eb497b32027d7",
+    "phase2/output/deliverable04/timeline_sample100.csv": "d9bd3482c09abed3ff8f44fcbb9e0aa6f667e3c5a4e53a39f2d294300c6dfb7d"
+  },
+  "split": "test_representative_v1"
+}

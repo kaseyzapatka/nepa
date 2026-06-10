@@ -4496,10 +4496,6 @@ vertical-align: -.125em;
     <a class="dropdown-item" href="../../../phase1/reports/deliverable06.html" rel target>
  <span class="dropdown-text">Deliverable 6</span></a>
   </li>  
-        <li>
-    <a class="dropdown-item" href="../../../phase1/reports/key_insights.html" rel target>
- <span class="dropdown-text">Fact Sheet</span></a>
-  </li>  
     </ul>
   </li>
   <li class="nav-item dropdown ">
@@ -4515,6 +4511,10 @@ vertical-align: -.125em;
         <li>
     <a class="dropdown-item" href="../../../phase2/reports/deliverable01.html" rel target>
  <span class="dropdown-text">Deliverable 1</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../../../phase2/reports/deliverable03.html" rel target>
+ <span class="dropdown-text">Deliverable 3</span></a>
   </li>  
     </ul>
   </li>
@@ -4557,12 +4557,13 @@ vertical-align: -.125em;
 <p>This is an explanation of the trigger definitions we want to use for this deliverable.</p>
 <section id="classification-schema" class="level2">
 <h2 class="anchored" data-anchor-id="classification-schema">Classification Schema</h2>
-<p>Each of these 6 classes triggers NEPA review. The main trigger classes are:</p>
+<p>Each of these 7 classes triggers NEPA review. The main trigger classes are:</p>
 <ul>
 <li><code>Federal Funding</code></li>
 <li><code>Federal Land</code></li>
 <li><code>Federal Permit</code></li>
 <li><code>Federal Direct Action</code></li>
+<li><code>Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA)</code> <em>(code: <code>pma</code>)</em></li>
 <li><code>Federal Program</code></li>
 <li><code>Federal Property Transaction</code></li>
 </ul>
@@ -4678,6 +4679,21 @@ vertical-align: -.125em;
 <ul>
 <li>“right-of-way” (any hyphen/spacing variant) appearing in the document title</li>
 </ul>
+<p><strong>Land-management programmatic reviews (moved from <code>federal_program</code>):</strong></p>
+<ul>
+<li>“revision of the … land and resource management plan” (within same passage) → <code>lrm_plan_revision</code></li>
+<li>“integrated vegetation management program” + “programmatic environmental assessment” → <code>ivm_program_pea</code></li>
+<li>“system-wide operations and maintenance” + “programmatic environmental assessment” → <code>systemwide_om_pea</code></li>
+<li>“uranium leasing program” + “programmatic environmental assessment/impact statement” → <code>uranium_leasing_pea</code></li>
+<li>“outer continental shelf oil and gas leasing program” + “programmatic environmental impact statement” → <code>ocs_leasing_peis</code></li>
+<li>“solar energy development in six southwestern states” + “programmatic environmental impact statement” → <code>solar_program_peis</code></li>
+<li>“wind energy development on Bureau of Land Management-administered lands” + “programmatic environmental impact statement” → <code>wind_program_peis</code></li>
+<li>“updates to the western solar plan” + “solar PEIS” / “programmatic environmental impact statement” — OR — “2023 draft solar PEIS” → <code>western_solar_peis</code></li>
+<li>“designation of energy corridors on federal land” + “programmatic environmental impact statement” → <code>energy_corridors_peis</code></li>
+<li>“section 368 energy corridor revisions” + “resource management plan amendment” / “environmental impact statement” → <code>section368_corridor</code></li>
+<li>“vegetation management” + “National Forest” within same passage (~50 chars) → <code>usfs_veg_mgmt</code> (moved from <code>federal_direct_action</code>)</li>
+</ul>
+<p>These cues all relate to programmatic or resource-management reviews on or for federally managed lands. They are classified as <code>federal_land</code>, not <code>federal_program</code>, because the federal land management authority is the direct trigger.</p>
 <p><strong>Agency metadata (Tier 1a — detected without text cues):</strong></p>
 <ul>
 <li>Agency is BLM, Bureau of Land Management, USFS, Forest Service, NPS, National Park Service, FWS / USFWS, Fish and Wildlife Service, BOR / USBR, Bureau of Reclamation</li>
@@ -4749,6 +4765,13 @@ vertical-align: -.125em;
 <li>“(Subsequent) License Renewal”</li>
 <li>“certificate of public convenience and necessity”</li>
 </ul>
+<p><strong>Nuclear generic EIS/EA (moved from <code>federal_program</code>):</strong></p>
+<ul>
+<li>“generic environmental impact statement” / “generic EIS” / “GEIS” + “nuclear” / “NRC” / “reactor” / “license renewal” (within same passage, ~200 chars) → <code>generic_nuclear_eis</code></li>
+<li>“generic environmental assessment” / “generic EA” / “GEA” + “nuclear” / “NRC” / “reactor” / “license renewal” (within same passage, ~200 chars) → <code>generic_nuclear_ea</code></li>
+<li>“NUREG-1437” (standalone; this is the NRC’s generic EIS for license renewal) → <code>nureg1437_geis</code></li>
+</ul>
+<p>These patterns indicate NRC regulatory proceedings (license renewal, site-specific license) rather than broader program planning — hence <code>federal_permit</code>, not <code>federal_program</code>.</p>
 <p><strong>Agency metadata (Tier 1a — detected without text cues):</strong></p>
 <ul>
 <li>Agency is FERC / Federal Energy Regulatory Commission → auto-assigned <code>federal_permit</code></li>
@@ -4764,8 +4787,6 @@ vertical-align: -.125em;
 <ul>
 <li>DOE / Department of Energy</li>
 <li>NNSA / National Nuclear Security Administration</li>
-<li>BPA / Bonneville / Bonneville Power Administration</li>
-<li>WAPA / Western / Western Area Power Administration</li>
 <li>Reclamation / Bureau of Reclamation / USBR</li>
 <li>CBP / U.S. Customs and Border Protection</li>
 <li>Forest Service / U.S. Forest Service / USFS</li>
@@ -4773,6 +4794,7 @@ vertical-align: -.125em;
 <li>NPS / National Park Service</li>
 <li>PNNL / Pacific Northwest National Laboratory</li>
 </ul>
+<p>Note: BPA, WAPA, SEPA, SWPA, and TVA are no longer recognized actors for <code>federal_direct_action</code>. They have been moved to the <code>pma</code> class (see below). Projects led by those agencies are classified as <code>pma</code> primary, with <code>federal_land</code> or <code>federal_permit</code> added as secondary where applicable.</p>
 <p><strong>Compound patterns (actor + intent verb + action verb — all must appear in same passage):</strong></p>
 <p>Intent verbs recognized: “proposes to” / “propose to” / “is proposing to” / “will” / “would” / “would be to” / “is to”</p>
 <p>Action verbs recognized: construct, install, build, operate, implement, manage, restore, undertake, develop, upgrade, expand, demolish, replace, retrofit, rebuild, reconductor, renovate, refurbish, relocate, repair, reconfigure, dismantle, modernize, improve</p>
@@ -4800,22 +4822,60 @@ vertical-align: -.125em;
 <li>“federal construction” / “federal facility” / “federal installation”</li>
 <li>“military installation” / “military base” / “military facility” / “military construction”</li>
 <li>“federal facility upgrade” / “federal facility expansion” / “federal facility construction” (Tier 1b; more specific form)</li>
-<li>“vegetation management” + “National Forest” within same passage (~50 chars) (Tier 1b only)</li>
 </ul>
+<p>Note: “vegetation management” + “National Forest” has been moved to <code>federal_land</code> (see below).</p>
 <p><strong>Agency metadata (Tier 1a — detected without text cues):</strong></p>
 <ul>
 <li><strong><code>AGENCY_DIRECT_ACTION_MAP</code></strong> — auto-assigned <code>federal_direct_action</code> without further review:
 <ul>
-<li>Power Marketing Administration</li>
-<li>Bonneville Power Administration / BPA</li>
-<li>Western Area Power Administration / WAPA</li>
-<li>CBP / U.S. Customs and Border Protection</li>
+<li>CBP / U.S. Customs and Border Protection / Customs and Border Protection</li>
 </ul></li>
 <li>Note: DOE and USACE appear in <code>FEDERAL_ACTION_ACTOR_PATTERN</code> (used in compound text patterns above) but are classified as <code>AGENCY_AMBIGUOUS</code> in Tier 1a — they are NOT auto-assigned to <code>federal_direct_action</code> from metadata alone; verb context from document text is required to distinguish <code>federal_direct_action</code> from <code>federal_funding</code> (DOE) or <code>federal_permit</code> (USACE)</li>
+<li>Note: BPA, WAPA, SEPA, SWPA, and TVA have been moved out of <code>AGENCY_DIRECT_ACTION_MAP</code> into <code>AGENCY_PMA_MAP</code> and are auto-assigned <code>pma</code></li>
+</ul>
+</section>
+<section id="power-marketing-administration-pma-tennessee-valley-authority-tva" class="level3">
+<h3 class="anchored" data-anchor-id="power-marketing-administration-pma-tennessee-valley-authority-tva">5. Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA)</h3>
+<hr>
+<p><strong>Coding rule:</strong> <code>Assign the pma classification when Bonneville Power Administration (BPA), Western Area Power Administration (WAPA), Southeastern Power Administration (SEPA), Southwestern Power Administration (SWPA), or Tennessee Valley Authority (TVA) is the lead or sponsoring agency for the action. The code value is pma; in text and tables, use &quot;PMA/TVA&quot; or expand the acronym on first use.</code></p>
+<p><strong>Agency metadata (Tier 1a — primary detection method):</strong></p>
+<ul>
+<li><strong><code>AGENCY_PMA_MAP</code></strong> — auto-assigned <code>pma</code> as primary trigger:
+<ul>
+<li>Bonneville Power Administration / BPA</li>
+<li>Western Area Power Administration / WAPA</li>
+<li>Southeastern Power Administration / SEPA</li>
+<li>Southwestern Power Administration / SWPA</li>
+<li>Tennessee Valley Authority / TVA</li>
+<li>Power Marketing Administration / PMA (generic)</li>
+</ul></li>
+</ul>
+<p>When a PMA/TVA row also contains ROW, easement, land-use, or permit cues, <code>pma</code> remains primary and <code>federal_land</code> / <code>federal_permit</code> are added as secondary triggers.</p>
+<p><strong>Text-based actor patterns (Tier 1b — when agency metadata is missing or ambiguous):</strong></p>
+<ul>
+<li>“[BPA / Bonneville Power Administration]” + “proposes to / will / would” → <code>bpa_actor</code></li>
+<li>“[WAPA / Western Area Power Administration]” + “proposes to / will / would” → <code>wapa_actor</code></li>
+<li>“[SEPA / Southeastern Power Administration]” + “proposes to / will / would” → <code>sepa_actor</code></li>
+<li>“[SWPA / Southwestern Power Administration]” + “proposes to / will / would” → <code>swpa_actor</code></li>
+<li>“[TVA / Tennessee Valley Authority]” + “proposes to / will / would” → <code>tva_actor</code></li>
+<li>“Power Marketing Administration” (standalone) → <code>pma_generic</code> (medium confidence)</li>
+</ul>
+<p><strong>Tier 4 cue patterns (context scoring):</strong></p>
+<ul>
+<li><code>\b(?:Bonneville\s+Power\s+Administration|BPA)\b</code></li>
+<li><code>\b(?:Western\s+Area\s+Power\s+Administration|WAPA)\b</code></li>
+<li><code>\b(?:Southeastern\s+Power\s+Administration|SEPA)\b</code></li>
+<li><code>\b(?:Southwestern\s+Power\s+Administration|SWPA)\b</code></li>
+<li><code>\b(?:Tennessee\s+Valley\s+Authority|TVA)\b</code></li>
+<li><code>\bPower\s+Marketing\s+Administration\b|\bPMA\b</code></li>
+</ul>
+<p><strong>Hypothesis (Tier 4 NLI):</strong></p>
+<ul>
+<li>“This text shows that Bonneville Power Administration (BPA), Western Area Power Administration (WAPA), Southeastern Power Administration (SEPA), Southwestern Power Administration (SWPA), or Tennessee Valley Authority (TVA) is the lead or sponsoring agency proposing or implementing this project.”</li>
 </ul>
 </section>
 <section id="federal-programs" class="level3">
-<h3 class="anchored" data-anchor-id="federal-programs">5. Federal programs</h3>
+<h3 class="anchored" data-anchor-id="federal-programs">6. Federal programs</h3>
 <hr>
 <p><strong>Coding rule:</strong> <code>Assign the federal program classification when the NEPA action is not primarily a site-specific project, but a broader plan, rule, policy, or program rather than a single facility or construction project.</code></p>
 <p><strong>Programmatic document identifiers (full phrases):</strong></p>
@@ -4840,34 +4900,14 @@ vertical-align: -.125em;
 <li>“Environmental Impact Statement Tier 1” / “EIS Tier 1” / “EA Tier 1” (reversed order)</li>
 <li>“site-wide environmental impact statement” / “site-wide environmental assessment” / “sitewide environmental assessment”</li>
 </ul>
-<p><strong>Resource and land management plans:</strong></p>
-<ul>
-<li>“resource management plan amendment” / “resource management plan revision”</li>
-<li>“resource management plan” (standalone, in title or description)</li>
-<li>“revision of the … land and resource management plan” (within same passage)</li>
-<li>“final … land and resource management plan” / “proposed … land and resource management plan” (medium confidence)</li>
-</ul>
 <p><strong>Other program types:</strong></p>
 <ul>
-<li>“leasing program” / “leasing framework”</li>
-<li>“corridor designation”</li>
 <li>“rulemaking”</li>
 <li>“policy framework”</li>
-</ul>
-<p><strong>Named federal energy programs (compound patterns — both terms must appear in same passage):</strong></p>
-<ul>
 <li>“integrated resource plan” + “programmatic environmental impact statement” / “supplemental environmental impact statement” / “draft EIS”</li>
-<li>“integrated vegetation management program” + “programmatic environmental assessment”</li>
-<li>“system-wide operations and maintenance” + “programmatic environmental assessment”</li>
-<li>“uranium leasing program” + “programmatic environmental assessment”</li>
-<li>“outer continental shelf oil and gas leasing program” + “programmatic environmental impact statement”</li>
-<li>“solar energy development in six southwestern states” + “programmatic environmental impact statement”</li>
-<li>“wind energy development on Bureau of Land Management-administered lands” + “programmatic environmental impact statement”</li>
-<li>“updates to the western solar plan” + “solar PEIS” / “programmatic environmental impact statement” — OR — “2023 draft solar PEIS”</li>
-<li>“designation of energy corridors on federal land” + “programmatic environmental impact statement”</li>
-<li>“section 368 energy corridor revisions” + “resource management plan amendment” / “environmental impact statement”</li>
 <li>“long-term experimental and management plan” + “environmental impact statement”</li>
 </ul>
+<p>Note: Land-management programmatic reviews (vegetation management PEAs on National Forest, uranium leasing PEIS, OCS oil and gas leasing PEIS, BLM wind/solar PEIS, Western Solar Plan/PEIS, Section 368 corridor PEIS, system-wide O&amp;M PEAs, and resource management plan revisions) have been moved to <code>federal_land</code>. Do not classify these as <code>federal_program</code>. See the <code>federal_land</code> section for the full cue list.</p>
 <p><strong>Document title (Tier 2 scan):</strong></p>
 <ul>
 <li>“programmatic” / “program-wide” / “PEIS” / “PEA” appearing in the document title (with exclusion check applied)</li>
@@ -4881,7 +4921,7 @@ vertical-align: -.125em;
 </ul>
 </section>
 <section id="federal-property-transaction" class="level3">
-<h3 class="anchored" data-anchor-id="federal-property-transaction">6. Federal property transaction</h3>
+<h3 class="anchored" data-anchor-id="federal-property-transaction">7. Federal property transaction</h3>
 <hr>
 <p><strong>Coding rule:</strong> <code>Assign federal property transaction coding when the federal action involves transfer or disposition of federally controlled land or property interests</code>.</p>
 <p><strong>Land exchange:</strong></p>
@@ -4951,7 +4991,7 @@ vertical-align: -.125em;
 </ul>
 </section>
 <section id="unknown-or-unclear" class="level3">
-<h3 class="anchored" data-anchor-id="unknown-or-unclear">7. Unknown or unclear</h3>
+<h3 class="anchored" data-anchor-id="unknown-or-unclear">8. Unknown or unclear</h3>
 <hr>
 <p><strong>Coding rule:</strong> <code>Assign the unknown classification only after attempting structured extraction from title, description, process metadata, agencies, and document text and the available materials do not allow reliable identification of the triggering nexus.</code></p>
 </section>
@@ -4979,6 +5019,10 @@ vertical-align: -.125em;
 <li><code>federal_program</code>
 <ul>
 <li>This text shows that this is a programmatic, generic, site-wide, or Tier 1 environmental review covering a class of actions or a geographic area, or a broader federal planning document such as a resource management plan revision, leasing program, corridor designation, or rulemaking.</li>
+</ul></li>
+<li><code>pma</code>
+<ul>
+<li>This text shows that Bonneville Power Administration (BPA), Western Area Power Administration (WAPA), Southeastern Power Administration (SEPA), Southwestern Power Administration (SWPA), or Tennessee Valley Authority (TVA) is the lead or sponsoring agency proposing or implementing this project.</li>
 </ul></li>
 <li><code>federal_property_transaction</code>
 <ul>
@@ -5041,14 +5085,14 @@ transform: none;
       return;
     }
 
-    const siteRoot = overviewItem
-      .getAttribute("href")
-      .replace(/phase2\/reports\/index\.html$/, "");
+    const siteRoot = deliverableItem.href
+      .replace(/phase2\/reports\/deliverable01\.html$/, "");
 
     const submenuItems = [
       ["Report", "phase2/reports/deliverable01.html"],
       ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
-      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"]
+      ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
+      ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
     ];
 
     const deliverableParent = deliverableItem.closest("li");

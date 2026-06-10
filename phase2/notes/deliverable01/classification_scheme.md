@@ -29,9 +29,10 @@ A project-level schema could look like this:
 - `federal_funding`
 - `federal_land`
 - `federal_permit`
-- `federal_action`
+- `federal_direct_action`
 - `federal_program`
 - `federal_property_transaction`
+- `pma` *(Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA))*
 - `unknown`
 
 #### `nepa_trigger_evidence_source`
@@ -62,20 +63,22 @@ Many projects have multiple forms of federal involvement. For example:
 
 Use this only when the text is ambiguous.
 
-1. `federal_action`
-2. `federal_program`
+1. `federal_direct_action`
+2. `pma` *(Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA))*
 3. `federal_property_transaction`
 4. `federal_land`
 5. `federal_permit`
-6. `federal_funding`
-7. `unknown`
+6. `federal_program`
+7. `federal_funding`
+8. `unknown`
 
-**Why this order:** Gives priority to the federal role when the agency is the principal actor or decision-maker, rather than simply one source of support or one regulatory checkpoint.
+**Why this order:** Gives priority to the federal role when the agency is the principal actor or decision-maker, rather than simply one source of support or one regulatory checkpoint. PMA/TVA projects are elevated above land and permit because the agency identity is the clearest nexus signal for those entities.
 
 Examples:
 - If BLM is approving a right-of-way across federal land, `federal_land` is often more informative than `federal_permit`
-- If DOE is building or directly implementing the action, `federal_action` should outrank `federal_funding`
+- If DOE is building or directly implementing the action, `federal_direct_action` should outrank `federal_funding`
 - If the document is a programmatic plan, `federal_program` should outrank narrower project features
+- If BPA, WAPA, SEPA, SWPA, or TVA is the lead agency, assign `pma` as primary even when the project also crosses federal land or requires a permit
 
 ---
 
@@ -104,7 +107,14 @@ Indicative terms: agency proposes to, the Bureau proposes, the Department propos
 Agencies often associated: DoD, VA, USFS, BLM, Bureau of Reclamation, DOE, USACE
 
 ### `federal_program`
-Indicative terms: programmatic EIS, PEIS, resource management plan, land use plan, policy, rulemaking, corridor designation, leasing program, program-wide, nationwide, regional plan
+Indicative terms: programmatic EIS, PEIS, site-wide EIS (SWEIS), Tier 1 review, policy, rulemaking, integrated resource plan, program-wide, nationwide, regional plan
+
+Note: land-management programmatic reviews (e.g., vegetation management PEAs, leasing program PEIS on federal lands, BLM wind/solar PEIS, Western Solar Plan, Section 368 corridor PEIS) are classified as `federal_land`, not `federal_program`.
+
+### `pma` — Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA)
+Indicative terms: Bonneville Power Administration, BPA, Western Area Power Administration, WAPA, Southeastern Power Administration, SEPA, Southwestern Power Administration, SWPA, Power Marketing Administration, Tennessee Valley Authority, TVA
+
+Agencies: BPA, WAPA, SEPA, SWPA, TVA, and any generic PMA. Assign `pma` as the primary trigger whenever one of these entities is the lead or sponsoring agency, even when the project also involves federal land (e.g., transmission line ROW grants) or permits. Add `federal_land` or `federal_permit` as secondary triggers when applicable.
 
 ### `federal_property_transaction`
 Indicative terms: land exchange, conveyance, disposal, transfer, sale of federal land, acquisition, parcel transfer
@@ -189,8 +199,8 @@ Evidence: DOT grant funding is central to the project; no federal land use menti
 ### Example 4: Forest Service vegetation management project
 Evidence: Forest Service proposes thinning and fuel reduction on National Forest lands.
 
-- `nepa_trigger_primary = federal_action`
-- `nepa_trigger_secondary = federal_land` optional if you want to separately record land context
+- `nepa_trigger_primary = federal_land`
+- `nepa_trigger_secondary = federal_direct_action` optional if you want to separately record that the agency is the direct actor
 - `confidence = high`
 
 ### Example 5: Programmatic leasing framework
@@ -199,7 +209,16 @@ Evidence: Document is a Programmatic EIS for a regional leasing strategy.
 - `nepa_trigger_primary = federal_program`
 - `confidence = high`
 
-### Example 6: Ambiguous energy project
+### Example 6: BPA transmission line with ROW on federal land
+Evidence: Bonneville Power Administration proposes to rebuild a 230-kV transmission line; project requires a right-of-way grant across BLM-administered land.
+
+- `nepa_trigger_primary = pma`
+- `nepa_trigger_secondary = federal_land` (ROW grant on BLM land recorded as secondary nexus)
+- `confidence = high`
+
+Note: `pma` takes priority over `federal_land` because BPA is the lead agency and primary actor. The land nexus is real but secondary.
+
+### Example 7: Ambiguous energy project
 Evidence: DOE appears in metadata; document mentions funding and approvals but not clearly; no explicit statement of the federal nexus.
 
 - `nepa_trigger_primary = unknown` or best inferred category

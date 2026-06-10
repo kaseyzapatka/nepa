@@ -1,0 +1,478 @@
+50-project HOLDOUT selection vs gold — ✓=match, ✗=mismatch/miss/FP. Shows top-3 ranker candidates per head.
+
+
+===== 11364509-5cdb-ac5d-411a-224e1fb144f1 [CE] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2013-07-01(month,clear_decision,s=-0.66) ::  Manager For Sierra Front Field Office 3-7-2014 (date) SFFO [[July 2013]] APPEAL PROCEDURES This decision may be appealed to the Interior Bo
+        cand: 2014-03-07(day,clear_decision,s=-0.69) :: homas ACT Field Field Manager For Sierra Front Field Office [[3-7-2014]] (date) SFFO July 2013 APPEAL PROCEDURES This decision may be appeal
+        cand: 2013-07-01(month,review,s=-2.81) :: ed Control Act and EO 13112)? (botanist) | [ ] | [x] | SFFO [[July 2013]] CONCLUSION: Based upon the review of this Proposed Action, I have 
+  DEC   ✓ [match]  selected=2014-03-07  gold=2014-03-07
+        cand: 2014-03-07(day,clear_decision,s=0.86) :: homas ACT Field Field Manager For Sierra Front Field Office [[3-7-2014]] (date) SFFO July 2013 APPEAL PROCEDURES This decision may be appeal
+        cand: 2013-07-01(month,clear_decision,s=0.16) ::  Manager For Sierra Front Field Office 3-7-2014 (date) SFFO [[July 2013]] APPEAL PROCEDURES This decision may be appealed to the Interior Bo
+        cand: 2013-07-01(month,review,s=-3.84) :: ed Control Act and EO 13112)? (botanist) | [ ] | [x] | SFFO [[July 2013]] CONCLUSION: Based upon the review of this Proposed Action, I have 
+
+===== 1591c594-db23-5c1e-dffd-d83bec0e3978 [CE] =====
+  INIT  ✗ [missed]  selected=None  gold=2016-12-21
+        cand: 2016-12-21(day,clear_decision,s=-1.13) :: NEPA Compliance Officer: Tracy L. Williams Date Determined: [[12/21/2016]] Comments: TC-W-2016-0102, Rev. 0
+        cand: 2016-12-21(day,clear_decision,s=-1.73) :: DOE CX Register determination date (cx-16272.0): 2016-12-21
+  DEC   ✓ [match]  selected=2016-12-21  gold=2016-12-21
+        cand: 2016-12-21(day,clear_decision,s=0.23) :: DOE CX Register determination date (cx-16272.0): 2016-12-21
+        cand: 2016-12-21(day,clear_decision,s=-0.87) :: NEPA Compliance Officer: Tracy L. Williams Date Determined: [[12/21/2016]] Comments: TC-W-2016-0102, Rev. 0
+
+===== 1d3ff3cb-7637-2d04-c83e-f8979597767d [CE] =====
+  INIT  ✓ [match]  selected=2016-05-25  gold=2016-05-25
+        cand: 2016-05-25(day,clear_initiation,s=2.28) :: BLM NEPA Register project start date: 2016-05-25
+        cand: 2014-06-01(day,clear_decision,s=-1.13) :: Authorizing Official: Belinda Doolittle Field Manager Date: [[6/1/2014]] Contact Person Pam Riddle Wildlife Biologist 82 E. Dogwood Ave. Moa
+        cand: 2016-07-01(year,proxy_decision,s=-3.01) :: D** **Categorical Exclusions Not Established By Statute** **[[DOI-BLM-UT-Y010-2016-0188]] CX** **Wildlife Structures - Guzzler Upgrade** It 
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2014-06-01(day,clear_decision,s=-0.48) :: Authorizing Official: Belinda Doolittle Field Manager Date: [[6/1/2014]] Contact Person Pam Riddle Wildlife Biologist 82 E. Dogwood Ave. Moa
+        cand: 2014-06-01(day,body_text,s=-2.22) :: d/or IBLA. Belize Doolitth Authorized Officer Field manager [[6/1/2014]] Date **United States Department of the Interior** **Bureau of Land 
+        cand: 2016-05-25(day,clear_initiation,s=-3.66) :: BLM NEPA Register project start date: 2016-05-25
+
+===== 1d74eaf6-f303-40ff-e76d-a9b80107627a [CE] =====
+  INIT  ✓ [match]  selected=2014-07-16  gold=2014-07-16
+        cand: 2014-07-24(day,clear_initiation,s=2.75) :: Office CX Number: ID-I010-2014-0036-CX Date of Preparation: [[July 24, 2014]] BACK GROUND: On July 16, 2014, Two Fisted Heart Productions, s
+        cand: 2014-07-16(day,clear_initiation,s=2.75) :: -0036-CX Date of Preparation: July 24, 2014 BACK GROUND: On [[July 16, 2014]], Two Fisted Heart Productions, submitted an application (SF-29
+        cand: 2014-08-02(day,body_text,s=0.04) :: l use in the requested area. The applicant plans to film on [[August 2, 2014]]. There would be 2 drift boats, 5 models, 5 video staff, and 2
+  DEC   ✓ [match]  selected=2014-07-30  gold=2014-07-30
+        cand: 2014-07-30(day,clear_decision,s=0.23) :: n Kotansky acting for: Jeremy Casterson, Field Manager Date:[[7/30/2014]] Page 4 of 8 Extraordinary Circumstances Requiring Preparation of a
+        cand: 2014-07-16(day,clear_initiation,s=-1.47) :: -0036-CX Date of Preparation: July 24, 2014 BACK GROUND: On [[July 16, 2014]], Two Fisted Heart Productions, submitted an application (SF-29
+        cand: 2014-07-24(day,clear_initiation,s=-1.47) :: Office CX Number: ID-I010-2014-0036-CX Date of Preparation: [[July 24, 2014]] BACK GROUND: On July 16, 2014, Two Fisted Heart Productions, s
+
+===== 2cefa27d-e6dd-1459-b867-6a20a1b91037 [CE] =====
+  INIT  ✗ [missed]  selected=None  gold=2010-12-21
+        cand: 2010-12-21(day,clear_decision,s=-0.22) :: kos georges de gov, S. Dept. Of Energy, NETL, MRI, PA DATE: [[12 / 21 / 2010]] month day year NEPA Compliance Officer: Cliff Whyte DATE: 12 
+        cand: 2010-12-22(day,clear_decision,s=-1.73) :: DOE CX Register determination date (cx-4771.0): 2010-12-22
+        cand: 2010-12-22(day,clear_decision,s=-1.73) :: 0 month day year NEPA Compliance Officer: Cliff Whyte DATE: [[12 / 22 / 2010]] month day year NCO Comment:
+  DEC   ✗ [mismatch]  selected=2010-12-21  gold=2010-12-22
+        cand: 2010-12-21(day,clear_decision,s=1.17) :: kos georges de gov, S. Dept. Of Energy, NETL, MRI, PA DATE: [[12 / 21 / 2010]] month day year NEPA Compliance Officer: Cliff Whyte DATE: 12 
+        cand: 2010-12-22(day,clear_decision,s=0.23) :: DOE CX Register determination date (cx-4771.0): 2010-12-22
+        cand: 2010-12-22(day,clear_decision,s=0.23) :: 0 month day year NEPA Compliance Officer: Cliff Whyte DATE: [[12 / 22 / 2010]] month day year NCO Comment:
+
+===== 3f6c06d3-3c61-1b38-bc07-8ee3317365d7 [CE] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2020-07-01(year,proxy_decision,s=-1.27) :: Categorical Exclusion [[DOI-BLM-ORWA-L050-2020-0024]]-CX A. Background BLM Office: Lakeview District, 
+        cand: 2014-07-01(year,proxy_decision,s=-1.82) :: rated weed treatment plan and environmental assessment (see [[DOI-BLM-OR-L050-2014-0021]]-EA). The impacts of these treatments will not be r
+        cand: 2014-12-01(month,clear_decision,s=-2.56) :: ssment (EA) and finding of no significant impact (FONSI) in [[December 2014]]. Both permittees have applied to the BLM to transfer the exist
+  DEC   ✓ [match]  selected=2014-12-15  gold=2014-12-01
+        cand: 2014-12-01(month,clear_decision,s=2.21) :: ssment (EA) and finding of no significant impact (FONSI) in [[December 2014]]. Both permittees have applied to the BLM to transfer the exist
+        cand: 1976-10-21(day,body_text,s=-4.89) :: sical and visual impacts that use was having on the area on [[October 21, 1976]]" (p. 1-12). Grandfathered grazing use is further defined as
+        cand: 1976-10-21(day,body_text,s=-5.56) :: to “continue in the same manner and degree as on that date ([[October 21, 1976]]), even if this impairs wilderness suitability”. The “manner
+
+===== 4efde57b-7b2e-986f-ede3-cb2586c43265 [CE] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2017-09-26(day,clear_decision,s=-0.22) :: DOE CX Register determination date (cx-17006.0): 2017-09-26
+        cand: 2017-09-27(day,body_text,s=-2.44) :: Date Received for Clearance Process (MM/DD/YYYY) [[09/27/2017]] A. Information Category Abstract [ ] Journal Article [ ] Summary 
+        cand: 2017-09-21(day,body_text,s=-3.58) :: x] Yes [ ] H. Information Owner/Author/Requestor N. S. Cruz [[9/21/17]] (Print and Sign) Responsible Manager R.R. Nielson (Print and Sign) A
+  DEC   ✓ [match]  selected=2017-09-26  gold=2017-09-26
+        cand: 2017-09-26(day,clear_decision,s=1.17) :: DOE CX Register determination date (cx-17006.0): 2017-09-26
+        cand: 2017-09-21(day,body_text,s=-5.82) :: x] Yes [ ] H. Information Owner/Author/Requestor N. S. Cruz [[9/21/17]] (Print and Sign) Responsible Manager R.R. Nielson (Print and Sign) A
+        cand: 2018-09-01(month,body_text,s=-5.87) :: ening Form CHPRC Relocation of Buildings, September 2017 to [[September 2018]] D. Proposed Internet Address www.hanford.gov/page.cfm/Categor
+
+===== 7018c05a-ff93-40d4-17af-68f63d155c9c [CE] =====
+  INIT  ✓ [match]  selected=2013-03-15  gold=2013-03-15
+        cand: 2013-03-18(day,clear_decision,s=-0.22) ::  o=DOE-SR, ou=EQMD, email=drew.grainger@srs.gov, c=US Date: [[2013.03.18]] 15:41:03-04'00' Date Determined: 03/15/2013 Comments: TC-A-2011-0
+        cand: 2013-03-15(day,clear_decision,s=-1.73) :: DOE CX Register determination date (cx-10127.0): 2013-03-15
+        cand: 2013-03-15(day,clear_decision,s=-1.73) :: gov, c=US Date: 2013.03.18 15:41:03-04'00' Date Determined: [[03/15/2013]] Comments: TC-A-2011-00022, Rev. 1
+  DEC   ✗ [mismatch]  selected=2013-03-18  gold=2013-03-15
+        cand: 2013-03-18(day,clear_decision,s=1.17) ::  o=DOE-SR, ou=EQMD, email=drew.grainger@srs.gov, c=US Date: [[2013.03.18]] 15:41:03-04'00' Date Determined: 03/15/2013 Comments: TC-A-2011-0
+        cand: 2013-03-15(day,clear_decision,s=0.23) :: DOE CX Register determination date (cx-10127.0): 2013-03-15
+        cand: 2013-03-15(day,clear_decision,s=0.23) :: gov, c=US Date: 2013.03.18 15:41:03-04'00' Date Determined: [[03/15/2013]] Comments: TC-A-2011-00022, Rev. 1
+
+===== 92b13086-c82f-26a8-0737-ee7fd32cc4cb [CE] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2020-11-20(day,clear_decision,s=-0.55) :: es. Authorized Official: Carlsbad Field Office Manager Date [[11/20/2020]]
+        cand: 2018-11-27(day,body_text,s=-1.66) :: 6 FED COM 311H GAS LINE GJU SME 02/06/2020 11/11/2020 DATE: [[11/27/2018]] FILE:EP KESTREL 26FC_311H_GAS_SEC26 REV2 NOTES: 1. ORIGINAL DOCUM
+        cand: 2019-12-04(day,body_text,s=-3.60) :: FAX (432) 662-1743 KESTREL 26 FED COM 311H WATER LINE DATE: [[12/04/2019]] FILE:EP KESTREL 28_FC_311H_SEC28_WATER_REV2 REVISION: SME 02/06/2
+  DEC   ✓ [match]  selected=2020-11-20  gold=2020-11-20
+        cand: 2020-11-20(day,clear_decision,s=2.09) :: es. Authorized Official: Carlsbad Field Office Manager Date [[11/20/2020]]
+        cand: 2018-11-27(day,body_text,s=-5.96) :: 6 FED COM 311H GAS LINE GJU SME 02/06/2020 11/11/2020 DATE: [[11/27/2018]] FILE:EP KESTREL 26FC_311H_GAS_SEC26 REV2 NOTES: 1. ORIGINAL DOCUM
+        cand: 2020-11-10(day,body_text,s=-6.15) :: esources, Inc. KESTREL 26 FED COM 311H OIL SALES LINE DATE: [[11/10/2020]] FILE:EP_KESTREL_26_FC_311H_OL_SALES TOPOGRAPHIC LOYALTY INNOVATIO
+
+===== 95f6899e-df5d-6a0a-532e-2d0cad5d1f5d [CE] =====
+  INIT  ✓ [match]  selected=2022-03-30  gold=2022-03-30
+        cand: 2022-03-30(day,clear_decision,s=-0.22) :: Williams Date: 2022.04.04 10:13:32 -04'00' Date Determined: [[03/30/2022]] OBU-E-2022-0056, Rev. 0 Comments:
+        cand: 2022-04-04(day,clear_decision,s=-0.22) ::  NEPA review. NEPA Compliance Officer: Tracy Williams Date: [[2022.04.04]] 10:13:32 -04'00' Date Determined: 03/30/2022 OBU-E-2022-0056, Rev
+  DEC   ✓ [match]  selected=2022-04-04  gold=2022-04-04
+        cand: 2022-03-30(day,clear_decision,s=1.17) :: Williams Date: 2022.04.04 10:13:32 -04'00' Date Determined: [[03/30/2022]] OBU-E-2022-0056, Rev. 0 Comments:
+        cand: 2022-04-04(day,clear_decision,s=1.17) ::  NEPA review. NEPA Compliance Officer: Tracy Williams Date: [[2022.04.04]] 10:13:32 -04'00' Date Determined: 03/30/2022 OBU-E-2022-0056, Rev
+
+===== a627ff27-52da-7e00-c55f-e75237f5a340 [CE] =====
+  INIT  ✓ [match]  selected=2020-02-03  gold=2020-02-03
+        cand: 2020-02-03(day,clear_initiation,s=2.28) :: BLM NEPA Register project start date: 2020-02-03
+        cand: 2020-07-01(year,proxy_decision,s=-2.59) :: lk unit 100, Mountain Lion 4, 11, 28. NEPA Document Number: [[DOI-BLM-WY-R050-2020-0018]]-CX Description of Proposed Action Kirby and Melani
+        cand: 2020-02-01(month,proxy_initiation,s=-2.60) :: ategorical Exclusion (CX) BLM Wyoming – Lander Field Office [[February 2020]] DOI-BLM-WY-R050-2020-0018-CX Lander Field Office 1335 Main Str
+  DEC   ✓ [match]  selected=2020-02-18  gold=2020-02-18
+        cand: 2020-02-18(day,body_text,s=-1.37) :: gnature Authorizing Official: /s/John R. Elliott, Jr. Date: [[February 18, 2020]] John Elliott, Lander Field Office Manager Contact Person F
+        cand: 2020-02-01(month,proxy_initiation,s=-2.72) :: ategorical Exclusion (CX) BLM Wyoming – Lander Field Office [[February 2020]] DOI-BLM-WY-R050-2020-0018-CX Lander Field Office 1335 Main Str
+        cand: 2020-02-03(day,clear_initiation,s=-3.66) :: BLM NEPA Register project start date: 2020-02-03
+
+===== ac2cb93f-58c7-0c57-0b0b-221ffabdc0ab [CE] =====
+  INIT  ✓ [match]  selected=2023-12-04  gold=2023-12-04
+        cand: 2023-12-04(day,clear_initiation,s=2.28) :: BLM NEPA Register project start date: 2023-12-04
+        cand: 2023-12-26(day,clear_decision,s=-0.22) :: mental Reviewer Digitally signed by DENISE BOUDREAULT Date: [[2023.12.26]] 12:15:19 -07'00' Digitally signed by MAURA BRADSHAW Date: 2023.12
+        cand: 1997-08-08(day,clear_decision,s=-1.53) :: of Decision (GRRMP/ROD), as amended. Date Approved/Amended: [[August 8, 1997]]. The proposed action is in conformance with the applicable LU
+  DEC   ✓ [match]  selected=2023-12-26  gold=2023-12-26
+        cand: 2023-12-26(day,clear_decision,s=1.17) :: mental Reviewer Digitally signed by DENISE BOUDREAULT Date: [[2023.12.26]] 12:15:19 -07'00' Digitally signed by MAURA BRADSHAW Date: 2023.12
+        cand: 1997-08-08(day,clear_decision,s=-1.47) :: of Decision (GRRMP/ROD), as amended. Date Approved/Amended: [[August 8, 1997]]. The proposed action is in conformance with the applicable LU
+        cand: 2023-12-04(day,clear_initiation,s=-3.66) :: BLM NEPA Register project start date: 2023-12-04
+
+===== c114d326-50b3-f571-60fc-8f69688f1ced [CE] =====
+  INIT  ✓ [match]  selected=2011-08-18  gold=2011-08-18
+        cand: 2011-08-18(day,clear_decision,s=-1.41) :: DOE CX Register determination date (cx-7078.0): 2011-08-18
+        cand: 2011-08-18(day,clear_decision,s=-1.41) :: . Grainger Comments: TC-A-2011-0055, Rev.0 Date Determined: [[Aug 18, 2011]] Digitally signed by Andrew R. Grainger DN: cn=Andrew R. Grainge
+        cand: 2011-08-18(day,clear_decision,s=-1.41) :: . Grainger Comments: TC-A-2011-0055, Rev.0 Date Determined: [[Aug 18, 2011]] Digitally signed by Andrew R. Grainger DN: cn=Andrew R. Grainge
+  DEC   ✓ [match]  selected=2011-08-30  gold=2011-08-30
+        cand: 2011-08-30(day,clear_decision,s=0.23) :: rainger DN: cn=Andrew R. Grainger, o=DOE-SR, ou=EQMD, Date: [[2011.08.30]] 10:28:55-04'00' Submit via Email Submit to Website Print Form for
+        cand: 2011-08-30(day,clear_decision,s=0.23) :: rainger DN: cn=Andrew R. Grainger, o=DOE-SR, ou=EQMD, Date: [[2011.08.30]] 10:28:55-04'00' Submit via Email Submit to Website Print Form for
+        cand: 2011-08-18(day,clear_decision,s=0.00) :: DOE CX Register determination date (cx-7078.0): 2011-08-18
+
+===== dcc26215-8ced-8b8f-4609-805796131708 [CE] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2022-08-15(day,clear_decision,s=-0.22) :: environmentally sensitive resource. Signed: /s/Israel Duran [[August 15, 2022]] Israel Duran Date Environmental Protection Specialist, ECF-4
+        cand: 2021-09-21(day,body_text,s=-3.96) ::  The Oregon State Historic Preservation Office concurred on [[September 21 2021]] that the project would have no adverse effect to historic 
+  DEC   ✓ [match]  selected=2022-08-15  gold=2022-08-15
+        cand: 2022-08-15(day,clear_decision,s=1.17) :: environmentally sensitive resource. Signed: /s/Israel Duran [[August 15, 2022]] Israel Duran Date Environmental Protection Specialist, ECF-4
+        cand: 2021-09-21(day,body_text,s=-5.57) ::  The Oregon State Historic Preservation Office concurred on [[September 21 2021]] that the project would have no adverse effect to historic 
+
+===== dfc2f2b2-5392-0051-c647-61ef75820306 [CE] =====
+  INIT  ✓ [match]  selected=2016-12-07  gold=2016-12-07
+        cand: 2016-12-07(day,clear_initiation,s=2.75) ::  DETERMINATION. DOE Initiator Signature: ERIK ALBENZE Date: [[12 / 7 / 2016]] NEPA Compliance Officer: FRED POZZUTO Date: 12 / 8 / 2016 The 
+        cand: 2016-12-08(day,clear_decision,s=-1.73) :: DOE CX Register determination date (cx-16196.0): 2016-12-08
+        cand: 2016-12-08(day,clear_decision,s=-1.73) :: : 12 / 7 / 2016 NEPA Compliance Officer: FRED POZZUTO Date: [[12 / 8 / 2016]] The following special condition is provided for the considerat
+  DEC   ✓ [match]  selected=2016-12-08  gold=2016-12-08
+        cand: 2016-12-08(day,clear_decision,s=0.23) :: DOE CX Register determination date (cx-16196.0): 2016-12-08
+        cand: 2016-12-08(day,clear_decision,s=0.23) :: : 12 / 7 / 2016 NEPA Compliance Officer: FRED POZZUTO Date: [[12 / 8 / 2016]] The following special condition is provided for the considerat
+        cand: 2016-12-07(day,clear_initiation,s=-1.47) ::  DETERMINATION. DOE Initiator Signature: ERIK ALBENZE Date: [[12 / 7 / 2016]] NEPA Compliance Officer: FRED POZZUTO Date: 12 / 8 / 2016 The 
+
+===== ed300094-71c0-1593-f108-fc3e68f982c5 [CE] =====
+  INIT  ✓ [match]  selected=2018-10-15  gold=2018-10-15
+        cand: 2018-10-15(day,clear_initiation,s=2.04) ::  Map for Southwest Colorado Canyons Alliance BACKGROUND: On [[October 15, 2018]], the Bureau of Land Management (BLM), Tres Rios Field Offic
+        cand: 2019-07-01(year,proxy_decision,s=-2.61) :: ent Visitor Center and Museum/Dominguez & Escalante Pueblos [[DOI-BLM-CO-S010-2019-0001]]-CX 8 No raptor timing restrictions Map 12: Chasing
+        cand: 2018-04-01(month,clear_initiation,s=-2.65) :: NAGEMENT Categorical Exclusion DOI-BLM-CO-S012-2019-0001-CX [[April 2018]] Special Recreation Permit for Southwest Colorado Canyons Alliance
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2018-04-01(month,clear_initiation,s=-2.49) :: NAGEMENT Categorical Exclusion DOI-BLM-CO-S012-2019-0001-CX [[April 2018]] Special Recreation Permit for Southwest Colorado Canyons Alliance
+        cand: 2018-10-15(day,clear_initiation,s=-5.23) ::  Map for Southwest Colorado Canyons Alliance BACKGROUND: On [[October 15, 2018]], the Bureau of Land Management (BLM), Tres Rios Field Offic
+        cand: 2019-07-01(year,proxy_decision,s=-7.28) :: ent may be waived if no nests are identified within ½ mile. [[DOI-BLM-CO-S010-2019-0001]]-CX 9 Attachment 2 Special Recreation Permit Map fo
+
+===== f6c9b436-aa1d-52df-9cbf-780c61dfa17d [CE] =====
+  INIT  ✗ [missed]  selected=None  gold=2024-04-11
+        cand: 2024-04-11(day,clear_decision,s=-1.73) :: DOE CX Register determination date (cx-30687.0): 2024-04-11
+        cand: 2024-04-11(day,clear_decision,s=-1.73) :: mments: EEC No: OBU-B-2024-00012 Rev No: 0 Date Determined: [[04/11/2024]]
+  DEC   ✓ [match]  selected=2024-04-11  gold=2024-04-11
+        cand: 2024-04-11(day,clear_decision,s=0.23) :: DOE CX Register determination date (cx-30687.0): 2024-04-11
+        cand: 2024-04-11(day,clear_decision,s=0.23) :: mments: EEC No: OBU-B-2024-00012 Rev No: 0 Date Determined: [[04/11/2024]]
+
+===== 201d8ca1ab7783426dec89db97739493 [EA] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2017-02-17(day,unknown,s=-1.93) :: s, plans, maps, or designs set forth in Exhibit(s) A, dated [[02/17/2017]] attached hereto, are incorporated into and made a part of this gr
+        cand: 2008-10-31(day,clear_decision,s=-2.96) :: and management plans, policies, and programs. Signature /s/ [[10/31/08]] _________________________________ ___________________________ Richa
+        cand: 2018-07-01(year,proxy_decision,s=-3.88) :: Bentz Access Road Right-of-Way EA ([[DOI-BLM-ID-C020-2018-0007]]-EA) 10 3.4.2 Environmental Effects from Alternativ
+  DEC   ✓ [match]  selected=2008-10-31  gold=2008-10-31
+        cand: 2008-10-31(day,clear_decision,s=1.89) :: and management plans, policies, and programs. Signature /s/ [[10/31/08]] _________________________________ ___________________________ Richa
+        cand: 2018-07-01(year,proxy_decision,s=-7.76) :: Bentz Access Road Right-of-Way EA ([[DOI-BLM-ID-C020-2018-0007]]-EA) 19 Appendix B: Standard Stipulations a. This g
+        cand: 2018-07-01(year,proxy_decision,s=-7.76) :: Bentz Access Road Right-of-Way EA ([[DOI-BLM-ID-C020-2018-0007]]-EA) 20 n. All surface disturbing activities are li
+
+===== 22b29df8b8f92881a4da801205255279 [EA] =====
+  INIT  ✓ [match]  selected=2022-04-01  gold=2022-04-01
+        cand: 2022-04-01(day,clear_initiation,s=2.26) :: BLM NEPA Register project start date: 2022-04-01
+        cand: 2022-06-30(day,clear_decision,s=-2.21) :: BLM NEPA Register decision date (fonsi): 2022-06-30
+  DEC   ✓ [match]  selected=2022-06-30  gold=2022-06-30
+        cand: 2022-06-30(day,clear_decision,s=2.05) :: BLM NEPA Register decision date (fonsi): 2022-06-30
+        cand: 2022-04-01(day,clear_initiation,s=-1.24) :: BLM NEPA Register project start date: 2022-04-01
+
+===== 2ae7504e261e35c9bd9eb95ac637c82a [EA] =====
+  INIT  ✓ [match]  selected=2021-06-15  gold=2021-06-01
+        cand: 2021-06-01(month,clear_initiation,s=1.60) :: -of-way (ROW) for a 26.5-mile nonmotorized trail system. In [[June 2021]], Pinal County submitted an application under the Recreation & Publ
+        cand: 2021-06-01(month,clear_initiation,s=0.43) :: f-way (ROW) for a 26.5-mile non- motorized trail system. In [[June 2021]], Pinal County submitted an application under the Recreation & Publ
+        cand: 2021-06-01(month,clear_initiation,s=0.43) :: f-way (ROW) for a 26.5-mile non- motorized trail system. In [[June 2021]], Pinal County submitted an application under the Recreation & Publ
+  DEC   ✓ [match]  selected=2022-08-05  gold=2022-08-05
+        cand: 2022-08-05(day,clear_decision,s=0.68) :: Bull (Acting) Date Field Manager Lower Sonoran Field Office [[08/05/2022]] KATIE WHITE BULL Digitally signed by KATIE WHITE BULL Date: 2022.
+        cand: 2022-08-05(day,clear_decision,s=0.68) :: Bull (Acting) Date Field Manager Lower Sonoran Field Office [[08/05/2022]] KATIE WHITE BULL Digitally signed by KATIE WHITE BULL Date: 2022.
+        cand: 2022-08-04(day,clear_decision,s=-0.30) ::  Office 21605 N 7th Ave Phoenix, Arizona 85027 623-580-5500 [[August 4, 2022]]
+
+===== 42fa3a31354e0311b21a78fb3ac90c29 [EA] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2023-07-01(year,proxy_decision,s=-2.17) :: mp Special Recreation Permit and Rights of Way Applications [[DOI-BLM-ID-R030-2023-0018]]-EA November 1, 2023 I. DECISION After careful cons
+        cand: 2023-07-01(year,proxy_decision,s=-2.17) :: mp Special Recreation Permit and Rights of Way Applications [[DOI-BLM-ID-R030-2023-0018]]-EA November 1, 2023 I. DECISION After careful cons
+        cand: 2023-07-01(year,proxy_decision,s=-2.39) :: mp Special Recreation Permit and Rights of Way Applications [[DOI-BLM-ID-R030-2023-0018]]-EA INTRODUCTION: The Bureau of Land Management (BL
+  DEC   ✓ [match]  selected=2023-11-01  gold=2023-11-01
+        cand: 2023-11-01(day,clear_decision,s=1.46) :: and Rights of Way Applications DOI-BLM-ID-R030-2023-0018-EA [[November 1, 2023]] I. DECISION After careful consideration, it is my decision 
+        cand: 2023-11-01(day,clear_decision,s=0.63) :: ns, policies, and programs. APPROVAL: /s/ Joshua M. Travers [[11/01/2023]] Joshua M. Travers, Challis Field Manager Date
+        cand: 2023-11-01(day,body_text,s=-3.58) :: and Rights of Way Applications DOI-BLM-ID-R030-2023-0018-EA [[November 1, 2023]] I. DECISION After careful consideration, it is my decision 
+
+===== 43a3ed9ea3cae13472bf9ad81f0f46a6 [EA] =====
+  INIT  ✗ [missed]  selected=None  gold=2012-08-20
+        cand: 2012-08-20(day,unknown,s=-0.68) :: The scoping comment period for the Rebuild Project began on [[August 20, 2012]], and BPA accepted comments on the project from the public un
+        cand: 2012-08-20(day,unknown,s=-1.17) :: On [[August 20, 2012]], BPA sent a letter to people potentially interested in or af
+        cand: 2014-01-31(day,unknown,s=-1.24) :: nmental Assessment Bonneville Power Administration DOE/EA‐19[[31 January 2014]] Summary Bonneville Power Administration (BPA) is proposing t
+  DEC   ✓ [match]  selected=2014-02-06  gold=2014-02-06
+        cand: 2014-02-06(day,clear_decision,s=0.77) :: d Action. Issued in Portland, Oregon. /s/ Joseph Sharpe for [[February 6, 2014]] F. Lorraine Bodi Date Vice President Environment, Fish and 
+        cand: 2014-02-06(day,clear_decision,s=-0.55) :: d Action. Issued in Portland, Oregon. /s/ Joseph Sharpe for [[February 6, 2014]] F. Lorraine Bodi Date Vice President Environment, Fish and 
+        cand: 2014-04-01(month,clear_decision,s=-1.89) :: -way (ROW). The proposed construction would likely begin in [[April 2014]] and continue through December 2014. Details of the Proposed Actio
+
+===== 4ed07a0ef8f6bf55c20005e517bc7579 [EA] =====
+  INIT  ✓ [match]  selected=2020-02-27  gold=2020-02-27
+        cand: 2020-02-27(day,clear_initiation,s=2.26) :: BLM NEPA Register project start date: 2020-02-27
+        cand: 2020-08-26(day,clear_decision,s=-2.21) :: BLM NEPA Register decision date (fonsi): 2020-08-26
+  DEC   ✓ [match]  selected=2020-08-26  gold=2020-08-26
+        cand: 2020-08-26(day,clear_decision,s=2.05) :: BLM NEPA Register decision date (fonsi): 2020-08-26
+        cand: 2020-02-27(day,clear_initiation,s=-1.24) :: BLM NEPA Register project start date: 2020-02-27
+
+===== 626af2e0dcb8b43248228cd876240b6d [EA] =====
+  INIT  ✓ [match]  selected=2023-01-17  gold=2023-01-17
+        cand: 2023-01-17(day,clear_initiation,s=2.26) :: BLM NEPA Register project start date: 2023-01-17
+        cand: 2023-02-03(day,clear_decision,s=-2.21) :: BLM NEPA Register decision date (fonsi): 2023-02-03
+  DEC   ✓ [match]  selected=2023-02-03  gold=2023-02-03
+        cand: 2023-02-03(day,clear_decision,s=2.05) :: BLM NEPA Register decision date (fonsi): 2023-02-03
+        cand: 2023-01-17(day,clear_initiation,s=-1.24) :: BLM NEPA Register project start date: 2023-01-17
+
+===== 6ad9161f2ee067150ab0d5c4356332b3 [EA] =====
+  INIT  ✓ [match]  selected=2018-04-04  gold=2018-04-04
+        cand: 2018-04-04(day,clear_initiation,s=2.26) :: BLM NEPA Register project start date: 2018-04-04
+        cand: 2019-06-19(day,clear_decision,s=-2.21) :: BLM NEPA Register decision date (fonsi): 2019-06-19
+  DEC   ✓ [match]  selected=2019-06-19  gold=2019-06-19
+        cand: 2019-06-19(day,clear_decision,s=2.05) :: BLM NEPA Register decision date (fonsi): 2019-06-19
+        cand: 2018-04-04(day,clear_initiation,s=-1.24) :: BLM NEPA Register project start date: 2018-04-04
+
+===== 84b153f015fab166e70a6a40aa96414d [EA] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2006-09-13(day,unknown,s=-1.23) ::  properly evaluated. See response to comment 53. 73. At the [[September 13, 2006]] Oak Ridge Site Specific Advisory Board meeting, the advis
+        cand: 2006-12-08(day,unknown,s=-1.35) :: f handling these traps should be analyzed. According to the [[December 8, 2006]] report of the Defense Nuclear Facilities Safety Board, depr
+        cand: 2006-09-13(day,clear_decision,s=-1.63) ::  properly evaluated. See response to comment 53. 73. At the [[September 13, 2006]] Oak Ridge Site Specific Advisory Board meeting, the advis
+  DEC   ✓ [match]  selected=2004-12-10  gold=2004-12-10
+        cand: 2004-12-10(day,clear_decision,s=2.05) :: DOE NEPA Register decision date (fonsi, DOE/EA-1488): 2004-12-10
+        cand: 2006-12-08(day,clear_decision,s=-1.70) :: f handling these traps should be analyzed. According to the [[December 8, 2006]] report of the Defense Nuclear Facilities Safety Board, depr
+        cand: 2006-09-13(day,clear_decision,s=-2.67) ::  properly evaluated. See response to comment 53. 73. At the [[September 13, 2006]] Oak Ridge Site Specific Advisory Board meeting, the advis
+
+===== 96b26b5a6c877afe0475790d6625c6f3 [EA] =====
+  INIT  ✓ [match]  selected=2022-03-16  gold=2022-03-16
+        cand: 2022-03-16(day,clear_initiation,s=2.26) :: BLM NEPA Register project start date: 2022-03-16
+        cand: 2023-06-02(day,clear_decision,s=-2.21) :: BLM NEPA Register decision date (fonsi): 2023-06-02
+  DEC   ✓ [match]  selected=2023-06-02  gold=2023-06-02
+        cand: 2023-06-02(day,clear_decision,s=2.05) :: BLM NEPA Register decision date (fonsi): 2023-06-02
+        cand: 2022-03-16(day,clear_initiation,s=-1.24) :: BLM NEPA Register project start date: 2022-03-16
+
+===== 9e9978cda8624597659d4b965b9eeb2b [EA] =====
+  INIT  ✓ [match]  selected=2011-10-17  gold=2011-10-17
+        cand: 2011-11-02(day,clear_initiation,s=2.34) :: those current mandatory terms and conditions. Background On [[November 2, 2011]] you submitted an application for a crossing permit for thre
+        cand: 2011-10-27(day,clear_initiation,s=2.34) :: to the terms and conditions identified below. Background On [[October 27, 2011]], you submitted an application for a crossing permit. In res
+        cand: 2011-10-17(day,clear_initiation,s=2.34) :: to the terms and conditions identified below. Background On [[October 17, 2011]], you submitted an application for a crossing permit. In res
+  DEC   ✗ [missed]  selected=None  gold=2012-08-17
+        cand: 2011-11-01(day,clear_initiation,s=-0.52) :: to the terms and conditions identified below. Background On [[November 1, 2011]], you submitted an application for a crossing permit. In res
+        cand: 2011-11-01(day,clear_initiation,s=-0.52) :: to the terms and conditions identified below. Background On [[November 1, 2011]], you submitted an application for a crossing permit. In res
+        cand: 2011-11-01(day,clear_initiation,s=-0.52) :: to the terms and conditions identified below. Background On [[November 1, 2011]], you submitted an application for a crossing permit. In res
+
+===== a9bf633f178f02d579da39661ef6ae41 [EA] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2009-01-29(day,clear_decision,s=-2.21) :: DOE NEPA Register decision date (fonsi, DOE/EA-1070): 2009-01-29
+        cand: 1991-08-01(month,proxy_initiation,s=-4.06) :: btained from the S.C. Water Resources Commission (SCWRC) in [[August 1991]] after the Commission determined that the proposed dam repair was
+  DEC   ✓ [match]  selected=2009-01-29  gold=2009-01-29
+        cand: 2009-01-29(day,clear_decision,s=2.05) :: DOE NEPA Register decision date (fonsi, DOE/EA-1070): 2009-01-29
+        cand: 1991-08-01(month,proxy_initiation,s=-8.18) :: btained from the S.C. Water Resources Commission (SCWRC) in [[August 1991]] after the Commission determined that the proposed dam repair was
+
+===== be1cf87f42cd80d7aa3b2587d99873c7 [EA] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 1997-04-01(month,clear_decision,s=-1.76) :: the UMTRA Project sites. A Record of Decision was issued in [[April 1997]] in which DOE selected the Proposed Action Alternative for conduct
+        cand: 2003-02-01(month,proxy_initiation,s=-3.95) :: fice EA of Environmental Compliance at the Slick Rock Sites [[February 2003]] Final Page 29 human exposures to surface water. Monitoring of 
+        cand: 2003-02-01(month,proxy_initiation,s=-4.24) :: he Slick Rock Sites DOE Grand Junction Office Page 30 Final [[February 2003]] walls. Surface remediation in 1996 lowered the elevation of th
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 1997-04-01(month,clear_decision,s=-1.45) :: the UMTRA Project sites. A Record of Decision was issued in [[April 1997]] in which DOE selected the Proposed Action Alternative for conduct
+        cand: 2003-02-01(month,proxy_initiation,s=-6.83) :: fice EA of Environmental Compliance at the Slick Rock Sites [[February 2003]] Final Page 29 human exposures to surface water. Monitoring of 
+        cand: 2003-02-01(month,proxy_initiation,s=-6.97) ::  Slick Rock Sites DOE Grand Junction Office Page viii Final [[February 2003]] 14 percent probability that the maximum average selenium conce
+
+===== d209965bb3a54dd7009fc9e057acf5e7 [EA] =====
+  INIT  ✓ [match]  selected=2018-05-22  gold=2018-05-22
+        cand: 2018-05-22(day,clear_initiation,s=2.26) :: BLM NEPA Register project start date: 2018-05-22
+        cand: 2018-10-01(day,clear_decision,s=-2.21) :: BLM NEPA Register decision date (fonsi): 2018-10-01
+  DEC   ✓ [match]  selected=2018-10-01  gold=2018-10-01
+        cand: 2018-10-01(day,clear_decision,s=2.05) :: BLM NEPA Register decision date (fonsi): 2018-10-01
+        cand: 2018-05-22(day,clear_initiation,s=-1.24) :: BLM NEPA Register project start date: 2018-05-22
+
+===== dd9a887d60e52e18e4958ae6c38f4e66 [EA] =====
+  INIT  ✗ [missed]  selected=None  gold=2017-05-19
+        cand: 2017-06-15(day,clear_decision,s=-2.33) :: the authorized officer. __/s/ Kevin Coodey_____________ ____[[6/15/2017]]______________ John Hodge Date As...
+        cand: 2017-05-19(day,unknown,s=-2.42) :: was listed on the BLM Bakersfield NEPA projects web list on [[May 19, 2017]]. As required, a BLM Onsite Inspection was completed on May 18, 
+        cand: 2017-07-01(year,proxy_decision,s=-3.15) :: E DECISION RECORD Aera Two Maxwell Abandonments - C-4 & K-9 [[DOI-BLM-CA-C060-2017-0092]]-EA Introduction Aera the Operator/Lessee submitted
+  DEC   ✓ [match]  selected=2017-06-15  gold=2017-06-15
+        cand: 2017-06-15(day,clear_decision,s=1.71) :: the authorized officer. __/s/ Kevin Coodey_____________ ____[[6/15/2017]]______________ John Hodge Date As...
+        cand: 2017-05-18(day,review,s=-6.11) :: 2017. As required, a BLM Onsite Inspection was completed on [[May 18, 2017]] by Dave Faires, Natural Resource Specialist. A cultural resourc
+        cand: 2017-07-01(year,proxy_decision,s=-7.82) :: t Impact (FONSI) Aera Four Maxwell Abandonments - C-4 & K-9 [[DOI-BLM-CA-C060-2017-0083]]-EA BACKGROUND Aera the Operator/Lessee submitted f
+
+===== fd376168a2ca237d6b4a1e208b62ea3c [EA] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2017-03-23(day,clear_initiation,s=-0.05) :: s Department of the Interior Bureau of Land Management Date [[March 23, 2017]] Environmental Assessment DOI-BLM-CA-C05000-2017-0021 Title: C
+        cand: 2019-12-01(day,clear_initiation,s=-0.33) :: re project is expected to occur between January 1, 2018 and [[December 1, 2019]]. The drainage work would take about 60 days with landscape 
+        cand: 2018-01-01(day,clear_initiation,s=-0.93) :: e: Work for the entire project is expected to occur between [[January 1, 2018]] and December 1, 2019. The drainage work would take about 60 
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2017-03-23(day,clear_initiation,s=-2.51) :: s Department of the Interior Bureau of Land Management Date [[March 23, 2017]] Environmental Assessment DOI-BLM-CA-C05000-2017-0021 Title: C
+        cand: 2018-01-01(day,clear_initiation,s=-5.20) :: e: Work for the entire project is expected to occur between [[January 1, 2018]] and December 1, 2019. The drainage work would take about 60 
+        cand: 2019-12-01(day,clear_initiation,s=-5.20) :: re project is expected to occur between January 1, 2018 and [[December 1, 2019]]. The drainage work would take about 60 days with landscape 
+
+===== 19fa5940f256367fa2863d06dacda897 [EIS] =====
+  INIT  ✗ [missed]  selected=None  gold=2010-04-01
+        cand: 2010-04-01(day,clear_initiation,s=-0.09) :: nvolvement Scoping Public scoping for LIRA was initiated on [[April 1, 2010]], with the project’s inclusion on the quarterly Schedule of Pro
+        cand: 2014-03-28(day,unknown,s=-1.70) :: land Analysis DEIS was published in the Federal Register on [[March 28, 2014]]. The legal notice published in the Wallowa County Chieftain o
+        cand: 2014-04-02(day,unknown,s=-2.13) :: e legal notice published in the Wallowa County Chieftain on [[April 2, 2014]] which began the comment period. There were 22 agencies that re
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2010-04-01(day,clear_initiation,s=-1.78) :: nvolvement Scoping Public scoping for LIRA was initiated on [[April 1, 2010]], with the project’s inclusion on the quarterly Schedule of Pro
+        cand: 2015-03-01(month,proxy_initiation,s=-8.18) :: United States Department of Agriculture Forest Service [[March 2015]] Final Environmental Impact Statement Lower Imnaha Rangeland Analy
+        cand: 2015-03-01(month,proxy_initiation,s=-8.42) :: Final Environmental Impact Statement Wallowa County, Oregon [[March 2015]] Lead Agency USDA – Forest Service Responsible Official Kris Stein
+
+===== 2ed8b99fee7953749d1788edd3931ce9 [EIS] =====
+  INIT  ✗ [missed]  selected=None  gold=2018-11-21
+        cand: 2018-11-21(day,unknown,s=3.07) :: the NOI for this proposed action in the Federal Register on [[November 21, 2018]] (Appendix A). The NOI describes the proposed action and th
+        cand: 2018-12-21(day,unknown,s=-0.38) :: [[December 21, 2018]] VIA EMAIL harold.hall@bia.gov Dan Hall Acting Chief Divisi
+        cand: 2018-11-21(day,unknown,s=-0.79) :: the NOI for this proposed action in the Federal Register on [[November 21, 2018]]. The NOI described the proposed action and identified the 
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 1992-02-01(month,clear_decision,s=-3.14) :: the EIS for the Campo Solid Waste Management Project, dated [[February 1992]]. 1-138 Response: The attachment is not specific to the Project
+        cand: 2019-10-12(day,clear_decision,s=-3.71) :: OMMENTS Campo Wind Project with Boulder Brush Facilities 102[[12 October 2019]] RTC-218 1-133 Summary: The comment states that the Campo wel
+        cand: 2018-12-21(day,clear_initiation,s=-3.89) :: ampowind.com, in a timely manner before close of scoping on [[December 21, 2018]].  Promises were made at the scoping meeting by Matt Valer
+
+===== 305751f0ceccd00a9782d6af607b0623 [EIS] =====
+  INIT  ✓ [match]  selected=2021-08-27  gold=2021-08-27
+        cand: 2021-08-27(day,clear_initiation,s=1.44) :: BLM NEPA Register project start date: 2021-08-27
+        cand: 2023-03-11(day,clear_decision,s=-2.06) :: BLM NEPA Register decision date (rod): 2023-03-11
+  DEC   ✓ [match]  selected=2023-03-11  gold=2023-03-11
+        cand: 2023-03-11(day,clear_decision,s=2.10) :: BLM NEPA Register decision date (rod): 2023-03-11
+        cand: 2021-08-27(day,clear_initiation,s=-1.19) :: BLM NEPA Register project start date: 2021-08-27
+
+===== 3b79650884348200e94d28f0791ab513 [EIS] =====
+  INIT  ✓ [match]  selected=2003-04-10  gold=2003-04-10
+        cand: 2003-04-10(day,clear_initiation,s=1.44) :: DOE NEPA Register NOI date (DOE/EIS-0357): 2003-04-10
+        cand: 2005-03-18(day,unknown,s=-0.75) :: ed Construction or Alteration.” 7.2 STATE REQUIREMENTS • On [[March 18, 2005]], the Pennsylvania Department of Environmental Protection issu
+        cand: 2006-06-05(day,unknown,s=-1.10) :: ed project in letters dated February 7, 2006, June 2, 2006, [[June 5, 2006]], and August 9, 2006 (see Attachment). In addition, DOE staff me
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2003-04-10(day,clear_initiation,s=-1.19) :: DOE NEPA Register NOI date (DOE/EIS-0357): 2003-04-10
+        cand: 2005-08-10(day,clear_initiation,s=-4.57) :: g area and tank farm in the Mahanoy Valley was submitted on [[August 10, 2005]] (WMPI 2005b). Spill Prevention and Response Plans were inclu
+        cand: 2005-08-10(day,clear_initiation,s=-4.57) :: g area and tank farm in the Mahanoy Valley was submitted on [[August 10, 2005]] (WMPI 2005b). Spill Prevention and Response Plans were inclu
+
+===== 45111254a59f7d9490a1adcba4baf8a6 [EIS] =====
+  INIT  ✗ [missed]  selected=None  gold=2020-01-21
+        cand: 2020-01-21(day,unknown,s=2.21) :: tion of a notice of intent (NOI) in the Federal Register on [[January 21, 2020]] (Appendix A). The BLM invited the public to submit comments
+        cand: 2020-01-21(day,unknown,s=2.21) :: tion of a notice of intent (NOI) in the Federal Register on [[January 21, 2020]] (Appendix A). The BLM invited the public to submit comments
+        cand: 2020-01-21(day,unknown,s=1.33) :: he public to submit comments during the scoping period from [[January 21, 2020]] through February 27, 2020. The NOI notified the public of t
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2019-07-07(day,clear_decision,s=-2.07) ::  CHANGES Rev. No. Date Section Page Approved By 1 2 3 4 5 6 [[7 July 2019]] iv
+        cand: 2019-07-07(day,clear_decision,s=-2.07) ::  CHANGES Rev. No. Date Section Page Approved By 1 2 3 4 5 6 [[7 July 2019]] iv
+        cand: 2020-01-21(day,unknown,s=-7.39) :: he public to submit comments during the scoping period from [[January 21, 2020]] through February 27, 2020. The NOI notified the public of t
+
+===== 64776431d6b1d7f5cdd415f36148d8db [EIS] =====
+  INIT  ✓ [match]  selected=2014-07-18  gold=2014-07-18
+        cand: 2014-07-18(day,clear_initiation,s=3.05) :: Tcf Trillion Cubic Feet I. INTRODUCTION On [[July 18, 2014]], Alaska LNG Project LLC (Alaska LNG) filed an application (App
+        cand: 2015-05-28(day,clear_initiation,s=2.78) :: ion. Additional procedural history is discussed below.16 On [[May 28, 2015]], DOE/FE conditionally granted the non-FTA portion of the Applic
+        cand: 2014-09-05(day,clear_initiation,s=1.98) :: ct (NGA).2 Alaska LNG submitted supplemental information on [[September 5, 2014]].3 Alaska LNG requests long-term, multi-contract authorizat
+  DEC   ✗ [mismatch]  selected=2020-08-20  gold=2020-03-27
+        cand: 2020-08-20(day,clear_decision,s=0.26) :: DOE NEPA Register decision date (rod, DOE/EIS-0512): 2020-08-20
+        cand: 2020-08-20(day,body_text,s=0.08) :: 606, Irene.Nemesio@hq.doe.gov SUPPLEMENTARY INFORMATION: On [[August 20, 2020]], DOE/FE issued Order No. 3643–A to Alaska LNG Project LLC (A
+        cand: 2020-09-09(day,body_text,s=-0.21) :: 55672 Federal Register / Vol. 85, No. 175 / Wednesday, [[September 9, 2020]] / Notices DEPARTMENT OF ENERGY [FE Docket No. 14–96–LNG] A
+
+===== 7e06b9016e4080d64b61818b1268edc6 [EIS] =====
+  INIT  ✗ [mismatch]  selected=2014-11-15  gold=2014-05-28
+        cand: 2016-10-21(day,unknown,s=1.19) :: space were brought forward for consideration in the EIS. On [[October 21, 2016]], the BIA and BLM published an NOI in the Federal Register, 
+        cand: 2014-11-01(month,proxy_initiation,s=1.16) :: y 28, 2014, were included in the scoping report released in [[November 2014]] (BLM 2014a) and are found on the project website. The issues a
+        cand: 2014-05-28(day,unknown,s=0.51) :: in the Federal Register. All comments received on or before [[May 28, 2014]], were included in the scoping report released in November 2014 
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2015-03-01(month,proxy_initiation,s=-4.43) :: the Management Situation Appendix A Current Management A-39 [[March 2015]] Unique ID Decision Pinon Mesa Fossil Area Goal SDA-G- 20. Facilit
+        cand: 2015-03-01(month,proxy_initiation,s=-7.49) :: the Management Situation Appendix A Current Management A-38 [[March 2015]] Unique ID Decision Gonzales Mesa Wildlife Area Goal SDA-G- 13. Ma
+        cand: 2015-03-01(month,proxy_initiation,s=-7.85) :: nalysis of the Management Situation Table of Contents TOC i [[March 2015]] Mancos-Gallup RMPA/EIS Analysis of the Management Situation Table
+
+===== 8797d81f390e0eb5cb97c8710494e204 [EIS] =====
+  INIT  ✓ [match]  selected=2020-09-22  gold=2020-09-22
+        cand: 2020-09-22(day,clear_initiation,s=2.02) ::  Following the submission of the initial ROW application on [[September 22, 2020]], the BLM published a Notice of Intent (NOI) to prepare th
+        cand: 2020-09-22(day,clear_initiation,s=2.02) ::  Following the submission of the initial ROW application on [[September 22, 2020]], the BLM published a Notice of Intent (NOI) to prepare th
+        cand: 2022-04-01(day,clear_initiation,s=1.34) :: nt (NOI) to prepare the GLWP EIS in the Federal Register on [[April 1, 2022]]. Publication of the NOI began the scoping process. Scoping not
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2020-09-22(day,clear_initiation,s=-4.82) ::  Following the submission of the initial ROW application on [[September 22, 2020]], the BLM published a Notice of Intent (NOI) to prepare th
+        cand: 2022-04-01(day,clear_initiation,s=-4.82) :: nt (NOI) to prepare the GLWP EIS in the Federal Register on [[April 1, 2022]]. Publication of the NOI began the scoping process. Scoping not
+        cand: 2020-09-22(day,clear_initiation,s=-4.82) ::  Following the submission of the initial ROW application on [[September 22, 2020]], the BLM published a Notice of Intent (NOI) to prepare th
+
+===== 89414a09bd48fabe4852293e6642776a [EIS] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2025-02-26(day,clear_decision,s=-2.93) :: ments JEAN PRIJATEL Digitally signed by JEAN PRIJATEL Date: [[2025.02.26]] 13:44:16 -08'00'
+        cand: 2025-02-26(day,clear_decision,s=-2.93) :: ments JEAN PRIJATEL Digitally signed by JEAN PRIJATEL Date: [[2025.02.26]] 13:44:16 -08'00'
+        cand: 2025-02-26(day,unknown,s=-4.04) :: [[February 26, 2025]] Derek Eysenbach Project Manager Bureau of Land Management 
+  DEC   ✓ [match]  selected=2025-02-26  gold=2025-02-26
+        cand: 2025-02-26(day,clear_decision,s=0.20) :: ments JEAN PRIJATEL Digitally signed by JEAN PRIJATEL Date: [[2025.02.26]] 13:44:16 -08'00'
+        cand: 2025-02-26(day,clear_decision,s=0.20) :: ments JEAN PRIJATEL Digitally signed by JEAN PRIJATEL Date: [[2025.02.26]] 13:44:16 -08'00'
+        cand: 2025-02-26(day,unknown,s=-6.77) :: [[February 26, 2025]] Derek Eysenbach Project Manager Bureau of Land Management 
+
+===== 8a81bf3d4af8201e65aa30a73ca3d32f [EIS] =====
+  INIT  ✗ [missed]  selected=None  gold=2010-12-13
+        cand: 2010-12-13(day,unknown,s=2.18) :: 77654 Federal Register/Vol. 75, No. 238/Monday, [[December 13, 2010]]/Notices management, sociology and economics, and Geographi
+        cand: 2011-03-23(day,unknown,s=-0.55) ::  ended on February 11, 2011. Comments received on or before [[March 23, 2011]], are included in this report. The BLM will consider all comme
+        cand: 2010-12-13(day,clear_initiation,s=-0.66) :: the Federal Register. The Notice of Intent was published on [[December 13, 2010]], and the official scoping comment period ended on February
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2011-02-11(day,clear_initiation,s=-1.55) ::  13, 2010, and the official scoping comment period ended on [[February 11, 2011]]. Comments received on or before March 23, 2011, are includ
+        cand: 2010-12-13(day,clear_initiation,s=-3.45) :: the Federal Register. The Notice of Intent was published on [[December 13, 2010]], and the official scoping comment period ended on February
+        cand: 2010-12-13(day,unknown,s=-8.33) :: 77654 Federal Register/Vol. 75, No. 238/Monday, [[December 13, 2010]]/Notices management, sociology and economics, and Geographi
+
+===== 9b1b28dcce9693aa5f7823a7f4113eb9 [EIS] =====
+  INIT  ✗ [mismatch]  selected=2006-10-19  gold=1998-09-25
+        cand: 2006-10-19(day,clear_initiation,s=1.44) :: DOE NEPA Register NOI date (DOE/EIS-0236): 2006-10-19
+        cand: 2008-12-19(day,clear_decision,s=-2.06) :: DOE NEPA Register decision date (rod, DOE/EIS-0236): 2008-12-19
+        cand: 1999-12-08(day,unknown,s=-2.13) :: 1-11 Washington, D.C., and on Wednesday, [[December 8, 1999]], in Livermore, California. Eight people registered their at
+  DEC   ✓ [match]  selected=2008-12-19  gold=2008-12-19
+        cand: 2008-12-19(day,clear_decision,s=2.10) :: DOE NEPA Register decision date (rod, DOE/EIS-0236): 2008-12-19
+        cand: 2006-10-19(day,clear_initiation,s=-1.19) :: DOE NEPA Register NOI date (DOE/EIS-0236): 2006-10-19
+        cand: 2001-04-05(day,body_text,s=-5.98) :: 18078 Federal Register / Vol. 66, No. 66 / Thursday, [[April 5, 2001]] / Notices Information and Regulatory Affairs, Attention: Laure
+
+===== a60da55a3914121b0a9f5af98ba034d8 [EIS] =====
+  INIT  ✗ [mismatch]  selected=2004-07-01  gold=2001-09-20
+        cand: 2004-07-01(day,clear_initiation,s=0.28) :: to their coal lease application to the BLM on May 21, 2002; [[July 1, 2004]]; and November 8, 2004. In the application submitted in November
+        cand: 2005-02-15(day,clear_initiation,s=-0.12) :: ing in January 2005. The public scoping meeting was held on [[February 15, 2005]] in Gillette, Wyoming. At the public meeting, the applicant
+        cand: 2006-06-02(day,clear_initiation,s=-0.23) :: of public hearing in the Gillette News-Record on May 26 and [[June 2, 2006]]. Final EIS and Future Involvement The BLM received written comm
+  DEC   ✓ [match]  selected=2007-08-06  gold=2007-08-06
+        cand: 2007-08-06(day,clear_decision,s=0.06) :: NOTICES 43658 Federal Register / Vol. 72, No. 150 / Monday, [[August 6, 2007]] / Notices DEPARTMENT OF THE INTERIOR Bureau of Land Managemen
+        cand: 2004-11-08(day,clear_initiation,s=-1.76) :: lease application to the BLM on May 21, 2002; July 1, 2004; [[November 8, 2004]]. In application submitted in November, 2004, the Maysdorf L
+        cand: 2001-09-20(day,clear_initiation,s=-2.71) :: ero Rojo Porcupine WYW173408 North Antelope Rochelle TOTALS [[9/20/2001]] 2,219.39 Modified 11/8/2004 12/28/2001 1,397.64 Modified 10/16/200
+
+===== ac05b10d6c3ef664ce1a1b25d1f357c6 [EIS] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2009-09-21(day,unknown,s=-1.67) :: s. The Central California Irrigation District letter, dated [[September 21, 2009]], stated that the affected property is leased and operated
+        cand: 2009-09-21(day,unknown,s=-1.67) :: s. The Central California Irrigation District letter, dated [[September 21, 2009]], stated that the affected property is leased and operated
+        cand: 2013-01-01(day,unknown,s=-2.46) ::  circulated draft environmental document, the name prior to [[January 1, 2013]] is used throughout this document.
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2010-07-01(day,clear_decision,s=-2.57) :: 009-DWQ), adopted on September 2, 2009, became effective on [[July 1, 2010]]. The permit regulates storm water discharges from construction 
+        cand: 2009-09-02(day,clear_decision,s=-2.89) :: ruction General Permit (Order No. 2009-009-DWQ), adopted on [[September 2, 2009]], became effective on July 1, 2010. The permit regulates st
+        cand: 2008-12-12(day,review,s=-5.52) :: ble for listing in the National Register. In a letter dated [[December 12, 2008]], Caltrans requested that the State Historic Preservation O
+
+===== d66667402910dd84ae89bf519e468241 [EIS] =====
+  INIT  ✓ [match]  selected=2010-08-26  gold=2010-08-26
+        cand: 2010-09-01(month,proxy_initiation,s=1.52) :: ring this document, the FAA conducted additional scoping in [[September 2010]]. Two scoping comments were received: one from the NPCA and on
+        cand: 2010-08-26(day,clear_initiation,s=0.16) :: s Supplemental EIS was published in the Federal Register on [[August 26, 2010]] (Appendix C, Federal Register Notices). In preparing this do
+        cand: 2014-10-24(day,unknown,s=-1.81) :: dings in this Draft Supplemental EIS on October 9, 2014 and [[October 24, 2014]], respectively (Appendix D, Agency Coordination). This Draft
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 1990-08-01(month,clear_decision,s=-0.12) :: Recreation Area (GCNRA). A Record of Decision was issued in [[August 1990]] approving the development of what is now named the Cal Black Mem
+        cand: 2010-08-26(day,clear_initiation,s=-1.08) :: s Supplemental EIS was published in the Federal Register on [[August 26, 2010]] (Appendix C, Federal Register Notices). In preparing this do
+        cand: 1990-08-01(month,clear_decision,s=-1.43) :: Recreation Area (GCNRA). A Record of Decision was issued in [[August 1990]] approving the development of what is now named the Cal Black Mem
+
+===== dfe6130a176ecde494418bff7e0cd27d [EIS] =====
+  INIT  ✗ [mismatch]  selected=2012-12-15  gold=2008-02-15
+        cand: 2012-12-01(month,clear_initiation,s=0.43) :: uding rights of way through private and public property. In [[December 2012]], TRRC filed a supplemental application, in which the preferred
+        cand: 2010-11-15(day,unknown,s=-0.17) :: en comments on or before the comment period closing date of [[November 15, 2010]]. By request, the comment period was reopened and extended 
+        cand: 2012-01-04(day,unknown,s=-0.69) :: ll dated 11 Aug 2008 (attached) (originally sent Wednesday, [[January 04, 2012]] 9:44 AM) Conrad Fisher, Northern Cheyenne THPO George “CHIA
+  DEC   ✗ [missed]  selected=None  gold=2012-05-31
+        cand: 2012-05-31(day,clear_decision,s=-2.59) :: ay. Potential for additional regional mining operations. On [[31 May 2012]], BLM released a Decision of Record, FONSI, and EA, approvi...
+        cand: 2010-05-03(day,clear_initiation,s=-3.80) :: hern Cheyenne THPO George “CHIA” Stone, PRTC Tribal Liaison [[03 May 2010]] Site Visit Plan George “CHIA” Stone, PRTC Tribal Liaison Linwood
+        cand: 2010-05-03(day,clear_initiation,s=-3.80) :: hern Cheyenne THPO George “CHIA” Stone, PRTC Tribal Liaison [[03 May 2010]] Site Visit Plan George “CHIA” Stone, PRTC Tribal Liaison Linwood
+
+===== e232dd76050a1a3b78326ff59be4291e [EIS] =====
+  INIT  ✓ [match]  selected=2000-03-15  gold=2000-03-01
+        cand: 2000-03-01(month,proxy_initiation,s=-0.56) :: starting with public meetings held in Taos and Espanola. In [[March 2000]], a scoping letter was sent to approximately 450 individuals, agen
+        cand: 2004-07-22(day,unknown,s=-1.32) :: omment period were published in the newspapers of record on [[July 22, 2004]]. The Forest Service received 106 letters on the DEIS; of these
+        cand: 2004-08-30(day,unknown,s=-1.36) :: ere received after the end of the comment period, which was [[August 30, 2004]]. The Forest Service’s interdisciplinary team identified appr
+  DEC   ✗ [missed]  selected=None  gold=2005-09-12
+        cand: 2004-07-16(day,clear_decision,s=-2.32) :: blic Comment on the Draft Environmental Impact Statement On [[July 16, 2004]], the Forest Service published a notice of availability of the 
+        cand: 2004-07-22(day,clear_decision,s=-2.32) :: omment period were published in the newspapers of record on [[July 22, 2004]]. The Forest Service received 106 letters on the DEIS; of these
+        cand: 2004-08-30(day,clear_decision,s=-2.74) :: ere received after the end of the comment period, which was [[August 30, 2004]]. The Forest Service’s interdisciplinary team identified appr
+
+===== e9ae8b7c2bd04f7bee8b939ce18afc17 [EIS] =====
+  INIT  ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2005-12-08(day,unknown,s=-1.30) :: [[December 8, 2005]] Janet Sierzputowski Bureau of Reclamation 2800 Cottage Way 
+        cand: 2005-12-08(day,unknown,s=-1.70) :: S ON THE FEIS FOR THE LAKE BERRYESSA VISITOR SERVICES PLAN, [[DECEMBER 8, 2005]] Commitment to Future Environmental Analysis, Mitigation, an
+        cand: 2005-12-08(day,unknown,s=-2.83) :: S ON THE FEIS FOR THE LAKE BERRYESSA VISITOR SERVICES PLAN, [[DECEMBER 8, 2005]] Summary Paragraph The FEIS has included the requested infor
+  DEC   ✓ [ok_both_none]  selected=None  gold=None
+        cand: 2005-12-08(day,unknown,s=-7.63) :: [[December 8, 2005]] Janet Sierzputowski Bureau of Reclamation 2800 Cottage Way 
+        cand: 2005-12-08(day,unknown,s=-7.83) :: S ON THE FEIS FOR THE LAKE BERRYESSA VISITOR SERVICES PLAN, [[DECEMBER 8, 2005]] Summary Paragraph The FEIS has included the requested infor
+        cand: 2005-12-08(day,unknown,s=-7.86) :: S ON THE FEIS FOR THE LAKE BERRYESSA VISITOR SERVICES PLAN, [[DECEMBER 8, 2005]] Commitment to Future Environmental Analysis, Mitigation, an

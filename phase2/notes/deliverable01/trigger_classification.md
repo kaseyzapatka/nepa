@@ -6,12 +6,13 @@ This is an explanation of the trigger definitions we want to use for this delive
 
 ## Classification Schema
 
-Each of these 6 classes triggers NEPA review. The main trigger classes are:
+Each of these 7 classes triggers NEPA review. The main trigger classes are:
 
 - `Federal Funding`
 - `Federal Land`
 - `Federal Permit`
 - `Federal Direct Action`
+- `Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA)` *(code: `pma`)*
 - `Federal Program`
 - `Federal Property Transaction`
 
@@ -131,6 +132,22 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 
 - “right-of-way” (any hyphen/spacing variant) appearing in the document title
 
+**Land-management programmatic reviews (moved from `federal_program`):**
+
+- “revision of the ... land and resource management plan” (within same passage) → `lrm_plan_revision`
+- “integrated vegetation management program” + “programmatic environmental assessment” → `ivm_program_pea`
+- “system-wide operations and maintenance” + “programmatic environmental assessment” → `systemwide_om_pea`
+- “uranium leasing program” + “programmatic environmental assessment/impact statement” → `uranium_leasing_pea`
+- “outer continental shelf oil and gas leasing program” + “programmatic environmental impact statement” → `ocs_leasing_peis`
+- “solar energy development in six southwestern states” + “programmatic environmental impact statement” → `solar_program_peis`
+- “wind energy development on Bureau of Land Management-administered lands” + “programmatic environmental impact statement” → `wind_program_peis`
+- “updates to the western solar plan” + “solar PEIS” / “programmatic environmental impact statement” — OR — “2023 draft solar PEIS” → `western_solar_peis`
+- “designation of energy corridors on federal land” + “programmatic environmental impact statement” → `energy_corridors_peis`
+- “section 368 energy corridor revisions” + “resource management plan amendment” / “environmental impact statement” → `section368_corridor`
+- “vegetation management” + “National Forest” within same passage (~50 chars) → `usfs_veg_mgmt` (moved from `federal_direct_action`)
+
+These cues all relate to programmatic or resource-management reviews on or for federally managed lands. They are classified as `federal_land`, not `federal_program`, because the federal land management authority is the direct trigger.
+
 **Agency metadata (Tier 1a — detected without text cues):**
 
 - Agency is BLM, Bureau of Land Management, USFS, Forest Service, NPS, National Park Service, FWS / USFWS, Fish and Wildlife Service, BOR / USBR, Bureau of Reclamation
@@ -204,6 +221,14 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 - “(Subsequent) License Renewal”
 - “certificate of public convenience and necessity”
 
+**Nuclear generic EIS/EA (moved from `federal_program`):**
+
+- "generic environmental impact statement" / "generic EIS" / "GEIS" + "nuclear" / "NRC" / "reactor" / "license renewal" (within same passage, ~200 chars) → `generic_nuclear_eis`
+- "generic environmental assessment" / "generic EA" / "GEA" + "nuclear" / "NRC" / "reactor" / "license renewal" (within same passage, ~200 chars) → `generic_nuclear_ea`
+- "NUREG-1437" (standalone; this is the NRC's generic EIS for license renewal) → `nureg1437_geis`
+
+These patterns indicate NRC regulatory proceedings (license renewal, site-specific license) rather than broader program planning — hence `federal_permit`, not `federal_program`.
+
 **Agency metadata (Tier 1a — detected without text cues):**
 
 - Agency is FERC / Federal Energy Regulatory Commission → auto-assigned `federal_permit`
@@ -221,14 +246,14 @@ Each of these 6 classes triggers NEPA review. The main trigger classes are:
 
 - DOE / Department of Energy
 - NNSA / National Nuclear Security Administration
-- BPA / Bonneville / Bonneville Power Administration
-- WAPA / Western / Western Area Power Administration
 - Reclamation / Bureau of Reclamation / USBR
 - CBP / U.S. Customs and Border Protection
 - Forest Service / U.S. Forest Service / USFS
 - Bureau of Land Management / BLM
 - NPS / National Park Service
 - PNNL / Pacific Northwest National Laboratory
+
+Note: BPA, WAPA, SEPA, SWPA, and TVA are no longer recognized actors for `federal_direct_action`. They have been moved to the `pma` class (see below). Projects led by those agencies are classified as `pma` primary, with `federal_land` or `federal_permit` added as secondary where applicable.
 
 **Compound patterns (actor + intent verb + action verb — all must appear in same passage):**
 
@@ -260,20 +285,60 @@ The compound patterns are:
 - “federal construction” / “federal facility” / “federal installation”
 - “military installation” / “military base” / “military facility” / “military construction”
 - “federal facility upgrade” / “federal facility expansion” / “federal facility construction” (Tier 1b; more specific form)
-- “vegetation management” + “National Forest” within same passage (~50 chars) (Tier 1b only)
+
+Note: “vegetation management” + “National Forest” has been moved to `federal_land` (see below).
 
 **Agency metadata (Tier 1a — detected without text cues):**
 
 - **`AGENCY_DIRECT_ACTION_MAP`** — auto-assigned `federal_direct_action` without further review:
-  - Power Marketing Administration
-  - Bonneville Power Administration / BPA
-  - Western Area Power Administration / WAPA
-  - CBP / U.S. Customs and Border Protection
+  - CBP / U.S. Customs and Border Protection / Customs and Border Protection
 
 - Note: DOE and USACE appear in `FEDERAL_ACTION_ACTOR_PATTERN` (used in compound text patterns above) but are classified as `AGENCY_AMBIGUOUS` in Tier 1a — they are NOT auto-assigned to `federal_direct_action` from metadata alone; verb context from document text is required to distinguish `federal_direct_action` from `federal_funding` (DOE) or `federal_permit` (USACE)
+- Note: BPA, WAPA, SEPA, SWPA, and TVA have been moved out of `AGENCY_DIRECT_ACTION_MAP` into `AGENCY_PMA_MAP` and are auto-assigned `pma`
 
 
-### 5. Federal programs
+### 5. Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA)
+
+---
+
+**Coding rule:** `Assign the pma classification when Bonneville Power Administration (BPA), Western Area Power Administration (WAPA), Southeastern Power Administration (SEPA), Southwestern Power Administration (SWPA), or Tennessee Valley Authority (TVA) is the lead or sponsoring agency for the action. The code value is pma; in text and tables, use "PMA/TVA" or expand the acronym on first use.`
+
+**Agency metadata (Tier 1a — primary detection method):**
+
+- **`AGENCY_PMA_MAP`** — auto-assigned `pma` as primary trigger:
+  - Bonneville Power Administration / BPA
+  - Western Area Power Administration / WAPA
+  - Southeastern Power Administration / SEPA
+  - Southwestern Power Administration / SWPA
+  - Tennessee Valley Authority / TVA
+  - Power Marketing Administration / PMA (generic)
+
+When a PMA/TVA row also contains ROW, easement, land-use, or permit cues, `pma` remains primary and `federal_land` / `federal_permit` are added as secondary triggers.
+
+**Text-based actor patterns (Tier 1b — when agency metadata is missing or ambiguous):**
+
+- "[BPA / Bonneville Power Administration]" + "proposes to / will / would" → `bpa_actor`
+- "[WAPA / Western Area Power Administration]" + "proposes to / will / would" → `wapa_actor`
+- "[SEPA / Southeastern Power Administration]" + "proposes to / will / would" → `sepa_actor`
+- "[SWPA / Southwestern Power Administration]" + "proposes to / will / would" → `swpa_actor`
+- "[TVA / Tennessee Valley Authority]" + "proposes to / will / would" → `tva_actor`
+- "Power Marketing Administration" (standalone) → `pma_generic` (medium confidence)
+
+**Tier 4 cue patterns (context scoring):**
+
+- `\b(?:Bonneville\s+Power\s+Administration|BPA)\b`
+- `\b(?:Western\s+Area\s+Power\s+Administration|WAPA)\b`
+- `\b(?:Southeastern\s+Power\s+Administration|SEPA)\b`
+- `\b(?:Southwestern\s+Power\s+Administration|SWPA)\b`
+- `\b(?:Tennessee\s+Valley\s+Authority|TVA)\b`
+- `\bPower\s+Marketing\s+Administration\b|\bPMA\b`
+
+**Hypothesis (Tier 4 NLI):**
+
+- "This text shows that Bonneville Power Administration (BPA), Western Area Power Administration (WAPA), Southeastern Power Administration (SEPA), Southwestern Power Administration (SWPA), or Tennessee Valley Authority (TVA) is the lead or sponsoring agency proposing or implementing this project."
+
+
+### 6. Federal programs
 
 ---
 
@@ -301,33 +366,14 @@ The compound patterns are:
 - “Environmental Impact Statement Tier 1” / “EIS Tier 1” / “EA Tier 1” (reversed order)
 - “site-wide environmental impact statement” / “site-wide environmental assessment” / “sitewide environmental assessment”
 
-**Resource and land management plans:**
-
-- “resource management plan amendment” / “resource management plan revision”
-- “resource management plan” (standalone, in title or description)
-- “revision of the ... land and resource management plan” (within same passage)
-- “final ... land and resource management plan” / “proposed ... land and resource management plan” (medium confidence)
-
 **Other program types:**
 
-- “leasing program” / “leasing framework”
-- “corridor designation”
 - “rulemaking”
 - “policy framework”
-
-**Named federal energy programs (compound patterns — both terms must appear in same passage):**
-
 - “integrated resource plan” + “programmatic environmental impact statement” / “supplemental environmental impact statement” / “draft EIS”
-- “integrated vegetation management program” + “programmatic environmental assessment”
-- “system-wide operations and maintenance” + “programmatic environmental assessment”
-- “uranium leasing program” + “programmatic environmental assessment”
-- “outer continental shelf oil and gas leasing program” + “programmatic environmental impact statement”
-- “solar energy development in six southwestern states” + “programmatic environmental impact statement”
-- “wind energy development on Bureau of Land Management-administered lands” + “programmatic environmental impact statement”
-- “updates to the western solar plan” + “solar PEIS” / “programmatic environmental impact statement” — OR — “2023 draft solar PEIS”
-- “designation of energy corridors on federal land” + “programmatic environmental impact statement”
-- “section 368 energy corridor revisions” + “resource management plan amendment” / “environmental impact statement”
 - “long-term experimental and management plan” + “environmental impact statement”
+
+Note: Land-management programmatic reviews (vegetation management PEAs on National Forest, uranium leasing PEIS, OCS oil and gas leasing PEIS, BLM wind/solar PEIS, Western Solar Plan/PEIS, Section 368 corridor PEIS, system-wide O&M PEAs, and resource management plan revisions) have been moved to `federal_land`. Do not classify these as `federal_program`. See the `federal_land` section for the full cue list.
 
 **Document title (Tier 2 scan):**
 
@@ -340,7 +386,7 @@ The compound patterns are:
 - “programmatic consultation” → inter-agency coordination, not NEPA
 - “programmatic collaboration” → not NEPA
 
-### 6. Federal property transaction 
+### 7. Federal property transaction 
 
 ---
 
@@ -412,7 +458,7 @@ The compound patterns are:
 - “land exchanges are considered on a case-by-case basis” — policy description, not a specific proposed action
 
 
-### 7. Unknown or unclear 
+### 8. Unknown or unclear 
 
 --- 
 
@@ -436,6 +482,9 @@ These are the class-specific hypothesis statements used in Tier 4 to determine w
 
 - `federal_program`
   - This text shows that this is a programmatic, generic, site-wide, or Tier 1 environmental review covering a class of actions or a geographic area, or a broader federal planning document such as a resource management plan revision, leasing program, corridor designation, or rulemaking.
+
+- `pma`
+  - This text shows that Bonneville Power Administration (BPA), Western Area Power Administration (WAPA), Southeastern Power Administration (SEPA), Southwestern Power Administration (SWPA), or Tennessee Valley Authority (TVA) is the lead or sponsoring agency proposing or implementing this project.
 
 - `federal_property_transaction`
   - This text shows that this involves a federal land exchange, sale, disposal, conveyance, acquisition, or transfer of land, land rights, easements, or other real-property interests.
