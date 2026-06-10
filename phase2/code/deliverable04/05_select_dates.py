@@ -60,16 +60,6 @@ MAX_DURATION_YEARS = 25
 # candidates. Set D4_USE_LEARNED_RANKER=0 to fall back to the pure heuristic (for A/B baselining).
 USE_LEARNED_RANKER = os.environ.get("D4_USE_LEARNED_RANKER", "1") == "1"
 
-# EA selection v2 (ea_audit.md Phase B). Adds Tier EA-1: an authoritative BLM/DOE Tier A *day*
-# register date fills the decision when the existing CE/EA cascade leaves the project unresolved —
-# recovering the projects the learned-score gate currently drops (ea_audit.md §5.1, the 55-project
-# register floor in §0.3). EA-2/EA-3 (broader text/classifier tiers) are NOT enabled here. Cascade-
-# resolved projects are returned UNCHANGED, so the existing EA selections stay byte-identical.
-# DEFAULT ON: these authoritative register dates belong in the product on every run. The flag is a
-# rollback escape hatch only — set D4_EA_SELECTION_V2=0 to reproduce the prior (buggy) behavior for
-# debugging/A-B comparison. EA-only; never affects CE or EIS.
-EA_SELECTION_V2 = os.environ.get("D4_EA_SELECTION_V2", "1") == "1"
-
 # --- Selection-disambiguation rules (2026-06-04) -------------------------------------------
 # Earliest-wins for initiation: among initiation candidates scoring within this margin of the
 # best, pick the EARLIEST date (initiation = the first qualifying start signal, e.g. the first
@@ -529,17 +519,43 @@ def _select_earliest_initiation(df: pd.DataFrame) -> pd.Series:
     return pool.iloc[0]
 
 
-def _select_ea_decision(
-    decision_cands: pd.DataFrame, cands: pd.DataFrame
-) -> tuple[Optional[pd.Series], Optional[str]]:
-    """EA decision (ea_audit.md Phase B, Tier EA-1 register gap-fill).
+EA_FINAL_DOC_TYPES = {"EA", "FONSI", "ROD"}  # Final-EA/FONSI/ROD; excludes DEA (draft)
+# Event-binding for the no-FONSI month proxy: the month must read like a Final-EA / FONSI / Decision
+# issuance, NOT a citation, construction schedule, scoping note, or programmatic reference. `03`
+# labels every month in a final doc as a proxy, so the selector must do the binding.
+EA_MONTH_ISSUANCE_RE = re.compile(
+    r"finding\s+of\s+no\s+significant\s+impact|\bfonsi\b|decision\s+(?:record|notice|memo)|"
+    r"environmental\s+assessment|categorical\s+exclusion|\bdetermination\b",
+    re.IGNORECASE,
+)
+EA_MONTH_NEG_RE = re.compile(
+    r"printing\s+office|\bpress\b|construction|anticipat|operation|conducted|"
+    r"scoping|review(?:ed|\s+was)|received|accessed|https?:|\d+\s*cfr|\bfr\b\s*\d|prepared\s+by|"
+    r"comment\s+period|standards\s+and\s+guidelines|land\s+health|general\s+plan|"
+    r"literature|report\s+to|\bet\s+al\b|\bvol\.|\bpp?\.",
+    re.IGNORECASE,
+)
 
-    Runs the EXISTING CE/EA cascade first (clear>0 -> proxy>-2 -> body>-2); whatever it resolves is
-    returned UNCHANGED, so cascade-resolved EA projects stay byte-identical to the prior behavior.
-    Only when the cascade leaves the project unresolved does Tier EA-1 fill the gap with an
-    authoritative BLM/DOE Tier A *day* register date, bypassing the learned-score gate that currently
-    drops it (the documented selection bug; ea_audit.md §5.1). Returns (best_row|None, reason|None);
-    `reason` is set ONLY for a register gap-fill so existing rows gain no new flag.
+
+def _select_ea_decision(
+    decision_cands: pd.DataFrame, cands: pd.DataFrame, has_fonsi: bool
+) -> tuple[Optional[pd.Series], Optional[str]]:
+    """EA decision selection (ea_audit.md Phase B).
+
+    Tier order: existing cascade (clear>0 -> proxy>-2 -> body>-2), returned UNCHANGED so
+    cascade-resolved EA projects stay byte-identical; then a register gap-fill; then, as a last
+    resort, a no-FONSI Final-EA month proxy.
+
+      - Register gap-fill: an authoritative BLM/DOE Tier A *day* register date, eligible regardless
+        of the learned-score gate that currently drops it (the documented selection bug; §5.1).
+      - No-FONSI month proxy: when the project has NO FONSI document and no day decision was found,
+        a month-granularity Final-EA/ROD issuance date stands in as a flagged proxy (midpoint
+        imputation later resolves it to the 15th; granularity stays "month" so no exact duration).
+        Months are read from the FULL `cands` because the upstream month-suppression strips them
+        from `decision_cands` (intended for the normal pool; this tier is a gated exception).
+
+    Returns (best_row|None, reason|None); `reason` is set only for the register / month tiers so
+    cascade-resolved rows gain no new flag.
     """
     clear = decision_cands[
         (decision_cands["candidate_role"] == "clear_decision") & (decision_cands["ranking_score"] > 0)
@@ -569,6 +585,24 @@ def _select_ea_decision(
         reg = reg[reg["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)]
         if not reg.empty:
             return _select_best_decision(reg), "ea_decision_register"
+    # Last resort: no-FONSI Final-EA month proxy (read from full `cands`; see docstring). Event-bound:
+    # the month context must read like an FEA/FONSI/Decision issuance and carry no citation/
+    # construction/scoping/programmatic hard-negative cue.
+    if not has_fonsi:
+        today = date.today()
+        ctx = cands["context_text"].fillna("")
+        month = cands[
+            cands["candidate_role"].isin(["clear_decision", "proxy_decision"])
+            & cands["date_granularity"].eq("month")
+            & cands["document_type_clean"].astype(str).str.upper().isin(EA_FINAL_DOC_TYPES)
+            & cands["_parsed_date"].notna()
+            & ctx.str.contains(EA_MONTH_ISSUANCE_RE)
+            & ~ctx.str.contains(EA_MONTH_NEG_RE)
+        ]
+        if not month.empty:
+            month = month[month["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)]
+            if not month.empty:
+                return _select_best_decision(month), "ea_decision_fea_month"
     return None, None
 
 
@@ -656,10 +690,13 @@ def select_dates_for_project(
         )
         # clear_dec is referenced later for the multiple_high_score flag; keep it meaningful.
         clear_dec = decision_cands[decision_cands["candidate_role"] == "clear_decision"]
-    elif process_type == "EA" and EA_SELECTION_V2:
-        # EA Phase B: existing cascade first (byte-identical when it resolves), then Tier EA-1
-        # register gap-fill for projects the learned-score gate currently leaves missing.
-        best_decision, ea_decision_reason = _select_ea_decision(decision_cands, cands)
+    elif process_type == "EA":
+        # EA Phase B: existing cascade first (byte-identical when it resolves), then register
+        # gap-fill, then a no-FONSI Final-EA month proxy (last resort). has_fonsi comes from the
+        # document index (all docs), not candidates (a FONSI can exist but not be retrieved).
+        pid = cands["project_id"].iloc[0] if not cands.empty else None
+        has_fonsi = bool(index_map.get(pid, {}).get("has_fonsi", False))
+        best_decision, ea_decision_reason = _select_ea_decision(decision_cands, cands, has_fonsi)
         clear_dec = decision_cands[
             (decision_cands["candidate_role"] == "clear_decision") &
             (decision_cands["ranking_score"] > 0)
@@ -699,6 +736,9 @@ def select_dates_for_project(
                 decision_source_type = best_decision.get("candidate_source_type", "document_text")
                 decision_confidence = best_decision.get("role_confidence", "medium")
                 decision_is_proxy = best_decision.get("candidate_role") in ("proxy_decision", "body_text")
+                # A no-FONSI Final-EA month is inherently a coarse proxy regardless of its role cue.
+                if ea_decision_reason == "ea_decision_fea_month":
+                    decision_is_proxy = True
                 decision_evidence_text = str(best_decision.get("context_text", ""))[:300]
                 decision_document_id = best_decision.get("document_id")
                 decision_page_number = best_decision.get("page_number")
@@ -1493,11 +1533,16 @@ def main() -> None:
     # Load index for document type scoring
     index_map: dict = {}
     if INDEX_PATH.exists():
-        idx = pd.read_parquet(INDEX_PATH, columns=["project_id", "decision_doc_score", "initiation_doc_score"])
+        idx = pd.read_parquet(
+            INDEX_PATH,
+            columns=["project_id", "decision_doc_score", "initiation_doc_score", "document_type_clean"],
+        )
+        idx["_is_fonsi"] = idx["document_type_clean"].astype(str).str.upper().str.contains("FONSI")
         for pid, grp in idx.groupby("project_id"):
             index_map[pid] = {
                 "decision_doc_score": grp["decision_doc_score"].max(),
                 "initiation_doc_score": grp["initiation_doc_score"].max(),
+                "has_fonsi": bool(grp["_is_fonsi"].any()),
             }
 
     # Load manual corrections if available
