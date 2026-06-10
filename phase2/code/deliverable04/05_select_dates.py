@@ -60,6 +60,16 @@ MAX_DURATION_YEARS = 25
 # candidates. Set D4_USE_LEARNED_RANKER=0 to fall back to the pure heuristic (for A/B baselining).
 USE_LEARNED_RANKER = os.environ.get("D4_USE_LEARNED_RANKER", "1") == "1"
 
+# EA selection v2 (ea_audit.md Phase B). Adds Tier EA-1: an authoritative BLM/DOE Tier A *day*
+# register date fills the decision when the existing CE/EA cascade leaves the project unresolved —
+# recovering the projects the learned-score gate currently drops (ea_audit.md §5.1, the 55-project
+# register floor in §0.3). EA-2/EA-3 (broader text/classifier tiers) are NOT enabled here. Cascade-
+# resolved projects are returned UNCHANGED, so the existing EA selections stay byte-identical.
+# DEFAULT ON: these authoritative register dates belong in the product on every run. The flag is a
+# rollback escape hatch only — set D4_EA_SELECTION_V2=0 to reproduce the prior (buggy) behavior for
+# debugging/A-B comparison. EA-only; never affects CE or EIS.
+EA_SELECTION_V2 = os.environ.get("D4_EA_SELECTION_V2", "1") == "1"
+
 # --- Selection-disambiguation rules (2026-06-04) -------------------------------------------
 # Earliest-wins for initiation: among initiation candidates scoring within this margin of the
 # best, pick the EARLIEST date (initiation = the first qualifying start signal, e.g. the first
@@ -519,6 +529,49 @@ def _select_earliest_initiation(df: pd.DataFrame) -> pd.Series:
     return pool.iloc[0]
 
 
+def _select_ea_decision(
+    decision_cands: pd.DataFrame, cands: pd.DataFrame
+) -> tuple[Optional[pd.Series], Optional[str]]:
+    """EA decision (ea_audit.md Phase B, Tier EA-1 register gap-fill).
+
+    Runs the EXISTING CE/EA cascade first (clear>0 -> proxy>-2 -> body>-2); whatever it resolves is
+    returned UNCHANGED, so cascade-resolved EA projects stay byte-identical to the prior behavior.
+    Only when the cascade leaves the project unresolved does Tier EA-1 fill the gap with an
+    authoritative BLM/DOE Tier A *day* register date, bypassing the learned-score gate that currently
+    drops it (the documented selection bug; ea_audit.md §5.1). Returns (best_row|None, reason|None);
+    `reason` is set ONLY for a register gap-fill so existing rows gain no new flag.
+    """
+    clear = decision_cands[
+        (decision_cands["candidate_role"] == "clear_decision") & (decision_cands["ranking_score"] > 0)
+    ]
+    if not clear.empty:
+        return _select_best_decision(clear), None
+    proxy = decision_cands[
+        (decision_cands["candidate_role"] == "proxy_decision") & (decision_cands["ranking_score"] > -2)
+    ]
+    if not proxy.empty:
+        return _select_best_decision(proxy), None
+    body = decision_cands[
+        (decision_cands["candidate_role"] == "body_text") & (decision_cands["ranking_score"] > -2)
+    ]
+    if not body.empty:
+        return _select_best_decision(body), None
+    # Tier EA-1: authoritative BLM/DOE day register date — eligible regardless of learned score.
+    reg = decision_cands[
+        decision_cands["source_tier"].astype(str).eq("metadata")
+        & decision_cands["retrieval_tier"].astype(str).eq("tier_a")
+        & decision_cands["candidate_role"].eq("clear_decision")
+        & decision_cands["date_granularity"].eq("day")
+        & decision_cands["_parsed_date"].notna()
+    ]
+    if not reg.empty:
+        today = date.today()
+        reg = reg[reg["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)]
+        if not reg.empty:
+            return _select_best_decision(reg), "ea_decision_register"
+    return None, None
+
+
 def select_dates_for_project(
     cands: pd.DataFrame,
     process_type: str,
@@ -595,6 +648,7 @@ def select_dates_for_project(
     eis_rod_flag: str | None = None
     has_rod = False
     decision_is_feis_fallback = False
+    ea_decision_reason: str | None = None
     if process_type == "EIS":
         # Tiered: ROD-first (ranker orders ROD-eligible), FEIS-fallback when has_rod is False.
         best_decision, eis_rod_flag, has_rod, decision_is_feis_fallback = _select_eis_decision(
@@ -602,6 +656,14 @@ def select_dates_for_project(
         )
         # clear_dec is referenced later for the multiple_high_score flag; keep it meaningful.
         clear_dec = decision_cands[decision_cands["candidate_role"] == "clear_decision"]
+    elif process_type == "EA" and EA_SELECTION_V2:
+        # EA Phase B: existing cascade first (byte-identical when it resolves), then Tier EA-1
+        # register gap-fill for projects the learned-score gate currently leaves missing.
+        best_decision, ea_decision_reason = _select_ea_decision(decision_cands, cands)
+        clear_dec = decision_cands[
+            (decision_cands["candidate_role"] == "clear_decision") &
+            (decision_cands["ranking_score"] > 0)
+        ]
     else:
         # CE / EA unchanged: clear_decision in pass 1 (proxies only if no clear found).
         clear_dec = decision_cands[
@@ -811,6 +873,8 @@ def select_dates_for_project(
         flags.append("initiation_earliest_selected")
     if eis_rod_flag:
         flags.append(eis_rod_flag)
+    if ea_decision_reason:
+        flags.append(ea_decision_reason)
     timeline_status = "missing_both"
 
     if has_init and has_dec:
