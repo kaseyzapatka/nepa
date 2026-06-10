@@ -46,6 +46,14 @@ SOURCE_MAP = {"CE": "ce", "EA": "ea", "EIS": "eis"}
 # Per-process packet caps (plan §3)
 PACKET_CAPS = {"CE": 25, "EA": 75, "EIS": 150}
 
+# Per-process tier_d page context cap. CE determination/signature dates sit at the bottom of
+# dense ~7-9k-char form pages, beyond the old global 2,000-char cut, so CE reads the full page
+# (30,000 matches the tier_b CE full-read cap). EA narrative decision dates also sit below the
+# 2,000-char cut on priority_3 pages, so EA reads to 8,000 (matches the EA full-read cap; EA pages
+# are shorter than CE forms, so 8k is effectively whole-page without flooding candidates).
+# EIS stays at 2,000 → byte-identical candidates.
+TIER_D_CONTEXT_CHARS = {"CE": 30_000, "EA": 8_000, "EIS": 2_000}
+
 # CE section skip threshold: skip section retrieval for CE docs with <=20 total pages
 CE_SECTION_SKIP_PAGES = 20
 
@@ -860,7 +868,7 @@ def build_tier_d_packets(
             "negative_page_score": item["neg_s"],
             "heading_title": None,
             "parent_heading_title": None,
-            "context_text": _truncate(text, 2000),
+            "context_text": _truncate(text, TIER_D_CONTEXT_CHARS.get(process_type, 2000)),
             "context_chars": len(text),
             "estimated_tokens": max(1, len(text) // 4),
             "context_hash": _text_hash(text),

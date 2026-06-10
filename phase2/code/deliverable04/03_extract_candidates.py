@@ -527,13 +527,18 @@ def _should_reject_date(
     context: str,
     process_type: str,
     source_tier: str,
+    date_span: tuple[int, int] | None = None,
 ) -> tuple[bool, str]:
     """
     Return (reject, reason) applying the plan §4 exclusion rules.
     Does not reject month-year candidates; those are granularity=month.
-    """
-    ctx_lower = context.lower()
 
+    For CE, when ``date_span`` (the date match's char offsets within ``context``) is
+    supplied, the keyword/citation exclusions are scoped to a ±60-char window around the
+    date. This stops a bottom-of-form CE signature date from being killed by an unrelated
+    'expires on' / statute citation elsewhere on the same dense form page. EA/EIS keep the
+    whole-block scan (date_span is not passed for them) so their behavior is unchanged.
+    """
     # Future date check
     if parsed_date.date() > RUN_DATE:
         return True, "future_date"
@@ -545,14 +550,23 @@ def _should_reject_date(
         # Soft reject: allow only with strong evidence (handled in scoring/selection)
         return True, "pre_1970_eis_reject"
 
+    # Window the citation/keyword exclusions to the immediate neighborhood of the date
+    # (CE only). All other paths scan the whole block as before.
+    if process_type == "CE" and date_span is not None:
+        ds, de = date_span
+        excl_text = context[max(0, ds - 60):de + 60]
+    else:
+        excl_text = context
+    excl_lower = excl_text.lower()
+
     # Legal/statutory citation exclusions
     for kw in EXCLUSION_KEYWORDS:
-        if kw in ctx_lower:
+        if kw in excl_lower:
             return True, f"exclusion_keyword:{kw}"
 
     # Regex-based exclusions (CFR/FR citations, author-year bibliographic patterns)
     for pat in EXCLUSION_RE:
-        if pat.search(context):
+        if pat.search(excl_text):
             return True, "exclusion_regex"
 
     # Metadata-only sources bypass text-based exclusions
@@ -819,7 +833,7 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
 
         for _ms, _me, m, ptype, parsed, granularity in _suppress_contained(raw_matches):
                 reject, _ = _should_reject_date(
-                    parsed, block, process_type, source_tier
+                    parsed, block, process_type, source_tier, (_ms, _me)
                 )
                 if reject:
                     continue
