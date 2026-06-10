@@ -334,6 +334,23 @@ CLEAR_DECISION_KEYWORDS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# EA-only (Phase C): approving-authority titles. A BLM/agency FONSI signature block lists
+# recommenders/reviewers (specialists) AND the approving official together, so the generic
+# specialist-sheet disambiguation wrongly downgrades the whole block — including the approving
+# signature, which IS the decision — to `review`. When one of these decision-authority titles is
+# present, an EA signature date is treated as a real decision. EA-scoped so CE/EIS specialist-sheet
+# handling is untouched.
+EA_DECISION_AUTHORITY_RE = re.compile(
+    r"\b(?:"
+    r"field\s+(?:office\s+)?manager|district\s+manager|"
+    r"assistant\s+field\s+manager|acting\s+field\s+manager|"
+    r"authorizing\s+official|approving\s+official|"
+    r"(?:deputy\s+|associate\s+)?state\s+director|area\s+manager|"
+    r"district\s+ranger|forest\s+supervisor"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Proxy decision: FEIS/EA publication dates serve as upper bound for ROD/FONSI
 PROXY_DECISION_RE = re.compile(
     r"\b("
@@ -555,6 +572,7 @@ def _prelabel_role(
     retrieval_reason: str | None,
     ptype: str,
     document_type_category: str | None = None,
+    process_type: str | None = None,
 ) -> tuple[str, float, list[str], list[str]]:
     """
     Return (candidate_role, role_confidence_float, positive_cue_flags, negative_cue_flags).
@@ -612,6 +630,13 @@ def _prelabel_role(
         if not CLEAR_DECISION_KEYWORDS_RE.search(context):
             slash_s_count = len(re.findall(r"/s/", context, re.IGNORECASE))
             if slash_s_count >= 3 or REVIEW_CUES.search(context):
+                # EA-only escape: a FONSI signature block lists specialists/recommenders AND the
+                # approving official together; the approving-authority signature IS the decision.
+                # When a decision-authority title is present, keep an EA signature date as a decision
+                # rather than downgrading the whole block to review. CE/EIS handling is unchanged.
+                if process_type == "EA" and EA_DECISION_AUTHORITY_RE.search(context):
+                    pos_cues.append("ea_decision_authority")
+                    return "clear_decision", 5.0, pos_cues, neg_cues
                 neg_cues.append("specialist_sig_sheet")
                 return "review", 2.0, pos_cues, neg_cues
         pos_cues.append("decision_strong")
@@ -720,6 +745,7 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                 role, conf, pos_cues, neg_cues = _prelabel_role(
                     context_clean, source_tier, retrieval_reason, ptype,
                     document_type_category=packet.get("document_type_category"),
+                    process_type=process_type,
                 )
                 candidate_id = hashlib.sha1(
                     f"{packet['project_id']}|{packet.get('document_id')}|{packet.get('page_start')}|{parsed.date()}|{context_clean[:50]}".encode()
@@ -808,6 +834,7 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                 role, conf, pos_cues, neg_cues = _prelabel_role(
                     block, source_tier, retrieval_reason, ptype,
                     document_type_category=packet.get("document_type_category"),
+                    process_type=process_type,
                 )
 
                 # Tag a "Date Determined: <date>" date (DOE CX form). Stays clear_decision

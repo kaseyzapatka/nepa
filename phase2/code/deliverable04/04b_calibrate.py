@@ -448,14 +448,14 @@ def run_curve() -> None:
               f"est_cost ${rec['est_cost_usd']:.2f}.")
 
 
-def run_apply() -> None:
+def run_apply(cand_path: Path = CANDIDATES_PATH) -> None:
     cal_init, cal_dec, cal_feis = _load_calibrators()
     model_version = _model_version()
-    if not CANDIDATES_PATH.exists():
-        raise SystemExit(f"Missing candidate pool: {CANDIDATES_PATH}")
-    df = pd.read_parquet(CANDIDATES_PATH)
+    if not cand_path.exists():
+        raise SystemExit(f"Missing candidate pool: {cand_path}")
+    df = pd.read_parquet(cand_path)
     if "classifier_model_version" not in df.columns:
-        raise SystemExit(f"{CANDIDATES_PATH} has no classifier_model_version column.")
+        raise SystemExit(f"{cand_path} has no classifier_model_version column.")
     mask = df["classifier_model_version"].eq(model_version)
     n = int(mask.sum())
     if n == 0:
@@ -484,7 +484,7 @@ def run_apply() -> None:
         feis_note = "incl. p_feis_cal (doc-type gate preserved)"
     else:
         feis_note = "p_final_eis not in pool yet -> p_feis_cal left NaN (re-score with 3-head model first)"
-    df.to_parquet(CANDIDATES_PATH, index=False)
+    df.to_parquet(cand_path, index=False)
     print(f"Applied calibrated scores to {n:,} candidates ({feis_note}).")
 
 
@@ -495,13 +495,15 @@ def main() -> None:
     parser.add_argument("--fit", action="store_true", help="Fit Platt calibrators on frozen test.")
     parser.add_argument("--curve", action="store_true", help="Build operating curve (requires --fit first).")
     parser.add_argument("--apply", action="store_true", help="Write p_init_cal/p_dec_cal back to candidates parquet.")
+    parser.add_argument("--run-dir", help="Isolated run dir: read/write timeline_candidates.parquet here instead of the main pool.")
     args = parser.parse_args()
     if args.fit:
         run_fit()
     if args.curve:
         run_curve()
     if args.apply:
-        run_apply()
+        cand_path = (Path(args.run_dir) / "timeline_candidates.parquet") if args.run_dir else CANDIDATES_PATH
+        run_apply(cand_path)
     if not (args.fit or args.curve or args.apply):
         parser.print_help()
 

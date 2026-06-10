@@ -519,6 +519,121 @@ def _select_earliest_initiation(df: pd.DataFrame) -> pd.Series:
     return pool.iloc[0]
 
 
+EA_FINAL_DOC_TYPES = {"EA", "FONSI", "ROD"}  # Final-EA/FONSI/ROD; excludes DEA (draft)
+# Event-binding for the no-FONSI month proxy: the month must read like a Final-EA / FONSI / Decision
+# issuance, NOT a citation, construction schedule, scoping note, or programmatic reference. `03`
+# labels every month in a final doc as a proxy, so the selector must do the binding.
+EA_MONTH_ISSUANCE_RE = re.compile(
+    r"finding\s+of\s+no\s+significant\s+impact|\bfonsi\b|decision\s+(?:record|notice|memo)|"
+    r"environmental\s+assessment|categorical\s+exclusion|\bdetermination\b",
+    re.IGNORECASE,
+)
+EA_MONTH_NEG_RE = re.compile(
+    r"printing\s+office|\bpress\b|construction|anticipat|operation|conducted|"
+    r"scoping|review(?:ed|\s+was)|received|accessed|https?:|\d+\s*cfr|\bfr\b\s*\d|prepared\s+by|"
+    r"comment\s+period|standards\s+and\s+guidelines|land\s+health|general\s+plan|"
+    r"literature|report\s+to|\bet\s+al\b|\bvol\.|\bpp?\.",
+    re.IGNORECASE,
+)
+# Hard negatives for the strong-cue document day tier (Phase C). role_confidence_score==5.0 already
+# means CLEAR_DECISION_STRONG matched, but guard the known leaks: preparer dates, NOA/availability,
+# comment/scoping periods, citations.
+EA_STRONG_NEG_RE = re.compile(
+    r"prepared\s+by|preparer|\bnoa\b|made\s+available|availability|comment\s+period|"
+    r"scoping|\d+\s*cfr|\bfr\b\s*\d|accessed|https?:|\bet\s+al\b",
+    re.IGNORECASE,
+)
+
+
+def _select_ea_decision(
+    decision_cands: pd.DataFrame, cands: pd.DataFrame, has_fonsi: bool
+) -> tuple[Optional[pd.Series], Optional[str]]:
+    """EA decision selection (ea_audit.md Phase B).
+
+    Tier order: existing cascade (clear>0 -> proxy>-2 -> body>-2), returned UNCHANGED so
+    cascade-resolved EA projects stay byte-identical; then a register gap-fill; then, as a last
+    resort, a no-FONSI Final-EA month proxy.
+
+      - Register gap-fill: an authoritative BLM/DOE Tier A *day* register date, eligible regardless
+        of the learned-score gate that currently drops it (the documented selection bug; §5.1).
+      - No-FONSI month proxy: when the project has NO FONSI document and no day decision was found,
+        a month-granularity Final-EA/ROD issuance date stands in as a flagged proxy (midpoint
+        imputation later resolves it to the 15th; granularity stays "month" so no exact duration).
+        Months are read from the FULL `cands` because the upstream month-suppression strips them
+        from `decision_cands` (intended for the normal pool; this tier is a gated exception).
+
+    Returns (best_row|None, reason|None); `reason` is set only for the register / month tiers so
+    cascade-resolved rows gain no new flag.
+    """
+    clear = decision_cands[
+        (decision_cands["candidate_role"] == "clear_decision") & (decision_cands["ranking_score"] > 0)
+    ]
+    if not clear.empty:
+        return _select_best_decision(clear), None
+    proxy = decision_cands[
+        (decision_cands["candidate_role"] == "proxy_decision") & (decision_cands["ranking_score"] > -2)
+    ]
+    if not proxy.empty:
+        return _select_best_decision(proxy), None
+    body = decision_cands[
+        (decision_cands["candidate_role"] == "body_text") & (decision_cands["ranking_score"] > -2)
+    ]
+    if not body.empty:
+        return _select_best_decision(body), None
+    # Tier EA-1: authoritative BLM/DOE day register date — eligible regardless of learned score.
+    reg = decision_cands[
+        decision_cands["source_tier"].astype(str).eq("metadata")
+        & decision_cands["retrieval_tier"].astype(str).eq("tier_a")
+        & decision_cands["candidate_role"].eq("clear_decision")
+        & decision_cands["date_granularity"].eq("day")
+        & decision_cands["_parsed_date"].notna()
+    ]
+    if not reg.empty:
+        today = date.today()
+        reg = reg[reg["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)]
+        if not reg.empty:
+            return _select_best_decision(reg), "ea_decision_register"
+    # Tier EA-2 (Phase C): strong-cue document day date — a real FONSI / Decision-Record /
+    # Field-Manager signature (role_confidence_score == 5.0 means CLEAR_DECISION_STRONG matched),
+    # eligible REGARDLESS of the learned-score gate. This is what makes the full-read pay off: the
+    # newly-surfaced signature dates would otherwise be re-dropped by the ranker gate. The ranker
+    # still ORDERS within this tier (via _select_best_decision -> ranking_score); it does not gate.
+    today = date.today()
+    strong = decision_cands[
+        decision_cands["candidate_role"].eq("clear_decision")
+        & decision_cands["date_granularity"].eq("day")
+        & (pd.to_numeric(decision_cands["role_confidence_score"], errors="coerce") >= 5.0)
+        & decision_cands["_parsed_date"].notna()
+    ]
+    if not strong.empty:
+        sctx = strong["context_text"].fillna("")
+        strong = strong[
+            strong["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)
+            & ~sctx.str.contains(EA_STRONG_NEG_RE)
+        ]
+        if not strong.empty:
+            return _select_best_decision(strong), "ea_decision_strong_text"
+    # Last resort: no-FONSI Final-EA month proxy (read from full `cands`; see docstring). Event-bound:
+    # the month context must read like an FEA/FONSI/Decision issuance and carry no citation/
+    # construction/scoping/programmatic hard-negative cue.
+    if not has_fonsi:
+        today = date.today()
+        ctx = cands["context_text"].fillna("")
+        month = cands[
+            cands["candidate_role"].isin(["clear_decision", "proxy_decision"])
+            & cands["date_granularity"].eq("month")
+            & cands["document_type_clean"].astype(str).str.upper().isin(EA_FINAL_DOC_TYPES)
+            & cands["_parsed_date"].notna()
+            & ctx.str.contains(EA_MONTH_ISSUANCE_RE)
+            & ~ctx.str.contains(EA_MONTH_NEG_RE)
+        ]
+        if not month.empty:
+            month = month[month["_parsed_date"].map(lambda d: pd.notna(d) and d <= today)]
+            if not month.empty:
+                return _select_best_decision(month), "ea_decision_fea_month"
+    return None, None
+
+
 def select_dates_for_project(
     cands: pd.DataFrame,
     process_type: str,
@@ -595,6 +710,7 @@ def select_dates_for_project(
     eis_rod_flag: str | None = None
     has_rod = False
     decision_is_feis_fallback = False
+    ea_decision_reason: str | None = None
     if process_type == "EIS":
         # Tiered: ROD-first (ranker orders ROD-eligible), FEIS-fallback when has_rod is False.
         best_decision, eis_rod_flag, has_rod, decision_is_feis_fallback = _select_eis_decision(
@@ -602,6 +718,17 @@ def select_dates_for_project(
         )
         # clear_dec is referenced later for the multiple_high_score flag; keep it meaningful.
         clear_dec = decision_cands[decision_cands["candidate_role"] == "clear_decision"]
+    elif process_type == "EA":
+        # EA Phase B: existing cascade first (byte-identical when it resolves), then register
+        # gap-fill, then a no-FONSI Final-EA month proxy (last resort). has_fonsi comes from the
+        # document index (all docs), not candidates (a FONSI can exist but not be retrieved).
+        pid = cands["project_id"].iloc[0] if not cands.empty else None
+        has_fonsi = bool(index_map.get(pid, {}).get("has_fonsi", False))
+        best_decision, ea_decision_reason = _select_ea_decision(decision_cands, cands, has_fonsi)
+        clear_dec = decision_cands[
+            (decision_cands["candidate_role"] == "clear_decision") &
+            (decision_cands["ranking_score"] > 0)
+        ]
     else:
         # CE / EA unchanged: clear_decision in pass 1 (proxies only if no clear found).
         clear_dec = decision_cands[
@@ -637,6 +764,9 @@ def select_dates_for_project(
                 decision_source_type = best_decision.get("candidate_source_type", "document_text")
                 decision_confidence = best_decision.get("role_confidence", "medium")
                 decision_is_proxy = best_decision.get("candidate_role") in ("proxy_decision", "body_text")
+                # A no-FONSI Final-EA month is inherently a coarse proxy regardless of its role cue.
+                if ea_decision_reason == "ea_decision_fea_month":
+                    decision_is_proxy = True
                 decision_evidence_text = str(best_decision.get("context_text", ""))[:300]
                 decision_document_id = best_decision.get("document_id")
                 decision_page_number = best_decision.get("page_number")
@@ -811,6 +941,8 @@ def select_dates_for_project(
         flags.append("initiation_earliest_selected")
     if eis_rod_flag:
         flags.append(eis_rod_flag)
+    if ea_decision_reason:
+        flags.append(ea_decision_reason)
     timeline_status = "missing_both"
 
     if has_init and has_dec:
@@ -1429,11 +1561,16 @@ def main() -> None:
     # Load index for document type scoring
     index_map: dict = {}
     if INDEX_PATH.exists():
-        idx = pd.read_parquet(INDEX_PATH, columns=["project_id", "decision_doc_score", "initiation_doc_score"])
+        idx = pd.read_parquet(
+            INDEX_PATH,
+            columns=["project_id", "decision_doc_score", "initiation_doc_score", "document_type_clean"],
+        )
+        idx["_is_fonsi"] = idx["document_type_clean"].astype(str).str.upper().str.contains("FONSI")
         for pid, grp in idx.groupby("project_id"):
             index_map[pid] = {
                 "decision_doc_score": grp["decision_doc_score"].max(),
                 "initiation_doc_score": grp["initiation_doc_score"].max(),
+                "has_fonsi": bool(grp["_is_fonsi"].any()),
             }
 
     # Load manual corrections if available

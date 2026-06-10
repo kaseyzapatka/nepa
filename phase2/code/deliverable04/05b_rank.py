@@ -309,8 +309,8 @@ def run_eval() -> None:
               f"(n={m['n_projects']}) per-process={m['per_process_top1']}")
 
 
-def run_apply() -> None:
-    cand = pd.read_parquet(CANDIDATES_PATH)
+def run_apply(cand_path: Path = CANDIDATES_PATH) -> None:
+    cand = pd.read_parquet(cand_path)
     n_written = 0
     for head, _idcol, scorecol, path in HEADS:
         if not path.exists():
@@ -322,9 +322,9 @@ def run_apply() -> None:
         n_written += 1
         print(f"  wrote {scorecol}")
     if n_written:
-        cand.to_parquet(CANDIDATES_PATH, index=False)
+        cand.to_parquet(cand_path, index=False)
         print(f"Applied learned ranker scores to {len(cand):,} candidates "
-              f"({n_written} head(s)) -> {CANDIDATES_PATH.name}")
+              f"({n_written} head(s)) -> {cand_path}")
     else:
         print("No rankers found; nothing written. Run --train first.")
 
@@ -334,13 +334,15 @@ def main() -> None:
     ap.add_argument("--train", action="store_true", help="Fit both rankers on the gold train split.")
     ap.add_argument("--eval", action="store_true", help="Top-1 / MRR on the held-out gold split.")
     ap.add_argument("--apply", action="store_true", help="Write learned_*_score columns to the pool.")
+    ap.add_argument("--run-dir", help="Isolated run dir: read/write timeline_candidates.parquet here instead of the main pool.")
     args = ap.parse_args()
     if args.train:
         run_train()
     if args.eval:
         run_eval()
     if args.apply:
-        run_apply()
+        cand_path = (Path(args.run_dir) / "timeline_candidates.parquet") if args.run_dir else CANDIDATES_PATH
+        run_apply(cand_path)
     if not (args.train or args.eval or args.apply):
         ap.print_help()
 
