@@ -8,6 +8,15 @@ estimates, and a validation recipe. You should not need to re-derive the diagnos
 (The 16 EA cases are being handled separately — do not touch EA/EIS behavior unless a change is
 explicitly marked safe for them.)
 
+> **Status as of 2026-06-10 (`acdd7ba`):**
+> - **Fix 1 ✅ IMPLEMENTED** — `TIER_D_CONTEXT_CHARS = {"CE": 30_000, "EA": 8_000, "EIS": 2_000}`
+>   added to `02_retrieve.py`; `build_tier_d_packets` updated to use it.
+> - **Fix 2 ✅ IMPLEMENTED** — `_should_reject_date` in `03_extract_candidates.py` now accepts
+>   `date_span`; exclusion check windowed to ±60 chars for CE.
+> - **Fix 3 ❌ NOT YET** — optional defer-rescue in `01_index.py` (~30–40 CE); lower priority.
+> - **Validation NOT yet run** — isolated sample run on `missing_ce_ids.txt` is the next step.
+>   See §6 for the recipe.
+
 ---
 
 ## 1. What's wrong (one sentence)

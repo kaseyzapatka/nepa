@@ -1,9 +1,10 @@
 # D4 Timeline — Where I Left Off (combined handoff)
 
-> **Last updated: 2026-06-10.** This is the single authoritative warm-start note for D4.
+> **Last updated: 2026-06-10 (post-investigation).** This is the single authoritative warm-start note for D4.
 > It consolidates three earlier handoffs written at different points:
 > - the **2026-06-09** full-pipeline handoff (cross-process coverage, classifier, guardrails, 06 gate);
-> - the **2026-06-10** EA decision-coverage recovery note (EA 67% → 74.2%); and
+> - the **2026-06-10** EA decision-coverage recovery note (EA 67% → 74.2%);
+> - the **2026-06-10** missing-reviews investigation (1,376 clean reviews absent from Phase 2, root cause confirmed, code fixes applied — see §Missing-reviews investigation); and
 > - the **2026-06-03 → 06-05** classifier-rebuild session narrative (now historical — see Appendix).
 >
 > Where numbers conflict, the **latest** wins: EA is now **74.2%** (the 67% in the 06-09 note was the
@@ -193,6 +194,39 @@ that aren't in the pool.
   be `neither`. Worth a QC sweep if EIS decision underperforms after recall work.
 - **Spot-check ROD vs FEIS-fallback picks** (`decision_is_feis_fallback`) — confirm FEIS dates are
   real publication dates, not draft/notice dates.
+
+---
+
+---
+
+## Missing-reviews investigation (2026-06-10)
+
+**Finding:** 1,376 clean-energy projects that Phase 1 had are absent from Phase 2 (1,360 CE + 16 EA).
+All are in `timeline_document_index.parquet` but have **zero rows** in `timeline_candidates.parquet`
+— the failure is at candidate extraction (`02_retrieve.py` → `03_extract_candidates.py`), not adjudication.
+
+**Root cause (CE):** DOE/BLM CE-determination forms are `priority_3` (bare `document_type_clean == "CE"`
+scores 0 in `01_index.py`). `build_tier_d_packets` stored only 2,000 chars per page; the NEPA signature
+date sits at the bottom of dense ~7k-char forms, truncated off. A secondary loss: `_should_reject_date`
+scanned the whole block for exclusion keywords, killing real signature dates that shared a block with
+`"expiration date"` / statute citations.
+
+**Root cause (EA):** Same truncation mechanism on priority_3 EA narrative docs; smaller loss (~4–6 projects).
+
+**Code fixes — APPLIED in `acdd7ba` (2026-06-10), validation run NOT yet performed:**
+
+| Fix | File | Change | Recovers |
+|---|---|---|---|
+| **CE Fix 1** ✅ | `02_retrieve.py` `build_tier_d_packets` | `TIER_D_CONTEXT_CHARS = {"CE": 30_000, "EA": 8_000, "EIS": 2_000}` replaces hard-coded 2,000 | ~1,029 CE |
+| **CE Fix 2** ✅ | `03_extract_candidates.py` `_should_reject_date` | `date_span` param added; exclusion keyword check windowed to ±60 chars for CE only | ~251 CE |
+| **EA Fix 1** ✅ | `02_retrieve.py` (same dict) | EA `tier_d` cap raised from 2,000 → 8,000 (matches `build_ea_decision_full_read_packets`) | ~4–6 EA |
+| **CE Fix 3** ❌ | `01_index.py` `_compute_scores` | Floor `decision_doc_score` on `document_type_category == "decision"` → promotes defer docs | ~30–40 CE (optional) |
+
+**Next:** run the isolated validation recipe from `missing_investigation_CEplan.md §6` on the missing
+cohort IDs (`missing_ce_ids.txt`, `missing_ea_ids.txt`) before running a full-process rebuild.
+
+Full evidence: [`missing_investigation_findings.md`](missing_investigation_findings.md).
+Fix details: [`../missing_investigation_CEplan.md`](../missing_investigation_CEplan.md), [`../missing_investigation_EAplan.md`](../missing_investigation_EAplan.md).
 
 ---
 

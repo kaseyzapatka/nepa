@@ -9,6 +9,13 @@ and what to explicitly NOT do. Companion docs: the CE fix is in
 **Read the CE plan first.** This EA change is a *one-number extension* of CE Fix 1. If the CE patch
 has already been applied, you are editing one value it introduced.
 
+> **Status as of 2026-06-10 (`acdd7ba`):**
+> - **EA Fix 1 ✅ IMPLEMENTED** — `TIER_D_CONTEXT_CHARS` dict in `02_retrieve.py` has `"EA": 8_000`.
+>   The CE patch (Fix 1) was applied simultaneously; EA value is already 8,000.
+> - **Validation NOT yet run** — Step A (isolated cohort check on `missing_ea_ids.txt`) and Step B
+>   (full-EA regression diff) in §4 are still pending. Run Step A first; Step B gates whether to keep
+>   the change or revert EA to 2,000.
+
 ---
 
 ## 1. The situation (don't re-derive)
