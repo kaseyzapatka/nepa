@@ -1,8 +1,82 @@
 # D4 Timeline: EIS Recovery Refactor
 
-**Status:** design only; no pipeline changes implemented.
+**Status:** implementation started. The first low-risk slice is implemented but not yet
+materialized in production data:
+
+- EIS Tier B and Tier D page context raised to 12,000 characters;
+- EIS same-page document-text deduplication prefers the longer packet;
+- text fallback added for an EIS project that otherwise emits no packet;
+- stale `selected_for_initiation` / `selected_for_decision` flags reset per project.
+
+An in-memory validation over the 223 projects with no canonical packet produced:
+
+- packets for 212 projects;
+- 377 packets total, including 272 fallback packets across 149 projects;
+- at least one extracted candidate for 137 projects;
+- 177 candidates: 148 `unknown`, 20 `proxy_initiation`, 4 `clear_decision`,
+  2 `proxy_decision`, 2 `review`, and 1 `clear_initiation`.
+
+This validates retrieval recovery, not final-date recovery. The predominance of
+`unknown` candidates is the reason the selection policy is not being loosened in the
+same patch.
+
+**Two different targets, two different levers — do not conflate them.** The plan has two
+distinct goals with non-overlapping bottlenecks:
+
+- **Objective 1 — candidate coverage (70% = 2,891 with both candidate types).** Current
+  1,892; gap 999. This is **purely a retrieval + extraction problem (Phase 2/3).
+  Selection (Phase 4) cannot create candidates and contributes nothing here.** The EIS
+  candidate decomposition is: 1,892 both-types, **1,050 init-only (need a decision
+  candidate)**, 106 decision-only (need an init candidate), 418 other-role-only, 664
+  zero-candidate. The dominant lever is the **1,050 init-only projects**, of which
+  **623 have a ROD/FEIS document** (`decision_doc_score >= 3.5`, addressable by the
+  cap/full-read/exclusion-window fixes) and **427 have no endpoint document at all**
+  (a source gap → Phase 5/OCR/register, not recoverable from local text).
+  **Feasibility of Objective 1 is currently UNMEASURED for its dominant cohort:** the
+  only retrieval validation so far (the 223 zero-candidate test in the status block, which
+  recovered "both types" for ~9 projects) did not touch the 623 init-only-with-endpoint-doc
+  projects. Phase 2/3 must measure decision-candidate recovery on those 623 before the 70%
+  candidate target can be called reachable.
+
+- **Objective 2 — final complete-timeline coverage (70% with both selected DATES).**
+  Current 842. This is largely a **selection problem (Phase 4):** the 645 ranker-blocked
+  initiation, 182 pool-excluded decision, and 130 month-suppressed decision projects
+  (overlapping) **already have candidates** — they sit inside the 1,892 both-types group
+  and fail at *selection*, not extraction.
+
+The earlier framing that "Phase 2 contributes ~1–2% and Phase 4 carries the rest" was
+**wrong** because it attributed the Objective-1 candidate gap to Objective-2 selection
+levers. Keep the targets separate: **Phase 2/3 is the lever for candidate coverage;
+Phase 4 is the lever for final-date coverage.** Do not treat the overnight Phase 2 run as
+evidence either target is reachable; that is answered by the Phase 0 source-ceiling audit
+(§6 Phase 0), the Phase 2/3 measurement of the 623, and Phase 4.
 
 **Baseline date:** 2026-06-15.
+
+## Phase 0 RESULT (2026-06-15) — go/no-go ceiling
+
+Ran `_phase0_baseline.py` against current production parquets. Fixtures + metrics in
+`notes/deliverable04/phase0/`. Headline:
+
+| Metric | Value |
+|---|---:|
+| EIS total | 4,130 |
+| Complete timelines today | 842 (20.4%) |
+| Decision evidence available (endpoint doc OR register decision) | 2,664 (64.5%) |
+| Initiation evidence available (narrative text / register / init doc) | 4,119 (99.7%) |
+| **Corrected joint source ceiling** | **2,664 (64.5%)** |
+| Ceiling-definition validation (currently-complete projects passing) | 99.5% ✅ |
+
+**GO/NO-GO verdict: the 70% target (2,891) EXCEEDS the local-document ceiling of 2,664.**
+70%+ complete timelines is **not achievable from local documents** — it requires Phase 5
+(OCR of image-only decision PDFs + external register supplementation). The realistic
+**local-document ceiling is 64.5% (2,664)**, and **decision evidence is the binding
+constraint** (initiation evidence is nearly universal at 99.7% because the NOI/scoping date
+lives in the EIS/FEIS narrative). The corrected ceiling definition is sound (99.5% of the
+842 currently-complete projects satisfy it; the naive `initiation_doc_score>0` proxy gave a
+false 434). **Phases 2–4 should target the 842→~2,664 headroom; treat 70%+ as a Phase-5
+decision.** Phase-4 initiation-labeling cohort = 331 projects (high-confidence init,
+no selected init); fixtures written.
 
 **Scope:** EIS only. The refactor must not change CE or EA behavior, rows, dates, or
 candidate scores except for explicitly shared infrastructure whose output is proven
@@ -36,6 +110,37 @@ separate:
 - projects requiring Federal Register or agency-register supplementation;
 - projects for which no initiation or endpoint evidence exists in the available corpus.
 
+**The binding ceiling is the JOINT one, and it must be the first number computed in
+Phase 0.** A complete timeline requires *both* a recognized endpoint document (ROD/FEIS)
+*and* a recognized initiation-evidence source (NOI, scoping notice, application, or
+register entry) for the same project. The 2,457 endpoint figure is only the decision
+side. Compute the joint count in Phase 0:
+
+```python
+# From timeline_document_index.parquet, per EIS project:
+#   has_endpoint_doc   = any doc with decision_doc_score >= 3.5  (FEIS/ROD)
+#   has_init_evidence  = see WARNING below — NOT initiation_doc_score > 0
+#   joint              = has_endpoint_doc AND has_init_evidence
+# Report COUNT(joint) over the 4,130 EIS universe.
+```
+
+> **WARNING — do not define initiation evidence as `initiation_doc_score > 0`.** That
+> proxy is wrong by ~4×: of the 842 EIS projects that ALREADY have a complete timeline,
+> only 213 have `initiation_doc_score > 0`, and 726/842 draw their initiation date from
+> `document_text` — i.e. the NOI / scoping / project-history date lives **inside the
+> EIS/FEIS narrative**, not in a dedicated initiation document. Using the narrow proxy
+> produces a falsely hopeless ceiling (~434) that is below the count already achieved.
+> Define `has_init_evidence` as **any EIS-family document with extractable text** (the
+> narrative can yield an initiation date) OR an authoritative NOI/register initiation OR
+> `initiation_doc_score > 0`. Validate the definition by confirming it is satisfied for
+> ≥95% of the 842 currently-complete projects before trusting the ceiling number.
+
+If `COUNT(joint)` is below 2,891 (the 70% target), the target is **not reachable from
+local documents alone**, regardless of how well selection is tuned. In that case, state
+the adjusted local-text-achievable target and treat Phase 5 (OCR + external register
+supplementation) as **mandatory**, not optional, to reach 70%. Do not begin Phase 4
+threshold work before this number is known.
+
 ## 2. Current Baseline
 
 From the current production parquets:
@@ -66,6 +171,10 @@ The 664 zero-candidate projects split into:
 
 All 223 no-packet projects have indexed documents. All have page rows, and 212 have at
 least one nonempty text page. This is a retrieval failure, not primarily an OCR failure.
+The fallback builder can access these pages: `retrieve_for_process()` currently loads
+all EIS pages and constructs each project's `pages_df` from every indexed document ID,
+including defer-priority documents. The loss occurs in packet construction, not page
+loading.
 
 Document metadata among the zero-candidate projects is dominated by:
 
@@ -160,6 +269,17 @@ The current pipeline also has reproducibility defects:
   flags from different model or retrieval versions.
 - `06_adjudicate_llm.py` cannot recover projects with no useful packets and currently
   sends only the top three candidates, which is too narrow for a recall-recovery pass.
+
+The frozen validation inventory is also insufficient for final threshold selection:
+
+- `frozen_eval_ids.txt` contains 28 projects, all EIS;
+- 28 have a filled decision pick, but only 13 have a filled initiation pick;
+- the separate labeled ROD sample has 46 projects;
+- the separate labeled FEIS sample has 25 projects;
+- there is no frozen FEIS threshold-evaluation column in `ranker.csv`.
+
+The current data can support regression checks, but not stable independent thresholds
+for initiation, ROD, and FEIS without expanding and freezing the event-specific sets.
 
 ## 3. Refactor Principles
 
@@ -284,12 +404,26 @@ project_id + document_id + page_number + normalized source span
 When two packets represent the same page, retain the packet with:
 
 1. authoritative source tier;
-2. longer context;
-3. higher retrieval priority;
-4. higher role-specific score.
+2. longer context among document-text packets;
+3. higher retrieval priority when context length is equal;
+4. higher role-specific score as a final tie-break.
 
 Do not hash full page text and then retain a shorter slice solely because its tier is
 earlier.
+
+For the first implementation slice, keep the existing content hash but apply the
+essential rule above: metadata remains authoritative, while same-page EIS document-text
+packets prefer the longer context. A source-identity deduplication rewrite remains a
+later structural cleanup and should not block validation of the cap change.
+
+**`deduplicate_packets()` is shared across CE/EA/EIS — gate the new rule and prove
+byte-equivalence.** The function at `02_retrieve.py:882` keeps the lowest `tier_order`
+value (`tier_b=1` beats `tier_d=3`) and has no length tiebreaker today. Implement the
+longer-context preference as a conditional on `process_type == "EIS"` so CE/EA dedup is
+untouched. Before publishing Phase 2, run the Phase 0 CE/EA equality invariant against
+the new code: candidate counts and selected dates for CE and EA must be byte-identical.
+If the rule is (intentionally or not) applied to all processes, this check must pass
+before publication regardless.
 
 #### Retrieval diagnostics
 
@@ -357,6 +491,23 @@ Candidates labeled `unknown`, `historical`, or `body_text` must remain available
 classifier when not hard-rejected. A high calibrated model probability should be able to
 promote them into an endpoint pool without rewriting the regex role.
 
+**`unknown` candidates are NOT a hypothetical — they already win selections today.** A
+query against the current production candidates parquet shows **1,268 EIS decision dates
+are currently selected from an `unknown`-role candidate** (initiation: 0). So `unknown`
+candidates are already eligible for and participating in decision selection under the
+existing code. Two consequences:
+
+1. The 148 `unknown` candidates from the fallback recovery do **not** need a role
+   promotion to be considered — they enter the classifier and selection as-is. The §5.3
+   role-feature work is about *auditability and future EIS event modeling*, not about
+   unblocking these candidates.
+2. **This is a Phase 4 hazard, not a benefit (see §5.6).** If the Phase 4 eligibility
+   pools are defined purely from explicit roles (`clear_decision`, `proxy_decision`,
+   `final_eis`, authoritative sources), they will *exclude* the `unknown` candidates that
+   currently supply 1,268 decision dates — turning a coverage refactor into a coverage
+   regression. The pool definition must preserve access for `unknown` candidates that
+   clear the calibrated probability threshold.
+
 ### 5.4 `04_classify_candidates.py` and `04b_calibrate.py`: event probabilities
 
 For EIS, model three distinct events:
@@ -377,6 +528,16 @@ if EIS reliability plots show it is calibrated. Report:
 - performance by document role and retrieval reason.
 
 Authoritative register candidates remain pass-through and do not need model acceptance.
+
+Before choosing `T_init`, `T_rod`, or `T_feis`:
+
+1. preserve the existing 28 EIS frozen projects as a protected regression set;
+2. freeze event-specific threshold sets from the existing EIS labels;
+3. target at least 30 verified positive and 30 verified negative projects per event;
+4. treat any threshold as provisional when that minimum cannot be reached.
+
+The existing ROD labels are large enough to start this construction. Initiation and FEIS
+need additional labeling before their thresholds can be treated as stable.
 
 ### 5.5 `05b_rank.py`: ordering only
 
@@ -400,6 +561,15 @@ one candidate per selected event.
 
 Build event pools independently of `candidate_role`:
 
+> **Regression guard (mandatory).** 1,268 EIS decision dates are currently selected from
+> `unknown`-role candidates (§5.3). Defining the pools "independently of `candidate_role`"
+> must mean **role-agnostic inclusion via calibrated probability**, not an allow-list of
+> explicit decision roles. Any pool definition that admits only `clear_decision` /
+> `proxy_decision` / `final_eis` / authoritative candidates will drop those 1,268 dates.
+> Before/after this change, count selected decision dates whose winning candidate is
+> `unknown`-role; the Phase 4 ship gate "no existing validated selection is lost without
+> an explicit reason" applies directly to this cohort.
+
 #### Initiation eligibility
 
 A candidate is initiation-eligible when any of the following holds:
@@ -411,34 +581,72 @@ A candidate is initiation-eligible when any of the following holds:
 Then apply chronology and rank eligible candidates. Chronology failures should produce a
 separate reason code; they must not be conflated with ranker rejection.
 
-#### ROD decision eligibility
+#### ROD decision eligibility — bias hard toward keeping RODs
 
-A candidate is ROD-eligible when:
+Real ROD dates are scarce and must be preserved aggressively: **a ROD candidate is dropped
+only in extreme cases, never by a soft probability cutoff.** A candidate is ROD-eligible
+when it is an authoritative register ROD, OR sits on a ROD-type document, OR has explicit
+local ROD issuance/signature language — i.e. the current `_eis_rod_pool` definition stays
+as the inclusion rule. `p_dec_cal` / the ranker are used **only to ORDER multiple ROD
+candidates within a project**; they must never make a project's *only* ROD ineligible.
 
-- it is an authoritative register ROD;
-- it has explicit local ROD issuance/signature evidence; or
-- `p_dec_cal >= T_rod` and it is supported by ROD document evidence.
+A ROD candidate is excluded only by an explicit hard-reject rule:
 
-High-`p_dec_cal` candidates without document-role support should route to adjudication,
-not disappear and not be auto-selected.
+- it is a citation or a reference to a *different* project's ROD (e.g. "consistent with the
+  Programmatic ROD issued …"), detected by the same windowed citation/exclusion logic
+  used elsewhere;
+- it is a schedule/expectation, not an issuance ("ROD expected Q3 2024");
+- it is future-dated, pre-1970, or unparseable.
 
-#### Final EIS eligibility
+If none of those fire, the ROD is eligible. When a project has a ROD candidate but it is
+ambiguous (e.g. competing dates, no clear issuance language), **route to adjudication —
+never silently drop it and never fall through to FEIS while a plausible ROD exists.**
 
-FEIS publication is a separate event selected from:
+#### ROD-first / FEIS-fallback is a PRESERVED INVARIANT — do not redesign it
 
-- explicit filing/publication/availability evidence;
-- `p_feis_cal >= T_feis` within an FEIS-supported document.
+**DECISION (locked): keep the current tiered behavior and the current storage.** A usable
+ROD is always used when one exists; the FEIS publication date is used as the decision date
+only when no usable ROD is present. The chosen date stays in the **single `decision_date`
+column**, exactly as today. This is the lowest-risk option and is correct best practice:
+the EIS "decision date" is one coherent concept — "when the review concluded, by ROD or by
+FEIS proxy when no ROD exists." Do **not** move FEIS dates into a separate `final_eis_date`
+column, do **not** migrate the headline metric, and do **not** flip
+`EIS_FINAL_EIS_ENABLED`. The existing tiering in `_select_eis_decision()`
+([05_select_dates.py:404-433](phase2/code/deliverable04/05_select_dates.py)) — ROD pool
+first, FEIS pool only when `has_rod` is False — is the behavior to keep.
 
-Preserve `final_eis_date` separately. Define a reporting endpoint:
+The only additions in Phase 4:
 
-```text
-endpoint_date = ROD date when present, otherwise Final EIS date
-```
+1. **Transparency tag.** Emit `decision_event_type` (`rod` | `final_eis_fallback`) alongside
+   the existing `decision_is_feis_fallback` / `has_rod` flags, so the report can label a
+   date as a FEIS proxy without moving the data. No consumer migration; `decision_date`,
+   `08_analyze.R:207`, the figures, and the report all keep working unchanged.
+   **`08_analyze.R` must be wired to surface this split.** It currently ignores
+   `has_rod` / `decision_is_feis_fallback` (it only derives `endpoint_source_type` =
+   `decision` vs `final_eis`, which is always `decision` since `final_eis_date` is null), so
+   a ROD-vs-FEIS figure is impossible as-is. Add a diagnostic table
+   (`d4_eis_decision_event_type.csv`: ROD vs FEIS-fallback counts/share by energy type) and
+   a figure, reading `decision_event_type` (or `has_rod` / `decision_is_feis_fallback`).
+   This is the filterable ROD/FEIS breakdown the report needs.
+2. **ROD ordering, not a stricter existence gate.** The current `_eis_rod_pool` inclusion
+   rule stays; `p_dec_cal` / the ranker only *order* competing ROD candidates within a
+   project (see "ROD decision eligibility" below). A project's only ROD is never made
+   ineligible by a probability cutoff — RODs are dropped only by explicit hard-reject rules.
 
-Do not silently call an FEIS publication date a ROD. If the existing `decision_date`
-column must remain ROD-or-FEIS for backward compatibility, emit an explicit
-`decision_event_type = rod | final_eis_fallback` and prohibit downstream analysis from
-mixing the two without acknowledgement.
+**Why this does not lower the timeline count.** The current 842 complete timelines and 2,204
+EIS decisions **already include 1,564 FEIS-fallback dates** (638 ROD + 1,564 FEIS;
+`final_eis_date` populated for 0). Keeping the fallback feature keeps those dates — there is
+no loss. The count is preserved by construction because nothing moves out of `decision_date`.
+
+> **Count protection — Phase 4 must report any drop.** With conservative ROD eligibility
+> (RODs dropped only by explicit hard-reject rules — citation / wrong-project reference /
+> future / pre-1970), the only projects that can lose a decision date are those whose sole
+> decision candidate was a genuine false positive AND that have no FEIS — i.e. corrections,
+> not real losses. Even so, the Phase 4 regression diff **must list every project that went
+> from "has decision date" to "none," with its rejection reason,** plus the before/after
+> `has_rod` / `decision_is_feis_fallback` split. Hard floor: decision coverage ≥ 2,204 and
+> complete timelines ≥ 842 unless each drop is individually justified as a false-positive
+> correction.
 
 #### Month granularity
 
@@ -449,6 +657,25 @@ Do not globally discard month-level EIS events before event-specific selection.
 - A month-level FEIS publication can be a valid endpoint at month granularity.
 - Never impute a day before selection; midpoint imputation is a reporting transformation,
   not evidence.
+
+`EIS_GAP_EXEMPT` does not affect this behavior. It only disables the historical-gap rule
+in `_apply_historical_gap_rule`; the separate block controlled by
+`MONTH_DECISION_PROCESSES = {"CE"}` (`05_select_dates.py:75`, applied at line ≈697)
+currently suppresses month candidates for EIS.
+The correction must therefore be in event-specific EIS selection, not in the gap rule
+and not by globally enabling month decisions.
+
+**Implementation detail — do NOT add `"EIS"` to `MONTH_DECISION_PROCESSES`.** That set
+gates a single suppression block that fires for *all* decision candidates; adding EIS
+would un-suppress months for ROD and FEIS together, which is exactly the conflation the
+month rule is meant to avoid. Instead, implement the escape *inside* the EIS event
+selection so the two events are handled separately:
+
+- **FEIS-publication pool:** month-granularity candidates are valid endpoints — keep them
+  at `granularity="month"` (no day imputation, no duration).
+- **ROD pool:** month-granularity candidates are too coarse for exact duration — do not
+  hard-suppress them (that loses them entirely); set `route_to_llm = True` and skip them
+  in deterministic selection so adjudication can resolve them later.
 
 #### Selection diagnostics
 
@@ -495,6 +722,18 @@ The orchestrator must execute:
 02 -> 03 -> 04 -> 04b --apply -> 05b --apply -> 05
 ```
 
+Confirmed defect: the current `_run.py` runs only `02 -> 03 -> 04 -> 05` (see its stage
+list) and **omits `04b` and `05b`**, so a fresh candidate pool gets selected with stale or
+missing calibrated/ranker scores. Add the two missing stages in order.
+
+**Isolation-flag reality (affects the validation recipe).** `02`, `03`, `04`, `05`, `07`
+support `--sample-ids`; `04b` and `05b` support **`--run-dir` but NOT `--sample-ids`**. So
+an isolated EIS validation cannot pass a sample-id subset through calibration/ranking —
+`04b`/`05b` operate on the **entire candidate set in the run directory**. The workflow is:
+run `02`/`03` (optionally sample-id-scoped) into an isolated `--run-dir`, then run
+`04 -> 04b --apply -> 05b --apply -> 05` against that whole run-dir. Do not expect
+`--sample-ids` to thread through `04b`/`05b`; scope the sample at `02`/`03` instead.
+
 Each EIS run should use an isolated run directory. After QA passes, publish by atomically
 replacing only the EIS partition in production outputs.
 
@@ -518,6 +757,23 @@ full EIS rebuild.
 Before behavior changes:
 
 1. Materialize the current EIS project, packet, candidate, and selected-date metrics.
+   Define `has_extractable_text` as at least one indexed EIS page with
+   `length(trim(page_text)) > 100`. The current denominator is 4,119 projects, so the 99%
+   retrieval gate requires at least 4,078 projects to emit a packet.
+   **Also compute, before any behavior change, two numbers that gate later phases:**
+   - **Joint source ceiling** (§1): count EIS projects with both a recognized endpoint
+     document (`decision_doc_score >= 3.5`) and a recognized initiation-evidence source
+     (NOI / scoping / application / register). This is the hard ceiling on local-text
+     complete timelines. If it is below 2,891, the 70% target requires Phase 5; record
+     the adjusted local-achievable target.
+   - **`unknown`-role selection reliance** (§5.3, §5.6): count currently selected EIS
+     decision dates whose winning candidate is `unknown`-role (baseline: 1,268). This is
+     the regression-guard denominator for the Phase 4 pool redesign.
+   - **Decision composition** (§5.6 preserved invariant): record the ROD vs FEIS-fallback
+     split of current EIS decisions (baseline: 2,204 = 638 ROD + 1,564
+     `decision_is_feis_fallback`; `final_eis_date` populated for 0). FEIS stays in
+     `decision_date` (option a, locked) — this baseline is the regression denominator for
+     the Phase 4 "usable ROD" gate, which must not drop net decision coverage below 2,204.
 2. Freeze representative validation sets:
    - zero-candidate projects;
    - ROD projects;
@@ -527,19 +783,41 @@ Before behavior changes:
    - selected dates currently judged correct.
 3. Add automated invariants:
    - 4,130 EIS output rows;
-   - CE/EA substantive output equality;
+   - CE/EA substantive output equality (the dedup-rule guard from §5.2 — candidate counts
+     and selected dates byte-identical for CE/EA);
    - no future dates;
    - selected initiation precedes selected endpoint when comparable;
    - at most one selected flag per project/event;
-   - all selected IDs exist in the current candidate partition.
+   - all selected IDs exist in the current candidate partition;
+   - **decision coverage does not regress:** FEIS stays in `decision_date` (§5.6, option a),
+     so completion is still `!is.na(initiation_date) & !is.na(decision_date)`; projects with
+     a decision date must not fall below 2,204, and complete timelines must not fall below
+     842, at any phase (guards the Phase 4 "usable ROD" gate edge case).
 
 ### Phase 1: state and orchestration correctness
 
 Implement selected-flag reset, isolated EIS partitions, full stage ordering, manifest
 versioning, and atomic publish. This phase should not intentionally change selected dates.
 
+**Dead-code cleanup (do it here, while behavior is frozen).** Option (a) makes several
+feature flags and one code path permanently dead; remove them so a later reader does not
+mistake them for live options:
+
+- `EIS_FINAL_EIS_ENABLED` (always `False`) and the `_select_eis_final_eis` function it
+  gates — the separate-`final_eis_date` path is not used under option (a). **Sweep
+  consumers first:** `08_analyze.R` references `final_eis_date` in its `endpoint_date`
+  coalesce; either drop the dormant `final_eis_date` column and simplify that line to use
+  `decision_date` directly, or keep the column explicitly documented as always-null. Pick
+  one and leave no half-wired path.
+- `EIS_DETERMINISTIC_DOC_ROD` (always `False`) if it has no live branch.
+- Any `if not EIS_TIERED_DECISION:` reversible-fallback branch in `_select_eis_decision`
+  once tiering is confirmed permanent — collapse to the tiered path.
+
+Removal must be byte-equivalent on CE/EA and reproduce EIS dates (the flags are already
+off, so deleting their dead branches changes nothing at runtime).
+
 **Ship gate:** current EIS dates reproduce except for stale candidate flags and volatile
-timestamps.
+timestamps; no dead EIS feature flag or unreachable selection branch remains.
 
 ### Phase 2: retrieval recall
 
@@ -561,6 +839,17 @@ Run `02 -> 03` only in an isolated EIS directory.
 Implement local EIS exclusion windows and the rejection sidecar. Re-run `03` from the
 Phase 2 packets.
 
+**Cheap interim before the full sidecar.** The full
+`timeline_candidate_rejections.parquet` (§5.3) is a Phase 3 deliverable, but the Phase 3
+ship gate ("manually reviewed recovered mentions ≥90% valid", "every rejected date can be
+assigned to a documented reason") needs rejection tracing to evaluate at all. Rather than
+re-running `03` in debug mode per sample project, first add a single nullable
+`rejection_reason` string to the `03` candidate output, populated from the existing
+`_should_reject_date` return value, for every date mention that was considered but not
+emitted. This is ~10 lines, produces exactly the data the gate needs, and the full
+sidecar (with anchored context, matched keyword/regex, document role) expands on it
+within the same phase.
+
 **Ship gates:**
 
 - manually reviewed recovered mentions are at least 90% valid date mentions;
@@ -572,6 +861,32 @@ Phase 2 packets.
 
 Remove ranker score gates, create calibrated event pools, preserve ROD/FEIS semantics,
 handle month granularity by event, and emit selection diagnostics.
+
+Do not implement this as an unconditional deletion of the current ranker gates. The
+replacement eligibility rules and thresholds must be frozen first. Otherwise the change
+would convert weak candidates into dates merely because every project has a top-ranked
+candidate.
+
+**Entry prerequisite — expand the frozen event sets (this is the thing that currently
+blocks Phase 4, so it is listed as a gate, not left implicit).** §2.4 shows the frozen
+inventory is too thin for stable thresholds: 28 EIS projects with a decision pick but
+only **13 with an initiation pick**, a 46-project ROD sample, a 25-project FEIS sample,
+and **no FEIS threshold column in `ranker.csv`**. Concrete, bounded path to the
+"30 verified positive + 30 verified negative per event" minimum:
+
+- **Initiation:** review 30 of the **168 projects** that have `p_init_cal > 0.5` AND a
+  chronologically valid initiation candidate but are blocked by the ranker gate (§2.3,
+  §9). Inspecting `initiation_evidence_text` + the candidate `model_context` for these
+  expands the frozen initiation set from 13 to ~43 verified picks and is the highest-value
+  labeling because it both unblocks thresholds and directly validates the largest coverage
+  lever.
+- **FEIS:** the existing 25-project FEIS sample is near the floor; review ~5 more from the
+  labeled FEIS set and **add the missing FEIS threshold column to `ranker.csv`**.
+- **ROD:** the 46-project sample already meets the minimum; preserve it as the regression
+  set.
+
+Treat any threshold derived from a still-undersized event set as provisional and say so in
+the run manifest. Do not start the ranker-gate removal until the initiation set is expanded.
 
 **Ship gates:**
 
@@ -592,6 +907,24 @@ Only after Phases 2–4:
 - add a project-level existence model if needed;
 - run bounded LLM adjudication for remaining ambiguous cases;
 - add OCR or external-source recovery for the documented source-gap cohort.
+
+## 6.1 Near-term implementation slice
+
+The practical first slice, suitable for an isolated EIS run, is:
+
+1. reset stale selected-candidate flags;
+2. use 12,000 characters in both EIS Tier B and Tier D;
+3. prefer the longer packet when duplicate EIS document-text packets represent the same
+   page;
+4. emit first/last text fallback packets when an EIS project otherwise emits no packet;
+5. run isolated `02 -> 03` validation and measure packet/candidate recovery.
+
+Items 1–4 are implemented in code. They must be validated before production publication.
+
+Ranker-gate removal is not part of this first slice. It is likely the largest final-date
+coverage lever, but it is a selection-policy change rather than a mechanical bug fix.
+Implement it in Phase 4 after event-specific eligibility thresholds and frozen samples
+are ready.
 
 ## 7. Acceptance Metrics
 
@@ -683,14 +1016,20 @@ constraint is source availability for projects without a recognized ROD or FEIS.
 
 ## 11. Recommended Execution Order
 
-1. Phase 0 baseline and validation fixtures.
+1. Phase 0 baseline and validation fixtures — **including the joint source ceiling and the
+   `unknown`-role reliance count (1,268).** If the joint ceiling is below 2,891, fix the
+   adjusted local-text target now and mark Phase 5 mandatory.
 2. Phase 1 orchestration/state correctness.
-3. Phase 2 retrieval refactor.
+3. Phase 2 retrieval refactor (infrastructure/diagnostic milestone; ~1–2% of coverage).
 4. Phase 3 extraction-window and rejection diagnostics.
 5. Re-measure the 70% pre-selection candidate target.
-6. Phase 4 selection refactor.
-7. Re-measure complete timelines and source ceilings.
-8. Phase 5 model, OCR, external-source, and LLM work only for the remaining documented
+6. **Expand and freeze the event-specific label sets (Phase 4 entry prerequisite):
+   30 initiation reviews from the 168-project blocked cohort, ~5 FEIS reviews, add the
+   FEIS threshold column to `ranker.csv`.**
+7. Phase 4 selection refactor — the coverage lever (~985 of the 999-project gap). Preserve
+   the 1,268 `unknown`-role decision selections.
+8. Re-measure complete timelines and source ceilings.
+9. Phase 5 model, OCR, external-source, and LLM work only for the remaining documented
    gaps.
 
 This order keeps the work reversible and answers the key question after each phase:

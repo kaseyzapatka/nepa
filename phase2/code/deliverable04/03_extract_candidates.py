@@ -533,11 +533,11 @@ def _should_reject_date(
     Return (reject, reason) applying the plan §4 exclusion rules.
     Does not reject month-year candidates; those are granularity=month.
 
-    For CE, when ``date_span`` (the date match's char offsets within ``context``) is
-    supplied, the keyword/citation exclusions are scoped to a ±60-char window around the
-    date. This stops a bottom-of-form CE signature date from being killed by an unrelated
-    'expires on' / statute citation elsewhere on the same dense form page. EA/EIS keep the
-    whole-block scan (date_span is not passed for them) so their behavior is unchanged.
+    When ``date_span`` (the date match's char offsets within ``context``) is supplied, the
+    keyword/citation exclusions are scoped to a window around the date: CE ±60, EIS ±120
+    (dense FEIS pages — a citation elsewhere must not kill a real publication/ROD date). For
+    EIS the ``REJECT_CUES`` historical scan is also windowed. EA keeps the whole-block scan
+    (window dict excludes it) so EA behavior is unchanged.
     """
     # Future date check
     if parsed_date.date() > RUN_DATE:
@@ -550,11 +550,13 @@ def _should_reject_date(
         # Soft reject: allow only with strong evidence (handled in scoring/selection)
         return True, "pre_1970_eis_reject"
 
-    # Window the citation/keyword exclusions to the immediate neighborhood of the date
-    # (CE only). All other paths scan the whole block as before.
-    if process_type == "CE" and date_span is not None:
+    # Window the citation/keyword exclusions to the immediate neighborhood of the date.
+    # CE ±60 (existing), EIS ±120 (Phase 3). EA falls through to whole-block (unchanged).
+    _EXCL_WINDOW = {"CE": 60, "EIS": 120}
+    if date_span is not None and process_type in _EXCL_WINDOW:
         ds, de = date_span
-        excl_text = context[max(0, ds - 60):de + 60]
+        w = _EXCL_WINDOW[process_type]
+        excl_text = context[max(0, ds - w):de + w]
     else:
         excl_text = context
     excl_lower = excl_text.lower()
@@ -573,8 +575,10 @@ def _should_reject_date(
     if source_tier == "metadata":
         return False, ""
 
-    # Reject/historical cues
-    if REJECT_CUES.search(context):
+    # Reject/historical cues. Windowed for EIS (a historical sentence elsewhere on a dense
+    # FEIS page must not reject an unrelated publication/signature date); whole-block for CE/EA.
+    reject_scan = excl_text if (process_type == "EIS" and date_span is not None) else context
+    if REJECT_CUES.search(reject_scan):
         return True, "reject_cue"
 
     return False, ""

@@ -348,6 +348,47 @@ EIS_FINAL_EIS_ENABLED = False       # deterministic final_eis_date population (s
 # gold-rank check (true ROD top-5 90%, true FEIS top-5 95% after the 3-head rebuild + doc-type gate).
 EIS_TIERED_DECISION = True
 
+# Calibrated initiation eligibility for EA and EIS (recover_eis.md Phase 4, §5.5/§5.6). The LightGBM
+# LambdaRank score is group-relative and CANNOT serve as an existence gate, which is why ~1,680 EIS
+# and ~813 EA projects have an initiation candidate that is never selected (ranking_score <= 0).
+# For these processes, eligibility is the UNION of the legacy ranker-score gate and a calibrated /
+# authoritative gate (authoritative source OR p_init_cal >= threshold). The union is ADDITIVE: it
+# never drops a candidate the legacy gate already accepted, and recovers calibrated-eligible
+# candidates the ranker suppressed. CE keeps the original ranking_score gate untouched (CE is already
+# at its target rate and is too large / unvalidatable to perturb before the deadline).
+# Thresholds are provisional (Phase 4 prerequisite: refine on a frozen init label set per process;
+# phase0/cohort_ranker_blocked_init.txt is a labeling target).
+T_INIT_CAL = {"EA": 0.5, "EIS": 0.5}
+CALIBRATED_INIT_PROCESSES = set(T_INIT_CAL)  # {"EA", "EIS"} — CE excluded by design
+
+# An initiation can never be OMB/paperwork-reduction form boilerplate (the "Public reporting burden
+# ... OMB control ... Expires <date>" stamp). Leaked a wrong init (18-year duration) in sample
+# testing. Excluded regardless of which gate accepts the candidate. (recover_eis.md Phase 4b.)
+_INIT_NEG_RE = re.compile(
+    r"public\s+reporting\s+burden|omb\s+control|paperwork\s+reduction\s+act", re.IGNORECASE
+)
+
+# Implausible-duration guard: an initiation implausibly far before the decision is almost certainly a
+# wrong/incidental date. Per-process (EA reviews are short; EIS run longer). Applied in the chronology
+# filter to drop absurd-early init candidates. (recover_eis.md Phase 4b.)
+MAX_INIT_LOOKBACK_DAYS = {"EA": 3650, "EIS": 5475}  # ~10y EA, ~15y EIS
+
+
+def _calibrated_init_eligible(df: pd.DataFrame, process_type: str, role: str) -> pd.Series:
+    """Initiation eligibility for EA/EIS: UNION of the legacy ranker-score gate and a calibrated/
+    authoritative gate, minus OMB/paperwork boilerplate. `role` is "clear" (score>0) or "proxy"
+    (score>-2), matching the legacy thresholds so the union strictly contains the legacy pool.
+    Returns a bool Series aligned to df.index."""
+    score_gate = df["ranking_score"] > (0 if role == "clear" else -2)
+    p = pd.to_numeric(df.get("p_init_cal"), errors="coerce").fillna(0.0)
+    authoritative = df["candidate_source_type"].astype(str).eq("metadata")
+    cal_gate = authoritative | (p >= T_INIT_CAL[process_type])
+    ctx = df.get("model_context")
+    if ctx is None:
+        ctx = df.get("context_text")
+    neg = ctx.fillna("").str.contains(_INIT_NEG_RE) if ctx is not None else pd.Series(False, index=df.index)
+    return (score_gate | cal_gate) & ~neg
+
 # Routing gate for 06 (LLM adjudication). A project's decision routes to the LLM when the selected
 # candidate's calibrated confidence is below this (ambiguous), or when no decision was picked but
 # eligible candidates exist (the LLM may resolve one), or when several candidates tie. Above the
@@ -648,6 +689,10 @@ def select_dates_for_project(
 
     # Parse dates
     cands = cands.copy()
+    # Selection is recomputed from scratch on every run. Clear stale flags left by an earlier
+    # selection pass before marking the current winners.
+    cands["selected_for_initiation"] = False
+    cands["selected_for_decision"] = False
     cands["_parsed_date"] = pd.to_datetime(cands["parsed_date"], errors="coerce").dt.date
 
     # Cross-candidate agreement: how many candidates in THIS project resolve to the same date
@@ -809,10 +854,17 @@ def select_dates_for_project(
     initiation_page_number = None
     initiation_earliest_used = False  # set when earliest-wins disambiguated >1 candidate
 
-    clear_init = initiation_cands[
-        (initiation_cands["candidate_role"] == "clear_initiation") &
-        (initiation_cands["ranking_score"] > 0)
-    ]
+    # Eligibility pool. CE: original ranker-score gate (untouched). EA/EIS (Phase 4): calibrated-prob /
+    # authoritative eligibility unioned with the ranker gate — the ranker score is not an existence
+    # gate (see _calibrated_init_eligible).
+    _calib = process_type in CALIBRATED_INIT_PROCESSES
+    _lb_days = MAX_INIT_LOOKBACK_DAYS.get(process_type, 5475)
+    _lb_years = _lb_days // 365
+    _clear_mask = initiation_cands["candidate_role"] == "clear_initiation"
+    if _calib:
+        clear_init = initiation_cands[_clear_mask & _calibrated_init_eligible(initiation_cands, process_type, "clear")]
+    else:
+        clear_init = initiation_cands[_clear_mask & (initiation_cands["ranking_score"] > 0)]
     # Apply chronology filter: initiation must precede decision.
     # When the decision date is year-granularity (nepa_case_year, resolves to YYYY-07-01),
     # use a year-level comparison to avoid discarding real initiations that fall after
@@ -820,41 +872,75 @@ def select_dates_for_project(
     if selected_decision_date is not None:
         if decision_granularity == "year":
             dec_year = selected_decision_date.year
-            clear_init = clear_init[
-                clear_init["_parsed_date"].apply(
-                    lambda d: pd.notna(d) and d.year <= dec_year
-                )
-            ]
+            if _calib:
+                # EA/EIS: also drop init candidates implausibly far before the decision.
+                clear_init = clear_init[
+                    clear_init["_parsed_date"].apply(
+                        lambda d: pd.notna(d) and (dec_year - _lb_years) <= d.year <= dec_year
+                    )
+                ]
+            else:
+                clear_init = clear_init[
+                    clear_init["_parsed_date"].apply(
+                        lambda d: pd.notna(d) and d.year <= dec_year
+                    )
+                ]
         else:
-            clear_init = clear_init[
-                clear_init["_parsed_date"].apply(
-                    lambda d: pd.notna(d) and d < selected_decision_date
-                )
-            ]
+            if _calib:
+                clear_init = clear_init[
+                    clear_init["_parsed_date"].apply(
+                        lambda d: pd.notna(d) and d < selected_decision_date
+                        and (selected_decision_date - d).days <= _lb_days
+                    )
+                ]
+            else:
+                clear_init = clear_init[
+                    clear_init["_parsed_date"].apply(
+                        lambda d: pd.notna(d) and d < selected_decision_date
+                    )
+                ]
 
     if not clear_init.empty:
         best_initiation = _select_earliest_initiation(clear_init)
         initiation_earliest_used = len(clear_init) > 1
     else:
         # Proxy fallback (sensitivity only)
-        proxy_init = initiation_cands[
-            (initiation_cands["candidate_role"] == "proxy_initiation") &
-            (initiation_cands["ranking_score"] > -2)
-        ]
+        _proxy_mask = initiation_cands["candidate_role"] == "proxy_initiation"
+        if _calib:
+            proxy_init = initiation_cands[_proxy_mask & _calibrated_init_eligible(initiation_cands, process_type, "proxy")]
+        else:
+            proxy_init = initiation_cands[
+                _proxy_mask & (initiation_cands["ranking_score"] > -2)
+            ]
         if selected_decision_date is not None:
             if decision_granularity == "year":
                 dec_year = selected_decision_date.year
-                proxy_init = proxy_init[
-                    proxy_init["_parsed_date"].apply(
-                        lambda d: pd.notna(d) and d.year <= dec_year
-                    )
-                ]
+                if _calib:
+                    proxy_init = proxy_init[
+                        proxy_init["_parsed_date"].apply(
+                            lambda d: pd.notna(d) and (dec_year - _lb_years) <= d.year <= dec_year
+                        )
+                    ]
+                else:
+                    proxy_init = proxy_init[
+                        proxy_init["_parsed_date"].apply(
+                            lambda d: pd.notna(d) and d.year <= dec_year
+                        )
+                    ]
             else:
-                proxy_init = proxy_init[
-                    proxy_init["_parsed_date"].apply(
-                        lambda d: pd.notna(d) and d < selected_decision_date
-                    )
-                ]
+                if _calib:
+                    proxy_init = proxy_init[
+                        proxy_init["_parsed_date"].apply(
+                            lambda d: pd.notna(d) and d < selected_decision_date
+                            and (selected_decision_date - d).days <= _lb_days
+                        )
+                    ]
+                else:
+                    proxy_init = proxy_init[
+                        proxy_init["_parsed_date"].apply(
+                            lambda d: pd.notna(d) and d < selected_decision_date
+                        )
+                    ]
         if not proxy_init.empty:
             best_initiation = _select_earliest_initiation(proxy_init)
             initiation_is_proxy = True
