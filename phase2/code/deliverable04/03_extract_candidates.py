@@ -281,6 +281,20 @@ SCOPING_NOI_INIT = re.compile(
     re.IGNORECASE,
 )
 
+# EA/EIS application & FERC pre-filing initiation cues. Same idea as SCOPING_NOI_INIT, different
+# vocabulary: a formal application filing or entry into FERC's pre-filing process is an initiation.
+# "applied for" is also Fix B for CE; here it is extended to EA/EIS along with application-filing and
+# pre-filing phrasings. Anchored to the date's clause like the scoping cue (no FP on "authorized on").
+APPLICATION_PREFILING_INIT = re.compile(
+    r"\bapplied\s+for\b"
+    r"|filed\s+(a|an|the)?\s*application"
+    r"|application\s+(was\s+)?(filed|received|submitted)"
+    r"|submitted\s+(a|an|the)?\s*(application|proposal|request)"
+    r"|entered\s+(the\s+)?pre[-\s]?filing|requested\s+to\s+use\s+the\s+pre[-\s]?filing"
+    r"|pre[-\s]?filing\s+(process|request|period)|pre[-\s]?application\s+(process|request|filing)",
+    re.IGNORECASE,
+)
+
 # Clear decision — strong cues
 # Phase 1 additions: digitally signed by, /s/ signature notation, YYYY.MM.DD timestamp,
 # NCO determination, authority and approval, decision memo(randum), ce determination date,
@@ -915,13 +929,18 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                 # Never steals an existing decision role; chronology (init<decision) is enforced in 05.
                 if process_type in ("EA", "EIS") and role not in ("clear_decision", "proxy_decision"):
                     _pre = re.split(r"\.\s", block[max(0, _ms - 80):_ms])[-1]
-                    _post = re.split(r"\.\s", block[_me:_me + 50])[0]
+                    _post = re.split(r"\.\s", block[_me:_me + 60])[0]
+                    _init_cue = None
                     if SCOPING_NOI_INIT.search(_pre) or SCOPING_NOI_INIT.search(_post):
+                        _init_cue = "scoping_noi_init"
+                    elif APPLICATION_PREFILING_INIT.search(_pre) or APPLICATION_PREFILING_INIT.search(_post):
+                        _init_cue = "application_prefiling_init"
+                    if _init_cue:
                         role = "clear_initiation"
                         conf = 5.0
                         pos_cues = [c for c in pos_cues
                                     if c not in ("decision_strong", "decision_med", "doc_type_decision")]
-                        pos_cues = pos_cues + ["scoping_noi_init"]
+                        pos_cues = pos_cues + [_init_cue]
 
                 # Skip clear rejects
                 if role == "reject" and not heading:
