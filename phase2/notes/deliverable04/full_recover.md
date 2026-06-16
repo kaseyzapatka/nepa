@@ -7,6 +7,90 @@ deep-dive reference; this doc is the single actionable plan and folds in the rem
 
 ---
 
+## 2026-06-16 NIGHT 2 — AUTONOMOUS decoupled retrain + run (CURRENT MARCHING ORDERS)
+
+This supersedes the §2–§8 ordering for the night-2 run. The earlier sections remain valid
+background (root causes, feasibility). **This is the runbook to resume from if context is lost.**
+
+**Two locked decisions (user, 2026-06-16):**
+1. **Decoupled + auto-fallback.** Attempt the classifier retrain, but the full coverage run does
+   NOT depend on it. The run uses the retrained model ONLY if it passes the frozen-test F1 gate;
+   otherwise it auto-falls back to the current committed model. A concrete coverage result is
+   guaranteed by morning regardless of how the retrain goes.
+2. **Stage only — NO merge, NO push.** Everything stays in the worktree. Morning deliverable =
+   a written report + a coverage diff vs the prenight backup. The user merges after reviewing.
+
+**Supervision:** none required. Bad labels cannot poison the morning numbers — the F1 gate
+discards a regressing retrain and falls back to the current model. Claude QCs a label sample; the
+gate is the structural backstop.
+
+### Worktree + model isolation (CRITICAL: copy models, don't symlink)
+```bash
+MAIN=/Users/Dora/git/consulting/nepa
+git worktree add ../nepa-night -b night-run desktop
+cd ../nepa-night/phase2
+mkdir -p data/processed data/analysis/timeline
+# READ-ONLY inputs: symlink (no GB copies)
+ln -s $MAIN/phase2/data/processed/ce  data/processed/ce
+ln -s $MAIN/phase2/data/processed/ea  data/processed/ea
+ln -s $MAIN/phase2/data/processed/eis data/processed/eis
+cp   $MAIN/phase2/data/analysis/timeline/timeline_document_index.parquet data/analysis/timeline/
+ln -s $MAIN/phase2/data/analysis/projects_combined.parquet data/analysis/projects_combined.parquet
+# MODELS: COPY (retrain overwrites; a symlink would clobber desktop's model).
+cp -R $MAIN/phase2/data/analysis/timeline/models data/analysis/timeline/models          # working dir (scripts' default MODEL_DIR)
+cp -R $MAIN/phase2/data/analysis/timeline/models data/analysis/timeline/models_current   # FALLBACK (never touched by retrain)
+```
+The worktree writes its OWN candidates/project_dates parquets; main checkout is untouched.
+
+### Prenight backup (in MAIN, before launch)
+```bash
+cd $MAIN/phase2/data/analysis/timeline; TS=$(date +%Y%m%dT%H%M%S)
+cp timeline_project_dates.parquet timeline_project_dates.prenight_$TS.parquet
+cp timeline_candidates.parquet    timeline_candidates.prenight_$TS.parquet
+```
+
+### Labeling (in-session, BEFORE launch; appended to worktree classifier.csv/ranker.csv, split BLANK→train)
+Do #1,2,3,5 + targeted init. Never set split=test; never label a `frozen_eval_ids.txt` project as
+ranker-train (05b --train hard-fails on that). Target volumes (quality > quantity; gate protects):
+- **#3 active-learning** — `04 --emit-batch 150` (most-uncertain unlabeled; built-in).
+- **#2 neither hard-negatives** — ~80 (cover months, citations, permit-expiration, consultation, historical RODs).
+- **#5 final_eis** — ~40 EIS FEIS candidates.
+- **targeted init** — ~120 low-`p_init_cal` EA/EIS init candidates (the bimodal-high cohort).
+- **#1 ranker** — ~60 projects (true init + decision candidate_id; EA/EIS heavy), excluding frozen_eval ids.
+Agents label candidate-level from the anchored `model_context` per `labeling_rules.md` (cover-month
+asymmetry, activity-vs-milestone, only the `[[ ]]` date), MUST cite the evidence span. Claude QCs a
+sample, writes labels back by candidate_id, commits in the worktree.
+
+### Overnight driver (one backgrounded script: `code/deliverable04/_night_driver.py`)
+Each stage wrapped in a per-stage `timeout` + logging; any failure logs and falls back; the RUN is
+the priority. Sequence:
+1. **Baseline F1**: `04 --eval --model-dir .../models_current/candidate_classifier` → record per-head F1.
+2. **Retrain** (writes into working `models/`): `04 --train` → `04b --fit` → `05b --train`.
+3. **GATE**: `04 --eval` (default = new `models/`) → per-head F1. PASS if init & decision F1 each
+   ≥ baseline − 0.01. **PASS** → keep `models/` (new). **FAIL or any retrain step errored** →
+   `rm -rf models && cp -R models_current models` (restore current).
+4. **Full run**: `run_pipeline.py` (02→03→04→04b --apply→05b --apply→05→05c→07→08) using `models/`.
+   NOTE: 05c `--scope all` still injects ranker.csv — fine for the run; validation gold is deferred.
+5. **Validate + report**: read 08 coverage; diff worktree `timeline_project_dates` vs the prenight
+   backup by process × coverage state; write `notes/deliverable04/morning_report_<date>.md` with
+   coverage table, per-process deltas, which model won the gate (+ baseline vs new F1), proxy counts,
+   and a 15–20-row sample of newly-covered dates per process.
+
+### Wake-up reactions (Claude, on driver exit / scheduled heartbeat)
+- Driver exited 0 → read report, confirm no process regressed unexpectedly, STAGE (no merge).
+- Driver exited non-zero → read log, identify failed stage. Retrain failure must have already
+  fallen back to current model; if the RUN failed, fix and relaunch from the failed stage
+  (`run_pipeline.py` or `--select`). Never let a failure leave zero output — worst acceptable case
+  is a current-model coverage run.
+- Hang (no exit) → per-stage timeouts convert hangs to failures; if the whole driver hangs, the
+  scheduled heartbeat re-checks and relaunches.
+
+### Morning deliverable (STAGE ONLY)
+`morning_report_<date>.md` + the worktree parquets left in place + the prenight backup for diffing.
+Do NOT merge night-run into desktop or push. Present the report; user merges after review.
+
+---
+
 ## 0. Honest feasibility (read first)
 
 Target: tonight's run should capture **≥95% of Phase 1's final timelines** so a clean-vs-fossil
