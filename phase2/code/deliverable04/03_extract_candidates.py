@@ -877,6 +877,23 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                                 if c not in ("decision_strong", "decision_med", "doc_type_decision")]
                     pos_cues = pos_cues + ["doe_initiator_signature"]
 
+                # CE application date = initiation. The dominant structure is
+                # "On <date>, <applicant> applied for ..." — the date is immediately FOLLOWED by
+                # "applied for". Anchor to the ~70 chars AFTER the date so it won't grab a prior
+                # "authorized to ... on <date>" grant. Cut the look-ahead at the first sentence
+                # boundary so "applied for" must be in the SAME clause as the date (drops cases like
+                # "...expiration, May 6, 2018. ... applied for" tagging the wrong date). CE only;
+                # never steals an existing decision role.
+                _af_win = re.split(r"\.\s|\bCOC-|\bOn\s+[A-Z0-9]", block[_me:_me + 70])[0]
+                if (process_type == "CE"
+                        and role not in ("clear_decision", "proxy_decision")
+                        and re.search(r"\bapplied\s+for\b", _af_win, re.IGNORECASE)):
+                    role = "clear_initiation"
+                    conf = 5.0
+                    pos_cues = [c for c in pos_cues
+                                if c not in ("decision_strong", "decision_med", "doc_type_decision")]
+                    pos_cues = pos_cues + ["applied_for_application"]
+
                 # Skip clear rejects
                 if role == "reject" and not heading:
                     continue

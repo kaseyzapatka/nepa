@@ -1024,12 +1024,14 @@ def select_dates_for_project(
             # certainly a stray citation/reference, not an application. Cap the inferred lookback at
             # 5y so the proxy doesn't pollute headline durations. (tomorrow: tighten via cue filtering)
             _MAX_CE_INFERRED_LOOKBACK_DAYS = 1825
-            earlier = cands[cands["_parsed_date"].notna()
-                            & cands["_parsed_date"].apply(
-                                lambda d: pd.notna(d) and d < _dec_dt
-                                and (_dec_dt - d).days <= _MAX_CE_INFERRED_LOOKBACK_DAYS)]
-            if not earlier.empty:
-                e = earlier.sort_values("_parsed_date").iloc[0]   # earliest dated mention
+            # Vectorized (no row-wise apply): earliest parsed date in [decision-5y, decision).
+            _pd_dates = pd.to_datetime(cands["_parsed_date"], errors="coerce")
+            _dec_ts = pd.Timestamp(_dec_dt)
+            _mask = (_pd_dates.notna()
+                     & (_pd_dates < _dec_ts)
+                     & (_pd_dates >= _dec_ts - pd.Timedelta(days=_MAX_CE_INFERRED_LOOKBACK_DAYS)))
+            if _mask.any():
+                e = cands.loc[_pd_dates[_mask].idxmin()]   # earliest dated mention
                 initiation_date_str = e["_parsed_date"].isoformat()
                 initiation_granularity = e.get("date_granularity", "day")
                 initiation_source_type = e.get("candidate_source_type", "document_text")
