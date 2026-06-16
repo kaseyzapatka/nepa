@@ -1024,12 +1024,20 @@ def select_dates_for_project(
             # certainly a stray citation/reference, not an application. Cap the inferred lookback at
             # 5y so the proxy doesn't pollute headline durations. (tomorrow: tighten via cue filtering)
             _MAX_CE_INFERRED_LOOKBACK_DAYS = 1825
+            # Exclude regulatory/permit/compliance reference dates — the proxy was occasionally
+            # grabbing e.g. "must comply with the … Permit (issued December 2010)" or a CFR citation
+            # instead of an application. Skip those so it falls to the next-earliest legitimate date.
+            _CE_PROXY_NEG_RE = re.compile(
+                r"permit\s+(?:was\s+)?issued|must\s+comply\s+with|hazardous\s+waste\s+permit"
+                r"|\d+\s+cfr\b|\bcfr\s+\d|in\s+accordance\s+with", re.IGNORECASE)
+            _neg = cands["context_text"].fillna("").str.contains(_CE_PROXY_NEG_RE)
             # Vectorized (no row-wise apply): earliest parsed date in [decision-5y, decision).
             _pd_dates = pd.to_datetime(cands["_parsed_date"], errors="coerce")
             _dec_ts = pd.Timestamp(_dec_dt)
             _mask = (_pd_dates.notna()
                      & (_pd_dates < _dec_ts)
-                     & (_pd_dates >= _dec_ts - pd.Timedelta(days=_MAX_CE_INFERRED_LOOKBACK_DAYS)))
+                     & (_pd_dates >= _dec_ts - pd.Timedelta(days=_MAX_CE_INFERRED_LOOKBACK_DAYS))
+                     & ~_neg)
             if _mask.any():
                 e = cands.loc[_pd_dates[_mask].idxmin()]   # earliest dated mention
                 initiation_date_str = e["_parsed_date"].isoformat()
