@@ -23,11 +23,12 @@ computes timeline durations and coverage.
 
 **Canonical run sequence:** `02 → 03 → 04 → 04b --apply → 05b --apply → 05 → 05c → 07 → 08`.
 
+**Run it with one command:** `CONDA_DEFAULT_ENV=nepa ./run_pipeline.py` (full `02→08`) or
+`./run_pipeline.py --select` (selection-only: `05b → 05 → 05c → 08`, minutes). This is the single
+orchestrator — `04b`/`05b`/`05c` are baked in (skipping them corrupts CE via stale `ranking_score`).
+
 `04b` / `05b` / `05c` load `04` / `05` via `importlib` because digit-prefixed files can't be
 imported normally — follow that pattern for any new sibling stage.
-
-> **Orchestrator caveat:** `_run.py` currently runs `00b → 01 → 02 → 03 → 04 → 05 → 06` and
-> **omits `04b` / `05b` / `05c`** — run those manually for now (see `clean_up_plan.md` #2).
 
 ## Paths
 
@@ -37,9 +38,9 @@ imported normally — follow that pattern for any new sibling stage.
 
 ## Tools (not pipeline stages)
 
+- `run_pipeline.py` — the one-command pipeline orchestrator (full or `--select`)
 - `_diagnostics.py` — classifier label-inventory / confusion / calibration diagnostics
 - `_phase0_baseline.py` — point-in-time baseline + source-ceiling audit for an improvement cycle
-- `_run.py` — orchestrator (see caveat above)
 
 ## Sub-tracks
 

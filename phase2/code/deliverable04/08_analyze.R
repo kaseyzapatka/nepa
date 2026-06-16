@@ -606,6 +606,63 @@ ggsave(file.path(FIGS, "fig_d4_coverage_by_process.png"),
 message("Wrote fig_d4_coverage_by_process.png")
 
 # ---------------------------------------------------------------------------
+# Fig 1b: Coverage by process AND energy type — so Decarb (clean) coverage is
+# directly visible and comparable to Phase 1 (which is clean-only by construction).
+# ---------------------------------------------------------------------------
+
+coverage_energy_fig <- dates |>
+  filter(!is.na(process_group)) |>
+  mutate(
+    coverage_group = case_when(
+      !is.na(decision_date) & !is.na(initiation_date) ~ "Both dates",
+      !is.na(decision_date)                            ~ "Decision only",
+      !is.na(initiation_date)                          ~ "Initiation only",
+      TRUE                                             ~ "No date"
+    ),
+    coverage_group = factor(coverage_group,
+      levels = c("Both dates", "Decision only", "Initiation only", "No date"))
+  ) |>
+  count(process_group, energy_type, coverage_group) |>
+  group_by(process_group, energy_type) |>
+  mutate(pct = n / sum(n), n_proc_energy = sum(n)) |>
+  ungroup()
+
+# "Both dates" share label per process x energy (the headline number to compare to Phase 1)
+both_lab <- coverage_energy_fig |>
+  filter(coverage_group == "Both dates") |>
+  mutate(lab = sprintf("%.0f%%", 100 * pct))
+
+p_coverage_energy <- ggplot(coverage_energy_fig,
+                            aes(x = energy_type, y = pct, fill = coverage_group)) +
+  geom_col(width = 0.7) +
+  geom_text(data = both_lab, aes(x = energy_type, y = pct, label = lab),
+            inherit.aes = FALSE, vjust = 1.3, size = 2.8, color = "white", fontface = "bold") +
+  facet_wrap(~process_group, nrow = 1) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_fill_manual(values = c(
+    "Both dates"      = catf_navy,
+    "Decision only"   = catf_dark_blue,
+    "Initiation only" = catf_light_blue,
+    "No date"         = "#CCCCCC"
+  )) +
+  labs(
+    title    = "D4 Timeline Coverage by Review Type and Energy Type",
+    subtitle = "% on bars = share with BOTH dates (the Phase-1-comparable number; Decarb = clean energy)",
+    x = NULL, y = "Share of projects", fill = NULL
+  )
+
+ggsave(file.path(FIGS, "fig_d4_coverage_by_process_and_energy.png"),
+       p_coverage_energy, width = 11, height = 5, dpi = 150)
+message("Wrote fig_d4_coverage_by_process_and_energy.png")
+
+# Also write the underlying table (so the Decarb numbers are exact for the deliverable)
+coverage_energy_tbl <- coverage_energy_fig |>
+  select(process_group, energy_type, coverage_group, n, pct) |>
+  arrange(process_group, energy_type, coverage_group)
+write_csv(coverage_energy_tbl, file.path(DIAG, "d4_coverage_by_process_and_energy.csv"))
+message("Wrote d4_coverage_by_process_and_energy.csv")
+
+# ---------------------------------------------------------------------------
 # Fig 2: Duration histogram by process (complete_clear, day granularity)
 # ---------------------------------------------------------------------------
 

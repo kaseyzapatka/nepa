@@ -42,12 +42,12 @@ story, but be ready to say "the residual is source-limited (image-only / no deci
 
 ## 2. Fixes to make tonight (ordered by yield)
 
-### Fix 0 — Run-order streamlining (MANDATORY, do first)  [addresses "don't make me remember"]
+### Fix 0 — Run-order streamlining (DONE)  [addresses "don't make me remember"]
 
 The pipeline MUST run `02 → 03 → 04 → 04b --apply → 05b --apply → 05 → 05c → 07 → 08`. Skipping
-`04b`/`05b` is what corrupted CE. **Create one script `run_pipeline.sh`** (in `deliverable04/`) that
-runs the full chain in order with `set -e`, env check, and logging — so there is one command, no
-memory required. Also fix `_run.py` to match (cleanup_plan #2). The script is the source of truth.
+`04b`/`05b` is what corrupted CE. **`run_pipeline.py` is now the one orchestrator** —
+`./run_pipeline.py` (full) or `./run_pipeline.py --select` (selection-only). `04b`/`05b`/`05c` are
+baked in. `_run.py` (sharded runner, omitted those stages) is **retired to `_archived/`**.
 
 ### Fix 1 — CE inferred-init proxy (the biggest Phase-1-match lever, ~+4,000 CE init)
 
@@ -57,9 +57,12 @@ selected, set `initiation_date` = the **earliest candidate date strictly before 
 (prefer a candidate with an application/received cue; else the earliest dated mention). Flag it
 `initiation_is_proxy = True` and add `ce_inferred_application` to `timeline_flags`. Only fires when
 an earlier date exists (no zero-duration; matches Phase 1's `None` cases).
-**Why it's defensible:** this IS Phase 1's method. It's a proxy (less precise) — flagged so it can be
-included/excluded from headline "clear" timelines. Closes most of the 4,577-CE init gap.
-**Risk:** it's an inferred date. Keep it `is_proxy` and reported separately; never call it a clear date.
+**Why it's defensible:** this IS Phase 1's method, and CE is a *build* issue where being less
+conservative is acceptable (user call, 2026-06-15). Flagged so it can be included/excluded from
+headline "clear" timelines. Closes most of the 4,577-CE init gap.
+**Risk:** it's an inferred date. Keep it `is_proxy` + `ce_inferred_application`, reported separately;
+never call it a clear date. **TODO (tomorrow): audit a sample of these inferred CE inits** — confirm
+the earliest-date proxy is reasonable, not a stray figure/citation date.
 
 ### Fix 2 — EIS retrieval recall (ALREADY CODED; the full run applies it)
 
@@ -130,10 +133,22 @@ cd ../nepa-night && git add -A && git commit -m "[D4] full overnight re-run fixe
 
 ```bash
 cd ../nepa-night/phase2/code/deliverable04
-CONDA_DEFAULT_ENV=nepa ./run_pipeline.sh   2>&1 | tee ../../notes/deliverable04/nightrun_$(date +%Y%m%d).log
+CONDA_DEFAULT_ENV=nepa ./run_pipeline.py   2>&1 | tee ../../notes/deliverable04/nightrun_$(date +%Y%m%d).log
 ```
-`run_pipeline.sh` runs, in order: `02 → 03 → 04 → 04b --apply → 05b --apply → 05 → 05c --scope all
-→ 07 → 08`. Expect **6–12 hours** (CE 52k + SetFit on ~420k candidates is the long pole).
+Runs, in order: `02 → 03 → 04 → 04b --apply → 05b --apply → 05 → 05c --scope all → 07 → 08`.
+
+**Realistic runtime ≈ 3–5 h** (NOT the earlier over-conservative 6–12 h, which was anchored on the
+*stitched* >24h build — that was iterative debugging, not one clean pass). Grounded estimate:
+- `02` retrieve: EIS pages are 5.5 GB (long pole, ~30–60 min); CE (350 MB) + EA (433 MB) are minutes.
+- `04` classify: SetFit over ~420k candidates (CE 274k / EIS 112k / EA 36k) — the dominant cost, ~1.5–3 h.
+- `03` ~30–60 min; `05` ~10–25 min (measured tonight); `04b`/`05b`/`05c`/`07`/`08` ~20 min.
+
+**Speed option:** only EIS changed at the *retrieval* level — CE/EA changes are selection-only
+(stale-rank fix + CE proxy + EA calibrated gate), which need just `05b --apply → 05` (minutes), NOT
+`02→04`. So a *targeted* run (EIS full `02→05` + CE/EA `05b→05`) is **~2–3 h**. The tradeoff: the
+full `02→08` gives clean single-provenance across all three (what you asked for); the targeted run is
+faster but keeps CE/EA candidates from the existing pool. **If Tier 2 retrains the shared classifier,
+the full run is required** (all processes must re-classify) and lands ~4–6 h.
 
 ---
 
@@ -193,8 +208,9 @@ it absolutely.
 
 ## 7. Risks / what else you're missing
 
-- **Critical path / time:** retrain (~2 h) sits BEFORE a 6–12 h run. Start labeling early; if it
-  slips, drop Fix 3 and run Fixes 0–2 (still a real improvement). Don't let the retrain delay the run.
+- **Critical path / time:** retrain (~2 h) sits BEFORE the run (the run's `04` loads the model), and a
+  retrain forces the *full* ~4–6 h run (all processes re-classify). Start labeling early; if it slips,
+  drop Fix 3 and run Fixes 0–2 (the faster ~2–3 h targeted run still gets CE proxy + EIS retrieval).
 - **95% is not fully reachable:** CE inferred-init proxy + EIS retrieval get most of it; ~88 EIS and
   the EA source-limited residual won't close tonight. Say "source-limited," not "worse than Phase 1."
 - **The CE proxy is a proxy.** Flag it; decide before the talk whether headline numbers include it.
@@ -203,9 +219,15 @@ it absolutely.
   Tuesday before the adjudication pass (cleanup_plan #4) — that's the separate accuracy lever.
 - **`05c --scope all`** re-injects verified dates and runs `05b`-dependent logic — it's in the chain;
   don't run `05` alone again (that's what dropped CE).
-- **Energy split for the client story:** after the run, re-cut coverage by `project_energy_type`
-  (Decarb/Fossil/Other) so the clean-only numbers are directly comparable to Phase 1. The Phase-1
-  comparison is clean-only by construction.
+- **Coverage-by-energy figure (a deliverable, build into `08`):** add
+  `fig_d4_coverage_by_process_and_energy` — coverage (both/decision/init/none) split by
+  Decarb/Fossil/Other within each process — so the **Decarb (clean) coverage is directly visible and
+  comparable to Phase 1**. `08` has duration/FRA/year-by-energy but NOT coverage-by-energy today.
+- **The 88 source-gap EIS (no decision doc):** Phase 1 read ~36 from narrative ROD/FEIS-date
+  *mentions* inside non-decision docs, and ~52 from looseness (filing dates, consistency
+  determinations, citations). Phase 2 can't reach them tonight (no decision doc to read). The ~36 need
+  *narrative decision-date extraction* — a **tomorrow** recall item, not tonight; the ~52 are
+  correctly declined.
 - **Do NOT retrain on the frozen test, do NOT branch the run off uncommitted code** (commit first,
   then worktree).
 
@@ -214,9 +236,9 @@ it absolutely.
 ## 8. Tonight's checklist (in order)
 
 - [ ] Commit all current code/notes changes to `desktop` (#1).
-- [ ] Write `run_pipeline.sh` (Fix 0) + fix `_run.py`.
+- [ ] Write `run_pipeline.py` (Fix 0) + fix `_run.py`.
 - [ ] Implement CE inferred-init proxy (Fix 1) in `05`; sample-test on ~200 CE.
 - [ ] Create worktree + symlink inputs + back up production (§3).
 - [ ] (If time) label hard cases → retrain `04`/`04b`/`05b` → **frozen-test F1 gate** (§5).
-- [ ] Launch `run_pipeline.sh` overnight in the worktree (§4).
+- [ ] Launch `run_pipeline.py` overnight in the worktree (§4).
 - [ ] Morning: validate (§6) → copy outputs back + merge to `desktop`.

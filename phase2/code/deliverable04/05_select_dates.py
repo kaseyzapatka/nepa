@@ -1006,6 +1006,41 @@ def select_dates_for_project(
                 selected_initiation_id = dd.get("candidate_id")
                 date_determined_init_used = True
 
+    # --- CE inferred-application initiation proxy (mirrors Phase 1 bert_inferred_application_date) ---
+    # Phase 1's CE initiation = application date if found, else the EARLIEST dated mention. Phase 2
+    # extracts CE decisions well (~98% of Phase 1) but misses CE initiation (~45%) because it has no
+    # equivalent inference. When a CE project has a decision but NO initiation, adopt the earliest
+    # candidate date strictly before the decision as an inferred-application proxy. Flagged is_proxy +
+    # ce_inferred_application; never treated as a clear date. (full_recover.md Fix 1; CE is a build
+    # issue where less-conservative is accepted, 2026-06-15. TODO: audit a sample tomorrow.)
+    ce_inferred_init_used = False
+    if process_type == "CE" and initiation_date_str is None and decision_date_str is not None:
+        try:
+            _dec_dt = pd.Timestamp(decision_date_str).date()
+        except Exception:
+            _dec_dt = None
+        if _dec_dt is not None:
+            # CE reviews are short; an "earliest date" many years before the decision is almost
+            # certainly a stray citation/reference, not an application. Cap the inferred lookback at
+            # 5y so the proxy doesn't pollute headline durations. (tomorrow: tighten via cue filtering)
+            _MAX_CE_INFERRED_LOOKBACK_DAYS = 1825
+            earlier = cands[cands["_parsed_date"].notna()
+                            & cands["_parsed_date"].apply(
+                                lambda d: pd.notna(d) and d < _dec_dt
+                                and (_dec_dt - d).days <= _MAX_CE_INFERRED_LOOKBACK_DAYS)]
+            if not earlier.empty:
+                e = earlier.sort_values("_parsed_date").iloc[0]   # earliest dated mention
+                initiation_date_str = e["_parsed_date"].isoformat()
+                initiation_granularity = e.get("date_granularity", "day")
+                initiation_source_type = e.get("candidate_source_type", "document_text")
+                initiation_confidence = "low"
+                initiation_is_proxy = True
+                initiation_evidence_text = str(e.get("context_text", ""))[:300]
+                initiation_document_id = e.get("document_id")
+                initiation_page_number = e.get("page_number")
+                selected_initiation_id = e.get("candidate_id")
+                ce_inferred_init_used = True
+
     # --- Mark selected candidates ---
     if selected_decision_id:
         cands.loc[cands["candidate_id"] == selected_decision_id, "selected_for_decision"] = True
@@ -1019,6 +1054,8 @@ def select_dates_for_project(
     flags: list[str] = []
     if date_determined_init_used:
         flags.append("date_determined_initiation")
+    if ce_inferred_init_used:
+        flags.append("ce_inferred_application")
     # Selection-disambiguation rules (2026-06-04): surface when they fired so 06 / review can see it.
     if month_decision_suppressed and not has_dec:
         # A non-CE month-only decision was dropped; 06 should hunt for a precise ROD/FONSI date.

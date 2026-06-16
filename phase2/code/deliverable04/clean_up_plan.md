@@ -24,13 +24,14 @@ cycle closes** — it's this cycle's point-in-time baseline).
 
 ---
 
-## [ ] 2. Make `_run.py` the single source of truth  *(after Thursday — touches orchestration)*
+## [x] 2. Single orchestrator = `run_pipeline.py`  *(done 2026-06-15)*
 
-`_run.py` runs `00b → 01 → 02 → 03 → 04 → 05 → 06` and **omits `04b`, `05b`, `05c`**, so
-calibration / ranking / gt-injection are manual steps easy to forget. Add them in the
-canonical order (`02 → 03 → 04 → 04b --apply → 05b --apply → 05 → 05c → ...`). These stages
-take `--apply` / `--run-dir` flags the others don't, so `run_stage` needs per-stage
-invocation handling. **Test on a small `--sample-ids` run before trusting it.**
+`run_pipeline.py` is now the one-command canonical runner (full `02→08` in correct order, or
+`--select` for selection-only). It bakes in `04b`/`05b`/`05c` (skipping them is what corrupted CE).
+**`_run.py` is superseded** — it's the sharded/parallel runner (per-chunk `--append` + manifest),
+it omits `04b`/`05b`/`05c`, and its per-shard model doesn't fit the global calibrate/rank steps.
+**Recommendation: archive `_run.py`** (you are not sharding); revive/refactor only if a future run
+genuinely needs sharded parallelism. Until then it should NOT be used for a clean run.
 
 ## [ ] 4. Resolve `06_adjudicate_llm.py`  *(after Thursday)*
 
