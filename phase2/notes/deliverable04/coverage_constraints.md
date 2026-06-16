@@ -3,6 +3,60 @@
 Why the full-timeline overlap (initiation **and** decision present) is low, per review type.
 Compiled 2026-06-15 from the Phase-1-vs-Phase-2 candidate comparison and the EA/EIS/CE diagnostics.
 
+## Where the no-dates actually come from — empirical decomposition (2026-06-16)
+
+Don't just benchmark to Phase 1 — this is the *source* of the no-date rates, measured directly.
+The "high no-date" rate is **not the same story** for EA and EIS.
+
+**EIS (77% incomplete): largely a truncation/retrieval BUG, not a source limit.**
+- 4-way split: complete 23% · decision-only 30% · init-only 11% · **neither 36%**.
+- Of the 1,468 "neither" (no date at all): **664 have ZERO candidates**, but they **have indexed pages,
+  were scanned (none deferred), and 1,295/1,344 of their documents have extractable text** — so the
+  dates *are in the documents*. The old **2,000-char truncation cut them off** and retrieval didn't pull
+  the date pages. **This is the surprising part: real EIS docs containing NOI/ROD/FEIS dates, truncated
+  away.** Fixable by the 12k-cap + FEIS-full-read + text-fallback changes (applied by the full run).
+- The other 804 "neither" have candidates but nothing selected → selection/scoring.
+- So EIS no-dates ≈ **half retrieval/truncation (recoverable, coded)** + half selection.
+
+**EA (51% incomplete): NOT a document/extraction failure — selection + init source sparsity.**
+- 4-way split: complete 49% · decision-only 25% · init-only 9% · **neither 17%**.
+- Of the 516 "neither": **all have candidates** (357 a decision candidate, 322 an init candidate, 336
+  even a ROD/FEIS doc) — **zero are zero-candidate.** The dates were extracted but **not selected** —
+  the candidates are weak and don't pass the register/FONSI-anchored EA decision tiers or the init
+  thresholds.
+- The 25% decision-only is the **init source gap**: no register/NOI init (EAs don't publish an NOI),
+  faint document init signal; often the register's start date *equals* the decision date (no span).
+- So EA no-dates ≈ **weak-candidate selection + genuinely thin initiation signal.**
+
+**Takeaway:** EIS has lots of *recoverable* dates (truncation + role-gating + cues); EA is the
+genuinely harder one (faint/absent initiation, weak candidates), only partly recoverable.
+
+## Code-review findings (2026-06-16, pre-overnight-run)
+
+**(0) All current parquets are PRE-FIX — the headline caveat.** The candidates were last
+extracted 2026-06-09/10 (zero instances of any new cue: `scoping_noi_init`,
+`application_prefiling_init`, `applied_for_application`, `ce_inferred_application`) and the
+retrieval packets are all from a single 2026-05-30 run (no `eis_text_fallback` tier present). So
+the 664 zero-candidate EIS / 516 EA-neither figures are **pre-fix ceilings measured on the OLD
+pipeline** (2k truncation, no EIS fallback, no calibrated init). The committed June-15/16 fixes are
+NOT yet in the data — the overnight run is what tests their recovery. Do not quote current
+coverage as the post-fix result.
+
+**(1) FOUND + FIXED — stale FR NOI API source leaking into selection.** `noi_publication_date`
+comes from the Phase-1 Federal Register NOI **API match** (00_sample renames it
+`fr_noi_publication_date`; `noi_match_status` has only **93 "accepted"** EIS matches, just **6** of
+which agree with a BLM/DOE register date). It fed a Tier-A initiation candidate
+(`candidate_source_type="noi_notice"`, 94 rows) and was selected for **12 EIS initiations**. This
+source is unreliable. **Disabled** via `FR_NOI_TIER_A_ENABLED = False` in `02_retrieve.py`
+(reversible flag). Footprint: 11 of the 12 have a non-NOI backup candidate → ~1 net EIS init lost.
+**BLM/DOE register dates (`candidate_source_type="metadata"`) are GOLD and untouched** — they come
+from separate Tier-A paths and remain the authoritative initiations in `_calibrated_init_eligible`.
+
+**(2) Verified clean:** run order (`run_pipeline.py` runs 02→03→04→04b→05b→05→05c, preventing a
+repeat of the stale-`ranking_score` CE loss); the new init cues (correctly anchored to the date
+clause, never steal a decision role, `_ms`/`_me`/`block` in scope); calibrated-init eligibility
+(strictly additive union, OMB boilerplate excluded, per-process duration guard).
+
 ## CE — the constraint was *initiation* candidates (now fixed)
 
 - Decision candidates were never the problem (Phase 2 had **98%** of Phase 1's).

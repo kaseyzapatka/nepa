@@ -48,6 +48,15 @@ PACKET_CAPS = {"CE": 25, "EA": 75, "EIS": 150}
 
 EIS_PAGE_CONTEXT_CHARS = 12_000
 
+# FR NOI Tier-A initiation candidates are DISABLED. `noi_publication_date` comes from the Phase-1
+# Federal Register NOI API match (00_sample renames it `fr_noi_publication_date`), which is stale
+# and unreliable (only 93 "accepted" EIS matches, just 6 of which agree with a BLM/DOE register
+# date). The trustworthy authoritative initiations are the BLM/DOE register dates
+# (candidate_source_type="metadata"), which are produced by separate Tier-A paths and are unaffected
+# by this flag. Footprint of removal: only 12 selected EIS inits, 11 of which have a non-NOI backup
+# candidate (~1 net loss). Set True only if the FR NOI match is re-validated against the register.
+FR_NOI_TIER_A_ENABLED = False
+
 # Per-process tier_d page context cap. CE determination/signature dates sit at the bottom of
 # dense ~7-9k-char form pages, beyond the old global 2,000-char cut, so CE reads the full page
 # (30,000 matches the tier_b CE full-read cap). EA narrative decision dates also sit below the
@@ -251,8 +260,8 @@ def build_tier_a_packets(
     packets: list[dict] = []
     project_id = project_row["project_id"]
 
-    # NOI date as Tier A initiation candidate
-    if project_row.get("noi_tier_a_eligible"):
+    # NOI date as Tier A initiation candidate (DISABLED — stale FR NOI API pull; see flag note)
+    if FR_NOI_TIER_A_ENABLED and project_row.get("noi_tier_a_eligible"):
         noi_date = project_row.get("noi_publication_date")
         if pd.notna(noi_date):
             noi_str = pd.Timestamp(noi_date).strftime("%Y-%m-%d") if hasattr(noi_date, "strftime") else str(noi_date)
