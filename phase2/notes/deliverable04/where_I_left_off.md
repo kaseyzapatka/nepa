@@ -1,5 +1,88 @@
 # D4 Timeline — Where I Left Off (combined handoff)
 
+> **CURRENT as of 2026-06-16 — read the "Coverage-recovery cycle" section immediately below first.**
+> Everything under the older "Last updated: 2026-06-10" banner is retained as history; where numbers
+> conflict, the 2026-06-16 section wins.
+
+---
+
+## 2026-06-16 — Coverage-recovery cycle (READ FIRST)
+
+**Goal of this cycle:** raise the *full-timeline overlap* (initiation **and** decision present) toward
+Phase-1 clean-energy rates (CE ~30%, EA ~62%, EIS ~48%), broken out by energy type. Driven by a
+Phase-1-vs-Phase-2 candidate comparison. Root causes are documented in
+[`coverage_constraints.md`](coverage_constraints.md); the working plan is
+[`full_recover.md`](full_recover.md); the EIS deep-dive reference is [`recover_eis.md`](recover_eis.md).
+
+### Current coverage (after this cycle's SELECTION-only fixes applied to production)
+
+| | All projects (complete) | Decarb/clean (complete) | Phase 1 clean target |
+|---|---:|---:|---:|
+| CE  | 43.6% | **38.5%** w/ proxy (23.5% clear-only) | 30.4% |
+| EA  | 48.8% | 35.5% | 62.0% |
+| EIS | 23.3% | 33.6% | 48.1% |
+
+> **CE now exceeds Phase 1** (the with-proxy 38.5% is apples-to-apples: Phase 1's CE init was *also*
+> an inferred date). EA/EIS still below — see pending work. The numbers above reflect a **selection-only
+> re-run** (`05b→05→05c`) on the EXISTING candidate pool. The **retrieval + new-cue fixes are committed
+> but NOT yet reflected in production** — they need the full `02→08` re-run (see Pending).
+
+### Fixes committed this session (on `desktop`)
+
+| Commit | Fix | What it does | In production yet? |
+|---|---|---|---|
+| `acdd7ba` (prev) | CE truncation + EA tier_d=8000 | retrieval cap fixes | needs full run |
+| `6a33d19` | EIS retrieval (12k cap, dedup, text-fallback), `03` EIS windowed exclusions, EA+EIS calibrated/additive init eligibility, `_phase0_baseline.py` | recover EIS candidates + role-agnostic-via-prob init selection | **selection part: yes**; retrieval part: needs full run |
+| `d732f96` | **CE inferred-init proxy** (earliest cand date < decision, 5y cap; flagged `ce_inferred_application`+`is_proxy`), `run_pipeline.py` orchestrator (**`_run.py` retired**), `08` coverage-by-energy figure | close CE init gap (mirrors Phase-1 inferred-application) | yes |
+| `93fdff9` | **CE "applied for" cue** (Fix B) + vectorized the CE proxy | precise CE application-date inits | needs full run (it's a `03` cue) |
+| `62c5430` | **EA/EIS scoping/NOI init cue** (`SCOPING_NOI_INIT`) | re-role scoping/NOI dates the classifier scored high but regex left `unknown` | needs full run (`03` cue) |
+| `a2dd7e3` | CE proxy **permit/compliance negative filter** | proxy skips "permit issued"/CFR/"must comply" dates | yes |
+
+### How fixes map to the gaps (the mental model)
+- **CE init** (was the gap): solved by the inferred-init proxy + "applied for" cue → CE now exceeds Phase 1.
+- **EIS decision** (the gap): ~117 truncated ROD/FEIS dates → the **retrieval fix** recovers them (needs the full run). ~88 are source-gap (no decision doc; not recoverable cleanly).
+- **EA/EIS initiation**: candidates often *exist* but were **role-gated out of selection** → the **calibrated/additive init eligibility** (union of legacy ranker gate + `p_init_cal ≥ 0.5` / authoritative, role-agnostic-ish) + the **scoping/NOI cue** recover them. EA is additionally **source-limited** (no register/NOI init for ~half; start often == decision).
+- **CE "stale ranking_score" 1,211-loss** root cause = run order: `05b` must run before `05`. Now baked into `run_pipeline.py`. **Never run `05` alone.**
+
+### Tooling added this session
+- **`run_pipeline.py`** — the one orchestrator. `python run_pipeline.py` (full `02→08`) or `--select`
+  (`05b→05→05c→08`, minutes). Bakes in `04b`/`05b`/`05c` (skipping `05b` is what corrupted CE).
+- `_phase0_baseline.py` — baseline metrics + corrected source-ceiling (EIS local ceiling = **2,664 / 64.5%**; 70%+ needs OCR/external = out of scope).
+- `09_sample_check.R` — pulls ~20 projects/type, lists every candidate + selected dates for eyeballing
+  (outputs `output/deliverable04/sample_check_{candidates,projects}.csv`). *(untracked)*
+- `README.md`, `clean_up_plan.md`, `coverage_constraints.md`, `full_recover.md`. *(some untracked)*
+
+### Production data state + backups
+Production `timeline_project_dates.parquet` = CE (preserved via partition merge) + EA/EIS (selection-fixed).
+Backups in `data/analysis/timeline/`: `timeline_project_dates.{pre_selfix,preselect,pre_cemerge,pre_gt_inject}_*.parquet`.
+
+### PENDING / next steps (not yet done)
+1. **The full `02→08` overnight re-run** — the big unbanked win. Applies EIS retrieval (~117 decision
+   recoveries) + the scoping/NOI + applied-for cues across the whole corpus. Plan: isolated **git
+   worktree off `desktop`** with symlinked input data + COPIED `models/` + production backup, run
+   `run_pipeline.py`, validate (diff vs backup, CE must not regress, frozen-test if retrained), then
+   merge code + copy data back. Full setup/commands in [`full_recover.md`](full_recover.md) §3–§6.
+2. **Tier 2 classifier retrain** (the bigger EA/EIS init lever beyond what's banked): label ~200–300
+   hard EA/EIS init cases → retrain `04`/`04b`/`05b`, **gated on frozen-test F1 holding** (no project
+   gold exists, so frozen-test F1 is the only anti-inflation guard). Best on the worktree with a
+   worktree-local `models/`. Shared classifier → retrain shifts all 3 processes. See `full_recover.md` §5.
+3. **Remaining regex lever (identified, NOT implemented):** extend the application/"applied for" cue to
+   EA+EIS and add FERC **`pre-filing`/`pre-application`** for EIS (raw candidates ~EIS 396 applied-for +
+   162 pre-filing; EA 176). Same Fix-B treatment (anchor + sample-test). Last productive cue; regex is
+   otherwise exhausted (EIS ROD-narrative and CE submitted/filed were tested and rejected as noisy/low).
+4. **`06_adjudicate_llm.py` rebuild** (stale: top-3, raw probs) — separate effort before any LLM pass.
+
+### Critical gotchas
+- **Run order is non-negotiable:** `02→03→04→04b --apply→05b --apply→05→05c→07→08`. Use `run_pipeline.py`.
+  Running `05` without `05b` drops candidates with NULL `ranking_score` (this caused the CE 1,211-loss).
+- **Proxy/inferred dates are flagged** (`ce_inferred_application`, `is_proxy`, `decision_is_feis_fallback`).
+  Report **with-proxy AND clear-only** — with-proxy is Phase-1-comparable; clear-only is the strict floor.
+- **`05` reconciles all 4,130 EIS into the output as stubs** — restrict to actual sample ids when measuring.
+- **No project-level gold** (`07`'s gold sample is empty) → validate by diff-vs-backup + sampling, not accuracy.
+- Scripts hard-require `CONDA_DEFAULT_ENV=nepa`; env python `/opt/anaconda3/envs/nepa/bin/python`.
+
+---
+
 > **Last updated: 2026-06-10 (post-investigation).** This is the single authoritative warm-start note for D4.
 > It consolidates three earlier handoffs written at different points:
 > - the **2026-06-09** full-pipeline handoff (cross-process coverage, classifier, guardrails, 06 gate);
