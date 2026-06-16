@@ -266,6 +266,21 @@ CE_INITIATOR_ROLE = re.compile(
     re.IGNORECASE,
 )
 
+# EA/EIS scoping & NOI initiation cues. The SetFit classifier already scores these dates as
+# initiation (~0.86), but the regex roles them `unknown` because the exact phrasing isn't in the
+# clear-init patterns. Keying on the *phrase* (not the probability) recovers the real scoping/NOI
+# inits while excluding the comment-status / future / FONSI false positives. (Validated: matches the
+# real scoping/NOI dates, rejects "no comments received as of", "Final EIS will be published", etc.)
+SCOPING_NOI_INIT = re.compile(
+    r"scoping\s+(was\s+|period\s+)?(conducted|held|beg[au]n|initiated|opened|started|between|from)"
+    r"|public\s+scoping\s+between"
+    r"|scoping\s+(document|notice|letters?)[^.]{0,30}(distributed|sent|mailed|issued|publish)"
+    r"|notice\s+of\s+intent[^.]{0,40}(publish|issued|prepare)"
+    r"|\bnoi\b[^.]{0,25}(publish|issued)"
+    r"|uploaded\s+to[^.]{0,20}eplanning",
+    re.IGNORECASE,
+)
+
 # Clear decision — strong cues
 # Phase 1 additions: digitally signed by, /s/ signature notation, YYYY.MM.DD timestamp,
 # NCO determination, authority and approval, decision memo(randum), ce determination date,
@@ -893,6 +908,20 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                     pos_cues = [c for c in pos_cues
                                 if c not in ("decision_strong", "decision_med", "doc_type_decision")]
                     pos_cues = pos_cues + ["applied_for_application"]
+
+                # EA/EIS scoping & NOI date = initiation. The scoping/NOI phrase can sit just before
+                # or just after the date ("Scoping was conducted from <date>", "<date>, … uploaded to
+                # ePlanning"), so check a tight window on both sides, cut at sentence boundaries.
+                # Never steals an existing decision role; chronology (init<decision) is enforced in 05.
+                if process_type in ("EA", "EIS") and role not in ("clear_decision", "proxy_decision"):
+                    _pre = re.split(r"\.\s", block[max(0, _ms - 80):_ms])[-1]
+                    _post = re.split(r"\.\s", block[_me:_me + 50])[0]
+                    if SCOPING_NOI_INIT.search(_pre) or SCOPING_NOI_INIT.search(_post):
+                        role = "clear_initiation"
+                        conf = 5.0
+                        pos_cues = [c for c in pos_cues
+                                    if c not in ("decision_strong", "decision_med", "doc_type_decision")]
+                        pos_cues = pos_cues + ["scoping_noi_init"]
 
                 # Skip clear rejects
                 if role == "reject" and not heading:
