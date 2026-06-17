@@ -52,7 +52,14 @@ DEFAULT_PROVIDER = "anthropic"
 MAX_INPUT_TOKENS = 4096
 MAX_CANDIDATES = 40
 MAX_RECOVERY_PAGES = 10
-RETRY_SLEEP = 2.0
+RETRY_SLEEP = 2.0          # throttle between calls (raise/lower per API tier rate limit)
+# Resilience: transient errors (rate-limit / overloaded / timeout) are retried with exponential
+# backoff; out-of-credit / billing errors are fatal and trip a fail-fast after N in a row so a
+# drained account stops cleanly (work saved) instead of erroring through the whole queue.
+MAX_TRANSIENT_RETRIES = 5
+BACKOFF_BASE_SEC = 2.0
+SAVE_EVERY = 50            # incremental checkpoint cadence (so a kill never loses > this many)
+BILLING_FAILFAST_N = 3     # consecutive credit/billing errors before stopping the run
 
 # --- Classifier-driven routing (06 now consumes 04's confidence scores) ---------------
 # A project is routed to the LLM when, on top of the regex-status triggers, its best
@@ -103,6 +110,8 @@ Rules:
 - If no suitable decision candidate exists, return null for decision_date.
 - For decision: prefer ROD/FONSI/CE determination/decision-record dates over generic final document dates.
 - For initiation: prefer NOI/scoping/application-received dates over generic first-document dates.
+- Prefer a full day-level date (YYYY-MM-DD) over a month-only (YYYY-MM) or year-only candidate; select a
+  month-year candidate ONLY when no acceptable day-level candidate exists for that role.
 - Do not select dates that appear to be from legal citations, historical references, or unrelated projects.
 
 Return valid JSON only:
@@ -229,40 +238,69 @@ def _call_api(
             "input_tokens": _estimate_tokens(user_prompt),
             "output_tokens": 0,
             "error": None,
+            "error_kind": None,
         }
 
-    try:
-        import anthropic
-        client = anthropic.Anthropic()
-        msg = client.messages.create(
-            model=model,
-            max_tokens=512,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        raw = msg.content[0].text if msg.content else ""
+    last_err = ""
+    for attempt in range(MAX_TRANSIENT_RETRIES + 1):
         try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            # Try to extract JSON block from response
-            import re
-            m = re.search(r"\{.*\}", raw, re.DOTALL)
-            parsed = json.loads(m.group(0)) if m else {}
-        return {
-            "response_json": parsed,
-            "raw_response_excerpt": raw[:500],
-            "input_tokens": msg.usage.input_tokens,
-            "output_tokens": msg.usage.output_tokens,
-            "error": None,
-        }
-    except Exception as e:
-        return {
-            "response_json": {},
-            "raw_response_excerpt": "",
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "error": str(e),
-        }
+            import anthropic
+            client = anthropic.Anthropic()
+            msg = client.messages.create(
+                model=model,
+                max_tokens=512,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_prompt}],
+            )
+            raw = msg.content[0].text if msg.content else ""
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                import re
+                m = re.search(r"\{.*\}", raw, re.DOTALL)
+                parsed = json.loads(m.group(0)) if m else {}
+            return {
+                "response_json": parsed,
+                "raw_response_excerpt": raw[:500],
+                "input_tokens": msg.usage.input_tokens,
+                "output_tokens": msg.usage.output_tokens,
+                "error": None,
+                "error_kind": None,
+            }
+        except Exception as e:
+            last_err = str(e)
+            el = last_err.lower()
+            # Classify on the SDK's typed exceptions (robust), with a string fallback. Transient =
+            # rate-limit (429) / overloaded+5xx (529/500/503/...) / timeout / connection -> retry with
+            # backoff. Billing/auth (out of credit, bad key, no access) -> FATAL (caller fail-fasts).
+            is_transient = is_billing = False
+            try:
+                import anthropic as _a
+                is_transient = isinstance(e, (_a.RateLimitError, _a.InternalServerError,
+                                              _a.APITimeoutError, _a.APIConnectionError))
+                if isinstance(e, _a.APIStatusError) and getattr(e, "status_code", None) in (408, 429, 500, 502, 503, 504, 529):
+                    is_transient = True
+                is_billing = isinstance(e, (_a.AuthenticationError, _a.PermissionDeniedError)) or (
+                    isinstance(e, _a.BadRequestError) and any(k in el for k in ("credit", "billing", "quota", "payment")))
+            except Exception:
+                pass
+            # string fallbacks (cover non-SDK errors / wrapped messages)
+            if any(k in el for k in ("credit balance", "billing", "insufficient", "quota", "payment required")):
+                is_billing = True
+            if not is_billing and any(k in el for k in ("rate limit", "429", "overloaded", "529",
+                                      "timeout", "timed out", "connection", "internal server", "503", "500")):
+                is_transient = True
+            if is_billing:
+                return {"response_json": {}, "raw_response_excerpt": "", "input_tokens": 0,
+                        "output_tokens": 0, "error": last_err, "error_kind": "billing"}
+            if is_transient and attempt < MAX_TRANSIENT_RETRIES:
+                time.sleep(BACKOFF_BASE_SEC * (2 ** attempt))
+                continue
+            return {"response_json": {}, "raw_response_excerpt": "", "input_tokens": 0,
+                    "output_tokens": 0, "error": last_err,
+                    "error_kind": "transient" if is_transient else "other"}
+    return {"response_json": {}, "raw_response_excerpt": "", "input_tokens": 0,
+            "output_tokens": 0, "error": last_err or "unknown", "error_kind": "other"}
 
 
 # ---------------------------------------------------------------------------
@@ -370,7 +408,27 @@ def _select_adjudication_queue(
         ((sub["timeline_status"] == "missing_both") & sub["project_id"].isin(has_cands)) |
         low_confidence | competing_decisions
     )
-    return sub[needs_adj]
+
+    # Completable gate (per missing slot): only adjudicate projects that CAN reach a COMPLETE
+    # timeline — each *missing* slot must have a candidate to fill it (an already-filled slot needs
+    # none). Drops structurally-incompletable projects (e.g. CE missing init with no init candidate)
+    # that would otherwise waste an LLM call returning null. This is the ~11.2k "send" set.
+    role = candidates_df["candidate_role"].astype(str)
+    caprow = candidates_df.assign(
+        _is_init=role.isin(["clear_initiation", "proxy_initiation"]),
+        _is_dec=role.isin(["clear_decision", "proxy_decision"]),
+    ).groupby("project_id").agg(hic=("_is_init", "max"), hdc=("_is_dec", "max"))
+    hic = sub["project_id"].map(caprow["hic"]).fillna(False).astype(bool)
+    hdc = sub["project_id"].map(caprow["hdc"]).fillna(False).astype(bool)
+    completable = (sub["initiation_date"].notna() | hic) & (sub["decision_date"].notna() | hdc)
+    # Per the affirmed rule: send only projects MISSING >=1 slot that can still complete (each
+    # missing slot has a candidate). Excludes already-both-present projects flagged for ambiguous
+    # re-checks — those refine existing picks but add no completions. (Set INCLUDE_RECHECKS=1 to keep
+    # them, e.g. for a precision pass.)
+    incomplete = ~(sub["initiation_date"].notna() & sub["decision_date"].notna())
+    if os.environ.get("INCLUDE_RECHECKS") == "1":
+        return sub[needs_adj & completable]
+    return sub[needs_adj & completable & incomplete]
 
 
 def _select_recovery_queue(
@@ -409,6 +467,8 @@ def run_adjudication(
     sample: int | None,
     dry_run: bool,
     model: str,
+    sample_ids: str | None = None,
+    no_apply: bool = False,
 ) -> None:
     print(f"Loading data...")
     dates_df = pd.read_parquet(DATES_PATH)
@@ -422,15 +482,27 @@ def run_adjudication(
 
     print(f"Mode: {mode} | Queue: {len(queue)} projects | Dry run: {dry_run}")
 
+    if sample_ids:
+        with open(sample_ids) as f:
+            ids = {ln.strip().split(",")[0] for ln in f
+                   if ln.strip() and not ln.lower().startswith("project_id")}
+        queue = queue[queue["project_id"].isin(ids)]
+        print(f"Filtered to {len(queue)} projects from {len(ids)} sample-ids.")
     if sample:
         queue = queue.head(sample)
         print(f"Sampling {sample} projects.")
 
-    # Load existing adjudications to check cache
+    # Load existing adjudications to check cache. CRITICAL: only treat SUCCESSFUL (no api_error)
+    # adjudications as cached/done. Errored rows (e.g. an out-of-credit run) are NOT cached, so a
+    # top-up + re-run retries exactly those instead of silently skipping them.
     existing_adj: pd.DataFrame = pd.DataFrame()
     if ADJUDICATIONS_PATH.exists():
         existing_adj = pd.read_parquet(ADJUDICATIONS_PATH)
-    existing_keys = set(existing_adj["prompt_hash"].tolist()) if not existing_adj.empty else set()
+    existing_keys: set = set()
+    if not existing_adj.empty:
+        err = existing_adj["api_error"] if "api_error" in existing_adj.columns else pd.Series([None] * len(existing_adj))
+        succeeded = existing_adj[err.isna() | err.astype(str).str.strip().isin(("", "None", "nan"))]
+        existing_keys = set(succeeded["prompt_hash"].tolist())
 
     # Load project-level metadata for prompt building
     from phase2.code.utils.config import US_STATES  # type: ignore
@@ -449,8 +521,22 @@ def run_adjudication(
     dates_updates: list[dict] = []
     run_at = datetime.now(timezone.utc).isoformat()
     cost_usd = 0.0
-    COST_PER_1K_INPUT = 0.00025  # Haiku pricing
-    COST_PER_1K_OUTPUT = 0.00125
+    billing_errs = 0
+    # Current API pricing (USD per 1K tokens) by model — replaces the stale Haiku-3 rates so the
+    # cost readout reflects the model actually used.
+    PRICES = {"haiku": (0.001, 0.005), "sonnet": (0.003, 0.015), "opus": (0.015, 0.075)}
+    _mk = "opus" if "opus" in model else ("sonnet" if "sonnet" in model else "haiku")
+    COST_PER_1K_INPUT, COST_PER_1K_OUTPUT = PRICES[_mk]
+
+    def _save_adj() -> None:
+        """Checkpoint adjudications so far (existing + new), de-duped. Safe to call repeatedly."""
+        if not adj_records:
+            return
+        new = pd.DataFrame(adj_records)
+        combined = (pd.concat([existing_adj, new], ignore_index=True).drop_duplicates("api_call_id")
+                    if not existing_adj.empty else new)
+        TIMELINE_DIR.mkdir(parents=True, exist_ok=True)
+        combined.to_parquet(ADJUDICATIONS_PATH, index=False)
 
     for i, (_, proj_row) in enumerate(queue.iterrows()):
         pid = proj_row["project_id"]
@@ -553,8 +639,22 @@ def run_adjudication(
                     "recovery_dec_evidence": resp.get("decision_evidence", ""),
                 })
 
-        if (i + 1) % 50 == 0:
-            print(f"  {i+1}/{len(queue)} adjudicated | cost_usd={cost_usd:.4f}")
+        # Fail-fast on a drained account: stop cleanly (work is checkpointed) instead of erroring
+        # through the rest of the queue. Errored rows aren't cached, so re-running resumes them.
+        if result.get("error_kind") == "billing":
+            billing_errs += 1
+            if billing_errs >= BILLING_FAILFAST_N:
+                _save_adj()
+                print(f"  STOPPING after {billing_errs} consecutive billing/credit errors "
+                      f"(out of API credit). Progress saved — top up and re-run to resume the rest.")
+                break
+        else:
+            billing_errs = 0
+
+        # Incremental checkpoint so a hard kill never loses more than SAVE_EVERY projects.
+        if (i + 1) % SAVE_EVERY == 0:
+            _save_adj()
+            print(f"  {i+1}/{len(queue)} adjudicated | cost_usd=${cost_usd:.4f} | checkpoint saved")
 
     if not adj_records:
         print("No adjudications generated.")
@@ -572,9 +672,12 @@ def run_adjudication(
     print(f"Wrote: {ADJUDICATIONS_PATH} ({len(combined_adj):,} total adjudications)")
     print(f"Estimated cost this run: ${cost_usd:.4f}")
 
-    # Update project dates from candidate adjudications
-    if dates_updates and not dry_run:
+    # Update project dates from candidate adjudications (skip with --no-apply, e.g. A/B test runs
+    # that must not mutate the canonical timeline_project_dates.parquet).
+    if dates_updates and not dry_run and not no_apply:
         _apply_adjudication_results(dates_df, candidates_df, dates_updates, mode, run_at)
+    elif no_apply:
+        print("  --no-apply: dates NOT written (adjudications saved for inspection/comparison only).")
 
 
 def _apply_adjudication_results(
@@ -609,7 +712,13 @@ def _apply_adjudication_results(
                         continue
                 cand = cand_idx.loc[cid]
                 new_gran = cand.get("date_granularity", "day")
-                dates_df.loc[mask, f"{role}_date"] = cand.get("parsed_date")
+                date_val = cand.get("parsed_date")
+                # Month-granularity pick (e.g. an EIS FEIS-publication "July 2024"): store the
+                # mid-month 15th to round out bias, mirroring 05's apply_month_midpoint_imputation
+                # (the candidate's parsed_date is YYYY-MM-01). Day-level picks are untouched.
+                if new_gran == "month" and isinstance(date_val, str) and len(date_val) >= 8:
+                    date_val = date_val[:8] + "15"
+                dates_df.loc[mask, f"{role}_date"] = date_val
                 dates_df.loc[mask, f"{role}_date_granularity"] = new_gran
                 dates_df.loc[mask, f"{role}_source_type"] = "api_adjudication"
                 dates_df.loc[mask, f"{role}_confidence"] = cand.get("role_confidence", "medium")
@@ -682,6 +791,8 @@ def main() -> None:
     parser.add_argument("--process", nargs="+", choices=["CE", "EA", "EIS"], default=["EA", "EIS"])
     parser.add_argument("--model", default=DEFAULT_MODEL)
     parser.add_argument("--sample", type=int, help="Limit to N projects for testing.")
+    parser.add_argument("--sample-ids", help="Path to a file/CSV (first column = project_id) to restrict the queue to specific projects.")
+    parser.add_argument("--no-apply", action="store_true", help="Save adjudications but do NOT write timeline_project_dates.parquet (for A/B test runs).")
     parser.add_argument("--dry-run", action="store_true", help="Build prompts but do not call API.")
     args = parser.parse_args()
 
@@ -696,6 +807,8 @@ def main() -> None:
         sample=args.sample,
         dry_run=args.dry_run,
         model=args.model,
+        sample_ids=args.sample_ids,
+        no_apply=args.no_apply,
     )
 
 

@@ -31,6 +31,28 @@ The "high no-date" rate is **not the same story** for EA and EIS.
 **Takeaway:** EIS has lots of *recoverable* dates (truncation + role-gating + cues); EA is the
 genuinely harder one (faint/absent initiation, weak candidates), only partly recoverable.
 
+## Complete / LLM-recoverable / structural decomposition (2026-06-16, post Variant-B + sliver)
+
+Every project falls in exactly one of three buckets. **Complete** = already has both dates
+(register / regex / proxy). **Send to LLM** = currently missing ≥1 slot but *can* complete — each
+missing slot has a candidate to pick from (the 06 send-set). **Structural** = missing a slot with
+**no candidate** for it — unrecoverable by any method (the date isn't in the corpus).
+
+| process | already complete | + send to LLM (recoverable) | + structural (unrecoverable) | total |
+|---------|-----------------:|----------------------------:|-----------------------------:|------:|
+| **CE**  | 24,741           | 8,625                       | 20,674                       | 54,040 |
+| **EA**  | 1,534            | 901                         | 582                          | 3,017 |
+| **EIS** | 1,011            | 1,681                       | 1,438                        | 4,130 |
+| **all** | 27,286           | 11,207                      | 22,694                       | 61,187 |
+
+Notes for the report/architecture:
+- **CE & EA** are mostly *already complete* (decisions well-covered by register/FONSI); the LLM adds
+  a modest increment. CE's large structural bucket = missing-init CEs with no init candidate.
+- **EIS is the exception**: "send" (1,681) > "already complete" (1,011) — EIS decisions are
+  ROD-sparse, so the LLM is where most EIS completion comes from. Includes the month-sliver.
+- The LLM send-set is gated to *completable* projects only; structurally-missing slots are not sent
+  (no candidate to choose), which is why the send-set (11,207) ≠ the broader incomplete count.
+
 ## Code-review findings (2026-06-16, pre-overnight-run)
 
 **(0) All current parquets are PRE-FIX — the headline caveat.** The candidates were last
