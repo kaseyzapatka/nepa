@@ -1996,40 +1996,95 @@ n_invalid_order <- sum(both_present$timeline_decision_date_final <
 valid_timeline <- both_present %>%
   filter(timeline_decision_date_final >= timeline_initiation_date_final)
 
-summarise_valid <- function(df) {
+# Reports the actual DATE at each percentile (Earliest / 25th / Median / 75th /
+# Latest) for the initiation and decision dates, so the temporal spread of
+# complete projects is visible — e.g., how far back the dates actually reach.
+date_quantile <- function(d, p) {
+  d <- d[!is.na(d)]
+  # type = 1 returns an observed date (no interpolation between two records).
+  as.Date(quantile(as.numeric(d), p, type = 1, names = FALSE), origin = "1970-01-01")
+}
+date_percentiles <- function(d, process, date_label) {
+  d <- d[!is.na(d)]
   tibble(
-    Projects                 = nrow(df),
-    `Initiation date range`  = fmt_date_range(df$timeline_initiation_date_final),
-    `Decision date range`    = fmt_date_range(df$timeline_decision_date_final),
-    `Median duration (days)` = median(as.numeric(df$timeline_decision_date_final -
-                                                 df$timeline_initiation_date_final))
+    Process     = process,
+    `Date type` = date_label,
+    Earliest    = format(min(d), "%Y-%m-%d"),
+    `25th pct`  = format(date_quantile(d, 0.25), "%Y-%m-%d"),
+    Median      = format(date_quantile(d, 0.50), "%Y-%m-%d"),
+    `75th pct`  = format(date_quantile(d, 0.75), "%Y-%m-%d"),
+    Latest      = format(max(d), "%Y-%m-%d")
+  )
+}
+process_percentiles <- function(df, process) {
+  bind_rows(
+    date_percentiles(df$timeline_initiation_date_final, process, "Initiation"),
+    date_percentiles(df$timeline_decision_date_final,   process, "Decision")
   )
 }
 
-valid_coverage_tbl <- valid_timeline %>%
-  mutate(process = factor(dataset_source, levels = c("CE", "EA", "EIS"))) %>%
-  group_split(process) %>%
-  map_dfr(~ summarise_valid(.x) %>% mutate(Process = as.character(.x$process[1]), .before = 1)) %>%
-  bind_rows(summarise_valid(valid_timeline) %>% mutate(Process = "All decarbonization", .before = 1)) %>%
-  mutate(Projects = scales::comma(Projects),
-         `Median duration (days)` = scales::comma(round(`Median duration (days)`)))
+valid_coverage_tbl <- bind_rows(
+  valid_timeline %>%
+    mutate(process = factor(dataset_source, levels = c("CE", "EA", "EIS"))) %>%
+    group_split(process) %>%
+    map_dfr(~ process_percentiles(.x, as.character(.x$process[1]))),
+  process_percentiles(valid_timeline, "All decarbonization"),
+  # Pooled row: all dates across all complete projects, ignoring the
+  # initiation vs. decision distinction (every project contributes both dates).
+  date_percentiles(
+    c(valid_timeline$timeline_initiation_date_final,
+      valid_timeline$timeline_decision_date_final),
+    "All decarbonization", "All dates"
+  )
+)
 
 save_catf_table_png(
   valid_coverage_tbl,
   title    = "Date Coverage — Decarbonization Projects with Complete, Valid Timelines",
-  subtitle = paste0("Projects with both an initiation and decision date, decision not earlier than ",
-                    "initiation (BERT for CE; LLM for EA/EIS); n = ", scales::comma(nrow(valid_timeline)),
-                    " of ", scales::comma(nrow(timeline_harmonized)), " clean-energy projects"),
+  subtitle = paste0("Date at each percentile for projects with both an initiation and decision date, ",
+                    "decision not earlier than initiation (BERT for CE; LLM for EA/EIS); n = ",
+                    scales::comma(nrow(valid_timeline)), " of ", scales::comma(nrow(timeline_harmonized)),
+                    " clean-energy projects"),
   footnote = paste0(
-    "Note: Eligibility excludes ", scales::comma(n_missing_dates),
+    "Note: Each cell is the date at that percentile of the column's distribution (e.g., 25% of projects ",
+    "fall on or before the 25th-percentile date). Eligibility excludes ", scales::comma(n_missing_dates),
     " projects missing either date and ", scales::comma(n_invalid_order),
-    " with a decision earlier than their own initiation. Duration = decision date minus initiation date; ",
-    "ranges and medians use only these complete, logically valid timelines."
+    " with a decision earlier than their own initiation. The final \"All dates\" row pools every initiation ",
+    "and decision date across all complete projects. No complete project predates 2000; the few 1980s-1990s ",
+    "dates in the raw data (~23 of 16,048 decisions) are almost all decision-only records with no initiation date."
   ),
   file  = file.path(tables_dir, "date_coverage_decarb_valid.png"),
-  width = 11.5, height = 3.4
+  width = 12, height = 4.5
 )
 message("  Saved: date_coverage_decarb_valid.png")
+
+# --- Table 3: one-line date-coverage summary (date_coverage.png) ---
+#     Two rows: the decarbonization timeline analysis (extracted initiation +
+#     decision dates, complete projects) vs. the full NEPATEC 2.0 dataset
+#     (document dates parsed from filenames). Different date fields, so the rows
+#     are not directly comparable -- see footnote.
+date_coverage_summary <- bind_rows(
+  date_percentiles(c(valid_timeline$timeline_initiation_date_final,
+                     valid_timeline$timeline_decision_date_final),
+                   "All decarbonization", "All dates"),
+  date_percentiles(docs_dates, "All NEPA projects", "Document dates")
+)
+
+save_catf_table_png(
+  date_coverage_summary,
+  title    = "Date Coverage at a Glance — NEPATEC 2.0",
+  subtitle = "Date at each percentile: the decarbonization timeline analysis vs. the full dataset",
+  footnote = paste0(
+    "Note: Each cell is the date at that percentile. Row 1 pools every extracted initiation and decision ",
+    "date for decarbonization projects with complete, valid timelines (", scales::comma(nrow(valid_timeline)),
+    " projects). Row 2 uses document dates parsed from filenames — the only date field spanning all NEPA ",
+    "projects — which exist for only ~16% of documents (", scales::comma(length(docs_dates)),
+    " full dates) and skew toward recent filings, so the two rows are not directly comparable."
+  ),
+  file  = file.path(tables_dir, "date_coverage.png"),
+  width = 12, height = 3.2
+)
+message("  Saved: date_coverage.png")
 
 message("\n=== Done. All factsheet figures written to: ", out_dir, " ===")
 message("=== Tables written to: ", tables_dir, " ===")
