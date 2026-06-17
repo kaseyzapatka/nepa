@@ -1,0 +1,85 @@
+start Mon Jun 15 23:06:42 PDT 2026
+Filtering to 170 sample project IDs.
+Loading index: /Users/Dora/git/consulting/nepa/phase2/data/analysis/timeline/timeline_document_index.parquet
+  142,087 index rows, 61,881 projects
+
+=== CE ===
+  Processing 0 CE projects...
+  Loading pages for CE...
+  Loading sections for CE...
+  Loaded 0 CE project descriptions
+
+=== EA ===
+  Processing 60 EA projects...
+  Loading pages for EA...
+  Loading sections for EA...
+  1,137 packets for EA
+
+=== EIS ===
+  Processing 110 EIS projects...
+  Loading pages for EIS...
+  Loading sections for EIS...
+  4,558 packets for EIS
+
+Total packets: 5,695
+Tier distribution:
+retrieval_tier
+tier_b                   3670
+tier_d                   1010
+tier_c                    574
+ea_decision_full_read     417
+tier_a                     24
+
+Wrote: /Users/Dora/git/consulting/nepa/phase2/data/analysis/timeline/sample_runs/scoping_test/timeline_context_packets.parquet
+Filtering to 170 sample project IDs.
+Loading context packets: /Users/Dora/git/consulting/nepa/phase2/data/analysis/timeline/sample_runs/scoping_test/timeline_context_packets.parquet
+  5,695 packets to process
+  Processed 5,000/5,695 packets, 9,653 candidates so far...
+
+Total candidates: 11,944
+Role distribution:
+candidate_role
+unknown             4484
+clear_initiation    2571
+proxy_initiation    1979
+clear_decision      1404
+proxy_decision       669
+body_text            328
+review               275
+reject               138
+historical            96
+Granularity distribution:
+date_granularity
+day      8385
+month    3321
+year      238
+
+Wrote: /Users/Dora/git/consulting/nepa/phase2/data/analysis/timeline/sample_runs/scoping_test/timeline_candidates.parquet
+Scoring 9898/11944 eligible candidates from ../../data/analysis/timeline/sample_runs/scoping_test/timeline_candidates.parquet.
+Doc-type gate: p_final_eis zeroed on 4461 non-FEIS candidates (4461 had p_final_eis>0).
+Wrote classifier scores for 9898 candidates (model salvage_20260609T042302Z).
+Applied calibrated scores to 9,898 candidates (incl. p_feis_cal (doc-type gate preserved)).
+  wrote learned_init_score
+  wrote learned_decision_score
+Applied learned ranker scores to 11,944 candidates (2 head(s)) -> ../../data/analysis/timeline/sample_runs/scoping_test/timeline_candidates.parquet
+/Users/Dora/git/consulting/nepa/phase2/code/deliverable04/05_select_dates.py:1430: FutureWarning: The behavior of DataFrame concatenation with empty or all-NA entries is deprecated. In a future version, this will no longer exclude empty or all-NA columns when determining the result dtypes. To retain the old behavior, exclude the relevant entries before the concat operation.
+  return pd.concat([dates_df, pd.DataFrame(stubs)], ignore_index=True)
+Loading candidates: ../../data/analysis/timeline/sample_runs/scoping_test/timeline_candidates.parquet
+  11,944 candidates, 170 projects
+Processing 170 projects...
+  EIS universe reconciliation: added 4,020 missing EIS projects as missing_both.
+Applying month midpoint imputation...
+  Midpoint imputation applied to 29 projects (month-granularity dates → day 15).
+Applying deis_only flags...
+  deis_only flag applied to 801 EIS projects (DEIS in index, no FEIS or ROD).
+Wrote: ../../data/analysis/timeline/sample_runs/scoping_test/timeline_project_dates.parquet (4,190 projects)
+Timeline status distribution:
+timeline_status
+missing_both           4020
+missing_initiation       95
+complete_clear           55
+complete_with_proxy      20
+Wrote review queue: /Users/Dora/git/consulting/nepa/phase2/output/deliverable04/timeline_manual_review_queue.csv (111 projects)
+
+complete_clear: 55/4190 (1.3%)
+done Mon Jun 15 23:14:27 PDT 2026

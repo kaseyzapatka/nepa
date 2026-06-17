@@ -189,8 +189,10 @@ layout" coverage gap. Full list: [`missing.csv`](missing.csv). Investigation bri
 - [ ] **Recapture candidates for the 664 EIS projects with none** (59 clean / 605 non-clean).
       These have a Phase 2 row but zero candidates → re-scan upstream (03_).
 - [ ] **Recover the 1,376 Phase-1 clean reviews missing from Phase 2** (1,360 CE + 16 EA, 0 EIS).
-      All have zero candidates — never ingested. Reconcile the D4 universe back toward the
-      Phase 1 clean set of 20,725. *(Adjudication 06_ cannot fix these; needs a re-scan.)*
+      Root cause confirmed (truncation + exclusion-keyword rejection on CE forms). Code fixes
+      **applied** in `acdd7ba` (2026-06-10) — see `where_I_left_off.md §Missing-reviews investigation`.
+      **Remaining:** run the isolated validation recipe (`missing_investigation_CEplan.md §6`) on
+      `missing_ce_ids.txt` / `missing_ea_ids.txt`, then re-run full CE pipeline if validation passes.
 - [ ] **Run the 06_ adjudication pass** to fill out Phase 2 on the 19,349 covered reviews,
       then re-cut Q2/Q3 tables to measure the lift over regex-only completion.
 - [ ] **Decide the D4 reporting universe** — re-cut `fig_d4_complete_timeline_share_boxplot.png`
@@ -198,6 +200,28 @@ layout" coverage gap. Full list: [`missing.csv`](missing.csv). Investigation bri
       is all-projects; see Q3 caveat).
 - [ ] **Target initiation extraction, not decision** — overlap ≈ initiation rate for CE/EIS;
       initiation is the binding constraint on completion (Q2).
+
+---
+
+## Duration outliers (post-LLM run, 2026-06-17)
+
+Implausibly long init→decision spans (> 5,000 days ≈ 13.7 yr), `complete_clear` only:
+**CE 27 · EA 4 · EIS 14.** Produced reproducibly by `code/deliverable04/10_outliers.R` →
+`output/deliverable04/diagnostics/d4_duration_outliers.csv` (+ a client-facing EA/EIS subset).
+
+These are a **mix** of two things, separable only by reading the evidence text (not by a year
+cutoff):
+- **Genuinely long NEPA processes** — e.g., SunZia Southwest Transmission (14.6 yr; ROW
+  application Sep 2008 → ROD Apr 2023), Energia Sierra Juarez, Grain Belt Express, Cushman
+  Hydroelectric. These are the client-investigable "where it went wrong" cases.
+- **Extraction errors** where the "initiation" is a *different action's* date than the decision:
+  a license-renewal application (Palisades), a RCRA permit (NRDWL landfill), a state-PUC filing,
+  a park authorization, or a prior plan. Pattern = cross-action contamination on one `project_id`.
+
+Related data-quality findings from the same pass:
+- **~223 CE `complete_with_proxy` rows have NEGATIVE durations** (decision before initiation) yet
+  are *not* flagged `invalid_order` — a proxy-completion ordering bug to fix.
+- **Duplicate `project_id`s** for some long EIS (West Mojave ×2, Clearwater ×2, Roan Plateau ×2).
 
 ---
 

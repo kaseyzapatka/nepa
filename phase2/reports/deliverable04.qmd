@@ -1,0 +1,445 @@
+---
+title: "NEPA Decarbonization Technology Analysis: Deliverable 4"
+subtitle: "Review Timelines for Categorical Exclusions, Environmental Assessments, and Environmental Impact Statements"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup}
+library(arrow)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(stringr)
+library(scales)
+library(knitr)
+library(gt)
+library(here)
+
+OUTPUT_DIR <- here("phase2", "output", "deliverable04")
+FIG_DIR    <- file.path(OUTPUT_DIR, "figures")
+DIAG_DIR   <- file.path(OUTPUT_DIR, "diagnostics")
+
+# CATF brand navy (Phase 1 styling)
+CATF_NAVY <- "#012169"
+
+fmt_n   <- function(x) comma(x, accuracy = 1)
+fmt_pct <- function(x, accuracy = 0.1) percent(x, accuracy = accuracy)
+include_fig <- function(name) knitr::include_graphics(file.path(FIG_DIR, name))
+read_diag <- function(name) read_csv(file.path(DIAG_DIR, name), show_col_types = FALSE)
+kable_tbl <- function(x) knitr::kable(x, format = "pipe", align = "l")
+
+# Navy-header gt table in the house style
+navy_gt <- function(df, title = NULL) {
+  g <- gt(df)
+  if (!is.null(title)) g <- tab_header(g, title = title)
+  g |>
+    cols_align(align = "left") |>
+    tab_style(style = list(cell_fill(color = CATF_NAVY),
+                           cell_text(color = "white", weight = "bold", align = "left")),
+              locations = cells_column_labels()) |>
+    tab_options(table.font.size = px(12), table.width = pct(100))
+}
+
+# --- Coverage (complete = complete_clear + complete_with_proxy) ---
+cov <- read_diag("d4_coverage_by_process.csv")
+cov_tot <- cov |> group_by(process_type) |> summarise(total = sum(n), .groups = "drop")
+cov_complete <- cov |>
+  filter(timeline_status %in% c("complete_clear", "complete_with_proxy")) |>
+  group_by(process_type) |> summarise(complete = sum(n), .groups = "drop") |>
+  left_join(cov_tot, by = "process_type") |>
+  mutate(pct = complete / total)
+cpct <- function(pt) cov_complete$pct[cov_complete$process_type == pt]
+cn   <- function(pt) cov_complete$complete[cov_complete$process_type == pt]
+
+diag <- read_diag("d4_coverage_diagnostics.csv")
+dpct <- function(pt, col) diag[[col]][diag$process_type == pt] / 100
+
+# --- Durations (complete_clear) ---
+dur <- read_diag("d4_duration_summary.csv")
+dmed <- function(pt) dur$median_days[dur$process_type == pt]
+
+# --- Pages (regulatory, all EA/EIS, all energy types) ---
+pg <- read_diag("d4_pages_summary.csv")
+pgv <- function(pt, per, col) pg[[col]][pg$process_type == pt & pg$fra_period == per]
+```
+
+## Executive Summary
+
+::: callout-note
+## Key Findings
+
+-   **Timeline completeness varies sharply by review process.** After LLM adjudication, complete timelines (both an initiation and a decision date) reach **`r fmt_pct(cpct("CE"))` for CE**, **`r fmt_pct(cpct("EA"))` for EA**, and **`r fmt_pct(cpct("EIS"))` for EIS** (see @fig-coverage). The binding constraint differs by process: CE and EA are *initiation*-limited (no Notice of Intent requirement, often no recorded start), while EIS is *decision*-limited (Records of Decision are frequently separate documents absent from the corpus — EIS decision coverage is only `r fmt_pct(dpct("EIS","pct_decision"))`).
+-   **Durations follow the expected complexity ladder.** Median review duration is **`r dmed("CE")` days for CE**, **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA**, and **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS** (complete, day-level timelines; see @fig-duration-intervals).
+-   **LLM adjudication added ~13,000 dates** across 11,207 routed projects at a measured cost of **\$18.20**, lifting complete coverage roughly **+7 percentage points** in every process versus the deterministic-only pipeline.
+-   **Timeline outliers split into genuinely long reviews and extraction errors.** The genuinely long cases — e.g. **SunZia Southwest Transmission (14.6 yr)**, **Energia Sierra Juarez**, **Grain Belt Express**, **Cushman Hydroelectric** — are strong candidates for CATF case studies. Errors (an "initiation" anchored to a historical citation) are flagged and excluded (see @sec-outliers).
+-   **Post-FRA EIS documents are shorter; EA documents are essentially unchanged.** Across **all `r fmt_n(sum(pg$n_projects))` EA/EIS projects** (all energy types, regulatory pages computed from the full page text), mean regulatory EIS length fell from **`r pgv("EIS","Pre-FRA","mean_pages")` to `r pgv("EIS","Post-FRA","mean_pages")` pages** after the Fiscal Responsibility Act, while EA length held near **`r pgv("EA","Pre-FRA","mean_pages")`–`r pgv("EA","Post-FRA","mean_pages")` pages** — though the post-FRA sample is small (see @sec-pages).
+:::
+
+This report delivers:
+
+> Timelines for categorical exclusions, environmental assessments, and environmental impact statements — including segmentation by regulatory period (pre/post-FRA), energy category, and decision year — plus a timeline-outlier deliverable for case-study investigation and a document-length / FRA page-limit analysis refreshed on Phase 2 decision dates.
+
+------------------------------------------------------------------------
+
+# Methodology
+
+## How timeline dates are extracted
+
+Each project's NEPA documents are scanned for **candidate dates**, each captured with its surrounding sentence so the *role* of the date can be classified. A multi-stage pipeline then selects, per project, the operative **initiation** (application received / Notice of Intent / scoping) and **decision** (signature / approval / Record of Decision / Finding of No Significant Impact) dates:
+
+1.  **Candidate extraction & ranking** — regex + section-aware retrieval surface candidate dates; a learned scorer ranks each as initiation- or decision-like.
+2.  **Deterministic selection** — authoritative metadata (BLM/DOE registers, Notice of Intent publication dates) and high-confidence document signatures are selected first.
+3.  **LLM adjudication (script 06)** — for the **11,207 projects** still missing a slot that has at least one viable candidate, Claude Haiku adjudicates which candidate is the true initiation and/or decision, with day-over-month and authoritative-source rules. This pass cost **\$18.20** and added roughly **13,000 dates** with zero billing errors.
+
+A project's timeline is **complete** when both an initiation and a decision date are present. Month-granularity decisions (e.g. a Final EIS cover month) are stored at the mid-month 15th and flagged.
+
+::: callout-warning
+**Data-quality note (stopgap in place).** 233 projects (CE 223 · EA 1 · EIS 9) were labelled complete with a decision date *before* the initiation date — an extraction error in the proxy-completion path. `08_analyze.R` reclassifies these to `invalid_order`, excluding them from coverage and duration figures; a source-level fix is tracked. Reported coverage already reflects this filter.
+:::
+
+------------------------------------------------------------------------
+
+# Timeline Analysis
+
+## Timeline completeness
+
+@fig-complete-share shows the share of projects with complete timelines by review process; @fig-coverage breaks down *which* component is missing. The patterns differ by process:
+
+-   **CE** (`r fmt_pct(cpct("CE"))` complete): decision coverage is high (`r fmt_pct(dpct("CE","pct_decision"))`) but initiation coverage is low (`r fmt_pct(dpct("CE","pct_initiation"))`) — most CEs are single-signature determinations with no recorded start.
+-   **EA** (`r fmt_pct(cpct("EA"))` complete): the strongest of the three, but still initiation-limited — EAs have no Notice-of-Intent requirement and often skip scoping.
+-   **EIS** (`r fmt_pct(cpct("EIS"))` complete): initiations are usually documented (an NOI is required), but **decision** coverage is only `r fmt_pct(dpct("EIS","pct_decision"))` because Records of Decision are frequently separate documents not in the corpus.
+
+```{r}
+#| label: fig-complete-share
+#| fig-cap: "Share of projects with a complete timeline (both initiation and decision dates) by NEPA review process. Dot marks the completion rate."
+#| out-width: "90%"
+include_fig("fig_d4_complete_timeline_share_boxplot.png")
+```
+
+```{r}
+#| label: fig-coverage
+#| fig-cap: "Timeline coverage breakdown by review process — both dates, decision only, initiation only, or neither."
+#| out-width: "100%"
+include_fig("fig_d4_coverage_by_process.png")
+```
+
+## Duration analysis
+
+Among complete, day-level timelines, durations track the expected complexity ladder from CE to EA to EIS. @fig-duration-intervals summarises the spread; @fig-duration-hist shows the full distributions; @fig-spans plots individual project spans.
+
+```{r}
+#| label: tbl-duration
+#| tbl-cap: "Headline review durations by process (complete, day-level timelines). Days unless noted."
+dur |>
+  transmute(`Process` = process_type,
+            `n` = fmt_n(n),
+            `Median (days)` = fmt_n(median_days),
+            `Median (months)` = round(median_days / 30.44, 1),
+            `p10` = fmt_n(p10_days), `p90` = fmt_n(p90_days),
+            `Mean` = fmt_n(round(mean_days))) |>
+  navy_gt()
+```
+
+```{r}
+#| label: fig-duration-intervals
+#| fig-cap: "Duration summary by review process. Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median."
+#| out-width: "100%"
+include_fig("fig_d4_duration_summary_intervals.png")
+```
+
+```{r}
+#| label: fig-duration-hist
+#| fig-cap: "Duration distribution (histogram) by review process, complete day-level timelines."
+#| out-width: "100%"
+include_fig("fig_d4_duration_histogram.png")
+```
+
+```{r}
+#| label: fig-spans
+#| fig-cap: "Individual project timelines from initiation to decision, sorted by duration within process (complete timelines, sampled)."
+#| out-width: "100%"
+include_fig("fig_d4_project_timeline_spans.png")
+```
+
+## Projects by decision year
+
+@fig-by-year shows project volume by decision year, faceted by review process. CE volumes ramp from the late-2000s (ARRA-era funding) with a second rise into the 2020s (BIL/IRA); EIS decisions lag CE and EA by several years, reflecting longer review cycles.
+
+```{r}
+#| label: fig-by-year
+#| fig-cap: "Projects by decision year, faceted by NEPA review process."
+#| out-width: "100%"
+include_fig("fig_d4_projects_by_decision_year.png")
+```
+
+------------------------------------------------------------------------
+
+# Segmentation
+
+## Regulatory period: pre- vs post-FRA
+
+The **Fiscal Responsibility Act of 2023** (and the 2024 CEQ rule) reset NEPA expectations. @fig-fra compares median durations before and after the rule's effective date; @fig-trend shows the longer trend by decision year. Durations are still accruing for post-FRA projects (reviews initiated recently have not all reached a decision), so post-FRA medians should be read as provisional.
+
+```{r}
+#| label: fig-fra
+#| fig-cap: "Median review duration, pre- vs post-FRA, by process. Post-FRA samples are small and still accruing."
+#| out-width: "100%"
+include_fig("fig_d4_fra_comparison.png")
+```
+
+```{r}
+#| label: fig-trend
+#| fig-cap: "Median review duration by decision year and process, with major legislative markers."
+#| out-width: "100%"
+include_fig("fig_d4_duration_trend.png")
+```
+
+## By energy category
+
+Coverage and duration also vary by energy category (Decarbonization / Fossil / Other). Notably, **decarbonization EIS projects complete at 42.4% — well above the EIS aggregate of `r fmt_pct(cpct("EIS"))`** — because clean-energy EISs are better documented than the heterogeneous "Other" bucket that drags the aggregate down.
+
+```{r}
+#| label: fig-cov-energy
+#| fig-cap: "Timeline coverage by process and energy category (both dates / decision only / initiation only / none)."
+#| out-width: "100%"
+include_fig("fig_d4_coverage_by_process_and_energy.png")
+```
+
+```{r}
+#| label: fig-dur-energy
+#| fig-cap: "Duration summary intervals by process, coloured by energy category."
+#| out-width: "100%"
+include_fig("fig_d4_duration_summary_intervals_by_energy.png")
+```
+
+```{r}
+#| label: fig-fra-energy
+#| fig-cap: "Pre/post-FRA median duration by process and energy category."
+#| out-width: "100%"
+include_fig("fig_d4_fra_comparison_by_energy.png")
+```
+
+## Date provenance
+
+@fig-source shows how many selected dates came from authoritative registers (BLM/DOE) versus document text — a transparency check on the timeline's foundations.
+
+```{r}
+#| label: fig-source
+#| fig-cap: "Source path of selected dates at the project level (register vs document text)."
+#| out-width: "100%"
+include_fig("fig_d4_register_source_projects.png")
+```
+
+------------------------------------------------------------------------
+
+# Timeline Outliers: Case-Study Candidates {#sec-outliers}
+
+Per the deliverable request, timeline outliers are surfaced for CATF staff to investigate via case studies (including whether NEPA itself was a cause of delay). Outliers are init→decision spans **longer than 5,000 days (~13.7 years)**, produced reproducibly by `code/deliverable04/10_outliers.R`.
+
+**The critical distinction is real vs. extraction error.** A multi-year span can be a genuinely protracted review *or* an artifact where the "initiation" was anchored to a historical citation (a facility's construction date, a reserve's founding, a prior plan, a regulatory-compliance milestone) rather than the NEPA start. The two are separable only by reading the evidence text, which the outlier table preserves.
+
+::: callout-note
+## How to read these (process matters)
+
+-   **EIS outliers are mostly real.** EIS median duration is already ~3 years; a 14–17-year EIS sits in the legitimate tail (transmission, restoration, resource-management plans genuinely run that long).
+-   **CE outliers are mostly errors** — CEs are fast determinations (median `r dmed("CE")` days), so a multi-year CE almost always reflects a mis-extracted initiation. CE outliers are therefore excluded from the client list.
+-   **Initiation dates before ~1990 are a strong error signal.** Of the four EIS outliers with 1980s-or-earlier initiations, three are confirmed errors (the "initiation" is a park founding, a prior lock's construction-completion date, or a RCRA compliance milestone).
+:::
+
+The clean-energy EA/EIS candidates below are the highest-value case studies. **SunZia** (ROW application Sep 2008 → Record of Decision Apr 2023) is the textbook long-permitting saga; **Energia Sierra Juarez**, **Grain Belt Express**, and **Cushman Hydroelectric** are similar. *Confirmed errors are excluded* — e.g. the Palisades Nuclear Restart "19-year" span glues a 2005 license-renewal application to a 2024 restart Record of Decision (two different NEPA actions).
+
+```{r}
+#| label: tbl-outliers
+#| tbl-cap: "Genuinely long EA/EIS reviews — case-study candidates. Full list with evidence text in output/deliverable04/diagnostics/d4_duration_outliers_client.csv. Project IDs are full UUIDs."
+client <- read_diag("d4_duration_outliers_client.csv")
+# Curated exclusions: confirmed cross-action extraction errors found on evidence review.
+exclude_ids <- c("da6bbc7a3ca3aeca7bc1c06eaafa8d44")  # Palisades restart (license-renewal init)
+client |>
+  filter(!project_id %in% exclude_ids) |>
+  arrange(desc(duration_years)) |>
+  transmute(`Project` = project_title,
+            `Process` = process_type,
+            `Energy` = project_energy_type,
+            `Lead agency` = str_remove_all(lead_agency_harmonized, '\\[|\\]|"'),
+            `Years` = round(duration_years, 1),
+            `Initiation` = as.character(initiation_date),
+            `Decision` = as.character(decision_date),
+            `project_id` = project_id) |>
+  head(18) |>
+  navy_gt()
+```
+
+------------------------------------------------------------------------
+
+# Document Length & FRA Page Limits {#sec-pages}
+
+This section reproduces the Phase 1 Deliverable 5 document-length analysis on the **entire Phase 2 EA/EIS corpus, all energy types**, refreshed on Phase 2 LLM-adjudicated **decision dates** (inclusion requires only a decision date — the time axis and FRA classification depend only on it).
+
+::: callout-note
+## Method & scope
+
+-   **Regulatory pages** = body word count ÷ 500, excluding embedded appendices and low-content pages, per **40 C.F.R. § 1508.1(bb)** — the measure that matches the FRA limits (EA ≤ 75 pages; EIS ≤ 150, or 300 if extraordinarily complex).
+-   These counts are computed **from the actual page text** by `fra/01_extract_pages.py` (a DuckDB pass over `phase2/data/processed/{ea,eis}/pages.parquet` — 6.1M EIS pages — detecting the appendix boundary and low-content pages), producing regulatory pages for **5,032 EA/EIS projects** (2,765 EA, 2,267 EIS) across **all energy types** — not just decarbonization.
+-   The pre/post-FRA analysis below uses the **`r fmt_n(sum(pg$n_projects))` projects** that also have a decision date (EA `r fmt_n(sum(pg$n_projects[pg$process_type=="EA"]))` / EIS `r fmt_n(sum(pg$n_projects[pg$process_type=="EIS"]))`).
+-   **FRA date = enactment (June 3, 2023)**, matching Phase 1 D5. (The timeline section above uses the CEQ-rule effective date for its period split.)
+:::
+
+## Document length over time
+
+```{r}
+#| label: fig-pages-time
+#| fig-cap: "Regulatory page counts for individual EA/EIS projects (all energy types) by decision date, coloured by FRA period; navy line = 3-month rolling mean. Red dashed line = FRA enactment (June 3, 2023)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_over_time.png")
+```
+
+## Pre vs post-FRA
+
+Across all EA/EIS, **EIS regulatory length fell after FRA** (mean `r pgv("EIS","Pre-FRA","mean_pages")` → `r pgv("EIS","Post-FRA","mean_pages")` pages; median `r pgv("EIS","Pre-FRA","median_pages")` → `r pgv("EIS","Post-FRA","median_pages")`), while **EA length was essentially flat** (mean `r pgv("EA","Pre-FRA","mean_pages")` → `r pgv("EA","Post-FRA","mean_pages")`). The post-FRA window is short, so these are provisional (n = `r pgv("EA","Post-FRA","n_projects")` EA, `r pgv("EIS","Post-FRA","n_projects")` EIS).
+
+```{r}
+#| label: tbl-pages
+#| tbl-cap: "Regulatory page counts by process and FRA period — all EA/EIS, all energy types. Regulatory pages = body word count ÷ 500."
+pg |>
+  transmute(Process = process_type, `FRA period` = fra_period, `n` = n_projects,
+            Mean = mean_pages, Median = median_pages, SD = sd_pages,
+            p25 = p25_pages, p75 = p75_pages) |>
+  navy_gt()
+```
+
+```{r}
+#| label: fig-pages-bar
+#| fig-cap: "Mean regulatory pages, pre- vs post-FRA (all EA/EIS). Bar = mean; diamond = median; n shown."
+#| out-width: "100%"
+include_fig("fig_d4_pages_pre_post_fra.png")
+```
+
+```{r}
+#| label: fig-pages-dist
+#| fig-cap: "Distribution of regulatory page counts, pre- vs post-FRA (all EA/EIS; violin + box; y capped at p99)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_distribution.png")
+```
+
+## By energy category
+
+Segmenting by energy shows the post-FRA EIS decline is broad — it appears in decarbonization **and** fossil EIS projects — while EA length is flat across categories.
+
+```{r}
+#| label: tbl-pages-energy
+#| tbl-cap: "Regulatory page counts by process, energy category, and FRA period (all EA/EIS). Regulatory pages."
+read_diag("d4_pages_summary_by_energy.csv") |>
+  transmute(Process = process_type, Energy = energy, `FRA period` = fra_period,
+            `n` = n, `Mean pages` = mean_pages, `Median pages` = median_pages) |>
+  navy_gt()
+```
+
+```{r}
+#| label: fig-pages-energy
+#| fig-cap: "Mean regulatory pages by energy category, pre- vs post-FRA, all EA/EIS. Labels = n projects."
+#| out-width: "100%"
+include_fig("fig_d4_pages_pre_post_fra_by_energy.png")
+```
+
+## FRA page-limit compliance
+
+```{r}
+#| label: fig-pages-compliance
+#| fig-cap: "FRA page-limit compliance among post-FRA projects (all EA/EIS, regulatory pages). EA limit 75; EIS 150 (300 if extraordinarily complex)."
+#| out-width: "90%"
+include_fig("fig_d4_pages_compliance.png")
+```
+
+## Why regulatory pages, not raw pages
+
+Raw PDF page counts substantially overstate the length the statute actually limits — they include embedded appendices and sparse pages (covers, maps, dividers). The figure below shows the gap between mean raw and mean regulatory pages; it is the reason a raw count cannot be compared to the 75/150-page limits.
+
+```{r}
+#| label: fig-pages-rr
+#| fig-cap: "Mean raw PDF pages vs. mean regulatory pages (all EA/EIS). The gap = appendices + sparse pages excluded by 40 C.F.R. § 1508.1(bb)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_reg_vs_raw.png")
+```
+
+------------------------------------------------------------------------
+
+# Data Quality & Caveats
+
+```{r}
+#| label: tbl-caveats
+tibble::tibble(
+  Caveat = c("Date accuracy is unvalidated", "Proxy reliance in 'complete' counts",
+             "EIS decision-document gap", "Negative-duration errors (stopgap)",
+             "Post-FRA samples are small"),
+  `What it means` = c(
+    "Coverage is reproducible and audited; date *accuracy* is asserted, not measured against a human gold set (~13k dates this run are LLM-derived).",
+    "Among complete timelines, ~55% of CE and ~68% of EIS use a proxy date (e.g. Final-EIS publication as the decision); duration figures use clear day-level dates only.",
+    "EIS decision coverage is ~42% because Records of Decision are frequently separate documents absent from the corpus; a Final-EIS-publication fallback is used and flagged.",
+    "233 decision-before-initiation rows are reclassified to invalid_order at analysis time; a source-level fix in 05 is tracked.",
+    "Post-FRA covers ~2 years; pre/post comparisons are exploratory."
+  )
+) |>
+  navy_gt()
+```
+
+------------------------------------------------------------------------
+
+# Requested Extensions (Planned / Not Yet Built)
+
+The following items from the deliverable request require additional analysis beyond the current timeline build. They are scoped here for the next phase:
+
+```{r}
+tibble::tibble(
+  `Requested analysis` = c(
+    "BLM field-office learning curve",
+    "Geothermal timelines by BLM field office",
+    "CE adoption post-FRA vs. review speed",
+    "Notice-of-Intent cross-reference (Federal Register API)"
+  ),
+  `What it needs` = c(
+    "Join decision dates to BLM field-office identifiers; test whether per-office median duration falls as cumulative application count rises (experience effect).",
+    "Geothermal project flags (Deliverable 1/3 tech tags) × field office × duration; limited by geothermal sample size per office.",
+    "CE-adoption events (which agencies adopted other agencies' CEs post-FRA, BLM/DOE/USFS) × subsequent review duration; needs the CE-adoption register.",
+    "Pull NOI publication dates from the Federal Register API to recover missing initiation dates (esp. EIS) and validate extracted initiations."
+  )
+) |>
+  navy_gt()
+```
+
+------------------------------------------------------------------------
+
+# Reproduction
+
+Run from the repository root in the `nepa` conda environment:
+
+``` bash
+# Timeline pipeline (candidates -> classify -> select -> LLM adjudicate)
+conda run -n nepa python phase2/code/deliverable04/run_pipeline.py
+ANTHROPIC_API_KEY=$(security find-generic-password -s nepa-anthropic -w) \
+  conda run -n nepa python phase2/code/deliverable04/06_adjudicate_llm.py \
+  --mode candidate_adjudication --process CE EA EIS --model claude-haiku-4-5-20251001 --workers 24
+
+# Analysis + figures
+Rscript phase2/code/deliverable04/08_analyze.R       # coverage, durations, FRA, energy
+Rscript phase2/code/deliverable04/10_outliers.R      # timeline outliers (case-study candidates)
+
+# FRA document-length analysis (regulatory pages from the full page text, all EA/EIS)
+conda run -n nepa python phase2/code/deliverable04/fra/01_extract_pages.py --run
+Rscript phase2/code/deliverable04/fra/02_pages_fra.R # document length / FRA page limits
+```
+
+Outputs are written to `phase2/output/deliverable04/` (`figures/`, `diagnostics/`).
+
+------------------------------------------------------------------------
+
+*Draft generated `r Sys.Date()` | NEPA Decarbonization Technology Analysis — Phase 2, Deliverable 4*

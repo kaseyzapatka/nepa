@@ -41,6 +41,8 @@ website:
             href: phase2/reports/deliverable01.html
           - text: "Deliverable 3"
             href: phase2/reports/deliverable03.html
+          - text: "Deliverable 4"
+            href: phase2/reports/deliverable04.html
       - text: "Presentations"
         href: presentations/presentation1.qmd
 

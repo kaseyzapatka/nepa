@@ -266,6 +266,35 @@ CE_INITIATOR_ROLE = re.compile(
     re.IGNORECASE,
 )
 
+# EA/EIS scoping & NOI initiation cues. The SetFit classifier already scores these dates as
+# initiation (~0.86), but the regex roles them `unknown` because the exact phrasing isn't in the
+# clear-init patterns. Keying on the *phrase* (not the probability) recovers the real scoping/NOI
+# inits while excluding the comment-status / future / FONSI false positives. (Validated: matches the
+# real scoping/NOI dates, rejects "no comments received as of", "Final EIS will be published", etc.)
+SCOPING_NOI_INIT = re.compile(
+    r"scoping\s+(was\s+|period\s+)?(conducted|held|beg[au]n|initiated|opened|started|between|from)"
+    r"|public\s+scoping\s+between"
+    r"|scoping\s+(document|notice|letters?)[^.]{0,30}(distributed|sent|mailed|issued|publish)"
+    r"|notice\s+of\s+intent[^.]{0,40}(publish|issued|prepare)"
+    r"|\bnoi\b[^.]{0,25}(publish|issued)"
+    r"|uploaded\s+to[^.]{0,20}eplanning",
+    re.IGNORECASE,
+)
+
+# EA/EIS application & FERC pre-filing initiation cues. Same idea as SCOPING_NOI_INIT, different
+# vocabulary: a formal application filing or entry into FERC's pre-filing process is an initiation.
+# "applied for" is also Fix B for CE; here it is extended to EA/EIS along with application-filing and
+# pre-filing phrasings. Anchored to the date's clause like the scoping cue (no FP on "authorized on").
+APPLICATION_PREFILING_INIT = re.compile(
+    r"\bapplied\s+for\b"
+    r"|filed\s+(a|an|the)?\s*application"
+    r"|application\s+(was\s+)?(filed|received|submitted)"
+    r"|submitted\s+(a|an|the)?\s*(application|proposal|request)"
+    r"|entered\s+(the\s+)?pre[-\s]?filing|requested\s+to\s+use\s+the\s+pre[-\s]?filing"
+    r"|pre[-\s]?filing\s+(process|request|period)|pre[-\s]?application\s+(process|request|filing)",
+    re.IGNORECASE,
+)
+
 # Clear decision — strong cues
 # Phase 1 additions: digitally signed by, /s/ signature notation, YYYY.MM.DD timestamp,
 # NCO determination, authority and approval, decision memo(randum), ce determination date,
@@ -533,11 +562,11 @@ def _should_reject_date(
     Return (reject, reason) applying the plan §4 exclusion rules.
     Does not reject month-year candidates; those are granularity=month.
 
-    For CE, when ``date_span`` (the date match's char offsets within ``context``) is
-    supplied, the keyword/citation exclusions are scoped to a ±60-char window around the
-    date. This stops a bottom-of-form CE signature date from being killed by an unrelated
-    'expires on' / statute citation elsewhere on the same dense form page. EA/EIS keep the
-    whole-block scan (date_span is not passed for them) so their behavior is unchanged.
+    When ``date_span`` (the date match's char offsets within ``context``) is supplied, the
+    keyword/citation exclusions are scoped to a window around the date: CE ±60, EIS ±120
+    (dense FEIS pages — a citation elsewhere must not kill a real publication/ROD date). For
+    EIS the ``REJECT_CUES`` historical scan is also windowed. EA keeps the whole-block scan
+    (window dict excludes it) so EA behavior is unchanged.
     """
     # Future date check
     if parsed_date.date() > RUN_DATE:
@@ -550,11 +579,13 @@ def _should_reject_date(
         # Soft reject: allow only with strong evidence (handled in scoring/selection)
         return True, "pre_1970_eis_reject"
 
-    # Window the citation/keyword exclusions to the immediate neighborhood of the date
-    # (CE only). All other paths scan the whole block as before.
-    if process_type == "CE" and date_span is not None:
+    # Window the citation/keyword exclusions to the immediate neighborhood of the date.
+    # CE ±60 (existing), EIS ±120 (Phase 3). EA falls through to whole-block (unchanged).
+    _EXCL_WINDOW = {"CE": 60, "EIS": 120}
+    if date_span is not None and process_type in _EXCL_WINDOW:
         ds, de = date_span
-        excl_text = context[max(0, ds - 60):de + 60]
+        w = _EXCL_WINDOW[process_type]
+        excl_text = context[max(0, ds - w):de + w]
     else:
         excl_text = context
     excl_lower = excl_text.lower()
@@ -573,8 +604,10 @@ def _should_reject_date(
     if source_tier == "metadata":
         return False, ""
 
-    # Reject/historical cues
-    if REJECT_CUES.search(context):
+    # Reject/historical cues. Windowed for EIS (a historical sentence elsewhere on a dense
+    # FEIS page must not reject an unrelated publication/signature date); whole-block for CE/EA.
+    reject_scan = excl_text if (process_type == "EIS" and date_span is not None) else context
+    if REJECT_CUES.search(reject_scan):
         return True, "reject_cue"
 
     return False, ""
@@ -872,6 +905,42 @@ def extract_candidates_from_packet(packet: dict) -> list[dict]:
                     pos_cues = [c for c in pos_cues
                                 if c not in ("decision_strong", "decision_med", "doc_type_decision")]
                     pos_cues = pos_cues + ["doe_initiator_signature"]
+
+                # CE application date = initiation. The dominant structure is
+                # "On <date>, <applicant> applied for ..." — the date is immediately FOLLOWED by
+                # "applied for". Anchor to the ~70 chars AFTER the date so it won't grab a prior
+                # "authorized to ... on <date>" grant. Cut the look-ahead at the first sentence
+                # boundary so "applied for" must be in the SAME clause as the date (drops cases like
+                # "...expiration, May 6, 2018. ... applied for" tagging the wrong date). CE only;
+                # never steals an existing decision role.
+                _af_win = re.split(r"\.\s|\bCOC-|\bOn\s+[A-Z0-9]", block[_me:_me + 70])[0]
+                if (process_type == "CE"
+                        and role not in ("clear_decision", "proxy_decision")
+                        and re.search(r"\bapplied\s+for\b", _af_win, re.IGNORECASE)):
+                    role = "clear_initiation"
+                    conf = 5.0
+                    pos_cues = [c for c in pos_cues
+                                if c not in ("decision_strong", "decision_med", "doc_type_decision")]
+                    pos_cues = pos_cues + ["applied_for_application"]
+
+                # EA/EIS scoping & NOI date = initiation. The scoping/NOI phrase can sit just before
+                # or just after the date ("Scoping was conducted from <date>", "<date>, … uploaded to
+                # ePlanning"), so check a tight window on both sides, cut at sentence boundaries.
+                # Never steals an existing decision role; chronology (init<decision) is enforced in 05.
+                if process_type in ("EA", "EIS") and role not in ("clear_decision", "proxy_decision"):
+                    _pre = re.split(r"\.\s", block[max(0, _ms - 80):_ms])[-1]
+                    _post = re.split(r"\.\s", block[_me:_me + 60])[0]
+                    _init_cue = None
+                    if SCOPING_NOI_INIT.search(_pre) or SCOPING_NOI_INIT.search(_post):
+                        _init_cue = "scoping_noi_init"
+                    elif APPLICATION_PREFILING_INIT.search(_pre) or APPLICATION_PREFILING_INIT.search(_post):
+                        _init_cue = "application_prefiling_init"
+                    if _init_cue:
+                        role = "clear_initiation"
+                        conf = 5.0
+                        pos_cues = [c for c in pos_cues
+                                    if c not in ("decision_strong", "decision_med", "doc_type_decision")]
+                        pos_cues = pos_cues + [_init_cue]
 
                 # Skip clear rejects
                 if role == "reject" and not heading:

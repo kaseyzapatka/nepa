@@ -17,8 +17,12 @@
 #   d4_duration_by_year.csv          — median duration per process × decision year
 #   d4_fra_comparison.csv            — pre/post FRA median comparison
 #   d4_flag_summary.csv              — quality flag counts by process
+#   d4_register_source_candidates.csv — register vs doc-text breakdown (candidate level)
+#   d4_register_source_projects.csv   — register vs doc-text breakdown (project level)
 #
 # Output figures (phase2/output/deliverable04/figures/):
+#   fig_d4_register_source_candidates.png      — stacked bar: source path of selected candidates
+#   fig_d4_register_source_projects.png        — stacked bar: source path at project level
 #   fig_d4_coverage_by_process.png             — stacked bar: both/decision/initiation/none
 #   fig_d4_duration_histogram.png              — duration histogram by process (complete_clear)
 #   fig_d4_fra_comparison.png                  — median duration pre vs post FRA
@@ -133,6 +137,14 @@ dates_raw <- dates_raw |>
   left_join(energy_meta, by = "project_id")
 message("  Energy type joined (", sum(!is.na(dates_raw$project_energy_type)), " matched)")
 
+message("Loading timeline_candidates.parquet (selected columns)...")
+candidates_raw <- read_parquet(
+  file.path(DATA, "timeline_candidates.parquet"),
+  col_select = c("project_id", "process_type", "retrieval_tier",
+                 "candidate_source_type", "selected_for_initiation", "selected_for_decision")
+)
+message("  ", nrow(candidates_raw), " candidate rows")
+
 burden <- tryCatch({
   idx <- read_parquet(file.path(DATA, "timeline_document_index.parquet"),
                       col_select = c("project_id", "process_type", "project_doc_count",
@@ -199,6 +211,19 @@ dates <- dates_raw |>
       levels = ENERGY_LEVELS
     ),
   )
+
+# --- DEFENSIVE FILTER: negative-duration "complete" rows (decision before initiation) ---
+# These are extraction errors that leaked past 05's proxy-completion path without the ordering
+# guard 06 applies; reclassify to invalid_order so they drop from BOTH coverage counts and
+# duration stats. ~223 CE (+10 EA/EIS) as of 2026-06-17. NB: the source duration_days is NULL
+# for these rows, so we key on the dates themselves, not on duration_days.
+# TODO (post-2026-06-18): fix at SOURCE in 05_select_dates.py via a shared status-normalizer
+# (any decision_date < initiation_date -> invalid_order) and remove this stopgap. See D4 todo.
+.neg_mask <- dates$timeline_status %in% c("complete_clear", "complete_with_proxy") &
+             !is.na(dates$initiation_date) & !is.na(dates$decision_date) &
+             dates$decision_date < dates$initiation_date
+dates$timeline_status[.neg_mask] <- "invalid_order"
+message(sprintf("Stopgap filter: reclassified %d negative-duration complete rows -> invalid_order (TODO: fix in 05)", as.integer(sum(.neg_mask))))
 
 # Headline: complete_clear = both dates at day granularity (used for duration analysis)
 headline <- dates |>
@@ -384,6 +409,137 @@ write_csv(flag_summary, file.path(DIAG, "d4_flag_summary.csv"))
 message("Wrote d4_flag_summary.csv")
 
 # ---------------------------------------------------------------------------
+# 6b. Register date source — candidate-level and project-level
+# ---------------------------------------------------------------------------
+
+SOURCE_LEVELS <- c(
+  "Register", "NOI register",
+  "Doc text – full page", "Doc text – section",
+  "Doc text – keyword", "Doc text – EA full read",
+  "Ground truth verified", "Other"
+)
+
+SOURCE_COLORS <- c(
+  "Register"                       = catf_navy,
+  "NOI register"                   = catf_dark_blue,
+  "Doc text – full page"      = catf_teal,
+  "Doc text – section"        = catf_lime,
+  "Doc text – keyword"        = catf_light_blue,
+  "Doc text – EA full read"   = catf_magenta,
+  "Ground truth verified"          = catf_purple,
+  "Other"                          = "gray60",
+  "No date"                        = "#DDDDDD"
+)
+
+candidates <- candidates_raw |>
+  mutate(
+    source_path = case_when(
+      retrieval_tier == "tier_a" & candidate_source_type == "noi_notice" ~ "NOI register",
+      retrieval_tier == "tier_a"                 ~ "Register",
+      retrieval_tier == "tier_b"                 ~ "Doc text – full page",
+      retrieval_tier == "tier_c"                 ~ "Doc text – section",
+      retrieval_tier == "tier_d"                 ~ "Doc text – keyword",
+      retrieval_tier == "ea_decision_full_read"  ~ "Doc text – EA full read",
+      TRUE                                       ~ "Other"
+    ),
+    source_path = factor(source_path, levels = SOURCE_LEVELS),
+    is_register = retrieval_tier == "tier_a"
+  )
+
+# --- Candidate-level: total pulled and selected, by process × source × endpoint ---
+reg_cand <- bind_rows(
+  candidates |>
+    group_by(process_type, source_path) |>
+    summarise(
+      n_candidates = n(),
+      n_selected   = sum(coalesce(selected_for_initiation, FALSE)),
+      .groups = "drop"
+    ) |>
+    mutate(endpoint = "Initiation"),
+  candidates |>
+    group_by(process_type, source_path) |>
+    summarise(
+      n_candidates = n(),
+      n_selected   = sum(coalesce(selected_for_decision, FALSE)),
+      .groups = "drop"
+    ) |>
+    mutate(endpoint = "Decision")
+) |>
+  mutate(process_type = factor(process_type, levels = PROCESS_LEVELS))
+
+write_csv(reg_cand, file.path(DIAG, "d4_register_source_candidates.csv"))
+message("Wrote d4_register_source_candidates.csv")
+
+# --- Project-level: source of each project's winning selected candidate ---
+# When a project has multiple selected candidates (rare), prefer register over doc text
+source_rank <- c(
+  "Register", "NOI register",
+  "Doc text – full page", "Doc text – section",
+  "Doc text – keyword", "Doc text – EA full read",
+  "Other"
+)
+
+sel_init <- candidates |>
+  filter(coalesce(selected_for_initiation, FALSE)) |>
+  mutate(src_rank = match(as.character(source_path), source_rank)) |>
+  group_by(project_id, process_type) |>
+  slice_min(src_rank, n = 1, with_ties = FALSE) |>
+  ungroup() |>
+  select(project_id, process_type, init_source = source_path, init_is_register = is_register)
+
+sel_dec <- candidates |>
+  filter(coalesce(selected_for_decision, FALSE)) |>
+  mutate(src_rank = match(as.character(source_path), source_rank)) |>
+  group_by(project_id, process_type) |>
+  slice_min(src_rank, n = 1, with_ties = FALSE) |>
+  ungroup() |>
+  select(project_id, process_type, dec_source = source_path, dec_is_register = is_register)
+
+proj_source <- dates |>
+  select(project_id, process_type,
+         initiation_source_type, decision_source_type,
+         has_init = initiation_date, has_dec = decision_date) |>
+  mutate(has_init = !is.na(has_init), has_dec = !is.na(has_dec)) |>
+  left_join(sel_init, by = c("project_id", "process_type")) |>
+  left_join(sel_dec,  by = c("project_id", "process_type")) |>
+  mutate(
+    init_source_label = case_when(
+      !has_init                                          ~ "No date",
+      !is.na(init_source)                               ~ as.character(init_source),
+      initiation_source_type == "ground_truth_verified" ~ "Ground truth verified",
+      TRUE                                              ~ "Other"
+    ),
+    dec_source_label = case_when(
+      !has_dec                                         ~ "No date",
+      !is.na(dec_source)                              ~ as.character(dec_source),
+      decision_source_type == "ground_truth_verified" ~ "Ground truth verified",
+      TRUE                                            ~ "Other"
+    )
+  )
+
+SOURCE_PROJ_LEVELS <- c(SOURCE_LEVELS, "No date")
+
+reg_proj <- bind_rows(
+  proj_source |>
+    count(process_type, source = init_source_label) |>
+    mutate(endpoint = "Initiation"),
+  proj_source |>
+    count(process_type, source = dec_source_label) |>
+    mutate(endpoint = "Decision")
+) |>
+  group_by(process_type, endpoint) |>
+  mutate(total = sum(n), pct = round(100 * n / total, 1)) |>
+  ungroup() |>
+  mutate(
+    process_type = factor(process_type, levels = PROCESS_LEVELS),
+    source       = factor(source, levels = SOURCE_PROJ_LEVELS),
+    endpoint     = factor(endpoint, levels = c("Initiation", "Decision"))
+  )
+
+write_csv(reg_proj, file.path(DIAG, "d4_register_source_projects.csv"))
+message("Wrote d4_register_source_projects.csv")
+
+# ---------------------------------------------------------------------------
 # 7. Console summary
 # ---------------------------------------------------------------------------
 
@@ -461,6 +617,63 @@ p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverag
 ggsave(file.path(FIGS, "fig_d4_coverage_by_process.png"),
        p_coverage, width = 7, height = 5, dpi = 150)
 message("Wrote fig_d4_coverage_by_process.png")
+
+# ---------------------------------------------------------------------------
+# Fig 1b: Coverage by process AND energy type — so Decarb (clean) coverage is
+# directly visible and comparable to Phase 1 (which is clean-only by construction).
+# ---------------------------------------------------------------------------
+
+coverage_energy_fig <- dates |>
+  filter(!is.na(process_group)) |>
+  mutate(
+    coverage_group = case_when(
+      !is.na(decision_date) & !is.na(initiation_date) ~ "Both dates",
+      !is.na(decision_date)                            ~ "Decision only",
+      !is.na(initiation_date)                          ~ "Initiation only",
+      TRUE                                             ~ "No date"
+    ),
+    coverage_group = factor(coverage_group,
+      levels = c("Both dates", "Decision only", "Initiation only", "No date"))
+  ) |>
+  count(process_group, energy_type, coverage_group) |>
+  group_by(process_group, energy_type) |>
+  mutate(pct = n / sum(n), n_proc_energy = sum(n)) |>
+  ungroup()
+
+# "Both dates" share label per process x energy (the headline number to compare to Phase 1)
+both_lab <- coverage_energy_fig |>
+  filter(coverage_group == "Both dates") |>
+  mutate(lab = sprintf("%.0f%%", 100 * pct))
+
+p_coverage_energy <- ggplot(coverage_energy_fig,
+                            aes(x = energy_type, y = pct, fill = coverage_group)) +
+  geom_col(width = 0.7) +
+  geom_text(data = both_lab, aes(x = energy_type, y = pct, label = lab),
+            inherit.aes = FALSE, vjust = 1.3, size = 2.8, color = "white", fontface = "bold") +
+  facet_wrap(~process_group, nrow = 1) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_fill_manual(values = c(
+    "Both dates"      = catf_navy,
+    "Decision only"   = catf_dark_blue,
+    "Initiation only" = catf_light_blue,
+    "No date"         = "#CCCCCC"
+  )) +
+  labs(
+    title    = "D4 Timeline Coverage by Review Type and Energy Type",
+    subtitle = "% on bars = share with BOTH dates (the Phase-1-comparable number; Decarb = clean energy)",
+    x = NULL, y = "Share of projects", fill = NULL
+  )
+
+ggsave(file.path(FIGS, "fig_d4_coverage_by_process_and_energy.png"),
+       p_coverage_energy, width = 11, height = 5, dpi = 150)
+message("Wrote fig_d4_coverage_by_process_and_energy.png")
+
+# Also write the underlying table (so the Decarb numbers are exact for the deliverable)
+coverage_energy_tbl <- coverage_energy_fig |>
+  select(process_group, energy_type, coverage_group, n, pct) |>
+  arrange(process_group, energy_type, coverage_group)
+write_csv(coverage_energy_tbl, file.path(DIAG, "d4_coverage_by_process_and_energy.csv"))
+message("Wrote d4_coverage_by_process_and_energy.csv")
 
 # ---------------------------------------------------------------------------
 # Fig 2: Duration histogram by process (complete_clear, day granularity)
@@ -571,18 +784,18 @@ process_summary_complete <- tibble(process_group = factor(PROCESS_LEVELS, levels
     )
   )
 
-complete_box <- dates |>
-  filter(!is.na(process_group)) |>
-  mutate(complete_num = as.numeric(timeline_complete))
-
-fig_complete_share <- ggplot(complete_box,
-                              aes(x = process_group, y = complete_num, fill = process_group)) +
-  geom_boxplot(outlier.shape = NA, width = 0.55, alpha = 0.35, na.rm = TRUE) +
-  stat_summary(fun = mean, geom = "point", size = 3, color = catf_navy) +
+# Each process gets an identical full 0-100% reference box; the navy dot marks that process's actual
+# completion share (initiation + decision present). This keeps the uniform box-per-process look while
+# letting EIS show clearly — the dot carries the value, the box is just a 0-100% frame. (The earlier
+# 0/1 boxplot collapsed EIS onto the axis because its share, 24.5%, fell below the 25% quartile.)
+fig_complete_share <- ggplot(process_summary_complete,
+                             aes(x = process_group, fill = process_group)) +
+  geom_crossbar(aes(y = 0.5, ymin = 0, ymax = 1),
+                width = 0.55, alpha = 0.30, fatten = 0, na.rm = TRUE) +
+  geom_point(aes(y = share_complete), size = 4, color = catf_navy, na.rm = TRUE) +
   geom_text(
-    data = process_summary_complete,
-    aes(x = process_group, y = 1.07, label = label),
-    inherit.aes = FALSE, size = 3, color = "gray30"
+    aes(y = 1.07, label = label),
+    size = 3, color = "gray30"
   ) +
   scale_x_discrete(drop = FALSE) +
   scale_y_continuous(
@@ -593,7 +806,7 @@ fig_complete_share <- ggplot(complete_box,
   scale_fill_manual(values = PROCESS_COLORS, drop = FALSE) +
   labs(
     title    = "Share of Reviews with Complete Timelines",
-    subtitle = "Boxplot shows review-level completion (0/1); dot is mean share by process",
+    subtitle = "Dot = share with a complete timeline (initiation + decision); box = 0-100% frame",
     x = "Review Process",
     y = "Completion Share"
   ) +
@@ -937,3 +1150,84 @@ ggsave(file.path(FIGS, "fig_d4_projects_by_decision_year_by_energy.png"),
 message("Wrote fig_d4_projects_by_decision_year_by_energy.png")
 
 message("\nAll figures written to: ", FIGS)
+
+# ---------------------------------------------------------------------------
+# Fig R1: Register vs doc-text — candidate level (selected candidates only)
+# ---------------------------------------------------------------------------
+# Shows, of the candidates that were ultimately chosen as the initiation or
+# decision date, what retrieval path produced them.
+
+cand_sel_plot <- reg_cand |>
+  filter(n_selected > 0) |>
+  group_by(process_type, endpoint) |>
+  mutate(pct_selected = n_selected / sum(n_selected)) |>
+  ungroup() |>
+  mutate(endpoint = factor(endpoint, levels = c("Initiation", "Decision")))
+
+p_cand_source <- ggplot(
+  cand_sel_plot,
+  aes(x = process_type, y = pct_selected, fill = source_path)
+) +
+  geom_col(width = 0.65) +
+  geom_text(
+    aes(label = ifelse(pct_selected >= 0.04,
+                       paste0(round(pct_selected * 100), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    size = 2.9, color = "white", fontface = "bold"
+  ) +
+  facet_wrap(~endpoint, ncol = 2) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_fill_manual(values = SOURCE_COLORS, drop = FALSE,
+                    guide = guide_legend(reverse = TRUE)) +
+  labs(
+    title    = "D4 Timeline: Source of Selected Date Candidates by Review Type",
+    subtitle = "Stacked bars show share of selected candidates from each retrieval path",
+    x        = NULL,
+    y        = "Share of selected candidates",
+    fill     = "Source path"
+  ) +
+  theme(legend.position = "right")
+
+ggsave(file.path(FIGS, "fig_d4_register_source_candidates.png"),
+       p_cand_source, width = 10, height = 6, dpi = 300)
+message("Wrote fig_d4_register_source_candidates.png")
+
+# ---------------------------------------------------------------------------
+# Fig R2: Register vs doc-text — project level (all projects, incl. no date)
+# ---------------------------------------------------------------------------
+# Shows, for every project in the corpus, where its selected initiation and
+# decision date came from. "No date" = project never got a date at this endpoint.
+
+p_proj_source <- ggplot(
+  reg_proj |>
+    mutate(
+      # Stack order: No date at bottom so coverage gaps are immediately visible
+      source = factor(source, levels = rev(SOURCE_PROJ_LEVELS))
+    ),
+  aes(x = endpoint, y = pct / 100, fill = source)
+) +
+  geom_col(width = 0.65) +
+  geom_text(
+    aes(label = ifelse(pct >= 3, paste0(round(pct), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    size = 2.8, color = "white", fontface = "bold"
+  ) +
+  facet_wrap(~process_type, ncol = 3) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_fill_manual(values = SOURCE_COLORS, drop = FALSE,
+                    guide = guide_legend(reverse = TRUE)) +
+  labs(
+    title    = "D4 Timeline: Date Source by Review Type (Project Level)",
+    subtitle = paste0(
+      "Each bar = 100% of projects in that process type. ",
+      "'No date' = date not extracted for that endpoint."
+    ),
+    x        = NULL,
+    y        = "Share of all projects",
+    fill     = "Date source"
+  ) +
+  theme(legend.position = "right")
+
+ggsave(file.path(FIGS, "fig_d4_register_source_projects.png"),
+       p_proj_source, width = 12, height = 5, dpi = 300)
+message("Wrote fig_d4_register_source_projects.png")

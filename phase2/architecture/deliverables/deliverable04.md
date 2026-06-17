@@ -650,3 +650,31 @@ conda run -n nepa python phase2/code/deliverable04/04_classify_candidates.py --s
 conda run -n nepa python phase2/code/deliverable04/05_select_dates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
 conda run -n nepa python phase2/code/deliverable04/07_validate.py --prepare-review
 ```
+
+Partial rebuild by process type (after a full corpus run):
+
+Scripts 01–06 all accept `--process CE EA EIS` (any subset). This is the supported path for rebuilding a single process type without touching the others — for example, after improving CE extraction patterns or after an EA regex fix.
+
+**Key isolation behavior in `02_retrieve.py`:** when `--process` is a strict subset of all three types, the script auto-routes output to `phase2/data/analysis/timeline/process_runs/<key>/` (e.g. `process_runs/CE/`) instead of the canonical `timeline/` directory. A `[GUARD]` message is printed. This prevents a partial retrieval run from overwriting the canonical `timeline_context_packets.parquet` built by the full corpus run.
+
+**`03_extract_candidates.py` behaves differently:** it reads from the canonical packets parquet and filters in memory by `process_type`. No output isolation occurs — it overwrites `timeline_candidates.parquet` in place for the selected process types only (appending or replacing rows as configured). This means script 03 is safe to re-run for a single process type against the full canonical packets without needing `--run-dir`.
+
+Typical partial rebuild workflows:
+
+```bash
+# Re-run candidate extraction for CE only (reads canonical packets, writes back to timeline_candidates.parquet)
+conda run -n nepa python phase2/code/deliverable04/03_extract_candidates.py --process CE --append
+
+# Re-run classification for EA only
+conda run -n nepa python phase2/code/deliverable04/04_classify_candidates.py --process EA --append
+
+# Re-run date selection for EIS only
+conda run -n nepa python phase2/code/deliverable04/05_select_dates.py --process EIS --append
+
+# Re-run retrieval for CE only — output goes to timeline/process_runs/CE/, NOT canonical packets
+conda run -n nepa python phase2/code/deliverable04/02_retrieve.py --process CE
+# To then run extraction against that isolated output, point script 03 at it:
+conda run -n nepa python phase2/code/deliverable04/03_extract_candidates.py --process CE --run-dir phase2/data/analysis/timeline/process_runs/CE
+```
+
+Use `--run-dir` explicitly on `02_retrieve.py` to override the auto-isolation path, or to point downstream scripts at a process-specific directory when you've re-retrieved packets for only one type.

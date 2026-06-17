@@ -46,13 +46,25 @@ SOURCE_MAP = {"CE": "ce", "EA": "ea", "EIS": "eis"}
 # Per-process packet caps (plan §3)
 PACKET_CAPS = {"CE": 25, "EA": 75, "EIS": 150}
 
+EIS_PAGE_CONTEXT_CHARS = 12_000
+
+# FR NOI Tier-A initiation candidates are DISABLED. `noi_publication_date` comes from the Phase-1
+# Federal Register NOI API match (00_sample renames it `fr_noi_publication_date`), which is stale
+# and unreliable (only 93 "accepted" EIS matches, just 6 of which agree with a BLM/DOE register
+# date). The trustworthy authoritative initiations are the BLM/DOE register dates
+# (candidate_source_type="metadata"), which are produced by separate Tier-A paths and are unaffected
+# by this flag. Footprint of removal: only 12 selected EIS inits, 11 of which have a non-NOI backup
+# candidate (~1 net loss). Set True only if the FR NOI match is re-validated against the register.
+FR_NOI_TIER_A_ENABLED = False
+
 # Per-process tier_d page context cap. CE determination/signature dates sit at the bottom of
 # dense ~7-9k-char form pages, beyond the old global 2,000-char cut, so CE reads the full page
 # (30,000 matches the tier_b CE full-read cap). EA narrative decision dates also sit below the
 # 2,000-char cut on priority_3 pages, so EA reads to 8,000 (matches the EA full-read cap; EA pages
-# are shorter than CE forms, so 8k is effectively whole-page without flooding candidates).
-# EIS stays at 2,000 → byte-identical candidates.
-TIER_D_CONTEXT_CHARS = {"CE": 30_000, "EA": 8_000, "EIS": 2_000}
+# are shorter than CE forms, so 8k is effectively whole-page without flooding candidates). EIS
+# reads to 12,000 in both Tier B and Tier D; measured ROD/FEIS pages are almost entirely below
+# this limit, and keeping both tiers aligned prevents deduplication from retaining a shorter copy.
+TIER_D_CONTEXT_CHARS = {"CE": 30_000, "EA": 8_000, "EIS": EIS_PAGE_CONTEXT_CHARS}
 
 # CE section skip threshold: skip section retrieval for CE docs with <=20 total pages
 CE_SECTION_SKIP_PAGES = 20
@@ -248,8 +260,8 @@ def build_tier_a_packets(
     packets: list[dict] = []
     project_id = project_row["project_id"]
 
-    # NOI date as Tier A initiation candidate
-    if project_row.get("noi_tier_a_eligible"):
+    # NOI date as Tier A initiation candidate (DISABLED — stale FR NOI API pull; see flag note)
+    if FR_NOI_TIER_A_ENABLED and project_row.get("noi_tier_a_eligible"):
         noi_date = project_row.get("noi_publication_date")
         if pd.notna(noi_date):
             noi_str = pd.Timestamp(noi_date).strftime("%Y-%m-%d") if hasattr(noi_date, "strftime") else str(noi_date)
@@ -612,6 +624,12 @@ def build_tier_b_packets(
             page_num = str(page.get("page_number", ""))
             init_s, dec_s, neg_s = page.get("init_score", 0.0), page.get("dec_score", 0.0), page.get("neg_score", 0.0)
             retrieval_score = init_s + dec_s - 0.5 * neg_s
+            if reason in ("ce_small_doc_all_pages", "ce_expanded_all_pages"):
+                context_limit = 30_000
+            elif process_type == "EIS":
+                context_limit = EIS_PAGE_CONTEXT_CHARS
+            else:
+                context_limit = 2_000
             packets.append({
                 "context_packet_id": _packet_id(project_id, doc_id, "tier_b", page_num),
                 "project_id": project_id,
@@ -635,7 +653,7 @@ def build_tier_b_packets(
                 "negative_page_score": neg_s,
                 "heading_title": None,
                 "parent_heading_title": None,
-                "context_text": _truncate(text, 30_000 if reason in ("ce_small_doc_all_pages", "ce_expanded_all_pages") else 2000),
+                "context_text": _truncate(text, context_limit),
                 "context_chars": len(text),
                 "estimated_tokens": max(1, len(text) // 4),
                 "context_hash": _text_hash(text),
@@ -879,9 +897,101 @@ def build_tier_d_packets(
     return packets
 
 
+def build_eis_text_fallback_packets(
+    doc_rows: pd.DataFrame,
+    pages_df: pd.DataFrame,
+    project_id: str,
+    process_type: str,
+    run_at: str,
+) -> list[dict]:
+    """Emit first/last text pages when an EIS project otherwise produces no packet.
+
+    Keyword-gated retrieval currently drops some text-bearing EIS projects entirely. This
+    fallback preserves a minimal, explicitly labeled packet set for extraction without making
+    the pages authoritative or changing selection eligibility.
+    """
+    if process_type != "EIS" or doc_rows.empty or pages_df.empty:
+        return []
+
+    priority_rank = {"priority_1": 0, "priority_2": 1, "priority_3": 2, "defer": 3}
+    docs = doc_rows.copy()
+    docs["_priority_rank"] = docs["scan_priority"].map(priority_rank).fillna(4)
+    docs["_role_score"] = docs[["decision_doc_score", "initiation_doc_score"]].max(axis=1)
+    docs = docs.sort_values(
+        ["_priority_rank", "_role_score", "is_main_document"],
+        ascending=[True, False, False],
+    )
+
+    for _, doc in docs.iterrows():
+        doc_id = doc["document_id"]
+        doc_pages = pages_df[pages_df["document_id"] == doc_id].copy()
+        if doc_pages.empty:
+            continue
+        doc_pages["_text"] = doc_pages["page_text"].map(_clean_text)
+        doc_pages = doc_pages[doc_pages["_text"].str.len() > 0]
+        if doc_pages.empty:
+            continue
+        doc_pages["_page_num"] = pd.to_numeric(
+            doc_pages["page_number"], errors="coerce"
+        ).fillna(0)
+        doc_pages = doc_pages.sort_values(["_page_num", "page_number"])
+        selected = doc_pages.iloc[[0]] if len(doc_pages) == 1 else doc_pages.iloc[[0, -1]]
+
+        packets: list[dict] = []
+        for _, page in selected.iterrows():
+            text = page["_text"]
+            page_num = str(page.get("page_number", ""))
+            init_s, dec_s, neg_s = _score_page(text)
+            retrieval_score = init_s + dec_s - 0.5 * neg_s
+            packets.append({
+                "context_packet_id": _packet_id(
+                    project_id, doc_id, "eis_text_fallback", page_num
+                ),
+                "project_id": project_id,
+                "process_type": process_type,
+                "document_id": doc_id,
+                "document_title": doc.get("document_title"),
+                "document_type_clean": doc.get("document_type_clean"),
+                "document_type_category": doc.get("document_type_category"),
+                "main_document": doc.get("main_document"),
+                "section_id": None,
+                "page_start": page_num,
+                "page_end": page_num,
+                "page_numbers": json.dumps([page_num]),
+                "retrieval_mode": "recovery",
+                "retrieval_reason": "eis_text_fallback",
+                "source_tier": "page_slice",
+                "retrieval_tier": "eis_text_fallback",
+                "retrieval_score": retrieval_score,
+                "initiation_page_score": init_s,
+                "decision_page_score": dec_s,
+                "negative_page_score": neg_s,
+                "heading_title": None,
+                "parent_heading_title": None,
+                "context_text": _truncate(text, EIS_PAGE_CONTEXT_CHARS),
+                "context_chars": len(text),
+                "estimated_tokens": max(1, len(text) // 4),
+                "context_hash": _text_hash(text),
+                "api_eligible": retrieval_score >= 2.0,
+                "created_at": run_at,
+            })
+        return packets
+
+    return []
+
+
 def deduplicate_packets(packets: list[dict]) -> list[dict]:
     """Remove duplicate packets by context_hash, keeping the highest tier."""
-    tier_order = {"tier_a": 0, "ce_description": 0.5, "ea_decision_full_read": 0.8, "tier_b": 1, "tier_c": 2, "tier_d": 3, "tier_e": 4}
+    tier_order = {
+        "tier_a": 0,
+        "ce_description": 0.5,
+        "ea_decision_full_read": 0.8,
+        "tier_b": 1,
+        "tier_c": 2,
+        "tier_d": 3,
+        "eis_text_fallback": 4,
+        "tier_e": 4,
+    }
     seen: dict[str, dict] = {}
     for p in packets:
         h = p["context_hash"]
@@ -889,9 +999,21 @@ def deduplicate_packets(packets: list[dict]) -> list[dict]:
             seen[h] = p
         else:
             # Keep the packet from the higher-priority tier
-            existing_order = tier_order.get(seen[h]["retrieval_tier"], 99)
+            existing = seen[h]
+            existing_order = tier_order.get(existing["retrieval_tier"], 99)
             new_order = tier_order.get(p["retrieval_tier"], 99)
-            if new_order < existing_order:
+            eis_document_text = (
+                p.get("process_type") == "EIS"
+                and existing.get("process_type") == "EIS"
+                and p.get("source_tier") != "metadata"
+                and existing.get("source_tier") != "metadata"
+            )
+            if eis_document_text and len(p.get("context_text") or "") > len(
+                existing.get("context_text") or ""
+            ):
+                # For the same EIS page, retain the most complete document-text packet.
+                seen[h] = p
+            elif new_order < existing_order:
                 seen[h] = p
     return list(seen.values())
 
@@ -950,13 +1072,30 @@ def process_project(
     # Tier D: page keyword scoring
     packets.extend(build_tier_d_packets(doc_rows, pages_df, project_id, process_type, run_at))
 
+    # EIS recovery: if every scored/structured path was empty, retain the first and last
+    # text page of the best available document so extraction has evidence to inspect.
+    if process_type == "EIS" and not packets:
+        packets.extend(
+            build_eis_text_fallback_packets(
+                doc_rows, pages_df, project_id, process_type, run_at
+            )
+        )
+
     # Deduplicate by content hash
     packets = deduplicate_packets(packets)
 
     # Apply per-project cap
     if len(packets) > cap:
         # Prioritize by tier then retrieval_score
-        tier_order = {"tier_a": 0, "ce_description": 0.5, "ea_decision_full_read": 0.8, "tier_b": 1, "tier_c": 2, "tier_d": 3}
+        tier_order = {
+            "tier_a": 0,
+            "ce_description": 0.5,
+            "ea_decision_full_read": 0.8,
+            "tier_b": 1,
+            "tier_c": 2,
+            "tier_d": 3,
+            "eis_text_fallback": 4,
+        }
         packets.sort(
             key=lambda p: (tier_order.get(p["retrieval_tier"], 9), -p["retrieval_score"])
         )
