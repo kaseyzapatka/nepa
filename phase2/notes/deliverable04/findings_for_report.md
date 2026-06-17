@@ -94,13 +94,25 @@ its signature date, plus citations to *other* RODs — so the model must disambi
 decision from several decoys, which is why decision selection needs more candidates + authoritative-
 source rules.
 
-## Numbers to quote
+## Numbers to quote (FINAL — post-LLM adjudication run, 2026-06-17)
 
-- Coverage (complete timeline, current-model run): CE 48.8% · EA 50.8% · EIS 33.9%.
-- Clean-energy (Decarb): CE 43.2% · EA 37.8% · EIS 44.1%.
-- Projected after LLM adjudication (06): **CE ~53–58% (exceeds P1 ~30%) · EA ~56–62% (approaches P1
-  ~62%) · EIS ~43–50% (matches P1 ~48%)**. CE exceeds, EIS matches, EA approaches (init-capped).
-- LLM adjudication cost (measured, see below): ~$13–26 for ~10,100 routable projects.
+- **Complete-timeline coverage (post-LLM, all projects): CE 52.6% · EA 57.6% · EIS 32.3%.**
+  Gains over the pre-LLM deterministic pipeline: CE +7.0pp (45.6→52.6, +3,759 projects) · EA +6.8pp
+  (50.8→57.6, +203) · EIS +7.9pp (24.4→32.3, +326). CE/EA landed in/near projection (CE ~53–58%,
+  EA ~56–62%); **EIS came in below the optimistic ~43–50% projection** — it is decision-document-
+  limited (RODs frequently absent; EIS decision coverage only 42%), and the FEIS cover-date re-pull
+  that would lift it further is deferred (todo).
+- **Clean-energy (Decarb) complete coverage (post-LLM): CE 48.9% · EA 48.5% · EIS 42.4%.** Note EIS
+  Decarb (42.4%) is *well above* EIS overall (32.3%) — clean-energy EISs are better-documented than
+  the "Other" bucket that drags the EIS aggregate down.
+- **"No date at all" (missing_both), population share: CE 3.6% · EA 10.0% · EIS 31.3%.** EIS is the
+  structural gap (RODs absent + comment-letter/fragment documents with no extractable milestone).
+- Sub-coverage: initiation CE 60% · EA 68% · EIS 62%; decision CE 91% · EA 81% · **EIS 42%** (the
+  decision is the EIS bottleneck, not the initiation).
+- **LLM adjudication cost (actual): $18.20** for the full 11,207-project send-set (Haiku 4.5,
+  workers=24, Tier 2, 0 errors, 0 non-haiku rows). ≈ $0.0016/project.
+- Headline durations (complete_clear only): CE 21 d (0.7 mo, n=9,272) · EA 86 d (2.8 mo, n=1,355) ·
+  EIS 1,077 d (35.4 mo, n=213).
 
 ## Concrete examples to cite (verified — pull 1–2 into the report)
 
