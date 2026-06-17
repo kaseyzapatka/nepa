@@ -44,6 +44,19 @@ timeline estimate after the LLM ≈ **CE 49% · EA 54% · EIS 35%** (vs pre-LLM 
 **5. ~85% of EIS *decisions* are month-granularity** (FEIS-publication date, stored as the 15th),
 not day-precise RODs — because RODs are frequently a separate document not in the corpus.
 
+## Duration outliers — client "where it went wrong" candidates (2026-06-17)
+
+Implausibly long init→decision spans (>5,000 days ≈ 13.7 yr), `complete_clear` only: **CE 27 ·
+EA 4 · EIS 14** (reproducible via `code/deliverable04/10_outliers.R`). These split into genuinely
+long NEPA processes (the deliverable for the client) vs. extraction errors (an "initiation" that
+is a *different action's* date — license renewal, RCRA permit, state filing, park authorization),
+separable only by the evidence text. **Strong real clean-energy examples to hand the client:**
+SunZia Southwest Transmission (14.6 yr, BLM — ROW application Sep 2008 → ROD Apr 2023), Energia
+Sierra Juarez transmission, Grain Belt Express, Cushman Hydroelectric. *Caveats:* exclude
+confirmed errors (e.g. Palisades restart: a 2005 license-renewal init glued to a 2024 restart
+ROD), dedupe repeated project_ids (West Mojave/Clearwater/Roan Plateau each appear twice), and
+note ~223 CE proxy-completed rows carry negative durations (a separate ordering bug).
+
 ## Supporting evidence (verified this session)
 
 **1. Candidate extraction is in good shape; P2 candidates are *cleaner* than P1.**
@@ -96,14 +109,21 @@ source rules.
 
 ## Numbers to quote (FINAL — post-LLM adjudication run, 2026-06-17)
 
-- **Complete-timeline coverage (post-LLM, all projects): CE 52.6% · EA 57.6% · EIS 32.3%.**
-  Gains over the pre-LLM deterministic pipeline: CE +7.0pp (45.6→52.6, +3,759 projects) · EA +6.8pp
-  (50.8→57.6, +203) · EIS +7.9pp (24.4→32.3, +326). CE/EA landed in/near projection (CE ~53–58%,
-  EA ~56–62%); **EIS came in below the optimistic ~43–50% projection** — it is decision-document-
-  limited (RODs frequently absent; EIS decision coverage only 42%), and the FEIS cover-date re-pull
-  that would lift it further is deferred (todo).
+- **Complete-timeline coverage (post-LLM, negative-duration errors excluded): CE 52.1% · EA 57.5% ·
+  EIS 32.1%.** (Before the stopgap filter: CE 52.6 / EA 57.6 / EIS 32.3 — the −0.1 to −0.5pp drop is
+  233 decision-before-initiation rows reclassified out of "complete"; see the negative-duration note
+  below.) Gains over the pre-LLM pipeline ≈ **+7pp each**. CE/EA landed in/near projection (CE
+  ~53–58%, EA ~56–62%); **EIS came in below the optimistic ~43–50% projection** — it is
+  decision-document-limited (RODs frequently absent; EIS decision coverage only 42%), and the FEIS
+  cover-date re-pull that would lift it further is deferred (todo).
+- **Negative-duration data-quality note (KNOWN ISSUE, stopgap in place).** 233 projects (CE 223 ·
+  EA 1 · EIS 9) were labeled "complete" with a decision date *before* the initiation date — an
+  extraction error that leaked past 05's proxy-completion path. `08_analyze.R` now reclassifies them
+  to `invalid_order` (a defensive filter), so they are excluded from coverage and duration figures.
+  **The proper source fix (a shared ordering-guard in 05) is a tracked to-do to address after
+  2026-06-18.** Quote coverage from the filtered numbers above.
 - **Clean-energy (Decarb) complete coverage (post-LLM): CE 48.9% · EA 48.5% · EIS 42.4%.** Note EIS
-  Decarb (42.4%) is *well above* EIS overall (32.3%) — clean-energy EISs are better-documented than
+  Decarb (42.4%) is *well above* EIS overall (32.1%) — clean-energy EISs are better-documented than
   the "Other" bucket that drags the EIS aggregate down.
 - **"No date at all" (missing_both), population share: CE 3.6% · EA 10.0% · EIS 31.3%.** EIS is the
   structural gap (RODs absent + comment-letter/fragment documents with no extractable milestone).

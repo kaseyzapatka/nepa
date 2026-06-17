@@ -203,6 +203,28 @@ layout" coverage gap. Full list: [`missing.csv`](missing.csv). Investigation bri
 
 ---
 
+## Duration outliers (post-LLM run, 2026-06-17)
+
+Implausibly long init→decision spans (> 5,000 days ≈ 13.7 yr), `complete_clear` only:
+**CE 27 · EA 4 · EIS 14.** Produced reproducibly by `code/deliverable04/10_outliers.R` →
+`output/deliverable04/diagnostics/d4_duration_outliers.csv` (+ a client-facing EA/EIS subset).
+
+These are a **mix** of two things, separable only by reading the evidence text (not by a year
+cutoff):
+- **Genuinely long NEPA processes** — e.g., SunZia Southwest Transmission (14.6 yr; ROW
+  application Sep 2008 → ROD Apr 2023), Energia Sierra Juarez, Grain Belt Express, Cushman
+  Hydroelectric. These are the client-investigable "where it went wrong" cases.
+- **Extraction errors** where the "initiation" is a *different action's* date than the decision:
+  a license-renewal application (Palisades), a RCRA permit (NRDWL landfill), a state-PUC filing,
+  a park authorization, or a prior plan. Pattern = cross-action contamination on one `project_id`.
+
+Related data-quality findings from the same pass:
+- **~223 CE `complete_with_proxy` rows have NEGATIVE durations** (decision before initiation) yet
+  are *not* flagged `invalid_order` — a proxy-completion ordering bug to fix.
+- **Duplicate `project_id`s** for some long EIS (West Mojave ×2, Clearwater ×2, Roan Plateau ×2).
+
+---
+
 ## Open questions / things to chase
 
 1. **Why is clean-only completion lower in Phase 2 than Phase 1** for every review type,

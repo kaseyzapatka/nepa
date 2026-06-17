@@ -212,6 +212,19 @@ dates <- dates_raw |>
     ),
   )
 
+# --- DEFENSIVE FILTER: negative-duration "complete" rows (decision before initiation) ---
+# These are extraction errors that leaked past 05's proxy-completion path without the ordering
+# guard 06 applies; reclassify to invalid_order so they drop from BOTH coverage counts and
+# duration stats. ~223 CE (+10 EA/EIS) as of 2026-06-17. NB: the source duration_days is NULL
+# for these rows, so we key on the dates themselves, not on duration_days.
+# TODO (post-2026-06-18): fix at SOURCE in 05_select_dates.py via a shared status-normalizer
+# (any decision_date < initiation_date -> invalid_order) and remove this stopgap. See D4 todo.
+.neg_mask <- dates$timeline_status %in% c("complete_clear", "complete_with_proxy") &
+             !is.na(dates$initiation_date) & !is.na(dates$decision_date) &
+             dates$decision_date < dates$initiation_date
+dates$timeline_status[.neg_mask] <- "invalid_order"
+message(sprintf("Stopgap filter: reclassified %d negative-duration complete rows -> invalid_order (TODO: fix in 05)", as.integer(sum(.neg_mask))))
+
 # Headline: complete_clear = both dates at day granularity (used for duration analysis)
 headline <- dates |>
   filter(timeline_status == "complete_clear", !is.na(duration_days))
