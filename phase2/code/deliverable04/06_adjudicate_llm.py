@@ -641,6 +641,32 @@ def _apply_adjudication_results(
                 dates_df.loc[mask, "timeline_flags"] = new_flags
                 updated = True
 
+        # Recompute timeline_status from the now-present dates so a date recovered here COUNTS as
+        # complete. 08_analyze.R (and the coverage CSVs) key on timeline_status; leaving it stale at
+        # 'missing_*' would silently exclude the recovery from the deliverable. Also tag month picks.
+        row = dates_df.loc[mask].iloc[0]
+        idate, ddate = row.get("initiation_date"), row.get("decision_date")
+        hi = pd.notna(idate) and str(idate) not in ("", "None")
+        hd = pd.notna(ddate) and str(ddate) not in ("", "None")
+        if hi and hd:
+            try:
+                bad_order = pd.to_datetime(ddate) < pd.to_datetime(idate)
+            except Exception:
+                bad_order = False
+            is_proxy = bool(row.get("initiation_is_proxy", False)) or bool(row.get("decision_is_proxy", False))
+            new_status = "invalid_order" if bad_order else ("complete_with_proxy" if is_proxy else "complete_clear")
+        elif hi:
+            new_status = "missing_decision"
+        elif hd:
+            new_status = "missing_initiation"
+        else:
+            new_status = "missing_both"
+        dates_df.loc[mask, "timeline_status"] = new_status
+        if hd and str(row.get("decision_date_granularity")) == "month":
+            ef = str(dates_df.loc[mask, "timeline_flags"].iloc[0])
+            if "month_decision" not in ef:
+                dates_df.loc[mask, "timeline_flags"] = "|".join(filter(None, [ef, "month_decision"]))
+
     if updated:
         dates_df.to_parquet(DATES_PATH, index=False)
         print(f"Updated {DATES_PATH} with adjudication results.")

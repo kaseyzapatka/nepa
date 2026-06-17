@@ -31,13 +31,13 @@ FULL = [
     ("04_classify_candidates.py", ["--force"]),
     ("04b_calibrate.py", ["--apply"]),
     ("05b_rank.py", ["--apply"]),
-    ("05_select_dates.py", ["--force"]),
+    ("05_select_dates.py", []),
     ("05c_inject_ground_truth.py", ["--scope", "all"]),
     ("07_validate.py", ["--validate"]),
 ]
 SELECT = [
     ("05b_rank.py", ["--apply"]),
-    ("05_select_dates.py", ["--force"]),
+    ("05_select_dates.py", []),
     ("05c_inject_ground_truth.py", ["--scope", "all"]),
 ]
 # 07 may no-op when the gold sample is unfilled; never fatal.

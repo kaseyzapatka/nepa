@@ -7,7 +7,89 @@ deep-dive reference; this doc is the single actionable plan and folds in the rem
 
 ---
 
-## 2026-06-16 NIGHT 2 — AUTONOMOUS decoupled retrain + run (CURRENT MARCHING ORDERS)
+## MASTER REMAINING-WORK CHECKLIST (2026-06-16) — direct me here if we get lost
+
+Locked design decisions: LLM pool ranked by the **learned ranker** (not classifier prob), **N=5 init /
+10 decision**, **rule-inclusion** (register/ROD-sig/FEIS-pub/NOI always in pool), dedup-by-date keep-best,
+300-char cap. Recall: init ~93% / decision ~86%@10. LLM cost measured ~$15.
+
+**Phase A — build today (worktree, code only, preview-test each):**
+- [ ] A1. Decision tiering: ROD A→B→C (incl. ROD signed/mentioned in FEIS) → Tier D = FEIS publication/cover
+      date (`feis_publication`, month+yr ok) + `_DECISION_NEG_RE` + DEIS guard.  (partial 05 edits written)
+- [ ] A2. Targeted FEIS cover re-pull (folded into A1): read FEIS cover pp.1–3 via the SAME 03 extraction,
+      integrate via `04 --append → 04b → 05b`. (~404 projects today; full re-pull = weekend.)
+- [ ] A3. LLM pool builder: learned-ranker rank, N=5 init/10 dec, rule-inclusion, dedup-by-date keep-best,
+      surface granularity, 300-char cap.
+- [ ] A4. route_to_llm / confidence-tier flag.
+- [ ] A5. EIS init recovery: chronology fix + calibrated-prob admission (~187 strong inits + missed register inits).
+- [ ] A6. ROD-pool tightening: precision-only; borderline falls through to Tier D (no coverage loss).
+- [ ] A7. CE proxy guardrail: fire only with a genuine later decision-signature (earlier=init, signature=decision).
+- [ ] A8. Prefer signature date over cover month for EA/CE decisions (Pedro Hill case).
+
+**Phase B — run + validate (worktree):**
+- [ ] B9. Run `05` with new logic (current project_dates still reflect OLD selection until this runs).
+- [ ] B10. Re-audit: recall@N + precision spot-check.  [ ] B11. Pause for user review (after A1–A2 per request).
+
+**Phase C — merge:** [ ] C12. commit night-run, merge → desktop (code/notes only).  [ ] C13. copy back gitignored
+parquets + classifier.csv/ranker.csv by hand.
+
+**Phase D — LLM run (desktop):** [ ] D14. rebuild `06_adjudicate_llm.py` (stale) for the new pool.
+[ ] D15. pilot ~200 projects → confirm $/project → run ~10,097 routable (~$15–18, max_tokens≈150).
+[ ] D16. merge LLM picks → finalize project_dates.
+
+**Phase E — finalize:** [ ] E17. validate sample + confidence tiers.  [ ] E18. deliverable tables/figures (tiered).
+
+**Phase F — weekend/deferred:** [ ] F19. full FEIS cover re-pull in `02_retrieve` (→ ~2,556 ceiling).
+[ ] F20. classifier retrain (rebalance final_eis head, then 04→04b→05b w/ F1 gate; init F1 0.882→0.893 parked).
+[ ] F21. held-out validation gold for `07` (project to-do #23).  [ ] F22. dedicated calibration split (to-do #24).
+
+**Phase G — report:** [ ] G23. build `reports/deliverable04.qmd`, fold in `findings_for_report.md`.
+[ ] G24. (standing) remind user to build validation gold.
+
+**Loose flags:** `05 --process EIS`-only risks the CE/EA partition (old 1,211-CE loss) — run full 05 or guard it;
+16 image-only EIS + ~10% EA-init cue = accept & disclose.
+
+---
+
+## 2026-06-16 PM — finalize selection on worktree, MERGE, then run LLM on DESKTOP (CURRENT PLAN)
+
+Decision (user, 2026-06-16): do the selection/ranking tightening on the worktree, merge to desktop,
+and run the LLM adjudication (06) on **desktop** — NOT on the worktree.
+
+**Step 1 — Tighten DECISION selection (on worktree, code only).**
+- Finish the FEIS-*publication*-date fallback for EIS-no-ROD, explicitly labeled
+  (`decision_is_feis_fallback` / `feis_publication`), + the negative-cue filter (`_DECISION_NEG_RE`)
+  + DEIS guard. (In `05_select_dates.py`; edits started.) Goal: deterministic decisions are correct
+  and chronology windows are right so init isn't wrongly dropped.
+
+**Step 2 — Build the 06 candidate pool / ranking (on worktree, code only).**
+- For each routable project, assemble **top-5 initiation candidates by `p_init_cal` + top-5 decision
+  candidates by `p_dec_cal` (plus the FEIS-publication date), across ALL regex roles**, deduped — the
+  small, efficient, best-candidate set the LLM will read. Ranked by calibrated probability, NOT
+  gated by regex role. This is the fix for "are the best candidates even being sent?".
+
+**Step 3 — Merge worktree → desktop (code only; copy data/labels by hand).**
+```bash
+cd ../nepa-night && git add -A && git commit -m "[D4] decision-selection tightening + 06 candidate-pool builder + audit/findings"
+cd /Users/Dora/git/consulting/nepa && git merge night-run        # brings tracked CODE/notes
+# gitignored artifacts must be copied by hand (NOT carried by git):
+cp ../nepa-night/phase2/data/analysis/timeline/timeline_{candidates,project_dates}.parquet phase2/data/analysis/timeline/
+cp ../nepa-night/phase2/training/deliverable04/{classifier,ranker}.csv  phase2/training/deliverable04/
+# git worktree remove ../nepa-night   # after verifying
+```
+
+**Step 4 — Run the LLM adjudication (06) on DESKTOP, not the worktree.**
+- Rebuild/run `06_adjudicate_llm.py` on the merged desktop data, feeding the top-5+5 pool from Step 2.
+- Routable set ≈ **10,097 projects** (CE 7,922, EA 897, EIS 1,278) = not-complete but has both
+  candidate types. Cost (measured): ~$13 capped / ~$26 full context. Cap context to ~300 chars/candidate,
+  `max_tokens`≈150, and **pilot ~200 projects first** to confirm cost-per-project before the full run.
+
+**Note:** Steps 1–2 are code-only and safe to do on the worktree; the LLM run (Step 4) happens after
+the merge, on desktop, so the worktree is purely for the selection/pool code.
+
+---
+
+## 2026-06-16 NIGHT 2 — AUTONOMOUS decoupled retrain + run (earlier; superseded by the PM plan above)
 
 This supersedes the §2–§8 ordering for the night-2 run. The earlier sections remain valid
 background (root causes, feasibility). **This is the runbook to resume from if context is lost.**
