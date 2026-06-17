@@ -30,6 +30,7 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 import argparse
 import hashlib
 import json
+import shutil
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -463,6 +464,19 @@ def _select_recovery_queue(
 # Main adjudication loop
 # ---------------------------------------------------------------------------
 
+def _backup_dates_file() -> Path | None:
+    """Snapshot the canonical dates file before an applying run, following the pipeline's
+    pre_<reason>_<timestamp> convention. The apply step writes timeline_project_dates.parquet
+    in place, so this guarantees the exact pre-run state is always recoverable from a
+    co-located, deterministic copy (don't rely on Time Machine's hourly snapshots)."""
+    if not DATES_PATH.exists():
+        return None
+    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    dest = DATES_PATH.with_name(f"timeline_project_dates.pre_adj_{ts}.parquet")
+    shutil.copy2(DATES_PATH, dest)
+    return dest
+
+
 def run_adjudication(
     mode: str,
     process_types: list[str],
@@ -477,6 +491,13 @@ def run_adjudication(
     dates_df = pd.read_parquet(DATES_PATH)
     candidates_df = pd.read_parquet(CANDIDATES_PATH)
     packets_df = pd.read_parquet(PACKETS_PATH) if PACKETS_PATH.exists() else pd.DataFrame()
+
+    # Pre-run safety snapshot: only when this run will actually write back (an applying run).
+    # --no-apply / --dry-run never touch the canonical file, so they need no backup.
+    if not dry_run and not no_apply:
+        bak = _backup_dates_file()
+        if bak is not None:
+            print(f"Backed up canonical dates -> {bak.name} (pre-run safety snapshot)")
 
     if mode == "candidate_adjudication":
         queue = _select_adjudication_queue(dates_df, candidates_df, process_types)
