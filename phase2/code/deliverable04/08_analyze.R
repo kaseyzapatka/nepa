@@ -162,7 +162,12 @@ dates <- dates_raw |>
   mutate(
     initiation_date = as.Date(initiation_date),
     decision_date   = as.Date(decision_date),
-    duration_days   = as.integer(duration_days),
+    # Compute duration directly from the (possibly LLM-recovered) dates rather than the
+    # precomputed duration_days column, which is stale post-06 (it was only populated for the
+    # pre-adjudication day-level subset, so it undercounts complete timelines — e.g. EIS 213
+    # vs 425 complete_clear). decision_date >= initiation_date is guaranteed here because the
+    # negative-duration rows are reclassified to invalid_order below.
+    duration_days   = as.integer(decision_date - initiation_date),
 
     process_group = factor(process_type, levels = PROCESS_LEVELS),
 
@@ -600,7 +605,8 @@ coverage_fig <- dates |>
   ungroup()
 
 p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverage_group)) +
-  geom_col(width = 0.6) +
+  # reverse = TRUE puts the first factor level ("Both dates") at the BOTTOM of the stack
+  geom_col(width = 0.6, position = position_stack(reverse = TRUE)) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
   scale_fill_manual(values = c(
     "Both dates"      = catf_navy,
@@ -615,7 +621,7 @@ p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverag
   )
 
 ggsave(file.path(FIGS, "fig_d4_coverage_by_process.png"),
-       p_coverage, width = 7, height = 5, dpi = 150)
+       p_coverage, width = 9, height = 6, dpi = 300)
 message("Wrote fig_d4_coverage_by_process.png")
 
 # ---------------------------------------------------------------------------

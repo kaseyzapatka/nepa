@@ -93,18 +93,37 @@ This report delivers:
 
 # Methodology
 
+This deliverable **extends the [Phase 1 timeline analysis](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#timeline-analysis-for-decarbonization-technologies)** — which examined review timelines for *clean-energy projects only* — to the **entire NEPATEC 2.0 database**: every categorical exclusion, environmental assessment, and environmental impact statement, across clean-energy, fossil, and other project types. It does so with a rebuilt extraction pipeline that adds authoritative agency dates and two machine-learning models.
+
 ## How timeline dates are extracted
 
-Each project's NEPA documents are scanned for **candidate dates**, each captured with its surrounding sentence so the *role* of the date can be classified. A multi-stage pipeline then selects, per project, the operative **initiation** (application received / Notice of Intent / scoping) and **decision** (signature / approval / Record of Decision / Finding of No Significant Impact) dates:
+This section improves on the Phase 1 timeline method. For every project we identify two milestones — the **initiation** (when the review begins: an application received, a Notice of Intent, or scoping) and the **decision** (when it concludes: a signature, a Record of Decision, or a Finding of No Significant Impact). The pipeline finds these in five high-level steps:
 
-1.  **Candidate extraction & ranking** — regex + section-aware retrieval surface candidate dates; a learned scorer ranks each as initiation- or decision-like.
-2.  **Deterministic selection** — authoritative metadata (BLM/DOE registers, Notice of Intent publication dates) and high-confidence document signatures are selected first.
-3.  **LLM adjudication (script 06)** — for the **11,207 projects** still missing a slot that has at least one viable candidate, Claude Haiku adjudicates which candidate is the true initiation and/or decision, with day-over-month and authoritative-source rules. This pass cost **\$18.20** and added roughly **13,000 dates** with zero billing errors.
+1.  **Extract candidate dates** from every NEPA document in NEPATEC 2.0, capturing the sentence around each date so its meaning is clear.
+2.  **Classify each date's role** — a machine-learning *classifier* labels every candidate as an initiation, decision, or other date.
+3.  **Rank the candidates** — a second *ranking model* scores which initiation candidate and which decision candidate is the operative one for the project.
+4.  **Anchor on authoritative dates** — where the BLM or DOE NEPA register records an official project-start or decision date, that date is used.
+5.  **Resolve the hardest cases with an LLM** — for the projects where the operative date is still ambiguous, a large language model selects the best remaining candidate.
 
-A project's timeline is **complete** when both an initiation and a decision date are present. Month-granularity decisions (e.g. a Final EIS cover month) are stored at the mid-month 15th and flagged.
+A project's timeline is **complete** when both an initiation and a decision date are found.
 
-::: callout-warning
-**Data-quality note (stopgap in place).** 233 projects (CE 223 · EA 1 · EIS 9) were labelled complete with a decision date *before* the initiation date — an extraction error in the proxy-completion path. `08_analyze.R` reclassifies these to `invalid_order`, excluding them from coverage and duration figures; a source-level fix is tracked. Reported coverage already reflects this filter.
+## How Phase 2 analysis improves upon Phase 1
+
+-   **Full-database coverage** — Phase 1 covered clean-energy projects only (~20,700); Phase 2 covers the **entire NEPATEC 2.0 database** (~61,000 projects — CE, EA, and EIS across clean-energy, fossil, and other types).
+-   **Authoritative agency dates** — Phase 2 incorporates the **BLM and DOE NEPA registers** as a first-class source of official project-start and decision dates, instead of relying solely on dates parsed from document text.
+-   **A classifier *and* a ranking model** — Phase 1 used a single date classifier; Phase 2 adds a dedicated **ranking model** that decides which candidate is the operative initiation/decision, which sharply improves selection on documents containing many look-alike dates.
+-   **LLM adjudication at scale** — the hardest ambiguous cases across the whole corpus are resolved by a large language model, recovering dates the automated pipeline could not select on its own.
+-   **Cleaner retrieval and granularity handling** — section-aware retrieval pulls fewer but cleaner candidate dates, and month-only decision dates (e.g. a Final-EIS cover month) are handled explicitly rather than dropped.
+-   **Fully reproducible** — the entire build runs end-to-end from committed code on a DuckDB-based pipeline.
+
+::: callout-note
+## Next steps
+
+-   **Lift EIS decision coverage** — re-pull Final-EIS cover/publication dates and add a recovery pass for Records of Decision that sit in separate documents (the main EIS gap).
+-   **Recover missing initiations** — cross-reference the **Federal Register Notice-of-Intent API** to fill in and validate EIS/EA start dates.
+-   **Validate date *accuracy*** — build a held-out, human-labelled gold set to measure precision, not only coverage.
+-   **Fix the ordering check at the source** — resolve the 233 decision-before-initiation rows in the selection step (currently handled by a downstream stopgap filter; see Data Quality & Caveats).
+-   **Extend the analysis** — BLM field-office learning curves, geothermal timelines by field office, and whether post-FRA adoption of categorical exclusions correlates with faster reviews (see Requested Extensions).
 :::
 
 ------------------------------------------------------------------------
@@ -118,6 +137,11 @@ A project's timeline is **complete** when both an initiation and a decision date
 -   **CE** (`r fmt_pct(cpct("CE"))` complete): decision coverage is high (`r fmt_pct(dpct("CE","pct_decision"))`) but initiation coverage is low (`r fmt_pct(dpct("CE","pct_initiation"))`) — most CEs are single-signature determinations with no recorded start.
 -   **EA** (`r fmt_pct(cpct("EA"))` complete): the strongest of the three, but still initiation-limited — EAs have no Notice-of-Intent requirement and often skip scoping.
 -   **EIS** (`r fmt_pct(cpct("EIS"))` complete): initiations are usually documented (an NOI is required), but **decision** coverage is only `r fmt_pct(dpct("EIS","pct_decision"))` because Records of Decision are frequently separate documents not in the corpus.
+
+**Comparison with Phase 1.** Phase 1 measured completeness for *clean-energy projects only* and reported [CE ~30% · EA ~62% · EIS ~48%](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#fig-complete-share). On the **full database**, Phase 2 reaches CE `r fmt_pct(cpct("CE"))` · EA `r fmt_pct(cpct("EA"))` · EIS `r fmt_pct(cpct("EIS"))`. CE is *higher* — the much larger universe is dominated by routine, register-dated determinations — but **EA and EIS land below their Phase 1 clean-only rates**, for two reasons this analysis surfaced:
+
+-   **The aggregate is diluted by non-clean projects.** Phase 1's denominator was clean energy; Phase 2's is everything. Decarbonization EIS alone completes at **42.4%** (much closer to Phase 1's 48%) — it is the heterogeneous "Other" bucket that pulls the EIS aggregate down to `r fmt_pct(cpct("EIS"))`.
+-   **The remaining gaps are structural, not fixable by better parsing.** EIS completeness is capped by **missing Records of Decision** (a separate document, often outside the corpus — decision coverage only `r fmt_pct(dpct("EIS","pct_decision"))`); CE and EA completeness is capped by **missing initiations**, because neither requires a Notice of Intent and a start date is frequently never recorded. A minority of EIS "projects" are also comment letters or document fragments with no milestone date to extract. Lifting EIS coverage toward Phase 1 is the focus of the [Next steps](#methodology) above.
 
 ```{r}
 #| label: fig-complete-share
@@ -135,20 +159,7 @@ include_fig("fig_d4_coverage_by_process.png")
 
 ## Duration analysis
 
-Among complete, day-level timelines, durations track the expected complexity ladder from CE to EA to EIS. @fig-duration-intervals summarises the spread; @fig-duration-hist shows the full distributions; @fig-spans plots individual project spans.
-
-```{r}
-#| label: tbl-duration
-#| tbl-cap: "Headline review durations by process (complete, day-level timelines). Days unless noted."
-dur |>
-  transmute(`Process` = process_type,
-            `n` = fmt_n(n),
-            `Median (days)` = fmt_n(median_days),
-            `Median (months)` = round(median_days / 30.44, 1),
-            `p10` = fmt_n(p10_days), `p90` = fmt_n(p90_days),
-            `Mean` = fmt_n(round(mean_days))) |>
-  navy_gt()
-```
+Among complete timelines (both dates present), durations track the expected complexity ladder from CE to EA to EIS — a median of about **`r dmed("CE")` days for CE**, **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA**, and **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS** (n = `r fmt_n(dur$n[dur$process_type=="CE"])` / `r fmt_n(dur$n[dur$process_type=="EA"])` / `r fmt_n(dur$n[dur$process_type=="EIS"])`). @fig-duration-intervals summarises the spread; @fig-duration-hist shows the full distributions; @fig-spans plots individual project spans.
 
 ```{r}
 #| label: fig-duration-intervals
