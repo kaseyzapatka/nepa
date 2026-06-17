@@ -1,8 +1,72 @@
 # D4 Timeline — Where I Left Off (combined handoff)
 
-> **CURRENT as of 2026-06-16 — read the "Coverage-recovery cycle" section immediately below first.**
-> Everything under the older "Last updated: 2026-06-10" banner is retained as history; where numbers
-> conflict, the 2026-06-16 section wins.
+> **CURRENT as of 2026-06-17 — read the "06 LLM-adjudication prep" section immediately below first.**
+> Older sections (2026-06-16 coverage cycle, 2026-06-10 banner) are retained as history; where
+> numbers conflict, the newest section wins.
+
+---
+
+## 2026-06-17 — 06 LLM-adjudication prep + audit (READ FIRST)
+
+**State:** selection (05) is final and on `desktop`. The next action is the **06 LLM adjudication
+run** of the ~11,207 "send-set". Everything below is ready; the only gate is the API key (now in the
+macOS Keychain, prompt-on-access).
+
+### What we did this session
+- **Recovered + hardened 05:** restored the candidates file (clobbered by a `--process EIS` subset
+  write; Time Machine) and added **Guard 2** so a subset run can never overwrite the canonical file;
+  fixed the O(n²) `build_review_queue`; **Variant B** CE register-init fix (authoritative metadata
+  inits admitted/preferred over the learned-score gate — 13/13 prior regressions recovered);
+  **month-decision sliver** routing (cued month ROD/FEIS dates → 06); `--workers` parallelized 05
+  (proved byte-identical to serial). Re-ran 05 + 05c. → commit **bd1feec**.
+- **06 hardened for the run** (→ commit **a875133**): credit-safety (incremental checkpoint every 50,
+  fail-fast on billing errors, errored rows excluded from the resume cache → top-up + re-run resumes;
+  retry+backoff on typed anthropic 429/overloaded/5xx); **`--workers N` concurrency** (ThreadPoolExecutor,
+  verified ~20–25 min vs ~5 hr serial); **completable scope gate** = queue is the **11,207** missing-
+  but-completable rows (`INCLUDE_RECHECKS` removed); **month picks stored as the 15th**; day-vs-month
+  rule in the prompt; accurate per-model pricing; **`--sample-ids` / `--no-apply`**; **`timeline_llm_run_at`**
+  per-row audit stamp on adjudicated rows.
+- **Audit of resolved (non-LLM) dates** (→ commit **4fb3eeb**, `_audit_resolved.py`): non-register
+  picks are mostly sound. **KEY finding:** all **1,196 EA register decisions are FONSIs** → those EAs
+  did NOT escalate to EIS; the short EA median (105 d) is a register-anchor artifact (register start
+  ≈ 60 d before the FONSI vs 364 d for document inits). Findings written to `findings_for_report.md`.
+- **08 completion figure** → full 0–100% box + dot at the share (→ commit **2212fe1**). Models synced
+  to desktop (old archived under `_archived/`); data parquets copied night→desktop.
+
+### Numbers (pre-LLM floor; post Variant-B + sliver)
+| | complete now (both) | send to 06 (completable) | structural (unrecoverable) |
+|---|---|---|---|
+| CE | 45.8% (24,741) | 8,625 | 20,674 |
+| EA | 50.8% (1,534) | 901 | 582 |
+| EIS | 24.5% (1,011) | 1,681 | 1,438 |
+| **all** | **44.6% (27,286)** | **11,207** | 22,694 |
+
+Honest post-LLM estimate: **CE ~49% · EA ~54% · EIS ~35%**. Decarb (clean) EIS = 753 (18.2% of EIS).
+EIS *decisions* are ~85% month-granularity (FEIS-publication, stored as the 15th).
+
+### NEXT (in order)
+1. **100-sample A/B test** (Haiku vs Sonnet), then my reference adjudication → agreement + measured
+   cost. Command below.
+2. **Full 06 run** on the 11,207 send-set with `--workers 12` (likely Sonnet ≈ $33; $45 credit covers
+   it; fail-fast/resume safe). Monitor live.
+3. **Re-run 08** (figures → final numbers) + update the numbers in `findings_for_report.md`.
+4. **Push** — commits bd1feec / 4fb3eeb / 2212fe1 / a875133 are LOCAL on `desktop`.
+5. Deferred: 02/03 parallelization (todo #26); A2 FEIS cover full re-pull (todo #25).
+
+### How to run 06 (API key is Keychain-gated, prompt-on-access)
+Key stored via `security add-generic-password -a "$USER" -s nepa-anthropic -T "" -U -w`. Every run
+fetches it transiently (fires a macOS Allow dialog = the authorization; key never printed/persisted):
+```
+ANTHROPIC_API_KEY=$(security find-generic-password -a "$USER" -s nepa-anthropic -w) \
+PYTHONPATH=/Users/Dora/git/consulting/nepa conda run -n nepa \
+  python code/deliverable04/_test_adjudication.py --models claude-haiku-4-5-20251001 claude-sonnet-4-6 --workers 12
+```
+Full run: `python code/deliverable04/06_adjudicate_llm.py --process CE EA EIS --workers 12 --model claude-sonnet-4-6`
+(no `--no-apply` → writes the dates). All 06 runs need `PYTHONPATH=<repo root>`.
+
+### Key files (this session)
+`code/deliverable04/{06_adjudicate_llm.py, _test_adjudication.py, _audit_resolved.py}`,
+`output/deliverable04/test_sample_100.csv`, `notes/deliverable04/{findings_for_report.md, coverage_constraints.md}`.
 
 ---
 

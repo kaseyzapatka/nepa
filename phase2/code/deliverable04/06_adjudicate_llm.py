@@ -277,28 +277,33 @@ def _call_api(
             try:
                 import anthropic as _a
                 is_transient = isinstance(e, (_a.RateLimitError, _a.InternalServerError,
-                                              _a.APITimeoutError, _a.APIConnectionError))
-                if isinstance(e, _a.APIStatusError) and getattr(e, "status_code", None) in (408, 429, 500, 502, 503, 504, 529):
-                    is_transient = True
-                is_billing = isinstance(e, (_a.AuthenticationError, _a.PermissionDeniedError)) or (
-                    isinstance(e, _a.BadRequestError) and any(k in el for k in ("credit", "billing", "quota", "payment")))
+                                              _a.APITimeoutError, _a.APIConnectionError)) or (
+                    isinstance(e, _a.APIStatusError) and getattr(e, "status_code", None) in (408, 429, 500, 502, 503, 504, 529))
+                is_billing = isinstance(e, (_a.AuthenticationError, _a.PermissionDeniedError))
             except Exception:
                 pass
-            # string fallbacks (cover non-SDK errors / wrapped messages)
-            if any(k in el for k in ("credit balance", "billing", "insufficient", "quota", "payment required")):
-                is_billing = True
-            if not is_billing and any(k in el for k in ("rate limit", "429", "overloaded", "529",
-                                      "timeout", "timed out", "connection", "internal server", "503", "500")):
+            # String fallbacks ONLY when the typed check didn't already classify it. Critically, a
+            # rate-limit (429) message often *mentions* "billing" (help links) — do NOT let that tag
+            # it as billing. Transient is decided first and takes precedence over billing.
+            if not is_transient and any(k in el for k in ("rate_limit", "rate limit", "429",
+                    "overloaded", "529", "timeout", "timed out", "connection error", "internal server")):
                 is_transient = True
+            if not is_transient and not is_billing and any(k in el for k in (
+                    "credit balance is too low", "insufficient credit", "low credit",
+                    "payment required", "billing", "quota")):
+                is_billing = True
+            # Transient takes precedence: retry with backoff, then return transient (NEVER billing).
+            if is_transient:
+                if attempt < MAX_TRANSIENT_RETRIES:
+                    time.sleep(BACKOFF_BASE_SEC * (2 ** attempt))
+                    continue
+                return {"response_json": {}, "raw_response_excerpt": "", "input_tokens": 0,
+                        "output_tokens": 0, "error": last_err, "error_kind": "transient"}
             if is_billing:
                 return {"response_json": {}, "raw_response_excerpt": "", "input_tokens": 0,
                         "output_tokens": 0, "error": last_err, "error_kind": "billing"}
-            if is_transient and attempt < MAX_TRANSIENT_RETRIES:
-                time.sleep(BACKOFF_BASE_SEC * (2 ** attempt))
-                continue
             return {"response_json": {}, "raw_response_excerpt": "", "input_tokens": 0,
-                    "output_tokens": 0, "error": last_err,
-                    "error_kind": "transient" if is_transient else "other"}
+                    "output_tokens": 0, "error": last_err, "error_kind": "other"}
     return {"response_json": {}, "raw_response_excerpt": "", "input_tokens": 0,
             "output_tokens": 0, "error": last_err or "unknown", "error_kind": "other"}
 
