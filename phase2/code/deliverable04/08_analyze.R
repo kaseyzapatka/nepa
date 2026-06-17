@@ -771,18 +771,18 @@ process_summary_complete <- tibble(process_group = factor(PROCESS_LEVELS, levels
     )
   )
 
-complete_box <- dates |>
-  filter(!is.na(process_group)) |>
-  mutate(complete_num = as.numeric(timeline_complete))
-
-fig_complete_share <- ggplot(complete_box,
-                              aes(x = process_group, y = complete_num, fill = process_group)) +
-  geom_boxplot(outlier.shape = NA, width = 0.55, alpha = 0.35, na.rm = TRUE) +
-  stat_summary(fun = mean, geom = "point", size = 3, color = catf_navy) +
+# Each process gets an identical full 0-100% reference box; the navy dot marks that process's actual
+# completion share (initiation + decision present). This keeps the uniform box-per-process look while
+# letting EIS show clearly — the dot carries the value, the box is just a 0-100% frame. (The earlier
+# 0/1 boxplot collapsed EIS onto the axis because its share, 24.5%, fell below the 25% quartile.)
+fig_complete_share <- ggplot(process_summary_complete,
+                             aes(x = process_group, fill = process_group)) +
+  geom_crossbar(aes(y = 0.5, ymin = 0, ymax = 1),
+                width = 0.55, alpha = 0.30, fatten = 0, na.rm = TRUE) +
+  geom_point(aes(y = share_complete), size = 4, color = catf_navy, na.rm = TRUE) +
   geom_text(
-    data = process_summary_complete,
-    aes(x = process_group, y = 1.07, label = label),
-    inherit.aes = FALSE, size = 3, color = "gray30"
+    aes(y = 1.07, label = label),
+    size = 3, color = "gray30"
   ) +
   scale_x_discrete(drop = FALSE) +
   scale_y_continuous(
@@ -793,7 +793,7 @@ fig_complete_share <- ggplot(complete_box,
   scale_fill_manual(values = PROCESS_COLORS, drop = FALSE) +
   labs(
     title    = "Share of Reviews with Complete Timelines",
-    subtitle = "Boxplot shows review-level completion (0/1); dot is mean share by process",
+    subtitle = "Dot = share with a complete timeline (initiation + decision); box = 0-100% frame",
     x = "Review Process",
     y = "Completion Share"
   ) +
