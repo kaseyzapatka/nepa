@@ -422,12 +422,9 @@ def _select_adjudication_queue(
     hdc = sub["project_id"].map(caprow["hdc"]).fillna(False).astype(bool)
     completable = (sub["initiation_date"].notna() | hic) & (sub["decision_date"].notna() | hdc)
     # Per the affirmed rule: send only projects MISSING >=1 slot that can still complete (each
-    # missing slot has a candidate). Excludes already-both-present projects flagged for ambiguous
-    # re-checks — those refine existing picks but add no completions. (Set INCLUDE_RECHECKS=1 to keep
-    # them, e.g. for a precision pass.)
+    # missing slot has a candidate). Already-both-present projects (incl. ambiguous re-checks) are
+    # NOT sent — they add no completions.
     incomplete = ~(sub["initiation_date"].notna() & sub["decision_date"].notna())
-    if os.environ.get("INCLUDE_RECHECKS") == "1":
-        return sub[needs_adj & completable]
     return sub[needs_adj & completable & incomplete]
 
 
@@ -469,6 +466,7 @@ def run_adjudication(
     model: str,
     sample_ids: str | None = None,
     no_apply: bool = False,
+    workers: int = 12,
 ) -> None:
     print(f"Loading data...")
     dates_df = pd.read_parquet(DATES_PATH)
@@ -538,123 +536,102 @@ def run_adjudication(
         TIMELINE_DIR.mkdir(parents=True, exist_ok=True)
         combined.to_parquet(ADJUDICATIONS_PATH, index=False)
 
-    for i, (_, proj_row) in enumerate(queue.iterrows()):
+    # --- Phase 1 (serial, cheap): build the work list — prompt + cache check per project. ---
+    work = []
+    for _, proj_row in queue.iterrows():
         pid = proj_row["project_id"]
         process_type = proj_row["process_type"]
         project_title = title_map.get(pid, pid)
         agency = agency_map.get(pid, "")
-
         proj_cands = candidates_df[candidates_df["project_id"] == pid]
         proj_packets = packets_df[packets_df["project_id"] == pid] if not packets_df.empty else pd.DataFrame()
-
         if mode == "candidate_adjudication":
             prompt_text, used_ids = _build_candidate_prompt(
                 pid, project_title, process_type, agency,
-                proj_cands, proj_row.get("timeline_status", ""),
-                proj_row.get("timeline_flags", ""),
-            )
+                proj_cands, proj_row.get("timeline_status", ""), proj_row.get("timeline_flags", ""))
             system_prompt = CANDIDATE_ADJUDICATION_SYSTEM
             packet_ids_used: list[str] = []
         else:
             if proj_packets.empty:
                 continue
-            prompt_text, packet_ids_used = _build_recovery_prompt(
-                pid, project_title, process_type, agency, proj_packets
-            )
+            prompt_text, packet_ids_used = _build_recovery_prompt(pid, project_title, process_type, agency, proj_packets)
             used_ids = []
             system_prompt = DOCUMENT_RECOVERY_SYSTEM
-
         ph = _prompt_hash(prompt_text)
         if ph in existing_keys:
-            print(f"  {i}: {pid} — cached, skipping")
             continue
+        work.append({"pid": pid, "process_type": process_type, "prompt": prompt_text,
+                     "system_prompt": system_prompt, "used_ids": used_ids,
+                     "packet_ids": packet_ids_used, "ph": ph})
+    print(f"  {len(work)} projects to adjudicate ({len(queue) - len(work)} cached/skipped); workers={workers}")
 
-        if i > 0:
-            time.sleep(RETRY_SLEEP)
-
-        result = _call_api(system_prompt, prompt_text, model, dry_run)
-        in_tok = result["input_tokens"]
-        out_tok = result["output_tokens"]
+    def _build_record(item, result):
+        """Build the adjudication row + dates-update from a completed API result (main thread)."""
+        pid, ph = item["pid"], item["ph"]
+        in_tok, out_tok = result["input_tokens"], result["output_tokens"]
         call_cost = (in_tok / 1000 * COST_PER_1K_INPUT) + (out_tok / 1000 * COST_PER_1K_OUTPUT)
-        cost_usd += call_cost
-
-        # Validate response
+        rec = {
+            "api_call_id": hashlib.sha1(f"{pid}|{ph}|{run_at}".encode()).hexdigest()[:20],
+            "project_id": pid, "process_type": item["process_type"], "adjudication_mode": mode,
+            "model": model, "provider": DEFAULT_PROVIDER, "prompt_hash": ph,
+            "context_packet_ids": json.dumps(item["packet_ids"]),
+            "input_tokens": in_tok, "output_tokens": out_tok, "estimated_cost_usd": round(call_cost, 6),
+            "response_json": json.dumps(result["response_json"]),
+            "raw_response_excerpt": result["raw_response_excerpt"],
+            "api_error": result["error"], "called_at": run_at,
+        }
+        update = None
         if mode == "candidate_adjudication":
-            init_id, dec_id, flags = _validate_candidate_response(result["response_json"], used_ids)
-            adj_records.append({
-                "api_call_id": hashlib.sha1(f"{pid}|{ph}|{run_at}".encode()).hexdigest()[:20],
-                "project_id": pid,
-                "process_type": process_type,
-                "adjudication_mode": mode,
-                "model": model,
-                "provider": DEFAULT_PROVIDER,
-                "prompt_hash": ph,
-                "context_packet_ids": json.dumps(packet_ids_used),
-                "candidate_ids": json.dumps(used_ids),
-                "input_tokens": in_tok,
-                "output_tokens": out_tok,
-                "estimated_cost_usd": round(call_cost, 6),
-                "response_json": json.dumps(result["response_json"]),
-                "raw_response_excerpt": result["raw_response_excerpt"],
-                "selected_initiation_candidate_id": init_id,
-                "selected_decision_candidate_id": dec_id,
-                "guardrail_flags": "|".join(flags) if flags else "",
-                "api_error": result["error"],
-                "called_at": run_at,
-            })
-            # Prepare dates update from candidate selection
+            init_id, dec_id, flags = _validate_candidate_response(result["response_json"], item["used_ids"])
+            rec.update({"candidate_ids": json.dumps(item["used_ids"]),
+                        "selected_initiation_candidate_id": init_id,
+                        "selected_decision_candidate_id": dec_id,
+                        "guardrail_flags": "|".join(flags) if flags else ""})
             if init_id or dec_id:
                 update = {"project_id": pid, "adj_init_id": init_id, "adj_dec_id": dec_id}
-                dates_updates.append(update)
         else:
             init_date, dec_date, flags = _validate_recovery_response(result["response_json"])
             resp = result["response_json"]
-            adj_records.append({
-                "api_call_id": hashlib.sha1(f"{pid}|{ph}|{run_at}".encode()).hexdigest()[:20],
-                "project_id": pid,
-                "process_type": process_type,
-                "adjudication_mode": mode,
-                "model": model,
-                "provider": DEFAULT_PROVIDER,
-                "prompt_hash": ph,
-                "context_packet_ids": json.dumps(packet_ids_used),
-                "candidate_ids": "[]",
-                "input_tokens": in_tok,
-                "output_tokens": out_tok,
-                "estimated_cost_usd": round(call_cost, 6),
-                "response_json": json.dumps(result["response_json"]),
-                "raw_response_excerpt": result["raw_response_excerpt"],
-                "selected_initiation_candidate_id": None,
-                "selected_decision_candidate_id": None,
-                "guardrail_flags": "|".join(flags) if flags else "",
-                "api_error": result["error"],
-                "called_at": run_at,
-            })
+            rec.update({"candidate_ids": "[]", "selected_initiation_candidate_id": None,
+                        "selected_decision_candidate_id": None,
+                        "guardrail_flags": "|".join(flags) if flags else ""})
             if init_date or dec_date:
-                dates_updates.append({
-                    "project_id": pid,
-                    "recovery_init_date": init_date,
-                    "recovery_dec_date": dec_date,
-                    "recovery_init_evidence": resp.get("initiation_evidence", ""),
-                    "recovery_dec_evidence": resp.get("decision_evidence", ""),
-                })
+                update = {"project_id": pid, "recovery_init_date": init_date, "recovery_dec_date": dec_date,
+                          "recovery_init_evidence": resp.get("initiation_evidence", ""),
+                          "recovery_dec_evidence": resp.get("decision_evidence", "")}
+        return rec, call_cost, update
 
-        # Fail-fast on a drained account: stop cleanly (work is checkpointed) instead of erroring
-        # through the rest of the queue. Errored rows aren't cached, so re-running resumes them.
-        if result.get("error_kind") == "billing":
-            billing_errs += 1
-            if billing_errs >= BILLING_FAILFAST_N:
+    # --- Phase 2 (concurrent): API calls run in worker threads; ALL mutation stays in the main
+    # thread (as_completed yields one at a time) so no locks are needed. Throttle is the worker
+    # count + the per-call backoff, not an inter-call sleep. ---
+    import concurrent.futures as _cf
+    n_done = 0
+    stop = False
+    with _cf.ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+        fut2item = {ex.submit(_call_api, w["system_prompt"], w["prompt"], model, dry_run): w for w in work}
+        for fut in _cf.as_completed(fut2item):
+            rec, call_cost, update = _build_record(fut2item[fut], fut.result())
+            adj_records.append(rec)
+            cost_usd += call_cost
+            if update:
+                dates_updates.append(update)
+            # Fail-fast on a drained account: count billing errors (not "consecutive" — results arrive
+            # out of order under concurrency); once we cross the threshold, cancel un-started calls and
+            # stop. Errored rows aren't cached, so a top-up + re-run resumes them.
+            if fut.result().get("error_kind") == "billing":
+                billing_errs += 1
+                if billing_errs >= BILLING_FAILFAST_N:
+                    for f in fut2item:
+                        f.cancel()
+                    stop = True
+            n_done += 1
+            if n_done % SAVE_EVERY == 0:
                 _save_adj()
-                print(f"  STOPPING after {billing_errs} consecutive billing/credit errors "
-                      f"(out of API credit). Progress saved — top up and re-run to resume the rest.")
+                print(f"  {n_done}/{len(work)} adjudicated | cost_usd=${cost_usd:.4f} | checkpoint saved")
+            if stop:
+                print(f"  STOPPING: {billing_errs} billing/credit errors (out of API credit). "
+                      f"Progress saved — top up and re-run to resume the rest.")
                 break
-        else:
-            billing_errs = 0
-
-        # Incremental checkpoint so a hard kill never loses more than SAVE_EVERY projects.
-        if (i + 1) % SAVE_EVERY == 0:
-            _save_adj()
-            print(f"  {i+1}/{len(queue)} adjudicated | cost_usd=${cost_usd:.4f} | checkpoint saved")
 
     if not adj_records:
         print("No adjudications generated.")
@@ -690,6 +667,10 @@ def _apply_adjudication_results(
     """Apply adjudication results to timeline_project_dates.parquet."""
     updated = False
     cand_idx = candidates_df.set_index("candidate_id") if not candidates_df.empty else pd.DataFrame()
+
+    # Audit-timestamp convention: <domain>_llm_run_at set per-row ONLY where the LLM changed a date.
+    if "timeline_llm_run_at" not in dates_df.columns:
+        dates_df["timeline_llm_run_at"] = ""
 
     for upd in updates:
         pid = upd["project_id"]
@@ -775,6 +756,7 @@ def _apply_adjudication_results(
             ef = str(dates_df.loc[mask, "timeline_flags"].iloc[0])
             if "month_decision" not in ef:
                 dates_df.loc[mask, "timeline_flags"] = "|".join(filter(None, [ef, "month_decision"]))
+        dates_df.loc[mask, "timeline_llm_run_at"] = run_at  # per-row LLM audit stamp
 
     if updated:
         dates_df.to_parquet(DATES_PATH, index=False)
@@ -793,6 +775,7 @@ def main() -> None:
     parser.add_argument("--sample", type=int, help="Limit to N projects for testing.")
     parser.add_argument("--sample-ids", help="Path to a file/CSV (first column = project_id) to restrict the queue to specific projects.")
     parser.add_argument("--no-apply", action="store_true", help="Save adjudications but do NOT write timeline_project_dates.parquet (for A/B test runs).")
+    parser.add_argument("--workers", type=int, default=12, help="Concurrent API calls (I/O-bound; 10-15 recommended). 1 = serial.")
     parser.add_argument("--dry-run", action="store_true", help="Build prompts but do not call API.")
     args = parser.parse_args()
 
@@ -809,6 +792,7 @@ def main() -> None:
         model=args.model,
         sample_ids=args.sample_ids,
         no_apply=args.no_apply,
+        workers=args.workers,
     )
 
 
