@@ -889,9 +889,9 @@ interval_summary <- interval_df |>
   ) |>
   mutate(
     median_label = case_when(
-      median_months < 1  ~ sprintf("%s: < 1 month", process_group),
+      median_months < 1  ~ sprintf("%s: ~1 month", process_group),
       median_months < 12 ~ sprintf("%s: ~%.0f months", process_group, median_months),
-      TRUE               ~ sprintf("%s: ~%.0f months (%.1f yr)", process_group,
+      TRUE               ~ sprintf("%s: ~%.0f months (%.0f years)", process_group,
                                    median_months, median_months / 12)
     ),
     label_hjust = if_else(median_months < 3, 0, 0.5)
@@ -911,6 +911,7 @@ fig_duration_intervals <- ggplot(interval_summary, aes(y = process_group, color 
   ) +
   scale_color_manual(values = PROCESS_COLORS, drop = FALSE) +
   scale_x_continuous(
+    breaks = scales::breaks_width(20),
     labels = label_number(accuracy = 1),
     expand = expansion(mult = c(0.02, 0.12))
   ) +
@@ -1123,7 +1124,7 @@ interval_energy <- headline |>
   ) |>
   mutate(
     median_label = case_when(
-      median_months < 1  ~ sprintf("< 1 mo  (n=%s)", comma(n)),
+      median_months < 1  ~ sprintf("~1 mo  (n=%s)", comma(n)),
       median_months < 12 ~ sprintf("%.0f mo  (n=%s)", median_months, comma(n)),
       TRUE               ~ sprintf("%.0f mo / %.1f yr  (n=%s)", median_months,
                                    median_months / 12, comma(n))
@@ -1141,6 +1142,12 @@ fig_intervals_energy <- ggplot(interval_energy, aes(y = energy_type, color = ene
   facet_wrap(~process_group, ncol = 1, scales = "free_x") +
   scale_color_manual(values = ENERGY_PROCESS_COLORS, drop = FALSE) +
   scale_x_continuous(
+    # Per-panel tick spacing for the free-x facets: CE spans only weeks-to-months (5-mo ticks),
+    # EA runs to ~3 years (10-mo ticks), EIS to ~10 years (20-mo ticks).
+    breaks = function(lims) {
+      w <- if (diff(lims) <= 20) 5 else if (diff(lims) <= 60) 10 else 20
+      seq(0, lims[2], by = w)
+    },
     labels = label_number(accuracy = 1),
     expand = expansion(mult = c(0.05, 0.05))
   ) +
