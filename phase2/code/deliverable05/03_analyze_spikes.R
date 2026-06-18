@@ -364,9 +364,13 @@ save_fig(p, "fig_d5_ce_category_shift_arra.png", w = 11, h = 6.5)
 # ANALYSIS D — Technology / sector mix (spike window vs baseline)
 # ===========================================================================
 explode_types <- function(df) {
-  df |> mutate(pt = str_remove_all(coalesce(project_type, ""), "^\\[|\\]$|\"")) |>
-    separate_rows(pt, sep = ",\\s*") |>
-    mutate(pt = str_trim(pt)) |> filter(pt != "", !is.na(pt))
+  # project_type is a JSON array string whose elements can contain internal commas
+  # (e.g. "Utilities (electricity, gas, telecommunications)"), so split on the
+  # quote-comma-quote element boundary, not on every comma.
+  df |> mutate(pt = str_remove_all(coalesce(project_type, ""), '^\\[|\\]$')) |>
+    separate_rows(pt, sep = '",\\s*"') |>
+    mutate(pt = str_remove_all(pt, '"'), pt = str_trim(pt)) |>
+    filter(pt != "", !is.na(pt), pt != "NA")
 }
 tech_shift <- function(law_row) {
   win <- ce |> filter(year_date >= law_row$win_start, year_date <= law_row$win_end) |> explode_types()
