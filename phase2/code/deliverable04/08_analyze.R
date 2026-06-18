@@ -4,7 +4,7 @@
 # coverage diagnostics, regulatory-period comparisons, and all main figures
 # (including recreations of the Phase 1 D3 timeline charts adapted for Phase 2 schema).
 #
-# FRA breakpoint: 2023-08-16 (CEQ final rule effective date)
+# FRA breakpoint: 2023-06-03 (FRA enactment; matches Phase 1 D5 + the pages analysis)
 # Legislative markers: ARRA 2009, BIL 2021, IRA 2022
 #
 # Output tables (phase2/output/deliverable04/diagnostics/):
@@ -69,7 +69,7 @@ dir.create(FIGS, recursive = TRUE, showWarnings = FALSE)
 # ---------------------------------------------------------------------------
 
 PROCESS_LEVELS    <- c("CE", "EA", "EIS")
-FRA_CUT_DATE      <- as.Date("2023-08-16")
+FRA_CUT_DATE      <- as.Date("2023-06-03")  # FRA enactment (matches Phase 1 D5 + the pages analysis)
 ARRA_DATE         <- as.Date("2009-02-17")
 BIL_DATE          <- as.Date("2021-11-15")
 IRA_DATE          <- as.Date("2022-08-16")
@@ -162,7 +162,12 @@ dates <- dates_raw |>
   mutate(
     initiation_date = as.Date(initiation_date),
     decision_date   = as.Date(decision_date),
-    duration_days   = as.integer(duration_days),
+    # Compute duration directly from the (possibly LLM-recovered) dates rather than the
+    # precomputed duration_days column, which is stale post-06 (it was only populated for the
+    # pre-adjudication day-level subset, so it undercounts complete timelines — e.g. EIS 213
+    # vs 425 complete_clear). decision_date >= initiation_date is guaranteed here because the
+    # negative-duration rows are reclassified to invalid_order below.
+    duration_days   = as.integer(decision_date - initiation_date),
 
     process_group = factor(process_type, levels = PROCESS_LEVELS),
 
@@ -225,11 +230,26 @@ dates <- dates_raw |>
 dates$timeline_status[.neg_mask] <- "invalid_order"
 message(sprintf("Stopgap filter: reclassified %d negative-duration complete rows -> invalid_order (TODO: fix in 05)", as.integer(sum(.neg_mask))))
 
-# Headline: complete_clear = both dates at day granularity (used for duration analysis)
+# Headline duration frame: ALL complete timelines (complete_clear + complete_with_proxy), so
+# proxy / Final-EIS-publication decisions are included (this lifts EIS from ~425 to ~1,330).
+# Month-granularity dates are imputed to the mid-month 15th (idempotent — dates already stored at
+# the 15th are unchanged); YEAR-granularity dates are EXCLUDED from durations because a day cannot
+# be responsibly imputed from a year alone (these are almost entirely a subset of CE initiations,
+# ~1,100 of them — including them would add +/-6 months of noise to CE's ~3-week median).
 headline <- dates |>
-  filter(timeline_status == "complete_clear", !is.na(duration_days))
+  filter(timeline_status %in% c("complete_clear", "complete_with_proxy"),
+         !is.na(initiation_date), !is.na(decision_date),
+         initiation_date_granularity != "year", decision_date_granularity != "year") |>
+  mutate(
+    .init_mid = if_else(initiation_date_granularity == "month",
+                        lubridate::floor_date(initiation_date, "month") + 14, initiation_date),
+    .dec_mid  = if_else(decision_date_granularity == "month",
+                        lubridate::floor_date(decision_date, "month") + 14, decision_date),
+    duration_days = as.integer(.dec_mid - .init_mid)
+  ) |>
+  filter(!is.na(duration_days), duration_days >= 0)
 
-message("complete_clear rows with duration: ", nrow(headline))
+message("complete (clear+proxy) rows with duration: ", nrow(headline))
 
 # ---------------------------------------------------------------------------
 # Helper: duration summary stats
@@ -428,7 +448,11 @@ SOURCE_COLORS <- c(
   "Doc text – EA full read"   = catf_magenta,
   "Ground truth verified"          = catf_purple,
   "Other"                          = "gray60",
-  "No date"                        = "#DDDDDD"
+  "No date"                        = "#DDDDDD",
+  # 3-category project-level provenance (collapsed)
+  "Register API"                   = catf_navy,
+  "Doc Text"                       = catf_dark_blue,
+  "No Date"                        = "#DDDDDD"
 )
 
 candidates <- candidates_raw |>
@@ -495,29 +519,26 @@ sel_dec <- candidates |>
   ungroup() |>
   select(project_id, process_type, dec_source = source_path, dec_is_register = is_register)
 
+# Project-level provenance, collapsed to 3 client-facing categories:
+#   Register API = BLM/DOE NEPA-register dates pulled via the agency metadata API (source_type
+#                  "metadata"); Doc Text = any date parsed from the documents (document_text,
+#                  LLM-adjudicated picks, Final-EIS publication, human-verified); No Date = missing.
+src3 <- function(present, source_type) dplyr::case_when(
+  !present                  ~ "No Date",
+  source_type == "metadata" ~ "Register API",
+  TRUE                      ~ "Doc Text"
+)
 proj_source <- dates |>
   select(project_id, process_type,
          initiation_source_type, decision_source_type,
          has_init = initiation_date, has_dec = decision_date) |>
-  mutate(has_init = !is.na(has_init), has_dec = !is.na(has_dec)) |>
-  left_join(sel_init, by = c("project_id", "process_type")) |>
-  left_join(sel_dec,  by = c("project_id", "process_type")) |>
   mutate(
-    init_source_label = case_when(
-      !has_init                                          ~ "No date",
-      !is.na(init_source)                               ~ as.character(init_source),
-      initiation_source_type == "ground_truth_verified" ~ "Ground truth verified",
-      TRUE                                              ~ "Other"
-    ),
-    dec_source_label = case_when(
-      !has_dec                                         ~ "No date",
-      !is.na(dec_source)                              ~ as.character(dec_source),
-      decision_source_type == "ground_truth_verified" ~ "Ground truth verified",
-      TRUE                                            ~ "Other"
-    )
+    has_init = !is.na(has_init), has_dec = !is.na(has_dec),
+    init_source_label = src3(has_init, initiation_source_type),
+    dec_source_label  = src3(has_dec,  decision_source_type)
   )
 
-SOURCE_PROJ_LEVELS <- c(SOURCE_LEVELS, "No date")
+SOURCE_PROJ_LEVELS <- c("Register API", "Doc Text", "No Date")
 
 reg_proj <- bind_rows(
   proj_source |>
@@ -597,10 +618,24 @@ coverage_fig <- dates |>
   count(process_type, coverage_group) |>
   group_by(process_type) |>
   mutate(pct = n / sum(n)) |>
-  ungroup()
+  # Explicit label y-position (segment centre) so text always aligns with the
+  # reverse-stacked bars: "Both dates" (first level) at the bottom, "No date" at the top.
+  arrange(process_type, coverage_group) |>
+  mutate(y_center = cumsum(pct) - pct / 2) |>
+  ungroup() |>
+  mutate(
+    lab       = sprintf("%.0f%%", 100 * pct),
+    # "No date" sits on a light-grey segment -> label it blue so it reads on white
+    lab_color = if_else(coverage_group == "No date", catf_dark_blue, "white")
+  )
 
 p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverage_group)) +
-  geom_col(width = 0.6) +
+  # reverse = TRUE puts the first factor level ("Both dates") at the BOTTOM of the stack
+  geom_col(width = 0.6, position = position_stack(reverse = TRUE)) +
+  geom_text(
+    aes(y = y_center, label = ifelse(pct >= 0.03, lab, ""), color = lab_color),
+    size = 3, fontface = "bold"
+  ) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
   scale_fill_manual(values = c(
     "Both dates"      = catf_navy,
@@ -608,14 +643,15 @@ p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverag
     "Initiation only" = catf_light_blue,
     "No date"         = "#CCCCCC"
   )) +
+  scale_color_identity() +
   labs(
-    title    = "D4 Timeline Coverage by Review Type",
+    title    = "Timeline Coverage by Review Type",
     subtitle = "Share of projects by timeline completeness category",
     x = NULL, y = "Share of projects", fill = NULL
   )
 
 ggsave(file.path(FIGS, "fig_d4_coverage_by_process.png"),
-       p_coverage, width = 7, height = 5, dpi = 150)
+       p_coverage, width = 9, height = 6, dpi = 300)
 message("Wrote fig_d4_coverage_by_process.png")
 
 # ---------------------------------------------------------------------------
@@ -647,9 +683,11 @@ both_lab <- coverage_energy_fig |>
 
 p_coverage_energy <- ggplot(coverage_energy_fig,
                             aes(x = energy_type, y = pct, fill = coverage_group)) +
-  geom_col(width = 0.7) +
-  geom_text(data = both_lab, aes(x = energy_type, y = pct, label = lab),
-            inherit.aes = FALSE, vjust = 1.3, size = 2.8, color = "white", fontface = "bold") +
+  # reverse = TRUE -> "Both dates" at the bottom, "No date" at the top
+  geom_col(width = 0.7, position = position_stack(reverse = TRUE)) +
+  # centre the "% with both dates" label in the navy bottom segment, white text
+  geom_text(data = both_lab, aes(x = energy_type, y = pct / 2, label = lab),
+            inherit.aes = FALSE, size = 2.8, color = "white", fontface = "bold") +
   facet_wrap(~process_group, nrow = 1) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
   scale_fill_manual(values = c(
@@ -659,13 +697,13 @@ p_coverage_energy <- ggplot(coverage_energy_fig,
     "No date"         = "#CCCCCC"
   )) +
   labs(
-    title    = "D4 Timeline Coverage by Review Type and Energy Type",
+    title    = "Timeline Coverage by Review Type and Energy Type",
     subtitle = "% on bars = share with BOTH dates (the Phase-1-comparable number; Decarb = clean energy)",
     x = NULL, y = "Share of projects", fill = NULL
   )
 
 ggsave(file.path(FIGS, "fig_d4_coverage_by_process_and_energy.png"),
-       p_coverage_energy, width = 11, height = 5, dpi = 150)
+       p_coverage_energy, width = 11, height = 5, dpi = 300)
 message("Wrote fig_d4_coverage_by_process_and_energy.png")
 
 # Also write the underlying table (so the Decarb numbers are exact for the deliverable)
@@ -692,16 +730,16 @@ p_hist <- ggplot(dur_plot, aes(x = duration_years, fill = process_group)) +
   scale_fill_manual(values = PROCESS_COLORS, guide = "none") +
   scale_x_continuous(breaks = 0:15, labels = function(x) paste0(x, "y")) +
   labs(
-    title = "D4 Review Duration Distribution (complete_clear only)",
+    title = "Review Duration Distribution",
     x = "Duration (years)", y = "Reviews"
   )
 
 ggsave(file.path(FIGS, "fig_d4_duration_histogram.png"),
-       p_hist, width = 7, height = 8, dpi = 150)
+       p_hist, width = 7, height = 8, dpi = 300)
 message("Wrote fig_d4_duration_histogram.png")
 
 # ---------------------------------------------------------------------------
-# Fig 3: Median review duration pre vs post FRA (Aug 16, 2023)
+# Fig 3: Median review duration pre vs post FRA (June 3, 2023)
 # ---------------------------------------------------------------------------
 
 fra_fig <- fra_comparison |>
@@ -720,7 +758,7 @@ p_fra <- ggplot(fra_fig, aes(x = period, y = median_months, fill = process_type)
   ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
   labs(
-    title    = "D4 Median Review Duration: Pre vs Post FRA (Aug 16, 2023)",
+    title    = "D4 Median Review Duration: Pre vs Post FRA (June 3, 2023)",
     subtitle = "Lighter bar = Pre-FRA (before Aug 2023)  |  Solid bar = Post-FRA (Aug 2023+)",
     x = NULL, y = "Median duration (months)"
   )
@@ -784,6 +822,16 @@ process_summary_complete <- tibble(process_group = factor(PROCESS_LEVELS, levels
     )
   )
 
+# Persist the exact per-process complete-timeline shares this figure prints (complete = BOTH dates
+# present) so the report narrative can cite the SAME numbers (see d4_complete_share.csv). This keeps
+# the "% complete" text aligned with fig-complete-share and fig-coverage by construction.
+write_csv(
+  process_summary_complete |>
+    transmute(process_type = as.character(process_group), n_complete, n_projects, share_complete),
+  file.path(DIAG, "d4_complete_share.csv")
+)
+message("Wrote d4_complete_share.csv")
+
 # Each process gets an identical full 0-100% reference box; the navy dot marks that process's actual
 # completion share (initiation + decision present). This keeps the uniform box-per-process look while
 # letting EIS show clearly — the dot carries the value, the box is just a 0-100% frame. (The earlier
@@ -841,9 +889,9 @@ interval_summary <- interval_df |>
   ) |>
   mutate(
     median_label = case_when(
-      median_months < 1  ~ sprintf("%s: < 1 month", process_group),
+      median_months < 1  ~ sprintf("%s: ~1 month", process_group),
       median_months < 12 ~ sprintf("%s: ~%.0f months", process_group, median_months),
-      TRUE               ~ sprintf("%s: ~%.0f months (%.1f yr)", process_group,
+      TRUE               ~ sprintf("%s: ~%.0f months (%.0f years)", process_group,
                                    median_months, median_months / 12)
     ),
     label_hjust = if_else(median_months < 3, 0, 0.5)
@@ -863,12 +911,12 @@ fig_duration_intervals <- ggplot(interval_summary, aes(y = process_group, color 
   ) +
   scale_color_manual(values = PROCESS_COLORS, drop = FALSE) +
   scale_x_continuous(
+    breaks = scales::breaks_width(20),
     labels = label_number(accuracy = 1),
     expand = expansion(mult = c(0.02, 0.12))
   ) +
   labs(
-    title    = "Timeline Duration Summary by Review Process",
-    subtitle = "Thin bar = p10–p90  |  Thick bar = IQR (p25–p75)  |  Point = median (complete_clear only)",
+    title    = "Timeline Duration by Review Process",
     x = "Duration (months)",
     y = "Review Process",
     color = NULL
@@ -978,8 +1026,8 @@ fig_by_year <- ggplot(year_counts, aes(x = decision_year, y = n_projects)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
   scale_fill_manual(values = PROCESS_COLORS, guide = "none") +
   labs(
-    title    = "Decarbonization Reviews by Decision Year",
-    subtitle = "Faceted by NEPA review process. Dashed lines mark major legislation.",
+    title    = "Reviews by Decision Year",
+    subtitle = "All projects, faceted by NEPA review process. Dashed lines mark major legislation.",
     x = "Decision Year",
     y = "Number of Reviews",
     caption = "Year derived from decision date."
@@ -988,6 +1036,47 @@ fig_by_year <- ggplot(year_counts, aes(x = decision_year, y = n_projects)) +
 ggsave(file.path(FIGS, "fig_d4_projects_by_decision_year.png"),
        fig_by_year, width = 11, height = 9, dpi = 300)
 message("Wrote fig_d4_projects_by_decision_year.png")
+
+# ---------------------------------------------------------------------------
+# Fig 8b: DOE projects by decision year (DOE is the largest single agency in
+# NEPATEC; grant/loan programs under ARRA/BIL/IRA drive much of the volume).
+# Phase 1 ref: 03_projects_by_year_doe.png
+# ---------------------------------------------------------------------------
+
+doe_agency <- read_parquet(file.path(DATA, "timeline_document_index.parquet"),
+                           col_select = c("project_id", "lead_agency_harmonized")) |>
+  group_by(project_id) |>
+  summarise(agency = first(na.omit(lead_agency_harmonized)), .groups = "drop") |>
+  filter(str_detect(coalesce(agency, ""), regex("Energy", ignore_case = TRUE)))
+
+year_counts_doe <- dates |>
+  semi_join(doe_agency, by = "project_id") |>
+  filter(!is.na(process_group), !is.na(decision_year),
+         decision_year >= 2000, decision_year <= 2025) |>
+  count(process_group, decision_year, name = "n_projects")
+
+fig_by_year_doe <- ggplot(year_counts_doe, aes(x = decision_year, y = n_projects)) +
+  geom_vline(xintercept = year_events$xintercept,
+             linetype = "dashed", color = catf_teal, linewidth = 0.75, alpha = 0.9) +
+  geom_col(aes(fill = process_group), alpha = 0.85) +
+  geom_text(aes(label = comma(n_projects)), vjust = -0.3, size = 2.6, color = "gray30") +
+  geom_text(data = year_events,
+            aes(x = xintercept, y = Inf, label = label, hjust = hjust_val),
+            vjust = 1.3, size = 2.3, color = catf_teal, lineheight = 0.85, inherit.aes = FALSE) +
+  facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
+  scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
+  scale_fill_manual(values = PROCESS_COLORS, guide = "none") +
+  labs(
+    title    = "DOE Projects by Decision Year",
+    subtitle = "Department of Energy projects only, faceted by review process. Dashed lines mark major legislation.",
+    x = "Decision Year", y = "Number of Reviews",
+    caption = "Year derived from decision date. Lead agency = Department of Energy."
+  )
+
+ggsave(file.path(FIGS, "fig_d4_projects_by_decision_year_doe.png"),
+       fig_by_year_doe, width = 11, height = 9, dpi = 300)
+message("Wrote fig_d4_projects_by_decision_year_doe.png")
 
 # ===========================================================================
 # ENERGY-TYPE BREAKOUT FIGURES
@@ -1035,7 +1124,7 @@ interval_energy <- headline |>
   ) |>
   mutate(
     median_label = case_when(
-      median_months < 1  ~ sprintf("< 1 mo  (n=%s)", comma(n)),
+      median_months < 1  ~ sprintf("~1 mo  (n=%s)", comma(n)),
       median_months < 12 ~ sprintf("%.0f mo  (n=%s)", median_months, comma(n)),
       TRUE               ~ sprintf("%.0f mo / %.1f yr  (n=%s)", median_months,
                                    median_months / 12, comma(n))
@@ -1053,6 +1142,12 @@ fig_intervals_energy <- ggplot(interval_energy, aes(y = energy_type, color = ene
   facet_wrap(~process_group, ncol = 1, scales = "free_x") +
   scale_color_manual(values = ENERGY_PROCESS_COLORS, drop = FALSE) +
   scale_x_continuous(
+    # Per-panel tick spacing for the free-x facets: CE spans only weeks-to-months (5-mo ticks),
+    # EA runs to ~3 years (10-mo ticks), EIS to ~10 years (20-mo ticks).
+    breaks = function(lims) {
+      w <- if (diff(lims) <= 20) 5 else if (diff(lims) <= 60) 10 else 20
+      seq(0, lims[2], by = w)
+    },
     labels = label_number(accuracy = 1),
     expand = expansion(mult = c(0.05, 0.05))
   ) +
@@ -1201,27 +1296,27 @@ message("Wrote fig_d4_register_source_candidates.png")
 p_proj_source <- ggplot(
   reg_proj |>
     mutate(
-      # Stack order: No date at bottom so coverage gaps are immediately visible
-      source = factor(source, levels = rev(SOURCE_PROJ_LEVELS))
+      # Stack: Register API bottom, Doc Text middle, No Date top
+      source = factor(source, levels = rev(SOURCE_PROJ_LEVELS)),
+      # No Date sits on a light-grey segment -> label it navy so it reads on white
+      lab_color = if_else(as.character(source) == "No Date", catf_navy, "white")
     ),
   aes(x = endpoint, y = pct / 100, fill = source)
 ) +
   geom_col(width = 0.65) +
   geom_text(
-    aes(label = ifelse(pct >= 3, paste0(round(pct), "%"), "")),
+    aes(label = ifelse(pct >= 3, paste0(round(pct), "%"), ""), color = lab_color),
     position = position_stack(vjust = 0.5),
-    size = 2.8, color = "white", fontface = "bold"
+    size = 2.8, fontface = "bold"
   ) +
   facet_wrap(~process_type, ncol = 3) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  # legend top->bottom = No Date / Doc Text / Register API, matching the stack
   scale_fill_manual(values = SOURCE_COLORS, drop = FALSE,
-                    guide = guide_legend(reverse = TRUE)) +
+                    guide = guide_legend(reverse = FALSE)) +
+  scale_color_identity() +
   labs(
-    title    = "D4 Timeline: Date Source by Review Type (Project Level)",
-    subtitle = paste0(
-      "Each bar = 100% of projects in that process type. ",
-      "'No date' = date not extracted for that endpoint."
-    ),
+    title    = "Date Source by Review Type",
     x        = NULL,
     y        = "Share of all projects",
     fill     = "Date source"

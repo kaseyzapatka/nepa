@@ -2,7 +2,7 @@
 
 **Goal:** Extract initiation and decision dates for all NEPA projects in the corpus (CE, EA, EIS), produce a project-level timeline database supporting duration analysis, coverage diagnostics, and regulatory-period comparisons.
 
-**Self-contained:** Partially. The core extraction pipeline (scripts 01–05 + `_run.py`) requires only `projects_combined.parquet`, `documents_combined.parquet`, and the processed pages/sections files. The Tier A metadata sources (scripts `api/blm_register/09a–09c` and `api/doe_register/01–06`) require network access to BLM ePlanning and energy.gov to build their lookup tables, but those outputs are cached as parquets and do not need to be re-fetched on each pipeline run.
+**Self-contained:** Partially. The core extraction pipeline (scripts 01–07 + `run_pipeline.py`) requires only `projects_combined.parquet`, `documents_combined.parquet`, and the processed pages/sections files. The Tier A metadata sources (scripts `api/blm_register/09a–09c` and `api/doe_register/01–06`) require network access to BLM ePlanning and energy.gov to build their lookup tables, but those outputs are cached as parquets and do not need to be re-fetched on each pipeline run. Script `06_adjudicate_llm.py` requires an Anthropic API key (macOS Keychain). The `fra/` sub-pipeline requires `phase2/data/processed/{ea,eis}/pages.parquet`.
 
 ---
 
@@ -10,7 +10,9 @@
 
 ### Pipeline scripts — `phase2/code/deliverable04/`
 
-Run in numbered order: `01` → `02` → `03` → `04` → `05` (→ `06`). The pipeline was flat-renumbered (2026-06-01) to insert the classifier at `04` and bump selection to `05`; helper/analysis scripts dropped their numbers, the orchestrator became `_run.py`, and the old `validation/` folder is now `labeling/`. `labeling/` scripts build and label the gold set separately.
+**Canonical run order** (as defined in `run_pipeline.py`): `00_sample` → `00b_sections` → `01_index` → `02_retrieve` → `03_extract_candidates` → `04_classify_candidates` → `04b_calibrate` → `05b_rank` → `05_select_dates` → `05c_inject_ground_truth` → `06_adjudicate_llm` → `07_validate` → `08_analyze.R`. Post-analysis scripts run separately: `09_sample_check.R`, `10_outliers.R`, `fra/02_pages_fra.R`.
+
+`run_pipeline.py` is the single canonical orchestrator for a full corpus run. The sharded runner `_run.py` is retired (archived). `run_pipeline.py --select` runs the selection-only sub-pipeline (`05b_rank` → `05_select_dates` → `05c_inject_ground_truth`), completing in minutes.
 
 | Script | What it does |
 |---|---|
@@ -19,15 +21,22 @@ Run in numbered order: `01` → `02` → `03` → `04` → `05` (→ `06`). The 
 | `01_index.py` | Join projects, documents, and all Tier A register sources into `timeline_document_index.parquet` with document role scores, appendix flags, and scan priority. |
 | `02_retrieve.py` | Execute the five-tier retrieval strategy (metadata, page slices, sections, keyword scoring, recovery) and write `timeline_context_packets.parquet`. |
 | `03_extract_candidates.py` | Apply the full date-regex suite to context packets, prelabel each candidate's role (clear_decision, clear_initiation, proxy, review, historical, `body_text`, reject), and write `timeline_candidates.parquet`. |
-| `04_classify_candidates.py` | **Learned scorer.** Two-head model (P_initiation, P_decision) over the ambiguous candidate pool (`role_confidence_score < 5.0`, plus `body_text`/`unknown`; 5.0 register/strong-cue rows and review/reject are exempt). One shared-encoder SetFit model with a `[CE]/[EA]/[EIS]` process token and multi-label head; backend-pluggable (SetFit now → DeBERTa-v3 later). Writes `p_initiation`, `p_decision`, `classifier_*` columns. Passes through with neutral scores if no model is trained yet. |
+| `04_classify_candidates.py` | **Learned scorer.** Three-head SetFit model (P_initiation, P_decision, P_feis) over the ambiguous candidate pool (`role_confidence_score < 5.0`, plus `body_text`/`unknown`; 5.0 register/strong-cue rows and review/reject are exempt). One shared-encoder SetFit model with a `[CE]/[EA]/[EIS]` process token; backend-pluggable (SetFit now → DeBERTa-v3 later). Writes `p_initiation`, `p_decision`, `classifier_*` columns. Passes through with neutral scores if no model is trained yet. |
 | `04b_calibrate.py` | Fit Platt calibrators on the frozen candidate-label test split, write `calibrator_init.pkl`/`calibrator_dec.pkl`, produce `calibration_curve.csv`, and optionally write `p_init_cal`/`p_dec_cal` back to `timeline_candidates.parquet`. |
-| `05_select_dates.py` | Two-pass scoring and selection of best decision and initiation dates per project; writes `timeline_project_dates.parquet` and the manual review queue. (`body_text` is a last-resort decision proxy until the classifier supersedes it.) |
-| `06_adjudicate_llm.py` | Optional LLM adjudication (Claude Haiku) for projects with missing or conflicting dates; two modes: candidate-packet adjudication and document-recovery. |
+| `05b_rank.py` | **Learned selection ranker.** LightGBM LambdaRank — one ranker per head (init, decision). Consumes the full feature set (classifier probabilities + structural signals) and writes `learned_init_score`/`learned_decision_score` back to `timeline_candidates.parquet`. `--apply` flag writes scores; `--train`/`--eval` train and evaluate. |
+| `05_select_dates.py` | Two-pass scoring and selection of best decision and initiation dates per project. **Variant B** logic: authoritative BLM/DOE register initiations are admitted regardless of ranking score and preferred over document text. Month-decision sliver routing (EA/EIS month-granularity decisions with explicit ROD/FEIS cues route to LLM adjudication). EIS tiered-decision: ROD-first, FEIS-fallback. Guard 2: calibrated initiation eligibility for EA/EIS (`T_INIT_CAL = 0.5`). Non-destructive write-back. Writes `timeline_project_dates.parquet` and the manual review queue. |
+| `05c_inject_ground_truth.py` | Terminal step that injects human-verified dates from `ranker.csv` directly into `timeline_project_dates.parquet` without re-running selection. `--scope all` (default) injects all verified rows; `--scope train` injects only training rows, leaving test rows as pipeline output for honest end-to-end evaluation. |
+| `06_adjudicate_llm.py` | **Full-scale LLM adjudication** using Claude Haiku (`claude-haiku-4-5-20251001`). Scope gate: projects missing ≥1 slot where the missing slot has a candidate (= 11,207 projects for the current run: CE 8,625 / EA 901 / EIS 1,681). Two modes: candidate-packet adjudication and document-recovery. ThreadPoolExecutor concurrency (threads only around the API call; main thread handles all writes). Incremental checkpoint every 50. Pre-run safety backup to `timeline_project_dates.pre_adj_<UTC>.parquet`. Credit-safety: fail-fast on ≥3 consecutive billing errors; 429 rate-limit errors classified as transient (never billing). API key via macOS Keychain. |
 | `07_validate.py` | Prepare annotatable review packets from the 100-project sample or run granularity-aware validation against filled gold labels. |
-| `_run.py` | Orchestration wrapper that shards projects by process type and hash bucket, calls scripts 02 → 03 → 04 → 05 (and optionally 06), and maintains a run manifest. |
-| `08_analyze.R` | Produce headline duration tables, FRA-breakpoint comparisons, coverage diagnostics, and proxy-sensitivity summaries from the D4 database. |
+| `run_pipeline.py` | **Single canonical orchestrator** for a full corpus run (`02` → `08_analyze.R`). `--select` flag runs selection-only sub-pipeline in minutes. Replaces the retired sharded `_run.py`. |
+| `08_analyze.R` | Produce headline duration tables, FRA-breakpoint comparisons, coverage diagnostics, proxy-sensitivity summaries, and all figures. Includes a **negative-duration stopgap filter** that reclassifies 233 `complete_*` rows with `decision_date < initiation_date` to `invalid_order` before any analysis. |
+| `09_sample_check.R` | Diagnostic spot-check: samples up to 5 projects per (process × coverage state) and writes `sample_check_candidates.csv` / `sample_check_projects.csv` with full candidate details and selected dates for eyeballing. |
+| `10_outliers.R` | **Timeline duration-outlier deliverable.** Surfaces all projects with `duration_days > 5,000` or negative durations. Heuristic `suspect_error` triage flag (pre-1985 initiation, year-granularity initiation, early LLM-picked initiation). Writes `d4_duration_outliers.csv` (all processes, full provenance) and `d4_duration_outliers_client.csv` (EA/EIS only, likely-real, client-facing columns). |
+| `fra/01_extract_pages.py` | Compute FRA regulatory page counts (40 C.F.R. § 1508.1(bb): body word count / 500, excluding embedded appendices + low-content pages) for ALL EA/EIS projects regardless of energy type. Streams pages via DuckDB; never loads pages into Python. Covers 5,032 projects (2,765 EA / 2,267 EIS). Output: `phase2/data/analysis/deliverable04/projects_page_counts.parquet`. |
+| `fra/02_pages_fra.R` | FRA pre/post analysis on the 3,678 projects with a decision date. Produces document-length over time, pre/post-FRA bars, by-energy segmentation, distribution, page-limit compliance, and raw-vs-regulatory comparison. FRA date: 2023-06-03 (enactment). |
 | `export_api_validation.py` | (helper) Export projects with any API-sourced Tier A date to a flat CSV for manual spot-checking, with source labels and register URLs. |
-| `build_review_packet.py` | (helper) Build a human-QC review packet from candidate output with pre-computed preferred initiation/decision candidates. |
+| `_test_adjudication.py` | (helper) Haiku-vs-Sonnet A/B test harness for adjudication quality comparison. |
+| `_check_rate_limits.py` | (helper) Tier diagnostic — reports current API account tier, rate limits, and estimated throughput for a given worker count. |
 
 ### Labeling scripts — `phase2/code/deliverable04/labeling/`
 
@@ -88,19 +97,34 @@ flowchart TD
     C4B --> C4O[calibrator_*.pkl\ncalibration_curve.csv]
     C4B --> P
 
+    P --> R5B[05b_rank.py --apply]
+    R5B --> P
+
     P --> Q[05_select_dates.py]
     Q --> R[timeline_project_dates.parquet]
     Q --> S[timeline_manual_review_queue.csv]
 
-    R --> T[07_validate.py]
-    T --> U[timeline_sample100_review_packet.csv\nvalidation_projects.csv\nvalidation_summary.csv]
+    R --> GT[05c_inject_ground_truth.py]
+    GT --> R
 
-    R --> V[06_adjudicate_llm.py\noptional]
+    R --> T[07_validate.py]
+    T --> U[validation_projects.csv\nvalidation_summary.csv]
+
+    R --> V[06_adjudicate_llm.py\n11,207 projects full run]
     V --> W[timeline_api_adjudications.parquet]
     V --> R
 
     R --> X[08_analyze.R]
-    X --> Y[d4_duration_summary.csv\nd4_coverage_by_process.csv\nd4_duration_by_period.csv]
+    X --> Y[d4_duration_summary.csv\nd4_coverage_by_process.csv\nd4_duration_by_period.csv\n+ 10 more CSVs + 20 figures]
+
+    R --> OL[10_outliers.R]
+    OL --> OO[d4_duration_outliers.csv\nd4_duration_outliers_client.csv]
+
+    FPAGES[pages.parquet EA/EIS\nPhase 2 processed] --> FRA1[fra/01_extract_pages.py]
+    FRA1 --> FRA2[projects_page_counts.parquet\n5032 projects]
+    FRA2 --> FRA3[fra/02_pages_fra.R]
+    R --> FRA3
+    FRA3 --> FRA4[fra figures + compliance CSVs]
 ```
 
 ---
@@ -123,22 +147,23 @@ flowchart TD
 
 ## Primary Outputs
 
-All analysis parquets are written under `phase2/data/analysis/timeline/`.
+Analysis parquets are written under `phase2/data/analysis/timeline/` (pipeline outputs) and `phase2/data/analysis/deliverable04/` (FRA page counts).
 
 | File | Description |
 |---|---|
-| `timeline_project_dates.parquet` | One row per project: selected initiation and decision dates, granularity, confidence, proxy flags, duration, timeline_status |
-| `timeline_candidates.parquet` | One row per date-context candidate: all extracted date evidence with scoring components, role pre-labels, classifier scores, and optional calibrated classifier scores |
-| `timeline_context_packets.parquet` | One row per retrieved context span: retrieval audit trail with tier, reason, scores |
-| `timeline_document_index.parquet` | One row per project-document: document role scores, scan priority, Tier A eligibility flags |
-| `timeline_run_manifest.parquet` | One row per run shard: status, row counts, input hashes, timing |
-| `models/candidate_classifier/calibrator_init.pkl` / `calibrator_dec.pkl` | Platt calibrators fitted by `04b_calibrate.py` on the frozen candidate-label test split |
-| `gold/timeline_gold_splits.parquet` | Gold sample split definitions for labeling batches |
-| `gold/timeline_gold_projects.parquet` | Finalized gold project-level date labels |
-| `gold/timeline_gold_candidates.parquet` | Finalized gold candidate-role labels |
-| `gold/timeline_gold_candidate_training.parquet` | Training-ready candidate examples with labels |
+| `timeline/timeline_project_dates.parquet` | One row per project: selected initiation and decision dates, granularity, confidence, proxy flags, duration, `timeline_status`, `has_rod`, `decision_is_feis_fallback`, `final_eis_*` fields, `route_to_llm`, `timeline_llm_run_at` |
+| `timeline/timeline_api_adjudications.parquet` | One row per LLM adjudication call: model, tokens, cost, response JSON, guardrail flags, selected candidate IDs. 11,207 rows from the 2026-06-17 full run. |
+| `timeline/timeline_candidates.parquet` | One row per date-context candidate: all extracted date evidence with scoring components, role pre-labels, classifier scores, calibrated classifier scores, `learned_init_score`/`learned_decision_score` from 05b |
+| `timeline/timeline_context_packets.parquet` | One row per retrieved context span: retrieval audit trail with tier, reason, scores |
+| `timeline/timeline_document_index.parquet` | One row per project-document: document role scores, scan priority, Tier A eligibility flags |
+| `timeline/models/candidate_classifier/calibrator_init.pkl` / `calibrator_dec.pkl` | Platt calibrators fitted by `04b_calibrate.py` on the frozen candidate-label test split |
+| `timeline/gold/timeline_gold_splits.parquet` | Gold sample split definitions for labeling batches |
+| `timeline/gold/timeline_gold_projects.parquet` | Finalized gold project-level date labels |
+| `timeline/gold/timeline_gold_candidates.parquet` | Finalized gold candidate-role labels |
+| `timeline/gold/timeline_gold_candidate_training.parquet` | Training-ready candidate examples with labels |
+| `deliverable04/projects_page_counts.parquet` | One row per EA/EIS project: raw pages, body pages, appendix pages, body word count, regulatory pages, method (`ocr`/`no_appendix_file`). 5,032 rows (2,765 EA / 2,267 EIS). |
 
-Figures and tables are written under `phase2/output/deliverable04/`, including `calibration_curve.csv`.
+Figures are written under `phase2/output/deliverable04/figures/`. Diagnostic CSVs are written under `phase2/output/deliverable04/diagnostics/`. Other outputs (review queues, sample checks) under `phase2/output/deliverable04/`.
 
 ---
 
@@ -232,9 +257,21 @@ Input text is built from a process token plus the anchored candidate context (`m
 
 `--curve` applies the calibrators to the scored pool for the current classifier model version and writes `phase2/output/deliverable04/calibration_curve.csv` with threshold, auto-resolved candidate count, routed candidate count, estimated Haiku input-token cost, and frozen-test precision by head and combined positive label. `--apply` is optional; it writes `p_init_cal` and `p_dec_cal` back to `timeline_candidates.parquet` for rows matching the current classifier version.
 
-### 05_select_dates.py — Scoring and Date Selection
+### 05b_rank.py — Learned Selection Ranker
 
-Implements two-pass selection to avoid circular chronology scoring:
+LightGBM LambdaRank with one ranker per head (init, decision). Loads the feature set from `05_select_dates.py` via `importlib` and adds the classifier probabilities. Requires human-verified `ranker.csv` for training labels (one verified initiation candidate ID and one decision candidate ID per gold project). `--apply` writes `learned_init_score` and `learned_decision_score` back to `timeline_candidates.parquet`; `05_select_dates.py` reads these and uses them as the primary ranking signal when present (falling back to heuristic `ranking_score` when absent). `--train` fits both rankers on `split == "train"` rows and reports eval metrics on held-out rows.
+
+### 05_select_dates.py — Scoring and Date Selection (Variant B)
+
+Implements two-pass selection to avoid circular chronology scoring. **Variant B** is the current production variant, characterized by three key behaviors beyond the base scoring:
+
+1. **Authoritative BLM/DOE register initiations admitted unconditionally.** Register-sourced initiation candidates (`candidate_source_type == "metadata"`) are accepted regardless of `ranking_score` and ranked above document-text candidates. This ensures that BLM ePlanning start dates (13,854 projects) and DOE ePlanning NOI dates are never suppressed by a low learner score.
+
+2. **Month-decision sliver routing (EA/EIS).** A month-granularity decision candidate is eligible only when it carries an explicit ROD/FEIS/NOA cue (`_MONTH_DEC_POS_RE`) and no known false-positive cue (`_MONTH_DEC_NEG_RE`), and no equally-cued day-level decision exists. These are NOT auto-selected — they route to script 06 (LLM adjudication) by setting `route_to_llm = True`. CE month decisions are auto-selected (the CX cover month IS the determination for a CE).
+
+3. **Guard 2 — calibrated initiation eligibility for EA/EIS.** For EA and EIS, the initiation candidate pool is expanded to include any candidate with `p_init_cal >= 0.5` (calibrated classifier probability), union-merged with the legacy `ranking_score > 0` gate. CE uses the legacy gate only (too large to validate before the deadline). An OMB/paperwork-reduction boilerplate guard (`_INIT_NEG_RE`) excludes form-expiry language regardless of gate.
+
+4. **EIS tiered decision — ROD-first, FEIS-fallback.** `EIS_TIERED_DECISION = True`. For each EIS project the decision pool is built from ROD-eligible candidates first (register RODs, ROD-typed documents, explicit ROD-language); if the pool is empty, FEIS-doc candidates (NOA/availability language or FEIS cover-page dates) are used as fallback, flagged `decision_is_feis_fallback = True`. This ensures ROD outranks FEIS by construction.
 
 **Pass 1 (decision).** Score all `clear_decision` and `proxy_decision` candidates using:
 - `source_strength` (0–5): Tier A = 5, page_slice/section = 3, page_keyword = 2
@@ -242,56 +279,139 @@ Implements two-pass selection to avoid circular chronology scoring:
 - `document_priority`: `DOCUMENT_TYPE_SCORES` dict lookup (ROD/FONSI/CE determination = 5.0; appendix = -2.5)
 - `section_priority` (−2 to +3): based on `heading_title` keywords
 - `page_priority` (0–3): capped from retrieval score / 3
-- `position_signal` (−1 to +1.5): bottom-of-document boost for CE decisions when `position_pct > 0.85`
+- `position_signal` (−1 to +1.5): role-aware; decision dates boost if `position_pct > 0.85`, initiation dates boost if `position_pct < 0.15`
+- `classifier_signal` (additive): `CLASSIFIER_WEIGHT * own_prob − CLASSIFIER_DISAGREE_PENALTY * (other − own)` when the other head is more confident
+- `granularity_signal` (−1 to +1): day = +1, month = 0, year = −1
+- `agreement_signal` (0–1.5): corroboration when multiple candidates resolve to the same date
 - `chronology_signal` (−5 to +2): penalties applied in pass 2 only
 - `repeated_mention_signal` (0–1): small boost for dates repeated in consistent contexts
 - `negative_penalty` (0–8): historical gap flag, strong negative context, `REJECT_CUES`
+- `July-1 penalty` (+2 negative): `nepa_case_year` proxies (YYYY-07-01 normalized dates) receive an extra penalty to ensure a real specific date on the same page beats the case-number proxy
 
-**Historical gap rule:** For CE and EA, dates that appear before a gap of > 730 days (`GAP_DAYS = 730`) relative to the cluster of dates are flagged `historical_gap_candidate` and have their `negative_penalty` increased. EIS is exempt (`EIS_GAP_EXEMPT = True`) because EIS reviews legitimately span many years.
+**Historical gap rule:** For CE and EA, dates before a gap of > 730 days (`GAP_DAYS = 730`) relative to the date cluster are flagged `historical_gap_candidate` with increased `negative_penalty`. EIS is exempt (`EIS_GAP_EXEMPT = True`).
 
-**Pass 2 (initiation).** Re-score `clear_initiation` and `proxy_initiation` candidates using the selected decision date as a chronology anchor. Dates after the selected decision receive a −5 `chronology_signal` penalty. Best clear initiation before the selected decision is chosen. **Chronology filter granularity fix:** when the selected decision date has `granularity = "year"` (i.e. a `nepa_case_year` proxy normalized to `YYYY-07-01`), the filter uses year-level comparison (`d.year <= decision_year`) instead of a strict day comparison. Without this, Tier A BLM register initiation dates that fall in the same year but after July 1 (e.g. `2021-07-23` vs proxy `2021-07-01`) were incorrectly excluded. This fix recovers ~4,163 previously lost BLM initiation dates.
+**Pass 2 (initiation).** Re-score `clear_initiation` and `proxy_initiation` candidates using the selected decision as a chronology anchor. Dates after the decision receive −5 `chronology_signal`. An implausible-duration guard (`MAX_INIT_LOOKBACK_DAYS = {EA: 3650, EIS: 5475}`) drops absurd-early init candidates. **Chronology filter granularity fix:** when the selected decision date has `granularity = "year"` (normalized `YYYY-07-01`), the filter uses year-level comparison to avoid dropping valid BLM register initiation dates that fall in the same year after July 1.
 
-**`nepa_case_year` proxy discard.** After both dates are selected, if the decision date came from a `nepa_case_year` candidate (`date_granularity = "year"`, normalized to YYYY-07-01) AND the selected initiation date falls in the same year or later (`init_d.year <= dec_d.year`), the proxy decision is discarded and the project is re-labeled `missing_decision` with the flag `nepa_case_year_proxy_discarded`. This prevents the July-1 placeholder from generating false `invalid_order` statuses when a BLM register initiation date from later in the same year (e.g. August 17) is correctly selected. A real `invalid_order` (decision before initiation across different years, or within the same year with non-proxy evidence) is still preserved.
+**`nepa_case_year` proxy discard.** If the decision date came from a `nepa_case_year` candidate AND the selected initiation falls in the same year or later, the proxy decision is discarded and the project is re-labeled `missing_decision` with flag `nepa_case_year_proxy_discarded`.
 
 **Timeline status** is assigned from the combination of which dates exist, proxy flags, and ordering validity:
 - `complete_clear` — both dates non-null, ordered, neither is proxy
 - `complete_with_proxy` — both dates non-null, ordered, at least one is proxy
 - `missing_initiation` — decision exists, no initiation
-- `missing_decision` — initiation exists, no decision; also set when a `nepa_case_year` proxy is discarded (see above)
+- `missing_decision` — initiation exists, no decision; also set when a `nepa_case_year` proxy is discarded
 - `missing_both` — neither endpoint
-- `invalid_order` — decision before initiation (excludes same-year `nepa_case_year` artifact — see above)
+- `invalid_order` — decision before initiation (excludes same-year `nepa_case_year` artifact)
 - `manual_review` — flagged for human resolution
 
 `duration_days` is populated only when both selected dates have `date_granularity == "day"`.
 
 Manual corrections from `timeline_manual_corrections.parquet` are applied after deterministic selection, with `manual_override` added to `timeline_flags`.
 
-**Month midpoint imputation (`apply_month_midpoint_imputation`).** After manual corrections — making it a true last-resort step — any remaining project where `decision_date_granularity == "month"` or `initiation_date_granularity == "month"` has its date adjusted from day 1 to day 15 (`YYYY-MM-15`), and `midpoint_imputed` is set to `True`. This is the pipeline's terminal fallback for month-year evidence (e.g. an EA cover page dated "November 2018" with no signed FONSI): midpoint imputation avoids systematic bias toward the first of the month while keeping the date usable for duration analysis. The `midpoint_imputed` flag lets downstream R analysis and the LLM adjudication step distinguish these estimates from authoritative day-level dates.
+**Month midpoint imputation (`apply_month_midpoint_imputation`).** After manual corrections, any remaining project where either date has `granularity == "month"` has its date adjusted from day 1 to day 15 (`YYYY-MM-15`), and `midpoint_imputed` is set to `True`. Projects with both-day granularity after midpoint imputation are now eligible for `duration_days`. The `midpoint_imputed` flag lets downstream analysis and LLM adjudication distinguish these estimates from authoritative day-level dates.
 
-**Pipeline ordering:** API/Register (Tier A) → Regex extraction (script 03) → classifier scoring (script 04) → selection (script 05) → Midpoint imputation (script 05 final pass) → LLM adjudication (script 06). Midpoint imputation runs before LLM adjudication so that projects with month-year dates are not sent to the LLM unnecessarily — they are already resolved to a usable estimate. Only projects with a completely missing date (`missing_decision`, `missing_both`) trigger LLM adjudication.
+**Pipeline ordering:** API/Register (Tier A) → Regex extraction (03) → classifier scoring (04) → LightGBM ranking (05b) → selection (05) → ground-truth injection (05c) → LLM adjudication (06).
 
-### 06_adjudicate_llm.py — Optional LLM Adjudication
+### 05c_inject_ground_truth.py — Ground Truth Injection
 
-Uses Claude Haiku (`claude-haiku-4-5-20251001`) in two modes. **Candidate adjudication** sends compact packets (project title, process type, agency, top 40 candidates with scores and 300–500 char evidence contexts) for projects with missing or conflicting dates. Returned dates must be from the existing candidate set — hallucination guardrail rejects dates not present in the input. **Document recovery** sends top 3–10 page/section chunks (strict token cap) and validates returned dates by re-running the regex parser over the supplied context. All calls are cached by `project_id + context_hash + model`. Outputs update `timeline_project_dates.parquet` and append to `timeline_api_adjudications.parquet`.
+Terminal step that injects human-verified dates from `phase2/training/deliverable04/ranker.csv` into `timeline_project_dates.parquet` without re-running selection or touching candidates. One-sided conflict handling: if only one side is verified and the other side now contradicts it (decision before initiation), the un-verified contradicted date is dropped rather than generating `invalid_order`. `--scope all` (default) is used in production. Model training reads `ranker.csv` directly — writing verified dates into the output parquet cannot leak into any training or validation set.
 
-**Midpoint imputation interaction:** Projects with `midpoint_imputed = True` are excluded from the LLM adjudication queue for the role that is already imputed — since the LLM would see the same document text and return the same month-year date. A guard in `_apply_adjudication_results` prevents the LLM from overwriting a midpoint-imputed date when the project was queued for the other role (e.g. missing initiation). If the API does return a day-level date for a previously imputed role, `midpoint_imputed` is reset to `False`.
+### 06_adjudicate_llm.py — Full-Scale LLM Adjudication
 
-### _run.py — Orchestration
+Uses Claude Haiku (`claude-haiku-4-5-20251001`, Anthropic API) in two modes.
 
-Shards all projects by process type and SHA-1 hash bucket (default: 5 shards per process). For each shard, calls scripts 02 → 03 → 04 → 05 via subprocess using `--sample-ids` with a temporary shard ID file, with optional `--with-api` flag to also call script 06. Maintains a run manifest with shard status (started / completed / failed), row counts, input file hashes, and timing. Completed shards are skipped on re-runs unless `--force` is passed.
+**Candidate adjudication** (primary mode): sends compact packets — project title, process type, agency, current pipeline status/flags, and up to `ROUTED_TOPK = 3` top candidates (ranked by classifier score then `ranking_score`) — for projects that are missing ≥1 slot where the missing slot has a candidate. The LLM selects candidate IDs from the presented list; a hallucination guardrail (`_validate_candidate_response`) rejects any ID not in the input list. Classifier-authoritative candidates (`role_confidence_score >= 5.0`) are kept in the pool even if the classifier left them unscored.
 
-### 10–13 — Gold Set Workflow
+**Document recovery** (secondary mode): sends top 10 page/section chunks (strict `MAX_INPUT_TOKENS = 4096` cap) for projects with no useful candidates. Returns free-form YYYY-MM-DD strings; validated by `pd.Timestamp` parsing. Recovery dates that are day-level clear `midpoint_imputed` on the overwritten slot.
 
-Four scripts that form a complete gold-label annotation pipeline:
+**Scope gate (completable gate):** Only projects where each missing slot has a corresponding candidate are sent. Already-both-present projects are excluded. This is the core filter that produced the 11,207-project queue (CE 8,625 / EA 901 / EIS 1,681).
 
-- **10_build_gold_samples.py** — defines named splits (`diagnostic_balanced_v2`, `train_enriched_v1`, etc.) with quota tables per process/energy stratum; writes `timeline_gold_splits.parquet` and per-split CSV/ID files
-- **11_prepare_gold_review_packets.py** — for a named split and batch number, joins current pipeline outputs to produce annotatable project-level and candidate-level review CSVs under `output/deliverable04/gold/review_packets/`
-- **13_codex_prelabel_gold_packets.py** — pre-fills `gold_*` columns in review packet copies from the current pipeline's best candidate per project, so reviewers verify rather than label from scratch
-- **12_import_gold_labels.py** — validates reviewed CSVs (checks date formats, role enumerations, required fields), writes normalized Parquet tables under `timeline/gold/`, computes inter-rater reliability (`timeline_gold_irr.parquet`), and produces a `reconciliation_queue.csv` for disagreements
+**Concurrency model:** `ThreadPoolExecutor` with `workers=24` (Tier-2 account). API calls run in worker threads; ALL writes to `adj_records`, `dates_updates`, and the checkpoint file happen in the main thread via `as_completed` — no locks needed.
+
+**Resilience:**
+- Incremental checkpoint every `SAVE_EVERY = 50` calls — kill never loses more than 50 results
+- `MAX_TRANSIENT_RETRIES = 5` with exponential backoff (`BACKOFF_BASE_SEC = 2.0`) for rate-limit (429), overloaded (529), timeout, and connection errors — these are always classified transient (never billing)
+- `BILLING_FAILFAST_N = 3` consecutive billing/auth errors triggers a clean stop with work saved; a top-up + re-run resumes only the un-cached projects
+- Cache key: SHA-1 of `project_id | candidate_ids | model`; only successful calls are cached (errored rows are retried on re-run)
+
+**Pre-run safety backup:** Before any applying run, `_backup_dates_file()` snapshots `timeline_project_dates.parquet` to `timeline_project_dates.pre_adj_<UTC>.parquet` in the same directory.
+
+**Month-granularity decisions:** LLM-picked month-granularity dates are stored at the mid-month 15th (mirroring `05`'s `apply_month_midpoint_imputation`) and flagged `month_decision` in `timeline_flags`.
+
+**Audit columns:** `timeline_llm_run_at` is set per-row (ISO-8601 UTC) only when the LLM changed a date for that project.
+
+**Full run results (2026-06-17):** 11,207 projects adjudicated, \$18.20 total cost, 0 errors. CE 8,625 (\$13.79) / EA 901 (\$1.44) / EIS 1,681 (\$2.97). Projects with `timeline_llm_run_at` set: CE 8,518 / EA 845 / EIS 1,509 (slightly fewer than queue size = LLM returned null for some).
+
+**API key:** via macOS Keychain prompt-on-access (standard `anthropic.Anthropic()` constructor; key not stored in code or environment files).
+
+**Companion tools:** `_test_adjudication.py` (Haiku-vs-Sonnet A/B harness), `_check_rate_limits.py` (tier diagnostic).
+
+**Midpoint imputation interaction:** A guard in `_apply_adjudication_results` prevents the LLM from overwriting a midpoint-imputed date when the project was queued for the other role. If the API returns a day-level date for a previously imputed role, `midpoint_imputed` is reset to `False`.
+
+### run_pipeline.py — Canonical Orchestrator
+
+Single file that defines the production run order and runs it. `FULL` stages: `02_retrieve.py --force` → `03_extract_candidates.py --force` → `04_classify_candidates.py --force` → `04b_calibrate.py --apply` → `05b_rank.py --apply` → `05_select_dates.py` → `05c_inject_ground_truth.py --scope all` → `07_validate.py --validate` → `08_analyze.R`. `SELECT` stages (for `--select` flag): `05b_rank.py --apply` → `05_select_dates.py` → `05c_inject_ground_truth.py --scope all`. The sharded `_run.py` is retired and moved to `_archived/`.
+
+### Gold Set Workflow — `labeling/`
+
+Scripts in `phase2/code/deliverable04/labeling/` form a complete gold-label annotation pipeline, separate from the extraction pipeline. Run once (or after major pipeline changes) to build, label, and import the gold set:
+
+- **01_build_gold_samples.py** — defines named splits with quota tables per process/energy stratum; writes `timeline_gold_splits.parquet` and per-split CSV/ID files
+- **02_prepare_gold_review_packets.py** — for a named split and batch number, joins current pipeline outputs to produce annotatable CSVs under `output/deliverable04/gold/review_packets/`
+- **05_llm_label_candidates.py** — **LLM gold-labeler.** The real labeler: sends each project's candidates to Claude, assigns roles, and writes import-ready `*_llm_labeled.csv`. Use this instead of `04_codex_prelabel_gold_packets.py`.
+- **03_import_gold_labels.py** — validates reviewed CSVs, writes normalized Parquet tables under `timeline/gold/`, computes inter-rater reliability, and produces `reconciliation_queue.csv`
+- **04_codex_prelabel_gold_packets.py** — ⚠️ Mechanical regex echo, NOT an LLM pass. Baseline/scaffold only; never train on its output.
 
 ### 08_analyze.R — Duration Analysis
 
-Reads from `timeline_project_dates.parquet` and optionally joins `timeline_document_index.parquet` for burden stratification. Headline analysis uses only `timeline_status == "complete_clear"`. Sensitivity analysis uses `complete_with_proxy`. Required regulatory breakpoints: FRA effective date `2023-08-16`, ARRA `2009-02-17`, BIL `2021-11-15`, IRA `2022-08-16`. Outputs include duration summary, coverage-by-process, duration-by-period, proxy sensitivity, and coverage diagnostics CSVs.
+Reads from `timeline_project_dates.parquet` and joins energy type from Phase 1 `projects_combined.parquet` and burden from `timeline_document_index.parquet`. Headline analysis uses only `timeline_status == "complete_clear"` with non-null `duration_days`. Sensitivity analysis uses `complete_with_proxy`.
+
+**Negative-duration stopgap filter (added 2026-06-17):** Before any analysis, the script reclassifies rows where `timeline_status` is `complete_clear` or `complete_with_proxy` AND `decision_date < initiation_date` to `invalid_order`. This affects 233 rows (CE 223 / EA 1 / EIS 9) that leaked past `05`'s ordering guard. The filter is a stopgap — the root fix is tracked for `05_select_dates.py`. The stopgap is clearly labeled in the code with a `TODO`.
+
+Required regulatory breakpoints: FRA effective date `2023-08-16`, ARRA `2009-02-17`, BIL `2021-11-15`, IRA `2022-08-16`.
+
+Output CSVs (under `phase2/output/deliverable04/diagnostics/`): `d4_duration_summary.csv`, `d4_duration_by_period.csv`, `d4_endpoint_coverage.csv`, `d4_coverage_by_process.csv`, `d4_coverage_diagnostics.csv`, `d4_proxy_sensitivity.csv`, `d4_duration_by_year.csv`, `d4_fra_comparison.csv`, `d4_flag_summary.csv`, `d4_register_source_candidates.csv`, `d4_register_source_projects.csv`.
+
+Output figures (under `phase2/output/deliverable04/figures/`): 20+ figures including duration histogram, FRA comparison, coverage by process/energy, project span chart, trend by year.
+
+### 09_sample_check.R — Coverage Spot-Check
+
+Diagnostic script that samples up to 5 projects per (process × coverage state) combination (complete / missing_initiation / missing_decision / missing_both) for manual eyeballing. Writes `sample_check_candidates.csv` (one row per candidate for sampled projects, with classifier scores, ranking score, selected flags, and context excerpt) and `sample_check_projects.csv`. Accepts optional seed argument (default 42). Not part of the production pipeline; run on demand after selection or adjudication changes.
+
+### 10_outliers.R — Timeline Duration Outliers
+
+Client-facing deliverable script that identifies projects with implausibly long NEPA timelines for case-study investigation. Threshold: `LONG_THRESHOLD_DAYS = 5000` (≈13.7 years), configurable via command-line argument. For each outlier, heuristic `suspect_error` triage:
+- `duration_days < 0` → always `suspect_error = TRUE`
+- `init_year < 1985` → likely historical citation
+- `initiation_date_granularity == "year"` → imprecise year-granularity initiation
+- `init_year < 1995 AND initiation_source_type == "api_adjudication"` → early LLM-picked date (verify)
+- Otherwise → `"plausibly real long process"`
+
+Writes two CSVs to `phase2/output/deliverable04/diagnostics/`:
+- `d4_duration_outliers.csv` — all processes, full provenance including `initiation_evidence_text` and `decision_evidence_text`
+- `d4_duration_outliers_client.csv` — EA/EIS only, likely-real (`!suspect_error`, `outlier_type == "long"`), client-facing columns only
+
+### fra/01_extract_pages.py — FRA Regulatory Page Counts
+
+Computes FRA "regulatory pages" (40 C.F.R. § 1508.1(bb): body word count / 500) for all EA/EIS projects regardless of energy type. Self-contained within Phase 2: reads from `phase2/data/processed/{ea,eis}/{documents,pages}.parquet` (EIS pages file = 6.1M rows, ~5.5 GB).
+
+**Algorithm per project:** (1) Select one main final document per project (main_document=YES preferred, tie → most pages). (2) **No-appendix-file shortcut:** if the filename matches `(without|wo|no)[_ -]?(appendix|appendices|app|appx)`, use the raw page count directly. (3) **OCR path:** stream page text via a single DuckDB query per process type — detect the embedded-appendix boundary (appendix/attachment/exhibit header at `page_num >= MIN_APPENDIX_PAGE = 5` with `word_count < APPENDIX_HEADER_MAX_WORDS = 100`), count body pages (`word_count >= WORD_COUNT_THRESHOLD = 50`), compute `regulatory_pages = ceil(body_word_count / 500)`.
+
+Efficiency: the heavy work is a single multithreaded DuckDB query that streams the pages parquet and joins only target main documents — nothing loaded into Python memory. DuckDB threads default to all cores. EA and EIS processed sequentially (each query saturates all cores).
+
+Output: `phase2/data/analysis/deliverable04/projects_page_counts.parquet`. 5,032 rows: EA 2,765 / EIS 2,267. Current run: 2026-06-17. Includes `pages_extraction_run_at` audit timestamp.
+
+### fra/02_pages_fra.R — FRA Pre/Post Analysis
+
+Joins `projects_page_counts.parquet` with `timeline_project_dates.parquet` (decision date) and energy type from `timeline_document_index.parquet`. Restricts to projects with a non-null decision date (3,678 projects for the current run). FRA date: 2023-06-03 (enactment, matching Phase 1 D5). Energy categories: Decarb (mapped from "Clean"), Fossil, Other.
+
+Produces 6 figures and 3 diagnostic CSVs under `phase2/output/deliverable04/`:
+- `figures/fig_d4_pages_over_time.png` — document length over time with 3-month rolling mean and FRA vertical line
+- `figures/fig_d4_pages_pre_post_fra.png` — pre/post FRA bar (mean + median diamond)
+- `figures/fig_d4_pages_pre_post_fra_by_energy.png` — by energy category
+- `figures/fig_d4_pages_distribution.png` — violin + boxplot distribution (y capped at p99)
+- `figures/fig_d4_pages_compliance.png` — FRA page-limit compliance for post-FRA projects (EA ≤75, EIS ≤150/300)
+- `figures/fig_d4_pages_reg_vs_raw.png` — regulatory vs raw pages comparison
+- `diagnostics/d4_pages_summary.csv`, `d4_pages_summary_by_energy.csv`, `d4_pages_compliance.csv`
 
 ---
 
@@ -430,30 +550,49 @@ The hierarchy ensures CE description dates with initiation/decision language (su
 
 <!-- d4-run-results: pull this section into the D4 report -->
 
-Full corpus run completed 2026-05-29. All 61,881 projects in `projects_combined.parquet` (process_type in CE, EA, EIS; no energy-type filter).
+Most recent full corpus run: 2026-06-17 (pipeline `timeline_run_at` 01:43–01:45 UTC; LLM adjudication `timeline_llm_run_at` 08:35 UTC). Total rows in `timeline_project_dates.parquet`: 61,187 (CE 54,040 / EA 3,017 / EIS 4,130).
 
-### Pipeline Volume
+### Timeline Status by Process (parquet as-written)
 
-| Stage | Count |
-|---|---:|
-| Total projects | 61,881 |
-| Projects with context packets | 60,922 |
-| Total context packets | 219,348 |
-| Total date candidates | 332,226 |
-| Projects with no candidates | 10,237 |
-| Projects with dates in output | 51,644 |
+The R stopgap filter in `08_analyze.R` reclassifies 233 `complete_*` rows with `decision_date < initiation_date` to `invalid_order` (CE 223 / EA 1 / EIS 9) before analysis. Numbers below are the parquet as-written; the R-analysis view shifts those rows from `complete_*` into `invalid_order`.
+
+| Process | complete_clear | complete_with_proxy | missing_initiation | missing_decision | missing_both | invalid_order | manual_review | Total |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| CE | 12,669 | 15,733 | 19,647 | 2,697 | 1,951 | 1,245 | 98 | 54,040 |
+| EA | 1,588 | 149 | 661 | 259 | 303 | 57 | — | 3,017 |
+| EIS | 425 | 908 | 264 | 1,094 | 1,294 | 145 | — | 4,130 |
+
+### Complete-Timeline Coverage (after R stopgap filter)
+
+| Process | complete_clear | complete (clear + proxy) | pct_complete_clear |
+|---|---:|---:|---:|
+| CE | 12,665 | 28,179 | 23.4% |
+| EA | 1,587 | 1,736 | 52.6% |
+| EIS | 424 | 1,324 | 10.3% |
 
 ### Decision Date Coverage
 
-| Process | Projects | Decision coverage | Real (day/month) | Year-proxy only |
-|---|---:|---:|---:|---:|
-| CE | — | 77.8% | 57.5% real day + 20.3% proxy year | 20.3% |
-| EA | — | 89.5% | 81.8% real day | 7.7% |
-| EIS | — | 48.1% | 47.3% real day | 0.8% |
+| Process | Total | Pct with decision date |
+|---|---:|---:|
+| CE | 54,040 | 91.4% |
+| EA | 3,017 | 81.4% |
+| EIS | 4,130 | 42.2% |
 
-"Real (day/month)" decisions are those with `decision_date_granularity` of `day` or `month`. Year-proxy decisions use the NEPA case-number year fallback (`nepa_case_year` pattern) as a last-resort year-only estimate.
+### LLM Adjudication Full Run (06_adjudicate_llm.py — 2026-06-17)
 
-### Tier A Metadata Source Contributions
+| Metric | Value |
+|---|---|
+| Projects in queue (scope gate) | 11,207 |
+| CE | 8,625 (\$13.79) |
+| EA | 901 (\$1.44) |
+| EIS | 1,681 (\$2.97) |
+| Total cost | \$18.20 |
+| API errors | 0 |
+| Model | `claude-haiku-4-5-20251001` |
+| Workers | 24 (Tier-2 account) |
+| Projects with `timeline_llm_run_at` set | CE 8,518 / EA 845 / EIS 1,509 |
+
+### Tier A Metadata Source Contributions (register runs 2026-05-29)
 
 | Source | Projects with accepted dates |
 |---|---:|
@@ -463,13 +602,18 @@ Full corpus run completed 2026-05-29. All 61,881 projects in `projects_combined.
 | DOE ePlanning (EA/EIS) | 406 |
 | Federal Register NOI | 94 |
 
-### Year-Proxy Count
+### FRA Page Count Coverage (fra/01_extract_pages.py — 2026-06-17)
 
-11,348 projects have a decision date with `date_granularity = "year"` — these are NEPA case-number year proxies used as last-resort estimates for CE projects whose document text yielded no clearer date. These are included in coverage counts above but flagged with `proxy_decision = True` and excluded from headline duration calculations.
+| Process | Projects | Median raw pages | Median regulatory pages |
+|---|---:|---:|---:|
+| EA | 2,763 | 35 | 21 |
+| EIS | 2,226 | 381 | 241 |
 
-### Classifier Calibration Curve
+Total output: 5,032 rows (EA 2,765 / EIS 2,267). `regulatory_pages` is null for projects whose body_word_count = 0 (blank/image-only main documents).
 
-Candidate classifier calibration was built 2026-06-04 from model `20260604T060644Z` using the 154-row frozen test split (18 initiation positives, 18 decision positives). The calibrated operating curve covers 285,747 scored candidates. Platt calibration compresses the raw SetFit high-score cluster: no candidate has calibrated max confidence at or above 0.60. The lowest threshold with frozen-test `precision_combined >= 0.85` is `tau = 0.10`, which auto-resolves 56,271 candidates (19.69%) and routes 229,476 candidates, with estimated Haiku input-token cost of $91.79 under the rough 500-token-per-candidate assumption. The curve is candidate-level, not project-level; Phase 3 must translate it into a project queue threshold before changing `06_adjudicate_llm.py`.
+### Classifier Calibration Curve (last updated 2026-06-04)
+
+Candidate classifier calibration built 2026-06-04 from model `20260604T060644Z` using the 154-row frozen test split (18 initiation positives, 18 decision positives). The calibrated operating curve covers 285,747 scored candidates. Platt calibration compresses the raw SetFit high-score cluster: no candidate has calibrated max confidence ≥ 0.60. The lowest threshold with frozen-test `precision_combined >= 0.85` is `tau = 0.10`, which auto-resolves 56,271 candidates (19.69%). The 06 adjudication script gates routing on `classifier_score >= ROUTE_CONF_THRESHOLD = 0.70`.
 
 ---
 
@@ -483,7 +627,7 @@ Candidate classifier calibration was built 2026-06-04 from model `20260604T06064
 | `process_type` | object | CE, EA, or EIS |
 | `initiation_date` | object (date) | Selected initiation date, nullable |
 | `initiation_date_granularity` | object | `day`, `month`, `year`, or `unknown` |
-| `initiation_source_type` | object | Source label: `noi_notice`, `application_received`, `scoping_notice`, `form_initiator_field`, `blm_register`, `doe_register`, `fr_noi`, etc. |
+| `initiation_source_type` | object | Source label: `noi_notice`, `application_received`, `scoping_notice`, `form_initiator_field`, `blm_register`, `doe_register`, `fr_noi`, `api_adjudication`, etc. |
 | `initiation_confidence` | object | `high`, `medium`, `low`, or `missing` |
 | `initiation_is_proxy` | bool | True for sensitivity-only dates |
 | `initiation_evidence_text` | object | Short evidence snippet |
@@ -491,17 +635,30 @@ Candidate classifier calibration was built 2026-06-04 from model `20260604T06064
 | `initiation_page_number` | object | Source page number, nullable |
 | `decision_date` | object (date) | Selected decision date, nullable |
 | `decision_date_granularity` | object | `day`, `month`, `year`, or `unknown` |
-| `decision_source_type` | object | Source label: `ce_determination`, `fonsi`, `rod`, `decision_record`, `doe_cx_register`, `blm_register`, `nepa_case_year`, etc. |
+| `decision_source_type` | object | Source label: `ce_determination`, `fonsi`, `rod`, `decision_record`, `doe_cx_register`, `blm_register`, `nepa_case_year`, `api_adjudication`, `eis_rod`, `eis_feis_fallback`, etc. |
 | `decision_confidence` | object | `high`, `medium`, `low`, or `missing` |
 | `decision_is_proxy` | bool | True for sensitivity-only dates |
 | `decision_evidence_text` | object | Short evidence snippet |
 | `decision_document_id` | object | Source document id, nullable |
 | `decision_page_number` | object | Source page number, nullable |
+| `has_rod` | bool | EIS only: True when at least one ROD-eligible candidate exists (register ROD, ROD-typed doc, or explicit ROD language) |
+| `decision_is_feis_fallback` | bool | EIS only: True when the selected decision date came from an FEIS-doc fallback (no ROD found) |
+| `decision_confidence_cal` | float64 | Calibrated confidence of the selected decision candidate (`p_dec_cal`); null when unscored |
+| `route_to_llm` | bool | True when 05 flagged this project for LLM adjudication (month-decision sliver or low calibrated confidence) |
+| `final_eis_date` | object (date) | EIS FEIS publication date (separate from decision); null when `EIS_FINAL_EIS_ENABLED = False` (current production) |
+| `final_eis_date_granularity` | object | `day`, `month`, or `unknown` |
+| `final_eis_source_type` | object | Source of the FEIS date, nullable |
+| `final_eis_is_proxy` | bool | True when FEIS date is proxy evidence |
+| `final_eis_confidence` | object | `high`, `medium`, `low`, or `missing` |
+| `final_eis_evidence_text` | object | FEIS date evidence snippet, nullable |
+| `final_eis_document_id` | object | FEIS document id, nullable |
+| `final_eis_page_number` | object | FEIS page number, nullable |
 | `duration_days` | float64 | `decision_date - initiation_date`; NULL unless both dates have `granularity = "day"` |
 | `timeline_status` | object | `complete_clear`, `complete_with_proxy`, `missing_initiation`, `missing_decision`, `missing_both`, `invalid_order`, `manual_review` |
-| `timeline_flags` | object | Pipe-delimited diagnostics: `non_day_granularity`, `proxy_decision`, `proxy_initiation`, `same_day`, `duration_gt_25y`, `missing_initiation`, `fr_noi_selected`, `api_adjudicated`, `manual_override`, `imputed_month_midpoint_decision`, `imputed_month_midpoint_initiation`, etc. |
+| `timeline_flags` | object | Pipe-delimited diagnostics: `non_day_granularity`, `proxy_decision`, `proxy_initiation`, `same_day`, `duration_gt_25y`, `missing_initiation`, `fr_noi_selected`, `api_adjudicated`, `api_recovery`, `manual_override`, `month_decision`, `imputed_month_midpoint_decision`, `imputed_month_midpoint_initiation`, `nepa_case_year_proxy_discarded`, etc. |
 | `midpoint_imputed` | bool | True when either date was adjusted from day 1 to day 15 by month midpoint imputation. Reset to False if script 06 later recovers a day-level date. |
-| `timeline_run_at` | object | ISO-8601 UTC run timestamp |
+| `timeline_run_at` | object | ISO-8601 UTC timestamp of the 05_select_dates.py run |
+| `timeline_llm_run_at` | object | ISO-8601 UTC timestamp set per-row only when the LLM adjudication changed a date for that project; empty string otherwise |
 
 ### timeline_candidates.parquet (key columns)
 
@@ -521,7 +678,15 @@ Candidate classifier calibration was built 2026-06-04 from model `20260604T06064
 | `context_text` | object | Bounded evidence context |
 | `candidate_role` | object | `clear_decision`, `clear_initiation`, `proxy_decision`, `proxy_initiation`, `review`, `historical`, `reject`, `unknown` |
 | `role_confidence` | float64 | 0–5 confidence scale |
-| `ranking_score` | float64 | Final composite score used by selector |
+| `ranking_score` | float64 | Final composite heuristic score (sum of `candidate_score_components`) |
+| `learned_init_score` | float64 | LightGBM init ranker score from 05b; null when model not yet trained |
+| `learned_decision_score` | float64 | LightGBM decision ranker score from 05b; null when model not yet trained |
+| `p_initiation` | float64 | Raw SetFit initiation head probability |
+| `p_decision` | float64 | Raw SetFit decision head probability |
+| `p_init_cal` | float64 | Platt-calibrated initiation probability (written by 04b --apply) |
+| `p_dec_cal` | float64 | Platt-calibrated decision probability (written by 04b --apply) |
+| `classifier_label` | object | Classifier-assigned label: `initiation`, `decision`, or `neither` |
+| `classifier_score` | float64 | Max of classifier head probabilities |
 | `selected_for_decision` | bool | True when chosen as decision evidence |
 | `selected_for_initiation` | bool | True when chosen as initiation evidence |
 | `is_proxy` | bool | True when candidate is proxy evidence |
@@ -529,13 +694,58 @@ Candidate classifier calibration was built 2026-06-04 from model `20260604T06064
 | `negative_cue_flags` | object | Comma-separated negative cue labels |
 | `created_at` | object | Extraction timestamp |
 
+### timeline_api_adjudications.parquet
+
+| Column | Type | Description |
+|---|---|---|
+| `api_call_id` | object | SHA-1 of `project_id\|prompt_hash\|run_at` |
+| `project_id` | object | Project that was adjudicated |
+| `process_type` | object | CE, EA, or EIS |
+| `adjudication_mode` | object | `candidate_adjudication` or `document_recovery` |
+| `model` | object | Model ID (e.g. `claude-haiku-4-5-20251001`) |
+| `provider` | object | `anthropic` |
+| `prompt_hash` | object | Cache key (SHA-1 of prompt text) |
+| `context_packet_ids` | object | JSON list of context packet IDs sent (document recovery mode) |
+| `input_tokens` | int64 | Tokens in the API request |
+| `output_tokens` | int64 | Tokens in the API response |
+| `estimated_cost_usd` | float64 | Cost of this call at model list price |
+| `response_json` | object | Raw JSON response from model (stringified) |
+| `raw_response_excerpt` | object | First 500 chars of the raw model output |
+| `api_error` | object | Error string if the call failed, null otherwise |
+| `called_at` | object | ISO-8601 UTC timestamp of the API call |
+| `candidate_ids` | object | JSON list of candidate IDs presented to the model |
+| `selected_initiation_candidate_id` | object | Candidate ID the LLM picked for initiation; null if none or hallucinated |
+| `selected_decision_candidate_id` | object | Candidate ID the LLM picked for decision; null if none or hallucinated |
+| `guardrail_flags` | object | Pipe-delimited guardrail violations: `hallucinated_initiation_id`, `hallucinated_decision_id`, etc. |
+
+### projects_page_counts.parquet
+
+| Column | Type | Description |
+|---|---|---|
+| `project_id` | object | Join key |
+| `document_id` | object | Main final document selected |
+| `dataset_source` | object | `EA` or `EIS` |
+| `raw_pages` | int32 | Raw PDF page count from documents parquet |
+| `file_name` | object | Document filename |
+| `appendix_start_page` | int32 | Page number where embedded appendix begins; null if none detected |
+| `total_parquet_pages` | int64 | Total pages in the pages parquet for this document |
+| `body_pages` | float64 | Pages before appendix with `word_count >= 50` |
+| `low_content_pages` | float64 | Pages before appendix with `word_count < 50` (maps/blanks) |
+| `appendix_pages` | float64 | Pages at or after `appendix_start_page` |
+| `body_word_count` | float64 | Total word count of body pages |
+| `regulatory_pages` | float64 | `ceil(body_word_count / 500)` per 40 C.F.R. § 1508.1(bb); null when body_word_count = 0 |
+| `regulatory_pages_method` | object | `ocr` (DuckDB word-count scan) or `no_appendix_file` (raw page count shortcut) |
+| `pages_extraction_run_at` | timestamp | UTC timestamp of the extraction run |
+
 ---
 
 ## Known Issues and Cautions
 
 - **Underlying EIS ROD coverage is sparse and inconsistently labeled.** A 2026-06-08 audit of the 4,130 EIS projects in `projects_combined.parquet` found only 582 projects (14.1%) with "ROD" or "Record of Decision" in `document_title` or `file_name`, 574 (13.9%) with `document_type_clean = "ROD"`, and 608 (14.7%) meeting either definition. Thus 3,522 EIS projects have no ROD signal in the available document names or standardized type, and some combined FEIS/ROD documents are classified only as FEIS or OTHER. Separately, 872 projects (21.1%) lack all three primary EIS record types (FEIS, DEIS, and ROD), broadly consistent with the NEPATEC 2.0 documentation's "about 25%" limitation. Missing ROD dates therefore reflect corpus retrieval/grouping and document-type classification as well as D4 extraction performance; absence of a local ROD record must not be interpreted as evidence that the underlying project had no ROD.
 
-- **EIS decision coverage gap (48.1% vs Phase 1 75.2%).** Root cause: two compounding factors. First, many EIS projects have all documents scored as `scan_priority = "defer"` because no document title or type matches the decision or initiation score dictionaries (e.g., numbered EIS volumes without explicit type labels). These projects receive no Tier B/C/D retrieval. Second, the current pipeline uses regex candidate extraction rather than the fine-tuned BERT model used in Phase 1. Tier E recovery is the near-term remediation path; better EIS document type classification in `01_index.py` is the longer-term fix.
+- **Negative-duration stopgap in 08_analyze.R.** 233 rows (CE 223 / EA 1 / EIS 9) in `timeline_project_dates.parquet` have `timeline_status == complete_*` but `decision_date < initiation_date`. These are extraction errors that leaked past `05`'s ordering guard via the proxy-completion path. `08_analyze.R` reclassifies them to `invalid_order` before computing any coverage or duration statistics, but the parquet itself is not corrected. The source fix (a shared status-normalizer in `05_select_dates.py`) is tracked as a TODO in the code and in the D4 issue log. Coverage numbers in this document use the post-stopgap figures; the raw parquet numbers differ by 233 rows.
+
+- **EIS decision coverage gap (42.2% raw, well below Phase 1 75.2%).** Root cause: three compounding factors. First, many EIS projects have all documents scored as `scan_priority = "defer"` because no document title or type matches the decision or initiation score dictionaries. Second, `EIS_DETERMINISTIC_DOC_ROD = False` in the current production run — document-text ROD tiers are disabled because the 2026-06-08 precision audit found them unreliable (high false-positive rate from ROD-doc pages that are EO citations / chapter covers). Third, the FEIS-fallback path (`EIS_TIERED_DECISION = True`) partially compensates but only for the ~908 `complete_with_proxy` EIS projects. Enabling document-text ROD tiers (after classifier/ranker validation) is the planned path to improve coverage.
 
 - **EIS candidate-presence gap (~664 EIS projects with zero candidates).** A 2026-06-08 count of `timeline_candidates.parquet` shows only **3,466 of the ~4,130 EIS projects carry at least one extracted date candidate**; roughly **664 EIS projects have no candidate row at all** (no-packet + no-surviving-regex-match cases). These date-less projects do not appear in candidate counts, so the gap is invisible in per-process candidate totals and is handled downstream by the Phase B `reconcile_eis_universe` stub-fill (which appends `missing_both` stubs so the EIS universe reconciles to the full project count). This is distinct from, and a subset of, the 10,237 all-process zero-candidate projects below. Note the gap is *not* an extraction-density problem: where EIS documents exist, yield is rich (median 22, mean 32.2 candidates/project; 11.4 candidates/document — roughly 2× CE per document). The ~664 gap is therefore a retrieval/grouping and document-availability issue, not a date-extraction failure. **This is the active remediation target (EIS coverage work, June 2026).**
 
@@ -573,17 +783,17 @@ Candidate classifier calibration was built 2026-06-04 from model `20260604T06064
 
 **FRA breakpoint (2023-08-16).** Duration analysis must report pre/post breakpoints at this CEQ final rule effective date. `08_analyze.R` implements `FRA_CUT_DATE <- as.Date("2023-08-16")` as the primary regulatory breakpoint. Do not use the proposed-rule date or any other proxy date for the FRA cutoff.
 
+**Why run_pipeline.py replaces _run.py.** The sharded orchestrator (`_run.py`) was designed for incremental corpus processing when memory and wall-clock time were constraints. After the pipeline was stabilized and the full corpus fit in a single pass, the sharding complexity introduced ordering bugs (stale `ranking_score` when `05b_rank` was added after the sharding design). `run_pipeline.py` is a flat sequential runner — one command, baked-in order, no state files — which eliminates the shard-resume complexity and makes the run order unambiguous for reproducibility.
+
+**Why LLM adjudication at full scale rather than a targeted subset.** The initial calibration-curve analysis suggested routing only high-confidence-ambiguous candidates to the LLM to minimize cost. The completable-gate approach (send only projects where each missing slot has a candidate that can fill it) turned out to be the right scoping mechanism: it constrains the queue to 11,207 projects where the LLM can plausibly produce a completion, avoids wasting calls on structurally-incompletable projects, and at $18.20 for the full run is economically well within budget for the deliverable. The calibration threshold approach was set aside as over-engineering for this scale.
+
+**Why FRA regulatory pages use body word count / 500 rather than raw PDF pages.** Raw PDF page counts are inflated by embedded appendices (which can outnumber the main body 3:1 for large EIS documents) and by low-content pages (maps, figures, blank separators). The FRA page limit (40 C.F.R. § 1508.1(bb)) specifically defines a page as 500 words and excludes maps, diagrams, tables, and bibliographic sections. Using raw page counts would systematically overstate document length relative to the regulatory standard. The no-appendix-file shortcut (filenames containing `without_appendices` etc.) is used as a reliable proxy when available because those files were explicitly created to exclude appendices.
+
+**Why EIS deterministic document-text ROD selection is disabled (`EIS_DETERMINISTIC_DOC_ROD = False`).** A precision audit (2026-06-16) on the gold-rank EIS cohort found that dates from ROD-typed documents without explicit "Record of Decision ... signed/issued" language in the context had ~20% false-positive rate — Executive Order citations, chapter section covers, and errata dates that happened to appear in ROD-typed documents. The tiered-decision approach (`EIS_TIERED_DECISION = True`, enabled) addresses this: it only accepts ROD-doc dates that carry explicit ROD signing language or are register/metadata dates. The FEIS-fallback path provides partial coverage for projects with no ROD at all.
+
 ---
 
 ## Validation and Gold Set
-
-Scripts 10–13 implement a structured multi-pass gold-labeling workflow. The workflow is:
-
-1. `10_build_gold_samples.py` — define named splits with process/energy stratification
-2. `11_prepare_gold_review_packets.py` — export per-batch CSVs with current pipeline outputs pre-populated
-3. `13_codex_prelabel_gold_packets.py` — auto-fill `gold_*` fields from best pipeline candidates (for reviewer efficiency)
-4. Human reviewer fills or corrects gold columns in the CSV
-5. `12_import_gold_labels.py` — import, validate, and normalize into `timeline/gold/` Parquet tables; produces inter-rater reliability report and reconciliation queue for disagreements
 
 The `07_validate.py` script operates on the original 100-project stratified sample from script 00. In `--prepare-review` mode it writes an annotatable review packet; in `--validate` mode it computes granularity-aware match statistics against filled gold labels using the acceptance thresholds:
 
@@ -591,13 +801,13 @@ The `07_validate.py` script operates on the original 100-project stratified samp
 - Clear initiation precision >= 90% for EA/EIS; >= 85% for CE
 - Invalid-order rate < 2%
 
-As of 2026-06-04, candidate-level classifier calibration has been built from the frozen test split, but project-level validation against `07_validate.py` gold labels remains pending.
+As of 2026-06-17, candidate-level classifier calibration has been built from the frozen test split. Project-level validation against gold labels remains pending (gold labels are in progress via the `labeling/` workflow).
 
 ---
 
 ## Reproduction
 
-Full corpus run sequence (after Tier A register tables are built):
+Full corpus run (after Tier A register tables are built):
 
 ```bash
 # Tier A — BLM ePlanning (run once; re-run only when NEPATEC BLM projects change)
@@ -621,48 +831,41 @@ conda run -n nepa python phase2/code/deliverable04/00b_sections.py
 # Document index (run after any register source changes)
 conda run -n nepa python phase2/code/deliverable04/01_index.py
 
-# Full corpus extraction (sharded, resumes from completed shards)
-conda run -n nepa python phase2/code/deliverable04/_run.py --process CE EA EIS --shards 5
+# Full corpus extraction + analysis (single command, canonical order)
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/run_pipeline.py
+
+# Selection-only rebuild (minutes; after a regex/classifier/ranker change that doesn't require re-retrieval)
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/run_pipeline.py --select
+
+# LLM adjudication (full scale; run after selection is stable; requires API key in macOS Keychain)
+CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/06_adjudicate_llm.py --mode candidate_adjudication --process CE EA EIS --workers 24
+
+# FRA page counts (run once; re-run when Phase 2 processed pages change)
+conda run -n nepa python phase2/code/deliverable04/fra/01_extract_pages.py --run
+
+# FRA analysis (reads page counts + decision dates)
+Rscript phase2/code/deliverable04/fra/02_pages_fra.R
+
+# Post-analysis diagnostics
+Rscript phase2/code/deliverable04/09_sample_check.R
+Rscript phase2/code/deliverable04/10_outliers.R
 
 # Classifier calibration (rerun after retraining 04)
 CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/04b_calibrate.py --fit
 CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/04b_calibrate.py --curve
-# Optional, only if downstream scripts consume calibrated probabilities directly:
 CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/04b_calibrate.py --apply
-
-# Optional: API adjudication for unresolved EA/EIS
-conda run -n nepa python phase2/code/deliverable04/_run.py --with-api --process EA EIS
-
-# Spot-check API-sourced dates
-conda run -n nepa python phase2/code/deliverable04/export_api_validation.py
-
-# Duration analysis
-Rscript phase2/code/deliverable04/08_analyze.R
-```
-
-Sample run (100-project validation sample):
-
-```bash
-conda run -n nepa python phase2/code/deliverable04/01_index.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
-conda run -n nepa python phase2/code/deliverable04/02_retrieve.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
-conda run -n nepa python phase2/code/deliverable04/03_extract_candidates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
-conda run -n nepa python phase2/code/deliverable04/04_classify_candidates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
-conda run -n nepa python phase2/code/deliverable04/05_select_dates.py --sample-ids phase2/output/deliverable04/timeline_sample100_ids.txt
-conda run -n nepa python phase2/code/deliverable04/07_validate.py --prepare-review
 ```
 
 Partial rebuild by process type (after a full corpus run):
 
-Scripts 01–06 all accept `--process CE EA EIS` (any subset). This is the supported path for rebuilding a single process type without touching the others — for example, after improving CE extraction patterns or after an EA regex fix.
+Scripts 01–06 all accept `--process CE EA EIS` (any subset). This is the supported path for rebuilding a single process type without touching the others.
 
-**Key isolation behavior in `02_retrieve.py`:** when `--process` is a strict subset of all three types, the script auto-routes output to `phase2/data/analysis/timeline/process_runs/<key>/` (e.g. `process_runs/CE/`) instead of the canonical `timeline/` directory. A `[GUARD]` message is printed. This prevents a partial retrieval run from overwriting the canonical `timeline_context_packets.parquet` built by the full corpus run.
+**Key isolation behavior in `02_retrieve.py`:** when `--process` is a strict subset of all three types, the script auto-routes output to `phase2/data/analysis/timeline/process_runs/<key>/` instead of the canonical `timeline/` directory. A `[GUARD]` message is printed.
 
-**`03_extract_candidates.py` behaves differently:** it reads from the canonical packets parquet and filters in memory by `process_type`. No output isolation occurs — it overwrites `timeline_candidates.parquet` in place for the selected process types only (appending or replacing rows as configured). This means script 03 is safe to re-run for a single process type against the full canonical packets without needing `--run-dir`.
-
-Typical partial rebuild workflows:
+**`03_extract_candidates.py` behaves differently:** it reads from the canonical packets parquet and filters in memory by `process_type`. No output isolation — it overwrites `timeline_candidates.parquet` in place for the selected process types only.
 
 ```bash
-# Re-run candidate extraction for CE only (reads canonical packets, writes back to timeline_candidates.parquet)
+# Re-run candidate extraction for CE only
 conda run -n nepa python phase2/code/deliverable04/03_extract_candidates.py --process CE --append
 
 # Re-run classification for EA only
@@ -670,11 +873,4 @@ conda run -n nepa python phase2/code/deliverable04/04_classify_candidates.py --p
 
 # Re-run date selection for EIS only
 conda run -n nepa python phase2/code/deliverable04/05_select_dates.py --process EIS --append
-
-# Re-run retrieval for CE only — output goes to timeline/process_runs/CE/, NOT canonical packets
-conda run -n nepa python phase2/code/deliverable04/02_retrieve.py --process CE
-# To then run extraction against that isolated output, point script 03 at it:
-conda run -n nepa python phase2/code/deliverable04/03_extract_candidates.py --process CE --run-dir phase2/data/analysis/timeline/process_runs/CE
 ```
-
-Use `--run-dir` explicitly on `02_retrieve.py` to override the auto-isolation path, or to point downstream scripts at a process-specific directory when you've re-retrieved packets for only one type.
