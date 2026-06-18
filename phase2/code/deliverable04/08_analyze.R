@@ -448,7 +448,11 @@ SOURCE_COLORS <- c(
   "Doc text – EA full read"   = catf_magenta,
   "Ground truth verified"          = catf_purple,
   "Other"                          = "gray60",
-  "No date"                        = "#DDDDDD"
+  "No date"                        = "#DDDDDD",
+  # 3-category project-level provenance (collapsed)
+  "Register API"                   = catf_navy,
+  "Doc Text"                       = catf_dark_blue,
+  "No Date"                        = "#DDDDDD"
 )
 
 candidates <- candidates_raw |>
@@ -515,29 +519,26 @@ sel_dec <- candidates |>
   ungroup() |>
   select(project_id, process_type, dec_source = source_path, dec_is_register = is_register)
 
+# Project-level provenance, collapsed to 3 client-facing categories:
+#   Register API = BLM/DOE NEPA-register dates pulled via the agency metadata API (source_type
+#                  "metadata"); Doc Text = any date parsed from the documents (document_text,
+#                  LLM-adjudicated picks, Final-EIS publication, human-verified); No Date = missing.
+src3 <- function(present, source_type) dplyr::case_when(
+  !present                  ~ "No Date",
+  source_type == "metadata" ~ "Register API",
+  TRUE                      ~ "Doc Text"
+)
 proj_source <- dates |>
   select(project_id, process_type,
          initiation_source_type, decision_source_type,
          has_init = initiation_date, has_dec = decision_date) |>
-  mutate(has_init = !is.na(has_init), has_dec = !is.na(has_dec)) |>
-  left_join(sel_init, by = c("project_id", "process_type")) |>
-  left_join(sel_dec,  by = c("project_id", "process_type")) |>
   mutate(
-    init_source_label = case_when(
-      !has_init                                          ~ "No date",
-      !is.na(init_source)                               ~ as.character(init_source),
-      initiation_source_type == "ground_truth_verified" ~ "Ground truth verified",
-      TRUE                                              ~ "Other"
-    ),
-    dec_source_label = case_when(
-      !has_dec                                         ~ "No date",
-      !is.na(dec_source)                              ~ as.character(dec_source),
-      decision_source_type == "ground_truth_verified" ~ "Ground truth verified",
-      TRUE                                            ~ "Other"
-    )
+    has_init = !is.na(has_init), has_dec = !is.na(has_dec),
+    init_source_label = src3(has_init, initiation_source_type),
+    dec_source_label  = src3(has_dec,  decision_source_type)
   )
 
-SOURCE_PROJ_LEVELS <- c(SOURCE_LEVELS, "No date")
+SOURCE_PROJ_LEVELS <- c("Register API", "Doc Text", "No Date")
 
 reg_proj <- bind_rows(
   proj_source |>
@@ -1240,8 +1241,8 @@ p_proj_source <- ggplot(
   labs(
     title    = "D4 Timeline: Date Source by Review Type (Project Level)",
     subtitle = paste0(
-      "Each bar = 100% of projects in that process type. ",
-      "'No date' = date not extracted for that endpoint."
+      "Register API = BLM/DOE NEPA-register dates; Doc Text = parsed from documents; ",
+      "No Date = not extracted for that endpoint."
     ),
     x        = NULL,
     y        = "Share of all projects",
