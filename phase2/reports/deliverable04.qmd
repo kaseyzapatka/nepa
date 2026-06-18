@@ -98,7 +98,7 @@ This report delivers:
 
 # Methodology
 
-This deliverable **extends the [Phase 1 timeline analysis](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#timeline-analysis-for-decarbonization-technologies)** — which examined review timelines for *decarb projects only* — to the **entire NEPATEC 2.0 database**: every categorical exclusion, environmental assessment, and environmental impact statement, across decarb, fossil, and other project types. It does so with a rebuilt extraction pipeline that adds authoritative agency dates and two machine-learning models.
+This deliverable **extends the [Phase 1 timeline analysis](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#timeline-analysis-for-decarbonization-technologies)** — which examined review timelines for *decarb projects only* — to the **entire NEPATEC 2.0 database**, which includes decarb, fossil, and other project types. It does so with a rebuilt extraction pipeline that adds authoritative agency dates, section aware retrieval, and two machine-learning models.
 
 ## How timeline dates are extracted
 
@@ -132,10 +132,10 @@ A project's timeline is **complete** when both an initiation and a decision date
 
 ### Known data or timeline quality issues
 
-- **Heavy reliance on proxy dates.** ~55% of CE and ~68% of EIS complete timelines rest on a *proxy* date that stands in for a milestone the documents never recorded directly. The proxy differs by process (below). *Separately*, where an extracted date is only has `year-month` granularity (e.g. a Final-EIS cover month like "June 2015"), the day is imputed to the **mid-month 15th** to minimize bias; the few year-only dates are excluded from the duration figures.
+- **Heavy reliance on proxy dates.** ~55% of CE and ~68% of EIS complete timelines rest on a *proxy* date that stands in for a milestone the documents never recorded directly. The proxy differs by process (below).
   - **CE — imputed initiations.** Most CEs record no distinct start, so the initiation is imputed: the pipeline takes the **earliest qualifying signature/start date** on the form (often the initiator's signature, which precedes the approving official's). ~13,100 CE initiations are proxies.
   - **EIS — Final-EIS-publication decisions.** Only ~18% of EISs have a Record of Decision in the corpus, so for another ~18% the pipeline uses the **Final-EIS publication date** (often reported as month + year → imputed to the 15th) as a stand-in decision. ~58% of EISs still end up with no decision date at all.
-- **EAs are register-heavy.** EAs have no Notice-of-Intent requirement and often skip scoping, so a documented start date is frequently missing — **54% of EA initiations come from the BLM/DOE register** rather than the EA document. Because those register "project start" dates are often **late administrative entries made near the decision** (some only 1–2 days before the FONSI), register-anchored EAs show artificially **short durations** (~60-day median vs ~12 months for document-based starts).
+- **EAs are register-heavy.** EAs have no Notice-of-Intent requirement, so a documented start date is frequently missing — **54% of EA initiations come from the BLM/DOE register** rather than the EA document. Because those register "project start" dates are often **late administrative entries made near the decision** (some only 1–2 days before the FONSI), register-anchored EAs show artificially **short durations** (~60-day median vs ~12 months for document-based starts).
 
 
 ::: callout-note
@@ -143,7 +143,7 @@ A project's timeline is **complete** when both an initiation and a decision date
 
 -   **Lift EIS decision coverage** — re-pull Final-EIS cover/publication dates to see if we can add more year-month dates for EIS.
 -   **Fix the ordering check at the source** — resolve the 233 decision-before-initiation rows in the selection step (currently handled by a downstream stopgap filter).
--   **Extend the analysis** — the [BLM field-office experience](#sec-field-office) learning-curve test is now built (no experience effect once calendar time is controlled); geothermal timelines by field office and whether post-FRA adoption of categorical exclusions correlates with faster reviews remain scoped (see Requested Extensions).
+-   **Extend the analysis** — the [BLM field-office experience](#sec-field-office) learning-curve test is now built (no experience effect once calendar time is controlled); geothermal timelines by field office and whether post-FRA adoption of categorical exclusions correlates with faster reviews (see Requested Extensions).
 
 ------------------------------------------------------------------------
 
@@ -202,7 +202,7 @@ include_fig("fig_d4_coverage_by_process_and_energy.png")
 
 ## Duration analysis
 
-Durations use **all complete timelines** (both dates present, including those resolved with a proxy date such as a Final-EIS publication date in place of a missing Record of Decision). Month-only dates are imputed to the **mid-month 15th**; the small number of year-only dates (almost entirely a subset of CE initiation dates) are excluded, since a day cannot be responsibly imputed from a year alone.
+Durations use **all complete timelines** (both dates present, including those resolved with a proxy date such as a Final-EIS publication date in place of a missing Record of Decision). Month-only dates are imputed to the **mid-month 15th**.
 
 On that basis, durations track the expected complexity ladder from CE to EA to EIS — a median of about **`r dmed("CE")` days for CE**, **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA**, and **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS** (n = `r fmt_n(dur$n[dur$process_type=="CE"])` / `r fmt_n(dur$n[dur$process_type=="EA"])` / `r fmt_n(dur$n[dur$process_type=="EIS"])`). @fig-duration-intervals summarises the spread; @fig-duration-hist shows the full distributions; @fig-spans plots individual project spans.
 
@@ -230,6 +230,9 @@ The full duration distributions (@fig-duration-hist) show the same complexity la
 #| out-width: "100%"
 include_fig("fig_d4_duration_histogram.png")
 ```
+
+
+@fig-spans plots each complete review as a horizontal bar from its initiation to its decision date, sorted by length within each process so the spread in durations is visible one project at a time rather than only in aggregate. CE spans collapse to short marks, EA bars range from a few months to a couple of years, and the EIS panel is dominated by multi-year bars — the same CE-to-EA-to-EIS complexity ladder seen in the histograms, now resolved to individual reviews.
 
 ```{r}
 #| label: fig-spans
