@@ -73,6 +73,12 @@ pg <- read_diag("d4_pages_summary.csv")
 pgv <- function(pt, per, col) pg[[col]][pg$process_type == pt & pg$fra_period == per]
 ```
 
+```{=html}
+<style>
+figcaption, .figure-caption, .quarto-figure figcaption { text-align: left !important; }
+</style>
+```
+
 ## Executive Summary
 
 ::: callout-note
@@ -93,15 +99,15 @@ This report delivers:
 
 # Methodology
 
-This deliverable **extends the [Phase 1 timeline analysis](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#timeline-analysis-for-decarbonization-technologies)** — which examined review timelines for *clean-energy projects only* — to the **entire NEPATEC 2.0 database**: every categorical exclusion, environmental assessment, and environmental impact statement, across clean-energy, fossil, and other project types. It does so with a rebuilt extraction pipeline that adds authoritative agency dates and two machine-learning models.
+This deliverable **extends the [Phase 1 timeline analysis](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#timeline-analysis-for-decarbonization-technologies)** — which examined review timelines for *decarb projects only* — to the **entire NEPATEC 2.0 database**: every categorical exclusion, environmental assessment, and environmental impact statement, across decarb, fossil, and other project types. It does so with a rebuilt extraction pipeline that adds authoritative agency dates and two machine-learning models.
 
 ## How timeline dates are extracted
 
 This section improves on the Phase 1 timeline method. For every project we identify two milestones — the **initiation** (when the review begins: an application received, a Notice of Intent, or scoping) and the **decision** (when it concludes: a signature, a Record of Decision, or a Finding of No Significant Impact). The pipeline finds these in five high-level steps:
 
-1.  **Extract candidate dates** from every NEPA document in NEPATEC 2.0, capturing the sentence around each date so its meaning is clear.
-2.  **Classify each date's role** — a machine-learning *classifier* labels every candidate as an initiation, decision, or other date.
-3.  **Rank the candidates** — a second *ranking model* scores which initiation candidate and which decision candidate is the operative one for the project.
+1.  **Extract candidate dates** from every NEPA document in NEPATEC 2.0, capturing the sentence around each date as well as document location and metadata so its meaning is clear.
+2.  **Classify each date's role** — a machine-learning *classifier* labels every candidate as an `initiation`, `decision`, or `neither`.
+3.  **Rank the candidates** — a second *ranking model* ranks initiation and decision candidates by their likely to be the final, decisive date for the project.
 4.  **Anchor on authoritative dates** — where the BLM or DOE NEPA register records an official project-start or decision date, that date is used.
 5.  **Resolve the hardest cases with an LLM** — for the projects where the operative date is still ambiguous, a large language model selects the best remaining candidate.
 
@@ -109,21 +115,40 @@ A project's timeline is **complete** when both an initiation and a decision date
 
 ## How Phase 2 analysis improves upon Phase 1
 
--   **Full-database coverage** — Phase 1 covered clean-energy projects only (~20,700); Phase 2 covers the **entire NEPATEC 2.0 database** (~61,000 projects — CE, EA, and EIS across clean-energy, fossil, and other types).
--   **Authoritative agency dates** — Phase 2 incorporates the **BLM and DOE NEPA registers** as a first-class source of official project-start and decision dates, instead of relying solely on dates parsed from document text.
--   **A classifier *and* a ranking model** — Phase 1 used a single date classifier; Phase 2 adds a dedicated **ranking model** that decides which candidate is the operative initiation/decision, which sharply improves selection on documents containing many look-alike dates.
+-   **Full-database coverage** — Phase 1 covered decarbonization technology projects only (20,725); Phase 2 covers the entire NEPATEC 2.0 database (61,881 projects).
+-   **API registry dates** — Phase 2 incorporates authoritative dates from *BLM and DOE NEPA registers* as an authoritative source of official project-start and decision dates. We pull in about 40,000 register dates, which is particularly helpful for CE and EA reviews.
+-   **Cleaner retrieval and granularity handling** — section-aware retrieval pulls fewer but better candidate dates based on document location and the pipeline uses year-month decision dates (e.g. a Final-EIS cover month) where no better dates are available.
+-   **Improved classifier *AND* a ranking model** — Phase 1 used a single date classifier (`DeBERTa` model); Phase 2 used an improve classifer (`SetFit`) and adds a dedicated **ranking model** (`LightGBM`) that decides which candidate is the operative initiation/decision, sharply improving which candidates get sent to the LLM adjudicating model.
 -   **LLM adjudication at scale** — the hardest ambiguous cases across the whole corpus are resolved by a large language model, recovering dates the automated pipeline could not select on its own.
--   **Cleaner retrieval and granularity handling** — section-aware retrieval pulls fewer but cleaner candidate dates, and month-only decision dates (e.g. a Final-EIS cover month) are handled explicitly rather than dropped.
--   **Fully reproducible** — the entire build runs end-to-end from committed code on a DuckDB-based pipeline.
+
+## Data Quality & Caveats
+
+
+### Fixable pipeline or data quality issues
+
+- **About 2,000 register date errors.** About 2,000 document text dates are erroneously used in place of API register dates. These can be recovered with a little bit of coding elbow grease.
+- **Negative-duration stopgap.** 233 decision-before-initiation rows are reclassified to `invalid_order` at analysis time; a source-level fix in script 05 is tracked.
+- **Outlier extraction errors.** — extra long "durations" where the initiation is a stray/historical date (a citation, a prior plan, a facility-construction date) rather than the NEPA start. The genuinely-long vs error split is curated in 10_outliers.R.
+- **LLM API call returned no date.** About `2,000` project dates were returned as null -- hoping to dig into these to see if we can recover them with some coding elbow grease. 
+
+
+### Known data or timeline quality issues
+
+- **Heavy reliance on proxy dates.** ~55% of CE and ~68% of EIS complete timelines rest on a *proxy* date that stands in for a milestone the documents never recorded directly. The proxy differs by process (below). *Separately*, where an extracted date is only has `year-month` granularity (e.g. a Final-EIS cover month like "June 2015"), the day is imputed to the **mid-month 15th** to minimize bias; the few year-only dates are excluded from the duration figures.
+  - **CE — imputed initiations.** Most CEs record no distinct start, so the initiation is imputed: the pipeline takes the **earliest qualifying signature/start date** on the form (often the initiator's signature, which precedes the approving official's). ~13,100 CE initiations are proxies.
+  - **EIS — Final-EIS-publication decisions.** Only ~18% of EISs have a Record of Decision in the corpus, so for another ~18% the pipeline uses the **Final-EIS publication date** (often reported as month + year → imputed to the 15th) as a stand-in decision. ~58% of EISs still end up with no decision date at all.
+- **EAs are register-heavy.** EAs have no Notice-of-Intent requirement and often skip scoping, so a documented start date is frequently missing — **54% of EA initiations come from the BLM/DOE register** rather than the EA document. Because those register "project start" dates are often **late administrative entries made near the decision** (some only 1–2 days before the FONSI), register-anchored EAs show artificially **short durations** (~60-day median vs ~12 months for document-based starts).
+
 
 ::: callout-note
 ## Next steps
 
--   **Lift EIS decision coverage** — re-pull Final-EIS cover/publication dates and add a recovery pass for Records of Decision that sit in separate documents (the main EIS gap).
--   **Recover missing initiations** — cross-reference the **Federal Register Notice-of-Intent API** to fill in and validate EIS/EA start dates.
--   **Validate date *accuracy*** — build a held-out, human-labelled gold set to measure precision, not only coverage.
--   **Fix the ordering check at the source** — resolve the 233 decision-before-initiation rows in the selection step (currently handled by a downstream stopgap filter; see Data Quality & Caveats).
+-   **Lift EIS decision coverage** — re-pull Final-EIS cover/publication dates to see if we can add more year-month dates for EIS.
+-   **Fix the ordering check at the source** — resolve the 233 decision-before-initiation rows in the selection step (currently handled by a downstream stopgap filter).
 -   **Extend the analysis** — BLM field-office learning curves, geothermal timelines by field office, and whether post-FRA adoption of categorical exclusions correlates with faster reviews (see Requested Extensions).
+
+------------------------------------------------------------------------
+
 :::
 
 ## Date provenance
@@ -149,9 +174,9 @@ include_fig("fig_d4_register_source_projects.png")
 -   **EA** (`r fmt_pct(cpct("EA"))` complete): the strongest of the three, but still initiation-limited — EAs have no Notice-of-Intent requirement and often skip scoping.
 -   **EIS** (`r fmt_pct(cpct("EIS"))` complete): initiations are usually documented (an NOI is required), but **decision** coverage is only `r fmt_pct(dpct("EIS","pct_decision"))` because Records of Decision are frequently separate documents not in the corpus.
 
-**Comparison with Phase 1.** Phase 1 measured completeness for *clean-energy projects only* and reported [CE ~30% · EA ~62% · EIS ~48%](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#fig-complete-share). On the **full database**, Phase 2 reaches CE `r fmt_pct(cpct("CE"))` · EA `r fmt_pct(cpct("EA"))` · EIS `r fmt_pct(cpct("EIS"))`. CE is *higher* — the much larger universe is dominated by routine, register-dated determinations — but **EA and EIS land below their Phase 1 clean-only rates**, for two reasons this analysis surfaced:
+**Comparison with Phase 1.** Phase 1 measured completeness for *decarb projects only* and reported [CE ~30% · EA ~62% · EIS ~48%](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#fig-complete-share). On the **full database**, Phase 2 reaches CE `r fmt_pct(cpct("CE"))` · EA `r fmt_pct(cpct("EA"))` · EIS `r fmt_pct(cpct("EIS"))`. CE is *higher* — the much larger universe is dominated by routine, register-dated determinations — but **EA and EIS land below their Phase 1 decarb-only rates**, for two reasons this analysis surfaced:
 
--   **The aggregate is diluted by non-clean projects.** Phase 1's denominator was clean energy; Phase 2's is everything. Decarbonization EIS alone completes at **42.4%** (much closer to Phase 1's 48%) — it is the heterogeneous "Other" bucket that pulls the EIS aggregate down to `r fmt_pct(cpct("EIS"))`.
+-   **The aggregate is diluted by non-decarb projects.** Phase 1's denominator was decarb energy; Phase 2's is everything. Decarbonization EIS alone completes at **42.4%** (much closer to Phase 1's 48%) — it is the heterogeneous "Other" bucket that pulls the EIS aggregate down to `r fmt_pct(cpct("EIS"))`.
 -   **The remaining gaps are structural, not fixable by better parsing.** EIS completeness is capped by **missing Records of Decision** (a separate document, often outside the corpus — decision coverage only `r fmt_pct(dpct("EIS","pct_decision"))`); CE and EA completeness is capped by **missing initiations**, because neither requires a Notice of Intent and a start date is frequently never recorded. A minority of EIS "projects" are also comment letters or document fragments with no milestone date to extract. Lifting EIS coverage toward Phase 1 is the focus of the [Next steps](#methodology) above.
 
 ```{r}
@@ -168,7 +193,7 @@ include_fig("fig_d4_complete_timeline_share_boxplot.png")
 include_fig("fig_d4_coverage_by_process.png")
 ```
 
-Coverage also varies by energy category (@fig-cov-energy). Notably, **decarbonization EIS projects complete at 42.4% — well above the EIS aggregate of `r fmt_pct(cpct("EIS"))`** — because clean-energy EISs are better documented than the heterogeneous "Other" bucket that drags the aggregate down.
+Coverage also varies by energy category (@fig-cov-energy). Notably, **decarbonization EIS projects complete at 42.4% — well above the EIS aggregate of `r fmt_pct(cpct("EIS"))`** — because decarb EISs are better documented than the heterogeneous "Other" bucket that drags the aggregate down.
 
 ```{r}
 #| label: fig-cov-energy
@@ -185,21 +210,25 @@ On that basis, durations track the expected complexity ladder from CE to EA to E
 
 ```{r}
 #| label: fig-duration-intervals
-#| fig-cap: "Duration summary by review process. Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median."
+#| fig-cap: "Timeline duration by review process. Thin bar = 10th–90th percentile; thick bar = interquartile range (25th–75th); point = median. All complete timelines."
 #| out-width: "100%"
 include_fig("fig_d4_duration_summary_intervals.png")
 ```
 
+Splitting duration by energy category (@fig-dur-energy) exposes a striking artifact: **fossil EAs run far shorter than decarbonization or "other" EAs** — a median of ~40 days, vs ~310 days for Decarb and ~209 days for Other. This is not because fossil EAs are genuinely faster: **84% of them are oil-and-gas well-abandonment EAs whose start date comes from the BLM register**, where the recorded "project start" is a *late administrative entry made within days of the decision*. Because fossil is the **largest** EA group (754 of the ~1,730 complete EAs), those artificially short spans **pull the overall EA median down** — the truer EA review length is better reflected by the document-anchored (decarb/other) EAs.
+
 ```{r}
 #| label: fig-dur-energy
-#| fig-cap: "Duration summary intervals by process, coloured by energy category."
+#| fig-cap: "Timeline duration by process and energy category. Fossil EAs are short largely because most are register-anchored well-abandonment EAs (late administrative start dates)."
 #| out-width: "100%"
 include_fig("fig_d4_duration_summary_intervals_by_energy.png")
 ```
 
+The full duration distributions (@fig-duration-hist) show the same complexity ladder as a *shape*, not just a median: **CE durations pile up near zero** (most are days-to-weeks determinations), **EA spreads out to a year or two**, and **EIS is broad and heavy-tailed** — a meaningful mass of reviews runs 3–10+ years. That long EIS tail is real (large, contested reviews spanning multiple administrations) and is examined directly in the outlier case studies below.
+
 ```{r}
 #| label: fig-duration-hist
-#| fig-cap: "Duration distribution (histogram) by review process; all complete timelines (month-only dates imputed to mid-month)."
+#| fig-cap: "Review duration distribution by process; all complete timelines (month-only dates imputed to mid-month)."
 #| out-width: "100%"
 include_fig("fig_d4_duration_histogram.png")
 ```
@@ -211,33 +240,22 @@ include_fig("fig_d4_duration_histogram.png")
 include_fig("fig_d4_project_timeline_spans.png")
 ```
 
-### By regulatory period (pre- vs post-FRA)
-
-The **Fiscal Responsibility Act of 2023** reset NEPA expectations. @fig-fra compares median review durations before and after **FRA enactment (June 3, 2023)**, and @fig-fra-energy breaks the same comparison down by energy category. Durations are still accruing for post-FRA projects (recently initiated reviews have not all reached a decision), so post-FRA medians are provisional.
-
-```{r}
-#| label: fig-fra
-#| fig-cap: "Median review duration, pre- vs post-FRA (June 3, 2023), by process. Post-FRA samples are small and still accruing."
-#| out-width: "100%"
-include_fig("fig_d4_fra_comparison.png")
-```
-
-```{r}
-#| label: fig-fra-energy
-#| fig-cap: "Pre/post-FRA median duration by process and energy category."
-#| out-width: "100%"
-include_fig("fig_d4_fra_comparison_by_energy.png")
-```
-
 ## Projects by decision year
 
-@fig-by-year shows project volume by decision year, faceted by review process. CE volumes ramp from the late-2000s (ARRA-era funding) with a second rise into the 2020s (BIL/IRA); EIS decisions lag CE and EA by several years, reflecting longer review cycles.
+@fig-by-year shows project volume by decision year (all projects), faceted by review process. CE volumes ramp from the late-2000s (ARRA-era funding) with a second rise into the 2020s (BIL/IRA); EIS decisions lag CE and EA by several years, reflecting longer review cycles. @fig-by-year-doe restricts to the **Department of Energy** — the single largest agency in the dataset — where the ARRA/BIL/IRA grant-and-loan cycles are even more pronounced.
 
 ```{r}
 #| label: fig-by-year
-#| fig-cap: "Projects by decision year, faceted by NEPA review process."
+#| fig-cap: "Reviews by decision year (all projects), faceted by NEPA review process."
 #| out-width: "100%"
 include_fig("fig_d4_projects_by_decision_year.png")
+```
+
+```{r}
+#| label: fig-by-year-doe
+#| fig-cap: "DOE projects by decision year, faceted by review process (Department of Energy projects only)."
+#| out-width: "100%"
+include_fig("fig_d4_projects_by_decision_year_doe.png")
 ```
 
 ## Timeline Outliers: Case-Study Candidates {#sec-outliers}
@@ -254,7 +272,7 @@ Per the deliverable request, timeline outliers are surfaced for CATF staff to in
 -   **Initiation dates before ~1990 are a strong error signal.** Of the four EIS outliers with 1980s-or-earlier initiations, three are confirmed errors (the "initiation" is a park founding, a prior lock's construction-completion date, or a RCRA compliance milestone).
 :::
 
-The clean-energy EA/EIS candidates below are the highest-value case studies. **SunZia** (ROW application Sep 2008 → Record of Decision Apr 2023) is the textbook long-permitting saga; **Energia Sierra Juarez**, **Grain Belt Express**, and **Cushman Hydroelectric** are similar. *Confirmed errors are excluded* — e.g. the Palisades Nuclear Restart "19-year" span glues a 2005 license-renewal application to a 2024 restart Record of Decision (two different NEPA actions).
+The decarb EA/EIS candidates below are the highest-value case studies. **SunZia** (ROW application Sep 2008 → Record of Decision Apr 2023) is the textbook long-permitting saga; **Energia Sierra Juarez**, **Grain Belt Express**, and **Cushman Hydroelectric** are similar. *Confirmed errors are excluded* — e.g. the Palisades Nuclear Restart "19-year" span glues a 2005 license-renewal application to a 2024 restart Record of Decision (two different NEPA actions).
 
 ```{r}
 #| label: tbl-outliers
@@ -281,20 +299,22 @@ client |>
 
 # Document Length & FRA Page Limits {#sec-pages}
 
-This section **builds directly on [Phase 1 Deliverable 5](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html)** ("Document Length Over Time and Fiscal Responsibility Act Impact"), which analyzed document length for *clean-energy* EA/EIS projects. Here we reproduce that analysis on the **entire Phase 2 EA/EIS corpus, all energy types**, refreshed on Phase 2 LLM-adjudicated **decision dates** (inclusion requires only a decision date — the time axis and FRA classification depend only on it). Each subsection below links to its Phase 1 counterpart for comparison.
+This section **builds directly on [Phase 1 Deliverable 5](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html)** ("Document Length Over Time and Fiscal Responsibility Act Impact"), which analyzed document length for *decarb* EA/EIS projects. Here we reproduce that analysis on the **entire Phase 2 EA/EIS corpus, all energy types**, refreshed on Phase 2 LLM-adjudicated **decision dates** (inclusion requires only a decision date — the time axis and FRA classification depend only on it). Each subsection below links to its Phase 1 counterpart for comparison.
 
 ::: callout-note
 ## Method & scope
 
--   **Regulatory pages** = body word count ÷ 500, excluding embedded appendices and low-content pages, per **40 C.F.R. § 1508.1(bb)** — the measure that matches the FRA limits (EA ≤ 75 pages; EIS ≤ 150, or 300 if extraordinarily complex).
+-   **Regulatory pages** = body word count ÷ 500, excluding embedded appendices and low-content pages, per **40 C.F.R. § 1508.1(bb)** — the measure that matches the FRA limits (EA ≤ 75 pages; EIS ≤ 150, or 300 if extraordinarily complex).[^rawpages]
 -   These counts are computed **from the actual page text** by `fra/01_extract_pages.py` (a DuckDB pass over `phase2/data/processed/{ea,eis}/pages.parquet` — 6.1M EIS pages — detecting the appendix boundary and low-content pages), producing regulatory pages for **5,032 EA/EIS projects** (2,765 EA, 2,267 EIS) across **all energy types** — not just decarbonization.
 -   The pre/post-FRA analysis below uses the **`r fmt_n(sum(pg$n_projects))` projects** that also have a decision date (EA `r fmt_n(sum(pg$n_projects[pg$process_type=="EA"]))` / EIS `r fmt_n(sum(pg$n_projects[pg$process_type=="EIS"]))`).
 -   **FRA date = enactment (June 3, 2023)**, matching Phase 1 D5 and the timeline-duration period split above.
 :::
 
+[^rawpages]: We use *regulatory* pages rather than raw PDF page counts because raw counts substantially overstate the length the statute limits — they include embedded appendices and sparse pages (covers, maps, dividers). Mean raw pages run roughly 2× regulatory pages for EAs and higher for EISs, so a raw count cannot be compared to the 75/150-page limits.
+
 ## Document length over time
 
-@fig-pages-time tracks regulatory page length by decision date across all EA/EIS. Compare the clean-energy-only Phase 1 version: [Phase 1 D5 — Document Length Over Time](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pages-over-time).
+@fig-pages-time tracks regulatory page length by decision date across all EA/EIS. Compare the decarb-only Phase 1 version: [Phase 1 D5 — Document Length Over Time](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pages-over-time).
 
 ```{r}
 #| label: fig-pages-time
@@ -305,7 +325,7 @@ include_fig("fig_d4_pages_over_time.png")
 
 ## Pre vs post-FRA
 
-Across all EA/EIS, **EIS regulatory length fell after FRA** (mean `r pgv("EIS","Pre-FRA","mean_pages")` → `r pgv("EIS","Post-FRA","mean_pages")` pages; median `r pgv("EIS","Pre-FRA","median_pages")` → `r pgv("EIS","Post-FRA","median_pages")`), while **EA length was essentially flat** (mean `r pgv("EA","Pre-FRA","mean_pages")` → `r pgv("EA","Post-FRA","mean_pages")`). The post-FRA window is short, so these are provisional (n = `r pgv("EA","Post-FRA","n_projects")` EA, `r pgv("EIS","Post-FRA","n_projects")` EIS). Compare the clean-energy-only Phase 1 result: [Phase 1 D5 — Pre vs Post FRA](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pre-post) and its [distribution view](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-distribution).
+Across all EA/EIS, **EIS regulatory length fell after FRA** (mean `r pgv("EIS","Pre-FRA","mean_pages")` → `r pgv("EIS","Post-FRA","mean_pages")` pages; median `r pgv("EIS","Pre-FRA","median_pages")` → `r pgv("EIS","Post-FRA","median_pages")`), while **EA length was essentially flat** (mean `r pgv("EA","Pre-FRA","mean_pages")` → `r pgv("EA","Post-FRA","mean_pages")`). The post-FRA window is short, so these are provisional (n = `r pgv("EA","Post-FRA","n_projects")` EA, `r pgv("EIS","Post-FRA","n_projects")` EIS). Compare the decarb-only Phase 1 result: [Phase 1 D5 — Pre vs Post FRA](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-pre-post) and its [distribution view](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable05.html#fig-distribution).
 
 ```{r}
 #| label: tbl-pages
@@ -319,21 +339,12 @@ pg |>
 
 ```{r}
 #| label: fig-pages-bar
-#| fig-cap: "Mean regulatory pages, pre- vs post-FRA (all EA/EIS). Bar = mean; diamond = median; n shown."
+#| fig-cap: "Mean regulatory pages, pre- vs post-FRA. Bar = mean; diamond = median; n shown."
 #| out-width: "100%"
 include_fig("fig_d4_pages_pre_post_fra.png")
 ```
 
-```{r}
-#| label: fig-pages-dist
-#| fig-cap: "Distribution of regulatory page counts, pre- vs post-FRA (all EA/EIS; violin + box; y capped at p99)."
-#| out-width: "100%"
-include_fig("fig_d4_pages_distribution.png")
-```
-
-## By energy category
-
-Segmenting by energy shows the post-FRA EIS decline is broad — it appears in decarbonization **and** fossil EIS projects — while EA length is flat across categories.
+Breaking the same comparison out **by energy category** (@fig-pages-energy) shows the post-FRA EIS decline is **broad** — it appears in decarbonization *and* fossil EIS, not just one segment — while EA length is essentially flat across all categories. That consistency makes the EIS drop more credible as a genuine post-FRA effect rather than a composition artifact.
 
 ```{r}
 #| label: tbl-pages-energy
@@ -346,40 +357,35 @@ read_diag("d4_pages_summary_by_energy.csv") |>
 
 ```{r}
 #| label: fig-pages-energy
-#| fig-cap: "Mean regulatory pages by energy category, pre- vs post-FRA, all EA/EIS. Labels = n projects."
+#| fig-cap: "Mean regulatory pages by energy category, pre- vs post-FRA. Labels = n projects."
 #| out-width: "100%"
 include_fig("fig_d4_pages_pre_post_fra_by_energy.png")
+```
+
+The full distributions (@fig-pages-dist) confirm the shift is not an outlier effect: the **EIS distribution moves down** post-FRA (lower median, thinner upper tail) while the **EA distribution barely moves**. Splitting that distribution by energy (@fig-pages-dist-energy) shows the EIS contraction again holds across Decarb and Fossil.
+
+```{r}
+#| label: fig-pages-dist
+#| fig-cap: "Distribution of regulatory page counts, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_distribution.png")
+```
+
+```{r}
+#| label: fig-pages-dist-energy
+#| fig-cap: "Distribution of regulatory page counts by energy category, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_distribution_by_energy.png")
 ```
 
 ## FRA page-limit compliance
 
 ```{r}
 #| label: fig-pages-compliance
-#| fig-cap: "FRA page-limit compliance among post-FRA projects (all EA/EIS, regulatory pages). EA limit 75; EIS 150 (300 if extraordinarily complex)."
+#| fig-cap: "FRA page-limit compliance among post-FRA projects (regulatory pages). EA limit 75; EIS 150 (300 if extraordinarily complex). The bracket marks the EIS share within the 300-page extraordinary-complexity threshold."
 #| out-width: "90%"
 include_fig("fig_d4_pages_compliance.png")
 ```
-
-## Why regulatory pages, not raw pages
-
-Raw PDF page counts substantially overstate the length the statute actually limits — they include embedded appendices and sparse pages (covers, maps, dividers). The figure below shows the gap between mean raw and mean regulatory pages; it is the reason a raw count cannot be compared to the 75/150-page limits.
-
-```{r}
-#| label: fig-pages-rr
-#| fig-cap: "Mean raw PDF pages vs. mean regulatory pages (all EA/EIS). The gap = appendices + sparse pages excluded by 40 C.F.R. § 1508.1(bb)."
-#| out-width: "100%"
-include_fig("fig_d4_pages_reg_vs_raw.png")
-```
-
-------------------------------------------------------------------------
-
-# Data Quality & Caveats
-
--   **Date accuracy is unvalidated.** Coverage is reproducible and audited, but date *accuracy* is asserted, not measured against a human gold set (~13k dates this run are LLM-derived).
--   **Proxy reliance.** Among complete timelines, ~55% of CE and ~68% of EIS use a proxy date (e.g. a Final-EIS publication date standing in for a missing Record of Decision); these are included in the duration figures, with month-only dates imputed to the mid-month 15th.
--   **EIS decision-document gap.** EIS decision coverage is ~42% because Records of Decision are frequently separate documents absent from the corpus.
--   **Negative-duration stopgap.** 233 decision-before-initiation rows are reclassified to `invalid_order` at analysis time; a source-level fix in script 05 is tracked.
--   **Small post-FRA samples.** Post-FRA covers ~2 years, so pre/post comparisons are exploratory.
 
 ------------------------------------------------------------------------
 

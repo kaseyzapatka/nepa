@@ -631,7 +631,7 @@ p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverag
     "No date"         = "#CCCCCC"
   )) +
   labs(
-    title    = "D4 Timeline Coverage by Review Type",
+    title    = "Timeline Coverage by Review Type",
     subtitle = "Share of projects by timeline completeness category",
     x = NULL, y = "Share of projects", fill = NULL
   )
@@ -669,9 +669,11 @@ both_lab <- coverage_energy_fig |>
 
 p_coverage_energy <- ggplot(coverage_energy_fig,
                             aes(x = energy_type, y = pct, fill = coverage_group)) +
-  geom_col(width = 0.7) +
-  geom_text(data = both_lab, aes(x = energy_type, y = pct, label = lab),
-            inherit.aes = FALSE, vjust = 1.3, size = 2.8, color = "white", fontface = "bold") +
+  # reverse = TRUE -> "Both dates" at the bottom, "No date" at the top
+  geom_col(width = 0.7, position = position_stack(reverse = TRUE)) +
+  # centre the "% with both dates" label in the navy bottom segment, white text
+  geom_text(data = both_lab, aes(x = energy_type, y = pct / 2, label = lab),
+            inherit.aes = FALSE, size = 2.8, color = "white", fontface = "bold") +
   facet_wrap(~process_group, nrow = 1) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
   scale_fill_manual(values = c(
@@ -681,13 +683,13 @@ p_coverage_energy <- ggplot(coverage_energy_fig,
     "No date"         = "#CCCCCC"
   )) +
   labs(
-    title    = "D4 Timeline Coverage by Review Type and Energy Type",
+    title    = "Timeline Coverage by Review Type and Energy Type",
     subtitle = "% on bars = share with BOTH dates (the Phase-1-comparable number; Decarb = clean energy)",
     x = NULL, y = "Share of projects", fill = NULL
   )
 
 ggsave(file.path(FIGS, "fig_d4_coverage_by_process_and_energy.png"),
-       p_coverage_energy, width = 11, height = 5, dpi = 150)
+       p_coverage_energy, width = 11, height = 5, dpi = 300)
 message("Wrote fig_d4_coverage_by_process_and_energy.png")
 
 # Also write the underlying table (so the Decarb numbers are exact for the deliverable)
@@ -714,12 +716,12 @@ p_hist <- ggplot(dur_plot, aes(x = duration_years, fill = process_group)) +
   scale_fill_manual(values = PROCESS_COLORS, guide = "none") +
   scale_x_continuous(breaks = 0:15, labels = function(x) paste0(x, "y")) +
   labs(
-    title = "D4 Review Duration Distribution (complete_clear only)",
+    title = "Review Duration Distribution",
     x = "Duration (years)", y = "Reviews"
   )
 
 ggsave(file.path(FIGS, "fig_d4_duration_histogram.png"),
-       p_hist, width = 7, height = 8, dpi = 150)
+       p_hist, width = 7, height = 8, dpi = 300)
 message("Wrote fig_d4_duration_histogram.png")
 
 # ---------------------------------------------------------------------------
@@ -889,8 +891,7 @@ fig_duration_intervals <- ggplot(interval_summary, aes(y = process_group, color 
     expand = expansion(mult = c(0.02, 0.12))
   ) +
   labs(
-    title    = "Timeline Duration Summary by Review Process",
-    subtitle = "Thin bar = p10–p90  |  Thick bar = IQR (p25–p75)  |  Point = median (complete_clear only)",
+    title    = "Timeline Duration by Review Process",
     x = "Duration (months)",
     y = "Review Process",
     color = NULL
@@ -1000,8 +1001,8 @@ fig_by_year <- ggplot(year_counts, aes(x = decision_year, y = n_projects)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
   scale_fill_manual(values = PROCESS_COLORS, guide = "none") +
   labs(
-    title    = "Decarbonization Reviews by Decision Year",
-    subtitle = "Faceted by NEPA review process. Dashed lines mark major legislation.",
+    title    = "Reviews by Decision Year",
+    subtitle = "All projects, faceted by NEPA review process. Dashed lines mark major legislation.",
     x = "Decision Year",
     y = "Number of Reviews",
     caption = "Year derived from decision date."
@@ -1010,6 +1011,47 @@ fig_by_year <- ggplot(year_counts, aes(x = decision_year, y = n_projects)) +
 ggsave(file.path(FIGS, "fig_d4_projects_by_decision_year.png"),
        fig_by_year, width = 11, height = 9, dpi = 300)
 message("Wrote fig_d4_projects_by_decision_year.png")
+
+# ---------------------------------------------------------------------------
+# Fig 8b: DOE projects by decision year (DOE is the largest single agency in
+# NEPATEC; grant/loan programs under ARRA/BIL/IRA drive much of the volume).
+# Phase 1 ref: 03_projects_by_year_doe.png
+# ---------------------------------------------------------------------------
+
+doe_agency <- read_parquet(file.path(DATA, "timeline_document_index.parquet"),
+                           col_select = c("project_id", "lead_agency_harmonized")) |>
+  group_by(project_id) |>
+  summarise(agency = first(na.omit(lead_agency_harmonized)), .groups = "drop") |>
+  filter(str_detect(coalesce(agency, ""), regex("Energy", ignore_case = TRUE)))
+
+year_counts_doe <- dates |>
+  semi_join(doe_agency, by = "project_id") |>
+  filter(!is.na(process_group), !is.na(decision_year),
+         decision_year >= 2000, decision_year <= 2025) |>
+  count(process_group, decision_year, name = "n_projects")
+
+fig_by_year_doe <- ggplot(year_counts_doe, aes(x = decision_year, y = n_projects)) +
+  geom_vline(xintercept = year_events$xintercept,
+             linetype = "dashed", color = catf_teal, linewidth = 0.75, alpha = 0.9) +
+  geom_col(aes(fill = process_group), alpha = 0.85) +
+  geom_text(aes(label = comma(n_projects)), vjust = -0.3, size = 2.6, color = "gray30") +
+  geom_text(data = year_events,
+            aes(x = xintercept, y = Inf, label = label, hjust = hjust_val),
+            vjust = 1.3, size = 2.3, color = catf_teal, lineheight = 0.85, inherit.aes = FALSE) +
+  facet_wrap(~process_group, scales = "free_y", ncol = 1, drop = FALSE) +
+  scale_x_continuous(breaks = seq(2000, 2025, by = 2)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
+  scale_fill_manual(values = PROCESS_COLORS, guide = "none") +
+  labs(
+    title    = "DOE Projects by Decision Year",
+    subtitle = "Department of Energy projects only, faceted by review process. Dashed lines mark major legislation.",
+    x = "Decision Year", y = "Number of Reviews",
+    caption = "Year derived from decision date. Lead agency = Department of Energy."
+  )
+
+ggsave(file.path(FIGS, "fig_d4_projects_by_decision_year_doe.png"),
+       fig_by_year_doe, width = 11, height = 9, dpi = 300)
+message("Wrote fig_d4_projects_by_decision_year_doe.png")
 
 # ===========================================================================
 # ENERGY-TYPE BREAKOUT FIGURES
@@ -1223,27 +1265,27 @@ message("Wrote fig_d4_register_source_candidates.png")
 p_proj_source <- ggplot(
   reg_proj |>
     mutate(
-      # Stack order: No date at bottom so coverage gaps are immediately visible
-      source = factor(source, levels = rev(SOURCE_PROJ_LEVELS))
+      # Stack: Register API bottom, Doc Text middle, No Date top
+      source = factor(source, levels = rev(SOURCE_PROJ_LEVELS)),
+      # No Date sits on a light-grey segment -> label it navy so it reads on white
+      lab_color = if_else(as.character(source) == "No Date", catf_navy, "white")
     ),
   aes(x = endpoint, y = pct / 100, fill = source)
 ) +
   geom_col(width = 0.65) +
   geom_text(
-    aes(label = ifelse(pct >= 3, paste0(round(pct), "%"), "")),
+    aes(label = ifelse(pct >= 3, paste0(round(pct), "%"), ""), color = lab_color),
     position = position_stack(vjust = 0.5),
-    size = 2.8, color = "white", fontface = "bold"
+    size = 2.8, fontface = "bold"
   ) +
   facet_wrap(~process_type, ncol = 3) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  # legend top->bottom = No Date / Doc Text / Register API, matching the stack
   scale_fill_manual(values = SOURCE_COLORS, drop = FALSE,
-                    guide = guide_legend(reverse = TRUE)) +
+                    guide = guide_legend(reverse = FALSE)) +
+  scale_color_identity() +
   labs(
-    title    = "D4 Timeline: Date Source by Review Type (Project Level)",
-    subtitle = paste0(
-      "Register API = BLM/DOE NEPA-register dates; Doc Text = parsed from documents; ",
-      "No Date = not extracted for that endpoint."
-    ),
+    title    = "Date Source by Review Type",
     x        = NULL,
     y        = "Share of all projects",
     fill     = "Date source"

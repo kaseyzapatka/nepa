@@ -109,7 +109,7 @@ p_bar <- ggplot(fra_sum, aes(fra_period, mean_pages, fill = fra_period)) +
   facet_wrap(~process_type, scales = "free_y") +
   scale_fill_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
-  labs(title = "Document Length: Pre vs Post FRA (All EA/EIS)",
+  labs(title = "Document Length: Pre vs Post FRA",
        subtitle = "Regulatory pages; bar = mean, diamond = median; classified by decision date (>= 2023-06-03 = Post-FRA)",
        x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
   theme_catf() + theme(legend.position = "none")
@@ -137,20 +137,38 @@ ggsave(file.path(FIG, "fig_d4_pages_pre_post_fra_by_energy.png"), p_energy, widt
 # Fig 4: distribution (violin + box, y capped at p99)
 # ---------------------------------------------------------------------------
 p99 <- quantile(pages$regulatory_pages, 0.99, na.rm = TRUE)
-dlab <- pages |> group_by(process_type, fra_period) |> summarise(n = n(), .groups = "drop")
+dlab <- pages |> group_by(process_type, fra_period) |>
+  summarise(n = n(), med = round(median(regulatory_pages)), .groups = "drop")
 p_dist <- ggplot(pages, aes(fra_period, regulatory_pages, fill = fra_period)) +
   geom_violin(alpha = 0.35, trim = FALSE, color = NA) +
   geom_boxplot(width = 0.2, outlier.alpha = 0.2, outlier.size = 0.7, fill = "white", color = catf_navy, linewidth = 0.4) +
+  stat_summary(fun = median, geom = "point", shape = 18, size = 3.2, color = catf_navy) +
+  geom_text(data = dlab, aes(x = fra_period, y = med, label = paste0("median ", med)), inherit.aes = FALSE,
+            hjust = -0.18, size = 2.7, color = catf_navy, fontface = "bold") +
   geom_text(data = dlab, aes(x = fra_period, y = 0, label = paste0("n=", comma(n))), inherit.aes = FALSE,
             vjust = 1.5, size = 3, color = "gray40") +
   facet_wrap(~process_type, scales = "free_y") +
   scale_fill_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
   coord_cartesian(ylim = c(0, p99)) +
-  labs(title = "Document Length Distribution: Pre vs Post FRA (All EA/EIS)",
-       subtitle = "Regulatory pages; violin + boxplot; y-axis capped at p99", x = NULL,
+  labs(title = "Document Length Distribution: Pre vs Post FRA",
+       subtitle = "Regulatory pages; violin + boxplot; diamond = median; y-axis capped at p99", x = NULL,
        y = "Regulatory Pages (body word count / 500)", fill = NULL) +
   theme_catf() + theme(legend.position = "none")
 ggsave(file.path(FIG, "fig_d4_pages_distribution.png"), p_dist, width = 10, height = 6, dpi = 300)
+
+# Fig 4b: distribution BY ENERGY (process rows x energy cols)
+p_dist_e <- ggplot(pages, aes(fra_period, regulatory_pages, fill = fra_period)) +
+  geom_violin(alpha = 0.35, trim = FALSE, color = NA) +
+  geom_boxplot(width = 0.2, outlier.alpha = 0.15, outlier.size = 0.6, fill = "white", color = catf_navy, linewidth = 0.35) +
+  stat_summary(fun = median, geom = "point", shape = 18, size = 2.4, color = catf_navy) +
+  facet_grid(process_type ~ energy, scales = "free_y") +
+  scale_fill_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
+  coord_cartesian(ylim = c(0, p99)) +
+  labs(title = "Document Length Distribution by Energy Category: Pre vs Post FRA",
+       subtitle = "Regulatory pages; violin + boxplot; diamond = median; y-axis capped at p99",
+       x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
+  theme_catf() + theme(legend.position = "none")
+ggsave(file.path(FIG, "fig_d4_pages_distribution_by_energy.png"), p_dist_e, width = 11, height = 7, dpi = 300)
 
 # ---------------------------------------------------------------------------
 # Fig 5: FRA page-limit compliance (Post-FRA only)
@@ -167,14 +185,32 @@ comp_sum <- post |> mutate(compliance = factor(compliance, levels = comp_levels)
   count(process_type, compliance, .drop = FALSE) |>
   group_by(process_type) |> mutate(total = sum(n), pct = n / total * 100,
                                     label = ifelse(n > 0, sprintf("%d\n(%.0f%%)", n, pct), "")) |> ungroup()
+
+# EIS extraordinary-complexity bracket (Phase 1 D5 style): the share within the 300-page
+# threshold = Compliant + "Exceeds standard limit". Stack order (Compliant on top, Exceeds
+# limit at the bottom) means that span runs from the top of the Exceeds-limit segment to the top.
+eis_get <- function(lvl) { v <- comp_sum$n[comp_sum$process_type == "EIS" & as.character(comp_sum$compliance) == lvl]; if (length(v)) sum(v) else 0 }
+n_lim_eis <- eis_get("Exceeds limit"); n_std_eis <- eis_get("Exceeds standard limit"); n_ok_eis <- eis_get("Compliant")
+n_eis_tot <- n_lim_eis + n_std_eis + n_ok_eis
+pct_w300  <- if (n_eis_tot > 0) round(100 * (n_ok_eis + n_std_eis) / n_eis_tot) else 0
+y_bot <- n_lim_eis; y_top <- n_eis_tot; tick_h <- max(n_eis_tot * 0.02, 0.4)
+xt <- 2.32; xv <- 2.48; xl <- 2.54
+
 p_comp <- ggplot(comp_sum, aes(process_type, n, fill = compliance)) +
   geom_col(width = 0.6, alpha = 0.9) +
   geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 3.2, color = "white", fontface = "bold") +
+  annotate("segment", x = xt, xend = xv, y = y_top - tick_h, yend = y_top - tick_h, color = "black", linewidth = 0.5) +
+  annotate("segment", x = xv, xend = xv, y = y_bot + tick_h, yend = y_top - tick_h, color = "black", linewidth = 0.5) +
+  annotate("segment", x = xt, xend = xv, y = y_bot + tick_h, yend = y_bot + tick_h, color = "black", linewidth = 0.5) +
+  annotate("text", x = xl, y = (y_bot + y_top) / 2, hjust = 0, vjust = 0.5, size = 2.6, color = "black",
+           lineheight = 0.9, label = paste0("Total ", pct_w300, "%\ncompliant by the\n300-page\nextraordinary-\ncomplexity\nthreshold")) +
   scale_fill_manual(values = c("Compliant" = catf_teal, "Exceeds standard limit" = "#E8A317", "Exceeds limit" = catf_magenta)) +
-  labs(title = "FRA Page-Limit Compliance: Post-FRA Projects (All EA/EIS)",
+  scale_x_discrete(expand = expansion(add = c(0.5, 1.1))) +
+  coord_cartesian(clip = "off") +
+  labs(title = "FRA Page-Limit Compliance: Post-FRA Projects",
        subtitle = "Regulatory pages. EA limit 75; EIS 150 (300 if extraordinarily complex).",
        x = NULL, y = "Number of Projects", fill = NULL) +
-  theme_catf() + theme(legend.position = "bottom")
+  theme_catf() + theme(legend.position = "bottom", plot.margin = margin(5, 45, 5, 5))
 ggsave(file.path(FIG, "fig_d4_pages_compliance.png"), p_comp, width = 10, height = 6, dpi = 300)
 
 # ---------------------------------------------------------------------------
