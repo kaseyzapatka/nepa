@@ -79,7 +79,7 @@ pgv <- function(pt, per, col) pg[[col]][pg$process_type == pt & pg$fra_period ==
 ## Key Findings
 
 -   **Timeline completeness varies sharply by review process.** After LLM adjudication, complete timelines (both an initiation and a decision date) reach **`r fmt_pct(cpct("CE"))` for CE**, **`r fmt_pct(cpct("EA"))` for EA**, and **`r fmt_pct(cpct("EIS"))` for EIS** (see @fig-coverage). The binding constraint differs by process: CE and EA are *initiation*-limited (no Notice of Intent requirement, often no recorded start), while EIS is *decision*-limited (Records of Decision are frequently separate documents absent from the corpus — EIS decision coverage is only `r fmt_pct(dpct("EIS","pct_decision"))`).
--   **Durations follow the expected complexity ladder.** Median review duration is **`r dmed("CE")` days for CE**, **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA**, and **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS** (complete, day-level timelines; see @fig-duration-intervals).
+-   **Durations follow the expected complexity ladder.** Median review duration is **`r dmed("CE")` days for CE**, **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA**, and **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS** (all complete timelines; see @fig-duration-intervals).
 -   **LLM adjudication added ~13,000 dates** across 11,207 routed projects at a measured cost of **\$18.20**, lifting complete coverage roughly **+7 percentage points** in every process versus the deterministic-only pipeline.
 -   **Timeline outliers split into genuinely long reviews and extraction errors.** The genuinely long cases — e.g. **SunZia Southwest Transmission (14.6 yr)**, **Energia Sierra Juarez**, **Grain Belt Express**, **Cushman Hydroelectric** — are strong candidates for CATF case studies. Errors (an "initiation" anchored to a historical citation) are flagged and excluded (see @sec-outliers).
 -   **Post-FRA EIS documents are shorter; EA documents are essentially unchanged.** Across **all `r fmt_n(sum(pg$n_projects))` EA/EIS projects** (all energy types, regulatory pages computed from the full page text), mean regulatory EIS length fell from **`r pgv("EIS","Pre-FRA","mean_pages")` to `r pgv("EIS","Post-FRA","mean_pages")` pages** after the Fiscal Responsibility Act, while EA length held near **`r pgv("EA","Pre-FRA","mean_pages")`–`r pgv("EA","Post-FRA","mean_pages")` pages** — though the post-FRA sample is small (see @sec-pages).
@@ -159,7 +159,9 @@ include_fig("fig_d4_coverage_by_process.png")
 
 ## Duration analysis
 
-Among complete timelines (both dates present), durations track the expected complexity ladder from CE to EA to EIS — a median of about **`r dmed("CE")` days for CE**, **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA**, and **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS** (n = `r fmt_n(dur$n[dur$process_type=="CE"])` / `r fmt_n(dur$n[dur$process_type=="EA"])` / `r fmt_n(dur$n[dur$process_type=="EIS"])`). @fig-duration-intervals summarises the spread; @fig-duration-hist shows the full distributions; @fig-spans plots individual project spans.
+Durations use **all complete timelines** (both dates present, including those resolved with a proxy date such as a Final-EIS publication date in place of a missing Record of Decision). Month-only dates are imputed to the **mid-month 15th**; the small number of year-only dates (almost entirely a subset of CE initiation dates) are excluded, since a day cannot be responsibly imputed from a year alone.
+
+On that basis, durations track the expected complexity ladder from CE to EA to EIS — a median of about **`r dmed("CE")` days for CE**, **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA**, and **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS** (n = `r fmt_n(dur$n[dur$process_type=="CE"])` / `r fmt_n(dur$n[dur$process_type=="EA"])` / `r fmt_n(dur$n[dur$process_type=="EIS"])`). @fig-duration-intervals summarises the spread; @fig-duration-hist shows the full distributions; @fig-spans plots individual project spans.
 
 ```{r}
 #| label: fig-duration-intervals
@@ -170,7 +172,7 @@ include_fig("fig_d4_duration_summary_intervals.png")
 
 ```{r}
 #| label: fig-duration-hist
-#| fig-cap: "Duration distribution (histogram) by review process, complete day-level timelines."
+#| fig-cap: "Duration distribution (histogram) by review process; all complete timelines (month-only dates imputed to mid-month)."
 #| out-width: "100%"
 include_fig("fig_d4_duration_histogram.png")
 ```
@@ -394,7 +396,7 @@ tibble::tibble(
              "Post-FRA samples are small"),
   `What it means` = c(
     "Coverage is reproducible and audited; date *accuracy* is asserted, not measured against a human gold set (~13k dates this run are LLM-derived).",
-    "Among complete timelines, ~55% of CE and ~68% of EIS use a proxy date (e.g. Final-EIS publication as the decision); duration figures use clear day-level dates only.",
+    "Among complete timelines, ~55% of CE and ~68% of EIS use a proxy date (e.g. Final-EIS publication standing in for a missing Record of Decision). These are now included in the duration figures, with month-only dates imputed to the mid-month 15th and the small number of year-only dates excluded.",
     "EIS decision coverage is ~42% because Records of Decision are frequently separate documents absent from the corpus; a Final-EIS-publication fallback is used and flagged.",
     "233 decision-before-initiation rows are reclassified to invalid_order at analysis time; a source-level fix in 05 is tracked.",
     "Post-FRA covers ~2 years; pre/post comparisons are exploratory."

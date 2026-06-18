@@ -230,11 +230,26 @@ dates <- dates_raw |>
 dates$timeline_status[.neg_mask] <- "invalid_order"
 message(sprintf("Stopgap filter: reclassified %d negative-duration complete rows -> invalid_order (TODO: fix in 05)", as.integer(sum(.neg_mask))))
 
-# Headline: complete_clear = both dates at day granularity (used for duration analysis)
+# Headline duration frame: ALL complete timelines (complete_clear + complete_with_proxy), so
+# proxy / Final-EIS-publication decisions are included (this lifts EIS from ~425 to ~1,330).
+# Month-granularity dates are imputed to the mid-month 15th (idempotent — dates already stored at
+# the 15th are unchanged); YEAR-granularity dates are EXCLUDED from durations because a day cannot
+# be responsibly imputed from a year alone (these are almost entirely a subset of CE initiations,
+# ~1,100 of them — including them would add +/-6 months of noise to CE's ~3-week median).
 headline <- dates |>
-  filter(timeline_status == "complete_clear", !is.na(duration_days))
+  filter(timeline_status %in% c("complete_clear", "complete_with_proxy"),
+         !is.na(initiation_date), !is.na(decision_date),
+         initiation_date_granularity != "year", decision_date_granularity != "year") |>
+  mutate(
+    .init_mid = if_else(initiation_date_granularity == "month",
+                        lubridate::floor_date(initiation_date, "month") + 14, initiation_date),
+    .dec_mid  = if_else(decision_date_granularity == "month",
+                        lubridate::floor_date(decision_date, "month") + 14, decision_date),
+    duration_days = as.integer(.dec_mid - .init_mid)
+  ) |>
+  filter(!is.na(duration_days), duration_days >= 0)
 
-message("complete_clear rows with duration: ", nrow(headline))
+message("complete (clear+proxy) rows with duration: ", nrow(headline))
 
 # ---------------------------------------------------------------------------
 # Helper: duration summary stats
