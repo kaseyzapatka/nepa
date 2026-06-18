@@ -618,11 +618,24 @@ coverage_fig <- dates |>
   count(process_type, coverage_group) |>
   group_by(process_type) |>
   mutate(pct = n / sum(n)) |>
-  ungroup()
+  # Explicit label y-position (segment centre) so text always aligns with the
+  # reverse-stacked bars: "Both dates" (first level) at the bottom, "No date" at the top.
+  arrange(process_type, coverage_group) |>
+  mutate(y_center = cumsum(pct) - pct / 2) |>
+  ungroup() |>
+  mutate(
+    lab       = sprintf("%.0f%%", 100 * pct),
+    # "No date" sits on a light-grey segment -> label it blue so it reads on white
+    lab_color = if_else(coverage_group == "No date", catf_dark_blue, "white")
+  )
 
 p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverage_group)) +
   # reverse = TRUE puts the first factor level ("Both dates") at the BOTTOM of the stack
   geom_col(width = 0.6, position = position_stack(reverse = TRUE)) +
+  geom_text(
+    aes(y = y_center, label = ifelse(pct >= 0.03, lab, ""), color = lab_color),
+    size = 3, fontface = "bold"
+  ) +
   scale_y_continuous(labels = percent_format(accuracy = 1)) +
   scale_fill_manual(values = c(
     "Both dates"      = catf_navy,
@@ -630,6 +643,7 @@ p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverag
     "Initiation only" = catf_light_blue,
     "No date"         = "#CCCCCC"
   )) +
+  scale_color_identity() +
   labs(
     title    = "Timeline Coverage by Review Type",
     subtitle = "Share of projects by timeline completeness category",

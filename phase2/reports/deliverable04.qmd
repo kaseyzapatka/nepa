@@ -119,7 +119,6 @@ A project's timeline is **complete** when both an initiation and a decision date
 -   **API registry dates** — Phase 2 incorporates authoritative dates from *BLM and DOE NEPA registers* as an authoritative source of official project-start and decision dates. We pull in about 40,000 register dates, which is particularly helpful for CE and EA reviews.
 -   **Cleaner retrieval and granularity handling** — section-aware retrieval pulls fewer but better candidate dates based on document location and the pipeline uses year-month decision dates (e.g. a Final-EIS cover month) where no better dates are available.
 -   **Improved classifier *AND* a ranking model** — Phase 1 used a single date classifier (`DeBERTa` model); Phase 2 used an improve classifer (`SetFit`) and adds a dedicated **ranking model** (`LightGBM`) that decides which candidate is the operative initiation/decision, sharply improving which candidates get sent to the LLM adjudicating model.
--   **LLM adjudication at scale** — the hardest ambiguous cases across the whole corpus are resolved by a large language model, recovering dates the automated pipeline could not select on its own.
 
 ## Data Quality & Caveats
 
@@ -347,22 +346,13 @@ include_fig("fig_d4_pages_pre_post_fra.png")
 Breaking the same comparison out **by energy category** (@fig-pages-energy) shows the post-FRA EIS decline is **broad** — it appears in decarbonization *and* fossil EIS, not just one segment — while EA length is essentially flat across all categories. That consistency makes the EIS drop more credible as a genuine post-FRA effect rather than a composition artifact.
 
 ```{r}
-#| label: tbl-pages-energy
-#| tbl-cap: "Regulatory page counts by process, energy category, and FRA period (all EA/EIS). Regulatory pages."
-read_diag("d4_pages_summary_by_energy.csv") |>
-  transmute(Process = process_type, Energy = energy, `FRA period` = fra_period,
-            `n` = n, `Mean pages` = mean_pages, `Median pages` = median_pages) |>
-  navy_gt()
-```
-
-```{r}
 #| label: fig-pages-energy
 #| fig-cap: "Mean regulatory pages by energy category, pre- vs post-FRA. Labels = n projects."
 #| out-width: "100%"
 include_fig("fig_d4_pages_pre_post_fra_by_energy.png")
 ```
 
-The full distributions (@fig-pages-dist) confirm the shift is not an outlier effect: the **EIS distribution moves down** post-FRA (lower median, thinner upper tail) while the **EA distribution barely moves**. Splitting that distribution by energy (@fig-pages-dist-energy) shows the EIS contraction again holds across Decarb and Fossil.
+The full distributions (@fig-pages-dist) confirm the shift is not an outlier effect: the **EIS distribution moves down** post-FRA (lower median, thinner upper tail) while the **EA distribution barely moves**. Splitting that distribution by energy category — shown separately for decarbonization (@fig-pages-dist-decarb), fossil (@fig-pages-dist-fossil), and other (@fig-pages-dist-other) projects so each panel is legible — shows the EIS contraction holds in both decarbonization and fossil EIS, while EA length stays flat across all three.
 
 ```{r}
 #| label: fig-pages-dist
@@ -372,13 +362,48 @@ include_fig("fig_d4_pages_distribution.png")
 ```
 
 ```{r}
-#| label: fig-pages-dist-energy
-#| fig-cap: "Distribution of regulatory page counts by energy category, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
+#| label: fig-pages-dist-decarb
+#| fig-cap: "Decarbonization EA/EIS — distribution of regulatory page counts, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
 #| out-width: "100%"
-include_fig("fig_d4_pages_distribution_by_energy.png")
+include_fig("fig_d4_pages_distribution_decarb.png")
+```
+
+```{r}
+#| label: fig-pages-dist-fossil
+#| fig-cap: "Fossil EA/EIS — distribution of regulatory page counts, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_distribution_fossil.png")
+```
+
+```{r}
+#| label: fig-pages-dist-other
+#| fig-cap: "Other EA/EIS — distribution of regulatory page counts, pre- vs post-FRA (violin + box; diamond = median; y capped at p99)."
+#| out-width: "100%"
+include_fig("fig_d4_pages_distribution_other.png")
 ```
 
 ## FRA page-limit compliance
+
+```{r}
+#| label: compliance-vals
+comp <- read_diag("d4_pages_compliance.csv")
+compv <- function(pt, cat, col) comp[[col]][comp$process_type == pt & comp$compliance == cat]
+ea_tot      <- comp$total[comp$process_type == "EA"][1]
+ea_ok_pct   <- round(compv("EA", "Compliant", "pct"));     ea_ex_pct  <- round(compv("EA", "Exceeds limit", "pct"))
+eis_tot     <- comp$total[comp$process_type == "EIS"][1]
+eis_ok_pct  <- round(compv("EIS", "Compliant", "pct"))
+eis_std_pct <- round(compv("EIS", "Exceeds standard limit", "pct"))
+eis_over_pct<- round(compv("EIS", "Exceeds limit", "pct"))
+eis_w300    <- compv("EIS", "Compliant", "n") + compv("EIS", "Exceeds standard limit", "n")
+eis_w300_pct<- round(100 * eis_w300 / eis_tot)
+```
+
+The Fiscal Responsibility Act sets presumptive page limits — **75 pages for an EA** and **150 pages for an EIS** (300 if the agency documents extraordinary complexity). @fig-pages-compliance scores the post-FRA EA/EIS projects with a decision date against those limits (regulatory pages).
+
+-   **EAs comply at a high rate.** `r ea_ok_pct`% of post-FRA EAs (n = `r fmt_n(ea_tot)`) fall within the 75-page limit; the `r ea_ex_pct`% that exceed it generally do so modestly rather than dramatically.
+-   **EISs are more mixed, but most are within reach of the complexity ceiling.** Only `r eis_ok_pct`% of post-FRA EISs (n = `r fmt_n(eis_tot)`) land within the baseline 150-page limit, but a further `r eis_std_pct`% sit between 150 and 300 pages — i.e. within the extraordinary-complexity ceiling — so **`r eis_w300_pct`% are within the 300-page threshold overall**. The remaining `r eis_over_pct`% exceed even 300 pages, consistent with the long right tail of complex transmission, restoration, and resource-management EISs seen in the duration analysis.
+
+Two caveats temper this. First, the **post-FRA window is short** (`r fmt_n(ea_tot)` EA / `r fmt_n(eis_tot)` EIS projects with both a regulatory page count and a decision date), so these rates are provisional and will firm up as more post-FRA decisions land. Second, the FRA limits are **presumptive, not absolute** — agencies may exceed them with senior-official approval or a documented extraordinary-complexity finding — so "exceeds limit" flags a document for review, not an automatic compliance failure.
 
 ```{r}
 #| label: fig-pages-compliance
@@ -389,7 +414,7 @@ include_fig("fig_d4_pages_compliance.png")
 
 ------------------------------------------------------------------------
 
-# Requested Extensions (Planned / Not Yet Built)
+# Requested Extensions 
 
 The following items from the deliverable request require additional analysis beyond the current timeline build. They are scoped here for the next phase:
 

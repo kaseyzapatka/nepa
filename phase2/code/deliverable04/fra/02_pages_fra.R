@@ -103,14 +103,14 @@ fra_sum <- pages |> group_by(process_type, fra_period) |>
             sd_pages = sd(regulatory_pages), n = n(), .groups = "drop")
 p_bar <- ggplot(fra_sum, aes(fra_period, mean_pages, fill = fra_period)) +
   geom_col(alpha = 0.85, width = 0.6) +
-  geom_text(aes(label = sprintf("mean %.0f\n(n=%s)", mean_pages, comma(n))), vjust = -0.2, size = 3.2, color = "gray20") +
+  geom_text(aes(label = sprintf("average %.0f pages\n(n=%s)", mean_pages, comma(n))), vjust = -0.2, size = 3.2, color = "gray20") +
   geom_point(aes(y = median_pages), shape = 18, size = 4, color = catf_navy) +
   geom_text(aes(y = median_pages, label = sprintf("median %.0f", median_pages)), vjust = 1.8, size = 2.8, color = "white") +
   facet_wrap(~process_type, scales = "free_y") +
   scale_fill_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
   labs(title = "Document Length: Pre vs Post FRA",
-       subtitle = "Regulatory pages; bar = mean, diamond = median; classified by decision date (>= 2023-06-03 = Post-FRA)",
+       subtitle = "Regulatory pages; bar = average, diamond = median; classified by decision date (>= 2023-06-03 = Post-FRA)",
        x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
   theme_catf() + theme(legend.position = "none")
 ggsave(file.path(FIG, "fig_d4_pages_pre_post_fra.png"), p_bar, width = 10, height = 6, dpi = 300)
@@ -121,14 +121,20 @@ ggsave(file.path(FIG, "fig_d4_pages_pre_post_fra.png"), p_bar, width = 10, heigh
 energy_sum <- pages |> group_by(process_type, energy, fra_period) |>
   summarise(mean_pages = round(mean(regulatory_pages)), median_pages = round(median(regulatory_pages)),
             n = n(), .groups = "drop")
+pd <- position_dodge(width = 0.75)
 p_energy <- ggplot(energy_sum, aes(energy, mean_pages, fill = fra_period)) +
-  geom_col(position = position_dodge(width = 0.75), width = 0.65, alpha = 0.9) +
-  geom_text(aes(label = comma(n)), position = position_dodge(width = 0.75), vjust = -0.3, size = 2.7, color = "gray30") +
+  geom_col(position = pd, width = 0.65, alpha = 0.9) +
+  geom_text(aes(label = sprintf("average %.0f pages\n(n=%s)", mean_pages, comma(n))),
+            position = pd, vjust = -0.3, size = 2.3, color = "gray30") +
+  geom_point(aes(y = median_pages, group = fra_period), shape = 18, size = 3,
+             position = pd, color = catf_navy) +
+  geom_text(aes(y = median_pages, label = sprintf("median %.0f", median_pages), group = fra_period),
+            position = pd, vjust = 1.8, size = 2.1, color = "white", fontface = "bold") +
   facet_wrap(~process_type, scales = "free_y") +
   scale_fill_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.25))) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
   labs(title = "Document Length by Energy Category: Pre vs Post FRA",
-       subtitle = "Mean regulatory pages; labels = n projects; all EA/EIS with a decision date",
+       subtitle = "Regulatory pages; bar = average, diamond = median; all EA/EIS with a decision date",
        x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
   theme_catf()
 ggsave(file.path(FIG, "fig_d4_pages_pre_post_fra_by_energy.png"), p_energy, width = 11, height = 6, dpi = 300)
@@ -143,8 +149,9 @@ p_dist <- ggplot(pages, aes(fra_period, regulatory_pages, fill = fra_period)) +
   geom_violin(alpha = 0.35, trim = FALSE, color = NA) +
   geom_boxplot(width = 0.2, outlier.alpha = 0.2, outlier.size = 0.7, fill = "white", color = catf_navy, linewidth = 0.4) +
   stat_summary(fun = median, geom = "point", shape = 18, size = 3.2, color = catf_navy) +
-  geom_text(data = dlab, aes(x = fra_period, y = med, label = paste0("median ", med)), inherit.aes = FALSE,
-            hjust = -0.18, size = 2.7, color = catf_navy, fontface = "bold") +
+  geom_label(data = dlab, aes(x = fra_period, y = med, label = paste0("median ", med)), inherit.aes = FALSE,
+             hjust = -0.15, size = 2.7, color = catf_navy, fontface = "bold",
+             fill = "white", label.size = 0, label.padding = unit(0.12, "lines")) +
   geom_text(data = dlab, aes(x = fra_period, y = 0, label = paste0("n=", comma(n))), inherit.aes = FALSE,
             vjust = 1.5, size = 3, color = "gray40") +
   facet_wrap(~process_type, scales = "free_y") +
@@ -156,19 +163,33 @@ p_dist <- ggplot(pages, aes(fra_period, regulatory_pages, fill = fra_period)) +
   theme_catf() + theme(legend.position = "none")
 ggsave(file.path(FIG, "fig_d4_pages_distribution.png"), p_dist, width = 10, height = 6, dpi = 300)
 
-# Fig 4b: distribution BY ENERGY (process rows x energy cols)
-p_dist_e <- ggplot(pages, aes(fra_period, regulatory_pages, fill = fra_period)) +
-  geom_violin(alpha = 0.35, trim = FALSE, color = NA) +
-  geom_boxplot(width = 0.2, outlier.alpha = 0.15, outlier.size = 0.6, fill = "white", color = catf_navy, linewidth = 0.35) +
-  stat_summary(fun = median, geom = "point", shape = 18, size = 2.4, color = catf_navy) +
-  facet_grid(process_type ~ energy, scales = "free_y") +
-  scale_fill_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
-  coord_cartesian(ylim = c(0, p99)) +
-  labs(title = "Document Length Distribution by Energy Category: Pre vs Post FRA",
-       subtitle = "Regulatory pages; violin + boxplot; diamond = median; y-axis capped at p99",
-       x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
-  theme_catf() + theme(legend.position = "none")
-ggsave(file.path(FIG, "fig_d4_pages_distribution_by_energy.png"), p_dist_e, width = 11, height = 7, dpi = 300)
+# Fig 4b: distribution BY ENERGY — one figure PER energy category (each EA|EIS), stacked in the
+# report. Split out (vs a single 2x3 facet_grid) so each panel is large enough to read. Common
+# p99 y-cap across all three keeps them directly comparable.
+eng_titles <- c(Decarb = "Decarbonization", Fossil = "Fossil", Other = "Other")
+for (eng in levels(pages$energy)) {
+  sub <- pages |> filter(energy == eng)
+  if (nrow(sub) == 0) next
+  dlab_e <- sub |> group_by(process_type, fra_period) |>
+    summarise(n = n(), med = round(median(regulatory_pages)), .groups = "drop")
+  p_dist_e <- ggplot(sub, aes(fra_period, regulatory_pages, fill = fra_period)) +
+    geom_violin(alpha = 0.35, trim = FALSE, color = NA) +
+    geom_boxplot(width = 0.2, outlier.alpha = 0.2, outlier.size = 0.7, fill = "white", color = catf_navy, linewidth = 0.4) +
+    stat_summary(fun = median, geom = "point", shape = 18, size = 3.2, color = catf_navy) +
+    geom_label(data = dlab_e, aes(x = fra_period, y = med, label = paste0("median ", med)), inherit.aes = FALSE,
+               hjust = -0.15, size = 2.7, color = catf_navy, fontface = "bold",
+               fill = "white", label.size = 0, label.padding = unit(0.12, "lines")) +
+    geom_text(data = dlab_e, aes(x = fra_period, y = 0, label = paste0("n=", comma(n))), inherit.aes = FALSE,
+              vjust = 1.5, size = 3, color = "gray40") +
+    facet_wrap(~process_type, scales = "free_y") +
+    scale_fill_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
+    coord_cartesian(ylim = c(0, p99)) +
+    labs(title = paste0("Document Length Distribution — ", eng_titles[[eng]], ": Pre vs Post FRA"),
+         subtitle = "Regulatory pages; violin + boxplot; diamond = median; y-axis capped at p99",
+         x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
+    theme_catf() + theme(legend.position = "none")
+  ggsave(file.path(FIG, sprintf("fig_d4_pages_distribution_%s.png", tolower(eng))), p_dist_e, width = 10, height = 5, dpi = 300)
+}
 
 # ---------------------------------------------------------------------------
 # Fig 5: FRA page-limit compliance (Post-FRA only)
