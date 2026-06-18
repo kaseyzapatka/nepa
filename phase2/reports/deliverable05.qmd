@@ -185,7 +185,7 @@ causal claim. Two devices isolate the real signal: **conditioning on agency** (t
 DOE-only while BLM — subject to the same dataset — is flat), and **citation evidence** (a Recovery Act
 citation cannot appear before the Recovery Act existed).
 
-# The Spike (Q1)
+# The Spike
 
 Categorical exclusions rise sharply around ARRA and again, more modestly, in the BIL/IRA period.
 
@@ -246,7 +246,6 @@ spike_tbl |>
 Splitting the CE series by energy type (decarbonization, fossil, other) and by lead department provides
 the all-data and breakdown views requested for every analysis.
 
-::: {layout-ncol=2}
 ```{r fig-byenergy}
 #| label: fig-byenergy
 #| fig-cap: "CE counts by year, by energy type."
@@ -258,7 +257,6 @@ include_fig("fig_d5_ce_counts_by_year_byenergy.png")
 #| fig-cap: "CE counts by year, by lead department."
 include_fig("fig_d5_ce_counts_by_year_bydept.png")
 ```
-:::
 
 ```{r fig-byprocess-byenergy}
 #| label: fig-byprocess-byenergy
@@ -266,7 +264,7 @@ include_fig("fig_d5_ce_counts_by_year_bydept.png")
 include_fig("fig_d5_counts_by_year_byprocess_byenergy.png")
 ```
 
-# Association With the Law (Q2)
+# Association With the Law
 
 A temporal coincidence is not attribution. The strongest test is whether the spiking documents *say* the
 action stems from the law. We detect explicit citations to each statute in the document text (with
@@ -306,7 +304,7 @@ citerate |>
   tab_options(table.font.size = px(12))
 ```
 
-# What Types of CEs Were Used (Q3)
+# What Types of CEs Were Used
 
 NEPATEC records the specific categorical-exclusion category each action invoked. For DOE these are the
 codes of 10 C.F.R. 1021 (e.g. `B5.1`, `A9`, `B1.3`); for the Interior/BLM they are the `516 DM 11`
@@ -379,9 +377,9 @@ techshift |>
 
 # Reproducibility
 
-All figures and tables in this report regenerate from committed code:
+All figures and tables in this report regenerate from committed code. Run from the repository root in the `nepa` conda environment:
 
-```
+``` bash
 python phase2/code/deliverable05/02_build_ce_categories.py
 python phase2/code/deliverable05/01_extract_law_citations.py --source all
 Rscript phase2/code/deliverable05/03_analyze_spikes.R
