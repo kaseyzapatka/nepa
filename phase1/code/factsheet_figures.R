@@ -227,6 +227,7 @@ fig1a <- fig1a_data %>%
   coord_flip() +
   labs(
     title = "Energy-Related Federal Actions Overwhelmingly Use Categorical Exclusions",
+    subtitle = "Energy Reviews (Decarbonization + Fossil Fuel)",
     x       = NULL,
     y       = "Share of Reviews",
     fill    = "Review Type",
@@ -481,6 +482,78 @@ fig1d <- fig1d_data %>%
 ggsave(file.path(out_dir, "02_energy_type_composition_OTHER.png"),
        fig1d, width = 10, height = 5, dpi = 300)
 message("  Saved: 02_energy_type_composition_OTHER.png")
+
+# ---------------------------------------------------------------------------
+# Fig 1e — All-energy composition, DOE vs. BLM (one bar per agency)
+#           (02_energy_type_composition_ALL_ENERGY_DOE_BLM.png)
+#           Variant of Fig 1a restricted to DOE and BLM, with a bar for each.
+#           Energy = Fossil + Decarbonized; "Other" excluded.
+#           DOE uses the aggregated department field (project_department ==
+#           "Department of Energy"), so it includes DOE sub-agencies (power
+#           marketing administrations, NNSA, Energy Programs, etc.). BLM is a
+#           bureau within Interior, so it must stay at the lead-agency level
+#           (reuses blm_project_ids from Fig 1b).
+# ---------------------------------------------------------------------------
+message("\n--- Fig 1e: All-energy composition (DOE vs BLM) ---")
+
+energy_agency <- bind_rows(
+  projects %>% filter(project_department == "Department of Energy") %>% mutate(lead = "DOE"),
+  projects %>% semi_join(blm_project_ids, by = "project_id") %>% mutate(lead = "BLM")
+) %>%
+  filter(project_energy_type %in% c("Fossil", "Clean"))
+
+fig1e_data <- energy_agency %>%
+  group_by(lead, process_type) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(lead) %>%
+  mutate(total_lead = sum(n), pct = 100 * n / total_lead) %>%
+  ungroup()
+
+fig1e_totals <- fig1e_data %>%
+  distinct(lead, total_lead)
+
+fig1e <- fig1e_data %>%
+  ggplot(aes(x = reorder(lead, total_lead), y = pct, fill = process_type)) +
+  geom_col(width = 0.7) +
+  geom_text(
+    aes(label = ifelse(pct > 5, paste0(round(pct, 0), "%"), "")),
+    position = position_stack(vjust = 0.5),
+    color = "white", size = 3.5, fontface = "bold"
+  ) +
+  geom_text(
+    data = fig1e_totals,
+    aes(x = reorder(lead, total_lead), y = 101,
+        label = scales::comma(total_lead)),
+    inherit.aes = FALSE, hjust = 0, size = 3, color = "gray30"
+  ) +
+  coord_flip() +
+  labs(
+    title    = "DOE and BLM overwhelmingly use Categorical Exclusions",
+    subtitle = "Energy Reviews (Decarbonization + Fossil Fuel): DOE vs. BLM",
+    x       = NULL,
+    y       = "Share of Reviews",
+    fill    = "Review Type",
+    caption = str_wrap(paste0(
+      "Note: Restricted to energy-related projects (fossil + decarbonization); non-energy (\"Other\") ",
+      "actions are excluded. DOE = lead department is the Department of Energy (includes power marketing ",
+      "administrations, NNSA, and other DOE components); BLM = Bureau of Land Management as a lead agency. ",
+      "NEPA review processes: CE (Categorical Exclusion), EA (Environmental Assessment), ",
+      "EIS (Environmental Impact Statement). ",
+      "Percentages calculated within each agency. ",
+      "Percentage labels below 5% omitted for clarity."
+    ), width = 150)
+  ) +
+  scale_y_continuous(labels = percent_format(scale = 1), expand = expansion(mult = c(0, 0.08))) +
+  scale_fill_catf() +
+  theme_catf() +
+  theme(
+    legend.position    = "bottom",
+    panel.grid.major.y = element_blank()
+  )
+
+ggsave(file.path(out_dir, "02_energy_type_composition_ALL_ENERGY_DOE_BLM.png"),
+       fig1e, width = 10, height = 5, dpi = 300)
+message("  Saved: 02_energy_type_composition_ALL_ENERGY_DOE_BLM.png")
 
 # ---------------------------------------------------------------------------
 # Fig 2 — Agency process: DOE + BLM (02_agency_process.png)
