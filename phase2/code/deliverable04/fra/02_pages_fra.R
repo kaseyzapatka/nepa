@@ -130,14 +130,16 @@ p_energy <- ggplot(energy_sum, aes(energy, mean_pages, fill = fra_period)) +
              position = pd, color = catf_navy) +
   geom_text(aes(y = median_pages, label = sprintf("median %.0f", median_pages), group = fra_period),
             position = pd, vjust = 1.8, size = 2.1, color = "white", fontface = "bold") +
-  facet_wrap(~process_type, scales = "free_y") +
+  # Stack the two processes as rows (EA on top, EIS below) so each panel is full-width and
+  # legible; energy categories sit side-by-side within each row.
+  facet_wrap(~process_type, ncol = 1, scales = "free_y") +
   scale_fill_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.3))) +
   labs(title = "Document Length by Energy Category: Pre vs Post FRA",
        subtitle = "Regulatory pages; bar = average, diamond = median; all EA/EIS with a decision date",
        x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
   theme_catf()
-ggsave(file.path(FIG, "fig_d4_pages_pre_post_fra_by_energy.png"), p_energy, width = 11, height = 6, dpi = 300)
+ggsave(file.path(FIG, "fig_d4_pages_pre_post_fra_by_energy.png"), p_energy, width = 10, height = 9, dpi = 300)
 
 # ---------------------------------------------------------------------------
 # Fig 4: distribution (violin + box, y capped at p99)
