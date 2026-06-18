@@ -4,7 +4,7 @@
 # coverage diagnostics, regulatory-period comparisons, and all main figures
 # (including recreations of the Phase 1 D3 timeline charts adapted for Phase 2 schema).
 #
-# FRA breakpoint: 2023-08-16 (CEQ final rule effective date)
+# FRA breakpoint: 2023-06-03 (FRA enactment; matches Phase 1 D5 + the pages analysis)
 # Legislative markers: ARRA 2009, BIL 2021, IRA 2022
 #
 # Output tables (phase2/output/deliverable04/diagnostics/):
@@ -69,7 +69,7 @@ dir.create(FIGS, recursive = TRUE, showWarnings = FALSE)
 # ---------------------------------------------------------------------------
 
 PROCESS_LEVELS    <- c("CE", "EA", "EIS")
-FRA_CUT_DATE      <- as.Date("2023-08-16")
+FRA_CUT_DATE      <- as.Date("2023-06-03")  # FRA enactment (matches Phase 1 D5 + the pages analysis)
 ARRA_DATE         <- as.Date("2009-02-17")
 BIL_DATE          <- as.Date("2021-11-15")
 IRA_DATE          <- as.Date("2022-08-16")
@@ -723,7 +723,7 @@ ggsave(file.path(FIGS, "fig_d4_duration_histogram.png"),
 message("Wrote fig_d4_duration_histogram.png")
 
 # ---------------------------------------------------------------------------
-# Fig 3: Median review duration pre vs post FRA (Aug 16, 2023)
+# Fig 3: Median review duration pre vs post FRA (June 3, 2023)
 # ---------------------------------------------------------------------------
 
 fra_fig <- fra_comparison |>
@@ -742,7 +742,7 @@ p_fra <- ggplot(fra_fig, aes(x = period, y = median_months, fill = process_type)
   ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
   labs(
-    title    = "D4 Median Review Duration: Pre vs Post FRA (Aug 16, 2023)",
+    title    = "D4 Median Review Duration: Pre vs Post FRA (June 3, 2023)",
     subtitle = "Lighter bar = Pre-FRA (before Aug 2023)  |  Solid bar = Post-FRA (Aug 2023+)",
     x = NULL, y = "Median duration (months)"
   )

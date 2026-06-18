@@ -168,6 +168,15 @@ include_fig("fig_d4_complete_timeline_share_boxplot.png")
 include_fig("fig_d4_coverage_by_process.png")
 ```
 
+Coverage also varies by energy category (@fig-cov-energy). Notably, **decarbonization EIS projects complete at 42.4% — well above the EIS aggregate of `r fmt_pct(cpct("EIS"))`** — because clean-energy EISs are better documented than the heterogeneous "Other" bucket that drags the aggregate down.
+
+```{r}
+#| label: fig-cov-energy
+#| fig-cap: "Timeline coverage by process and energy category (both dates / decision only / initiation only / none)."
+#| out-width: "100%"
+include_fig("fig_d4_coverage_by_process_and_energy.png")
+```
+
 ## Duration analysis
 
 Durations use **all complete timelines** (both dates present, including those resolved with a proxy date such as a Final-EIS publication date in place of a missing Record of Decision). Month-only dates are imputed to the **mid-month 15th**; the small number of year-only dates (almost entirely a subset of CE initiation dates) are excluded, since a day cannot be responsibly imputed from a year alone.
@@ -179,6 +188,13 @@ On that basis, durations track the expected complexity ladder from CE to EA to E
 #| fig-cap: "Duration summary by review process. Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median."
 #| out-width: "100%"
 include_fig("fig_d4_duration_summary_intervals.png")
+```
+
+```{r}
+#| label: fig-dur-energy
+#| fig-cap: "Duration summary intervals by process, coloured by energy category."
+#| out-width: "100%"
+include_fig("fig_d4_duration_summary_intervals_by_energy.png")
 ```
 
 ```{r}
@@ -197,31 +213,13 @@ include_fig("fig_d4_project_timeline_spans.png")
 
 ### By regulatory period (pre- vs post-FRA)
 
-The **Fiscal Responsibility Act of 2023** (and the 2024 CEQ rule) reset NEPA expectations. @fig-fra compares median review durations before and after the rule's effective date. Durations are still accruing for post-FRA projects (recently initiated reviews have not all reached a decision), so post-FRA medians are provisional.
+The **Fiscal Responsibility Act of 2023** reset NEPA expectations. @fig-fra compares median review durations before and after **FRA enactment (June 3, 2023)**, and @fig-fra-energy breaks the same comparison down by energy category. Durations are still accruing for post-FRA projects (recently initiated reviews have not all reached a decision), so post-FRA medians are provisional.
 
 ```{r}
 #| label: fig-fra
-#| fig-cap: "Median review duration, pre- vs post-FRA, by process. Post-FRA samples are small and still accruing."
+#| fig-cap: "Median review duration, pre- vs post-FRA (June 3, 2023), by process. Post-FRA samples are small and still accruing."
 #| out-width: "100%"
 include_fig("fig_d4_fra_comparison.png")
-```
-
-### By energy category
-
-Coverage and duration also vary by energy category (Decarbonization / Fossil / Other). Notably, **decarbonization EIS projects complete at 42.4% — well above the EIS aggregate of `r fmt_pct(cpct("EIS"))`** — because clean-energy EISs are better documented than the heterogeneous "Other" bucket that drags the aggregate down.
-
-```{r}
-#| label: fig-cov-energy
-#| fig-cap: "Timeline coverage by process and energy category (both dates / decision only / initiation only / none)."
-#| out-width: "100%"
-include_fig("fig_d4_coverage_by_process_and_energy.png")
-```
-
-```{r}
-#| label: fig-dur-energy
-#| fig-cap: "Duration summary intervals by process, coloured by energy category."
-#| out-width: "100%"
-include_fig("fig_d4_duration_summary_intervals_by_energy.png")
 ```
 
 ```{r}
@@ -291,7 +289,7 @@ This section **builds directly on [Phase 1 Deliverable 5](https://www.kaseyzapat
 -   **Regulatory pages** = body word count ÷ 500, excluding embedded appendices and low-content pages, per **40 C.F.R. § 1508.1(bb)** — the measure that matches the FRA limits (EA ≤ 75 pages; EIS ≤ 150, or 300 if extraordinarily complex).
 -   These counts are computed **from the actual page text** by `fra/01_extract_pages.py` (a DuckDB pass over `phase2/data/processed/{ea,eis}/pages.parquet` — 6.1M EIS pages — detecting the appendix boundary and low-content pages), producing regulatory pages for **5,032 EA/EIS projects** (2,765 EA, 2,267 EIS) across **all energy types** — not just decarbonization.
 -   The pre/post-FRA analysis below uses the **`r fmt_n(sum(pg$n_projects))` projects** that also have a decision date (EA `r fmt_n(sum(pg$n_projects[pg$process_type=="EA"]))` / EIS `r fmt_n(sum(pg$n_projects[pg$process_type=="EIS"]))`).
--   **FRA date = enactment (June 3, 2023)**, matching Phase 1 D5. (The timeline section above uses the CEQ-rule effective date for its period split.)
+-   **FRA date = enactment (June 3, 2023)**, matching Phase 1 D5 and the timeline-duration period split above.
 :::
 
 ## Document length over time
