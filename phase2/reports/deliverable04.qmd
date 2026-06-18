@@ -50,16 +50,15 @@ navy_gt <- function(df, title = NULL) {
     tab_options(table.font.size = px(12), table.width = pct(100))
 }
 
-# --- Coverage (complete = complete_clear + complete_with_proxy) ---
-cov <- read_diag("d4_coverage_by_process.csv")
-cov_tot <- cov |> group_by(process_type) |> summarise(total = sum(n), .groups = "drop")
-cov_complete <- cov |>
-  filter(timeline_status %in% c("complete_clear", "complete_with_proxy")) |>
-  group_by(process_type) |> summarise(complete = sum(n), .groups = "drop") |>
-  left_join(cov_tot, by = "process_type") |>
-  mutate(pct = complete / total)
-cpct <- function(pt) cov_complete$pct[cov_complete$process_type == pt]
-cn   <- function(pt) cov_complete$complete[cov_complete$process_type == pt]
+# --- Coverage (complete = BOTH dates present, matching @fig-complete-share / @fig-coverage) ---
+# Read the exact per-process complete-timeline shares written by 08_analyze.R so the narrative
+# "% complete" numbers match Figure 2 (fig-complete-share) by construction. "Complete" = both an
+# initiation and a decision date are present (date coverage), consistent with the figures and the
+# Executive Summary's stated definition. A small share of projects have both dates but in invalid
+# order (decision before initiation); those are excluded from the duration analysis as errors.
+cov_complete <- read_diag("d4_complete_share.csv")
+cpct <- function(pt) cov_complete$share_complete[cov_complete$process_type == pt]
+cn   <- function(pt) cov_complete$n_complete[cov_complete$process_type == pt]
 
 diag <- read_diag("d4_coverage_diagnostics.csv")
 dpct <- function(pt, col) diag[[col]][diag$process_type == pt] / 100
@@ -84,7 +83,7 @@ figcaption, .figure-caption, .quarto-figure figcaption { text-align: left !impor
 ::: callout-note
 ## Key Findings
 
--   **Timeline completeness varies sharply by review process.** After LLM adjudication, complete timelines (both an initiation and a decision date) reach **`r fmt_pct(cpct("CE"))` for CE**, **`r fmt_pct(cpct("EA"))` for EA**, and **`r fmt_pct(cpct("EIS"))` for EIS** (see @fig-coverage). The binding constraint differs by process: CE and EA are *initiation*-limited (no Notice of Intent requirement, often no recorded start), while EIS is *decision*-limited (Records of Decision are frequently separate documents absent from the corpus — EIS decision coverage is only `r fmt_pct(dpct("EIS","pct_decision"))`).
+-   **Timeline completeness varies sharply by review process.** After LLM adjudication, complete timelines (both an initiation and a decision date) reach **`r fmt_pct(cpct("CE"), 1)` for CE**, **`r fmt_pct(cpct("EA"), 1)` for EA**, and **`r fmt_pct(cpct("EIS"), 1)` for EIS** (see @fig-coverage). The binding constraint differs by process: CE and EA are *initiation*-limited (no Notice of Intent requirement, often no recorded start), while EIS is *decision*-limited (Records of Decision are frequently separate documents absent from the corpus — EIS decision coverage is only `r fmt_pct(dpct("EIS","pct_decision"))`).
 -   **Durations follow the expected complexity ladder.** Median review duration is **`r dmed("CE")` days for CE**, **`r dmed("EA")` days (~`r round(dmed("EA")/30.4)` months) for EA**, and **`r fmt_n(dmed("EIS"))` days (~`r round(dmed("EIS")/365.25,1)` years) for EIS** (all complete timelines; see @fig-duration-intervals).
 -   **LLM adjudication added ~13,000 dates** across 11,207 routed projects at a measured cost of **\$18.20**, lifting complete coverage roughly **+7 percentage points** in every process versus the deterministic-only pipeline.
 -   **Timeline outliers split into genuinely long reviews and extraction errors.** The genuinely long cases — e.g. **SunZia Southwest Transmission (14.6 yr)**, **Energia Sierra Juarez**, **Grain Belt Express**, **Cushman Hydroelectric** — are strong candidates for CATF case studies. Errors (an "initiation" anchored to a historical citation) are flagged and excluded (see @sec-outliers).
@@ -144,7 +143,7 @@ A project's timeline is **complete** when both an initiation and a decision date
 
 -   **Lift EIS decision coverage** — re-pull Final-EIS cover/publication dates to see if we can add more year-month dates for EIS.
 -   **Fix the ordering check at the source** — resolve the 233 decision-before-initiation rows in the selection step (currently handled by a downstream stopgap filter).
--   **Extend the analysis** — BLM field-office learning curves, geothermal timelines by field office, and whether post-FRA adoption of categorical exclusions correlates with faster reviews (see Requested Extensions).
+-   **Extend the analysis** — the [BLM field-office experience](#sec-field-office) learning-curve test is now built (no experience effect once calendar time is controlled); geothermal timelines by field office and whether post-FRA adoption of categorical exclusions correlates with faster reviews remain scoped (see Requested Extensions).
 
 ------------------------------------------------------------------------
 
@@ -169,13 +168,13 @@ include_fig("fig_d4_register_source_projects.png")
 
 @fig-complete-share shows the share of projects with complete timelines by review process; @fig-coverage breaks down *which* component is missing. The patterns differ by process:
 
--   **CE** (`r fmt_pct(cpct("CE"))` complete): decision coverage is high (`r fmt_pct(dpct("CE","pct_decision"))`) but initiation coverage is low (`r fmt_pct(dpct("CE","pct_initiation"))`) — most CEs are single-signature determinations with no recorded start.
--   **EA** (`r fmt_pct(cpct("EA"))` complete): the strongest of the three, but still initiation-limited — EAs have no Notice-of-Intent requirement and often skip scoping.
--   **EIS** (`r fmt_pct(cpct("EIS"))` complete): initiations are usually documented (an NOI is required), but **decision** coverage is only `r fmt_pct(dpct("EIS","pct_decision"))` because Records of Decision are frequently separate documents not in the corpus.
+-   **CE** (`r fmt_pct(cpct("CE"), 1)` complete): decision coverage is high (`r fmt_pct(dpct("CE","pct_decision"))`) but initiation coverage is low (`r fmt_pct(dpct("CE","pct_initiation"))`) — most CEs are single-signature determinations with no recorded start.
+-   **EA** (`r fmt_pct(cpct("EA"), 1)` complete): the strongest of the three, but still initiation-limited — EAs have no Notice-of-Intent requirement and often skip scoping.
+-   **EIS** (`r fmt_pct(cpct("EIS"), 1)` complete): initiations are usually documented (an NOI is required), but **decision** coverage is only `r fmt_pct(dpct("EIS","pct_decision"))` because Records of Decision are frequently separate documents not in the corpus.
 
-**Comparison with Phase 1.** Phase 1 measured completeness for *decarb projects only* and reported [CE ~30% · EA ~62% · EIS ~48%](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#fig-complete-share). On the **full database**, Phase 2 reaches CE `r fmt_pct(cpct("CE"))` · EA `r fmt_pct(cpct("EA"))` · EIS `r fmt_pct(cpct("EIS"))`. CE is *higher* — the much larger universe is dominated by routine, register-dated determinations — but **EA and EIS land below their Phase 1 decarb-only rates**, for two reasons this analysis surfaced:
+**Comparison with Phase 1.** Phase 1 measured completeness for *decarb projects only* and reported [CE ~30% · EA ~62% · EIS ~48%](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#fig-complete-share). On the **full database**, Phase 2 reaches CE `r fmt_pct(cpct("CE"), 1)` · EA `r fmt_pct(cpct("EA"), 1)` · EIS `r fmt_pct(cpct("EIS"), 1)`. CE is *higher* — the much larger universe is dominated by routine, register-dated determinations — but **EA and EIS land below their Phase 1 decarb-only rates**, for two reasons this analysis surfaced:
 
--   **The aggregate is diluted by non-decarb projects.** Phase 1's denominator was decarb energy; Phase 2's is everything. Decarbonization EIS alone completes at **42.4%** (much closer to Phase 1's 48%) — it is the heterogeneous "Other" bucket that pulls the EIS aggregate down to `r fmt_pct(cpct("EIS"))`.
+-   **The aggregate is diluted by non-decarb projects.** Phase 1's denominator was decarb energy; Phase 2's is everything. Decarbonization EIS alone completes at **42.4%** (much closer to Phase 1's 48%) — it is the heterogeneous "Other" bucket that pulls the EIS aggregate down to `r fmt_pct(cpct("EIS"), 1)`.
 -   **The remaining gaps are structural, not fixable by better parsing.** EIS completeness is capped by **missing Records of Decision** (a separate document, often outside the corpus — decision coverage only `r fmt_pct(dpct("EIS","pct_decision"))`); CE and EA completeness is capped by **missing initiations**, because neither requires a Notice of Intent and a start date is frequently never recorded. A minority of EIS "projects" are also comment letters or document fragments with no milestone date to extract. Lifting EIS coverage toward Phase 1 is the focus of the [Next steps](#methodology) above.
 
 ```{r}
@@ -192,7 +191,7 @@ include_fig("fig_d4_complete_timeline_share_boxplot.png")
 include_fig("fig_d4_coverage_by_process.png")
 ```
 
-Coverage also varies by energy category (@fig-cov-energy). Notably, **decarbonization EIS projects complete at 42.4% — well above the EIS aggregate of `r fmt_pct(cpct("EIS"))`** — because decarb EISs are better documented than the heterogeneous "Other" bucket that drags the aggregate down.
+Coverage also varies by energy category (@fig-cov-energy). Notably, **decarbonization EIS projects complete at 42.4% — well above the EIS aggregate of `r fmt_pct(cpct("EIS"), 1)`** — because decarb EISs are better documented than the heterogeneous "Other" bucket that drags the aggregate down.
 
 ```{r}
 #| label: fig-cov-energy
@@ -328,12 +327,59 @@ Across all EA/EIS, **EIS regulatory length fell after FRA** (mean `r pgv("EIS","
 
 ```{r}
 #| label: tbl-pages
-#| tbl-cap: "Regulatory page counts by process and FRA period — all EA/EIS, all energy types. Regulatory pages = body word count ÷ 500."
+#| tbl-cap: "Descriptive statistics for regulatory page counts by process type and FRA period — all EA/EIS, all energy types. Regulatory pages = body word count ÷ 500, excluding embedded appendix pages and low-content pages, per 40 C.F.R. § 1508.1(bb)."
 pg |>
-  transmute(Process = process_type, `FRA period` = fra_period, `n` = n_projects,
-            Mean = mean_pages, Median = median_pages, SD = sd_pages,
-            p25 = p25_pages, p75 = p75_pages) |>
-  navy_gt()
+  select(process_type, fra_period, n_projects, mean_pages, median_pages,
+         sd_pages, p25_pages, p75_pages) |>
+  mutate(
+    process_type = factor(process_type, levels = c("EA", "EIS")),
+    fra_period   = factor(fra_period, levels = c("Pre-FRA", "Post-FRA"))
+  ) |>
+  arrange(process_type, fra_period) |>
+  gt(groupname_col = "process_type") |>
+  cols_label(
+    fra_period   = "FRA Period",
+    n_projects   = "N",
+    mean_pages   = "Mean",
+    median_pages = "Median",
+    sd_pages     = "SD",
+    p25_pages    = "P25",
+    p75_pages    = "P75"
+  ) |>
+  cols_align(align = "left",  columns = fra_period) |>
+  cols_align(align = "right", columns = where(is.numeric)) |>
+  fmt_number(columns = where(is.numeric), decimals = 0, use_seps = TRUE) |>
+  tab_spanner(
+    label = "Regulatory Pages (body word count ÷ 500)",
+    columns = c(mean_pages, median_pages, sd_pages, p25_pages, p75_pages)
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style = list(
+      cell_fill(color = CATF_NAVY),
+      cell_text(color = "white", weight = "bold", size = px(13))
+    ),
+    locations = cells_row_groups()
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#f0f7ff"),
+    locations = cells_body(rows = fra_period == "Post-FRA")
+  ) |>
+  tab_footnote(
+    footnote = "Post-FRA projects are those with a decision date on or after June 3, 2023. Regulatory pages exclude embedded appendix pages and low-content pages (maps, figures, blanks); documents whose filename already omits appendices use their page count directly, and documents without extractable text are excluded."
+  ) |>
+  tab_style(
+    style = cell_text(align = "right"),
+    locations = cells_footnotes()
+  ) |>
+  tab_options(
+    table.font.size = px(13),
+    data_row.padding = px(6),
+    row_group.padding = px(6)
+  )
 ```
 
 ```{r}
@@ -414,19 +460,123 @@ include_fig("fig_d4_pages_compliance.png")
 
 ------------------------------------------------------------------------
 
-# Requested Extensions 
+# BLM field-office experience {#sec-field-office}
+
+This extension answers a request from the deliverable scope: **do BLM field offices process NEPA reviews faster as they accumulate experience** — a "learning-curve" effect? We map each BLM-led project to the field office that handled it (from the structured `DOI-BLM-<state>-<office>-<year>-<seq>` case number), order each office's reviews by the office's own cumulative count, and test whether duration falls as that count rises — **after** separating the experience signal from two confounds that would otherwise manufacture a false result: the register-anchoring artifact and secular calendar-time trends. All conclusions here are **associational, not causal**.
+
+```{r}
+#| label: fo-setup
+fo_cov  <- read_diag("d4_fieldoffice_parse_coverage.csv")
+fo_covv <- function(scope, col) fo_cov[[col]][fo_cov$scope == scope]
+fo_off  <- arrow::read_parquet(here("phase2", "data", "analysis", "deliverable04", "blm_field_offices.parquet"))
+n_offices  <- dplyr::n_distinct(fo_off$office_code)
+n_case     <- sum(fo_off$parse_source == "case_number")
+n_file     <- sum(fo_off$parse_source == "file_name")
+
+fo_mod <- read_diag("d4_fieldoffice_model.csv")
+mrow   <- function(proc, anch) fo_mod[fo_mod$process == proc & fo_mod$anchor == anch, ]
+ce_d   <- mrow("CE", "Document")   # PRIMARY: document-anchored
+ce_r   <- mrow("CE", "Register")   # sensitivity
+ea_r   <- mrow("EA", "Register")   # exploratory
+
+fo_sum      <- read_diag("d4_fieldoffice_summary.csv")
+n_q_offices <- nrow(fo_sum)
+med_first   <- median(fo_sum$first_med, na.rm = TRUE)
+med_last    <- median(fo_sum$last_med,  na.rm = TRUE)
+share_sped  <- mean(fo_sum$pct_change < 0, na.rm = TRUE)
+
+sgn  <- function(x) sprintf("%+.1f%%", x)                                  # signed percent
+ci   <- function(r) sprintf("%+.1f%% to %+.1f%%", r$pct_lo, r$pct_hi)      # signed 95% CI
+```
+
+::: callout-note
+## Method & scope
+
+-   **Field-office parse.** The validated regex `BLM-([A-Z]{2}-?[A-Z]?[0-9]{2,4})` on the case number (file name as fallback) maps **`r fmt_pct(fo_covv("ALL","pct_parsed")/100)`** of BLM-led projects (`r fmt_n(fo_covv("ALL","parsed"))` of `r fmt_n(fo_covv("ALL","blm_projects"))`) to one of **`r n_offices`** field offices (`r fmt_n(n_case)` from the structured case number, `r fmt_n(n_file)` from the file name).
+-   **Document-anchored durations are primary.** BLM register "project start" dates are frequently late administrative entries (the ~40-day artifact documented in the duration analysis above), so the learning curve is computed on **document-anchored** initiation dates (`initiation_source_type ≠ metadata`); the register-anchored version is a clearly-flagged secondary view.
+-   **EA and CE are analyzed separately** (CE medians run in weeks, EA in months); **EIS is excluded** (too sparse per office). Offices qualify with **≥ 30** valid durations on the analysis measure.
+-   **Model.** A pooled regression with **office fixed effects**, `log(duration) ~ log(cum_count) + factor(decision_year) + project_energy_type`, fit separately for EA and CE. The `log(cum_count)` coefficient is the experience effect *net of* secular calendar trends; `factor(decision_year)` is the calendar control, `project_energy_type` the project-mix control.
+:::
+
+::: callout-important
+## Finding: the apparent learning curve is a calendar-time confound, not experience
+
+Descriptively, CE reviews look like they speed up as an office gains experience: across the **`r n_q_offices`** offices with ≥ 30 document-anchored CE reviews, the median duration of an office's *earliest* third of reviews is **`r med_first` days** versus **`r med_last` days** for its *most-experienced* third, and **`r fmt_pct(share_sped)`** of offices sped up (@fig-fo-dumbbell). **But that gradient is an artifact of calendar time.** CE durations have fallen sharply over the 2010s corpus-wide, and because an office's higher-experience reviews are also its later-calendar reviews (within-sample correlation ≈ 0.67), the raw pattern conflates the two (@fig-fo-confound). The office fixed-effects regression that adds a **decision-year control** dissolves the effect: the coefficient on `log(cumulative reviews)` is **`r sgn(ce_d$pct_per_doubling)` per doubling (95% CI `r ci(ce_d)`)** for the primary document-anchored CE measure (n = `r fmt_n(ce_d$n_reviews)` reviews, `r ce_d$n_offices` offices) — statistically indistinguishable from zero and, if anything, the *opposite* sign — even though the **same model without the calendar control** reproduces the apparent **`r sgn(ce_d$pct_per_doubling_raw)`** speed-up. The register-anchored CE sensitivity points the same way (`r sgn(ce_r$pct_per_doubling)`, CI `r ci(ce_r)`). **EA cannot support the office-level design**: no office clears the ≥ 30 document-anchored-review bar (only 144 such EA durations exist corpus-wide), and the exploratory register-anchored EA estimate (`r sgn(ea_r$pct_per_doubling)`, CI `r ci(ea_r)`) is not distinguishable from zero and rests on artifact-prone start dates. **Net of calendar time, there is no evidence that BLM field offices grow faster with experience.**
+:::
+
+@fig-fo-curve shows the raw, *uncontrolled* gradient that motivates the question — and that the regression then explains away. Document-anchored CE durations decline across the cumulative-review deciles; the register-anchored lines sit far lower (especially for EA), a direct picture of the late-administrative-entry artifact.
+
+```{r}
+#| label: fig-fo-curve
+#| fig-cap: "Apparent field-office learning curve (uncontrolled): median review duration by the office's cumulative-review decile, EA and CE panels, document- vs register-anchored. Descriptive only — not net of calendar time; the regression below shows the decline is secular calendar drift, not experience."
+#| out-width: "100%"
+include_fig("fig_d4_fieldoffice_learning_curve.png")
+```
+
+The confound is direct in @fig-fo-confound: median CE duration falls with **both** calendar year and cumulative experience, because the two move together (later reviews are later in time). Only the regression, which holds decision-year fixed, can separate them — and once it does, the within-office experience coefficient is null/positive.
+
+```{r}
+#| label: fig-fo-confound
+#| fig-cap: "Why the curve is a calendar confound: CE durations fall with both calendar year (left) and cumulative office experience (right). The two gradients look alike because they are collinear (r ≈ 0.67); the office + decision-year fixed-effects regression attributes the decline to calendar time, leaving no experience effect."
+#| out-width: "100%"
+include_fig("fig_d4_fieldoffice_experience_vs_calendar.png")
+```
+
+Per-office heterogeneity (@fig-fo-dumbbell) reinforces the null: some high-volume offices show shorter durations for their most-experienced third, others longer — there is no consistent within-office speed-up once each office is its own baseline. Because a later tercile is also a later calendar period, most of the leftward movement that does appear is the same secular decline, not learning.
+
+```{r}
+#| label: fig-fo-dumbbell
+#| fig-cap: "First- vs last-tercile median CE duration (document-anchored) for the top 15 BLM field offices by review volume. Light dot = least-experienced third; navy dot = most-experienced third. Descriptive only; the direction is inconsistent across offices and largely tracks calendar time."
+#| out-width: "100%"
+include_fig("fig_d4_fieldoffice_first_vs_last.png")
+```
+
+```{r}
+#| label: tbl-fo-model
+#| tbl-cap: "Learning-curve regression: effect of doubling an office's cumulative review count on review duration, with and without the decision-year (calendar) control. Negative = faster with experience. The sign flip between the two columns is the calendar confound. CE document-anchored is the primary measure."
+fo_mod |>
+  filter(!is.na(n_reviews), n_reviews > 0) |>
+  transmute(
+    Process = process,
+    Measure = dplyr::recode(anchor, Document = "Document-anchored", Register = "Register-anchored"),
+    `Min reviews/office` = threshold,
+    `N reviews` = n_reviews,
+    `N offices` = n_offices,
+    `%/doubling (no calendar control)` = sprintf("%+.1f%%", pct_per_doubling_raw),
+    `%/doubling (calendar-controlled)` = sprintf("%+.1f%%", pct_per_doubling),
+    `95% CI` = sprintf("%+.1f to %+.1f%%", pct_lo, pct_hi),
+    Role = dplyr::case_when(
+      process == "CE" & anchor == "Document" ~ "Primary",
+      process == "CE" & anchor == "Register" ~ "Sensitivity",
+      TRUE ~ "Exploratory (artifact-prone)")
+  ) |>
+  navy_gt() |>
+  tab_footnote(footnote = "EA has no office with ≥30 document-anchored durations (144 corpus-wide), so the EA row uses the register-anchored measure at a relaxed ≥10 threshold and is exploratory only.")
+```
+
+::: callout-warning
+## Caveats
+
+-   **Calendar-time confound (the headline).** The raw "offices speed up with experience" pattern is secular calendar drift; net of decision-year there is no experience effect. This is the central caveat — the descriptive figures must not be read on their own.
+-   **Register-anchoring artifact.** Durations rest partly on register/proxy start dates that are late administrative entries; the primary analysis uses document-anchored dates to limit this, but the secondary register views inherit the artifact (visible as the much shorter register lines in @fig-fo-curve).
+-   **~38% of BLM projects are unparsed** (`r fmt_pct(1 - fo_covv("ALL","pct_parsed")/100)`). EISs account for most of the gap — only `r fmt_pct(fo_covv("EIS","pct_parsed")/100)` parse (programmatic/large EISs are filed under titles, not DOI-BLM case numbers), versus `r fmt_pct(fo_covv("CE","pct_parsed")/100)` of CE and `r fmt_pct(fo_covv("EA","pct_parsed")/100)` of EA. Many unparsed EAs carry an office-like code in a non-standard form (bare `C069-2023-…`, `AZ-A010-…`) lacking the `BLM-` prefix the regex anchors on, and are left out rather than guessed.
+-   **Project mix.** Short well-abandonment EAs dominate some offices; `project_energy_type` is included as a covariate, but a "faster" office could reflect a shift toward simpler actions rather than learning.
+-   **Office identity** may shift over time (renames, mergers, district reorganizations); a stable `office_code` is assumed.
+:::
+
+------------------------------------------------------------------------
+
+# Requested Extensions
 
 The following items from the deliverable request require additional analysis beyond the current timeline build. They are scoped here for the next phase:
 
 ```{r}
 tibble::tibble(
   `Requested analysis` = c(
-    "BLM field-office learning curve",
     "Geothermal timelines by BLM field office",
     "CE adoption post-FRA vs. review speed"
   ),
   `What it needs` = c(
-    "Join decision dates to BLM field-office identifiers; test whether per-office median duration falls as cumulative application count rises (experience effect).",
     "Geothermal project flags (Deliverable 1/3 tech tags) × field office × duration; limited by geothermal sample size per office.",
     "CE-adoption events (which agencies adopted other agencies' CEs post-FRA, BLM/DOE/USFS) × subsequent review duration; needs the CE-adoption register."
   )
@@ -454,6 +604,10 @@ Rscript phase2/code/deliverable04/10_outliers.R      # timeline outliers (case-s
 # FRA document-length analysis (regulatory pages from the full page text, all EA/EIS)
 conda run -n nepa python phase2/code/deliverable04/fra/01_extract_pages.py --run
 Rscript phase2/code/deliverable04/fra/02_pages_fra.R # document length / FRA page limits
+
+# BLM field-office experience / learning-curve extension
+conda run -n nepa python phase2/code/deliverable04/field_office/01_parse_offices.py --run
+Rscript phase2/code/deliverable04/field_office/02_learning_curve.R
 ```
 
 Outputs are written to `phase2/output/deliverable04/` (`figures/`, `diagnostics/`).

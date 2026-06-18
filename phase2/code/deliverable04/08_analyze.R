@@ -822,6 +822,16 @@ process_summary_complete <- tibble(process_group = factor(PROCESS_LEVELS, levels
     )
   )
 
+# Persist the exact per-process complete-timeline shares this figure prints (complete = BOTH dates
+# present) so the report narrative can cite the SAME numbers (see d4_complete_share.csv). This keeps
+# the "% complete" text aligned with fig-complete-share and fig-coverage by construction.
+write_csv(
+  process_summary_complete |>
+    transmute(process_type = as.character(process_group), n_complete, n_projects, share_complete),
+  file.path(DIAG, "d4_complete_share.csv")
+)
+message("Wrote d4_complete_share.csv")
+
 # Each process gets an identical full 0-100% reference box; the navy dot marks that process's actual
 # completion share (initiation + decision present). This keeps the uniform box-per-process look while
 # letting EIS show clearly — the dot carries the value, the box is just a 0-100% frame. (The earlier

@@ -103,7 +103,7 @@ fra_sum <- pages |> group_by(process_type, fra_period) |>
             sd_pages = sd(regulatory_pages), n = n(), .groups = "drop")
 p_bar <- ggplot(fra_sum, aes(fra_period, mean_pages, fill = fra_period)) +
   geom_col(alpha = 0.85, width = 0.6) +
-  geom_text(aes(label = sprintf("average %.0f pages\n(n=%s)", mean_pages, comma(n))), vjust = -0.2, size = 3.2, color = "gray20") +
+  geom_text(aes(label = sprintf("average\n%.0f pages\n(n=%s)", mean_pages, comma(n))), vjust = -0.2, size = 3.2, color = "gray20", lineheight = 0.9) +
   geom_point(aes(y = median_pages), shape = 18, size = 4, color = catf_navy) +
   geom_text(aes(y = median_pages, label = sprintf("median %.0f", median_pages)), vjust = 1.8, size = 2.8, color = "white") +
   facet_wrap(~process_type, scales = "free_y") +
@@ -124,8 +124,8 @@ energy_sum <- pages |> group_by(process_type, energy, fra_period) |>
 pd <- position_dodge(width = 0.75)
 p_energy <- ggplot(energy_sum, aes(energy, mean_pages, fill = fra_period)) +
   geom_col(position = pd, width = 0.65, alpha = 0.9) +
-  geom_text(aes(label = sprintf("average %.0f pages\n(n=%s)", mean_pages, comma(n))),
-            position = pd, vjust = -0.3, size = 2.3, color = "gray30") +
+  geom_text(aes(label = sprintf("average\n%.0f pages\n(n=%s)", mean_pages, comma(n))),
+            position = pd, vjust = -0.3, size = 2.3, color = "gray30", lineheight = 0.9) +
   geom_point(aes(y = median_pages, group = fra_period), shape = 18, size = 3,
              position = pd, color = catf_navy) +
   geom_text(aes(y = median_pages, label = sprintf("median %.0f", median_pages), group = fra_period),
@@ -184,7 +184,7 @@ for (eng in levels(pages$energy)) {
     facet_wrap(~process_type, scales = "free_y") +
     scale_fill_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
     coord_cartesian(ylim = c(0, p99)) +
-    labs(title = paste0("Document Length Distribution — ", eng_titles[[eng]], ": Pre vs Post FRA"),
+    labs(title = paste0("Document Length Distribution — ", eng_titles[[eng]]),
          subtitle = "Regulatory pages; violin + boxplot; diamond = median; y-axis capped at p99",
          x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
     theme_catf() + theme(legend.position = "none")
