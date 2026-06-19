@@ -19,7 +19,9 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 
 import argparse
 import hashlib
+import multiprocessing as mp
 import re
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -1171,6 +1173,85 @@ def emit_labeling_sample(df: pd.DataFrame, packets_df: pd.DataFrame | None = Non
           "initiation | decision | neither, then run 04_classify_candidates.py --train")
 
 
+# ---------------------------------------------------------------------------
+# Parallel path (pure performance; identical output to the serial per-packet loop)
+# ---------------------------------------------------------------------------
+# extract_candidates_from_packet is a pure per-packet function, so sharding the packets
+# and concatenating the rows changes no logic. Two correctness points:
+#   * ORDER / drop_duplicates: candidate_id = hash(project_id|document_id|page_start|
+#     date|block_norm), so collisions are WITHIN a project (e.g. the same page reached
+#     via tier_b and tier_d). drop_duplicates('candidate_id', keep='first') in the parent
+#     is therefore order-sensitive only within a project. We shard by PROJECT and read
+#     packets with pd.read_parquet (physical file order) + .isin, so every project's
+#     packets are processed in the same relative order as serial → the kept row matches.
+#   * GLOBAL steps stay in the parent, once after concat: add_repeated_mention_counts
+#     (per project_id+parsed_date) and emit_labeling_sample (hash-stratified). Never
+#     per-worker.
+
+
+def _extract_shard(task: tuple) -> list[dict]:
+    """Worker: extract candidates from one shard of projects' packets.
+
+    Payload is tiny — (packets_path, process_list, shard_project_ids). The worker reads
+    the packets parquet itself and runs the unmodified extract_candidates_from_packet.
+    """
+    packets_path, process_list, shard_project_ids = task
+    pdf = pd.read_parquet(packets_path)
+    pdf = pdf[pdf["process_type"].isin(process_list)]
+    pdf = pdf[pdf["project_id"].isin(set(shard_project_ids))]
+    rows: list[dict] = []
+    for rec in pdf.to_dict("records"):
+        rows.extend(extract_candidates_from_packet(rec))
+    return rows
+
+
+def _make_shards(weights: dict[str, float], n: int) -> list[list[str]]:
+    """Greedy longest-processing-time balancing by per-project packet text volume."""
+    shards: list[list[str]] = [[] for _ in range(n)]
+    loads = [0.0] * n
+    for pid, w in sorted(weights.items(), key=lambda kv: (-kv[1], kv[0])):
+        j = min(range(n), key=lambda k: loads[k])
+        shards[j].append(pid)
+        loads[j] += w
+    return [s for s in shards if s]
+
+
+def extract_candidates_parallel(
+    packets_df: pd.DataFrame,
+    packets_path: Path,
+    process_list: list[str],
+    workers: int,
+) -> list[dict]:
+    """Parallel equivalent of the per-packet extraction loop (workers > 1).
+
+    Shards by PROJECT (see note above) so the parent's drop_duplicates keeps the same
+    row as serial. Returns list[dict]; the parent builds the frame and runs the global
+    steps exactly as the serial path does.
+    """
+    projects = list(packets_df["project_id"].unique())
+    if not projects:
+        return []
+    if "context_chars" in packets_df.columns:
+        wser = packets_df.groupby("project_id")["context_chars"].sum()
+        weights = {pid: float(wser.get(pid) or 0.0) + 1.0 for pid in projects}
+    else:
+        wser = packets_df.groupby("project_id").size()
+        weights = {pid: float(wser.get(pid) or 0.0) for pid in projects}
+
+    n = max(1, min(workers, len(projects)))
+    shards = _make_shards(weights, n)
+    print(f"  Extracting across {len(shards)} workers "
+          f"({len(projects):,} projects, {len(packets_df):,} packets)...", flush=True)
+    tasks = [(str(packets_path), list(process_list), shard) for shard in shards]
+    ctx = mp.get_context("spawn")
+    rows: list[dict] = []
+    with ProcessPoolExecutor(max_workers=len(shards), mp_context=ctx) as ex:
+        for k, shard_rows in enumerate(ex.map(_extract_shard, tasks)):
+            rows.extend(shard_rows)
+            print(f"    shard {k + 1}/{len(shards)} -> {len(shard_rows):,} candidates", flush=True)
+    return rows
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Extract date candidates from context packets.")
     parser.add_argument(
@@ -1189,6 +1270,13 @@ def main() -> None:
         "--labeling-sample-n", type=int, default=None,
         help=f"Target total size for the labeling sample (default: {LABELING_SAMPLE_SIZE}). "
              "If the locked IDs file already has this many entries, nothing is added.",
+    )
+    parser.add_argument(
+        "--workers", type=int, default=min((os.cpu_count() or 4), 8),
+        help="Number of parallel worker processes. 1 = serial (debug/fallback, the "
+             "diff baseline); N>1 shards projects across N spawn processes. "
+             "Output is identical regardless of --workers. "
+             "Default: min(cpu_count, 8).",
     )
     args = parser.parse_args()
 
@@ -1254,13 +1342,18 @@ def main() -> None:
 
     TIMELINE_DIR.mkdir(parents=True, exist_ok=True)
 
-    all_candidates: list[dict] = []
-    packets_records = packets_df.to_dict("records")
-    for i, row in enumerate(packets_records):
-        if i % 5000 == 0 and i > 0:
-            print(f"  Processed {i:,}/{len(packets_records):,} packets, {len(all_candidates):,} candidates so far...")
-        cands = extract_candidates_from_packet(row)
-        all_candidates.extend(cands)
+    if args.workers and args.workers > 1:
+        all_candidates = extract_candidates_parallel(
+            packets_df, packets_path, args.process, args.workers
+        )
+    else:
+        all_candidates = []
+        packets_records = packets_df.to_dict("records")
+        for i, row in enumerate(packets_records):
+            if i % 5000 == 0 and i > 0:
+                print(f"  Processed {i:,}/{len(packets_records):,} packets, {len(all_candidates):,} candidates so far...")
+            cands = extract_candidates_from_packet(row)
+            all_candidates.extend(cands)
 
     if not all_candidates:
         print("No candidates extracted.")

@@ -24,7 +24,9 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 import argparse
 import hashlib
 import json
+import multiprocessing as mp
 import re
+from concurrent.futures import ProcessPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -1218,6 +1220,215 @@ def retrieve_for_process(
     return pd.DataFrame(all_packets)
 
 
+# ---------------------------------------------------------------------------
+# Parallel path (pure performance; identical output to retrieve_for_process)
+# ---------------------------------------------------------------------------
+# Sharding is by PROJECT, and a project's documents belong only to that project, so
+# each worker reads a disjoint, self-contained slice. The unit of work
+# (process_project) has no cross-project state, so concatenating per-shard rows
+# yields the same SET of rows as the serial loop (row order is not significant —
+# the output parquet has no final sort and downstream joins are key-based).
+#
+# DETERMINISM (must reproduce the serial output exactly):
+#   * Several selections are sensitive to the ROW ORDER in which a document's pages are
+#     fed to process_project: tier_d / eis_text_fallback iterate pages in input order,
+#     and build_tier_b_packets mixes positional indices with the DataFrame's RangeIndex
+#     labels (a pre-existing quirk), so its selected page set also depends on the order
+#     pages were read. The serial path feeds pages in the parquet's PHYSICAL scan order
+#     (full read, groupby(sort=False)). The worker must reproduce that exact order.
+#   * Each worker opens its own DuckDB connection with PRAGMA threads=1 and reads ONLY
+#     its shard's pages, forcing PHYSICAL order with `read_parquet(..., file_row_number=true)
+#     ... ORDER BY file_row_number`. This matters: a bare `WHERE document_id IN (SELECT
+#     unnest(?))` is executed as a SEMI-JOIN that does NOT preserve physical order on the
+#     large (5.5 GB, many-row-group) EIS file — which would silently change tier_b/tier_d
+#     page selection. ORDER BY file_row_number pins physical order regardless of plan.
+#     (We deliberately do NOT use `ORDER BY page_number`: page_number is VARCHAR and ~16%
+#     of EA docs are not page-number-monotonic in file order, so a lexical sort would
+#     itself reorder pages relative to serial.)
+#   * The index is read with pd.read_parquet (same as serial) so per-project document
+#     row order is identical.
+#   * run_at is computed ONCE in the parent and passed to every worker, so created_at
+#     is identical across shards.
+
+
+def _retrieve_shard(task: tuple) -> list[dict]:
+    """Worker entrypoint: build packets for one shard of projects.
+
+    Payload is tiny — (process_type, shard_project_ids, run_at). Pages/sections are
+    read inside the worker, filtered to the shard, so the 5.5 GB EIS pages file is
+    never pickled across the spawn boundary.
+    """
+    process_type, shard_project_ids, run_at = task
+    src = SOURCE_MAP[process_type]
+    pages_path = PROCESSED_DIR / src / "pages.parquet"
+    if not pages_path.exists():
+        return []
+
+    shard_set = set(shard_project_ids)
+
+    # Index slice for this shard (pandas read → natural row order, identical to serial).
+    index_df = pd.read_parquet(INDEX_PATH)
+    proc_index = index_df[index_df["process_type"] == process_type]
+    proc_index = proc_index[proc_index["project_id"].isin(shard_set)]
+    del index_df
+    if proc_index.empty:
+        return []
+
+    projects = proc_index["project_id"].unique()
+    shard_doc_ids = proc_index["document_id"].dropna().unique().tolist()
+
+    con = duckdb.connect()
+    con.execute("PRAGMA threads=1")
+
+    # Read only this shard's pages, forcing PHYSICAL scan order (see DETERMINISM note).
+    if shard_doc_ids:
+        pages_all = con.execute(
+            "SELECT document_id, page_number, page_text "
+            "FROM read_parquet(?, file_row_number=true) "
+            "WHERE document_id IN (SELECT unnest(?)) ORDER BY file_row_number",
+            [str(pages_path), shard_doc_ids],
+        ).df()
+    else:
+        pages_all = pd.DataFrame(columns=["document_id", "page_number", "page_text"])
+    pages_by_doc: dict[str, pd.DataFrame] = {
+        doc_id: grp.reset_index(drop=True)
+        for doc_id, grp in pages_all.groupby("document_id", sort=False)
+    }
+    del pages_all
+
+    sections_by_proj: dict[str, pd.DataFrame] = {}
+    if SECTIONS_PATH.exists():
+        try:
+            section_cols = [
+                "project_id", "document_id", "heading_title", "parent_heading_title",
+                "document_title", "page_start", "page_end", "section_text",
+            ]
+            sections_proc = con.execute(
+                f"SELECT {', '.join(section_cols)} "
+                f"FROM read_parquet(?, file_row_number=true) "
+                f"WHERE process_type = ? AND project_id IN (SELECT unnest(?)) "
+                f"ORDER BY file_row_number",
+                [str(SECTIONS_PATH), process_type, list(shard_set)],
+            ).df()
+            sections_by_proj = {
+                pid: grp.reset_index(drop=True)
+                for pid, grp in sections_proc.groupby("project_id", sort=False)
+            }
+            del sections_proc
+        except Exception as e:
+            print(f"  [shard] WARNING: could not load sections: {e}", flush=True)
+
+    proc_index_by_proj: dict[str, pd.DataFrame] = {
+        pid: grp for pid, grp in proc_index.groupby("project_id", sort=False)
+    }
+
+    proj_tier_a_cols = [
+        "project_id", "process_type",
+        "noi_tier_a_eligible", "noi_publication_date", "noi_match_status", "noi_match_confidence",
+        "blm_decision_tier_a_eligible", "blm_decision_date", "blm_decision_date_type",
+        "blm_initiation_tier_a_eligible", "blm_initiation_date",
+        "doe_decision_tier_a_eligible", "doe_decision_date", "doe_decision_date_type",
+        "doe_initiation_tier_a_eligible", "doe_initiation_date", "doe_doc_number",
+        "doe_cx_tier_a_eligible", "doe_cx_decision_date", "cx_number",
+    ]
+    proj_tier_a_cols = [c for c in proj_tier_a_cols if c in proc_index.columns]
+    proj_meta = (
+        proc_index[proj_tier_a_cols]
+        .drop_duplicates("project_id")
+        .set_index("project_id")
+    )
+
+    ce_desc_map: dict[str, str] = {}
+    if process_type == "CE" and PROJECTS_PATH.exists():
+        desc_df = pd.read_parquet(PROJECTS_PATH, columns=["project_id", "project_description"])
+        desc_df = desc_df[desc_df["project_id"].isin(shard_set)]
+        ce_desc_map = dict(
+            zip(desc_df["project_id"], desc_df["project_description"].fillna(""))
+        )
+
+    all_packets: list[dict] = []
+    for project_id in projects:
+        doc_rows = proc_index_by_proj.get(project_id, pd.DataFrame())
+        doc_ids = doc_rows["document_id"].unique()
+
+        doc_dfs = [pages_by_doc[d] for d in doc_ids if d in pages_by_doc]
+        pages_df = pd.concat(doc_dfs, ignore_index=True) if doc_dfs else pd.DataFrame()
+        sections_df = sections_by_proj.get(project_id, pd.DataFrame())
+
+        project_row = proj_meta.loc[project_id].copy() if project_id in proj_meta.index else pd.Series()
+        project_row["project_id"] = project_id
+        if process_type == "CE":
+            project_row["project_description"] = ce_desc_map.get(project_id, "")
+
+        packets = process_project(project_row, doc_rows, pages_df, sections_df, run_at)
+        all_packets.extend(packets)
+
+    con.close()
+    return all_packets
+
+
+def _make_shards(weights: dict[str, float], n: int) -> list[list[str]]:
+    """Greedy longest-processing-time balancing: assign each project (heaviest first)
+    to the currently-lightest shard, so one EIS-heavy project doesn't straggle.
+    Ties broken by project_id for determinism (shard membership doesn't affect the
+    output set, but a stable partition keeps runs reproducible)."""
+    shards: list[list[str]] = [[] for _ in range(n)]
+    loads = [0.0] * n
+    for pid, w in sorted(weights.items(), key=lambda kv: (-kv[1], kv[0])):
+        j = min(range(n), key=lambda k: loads[k])
+        shards[j].append(pid)
+        loads[j] += w
+    return [s for s in shards if s]
+
+
+def retrieve_for_process_parallel(
+    process_type: str,
+    project_ids: list[str] | None,
+    index_df: pd.DataFrame,
+    run_at: str,
+    workers: int,
+) -> pd.DataFrame:
+    """Parallel equivalent of retrieve_for_process (workers > 1).
+
+    Shards projects across `workers` spawn processes; each worker reads only its own
+    pages/sections and returns list[dict] rows. The parent concatenates the rows and
+    builds the DataFrame exactly as the serial path does.
+    """
+    proc_index = index_df[index_df["process_type"] == process_type]
+    if project_ids:
+        proc_index = proc_index[proc_index["project_id"].isin(project_ids)]
+
+    projects = list(proc_index["project_id"].unique())
+    if not projects:
+        print(f"  No {process_type} projects.")
+        return pd.DataFrame()
+
+    # Balance shards by page volume (doc_page_count sum per project).
+    if "doc_page_count" in proc_index.columns:
+        wser = proc_index.groupby("project_id")["doc_page_count"].sum()
+        weights = {pid: float(wser.get(pid) or 0.0) + 1.0 for pid in projects}
+    else:
+        wser = proc_index.groupby("project_id").size()
+        weights = {pid: float(wser.get(pid) or 0.0) for pid in projects}
+
+    n = max(1, min(workers, len(projects)))
+    shards = _make_shards(weights, n)
+    print(f"  Processing {len(projects):,} {process_type} projects across "
+          f"{len(shards)} workers (threads=1 each)...", flush=True)
+
+    tasks = [(process_type, shard, run_at) for shard in shards]
+    ctx = mp.get_context("spawn")
+    rows: list[dict] = []
+    with ProcessPoolExecutor(max_workers=len(shards), mp_context=ctx) as ex:
+        for k, shard_rows in enumerate(ex.map(_retrieve_shard, tasks)):
+            rows.extend(shard_rows)
+            print(f"    shard {k + 1}/{len(shards)} -> {len(shard_rows):,} packets", flush=True)
+
+    if not rows:
+        return pd.DataFrame()
+    return pd.DataFrame(rows)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Retrieve timeline context packets.")
     parser.add_argument(
@@ -1227,6 +1438,13 @@ def main() -> None:
     parser.add_argument("--append", action="store_true", help="Append to existing output instead of overwriting.")
     parser.add_argument("--force", action="store_true", help="Overwrite existing output even if it already exists.")
     parser.add_argument("--run-dir", help="Override output directory (default: auto-derived from --sample-ids or the main timeline/ dir).")
+    parser.add_argument(
+        "--workers", type=int, default=min((os.cpu_count() or 4), 8),
+        help="Number of parallel worker processes. 1 = serial (debug/fallback, the "
+             "diff baseline); N>1 shards projects across N spawn processes. "
+             "Output is identical regardless of --workers. "
+             "Default: min(cpu_count, 8).",
+    )
     args = parser.parse_args()
 
     ALL_PROCESS_TYPES = {"CE", "EA", "EIS"}
@@ -1274,7 +1492,12 @@ def main() -> None:
     all_parts: list[pd.DataFrame] = []
     for process_type in args.process:
         print(f"\n=== {process_type} ===")
-        part = retrieve_for_process(process_type, project_ids, index_df, run_at)
+        if args.workers and args.workers > 1:
+            part = retrieve_for_process_parallel(
+                process_type, project_ids, index_df, run_at, args.workers
+            )
+        else:
+            part = retrieve_for_process(process_type, project_ids, index_df, run_at)
         if not part.empty:
             all_parts.append(part)
             print(f"  {len(part):,} packets for {process_type}")
