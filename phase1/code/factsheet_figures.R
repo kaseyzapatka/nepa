@@ -528,7 +528,7 @@ fig1e <- fig1e_data %>%
   ) +
   coord_flip() +
   labs(
-    title    = "DOE and BLM overwhelmingly use Categorical Exclusions",
+    title    = "DOE and BLM-Related Federal Actions Overwhelmingly Use Categorical Exclusions",
     subtitle = "Energy Reviews (Decarbonization + Fossil Fuel): DOE vs. BLM",
     x       = NULL,
     y       = "Share of Reviews",
