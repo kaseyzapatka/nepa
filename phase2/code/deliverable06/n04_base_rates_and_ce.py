@@ -24,6 +24,7 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 
 import pandas as pd
 
+import bounds
 import ce_source
 import embeddings
 from common import (
@@ -194,6 +195,9 @@ def main() -> None:
                     "source_version_date": getattr(r, "source_version_date", ""),
                     "ce_comparison_run_at": run_at,
                     "taxonomy_version": TAXONOMY_VERSION,
+                    **{f"bound_{m}": v for m, v in bounds.parse_bounds(
+                        normalize_space(getattr(r, "ce_description", "")) + " " +
+                        normalize_space(getattr(r, "extraordinary_circumstances", ""))).items()},
                 })
     ce_cmp = pd.DataFrame(ce_rows)
     write_parquet(ce_cmp, CE_OUT)

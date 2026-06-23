@@ -11,7 +11,8 @@ existing CE already covers it, and traceable citations.
 LLM extraction pass is wired but gated (Gate 3). Outputs are review materials,
 not legal-sufficiency determinations. Supersedes the v1 full-corpus
 opportunity-scan architecture; the v1 scripts remain in place but are not
-orchestrated. Plan of record: `phase2/plans/deliverable06.md` (v2.2).
+orchestrated. Forward plan: `phase2/plans/deliverable06_updates.md` (the v2.2
+build plan is archived at `plans/_archived/deliverable06_v2.2_build_plan.md`).
 
 ---
 

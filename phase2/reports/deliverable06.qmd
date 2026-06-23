@@ -1,0 +1,138 @@
+---
+title: "Patterns in FONSIs: Deliverable 6"
+subtitle: "Categorical-exclusion opportunities from prior clean-energy Findings of No Significant Impact"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<!-- First-pass (deterministic) build. Figures come from
+     phase2/code/deliverable06/n08_analyze.R; tables from the n07 outputs.
+     Verdicts are pending the LLM-verification pass (Gate 3). -->
+
+```{r setup}
+library(arrow); library(dplyr); library(tidyr); library(readr)
+library(stringr); library(scales); library(gt); library(here)
+options(arrow.skip_nul = TRUE)
+
+ANALYSIS <- here("phase2", "data", "analysis", "deliverable06")
+OUTPUT   <- here("phase2", "output", "deliverable06")
+FIGS     <- file.path(OUTPUT, "figures")
+
+verdicts <- read_parquet(file.path(ANALYSIS, "candidate_verdicts.parquet"))
+mit      <- read_parquet(file.path(ANALYSIS, "candidate_mitigation_summary.parquet"))
+
+vc <- verdicts |> mutate(label = str_replace(candidate_label, " \\(.*\\)", ""))
+n_new <- sum(vc$verdict == "new"); n_expand <- sum(vc$verdict == "expand")
+n_adopt <- sum(vc$verdict == "adopt")
+```
+
+## What this is
+
+Technical support for **categorical-exclusion (CE) development**: which recurring
+clean-energy actions in prior Environmental Assessments that ended in a **Finding
+of No Significant Impact (FONSI)** point to a CE opportunity? Per CEQ's April 2026
+CE Guidance, prior EAs/FONSIs are explicit evidence for CE substantiation. The
+model output is the BLM geothermal-exploration CE — a recognizable action with
+explicit limits (≤10 acres, no new roads).
+
+We start from the **452 clean-energy EA-source FONSI projects**, narrow to the
+**CE-shaped subset** within each candidate action type, extract the bounding
+limits and mitigation pattern, and cross-reference every candidate against the
+**existing federal CE catalog** (CE Explorer, 2,105 CEs). Each candidate resolves
+to one of three opportunity types:
+
+- **New CE** — a recurring, bounded action that no existing CE covers.
+- **Expand a CE** — an existing CE exists, but our FONSIs go beyond its stated limits.
+- **Adopt a CE** — an existing CE exists at one agency that others doing the same work lack.
+
+> **First-pass caveat.** This build is deterministic (the LLM-assisted extraction
+> and verification pass is the next step). Treat the specific limits and the
+> new/expand/adopt verdicts as **directional**, pending verification.
+
+## The three opportunity lists
+
+```{r verdict-table}
+vc |>
+  filter(verdict %in% c("new", "expand", "adopt")) |>
+  arrange(factor(verdict, levels = c("new", "expand", "adopt")), desc(rank_score)) |>
+  transmute(
+    Candidate = label, Verdict = verdict,
+    `CE-shaped FONSIs` = n_profile_fonsi,
+    `Best existing CE` = best_ce_structured_id,
+    `Adopt targets` = adopt_targets,
+    `Rank` = round(rank_score, 2)
+  ) |>
+  gt() |>
+  tab_header(title = "Candidate CE opportunities (new / expand / adopt)") |>
+  tab_options(table.font.size = px(13))
+```
+
+```{r}
+#| fig-cap: "Candidate categories by CE verdict (observed FONSI projects)."
+knitr::include_graphics(file.path(FIGS, "fig_d6_verdicts.png"))
+```
+
+**Honest headline.** On the current candidate set, **`r n_new` are net-new** —
+every strong clean-energy candidate already maps to an existing CE, so the
+evidence supports **expanding and adopting** existing CEs (`r n_expand` expand,
+`r n_adopt` adopt). Surfacing genuinely new CEs requires widening the search into
+the action categories we set aside (a planned follow-up).
+
+## Candidate evidence and mitigation
+
+```{r}
+#| layout-ncol: 2
+#| fig-cap: ["CE-shaped evidence per candidate.", "Mitigated-FONSI share (Track B)."]
+knitr::include_graphics(file.path(FIGS, "fig_d6_evidence_volume.png"))
+knitr::include_graphics(file.path(FIGS, "fig_d6_mitigated_share.png"))
+```
+
+Mitigation is read two ways: a high *case-specific* mitigation share is a CE
+**risk** (a CE can't lean on project-by-project mitigation), but a *consistent*
+mitigation recurring across the class can become a **codifiable CE design
+criterion** — and the agency's own boundary statements ("would be significant
+absent X," "would require an EIS if it exceeded Y") hand us candidate limits.
+
+## The existing-CE landscape
+
+```{r}
+#| fig-cap: "Existing categorical exclusions per agency (top 15), from the CE Explorer catalog."
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_per_agency.png"))
+```
+
+Of the 2,105 existing CEs, only ~90 state a numeric bound (e.g., transmission
+reconductoring capped near 25 miles / 230 kV) — useful precedent for what a
+defensible *expand* looks like. ~317 CEs are near-duplicates of a CE at another
+agency, pointing to consolidation and cross-agency adoption opportunities.
+
+## Wind — a contrast case
+
+```{r}
+wc <- vc |> filter(verdict == "contrast")
+```
+
+Wind (onshore) is kept as a **contrast**, not a recommendation: large footprints
+and case-specific wildlife mitigation mean it genuinely needs case-by-case review,
+and the existing wind CE (DOE B5.18) covers only very small installations. It
+shows the method discriminates rather than green-lighting everything.
+
+## Caveats & note to CATF
+
+- Deterministic first pass: numeric limits and verdicts are directional until the
+  LLM-assisted extraction/verification pass runs.
+- Existing-CE matches are an embedding ranking aid, **not** verified coverage.
+- "New" is empty here by construction — the current candidates are all already
+  CE-covered; the net-new search (clustering set-aside action types) is the next step.
+
+**For CATF:** this is a first pass. Tell us which opportunities to pursue — and
+which specific CEs or technologies to investigate — and we fold them into the
+next iteration.
