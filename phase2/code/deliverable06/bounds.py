@@ -1,8 +1,8 @@
 """D6 — shared numeric-bound parser.
 
 Extracts stated quantitative limits (acres, miles, kV, MW, wells) from free text.
-Used to (a) parse an existing CE's stated bounds (n04/n06) and (b) compare them to
-our FONSIs' extracted limits for the EXPAND test (n07). Same regex family as n03.
+Used to (a) parse an existing CE's stated bounds (04/06) and (b) compare them to
+our FONSIs' extracted limits for the EXPAND test (07). Same regex family as 03.
 """
 
 from __future__ import annotations
@@ -17,7 +17,7 @@ RX = {
     "kv": re.compile(NUM + r"\s*(?:kv|kilovolts?)\b", re.IGNORECASE),
     "wells": re.compile(NUM + r"\s*(?:wells?|borings?|boreholes?)\b", re.IGNORECASE),
 }
-# sanity caps (drop garbage grabs); shared with n03's intent
+# sanity caps (drop garbage grabs); shared with 03's intent
 CAPS = {"acres": 100000, "miles": 1000, "mw": 10000, "kv": 1000, "wells": 1000}
 
 

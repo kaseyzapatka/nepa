@@ -1,11 +1,11 @@
-"""D6 v2 (narrow-first) orchestrator: n01 -> n08.
+"""D6 v2 (narrow-first) orchestrator: 01 -> 08.
 
 Runs the linear chain in numeric order (each step depends only on lower numbers):
-  n01 select corpus -> n02 assemble evidence -> n03 extract facts
-  -> n04 base rates + existing-CE match/bounds -> n05 mitigation & boundary (Track B)
-  -> n06 CE landscape (Track C) -> n07 classify & rank (new/expand/adopt + tables)
-  -> n08 analyze (R: report figures)
-then phase2/reports/deliverable06.qmd embeds the n07 tables + n08 figures.
+  01 select corpus -> 02 assemble evidence -> 03 extract facts
+  -> 04 base rates + existing-CE match/bounds -> 05 mitigation & boundary (Track B)
+  -> 06 CE landscape (Track C) -> 07 classify & rank (new/expand/adopt + tables)
+  -> 08 analyze (R: report figures)
+then phase2/reports/deliverable06.qmd embeds the 07 tables + 08 figures.
 
 Standalone (NOT in this chain): benchmark_models.py (model selection, run once
 before --use-llm), extract_ce_catalog.py (renders the CE catalog .md), and the
@@ -16,7 +16,7 @@ archive to `_archived_v1/` after validation.
 
 Usage:
   CONDA_DEFAULT_ENV=nepa python _run.py            # deterministic Stage A
-  CONDA_DEFAULT_ENV=nepa python _run.py --use-llm  # enable the gated LLM pass in n03 (Gate 3)
+  CONDA_DEFAULT_ENV=nepa python _run.py --use-llm  # enable the gated LLM pass in 03 (Gate 3)
 """
 
 import os
@@ -33,15 +33,15 @@ from pathlib import Path
 CODE_DIR = Path(__file__).resolve().parent
 
 PY_STEPS = (
-    "n01_select_candidate_corpus.py",
-    "n02_assemble_candidate_evidence.py",
-    "n03_extract_candidate_facts.py",
-    "n04_base_rates_and_ce.py",
-    "n05_mitigation_and_boundary.py",
-    "n06_ce_landscape.py",
-    "n07_classify_and_rank.py",
+    "01_select_candidate_corpus.py",
+    "02_assemble_candidate_evidence.py",
+    "03_extract_candidate_facts.py",
+    "04_base_rates_and_ce.py",
+    "05_mitigation_and_boundary.py",
+    "06_ce_landscape.py",
+    "07_classify_and_rank.py",
 )
-R_STEP = "n08_analyze.R"
+R_STEP = "08_analyze.R"
 
 
 def run(*cmd: str) -> None:
@@ -50,14 +50,14 @@ def run(*cmd: str) -> None:
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Run the D6 v2 narrow-first pipeline (n01-n08).")
-    ap.add_argument("--use-llm", action="store_true", help="enable the gated LLM pass in n03 (Gate 3)")
+    ap = argparse.ArgumentParser(description="Run the D6 v2 narrow-first pipeline (01-08).")
+    ap.add_argument("--use-llm", action="store_true", help="enable the gated LLM pass in 03 (Gate 3)")
     ap.add_argument("--model", default="claude-sonnet-4-6")
-    ap.add_argument("--skip-figures", action="store_true", help="skip the n08 R figures step")
+    ap.add_argument("--skip-figures", action="store_true", help="skip the 08 R figures step")
     args = ap.parse_args()
 
     for script in PY_STEPS:
-        if script == "n03_extract_candidate_facts.py" and args.use_llm:
+        if script == "03_extract_candidate_facts.py" and args.use_llm:
             run(sys.executable, CODE_DIR / script, "--use-llm", "--model", args.model)
         else:
             run(sys.executable, CODE_DIR / script)
@@ -67,10 +67,10 @@ def main() -> None:
         if rscript:
             run(rscript, CODE_DIR / R_STEP)
         else:
-            print("\n[_run] Rscript not found — skipping n08 figures "
-                  "(run `Rscript phase2/code/deliverable06/n08_analyze.R` manually).")
+            print("\n[_run] Rscript not found — skipping 08 figures "
+                  "(run `Rscript phase2/code/deliverable06/08_analyze.R` manually).")
 
-    print("\n[_run] D6 v2 pipeline complete (n01-n08). "
+    print("\n[_run] D6 v2 pipeline complete (01-08). "
           "Render phase2/reports/deliverable06.qmd for the report.")
 
 

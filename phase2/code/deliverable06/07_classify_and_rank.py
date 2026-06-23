@@ -1,4 +1,4 @@
-"""D6 v2 — n07: classify candidates (new / expand / adopt) + rank + report tables.
+"""D6 v2 — 07: classify candidates (new / expand / adopt) + rank + report tables.
 
 Integrates the tracks into the deliverable's three outputs:
   - **NEW**    — best ce.json match is weak/absent (a FONSI class with no existing CE).
@@ -31,7 +31,7 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 
 import pandas as pd
 
-from common import D6_ANALYSIS_DIR, D6_OUTPUT_DIR, ensure_d6_dirs, utc_now, write_parquet
+from common import D6_ANALYSIS_DIR, D6_OUTPUT_DIR, D6_REVIEW_DIR, ensure_d6_dirs, utc_now, write_parquet
 from candidates import TAXONOMY_VERSION
 
 BASE = D6_ANALYSIS_DIR / "candidate_base_rates.parquet"
@@ -173,13 +173,21 @@ def main() -> None:
     verdicts = verdicts.sort_values(["_o", "rank_score"], ascending=[True, False]).drop(columns="_o")
     write_parquet(verdicts, VERDICTS_OUT)
 
-    # the three lists
-    for v, fn in (("new", "d6_new.csv"), ("expand", "d6_expand.csv"), ("adopt", "d6_adopt.csv")):
-        verdicts[verdicts["verdict"].eq(v)].to_csv(D6_OUTPUT_DIR / fn, index=False)
-    # comparison (all, incl. already_covered)
-    verdicts.to_csv(COMPARISON, index=False)
+    # --- TOP-LEVEL: one slim, human-readable overview table ---
+    def expand_note(js: str) -> str:
+        gaps = json.loads(js) if js else []
+        return "; ".join(f"{g['metric']}: {g['n_exceeding']} FONSIs exceed CE cap {g['ce_bound']} (up to {g['our_max']})"
+                         for g in gaps)
+    slim = verdicts.assign(expand_detail=verdicts["expand_gaps"].map(expand_note))[[
+        "candidate_label", "verdict", "n_profile_fonsi", "best_ce_structured_id",
+        "best_ce_agency", "adopt_targets", "expand_detail", "rank_score",
+    ]].rename(columns={"candidate_label": "candidate", "n_profile_fonsi": "ce_shaped_fonsis",
+                       "best_ce_structured_id": "existing_ce", "best_ce_agency": "existing_ce_agency"})
+    slim.to_csv(COMPARISON, index=False)
 
-    # per-candidate evidence tables (absorbs old n05 report-table role)
+    # --- REVIEW (drill-down, not client-facing): three lists + per-candidate evidence ---
+    for v, fn in (("new", "d6_new.csv"), ("expand", "d6_expand.csv"), ("adopt", "d6_adopt.csv")):
+        verdicts[verdicts["verdict"].eq(v)].to_csv(D6_REVIEW_DIR / fn, index=False)
     for cat in base.index:
         f = facts[facts["candidate_category"].eq(cat)]
         f = f[f["is_profile_subtype"]] if f["is_profile_subtype"].any() else f
@@ -188,13 +196,13 @@ def main() -> None:
                 "previously_disturbed_land", "mitigation_dependence", "confidence",
                 "citation_document_id", "citation_page"]
         f[[c for c in cols if c in f.columns]].sort_values("max_acres", ascending=False)\
-            .to_csv(D6_OUTPUT_DIR / f"d6_candidate_evidence_{cat}.csv", index=False)
+            .to_csv(D6_REVIEW_DIR / f"d6_candidate_evidence_{cat}.csv", index=False)
 
-    print(f"[n07] verdicts -> {VERDICTS_OUT}")
+    print(f"[07] verdicts -> {VERDICTS_OUT}")
     print(verdicts[["candidate_label", "verdict", "rank_score", "n_profile_fonsi",
                     "best_ce_structured_id", "adopt_targets", "expand_gaps"]].to_string(index=False))
-    print(f"\n[n07] verdict counts: {verdicts['verdict'].value_counts().to_dict()}")
-    print("[n07] three lists + comparison + per-candidate evidence written.")
+    print(f"\n[07] verdict counts: {verdicts['verdict'].value_counts().to_dict()}")
+    print("[07] three lists + comparison + per-candidate evidence written.")
 
 
 if __name__ == "__main__":

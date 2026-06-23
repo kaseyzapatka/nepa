@@ -1,7 +1,7 @@
 """Shared local embedding helper for D6 (all-MiniLM-L6-v2).
 
 Cheap, CPU-friendly, no API cost. Model loads once per process (lru_cache).
-Used by n03 (action-definition sentence selection) and n04 (CE ranking).
+Used by 03 (action-definition sentence selection) and 04 (CE ranking).
 All callers must guard with `available()` and fall back gracefully.
 """
 

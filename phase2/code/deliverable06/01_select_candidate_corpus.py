@@ -1,4 +1,4 @@
-"""D6 v2 — n01: select the candidate corpus (narrow-first).
+"""D6 v2 — 01: select the candidate corpus (narrow-first).
 
 Applies the `candidates.py` membership rules over:
   - the full clean-energy project universe (projects_nepa_reviews) for base-rate
@@ -25,7 +25,7 @@ import pandas as pd
 from common import (
     D03_REVIEWS,
     D6_ANALYSIS_DIR,
-    D6_OUTPUT_DIR,
+    D6_REVIEW_DIR,
     PROJECTS_COMBINED,  # noqa: F401  (kept for provenance / future use)
     ensure_d6_dirs,
     input_hashes,
@@ -43,8 +43,8 @@ from candidates import (
 
 FONSI_INVENTORY = D6_ANALYSIS_DIR / "fonsi_project_inventory.parquet"
 CORPUS_OUT = D6_ANALYSIS_DIR / "candidate_corpus.parquet"
-MEMBERSHIP_REVIEW = D6_OUTPUT_DIR / "candidate_membership_review.csv"
-STORAGE_REVIEW = D6_OUTPUT_DIR / "candidate_storage_scan_review.csv"
+MEMBERSHIP_REVIEW = D6_REVIEW_DIR / "candidate_membership_review.csv"
+STORAGE_REVIEW = D6_REVIEW_DIR / "candidate_storage_scan_review.csv"
 
 GEO_EXPLORATION = ("geothermal_exploration", "exploration")
 
@@ -200,9 +200,9 @@ def main() -> None:
     scan_out.to_csv(STORAGE_REVIEW, index=False)
 
     # --- console summary ---
-    print(f"[n01] taxonomy={TAXONOMY_VERSION} run_at={run_at}")
-    print(f"[n01] wrote candidate_corpus rows={len(corpus):,} -> {CORPUS_OUT}")
-    print("\n[n01] candidate summary (distinct projects):")
+    print(f"[01] taxonomy={TAXONOMY_VERSION} run_at={run_at}")
+    print(f"[01] wrote candidate_corpus rows={len(corpus):,} -> {CORPUS_OUT}")
+    print("\n[01] candidate summary (distinct projects):")
     g = corpus.groupby("candidate_category")
     for cat, sub in g:
         n_univ = sub["project_id"].nunique()
@@ -212,11 +212,11 @@ def main() -> None:
         role = sub["candidate_role"].iloc[0]
         print(f"  {cat:32s} role={role:8s} universe={n_univ:5d} by_proc={by_proc}  "
               f"fonsi={n_fonsi:4d} profile_fonsi={n_prof:4d}")
-    print("\n[n01] subtype breakdown (observed FONSI):")
+    print("\n[01] subtype breakdown (observed FONSI):")
     fb = corpus.loc[corpus["is_fonsi"]].groupby(["candidate_category", "subtype"])["project_id"].nunique()
     for (cat, sub), n in fb.items():
         print(f"  {cat:32s} {sub:22s} {n:4d}")
-    print(f"\n[n01] storage-deployment scan (non-manufacturing) rows={len(scan_out)} -> {STORAGE_REVIEW}")
+    print(f"\n[01] storage-deployment scan (non-manufacturing) rows={len(scan_out)} -> {STORAGE_REVIEW}")
     if len(scan_out):
         print(scan_out.groupby("tech_group")["project_id"].nunique().to_string())
 

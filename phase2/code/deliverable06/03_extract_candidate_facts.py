@@ -1,4 +1,4 @@
-"""D6 v2 — n03: extract structured candidate facts.
+"""D6 v2 — 03: extract structured candidate facts.
 
 Deterministic-first (runs now): numeric limits found *within* the assembled span
 texts with category-specific sanity bounds; boolean siting constraints; and a
@@ -28,9 +28,10 @@ import duckdb
 import pandas as pd
 
 import embeddings
+from prompts import build_facts_prompt
 from common import (
     D6_ANALYSIS_DIR,
-    D6_OUTPUT_DIR,
+    D6_REVIEW_DIR,
     ensure_d6_dirs,
     normalize_space,
     sha256_text,
@@ -43,13 +44,13 @@ PACKETS = D6_ANALYSIS_DIR / "candidate_evidence_packets.parquet"
 CORPUS = D6_ANALYSIS_DIR / "candidate_corpus.parquet"
 CONDITIONS = D6_ANALYSIS_DIR / "fonsi_conditions.parquet"
 OUT = D6_ANALYSIS_DIR / "candidate_facts.parquet"
-REVIEW = D6_OUTPUT_DIR / "candidate_extraction_review.csv"
+REVIEW = D6_REVIEW_DIR / "candidate_extraction_review.csv"
 LLM_CACHE = D6_ANALYSIS_DIR / "candidate_facts_llm_cache.json"
 
 SCHEMA_VERSION = "d6_facts_v1"
 PROMPT_VERSION = "d6_facts_prompt_v1"
 # Default model tier: Sonnet (workhorse). Escalate to claude-opus-4-8 for highest
-# fidelity on the subtle calls; benchmark with n06 to confirm the lowest model
+# fidelity on the subtle calls; benchmark with 06 to confirm the lowest model
 # that clears the accuracy bar. Haiku is available but not the default.
 LLM_MODEL_DEFAULT = "claude-sonnet-4-6"
 
@@ -267,19 +268,6 @@ def first_citation(span_provenance: str) -> dict:
             "citation_page": r.get("page_start")}
 
 
-def build_facts_prompt(packet_text: str, category: str) -> str:
-    """The production extraction prompt. Shared with the n06 model benchmark so it
-    measures the exact prompt used in production."""
-    return (
-        "Extract CE-relevant facts from this NEPA FONSI/EA evidence as strict JSON with keys: "
-        "action_definition, max_acres, max_miles, max_megawatts, within_existing_row, "
-        "no_new_access_road, previously_disturbed_land, mitigation_dependence "
-        "(one of none/design_feature_only/case_specific_dependent), mitigation_summary, "
-        "extraordinary_circumstances. "
-        f"Category hint: {category}. Use null when unknown.\n\nEVIDENCE:\n" + packet_text[:6000]
-    )
-
-
 def llm_extract(packet_text: str, category: str, model: str, cache: dict) -> dict | None:
     """Gated LLM pass (Gate 3). No-op without anthropic + ANTHROPIC_API_KEY."""
     key = sha256_text(f"{PROMPT_VERSION}|{SCHEMA_VERSION}|{model}|{category}|{packet_text}")
@@ -466,14 +454,14 @@ def main() -> None:
                    "citation_document_id", "citation_page"]
     facts[review_cols].sort_values(["candidate_category", "project_id"]).to_csv(REVIEW, index=False)
 
-    print(f"[n03] fact rows={len(facts):,} (project×category) embeddings={use_emb} llm_hits={llm_hits} -> {OUT}")
-    print(f"[n03] mitigation_dependence:\n{facts['mitigation_dependence'].value_counts().to_string()}")
+    print(f"[03] fact rows={len(facts):,} (project×category) embeddings={use_emb} llm_hits={llm_hits} -> {OUT}")
+    print(f"[03] mitigation_dependence:\n{facts['mitigation_dependence'].value_counts().to_string()}")
     filled = {m: int(facts[f'max_{m}'].notna().sum()) for m in ('acres', 'miles', 'megawatts', 'kilovolts')}
-    print(f"[n03] numeric limit fill (rows): {filled}  no_road={int(facts['no_new_access_road'].sum())} "
+    print(f"[03] numeric limit fill (rows): {filled}  no_road={int(facts['no_new_access_road'].sum())} "
           f"existing_row={int(facts['within_existing_row'].sum())} "
           f"disturbed={int(facts['previously_disturbed_land'].sum())}")
-    print(f"[n03] acres_basis:\n{facts['acres_basis'].value_counts().to_string()}")
-    print(f"[n03] n_wells filled: {int(facts['n_wells'].notna().sum())}  "
+    print(f"[03] acres_basis:\n{facts['acres_basis'].value_counts().to_string()}")
+    print(f"[03] n_wells filled: {int(facts['n_wells'].notna().sum())}  "
           f"sensitive_resource flagged: {int(facts['has_sensitive_resource'].sum())} of {len(facts)}")
 
 

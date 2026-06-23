@@ -1,6 +1,6 @@
-"""D6 v2 — n06: Claude model benchmark / validation harness.
+"""D6 v2 — Claude model benchmark / validation harness (standalone tool).
 
-Runs the SAME production extraction prompt (from n03) through multiple Claude
+Runs the SAME production extraction prompt (from prompts.py) through multiple Claude
 models on a small sample, so you can determine the **lowest-cost model that
 clears the accuracy bar** before committing to a full run.
 
@@ -17,8 +17,8 @@ ANTHROPIC_API_KEY (or the anthropic SDK) it runs `--dry-run`: it prints the
 sample + projected cost and writes nothing billable.
 
 Usage:
-  CONDA_DEFAULT_ENV=nepa python n06_benchmark_models.py --sample 15
-  CONDA_DEFAULT_ENV=nepa python n06_benchmark_models.py --sample 20 --gold gold_labels.csv
+  CONDA_DEFAULT_ENV=nepa python benchmark_models.py --sample 15
+  CONDA_DEFAULT_ENV=nepa python benchmark_models.py --sample 20 --gold gold_labels.csv
 """
 
 import argparse
@@ -30,14 +30,14 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 
 import pandas as pd
 
-from common import D6_ANALYSIS_DIR, D6_OUTPUT_DIR, ensure_d6_dirs, utc_now
-from n03_extract_candidate_facts import build_facts_prompt
+from common import D6_ANALYSIS_DIR, D6_REVIEW_DIR, ensure_d6_dirs, utc_now
+from prompts import build_facts_prompt
 
 PACKETS = D6_ANALYSIS_DIR / "candidate_evidence_packets.parquet"
 FACTS = D6_ANALYSIS_DIR / "candidate_facts.parquet"
-COMPARISON_OUT = D6_OUTPUT_DIR / "d6_model_benchmark_comparison.csv"
-COST_OUT = D6_OUTPUT_DIR / "d6_model_benchmark_cost.csv"
-SCORES_OUT = D6_OUTPUT_DIR / "d6_model_benchmark_scores.csv"
+COMPARISON_OUT = D6_REVIEW_DIR / "d6_model_benchmark_comparison.csv"
+COST_OUT = D6_REVIEW_DIR / "d6_model_benchmark_cost.csv"
+SCORES_OUT = D6_REVIEW_DIR / "d6_model_benchmark_scores.csv"
 
 DEFAULT_MODELS = ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-8"]
 # input, output $ per 1M tokens (claude-api skill table, cached 2026-05-26 — verify)
@@ -115,12 +115,12 @@ def main() -> None:
     facts = pd.read_parquet(FACTS)
     packets = pd.read_parquet(PACKETS).set_index("project_id")
     sample = select_sample(facts, args.sample, args.seed)
-    print(f"[n06] sample={len(sample)} projects across {sample['candidate_category'].nunique()} candidates; "
+    print(f"[06] sample={len(sample)} projects across {sample['candidate_category'].nunique()} candidates; "
           f"models={models}")
     print(sample["candidate_category"].value_counts().to_string())
 
     # cost projection (per-call ≈ ~1,650 in + ~400 out)
-    print("\n[n06] projected cost per model (per-call ~1,650 in / ~400 out):")
+    print("\n[06] projected cost per model (per-call ~1,650 in / ~400 out):")
     for m in models:
         cin, cout = pricing_for(m)
         per = 1650 * cin / 1e6 + 400 * cout / 1e6
@@ -134,7 +134,7 @@ def main() -> None:
     except ImportError:
         sdk_ok = False
     if args.dry_run or not have_key or not sdk_ok:
-        print(f"\n[n06] DRY RUN (api_key={have_key}, sdk={sdk_ok}) — nothing billed; "
+        print(f"\n[06] DRY RUN (api_key={have_key}, sdk={sdk_ok}) — nothing billed; "
               f"no model calls made. Re-run with a key to benchmark.")
         return
 
@@ -155,7 +155,7 @@ def main() -> None:
                 row[m] = (preds[m][pid] or {}).get(f)
             rows.append(row)
     pd.DataFrame(rows).to_csv(COMPARISON_OUT, index=False)
-    print(f"\n[n06] side-by-side comparison -> {COMPARISON_OUT}")
+    print(f"\n[06] side-by-side comparison -> {COMPARISON_OUT}")
 
     # cost table (measured)
     cost_rows = []
@@ -169,7 +169,7 @@ def main() -> None:
                           "projected_all_candidates": round(per * N_CANDIDATE, 2),
                           "projected_full_corpus": round(per * N_CORPUS, 2)})
     pd.DataFrame(cost_rows).to_csv(COST_OUT, index=False)
-    print(f"[n06] measured cost -> {COST_OUT}")
+    print(f"[06] measured cost -> {COST_OUT}")
     print(pd.DataFrame(cost_rows)[["model", "cost_per_call", "projected_all_candidates"]].to_string(index=False))
 
     # accuracy vs gold (optional) → lowest model meeting threshold
@@ -194,16 +194,16 @@ def main() -> None:
         scores = pd.DataFrame(score_rows)
         scores.to_csv(SCORES_OUT, index=False)
         overall = scores.groupby("model")["accuracy"].mean().sort_values()
-        print(f"\n[n06] accuracy vs gold -> {SCORES_OUT}")
+        print(f"\n[06] accuracy vs gold -> {SCORES_OUT}")
         print(overall.to_string())
         order = [m for m in models]  # haiku->sonnet->opus assumed cheap->expensive
         passing = [m for m in order if overall.get(m, 0) >= args.threshold]
         rec = passing[0] if passing else f"none meets {args.threshold} (use {overall.idxmax()})"
-        print(f"[n06] LOWEST model meeting accuracy >= {args.threshold}: {rec}")
+        print(f"[06] LOWEST model meeting accuracy >= {args.threshold}: {rec}")
     else:
-        print("\n[n06] No --gold provided: eyeball d6_model_benchmark_comparison.csv to judge quality, "
+        print("\n[06] No --gold provided: eyeball d6_model_benchmark_comparison.csv to judge quality, "
               "or label a few projects and re-run with --gold to auto-pick the lowest sufficient model.")
-    print(f"[n06] run_at={run_at}")
+    print(f"[06] run_at={run_at}")
 
 
 if __name__ == "__main__":

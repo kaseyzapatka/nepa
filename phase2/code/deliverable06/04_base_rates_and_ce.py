@@ -1,4 +1,4 @@
-"""D6 v2 — n04: candidate base rates + existing-CE comparison.
+"""D6 v2 — 04: candidate base rates + existing-CE comparison.
 
 Base rates (per candidate, three explicit counts — never one ambiguous "share"):
   1. full clean candidate universe by process_type (CE / EA / EIS);
@@ -30,7 +30,7 @@ import embeddings
 from common import (
     D03_CE_CITATIONS,
     D6_ANALYSIS_DIR,
-    D6_OUTPUT_DIR,
+    D6_REVIEW_DIR,
     ensure_d6_dirs,
     normalize_space,
     utc_now,
@@ -43,9 +43,9 @@ INVENTORY = D6_ANALYSIS_DIR / "fonsi_project_inventory.parquet"
 # Existing-CE source: canonical ce.json (CE Explorer) via ce_source — see ce_source.py
 BASE_OUT = D6_ANALYSIS_DIR / "candidate_base_rates.parquet"
 CE_OUT = D6_ANALYSIS_DIR / "candidate_ce_comparison.parquet"
-CE_REVIEW = D6_OUTPUT_DIR / "candidate_ce_comparison_review.csv"
+CE_REVIEW = D6_REVIEW_DIR / "candidate_ce_comparison_review.csv"
 DESC_OUT = D6_ANALYSIS_DIR / "candidate_descriptive.parquet"
-DESC_REVIEW = D6_OUTPUT_DIR / "candidate_descriptive_review.csv"
+DESC_REVIEW = D6_REVIEW_DIR / "candidate_descriptive_review.csv"
 
 ANALYSIS_VERSION = "d6_stage_a_v2"
 TOP_CE = 8
@@ -204,12 +204,12 @@ def main() -> None:
     if not ce_cmp.empty:
         ce_cmp.sort_values(["candidate_category", "retrieval_rank"]).to_csv(CE_REVIEW, index=False)
 
-    print(f"[n04] base rates -> {BASE_OUT}")
+    print(f"[04] base rates -> {BASE_OUT}")
     print(base[["candidate_category", "n_ce_universe", "n_ea_universe", "n_eis_universe",
                 "n_observed_fonsi_projects", "n_profile_fonsi_projects",
                 "n_projects_with_ce_citation"]].to_string(index=False))
-    print(f"\n[n04] descriptive breakdown rows={len(desc)} (agency/state/decision_year) -> {DESC_OUT}")
-    print(f"[n04] CE comparison rows={len(ce_cmp)} embeddings={embeddings.available()} "
+    print(f"\n[04] descriptive breakdown rows={len(desc)} (agency/state/decision_year) -> {DESC_OUT}")
+    print(f"[04] CE comparison rows={len(ce_cmp)} embeddings={embeddings.available()} "
           f"(all pending manual verification) -> {CE_OUT}")
 
 

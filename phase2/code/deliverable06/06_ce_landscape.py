@@ -1,4 +1,4 @@
-"""D6 v2 — n06 (Track C): existing-CE landscape analysis.
+"""D6 v2 — 06 (Track C): existing-CE landscape analysis.
 
 A standalone analysis *of the existing CE body* (`ce.json` via `ce_source`) to
 learn from the current categorical-exclusion legislation:
@@ -29,10 +29,10 @@ import pandas as pd
 import bounds
 import ce_source
 import embeddings
-from common import D03_CE_CITATIONS, D6_ANALYSIS_DIR, D6_OUTPUT_DIR, ensure_d6_dirs, normalize_space, utc_now, write_parquet
+from common import D03_CE_CITATIONS, D6_ANALYSIS_DIR, D6_REVIEW_DIR, ensure_d6_dirs, normalize_space, utc_now, write_parquet
 
 CES_OUT = D6_ANALYSIS_DIR / "ce_landscape_ces.parquet"
-SUMMARY_OUT = D6_OUTPUT_DIR / "ce_landscape_summary.csv"
+SUMMARY_OUT = D6_REVIEW_DIR / "ce_landscape_summary.csv"
 NEAR_DUP_THRESHOLD = 0.85
 
 
@@ -42,7 +42,7 @@ def main() -> None:
     ce = ce_source.load_ce_catalog().reset_index(drop=True)
     ce["ce_text"] = ce["ce_description"].map(normalize_space)
     n = len(ce)
-    print(f"[n06] loaded {n} CEs across {ce['agency_unit'].nunique()} agency units")
+    print(f"[06] loaded {n} CEs across {ce['agency_unit'].nunique()} agency units")
 
     # --- bounds per CE ---
     bnd = ce["ce_description"].map(lambda t: bounds.parse_bounds(normalize_space(t)))
@@ -94,16 +94,16 @@ def main() -> None:
     per_agency.to_csv(SUMMARY_OUT, index=False)
 
     n_dup = int(ce["xagency_near_duplicate"].sum())
-    print(f"[n06] cross-agency near-duplicates (cosine>={NEAR_DUP_THRESHOLD}): {n_dup} CEs "
+    print(f"[06] cross-agency near-duplicates (cosine>={NEAR_DUP_THRESHOLD}): {n_dup} CEs "
           f"-> consolidation / adoption-harmonization candidates")
-    print(f"[n06] CEs stating a numeric bound: {int(ce['states_any_bound'].sum())} of {n}")
+    print(f"[06] CEs stating a numeric bound: {int(ce['states_any_bound'].sum())} of {n}")
     for m in ("acres", "miles", "kv", "mw"):
         col = ce[f"bound_{m}"].dropna()
         if len(col):
             print(f"   bound_{m}: n={len(col)} median={round(col.median(),1)} max={round(col.max(),1)}")
-    print(f"[n06] top-cited CE codes (D3, directional): {usage_top[:200]}")
-    print(f"[n06] per-agency summary -> {SUMMARY_OUT}")
-    print(f"[n06] per-CE landscape -> {CES_OUT}")
+    print(f"[06] top-cited CE codes (D3, directional): {usage_top[:200]}")
+    print(f"[06] per-agency summary -> {SUMMARY_OUT}")
+    print(f"[06] per-CE landscape -> {CES_OUT}")
 
 
 if __name__ == "__main__":

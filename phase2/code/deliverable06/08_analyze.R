@@ -1,7 +1,7 @@
-# D6 / n08 — analysis figures for the report (final step in the chain)
+# D6 / 08 — analysis figures for the report (final step in the chain)
 #
-# Reads the D6 analysis artifacts (n04 base rates, n05 mitigation, n06 CE
-# landscape, n07 verdicts) and builds the report figures. Mirrors the house
+# Reads the D6 analysis artifacts (04 base rates, 05 mitigation, 06 CE
+# landscape, 07 verdicts) and builds the report figures. Mirrors the house
 # pattern (cf. D5 03_analyze_spikes.R): Python builds the data, this final
 # numbered R script builds the figures, and reports/deliverable06.qmd embeds them.
 #
@@ -10,7 +10,7 @@
 #          phase2/output/deliverable06/ce_landscape_summary.csv
 # Outputs: phase2/output/deliverable06/figures/*.png
 #
-# Usage: Rscript phase2/code/deliverable06/n08_analyze.R
+# Usage: Rscript phase2/code/deliverable06/08_analyze.R
 
 suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(readr); library(stringr)
@@ -99,7 +99,7 @@ p3 <- mit %>%
 save_fig(p3, "fig_d6_mitigated_share.png")
 
 # Fig 4 — existing-CE landscape: CEs per agency (top 15)
-land <- file.path(OUT, "ce_landscape_summary.csv")
+land <- file.path(OUT, "review", "ce_landscape_summary.csv")
 if (file.exists(land)) {
   p4 <- read_csv(land, show_col_types = FALSE) %>%
     slice_max(n_ces, n = 15) %>%
@@ -115,4 +115,4 @@ if (file.exists(land)) {
   save_fig(p4, "fig_d6_ce_per_agency.png")
 }
 
-message("[n08] figures written to ", FIGS)
+message("[08] figures written to ", FIGS)

@@ -1,7 +1,7 @@
 """D6 — canonical existing-CE source loader.
 
 Single source of truth for *existing federal categorical exclusions*, used by the
-CE crosswalk (n04) and the human-readable catalog renderer (extract_ce_catalog.py).
+CE crosswalk (04) and the human-readable catalog renderer (extract_ce_catalog.py).
 
 Source: the CE Explorer export, committed at `phase2/notes/deliverable06/ce.json`
 (`{version, exclusions:[...]}`). Chosen over the CEQ government-wide spreadsheet

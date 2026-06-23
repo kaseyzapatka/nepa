@@ -1,4 +1,4 @@
-"""D6 v2 — n02: assemble per-project evidence for candidate FONSI projects.
+"""D6 v2 — 02: assemble per-project evidence for candidate FONSI projects.
 
 Reuses the existing typed per-project packets (`fonsi_project_packets.parquet`,
 which already carries action/finding/resource/condition/boundary text) and
@@ -127,10 +127,10 @@ def main() -> None:
 
     out = pd.DataFrame(records)
     write_parquet(out, OUT)
-    print(f"[n02] candidate FONSI projects={len(project_ids)} packets={len(have)} "
+    print(f"[02] candidate FONSI projects={len(project_ids)} packets={len(have)} "
           f"fallback={len(missing)} -> {OUT}")
     nonempty = (out[TEXT_COLS].apply(lambda s: s.str.len() > 0)).sum().to_dict()
-    print(f"[n02] non-empty text columns: {nonempty}")
+    print(f"[02] non-empty text columns: {nonempty}")
 
 
 if __name__ == "__main__":

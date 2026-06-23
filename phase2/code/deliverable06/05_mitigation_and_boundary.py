@@ -1,4 +1,4 @@
-"""D6 v2 — n05 (Track B): mitigation & boundary-condition analysis.
+"""D6 v2 — 05 (Track B): mitigation & boundary-condition analysis.
 
 Hunts each candidate FONSI for *where the agency drew the significance line* —
 because that line is a CE boundary. Two signal families:
@@ -11,7 +11,7 @@ because that line is a CE boundary. Two signal families:
      - enforceable conditions from `fonsi_conditions.parquet`
        (role ∈ {mitigation_commitment, enforcement_or_permit_condition},
         obligation ∈ {required, committed}).
-   Supersedes the coarse `mitigation_dependence` heuristic in n03.
+   Supersedes the coarse `mitigation_dependence` heuristic in 03.
 
 2. **Boundary / conditional language** — the agency's counterfactual statements
    that outline the CE boundary ("would be significant if X exceeds…", "had the
@@ -23,7 +23,7 @@ codifiable CE design criterion (new/expand); idiosyncratic ones → disqualifier
 
 Outputs:
   - data/analysis/deliverable06/candidate_mitigation_boundary.parquet  (per project)
-  - data/analysis/deliverable06/candidate_mitigation_summary.parquet   (per candidate; feeds n07)
+  - data/analysis/deliverable06/candidate_mitigation_summary.parquet   (per candidate; feeds 07)
   - output/deliverable06/candidate_mitigation_boundary_review.csv
 """
 
@@ -38,7 +38,7 @@ import json
 import duckdb
 import pandas as pd
 
-from common import D6_ANALYSIS_DIR, D6_OUTPUT_DIR, ensure_d6_dirs, normalize_space, utc_now, write_parquet
+from common import D6_ANALYSIS_DIR, D6_REVIEW_DIR, ensure_d6_dirs, normalize_space, utc_now, write_parquet
 from candidates import TAXONOMY_VERSION
 
 PACKETS = D6_ANALYSIS_DIR / "candidate_evidence_packets.parquet"
@@ -46,7 +46,7 @@ CORPUS = D6_ANALYSIS_DIR / "candidate_corpus.parquet"
 CONDITIONS = D6_ANALYSIS_DIR / "fonsi_conditions.parquet"
 OUT = D6_ANALYSIS_DIR / "candidate_mitigation_boundary.parquet"
 SUMMARY_OUT = D6_ANALYSIS_DIR / "candidate_mitigation_summary.parquet"
-REVIEW = D6_OUTPUT_DIR / "candidate_mitigation_boundary_review.csv"
+REVIEW = D6_REVIEW_DIR / "candidate_mitigation_boundary_review.csv"
 
 # --- mitigated-FONSI textual cues (from D02 significance_taxonomy.py) ---
 MITIGATED_CUES = re.compile(
@@ -144,7 +144,7 @@ def main() -> None:
     out = pd.DataFrame(rows)
     write_parquet(out, OUT)
 
-    # per-candidate summary (profile subset) → feeds n07
+    # per-candidate summary (profile subset) → feeds 07
     summary = []
     for cat, grp in out.groupby("candidate_category"):
         prof = grp[grp["is_profile_subtype"]]
@@ -176,11 +176,11 @@ def main() -> None:
                    "mitigation_resource_areas", "boundary_statements"]
     out[review_cols].sort_values(["candidate_category", "project_id"]).to_csv(REVIEW, index=False)
 
-    print(f"[n05] mitigation/boundary rows={len(out)} -> {OUT}")
-    print(f"[n05] mitigated FONSIs: {int(out['is_mitigated_fonsi'].sum())} of {len(out)} "
+    print(f"[05] mitigation/boundary rows={len(out)} -> {OUT}")
+    print(f"[05] mitigated FONSIs: {int(out['is_mitigated_fonsi'].sum())} of {len(out)} "
           f"(textual+enforceable dual signal)")
-    print(f"[n05] projects with boundary language: {int((out['boundary_statements'] != '[]').sum())}")
-    print(f"\n[n05] per-candidate summary -> {SUMMARY_OUT}")
+    print(f"[05] projects with boundary language: {int((out['boundary_statements'] != '[]').sum())}")
+    print(f"\n[05] per-candidate summary -> {SUMMARY_OUT}")
     print(summ[["candidate_category", "n_focus", "n_mitigated_fonsi", "mitigated_share",
                 "n_with_boundary_language"]].to_string(index=False))
 
