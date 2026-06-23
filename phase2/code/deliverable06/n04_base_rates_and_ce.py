@@ -24,6 +24,7 @@ if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
 
 import pandas as pd
 
+import ce_source
 import embeddings
 from common import (
     D03_CE_CITATIONS,
@@ -38,7 +39,7 @@ from candidates import TAXONOMY_VERSION
 
 CORPUS = D6_ANALYSIS_DIR / "candidate_corpus.parquet"
 INVENTORY = D6_ANALYSIS_DIR / "fonsi_project_inventory.parquet"
-CE_SNAPSHOT = D6_ANALYSIS_DIR / "ce_explorer_snapshot.parquet"
+# Existing-CE source: canonical ce.json (CE Explorer) via ce_source — see ce_source.py
 BASE_OUT = D6_ANALYSIS_DIR / "candidate_base_rates.parquet"
 CE_OUT = D6_ANALYSIS_DIR / "candidate_ce_comparison.parquet"
 CE_REVIEW = D6_OUTPUT_DIR / "candidate_ce_comparison_review.csv"
@@ -149,8 +150,8 @@ def main() -> None:
 
     # --- CE comparison (lexical ranking aid only) ---
     ce_rows = []
-    if CE_SNAPSHOT.exists():
-        ce = pd.read_parquet(CE_SNAPSHOT).reset_index(drop=True)
+    if ce_source.CE_JSON.exists():
+        ce = ce_source.load_ce_catalog().reset_index(drop=True)
         ce["cetext"] = [ce_text(r) for r in ce.itertuples(index=False)]
         ce["cetok"] = ce["cetext"].map(tokens)
         # Embedding similarity is a semantic ranking aid (blended with lexical);

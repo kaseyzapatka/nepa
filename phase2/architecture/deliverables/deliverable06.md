@@ -111,7 +111,7 @@ flowchart TD
     N3 --> F[candidate_facts.parquet]
 
     C --> N4[n04 contextualize]
-    CE[ce_explorer_snapshot.parquet] --> N4
+    CE[ce.json — CE Explorer export, via ce_source.py] --> N4
     N4 --> BR[candidate_base_rates.parquet]
     N4 --> XC[candidate_ce_comparison.parquet]
 
@@ -133,7 +133,7 @@ flowchart TD
 | `deliverable06/fonsi_project_packets.parquet` | Per-project typed text (action/finding/resource/condition/boundary), drawn from EA+FONSI documents. |
 | `deliverable06/fonsi_evidence_spans.parquet` | Span-level provenance: `section_id`, `evidence_span_id`, `source_span_sha256`, page. |
 | `deliverable06/fonsi_conditions.parquet` | v1 condition roles/obligations — reused for the (preliminary) mitigation signal. |
-| `deliverable06/ce_explorer_snapshot.parquet` | Pinned CE Explorer snapshot (v2.0.0, 2025-08-07). |
+| `notes/deliverable06/ce.json` | **Canonical existing-CE source** — CE Explorer export (v2.0.0, 2025-08-07), loaded via `ce_source.py`. Replaces the v1 parquet snapshot / live fetch; rendered to `ce_catalog_extracted.md` by `extract_ce_catalog.py`. (The CEQ government-wide xlsx was removed in favor of this structured source.) |
 | `deliverable03/ce_citations.parquet` | Project-level CE-use evidence. |
 
 ## Outputs
@@ -159,10 +159,11 @@ flowchart TD
   (20–150 FONSIs each — small enough to read and to LLM affordably). Trust comes
   from small N + verification, not a big pipeline. (See the plan's "Why we are
   changing direction.")
-- **Reuse, don't rebuild.** The corpus inventory, the EA+FONSI section
-  extraction, and the CE snapshot are read-only inputs from v1. No shared
-  `extract/*` module is modified — keeps D6 self-contained and clear of the D4
-  refactor.
+- **Reuse, don't rebuild.** The corpus inventory and the EA+FONSI section
+  extraction are read-only inputs from v1. The existing-CE source is the
+  committed `ce.json` (CE Explorer), loaded via `ce_source.py` — no live fetch,
+  no parquet snapshot. No shared `extract/*` module is modified — keeps D6
+  self-contained and clear of the D4 refactor.
 - **Three explicit base-rate counts**, never one ambiguous "share": universe by
   process type, candidate EA projects, observed EA-source FONSI projects.
 - **Deterministic first, LLM gated.** The deterministic pass runs now and is

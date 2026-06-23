@@ -1,26 +1,17 @@
-"""D6 — extract the CEQ government-wide Categorical Exclusion (CE) catalog.
+"""D6 — render the existing-CE catalog to Claude-readable Markdown.
 
-Parses the CEQ "List of Federal Agency Categorical Exclusions (CE List)"
-spreadsheet (`phase2/notes/deliverable06/CE_catalog.xlsx`, one sheet per agency)
-into a structured, Claude-readable JSON + Markdown so D6 can cross-reference
-candidate categories against *already-existing* CEs (and avoid surfacing them).
+Reads the canonical CE source (`ce_source.load_ce_catalog()` → `ce.json`, the CE
+Explorer export) and writes a clean, agency-grouped Markdown catalog of existing
+federal categorical exclusions, for cross-referencing D6 candidate categories
+(so the deliverable surfaces only net-new / expand / adopt opportunities).
 
-Source (cite this): CEQ List of Federal Agency Categorical Exclusions —
-https://ceq.doe.gov/nepa-practice/categorical-exclusions.html
+This supersedes the earlier xlsx-based extraction: ce.json is already one clean
+record per CE, so no heuristic parsing is needed and no `openpyxl` dependency.
 
-NOTE: the spreadsheet is free text and each agency formats CEs differently
-(e.g. DOE `A1`/`B1.1`; BLM lettered sections with `(n)` items), interleaved with
-extraordinary-circumstance and application-procedure boilerplate. This is a
-faithful, best-effort capture: every substantive row is preserved with a heuristic
-`kind` tag; the per-agency CFR/source URL remains the authoritative reference.
+Source: CE Explorer (https://ce.permitting.innovation.gov/data/exclusions.json);
+each CE carries its canonical eCFR `canonical_source_url`.
 
-Output (phase2/notes/deliverable06/):
-  - ce_catalog_extracted.md     human/Claude-readable, grouped by agency
-
-The committed `.md` is the durable artifact future collaborators use; this script
-is kept for provenance (how the `.md` was produced from the xlsx). It depends on
-`openpyxl`, which is intentionally NOT in requirements.txt (one-off ingest) — to
-re-run, `pip install openpyxl` first.
+Output: phase2/notes/deliverable06/ce_catalog_extracted.md
 """
 
 import os
@@ -28,121 +19,62 @@ import os
 if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
     raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
 
-import re
 from pathlib import Path
 
-import pandas as pd
+import ce_source
+from common import normalize_space
 
-HERE = Path(__file__).resolve().parent
-NOTES = HERE.parents[1] / "notes" / "deliverable06"
-SRC = NOTES / "CE_catalog.xlsx"
+NOTES = Path(__file__).resolve().parents[2] / "notes" / "deliverable06"
 MD_OUT = NOTES / "ce_catalog_extracted.md"
 
-CATALOG_URL = "https://ceq.doe.gov/nepa-practice/categorical-exclusions.html"
-CATALOG_SOURCE = ("CEQ List of Federal Agency Categorical Exclusions (CE List), "
-                  "Council on Environmental Quality, Executive Office of the President")
 
-CE_CODE = re.compile(r"^([A-Z]{1,4}\d+(?:\.\d+)*)\b")           # DOE A1, B1.1; EPA-style codes
-LETTER_HEAD = re.compile(r"^([A-Z]\.|[IVXLC]{1,4}\.)\s")        # "A. Fish and Wildlife."
-NUM_ITEM = re.compile(r"^(\(?\d+\)|\([a-z]\)|\([ivxlc]+\)|\d+\.)\s")  # (1), (a), (iii), 1.
-URL_RX = re.compile(r"^https?://")
-CITE_RX = re.compile(r"\bCFR\b|\bU\.?S\.?C\.?\b|Departmental Manual|\bDM\b|Subpart|Appendix|Part \d", re.I)
-EC_RX = re.compile(r"extraordinary circumstance|resource conditions|the mere presence", re.I)
-
-
-def classify(text: str) -> str:
-    if CE_CODE.match(text):
-        return "ce_code"
-    if LETTER_HEAD.match(text):
-        return "section_heading"
-    if NUM_ITEM.match(text):
-        return "numbered_item"
-    return "text"
-
-
-def extract_code(text: str) -> str:
-    m = CE_CODE.match(text)
-    return m.group(1) if m else ""
+def _has(value: object) -> bool:
+    s = normalize_space(value)
+    return bool(s) and s.lower() not in ("nan", "none", "not catalogued")
 
 
 def main() -> None:
-    xl = pd.ExcelFile(SRC)
-    agency_sheets = [s for s in xl.sheet_names if s.lower() != "about"]
+    df = ce_source.load_ce_catalog()
+    version = ce_source.catalog_version()
+    df = df.sort_values(["agency_unit", "structured_id"], na_position="last")
 
-    agencies, total_entries, total_ce_like = [], 0, 0
-    for sheet in agency_sheets:
-        df = xl.parse(sheet)
-        col = df.columns[0]
-        department = str(col).split("\n")[0].strip()
-        vals = [str(v).strip() for v in df[col].dropna().tolist() if str(v).strip()]
-        if not vals:
-            continue
-        agency_name = vals[0]
-        source_urls = [v for v in vals if URL_RX.match(v)]
-        citations = [v for v in vals[1:8] if CITE_RX.search(v) and not URL_RX.match(v)][:3]
-
-        entries = []
-        for seq, v in enumerate(vals[1:], start=1):
-            if URL_RX.match(v):
-                continue
-            kind = classify(v)
-            is_ec = bool(EC_RX.search(v))
-            ce_like = kind in ("ce_code", "numbered_item") and not is_ec
-            entries.append({
-                "seq": seq, "kind": kind, "code": extract_code(v),
-                "is_extraordinary_circumstance_context": is_ec,
-                "is_ce_like": ce_like, "text": v,
-            })
-        total_entries += len(entries)
-        total_ce_like += sum(e["is_ce_like"] for e in entries)
-        agencies.append({
-            "sheet": sheet, "department": department, "agency": agency_name,
-            "source_urls": source_urls, "citations": citations,
-            "n_entries": len(entries), "n_ce_like": sum(e["is_ce_like"] for e in entries),
-            "entries": entries,
-        })
-
-    # --- Markdown (grouped by agency) — the durable, Claude-readable artifact ---
     lines = [
-        "# CEQ Government-Wide Categorical Exclusion (CE) Catalog — extracted",
+        "# Existing Federal Categorical Exclusions — catalog (for D6 cross-reference)",
         "",
-        f"**Source:** {CATALOG_SOURCE}",
-        f"**Source URL:** {CATALOG_URL}",
-        f"**Source file:** `{SRC.name}`",
+        "**Source:** CE Explorer export (`ce.json`) — "
+        f"{ce_source.CE_EXPLORER_URL}",
+        f"**Catalog version:** {version.get('version', '?')} (dated {version.get('date', '?')})",
+        f"**Existing CEs:** {len(df):,} across {df['agency_unit'].nunique()} agency units",
         "",
-        f"Agencies: {len(agencies)} · entries captured: {total_entries:,} · "
-        f"CE-like entries: {total_ce_like:,}",
-        "",
-        "> Faithful best-effort capture of the CEQ free-text spreadsheet. Each entry keeps a "
-        "heuristic tag; section headings and some extraordinary-circumstance / application rows "
-        "are included. The per-agency CFR/source URL is authoritative. Use this list to "
-        "cross-reference D6 candidate categories so the deliverable does not re-surface an "
-        "action already covered by an existing CE.",
+        "> CE Explorer is a discovery index; each entry links to its canonical eCFR "
+        "source. Use this list to classify D6 candidates as **new** (no match here), "
+        "**expand** (matches but our FONSIs exceed its bounds), or **adopt** (exists at "
+        "another agency). The official CEQ government-wide list is a secondary "
+        "authoritative cross-check.",
         "",
         "---",
         "",
     ]
-    for a in agencies:
-        lines.append(f"## {a['agency']}  ·  sheet `{a['sheet']}`")
-        if a["department"] and a["department"] != a["agency"]:
-            lines.append(f"*Department:* {a['department']}")
-        if a["citations"]:
-            lines.append(f"*Citation:* {' | '.join(a['citations'])}")
-        for u in a["source_urls"]:
-            lines.append(f"*Source:* {u}")
-        lines.append(f"*CE-like entries: {a['n_ce_like']} of {a['n_entries']} captured rows*")
+    for unit, grp in df.groupby("agency_unit", sort=True):
+        long = normalize_space(grp["agency_name"].iloc[0])
+        header = f"## {unit}" + (f" — {long}" if long and long != unit else "")
+        lines.append(f"{header}  ·  {len(grp)} CEs")
         lines.append("")
-        for e in a["entries"]:
-            tag = e["code"] or ("EC" if e["is_extraordinary_circumstance_context"]
-                                else ("•" if e["is_ce_like"] else "·"))
-            lines.append(f"- **[{tag}]** {e['text']}")
+        for r in grp.itertuples(index=False):
+            sid = normalize_space(r.structured_id) or "—"
+            desc = normalize_space(r.ce_description)
+            lines.append(f"- **[{sid}]** {desc}")
+            if _has(r.extraordinary_circumstances):
+                lines.append(f"  - *Extraordinary circumstances:* {normalize_space(r.extraordinary_circumstances)}")
+            if _has(r.canonical_source_url):
+                lines.append(f"  - *Source:* {normalize_space(r.canonical_source_url)}")
         lines.append("")
         lines.append("---")
         lines.append("")
-    MD_OUT.write_text("\n".join(lines), encoding="utf-8")
 
-    print(f"[ce_catalog] agencies={len(agencies)} entries={total_entries:,} "
-          f"ce_like={total_ce_like:,}")
+    MD_OUT.write_text("\n".join(lines), encoding="utf-8")
+    print(f"[ce_catalog] {len(df):,} CEs across {df['agency_unit'].nunique()} units "
+          f"(CE Explorer v{version.get('version','?')} {version.get('date','?')})")
     print(f"[ce_catalog] wrote {MD_OUT}")
 
 
