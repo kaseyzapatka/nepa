@@ -231,8 +231,14 @@ Related data-quality findings from the same pass:
    despite the recent EA decision-coverage recovery work (git: EA 67%→74%, 1,371→1,434)?
    The EA recovery shows up in *all-projects* but clean-only EA is only 33.8%. Are the
    recovered EA decisions disproportionately non-clean projects?
-2. **1,376 clean projects missing** from the timeline output — where did they go, and
-   should the D4 universe be reconciled back to the Phase 1 clean set of 20,725?
+2. **1,376 clean projects missing** — **[where-did-they-go RESOLVED 2026-06-10]** root cause is
+   candidate-stage extraction: CE forms (1,360) were `priority_3`, so `build_tier_d_packets`
+   truncated each page to 2,000 chars and cut off the bottom-of-form signature date; a secondary
+   loss came from whole-block exclusion-keyword rejection. EA (16) is a mix of truncation, image-only
+   PDFs, and cases where Phase 1's date was wrong. Fixes applied in `acdd7ba`
+   (see `where_I_left_off.md §Missing-reviews investigation`,
+   [`missing_investigation_findings.md`](missing_investigation_findings.md)). **Still open:** whether
+   to reconcile the D4 reporting universe back to the Phase 1 clean set of 20,725.
 3. **Initiation is the binding constraint** on completion (overlap ≈ initiation rate for
    CE/EIS). Coverage gains should target initiation extraction, not decision.
 4. **Decide the reporting universe for D4.** If the deliverable is about clean energy,
