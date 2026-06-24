@@ -28,6 +28,7 @@ scratch.R
 *docs/notes/phase2/
 phase2/plans/*
 tests/*
+_archived*/
 
 
 # Python bytecode
