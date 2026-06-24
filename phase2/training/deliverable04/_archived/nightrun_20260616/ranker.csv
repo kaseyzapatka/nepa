@@ -1,0 +1,364 @@
+project_id,process_type,initiation_candidate_id,decision_candidate_id,notes,split
+f6c9b436-aa1d-52df-9cbf-780c61dfa17d,CE,3d815ba023ebb326fd60,2006cbc469154e34754d,init=earlier CE Date Determined paired with later operative signature; dec=authoritative register determination,test
+b1cb6f2d-2979-91cf-8b0b-53f5b303f8a8,CE,51f049e3c5061593a0c9,1d9714fffed10b0c0c16,init=DOE Initiator signature; dec=authoritative register determination,train
+850764ec-9263-e38e-a71c-a641da649cdd,CE,2013d5af08a69a304886,23998548ef6238fce497,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+04e886be-e1c9-face-45bb-1c0077727683,CE,none,42eb0eca98b0fec09cc1,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+ac2cb93f-58c7-0c57-0b0b-221ffabdc0ab,CE,2ec5ab16b5accdbcdda9,0c92708ab10905f5aaa5,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,test
+3febc71d-4bfd-979b-5590-95efc0d6cb1c,CE,12e200a6d39bf8c9ede5,none,init=authoritative register project start; dec=none; no operative CE determination candidate,train
+07ed02d2-7cbb-5e3f-e74d-c6929d9cffee,CE,d391193d2372b435dd68,1abfdcdbffd3fe87a2cd,init=DOE Initiator signature; dec=authoritative register determination,train
+5daae2af-7644-1562-db85-d2c532731e4c,CE,none,104382d5eabec1d545e2,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+ad5104db-cea2-bdc6-cefa-8e4dea62eeb2,CE,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no operative CE determination candidate",train
+0c609ea3-3048-51c9-1308-01903566b581,CE,f4fec67e4413901308e4,a6364d40316c508999d7,init=earlier CE Date Determined paired with later operative signature; dec=authorizing-official or compliance-officer signature,train
+3f6c06d3-3c61-1b38-bc07-8ee3317365d7,CE,none,dedb65088ada910fe931,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative FONSI",test
+a21d2968-c3fc-0b0c-8837-534e80e344f8,CE,db9f363d2886a0d8478e,3b434a473f42283a71b2,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+dcc26215-8ced-8b8f-4609-805796131708,CE,none,05c4bc0fc5aa54536aed,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",test
+078dd7e0-1966-3ae4-857b-a28b0b388dec,CE,59527a81e358980e7a26,aecd577fc3e9787285b7,init=DOE Initiator signature; dec=authoritative register determination,train
+3e1c0fe3-30f7-17d4-fc58-bb84de7efafc,CE,14bd2c264dccc32435ac,50e48a9dba346afe47a0,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+9ba42867-3185-dde6-71b7-dead154271f6,CE,c05c52c67a69f702b8ae,d599baa42227f66e350e,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,train
+c6982bcc-a660-07fe-21d9-11862d750b10,CE,none,23079c1180eaa07fcbc8,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+2539c34d-33eb-1c60-5b6a-9d30093bbcc4,CE,none,d4c006076b6f6d6e2494,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative ROD",train
+95f6899e-df5d-6a0a-532e-2d0cad5d1f5d,CE,f32e8eff1b85f9f95eaf,a6ddc425bcbfcc803c4d,init=earlier CE Date Determined paired with later operative signature; dec=authorizing-official or compliance-officer signature,test
+2c82db23-c88c-7049-ff2f-f2c5347c4152,CE,183f9df6914db01f43ef,0e24fc50629b81c78a05,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+201fbf74-33aa-5323-2adf-6fb351540e25,CE,e12547b016e2870dbc88,none,init=earliest qualifying application or scoping start; dec=none; no operative CE determination candidate,train
+9870e6f4-e256-8766-2fbc-4a46e842a9e9,CE,dee26a89d4de1667cd2c,270e7e2fa96d44057b95,init=earlier CE Date Determined paired with later operative signature; dec=authorizing-official or compliance-officer signature,train
+92b13086-c82f-26a8-0737-ee7fd32cc4cb,CE,none,e1c8209ea351f6f72566,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",test
+1167dca8-16c2-400b-0163-6a6c6ab9a225,CE,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no operative CE determination candidate",train
+781b39c3-3af5-dcd4-6f9c-0355fbf0838e,CE,4ddbb0a2900a6d11de85,0ed7cd9b8b053c004f73,init=earlier CE Date Determined paired with later operative signature; dec=authoritative register determination,train
+205a2672-212a-e498-6edc-dd2bce5fbea5,CE,none,3c027b81221ba1141c2f,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+daf27979-126c-52c3-e902-709842b724c4,CE,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no operative CE determination candidate",train
+2c1cb592-b1b6-c4eb-60a8-a5c50868591d,CE,402562907ffecf3f18d0,9cc27b005495e43ff4be,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+a4fde60a-a82d-c989-dc9d-3d474c94beb3,CE,d8088c78e7d1cbf426bc,8be1e5b321d927e799a1,init=earlier CE Date Determined paired with later operative signature; dec=authoritative register determination,train
+1496d425-901a-c789-fbc4-e6978c376e15,CE,bb8f27bd65c052bd2ab1,dd4e7eb465d4cb814f76,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,train
+2cefa27d-e6dd-1459-b867-6a20a1b91037,CE,694b9dcd61e0380785cd,d8fecbacd2e9fd97ef15,init=earliest qualifying application or scoping start; dec=authoritative register determination,test
+938359d7-0db2-4a95-202f-d5689371f825,CE,none,72e28b2e0f24c00daaf3,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",test
+e580fc0d-b93b-2629-fe58-239234d5f8d0,CE,none,f2479827c7b9185245fe,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+c114d326-50b3-f571-60fc-8f69688f1ced,CE,a6fb63f6dbc31624979b,40a69520cba3e9fa408a,init=earlier CE Date Determined paired with later operative signature; dec=authorizing-official or compliance-officer signature,test
+035f02d4-95cf-c0da-9a6e-da98e8b5b8ee,CE,none,3d2280c21dee46078595,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+97af6d81-13e2-d0d1-a9c0-fe77eeae9793,CE,none,73ae17dbad8c1a86a6a4,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+9a08db0c-def2-c311-1c26-7035a898dce9,CE,none,36c648696ea628b483ef,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+ff510498-4db6-1a58-6811-90f9518d98f9,CE,79ef8141d5611c860652,0ad93ae7976c3d400a7b,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+f559d60c-6e87-48f2-9169-88d657ea10a6,CE,none,c559d4492d68cf63d35e,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+1591c594-db23-5c1e-dffd-d83bec0e3978,CE,4708edb177c8054c824d,7a8a4bc4eb835d19a8ff,init=earlier CE Date Determined paired with later operative signature; dec=authoritative register determination,test
+39739980-9d85-048d-9e66-f5041b6295b3,CE,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no operative CE determination candidate",train
+9deb3bcb-4dd4-4a46-3192-4107bcfae4b0,CE,none,3755250fbbe7b7b90712,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+19ebf385-186e-689b-dc8a-b2048749425b,CE,none,6b9a0ccda0042bffd849,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative ROD",train
+87ad384b-46df-a2bb-cae5-b756cac97e08,CE,fffa8a0181513e7f3b25,866a12284b6ecde94af7,init=earlier CE Date Determined paired with later operative signature; dec=authorizing-official or compliance-officer signature,train
+a627ff27-52da-7e00-c55f-e75237f5a340,CE,1d4f71182d600d6bca57,a3cf855a323c6467c54e,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,test
+dfc2f2b2-5392-0051-c647-61ef75820306,CE,204980956165880b9741,7e54c7f77ca5422df0af,init=DOE Initiator signature; dec=authoritative register determination,test
+4d39f407-3acc-f54f-f1d8-272cd1b0928a,CE,none,435bf351401443d7e161,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+cfc31743-5000-eb26-80ab-47178549391b,CE,8d877072b6083b839ca4,05da036fc0af06e96ec1,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+7bdf3994-a131-254a-f340-824f4ec9bc90,CE,e7e3c77c539935d5a820,8e4773c545432400cd3f,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+602038e2-f111-c898-f05f-8072f275fc2e,CE,592e647a3bfad0facfa9,5026b84fc7b33b241603,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+ba1bdc0c-a381-1518-898f-4f334996b05b,CE,none,f3b1b05198c19dd996e5,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+88ea90d0-ab8c-2eb5-8ed0-f1df2240e79a,CE,b4889d07540d4778eb49,none,init=authoritative register project start; dec=none; no operative CE determination candidate,train
+0b74cd9e-1753-d9ef-bc26-31bfc97f6e7e,CE,47ebbe1da8a30b4c5df9,27cf53605910fdc36efb,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+4efde57b-7b2e-986f-ede3-cb2586c43265,CE,none,57026e9b959d60f8fdd9,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",test
+8d263a61-88e8-9799-2426-25857516c0c4,CE,none,7878e120b897ecacc2ba,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+a6d9cef5-c3d0-89c0-3619-ee390735efcc,CE,6d8940d8c8fce60c3d03,none,init=authoritative register project start; dec=none; no operative CE determination candidate,train
+e507acad-d991-d3c7-18e4-a44e69c522ff,CE,1f06012cdf99080850e6,none,init=authoritative register project start; dec=none; no operative CE determination candidate,train
+0454241f-4d72-a4eb-e447-76cacd7b306e,CE,6e3639d12534326b2107,none,init=authoritative register project start; dec=none; no operative CE determination candidate,train
+ade7ea78-89bc-a2c1-9098-8402736a3731,CE,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no operative CE determination candidate",train
+45d398d3-090a-ac22-eec5-53182f0790f3,CE,none,3237d7dde498eb5dedc5,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative ROD",train
+964fea1b-e5ca-0d78-c692-c5cfbbaa232d,CE,977eb6e794e981747524,22331ec8abe80a8aef7c,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+03d82b2a-889d-df48-f5eb-cc1a1a856404,CE,27fd812b6cbe9b363e18,fc559a31d4ee0ce0fe08,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+947ee1c3-f03f-d301-4d22-9669de7733b7,CE,92b68baac668743bf0b7,7df7bba8b8dbe29aa298,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+bcc12bf0-d165-abac-9c70-cae23e33e508,CE,afdac9b08a9f3a350825,66cba37b9779ca2c217d,init=earlier CE Date Determined paired with later operative signature; dec=authoritative register determination,train
+4c208cff-1e25-7e06-c140-b014745630cc,CE,none,cd6d4ba06983f867dc7f,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+afd8711b-d727-e70e-7d42-11b0c50bca4a,CE,e3aa8b7ef517708b5366,2e1769e239ab5c7b1a13,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+d4ad69e9-1f6a-c87f-ec71-3e8a50ec6aa8,CE,88dfac6a1ce621ae0d69,d8ff39b65ea1361f9f36,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+08603fe3-0c36-f30f-3ecf-f6c5fc101608,CE,ba7e633a5773aa03d6a5,5591a75fb147a06c8dd7,init=DOE Initiator signature; dec=authoritative register determination,train
+e508af54-43f8-0225-cdfd-1237555bcea8,CE,d5701881e8d0af760bd8,8ae7f8839e7d0aaaa386,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+b34fdcd6-dbee-ae5a-8fd2-c33e673664fb,CE,d9bc51e39da2ecc8f7dd,73c198de9300c23ee844,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,train
+7018c05a-ff93-40d4-17af-68f63d155c9c,CE,24197bbbf6ce4d2b8654,ef758bee5aa3fc7c36d0,init=earlier CE Date Determined paired with later operative signature; dec=authoritative register determination,test
+475f5ae7-03e4-0545-16e3-cd42e1fe2504,CE,none,723d78660275a94b4b3b,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+c983b48f-16a3-8e90-7ad8-eca4649e890c,CE,none,2f18abffa2ec86b7c8c4,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+385c5771-58bb-6e55-5c91-1b00c7a9aebf,CE,none,aafb9bc069d52bca5407,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",test
+1ab7c626-39a4-c18b-a880-31b6aa84afca,CE,6132e500586d41b9fb99,1213084536fb309dc8ef,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+33e8f084-559a-e08c-d817-2541514b1afa,CE,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no operative CE determination candidate",train
+ed300094-71c0-1593-f108-fc3e68f982c5,CE,0ba32c7c992389138c6e,none,init=earliest qualifying application or scoping start; dec=none; no operative CE determination candidate,test
+1d3ff3cb-7637-2d04-c83e-f8979597767d,CE,6a234b91753d05c4856d,none,init=authoritative register project start; dec=none; no operative CE determination candidate,test
+1f4d1e9c-5481-ca5e-6ec6-e5fae8fb687c,CE,none,3d208c88a86acd3d0234,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+696e35bc-4555-abd6-d760-bbaf9a1675a7,CE,b47ff2beff7c3acb72ef,d2b232d48133279ccabd,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+1d74eaf6-f303-40ff-e76d-a9b80107627a,CE,ccb4a0f081b26dac2930,cc7c1189cb6b44d96a90,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,test
+dd11df9f-80de-9b8d-d5b9-2640c039c7f8,CE,0a348c531bcdb0b8e9cb,70d536c2ab96449dea87,init=DOE Initiator signature; dec=authoritative register determination,train
+f175c040-547d-9696-6c37-0473d3d6ba35,CE,1d2ca1fdd5ef2993c87d,fc640d4f2d02943ee067,init=earlier CE Date Determined paired with later operative signature; dec=authorizing-official or compliance-officer signature,train
+7fe53e35-a0ee-c15b-b448-4e4cd3643aa9,CE,e493d29ad1d3e7b432a3,none,init=authoritative register project start; dec=none; no operative CE determination candidate,test
+a5deef83-ea92-b63c-68a2-8a876fead29d,CE,d3b09fc8ebc39a1a8419,e0d46e6bd4a4a5e7baa0,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,train
+f6b6d0d3-2589-acca-0463-7e36aa6afd71,CE,ed5e1c1629e66a9cf135,d25c0417a359ce6c0012,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,train
+21ed0f9c-2422-fdff-3bf3-83cc72dae095,CE,04630b320217a3d920fd,f73a21f6054a898dcab5,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+210745db-62cc-baa2-2507-7bc19a645a98,CE,c849086f6e2057409731,8275ec88d21289613e84,init=earlier CE Date Determined paired with later operative signature; dec=authorizing-official or compliance-officer signature,train
+0485f560-aec0-c425-20d8-a4a86f15e78e,CE,8d7bdd68a5dccf10cff1,dc6fc4ca31021bdcc687,init=earlier CE Date Determined paired with later operative signature; dec=authorizing-official or compliance-officer signature,train
+d3f7ddbb-c4a1-bfed-4332-727a81296d37,CE,db33c79d26f803bc13ed,none,init=earliest qualifying application or scoping start; dec=none; no operative CE determination candidate,train
+11364509-5cdb-ac5d-411a-224e1fb144f1,CE,none,84a8ac59acf6b7285e8b,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",test
+1295f42a-a5da-e0fb-c9f6-69bcf94879b2,CE,5503cd2b8b89c4bcfe3e,c26cf99cca49cea35f58,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+6c8de8e6-48cc-34bc-f507-50bf9d204e29,CE,641e117850853a37b005,ffdb271f51fd535c78db,init=earlier CE Date Determined paired with later operative signature; dec=authoritative register determination,train
+6b60697a-368f-304d-e71f-d5413b6d19cb,CE,cc36e0789fc768b86c6b,333b61b0ed3611592efe,init=earlier CE Date Determined paired with later operative signature; dec=authoritative register determination,train
+4bc07763-fcaf-85a7-741f-47868e106d3d,CE,fd7e50375271d9b67913,none,init=earliest qualifying application or scoping start; dec=none; no operative CE determination candidate,train
+2dd0e23c-8101-fabc-a512-813c4750ccfb,CE,7b235b44a594beaa865d,none,init=authoritative register project start; dec=none; no operative CE determination candidate,train
+edcbf356-2521-c8c8-c1d6-3c105903a659,CE,5d517462c943a4118c90,373a9a457bd278efa69a,init=DOE Initiator signature; dec=authorizing-official or compliance-officer signature,train
+143a87ef-bb29-6e39-7a41-50365dd83c39,CE,7e2f40212bc96edd3316,none,init=authoritative register project start; dec=none; no operative CE determination candidate,train
+7d0eb9bd-d4f4-aa72-67ef-47249d6f5f14,CE,ce66b4216e4ce21bc460,202c09da4446f75f068f,init=authoritative register project start; dec=authorizing-official or compliance-officer signature,train
+c3df5436-a345-e050-9c72-0db1c99c2704,CE,b3481956eb2387ecb106,none,init=authoritative register project start; dec=none; no operative CE determination candidate,train
+dde41f036a9bd2ffd6916c6f8c9bdf41,EA,none,f535bb6a0fca98f2e360,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",test
+af0dc77794f31d272dccbe8e3b57c26e,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+5d955635009eb63142c7b12770cd5bbb,EA,none,c41bd49b08d9f44f40ce,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+4e6cfe21483aa57b3aa2532e6557fa3b,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+be1cf87f42cd80d7aa3b2587d99873c7,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",test
+d7bff39ed4d389feaf72eba5c45f17b6,EA,0074cce247e9494d7237,8b47fb30c8c9fb8a5017,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+5e78bf80baf836f0b097258d2c9e6675,EA,none,9e1cd863145237d2b359,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative FONSI",train
+6814d5639775c55daf639c5c4f601c56,EA,f5d2a1004ab656ce8379,18bb99291abb590921bc,init=authoritative register project start; dec=authoritative register determination,train
+df80cced6a7403556813b21162b20996,EA,none,cb99e74b725606eea8a9,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative FONSI",train
+71b3becd8598acbf85a16c09ffea5b82,EA,d74864a26cc0b1cfe8f7,aba8db1fe06d8b31032c,init=authoritative register project start; dec=authoritative register determination,train
+ed0d144d03473d3e72ba81b1de97c77d,EA,c747431617675bb8b22f,e00641657b361c471fd5,init=authoritative register project start; dec=authoritative register determination,test
+eeb42f45c169ddbce9f5cb5ab081e140,EA,a79a4c4316f598639ad9,413c24619cdcda8694b8,init=authoritative register project start; dec=authoritative register determination,train
+d209965bb3a54dd7009fc9e057acf5e7,EA,f60ad6de084bbebd1fda,ce5f2158ba58b4dcfd85,init=authoritative register project start; dec=authoritative register determination,test
+423b0bf50ca043b7cd2fc5f21b8689bf,EA,none,ce6fe01b18e3fdb1285f,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+47ef0c68cd7f5b875357e28c772e4145,EA,a159820621bd4b3bf080,fb5a8c7e3ee521cba6cd,init=authoritative register project start; dec=authoritative register determination,train
+cce33ee127bbe8cbe6c7d3321ce978fe,EA,none,a54c3e460c6da696efc0,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+531c0055aa475d2d41f079107f8d4e27,EA,none,5f5ac74cd546edb22204,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+d4036a014dddb83264d1cb676d4b2b61,EA,c8f0b3914464b12857ee,30566b97fb9811e1a07f,init=authoritative register project start; dec=authoritative register determination,train
+201d8ca1ab7783426dec89db97739493,EA,none,67b0d1b5066cfdba6dc0,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",test
+f51b20c1c86180625bc8dddd68e24155,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+67e7692a197f12100663ff033ec82e26,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+ebd282b128924df300d82e2ad95e6212,EA,ce36b355587332ea6851,9fa081e99248034c5bdf,init=authoritative register project start; dec=authoritative register determination,train
+6ad9161f2ee067150ab0d5c4356332b3,EA,379d44a4037c20129917,dc0e6eec382016468999,init=authoritative register project start; dec=authoritative register determination,test
+a36a6d18c0b8149270ccff9dbefa5600,EA,7a64869f68dab5b647ea,baa12231d69c5099050f,init=authoritative register project start; dec=authoritative register determination,train
+d336bfed9f53527e4b9a3caf40c65715,EA,none,23e308f63ee61d1d63ef,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative FONSI",train
+19c56b599fbb0dabca87ccaf6476e31c,EA,efaf9c6f4e52312d3433,1ade42ff5b73d7e0923b,init=authoritative register project start; dec=authoritative register determination,train
+edcee6574bcaa5d3a07b552386eb0219,EA,none,55a5aa666f6c9cb80f1f,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative FONSI",train
+f1ffde2f85792ce490b141c74f9baa41,EA,b6a9fef9fee17426aaf7,14b6f73387aa5791724e,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,train
+0f4534b0b82d8d3b2b589184575f8dda,EA,none,dd391cdcd500bbd23ef3,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+debe659941dc65ed630daab88d5fbf81,EA,aa513b9070a3d288e9b6,8be77ea0cf289ed18e67,init=earliest qualifying application or scoping start; dec=operative FONSI,train
+a9bf633f178f02d579da39661ef6ae41,EA,none,a3beb871f4aaa1bdcf46,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",test
+42fa3a31354e0311b21a78fb3ac90c29,EA,none,1a8f4897dbd628033ce8,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",test
+eb3af99b4fd5c823611b28f620e5ca86,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+aae737cf3c81f4a5ae97e36eb54dc5bd,EA,93b88f6ac4c4c05fb3b5,6a9db2afc0c213419a6c,init=earliest qualifying application or scoping start; dec=operative FONSI,test
+07eb4a9c6579964af3a5a52928cabc7e,EA,cd8d3f91d2f1045c1e61,8d79ea75accd4ea176f8,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+dd57f4c89d7bac04b15392d3d5adc606,EA,993684e3a2d90f974127,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+62c1cf4692d281b3228e5cf0d064c86f,EA,24568bfdc9376e82bd9b,680c0b7290923bcf943b,init=authoritative register project start; dec=authoritative register determination,train
+323825530f7e229f10a719e2219d2cb3,EA,none,f0ea767a275d8e2d007c,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative FONSI",train
+23811d81ae09a7da1cf9167043268f6c,EA,438da777ab979875bb62,924926e32c072bb781b5,init=authoritative register project start; dec=authoritative register determination,train
+fd376168a2ca237d6b4a1e208b62ea3c,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",test
+769bdbd49a96651d4b6a61945446f3c3,EA,d75de941924f9ad1488e,0787a426150fc497faa2,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+292d487f83fadcd1cef13fe9b55b8b89,EA,afc84b4b3ad693fa24ad,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+fc80f2310515dbabce64a4f795b4ab8a,EA,none,0ea9e68a3a60198c00e3,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative FONSI",train
+5ed7f88a37957b8a812a19a8e8c41ffe,EA,7e1df44fbbe659a5a6c2,1c19b68edd4eb49ef4f2,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,train
+dd9a887d60e52e18e4958ae6c38f4e66,EA,d20cb4ba3d1ca5e61098,c566efae380cee043966,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,test
+96b26b5a6c877afe0475790d6625c6f3,EA,650e431bd5cbb3011700,8710eb4e1498acea9bb0,init=authoritative register project start; dec=authoritative register determination,test
+4f4f11c9b2b50d2d496e5efb30102fa3,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+c6757593d4322cdb6bd327c512ecc7be,EA,86b145ae3b63f55d4230,be0e47f9c37753fddbbb,init=authoritative register project start; dec=authoritative register determination,train
+c5a18865cc2aabbe086f9b6f765d619d,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+e0c526f7197d78b3cca85a46a8591ef9,EA,4adc85e61f95bb1123cc,8de27df15068ae24b3e9,init=earliest qualifying application or scoping start; dec=operative FONSI,train
+552e51a3b257f1e8c7d90d1bab4a2ce0,EA,70b6f4795dce8eb2da79,5ac8346b423941a1e1e4,init=authoritative register project start; dec=authoritative register determination,train
+5e9a3283f3aac48201f1725f75b46666,EA,01c7c8828cdf1afb8f0a,ad059ef1c211308b31b9,init=authoritative register project start; dec=authoritative register determination,train
+fdf78f8672fed04b2765b1db3f1f94d0,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+2ae7504e261e35c9bd9eb95ac637c82a,EA,eb7c2582d03924df1136,5a505fdb544c14bd4636,init=earliest qualifying application or scoping start; dec=operative FONSI,test
+793ee63e4b9621cd9c2d200e1eb81de6,EA,33584c5ff268a8138739,abc83ab922e814c40d47,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+685a0b42113cbea472c150d1624bbd8a,EA,none,b52d2bb7537c6bef6286,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+99ef7d6fb0e2daf79abb08148c992e78,EA,54f18e16e440c56791a0,031f1d5370aa941546f0,init=authoritative register project start; dec=authoritative register determination,train
+27b8eab66b62bd7fac3bc7f79a470eb1,EA,b30f7e6207e46e2cac5c,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+8237e9b86021dba1b116398c74644f23,EA,d91c1989c3d597c6d231,ae3a02ff4178fbcf5161,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+74707768051b207cfb55f02ab4a2e5e7,EA,0750680937b98f2980ef,663cedabf62a326759b9,init=authoritative register project start; dec=authoritative register determination,train
+bcbb86822312817d6dfd24cb3a2ab636,EA,7ae70565ec94d9234215,bb9c40a76658b923f43d,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+2ba9fd812367e514dc1f5ff9b667b18d,EA,none,67d5554c8ab413294e40,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative FONSI",train
+7adcbad739b9ad5409dd7a14acc3bc18,EA,80e63f3bb24c3c902e4c,71357359d5d9d4b90231,init=authoritative register project start; dec=authoritative register determination,train
+07e8b0cd7c9e9abf8fb276acae7ce0d0,EA,7a934648181584ef286e,ede2a651f558e86f9b31,init=authoritative register project start; dec=authoritative register determination,train
+66c9b0ec3e30e728787f3b9eb502ddfc,EA,83c582b589a710db9715,897b4bbaa122f502e2cb,init=authoritative register project start; dec=authoritative register determination,train
+425dc3f36a117689f9229326bbf7c46a,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+174adbebbf1247b5d92610efc740f533,EA,1497d556f34109af53b6,db7c5658b496ba0f2d12,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,train
+3002af707d1ddb1294f547e626f784fe,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+54b270258af450833561bb404cd74179,EA,b988f8674c137dfd7f17,1f8d9bf0804200133eee,init=authoritative register project start; dec=authoritative register determination,train
+c7dbd66ba2183fb5ea44d5e1772944d8,EA,c2f6d71c64c493e17460,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+4ed07a0ef8f6bf55c20005e517bc7579,EA,a9e5afa0d4bab9a01a04,5213d679d77fcc844cd7,init=authoritative register project start; dec=authoritative register determination,test
+d7c3aeeb288657ce7ec10f1d3ff72d4e,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+82bb20eb25b7ddc7453703a918b70148,EA,3318064845a7a6b1d42f,7d134819b10dfad07c58,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+84b153f015fab166e70a6a40aa96414d,EA,none,6c2562285a64607ff7d8,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",test
+bb4186770676398ec8143f4da2955ec7,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+dd8606ef271623a6148c059982e43a9d,EA,034a40888b85713e77a4,e711dc8d2986e02ea6f4,init=authoritative register project start; dec=authoritative register determination,train
+9e9978cda8624597659d4b965b9eeb2b,EA,5d676f975adc3c9b54ec,b397068ef61471093342,init=earliest qualifying application or scoping start; dec=operative FONSI,test
+43a3ed9ea3cae13472bf9ad81f0f46a6,EA,b23382b0ef5a64f29439,c345561e780240d94307,init=earliest qualifying application or scoping start; dec=operative FONSI,test
+1c43ac38157653b1c7c339ec8598a85b,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+579c78fe6f12f2c72687aecf09223fc6,EA,d16ad34bee9ecafa2385,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+626af2e0dcb8b43248228cd876240b6d,EA,9c1a90e42dbf89f13d6c,91cabd1161b39336c3d9,init=authoritative register project start; dec=authoritative register determination,test
+9baf106759ce28ac9e7fc53c05d5b646,EA,3ccc4f2039cdb964ca0b,ccbf62a5feeef09e292d,init=earliest qualifying application or scoping start; dec=operative FONSI,train
+a69b8da81ff83ca297a4e6b5cfeca6de,EA,9ece6a476113ae70c01e,2c7b08700902c345ce5f,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+c2df9af69865ab70ed8da4ee63d4045e,EA,dd63224ef144531fd0b6,e77e825bbe6574cab8c5,init=earliest qualifying application or scoping start; dec=authoritative register determination,test
+3d61452bf76c4b6d2a6364eb725295c4,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+ca2dc1eff43eb74afcc2e1ad006ab370,EA,ceb759ec79784df4ec19,0401742a46b4c210a979,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature,train
+d66218d369b7f188037e71c2536a283d,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+9449a3124cdabff9eccc974152960afd,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+f14c3277f8dcc9e9b0431660be5a6717,EA,none,556ce5519c1a0973fd64,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative ROD",train
+6544356c54a8e76259ed8f0bbc4a353a,EA,none,a32d5a1a71792cf4ac97,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature",train
+22b29df8b8f92881a4da801205255279,EA,10b12e530989eb86a53b,77f8004ff12b8b96f262,init=authoritative register project start; dec=authoritative register determination,test
+1c20864d3da03b2151e23487fc6bc9dd,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+782e66e9fbb3dd907ea07de28ab7e66b,EA,4c4d08b334ec07102bcd,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+6b62e653a15112e363a095c829448789,EA,none,fb84d646d83d033afb61,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=operative FONSI",train
+6e3605db977431e23c9cebd30719624d,EA,f9c5540d3b7662242c8e,4029be8bde3c85ab6955,init=authoritative register project start; dec=authoritative register determination,train
+b75c50c1ff6f9f8399195eb693d515d7,EA,6e4ef7e3442e4c771191,2faa66fef52c0fed59f7,init=authoritative register project start; dec=authoritative register determination,train
+5ab3dbc04373452c2e02d1c0e762f3c2,EA,none,dc71612c1b5bb4028ce5,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authoritative register determination",train
+243c885992cc415a95459b8ba8c8980a,EA,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+4632f0325d001c287445acf3773e6299,EA,442508703d45b7d6ff00,3383868d03978eaaaa3c,init=earliest qualifying application or scoping start; dec=authoritative register determination,train
+0f534b747775fd35fc272eb78c71f6ea,EA,b37200f310a1b3bad7a8,25fa8429cff17ab568d7,init=earliest qualifying application or scoping start; dec=operative ROD,train
+9b1b28dcce9693aa5f7823a7f4113eb9,EIS,3b1c0eef882f3ab0ad13,none,init=earliest qualifying application or scoping start; dec=authoritative register determination;verified_none,train
+4ecbde48914fd2902b8c2ca635c4a6fb,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+646993ae7d2ef18404d069dbb08e8f23,EIS,0ee2f37875ebb9ae92a8,85165b279644a4b4c32f,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,test
+f1583be2829137b9b8e6873107bca1f7,EIS,e15e9af1e5bb9b09ebd9,1cd54cc254acba2ed66a,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,train
+19fa5940f256367fa2863d06dacda897,EIS,08939006a658e32ee9fb,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+0ddf61e0158e665d9207e09a05001ba7,EIS,none,e919802f9c6d9838b1f3,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback",test
+b82b64efd645c02959f29cb99480e132,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+5e8a9511fc56490096e6683ea35ff61f,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+b2cdd899c4cd20443b8b9d88e983057e,EIS,c29e2cd461c4faa62263,dbc518d2623a241f31db,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_rod,train
+cc643182825ad662a4a22d5efff35171,EIS,04ac5c0fe6cf68861506,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+35a5389c496c0242990df1037e7eda76,EIS,3a764e48806c43252d97,none,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature;verified_none,train
+0407f13a2c3901c562530237469a2416,EIS,0c0ac4d1aa0d914322f4,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+8a81bf3d4af8201e65aa30a73ca3d32f,EIS,0aa1176f397e0908909d,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,test
+d663c95e0cbd1c0fae14188bd68dd990,EIS,979acc9eebdbde331610,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+66939785a75d82f3acd17a57920bd7c2,EIS,9d12cea81f275ff2f29b,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+10eb172109a10fb3c0d9d1e740318216,EIS,b11b4200326ae24e07f6,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+6b85d77b45be445614d1085f8025844a,EIS,d51b563e11af4def50a2,fdea6d730cdb4b5b0bb0,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,test
+de063d5e3eddbaeeef1f0fc802cf255a,EIS,0946a3b8cc7c8b764685,aea17d82fca130b9ab6d,init=authoritative register project start; dec=authoritative register determination;verified_rod,test
+64776431d6b1d7f5cdd415f36148d8db,EIS,54cafe07da81e14c71ec,a68a2838885f8c502f65,init=earliest qualifying application or scoping start; dec=operative ROD;verified_rod,test
+eed2be582987107fdb9f82c49c851719,EIS,7381aaa185fdbd9f4417,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,test
+9d57528f4d1ae19633cb4daffe5ebf95,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+cec9eca73d6e8aae147f817ad56132d8,EIS,a5d260f81432aaf8b5e2,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+305751f0ceccd00a9782d6af607b0623,EIS,0ac0e7cf198000e87c38,410b78dcbd0ac61444c2,init=authoritative register project start; dec=authoritative register determination;verified_rod,train
+1fa2ded55d753d837aff24c42d8284b8,EIS,555354f3ad5f6dc679c2,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+e03284b0ae3ed29a839edf5f481839e7,EIS,ff2d9c373aa6abfc3d05,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+5e4d9b072edc364f98c153b797c406db,EIS,19bda5b49bd8d3ce34cb,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+16503be533a24ab6be0f16f0bc52c2f8,EIS,3c2051bc9d3cd79f0f44,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+96c9b42306f28e3f7ed9bab0ad66b348,EIS,37dd3c42116b3a24b791,none,init=earliest qualifying application or scoping start; dec=operative ROD;verified_none,test
+357b9b5129c2e699722ef6bcbd1f43a6,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+67edc2a620b557679531dbfd04fc8b77,EIS,db451ca75ce6cf374b42,0c93a314a01fcbbaf1c0,init=earliest qualifying application or scoping start; dec=authoritative register determination;verified_feis_fallback,train
+e232dd76050a1a3b78326ff59be4291e,EIS,7363a11fa67d427ff793,none,init=earliest qualifying application or scoping start; dec=operative ROD;verified_none,train
+45111254a59f7d9490a1adcba4baf8a6,EIS,7155b1a04c874b995efa,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+1547f047a8564a060625448f82ebacb6,EIS,ad6580786c4cb6bb82bf,35bc0f42daec33b3ba28,init=earliest qualifying application or scoping start; dec=authorizing-official or compliance-officer signature;verified_feis_fallback,test
+a60da55a3914121b0a9f5af98ba034d8,EIS,4792b429a0be9cd0eff3,c19654fbedb748436d1f,init=earliest qualifying application or scoping start; dec=operative ROD;verified_feis_fallback,train
+05673602f1dd6f43856a6a570b9b1597,EIS,6c97561d6fd8ab492813,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+f46da32543e4529ea955651880d2431c,EIS,61a88eacf4451fe6a1f6,386b2ab026ac193ab0cd,init=earliest qualifying application or scoping start; dec=operative FONSI;verified_feis_fallback,train
+5176eccf47d4246c00cb2adc251663f9,EIS,38042298ba28e5ecd356,e642a5909d4b0599ca5c,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,test
+1a1ed674b46a04b2a542bf2d4a3bd146,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+af2b74ffc134fdec04be990b8b6a7640,EIS,e63854a6d96d418196f5,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+7e06b9016e4080d64b61818b1268edc6,EIS,24a65710aa12761f8f20,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+0580c736d930dff0881d65adcb44f7c9,EIS,5c3635e23432b5427d5a,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+e4d622c1e93e2153f5fdcba71c338c68,EIS,fd912214268a4a413ba1,2f8dacca889563ac54e2,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,test
+dc455ede5d65a3e76e26d9d0fd230f68,EIS,e5fb8a1e3cc8f61b28ce,69c0a2e2da024b544223,init=earliest qualifying application or scoping start; dec=operative ROD;verified_feis_fallback,test
+1eb5b1ebfb0093d8a995324eed069bf5,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+89414a09bd48fabe4852293e6642776a,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature;verified_none",train
+a8c2a50ea818052a3f63af4b0861a103,EIS,86ebf9374bb6e2f5d841,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,test
+9fafa3ee7103dc969c13e6322408bfb4,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+83b874080c80c46e609947a68892b161,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+45240748668e7cd54675745457e9a739,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=authorizing-official or compliance-officer signature;verified_none",train
+262ee70fdc6c6c3043157be7c3ecc649,EIS,d401286d4de561310180,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+1dc252f122386a34a12862c17996b9c1,EIS,c9d6bbbee06f246f0674,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+65e38b98ff7b5f4f4b3f1f6fca8c1b1f,EIS,d4d3dc5aaed6688649a1,b093a70aeecc1a8f5973,init=earliest qualifying application or scoping start; dec=operative ROD;verified_rod,test
+da78e2db9863bda0412b8c3d6387140c,EIS,d4a81654320f5ef4c752,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+ac05b10d6c3ef664ce1a1b25d1f357c6,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+ba0cf860d1b312f76aee7f6c7dcad171,EIS,55be920a3f07851dcbdb,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+670fde1548246a76ab084f44574a30fb,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+a7ce48e4b1a2ee88caf66bdc9f81732c,EIS,50e83bdc858fa279dc3a,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+620e152778ddd80f97e589ee78b24f78,EIS,384097d9d3a8f3be1f9f,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+77a8d5c8c4e6fe2b86b1779a722885e0,EIS,c58456eda69d454dc87c,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+e50971b6755d3ac9ba812b6a51b14c94,EIS,73cbcbfbb2209ddb46d6,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+accb3b10db0cf3c6b02815d386728ad6,EIS,d3609a313554ad3da31d,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+aa47e1a63dac5e0d0d84ade306dca6c4,EIS,none,30bf0abc7b7eb66cef8f,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback",test
+468856b169530378904c01ca3b930761,EIS,none,97cc2d8a045ebc5fba74,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback",test
+4ebfd32914e7ec50b33ca9f61e15c555,EIS,none,fc49d2f61eb6a09051a0,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback",train
+2d4e2fbbc9d5ee8e8dfe6b7788b15083,EIS,5e9c0979e5a6e814142a,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+b611d38e2262b5f783c1244393fdc231,EIS,277d85ca234a813c26a2,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+553ffcdc65e9096e67c69fb4763aad08,EIS,5c86c891a5920e15d0bb,7100d70575991885e468,init=earliest qualifying application or scoping start; dec=operative ROD;verified_rod,train
+692428c0093b17311195bbfa43d12b45,EIS,2d8400e48c26e6a65435,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+c29c3c63543e37c9456baa468d32b97b,EIS,e0a53ed0e8b354249e71,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+11fd5877ac29b56b27a77a417db6d90b,EIS,fab4a66fcfadb3949152,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+dfe6130a176ecde494418bff7e0cd27d,EIS,dc34b83ee27478424201,3b55d9dfa0e3cf86b3bf,init=earliest qualifying application or scoping start; dec=operative FONSI;verified_feis_fallback,train
+42678ecc94060ec65ebaaf0ee50fbe86,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate",train
+cb367c628b158881c12fc100317951a8,EIS,707a349767d822614fd7,4df7b886f856310f550b,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_rod,test
+8797d81f390e0eb5cb97c8710494e204,EIS,70a99d91ca687d6f11c5,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,test
+74a77422d9637a3c1a09330478db13e6,EIS,e0fcc66ec701abf42c44,afb0b229dbaf2c1a800f,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,train
+fe5ac2646d3e417e4665dead27fcd77c,EIS,b60f317f45e667acc158,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate,train
+d66667402910dd84ae89bf519e468241,EIS,d4dad9e9c4b91924a4dd,c9090c7076c407ad6dec,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_rod,test
+3b79650884348200e94d28f0791ab513,EIS,adf3734159325642c879,none,init=authoritative register project start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+20bb7220f8272ac5b35d2c2e1ada7c63,EIS,322b0c6c0d60425eeddf,5491e5c383cde5b9f69d,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,train
+5156aebf60860219be8950c02b41aea6,EIS,4ddd5b5a710b78c4fc2f,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+e9ae8b7c2bd04f7bee8b939ce18afc17,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+eeeae37055c133d265ebd33fd7c6dd56,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+d6f63a8b50ec71977089a04cfd0cf983,EIS,1e37c86e57bd3bc65d1f,0825be5ef579fe139a5a,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,test
+2ed8b99fee7953749d1788edd3931ce9,EIS,65ca36f1ce1ce735508c,b7e4ce1015a1fa01a1a7,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,train
+602a221cc45c13b2062ad9987fe9e124,EIS,2c7d634bcb548934f1e6,f4c1a36dccc5babcdfb0,init=earliest qualifying application or scoping start; dec=authoritative register determination;verified_feis_fallback,test
+605218925a51a7ceb2ca9206cc0cf5b1,EIS,71c7e5810a6500b28fd2,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+ef3ff314718e334cb84c5451f30323b6,EIS,68e6e46f0d55181f9a16,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,test
+295200a8ce6a5d352fdde0186bdb6cd1,EIS,e004f0b2375f806aa8bc,92e4abd9cc35dc44f04c,init=earliest qualifying application or scoping start; dec=operative ROD;verified_feis_fallback,train
+1c0920ceec1cd675cbcbb3ce04cd1af3,EIS,0c2ffab21e7e4ad34acf,38681bb2d878b08a26f3,init=earliest qualifying application or scoping start; dec=operative ROD;verified_feis_fallback,train
+a9931f0087188580c0378bac644abca4,EIS,588f5114dceadf5a13fb,ac7619b2c187b9c75e3c,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,test
+c178fd3d723b2294854d20cd62a8ae36,EIS,07046bb13703deca407f,106ac3f2f6d1781f6b8f,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_rod,train
+28115f2c03cc08082f009b340ab9ed34,EIS,615daed817566bd6f4b4,b4374a9d7aa3547a72bc,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,train
+d0786446fe106088227f3366e6a00c2b,EIS,0717da502d9346c68b41,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+42fa9f318a1fd2a8205ca3665b73de65,EIS,0a48a0685265dbced7c3,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+a740142c21d8d0439cf0a9df97f2d8b2,EIS,7cd3c7cf77e1764227b6,none,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_none,train
+aae0f3cb01c6c344a90bd05b4c6e1ac2,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+7c8cde84f2aae499bfc9989d6a019483,EIS,385306f3b3afba5de830,6eef51c8d009ddd59bd2,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,test
+4e63c8e146852bfaaf4d5b6d30bc6c34,EIS,5ea9adc0828be308d2cc,54c1253e7fed32efd215,init=earliest qualifying application or scoping start; dec=operative ROD;verified_feis_fallback,test
+926d88776fff8363fe4bd24bed6abc3e,EIS,none,none,"init=none; no qualifying NOI, application, scoping, or CE start candidate; dec=none; no precise day-level FONSI/ROD candidate;verified_none",train
+38826951e33a7cddc2fc54219d0fe011,EIS,65a39e24369387c015da,825d19decd38467a6e97,init=earliest qualifying application or scoping start; dec=none; no precise day-level FONSI/ROD candidate;verified_feis_fallback,train
+bb7d43e4834dc3032bc77747770e8755,EIS,,93a47ab8dccf511e6870,verified_rod_no,test
+12607852aafcb344b7633e566d4125fa,EIS,,5243f9cbce09bf8da7be,verified_rod_no,train
+1eb303bd72c3f61355678d42cd93d382,EIS,,3ee5622f5db7f9057581,verified_rod_no,train
+209ee205bd5c40dc7dc2c2e7827a7c62,EIS,,80b1015124f789809582,verified_rod_yes,train
+93bec4029a1e6dad5ba38d3507c1a7b9,EIS,,ec5ad03af7e015a2961f,verified_rod_no,test
+45d2ea3ffadec1827225fbbf1d3e23fb,EIS,,d2b81485fe40fbbbf100,verified_rod_no,test
+c22265b6b6471b8e59a678ac86a56cb6,EIS,,5f6a1108a636372ffb7b,verified_rod_yes,train
+63bedf55a728ef21c98bba88623bc7ab,EIS,,7edbcd9642f96897a654,verified_rod_yes,train
+c898775bba19c6cc245893c5aed1e8b0,EIS,,7da92362fd30e522cd49,verified_rod_yes,test
+5f9cb26d88a8b5e65f0d6405fd133299,EIS,,7e7e7c09ae66f0e9caad,verified_rod_yes,test
+4d09ab6fd4c7ab656f1626d277cf27ca,EIS,,048d86c8135a1f11795e,verified_rod_no,train
+7450ceacc79751b4dfbf76c44c248890,EIS,,b2eb0367092931c614ff,verified_rod_yes,test
+e42943f5e677b52e69a402cb5c721d96,EIS,,aa552272fffdc4e010ea,verified_rod_yes,train
+b060c952a53f94184eae837195c3877f,EIS,,4c9e7e8cec43d0e2e2ff,verified_rod_no,test
+b61c664ca4bfdfe89a0a67c09ac93e3a,EIS,,c732ba1c613e52ddef02,verified_rod_no,train
+a0a6fe5f23ec30e5cda48a674a5b95d4,EIS,,13e7d270f7c2b03c24c4,verified_rod_no,train
+984b6f5b22b44ada3f2d7236289091f3,EIS,,939e669e0e29f513b024,verified_rod_yes,test
+3621210fbd086bddbbf6fbedc1d6a488,EIS,,ab6bfb5fe5492887fa57,verified_rod_no,test
+8ebe245b7c7739df4c3e68b1fb7f2ce3,EIS,,d6a986c84c8616d66518,verified_rod_yes,test
+6fa30e86743dd82fd4dbb5eb482ce166,EIS,,451a228de5a0562b180a,verified_rod_no,train
+a4d40b0343bcc27ddca246be74457688,EIS,,2c68438dfd2777ae4b77,verified_rod_no,train
+99a32c2b9d336246a952b1e8b8ecba99,EIS,,43d46cc7074dd4c0a436,verified_rod_yes,train
+d3775d4a9c69c4ea63406e23d0585f08,EIS,,8943f4b84de5b425e1c8,verified_rod_yes,train
+5a31d9c24e27d68a0b3af0b6c4b187a5,EIS,,0f05836d3eea3ccf73c3,verified_rod_no,train
+9ffadc247c16a74b9864ce234bd49760,EIS,,30c4ef56465c3818bd0c,verified_feis_fallback_no,test
+4253d1b8efcdfa5e3e1111f2bb6233ee,EIS,,e81be9e0c6dd62effa29,verified_feis_fallback_no,train
+3ed7aabb569ce9abaf24b75c9e70a24c,EIS,,2e6aad33d2fbc804d135,verified_feis_fallback_no,train
+4925ff0533528ce314a00eee2291956c,EIS,,1503d580e5e4ce1395a6,verified_feis_fallback_yes,train
+f490d5aac004578a1e2c518681746f2a,EIS,,0f71b22b19b223a40ca4,verified_feis_fallback_no,train
+a57432e12a4a27c31261554ddf349e77,EIS,,9b4313e00d86686e1437,verified_feis_fallback_yes,train
+0f706b014d4b0cf2de5c2f5f589c450d,EIS,,7bd176446e6fda2de7bd,verified_feis_fallback_no,train
+0393d64217b5eea20187e0a68726f113,EIS,,07454503c6f8923708dd,verified_feis_fallback_no,train
+ff32998c052b3ca99c3379e2df7a6cf4,EIS,,9aecc6a6d5cc67f58b7a,verified_feis_fallback_no,train
+fccd7b2e81153398e0cfe720301c1771,EIS,,9780bd7bb13b737bc2ba,verified_feis_fallback_no,test
+20f2d61838ffb542641ca69aff3f6c00,EIS,,5152f6952c851d656c9f,verified_feis_fallback_no,train
+d474a4f9d8e8bfacda7ba1bf19fff30c,EIS,,605c11bfd8ac57ba3ce1,verified_feis_fallback_no,test
+15ee36778aa9f40bc3d8669b194d0790,EIS,,db6abf747b8ef1d77016,verified_feis_fallback_no,test
+5af0988cca452854e9c8477d42dff082,EIS,,d9609777468874e42199,verified_feis_fallback_no,train
+02e0a4da02e7febc848a14796ead8412,EIS,,none,verified_none,train
+08842895ff5bb6d2a3d843ccec399fe8,EIS,,none,verified_none,train
+0e288bb9937de41ec3f7e1efb6c092ca,EIS,,5c5bc056b8d10fcfb2e6,verified_rod,test
+0ff43da937148f8f1bc3e89cf9f15965,EIS,,none,verified_none,train
+16260a97644752a74df77bf9a626f937,EIS,,325e9199bfb3de9da47b,verified_rod,train
+1eaa2445cac8449595730d7dbebd2441,EIS,,none,verified_none,train
+41deb4f7134f2868edcebd13d525249f,EIS,,none,verified_none,train
+52bb365c953ffc30401148fa5840fddd,EIS,,none,verified_none,train
+6030688ed816669b777ca564e2b438d6,EIS,,none,verified_none,train
+7d69874491f4454a0cec49b68f671ed5,EIS,,none,verified_none,train
+908bf51b37886d63c72f471c2b02543d,EIS,,none,verified_none,train
+a27f0ac1f3c977a2852f385ac23ebd0c,EIS,,none,verified_none,train
+a2bb7475609e6c57d7e70d97bdd3bc8a,EIS,,158a801b06045f085b74,verified_feis_fallback,train
+bf3a9fe3a8efe23f2cb599254cf802a6,EIS,,none,verified_none,train
+db0cf887797cedf7f28ea49146b8a62e,EIS,,none,verified_none,train
+de4d06407fb34d55f4d43eb1b7623e7e,EIS,,none,verified_none,train
+e5628586af3222dd51e7d997f296df58,EIS,,6e9a8a2f2a8976ea95cf,verified_rod,train
+e7f205080288b355b8166314bdf633f5,EIS,,none,verified_none,train
+f651ec0ed122f9be76f07055b85570fc,EIS,,none,verified_none,train
+ee6105b6350b3884f275c1ed8c879e1a,EA,35019b869ea937bd60af,e3deba0b5957c8f6d261,BLM NEPA Register clean pair,
+c8af1854982185086736c7b88ca00274,EA,499cff41b0bac351c710,a021f8b5639bcbf9b72b,BLM NEPA Register clean pair,
+f07235cfb2ff8def1ad75bb8b0d7abd5,EA,10355745c12990fdc6a7,32190f2807118609cd34,BLM NEPA Register clean pair,
+dba0ded679affa4bbcbd184d4903cef7,EIS,a72b141cf6c1541660c6,,Stella FEIS SOPA scoping; ROD separate,
+ee9a641b3a4793b2d763e0fa125994cf,EA,,e978e1887b4c0cb139d6,Decision service date day-granularity,
+f8e4dd8fbdc399985390fb5e16005e9b,EIS,,b7f995b49f34aa09ebb7,DARHT ROD signed Oct 16 1995,
