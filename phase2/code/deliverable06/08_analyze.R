@@ -5,9 +5,10 @@
 # 03_analyze_spikes.R): Python builds the data, this final numbered R script
 # builds the figures, and reports/deliverable06.qmd embeds them.
 #
-# Figures (deliberately few — each makes one point):
-#   fig_d6_funnel.png       the narrowing: clean FONSIs -> candidate -> CE-shaped -> net-new
-#   fig_d6_adoption_gap.png per adopt candidate, how many agencies lack the existing CE
+# Figures (deliberately few — each makes one point), one per analysis branch:
+#   fig_d6_funnel.png          (Track A) the narrowing: clean FONSIs -> candidate -> CE-shaped -> net-new
+#   fig_d6_adoption_gap.png    (Track A) per adopt candidate, how many agencies lack the existing CE
+#   fig_d6_mitigated_share.png (Track B) share of FONSIs conditioned on committed mitigation
 #
 # Inputs:  phase2/data/analysis/deliverable06/{candidate_corpus, candidate_verdicts,
 #                                              fonsi_project_inventory}.parquet
@@ -52,6 +53,7 @@ short_label <- function(x) x %>% str_replace(" \\(.*\\)", "") %>% str_wrap(26)
 inv      <- read_parquet(file.path(ANALYSIS, "fonsi_project_inventory.parquet"))
 corp     <- read_parquet(file.path(ANALYSIS, "candidate_corpus.parquet"))
 verdicts <- read_parquet(file.path(ANALYSIS, "candidate_verdicts.parquet"))
+mit      <- read_parquet(file.path(ANALYSIS, "candidate_mitigation_summary.parquet"))
 
 corp_fonsi   <- corp %>% filter(is_fonsi)
 n_clean      <- inv %>% filter(project_energy_type == "Clean") %>% distinct(project_id) %>% nrow()
@@ -100,5 +102,26 @@ p2 <- ggplot(adopt, aes(reorder(lab, n_lacking), n_lacking)) +
        caption = "Each action already has a CE at another agency (see report table). Agencies at bar end are the adopt targets.") +
   theme_catf()
 save_fig(p2, "fig_d6_adoption_gap.png")
+
+# Fig 3 — (Track B) mitigated-FONSI share, candidates only (wind/contrast excluded)
+mit_fig <- mit |>
+  left_join(verdicts |> select(candidate_category, candidate_label, verdict),
+            by = "candidate_category") |>
+  filter(verdict != "contrast") |>
+  mutate(lab = short_label(candidate_label))
+
+p3 <- ggplot(mit_fig, aes(reorder(lab, mitigated_share), mitigated_share)) +
+  geom_col(width = 0.66, fill = catf_dark_blue) +
+  geom_text(aes(label = percent(mitigated_share, accuracy = 1)),
+            hjust = -0.2, size = 3.6, fontface = "bold", color = catf_navy) +
+  coord_flip() +
+  scale_y_continuous(labels = percent, limits = c(0, 1),
+                     expand = expansion(mult = c(0, 0.12))) +
+  labs(title = "Mitigated-FONSI share by candidate",
+       subtitle = "Share whose 'no significant impact' finding is conditioned on committed mitigation",
+       x = NULL, y = "Mitigated-FONSI share",
+       caption = "A CE must encode recurring mitigations as design criteria — it cannot rely on case-by-case commitments.") +
+  theme_catf()
+save_fig(p3, "fig_d6_mitigated_share.png")
 
 message("[08] figures written to ", FIGS)
