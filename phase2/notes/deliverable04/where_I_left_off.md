@@ -358,7 +358,13 @@ date sits at the bottom of dense ~7k-char forms, truncated off. A secondary loss
 scanned the whole block for exclusion keywords, killing real signature dates that shared a block with
 `"expiration date"` / statute citations.
 
-**Root cause (EA):** Same truncation mechanism on priority_3 EA narrative docs; smaller loss (~4–6 projects).
+**Root cause (EA):** Mixed, and **only partly a real regression.** Of the 16 EA: ~4–6 are
+truncation-recoverable (same mechanism on priority_3 EA narrative docs); **6 are image-only scanned
+FONSIs/RODs** (empty `page_text` → unrecoverable without OCR); 3 are genuinely date-less; and several
+Phase-1 EA "dates" were demonstrably **wrong** (a railroad timetable, a revision-date stamp, a
+4(d)-rule citation) — so Phase 2's absence is partly *more correct*, not worse. EA Fix 1 (tier_d
+8000) targets only the ~4–6 recoverable; keep-vs-revert is gated on the EA regression diff. Full
+per-project verdict + decision rule: [`../missing_investigation_EAplan.md`](../missing_investigation_EAplan.md).
 
 **Code fixes — APPLIED in `acdd7ba` (2026-06-10), validation run NOT yet performed:**
 
