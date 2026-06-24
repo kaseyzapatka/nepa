@@ -1363,5 +1363,117 @@
     "title": "NEPA Decarbonization Technology Analysis: Deliverable 4",
     "section": "Descriptive statistics",
     "text": "Descriptive statistics\nTable 2 reports the full descriptive statistics — mean, median, standard deviation, and interquartile range — by process and FRA period across all energy types (the all-energy counterpart to Phase 1 D5’s descriptive-statistics table).\n\n\n\n\n\n\n\n\nTable 2: Descriptive statistics for regulatory page counts by process type and FRA period — all EA/EIS, all energy types. Regulatory pages = body word count ÷ 500, excluding embedded appendix pages and low-content pages, per 40 C.F.R. § 1508.1(bb).\n\n\nFRA Period\nN\nRegulatory Pages (body word count ÷ 500)\n\n\nMean\nMedian\nSD\nP25\nP75\n\n\n\n\nEA\n\n\nPre-FRA\n2,021\n33\n19\n44\n7\n41\n\n\nPost-FRA\n218\n39\n24\n42\n7\n63\n\n\nEIS\n\n\nPre-FRA\n1,342\n317\n260\n268\n127\n440\n\n\nPost-FRA\n97\n269\n212\n250\n130\n394\n\n\n\nPost-FRA projects are those with a decision date on or after June 3, 2023. Regulatory pages exclude embedded appendix pages and low-content pages (maps, figures, blanks); documents whose filename already omits appendices use their page count directly, and documents without extractable text are excluded."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html",
+    "href": "phase2/reports/deliverable06.html",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "",
+    "text": "This is technical support for categorical-exclusion (CE) development: which recurring clean-energy actions, drawn from real federal review records, point to a CE opportunity? Under CEQ’s April 2026 CE guidance, a prior Environmental Assessment that ended in a Finding of No Significant Impact (FONSI) is explicit, citable evidence for establishing a CE — the agency did the full analysis and concluded the action does not significantly affect the environment. A pile of FONSIs for the same kind of action is exactly the substantiation a new or borrowed CE needs.\nSo we start from every clean-energy FONSI, narrow to the actions that actually look like a CE (bounded, low-impact, recurring), and check each one against the entire existing federal CE catalog to see whether it is genuinely new, or already excluded somewhere."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#what-this-is",
+    "href": "phase2/reports/deliverable06.html#what-this-is",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "",
+    "text": "Technical support for categorical-exclusion (CE) development: which recurring clean-energy actions in prior Environmental Assessments that ended in a Finding of No Significant Impact (FONSI) point to a CE opportunity? Per CEQ’s April 2026 CE Guidance, prior EAs/FONSIs are explicit evidence for CE substantiation. The model output is the BLM geothermal-exploration CE — a recognizable action with explicit limits (≤10 acres, no new roads).\nWe start from the 452 clean-energy EA-source FONSI projects, narrow to the CE-shaped subset within each candidate action type, extract the bounding limits and mitigation pattern, and cross-reference every candidate against the existing federal CE catalog (CE Explorer, 2,105 CEs). Each candidate resolves to one of three opportunity types:\n\nNew CE — a recurring, bounded action that no existing CE covers.\nExpand a CE — an existing CE exists, but our FONSIs go beyond its stated limits.\nAdopt a CE — an existing CE exists at one agency that others doing the same work lack.\n\n\nFirst-pass caveat. This build is deterministic (the LLM-assisted extraction and verification pass is the next step). Treat the specific limits and the new/expand/adopt verdicts as directional, pending verification."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#the-three-opportunity-lists",
+    "href": "phase2/reports/deliverable06.html#the-three-opportunity-lists",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "The three opportunity lists",
+    "text": "The three opportunity lists\n\n\n\n\n\n\n  \n    \n      Candidate CE opportunities (new / expand / adopt)\n    \n    \n  \n  \n    \n      Candidate\n      Verdict\n      CE-shaped FONSIs\n      Best existing CE\n      Adopt targets\n      Rank\n    \n  \n  \n    Transmission upgrades within existing ROW\nexpand\n37\nTVA---1-16\nBLM, DOE, NNSA, PMA\n0.71\n    Solar\nadopt\n8\nDOE-1--5-87\nBLM, NNSA, PMA, USFS\n0.47\n    Temporary resource assessment / site investigation\nadopt\n2\nDOE-1--3-43\nNNSA, PMA\n0.44\n    Geothermal exploration\nadopt\n7\nDOE-1--3-43\nBLM\n0.42\n  \n  \n  \n\n\n\n\n\n\n\n\n\nCandidate categories by CE verdict (observed FONSI projects).\n\n\n\n\nHonest headline. On the current candidate set, 0 are net-new — every strong clean-energy candidate already maps to an existing CE, so the evidence supports expanding and adopting existing CEs (1 expand, 3 adopt). Surfacing genuinely new CEs requires widening the search into the action categories we set aside (a planned follow-up)."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#candidate-evidence-and-mitigation",
+    "href": "phase2/reports/deliverable06.html#candidate-evidence-and-mitigation",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Candidate evidence and mitigation",
+    "text": "Candidate evidence and mitigation\n\n\n\n\n\n\nCE-shaped evidence per candidate.\n\n\n\n\n\n\n\nMitigated-FONSI share (Track B).\n\n\n\n\n\nMitigation is read two ways: a high case-specific mitigation share is a CE risk (a CE can’t lean on project-by-project mitigation), but a consistent mitigation recurring across the class can become a codifiable CE design criterion — and the agency’s own boundary statements (“would be significant absent X,” “would require an EIS if it exceeded Y”) hand us candidate limits."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#the-existing-ce-landscape",
+    "href": "phase2/reports/deliverable06.html#the-existing-ce-landscape",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "The existing-CE landscape",
+    "text": "The existing-CE landscape\n\n\n\n\n\nExisting categorical exclusions per agency (top 15), from the CE Explorer catalog.\n\n\n\n\nOf the 2,105 existing CEs, only ~90 state a numeric bound (e.g., transmission reconductoring capped near 25 miles / 230 kV) — useful precedent for what a defensible expand looks like. ~317 CEs are near-duplicates of a CE at another agency, pointing to consolidation and cross-agency adoption opportunities."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#wind-a-contrast-case",
+    "href": "phase2/reports/deliverable06.html#wind-a-contrast-case",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Wind — a contrast case",
+    "text": "Wind — a contrast case\nWind (onshore) is kept as a contrast, not a recommendation: large footprints and case-specific wildlife mitigation mean it genuinely needs case-by-case review, and the existing wind CE (DOE B5.18) covers only very small installations. It shows the method discriminates rather than green-lighting everything."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#caveats-note-to-catf",
+    "href": "phase2/reports/deliverable06.html#caveats-note-to-catf",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Caveats & note to CATF",
+    "text": "Caveats & note to CATF\n\nDeterministic first pass: numeric limits and verdicts are directional until the LLM-assisted extraction/verification pass runs.\nExisting-CE matches are an embedding ranking aid, not verified coverage.\n“New” is empty here by construction — the current candidates are all already CE-covered; the net-new search (clustering set-aside action types) is the next step.\n\nFor CATF: this is a first pass. Tell us which opportunities to pursue — and which specific CEs or technologies to investigate — and we fold them into the next iteration."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#what-this-is-and-why-fonsis",
+    "href": "phase2/reports/deliverable06.html#what-this-is-and-why-fonsis",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "",
+    "text": "This is technical support for categorical-exclusion (CE) development: which recurring clean-energy actions, drawn from real federal review records, point to a CE opportunity? Under CEQ’s April 2026 CE guidance, a prior Environmental Assessment that ended in a Finding of No Significant Impact (FONSI) is explicit, citable evidence for establishing a CE — the agency did the full analysis and concluded the action does not significantly affect the environment. A pile of FONSIs for the same kind of action is exactly the substantiation a new or borrowed CE needs.\nSo we start from every clean-energy FONSI, narrow to the actions that actually look like a CE (bounded, low-impact, recurring), and check each one against the entire existing federal CE catalog to see whether it is genuinely new, or already excluded somewhere."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#how-we-got-here",
+    "href": "phase2/reports/deliverable06.html#how-we-got-here",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "How we got here",
+    "text": "How we got here\n\n\n\n\n\nThe narrowing from all clean-energy FONSIs to CE candidates.\n\n\n\n\nFrom 452 clean-energy EA→FONSI projects, 293 fall into one of five recognizable candidate action types; 53 of those are “CE-shaped” — bounded and low-impact enough to plausibly be a CE. We then cross-referenced every candidate against the 2,105 existing federal CEs (CE Explorer catalog, 78 agency units)."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#the-headline",
+    "href": "phase2/reports/deliverable06.html#the-headline",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "The headline",
+    "text": "The headline\n\nEvery CE-shaped clean-energy candidate we found already maps to an existing categorical exclusion. None is net-new (0). The opportunity in this set is not to invent CEs — it is to adopt and harmonize CEs that already exist at one agency so the others doing the same work can use them.\n\nThat is a real, actionable finding: agencies are spending full EAs on actions that a peer agency has already determined deserve a categorical exclusion."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#the-opportunity-adopt-existing-ces",
+    "href": "phase2/reports/deliverable06.html#the-opportunity-adopt-existing-ces",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "The opportunity: adopt existing CEs",
+    "text": "The opportunity: adopt existing CEs\n\n\n\n\n\n\n  \n    \n      Adopt-an-existing-CE opportunities\n    \n    \n      Clean-energy actions already excluded at one agency, run as full EAs at others\n    \n  \n  \n    \n      Action\n      CE-shaped FONSIs\n      Existing CE\n      Held by\n      Agencies that could adopt it\n      States\n    \n  \n  \n    Transmission upgrades within existing ROW\n37\nTVA---1-16\n\nTennessee Valley Authority\nBLM, DOE, NNSA, PMA\n12\n    Solar\n8\nDOE-1--5-87\n\nDepartment of Energy\nBLM, NNSA, PMA, USFS\n4\n    Temporary resource assessment / site investigation\n2\nDOE-1--3-43\n\nDepartment of Energy\nNNSA, PMA\n2\n    Geothermal exploration\n7\nDOE-1--3-43\n\nDepartment of Energy\nBLM\n3\n  \n  \n  \n\n\n\n\n\n\n\n\n\nHow many agencies could adopt an existing CE, by action.\n\n\n\n\nEach row is the same pattern: a CE for the action exists (the Held by agency), but other agencies are running the identical action through a full EA→FONSI and could adopt it. The match is an embedding-ranked candidate, so the specific CE should be confirmed against its eCFR text before action."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#worked-example-transmission-upgrades-within-existing-right-of-way",
+    "href": "phase2/reports/deliverable06.html#worked-example-transmission-upgrades-within-existing-right-of-way",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Worked example: transmission upgrades within existing right-of-way",
+    "text": "Worked example: transmission upgrades within existing right-of-way\nThe strongest-evidenced case. 37 CE-shaped FONSIs for in-corridor transmission upgrades (reconductoring, component replacement, minor rebuilds), spread across BLM, DOE, NNSA, and the power-marketing administrations in 12 states. The Tennessee Valley Authority already holds a CE for exactly this class of work:\n\nTVA CE #17 — “Routine modification, repair, and maintenance of, and minor upgrade of and addition to, existing transmission infrastructure … transmission line uprate, modification, reconductoring, and clearance resolution …”\n\nThese other agencies are doing the same in-ROW upgrades the long way. A sample of the underlying FONSIs (full citations in the project records):\n\n\n\n\n\n\n  \n    \n      Sample transmission-upgrade FONSIs (BLM / DOE / PMA)\n    \n    \n      Same in-corridor work TVA already excludes — handled here via full EA\n    \n  \n  \n    \n      Project\n      Agency\n      State\n      Within existing ROW\n      FONSI page\n    \n  \n  \n    Southern California Edison Eldorado-Lugo-Mohave Series ...\n[\"Bureau of Land Management\"]\n[\"California\", \"Nevada\"]\nyes\n16\n    Alvey-Fairview Transmission Line Rebuild Project\n[\"Power Marketing Administration\"]\n[\"Oregon\"]\nyes\n2\n    Olympic Peninsula Transmission Line Reinforcement Project\n[\"Power Marketing Administration\"]\n[\"Washington\"]\nyes\n10\n    Charlie Creek to Garrison Transmission Line Rebuild Pro...\n[\"Power Marketing Administration\"]\n[\"North Dakota\"]\nyes\n5\n    Walla Walla–Tucannon River Transmission Line Rebuild Pr...\n[\"Power Marketing Administration\"]\n[\"Washington\"]\nyes\n118\n    Creston-Bell Transmission Line Rebuild Project\n[\"Power Marketing Administration\"]\n[\"Washington\"]\nyes\n2\n  \n  \n  \n\n\n\n\n(Action descriptions and exact size limits — line length, voltage, acreage — are extracted but still noisy in this deterministic pass; they are firmed up in the verification step before any limit is cited to the client.)"
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#is-adopt-realistic-yes-the-ce-body-is-already-shared",
+    "href": "phase2/reports/deliverable06.html#is-adopt-realistic-yes-the-ce-body-is-already-shared",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Is “adopt” realistic? Yes — the CE body is already shared",
+    "text": "Is “adopt” realistic? Yes — the CE body is already shared\nAdopting another agency’s CE is not unusual; it is how the existing CE landscape already works. Of the 2,105 existing CEs, 317 are near-identical to a CE at a different agency, forming 130 action-families shared across two or more agencies:\n\n\n\n\n\n\n  \n    \n      Action categories already excluded by multiple agencies\n    \n    \n      130 cross-agency CE families in the existing catalog\n    \n  \n  \n    \n      Shared action (representative CE text)\n      # agencies\n      Agencies\n    \n  \n  \n    3. Routine procurement of goods and services.\n8\nAFRH, DOD - DA, DOD - DAF, DOD - DLA, DOD - DON, DOD - DT...\n    (g) Normal personnel, fiscal, and administrative activities involving civilia...\n7\nAFRH, DOD - DA, DOD - DAF, DOD - DLA, DOD - DTRA, DOD - M...\n    (USDA-34d-USFS) Post-fire rehabilitation activities, not to exceed 4,200 acre...\n6\nDOI - BIA, DOI - BLM, DOI - BOR, DOI - NPS, DOI - USFWS, ...\n    34. Demolition, disposal, or improvements involving buildings or structures w...\n5\nAFRH, DOD - DON, DOD - DTRA, DOD - MDA, NEH\n    (NR4) Preparation of policies, procedures, manuals, and other guidance docume...\n5\nDOC - NIST, DOC - NOAA, DOC - NTIA, DOI, DOJ - FBI\n    *E2 New construction upon or improvement of land where all of the following c...\n5\nDHS, DOD - MDA, DOJ - FBI, NEH, TREAS\n    2. Preparing, revising, or adopting regulations, including those that impleme...\n5\nDOD - DAF, DOD - DTRA, DOD - MDA, NEH, VA\n  \n  \n  \n\n\n\n\nMost of the largest shared families are administrative (procurement, personnel, routine maintenance) — but that is the point: when an action is genuinely low-impact, agencies routinely converge on the same CE. The clean-energy actions above are simply ones where that convergence hasn’t happened yet."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#where-genuinely-new-ces-would-come-from",
+    "href": "phase2/reports/deliverable06.html#where-genuinely-new-ces-would-come-from",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Where genuinely-new CEs would come from",
+    "text": "Where genuinely-new CEs would come from\nNet-new CEs are empty here by construction: the five candidate action types we hand-picked are all well-trodden, so all are already CE’d. But recall the funnel — of the 452 clean-energy FONSIs, only 293 fell into those five types. The remaining ~159 are other clean-energy actions we have not yet categorized. Net-new CEs most likely live there. The recommended next step is to cluster those un-categorized FONSI action descriptions to surface recurring categories nobody has hand-picked."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#wind-a-discrimination-check",
+    "href": "phase2/reports/deliverable06.html#wind-a-discrimination-check",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Wind — a discrimination check",
+    "text": "Wind — a discrimination check\nWind (onshore) is kept only as a contrast, not a recommendation. The single existing wind CE (DOE B5.18) covers a very small footprint — generally no more than two turbines under 200 feet. Utility-scale wind (the 62 FONSIs we see) involves large footprints and case-specific wildlife mitigation, so it correctly does not surface as a CE candidate. This shows the method discriminates rather than green-lighting everything clean-energy."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#caveats-next-steps",
+    "href": "phase2/reports/deliverable06.html#caveats-next-steps",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Caveats & next steps",
+    "text": "Caveats & next steps\n\nDeterministic first pass. Action definitions and numeric limits are directional until the LLM-assisted extraction/verification pass runs; this report leads with the structural finding (adopt, not new), which does not depend on those specifics.\nCE matches are a ranking aid, not verified coverage. Confirm each candidate CE against its eCFR text before acting on it.\nRecommended next steps: (1) verify the four adopt matches against the eCFR CE text; (2) run the verification pass to firm up the transmission size limits;\n\ncluster the ~159 un-categorized clean-energy FONSIs to search for net-new CEs.\n\n\nFor CATF: tell us which of these adopt opportunities to pursue, and whether to launch the net-new search — and we fold your direction into the next iteration."
   }
 ]
