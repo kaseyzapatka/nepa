@@ -17,9 +17,11 @@ Outputs:
   - output/deliverable06/d6_candidate_evidence_<category>.csv
 
 NOTE: deterministic first pass. Verdicts use the (rough) deterministic CE match +
-bound parse; LLM verification (Gate 3) firms them up. With the current 5 candidate
-categories — all of which already map to a CE — expect expand/adopt, not NEW;
-surfacing real NEW needs the broadened candidate generation (Track A / 6C).
+bound parse — these are TEXT-SIMILAR candidate CEs pending coverage adjudication,
+NOT verified coverage. The "expand"/"adopt" labels are candidate opportunities, not
+confirmed findings (see report caveats). With the current candidate categories each
+has a text-similar CE candidate, so expect adopt-style results, not NEW; surfacing
+real NEW needs the broadened candidate generation + non-candidate clustering.
 """
 
 import json
@@ -44,7 +46,7 @@ COMPARISON = D6_OUTPUT_DIR / "d6_comparison_table.csv"
 
 MATCH_THRESHOLD = 0.40            # below this, the candidate has no real CE → NEW
 EXPAND_METRICS = {"acres": "max_acres", "miles": "max_miles",
-                  "kv": "max_kilovolts", "mw": "max_megawatts"}
+                  "kv": "max_kilovolts", "mw": "max_megawatts", "wells": "n_wells"}
 
 # coarse agency-token aliases (our FONSI lead_agency vs ce.json unit codes)
 OUR_AGENCY_ALIASES = {
@@ -143,13 +145,20 @@ def main() -> None:
         diversity = min((n_agencies + n_states) / 20.0, 1.0)
         case_specific_penalty = mit_share  # high case-specific mitigation = riskier CE
         has_limits = float(focus[["max_acres", "max_miles", "max_megawatts"]].notna().any(axis=1).mean())
-        rank_score = round(0.30 * novelty + 0.20 * volume + 0.15 * diversity +
-                           0.15 * has_limits + 0.10 * (1 - case_specific_penalty) +
-                           0.10 * (1 if role == "profile" else 0), 4)
+        # weighted contributions (stack to rank_score) — exposed for the classification figure
+        c_novelty = round(0.30 * novelty, 4)
+        c_volume = round(0.20 * volume, 4)
+        c_diversity = round(0.15 * diversity, 4)
+        c_limits = round(0.15 * has_limits, 4)
+        c_mitigation = round(0.10 * (1 - case_specific_penalty), 4)
+        c_role = round(0.10 * (1 if role == "profile" else 0), 4)
+        rank_score = round(c_novelty + c_volume + c_diversity + c_limits + c_mitigation + c_role, 4)
 
         rows.append({
             "candidate_category": cat, "candidate_label": brow["candidate_label"],
             "role": role, "verdict": verdict, "rank_score": rank_score,
+            "rank_novelty": c_novelty, "rank_volume": c_volume, "rank_diversity": c_diversity,
+            "rank_limits": c_limits, "rank_mitigation": c_mitigation, "rank_role": c_role,
             "n_profile_fonsi": int(brow["n_profile_fonsi_projects"]),
             "n_observed_fonsi": int(brow["n_observed_fonsi_projects"]),
             "best_ce_structured_id": best.get("structured_id", ""),

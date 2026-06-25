@@ -16,7 +16,7 @@ archive to `_archived_v1/` after validation.
 
 Usage:
   CONDA_DEFAULT_ENV=nepa python _run.py            # deterministic Stage A
-  CONDA_DEFAULT_ENV=nepa python _run.py --use-llm  # enable the gated LLM pass in 03 (Gate 3)
+  CONDA_DEFAULT_ENV=nepa python _run.py --use-llm  # OLD narrow facts LLM pass in 03_extract_candidate_facts (NOT the new 37-field enrichment)
 """
 
 import os
@@ -39,8 +39,10 @@ PY_STEPS = (
     "04_base_rates_and_ce.py",
     "05_mitigation_and_boundary.py",
     "06_ce_landscape.py",
+    "09_wire_enrichment.py",   # overwrites 03/05 facts+mitigation with LLM enrichment (if present)
     "07_classify_and_rank.py",
 )
+ENRICHMENT = Path(__file__).resolve().parent.parent.parent / "data" / "analysis" / "deliverable06" / "fonsi_enrichment.parquet"
 R_STEP = "08_analyze.R"
 
 
@@ -51,12 +53,22 @@ def run(*cmd: str) -> None:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Run the D6 v2 narrow-first pipeline (01-08).")
-    ap.add_argument("--use-llm", action="store_true", help="enable the gated LLM pass in 03 (Gate 3)")
+    ap.add_argument("--use-llm", action="store_true",
+                    help="OLD narrow facts LLM pass in 03_extract_candidate_facts (NOT the new enrichment)")
     ap.add_argument("--model", default="claude-sonnet-4-6")
     ap.add_argument("--skip-figures", action="store_true", help="skip the 08 R figures step")
     args = ap.parse_args()
 
+    if args.use_llm:
+        print("[_run] NOTE: --use-llm runs the OLD narrow facts pass in 03_extract_candidate_facts.py "
+              "(only action_definition / mitigation_dependence / mitigation_summary). The new 37-field "
+              "enrichment pass is 03_enrich_llm.py — standalone, NOT yet wired into this pipeline.")
+
     for script in PY_STEPS:
+        if script == "09_wire_enrichment.py" and not ENRICHMENT.exists():
+            print(f"\n[_run] skipping 09_wire_enrichment.py — no enrichment at {ENRICHMENT.name} "
+                  "(run 03_enrich_llm.py first to LLM-back the report). Using deterministic 03/05 facts.")
+            continue
         if script == "03_extract_candidate_facts.py" and args.use_llm:
             run(sys.executable, CODE_DIR / script, "--use-llm", "--model", args.model)
         else:
