@@ -30,6 +30,7 @@ SPANS = D6_ANALYSIS_DIR / "fonsi_evidence_spans.parquet"        # typed span row
 INVENTORY = D6_ANALYSIS_DIR / "fonsi_document_inventory.parquet"
 CORPUS = D6_ANALYSIS_DIR / "candidate_corpus.parquet"
 ENRICH_MAX_TOKENS = 4096   # generous: 37 fields + quote arrays (avoids truncation)
+ENRICH_MAX_RETRIES = 8     # SDK exponential backoff on 429 / 500 / 503 / 529 overloads
 TOOL_NAME = "emit_fonsi_enrichment"
 
 PRICING = {  # input, output USD per 1M tokens (claude-api skill table; verify before billing)
@@ -229,9 +230,18 @@ def pilot_sample(seed: int = 42) -> pd.DataFrame:
 
 
 # --- structured-output call (tool-use) -------------------------------------
+def make_client(key: str | None = None):
+    """Anthropic client with built-in exponential backoff on 429/500/503/529, so a
+    parallel run rides out transient overloads instead of erroring. Share one client
+    across threads (it is thread-safe)."""
+    import anthropic
+    return anthropic.Anthropic(api_key=key or get_anthropic_key(), max_retries=ENRICH_MAX_RETRIES)
+
+
 def call_enrichment(text: str, model: str, client=None) -> dict:
     """One enrichment call via tool-use (forces schema-valid JSON). Returns a dict:
-    parsed|None, raw, in_tok, out_tok, stop_reason, error. Never raises."""
+    parsed|None, raw, in_tok, out_tok, stop_reason, error. Never raises (safe to run
+    in a thread pool). Overloads are retried inside the client's max_retries budget."""
     blank = {"parsed": None, "raw": "", "in_tok": 0, "out_tok": 0, "stop_reason": "", "error": ""}
     key = get_anthropic_key()
     if not key:
@@ -240,7 +250,7 @@ def call_enrichment(text: str, model: str, client=None) -> dict:
         import anthropic
     except ImportError:
         return {**blank, "error": "no_sdk"}
-    c = client or anthropic.Anthropic(api_key=key)
+    c = client or anthropic.Anthropic(api_key=key, max_retries=ENRICH_MAX_RETRIES)
     tool = {"name": TOOL_NAME, "description": "Return the structured FONSI enrichment.",
             "input_schema": enrichment_tool_schema()}
     try:

@@ -25,6 +25,7 @@ Usage:
 
 import argparse
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
     raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
@@ -49,6 +50,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--models", default=",".join(DEFAULT_MODELS))
     ap.add_argument("--sample", type=int, default=0, help="debug: first N (not stratified)")
+    ap.add_argument("--workers", type=int, default=6, help="parallel API calls per model")
     ap.add_argument("--dry-run", action="store_true", help="cost only — no key/Keychain, no spend")
     args = ap.parse_args()
     models = [m.strip() for m in args.models.split(",") if m.strip()]
@@ -78,13 +80,13 @@ def main() -> None:
         return
     key = enrich_lib.get_anthropic_key()
     try:
-        import anthropic
+        import anthropic  # noqa: F401  (presence check; client made via enrich_lib)
     except ImportError:
         anthropic = None
     if not key or anthropic is None:
         print(f"\n[bench] no key (env/Keychain '{enrich_lib.KEYCHAIN_SERVICE}') or SDK missing. Use --dry-run.")
         return
-    client = anthropic.Anthropic(api_key=key)
+    client = enrich_lib.make_client(key)   # built-in backoff on 429/529 overloads
 
     spans_by_pid, main_by_doc = enrich_lib.load_spans_and_main(sample["project_id"])
     packets = {r.project_id: enrich_lib.build_evidence_packet(r, spans_by_pid.get(r.project_id, pd.DataFrame()))
@@ -105,20 +107,24 @@ def main() -> None:
         if pf.get("parsed") is None:
             print(f"[bench] PREFLIGHT FAILED for {m}: {pf.get('error')} — skipping this model.")
             continue
-        print(f"[bench] running {m} on {n} projects ...")
-        for r in sample.itertuples(index=False):
-            packet_text, tag_map = packets[r.project_id]
-            res = enrich_lib.call_enrichment(packet_text, m, client)
-            tok[m][0] += res["in_tok"]; tok[m][1] += res["out_tok"]
-            if res.get("error"):
-                errs[m].append(res["error"])
-            parsed = res.get("parsed")
-            if parsed is None:
-                continue
-            nok[m] += 1
-            coerced[(m, r.project_id)] = enrich_lib.coerce(parsed)
-            cited = enrich_lib.cite_quotes(parsed, tag_map, main_by_doc)
-            vq[m][0] += len(cited); vq[m][1] += sum(c.get("verified") is True for c in cited)
+        print(f"[bench] running {m} on {n} projects (workers={args.workers}) ...")
+        with ThreadPoolExecutor(max_workers=max(1, args.workers)) as ex:
+            futs = {ex.submit(enrich_lib.call_enrichment, packets[r.project_id][0], m, client): r.project_id
+                    for r in sample.itertuples(index=False)}
+            for fut in as_completed(futs):                       # results processed in main thread (safe)
+                pid = futs[fut]
+                res = fut.result()
+                tag_map = packets[pid][1]
+                tok[m][0] += res["in_tok"]; tok[m][1] += res["out_tok"]
+                if res.get("error"):
+                    errs[m].append(res["error"])
+                parsed = res.get("parsed")
+                if parsed is None:
+                    continue
+                nok[m] += 1
+                coerced[(m, pid)] = enrich_lib.coerce(parsed)
+                cited = enrich_lib.cite_quotes(parsed, tag_map, main_by_doc)
+                vq[m][0] += len(cited); vq[m][1] += sum(c.get("verified") is True for c in cited)
 
     comp_rows = []
     for r in sample.itertuples(index=False):

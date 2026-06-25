@@ -35,6 +35,7 @@ import argparse
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
     raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
@@ -57,19 +58,49 @@ LLM_MODEL_DEFAULT = "claude-sonnet-4-6"
 EST_IN_TOK, EST_OUT_TOK = 2800, 1200   # dry-run cost estimate only
 MIN_SUCCESS_STRICT = 0.9               # pilot/full: tool-use should parse ~always
 MIN_SUCCESS_DEBUG = 0.5                # --sample debug mode only
+DEFAULT_WORKERS = 6                    # parallel API calls (SDK backoff handles overloads)
+CHECKPOINT_EVERY = 10                  # flush cache + partial parquet every N completed calls
 
 
-def cached_enrich(text: str, model: str, cache: dict, client, run_at: str) -> tuple[dict, bool]:
-    """Return (result, cache_hit). Fresh successes are stamped with llm_run_at and cached,
-    so a later full run that reuses a pilot call keeps the ORIGINAL call time."""
-    key = sha256_text(f"{ENRICHMENT_PROMPT_VERSION}|{ENRICHMENT_SCHEMA_VERSION}|{model}|{text}")
-    if key in cache:
-        return cache[key], True
-    res = enrich_lib.call_enrichment(text, model, client)
-    if res.get("parsed") is not None:
-        res["llm_run_at"] = run_at
-        cache[key] = res
-    return res, False
+def cache_key(model: str, text: str) -> str:
+    return sha256_text(f"{ENRICHMENT_PROMPT_VERSION}|{ENRICHMENT_SCHEMA_VERSION}|{model}|{text}")
+
+
+def _audit(packet_text: str, model: str, parsed, run_at: str, res: dict, tech: str,
+           tag_map: dict, cache_hit: bool) -> dict:
+    return {
+        "enrichment_extraction_run_at": run_at,                                   # THIS run
+        "enrichment_llm_run_at": (res.get("llm_run_at", run_at) if parsed is not None else ""),  # original call
+        "llm_provider": "anthropic" if parsed is not None else "",
+        "llm_model": model, "prompt_version": ENRICHMENT_PROMPT_VERSION,
+        "schema_version": ENRICHMENT_SCHEMA_VERSION, "input_sha256": sha256_text(packet_text),
+        "tech_group": tech, "n_excerpts": len(tag_map),
+        "used_fallback": "packet-fallback" in packet_text, "cache_hit": cache_hit,
+        "parse_ok": parsed is not None, "stop_reason": res.get("stop_reason", ""),
+        "llm_error": res.get("error", ""), "in_tokens": res.get("in_tok", 0),
+        "out_tokens": res.get("out_tok", 0), "raw_response": res.get("raw", ""),
+    }
+
+
+def skip_row(r, packet_text: str, run_at: str, model: str) -> dict:
+    rec = {"project_id": r.project_id}
+    rec.update({nm: None for nm, _t, _d in ENRICHMENT_FIELDS})
+    rec["evidence_cited"] = "[]"
+    rec.update(_audit(packet_text, model, None, run_at,
+                      {"error": "no_evidence"}, str(getattr(r, "tech_group", "")), {}, False))
+    return rec
+
+
+def result_row(r, packet_text: str, tag_map: dict, res: dict, cache_hit: bool,
+               run_at: str, model: str, main_by_doc: dict) -> dict:
+    parsed = res.get("parsed")
+    rec = {"project_id": r.project_id}
+    rec.update(enrich_lib.coerce(parsed) if parsed is not None
+               else {nm: None for nm, _t, _d in ENRICHMENT_FIELDS})
+    cited = enrich_lib.cite_quotes(parsed, tag_map, main_by_doc) if parsed else []
+    rec["evidence_cited"] = json.dumps(cited, ensure_ascii=False)
+    rec.update(_audit(packet_text, model, parsed, run_at, res, str(getattr(r, "tech_group", "")), tag_map, cache_hit))
+    return rec
 
 
 def main() -> None:
@@ -77,6 +108,7 @@ def main() -> None:
     ap.add_argument("--model", default=LLM_MODEL_DEFAULT)
     ap.add_argument("--pilot", action="store_true", help="stratified pilot sample (representative)")
     ap.add_argument("--sample", type=int, default=0, help="debug: first N clean FONSIs")
+    ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="parallel API calls")
     ap.add_argument("--dry-run", action="store_true", help="projected cost only — no key/Keychain, no spend")
     args = ap.parse_args()
 
@@ -109,59 +141,65 @@ def main() -> None:
     if not key:
         print(f"[03] no key in $ANTHROPIC_API_KEY or Keychain '{enrich_lib.KEYCHAIN_SERVICE}'. Use --dry-run for cost only.")
         return
-    import anthropic
-    client = anthropic.Anthropic(api_key=key)
+    client = enrich_lib.make_client(key)   # built-in backoff on 429/529 overloads
 
     pf = enrich_lib.preflight(args.model, client)   # verify model id + tool-use before the loop
     if pf.get("parsed") is None:
         print(f"[03] PREFLIGHT FAILED for {args.model}: {pf.get('error')}. Aborting (nothing else billed).")
         raise SystemExit(2)
-    print(f"[03] preflight OK ({args.model}); enriching {n} projects ...")
 
     spans_by_pid, main_by_doc = enrich_lib.load_spans_and_main(pk["project_id"])
     cache: dict = json.loads(CACHE.read_text()) if CACHE.exists() else {}
 
-    rows, ok, skipped = [], 0, 0
+    # build packets; split skip vs work, then cache-hits vs misses
+    work, skip_rows = [], []
     for r in pk.itertuples(index=False):
-        packet_text, tag_map = enrich_lib.build_evidence_packet(r, spans_by_pid.get(r.project_id, pd.DataFrame()))
-        tech = str(getattr(r, "tech_group", ""))
-        if not tag_map:                              # no spans AND no typed text -> don't pay for metadata-only
-            skipped += 1
-            rec = {"project_id": r.project_id}
-            rec.update({nm: None for nm, _t, _d in ENRICHMENT_FIELDS})
-            rec["evidence_cited"] = "[]"
-            rec.update({
-                "enrichment_extraction_run_at": run_at, "enrichment_llm_run_at": "", "llm_provider": "",
-                "llm_model": args.model, "prompt_version": ENRICHMENT_PROMPT_VERSION,
-                "schema_version": ENRICHMENT_SCHEMA_VERSION, "input_sha256": sha256_text(packet_text),
-                "tech_group": tech, "n_excerpts": 0, "used_fallback": False, "cache_hit": False,
-                "parse_ok": False, "stop_reason": "", "llm_error": "no_evidence",
-                "in_tokens": 0, "out_tokens": 0, "raw_response": "",
-            })
-            rows.append(rec)
-            continue
-        res, cache_hit = cached_enrich(packet_text, args.model, cache, client, run_at)
-        parsed = res.get("parsed")
-        ok += int(parsed is not None)
-        rec = {"project_id": r.project_id}
-        rec.update(enrich_lib.coerce(parsed) if parsed is not None
-                   else {nm: None for nm, _t, _d in ENRICHMENT_FIELDS})
-        cited = enrich_lib.cite_quotes(parsed, tag_map, main_by_doc) if parsed else []
-        rec["evidence_cited"] = json.dumps(cited, ensure_ascii=False)
-        rec.update({
-            "enrichment_extraction_run_at": run_at,   # THIS run
-            "enrichment_llm_run_at": (res.get("llm_run_at", run_at) if parsed is not None else ""),  # original call
-            "llm_provider": "anthropic" if parsed is not None else "",
-            "llm_model": args.model, "prompt_version": ENRICHMENT_PROMPT_VERSION,
-            "schema_version": ENRICHMENT_SCHEMA_VERSION, "input_sha256": sha256_text(packet_text),
-            "tech_group": tech, "n_excerpts": len(tag_map),
-            "used_fallback": "packet-fallback" in packet_text, "cache_hit": cache_hit,
-            "parse_ok": parsed is not None, "stop_reason": res.get("stop_reason", ""),
-            "llm_error": res.get("error", ""), "in_tokens": res.get("in_tok", 0),
-            "out_tokens": res.get("out_tok", 0), "raw_response": res.get("raw", ""),
-        })
-        rows.append(rec)
-    enrich_lib.write_json_atomic(CACHE, cache)
+        pt, tm = enrich_lib.build_evidence_packet(r, spans_by_pid.get(r.project_id, pd.DataFrame()))
+        if not tm:                                   # no spans AND no typed text -> don't pay for metadata-only
+            skip_rows.append(skip_row(r, pt, run_at, args.model))
+        else:
+            work.append((r, pt, tm))
+    results: dict = {}                               # project_id -> (res, cache_hit)
+    pending = []
+    for (r, pt, tm) in work:
+        k = cache_key(args.model, pt)
+        if k in cache:
+            results[r.project_id] = (cache[k], True)
+        else:
+            pending.append((r, pt, tm, k))
+    skipped = len(skip_rows)
+    print(f"[03] preflight OK; {len(work)} to enrich ({len(results)} cached, {len(pending)} new) "
+          f"+ {skipped} skipped; workers={args.workers}")
+
+    def checkpoint():
+        enrich_lib.write_json_atomic(CACHE, cache)   # cached successes survive a crash -> cheap resume
+        partial = skip_rows + [result_row(r, pt, tm, *results[r.project_id], run_at, args.model, main_by_doc)
+                               for (r, pt, tm) in work if r.project_id in results]
+        write_parquet(pd.DataFrame(partial), raw_out)
+
+    # parallel API calls for the misses; checkpoint periodically
+    done = 0
+    if pending:
+        with ThreadPoolExecutor(max_workers=max(1, args.workers)) as ex:
+            futs = {ex.submit(enrich_lib.call_enrichment, pt, args.model, client): (r, pt, tm, k)
+                    for (r, pt, tm, k) in pending}
+            for fut in as_completed(futs):
+                r, pt, tm, k = futs[fut]
+                res = fut.result()                   # call_enrichment never raises
+                if res.get("parsed") is not None:
+                    res["llm_run_at"] = run_at
+                    cache[k] = res
+                results[r.project_id] = (res, False)
+                done += 1
+                if done % CHECKPOINT_EVERY == 0 or done == len(pending):
+                    checkpoint()
+                    print(f"[03] checkpoint {done}/{len(pending)} new calls done -> {raw_out.name}")
+    else:
+        checkpoint()
+
+    rows = skip_rows + [result_row(r, pt, tm, *results[r.project_id], run_at, args.model, main_by_doc)
+                        for (r, pt, tm) in work]
+    ok = sum(1 for (r, _pt, _tm) in work if results[r.project_id][0].get("parsed") is not None)
 
     raw_df = pd.DataFrame(rows)
     write_parquet(raw_df, raw_out)
@@ -169,7 +207,7 @@ def main() -> None:
             "enrichment_extraction_run_at", "enrichment_llm_run_at"]
     write_parquet(raw_df[keep], clean_out)
 
-    attempted = n - skipped
+    attempted = len(work)
     n_q = sum(len(json.loads(x)) for x in raw_df["evidence_cited"])
     n_v = sum(sum(c.get("verified") is True for c in json.loads(x)) for x in raw_df["evidence_cited"])
     print(f"[03] parsed {ok}/{attempted} attempted ({skipped} skipped: no evidence); "
