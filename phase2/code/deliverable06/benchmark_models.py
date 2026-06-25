@@ -40,9 +40,9 @@ COMPARISON_OUT = D6_REVIEW_DIR / "d6_enrich_benchmark_comparison.csv"
 SUMMARY_OUT = D6_REVIEW_DIR / "d6_enrich_benchmark_summary.csv"
 AGREEMENT_OUT = D6_REVIEW_DIR / "d6_enrich_benchmark_agreement.csv"
 
-DEFAULT_MODELS = ["claude-haiku-4-5", "claude-sonnet-4-6"]
+DEFAULT_MODELS = ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"]  # exact ids so preflight doesn't skip a model
 N_FULL = 452
-EST_IN_TOK, EST_OUT_TOK = 2800, 1200
+EST_IN_TOK, EST_OUT_TOK = 5000, 1700
 FIELDS = [f for f, _t, _d in ENRICHMENT_FIELDS]
 
 

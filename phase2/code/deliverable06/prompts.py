@@ -33,8 +33,8 @@ def build_facts_prompt(packet_text: str, category: str) -> str:
 # changed rows via the input-hash cache).
 # ===========================================================================
 
-ENRICHMENT_PROMPT_VERSION = "d6_enrich_prompt_v3"   # v3: no-ellipsis-in-quotes rule
-ENRICHMENT_SCHEMA_VERSION = "d6_enrich_schema_v3"   # v3: nullable evidence-dependent booleans
+ENRICHMENT_PROMPT_VERSION = "d6_enrich_prompt_v4"   # v4: size-retrieval packet section
+ENRICHMENT_SCHEMA_VERSION = "d6_enrich_schema_v4"   # v4: ce_development_span_ref (verifiable)
 
 # (field, json_type, instruction). Grouped by which analysis consumes it.
 ENRICHMENT_FIELDS: list[tuple[str, str, str]] = [
@@ -137,7 +137,9 @@ ENRICHMENT_FIELDS: list[tuple[str, str, str]] = [
     ("ce_development_language", "string|null",
      "any VERBATIM language signaling the action is routine/minor or resembles actions normally "
      "categorically excluded (e.g. 'routine maintenance', 'minor', 'would not individually or cumulatively "
-     "have a significant effect'); else null. Copy exactly so it can be located in the source."),
+     "have a significant effect'); else null. Copy EXACTLY from one excerpt so it can be located."),
+    ("ce_development_span_ref", "string|null",
+     "the [S#] tag of the excerpt ce_development_language was copied from; null if none."),
     # --- context extras ---
     ("cooperating_agencies", "array of strings",
      "federal/state agencies named as cooperating or consulting agencies; [] if none."),

@@ -106,6 +106,21 @@ def _norm(s: object) -> str:
     return re.sub(r"\s+", " ", str(s or "")).strip()
 
 
+# Fold the unicode punctuation NEPA PDFs use (curly quotes, dashes, ligatures, nbsp,
+# ellipsis) to plain ASCII so a model quote that rewrites them still matches the source.
+_PUNCT_MAP = str.maketrans({
+    "‘": "'", "’": "'", "“": '"', "”": '"', "′": "'", "″": '"',
+    "–": "-", "—": "-", "‐": "-", "‑": "-", " ": " ", "…": "",
+    "ﬁ": "fi", "ﬂ": "fl",
+})
+
+
+def _canon(s: object) -> str:
+    """Canonical form for MATCHING quotes to source text (not for display/storage):
+    fold unicode punctuation, collapse whitespace, lowercase."""
+    return re.sub(r"\s+", " ", str(s or "").translate(_PUNCT_MAP)).strip().lower()
+
+
 def _doc_role(manifest_role: str) -> str:
     r = str(manifest_role).lower()
     return "FONSI" if "fonsi" in r else ("EA" if "ea" in r else manifest_role)
@@ -148,6 +163,34 @@ def _select_from_spans(sp: pd.DataFrame, plan, start_i: int = 1) -> tuple[list, 
     return blocks, tag_map, i
 
 
+SIZE_RX = re.compile(r"\d[\d,]*(?:\.\d+)?\s*(?:miles?|acres?|kilovolts?|kv|megawatts?|mw|kw|feet|foot|ft)\b", re.I)
+SIZE_MAX = 3
+
+
+def _select_sizes(sp: pd.DataFrame, used_ids: set, start_i: int) -> tuple[list, dict, int]:
+    """Pull up to SIZE_MAX spans that state size figures (miles/acres/kV/MW/ft) and
+    are not already shown — so the model sees the numbers for line_miles /
+    disturbance_acres / capacity_mw / voltage_kv (fixes packet-coverage size misses)."""
+    scope_rx = r"(?i)(?:line|transmission|reconductor|rebuild|right[- ]of[- ]way|corridor|length|" \
+               r"disturb|footprint|acres? of|capacity|voltage|generat|megawatt|\bkv\b|well)"
+    cand = sp[sp["ntext"].map(lambda t: bool(SIZE_RX.search(t)))].copy()
+    cand = cand[~cand["evidence_span_id"].isin(used_ids)]
+    cand = cand.assign(scope=cand["ntext"].str.contains(scope_rx)).sort_values(
+        ["scope", "nlen"], ascending=[False, True])   # scope-relevant first, then focused (shorter)
+    blocks, tag_map, i = [], {}, start_i
+    for r in cand.head(SIZE_MAX).itertuples(index=False):
+        tag = f"S{i}"; i += 1
+        m = SIZE_RX.search(r.ntext)
+        s = max(0, m.start() - 200); e = min(len(r.ntext), m.start() + 300)
+        ex = ("…" if s > 0 else "") + r.ntext[s:e] + ("…" if e < len(r.ntext) else "")
+        page = int(r.page_start) if pd.notna(r.page_start) else None
+        role = _doc_role(r.manifest_role)
+        blocks.append(f"[{tag}] ({role}, p.{page if page is not None else '?'}, size): {ex}")
+        tag_map[tag] = {"span_id": getattr(r, "evidence_span_id", None), "page": page,
+                        "document_role": role, "document_id": r.document_id, "text": r.ntext}
+    return blocks, tag_map, i
+
+
 def _select_from_meta(meta_row, start_i: int = 1) -> tuple[list, dict]:
     """Last-resort packet from the typed packet text (for projects with no usable spans)."""
     blocks, tag_map, i = [], {}, start_i
@@ -174,9 +217,13 @@ def build_evidence_packet(meta_row, spans: pd.DataFrame) -> tuple[str, dict]:
     if spans is not None and not spans.empty:
         sp = spans.assign(ntext=spans["span_text"].map(_norm))
         sp = sp.assign(nlen=sp["ntext"].str.len())
-        blocks, tag_map, _ = _select_from_spans(sp, SECTION_PLAN)
+        blocks, tag_map, nexti = _select_from_spans(sp, SECTION_PLAN)
         if not tag_map:                                  # only odd span types (e.g. 'fallback')
-            blocks, tag_map, _ = _select_from_spans(sp, FALLBACK_PLAN)
+            blocks, tag_map, nexti = _select_from_spans(sp, FALLBACK_PLAN)
+        if tag_map:                                      # add size figures the section pass may have missed
+            used = {t["span_id"] for t in tag_map.values()}
+            sblocks, stags, _ = _select_sizes(sp, used, nexti)
+            blocks += sblocks; tag_map.update(stags)
     if not tag_map:                                      # no usable spans at all
         blocks, tag_map = _select_from_meta(meta_row)
     return f"PROJECT METADATA: {meta}" + ("\n\n" + "\n\n".join(blocks) if blocks else ""), tag_map
@@ -286,14 +333,14 @@ def coerce(parsed: dict) -> dict:
 def _resolve(span_ref, quote, tag_map: dict, main_by_doc: dict) -> dict:
     miss = {"verified": False, "page": None, "document_role": None, "document_id": None,
             "is_main_document": None, "span_id": None}
-    # strip any synthetic leading/trailing ellipsis the model may have copied from the excerpt
-    q = re.sub(r"^[….\s]+|[….\s]+$", "", _norm(quote)) if quote else ""
+    # canonical match (folds curly quotes / dashes / ligatures / nbsp / ellipsis + case)
+    q = re.sub(r"^[-.\s]+|[-.\s]+$", "", _canon(quote)) if quote else ""
     t = tag_map.get(str(span_ref or "").strip().strip("[]"))
     if t is None:                                   # fall back to searching all excerpts
-        t = next((v for v in tag_map.values() if len(q) >= 12 and q in v["text"]), None)
+        t = next((v for v in tag_map.values() if len(q) >= 12 and q in _canon(v["text"])), None)
         if t is None:
             return miss
-    verified = (q in t["text"]) if q else True
+    verified = (q in _canon(t["text"])) if q else True
     return {"verified": bool(verified), "page": t["page"], "document_role": t["document_role"],
             "document_id": t["document_id"], "is_main_document": bool(main_by_doc.get(t["document_id"], False)),
             "span_id": t["span_id"]}
@@ -316,6 +363,7 @@ def cite_quotes(parsed: dict, tag_map: dict, main_by_doc: dict) -> list[dict]:
                     **_resolve(rc.get("span_ref"), q or "", tag_map, main_by_doc)})
     cdl = parsed.get("ce_development_language")
     if cdl:
-        out.append({"claim": "ce_development_language", "span_ref": None, "quote": cdl,
-                    **_resolve(None, cdl, tag_map, main_by_doc)})
+        sr = parsed.get("ce_development_span_ref")
+        out.append({"claim": "ce_development_language", "span_ref": sr, "quote": cdl,
+                    **_resolve(sr, cdl, tag_map, main_by_doc)})
     return out

@@ -55,7 +55,7 @@ from prompts import (
 
 CACHE = D6_RAW_DIR / "fonsi_enrichment_cache.json"
 LLM_MODEL_DEFAULT = "claude-sonnet-4-6"
-EST_IN_TOK, EST_OUT_TOK = 2800, 1200   # dry-run cost estimate only
+EST_IN_TOK, EST_OUT_TOK = 5000, 1700   # dry-run cost estimate only
 MIN_SUCCESS_STRICT = 0.9               # pilot/full: tool-use should parse ~always
 MIN_SUCCESS_DEBUG = 0.5                # --sample debug mode only
 DEFAULT_WORKERS = 6                    # parallel API calls (SDK backoff handles overloads)
