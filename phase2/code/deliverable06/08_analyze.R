@@ -68,27 +68,34 @@ outcome <- corp_fonsi %>% filter(is_profile_subtype) %>%
 get_v <- function(v) { x <- outcome$n[outcome$verdict == v]; if (length(x)) x[1] else 0L }
 n_develop <- get_v("new"); n_expand <- get_v("expand"); n_adopt_f <- get_v("adopt")
 
-# === Fig: outcomes funnel — 452 -> 293 -> 53 -> adopt (clean 4-step narrowing) ===
-funnel <- tibble(
-  stage = c("Clean-energy EA→FONSI projects", "In a recurring action type",
-            "Bounded & low-impact", "Candidate to adopt an existing CE"),
-  n = c(n_clean, n_candidate, n_ce_shaped, n_adopt_f),
-  fill = c(catf_light_blue, catf_light_blue, catf_teal, catf_navy),
-  lab = c(comma(n_clean), comma(n_candidate),
-          paste0(n_ce_shaped, "  (", percent(n_ce_shaped / n_clean, 1), " of clean)"),
-          paste0(n_adopt_f, "  (all bounded actions resolve to adopt)"))
-) %>% mutate(stage = fct_inorder(stage) %>% fct_rev())
-p_out <- ggplot(funnel, aes(stage, n, fill = fill)) +
-  geom_col(width = 0.68) +
-  geom_text(aes(label = lab), hjust = -0.03, size = 3.9, fontface = "bold", color = catf_navy) +
-  scale_fill_identity() + coord_flip() +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.35))) +
-  labs(title = "Scaling CEs: from every clean-energy FONSI to an adopt opportunity",
-       subtitle = glue::glue("{n_ce_shaped} bounded, low-impact actions — 0 develop, 0 expand, {n_adopt_f} adopt"),
-       x = NULL, y = "Distinct FONSI projects",
-       caption = "Narrowing of the clean-energy FONSI corpus. 'Adopt' = a peer agency already has a categorical exclusion for the action.") +
-  theme_catf()
-save_fig(p_out, "fig_d6_outcomes.png", w = 9, h = 4.2)
+# === Fig: outcomes — one stacked bar of the universe (452) -> recurring (293) -> adopt (53) ===
+n_broader <- n_candidate - n_ce_shaped          # in a recurring type but not bounded
+n_uncat   <- n_clean - n_candidate              # not in any recurring type (net-new pool)
+comp <- tibble(
+  segment = factor(
+    c("Bounded, low-impact → adopt an existing CE",
+      "Recurring action type — larger / broader project",
+      "Not a recurring action type (net-new search pool)"),
+    levels = c("Not a recurring action type (net-new search pool)",
+               "Recurring action type — larger / broader project",
+               "Bounded, low-impact → adopt an existing CE")),
+  n = c(n_ce_shaped, n_broader, n_uncat),
+  fill = c(catf_navy, catf_light_blue, catf_grey)
+)
+p_out <- ggplot(comp, aes(x = "Decarb EA → FONSI\nprojects (universe)", y = n, fill = segment)) +
+  geom_col(width = 0.5) +
+  geom_text(aes(label = paste0(segment, "  (", n, ")")),
+            position = position_stack(vjust = 0.5), size = 3.5, color = "white", fontface = "bold") +
+  annotate("text", x = "Decarb EA → FONSI\nprojects (universe)", y = n_clean,
+           label = paste0("Total: ", comma(n_clean)), hjust = -0.1, size = 4, fontface = "bold", color = catf_navy) +
+  scale_fill_manual(values = setNames(comp$fill, comp$segment)) +
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+  labs(title = "Scaling CEs: where the decarbonization FONSIs fall",
+       subtitle = glue::glue("{n_candidate} of {n_clean} are in a recurring action type ({n_ce_shaped} bounded, {n_broader} broader); ",
+                             "all {n_ce_shaped} bounded actions resolve to adopt — 0 develop, 0 expand"),
+       x = NULL, y = "Distinct FONSI projects", fill = NULL) +
+  theme_catf() + theme(legend.position = "none", axis.text.y = element_text(face = "bold", color = catf_navy))
+save_fig(p_out, "fig_d6_outcomes.png", w = 10, h = 3.2)
 
 # === Fig: sort step — every clean FONSI by action type, incl. the uncategorized pool ===
 dist <- corp_fonsi %>% group_by(candidate_category) %>%
@@ -109,7 +116,7 @@ p_sort <- ggplot(distL, aes(reorder(lab, total), n, fill = subset)) +
   scale_fill_manual(values = c("Broader / set aside" = catf_grey,
                                "Bounded, low-impact (CE-shaped)" = catf_teal), name = NULL) +
   coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
-  labs(title = "Step 1–2 · Sorting the 452 clean-energy FONSIs",
+  labs(title = glue::glue("Step 1–2 · Sorting the {n_clean} decarbonization FONSIs"),
        subtitle = "Each FONSI sorted into an action type; teal = the bounded, low-impact subset kept for matching",
        x = NULL, y = "Distinct FONSI projects") +
   theme_catf() + theme(legend.position = "bottom")
@@ -138,16 +145,19 @@ sz <- facts %>% filter(is_profile_subtype) %>%
             `Geothermal — wells drilled` = ifelse(candidate_category == "geothermal_exploration", n_wells, NA)) %>%
   pivot_longer(-candidate_category, names_to = "metric", values_to = "value") %>%
   filter(!is.na(value), value > 0, value < 1000)   # drop study-area outliers
-p_sizes <- ggplot(sz, aes(metric, value)) +
-  geom_boxplot(width = 0.45, outlier.shape = NA, fill = catf_light_blue, color = catf_navy, alpha = 0.5) +
-  geom_jitter(width = 0.12, height = 0, size = 2, color = catf_navy, alpha = 0.7) +
-  facet_wrap(~metric, scales = "free", ncol = 3) +
-  labs(title = "Step 3 · The size spread of the bounded FONSIs",
-       subtitle = "These observed ranges are the candidate numeric bounds a CE could encode",
+p_sizes <- ggplot(sz, aes(x = "", value)) +
+  geom_boxplot(width = 0.22, fill = catf_light_blue, color = catf_navy, alpha = 0.35,
+               linewidth = 0.5, outlier.shape = NA) +
+  geom_jitter(width = 0.06, height = 0, size = 2.2, color = catf_navy, alpha = 0.75) +
+  facet_wrap(~metric, scales = "free_y", ncol = 3) +
+  labs(title = "Step 3 · The size range of the bounded FONSIs",
+       subtitle = "What the bounded projects actually measure — the observed range a CE's threshold could be set against",
        x = NULL, y = NULL,
-       caption = "Bounded, low-impact subset only. Each point is one FONSI; study-area outliers excluded.") +
-  theme_catf() + theme(axis.text.x = element_blank(), strip.text = element_text(color = catf_navy, face = "bold"))
-save_fig(p_sizes, "fig_d6_sizes.png", w = 9, h = 3.6)
+       caption = "Bounded, low-impact subset only. Each dot is one FONSI; box = median & middle 50%; whiskers = range. Study-area outliers excluded.") +
+  theme_catf() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+                       strip.text = element_text(color = catf_navy, face = "bold"),
+                       panel.spacing = unit(1.4, "lines"))
+save_fig(p_sizes, "fig_d6_sizes.png", w = 9, h = 3.8)
 
 # === Fig: classification — how each candidate's rank score is composed ===
 comp_lab <- c(rank_novelty = "Novelty (develop>expand>adopt)", rank_volume = "Volume (# FONSIs)",
@@ -170,29 +180,29 @@ p_cls <- ggplot(cls, aes(lab, contribution, fill = component)) +
   theme_catf() + theme(legend.position = "bottom") + guides(fill = guide_legend(nrow = 2))
 save_fig(p_cls, "fig_d6_classification.png", w = 9, h = 4.4)
 
-# === Fig: FRA timeline — where the 53 bounded FONSIs fall ===
-yr_of <- function(x) suppressWarnings(as.integer(str_extract(as.character(x), "\\d{4}")))
-dt <- inv %>% transmute(project_id,
-                        year = coalesce(yr_of(blm_decision_date), yr_of(doe_decision_date),
-                                        yr_of(document_date_from_file_name))) %>%
-  mutate(year = ifelse(!is.na(year) & year >= 1995 & year <= 2025, year, NA_integer_))
-tl <- corp_fonsi %>% filter(is_profile_subtype) %>% distinct(project_id) %>%
-  left_join(dt, by = "project_id")
-n_known <- sum(!is.na(tl$year)); n_unk <- sum(is.na(tl$year))
-tlc <- tl %>% filter(!is.na(year)) %>% count(year)
-p_tl <- ggplot(tlc, aes(year, n)) +
-  geom_col(width = 0.8, fill = catf_teal) +
+# === Fig: FRA timeline — the 53 bounded FONSIs by D4 decision date ===
+tl <- facts %>% filter(is_profile_subtype) %>% distinct(project_id, decision_date) %>%
+  mutate(d = suppressWarnings(as.Date(decision_date)),
+         year = as.integer(format(d, "%Y")),
+         year = ifelse(!is.na(year) & year >= 1995 & year <= 2026, year, NA_integer_),
+         era = case_when(is.na(year) ~ "Undated", d < as.Date("2023-06-03") ~ "Pre-FRA", TRUE ~ "Post-FRA"))
+n_pre <- sum(tl$era == "Pre-FRA"); n_post <- sum(tl$era == "Post-FRA"); n_unk <- sum(tl$era == "Undated")
+tlc <- tl %>% filter(!is.na(year)) %>% count(year, era)
+ymax <- max(tlc %>% group_by(year) %>% summarise(s = sum(n), .groups = "drop") %>% pull(s))
+p_tl <- ggplot(tlc, aes(year, n, fill = era)) +
+  geom_col(width = 0.85) +
   geom_vline(xintercept = 2023.42, linetype = "dashed", color = catf_magenta, linewidth = 0.8) +
-  annotate("text", x = 2023.2, y = max(tlc$n), label = "FRA enacted\nJun 2023", hjust = 1.05,
+  annotate("text", x = 2023.2, y = ymax, label = "FRA enacted\nJun 2023", hjust = 1.05,
            size = 3.2, color = catf_magenta, fontface = "bold", lineheight = 0.9) +
-  scale_x_continuous(limits = c(2000, 2025), breaks = seq(2000, 2024, 4)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
-  labs(title = "Step 0 · When were these EAs decided?",
-       subtitle = glue::glue("The {n_ce_shaped} bounded FONSIs by decision year — every dated one predates the FRA's CE-adoption authority"),
+  scale_fill_manual(values = c("Pre-FRA" = catf_teal, "Post-FRA" = catf_magenta, "Undated" = catf_grey), name = NULL) +
+  scale_x_continuous(limits = c(2002, 2026), breaks = seq(2004, 2026, 4)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+  labs(title = "When were these EAs decided?",
+       subtitle = glue::glue("The {n_ce_shaped} bounded FONSIs by decision year — {n_pre} pre-FRA, {n_post} post-FRA, {n_unk} undated"),
        x = NULL, y = "Bounded FONSIs",
-       caption = glue::glue("Date known for {n_known}/{n_ce_shaped}; {n_unk} undated (filename/decision-date fields). ",
-                            "A D4-timeline merge would firm up coverage. FRA (Jun 2023) let agencies adopt peer CEs.")) +
-  theme_catf()
+       caption = glue::glue("Decision dates merged from the D4 timeline (decision_date), known for {n_pre + n_post}/{n_ce_shaped}. ",
+                            "FRA (Jun 2023) gave agencies authority to adopt another agency's CE.")) +
+  theme_catf() + theme(legend.position = "bottom")
 save_fig(p_tl, "fig_d6_timeline.png", w = 9, h = 4.0)
 
 # === Fig: US map of transmission-upgrade FONSI states (tigris/sf — house pattern) ===

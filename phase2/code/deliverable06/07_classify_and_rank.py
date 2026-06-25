@@ -69,6 +69,17 @@ def ce_agency_tokens(unit: str) -> set[str]:
     return {t.upper() for t in re.split(r"[^A-Za-z]+", str(unit)) if len(t) >= 2}
 
 
+def split_listish(v) -> list[str]:
+    """Parse a list-like cell ('["Oregon", "Washington"]') into its individual items,
+    so distinct-state / distinct-agency counts don't treat a multi-value string as one."""
+    s = str(v).strip()
+    try:
+        x = json.loads(s) if s.startswith("[") else [s]
+        return [str(i).strip() for i in (x if isinstance(x, list) else [x]) if str(i).strip()]
+    except Exception:
+        return [s] if s else []
+
+
 def main() -> None:
     ensure_d6_dirs()
     run_at = utc_now()
@@ -93,8 +104,8 @@ def main() -> None:
         our_tokens: set[str] = set()
         for a in cprof["lead_agency_harmonized"].dropna():
             our_tokens |= our_agency_tokens(a)
-        n_agencies = cprof["lead_agency_harmonized"].astype(str).nunique()
-        n_states = cprof["project_state"].astype(str).nunique()
+        n_agencies = len({a for v in cprof["lead_agency_harmonized"].dropna() for a in split_listish(v)})
+        n_states = len({s for v in cprof["project_state"].dropna() for s in split_listish(v)})
 
         # best CE match
         best = {}

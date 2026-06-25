@@ -37,6 +37,7 @@ from prompts import ENRICHMENT_SCHEMA_VERSION
 ENRICH = D6_ANALYSIS_DIR / "fonsi_enrichment.parquet"
 CORPUS = D6_ANALYSIS_DIR / "candidate_corpus.parquet"
 INVENTORY = D6_ANALYSIS_DIR / "fonsi_project_inventory.parquet"
+TIMELINE = D6_ANALYSIS_DIR.parent / "timeline" / "timeline_project_dates.parquet"  # D4 authoritative dates
 FACTS_OUT = D6_ANALYSIS_DIR / "candidate_facts.parquet"
 MIT_SUMMARY_OUT = D6_ANALYSIS_DIR / "candidate_mitigation_summary.parquet"
 CORPUS_STATS_OUT = D6_ANALYSIS_DIR / "corpus_mitigation_stats.parquet"
@@ -145,6 +146,16 @@ def main() -> None:
             "candidate_llm_run_at": getattr(e, "enrichment_llm_run_at", "") or "",
         })
     facts = pd.DataFrame(rows)
+    # merge the authoritative D4 timeline decision dates (for the FRA timing analysis)
+    if TIMELINE.exists():
+        td = pd.read_parquet(TIMELINE, columns=["project_id", "decision_date"])
+        td["project_id"] = td["project_id"].astype(str)
+        facts = facts.merge(td.drop_duplicates("project_id"), on="project_id", how="left")
+        n_dt = int(facts.loc[facts["is_profile_subtype"], "decision_date"].notna().sum())
+        print(f"[09] merged D4 decision_date: {n_dt} of the bounded rows dated")
+    else:
+        facts["decision_date"] = pd.NaT
+        print("[09] D4 timeline not found — decision_date left null")
     write_parquet(facts, FACTS_OUT)
 
     # ---- candidate_mitigation_summary (per candidate, profile subset) ----
