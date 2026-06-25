@@ -14,6 +14,7 @@ Each excerpt is tagged [S#] with its page/document so the model cites span_refs.
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import re
@@ -367,3 +368,102 @@ def cite_quotes(parsed: dict, tag_map: dict, main_by_doc: dict) -> list[dict]:
         out.append({"claim": "ce_development_language", "span_ref": sr, "quote": cdl,
                     **_resolve(sr, cdl, tag_map, main_by_doc)})
     return out
+
+
+# --- analysis-ready output shaping (shared by 03 + benchmark) ----------------
+_META_PASSTHROUGH = ["project_title", "project_type", "tech_group",
+                     "lead_agency_harmonized", "project_state", "canonical_fonsi_document_id"]
+_LISTY_META = ("lead_agency_harmonized",)
+
+
+def _flat(v) -> str:
+    """Render a possibly list-like metadata value as a clean scalar string
+    (agency is stored as ['Bureau of Land Management'] — drop the brackets)."""
+    if isinstance(v, (list, tuple)):
+        return "; ".join(str(x) for x in v)
+    s = "" if v is None else str(v)
+    if s.startswith("[") and s.endswith("]"):
+        try:
+            x = ast.literal_eval(s)
+            if isinstance(x, (list, tuple)):
+                return "; ".join(str(i) for i in x)
+        except Exception:
+            pass
+    return s
+
+
+def attach_metadata(df: pd.DataFrame, meta: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Add project metadata passthrough (title/type/tech/agency/state/fonsi_doc) by
+    project_id so the enrichment output is self-contained for analysis."""
+    if meta is None:
+        meta = load_clean_packets()
+    cols = ["project_id"] + [c for c in _META_PASSTHROUGH if c in meta.columns]
+    m = meta[cols].drop_duplicates("project_id").copy()
+    for c in _LISTY_META:
+        if c in m.columns:
+            m[c] = m[c].map(_flat)
+    return df.merge(m, on="project_id", how="left", suffixes=("", "_meta"))
+
+
+def _is_empty(v) -> bool:
+    if v is None:
+        return True
+    if isinstance(v, float) and pd.isna(v):
+        return True
+    return str(v).strip() in ("", "[]", "null", "None", "nan")
+
+
+def _quote_stats(evidence_cited) -> tuple[int, int, float]:
+    try:
+        cs = json.loads(evidence_cited) if isinstance(evidence_cited, str) and evidence_cited else []
+    except Exception:
+        cs = []
+    n = len(cs); v = sum(c.get("verified") is True for c in cs)
+    return n, v, (round(v / n, 3) if n else 0.0)
+
+
+def add_confidence(df: pd.DataFrame) -> pd.DataFrame:
+    """Add COMPUTED confidence columns alongside the model's self-rated
+    extraction_confidence: n_quotes, n_verified_quotes, verified_quote_rate,
+    field_fill_rate, confidence_score (0.6*verified_rate + 0.4*fill_rate)."""
+    fields = [f for f, _t, _d in ENRICHMENT_FIELDS if f in df.columns]
+    df = df.copy()
+    stats = df["evidence_cited"].map(_quote_stats)
+    df["n_quotes"] = [s[0] for s in stats]
+    df["n_verified_quotes"] = [s[1] for s in stats]
+    df["verified_quote_rate"] = [s[2] for s in stats]
+    df["field_fill_rate"] = df[fields].apply(
+        lambda row: round(sum(not _is_empty(v) for v in row) / max(len(fields), 1), 3), axis=1)
+    df["confidence_score"] = (0.6 * df["verified_quote_rate"] + 0.4 * df["field_fill_rate"]).round(3)
+    return df
+
+
+def build_evidence_frame(clean_df: pd.DataFrame, meta: pd.DataFrame | None = None) -> pd.DataFrame:
+    """Explode evidence_cited into one verbatim quote per row with provenance +
+    metadata — the analysis/audit surface for the quotes."""
+    if meta is None:
+        meta = load_clean_packets()
+    carry = [c for c in ("action_category", "is_bounded_low_impact", "mitigation_dependence")
+             if c in clean_df.columns]
+    rows = []
+    for r in clean_df.itertuples(index=False):
+        try:
+            cs = json.loads(r.evidence_cited) if getattr(r, "evidence_cited", "") else []
+        except Exception:
+            cs = []
+        base = {c: getattr(r, c, None) for c in carry}
+        base["project_id"] = getattr(r, "project_id", None)
+        for c in cs:
+            rows.append({**base, "claim": c.get("claim"), "verified": c.get("verified"),
+                         "quote": c.get("quote"), "document_role": c.get("document_role"),
+                         "page": c.get("page"), "document_id": c.get("document_id"),
+                         "is_main_document": c.get("is_main_document"), "span_id": c.get("span_id")})
+    ev = pd.DataFrame(rows)
+    if ev.empty:
+        return ev
+    ev = attach_metadata(ev, meta)
+    ev["page"] = pd.to_numeric(ev["page"], errors="coerce").astype("Int64")   # int, not 12.0
+    front = ["project_id", "project_title", "tech_group", "lead_agency_harmonized", "project_state",
+             "action_category", "claim", "verified", "quote", "document_role", "page",
+             "document_id", "span_id", "is_main_document"]
+    return ev[[c for c in front if c in ev.columns] + [c for c in ev.columns if c not in front]]

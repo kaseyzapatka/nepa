@@ -205,7 +205,12 @@ def main() -> None:
     write_parquet(raw_df, raw_out)
     keep = ["project_id", *ENRICHMENT_ANALYSIS_COLUMNS, "evidence_cited",
             "enrichment_extraction_run_at", "enrichment_llm_run_at"]
-    write_parquet(raw_df[keep], clean_out)
+    # analysis-ready clean output: metadata passthrough + computed confidence (self-contained)
+    clean_df = enrich_lib.add_confidence(enrich_lib.attach_metadata(raw_df[keep], pk))
+    write_parquet(clean_df, clean_out)
+    # evidence-level CSV: one verbatim quote per row with provenance (the quote audit surface)
+    ev_out = D6_REVIEW_DIR / f"fonsi_enrichment_evidence{suffix}.csv"
+    enrich_lib.build_evidence_frame(clean_df, pk).to_csv(ev_out, index=False)
 
     attempted = len(work)
     n_q = sum(len(json.loads(x)) for x in raw_df["evidence_cited"])
@@ -227,6 +232,7 @@ def main() -> None:
               raw_df.loc[raw_df['llm_error'].eq('no_evidence'), 'tech_group'].value_counts().to_dict())
     print(f"[03] raw  -> {raw_out}")
     print(f"[03] data -> {clean_out}")
+    print(f"[03] evidence (1 quote/row) -> {ev_out}")
 
     min_success = MIN_SUCCESS_DEBUG if args.sample else MIN_SUCCESS_STRICT
     if attempted and ok / attempted < min_success:

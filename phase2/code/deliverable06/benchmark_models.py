@@ -39,6 +39,7 @@ from prompts import ENRICHMENT_FIELDS
 COMPARISON_OUT = D6_REVIEW_DIR / "d6_enrich_benchmark_comparison.csv"
 SUMMARY_OUT = D6_REVIEW_DIR / "d6_enrich_benchmark_summary.csv"
 AGREEMENT_OUT = D6_REVIEW_DIR / "d6_enrich_benchmark_agreement.csv"
+EVIDENCE_OUT = D6_REVIEW_DIR / "d6_enrich_benchmark_evidence.csv"
 
 DEFAULT_MODELS = ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"]  # exact ids so preflight doesn't skip a model
 N_FULL = 452
@@ -102,6 +103,7 @@ def main() -> None:
     vq = {m: [0, 0] for m in models}     # [n_quotes, n_verified]
     nok = {m: 0 for m in models}
     errs = {m: [] for m in models}
+    bench_ev: list = []                  # exploded quotes per model (compare actual citations)
     for m in models:
         pf = enrich_lib.preflight(m, client)
         if pf.get("parsed") is None:
@@ -125,6 +127,11 @@ def main() -> None:
                 coerced[(m, pid)] = enrich_lib.coerce(parsed)
                 cited = enrich_lib.cite_quotes(parsed, tag_map, main_by_doc)
                 vq[m][0] += len(cited); vq[m][1] += sum(c.get("verified") is True for c in cited)
+                for c in cited:
+                    bench_ev.append({"model": m, "project_id": pid, "claim": c.get("claim"),
+                                     "verified": c.get("verified"), "quote": c.get("quote"),
+                                     "document_role": c.get("document_role"), "page": c.get("page"),
+                                     "document_id": c.get("document_id"), "span_id": c.get("span_id")})
 
     comp_rows = []
     for r in sample.itertuples(index=False):
@@ -160,12 +167,22 @@ def main() -> None:
     summary = pd.DataFrame(summ)
     summary.to_csv(SUMMARY_OUT, index=False)
 
+    if bench_ev:   # per-model exploded quotes w/ provenance + metadata — eyeball quote quality
+        bev = enrich_lib.attach_metadata(pd.DataFrame(bench_ev))
+        bev["page"] = pd.to_numeric(bev["page"], errors="coerce").astype("Int64")
+        front = ["model", "project_id", "project_title", "tech_group", "lead_agency_harmonized",
+                 "project_state", "claim", "verified", "quote", "document_role", "page",
+                 "document_id", "span_id"]
+        bev = bev[[c for c in front if c in bev.columns] + [c for c in bev.columns if c not in front]]
+        bev.sort_values(["project_id", "model", "claim"]).to_csv(EVIDENCE_OUT, index=False)
+
     print("\n[bench] SUMMARY (decision inputs):")
     print(summary[["model", "parse_rate", "projected_full_452_usd", "verified_quote_rate",
                    "field_fill_rate", "n_errors"]].to_string(index=False))
     print(f"\n[bench] comparison -> {COMPARISON_OUT}")
     print(f"[bench] agreement  -> {AGREEMENT_OUT}  (low-agreement fields = where models diverge)")
     print(f"[bench] summary    -> {SUMMARY_OUT}")
+    print(f"[bench] evidence   -> {EVIDENCE_OUT}  (per-model quotes w/ provenance)")
     print(f"[bench] run_at={run_at}. Decision: take the cheaper model unless its parse/verified-quote rate "
           "or key-field agreement is materially worse.")
 
