@@ -152,13 +152,23 @@ def main() -> None:
     cache: dict = json.loads(CACHE.read_text()) if CACHE.exists() else {}
 
     # build packets; split skip vs work, then cache-hits vs misses
-    work, skip_rows = [], []
+    work, skip_rows, need_fb = [], [], []
     for r in pk.itertuples(index=False):
         pt, tm = enrich_lib.build_evidence_packet(r, spans_by_pid.get(r.project_id, pd.DataFrame()))
-        if not tm:                                   # no spans AND no typed text -> don't pay for metadata-only
-            skip_rows.append(skip_row(r, pt, run_at, args.model))
-        else:
+        if tm:
             work.append((r, pt, tm))
+        else:
+            need_fb.append(r)                        # no D6 spans/typed text -> try section recovery
+    if need_fb:                                      # recover from broad document_sections before skipping
+        sec_by_pid = enrich_lib.load_sections([r.project_id for r in need_fb])
+        recovered = 0
+        for r in need_fb:
+            pt, tm = enrich_lib.build_section_fallback_packet(r, sec_by_pid.get(r.project_id))
+            if tm:
+                work.append((r, pt, tm)); recovered += 1
+            else:
+                skip_rows.append(skip_row(r, pt, run_at, args.model))
+        print(f"[03] section-fallback recovered {recovered}/{len(need_fb)} zero-span project(s)")
     results: dict = {}                               # project_id -> (res, cache_hit)
     pending = []
     for (r, pt, tm) in work:

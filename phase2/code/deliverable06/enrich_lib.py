@@ -29,6 +29,7 @@ from prompts import ENRICHMENT_FIELDS, build_enrichment_prompt, enrichment_tool_
 PACKETS = D6_ANALYSIS_DIR / "fonsi_project_packets.parquet"     # per-project metadata + typed text
 SPANS = D6_ANALYSIS_DIR / "fonsi_evidence_spans.parquet"        # typed span rows (verbatim + page/role)
 INVENTORY = D6_ANALYSIS_DIR / "fonsi_document_inventory.parquet"
+SECTION_SRC = D6_ANALYSIS_DIR.parent / "document_sections.parquet"  # broad sections — last-resort recovery
 CORPUS = D6_ANALYSIS_DIR / "candidate_corpus.parquet"
 ENRICH_MAX_TOKENS = 4096   # generous: 37 fields + quote arrays (avoids truncation)
 ENRICH_MAX_RETRIES = 8     # SDK exponential backoff on 429 / 500 / 503 / 529 overloads
@@ -228,6 +229,52 @@ def build_evidence_packet(meta_row, spans: pd.DataFrame) -> tuple[str, dict]:
     if not tag_map:                                      # no usable spans at all
         blocks, tag_map = _select_from_meta(meta_row)
     return f"PROJECT METADATA: {meta}" + ("\n\n" + "\n\n".join(blocks) if blocks else ""), tag_map
+
+
+# --- last-resort recovery: broad document_sections (no D6 spans/typed text) --
+SECTION_FALLBACK_MAX = 8
+_SEC_RELEVANT = (r"(?i)(proposed action|purpose and need|purpose of|finding of no significant|"
+                 r"no significant impact|decision|mitigat|environmental (consequence|impact)|"
+                 r"affected environment|categorical|extraordinary)")
+
+
+def load_sections(project_ids) -> dict:
+    """Per-project rows from the broad document_sections.parquet — recovers FONSIs
+    whose text exists upstream but never got span-typed into the D6 files."""
+    if not SECTION_SRC.exists():
+        return {}
+    ids = "', '".join(str(p) for p in project_ids)
+    df = duckdb.connect().execute(
+        f"select cast(project_id as varchar) project_id, document_id, section_text, page_start, "
+        f"heading_title, source, section_chars "
+        f"from read_parquet('{SECTION_SRC}') where cast(project_id as varchar) in ('{ids}')").df()
+    return {pid: g for pid, g in df.groupby("project_id")}
+
+
+def build_section_fallback_packet(meta_row, sections: pd.DataFrame) -> tuple[str, dict]:
+    """Tagged [S#] packet from broad document sections, prioritising the FONSI-relevant
+    sections (action/finding/decision/mitigation). Verifiable like a span packet."""
+    if sections is None or sections.empty:
+        return "", {}
+    sp = sections.assign(ntext=sections["section_text"].map(_norm))
+    sp = sp[sp["ntext"].str.len() >= 120]
+    if sp.empty:
+        return "", {}
+    sp = sp.assign(rel=sp["ntext"].str.contains(_SEC_RELEVANT)).sort_values(
+        ["rel", "section_chars"], ascending=[False, False])
+    meta = "; ".join(f"{lab}={normalize_space(getattr(meta_row, col, ''))}"
+                     for lab, col in _META if normalize_space(getattr(meta_row, col, "")))
+    blocks, tag_map = [], {}
+    for i, r in enumerate(sp.head(SECTION_FALLBACK_MAX).itertuples(index=False), 1):
+        tag = f"S{i}"
+        page = int(r.page_start) if pd.notna(r.page_start) else None
+        head = _norm(getattr(r, "heading_title", ""))[:60]
+        role = "FONSI" if re.search(r"fonsi|finding of no", head, re.I) else "EA"
+        blocks.append(f"[{tag}] ({role}, p.{page if page is not None else '?'}, section-fallback"
+                      + (f', "{head}"' if head else "") + f"): {_excerpt(r.ntext, None)}")
+        tag_map[tag] = {"span_id": f"section::{i}", "page": page, "document_role": role,
+                        "document_id": getattr(r, "document_id", None), "text": r.ntext}
+    return f"PROJECT METADATA: {meta}\n\n" + "\n\n".join(blocks), tag_map
 
 
 def load_spans_and_main(project_ids) -> tuple[dict, dict]:
