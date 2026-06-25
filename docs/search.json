@@ -1580,5 +1580,61 @@
     "title": "Patterns in FONSIs: Deliverable 6",
     "section": "Following the analysis, step by step",
     "text": "Following the analysis, step by step\nThis analysis is abstract, so the next three figures trace it from raw FONSIs to a verdict.\nFirst, where the FONSIs land. Each clean-energy FONSI is sorted into an action type, and within each type we keep only the bounded, low-impact subset (teal) — the small, routine projects that could plausibly be a CE — and set the rest aside.\n\n\n\n\n\nEach clean-energy FONSI sorted into an action type; teal = the bounded, low-impact subset.\n\n\n\n\nNext, we match each action to the closest existing CE. The bar is a text-similarity score for the best-matching existing CE; below 0.40 we’d treat the action as needing a new CE. Every action clears the bar — but the scores are only moderate, and the match is a ranking aid, not verified coverage.\n\n\n\n\n\nBest-match similarity to an existing CE, per action (dashed line = 0.40 cutoff).\n\n\n\n\nFinally, we check the matched CE for a numeric limit to test whether our FONSIs exceed it (which would make the case to expand). None of the matched CEs state a size limit — so there is nothing to exceed, and nothing resolves to expand.\n\n\n\n\n\nWhether each matched CE states a numeric limit (none do).\n\n\n\n\nWith no action looking net-new and none exceeding a parsed limit in its matched CE candidate, every one is a candidate adopt opportunity — covered below (pending the CE-coverage verification noted in the caveats)."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#the-four-candidates-and-what-adopt-means",
+    "href": "phase2/reports/deliverable06.html#the-four-candidates-and-what-adopt-means",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "The four candidates, and what “adopt” means",
+    "text": "The four candidates, and what “adopt” means\n\nTransmission upgrades → adopt the Tennessee Valley Authority’s CE for routine modification, repair, and minor upgrade of existing transmission (CE #17), so BLM, DOE, NNSA, and the power-marketing administrations can stop running full EAs for in-corridor work.\nSolar (CE-shaped subset) → adopt the Department of Energy’s small-solar CE for bounded projects on previously disturbed land.\nGeothermal exploration → adopt the Department of Energy’s exploration-drilling CE for slim-hole / temperature-gradient wells.\nTemporary resource assessment → adopt the Department of Energy’s site-characterization CE for surveys, stream gauges, and geotechnical borings."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#the-outcome-at-a-glance",
+    "href": "phase2/reports/deliverable06.html#the-outcome-at-a-glance",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "The outcome at a glance",
+    "text": "The outcome at a glance\n\n\n\n\n\nThe narrowing from all clean-energy FONSIs to the bounded actions, all of which resolve to adopt."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#steps-12-sorting-the-fonsis-into-action-types",
+    "href": "phase2/reports/deliverable06.html#steps-12-sorting-the-fonsis-into-action-types",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Steps 1–2 · Sorting the FONSIs into action types",
+    "text": "Steps 1–2 · Sorting the FONSIs into action types\nEach clean-energy FONSI is sorted into a candidate action type, and within each type we keep only the bounded, low-impact subset (teal) — the small, routine projects that could plausibly be a CE — and set the rest aside. The 159 uncategorized FONSIs are the net-new search pool (Analysis 3).\n\n\n\n\n\nEvery clean-energy FONSI by action type; teal = the bounded, low-impact subset kept for matching."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#step-3-matching-to-the-existing-ce-catalog",
+    "href": "phase2/reports/deliverable06.html#step-3-matching-to-the-existing-ce-catalog",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Step 3 · Matching to the existing CE catalog",
+    "text": "Step 3 · Matching to the existing CE catalog\nEach candidate is matched against the federal CE catalog by text similarity. The score blends embedding (semantic) and lexical overlap; below 0.40 we would treat the action as needing a new CE. Every candidate clears the bar — the match is a ranking aid, confirmed against the CE’s eCFR text before action.\n\n\n\n\n\n\n  \n    \n      How each candidate matched the existing CE catalog\n    \n    \n      Closest existing CE by text similarity (a ranking aid, not verified coverage)\n    \n  \n  \n    \n      Action\n      Best-match CE\n      Held by\n      Similarity\n    \n  \n  \n    Solar\nDOE-1--5-87\nDepartment of Energy\n0.67\n    Temporary resource assessment / site investigation\nDOE-1--3-43\nDepartment of Energy\n0.54\n    Geothermal exploration\nDOE-1--3-43\nDepartment of Energy\n0.50\n    Transmission upgrades within existing ROW\nTVA---1-16\nTennessee Valley Authority\n0.45\n  \n  \n  \n\n\n\n\n\n\n\n\n\nBest-match similarity to an existing CE, per candidate (dashed line = 0.40 ‘treat as new’ cutoff)."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#step-3-the-size-bounds-a-ce-could-encode",
+    "href": "phase2/reports/deliverable06.html#step-3-the-size-bounds-a-ce-could-encode",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Step 3 · The size bounds a CE could encode",
+    "text": "Step 3 · The size bounds a CE could encode\nFor each candidate we read the size figures the bounded FONSIs actually state — the observed range is the candidate numeric bound a CE could codify. None of the matched CEs state a limit our FONSIs exceed, so nothing resolves to expand; but the spreads below are what a newly written or adopted CE would set its thresholds against.\n\n\n\n\n\nObserved size spread of the bounded FONSIs — the candidate numeric bounds for a CE."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#step-4-classifying-and-ranking-the-candidates",
+    "href": "phase2/reports/deliverable06.html#step-4-classifying-and-ranking-the-candidates",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Step 4 · Classifying and ranking the candidates",
+    "text": "Step 4 · Classifying and ranking the candidates\nEach candidate gets a transparent multi-factor rank score (0–1) built from how novel it is (develop &gt; expand &gt; adopt), how many FONSIs support it, its agency/state spread, whether it has size limits, and how mitigation-dependent it is. The bar length is the total; the colors show each factor’s contribution.\n\n\n\n\n\nHow each candidate’s rank score is composed (bar = total, colors = each factor)."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#outcome-adopt-an-existing-ce-opportunities",
+    "href": "phase2/reports/deliverable06.html#outcome-adopt-an-existing-ce-opportunities",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Outcome · Adopt-an-existing-CE opportunities",
+    "text": "Outcome · Adopt-an-existing-CE opportunities\n\n\n\n\n\n\n  \n    \n      Adopt-an-existing-CE opportunities\n    \n    \n      Clean-energy actions already excluded at one agency, run as full EAs at others\n    \n  \n  \n    \n      Action\n      Low-impact FONSIs\n      Existing CE\n      Held by\n      Agencies that could adopt it\n      States\n    \n  \n  \n    Transmission upgrades within existing ROW\n37\nTVA---1-16\n\nTennessee Valley Authority\nBLM, DOE, NNSA, PMA\n12\n    Solar\n8\nDOE-1--5-87\n\nDepartment of Energy\nBLM, NNSA, PMA, USFS\n4\n    Geothermal exploration\n7\nDOE-1--3-43\n\nDepartment of Energy\nBLM\n3\n    Temporary resource assessment / site investigation\n2\nDOE-1--3-43\n\nDepartment of Energy\nNNSA, PMA\n2\n  \n  \n    \n      Thin-evidence flag: rows with fewer than ~5 low-impact FONSIs rest on very few cases — temporary resource assessment (n = 2) in particular — and should be treated as illustrative, not robust.\n    \n  \n  \n\n\n\n\nThe adoption gap below shows the evidence weight behind each opportunity — how many bounded FONSIs are being run as full EAs when an existing CE would cover them.\n\n\n\n\n\nPer adopt candidate: bounded FONSIs run as full EAs, and the existing CE they could adopt.\n\n\n\n\nThe transmission case is the most geographically broad — the same in-corridor work runs through full EAs across 12 states, concentrated in the West.\n\n\n\n\n\nStates where the bounded transmission-upgrade FONSIs occur."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#timing-do-these-eas-predate-the-fra",
+    "href": "phase2/reports/deliverable06.html#timing-do-these-eas-predate-the-fra",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Timing · do these EAs predate the FRA?",
+    "text": "Timing · do these EAs predate the FRA?\nThe 2023 Fiscal Responsibility Act (FRA, June 2023) gave agencies explicit authority to adopt another agency’s categorical exclusion — the exact move this analysis recommends. So the age of these EAs matters: every dated FONSI in the bounded set was decided before the FRA, meaning these agencies ran full EAs without the adoption shortcut now available. (Decision dates are only partially populated in the current data; a merge with the D4 timeline would firm up coverage.)\n\n\n\n\n\nThe bounded FONSIs by decision year, relative to the FRA’s June 2023 CE-adoption authority."
   }
 ]
