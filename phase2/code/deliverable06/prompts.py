@@ -33,8 +33,8 @@ def build_facts_prompt(packet_text: str, category: str) -> str:
 # changed rows via the input-hash cache).
 # ===========================================================================
 
-ENRICHMENT_PROMPT_VERSION = "d6_enrich_prompt_v4"   # v4: size-retrieval packet section
-ENRICHMENT_SCHEMA_VERSION = "d6_enrich_schema_v4"   # v4: ce_development_span_ref (verifiable)
+ENRICHMENT_PROMPT_VERSION = "d6_enrich_prompt_v5"   # v5: require action quote; wells in threshold units
+ENRICHMENT_SCHEMA_VERSION = "d6_enrich_schema_v5"   # v5: well_count (operative bound for geo/resource-assessment)
 
 # (field, json_type, instruction). Grouped by which analysis consumes it.
 ENRICHMENT_FIELDS: list[tuple[str, str, str]] = [
@@ -76,6 +76,10 @@ ENRICHMENT_FIELDS: list[tuple[str, str, str]] = [
      "generation or storage capacity in megawatts; null if not applicable."),
     ("voltage_kv", "number|null",
      "transmission voltage in kilovolts; null if not stated."),
+    ("well_count", "integer|null",
+     "number of wells, borings, or boreholes the proposed action drills/installs (the selected action, "
+     "not a rejected alternative); the operative scale unit for geothermal exploration and resource "
+     "assessment. Counts written as words ('up to twelve exploratory wells') count. null if not applicable."),
     ("within_existing_row", "boolean|null",
      "true if the work is within an existing right-of-way or previously developed corridor."),
     ("new_access_road", "boolean|null",
@@ -113,7 +117,8 @@ ENRICHMENT_FIELDS: list[tuple[str, str, str]] = [
      "'an EIS would be required unless Z', 'provided that', 'not to exceed') — NOT scoping comments, RMP "
      "conformance, table references, or generic decision language. Each object has keys: statement (EXACT "
      "verbatim text), span_ref (the [S#] tag of the excerpt it came from), metric (string|null), "
-     "value (number|null), unit (string|null), is_project_fact (true if it states this project's value, "
+     "value (number|null), unit (string|null — when numeric, prefer one of: acres, miles, kv, mw, wells, "
+     "feet, percent), is_project_fact (true if it states this project's value, "
      "false if a general threshold). Empty array [] if none."),
     ("extraordinary_circumstances", "string|null",
      "any extraordinary circumstances noted that could preclude a CE; else null."),
@@ -128,8 +133,9 @@ ENRICHMENT_FIELDS: list[tuple[str, str, str]] = [
      "the document text backing the key claims, so a human can check every summary against the source. "
      "Provide one object per claim type you can support, with keys: claim (one of: action, finding, size, "
      "mitigation), span_ref (the [S#] tag of the excerpt the quote is from), and quote (EXACT verbatim text "
-     "copied character-for-character from that excerpt — do not paraphrase). Include at least the 'action' "
-     "and 'finding' claims when present."),
+     "copied character-for-character from that excerpt — do not paraphrase). ALWAYS include an 'action' "
+     "claim with its span_ref (this is required — it is the citable basis for the action), and a 'finding' "
+     "claim when present."),
     ("referenced_ce_citations", "array of objects",
      "existing categorical exclusions or NEPA authorities the document itself cites as relevant (e.g. "
      "'516 DM 11.9 B1.3', 'B4.13', '40 CFR 1508.4'). Each object: citation (verbatim), span_ref (the [S#] tag), "

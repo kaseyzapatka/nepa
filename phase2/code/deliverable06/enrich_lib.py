@@ -165,7 +165,8 @@ def _select_from_spans(sp: pd.DataFrame, plan, start_i: int = 1) -> tuple[list, 
     return blocks, tag_map, i
 
 
-SIZE_RX = re.compile(r"\d[\d,]*(?:\.\d+)?\s*(?:miles?|acres?|kilovolts?|kv|megawatts?|mw|kw|feet|foot|ft)\b", re.I)
+SIZE_RX = re.compile(r"\d[\d,]*(?:\.\d+)?\s*(?:miles?|acres?|kilovolts?|kv|megawatts?|mw|kw|feet|foot|ft|"
+                     r"wells?|borings?|boreholes?)\b", re.I)
 SIZE_MAX = 3
 
 
