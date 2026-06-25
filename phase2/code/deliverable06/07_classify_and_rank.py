@@ -17,9 +17,11 @@ Outputs:
   - output/deliverable06/d6_candidate_evidence_<category>.csv
 
 NOTE: deterministic first pass. Verdicts use the (rough) deterministic CE match +
-bound parse; LLM verification (Gate 3) firms them up. With the current 5 candidate
-categories — all of which already map to a CE — expect expand/adopt, not NEW;
-surfacing real NEW needs the broadened candidate generation (Track A / 6C).
+bound parse — these are TEXT-SIMILAR candidate CEs pending coverage adjudication,
+NOT verified coverage. The "expand"/"adopt" labels are candidate opportunities, not
+confirmed findings (see report caveats). With the current candidate categories each
+has a text-similar CE candidate, so expect adopt-style results, not NEW; surfacing
+real NEW needs the broadened candidate generation + non-candidate clustering.
 """
 
 import json

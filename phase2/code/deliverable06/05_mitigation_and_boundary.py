@@ -44,8 +44,11 @@ from candidates import TAXONOMY_VERSION
 PACKETS = D6_ANALYSIS_DIR / "candidate_evidence_packets.parquet"
 CORPUS = D6_ANALYSIS_DIR / "candidate_corpus.parquet"
 CONDITIONS = D6_ANALYSIS_DIR / "fonsi_conditions.parquet"
+INVENTORY = D6_ANALYSIS_DIR / "fonsi_project_inventory.parquet"
+FULL_PACKETS = D6_ANALYSIS_DIR / "fonsi_project_packets.parquet"
 OUT = D6_ANALYSIS_DIR / "candidate_mitigation_boundary.parquet"
 SUMMARY_OUT = D6_ANALYSIS_DIR / "candidate_mitigation_summary.parquet"
+CORPUS_STATS_OUT = D6_ANALYSIS_DIR / "corpus_mitigation_stats.parquet"
 REVIEW = D6_REVIEW_DIR / "candidate_mitigation_boundary_review.csv"
 
 # --- mitigated-FONSI textual cues (from D02 significance_taxonomy.py) ---
@@ -85,6 +88,45 @@ def extract_boundary_statements(text: str, limit: int = 4) -> list[str]:
         if len(out) >= limit:
             break
     return out
+
+
+def corpus_mitigation_stats(run_at: str) -> pd.DataFrame:
+    """Mitigated-FONSI tally across the FULL clean-energy EA-source FONSI corpus
+    (all 452, not just the candidate subset), so the report can state how many of
+    the corpus are mitigated FONSIs. Same dual signal as the per-candidate pass:
+    textual finding/boundary cue OR >=1 enforceable committed condition."""
+    inv = pd.read_parquet(INVENTORY)
+    clean = set(inv.loc[inv["project_energy_type"] == "Clean", "project_id"].astype(str))
+    pk = pd.read_parquet(FULL_PACKETS, columns=["project_id", "finding_text", "boundary_text"])
+    pk["project_id"] = pk["project_id"].astype(str)
+    pk = pk[pk["project_id"].isin(clean)].drop_duplicates("project_id")
+
+    enf_ids: set[str] = set()
+    if CONDITIONS.exists() and clean:
+        ids = ",".join(f"'{p}'" for p in clean)
+        enf = duckdb.connect().execute(
+            f"""select distinct cast(project_id as varchar) pid from read_parquet('{CONDITIONS}')
+                where cast(project_id as varchar) in ({ids})
+                  and condition_role in {MIT_ROLES} and obligation_level in {MIT_OBLIG}"""
+        ).df()
+        enf_ids = set(enf["pid"])
+
+    textual = (pk["finding_text"].fillna("") + " " + pk["boundary_text"].fillna("")) \
+        .map(lambda t: bool(MITIGATED_CUES.search(t)))
+    has_enf = pk["project_id"].isin(enf_ids)
+    is_mit = textual | has_enf
+    stats = pd.DataFrame([{
+        "n_clean_fonsi": len(clean),
+        "n_with_packet": len(pk),
+        "n_mitigated_fonsi": int(is_mit.sum()),
+        "mitigated_share": round(float(is_mit.mean()), 3) if len(pk) else 0.0,
+        "n_textual_only": int((textual & ~has_enf).sum()),
+        "n_enforceable_only": int((~textual & has_enf).sum()),
+        "n_both_high_conf": int((textual & has_enf).sum()),
+        "run_at": run_at,
+    }])
+    write_parquet(stats, CORPUS_STATS_OUT)
+    return stats
 
 
 def main() -> None:
@@ -176,8 +218,12 @@ def main() -> None:
                    "mitigation_resource_areas", "boundary_statements"]
     out[review_cols].sort_values(["candidate_category", "project_id"]).to_csv(REVIEW, index=False)
 
-    print(f"[05] mitigation/boundary rows={len(out)} -> {OUT}")
-    print(f"[05] mitigated FONSIs: {int(out['is_mitigated_fonsi'].sum())} of {len(out)} "
+    cstats = corpus_mitigation_stats(run_at)
+    cs = cstats.iloc[0]
+    print(f"[05] corpus-wide mitigated FONSIs: {int(cs.n_mitigated_fonsi)} of {int(cs.n_clean_fonsi)} "
+          f"clean FONSIs ({cs.mitigated_share:.1%}) -> {CORPUS_STATS_OUT.name}")
+    print(f"[05] candidate-scope mitigation/boundary rows={len(out)} -> {OUT}")
+    print(f"[05] mitigated FONSIs (candidate scope): {int(out['is_mitigated_fonsi'].sum())} of {len(out)} "
           f"(textual+enforceable dual signal)")
     print(f"[05] projects with boundary language: {int((out['boundary_statements'] != '[]').sum())}")
     print(f"\n[05] per-candidate summary -> {SUMMARY_OUT}")
