@@ -46,7 +46,7 @@ COMPARISON = D6_OUTPUT_DIR / "d6_comparison_table.csv"
 
 MATCH_THRESHOLD = 0.40            # below this, the candidate has no real CE → NEW
 EXPAND_METRICS = {"acres": "max_acres", "miles": "max_miles",
-                  "kv": "max_kilovolts", "mw": "max_megawatts"}
+                  "kv": "max_kilovolts", "mw": "max_megawatts", "wells": "n_wells"}
 
 # coarse agency-token aliases (our FONSI lead_agency vs ce.json unit codes)
 OUR_AGENCY_ALIASES = {

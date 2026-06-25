@@ -39,8 +39,10 @@ PY_STEPS = (
     "04_base_rates_and_ce.py",
     "05_mitigation_and_boundary.py",
     "06_ce_landscape.py",
+    "09_wire_enrichment.py",   # overwrites 03/05 facts+mitigation with LLM enrichment (if present)
     "07_classify_and_rank.py",
 )
+ENRICHMENT = Path(__file__).resolve().parent.parent.parent / "data" / "analysis" / "deliverable06" / "fonsi_enrichment.parquet"
 R_STEP = "08_analyze.R"
 
 
@@ -63,6 +65,10 @@ def main() -> None:
               "enrichment pass is 03_enrich_llm.py — standalone, NOT yet wired into this pipeline.")
 
     for script in PY_STEPS:
+        if script == "09_wire_enrichment.py" and not ENRICHMENT.exists():
+            print(f"\n[_run] skipping 09_wire_enrichment.py — no enrichment at {ENRICHMENT.name} "
+                  "(run 03_enrich_llm.py first to LLM-back the report). Using deterministic 03/05 facts.")
+            continue
         if script == "03_extract_candidate_facts.py" and args.use_llm:
             run(sys.executable, CODE_DIR / script, "--use-llm", "--model", args.model)
         else:

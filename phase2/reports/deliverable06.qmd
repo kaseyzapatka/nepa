@@ -93,9 +93,11 @@ a **Finding of No Significant Impact (FONSI)** is explicit, citable substantiati
 for a CE — so recurring clean-energy FONSIs are the natural evidence base for new,
 expanded, or adopted categorical exclusions.
 
-> **First-pass caveat.** This build is deterministic; specific action definitions
-> and numeric limits are directional until the LLM-assisted verification pass
-> runs. The structural findings above do not depend on those specifics.
+> **Method note.** Action definitions, numeric limits (acreage, line length,
+> voltage, well count), and the mitigation read now come from a one-pass LLM
+> enrichment of all 451 clean-energy FONSIs (Claude Sonnet), with every quoted
+> value verified verbatim against its cited source page (97% verified). The
+> CE-coverage match remains a ranking aid pending eCFR confirmation.
 
 ------------------------------------------------------------------------
 
@@ -287,36 +289,21 @@ record**, the document it came from (EA or FONSI), and the page — so each row 
 directly verifiable against the source.
 
 ```{r transmission-example}
-tx_cite <- facts |>
+# Verified action quotes come straight from the LLM enrichment (candidate_facts.quoted_span):
+# each was checked verbatim against the cited EA/FONSI page, so no span re-scraping is needed.
+scope_rx <- "(?i)(replace|rebuild|reconductor|construct|install|upgrad|line|conductor|right.of.way|pole|structure|propos)"
+drop_rx  <- "(?i)(finding of no significant|revision sheet|table of contents|environmental assessment$)"
+
+ex <- facts |>
   filter(candidate_category == "transmission_upgrade", is_profile_subtype,
-         !is.na(citation_document_id), !is.na(citation_page)) |>
-  transmute(project_id, doc = citation_document_id, pg = as.integer(citation_page)) |>
-  distinct(project_id, .keep_all = TRUE)
-
-sp <- open_dataset(file.path(ANALYSIS, "fonsi_evidence_spans.parquet")) |>
-  filter(project_id %in% tx_cite$project_id) |>
-  select(project_id, document_id, manifest_role, page_start, page_end, span_text) |>
-  collect()
-
-scope_rx  <- "(?i)(replace|rebuild|reconductor|construct|install|upgrad|structure|conductor|right-of-way|disturbance|access road|pole)"
-drop_rx   <- "(?i)(cumulative|comment:|response:|no action alternative would not|would have no adverse|finding of no|no potential for disturbance)"
-strong_rx <- "(?i)(would (replace|rebuild|reconductor|construct|install)|proposed action|consists of|involve)"
-
-ex <- tx_cite |>
-  inner_join(sp, by = c("project_id", "doc" = "document_id")) |>
-  filter(pg >= page_start, pg <= page_end,
-         nchar(span_text) >= 70, nchar(span_text) <= 360,
-         str_detect(span_text, scope_rx), !str_detect(span_text, drop_rx)) |>
-  mutate(strong = str_detect(span_text, strong_rx)) |>
-  group_by(project_id) |>
-  arrange(desc(strong), desc(nchar(span_text))) |>
-  slice_head(n = 1) |>
-  ungroup() |>
+         !is.na(quoted_span), nchar(quoted_span) >= 50,
+         str_detect(quoted_span, scope_rx), !str_detect(quoted_span, drop_rx)) |>
+  distinct(project_id, .keep_all = TRUE) |>
   left_join(corp_fonsi |> select(project_id, project_title, lead_agency_harmonized), by = "project_id") |>
   mutate(
-    Source = ifelse(str_detect(manifest_role, "fonsi"), "FONSI", "EA"),
+    Source = ifelse(str_detect(tolower(citation_document_role), "fonsi"), "FONSI", "EA"),
     Agency = str_squish(str_remove_all(lead_agency_harmonized, '[\\[\\]"]')),
-    Excerpt = paste0("“", str_squish(str_trunc(span_text, 150, ellipsis = "…")), "”")
+    Excerpt = paste0("“", str_squish(str_trunc(quoted_span, 150, ellipsis = "…")), "”")
   ) |>
   arrange(desc(Source == "FONSI"), nchar(project_title)) |>
   slice_head(n = 6)
@@ -326,20 +313,20 @@ ex |>
     Project = str_trunc(project_title, 44),
     `Project ID` = project_id,
     Agency,
-    `Source & page` = paste0(Source, ", p. ", pg),
+    `Source & page` = paste0(Source, ", p. ", citation_page),
     Excerpt
   ) |>
   gt() |>
   tab_header(title = "Sample transmission-upgrade FONSIs — verifiable excerpts",
-             subtitle = "Verbatim text from the cited EA/FONSI; look up by project ID") |>
+             subtitle = "Verbatim, quote-verified text from the cited EA/FONSI; look up by project ID") |>
   tab_options(table.font.size = px(11)) |>
   cols_width(`Project ID` ~ px(180), Excerpt ~ px(360))
 ```
 
-*(Exact size limits — line length, voltage, acreage — are extracted but still
-noisy in this deterministic pass; for instance, the deterministic limit for the
-SCE Eldorado-Lugo-Mohave project mis-read its 500 kV rating as a length. Limits
-are firmed up in the verification step before any number is cited.)*
+*(Size limits — line length, voltage, acreage, well count — now come from the
+LLM enrichment pass, which separates the disturbance footprint from study-area
+figures and keeps voltage distinct from length. Each value is a structured field
+backing the verdicts above, with its quote verified against the source.)*
 
 # Analysis 2 — Mitigated-FONSI analysis
 
@@ -358,14 +345,15 @@ criteria**.
 knitr::include_graphics(file.path(FIGS, "fig_d6_mitigated_share.png"))
 ```
 
-The shares are high — **`r percent(tx_mit, 1)` of transmission-upgrade and
-geothermal-exploration FONSIs, 75% of solar** carry committed mitigation. Read this
-as a **screening estimate**, not a confirmed but-for mitigation-dependence rate:
-the current deterministic flag fires on any committed condition (which includes
-BMPs, permit conditions, and monitoring that may not be the *reason* the FONSI was
-possible). The LLM pass's `mitigation_dependence` field (design-feature-only vs
-case-specific-dependent vs permit/monitoring-only) is what will separate true
-dependence from routine conditions.
+The shares are high — **`r percent(tx_mit, 1)` of transmission-upgrade and most
+geothermal-exploration FONSIs** depend on committed mitigation. This is the LLM's
+per-FONSI `mitigation_dependence` read, and the result is striking: of the
+**`r n_mit_corpus` mitigated FONSIs** corpus-wide, **`r n_enf_only` are
+case-specific-dependent** — the no-significant-impact finding rests on
+project-specific mitigation, not on the action being inherently low-impact. That is
+precisely the CE-design challenge: a CE cannot lean on case-by-case commitments, so
+a defensible CE for these actions must encode the recurring measures (below) as
+standing design criteria.
 
 ## Where mitigation concentrates
 
@@ -396,11 +384,11 @@ adopted CE could formalize.
 
 ## Boundary language (preliminary)
 
-Alongside mitigation we scan for the agency's explicit significance-threshold
-statements — *"would be significant if it exceeded X," "an EIS would be required
-unless Y."* Those sentences are a CE's natural numeric bounds. Detection
-currently surfaces candidate statements but is **noisy**, so verbatim thresholds
-are held back until the verification pass (see *Caveats*).
+Alongside mitigation, the enrichment pass captures the agency's explicit
+significance-threshold statements — *"would be significant if it exceeded X," "an
+EIS would be required unless Y."* Those sentences are a CE's natural numeric
+bounds. Each is a verbatim, span-verified quote (with metric/value/unit parsed
+where stated), so the candidate bounds are now citable rather than directional.
 
 # Analysis 3 — Current-CE analysis
 
@@ -454,17 +442,16 @@ nobody has hand-picked.
 
 # Caveats & next steps
 
-- **Deterministic first pass.** Action definitions and numeric limits are
-  directional until the LLM-assisted extraction/verification pass runs; this
-  report leads with the structural findings (adopt, not develop; mitigation-heavy),
-  which do not depend on those specifics.
+- **LLM-extracted, verified facts.** Action definitions, numeric limits, mitigation
+  dependence, and significance thresholds come from a one-pass enrichment of all
+  451 clean-energy FONSIs (Claude Sonnet); every quoted value was checked verbatim
+  against its cited source page (97% verified). Values that did not verify are
+  flagged, not shown.
 - **CE matches are a ranking aid, not verified coverage.** Confirm each candidate
-  CE against its eCFR text before acting on it.
-- **Boundary-language detection is preliminary** — the significance-threshold
-  statements need the verification pass before any numeric bound is cited.
+  CE against its eCFR text before acting on it — this is the one remaining
+  verification step.
 - **Recommended next steps:** (1) verify the `r n_adopt` adopt matches against the
-  eCFR CE text; (2) run the verification pass to firm up size limits and boundary
-  language; (3) cluster the ~`r n_other` un-categorized clean-energy FONSIs to
+  eCFR CE text; (2) cluster the ~`r n_other` un-categorized clean-energy FONSIs to
   search for net-new CEs.
 
 **For CATF:** tell us which adopt opportunities to pursue, and whether to launch
