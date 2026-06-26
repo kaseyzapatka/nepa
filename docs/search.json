@@ -1530,7 +1530,7 @@
     "href": "phase2/reports/deliverable06.html#numeric-bounds-in-existing-ces",
     "title": "Patterns in FONSIs: Deliverable 6",
     "section": "Numeric bounds in existing CEs",
-    "text": "Numeric bounds in existing CEs\nOnly 86 of 2,105 CEs state a numeric limit (acres, miles, kV, MW); the rest are qualitative. So an “expand the stated limit” argument has few existing precedents to lean on — part of why nothing resolved to expand in Analysis 1."
+    "text": "Numeric bounds in existing CEs\nOnly 86 of 2,105 CEs state a numeric limit; the rest are qualitative. Where they do, acres and miles dominate (voltage and capacity appear only a handful of times):\n\n\n\n\n\nFigure 14: Distribution of the stated numeric limits in existing CEs, for the two metrics that recur.\n\n\n\n\nSo an “expand the stated limit” argument has few precedents to lean on — part of why nothing resolved to expand in Analysis 1."
   },
   {
     "objectID": "phase2/reports/deliverable06.html#cross-agency-duplication",
@@ -1699,5 +1699,26 @@
     "title": "Patterns in FONSIs: Deliverable 6",
     "section": "Boundary language: where agencies drew the significance line",
     "text": "Boundary language: where agencies drew the significance line\nAlongside mitigation, the enrichment captures the agency’s explicit significance-threshold statements — “would be significant if it exceeded X,” “an EIS would be required unless Y.” Those sentences are a CE’s natural numeric bounds. Each is a verbatim, span-verified quote; real examples:\n\n\n\n\n\n\n  \n    \n    \n  \n  \n    \n      Where agencies drew the significance line\n    \n    \n      Verbatim threshold statements — candidate numeric/qualitative bounds for a CE\n    \n  \n  \n    \n      Project\n      Significance-threshold statement (verbatim)\n    \n  \n  \n    Gila to North Gila Transmission...\nVisual impacts would be significant if: Views to the Project area resulted in major visual contrast in sensitive or visually unique areas in proximity to high sensitivity viewers.\n    Proposed Development and Demons...\nThis EA was prepared to determine whether the Burns & McDonnell's Proposed Project could cause significant impacts, which would require the preparation of an Environmental Impact Statement (40 CFR ...\n    Southern California Edison Eldo...\nI conclude the approved action will not result in significant impacts to the environment under the criteria in Title 40 CFR Section 1508.18 and 1508.27.\n    Alvey-Fairview Transmission Lin...\nHigh impacts could be considered significant impacts, if not mitigated, while moderate and low impacts are not.\n    Advanced Technology Vehicles Ma...\nPublic schools are located greater than 0.5 mile from the proposed action at Severstal Dearborn and as discussed in this EA the impacts of the proposed action, except for the regional air quality i...\n  \n  \n  \n\n\n\n\nThese are candidate CE bounds straight from the agencies’ own findings — the thresholds a new or adopted CE would be written to stay within."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#the-ce-landscape-by-department-and-agency",
+    "href": "phase2/reports/deliverable06.html#the-ce-landscape-by-department-and-agency",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "The CE landscape, by department and agency",
+    "text": "The CE landscape, by department and agency\nMost CEs sit under a handful of departments. The rolled-up view is the most complete:\n\n\n\n\n\nFigure 12: Categorical exclusions by department (the agency unit code rolled up to its parent department).\n\n\n\n\nWithin those departments, the individual agencies (bars colored by department):\n\n\n\n\n\nFigure 13: Top 20 agencies by number of categorical exclusions, colored by department."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#how-related-are-the-ces",
+    "href": "phase2/reports/deliverable06.html#how-related-are-the-ces",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "How related are the CEs?",
+    "text": "How related are the CEs?\nThe CE body is highly clustered: many CEs are near-identical to others, often at a different department. In the map below, each point is one CE placed by the similarity of its text — tight groups are the same action excluded by several agencies.\n\n\n\n\n\nFigure 15: Every CE projected to 2-D by text similarity (PCA of embeddings), colored by department. Proximity = similarity."
+  },
+  {
+    "objectID": "phase2/reports/deliverable06.html#cross-agency-duplication-the-precedent-for-adopt",
+    "href": "phase2/reports/deliverable06.html#cross-agency-duplication-the-precedent-for-adopt",
+    "title": "Patterns in FONSIs: Deliverable 6",
+    "section": "Cross-agency duplication — the precedent for adopt",
+    "text": "Cross-agency duplication — the precedent for adopt\nThe point: the same low-impact action is frequently excluded by several agencies under near-identical language. 317 CEs have a near-twin at a different agency, forming 130 shared “action families.” Adopting a peer’s CE — the exact move Analysis 1 recommends — is not unusual; it is how the landscape already works.\nEach row below is one shared family (not a single example): the action, how many agencies use a near-identical CE for it, and a few of those agencies.\n\n\n\n\n\n\n  \n    \n      One action, many agencies: shared CE families\n    \n    \n      130 action families are already excluded by 2+ agencies — the precedent for adopt\n    \n  \n  \n    \n      Shared action\n      Agencies sharing it\n      e.g.\n    \n  \n  \n    3. Routine procurement of goods and services.\n8\nAFRH, DOD - DA, DOD - DAF, DOD - DLA, D...\n    (g) Normal personnel, fiscal, and administrative activities involvi...\n7\nAFRH, DOD - DA, DOD - DAF, DOD - DLA, D...\n    (USDA-34d-USFS) Post-fire rehabilitation activities, not to exceed ...\n6\nDOI - BIA, DOI - BLM, DOI - BOR, DOI - ...\n    34. Demolition, disposal, or improvements involving buildings or st...\n5\nAFRH, DOD - DON, DOD - DTRA, DOD - MDA,...\n    (NR4) Preparation of policies, procedures, manuals, and other guida...\n5\nDOC - NIST, DOC - NOAA, DOC - NTIA, DOI...\n    *E2 New construction upon or improvement of land where all of the f...\n5\nDHS, DOD - MDA, DOJ - FBI, NEH, TREAS\n  \n  \n  \n\n\n\n\nThe largest shared families are mundane (procurement, personnel, routine maintenance) — which is the point: when an action is genuinely low-impact, agencies converge on a shared CE. The decarbonization actions in Analysis 1 are simply ones where that convergence hasn’t happened yet."
   }
 ]

@@ -245,18 +245,76 @@ p_gap <- ggplot(adopt, aes(reorder(lab, n_profile_fonsi), n_profile_fonsi)) +
   theme_catf()
 save_fig(p_gap, "fig_d6_adoption_gap.png", w = 9, h = 3.8)
 
-# === Fig (Analysis 3): the existing CE landscape by agency ===
-agc <- ce_land %>% count(agency_name, sort = TRUE) %>% filter(!is.na(agency_name), agency_name != "") %>% head(12)
-p_agc <- ggplot(agc, aes(reorder(agency_name, n), n)) +
-  geom_col(width = 0.7, fill = catf_dark_blue) +
+# === Analysis 3: roll up to DEPARTMENT (the agency_unit prefix, e.g. "DOI - BLM" -> DOI) ===
+ce_land <- ce_land %>% mutate(dept = str_trim(str_extract(agency_unit, "^[^-]+")),
+                              dept = ifelse(is.na(dept) | dept == "", "Other", dept))
+dept_pal <- c(DOI = "#012169", DOD = "#0047BB", USDA = "#00AE8D", DOT = "#93D500", DHS = "#C22A90",
+              DOE = "#8AB7E9", DOC = "#E8A33D", HHS = "#6A4C93", Other = "#9AA0AA")
+grp <- function(d) ifelse(d %in% names(dept_pal), d, "Other")
+n_dept <- n_distinct(ce_land$dept)
+
+# Fig: CEs by department (rolled up — the most complete view; placed first)
+deptc <- ce_land %>% count(dept, sort = TRUE) %>% slice_head(n = 14) %>% mutate(g = grp(dept))
+p_dept <- ggplot(deptc, aes(reorder(dept, n), n, fill = g)) +
+  geom_col(width = 0.72) +
   geom_text(aes(label = n), hjust = -0.2, size = 3.4, fontface = "bold", color = catf_navy) +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
-  labs(title = glue::glue("The existing CE landscape: {comma(nrow(ce_land))} CEs across {n_distinct(ce_land$agency_unit)} agency units"),
-       subtitle = "Top 12 agencies by number of categorical exclusions on the books",
-       x = NULL, y = "Categorical exclusions",
-       caption = "Source: CE Explorer export. The breadth is the precedent for adopt — agencies routinely share CE families.") +
+  scale_fill_manual(values = dept_pal, guide = "none") +
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  labs(title = "The existing CE landscape, by department",
+       subtitle = str_wrap(glue::glue("{comma(nrow(ce_land))} categorical exclusions rolled up across {n_dept} departments / independent agencies"), 90),
+       x = NULL, y = "Categorical exclusions") +
   theme_catf()
-save_fig(p_agc, "fig_d6_ce_by_agency.png", w = 9, h = 4.4)
+save_fig(p_dept, "fig_d6_ce_by_dept.png", w = 9, h = 4.4)
+
+# Fig: top 20 agencies, colored by department
+agc <- ce_land %>% filter(!is.na(agency_name), agency_name != "") %>%
+  count(agency_name, dept, sort = TRUE) %>% slice_head(n = 20) %>% mutate(g = grp(dept))
+p_agc <- ggplot(agc, aes(reorder(agency_name, n), n, fill = g)) +
+  geom_col(width = 0.74) +
+  geom_text(aes(label = n), hjust = -0.25, size = 2.9, color = catf_navy) +
+  scale_fill_manual(values = dept_pal, name = "Department") +
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  labs(title = "Top 20 agencies by number of categorical exclusions",
+       subtitle = "Bars colored by department (rolled up from the agency unit code)",
+       x = NULL, y = "Categorical exclusions",
+       caption = "Source: CE Explorer export.") +
+  theme_catf() + theme(legend.position = "right")
+save_fig(p_agc, "fig_d6_ce_by_agency.png", w = 9.5, h = 5.5)
+
+# Fig: distribution of stated numeric bounds in existing CEs (acres + miles; kV/MW too rare)
+n_any_bound <- sum(ce_land$states_any_bound, na.rm = TRUE)
+bnd <- ce_land %>% transmute(`Acreage limit (acres)` = bound_acres, `Length limit (miles)` = bound_miles) %>%
+  pivot_longer(everything(), names_to = "metric", values_to = "value") %>% filter(!is.na(value)) %>%
+  group_by(metric) %>% mutate(metric_n = paste0(metric, "\n(n = ", n(), ")")) %>% ungroup()
+set.seed(6)
+p_bnd <- ggplot(bnd, aes(x = "", value)) +
+  geom_boxplot(width = 0.16, fill = catf_light_blue, color = catf_navy, alpha = 0.25, outlier.shape = NA) +
+  geom_jitter(width = 0.32, height = 0, size = 2.2, color = catf_navy, alpha = 0.6) +
+  facet_wrap(~metric_n, scales = "free_y") + scale_x_discrete(expand = expansion(add = 0.6)) +
+  labs(title = "Numeric bounds in existing CEs, where stated",
+       subtitle = str_wrap(glue::glue("Only {n_any_bound} of {comma(nrow(ce_land))} CEs state any numeric limit — acres and miles dominate (kV/MW appear only a handful of times)"), 92),
+       x = NULL, y = NULL,
+       caption = "Each dot is one CE's stated limit; box = median & middle 50%, whiskers = range.") +
+  theme_catf() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+                       strip.text = element_text(color = catf_navy, face = "bold"), panel.spacing = unit(1.8, "lines"))
+save_fig(p_bnd, "fig_d6_ce_bounds.png", w = 8, h = 3.6)
+
+# Fig: relatedness map — every CE projected to 2D (PCA of text embeddings), colored by department
+if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
+  sc <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(g = grp(dept))
+  p_scatter <- ggplot(sc, aes(coord_x, coord_y, color = g)) +
+    geom_point(size = 1.5, alpha = 0.55) +
+    scale_color_manual(values = dept_pal, name = "Department") +
+    labs(title = "How related are the existing CEs?",
+         subtitle = str_wrap(paste("Each point is one CE, placed by the similarity of its text (2D PCA of embeddings);",
+                  "tight groups are near-identical CEs, often shared across agencies"), 92),
+         x = NULL, y = NULL,
+         caption = "Proximity = textual similarity. Cross-department overlap is the precedent for adopt.") +
+    theme_catf() +
+    theme(legend.position = "right", axis.text = element_blank(), panel.grid = element_blank()) +
+    guides(color = guide_legend(override.aes = list(size = 3)))
+  save_fig(p_scatter, "fig_d6_ce_scatter.png", w = 9, h = 5.5)
+}
 
 # === Analysis 2: corpus-wide mitigation (read the enrichment — NOT limited to candidates) ===
 enr <- read_parquet(file.path(ANALYSIS, "fonsi_enrichment.parquet")) %>%

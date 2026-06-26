@@ -595,48 +595,87 @@ thresholds a new or adopted CE would be written to stay within.
 
 To know whether an action is "develop," "expand," or "adopt," we first mapped the
 **entire existing federal CE body**: `r comma(n_ce)` categorical exclusions across
-`r n_units` agency units, embedded and compared to one another.
+`r n_units` agency units, **rolled up by department**.
+
+## The CE landscape, by department and agency
+
+Most CEs sit under a handful of departments. The rolled-up view is the most complete:
+
+```{r}
+#| label: fig-d6-ce-by-dept
+#| fig-cap: "Categorical exclusions by department (the agency unit code rolled up to its parent department)."
+#| out-width: 90%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_by_dept.png"))
+```
+
+Within those departments, the individual agencies (bars colored by department):
 
 ```{r}
 #| label: fig-d6-ce-by-agency
-#| fig-cap: "The existing CE landscape — categorical exclusions by agency (top 12 of 78 units)."
+#| fig-cap: "Top 20 agencies by number of categorical exclusions, colored by department."
 #| out-width: 90%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_by_agency.png"))
 ```
 
 ## Numeric bounds in existing CEs
 
-Only **`r n_bounds` of `r comma(n_ce)` CEs state a numeric limit** (acres, miles,
-kV, MW); the rest are qualitative. So an "expand the stated limit" argument has
-few existing precedents to lean on — part of why nothing resolved to *expand* in
-Analysis 1.
+Only **`r n_bounds` of `r comma(n_ce)` CEs state a numeric limit**; the rest are
+qualitative. Where they do, **acres and miles dominate** (voltage and capacity
+appear only a handful of times):
 
-## Cross-agency duplication
+```{r}
+#| label: fig-d6-ce-bounds
+#| fig-cap: "Distribution of the stated numeric limits in existing CEs, for the two metrics that recur."
+#| out-width: 80%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_bounds.png"))
+```
 
-**`r n_xdup` CEs are near-identical to a CE at a *different* agency**, forming
-**`r n_xclust` action-families shared across two or more agencies.** Adopting a
-peer agency's CE is not unusual — it is how the existing landscape already works.
+So an "expand the stated limit" argument has few precedents to lean on — part of why
+nothing resolved to *expand* in Analysis 1.
+
+## How related are the CEs?
+
+The CE body is **highly clustered**: many CEs are near-identical to others, often at a
+*different* department. In the map below, each point is one CE placed by the similarity
+of its text — tight groups are the same action excluded by several agencies.
+
+```{r}
+#| label: fig-d6-ce-scatter
+#| fig-cap: "Every CE projected to 2-D by text similarity (PCA of embeddings), colored by department. Proximity = similarity."
+#| out-width: 92%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_scatter.png"))
+```
+
+## Cross-agency duplication — the precedent for *adopt*
+
+**The point:** the same low-impact action is frequently excluded by *several* agencies
+under near-identical language. **`r n_xdup` CEs have a near-twin at a different
+agency**, forming **`r n_xclust` shared "action families."** Adopting a peer's CE — the
+exact move Analysis 1 recommends — is not unusual; it is how the landscape already works.
+
+Each row below is **one shared family** (not a single example): the action, how many
+agencies use a near-identical CE for it, and a few of those agencies.
 
 ```{r cluster-table}
 clusters |>
   filter(n_agencies >= 2) |>
   arrange(desc(n_agencies), desc(n_ces)) |>
-  slice_head(n = 8) |>
+  slice_head(n = 6) |>
   transmute(
-    `Shared action (representative CE text)` = str_trunc(representative_desc, 76),
-    `# agencies` = n_agencies,
-    Agencies = str_trunc(agencies, 56)
+    `Shared action` = str_trunc(str_squish(representative_desc), 70),
+    `Agencies sharing it` = n_agencies,
+    `e.g.` = str_trunc(agencies, 42)
   ) |>
   gt() |>
-  tab_header(title = "Action categories already excluded by multiple agencies",
-             subtitle = glue("{n_xclust} cross-agency CE families in the existing catalog")) |>
+  tab_header(title = "One action, many agencies: shared CE families",
+             subtitle = glue("{n_xclust} action families are already excluded by 2+ agencies — the precedent for adopt")) |>
   tab_options(table.font.size = px(12))
 ```
 
-The largest shared families are administrative (procurement, personnel, routine
-maintenance) — which is the point: when an action is genuinely low-impact,
-agencies converge on the same CE. The decarbonization actions in Section 1 are
-simply ones where that convergence **hasn't happened yet**.
+The largest shared families are mundane (procurement, personnel, routine maintenance) —
+which *is* the point: when an action is genuinely low-impact, agencies **converge on a
+shared CE**. The decarbonization actions in Analysis 1 are simply ones where that
+convergence hasn't happened yet.
 
 ## Where net-new CEs would come from
 

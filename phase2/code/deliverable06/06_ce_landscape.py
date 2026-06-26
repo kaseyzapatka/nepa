@@ -93,10 +93,16 @@ def main() -> None:
         ce["nearest_xagency_unit"] = nearest_x_unit
         ce["xagency_near_duplicate"] = [(c is not None and c >= NEAR_DUP_THRESHOLD) for c in nearest_x_cos]
         ce["cluster_root"] = _components(sims, NEAR_DUP_THRESHOLD)
+        # 2D projection (PCA via SVD, dependency-free) for the relatedness scatter
+        embc = emb - emb.mean(axis=0)
+        _, S, Vt = np.linalg.svd(embc, full_matrices=False)
+        coords = embc @ Vt[:2].T
+        ce["coord_x"] = coords[:, 0]; ce["coord_y"] = coords[:, 1]
     else:
         ce["nearest_xagency_ce"] = ""; ce["nearest_xagency_cosine"] = None
         ce["nearest_xagency_unit"] = ""; ce["xagency_near_duplicate"] = False
         ce["cluster_root"] = list(range(n))
+        ce["coord_x"] = np.nan; ce["coord_y"] = np.nan
 
     # --- usage (best-effort; D3 ce_citations code format differs from ce.json) ---
     usage_top = ""
