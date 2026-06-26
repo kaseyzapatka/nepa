@@ -94,17 +94,6 @@ This report delivers:
 > Technical support for new regulatory categorical exclusion development:
 > identifying patterns in FONSIs.
 
-Under CEQ's April 2026 CE guidance, a prior Environmental Assessment that ended in
-a **Finding of No Significant Impact (FONSI)** is explicit, citable substantiation
-for a CE — so recurring decarbonization FONSIs are the natural evidence base for new,
-expanded, or adopted categorical exclusions.
-
-> **Method note.** Action definitions, numeric limits (acreage, line length,
-> voltage, well count), and the mitigation read now come from a one-pass LLM
-> enrichment of all 451 decarbonization FONSIs (Claude Sonnet), with every quoted
-> value verified verbatim against its cited source page (97% verified). The
-> CE-coverage match remains a ranking aid pending eCFR confirmation.
-
 ------------------------------------------------------------------------
 
 # Methodology
@@ -249,7 +238,9 @@ The score is a **ranking aid, not the verdict** — it surfaces the closest CE, 
 actual develop-vs-adopt call is made by **confirming that CE against its eCFR text**.
 No candidate is anywhere near the unrelated-CE baseline, so none resolves to *develop*.
 
-```{r ce-match-table}
+```{r}
+#| label: tbl-d6-ce-match
+#| tbl-cap: "Closest existing categorical exclusion to each candidate action type, by text similarity (a ranking aid)."
 verdicts |>
   filter(verdict != "contrast") |>
   arrange(desc(best_ce_match_score)) |>
@@ -259,8 +250,6 @@ verdicts |>
     Similarity = sprintf("%.2f", best_ce_match_score)
   ) |>
   gt() |>
-  tab_header(title = "How each candidate matched the existing CE catalog",
-             subtitle = "Closest existing CE by text similarity (a ranking aid, not verified coverage)") |>
   tab_options(table.font.size = px(12))
 ```
 
@@ -350,7 +339,9 @@ priority** (the Step 6 rank), which puts transmission first given its scale and 
    **Department of Energy** (`DOE-1--3-43`), for surveys, stream gauges, and borings
    (thin evidence — only `r verdicts$n_profile_fonsi[verdicts$candidate_category=="temporary_resource_assessment"]` FONSIs).
 
-```{r adopt-table}
+```{r}
+#| label: tbl-d6-adopt
+#| tbl-cap: "The adopt opportunities: bounded actions already excluded at one agency but run as full EAs at others."
 url_for <- function(id) {
   u <- ce_land$canonical_source_url[match(id, ce_land$structured_id)]
   ifelse(is.na(u) | u == "", id, glue("[{id}]({u})"))
@@ -368,8 +359,6 @@ verdicts |>
   ) |>
   gt() |>
   fmt_markdown(columns = `Existing CE (held by)`) |>
-  tab_header(title = "Adopt-an-existing-CE opportunities",
-             subtitle = "Decarbonization actions already excluded at one agency, run as full EAs at others") |>
   tab_source_note(md(paste0(
     "**Thin-evidence flag:** rows with fewer than ~5 low-impact FONSIs rest on very few cases — ",
     "*temporary resource assessment (n = 2)* in particular — and should be treated as illustrative, not robust."))) |>
@@ -441,7 +430,10 @@ structures, upgrading within the existing right-of-way). Each row names the sour
 document (EA or FONSI) and page, and the **project title links to the full record** in
 the document explorer.
 
-```{r transmission-example}
+```{r}
+#| label: tbl-d6-transmission-example
+#| tbl-cap: "Sample bounded transmission-upgrade FONSIs with verbatim, source-verified excerpts (titles link to the document explorer)."
+#| column: page
 # Verified action quotes from the LLM enrichment (candidate_facts.quoted_span): each was
 # checked verbatim against the cited EA/FONSI page. Titles deep-link to the explorer (?pid=).
 EXPLORER <- "https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer"
@@ -487,10 +479,8 @@ ex |>
   gt() |>
   fmt_markdown(columns = c(`Project title`, Excerpt)) |>
   cols_align(align = "left", columns = everything()) |>
-  tab_header(title = "Sample transmission-upgrade FONSIs — verifiable excerpts",
-             subtitle = "Verbatim, quote-verified text from the cited EA/FONSI; click a title to open the record in the document explorer") |>
-  tab_options(table.font.size = px(11)) |>
-  cols_width(Agency ~ px(140), `Project title` ~ px(200), Source ~ px(64), Excerpt ~ px(440))
+  tab_options(table.font.size = px(11), table.width = pct(100)) |>
+  cols_width(Agency ~ pct(14), `Project title` ~ pct(20), Source ~ pct(8), Excerpt ~ pct(58))
 ```
 
 *(Size limits — line length, voltage, acreage, well count — now come from the
@@ -564,21 +554,24 @@ the action being inherently low-impact.
 So you can verify the read, here are verbatim mitigation summaries the model extracted
 (each tagged case-specific-dependent):
 
-```{r mitigation-examples}
+```{r}
+#| label: tbl-d6-mitigation-examples
+#| tbl-cap: "Sample committed-mitigation summaries, verbatim from the cited record (titles link to the document explorer)."
+EXPLORER <- "https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer"
 enr |>
   filter(is_mit, !is.na(mitigation_summary), nchar(mitigation_summary) > 80) |>
-  arrange(desc(nchar(mitigation_summary))) |>
+  arrange(desc(nchar(mitigation_summary)), project_id) |>
   distinct(project_title, .keep_all = TRUE) |>
   slice_head(n = 5) |>
   transmute(
-    Project = str_trunc(str_squish(project_title), 38),
+    `Project Title` = glue("[{str_squish(project_title)}]({EXPLORER}?pid={project_id})"),
     `Committed mitigation (verbatim summary)` = str_trunc(str_squish(mitigation_summary), 240)
   ) |>
   gt() |>
-  tab_header(title = "Sample committed-mitigation summaries",
-             subtitle = "Verbatim from the cited FONSI/EA — the basis for the case-specific-dependent flag") |>
+  fmt_markdown(columns = `Project Title`) |>
+  cols_align(align = "left", columns = everything()) |>
   tab_options(table.font.size = px(11)) |>
-  cols_width(Project ~ px(170))
+  cols_width(`Project Title` ~ px(230))
 ```
 
 ## The mitigation language is project-specific
@@ -600,7 +593,9 @@ project's measures.** What *does* recur is the **resource area** the mitigation
 protects — consistently **biological, soils, water, and cultural** — and those are
 what a defensible CE would distill into standing design criteria.
 
-```{r mitigation-table}
+```{r}
+#| label: tbl-d6-mitigation-pattern
+#| tbl-cap: "Mitigated-FONSI rate and recurring resource areas by candidate action type."
 mit |>
   left_join(verdicts |> select(candidate_category, candidate_label, verdict), by = "candidate_category") |>
   filter(verdict != "contrast") |>
@@ -613,8 +608,6 @@ mit |>
     `Recurring resource areas` = str_trunc(top_mitigation_resource_areas, 64)
   ) |>
   gt() |>
-  tab_header(title = "Mitigated-FONSI pattern, by candidate action type",
-             subtitle = "The recurring resource areas are the codifiable part — what a CE would encode as design criteria") |>
   tab_options(table.font.size = px(12))
 ```
 
@@ -625,7 +618,9 @@ Alongside mitigation, the enrichment captures the agency's explicit
 EIS would be required unless Y."* Those sentences are a CE's natural numeric bounds.
 Each is a verbatim, span-verified quote; real examples:
 
-```{r boundary-examples}
+```{r}
+#| label: tbl-d6-boundary-examples
+#| tbl-cap: "Verbatim significance-threshold statements — candidate numeric/qualitative bounds for a CE (titles link to the document explorer)."
 first_threshold <- function(j) {
   x <- tryCatch(fromJSON(j, simplifyVector = FALSE), error = function(e) list())
   for (t in x) {
@@ -636,21 +631,23 @@ first_threshold <- function(j) {
   }
   ""
 }
+EXPLORER <- "https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer"
 enr |>
   filter(!is.na(significance_thresholds), significance_thresholds != "[]") |>
   mutate(stmt = vapply(significance_thresholds, first_threshold, character(1))) |>
   filter(nchar(stmt) > 45) |>
+  arrange(project_id) |>
   distinct(project_title, .keep_all = TRUE) |>
   slice_head(n = 5) |>
   transmute(
-    Project = str_trunc(str_squish(project_title), 34),
+    `Project Title` = glue("[{str_squish(project_title)}]({EXPLORER}?pid={project_id})"),
     `Significance-threshold statement (verbatim)` = str_trunc(str_squish(stmt), 200)
   ) |>
   gt() |>
-  tab_header(title = "Where agencies drew the significance line",
-             subtitle = "Verbatim threshold statements — candidate numeric/qualitative bounds for a CE") |>
+  fmt_markdown(columns = `Project Title`) |>
+  cols_align(align = "left", columns = everything()) |>
   tab_options(table.font.size = px(11)) |>
-  cols_width(Project ~ px(150))
+  cols_width(`Project Title` ~ px(200))
 ```
 
 These are candidate CE bounds straight from the agencies' own findings — the
@@ -722,7 +719,9 @@ why nothing resolved to *expand* in Analysis 1.
 Most CEs bound scope with **words, not numbers** — consistent in spirit but disjointed
 in form, each agency phrasing it differently:
 
-```{r nonnumeric-limits}
+```{r}
+#| label: tbl-d6-nonnumeric
+#| tbl-cap: "How existing CEs bound scope without numbers."
 qual <- tibble::tribble(
   ~Type, ~pat,
   "Routine / minor",           "(?i)\\broutine\\b|\\bminor\\b",
@@ -739,8 +738,6 @@ qual |>
   filter(Example != "") |>
   transmute(`Limiter type` = Type, `Example CE language (verbatim)` = Example) |>
   gt() |>
-  tab_header(title = "Non-numeric limits in the CE catalog",
-             subtitle = "How most CEs bound scope — qualitatively, and inconsistently phrased") |>
   tab_options(table.font.size = px(11)) |>
   cols_width(`Limiter type` ~ px(150))
 ```
@@ -770,7 +767,9 @@ exact move Analysis 1 recommends — is not unusual; it is how the landscape alr
 Each row below is **one shared family** (not a single example): the action, how many
 agencies use a near-identical CE for it, and a few of those agencies.
 
-```{r cluster-table}
+```{r}
+#| label: tbl-d6-cluster
+#| tbl-cap: "Action families already categorically excluded by two or more agencies."
 clusters |>
   filter(n_agencies >= 2) |>
   arrange(desc(n_agencies), desc(n_ces)) |>
@@ -781,8 +780,6 @@ clusters |>
     `e.g.` = str_trunc(agencies, 42)
   ) |>
   gt() |>
-  tab_header(title = "One action, many agencies: shared CE families",
-             subtitle = glue("{n_xclust} action families are already excluded by 2+ agencies — the precedent for adopt")) |>
   tab_options(table.font.size = px(12))
 ```
 

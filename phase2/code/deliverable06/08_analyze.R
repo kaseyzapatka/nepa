@@ -469,13 +469,16 @@ words <- enr %>% filter(is_mit, !is.na(mitigation_summary)) %>% pull(mitigation_
 wf <- tibble(word = words) %>% filter(!word %in% stop_w) %>% count(word, sort = TRUE) %>% slice_head(n = 130)
 set.seed(6)
 p_wc <- ggplot(wf, aes(label = word, size = n, color = n)) +
-  geom_text_wordcloud_area(rm_outside = TRUE, eccentricity = 1) +
-  scale_size_area(max_size = 13) +
+  geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE) +   # square fill, less whitespace (Phase 1 pattern)
+  scale_size_area(max_size = 30) +
   scale_color_gradient(low = catf_light_blue, high = catf_navy) +
   labs(title = "The committed-mitigation language is project-specific",
-       subtitle = glue::glue("Most-frequent words across the {n_mit} mitigated FONSIs' mitigation summaries — no term dominates, ",
-                             "consistent with case-specific (not standardized) measures")) +
-  theme_catf() + theme(panel.grid = element_blank())
-save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 9, h = 5.5)
+       subtitle = str_wrap(glue::glue("Most-frequent words across the {n_mit} mitigated FONSIs' mitigation summaries — ",
+                             "no term dominates, consistent with case-specific (not standardized) measures"), 95)) +
+  theme_void(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", color = catf_navy),
+        plot.subtitle = element_text(color = catf_dark_blue, margin = margin(b = 2)),
+        plot.margin = margin(2, 2, 2, 2), legend.position = "none")
+save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 9, h = 4.4)
 
 message("[08] figures written to ", FIGS)
