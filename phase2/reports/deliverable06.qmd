@@ -51,6 +51,7 @@ n_new   <- sum(verdicts$verdict == "new")
 n_adopt <- sum(verdicts$verdict == "adopt")
 n_ce    <- nrow(ce_land)
 n_units <- n_distinct(ce_land$agency_unit)
+n_units_dept <- n_distinct(str_trim(str_extract(ce_land$agency_unit, "^[^-]+")))
 n_xdup  <- sum(ce_land$xagency_near_duplicate, na.rm = TRUE)
 n_xclust <- sum(clusters$n_agencies >= 2)
 n_bounds <- sum(ce_land$states_any_bound, na.rm = TRUE)
@@ -603,12 +604,22 @@ Most CEs sit under a handful of departments. The rolled-up view is the most comp
 
 ```{r}
 #| label: fig-d6-ce-by-dept
-#| fig-cap: "Categorical exclusions by department (the agency unit code rolled up to its parent department)."
+#| fig-cap: "Categorical exclusions by department (the agency unit code rolled up to its parent department); the four departments that together hold half the catalog are highlighted."
 #| out-width: 90%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_by_dept.png"))
 ```
 
-Within those departments, the individual agencies (bars colored by department):
+The concentration is stark — **four of the `r n_units_dept` departments hold half of all
+`r comma(n_ce)` CEs**:
+
+```{r}
+#| label: fig-d6-ce-waffle
+#| fig-cap: "Each square ≈ 21 CEs; the four largest departments fill half the grid."
+#| out-width: 78%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_waffle.png"))
+```
+
+Within those departments, the individual agencies (the four big departments in teal):
 
 ```{r}
 #| label: fig-d6-ce-by-agency
@@ -617,31 +628,71 @@ Within those departments, the individual agencies (bars colored by department):
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_by_agency.png"))
 ```
 
-## Numeric bounds in existing CEs
+## Numeric bounds are rare — and scattered
 
-Only **`r n_bounds` of `r comma(n_ce)` CEs state a numeric limit**; the rest are
-qualitative. Where they do, **acres and miles dominate** (voltage and capacity
-appear only a handful of times):
+The single biggest fact about the existing catalog: **only `r n_bounds` of
+`r comma(n_ce)` CEs state an explicit numeric limit.** The other
+~`r comma(n_ce - n_bounds)` bound the action *qualitatively*.
+
+```{r}
+#| label: fig-d6-ce-numlimit
+#| fig-cap: "Of all 2,105 CEs, only 86 carry an explicit numeric limit; the rest are bounded with words."
+#| out-width: 96%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_numlimit.png"))
+```
+
+And the few that *do* carry a number are themselves scattered — acres and miles
+dominate, with no common threshold:
 
 ```{r}
 #| label: fig-d6-ce-bounds
-#| fig-cap: "Distribution of the stated numeric limits in existing CEs, for the two metrics that recur."
+#| fig-cap: "The stated acre/mile limits among the 86 CEs that have one — no common value."
 #| out-width: 80%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_bounds.png"))
 ```
 
-So an "expand the stated limit" argument has few precedents to lean on — part of why
-nothing resolved to *expand* in Analysis 1.
+So an "expand the stated limit" argument has almost no precedent to lean on — part of
+why nothing resolved to *expand* in Analysis 1.
+
+### What the non-numeric limits look like
+
+Most CEs bound scope with **words, not numbers** — consistent in spirit but disjointed
+in form, each agency phrasing it differently:
+
+```{r nonnumeric-limits}
+qual <- tibble::tribble(
+  ~Type, ~pat,
+  "Routine / minor",           "(?i)\\broutine\\b|\\bminor\\b",
+  "Small-scale / limited",     "(?i)small[- ]scale|limited (to|in)|small (number|quantit)",
+  "Temporary / short-term",    "(?i)temporary|short[- ]term",
+  "Within existing footprint", "(?i)existing (right|footprint|facilit|structure|disturb|road)")
+pick <- function(p) {
+  d <- ce_land$ce_description[!is.na(ce_land$ce_description) & str_detect(ce_land$ce_description, p)]
+  d <- d[nchar(d) >= 45 & nchar(d) <= 220]
+  if (length(d)) str_trunc(str_squish(d[1]), 150) else ""
+}
+qual |>
+  mutate(Example = vapply(pat, pick, character(1))) |>
+  filter(Example != "") |>
+  transmute(`Limiter type` = Type, `Example CE language (verbatim)` = Example) |>
+  gt() |>
+  tab_header(title = "Non-numeric limits in the CE catalog",
+             subtitle = "How most CEs bound scope — qualitatively, and inconsistently phrased") |>
+  tab_options(table.font.size = px(11)) |>
+  cols_width(`Limiter type` ~ px(150))
+```
 
 ## How related are the CEs?
 
-The CE body is **highly clustered**: many CEs are near-identical to others, often at a
-*different* department. In the map below, each point is one CE placed by the similarity
-of its text — tight groups are the same action excluded by several agencies.
+The CE body is **highly clustered**. Below, each point is one CE laid out by text
+similarity (t-SNE of the embeddings), grouped into **k-means families** (hulls,
+labeled by their top terms). Distinct families emerge — equipment replacement,
+property acquisition, personnel/administrative, roads — and many recur across
+*different* departments, which is the precedent for adopt.
 
 ```{r}
 #| label: fig-d6-ce-scatter
-#| fig-cap: "Every CE projected to 2-D by text similarity (PCA of embeddings), colored by department. Proximity = similarity."
+#| fig-cap: "Every CE laid out by text similarity (t-SNE); hulls are k-means families labeled by their top terms. Closer = more similar."
 #| out-width: 92%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_scatter.png"))
 ```

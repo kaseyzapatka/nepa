@@ -253,72 +253,122 @@ save_fig(p_gap, "fig_d6_adoption_gap.png", w = 9, h = 3.8)
 # === Analysis 3: roll up to DEPARTMENT (the agency_unit prefix, e.g. "DOI - BLM" -> DOI) ===
 ce_land <- ce_land %>% mutate(dept = str_trim(str_extract(agency_unit, "^[^-]+")),
                               dept = ifelse(is.na(dept) | dept == "", "Other", dept))
-dept_pal <- c(DOI = "#012169", DOD = "#0047BB", USDA = "#00AE8D", DOT = "#93D500", DHS = "#C22A90",
-              DOE = "#8AB7E9", DOC = "#E8A33D", HHS = "#6A4C93", Other = "#9AA0AA")
-grp <- function(d) ifelse(d %in% names(dept_pal), d, "Other")
-n_dept <- n_distinct(ce_land$dept)
+n_dept    <- n_distinct(ce_land$dept)
+ce_dept   <- ce_land %>% count(dept, name = "ce") %>% arrange(desc(ce)) %>% mutate(rank = row_number())
+total_all <- sum(ce_dept$ce)
+k50       <- which(cumsum(ce_dept$ce) / total_all >= 0.50)[1]
+top4      <- ce_dept$dept[1:4]
+TEAL4     <- c("#0F6E56", "#1D9E75", "#5DCAA5", "#9FE1CB"); GREY <- "#B4B2A9"
 
-# Fig: CEs by department (rolled up — the most complete view; placed first)
-deptc <- ce_land %>% count(dept, sort = TRUE) %>% slice_head(n = 14) %>% mutate(g = grp(dept))
-p_dept <- ggplot(deptc, aes(reorder(dept, n), n, fill = g)) +
-  geom_col(width = 0.72) +
-  geom_text(aes(label = n), hjust = -0.2, size = 3.4, fontface = "bold", color = catf_navy) +
-  scale_fill_manual(values = dept_pal, guide = "none") +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+# --- Figure 12: lollipop, departments reaching the top 50% highlighted ---
+lab_top <- paste0("Top ", k50, " (50% of CEs)"); lab_rest <- paste0("Other ", n_dept - k50)
+lol <- ce_dept %>% mutate(grp = ifelse(rank <= k50, lab_top, lab_rest))
+p_dept <- ggplot(lol, aes(ce, reorder(dept, ce), color = grp)) +
+  geom_segment(aes(x = 0, xend = ce, yend = dept), linewidth = 0.9) +
+  geom_point(size = 3) +
+  geom_text(aes(label = ce), hjust = -0.5, size = 3, fontface = "bold", show.legend = FALSE) +
+  scale_color_manual(values = setNames(c("#1D9E75", GREY), c(lab_top, lab_rest)), name = NULL) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.12))) +
   labs(title = "The existing CE landscape, by department",
-       subtitle = str_wrap(glue::glue("{comma(nrow(ce_land))} categorical exclusions rolled up across {n_dept} departments / independent agencies"), 90),
-       x = NULL, y = "Categorical exclusions") +
-  theme_catf()
-save_fig(p_dept, "fig_d6_ce_by_dept.png", w = 9, h = 4.4)
+       subtitle = glue::glue("Just {k50} of {n_dept} departments account for half of all {comma(total_all)} CEs"),
+       x = "Categorical exclusions", y = NULL) +
+  theme_minimal(base_size = 12) +
+  theme(legend.position = "top", panel.grid.major.y = element_blank(), panel.grid.minor = element_blank(),
+        axis.title = element_text(face = "bold"), plot.title = element_text(face = "bold", color = catf_navy),
+        plot.background = element_rect(fill = "white", color = NA))
+save_fig(p_dept, "fig_d6_ce_by_dept.png", w = 9, h = 5.5)
 
-# Fig: top 20 agencies, colored by department
+# --- Waffle: 10x10 (manual ggplot; each square ~= total/100 CEs) ---
+sq <- round(ce_dept$ce[1:4] / total_all * 100); sq <- c(sq, 100 - sum(sq))
+wv_names <- c(top4, paste0(n_dept - 4, " others"))
+cnt <- c(ce_dept$ce[1:4], total_all - sum(ce_dept$ce[1:4]))
+waf <- tibble(cat = factor(rep(wv_names, sq), levels = wv_names)) %>%
+  mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
+pal_w  <- setNames(c(TEAL4, GREY), wv_names)
+labs_w <- setNames(paste0(wv_names, " — ", comma(cnt), " (", sq, "%)"), wv_names)
+p_waffle <- ggplot(waf, aes(x, y, fill = cat)) +
+  geom_tile(color = "white", linewidth = 1.6) +
+  scale_fill_manual(values = pal_w, labels = labs_w, name = NULL) +
+  coord_equal() + scale_y_reverse() +
+  labs(title = "Four departments hold half the CE landscape",
+       subtitle = glue::glue("Each square ≈ {round(total_all / 100)} of {comma(total_all)} categorical exclusions")) +
+  theme_void(base_size = 12) +
+  theme(legend.position = "right", plot.title = element_text(face = "bold", color = catf_navy),
+        plot.subtitle = element_text(color = catf_dark_blue),
+        plot.background = element_rect(fill = "white", color = NA))
+save_fig(p_waffle, "fig_d6_ce_waffle.png", w = 8.5, h = 5)
+
+# --- Figure 13: top 20 agencies, colored by the top-4 dept ramp (+ grey) ---
 agc <- ce_land %>% filter(!is.na(agency_name), agency_name != "") %>%
-  count(agency_name, dept, sort = TRUE) %>% slice_head(n = 20) %>% mutate(g = grp(dept))
-p_agc <- ggplot(agc, aes(reorder(agency_name, n), n, fill = g)) +
+  count(agency_name, dept, sort = TRUE) %>% slice_head(n = 20) %>%
+  mutate(col = ifelse(dept %in% top4, dept, "Other dept"),
+         col = factor(col, levels = c(top4, "Other dept")))
+pal13 <- c(setNames(TEAL4, top4), "Other dept" = GREY)
+p_agc <- ggplot(agc, aes(reorder(agency_name, n), n, fill = col)) +
   geom_col(width = 0.74) +
   geom_text(aes(label = n), hjust = -0.25, size = 2.9, color = catf_navy) +
-  scale_fill_manual(values = dept_pal, name = "Department") +
+  scale_fill_manual(values = pal13, name = "Department") +
   coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
   labs(title = "Top 20 agencies by number of categorical exclusions",
-       subtitle = "Bars colored by department (rolled up from the agency unit code)",
-       x = NULL, y = "Categorical exclusions",
-       caption = "Source: CE Explorer export.") +
+       subtitle = "Colored by department; the four that hold half the catalog are in teal",
+       x = NULL, y = "Categorical exclusions", caption = "Source: CE Explorer export.") +
   theme_catf() + theme(legend.position = "right")
 save_fig(p_agc, "fig_d6_ce_by_agency.png", w = 9.5, h = 5.5)
 
-# Fig: distribution of stated numeric bounds in existing CEs (acres + miles; kV/MW too rare)
+# --- Figure 14a: only 86 of 2,105 state a numeric limit (the headline) ---
 n_any_bound <- sum(ce_land$states_any_bound, na.rm = TRUE)
+nb <- n_any_bound; nq <- nrow(ce_land) - nb
+lim <- tibble(cat = factor(c("States a numeric limit", "Qualitative limits only"),
+                           levels = c("Qualitative limits only", "States a numeric limit")), n = c(nb, nq))
+p_numlim <- ggplot(lim, aes(x = "", y = n, fill = cat)) +
+  geom_col(width = 0.5) +
+  geom_text(aes(label = paste0(comma(n), " (", percent(n / nrow(ce_land), 1), ")")),
+            position = position_stack(vjust = 0.5), color = "white", fontface = "bold", size = 4) +
+  scale_fill_manual(values = c("States a numeric limit" = "#1D9E75", "Qualitative limits only" = GREY),
+                    name = NULL, guide = guide_legend(reverse = TRUE)) +
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.02))) +
+  labs(title = glue::glue("Only {nb} of {comma(nrow(ce_land))} CEs state an explicit numeric limit"),
+       subtitle = str_wrap("The rest bound the action qualitatively — 'routine', 'minor', 'small-scale', 'temporary' — not with numbers", 95),
+       x = NULL, y = "Categorical exclusions") +
+  theme_catf() + theme(legend.position = "bottom", axis.text.y = element_blank(), axis.ticks.y = element_blank())
+save_fig(p_numlim, "fig_d6_ce_numlimit.png", w = 10, h = 2.6)
+
+# --- Figure 14b: distribution of the 86 stated numeric bounds (acres + miles) ---
 bnd <- ce_land %>% transmute(`Acreage limit (acres)` = bound_acres, `Length limit (miles)` = bound_miles) %>%
   pivot_longer(everything(), names_to = "metric", values_to = "value") %>% filter(!is.na(value)) %>%
   group_by(metric) %>% mutate(metric_n = paste0(metric, "\n(n = ", n(), ")")) %>% ungroup()
-set.seed(6)
 p_bnd <- ggplot(bnd, aes(x = "", value)) +
-  geom_boxplot(width = 0.16, fill = catf_light_blue, color = catf_navy, alpha = 0.25, outlier.shape = NA) +
-  geom_jitter(width = 0.32, height = 0, size = 2.2, color = catf_navy, alpha = 0.6) +
-  facet_wrap(~metric_n, scales = "free_y") + scale_x_discrete(expand = expansion(add = 0.6)) +
-  labs(title = "Numeric bounds in existing CEs, where stated",
-       subtitle = str_wrap(glue::glue("Only {n_any_bound} of {comma(nrow(ce_land))} CEs state any numeric limit — acres and miles dominate (kV/MW appear only a handful of times)"), 92),
+  geom_boxplot(width = 0.5, fill = catf_light_blue, color = catf_navy, alpha = 0.2, outlier.shape = NA) +
+  geom_beeswarm(cex = 1.3, size = 1.8, color = catf_navy, alpha = 0.6) +
+  facet_wrap(~metric_n, scales = "free_y") + scale_x_discrete(expand = expansion(add = 0.7)) +
+  labs(title = "And even the numeric limits are scattered",
+       subtitle = str_wrap("The acre/mile limits among the 86 CEs that state one — no common threshold to expand against", 90),
        x = NULL, y = NULL,
        caption = "Each dot is one CE's stated limit; box = median & middle 50%, whiskers = range.") +
   theme_catf() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
                        strip.text = element_text(color = catf_navy, face = "bold"), panel.spacing = unit(1.8, "lines"))
 save_fig(p_bnd, "fig_d6_ce_bounds.png", w = 8, h = 3.6)
 
-# Fig: relatedness map — every CE projected to 2D (PCA of text embeddings), colored by department
+# --- Figure 15: relatedness map — t-SNE layout, KMeans clusters, convex hulls ---
 if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
-  sc <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(g = grp(dept))
-  p_scatter <- ggplot(sc, aes(coord_x, coord_y, color = g)) +
-    geom_point(size = 1.5, alpha = 0.55) +
-    scale_color_manual(values = dept_pal, name = "Department") +
+  sc    <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(cl = factor(cluster_km))
+  hulls <- sc %>% group_by(cl) %>% slice(chull(coord_x, coord_y)) %>% ungroup()
+  cl_lab <- sc %>% group_by(cl) %>%
+    summarise(x = median(coord_x), y = median(coord_y), lab = str_wrap(first(cluster_label), 16), .groups = "drop")
+  pal_cl <- setNames(RColorBrewer::brewer.pal(max(3, nlevels(sc$cl)), "Set2")[seq_len(nlevels(sc$cl))], levels(sc$cl))
+  p_scatter <- ggplot(sc, aes(coord_x, coord_y)) +
+    geom_polygon(data = hulls, aes(group = cl, fill = cl), alpha = 0.15, color = NA) +
+    geom_point(aes(color = cl), size = 1.2, alpha = 0.6) +
+    geom_label(data = cl_lab, aes(x, y, label = lab), size = 2.6, fontface = "bold", color = catf_navy,
+               fill = "white", alpha = 0.75, label.size = 0, lineheight = 0.85) +
+    scale_color_manual(values = pal_cl, guide = "none") + scale_fill_manual(values = pal_cl, guide = "none") +
     labs(title = "How related are the existing CEs?",
-         subtitle = str_wrap(paste("Each point is one CE, placed by the similarity of its text (2D PCA of embeddings);",
-                  "tight groups are near-identical CEs, often shared across agencies"), 92),
+         subtitle = str_wrap(paste("Each point is one CE; the hulls are k-means families (labeled by top terms), laid out by",
+                  "t-SNE of the text embeddings. Closer = more similar wording."), 95),
          x = NULL, y = NULL,
-         caption = "Proximity = textual similarity. Cross-department overlap is the precedent for adopt.") +
-    theme_catf() +
-    theme(legend.position = "right", axis.text = element_blank(), panel.grid = element_blank()) +
-    guides(color = guide_legend(override.aes = list(size = 3)))
-  save_fig(p_scatter, "fig_d6_ce_scatter.png", w = 9, h = 5.5)
+         caption = "Many families recur across departments — the precedent for adopt.") +
+    theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank())
+  save_fig(p_scatter, "fig_d6_ce_scatter.png", w = 9.5, h = 6)
 }
 
 # === Analysis 2: corpus-wide mitigation (read the enrichment — NOT limited to candidates) ===
