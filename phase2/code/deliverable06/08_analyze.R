@@ -77,21 +77,43 @@ comp <- tibble(
   n = c(n_ce_shaped, n_broader, n_uncat),
   fill = c(catf_navy, catf_light_blue, catf_grey)
 )
-p_out <- ggplot(comp, aes(x = glue::glue("All decarbonization\nFONSIs (n = {comma(n_clean)})"),
-                          y = n, fill = segment)) +
+p_out <- ggplot(comp, aes(x = "", y = n, fill = segment)) +
   geom_col(width = 0.5) +
   geom_text(aes(label = paste0(n, "\n(", percent(n / n_clean, 1), ")")),
             position = position_stack(vjust = 0.5), size = 4, color = "white", fontface = "bold", lineheight = 0.85) +
+  annotate("text", x = 1, y = n_clean, label = paste0(comma(n_clean), " total"),
+           hjust = -0.15, fontface = "bold", size = 4.2, color = catf_navy) +
   scale_fill_manual(values = setNames(comp$fill, comp$segment), name = NULL, guide = guide_legend(reverse = TRUE)) +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.02))) +
+  coord_flip(clip = "off") + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
   labs(title = "Scaling CEs: where the decarbonization FONSIs fall",
        subtitle = str_wrap(glue::glue("Of the {comma(n_clean)} FONSIs, {n_candidate} recur ",
                  "({n_broader} broad + {n_ce_shaped} bounded) while {n_uncat} are uncategorized"), 95),
        x = NULL, y = "Distinct FONSI projects") +
-  theme_catf() + theme(legend.position = "bottom",
-                       axis.text.y = element_text(face = "bold", color = catf_navy)) +
+  theme_catf() + theme(legend.position = "bottom", axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+                       plot.margin = margin(5.5, 60, 5.5, 5.5)) +
   guides(fill = guide_legend(nrow = 1, reverse = TRUE))
 save_fig(p_out, "fig_d6_outcomes.png", w = 10, h = 3.0)
+
+# --- Fig 1 complement: waffle of the 452 FONSIs (each square ~= 4.5 FONSIs) ---
+wv1  <- c(Bounded = 12, Recurring = 53, `Not recurring` = 35)
+cnt1 <- c(Bounded = n_ce_shaped, Recurring = n_broader, `Not recurring` = n_uncat)
+waf1 <- tibble(cat = factor(rep(names(wv1), wv1), levels = names(wv1))) %>%
+  mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
+pal1  <- c(Bounded = "#185FA5", Recurring = "#85B7EB", `Not recurring` = "#B4B2A9")
+labs1 <- setNames(paste0(names(wv1), " — ", cnt1, " (", round(cnt1 / n_clean * 100), "%)"), names(wv1))
+p_waffle1 <- ggplot(waf1, aes(x, y, fill = cat)) +
+  geom_tile(color = "white", linewidth = 1.6) +
+  annotate("text", x = 10.8, y = 4.5, label = glue::glue("{comma(n_clean)}\ntotal\nFONSIs"),
+           hjust = 0, fontface = "bold", size = 4.5, color = catf_navy, lineheight = 0.9) +
+  scale_fill_manual(values = pal1, labels = labs1, name = NULL) +
+  coord_equal(clip = "off") + scale_y_reverse() +
+  labs(title = "The 452 decarbonization FONSIs at a glance",
+       subtitle = glue::glue("Each square ≈ {round(n_clean / 100, 1)} FONSIs")) +
+  theme_void(base_size = 12) +
+  theme(legend.position = "bottom", plot.margin = margin(5.5, 90, 5.5, 5.5),
+        plot.title = element_text(face = "bold", color = catf_navy),
+        plot.subtitle = element_text(color = catf_dark_blue))
+save_fig(p_waffle1, "fig_d6_outcomes_waffle.png", w = 8.5, h = 5)
 
 # === Fig: sort step — every clean FONSI by action type, incl. the uncategorized pool ===
 dd <- corp_fonsi %>% group_by(candidate_category) %>%
@@ -149,16 +171,15 @@ sz <- facts %>% filter(is_profile_subtype) %>%
   filter(!is.na(value), value > 0, value < 1000) %>%   # drop study-area outliers
   group_by(metric) %>% mutate(metric_n = paste0(metric, "\n(n = ", n(), ")")) %>% ungroup()
 p_sizes <- ggplot(sz, aes(x = "", value)) +
-  geom_boxplot(width = 0.55, fill = catf_light_blue, color = catf_navy, alpha = 0.2,
-               linewidth = 0.5, outlier.shape = NA) +
-  geom_beeswarm(cex = 3, size = 2.3, color = catf_navy, alpha = 0.7) +
+  geom_beeswarm(cex = 3, size = 2.5, color = catf_navy, alpha = 0.75) +
+  stat_summary(fun = median, geom = "crossbar", width = 0.55, linewidth = 0.4, color = catf_teal) +
   facet_wrap(~metric_n, scales = "free_y", ncol = 3) +
   scale_x_discrete(expand = expansion(add = 0.7)) +
   labs(title = "Step 3 · The size range of the bounded FONSIs",
        subtitle = str_wrap("What the bounded projects actually measure — the observed range a CE's threshold could be set against", 90),
        x = NULL, y = NULL,
        caption = str_wrap(paste("Bounded, low-impact subset only. Each dot is one FONSI (n per panel);",
-                "box = median & middle 50%, whiskers = range. Study-area outliers excluded."), 110)) +
+                "teal line = median. Study-area outliers excluded."), 110)) +
   theme_catf() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
                        strip.text = element_text(color = catf_navy, face = "bold"),
                        panel.spacing = unit(1.8, "lines"))
@@ -192,20 +213,23 @@ tl <- facts %>% filter(is_profile_subtype) %>% distinct(project_id, decision_dat
          year = ifelse(!is.na(year) & year >= 1995 & year <= 2026, year, NA_integer_),
          era = case_when(is.na(year) ~ "Undated", d < as.Date("2023-06-03") ~ "Pre-FRA", TRUE ~ "Post-FRA"))
 n_pre <- sum(tl$era == "Pre-FRA"); n_post <- sum(tl$era == "Post-FRA"); n_unk <- sum(tl$era == "Undated")
-tld <- tl %>% filter(!is.na(year))
-p_tl <- ggplot(tld, aes(x = year, fill = era)) +
-  geom_dotplot(binwidth = 1, method = "histodot", dotsize = 0.78, stackratio = 1.1,
-               color = "white", stackgroups = TRUE, binpositions = "all") +
+tlc    <- tl %>% filter(!is.na(year)) %>% count(year, era)
+yr_tot <- tlc %>% group_by(year) %>% summarise(n = sum(n), .groups = "drop")
+ymax   <- max(yr_tot$n)
+p_tl <- ggplot(tlc, aes(year, n, fill = era)) +
+  geom_col(width = 0.8) +
+  geom_text(data = yr_tot, aes(year, n, label = n), inherit.aes = FALSE,
+            vjust = -0.4, size = 2.8, color = catf_navy) +
   geom_vline(xintercept = 2023.42, linetype = "dashed", color = catf_magenta, linewidth = 0.8) +
-  annotate("text", x = 2023.0, y = 0.97, label = "FRA enacted\nJun 2023", hjust = 1.05, vjust = 1,
+  annotate("text", x = 2023.0, y = ymax, label = "FRA enacted\nJun 2023", hjust = 1.05, vjust = 1,
            size = 3.2, color = catf_magenta, fontface = "bold", lineheight = 0.9) +
   scale_fill_manual(values = c("Pre-FRA" = catf_teal, "Post-FRA" = catf_magenta, "Undated" = catf_grey), name = NULL) +
   scale_x_continuous(limits = c(2002, 2026), breaks = seq(2004, 2026, 4)) +
-  scale_y_continuous(NULL, breaks = NULL) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
   labs(title = "When were these EAs decided?",
-       subtitle = str_wrap(glue::glue("The {n_ce_shaped} bounded FONSIs by decision year — each dot is one FONSI ",
-                 "({n_pre} pre-FRA, {n_post} post-FRA, {n_unk} undated)"), 95),
-       x = NULL,
+       subtitle = str_wrap(glue::glue("The {n_ce_shaped} bounded FONSIs by decision year — ",
+                 "{n_pre} pre-FRA, {n_post} post-FRA, {n_unk} undated"), 95),
+       x = NULL, y = "Bounded FONSIs",
        caption = str_wrap(glue::glue("Decision dates merged from the D4 timeline, known for {n_pre + n_post}/{n_ce_shaped}. ",
                  "FRA (Jun 2023) gave agencies authority to adopt another agency's CE."), 110)) +
   theme_catf() + theme(legend.position = "bottom")

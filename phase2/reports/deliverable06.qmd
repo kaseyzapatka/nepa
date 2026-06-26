@@ -192,6 +192,13 @@ The `r n_clean` decarbonization FONSIs split three ways (colors match the figure
 knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes.png"))
 ```
 
+```{r}
+#| label: fig-d6-outcomes-waffle
+#| fig-cap: "The same split as a 10×10 waffle — each square ≈ 4.5 FONSIs."
+#| out-width: 70%
+knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes_waffle.png"))
+```
+
 ## Steps 1–2 · Sorting the FONSIs into action types
 
 Every decarbonization FONSI is sorted into one of **five recurring action types**
