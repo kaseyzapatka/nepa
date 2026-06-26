@@ -139,7 +139,7 @@ federal CE catalog (not FONSIs at all).
 3. **Measure** the mitigated share and the resource areas where mitigation recurs, within each action type.
 4. **Read for CE design —** a mitigation that recurs consistently across a class is a codifiable CE design criterion; an idiosyncratic one is a disqualifier.
 
-**Analysis 3 · Current federal CE catalog**
+**Analysis 3 · Review of existing federal Categorical Exclusions**
 
 1. **Data —** the existing federal CE catalog (the [CE Explorer export](https://ce.permitting.innovation.gov/) — `r comma(n_ce)` CEs across `r n_units` agency units, each linking to its eCFR source).
 2. **Compare** every CE to every other by text similarity.
@@ -150,30 +150,18 @@ federal CE catalog (not FONSIs at all).
 
 ------------------------------------------------------------------------
 
-# Analysis 1 — Scaling CEs (develop, expand, adopt)
+# Analysis 1 — Scaling Categorical Exclusions (CEs)
 
-> **Every bounded, low-impact decarbonization action already has a text-similar
-> existing CE at another agency.** None looks net-new (`r n_new` to *develop*) and
-> none exceeds a stated CE limit (0 to *expand*) — so all `r n_adopt` resolve to
-> **adopt**: agencies are running full EAs on actions a peer agency already
-> categorically excludes (pending eCFR confirmation of each match).
+> This analysis investigates how we can scale Categorical Exclusions (CEs) to respond to
+> patterns we find across Findings of Non-Significant Impact (FONSIs). It looks at FONSI
+> findings and helps us understand whether there is evidence suggesting we can **develop**
+> a completely new CE to categorically exclude reviews that are expected to have specific
+> characteristics, **expand** the parameters of a current CE to encompass project
+> characteristics currently not covered by an existing CE, or encourage agencies and
+> departments to **adopt** CEs that already cover projects of specific characteristics that
+> are not covered by a current CE.
 
-## The four candidates, ranked by match to an existing CE
-
-Each action already has a categorical exclusion at another agency. Ordered by how
-closely it matches that existing CE (highest similarity first):
-
-1. **Solar (CE-shaped subset)** — adopt the small-solar CE held by the **Department
-   of Energy** (`DOE-1--5-87`), for bounded projects on previously disturbed land.
-2. **Temporary resource assessment** — adopt the site-characterization CE held by the
-   **Department of Energy** (`DOE-1--3-43`), for surveys, stream gauges, and borings.
-3. **Geothermal exploration** — adopt the exploration-drilling CE held by the
-   **Department of Energy** (`DOE-1--3-43`), for slim-hole / temperature-gradient wells.
-4. **Transmission upgrades** — adopt the routine-maintenance CE held by the
-   **Tennessee Valley Authority** (`TVA #17`), so BLM, DOE, NNSA, and the
-   power-marketing administrations can stop running full EAs for in-corridor work.
-
-## The outcome at a glance
+## Step 1: Data at a glance
 
 The `r n_clean` decarbonization FONSIs split three ways (colors match the figure):
 
@@ -186,20 +174,13 @@ The `r n_clean` decarbonization FONSIs split three ways (colors match the figure
   pool (Analysis 3).
 
 ```{r}
-#| label: fig-d6-outcomes
-#| fig-cap: "The decarbonization FONSI universe, split into the uncategorized pool, the broader recurring-type projects, and the bounded actions that resolve to adopt."
-#| out-width: 96%
-knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes.png"))
-```
-
-```{r}
 #| label: fig-d6-outcomes-waffle
-#| fig-cap: "The same split as a 10×10 waffle — each square ≈ 4.5 FONSIs."
-#| out-width: 70%
+#| fig-cap: "Composition of the 452 decarbonization FONSIs (each square ≈ 4.5 FONSIs)."
+#| out-width: 80%
 knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes_waffle.png"))
 ```
 
-## Steps 1–3 · Sort into action types, then keep the bounded subset
+## Steps 2-3: Sorting the FONSIs into action types and keeping bounded subsets
 
 Every decarbonization FONSI is **sorted** (Step 2) into one of **five recurring action
 types** (transmission upgrades, solar, geothermal exploration, onshore wind, temporary
@@ -224,7 +205,18 @@ sizes don't enter until Step 5.
 knitr::include_graphics(file.path(FIGS, "fig_d6_action_distribution.png"))
 ```
 
-## Step 4 · Matching to the existing CE catalog
+The kept subset shares a consistent **low-impact fingerprint** — most of these FONSIs
+describe work inside an existing right-of-way, on land that has already been disturbed.
+That profile is what makes them CE-shaped, independent of any stated acreage or length:
+
+```{r}
+#| label: fig-d6-keep-bounded
+#| fig-cap: "Share of the bounded subset with each low-impact siting trait."
+#| out-width: 80%
+knitr::include_graphics(file.path(FIGS, "fig_d6_keep_bounded.png"))
+```
+
+## Step 4: Matching to the existing CE catalog
 
 Each **candidate action type** — e.g. *geothermal exploration*, the cluster of bounded
 geothermal-drilling FONSIs, summarized by its defining terms — is compared against all
@@ -267,29 +259,38 @@ verdicts |>
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_match.png"))
 ```
 
-## Step 5 · Read the CE's limit and compare sizes (the *expand* test)
+## Step 5: Compare sizes against the existing CE limits (the *expand* test)
 
-**This is the only step where stated numbers matter.** A categorical exclusion sometimes
-carries a size limit — *"up to N miles," "fewer than X wells."* So for each candidate we
-read the matched CE's stated limit (where it has one) and the bounded FONSIs' own sizes,
-then test whether ours **exceed** it — which would make the case to *expand* the CE. In
-practice **no matched CE states a limit our FONSIs exceed, so nothing resolves to
-expand.**
+**This is the only step where stated numbers matter.** The *expand* test asks whether our
+bounded FONSIs exceed the matched CE's stated size limit. They don't — because **none of
+the four matched CEs state a numeric limit at all** (they bound scope with words), so
+there is nothing to exceed and nothing resolves to *expand*.
 
-The figure shows the bounded FONSIs' observed size ranges — the candidate bounds a new or
-adopted CE would set *its* threshold against: transmission upgrades are mostly **short
-line segments at sub-transmission voltages**, geothermal exploration **a handful of wells,
-not dozens**. (Note this is a comparison input, not a filter — a FONSI with no stated size
-is still kept; it just can't trigger *expand*.)
+It is still informative to compare our projects to the limits CEs *do* state elsewhere.
+The three metrics split cleanly — only the miles panel below is shaded green, to flag the
+one place our FONSIs run past the limits CEs typically state:
+
+- **Line length:** our FONSIs exceed the CE limits (green). The bounded transmission
+  FONSIs run a ~29-mile median (up to ~187 mi) against a ~2-mile typical CE limit (max
+  25 mi). So "bounded by action type" is not "small by the numbers a CE would use": a CE
+  written for these would need a much longer length bound, or none. This is the one
+  dimension where these projects break the existing mold.
+- **Voltage & acreage:** existing CEs already cover them (blue). On acres our projects
+  (median ~20 ac) sit well within the existing CE range (median 70 ac, up to 10,000);
+  voltage is comparable, though CEs rarely set a kV limit at all (only 2 do). A
+  conventional CE limit would fit.
+
+(Sizes here are a *comparison input, not a filter* — a FONSI with no stated size is still
+kept; it just can't trigger *expand*.)
 
 ```{r}
 #| label: fig-d6-sizes
-#| fig-cap: "The bounded FONSIs' observed sizes by metric (the candidate bounds) — dots are individual FONSIs, teal line the median."
-#| out-width: 92%
+#| fig-cap: "Bounded FONSIs vs the stated size limits across the existing CE catalog (log scale, boxplot + individual cases). The miles panel is shaded where our FONSIs exceed the limits CEs typically state. Study-area outliers excluded."
+#| out-width: 86%
 knitr::include_graphics(file.path(FIGS, "fig_d6_sizes.png"))
 ```
 
-## Step 6 · Classify, then rank
+## Step 6: Classify, then rank
 
 **First, classify** each candidate with a three-question rule:
 
@@ -318,7 +319,22 @@ does), but because it has **the most FONSIs across the most agencies and states*
 knitr::include_graphics(file.path(FIGS, "fig_d6_classification.png"))
 ```
 
-## Outcome · Adopt-an-existing-CE opportunities
+## Main Finding: Adopt existing CE opportunities
+
+Each of the four bounded candidate actions already has a categorical exclusion at another
+agency — none looks net-new (`r n_new` to *develop*) and none exceeds a stated CE limit
+(0 to *expand*), so **all `r n_adopt` resolve to adopt.** Ordered by how closely each
+matches its existing CE (highest similarity first):
+
+1. **Solar (CE-shaped subset)** — adopt the small-solar CE held by the **Department
+   of Energy** (`DOE-1--5-87`), for bounded projects on previously disturbed land.
+2. **Temporary resource assessment** — adopt the site-characterization CE held by the
+   **Department of Energy** (`DOE-1--3-43`), for surveys, stream gauges, and borings.
+3. **Geothermal exploration** — adopt the exploration-drilling CE held by the
+   **Department of Energy** (`DOE-1--3-43`), for slim-hole / temperature-gradient wells.
+4. **Transmission upgrades** — adopt the routine-maintenance CE held by the
+   **Tennessee Valley Authority** (`TVA #17`), so BLM, DOE, NNSA, and the
+   power-marketing administrations can stop running full EAs for in-corridor work.
 
 ```{r adopt-table}
 url_for <- function(id) {
@@ -367,7 +383,7 @@ states, concentrated in the West.
 knitr::include_graphics(file.path(FIGS, "fig_d6_states.png"))
 ```
 
-## Timing · do these EAs predate the FRA?
+## Timing: do these EAs predate the FRA?
 
 The 2023 Fiscal Responsibility Act (FRA, June 2023) gave agencies explicit authority
 to **adopt another agency's categorical exclusion** — the exact move this analysis
@@ -404,43 +420,56 @@ states**. The **Tennessee Valley Authority already holds a CE** for this class o
 work — *TVA CE #17, "Routine modification, repair, and maintenance of, and minor
 upgrade of and addition to, existing transmission infrastructure…"*
 
-The table below lists sample FONSIs with a **verbatim excerpt from the cited
-record**, the document it came from (EA or FONSI), and the page — so each row is
-directly verifiable against the source.
+The table below lists sample FONSIs from different agencies, each with a **verbatim
+excerpt from the cited record** that shows the same in-corridor, *modify-existing-
+infrastructure* work that TVA CE #17 already covers (reconductoring, replacing aging
+structures, upgrading within the existing right-of-way). Each row names the source
+document (EA or FONSI) and page, and the **project title links to the full record** in
+the document explorer.
 
 ```{r transmission-example}
-# Verified action quotes come straight from the LLM enrichment (candidate_facts.quoted_span):
-# each was checked verbatim against the cited EA/FONSI page, so no span re-scraping is needed.
-scope_rx <- "(?i)(replace|rebuild|reconductor|construct|install|upgrad|line|conductor|right.of.way|pole|structure|propos)"
+# Verified action quotes from the LLM enrichment (candidate_facts.quoted_span): each was
+# checked verbatim against the cited EA/FONSI page. Titles deep-link to the explorer (?pid=).
+EXPLORER <- "https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer"
+scope_rx <- "(?i)(reconductor|rebuild|replace|upgrad|existing|within|right.of.way|in.place|conductor|structure|pole|maintenance)"
 drop_rx  <- "(?i)(finding of no significant|revision sheet|table of contents|environmental assessment$)"
+rel_rx   <- "reconductor|rebuild|replace|upgrad|existing|within|right-of-way|right of way|in place|maintenance|conductor|structure|pole"
 
 ex <- facts |>
   filter(candidate_category == "transmission_upgrade", is_profile_subtype,
-         !is.na(quoted_span), nchar(quoted_span) >= 50,
+         !is.na(quoted_span), nchar(quoted_span) >= 70,
          str_detect(quoted_span, scope_rx), !str_detect(quoted_span, drop_rx)) |>
   distinct(project_id, .keep_all = TRUE) |>
   left_join(corp_fonsi |> select(project_id, project_title, lead_agency_harmonized), by = "project_id") |>
   mutate(
     Source = ifelse(str_detect(tolower(citation_document_role), "fonsi"), "FONSI", "EA"),
-    Agency = str_squish(str_remove_all(lead_agency_harmonized, '[\\[\\]"]')),
-    Excerpt = paste0("“", str_squish(str_trunc(quoted_span, 150, ellipsis = "…")), "”")
+    agency_raw = str_squish(str_remove_all(lead_agency_harmonized, '[\\[\\]"]')),
+    # name the specific power-marketing administration so the column isn't all "PMA"
+    Agency = ifelse(str_detect(agency_raw, "Power Marketing"),
+      case_when(str_detect(quoted_span, "(?i)bonneville|\\bBPA\\b") ~ "Bonneville Power Administration",
+                str_detect(quoted_span, "(?i)\\bWestern\\b|WAPA")    ~ "Western Area Power Administration",
+                str_detect(quoted_span, "(?i)southwestern")          ~ "Southwestern Power Administration",
+                TRUE ~ "Power Marketing Administration"),
+      agency_raw),
+    dept = case_when(str_detect(agency_raw, "Land Management") ~ "blm",
+                     str_detect(agency_raw, "Power Marketing") ~ "pma", TRUE ~ "other"),
+    relevance = str_count(tolower(quoted_span), rel_rx),
+    Excerpt = paste0("“", str_squish(str_trunc(quoted_span, 240, ellipsis = "…")), "”")
   ) |>
-  arrange(desc(Source == "FONSI"), nchar(project_title)) |>
-  slice_head(n = 6)
+  filter(dept %in% c("blm", "pma")) |>
+  group_by(dept) |> arrange(desc(relevance), desc(nchar(quoted_span))) |> slice_head(n = 3) |> ungroup() |>
+  arrange(dept, desc(relevance))
 
 ex |>
-  transmute(
-    Project = str_trunc(project_title, 44),
-    `Project ID` = project_id,
-    Agency,
-    `Source & page` = paste0(Source, ", p. ", citation_page),
-    Excerpt
-  ) |>
+  mutate(`Project title` = glue("[{str_trunc(project_title, 46)}]({EXPLORER}?pid={project_id})")) |>
+  transmute(`Project title`, Agency,
+            `Source & page` = paste0(Source, ", p. ", citation_page), Excerpt) |>
   gt() |>
+  fmt_markdown(columns = `Project title`) |>
   tab_header(title = "Sample transmission-upgrade FONSIs — verifiable excerpts",
-             subtitle = "Verbatim, quote-verified text from the cited EA/FONSI; look up by project ID") |>
+             subtitle = "Verbatim, quote-verified text from the cited EA/FONSI; click a title to open the record in the document explorer") |>
   tab_options(table.font.size = px(11)) |>
-  cols_width(`Project ID` ~ px(180), Excerpt ~ px(360))
+  cols_width(`Project title` ~ px(200), Excerpt ~ px(380))
 ```
 
 *(Size limits — line length, voltage, acreage, well count — now come from the
@@ -450,11 +479,10 @@ backing the verdicts above, with its quote verified against the source.)*
 
 # Analysis 2 — Mitigated FONSIs
 
-A FONSI can mean two different things: the action is **inherently low-impact**, or
-it reaches "no significant impact" **only because the applicant committed to
-mitigation**. That distinction is central to CE development — a CE cannot lean on
-case-by-case mitigation, so if an action's FONSIs are routinely *mitigated*, a
-defensible CE for it must **bake those recurring mitigations in as design criteria**.
+> **Mitigated FONSIs** imply that the project will have "no significant impact" if the
+> applicant commits to some form of mitigation. This analysis systematically examines the
+> language surrounding mitigated FONSIs to determine if there are patterns of actions that
+> are routinely mitigated and if we can capture those recurring mitigations as a new CE.
 
 ## How "mitigated" was determined
 
@@ -607,11 +635,10 @@ enr |>
 These are candidate CE bounds straight from the agencies' own findings — the
 thresholds a new or adopted CE would be written to stay within.
 
-# Analysis 3 — Current-CE analysis
+# Analysis 3 — Review of existing federal Categorical Exclusions
 
-To know whether an action is "develop," "expand," or "adopt," we first mapped the
-**entire existing federal CE body**: `r comma(n_ce)` categorical exclusions across
-`r n_units` agency units, **rolled up by department**.
+> This analysis reviews all `r comma(n_ce)` **existing federal Categorical Exclusions**
+> across `r n_units` agency units for patterns and insights.
 
 ## The CE landscape, by department and agency
 
