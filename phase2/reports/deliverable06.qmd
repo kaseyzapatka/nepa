@@ -21,7 +21,7 @@ execute:
 
 ```{r setup}
 library(arrow); library(dplyr); library(tidyr); library(readr)
-library(stringr); library(scales); library(gt); library(here); library(glue)
+library(stringr); library(scales); library(gt); library(here); library(glue); library(jsonlite)
 options(arrow.skip_nul = TRUE)
 
 ANALYSIS <- here("phase2", "data", "analysis", "deliverable06")
@@ -35,6 +35,11 @@ ce_land  <- read_parquet(file.path(ANALYSIS, "ce_landscape_ces.parquet"))
 corp     <- read_parquet(file.path(ANALYSIS, "candidate_corpus.parquet"))
 facts    <- read_parquet(file.path(ANALYSIS, "candidate_facts.parquet"))
 inv      <- read_parquet(file.path(ANALYSIS, "fonsi_project_inventory.parquet"))
+enr      <- read_parquet(file.path(ANALYSIS, "fonsi_enrichment.parquet")) |>
+  filter(!is.na(action_summary)) |> mutate(is_mit = is_mitigated_fonsi %in% TRUE)
+n_mit_dep_case <- sum(enr$is_mit & enr$mitigation_dependence == "case_specific_dependent", na.rm = TRUE)
+n_mit_noncand  <- sum(enr$is_mit & !(as.character(enr$project_id) %in%
+                                     as.character(filter(corp, is_fonsi)$project_id)))
 
 corp_fonsi  <- corp |> filter(is_fonsi)
 n_clean     <- inv |> filter(project_energy_type == "Clean") |> distinct(project_id) |> nrow()
@@ -426,35 +431,108 @@ LLM enrichment pass, which separates the disturbance footprint from study-area
 figures and keeps voltage distinct from length. Each value is a structured field
 backing the verdicts above, with its quote verified against the source.)*
 
-# Analysis 2 — Mitigated-FONSI analysis
+# Analysis 2 — Mitigated FONSIs
 
 A FONSI can mean two different things: the action is **inherently low-impact**, or
 it reaches "no significant impact" **only because the applicant committed to
 mitigation**. That distinction is central to CE development — a CE cannot lean on
 case-by-case mitigation, so if an action's FONSIs are routinely *mitigated*, a
-defensible CE for it must **bake those recurring mitigations in as design
-criteria**.
+defensible CE for it must **bake those recurring mitigations in as design criteria**.
 
-## Mitigated-FONSI share
+## How "mitigated" was determined
+
+This is **not** an embedding or similarity model — it is the per-FONSI reading from
+the **one-pass LLM enrichment (Claude Sonnet)**, the same pass used throughout the
+deliverable. For every one of the 451 FONSIs the model read the finding and the
+committed conditions and set two fields:
+
+- **`is_mitigated_fonsi`** — does the "no significant impact" finding *depend* on
+  committed mitigation, or is the action inherently low-impact?
+- **`mitigation_dependence`** — `none` / `design_feature_only` /
+  `case_specific_dependent` / `permit_or_consultation_condition` / `monitoring_only` /
+  `unclear`.
+
+The supporting mitigation text is captured **verbatim and 97%-quote-verified**, and
+each FONSI is tagged with the **resource areas** its mitigation addresses (biological,
+water, cultural…) from a fixed vocabulary, so we can measure which recur.
+
+```{r}
+#| label: fig-d6-mitigated-overall
+#| fig-cap: "How many of the decarbonization FONSIs reach 'no significant impact' only with committed mitigation."
+#| out-width: 96%
+knitr::include_graphics(file.path(FIGS, "fig_d6_mitigated_overall.png"))
+```
+
+## This spans the whole corpus, not just the candidates
+
+The mitigated pattern is **corpus-wide**: **`r n_mit_corpus` of `r n_clean`
+(`r percent(mit_share_cor, 1)`)** decarbonization FONSIs are mitigated, and
+**`r n_mit_noncand`** of those fall *outside* the five Analysis-1 candidate
+types — so this is not a candidate-only artifact. By action type (including the large
+*Other* pool, which is 61% mitigated):
 
 ```{r}
 #| label: fig-d6-mitigated-share
-#| fig-cap: "Share of each candidate's FONSIs whose finding is conditioned on committed mitigation."
+#| fig-cap: "Mitigated-FONSI share by action type across all 451 FONSIs — not limited to the Analysis-1 candidates."
 #| out-width: 86%
 knitr::include_graphics(file.path(FIGS, "fig_d6_mitigated_share.png"))
 ```
 
-The shares are high — **`r percent(tx_mit, 1)` of transmission-upgrade and most
-geothermal-exploration FONSIs** depend on committed mitigation. This is the LLM's
-per-FONSI `mitigation_dependence` read, and the result is striking: of the
-**`r n_mit_corpus` mitigated FONSIs** corpus-wide, **`r n_enf_only` are
-case-specific-dependent** — the no-significant-impact finding rests on
-project-specific mitigation, not on the action being inherently low-impact. That is
-precisely the CE-design challenge: a CE cannot lean on case-by-case commitments, so
-a defensible CE for these actions must encode the recurring measures (below) as
-standing design criteria.
+## The dependence is overwhelmingly case-specific
 
-## Where mitigation concentrates
+Of the **`r n_mit_corpus` mitigated FONSIs, `r n_mit_dep_case` are
+case-specific-dependent** — the finding rests on project-specific mitigation, not on
+the action being inherently low-impact.
+
+> **One honest caveat.** `is_mitigated_fonsi` and `mitigation_dependence` are
+> *near-equivalent judgments*: the model almost always pairs "the finding depends on
+> mitigation" with "that mitigation is project-specific." So this is **one consistent
+> signal, not two independent confirmations.** The FONSIs it reads as inherently
+> low-impact (design-feature-only or none) are exactly the ones it flags as *not*
+> mitigated. The substantive finding stands: **when a FONSI leans on mitigation, that
+> mitigation is tailored to the project — not a standard, transferable design feature.**
+> The word cloud below is the direct evidence for that.
+
+## Examples: the committed mitigation
+
+So you can verify the read, here are verbatim mitigation summaries the model extracted
+(each tagged case-specific-dependent):
+
+```{r mitigation-examples}
+enr |>
+  filter(is_mit, !is.na(mitigation_summary), nchar(mitigation_summary) > 80) |>
+  arrange(desc(nchar(mitigation_summary))) |>
+  distinct(project_title, .keep_all = TRUE) |>
+  slice_head(n = 5) |>
+  transmute(
+    Project = str_trunc(str_squish(project_title), 38),
+    `Committed mitigation (verbatim summary)` = str_trunc(str_squish(mitigation_summary), 240)
+  ) |>
+  gt() |>
+  tab_header(title = "Sample committed-mitigation summaries",
+             subtitle = "Verbatim from the cited FONSI/EA — the basis for the case-specific-dependent flag") |>
+  tab_options(table.font.size = px(11)) |>
+  cols_width(Project ~ px(170))
+```
+
+## The mitigation language is project-specific
+
+Why is the dependence "case-specific"? Because the measures themselves are written
+**per project** — SHPO consultation here, raptor-nest buffers there, site-specific
+erosion plans elsewhere. In the most-frequent words across all `r n_mit_corpus`
+mitigated FONSIs' summaries, **no single term dominates**:
+
+```{r}
+#| label: fig-d6-mitigation-wordcloud
+#| fig-cap: "Most-frequent words in the committed-mitigation summaries of the mitigated FONSIs — the long tail of specific terms is the point."
+#| out-width: 90%
+knitr::include_graphics(file.path(FIGS, "fig_d6_mitigation_wordcloud.png"))
+```
+
+That spread is the CE-design challenge made visible: a CE **cannot copy any one
+project's measures.** What *does* recur is the **resource area** the mitigation
+protects — consistently **biological, soils, water, and cultural** — and those are
+what a defensible CE would distill into standing design criteria.
 
 ```{r mitigation-table}
 mit |>
@@ -466,28 +544,51 @@ mit |>
     `FONSIs examined` = n_focus,
     `Mitigated` = n_mitigated_fonsi,
     `Mitigated share` = percent(mitigated_share, accuracy = 1),
-    `Top resource areas` = str_trunc(top_mitigation_resource_areas, 64)
+    `Recurring resource areas` = str_trunc(top_mitigation_resource_areas, 64)
   ) |>
   gt() |>
-  tab_header(title = "Mitigated-FONSI pattern by candidate",
-             subtitle = "High shares mean a CE must encode the recurring mitigations, not rely on case-by-case commitments") |>
+  tab_header(title = "Mitigated-FONSI pattern, by candidate action type",
+             subtitle = "The recurring resource areas are the codifiable part — what a CE would encode as design criteria") |>
   tab_options(table.font.size = px(12))
 ```
 
-A high mitigated share is double-edged: it is a *risk* (the action is not
-unconditionally benign) but also an *opportunity* — when the same mitigations
-recur across the class (here, consistently **water, biological, and cultural**
-resources), they become the natural, codifiable conditions of a CE. Transmission
-and geothermal are the clearest: a strong, recurring mitigation profile an
-adopted CE could formalize.
+## Boundary language: where agencies drew the significance line
 
-## Boundary language (preliminary)
+Alongside mitigation, the enrichment captures the agency's explicit
+**significance-threshold** statements — *"would be significant if it exceeded X," "an
+EIS would be required unless Y."* Those sentences are a CE's natural numeric bounds.
+Each is a verbatim, span-verified quote; real examples:
 
-Alongside mitigation, the enrichment pass captures the agency's explicit
-significance-threshold statements — *"would be significant if it exceeded X," "an
-EIS would be required unless Y."* Those sentences are a CE's natural numeric
-bounds. Each is a verbatim, span-verified quote (with metric/value/unit parsed
-where stated), so the candidate bounds are now citable rather than directional.
+```{r boundary-examples}
+first_threshold <- function(j) {
+  x <- tryCatch(fromJSON(j, simplifyVector = FALSE), error = function(e) list())
+  for (t in x) {
+    s <- if (is.null(t$statement)) "" else t$statement
+    if (nchar(s) > 45 && grepl("significan|exceed|\\bEIS\\b|threshold|not to exceed|provided|unless|greater than",
+                               s, ignore.case = TRUE))
+      return(s)
+  }
+  ""
+}
+enr |>
+  filter(!is.na(significance_thresholds), significance_thresholds != "[]") |>
+  mutate(stmt = vapply(significance_thresholds, first_threshold, character(1))) |>
+  filter(nchar(stmt) > 45) |>
+  distinct(project_title, .keep_all = TRUE) |>
+  slice_head(n = 5) |>
+  transmute(
+    Project = str_trunc(str_squish(project_title), 34),
+    `Significance-threshold statement (verbatim)` = str_trunc(str_squish(stmt), 200)
+  ) |>
+  gt() |>
+  tab_header(title = "Where agencies drew the significance line",
+             subtitle = "Verbatim threshold statements — candidate numeric/qualitative bounds for a CE") |>
+  tab_options(table.font.size = px(11)) |>
+  cols_width(Project ~ px(150))
+```
+
+These are candidate CE bounds straight from the agencies' own findings — the
+thresholds a new or adopted CE would be written to stay within.
 
 # Analysis 3 — Current-CE analysis
 

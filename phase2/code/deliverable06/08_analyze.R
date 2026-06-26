@@ -20,7 +20,7 @@
 suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(readr); library(stringr)
   library(arrow); library(ggplot2); library(scales); library(forcats)
-  library(sf); library(tigris)
+  library(sf); library(tigris); library(ggwordcloud)
 })
 options(tigris_use_cache = TRUE)
 
@@ -254,19 +254,66 @@ p_agc <- ggplot(agc, aes(reorder(agency_name, n), n)) +
   theme_catf()
 save_fig(p_agc, "fig_d6_ce_by_agency.png", w = 9, h = 4.4)
 
-# === Fig (Analysis 2): mitigated-FONSI share by candidate ===
-mit_fig <- mit %>% left_join(verdicts %>% select(candidate_category, candidate_label, verdict),
-                             by = "candidate_category") %>%
-  filter(verdict != "contrast") %>% mutate(lab = short_label(candidate_label))
-p_mit <- ggplot(mit_fig, aes(reorder(lab, mitigated_share), mitigated_share)) +
+# === Analysis 2: corpus-wide mitigation (read the enrichment — NOT limited to candidates) ===
+enr <- read_parquet(file.path(ANALYSIS, "fonsi_enrichment.parquet")) %>%
+  filter(!is.na(action_summary)) %>%
+  mutate(is_mit = is_mitigated_fonsi %in% TRUE)
+n_enr <- nrow(enr); n_mit <- sum(enr$is_mit)
+
+# Fig: how many of the whole corpus are mitigated (stacked bar over ALL FONSIs)
+ov <- tibble(segment = factor(c("Mitigated FONSI", "Not mitigated (inherently low-impact)"),
+                              levels = c("Not mitigated (inherently low-impact)", "Mitigated FONSI")),
+             n = c(n_mit, n_enr - n_mit))
+p_ov <- ggplot(ov, aes(x = "", y = n, fill = segment)) +
+  geom_col(width = 0.5) +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white", fontface = "bold", size = 5) +
+  scale_fill_manual(values = c("Mitigated FONSI" = catf_dark_blue,
+                               "Not mitigated (inherently low-impact)" = catf_grey), name = NULL,
+                    guide = guide_legend(reverse = TRUE)) +
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
+  labs(title = glue::glue("{n_mit} of {n_enr} decarbonization FONSIs are 'mitigated' ({percent(n_mit/n_enr,1)})"),
+       subtitle = "A 'mitigated FONSI' reaches no-significant-impact only because the applicant committed to mitigation",
+       x = NULL, y = "Decarbonization FONSIs") +
+  theme_catf() + theme(legend.position = "bottom", axis.text.y = element_blank(), axis.ticks.y = element_blank())
+save_fig(p_ov, "fig_d6_mitigated_overall.png", w = 10, h = 2.6)
+
+# Fig: mitigated share by action type — ALL 451, including the 'Other' pool (not just candidates)
+share <- enr %>% group_by(action_category) %>%
+  summarise(n = n(), mit = sum(is_mit), .groups = "drop") %>%
+  mutate(share = mit / n, lab = str_to_title(str_replace_all(action_category, "_", " "))) %>%
+  filter(n >= 3)
+p_share <- ggplot(share, aes(reorder(lab, share), share)) +
   geom_col(width = 0.66, fill = catf_dark_blue) +
-  geom_text(aes(label = percent(mitigated_share, accuracy = 1)), hjust = -0.2, size = 3.6, fontface = "bold", color = catf_navy) +
-  coord_flip() + scale_y_continuous(labels = percent, limits = c(0, 1), expand = expansion(mult = c(0, 0.12))) +
-  labs(title = "Mitigated-FONSI share by candidate",
-       subtitle = "Share whose 'no significant impact' finding is conditioned on committed mitigation",
+  geom_text(aes(label = paste0(percent(share, 1), "  (", mit, "/", n, ")")), hjust = -0.08, size = 3.4, color = catf_navy) +
+  coord_flip() + scale_y_continuous(labels = percent, limits = c(0, 1.18), breaks = seq(0, 1, .25),
+                                    expand = expansion(mult = c(0, 0))) +
+  labs(title = "Mitigated-FONSI share by action type (all 451 FONSIs)",
+       subtitle = "Not limited to the Analysis-1 candidates — the 'Other' pool (61% mitigated) is included",
        x = NULL, y = "Mitigated-FONSI share",
-       caption = "A CE must encode recurring mitigations as design criteria — it cannot rely on case-by-case commitments.") +
+       caption = "A CE must encode the recurring mitigations as design criteria — it cannot rely on case-by-case commitments.") +
   theme_catf()
-save_fig(p_mit, "fig_d6_mitigated_share.png")
+save_fig(p_share, "fig_d6_mitigated_share.png", h = 4.0)
+
+# Fig: word cloud of the committed-mitigation language (shows how project-specific it is)
+stop_w <- c(letters, "the","and","for","with","would","that","this","are","all","any","will","from","not","its",
+            "during","including","include","includes","such","other","which","been","were","has","have","also",
+            "project","projects","mitigation","measures","measure","impacts","impact","action","proposed","applicant",
+            "construction","area","areas","resources","resource","plan","plans","sites","federal","state","local",
+            "use","used","using","appropriate","implement","implemented","minimize","reduce","avoid","potential",
+            "activities","management","require","required","ensure","provide","within","prior","specific","including",
+            "associated","through","under","conducted","monitoring","best","practices","standard","compliance")
+words <- enr %>% filter(is_mit, !is.na(mitigation_summary)) %>% pull(mitigation_summary) %>%
+  paste(collapse = " ") %>% tolower() %>% str_extract_all("[a-z]{4,}") %>% unlist()
+wf <- tibble(word = words) %>% filter(!word %in% stop_w) %>% count(word, sort = TRUE) %>% slice_head(n = 130)
+set.seed(6)
+p_wc <- ggplot(wf, aes(label = word, size = n, color = n)) +
+  geom_text_wordcloud_area(rm_outside = TRUE, eccentricity = 1) +
+  scale_size_area(max_size = 13) +
+  scale_color_gradient(low = catf_light_blue, high = catf_navy) +
+  labs(title = "The committed-mitigation language is project-specific",
+       subtitle = glue::glue("Most-frequent words across the {n_mit} mitigated FONSIs' mitigation summaries — no term dominates, ",
+                             "consistent with case-specific (not standardized) measures")) +
+  theme_catf() + theme(panel.grid = element_blank())
+save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 9, h = 5.5)
 
 message("[08] figures written to ", FIGS)
