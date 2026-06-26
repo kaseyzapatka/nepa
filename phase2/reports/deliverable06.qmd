@@ -127,9 +127,9 @@ federal CE catalog (not FONSIs at all).
 
 1. **Data —** the `r n_clean` decarbonization EA→FONSI projects. A FONSI concludes a full Environmental Assessment, so each is a documented federal "no significant impact" determination — the evidence base for a CE.
 2. **Sort** each FONSI into a candidate action type (transmission upgrades, solar, geothermal exploration) by keyword and technology.
-3. **Keep the bounded, low-impact subset** within each type — the small, routine projects that could plausibly be a CE (in-corridor upgrades, not major rebuilds).
+3. **Keep the bounded, low-impact subset** within each type — the small, routine projects that could plausibly be a CE (in-corridor upgrades, not major rebuilds). This is a **yes/no judgment about scale**, not a numeric threshold: a FONSI is kept whether or not it states an acreage or length.
 4. **Match** each candidate against the existing federal CE catalog by text similarity.
-5. **Read** the matched CE's stated size limits (acres, miles, kV, MW, wells), where it has any.
+5. **Compare sizes** — read the matched CE's stated size limit (acres, miles, kV, MW, wells), where it has one, against the bounded FONSIs' own sizes, to test whether ours *exceed* it. This is the only step where stated numbers matter.
 6. **Classify** as **develop** (no existing CE covers it), **expand** (our FONSIs exceed the CE's stated limit), or **adopt** (a CE exists, but at a different agency than the ones doing these FONSIs).
 
 **Analysis 2 · Mitigated FONSIs**
@@ -199,19 +199,23 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes.png"))
 knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes_waffle.png"))
 ```
 
-## Steps 1–2 · Sorting the FONSIs into action types
+## Steps 1–3 · Sort into action types, then keep the bounded subset
 
-Every decarbonization FONSI is sorted into one of **five recurring action types**
-(transmission upgrades, solar, geothermal exploration, onshore wind, temporary
-resource assessment), or a sixth **catch-all** — the `r n_other` FONSIs that don't fit
-a recurring pattern (the net-new search pool, examined in Analysis 3). Within each
-recurring type we then split:
+Every decarbonization FONSI is **sorted** (Step 2) into one of **five recurring action
+types** (transmission upgrades, solar, geothermal exploration, onshore wind, temporary
+resource assessment), or a sixth **catch-all** — the `r n_other` FONSIs that don't fit a
+recurring pattern (the net-new search pool, examined in Analysis 3). Within each
+recurring type we then **keep** (Step 3) the bounded subset:
 
 - **Bounded, low-impact** (teal) — the small, routine version that could plausibly be
   a CE: in-corridor work, short segments, previously disturbed land, no major new
   construction. *These are what we carry forward.*
 - **Broader** (grey) — the larger or greenfield projects (major rebuilds, new
   corridors, utility-scale greenfield). Set aside; not CE-shaped.
+
+**Keeping is a yes/no judgment about *scale* — is the action small and routine? — not a
+numeric cutoff.** A FONSI is kept whether or not it states an acreage or length; stated
+sizes don't enter until Step 5.
 
 ```{r}
 #| label: fig-d6-sorting
@@ -220,7 +224,7 @@ recurring type we then split:
 knitr::include_graphics(file.path(FIGS, "fig_d6_action_distribution.png"))
 ```
 
-## Step 3 · Matching to the existing CE catalog
+## Step 4 · Matching to the existing CE catalog
 
 Each **candidate action type** — e.g. *geothermal exploration*, the cluster of bounded
 geothermal-drilling FONSIs, summarized by its defining terms — is compared against all
@@ -263,25 +267,29 @@ verdicts |>
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_match.png"))
 ```
 
-## Step 3 · How big are the bounded projects?
+## Step 5 · Read the CE's limit and compare sizes (the *expand* test)
 
-A categorical exclusion usually carries a size limit — *"up to N miles," "fewer than X
-wells."* To see what such a limit would look like for these actions, we read the sizes
-the bounded FONSIs actually report. Each box below is one metric's range across the
-bounded subset: transmission upgrades are mostly **short line segments at
-sub-transmission voltages**, and geothermal exploration is **a handful of wells, not
-dozens**. That observed range is what a new or adopted CE would set its threshold
-against. (None of the matched CEs state a limit our FONSIs exceed, so nothing resolves
-to *expand*.)
+**This is the only step where stated numbers matter.** A categorical exclusion sometimes
+carries a size limit — *"up to N miles," "fewer than X wells."* So for each candidate we
+read the matched CE's stated limit (where it has one) and the bounded FONSIs' own sizes,
+then test whether ours **exceed** it — which would make the case to *expand* the CE. In
+practice **no matched CE states a limit our FONSIs exceed, so nothing resolves to
+expand.**
+
+The figure shows the bounded FONSIs' observed size ranges — the candidate bounds a new or
+adopted CE would set *its* threshold against: transmission upgrades are mostly **short
+line segments at sub-transmission voltages**, geothermal exploration **a handful of wells,
+not dozens**. (Note this is a comparison input, not a filter — a FONSI with no stated size
+is still kept; it just can't trigger *expand*.)
 
 ```{r}
 #| label: fig-d6-sizes
-#| fig-cap: "The size range of the bounded FONSIs by metric — the box is the median and middle 50%, whiskers the range, dots the individual FONSIs."
+#| fig-cap: "The bounded FONSIs' observed sizes by metric (the candidate bounds) — dots are individual FONSIs, teal line the median."
 #| out-width: 92%
 knitr::include_graphics(file.path(FIGS, "fig_d6_sizes.png"))
 ```
 
-## Step 4 · Classifying, then ranking
+## Step 6 · Classify, then rank
 
 **First, classify** each candidate with a three-question rule:
 
