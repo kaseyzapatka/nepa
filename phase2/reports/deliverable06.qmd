@@ -176,13 +176,13 @@ closely it matches that existing CE (highest similarity first):
 
 The `r n_clean` decarbonization FONSIs split three ways (colors match the figure):
 
-- **Bounded, low-impact → adopt** *(navy)* — the `r n_ce_shaped` projects in a recurring
-  action type *and* small/routine enough to be CE-shaped. **Every one resolves to
-  adopt** — none net-new to *develop*, none exceeding a CE limit to *expand*.
-- **Recurring type, broader** *(light blue)* — the `r n_candidate - n_ce_shaped`
-  projects in a recurring type but too large to be a CE (major rebuilds, greenfield).
-- **Not a recurring type** *(grey)* — the `r n_other` uncategorized projects: the
-  net-new search pool (Analysis 3).
+- **Bounded, low-impact → adopt** — the `r n_ce_shaped` projects in a recurring action
+  type *and* small/routine enough to be CE-shaped. **Every one resolves to adopt** —
+  none net-new to *develop*, none exceeding a CE limit to *expand*.
+- **Recurring type, broader** — the `r n_candidate - n_ce_shaped` projects in a recurring
+  type but too large to be a CE (major rebuilds, greenfield).
+- **Not a recurring type** — the `r n_other` uncategorized projects: the net-new search
+  pool (Analysis 3).
 
 ```{r}
 #| label: fig-d6-outcomes
@@ -221,12 +221,13 @@ geothermal-drilling FONSIs, summarized by its defining terms — is compared aga
 thing?) and *word overlap* (do they share the key terms?). **It is not a percent of
 matching text** — it's a cosine-style similarity.
 
-So what counts as a *strong* match? Against a typical, **unrelated** CE a candidate scores
-only **~0.07 on average, and ≤ ~0.20 even at the 95th percentile** (the grey band in the
-figure). The best matches — **0.45 to 0.67** — therefore sit **2–6× above that baseline**:
-clearly distinctive, on-topic matches, not noise. For example, geothermal exploration
-matches a DOE exploration-drilling CE at **0.50** (sharing *geothermal, exploration, well,
-temperature gradient*); solar matches a DOE solar CE at **0.67**, the strongest of the four.
+So what counts as a *strong* match? First set a **baseline**: how similar is a candidate
+to a *random, unrelated* CE? Almost always tiny — about **0.07**, and rarely above **0.20**
+(the grey band in the figure). Measured against that floor, the best matches —
+**0.45 to 0.67** — are **several times higher**: genuinely close, on-topic matches, not
+coincidence. For example, geothermal exploration matches a DOE exploration-drilling CE at
+**0.50** (sharing *geothermal, exploration, well, temperature gradient*); solar matches a
+DOE solar CE at **0.67**, the strongest of the four.
 
 The score is a **ranking aid, not the verdict** — it surfaces the closest CE, but the
 actual develop-vs-adopt call is made by **confirming that CE against its eCFR text**.
