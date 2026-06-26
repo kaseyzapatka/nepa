@@ -73,29 +73,24 @@ n_broader <- n_candidate - n_ce_shaped          # in a recurring type but not bo
 n_uncat   <- n_clean - n_candidate              # not in any recurring type (net-new pool)
 comp <- tibble(
   segment = factor(
-    c("Bounded, low-impact → adopt an existing CE",
-      "Recurring action type — larger / broader project",
-      "Not a recurring action type (net-new search pool)"),
-    levels = c("Not a recurring action type (net-new search pool)",
-               "Recurring action type — larger / broader project",
-               "Bounded, low-impact → adopt an existing CE")),
+    c("Bounded, low-impact → adopt", "Recurring type, broader project", "Not a recurring type (net-new pool)"),
+    levels = c("Not a recurring type (net-new pool)", "Recurring type, broader project", "Bounded, low-impact → adopt")),
   n = c(n_ce_shaped, n_broader, n_uncat),
   fill = c(catf_navy, catf_light_blue, catf_grey)
 )
-p_out <- ggplot(comp, aes(x = "Decarb EA → FONSI\nprojects (universe)", y = n, fill = segment)) +
-  geom_col(width = 0.5) +
-  geom_text(aes(label = paste0(segment, "  (", n, ")")),
-            position = position_stack(vjust = 0.5), size = 3.5, color = "white", fontface = "bold") +
-  annotate("text", x = "Decarb EA → FONSI\nprojects (universe)", y = n_clean,
-           label = paste0("Total: ", comma(n_clean)), hjust = -0.1, size = 4, fontface = "bold", color = catf_navy) +
-  scale_fill_manual(values = setNames(comp$fill, comp$segment)) +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
-  labs(title = "Scaling CEs: where the decarbonization FONSIs fall",
-       subtitle = glue::glue("{n_candidate} of {n_clean} are in a recurring action type ({n_ce_shaped} bounded, {n_broader} broader); ",
-                             "all {n_ce_shaped} bounded actions resolve to adopt — 0 develop, 0 expand"),
-       x = NULL, y = "Distinct FONSI projects", fill = NULL) +
-  theme_catf() + theme(legend.position = "none", axis.text.y = element_text(face = "bold", color = catf_navy))
-save_fig(p_out, "fig_d6_outcomes.png", w = 10, h = 3.2)
+p_out <- ggplot(comp, aes(x = "", y = n, fill = segment)) +
+  geom_col(width = 0.55) +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), size = 5, color = "white", fontface = "bold") +
+  scale_fill_manual(values = setNames(comp$fill, comp$segment), name = NULL,
+                    guide = guide_legend(reverse = TRUE)) +
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
+  labs(title = glue::glue("Scaling CEs: the {comma(n_clean)} decarbonization FONSIs, by where they fall"),
+       subtitle = glue::glue("{n_candidate} are in a recurring action type ({n_ce_shaped} bounded → adopt, {n_broader} broader); ",
+                             "{n_uncat} are uncategorized. All {n_ce_shaped} bounded actions resolve to adopt — 0 develop, 0 expand."),
+       x = NULL, y = "Distinct FONSI projects") +
+  theme_catf() + theme(legend.position = "bottom", axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  guides(fill = guide_legend(nrow = 1, reverse = TRUE))
+save_fig(p_out, "fig_d6_outcomes.png", w = 10, h = 2.8)
 
 # === Fig: sort step — every clean FONSI by action type, incl. the uncategorized pool ===
 dist <- corp_fonsi %>% group_by(candidate_category) %>%
@@ -125,15 +120,15 @@ save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 4.6)
 # === Fig: CE-match strength per candidate (ranking aid; 0.40 cutoff) ===
 mfit <- verdicts %>% filter(verdict != "contrast") %>% mutate(lab = short_label(candidate_label))
 p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_score)) +
+  annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0, ymax = 0.20, fill = catf_grey, alpha = 0.5) +
   geom_col(width = 0.6, fill = catf_teal) +
-  geom_hline(yintercept = 0.40, linetype = "dashed", color = catf_magenta) +
-  geom_text(aes(label = sprintf("%.2f → %s", best_ce_match_score, best_ce_structured_id)),
+  geom_text(aes(label = sprintf("%.2f  →  %s", best_ce_match_score, best_ce_structured_id)),
             hjust = -0.05, size = 3.3, color = catf_navy) +
-  coord_flip() + scale_y_continuous(limits = c(0, 1), expand = expansion(mult = c(0, 0.45))) +
+  coord_flip() + scale_y_continuous(limits = c(0, 1), expand = expansion(mult = c(0, 0.4))) +
   labs(title = "Step 3 · How strongly each action matches an existing CE",
-       subtitle = "Best-match similarity to the federal CE catalog (dashed = 0.40 'treat as new' cutoff)",
+       subtitle = "Blended semantic + word-overlap similarity (0–1); every match sits 2–6× above the unrelated-CE baseline",
        x = NULL, y = "Best-match similarity (0–1)",
-       caption = "A ranking aid, not verified coverage — every match is confirmed against its eCFR text before action.") +
+       caption = "Grey band = where unrelated CEs score (≤ ~0.20). A ranking aid, not verified coverage — every match is confirmed against its eCFR text.") +
   theme_catf()
 save_fig(p_match, "fig_d6_ce_match.png", h = 4.0)
 
@@ -144,23 +139,25 @@ sz <- facts %>% filter(is_profile_subtype) %>%
             `Transmission — voltage (kV)` = ifelse(candidate_category == "transmission_upgrade", max_kilovolts, NA),
             `Geothermal — wells drilled` = ifelse(candidate_category == "geothermal_exploration", n_wells, NA)) %>%
   pivot_longer(-candidate_category, names_to = "metric", values_to = "value") %>%
-  filter(!is.na(value), value > 0, value < 1000)   # drop study-area outliers
+  filter(!is.na(value), value > 0, value < 1000) %>%   # drop study-area outliers
+  group_by(metric) %>% mutate(metric_n = paste0(metric, "\n(n = ", n(), ")")) %>% ungroup()
+set.seed(6)
 p_sizes <- ggplot(sz, aes(x = "", value)) +
-  geom_boxplot(width = 0.22, fill = catf_light_blue, color = catf_navy, alpha = 0.35,
-               linewidth = 0.5, outlier.shape = NA) +
-  geom_jitter(width = 0.06, height = 0, size = 2.2, color = catf_navy, alpha = 0.75) +
-  facet_wrap(~metric, scales = "free_y", ncol = 3) +
+  geom_boxplot(width = 0.35, fill = catf_light_blue, color = catf_navy, alpha = 0.3,
+               linewidth = 0.6, outlier.shape = NA) +
+  geom_jitter(width = 0.18, height = 0, size = 2.4, color = catf_navy, alpha = 0.7) +
+  facet_wrap(~metric_n, scales = "free_y", ncol = 3) +
   labs(title = "Step 3 · The size range of the bounded FONSIs",
        subtitle = "What the bounded projects actually measure — the observed range a CE's threshold could be set against",
        x = NULL, y = NULL,
-       caption = "Bounded, low-impact subset only. Each dot is one FONSI; box = median & middle 50%; whiskers = range. Study-area outliers excluded.") +
+       caption = "Bounded, low-impact subset only. Each dot is one FONSI (n per panel); box = median & middle 50%; whiskers = range. Study-area outliers excluded.") +
   theme_catf() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
                        strip.text = element_text(color = catf_navy, face = "bold"),
-                       panel.spacing = unit(1.4, "lines"))
+                       panel.spacing = unit(1.6, "lines"))
 save_fig(p_sizes, "fig_d6_sizes.png", w = 9, h = 3.8)
 
 # === Fig: classification — how each candidate's rank score is composed ===
-comp_lab <- c(rank_novelty = "Novelty (develop>expand>adopt)", rank_volume = "Volume (# FONSIs)",
+comp_lab <- c(rank_novelty = "Novelty", rank_volume = "Volume",
               rank_diversity = "Agency/state spread", rank_limits = "Has size limits",
               rank_mitigation = "Low mitigation dependence", rank_role = "Profile candidate")
 cls <- verdicts %>% filter(verdict != "contrast") %>%

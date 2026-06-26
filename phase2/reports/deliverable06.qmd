@@ -169,10 +169,15 @@ closely it matches that existing CE (highest similarity first):
 
 ## The outcome at a glance
 
-Of the `r n_clean` decarbonization FONSIs, `r n_candidate` fall into a recurring
-action type; within those, `r n_ce_shaped` are bounded and low-impact — and **every
-one resolves to *adopt*** (none net-new to develop, none exceeding a CE limit to
-expand). The remaining `r n_other` are the uncategorized net-new search pool.
+The `r n_clean` decarbonization FONSIs split three ways (colors match the figure):
+
+- **Bounded, low-impact → adopt** *(navy)* — the `r n_ce_shaped` projects in a recurring
+  action type *and* small/routine enough to be CE-shaped. **Every one resolves to
+  adopt** — none net-new to *develop*, none exceeding a CE limit to *expand*.
+- **Recurring type, broader** *(light blue)* — the `r n_candidate - n_ce_shaped`
+  projects in a recurring type but too large to be a CE (major rebuilds, greenfield).
+- **Not a recurring type** *(grey)* — the `r n_other` uncategorized projects: the
+  net-new search pool (Analysis 3).
 
 ```{r}
 #| label: fig-d6-outcomes
@@ -204,19 +209,23 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_action_distribution.png"))
 
 ## Step 3 · Matching to the existing CE catalog
 
-Each candidate is matched against the federal CE catalog by text similarity — a blend
-of semantic (embedding) and word-overlap (lexical) scoring — to surface the closest
-existing CE. **For example,** geothermal exploration matches a DOE exploration-drilling
-CE at 0.50: the two share the defining vocabulary (*geothermal, exploration, well,
-temperature gradient*) even though the sentences are phrased differently; transmission
-upgrades match the TVA maintenance CE at 0.45 on *transmission, existing, upgrade,
-right-of-way*.
+Each **candidate action type** — e.g. *geothermal exploration*, the cluster of bounded
+geothermal-drilling FONSIs, summarized by its defining terms — is compared against all
+`r comma(n_ce)` existing federal CEs to find the closest one. The similarity score runs
+**0 to 1** and blends two signals: *semantic* similarity (do the texts mean the same
+thing?) and *word overlap* (do they share the key terms?). **It is not a percent of
+matching text** — it's a cosine-style similarity.
 
-The score is a **ranking aid, not the verdict.** The dashed 0.40 line marks where a
-best match gets too generic to bother confirming — but it isn't doing real work here:
-every candidate scores **0.45–0.67**, well clear of it, so none would flip to *develop*
-even if the line moved. The actual develop-vs-adopt call is made by **confirming the
-matched CE against its eCFR text**, not by the similarity number.
+So what counts as a *strong* match? Against a typical, **unrelated** CE a candidate scores
+only **~0.07 on average, and ≤ ~0.20 even at the 95th percentile** (the grey band in the
+figure). The best matches — **0.45 to 0.67** — therefore sit **2–6× above that baseline**:
+clearly distinctive, on-topic matches, not noise. For example, geothermal exploration
+matches a DOE exploration-drilling CE at **0.50** (sharing *geothermal, exploration, well,
+temperature gradient*); solar matches a DOE solar CE at **0.67**, the strongest of the four.
+
+The score is a **ranking aid, not the verdict** — it surfaces the closest CE, but the
+actual develop-vs-adopt call is made by **confirming that CE against its eCFR text**.
+No candidate is anywhere near the unrelated-CE baseline, so none resolves to *develop*.
 
 ```{r ce-match-table}
 verdicts |>
@@ -258,15 +267,19 @@ to *expand*.)
 knitr::include_graphics(file.path(FIGS, "fig_d6_sizes.png"))
 ```
 
-## Step 4 · Classifying and ranking the candidates
+## Step 4 · Classifying, then ranking
 
-Two things happen here. **Classify:** each candidate is labeled develop / expand / adopt
-by the rule above — all four land on *adopt*. **Rank:** to decide *which* adopt
-opportunity to pursue first, each gets a transparent **rank score** (0–1) — a weighted
-sum of six factors. In the figure, the bar length is the overall priority and the
-colors show *why* it scored that way:
+**First, classify** each candidate with a three-question rule:
 
-- **Novelty** — develop > expand > adopt (a brand-new CE is worth more than adopting one).
+1. **Is there a close existing CE?** No → **develop** a new one. *(None here — every match clears the baseline.)*
+2. **Does a close CE exist, but our FONSIs exceed its stated size limit?** Yes → **expand** that CE. *(None here — no matched CE states a limit our projects exceed.)*
+3. **Does a close CE exist, but at a *different* agency than the ones doing these FONSIs?** Yes → **adopt** it. *(All four land here.)*
+
+So all four candidates classify as **adopt**. The figure below is the *second* step —
+**ranking** the four adopts so you know which to pursue first. Each gets a transparent
+score (0–1) summing six factors; the bar length is the priority and the colors show why:
+
+- **Novelty** — a brand-new CE (develop) outranks expanding or adopting one.
 - **Volume** — how many bounded FONSIs back it (more evidence ranks higher).
 - **Agency/state spread** — how widely the action recurs (broader = more agencies benefit).
 - **Has size limits** — whether we can state a numeric bound (easier to write the CE).
@@ -340,6 +353,15 @@ recommends. So the age of these EAs matters. Using decision dates **merged from 
 D4 timeline**, **all but one** of the dated bounded FONSIs were decided *before* the
 FRA — these agencies ran full EAs without the adoption shortcut now available. (Dates
 are known for ~⅔ of the bounded set; the rest are undated in the D4 output.)
+
+This cuts two ways. **It is a real limitation:** the corpus is almost entirely pre-FRA,
+so we cannot see whether agencies have *already* started adopting these CEs since June
+2023 — the recent picture may differ, and that bounds how current these specific
+opportunities are. **But it also sharpens the recommendation:** these agencies ran full
+EAs precisely because, at the time, the streamlined adoption path did not exist. Now that
+the FRA provides it, adopting the existing CE is exactly the efficiency the record points
+to. The clear next step is to refresh the corpus with post-FRA EAs and check whether the
+shift is already underway.
 
 ```{r}
 #| label: fig-d6-timeline
