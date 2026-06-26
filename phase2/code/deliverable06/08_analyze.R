@@ -20,7 +20,7 @@
 suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(readr); library(stringr)
   library(arrow); library(ggplot2); library(scales); library(forcats)
-  library(sf); library(tigris); library(ggwordcloud)
+  library(sf); library(tigris); library(ggwordcloud); library(ggbeeswarm)
 })
 options(tigris_use_cache = TRUE)
 
@@ -77,20 +77,19 @@ comp <- tibble(
   n = c(n_ce_shaped, n_broader, n_uncat),
   fill = c(catf_navy, catf_light_blue, catf_grey)
 )
-p_out <- ggplot(comp, aes(x = "", y = n, fill = segment)) +
+p_out <- ggplot(comp, aes(x = glue::glue("All decarbonization\nFONSIs (n = {comma(n_clean)})"),
+                          y = n, fill = segment)) +
   geom_col(width = 0.5) +
-  geom_text(aes(label = n), position = position_stack(vjust = 0.5), size = 5, color = "white", fontface = "bold") +
-  annotate("segment", x = 1.38, xend = 1.38, y = 0, yend = n_clean, color = "black", linewidth = 0.4) +
-  annotate("text", x = 1.45, y = n_clean / 2, label = paste0("— ", comma(n_clean), " —"),
-           color = "black", fontface = "bold", size = 4) +
+  geom_text(aes(label = paste0(n, "\n(", percent(n / n_clean, 1), ")")),
+            position = position_stack(vjust = 0.5), size = 4, color = "white", fontface = "bold", lineheight = 0.85) +
   scale_fill_manual(values = setNames(comp$fill, comp$segment), name = NULL, guide = guide_legend(reverse = TRUE)) +
-  scale_x_discrete(expand = expansion(add = c(0.4, 0.9))) +
-  coord_flip(clip = "off") + scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
-  labs(title = glue::glue("Scaling CEs: the {comma(n_clean)} decarbonization FONSIs, by where they fall"),
-       subtitle = str_wrap(glue::glue("Of the {comma(n_clean)} decarbonization FONSIs, {n_candidate} recur ",
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.02))) +
+  labs(title = "Scaling CEs: where the decarbonization FONSIs fall",
+       subtitle = str_wrap(glue::glue("Of the {comma(n_clean)} FONSIs, {n_candidate} recur ",
                  "({n_broader} broad + {n_ce_shaped} bounded) while {n_uncat} are uncategorized"), 95),
        x = NULL, y = "Distinct FONSI projects") +
-  theme_catf() + theme(legend.position = "bottom", axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  theme_catf() + theme(legend.position = "bottom",
+                       axis.text.y = element_text(face = "bold", color = catf_navy)) +
   guides(fill = guide_legend(nrow = 1, reverse = TRUE))
 save_fig(p_out, "fig_d6_outcomes.png", w = 10, h = 3.0)
 
@@ -100,37 +99,43 @@ dd <- corp_fonsi %>% group_by(candidate_category) %>%
             bounded = n_distinct(project_id[is_profile_subtype]), .groups = "drop") %>%
   left_join(verdicts %>% select(candidate_category, candidate_label), by = "candidate_category") %>%
   mutate(lab = short_label(candidate_label)) %>% filter(!is.na(lab))
-p_sort <- ggplot(dd, aes(y = reorder(lab, total))) +
-  geom_segment(aes(x = bounded, xend = total, yend = lab), color = catf_grey, linewidth = 1.6) +
-  geom_point(aes(x = total), color = catf_light_blue, size = 5.5) +
-  geom_point(aes(x = bounded), color = catf_teal, size = 5.5) +
-  geom_text(aes(x = total, label = total), color = catf_dark_blue, fontface = "bold", size = 3.1, vjust = -1.3) +
-  geom_text(aes(x = bounded, label = bounded), color = catf_teal, fontface = "bold", size = 3.1, vjust = -1.3) +
-  scale_x_continuous(expand = expansion(mult = c(0.06, 0.08))) +
+sortL <- dd %>% mutate(Broader = total - bounded, Bounded = bounded) %>%
+  pivot_longer(c(Bounded, Broader), names_to = "subset", values_to = "n") %>%
+  group_by(lab) %>% mutate(share = n / sum(n)) %>% ungroup() %>%
+  mutate(subset = factor(subset, levels = c("Broader", "Bounded")))
+p_sort <- ggplot(sortL, aes(y = reorder(lab, total), x = n, fill = subset)) +
+  geom_col(position = "fill", width = 0.7) +
+  geom_text(aes(label = ifelse(share >= 0.06, paste0(percent(share, 1), " (", n, ")"), "")),
+            position = position_fill(vjust = 0.5), color = "white", fontface = "bold", size = 3) +
+  geom_text(data = dd, aes(y = lab, x = 1, label = paste0("n = ", total)), inherit.aes = FALSE,
+            hjust = -0.12, size = 3, color = catf_navy) +
+  scale_fill_manual(values = c("Broader" = catf_grey, "Bounded" = catf_teal), name = NULL,
+                    guide = guide_legend(reverse = TRUE)) +
+  scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.14))) +
   labs(title = glue::glue("Step 1–2 · Sorting the {n_clean} decarbonization FONSIs"),
-       subtitle = str_wrap(glue::glue("Each FONSI is sorted into an action type; within each, the teal point is the ",
-                 "bounded, low-impact subset kept for matching. A further {n_uncat} FONSIs are uncategorized."), 96),
-       x = "FONSI projects of that type", y = NULL,
-       caption = "Light-blue dot = all FONSIs of that type; teal dot = the bounded, low-impact subset carried forward to Step 3.") +
-  theme_catf()
-save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 4.4)
+       subtitle = str_wrap(glue::glue("Within each action type, the share that is bounded & low-impact (teal, kept for ",
+                 "matching) vs broader (grey, set aside). A further {n_uncat} FONSIs are uncategorized."), 96),
+       x = "Share of the action type", y = NULL,
+       caption = "Teal = bounded, low-impact subset carried to Step 3; grey = broader. n = total FONSIs of that type.") +
+  theme_catf() + theme(legend.position = "bottom")
+save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 4.2)
 
 # === Fig: CE-match strength per candidate (ranking aid; 0.40 cutoff) ===
 mfit <- verdicts %>% filter(verdict != "contrast") %>% mutate(lab = short_label(candidate_label))
 p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_score)) +
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0, ymax = 0.20, fill = catf_grey, alpha = 0.5) +
-  annotate("text", x = Inf, y = 0.10, label = "baseline\nsimilarity", hjust = 0.5, vjust = 1.2,
-           size = 2.9, color = "gray30", fontface = "italic", lineheight = 0.85) +
+  annotate("text", x = Inf, y = 0.10, label = "baseline similarity", hjust = 0.5, vjust = -0.7,
+           size = 2.9, color = "gray30", fontface = "italic") +
   geom_col(width = 0.6, fill = catf_teal) +
-  geom_text(aes(label = sprintf("%.2f  →  %s", best_ce_match_score, best_ce_structured_id)),
-            hjust = -0.05, size = 3.3, color = catf_navy) +
+  geom_text(aes(label = sprintf("%.2f", best_ce_match_score)), hjust = -0.3, size = 3.5,
+            fontface = "bold", color = catf_navy) +
   coord_flip(clip = "off") +
-  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.1), expand = expansion(mult = c(0, 0.4))) +
+  scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2), expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Step 3 · How strongly each action matches an existing CE",
        subtitle = "Closest existing CE by text similarity (0–1)",
        x = NULL, y = "Best-match similarity (0–1)",
-       caption = str_wrap(paste("Blended semantic + word-overlap similarity. Grey band = baseline, where unrelated CEs score (≤ ~0.20);",
-                "the matches sit 2–6× above it. A ranking aid, not verified coverage — every match is confirmed against its eCFR text."), 120)) +
+       caption = str_wrap(paste("Blended semantic + word-overlap similarity. Grey band = baseline, where unrelated CEs score",
+                "(≤ ~0.20); the matches sit 2–6× above it. A ranking aid — every match is confirmed against its eCFR text (see table above)."), 118)) +
   theme_catf()
 save_fig(p_match, "fig_d6_ce_match.png", h = 4.0)
 
@@ -143,13 +148,12 @@ sz <- facts %>% filter(is_profile_subtype) %>%
   pivot_longer(-candidate_category, names_to = "metric", values_to = "value") %>%
   filter(!is.na(value), value > 0, value < 1000) %>%   # drop study-area outliers
   group_by(metric) %>% mutate(metric_n = paste0(metric, "\n(n = ", n(), ")")) %>% ungroup()
-set.seed(6)
 p_sizes <- ggplot(sz, aes(x = "", value)) +
-  geom_boxplot(width = 0.16, fill = catf_light_blue, color = catf_navy, alpha = 0.25,
+  geom_boxplot(width = 0.55, fill = catf_light_blue, color = catf_navy, alpha = 0.2,
                linewidth = 0.5, outlier.shape = NA) +
-  geom_jitter(width = 0.34, height = 0, size = 2.3, color = catf_navy, alpha = 0.65) +
+  geom_beeswarm(cex = 3, size = 2.3, color = catf_navy, alpha = 0.7) +
   facet_wrap(~metric_n, scales = "free_y", ncol = 3) +
-  scale_x_discrete(expand = expansion(add = 0.6)) +
+  scale_x_discrete(expand = expansion(add = 0.7)) +
   labs(title = "Step 3 · The size range of the bounded FONSIs",
        subtitle = str_wrap("What the bounded projects actually measure — the observed range a CE's threshold could be set against", 90),
        x = NULL, y = NULL,
@@ -173,7 +177,7 @@ ord <- verdicts %>% filter(verdict != "contrast") %>% arrange(rank_score) %>% pu
 cls$lab <- factor(cls$lab, levels = ord)
 p_cls <- ggplot(cls, aes(lab, contribution, fill = component)) +
   geom_col(width = 0.66) + coord_flip() +
-  scale_fill_manual(values = c(catf_navy, catf_dark_blue, catf_teal, catf_lime, catf_light_blue, catf_magenta), name = NULL) +
+  scale_fill_manual(values = c("#012169", "#28518F", "#4E7CB5", "#3FA7A0", "#8AB7E9", "#C2CBD6"), name = NULL) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Step 4 · How each candidate is scored and ranked",
        subtitle = "Transparent multi-factor rank score (0–1); bar length = total, colors = each factor's contribution",
@@ -188,21 +192,22 @@ tl <- facts %>% filter(is_profile_subtype) %>% distinct(project_id, decision_dat
          year = ifelse(!is.na(year) & year >= 1995 & year <= 2026, year, NA_integer_),
          era = case_when(is.na(year) ~ "Undated", d < as.Date("2023-06-03") ~ "Pre-FRA", TRUE ~ "Post-FRA"))
 n_pre <- sum(tl$era == "Pre-FRA"); n_post <- sum(tl$era == "Post-FRA"); n_unk <- sum(tl$era == "Undated")
-tlc <- tl %>% filter(!is.na(year)) %>% count(year, era)
-ymax <- max(tlc %>% group_by(year) %>% summarise(s = sum(n), .groups = "drop") %>% pull(s))
-p_tl <- ggplot(tlc, aes(year, n, fill = era)) +
-  geom_col(width = 0.85) +
+tld <- tl %>% filter(!is.na(year))
+p_tl <- ggplot(tld, aes(x = year, fill = era)) +
+  geom_dotplot(binwidth = 1, method = "histodot", dotsize = 0.78, stackratio = 1.1,
+               color = "white", stackgroups = TRUE, binpositions = "all") +
   geom_vline(xintercept = 2023.42, linetype = "dashed", color = catf_magenta, linewidth = 0.8) +
-  annotate("text", x = 2023.2, y = ymax, label = "FRA enacted\nJun 2023", hjust = 1.05,
+  annotate("text", x = 2023.0, y = 0.97, label = "FRA enacted\nJun 2023", hjust = 1.05, vjust = 1,
            size = 3.2, color = catf_magenta, fontface = "bold", lineheight = 0.9) +
   scale_fill_manual(values = c("Pre-FRA" = catf_teal, "Post-FRA" = catf_magenta, "Undated" = catf_grey), name = NULL) +
   scale_x_continuous(limits = c(2002, 2026), breaks = seq(2004, 2026, 4)) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
+  scale_y_continuous(NULL, breaks = NULL) +
   labs(title = "When were these EAs decided?",
-       subtitle = glue::glue("The {n_ce_shaped} bounded FONSIs by decision year — {n_pre} pre-FRA, {n_post} post-FRA, {n_unk} undated"),
-       x = NULL, y = "Bounded FONSIs",
-       caption = glue::glue("Decision dates merged from the D4 timeline (decision_date), known for {n_pre + n_post}/{n_ce_shaped}. ",
-                            "FRA (Jun 2023) gave agencies authority to adopt another agency's CE.")) +
+       subtitle = str_wrap(glue::glue("The {n_ce_shaped} bounded FONSIs by decision year — each dot is one FONSI ",
+                 "({n_pre} pre-FRA, {n_post} post-FRA, {n_unk} undated)"), 95),
+       x = NULL,
+       caption = str_wrap(glue::glue("Decision dates merged from the D4 timeline, known for {n_pre + n_post}/{n_ce_shaped}. ",
+                 "FRA (Jun 2023) gave agencies authority to adopt another agency's CE."), 110)) +
   theme_catf() + theme(legend.position = "bottom")
 save_fig(p_tl, "fig_d6_timeline.png", w = 9, h = 4.0)
 
