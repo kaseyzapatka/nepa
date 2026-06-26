@@ -127,9 +127,10 @@ save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 4.2)
 prof_keep <- facts %>% filter(is_profile_subtype)
 keep_attr <- tibble(
   attribute = c("On previously disturbed / developed land", "Within an existing right-of-way",
-                "No new permanent access road"),
+                "Temporary / short-duration work", "No new permanent access road*"),
   share = c(mean(prof_keep$previously_disturbed_land, na.rm = TRUE),
             mean(prof_keep$within_existing_row, na.rm = TRUE),
+            mean(prof_keep$is_temporary, na.rm = TRUE),
             mean(prof_keep$no_new_access_road, na.rm = TRUE)))
 p_keep <- ggplot(keep_attr, aes(share, reorder(attribute, share))) +
   geom_col(width = 0.6, fill = catf_teal) +
@@ -138,7 +139,8 @@ p_keep <- ggplot(keep_attr, aes(share, reorder(attribute, share))) +
   labs(title = glue::glue("What makes the {n_ce_shaped} kept FONSIs 'bounded, low-impact'"),
        subtitle = "Share of the bounded subset with each low-impact siting trait",
        x = NULL, y = NULL,
-       caption = "The kept subset skews to in-corridor work on already-disturbed land — the CE-shaped profile.") +
+       caption = str_wrap(paste("The kept subset skews to in-corridor work on already-disturbed land — the CE-shaped profile.",
+                "*Counts only FONSIs that explicitly state no new road, so it under-counts (most simply don't address roads)."), 120)) +
   theme_catf()
 save_fig(p_keep, "fig_d6_keep_bounded.png", w = 8.5, h = 2.8)
 
