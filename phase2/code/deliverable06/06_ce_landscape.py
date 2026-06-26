@@ -23,6 +23,9 @@ import os
 if os.environ.get("CONDA_DEFAULT_ENV") != "nepa":
     raise SystemExit("Please run in conda env 'nepa' (e.g., `conda run -n nepa python ...`).")
 
+import re
+from collections import Counter
+
 import numpy as np
 import pandas as pd
 
@@ -36,6 +39,26 @@ CLUSTERS_OUT = D6_ANALYSIS_DIR / "ce_clusters.parquet"
 SUMMARY_OUT = D6_REVIEW_DIR / "ce_landscape_summary.csv"
 CLUSTERS_REVIEW = D6_REVIEW_DIR / "ce_cluster_map_review.csv"
 NEAR_DUP_THRESHOLD = 0.85
+N_CLUSTERS = 8                     # KMeans clusters for the relatedness scatter
+
+_CLUSTER_STOP = set((
+    "the and for with would that this are all any from not its such other which been were has have also any "
+    "including include includes will may must per into onto under over within without their these those when "
+    "actions action activities activity project projects program programs federal agency agencies department "
+    "use using used new existing facility facilities site sites area areas land lands operations operation "
+    "construction maintenance routine minor where applicable required pursuant section appendix exclusion "
+    "categorical environmental impact impacts management proposed related associated involving normal").split())
+
+
+def _cluster_terms(texts: pd.Series, labels, k: int = 3) -> dict:
+    """Top distinctive content words per KMeans cluster, for a short scatter label."""
+    by: dict[int, Counter] = {}
+    for cl, t in zip(labels, texts):
+        by.setdefault(int(cl), Counter())
+        for w in re.findall(r"[a-z]{4,}", str(t).lower()):
+            if w not in _CLUSTER_STOP:
+                by[int(cl)][w] += 1
+    return {cl: ", ".join(w for w, _ in c.most_common(k)) for cl, c in by.items()}
 
 
 def _components(sim: np.ndarray, thr: float) -> list[int]:
@@ -93,10 +116,21 @@ def main() -> None:
         ce["nearest_xagency_unit"] = nearest_x_unit
         ce["xagency_near_duplicate"] = [(c is not None and c >= NEAR_DUP_THRESHOLD) for c in nearest_x_cos]
         ce["cluster_root"] = _components(sims, NEAR_DUP_THRESHOLD)
+        # 2D layout (t-SNE) + thematic clusters (KMeans) for the relatedness scatter
+        from sklearn.manifold import TSNE
+        from sklearn.cluster import KMeans
+        ts = TSNE(n_components=2, perplexity=30, init="pca", learning_rate="auto",
+                  random_state=42).fit_transform(emb)
+        ce["coord_x"] = ts[:, 0]; ce["coord_y"] = ts[:, 1]
+        km = KMeans(n_clusters=N_CLUSTERS, random_state=42, n_init=10).fit_predict(emb)
+        ce["cluster_km"] = km
+        ce["cluster_label"] = ce["cluster_km"].map(_cluster_terms(ce["ce_text"], km))
     else:
         ce["nearest_xagency_ce"] = ""; ce["nearest_xagency_cosine"] = None
         ce["nearest_xagency_unit"] = ""; ce["xagency_near_duplicate"] = False
         ce["cluster_root"] = list(range(n))
+        ce["coord_x"] = np.nan; ce["coord_y"] = np.nan
+        ce["cluster_km"] = -1; ce["cluster_label"] = ""
 
     # --- usage (best-effort; D3 ce_citations code format differs from ce.json) ---
     usage_top = ""
