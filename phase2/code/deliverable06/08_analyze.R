@@ -304,44 +304,36 @@ total_all <- sum(ce_dept$ce)
 k50       <- which(cumsum(ce_dept$ce) / total_all >= 0.50)[1]
 top4      <- ce_dept$dept[1:4]
 TEAL4     <- c("#0F6E56", "#1D9E75", "#5DCAA5", "#9FE1CB"); GREY <- "#B4B2A9"
+DEPT_FULL <- c(DOI = "Department of the Interior (DOI)", DOD = "Department of Defense (DOD)",
+               DOT = "Department of Transportation (DOT)", DHS = "Department of Homeland Security (DHS)",
+               DOC = "Department of Commerce (DOC)", HHS = "Department of Health and Human Services (HHS)",
+               DOE = "Department of Energy (DOE)", USDA = "Department of Agriculture (USDA)")
+dept_full <- function(d) ifelse(d %in% names(DEPT_FULL), DEPT_FULL[d], d)
 
-# --- Figure 12: lollipop, departments reaching the top 50% highlighted ---
-lab_top <- paste0("Top ", k50, " (50% of CEs)"); lab_rest <- paste0("Other ", n_dept - k50)
-lol <- ce_dept %>% mutate(grp = ifelse(rank <= k50, lab_top, lab_rest))
-p_dept <- ggplot(lol, aes(ce, reorder(dept, ce), color = grp)) +
-  geom_segment(aes(x = 0, xend = ce, yend = dept), linewidth = 0.9) +
-  geom_point(size = 3) +
-  geom_text(aes(label = ce), hjust = -0.5, size = 3, fontface = "bold", show.legend = FALSE) +
-  scale_color_manual(values = setNames(c("#1D9E75", GREY), c(lab_top, lab_rest)), name = NULL) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.12))) +
-  labs(title = "The existing CE landscape, by department",
-       subtitle = glue::glue("Just {k50} of {n_dept} departments account for half of all {comma(total_all)} CEs"),
-       x = "Categorical exclusions", y = NULL) +
-  theme_minimal(base_size = 12) +
-  theme(legend.position = "top", panel.grid.major.y = element_blank(), panel.grid.minor = element_blank(),
-        axis.title = element_text(face = "bold"), plot.title = element_text(face = "bold", color = catf_navy),
-        plot.background = element_rect(fill = "white", color = NA))
-save_fig(p_dept, "fig_d6_ce_by_dept.png", w = 9, h = 5.5)
-
-# --- Waffle: 10x10 (manual ggplot; each square ~= total/100 CEs) ---
-sq <- round(ce_dept$ce[1:4] / total_all * 100); sq <- c(sq, 100 - sum(sq))
-wv_names <- c(top4, paste0(n_dept - 4, " others"))
+# --- Waffle: 10x10 (each square ~= total/100 CEs), mirroring Figure 1 ---
+sq  <- round(ce_dept$ce[1:4] / total_all * 100); sq <- c(sq, 100 - sum(sq))
 cnt <- c(ce_dept$ce[1:4], total_all - sum(ce_dept$ce[1:4]))
-waf <- tibble(cat = factor(rep(wv_names, sq), levels = wv_names)) %>%
+ordw <- c(unname(dept_full(top4)), paste0(n_dept - 4, " other departments"))   # DOI..DHS top, rest bottom
+waf <- tibble(cat = factor(rep(ordw, sq), levels = ordw)) %>%
   mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
-pal_w  <- setNames(c(TEAL4, GREY), wv_names)
-labs_w <- setNames(paste0(wv_names, " — ", comma(cnt), " (", sq, "%)"), wv_names)
+pal_w <- setNames(c(TEAL4, GREY), ordw)
+labw  <- waf %>% group_by(cat) %>% summarise(y = mean(y), .groups = "drop") %>%
+  mutate(idx = as.integer(cat), lab = paste0(comma(cnt[idx]), " (", sq[idx], "%)"))
 p_waffle <- ggplot(waf, aes(x, y, fill = cat)) +
   geom_tile(color = "white", linewidth = 1.6) +
-  scale_fill_manual(values = pal_w, labels = labs_w, name = NULL) +
-  coord_equal() + scale_y_reverse() +
+  geom_text(data = labw, aes(x = -0.9, y = y, label = lab), inherit.aes = FALSE,
+            hjust = 1, fontface = "bold", size = 3.4, color = catf_navy) +
+  scale_fill_manual(values = pal_w, name = "Departments") +
+  scale_x_continuous(expand = expansion(add = c(2.8, 0.2))) +
+  coord_equal(clip = "off") + scale_y_reverse() +
   labs(title = "Four departments hold half the CE landscape",
-       subtitle = glue::glue("Each square ≈ {round(total_all / 100)} of {comma(total_all)} categorical exclusions")) +
+       subtitle = glue::glue("Of {comma(total_all)} categorical exclusions across {n_dept} departments, the top four hold 50%"),
+       caption = glue::glue("Each square ≈ {round(total_all / 100)} CEs.")) +
   theme_void(base_size = 12) +
   theme(legend.position = "right", plot.title = element_text(face = "bold", color = catf_navy),
-        plot.subtitle = element_text(color = catf_dark_blue),
+        plot.subtitle = element_text(color = catf_dark_blue), plot.caption = element_text(color = "gray50", hjust = 0),
         plot.background = element_rect(fill = "white", color = NA))
-save_fig(p_waffle, "fig_d6_ce_waffle.png", w = 8.5, h = 5)
+save_fig(p_waffle, "fig_d6_ce_waffle.png", w = 9.5, h = 5)
 
 # --- Figure 13: top 20 agencies, colored by the top-4 dept ramp (+ grey) ---
 agc <- ce_land %>% filter(!is.na(agency_name), agency_name != "") %>%
@@ -360,23 +352,31 @@ p_agc <- ggplot(agc, aes(reorder(agency_name, n), n, fill = col)) +
   theme_catf() + theme(legend.position = "right")
 save_fig(p_agc, "fig_d6_ce_by_agency.png", w = 9.5, h = 5.5)
 
-# --- Figure 14a: only 86 of 2,105 state a numeric limit (the headline) ---
+# --- Figure 14a: only 86 of 2,105 state a numeric limit — as a waffle (mirrors Figure 1/14) ---
 n_any_bound <- sum(ce_land$states_any_bound, na.rm = TRUE)
-nb <- n_any_bound; nq <- nrow(ce_land) - nb
-lim <- tibble(cat = factor(c("States a numeric limit", "Qualitative limits only"),
-                           levels = c("Qualitative limits only", "States a numeric limit")), n = c(nb, nq))
-p_numlim <- ggplot(lim, aes(x = "", y = n, fill = cat)) +
-  geom_col(width = 0.5) +
-  geom_text(aes(label = paste0(comma(n), " (", percent(n / nrow(ce_land), 1), ")")),
-            position = position_stack(vjust = 0.5), color = "white", fontface = "bold", size = 4) +
-  scale_fill_manual(values = c("States a numeric limit" = "#1D9E75", "Qualitative limits only" = GREY),
-                    name = NULL, guide = guide_legend(reverse = TRUE)) +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.02))) +
-  labs(title = glue::glue("Only {nb} of {comma(nrow(ce_land))} CEs state an explicit numeric limit"),
-       subtitle = str_wrap("The rest bound the action qualitatively — 'routine', 'minor', 'small-scale', 'temporary' — not with numbers", 95),
-       x = NULL, y = "Categorical exclusions") +
-  theme_catf() + theme(legend.position = "bottom", axis.text.y = element_blank(), axis.ticks.y = element_blank())
-save_fig(p_numlim, "fig_d6_ce_numlimit.png", w = 10, h = 2.6)
+nb <- n_any_bound; ntot <- nrow(ce_land); nq <- ntot - nb
+sqn <- round(c(nb, nq) / ntot * 100); sqn[2] <- 100 - sqn[1]
+ordn <- c("States a numeric limit", "Qualitative limits only"); cntn <- c(nb, nq)
+wafn <- tibble(cat = factor(rep(ordn, sqn), levels = ordn)) %>%
+  mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
+pal_n <- setNames(c("#1D9E75", GREY), ordn)
+labn  <- wafn %>% group_by(cat) %>% summarise(y = mean(y), .groups = "drop") %>%
+  mutate(idx = as.integer(cat), lab = paste0(comma(cntn[idx]), " (", percent(cntn[idx] / ntot, 1), ")"))
+p_numlim <- ggplot(wafn, aes(x, y, fill = cat)) +
+  geom_tile(color = "white", linewidth = 1.6) +
+  geom_text(data = labn, aes(x = -0.9, y = y, label = lab), inherit.aes = FALSE,
+            hjust = 1, fontface = "bold", size = 3.4, color = catf_navy) +
+  scale_fill_manual(values = pal_n, name = "Limit type") +
+  scale_x_continuous(expand = expansion(add = c(2.8, 0.2))) +
+  coord_equal(clip = "off") + scale_y_reverse() +
+  labs(title = glue::glue("Only {nb} of {comma(ntot)} CEs state an explicit numeric limit"),
+       subtitle = str_wrap("The rest bound the action qualitatively — 'routine', 'minor', 'small-scale', 'temporary' — not with numbers", 90),
+       caption = glue::glue("Each square ≈ {round(ntot / 100)} CEs.")) +
+  theme_void(base_size = 12) +
+  theme(legend.position = "right", plot.title = element_text(face = "bold", color = catf_navy),
+        plot.subtitle = element_text(color = catf_dark_blue), plot.caption = element_text(color = "gray50", hjust = 0),
+        plot.background = element_rect(fill = "white", color = NA))
+save_fig(p_numlim, "fig_d6_ce_numlimit.png", w = 9.5, h = 5)
 
 # --- Figure 14b: distribution of the 86 stated numeric bounds (acres + miles) ---
 bnd <- ce_land %>% transmute(`Acreage limit (acres)` = bound_acres, `Length limit (miles)` = bound_miles) %>%
@@ -394,22 +394,35 @@ p_bnd <- ggplot(bnd, aes(x = "", value)) +
                        strip.text = element_text(color = catf_navy, face = "bold"), panel.spacing = unit(1.8, "lines"))
 save_fig(p_bnd, "fig_d6_ce_bounds.png", w = 8, h = 3.6)
 
+# --- Figure 14b (alt): all four numeric-limit types on ONE shared log axis (horizontal) ---
+# A log scale makes the "no common threshold" point land harder — limits span orders of magnitude.
+bnd2 <- ce_land %>% transmute(`Acreage (acres)` = bound_acres, `Length (miles)` = bound_miles,
+                              `Voltage (kV)` = bound_kv, `Capacity (MW)` = bound_mw) %>%
+  pivot_longer(everything(), names_to = "metric", values_to = "value") %>% filter(!is.na(value), value > 0) %>%
+  group_by(metric) %>% mutate(metric_n = paste0(metric, "  (n = ", n(), ")")) %>% ungroup()
+p_bnd2 <- ggplot(bnd2, aes(value, reorder(metric_n, value, FUN = median))) +
+  geom_jitter(height = 0.2, width = 0, size = 1.9, alpha = 0.5, color = catf_navy) +
+  stat_summary(fun = median, geom = "point", shape = 18, size = 4.5, color = catf_magenta) +
+  scale_x_log10(labels = label_comma()) +
+  labs(title = "Even the numeric limits sprawl across orders of magnitude",
+       subtitle = str_wrap(paste("Each dot = one CE's stated limit; magenta diamond = median. On a shared log scale the",
+                "spread is obvious — there is no common threshold to expand against."), 95),
+       x = "Stated limit (log scale)", y = NULL,
+       caption = "All four numeric-limit types the CE catalog uses.") +
+  theme_catf() + theme(axis.text.y = element_text(color = catf_navy, face = "bold"),
+                       panel.grid.minor = element_blank())
+save_fig(p_bnd2, "fig_d6_ce_bounds_alt.png", w = 8.5, h = 3.4)
+
 # --- Figure 15: relatedness map — t-SNE layout, KMeans clusters, convex hulls ---
 if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
   sc    <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(cl = factor(cluster_km))
-  hulls <- sc %>% group_by(cl) %>% slice(chull(coord_x, coord_y)) %>% ungroup()
-  cl_lab <- sc %>% group_by(cl) %>%
-    summarise(x = median(coord_x), y = median(coord_y), lab = str_wrap(first(cluster_label), 16), .groups = "drop")
   pal_cl <- setNames(RColorBrewer::brewer.pal(max(3, nlevels(sc$cl)), "Set2")[seq_len(nlevels(sc$cl))], levels(sc$cl))
-  p_scatter <- ggplot(sc, aes(coord_x, coord_y)) +
-    geom_polygon(data = hulls, aes(group = cl, fill = cl), alpha = 0.15, color = NA) +
-    geom_point(aes(color = cl), size = 1.2, alpha = 0.6) +
-    geom_label(data = cl_lab, aes(x, y, label = lab), size = 2.6, fontface = "bold", color = catf_navy,
-               fill = "white", alpha = 0.75, label.size = 0, lineheight = 0.85) +
-    scale_color_manual(values = pal_cl, guide = "none") + scale_fill_manual(values = pal_cl, guide = "none") +
+  p_scatter <- ggplot(sc, aes(coord_x, coord_y, color = cl)) +
+    geom_point(size = 1.5, alpha = 0.7) +
+    scale_color_manual(values = pal_cl, guide = "none") +
     labs(title = "How related are the existing CEs?",
-         subtitle = str_wrap(paste("Each point is one CE; the hulls are k-means families (labeled by top terms), laid out by",
-                  "t-SNE of the text embeddings. Closer = more similar wording."), 95),
+         subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = k-means family.",
+                  "Closer = more similar wording; tight clusters are near-duplicate CEs that recur across departments."), 95),
          x = NULL, y = NULL,
          caption = "Many families recur across departments — the precedent for adopt.") +
     theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank())

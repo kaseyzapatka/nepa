@@ -156,7 +156,7 @@ def main() -> None:
                      agencies=("agency_unit", lambda s: ", ".join(sorted(set(s.astype(str))))))
                 .reset_index()
                 .merge(rep, on="cluster_root"))
-    clusters["representative_desc"] = clusters["representative_desc"].map(lambda t: normalize_space(t)[:160])
+    clusters["representative_desc"] = clusters["representative_desc"].map(lambda t: normalize_space(t)[:300])
     clusters = clusters[clusters["n_ces"] >= 2].sort_values(
         ["n_agencies", "n_ces"], ascending=False).reset_index(drop=True)
     clusters.insert(0, "cluster_id", range(1, len(clusters) + 1))

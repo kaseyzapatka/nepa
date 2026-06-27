@@ -433,13 +433,35 @@ the document explorer.
 ```{r}
 #| label: tbl-d6-transmission-example
 #| tbl-cap: "Sample bounded transmission-upgrade FONSIs with verbatim, source-verified excerpts (titles link to the document explorer)."
-#| column: page
 # Verified action quotes from the LLM enrichment (candidate_facts.quoted_span): each was
 # checked verbatim against the cited EA/FONSI page. Titles deep-link to the explorer (?pid=).
 EXPLORER <- "https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer"
 scope_rx <- "(?i)(reconductor|rebuild|replace|upgrad|existing|within|right.of.way|in.place|conductor|structure|pole|maintenance)"
 drop_rx  <- "(?i)(finding of no significant|revision sheet|table of contents|environmental assessment$)"
 rel_rx   <- "reconductor|rebuild|replace|upgrad|existing|within|right-of-way|right of way|in place|maintenance|conductor|structure|pole"
+
+# trim an excerpt to a clean boundary: cut over-long quotes at the last clause/word, and
+# drop a dangling partial word (some source quotes themselves end mid-word) so it never
+# reads as cut off; add an ellipsis only when text was actually dropped
+clean_cut <- function(s, n = 520) {
+  s <- str_squish(s)
+  cut <- nchar(s) > n
+  t <- if (cut) substr(s, 1, n) else s
+  if (cut) {
+    m <- str_locate_all(t, "•|\\. |; ")[[1]]
+    pos <- if (nrow(m)) m[nrow(m), 1] else NA_integer_
+    if (is.na(pos) || pos <= n * 0.5) {
+      sp <- str_locate_all(t, " ")[[1]]
+      pos <- if (nrow(sp)) sp[nrow(sp), 1] else NA_integer_
+    }
+    if (!is.na(pos)) t <- substr(t, 1, pos - 1)
+  }
+  t <- str_trim(t)
+  ends_clean <- str_detect(t, "[.!?\"')]$")
+  if (!ends_clean) t <- str_replace(t, "\\s+\\S{1,3}$", "")   # drop a dangling short partial word
+  if (cut || !ends_clean) t <- paste0(str_trim(t), " …")
+  t
+}
 
 ex <- facts |>
   filter(candidate_category == "transmission_upgrade", is_profile_subtype,
@@ -460,9 +482,9 @@ ex <- facts |>
     dept = case_when(str_detect(agency_raw, "Land Management") ~ "blm",
                      str_detect(agency_raw, "Power Marketing") ~ "pma", TRUE ~ "other"),
     relevance = str_count(tolower(quoted_span), rel_rx),
-    # full excerpt (cap set high so the relevant text is never cut off), with the
-    # modify-existing-infrastructure language bolded
-    Excerpt = paste0("“", str_squish(str_trunc(quoted_span, 900, ellipsis = "…")), "”"),
+    # trim long quotes to the last clean bullet/sentence so nothing dangles mid-word,
+    # then bold the modify-existing-infrastructure language
+    Excerpt = paste0("“", vapply(quoted_span, clean_cut, character(1), USE.NAMES = FALSE), "”"),
     Excerpt = str_replace_all(Excerpt,
       "(?i)(reconductor\\w*|rebuild\\w*|replac\\w*|upgrad\\w*|remov\\w*|existing|within the existing right-of-way|right-of-way|same alignment|in place)",
       "**\\1**")
@@ -479,8 +501,8 @@ ex |>
   gt() |>
   fmt_markdown(columns = c(`Project title`, Excerpt)) |>
   cols_align(align = "left", columns = everything()) |>
-  tab_options(table.font.size = px(11), table.width = pct(100)) |>
-  cols_width(Agency ~ pct(14), `Project title` ~ pct(20), Source ~ pct(8), Excerpt ~ pct(58))
+  tab_options(table.font.size = px(11), table.width = pct(100), data_row.padding = px(6)) |>
+  cols_width(Agency ~ pct(16), `Project title` ~ pct(22), Source ~ pct(9), Excerpt ~ pct(53))
 ```
 
 *(Size limits — line length, voltage, acreage, well count — now come from the
@@ -605,10 +627,12 @@ mit |>
     `FONSIs examined` = n_focus,
     `Mitigated` = n_mitigated_fonsi,
     `Mitigated share` = percent(mitigated_share, accuracy = 1),
-    `Recurring resource areas` = str_trunc(top_mitigation_resource_areas, 64)
+    `Recurring resource areas` = str_squish(top_mitigation_resource_areas)
   ) |>
   gt() |>
-  tab_options(table.font.size = px(12))
+  cols_align(align = "left", columns = everything()) |>
+  tab_options(table.font.size = px(12), data_row.padding = px(6)) |>
+  cols_width(Action ~ px(190), `Recurring resource areas` ~ px(300))
 ```
 
 ## Boundary language: where agencies drew the significance line
@@ -641,13 +665,13 @@ enr |>
   slice_head(n = 5) |>
   transmute(
     `Project Title` = glue("[{str_squish(project_title)}]({EXPLORER}?pid={project_id})"),
-    `Significance-threshold statement (verbatim)` = str_trunc(str_squish(stmt), 200)
+    `Significance-threshold statement (verbatim)` = vapply(stmt, clean_cut, character(1), n = 360, USE.NAMES = FALSE)
   ) |>
   gt() |>
   fmt_markdown(columns = `Project Title`) |>
   cols_align(align = "left", columns = everything()) |>
-  tab_options(table.font.size = px(11)) |>
-  cols_width(`Project Title` ~ px(200))
+  tab_options(table.font.size = px(11), data_row.padding = px(6)) |>
+  cols_width(`Project Title` ~ px(200), `Significance-threshold statement (verbatim)` ~ px(420))
 ```
 
 These are candidate CE bounds straight from the agencies' own findings — the
@@ -659,15 +683,6 @@ thresholds a new or adopted CE would be written to stay within.
 > across `r n_units` agency units for patterns and insights.
 
 ## The CE landscape, by department and agency
-
-Most CEs sit under a handful of departments. The rolled-up view is the most complete:
-
-```{r}
-#| label: fig-d6-ce-by-dept
-#| fig-cap: "Categorical exclusions by department (the agency unit code rolled up to its parent department); the four departments that together hold half the catalog are highlighted."
-#| out-width: 90%
-knitr::include_graphics(file.path(FIGS, "fig_d6_ce_by_dept.png"))
-```
 
 The concentration is stark — **four of the `r n_units_dept` departments hold half of all
 `r comma(n_ce)` CEs**:
@@ -711,6 +726,16 @@ dominate, with no common threshold:
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_bounds.png"))
 ```
 
+The same limits on a single log scale — across all four limit types CEs use — make the
+sprawl unmistakable:
+
+```{r}
+#| label: fig-d6-ce-bounds-alt
+#| fig-cap: "All four numeric-limit types on a shared log axis; magenta diamond = median. The stated limits span orders of magnitude, with no common threshold to expand against."
+#| out-width: 82%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_bounds_alt.png"))
+```
+
 So an "expand the stated limit" argument has almost no precedent to lean on — part of
 why nothing resolved to *expand* in Analysis 1.
 
@@ -730,29 +755,31 @@ qual <- tibble::tribble(
   "Within existing footprint", "(?i)existing (right|footprint|facilit|structure|disturb|road)")
 pick <- function(p) {
   d <- ce_land$ce_description[!is.na(ce_land$ce_description) & str_detect(ce_land$ce_description, p)]
-  d <- d[nchar(d) >= 45 & nchar(d) <= 220]
-  if (length(d)) str_trunc(str_squish(d[1]), 150) else ""
+  d <- d[nchar(d) >= 45 & nchar(d) <= 320]
+  if (length(d)) str_squish(d[1]) else ""
 }
 qual |>
   mutate(Example = vapply(pat, pick, character(1))) |>
   filter(Example != "") |>
   transmute(`Limiter type` = Type, `Example CE language (verbatim)` = Example) |>
   gt() |>
-  tab_options(table.font.size = px(11)) |>
-  cols_width(`Limiter type` ~ px(150))
+  cols_align(align = "left", columns = everything()) |>
+  tab_style(style = cell_text(weight = "bold"), locations = cells_body(columns = `Limiter type`)) |>
+  tab_style(style = cell_text(weight = "bold"), locations = cells_column_labels()) |>
+  tab_options(table.font.size = px(11), data_row.padding = px(6)) |>
+  cols_width(`Limiter type` ~ px(150), `Example CE language (verbatim)` ~ px(440))
 ```
 
 ## How related are the CEs?
 
 The CE body is **highly clustered**. Below, each point is one CE laid out by text
-similarity (t-SNE of the embeddings), grouped into **k-means families** (hulls,
-labeled by their top terms). Distinct families emerge — equipment replacement,
-property acquisition, personnel/administrative, roads — and many recur across
-*different* departments, which is the precedent for adopt.
+similarity (t-SNE of the embeddings), colored by its **k-means family**. Distinct
+families emerge — equipment replacement, property acquisition, personnel/administrative,
+roads — and many recur across *different* departments, which is the precedent for adopt.
 
 ```{r}
 #| label: fig-d6-ce-scatter
-#| fig-cap: "Every CE laid out by text similarity (t-SNE); hulls are k-means families labeled by their top terms. Closer = more similar."
+#| fig-cap: "Every CE laid out by text similarity (t-SNE), colored by k-means family. Closer = more similar wording."
 #| out-width: 92%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_scatter.png"))
 ```
@@ -775,12 +802,14 @@ clusters |>
   arrange(desc(n_agencies), desc(n_ces)) |>
   slice_head(n = 6) |>
   transmute(
-    `Shared action` = str_trunc(str_squish(representative_desc), 70),
+    `Shared action` = str_trunc(str_squish(representative_desc), 240),
     `Agencies sharing it` = n_agencies,
-    `e.g.` = str_trunc(agencies, 42)
+    `e.g.` = str_trunc(agencies, 60)
   ) |>
   gt() |>
-  tab_options(table.font.size = px(12))
+  cols_align(align = "left", columns = everything()) |>
+  tab_options(table.font.size = px(12), data_row.padding = px(7)) |>
+  cols_width(`Shared action` ~ px(360), `Agencies sharing it` ~ px(80), `e.g.` ~ px(200))
 ```
 
 The largest shared families are mundane (procurement, personnel, routine maintenance) —
