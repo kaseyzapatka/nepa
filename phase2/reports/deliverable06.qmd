@@ -717,23 +717,15 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_ce_numlimit.png"))
 ```
 
 And the few that *do* carry a number are themselves scattered — acres and miles
-dominate, with no common threshold:
+dominate, but **every CE picks a different value.** The single most common acreage limit
+(10 acres) is used by only **14 of the 71**, and the stated limits run all the way from
+**1 to 10,000 acres**. There is no common threshold to *expand* against:
 
 ```{r}
-#| label: fig-d6-ce-bounds
-#| fig-cap: "The stated acre/mile limits among the 86 CEs that have one — no common value."
-#| out-width: 80%
-knitr::include_graphics(file.path(FIGS, "fig_d6_ce_bounds.png"))
-```
-
-The same limits on a single log scale — across all four limit types CEs use — make the
-sprawl unmistakable:
-
-```{r}
-#| label: fig-d6-ce-bounds-alt
-#| fig-cap: "All four numeric-limit types on a shared log axis; magenta diamond = median. The stated limits span orders of magnitude, with no common threshold to expand against."
-#| out-width: 82%
-knitr::include_graphics(file.path(FIGS, "fig_d6_ce_bounds_alt.png"))
+#| label: fig-d6-ce-bounds-lolli
+#| fig-cap: "Every stated acre/mile limit among the 86 CEs that have one; stick height = how many CEs use exactly that value. The values sprawl across the log axis and none dominates."
+#| out-width: 86%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_bounds_lolli.png"))
 ```
 
 So an "expand the stated limit" argument has almost no precedent to lean on — part of
@@ -773,13 +765,14 @@ qual |>
 ## How related are the CEs?
 
 The CE body is **highly clustered**. Below, each point is one CE laid out by text
-similarity (t-SNE of the embeddings), colored by its **k-means family**. Distinct
-families emerge — equipment replacement, property acquisition, personnel/administrative,
-roads — and many recur across *different* departments, which is the precedent for adopt.
+similarity (t-SNE of the embeddings), colored by its **k-means family** and labeled by
+the family's top terms. Distinct families emerge — equipment replacement, property
+acquisition, personnel/administrative, roads — and many recur across *different*
+departments, which is the precedent for adopt.
 
 ```{r}
 #| label: fig-d6-ce-scatter
-#| fig-cap: "Every CE laid out by text similarity (t-SNE), colored by k-means family. Closer = more similar wording."
+#| fig-cap: "Every CE laid out by text similarity (t-SNE), colored by k-means family and labeled by its top terms. Closer = more similar wording."
 #| out-width: 92%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_scatter.png"))
 ```

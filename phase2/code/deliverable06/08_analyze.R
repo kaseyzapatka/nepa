@@ -378,51 +378,39 @@ p_numlim <- ggplot(wafn, aes(x, y, fill = cat)) +
         plot.background = element_rect(fill = "white", color = NA))
 save_fig(p_numlim, "fig_d6_ce_numlimit.png", w = 9.5, h = 5)
 
-# --- Figure 14b: distribution of the 86 stated numeric bounds (acres + miles) ---
-bnd <- ce_land %>% transmute(`Acreage limit (acres)` = bound_acres, `Length limit (miles)` = bound_miles) %>%
-  pivot_longer(everything(), names_to = "metric", values_to = "value") %>% filter(!is.na(value)) %>%
-  group_by(metric) %>% mutate(metric_n = paste0(metric, "\n(n = ", n(), ")")) %>% ungroup()
-p_bnd <- ggplot(bnd, aes(x = "", value)) +
-  geom_boxplot(width = 0.5, fill = catf_light_blue, color = catf_navy, alpha = 0.2, outlier.shape = NA) +
-  geom_beeswarm(cex = 1.3, size = 1.8, color = catf_navy, alpha = 0.6) +
-  facet_wrap(~metric_n, scales = "free_y") + scale_x_discrete(expand = expansion(add = 0.7)) +
-  labs(title = "And even the numeric limits are scattered",
-       subtitle = str_wrap("The acre/mile limits among the 86 CEs that state one — no common threshold to expand against", 90),
-       x = NULL, y = NULL,
-       caption = "Each dot is one CE's stated limit; box = median & middle 50%, whiskers = range.") +
-  theme_catf() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-                       strip.text = element_text(color = catf_navy, face = "bold"), panel.spacing = unit(1.8, "lines"))
-save_fig(p_bnd, "fig_d6_ce_bounds.png", w = 8, h = 3.6)
-
-# --- Figure 14b (alt): all four numeric-limit types on ONE shared log axis (horizontal) ---
-# A log scale makes the "no common threshold" point land harder — limits span orders of magnitude.
-bnd2 <- ce_land %>% transmute(`Acreage (acres)` = bound_acres, `Length (miles)` = bound_miles,
-                              `Voltage (kV)` = bound_kv, `Capacity (MW)` = bound_mw) %>%
+# --- Fig: every stated numeric limit as a lollipop, height = how many CEs use that value ---
+# Shows "no common threshold" directly: the values sprawl across the log axis, none dominates.
+bcnt <- ce_land %>% transmute(`Acreage limit (acres)` = bound_acres, `Length limit (miles)` = bound_miles) %>%
   pivot_longer(everything(), names_to = "metric", values_to = "value") %>% filter(!is.na(value), value > 0) %>%
-  group_by(metric) %>% mutate(metric_n = paste0(metric, "  (n = ", n(), ")")) %>% ungroup()
-p_bnd2 <- ggplot(bnd2, aes(value, reorder(metric_n, value, FUN = median))) +
-  geom_jitter(height = 0.2, width = 0, size = 1.9, alpha = 0.5, color = catf_navy) +
-  stat_summary(fun = median, geom = "point", shape = 18, size = 4.5, color = catf_magenta) +
-  scale_x_log10(labels = label_comma()) +
-  labs(title = "Even the numeric limits sprawl across orders of magnitude",
-       subtitle = str_wrap(paste("Each dot = one CE's stated limit; magenta diamond = median. On a shared log scale the",
-                "spread is obvious — there is no common threshold to expand against."), 95),
-       x = "Stated limit (log scale)", y = NULL,
-       caption = "All four numeric-limit types the CE catalog uses.") +
-  theme_catf() + theme(axis.text.y = element_text(color = catf_navy, face = "bold"),
-                       panel.grid.minor = element_blank())
-save_fig(p_bnd2, "fig_d6_ce_bounds_alt.png", w = 8.5, h = 3.4)
+  count(metric, value) %>%
+  group_by(metric) %>% mutate(metric_n = paste0(metric, "  (", sum(n), " CEs · ", n_distinct(value), " different values)")) %>% ungroup()
+p_bnd3 <- ggplot(bcnt, aes(value, n)) +
+  geom_segment(aes(xend = value, yend = 0), color = catf_light_blue, linewidth = 0.8) +
+  geom_point(color = catf_navy, size = 2.6) +
+  facet_wrap(~metric_n, scales = "free", ncol = 1) +
+  scale_x_log10(labels = label_comma()) + scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(title = "No common threshold — every CE picks a different number",
+       subtitle = str_wrap(paste("Each stick is one stated limit; its height is how many CEs use exactly that number.",
+                "The values sprawl across the log axis and none dominates."), 95),
+       x = "Stated limit (log scale)", y = "CEs using that exact value",
+       caption = "Acreage and mileage limits among the 86 CEs that state a number.") +
+  theme_catf() + theme(strip.text = element_text(color = catf_navy, face = "bold"), panel.spacing = unit(1.4, "lines"))
+save_fig(p_bnd3, "fig_d6_ce_bounds_lolli.png", w = 8.5, h = 5)
 
 # --- Figure 15: relatedness map — t-SNE layout, KMeans clusters, convex hulls ---
 if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
   sc    <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(cl = factor(cluster_km))
+  cl_lab <- sc %>% group_by(cl) %>%
+    summarise(x = median(coord_x), y = median(coord_y), lab = str_wrap(first(cluster_label), 16), .groups = "drop")
   pal_cl <- setNames(RColorBrewer::brewer.pal(max(3, nlevels(sc$cl)), "Set2")[seq_len(nlevels(sc$cl))], levels(sc$cl))
-  p_scatter <- ggplot(sc, aes(coord_x, coord_y, color = cl)) +
-    geom_point(size = 1.5, alpha = 0.7) +
+  p_scatter <- ggplot(sc, aes(coord_x, coord_y)) +
+    geom_point(aes(color = cl), size = 1.4, alpha = 0.6) +
+    geom_label(data = cl_lab, aes(x, y, label = lab), size = 2.6, fontface = "bold", color = catf_navy,
+               fill = "white", alpha = 0.8, label.size = 0, lineheight = 0.85) +
     scale_color_manual(values = pal_cl, guide = "none") +
     labs(title = "How related are the existing CEs?",
-         subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = k-means family.",
-                  "Closer = more similar wording; tight clusters are near-duplicate CEs that recur across departments."), 95),
+         subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = k-means family,",
+                  "labeled by its top terms. Closer = more similar wording; families recur across departments."), 95),
          x = NULL, y = NULL,
          caption = "Many families recur across departments — the precedent for adopt.") +
     theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank())
