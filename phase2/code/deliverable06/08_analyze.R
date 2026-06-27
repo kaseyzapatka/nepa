@@ -4,8 +4,9 @@
 # data; this R script builds the figures; deliverable06.qmd embeds them).
 #
 # Methodology / Analysis-1 figure set (each makes one point):
-#   fig_d6_outcomes.png        narrowing: 452 clean -> 293 in a type -> 53 bounded -> adopt
+#   fig_d6_outcomes_waffle     data at a glance: 452 clean -> not-recurring / recurring / bounded
 #   fig_d6_action_distribution sort step: every clean FONSI by action type (bounded highlighted)
+#   fig_d6_keep_bounded        keep step: the low-impact siting fingerprint of the bounded subset
 #   fig_d6_ce_match            best-CE match strength per candidate (0.40 "treat as new" cutoff)
 #   fig_d6_sizes               size spread of the bounded FONSIs (the candidate CE bounds)
 #   fig_d6_classification      how each candidate's rank score is composed
@@ -68,30 +69,32 @@ outcome <- corp_fonsi %>% filter(is_profile_subtype) %>%
 get_v <- function(v) { x <- outcome$n[outcome$verdict == v]; if (length(x)) x[1] else 0L }
 n_develop <- get_v("new"); n_expand <- get_v("expand"); n_adopt_f <- get_v("adopt")
 
-# === Fig: outcomes — one stacked bar of the universe (452) -> recurring (293) -> adopt (53) ===
+# === Fig 1 (data at a glance): waffle of the 452 FONSIs (each square ~= 4.5 FONSIs) ===
 n_broader <- n_candidate - n_ce_shaped          # in a recurring type but not bounded
 n_uncat   <- n_clean - n_candidate              # not in any recurring type (net-new pool)
-comp <- tibble(
-  segment = factor(c("Bounded", "Recurring", "Not Recurring"),
-                   levels = c("Not Recurring", "Recurring", "Bounded")),
-  n = c(n_ce_shaped, n_broader, n_uncat),
-  fill = c(catf_navy, catf_light_blue, catf_grey)
-)
-p_out <- ggplot(comp, aes(x = glue::glue("All decarbonization\nFONSIs (n = {comma(n_clean)})"),
-                          y = n, fill = segment)) +
-  geom_col(width = 0.5) +
-  geom_text(aes(label = paste0(n, "\n(", percent(n / n_clean, 1), ")")),
-            position = position_stack(vjust = 0.5), size = 4, color = "white", fontface = "bold", lineheight = 0.85) +
-  scale_fill_manual(values = setNames(comp$fill, comp$segment), name = NULL, guide = guide_legend(reverse = TRUE)) +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.02))) +
-  labs(title = "Scaling CEs: where the decarbonization FONSIs fall",
+ord1 <- c("Not recurring", "Recurring", "Bounded")          # top -> bottom in grid + legend
+wv1  <- c(`Not recurring` = 35, Recurring = 53, Bounded = 12)[ord1]
+cnt1 <- c(`Not recurring` = n_uncat, Recurring = n_broader, Bounded = n_ce_shaped)[ord1]
+waf1 <- tibble(cat = factor(rep(ord1, wv1), levels = ord1)) %>%
+  mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
+pal1 <- c(Bounded = catf_navy, Recurring = catf_light_blue, `Not recurring` = catf_grey)
+lab_pos <- waf1 %>% group_by(cat) %>% summarise(y = mean(y), .groups = "drop") %>%
+  mutate(lab = paste0(cnt1[as.character(cat)], " (", round(cnt1[as.character(cat)] / n_clean * 100), "%)"))
+p_waffle1 <- ggplot(waf1, aes(x, y, fill = cat)) +
+  geom_tile(color = "white", linewidth = 1.6) +
+  geom_text(data = lab_pos, aes(x = -0.9, y = y, label = lab), inherit.aes = FALSE,
+            hjust = 1, fontface = "bold", size = 3.6, color = catf_navy) +
+  scale_fill_manual(values = pal1, name = NULL) +
+  scale_x_continuous(expand = expansion(add = c(2.8, 0.2))) +
+  coord_equal(clip = "off") + scale_y_reverse() +
+  labs(title = "The 452 decarbonization FONSIs at a glance",
        subtitle = str_wrap(glue::glue("Of the {comma(n_clean)} FONSIs, {n_candidate} recur ",
-                 "({n_broader} broad + {n_ce_shaped} bounded) while {n_uncat} are uncategorized"), 95),
-       x = NULL, y = "Distinct FONSI projects") +
-  theme_catf() + theme(legend.position = "bottom",
-                       axis.text.y = element_text(face = "bold", color = catf_navy)) +
-  guides(fill = guide_legend(nrow = 1, reverse = TRUE))
-save_fig(p_out, "fig_d6_outcomes.png", w = 10, h = 3.0)
+                 "({n_broader} broad + {n_ce_shaped} bounded) while {n_uncat} are uncategorized"), 90),
+       caption = glue::glue("Each square ≈ {round(n_clean / 100, 1)} FONSIs.")) +
+  theme_void(base_size = 12) +
+  theme(legend.position = "right", plot.title = element_text(face = "bold", color = catf_navy),
+        plot.subtitle = element_text(color = catf_dark_blue), plot.caption = element_text(color = "gray50", hjust = 0))
+save_fig(p_waffle1, "fig_d6_outcomes_waffle.png", w = 9, h = 5)
 
 # === Fig: sort step — every clean FONSI by action type, incl. the uncategorized pool ===
 dd <- corp_fonsi %>% group_by(candidate_category) %>%
@@ -112,13 +115,34 @@ p_sort <- ggplot(sortL, aes(y = reorder(lab, total), x = n, fill = subset)) +
   scale_fill_manual(values = c("Broader" = catf_grey, "Bounded" = catf_teal), name = NULL,
                     guide = guide_legend(reverse = TRUE)) +
   scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.14))) +
-  labs(title = glue::glue("Step 1–2 · Sorting the {n_clean} decarbonization FONSIs"),
+  labs(title = glue::glue("Sorting the {n_clean} decarbonization FONSIs"),
        subtitle = str_wrap(glue::glue("Within each action type, the share that is bounded & low-impact (teal, kept for ",
                  "matching) vs broader (grey, set aside). A further {n_uncat} FONSIs are uncategorized."), 96),
        x = "Share of the action type", y = NULL,
        caption = "Teal = bounded, low-impact subset carried to Step 3; grey = broader. n = total FONSIs of that type.") +
   theme_catf() + theme(legend.position = "bottom")
 save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 4.2)
+
+# === Fig: what makes the kept FONSIs "bounded, low-impact" (the keep step) ===
+prof_keep <- facts %>% filter(is_profile_subtype)
+keep_attr <- tibble(
+  attribute = c("On previously disturbed / developed land", "Within an existing right-of-way",
+                "Temporary / short-duration work", "No new permanent access road*"),
+  share = c(mean(prof_keep$previously_disturbed_land, na.rm = TRUE),
+            mean(prof_keep$within_existing_row, na.rm = TRUE),
+            mean(prof_keep$is_temporary, na.rm = TRUE),
+            mean(prof_keep$no_new_access_road, na.rm = TRUE)))
+p_keep <- ggplot(keep_attr, aes(share, reorder(attribute, share))) +
+  geom_col(width = 0.6, fill = catf_teal) +
+  geom_text(aes(label = percent(share, 1)), hjust = -0.2, size = 3.8, fontface = "bold", color = catf_navy) +
+  scale_x_continuous(labels = percent, limits = c(0, 1), expand = expansion(mult = c(0, 0.12))) +
+  labs(title = glue::glue("What makes the {n_ce_shaped} kept FONSIs 'bounded, low-impact'"),
+       subtitle = "Share of the bounded subset with each low-impact siting trait",
+       x = NULL, y = NULL,
+       caption = str_wrap(paste("The kept subset skews to in-corridor work on already-disturbed land — the CE-shaped profile.",
+                "*Counts only FONSIs that explicitly state no new road, so it under-counts (most simply don't address roads)."), 120)) +
+  theme_catf()
+save_fig(p_keep, "fig_d6_keep_bounded.png", w = 8.5, h = 2.8)
 
 # === Fig: CE-match strength per candidate (ranking aid; 0.40 cutoff) ===
 mfit <- verdicts %>% filter(verdict != "contrast") %>% mutate(lab = short_label(candidate_label))
@@ -131,7 +155,7 @@ p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_sco
             fontface = "bold", color = catf_navy) +
   coord_flip(clip = "off") +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, 0.2), expand = expansion(mult = c(0, 0.05))) +
-  labs(title = "Step 3 · How strongly each action matches an existing CE",
+  labs(title = "How strongly each action matches an existing CE",
        subtitle = "Closest existing CE by text similarity (0–1)",
        x = NULL, y = "Best-match similarity (0–1)",
        caption = str_wrap(paste("Blended semantic + word-overlap similarity. Grey band = baseline, where unrelated CEs score",
@@ -139,30 +163,48 @@ p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_sco
   theme_catf()
 save_fig(p_match, "fig_d6_ce_match.png", h = 4.0)
 
-# === Fig: size spread of the bounded FONSIs (the candidate CE bounds) ===
-sz <- facts %>% filter(is_profile_subtype) %>%
-  transmute(candidate_category,
-            `Transmission — line miles` = ifelse(candidate_category == "transmission_upgrade", max_miles, NA),
-            `Transmission — voltage (kV)` = ifelse(candidate_category == "transmission_upgrade", max_kilovolts, NA),
-            `Geothermal — wells drilled` = ifelse(candidate_category == "geothermal_exploration", n_wells, NA)) %>%
-  pivot_longer(-candidate_category, names_to = "metric", values_to = "value") %>%
-  filter(!is.na(value), value > 0, value < 1000) %>%   # drop study-area outliers
-  group_by(metric) %>% mutate(metric_n = paste0(metric, "\n(n = ", n(), ")")) %>% ungroup()
-p_sizes <- ggplot(sz, aes(x = "", value)) +
-  geom_boxplot(width = 0.55, fill = catf_light_blue, color = catf_navy, alpha = 0.2,
-               linewidth = 0.5, outlier.shape = NA) +
-  geom_beeswarm(cex = 3, size = 2.3, color = catf_navy, alpha = 0.7) +
-  facet_wrap(~metric_n, scales = "free_y", ncol = 3) +
-  scale_x_discrete(expand = expansion(add = 0.7)) +
-  labs(title = "Step 3 · The size range of the bounded FONSIs",
-       subtitle = str_wrap("What the bounded projects actually measure — the observed range a CE's threshold could be set against", 90),
-       x = NULL, y = NULL,
-       caption = str_wrap(paste("Bounded, low-impact subset only. Each dot is one FONSI (n per panel);",
-                "box = median & middle 50%, whiskers = range. Study-area outliers excluded."), 110)) +
-  theme_catf() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-                       strip.text = element_text(color = catf_navy, face = "bold"),
-                       panel.spacing = unit(1.8, "lines"))
-save_fig(p_sizes, "fig_d6_sizes.png", w = 9.5, h = 3.8)
+# === Fig: bounded FONSIs vs existing-CE stated limits (the expand-test comparison) ===
+prof_sz <- facts %>% filter(is_profile_subtype)
+BLUE <- catf_dark_blue; GREEN <- "#1D9E75"   # Existing CE limits = blue; Bounded FONSIs = green
+grp_pal <- c("Bounded FONSIs" = GREEN, "Existing CE limits" = BLUE)
+sz <- bind_rows(
+  tibble(metric = "Line length (miles)", group = "Bounded FONSIs",     value = prof_sz$max_miles),
+  tibble(metric = "Voltage (kV)",        group = "Bounded FONSIs",     value = prof_sz$max_kilovolts),
+  tibble(metric = "Disturbance (acres)", group = "Bounded FONSIs",     value = prof_sz$max_acres),
+  tibble(metric = "Line length (miles)", group = "Existing CE limits", value = ce_land$bound_miles),
+  tibble(metric = "Voltage (kV)",        group = "Existing CE limits", value = ce_land$bound_kv),
+  tibble(metric = "Disturbance (acres)", group = "Existing CE limits", value = ce_land$bound_acres)
+) %>%
+  filter(!is.na(value), value > 0,
+         !(metric == "Disturbance (acres)" & value > 10000),   # drop study-area outliers
+         !(metric == "Line length (miles)" & value > 200)) %>%
+  mutate(metric = factor(metric, levels = c("Line length (miles)", "Voltage (kV)", "Disturbance (acres)")),
+         group  = factor(group, levels = c("Bounded FONSIs", "Existing CE limits")))
+ncount  <- sz %>% count(metric, group)
+# shade ONLY the panel(s) where the bounded FONSIs exceed the CE limits (the flag)
+winners <- sz %>% group_by(metric, group) %>% summarise(med = median(value), .groups = "drop") %>%
+  group_by(metric) %>% slice_max(med, n = 1, with_ties = FALSE) %>% ungroup() %>%
+  filter(group == "Bounded FONSIs")
+p_sizes <- ggplot(sz, aes(x = value, y = group)) +
+  geom_rect(data = winners, aes(fill = group), xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf,
+            alpha = 0.12, inherit.aes = FALSE) +
+  geom_boxplot(aes(color = group), width = 0.5, fill = NA, outlier.shape = NA, linewidth = 0.6) +
+  geom_jitter(aes(color = group), height = 0.15, width = 0, size = 1.8, alpha = 0.6) +
+  geom_text(data = ncount, aes(x = Inf, y = group, label = paste0("n = ", n)), inherit.aes = FALSE,
+            hjust = 1.1, size = 2.8, color = "gray45") +
+  facet_wrap(~metric, scales = "free_x", ncol = 1) +
+  scale_x_log10(labels = label_comma()) +
+  scale_color_manual(values = grp_pal, name = NULL) +
+  scale_fill_manual(values = grp_pal, guide = "none") +
+  labs(title = "Our bounded FONSIs vs the limits existing CEs state",
+       subtitle = str_wrap(paste("The miles panel is shaded green — the one dimension where our bounded FONSIs run",
+                "past the limits CEs typically state; on voltage and acres the existing limits already cover them."), 100),
+       x = "Stated size (log scale)", y = NULL,
+       caption = str_wrap(paste("Box = median & middle 50%; dots = individual FONSIs / CE limits. Existing CEs bound voltage",
+                "only twice (n=2), so that row is indicative. Study-area outliers excluded."), 115)) +
+  theme_catf() + theme(legend.position = "top", strip.text = element_text(color = catf_navy, face = "bold"),
+                       axis.text.y = element_blank(), axis.ticks.y = element_blank(), panel.spacing = unit(1.2, "lines"))
+save_fig(p_sizes, "fig_d6_sizes.png", w = 9, h = 5.5)
 
 # === Fig: classification — how each candidate's rank score is composed ===
 comp_lab <- c(rank_novelty = "Novelty", rank_volume = "Volume",
@@ -179,7 +221,7 @@ p_cls <- ggplot(cls, aes(lab, contribution, fill = component)) +
   geom_col(width = 0.66) + coord_flip() +
   scale_fill_manual(values = c("#012169", "#28518F", "#4E7CB5", "#3FA7A0", "#8AB7E9", "#C2CBD6"), name = NULL) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
-  labs(title = "Step 4 · How each candidate is scored and ranked",
+  labs(title = "How each candidate is scored and ranked",
        subtitle = "Transparent multi-factor rank score (0–1); bar length = total, colors = each factor's contribution",
        x = NULL, y = "Rank score") +
   theme_catf() + theme(legend.position = "bottom") + guides(fill = guide_legend(nrow = 2))
@@ -192,20 +234,23 @@ tl <- facts %>% filter(is_profile_subtype) %>% distinct(project_id, decision_dat
          year = ifelse(!is.na(year) & year >= 1995 & year <= 2026, year, NA_integer_),
          era = case_when(is.na(year) ~ "Undated", d < as.Date("2023-06-03") ~ "Pre-FRA", TRUE ~ "Post-FRA"))
 n_pre <- sum(tl$era == "Pre-FRA"); n_post <- sum(tl$era == "Post-FRA"); n_unk <- sum(tl$era == "Undated")
-tld <- tl %>% filter(!is.na(year))
-p_tl <- ggplot(tld, aes(x = year, fill = era)) +
-  geom_dotplot(binwidth = 1, method = "histodot", dotsize = 0.78, stackratio = 1.1,
-               color = "white", stackgroups = TRUE, binpositions = "all") +
+tlc    <- tl %>% filter(!is.na(year)) %>% count(year, era)
+yr_tot <- tlc %>% group_by(year) %>% summarise(n = sum(n), .groups = "drop")
+ymax   <- max(yr_tot$n)
+p_tl <- ggplot(tlc, aes(year, n, fill = era)) +
+  geom_col(width = 0.8) +
+  geom_text(data = yr_tot, aes(year, n, label = n), inherit.aes = FALSE,
+            vjust = -0.4, size = 2.8, color = catf_navy) +
   geom_vline(xintercept = 2023.42, linetype = "dashed", color = catf_magenta, linewidth = 0.8) +
-  annotate("text", x = 2023.0, y = 0.97, label = "FRA enacted\nJun 2023", hjust = 1.05, vjust = 1,
+  annotate("text", x = 2023.0, y = ymax, label = "FRA enacted\nJun 2023", hjust = 1.05, vjust = 1,
            size = 3.2, color = catf_magenta, fontface = "bold", lineheight = 0.9) +
   scale_fill_manual(values = c("Pre-FRA" = catf_teal, "Post-FRA" = catf_magenta, "Undated" = catf_grey), name = NULL) +
   scale_x_continuous(limits = c(2002, 2026), breaks = seq(2004, 2026, 4)) +
-  scale_y_continuous(NULL, breaks = NULL) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
   labs(title = "When were these EAs decided?",
-       subtitle = str_wrap(glue::glue("The {n_ce_shaped} bounded FONSIs by decision year — each dot is one FONSI ",
-                 "({n_pre} pre-FRA, {n_post} post-FRA, {n_unk} undated)"), 95),
-       x = NULL,
+       subtitle = str_wrap(glue::glue("The {n_ce_shaped} bounded FONSIs by decision year — ",
+                 "{n_pre} pre-FRA, {n_post} post-FRA, {n_unk} undated"), 95),
+       x = NULL, y = "Bounded FONSIs",
        caption = str_wrap(glue::glue("Decision dates merged from the D4 timeline, known for {n_pre + n_post}/{n_ce_shaped}. ",
                  "FRA (Jun 2023) gave agencies authority to adopt another agency's CE."), 110)) +
   theme_catf() + theme(legend.position = "bottom")
@@ -259,44 +304,36 @@ total_all <- sum(ce_dept$ce)
 k50       <- which(cumsum(ce_dept$ce) / total_all >= 0.50)[1]
 top4      <- ce_dept$dept[1:4]
 TEAL4     <- c("#0F6E56", "#1D9E75", "#5DCAA5", "#9FE1CB"); GREY <- "#B4B2A9"
+DEPT_FULL <- c(DOI = "Department of the Interior (DOI)", DOD = "Department of Defense (DOD)",
+               DOT = "Department of Transportation (DOT)", DHS = "Department of Homeland Security (DHS)",
+               DOC = "Department of Commerce (DOC)", HHS = "Department of Health and Human Services (HHS)",
+               DOE = "Department of Energy (DOE)", USDA = "Department of Agriculture (USDA)")
+dept_full <- function(d) ifelse(d %in% names(DEPT_FULL), DEPT_FULL[d], d)
 
-# --- Figure 12: lollipop, departments reaching the top 50% highlighted ---
-lab_top <- paste0("Top ", k50, " (50% of CEs)"); lab_rest <- paste0("Other ", n_dept - k50)
-lol <- ce_dept %>% mutate(grp = ifelse(rank <= k50, lab_top, lab_rest))
-p_dept <- ggplot(lol, aes(ce, reorder(dept, ce), color = grp)) +
-  geom_segment(aes(x = 0, xend = ce, yend = dept), linewidth = 0.9) +
-  geom_point(size = 3) +
-  geom_text(aes(label = ce), hjust = -0.5, size = 3, fontface = "bold", show.legend = FALSE) +
-  scale_color_manual(values = setNames(c("#1D9E75", GREY), c(lab_top, lab_rest)), name = NULL) +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.12))) +
-  labs(title = "The existing CE landscape, by department",
-       subtitle = glue::glue("Just {k50} of {n_dept} departments account for half of all {comma(total_all)} CEs"),
-       x = "Categorical exclusions", y = NULL) +
-  theme_minimal(base_size = 12) +
-  theme(legend.position = "top", panel.grid.major.y = element_blank(), panel.grid.minor = element_blank(),
-        axis.title = element_text(face = "bold"), plot.title = element_text(face = "bold", color = catf_navy),
-        plot.background = element_rect(fill = "white", color = NA))
-save_fig(p_dept, "fig_d6_ce_by_dept.png", w = 9, h = 5.5)
-
-# --- Waffle: 10x10 (manual ggplot; each square ~= total/100 CEs) ---
-sq <- round(ce_dept$ce[1:4] / total_all * 100); sq <- c(sq, 100 - sum(sq))
-wv_names <- c(top4, paste0(n_dept - 4, " others"))
+# --- Waffle: 10x10 (each square ~= total/100 CEs), mirroring Figure 1 ---
+sq  <- round(ce_dept$ce[1:4] / total_all * 100); sq <- c(sq, 100 - sum(sq))
 cnt <- c(ce_dept$ce[1:4], total_all - sum(ce_dept$ce[1:4]))
-waf <- tibble(cat = factor(rep(wv_names, sq), levels = wv_names)) %>%
+ordw <- c(unname(dept_full(top4)), paste0(n_dept - 4, " other departments"))   # DOI..DHS top, rest bottom
+waf <- tibble(cat = factor(rep(ordw, sq), levels = ordw)) %>%
   mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
-pal_w  <- setNames(c(TEAL4, GREY), wv_names)
-labs_w <- setNames(paste0(wv_names, " — ", comma(cnt), " (", sq, "%)"), wv_names)
+pal_w <- setNames(c(TEAL4, GREY), ordw)
+labw  <- waf %>% group_by(cat) %>% summarise(y = mean(y), .groups = "drop") %>%
+  mutate(idx = as.integer(cat), lab = paste0(comma(cnt[idx]), " (", sq[idx], "%)"))
 p_waffle <- ggplot(waf, aes(x, y, fill = cat)) +
   geom_tile(color = "white", linewidth = 1.6) +
-  scale_fill_manual(values = pal_w, labels = labs_w, name = NULL) +
-  coord_equal() + scale_y_reverse() +
+  geom_text(data = labw, aes(x = -0.9, y = y, label = lab), inherit.aes = FALSE,
+            hjust = 1, fontface = "bold", size = 3.4, color = catf_navy) +
+  scale_fill_manual(values = pal_w, name = "Departments") +
+  scale_x_continuous(expand = expansion(add = c(2.8, 0.2))) +
+  coord_equal(clip = "off") + scale_y_reverse() +
   labs(title = "Four departments hold half the CE landscape",
-       subtitle = glue::glue("Each square ≈ {round(total_all / 100)} of {comma(total_all)} categorical exclusions")) +
+       subtitle = glue::glue("Of {comma(total_all)} categorical exclusions across {n_dept} departments, the top four hold 50%"),
+       caption = glue::glue("Each square ≈ {round(total_all / 100)} CEs.")) +
   theme_void(base_size = 12) +
   theme(legend.position = "right", plot.title = element_text(face = "bold", color = catf_navy),
-        plot.subtitle = element_text(color = catf_dark_blue),
+        plot.subtitle = element_text(color = catf_dark_blue), plot.caption = element_text(color = "gray50", hjust = 0),
         plot.background = element_rect(fill = "white", color = NA))
-save_fig(p_waffle, "fig_d6_ce_waffle.png", w = 8.5, h = 5)
+save_fig(p_waffle, "fig_d6_ce_waffle.png", w = 9.5, h = 5)
 
 # --- Figure 13: top 20 agencies, colored by the top-4 dept ramp (+ grey) ---
 agc <- ce_land %>% filter(!is.na(agency_name), agency_name != "") %>%
@@ -315,56 +352,65 @@ p_agc <- ggplot(agc, aes(reorder(agency_name, n), n, fill = col)) +
   theme_catf() + theme(legend.position = "right")
 save_fig(p_agc, "fig_d6_ce_by_agency.png", w = 9.5, h = 5.5)
 
-# --- Figure 14a: only 86 of 2,105 state a numeric limit (the headline) ---
+# --- Figure 14a: only 86 of 2,105 state a numeric limit — as a waffle (mirrors Figure 1/14) ---
 n_any_bound <- sum(ce_land$states_any_bound, na.rm = TRUE)
-nb <- n_any_bound; nq <- nrow(ce_land) - nb
-lim <- tibble(cat = factor(c("States a numeric limit", "Qualitative limits only"),
-                           levels = c("Qualitative limits only", "States a numeric limit")), n = c(nb, nq))
-p_numlim <- ggplot(lim, aes(x = "", y = n, fill = cat)) +
-  geom_col(width = 0.5) +
-  geom_text(aes(label = paste0(comma(n), " (", percent(n / nrow(ce_land), 1), ")")),
-            position = position_stack(vjust = 0.5), color = "white", fontface = "bold", size = 4) +
-  scale_fill_manual(values = c("States a numeric limit" = "#1D9E75", "Qualitative limits only" = GREY),
-                    name = NULL, guide = guide_legend(reverse = TRUE)) +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.02))) +
-  labs(title = glue::glue("Only {nb} of {comma(nrow(ce_land))} CEs state an explicit numeric limit"),
-       subtitle = str_wrap("The rest bound the action qualitatively — 'routine', 'minor', 'small-scale', 'temporary' — not with numbers", 95),
-       x = NULL, y = "Categorical exclusions") +
-  theme_catf() + theme(legend.position = "bottom", axis.text.y = element_blank(), axis.ticks.y = element_blank())
-save_fig(p_numlim, "fig_d6_ce_numlimit.png", w = 10, h = 2.6)
+nb <- n_any_bound; ntot <- nrow(ce_land); nq <- ntot - nb
+sqn <- round(c(nb, nq) / ntot * 100); sqn[2] <- 100 - sqn[1]
+ordn <- c("States a numeric limit", "Qualitative limits only"); cntn <- c(nb, nq)
+wafn <- tibble(cat = factor(rep(ordn, sqn), levels = ordn)) %>%
+  mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
+pal_n <- setNames(c("#1D9E75", GREY), ordn)
+labn  <- wafn %>% group_by(cat) %>% summarise(y = mean(y), .groups = "drop") %>%
+  mutate(idx = as.integer(cat), lab = paste0(comma(cntn[idx]), " (", percent(cntn[idx] / ntot, 1), ")"))
+p_numlim <- ggplot(wafn, aes(x, y, fill = cat)) +
+  geom_tile(color = "white", linewidth = 1.6) +
+  geom_text(data = labn, aes(x = -0.9, y = y, label = lab), inherit.aes = FALSE,
+            hjust = 1, fontface = "bold", size = 3.4, color = catf_navy) +
+  scale_fill_manual(values = pal_n, name = "Limit type") +
+  scale_x_continuous(expand = expansion(add = c(2.8, 0.2))) +
+  coord_equal(clip = "off") + scale_y_reverse() +
+  labs(title = glue::glue("Only {nb} of {comma(ntot)} CEs state an explicit numeric limit"),
+       subtitle = str_wrap("The rest bound the action qualitatively — 'routine', 'minor', 'small-scale', 'temporary' — not with numbers", 90),
+       caption = glue::glue("Each square ≈ {round(ntot / 100)} CEs.")) +
+  theme_void(base_size = 12) +
+  theme(legend.position = "right", plot.title = element_text(face = "bold", color = catf_navy),
+        plot.subtitle = element_text(color = catf_dark_blue), plot.caption = element_text(color = "gray50", hjust = 0),
+        plot.background = element_rect(fill = "white", color = NA))
+save_fig(p_numlim, "fig_d6_ce_numlimit.png", w = 9.5, h = 5)
 
-# --- Figure 14b: distribution of the 86 stated numeric bounds (acres + miles) ---
-bnd <- ce_land %>% transmute(`Acreage limit (acres)` = bound_acres, `Length limit (miles)` = bound_miles) %>%
-  pivot_longer(everything(), names_to = "metric", values_to = "value") %>% filter(!is.na(value)) %>%
-  group_by(metric) %>% mutate(metric_n = paste0(metric, "\n(n = ", n(), ")")) %>% ungroup()
-p_bnd <- ggplot(bnd, aes(x = "", value)) +
-  geom_boxplot(width = 0.5, fill = catf_light_blue, color = catf_navy, alpha = 0.2, outlier.shape = NA) +
-  geom_beeswarm(cex = 1.3, size = 1.8, color = catf_navy, alpha = 0.6) +
-  facet_wrap(~metric_n, scales = "free_y") + scale_x_discrete(expand = expansion(add = 0.7)) +
-  labs(title = "And even the numeric limits are scattered",
-       subtitle = str_wrap("The acre/mile limits among the 86 CEs that state one — no common threshold to expand against", 90),
-       x = NULL, y = NULL,
-       caption = "Each dot is one CE's stated limit; box = median & middle 50%, whiskers = range.") +
-  theme_catf() + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-                       strip.text = element_text(color = catf_navy, face = "bold"), panel.spacing = unit(1.8, "lines"))
-save_fig(p_bnd, "fig_d6_ce_bounds.png", w = 8, h = 3.6)
+# --- Fig: every stated numeric limit as a lollipop, height = how many CEs use that value ---
+# Shows "no common threshold" directly: the values sprawl across the log axis, none dominates.
+bcnt <- ce_land %>% transmute(`Acreage limit (acres)` = bound_acres, `Length limit (miles)` = bound_miles) %>%
+  pivot_longer(everything(), names_to = "metric", values_to = "value") %>% filter(!is.na(value), value > 0) %>%
+  count(metric, value) %>%
+  group_by(metric) %>% mutate(metric_n = paste0(metric, "  (", sum(n), " CEs · ", n_distinct(value), " different values)")) %>% ungroup()
+p_bnd3 <- ggplot(bcnt, aes(value, n)) +
+  geom_segment(aes(xend = value, yend = 0), color = catf_light_blue, linewidth = 0.8) +
+  geom_point(color = catf_navy, size = 2.6) +
+  facet_wrap(~metric_n, scales = "free", ncol = 1) +
+  scale_x_log10(labels = label_comma()) + scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+  labs(title = "No common threshold — every CE picks a different number",
+       subtitle = str_wrap(paste("Each stick is one stated limit; its height is how many CEs use exactly that number.",
+                "The values sprawl across the log axis and none dominates."), 95),
+       x = "Stated limit (log scale)", y = "CEs using that exact value",
+       caption = "Acreage and mileage limits among the 86 CEs that state a number.") +
+  theme_catf() + theme(strip.text = element_text(color = catf_navy, face = "bold"), panel.spacing = unit(1.4, "lines"))
+save_fig(p_bnd3, "fig_d6_ce_bounds_lolli.png", w = 8.5, h = 5)
 
 # --- Figure 15: relatedness map — t-SNE layout, KMeans clusters, convex hulls ---
 if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
   sc    <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(cl = factor(cluster_km))
-  hulls <- sc %>% group_by(cl) %>% slice(chull(coord_x, coord_y)) %>% ungroup()
   cl_lab <- sc %>% group_by(cl) %>%
     summarise(x = median(coord_x), y = median(coord_y), lab = str_wrap(first(cluster_label), 16), .groups = "drop")
   pal_cl <- setNames(RColorBrewer::brewer.pal(max(3, nlevels(sc$cl)), "Set2")[seq_len(nlevels(sc$cl))], levels(sc$cl))
   p_scatter <- ggplot(sc, aes(coord_x, coord_y)) +
-    geom_polygon(data = hulls, aes(group = cl, fill = cl), alpha = 0.15, color = NA) +
-    geom_point(aes(color = cl), size = 1.2, alpha = 0.6) +
+    geom_point(aes(color = cl), size = 1.4, alpha = 0.6) +
     geom_label(data = cl_lab, aes(x, y, label = lab), size = 2.6, fontface = "bold", color = catf_navy,
-               fill = "white", alpha = 0.75, label.size = 0, lineheight = 0.85) +
-    scale_color_manual(values = pal_cl, guide = "none") + scale_fill_manual(values = pal_cl, guide = "none") +
+               fill = "white", alpha = 0.8, label.size = 0, lineheight = 0.85) +
+    scale_color_manual(values = pal_cl, guide = "none") +
     labs(title = "How related are the existing CEs?",
-         subtitle = str_wrap(paste("Each point is one CE; the hulls are k-means families (labeled by top terms), laid out by",
-                  "t-SNE of the text embeddings. Closer = more similar wording."), 95),
+         subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = k-means family,",
+                  "labeled by its top terms. Closer = more similar wording; families recur across departments."), 95),
          x = NULL, y = NULL,
          caption = "Many families recur across departments — the precedent for adopt.") +
     theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank())
@@ -424,13 +470,16 @@ words <- enr %>% filter(is_mit, !is.na(mitigation_summary)) %>% pull(mitigation_
 wf <- tibble(word = words) %>% filter(!word %in% stop_w) %>% count(word, sort = TRUE) %>% slice_head(n = 130)
 set.seed(6)
 p_wc <- ggplot(wf, aes(label = word, size = n, color = n)) +
-  geom_text_wordcloud_area(rm_outside = TRUE, eccentricity = 1) +
-  scale_size_area(max_size = 13) +
+  geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE) +   # square fill, less whitespace (Phase 1 pattern)
+  scale_size_area(max_size = 30) +
   scale_color_gradient(low = catf_light_blue, high = catf_navy) +
   labs(title = "The committed-mitigation language is project-specific",
-       subtitle = glue::glue("Most-frequent words across the {n_mit} mitigated FONSIs' mitigation summaries — no term dominates, ",
-                             "consistent with case-specific (not standardized) measures")) +
-  theme_catf() + theme(panel.grid = element_blank())
-save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 9, h = 5.5)
+       subtitle = str_wrap(glue::glue("Most-frequent words across the {n_mit} mitigated FONSIs' mitigation summaries — ",
+                             "no term dominates, consistent with case-specific (not standardized) measures"), 95)) +
+  theme_void(base_size = 12) +
+  theme(plot.title = element_text(face = "bold", color = catf_navy),
+        plot.subtitle = element_text(color = catf_dark_blue, margin = margin(b = 2)),
+        plot.margin = margin(2, 2, 2, 2), legend.position = "none")
+save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 9, h = 4.4)
 
 message("[08] figures written to ", FIGS)
