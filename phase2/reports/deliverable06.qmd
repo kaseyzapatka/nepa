@@ -745,7 +745,7 @@ enr |>
   distinct(project_title, .keep_all = TRUE) |>
   slice_head(n = 5) |>
   mutate(
-    summ = vapply(mitigation_summary, clean_cut, character(1), n = 540, USE.NAMES = FALSE),
+    summ = vapply(mitigation_summary, clean_cut, character(1), n = 800, USE.NAMES = FALSE),
     # bold the project-specific measures so they stand out as the case-by-case commitments
     summ = str_replace_all(summ,
       "(?i)(reseed\\w*|reveget\\w*|erosion[ a-z]{0,12}control|sediment control|stormwater|spill prevention\\w*|dust (control|suppression)|noise (control|barrier|abatement)|buffer\\w*|setback\\w*|raptor\\w*|nest\\w*|migratory bird\\w*|\\bSHPO\\b|tribal consultation|cultural[ a-z]{0,12}monitor\\w*|biological monitor\\w*|wildlife|wetland\\w*|seasonal[ a-z]{0,12}restriction\\w*|timing restriction\\w*|weed (control|management)|best management practices|special[- ]status species)",
@@ -758,9 +758,9 @@ enr |>
   gt() |>
   fmt_markdown(columns = everything()) |>
   cols_align(align = "left", columns = everything()) |>
-  tab_options(table.font.size = px(11), data_row.padding = px(6)) |>
-  cols_width(`Project Title` ~ px(200),
-             `Committed mitigation (LLM summary; project-specific measures in bold)` ~ px(440))
+  tab_options(table.font.size = px(11), data_row.padding = px(10)) |>
+  cols_width(`Project Title` ~ px(180),
+             `Committed mitigation (LLM summary; project-specific measures in bold)` ~ px(460))
 ```
 
 ## The mitigation language is project-specific
@@ -784,32 +784,21 @@ what a defensible CE would distill into standing design criteria.
 
 ```{r}
 #| label: tbl-d6-mitigation-pattern
-#| tbl-cap: "Mitigated-FONSI rate by candidate action type, with Wilson 95% intervals and a thin-evidence flag — point estimates for n < 10 are illustrative."
-wilson_ci <- function(x, n, z = 1.96) {
-  if (is.na(n) || n == 0) return("—")
-  p <- x / n; d <- 1 + z^2 / n
-  ctr <- (p + z^2 / (2 * n)) / d
-  hw  <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / d
-  sprintf("%.0f–%.0f%%", 100 * max(0, ctr - hw), 100 * min(1, ctr + hw))
-}
+#| tbl-cap: "Mitigated-FONSI counts and the recurring resource areas by candidate action type (sorted by FONSIs examined)."
 mit |>
   left_join(verdicts |> select(candidate_category, candidate_label, verdict), by = "candidate_category") |>
   filter(verdict != "contrast") |>
-  arrange(desc(mitigated_share)) |>
+  arrange(desc(n_focus)) |>
   transmute(
     Action = str_replace(candidate_label, " \\(.*\\)", ""),
     `FONSIs` = n_focus,
     `Mitigated` = n_mitigated_fonsi,
-    `Share (95% CI)` = paste0(percent(mitigated_share, accuracy = 1), "  (",
-                              mapply(wilson_ci, n_mitigated_fonsi, n_focus), ")"),
-    Evidence = ifelse(n_focus < 10, "thin (n<10)", "ok"),
     `Recurring resource areas` = str_squish(top_mitigation_resource_areas)
   ) |>
   gt() |>
   cols_align(align = "left", columns = everything()) |>
-  tab_style(style = cell_text(color = "#9A1C1C"), locations = cells_body(columns = Evidence, rows = Evidence != "ok")) |>
   tab_options(table.font.size = px(12), data_row.padding = px(6)) |>
-  cols_width(Action ~ px(180), `Share (95% CI)` ~ px(150), `Recurring resource areas` ~ px(260))
+  cols_width(Action ~ px(190), `Recurring resource areas` ~ px(330))
 ```
 
 ## Boundary language: where agencies drew the significance line
@@ -821,37 +810,42 @@ Each is a verbatim, span-verified quote; real examples:
 
 ```{r}
 #| label: tbl-d6-boundary-examples
-#| tbl-cap: "Verbatim significance-threshold statements — candidate numeric/qualitative bounds for a CE (titles link to the document explorer)."
+#| tbl-cap: "Verbatim significance-threshold statements — the agencies' own 'would (not) be significant' counterfactuals (the argument bolded). These are a CE's natural bounds; titles link to the document explorer."
 first_threshold <- function(j) {
   x <- tryCatch(fromJSON(j, simplifyVector = FALSE), error = function(e) list())
-  # prefer the CONDITIONAL counterfactuals ("would be significant if X"); drop generic definitions
-  cond_rx <- "(?i)significant if|would (not )?be (a |an )?(potential\\w* )?significant|result(s|ed)? in|loss of|exceed|greater than|jeopard|contaminat|degrad|unless"
-  drop_rx <- "(?i)defines? significan|is defined (by|under|as)|definition of|\\bCEQA\\b|context and intensity|40 ?CFR|\\b1508|table 4-1|impact significance thresholds resource"
+  # require an explicit significance COUNTERFACTUAL — not a bare impact statement or a mitigation measure
+  cond_rx <- "(?i)would[^.]{0,55}significant|significant (if|unless|when|because|provided)|significantly (below|within|less)|would not[^.]{0,45}(adverse|significant|exceed)|(below|within)[^.]{0,35}(threshold|guideline|standard|criteri|limit)"
+  drop_rx <- "(?i)defines? significan|is defined (by|under|as)|definition of|\\bCEQA\\b|context and intensity|40 ?CFR|\\b1508|table 4-1|impact significance thresholds resource|located greater than"
   cands <- character(0)
   for (t in x) {
     s <- if (is.null(t$statement)) "" else str_squish(t$statement)
     if (nchar(s) > 45 && grepl(cond_rx, s) && !grepl(drop_rx, s)) cands <- c(cands, s)
   }
-  pref <- cands[grepl("(?i)significant if|would (not )?be", cands)]   # the explicit "significant if" counterfactual first
-  if (length(pref)) pref[1] else if (length(cands)) cands[1] else ""
+  pref <- cands[grepl("(?i)would (not )?be (a |an )?(potential\\w* )?significant|significant if", cands)]
+  if (length(pref)) pref[which.max(nchar(pref))] else if (length(cands)) cands[which.max(nchar(cands))] else ""
 }
+bold_sig <- function(s) str_replace_all(s,
+  "(?i)(would (not )?be (a |an )?(potentially )?significant|significant if|significantly (below|within|less)|would not be expected to have any adverse[ a-z]*)",
+  "**\\1**")
 EXPLORER <- "https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer"
 enr |>
   filter(!is.na(significance_thresholds), significance_thresholds != "[]") |>
   mutate(stmt = vapply(significance_thresholds, first_threshold, character(1))) |>
   filter(nchar(stmt) > 45) |>
-  arrange(project_id) |>
   distinct(project_title, .keep_all = TRUE) |>
+  arrange(desc(str_detect(stmt, "(?i)would (not )?be (a |an )?(potential\\w* )?significant|significant if")),
+          desc(nchar(stmt))) |>
   slice_head(n = 5) |>
   transmute(
     `Project Title` = glue("[{str_squish(project_title)}]({EXPLORER}?pid={project_id})"),
-    `Significance-threshold statement (verbatim)` = vapply(stmt, clean_cut, character(1), n = 360, USE.NAMES = FALSE)
+    `Significance-threshold statement (argument in bold)` =
+       bold_sig(vapply(stmt, clean_cut, character(1), n = 560, USE.NAMES = FALSE))
   ) |>
   gt() |>
-  fmt_markdown(columns = `Project Title`) |>
+  fmt_markdown(columns = everything()) |>
   cols_align(align = "left", columns = everything()) |>
-  tab_options(table.font.size = px(11), data_row.padding = px(6)) |>
-  cols_width(`Project Title` ~ px(200), `Significance-threshold statement (verbatim)` ~ px(420))
+  tab_options(table.font.size = px(11), data_row.padding = px(8)) |>
+  cols_width(`Project Title` ~ px(170), `Significance-threshold statement (argument in bold)` ~ px(450))
 ```
 
 These are candidate CE bounds straight from the agencies' own findings — the

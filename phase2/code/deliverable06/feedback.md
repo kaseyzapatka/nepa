@@ -231,8 +231,11 @@ All 10 client questions are now answered in the narrative / methods / captions.
   to `citation_verified`.
 - **Should-fix 12 — FIXED.** Renamed `corpus_mitigation_stats` → `n_case_specific_dependent`
   / `n_design_or_none` in `09` (+ the print summary + report setup ref).
-- **Should-fix 5 — FIXED.** Wilson 95% CIs + a thin-evidence (n<10) flag on the
-  mitigation-pattern table.
+- **Should-fix 5 — FIXED (then trimmed per later user request).** Added Wilson 95% CIs + a
+  thin-evidence (n<10) flag on the mitigation-pattern table; the user later asked to remove
+  the share/CI/Evidence columns from that table as distracting. Uncertainty is still surfaced
+  — the scope callout flags n<10 candidates as illustrative, and the rank-sensitivity table
+  reads thin-n as a band.
 - **Should-fix 6 — FIXED.** Rank weight-sensitivity table (volume / mitigation-risk /
   verification-confidence): transmission is #1 in all three; thin-n candidates shuffle → a band.
 - **Client Q4 — FIXED.** Missingness table by key field (null = unknown, not FALSE).
@@ -256,3 +259,95 @@ All 10 client questions are now answered in the narrative / methods / captions.
 
 **Net: all 6 Blocking, all 14 Should-fix, all 10 client questions resolved; 5 of 7
 Nice-to-haves done (2 deferred with reason above).**
+
+## Second-pass database-wide review - 2026-06-30
+
+This pass re-checked the current D6 parquets, review CSVs, report source, rendered HTML, and QA gate after the resolution log above. `qa_deliverable06.py` currently passes, but the broader database reconciliation found the following new or still-open issues.
+
+### 1. Blocking
+
+1. **The "452 decarbonization FONSIs" denominator includes 23 records that `projects_combined` marks as excluded nuclear-tech-only.**  
+   References: `phase2/reports/deliverable06.qmd:51` and `phase2/reports/deliverable06.qmd:132` define the source set with `project_energy_type == "Clean"`; `phase2/code/deliverable06/01_select_candidate_corpus.py:52-53`, `phase2/code/deliverable06/enrich_lib.py:100-103`, and `phase2/code/deliverable06/05_mitigation_and_boundary.py:98-103` use the same broad filter. Database check: joining `fonsi_project_inventory.parquet` to `projects_combined.parquet` finds 23 of 452 source FONSIs with `project_is_nuclear_tech_only == TRUE` and `project_energy_type_strict == "Other"`; strict clean source denominator is 429, and the enriched denominator after the no-evidence row would be 428. Current candidate categories are not affected, but the corpus-wide mitigation denominator and "decarbonization FONSI" framing are.  
+   Recommended fix: rebuild or filter the D6 source set with `project_energy_type_strict == "Clean"` and all exclusion flags false (`project_is_utilities_broadband_only`, `project_is_nuclear_tech_only`, `project_utilities_to_exclude`, `project_military_to_exclude`, `project_nuclear_waste_to_exclude`). Recompute `fonsi_enrichment`-derived stats and all report denominators from the strict set. If nuclear-tech-only records are intentionally in scope, rename the denominator and add an explicit nuclear-included caveat and count table.
+
+2. **Null LLM booleans are still treated as `FALSE` in computations, while the report says they are unknown.**  
+   References: `_b()` in `phase2/code/deliverable06/09_wire_enrichment.py:57-59` coerces `None` to `False`; the coercion is used for `is_bounded_low_impact` at `phase2/code/deliverable06/09_wire_enrichment.py:114`, candidate mitigation flags at `phase2/code/deliverable06/09_wire_enrichment.py:172`, and corpus mitigation stats at `phase2/code/deliverable06/09_wire_enrichment.py:199-207`. The figures repeat the same logic in `phase2/code/deliverable06/08_analyze.R:456-482`, and the report does it at `phase2/reports/deliverable06.qmd:39`, despite saying "Null LLM fields are treated as unknown, not false" at `phase2/reports/deliverable06.qmd:140` and `phase2/reports/deliverable06.qmd:1080`. Database impact: `fonsi_enrichment.parquet` has 310 `TRUE`, 57 `FALSE`, and 84 null `is_mitigated_fonsi` values; the reported share is 310/451 = 68.7%, but the known-record share is 310/367 = 84.5%. One profile transmission row has raw `is_bounded_low_impact = NULL` but becomes `False` in `candidate_facts.parquet`.  
+   Recommended fix: preserve nullable booleans in `candidate_facts.parquet`; compute mitigation as `true / known` and show unknowns as a separate segment, or label `310/451` as a lower bound. For bounded counts, add `is_bounded_low_impact_status in {true,false,unknown}` and keep unknown rows out of both "bounded" and "not bounded" claims unless manually adjudicated.
+
+3. **The bounded candidate counts still include unresolved rule-vs-LLM action-category mismatches.**  
+   References: `phase2/code/deliverable06/09_wire_enrichment.py:99-115` joins enrichment into rule-assigned candidate rows but does not validate `action_category`; `phase2/code/deliverable06/07_classify_and_rank.py:97-104` uses those facts for verdict counts; the report acknowledges the mismatch at `phase2/reports/deliverable06.qmd:242-245` but still lists all four adopt candidates at `phase2/reports/deliverable06.qmd:419-437`. Database impact: 10 of 54 profile rows have `candidate_category != action_category`, and all 10 are also in the bounded subset. That includes 5 of 7 bounded solar rows, both bounded temporary-resource rows, and 3 of 26 bounded transmission rows.  
+   Recommended fix: add a hard review gate before `07`: require `candidate_category == action_category` or a documented reviewer override. Exclude unresolved mismatches from `candidate_verdicts.parquet`, `d6_comparison_table.csv`, figures, and headline counts. Without overrides, solar's bounded support drops from 7 to 2 and temporary resource assessment drops from 2 to 0, so those recommendations should not remain client-facing as-is.
+
+4. **CE coverage is still pending in the database and review CSVs, but some current figures/text still read as confirmed adoptability.**  
+   References: `phase2/code/deliverable06/04_base_rates_and_ce.py:188-189` writes all CE matches as `manual_verification_status = "pending"` / `match_type = "unverified_candidate"`; `candidate_ce_comparison.parquet` is 40/40 pending and all top matches have null parsed numeric bounds. `phase2/code/deliverable06/07_classify_and_rank.py:173-190` writes `verdict = "adopt"` and `verdict_confidence = "low"` but no `coverage_status`; `phase2/output/deliverable06/d6_comparison_table.csv` exposes `adopt` without a pending-status column. The generated images still overstate: `phase2/code/deliverable06/08_analyze.R:167` says every match is confirmed against eCFR, and `phase2/code/deliverable06/08_analyze.R:329` says adopting avoids the full EA. The report also says the actual call is made by "confirming that CE against its eCFR text" at `phase2/reports/deliverable06.qmd:297-299` and says agencies "can stop running full EAs" at `phase2/reports/deliverable06.qmd:426-428`.  
+   Recommended fix: add `ce_coverage_status = "pending_eCFR_review"` to `candidate_verdicts.parquet` and all output CSVs, rename client-facing `verdict` values to `candidate_adopt_pending_verification` until review is complete, and regenerate `fig_d6_ce_match.png` / `fig_d6_adoption_gap.png` with captions that say "may cover" and "worth reviewing." Do not use "confirmed," "already has," or "can stop running full EAs" until eCFR coverage review is done.
+
+### 2. Should-fix
+
+1. **The no-evidence row is still dropped, and the report's excluded-row variable is computed from an already-filtered table.**  
+   References: `phase2/code/deliverable06/09_wire_enrichment.py:90-104` filters out null `action_summary` rows and skips projects with no enrichment; `candidate_facts.parquet` has zero rows for project `115c30ebb825bebb76c359fd95c535fe` (Kalina Geothermal Demonstration Project). `fonsi_enrichment.parquet` has no `enrichment_status` or `llm_error` column, yet the rendered report says the no-evidence row is carried with a status flag at `phase2/reports/deliverable06.qmd:1080-1081`. Also, `phase2/reports/deliverable06.qmd:38-39` filters `enr` to non-null `action_summary`, then `phase2/reports/deliverable06.qmd:67-68` computes `n_excluded_noev` from that filtered object, so the scope table can show 0 excluded even though the manifest later says 1 excluded.  
+   Recommended fix: add `enrichment_status` and `error_reason` to `fonsi_enrichment.parquet`; keep a placeholder row in downstream facts/stats or compute exclusions from an unfiltered `enr_all`. Fix the scope table to show 452 source / 451 enriched / 1 no-evidence excluded, or the strict-clean equivalents after the denominator fix.
+
+2. **Candidate mitigation summaries and rank penalties are calculated on the rule-profiled superset, not the bounded subset used for verdict counts.**  
+   References: `phase2/code/deliverable06/09_wire_enrichment.py:166-188` uses `is_profile_subtype` as `focus`; `phase2/code/deliverable06/07_classify_and_rank.py:153-169` then uses `candidate_mitigation_summary.mitigated_share` as the rank penalty. Database impact: stored `candidate_mitigation_summary.parquet` uses transmission `n_focus = 37` and solar `n_focus = 8`, while the bounded verdict counts are transmission 26 and solar 7. With bounded rows and known denominators, transmission is 24/24 known mitigated (not 33/37 total), and solar is 4/6 known mitigated (not 5/8 total).  
+   Recommended fix: write separate `profile_*` and `bounded_*` mitigation fields. Use the bounded known-denominator mitigation share for any rank component or figure that is about adopt candidates; use the profile superset only when explicitly labeled as context.
+
+3. **The full-catalog CE size comparison is still interpreted as coverage evidence.**  
+   References: `phase2/code/deliverable06/08_analyze.R:175-185` compares bounded FONSIs to `ce_land` across the entire CE catalog, not to the four matched CEs; `phase2/reports/deliverable06.qmd:338-346` says existing CEs "already cover" voltage and acreage; `phase2/reports/deliverable06.qmd:353` captions the figure as full-catalog context. Database check: the top matched CEs in `candidate_ce_comparison.parquet` have null parsed `bound_acres`, `bound_miles`, `bound_kv`, `bound_mw`, and `bound_wells`.  
+   Recommended fix: reword the voltage/acreage bullets to "other CEs sometimes use bounds at or above these values," not "existing CEs already cover them." Add a separate matched-CE table showing each best match, whether it has a numeric bound, and why qualitative coverage remains pending.
+
+4. **Generic NEPA/CEQA definitions still persist in the stored boundary-summary parquet.**  
+   References: `phase2/code/deliverable06/09_wire_enrichment.py:179-193` writes the first five `significance_thresholds` directly into `candidate_mitigation_summary.parquet`; the current solar row still includes generic statements such as CEQA significance definitions and NEPA "context and intensity" language. The report may filter examples at render time, but downstream users of the database will still see generic legal definitions as if they were project-specific CE bounds.  
+   Recommended fix: filter or type boundary statements before writing the parquet, not only in the report. Add fields such as `boundary_statement_type in {project_specific_threshold,generic_definition,other}` and only use `project_specific_threshold` for examples, counts, and CE-bound language.
+
+5. **The active analysis directory is still a mixed-run database with no machine-readable artifact manifest.**  
+   References: `_run.py` still notes superseded v1 artifacts at `phase2/code/deliverable06/_run.py:14-15`; `phase2/data/analysis/deliverable06/` currently mixes June 2 v1 parquets (`fonsi_actions.parquet`, `ce_crosswalk.parquet`, `project_action_archetypes.parquet`), June 24 v2 inputs (`candidate_corpus.parquet`, `candidate_ce_comparison.parquet`), June 26 CE landscape outputs, and June 30 LLM-wired facts/verdicts/stats. `phase2/code/deliverable06/qa_deliverable06.py:37-66` checks only a narrow set of invariants and does not verify active/stale status.  
+   Recommended fix: add `artifact_manifest.csv` or `.parquet` with `artifact`, `active_for_report`, `producer_script`, `run_id`, `input_hash`, `row_count`, and `superseded_by`. Move or prefix stale v1 parquets, and extend QA to fail if a report-read artifact has a stale run id or if a non-active artifact has an active-looking name.
+
+### 3. Nice-to-have
+
+1. **Extend the QA gate to catch the second-pass failures.**  
+   References: `phase2/code/deliverable06/qa_deliverable06.py:37-66` currently asserts bounded row counts, enrichment count, quote rate, and stats columns, but not denominator exclusion flags, null-as-false coercion, category mismatches, pending CE coverage, no-evidence status propagation, or generic boundary statements.  
+   Recommended fix: add assertions for zero exclusion-flag rows in the source denominator, nullable booleans preserved, zero unresolved `candidate_category != action_category` rows in client-facing counts, no `verdict == "adopt"` without `ce_coverage_status`, one explicit no-evidence status row, and zero generic definitions in `candidate_mitigation_summary.example_boundary_statements`.
+
+2. **Add `action_category` and review status to the evidence CSVs.**  
+   References: `phase2/code/deliverable06/07_classify_and_rank.py:219-224` writes per-candidate evidence CSVs without the LLM `action_category`, raw bounded status, or mismatch flag.  
+   Recommended fix: include `action_category`, `category_match_status`, `is_bounded_low_impact_status`, and `review_override_note` in every `d6_candidate_evidence_<category>.csv` so reviewers can adjudicate mismatches without joining parquets manually.
+
+3. **Clean stale comments and contradictory follow-up text.**  
+   References: `phase2/code/deliverable06/08_analyze.R:13` and `phase2/code/deliverable06/08_analyze.R:235` still say "53 bounded FONSIs" in comments even though the current two-gate bounded count is 42 rows / 41 projects; `phase2/reports/deliverable06.qmd:1047-1049` says a formal weight-sensitivity table is a recommended follow-up even though the table is already rendered at `phase2/reports/deliverable06.qmd:387-407`.  
+   Recommended fix: update comments and caveat text so the codebase does not preserve obsolete counts or ask for already-completed work.
+
+4. **Add a denominator reconciliation table to the report output, not just prose.**  
+   References: the current scope table at `phase2/reports/deliverable06.qmd:130-137` does not show `project_energy_type_strict`, exclusion flags, or the nuclear-tech-only count.  
+   Recommended fix: add a small generated table with rows for broad clean, strict clean, excluded nuclear-tech-only, enriched, no-evidence, candidate-rule matched, profile, bounded, and mismatch-excluded. This would let a client audit the denominator without trusting narrative text.
+
+### 4. Anticipated client questions
+
+1. **How were the data filtered/scoped, and what's excluded? What's the denominator?**  
+   Current answer: Not defensible yet. The report uses broad `project_energy_type == "Clean"` at `phase2/reports/deliverable06.qmd:51` and labels it decarbonization at `phase2/reports/deliverable06.qmd:132`, but the database contains 23 nuclear-tech-only records that the master project file flags for exclusion.  
+   Recommended answer/fix: "The strict D6 source denominator is 429 clean EA-source FONSIs after excluding 23 nuclear-tech-only records; 428 are enriched after one no-evidence row." Recompute if adopting this scope, or explicitly disclose why nuclear-tech-only records are intentionally retained.
+
+2. **What time period does this cover, and are comparisons across periods apples-to-apples?**  
+   Current answer: Mostly answered in narrative: `phase2/reports/deliverable06.qmd:492-500` frames the finding as largely pre-FRA and requires a post-FRA refresh. The database issue is that the CE catalog snapshot and FONSI decision period are still different evidence systems.  
+   Recommended answer/fix: keep the historical caveat, and add a table with decision-date coverage by bounded candidate plus the CE Explorer `source_version_date` from `ce_landscape_ces.parquet`. State that FONSI recurrence, CE catalog currentness, and post-FRA adoption authority are not apples-to-apples time series.
+
+3. **Are differences shown statistically meaningful, or could they be noise / small-n artifacts?**  
+   Current answer: Partially. The report warns about thin evidence at `phase2/reports/deliverable06.qmd:139` and `phase2/reports/deliverable06.qmd:459-461`, but the database still ranks solar and temporary resource assessment even though their support is dominated by unresolved action-category mismatches.  
+   Recommended answer/fix: say the counts are descriptive only. Suppress or downgrade any candidate with fewer than 10 bounded, category-confirmed rows; after mismatch gating, temporary has 0 category-confirmed bounded rows and solar has only 2 unless reviewers override the mismatches.
+
+4. **How are missing, null, or ambiguous records handled, and could that bias the results?**  
+   Current answer: The report says nulls are unknown at `phase2/reports/deliverable06.qmd:140` and `phase2/reports/deliverable06.qmd:1080`, but the code treats null booleans as false in `09_wire_enrichment.py` and `08_analyze.R`. That biases mitigation shares downward and can classify unknown boundedness as not bounded.  
+   Recommended answer/fix: present three buckets for each key boolean: true, false, unknown. For mitigation, report both "at least 310/451" and "310/367 among known reads" until nulls are adjudicated.
+
+5. **What are the key assumptions, and how sensitive are the conclusions to them?**  
+   Current answer: Partially answered at `phase2/reports/deliverable06.qmd:1031-1051`, but the sensitivity outputs do not include strict-clean denominator, mismatch-excluded counts, null-known denominators, or verified-only CE coverage.  
+   Recommended answer/fix: add a sensitivity table with columns for current, strict-clean, mismatch-excluded, known-denominator, and verified-CE-only scenarios. The high-level transmission signal likely survives; solar and temporary should be shown as unstable pending review.
+
+6. **Can these numbers be reproduced, and do they reconcile with prior deliverables or known totals?**  
+   Current answer: Not fully. `_run.py` now aborts when enrichment is missing, but the active database still mixes artifacts from several run dates and the scope table's no-evidence count is computed from a filtered object.  
+   Recommended answer/fix: publish a machine-readable run manifest and make QA check active artifact run ids. Reconcile broad clean 452 to strict clean 429 and enriched 451/428 in one generated table.
+
+7. **What's the single high-level takeaway, and what should not be over-read from it?**  
+   Current answer: The report's one-line takeaway at `phase2/reports/deliverable06.qmd:142` is directionally right, but `d6_comparison_table.csv` and the embedded figures still invite over-reading as confirmed CE adoption.  
+   Recommended answer/fix: "D6 identifies historical, candidate CE-adoption opportunities for review, strongest for transmission upgrades. It does not establish legal coverage, current post-FRA practice, strict decarbonization denominator totals, or final solar/temporary recommendations until denominator, mismatch, null, and eCFR review gates are resolved."

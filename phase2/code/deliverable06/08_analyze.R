@@ -464,11 +464,13 @@ ov <- tibble(segment = factor(c("Mitigated FONSI", "Not mitigated (inherently lo
              n = c(n_mit, n_enr - n_mit))
 p_ov <- ggplot(ov, aes(x = "", y = n, fill = segment)) +
   geom_col(width = 0.5) +
-  geom_text(aes(label = paste0(n, "\n(", percent(n / sum(n), 1), ")")), position = position_stack(vjust = 0.5),
-            color = "white", fontface = "bold", size = 4.6, lineheight = 0.85) +
+  geom_text(aes(label = paste0(n, "\n(", percent(n / sum(n), 1), ")"), color = segment),
+            position = position_stack(vjust = 0.5), fontface = "bold", size = 4.6, lineheight = 0.85) +
   scale_fill_manual(values = c("Mitigated FONSI" = catf_dark_blue,
                                "Not mitigated (inherently low-impact)" = catf_grey), name = NULL,
                     guide = guide_legend(reverse = TRUE)) +
+  scale_color_manual(values = c("Mitigated FONSI" = "white",
+                                "Not mitigated (inherently low-impact)" = catf_navy), guide = "none") +
   coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
   labs(title = glue::glue("{n_mit} of {n_enr} decarbonization FONSIs are 'mitigated' ({percent(n_mit/n_enr,1)})"),
        subtitle = "A 'mitigated FONSI' reaches no-significant-impact only because the applicant committed to mitigation",
@@ -500,19 +502,20 @@ ng_stop <- unique(c(tidytext::stop_words$word, letters,
             "appropriate","implement","implemented","minimize","reduce","reducing","avoid","potential","including",
             "activities","management","require","required","ensure","provide","within","prior","conducted","completed"))
 mit_df <- enr %>% filter(is_mit, !is.na(mitigation_summary)) %>%
-  transmute(doc = row_number(), text = tolower(str_replace_all(mitigation_summary, "[^a-z ]", " ")))
+  transmute(doc = row_number(), text = str_replace_all(tolower(mitigation_summary), "[^a-z ]", " "))
 phrases <- bind_rows(
     tidytext::unnest_tokens(mit_df, ngram, text, token = "ngrams", n = 2),
     tidytext::unnest_tokens(mit_df, ngram, text, token = "ngrams", n = 3)) %>%
   filter(!is.na(ngram), ngram != "") %>%
   tidyr::separate(ngram, into = c("w1", "w2", "w3"), sep = " ", fill = "right", remove = FALSE) %>%
   mutate(wl = if_else(is.na(w3) | w3 == "", w2, w3)) %>%
-  filter(!w1 %in% ng_stop, !wl %in% ng_stop, nchar(w1) >= 3, nchar(wl) >= 3) %>%  # phrase bounded by content words
-  count(ngram, sort = TRUE) %>% filter(n >= 2) %>% slice_head(n = 55)
+  filter(!w1 %in% ng_stop, !wl %in% ng_stop, nchar(w1) >= 3, nchar(wl) >= 3,
+         !str_detect(ngram, "mitigat|measure")) %>%   # phrase bounded by content words; drop framing words (item 2)
+  count(ngram, sort = TRUE) %>% filter(n >= 2) %>% slice_head(n = 40)
 set.seed(6)
 p_wc <- ggplot(phrases, aes(label = ngram, size = n, color = n)) +
-  geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE) +
-  scale_size_area(max_size = 20) +
+  geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE, eccentricity = 0.65) +
+  scale_size_area(max_size = 26) +
   scale_color_gradient(low = catf_light_blue, high = catf_navy) +
   labs(title = "The committed-mitigation language is project-specific",
        subtitle = str_wrap(glue::glue("Most-frequent 2–3 word phrases across the {n_mit} mitigated FONSIs' mitigation ",
@@ -520,8 +523,8 @@ p_wc <- ggplot(phrases, aes(label = ngram, size = n, color = n)) +
   theme_void(base_size = 12) +
   theme(plot.title = element_text(face = "bold", color = catf_navy),
         plot.subtitle = element_text(color = catf_dark_blue, margin = margin(b = 2)),
-        plot.margin = margin(2, 2, 2, 2), legend.position = "none")
-save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 9, h = 5)
+        plot.margin = margin(1, 1, 1, 1), legend.position = "none")
+save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 8, h = 4.6)
 
 # Fig: the recurring significance THRESHOLDS — what agencies said WOULD make an impact significant
 parse_sig <- function(j) {
@@ -532,7 +535,7 @@ sig_stmts <- enr %>% filter(!is.na(significance_thresholds), significance_thresh
   pull(significance_thresholds) %>% lapply(parse_sig) %>% unlist()
 sig_cond <- sig_stmts[nchar(sig_stmts) > 40 &
   str_detect(tolower(sig_stmts), "significant if|would be|would not|unless|exceed|result in|loss of|greater than|contaminat|degrad")]
-sig_df <- tibble(doc = seq_along(sig_cond), text = tolower(str_replace_all(sig_cond, "[^a-z ]", " ")))
+sig_df <- tibble(doc = seq_along(sig_cond), text = str_replace_all(tolower(sig_cond), "[^a-z ]", " "))
 sig_phr <- bind_rows(
     tidytext::unnest_tokens(sig_df, ngram, text, token = "ngrams", n = 2),
     tidytext::unnest_tokens(sig_df, ngram, text, token = "ngrams", n = 3)) %>%
