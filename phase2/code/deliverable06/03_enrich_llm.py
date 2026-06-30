@@ -54,6 +54,7 @@ from prompts import (
     ENRICHMENT_PROMPT_VERSION,
     ENRICHMENT_SCHEMA_VERSION,
     build_classification_prompt,
+    classification_tool_schema,
 )
 
 CACHE = D6_RAW_DIR / "fonsi_enrichment_cache.json"
@@ -63,6 +64,7 @@ EST_IN_TOK, EST_OUT_TOK = 5000, 1700   # extraction dry-run cost estimate
 EST_CLF_IN, EST_CLF_OUT = 650, 90      # classification dry-run cost estimate (summary in, tiny out)
 MIN_SUCCESS_STRICT = 0.9               # pilot/full: tool-use should parse ~always
 MIN_SUCCESS_DEBUG = 0.5                # --sample debug mode only
+MIN_CLASSIFY_SUCCESS = 1.0             # classify is cheap to resume -> require every row in full/pilot
 DEFAULT_WORKERS = 6                    # parallel API calls (SDK backoff handles overloads)
 CHECKPOINT_EVERY = 10                  # flush cache + partial parquet every N completed calls
 
@@ -72,7 +74,9 @@ def cache_key(model: str, text: str) -> str:
 
 
 def classify_key(model: str, text: str) -> str:
-    return sha256_text(f"{CLASSIFICATION_PROMPT_VERSION}|{model}|{text}")
+    # hash the tool schema too, so an enum/required-field change invalidates stale entries
+    schema = json.dumps(classification_tool_schema(), sort_keys=True)
+    return sha256_text(f"{CLASSIFICATION_PROMPT_VERSION}|{model}|{schema}|{text}")
 
 
 def _audit(packet_text: str, model: str, parsed, run_at: str, res: dict, tech: str,
@@ -233,25 +237,31 @@ def _classify_input(rec: dict) -> str:
 
 
 def run_classification(clean_df, model, client, run_at, workers):
-    """Re-classify action_category from the cached summary. Overwrites action_category,
-    preserving the extraction value as action_category_pass1 and adding the model's
-    confidence + rationale. Cached on (classify version | model | summary-prompt)."""
+    """Re-classify action_category from the cached summary, OVERWRITING action_category and
+    preserving the extraction value as action_category_pass1 (set once). Per-row audit columns
+    (classification_parse_ok / _cache_hit / _error) record what happened; failed OR skipped rows
+    fall back to action_category_pass1 and are NOT stamped with a version/run_at — so a partially
+    classified output can never masquerade as fully classified. Cached on (classify version |
+    model | tool schema | summary-prompt). Returns (df, stats)."""
     recs = clean_df.to_dict("records")
     cache: dict = json.loads(CLASSIFY_CACHE.read_text()) if CLASSIFY_CACHE.exists() else {}
-    results: dict = {}
-    pending, skipped = [], []
+    # status[pid] = (state, parsed, cache_hit, error); state in {ok, failed, skipped}
+    status: dict = {}
+    pending = []
     for rec in recs:
         pid = rec["project_id"]
         if not str(rec.get("action_summary") or "").strip():
-            skipped.append(pid)                      # no-evidence row: keep its category as-is
+            status[pid] = ("skipped", None, False, "no_summary")   # no-evidence row: not classifiable
             continue
         pt = _classify_input(rec)
         k = classify_key(model, pt)
         if k in cache:
-            results[pid] = cache[k]
+            status[pid] = ("ok", cache[k], True, "")
         else:
             pending.append((pid, pt, k))
-    print(f"[03] classify: {len(results)} cached, {len(pending)} new, {len(skipped)} skipped "
+    n_cached = sum(1 for s in status.values() if s[0] == "ok")
+    n_skipped = sum(1 for s in status.values() if s[0] == "skipped")
+    print(f"[03] classify: {n_cached} cached, {len(pending)} new, {n_skipped} skipped "
           f"(no summary); workers={workers}")
 
     done = 0
@@ -261,10 +271,13 @@ def run_classification(clean_df, model, client, run_at, workers):
                     for (pid, pt, k) in pending}
             for fut in as_completed(futs):
                 pid, k = futs[fut]
-                parsed = fut.result().get("parsed")
+                res = fut.result()
+                parsed = res.get("parsed")
                 if parsed is not None:
                     cache[k] = parsed
-                results[pid] = parsed
+                    status[pid] = ("ok", parsed, False, "")
+                else:
+                    status[pid] = ("failed", None, False, res.get("error") or "parse_failed")
                 done += 1
                 if done % CHECKPOINT_EVERY == 0 or done == len(pending):
                     enrich_lib.write_json_atomic(CLASSIFY_CACHE, cache)
@@ -274,23 +287,39 @@ def run_classification(clean_df, model, client, run_at, workers):
     df = clean_df.copy()
     if "action_category_pass1" not in df.columns:    # preserve the EXTRACTION value once, as audit
         df["action_category_pass1"] = df["action_category"]
-    pids = df["project_id"].tolist()
 
-    def field(pid, key, default):
-        r = results.get(pid)
-        return r[key] if isinstance(r, dict) and r.get(key) is not None else default
+    cats, oks, hits, errs, confs, rats, vers, runs = [], [], [], [], [], [], [], []
+    for pid, base in zip(df["project_id"], df["action_category_pass1"]):
+        state, parsed, hit, err = status.get(pid, ("skipped", None, False, "no_summary"))
+        if state == "ok":
+            cats.append(parsed.get("action_category", base))
+            oks.append(True); hits.append(hit); errs.append("")
+            confs.append(parsed.get("classification_confidence", ""))
+            rats.append(parsed.get("classification_rationale", ""))
+            vers.append(CLASSIFICATION_PROMPT_VERSION); runs.append(run_at)
+        else:                                        # failed/skipped -> keep extraction value, do NOT stamp
+            cats.append(base)
+            oks.append(False); hits.append(False); errs.append(err)
+            confs.append(""); rats.append("")
+            vers.append(""); runs.append("")
+    df["action_category"] = cats
+    df["classification_parse_ok"] = oks
+    df["classification_cache_hit"] = hits
+    df["classification_error"] = errs
+    df["classification_confidence"] = confs
+    df["classification_rationale"] = rats
+    df["classification_prompt_version"] = vers
+    df["classification_run_at"] = runs
 
-    df["action_category"] = [field(p, "action_category", o) for p, o in zip(pids, df["action_category"])]
-    df["classification_confidence"] = [field(p, "classification_confidence", "") for p in pids]
-    df["classification_rationale"] = [field(p, "classification_rationale", "") for p in pids]
-    df["classification_run_at"] = run_at
-    df["classification_prompt_version"] = CLASSIFICATION_PROMPT_VERSION
     # NaN-safe change count (None != None is True in pandas; the no-evidence row is None)
     n_changed = int((df["action_category"].fillna("") != df["action_category_pass1"].fillna("")).sum())
-    n_fail = sum(1 for p in pids if p not in skipped and results.get(p) is None)
-    if n_fail:
-        print(f"[03] classify: {n_fail} call(s) failed — those rows keep their pass-1 category")
-    return df, n_changed
+    n_attempted = sum(1 for s in status.values() if s[0] in ("ok", "failed"))
+    n_ok = sum(1 for s in status.values() if s[0] == "ok")
+    n_failed = sum(1 for s in status.values() if s[0] == "failed")
+    if n_failed:
+        print(f"[03] classify: {n_failed} call(s) FAILED -> kept action_category_pass1, parse_ok=False")
+    return df, {"n_changed": n_changed, "n_attempted": n_attempted, "n_ok": n_ok,
+                "n_failed": n_failed, "n_skipped": n_skipped}
 
 
 def main() -> None:
@@ -369,10 +398,18 @@ def main() -> None:
 
     # --- stage 2: classification (overwrites action_category) ---
     if do_classify:
-        clean_df, n_changed = run_classification(clean_df, args.model, client, run_at, args.workers)
+        clean_df, st = run_classification(clean_df, args.model, client, run_at, args.workers)
+        # success gate BEFORE overwriting the canonical parquet (classify is cheap to resume)
+        min_ok = MIN_SUCCESS_DEBUG if args.sample else MIN_CLASSIFY_SUCCESS
+        if st["n_attempted"] and st["n_ok"] / st["n_attempted"] < min_ok:
+            print(f"[03] CLASSIFY FAIL: parsed {st['n_ok']}/{st['n_attempted']} below {min_ok:.0%} "
+                  f"(mode={mode}); NOT writing {clean_out.name}. Cached successes kept — re-run "
+                  f"`--stage classify` to resume the {st['n_failed']} failure(s).")
+            raise SystemExit(1)
         write_parquet(clean_df, clean_out)
         dist = clean_df["action_category"].value_counts().to_dict()
-        print(f"[03] classification done: {n_changed} categories changed from pass 1")
+        print(f"[03] classification done: {st['n_changed']} categories changed from pass 1 "
+              f"({st['n_ok']}/{st['n_attempted']} ok, {st['n_skipped']} skipped)")
         print(f"[03] action_category dist: {dist}")
         print(f"[03] data -> {clean_out}")
 
