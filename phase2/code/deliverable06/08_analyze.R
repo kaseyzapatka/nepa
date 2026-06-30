@@ -456,42 +456,60 @@ enr <- read_parquet(file.path(ANALYSIS, "fonsi_enrichment.parquet")) %>%
   mutate(is_mit = is_mitigated_fonsi %in% TRUE)
 n_enr <- nrow(enr); n_mit <- sum(enr$is_mit)
 
-# Fig: how many of the whole corpus are mitigated (stacked bar over ALL FONSIs)
-ov <- tibble(segment = factor(c("Mitigated FONSI", "Not mitigated (inherently low-impact)"),
-                              levels = c("Not mitigated (inherently low-impact)", "Mitigated FONSI")),
-             n = c(n_mit, n_enr - n_mit))
-p_ov <- ggplot(ov, aes(x = "", y = n, fill = segment)) +
-  geom_col(width = 0.5) +
-  geom_text(aes(label = paste0(n, "\n(", percent(n / sum(n), 1), ")"), color = segment),
-            position = position_stack(vjust = 0.5), fontface = "bold", size = 4.6, lineheight = 0.85) +
-  scale_fill_manual(values = c("Mitigated FONSI" = catf_dark_blue,
-                               "Not mitigated (inherently low-impact)" = catf_grey), name = NULL,
-                    guide = guide_legend(reverse = TRUE)) +
-  scale_color_manual(values = c("Mitigated FONSI" = "white",
-                                "Not mitigated (inherently low-impact)" = catf_navy), guide = "none") +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.04))) +
+# Fig 11: waffle of the whole corpus by mitigation status (mitigated / not / unknown) — matches the
+# data-at-a-glance waffle. Null is_mitigated_fonsi is shown as its own 'Unknown', never lumped in.
+n_notmit <- sum(enr$is_mitigated_fonsi %in% FALSE)
+n_unk    <- sum(is.na(enr$is_mitigated_fonsi))
+ordm <- c("Unknown", "Not mitigated", "Mitigated")          # top -> bottom in grid + legend
+cntm <- c(Unknown = n_unk, `Not mitigated` = n_notmit, Mitigated = n_mit)[ordm]
+wvm  <- pmax(1, round(cntm / n_enr * 100))
+wafm <- tibble(cat = factor(rep(ordm, wvm), levels = ordm)) %>%
+  mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
+palm <- c(Mitigated = catf_dark_blue, `Not mitigated` = catf_grey, Unknown = "#D9DCE1")
+labm <- wafm %>% group_by(cat) %>% summarise(y = mean(y), .groups = "drop") %>%
+  mutate(lab = paste0(cntm[as.character(cat)], " (", round(cntm[as.character(cat)] / n_enr * 100), "%)"))
+p_ov <- ggplot(wafm, aes(x, y, fill = cat)) +
+  geom_tile(color = "white", linewidth = 1.6) +
+  geom_text(data = labm, aes(x = -0.9, y = y, label = lab), inherit.aes = FALSE,
+            hjust = 1, fontface = "bold", size = 3.6, color = catf_navy) +
+  scale_fill_manual(values = palm, name = NULL) +
+  scale_x_continuous(expand = expansion(add = c(2.8, 0.2))) +
+  coord_equal(clip = "off") + scale_y_reverse() +
   labs(title = glue::glue("{n_mit} of {n_enr} decarbonization FONSIs are 'mitigated' ({percent(n_mit/n_enr,1)})"),
-       subtitle = "A 'mitigated FONSI' reaches no-significant-impact only because the applicant committed to mitigation",
-       x = NULL, y = "Decarbonization FONSIs") +
-  theme_catf() + theme(legend.position = "bottom", axis.text.y = element_blank(), axis.ticks.y = element_blank())
-save_fig(p_ov, "fig_d6_mitigated_overall.png", w = 10, h = 2.6)
+       subtitle = str_wrap("A 'mitigated FONSI' reaches no-significant-impact only because the applicant committed to mitigation; 'Unknown' = the read did not say", 92),
+       caption = glue::glue("Each square ≈ {round(n_enr / 100, 1)} FONSIs.")) +
+  theme_void(base_size = 12) +
+  theme(legend.position = "right", plot.title = element_text(face = "bold", color = catf_navy),
+        plot.subtitle = element_text(color = catf_dark_blue), plot.caption = element_text(color = "gray50", hjust = 0))
+save_fig(p_ov, "fig_d6_mitigated_overall.png", w = 9, h = 4.6)
 
-# Fig: mitigated share by action type — ALL 451, including the 'Other' pool (not just candidates)
+# Fig 12: action-type breakdown of all 451 (a 1-row treemap / marimekko) — width = number of FONSIs,
+# shade = mitigated-FONSI share. Keeps counts + % of total; includes the large 'Other' pool.
 share <- enr %>% group_by(action_category) %>%
   summarise(n = n(), mit = sum(is_mit), .groups = "drop") %>%
-  mutate(share = mit / n, lab = str_to_title(str_replace_all(action_category, "_", " "))) %>%
-  filter(n >= 3)
-p_share <- ggplot(share, aes(reorder(lab, share), share)) +
-  geom_col(width = 0.66, fill = catf_dark_blue) +
-  geom_text(aes(label = paste0(percent(share, 1), "  (", mit, "/", n, ")")), hjust = -0.08, size = 3.4, color = catf_navy) +
-  coord_flip() + scale_y_continuous(labels = percent, limits = c(0, 1.18), breaks = seq(0, 1, .25),
-                                    expand = expansion(mult = c(0, 0))) +
-  labs(title = "Mitigated-FONSI share by action type (all 451 FONSIs)",
-       subtitle = "Not limited to the Analysis-1 candidates — the 'Other' pool (61% mitigated) is included",
-       x = NULL, y = "Mitigated-FONSI share",
-       caption = "A CE must encode the recurring mitigations as design criteria — it cannot rely on case-by-case commitments.") +
-  theme_catf()
-save_fig(p_share, "fig_d6_mitigated_share.png", h = 4.0)
+  mutate(share = mit / n, lab = str_to_title(str_replace_all(action_category, "_", " ")),
+         lab = recode(lab, "Temporary Resource Assessment" = "Temporary\nassessment")) %>%
+  arrange(desc(n)) %>%
+  mutate(xmax = cumsum(n), xmin = xmax - n, xmid = (xmin + xmax) / 2, pct = n / sum(n),
+         wide = pct >= 0.045)
+p_share <- ggplot(share, aes(xmin = xmin, xmax = xmax, ymin = 0, ymax = 1, fill = share)) +
+  geom_rect(color = "white", linewidth = 1.2) +
+  geom_text(data = ~filter(.x, wide), aes(x = xmid, y = 0.66, label = lab),
+            size = 3, fontface = "bold", color = "white", lineheight = 0.85) +
+  geom_text(data = ~filter(.x, wide), aes(x = xmid, y = 0.40, label = paste0(n, " (", percent(pct, 1), ")")),
+            size = 2.8, color = "white") +
+  geom_text(data = ~filter(.x, wide), aes(x = xmid, y = 0.22, label = paste0(percent(share, 1), " mit.")),
+            size = 2.6, color = "white") +
+  scale_fill_gradient(low = catf_light_blue, high = catf_navy, labels = percent,
+                      name = "Mitigated\nshare", limits = c(0, 1)) +
+  scale_x_continuous(expand = expansion(0)) + scale_y_continuous(expand = expansion(0)) +
+  labs(title = "How the 451 decarbonization FONSIs break down by action type",
+       subtitle = str_wrap("Width = number of FONSIs (% of total); shade = mitigated-FONSI share. Includes the large 'Other' pool; narrow types (wind, geothermal, temporary) unlabeled.", 96),
+       x = NULL, y = NULL) +
+  theme_void(base_size = 12) +
+  theme(legend.position = "right", plot.title = element_text(face = "bold", color = catf_navy),
+        plot.subtitle = element_text(color = catf_dark_blue))
+save_fig(p_share, "fig_d6_mitigated_share.png", w = 10, h = 3.4)
 
 # Fig: PHRASE cloud (2-3 grams) of committed-mitigation language — surfaces measures, not generic words
 ng_stop <- unique(c(tidytext::stop_words$word, letters,

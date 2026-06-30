@@ -649,15 +649,25 @@ or threshold that recurs across a class can become a CE design criterion, an idi
 cannot:
 
 ```{mermaid}
-%%| fig-width: 7
+%%| fig-width: 9
 flowchart LR
-  A["451 enriched<br/>FONSIs"] --> B["LLM reads the<br/>finding + committed<br/>conditions"]
-  B --> C["is_mitigated_fonsi<br/>+ mitigation_dependence<br/>(case-specific / design / none)"]
-  B --> D["mitigation_summary<br/>(the measures)"]
-  B --> E["significance_thresholds<br/>('significant if X')"]
-  C --> F["Most are<br/>case-specific"]
-  D --> G["Measures do NOT recur<br/>→ not codifiable"]
-  E --> H["Thresholds DO recur<br/>→ codifiable CE bounds"]
+  A["451 FONSIs"] --> B["Claude reads each one:<br/>the finding + the<br/>committed conditions"]
+  subgraph X["What Claude extracts"]
+    direction TB
+    C["Does the finding depend on<br/>mitigation — and what role<br/>does that mitigation play?"]
+    D["The mitigation<br/>measures themselves"]
+    E["The agency's<br/>'significant if X' thresholds"]
+  end
+  subgraph Y["Does it recur across projects?"]
+    direction TB
+    F["Most depend on<br/>case-specific mitigation"]
+    G["Measures do NOT repeat<br/>→ can't codify"]
+    H["Thresholds DO repeat<br/>→ the codifiable CE bounds"]
+  end
+  B --> C & D & E
+  C --> F
+  D --> G
+  E --> H
 ```
 
 This is **not** an embedding or similarity model — it is the per-FONSI reading from
