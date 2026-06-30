@@ -44,6 +44,9 @@ CORPUS = D6_ANALYSIS_DIR / "candidate_corpus.parquet"
 VERDICTS_OUT = D6_ANALYSIS_DIR / "candidate_verdicts.parquet"
 COMPARISON = D6_OUTPUT_DIR / "d6_comparison_table.csv"
 
+# the corrected action_category candidate types, in report order (all actionable now, incl. wind)
+CAND_ORDER = ["transmission_upgrade", "solar", "geothermal_exploration",
+              "temporary_resource_assessment", "wind_onshore"]
 MATCH_THRESHOLD = 0.40            # below this, the candidate has no real CE → NEW
 EXPAND_METRICS = {"acres": "max_acres", "miles": "max_miles",
                   "kv": "max_kilovolts", "mw": "max_megawatts", "wells": "n_wells"}
@@ -83,34 +86,30 @@ def split_listish(v) -> list[str]:
 def main() -> None:
     ensure_d6_dirs()
     run_at = utc_now()
-    base = pd.read_parquet(BASE).set_index("candidate_category")
     facts = pd.read_parquet(FACTS)
-    # "bounded" = rule-profiled AND the LLM judged it inherently low-impact (feedback #3 / blocking).
-    facts["is_bounded"] = facts["is_profile_subtype"] & facts["is_bounded_low_impact"].eq(True)
-    bounded_keys = set(zip(facts.loc[facts["is_bounded"], "project_id"].astype(str),
-                           facts.loc[facts["is_bounded"], "candidate_category"]))
+    # "bounded" / CE-shaped = the Rule-B flag computed in 09 (LLM-bounded + transmission shape gate).
+    facts["is_bounded"] = facts["is_ce_shaped"].astype(bool)
     ce = pd.read_parquet(CE) if CE.exists() else pd.DataFrame()
     mit = pd.read_parquet(MIT).set_index("candidate_category") if MIT.exists() else pd.DataFrame()
-    corpus = pd.read_parquet(CORPUS)
-    fonsi = corpus[corpus["is_fonsi"]].copy()
 
+    # categories are now the corrected action_category values present in candidate_facts
+    cats = [c for c in CAND_ORDER if c in set(facts["candidate_category"])]
     rows = []
-    for cat, brow in base.iterrows():
+    for cat in cats:
         cat_facts = facts[facts["candidate_category"].eq(cat)]
         prof = cat_facts[cat_facts["is_bounded"]]
         focus = prof if not prof.empty else cat_facts
         n_focus = len(focus)
-        role = brow["candidate_role"]
+        role = "profile"                                  # all corrected candidates are actionable
+        label = str(cat_facts["candidate_label"].iloc[0])
+        n_observed = int(cat_facts["project_id"].nunique())
 
-        # our FONSI agencies/states (profile subset where possible)
-        cfon = fonsi[fonsi["candidate_category"].eq(cat)]
-        cmask = cfon["project_id"].astype(str).map(lambda p: (p, cat) in bounded_keys)
-        cprof = cfon[cmask] if cmask.any() else cfon
+        # our FONSI agencies/states from the CE-shaped subset (now carried in candidate_facts)
         our_tokens: set[str] = set()
-        for a in cprof["lead_agency_harmonized"].dropna():
+        for a in focus["lead_agency_harmonized"].dropna():
             our_tokens |= our_agency_tokens(a)
-        n_agencies = len({a for v in cprof["lead_agency_harmonized"].dropna() for a in split_listish(v)})
-        n_states = len({s for v in cprof["project_state"].dropna() for s in split_listish(v)})
+        n_agencies = len({a for v in focus["lead_agency_harmonized"].dropna() for a in split_listish(v)})
+        n_states = len({s for v in focus["project_state"].dropna() for s in split_listish(v)})
 
         # best CE match
         best = {}
@@ -171,12 +170,12 @@ def main() -> None:
         rank_score = round(c_novelty + c_volume + c_diversity + c_limits + c_mitigation + c_role, 4)
 
         rows.append({
-            "candidate_category": cat, "candidate_label": brow["candidate_label"],
+            "candidate_category": cat, "candidate_label": label,
             "role": role, "verdict": verdict, "rank_score": rank_score,
             "rank_novelty": c_novelty, "rank_volume": c_volume, "rank_diversity": c_diversity,
             "rank_limits": c_limits, "rank_mitigation": c_mitigation, "rank_role": c_role,
             "n_profile_fonsi": int(prof["project_id"].nunique()),  # bounded (rule + LLM-low-impact) projects
-            "n_observed_fonsi": int(brow["n_observed_fonsi_projects"]),
+            "n_observed_fonsi": n_observed,
             "best_ce_structured_id": best.get("structured_id", ""),
             "best_ce_agency": best.get("agency_name", ""),
             "best_ce_match_score": round(match_score, 4),
@@ -213,7 +212,7 @@ def main() -> None:
     # --- REVIEW (drill-down, not client-facing): three lists + per-candidate evidence ---
     for v, fn in (("new", "d6_new.csv"), ("expand", "d6_expand.csv"), ("adopt", "d6_adopt.csv")):
         verdicts[verdicts["verdict"].eq(v)].to_csv(D6_REVIEW_DIR / fn, index=False)
-    for cat in base.index:
+    for cat in cats:
         f = facts[facts["candidate_category"].eq(cat)]
         f = f[f["is_bounded"]] if f["is_bounded"].any() else f
         cols = ["project_id", "subtype", "action_definition", "max_acres", "max_miles",

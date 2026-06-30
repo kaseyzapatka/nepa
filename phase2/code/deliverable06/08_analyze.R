@@ -58,12 +58,10 @@ mit      <- read_parquet(file.path(ANALYSIS, "candidate_mitigation_summary.parqu
 ce_land  <- read_parquet(file.path(ANALYSIS, "ce_landscape_ces.parquet"))
 facts    <- read_parquet(file.path(ANALYSIS, "candidate_facts.parquet")) %>% mutate(project_id = as.character(project_id))
 
-# "bounded" = rule-profiled AND the LLM judged it inherently low-impact (feedback #3)
-facts        <- facts %>% mutate(is_bounded = is_profile_subtype & is_bounded_low_impact %in% TRUE)
-bnd_keys     <- facts %>% filter(is_bounded) %>% distinct(project_id, candidate_category) %>% mutate(.b = TRUE)
-corp_fonsi   <- corp %>% filter(is_fonsi) %>%
-  left_join(bnd_keys, by = c("project_id", "candidate_category")) %>%
-  mutate(is_bounded = !is.na(.b)) %>% select(-.b)
+# "bounded" / CE-shaped = the Rule-B flag from 09 (LLM-bounded + transmission shape gate).
+# candidate_facts is now the candidate set itself: one row per FONSI, keyed on corrected action_category.
+facts        <- facts %>% mutate(is_bounded = is_ce_shaped %in% TRUE)
+corp_fonsi   <- facts
 n_clean      <- inv %>% filter(project_energy_type == "Clean") %>% distinct(project_id) %>% nrow()
 n_candidate  <- corp_fonsi %>% distinct(project_id) %>% nrow()
 n_ce_shaped  <- corp_fonsi %>% filter(is_bounded) %>% distinct(project_id) %>% nrow()

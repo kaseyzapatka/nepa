@@ -41,13 +41,10 @@ n_mit_dep_case <- sum(enr$is_mit & enr$mitigation_dependence == "case_specific_d
 n_mit_noncand  <- sum(enr$is_mit & !(as.character(enr$project_id) %in%
                                      as.character(filter(corp, is_fonsi)$project_id)))
 
-corp_fonsi  <- corp |> filter(is_fonsi)
-# "bounded" = rule-profiled AND LLM-confirmed inherently low-impact (feedback #3)
-facts <- facts |> mutate(is_bounded = is_profile_subtype & is_bounded_low_impact %in% TRUE)
-.bk <- facts |> filter(is_bounded) |> mutate(project_id = as.character(project_id)) |>
-  distinct(project_id, candidate_category) |> mutate(.b = TRUE)
-corp_fonsi <- corp_fonsi |> mutate(project_id = as.character(project_id)) |>
-  left_join(.bk, by = c("project_id", "candidate_category")) |> mutate(is_bounded = !is.na(.b)) |> select(-.b)
+# "bounded" / CE-shaped = the Rule-B flag from 09 (LLM-bounded + transmission shape gate).
+# candidate_facts is now the candidate set itself (one row per FONSI, keyed on corrected action_category).
+facts <- facts |> mutate(is_bounded = is_ce_shaped %in% TRUE, project_id = as.character(project_id))
+corp_fonsi <- facts
 n_clean     <- inv |> filter(project_energy_type == "Clean") |> distinct(project_id) |> nrow()
 n_candidate <- corp_fonsi |> distinct(project_id) |> nrow()
 n_ce_shaped <- corp_fonsi |> filter(is_bounded) |> distinct(project_id) |> nrow()
@@ -62,14 +59,13 @@ n_xdup  <- sum(ce_land$xagency_near_duplicate, na.rm = TRUE)
 n_xclust <- sum(clusters$n_agencies >= 2)
 n_bounds <- sum(ce_land$states_any_bound, na.rm = TRUE)
 # denominators + grain (scope table)
-n_profile_rows  <- facts |> filter(is_profile_subtype) |> nrow()
-n_llm_bounded   <- facts |> filter(is_profile_subtype, is_bounded_low_impact == TRUE) |> nrow()
+n_profile_rows  <- facts |> distinct(project_id) |> nrow()           # all corrected candidate FONSIs
+n_llm_bounded   <- facts |> filter(is_bounded_low_impact == TRUE) |> nrow()   # LLM-bounded (pre shape gate)
 n_enriched      <- sum(nchar(dplyr::coalesce(enr$action_summary, "")) > 0)
 n_excluded_noev <- nrow(enr) - n_enriched
 ce_snapshot     <- as.character(sort(unique(ce_land$source_version_date)))[1]
-n_cat_mismatch  <- facts |> filter(is_profile_subtype) |> mutate(project_id = as.character(project_id)) |>
-  left_join(enr |> transmute(project_id = as.character(project_id), action_category), by = "project_id") |>
-  filter(candidate_category != action_category) |> nrow()
+# candidate_category IS the corrected action_category now (set in 09), so rule-vs-LLM mismatch is 0 by construction
+n_cat_mismatch  <- facts |> filter(candidate_category != action_category) |> nrow()
 tx_mit  <- mit$mitigated_share[mit$candidate_category == "transmission_upgrade"]
 
 cstats        <- read_parquet(file.path(ANALYSIS, "corpus_mitigation_stats.parquet"))
@@ -599,7 +595,6 @@ ex <- facts |>
          !is.na(quoted_span), nchar(quoted_span) >= 70,
          str_detect(quoted_span, scope_rx), !str_detect(quoted_span, drop_rx)) |>
   distinct(project_id, .keep_all = TRUE) |>
-  left_join(corp_fonsi |> select(project_id, project_title, lead_agency_harmonized), by = "project_id") |>
   mutate(
     Source = ifelse(str_detect(tolower(citation_document_role), "fonsi"), "FONSI", "EA"),
     agency_raw = str_squish(str_remove_all(lead_agency_harmonized, '[\\[\\]"]')),

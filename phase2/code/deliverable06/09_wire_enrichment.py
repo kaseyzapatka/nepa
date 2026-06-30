@@ -45,6 +45,16 @@ FACTS_REVIEW = D6_REVIEW_DIR / "candidate_facts_review.csv"
 
 LLM_MODEL = "claude-sonnet-4-6"
 
+# CE-candidate action types = the corrected action_category values in scope, with report labels.
+# Everything else the model classifies ("other", etc.) is out of scope for Analysis 1.
+CANDS = {
+    "transmission_upgrade": "Transmission upgrades (modify existing line)",
+    "solar": "Solar electricity generation",
+    "geothermal_exploration": "Geothermal exploration",
+    "temporary_resource_assessment": "Temporary resource assessment / site investigation",
+    "wind_onshore": "Onshore wind (turbines)",
+}
+
 
 def _jlist(v) -> list:
     try:
@@ -92,27 +102,40 @@ def main() -> None:
     en = en[en["action_summary"].notna()].copy()        # drop the skipped (no-evidence) rows
     by_pid = {r.project_id: r for r in en.itertuples(index=False)}
 
-    corpus = pd.read_parquet(CORPUS)
-    corpus["project_id"] = corpus["project_id"].astype(str)
-    fonsi = corpus.loc[corpus["is_fonsi"]].copy()
-
-    # ---- candidate_facts (per project x candidate_category), LLM-backed ----
+    # ---- candidate_facts: ONE row per candidate FONSI, keyed on the CORRECTED action_category ----
+    # The keyword candidate_corpus is no longer the categorizer; the LLM's action_category is.
+    # is_ce_shaped is Rule B: LLM-bounded AND (transmission must be modify-existing within ROW,
+    # no new access road); generation/exploration/temporary gated on the LLM bounded judgment only.
     rows = []
-    for fr in fonsi.itertuples(index=False):
-        e = by_pid.get(fr.project_id)
-        if e is None:
-            continue                                     # project has no enrichment (skipped image-PDF)
+    for e in en.itertuples(index=False):
+        cat = getattr(e, "action_category", None)
+        if cat not in CANDS:
+            continue                                     # not a CE-candidate action type
         cite = _action_citation(getattr(e, "evidence_cited", "[]"))
         areas = ", ".join(_jlist(getattr(e, "mitigation_resource_areas", "[]")))
         wc = getattr(e, "well_count", None)
+        bounded = _b(getattr(e, "is_bounded_low_impact", None))
+        within_row = _b(getattr(e, "within_existing_row", None))
+        new_road = getattr(e, "new_access_road", None)
+        ce_shaped = bounded and ((within_row and new_road is not True)
+                                 if cat == "transmission_upgrade" else True)
         rows.append({
-            "project_id": fr.project_id,
-            "candidate_category": fr.candidate_category,
-            "candidate_label": fr.candidate_label,
-            "subtype": fr.subtype,
-            "is_profile_subtype": bool(fr.is_profile_subtype),
-            "is_bounded_low_impact": _b(getattr(e, "is_bounded_low_impact", None)),  # LLM read (carried)
-            "candidate_role": fr.candidate_role,
+            "project_id": e.project_id,
+            "candidate_category": cat,
+            "candidate_label": CANDS[cat],
+            "subtype": cat,
+            "is_profile_subtype": True,                  # every action_category candidate is in scope now
+            "is_bounded_low_impact": bounded,            # LLM read (carried)
+            "is_ce_shaped": bool(ce_shaped),             # Rule B: the bounded, CE-shaped candidate
+            "candidate_role": "profile",                 # all corrected candidates are actionable (incl. wind)
+            "action_category": cat,
+            "action_category_pass1": getattr(e, "action_category_pass1", "") or "",
+            "classification_confidence": getattr(e, "classification_confidence", "") or "",
+            "project_title": getattr(e, "project_title", "") or "",
+            "project_type": getattr(e, "project_type", "") or "",
+            "is_fonsi": True,                            # every enriched candidate is an EA-source FONSI
+            "lead_agency_harmonized": getattr(e, "lead_agency_harmonized", "") or "",
+            "project_state": getattr(e, "project_state", "") or "",
             "action_definition": normalize_space(getattr(e, "action_summary", "") or "")[:400],
             "max_acres": _num(getattr(e, "disturbance_acres", None)),
             "max_acres_any": _num(getattr(e, "disturbance_acres", None)),
@@ -122,8 +145,8 @@ def main() -> None:
             "max_kilovolts": _num(getattr(e, "voltage_kv", None)),
             "n_wells": int(wc) if wc is not None and not (isinstance(wc, float) and pd.isna(wc)) else None,
             "duration": "",
-            "within_existing_row": _b(getattr(e, "within_existing_row", None)),
-            "no_new_access_road": (getattr(e, "new_access_road", None) is False),
+            "within_existing_row": within_row,
+            "no_new_access_road": (new_road is False),
             "previously_disturbed_land": _b(getattr(e, "previously_disturbed_land", None)),
             "is_temporary": _b(getattr(e, "is_temporary", None)),
             "has_sensitive_resource": bool(normalize_space(str(getattr(e, "extraordinary_circumstances", "") or ""))),
@@ -156,8 +179,8 @@ def main() -> None:
         td = pd.read_parquet(TIMELINE, columns=["project_id", "decision_date"])
         td["project_id"] = td["project_id"].astype(str)
         facts = facts.merge(td.drop_duplicates("project_id"), on="project_id", how="left")
-        n_dt = int(facts.loc[facts["is_profile_subtype"], "decision_date"].notna().sum())
-        print(f"[09] merged D4 decision_date: {n_dt} of the bounded rows dated")
+        n_dt = int(facts.loc[facts["is_ce_shaped"], "decision_date"].notna().sum())
+        print(f"[09] merged D4 decision_date: {n_dt} of the {int(facts['is_ce_shaped'].sum())} CE-shaped rows dated")
     else:
         facts["decision_date"] = pd.NaT
         print("[09] D4 timeline not found — decision_date left null")
@@ -166,7 +189,7 @@ def main() -> None:
     # ---- candidate_mitigation_summary (per candidate, profile subset) ----
     summ_rows = []
     for cat, grp in facts.groupby("candidate_category"):
-        prof = grp[grp["is_profile_subtype"]]
+        prof = grp[grp["is_ce_shaped"]]                  # mitigation pattern over the bounded candidates
         focus = prof if not prof.empty else grp
         # is_mitigated per project from the enrichment
         mit_flags = [_b(getattr(by_pid[p], "is_mitigated_fonsi", None)) for p in focus["project_id"]]
