@@ -668,8 +668,8 @@ flowchart LR
   C --> F
   D --> G
   E --> H
-  style X fill:transparent,stroke:transparent
-  style Y fill:transparent,stroke:transparent
+  style X fill:transparent,stroke:#012169
+  style Y fill:transparent,stroke:#012169
 ```
 
 This is **not** an embedding or similarity model — it is the per-FONSI reading from
