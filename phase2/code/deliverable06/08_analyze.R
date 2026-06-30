@@ -112,7 +112,7 @@ p_sort <- ggplot(sortL, aes(y = reorder(lab, total), x = n, fill = subset)) +
             position = position_fill(vjust = 0.5), color = "white", fontface = "bold", size = 3) +
   geom_text(data = dd, aes(y = lab, x = 1, label = paste0("n = ", total)), inherit.aes = FALSE,
             hjust = -0.12, size = 3, color = catf_navy) +
-  scale_fill_manual(values = c("Broader" = catf_grey, "Bounded" = catf_teal), name = NULL,
+  scale_fill_manual(values = c("Broader" = catf_grey, "Bounded" = catf_navy), name = NULL,
                     guide = guide_legend(reverse = TRUE)) +
   scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.14))) +
   labs(title = glue::glue("Sorting the {n_clean} decarbonization FONSIs"),
@@ -133,7 +133,7 @@ keep_attr <- tibble(
             mean(prof_keep$is_temporary, na.rm = TRUE),
             mean(prof_keep$no_new_access_road, na.rm = TRUE)))
 p_keep <- ggplot(keep_attr, aes(share, reorder(attribute, share))) +
-  geom_col(width = 0.6, fill = catf_teal) +
+  geom_col(width = 0.6, fill = catf_dark_blue) +
   geom_text(aes(label = percent(share, 1)), hjust = -0.2, size = 3.8, fontface = "bold", color = catf_navy) +
   scale_x_continuous(labels = percent, limits = c(0, 1), expand = expansion(mult = c(0, 0.12))) +
   labs(title = glue::glue("What makes the {n_ce_shaped} kept FONSIs 'bounded, low-impact'"),
@@ -150,7 +150,7 @@ p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_sco
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0, ymax = 0.20, fill = catf_grey, alpha = 0.5) +
   annotate("text", x = Inf, y = 0.10, label = "baseline similarity", hjust = 0.5, vjust = -0.7,
            size = 2.9, color = "gray30", fontface = "italic") +
-  geom_col(width = 0.6, fill = catf_teal) +
+  geom_col(width = 0.6, fill = catf_dark_blue) +
   geom_text(aes(label = sprintf("%.2f", best_ce_match_score)), hjust = -0.3, size = 3.5,
             fontface = "bold", color = catf_navy) +
   coord_flip(clip = "off") +
@@ -219,7 +219,7 @@ ord <- verdicts %>% filter(verdict != "contrast") %>% arrange(rank_score) %>% pu
 cls$lab <- factor(cls$lab, levels = ord)
 p_cls <- ggplot(cls, aes(lab, contribution, fill = component)) +
   geom_col(width = 0.66) + coord_flip() +
-  scale_fill_manual(values = c("#012169", "#28518F", "#4E7CB5", "#3FA7A0", "#8AB7E9", "#C2CBD6"), name = NULL) +
+  scale_fill_manual(values = c("#012169", "#23457F", "#3D6BAB", "#5E8FD0", "#8AB7E9", "#C2CBD6"), name = NULL) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
   labs(title = "How each candidate is scored and ranked",
        subtitle = "Transparent multi-factor rank score (0–1); bar length = total, colors = each factor's contribution",
@@ -241,10 +241,10 @@ p_tl <- ggplot(tlc, aes(year, n, fill = era)) +
   geom_col(width = 0.8) +
   geom_text(data = yr_tot, aes(year, n, label = n), inherit.aes = FALSE,
             vjust = -0.4, size = 2.8, color = catf_navy) +
-  geom_vline(xintercept = 2023.42, linetype = "dashed", color = catf_magenta, linewidth = 0.8) +
+  geom_vline(xintercept = 2023.42, linetype = "dashed", color = "gray45", linewidth = 0.8) +
   annotate("text", x = 2023.0, y = ymax, label = "FRA enacted\nJun 2023", hjust = 1.05, vjust = 1,
-           size = 3.2, color = catf_magenta, fontface = "bold", lineheight = 0.9) +
-  scale_fill_manual(values = c("Pre-FRA" = catf_teal, "Post-FRA" = catf_magenta, "Undated" = catf_grey), name = NULL) +
+           size = 3.2, color = "gray45", fontface = "bold", lineheight = 0.9) +
+  scale_fill_manual(values = c("Pre-FRA" = catf_navy, "Post-FRA" = "#9AA1AC", "Undated" = catf_grey), name = NULL) +
   scale_x_continuous(limits = c(2002, 2026), breaks = seq(2004, 2026, 4)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.18))) +
   labs(title = "When were these EAs decided?",
@@ -270,12 +270,15 @@ states_sf <- tigris::states(cb = TRUE, year = 2022, progress_bar = FALSE) %>%
   left_join(tx_state, by = "state_name")
 p_map <- ggplot(states_sf) +
   geom_sf(aes(fill = n), color = "white", linewidth = 0.25) +
+  geom_sf_text(data = filter(states_sf, !is.na(n)), aes(label = n),
+               color = "white", fontface = "bold", size = 3.2) +
   scale_fill_gradient(low = catf_light_blue, high = catf_navy, na.value = "grey92",
                       name = "FONSIs", breaks = pretty_breaks(4)) +
   labs(title = glue::glue("Where the transmission-upgrade FONSIs are — {n_tx_states} states"),
        subtitle = "Bounded, low-impact in-corridor transmission FONSIs, concentrated in the West (BLM / BPA territory)",
        x = NULL, y = NULL,
-       caption = "Each could adopt TVA's existing transmission-maintenance CE (#17) instead of running a full EA.") +
+       caption = str_wrap(paste("Count = transmission-upgrade FONSIs touching each state; a few span two states, so the",
+                "state counts sum above the 37 projects. Each could adopt TVA's existing transmission CE (#17)."), 110)) +
   theme_catf() + theme(legend.position = "right", axis.text = element_blank(), panel.grid = element_blank())
 save_fig(p_map, "fig_d6_states.png", w = 8.5, h = 5.0)
 
@@ -285,7 +288,7 @@ adopt <- verdicts %>% filter(verdict == "adopt") %>%
          n_lacking = str_count(adopt_targets, ",") + 1L,
          tag = paste0(n_profile_fonsi, " FONSIs → adopt ", best_ce_structured_id, " (", best_ce_agency, ")"))
 p_gap <- ggplot(adopt, aes(reorder(lab, n_profile_fonsi), n_profile_fonsi)) +
-  geom_col(width = 0.62, fill = catf_teal) +
+  geom_col(width = 0.62, fill = catf_dark_blue) +
   geom_text(aes(label = tag), hjust = -0.03, size = 3.2, color = catf_navy) +
   coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.75))) +
   labs(title = "The adoption gap, by evidence weight",
@@ -303,7 +306,7 @@ ce_dept   <- ce_land %>% count(dept, name = "ce") %>% arrange(desc(ce)) %>% muta
 total_all <- sum(ce_dept$ce)
 k50       <- which(cumsum(ce_dept$ce) / total_all >= 0.50)[1]
 top4      <- ce_dept$dept[1:4]
-TEAL4     <- c("#0F6E56", "#1D9E75", "#5DCAA5", "#9FE1CB"); GREY <- "#B4B2A9"
+BLUE4     <- c("#012169", "#2A5499", "#5A86C4", "#8AB7E9"); GREY <- catf_grey
 DEPT_FULL <- c(DOI = "Department of the Interior (DOI)", DOD = "Department of Defense (DOD)",
                DOT = "Department of Transportation (DOT)", DHS = "Department of Homeland Security (DHS)",
                DOC = "Department of Commerce (DOC)", HHS = "Department of Health and Human Services (HHS)",
@@ -316,7 +319,7 @@ cnt <- c(ce_dept$ce[1:4], total_all - sum(ce_dept$ce[1:4]))
 ordw <- c(unname(dept_full(top4)), paste0(n_dept - 4, " other departments"))   # DOI..DHS top, rest bottom
 waf <- tibble(cat = factor(rep(ordw, sq), levels = ordw)) %>%
   mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
-pal_w <- setNames(c(TEAL4, GREY), ordw)
+pal_w <- setNames(c(BLUE4, GREY), ordw)
 labw  <- waf %>% group_by(cat) %>% summarise(y = mean(y), .groups = "drop") %>%
   mutate(idx = as.integer(cat), lab = paste0(comma(cnt[idx]), " (", sq[idx], "%)"))
 p_waffle <- ggplot(waf, aes(x, y, fill = cat)) +
@@ -340,7 +343,7 @@ agc <- ce_land %>% filter(!is.na(agency_name), agency_name != "") %>%
   count(agency_name, dept, sort = TRUE) %>% slice_head(n = 20) %>%
   mutate(col = ifelse(dept %in% top4, dept, "Other dept"),
          col = factor(col, levels = c(top4, "Other dept")))
-pal13 <- c(setNames(TEAL4, top4), "Other dept" = GREY)
+pal13 <- c(setNames(BLUE4, top4), "Other dept" = GREY)
 p_agc <- ggplot(agc, aes(reorder(agency_name, n), n, fill = col)) +
   geom_col(width = 0.74) +
   geom_text(aes(label = n), hjust = -0.25, size = 2.9, color = catf_navy) +
@@ -359,7 +362,7 @@ sqn <- round(c(nb, nq) / ntot * 100); sqn[2] <- 100 - sqn[1]
 ordn <- c("States a numeric limit", "Qualitative limits only"); cntn <- c(nb, nq)
 wafn <- tibble(cat = factor(rep(ordn, sqn), levels = ordn)) %>%
   mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
-pal_n <- setNames(c("#1D9E75", GREY), ordn)
+pal_n <- setNames(c(catf_dark_blue, GREY), ordn)
 labn  <- wafn %>% group_by(cat) %>% summarise(y = mean(y), .groups = "drop") %>%
   mutate(idx = as.integer(cat), lab = paste0(comma(cntn[idx]), " (", percent(cntn[idx] / ntot, 1), ")"))
 p_numlim <- ggplot(wafn, aes(x, y, fill = cat)) +

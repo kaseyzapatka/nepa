@@ -419,9 +419,16 @@ bounded, low-impact FONSIs** for in-corridor transmission upgrades (reconductori
 component replacement, minor rebuilds), across **BLM, DOE, NNSA, and the
 power-marketing administrations** in
 **`r verdicts$n_states[verdicts$candidate_category=="transmission_upgrade"]`
-states**. The **Tennessee Valley Authority already holds a CE** for this class of
-work — *TVA CE #17, "Routine modification, repair, and maintenance of, and minor
-upgrade of and addition to, existing transmission infrastructure…"*
+states**. The **Tennessee Valley Authority already holds a categorical exclusion** for
+exactly this class of work — **TVA CE #17**, quoted in full (key phrases bolded):
+
+> *TVA CE #17.* **Routine modification, repair, and maintenance** of, and **minor
+> upgrade** of and addition to, **existing transmission infrastructure**, including the
+> addition, retirement, and/or **replacement** of breakers, transformers, bushings, and
+> relays; transmission line **uprate, modification, reconductoring**, and clearance
+> resolution; and **limited pole replacement**. This exclusion also applies to
+> improvements of **existing access roads** and construction of new access roads outside
+> of the **right-of-way** that are generally no more than 1 mile in length.
 
 The table below lists sample FONSIs from different agencies, each with a **verbatim
 excerpt from the cited record** that shows the same in-corridor, *modify-existing-
@@ -504,11 +511,6 @@ ex |>
   tab_options(table.font.size = px(11), table.width = pct(100), data_row.padding = px(6)) |>
   cols_width(Agency ~ pct(16), `Project title` ~ pct(22), Source ~ pct(9), Excerpt ~ pct(53))
 ```
-
-*(Size limits — line length, voltage, acreage, well count — now come from the
-LLM enrichment pass, which separates the disturbance footprint from study-area
-figures and keeps voltage distinct from length. Each value is a structured field
-backing the verdicts above, with its quote verified against the source.)*
 
 # Analysis 2 — Mitigated FONSIs
 
