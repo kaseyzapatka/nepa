@@ -1,5 +1,14 @@
 # D6: Patterns in FONSIs — Architecture (v2, Narrow-First)
 
+> ⚠️ **PARTIALLY SUPERSEDED (2026-06).** Sections describing the LLM pass as gated / not
+> wired, and the run-results section reporting an older verdict mix (incl. a stale `expand`
+> verdict), no longer match the shipped pipeline: the **one-pass LLM enrichment
+> (`03_enrich_llm.py`, claude-sonnet-4-6, schema d6_enrich_schema_v5) is now wired in via
+> `09_wire_enrichment.py`**, and current `candidate_verdicts.parquet` has **4 adopt / 1
+> contrast**. Do not use this file as implementation truth until it is rebuilt; the
+> authoritative description is the report (`phase2/reports/deliverable06.qmd`) and the
+> review log in `phase2/code/deliverable06/feedback.md`.
+
 **Goal:** Identify a small, defensible shortlist of recurring clean-energy action
 categories in prior EAs/FONSIs that may warrant CATF, policy, and legal review
 for new or expanded categorical exclusions (CEs). For each candidate: a crisp

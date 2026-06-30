@@ -55,6 +55,12 @@ n_units_dept <- n_distinct(str_trim(str_extract(ce_land$agency_unit, "^[^-]+")))
 n_xdup  <- sum(ce_land$xagency_near_duplicate, na.rm = TRUE)
 n_xclust <- sum(clusters$n_agencies >= 2)
 n_bounds <- sum(ce_land$states_any_bound, na.rm = TRUE)
+# denominators + grain (scope table)
+n_profile_rows  <- facts |> filter(is_profile_subtype) |> nrow()
+n_llm_bounded   <- facts |> filter(is_profile_subtype, is_bounded_low_impact == TRUE) |> nrow()
+n_enriched      <- sum(nchar(dplyr::coalesce(enr$action_summary, "")) > 0)
+n_excluded_noev <- nrow(enr) - n_enriched
+ce_snapshot     <- as.character(sort(unique(ce_land$source_version_date)))[1]
 tx_mit  <- mit$mitigated_share[mit$candidate_category == "transmission_upgrade"]
 
 cstats        <- read_parquet(file.path(ANALYSIS, "corpus_mitigation_stats.parquet"))
@@ -108,6 +114,24 @@ federal CE catalog (not FONSIs at all).
 | **1 · Scaling CEs (develop, expand, or adopt)** | Decarb EAs with FONSIs | `r n_ce_shaped`/`r n_clean` projects (~`r percent(n_ce_shaped / n_clean, 1)`) |
 | **2 · Mitigated FONSIs** | Decarb Mitigated FONSIs | `r n_mit_corpus` of `r n_clean` projects (`r percent(mit_share_cor, 1)`) |
 | **3 · Current federal CE catalog** | Existing federal CE catalog | `r comma(n_ce)` CEs |
+
+::: {.callout-important appearance="simple"}
+**Scope, denominators, and how to read these numbers.**
+
+| Denominator | Count | What it is |
+|---|---|---|
+| Clean EA-source FONSIs | **`r comma(n_clean)`** | decarbonization EA→FONSI projects (reconciles to D3) — the source set |
+| Enriched | **`r n_enriched`** | the LLM-read set; **`r n_excluded_noev`** no-evidence geothermal record is excluded from enrichment-dependent analyses |
+| In any candidate rule | **`r n_candidate`** | distinct projects matching a hand-picked recurring action type |
+| Profile (rule "CE-shaped") subset | **`r n_ce_shaped` projects / `r n_profile_rows` rows** | one project maps to two profile categories |
+| LLM-confirmed bounded | **`r n_llm_bounded` of `r n_profile_rows` rows** | the other `r n_profile_rows - n_llm_bounded` are *flagged, not dropped* |
+
+- **Grain:** counts are **distinct projects** unless a figure/table is labeled *project-category rows* (one project can map to >1 candidate).
+- **These are descriptive recurrence counts, not statistically tested differences.** Candidates with **n < ~10** (geothermal 7, solar 8, temporary 2) are *illustrative* — do not read their point estimates as stable.
+- **Null LLM fields are treated as *unknown*, not false.**
+- **CE matches are candidate matches pending eCFR verification**; the record is **largely pre-FRA** (historical), and the CE catalog is the **CE Explorer snapshot `r ce_snapshot`** (a discovery index — verify against current eCFR before use).
+- **One-line takeaway:** *D6 identifies candidate adoption opportunities to review — not final legal coverage determinations, not proof that no expand opportunities exist, and not evidence of current post-FRA agency behavior.*
+:::
 
 ::: {.callout-note collapse="false"}
 ### Steps for each analysis
@@ -173,9 +197,10 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes_waffle.png"))
 
 Every decarbonization FONSI is **sorted** (Step 2) into one of **five recurring action
 types** (transmission upgrades, solar, geothermal exploration, onshore wind, temporary
-resource assessment), or a sixth **catch-all** — the `r n_other` FONSIs that don't fit a
-recurring pattern (the net-new search pool, examined in Analysis 3). Within each
-recurring type we then **keep** (Step 3) the bounded subset:
+resource assessment), or left in a **residual** — the `r n_other` FONSIs that don't match a
+hand-picked rule. That residual is **not analyzed in this deliverable** (it is the net-new
+search pool for a future pass), not a sixth examined category. Within each recurring type we
+then **keep** (Step 3) the bounded subset:
 
 - **Bounded, low-impact** (teal) — the small, routine version that could plausibly be
   a CE: in-corridor work, short segments, previously disturbed land, no major new
@@ -312,7 +337,7 @@ kept; it just can't trigger *expand*.)
 
 ```{r}
 #| label: fig-d6-sizes
-#| fig-cap: "Bounded FONSIs vs the stated size limits across the existing CE catalog (log scale, boxplot + individual cases). The miles panel is shaded where our FONSIs exceed the limits CEs typically state. Study-area outliers excluded."
+#| fig-cap: "Context from the **full** CE catalog (not the four matched CEs — none of which states a number): bounded FONSIs vs all stated CE size limits (log scale, boxplot + cases). The miles panel is shaded where our FONSIs exceed the limits CEs typically state. Study-area outliers excluded."
 #| out-width: 86%
 knitr::include_graphics(file.path(FIGS, "fig_d6_sizes.png"))
 ```
@@ -584,6 +609,12 @@ ex |>
 > applicant commits to some form of mitigation. This analysis systematically examines the
 > language surrounding mitigated FONSIs to determine if there are patterns of actions that
 > are routinely mitigated and if we can capture those recurring mitigations as a new CE.
+
+**Mitigation dependence is a *risk screen*, not a disqualifier.** A mitigated FONSI does not
+mean the action class is unsuitable for a CE. It means a defensible CE for that class would
+need to **encode the *recurring* avoidance/minimization measures as design criteria** and
+**exclude** cases that hinge on *project-specific* commitments. So a high mitigated share is
+a flag to read the measures, not a veto.
 
 ## How "mitigated" was determined
 
@@ -888,10 +919,11 @@ convergence hasn't happened yet.
 Net-new CEs are empty here *by construction*: the candidate action types we
 hand-picked are all well-trodden, so all are already CE'd. But of the `r n_clean`
 decarbonization FONSIs, only `r n_candidate` fell into those types — the remaining
-**~`r n_other`** are *other* decarbonization actions we have not yet categorized.
-**Net-new CEs most likely live there.** The recommended next step is to cluster
-those un-categorized FONSI action descriptions to surface recurring categories
-nobody has hand-picked.
+**~`r n_other`** are simply **not classified by the current hand-picked candidate rules.**
+**This deliverable did not analyze that residual** — it is a count of what fell outside the
+rules, not an examined pool. Net-new CEs most plausibly live there, but confirming that
+requires the recommended next step: cluster those un-categorized FONSI action descriptions
+to surface recurring categories nobody has hand-picked.
 
 # Caveats & next steps
 

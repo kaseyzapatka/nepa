@@ -182,5 +182,21 @@ Worked in priority order. Status per item (batch 1 — Blocking + adjacent Shoul
 13. **Generic NEPA/CEQA definitions in boundary examples — fixed.** `first_threshold()` now drops statements matching a generic-definition regex (`defines significan`, `defined by/under/as`, `CEQA`, `context and intensity`, `40 CFR`, `1508`) so only project-specific thresholds surface.
 14. **Near-duplicate landscape ≠ coverage proof — answered-in-text.** Added: "This shows adoption is common in the CE corpus; it does not verify that the four shortlisted CE matches actually cover the D6 actions — that remains the pending eCFR check."
 
+### Should-fix (batch 2)
+1 & 2. **Denominator mixing (452 vs 451) — fixed (text).** Added a **Scope, denominators & how-to-read** `callout-important` in Methodology with a table: 452 source / `r n_enriched`=451 enriched / 293 candidate / 53 projects (54 rows) / 42 LLM-bounded / 1 no-evidence excluded. New setup vars `n_enriched`, `n_excluded_noev`, `n_profile_rows`, `n_llm_bounded`.
+7. **CE catalog stale — answered (text).** Snapshot date `2025-08-07` now stated in the scope callout with a "verify against current eCFR" caveat. (Refresh-and-rerun not done — that's a data refresh you'd trigger; flagged.)
+8. **Residual pool described as analyzed — fixed (text).** Methodology Step 2 and "Where net-new CEs would come from" reworded: the residual is "not classified by the current rules / not analyzed in this deliverable," not an examined category.
+9. **Architecture stale — fixed.** Added a "PARTIALLY SUPERSEDED" banner to `architecture/deliverables/deliverable06.md` (LLM now wired; verdicts 4 adopt/1 contrast).
+10. **README stale — fixed.** Updated figure list (≈16, not 4), named the authoritative review CSVs, and stated the deliverable is LLM-backed (model/schema/verification) and CE matches are pending verification.
+
+### Nice-to-have (batch 2)
+6. **Model/prompt metadata — partly answered.** Model `claude-sonnet-4-6`, schema `d6_enrich_schema_v5`, 451/452, ~97% verification now in the scope callout + README. (A dedicated methods block can be added if you want it more prominent.)
+7. **Sizes figure caption — fixed.** Recaptioned as "context from the **full** CE catalog (not the four matched CEs)."
+
+### Anticipated client questions (batch 2)
+Answered in the scope callout / narrative where a client looks: **Q1** denominators (table), **Q3** "descriptive counts, not tested" + thin-evidence n<10, **Q4** "null = unknown, not false" (full missingness table still to add), **Q7** one-line takeaway, **Q8** project-vs-row grain note, **Q9** CE snapshot + verify caveat, **Q10** "mitigation is a risk screen, not a disqualifier." **Q2/Q6** addressed in batch 1 (historical framing / reproduction). **Q5** (assumptions & sensitivity section) still to add.
+
 ### Remaining (next batches)
-Should-fix 1–12 (excl. 13/14) and Nice-to-have 1–7 and Anticipated client questions 1–10 are **in progress** — being worked in priority order in following commits. Client questions will each be answered in the narrative / methods / captions, not just acknowledged.
+- Should-fix **3** (candidate vs `action_category` QA gate), **4** (similarity null artifact or drop the 0.07/0.20 baseline claim), **5** (Wilson intervals + thin-evidence flag in figures), **6** (rank sensitivity table), **11** (`citation_verified` into facts), **12** (rename `corpus_mitigation_stats` columns) — code changes, next.
+- Nice-to-have **1** (qa script), **2** (archive v1 artifacts), **3** (.DS_Store/__pycache__), **4** (parameterized DuckDB), **5** (embedding-fail explicit).
+- Client **Q5** (assumptions/sensitivity), **Q4** (full missingness table), **Q6** (run manifest with hashes).
