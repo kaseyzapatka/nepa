@@ -69,7 +69,9 @@ def _action_citation(evidence_cited: str) -> dict:
         return {"citation_document_id": c.get("document_id", "") or "",
                 "citation_document_role": c.get("document_role", "") or "",
                 "citation_evidence_span_id": c.get("span_id", "") or "",
-                "citation_page": c.get("page"), "quote": normalize_space(c.get("quote", ""))}
+                "citation_page": c.get("page"), "quote": normalize_space(c.get("quote", "")),
+                "citation_verified": bool(c.get("verified") is True),
+                "citation_claim": c.get("claim", "") or ""}
     for c in _jlist(evidence_cited):
         if c.get("claim") == "action" and c.get("verified") is True:
             return pack(c)
@@ -78,7 +80,7 @@ def _action_citation(evidence_cited: str) -> dict:
             if c.get("claim") == want and c.get("quote"):
                 return pack(c)
     return {"citation_document_id": "", "citation_document_role": "", "citation_evidence_span_id": "",
-            "citation_page": None, "quote": ""}
+            "citation_page": None, "quote": "", "citation_verified": False, "citation_claim": ""}
 
 
 def main() -> None:
@@ -135,6 +137,8 @@ def main() -> None:
             "citation_section_id": "",
             "citation_evidence_span_id": cite["citation_evidence_span_id"],
             "citation_page": cite["citation_page"],
+            "citation_verified": cite["citation_verified"],   # was the quoted_span quote-verified?
+            "citation_claim": cite["citation_claim"],
             "quoted_span": cite["quote"][:900],
             "extraction_method": "llm_enrichment",
             "confidence": getattr(e, "extraction_confidence", "") or "medium",
@@ -201,9 +205,8 @@ def main() -> None:
         "n_clean_fonsi": n_clean, "n_with_packet": n_clean,
         "n_mitigated_fonsi": int(is_mit.sum()),
         "mitigated_share": round(float(is_mit.mean()), 3) if n_clean else 0.0,
-        "n_textual_only": 0,
-        "n_enforceable_only": n_case,               # mitigated FONSIs that are case-specific dependent
-        "n_both_high_conf": n_design,               # mitigated but impacts avoided by design feature
+        "n_case_specific_dependent": n_case,        # mitigated FONSIs that are case-specific dependent
+        "n_design_or_none": n_design,               # mitigated but impacts avoided by design feature / none
         "run_at": run_at,
     }])
     write_parquet(stats, CORPUS_STATS_OUT)
@@ -220,7 +223,7 @@ def main() -> None:
           f"kv={int(facts['max_kilovolts'].notna().sum())} mw={int(facts['max_megawatts'].notna().sum())} "
           f"wells={int(facts['n_wells'].notna().sum())}")
     print(f"[09] corpus mitigated FONSIs: {int(cs.n_mitigated_fonsi)} of {int(cs.n_clean_fonsi)} "
-          f"({cs.mitigated_share:.1%})  [case-specific={int(cs.n_enforceable_only)} design-only={int(cs.n_both_high_conf)}]")
+          f"({cs.mitigated_share:.1%})  [case-specific={int(cs.n_case_specific_dependent)} design-only={int(cs.n_design_or_none)}]")
     print(f"[09] per-candidate mitigation summary -> {MIT_SUMMARY_OUT.name}")
     print(summ[["candidate_category", "n_focus", "n_mitigated_fonsi", "mitigated_share",
                 "n_with_boundary_language"]].to_string(index=False))

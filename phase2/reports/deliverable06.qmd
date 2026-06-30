@@ -75,7 +75,7 @@ tx_mit  <- mit$mitigated_share[mit$candidate_category == "transmission_upgrade"]
 cstats        <- read_parquet(file.path(ANALYSIS, "corpus_mitigation_stats.parquet"))
 n_mit_corpus  <- cstats$n_mitigated_fonsi[1]
 mit_share_cor <- cstats$mitigated_share[1]
-n_enf_only    <- cstats$n_enforceable_only[1]
+n_enf_only    <- cstats$n_case_specific_dependent[1]
 ```
 
 ## Executive Summary
@@ -384,6 +384,28 @@ does), but because it has **the most FONSIs across the most agencies and states*
 knitr::include_graphics(file.path(FIGS, "fig_d6_classification.png"))
 ```
 
+The weights are a judgment call, so here is the rank order under three plausible weightings.
+**Transmission stays #1 in all three**; the thin-n candidates shuffle below it — read them as
+a **band**, not a precise order:
+
+```{r}
+#| label: tbl-d6-rank-sensitivity
+#| tbl-cap: "Rank under three weightings (volume-heavy / mitigation-risk-heavy / verification-confidence-heavy). Transmission is robustly first; geothermal/solar/temporary trade places, so their exact order is not meaningful."
+rc <- verdicts |> filter(verdict != "contrast") |>
+  transmute(Action = str_replace(candidate_label, " \\(.*\\)", ""),
+            rank_novelty, rank_volume, rank_diversity, rank_limits, rank_mitigation, rank_role)
+.score <- function(w) with(rc, w[1]*rank_novelty + w[2]*rank_volume + w[3]*rank_diversity +
+                             w[4]*rank_limits + w[5]*rank_mitigation + w[6]*rank_role)
+tibble(Action = rc$Action,
+       `Volume-heavy`        = rank(-.score(c(.10, .50, .15, .05, .05, .15)), ties.method = "min"),
+       `Mitigation-risk`     = rank(-.score(c(.10, .15, .10, .05, .45, .15)), ties.method = "min"),
+       `Verification-conf.`  = rank(-.score(c(.15, .15, .10, .25, .10, .25)), ties.method = "min")) |>
+  arrange(`Volume-heavy`) |>
+  gt() |>
+  cols_align(align = "center", columns = -Action) |> cols_align(align = "left", columns = Action) |>
+  tab_options(table.font.size = px(12), data_row.padding = px(5))
+```
+
 ## Main Finding: Candidate CE-adoption opportunities
 
 ::: {.callout-warning appearance="simple"}
@@ -573,6 +595,7 @@ clean_cut <- function(s, n = 520) {
 
 ex <- facts |>
   filter(candidate_category == "transmission_upgrade", is_bounded,
+         citation_verified,                       # "source-verified" = only quote-verified rows (#11)
          !is.na(quoted_span), nchar(quoted_span) >= 70,
          str_detect(quoted_span, scope_rx), !str_detect(quoted_span, drop_rx)) |>
   distinct(project_id, .keep_all = TRUE) |>
@@ -727,22 +750,32 @@ what a defensible CE would distill into standing design criteria.
 
 ```{r}
 #| label: tbl-d6-mitigation-pattern
-#| tbl-cap: "Mitigated-FONSI rate and recurring resource areas by candidate action type."
+#| tbl-cap: "Mitigated-FONSI rate by candidate action type, with Wilson 95% intervals and a thin-evidence flag — point estimates for n < 10 are illustrative."
+wilson_ci <- function(x, n, z = 1.96) {
+  if (is.na(n) || n == 0) return("—")
+  p <- x / n; d <- 1 + z^2 / n
+  ctr <- (p + z^2 / (2 * n)) / d
+  hw  <- z * sqrt(p * (1 - p) / n + z^2 / (4 * n^2)) / d
+  sprintf("%.0f–%.0f%%", 100 * max(0, ctr - hw), 100 * min(1, ctr + hw))
+}
 mit |>
   left_join(verdicts |> select(candidate_category, candidate_label, verdict), by = "candidate_category") |>
   filter(verdict != "contrast") |>
   arrange(desc(mitigated_share)) |>
   transmute(
     Action = str_replace(candidate_label, " \\(.*\\)", ""),
-    `FONSIs examined` = n_focus,
+    `FONSIs` = n_focus,
     `Mitigated` = n_mitigated_fonsi,
-    `Mitigated share` = percent(mitigated_share, accuracy = 1),
+    `Share (95% CI)` = paste0(percent(mitigated_share, accuracy = 1), "  (",
+                              mapply(wilson_ci, n_mitigated_fonsi, n_focus), ")"),
+    Evidence = ifelse(n_focus < 10, "thin (n<10)", "ok"),
     `Recurring resource areas` = str_squish(top_mitigation_resource_areas)
   ) |>
   gt() |>
   cols_align(align = "left", columns = everything()) |>
+  tab_style(style = cell_text(color = "#9A1C1C"), locations = cells_body(columns = Evidence, rows = Evidence != "ok")) |>
   tab_options(table.font.size = px(12), data_row.padding = px(6)) |>
-  cols_width(Action ~ px(190), `Recurring resource areas` ~ px(300))
+  cols_width(Action ~ px(180), `Share (95% CI)` ~ px(150), `Recurring resource areas` ~ px(260))
 ```
 
 ## Boundary language: where agencies drew the significance line
@@ -970,6 +1003,36 @@ The conclusions rest on a few explicit assumptions — here is how each would mo
   weight-sensitivity table is a recommended follow-up).
 - **CE coverage is unverified.** Requiring verified eCFR coverage before "adopt" reclassifies
   all four to *candidate-pending* until that review is done.
+
+## Run manifest & data completeness
+
+```{r}
+#| label: tbl-d6-manifest
+#| echo: false
+.enrall <- read_parquet(file.path(ANALYSIS, "fonsi_enrichment.parquet"))
+ver_rate <- mean(facts$citation_verified, na.rm = TRUE)
+miss <- tibble(
+  Field = c("`is_mitigated_fonsi`", "`is_bounded_low_impact`", "`decision_date` (D4)",
+            "verified action quote", "`disturbance_acres`", "`line_miles`"),
+  `Null / missing` = c(
+    sum(is.na(.enrall$is_mitigated_fonsi)),
+    sum(is.na(.enrall$is_bounded_low_impact)),
+    sum(is.na(facts$decision_date) | facts$decision_date == ""),
+    sum(!facts$citation_verified),
+    sum(is.na(facts$max_acres)),
+    sum(is.na(facts$max_miles))),
+  `Treated as` = c("unknown (not mitigated=FALSE)", "unknown (not bounded=FALSE)",
+                   "undated (shown separately)", "flagged; excluded from 'source-verified' tables",
+                   "no stated acreage", "no stated length"))
+miss |> gt() |> fmt_markdown(columns = Field) |> cols_align("left", columns = everything()) |>
+  tab_header(title = md(sprintf(
+    "**Run:** Claude `claude-sonnet-4-6` · schema `d6_enrich_schema_v5` · %d/%d FONSIs enriched · quote-verification %.1f%% · 1 no-evidence row excluded",
+    n_enriched, nrow(.enrall), 100 * ver_rate))) |>
+  tab_options(table.font.size = px(11), data_row.padding = px(4))
+```
+
+Null booleans are read as **unknown**, never as `FALSE`; the no-evidence row is carried with a
+status flag, not silently dropped.
 
 **For CATF:** tell us which adopt opportunities to pursue, and whether to launch
 the net-new search — and we fold your direction into the next iteration.
