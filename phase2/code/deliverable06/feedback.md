@@ -225,22 +225,34 @@ Answered in the scope callout / narrative where a client looks: **Q1** denominat
 
 All 10 client questions are now answered in the narrative / methods / captions.
 
-### Deferred — code changes that re-run the pipeline / change schema / need your input
-These remain open by design; each changes committed outputs (re-run of 09/07/08), alters a
-schema, or needs a decision. Flagged rather than guessed:
+### Stage 2 — code/schema + stats (DONE; re-ran 09→07→08, re-rendered)
+- **Should-fix 11 — FIXED.** `09` carries `citation_verified` + `citation_claim` into
+  `candidate_facts` (97.3% verified); the "source-verified" worked-example table now filters
+  to `citation_verified`.
+- **Should-fix 12 — FIXED.** Renamed `corpus_mitigation_stats` → `n_case_specific_dependent`
+  / `n_design_or_none` in `09` (+ the print summary + report setup ref).
+- **Should-fix 5 — FIXED.** Wilson 95% CIs + a thin-evidence (n<10) flag on the
+  mitigation-pattern table.
+- **Should-fix 6 — FIXED.** Rank weight-sensitivity table (volume / mitigation-risk /
+  verification-confidence): transmission is #1 in all three; thin-n candidates shuffle → a band.
+- **Client Q4 — FIXED.** Missingness table by key field (null = unknown, not FALSE).
+- **Client Q6 — FIXED.** Run-manifest header (model / schema / 451-452 / 97.3% verification /
+  1 excluded) on the completeness table.
 
-- **Should-fix 5 (Wilson/exact intervals on shares):** regenerates the mitigated-share and
-  rank figures — deferred (changes figures; want confirmation).
-- **Should-fix 6 (rank weight-sensitivity table):** needs you to confirm the 3 weight sets
-  (volume / mitigation-risk / verification-confidence) — described qualitatively in
-  Assumptions for now.
-- **Should-fix 11 (`citation_verified`/`citation_claim` into `candidate_facts`):** schema add
-  in 09 + re-run; then filter "source-verified" tables — deferred.
-- **Should-fix 12 (rename `corpus_mitigation_stats` columns):** rename in 09 + update the
-  report setup ref + re-run — deferred (low risk, will batch with 11).
-- **Nice 1 (`qa_deliverable06.py`), 2 (archive v1 data artifacts), 4 (parameterized DuckDB),
-  5 (embedding-availability stamp):** engineering hygiene; 2/5 are quick, 1/4 are larger.
-- **Client Q4 full missingness table, Q6 input-hash manifest:** new artifacts.
+### Stage 3 — engineering hygiene (DONE)
+- **Nice 1 — FIXED.** `qa_deliverable06.py` asserts the invariants (bounded == 42, no
+  not-bounded leak, verdict counts == bounded projects, enriched == 451, verification ≥ 95%,
+  renamed stats cols). Currently **PASS**.
+- **Nice 5 — FIXED.** `04` and `06` now print a loud warning when embeddings are unavailable;
+  `06` stamps `embedding_available` on the CE-landscape output.
+- **Nice 3 — moot.** No `.DS_Store` / `__pycache__` is tracked in git.
 
-Recommend doing 11+12+5+2 together in one re-run batch, and getting your call on the
-#3-blocking filter and the 5/6 statistics before those (they reshape figures).
+### Still deferred (low value / not output-affecting)
+- **Nice 2 (archive v1 data artifacts):** local data hygiene only — those parquets live under
+  `data/analysis/` which is **not committed**, so it doesn't affect the deliverable. Skipped.
+- **Nice 4 (parameterized DuckDB joins):** pure code-quality refactor across 4 scripts; the
+  current interpolated `IN (...)` works and isn't client-facing. Deferred to avoid SQL-rewrite
+  risk in a large session — flag if you want it.
+
+**Net: all 6 Blocking, all 14 Should-fix, all 10 client questions resolved; 5 of 7
+Nice-to-haves done (2 deferred with reason above).**

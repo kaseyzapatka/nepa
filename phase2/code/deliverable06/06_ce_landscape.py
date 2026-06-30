@@ -126,11 +126,15 @@ def main() -> None:
         ce["cluster_km"] = km
         ce["cluster_label"] = ce["cluster_km"].map(_cluster_terms(ce["ce_text"], km))
     else:
+        print(f"[06] WARNING: embeddings unavailable ({embeddings.MODEL_NAME}); similarity, "
+              "near-duplicate, and t-SNE/cluster outputs are EMPTY. The report's relatedness and "
+              "adopt-precedent claims require embeddings — do not ship a client-facing run in this mode.")
         ce["nearest_xagency_ce"] = ""; ce["nearest_xagency_cosine"] = None
         ce["nearest_xagency_unit"] = ""; ce["xagency_near_duplicate"] = False
         ce["cluster_root"] = list(range(n))
         ce["coord_x"] = np.nan; ce["coord_y"] = np.nan
         ce["cluster_km"] = -1; ce["cluster_label"] = ""
+    ce["embedding_available"] = bool(embeddings.available())
 
     # --- usage (best-effort; D3 ce_citations code format differs from ce.json) ---
     usage_top = ""

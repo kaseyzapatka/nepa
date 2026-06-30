@@ -158,6 +158,10 @@ def main() -> None:
         # Embedding similarity is a semantic ranking aid (blended with lexical);
         # it never decides coverage. Falls back to lexical-only if unavailable.
         use_emb = embeddings.available()
+        if not use_emb:
+            print(f"[04] WARNING: embeddings unavailable ({embeddings.MODEL_NAME}); CE match scores fall "
+                  "back to lexical-only and are NOT comparable to the report's blended scores. "
+                  "Do not ship a client-facing run in this mode.")
         ce_emb = embeddings.embed(ce["cetext"].tolist()) if use_emb else None
         for cat in corpus["candidate_category"].unique():
             qterms = QUERY_TERMS.get(cat, cat.replace("_", " "))
