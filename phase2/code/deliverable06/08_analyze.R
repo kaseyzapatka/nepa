@@ -450,6 +450,27 @@ if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
   save_fig(p_scatter, "fig_d6_ce_scatter.png", w = 9.5, h = 6)
 }
 
+# Appendix: how many CE clusters? inertia elbow + silhouette across k. The silhouette is low and
+# flat, so k = 8 is a readability choice for the scatter, not a natural optimum.
+ksel_path <- file.path(ANALYSIS, "ce_kselection.parquet")
+if (file.exists(ksel_path)) {
+  ksel <- read_parquet(ksel_path)
+  ksl <- ksel %>% tidyr::pivot_longer(c(inertia, silhouette), names_to = "metric", values_to = "value") %>%
+    mutate(metric = recode(metric, inertia = "Inertia (elbow)", silhouette = "Silhouette (separation)"))
+  p_elbow <- ggplot(ksl, aes(k, value)) +
+    geom_line(color = catf_dark_blue, linewidth = 0.8) + geom_point(color = catf_navy, size = 1.8) +
+    geom_vline(xintercept = 8, linetype = "dashed", color = catf_grey) +
+    facet_wrap(~ metric, scales = "free_y") +
+    scale_x_continuous(breaks = ksel$k) +
+    labs(title = "Choosing the number of CE clusters (k = 8)",
+         subtitle = str_wrap(paste("Inertia falls smoothly (no sharp elbow) and the silhouette is low and flat",
+                  "(~0.035 at every k) — the CE text does not form well-separated clusters, so k = 8 (dashed) is a",
+                  "readability choice for the scatter, not a natural optimum."), 104),
+         x = "Number of clusters (k)", y = NULL) +
+    theme_catf()
+  save_fig(p_elbow, "fig_d6_ce_elbow.png", w = 9, h = 3.6)
+}
+
 # === Analysis 2: corpus-wide mitigation (read the enrichment — NOT limited to candidates) ===
 enr <- read_parquet(file.path(ANALYSIS, "fonsi_enrichment.parquet")) %>%
   filter(!is.na(action_summary)) %>%

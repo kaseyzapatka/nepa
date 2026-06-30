@@ -954,17 +954,30 @@ qual |>
 
 ## How related are the CEs?
 
-The CE body is **highly clustered**. Below, each point is one CE laid out by text
-similarity (t-SNE of the embeddings), colored by its **k-means family** and labeled by
-the family's top terms. Distinct families emerge — equipment replacement, property
-acquisition, personnel/administrative, roads — and many recur across *different*
+Each point below is one CE laid out by text similarity (t-SNE of the embeddings), colored by its
+**k-means family** and labeled by the family's distinctive phrases. The CE text **does not split
+into cleanly separated clusters** — the silhouette is low and flat across every *k* (see the
+[k-selection figure](#fig-d6-ce-elbow) below), so the **k = 8** families are a *readability* grouping
+of the layout, not a natural optimum. Even so, recognizable families emerge — real property &
+rights-of-way, data collection / geophysical survey, hazardous-materials storage & disposal, airport
+layout plans, goods & services, and regulatory/guidance actions — and many recur across *different*
 departments, which is the precedent for adopt.
 
 ```{r}
 #| label: fig-d6-ce-scatter
-#| fig-cap: "Every CE laid out by text similarity (t-SNE), colored by k-means family and labeled by its top terms. Closer = more similar wording."
+#| fig-cap: "Every CE laid out by text similarity (t-SNE), colored by k-means family and labeled by its distinctive phrases. Closer = more similar wording."
 #| out-width: 92%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_scatter.png"))
+```
+
+How many families to draw is a judgment call, because the CE text has no natural cluster count —
+the appendix figure shows it:
+
+```{r}
+#| label: fig-d6-ce-elbow
+#| fig-cap: "k-selection for the CE clustering: inertia (elbow) falls smoothly and the silhouette is low and flat (~0.035 at every k), so k = 8 is a readability choice, not a natural optimum."
+#| out-width: 90%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_elbow.png"))
 ```
 
 ## Cross-agency duplication — the precedent for *adopt*
