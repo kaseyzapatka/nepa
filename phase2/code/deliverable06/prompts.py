@@ -247,7 +247,7 @@ def enrichment_tool_schema() -> dict:
 # force a classify-only re-run — the expensive extraction cache is untouched.
 # ===========================================================================
 
-CLASSIFICATION_PROMPT_VERSION = "d6_classify_prompt_v1"
+CLASSIFICATION_PROMPT_VERSION = "d6_classify_prompt_v2"   # v2: precedence rules + edge-case guidance
 
 ACTION_CATEGORIES = [
     "transmission_upgrade", "solar", "geothermal_exploration",

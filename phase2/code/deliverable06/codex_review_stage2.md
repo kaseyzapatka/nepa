@@ -212,3 +212,77 @@ committed extraction output stays reproducible (per the re-run constraint).
 Validated offline ($0): py_compile, `--dry-run` (~$1.49 classify), and a mock end-to-end test covering
 success-stamping, failure fallback to pass1, the no-summary skip, the success gate, and second-run
 idempotency of `action_category_pass1`.
+
+## Codex second-pass review (coding changes only, 2026-06-30)
+
+Scope: reviewed commit `2436519` only, limited to Stage-2 classification code changes in
+`03_enrich_llm.py` and `prompts.py`. I did not re-review downstream rewiring, report text, or
+the resolution note prose.
+
+### Findings
+
+1. **High - `--stage both` can still overwrite the canonical parquet before the classification
+   success gate fires.** The new gate is in the right place for `--stage classify`: it calls
+   `run_classification()`, checks `st["n_ok"] / st["n_attempted"]`, and only then writes
+   `clean_out` (`03_enrich_llm.py:400-409`). But in the default `--stage both` path,
+   `run_extraction()` is called first (`03_enrich_llm.py:390-391`), and `run_extraction()` writes
+   the analysis parquet to the same `clean_out` path before returning (`03_enrich_llm.py:186-192`).
+   If classification later fails the new gate (`03_enrich_llm.py:404-408`), the message says
+   `NOT writing {clean_out.name}`, but the extraction-only version has already been written. That
+   can leave the canonical parquet without Stage-2 columns / corrected categories after a failed
+   default run, and it can also regress a previously-classified canonical output if someone reruns
+   `--stage both` and classification fails or the process is interrupted between extraction and
+   classification. Recommendation: make the default `both` path atomic with respect to the final
+   analysis parquet. Options: have `run_extraction()` return `clean_df` without writing `clean_out`
+   when `do_classify` is true; write extraction-only output to a temporary/stage-specific path; or
+   write the final classified parquet to a temp file and replace `clean_out` only after both stages
+   pass.
+
+2. **Low - the prompt semantics changed but `CLASSIFICATION_PROMPT_VERSION` stayed at v1.** The
+   cache is safe because `classify_key()` now hashes the full prompt plus tool schema
+   (`03_enrich_llm.py:76-79`), but the output audit column only records
+   `CLASSIFICATION_PROMPT_VERSION` (`03_enrich_llm.py:299`, `03_enrich_llm.py:311`). The prompt now
+   has materially different precedence and edge-case rules (`prompts.py:275-297`) under the same
+   `d6_classify_prompt_v1` label. Since the real classify pass has not been run yet, this is easy
+   to clean up before producing client-facing outputs: bump to `d6_classify_prompt_v2`, or store a
+   prompt/schema hash in the output audit columns in addition to the human version label.
+
+### Resolved From Prior Pass
+
+- The stale-category failure path is substantially fixed inside `run_classification()`: failed and
+  skipped rows fall back to `action_category_pass1`, are marked `classification_parse_ok = False`,
+  and are not stamped with prompt version/run time (`03_enrich_llm.py:291-312`).
+- The classification success gate now exists for attempted rows, with strict full/pilot behavior
+  and looser `--sample` behavior (`03_enrich_llm.py:400-408`).
+- The cache key now includes the classification tool schema (`03_enrich_llm.py:76-79`).
+- The prompt overlap between wind met testing and temporary resource assessment is resolved by an
+  explicit precedence rule (`prompts.py:291-295`).
+
+### Verification Run
+
+- `conda run -n nepa python -m py_compile prompts.py 03_enrich_llm.py` passed.
+- `conda run -n nepa python 03_enrich_llm.py --stage classify --dry-run` passed and reported about
+  `$1.49`.
+- `conda run -n nepa python 03_enrich_llm.py --dry-run` passed and reported about `$18.31`
+  extraction plus `$1.49` classification.
+- Current `phase2/data/analysis/deliverable06/fonsi_enrichment.parquet` still has 452 rows and no
+  Stage-2 audit columns, so the real classification output has not been materialized in this
+  checkout.
+
+## Resolution — second pass (author, 2026-06-30)
+
+Both findings fixed. The Finding-1 change adds a write-gating flag to `run_extraction` that does NOT
+touch the extraction computation/cache/raw output (extraction stays byte-reproducible) and is never
+exercised by `--stage classify`.
+
+- **Finding 1 (High) — FIXED.** `run_extraction(..., write_clean=True)`; in the default `--stage both`
+  path `main` passes `write_clean=False`, so extraction no longer writes the analysis parquet —
+  classify writes `clean_out` atomically only after its success gate passes. A failed `both` run now
+  leaves the prior `clean_out` untouched (no extraction-only regression). `--stage classify` never
+  calls `run_extraction`, so it is unaffected; `--stage extract` writes as before.
+- **Finding 2 (Low) — FIXED.** Bumped to `d6_classify_prompt_v2`, and added `classification_config_sha`
+  (16-char fingerprint of prompt template + tool schema) stamped per successful row, so the human
+  label cannot silently drift from the prompt that produced a row.
+
+Validated offline: py_compile, `--dry-run` (reports v2), and a mock test confirming
+`classification_config_sha` stamps on ok rows and is blank on failed/skipped rows.

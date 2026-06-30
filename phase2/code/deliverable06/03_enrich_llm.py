@@ -79,6 +79,13 @@ def classify_key(model: str, text: str) -> str:
     return sha256_text(f"{CLASSIFICATION_PROMPT_VERSION}|{model}|{schema}|{text}")
 
 
+# fingerprint of the actual classifier config (prompt template + tool schema), stamped into the
+# audit so the human version label can never silently drift from the prompt that produced a row
+CLASSIFY_CONFIG_SHA = sha256_text(
+    build_classification_prompt("", "", "", "", "") + "|"
+    + json.dumps(classification_tool_schema(), sort_keys=True))[:16]
+
+
 def _audit(packet_text: str, model: str, parsed, run_at: str, res: dict, tech: str,
            tag_map: dict, cache_hit: bool) -> dict:
     return {
@@ -119,7 +126,7 @@ def result_row(r, packet_text: str, tag_map: dict, res: dict, cache_hit: bool,
 # ===========================================================================
 # Stage 1 — extraction (the expensive pass; cached on packet + schema version)
 # ===========================================================================
-def run_extraction(pk, args, run_at, client, raw_out, clean_out, suffix, mode) -> pd.DataFrame:
+def run_extraction(pk, args, run_at, client, raw_out, clean_out, suffix, mode, write_clean=True) -> pd.DataFrame:
     spans_by_pid, main_by_doc = enrich_lib.load_spans_and_main(pk["project_id"])
     cache: dict = json.loads(CACHE.read_text()) if CACHE.exists() else {}
 
@@ -189,7 +196,8 @@ def run_extraction(pk, args, run_at, client, raw_out, clean_out, suffix, mode) -
             "enrichment_extraction_run_at", "enrichment_llm_run_at"]
     # analysis-ready clean output: metadata passthrough + computed confidence (self-contained)
     clean_df = enrich_lib.add_confidence(enrich_lib.attach_metadata(raw_df[keep], pk))
-    write_parquet(clean_df, clean_out)
+    if write_clean:                                  # in `both`, classify writes clean_out atomically after its gate
+        write_parquet(clean_df, clean_out)
     # evidence-level CSV: one verbatim quote per row with provenance (the quote audit surface)
     ev_out = D6_REVIEW_DIR / f"fonsi_enrichment_evidence{suffix}.csv"
     enrich_lib.build_evidence_frame(clean_df, pk).to_csv(ev_out, index=False)
@@ -213,7 +221,8 @@ def run_extraction(pk, args, run_at, client, raw_out, clean_out, suffix, mode) -
         print("[03] skipped by tech_group:",
               raw_df.loc[raw_df['llm_error'].eq('no_evidence'), 'tech_group'].value_counts().to_dict())
     print(f"[03] raw  -> {raw_out}")
-    print(f"[03] data -> {clean_out}")
+    if write_clean:
+        print(f"[03] data -> {clean_out}")
     print(f"[03] evidence (1 quote/row) -> {ev_out}")
 
     min_success = MIN_SUCCESS_DEBUG if args.sample else MIN_SUCCESS_STRICT
@@ -288,7 +297,7 @@ def run_classification(clean_df, model, client, run_at, workers):
     if "action_category_pass1" not in df.columns:    # preserve the EXTRACTION value once, as audit
         df["action_category_pass1"] = df["action_category"]
 
-    cats, oks, hits, errs, confs, rats, vers, runs = [], [], [], [], [], [], [], []
+    cats, oks, hits, errs, confs, rats, vers, runs, shas = [], [], [], [], [], [], [], [], []
     for pid, base in zip(df["project_id"], df["action_category_pass1"]):
         state, parsed, hit, err = status.get(pid, ("skipped", None, False, "no_summary"))
         if state == "ok":
@@ -296,12 +305,12 @@ def run_classification(clean_df, model, client, run_at, workers):
             oks.append(True); hits.append(hit); errs.append("")
             confs.append(parsed.get("classification_confidence", ""))
             rats.append(parsed.get("classification_rationale", ""))
-            vers.append(CLASSIFICATION_PROMPT_VERSION); runs.append(run_at)
+            vers.append(CLASSIFICATION_PROMPT_VERSION); runs.append(run_at); shas.append(CLASSIFY_CONFIG_SHA)
         else:                                        # failed/skipped -> keep extraction value, do NOT stamp
             cats.append(base)
             oks.append(False); hits.append(False); errs.append(err)
             confs.append(""); rats.append("")
-            vers.append(""); runs.append("")
+            vers.append(""); runs.append(""); shas.append("")
     df["action_category"] = cats
     df["classification_parse_ok"] = oks
     df["classification_cache_hit"] = hits
@@ -310,6 +319,7 @@ def run_classification(clean_df, model, client, run_at, workers):
     df["classification_rationale"] = rats
     df["classification_prompt_version"] = vers
     df["classification_run_at"] = runs
+    df["classification_config_sha"] = shas
 
     # NaN-safe change count (None != None is True in pandas; the no-evidence row is None)
     n_changed = int((df["action_category"].fillna("") != df["action_category_pass1"].fillna("")).sum())
@@ -388,7 +398,10 @@ def main() -> None:
 
     # --- stage 1: extraction (or reuse the cached extraction output) ---
     if do_extract:
-        clean_df = run_extraction(pk, args, run_at, client, raw_out, clean_out, suffix, mode)
+        # in `both`, defer the analysis-parquet write to classify so clean_out is atomic:
+        # a failed classify gate then leaves the prior clean_out untouched (no extraction-only regression)
+        clean_df = run_extraction(pk, args, run_at, client, raw_out, clean_out, suffix, mode,
+                                  write_clean=not do_classify)
     else:
         if not clean_out.exists():
             print(f"[03] --stage classify needs an existing {clean_out.name}; run extraction first.")
