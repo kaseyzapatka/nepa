@@ -58,11 +58,16 @@ mit      <- read_parquet(file.path(ANALYSIS, "candidate_mitigation_summary.parqu
 ce_land  <- read_parquet(file.path(ANALYSIS, "ce_landscape_ces.parquet"))
 facts    <- read_parquet(file.path(ANALYSIS, "candidate_facts.parquet")) %>% mutate(project_id = as.character(project_id))
 
-corp_fonsi   <- corp %>% filter(is_fonsi)
+# "bounded" = rule-profiled AND the LLM judged it inherently low-impact (feedback #3)
+facts        <- facts %>% mutate(is_bounded = is_profile_subtype & is_bounded_low_impact %in% TRUE)
+bnd_keys     <- facts %>% filter(is_bounded) %>% distinct(project_id, candidate_category) %>% mutate(.b = TRUE)
+corp_fonsi   <- corp %>% filter(is_fonsi) %>%
+  left_join(bnd_keys, by = c("project_id", "candidate_category")) %>%
+  mutate(is_bounded = !is.na(.b)) %>% select(-.b)
 n_clean      <- inv %>% filter(project_energy_type == "Clean") %>% distinct(project_id) %>% nrow()
 n_candidate  <- corp_fonsi %>% distinct(project_id) %>% nrow()
-n_ce_shaped  <- corp_fonsi %>% filter(is_profile_subtype) %>% distinct(project_id) %>% nrow()
-outcome <- corp_fonsi %>% filter(is_profile_subtype) %>%
+n_ce_shaped  <- corp_fonsi %>% filter(is_bounded) %>% distinct(project_id) %>% nrow()
+outcome <- corp_fonsi %>% filter(is_bounded) %>%
   select(project_id, candidate_category) %>%
   left_join(verdicts %>% select(candidate_category, verdict), by = "candidate_category") %>%
   distinct(project_id, verdict) %>% count(verdict)
@@ -99,7 +104,7 @@ save_fig(p_waffle1, "fig_d6_outcomes_waffle.png", w = 9, h = 5)
 # === Fig: sort step — every clean FONSI by action type, incl. the uncategorized pool ===
 dd <- corp_fonsi %>% group_by(candidate_category) %>%
   summarise(total = n_distinct(project_id),
-            bounded = n_distinct(project_id[is_profile_subtype]), .groups = "drop") %>%
+            bounded = n_distinct(project_id[is_bounded]), .groups = "drop") %>%
   left_join(verdicts %>% select(candidate_category, candidate_label), by = "candidate_category") %>%
   mutate(lab = short_label(candidate_label)) %>% filter(!is.na(lab))
 sortL <- dd %>% mutate(Broader = total - bounded, Bounded = bounded) %>%
@@ -124,7 +129,7 @@ p_sort <- ggplot(sortL, aes(y = reorder(lab, total), x = n, fill = subset)) +
 save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 4.2)
 
 # === Fig: what makes the kept FONSIs "bounded, low-impact" (the keep step) ===
-prof_keep <- facts %>% filter(is_profile_subtype)
+prof_keep <- facts %>% filter(is_bounded)
 keep_attr <- tibble(
   attribute = c("On previously disturbed / developed land", "Within an existing right-of-way",
                 "Temporary / short-duration work", "No new permanent access road*"),
@@ -164,7 +169,7 @@ p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_sco
 save_fig(p_match, "fig_d6_ce_match.png", h = 4.0)
 
 # === Fig: bounded FONSIs vs existing-CE stated limits (the expand-test comparison) ===
-prof_sz <- facts %>% filter(is_profile_subtype)
+prof_sz <- facts %>% filter(is_bounded)
 BLUE <- catf_dark_blue; GREEN <- "#1D9E75"   # Existing CE limits = blue; Bounded FONSIs = green
 grp_pal <- c("Bounded FONSIs" = GREEN, "Existing CE limits" = BLUE)
 sz <- bind_rows(
@@ -228,7 +233,7 @@ p_cls <- ggplot(cls, aes(lab, contribution, fill = component)) +
 save_fig(p_cls, "fig_d6_classification.png", w = 9, h = 4.4)
 
 # === Fig: FRA timeline — the 53 bounded FONSIs by D4 decision date ===
-tl <- facts %>% filter(is_profile_subtype) %>% distinct(project_id, decision_date) %>%
+tl <- facts %>% filter(is_bounded) %>% distinct(project_id, decision_date) %>%
   mutate(d = suppressWarnings(as.Date(decision_date)),
          year = as.integer(format(d, "%Y")),
          year = ifelse(!is.na(year) & year >= 1995 & year <= 2026, year, NA_integer_),
@@ -258,7 +263,7 @@ save_fig(p_tl, "fig_d6_timeline.png", w = 9, h = 4.0)
 
 # === Fig: US map of transmission-upgrade FONSI states (tigris/sf — house pattern) ===
 tx_state <- corp_fonsi %>%
-  filter(is_profile_subtype, candidate_category == "transmission_upgrade") %>%
+  filter(is_bounded, candidate_category == "transmission_upgrade") %>%
   mutate(s = str_remove_all(as.character(project_state), '[\\[\\]"]')) %>%
   separate_rows(s, sep = ",\\s*") %>% mutate(state_name = str_squish(s)) %>%
   filter(state_name != "", !is.na(state_name)) %>% count(state_name, name = "n")
@@ -282,29 +287,32 @@ p_map <- ggplot(states_sf) +
   theme_catf() + theme(legend.position = "right", axis.text = element_blank(), panel.grid = element_blank())
 save_fig(p_map, "fig_d6_states.png", w = 8.5, h = 5.0)
 
-# === Fig: which TVA CE each transmission FONSI maps to — #17 (modify) vs #19 (rebuild) ===
-# Work type inferred from the action text; rebuilds over CE #19's 25-mile cap are the expand case.
+# === Fig: the transmission FONSIs — adopt-ready (LLM-bounded) vs too-big (expand/develop) ===
+# Adopt vs expand = the LLM's is_bounded_low_impact judgment; #17 vs #19 from the action text.
 tx_split <- facts %>% filter(candidate_category == "transmission_upgrade", is_profile_subtype) %>%
   distinct(project_id, .keep_all = TRUE) %>%
   mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
          is_rebuild = str_detect(txt, "rebuild|reconstruct|(remov|replac|install|new)\\w*[^.]{0,40}(structure|pole|tower|h-frame|monopole)"),
-         ce = ifelse(is_rebuild, "CE #19 — rebuild", "CE #17 — modify / reconductor"),
-         verdict = ifelse(is_rebuild & !is.na(max_miles) & max_miles > 25, "Expand #19 (rebuild > 25 mi)", "Adopt (existing CE covers it)"))
-n17 <- sum(tx_split$ce == "CE #17 — modify / reconductor"); n19 <- sum(tx_split$ce == "CE #19 — rebuild")
-nexp <- sum(tx_split$verdict != "Adopt (existing CE covers it)")
-p_cesplit <- ggplot(count(tx_split, ce, verdict), aes(x = reorder(ce, n, sum), y = n, fill = verdict)) +
-  geom_col(width = 0.62) +
-  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white", fontface = "bold", size = 4.2) +
-  scale_fill_manual(values = c("Adopt (existing CE covers it)" = catf_navy,
-                               "Expand #19 (rebuild > 25 mi)" = catf_light_blue), name = NULL) +
-  coord_flip(clip = "off") + scale_y_continuous(expand = expansion(mult = c(0, 0.06))) +
-  labs(title = glue::glue("Which TVA CE the {n17 + n19} transmission FONSIs map to"),
-       subtitle = str_wrap(glue::glue("Reconductoring / minor upgrades fit CE #17 (no length cap); full rebuilds fit ",
-                "CE #19 (≤ 25 mi). The {nexp} rebuilds beyond 25 miles are the only expand case."), 96),
-       x = NULL, y = "Bounded transmission FONSIs",
-       caption = "Work type inferred from each FONSI's action text; rebuilds with no stated length are counted as adopt.") +
-  theme_catf() + theme(legend.position = "top", axis.text.y = element_text(color = catf_navy, face = "bold"))
-save_fig(p_cesplit, "fig_d6_ce_split.png", w = 9, h = 3.2)
+         bucket = case_when(!is_bounded ~ "Too big → expand / develop",
+                            is_rebuild  ~ "Adopt CE #19 (rebuild ≤ 25 mi)",
+                            TRUE        ~ "Adopt CE #17 (modify / reconductor)"),
+         bucket = factor(bucket, levels = c("Adopt CE #17 (modify / reconductor)",
+                                            "Adopt CE #19 (rebuild ≤ 25 mi)", "Too big → expand / develop")))
+n_adopt_tx <- sum(tx_split$is_bounded); n_exp_tx <- sum(!tx_split$is_bounded)
+p_cesplit <- ggplot(count(tx_split, bucket), aes(x = bucket, y = n, fill = bucket)) +
+  geom_col(width = 0.66) +
+  geom_text(aes(label = n), hjust = -0.35, fontface = "bold", color = catf_navy, size = 4.4) +
+  scale_fill_manual(values = c("Adopt CE #17 (modify / reconductor)" = catf_navy,
+                               "Adopt CE #19 (rebuild ≤ 25 mi)" = catf_dark_blue,
+                               "Too big → expand / develop" = catf_light_blue), guide = "none") +
+  coord_flip(clip = "off") + scale_y_continuous(expand = expansion(mult = c(0, 0.14))) +
+  labs(title = glue::glue("The {nrow(tx_split)} transmission FONSIs: {n_adopt_tx} adopt-ready, {n_exp_tx} too big"),
+       subtitle = str_wrap(glue::glue("The model judged {n_adopt_tx} small / in-corridor (adopt — CE #17 modify or #19 rebuild ≤ 25 mi); ",
+                "the other {n_exp_tx} are large rebuilds it flagged as not low-impact — the expand / develop case."), 96),
+       x = NULL, y = "Transmission FONSIs (rule-profiled)",
+       caption = "Adopt vs expand = the model's is_bounded_low_impact judgment; #17 vs #19 from the action text.") +
+  theme_catf() + theme(axis.text.y = element_text(color = catf_navy, face = "bold"))
+save_fig(p_cesplit, "fig_d6_ce_split.png", w = 9, h = 3.0)
 
 # === Fig: adoption gap (evidence weight + who could adopt) ===
 adopt <- verdicts %>% filter(verdict == "adopt") %>%

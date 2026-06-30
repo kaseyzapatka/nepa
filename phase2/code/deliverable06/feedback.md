@@ -173,7 +173,15 @@ Worked in priority order. Status per item (batch 1 — Blocking + adjacent Shoul
 ### Blocking
 1. **Adopt from unverified matches — fixed (text).** Reframed the whole Main Finding: heading → "Candidate CE-adoption opportunities"; added a `callout-warning` ("candidate matches, not coverage determinations… pending eCFR verification"); "already has a CE / would cover" → "close text match / may cover (pending verification)"; bullets "adopt the X CE" → "candidate match to the X CE"; adopt-table caption + adoption-gap text softened. (Code-side `coverage_status` adjudication field not added — there is no human reviewer yet to populate `verified_covers`; the honest state is "pending," which the report now says everywhere. Flag if you want the column stubbed anyway.)
 2. **"No numeric bound" ≠ "no expand" — fixed (text).** Step 5 reworded: none of the matched CEs states a number, so no *numeric* expand can fire — explicitly *not* the same as "no expand exists"; qualitative coverage "must be verified, not assumed," and points to the transmission CE #19 / expand case.
-3. **Profile ≠ LLM-bounded (53 vs 42) — answered-in-text; needs-my-input on the harder option.** Added a `callout-note` in Steps 2-3: "bounded" is a *rule* label; the LLM agrees for 42 of 54 profile rows and flags 12 (11 transmission long-rebuilds) as not inherently bounded; counts use the rule-profiled set and *flag* (not drop) the 12; states that an `is_bounded_low_impact == TRUE` filter would tighten to 42 (transmission 26). **Decision needed:** keep the rule-profiled headline (current, non-destructive) vs. actually *filter* to 42/26 and recompute every figure/count. I chose the non-destructive default; tell me to switch if you want the filter.
+3. **Profile ≠ LLM-bounded (53 vs 42) — FIXED (filtered, per your call).** "Bounded" is now a
+   **two-gate** definition everywhere: `is_profile_subtype AND is_bounded_low_impact == TRUE`.
+   Applied in `07` (verdicts/ranks; `n_profile_fonsi` now the bounded project count),
+   `08` (a single `is_bounded` flag joined onto facts + corpus, used by every figure), and the
+   report setup. Headline drops to **42 bounded rows / 41 distinct projects**, transmission to
+   **26 adopt-ready**. The 11 not-bounded transmission + 1 utility-scale solar (the large
+   rebuilds the LLM judged not low-impact) are re-framed as the **expand / develop** bucket —
+   exactly the ce-split figure and worked example. Why they're not-bounded is the LLM's own
+   reasoning (187-mi / 97.5-mi / full-rebuild / 250-MW "too large / not routine").
 4. **Reproduction doesn't generate the LLM output — fixed.** `_run.py` now **aborts loudly** at `09_wire_enrichment.py` if `fonsi_enrichment.parquet` is missing (was a silent deterministic fallback). Report Reproduction section now lists `03_enrich_llm.py` as the required first step (model, schema, ~451/452, output path) and notes the abort.
 5. **Mitigation "verbatim" — fixed.** Table relabeled "LLM summary" (caption, column header, lead-in all say model summary, not verbatim); points to `evidence_cited` / the boundary table for the quote-verified text.
 6. **Overstates post-FRA relevance — fixed (text).** Timing section reworded to "this makes the finding a historical one… pre-FRA EAs indicate likely adoption opportunities, pending a post-FRA refresh," and requires the post-FRA check (current CE use, recent recurrence, agency guidance since 2023-06-03) before client action. Removed "exactly the efficiency the record points to."
@@ -221,9 +229,6 @@ All 10 client questions are now answered in the narrative / methods / captions.
 These remain open by design; each changes committed outputs (re-run of 09/07/08), alters a
 schema, or needs a decision. Flagged rather than guessed:
 
-- **#3-blocking decision (needs-your-input):** keep the rule-profiled headline (current,
-  53/37, non-destructive + caveated) **or** actually filter to `is_bounded_low_impact==TRUE`
-  (42/26) and recompute every figure/count. Default kept; tell me to switch.
 - **Should-fix 5 (Wilson/exact intervals on shares):** regenerates the mitigated-share and
   rank figures — deferred (changes figures; want confirmation).
 - **Should-fix 6 (rank weight-sensitivity table):** needs you to confirm the 3 weight sets

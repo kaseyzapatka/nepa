@@ -42,9 +42,15 @@ n_mit_noncand  <- sum(enr$is_mit & !(as.character(enr$project_id) %in%
                                      as.character(filter(corp, is_fonsi)$project_id)))
 
 corp_fonsi  <- corp |> filter(is_fonsi)
+# "bounded" = rule-profiled AND LLM-confirmed inherently low-impact (feedback #3)
+facts <- facts |> mutate(is_bounded = is_profile_subtype & is_bounded_low_impact %in% TRUE)
+.bk <- facts |> filter(is_bounded) |> mutate(project_id = as.character(project_id)) |>
+  distinct(project_id, candidate_category) |> mutate(.b = TRUE)
+corp_fonsi <- corp_fonsi |> mutate(project_id = as.character(project_id)) |>
+  left_join(.bk, by = c("project_id", "candidate_category")) |> mutate(is_bounded = !is.na(.b)) |> select(-.b)
 n_clean     <- inv |> filter(project_energy_type == "Clean") |> distinct(project_id) |> nrow()
 n_candidate <- corp_fonsi |> distinct(project_id) |> nrow()
-n_ce_shaped <- corp_fonsi |> filter(is_profile_subtype) |> distinct(project_id) |> nrow()
+n_ce_shaped <- corp_fonsi |> filter(is_bounded) |> distinct(project_id) |> nrow()
 n_other     <- n_clean - n_candidate
 
 n_new   <- sum(verdicts$verdict == "new")
@@ -126,11 +132,11 @@ federal CE catalog (not FONSIs at all).
 | Clean EA-source FONSIs | **`r comma(n_clean)`** | decarbonization EA→FONSI projects (reconciles to D3) — the source set |
 | Enriched | **`r n_enriched`** | the LLM-read set; **`r n_excluded_noev`** no-evidence geothermal record is excluded from enrichment-dependent analyses |
 | In any candidate rule | **`r n_candidate`** | distinct projects matching a hand-picked recurring action type |
-| Profile (rule "CE-shaped") subset | **`r n_ce_shaped` projects / `r n_profile_rows` rows** | one project maps to two profile categories |
-| LLM-confirmed bounded | **`r n_llm_bounded` of `r n_profile_rows` rows** | the other `r n_profile_rows - n_llm_bounded` are *flagged, not dropped* |
+| Rule-profiled ("CE-shaped") | **`r n_profile_rows` rows** | recurring action type + small/routine scope (the pre-filter superset) |
+| **Bounded (used throughout)** | **`r n_ce_shaped` projects / `r n_llm_bounded` rows** | rule-profiled **and** LLM-confirmed low-impact; the other `r n_profile_rows - n_llm_bounded` move to *expand/develop*, not dropped |
 
 - **Grain:** counts are **distinct projects** unless a figure/table is labeled *project-category rows* (one project can map to >1 candidate).
-- **These are descriptive recurrence counts, not statistically tested differences.** Candidates with **n < ~10** (geothermal 7, solar 8, temporary 2) are *illustrative* — do not read their point estimates as stable.
+- **These are descriptive recurrence counts, not statistically tested differences.** Candidates with **n < ~10** bounded FONSIs (geothermal 7, solar 7, temporary 2) are *illustrative* — do not read their point estimates as stable.
 - **Null LLM fields are treated as *unknown*, not false.**
 - **CE matches are candidate matches pending eCFR verification**; the record is **largely pre-FRA** (historical), and the CE catalog is the **CE Explorer snapshot `r ce_snapshot`** (a discovery index — verify against current eCFR before use).
 - **One-line takeaway:** *D6 identifies candidate adoption opportunities to review — not final legal coverage determinations, not proof that no expand opportunities exist, and not evidence of current post-FRA agency behavior.*
@@ -226,18 +232,17 @@ n_tx_not_bounded  <- sum(.prof$candidate_category == "transmission_upgrade" &
 ```
 
 ::: {.callout-note appearance="simple"}
-**"Bounded" is a rule-based label, and the LLM agrees for most but not all.** The subset is
-selected by *rule* (recurring action type + small/routine scope). The one-pass LLM read also
-judged each FONSI's `is_bounded_low_impact` independently, and **agrees for `r n_llm_bounded`
-of the `r n_profile_rows` profile rows**; it flags **`r n_not_llm_bounded`** as *not*
-inherently bounded — **`r n_tx_not_bounded` of them transmission**, i.e. the long *rebuilds*
-the worked example routes to CE #19 / *expand*. Counts here use the rule-profiled subset and
-**flag** the LLM-not-bounded cases rather than dropping them; a stricter
-`is_bounded_low_impact == TRUE` filter would tighten the bounded set to `r n_llm_bounded`
-rows (transmission `r 37 - n_tx_not_bounded`). Separately, for **`r n_cat_mismatch` of
-`r n_profile_rows`** profile rows the LLM's free-form action category disagrees with the
-rule-assigned type (e.g. rule *solar* → model *other*); those are **flagged for review**,
-not silently kept — a QA gate to resolve before any count is treated as final.
+**"Bounded" requires *both* the rule and the LLM.** A FONSI is first rule-profiled (recurring
+action type + small/routine scope), and we then **keep only those the one-pass LLM also judged
+inherently low-impact** (`is_bounded_low_impact == TRUE`). That two-gate filter takes the
+`r n_profile_rows` rule-profiled rows down to the **`r n_llm_bounded` bounded rows used
+throughout this report**. The **`r n_not_llm_bounded`** the model flagged as *not* low-impact
+— **`r n_tx_not_bounded` of them transmission** — are the large rebuilds (26–187 mi) and the
+one utility-scale solar; they are **not dropped from the story** but moved to the *expand /
+develop* bucket (the worked example). Separately, for **`r n_cat_mismatch` of `r n_profile_rows`**
+rule-profiled rows the LLM's free-form action category disagrees with the rule-assigned type
+(e.g. rule *solar* → model *other*); those are **flagged for review** — a QA gate to resolve
+before any count is treated as final.
 :::
 
 ```{r}
@@ -484,38 +489,35 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_timeline.png"))
 
 ### Worked example: transmission line work
 
-The strongest-evidenced case:
-**`r verdicts$n_profile_fonsi[verdicts$candidate_category=="transmission_upgrade"]`
-bounded, low-impact FONSIs** for in-corridor transmission work, across **BLM, the
-power-marketing administrations, NNSA, and others** in
+```{r}
+#| echo: false
+tx_sp <- facts |> filter(candidate_category == "transmission_upgrade", is_profile_subtype) |>
+  distinct(project_id, .keep_all = TRUE) |>
+  mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
+         reb = str_detect(txt, "rebuild|reconstruct|(remov|replac|install|new)\\w*[^.]{0,40}(structure|pole|tower|h-frame|monopole)"))
+n_tx_total <- nrow(tx_sp); n_tx_adopt <- sum(tx_sp$is_bounded); n_tx_exp <- sum(!tx_sp$is_bounded)
+n_tx17 <- sum(tx_sp$is_bounded & !tx_sp$reb); n_tx19 <- sum(tx_sp$is_bounded & tx_sp$reb)
+```
+
+The strongest-evidenced case: **`r n_tx_total` transmission-upgrade FONSIs** for in-corridor
+work, across **BLM, the power-marketing administrations, NNSA, and others** in
 **`r verdicts$n_states[verdicts$candidate_category=="transmission_upgrade"]` Western
-states**. TVA **already categorically excludes this work under two exclusions**, split by
-work type:
+states**. TVA **already categorically excludes this work under two exclusions**, by work type:
 
 - **CE #17 — modify in place:** reconductoring, uprating, equipment swaps, limited pole
   replacement. **No length limit.**
 - **CE #19 — rebuild:** replacing the line's structures within the existing right-of-way.
   **Capped at 25 miles.**
 
-```{r}
-#| echo: false
-tx_sp <- facts |> filter(candidate_category == "transmission_upgrade", is_profile_subtype) |>
-  distinct(project_id, .keep_all = TRUE) |>
-  mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
-         reb = str_detect(txt, "rebuild|reconstruct|(remov|replac|install|new)\\w*[^.]{0,40}(structure|pole|tower|h-frame|monopole)"),
-         exp19 = reb & !is.na(max_miles) & max_miles > 25)
-n_ce17 <- sum(!tx_sp$reb); n_ce19 <- sum(tx_sp$reb)
-n_exp19 <- sum(tx_sp$exp19); n_adopt_tx <- nrow(tx_sp) - n_exp19
-```
-
-Sorting the `r nrow(tx_sp)` FONSIs by work type: **`r n_ce17` are #17 modifications and
-`r n_ce19` are #19 rebuilds.** **`r n_adopt_tx` are a clean adopt** — the action is already
-excluded. The one wrinkle is the **`r n_exp19` rebuilds that run past CE #19's 25-mile cap**:
-those are an ***expand #19*** case (raise the mileage limit), not an adopt.
+Of the `r n_tx_total`, the model judged **`r n_tx_adopt` adopt-ready** (small / in-corridor):
+**`r n_tx17` map to CE #17** (modify) and **`r n_tx19` to CE #19** (rebuild ≤ 25 mi). The
+other **`r n_tx_exp` are large rebuilds** (26–187 miles, full structure replacement) it
+flagged as *not* inherently low-impact — these exceed CE #19's 25-mile cap, so they are the
+***expand / develop*** case (an expanded or new CE), not a clean adopt.
 
 ```{r}
 #| label: fig-d6-ce-split
-#| fig-cap: "Each bounded transmission FONSI mapped to the TVA CE that fits its work type; the rebuilds beyond CE #19's 25-mile cap are the only expand case. Work type inferred from the action text."
+#| fig-cap: "The transmission FONSIs split by the model's low-impact judgment: adopt-ready (CE #17 modify / #19 rebuild ≤25 mi) vs the large rebuilds that are too big for the existing CE (expand / develop). #17-vs-#19 inferred from the action text."
 #| out-width: 88%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_split.png"))
 ```
@@ -570,7 +572,7 @@ clean_cut <- function(s, n = 520) {
 }
 
 ex <- facts |>
-  filter(candidate_category == "transmission_upgrade", is_profile_subtype,
+  filter(candidate_category == "transmission_upgrade", is_bounded,
          !is.na(quoted_span), nchar(quoted_span) >= 70,
          str_detect(quoted_span, scope_rx), !str_detect(quoted_span, drop_rx)) |>
   distinct(project_id, .keep_all = TRUE) |>
@@ -963,7 +965,7 @@ The conclusions rest on a few explicit assumptions — here is how each would mo
 - **The expand test keyed on numeric bounds.** The matched CEs are qualitative, so no
   *numeric* expand fires — but qualitative coverage is unverified, and the transmission #19
   case shows expand reappears once the right length-capped CE is used.
-- **Ranks use fixed component weights.** They separate transmission (n = 37) from the
+- **Ranks use fixed component weights.** They separate transmission (n = 26 bounded) from the
   thin-n candidates clearly; for **n < 10 read priority bands, not exact ranks** (a formal
   weight-sensitivity table is a recommended follow-up).
 - **CE coverage is unverified.** Requiring verified eCFR coverage before "adopt" reclassifies

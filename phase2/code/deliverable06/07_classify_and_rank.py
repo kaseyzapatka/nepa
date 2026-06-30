@@ -85,6 +85,10 @@ def main() -> None:
     run_at = utc_now()
     base = pd.read_parquet(BASE).set_index("candidate_category")
     facts = pd.read_parquet(FACTS)
+    # "bounded" = rule-profiled AND the LLM judged it inherently low-impact (feedback #3 / blocking).
+    facts["is_bounded"] = facts["is_profile_subtype"] & facts["is_bounded_low_impact"].eq(True)
+    bounded_keys = set(zip(facts.loc[facts["is_bounded"], "project_id"].astype(str),
+                           facts.loc[facts["is_bounded"], "candidate_category"]))
     ce = pd.read_parquet(CE) if CE.exists() else pd.DataFrame()
     mit = pd.read_parquet(MIT).set_index("candidate_category") if MIT.exists() else pd.DataFrame()
     corpus = pd.read_parquet(CORPUS)
@@ -93,14 +97,15 @@ def main() -> None:
     rows = []
     for cat, brow in base.iterrows():
         cat_facts = facts[facts["candidate_category"].eq(cat)]
-        prof = cat_facts[cat_facts["is_profile_subtype"]]
+        prof = cat_facts[cat_facts["is_bounded"]]
         focus = prof if not prof.empty else cat_facts
         n_focus = len(focus)
         role = brow["candidate_role"]
 
         # our FONSI agencies/states (profile subset where possible)
         cfon = fonsi[fonsi["candidate_category"].eq(cat)]
-        cprof = cfon[cfon["is_profile_subtype"]] if cfon["is_profile_subtype"].any() else cfon
+        cmask = cfon["project_id"].astype(str).map(lambda p: (p, cat) in bounded_keys)
+        cprof = cfon[cmask] if cmask.any() else cfon
         our_tokens: set[str] = set()
         for a in cprof["lead_agency_harmonized"].dropna():
             our_tokens |= our_agency_tokens(a)
@@ -170,7 +175,7 @@ def main() -> None:
             "role": role, "verdict": verdict, "rank_score": rank_score,
             "rank_novelty": c_novelty, "rank_volume": c_volume, "rank_diversity": c_diversity,
             "rank_limits": c_limits, "rank_mitigation": c_mitigation, "rank_role": c_role,
-            "n_profile_fonsi": int(brow["n_profile_fonsi_projects"]),
+            "n_profile_fonsi": int(prof["project_id"].nunique()),  # bounded (rule + LLM-low-impact) projects
             "n_observed_fonsi": int(brow["n_observed_fonsi_projects"]),
             "best_ce_structured_id": best.get("structured_id", ""),
             "best_ce_agency": best.get("agency_name", ""),
@@ -210,7 +215,7 @@ def main() -> None:
         verdicts[verdicts["verdict"].eq(v)].to_csv(D6_REVIEW_DIR / fn, index=False)
     for cat in base.index:
         f = facts[facts["candidate_category"].eq(cat)]
-        f = f[f["is_profile_subtype"]] if f["is_profile_subtype"].any() else f
+        f = f[f["is_bounded"]] if f["is_bounded"].any() else f
         cols = ["project_id", "subtype", "action_definition", "max_acres", "max_miles",
                 "max_megawatts", "n_wells", "no_new_access_road", "within_existing_row",
                 "previously_disturbed_land", "mitigation_dependence", "confidence",
