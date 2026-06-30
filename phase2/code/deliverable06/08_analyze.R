@@ -464,7 +464,8 @@ ov <- tibble(segment = factor(c("Mitigated FONSI", "Not mitigated (inherently lo
              n = c(n_mit, n_enr - n_mit))
 p_ov <- ggplot(ov, aes(x = "", y = n, fill = segment)) +
   geom_col(width = 0.5) +
-  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white", fontface = "bold", size = 5) +
+  geom_text(aes(label = paste0(n, "\n(", percent(n / sum(n), 1), ")")), position = position_stack(vjust = 0.5),
+            color = "white", fontface = "bold", size = 4.6, lineheight = 0.85) +
   scale_fill_manual(values = c("Mitigated FONSI" = catf_dark_blue,
                                "Not mitigated (inherently low-impact)" = catf_grey), name = NULL,
                     guide = guide_legend(reverse = TRUE)) +
@@ -492,29 +493,64 @@ p_share <- ggplot(share, aes(reorder(lab, share), share)) +
   theme_catf()
 save_fig(p_share, "fig_d6_mitigated_share.png", h = 4.0)
 
-# Fig: word cloud of the committed-mitigation language (shows how project-specific it is)
-stop_w <- c(letters, "the","and","for","with","would","that","this","are","all","any","will","from","not","its",
-            "during","including","include","includes","such","other","which","been","were","has","have","also",
+# Fig: PHRASE cloud (2-3 grams) of committed-mitigation language — surfaces measures, not generic words
+ng_stop <- unique(c(tidytext::stop_words$word, letters,
             "project","projects","mitigation","measures","measure","impacts","impact","action","proposed","applicant",
             "construction","area","areas","resources","resource","plan","plans","sites","federal","state","local",
-            "use","used","using","appropriate","implement","implemented","minimize","reduce","avoid","potential",
-            "activities","management","require","required","ensure","provide","within","prior","specific","including",
-            "associated","through","under","conducted","monitoring","best","practices","standard","compliance")
-words <- enr %>% filter(is_mit, !is.na(mitigation_summary)) %>% pull(mitigation_summary) %>%
-  paste(collapse = " ") %>% tolower() %>% str_extract_all("[a-z]{4,}") %>% unlist()
-wf <- tibble(word = words) %>% filter(!word %in% stop_w) %>% count(word, sort = TRUE) %>% slice_head(n = 130)
+            "appropriate","implement","implemented","minimize","reduce","reducing","avoid","potential","including",
+            "activities","management","require","required","ensure","provide","within","prior","conducted","completed"))
+mit_df <- enr %>% filter(is_mit, !is.na(mitigation_summary)) %>%
+  transmute(doc = row_number(), text = tolower(str_replace_all(mitigation_summary, "[^a-z ]", " ")))
+phrases <- bind_rows(
+    tidytext::unnest_tokens(mit_df, ngram, text, token = "ngrams", n = 2),
+    tidytext::unnest_tokens(mit_df, ngram, text, token = "ngrams", n = 3)) %>%
+  filter(!is.na(ngram), ngram != "") %>%
+  tidyr::separate(ngram, into = c("w1", "w2", "w3"), sep = " ", fill = "right", remove = FALSE) %>%
+  mutate(wl = if_else(is.na(w3) | w3 == "", w2, w3)) %>%
+  filter(!w1 %in% ng_stop, !wl %in% ng_stop, nchar(w1) >= 3, nchar(wl) >= 3) %>%  # phrase bounded by content words
+  count(ngram, sort = TRUE) %>% filter(n >= 2) %>% slice_head(n = 55)
 set.seed(6)
-p_wc <- ggplot(wf, aes(label = word, size = n, color = n)) +
-  geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE) +   # square fill, less whitespace (Phase 1 pattern)
-  scale_size_area(max_size = 30) +
+p_wc <- ggplot(phrases, aes(label = ngram, size = n, color = n)) +
+  geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE) +
+  scale_size_area(max_size = 20) +
   scale_color_gradient(low = catf_light_blue, high = catf_navy) +
   labs(title = "The committed-mitigation language is project-specific",
-       subtitle = str_wrap(glue::glue("Most-frequent words across the {n_mit} mitigated FONSIs' mitigation summaries — ",
-                             "no term dominates, consistent with case-specific (not standardized) measures"), 95)) +
+       subtitle = str_wrap(glue::glue("Most-frequent 2–3 word phrases across the {n_mit} mitigated FONSIs' mitigation ",
+                             "summaries — no phrase dominates, consistent with case-specific (not standardized) measures"), 95)) +
   theme_void(base_size = 12) +
   theme(plot.title = element_text(face = "bold", color = catf_navy),
         plot.subtitle = element_text(color = catf_dark_blue, margin = margin(b = 2)),
         plot.margin = margin(2, 2, 2, 2), legend.position = "none")
-save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 9, h = 4.4)
+save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 9, h = 5)
+
+# Fig: the recurring significance THRESHOLDS — what agencies said WOULD make an impact significant
+parse_sig <- function(j) {
+  x <- tryCatch(jsonlite::fromJSON(j, simplifyVector = FALSE), error = function(e) list())
+  vapply(x, function(t) if (is.null(t$statement)) "" else t$statement, character(1))
+}
+sig_stmts <- enr %>% filter(!is.na(significance_thresholds), significance_thresholds != "[]") %>%
+  pull(significance_thresholds) %>% lapply(parse_sig) %>% unlist()
+sig_cond <- sig_stmts[nchar(sig_stmts) > 40 &
+  str_detect(tolower(sig_stmts), "significant if|would be|would not|unless|exceed|result in|loss of|greater than|contaminat|degrad")]
+sig_df <- tibble(doc = seq_along(sig_cond), text = tolower(str_replace_all(sig_cond, "[^a-z ]", " ")))
+sig_phr <- bind_rows(
+    tidytext::unnest_tokens(sig_df, ngram, text, token = "ngrams", n = 2),
+    tidytext::unnest_tokens(sig_df, ngram, text, token = "ngrams", n = 3)) %>%
+  filter(!is.na(ngram), ngram != "") %>%
+  tidyr::separate(ngram, into = c("w1", "w2", "w3"), sep = " ", fill = "right", remove = FALSE) %>%
+  mutate(wl = if_else(is.na(w3) | w3 == "", w2, w3)) %>%
+  filter(!w1 %in% ng_stop, !wl %in% ng_stop, nchar(w1) >= 4, nchar(wl) >= 4) %>%
+  count(ngram, sort = TRUE) %>% slice_head(n = 14)
+p_sig <- ggplot(sig_phr, aes(n, reorder(ngram, n))) +
+  geom_col(fill = catf_dark_blue, width = 0.7) +
+  geom_text(aes(label = n), hjust = -0.3, size = 3.2, color = catf_navy, fontface = "bold") +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(title = "But the significance thresholds recur — that is the codifiable part",
+       subtitle = str_wrap(paste("Most-common phrases in the agencies' explicit significance-threshold statements",
+                "(\"would be significant if ...\") — unlike the mitigations, these conditions repeat across projects"), 95),
+       x = "Times the phrase appears across mitigated FONSIs", y = NULL,
+       caption = "From the enrichment's significance_thresholds; the recurring conditions are the natural CE bounds.") +
+  theme_catf()
+save_fig(p_sig, "fig_d6_significance_thresholds.png", w = 9, h = 4.2)
 
 message("[08] figures written to ", FIGS)

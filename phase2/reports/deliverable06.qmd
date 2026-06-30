@@ -651,6 +651,22 @@ a flag to read the measures, not a veto.
 
 ## How "mitigated" was determined
 
+**How this analysis works.** The model reads each FONSI once and pulls four things; we then
+test each for **recurrence** — a measure or threshold that recurs across a class can become a
+CE design criterion, an idiosyncratic one cannot:
+
+```{mermaid}
+%%| fig-width: 7
+flowchart LR
+  A["451 enriched<br/>FONSIs"] --> B["LLM reads the<br/>finding + committed<br/>conditions"]
+  B --> C["is_mitigated_fonsi<br/>+ mitigation_dependence<br/>(case-specific / design / none)"]
+  B --> D["mitigation_summary<br/>(the measures)"]
+  B --> E["significance_thresholds<br/>('significant if X')"]
+  C --> F["Most are<br/>case-specific"]
+  D --> G["Measures do NOT recur<br/>→ not codifiable"]
+  E --> H["Thresholds DO recur<br/>→ codifiable CE bounds"]
+```
+
 This is **not** an embedding or similarity model — it is the per-FONSI reading from
 the **one-pass LLM enrichment (Claude Sonnet)**, the same pass used throughout the
 deliverable. For every one of the 451 FONSIs the model read the finding and the
@@ -694,6 +710,16 @@ Of the **`r n_mit_corpus` mitigated FONSIs, `r n_mit_dep_case` are
 case-specific-dependent** — the finding rests on project-specific mitigation, not on
 the action being inherently low-impact.
 
+**How "case-specific" is decided, and how "no overlap" is shown.** `mitigation_dependence`
+is the model's per-FONSI label — for each mitigated FONSI it classifies the commitment as
+`case_specific_dependent`, `design_feature_only`, `none`, or `unclear`. "Overwhelmingly
+case-specific" is simply the tally: **`r n_mit_dep_case` of `r n_mit_corpus`** land in
+`case_specific_dependent`. And "the measures don't overlap" is **not asserted — it is
+measured**: we break every mitigation summary into 2–3 word phrases and count them; **no
+phrase recurs** across projects (the cloud below). The contrast is the point — the
+significance *thresholds* (next section) **do** recur, which is what makes *them*, not the
+measures, the codifiable part.
+
 > **One honest caveat.** `is_mitigated_fonsi` and `mitigation_dependence` are
 > *near-equivalent judgments*: the model almost always pairs "the finding depends on
 > mitigation" with "that mitigation is project-specific." So this is **one consistent
@@ -718,15 +744,23 @@ enr |>
   arrange(desc(nchar(mitigation_summary)), project_id) |>
   distinct(project_title, .keep_all = TRUE) |>
   slice_head(n = 5) |>
+  mutate(
+    summ = vapply(mitigation_summary, clean_cut, character(1), n = 540, USE.NAMES = FALSE),
+    # bold the project-specific measures so they stand out as the case-by-case commitments
+    summ = str_replace_all(summ,
+      "(?i)(reseed\\w*|reveget\\w*|erosion[ a-z]{0,12}control|sediment control|stormwater|spill prevention\\w*|dust (control|suppression)|noise (control|barrier|abatement)|buffer\\w*|setback\\w*|raptor\\w*|nest\\w*|migratory bird\\w*|\\bSHPO\\b|tribal consultation|cultural[ a-z]{0,12}monitor\\w*|biological monitor\\w*|wildlife|wetland\\w*|seasonal[ a-z]{0,12}restriction\\w*|timing restriction\\w*|weed (control|management)|best management practices|special[- ]status species)",
+      "**\\1**")
+  ) |>
   transmute(
     `Project Title` = glue("[{str_squish(project_title)}]({EXPLORER}?pid={project_id})"),
-    `Committed mitigation (LLM summary)` = str_trunc(str_squish(mitigation_summary), 240)
+    `Committed mitigation (LLM summary; project-specific measures in bold)` = summ
   ) |>
   gt() |>
-  fmt_markdown(columns = `Project Title`) |>
+  fmt_markdown(columns = everything()) |>
   cols_align(align = "left", columns = everything()) |>
-  tab_options(table.font.size = px(11)) |>
-  cols_width(`Project Title` ~ px(230))
+  tab_options(table.font.size = px(11), data_row.padding = px(6)) |>
+  cols_width(`Project Title` ~ px(200),
+             `Committed mitigation (LLM summary; project-specific measures in bold)` ~ px(440))
 ```
 
 ## The mitigation language is project-specific
@@ -790,15 +824,16 @@ Each is a verbatim, span-verified quote; real examples:
 #| tbl-cap: "Verbatim significance-threshold statements — candidate numeric/qualitative bounds for a CE (titles link to the document explorer)."
 first_threshold <- function(j) {
   x <- tryCatch(fromJSON(j, simplifyVector = FALSE), error = function(e) list())
-  # keep project-specific thresholds; drop generic NEPA/CEQA significance *definitions*
-  keep_rx <- "significan|exceed|\\bEIS\\b|threshold|not to exceed|provided|unless|greater than"
-  drop_rx <- "(?i)defines? significan|is defined (by|under|as)|definition of|\\bCEQA\\b|context and intensity|40 ?CFR|\\b1508"
+  # prefer the CONDITIONAL counterfactuals ("would be significant if X"); drop generic definitions
+  cond_rx <- "(?i)significant if|would (not )?be (a |an )?(potential\\w* )?significant|result(s|ed)? in|loss of|exceed|greater than|jeopard|contaminat|degrad|unless"
+  drop_rx <- "(?i)defines? significan|is defined (by|under|as)|definition of|\\bCEQA\\b|context and intensity|40 ?CFR|\\b1508|table 4-1|impact significance thresholds resource"
+  cands <- character(0)
   for (t in x) {
-    s <- if (is.null(t$statement)) "" else t$statement
-    if (nchar(s) > 45 && grepl(keep_rx, s, ignore.case = TRUE) && !grepl(drop_rx, s))
-      return(s)
+    s <- if (is.null(t$statement)) "" else str_squish(t$statement)
+    if (nchar(s) > 45 && grepl(cond_rx, s) && !grepl(drop_rx, s)) cands <- c(cands, s)
   }
-  ""
+  pref <- cands[grepl("(?i)significant if|would (not )?be", cands)]   # the explicit "significant if" counterfactual first
+  if (length(pref)) pref[1] else if (length(cands)) cands[1] else ""
 }
 EXPLORER <- "https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer"
 enr |>
@@ -821,6 +856,17 @@ enr |>
 
 These are candidate CE bounds straight from the agencies' own findings — the
 thresholds a new or adopted CE would be written to stay within.
+
+And here is the key contrast with the mitigation measures: **unlike the measures, these
+threshold *conditions* recur** across projects — which is exactly what makes them codifiable.
+The most-common phrases in the agencies' "would be significant if …" statements:
+
+```{r}
+#| label: fig-d6-significance-thresholds
+#| fig-cap: "Most-frequent phrases in the agencies' explicit significance-threshold statements across the mitigated FONSIs. Unlike the project-specific mitigation measures (which do not recur), these conditions repeat — the natural, codifiable CE bounds."
+#| out-width: 90%
+knitr::include_graphics(file.path(FIGS, "fig_d6_significance_thresholds.png"))
+```
 
 # Analysis 3 — Review of existing federal Categorical Exclusions
 
