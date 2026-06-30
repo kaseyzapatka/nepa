@@ -61,6 +61,9 @@ n_llm_bounded   <- facts |> filter(is_profile_subtype, is_bounded_low_impact == 
 n_enriched      <- sum(nchar(dplyr::coalesce(enr$action_summary, "")) > 0)
 n_excluded_noev <- nrow(enr) - n_enriched
 ce_snapshot     <- as.character(sort(unique(ce_land$source_version_date)))[1]
+n_cat_mismatch  <- facts |> filter(is_profile_subtype) |> mutate(project_id = as.character(project_id)) |>
+  left_join(enr |> transmute(project_id = as.character(project_id), action_category), by = "project_id") |>
+  filter(candidate_category != action_category) |> nrow()
 tx_mit  <- mit$mitigated_share[mit$candidate_category == "transmission_upgrade"]
 
 cstats        <- read_parquet(file.path(ANALYSIS, "corpus_mitigation_stats.parquet"))
@@ -231,7 +234,10 @@ inherently bounded — **`r n_tx_not_bounded` of them transmission**, i.e. the l
 the worked example routes to CE #19 / *expand*. Counts here use the rule-profiled subset and
 **flag** the LLM-not-bounded cases rather than dropping them; a stricter
 `is_bounded_low_impact == TRUE` filter would tighten the bounded set to `r n_llm_bounded`
-rows (transmission `r 37 - n_tx_not_bounded`).
+rows (transmission `r 37 - n_tx_not_bounded`). Separately, for **`r n_cat_mismatch` of
+`r n_profile_rows`** profile rows the LLM's free-form action category disagrees with the
+rule-assigned type (e.g. rule *solar* → model *other*); those are **flagged for review**,
+not silently kept — a QA gate to resolve before any count is treated as final.
 :::
 
 ```{r}
@@ -273,13 +279,15 @@ geothermal-drilling FONSIs, summarized by its defining terms — is compared aga
 thing?) and *word overlap* (do they share the key terms?). **It is not a percent of
 matching text** — it's a cosine-style similarity.
 
-So what counts as a *strong* match? First set a **baseline**: how similar is a candidate
-to a *random, unrelated* CE? Almost always tiny — about **0.07**, and rarely above **0.20**
-(the grey band in the figure). Measured against that floor, the best matches —
-**0.45 to 0.67** — are **several times higher**: genuinely close, on-topic matches, not
-coincidence. For example, geothermal exploration matches a DOE exploration-drilling CE at
-**0.50** (sharing *geothermal, exploration, well, temperature gradient*); solar matches a
-DOE solar CE at **0.67**, the strongest of the four.
+So what counts as a *strong* match? These are **uncalibrated retrieval ranks**, not
+calibrated probabilities — read them *comparatively*, not as a percent. As a rough
+reference, a candidate scored against a *random, unrelated* CE lands much lower (the grey
+band in the figure marks that low range; an illustrative floor of roughly ≤ 0.20, **not** a
+formally computed null distribution). Against that, the best matches — **0.45 to 0.67** —
+sit several times higher: genuinely close, on-topic matches. For example, geothermal
+exploration matches a DOE exploration-drilling CE at **0.50** (sharing *geothermal,
+exploration, well, temperature gradient*); solar matches a DOE solar CE at **0.67**, the
+strongest of the four.
 
 The score is a **ranking aid, not the verdict** — it surfaces the closest CE, but the
 actual develop-vs-adopt call is made by **confirming that CE against its eCFR text**.
@@ -938,6 +946,28 @@ to surface recurring categories nobody has hand-picked.
 - **Recommended next steps:** (1) verify the `r n_adopt` adopt matches against the
   eCFR CE text; (2) cluster the ~`r n_other` un-categorized decarbonization FONSIs to
   search for net-new CEs.
+
+## Assumptions & sensitivity
+
+The conclusions rest on a few explicit assumptions — here is how each would move the result:
+
+- **Candidate types are hand-picked** (regex / tech-group rules), so the analysis speaks
+  only to those five action classes, not an exhaustive scan; net-new lives in the
+  un-analyzed residual.
+- **"Profile / CE-shaped" is a rule label.** Filtering instead to the LLM's
+  `is_bounded_low_impact == TRUE` shrinks the bounded set from `r n_profile_rows` to
+  `r n_llm_bounded` rows (transmission `r 37 - n_tx_not_bounded`) — headline counts drop
+  accordingly.
+- **A retrieval score ≥ 0.40 is treated as a close CE.** The four matches (0.45–0.67) clear
+  that comfortably, so they are insensitive to moving the cut to 0.50.
+- **The expand test keyed on numeric bounds.** The matched CEs are qualitative, so no
+  *numeric* expand fires — but qualitative coverage is unverified, and the transmission #19
+  case shows expand reappears once the right length-capped CE is used.
+- **Ranks use fixed component weights.** They separate transmission (n = 37) from the
+  thin-n candidates clearly; for **n < 10 read priority bands, not exact ranks** (a formal
+  weight-sensitivity table is a recommended follow-up).
+- **CE coverage is unverified.** Requiring verified eCFR coverage before "adopt" reclassifies
+  all four to *candidate-pending* until that review is done.
 
 **For CATF:** tell us which adopt opportunities to pursue, and whether to launch
 the net-new search — and we fold your direction into the next iteration.

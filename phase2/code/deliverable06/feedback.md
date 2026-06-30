@@ -196,7 +196,46 @@ Worked in priority order. Status per item (batch 1 — Blocking + adjacent Shoul
 ### Anticipated client questions (batch 2)
 Answered in the scope callout / narrative where a client looks: **Q1** denominators (table), **Q3** "descriptive counts, not tested" + thin-evidence n<10, **Q4** "null = unknown, not false" (full missingness table still to add), **Q7** one-line takeaway, **Q8** project-vs-row grain note, **Q9** CE snapshot + verify caveat, **Q10** "mitigation is a risk screen, not a disqualifier." **Q2/Q6** addressed in batch 1 (historical framing / reproduction). **Q5** (assumptions & sensitivity section) still to add.
 
-### Remaining (next batches)
-- Should-fix **3** (candidate vs `action_category` QA gate), **4** (similarity null artifact or drop the 0.07/0.20 baseline claim), **5** (Wilson intervals + thin-evidence flag in figures), **6** (rank sensitivity table), **11** (`citation_verified` into facts), **12** (rename `corpus_mitigation_stats` columns) — code changes, next.
-- Nice-to-have **1** (qa script), **2** (archive v1 artifacts), **3** (.DS_Store/__pycache__), **4** (parameterized DuckDB), **5** (embedding-fail explicit).
-- Client **Q5** (assumptions/sensitivity), **Q4** (full missingness table), **Q6** (run manifest with hashes).
+### Should-fix (batch 3)
+3. **Candidate vs LLM `action_category` mismatch — answered (text).** Verified **10 of 54**
+   profile rows mismatch (5 solar→other, 3 transmission→other, 2 temporary); now flagged in
+   the Steps 2-3 callout as a QA gate to resolve, not silently kept. (A hard code gate in
+   `07` that *excludes* unresolved mismatches is deferred — that changes counts and overlaps
+   the #3-blocking filter decision below.)
+4. **Baseline/threshold not a computed output — fixed (text).** Reworded: scores are
+   "uncalibrated retrieval ranks," the ≤0.20 grey band is "illustrative, not a formally
+   computed null." Dropped the asserted 0.07.
+
+### Anticipated client questions (batch 3)
+- **Q5 — answered.** New "Assumptions & sensitivity" section: candidate rules, rule-vs-LLM
+  bounded (53→42), 0.40→0.50 threshold, numeric-vs-qualitative expand, fixed rank weights
+  (priority bands for n<10), and verified-coverage requirement.
+- **Q4 — substantially answered** (null=unknown in scope callout; full missingness *table* by
+  field×category deferred).
+- **Q6 — substantially answered** (Reproduction section + scope callout give model/schema/
+  counts/commands; input-hash manifest deferred).
+
+All 10 client questions are now answered in the narrative / methods / captions.
+
+### Deferred — code changes that re-run the pipeline / change schema / need your input
+These remain open by design; each changes committed outputs (re-run of 09/07/08), alters a
+schema, or needs a decision. Flagged rather than guessed:
+
+- **#3-blocking decision (needs-your-input):** keep the rule-profiled headline (current,
+  53/37, non-destructive + caveated) **or** actually filter to `is_bounded_low_impact==TRUE`
+  (42/26) and recompute every figure/count. Default kept; tell me to switch.
+- **Should-fix 5 (Wilson/exact intervals on shares):** regenerates the mitigated-share and
+  rank figures — deferred (changes figures; want confirmation).
+- **Should-fix 6 (rank weight-sensitivity table):** needs you to confirm the 3 weight sets
+  (volume / mitigation-risk / verification-confidence) — described qualitatively in
+  Assumptions for now.
+- **Should-fix 11 (`citation_verified`/`citation_claim` into `candidate_facts`):** schema add
+  in 09 + re-run; then filter "source-verified" tables — deferred.
+- **Should-fix 12 (rename `corpus_mitigation_stats` columns):** rename in 09 + update the
+  report setup ref + re-run — deferred (low risk, will batch with 11).
+- **Nice 1 (`qa_deliverable06.py`), 2 (archive v1 data artifacts), 4 (parameterized DuckDB),
+  5 (embedding-availability stamp):** engineering hygiene; 2/5 are quick, 1/4 are larger.
+- **Client Q4 full missingness table, Q6 input-hash manifest:** new artifacts.
+
+Recommend doing 11+12+5+2 together in one re-run batch, and getting your call on the
+#3-blocking filter and the 5/6 statistics before those (they reshape figures).
