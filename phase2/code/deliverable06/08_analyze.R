@@ -287,7 +287,7 @@ save_fig(p_map, "fig_d6_states.png", w = 8.5, h = 5.0)
 tx_split <- facts %>% filter(candidate_category == "transmission_upgrade", is_profile_subtype) %>%
   distinct(project_id, .keep_all = TRUE) %>%
   mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
-         is_rebuild = str_detect(txt, "rebuild|reconstruct|remov.*(structure|pole|tower|h-frame)|replac.*(structure|pole|tower|h-frame)|new (structure|pole|tower|monopole)"),
+         is_rebuild = str_detect(txt, "rebuild|reconstruct|(remov|replac|install|new)\\w*[^.]{0,40}(structure|pole|tower|h-frame|monopole)"),
          ce = ifelse(is_rebuild, "CE #19 — rebuild", "CE #17 — modify / reconductor"),
          verdict = ifelse(is_rebuild & !is.na(max_miles) & max_miles > 25, "Expand #19 (rebuild > 25 mi)", "Adopt (existing CE covers it)"))
 n17 <- sum(tx_split$ce == "CE #17 — modify / reconductor"); n19 <- sum(tx_split$ce == "CE #19 — rebuild")

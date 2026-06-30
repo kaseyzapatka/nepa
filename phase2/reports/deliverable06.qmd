@@ -323,14 +323,17 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_classification.png"))
 ## Main Finding: Adopt existing CE opportunities
 
 Each of the four bounded candidate actions already has a categorical exclusion at another
-agency — none looks net-new (`r n_new` to *develop*) and none exceeds a stated CE limit
-(0 to *expand*), so **all `r n_adopt` resolve to adopt.** Listed in **recommendation
-priority** (the Step 6 rank), which puts transmission first given its scale and reach:
+agency — **none looks net-new** (`r n_new` to *develop*), and at the action-type level all
+`r n_adopt` resolve to **adopt**. (One nuance surfaces only at the project level: a subset
+of long transmission *rebuilds* would need an **expanded** CE #19 — see the worked example.)
+Listed in **recommendation priority** (the Step 6 rank), which puts transmission first given
+its scale and reach:
 
-1. **Transmission upgrades** — adopt the routine-maintenance CE held by the
-   **Tennessee Valley Authority** (`TVA #17`), so BLM, DOE, NNSA, and the
-   power-marketing administrations can stop running full EAs for in-corridor work. This is
-   the highest-impact case: the most bounded FONSIs, the broadest agency and state reach.
+1. **Transmission upgrades** — adopt the TVA transmission CEs for in-corridor work: **#17**
+   for reconductoring / maintenance and **#19** for rebuilds (≤ 25 mi), so BLM, the
+   power-marketing administrations, and others can stop running full EAs. Highest-impact
+   case — the most FONSIs, broadest reach; the one catch is a handful of long rebuilds that
+   exceed #19's 25-mile cap (*expand #19*).
 2. **Solar (CE-shaped subset)** — adopt the small-solar CE held by the **Department
    of Energy** (`DOE-1--5-87`), for bounded projects on previously disturbed land.
 3. **Geothermal exploration** — adopt the exploration-drilling CE held by the
@@ -411,64 +414,59 @@ shift is already underway.
 knitr::include_graphics(file.path(FIGS, "fig_d6_timeline.png"))
 ```
 
-### Worked example: transmission upgrades within existing right-of-way
+### Worked example: transmission line work
 
 The strongest-evidenced case:
 **`r verdicts$n_profile_fonsi[verdicts$candidate_category=="transmission_upgrade"]`
-bounded, low-impact FONSIs** for in-corridor transmission upgrades (reconductoring,
-component replacement, minor rebuilds), across **BLM, DOE, NNSA, and the
-power-marketing administrations** in
-**`r verdicts$n_states[verdicts$candidate_category=="transmission_upgrade"]`
-states**. The **Tennessee Valley Authority already holds a categorical exclusion** for
-exactly this class of work — **TVA CE #17**, quoted in full (key phrases bolded):
+bounded, low-impact FONSIs** for in-corridor transmission work, across **BLM, the
+power-marketing administrations, NNSA, and others** in
+**`r verdicts$n_states[verdicts$candidate_category=="transmission_upgrade"]` Western
+states**. TVA **already categorically excludes this work under two exclusions**, split by
+work type:
 
-> *TVA CE #17.* **Routine modification, repair, and maintenance** of, and **minor
-> upgrade** of and addition to, **existing transmission infrastructure**, including the
-> addition, retirement, and/or **replacement** of breakers, transformers, bushings, and
-> relays; transmission line **uprate, modification, reconductoring**, and clearance
-> resolution; and **limited pole replacement**. This exclusion also applies to
-> improvements of **existing access roads** and construction of new access roads outside
-> of the **right-of-way** that are generally no more than 1 mile in length.
+- **CE #17 — modify in place:** reconductoring, uprating, equipment swaps, limited pole
+  replacement. **No length limit.**
+- **CE #19 — rebuild:** replacing the line's structures within the existing right-of-way.
+  **Capped at 25 miles.**
 
 ```{r}
 #| echo: false
 tx_sp <- facts |> filter(candidate_category == "transmission_upgrade", is_profile_subtype) |>
   distinct(project_id, .keep_all = TRUE) |>
   mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
-         reb = str_detect(txt, "rebuild|reconstruct|remov.*(structure|pole|tower|h-frame)|replac.*(structure|pole|tower|h-frame)|new (structure|pole|tower|monopole)"),
+         reb = str_detect(txt, "rebuild|reconstruct|(remov|replac|install|new)\\w*[^.]{0,40}(structure|pole|tower|h-frame|monopole)"),
          exp19 = reb & !is.na(max_miles) & max_miles > 25)
 n_ce17 <- sum(!tx_sp$reb); n_ce19 <- sum(tx_sp$reb)
 n_exp19 <- sum(tx_sp$exp19); n_adopt_tx <- nrow(tx_sp) - n_exp19
 ```
 
-::: {.callout-note appearance="simple"}
-**Two CEs, not one.** CE #17's "1 mile" caps *new access roads*, not the line — so #17 sets
-no length limit. Reconductoring and minor upgrades fit **#17**; full **rebuilds** fit a
-separate exclusion, **#19** (rebuild within an existing right-of-way, **≤ 25 miles**).
-Splitting the `r nrow(tx_sp)` FONSIs by work type, **`r n_adopt_tx` are a clean adopt**
-(`r n_ce17` to #17, `r n_ce19 - n_exp19` to #19) and **`r n_exp19` — the rebuilds past 25
-miles — are an *expand #19* case**, not a clean adopt.
-:::
+Sorting the `r nrow(tx_sp)` FONSIs by work type: **`r n_ce17` are #17 modifications and
+`r n_ce19` are #19 rebuilds.** **`r n_adopt_tx` are a clean adopt** — the action is already
+excluded. The one wrinkle is the **`r n_exp19` rebuilds that run past CE #19's 25-mile cap**:
+those are an ***expand #19*** case (raise the mileage limit), not an adopt.
 
 ```{r}
 #| label: fig-d6-ce-split
-#| fig-cap: "Each bounded transmission FONSI mapped to the TVA CE that fits its work type; rebuilds beyond CE #19's 25-mile cap are the only expand case. Work type inferred from the action text."
+#| fig-cap: "Each bounded transmission FONSI mapped to the TVA CE that fits its work type; the rebuilds beyond CE #19's 25-mile cap are the only expand case. Work type inferred from the action text."
 #| out-width: 88%
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_split.png"))
 ```
 
-*Why the Main Finding still reports "0 expand."* That verdict is assigned per **action
-type**, each matched to its single closest CE — for transmission that was #17, which states
-no numeric limit, so nothing could exceed it. The split here is finer: it routes each FONSI
-to the CE that fits its **work type**, which is what surfaces the `r n_exp19` *expand #19*
-rebuilds. Both are correct — this is just the per-project view.
+Both exclusions, verbatim (key phrases bolded):
 
-The table below lists sample FONSIs from different agencies, each with a **verbatim
-excerpt from the cited record** that shows the in-corridor, *modify-existing-infrastructure*
-work TVA CEs #17/#19 cover (reconductoring, replacing aging structures, rebuilding within
-the existing right-of-way). Each row names the source
-document (EA or FONSI) and page, and the **project title links to the full record** in
-the document explorer.
+> *CE #17 — modify.* **Routine modification, repair, and maintenance** of, and **minor
+> upgrade** of and addition to, **existing transmission infrastructure** … transmission line
+> **uprate, modification, reconductoring** … and **limited pole replacement**. *(New access
+> roads outside the right-of-way are capped at 1 mile — a road limit, not a line limit.)*
+
+> *CE #19 — rebuild.* The **rebuilding** of transmission lines within or contiguous to
+> **existing rights-of-way** involving generally **no more than 25 miles** in length and no
+> more than 125 acres of expansion of the existing right-of-way.
+
+The table below lists sample FONSIs from different agencies, each with a **verbatim excerpt
+from the cited record** showing the in-corridor reconductoring/rebuild work these CEs cover.
+Each row names the source document (EA or FONSI) and page, and the **project title links to
+the full record** in the document explorer.
 
 ```{r}
 #| label: tbl-d6-transmission-example
