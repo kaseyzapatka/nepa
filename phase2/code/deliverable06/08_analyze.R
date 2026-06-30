@@ -303,6 +303,7 @@ p_cesplit <- ggplot(count(tx_split, bucket), aes(x = bucket, y = n, fill = bucke
   scale_fill_manual(values = c("Adopt CE #17 (modify / reconductor)" = catf_navy,
                                "Adopt CE #19 (rebuild ≤ 25 mi)" = catf_dark_blue,
                                "Too big → expand / develop" = catf_light_blue), guide = "none") +
+  scale_x_discrete(labels = function(x) str_wrap(x, 18)) +   # wrap so the CE #17/#19 labels aren't cut off
   coord_flip(clip = "off") + scale_y_continuous(expand = expansion(mult = c(0, 0.14))) +
   labs(title = glue::glue("The {nrow(tx_split)} transmission FONSIs: {n_adopt_tx} adopt-ready, {n_exp_tx} too big"),
        subtitle = str_wrap(glue::glue("The model judged {n_adopt_tx} small / in-corridor (adopt — CE #17 modify or #19 rebuild ≤ 25 mi); ",
@@ -431,23 +432,29 @@ p_bnd3 <- ggplot(bcnt, aes(value, n)) +
 save_fig(p_bnd3, "fig_d6_ce_bounds_lolli.png", w = 8.5, h = 5)
 
 # --- Figure 15: relatedness map — t-SNE layout, KMeans clusters, convex hulls ---
+# curated topic labels for the 8 deterministic k-means families (cluster_km -> topic); see the D6
+# architecture doc. Tied to the deterministic clustering in 06; revisit if the clustering changes.
+CE_TOPICS <- c("0" = "Property leases, licenses, and permits", "1" = "Geological surveys and site assessments",
+               "2" = "Routine maintenance and minor ground work", "3" = "Hazmat and disposal",
+               "4" = "Goods, services, and personnel procurement", "5" = "Rules, standards, and guidance",
+               "6" = "Monitoring and rights-of-way", "7" = "Airport layout plans and monitoring equipment")
 if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
   sc    <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(cl = factor(cluster_km))
-  cl_lab <- sc %>% group_by(cl) %>%
-    summarise(x = median(coord_x), y = median(coord_y), lab = str_wrap(first(cluster_label), 16), .groups = "drop")
   pal_cl <- setNames(RColorBrewer::brewer.pal(max(3, nlevels(sc$cl)), "Set2")[seq_len(nlevels(sc$cl))], levels(sc$cl))
+  topic_labs <- dplyr::coalesce(CE_TOPICS[levels(sc$cl)], levels(sc$cl))   # legend keys = the topic labels
   p_scatter <- ggplot(sc, aes(coord_x, coord_y)) +
-    geom_point(aes(color = cl), size = 1.4, alpha = 0.6) +
-    geom_label(data = cl_lab, aes(x, y, label = lab), size = 2.6, fontface = "bold", color = catf_navy,
-               fill = "white", alpha = 0.8, label.size = 0, lineheight = 0.85) +
-    scale_color_manual(values = pal_cl, guide = "none") +
+    geom_point(aes(color = cl), size = 1.5, alpha = 0.7) +
+    scale_color_manual(values = pal_cl, labels = topic_labs, name = NULL,
+                       guide = guide_legend(override.aes = list(size = 4.5, alpha = 1), ncol = 2)) +
     labs(title = "How related are the existing CEs?",
-         subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = k-means family,",
-                  "labeled by its top terms. Closer = more similar wording; families recur across departments."), 95),
+         subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = topic family.",
+                  "Closer = more similar wording; families recur across departments."), 95),
          x = NULL, y = NULL,
          caption = "Many families recur across departments — the precedent for adopt.") +
-    theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank())
-  save_fig(p_scatter, "fig_d6_ce_scatter.png", w = 9.5, h = 6)
+    theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank(),
+                         legend.position = "bottom", legend.text = element_text(size = 9),
+                         legend.key.size = unit(0.55, "cm"))
+  save_fig(p_scatter, "fig_d6_ce_scatter.png", w = 9.5, h = 7.2)
 }
 
 # Appendix: how many CE clusters? inertia elbow + silhouette across k. The silhouette is low and
@@ -552,14 +559,13 @@ p_share <- ggplot(share, aes(x = n, y = reorder(lab, n), fill = share)) +
   geom_col(width = 0.7) +
   geom_text(aes(label = paste0(n, "  (", percent(pct, 1), " of total) · ", percent(share, 1), " mitigated")),
             hjust = -0.04, size = 3.1, color = catf_navy) +
-  scale_fill_gradient(low = catf_light_blue, high = catf_navy, labels = percent,
-                      name = "Mitigated\nshare", limits = c(0, 1)) +
+  scale_fill_gradient(low = catf_light_blue, high = catf_navy, limits = c(0, 1), guide = "none") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.5))) +
   labs(title = "How the 451 decarbonization FONSIs break down by action type",
-       subtitle = "Bar length = number of FONSIs; shade = mitigated-FONSI share (incl. the large 'Other' pool)",
+       subtitle = "Bar length = number of FONSIs; darker = higher mitigated-FONSI share (incl. the large 'Other' pool)",
        x = "Number of FONSIs", y = NULL,
        caption = "A CE must encode the recurring mitigations as design criteria — it cannot rely on case-by-case commitments.") +
-  theme_catf() + theme(legend.position = "right")
+  theme_catf() + theme(legend.position = "none")
 save_fig(p_share, "fig_d6_mitigated_share.png", w = 10, h = 4.2)
 
 # Fig: PHRASE cloud (2-3 grams) of committed-mitigation language — surfaces measures, not generic words
@@ -578,7 +584,17 @@ phrases <- bind_rows(
   mutate(wl = if_else(is.na(w3) | w3 == "", w2, w3)) %>%
   filter(!w1 %in% ng_stop, !wl %in% ng_stop, nchar(w1) >= 3, nchar(wl) >= 3,
          !str_detect(ngram, "mitigat|measure")) %>%   # phrase bounded by content words; drop framing words (item 2)
-  count(ngram, sort = TRUE) %>% filter(n >= 2) %>% slice_head(n = 40)
+  count(ngram, sort = TRUE) %>% filter(n >= 2)
+# collapse plural / substring variants so one recurring entity (e.g. 'desert tortoise') doesn't fill
+# the cloud as 'desert tortoise' + 'desert tortoises' + 'desert tortoise habitat' — keep the top form
+.kept <- character(0)
+for (.g in phrases$ngram) {
+  .gn <- gsub("s\\b", "", .g)
+  if (!any(vapply(.kept, function(k) { .kn <- gsub("s\\b", "", k)
+        grepl(.gn, .kn, fixed = TRUE) || grepl(.kn, .gn, fixed = TRUE) }, logical(1))))
+    .kept <- c(.kept, .g)
+}
+phrases <- phrases %>% filter(ngram %in% .kept) %>% slice_head(n = 40)
 set.seed(6)
 p_wc <- ggplot(phrases, aes(label = ngram, size = n, color = n)) +
   geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE, eccentricity = 0.65) +

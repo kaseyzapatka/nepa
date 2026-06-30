@@ -763,3 +763,24 @@ conda run -n nepa python phase2/code/deliverable06/extract_ce_catalog.py
 # render the report
 quarto render phase2/reports/deliverable06.qmd
 ```
+
+## Analysis 3 — CE cluster topics (k-means, k = 8, deterministic)
+
+The existing-CE t-SNE scatter groups the 2,105 federal CEs into 8 k-means families. The clustering
+is **deterministic** (`06_ce_landscape.py`: stable sort of the CE load + cached embeddings, so
+`cluster_km` is stable across runs). The silhouette is **low and flat (~0.035 at every k)**, so
+**k = 8 is a readability choice, not a natural optimum** — several families are genuinely mixed.
+Cluster labels come from distinctive n-gram phrases; the human-facing **Topic** labels are curated
+in `08_analyze.R` (`CE_TOPICS`, keyed on `cluster_km`) and shown on the scatter + the report family
+table. Revisit `CE_TOPICS` if the clustering ever changes.
+
+| cluster_km | Keywords (what's in it) | Topic | Coherence |
+|---|---|---|---|
+| 0 | leases, easements, licenses, permits, real property | Property leases, licenses, and permits | clean |
+| 1 | geological / geophysical surveys, site assessments, data collection | Geological surveys and site assessments | clean |
+| 4 | procurement, supportive / health / housing services, personnel | Goods, services, and personnel procurement | clean |
+| 5 | rules, safety standards, product certification, labeling | Rules, standards, and guidance | clean |
+| 2 | routine facility maintenance, groundskeeping, dredging | Routine maintenance and minor ground work | mixed |
+| 3 | disposal of property / fixtures / structures, hazardous materials | Hazmat and disposal | mixed |
+| 6 | monitoring equipment, rights-of-way, resident relocations | Monitoring and rights-of-way | mixed |
+| 7 | FAA airport layout plans, equipment installation, surveillance | Airport layout plans and monitoring equipment | mixed |
