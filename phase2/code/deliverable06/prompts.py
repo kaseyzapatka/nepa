@@ -232,3 +232,69 @@ def enrichment_tool_schema() -> dict:
             props[name] = _json_type(jtype)
     return {"type": "object", "properties": props,
             "required": [n for n, _t, _d in ENRICHMENT_FIELDS]}
+
+
+# ===========================================================================
+# Stage 2 — action CLASSIFICATION (cheap, separately cached).
+#
+# The extraction `action_category` above gives the model only six BARE LABELS with no
+# definitions and no enum constraint, so keyword-similar actions are mislabeled
+# (a botanical "Experimental Garden Array" -> solar; a BLM land withdrawal -> solar;
+# a VHF two-way-radio upgrade -> transmission). This stage re-asks ONLY the category,
+# from the already-extracted summary, with real definitions + an enum-constrained
+# schema. 03_enrich_llm.py runs it as `--stage classify` (reuses the cached extraction;
+# ~$1.4 for 451) and OVERWRITES action_category. Bump CLASSIFICATION_PROMPT_VERSION to
+# force a classify-only re-run — the expensive extraction cache is untouched.
+# ===========================================================================
+
+CLASSIFICATION_PROMPT_VERSION = "d6_classify_prompt_v1"
+
+ACTION_CATEGORIES = [
+    "transmission_upgrade", "solar", "geothermal_exploration",
+    "temporary_resource_assessment", "wind_onshore", "other",
+]
+
+
+def build_classification_prompt(title: str, action_summary: str, key_activities: str,
+                                action_label: str, purpose_and_need: str) -> str:
+    """The Stage-2 classifier prompt. Operates on the cached extraction summary (no
+    document re-read). Classify by the physical action, not by keywords — the rules
+    below name the exact failure modes observed in the first pass."""
+    return (
+        "TASK: Classify ONE U.S. federal NEPA action into a clean-energy action type, to support "
+        "categorical-exclusion (CE) development. You are given the already-extracted summary of an "
+        "Environmental Assessment (EA) that ended in a Finding of No Significant Impact (FONSI). "
+        "Decide what the federal action PHYSICALLY IS.\n\n"
+        "Classify by the physical action, NOT by keywords in the title or summary:\n"
+        "- Funding, grants, financial assistance, loan guarantees, or programmatic budget decisions are "
+        "'other' — even if they fund a solar/wind/transmission project (the federal action is the funding).\n"
+        "- Studies, research installations, demonstrations, and experimental arrays (e.g. a botanical "
+        "'garden array') are 'other'.\n"
+        "- Land withdrawals, right-of-way grants, leases, and land-management/planning decisions are 'other'.\n"
+        "- Energy-efficiency retrofits, building upgrades, communications/IT, and control/SCADA systems are 'other'.\n"
+        "- A NEW transmission line on NEW right-of-way is NOT transmission_upgrade — it is 'other'.\n\n"
+        "CATEGORIES:\n"
+        "- transmission_upgrade: physically MODIFYING an EXISTING electric transmission/distribution line "
+        "(rebuild, reconductor, voltage upgrade, structure replacement), generally within or adjacent to an "
+        "existing right-of-way.\n"
+        "- solar: constructing or operating a solar photovoltaic or solar-thermal ELECTRICITY-GENERATION facility.\n"
+        "- geothermal_exploration: geothermal temperature-gradient / exploratory drilling, or geophysical survey "
+        "for geothermal resources (a geothermal POWER PLANT is 'other').\n"
+        "- temporary_resource_assessment: TEMPORARY site characterization — met towers, geotechnical borings, "
+        "surveys, monitoring — leaving no permanent generating/transmitting facility.\n"
+        "- wind_onshore: constructing/operating onshore wind turbines, or onshore wind-resource met testing.\n"
+        "- other: anything that does not clearly and physically match one of the above.\n\n"
+        f"INPUT:\n  title: {title}\n  action_summary: {action_summary}\n  key_activities: {key_activities}\n"
+        f"  action_label: {action_label}\n  purpose_and_need: {purpose_and_need}\n\n"
+        "Return action_category (exactly one of the six), classification_confidence (high/medium/low), and "
+        "classification_rationale (one sentence grounded in the input)."
+    )
+
+
+def classification_tool_schema() -> dict:
+    """Enum-constrained tool schema — the model cannot return an off-list category."""
+    return {"type": "object", "properties": {
+        "action_category": {"type": "string", "enum": ACTION_CATEGORIES},
+        "classification_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "classification_rationale": {"type": "string"}},
+        "required": ["action_category", "classification_confidence", "classification_rationale"]}

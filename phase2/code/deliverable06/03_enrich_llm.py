@@ -1,18 +1,21 @@
-"""D6 — 03: single comprehensive LLM enrichment pass.  [NEW — SKETCH]
+"""D6 — 03: comprehensive LLM enrichment, in two cached stages.
 
 ONE read of every clean-energy EA→FONSI (452) that extracts everything Analyses 1
 and 2 need, in one structured (tool-use) call per project — so the paid pass runs
 ONCE and never repeats. Prompt + 37-field schema in prompts.py; packet builder,
 stratified sampler, call, and quote verification shared via enrich_lib.py.
 
-What it does well now (post-review fixes):
-  - BALANCED span-based evidence packet (action/finding/condition/boundary/resource,
-    per-section budgets, tagged [S#] with page/document) — the model actually sees
-    the finding/mitigation/boundary text, not just truncated action text.
-  - tool-use structured output (schema-valid JSON), max_tokens 4096.
-  - span-ref citation: every quote cites a provided [S#] and is verified against it.
-  - per-row error capture (stop_reason, error, tokens, parse_ok); loud-fail if the
-    success rate is low; atomic cache; model preflight before the loop.
+TWO STAGES, each separately cached (`--stage`):
+  - EXTRACT  — the expensive pass: reads the evidence packet, extracts all fields
+               (incl. a coarse action_category). Cached on the packet + schema version.
+  - CLASSIFY — a cheap pass that re-asks ONLY action_category from the already-extracted
+               summary, with real definitions + an enum schema (prompts.build_classification_prompt),
+               and OVERWRITES action_category. Cached on the summary + classify version.
+  Default `--stage both` runs extract→classify (a from-scratch run is fully correct).
+  `--stage classify` reuses the cached extraction output and only re-classifies (~$1.4 for
+  451) — used to fix the classifier without re-paying for extraction. Bump
+  CLASSIFICATION_PROMPT_VERSION to force a classify-only re-run; bump ENRICHMENT_*_VERSION
+  to force an extraction re-run.
 
 KEY (same as D4): $ANTHROPIC_API_KEY if set, else macOS Keychain 'nepa-anthropic'
   (one prompt). --dry-run never touches the key.
@@ -21,12 +24,10 @@ OUTPUTS (suffix _pilot / _sampleN for non-full runs)
   RAW:      data/raw/deliverable06/fonsi_enrichment_raw.parquet      (everything + raw + errors)
   ANALYSIS: data/analysis/deliverable06/fonsi_enrichment.parquet     (piped fields + evidence_cited)
 
-Standalone pilot path (intentionally NOT in _run.py). On promotion: renumber 03–08 -> 04–09; wire 04/05/07.
-
 USAGE
-  python 03_enrich_llm.py --pilot --dry-run        # stratified pilot cost, no key
-  python 03_enrich_llm.py --pilot                  # stratified pilot (one key prompt)
-  python 03_enrich_llm.py                          # full 452
+  python 03_enrich_llm.py --dry-run                 # projected cost for both stages, no key
+  python 03_enrich_llm.py --stage classify          # cheap re-classify only (reuses extraction)
+  python 03_enrich_llm.py                           # full: extract (cache-aware) then classify
 """
 
 from __future__ import annotations
@@ -47,15 +48,19 @@ from common import (
     D6_ANALYSIS_DIR, D6_RAW_DIR, D6_REVIEW_DIR, ensure_d6_dirs, sha256_text, utc_now, write_parquet,
 )
 from prompts import (
+    CLASSIFICATION_PROMPT_VERSION,
     ENRICHMENT_ANALYSIS_COLUMNS,
     ENRICHMENT_FIELDS,
     ENRICHMENT_PROMPT_VERSION,
     ENRICHMENT_SCHEMA_VERSION,
+    build_classification_prompt,
 )
 
 CACHE = D6_RAW_DIR / "fonsi_enrichment_cache.json"
+CLASSIFY_CACHE = D6_RAW_DIR / "fonsi_classification_cache.json"
 LLM_MODEL_DEFAULT = "claude-sonnet-4-6"
-EST_IN_TOK, EST_OUT_TOK = 5000, 1700   # dry-run cost estimate only
+EST_IN_TOK, EST_OUT_TOK = 5000, 1700   # extraction dry-run cost estimate
+EST_CLF_IN, EST_CLF_OUT = 650, 90      # classification dry-run cost estimate (summary in, tiny out)
 MIN_SUCCESS_STRICT = 0.9               # pilot/full: tool-use should parse ~always
 MIN_SUCCESS_DEBUG = 0.5                # --sample debug mode only
 DEFAULT_WORKERS = 6                    # parallel API calls (SDK backoff handles overloads)
@@ -64,6 +69,10 @@ CHECKPOINT_EVERY = 10                  # flush cache + partial parquet every N c
 
 def cache_key(model: str, text: str) -> str:
     return sha256_text(f"{ENRICHMENT_PROMPT_VERSION}|{ENRICHMENT_SCHEMA_VERSION}|{model}|{text}")
+
+
+def classify_key(model: str, text: str) -> str:
+    return sha256_text(f"{CLASSIFICATION_PROMPT_VERSION}|{model}|{text}")
 
 
 def _audit(packet_text: str, model: str, parsed, run_at: str, res: dict, tech: str,
@@ -103,51 +112,10 @@ def result_row(r, packet_text: str, tag_map: dict, res: dict, cache_hit: bool,
     return rec
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--model", default=LLM_MODEL_DEFAULT)
-    ap.add_argument("--pilot", action="store_true", help="stratified pilot sample (representative)")
-    ap.add_argument("--sample", type=int, default=0, help="debug: first N clean FONSIs")
-    ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="parallel API calls")
-    ap.add_argument("--dry-run", action="store_true", help="projected cost only — no key/Keychain, no spend")
-    args = ap.parse_args()
-
-    ensure_d6_dirs()
-    run_at = utc_now()
-    pk = enrich_lib.load_clean_packets()
-    if args.pilot:
-        ids = set(enrich_lib.pilot_sample()["project_id"])
-        pk = pk[pk["project_id"].isin(ids)].reset_index(drop=True)
-        suffix = "_pilot"
-    elif args.sample:
-        pk = pk.head(args.sample)
-        suffix = f"_sample{args.sample}"
-    else:
-        suffix = ""
-    raw_out = D6_RAW_DIR / f"fonsi_enrichment_raw{suffix}.parquet"
-    clean_out = D6_ANALYSIS_DIR / f"fonsi_enrichment{suffix}.parquet"
-
-    n = len(pk)
-    mode = "pilot" if args.pilot else (f"sample{args.sample}" if args.sample else "full")
-    pin, pout = enrich_lib.pricing_for(args.model)
-    cost = n * (EST_IN_TOK * pin + EST_OUT_TOK * pout) / 1e6
-    print(f"[03] {n} clean FONSIs × {args.model} [{mode}]; projected ~${cost:,.2f} "
-          f"(schema={ENRICHMENT_SCHEMA_VERSION}, {len(ENRICHMENT_FIELDS)} fields)")
-    if args.dry_run:
-        print("[03] --dry-run: no key access, nothing billed.")
-        return
-
-    key = enrich_lib.get_anthropic_key()   # env or Keychain — one prompt, cached
-    if not key:
-        print(f"[03] no key in $ANTHROPIC_API_KEY or Keychain '{enrich_lib.KEYCHAIN_SERVICE}'. Use --dry-run for cost only.")
-        return
-    client = enrich_lib.make_client(key)   # built-in backoff on 429/529 overloads
-
-    pf = enrich_lib.preflight(args.model, client)   # verify model id + tool-use before the loop
-    if pf.get("parsed") is None:
-        print(f"[03] PREFLIGHT FAILED for {args.model}: {pf.get('error')}. Aborting (nothing else billed).")
-        raise SystemExit(2)
-
+# ===========================================================================
+# Stage 1 — extraction (the expensive pass; cached on packet + schema version)
+# ===========================================================================
+def run_extraction(pk, args, run_at, client, raw_out, clean_out, suffix, mode) -> pd.DataFrame:
     spans_by_pid, main_by_doc = enrich_lib.load_spans_and_main(pk["project_id"])
     cache: dict = json.loads(CACHE.read_text()) if CACHE.exists() else {}
 
@@ -178,7 +146,7 @@ def main() -> None:
         else:
             pending.append((r, pt, tm, k))
     skipped = len(skip_rows)
-    print(f"[03] preflight OK; {len(work)} to enrich ({len(results)} cached, {len(pending)} new) "
+    print(f"[03] extract: {len(work)} to enrich ({len(results)} cached, {len(pending)} new) "
           f"+ {skipped} skipped; workers={args.workers}")
 
     def checkpoint():
@@ -248,6 +216,165 @@ def main() -> None:
     if attempted and ok / attempted < min_success:
         print(f"[03] FAIL: parse rate {ok}/{attempted} below {min_success:.0%} (mode={mode}).")
         sys.exit(1)
+    return clean_df
+
+
+# ===========================================================================
+# Stage 2 — classification (cheap; reuses cached extraction; overwrites action_category)
+# ===========================================================================
+def _classify_input(rec: dict) -> str:
+    return build_classification_prompt(
+        str(rec.get("project_title") or ""),
+        str(rec.get("action_summary") or ""),
+        str(rec.get("key_activities") or ""),
+        str(rec.get("action_label_freeform") or ""),
+        str(rec.get("purpose_and_need") or ""),
+    )
+
+
+def run_classification(clean_df, model, client, run_at, workers):
+    """Re-classify action_category from the cached summary. Overwrites action_category,
+    preserving the extraction value as action_category_pass1 and adding the model's
+    confidence + rationale. Cached on (classify version | model | summary-prompt)."""
+    recs = clean_df.to_dict("records")
+    cache: dict = json.loads(CLASSIFY_CACHE.read_text()) if CLASSIFY_CACHE.exists() else {}
+    results: dict = {}
+    pending, skipped = [], []
+    for rec in recs:
+        pid = rec["project_id"]
+        if not str(rec.get("action_summary") or "").strip():
+            skipped.append(pid)                      # no-evidence row: keep its category as-is
+            continue
+        pt = _classify_input(rec)
+        k = classify_key(model, pt)
+        if k in cache:
+            results[pid] = cache[k]
+        else:
+            pending.append((pid, pt, k))
+    print(f"[03] classify: {len(results)} cached, {len(pending)} new, {len(skipped)} skipped "
+          f"(no summary); workers={workers}")
+
+    done = 0
+    if pending:
+        with ThreadPoolExecutor(max_workers=max(1, workers)) as ex:
+            futs = {ex.submit(enrich_lib.call_classification, pt, model, client): (pid, k)
+                    for (pid, pt, k) in pending}
+            for fut in as_completed(futs):
+                pid, k = futs[fut]
+                parsed = fut.result().get("parsed")
+                if parsed is not None:
+                    cache[k] = parsed
+                results[pid] = parsed
+                done += 1
+                if done % CHECKPOINT_EVERY == 0 or done == len(pending):
+                    enrich_lib.write_json_atomic(CLASSIFY_CACHE, cache)
+                    print(f"[03] classify checkpoint {done}/{len(pending)}")
+    enrich_lib.write_json_atomic(CLASSIFY_CACHE, cache)
+
+    df = clean_df.copy()
+    if "action_category_pass1" not in df.columns:    # preserve the EXTRACTION value once, as audit
+        df["action_category_pass1"] = df["action_category"]
+    pids = df["project_id"].tolist()
+
+    def field(pid, key, default):
+        r = results.get(pid)
+        return r[key] if isinstance(r, dict) and r.get(key) is not None else default
+
+    df["action_category"] = [field(p, "action_category", o) for p, o in zip(pids, df["action_category"])]
+    df["classification_confidence"] = [field(p, "classification_confidence", "") for p in pids]
+    df["classification_rationale"] = [field(p, "classification_rationale", "") for p in pids]
+    df["classification_run_at"] = run_at
+    df["classification_prompt_version"] = CLASSIFICATION_PROMPT_VERSION
+    # NaN-safe change count (None != None is True in pandas; the no-evidence row is None)
+    n_changed = int((df["action_category"].fillna("") != df["action_category_pass1"].fillna("")).sum())
+    n_fail = sum(1 for p in pids if p not in skipped and results.get(p) is None)
+    if n_fail:
+        print(f"[03] classify: {n_fail} call(s) failed — those rows keep their pass-1 category")
+    return df, n_changed
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--model", default=LLM_MODEL_DEFAULT)
+    ap.add_argument("--stage", choices=["both", "extract", "classify"], default="both",
+                    help="both (default; extract then classify) | extract only | classify only "
+                         "(reuse the cached extraction output)")
+    ap.add_argument("--pilot", action="store_true", help="stratified pilot sample (representative)")
+    ap.add_argument("--sample", type=int, default=0, help="debug: first N clean FONSIs")
+    ap.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help="parallel API calls")
+    ap.add_argument("--dry-run", action="store_true", help="projected cost only — no key/Keychain, no spend")
+    args = ap.parse_args()
+
+    ensure_d6_dirs()
+    run_at = utc_now()
+    pk = enrich_lib.load_clean_packets()
+    if args.pilot:
+        ids = set(enrich_lib.pilot_sample()["project_id"])
+        pk = pk[pk["project_id"].isin(ids)].reset_index(drop=True)
+        suffix = "_pilot"
+    elif args.sample:
+        pk = pk.head(args.sample)
+        suffix = f"_sample{args.sample}"
+    else:
+        suffix = ""
+    raw_out = D6_RAW_DIR / f"fonsi_enrichment_raw{suffix}.parquet"
+    clean_out = D6_ANALYSIS_DIR / f"fonsi_enrichment{suffix}.parquet"
+
+    do_extract = args.stage in ("both", "extract")
+    do_classify = args.stage in ("both", "classify")
+    n = len(pk)
+    mode = "pilot" if args.pilot else (f"sample{args.sample}" if args.sample else "full")
+    pin, pout = enrich_lib.pricing_for(args.model)
+
+    # --- cost preview (per stage that will run) ---
+    if do_extract:
+        ext = n * (EST_IN_TOK * pin + EST_OUT_TOK * pout) / 1e6
+        print(f"[03] EXTRACT {n} clean FONSIs × {args.model} [{mode}]; projected ~${ext:,.2f} "
+              f"(schema={ENRICHMENT_SCHEMA_VERSION}, {len(ENRICHMENT_FIELDS)} fields)")
+    if do_classify:
+        clf = n * (EST_CLF_IN * pin + EST_CLF_OUT * pout) / 1e6
+        print(f"[03] CLASSIFY {n} FONSIs × {args.model} [{mode}]; projected ~${clf:,.2f} "
+              f"(classify_version={CLASSIFICATION_PROMPT_VERSION})")
+    if args.dry_run:
+        print("[03] --dry-run: no key access, nothing billed.")
+        return
+
+    key = enrich_lib.get_anthropic_key()   # env or Keychain — one prompt, cached
+    if not key:
+        print(f"[03] no key in $ANTHROPIC_API_KEY or Keychain '{enrich_lib.KEYCHAIN_SERVICE}'. Use --dry-run for cost only.")
+        return
+    client = enrich_lib.make_client(key)   # built-in backoff on 429/529 overloads
+
+    # preflight each stage that will run — verify model id + the right tool before spending
+    if do_extract:
+        pf = enrich_lib.preflight(args.model, client)
+        if pf.get("parsed") is None:
+            print(f"[03] EXTRACT PREFLIGHT FAILED for {args.model}: {pf.get('error')}. Aborting (nothing billed).")
+            raise SystemExit(2)
+    if do_classify:
+        pf = enrich_lib.classify_preflight(args.model, client)
+        if pf.get("parsed") is None:
+            print(f"[03] CLASSIFY PREFLIGHT FAILED for {args.model}: {pf.get('error')}. Aborting (nothing billed).")
+            raise SystemExit(2)
+
+    # --- stage 1: extraction (or reuse the cached extraction output) ---
+    if do_extract:
+        clean_df = run_extraction(pk, args, run_at, client, raw_out, clean_out, suffix, mode)
+    else:
+        if not clean_out.exists():
+            print(f"[03] --stage classify needs an existing {clean_out.name}; run extraction first.")
+            raise SystemExit(2)
+        clean_df = pd.read_parquet(clean_out)
+        print(f"[03] classify-only: loaded {len(clean_df)} rows from {clean_out.name} (extraction reused, $0)")
+
+    # --- stage 2: classification (overwrites action_category) ---
+    if do_classify:
+        clean_df, n_changed = run_classification(clean_df, args.model, client, run_at, args.workers)
+        write_parquet(clean_df, clean_out)
+        dist = clean_df["action_category"].value_counts().to_dict()
+        print(f"[03] classification done: {n_changed} categories changed from pass 1")
+        print(f"[03] action_category dist: {dist}")
+        print(f"[03] data -> {clean_out}")
 
 
 if __name__ == "__main__":
