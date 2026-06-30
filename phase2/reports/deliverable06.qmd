@@ -650,6 +650,7 @@ cannot:
 
 ```{mermaid}
 %%| fig-width: 9
+%%{init: {'theme':'base', 'themeVariables': {'clusterBkg':'#f5f7fa', 'clusterBorder':'#c9d4e0', 'primaryColor':'#eaf0f7', 'primaryBorderColor':'#c9d4e0', 'primaryTextColor':'#1A1A2E', 'lineColor':'#8a99ad'}}}%%
 flowchart LR
   A["451 FONSIs"] --> B["Claude reads each one:<br/>the finding + the<br/>committed conditions"]
   subgraph X["What Claude extracts"]
@@ -989,7 +990,17 @@ exact move Analysis 1 recommends — is not unusual; it is how the landscape alr
 *This shows adoption is **common** in the CE corpus; it does **not** verify that the four
 shortlisted CE matches actually cover the D6 actions — that remains the pending eCFR check.*
 
-Each row below is **one shared family** (not a single example): the action, how many
+The chart below shows **how the twin families distribute across departments** — each bar is the
+number of families shared by *exactly* that set of departments:
+
+```{r}
+#| label: fig-d6-ce-upset
+#| fig-cap: "Cross-agency CE 'twin' families by the set of departments that share them (top 12 combinations). A filled dot marks each department in the combination — the adopt precedent, visualized."
+#| out-width: 94%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_upset.png"))
+```
+
+Each row in the table below is **one shared family** (not a single example): the action, how many
 agencies use a near-identical CE for it, and a few of those agencies.
 
 ```{r}

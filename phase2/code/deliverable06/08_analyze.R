@@ -191,8 +191,8 @@ winners <- sz %>% group_by(metric, group) %>% summarise(med = median(value), .gr
 p_sizes <- ggplot(sz, aes(x = value, y = group)) +
   geom_rect(data = winners, aes(fill = group), xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf,
             alpha = 0.12, inherit.aes = FALSE) +
-  geom_boxplot(aes(color = group), width = 0.5, fill = NA, outlier.shape = NA, linewidth = 0.6) +
-  geom_jitter(aes(color = group), height = 0.15, width = 0, size = 1.8, alpha = 0.6) +
+  geom_jitter(aes(color = group), height = 0.18, width = 0, size = 1.5, alpha = 0.28) +   # dots UNDER the box, faint
+  geom_boxplot(aes(color = group), width = 0.55, fill = NA, outlier.shape = NA, linewidth = 0.75, fatten = 2.2) +  # box ON TOP so median is visible
   geom_text(data = ncount, aes(x = Inf, y = group, label = paste0("n = ", n)), inherit.aes = FALSE,
             hjust = 1.1, size = 2.8, color = "gray45") +
   facet_wrap(~metric, scales = "free_x", ncol = 1) +
@@ -206,8 +206,8 @@ p_sizes <- ggplot(sz, aes(x = value, y = group)) +
        caption = str_wrap(paste("Box = median & middle 50%; dots = individual FONSIs / CE limits. Existing CEs bound voltage",
                 "only twice (n=2), so that row is indicative. Study-area outliers excluded."), 115)) +
   theme_catf() + theme(legend.position = "top", strip.text = element_text(color = catf_navy, face = "bold"),
-                       axis.text.y = element_blank(), axis.ticks.y = element_blank(), panel.spacing = unit(1.2, "lines"))
-save_fig(p_sizes, "fig_d6_sizes.png", w = 9, h = 5.5)
+                       axis.text.y = element_blank(), axis.ticks.y = element_blank(), panel.spacing = unit(1.5, "lines"))
+save_fig(p_sizes, "fig_d6_sizes.png", w = 9, h = 7.7)
 
 # === Fig: classification — how each candidate's rank score is composed ===
 comp_lab <- c(rank_novelty = "Novelty", rank_volume = "Volume",
@@ -471,6 +471,37 @@ if (file.exists(ksel_path)) {
   save_fig(p_elbow, "fig_d6_ce_elbow.png", w = 9, h = 3.6)
 }
 
+# Fig (A3.2): UpSet of the cross-agency CE 'twin' families — which DEPARTMENTS share a near-identical
+# CE (the precedent for adopt). Mirrors the Phase 1 geothermal UpSet (ggupset, list-column of sets).
+clusters_file <- file.path(ANALYSIS, "ce_clusters.parquet")
+if (file.exists(clusters_file) && requireNamespace("ggupset", quietly = TRUE)) {
+  xa <- read_parquet(clusters_file) %>% filter(n_agencies >= 2)
+  xa$depts <- lapply(xa$agencies, function(a) {
+    toks <- trimws(strsplit(as.character(a), ",")[[1]])
+    d <- unique(trimws(sub("\\s*-.*$", "", toks)))           # department = the prefix before " - "
+    sort(d[d != ""])
+  })
+  xa <- xa[vapply(xa$depts, length, integer(1)) >= 1, ]
+  p_upset <- ggplot(xa, aes(x = depts)) +
+    geom_bar(fill = catf_navy, width = 0.62) +
+    stat_count(geom = "text", aes(label = after_stat(count)), vjust = -0.45, size = 3,
+               fontface = "bold", color = catf_navy) +
+    ggupset::scale_x_upset(n_intersections = 12) +
+    ggupset::theme_combmatrix(combmatrix.panel.point.color.fill = catf_dark_blue,
+                              combmatrix.panel.point.color.empty = "gray85",
+                              combmatrix.panel.line.color = "gray70",
+                              combmatrix.label.text = element_text(size = 9, color = catf_navy)) +
+    labs(title = glue::glue("Which departments share the same CE 'twin' families ({nrow(xa)} cross-agency families)"),
+         subtitle = str_wrap(paste("Each bar = the number of near-identical CE families shared by exactly that set of",
+                  "departments (top 12 combinations); a filled dot below marks the departments in the combination."), 104),
+         x = NULL, y = "Twin families") +
+    theme(plot.title = element_text(face = "bold", color = catf_navy, size = 13),
+          plot.subtitle = element_text(color = catf_dark_blue),
+          axis.title.y = element_text(color = catf_navy),
+          panel.grid.major.x = element_blank())
+  save_fig(p_upset, "fig_d6_ce_upset.png", w = 10, h = 6)
+}
+
 # === Analysis 2: corpus-wide mitigation (read the enrichment — NOT limited to candidates) ===
 enr <- read_parquet(file.path(ANALYSIS, "fonsi_enrichment.parquet")) %>%
   filter(!is.na(action_summary)) %>%
@@ -483,7 +514,13 @@ n_notmit <- sum(enr$is_mitigated_fonsi %in% FALSE)
 n_unk    <- sum(is.na(enr$is_mitigated_fonsi))
 ordm <- c("Unknown", "Not mitigated", "Mitigated")          # top -> bottom in grid + legend
 cntm <- c(Unknown = n_unk, `Not mitigated` = n_notmit, Mitigated = n_mit)[ordm]
-wvm  <- pmax(1, round(cntm / n_enr * 100))
+# largest-remainder allocation so the squares sum to EXACTLY 100 (no orphan square in an 11th row)
+.lr100 <- function(counts) {
+  raw <- counts / sum(counts) * 100; fl <- floor(raw); rem <- 100 - sum(fl)
+  if (rem > 0) { o <- order(raw - fl, decreasing = TRUE); fl[o[seq_len(rem)]] <- fl[o[seq_len(rem)]] + 1 }
+  fl
+}
+wvm  <- .lr100(cntm)
 wafm <- tibble(cat = factor(rep(ordm, wvm), levels = ordm)) %>%
   mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
 palm <- c(Mitigated = catf_dark_blue, `Not mitigated` = catf_grey, Unknown = "#D9DCE1")
@@ -504,33 +541,26 @@ p_ov <- ggplot(wafm, aes(x, y, fill = cat)) +
         plot.subtitle = element_text(color = catf_dark_blue), plot.caption = element_text(color = "gray50", hjust = 0))
 save_fig(p_ov, "fig_d6_mitigated_overall.png", w = 9, h = 4.6)
 
-# Fig 12: action-type breakdown of all 451 (a 1-row treemap / marimekko) — width = number of FONSIs,
-# shade = mitigated-FONSI share. Keeps counts + % of total; includes the large 'Other' pool.
+# Fig 12: action-type breakdown of all 451 — a horizontal bar (bar length = # FONSIs = the breakdown),
+# shaded by mitigated-FONSI share, labeled with count + % of total + mitigated %. Legible at every size.
 share <- enr %>% group_by(action_category) %>%
   summarise(n = n(), mit = sum(is_mit), .groups = "drop") %>%
-  mutate(share = mit / n, lab = str_to_title(str_replace_all(action_category, "_", " ")),
-         lab = recode(lab, "Temporary Resource Assessment" = "Temporary\nassessment")) %>%
-  arrange(desc(n)) %>%
-  mutate(xmax = cumsum(n), xmin = xmax - n, xmid = (xmin + xmax) / 2, pct = n / sum(n),
-         wide = pct >= 0.045)
-p_share <- ggplot(share, aes(xmin = xmin, xmax = xmax, ymin = 0, ymax = 1, fill = share)) +
-  geom_rect(color = "white", linewidth = 1.2) +
-  geom_text(data = ~filter(.x, wide), aes(x = xmid, y = 0.66, label = lab),
-            size = 3, fontface = "bold", color = "white", lineheight = 0.85) +
-  geom_text(data = ~filter(.x, wide), aes(x = xmid, y = 0.40, label = paste0(n, " (", percent(pct, 1), ")")),
-            size = 2.8, color = "white") +
-  geom_text(data = ~filter(.x, wide), aes(x = xmid, y = 0.22, label = paste0(percent(share, 1), " mit.")),
-            size = 2.6, color = "white") +
+  mutate(share = mit / n, pct = n / sum(n),
+         lab = str_to_title(str_replace_all(action_category, "_", " ")),
+         lab = recode(lab, "Temporary Resource Assessment" = "Temporary assessment"))
+p_share <- ggplot(share, aes(x = n, y = reorder(lab, n), fill = share)) +
+  geom_col(width = 0.7) +
+  geom_text(aes(label = paste0(n, "  (", percent(pct, 1), " of total) · ", percent(share, 1), " mitigated")),
+            hjust = -0.04, size = 3.1, color = catf_navy) +
   scale_fill_gradient(low = catf_light_blue, high = catf_navy, labels = percent,
                       name = "Mitigated\nshare", limits = c(0, 1)) +
-  scale_x_continuous(expand = expansion(0)) + scale_y_continuous(expand = expansion(0)) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.5))) +
   labs(title = "How the 451 decarbonization FONSIs break down by action type",
-       subtitle = str_wrap("Width = number of FONSIs (% of total); shade = mitigated-FONSI share. Includes the large 'Other' pool; narrow types (wind, geothermal, temporary) unlabeled.", 96),
-       x = NULL, y = NULL) +
-  theme_void(base_size = 12) +
-  theme(legend.position = "right", plot.title = element_text(face = "bold", color = catf_navy),
-        plot.subtitle = element_text(color = catf_dark_blue))
-save_fig(p_share, "fig_d6_mitigated_share.png", w = 10, h = 3.4)
+       subtitle = "Bar length = number of FONSIs; shade = mitigated-FONSI share (incl. the large 'Other' pool)",
+       x = "Number of FONSIs", y = NULL,
+       caption = "A CE must encode the recurring mitigations as design criteria — it cannot rely on case-by-case commitments.") +
+  theme_catf() + theme(legend.position = "right")
+save_fig(p_share, "fig_d6_mitigated_share.png", w = 10, h = 4.2)
 
 # Fig: PHRASE cloud (2-3 grams) of committed-mitigation language — surfaces measures, not generic words
 ng_stop <- unique(c(tidytext::stop_words$word, letters,
