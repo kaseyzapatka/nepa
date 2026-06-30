@@ -430,10 +430,43 @@ exactly this class of work — **TVA CE #17**, quoted in full (key phrases bolde
 > improvements of **existing access roads** and construction of new access roads outside
 > of the **right-of-way** that are generally no more than 1 mile in length.
 
+```{r}
+#| echo: false
+tx_sp <- facts |> filter(candidate_category == "transmission_upgrade", is_profile_subtype) |>
+  distinct(project_id, .keep_all = TRUE) |>
+  mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
+         reb = str_detect(txt, "rebuild|reconstruct|remov.*(structure|pole|tower|h-frame)|replac.*(structure|pole|tower|h-frame)|new (structure|pole|tower|monopole)"),
+         exp19 = reb & !is.na(max_miles) & max_miles > 25)
+n_ce17 <- sum(!tx_sp$reb); n_ce19 <- sum(tx_sp$reb)
+n_exp19 <- sum(tx_sp$exp19); n_adopt_tx <- nrow(tx_sp) - n_exp19
+```
+
+::: {.callout-note appearance="simple"}
+**Two CEs, not one.** CE #17's "1 mile" caps *new access roads*, not the line — so #17 sets
+no length limit. Reconductoring and minor upgrades fit **#17**; full **rebuilds** fit a
+separate exclusion, **#19** (rebuild within an existing right-of-way, **≤ 25 miles**).
+Splitting the `r nrow(tx_sp)` FONSIs by work type, **`r n_adopt_tx` are a clean adopt**
+(`r n_ce17` to #17, `r n_ce19 - n_exp19` to #19) and **`r n_exp19` — the rebuilds past 25
+miles — are an *expand #19* case**, not a clean adopt.
+:::
+
+```{r}
+#| label: fig-d6-ce-split
+#| fig-cap: "Each bounded transmission FONSI mapped to the TVA CE that fits its work type; rebuilds beyond CE #19's 25-mile cap are the only expand case. Work type inferred from the action text."
+#| out-width: 88%
+knitr::include_graphics(file.path(FIGS, "fig_d6_ce_split.png"))
+```
+
+*Why the Main Finding still reports "0 expand."* That verdict is assigned per **action
+type**, each matched to its single closest CE — for transmission that was #17, which states
+no numeric limit, so nothing could exceed it. The split here is finer: it routes each FONSI
+to the CE that fits its **work type**, which is what surfaces the `r n_exp19` *expand #19*
+rebuilds. Both are correct — this is just the per-project view.
+
 The table below lists sample FONSIs from different agencies, each with a **verbatim
-excerpt from the cited record** that shows the same in-corridor, *modify-existing-
-infrastructure* work that TVA CE #17 already covers (reconductoring, replacing aging
-structures, upgrading within the existing right-of-way). Each row names the source
+excerpt from the cited record** that shows the in-corridor, *modify-existing-infrastructure*
+work TVA CEs #17/#19 cover (reconductoring, replacing aging structures, rebuilding within
+the existing right-of-way). Each row names the source
 document (EA or FONSI) and page, and the **project title links to the full record** in
 the document explorer.
 

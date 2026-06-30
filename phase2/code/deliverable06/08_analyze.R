@@ -277,10 +277,34 @@ p_map <- ggplot(states_sf) +
   labs(title = glue::glue("Where the transmission-upgrade FONSIs are — {n_tx_states} states"),
        subtitle = "Bounded, low-impact in-corridor transmission FONSIs, concentrated in the West (BLM / BPA territory)",
        x = NULL, y = NULL,
-       caption = str_wrap(paste("Count = transmission-upgrade FONSIs touching each state; a few span two states, so the",
-                "state counts sum above the 37 projects. Each could adopt TVA's existing transmission CE (#17)."), 110)) +
+       caption = str_wrap(paste("Count = transmission FONSIs touching each state; 4 projects span two states, so the 37 projects",
+                "sum to 41 state-counts. Each maps to a TVA transmission CE (#17 reconductoring / #19 rebuild)."), 110)) +
   theme_catf() + theme(legend.position = "right", axis.text = element_blank(), panel.grid = element_blank())
 save_fig(p_map, "fig_d6_states.png", w = 8.5, h = 5.0)
+
+# === Fig: which TVA CE each transmission FONSI maps to — #17 (modify) vs #19 (rebuild) ===
+# Work type inferred from the action text; rebuilds over CE #19's 25-mile cap are the expand case.
+tx_split <- facts %>% filter(candidate_category == "transmission_upgrade", is_profile_subtype) %>%
+  distinct(project_id, .keep_all = TRUE) %>%
+  mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
+         is_rebuild = str_detect(txt, "rebuild|reconstruct|remov.*(structure|pole|tower|h-frame)|replac.*(structure|pole|tower|h-frame)|new (structure|pole|tower|monopole)"),
+         ce = ifelse(is_rebuild, "CE #19 — rebuild", "CE #17 — modify / reconductor"),
+         verdict = ifelse(is_rebuild & !is.na(max_miles) & max_miles > 25, "Expand #19 (rebuild > 25 mi)", "Adopt (existing CE covers it)"))
+n17 <- sum(tx_split$ce == "CE #17 — modify / reconductor"); n19 <- sum(tx_split$ce == "CE #19 — rebuild")
+nexp <- sum(tx_split$verdict != "Adopt (existing CE covers it)")
+p_cesplit <- ggplot(count(tx_split, ce, verdict), aes(x = reorder(ce, n, sum), y = n, fill = verdict)) +
+  geom_col(width = 0.62) +
+  geom_text(aes(label = n), position = position_stack(vjust = 0.5), color = "white", fontface = "bold", size = 4.2) +
+  scale_fill_manual(values = c("Adopt (existing CE covers it)" = catf_navy,
+                               "Expand #19 (rebuild > 25 mi)" = catf_light_blue), name = NULL) +
+  coord_flip(clip = "off") + scale_y_continuous(expand = expansion(mult = c(0, 0.06))) +
+  labs(title = glue::glue("Which TVA CE the {n17 + n19} transmission FONSIs map to"),
+       subtitle = str_wrap(glue::glue("Reconductoring / minor upgrades fit CE #17 (no length cap); full rebuilds fit ",
+                "CE #19 (≤ 25 mi). The {nexp} rebuilds beyond 25 miles are the only expand case."), 96),
+       x = NULL, y = "Bounded transmission FONSIs",
+       caption = "Work type inferred from each FONSI's action text; rebuilds with no stated length are counted as adopt.") +
+  theme_catf() + theme(legend.position = "top", axis.text.y = element_text(color = catf_navy, face = "bold"))
+save_fig(p_cesplit, "fig_d6_ce_split.png", w = 9, h = 3.2)
 
 # === Fig: adoption gap (evidence weight + who could adopt) ===
 adopt <- verdicts %>% filter(verdict == "adopt") %>%
