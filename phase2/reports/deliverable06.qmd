@@ -1011,10 +1011,12 @@ descriptions to surface recurring categories no one has named yet.
   flagged, not shown.
 - **CE matches are a ranking aid, not verified coverage.** Confirm each candidate
   CE against its eCFR text before acting on it — this is the one remaining
-  verification step.
+  verification step. The **[CE coverage verification worksheet](../notes/deliverable06/ce_verification.html)**
+  pairs each candidate with its best-match CE, a first-pass coverage read, and the
+  exact bound to confirm.
 - **Recommended next steps:** (1) verify the `r n_adopt` adopt matches against the
-  eCFR CE text; (2) cluster the ~`r n_other` un-categorized decarbonization FONSIs to
-  search for net-new CEs.
+  eCFR CE text (start from the [verification worksheet](../notes/deliverable06/ce_verification.html));
+  (2) cluster the ~`r n_other` un-categorized decarbonization FONSIs to search for net-new CEs.
 
 ## Assumptions & sensitivity
 

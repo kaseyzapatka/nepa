@@ -60,6 +60,45 @@ ASSESS = {
 }
 
 
+def _markdown(rows: list[dict]) -> str:
+    """A client-facing rendered page (mirrors the D01 notes pattern)."""
+    out = [
+        '---', 'title: "Deliverable 6 — CE coverage verification worksheet"', '---', '',
+        "The Analysis-1 **adopt** verdicts rest on a *text-similarity* match between each candidate "
+        "action type and an existing Categorical Exclusion (CE) — every match is currently "
+        "`pending` manual verification. This worksheet pairs each candidate with its best-match CE, "
+        "a first-pass read of the CE text, and the specific bound a reviewer should confirm "
+        "**against the current eCFR text** before the match is treated as final.", '',
+        "> The *coverage read* below is a first pass over the CE Explorer **snapshot** text — not a "
+        "legal determination. Confirm each against live eCFR.", '',
+        "## Summary", '',
+        "| Candidate (CE-shaped n) | Best-match CE | Coverage read | Bound to verify |",
+        "|---|---|---|---|",
+    ]
+    for r in rows:
+        bound = (r["bound_to_verify"][:140] + "…") if len(r["bound_to_verify"]) > 140 else r["bound_to_verify"]
+        out.append(f"| {r['candidate_category']} ({r['n_ce_shaped']}) | `{r['best_ce_id']}` "
+                   f"({r['best_ce_agency']}) | **{r['claude_coverage_verdict']}** | {bound} |")
+    out += ["", "## Detail by category", ""]
+    for r in rows:
+        url = f" — [source]({r['best_ce_url']})" if r["best_ce_url"] else ""
+        out += [
+            f"### {r['candidate_category']} — {r['n_ce_shaped']} CE-shaped",
+            "",
+            f"- **Best-match CE:** `{r['best_ce_id']}` ({r['best_ce_agency']}), match score {r['match_score']}{url}",
+            f"- **CE text:** {r['best_ce_text']}",
+        ]
+        if r["best_ce_extraordinary_circumstances"]:
+            out.append(f"- **Extraordinary circumstances:** {r['best_ce_extraordinary_circumstances']}")
+        out += [
+            f"- **Candidate scope:** {r['candidate_scope']}; agencies: {r['candidate_agencies']}",
+            f"- **Coverage read:** **{r['claude_coverage_verdict']}** — {r['claude_reasoning']}",
+            f"- **Bound to verify:** {r['bound_to_verify']}",
+            "",
+        ]
+    return "\n".join(out) + "\n"
+
+
 def _agencies(series) -> str:
     vals = set()
     for v in series.dropna():
@@ -104,10 +143,17 @@ def main() -> None:
             "reviewer_confirms_covers": "",      # for you: yes / no / partial
             "reviewer_notes": "",
         })
-    out = pd.DataFrame(rows).sort_values("n_ce_shaped", ascending=False)
+    rows = sorted(rows, key=lambda r: -r["n_ce_shaped"])
+    out = pd.DataFrame(rows)
     path = D6_OUTPUT_DIR / "ce_verification_worksheet.csv"
     out.to_csv(path, index=False)
-    print(f"[ce-verify] wrote {len(out)} categories -> {path}")
+    # rendered Markdown page (committed + in the site navbar, mirroring the D01 notes pattern)
+    notes_dir = D6_OUTPUT_DIR.parents[1] / "notes" / "deliverable06"
+    notes_dir.mkdir(parents=True, exist_ok=True)
+    md_path = notes_dir / "ce_verification.md"
+    md_path.write_text(_markdown(rows))
+    print(f"[ce-verify] worksheet csv -> {path}")
+    print(f"[ce-verify] rendered page -> {md_path}")
     print(out[["candidate_category", "n_ce_shaped", "best_ce_id", "claude_coverage_verdict"]].to_string(index=False))
 
 
