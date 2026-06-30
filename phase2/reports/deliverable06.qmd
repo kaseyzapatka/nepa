@@ -116,26 +116,23 @@ federal CE catalog (not FONSIs at all).
 
 | Analysis | Data source | Scope |
 |---|---|---|
-| **1 · Scaling CEs (develop, expand, or adopt)** | Decarb EAs with FONSIs | `r n_ce_shaped`/`r n_clean` projects (~`r percent(n_ce_shaped / n_clean, 1)`) |
-| **2 · Mitigated FONSIs** | Decarb Mitigated FONSIs | `r n_mit_corpus` of `r n_clean` projects (`r percent(mit_share_cor, 1)`) |
-| **3 · Current federal CE catalog** | Existing federal CE catalog | `r comma(n_ce)` CEs |
+| **1. Scaling CEs (develop, expand, or adopt)** | Decarb EAs with FONSIs | `r n_ce_shaped`/`r n_clean` projects (~`r percent(n_ce_shaped / n_clean, 1)`) |
+| **2. Mitigated FONSIs** | Decarb Mitigated FONSIs | `r n_mit_corpus` of `r n_clean` projects (`r percent(mit_share_cor, 1)`) |
+| **3. Current federal CE catalog** | Existing federal CE catalog | `r comma(n_ce)` CEs |
 
-::: {.callout-important appearance="simple"}
-**Scope, denominators, and how to read these numbers.**
+Each analysis's scope and step-by-step workflow follow below; the few caveats that apply to
+*all three* are collected here once:
 
-| Denominator | Count | What it is |
-|---|---|---|
-| Clean EA-source FONSIs | **`r comma(n_clean)`** | decarbonization EA→FONSI projects (reconciles to D3) — the source set |
-| Enriched | **`r n_enriched`** | the LLM-read set; **`r n_excluded_noev`** no-evidence geothermal record is excluded from enrichment-dependent analyses |
-| Candidate (LLM action type) | **`r n_candidate`** | distinct FONSIs the model classifies as a CE-relevant recurring action type (transmission upgrade, solar, geothermal exploration, temporary assessment, onshore wind) |
-| LLM-bounded | **`r n_llm_bounded`** | of those, the ones the model judged inherently small/routine/low-impact |
-| **CE-shaped (used throughout)** | **`r n_ce_shaped` projects** | LLM-bounded **and** — for transmission — modify-existing within an existing right-of-way; the other `r n_llm_bounded - n_ce_shaped` are *expand/develop* candidates, not dropped |
-
-- **Grain:** counts are **distinct projects** unless a figure/table is labeled *project-category rows* (one project can map to >1 candidate).
-- **These are descriptive recurrence counts, not statistically tested differences.** Candidates with **n < ~10** CE-shaped FONSIs (geothermal 9, solar 9, wind 7, temporary 4) are *illustrative* — do not read their point estimates as stable; only transmission (34) is well-populated.
-- **Null LLM fields are treated as *unknown*, not false.**
-- **CE matches are candidate matches pending eCFR verification**; the record is **largely pre-FRA** (historical), and the CE catalog is the **CE Explorer snapshot `r ce_snapshot`** (a discovery index — verify against current eCFR before use).
-- **One-line takeaway:** *D6 identifies candidate adoption opportunities to review — not final legal coverage determinations, not proof that no expand opportunities exist, and not evidence of current post-FRA agency behavior.*
+::: {.callout-note appearance="simple"}
+**Reading these numbers.** Counts are **distinct projects**, and they are **descriptive
+recurrence counts — not statistically tested differences.** Candidates with **n < ~10**
+CE-shaped FONSIs (geothermal 9, solar 9, wind 7, temporary 4) are *illustrative*; only
+transmission (34) is well-populated. **Null LLM fields are treated as *unknown*, not false.**
+**CE matches are candidates pending eCFR verification**, the record is **largely pre-FRA**, and
+the CE catalog is the **CE Explorer snapshot `r ce_snapshot`** — a discovery index; verify
+against current eCFR before use. **In one line:** *D6 identifies candidate adoption opportunities
+to review — not final legal coverage determinations, not proof that no expand opportunities
+exist, and not evidence of current post-FRA agency behavior.*
 :::
 
 ::: {.callout-note collapse="false"}
@@ -181,15 +178,15 @@ federal CE catalog (not FONSIs at all).
 
 ## Step 1: Data at a glance
 
-The `r n_clean` decarbonization FONSIs split three ways (colors match the figure):
+The `r n_clean` decarbonization FONSIs split three ways:
 
+- **Not a recurring type** — the `r n_other` uncategorized projects: the net-new search
+  pool (a future analysis, not yet run).
+- **Recurring type, broader** — the `r n_candidate - n_ce_shaped` projects in a recurring
+  type but too large to be a CE (major rebuilds, greenfield).
 - **Bounded, low-impact → adopt** — the `r n_ce_shaped` projects in a recurring action
   type *and* small/routine enough to be CE-shaped. **Every one resolves to adopt** —
   none net-new to *develop*, none exceeding a CE limit to *expand*.
-- **Recurring type, broader** — the `r n_candidate - n_ce_shaped` projects in a recurring
-  type but too large to be a CE (major rebuilds, greenfield).
-- **Not a recurring type** — the `r n_other` uncategorized projects: the net-new search
-  pool (Analysis 3).
 
 ```{r}
 #| label: fig-d6-outcomes-waffle
@@ -645,9 +642,11 @@ a flag to read the measures, not a veto.
 
 ## How "mitigated" was determined
 
-**How this analysis works.** The model reads each FONSI once and pulls four things; we then
-test each for **recurrence** — a measure or threshold that recurs across a class can become a
-CE design criterion, an idiosyncratic one cannot:
+**How this analysis works.** The model reads each FONSI once and pulls four things (whether the
+finding depends on mitigation, what role that mitigation plays, the committed measures themselves,
+and the agency's "significant if X" thresholds); we then test each for **recurrence** — a measure
+or threshold that recurs across a class can become a CE design criterion, an idiosyncratic one
+cannot:
 
 ```{mermaid}
 %%| fig-width: 7
@@ -666,11 +665,13 @@ the **one-pass LLM enrichment (Claude Sonnet)**, the same pass used throughout t
 deliverable. For every one of the 451 FONSIs the model read the finding and the
 committed conditions and set two fields:
 
-- **`is_mitigated_fonsi`** — does the "no significant impact" finding *depend* on
+- **Is it mitigated?** — does the "no significant impact" finding *depend* on
   committed mitigation, or is the action inherently low-impact?
-- **`mitigation_dependence`** — `none` / `design_feature_only` /
-  `case_specific_dependent` / `permit_or_consultation_condition` / `monitoring_only` /
-  `unclear`.
+- **What role does the mitigation play?** — one of: **none** (inherently low-impact),
+  **design-feature-only** (impacts avoided by the project's own bounded design),
+  **case-specific-dependent** (the finding rests on committed, project-specific mitigation),
+  **permit/consultation condition** (required by another regime, not the FONSI's basis),
+  **monitoring-only**, or **unclear**.
 
 The supporting mitigation text is captured **verbatim and 97%-quote-verified**, and
 each FONSI is tagged with the **resource areas** its mitigation addresses (biological,
@@ -1070,9 +1071,6 @@ miss |> gt() |> fmt_markdown(columns = Field) |> cols_align("left", columns = ev
 
 Null booleans are read as **unknown**, never as `FALSE`; the no-evidence row is carried with a
 status flag, not silently dropped.
-
-**For CATF:** tell us which adopt opportunities to pursue, and whether to launch
-the net-new search — and we fold your direction into the next iteration.
 
 ------------------------------------------------------------------------
 
