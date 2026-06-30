@@ -127,12 +127,12 @@ federal CE catalog (not FONSIs at all).
 |---|---|---|
 | Clean EA-source FONSIs | **`r comma(n_clean)`** | decarbonization EA→FONSI projects (reconciles to D3) — the source set |
 | Enriched | **`r n_enriched`** | the LLM-read set; **`r n_excluded_noev`** no-evidence geothermal record is excluded from enrichment-dependent analyses |
-| In any candidate rule | **`r n_candidate`** | distinct projects matching a hand-picked recurring action type |
-| Rule-profiled ("CE-shaped") | **`r n_profile_rows` rows** | recurring action type + small/routine scope (the pre-filter superset) |
-| **Bounded (used throughout)** | **`r n_ce_shaped` projects / `r n_llm_bounded` rows** | rule-profiled **and** LLM-confirmed low-impact; the other `r n_profile_rows - n_llm_bounded` move to *expand/develop*, not dropped |
+| Candidate (LLM action type) | **`r n_candidate`** | distinct FONSIs the model classifies as a CE-relevant recurring action type (transmission upgrade, solar, geothermal exploration, temporary assessment, onshore wind) |
+| LLM-bounded | **`r n_llm_bounded`** | of those, the ones the model judged inherently small/routine/low-impact |
+| **CE-shaped (used throughout)** | **`r n_ce_shaped` projects** | LLM-bounded **and** — for transmission — modify-existing within an existing right-of-way; the other `r n_llm_bounded - n_ce_shaped` are *expand/develop* candidates, not dropped |
 
 - **Grain:** counts are **distinct projects** unless a figure/table is labeled *project-category rows* (one project can map to >1 candidate).
-- **These are descriptive recurrence counts, not statistically tested differences.** Candidates with **n < ~10** bounded FONSIs (geothermal 7, solar 7, temporary 2) are *illustrative* — do not read their point estimates as stable.
+- **These are descriptive recurrence counts, not statistically tested differences.** Candidates with **n < ~10** CE-shaped FONSIs (geothermal 9, solar 9, wind 7, temporary 4) are *illustrative* — do not read their point estimates as stable; only transmission (34) is well-populated.
 - **Null LLM fields are treated as *unknown*, not false.**
 - **CE matches are candidate matches pending eCFR verification**; the record is **largely pre-FRA** (historical), and the CE catalog is the **CE Explorer snapshot `r ce_snapshot`** (a discovery index — verify against current eCFR before use).
 - **One-line takeaway:** *D6 identifies candidate adoption opportunities to review — not final legal coverage determinations, not proof that no expand opportunities exist, and not evidence of current post-FRA agency behavior.*
@@ -200,12 +200,13 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes_waffle.png"))
 
 ## Steps 2-3: Sorting the FONSIs into action types and keeping bounded subsets
 
-Every decarbonization FONSI is **sorted** (Step 2) into one of **five recurring action
-types** (transmission upgrades, solar, geothermal exploration, onshore wind, temporary
-resource assessment), or left in a **residual** — the `r n_other` FONSIs that don't match a
-hand-picked rule. That residual is **not analyzed in this deliverable** (it is the net-new
-search pool for a future pass), not a sixth examined category. Within each recurring type we
-then **keep** (Step 3) the bounded subset:
+A dedicated LLM pass **classifies** (Step 2) every decarbonization FONSI into one of **five
+recurring action types** (transmission upgrades, solar, geothermal exploration, onshore wind,
+temporary resource assessment) or **"other"** — the `r n_other` FONSIs the model judged to be
+something else (funding actions, land withdrawals, studies, efficiency work, etc.). That
+"other" residual is **not analyzed in this deliverable** (it is the net-new search pool for a
+future pass), not a sixth examined category. Within each recurring type we then **keep**
+(Step 3) the CE-shaped subset:
 
 - **Bounded, low-impact** (teal) — the small, routine version that could plausibly be
   a CE: in-corridor work, short segments, previously disturbed land, no major new
@@ -228,17 +229,15 @@ n_tx_not_bounded  <- sum(.prof$candidate_category == "transmission_upgrade" &
 ```
 
 ::: {.callout-note appearance="simple"}
-**"Bounded" requires *both* the rule and the LLM.** A FONSI is first rule-profiled (recurring
-action type + small/routine scope), and we then **keep only those the one-pass LLM also judged
-inherently low-impact** (`is_bounded_low_impact == TRUE`). That two-gate filter takes the
-`r n_profile_rows` rule-profiled rows down to the **`r n_llm_bounded` bounded rows used
-throughout this report**. The **`r n_not_llm_bounded`** the model flagged as *not* low-impact
-— **`r n_tx_not_bounded` of them transmission** — are the large rebuilds (26–187 mi) and the
-one utility-scale solar; they are **not dropped from the story** but moved to the *expand /
-develop* bucket (the worked example). Separately, for **`r n_cat_mismatch` of `r n_profile_rows`**
-rule-profiled rows the LLM's free-form action category disagrees with the rule-assigned type
-(e.g. rule *solar* → model *other*); those are **flagged for review** — a QA gate to resolve
-before any count is treated as final.
+**How we define a "CE-shaped" candidate.** A dedicated LLM pass reads each FONSI and assigns its
+action type (`action_category`) and whether the action is inherently small/routine/low-impact —
+classifying by what the action physically *is*, not by keywords in the title. A candidate is
+**CE-shaped** when the model judges it low-impact **and**, for transmission, the work modifies an
+*existing* line within an existing right-of-way (not a new greenfield build). That narrows the
+**`r n_candidate`** candidate FONSIs to the **`r n_ce_shaped` CE-shaped projects used throughout
+this report**. The rest are **not dropped**: the larger rebuilds (`r n_tx_not_bounded` transmission,
+26–187 mi), utility-scale builds, and new-corridor lines move to the *expand / develop* bucket
+(the worked example), where a broadened or new CE — not adoption — would be the fit.
 :::
 
 ```{r}
@@ -368,7 +367,7 @@ score (0–1) summing six factors; the bar length is the priority and the colors
 - **Agency/state spread** — how widely the action recurs (broader = more agencies benefit).
 - **Has size limits** — whether we can state a numeric bound (easier to write the CE).
 - **Low mitigation dependence** — less reliance on case-by-case mitigation (a cleaner CE).
-- **Profile candidate** — a small bonus for being a core recurring subtype.
+- **Recurring action type** — a flat component shared by all five candidate types.
 
 So transmission ranks first not because it matches a CE most closely (it doesn't — solar
 does), but because it has **the most FONSIs across the most agencies and states**.
@@ -994,14 +993,14 @@ convergence hasn't happened yet.
 
 ## Where net-new CEs would come from
 
-Net-new CEs are empty here *by construction*: the candidate action types we
-hand-picked are all well-trodden, so all are already CE'd. But of the `r n_clean`
-decarbonization FONSIs, only `r n_candidate` fell into those types — the remaining
-**~`r n_other`** are simply **not classified by the current hand-picked candidate rules.**
+Net-new CEs are empty here *by construction*: the five candidate action types are all
+well-trodden, so each already has a CE somewhere. But of the `r n_clean` decarbonization
+FONSIs, only `r n_candidate` fell into those types — the remaining **~`r n_other`** the model
+classified as **"other"** (funding, land actions, studies, efficiency work, etc.).
 **This deliverable did not analyze that residual** — it is a count of what fell outside the
-rules, not an examined pool. Net-new CEs most plausibly live there, but confirming that
-requires the recommended next step: cluster those un-categorized FONSI action descriptions
-to surface recurring categories nobody has hand-picked.
+five candidate types, not an examined pool. Net-new CEs most plausibly live there, but
+confirming that requires the recommended next step: cluster those "other" FONSI action
+descriptions to surface recurring categories no one has named yet.
 
 # Caveats & next steps
 
@@ -1021,13 +1020,14 @@ to surface recurring categories nobody has hand-picked.
 
 The conclusions rest on a few explicit assumptions — here is how each would move the result:
 
-- **Candidate types are hand-picked** (regex / tech-group rules), so the analysis speaks
-  only to those five action classes, not an exhaustive scan; net-new lives in the
-  un-analyzed residual.
-- **"Profile / CE-shaped" is a rule label.** Filtering instead to the LLM's
-  `is_bounded_low_impact == TRUE` shrinks the bounded set from `r n_profile_rows` to
-  `r n_llm_bounded` rows (transmission `r 37 - n_tx_not_bounded`) — headline counts drop
-  accordingly.
+- **Candidate types are the five CE-relevant action classes** the model classifies into;
+  every other FONSI is "other". The analysis speaks only to those five, not an exhaustive
+  scan; net-new lives in the un-analyzed "other" residual.
+- **"CE-shaped" adds a transmission shape gate** on top of the LLM's `is_bounded_low_impact`
+  judgment (transmission must be modify-existing within an existing ROW). Dropping that gate —
+  the looser, LLM-bounded-only definition — would *raise* the set from `r n_ce_shaped` to
+  `r n_llm_bounded`, mostly by admitting large within-ROW reconductors that exceed a CE's
+  typical mileage cap.
 - **A retrieval score ≥ 0.40 is treated as a close CE.** The four matches (0.45–0.67) clear
   that comfortably, so they are insensitive to moving the cut to 0.50.
 - **The expand test keyed on numeric bounds.** The matched CEs are qualitative, so no
