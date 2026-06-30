@@ -66,9 +66,13 @@ def main() -> None:
 
     for script in PY_STEPS:
         if script == "09_wire_enrichment.py" and not ENRICHMENT.exists():
-            print(f"\n[_run] skipping 09_wire_enrichment.py — no enrichment at {ENRICHMENT.name} "
-                  "(run 03_enrich_llm.py first to LLM-back the report). Using deterministic 03/05 facts.")
-            continue
+            raise SystemExit(
+                f"\n[_run] ABORT: enrichment not found at {ENRICHMENT}.\n"
+                "The D6 report is LLM-backed; 08 and the report read fonsi_enrichment.parquet\n"
+                "unconditionally, so a deterministic build will not reproduce the reported\n"
+                "figures/claims. Run the enrichment first (billable; --dry-run for cost only):\n"
+                "  conda run -n nepa python phase2/code/deliverable06/03_enrich_llm.py --workers 4\n"
+                "  (model claude-sonnet-4-6, schema d6_enrich_schema_v5, ~451/452 FONSIs).")
         if script == "03_extract_candidate_facts.py" and args.use_llm:
             run(sys.executable, CODE_DIR / script, "--use-llm", "--model", args.model)
         else:

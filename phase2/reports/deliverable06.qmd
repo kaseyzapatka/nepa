@@ -188,6 +188,28 @@ numeric cutoff.** A FONSI is kept whether or not it states an acreage or length;
 sizes don't enter until Step 5.
 
 ```{r}
+#| echo: false
+.prof <- facts |> filter(is_profile_subtype)
+n_profile_rows    <- nrow(.prof)
+n_llm_bounded     <- sum(.prof$is_bounded_low_impact == TRUE,  na.rm = TRUE)
+n_not_llm_bounded <- sum(.prof$is_bounded_low_impact == FALSE, na.rm = TRUE)
+n_tx_not_bounded  <- sum(.prof$candidate_category == "transmission_upgrade" &
+                         .prof$is_bounded_low_impact == FALSE, na.rm = TRUE)
+```
+
+::: {.callout-note appearance="simple"}
+**"Bounded" is a rule-based label, and the LLM agrees for most but not all.** The subset is
+selected by *rule* (recurring action type + small/routine scope). The one-pass LLM read also
+judged each FONSI's `is_bounded_low_impact` independently, and **agrees for `r n_llm_bounded`
+of the `r n_profile_rows` profile rows**; it flags **`r n_not_llm_bounded`** as *not*
+inherently bounded — **`r n_tx_not_bounded` of them transmission**, i.e. the long *rebuilds*
+the worked example routes to CE #19 / *expand*. Counts here use the rule-profiled subset and
+**flag** the LLM-not-bounded cases rather than dropping them; a stricter
+`is_bounded_low_impact == TRUE` filter would tighten the bounded set to `r n_llm_bounded`
+rows (transmission `r 37 - n_tx_not_bounded`).
+:::
+
+```{r}
 #| label: fig-d6-sorting
 #| fig-cap: "Every decarbonization FONSI by action type; teal = the bounded, low-impact subset kept for matching, grey = broader projects set aside."
 #| out-width: 94%
@@ -263,9 +285,13 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_ce_match.png"))
 ## Step 5: Compare sizes against the existing CE limits (the *expand* test)
 
 **This is the only step where stated numbers matter.** The *expand* test asks whether our
-bounded FONSIs exceed the matched CE's stated size limit. They don't — because **none of
-the four matched CEs state a numeric limit at all** (they bound scope with words), so
-there is nothing to exceed and nothing resolves to *expand*.
+bounded FONSIs exceed the matched CE's stated size limit. **None of the four matched CEs
+states a numeric limit** — they bound scope with *words* ("routine," "minor," "existing
+infrastructure"), so no **numeric** expand can fire here. **That is not the same as "no
+expand opportunity exists."** Whether a qualitative CE actually covers a project has to be
+**verified against the CE text, not assumed** from the absence of a number — and the
+transmission case below (CE #19's 25-mile cap) is exactly such an expand opportunity, found
+only once the right CE is matched.
 
 It is still informative to compare our projects to the limits CEs *do* state elsewhere.
 The three metrics split cleanly — only the miles panel below is shaded green, to flag the
@@ -320,31 +346,39 @@ does), but because it has **the most FONSIs across the most agencies and states*
 knitr::include_graphics(file.path(FIGS, "fig_d6_classification.png"))
 ```
 
-## Main Finding: Adopt existing CE opportunities
+## Main Finding: Candidate CE-adoption opportunities
 
-Each of the four bounded candidate actions already has a categorical exclusion at another
-agency — **none looks net-new** (`r n_new` to *develop*), and at the action-type level all
-`r n_adopt` resolve to **adopt**. (One nuance surfaces only at the project level: a subset
-of long transmission *rebuilds* would need an **expanded** CE #19 — see the worked example.)
-Listed in **recommendation priority** (the Step 6 rank), which puts transmission first given
-its scale and reach:
+::: {.callout-warning appearance="simple"}
+**These are candidate matches, not coverage determinations.** Each pairing below is a
+*text-similarity* match between a recurring FONSI action and an existing CE at another
+agency — it flags where adoption is **worth reviewing**, not that the CE legally covers the
+action. Every match is **pending verification against the current eCFR / agency CE text**;
+treat the verdicts as a prioritized review list, not a legal conclusion.
+:::
 
-1. **Transmission upgrades** — adopt the TVA transmission CEs for in-corridor work: **#17**
+Each of the four bounded candidate actions has a **close text match to an existing
+categorical exclusion** at another agency — none looks net-new (`r n_new` to *develop*), and
+at the action-type level all `r n_adopt` are **candidate adopts** (pending verification).
+(One nuance surfaces only at the project level: a subset of long transmission *rebuilds*
+would need an **expanded** CE #19 — see the worked example.) Listed in **review priority**
+(the Step 6 rank), which puts transmission first given its scale and reach:
+
+1. **Transmission upgrades** — candidate match to the TVA transmission CEs for in-corridor work: **#17**
    for reconductoring / maintenance and **#19** for rebuilds (≤ 25 mi), so BLM, the
    power-marketing administrations, and others can stop running full EAs. Highest-impact
    case — the most FONSIs, broadest reach; the one catch is a handful of long rebuilds that
    exceed #19's 25-mile cap (*expand #19*).
-2. **Solar (CE-shaped subset)** — adopt the small-solar CE held by the **Department
+2. **Solar (CE-shaped subset)** — candidate match to the small-solar CE held by the **Department
    of Energy** (`DOE-1--5-87`), for bounded projects on previously disturbed land.
-3. **Geothermal exploration** — adopt the exploration-drilling CE held by the
+3. **Geothermal exploration** — candidate match to the exploration-drilling CE held by the
    **Department of Energy** (`DOE-1--3-43`), for slim-hole / temperature-gradient wells.
-4. **Temporary resource assessment** — adopt the site-characterization CE held by the
+4. **Temporary resource assessment** — candidate match to the site-characterization CE held by the
    **Department of Energy** (`DOE-1--3-43`), for surveys, stream gauges, and borings
    (thin evidence — only `r verdicts$n_profile_fonsi[verdicts$candidate_category=="temporary_resource_assessment"]` FONSIs).
 
 ```{r}
 #| label: tbl-d6-adopt
-#| tbl-cap: "The adopt opportunities: bounded actions already excluded at one agency but run as full EAs at others."
+#| tbl-cap: "Candidate adopt opportunities: bounded actions with a close CE match at one agency but run as full EAs at others (matches pending eCFR verification)."
 url_for <- function(id) {
   u <- ce_land$canonical_source_url[match(id, ce_land$structured_id)]
   ifelse(is.na(u) | u == "", id, glue("[{id}]({u})"))
@@ -369,7 +403,8 @@ verdicts |>
 ```
 
 The adoption gap below shows the **evidence weight** behind each opportunity — how
-many bounded FONSIs are being run as full EAs when an existing CE would cover them.
+many bounded FONSIs are being run as full EAs when a candidate-matched CE may cover them
+(pending verification).
 
 ```{r}
 #| label: fig-d6-adoption-gap
@@ -398,14 +433,14 @@ D4 timeline**, **all but one** of the dated bounded FONSIs were decided *before*
 FRA — these agencies ran full EAs without the adoption shortcut now available. (Dates
 are known for ~⅔ of the bounded set; the rest are undated in the D4 output.)
 
-This cuts two ways. **It is a real limitation:** the corpus is almost entirely pre-FRA,
-so we cannot see whether agencies have *already* started adopting these CEs since June
-2023 — the recent picture may differ, and that bounds how current these specific
-opportunities are. **But it also sharpens the recommendation:** these agencies ran full
-EAs precisely because, at the time, the streamlined adoption path did not exist. Now that
-the FRA provides it, adopting the existing CE is exactly the efficiency the record points
-to. The clear next step is to refresh the corpus with post-FRA EAs and check whether the
-shift is already underway.
+**This makes the finding a historical one.** The corpus is almost entirely pre-FRA, so it
+shows **where full EAs were run before the adoption shortcut existed** — it identifies
+where adoption review is **likely worthwhile**, not that agencies are still running these
+EAs today. So the recommendation is: *pre-FRA EAs indicate likely adoption opportunities,
+pending a post-FRA refresh.* **Before any client action, that refresh is required** — check
+current CE-adoption use, recent (post-June-3-2023) EA/FONSI recurrence, and any agency
+implementation guidance since the FRA. Until then these are candidates to review, not a
+claim about current agency behavior.
 
 ```{r}
 #| label: fig-d6-timeline
@@ -606,12 +641,13 @@ the action being inherently low-impact.
 
 ## Examples: the committed mitigation
 
-So you can verify the read, here are verbatim mitigation summaries the model extracted
-(each tagged case-specific-dependent):
+So you can verify the read, here are the model's **mitigation summaries** for FONSIs tagged
+case-specific-dependent. These are **LLM-extracted summaries, not verbatim quotes** — the
+verbatim, quote-verified text lives in the boundary table below and in `evidence_cited`:
 
 ```{r}
 #| label: tbl-d6-mitigation-examples
-#| tbl-cap: "Sample committed-mitigation summaries, verbatim from the cited record (titles link to the document explorer)."
+#| tbl-cap: "Sample committed-mitigation summaries (LLM-extracted from the cited FONSI/EA — model summaries, not verbatim quotes; titles link to the document explorer)."
 EXPLORER <- "https://huggingface.co/spaces/kaseyzapatka/nepa-document-explorer"
 enr |>
   filter(is_mit, !is.na(mitigation_summary), nchar(mitigation_summary) > 80) |>
@@ -620,7 +656,7 @@ enr |>
   slice_head(n = 5) |>
   transmute(
     `Project Title` = glue("[{str_squish(project_title)}]({EXPLORER}?pid={project_id})"),
-    `Committed mitigation (verbatim summary)` = str_trunc(str_squish(mitigation_summary), 240)
+    `Committed mitigation (LLM summary)` = str_trunc(str_squish(mitigation_summary), 240)
   ) |>
   gt() |>
   fmt_markdown(columns = `Project Title`) |>
@@ -680,10 +716,12 @@ Each is a verbatim, span-verified quote; real examples:
 #| tbl-cap: "Verbatim significance-threshold statements — candidate numeric/qualitative bounds for a CE (titles link to the document explorer)."
 first_threshold <- function(j) {
   x <- tryCatch(fromJSON(j, simplifyVector = FALSE), error = function(e) list())
+  # keep project-specific thresholds; drop generic NEPA/CEQA significance *definitions*
+  keep_rx <- "significan|exceed|\\bEIS\\b|threshold|not to exceed|provided|unless|greater than"
+  drop_rx <- "(?i)defines? significan|is defined (by|under|as)|definition of|\\bCEQA\\b|context and intensity|40 ?CFR|\\b1508"
   for (t in x) {
     s <- if (is.null(t$statement)) "" else t$statement
-    if (nchar(s) > 45 && grepl("significan|exceed|\\bEIS\\b|threshold|not to exceed|provided|unless|greater than",
-                               s, ignore.case = TRUE))
+    if (nchar(s) > 45 && grepl(keep_rx, s, ignore.case = TRUE) && !grepl(drop_rx, s))
       return(s)
   }
   ""
@@ -816,6 +854,8 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_ce_scatter.png"))
 under near-identical language. **`r n_xdup` CEs have a near-twin at a different
 agency**, forming **`r n_xclust` shared "action families."** Adopting a peer's CE — the
 exact move Analysis 1 recommends — is not unusual; it is how the landscape already works.
+*This shows adoption is **common** in the CE corpus; it does **not** verify that the four
+shortlisted CE matches actually cover the D6 actions — that remains the pending eCFR check.*
 
 Each row below is **one shared family** (not a single example): the action, how many
 agencies use a near-identical CE for it, and a few of those agencies.
@@ -874,15 +914,28 @@ the net-new search — and we fold your direction into the next iteration.
 
 # Reproduction
 
-Run from the repository root in the `nepa` conda environment:
+The report is **LLM-backed**: action facts, numeric limits, mitigation, and significance
+thresholds all come from a one-pass enrichment of the FONSIs. That enrichment is a
+**prerequisite** and is **not** regenerated by `_run.py`. From the repository root in the
+`nepa` conda environment:
 
 ``` bash
+# 1. LLM enrichment (REQUIRED first; billable Anthropic pass, --dry-run for cost only)
+#    model claude-sonnet-4-6, schema d6_enrich_schema_v5, ~451/452 FONSIs ->
+#    data/analysis/deliverable06/fonsi_enrichment.parquet
+conda run -n nepa python phase2/code/deliverable06/03_enrich_llm.py --workers 4
+
+# 2. deterministic chain 01->08 (09 wires the enrichment into facts/verdicts)
 conda run -n nepa python phase2/code/deliverable06/_run.py
+
+# 3. render
 quarto render phase2/reports/deliverable06.qmd
 ```
 
-`_run.py` executes the numbered chain `01`→`08` (the `08_analyze.R` figures step
-needs `Rscript`). Outputs are written to:
+`_run.py` executes the numbered chain `01`→`08` (the `08_analyze.R` figures step needs
+`Rscript`). **Without step 1 it now aborts at `09_wire_enrichment.py`** — 08 and this report
+read `fonsi_enrichment.parquet` unconditionally, so a deterministic build does not reproduce
+the reported figures and claims. Outputs are written to:
 
 -   `phase2/data/analysis/deliverable06/` — analysis parquets (verdicts, mitigation, CE landscape/clusters)
 -   `phase2/output/deliverable06/` — `figures/`, the slim comparison table, and `review/` drill-down tables
