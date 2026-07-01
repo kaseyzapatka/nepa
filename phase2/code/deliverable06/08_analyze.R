@@ -191,7 +191,8 @@ winners <- sz %>% group_by(metric, group) %>% summarise(med = median(value), .gr
 p_sizes <- ggplot(sz, aes(x = value, y = group)) +
   geom_rect(data = winners, aes(fill = group), xmin = -Inf, xmax = Inf, ymin = -Inf, ymax = Inf,
             alpha = 0.12, inherit.aes = FALSE) +
-  geom_jitter(aes(color = group), height = 0.18, width = 0, size = 1.5, alpha = 0.28) +   # dots UNDER the box, faint
+  geom_jitter(aes(color = group), position = position_jitter(height = 0.18, width = 0, seed = 6),
+              size = 1.5, alpha = 0.28) +   # dots UNDER the box, faint; seeded so the layout is reproducible
   geom_boxplot(aes(color = group), width = 0.55, fill = NA, outlier.shape = NA, linewidth = 0.75, fatten = 2.2) +  # box ON TOP so median is visible
   geom_text(data = ncount, aes(x = Inf, y = group, label = paste0("n = ", n)), inherit.aes = FALSE,
             hjust = 1.1, size = 2.8, color = "gray45") +
@@ -440,15 +441,19 @@ CE_TOPICS <- c("0" = "Property leases, licenses, and permits", "1" = "Geological
                "6" = "Monitoring and rights-of-way", "7" = "Airport layout plans and monitoring equipment")
 if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
   sc    <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(cl = factor(cluster_km))
+  cl_lab <- sc %>% group_by(cl) %>%
+    summarise(x = median(coord_x), y = median(coord_y), lab = str_wrap(first(cluster_label), 16), .groups = "drop")
   pal_cl <- setNames(RColorBrewer::brewer.pal(max(3, nlevels(sc$cl)), "Set2")[seq_len(nlevels(sc$cl))], levels(sc$cl))
   topic_labs <- dplyr::coalesce(CE_TOPICS[levels(sc$cl)], levels(sc$cl))   # legend keys = the topic labels
   p_scatter <- ggplot(sc, aes(coord_x, coord_y)) +
     geom_point(aes(color = cl), size = 1.5, alpha = 0.7) +
+    geom_label(data = cl_lab, aes(x, y, label = lab), size = 2.6, fontface = "bold", color = catf_navy,
+               fill = "white", alpha = 0.8, label.size = 0, lineheight = 0.85) +
     scale_color_manual(values = pal_cl, labels = topic_labs, name = NULL,
                        guide = guide_legend(override.aes = list(size = 4.5, alpha = 1), ncol = 2)) +
     labs(title = "How related are the existing CEs?",
-         subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = topic family.",
-                  "Closer = more similar wording; families recur across departments."), 95),
+         subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = topic family,",
+                  "labeled on the map by its top terms. Closer = more similar wording; families recur across departments."), 95),
          x = NULL, y = NULL,
          caption = "Many families recur across departments — the precedent for adopt.") +
     theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank(),
