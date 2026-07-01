@@ -58,6 +58,44 @@ mit      <- read_parquet(file.path(ANALYSIS, "candidate_mitigation_summary.parqu
 ce_land  <- read_parquet(file.path(ANALYSIS, "ce_landscape_ces.parquet"))
 facts    <- read_parquet(file.path(ANALYSIS, "candidate_facts.parquet")) %>% mutate(project_id = as.character(project_id))
 
+# ---- HERO: tech_group x action coverage grid (refactor centerpiece) --------
+.act_levels <- c("new_build", "upgrade", "maintenance", "decommissioning", "exploration",
+                 "assessment", "interconnection", "research_or_demonstration", "manufacturing",
+                 "land_or_row_authorization", "other")
+grid_df <- verdicts %>%
+  mutate(
+    disp = case_when(
+      n_profile_fonsi == 0              ~ "thin",
+      verdict == "new" & is_codifiable  ~ "develop",
+      verdict == "new" & !is_codifiable ~ "develop-excluded",
+      verdict == "expand"               ~ "expand",
+      verdict == "adopt"                ~ "adopt",
+      TRUE                              ~ "covered"),
+    disp = factor(disp, levels = c("develop", "expand", "adopt", "covered", "develop-excluded", "thin")),
+    action = factor(action, levels = .act_levels),
+    txtcol = ifelse(disp %in% c("covered", "develop-excluded", "thin"), "grey30", "white"))
+.tech_order <- verdicts %>% group_by(tech_group) %>%
+  summarise(n = sum(n_profile_fonsi), .groups = "drop") %>% arrange(n) %>% pull(tech_group)
+grid_df$tech_group <- factor(grid_df$tech_group, levels = .tech_order)
+.pal_v <- c("develop" = catf_lime, "expand" = "#E8A33D", "adopt" = catf_dark_blue,
+            "covered" = catf_grey, "develop-excluded" = "#B8C4A0", "thin" = "#F1F3F6")
+p_grid <- ggplot(grid_df, aes(action, tech_group, fill = disp)) +
+  geom_tile(color = "white", linewidth = 0.7) +
+  geom_text(aes(label = ifelse(n_profile_fonsi > 0, n_profile_fonsi, "")),
+            color = grid_df$txtcol, size = 3.1, fontface = "bold") +
+  scale_fill_manual(values = .pal_v, name = NULL, drop = FALSE,
+                    breaks = c("adopt", "expand", "develop", "develop-excluded", "covered")) +
+  scale_x_discrete(labels = function(x) str_wrap(str_replace_all(x, "_", " "), 10)) +
+  labs(title = "Clean-energy CE coverage map — technology × action",
+       subtitle = "number = CE-shaped FONSIs · color = verdict · develop = a recurring action with no existing CE",
+       x = NULL, y = NULL,
+       caption = paste("Develop verdicts are candidates pending eCFR review.",
+                       "develop-excluded = non-codifiable (manufacturing / land authorization).")) +
+  theme_catf() +
+  theme(legend.position = "bottom", panel.grid = element_blank(),
+        axis.text.x = element_text(size = 8), axis.text.y = element_text(size = 10))
+save_fig(p_grid, "fig_d6_coverage_grid.png", w = 11.5, h = 6)
+
 # "bounded" / CE-shaped = the Rule-B flag from 09 (LLM-bounded + transmission shape gate).
 # candidate_facts is now the candidate set itself: one row per FONSI, keyed on corrected action_category.
 facts        <- facts %>% mutate(is_bounded = is_ce_shaped %in% TRUE)

@@ -92,8 +92,8 @@ def main() -> None:
     ce = pd.read_parquet(CE) if CE.exists() else pd.DataFrame()
     mit = pd.read_parquet(MIT).set_index("candidate_category") if MIT.exists() else pd.DataFrame()
 
-    # categories are now the corrected action_category values present in candidate_facts
-    cats = [c for c in CAND_ORDER if c in set(facts["candidate_category"])]
+    # categories are now the tech_group x action grid cells present in candidate_facts (refactor)
+    cats = sorted(set(facts["candidate_category"]))
     rows = []
     for cat in cats:
         cat_facts = facts[facts["candidate_category"].eq(cat)]
@@ -102,6 +102,9 @@ def main() -> None:
         n_focus = len(focus)
         role = "profile"                                  # all corrected candidates are actionable
         label = str(cat_facts["candidate_label"].iloc[0])
+        cell_tech = str(cat_facts["tech_group"].iloc[0]) if "tech_group" in cat_facts.columns else ""
+        cell_action = str(cat_facts["action"].iloc[0]) if "action" in cat_facts.columns else ""
+        cell_codif = bool(cat_facts["is_codifiable"].iloc[0]) if "is_codifiable" in cat_facts.columns else True
         n_observed = int(cat_facts["project_id"].nunique())
 
         # our FONSI agencies/states from the CE-shaped subset (now carried in candidate_facts)
@@ -171,6 +174,7 @@ def main() -> None:
 
         rows.append({
             "candidate_category": cat, "candidate_label": label,
+            "tech_group": cell_tech, "action": cell_action, "is_codifiable": cell_codif,
             "role": role, "verdict": verdict, "rank_score": rank_score,
             "rank_novelty": c_novelty, "rank_volume": c_volume, "rank_diversity": c_diversity,
             "rank_limits": c_limits, "rank_mitigation": c_mitigation, "rank_role": c_role,
@@ -210,8 +214,13 @@ def main() -> None:
     slim.to_csv(COMPARISON, index=False)
 
     # --- REVIEW (drill-down, not client-facing): three lists + per-candidate evidence ---
+    # d6_new.csv is the CLIENT develop shortlist -> exclude non-codifiable cells (manufacturing,
+    # land/ROW authorization). They remain in candidate_verdicts for the grid coloring.
     for v, fn in (("new", "d6_new.csv"), ("expand", "d6_expand.csv"), ("adopt", "d6_adopt.csv")):
-        verdicts[verdicts["verdict"].eq(v)].to_csv(D6_REVIEW_DIR / fn, index=False)
+        sub = verdicts[verdicts["verdict"].eq(v)]
+        if v == "new":
+            sub = sub[sub["is_codifiable"] == True]
+        sub.to_csv(D6_REVIEW_DIR / fn, index=False)
     for cat in cats:
         f = facts[facts["candidate_category"].eq(cat)]
         f = f[f["is_bounded"]] if f["is_bounded"].any() else f
