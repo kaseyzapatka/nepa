@@ -584,17 +584,18 @@ phrases <- bind_rows(
   mutate(wl = if_else(is.na(w3) | w3 == "", w2, w3)) %>%
   filter(!w1 %in% ng_stop, !wl %in% ng_stop, nchar(w1) >= 3, nchar(wl) >= 3,
          !str_detect(ngram, "mitigat|measure")) %>%   # phrase bounded by content words; drop framing words (item 2)
-  count(ngram, sort = TRUE) %>% filter(n >= 2)
-# collapse plural / substring variants so one recurring entity (e.g. 'desert tortoise') doesn't fill
-# the cloud as 'desert tortoise' + 'desert tortoises' + 'desert tortoise habitat' — keep the top form
-.kept <- character(0)
-for (.g in phrases$ngram) {
-  .gn <- gsub("s\\b", "", .g)
-  if (!any(vapply(.kept, function(k) { .kn <- gsub("s\\b", "", k)
-        grepl(.gn, .kn, fixed = TRUE) || grepl(.kn, .gn, fixed = TRUE) }, logical(1))))
-    .kept <- c(.kept, .g)
-}
-phrases <- phrases %>% filter(ngram %in% .kept) %>% slice_head(n = 40)
+  count(ngram, sort = TRUE)
+# Normalize variants by STEMMING every word (plurals + verb/noun forms), then aggregate their counts
+# under one key and display the most common surface form. So 'desert tortoise' + 'desert tortoises'
+# count together (and show as 'desert tortoise'), 'revegetation' + 'revegetate' together, etc. — for
+# ALL words, not just one. Stem is the grouping key only; the cloud still shows real words.
+.stemkey <- function(g) paste(SnowballC::wordStem(strsplit(g, " ", fixed = TRUE)[[1]], language = "en"),
+                              collapse = " ")
+phrases <- phrases %>%
+  mutate(key = vapply(ngram, .stemkey, character(1))) %>%
+  group_by(key) %>%
+  summarise(ngram = ngram[which.max(n)], n = sum(n), .groups = "drop") %>%   # top surface form + summed count
+  filter(n >= 2) %>% arrange(desc(n)) %>% slice_head(n = 40)
 set.seed(6)
 p_wc <- ggplot(phrases, aes(label = ngram, size = n, color = n)) +
   geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE, eccentricity = 0.65) +
