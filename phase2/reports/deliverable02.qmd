@@ -49,6 +49,12 @@ cat(if (is_dry)
 ```
 :::
 
+This report delivers:
+
+> Determinations of significance across resource areas; factors that contribute to a determination of "significant impact," starting with mitigated FONSIs.
+
+---
+
 ## Context
 
 When a clean-energy project — a solar farm, a transmission line — needs federal approval, the
