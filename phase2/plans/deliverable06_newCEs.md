@@ -1,6 +1,12 @@
 # Deliverable 6 — Analysis 4: Net-new CE discovery from the "other" residual
 
-**Status:** plan, revised after Codex review (not yet built).
+**Status:** ⚠️ **SUPERSEDED (2026-06-30) by `deliverable06_refactor.md`.** The tech × action grid
+replaces this plan's HDBSCAN clustering front-end and its 314-"other" universe (every FONSI now lands
+in a grid cell; the `develop` pool is the grid's no-CE cells, not the 314). This plan's **back-end is
+absorbed** into the refactor — the CE-retrieval gate, `codifiability` screen, bounded gate, recurrence
+× spread ranking, and "candidate, pending review" framing all carry over to the grid's develop cells.
+Do **not** implement this plan's clustering/QA (`clustered + noise == 314`) as written. Kept for the
+back-end design record only. (Prior status: plan, revised after Codex review, not yet built.)
 **Author:** Claude. **Reviewed:** Codex, 2026-06-30 (`phase2/plans/deliverable06_newCEs_feedback.md`);
 second independent review round applied 2026-06-30 (see §13).
 **Scope:** a new sub-analysis of D6 that examines the FONSIs the candidate pipeline set aside, to
