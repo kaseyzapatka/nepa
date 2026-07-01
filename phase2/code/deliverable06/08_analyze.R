@@ -150,7 +150,7 @@ sortL <- dd %>% mutate(Broader = total - bounded, Bounded = bounded) %>%
   pivot_longer(c(Bounded, Broader), names_to = "subset", values_to = "n") %>%
   group_by(lab) %>% mutate(share = n / sum(n)) %>% ungroup() %>%
   mutate(subset = factor(subset, levels = c("Broader", "Bounded")))
-p_sort <- ggplot(sortL, aes(y = reorder(lab, bounded), x = n, fill = subset)) +
+p_sort <- ggplot(sortL, aes(y = reorder(lab, bounded / total), x = n, fill = subset)) +
   geom_col(position = "fill", width = 0.7) +
   geom_text(aes(label = ifelse(share >= 0.06, paste0(percent(share, 1), " (", n, ")"), "")),
             position = position_fill(vjust = 0.5), color = "white", fontface = "bold", size = 3) +
@@ -485,8 +485,10 @@ CE_TOPICS <- c("0" = "Property leases, licenses, and permits", "1" = "Geological
 if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
   sc    <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(cl = factor(cluster_km))
   cl_lab <- sc %>% group_by(cl) %>%
-    summarise(x = median(coord_x), y = median(coord_y), lab = str_wrap(first(cluster_label), 16), .groups = "drop")
-  pal_cl <- setNames(RColorBrewer::brewer.pal(max(3, nlevels(sc$cl)), "Set2")[seq_len(nlevels(sc$cl))], levels(sc$cl))
+    summarise(x = median(coord_x), y = median(coord_y), .groups = "drop") %>%
+    # on-map labels use the SAME CE_TOPICS names as the legend, so map and legend match
+    mutate(lab = str_wrap(dplyr::coalesce(CE_TOPICS[as.character(cl)], as.character(cl)), 18))
+  pal_cl <- setNames(c("#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E","#E6AB02","#A6761D","#012169")[seq_len(nlevels(sc$cl))], levels(sc$cl))
   topic_labs <- dplyr::coalesce(CE_TOPICS[levels(sc$cl)], levels(sc$cl))   # legend keys = the topic labels
   p_scatter <- ggplot(sc, aes(coord_x, coord_y)) +
     geom_point(aes(color = cl), size = 1.5, alpha = 0.7) +
@@ -496,7 +498,7 @@ if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
                        guide = guide_legend(override.aes = list(size = 4.5, alpha = 1), ncol = 2)) +
     labs(title = "How related are the existing CEs?",
          subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = topic family,",
-                  "labeled on the map by its top terms. Closer = more similar wording; families recur across departments."), 95),
+                  "labeled on the map by that family's name. Closer = more similar wording; families recur across departments."), 95),
          x = NULL, y = NULL,
          caption = "Many families recur across departments — the precedent for adopt.") +
     theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank(),
@@ -548,7 +550,9 @@ if (file.exists(clusters_file) && requireNamespace("ggupset", quietly = TRUE)) {
                               combmatrix.label.text = element_text(size = 9, color = catf_navy)) +
     labs(title = glue::glue("Which departments share the same CE 'twin' families ({nrow(xa)} cross-agency families)"),
          subtitle = str_wrap(paste("Each bar = the number of near-identical CE families shared by exactly that set of",
-                  "departments (top 12 combinations); a filled dot below marks the departments in the combination."), 104),
+                  "departments (top 12 combinations); a filled dot below marks the departments. A single-department bar",
+                  "(e.g. DOD) = families shared across that department's own sub-agencies (Army, Navy, Air Force…) —",
+                  "not one department holding that many duplicate CEs."), 104),
          x = NULL, y = "Twin families") +
     theme(plot.title = element_text(face = "bold", color = catf_navy, size = 13),
           plot.subtitle = element_text(color = catf_dark_blue),
@@ -616,47 +620,44 @@ p_share <- ggplot(share, aes(x = n, y = reorder(lab, n), fill = share)) +
   theme_catf() + theme(legend.position = "none")
 save_fig(p_share, "fig_d6_mitigated_share.png", w = 10, h = 4.2)
 
-# Fig: PHRASE cloud (2-3 grams) of committed-mitigation language — surfaces measures, not generic words
+# Fig (A2.5): the ROLES mitigation plays — mechanism types derived from the committed-mitigation
+# text (multi-label: a mitigated FONSI can rely on several mechanisms). Replaces the earlier phrase cloud.
+mit_roles <- enr %>% filter(is_mit, !is.na(mitigation_summary), nchar(mitigation_summary) > 20) %>%
+  transmute(project_id, t = tolower(mitigation_summary))
+role_defs <- list(
+  "Consultation / permit condition"       = "shpo|section 106|section 7|\\besa\\b|biological opinion|consult|\\bpermit|tribal|fish and wildlife|\\busfws\\b|clean water act",
+  "Species / habitat protection"          = "raptor|nest|tortoise|migratory bird|special[ -]status|endangered|threatened|burrowing owl|habitat|wildlife|\\beagle|\\bbat\\b",
+  "Avoidance / buffer / setback"          = "avoid|buffer|setback|exclusion zone|\\bflag|no[ -]disturbance|stay out|restrict\\w*[^.]{0,20}(access|vehicle|route)",
+  "Timing / seasonal restriction"         = "seasonal|nesting season|breeding season|time[ -]of[ -]year|dry season|\\bwindow\\b|between [a-z]+ [0-9]|from [a-z]+ [0-9]",
+  "Monitoring"                            = "monitor|pre[ -]construction survey|biological monitor|archaeolog\\w*[^.]{0,15}monitor|\\binspection",
+  "Erosion / dust / spill / reveg (BMPs)" = "erosion|sediment|stormwater|\\bswppp|\\bdust|spill prevention|reveget|reseed|restor|reclaim|best management")
+role_cols <- names(role_defs)
+for (nm in role_cols) mit_roles[[nm]] <- str_detect(mit_roles$t, role_defs[[nm]])
+mit_roles[["Other / unclassified"]] <- !Reduce(`|`, mit_roles[role_cols])
+n_mit_role <- nrow(mit_roles)
+roles_long <- mit_roles %>%
+  tidyr::pivot_longer(c(all_of(role_cols), "Other / unclassified"), names_to = "role", values_to = "hit") %>%
+  group_by(role) %>% summarise(n = sum(hit), .groups = "drop") %>%
+  mutate(share = n / n_mit_role) %>% arrange(desc(n))
+p_roles <- ggplot(roles_long, aes(x = n, y = reorder(role, n))) +
+  geom_col(fill = catf_navy, width = 0.68) +
+  geom_text(aes(label = paste0(n, "  (", percent(share, 1), ")")), hjust = -0.06,
+            size = 3.3, fontface = "bold", color = catf_navy) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.20))) +
+  labs(title = glue::glue("What role does the committed mitigation play? ({n_mit_role} mitigated FONSIs)"),
+       subtitle = str_wrap(paste("Share of mitigated FONSIs whose committed mitigation includes each mechanism type,",
+                "derived from the mitigation-summary text. A FONSI can use several, so shares sum to >100%."), 88),
+       x = "Mitigated FONSIs", y = NULL,
+       caption = "The mechanisms are case-by-case — consultation, monitoring, site-specific avoidance — not standard, transferable design features.") +
+  theme_catf() + theme(legend.position = "none")
+save_fig(p_roles, "fig_d6_mitigation_roles.png", w = 9.5, h = 5)
+
+# stopwords for the significance-threshold phrase bars below (previously defined in the removed word cloud block)
 ng_stop <- unique(c(tidytext::stop_words$word, letters,
             "project","projects","mitigation","measures","measure","impacts","impact","action","proposed","applicant",
             "construction","area","areas","resources","resource","plan","plans","sites","federal","state","local",
             "appropriate","implement","implemented","minimize","reduce","reducing","avoid","potential","including",
             "activities","management","require","required","ensure","provide","within","prior","conducted","completed"))
-mit_df <- enr %>% filter(is_mit, !is.na(mitigation_summary)) %>%
-  transmute(doc = row_number(), text = str_replace_all(tolower(mitigation_summary), "[^a-z ]", " "))
-phrases <- bind_rows(
-    tidytext::unnest_tokens(mit_df, ngram, text, token = "ngrams", n = 2),
-    tidytext::unnest_tokens(mit_df, ngram, text, token = "ngrams", n = 3)) %>%
-  filter(!is.na(ngram), ngram != "") %>%
-  tidyr::separate(ngram, into = c("w1", "w2", "w3"), sep = " ", fill = "right", remove = FALSE) %>%
-  mutate(wl = if_else(is.na(w3) | w3 == "", w2, w3)) %>%
-  filter(!w1 %in% ng_stop, !wl %in% ng_stop, nchar(w1) >= 3, nchar(wl) >= 3,
-         !str_detect(ngram, "mitigat|measure")) %>%   # phrase bounded by content words; drop framing words (item 2)
-  count(ngram, sort = TRUE)
-# Normalize variants by STEMMING every word (plurals + verb/noun forms), then aggregate their counts
-# under one key and display the most common surface form. So 'desert tortoise' + 'desert tortoises'
-# count together (and show as 'desert tortoise'), 'revegetation' + 'revegetate' together, etc. — for
-# ALL words, not just one. Stem is the grouping key only; the cloud still shows real words.
-.stemkey <- function(g) paste(SnowballC::wordStem(strsplit(g, " ", fixed = TRUE)[[1]], language = "en"),
-                              collapse = " ")
-phrases <- phrases %>%
-  mutate(key = vapply(ngram, .stemkey, character(1))) %>%
-  group_by(key) %>%
-  summarise(ngram = ngram[which.max(n)], n = sum(n), .groups = "drop") %>%   # top surface form + summed count
-  filter(n >= 2) %>% arrange(desc(n)) %>% slice_head(n = 40)
-set.seed(6)
-p_wc <- ggplot(phrases, aes(label = ngram, size = n, color = n)) +
-  geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE, eccentricity = 0.65) +
-  scale_size_area(max_size = 26) +
-  scale_color_gradient(low = catf_light_blue, high = catf_navy) +
-  labs(title = "The committed-mitigation language is project-specific",
-       subtitle = str_wrap(glue::glue("Most-frequent 2–3 word phrases across the {n_mit} mitigated FONSIs' mitigation ",
-                             "summaries — no phrase dominates, consistent with case-specific (not standardized) measures"), 95)) +
-  theme_void(base_size = 12) +
-  theme(plot.title = element_text(face = "bold", color = catf_navy),
-        plot.subtitle = element_text(color = catf_dark_blue, margin = margin(b = 2)),
-        plot.margin = margin(1, 1, 1, 1), legend.position = "none")
-save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 8, h = 4.6)
 
 # Fig: the recurring significance THRESHOLDS — what agencies said WOULD make an impact significant
 parse_sig <- function(j) {
