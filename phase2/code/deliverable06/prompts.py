@@ -232,3 +232,154 @@ def enrichment_tool_schema() -> dict:
             props[name] = _json_type(jtype)
     return {"type": "object", "properties": props,
             "required": [n for n, _t, _d in ENRICHMENT_FIELDS]}
+
+
+# ===========================================================================
+# Stage 2 — action CLASSIFICATION (cheap, separately cached).
+#
+# The extraction `action_category` above gives the model only six BARE LABELS with no
+# definitions and no enum constraint, so keyword-similar actions are mislabeled
+# (a botanical "Experimental Garden Array" -> solar; a BLM land withdrawal -> solar;
+# a VHF two-way-radio upgrade -> transmission). This stage re-asks ONLY the category,
+# from the already-extracted summary, with real definitions + an enum-constrained
+# schema. 03_enrich_llm.py runs it as `--stage classify` (reuses the cached extraction;
+# ~$1.4 for 451) and OVERWRITES action_category. Bump CLASSIFICATION_PROMPT_VERSION to
+# force a classify-only re-run — the expensive extraction cache is untouched.
+# ===========================================================================
+
+CLASSIFICATION_PROMPT_VERSION = "d6_classify_prompt_v2"   # v2: precedence rules + edge-case guidance
+
+ACTION_CATEGORIES = [
+    "transmission_upgrade", "solar", "geothermal_exploration",
+    "temporary_resource_assessment", "wind_onshore", "other",
+]
+
+
+def build_classification_prompt(title: str, action_summary: str, key_activities: str,
+                                action_label: str, purpose_and_need: str) -> str:
+    """The Stage-2 classifier prompt. Operates on the cached extraction summary (no
+    document re-read). Classify by the physical action, not by keywords — the rules
+    below name the exact failure modes observed in the first pass."""
+    return (
+        "TASK: Classify ONE U.S. federal NEPA action into a clean-energy action type, to support "
+        "categorical-exclusion (CE) development. You are given the already-extracted summary of an "
+        "Environmental Assessment (EA) that ended in a Finding of No Significant Impact (FONSI). "
+        "Decide what the federal action PHYSICALLY IS.\n\n"
+        "Classify by the physical action, NOT by keywords in the title or summary:\n"
+        "- Funding, grants, financial assistance, loan guarantees, or programmatic budget decisions are "
+        "'other' — even if they fund a solar/wind/transmission project (the federal action is the funding).\n"
+        "- Studies, research installations, demonstrations, and experimental arrays (e.g. a botanical "
+        "'garden array') are 'other'.\n"
+        "- Land withdrawals, right-of-way grants, leases, and land-management/planning decisions are 'other'.\n"
+        "- Energy-efficiency retrofits, building upgrades, communications/IT, and control/SCADA systems are 'other'.\n"
+        "- Standalone battery / energy-storage projects are 'other'; a solar+storage project IS 'solar' when the "
+        "solar generation is the action.\n"
+        "- A NEW transmission line on NEW (greenfield) right-of-way is 'other'.\n\n"
+        "CATEGORIES:\n"
+        "- transmission_upgrade: physically MODIFYING an EXISTING electric transmission OR distribution line — "
+        "rebuild, reconductor, voltage upgrade, structure replacement, or a substation/interconnection upgrade to "
+        "existing grid infrastructure. A new line or circuit placed WITHIN an existing right-of-way or developed "
+        "corridor also counts here.\n"
+        "- solar: constructing or operating a solar photovoltaic or solar-thermal ELECTRICITY-GENERATION facility "
+        "(including its dedicated gen-tie / interconnection).\n"
+        "- geothermal_exploration: geothermal temperature-gradient / exploratory drilling, or geophysical survey "
+        "for geothermal resources (a geothermal POWER PLANT is 'other').\n"
+        "- temporary_resource_assessment: TEMPORARY site characterization that leaves NO permanent facility — "
+        "meteorological (met) towers, geotechnical borings, surveys, monitoring — for ANY technology.\n"
+        "- wind_onshore: constructing or operating PERMANENT onshore wind TURBINES (a generating facility).\n"
+        "- other: anything that does not clearly and physically match one of the above.\n\n"
+        "PRECEDENCE (resolve overlaps in this order):\n"
+        "1. Geothermal exploratory drilling/survey -> geothermal_exploration (not temporary_resource_assessment).\n"
+        "2. TEMPORARY testing for wind or solar (met towers, surveys, borings, monitoring) -> "
+        "temporary_resource_assessment, NOT wind_onshore or solar; wind_onshore and solar are only for PERMANENT "
+        "generating facilities.\n"
+        "3. A standalone substation/gen-tie interconnecting a NEW generator -> that generator's type (solar/wind) "
+        "if the generation is the federal action; otherwise 'other'.\n\n"
+        f"INPUT:\n  title: {title}\n  action_summary: {action_summary}\n  key_activities: {key_activities}\n"
+        f"  action_label: {action_label}\n  purpose_and_need: {purpose_and_need}\n\n"
+        "Return action_category (exactly one of the six), classification_confidence (high/medium/low), and "
+        "classification_rationale (one sentence grounded in the input)."
+    )
+
+
+def classification_tool_schema() -> dict:
+    """Enum-constrained tool schema — the model cannot return an off-list category."""
+    return {"type": "object", "properties": {
+        "action_category": {"type": "string", "enum": ACTION_CATEGORIES},
+        "classification_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "classification_rationale": {"type": "string"}},
+        "required": ["action_category", "classification_confidence", "classification_rationale"]}
+
+
+# ===========================================================================
+# Stage 3 — ACTION-VERB labeling (refactor: tech_group x action grid).
+#
+# Assigns each FONSI's action a controlled verb WITHIN its tech_group, so the categorizer
+# (09) can form `tech_group__action` grid cells. Operates on the cached extraction summary
+# (no document re-read). `is_codifiable` is derived DETERMINISTICALLY from the verb (not the
+# LLM). 10_action_label.py runs this; bump ACTIONLABEL_PROMPT_VERSION to force a re-run.
+# ===========================================================================
+
+ACTIONLABEL_PROMPT_VERSION = "d6_actionlabel_v1"
+
+ACTION_VERBS = [
+    "new_build", "upgrade", "maintenance", "decommissioning", "exploration",
+    "assessment", "research_or_demonstration", "manufacturing", "interconnection",
+    "land_or_row_authorization", "other",
+]
+
+# a CE codifies a PHYSICAL action, not funding / manufacturing / administrative acts
+NON_CODIFIABLE_VERBS = {"manufacturing", "land_or_row_authorization"}
+
+
+def is_codifiable_for(action_verb: str) -> bool:
+    """Deterministic is_codifiable from the verb — no LLM. Manufacturing (a factory) and
+    land/ROW authorizations (administrative) are not physical actions a CE can codify."""
+    return action_verb not in NON_CODIFIABLE_VERBS
+
+
+def build_action_label_prompt(tech_group: str, action_summary: str, key_activities: str,
+                              action_label: str, purpose_and_need: str) -> str:
+    """Label the physical action with one controlled verb. Operates on the cached summary."""
+    return (
+        "TASK: Label ONE U.S. federal NEPA action with the single action VERB that best describes "
+        "what the federal action PHYSICALLY DOES, to support categorical-exclusion (CE) development. "
+        "You are given the already-extracted summary of an EA that ended in a FONSI, plus its technology "
+        "group. Choose the verb by the physical action, NOT by keywords in the title or summary.\n\n"
+        "VERBS:\n"
+        "- new_build: constructing a NEW generating facility, plant, or line (greenfield or a new unit).\n"
+        "- upgrade: physically MODIFYING EXISTING infrastructure — rebuild, reconductor, voltage upgrade, "
+        "repower, structure replacement, or a substation upgrade to existing grid infrastructure.\n"
+        "- maintenance: repair, vegetation / right-of-way upkeep, routine servicing of existing facilities.\n"
+        "- decommissioning: removal, retirement, or demolition of existing facilities / lines / turbines.\n"
+        "- exploration: resource-investigation drilling or geophysical survey (e.g. geothermal gradient wells).\n"
+        "- assessment: TEMPORARY site characterization leaving NO permanent facility — met towers, borings, "
+        "surveys, monitoring.\n"
+        "- research_or_demonstration: a pilot / R&D / demonstration facility (first-of-kind, experimental).\n"
+        "- manufacturing: building or expanding a FACTORY (e.g. battery components, modules, materials).\n"
+        "- interconnection: a gen-tie / grid-tap / interconnection line for a generator.\n"
+        "- land_or_row_authorization: an ADMINISTRATIVE land action — right-of-way grant / renewal / amendment, "
+        "lease, withdrawal, or land-use plan (NON-physical).\n"
+        "- other: anything that does not clearly match a verb, INCLUDING pure funding / financial assistance "
+        "(the federal action is the funding itself).\n\n"
+        "GUIDANCE (resolve overlaps):\n"
+        "- Funding, grants, loan guarantees, financial/cost-share assistance -> 'other' (even if they fund a build).\n"
+        "- A new line or circuit placed WITHIN an EXISTING right-of-way / developed corridor is 'upgrade' "
+        "(modifying the existing corridor), NOT 'new_build'.\n"
+        "- Temporary testing (met towers, surveys, borings, monitoring) is 'assessment', even for wind/solar.\n"
+        "- A geothermal exploratory / gradient well is 'exploration'.\n\n"
+        f"INPUT:\n  tech_group: {tech_group}\n  action_summary: {action_summary}\n"
+        f"  key_activities: {key_activities}\n  action_label: {action_label}\n"
+        f"  purpose_and_need: {purpose_and_need}\n\n"
+        "Return action (exactly one verb), action_confidence (high/medium/low), and "
+        "action_rationale (one sentence grounded in the input)."
+    )
+
+
+def action_label_tool_schema() -> dict:
+    """Enum-constrained tool schema — the model cannot return an off-list verb."""
+    return {"type": "object", "properties": {
+        "action": {"type": "string", "enum": ACTION_VERBS},
+        "action_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "action_rationale": {"type": "string"}},
+        "required": ["action", "action_confidence", "action_rationale"]}

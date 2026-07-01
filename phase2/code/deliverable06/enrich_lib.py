@@ -24,7 +24,15 @@ import duckdb
 import pandas as pd
 
 from common import D6_ANALYSIS_DIR, normalize_space
-from prompts import ENRICHMENT_FIELDS, build_enrichment_prompt, enrichment_tool_schema
+from prompts import (
+    ENRICHMENT_FIELDS,
+    action_label_tool_schema,
+    build_action_label_prompt,
+    build_classification_prompt,
+    build_enrichment_prompt,
+    classification_tool_schema,
+    enrichment_tool_schema,
+)
 
 PACKETS = D6_ANALYSIS_DIR / "fonsi_project_packets.parquet"     # per-project metadata + typed text
 SPANS = D6_ANALYSIS_DIR / "fonsi_evidence_spans.parquet"        # typed span rows (verbatim + page/role)
@@ -368,6 +376,91 @@ def preflight(model: str, client=None) -> dict:
     """One cheap call to verify the model id + tool-use work before a real run."""
     return call_enrichment("PROJECT METADATA: title=test\n\n[S1] (EA, p.1, action): "
                            "The proposed action is a test reconductoring of an existing line.", model, client)
+
+
+# --- Stage 2: action classification call (cheap; reuses cached extraction) ---
+CLASSIFY_TOOL_NAME = "emit_action_classification"
+CLASSIFY_MAX_TOKENS = 512
+
+
+def call_classification(prompt_text: str, model: str, client=None) -> dict:
+    """One classification call via tool-use (enum-constrained category). Same contract
+    as call_enrichment: returns parsed|None, raw, in_tok, out_tok, stop_reason, error;
+    never raises (thread-safe). Operates on the prompt built from cached summary text."""
+    blank = {"parsed": None, "raw": "", "in_tok": 0, "out_tok": 0, "stop_reason": "", "error": ""}
+    key = get_anthropic_key()
+    if not key:
+        return {**blank, "error": "no_key"}
+    try:
+        import anthropic
+    except ImportError:
+        return {**blank, "error": "no_sdk"}
+    c = client or anthropic.Anthropic(api_key=key, max_retries=ENRICH_MAX_RETRIES)
+    tool = {"name": CLASSIFY_TOOL_NAME, "description": "Return the action classification.",
+            "input_schema": classification_tool_schema()}
+    try:
+        msg = c.messages.create(
+            model=model, max_tokens=CLASSIFY_MAX_TOKENS, temperature=0,
+            tools=[tool], tool_choice={"type": "tool", "name": CLASSIFY_TOOL_NAME},
+            messages=[{"role": "user", "content": prompt_text}],
+        )
+        block = next((b for b in msg.content if getattr(b, "type", None) == "tool_use"), None)
+        parsed = block.input if block else None
+        return {"parsed": parsed, "raw": json.dumps(parsed) if parsed is not None else "",
+                "in_tok": msg.usage.input_tokens, "out_tok": msg.usage.output_tokens,
+                "stop_reason": msg.stop_reason, "error": "" if parsed is not None else "no_tool_block"}
+    except Exception as e:
+        return {**blank, "error": f"{type(e).__name__}: {e}"}
+
+
+def classify_preflight(model: str, client=None) -> dict:
+    """One cheap call to verify the model id + classification tool before the loop."""
+    return call_classification(build_classification_prompt(
+        "Test Line Rebuild", "The proposed action reconductors an existing 69-kV transmission line "
+        "within the existing right-of-way.", "['reconductor line']", "transmission reconductoring",
+        "improve reliability"), model, client)
+
+
+ACTIONLABEL_TOOL_NAME = "emit_action_label"
+ACTIONLABEL_MAX_TOKENS = 384
+
+
+def call_action_label(prompt_text: str, model: str, client=None) -> dict:
+    """One action-verb labeling call via tool-use (enum-constrained verb). Same contract as
+    call_classification: returns parsed|None, raw, in_tok, out_tok, stop_reason, error; never raises
+    (thread-safe). Operates on the prompt built from the cached summary text."""
+    blank = {"parsed": None, "raw": "", "in_tok": 0, "out_tok": 0, "stop_reason": "", "error": ""}
+    key = get_anthropic_key()
+    if not key:
+        return {**blank, "error": "no_key"}
+    try:
+        import anthropic
+    except ImportError:
+        return {**blank, "error": "no_sdk"}
+    c = client or anthropic.Anthropic(api_key=key, max_retries=ENRICH_MAX_RETRIES)
+    tool = {"name": ACTIONLABEL_TOOL_NAME, "description": "Return the action verb label.",
+            "input_schema": action_label_tool_schema()}
+    try:
+        msg = c.messages.create(
+            model=model, max_tokens=ACTIONLABEL_MAX_TOKENS, temperature=0,
+            tools=[tool], tool_choice={"type": "tool", "name": ACTIONLABEL_TOOL_NAME},
+            messages=[{"role": "user", "content": prompt_text}],
+        )
+        block = next((b for b in msg.content if getattr(b, "type", None) == "tool_use"), None)
+        parsed = block.input if block else None
+        return {"parsed": parsed, "raw": json.dumps(parsed) if parsed is not None else "",
+                "in_tok": msg.usage.input_tokens, "out_tok": msg.usage.output_tokens,
+                "stop_reason": msg.stop_reason, "error": "" if parsed is not None else "no_tool_block"}
+    except Exception as e:
+        return {**blank, "error": f"{type(e).__name__}: {e}"}
+
+
+def actionlabel_preflight(model: str, client=None) -> dict:
+    """One cheap call to verify the model id + action-label tool before the loop."""
+    return call_action_label(build_action_label_prompt(
+        "Transmission", "The proposed action reconductors an existing 69-kV transmission line within the "
+        "existing right-of-way.", "['reconductor line']", "transmission reconductoring",
+        "improve reliability"), model, client)
 
 
 def coerce(parsed: dict) -> dict:

@@ -149,55 +149,77 @@ def main() -> None:
         desc.sort_values(["candidate_category", "dimension", "n_fonsi_projects"],
                          ascending=[True, True, False]).to_csv(DESC_REVIEW, index=False)
 
-    # --- CE comparison (lexical ranking aid only) ---
+    # --- CE comparison per tech_group x action CELL (refactor: cells from enrichment + 10 labels) ---
+    # Each cell's query is its tech + action + a few representative member summaries — replacing the
+    # old hardcoded QUERY_TERMS. Ranking is the same blended embedding+lexical aid; never decides coverage.
     ce_rows = []
     if ce_source.CE_JSON.exists():
         ce = ce_source.load_ce_catalog().reset_index(drop=True)
         ce["cetext"] = [ce_text(r) for r in ce.itertuples(index=False)]
         ce["cetok"] = ce["cetext"].map(tokens)
-        # Embedding similarity is a semantic ranking aid (blended with lexical);
-        # it never decides coverage. Falls back to lexical-only if unavailable.
         use_emb = embeddings.available()
+        if not use_emb:
+            print(f"[04] WARNING: embeddings unavailable ({embeddings.MODEL_NAME}); CE scores fall back "
+                  "to lexical-only and are NOT comparable to the report's blended scores.")
         ce_emb = embeddings.embed(ce["cetext"].tolist()) if use_emb else None
-        for cat in corpus["candidate_category"].unique():
-            qterms = QUERY_TERMS.get(cat, cat.replace("_", " "))
-            q = tokens(qterms)
-            cos = embeddings.cosine(embeddings.embed([qterms]), ce_emb)[0] if use_emb else None
-            scored = []
-            for i, r in enumerate(ce.itertuples(index=False)):
-                overlap = len(q & r.cetok)
-                lex = overlap / max(len(q), 1)
-                c = float(cos[i]) if cos is not None else 0.0
-                ret = (0.65 * c + 0.35 * lex) if use_emb else lex
-                if ret > 0:
-                    scored.append((ret, c, lex, overlap, r))
-            scored.sort(key=lambda x: (-x[0], -x[3]))
-            for rank, (ret, c, lex, overlap, r) in enumerate(scored[:TOP_CE], start=1):
+
+        # build cells (tech_group x action) from the enrichment + the 10 action labels
+        en = pd.read_parquet(D6_ANALYSIS_DIR / "fonsi_enrichment.parquet")
+        en = en[en["action_summary"].notna()].copy()
+        en["project_id"] = en["project_id"].astype(str)
+        _lab = pd.read_parquet(D6_ANALYSIS_DIR / "fonsi_action_labels.parquet")
+        _lab["project_id"] = _lab["project_id"].astype(str)
+        en = en.merge(_lab[["project_id", "action"]], on="project_id", how="left")
+        en["action"] = en["action"].fillna("other").astype(str)
+        en["tech_group"] = en["tech_group"].fillna("(missing)").astype(str)
+        en["_cell"] = en["tech_group"] + "__" + en["action"]
+        _bnd = en["is_bounded_low_impact"].map(lambda v: v is True)
+        _tx = en["tech_group"].eq("Transmission")
+        _wr = en["within_existing_row"].map(lambda v: v is True)
+        _nr = ~(en["new_access_road"] == True)
+        en["_shaped"] = _bnd & (~_tx | ((en["action"] == "upgrade") & _wr & _nr))
+
+        import numpy as np
+        for cell, grp in en.groupby("_cell"):
+            focus = grp[grp["_shaped"]] if grp["_shaped"].any() else grp
+            summaries = focus["action_summary"].dropna().astype(str).tolist()
+            if not summaries or not use_emb:
+                continue
+            # Per-member matching (avoids the long-query dilution): the cell->CE score is the MEDIAN
+            # over the cell's members of each member's cosine to that CE, so the best CE is the one the
+            # cell's members most CONSISTENTLY match. Robust + honest (mirrors the per-FONSI diagnostic);
+            # 07 applies the develop/adopt threshold to this score.
+            m_emb = embeddings.embed(summaries)                       # (n_mem, 384), L2-normalized
+            cosm = np.asarray(embeddings.cosine(m_emb, ce_emb))       # (n_mem, n_ce)
+            cell_ce = np.median(cosm, axis=0)                         # (n_ce,) robust cell->CE score
+            for rank, ci in enumerate(np.argsort(-cell_ce)[:TOP_CE], start=1):
+                rd = ce.iloc[int(ci)].to_dict()
+                ret = float(cell_ce[int(ci)])
                 ce_rows.append({
-                    "candidate_category": cat,
+                    "candidate_category": cell,
                     "retrieval_rank": rank,
                     "retrieval_score": round(ret, 4),
-                    "embedding_cosine": round(c, 4) if use_emb else None,
-                    "embedding_model": embeddings.MODEL_NAME if use_emb else "",
-                    "lexical_score": round(lex, 4),
-                    "token_overlap": overlap,
+                    "embedding_cosine": round(ret, 4),
+                    "embedding_model": embeddings.MODEL_NAME,
+                    "lexical_score": None,
+                    "token_overlap": None,
+                    "match_method": "per_member_median_cosine",
                     "manual_verification_status": "pending",
                     "match_type": "unverified_candidate",
-                    "ce_id": getattr(r, "ce_id", ""),
-                    "structured_id": getattr(r, "structured_id", ""),
-                    "agency_name": getattr(r, "agency_name", ""),
-                    "agency_unit": getattr(r, "agency_unit", ""),
-                    "ce_description": normalize_space(getattr(r, "ce_description", ""))[:400],
-                    "canonical_source_url": getattr(r, "canonical_source_url", ""),
-                    "extraordinary_circumstances": normalize_space(
-                        getattr(r, "extraordinary_circumstances", ""))[:200],
-                    "source_version": getattr(r, "source_version", ""),
-                    "source_version_date": getattr(r, "source_version_date", ""),
+                    "ce_id": rd.get("ce_id", ""),
+                    "structured_id": rd.get("structured_id", ""),
+                    "agency_name": rd.get("agency_name", ""),
+                    "agency_unit": rd.get("agency_unit", ""),
+                    "ce_description": normalize_space(rd.get("ce_description", ""))[:400],
+                    "canonical_source_url": rd.get("canonical_source_url", ""),
+                    "extraordinary_circumstances": normalize_space(rd.get("extraordinary_circumstances", ""))[:200],
+                    "source_version": rd.get("source_version", ""),
+                    "source_version_date": rd.get("source_version_date", ""),
                     "ce_comparison_run_at": run_at,
                     "taxonomy_version": TAXONOMY_VERSION,
                     **{f"bound_{m}": v for m, v in bounds.parse_bounds(
-                        normalize_space(getattr(r, "ce_description", "")) + " " +
-                        normalize_space(getattr(r, "extraordinary_circumstances", ""))).items()},
+                        normalize_space(rd.get("ce_description", "")) + " " +
+                        normalize_space(rd.get("extraordinary_circumstances", ""))).items()},
                 })
     ce_cmp = pd.DataFrame(ce_rows)
     write_parquet(ce_cmp, CE_OUT)

@@ -32,10 +32,14 @@ import pandas as pd
 import bounds
 import ce_source
 import embeddings
-from common import D03_CE_CITATIONS, D6_ANALYSIS_DIR, D6_REVIEW_DIR, ensure_d6_dirs, normalize_space, utc_now, write_parquet
+from common import (
+    D03_CE_CITATIONS, D6_ANALYSIS_DIR, D6_REVIEW_DIR, ensure_d6_dirs,
+    normalize_space, sha256_text, utc_now, write_parquet,
+)
 
 CES_OUT = D6_ANALYSIS_DIR / "ce_landscape_ces.parquet"
 CLUSTERS_OUT = D6_ANALYSIS_DIR / "ce_clusters.parquet"
+KSELECT_OUT = D6_ANALYSIS_DIR / "ce_kselection.parquet"   # inertia + silhouette by k (elbow appendix)
 SUMMARY_OUT = D6_REVIEW_DIR / "ce_landscape_summary.csv"
 CLUSTERS_REVIEW = D6_REVIEW_DIR / "ce_cluster_map_review.csv"
 NEAR_DUP_THRESHOLD = 0.85
@@ -47,18 +51,52 @@ _CLUSTER_STOP = set((
     "actions action activities activity project projects program programs federal agency agencies department "
     "use using used new existing facility facilities site sites area areas land lands operations operation "
     "construction maintenance routine minor where applicable required pursuant section appendix exclusion "
-    "categorical environmental impact impacts management proposed related associated involving normal").split())
+    "categorical environmental impact impacts management proposed related associated involving normal "
+    "of or to be shall result amend amended amendment gov dot com www http https chapter pursuant "
+    "thereof herein parts part subpart cfr usc public law").split())
 
 
-def _cluster_terms(texts: pd.Series, labels, k: int = 3) -> dict:
-    """Top distinctive content words per KMeans cluster, for a short scatter label."""
-    by: dict[int, Counter] = {}
-    for cl, t in zip(labels, texts):
-        by.setdefault(int(cl), Counter())
-        for w in re.findall(r"[a-z]{4,}", str(t).lower()):
-            if w not in _CLUSTER_STOP:
-                by[int(cl)][w] += 1
-    return {cl: ", ".join(w for w, _ in c.most_common(k)) for cl, c in by.items()}
+def _cluster_terms(texts: pd.Series, labels, k: int = 3, ngram: tuple = (2, 4)) -> dict:
+    """Distinctive n-gram PHRASES per cluster (c-TF-IDF style), for readable scatter/table labels.
+    One pseudo-document per cluster; TF-IDF across clusters surfaces the 2-4 word phrases that
+    distinguish each. De-duplicates phrases that share a word so a label isn't 'equipment
+    replacement; equipment installation'."""
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    df = pd.DataFrame({"t": [str(x).lower() for x in texts], "c": [int(c) for c in labels]})
+    clusters = sorted(df["c"].unique())
+    docs = [df.loc[df["c"] == c, "t"].str.cat(sep=" ") for c in clusters]
+    vec = TfidfVectorizer(ngram_range=ngram, stop_words=sorted(_CLUSTER_STOP),
+                          token_pattern=r"[a-z][a-z]+", min_df=1, max_df=0.85, max_features=6000)
+    try:
+        X = vec.fit_transform(docs).toarray()
+    except ValueError:
+        return {c: "" for c in clusters}
+    vocab = vec.get_feature_names_out()
+    out = {}
+    for i, c in enumerate(clusters):
+        order = X[i].argsort()[::-1]
+        picks, used = [], set()
+        for j in order:
+            if X[i][j] <= 0 or len(picks) >= k:
+                break
+            words = set(vocab[j].split())
+            if words & used:                       # skip phrases overlapping an already-picked one
+                continue
+            picks.append(vocab[j]); used |= words
+        out[c] = "; ".join(picks)
+    return out
+
+
+def _k_selection(emb, k_range=range(2, 13), seed: int = 42) -> pd.DataFrame:
+    """Inertia (elbow) + silhouette across k — the appendix evidence for how many clusters to use."""
+    from sklearn.cluster import KMeans
+    from sklearn.metrics import silhouette_score
+    rows = []
+    for k in k_range:
+        km = KMeans(n_clusters=k, random_state=seed, n_init=10).fit(emb)
+        sil = silhouette_score(emb, km.labels_) if k >= 2 else float("nan")
+        rows.append({"k": k, "inertia": float(km.inertia_), "silhouette": float(sil)})
+    return pd.DataFrame(rows)
 
 
 def _components(sim: np.ndarray, thr: float) -> list[int]:
@@ -84,7 +122,9 @@ def _components(sim: np.ndarray, thr: float) -> list[int]:
 def main() -> None:
     ensure_d6_dirs()
     run_at = utc_now()
-    ce = ce_source.load_ce_catalog().reset_index(drop=True)
+    ce = ce_source.load_ce_catalog()
+    _sort_keys = [c for c in ("agency_unit", "structured_id", "ce_id", "ce_description") if c in ce.columns]
+    ce = ce.sort_values(_sort_keys, kind="mergesort").reset_index(drop=True)   # deterministic order (KMeans++ is order-sensitive)
     ce["ce_text"] = ce["ce_description"].map(normalize_space)
     n = len(ce)
     print(f"[06] loaded {n} CEs across {ce['agency_unit'].nunique()} agency units")
@@ -97,7 +137,17 @@ def main() -> None:
 
     # --- similarity / cross-agency near-duplicates ---
     if embeddings.available():
-        emb = np.asarray(embeddings.embed(ce["ce_text"].tolist()))
+        # cache embeddings (keyed on text + model) so the clustering is reproducible across runs
+        txt = ce["ce_text"].tolist()
+        sig = sha256_text("\x00".join(txt) + "|" + embeddings.MODEL_NAME)
+        cache_npy = D6_ANALYSIS_DIR / "ce_embeddings.npy"
+        cache_sig = D6_ANALYSIS_DIR / "ce_embeddings.sig"
+        if cache_npy.exists() and cache_sig.exists() and cache_sig.read_text() == sig:
+            emb = np.load(cache_npy)
+        else:
+            emb = np.asarray(embeddings.embed(txt))
+            np.save(cache_npy, emb)
+            cache_sig.write_text(sig)
         sims = emb @ emb.T
         np.fill_diagonal(sims, -1.0)
         units = ce["agency_unit"].to_numpy().astype(str)
@@ -125,12 +175,20 @@ def main() -> None:
         km = KMeans(n_clusters=N_CLUSTERS, random_state=42, n_init=10).fit_predict(emb)
         ce["cluster_km"] = km
         ce["cluster_label"] = ce["cluster_km"].map(_cluster_terms(ce["ce_text"], km))
+        ksel = _k_selection(emb)                          # elbow + silhouette evidence for N_CLUSTERS
+        write_parquet(ksel, KSELECT_OUT)
+        print(f"[06] k-selection (silhouette peak): {ksel.loc[ksel['silhouette'].idxmax(), 'k']} "
+              f"-> {KSELECT_OUT.name}")
     else:
+        print(f"[06] WARNING: embeddings unavailable ({embeddings.MODEL_NAME}); similarity, "
+              "near-duplicate, and t-SNE/cluster outputs are EMPTY. The report's relatedness and "
+              "adopt-precedent claims require embeddings — do not ship a client-facing run in this mode.")
         ce["nearest_xagency_ce"] = ""; ce["nearest_xagency_cosine"] = None
         ce["nearest_xagency_unit"] = ""; ce["xagency_near_duplicate"] = False
         ce["cluster_root"] = list(range(n))
         ce["coord_x"] = np.nan; ce["coord_y"] = np.nan
         ce["cluster_km"] = -1; ce["cluster_label"] = ""
+    ce["embedding_available"] = bool(embeddings.available())
 
     # --- usage (best-effort; D3 ce_citations code format differs from ce.json) ---
     usage_top = ""
