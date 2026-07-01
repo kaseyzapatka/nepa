@@ -66,7 +66,18 @@ n_excluded_noev <- nrow(enr) - n_enriched
 ce_snapshot     <- as.character(sort(unique(ce_land$source_version_date)))[1]
 # candidate_category IS the corrected action_category now (set in 09), so rule-vs-LLM mismatch is 0 by construction
 n_cat_mismatch  <- facts |> filter(candidate_category != action_category) |> nrow()
-tx_mit  <- mit$mitigated_share[mit$candidate_category == "transmission_upgrade"]
+tx_mit  <- mit$mitigated_share[mit$candidate_category == "Transmission__upgrade"]
+tx_mit  <- if (length(tx_mit)) tx_mit[1] else NA_real_
+# --- refactor: tech_group x action grid verdict tallies ---
+n_expand    <- sum(verdicts$verdict == "expand")
+n_covered   <- sum(verdicts$verdict == "already_covered")
+n_cells     <- nrow(verdicts)
+n_dev_codif <- sum(verdicts$verdict == "new" & verdicts$is_codifiable)
+dev_short   <- verdicts |> filter(verdict == "new", is_codifiable, n_profile_fonsi >= 5) |>
+  arrange(desc(n_profile_fonsi))
+n_dev_short <- nrow(dev_short)
+n_tx_up     <- verdicts$n_profile_fonsi[verdicts$candidate_category == "Transmission__upgrade"]
+n_tx_up     <- if (length(n_tx_up)) n_tx_up[1] else 0L
 
 cstats        <- read_parquet(file.path(ANALYSIS, "corpus_mitigation_stats.parquet"))
 n_mit_corpus  <- cstats$n_mitigated_fonsi[1]
@@ -86,7 +97,7 @@ n_enf_only    <- cstats$n_case_specific_dependent[1]
   **adopt / harmonize** an existing CE — `r n_adopt` **candidate** adopt
   opportunities, pending CE-coverage adjudication.
 - **The clearest case is transmission upgrades within existing right-of-way:**
-  `r verdicts$n_profile_fonsi[verdicts$candidate_category=="transmission_upgrade"]`
+  `r verdicts$n_profile_fonsi[verdicts$candidate_category=="Transmission__upgrade"]`
   bounded, low-impact FONSIs across BLM, DOE, and the power-marketing
   administrations, for work TVA already covers under its CE #17.
 - **Most decarbonization FONSIs lean on committed mitigation** — `r n_mit_corpus` of
@@ -167,33 +178,32 @@ exist, and not evidence of current post-FRA agency behavior.*
 
 # Analysis 1 — Scaling Categorical Exclusions (CEs)
 
-> This analysis investigates how we can scale Categorical Exclusions (CEs) to respond to
-> patterns we find across Findings of Non-Significant Impact (FONSIs). It looks at FONSI
-> findings and helps us understand whether there is evidence suggesting we can **develop**
-> a completely new CE to categorically exclude reviews that are expected to have specific
-> characteristics, **expand** the parameters of a current CE to encompass project
-> characteristics currently not covered by an existing CE, or encourage agencies and
-> departments to **adopt** CEs that already cover projects of specific characteristics that
-> are not covered by a current CE.
+> This analysis asks how to **scale Categorical Exclusions (CEs)**: where an agency could
+> **adopt** a CE another agency already holds, **expand** an existing CE whose bound is too
+> tight, or **develop** a new CE for a recurring action that no CE yet covers. It answers this
+> **exhaustively** — every clean-energy FONSI is placed on a **technology × action** grid, and
+> each cell is read as one of those three verdicts.
 
-## Step 1: Data at a glance
+## Step 1: The coverage map
 
-The `r n_clean` decarbonization FONSIs split three ways:
-
-- **Not a recurring type** — the `r n_other` uncategorized projects: the net-new search
-  pool (a future analysis, not yet run).
-- **Recurring type, broader** — the `r n_candidate - n_ce_shaped` projects in a recurring
-  type but too large to be a CE (major rebuilds, greenfield).
-- **Bounded, low-impact → adopt** — the `r n_ce_shaped` projects in a recurring action
-  type *and* small/routine enough to be CE-shaped. **Every one resolves to adopt** —
-  none net-new to *develop*, none exceeding a CE limit to *expand*.
+Every one of the `r n_clean` decarbonization FONSIs is categorized by its **technology** (an
+independent Deliverable-3 classification) and its **action** (an LLM-assigned verb), filling a grid
+of **`r n_cells`** technology × action cells with **no "other" residual**. Each cell is matched
+against the existing federal CE catalog and read as **adopt**, **expand**, or **develop**:
 
 ```{r}
-#| label: fig-d6-outcomes-waffle
-#| fig-cap: "Composition of the 452 decarbonization FONSIs (each square ≈ 4.5 FONSIs)."
-#| out-width: 80%
-knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes_waffle.png"))
+#| label: fig-d6-coverage-grid
+#| fig-cap: "The clean-energy CE coverage map — every FONSI by technology × action. Color = verdict (adopt / expand / develop / already-covered); a *develop* cell is a recurring action with no existing CE. *develop-excluded* = non-codifiable (manufacturing / land authorization). Number = CE-shaped FONSIs in the cell."
+#| out-width: 100%
+knitr::include_graphics(file.path(FIGS, "fig_d6_coverage_grid.png"))
 ```
+
+Across the grid: **`r n_adopt` adopt · `r n_expand` expand · `r n_dev_codif` develop** (codifiable),
+of which **`r n_dev_short`** recur with ≥ 5 CE-shaped FONSIs — the client shortlist. The dominant
+lever remains **adopt / expand**, but *develop* now surfaces where the hand-picked five categories
+could not see it — most clearly **research-or-demonstration** (pilot / demonstration facilities),
+which recurs as a develop gap across wind, nuclear, and biomass. The **`r n_ce_shaped` CE-shaped**
+FONSIs (bounded, low-impact) are the actionable evidence carried through the rest of this analysis.
 
 ## Steps 2-3: Sorting the FONSIs into action types and keeping bounded subsets
 
@@ -221,7 +231,7 @@ sizes don't enter until Step 5.
 n_profile_rows    <- nrow(.prof)
 n_llm_bounded     <- sum(.prof$is_bounded_low_impact == TRUE,  na.rm = TRUE)
 n_not_llm_bounded <- sum(.prof$is_bounded_low_impact == FALSE, na.rm = TRUE)
-n_tx_not_bounded  <- sum(.prof$candidate_category == "transmission_upgrade" &
+n_tx_not_bounded  <- sum(.prof$candidate_category == "Transmission__upgrade" &
                          .prof$is_bounded_low_impact == FALSE, na.rm = TRUE)
 ```
 
@@ -426,7 +436,7 @@ would need an **expanded** CE #19 — see the worked example.) Listed in **revie
    **Department of Energy** (`DOE-1--3-43`), for slim-hole / temperature-gradient wells.
 4. **Temporary resource assessment** — candidate match to the site-characterization CE held by the
    **Department of Energy** (`DOE-1--3-43`), for surveys, stream gauges, and borings
-   (thin evidence — only `r verdicts$n_profile_fonsi[verdicts$candidate_category=="temporary_resource_assessment"]` FONSIs).
+   (thin evidence — only a few FONSIs).
 
 ```{r}
 #| label: tbl-d6-adopt
@@ -466,7 +476,7 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_adoption_gap.png"))
 ```
 
 The transmission case is the most geographically broad — the same in-corridor work
-runs through full EAs across `r verdicts$n_states[verdicts$candidate_category=="transmission_upgrade"]`
+runs through full EAs across `r verdicts$n_states[verdicts$candidate_category=="Transmission__upgrade"]`
 states, concentrated in the West.
 
 ```{r}
@@ -505,7 +515,7 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_timeline.png"))
 
 ```{r}
 #| echo: false
-tx_sp <- facts |> filter(candidate_category == "transmission_upgrade", is_profile_subtype) |>
+tx_sp <- facts |> filter(candidate_category == "Transmission__upgrade", is_profile_subtype) |>
   distinct(project_id, .keep_all = TRUE) |>
   mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
          reb = str_detect(txt, "rebuild|reconstruct|(remov|replac|install|new)\\w*[^.]{0,40}(structure|pole|tower|h-frame|monopole)"))
@@ -515,7 +525,7 @@ n_tx17 <- sum(tx_sp$is_bounded & !tx_sp$reb); n_tx19 <- sum(tx_sp$is_bounded & t
 
 The strongest-evidenced case: **`r n_tx_total` transmission-upgrade FONSIs** for in-corridor
 work, across **BLM, the power-marketing administrations, NNSA, and others** in
-**`r verdicts$n_states[verdicts$candidate_category=="transmission_upgrade"]` Western
+**`r verdicts$n_states[verdicts$candidate_category=="Transmission__upgrade"]` Western
 states**. TVA **already categorically excludes this work under two exclusions**, by work type:
 
 - **CE #17 — modify in place:** reconductoring, uprating, equipment swaps, limited pole
@@ -586,7 +596,7 @@ clean_cut <- function(s, n = 520) {
 }
 
 ex <- facts |>
-  filter(candidate_category == "transmission_upgrade", is_bounded,
+  filter(candidate_category == "Transmission__upgrade", is_bounded,
          citation_verified,                       # "source-verified" = only quote-verified rows (#11)
          !is.na(quoted_span), nchar(quoted_span) >= 70,
          str_detect(quoted_span, scope_rx), !str_detect(quoted_span, drop_rx)) |>
@@ -1105,7 +1115,7 @@ miss <- tibble(
   `Null / missing` = c(
     sum(is.na(.enrall$is_mitigated_fonsi)),
     sum(is.na(.enrall$is_bounded_low_impact)),
-    sum(is.na(facts$decision_date) | facts$decision_date == ""),
+    sum(is.na(facts$decision_date)),
     sum(!facts$citation_verified),
     sum(is.na(facts$max_acres)),
     sum(is.na(facts$max_miles))),

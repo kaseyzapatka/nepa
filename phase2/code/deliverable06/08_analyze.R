@@ -326,7 +326,7 @@ save_fig(p_map, "fig_d6_states.png", w = 8.5, h = 5.0)
 
 # === Fig: the transmission FONSIs — adopt-ready (LLM-bounded) vs too-big (expand/develop) ===
 # Adopt vs expand = the LLM's is_bounded_low_impact judgment; #17 vs #19 from the action text.
-tx_split <- facts %>% filter(candidate_category == "transmission_upgrade", is_profile_subtype) %>%
+tx_split <- facts %>% filter(candidate_category == "Transmission__upgrade", is_profile_subtype) %>%
   distinct(project_id, .keep_all = TRUE) %>%
   mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
          is_rebuild = str_detect(txt, "rebuild|reconstruct|(remov|replac|install|new)\\w*[^.]{0,40}(structure|pole|tower|h-frame|monopole)"),
