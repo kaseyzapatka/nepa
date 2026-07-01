@@ -48,96 +48,87 @@ cat(if (is_dry)
 ```
 :::
 
-## What this deliverable measures
+## Context
 
-Per resource area, how BLM and the DOE agency family make the NEPA **significance
-determination** — the CEQ context/intensity factors plus resource-specific thresholds (NAAQS,
-ESA take/jeopardy, Section 106 adverse effect, floodplain/wetland). The unit of analysis is a
-provenanced **determination record** (grain: document × resource area × determination), read
-from `significance_determinations.parquet`. Mitigated FONSIs are the centerpiece: they isolate
-exactly where the agency placed the significance line.
+When a clean-energy project — a solar farm, a transmission line — needs federal approval, the
+lead agency (here, BLM or the Department of Energy) studies its environmental impact and makes a
+judgment call: **is the impact "significant" or not?**
 
-## Frameworks & regime split
+That one word decides a lot. If the agency finds the impact **not significant**, the project
+moves ahead on a faster track (a document called a *Finding of No Significant Impact*, or FONSI).
+If it finds the impact **significant**, that triggers a much longer, more demanding review.
 
-```{r}
-regime %>% count(decision_period, name = "n_projects") %>% arrange(desc(n_projects)) %>%
-  gt() %>% tab_header(title = "Projects by regulatory period decided during") %>%
-  cols_label(decision_period = "Decision period", n_projects = "Projects")
+Often the agency lands in between: *"this impact **would** be significant — **unless** the
+developer commits to specific measures to reduce it."* That is a **mitigated finding**, and it is
+the most revealing case, because it shows the exact line the agency drew and what it required to
+stay on the safe side of it.
+
+**So this deliverable answers:** across these clean-energy projects, how do agencies decide what
+counts as "significant" in each environmental area (air, water, wildlife, cultural sites, and so
+on) — and what mitigation do they demand to avoid that label? Answering it means reading and
+coding a judgment call out of **thousands** of dense decision documents — far more than anyone
+could review by hand. The workflow below is how we do that reliably.
+
+## Workflow
+
+The approach pairs the **scale of automation** with the **reliability of human judgment**:
+software and AI do the reading at a scale no person could, while analysts define the scope, hold
+the checkpoints, and grade the AI against their own answer key before any result counts.
+
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Scope</div>
+    <div style="color:#1A1A2E;">Pick the comparable projects and note when each was decided</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Gather documents</div>
+    <div style="color:#1A1A2E;">Collect the agencies&rsquo; decision documents</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Extract the judgment calls</div>
+    <div style="color:#1A1A2E;">Rules flag the passages &rarr; AI classifies each &rarr; analysts hand-label a sample as the answer key</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 · Validate</div>
+    <div style="color:#1A1A2E;">Score the AI against the human answer key before anything is reported</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">5 · Analyze and report</div>
+    <div style="color:#ffffff;">Turn validated findings into this report and a source-linked data table</div>
+  </div>
+  <div style="text-align:center;color:#6b7280;font-size:.85rem;margin-top:.5rem;">
+    The five steps of the analysis &mdash; each card matches a numbered step below.
+  </div>
+</div>
 ```
 
-```{r}
-regime %>% count(regime_assignment_status, name = "n") %>% arrange(desc(n)) %>%
-  gt() %>% tab_header(title = "Regime assignment status (confidence-gated)") %>%
-  cols_label(regime_assignment_status = "Status", n = "Projects")
-```
+**Step by step:**
 
-Headline regime analyses use `decision_period` ("decided during"), never a legal "governed by"
-claim. Low/medium-confidence and boundary-window dates are held out of headline cells by
-`regime_assignment_status`.
+1. **Scope.** Fix a comparable set of projects — clean energy, led by BLM or the Department of
+   Energy — and note *when* each decision was made, because the environmental rules changed over
+   the years. This keeps every comparison apples-to-apples.
+2. **Gather documents.** Collect the actual decision documents where the significance calls
+   live — FONSIs (especially the *mitigated* ones) and the larger environmental impact statements.
+3. **Extract the judgment calls.** This is the engine, in three parts: fast **rules** scan the
+   documents and flag the passages that look like a significance judgment; **AI** then reads each
+   flagged passage and classifies it (significant, not significant, or mitigated; which
+   environmental area; any regulatory threshold); and in parallel **analysts hand-label a sample**
+   by eye to serve as an *answer key*.
+4. **Validate.** Compare the AI's answers to the human answer key. If the AI is accurate enough,
+   the results move forward; if not, we refine and run it again. The AI is never taken on faith.
+5. **Analyze and report.** Only the validated results feed the findings — the significance
+   patterns by resource area, the mitigation trends, the shifts across regulatory eras and
+   agencies — delivered as this report **and** a data table where every number links back to the
+   exact page it came from.
 
-## The dataset
-
-```{r}
-tibble(
-  Artifact = c("project_regime", "significance_corpus", "project_cohorts",
-               "mitigation_signal_matches", "significance_determinations",
-               "determination_thresholds (child)"),
-  Grain = c("project", "project × tier", "project", "cue-span × condition-row",
-            "determination instance", "determination × cited threshold"),
-  Rows = c(nrow(regime), nrow(corpus), tryCatch(nrow(rp("project_cohorts.parquet")), error = function(e) NA),
-           tryCatch(nrow(rp("mitigation_signal_matches.parquet")), error = function(e) NA),
-           nrow(det), tryCatch(nrow(rp("determination_thresholds.parquet")), error = function(e) NA))
-) %>% mutate(Rows = fmt(Rows)) %>% gt() %>% tab_header(title = "D2 dataset surface")
-```
-
-Every determination carries its provenance (`source_substrate`, `source_unit_id`,
-`evidence_text_sha256`, page refs), its regime/agency/cohort context, and audit timestamps
-(`significance_extraction_run_at`, `significance_llm_run_at`).
-
-## Headline: cross-resource significance map
-
-```{r}
-rc("resource_by_class.csv") %>% filter(!n_suppressed) %>%
-  pivot_wider(names_from = determination_class, values_from = n, values_fill = 0) %>%
-  gt() %>% tab_header(title = "Determination class by resource area (primary BLM/DOE-family scope)",
-                      subtitle = "Cells < 5 suppressed")
-```
-
-## Cross-agency & cohort
-
-```{r}
-rc("agency_by_class.csv") %>% filter(!n_suppressed) %>%
-  gt() %>% tab_header(title = "Determination class by agency (primary scope)")
-```
-
-```{r}
-rc("cohort_by_class.csv") %>% filter(!n_suppressed) %>%
-  gt() %>% tab_header(title = "Determination class by policy-era cohort",
-                      subtitle = "FRA enactment = 2023-06-03")
-```
-
-## Thresholds
-
-```{r}
-rc("threshold_by_class.csv") %>% filter(!n_suppressed) %>%
-  gt() %>% tab_header(title = "Cited thresholds by determination class",
-                      subtitle = "From the determination_thresholds child table (not the scalar summary)")
-```
-
-## Mitigation read
-
-```{r}
-rc("mitigation_by_class.csv") %>%
-  gt() %>% tab_header(title = "Mitigation flag by determination class",
-                      subtitle = "mitigation_flag = a FONSI finding with committed enforceable mitigation nearby")
-```
-
-## Context universe (reported separately — never in A1 rates)
-
-```{r}
-rc("context_universe_by_scope.csv") %>% filter(!n_suppressed) %>%
-  gt() %>% tab_header(title = "Non-primary agency scope (context only)")
-```
+**Why the results are trustworthy:** every determination is traceable to the exact document,
+page, and passage; the AI is scored against human labels before it is used; and the project set
+is scoped so comparisons are fair.
 
 ## Methods & required caveats
 
