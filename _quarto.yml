@@ -40,6 +40,8 @@ website:
           - text: "---"
           - text: "Deliverable 1"
             href: phase2/reports/deliverable01.html
+          - text: "Deliverable 2"
+            href: phase2/reports/deliverable02.html
           - text: "Deliverable 3"
             href: phase2/reports/deliverable03.html
           - text: "Deliverable 4"

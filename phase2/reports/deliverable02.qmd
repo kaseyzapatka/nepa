@@ -1,0 +1,162 @@
+---
+title: "NEPA Decarbonization Technology Analysis: Deliverable 2"
+subtitle: "Determinations of Significance Across Resource Areas"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    toc-location: left
+    fig-align: center
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+<!-- Plan: phase2/plans/deliverable02.md (v2.11). Pipeline: phase2/code/deliverable02/
+     00 regime -> 01 corpus+cohorts -> 02 FONSI extract -> 04 EIS extract -> 05 validate ->
+     06 analyze.R (writes the CSV tables this report reads). Regenerate 06 before rendering. -->
+
+```{r setup}
+library(arrow); library(dplyr); library(tidyr); library(readr)
+library(stringr); library(knitr); library(gt); library(here)
+options(arrow.skip_nul = TRUE)
+
+A   <- here("phase2", "data", "analysis", "deliverable02")
+TAB <- here("phase2", "output", "deliverable02", "analysis")
+rp  <- function(f) read_parquet(file.path(A, f))
+rc  <- function(f) { p <- file.path(TAB, f); if (file.exists(p)) read_csv(p, show_col_types = FALSE) else tibble() }
+fmt <- function(x) formatC(x, format = "d", big.mark = ",")
+
+det    <- rp("significance_determinations.parquet")
+corpus <- rp("significance_corpus.parquet")
+regime <- rp("project_regime.parquet")
+
+is_dry <- all(det$extraction_method == "regex")
+```
+
+::: {.callout-warning}
+## Draft status
+```{r}
+cat(if (is_dry)
+  paste("This report is rendered on the DETERMINISTIC (regex-only) extraction. Every",
+        "determination is `needs_human_review = TRUE`. Tables are ILLUSTRATIVE of structure,",
+        "not validated findings. Regenerate after the billable LLM adjudication pass and the",
+        "gold-set validation (Gate 3).")
+  else "Rendered on the LLM-adjudicated extraction. Apply the caveat checklist (Methods).")
+```
+:::
+
+## What this deliverable measures
+
+Per resource area, how BLM and the DOE agency family make the NEPA **significance
+determination** — the CEQ context/intensity factors plus resource-specific thresholds (NAAQS,
+ESA take/jeopardy, Section 106 adverse effect, floodplain/wetland). The unit of analysis is a
+provenanced **determination record** (grain: document × resource area × determination), read
+from `significance_determinations.parquet`. Mitigated FONSIs are the centerpiece: they isolate
+exactly where the agency placed the significance line.
+
+## Frameworks & regime split
+
+```{r}
+regime %>% count(decision_period, name = "n_projects") %>% arrange(desc(n_projects)) %>%
+  gt() %>% tab_header(title = "Projects by regulatory period decided during") %>%
+  cols_label(decision_period = "Decision period", n_projects = "Projects")
+```
+
+```{r}
+regime %>% count(regime_assignment_status, name = "n") %>% arrange(desc(n)) %>%
+  gt() %>% tab_header(title = "Regime assignment status (confidence-gated)") %>%
+  cols_label(regime_assignment_status = "Status", n = "Projects")
+```
+
+Headline regime analyses use `decision_period` ("decided during"), never a legal "governed by"
+claim. Low/medium-confidence and boundary-window dates are held out of headline cells by
+`regime_assignment_status`.
+
+## The dataset
+
+```{r}
+tibble(
+  Artifact = c("project_regime", "significance_corpus", "project_cohorts",
+               "mitigation_signal_matches", "significance_determinations",
+               "determination_thresholds (child)"),
+  Grain = c("project", "project × tier", "project", "cue-span × condition-row",
+            "determination instance", "determination × cited threshold"),
+  Rows = c(nrow(regime), nrow(corpus), tryCatch(nrow(rp("project_cohorts.parquet")), error = function(e) NA),
+           tryCatch(nrow(rp("mitigation_signal_matches.parquet")), error = function(e) NA),
+           nrow(det), tryCatch(nrow(rp("determination_thresholds.parquet")), error = function(e) NA))
+) %>% mutate(Rows = fmt(Rows)) %>% gt() %>% tab_header(title = "D2 dataset surface")
+```
+
+Every determination carries its provenance (`source_substrate`, `source_unit_id`,
+`evidence_text_sha256`, page refs), its regime/agency/cohort context, and audit timestamps
+(`significance_extraction_run_at`, `significance_llm_run_at`).
+
+## Headline: cross-resource significance map
+
+```{r}
+rc("resource_by_class.csv") %>% filter(!n_suppressed) %>%
+  pivot_wider(names_from = determination_class, values_from = n, values_fill = 0) %>%
+  gt() %>% tab_header(title = "Determination class by resource area (primary BLM/DOE-family scope)",
+                      subtitle = "Cells < 5 suppressed")
+```
+
+## Cross-agency & cohort
+
+```{r}
+rc("agency_by_class.csv") %>% filter(!n_suppressed) %>%
+  gt() %>% tab_header(title = "Determination class by agency (primary scope)")
+```
+
+```{r}
+rc("cohort_by_class.csv") %>% filter(!n_suppressed) %>%
+  gt() %>% tab_header(title = "Determination class by policy-era cohort",
+                      subtitle = "FRA enactment = 2023-06-03")
+```
+
+## Thresholds
+
+```{r}
+rc("threshold_by_class.csv") %>% filter(!n_suppressed) %>%
+  gt() %>% tab_header(title = "Cited thresholds by determination class",
+                      subtitle = "From the determination_thresholds child table (not the scalar summary)")
+```
+
+## Mitigation read
+
+```{r}
+rc("mitigation_by_class.csv") %>%
+  gt() %>% tab_header(title = "Mitigation flag by determination class",
+                      subtitle = "mitigation_flag = a FONSI finding with committed enforceable mitigation nearby")
+```
+
+## Context universe (reported separately — never in A1 rates)
+
+```{r}
+rc("context_universe_by_scope.csv") %>% filter(!n_suppressed) %>%
+  gt() %>% tab_header(title = "Non-primary agency scope (context only)")
+```
+
+## Methods & required caveats
+
+- **Agency scope.** BLM + DOE agency family. Headline denominators use only
+  `agency_scope_status = 'primary_blm_doe_family'`; other-agency and manual-review rows are a
+  separate context universe.
+- **D4 date/regime coverage.** Many projects lack a high-confidence decision date; regime cells
+  are confidence-gated and thin post-2023. EIS decision dates are frequently proxies.
+- **EPA §309 letters** are out of scope — this report makes no EPA-review claim.
+- **Clean-energy scope only** (`project_energy_type = 'Clean'`).
+- **FONSI coverage** for the mitigated/straight tiers derives from D6 artifacts.
+- **EIS retrieval limits.** The EIS tier is gated behind FONSI validation and a retrieval-recall
+  spike; EIS findings are preliminary.
+- **Validation sample size.** Rare class/resource/threshold cells are reported descriptively,
+  not as pass/fail macro-metrics.
+- **Suppressed cells.** Any cell below 5 is suppressed.
+
+## Appendix: data dictionary
+
+See `phase2/notes/deliverable02/data_dictionary.md` and the run manifest
+`significance_run_manifest.parquet` (input+output paths, row counts, content hashes, model,
+prompt/schema versions).

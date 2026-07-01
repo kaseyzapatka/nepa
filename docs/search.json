@@ -1510,5 +1510,82 @@
     "title": "Deliverable 6 — CE coverage verification worksheet",
     "section": "Detail by category",
     "text": "Detail by category\n\ntransmission_upgrade — 34 CE-shaped\n\nBest-match CE: TVA---1-16 (TVA), match score 0.4469 — source\nCE text: 17. Routine modification, repair, and maintenance of, and minor upgrade of and addition to, existing transmission infrastructure, including the addition, retirement, and/or replacement of breakers, transformers, bushings, and relays; transmission line uprate, modification, reconductoring, and clearance resolution; and limited pole replacement. This exclusion also applies to improvements of existin\nExtraordinary circumstances: Not Catalogued\nCandidate scope: line 1-1534 mi (n=15); agencies: Bureau of Land Management; Bureau of Reclamation; Department of Energy; Power Marketing Administration\nCoverage read: LIKELY COVERS (qualitative) — TVA #17 explicitly covers modification/repair/maintenance/minor upgrade of EXISTING transmission infrastructure; the CE-shaped candidates are within-ROW modify-existing lines. Cross-agency: BLM/BOR/DOE/PMA would ADOPT a TVA CE.\nBound to verify: TVA #17 is qualitative (‘routine modification … minor upgrade of existing transmission’) with no mileage cap. Confirm the candidate rebuilds read as ‘minor’; large rebuilds (&gt;~25 mi) already fall to expand, not adopt.\n\n\n\ngeothermal_exploration — 9 CE-shaped\n\nBest-match CE: DOE-1--3-43 (DOE), match score 0.4977 — source\nCE text: B3.1 SITE CHARACTERIZATION AND ENVIRONMENTAL MONITORING. Site characterization and environmental monitoring (including, but not limited to, siting, construction, modification, operation, and dismantlement and removal or otherwise proper closure (such as of a well) of characterization and monitoring devices, and siting, construction, and associated operation of a small-scale laboratory building or\nExtraordinary circumstances: B. Conditions That Are Integral Elements of the Classes of Actions in Appendix B The classes of actions listed below include the following conditions as integral elements of the classes of actions. To\nCandidate scope: 80-80 MW (n=1); agencies: Bureau of Land Management\nCoverage read: LIKELY COVERS — DOE B3.1 (site characterization & environmental monitoring) covers exploratory drilling / geophysical survey — a close match to geothermal exploration.\nBound to verify: B3.1 site characterization is qualitative; confirm exploratory drilling depth / well count is within DOE B3.1 scope.\n\n\n\nsolar — 9 CE-shaped\n\nBest-match CE: DOE-1--5-87 (DOE), match score 0.6747 — source\nCE text: B5.16 SOLAR PHOTOVOLTAIC SYSTEMS. (a) The installation, modification, operation, or decommissioning of commercially available solar photovoltaic systems: (1) Located on a building or other structure (such as rooftop, parking lot or facility, or mounted to signage, lighting, gates, or fences); or (2) Located within a previously disturbed or developed area. (b) Covered actions would be in accordance\nExtraordinary circumstances: B. Conditions That Are Integral Elements of the Classes of Actions in Appendix B The classes of actions listed below include the following conditions as integral elements of the classes of actions. To\nCandidate scope: line 4-6 mi (n=2); 4-10 MW (n=2); agencies: Bureau of Land Management; Department of Energy; National Nuclear Security Administration; Power Marketing Administration\nCoverage read: PARTIAL — category contamination, re-examine first — B5.16 covers solar PV generation; it does not cover gen-tie transmission lines. The match is valid only for the ~3 actual solar-generation candidates.\nBound to verify: B5.16 covers commercially available solar PV SYSTEMS. But 6 of 9 CE-shaped ‘solar’ rows are GEN-TIE / interconnection TRANSMISSION lines (the gen-tie precedence rule). B5.16 does NOT cover gen-tie lines. Decide whether gen-ties belong in solar, transmission, or other BEFORE treating this match as adopt.\n\n\n\nwind_onshore — 7 CE-shaped\n\nBest-match CE: DOE-1--5-89 (DOE), match score 0.4049 — source\nCE text: B5.18 WIND TURBINES. The installation, modification, operation, and removal of a small number (generally not more than 2) of commercially available wind turbines, with a total height generally less than 200 feet (measured from the ground to the maximum height of blade rotation) that (1) Are located within a previously disturbed or developed area; (2) are located more than 10 nautical miles (about\nExtraordinary circumstances: B. Conditions That Are Integral Elements of the Classes of Actions in Appendix B The classes of actions listed below include the following conditions as integral elements of the classes of actions. To\nCandidate scope: 1-30 MW (n=3); agencies: Bureau of Land Management; Department of Energy; Energy Programs\nCoverage read: CONDITIONAL — turbine-count bound — DOE B5.18 covers &lt;=2 commercially available wind turbines; only small wind adopts, larger wind farms are expand.\nBound to verify: B5.18 caps at a SMALL NUMBER (generally &lt;=2) of commercially available wind turbines. Candidates above ~2 turbines EXCEED it -&gt; expand, not adopt. Confirm turbine counts.\n\n\n\ntemporary_resource_assessment — 4 CE-shaped\n\nBest-match CE: DOE-1--3-43 (DOE), match score 0.5405 — source\nCE text: B3.1 SITE CHARACTERIZATION AND ENVIRONMENTAL MONITORING. Site characterization and environmental monitoring (including, but not limited to, siting, construction, modification, operation, and dismantlement and removal or otherwise proper closure (such as of a well) of characterization and monitoring devices, and siting, construction, and associated operation of a small-scale laboratory building or\nExtraordinary circumstances: B. Conditions That Are Integral Elements of the Classes of Actions in Appendix B The classes of actions listed below include the following conditions as integral elements of the classes of actions. To\nCandidate scope: n/a; agencies: Bureau of Land Management; Department of Energy; Forest Service\nCoverage read: LIKELY COVERS — DOE B3.1 covers temporary site characterization & monitoring — a direct match to temporary resource assessment.\nBound to verify: B3.1 site characterization is qualitative; confirm the met-tower / boring / survey scope is within it."
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html",
+    "href": "phase2/reports/deliverable02.html",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "",
+    "text": "Draft status\n\n\n\n\n\nThis report is rendered on the DETERMINISTIC (regex-only) extraction. Every determination is `needs_human_review = TRUE`. Tables are ILLUSTRATIVE of structure, not validated findings. Regenerate after the billable LLM adjudication pass and the gold-set validation (Gate 3)."
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#what-this-deliverable-measures",
+    "href": "phase2/reports/deliverable02.html#what-this-deliverable-measures",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "What this deliverable measures",
+    "text": "What this deliverable measures\nPer resource area, how BLM and the DOE agency family make the NEPA significance determination — the CEQ context/intensity factors plus resource-specific thresholds (NAAQS, ESA take/jeopardy, Section 106 adverse effect, floodplain/wetland). The unit of analysis is a provenanced determination record (grain: document × resource area × determination), read from significance_determinations.parquet. Mitigated FONSIs are the centerpiece: they isolate exactly where the agency placed the significance line."
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#frameworks-regime-split",
+    "href": "phase2/reports/deliverable02.html#frameworks-regime-split",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "Frameworks & regime split",
+    "text": "Frameworks & regime split\n\n\n\n\n\n\n  \n    \n      Projects by regulatory period decided during\n    \n    \n  \n  \n    \n      Decision period\n      Projects\n    \n  \n  \n    pre_2020_ceq\n613\n    unknown\n551\n    ceq_2022_phase1\n65\n    ceq_2020_rule\n59\n    ceq_2024_phase2\n27\n    ceq_2025_interim_removal\n11\n  \n  \n  \n\n\n\n\n\n\n\n\n\n\n  \n    \n      Regime assignment status (confidence-gated)\n    \n    \n  \n  \n    \n      Status\n      Projects\n    \n  \n  \n    missing_date\n551\n    assigned_high\n317\n    low_confidence_review\n235\n    assigned_medium_confidence\n96\n    boundary_review\n84\n    assigned_proxy\n43\n  \n  \n  \n\n\n\n\nHeadline regime analyses use decision_period (“decided during”), never a legal “governed by” claim. Low/medium-confidence and boundary-window dates are held out of headline cells by regime_assignment_status."
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#the-dataset",
+    "href": "phase2/reports/deliverable02.html#the-dataset",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "The dataset",
+    "text": "The dataset\n\n\n\n\n\n\n  \n    \n      D2 dataset surface\n    \n    \n  \n  \n    \n      Artifact\n      Grain\n      Rows\n    \n  \n  \n    project_regime\nproject\n1,326\n    significance_corpus\nproject × tier\n1,205\n    project_cohorts\nproject\n1,205\n    mitigation_signal_matches\ncue-span × condition-row\n2,332\n    significance_determinations\ndetermination instance\n3,478\n    determination_thresholds (child)\ndetermination × cited threshold\n1,294\n  \n  \n  \n\n\n\n\nEvery determination carries its provenance (source_substrate, source_unit_id, evidence_text_sha256, page refs), its regime/agency/cohort context, and audit timestamps (significance_extraction_run_at, significance_llm_run_at)."
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#headline-cross-resource-significance-map",
+    "href": "phase2/reports/deliverable02.html#headline-cross-resource-significance-map",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "Headline: cross-resource significance map",
+    "text": "Headline: cross-resource significance map\n\n\n\n\n\n\n  \n    \n      Determination class by resource area (primary BLM/DOE-family scope)\n    \n    \n      Cells &lt; 5 suppressed\n    \n  \n  \n    \n      shared_resource_area\n      n_suppressed\n      no_significant_impact\n      less_than_significant\n      significant_adverse\n    \n  \n  \n    water\nFALSE\n128\n28\n21\n    unknown\nFALSE\n47\n0\n0\n    public_health\nFALSE\n12\n5\n0\n    socioeconomic\nFALSE\n10\n8\n0\n    cultural\nFALSE\n0\n7\n0\n    air_quality\nFALSE\n0\n6\n0"
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#cross-agency-cohort",
+    "href": "phase2/reports/deliverable02.html#cross-agency-cohort",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "Cross-agency & cohort",
+    "text": "Cross-agency & cohort\n\n\n\n\n\n\n  \n    \n      Determination class by agency (primary scope)\n    \n    \n  \n  \n    \n      agency\n      determination_class\n      n\n      n_suppressed\n    \n  \n  \n    BLM\nless_than_significant\n17\nFALSE\n    BLM\nno_significant_impact\n95\nFALSE\n    DOE-family\nless_than_significant\n48\nFALSE\n    DOE-family\nno_significant_impact\n118\nFALSE\n    DOE-family\nsignificant_adverse\n29\nFALSE\n  \n  \n  \n\n\n\n\n\n\n\n\n\n\n  \n    \n      Determination class by policy-era cohort\n    \n    \n      FRA enactment = 2023-06-03\n    \n  \n  \n    \n      cohort_by_date\n      determination_class\n      n\n      n_suppressed\n    \n  \n  \n    arra_to_bil\nless_than_significant\n46\nFALSE\n    arra_to_bil\nno_significant_impact\n154\nFALSE\n    arra_to_bil\nsignificant_adverse\n27\nFALSE\n    bil_to_ira\nno_significant_impact\n12\nFALSE\n    ira_to_fra\nno_significant_impact\n11\nFALSE\n    post_fra\nless_than_significant\n18\nFALSE\n    post_fra\nno_significant_impact\n36\nFALSE"
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#thresholds",
+    "href": "phase2/reports/deliverable02.html#thresholds",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "Thresholds",
+    "text": "Thresholds\n\n\n\n\n\n\n  \n    \n      Cited thresholds by determination class\n    \n    \n      From the determination_thresholds child table (not the scalar summary)\n    \n  \n  \n    \n      threshold_type\n      determination_class\n      n\n      n_suppressed\n    \n  \n  \n    ESA_take\nno_significant_impact\n21\nFALSE\n    NHPA_adverse_effect\nless_than_significant\n8\nFALSE\n    NHPA_adverse_effect\nno_significant_impact\n31\nFALSE\n    NHPA_adverse_effect\nsignificant_adverse\n10\nFALSE\n    wetland_floodplain\nless_than_significant\n13\nFALSE\n    wetland_floodplain\nno_significant_impact\n49\nFALSE\n    wetland_floodplain\nsignificant_adverse\n6\nFALSE"
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#mitigation-read",
+    "href": "phase2/reports/deliverable02.html#mitigation-read",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "Mitigation read",
+    "text": "Mitigation read\n\n\n\n\n\n\n  \n    \n      Mitigation flag by determination class\n    \n    \n      mitigation_flag = a FONSI finding with committed enforceable mitigation nearby\n    \n  \n  \n    \n      determination_class\n      mitigation_flag\n      n\n      n_suppressed\n    \n  \n  \n    less_than_significant\nFALSE\n26\nFALSE\n    less_than_significant\nTRUE\n39\nFALSE\n    less_than_significant_with_mitigation\nFALSE\n1\nTRUE\n    no_significant_impact\nFALSE\n97\nFALSE\n    no_significant_impact\nTRUE\n116\nFALSE\n    significant_adverse\nFALSE\n19\nFALSE\n    significant_adverse\nTRUE\n13\nFALSE"
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#context-universe-reported-separately-never-in-a1-rates",
+    "href": "phase2/reports/deliverable02.html#context-universe-reported-separately-never-in-a1-rates",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "Context universe (reported separately — never in A1 rates)",
+    "text": "Context universe (reported separately — never in A1 rates)\n\n\n\n\n\n\n  \n    \n      Non-primary agency scope (context only)\n    \n    \n  \n  \n    \n      agency_scope_status\n      determination_class\n      n\n      n_suppressed\n    \n  \n  \n    context_other_agency\nno_significant_impact\n30\nFALSE\n    primary_blm_doe_family\nless_than_significant\n128\nFALSE\n    primary_blm_doe_family\nno_significant_impact\n304\nFALSE\n    primary_blm_doe_family\nsignificant_adverse\n51\nFALSE"
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#methods-required-caveats",
+    "href": "phase2/reports/deliverable02.html#methods-required-caveats",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "Methods & required caveats",
+    "text": "Methods & required caveats\n\nAgency scope. BLM + DOE agency family. Headline denominators use only agency_scope_status = 'primary_blm_doe_family'; other-agency and manual-review rows are a separate context universe.\nD4 date/regime coverage. Many projects lack a high-confidence decision date; regime cells are confidence-gated and thin post-2023. EIS decision dates are frequently proxies.\nEPA §309 letters are out of scope — this report makes no EPA-review claim.\nClean-energy scope only (project_energy_type = 'Clean').\nFONSI coverage for the mitigated/straight tiers derives from D6 artifacts.\nEIS retrieval limits. The EIS tier is gated behind FONSI validation and a retrieval-recall spike; EIS findings are preliminary.\nValidation sample size. Rare class/resource/threshold cells are reported descriptively, not as pass/fail macro-metrics.\nSuppressed cells. Any cell below 5 is suppressed."
+  },
+  {
+    "objectID": "phase2/reports/deliverable02.html#appendix-data-dictionary",
+    "href": "phase2/reports/deliverable02.html#appendix-data-dictionary",
+    "title": "NEPA Decarbonization Technology Analysis: Deliverable 2",
+    "section": "Appendix: data dictionary",
+    "text": "Appendix: data dictionary\nSee phase2/notes/deliverable02/data_dictionary.md and the run manifest significance_run_manifest.parquet (input+output paths, row counts, content hashes, model, prompt/schema versions)."
   }
 ]
