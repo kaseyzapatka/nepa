@@ -255,8 +255,9 @@ save_fig(p_sizes, "fig_d6_sizes.png", w = 9, h = 7.7)
 # === Fig: classification — how each candidate's rank score is composed ===
 comp_lab <- c(rank_novelty = "Novelty", rank_volume = "Volume",
               rank_diversity = "Agency/state spread", rank_limits = "Has size limits",
-              rank_mitigation = "Low mitigation dependence", rank_role = "Profile candidate")
-.topN <- verdicts %>% filter(verdict != "contrast") %>% slice_max(rank_score, n = 15, with_ties = FALSE)
+              rank_mitigation = "Low mitigation dependence", rank_role = "Recurring action type")
+# only cells with real evidence (>= 2 CE-shaped FONSIs) — empty cells must not rank
+.topN <- verdicts %>% filter(verdict != "contrast", n_profile_fonsi >= 2) %>% slice_max(rank_score, n = 15, with_ties = FALSE)
 cls <- .topN %>%
   mutate(lab = pretty_cell(candidate_label)) %>%
   select(lab, rank_score, all_of(names(comp_lab))) %>%
