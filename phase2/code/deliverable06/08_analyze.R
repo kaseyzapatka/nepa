@@ -49,6 +49,10 @@ save_fig <- function(p, name, w = 8, h = 4.5) {
   ggsave(file.path(FIGS, name), p, width = w, height = h, dpi = 300); message("  wrote ", name)
 }
 short_label <- function(x) x %>% str_replace(" \\(.*\\)", "") %>% str_wrap(26)
+# clean, single-line cell label: drop underscores + abbreviate the long verbs (no wrapping)
+pretty_cell <- function(x) x %>% str_replace_all("_", " ") %>%
+  str_replace("research or demonstration", "R&D/demo") %>%
+  str_replace("land or row authorization", "land/ROW auth")
 
 # ---------------------------------------------------------------------------
 inv      <- read_parquet(file.path(ANALYSIS, "fonsi_project_inventory.parquet")) %>% mutate(project_id = as.character(project_id))
@@ -138,16 +142,15 @@ p_waffle1 <- ggplot(waf1, aes(x, y, fill = cat)) +
 save_fig(p_waffle1, "fig_d6_outcomes_waffle.png", w = 9, h = 5)
 
 # === Fig: sort step — every clean FONSI by action type, incl. the uncategorized pool ===
-dd <- corp_fonsi %>% group_by(candidate_category) %>%
+dd <- facts %>% group_by(tech_group) %>%
   summarise(total = n_distinct(project_id),
             bounded = n_distinct(project_id[is_bounded]), .groups = "drop") %>%
-  left_join(verdicts %>% select(candidate_category, candidate_label), by = "candidate_category") %>%
-  mutate(lab = short_label(candidate_label)) %>% filter(!is.na(lab))
+  mutate(lab = tech_group) %>% filter(!is.na(lab), total > 0)
 sortL <- dd %>% mutate(Broader = total - bounded, Bounded = bounded) %>%
   pivot_longer(c(Bounded, Broader), names_to = "subset", values_to = "n") %>%
   group_by(lab) %>% mutate(share = n / sum(n)) %>% ungroup() %>%
   mutate(subset = factor(subset, levels = c("Broader", "Bounded")))
-p_sort <- ggplot(sortL, aes(y = reorder(lab, total), x = n, fill = subset)) +
+p_sort <- ggplot(sortL, aes(y = reorder(lab, bounded), x = n, fill = subset)) +
   geom_col(position = "fill", width = 0.7) +
   geom_text(aes(label = ifelse(share >= 0.06, paste0(percent(share, 1), " (", n, ")"), "")),
             position = position_fill(vjust = 0.5), color = "white", fontface = "bold", size = 3) +
@@ -157,12 +160,12 @@ p_sort <- ggplot(sortL, aes(y = reorder(lab, total), x = n, fill = subset)) +
                     guide = guide_legend(reverse = TRUE)) +
   scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.14))) +
   labs(title = glue::glue("Sorting the {n_clean} decarbonization FONSIs"),
-       subtitle = str_wrap(glue::glue("Within each action type, the share that is bounded & low-impact (teal, kept for ",
-                 "matching) vs broader (grey, set aside). A further {n_uncat} FONSIs are uncategorized."), 96),
-       x = "Share of the action type", y = NULL,
+       subtitle = str_wrap(glue::glue("Within each technology, the share that is bounded & low-impact (teal, kept ",
+                 "for matching) vs broader (grey, set aside)."), 96),
+       x = "Share of the technology", y = NULL,
        caption = "Teal = bounded, low-impact subset carried to Step 3; grey = broader. n = total FONSIs of that type.") +
   theme_catf() + theme(legend.position = "bottom")
-save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 4.2)
+save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 5.6)
 
 # === Fig: what makes the kept FONSIs "bounded, low-impact" (the keep step) ===
 prof_keep <- facts %>% filter(is_bounded)
@@ -186,7 +189,8 @@ p_keep <- ggplot(keep_attr, aes(share, reorder(attribute, share))) +
 save_fig(p_keep, "fig_d6_keep_bounded.png", w = 8.5, h = 2.8)
 
 # === Fig: CE-match strength per candidate (ranking aid; 0.40 cutoff) ===
-mfit <- verdicts %>% filter(verdict != "contrast") %>% mutate(lab = short_label(candidate_label))
+mfit <- verdicts %>% filter(verdict != "contrast", n_profile_fonsi >= 5) %>%
+  mutate(lab = pretty_cell(candidate_label))
 p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_score)) +
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0, ymax = 0.20, fill = catf_grey, alpha = 0.5) +
   annotate("text", x = Inf, y = 0.10, label = "baseline similarity", hjust = 0.5, vjust = -0.7,
@@ -202,7 +206,7 @@ p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_sco
        caption = str_wrap(paste("Blended semantic + word-overlap similarity. Grey band = baseline, where unrelated CEs score",
                 "(≤ ~0.20); the matches sit 2–6× above it. A ranking aid — every match is confirmed against its eCFR text (see table above)."), 118)) +
   theme_catf()
-save_fig(p_match, "fig_d6_ce_match.png", h = 4.0)
+save_fig(p_match, "fig_d6_ce_match.png", w = 8.5, h = 5.6)
 
 # === Fig: bounded FONSIs vs existing-CE stated limits (the expand-test comparison) ===
 prof_sz <- facts %>% filter(is_bounded)
@@ -252,22 +256,23 @@ save_fig(p_sizes, "fig_d6_sizes.png", w = 9, h = 7.7)
 comp_lab <- c(rank_novelty = "Novelty", rank_volume = "Volume",
               rank_diversity = "Agency/state spread", rank_limits = "Has size limits",
               rank_mitigation = "Low mitigation dependence", rank_role = "Profile candidate")
-cls <- verdicts %>% filter(verdict != "contrast") %>%
-  mutate(lab = short_label(candidate_label)) %>%
+.topN <- verdicts %>% filter(verdict != "contrast") %>% slice_max(rank_score, n = 15, with_ties = FALSE)
+cls <- .topN %>%
+  mutate(lab = pretty_cell(candidate_label)) %>%
   select(lab, rank_score, all_of(names(comp_lab))) %>%
   pivot_longer(all_of(names(comp_lab)), names_to = "component", values_to = "contribution") %>%
   mutate(component = factor(recode(component, !!!comp_lab), levels = unname(comp_lab)))
-ord <- verdicts %>% filter(verdict != "contrast") %>% arrange(rank_score) %>% pull(candidate_label) %>% short_label()
+ord <- .topN %>% arrange(rank_score) %>% pull(candidate_label) %>% pretty_cell()
 cls$lab <- factor(cls$lab, levels = ord)
 p_cls <- ggplot(cls, aes(lab, contribution, fill = component)) +
   geom_col(width = 0.66) + coord_flip() +
   scale_fill_manual(values = c("#012169", "#23457F", "#3D6BAB", "#5E8FD0", "#8AB7E9", "#C2CBD6"), name = NULL) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
-  labs(title = "How each candidate is scored and ranked",
-       subtitle = "Transparent multi-factor rank score (0–1); bar length = total, colors = each factor's contribution",
+  labs(title = "How the top-ranked cells are scored",
+       subtitle = "Top 15 tech × action cells by rank score (0–1); bar length = total, colors = each factor's contribution",
        x = NULL, y = "Rank score") +
   theme_catf() + theme(legend.position = "bottom") + guides(fill = guide_legend(nrow = 2))
-save_fig(p_cls, "fig_d6_classification.png", w = 9, h = 4.4)
+save_fig(p_cls, "fig_d6_classification.png", w = 9, h = 6.4)
 
 # === Fig: FRA timeline — the 53 bounded FONSIs by D4 decision date ===
 tl <- facts %>% filter(is_bounded) %>% distinct(project_id, decision_date) %>%
@@ -300,7 +305,7 @@ save_fig(p_tl, "fig_d6_timeline.png", w = 9, h = 4.0)
 
 # === Fig: US map of transmission-upgrade FONSI states (tigris/sf — house pattern) ===
 tx_state <- corp_fonsi %>%
-  filter(is_bounded, candidate_category == "transmission_upgrade") %>%
+  filter(is_bounded, candidate_category == "Transmission__upgrade") %>%
   mutate(s = str_remove_all(as.character(project_state), '[\\[\\]"]')) %>%
   separate_rows(s, sep = ",\\s*") %>% mutate(state_name = str_squish(s)) %>%
   filter(state_name != "", !is.na(state_name)) %>% count(state_name, name = "n")
@@ -319,8 +324,8 @@ p_map <- ggplot(states_sf) +
   labs(title = glue::glue("Where the transmission-upgrade FONSIs are — {n_tx_states} states"),
        subtitle = "Bounded, low-impact in-corridor transmission FONSIs, concentrated in the West (BLM / BPA territory)",
        x = NULL, y = NULL,
-       caption = str_wrap(paste("Count = transmission FONSIs touching each state; 4 projects span two states, so the 37 projects",
-                "sum to 41 state-counts. Each maps to a TVA transmission CE (#17 reconductoring / #19 rebuild)."), 110)) +
+       caption = str_wrap(paste("Count = bounded transmission-upgrade FONSIs touching each state (a project spanning two",
+                "states is counted in each). Concentrated in the West — BLM and power-marketing-administration territory."), 110)) +
   theme_catf() + theme(legend.position = "right", axis.text = element_blank(), panel.grid = element_blank())
 save_fig(p_map, "fig_d6_states.png", w = 8.5, h = 5.0)
 
@@ -353,20 +358,20 @@ p_cesplit <- ggplot(count(tx_split, bucket), aes(x = bucket, y = n, fill = bucke
 save_fig(p_cesplit, "fig_d6_ce_split.png", w = 9, h = 3.0)
 
 # === Fig: adoption gap (evidence weight + who could adopt) ===
-adopt <- verdicts %>% filter(verdict == "adopt") %>%
-  mutate(lab = short_label(candidate_label),
+adopt <- verdicts %>% filter(verdict == "adopt", n_profile_fonsi >= 2) %>%
+  mutate(lab = pretty_cell(candidate_label),
          n_lacking = str_count(adopt_targets, ",") + 1L,
-         tag = paste0(n_profile_fonsi, " FONSIs → adopt ", best_ce_structured_id, " (", best_ce_agency, ")"))
+         tag = paste0(n_profile_fonsi, " FONSIs → ", best_ce_structured_id))
 p_gap <- ggplot(adopt, aes(reorder(lab, n_profile_fonsi), n_profile_fonsi)) +
   geom_col(width = 0.62, fill = catf_dark_blue) +
   geom_text(aes(label = tag), hjust = -0.03, size = 3.2, color = catf_navy) +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.75))) +
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.45))) +
   labs(title = "The adoption gap, by evidence weight",
        subtitle = "Bar = bounded FONSIs run as full EAs; label = the existing CE (and holder) they could adopt instead",
        x = NULL, y = "Bounded, low-impact FONSIs run as full EA→FONSI",
        caption = "Each action already has a categorical exclusion at another agency; adopting it avoids the full EA.") +
   theme_catf()
-save_fig(p_gap, "fig_d6_adoption_gap.png", w = 9, h = 3.8)
+save_fig(p_gap, "fig_d6_adoption_gap.png", w = 9, h = 5.6)
 
 # === Analysis 3: roll up to DEPARTMENT (the agency_unit prefix, e.g. "DOI - BLM" -> DOI) ===
 ce_land <- ce_land %>% mutate(dept = str_trim(str_extract(agency_unit, "^[^-]+")),
