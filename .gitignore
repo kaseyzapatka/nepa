@@ -38,3 +38,5 @@ __pycache__/
 
 **/*.quarto_ipynb
 phase2/where_I_left_off. txt
+# personal resume-point notes (any directory)
+where_I_left_off.md
