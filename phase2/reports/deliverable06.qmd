@@ -45,7 +45,7 @@ n_mit_noncand  <- sum(enr$is_mit & !(as.character(enr$project_id) %in%
 # candidate_facts is now the candidate set itself (one row per FONSI, keyed on corrected action_category).
 facts <- facts |> mutate(is_bounded = is_ce_shaped %in% TRUE, project_id = as.character(project_id))
 corp_fonsi <- facts
-n_clean     <- inv |> filter(project_energy_type == "Clean") |> distinct(project_id) |> nrow()
+n_clean     <- corp_fonsi |> distinct(project_id) |> nrow()   # analyzed clean-energy corpus (= candidate_facts); 1 inventory FONSI is dropped upstream (no evidence)
 n_candidate <- corp_fonsi |> distinct(project_id) |> nrow()
 n_ce_shaped <- corp_fonsi |> filter(is_bounded) |> distinct(project_id) |> nrow()
 n_other     <- n_clean - n_candidate
@@ -226,7 +226,7 @@ classifying by what the action physically *is*, not by keywords in the title. A 
 *existing* line within an existing right-of-way (not a new greenfield build). That narrows the
 **`r n_candidate`** candidate FONSIs to the **`r n_ce_shaped` CE-shaped projects used throughout
 this report**. The rest are **not dropped**: the larger rebuilds (`r n_tx_not_bounded` transmission,
-26–187 mi), utility-scale builds, and new-corridor lines move to the *expand / develop* bucket
+many far longer than a CE would allow), utility-scale builds, and new-corridor lines move to the *expand / develop* bucket
 (the worked example), where a broadened or new CE — not adoption — would be the fit.
 :::
 
@@ -317,26 +317,30 @@ factors; the bar length is the priority and the colors show why:
 - **Agency/state spread** — how widely the action recurs (broader = more agencies benefit).
 - **Has size limits** — whether we can state a numeric bound (easier to write the CE).
 - **Low mitigation dependence** — less reliance on case-by-case mitigation (a cleaner CE).
-- **Recurring action type** — a flat component shared by every recurring action cell.
+- **Recurring action type** — a flat baseline every grid cell shares (it lifts all scores equally, so it does not change the order).
 
-So transmission ranks at the top not because it matches a CE most closely (it doesn't), but
-because it has **the most FONSIs across the most agencies and states**.
+Because the default score weights **novelty** most, the **net-new (develop) candidates rank
+highest** — *Solar — other*, *Other Clean — upgrade*, and *Wind — demonstration / pilot* (nuclear's
+demonstration cell ranks lower down). *Transmission upgrade* — the highest-volume single cell (the
+*expand* lever in the Findings below) — sits a few places behind them; it leads only when you weight
+raw volume most (the next table).
 
 ```{r}
 #| label: fig-d6-classification
-#| fig-cap: "Each candidate's rank score, broken into its six contributing factors (bar length = total priority)."
+#| fig-cap: "Each candidate's rank score, broken into its six contributing factors (bar length = total priority). Only cells with ≥ 2 CE-shaped FONSIs are ranked — empty cells are excluded."
 #| out-width: 92%
 knitr::include_graphics(file.path(FIGS, "fig_d6_classification.png"))
 ```
 
 The weights are a judgment call, so here is the rank order under three plausible weightings.
-**Transmission stays #1 in all three**; the thin-n candidates shuffle below it — read them as
-a **band**, not a precise order:
+**The leader changes with the weighting** — transmission upgrade tops the *volume-heavy* view,
+while the novelty-driven develop cells lead the others — so read the ranking as a **band of
+strong candidates**, not a precise order:
 
 ```{r}
 #| label: tbl-d6-rank-sensitivity
-#| tbl-cap: "Rank of the top opportunity cells under three weightings (volume-heavy / mitigation-risk-heavy / verification-confidence-heavy). The leaders are robustly ranked; lower cells shuffle, so exact order beyond the top few is not meaningful."
-rc <- verdicts |> filter(verdict != "contrast") |>
+#| tbl-cap: "Rank of the top opportunity cells (≥ 2 CE-shaped FONSIs) under three weightings (volume-heavy / mitigation-risk-heavy / verification-confidence-heavy). The leader changes with the weighting, so treat the top group as a band, not a precise ranking."
+rc <- verdicts |> filter(verdict != "contrast", n_profile_fonsi >= 2) |>
   transmute(Cell = str_replace_all(candidate_label, "_", " "),
             rank_novelty, rank_volume, rank_diversity, rank_limits, rank_mitigation, rank_role)
 .score <- function(w) with(rc, w[1]*rank_novelty + w[2]*rank_volume + w[3]*rank_diversity +
@@ -363,8 +367,10 @@ treat the verdicts as a prioritized review list, not a legal conclusion.
 :::
 
 The grid's `r n_cells` cells resolve to **`r n_adopt` adopt · `r n_expand` expand · `r n_new` develop**,
-plus `r n_covered` already covered. The three opportunity types follow in priority order — each
-self-contained below: **what it is**, **how much evidence backs it**, and **what to do**.
+plus `r n_covered` already covered. (Both expand cells are transmission; the second — transmission
+new-build — has no CE-shaped FONSIs in this corpus, so the Expand finding below covers upgrades.)
+The three opportunity types follow in priority order — each self-contained below: **what it is**,
+**how much evidence backs it**, and **what to do**.
 
 ### Expand — transmission upgrades (the strongest opportunity)
 
@@ -375,7 +381,7 @@ that cap**, not adopt the CE as-is.
 
 **Why *expand*, not *adopt* — the size test.** The *expand* test asks whether a cell's bounded
 FONSIs exceed the matched CE's stated size limit. Transmission upgrades are the `r n_expand` cells
-that fire it: the in-corridor rebuilds run a ~29-mile median (up to ~187 mi) against a ~2-mile
+that fire it: the in-corridor rebuilds run a **~28-mile median** — some far longer — against a ~2-mile
 typical CE limit (max 25 mi). Most *other* cells can't fire a **numeric** expand — their closest CE
 bounds scope with *words* ("routine," "minor," "existing infrastructure"), not a number — but that
 absence is not "no expand opportunity exists"; it just has to be **verified against the CE text**.
@@ -413,8 +419,8 @@ states**. TVA **already categorically excludes this work under two exclusions**,
 
 Of the `r n_tx_total`, the model judged **`r n_tx_adopt` adopt-ready** (small / in-corridor):
 **`r n_tx17` map to CE #17** (modify) and **`r n_tx19` to CE #19** (rebuild ≤ 25 mi). The
-other **`r n_tx_exp` are large rebuilds** (26–187 miles, full structure replacement) it
-flagged as *not* inherently low-impact — these exceed CE #19's 25-mile cap, so they are the
+other **`r n_tx_exp` are large rebuilds** (full structure replacement, well beyond CE #19's
+25-mile cap) it flagged as *not* inherently low-impact — so they are the
 ***expand / develop*** case (an expanded or new CE), not a clean adopt.
 
 ```{r}
@@ -552,7 +558,9 @@ verdicts |>
   fmt_markdown(columns = `Existing CE (held by)`) |>
   tab_source_note(md(paste0(
     "**Thin-evidence flag:** most adopt cells rest on only 2–4 low-impact FONSIs — ",
-    "treat them as illustrative opportunities to verify, not robust findings."))) |>
+    "treat them as illustrative opportunities to verify, not robust findings. Some high-count rows ",
+    "are non-physical actions (e.g. land / right-of-way authorization); a peer CE exists to adopt, ",
+    "but confirm it fits the action."))) |>
   tab_options(table.font.size = px(13), column_labels.font.weight = "bold")
 ```
 
@@ -563,7 +571,7 @@ verdicts |>
 knitr::include_graphics(file.path(FIGS, "fig_d6_adoption_gap.png"))
 ```
 
-### Develop — net-new gaps (the genuinely new finding)
+### Develop — net-new gaps
 
 **The genuinely new opportunity:** `r n_new` cells recur with **no** close existing CE — invisible
 under the old hand-picked categories — and `r n_dev_codif` of them are codifiable, so the move is to
@@ -938,8 +946,9 @@ dominate, but **every CE picks a different value.** The single most common acrea
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_bounds_lolli.png"))
 ```
 
-So an "expand the stated limit" argument has almost no precedent to lean on — part of
-why nothing resolved to *expand* in Analysis 1.
+So a *numeric* "expand the stated limit" argument has little precedent to lean on — the
+transmission cells are the exception in Analysis 1 (they exceed CE #19's 25-mile cap); for the
+other cells, qualitative coverage gaps stay unverified rather than numerically exceeded.
 
 ### What the non-numeric limits look like
 
