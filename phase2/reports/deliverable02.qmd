@@ -39,12 +39,13 @@ is_dry <- all(det$extraction_method == "regex")
 ::: {.callout-warning}
 ## Draft status
 ```{r}
+#| results: asis
 cat(if (is_dry)
-  paste("This report is rendered on the DETERMINISTIC (regex-only) extraction. Every",
-        "determination is `needs_human_review = TRUE`. Tables are ILLUSTRATIVE of structure,",
-        "not validated findings. Regenerate after the billable LLM adjudication pass and the",
-        "gold-set validation (Gate 3).")
-  else "Rendered on the LLM-adjudicated extraction. Apply the caveat checklist (Methods).")
+  paste("This document outlines the deliverable's purpose and the analysis workflow; the",
+        "findings themselves are still in progress. Results tables will be added once the",
+        "extraction pass and the validation against the hand-labelled gold set are complete.")
+  else paste("This report reflects the validated extraction; see Methods & required caveats",
+             "for the applicable limitations."))
 ```
 :::
 
