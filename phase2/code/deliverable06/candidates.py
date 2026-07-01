@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-TAXONOMY_VERSION = "d6_v2_2"
+TAXONOMY_VERSION = "d6_v3_0"   # v3: tech_group x action grid (refactor); was d6_v2_2 (5 hand-coded types)
 
 
 def _rx(pattern: str) -> re.Pattern:

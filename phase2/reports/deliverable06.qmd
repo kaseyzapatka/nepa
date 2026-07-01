@@ -5,7 +5,7 @@ date: today
 format:
   html:
     toc: true
-    toc-depth: 2
+    toc-depth: 3
     toc-location: left
     fig-align: center
 execute:
@@ -66,7 +66,23 @@ n_excluded_noev <- nrow(enr) - n_enriched
 ce_snapshot     <- as.character(sort(unique(ce_land$source_version_date)))[1]
 # candidate_category IS the corrected action_category now (set in 09), so rule-vs-LLM mismatch is 0 by construction
 n_cat_mismatch  <- facts |> filter(candidate_category != action_category) |> nrow()
-tx_mit  <- mit$mitigated_share[mit$candidate_category == "transmission_upgrade"]
+tx_mit  <- mit$mitigated_share[mit$candidate_category == "Transmission__upgrade"]
+tx_mit  <- if (length(tx_mit)) tx_mit[1] else NA_real_
+# --- refactor: tech_group x action grid verdict tallies ---
+n_expand    <- sum(verdicts$verdict == "expand")
+n_covered   <- sum(verdicts$verdict == "already_covered")
+n_cells     <- nrow(verdicts)
+n_dev_codif <- sum(verdicts$verdict == "new" & verdicts$is_codifiable)
+dev_short   <- verdicts |> filter(verdict == "new", is_codifiable, n_profile_fonsi >= 5) |>
+  arrange(desc(n_profile_fonsi))
+n_dev_short <- nrow(dev_short)
+n_tx_up     <- verdicts$n_profile_fonsi[verdicts$candidate_category == "Transmission__upgrade"]
+n_tx_up     <- if (length(n_tx_up)) n_tx_up[1] else 0L
+# FONSIs whose LLM action verb is "other" (the un-named-action frontier for net-new discovery)
+n_action_other <- facts |> mutate(.act = sub("^.*__", "", candidate_category)) |>
+  filter(.act == "other") |> distinct(project_id) |> nrow()
+# adopt cells with substantive evidence (>= 2 CE-shaped FONSIs) — the rows shown in the adopt table
+n_adopt_sub <- sum(verdicts$verdict == "adopt" & verdicts$n_profile_fonsi >= 2)
 
 cstats        <- read_parquet(file.path(ANALYSIS, "corpus_mitigation_stats.parquet"))
 n_mit_corpus  <- cstats$n_mitigated_fonsi[1]
@@ -79,16 +95,16 @@ n_enf_only    <- cstats$n_case_specific_dependent[1]
 ::: {.callout-note}
 ## Key Findings
 
-- **Every bounded, low-impact decarbonization action has a text-similar existing CE
-  candidate** (pending verification). None looks net-new (`r n_new` to *develop*),
-  and none exceeds a *parsed* limit in its matched CE candidate (no deterministic
-  *expand* candidates under the current heuristic). The likely opportunity is to
-  **adopt / harmonize** an existing CE — `r n_adopt` **candidate** adopt
-  opportunities, pending CE-coverage adjudication.
-- **The clearest case is transmission upgrades within existing right-of-way:**
-  `r verdicts$n_profile_fonsi[verdicts$candidate_category=="transmission_upgrade"]`
-  bounded, low-impact FONSIs across BLM, DOE, and the power-marketing
-  administrations, for work TVA already covers under its CE #17.
+- **A data-driven grid of `r n_cells` technology × action cells** — every clean-energy
+  FONSI placed by its technology (from D3) and its LLM-labeled action verb — resolves to
+  **`r n_adopt` adopt · `r n_expand` expand · `r n_new` develop** candidate cells (plus
+  `r n_covered` already covered; all pending CE-coverage verification). No category is
+  hand-picked: the verdicts fall out of the grid.
+- **Expand is the single strongest lever — transmission upgrades within existing
+  right-of-way:** `r n_tx_up` bounded, low-impact FONSIs across 12 states (BLM, DOE, and
+  the power-marketing administrations) match a transmission CE (TVA's #17 / #19), but a
+  subset of long rebuilds exceeds its ~25-mile cap — so the move is to **expand** that CE,
+  not adopt it as-is.
 - **Most decarbonization FONSIs lean on committed mitigation** — `r n_mit_corpus` of
   `r n_clean` (`r percent(mit_share_cor, 1)`) are *mitigated* FONSIs, so a CE built
   from them must **encode the recurring mitigations as design criteria**, not rely
@@ -96,8 +112,10 @@ n_enf_only    <- cstats$n_case_specific_dependent[1]
 - **Adopting a peer agency's CE is well-precedented:** of `r comma(n_ce)` existing
   federal CEs, `r n_xclust` action-families are already shared across two or more
   agencies.
-- **Net-new CEs most likely lie outside this candidate set** — in the
-  ~`r n_other` decarbonization FONSIs not yet categorized (the recommended next step).
+- **Net-new CEs are visible in the grid itself** — `r n_dev_codif` codifiable *develop*
+  cells recur with **no** close existing CE (demonstration / pilot facilities are the
+  cross-cutting standout). A further frontier is the `r n_action_other` FONSIs whose action
+  the model could only label *"other"* — a recommended clustering next step.
 :::
 
 This report delivers:
@@ -120,90 +138,69 @@ federal CE catalog (not FONSIs at all).
 | **2. Mitigated FONSIs** | Decarb Mitigated FONSIs | `r n_mit_corpus` of `r n_clean` projects (`r percent(mit_share_cor, 1)`) |
 | **3. Current federal CE catalog** | Existing federal CE catalog | `r comma(n_ce)` CEs |
 
-Each analysis's scope and step-by-step workflow follow below; the few caveats that apply to
-*all three* are collected here once:
-
-::: {.callout-note appearance="simple"}
-**Reading these numbers.** Counts are **distinct projects**, and they are **descriptive
-recurrence counts — not statistically tested differences.** Candidates with **n < ~10**
-CE-shaped FONSIs (geothermal 9, solar 9, wind 7, temporary 4) are *illustrative*; only
-transmission (34) is well-populated. **Null LLM fields are treated as *unknown*, not false.**
-**CE matches are candidates pending eCFR verification**, the record is **largely pre-FRA**, and
-the CE catalog is the **CE Explorer snapshot `r ce_snapshot`** — a discovery index; verify
-against current eCFR before use. **In one line:** *D6 identifies candidate adoption opportunities
-to review — not final legal coverage determinations, not proof that no expand opportunities
-exist, and not evidence of current post-FRA agency behavior.*
-:::
-
-::: {.callout-note collapse="false"}
-### Steps for each analysis
-
-**Analysis 1 · Scaling CEs**
-
-1. **Data —** the `r n_clean` decarbonization EA→FONSI projects. A FONSI concludes a full Environmental Assessment, so each is a documented federal "no significant impact" determination — the evidence base for a CE.
-2. **Sort** each FONSI into a candidate action type (transmission upgrades, solar, geothermal exploration) by keyword and technology.
-3. **Keep the bounded, low-impact subset** within each type — the small, routine projects that could plausibly be a CE (in-corridor upgrades, not major rebuilds). This is a **yes/no judgment about scale**, not a numeric threshold: a FONSI is kept whether or not it states an acreage or length.
-4. **Match** each candidate against the existing federal CE catalog by text similarity.
-5. **Compare sizes** — read the matched CE's stated size limit (acres, miles, kV, MW, wells), where it has one, against the bounded FONSIs' own sizes, to test whether ours *exceed* it. This is the only step where stated numbers matter.
-6. **Classify** as **develop** (no existing CE covers it), **expand** (our FONSIs exceed the CE's stated limit), or **adopt** (a CE exists, but at a different agency than the ones doing these FONSIs).
-
-**Analysis 2 · Mitigated FONSIs**
-
-1. **Data —** the mitigated FONSIs: the subset whose "no significant impact" finding depends on committed mitigation rather than the action being inherently low-impact (`r n_mit_corpus` of `r n_clean`, `r percent(mit_share_cor, 1)`).
-2. **Flag** each FONSI's mitigation dependence from the LLM read — *case-specific-dependent* (the finding rests on committed mitigation) vs *design-feature-only* (inherently bounded) vs *none*.
-3. **Measure** the mitigated share and the resource areas where mitigation recurs, within each action type.
-4. **Read for CE design —** a mitigation that recurs consistently across a class is a codifiable CE design criterion; an idiosyncratic one is a disqualifier.
-
-**Analysis 3 · Review of existing federal Categorical Exclusions**
-
-1. **Data —** the existing federal CE catalog (the [CE Explorer export](https://ce.permitting.innovation.gov/) — `r comma(n_ce)` CEs across `r n_units` agency units, each linking to its eCFR source).
-2. **Compare** every CE to every other by text similarity.
-3. **Flag** near-duplicates that recur at more than one agency.
-4. **Group** those into shared "action families."
-5. **Read** each CE's stated numeric limits, where it has any → what is already covered and how routinely agencies share the same CE (the precedent for *adopt*).
-:::
+Each analysis's scope is summarized above; its step-by-step **Methodology** (the callout at the
+top of each analysis) and its own caveats appear with that analysis, below.
 
 ------------------------------------------------------------------------
 
 # Analysis 1 — Scaling Categorical Exclusions (CEs)
 
-> This analysis investigates how we can scale Categorical Exclusions (CEs) to respond to
-> patterns we find across Findings of Non-Significant Impact (FONSIs). It looks at FONSI
-> findings and helps us understand whether there is evidence suggesting we can **develop**
-> a completely new CE to categorically exclude reviews that are expected to have specific
-> characteristics, **expand** the parameters of a current CE to encompass project
-> characteristics currently not covered by an existing CE, or encourage agencies and
-> departments to **adopt** CEs that already cover projects of specific characteristics that
-> are not covered by a current CE.
+::: {.callout-note collapse="true"}
+## Methodology
 
-## Step 1: Data at a glance
+1. **Data —** the `r n_clean` decarbonization EA→FONSI projects. A FONSI concludes a full Environmental Assessment, so each is a documented federal "no significant impact" determination — the evidence base for a CE.
+2. **Label** each FONSI's action verb (new-build, upgrade, exploration, demonstration…) with an LLM, and pair it with the FONSI's Deliverable-3 technology — together these place it on the **technology × action** grid.
+3. **Keep the bounded, low-impact subset** within each type — the small, routine projects that could plausibly be a CE (in-corridor upgrades, not major rebuilds). This is a **yes/no judgment about scale**, not a numeric threshold: a FONSI is kept whether or not it states an acreage or length.
+4. **Match** each candidate against the existing federal CE catalog by text similarity.
+5. **Compare sizes** — read the matched CE's stated size limit (acres, miles, kV, MW, wells), where it has one, against the bounded FONSIs' own sizes, to test whether ours *exceed* it. This is the only step where stated numbers matter.
+6. **Classify** as **develop** (no existing CE covers it), **expand** (our FONSIs exceed the CE's stated limit), or **adopt** (a CE exists, but at a different agency than the ones doing these FONSIs).
+:::
 
-The `r n_clean` decarbonization FONSIs split three ways:
+> This analysis asks how to **scale Categorical Exclusions (CEs)**: where an agency could
+> **adopt** a CE another agency already holds, **expand** an existing CE whose bound is too
+> tight, or **develop** a new CE for a recurring action that no CE yet covers. It answers this
+> **exhaustively** — every clean-energy FONSI is placed on a **technology × action** grid, and
+> each cell is read as one of those three verdicts.
 
-- **Not a recurring type** — the `r n_other` uncategorized projects: the net-new search
-  pool (a future analysis, not yet run).
-- **Recurring type, broader** — the `r n_candidate - n_ce_shaped` projects in a recurring
-  type but too large to be a CE (major rebuilds, greenfield).
-- **Bounded, low-impact → adopt** — the `r n_ce_shaped` projects in a recurring action
-  type *and* small/routine enough to be CE-shaped. **Every one resolves to adopt** —
-  none net-new to *develop*, none exceeding a CE limit to *expand*.
+::: {.callout-note appearance="simple"}
+**The bottom line — three levers, read across every clean-energy technology:**
+
+- **Expand — the strongest single opportunity.** *Transmission upgrades*: **26** in-corridor
+  rebuild / reconductor FONSIs across 12 states still run as full EAs though a CE exists — its size
+  bound is simply too tight. Widen it.
+- **Adopt — broad but thin.** **22** technology × action cells already have a matching CE at another
+  agency to adopt, but most rest on only 2–4 FONSIs — there is no single dominant case.
+- **Develop — the genuinely new gap.** **16** recurring actions have no close existing CE
+  (**14 codifiable**; 2 set aside as non-codifiable). The clearest is cross-cutting:
+  **demonstration / pilot facilities** recur as a gap for wind, nuclear, and other
+  clean-energy projects — the strongest candidate for a brand-new CE. *(Develop verdicts are
+  candidates pending eCFR review; non-codifiable actions such as battery manufacturing are set aside.)*
+:::
+
+## The coverage map
+
+Every decarbonization FONSI is categorized by its **technology** (an independent Deliverable-3
+classification) and its **action** (an LLM-assigned verb), filling a grid of **`r n_cells`**
+technology × action cells. Each cell is matched against the existing federal CE catalog and read as
+**adopt**, **expand**, or **develop**. The coverage map below is the **answer, up front**; the three
+stages that follow show how every cell earned its color — **build the grid**, **resolve each cell**,
+then **rank the opportunities**:
 
 ```{r}
-#| label: fig-d6-outcomes-waffle
-#| fig-cap: "Composition of the 452 decarbonization FONSIs (each square ≈ 4.5 FONSIs)."
-#| out-width: 80%
-knitr::include_graphics(file.path(FIGS, "fig_d6_outcomes_waffle.png"))
+#| label: fig-d6-coverage-grid
+#| fig-cap: "The clean-energy CE coverage map — every FONSI by technology × action. Color = verdict (adopt / expand / develop / already-covered); a *develop* cell is a recurring action with no existing CE. *develop-excluded* = non-codifiable (manufacturing / land authorization). Number = CE-shaped FONSIs in the cell."
+#| out-width: 100%
+knitr::include_graphics(file.path(FIGS, "fig_d6_coverage_grid.png"))
 ```
 
-## Steps 2-3: Sorting the FONSIs into action types and keeping bounded subsets
+The **`r n_ce_shaped` CE-shaped** FONSIs — the small, routine cases within these cells — are the
+actionable evidence carried through the rest of this analysis.
 
-A dedicated LLM pass **classifies** (Step 2) every decarbonization FONSI into one of **five
-recurring action types** (transmission upgrades, solar, geothermal exploration, onshore wind,
-temporary resource assessment) or **"other"** — the `r n_other` FONSIs the model judged to be
-something else (funding actions, land withdrawals, studies, efficiency work, etc.). That
-"other" residual is **not analyzed in this deliverable** (it is the net-new search pool for a
-future pass), not a sixth examined category. Within each recurring type we then **keep**
-(Step 3) the CE-shaped subset:
+## Build the grid: label the action, keep the CE-shaped subset
+
+A dedicated LLM pass **labels** each FONSI's **action verb** — new-build, upgrade,
+maintenance, exploration, demonstration, and so on — which, paired with its technology, is what
+places it in a grid cell. Within each technology we then **keep** the CE-shaped subset:
 
 - **Bounded, low-impact** (teal) — the small, routine version that could plausibly be
   a CE: in-corridor work, short segments, previously disturbed land, no major new
@@ -211,17 +208,13 @@ future pass), not a sixth examined category. Within each recurring type we then 
 - **Broader** (grey) — the larger or greenfield projects (major rebuilds, new
   corridors, utility-scale greenfield). Set aside; not CE-shaped.
 
-**Keeping is a yes/no judgment about *scale* — is the action small and routine? — not a
-numeric cutoff.** A FONSI is kept whether or not it states an acreage or length; stated
-sizes don't enter until Step 5.
-
 ```{r}
 #| echo: false
 .prof <- facts |> filter(is_profile_subtype)
 n_profile_rows    <- nrow(.prof)
 n_llm_bounded     <- sum(.prof$is_bounded_low_impact == TRUE,  na.rm = TRUE)
 n_not_llm_bounded <- sum(.prof$is_bounded_low_impact == FALSE, na.rm = TRUE)
-n_tx_not_bounded  <- sum(.prof$candidate_category == "transmission_upgrade" &
+n_tx_not_bounded  <- sum(.prof$candidate_category == "Transmission__upgrade" &
                          .prof$is_bounded_low_impact == FALSE, na.rm = TRUE)
 ```
 
@@ -267,42 +260,43 @@ disturbed land* and *within an existing right-of-way*. (Beyond what the chart sh
 enrichment also records whether each action *tiers* from a programmatic review and its
 overall *bounded, low-impact* judgment — further signals behind the same conclusion.)
 
-## Step 4: Matching to the existing CE catalog
+## Resolve each cell: match to the CE catalog, then apply the rule
 
-Each **candidate action type** — e.g. *geothermal exploration*, the cluster of bounded
-geothermal-drilling FONSIs, summarized by its defining terms — is compared against all
-`r comma(n_ce)` existing federal CEs to find the closest one. The similarity score runs
-**0 to 1** and blends two signals: *semantic* similarity (do the texts mean the same
-thing?) and *word overlap* (do they share the key terms?). **It is not a percent of
-matching text** — it's a cosine-style similarity.
+Each cell is compared against all `r comma(n_ce)` existing federal CEs to find its **closest match**
+(a 0–1 text-similarity score blending semantic meaning and word overlap — a *ranking aid*, not a
+percent of matching text). That match then **resolves the cell to a verdict** by a three-question rule:
 
-So what counts as a *strong* match? These are **uncalibrated retrieval ranks**, not
-calibrated probabilities — read them *comparatively*, not as a percent. As a rough
-reference, a candidate scored against a *random, unrelated* CE lands much lower (the grey
-band in the figure marks that low range; an illustrative floor of roughly ≤ 0.20, **not** a
-formally computed null distribution). Against that, the best matches — **0.45 to 0.67** —
-sit several times higher: genuinely close, on-topic matches. For example, geothermal
-exploration matches a DOE exploration-drilling CE at **0.50** (sharing *geothermal,
-exploration, well, temperature gradient*); solar matches a DOE solar CE at **0.67**, the
-strongest of the four.
+```{mermaid}
+%%| fig-align: center
+flowchart TD
+  A["For each tech × action cell:<br/>is there a close matching CE?"] -->|no close match| D["DEVELOP<br/>no CE exists — write a new one"]
+  A -->|close match| B{"Do our FONSIs exceed<br/>the CE's stated size bound?"}
+  B -->|yes| E["EXPAND<br/>widen the existing CE"]
+  B -->|no| C{"Held at a different agency<br/>than the ones doing these EAs?"}
+  C -->|yes| AD["ADOPT<br/>that agency adopts the CE"]
+  C -->|no| CV["already covered (drop)"]
+```
 
-The score is a **ranking aid, not the verdict** — it surfaces the closest CE, but the
-actual develop-vs-adopt call is made by **confirming that CE against its eCFR text**.
-No candidate is anywhere near the unrelated-CE baseline, so none resolves to *develop*.
+The **coverage map above is this rule applied to every cell.** The match score is a *ranking aid,
+not the verdict*: scores are uncalibrated, so read them comparatively. A cell scored against a random,
+unrelated CE sits near the grey baseline (≤ ~0.20); the cells that resolve to **adopt / expand** sit
+well above it, while the **develop** cells fall closest to it — no existing CE covers them. Every
+verdict is a **candidate pending eCFR confirmation**, not a legal finding.
 
 ```{r}
 #| label: tbl-d6-ce-match
-#| tbl-cap: "Closest existing categorical exclusion to each candidate action type, by text similarity (a ranking aid)."
+#| tbl-cap: "Closest existing categorical exclusion to each recurring tech × action cell (n ≥ 5 CE-shaped FONSIs), by text similarity — a ranking aid, pending eCFR verification."
 verdicts |>
-  filter(verdict != "contrast") |>
+  filter(verdict != "contrast", n_profile_fonsi >= 5) |>
   arrange(desc(best_ce_match_score)) |>
   transmute(
-    Action = str_replace(candidate_label, " \\(.*\\)", ""),
+    `Tech × action` = str_replace_all(candidate_label, "_", " "),
+    Verdict = ifelse(verdict == "new", "develop", verdict),
     `Closest existing CE (held by)` = paste0(best_ce_structured_id, " (", best_ce_agency, ")"),
     Similarity = sprintf("%.2f", best_ce_match_score)
   ) |>
   gt() |>
-  tab_options(table.font.size = px(12))
+  tab_options(table.font.size = px(12), column_labels.font.weight = "bold")
 ```
 
 ```{r}
@@ -312,62 +306,21 @@ verdicts |>
 knitr::include_graphics(file.path(FIGS, "fig_d6_ce_match.png"))
 ```
 
-## Step 5: Compare sizes against the existing CE limits (the *expand* test)
+## Rank the opportunities
 
-**This is the only step where stated numbers matter.** The *expand* test asks whether our
-bounded FONSIs exceed the matched CE's stated size limit. **None of the four matched CEs
-states a numeric limit** — they bound scope with *words* ("routine," "minor," "existing
-infrastructure"), so no **numeric** expand can fire here. **That is not the same as "no
-expand opportunity exists."** Whether a qualitative CE actually covers a project has to be
-**verified against the CE text, not assumed** from the absence of a number — and the
-transmission case below (CE #19's 25-mile cap) is exactly such an expand opportunity, found
-only once the right CE is matched.
-
-It is still informative to compare our projects to the limits CEs *do* state elsewhere.
-The three metrics split cleanly — only the miles panel below is shaded green, to flag the
-one place our FONSIs run past the limits CEs typically state:
-
-- **Line length:** our FONSIs exceed the CE limits (green). The bounded transmission
-  FONSIs run a ~29-mile median (up to ~187 mi) against a ~2-mile typical CE limit (max
-  25 mi). So "bounded by action type" is not "small by the numbers a CE would use": a CE
-  written for these would need a much longer length bound, or none. This is the one
-  dimension where these projects break the existing mold.
-- **Voltage & acreage:** existing CEs already cover them (blue). On acres our projects
-  (median ~20 ac) sit well within the existing CE range (median 70 ac, up to 10,000);
-  voltage is comparable, though CEs rarely set a kV limit at all (only 2 do). A
-  conventional CE limit would fit.
-
-(Sizes here are a *comparison input, not a filter* — a FONSI with no stated size is still
-kept; it just can't trigger *expand*.)
-
-```{r}
-#| label: fig-d6-sizes
-#| fig-cap: "Context from the **full** CE catalog (not the four matched CEs — none of which states a number): bounded FONSIs vs all stated CE size limits (log scale, boxplot + cases). The miles panel is shaded where our FONSIs exceed the limits CEs typically state. Study-area outliers excluded."
-#| out-width: 86%
-knitr::include_graphics(file.path(FIGS, "fig_d6_sizes.png"))
-```
-
-## Step 6: Classify, then rank
-
-**First, classify** each candidate with a three-question rule:
-
-1. **Is there a close existing CE?** No → **develop** a new one. *(None here — every match clears the baseline.)*
-2. **Does a close CE exist, but our FONSIs exceed its stated size limit?** Yes → **expand** that CE. *(None here — no matched CE states a limit our projects exceed.)*
-3. **Does a close CE exist, but at a *different* agency than the ones doing these FONSIs?** Yes → **adopt** it. *(All four land here.)*
-
-So all four candidates classify as **adopt**. The figure below is the *second* step —
-**ranking** the four adopts so you know which to pursue first. Each gets a transparent
-score (0–1) summing six factors; the bar length is the priority and the colors show why:
+With every cell resolved, the **opportunities** — the adopt, expand, and develop cells — are
+**ranked** so you know which to pursue first. Each gets a transparent score (0–1) summing six
+factors; the bar length is the priority and the colors show why:
 
 - **Novelty** — a brand-new CE (develop) outranks expanding or adopting one.
 - **Volume** — how many bounded FONSIs back it (more evidence ranks higher).
 - **Agency/state spread** — how widely the action recurs (broader = more agencies benefit).
 - **Has size limits** — whether we can state a numeric bound (easier to write the CE).
 - **Low mitigation dependence** — less reliance on case-by-case mitigation (a cleaner CE).
-- **Recurring action type** — a flat component shared by all five candidate types.
+- **Recurring action type** — a flat component shared by every recurring action cell.
 
-So transmission ranks first not because it matches a CE most closely (it doesn't — solar
-does), but because it has **the most FONSIs across the most agencies and states**.
+So transmission ranks at the top not because it matches a CE most closely (it doesn't), but
+because it has **the most FONSIs across the most agencies and states**.
 
 ```{r}
 #| label: fig-d6-classification
@@ -382,23 +335,24 @@ a **band**, not a precise order:
 
 ```{r}
 #| label: tbl-d6-rank-sensitivity
-#| tbl-cap: "Rank under three weightings (volume-heavy / mitigation-risk-heavy / verification-confidence-heavy). Transmission is robustly first; geothermal/solar/temporary trade places, so their exact order is not meaningful."
+#| tbl-cap: "Rank of the top opportunity cells under three weightings (volume-heavy / mitigation-risk-heavy / verification-confidence-heavy). The leaders are robustly ranked; lower cells shuffle, so exact order beyond the top few is not meaningful."
 rc <- verdicts |> filter(verdict != "contrast") |>
-  transmute(Action = str_replace(candidate_label, " \\(.*\\)", ""),
+  transmute(Cell = str_replace_all(candidate_label, "_", " "),
             rank_novelty, rank_volume, rank_diversity, rank_limits, rank_mitigation, rank_role)
 .score <- function(w) with(rc, w[1]*rank_novelty + w[2]*rank_volume + w[3]*rank_diversity +
                              w[4]*rank_limits + w[5]*rank_mitigation + w[6]*rank_role)
-tibble(Action = rc$Action,
+tibble(Cell = rc$Cell,
        `Volume-heavy`        = rank(-.score(c(.10, .50, .15, .05, .05, .15)), ties.method = "min"),
        `Mitigation-risk`     = rank(-.score(c(.10, .15, .10, .05, .45, .15)), ties.method = "min"),
        `Verification-conf.`  = rank(-.score(c(.15, .15, .10, .25, .10, .25)), ties.method = "min")) |>
   arrange(`Volume-heavy`) |>
+  slice_head(n = 12) |>
   gt() |>
-  cols_align(align = "center", columns = -Action) |> cols_align(align = "left", columns = Action) |>
+  cols_align(align = "center", columns = -Cell) |> cols_align(align = "left", columns = Cell) |>
   tab_options(table.font.size = px(12), data_row.padding = px(5))
 ```
 
-## Main Finding: Candidate CE-adoption opportunities
+## Findings: three CE opportunities
 
 ::: {.callout-warning appearance="simple"}
 **These are candidate matches, not coverage determinations.** Each pairing below is a
@@ -408,104 +362,38 @@ action. Every match is **pending verification against the current eCFR / agency 
 treat the verdicts as a prioritized review list, not a legal conclusion.
 :::
 
-Each of the four bounded candidate actions has a **close text match to an existing
-categorical exclusion** at another agency — none looks net-new (`r n_new` to *develop*), and
-at the action-type level all `r n_adopt` are **candidate adopts** (pending verification).
-(One nuance surfaces only at the project level: a subset of long transmission *rebuilds*
-would need an **expanded** CE #19 — see the worked example.) Listed in **review priority**
-(the Step 6 rank), which puts transmission first given its scale and reach:
+The grid's `r n_cells` cells resolve to **`r n_adopt` adopt · `r n_expand` expand · `r n_new` develop**,
+plus `r n_covered` already covered. The three opportunity types follow in priority order — each
+self-contained below: **what it is**, **how much evidence backs it**, and **what to do**.
 
-1. **Transmission upgrades** — candidate match to the TVA transmission CEs for in-corridor work: **#17**
-   for reconductoring / maintenance and **#19** for rebuilds (≤ 25 mi), so BLM, the
-   power-marketing administrations, and others can stop running full EAs. Highest-impact
-   case — the most FONSIs, broadest reach; the one catch is a handful of long rebuilds that
-   exceed #19's 25-mile cap (*expand #19*).
-2. **Solar (CE-shaped subset)** — candidate match to the small-solar CE held by the **Department
-   of Energy** (`DOE-1--5-87`), for bounded projects on previously disturbed land.
-3. **Geothermal exploration** — candidate match to the exploration-drilling CE held by the
-   **Department of Energy** (`DOE-1--3-43`), for slim-hole / temperature-gradient wells.
-4. **Temporary resource assessment** — candidate match to the site-characterization CE held by the
-   **Department of Energy** (`DOE-1--3-43`), for surveys, stream gauges, and borings
-   (thin evidence — only `r verdicts$n_profile_fonsi[verdicts$candidate_category=="temporary_resource_assessment"]` FONSIs).
+### Expand — transmission upgrades (the strongest opportunity)
 
-```{r}
-#| label: tbl-d6-adopt
-#| tbl-cap: "Candidate adopt opportunities: bounded actions with a close CE match at one agency but run as full EAs at others (matches pending eCFR verification)."
-url_for <- function(id) {
-  u <- ce_land$canonical_source_url[match(id, ce_land$structured_id)]
-  ifelse(is.na(u) | u == "", id, glue("[{id}]({u})"))
-}
+**The single highest-volume opportunity:** `r n_tx_up` in-corridor transmission FONSIs across
+`r verdicts$n_states[verdicts$candidate_category=="Transmission__upgrade"]` Western states match an
+existing CE, but a subset of long rebuilds runs past its ~25-mile cap — so the move is to **widen
+that cap**, not adopt the CE as-is.
 
-verdicts |>
-  filter(verdict == "adopt") |>
-  arrange(desc(rank_score)) |>
-  transmute(
-    Action = str_replace(candidate_label, " \\(.*\\)", ""),
-    `Low-impact FONSIs` = n_profile_fonsi,
-    `Existing CE (held by)` = paste0(vapply(best_ce_structured_id, url_for, character(1)), " — ", best_ce_agency),
-    `Agencies that could adopt it` = adopt_targets,
-    States = n_states
-  ) |>
-  gt() |>
-  fmt_markdown(columns = `Existing CE (held by)`) |>
-  tab_source_note(md(paste0(
-    "**Thin-evidence flag:** rows with fewer than ~5 low-impact FONSIs rest on very few cases — ",
-    "*temporary resource assessment (n = 2)* in particular — and should be treated as illustrative, not robust."))) |>
-  tab_options(table.font.size = px(13), column_labels.font.weight = "bold")
-```
-
-The adoption gap below shows the **evidence weight** behind each opportunity — how
-many bounded FONSIs are being run as full EAs when a candidate-matched CE may cover them
-(pending verification).
+**Why *expand*, not *adopt* — the size test.** The *expand* test asks whether a cell's bounded
+FONSIs exceed the matched CE's stated size limit. Transmission upgrades are the `r n_expand` cells
+that fire it: the in-corridor rebuilds run a ~29-mile median (up to ~187 mi) against a ~2-mile
+typical CE limit (max 25 mi). Most *other* cells can't fire a **numeric** expand — their closest CE
+bounds scope with *words* ("routine," "minor," "existing infrastructure"), not a number — but that
+absence is not "no expand opportunity exists"; it just has to be **verified against the CE text**.
+The size panels below make the split concrete: only **line length** (green) runs past the limits CEs
+typically state; **voltage and acreage** (blue) sit within them, so a conventional CE limit would fit.
 
 ```{r}
-#| label: fig-d6-adoption-gap
-#| fig-cap: "Per adopt candidate: bounded FONSIs run as full EAs, and the existing CE they could adopt."
-#| out-width: 90%
-knitr::include_graphics(file.path(FIGS, "fig_d6_adoption_gap.png"))
+#| label: fig-d6-sizes
+#| fig-cap: "Context from the **full** CE catalog: bounded transmission FONSIs vs all stated CE size limits (log scale, boxplot + cases). The miles panel is shaded where our FONSIs exceed the limits CEs typically state — the transmission *expand* case. Study-area outliers excluded."
+#| out-width: 86%
+knitr::include_graphics(file.path(FIGS, "fig_d6_sizes.png"))
 ```
 
-The transmission case is the most geographically broad — the same in-corridor work
-runs through full EAs across `r verdicts$n_states[verdicts$candidate_category=="transmission_upgrade"]`
-states, concentrated in the West.
-
-```{r}
-#| label: fig-d6-states
-#| fig-cap: "States where the bounded transmission-upgrade FONSIs occur."
-#| out-width: 80%
-knitr::include_graphics(file.path(FIGS, "fig_d6_states.png"))
-```
-
-### Timing: do these EAs predate the FRA?
-
-The 2023 Fiscal Responsibility Act (FRA, June 2023) gave agencies explicit authority
-to **adopt another agency's categorical exclusion** — the exact move this analysis
-recommends. So the age of these EAs matters. Using decision dates **merged from the
-D4 timeline**, **all but one** of the dated bounded FONSIs were decided *before* the
-FRA — these agencies ran full EAs without the adoption shortcut now available. (Dates
-are known for ~⅔ of the bounded set; the rest are undated in the D4 output.)
-
-**This makes the finding a historical one.** The corpus is almost entirely pre-FRA, so it
-shows **where full EAs were run before the adoption shortcut existed** — it identifies
-where adoption review is **likely worthwhile**, not that agencies are still running these
-EAs today. So the recommendation is: *pre-FRA EAs indicate likely adoption opportunities,
-pending a post-FRA refresh.* **Before any client action, that refresh is required** — check
-current CE-adoption use, recent (post-June-3-2023) EA/FONSI recurrence, and any agency
-implementation guidance since the FRA. Until then these are candidates to review, not a
-claim about current agency behavior.
-
-```{r}
-#| label: fig-d6-timeline
-#| fig-cap: "The bounded FONSIs by decision year (D4 timeline), relative to the FRA's June 2023 CE-adoption authority."
-#| out-width: 88%
-knitr::include_graphics(file.path(FIGS, "fig_d6_timeline.png"))
-```
-
-### Worked example: transmission line work
+**In detail — how the transmission case splits into two candidate CEs.**
 
 ```{r}
 #| echo: false
-tx_sp <- facts |> filter(candidate_category == "transmission_upgrade", is_profile_subtype) |>
+tx_sp <- facts |> filter(candidate_category == "Transmission__upgrade", is_profile_subtype) |>
   distinct(project_id, .keep_all = TRUE) |>
   mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
          reb = str_detect(txt, "rebuild|reconstruct|(remov|replac|install|new)\\w*[^.]{0,40}(structure|pole|tower|h-frame|monopole)"))
@@ -515,7 +403,7 @@ n_tx17 <- sum(tx_sp$is_bounded & !tx_sp$reb); n_tx19 <- sum(tx_sp$is_bounded & t
 
 The strongest-evidenced case: **`r n_tx_total` transmission-upgrade FONSIs** for in-corridor
 work, across **BLM, the power-marketing administrations, NNSA, and others** in
-**`r verdicts$n_states[verdicts$candidate_category=="transmission_upgrade"]` Western
+**`r verdicts$n_states[verdicts$candidate_category=="Transmission__upgrade"]` Western
 states**. TVA **already categorically excludes this work under two exclusions**, by work type:
 
 - **CE #17 — modify in place:** reconductoring, uprating, equipment swaps, limited pole
@@ -586,7 +474,7 @@ clean_cut <- function(s, n = 520) {
 }
 
 ex <- facts |>
-  filter(candidate_category == "transmission_upgrade", is_bounded,
+  filter(candidate_category == "Transmission__upgrade", is_bounded,
          citation_verified,                       # "source-verified" = only quote-verified rows (#11)
          !is.na(quoted_span), nchar(quoted_span) >= 70,
          str_detect(quoted_span, scope_rx), !str_detect(quoted_span, drop_rx)) |>
@@ -604,6 +492,10 @@ ex <- facts |>
     dept = case_when(str_detect(agency_raw, "Land Management") ~ "blm",
                      str_detect(agency_raw, "Power Marketing") ~ "pma", TRUE ~ "other"),
     relevance = str_count(tolower(quoted_span), rel_rx),
+    # #19 = rebuild / structure replacement (≤ 25 mi); #17 = reconductor / in-place upgrade
+    ce_bucket = ifelse(str_detect(tolower(quoted_span),
+                       "rebuild|reconstruct|new structure|structure replacement|replac\\w*.{0,30}(structure|pole|tower)"),
+                       "Candidate CE #19 — rebuild (≤ 25 mi)", "Candidate CE #17 — reconductor / in-place upgrade"),
     # trim long quotes to the last clean bullet/sentence so nothing dangles mid-word,
     # then bold the modify-existing-infrastructure language
     Excerpt = paste0("“", vapply(quoted_span, clean_cut, character(1), USE.NAMES = FALSE), "”"),
@@ -614,20 +506,132 @@ ex <- facts |>
   filter(dept %in% c("blm", "pma")) |>
   # project_id tiebreakers make the selection identical on every render (reproducible)
   group_by(dept) |> arrange(desc(relevance), desc(nchar(quoted_span)), project_id) |> slice_head(n = 3) |> ungroup() |>
-  arrange(desc(relevance), project_id)
+  arrange(ce_bucket, desc(relevance), project_id)   # #17 group first, then #19
 
 ex |>
   mutate(`Project title` = glue("[{project_title}]({EXPLORER}?pid={project_id})")) |>
-  transmute(Agency, `Project title`,
+  transmute(ce_bucket, Agency, `Project title`,
             Source = paste0(Source, ", p. ", citation_page), Excerpt) |>
-  gt() |>
+  gt(groupname_col = "ce_bucket") |>
   fmt_markdown(columns = c(`Project title`, Excerpt)) |>
   cols_align(align = "left", columns = everything()) |>
+  tab_style(style = list(cell_fill(color = "#EAF0F8"), cell_text(weight = "bold", color = "#012169")),
+            locations = cells_row_groups()) |>
   tab_options(table.font.size = px(11), table.width = pct(100), data_row.padding = px(6)) |>
   cols_width(Agency ~ pct(16), `Project title` ~ pct(22), Source ~ pct(9), Excerpt ~ pct(53))
 ```
 
+### Adopt — cross-agency matches (broad but thin)
+
+**The broadest but thinnest opportunity:** `r n_adopt` cells resolve to *adopt* — a close CE exists
+at *another* agency the doing-agency could adopt, and the 2023 FRA now permits exactly that. But most
+are thin: only **`r n_adopt_sub`** have ≥ 2 CE-shaped FONSIs (the table below), and the rest rest on a
+single FONSI or none. So treat adopt as a **menu of matches to verify**, not one dominant case — the
+gap figure shows the evidence weight behind each (how many bounded FONSIs are run as full EAs when a
+candidate-matched CE may already cover them, pending verification).
+
+```{r}
+#| label: tbl-d6-adopt
+#| tbl-cap: "Candidate adopt opportunities (adopt cells with ≥ 2 CE-shaped FONSIs): bounded actions with a close CE match at one agency but run as full EAs at others (matches pending eCFR verification)."
+url_for <- function(id) {
+  u <- ce_land$canonical_source_url[match(id, ce_land$structured_id)]
+  ifelse(is.na(u) | u == "", id, glue("[{id}]({u})"))
+}
+
+verdicts |>
+  filter(verdict == "adopt", n_profile_fonsi >= 2) |>
+  arrange(desc(rank_score)) |>
+  transmute(
+    `Tech × action` = str_replace_all(candidate_label, "_", " "),
+    `Low-impact FONSIs` = n_profile_fonsi,
+    `Existing CE (held by)` = paste0(vapply(best_ce_structured_id, url_for, character(1)), " — ", best_ce_agency),
+    `Agencies that could adopt it` = adopt_targets,
+    States = n_states
+  ) |>
+  gt() |>
+  fmt_markdown(columns = `Existing CE (held by)`) |>
+  tab_source_note(md(paste0(
+    "**Thin-evidence flag:** most adopt cells rest on only 2–4 low-impact FONSIs — ",
+    "treat them as illustrative opportunities to verify, not robust findings."))) |>
+  tab_options(table.font.size = px(13), column_labels.font.weight = "bold")
+```
+
+```{r}
+#| label: fig-d6-adoption-gap
+#| fig-cap: "Per adopt candidate: bounded FONSIs run as full EAs, and the existing CE they could adopt."
+#| out-width: 90%
+knitr::include_graphics(file.path(FIGS, "fig_d6_adoption_gap.png"))
+```
+
+### Develop — net-new gaps (the genuinely new finding)
+
+**The genuinely new opportunity:** `r n_new` cells recur with **no** close existing CE — invisible
+under the old hand-picked categories — and `r n_dev_codif` of them are codifiable, so the move is to
+**draft a new CE**. Every develop cell sits **below the 0.40 match line**: the closest existing CE
+isn't close enough to adopt.
+
+The cross-cutting standout is **demonstration / pilot facilities**, a develop gap for **wind (9),
+nuclear (7), and other clean-energy (4)** projects — one new CE could cover research / demonstration
+across technologies. (For geothermal and biomass the same action already has a matchable CE, so it
+resolves to *adopt* — the method discriminates.) The rest are more technology-specific: solar
+interconnection, small new-builds. Non-codifiable actions — battery manufacturing, land permits —
+are set aside; a CE codifies a *physical* action.
+
+```{r}
+#| label: tbl-d6-develop
+#| tbl-cap: "Candidate develop opportunities: recurring tech × action cells with no close existing CE (closest match below the 0.40 line). Non-codifiable cells (battery manufacturing, land authorization) excluded."
+verdicts |>
+  filter(verdict == "new", is_codifiable, n_profile_fonsi >= 2) |>
+  arrange(desc(n_profile_fonsi)) |>
+  transmute(
+    `Tech × action` = str_replace_all(candidate_label, "_", " "),
+    `CE-shaped FONSIs` = n_profile_fonsi,
+    States = n_states,
+    `Closest CE (similarity)` = sprintf("%.2f", best_ce_match_score)
+  ) |>
+  gt() |>
+  tab_source_note(md(paste0(
+    "All develop cells fall **below the 0.40 match line** — the closest existing CE isn't ",
+    "close enough to adopt. Demonstration / pilot cells recur across wind, nuclear, and other ",
+    "clean-energy projects."))) |>
+  tab_options(table.font.size = px(13), column_labels.font.weight = "bold")
+```
+
+## Timing & the FRA caveat
+
+The 2023 Fiscal Responsibility Act (FRA, June 2023) gave agencies explicit authority
+to **adopt another agency's categorical exclusion** — the exact move this analysis
+recommends. So the age of these EAs matters. Using decision dates **merged from the
+D4 timeline**, **all but one** of the dated bounded FONSIs were decided *before* the
+FRA — these agencies ran full EAs without the adoption shortcut now available. (Dates
+are known for ~⅔ of the bounded set; the rest are undated in the D4 output.)
+
+**This makes the finding a historical one.** The corpus is almost entirely pre-FRA, so it
+shows **where full EAs were run before the adoption shortcut existed** — it identifies
+where adoption review is **likely worthwhile**, not that agencies are still running these
+EAs today. So the recommendation is: *pre-FRA EAs indicate likely adoption opportunities,
+pending a post-FRA refresh.* **Before any client action, that refresh is required** — check
+current CE-adoption use, recent (post-June-3-2023) EA/FONSI recurrence, and any agency
+implementation guidance since the FRA. Until then these are candidates to review, not a
+claim about current agency behavior.
+
+```{r}
+#| label: fig-d6-timeline
+#| fig-cap: "The bounded FONSIs by decision year (D4 timeline), relative to the FRA's June 2023 CE-adoption authority."
+#| out-width: 88%
+knitr::include_graphics(file.path(FIGS, "fig_d6_timeline.png"))
+```
+
 # Analysis 2 — Mitigated FONSIs
+
+::: {.callout-note collapse="true"}
+## Methodology
+
+1. **Data —** the mitigated FONSIs: the subset whose "no significant impact" finding depends on committed mitigation rather than the action being inherently low-impact (`r n_mit_corpus` of `r n_clean`, `r percent(mit_share_cor, 1)`).
+2. **Flag** each FONSI's mitigation dependence from the LLM read — *case-specific-dependent* (the finding rests on committed mitigation) vs *design-feature-only* (inherently bounded) vs *none*.
+3. **Measure** the mitigated share and the resource areas where mitigation recurs, within each action type.
+4. **Read for CE design —** a mitigation that recurs consistently across a class is a codifiable CE design criterion; an idiosyncratic one is a disqualifier.
+:::
 
 > **Mitigated FONSIs** imply that the project will have "no significant impact" if the
 > applicant commits to some form of mitigation. This analysis systematically examines the
@@ -672,10 +676,8 @@ flowchart LR
   style Y fill:transparent,stroke:#012169
 ```
 
-This is **not** an embedding or similarity model — it is the per-FONSI reading from
-the **one-pass LLM enrichment (Claude Sonnet)**, the same pass used throughout the
-deliverable. For every one of the 451 FONSIs the model read the finding and the
-committed conditions and set two fields:
+For every one of the 451 FONSIs the model read the finding and the committed conditions and
+set three fields:
 
 - **Is it mitigated?** — does the "no significant impact" finding *depend* on
   committed mitigation, or is the action inherently low-impact?
@@ -684,19 +686,15 @@ committed conditions and set two fields:
   **case-specific-dependent** (the finding rests on committed, project-specific mitigation),
   **permit/consultation condition** (required by another regime, not the FONSI's basis),
   **monitoring-only**, or **unclear**.
+- **What's the significance threshold?** — the agency's explicit *"would be significant if it
+  exceeded X"* statements, captured verbatim. These are a CE's natural numeric bounds — and,
+  unlike the project-specific mitigation measures, they **recur** across projects.
 
 The supporting mitigation text is captured **verbatim and 97%-quote-verified**, and
 each FONSI is tagged with the **resource areas** its mitigation addresses (biological,
 water, cultural…) from a fixed vocabulary, so we can measure which recur.
 
-```{r}
-#| label: fig-d6-mitigated-overall
-#| fig-cap: "How many of the decarbonization FONSIs reach 'no significant impact' only with committed mitigation."
-#| out-width: 96%
-knitr::include_graphics(file.path(FIGS, "fig_d6_mitigated_overall.png"))
-```
-
-## This spans the whole corpus, not just the candidates
+## Is it mitigated?
 
 The mitigated pattern is **corpus-wide**: **`r n_mit_corpus` of `r n_clean`
 (`r percent(mit_share_cor, 1)`)** decarbonization FONSIs are mitigated, and
@@ -711,32 +709,17 @@ types — so this is not a candidate-only artifact. By action type (including th
 knitr::include_graphics(file.path(FIGS, "fig_d6_mitigated_share.png"))
 ```
 
-## The dependence is overwhelmingly case-specific
+Across the whole corpus, then, the share reaching "no significant impact" **only with committed
+mitigation**:
 
-Of the **`r n_mit_corpus` mitigated FONSIs, `r n_mit_dep_case` are
-case-specific-dependent** — the finding rests on project-specific mitigation, not on
-the action being inherently low-impact.
+```{r}
+#| label: fig-d6-mitigated-overall
+#| fig-cap: "How many of the decarbonization FONSIs reach 'no significant impact' only with committed mitigation."
+#| out-width: 96%
+knitr::include_graphics(file.path(FIGS, "fig_d6_mitigated_overall.png"))
+```
 
-**How "case-specific" is decided, and how "no overlap" is shown.** `mitigation_dependence`
-is the model's per-FONSI label — for each mitigated FONSI it classifies the commitment as
-`case_specific_dependent`, `design_feature_only`, `none`, or `unclear`. "Overwhelmingly
-case-specific" is simply the tally: **`r n_mit_dep_case` of `r n_mit_corpus`** land in
-`case_specific_dependent`. And "the measures don't overlap" is **not asserted — it is
-measured**: we break every mitigation summary into 2–3 word phrases and count them; **no
-phrase recurs** across projects (the cloud below). The contrast is the point — the
-significance *thresholds* (next section) **do** recur, which is what makes *them*, not the
-measures, the codifiable part.
-
-> **One honest caveat.** `is_mitigated_fonsi` and `mitigation_dependence` are
-> *near-equivalent judgments*: the model almost always pairs "the finding depends on
-> mitigation" with "that mitigation is project-specific." So this is **one consistent
-> signal, not two independent confirmations.** The FONSIs it reads as inherently
-> low-impact (design-feature-only or none) are exactly the ones it flags as *not*
-> mitigated. The substantive finding stands: **when a FONSI leans on mitigation, that
-> mitigation is tailored to the project — not a standard, transferable design feature.**
-> The word cloud below is the direct evidence for that.
-
-## Examples: the committed mitigation
+### Examples: the committed mitigation
 
 So you can verify the read, here are the model's **mitigation summaries** for FONSIs tagged
 case-specific-dependent. These are **LLM-extracted summaries, not verbatim quotes** — the
@@ -770,23 +753,45 @@ enr |>
              `Committed mitigation (LLM summary; project-specific measures in bold)` ~ px(460))
 ```
 
-## The mitigation language is project-specific
+## What role does the mitigation play?
 
-Why is the dependence "case-specific"? Because the measures themselves are written
-**per project** — SHPO consultation here, raptor-nest buffers there, site-specific
-erosion plans elsewhere. In the most-frequent words across all `r n_mit_corpus`
-mitigated FONSIs' summaries, **no single term dominates**:
+Across the `r n_mit_corpus` mitigated FONSIs the model's `mitigation_dependence` label is
+almost entirely **case-specific-dependent**, so to see *what kind* of commitment recurs we
+read each FONSI's committed-mitigation text and tag the **mechanisms** it relies on (a FONSI
+can use several). The mix is dominated by case-by-case mechanisms — consultation / permit
+conditions, monitoring, and site-specific avoidance — not standard, transferable design features:
 
 ```{r}
-#| label: fig-d6-mitigation-wordcloud
-#| fig-cap: "Most-frequent words in the committed-mitigation summaries of the mitigated FONSIs — the long tail of specific terms is the point."
-#| out-width: 90%
-knitr::include_graphics(file.path(FIGS, "fig_d6_mitigation_wordcloud.png"))
+#| label: fig-d6-mitigation-roles
+#| fig-cap: "The roles mitigation plays across the 310 mitigated FONSIs — the share whose committed mitigation includes each mechanism type (a FONSI can use several, so shares sum to more than 100%). Derived from the mitigation-summary text."
+#| out-width: 88%
+knitr::include_graphics(file.path(FIGS, "fig_d6_mitigation_roles.png"))
 ```
 
-That spread is the CE-design challenge made visible: a CE **cannot copy any one
-project's measures.** What *does* recur is the **resource area** the mitigation
-protects — consistently **biological, soils, water, and cultural** — and those are
+### The dependence is overwhelmingly case-specific
+
+Of the **`r n_mit_corpus` mitigated FONSIs, `r n_mit_dep_case` are case-specific-dependent** —
+the finding rests on project-specific mitigation, not on the action being inherently low-impact.
+"Overwhelmingly case-specific" is simply the tally: **`r n_mit_dep_case` of `r n_mit_corpus`**
+land in `case_specific_dependent`. The contrast with the next section is the point — the
+significance *thresholds* **do** recur across projects, which is what makes *them*, not the
+measures, the codifiable part.
+
+> **One honest caveat.** `is_mitigated_fonsi` and `mitigation_dependence` are
+> *near-equivalent judgments*: the model almost always pairs "the finding depends on
+> mitigation" with "that mitigation is project-specific." So this is **one consistent
+> signal, not two independent confirmations.** The FONSIs it reads as inherently
+> low-impact (design-feature-only or none) are exactly the ones it flags as *not*
+> mitigated. The substantive finding stands: **when a FONSI leans on mitigation, that
+> mitigation is tailored to the project — not a standard, transferable design feature.**
+
+### The mitigation language is project-specific
+
+The measures themselves are written **per project** — SHPO consultation here, raptor-nest
+buffers there, site-specific erosion plans elsewhere. Breaking every mitigation summary into
+2–3 word phrases and counting them, **no phrase recurs** across projects. A CE therefore
+**cannot copy any one project's measures.** What *does* recur is the **resource area** the
+mitigation protects — consistently **biological, soils, water, and cultural** — and those are
 what a defensible CE would distill into standing design criteria.
 
 ```{r}
@@ -808,11 +813,14 @@ mit |>
   cols_width(Action ~ px(190), `Recurring resource areas` ~ px(330))
 ```
 
-## Boundary language: where agencies drew the significance line
+## The agency's "significant if X" thresholds
 
 Alongside mitigation, the enrichment captures the agency's explicit
 **significance-threshold** statements — *"would be significant if it exceeded X," "an
 EIS would be required unless Y."* Those sentences are a CE's natural numeric bounds.
+
+### Boundary language: the verbatim statements
+
 Each is a verbatim, span-verified quote; real examples:
 
 ```{r}
@@ -870,6 +878,16 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_significance_thresholds.png"))
 ```
 
 # Analysis 3 — Review of existing federal Categorical Exclusions
+
+::: {.callout-note collapse="true"}
+## Methodology
+
+1. **Data —** the existing federal CE catalog (the [CE Explorer export](https://ce.permitting.innovation.gov/) — `r comma(n_ce)` CEs across `r n_units` agency units, each linking to its eCFR source).
+2. **Compare** every CE to every other by text similarity.
+3. **Flag** near-duplicates that recur at more than one agency.
+4. **Group** those into shared "action families."
+5. **Read** each CE's stated numeric limits, where it has any → what is already covered and how routinely agencies share the same CE (the precedent for *adopt*).
+:::
 
 > This analysis reviews all `r comma(n_ce)` **existing federal Categorical Exclusions**
 > across `r n_units` agency units for patterns and insights.
@@ -1003,8 +1021,8 @@ knitr::include_graphics(file.path(FIGS, "fig_d6_ce_elbow.png"))
 under near-identical language. **`r n_xdup` CEs have a near-twin at a different
 agency**, forming **`r n_xclust` shared "action families."** Adopting a peer's CE — the
 exact move Analysis 1 recommends — is not unusual; it is how the landscape already works.
-*This shows adoption is **common** in the CE corpus; it does **not** verify that the four
-shortlisted CE matches actually cover the D6 actions — that remains the pending eCFR check.*
+*This shows adoption is **common** in the CE corpus; it does **not** verify that the
+shortlisted adopt matches actually cover the D6 actions — that remains the pending eCFR check.*
 
 The chart below shows **how the twin families distribute across departments** — each bar is the
 number of families shared by *exactly* that set of departments:
@@ -1042,16 +1060,23 @@ which *is* the point: when an action is genuinely low-impact, agencies **converg
 shared CE**. The decarbonization actions in Analysis 1 are simply ones where that
 convergence hasn't happened yet.
 
-## Where net-new CEs would come from
+## Where net-new CEs come from
 
-Net-new CEs are empty here *by construction*: the five candidate action types are all
-well-trodden, so each already has a CE somewhere. But of the `r n_clean` decarbonization
-FONSIs, only `r n_candidate` fell into those types — the remaining **~`r n_other`** the model
-classified as **"other"** (funding, land actions, studies, efficiency work, etc.).
-**This deliverable did not analyze that residual** — it is a count of what fell outside the
-five candidate types, not an examined pool. Net-new CEs most plausibly live there, but
-confirming that requires the recommended next step: cluster those "other" FONSI action
-descriptions to surface recurring categories no one has named yet.
+Net-new CEs are **not** empty here — the grid surfaces **`r n_dev_codif` codifiable *develop*
+cells**: recurring technology × action combinations with **no** close existing CE. The
+cross-cutting standout is **demonstration / pilot facilities**, which recur as a develop gap
+for wind (9), nuclear (7), and other clean-energy (4) projects — the single strongest candidate
+for a brand-new CE. (For geothermal and biomass, that same action already has a matchable CE, so
+it resolves to *adopt* — the method discriminates.) These gaps were invisible under the old
+hand-picked five categories, which by construction only held well-trodden actions that already
+had a CE somewhere.
+
+A further frontier sits *outside* the named action verbs: of the 451 gridded FONSIs, the
+model could only label **`r n_action_other`** with the catch-all action **"other"** (funding,
+studies, efficiency work, and the like). **This deliverable did not decompose that bucket** —
+it is a residual of un-named actions, not an examined pool. More net-new CEs plausibly live
+there, but confirming that requires the recommended next step: cluster those "other" FONSI
+action descriptions to surface recurring categories no one has named yet.
 
 # Caveats & next steps
 
@@ -1067,30 +1092,33 @@ descriptions to surface recurring categories no one has named yet.
   exact bound to confirm.
 - **Recommended next steps:** (1) verify the `r n_adopt` adopt matches against the
   eCFR CE text (start from the [verification worksheet](../notes/deliverable06/ce_verification.html));
-  (2) cluster the ~`r n_other` un-categorized decarbonization FONSIs to search for net-new CEs.
+  (2) cluster the `r n_action_other` *"other"*-action FONSIs to search for additional net-new CEs.
 
 ## Assumptions & sensitivity
 
 The conclusions rest on a few explicit assumptions — here is how each would move the result:
 
-- **Candidate types are the five CE-relevant action classes** the model classifies into;
-  every other FONSI is "other". The analysis speaks only to those five, not an exhaustive
-  scan; net-new lives in the un-analyzed "other" residual.
+- **Every FONSI is placed in the grid** by its technology (from D3) and its LLM-labeled
+  action verb — no candidate category is hand-picked, so the scan is exhaustive over the
+  451 FONSIs. The one residual is the `r n_action_other` FONSIs whose action the model could
+  only label "other"; those cells exist in the grid but their internal structure is not
+  decomposed here.
 - **"CE-shaped" adds a transmission shape gate** on top of the LLM's `is_bounded_low_impact`
   judgment (transmission must be modify-existing within an existing ROW). Dropping that gate —
   the looser, LLM-bounded-only definition — would *raise* the set from `r n_ce_shaped` to
   `r n_llm_bounded`, mostly by admitting large within-ROW reconductors that exceed a CE's
   typical mileage cap.
-- **A retrieval score ≥ 0.40 is treated as a close CE.** The four matches (0.45–0.67) clear
-  that comfortably, so they are insensitive to moving the cut to 0.50.
-- **The expand test keyed on numeric bounds.** The matched CEs are qualitative, so no
-  *numeric* expand fires — but qualitative coverage is unverified, and the transmission #19
-  case shows expand reappears once the right length-capped CE is used.
+- **A retrieval score ≥ 0.40 is treated as a close CE.** This threshold is what separates
+  *adopt/expand* cells (a close CE exists) from *develop* cells (none does); the adopt/expand
+  matches clear it comfortably, so they are insensitive to moving the cut to 0.50.
+- **The expand test keys on numeric bounds.** Most matched CEs are qualitative, so no
+  *numeric* expand fires for them — but transmission upgrades exceed CE #19's ~25-mile cap,
+  so `r n_expand` cells resolve to expand. Qualitative coverage elsewhere remains unverified.
 - **Ranks use fixed component weights.** They separate transmission (n = 26 bounded) from the
   thin-n candidates clearly; for **n < 10 read priority bands, not exact ranks** (a formal
   weight-sensitivity table is a recommended follow-up).
 - **CE coverage is unverified.** Requiring verified eCFR coverage before "adopt" reclassifies
-  all four to *candidate-pending* until that review is done.
+  all `r n_adopt` to *candidate-pending* until that review is done.
 
 ## Run manifest & data completeness
 
@@ -1105,7 +1133,7 @@ miss <- tibble(
   `Null / missing` = c(
     sum(is.na(.enrall$is_mitigated_fonsi)),
     sum(is.na(.enrall$is_bounded_low_impact)),
-    sum(is.na(facts$decision_date) | facts$decision_date == ""),
+    sum(is.na(facts$decision_date)),
     sum(!facts$citation_verified),
     sum(is.na(facts$max_acres)),
     sum(is.na(facts$max_miles))),

@@ -49,6 +49,10 @@ save_fig <- function(p, name, w = 8, h = 4.5) {
   ggsave(file.path(FIGS, name), p, width = w, height = h, dpi = 300); message("  wrote ", name)
 }
 short_label <- function(x) x %>% str_replace(" \\(.*\\)", "") %>% str_wrap(26)
+# clean, single-line cell label: drop underscores + abbreviate the long verbs (no wrapping)
+pretty_cell <- function(x) x %>% str_replace_all("_", " ") %>%
+  str_replace("research or demonstration", "R&D/demo") %>%
+  str_replace("land or row authorization", "land/ROW auth")
 
 # ---------------------------------------------------------------------------
 inv      <- read_parquet(file.path(ANALYSIS, "fonsi_project_inventory.parquet")) %>% mutate(project_id = as.character(project_id))
@@ -57,6 +61,44 @@ verdicts <- read_parquet(file.path(ANALYSIS, "candidate_verdicts.parquet"))
 mit      <- read_parquet(file.path(ANALYSIS, "candidate_mitigation_summary.parquet"))
 ce_land  <- read_parquet(file.path(ANALYSIS, "ce_landscape_ces.parquet"))
 facts    <- read_parquet(file.path(ANALYSIS, "candidate_facts.parquet")) %>% mutate(project_id = as.character(project_id))
+
+# ---- HERO: tech_group x action coverage grid (refactor centerpiece) --------
+.act_levels <- c("new_build", "upgrade", "maintenance", "decommissioning", "exploration",
+                 "assessment", "interconnection", "research_or_demonstration", "manufacturing",
+                 "land_or_row_authorization", "other")
+grid_df <- verdicts %>%
+  mutate(
+    disp = case_when(
+      n_profile_fonsi == 0              ~ "thin",
+      verdict == "new" & is_codifiable  ~ "develop",
+      verdict == "new" & !is_codifiable ~ "develop-excluded",
+      verdict == "expand"               ~ "expand",
+      verdict == "adopt"                ~ "adopt",
+      TRUE                              ~ "covered"),
+    disp = factor(disp, levels = c("develop", "expand", "adopt", "covered", "develop-excluded", "thin")),
+    action = factor(action, levels = .act_levels),
+    txtcol = ifelse(disp %in% c("covered", "develop-excluded", "thin"), "grey30", "white"))
+.tech_order <- verdicts %>% group_by(tech_group) %>%
+  summarise(n = sum(n_profile_fonsi), .groups = "drop") %>% arrange(n) %>% pull(tech_group)
+grid_df$tech_group <- factor(grid_df$tech_group, levels = .tech_order)
+.pal_v <- c("develop" = catf_lime, "expand" = "#E8A33D", "adopt" = catf_dark_blue,
+            "covered" = catf_grey, "develop-excluded" = "#B8C4A0", "thin" = "#F1F3F6")
+p_grid <- ggplot(grid_df, aes(action, tech_group, fill = disp)) +
+  geom_tile(color = "white", linewidth = 0.7) +
+  geom_text(aes(label = ifelse(n_profile_fonsi > 0, n_profile_fonsi, "")),
+            color = grid_df$txtcol, size = 3.1, fontface = "bold") +
+  scale_fill_manual(values = .pal_v, name = NULL, drop = FALSE,
+                    breaks = c("adopt", "expand", "develop", "develop-excluded", "covered")) +
+  scale_x_discrete(labels = function(x) str_wrap(str_replace_all(x, "_", " "), 10)) +
+  labs(title = "Clean-energy CE coverage map — technology × action",
+       subtitle = "number = CE-shaped FONSIs · color = verdict · develop = a recurring action with no existing CE",
+       x = NULL, y = NULL,
+       caption = paste("Develop verdicts are candidates pending eCFR review.",
+                       "develop-excluded = non-codifiable (manufacturing / land authorization).")) +
+  theme_catf() +
+  theme(legend.position = "bottom", panel.grid = element_blank(),
+        axis.text.x = element_text(size = 8), axis.text.y = element_text(size = 10))
+save_fig(p_grid, "fig_d6_coverage_grid.png", w = 11.5, h = 6)
 
 # "bounded" / CE-shaped = the Rule-B flag from 09 (LLM-bounded + transmission shape gate).
 # candidate_facts is now the candidate set itself: one row per FONSI, keyed on corrected action_category.
@@ -100,16 +142,15 @@ p_waffle1 <- ggplot(waf1, aes(x, y, fill = cat)) +
 save_fig(p_waffle1, "fig_d6_outcomes_waffle.png", w = 9, h = 5)
 
 # === Fig: sort step — every clean FONSI by action type, incl. the uncategorized pool ===
-dd <- corp_fonsi %>% group_by(candidate_category) %>%
+dd <- facts %>% group_by(tech_group) %>%
   summarise(total = n_distinct(project_id),
             bounded = n_distinct(project_id[is_bounded]), .groups = "drop") %>%
-  left_join(verdicts %>% select(candidate_category, candidate_label), by = "candidate_category") %>%
-  mutate(lab = short_label(candidate_label)) %>% filter(!is.na(lab))
+  mutate(lab = tech_group) %>% filter(!is.na(lab), total > 0)
 sortL <- dd %>% mutate(Broader = total - bounded, Bounded = bounded) %>%
   pivot_longer(c(Bounded, Broader), names_to = "subset", values_to = "n") %>%
   group_by(lab) %>% mutate(share = n / sum(n)) %>% ungroup() %>%
   mutate(subset = factor(subset, levels = c("Broader", "Bounded")))
-p_sort <- ggplot(sortL, aes(y = reorder(lab, total), x = n, fill = subset)) +
+p_sort <- ggplot(sortL, aes(y = reorder(lab, bounded / total), x = n, fill = subset)) +
   geom_col(position = "fill", width = 0.7) +
   geom_text(aes(label = ifelse(share >= 0.06, paste0(percent(share, 1), " (", n, ")"), "")),
             position = position_fill(vjust = 0.5), color = "white", fontface = "bold", size = 3) +
@@ -119,12 +160,12 @@ p_sort <- ggplot(sortL, aes(y = reorder(lab, total), x = n, fill = subset)) +
                     guide = guide_legend(reverse = TRUE)) +
   scale_x_continuous(labels = percent, expand = expansion(mult = c(0, 0.14))) +
   labs(title = glue::glue("Sorting the {n_clean} decarbonization FONSIs"),
-       subtitle = str_wrap(glue::glue("Within each action type, the share that is bounded & low-impact (teal, kept for ",
-                 "matching) vs broader (grey, set aside). A further {n_uncat} FONSIs are uncategorized."), 96),
-       x = "Share of the action type", y = NULL,
+       subtitle = str_wrap(glue::glue("Within each technology, the share that is bounded & low-impact (teal, kept ",
+                 "for matching) vs broader (grey, set aside)."), 96),
+       x = "Share of the technology", y = NULL,
        caption = "Teal = bounded, low-impact subset carried to Step 3; grey = broader. n = total FONSIs of that type.") +
   theme_catf() + theme(legend.position = "bottom")
-save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 4.2)
+save_fig(p_sort, "fig_d6_action_distribution.png", w = 9, h = 5.6)
 
 # === Fig: what makes the kept FONSIs "bounded, low-impact" (the keep step) ===
 prof_keep <- facts %>% filter(is_bounded)
@@ -148,7 +189,8 @@ p_keep <- ggplot(keep_attr, aes(share, reorder(attribute, share))) +
 save_fig(p_keep, "fig_d6_keep_bounded.png", w = 8.5, h = 2.8)
 
 # === Fig: CE-match strength per candidate (ranking aid; 0.40 cutoff) ===
-mfit <- verdicts %>% filter(verdict != "contrast") %>% mutate(lab = short_label(candidate_label))
+mfit <- verdicts %>% filter(verdict != "contrast", n_profile_fonsi >= 5) %>%
+  mutate(lab = pretty_cell(candidate_label))
 p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_score)) +
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0, ymax = 0.20, fill = catf_grey, alpha = 0.5) +
   annotate("text", x = Inf, y = 0.10, label = "baseline similarity", hjust = 0.5, vjust = -0.7,
@@ -164,7 +206,7 @@ p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_sco
        caption = str_wrap(paste("Blended semantic + word-overlap similarity. Grey band = baseline, where unrelated CEs score",
                 "(≤ ~0.20); the matches sit 2–6× above it. A ranking aid — every match is confirmed against its eCFR text (see table above)."), 118)) +
   theme_catf()
-save_fig(p_match, "fig_d6_ce_match.png", h = 4.0)
+save_fig(p_match, "fig_d6_ce_match.png", w = 8.5, h = 5.6)
 
 # === Fig: bounded FONSIs vs existing-CE stated limits (the expand-test comparison) ===
 prof_sz <- facts %>% filter(is_bounded)
@@ -214,22 +256,23 @@ save_fig(p_sizes, "fig_d6_sizes.png", w = 9, h = 7.7)
 comp_lab <- c(rank_novelty = "Novelty", rank_volume = "Volume",
               rank_diversity = "Agency/state spread", rank_limits = "Has size limits",
               rank_mitigation = "Low mitigation dependence", rank_role = "Profile candidate")
-cls <- verdicts %>% filter(verdict != "contrast") %>%
-  mutate(lab = short_label(candidate_label)) %>%
+.topN <- verdicts %>% filter(verdict != "contrast") %>% slice_max(rank_score, n = 15, with_ties = FALSE)
+cls <- .topN %>%
+  mutate(lab = pretty_cell(candidate_label)) %>%
   select(lab, rank_score, all_of(names(comp_lab))) %>%
   pivot_longer(all_of(names(comp_lab)), names_to = "component", values_to = "contribution") %>%
   mutate(component = factor(recode(component, !!!comp_lab), levels = unname(comp_lab)))
-ord <- verdicts %>% filter(verdict != "contrast") %>% arrange(rank_score) %>% pull(candidate_label) %>% short_label()
+ord <- .topN %>% arrange(rank_score) %>% pull(candidate_label) %>% pretty_cell()
 cls$lab <- factor(cls$lab, levels = ord)
 p_cls <- ggplot(cls, aes(lab, contribution, fill = component)) +
   geom_col(width = 0.66) + coord_flip() +
   scale_fill_manual(values = c("#012169", "#23457F", "#3D6BAB", "#5E8FD0", "#8AB7E9", "#C2CBD6"), name = NULL) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.05))) +
-  labs(title = "How each candidate is scored and ranked",
-       subtitle = "Transparent multi-factor rank score (0–1); bar length = total, colors = each factor's contribution",
+  labs(title = "How the top-ranked cells are scored",
+       subtitle = "Top 15 tech × action cells by rank score (0–1); bar length = total, colors = each factor's contribution",
        x = NULL, y = "Rank score") +
   theme_catf() + theme(legend.position = "bottom") + guides(fill = guide_legend(nrow = 2))
-save_fig(p_cls, "fig_d6_classification.png", w = 9, h = 4.4)
+save_fig(p_cls, "fig_d6_classification.png", w = 9, h = 6.4)
 
 # === Fig: FRA timeline — the 53 bounded FONSIs by D4 decision date ===
 tl <- facts %>% filter(is_bounded) %>% distinct(project_id, decision_date) %>%
@@ -262,7 +305,7 @@ save_fig(p_tl, "fig_d6_timeline.png", w = 9, h = 4.0)
 
 # === Fig: US map of transmission-upgrade FONSI states (tigris/sf — house pattern) ===
 tx_state <- corp_fonsi %>%
-  filter(is_bounded, candidate_category == "transmission_upgrade") %>%
+  filter(is_bounded, candidate_category == "Transmission__upgrade") %>%
   mutate(s = str_remove_all(as.character(project_state), '[\\[\\]"]')) %>%
   separate_rows(s, sep = ",\\s*") %>% mutate(state_name = str_squish(s)) %>%
   filter(state_name != "", !is.na(state_name)) %>% count(state_name, name = "n")
@@ -281,14 +324,14 @@ p_map <- ggplot(states_sf) +
   labs(title = glue::glue("Where the transmission-upgrade FONSIs are — {n_tx_states} states"),
        subtitle = "Bounded, low-impact in-corridor transmission FONSIs, concentrated in the West (BLM / BPA territory)",
        x = NULL, y = NULL,
-       caption = str_wrap(paste("Count = transmission FONSIs touching each state; 4 projects span two states, so the 37 projects",
-                "sum to 41 state-counts. Each maps to a TVA transmission CE (#17 reconductoring / #19 rebuild)."), 110)) +
+       caption = str_wrap(paste("Count = bounded transmission-upgrade FONSIs touching each state (a project spanning two",
+                "states is counted in each). Concentrated in the West — BLM and power-marketing-administration territory."), 110)) +
   theme_catf() + theme(legend.position = "right", axis.text = element_blank(), panel.grid = element_blank())
 save_fig(p_map, "fig_d6_states.png", w = 8.5, h = 5.0)
 
 # === Fig: the transmission FONSIs — adopt-ready (LLM-bounded) vs too-big (expand/develop) ===
 # Adopt vs expand = the LLM's is_bounded_low_impact judgment; #17 vs #19 from the action text.
-tx_split <- facts %>% filter(candidate_category == "transmission_upgrade", is_profile_subtype) %>%
+tx_split <- facts %>% filter(candidate_category == "Transmission__upgrade", is_profile_subtype) %>%
   distinct(project_id, .keep_all = TRUE) %>%
   mutate(txt = tolower(paste(coalesce(quoted_span, ""), coalesce(action_definition, ""))),
          is_rebuild = str_detect(txt, "rebuild|reconstruct|(remov|replac|install|new)\\w*[^.]{0,40}(structure|pole|tower|h-frame|monopole)"),
@@ -315,20 +358,20 @@ p_cesplit <- ggplot(count(tx_split, bucket), aes(x = bucket, y = n, fill = bucke
 save_fig(p_cesplit, "fig_d6_ce_split.png", w = 9, h = 3.0)
 
 # === Fig: adoption gap (evidence weight + who could adopt) ===
-adopt <- verdicts %>% filter(verdict == "adopt") %>%
-  mutate(lab = short_label(candidate_label),
+adopt <- verdicts %>% filter(verdict == "adopt", n_profile_fonsi >= 2) %>%
+  mutate(lab = pretty_cell(candidate_label),
          n_lacking = str_count(adopt_targets, ",") + 1L,
-         tag = paste0(n_profile_fonsi, " FONSIs → adopt ", best_ce_structured_id, " (", best_ce_agency, ")"))
+         tag = paste0(n_profile_fonsi, " FONSIs → ", best_ce_structured_id))
 p_gap <- ggplot(adopt, aes(reorder(lab, n_profile_fonsi), n_profile_fonsi)) +
   geom_col(width = 0.62, fill = catf_dark_blue) +
   geom_text(aes(label = tag), hjust = -0.03, size = 3.2, color = catf_navy) +
-  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.75))) +
+  coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.45))) +
   labs(title = "The adoption gap, by evidence weight",
        subtitle = "Bar = bounded FONSIs run as full EAs; label = the existing CE (and holder) they could adopt instead",
        x = NULL, y = "Bounded, low-impact FONSIs run as full EA→FONSI",
        caption = "Each action already has a categorical exclusion at another agency; adopting it avoids the full EA.") +
   theme_catf()
-save_fig(p_gap, "fig_d6_adoption_gap.png", w = 9, h = 3.8)
+save_fig(p_gap, "fig_d6_adoption_gap.png", w = 9, h = 5.6)
 
 # === Analysis 3: roll up to DEPARTMENT (the agency_unit prefix, e.g. "DOI - BLM" -> DOI) ===
 ce_land <- ce_land %>% mutate(dept = str_trim(str_extract(agency_unit, "^[^-]+")),
@@ -442,8 +485,10 @@ CE_TOPICS <- c("0" = "Property leases, licenses, and permits", "1" = "Geological
 if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
   sc    <- ce_land %>% filter(!is.na(coord_x)) %>% mutate(cl = factor(cluster_km))
   cl_lab <- sc %>% group_by(cl) %>%
-    summarise(x = median(coord_x), y = median(coord_y), lab = str_wrap(first(cluster_label), 16), .groups = "drop")
-  pal_cl <- setNames(RColorBrewer::brewer.pal(max(3, nlevels(sc$cl)), "Set2")[seq_len(nlevels(sc$cl))], levels(sc$cl))
+    summarise(x = median(coord_x), y = median(coord_y), .groups = "drop") %>%
+    # on-map labels use the SAME CE_TOPICS names as the legend, so map and legend match
+    mutate(lab = str_wrap(dplyr::coalesce(CE_TOPICS[as.character(cl)], as.character(cl)), 18))
+  pal_cl <- setNames(c("#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E","#E6AB02","#A6761D","#012169")[seq_len(nlevels(sc$cl))], levels(sc$cl))
   topic_labs <- dplyr::coalesce(CE_TOPICS[levels(sc$cl)], levels(sc$cl))   # legend keys = the topic labels
   p_scatter <- ggplot(sc, aes(coord_x, coord_y)) +
     geom_point(aes(color = cl), size = 1.5, alpha = 0.7) +
@@ -453,7 +498,7 @@ if ("coord_x" %in% names(ce_land) && any(!is.na(ce_land$coord_x))) {
                        guide = guide_legend(override.aes = list(size = 4.5, alpha = 1), ncol = 2)) +
     labs(title = "How related are the existing CEs?",
          subtitle = str_wrap(paste("Each point is one CE, laid out by t-SNE of its text embedding; color = topic family,",
-                  "labeled on the map by its top terms. Closer = more similar wording; families recur across departments."), 95),
+                  "labeled on the map by that family's name. Closer = more similar wording; families recur across departments."), 95),
          x = NULL, y = NULL,
          caption = "Many families recur across departments — the precedent for adopt.") +
     theme_catf() + theme(axis.text = element_blank(), panel.grid = element_blank(),
@@ -505,7 +550,9 @@ if (file.exists(clusters_file) && requireNamespace("ggupset", quietly = TRUE)) {
                               combmatrix.label.text = element_text(size = 9, color = catf_navy)) +
     labs(title = glue::glue("Which departments share the same CE 'twin' families ({nrow(xa)} cross-agency families)"),
          subtitle = str_wrap(paste("Each bar = the number of near-identical CE families shared by exactly that set of",
-                  "departments (top 12 combinations); a filled dot below marks the departments in the combination."), 104),
+                  "departments (top 12 combinations); a filled dot below marks the departments. A single-department bar",
+                  "(e.g. DOD) = families shared across that department's own sub-agencies (Army, Navy, Air Force…) —",
+                  "not one department holding that many duplicate CEs."), 104),
          x = NULL, y = "Twin families") +
     theme(plot.title = element_text(face = "bold", color = catf_navy, size = 13),
           plot.subtitle = element_text(color = catf_dark_blue),
@@ -573,47 +620,44 @@ p_share <- ggplot(share, aes(x = n, y = reorder(lab, n), fill = share)) +
   theme_catf() + theme(legend.position = "none")
 save_fig(p_share, "fig_d6_mitigated_share.png", w = 10, h = 4.2)
 
-# Fig: PHRASE cloud (2-3 grams) of committed-mitigation language — surfaces measures, not generic words
+# Fig (A2.5): the ROLES mitigation plays — mechanism types derived from the committed-mitigation
+# text (multi-label: a mitigated FONSI can rely on several mechanisms). Replaces the earlier phrase cloud.
+mit_roles <- enr %>% filter(is_mit, !is.na(mitigation_summary), nchar(mitigation_summary) > 20) %>%
+  transmute(project_id, t = tolower(mitigation_summary))
+role_defs <- list(
+  "Consultation / permit condition"       = "shpo|section 106|section 7|\\besa\\b|biological opinion|consult|\\bpermit|tribal|fish and wildlife|\\busfws\\b|clean water act",
+  "Species / habitat protection"          = "raptor|nest|tortoise|migratory bird|special[ -]status|endangered|threatened|burrowing owl|habitat|wildlife|\\beagle|\\bbat\\b",
+  "Avoidance / buffer / setback"          = "avoid|buffer|setback|exclusion zone|\\bflag|no[ -]disturbance|stay out|restrict\\w*[^.]{0,20}(access|vehicle|route)",
+  "Timing / seasonal restriction"         = "seasonal|nesting season|breeding season|time[ -]of[ -]year|dry season|\\bwindow\\b|between [a-z]+ [0-9]|from [a-z]+ [0-9]",
+  "Monitoring"                            = "monitor|pre[ -]construction survey|biological monitor|archaeolog\\w*[^.]{0,15}monitor|\\binspection",
+  "Erosion / dust / spill / reveg (BMPs)" = "erosion|sediment|stormwater|\\bswppp|\\bdust|spill prevention|reveget|reseed|restor|reclaim|best management")
+role_cols <- names(role_defs)
+for (nm in role_cols) mit_roles[[nm]] <- str_detect(mit_roles$t, role_defs[[nm]])
+mit_roles[["Other / unclassified"]] <- !Reduce(`|`, mit_roles[role_cols])
+n_mit_role <- nrow(mit_roles)
+roles_long <- mit_roles %>%
+  tidyr::pivot_longer(c(all_of(role_cols), "Other / unclassified"), names_to = "role", values_to = "hit") %>%
+  group_by(role) %>% summarise(n = sum(hit), .groups = "drop") %>%
+  mutate(share = n / n_mit_role) %>% arrange(desc(n))
+p_roles <- ggplot(roles_long, aes(x = n, y = reorder(role, n))) +
+  geom_col(fill = catf_navy, width = 0.68) +
+  geom_text(aes(label = paste0(n, "  (", percent(share, 1), ")")), hjust = -0.06,
+            size = 3.3, fontface = "bold", color = catf_navy) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.20))) +
+  labs(title = glue::glue("What role does the committed mitigation play? ({n_mit_role} mitigated FONSIs)"),
+       subtitle = str_wrap(paste("Share of mitigated FONSIs whose committed mitigation includes each mechanism type,",
+                "derived from the mitigation-summary text. A FONSI can use several, so shares sum to >100%."), 88),
+       x = "Mitigated FONSIs", y = NULL,
+       caption = "The mechanisms are case-by-case — consultation, monitoring, site-specific avoidance — not standard, transferable design features.") +
+  theme_catf() + theme(legend.position = "none")
+save_fig(p_roles, "fig_d6_mitigation_roles.png", w = 9.5, h = 5)
+
+# stopwords for the significance-threshold phrase bars below (previously defined in the removed word cloud block)
 ng_stop <- unique(c(tidytext::stop_words$word, letters,
             "project","projects","mitigation","measures","measure","impacts","impact","action","proposed","applicant",
             "construction","area","areas","resources","resource","plan","plans","sites","federal","state","local",
             "appropriate","implement","implemented","minimize","reduce","reducing","avoid","potential","including",
             "activities","management","require","required","ensure","provide","within","prior","conducted","completed"))
-mit_df <- enr %>% filter(is_mit, !is.na(mitigation_summary)) %>%
-  transmute(doc = row_number(), text = str_replace_all(tolower(mitigation_summary), "[^a-z ]", " "))
-phrases <- bind_rows(
-    tidytext::unnest_tokens(mit_df, ngram, text, token = "ngrams", n = 2),
-    tidytext::unnest_tokens(mit_df, ngram, text, token = "ngrams", n = 3)) %>%
-  filter(!is.na(ngram), ngram != "") %>%
-  tidyr::separate(ngram, into = c("w1", "w2", "w3"), sep = " ", fill = "right", remove = FALSE) %>%
-  mutate(wl = if_else(is.na(w3) | w3 == "", w2, w3)) %>%
-  filter(!w1 %in% ng_stop, !wl %in% ng_stop, nchar(w1) >= 3, nchar(wl) >= 3,
-         !str_detect(ngram, "mitigat|measure")) %>%   # phrase bounded by content words; drop framing words (item 2)
-  count(ngram, sort = TRUE)
-# Normalize variants by STEMMING every word (plurals + verb/noun forms), then aggregate their counts
-# under one key and display the most common surface form. So 'desert tortoise' + 'desert tortoises'
-# count together (and show as 'desert tortoise'), 'revegetation' + 'revegetate' together, etc. — for
-# ALL words, not just one. Stem is the grouping key only; the cloud still shows real words.
-.stemkey <- function(g) paste(SnowballC::wordStem(strsplit(g, " ", fixed = TRUE)[[1]], language = "en"),
-                              collapse = " ")
-phrases <- phrases %>%
-  mutate(key = vapply(ngram, .stemkey, character(1))) %>%
-  group_by(key) %>%
-  summarise(ngram = ngram[which.max(n)], n = sum(n), .groups = "drop") %>%   # top surface form + summed count
-  filter(n >= 2) %>% arrange(desc(n)) %>% slice_head(n = 40)
-set.seed(6)
-p_wc <- ggplot(phrases, aes(label = ngram, size = n, color = n)) +
-  geom_text_wordcloud_area(shape = "square", rm_outside = TRUE, area_corr = TRUE, eccentricity = 0.65) +
-  scale_size_area(max_size = 26) +
-  scale_color_gradient(low = catf_light_blue, high = catf_navy) +
-  labs(title = "The committed-mitigation language is project-specific",
-       subtitle = str_wrap(glue::glue("Most-frequent 2–3 word phrases across the {n_mit} mitigated FONSIs' mitigation ",
-                             "summaries — no phrase dominates, consistent with case-specific (not standardized) measures"), 95)) +
-  theme_void(base_size = 12) +
-  theme(plot.title = element_text(face = "bold", color = catf_navy),
-        plot.subtitle = element_text(color = catf_dark_blue, margin = margin(b = 2)),
-        plot.margin = margin(1, 1, 1, 1), legend.position = "none")
-save_fig(p_wc, "fig_d6_mitigation_wordcloud.png", w = 8, h = 4.6)
 
 # Fig: the recurring significance THRESHOLDS — what agencies said WOULD make an impact significant
 parse_sig <- function(j) {

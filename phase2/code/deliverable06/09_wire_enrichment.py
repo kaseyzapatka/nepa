@@ -102,33 +102,48 @@ def main() -> None:
     en = en[en["action_summary"].notna()].copy()        # drop the skipped (no-evidence) rows
     by_pid = {r.project_id: r for r in en.itertuples(index=False)}
 
-    # ---- candidate_facts: ONE row per candidate FONSI, keyed on the CORRECTED action_category ----
-    # The keyword candidate_corpus is no longer the categorizer; the LLM's action_category is.
-    # is_ce_shaped is Rule B: LLM-bounded AND (transmission must be modify-existing within ROW,
-    # no new access road); generation/exploration/temporary gated on the LLM bounded judgment only.
+    # action verb + is_codifiable per FONSI, from 10_action_label.py (refactor)
+    lab = pd.read_parquet(D6_ANALYSIS_DIR / "fonsi_action_labels.parquet")
+    lab["project_id"] = lab["project_id"].astype(str)
+    lab_by_pid = {r.project_id: r for r in lab.itertuples(index=False)}
+
+    # ---- candidate_facts: ONE row per enriched FONSI, keyed on the tech_group x action grid CELL ----
+    # The categorizer is now tech_group (from D3) x action verb (from 10). EVERY enriched FONSI lands
+    # in a cell — no "other" drop. is_ce_shaped is Rule B, corrected: the transmission shape-gate fires
+    # on tech_group==Transmission AND action==upgrade AND within existing ROW (no new road); every other
+    # cell gates on the LLM bounded judgment only.
     rows = []
     for e in en.itertuples(index=False):
-        cat = getattr(e, "action_category", None)
-        if cat not in CANDS:
-            continue                                     # not a CE-candidate action type
+        pid = str(e.project_id)
+        cat = getattr(e, "action_category", None)                 # old 5+other category (reference only)
+        lrow = lab_by_pid.get(pid)
+        action = str(getattr(lrow, "action", "other")) if lrow is not None else "other"
+        is_codifiable = bool(getattr(lrow, "is_codifiable", True)) if lrow is not None else True
+        tech = str(getattr(e, "tech_group", "") or "(missing)")
+        cell = f"{tech}__{action}"
         cite = _action_citation(getattr(e, "evidence_cited", "[]"))
         areas = ", ".join(_jlist(getattr(e, "mitigation_resource_areas", "[]")))
         wc = getattr(e, "well_count", None)
         bounded = _b(getattr(e, "is_bounded_low_impact", None))
         within_row = _b(getattr(e, "within_existing_row", None))
         new_road = getattr(e, "new_access_road", None)
-        ce_shaped = bounded and ((within_row and new_road is not True)
-                                 if cat == "transmission_upgrade" else True)
+        if tech == "Transmission":
+            ce_shaped = bounded and (action == "upgrade") and within_row and (new_road is not True)
+        else:
+            ce_shaped = bounded
         rows.append({
             "project_id": e.project_id,
-            "candidate_category": cat,
-            "candidate_label": CANDS[cat],
-            "subtype": cat,
-            "is_profile_subtype": True,                  # every action_category candidate is in scope now
+            "candidate_category": cell,                  # the tech_group__action grid cell id
+            "candidate_label": f"{tech} — {action}",
+            "tech_group": tech,
+            "action": action,
+            "is_codifiable": is_codifiable,
+            "subtype": action,
+            "is_profile_subtype": True,                  # every enriched FONSI is now in scope
             "is_bounded_low_impact": bounded,            # LLM read (carried)
-            "is_ce_shaped": bool(ce_shaped),             # Rule B: the bounded, CE-shaped candidate
-            "candidate_role": "profile",                 # all corrected candidates are actionable (incl. wind)
-            "action_category": cat,
+            "is_ce_shaped": bool(ce_shaped),             # Rule B (corrected)
+            "candidate_role": "profile",
+            "action_category": cat,                      # old 5+other category, kept for reference
             "action_category_pass1": getattr(e, "action_category_pass1", "") or "",
             "classification_confidence": getattr(e, "classification_confidence", "") or "",
             "project_title": getattr(e, "project_title", "") or "",

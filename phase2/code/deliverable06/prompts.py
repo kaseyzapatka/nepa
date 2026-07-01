@@ -309,3 +309,77 @@ def classification_tool_schema() -> dict:
         "classification_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
         "classification_rationale": {"type": "string"}},
         "required": ["action_category", "classification_confidence", "classification_rationale"]}
+
+
+# ===========================================================================
+# Stage 3 — ACTION-VERB labeling (refactor: tech_group x action grid).
+#
+# Assigns each FONSI's action a controlled verb WITHIN its tech_group, so the categorizer
+# (09) can form `tech_group__action` grid cells. Operates on the cached extraction summary
+# (no document re-read). `is_codifiable` is derived DETERMINISTICALLY from the verb (not the
+# LLM). 10_action_label.py runs this; bump ACTIONLABEL_PROMPT_VERSION to force a re-run.
+# ===========================================================================
+
+ACTIONLABEL_PROMPT_VERSION = "d6_actionlabel_v1"
+
+ACTION_VERBS = [
+    "new_build", "upgrade", "maintenance", "decommissioning", "exploration",
+    "assessment", "research_or_demonstration", "manufacturing", "interconnection",
+    "land_or_row_authorization", "other",
+]
+
+# a CE codifies a PHYSICAL action, not funding / manufacturing / administrative acts
+NON_CODIFIABLE_VERBS = {"manufacturing", "land_or_row_authorization"}
+
+
+def is_codifiable_for(action_verb: str) -> bool:
+    """Deterministic is_codifiable from the verb — no LLM. Manufacturing (a factory) and
+    land/ROW authorizations (administrative) are not physical actions a CE can codify."""
+    return action_verb not in NON_CODIFIABLE_VERBS
+
+
+def build_action_label_prompt(tech_group: str, action_summary: str, key_activities: str,
+                              action_label: str, purpose_and_need: str) -> str:
+    """Label the physical action with one controlled verb. Operates on the cached summary."""
+    return (
+        "TASK: Label ONE U.S. federal NEPA action with the single action VERB that best describes "
+        "what the federal action PHYSICALLY DOES, to support categorical-exclusion (CE) development. "
+        "You are given the already-extracted summary of an EA that ended in a FONSI, plus its technology "
+        "group. Choose the verb by the physical action, NOT by keywords in the title or summary.\n\n"
+        "VERBS:\n"
+        "- new_build: constructing a NEW generating facility, plant, or line (greenfield or a new unit).\n"
+        "- upgrade: physically MODIFYING EXISTING infrastructure — rebuild, reconductor, voltage upgrade, "
+        "repower, structure replacement, or a substation upgrade to existing grid infrastructure.\n"
+        "- maintenance: repair, vegetation / right-of-way upkeep, routine servicing of existing facilities.\n"
+        "- decommissioning: removal, retirement, or demolition of existing facilities / lines / turbines.\n"
+        "- exploration: resource-investigation drilling or geophysical survey (e.g. geothermal gradient wells).\n"
+        "- assessment: TEMPORARY site characterization leaving NO permanent facility — met towers, borings, "
+        "surveys, monitoring.\n"
+        "- research_or_demonstration: a pilot / R&D / demonstration facility (first-of-kind, experimental).\n"
+        "- manufacturing: building or expanding a FACTORY (e.g. battery components, modules, materials).\n"
+        "- interconnection: a gen-tie / grid-tap / interconnection line for a generator.\n"
+        "- land_or_row_authorization: an ADMINISTRATIVE land action — right-of-way grant / renewal / amendment, "
+        "lease, withdrawal, or land-use plan (NON-physical).\n"
+        "- other: anything that does not clearly match a verb, INCLUDING pure funding / financial assistance "
+        "(the federal action is the funding itself).\n\n"
+        "GUIDANCE (resolve overlaps):\n"
+        "- Funding, grants, loan guarantees, financial/cost-share assistance -> 'other' (even if they fund a build).\n"
+        "- A new line or circuit placed WITHIN an EXISTING right-of-way / developed corridor is 'upgrade' "
+        "(modifying the existing corridor), NOT 'new_build'.\n"
+        "- Temporary testing (met towers, surveys, borings, monitoring) is 'assessment', even for wind/solar.\n"
+        "- A geothermal exploratory / gradient well is 'exploration'.\n\n"
+        f"INPUT:\n  tech_group: {tech_group}\n  action_summary: {action_summary}\n"
+        f"  key_activities: {key_activities}\n  action_label: {action_label}\n"
+        f"  purpose_and_need: {purpose_and_need}\n\n"
+        "Return action (exactly one verb), action_confidence (high/medium/low), and "
+        "action_rationale (one sentence grounded in the input)."
+    )
+
+
+def action_label_tool_schema() -> dict:
+    """Enum-constrained tool schema — the model cannot return an off-list verb."""
+    return {"type": "object", "properties": {
+        "action": {"type": "string", "enum": ACTION_VERBS},
+        "action_confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "action_rationale": {"type": "string"}},
+        "required": ["action", "action_confidence", "action_rationale"]}
