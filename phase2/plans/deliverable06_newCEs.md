@@ -1,7 +1,8 @@
 # Deliverable 6 — Analysis 4: Net-new CE discovery from the "other" residual
 
 **Status:** plan, revised after Codex review (not yet built).
-**Author:** Claude. **Reviewed:** Codex, 2026-06-30 (`deliverable06_newCEs_feedback.md`).
+**Author:** Claude. **Reviewed:** Codex, 2026-06-30 (`phase2/plans/deliverable06_newCEs_feedback.md`);
+second independent review round applied 2026-06-30 (see §13).
 **Scope:** a new sub-analysis of D6 that examines the FONSIs the candidate pipeline set aside, to
 surface **candidate net-new** Categorical Exclusion (CE) themes — recurring low-impact clean-energy
 action types that appear to have *no* existing CE, **pending a CE-catalog review gate**.
@@ -32,15 +33,18 @@ net-new CEs** (pending CE-catalog review) an agency could write from scratch?
 
 ## 2. Why this analysis is needed (net-new is empty *by design*, not by finding)
 
-D6's three verdicts are **develop** (net-new: a recurring action with no existing CE), **expand**
-(exceeds an existing CE's bound), and **adopt** (an existing CE at another agency covers it). The
-5 candidate types were hand-picked *because they already recur and already have CEs* — they were
-built to test adopt/expand. The LLM classifier sorts every FONSI into one of those 5 or **"other."**
+D6's candidate classifier (`07_classify_and_rank.py`, output `d6_new.csv`) emits **`new`** (net-new:
+a recurring action with no existing CE), **`expand`** (exceeds an existing CE's bound), **`adopt`**
+(an existing CE at another agency covers it), plus `already_covered` and `contrast`. The 5 candidate
+types were hand-picked *because they already recur and already have CEs* — they were built to test
+adopt/expand. The LLM classifier sorts every FONSI into one of those 5 or **"other."**
 
-Consequence: all 5 candidate types resolve to **adopt**, and **develop/net-new is empty — not
-because no net-new actions exist, but because the design only examined types that already have
+Consequence: all 5 candidate types resolve to **`adopt`**, and the **`new`/net-new bucket is empty —
+not because no net-new actions exist, but because the design only examined types that already have
 CEs.** A net-new CE is, by definition, a recurring action type with no existing CE; such types
 *cannot* be among the 5, so they sit unexamined in the **"other"** residual. This analysis examines it.
+(Analysis 4's own cluster-level `net_new_verdict` enum in §4.6 is distinct from this per-FONSI `new`
+verdict.)
 
 **Framing (Codex finding 7):** these are **EA-to-FONSI actions that might support a future CE** — an
 "uncategorized FONSI residual", *not* "uncategorized CEs". Clustering does not establish a CE; it
@@ -95,14 +99,17 @@ concatenating, in order and skipping empties:
 `potential_ce_theme` → `action_label_freeform` → `action_category_other` →
 `why_not_current_candidate` → `key_activities` → trimmed `action_summary`.
 
-**QA gate:** every one of the 314 input rows must have non-empty `cluster_text`
-(one bounded row is known to lack a theme and needs the fallback). Persist the exact assembled
-`cluster_text` and a `cluster_input_sha256` for reproducibility.
+**QA gate:** every one of the 314 input rows must have non-empty `cluster_text`. **48 of 314** lack
+`potential_ce_theme` and rely on the fallback ladder (47 are bounded-False, ~1 bounded-True);
+verified that all 314 resolve to non-empty `cluster_text`. Persist the exact assembled `cluster_text`
+and a `cluster_input_sha256` for reproducibility.
 
 ### 4.3 Embed
 Embed each `cluster_text` with **`sentence-transformers/all-MiniLM-L6-v2`** via the existing
 `embeddings.embed()` helper (the model D6 already uses in `04`/`06` and D3). 384-d, L2-normalized,
-deterministic. Reuse the on-disk embedding cache pattern from `06` (sha256 of text+model).
+deterministic. **No disk cache needed** — `embeddings.embed()` is an in-process `lru_cache` on the
+*model object* only (not an on-disk vector cache), and recomputing ~314 short texts is instant. (If a
+cache is ever wanted, hand-roll a `cluster_input_sha256`+model-keyed npy like `06` does internally.)
 
 ### 4.4 Cluster — **`sklearn.cluster.HDBSCAN`** (no new dependency; Codex finding 4)
 `sklearn` 1.8 ships `sklearn.cluster.HDBSCAN`, so the recommended path needs **no new package**
@@ -124,15 +131,34 @@ Details:
 
 Output: `cluster_id` per FONSI (`-1`/`noise` bucket retained), plus a membership table.
 
-### 4.5 Retrieve nearest existing CEs — **the net-new gate** (Codex finding 1, HIGH)
-Before any cluster is called net-new, retrieve its nearest existing CEs automatically. For each
-**coherent** cluster, embed the cluster label + a few representative member summaries and cosine-
-retrieve the nearest CE descriptions from `ce_source.load_ce_catalog()` /
-`ce_landscape_ces.parquet` (reuse `06`'s cached CE embeddings; `ce_landscape_ces` already carries
-`ce_id`, `agency_unit`, `ce_description`, and a `nearest_xagency_ce` precedent). Write
-`net_new_ce_matches` (below) with the top-k nearest `ce_id`s, agencies, descriptions, and cosine
-scores. These nearest CEs are **shown to the LLM screen** (§4.6) and drive the novelty verdict. A
-theme with a close existing CE is **adopt/expand**, not net-new.
+### 4.5 Retrieve nearest existing CEs — **the net-new gate** (finding 1, HIGH)
+Before any cluster is called net-new, retrieve its nearest existing CEs automatically. The mechanics
+are made explicit here so there is exactly **one** decision authority, a defined `k`, and a defined
+cosine role (round-2 review resolved a three-decider ambiguity):
+
+- **CE corpus + embeddings.** Load the catalog from **`ce_source.load_ce_catalog()`** — it returns
+  `ce_id`, `agency_unit`, `ce_description`, which is all the retrieval needs (one source; **not**
+  `ce_landscape_ces.parquet`, whose `nearest_xagency_ce` is a CE↔CE precedent irrelevant here).
+  **Re-embed the ~2,105 `ce_description`s fresh** with `embeddings.embed()` (free/local, ~instant;
+  this matches `04_base_rates_and_ce.py`, which re-embeds rather than reusing a cache). Do **not**
+  assume a reusable keyed cache from `06`: `06` persists only an unlabeled `(2105, 384)`
+  `ce_embeddings.npy` aligned to its parquet by *implicit row order* and drops the source text, so
+  reuse would silently mispair on any re-sort. (If reuse is ever desired, re-derive `06`'s exact
+  sort + `normalize_space` and verify against `ce_embeddings.sig`, failing loudly on mismatch.)
+- **Retrieval.** For each **coherent** cluster, embed `theme_name` + a few representative member
+  `cluster_text`s and cosine-retrieve the **top `k = 5`** nearest CE descriptions; record
+  `nearest_ce_ids`, `nearest_ce_scores`, and `nearest_ce_cosine` (= the max).
+- **Decision authority = the LLM screen, never a cosine cutoff.** The top-5 are **shown to the LLM**
+  (§4.6), which alone decides novelty via `net_new_verdict`. Cosine is *retrieval only* — never an
+  auto-reject — matching `04`, which treats every cosine hit as an `unverified_candidate` with no
+  accept threshold.
+- **Cosine tripwire = a review flag only.** If `nearest_ce_cosine ≥ 0.75`, set
+  `requires_ce_review = True`; such a cluster may still be `plausible_net_new`, but it cannot enter
+  the **client** shortlist until human CE-catalog/eCFR review clears it (§4.7–4.8). (`06` uses 0.85
+  for CE↔CE near-duplicates; 0.75 is a deliberately looser cluster→CE flag.)
+- Write `net_new_ce_matches` (§7) with the top-k rows (per-row `cosine`) and `manual_ce_review_status`;
+  the **cluster-level** `nearest_ce_cosine` (= max) and the `requires_ce_review` flag live on
+  `net_new_themes` (§7). A theme the LLM ties to a close existing CE is **adopt/expand**, not net-new.
 
 ### 4.6 Name + screen each cluster (LLM — one cheap cached pass)
 For **each coherent cluster** (not each FONSI — ~20–40 calls total), send the member
@@ -145,6 +171,11 @@ findings 1 + 5, which keeps novelty and codifiability from being conflated in on
 - `coherent` (bool) — is the cluster one coherent action type?
 - **`net_new_verdict`** (novelty, given the nearest CEs) ∈
   `plausible_net_new` / `close_existing_ce_review` / `belongs_to_existing_type` / `not_coherent`.
+  Only `plausible_net_new` is eligible (§4.7); `close_existing_ce_review` and `belongs_to_existing_type`
+  are both treated as **not net-new** (ineligible), and `not_coherent` drops the cluster. This is the
+  **LLM's** novelty decision — distinct from the orthogonal cosine `requires_ce_review` flag (§4.5),
+  which can additionally hold even a `plausible_net_new` cluster out of the *client* shortlist until
+  human review clears it.
 - **`codifiability`** (funding treatment, Codex finding 5) ∈
   `physical_action_codifiable` / `funded_physical_action_codifiable` / `funding_only_not_codifiable`
   / `physical_action_unknown`. A CE codifies a *physical* action, not financing; funding-only
@@ -161,7 +192,11 @@ Compute cluster-level fields: `n_total`, `n_bounded_true`, `n_bounded_false`, `n
 `bounded_share_known` (= true / (true+false)), `n_agencies`, `n_states`. **Eligible** =
 `coherent` ∧ `net_new_verdict == plausible_net_new` ∧ `codifiability ∈
 {physical_action_codifiable, funded_physical_action_codifiable}` ∧ `n_bounded_true >= R`
-∧ `bounded_share_known >= τ` ∧ no close existing-CE match. Rank eligible clusters by
+∧ `bounded_share_known >= τ`. Novelty is decided **once**, by the LLM screen in §4.6 (which saw the
+top-5 nearest CEs) — there is no separate cosine reject clause. A high-cosine cluster
+(`requires_ce_review == True`, §4.5) may still be `plausible_net_new` and thus eligible, but it is
+held out of the **client** shortlist until human CE-review clears it (§4.8); it appears in the full
+output flagged. Rank eligible clusters by
 `recurrence × spread × boundedness` = `f(n_bounded_true) · g(n_agencies, n_states) · bounded_share_known`.
 **R = 5** for the main client shortlist; **R = 3** allowed only for multi-agency/multi-state, highly
 coherent themes, labeled **exploratory** (Codex answer 5). Unknown-bounded counts are surfaced, never
@@ -194,30 +229,38 @@ runs in the existing `nepa` env with **no new dependency**.
 New script **`code/deliverable06/10_net_new.py`** (08 is R analysis, 09 wires enrichment; 10 is free):
 - reads `fonsi_enrichment.parquet`; takes **all 314** "other" rows with summaries.
 - assembles `cluster_text` with the §4.2 fallback ladder; QA non-empty; stamps `cluster_input_sha256`.
-- `embeddings.embed()` for vectors (deterministic, pinned model, cached).
+- `embeddings.embed()` for vectors (deterministic, pinned model; no disk cache — recompute is instant).
 - **`sklearn.cluster.HDBSCAN`** with fixed, documented params; **hashed** stable `cluster_id`;
   Agglomerative fallback behind a flag.
-- §4.5 nearest-CE retrieval from the CE catalog (reuse `06` embeddings).
-- LLM cluster naming/screening via a new `prompts.build_netnew_prompt()` + tool schema, called
-  through an `enrich_lib.call_*`-style helper, **cached** on cluster-content hash +
-  `NETNEW_PROMPT_VERSION` (re-runs free; committed output canonical).
+- §4.5 nearest-CE retrieval: **re-embed** the ~2,105 `ce_source.load_ce_catalog()` descriptions fresh
+  (not a `06` cache reuse), cosine top-`k=5`, record `nearest_ce_cosine` + `requires_ce_review`.
+- LLM cluster naming/screening: **add new code** (not a reuse) mirroring the classify path —
+  `prompts.build_netnew_prompt()` + `prompts.netnew_tool_schema()` + `NETNEW_PROMPT_VERSION`, and an
+  `enrich_lib.call_netnew()` mirroring `enrich_lib.call_classification` (same never-raises /
+  token-return contract). **Cache** on a cluster-content hash + `NETNEW_PROMPT_VERSION` via the same
+  `classify_key` / `write_json_atomic` pattern `03` already uses (re-runs free; committed output canonical).
 - **Audit stamps (project convention):** `netnew_extraction_run_at` on **all** rows at build time;
   `netnew_llm_run_at` per-cluster only when the LLM call succeeds (else `""`).
 - writes the outputs in §7. Add a `--dry-run` (cost preview, no key) like `03`.
 
-**Pipeline integration (Codex finding 8):**
-- Runs **after `03_enrich_llm.py --stage classify`** (needs corrected `action_category`) **and after
-  `06_ce_landscape.py`** (needs CE embeddings for §4.5 retrieval).
-- Added to `_run.py` **only after** the classify output is stable.
-- **Fail loudly** if `classification_parse_ok` is missing, if classified rows are not stamped with the
-  expected `classification_prompt_version`, or if the CE catalog / `06` embeddings are absent.
+**Pipeline integration (finding 5 — corrected sequencing):**
+- `03_enrich_llm.py` (the 37-field enrichment + `--stage classify`) is **standalone and *not* in
+  `_run.py`**; `fonsi_enrichment.parquet` is produced out-of-band and merely *checked for existence*
+  by the `09_wire_enrichment.py` guard. So 10 slots into `_run.py` **after `06_ce_landscape.py`**
+  (needs `ce_source.load_ce_catalog()`) with `fonsi_enrichment.parquet` as an **external prerequisite**,
+  exactly the way `09` already treats it — not "after 03" inside the orchestrator.
+- Add 10 to `_run.py` **only after** the classify output is stable.
+- **Fail loudly** if `fonsi_enrichment.parquet` is missing, if `classification_parse_ok` is absent, or
+  if classified rows are not stamped with the expected `classification_prompt_version`. (The CE
+  catalog is loaded via `ce_source`; 10 re-embeds it, so no `06` embedding artifact is required.)
 
 ## 7. Outputs / deliverables
 - `data/analysis/deliverable06/net_new_themes.parquet` — one row per cluster:
   `cluster_id`, `theme_name`, `coherent`, `net_new_verdict`, `codifiability`, `n_total`,
   `n_bounded_true`, `n_bounded_false`, `n_bounded_unknown`, `bounded_share_known`, `n_agencies`,
-  `n_states`, `rank_score`, `is_exploratory` (R=3 tier), `example_project_ids`, `nearest_ce_ids`,
-  `nearest_ce_scores`, `matched_ce_ids`, `manual_ce_review_status`; **provenance:** `cluster_method`,
+  `n_states`, `rank_score`, `is_exploratory` (R=3 tier), `requires_ce_review`, `in_client_shortlist`,
+  `example_project_ids`, `nearest_ce_ids`, `nearest_ce_scores`, `nearest_ce_cosine`, `matched_ce_ids`,
+  `manual_ce_review_status`; **provenance:** `cluster_method`,
   `cluster_params`, `cluster_input_sha256`, `embedding_model`, `llm_model`, `netnew_prompt_version`,
   `netnew_schema_sha`, `netnew_extraction_run_at`, `netnew_llm_run_at`.
 - `data/analysis/deliverable06/net_new_ce_matches.parquet` — cluster × nearest-CE review rows:
@@ -236,10 +279,12 @@ New script **`code/deliverable06/10_net_new.py`** (08 is R analysis, 09 wires en
 ## 8. Validation / QA (`qa_deliverable06.py` additions)
 - **Reconciliation:** `clustered + noise == 314`; membership totals match; every input row has
   non-empty `cluster_text`.
-- **Shortlist integrity:** every ranked theme is `coherent` ∧ `plausible_net_new` ∧ codifiable ∧
-  `n_bounded_true >= R`; **no funding-only theme** in the shortlist; **no theme with a confirmed
-  close CE** in the shortlist.
-- **CE-review status:** each shortlisted theme has a `net_new_ce_matches` row and a
+- **Shortlist integrity:** every **client-shortlist** theme (`in_client_shortlist == True`) is
+  `coherent` ∧ `plausible_net_new` ∧ codifiable ∧ `n_bounded_true >= R`; **no funding-only theme**;
+  and **no `requires_ce_review` theme** enters the client shortlist until its `manual_ce_review_status`
+  clears (`confirmed_net_new`). A `plausible_net_new` theme flagged `requires_ce_review` may still be
+  *eligible* and appear in the full output — it is just held out of the client-facing list.
+- **CE-review status:** each shortlisted theme has ≥1 `net_new_ce_matches` row and a resolved
   `manual_ce_review_status` before the report consumes it.
 - Spot-check each shortlisted cluster's member summaries (does the theme hold?); no cluster spans
   obviously unrelated actions; thin-n (R=3) themes flagged `is_exploratory`.
@@ -267,20 +312,44 @@ New script **`code/deliverable06/10_net_new.py`** (08 is R analysis, 09 wires en
   **not** needed.
 
 ## 11. Cost & effort
-- Embedding + clustering + CE retrieval: **free** (local, ~314 short texts + cached CE embeddings).
+- Embedding + clustering + CE retrieval: **free** (local, ~314 cluster texts + ~2,105 re-embedded CE descriptions).
 - LLM cluster naming/screening: **~$0.50–$2** (one cached call per cluster, ~20–40 clusters, Sonnet).
 - Build effort: ~half a day–one day (one script + CE-retrieval gate + a report section + a linked page).
 
 ## 12. Reproducibility
 Same guarantees as the classify pass: pinned embedding model, deterministic clustering (fixed,
-documented params; **hashed** stable cluster ids), CE retrieval from committed catalog embeddings,
-LLM naming on a **pinned Sonnet snapshot at temp 0 with a committed cache** keyed on cluster content +
+documented params; **hashed** stable cluster ids), CE retrieval by re-embedding the catalog fresh
+(deterministic; no fragile cache reuse), LLM naming on a **pinned Sonnet snapshot at temp 0 with a
+committed cache** keyed on cluster content +
 `NETNEW_PROMPT_VERSION`. Audit timestamps (`netnew_extraction_run_at` on all rows,
 `netnew_llm_run_at` per successful cluster call) per project convention. Re-running regenerates the
 committed outputs; no hand-edited values.
 
 ## 13. Review status
-Codex review (2026-06-30) returned **8 findings + answers to 6 questions**; **all applied** above
-(findings 1–8; funding split into an orthogonal `codifiability` field as a refinement of findings
-1+5). No open questions remain before implementation; the only deferred item is the optional D1
-funding-field diagnostic (§9.1), explicitly out of the first implementation.
+- **Round 1 — Codex (2026-06-30):** 8 findings + answers to 6 questions; **all applied** (funding
+  split into an orthogonal `codifiability` field as a refinement of findings 1+5).
+- **Round 2 — independent code-verified review (2026-06-30):** 8 findings, **all applied**:
+  (1) the CE-match gate now has a single decision authority — the LLM screen — with an explicit
+  `k = 5` retrieval and cosine used only as a `requires_ce_review` flag (≥ 0.75), not a reject
+  clause; the redundant §4.7 "no close CE" clause was removed and §8 reconciled.
+  (2) CE embeddings are **re-embedded fresh** in script 10 (the `06` `ce_embeddings.npy` is an
+  unlabeled row-order-aligned array with the source text dropped — not a safe keyed cache).
+  (3) §2 uses the built classifier's real verdict name **`new`** (output `d6_new.csv`), not
+  "develop"; `already_covered`/`contrast` noted.
+  (4) §4.5 names **one** CE source (`ce_source.load_ce_catalog()`); the `nearest_xagency_ce`
+  red herring dropped.
+  (5) §6 sequencing corrected: `03_enrich_llm.py` is **not** in `_run.py`; 10 runs after
+  `06_ce_landscape.py` with `fonsi_enrichment.parquet` as an external prerequisite (as `09` treats it).
+  (6) §4.2 count corrected (48/314 lack `potential_ce_theme`, not 1).
+  (7) §6 names the **new** code to write — `enrich_lib.call_netnew()` + `prompts.build_netnew_prompt()`
+  + `netnew_tool_schema()` + `NETNEW_PROMPT_VERSION` — rather than implying a reusable `call_*`.
+  (8) feedback-file path corrected.
+- **Round 3 — re-review of the round-2 fixes (2026-06-30): READY TO IMPLEMENT.** All 8 round-2 fixes
+  verified to hold against the code; 3 residual copy fixes applied: (a) removed the last two "cache"
+  mentions (§4.3, §6) that contradicted the re-embed fix — `embeddings.embed()` is an in-process
+  `lru_cache` on the model object, not a disk cache; (b) reconciled the `net_new_ce_matches` schema
+  (per-row `cosine`) vs the cluster-level `nearest_ce_cosine`/`requires_ce_review` on `net_new_themes`;
+  (c) stated the disposition of an LLM `close_existing_ce_review`/`belongs_to_existing_type` verdict
+  (ineligible) and its distinction from the cosine `requires_ce_review` flag.
+- **No code-blocking defect remains.** The only deferred item is the optional D1 funding-field
+  diagnostic (§9.1), explicitly out of the first implementation.
