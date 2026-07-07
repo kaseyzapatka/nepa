@@ -35,30 +35,39 @@ Label `phase2/output/deliverable02/significance_gold_queue.csv` (the `gold_*` co
 conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py   # tiered metrics + disagreement queue
 ```
 
-### 3. Billable LLM pass (needs budget approval — you run it)
-Key is already in keychain `nepa-anthropic`; `anthropic` is installed in `nepa`. **Run the
-30-doc spike first** (~$1), eyeball, then the full pass (~$20–35):
+### 3. Billable LLM pass — FONSI first, via the Batch API (needs budget approval; you run it)
+Key is in keychain `nepa-anthropic`; `anthropic` is installed in `nepa`.
+**Spike first** (~30 windows, synchronous, ~$1), eyeball the output:
 ```bash
-# spike
-conda run -n nepa python phase2/code/deliverable02/02_extract_fonsi_significance.py --sample 30
-# full FONSI pass
-conda run -n nepa python phase2/code/deliverable02/02_extract_fonsi_significance.py --model claude-haiku-4-5-20251001
+conda run -n nepa python phase2/code/deliverable02/02_extract_fonsi_significance.py --sample 30 --model claude-sonnet-5
 ```
-This upgrades rows to `extraction_method='regex+llm'`, fills `rationale_text` / adjudicated
-class / scope / resource / threshold, and stamps `significance_llm_run_at`. **The prompt in
-`extract_common.adjudicate_llm` is a v1 — expect to tune it after the spike** (that's the only
-expected code change from hand-coding; schema/scaffolding are frozen).
-
-### 4. After the LLM pass
+**Full FONSI via batch — ONE password** (`--batch-run` = submit → poll → fetch → build in one
+process; the keychain is read once and cached; 50% price; auto-chunked under the API's
+100k-request / 256 MB caps):
 ```bash
-Rscript phase2/code/deliverable02/06_analyze_significance.R   # real tables + association layer
-quarto render phase2/reports/deliverable02.qmd                # regenerate the report
+conda run -n nepa python phase2/code/deliverable02/02_extract_fonsi_significance.py --batch-run --model claude-sonnet-5
 ```
+(Prefer not to leave the terminal open? Split form: `--batch-submit` now, `--batch-fetch
+[--wait]` later — one password each.)
+This upgrades rows to `extraction_method='regex+llm'` and stamps `significance_llm_run_at`.
+NOTE: `temperature=0` is only sent on Haiku (Sonnet 5 / Opus 4.8 reject sampling params — 400).
+The prompt in `extract_common._prompt_for` is a v1 — expect to tune it after the spike.
 
-### 5. EIS (gated) — only after FONSI Gate 3 passes
-`04` is built but the plan gates full EIS behind FONSI validation + a retrieval-recall spike.
-Run `04 --dry-run --sample N` spikes first; outputs use a `_eis` suffix so they never clobber
-the FONSI track.
+### 4. After the FONSI pass — validate + look before paying for EIS
+```bash
+conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py  # Gate 3 vs gold
+Rscript phase2/code/deliverable02/06_analyze_significance.R                     # FONSI-only tables
+quarto render phase2/reports/deliverable02.qmd
+```
+Decide from these whether the EIS pass is worth it.
+
+### 5. EIS (gated) — only after FONSI Gate 3 passes and you like the FONSI analysis
+`04` never touches FONSI outputs (`_eis` suffix). Retrieval spike first, then batch:
+```bash
+conda run -n nepa python phase2/code/deliverable02/04_extract_eis_significance.py --dry-run --sample 800  # retrieval check, free
+conda run -n nepa python phase2/code/deliverable02/04_extract_eis_significance.py --batch-run --sample 0 --model claude-sonnet-5   # one password
+Rscript phase2/code/deliverable02/06_analyze_significance.R --with-eis          # combined analysis
+```
 
 ## Notes
 - All scripts `py_compile` clean. The IDE's `anthropic` "missing" warning is a false positive

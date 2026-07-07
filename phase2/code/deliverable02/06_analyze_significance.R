@@ -18,8 +18,24 @@ OUT <- "phase2/output/deliverable02/analysis"; dir.create(OUT, recursive = TRUE,
 MIN_CELL <- 5
 NON_DET <- c("not_a_determination", "ambiguous")
 
+# FONSI track is the default; pass --with-eis to also fold in the EIS track
+# (04 writes *_eis.parquet so the two tracks never clobber each other).
+WITH_EIS <- "--with-eis" %in% commandArgs(trailingOnly = TRUE)
+
 det <- read_parquet(file.path(A, "significance_determinations.parquet"))
 thr <- read_parquet(file.path(A, "determination_thresholds.parquet"))
+eis_det_path <- file.path(A, "significance_determinations_eis.parquet")
+if (WITH_EIS && file.exists(eis_det_path)) {
+  det <- bind_rows(det, read_parquet(eis_det_path))
+  eis_thr_path <- file.path(A, "determination_thresholds_eis.parquet")
+  if (file.exists(eis_thr_path)) thr <- bind_rows(thr, read_parquet(eis_thr_path))
+  cat("combined FONSI + EIS tracks. determinations by process_type:\n")
+  print(table(det$process_type))
+} else if (WITH_EIS) {
+  cat("--with-eis passed but no", eis_det_path, "found — FONSI only.\n")
+} else {
+  cat("FONSI track only (pass --with-eis to combine the EIS track).\n")
+}
 
 # ---- headline gate ----
 primary <- det %>%

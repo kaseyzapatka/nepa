@@ -55,11 +55,28 @@ def macro_f1(gold: pd.Series, pred: pd.Series) -> tuple[float, pd.DataFrame]:
     return macro, pd.DataFrame(rows)
 
 
+def _gold_from_labeled_csv() -> bool:
+    """If the analyst labeled the queue CSV in place, adopt it as the gold set automatically."""
+    if not C.GOLD_QUEUE_CSV.exists():
+        return False
+    q = pd.read_csv(C.GOLD_QUEUE_CSV)
+    if "gold_is_determination" not in q.columns:
+        return False
+    labeled = q["gold_is_determination"].notna() & \
+        q["gold_is_determination"].astype(str).str.strip().ne("")
+    if not labeled.any():
+        return False
+    gold = q[labeled].copy()
+    C.write_parquet(gold, C.GOLD, f"gold (adopted {int(labeled.sum())} labeled rows from queue CSV)")
+    return True
+
+
 def main() -> None:
-    if not C.GOLD.exists():
+    if not C.GOLD.exists() and not _gold_from_labeled_csv():
         print(f"[gold not found] {C.GOLD.relative_to(C.PHASE2)}")
-        print("Label output/deliverable02/significance_gold_queue.csv (the gold_* columns) and "
-              "save it as gold/significance_gold.parquet. Then re-run. See HANDOFF.md.")
+        print("Fill the gold_* columns in output/deliverable02/significance_gold_queue.csv "
+              "(Excel/Numbers is fine) and just re-run this script — labeled rows are adopted "
+              "automatically. See HANDOFF.md.")
         sys.exit(0)
     if not C.SIGNIFICANCE_DETERMINATIONS.exists():
         print("[determinations not found] run 02 first."); sys.exit(0)

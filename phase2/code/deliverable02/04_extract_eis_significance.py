@@ -86,16 +86,35 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--model", default=X.DEFAULT_MODEL)
-    ap.add_argument("--sample", type=int, default=500, help="section cap (EIS is gated; spike first)")
+    ap.add_argument("--sample", type=int, default=500, help="section cap (EIS is gated; spike first; 0 = ALL)")
     ap.add_argument("--out-suffix", default="_eis", help="write to *<suffix>.parquet to not clobber FONSI")
+    ap.add_argument("--batch-run", action="store_true",
+                    help="ONE-PASSWORD batch: submit + poll + fetch + build, all in this process")
+    ap.add_argument("--batch-submit", action="store_true",
+                    help="submit windows as Message Batch(es) (50%% price) and exit")
+    ap.add_argument("--batch-fetch", action="store_true",
+                    help="retrieve the submitted batch and build determinations")
+    ap.add_argument("--wait", action="store_true", help="with --batch-fetch: poll until ended")
     args = ap.parse_args()
-    print(f"D2 Phase 3b: EIS significance extraction — "
-          f"{'DRY-RUN' if args.dry_run else f'LLM ({args.model})'}  (sample={args.sample or 'ALL'})")
+    mode = ("BATCH-RUN (one password, submit+poll+fetch)" if args.batch_run
+            else "BATCH-SUBMIT" if args.batch_submit else "BATCH-FETCH" if args.batch_fetch
+            else "DRY-RUN" if args.dry_run else f"LLM sync ({args.model})")
+    print(f"D2 Phase 3b: EIS significance extraction — {mode}  (sample={args.sample or 'ALL'})")
 
-    cand = eis_candidates(args.sample)
+    if args.batch_fetch:
+        cand, results, model = X.fetch_batch("eis", args.wait)
+    else:
+        cand = eis_candidates(args.sample)
+        results, model = None, args.model
     if cand.empty:
         print("no EIS candidates for this sample."); return
-    dets, thr = X.build_determinations(cand, None, eis_context(), args.dry_run, args.model)
+    if args.batch_submit or args.batch_run:
+        X.submit_batch(cand, args.model, "eis")     # key read once & cached for this process
+        if not args.batch_run:
+            return
+        cand, results, model = X.fetch_batch("eis", wait=True)
+    dets, thr = X.build_determinations(cand, None, eis_context(), args.dry_run, model,
+                                       llm_results=results)
 
     sfx = args.out_suffix
     det_path = C.D2_ANALYSIS_DIR / f"significance_determinations{sfx}.parquet"

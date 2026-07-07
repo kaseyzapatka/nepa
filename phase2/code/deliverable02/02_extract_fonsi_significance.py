@@ -102,20 +102,40 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="key-free deterministic pass")
     ap.add_argument("--model", default=X.DEFAULT_MODEL)
     ap.add_argument("--sample", type=int, default=0, help="limit candidates (debug)")
+    ap.add_argument("--batch-run", action="store_true",
+                    help="ONE-PASSWORD batch: submit + poll + fetch + build, all in this process")
+    ap.add_argument("--batch-submit", action="store_true",
+                    help="submit windows as Message Batch(es) (50%% price) and exit")
+    ap.add_argument("--batch-fetch", action="store_true",
+                    help="retrieve the submitted batch and build determinations")
+    ap.add_argument("--wait", action="store_true", help="with --batch-fetch: poll until ended")
     args = ap.parse_args()
-    print(f"D2 Phase 3: FONSI significance extraction — "
-          f"{'DRY-RUN (regex only, key-free)' if args.dry_run else f'LLM ({args.model})'}")
+    mode = ("BATCH-RUN (one password, submit+poll+fetch)" if args.batch_run
+            else "BATCH-SUBMIT" if args.batch_submit else "BATCH-FETCH" if args.batch_fetch
+            else "DRY-RUN (regex only, key-free)" if args.dry_run else f"LLM sync ({args.model})")
+    print(f"D2 Phase 3: FONSI significance extraction — {mode}")
 
-    cand = generate_fonsi_candidates()
-    if args.sample:
-        cand = cand.sort_values("evidence_text_sha256").head(args.sample)
-    C.write_parquet(cand, C.SIGNIFICANCE_SECTION_CANDIDATES, "candidates")
+    if args.batch_fetch:
+        cand, results, model = X.fetch_batch("fonsi", args.wait)
+    else:
+        cand = generate_fonsi_candidates()
+        if args.sample:
+            cand = cand.sort_values("evidence_text_sha256").head(args.sample)
+        C.write_parquet(cand, C.SIGNIFICANCE_SECTION_CANDIDATES, "candidates")
+        results, model = None, args.model
 
     matches = mitigation_signal_matches()
     C.write_parquet(matches, C.MITIGATION_SIGNAL_MATCHES, "mitigation matches")
 
+    if args.batch_submit or args.batch_run:
+        X.submit_batch(cand, args.model, "fonsi")   # key read once & cached for this process
+        if not args.batch_run:
+            return
+        cand, results, model = X.fetch_batch("fonsi", wait=True)
+
     dets, thr = X.build_determinations(cand, mitigation_summary(matches),
-                                       project_context(), args.dry_run, args.model)
+                                       project_context(), args.dry_run, model,
+                                       llm_results=results)
     C.write_parquet(dets, C.SIGNIFICANCE_DETERMINATIONS, "determinations")
     C.write_parquet(thr, C.DETERMINATION_THRESHOLDS, "threshold child")
 
