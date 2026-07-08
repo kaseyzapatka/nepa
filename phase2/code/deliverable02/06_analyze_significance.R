@@ -86,8 +86,44 @@ thr_primary <- thr %>% semi_join(primary, by = "determination_instance_id") %>%
   left_join(primary %>% select(determination_instance_id, determination_class), by = "determination_instance_id")
 w(thr_primary %>% count(threshold_type, determination_class) %>% suppress(), "threshold_by_class.csv")
 
-# 6. mitigation read (would-be-significant -> committed mitigation); mitigation reconciled per
-#    (document x resource x class) with any() in primary_dr, not counted per raw instance.
+# 6. MITIGATION at BOTH levels (the deliverable centerpiece: mitigated FONSIs).
+#    Reported at two grains because they answer different questions and use different signals:
+#    - DOCUMENT level = the classic "mitigated FONSI" rate: is the FONSI's overall no-significant-
+#      impact finding mitigation-dependent? A document counts as mitigated if ANY of its
+#      determinations is. The window-level mitigation flag is fine here (we OR to the document).
+#    - RESOURCE level = which resource areas' conclusions depend on mitigation. Uses the PRECISE
+#      per-resource text signal (the less_than_significant_with_mitigation class), NOT the
+#      window-shared flag, which over-attributes across a multi-resource window.
+
+# 6a. document-level mitigated-FONSI rate (project-level count reported alongside)
+doc_mit <- primary %>%
+  group_by(project_id, document_id) %>%
+  summarise(mitigated_dependent = any(as.logical(mitigation_dependent)),
+            mitigated_class_signal = any(determination_class == "less_than_significant_with_mitigation"),
+            .groups = "drop")
+doc_summary <- doc_mit %>%
+  summarise(n_documents = n(), n_projects = n_distinct(project_id),
+            n_mitigated_dependent = sum(mitigated_dependent),
+            share_mitigated_dependent = round(mean(mitigated_dependent), 3),
+            n_mitigated_class_signal = sum(mitigated_class_signal),
+            share_mitigated_class_signal = round(mean(mitigated_class_signal), 3))
+w(doc_summary, "mitigation_document_level.csv")
+cat(sprintf("mitigated-FONSI rate (document level): %d/%d = %.1f%% (any mitigation-dependent) | %.1f%% (LTS-with-mitigation class)\n",
+            doc_summary$n_mitigated_dependent, doc_summary$n_documents,
+            100 * doc_summary$share_mitigated_dependent, 100 * doc_summary$share_mitigated_class_signal))
+
+# 6b. resource-level: which resource areas carry mitigation-dependent conclusions (precise signal)
+w(primary_dr %>%
+    filter(shared_resource_area != "project_wide") %>%
+    group_by(shared_resource_area) %>%
+    summarise(n_determinations = n(),
+              n_mit_class = sum(determination_class == "less_than_significant_with_mitigation"),
+              share_mit_class = round(mean(determination_class == "less_than_significant_with_mitigation"), 3),
+              n_mit_dependent = sum(as.logical(mitigation_dependent)), .groups = "drop") %>%
+    arrange(desc(n_mit_class)) %>% suppress(col = "n_determinations"),
+  "mitigation_by_resource.csv")
+
+# 6c. class x mitigation cross-tab (analytic grain), kept for continuity
 w(primary_dr %>% count(determination_class, mitigation_dependent) %>% suppress(), "mitigation_by_class.csv")
 
 # 7. context universe reported SEPARATELY (never in primary rates)

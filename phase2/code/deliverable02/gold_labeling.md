@@ -65,6 +65,24 @@ several resources into one row.
   - `labeler` = `claude` or `codex`; `labeler_confidence` ∈ {high, medium, low}.
   - Use the **exact controlled-vocabulary strings** below. Booleans as TRUE/FALSE.
 
+## Save incrementally — checkpoint every 100 windows (do NOT hold everything to the end)
+
+This is a ~400-window job that expands to ~1,000 output rows. Do **not** accumulate all labels in
+memory and write once at the very end — a crash near the end would lose everything. Instead:
+
+1. Process the windows **in the order they appear** in the input file.
+2. **After every 100 windows** (i.e. at windows 100, 200, 300, and 400), **write your output CSV to
+   disk with ALL rows completed so far** — overwrite the whole file each time (header + every row
+   you've produced up to that point). After each write the file is a complete, valid CSV of your
+   progress, so a later error never costs more than the last <100 windows.
+3. **Resuming after an error:** first read your existing output CSV, collect the `evidence_span_id`s
+   you have already labeled, and **continue from the first window you have not yet covered** — do
+   not re-label windows already in your file (that would create duplicate keys).
+4. When all 400 windows are done, do one final write so the file is complete.
+
+Keep writing to the **same single output file** assigned to your identity — checkpoints overwrite it
+in place; never create per-batch files.
+
 ## What to read (and what to ignore)
 
 Base every label on **`evidence_text` only**, with `heading_title`, `manifest_role`, and
