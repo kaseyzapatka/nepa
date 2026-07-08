@@ -1,10 +1,28 @@
 # D2 Gold-Set Labeling Prompt (dual-labeler: Claude + Codex)
 
+## ⚑ WHO YOU ARE — READ FIRST (this decides your output file)
+
+Two reviewers label this set **independently and in parallel**. You are exactly one of them — pick
+your identity and write ONLY to your own file:
+
+| If you are… | You are… | Write ONLY to | Set `labeler` = |
+|---|---|---|---|
+| **Claude** | **Reviewer 1** | `phase2/data/analysis/deliverable02/gold/labels_claude.csv` | `claude` |
+| **Codex** | **Reviewer 2** | `phase2/data/analysis/deliverable02/gold/labels_codex.csv` | `codex` |
+
+You and the other reviewer run **at the same time**. You write ONLY your assigned file; you NEVER
+read, edit, or overwrite the other reviewer's file or the input file. Because each reviewer writes a
+different file, simultaneous work cannot conflict. **Do not consult, compare, or coordinate with the
+other reviewer** — two *independent* answer keys are the entire point. Work end-to-end without
+asking for help; if something is genuinely unresolvable, code your best judgment and flag it in
+`gold_notes` rather than stopping.
+
+---
+
 You are an expert NEPA analyst labeling an **answer key** ("gold set") for Deliverable 2:
 *Determinations of significance across resource areas*. Your labels will be used to grade an
-LLM extraction pipeline (Gate 3), so **accuracy and consistency matter more than speed**. Two
-labelers (Claude and Codex) perform this task **independently**; disagreements are adjudicated
-by the human analyst. Do not consult the other labeler's output.
+LLM extraction pipeline (Gate 3), so **accuracy and consistency matter more than speed**.
+Disagreements between the two reviewers are adjudicated later by the human analyst.
 
 ## Task — one row PER RESOURCE DETERMINATION (multi-determination grain)
 
@@ -28,12 +46,15 @@ significance conclusion about, and **emit one output row per (window × resource
 Never emit a determination for a resource the passage does **not** conclude on. Do not merge
 several resources into one row.
 
-- **Input (reading list):** `phase2/data/analysis/deliverable02/gold/significance_gold_queue.parquet`
-  (same content as `phase2/output/deliverable02/significance_gold_queue.csv`) — one row per window.
-- **Output:** ONE long CSV, depending on who you are:
-  - Claude → `phase2/data/analysis/deliverable02/gold/labels_claude.csv`
-  - Codex → `phase2/data/analysis/deliverable02/gold/labels_codex.csv`
-- **Output columns (exactly these; one row per resource determination):**
+- **Input (reading list) — READ-ONLY:** `phase2/output/deliverable02/significance_gold_queue.csv`
+  (400 rows, one per window; identical content is also in
+  `phase2/data/analysis/deliverable02/gold/significance_gold_queue.parquet` if you prefer parquet).
+  **`evidence_text` contains commas and newlines — parse with a real CSV reader
+  (`pandas.read_csv` / `csv` module), NEVER by splitting on commas or lines.** Do not modify it.
+- **Output:** ONE long CSV — the file assigned to your identity in the "WHO YOU ARE" table above
+  (Reviewer 1 / Claude → `labels_claude.csv`; Reviewer 2 / Codex → `labels_codex.csv`). Write it
+  with a real CSV writer so long text fields are quoted correctly.
+- **Output columns (exactly these, in this order; one row per resource determination):**
   `evidence_span_id, gold_resource_area, gold_is_determination, gold_determination_class,
   gold_determination_scope, gold_primary_threshold_type, gold_primary_threshold_status,
   gold_mitigation_link, gold_evidence_span_ok, gold_needs_human_review, gold_notes,
@@ -46,8 +67,8 @@ several resources into one row.
 
 ## What to read (and what to ignore)
 
-Base every label on **`evidence_text` only**, with `heading_title`, `manifest_role`,
-`page_start`/`page_end`, and `project_title` as context. **IGNORE the machine-guess columns**
+Base every label on **`evidence_text` only**, with `heading_title`, `manifest_role`, and
+`page_start`/`page_end` as context. **IGNORE the machine-guess columns**
 (`candidate_class_guess`, `resource_area_guess`, `threshold_types_guess`,
 `determination_polarity_guess`, `matched_cue_group`) — they are the output of the cheap regex
 layer you are helping to grade; anchoring on them defeats the purpose. Do not use outside
