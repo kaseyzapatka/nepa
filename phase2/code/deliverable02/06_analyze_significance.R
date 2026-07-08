@@ -6,6 +6,11 @@
 # agency_scope_status == 'primary_blm_doe_family' (plus in-scope time). context_other_agency /
 # manual_scope_review rows are reported separately, never folded into A1 primary rates.
 # Dual denominators (projects AND determinations); cells below MIN_CELL suppressed.
+# ANALYTIC GRAIN: headline counts are taken over `primary_dr` = one row per
+# (document x resource x determination_class), NOT raw determination instances — so a resource/class
+# concluded more than once in a document (a duplicate the LLM may emit, or two sub-findings that
+# crosswalk to the same 12-area bucket) counts once, not twice. The raw instances stay in the
+# parquet for provenance; only the counting unit changes here.
 #
 # NOTE: on a --dry-run determinations table every row is extraction_method='regex' &
 # needs_human_review=TRUE, so these tables are ILLUSTRATIVE until the billable LLM pass + gold.
@@ -45,34 +50,45 @@ primary <- det %>%
 cat(sprintf("determinations total=%d  primary-scope determinations=%d  (projects=%d)\n",
             nrow(det), nrow(primary), n_distinct(primary$project_id)))
 
+# analytic-grain rollup: one row per (document x resource x class). Collapses same-resource/class
+# repeats within a document; per-document attributes (agency, cohort) are constant within the group
+# so first() is safe; mitigation is reconciled with any() (a document's resource conclusion is
+# mitigation-dependent if ANY of its collapsed sub-findings is), never keep-first-arbitrary.
+primary_dr <- primary %>%
+  group_by(project_id, document_id, shared_resource_area, determination_class) %>%
+  summarise(agency = first(agency), cohort_by_date = first(cohort_by_date),
+            mitigation_dependent = any(as.logical(mitigation_dependent)), .groups = "drop")
+cat(sprintf("analytic determinations (document x resource x class) = %d\n", nrow(primary_dr)))
+
 suppress <- function(df, col = "n") { df[[paste0(col, "_suppressed")]] <- df[[col]] < MIN_CELL; df }
 w <- function(df, name) { write_csv(df, file.path(OUT, name)); cat("  wrote", name, "\n") }
 
 # 1. headline cross-resource significance map (resource x class)
-w(primary %>% count(shared_resource_area, determination_class) %>%
+w(primary_dr %>% count(shared_resource_area, determination_class) %>%
     suppress() %>% arrange(desc(n)), "resource_by_class.csv")
 
-# 2. class distribution + dual denominators
+# 2. class distribution + dual denominators (analytic determinations AND distinct projects)
 w(bind_rows(
-    primary %>% count(determination_class, name = "n_determinations"),
+    primary_dr %>% count(determination_class, name = "n_determinations"),
     primary %>% distinct(project_id, determination_class) %>%
       count(determination_class, name = "n_projects") %>% rename(n_determinations = n_projects) %>%
       mutate(determination_class = paste0(determination_class, " [project-level]"))
   ), "class_distribution_dual_denominator.csv")
 
 # 3. cross-agency (BLM vs DOE-family subagencies, within primary scope)
-w(primary %>% count(agency, determination_class) %>% suppress(), "agency_by_class.csv")
+w(primary_dr %>% count(agency, determination_class) %>% suppress(), "agency_by_class.csv")
 
 # 4. cross-cohort (FRA label = 2023-06-03)
-w(primary %>% count(cohort_by_date, determination_class) %>% suppress(), "cohort_by_class.csv")
+w(primary_dr %>% count(cohort_by_date, determination_class) %>% suppress(), "cohort_by_class.csv")
 
 # 5. threshold profile from the CHILD table (not the scalar summary)
 thr_primary <- thr %>% semi_join(primary, by = "determination_instance_id") %>%
   left_join(primary %>% select(determination_instance_id, determination_class), by = "determination_instance_id")
 w(thr_primary %>% count(threshold_type, determination_class) %>% suppress(), "threshold_by_class.csv")
 
-# 6. mitigation read (would-be-significant -> committed mitigation)
-w(primary %>% count(determination_class, mitigation_flag) %>% suppress(), "mitigation_by_class.csv")
+# 6. mitigation read (would-be-significant -> committed mitigation); mitigation reconciled per
+#    (document x resource x class) with any() in primary_dr, not counted per raw instance.
+w(primary_dr %>% count(determination_class, mitigation_dependent) %>% suppress(), "mitigation_by_class.csv")
 
 # 7. context universe reported SEPARATELY (never in primary rates)
 w(det %>% filter(!determination_class %in% NON_DET) %>%
