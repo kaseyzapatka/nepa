@@ -26,13 +26,17 @@ Verified: regime 1,326 rows; corpus 1,205 (FONSI 452); `agency_scope_status` 427
 `phase2/output/deliverable02/corpus_membership_review.csv` — confirm the ~34 primary mitigated
 FONSIs; check `off_mission_flag` rows (NNSA/defense/nuclear) for exclusion.
 
-### 2. Gold labeling (the critical-path bottleneck)
-Label `phase2/output/deliverable02/significance_gold_queue.csv` (the `gold_*` columns; 300 pos +
-100 neg, already stratified). Double-code ≥20%, mark ≥30% `holdout = TRUE`. Save as
-`phase2/data/analysis/deliverable02/gold/significance_gold.parquet`; put per-threshold labels in
-`gold/significance_gold_thresholds.parquet`. Then:
+### 2. Gold labeling (the critical-path bottleneck) — multi-determination grain
+`significance_gold_queue.csv` (300 pos + 100 neg windows, stratified) is a **reading list**. Both
+labelers (Claude + Codex) read every window and write a LONG CSV — **one row per
+`(evidence_span_id × resource_area)` determination** — to `gold/labels_claude.csv` /
+`gold/labels_codex.csv` per `gold_labeling.md` (this grain matches the extractor, which emits one
+determination per resource area). Then:
 ```bash
-conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py   # tiered metrics + disagreement queue
+conda run -n nepa python phase2/code/deliverable02/gold_agreement.py             # align on (window x resource); auto-accept core agreements; write gold_disagreements.csv
+# analyst fills final_* in output/deliverable02/gold_disagreements.csv (blank = drop that row)
+conda run -n nepa python phase2/code/deliverable02/gold_agreement.py --finalize  # -> gold/significance_gold.parquet (30% holdout BY WINDOW)
+conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py   # window + resource-set + class/mitigation metrics
 ```
 
 ### 3. Billable LLM pass — FONSI first, via the Batch API (needs budget approval; you run it)

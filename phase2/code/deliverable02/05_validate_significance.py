@@ -1,18 +1,19 @@
 """D2 Phase 5 — validate extraction against the hand-labeled gold set (plan v2.11 §7).
 
-Gated on the gold set EXISTING. The analyst labels `output/deliverable02/significance_gold_queue.csv`
-(the `gold_*` columns) and saves it as `gold/significance_gold.parquet`; per-threshold labels go in
-`gold/significance_gold_thresholds.parquet`. This script then computes the tiered metrics:
+Multi-determination grain (2026-07-08): both the gold set and the extractor are keyed by
+(evidence_span_id x resource_area), so validation is a set-matching problem per window. Gated on
+`gold/significance_gold.parquet` EXISTING (built by gold_agreement.py --finalize from the two
+labelers' long CSVs). Metrics:
 
-  - binary candidate is_determination: precision / recall / F1 (needs the negative class)
-  - determination_class macro-F1 over COMMON classes (min support)
-  - shared_resource_area accuracy / F1 over common areas
-  - mitigation-link (mitigation_flag) F1
-  - threshold CHILD-TABLE precision / recall / F1 + per-threshold status accuracy
-  - section/candidate coverage note
+  - candidate_is_determination (WINDOW grain): does the window hold >=1 real determination? P/R/F1
+  - resource_determination_detection ((window x resource) grain): did we recover the right SET of
+    resource determinations? P/R/F1 (this is the multi-determination completeness metric)
+  - determination_class macro-F1 over COMMON classes, on MATCHED (window x resource) pairs
+  - mitigation-dependence F1, on matched pairs
+  - primary_threshold_type accuracy, on matched pairs (descriptive)
 
-Reports overall AND on the >=30% holdout. Emits a disagreement review queue. Metrics with
-inadequate support are reported descriptively, not as pass/fail (plan §7).
+Reports overall AND on the >=30%-by-window holdout. Emits a disagreement review queue. Metrics
+with inadequate support are reported descriptively, not as pass/fail (plan §7).
 
 Run:  conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py
 """
@@ -25,6 +26,7 @@ import pandas as pd
 import common as C
 
 MIN_SUPPORT = 10  # below this, report descriptively (no macro-F1)
+NOT_DET = "not_a_determination"
 
 
 def prf(tp: int, fp: int, fn: int) -> dict:
@@ -37,6 +39,10 @@ def prf(tp: int, fp: int, fn: int) -> dict:
 
 def _truthy(s: pd.Series) -> pd.Series:
     return s.astype(str).str.strip().str.lower().isin(("1", "true", "yes", "y", "t"))
+
+
+def _norm(s: pd.Series) -> pd.Series:
+    return s.astype(str).str.strip().str.lower()
 
 
 def macro_f1(gold: pd.Series, pred: pd.Series) -> tuple[float, pd.DataFrame]:
@@ -55,88 +61,110 @@ def macro_f1(gold: pd.Series, pred: pd.Series) -> tuple[float, pd.DataFrame]:
     return macro, pd.DataFrame(rows)
 
 
-def _gold_from_labeled_csv() -> bool:
-    """If the analyst labeled the queue CSV in place, adopt it as the gold set automatically."""
-    if not C.GOLD_QUEUE_CSV.exists():
-        return False
-    q = pd.read_csv(C.GOLD_QUEUE_CSV)
-    if "gold_is_determination" not in q.columns:
-        return False
-    labeled = q["gold_is_determination"].notna() & \
-        q["gold_is_determination"].astype(str).str.strip().ne("")
-    if not labeled.any():
-        return False
-    gold = q[labeled].copy()
-    C.write_parquet(gold, C.GOLD, f"gold (adopted {int(labeled.sum())} labeled rows from queue CSV)")
-    return True
+def _real_gold(gold: pd.DataFrame) -> pd.DataFrame:
+    """Gold rows that assert a real determination (drops the junk `none` rows)."""
+    g = gold[_truthy(gold["gold_is_determination"]) &
+             (_norm(gold["gold_determination_class"]) != NOT_DET)].copy()
+    g["resource"] = _norm(g["gold_resource_area"])
+    g["gclass"] = _norm(g["gold_determination_class"])
+    g["gmit"] = _truthy(g["gold_mitigation_link"])
+    g["gthr"] = _norm(g["gold_primary_threshold_type"]).replace({"": "none", "nan": "none"})
+    return g[["evidence_span_id", "resource", "gclass", "gmit", "gthr"]]
+
+
+def _real_pred(det: pd.DataFrame, windows: set) -> pd.DataFrame:
+    """Predicted real determinations restricted to the gold windows; one row per (window,resource)
+    (a window/resource can carry >1 row differing by scope/threshold — keep the first)."""
+    p = det[det["evidence_span_id"].isin(windows) &
+            (_norm(det["determination_class"]) != NOT_DET)].copy()
+    p["resource"] = _norm(p["shared_resource_area"])
+    p["pclass"] = _norm(p["determination_class"])
+    p["pmit"] = p["mitigation_dependent"].fillna(False).astype(bool)
+    p["pthr"] = _norm(p["primary_threshold_type"]).replace({"": "none", "nan": "none"})
+    p = p.sort_values("evidence_span_id").drop_duplicates(["evidence_span_id", "resource"],
+                                                          keep="first")
+    return p[["evidence_span_id", "resource", "pclass", "pmit", "pthr"]]
+
+
+def evaluate(gold: pd.DataFrame, det: pd.DataFrame, tag: str) -> tuple[list, pd.DataFrame]:
+    windows = set(gold["evidence_span_id"])
+    gr = _real_gold(gold)
+    pr = _real_pred(det, windows)
+    out = []
+
+    # (1) window-level detection: does the window hold any real determination?
+    gpos, ppos = set(gr["evidence_span_id"]), set(pr["evidence_span_id"])
+    out.append({"metric": "candidate_is_determination", "scope": tag, "grain": "window",
+                **prf(len(gpos & ppos), len(ppos - gpos), len(gpos - ppos))})
+
+    # (2) resource-determination detection: did we recover the right SET of (window,resource)?
+    merged = gr.merge(pr, on=["evidence_span_id", "resource"], how="outer", indicator=True)
+    tp = int((merged["_merge"] == "both").sum())
+    fn = int((merged["_merge"] == "left_only").sum())     # gold has it, pred missed
+    fp = int((merged["_merge"] == "right_only").sum())    # pred asserted, gold has none
+    out.append({"metric": "resource_determination_detection", "scope": tag,
+                "grain": "window×resource", **prf(tp, fp, fn)})
+
+    matched = merged[merged["_merge"] == "both"]
+    if len(matched) >= MIN_SUPPORT:
+        # (3) determination class on matched pairs
+        mf1, _ = macro_f1(matched["gclass"].astype(str), matched["pclass"].astype(str))
+        out.append({"metric": "determination_class_macro_f1", "scope": tag,
+                    "f1": mf1, "support": len(matched)})
+        # (4) mitigation dependence on matched pairs
+        gm, pm = matched["gmit"].astype(bool), matched["pmit"].astype(bool)
+        out.append({"metric": "mitigation_dependent_f1", "scope": tag,
+                    **prf(int((gm & pm).sum()), int((~gm & pm).sum()), int((gm & ~pm).sum()))})
+        # (5) primary threshold type accuracy on matched pairs (descriptive)
+        tacc = float((matched["gthr"].astype(str) == matched["pthr"].astype(str)).mean())
+        out.append({"metric": "primary_threshold_type_accuracy", "scope": tag,
+                    "precision": round(tacc, 3), "support": len(matched)})
+    else:
+        out.append({"metric": "determination_class_macro_f1", "scope": tag,
+                    "note": f"matched pairs {len(matched)} < {MIN_SUPPORT} — descriptive only"})
+    return out, merged
 
 
 def main() -> None:
-    if not C.GOLD.exists() and not _gold_from_labeled_csv():
+    if not C.GOLD.exists():
         print(f"[gold not found] {C.GOLD.relative_to(C.PHASE2)}")
-        print("Fill the gold_* columns in output/deliverable02/significance_gold_queue.csv "
-              "(Excel/Numbers is fine) and just re-run this script — labeled rows are adopted "
-              "automatically. See HANDOFF.md.")
+        print("Build it: both labelers write gold/labels_{claude,codex}.csv per gold_labeling.md, "
+              "then run gold_agreement.py and gold_agreement.py --finalize. See HANDOFF.md.")
         sys.exit(0)
     if not C.SIGNIFICANCE_DETERMINATIONS.exists():
         print("[determinations not found] run 02 first."); sys.exit(0)
 
     gold = C.q(f"SELECT * FROM read_parquet('{C.GOLD}')")
-    det = C.q(f"""SELECT evidence_span_id, determination_class, shared_resource_area,
-                         mitigation_flag, primary_threshold_type
+    det = C.q(f"""SELECT evidence_span_id, shared_resource_area, determination_class,
+                         mitigation_dependent, primary_threshold_type
                   FROM read_parquet('{C.SIGNIFICANCE_DETERMINATIONS}')""")
-    j = gold.merge(det, on="evidence_span_id", how="left", suffixes=("_gold", "_pred"))
-    j["_pred_is_det"] = j["determination_class"].fillna("not_a_determination") != "not_a_determination"
-    j["_gold_is_det"] = _truthy(j["gold_is_determination"])
-    print(f"gold rows={len(gold):,}  joined to a determination={int(j['determination_class'].notna().sum()):,}")
+    for col in ("gold_resource_area", "gold_determination_class", "gold_is_determination"):
+        if col not in gold.columns:
+            print(f"[gold schema] missing '{col}' — is this the multi-determination gold "
+                  "(gold_agreement.py --finalize)?"); sys.exit(0)
 
-    def report(sub: pd.DataFrame, tag: str) -> list[dict]:
-        out = []
-        tp = int((sub["_pred_is_det"] & sub["_gold_is_det"]).sum())
-        fp = int((sub["_pred_is_det"] & ~sub["_gold_is_det"]).sum())
-        fn = int((~sub["_pred_is_det"] & sub["_gold_is_det"]).sum())
-        cand = prf(tp, fp, fn)
-        out.append({"metric": "candidate_is_determination", "scope": tag, **cand})
-        det_rows = sub[sub["_gold_is_det"] & sub["determination_class"].notna()]
-        if len(det_rows) >= MIN_SUPPORT:
-            mf1, _ = macro_f1(det_rows["gold_determination_class"].astype(str),
-                              det_rows["determination_class"].astype(str))
-            out.append({"metric": "determination_class_macro_f1", "scope": tag, "f1": mf1,
-                        "support": len(det_rows)})
-            racc = float((det_rows["gold_resource_area"].astype(str) ==
-                          det_rows["shared_resource_area"].astype(str)).mean())
-            out.append({"metric": "resource_area_accuracy", "scope": tag,
-                        "precision": round(racc, 3), "support": len(det_rows)})
-            gmit, pmit = _truthy(det_rows["gold_mitigation_link"]), det_rows["mitigation_flag"].fillna(False)
-            out.append({"metric": "mitigation_flag_f1", "scope": tag,
-                        **prf(int((gmit & pmit).sum()), int((~gmit & pmit).sum()), int((gmit & ~pmit).sum()))})
-        else:
-            out.append({"metric": "determination_class_macro_f1", "scope": tag,
-                        "note": f"support {len(det_rows)} < {MIN_SUPPORT} — descriptive only"})
-        return out
+    n_win = gold["evidence_span_id"].nunique()
+    print(f"gold: {len(gold):,} rows across {n_win:,} windows  |  "
+          f"determinations table: {len(det):,} rows")
 
-    metrics = report(j, "overall")
-    if "holdout" in j.columns and _truthy(j["holdout"]).any():
-        metrics += report(j[_truthy(j["holdout"])], "holdout")
-
-    # threshold child metrics (if the gold companion exists)
-    if C.GOLD_THRESHOLDS.exists() and C.DETERMINATION_THRESHOLDS.exists():
-        gt = C.q(f"SELECT determination_instance_id, threshold_type FROM read_parquet('{C.GOLD_THRESHOLDS}')")
-        pt = C.q(f"SELECT determination_instance_id, threshold_type FROM read_parquet('{C.DETERMINATION_THRESHOLDS}')")
-        gset = set(map(tuple, gt.values)); pset = set(map(tuple, pt.values))
-        tp = len(gset & pset)
-        metrics.append({"metric": "threshold_child_prf", "scope": "overall",
-                        **prf(tp, len(pset - gset), len(gset - pset))})
-    else:
-        metrics.append({"metric": "threshold_child_prf", "scope": "overall",
-                        "note": "no significance_gold_thresholds.parquet yet"})
+    metrics, merged = evaluate(gold, det, "overall")
+    if "holdout" in gold.columns and _truthy(gold["holdout"]).any():
+        hgold = gold[_truthy(gold["holdout"])]
+        metrics += evaluate(hgold, det, "holdout")[0]
 
     mdf = pd.DataFrame(metrics)
     C.write_parquet(mdf, C.D2_ANALYSIS_DIR / "validation_metrics.parquet", "metrics")
-    disagree = j[j["_pred_is_det"] != j["_gold_is_det"]]
-    C.write_csv(disagree, C.D2_OUTPUT_DIR / "validation_disagreements.csv", "review queue")
+
+    # review queue: every mismatched (window,resource) pair (missed or spurious)
+    disagree = merged[merged["_merge"] != "both"].copy()
+    disagree["issue"] = disagree["_merge"].map({"left_only": "missed_by_pipeline",
+                                                "right_only": "spurious_pipeline_determination"})
+    C.write_csv(disagree.drop(columns=["_merge"]),
+                C.D2_OUTPUT_DIR / "validation_disagreements.csv", "review queue")
     print("\n" + mdf.to_string(index=False))
-    print(f"\ndisagreements (pred vs gold is_determination): {len(disagree):,}")
+    print(f"\nmismatched (window×resource) pairs: {len(disagree):,} "
+          f"(missed {int((disagree['issue'] == 'missed_by_pipeline').sum()):,}, "
+          f"spurious {int((disagree['issue'] == 'spurious_pipeline_determination').sum()):,})")
 
 
 if __name__ == "__main__":
