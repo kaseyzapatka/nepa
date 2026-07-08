@@ -28,6 +28,14 @@ import common as C
 MIN_SUPPORT = 10  # below this, report descriptively (no macro-F1)
 NOT_DET = "not_a_determination"
 
+# deterministic tie-break when a window/resource carries >1 predicted determination: keep the most
+# consequential conclusion (mirrors the gold labeler's "keep the operative/final conclusion" rule
+# in gold_labeling.md). Lower rank = kept.
+_CLASS_RANK = {c: i for i, c in enumerate([
+    "significant_unavoidable", "significant_adverse", "eis_required",
+    "less_than_significant_with_mitigation", "less_than_significant",
+    "no_significant_impact", "ambiguous", "not_a_determination"])}
+
 
 def prf(tp: int, fp: int, fn: int) -> dict:
     p = tp / (tp + fp) if (tp + fp) else 0.0
@@ -42,7 +50,10 @@ def _truthy(s: pd.Series) -> pd.Series:
 
 
 def _norm(s: pd.Series) -> pd.Series:
-    return s.astype(str).str.strip().str.lower()
+    # collapse case + space/dash the same way extract_common._norm_vocab does, so a labeler's
+    # "air quality" joins to the extractor's canonical "air_quality" (else a real match reads as FP/FN).
+    return (s.astype(str).str.strip().str.lower()
+            .str.replace(" ", "_", regex=False).str.replace("-", "_", regex=False))
 
 
 def macro_f1(gold: pd.Series, pred: pd.Series) -> tuple[float, pd.DataFrame]:
@@ -73,16 +84,18 @@ def _real_gold(gold: pd.DataFrame) -> pd.DataFrame:
 
 
 def _real_pred(det: pd.DataFrame, windows: set) -> pd.DataFrame:
-    """Predicted real determinations restricted to the gold windows; one row per (window,resource)
-    (a window/resource can carry >1 row differing by scope/threshold — keep the first)."""
+    """Predicted real determinations restricted to the gold windows; one row per (window,resource).
+    When a window/resource carries >1 row (differing by scope/threshold), keep the most
+    consequential class (deterministic; mirrors the gold labeler's operative-conclusion rule)."""
     p = det[det["evidence_span_id"].isin(windows) &
             (_norm(det["determination_class"]) != NOT_DET)].copy()
     p["resource"] = _norm(p["shared_resource_area"])
     p["pclass"] = _norm(p["determination_class"])
     p["pmit"] = p["mitigation_dependent"].fillna(False).astype(bool)
     p["pthr"] = _norm(p["primary_threshold_type"]).replace({"": "none", "nan": "none"})
-    p = p.sort_values("evidence_span_id").drop_duplicates(["evidence_span_id", "resource"],
-                                                          keep="first")
+    p["_rank"] = p["pclass"].map(_CLASS_RANK).fillna(len(_CLASS_RANK))
+    p = (p.sort_values(["evidence_span_id", "resource", "_rank", "pclass"])
+          .drop_duplicates(["evidence_span_id", "resource"], keep="first"))
     return p[["evidence_span_id", "resource", "pclass", "pmit", "pthr"]]
 
 

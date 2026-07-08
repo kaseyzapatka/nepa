@@ -38,12 +38,21 @@ ALL_GOLD = ["gold_is_determination", "gold_determination_class", "gold_determina
             "gold_evidence_span_ok", "gold_needs_human_review", "gold_notes"]
 
 
+def _norm_key(s: pd.Series) -> pd.Series:
+    # key/identity normalization: collapse case + space/dash but PRESERVE the vocab token "none"
+    # (the junk-row resource marker) so it stays self-documenting in the stored gold.
+    return (s.astype(str).str.strip().str.lower()
+            .str.replace(" ", "_", regex=False).str.replace("-", "_", regex=False))
+
+
 def _norm(s: pd.Series) -> pd.Series:
-    return s.astype(str).str.strip().str.lower().replace({"nan": "", "none": ""})
+    # field-VALUE normalization for agreement comparison: like _norm_key, but also folds the
+    # empties nan/none -> "" (a "none" threshold and a blank mean the same when comparing fields).
+    return _norm_key(s).replace({"nan": "", "none": ""})
 
 
 def _key_series(df: pd.DataFrame) -> pd.Series:
-    return _norm(df["evidence_span_id"]) + "||" + _norm(df["gold_resource_area"])
+    return _norm_key(df["evidence_span_id"]) + "||" + _norm_key(df["gold_resource_area"])
 
 
 def _load(path, labeler: str) -> pd.DataFrame:
@@ -53,6 +62,10 @@ def _load(path, labeler: str) -> pd.DataFrame:
     for col in KEY:
         if col not in df.columns:
             sys.exit(f"{path}: long-form gold CSV needs a '{col}' column (see gold_labeling.md).")
+    # canonicalize the key columns IN PLACE so the auto-accept path (reads these columns raw) and
+    # the disagreement/finalize path (derives them from the normalized _key) store identical values.
+    df["evidence_span_id"] = _norm_key(df["evidence_span_id"])
+    df["gold_resource_area"] = _norm_key(df["gold_resource_area"])   # preserves "none" for junk rows
     df["_key"] = _key_series(df)
     dups = df["_key"][df["_key"].duplicated()].tolist()
     if dups:

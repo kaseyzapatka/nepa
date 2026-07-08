@@ -18,6 +18,7 @@ import pandas as pd
 import common as C
 from candidate_gen import threshold_hits
 from significance_taxonomy import (
+    DETERMINATION_CLASSES, DETERMINATION_POLARITIES, DETERMINATION_SCOPES,
     RESOURCE_CROSSWALK, RESOURCE_PROJECT_WIDE, SHARED_RESOURCE_AREAS,
     THRESHOLD_STATUSES, THRESHOLD_TYPES,
 )
@@ -140,7 +141,11 @@ def _coerce_determinations(raw: str) -> dict:
         out["determinations"] = [parsed]           # single-object fallback
         out["abstain"] = bool(parsed.get("abstain"))
     elif isinstance(parsed, dict):
-        out["abstain"] = bool(parsed.get("abstain"))
+        # dict without a determinations list and without a determination_class: only a genuine
+        # {"abstain": true} is a valid empty; any other unrecognized shape is a parse failure.
+        out["abstain"] = bool(parsed.get("abstain", True))
+    else:
+        out["abstain"] = True                       # bare scalar / unrecognized JSON -> parse failure
     return out
 
 
@@ -258,16 +263,20 @@ def fetch_batch(track: str, wait: bool) -> tuple[pd.DataFrame, dict, str]:
 
 
 def _scope_guess(cue_group: str, resource: str) -> str:
-    if cue_group == "document_outcome":
-        return "project_overall"
-    return "resource_specific" if resource != "unknown" else "project_overall"
+    # only the document-outcome cue (a FONSI/decision statement) implies a project-wide scope;
+    # an unclassified resource hit stays resource_specific (the review flag carries "couldn't place",
+    # NOT the scope — else it would be forced to project_wide downstream).
+    return "project_overall" if cue_group == "document_outcome" else "resource_specific"
 
 
 def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
                   batch_missing, model_abstained, dry_run) -> tuple[dict, list]:
     """Assemble ONE determination row (+ its threshold child rows) from window `r` and a single
     determination dict `dd`. `dd is None` -> regex-guess row (dry-run / batch-missing); otherwise
-    `dd` is one element of the LLM's per-resource-area list."""
+    `dd` is one element of the LLM's per-resource-area list. A hash of `rationale_text` enters the
+    id so two DISTINCT determinations sharing (resource,class,scope,threshold) in one window
+    (differing only by rationale) don't collide — while a genuine byte-identical duplicate (same
+    rationale too) still collapses via the `seen` dedup."""
     is_llm = dd is not None
     if not is_llm:
         dclass = r.candidate_class_guess
@@ -275,9 +284,13 @@ def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
         dpol, rationale = r.determination_polarity_guess, ""
         resource_raw, pt_raw, pts_raw = r.resource_area_guess, "", ""
     else:
-        dclass = dd.get("determination_class", r.candidate_class_guess)
-        dscope = dd.get("determination_scope", _scope_guess(r.matched_cue_group, r.resource_area_guess))
-        dpol = dd.get("determination_polarity", r.determination_polarity_guess)
+        # snap the LLM's controlled-vocab answers (case/space/dash tolerant) so downstream
+        # branching on dclass/dscope is reliable — off-vocab answers fall back to a safe default.
+        dclass = _norm_vocab(dd.get("determination_class"), DETERMINATION_CLASSES, r.candidate_class_guess)
+        dscope = _norm_vocab(dd.get("determination_scope"), DETERMINATION_SCOPES,
+                             _scope_guess(r.matched_cue_group, r.resource_area_guess))
+        dpol = _norm_vocab(dd.get("determination_polarity"), DETERMINATION_POLARITIES,
+                           r.determination_polarity_guess)
         rationale = dd.get("rationale_text", "")
         resource_raw, pt_raw, pts_raw = (dd.get("shared_resource_area", r.resource_area_guess),
                                          dd.get("primary_threshold_type"),
@@ -327,7 +340,8 @@ def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
                      else "")
 
     det_id = C.sha256_join(r.project_id, r.document_id, r.source_substrate, r.source_unit_id,
-                           resource, d2_resource, dclass, dscope, primary_t, primary_ts, "")
+                           resource, d2_resource, dclass, dscope, primary_t, primary_ts, "",
+                           C.sha256_text(rationale))
     record = {
         "determination_instance_id": det_id,
         "source_substrate": r.source_substrate, "source_unit_id": r.source_unit_id,
