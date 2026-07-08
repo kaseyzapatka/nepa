@@ -19,6 +19,7 @@ Run:  conda run -n nepa python phase2/code/deliverable02/05_validate_significanc
 """
 from __future__ import annotations
 
+import argparse
 import sys
 
 import pandas as pd
@@ -138,19 +139,25 @@ def evaluate(gold: pd.DataFrame, det: pd.DataFrame, tag: str) -> tuple[list, pd.
     return out, merged
 
 
-def main() -> None:
-    if not C.GOLD.exists():
-        print(f"[gold not found] {C.GOLD.relative_to(C.PHASE2)}")
-        print("Build it: both labelers write gold/labels_{claude,codex}.csv per gold_labeling.md, "
-              "then run gold_agreement.py and gold_agreement.py --finalize. See HANDOFF.md.")
+def main(track: str = "fonsi") -> None:
+    # fonsi = the original (unchanged) paths; eis = the parallel EIS gold + EIS determinations
+    gold_path = C.GOLD_EIS if track == "eis" else C.GOLD
+    det_path = C.SIGNIFICANCE_DETERMINATIONS_EIS if track == "eis" else C.SIGNIFICANCE_DETERMINATIONS
+    sfx = "_eis" if track == "eis" else ""
+    prompt = "gold_labeling_eis.md" if track == "eis" else "gold_labeling.md"
+    if not gold_path.exists():
+        print(f"[gold not found] {gold_path.relative_to(C.PHASE2)}")
+        print(f"Build it: both labelers write the labels CSVs per {prompt}, then run "
+              f"gold_agreement.py --track {track} and gold_agreement.py --track {track} --finalize.")
         sys.exit(0)
-    if not C.SIGNIFICANCE_DETERMINATIONS.exists():
-        print("[determinations not found] run 02 first."); sys.exit(0)
+    if not det_path.exists():
+        print(f"[determinations not found] {det_path.name} — run "
+              f"{'04' if track == 'eis' else '02'} first."); sys.exit(0)
 
-    gold = C.q(f"SELECT * FROM read_parquet('{C.GOLD}')")
+    gold = C.q(f"SELECT * FROM read_parquet('{gold_path}')")
     det = C.q(f"""SELECT evidence_span_id, shared_resource_area, determination_class,
                          mitigation_dependent, primary_threshold_type
-                  FROM read_parquet('{C.SIGNIFICANCE_DETERMINATIONS}')""")
+                  FROM read_parquet('{det_path}')""")
     for col in ("gold_resource_area", "gold_determination_class", "gold_is_determination"):
         if col not in gold.columns:
             print(f"[gold schema] missing '{col}' — is this the multi-determination gold "
@@ -166,14 +173,14 @@ def main() -> None:
         metrics += evaluate(hgold, det, "holdout")[0]
 
     mdf = pd.DataFrame(metrics)
-    C.write_parquet(mdf, C.D2_ANALYSIS_DIR / "validation_metrics.parquet", "metrics")
+    C.write_parquet(mdf, C.D2_ANALYSIS_DIR / f"validation_metrics{sfx}.parquet", "metrics")
 
     # review queue: every mismatched (window,resource) pair (missed or spurious)
     disagree = merged[merged["_merge"] != "both"].copy()
     disagree["issue"] = disagree["_merge"].map({"left_only": "missed_by_pipeline",
                                                 "right_only": "spurious_pipeline_determination"})
     C.write_csv(disagree.drop(columns=["_merge"]),
-                C.D2_OUTPUT_DIR / "validation_disagreements.csv", "review queue")
+                C.D2_OUTPUT_DIR / f"validation_disagreements{sfx}.csv", "review queue")
     print("\n" + mdf.to_string(index=False))
     print(f"\nmismatched (window×resource) pairs: {len(disagree):,} "
           f"(missed {int((disagree['issue'] == 'missed_by_pipeline').sum()):,}, "
@@ -181,4 +188,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--track", choices=["fonsi", "eis"], default="fonsi",
+                    help="which gold set / determinations to validate (default fonsi)")
+    args = ap.parse_args()
+    print(f"[track={args.track}]")
+    main(args.track)

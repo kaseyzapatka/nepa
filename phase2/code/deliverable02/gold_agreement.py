@@ -14,7 +14,11 @@ Flow:
   3. Analyst fills final_* in that CSV, then: python gold_agreement.py --finalize
      -> gold/significance_gold.parquet (+ deterministic 30% holdout BY WINDOW) for 05_validate.
 
-Run:  conda run -n nepa python phase2/code/deliverable02/gold_agreement.py [--finalize]
+--track {fonsi,eis} (default fonsi) switches ALL paths to the parallel EIS gold set
+(labels_eis_*.csv, significance_gold_queue_eis.parquet, significance_gold_eis.parquet, ...) per
+gold_labeling_eis.md — the FONSI default behavior is unchanged.
+
+Run:  conda run -n nepa python phase2/code/deliverable02/gold_agreement.py [--track eis] [--finalize]
 """
 from __future__ import annotations
 
@@ -25,10 +29,23 @@ import pandas as pd
 
 import common as C
 
-LABELS_CLAUDE = C.D2_GOLD_DIR / "labels_claude.csv"
-LABELS_CODEX = C.D2_GOLD_DIR / "labels_codex.csv"
-DISAGREE_CSV = C.D2_OUTPUT_DIR / "gold_disagreements.csv"
-AGREED_PARQUET = C.D2_GOLD_DIR / "gold_agreed.parquet"
+
+def _paths(track: str) -> dict:
+    """Resolve the DISTINCT file set for a track; fonsi = the original (unchanged) paths."""
+    if track == "eis":
+        return {"labels_claude": C.D2_GOLD_DIR / "labels_eis_claude.csv",
+                "labels_codex": C.D2_GOLD_DIR / "labels_eis_codex.csv",
+                "queue": C.GOLD_QUEUE_EIS,
+                "agreed": C.D2_GOLD_DIR / "gold_agreed_eis.parquet",
+                "disagree": C.D2_OUTPUT_DIR / "gold_disagreements_eis.csv",
+                "gold": C.GOLD_EIS, "prompt": "gold_labeling_eis.md"}
+    return {"labels_claude": C.D2_GOLD_DIR / "labels_claude.csv",
+            "labels_codex": C.D2_GOLD_DIR / "labels_codex.csv",
+            "queue": C.GOLD_QUEUE,
+            "agreed": C.D2_GOLD_DIR / "gold_agreed.parquet",
+            "disagree": C.D2_OUTPUT_DIR / "gold_disagreements.csv",
+            "gold": C.GOLD, "prompt": "gold_labeling.md"}
+
 
 KEY = ["evidence_span_id", "gold_resource_area"]
 # core fields that must match for a matched row to auto-accept (resource_area is part of the key)
@@ -74,10 +91,10 @@ def _load(path, labeler: str) -> pd.DataFrame:
     return df.set_index("_key")
 
 
-def merge() -> None:
-    cl, cx = _load(LABELS_CLAUDE, "Claude"), _load(LABELS_CODEX, "Codex")
+def merge(p: dict) -> None:
+    cl, cx = _load(p["labels_claude"], "Claude"), _load(p["labels_codex"], "Codex")
     # window-level context for the disagreement sheet (join by evidence_span_id)
-    queue = pd.read_parquet(C.D2_GOLD_DIR / "significance_gold_queue.parquet")
+    queue = pd.read_parquet(p["queue"])
     ctx = queue.set_index("evidence_span_id")[["project_id", "heading_title", "page_start",
                                                "page_end", "evidence_text"]]
 
@@ -110,7 +127,7 @@ def merge() -> None:
     agreed = cl.loc[agreed_keys, KEY + ALL_GOLD + ["labeler_confidence"]].copy()
     agreed = agreed.join(ctx["project_id"], on="evidence_span_id")
     agreed["gold_source"] = "both_agree"
-    C.write_parquet(agreed.reset_index(drop=True), AGREED_PARQUET, "agreed gold")
+    C.write_parquet(agreed.reset_index(drop=True), p["agreed"], "agreed gold")
 
     # ---- disagreements: matched-but-differ + every single-labeler key ----
     def _row(key, side_cl, side_cx, kind):
@@ -134,14 +151,24 @@ def merge() -> None:
         dis = dis.merge(ctx.reset_index()[["evidence_span_id", "project_id", "heading_title",
                                            "page_start", "page_end", "evidence_text"]],
                         on="evidence_span_id", how="left")
-    C.write_csv(dis, DISAGREE_CSV, "ADJUDICATE: fill final_* columns (blank = drop that row)")
+    else:  # zero disagreements: still write a header-bearing CSV so --finalize reads it cleanly
+        cols = (["evidence_span_id", "gold_resource_area", "disagreement_kind"]
+                + [f"{pfx}_{f}" for f in ALL_GOLD for pfx in ("claude", "codex", "final")]
+                + ["project_id", "heading_title", "page_start", "page_end", "evidence_text"])
+        dis = pd.DataFrame(columns=cols)
+    C.write_csv(dis, p["disagree"], "ADJUDICATE: fill final_* columns (blank = drop that row)")
     print("\nNext: adjudicate the disagreements CSV, then re-run with --finalize.")
 
 
-def finalize() -> None:
-    agreed = pd.read_parquet(AGREED_PARQUET)
-    dis = pd.read_csv(DISAGREE_CSV, dtype=str).fillna("")
-    kept = dis[_norm(dis["final_gold_is_determination"]).ne("")].copy()
+def finalize(p: dict) -> None:
+    agreed = pd.read_parquet(p["agreed"])
+    try:
+        dis = pd.read_csv(p["disagree"], dtype=str).fillna("")
+    except pd.errors.EmptyDataError:      # truly empty file (no header) -> no disagreements
+        dis = pd.DataFrame(columns=["evidence_span_id", "gold_resource_area"]
+                           + [f"final_{f}" for f in ALL_GOLD])
+    kept = (dis[_norm(dis["final_gold_is_determination"]).ne("")].copy()
+            if "final_gold_is_determination" in dis.columns and len(dis) else dis.iloc[0:0])
     print(f"adjudicated (kept): {len(kept)}/{len(dis)} disagreement rows "
           f"(blank final_gold_is_determination = dropped)")
 
@@ -161,7 +188,7 @@ def finalize() -> None:
     gold["double_coded"] = True   # dual-labeler design: every key was independently coded twice
     gold["gold_run_at"] = C.utc_now()
     gold["schema_version"] = C.SCHEMA_VERSION
-    C.write_parquet(gold, C.GOLD, "FINAL GOLD (one row per window x resource)")
+    C.write_parquet(gold, p["gold"], "FINAL GOLD (one row per window x resource)")
     n_win = gold["evidence_span_id"].nunique()
     print(f"gold rows: {len(gold):,} across {n_win:,} windows  |  "
           f"holdout rows: {int(gold['holdout'].sum())} "
@@ -171,6 +198,10 @@ def finalize() -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
+    ap.add_argument("--track", choices=["fonsi", "eis"], default="fonsi",
+                    help="which gold set (default fonsi; eis = the parallel EIS gold, distinct files)")
     ap.add_argument("--finalize", action="store_true")
     args = ap.parse_args()
-    finalize() if args.finalize else merge()
+    p = _paths(args.track)
+    print(f"[track={args.track}]  gold -> {p['gold'].name}")
+    finalize(p) if args.finalize else merge(p)

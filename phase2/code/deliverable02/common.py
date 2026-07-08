@@ -33,7 +33,15 @@ DETERMINATION_THRESHOLDS = D2_ANALYSIS_DIR / "determination_thresholds.parquet"
 RUN_MANIFEST = D2_ANALYSIS_DIR / "significance_run_manifest.parquet"
 GOLD = D2_GOLD_DIR / "significance_gold.parquet"
 GOLD_THRESHOLDS = D2_GOLD_DIR / "significance_gold_thresholds.parquet"
+GOLD_QUEUE = D2_GOLD_DIR / "significance_gold_queue.parquet"
 GOLD_QUEUE_CSV = D2_OUTPUT_DIR / "significance_gold_queue.csv"
+
+# EIS gold set — a fully PARALLEL track to the FONSI gold, with DISTINCT files so the two never
+# mix (built by 03_build_gold_set_queue_eis.py + gold_labeling_eis.md; validated via --track eis).
+SIGNIFICANCE_DETERMINATIONS_EIS = D2_ANALYSIS_DIR / "significance_determinations_eis.parquet"
+GOLD_EIS = D2_GOLD_DIR / "significance_gold_eis.parquet"
+GOLD_QUEUE_EIS = D2_GOLD_DIR / "significance_gold_queue_eis.parquet"
+GOLD_QUEUE_EIS_CSV = D2_OUTPUT_DIR / "significance_gold_queue_eis.csv"
 
 # read-only inputs
 PROJECTS_COMBINED = ANALYSIS_DIR / "projects_combined.parquet"
