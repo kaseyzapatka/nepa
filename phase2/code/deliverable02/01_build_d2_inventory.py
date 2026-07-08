@@ -77,12 +77,14 @@ def _agency_scope_status(lead: str, dept: str) -> str:
     return "context_other_agency"
 
 
-def _off_mission(lead, f_nuc, f_nucwaste, f_mil, f_broadband, f_util) -> bool:
-    """Full A1 off-mission screen: five project exclusion flags + lead-agency string cues."""
-    lead = str(lead or "")
-    flag = any(bool(x) for x in (f_nuc, f_nucwaste, f_mil, f_broadband, f_util))
-    string_cue = ("National Nuclear" in lead) or ("Defense Activities" in lead) or ("Laboratory" in lead)
-    return flag or string_cue
+def _off_mission(f_nuc, f_nucwaste, f_mil, f_broadband, f_util) -> bool:
+    """OR of the five source exclusion flags from the ORIGINAL phase-1 pass
+    (classify_energy.py -> projects_combined). ADVISORY ONLY: flagged rows stay in the
+    analysis — the universe is broad Clean (project_energy_type=='Clean', 20,725 projects,
+    which INCLUDES nuclear_tech_only), consistent with every other deliverable.
+    (User decision 2026-07-07: no invented lead-agency string heuristics; use
+    project_energy_type_strict for a strict-clean sensitivity cut instead.)"""
+    return any(bool(x) for x in (f_nuc, f_nucwaste, f_mil, f_broadband, f_util))
 
 
 def fonsi_tier() -> pd.DataFrame:
@@ -94,7 +96,7 @@ def fonsi_tier() -> pd.DataFrame:
         WHERE project_energy_type = 'Clean' AND stage_a_ea_source = TRUE
     ),
     dep AS (
-        SELECT project_id, project_department,
+        SELECT project_id, project_department, project_energy_type_strict,
                project_is_nuclear_tech_only, project_nuclear_waste_to_exclude,
                project_military_to_exclude, project_is_utilities_broadband_only,
                project_utilities_to_exclude
@@ -130,7 +132,7 @@ def fonsi_tier() -> pd.DataFrame:
     )
     SELECT inv.project_id, inv.project_title, inv.project_description,
            inv.lead_agency_harmonized, inv.tech_group, inv.project_state,
-           dep.project_department,
+           dep.project_department, dep.project_energy_type_strict,
            dep.project_is_nuclear_tech_only, dep.project_nuclear_waste_to_exclude,
            dep.project_military_to_exclude, dep.project_is_utilities_broadband_only,
            dep.project_utilities_to_exclude,
@@ -165,6 +167,7 @@ def eis_tier() -> pd.DataFrame:
     WITH p AS (
         SELECT project_id, project_title, project_description,
                lead_agency_harmonized, project_department, project_state,
+               project_energy_type_strict,
                project_is_nuclear_tech_only, project_nuclear_waste_to_exclude,
                project_military_to_exclude, project_is_utilities_broadband_only,
                project_utilities_to_exclude
@@ -182,6 +185,7 @@ def eis_tier() -> pd.DataFrame:
     SELECT p.project_id, p.project_title, coalesce(p.project_description, '') AS project_description,
            p.lead_agency_harmonized, coalesce(tech.tech_group, '') AS tech_group,
            coalesce(p.project_state, '') AS project_state, p.project_department,
+           p.project_energy_type_strict,
            p.project_is_nuclear_tech_only, p.project_nuclear_waste_to_exclude,
            p.project_military_to_exclude, p.project_is_utilities_broadband_only,
            p.project_utilities_to_exclude,
@@ -244,8 +248,8 @@ def main() -> None:
         _agency_scope_status(l, d) for l, d in zip(df["lead_agency_harmonized"], df["project_department"])]
     df["agency_scope_rule"] = "blm_plus_doe_family"
     df["off_mission_flag"] = [
-        _off_mission(l, a, b, c, e, f) for l, a, b, c, e, f in zip(
-            df["lead_agency_harmonized"], df["project_is_nuclear_tech_only"],
+        _off_mission(a, b, c, e, f) for a, b, c, e, f in zip(
+            df["project_is_nuclear_tech_only"],
             df["project_nuclear_waste_to_exclude"], df["project_military_to_exclude"],
             df["project_is_utilities_broadband_only"], df["project_utilities_to_exclude"])]
     df["time_scope_status"] = df["decision_date"].map(_time_scope)
@@ -258,7 +262,7 @@ def main() -> None:
             "mitigated_cue_hit", "n_enforceable_conditions",
             "mitigated_strict_same_section", "mitigated_windowed_pm2",
             "agency", "agency_scope_status", "agency_scope_rule", "off_mission_flag",
-            "time_scope_status", "analysis_scope",
+            "project_energy_type_strict", "time_scope_status", "analysis_scope",
             "decision_date", "decision_confidence", "decision_is_proxy",
             "lead_agency_harmonized", "tech_group", "project_state",
             "project_title", "project_description", "corpus_run_at", "schema_version"]
@@ -269,12 +273,19 @@ def main() -> None:
     C.write_parquet(cohorts, C.PROJECT_COHORTS, "cohorts")
 
     review = df[df["corpus_tier"] != "straight_fonsi"].copy()  # mitigated + EIS lists for Gate 1
-    review["project_description"] = review["project_description"].str.slice(0, 240)
+    # truncate long descriptions for CSV readability, with an explicit marker
+    # (full text stays in significance_corpus.parquet; some NEPATEC source descriptions
+    # are themselves malformed — mid-sentence starts, TOC text — that's upstream quality)
+    desc = review["project_description"].fillna("")
+    long_mask = desc.str.len() > 500
+    review["project_description"] = desc.str.slice(0, 500)
+    review.loc[long_mask, "project_description"] = (
+        review.loc[long_mask, "project_description"] + " […full text in significance_corpus.parquet]")
     C.write_csv(review[[
         "project_id", "corpus_tier", "agency", "agency_scope_status", "off_mission_flag",
-        "mitigated_cue_hit", "n_enforceable_conditions", "mitigated_strict_same_section",
-        "mitigated_windowed_pm2", "time_scope_status", "decision_date",
-        "tech_group", "project_title", "project_description"]],
+        "project_energy_type_strict", "mitigated_cue_hit", "n_enforceable_conditions",
+        "mitigated_strict_same_section", "mitigated_windowed_pm2", "time_scope_status",
+        "decision_date", "tech_group", "project_title", "project_description"]],
         C.D2_OUTPUT_DIR / "corpus_membership_review.csv", "Gate 1/2 review")
 
     # --- Gate-1 reporting ---

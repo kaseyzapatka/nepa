@@ -49,6 +49,12 @@ FONSI_SECTION_MANIFEST = D6_DIR / "fonsi_section_manifest.parquet"
 
 SCHEMA_VERSION = "d2_v2_11"
 
+# max chars of a section window shown to the LLM. Raised from 4,000 so whole multi-page
+# Environmental-Consequences chapters are read in full (was truncating 27% of windows and
+# dropping the resource conclusions past char 4,000). ~16k chars ≈ 4k tokens — trivial for
+# Sonnet 5 / Opus. The LLM returns one determination PER resource area in the window.
+WINDOW_CHAR_CAP = 16000
+
 # ---- cohort bin constants (plan A4, frozen) ----
 ARRA = "2009-02-17"
 BIL = "2021-11-15"

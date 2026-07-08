@@ -59,7 +59,7 @@ def eis_candidates(sample: int) -> pd.DataFrame:
         (rg[0] if rg[0] != "unknown" else (stg or "unknown"))
         for rg, stg in zip(res, df["section_topic_guess"])]
     df["resource_subarea_guess"] = res.map(lambda x: x[1])
-    df["evidence_text"] = df["section_text"].str.slice(0, 4000)
+    df["evidence_text"] = df["section_text"].str.slice(0, C.WINDOW_CHAR_CAP)
     df["evidence_text_sha256"] = df["section_text"].map(C.sha256_text)
     df = df.drop(columns=["section_text", "char_start", "char_end", "section_topic_guess"])
     # keep only real determination candidates or threshold-bearing sections (bound the set)

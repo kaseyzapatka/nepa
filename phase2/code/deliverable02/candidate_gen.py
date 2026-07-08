@@ -122,7 +122,7 @@ def generate_fonsi_candidates() -> pd.DataFrame:
     df["resource_area_guess"] = res.map(lambda x: x[0])
     df["resource_subarea_guess"] = res.map(lambda x: x[1])
     df["threshold_types_guess"] = df["span_text"].map(lambda t: ",".join(threshold_hits(t)))
-    df["evidence_text"] = df["span_text"].str.slice(0, 4000)
+    df["evidence_text"] = df["span_text"].str.slice(0, C.WINDOW_CHAR_CAP)
     df["evidence_text_sha256"] = df["span_text"].map(C.sha256_text)
     df = df.drop(columns=["span_text"])
     return df

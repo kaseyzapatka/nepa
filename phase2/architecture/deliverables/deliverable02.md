@@ -59,6 +59,15 @@ flowchart TD
   no native `section_id`). Verified collision-free (3,478/3,478 IDs on the dry-run).
 - **Thresholds in a child table.** Determination record carries only `primary_threshold_*`;
   every cited threshold is one row in `determination_thresholds.parquet`.
+- **Multi-determination extraction (v3 prompt, 2026-07-08).** Each LLM call returns a **list** of
+  determinations — one per resource area the window concludes on — so a window explodes into
+  multiple rows (realizing the plan's `document × resource_area × determination` grain; the
+  earlier one-per-window build captured only ~36% of the resource findings, since 41% of windows
+  discuss ≥3 resources). Window cap raised 4,000 → **16,000 chars** (`WINDOW_CHAR_CAP`) so whole
+  multi-page Environmental-Consequences chapters are read in full (was truncating 27%). Resource
+  `project_wide` = a project-level/FONSI conclusion (not a resource); `unknown` = a
+  resource-specific finding the model couldn't place (flagged for review). Empty LLM result → one
+  `not_a_determination` row. Rows deduped by `determination_instance_id`.
 - **Two-stage mitigated flag.** `01` = recall screen; `02` computes the frozen page-window join
   (`mitigation_signal_matches.parquet`, cue-span × condition-row, same-section OR ±2 pages).
 - **Cohorts** (`project_cohorts.parquet`): `cohort_by_date` bins (ARRA/BIL/IRA/FRA, lower-inclusive)
@@ -108,31 +117,34 @@ Sonnet 5 / Opus 4.8 reject sampling parameters. `05` requires the hand-labeled g
 adopts labeled rows straight from `output/deliverable02/significance_gold_queue.csv`). Full
 detail: `phase2/code/deliverable02/HANDOFF.md`.
 
-## API read volume & cost estimates (as of the initial build, 2026-07-07)
+## API read volume & cost estimates (multi-determination redesign, 2026-07-08)
 
 Measured from the actual candidate generators (not guesses); regenerate volumes by running
-`candidate_gen.py` and `eis_candidates(0)` if the corpus changes.
+`candidate_gen.py` and `eis_candidates(0)` if the corpus changes. **Both volume and cost roughly
+doubled vs the initial build** because the window cap rose 4,000 → 16,000 chars (whole
+Environmental-Consequences chapters now read in full) and each call returns a *list* of
+determinations (~450 output tokens/call vs ~250).
 
 | Track | Windows | Text volume | ≈ Input tokens* | ≈ Output tokens |
 |---|---:|---:|---:|---:|
-| FONSI (all finding spans) | 3,478 | 7.2M chars | ~2.7M | ~0.9M |
-| EIS (kept sections, full corpus; 532 projects) | 19,696 | 65.1M chars | ~21M | ~5M |
+| FONSI (all finding spans) | 3,478 | 12.0M chars | ~4.9M | ~2.0M |
+| EIS (kept sections, full corpus) | 22,452 | 176.6M chars | ~64M | ~13M |
 
-*window + ~250-token instruction prompt per call; ~4 chars/token (Haiku tokenizer). Sonnet 5 /
-Opus 4.8 use a newer tokenizer (~1.3× more tokens) — factored into the costs below.
+*window (≤16k chars) + ~300-token instruction prompt per call; ~4 chars/token (Haiku tokenizer).
+Sonnet 5 / Opus 4.8 use a newer tokenizer (~1.3× more tokens) — factored into the costs below.
 
-Pricing at estimate time (per 1M input/output tokens): **Haiku 4.5 $1/$5 · Sonnet 5 $3/$15
-(intro $2/$10 through 2026-08-31) · Opus 4.8 $5/$25**. The Batch API halves all of it.
+Pricing (per 1M input/output tokens): **Haiku 4.5 $1/$5 · Sonnet 5 $3/$15 (intro $2/$10 through
+2026-08-31) · Opus 4.8 $5/$25**. All figures below are **Batch API (50% off)**.
 
-| Scope | Haiku 4.5 | +Batch | Sonnet 5 (intro) | +Batch | Sonnet 5 (std) | +Batch | Opus 4.8 | +Batch |
-|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| FONSI | $7 | **$4** | $19 | **$10** | $29 | $14 | $48 | $24 |
-| EIS | $46 | $23 | $119 | **$59** | $178 | $89 | $297 | $148 |
-| **Both** | $53 | $27 | $138 | **$69** | $207 | $104 | $345 | $172 |
+| Scope | Haiku 4.5 | Sonnet 5 (intro) | Sonnet 5 (std) | Opus 4.8 |
+|---|--:|--:|--:|--:|
+| FONSI | **$8** | **$15** | $23 | $38 |
+| EIS | $65 | $130 | $195 | $325 |
+| **Both** | $72 | $145 | $217 | $362 |
 
-Treat as ±50% (output length varies; prompt gets tuned after the spike; the EIS candidate set
-may change after the retrieval spike). Prompt caching does not help here — the shared prefix
-(~250 tokens) is below the minimum cacheable size; the per-window text dominates every request.
+Treat as ±50% (output length varies; prompt gets tuned after the spike). Prompt caching does not
+help here — the shared prefix (~300 tokens) is below the minimum cacheable size; the per-window
+text dominates every request.
 Actual spend is auditable after any run via `significance_run_manifest.parquet` +
 `batch_manifest_*.json` (request counts) and the per-response `usage` fields.
 

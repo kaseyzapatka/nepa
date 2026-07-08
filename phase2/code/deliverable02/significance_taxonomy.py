@@ -10,11 +10,17 @@ from __future__ import annotations
 TAXONOMY_VERSION = "d2_tax_v1"
 
 # ---- shared D6 resource areas (preserved verbatim; never renamed in place) ----
+# This is the LLM's answer space for a resource-specific determination. `unknown` here means
+# "genuinely could not place the resource" (a real review signal). Project-level conclusions
+# (a FONSI / overall decision, scope=project_overall) are NOT tied to one resource — the code
+# assigns them RESOURCE_PROJECT_WIDE instead, so `unknown` is never overloaded with "N/A by design".
 SHARED_RESOURCE_AREAS = [
     "air_quality", "water", "biological", "cultural", "visual", "noise",
     "soils_geology", "socioeconomic", "transportation", "land_use",
     "climate_ghg", "public_health", "unknown",
 ]
+RESOURCE_PROJECT_WIDE = "project_wide"   # code-assigned to project_overall rows; not an LLM value
+ALL_RESOURCE_VALUES = SHARED_RESOURCE_AREAS + [RESOURCE_PROJECT_WIDE]
 
 # ---- D2 subarea crosswalk: shared_area -> {d2_subarea: keyword cues} ----
 # Report sections lead with the shared 12; subareas are nested where supported.
