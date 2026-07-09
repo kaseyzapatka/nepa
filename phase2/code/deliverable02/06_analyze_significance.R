@@ -112,9 +112,12 @@ cat(sprintf("mitigated-FONSI rate (document level): %d/%d = %.1f%% (any mitigati
             doc_summary$n_mitigated_dependent, doc_summary$n_documents,
             100 * doc_summary$share_mitigated_dependent, 100 * doc_summary$share_mitigated_class_signal))
 
-# 6b. resource-level: which resource areas carry mitigation-dependent conclusions (precise signal)
+# 6b. resource-level: which resource areas carry mitigation-dependent conclusions (precise signal).
+#     Restricted to the below-the-line FONSI classes (the handful of significant_* determinations in
+#     FONSIs are anomalies, held out here) so counts reconcile with the resource map + figures.
+BELOW_LINE <- c("no_significant_impact", "less_than_significant", "less_than_significant_with_mitigation")
 w(primary_dr %>%
-    filter(shared_resource_area != "project_wide") %>%
+    filter(shared_resource_area != "project_wide", determination_class %in% BELOW_LINE) %>%
     group_by(shared_resource_area) %>%
     summarise(n_determinations = n(),
               n_mit_class = sum(determination_class == "less_than_significant_with_mitigation"),
@@ -154,6 +157,149 @@ if (nrow(adjudicated) >= 200 && n_distinct(adjudicated$determination_class) > 1)
   cat("  [association layer skipped] needs >=200 adjudicated (regex+llm) determinations; ",
       "run the billable LLM pass first.\n")
 }
+
+# ---- FIGURES (CATF-styled PNGs for the report) ----
+fig_ok <- tryCatch({ library(ggplot2); source("phase2/code/utils/utils.R"); TRUE },
+                   error = function(e) { cat("[figures skipped]", conditionMessage(e), "\n"); FALSE })
+if (fig_ok) tryCatch({
+  res_label <- c(air_quality="Air quality", water="Water", biological="Biological",
+    cultural="Cultural / historic", visual="Visual", noise="Noise", soils_geology="Soils / geology",
+    socioeconomic="Socioeconomic", transportation="Transportation", land_use="Land use",
+    climate_ghg="Climate / GHG", public_health="Public health", unknown="Unplaced")
+  class_label <- c(no_significant_impact="No significant impact",
+    less_than_significant="Less than significant",
+    less_than_significant_with_mitigation="LTS with mitigation")
+  relab <- function(x, m) ifelse(is.na(m[x]), x, m[x])
+  savefig <- function(p, name, w = 8, h = 5)
+    suppressMessages(ggsave(file.path(OUT, name), p, width = w, height = h, dpi = 300))
+
+  # resource-level analytic determinations: below-the-line FONSI classes only (the significant_*
+  # anomalies are held out), so figure counts reconcile with the resource map + mitigation tables.
+  res_lvl <- primary_dr %>%
+    filter(shared_resource_area != "project_wide", determination_class %in% BELOW_LINE)
+
+  # Fig — significance outcomes by resource (100% stacked, with Ns)
+  odata <- res_lvl %>% filter(shared_resource_area != "unknown") %>%
+    count(shared_resource_area, determination_class) %>%
+    group_by(shared_resource_area) %>% mutate(share = n / sum(n), tot = sum(n)) %>% ungroup() %>%
+    mutate(Resource = relab(shared_resource_area, res_label),
+           Outcome = factor(relab(determination_class, class_label), levels = rev(unname(class_label))))
+  otot <- odata %>% distinct(Resource, tot)
+  savefig(ggplot(odata, aes(reorder(Resource, tot), share, fill = Outcome)) +
+        geom_col() +
+        geom_text(aes(label = ifelse(share >= 0.07, n, "")),
+                  position = position_fill(vjust = 0.5), size = 2.6, color = "white") +
+        geom_text(data = otot, aes(x = reorder(Resource, tot), y = 1.0, label = paste0("n=", tot)),
+                  inherit.aes = FALSE, hjust = -0.1, size = 2.8, color = "gray35") +
+        coord_flip() +
+        scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.11))) +
+        scale_fill_manual(values = c("No significant impact" = catf_light_blue,
+                                     "Less than significant" = catf_dark_blue,
+                                     "LTS with mitigation" = catf_magenta)) +
+        labs(title = "How agencies stay below the line, by resource",
+             subtitle = "Share of each resource's FONSI determinations by outcome (n = determinations)",
+             x = NULL, y = NULL, fill = NULL) + theme_catf() + theme(legend.position = "bottom"),
+    "fig_outcomes_by_resource.png", 8, 5.5)
+
+  mitr <- res_lvl %>% filter(shared_resource_area != "unknown") %>%
+    group_by(shared_resource_area) %>%
+    summarise(n = n(), n_mit = sum(determination_class == "less_than_significant_with_mitigation"),
+              share = mean(determination_class == "less_than_significant_with_mitigation"),
+              .groups = "drop") %>% filter(n >= MIN_CELL) %>%
+    mutate(Resource = relab(shared_resource_area, res_label))
+
+  # Fig — mitigation intensity by resource (lollipop; label carries share AND the underlying counts)
+  savefig(mitr %>% ggplot(aes(reorder(Resource, share), share)) +
+        geom_segment(aes(xend = reorder(Resource, share), y = 0, yend = share), color = "gray80") +
+        geom_point(aes(size = n), color = catf_magenta) +
+        geom_text(aes(label = sprintf("%s  (%d of %d)", scales::percent(share, accuracy = 1), n_mit, n)),
+                  hjust = -0.15, size = 2.8, color = "gray35") +
+        coord_flip() + scale_size_area(max_size = 7, guide = "none") +
+        scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.28))) +
+        labs(title = "Which resources drive mitigation",
+             subtitle = "Share of a resource's FONSI conclusions that depend on committed mitigation",
+             x = NULL, y = NULL,
+             caption = "Label = share (mitigation-dependent of total). Point size = total determinations. Per-resource class signal.") + theme_catf(),
+    "fig_mitigation_by_resource.png", 8, 5)
+
+  # Fig 4 — the mitigation landscape (scatter)
+  f4 <- ggplot(mitr, aes(n, share)) +
+    geom_hline(yintercept = mean(mitr$share), linetype = "dashed", color = "gray70") +
+    geom_point(aes(size = n * share), color = catf_dark_blue, alpha = 0.8) +
+    scale_size_area(max_size = 11, guide = "none") + scale_y_continuous(labels = scales::percent) +
+    labs(title = "The mitigation landscape",
+         subtitle = "Resources both frequently analyzed and frequently mitigated sit upper-right",
+         x = "How often analyzed (determinations)", y = "Mitigation-dependent share",
+         caption = "Point size approx. number of mitigation-dependent determinations.") + theme_catf()
+  f4 <- if (requireNamespace("ggrepel", quietly = TRUE))
+          f4 + ggrepel::geom_text_repel(aes(label = Resource), size = 3, color = catf_navy, seed = 1)
+        else f4 + geom_text(aes(label = Resource), vjust = -0.9, size = 3, color = catf_navy)
+  savefig(f4, "fig_mitigation_landscape.png", 7.5, 6)
+
+  # Fig 5 — analysis breadth per FONSI (violin + box)
+  savefig(res_lvl %>% group_by(project_id, document_id) %>%
+      summarise(n_res = n_distinct(shared_resource_area), .groups = "drop") %>%
+      left_join(doc_mit %>% select(project_id, document_id, mitigated_class_signal),
+                by = c("project_id", "document_id")) %>%
+      mutate(Group = ifelse(mitigated_class_signal, "Mitigated FONSI", "Non-mitigated FONSI")) %>%
+      filter(!is.na(Group)) %>%
+      ggplot(aes(Group, n_res, fill = Group)) +
+        geom_violin(alpha = 0.35, color = NA) +
+        geom_boxplot(width = 0.16, outlier.size = 0.5, color = catf_navy, fill = "white") +
+        scale_fill_manual(values = c("Mitigated FONSI" = catf_magenta,
+                                     "Non-mitigated FONSI" = catf_dark_blue), guide = "none") +
+        labs(title = "How broad is a FONSI's significance analysis?",
+             subtitle = "Distinct resource areas addressed per FONSI document",
+             x = NULL, y = "Resource areas per FONSI") + theme_catf(),
+    "fig_breadth_per_fonsi.png", 7, 5)
+
+  # Fig — extraction accuracy (dumbbell: all-400 vs held-out per metric)
+  val_fig <- tryCatch(read_parquet(file.path(A, "validation_metrics.parquet")), error = function(e) NULL)
+  if (!is.null(val_fig) && nrow(val_fig) > 0) {
+    metric_lab <- c(candidate_is_determination = "Finds a determination",
+      resource_determination_detection = "Assigns the right resource",
+      determination_class_macro_f1 = "Gets the class right",
+      mitigation_dependent_f1 = "Flags mitigation-dependence",
+      primary_threshold_type_accuracy = "Identifies the threshold")
+    vdat <- val_fig %>% mutate(score = coalesce(f1, precision)) %>%
+      filter(scope %in% c("overall", "holdout"), metric %in% names(metric_lab)) %>%
+      mutate(Metric = factor(metric_lab[metric], levels = rev(unname(metric_lab))),
+             Scope = ifelse(scope == "holdout", "Held-out test", "All 400"))
+    vwide <- vdat %>% select(Metric, Scope, score) %>%
+      tidyr::pivot_wider(names_from = Scope, values_from = score)
+    savefig(ggplot(vdat, aes(score, Metric)) +
+          geom_vline(xintercept = 0.8, linetype = "dashed", color = "gray60") +
+          geom_segment(data = vwide, aes(x = `All 400`, xend = `Held-out test`, y = Metric, yend = Metric),
+                       inherit.aes = FALSE, color = "gray75", linewidth = 1) +
+          geom_point(aes(color = Scope), size = 4.5) +
+          geom_text(data = dplyr::filter(vdat, Scope == "All 400"),
+                    aes(label = sprintf("%.2f", score)), nudge_y = 0.24, size = 2.7, color = catf_magenta) +
+          geom_text(data = dplyr::filter(vdat, Scope == "Held-out test"),
+                    aes(label = sprintf("%.2f", score)), nudge_y = -0.24, size = 2.7, color = catf_lime) +
+          scale_color_manual(values = c("All 400" = catf_magenta, "Held-out test" = catf_lime)) +
+          scale_x_continuous(limits = c(0, 1.12), breaks = seq(0, 1, 0.2), expand = c(0, 0)) +
+          labs(title = "The extraction was graded before anything was reported",
+               subtitle = "Agreement with the human answer key: full sample vs the held-out test",
+               x = "Score (F1; threshold row = accuracy)", y = NULL, color = NULL,
+               caption = "Dashed line = 0.80, the standard bar. Green = held-out test (the honest score); magenta = all 400.") +
+          theme_catf() + theme(legend.position = "bottom"),
+      "fig_validation_accuracy.png", 8, 4.8)
+  }
+  # example mitigations for biological + water (short, concrete rationales from the extraction)
+  ex <- primary %>%
+    filter(shared_resource_area %in% c("biological", "water"),
+           determination_class == "less_than_significant_with_mitigation",
+           !is.na(rationale_text)) %>%
+    mutate(example = str_squish(rationale_text), L = nchar(example)) %>%
+    filter(L >= 60, L <= 190) %>%
+    mutate(Resource = relab(shared_resource_area, res_label)) %>%
+    arrange(shared_resource_area, L) %>%
+    group_by(shared_resource_area) %>% slice_head(n = 3) %>% ungroup() %>%
+    select(Resource, example)
+  w(ex, "mitigation_examples.csv")
+
+  cat("  wrote figures to", OUT, "\n")
+}, error = function(e) cat("[figures error]", conditionMessage(e), "\n"))
 
 cat("\nDone. Primary-scope tables in", OUT, "\n")
 cat("Reminder: dry-run tables are illustrative; regenerate after the LLM pass + gold validation.\n")

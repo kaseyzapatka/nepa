@@ -31,6 +31,7 @@ fmt <- function(x) formatC(x, format = "d", big.mark = ",")
 fmt_n   <- function(x) comma(x, accuracy = 1)
 fmt_pct <- function(x, accuracy = 1) percent(x, accuracy = accuracy)
 NAVY <- "#012169"; BLUE <- "#0047BB"
+include_fig <- function(f) { p <- file.path(TAB, f); if (file.exists(p)) knitr::include_graphics(p) }
 
 det    <- rp("significance_determinations.parquet")
 corpus <- rp("significance_corpus.parquet")
@@ -42,6 +43,7 @@ res_by_class <- rc("resource_by_class.csv")
 class_dist   <- rc("class_distribution_dual_denominator.csv")
 mit_doc      <- rc("mitigation_document_level.csv")
 mit_res      <- rc("mitigation_by_resource.csv")
+mit_ex       <- rc("mitigation_examples.csv")
 
 # friendly labels for the controlled vocab
 class_label <- c(no_significant_impact = "No significant impact",
@@ -111,52 +113,33 @@ the checkpoints, and grade the AI against their own answer key before any result
 <div style="max-width:660px;margin:1.25rem auto;">
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Scope</div>
-    <div style="color:#1A1A2E;">Pick the comparable projects and note when each was decided</div>
+    <div style="color:#1A1A2E;">Clean-energy FONSIs led by BLM or the DOE family &mdash; 258 documents across 193 projects, each dated to its regulatory era</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Gather documents</div>
-    <div style="color:#1A1A2E;">Collect the agencies&rsquo; decision documents</div>
+    <div style="color:#1A1A2E;">Pull the FONSI and supporting EA decision documents from the NEPATEC&nbsp;2.0 corpus</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Extract the judgment calls</div>
-    <div style="color:#1A1A2E;">Rules flag the passages &rarr; AI classifies each &rarr; analysts hand-label a sample as the answer key</div>
+    <div style="color:#1A1A2E;">Rules flag the finding passages &rarr; Claude (Sonnet&nbsp;5) codes each one &mdash; outcome, resource area, threshold, mitigation &rarr; two analysts plus an adjudicator hand-label 400 as the answer key</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 · Validate</div>
-    <div style="color:#1A1A2E;">Score the AI against the human answer key before anything is reported</div>
+    <div style="color:#1A1A2E;">Score the AI against the held-out human labels (class agreement 0.81) before any result counts</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
     <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">5 · Analyze and report</div>
-    <div style="color:#ffffff;">Turn validated findings into this report and a source-linked data table</div>
+    <div style="color:#ffffff;">Validated findings become this report and a source-linked data table &mdash; every number traces to its page</div>
   </div>
   <div style="text-align:center;color:#6b7280;font-size:.85rem;margin-top:.5rem;">
     The five steps of the analysis &mdash; each card matches a numbered step below.
   </div>
 </div>
 ```
-
-**Step by step:**
-
-1. **Scope.** Fix a comparable set of projects — clean energy, led by BLM or the Department of
-   Energy — and note *when* each decision was made, because the environmental rules changed over
-   the years. This keeps every comparison apples-to-apples.
-2. **Gather documents.** Collect the actual decision documents where the significance calls
-   live — FONSIs (especially the *mitigated* ones) and the larger environmental impact statements.
-3. **Extract the judgment calls.** This is the engine, in three parts: fast **rules** scan the
-   documents and flag the passages that look like a significance judgment; **AI** then reads each
-   flagged passage and classifies it (significant, not significant, or mitigated; which
-   environmental area; any regulatory threshold); and in parallel **analysts hand-label a sample**
-   by eye to serve as an *answer key*.
-4. **Validate.** Compare the AI's answers to the human answer key. If the AI is accurate enough,
-   the results move forward; if not, we refine and run it again. The AI is never taken on faith.
-5. **Analyze and report.** Only the validated results feed the findings — the significance
-   patterns by resource area, the mitigation trends, the shifts across regulatory eras and
-   agencies — delivered as this report **and** a data table where every number links back to the
-   exact page it came from.
 
 **Why the results are trustworthy:** every determination is traceable to the exact document,
 page, and passage; the AI is scored against human labels before it is used; and the project set
@@ -200,6 +183,21 @@ Across **`r fmt_n(n_proj)` clean-energy projects** (BLM + DOE family), the FONSI
 **`r fmt_n(n_prim)` distinct significance determinations** — one per document × resource area ×
 outcome — drawn from `r fmt_n(n_docs)` decision documents.
 
+::: {.callout-tip}
+## Key takeaways (FONSI track)
+- **Most clean-energy FONSIs are *mitigated*.** About **`r fmt_pct(mit_doc$share_mitigated_class_signal)`**
+  of these documents reach "no significant impact" only because the developer commits to specific
+  measures — the impact *would* have been significant otherwise.
+- **A handful of resources carry the mitigation.** **Biological resources, soils/geology, water, and
+  cultural/historic sites** are where projects most often sit at the line and are pulled under it —
+  biological alone is mitigation-dependent in ~30% of its determinations.
+- **The below-the-line default is "no significant impact."** Across resource areas, outright
+  no-significant-impact is the most common outcome; genuinely *significant* findings live in the EIS
+  record, not here.
+- **The numbers are validated.** The extraction agrees with a hand-labeled human answer key at
+  **0.81** on the significance class (held-out test) before any figure in this report was produced.
+:::
+
 ### How accurate is the extraction?
 
 Every determination is machine-extracted, so before any number is reported the pipeline is scored
@@ -237,6 +235,31 @@ In plain terms: the extraction **almost never misses a determination** and place
 *class* at **0.81** — the standard bar for this kind of task. The one weaker signal is
 *mitigation-dependence*, discussed at the end of this section.
 
+```{r}
+#| label: fig-validation
+#| fig-cap: "Agreement with the human answer key: the full 400-window sample (magenta) versus the held-out test (green). The dashed line marks 0.80, the standard bar for this kind of task."
+include_fig("fig_validation_accuracy.png")
+```
+
+**Why the last two scores are lower — and why it doesn't undercut the findings.** Both are
+*secondary attributes*, not the core call, and both are genuinely harder:
+
+- *Mitigation-dependence (0.62).* Deciding whether a conclusion **depends on** committed mitigation
+  is one of the hardest judgments in the whole task — our two human coders themselves agreed only
+  ~68% of the time on the fine line between "less than significant" and "less than significant *with
+  mitigation*." On top of that, the pipeline's structured mitigation flag is tagged at the document
+  level, so it over-attributes across a multi-resource passage, and its precision is ultimately
+  bounded by upstream tagging. **We handle this by reporting mitigation at the document level (where
+  it is robust) and using the precise per-resource signal for the resource-level breakdown** — so
+  the numbers you see below are the high-precision measure, not the noisy flag.
+- *Regulatory threshold (0.66–0.71).* This is the most granular field — pinning a conclusion to a
+  *specific* rule (a NAAQS limit, an ESA take threshold, a §106 adverse-effect finding). Many
+  conclusions are not anchored to a single numeric threshold at all, and the distinctions are fine.
+  It is reported descriptively as supporting context, never as a headline number.
+
+The three scores that carry the findings — **finding the determination, placing the resource, and
+getting the significance class** — all clear or approach the standard bar.
+
 ### How agencies stay below the line
 
 Within FONSIs, the determinations sit — as they must — below the significance line: the agency
@@ -256,7 +279,7 @@ res_by_class |>
   mutate(Total = no_significant_impact + less_than_significant +
                  less_than_significant_with_mitigation,
          Resource = relabel(shared_resource_area, res_label)) |>
-  arrange(desc(Total)) |>
+  arrange(desc(less_than_significant_with_mitigation)) |>
   select(Resource, no_significant_impact, less_than_significant,
          less_than_significant_with_mitigation, Total) |>
   gt() |>
@@ -273,6 +296,17 @@ res_by_class |>
 The dominant outcome is **no significant impact**, as expected for FONSIs. The resources agencies
 analyze most — **biological, water, cultural/historic, and public health** — are also where the
 close calls concentrate, which is what makes the mitigated cases below the real story.
+
+The composition within each resource — how often it lands at *no significant impact* versus *less
+than significant* versus *less than significant only with mitigation*, and how many determinations
+sit behind each bar — shows where agencies are comfortable and where they have to work to stay
+under the line.
+
+```{r}
+#| label: fig-outcomes-by-resource
+#| fig-cap: "Share of each resource's FONSI determinations by outcome. Resources with more magenta lean harder on committed mitigation to reach a not-significant finding."
+include_fig("fig_outcomes_by_resource.png")
+```
 
 ### Mitigated FONSIs — the line itself
 
@@ -316,6 +350,51 @@ The mitigation burden is concentrated in **`r top_str`** — the resources most 
 committed measures to keep a project below the significance line. That pattern is the deliverable's
 core finding: biological, soils/geology, water, and cultural resources are where clean-energy
 projects most frequently sit *at* the line and are pulled under it by mitigation.
+
+```{r}
+#| label: fig-mitigation-by-resource
+#| fig-cap: "Share of a resource's FONSI conclusions that depend on committed mitigation (per-resource class signal). Point size scales with how often the resource is analyzed."
+include_fig("fig_mitigation_by_resource.png")
+```
+
+Reading volume and mitigation-intensity together sharpens the picture. Resources in the **upper
+right** are both analyzed often *and* mitigated often — the areas that most shape whether a
+clean-energy project can take the faster FONSI path.
+
+```{r}
+#| label: fig-mitigation-landscape
+#| fig-cap: "Each resource by how often it is analyzed (x) and how often its conclusion depends on mitigation (y). Biological resources dominate both; soils/geology are mitigated intensively despite lower volume. Dashed line = overall average mitigation share."
+include_fig("fig_mitigation_landscape.png")
+```
+
+What do these mitigations actually look like? The two resources at the top of the landscape —
+biological and water — lean on concrete, recognizable measures: seasonal timing restrictions,
+species avoidance, and wetland minimization. A few verbatim examples pulled from the extraction:
+
+```{r}
+#| label: tbl-mitigation-examples
+if (nrow(mit_ex) > 0) {
+  mit_ex |>
+    gt(groupname_col = "Resource") |>
+    cols_label(example = "Example mitigation drawn from the FONSI") |>
+    cols_align(align = "left") |>
+    tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
+              locations = cells_row_groups()) |>
+    tab_options(table.font.size = px(12), table.width = pct(100),
+                row_group.font.weight = "bold") |>
+    tab_source_note("Verbatim from the model's per-resource rationale on mitigation-dependent (LTS-with-mitigation) determinations.")
+}
+```
+
+Mitigated FONSIs are also **broader** analyses: a project that needs committed mitigation for any
+resource tends to address more resource areas overall — a median of roughly six versus four for
+non-mitigated FONSIs.
+
+```{r}
+#| label: fig-breadth
+#| fig-cap: "Distinct resource areas addressed per FONSI, split by whether the document relies on committed mitigation. Boxes show the median and interquartile range; the shaded shape is the full distribution."
+include_fig("fig_breadth_per_fonsi.png")
+```
 
 ::: {.callout-warning appearance="minimal"}
 **Read mitigation at the right grain.** The *document-level* "is this a mitigated FONSI?" rate is
