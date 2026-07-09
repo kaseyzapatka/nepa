@@ -21,8 +21,13 @@ from candidate_gen import classify_determination, resource_guess, threshold_hits
 
 
 def eis_candidates(sample: int) -> pd.DataFrame:
-    """Impact/consequence sections in clean-EIS corpus projects that mention significance."""
+    """Impact/consequence sections in clean-EIS corpus projects that mention significance.
+    A --sample run hash-orders (md5) so the subset is REPRESENTATIVE across projects (for a spike);
+    the full run (sample=0) keeps deterministic project/document/page order."""
     limit = f"LIMIT {sample}" if sample else ""
+    order = ("ORDER BY md5(concat_ws('|', s.project_id, s.document_id, CAST(s.page_start AS VARCHAR), "
+             "CAST(s.char_start AS VARCHAR), s.heading_title))" if sample
+             else "ORDER BY s.project_id, s.document_id, s.page_start")
     sql = f"""
     WITH corpus_eis AS (
         SELECT project_id FROM read_parquet('{C.SIGNIFICANCE_CORPUS}') WHERE process_type = 'EIS'
@@ -36,7 +41,7 @@ def eis_candidates(sample: int) -> pd.DataFrame:
            OR lower(s.heading_title) LIKE '%environmental consequence%'
            OR lower(s.section_topic_guess) LIKE '%impact%')
       AND s.section_words BETWEEN 20 AND 4000
-    ORDER BY s.project_id, s.document_id, s.page_start
+    {order}
     {limit}
     """
     df = C.q(sql)
