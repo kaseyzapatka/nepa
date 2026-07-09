@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-06-30">
+<meta name="dcterms.date" content="2026-07-09">
 
 <title>NEPA - NEPA Decarbonization Technology Analysis: Deliverable 2</title>
 <style>
@@ -4556,6 +4556,9 @@ vertical-align: -.125em;
   <ul class="collapse">
   <li><a href="#context" id="toc-context" class="nav-link active" data-scroll-target="#context">Context</a></li>
   <li><a href="#workflow" id="toc-workflow" class="nav-link" data-scroll-target="#workflow">Workflow</a></li>
+  <li><a href="#what-the-two-document-types-tell-us" id="toc-what-the-two-document-types-tell-us" class="nav-link" data-scroll-target="#what-the-two-document-types-tell-us">What the two document types tell us</a></li>
+  <li><a href="#sec-fonsi" id="toc-sec-fonsi" class="nav-link" data-scroll-target="#sec-fonsi">FONSI analysis</a></li>
+  <li><a href="#sec-eis" id="toc-sec-eis" class="nav-link" data-scroll-target="#sec-eis">EIS analysis</a></li>
   <li><a href="#scope-decisions-to-confirm" id="toc-scope-decisions-to-confirm" class="nav-link" data-scroll-target="#scope-decisions-to-confirm">Scope decisions to confirm</a></li>
   <li><a href="#methods-required-caveats" id="toc-methods-required-caveats" class="nav-link" data-scroll-target="#methods-required-caveats">Methods &amp; required caveats</a></li>
   <li><a href="#appendix-data-dictionary" id="toc-appendix-data-dictionary" class="nav-link" data-scroll-target="#appendix-data-dictionary">Appendix: data dictionary</a></li>
@@ -4583,7 +4586,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">June 30, 2026</p>
+      <p class="date">July 9, 2026</p>
     </div>
   </div>
   
@@ -4607,7 +4610,7 @@ Draft status
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>This document outlines the deliverable’s purpose and the analysis workflow; the findings themselves are still in progress. Results tables will be added once the extraction pass and the validation against the hand-labelled gold set are complete.</p>
+<p>This report reflects the validated extraction; see Methods &amp; required caveats for the applicable limitations.</p>
 </div>
 </div>
 <p>This report delivers:</p>
@@ -4664,6 +4667,1475 @@ Draft status
 <li><strong>Analyze and report.</strong> Only the validated results feed the findings — the significance patterns by resource area, the mitigation trends, the shifts across regulatory eras and agencies — delivered as this report <strong>and</strong> a data table where every number links back to the exact page it came from.</li>
 </ol>
 <p><strong>Why the results are trustworthy:</strong> every determination is traceable to the exact document, page, and passage; the AI is scored against human labels before it is used; and the project set is scoped so comparisons are fair.</p>
+</section>
+<section id="what-the-two-document-types-tell-us" class="level2">
+<h2 class="anchored" data-anchor-id="what-the-two-document-types-tell-us">What the two document types tell us</h2>
+<p>A significance call can land on either side of the line, and <strong>the two document types record opposite outcomes</strong> — so we analyze them separately rather than pooling them:</p>
+<ul>
+<li><strong>FONSIs are the <em>below-the-line</em> record.</strong> The agency concluded the impact is <strong>not</strong> significant. This is where the <strong>mitigated</strong> cases live — impacts that <em>would</em> have been significant without committed measures. FONSIs tell us <strong>how agencies stay under the line, and what they require to get there.</strong></li>
+<li><strong>EISs are the <em>above-the-line</em> record.</strong> These are impacts the agency judged <strong>significant</strong> (and, at the extreme, significant and <em>unavoidable</em>). They tell us <strong>which resources actually cross the line.</strong></li>
+</ul>
+<p>This report presents the <strong>FONSI analysis</strong>, which is complete and validated. The EIS analysis runs the same machinery on a separate corpus; its answer key is already built and it awaits its extraction pass (see <em>Scope decisions</em>).</p>
+<div class="callout callout-style-simple callout-note no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p>Because a FONSI is <em>by definition</em> a not-significant finding, a “significant” determination inside one is an anomaly — a <em>would-be-significant-absent-mitigation</em> phrasing, a rejected alternative, or a mis-read. Such cases are a fraction of a percent here and are flagged for review, not reported as findings. The <em>significant</em> side of the story is the EIS analysis.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="sec-fonsi" class="level2">
+<h2 class="anchored" data-anchor-id="sec-fonsi">FONSI analysis</h2>
+<p>Across <strong>193 clean-energy projects</strong> (BLM + DOE family), the FONSI corpus yields <strong>1,990 distinct significance determinations</strong> — one per document × resource area × outcome — drawn from 258 decision documents.</p>
+<section id="how-accurate-is-the-extraction" class="level3">
+<h3 class="anchored" data-anchor-id="how-accurate-is-the-extraction">How accurate is the extraction?</h3>
+<p>Every determination is machine-extracted, so before any number is reported the pipeline is scored against a <strong>hand-labeled answer key</strong>: two independent reviewers coded a stratified 400-window sample, a third adjudicated their disagreements, and <strong>30% was held out</strong> as an untouched test. The held-out column is the honest score.</p>
+<div id="tbl-validation" class="cell tbl-parent quarto-layout-panel anchored">
+<div class="panel-caption table-caption">
+<p><strong>?(caption)</strong></p>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
+
+<div id="ytzlonagcd" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>html {
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+#ytzlonagcd .gt_table {
+display: table;
+border-collapse: collapse;
+margin-left: auto;
+margin-right: auto;
+color: #333333;
+font-size: 13px;
+font-weight: normal;
+font-style: normal;
+background-color: #FFFFFF;
+width: 100%;
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #A8A8A8;
+border-right-style: none;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #A8A8A8;
+border-left-style: none;
+border-left-width: 2px;
+border-left-color: #D3D3D3;
+}
+#ytzlonagcd .gt_heading {
+background-color: #FFFFFF;
+text-align: center;
+border-bottom-color: #FFFFFF;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+}
+#ytzlonagcd .gt_caption {
+padding-top: 4px;
+padding-bottom: 4px;
+}
+#ytzlonagcd .gt_title {
+color: #333333;
+font-size: 125%;
+font-weight: initial;
+padding-top: 4px;
+padding-bottom: 4px;
+padding-left: 5px;
+padding-right: 5px;
+border-bottom-color: #FFFFFF;
+border-bottom-width: 0;
+}
+#ytzlonagcd .gt_subtitle {
+color: #333333;
+font-size: 85%;
+font-weight: initial;
+padding-top: 0;
+padding-bottom: 6px;
+padding-left: 5px;
+padding-right: 5px;
+border-top-color: #FFFFFF;
+border-top-width: 0;
+}
+#ytzlonagcd .gt_bottom_border {
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+}
+#ytzlonagcd .gt_col_headings {
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+}
+#ytzlonagcd .gt_col_heading {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: normal;
+text-transform: inherit;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+vertical-align: bottom;
+padding-top: 5px;
+padding-bottom: 6px;
+padding-left: 5px;
+padding-right: 5px;
+overflow-x: hidden;
+}
+#ytzlonagcd .gt_column_spanner_outer {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: normal;
+text-transform: inherit;
+padding-top: 0;
+padding-bottom: 0;
+padding-left: 4px;
+padding-right: 4px;
+}
+#ytzlonagcd .gt_column_spanner_outer:first-child {
+padding-left: 0;
+}
+#ytzlonagcd .gt_column_spanner_outer:last-child {
+padding-right: 0;
+}
+#ytzlonagcd .gt_column_spanner {
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+vertical-align: bottom;
+padding-top: 5px;
+padding-bottom: 5px;
+overflow-x: hidden;
+display: inline-block;
+width: 100%;
+}
+#ytzlonagcd .gt_group_heading {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+text-transform: inherit;
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+vertical-align: middle;
+text-align: left;
+}
+#ytzlonagcd .gt_empty_group_heading {
+padding: 0.5px;
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+vertical-align: middle;
+}
+#ytzlonagcd .gt_from_md > :first-child {
+margin-top: 0;
+}
+#ytzlonagcd .gt_from_md > :last-child {
+margin-bottom: 0;
+}
+#ytzlonagcd .gt_row {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+margin: 10px;
+border-top-style: solid;
+border-top-width: 1px;
+border-top-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+vertical-align: middle;
+overflow-x: hidden;
+}
+#ytzlonagcd .gt_stub {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+text-transform: inherit;
+border-right-style: solid;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+padding-left: 5px;
+padding-right: 5px;
+}
+#ytzlonagcd .gt_stub_row_group {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+text-transform: inherit;
+border-right-style: solid;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+padding-left: 5px;
+padding-right: 5px;
+vertical-align: top;
+}
+#ytzlonagcd .gt_row_group_first td {
+border-top-width: 2px;
+}
+#ytzlonagcd .gt_summary_row {
+color: #333333;
+background-color: #FFFFFF;
+text-transform: inherit;
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#ytzlonagcd .gt_first_summary_row {
+border-top-style: solid;
+border-top-color: #D3D3D3;
+}
+#ytzlonagcd .gt_first_summary_row.thick {
+border-top-width: 2px;
+}
+#ytzlonagcd .gt_last_summary_row {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+}
+#ytzlonagcd .gt_grand_summary_row {
+color: #333333;
+background-color: #FFFFFF;
+text-transform: inherit;
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#ytzlonagcd .gt_first_grand_summary_row {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+border-top-style: double;
+border-top-width: 6px;
+border-top-color: #D3D3D3;
+}
+#ytzlonagcd .gt_striped {
+background-color: rgba(128, 128, 128, 0.05);
+}
+#ytzlonagcd .gt_table_body {
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+}
+#ytzlonagcd .gt_footnotes {
+color: #333333;
+background-color: #FFFFFF;
+border-bottom-style: none;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 2px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+}
+#ytzlonagcd .gt_footnote {
+margin: 0px;
+font-size: 90%;
+padding-left: 4px;
+padding-right: 4px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#ytzlonagcd .gt_sourcenotes {
+color: #333333;
+background-color: #FFFFFF;
+border-bottom-style: none;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 2px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+}
+#ytzlonagcd .gt_sourcenote {
+font-size: 90%;
+padding-top: 4px;
+padding-bottom: 4px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#ytzlonagcd .gt_left {
+text-align: left;
+}
+#ytzlonagcd .gt_center {
+text-align: center;
+}
+#ytzlonagcd .gt_right {
+text-align: right;
+font-variant-numeric: tabular-nums;
+}
+#ytzlonagcd .gt_font_normal {
+font-weight: normal;
+}
+#ytzlonagcd .gt_font_bold {
+font-weight: bold;
+}
+#ytzlonagcd .gt_font_italic {
+font-style: italic;
+}
+#ytzlonagcd .gt_super {
+font-size: 65%;
+}
+#ytzlonagcd .gt_footnote_marks {
+font-style: italic;
+font-weight: normal;
+font-size: 75%;
+vertical-align: 0.4em;
+}
+#ytzlonagcd .gt_asterisk {
+font-size: 100%;
+vertical-align: 0;
+}
+#ytzlonagcd .gt_indent_1 {
+text-indent: 5px;
+}
+#ytzlonagcd .gt_indent_2 {
+text-indent: 10px;
+}
+#ytzlonagcd .gt_indent_3 {
+text-indent: 15px;
+}
+#ytzlonagcd .gt_indent_4 {
+text-indent: 20px;
+}
+#ytzlonagcd .gt_indent_5 {
+text-indent: 25px;
+}
+</style>
+
+</div>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
+<table class="gt_table table table-sm table-striped small" data-quarto-postprocess="true">
+<thead class="gt_col_headings">
+<tr class="header">
+<th id="What the pipeline is scored on" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">What the pipeline is scored on</th>
+<th id="All 400" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">All 400</th>
+<th id="Held-out test" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">Held-out test</th>
+</tr>
+</thead>
+<tbody class="gt_table_body">
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="metric">Finds a determination (per passage)</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="overall">0.97</td>
+<td class="gt_row gt_right" headers="holdout" style="text-align: left; background-color: #EBF3EA; color: #000000;">0.98</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="metric">Assigns the right resource</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="overall">0.88</td>
+<td class="gt_row gt_right" headers="holdout" style="text-align: left; background-color: #EEF2EA; color: #000000;">0.89</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="metric">Gets the significance class right</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="overall">0.78</td>
+<td class="gt_row gt_right" headers="holdout" style="text-align: left; background-color: #F0F1EA; color: #000000;">0.81</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="metric">Flags mitigation-dependence</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="overall">0.61</td>
+<td class="gt_row gt_right" headers="holdout" style="text-align: left; background-color: #F6EFEA; color: #000000;">0.62</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="metric">Identifies the regulatory threshold</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="overall">0.71</td>
+<td class="gt_row gt_right" headers="holdout" style="text-align: left; background-color: #F5EFEA; color: #000000;">0.66</td>
+</tr>
+</tbody><tfoot class="gt_sourcenotes">
+<tr class="even">
+<td colspan="3" class="gt_sourcenote" style="text-align: left;">Scores are F1 (0–1), except the threshold row, which is accuracy. Held-out = the 30% of the gold set the pipeline never influenced.</td>
+</tr>
+</tfoot>
+
+</table>
+</div>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
+
+</div>
+</div>
+</div>
+</div>
+<p>In plain terms: the extraction <strong>almost never misses a determination</strong> and places it in the <strong>right resource area ~89%</strong> of the time; it agrees with the human coders on the significance <em>class</em> at <strong>0.81</strong> — the standard bar for this kind of task. The one weaker signal is <em>mitigation-dependence</em>, discussed at the end of this section.</p>
+</section>
+<section id="how-agencies-stay-below-the-line" class="level3">
+<h3 class="anchored" data-anchor-id="how-agencies-stay-below-the-line">How agencies stay below the line</h3>
+<p>Within FONSIs, the determinations sit — as they must — below the significance line: the agency either finds <strong>no significant impact</strong> outright or an impact that is <strong>less than significant</strong>, sometimes only <strong>with committed mitigation</strong>. The map below shows how that breaks down by resource area.</p>
+<div id="tbl-resource-map" class="cell tbl-parent quarto-layout-panel anchored">
+<div class="panel-caption table-caption">
+<p><strong>?(caption)</strong></p>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
+
+<div id="wtctdzdyal" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>html {
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+#wtctdzdyal .gt_table {
+display: table;
+border-collapse: collapse;
+margin-left: auto;
+margin-right: auto;
+color: #333333;
+font-size: 13px;
+font-weight: normal;
+font-style: normal;
+background-color: #FFFFFF;
+width: 100%;
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #A8A8A8;
+border-right-style: none;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #A8A8A8;
+border-left-style: none;
+border-left-width: 2px;
+border-left-color: #D3D3D3;
+}
+#wtctdzdyal .gt_heading {
+background-color: #FFFFFF;
+text-align: center;
+border-bottom-color: #FFFFFF;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+}
+#wtctdzdyal .gt_caption {
+padding-top: 4px;
+padding-bottom: 4px;
+}
+#wtctdzdyal .gt_title {
+color: #333333;
+font-size: 125%;
+font-weight: initial;
+padding-top: 4px;
+padding-bottom: 4px;
+padding-left: 5px;
+padding-right: 5px;
+border-bottom-color: #FFFFFF;
+border-bottom-width: 0;
+}
+#wtctdzdyal .gt_subtitle {
+color: #333333;
+font-size: 85%;
+font-weight: initial;
+padding-top: 0;
+padding-bottom: 6px;
+padding-left: 5px;
+padding-right: 5px;
+border-top-color: #FFFFFF;
+border-top-width: 0;
+}
+#wtctdzdyal .gt_bottom_border {
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+}
+#wtctdzdyal .gt_col_headings {
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+}
+#wtctdzdyal .gt_col_heading {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: normal;
+text-transform: inherit;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+vertical-align: bottom;
+padding-top: 5px;
+padding-bottom: 6px;
+padding-left: 5px;
+padding-right: 5px;
+overflow-x: hidden;
+}
+#wtctdzdyal .gt_column_spanner_outer {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: normal;
+text-transform: inherit;
+padding-top: 0;
+padding-bottom: 0;
+padding-left: 4px;
+padding-right: 4px;
+}
+#wtctdzdyal .gt_column_spanner_outer:first-child {
+padding-left: 0;
+}
+#wtctdzdyal .gt_column_spanner_outer:last-child {
+padding-right: 0;
+}
+#wtctdzdyal .gt_column_spanner {
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+vertical-align: bottom;
+padding-top: 5px;
+padding-bottom: 5px;
+overflow-x: hidden;
+display: inline-block;
+width: 100%;
+}
+#wtctdzdyal .gt_group_heading {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+text-transform: inherit;
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+vertical-align: middle;
+text-align: left;
+}
+#wtctdzdyal .gt_empty_group_heading {
+padding: 0.5px;
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+vertical-align: middle;
+}
+#wtctdzdyal .gt_from_md > :first-child {
+margin-top: 0;
+}
+#wtctdzdyal .gt_from_md > :last-child {
+margin-bottom: 0;
+}
+#wtctdzdyal .gt_row {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+margin: 10px;
+border-top-style: solid;
+border-top-width: 1px;
+border-top-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+vertical-align: middle;
+overflow-x: hidden;
+}
+#wtctdzdyal .gt_stub {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+text-transform: inherit;
+border-right-style: solid;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+padding-left: 5px;
+padding-right: 5px;
+}
+#wtctdzdyal .gt_stub_row_group {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+text-transform: inherit;
+border-right-style: solid;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+padding-left: 5px;
+padding-right: 5px;
+vertical-align: top;
+}
+#wtctdzdyal .gt_row_group_first td {
+border-top-width: 2px;
+}
+#wtctdzdyal .gt_summary_row {
+color: #333333;
+background-color: #FFFFFF;
+text-transform: inherit;
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#wtctdzdyal .gt_first_summary_row {
+border-top-style: solid;
+border-top-color: #D3D3D3;
+}
+#wtctdzdyal .gt_first_summary_row.thick {
+border-top-width: 2px;
+}
+#wtctdzdyal .gt_last_summary_row {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+}
+#wtctdzdyal .gt_grand_summary_row {
+color: #333333;
+background-color: #FFFFFF;
+text-transform: inherit;
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#wtctdzdyal .gt_first_grand_summary_row {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+border-top-style: double;
+border-top-width: 6px;
+border-top-color: #D3D3D3;
+}
+#wtctdzdyal .gt_striped {
+background-color: rgba(128, 128, 128, 0.05);
+}
+#wtctdzdyal .gt_table_body {
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+}
+#wtctdzdyal .gt_footnotes {
+color: #333333;
+background-color: #FFFFFF;
+border-bottom-style: none;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 2px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+}
+#wtctdzdyal .gt_footnote {
+margin: 0px;
+font-size: 90%;
+padding-left: 4px;
+padding-right: 4px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#wtctdzdyal .gt_sourcenotes {
+color: #333333;
+background-color: #FFFFFF;
+border-bottom-style: none;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 2px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+}
+#wtctdzdyal .gt_sourcenote {
+font-size: 90%;
+padding-top: 4px;
+padding-bottom: 4px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#wtctdzdyal .gt_left {
+text-align: left;
+}
+#wtctdzdyal .gt_center {
+text-align: center;
+}
+#wtctdzdyal .gt_right {
+text-align: right;
+font-variant-numeric: tabular-nums;
+}
+#wtctdzdyal .gt_font_normal {
+font-weight: normal;
+}
+#wtctdzdyal .gt_font_bold {
+font-weight: bold;
+}
+#wtctdzdyal .gt_font_italic {
+font-style: italic;
+}
+#wtctdzdyal .gt_super {
+font-size: 65%;
+}
+#wtctdzdyal .gt_footnote_marks {
+font-style: italic;
+font-weight: normal;
+font-size: 75%;
+vertical-align: 0.4em;
+}
+#wtctdzdyal .gt_asterisk {
+font-size: 100%;
+vertical-align: 0;
+}
+#wtctdzdyal .gt_indent_1 {
+text-indent: 5px;
+}
+#wtctdzdyal .gt_indent_2 {
+text-indent: 10px;
+}
+#wtctdzdyal .gt_indent_3 {
+text-indent: 15px;
+}
+#wtctdzdyal .gt_indent_4 {
+text-indent: 20px;
+}
+#wtctdzdyal .gt_indent_5 {
+text-indent: 25px;
+}
+</style>
+
+</div>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
+<table class="gt_table table table-sm table-striped small" data-quarto-postprocess="true">
+<thead class="gt_col_headings">
+<tr class="header">
+<th id="Resource" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">Resource</th>
+<th id="No sig. impact" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">No sig. impact</th>
+<th id="Less than sig." class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">Less than sig.</th>
+<th id="LTS w/ mitigation" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">LTS w/ mitigation</th>
+<th id="Total" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">Total</th>
+</tr>
+</thead>
+<tbody class="gt_table_body">
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Biological</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">131</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">85</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">92</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">308</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Water</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">90</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">59</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">53</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">202</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Cultural / historic</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">123</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">29</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">42</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">194</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Public health</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">103</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">58</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">26</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">187</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Project-wide (FONSI)</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">158</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">7</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">5</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">170</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Land use</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">77</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">60</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">5</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">142</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Air quality</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">54</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">64</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">14</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">132</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Visual</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">46</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">66</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">14</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">126</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Soils / geology</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">39</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">47</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">34</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">120</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Socioeconomic</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">59</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">49</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">0</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">108</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Noise</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">37</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">38</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">8</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">83</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Climate / GHG</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">33</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">31</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">0</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">64</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Unplaced</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">43</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">14</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">5</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">62</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Transportation</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="no_significant_impact">23</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant">39</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="less_than_significant_with_mitigation">0</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="Total">62</td>
+</tr>
+</tbody><tfoot class="gt_sourcenotes">
+<tr class="odd">
+<td colspan="5" class="gt_sourcenote" style="text-align: left;">Primary BLM + DOE FONSI scope, deduplicated to one determination per document × resource × class. Cells below 5 suppressed. “Project-wide” is the document’s overall FONSI conclusion.</td>
+</tr>
+</tfoot>
+
+</table>
+</div>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
+
+</div>
+</div>
+</div>
+</div>
+<p>The dominant outcome is <strong>no significant impact</strong>, as expected for FONSIs. The resources agencies analyze most — <strong>biological, water, cultural/historic, and public health</strong> — are also where the close calls concentrate, which is what makes the mitigated cases below the real story.</p>
+</section>
+<section id="mitigated-fonsis-the-line-itself" class="level3">
+<h3 class="anchored" data-anchor-id="mitigated-fonsis-the-line-itself">Mitigated FONSIs — the line itself</h3>
+<p>The most revealing determinations are the <strong>mitigated</strong> ones: impacts the agency says <em>would</em> be significant, brought below the line only by required measures. These show exactly where the line sits and what it costs to stay under it.</p>
+<p>About <strong>58% of these FONSIs are mitigated</strong> — at least one resource whose not-significant conclusion depends explicitly on committed mitigation. Which resources drive it:</p>
+<div id="tbl-mit-resource" class="cell tbl-parent quarto-layout-panel anchored">
+<div class="panel-caption table-caption">
+<p><strong>?(caption)</strong></p>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
+
+<div id="nzcjlavpno" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<style>html {
+font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
+}
+#nzcjlavpno .gt_table {
+display: table;
+border-collapse: collapse;
+margin-left: auto;
+margin-right: auto;
+color: #333333;
+font-size: 13px;
+font-weight: normal;
+font-style: normal;
+background-color: #FFFFFF;
+width: 100%;
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #A8A8A8;
+border-right-style: none;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #A8A8A8;
+border-left-style: none;
+border-left-width: 2px;
+border-left-color: #D3D3D3;
+}
+#nzcjlavpno .gt_heading {
+background-color: #FFFFFF;
+text-align: center;
+border-bottom-color: #FFFFFF;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+}
+#nzcjlavpno .gt_caption {
+padding-top: 4px;
+padding-bottom: 4px;
+}
+#nzcjlavpno .gt_title {
+color: #333333;
+font-size: 125%;
+font-weight: initial;
+padding-top: 4px;
+padding-bottom: 4px;
+padding-left: 5px;
+padding-right: 5px;
+border-bottom-color: #FFFFFF;
+border-bottom-width: 0;
+}
+#nzcjlavpno .gt_subtitle {
+color: #333333;
+font-size: 85%;
+font-weight: initial;
+padding-top: 0;
+padding-bottom: 6px;
+padding-left: 5px;
+padding-right: 5px;
+border-top-color: #FFFFFF;
+border-top-width: 0;
+}
+#nzcjlavpno .gt_bottom_border {
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+}
+#nzcjlavpno .gt_col_headings {
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+}
+#nzcjlavpno .gt_col_heading {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: normal;
+text-transform: inherit;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+vertical-align: bottom;
+padding-top: 5px;
+padding-bottom: 6px;
+padding-left: 5px;
+padding-right: 5px;
+overflow-x: hidden;
+}
+#nzcjlavpno .gt_column_spanner_outer {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: normal;
+text-transform: inherit;
+padding-top: 0;
+padding-bottom: 0;
+padding-left: 4px;
+padding-right: 4px;
+}
+#nzcjlavpno .gt_column_spanner_outer:first-child {
+padding-left: 0;
+}
+#nzcjlavpno .gt_column_spanner_outer:last-child {
+padding-right: 0;
+}
+#nzcjlavpno .gt_column_spanner {
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+vertical-align: bottom;
+padding-top: 5px;
+padding-bottom: 5px;
+overflow-x: hidden;
+display: inline-block;
+width: 100%;
+}
+#nzcjlavpno .gt_group_heading {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+text-transform: inherit;
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+vertical-align: middle;
+text-align: left;
+}
+#nzcjlavpno .gt_empty_group_heading {
+padding: 0.5px;
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+vertical-align: middle;
+}
+#nzcjlavpno .gt_from_md > :first-child {
+margin-top: 0;
+}
+#nzcjlavpno .gt_from_md > :last-child {
+margin-bottom: 0;
+}
+#nzcjlavpno .gt_row {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+margin: 10px;
+border-top-style: solid;
+border-top-width: 1px;
+border-top-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 1px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 1px;
+border-right-color: #D3D3D3;
+vertical-align: middle;
+overflow-x: hidden;
+}
+#nzcjlavpno .gt_stub {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+text-transform: inherit;
+border-right-style: solid;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+padding-left: 5px;
+padding-right: 5px;
+}
+#nzcjlavpno .gt_stub_row_group {
+color: #333333;
+background-color: #FFFFFF;
+font-size: 100%;
+font-weight: initial;
+text-transform: inherit;
+border-right-style: solid;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+padding-left: 5px;
+padding-right: 5px;
+vertical-align: top;
+}
+#nzcjlavpno .gt_row_group_first td {
+border-top-width: 2px;
+}
+#nzcjlavpno .gt_summary_row {
+color: #333333;
+background-color: #FFFFFF;
+text-transform: inherit;
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#nzcjlavpno .gt_first_summary_row {
+border-top-style: solid;
+border-top-color: #D3D3D3;
+}
+#nzcjlavpno .gt_first_summary_row.thick {
+border-top-width: 2px;
+}
+#nzcjlavpno .gt_last_summary_row {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+}
+#nzcjlavpno .gt_grand_summary_row {
+color: #333333;
+background-color: #FFFFFF;
+text-transform: inherit;
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#nzcjlavpno .gt_first_grand_summary_row {
+padding-top: 8px;
+padding-bottom: 8px;
+padding-left: 5px;
+padding-right: 5px;
+border-top-style: double;
+border-top-width: 6px;
+border-top-color: #D3D3D3;
+}
+#nzcjlavpno .gt_striped {
+background-color: rgba(128, 128, 128, 0.05);
+}
+#nzcjlavpno .gt_table_body {
+border-top-style: solid;
+border-top-width: 2px;
+border-top-color: #D3D3D3;
+border-bottom-style: solid;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+}
+#nzcjlavpno .gt_footnotes {
+color: #333333;
+background-color: #FFFFFF;
+border-bottom-style: none;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 2px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+}
+#nzcjlavpno .gt_footnote {
+margin: 0px;
+font-size: 90%;
+padding-left: 4px;
+padding-right: 4px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#nzcjlavpno .gt_sourcenotes {
+color: #333333;
+background-color: #FFFFFF;
+border-bottom-style: none;
+border-bottom-width: 2px;
+border-bottom-color: #D3D3D3;
+border-left-style: none;
+border-left-width: 2px;
+border-left-color: #D3D3D3;
+border-right-style: none;
+border-right-width: 2px;
+border-right-color: #D3D3D3;
+}
+#nzcjlavpno .gt_sourcenote {
+font-size: 90%;
+padding-top: 4px;
+padding-bottom: 4px;
+padding-left: 5px;
+padding-right: 5px;
+}
+#nzcjlavpno .gt_left {
+text-align: left;
+}
+#nzcjlavpno .gt_center {
+text-align: center;
+}
+#nzcjlavpno .gt_right {
+text-align: right;
+font-variant-numeric: tabular-nums;
+}
+#nzcjlavpno .gt_font_normal {
+font-weight: normal;
+}
+#nzcjlavpno .gt_font_bold {
+font-weight: bold;
+}
+#nzcjlavpno .gt_font_italic {
+font-style: italic;
+}
+#nzcjlavpno .gt_super {
+font-size: 65%;
+}
+#nzcjlavpno .gt_footnote_marks {
+font-style: italic;
+font-weight: normal;
+font-size: 75%;
+vertical-align: 0.4em;
+}
+#nzcjlavpno .gt_asterisk {
+font-size: 100%;
+vertical-align: 0;
+}
+#nzcjlavpno .gt_indent_1 {
+text-indent: 5px;
+}
+#nzcjlavpno .gt_indent_2 {
+text-indent: 10px;
+}
+#nzcjlavpno .gt_indent_3 {
+text-indent: 15px;
+}
+#nzcjlavpno .gt_indent_4 {
+text-indent: 20px;
+}
+#nzcjlavpno .gt_indent_5 {
+text-indent: 25px;
+}
+</style>
+
+</div>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
+<table class="gt_table table table-sm table-striped small" data-quarto-postprocess="true">
+<thead class="gt_col_headings">
+<tr class="header">
+<th id="Resource" class="gt_col_heading gt_columns_bottom_border gt_left" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">Resource</th>
+<th id="Determinations" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">Determinations</th>
+<th id="Mitigation-dependent" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">Mitigation-dependent</th>
+<th id="Share" class="gt_col_heading gt_columns_bottom_border gt_right" data-quarto-table-cell-role="th" style="text-align: left; background-color: #012169; color: #FFFFFF; font-weight: bold;" scope="col">Share</th>
+</tr>
+</thead>
+<tbody class="gt_table_body">
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Biological</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">313</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">92</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">29%</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Soils / geology</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">122</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">34</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">28%</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Water</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">204</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">53</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">26%</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Cultural / historic</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">198</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">42</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">21%</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Public health</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">190</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">26</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">14%</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Visual</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">128</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">14</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">11%</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Air quality</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">132</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">14</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">11%</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Noise</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">83</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">8</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">10%</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Transportation</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">66</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">4</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">6%</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Land use</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">144</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">5</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">4%</td>
+</tr>
+<tr class="odd">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Socioeconomic</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">114</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">3</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">3%</td>
+</tr>
+<tr class="even">
+<td class="gt_row gt_left" style="text-align: left;" headers="Resource">Climate / GHG</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_determinations">64</td>
+<td class="gt_row gt_right" style="text-align: left;" headers="n_mit_class">0</td>
+<td class="gt_row gt_right" headers="share_mit_class" style="text-align: left; background-color: #9E9DDE; color: #000000;">0%</td>
+</tr>
+</tbody><tfoot class="gt_sourcenotes">
+<tr class="odd">
+<td colspan="4" class="gt_sourcenote" style="text-align: left;">Share = fraction of a resource’s determinations that depend on committed mitigation (per-resource class signal, the high-precision measure).</td>
+</tr>
+</tfoot>
+
+</table>
+</div>
+</div>
+<div class="quarto-layout-row quarto-layout-valign-top">
+<div class="quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
+
+</div>
+</div>
+</div>
+</div>
+<p>The mitigation burden is concentrated in <strong>Biological (29%), Soils / geology (28%), Water (26%), Cultural / historic (21%)</strong> — the resources most often needing committed measures to keep a project below the significance line. That pattern is the deliverable’s core finding: biological, soils/geology, water, and cultural resources are where clean-energy projects most frequently sit <em>at</em> the line and are pulled under it by mitigation.</p>
+<div class="callout callout-style-simple callout-warning no-icon">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon no-icon"></i>
+</div>
+<div class="callout-body-container">
+<p><strong>Read mitigation at the right grain.</strong> The <em>document-level</em> “is this a mitigated FONSI?” rate is robust. The <em>resource-level</em> attribution above uses the high-precision per-resource signal; a broader structured signal exists but over-attributes across resources, and its accuracy is ultimately bounded by upstream tagging (validation F1 ≈ 0.62). Treat the resource shares as a well-grounded floor, not an exact census.</p>
+</div>
+</div>
+</div>
+</section>
+</section>
+<section id="sec-eis" class="level2">
+<h2 class="anchored" data-anchor-id="sec-eis">EIS analysis</h2>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Note
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p><strong>Forthcoming.</strong> The EIS track is the <em>above-the-line</em> counterpart — which resources agencies judge <strong>significant</strong>, and where impacts are <strong>significant and unavoidable</strong>. It uses the identical extraction-and-validation machinery on the EIS corpus; the hand-labeled answer key is already built. This section will be populated once the EIS extraction pass runs. See <em>Scope decisions</em> below for the effort trade-off.</p>
+</div>
+</div>
 </section>
 <section id="scope-decisions-to-confirm" class="level2">
 <h2 class="anchored" data-anchor-id="scope-decisions-to-confirm">Scope decisions to confirm</h2>

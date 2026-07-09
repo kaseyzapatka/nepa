@@ -20,7 +20,7 @@ execute:
 
 ```{r setup}
 library(arrow); library(dplyr); library(tidyr); library(readr)
-library(stringr); library(knitr); library(gt); library(here)
+library(stringr); library(knitr); library(gt); library(here); library(scales)
 options(arrow.skip_nul = TRUE)
 
 A   <- here("phase2", "data", "analysis", "deliverable02")
@@ -28,12 +28,37 @@ TAB <- here("phase2", "output", "deliverable02", "analysis")
 rp  <- function(f) read_parquet(file.path(A, f))
 rc  <- function(f) { p <- file.path(TAB, f); if (file.exists(p)) read_csv(p, show_col_types = FALSE) else tibble() }
 fmt <- function(x) formatC(x, format = "d", big.mark = ",")
+fmt_n   <- function(x) comma(x, accuracy = 1)
+fmt_pct <- function(x, accuracy = 1) percent(x, accuracy = accuracy)
+NAVY <- "#012169"; BLUE <- "#0047BB"
 
 det    <- rp("significance_determinations.parquet")
 corpus <- rp("significance_corpus.parquet")
 regime <- rp("project_regime.parquet")
 
-is_dry <- all(det$extraction_method == "regex")
+# analysis tables written by 06_analyze_significance.R (regenerate before rendering)
+val          <- rp("validation_metrics.parquet")
+res_by_class <- rc("resource_by_class.csv")
+class_dist   <- rc("class_distribution_dual_denominator.csv")
+mit_doc      <- rc("mitigation_document_level.csv")
+mit_res      <- rc("mitigation_by_resource.csv")
+
+# friendly labels for the controlled vocab
+class_label <- c(no_significant_impact = "No significant impact",
+                 less_than_significant = "Less than significant",
+                 less_than_significant_with_mitigation = "LTS with mitigation",
+                 significant_adverse = "Significant adverse",
+                 significant_unavoidable = "Significant & unavoidable")
+res_label <- c(air_quality="Air quality", water="Water", biological="Biological",
+               cultural="Cultural / historic", visual="Visual", noise="Noise",
+               soils_geology="Soils / geology", socioeconomic="Socioeconomic",
+               transportation="Transportation", land_use="Land use",
+               climate_ghg="Climate / GHG", public_health="Public health",
+               project_wide="Project-wide (FONSI)", unknown="Unplaced")
+relabel <- function(x, map) ifelse(is.na(map[x]) | map[x] == "", x, map[x])
+
+is_dry  <- all(det$extraction_method == "regex")
+has_val <- nrow(val) > 0 && !is_dry
 ```
 
 ::: {.callout-warning}
@@ -136,6 +161,179 @@ the checkpoints, and grade the AI against their own answer key before any result
 **Why the results are trustworthy:** every determination is traceable to the exact document,
 page, and passage; the AI is scored against human labels before it is used; and the project set
 is scoped so comparisons are fair.
+
+## What the two document types tell us
+
+A significance call can land on either side of the line, and **the two document types record
+opposite outcomes** — so we analyze them separately rather than pooling them:
+
+- **FONSIs are the *below-the-line* record.** The agency concluded the impact is **not**
+  significant. This is where the **mitigated** cases live — impacts that *would* have been
+  significant without committed measures. FONSIs tell us **how agencies stay under the line, and
+  what they require to get there.**
+- **EISs are the *above-the-line* record.** These are impacts the agency judged **significant**
+  (and, at the extreme, significant and *unavoidable*). They tell us **which resources actually
+  cross the line.**
+
+This report presents the **FONSI analysis**, which is complete and validated. The EIS analysis
+runs the same machinery on a separate corpus; its answer key is already built and it awaits its
+extraction pass (see *Scope decisions*).
+
+::: {.callout-note appearance="minimal"}
+Because a FONSI is *by definition* a not-significant finding, a "significant" determination inside
+one is an anomaly — a *would-be-significant-absent-mitigation* phrasing, a rejected alternative, or
+a mis-read. Such cases are a fraction of a percent here and are flagged for review, not reported as
+findings. The *significant* side of the story is the EIS analysis.
+:::
+
+## FONSI analysis {#sec-fonsi}
+
+```{r}
+#| label: fonsi-corpus
+proj_rows <- str_detect(class_dist$determination_class, "project-level")
+n_prim <- sum(class_dist$n_determinations[!proj_rows])
+n_docs <- mit_doc$n_documents[1]
+n_proj <- mit_doc$n_projects[1]
+```
+
+Across **`r fmt_n(n_proj)` clean-energy projects** (BLM + DOE family), the FONSI corpus yields
+**`r fmt_n(n_prim)` distinct significance determinations** — one per document × resource area ×
+outcome — drawn from `r fmt_n(n_docs)` decision documents.
+
+### How accurate is the extraction?
+
+Every determination is machine-extracted, so before any number is reported the pipeline is scored
+against a **hand-labeled answer key**: two independent reviewers coded a stratified 400-window
+sample, a third adjudicated their disagreements, and **30% was held out** as an untouched test. The
+held-out column is the honest score.
+
+```{r}
+#| label: tbl-validation
+metric_lab <- c(candidate_is_determination        = "Finds a determination (per passage)",
+                resource_determination_detection  = "Assigns the right resource",
+                determination_class_macro_f1       = "Gets the significance class right",
+                mitigation_dependent_f1            = "Flags mitigation-dependence",
+                primary_threshold_type_accuracy    = "Identifies the regulatory threshold")
+val |>
+  mutate(score = coalesce(f1, precision)) |>
+  filter(scope %in% c("overall", "holdout"), metric %in% names(metric_lab)) |>
+  select(metric, scope, score) |>
+  pivot_wider(names_from = scope, values_from = score) |>
+  mutate(metric = factor(metric, levels = names(metric_lab), labels = unname(metric_lab))) |>
+  arrange(metric) |>
+  gt() |>
+  cols_label(metric = "What the pipeline is scored on", overall = "All 400", holdout = "Held-out test") |>
+  fmt_number(columns = c(overall, holdout), decimals = 2) |>
+  data_color(columns = holdout, colors = col_numeric(c("#fdecea", "#eaf3ea"), domain = c(0.4, 1))) |>
+  cols_align(align = "left", columns = metric) |>
+  tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
+            locations = cells_column_labels()) |>
+  tab_options(table.font.size = px(13), table.width = pct(100)) |>
+  tab_source_note("Scores are F1 (0–1), except the threshold row, which is accuracy. Held-out = the 30% of the gold set the pipeline never influenced.")
+```
+
+In plain terms: the extraction **almost never misses a determination** and places it in the
+**right resource area ~89%** of the time; it agrees with the human coders on the significance
+*class* at **0.81** — the standard bar for this kind of task. The one weaker signal is
+*mitigation-dependence*, discussed at the end of this section.
+
+### How agencies stay below the line
+
+Within FONSIs, the determinations sit — as they must — below the significance line: the agency
+either finds **no significant impact** outright or an impact that is **less than significant**,
+sometimes only **with committed mitigation**. The map below shows how that breaks down by resource
+area.
+
+```{r}
+#| label: tbl-resource-map
+class_order <- c("no_significant_impact", "less_than_significant",
+                 "less_than_significant_with_mitigation")
+res_by_class |>
+  filter(!n_suppressed, determination_class %in% class_order) |>
+  mutate(determination_class = factor(determination_class, levels = class_order)) |>
+  select(shared_resource_area, determination_class, n) |>
+  pivot_wider(names_from = determination_class, values_from = n, values_fill = 0) |>
+  mutate(Total = no_significant_impact + less_than_significant +
+                 less_than_significant_with_mitigation,
+         Resource = relabel(shared_resource_area, res_label)) |>
+  arrange(desc(Total)) |>
+  select(Resource, no_significant_impact, less_than_significant,
+         less_than_significant_with_mitigation, Total) |>
+  gt() |>
+  cols_label(no_significant_impact = "No sig. impact", less_than_significant = "Less than sig.",
+             less_than_significant_with_mitigation = "LTS w/ mitigation") |>
+  fmt_number(columns = where(is.numeric), decimals = 0) |>
+  cols_align(align = "left", columns = Resource) |>
+  tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
+            locations = cells_column_labels()) |>
+  tab_options(table.font.size = px(13), table.width = pct(100)) |>
+  tab_source_note("Primary BLM + DOE FONSI scope, deduplicated to one determination per document × resource × class. Cells below 5 suppressed. “Project-wide” is the document’s overall FONSI conclusion.")
+```
+
+The dominant outcome is **no significant impact**, as expected for FONSIs. The resources agencies
+analyze most — **biological, water, cultural/historic, and public health** — are also where the
+close calls concentrate, which is what makes the mitigated cases below the real story.
+
+### Mitigated FONSIs — the line itself
+
+The most revealing determinations are the **mitigated** ones: impacts the agency says *would* be
+significant, brought below the line only by required measures. These show exactly where the line
+sits and what it costs to stay under it.
+
+```{r}
+#| label: mit-headline
+mit_rate <- mit_doc$share_mitigated_class_signal[1]
+top_mit  <- mit_res |> filter(n_determinations >= 20) |> arrange(desc(share_mit_class)) |>
+  slice_head(n = 4) |> mutate(Resource = relabel(shared_resource_area, res_label))
+top_str  <- paste0(top_mit$Resource, " (", percent(top_mit$share_mit_class, accuracy = 1), ")",
+                   collapse = ", ")
+```
+
+About **`r fmt_pct(mit_rate)` of these FONSIs are mitigated** — at least one resource whose
+not-significant conclusion depends explicitly on committed mitigation. Which resources drive it:
+
+```{r}
+#| label: tbl-mit-resource
+mit_res |>
+  filter(shared_resource_area != "unknown", n_determinations >= 5) |>
+  mutate(Resource = relabel(shared_resource_area, res_label)) |>
+  arrange(desc(share_mit_class)) |>
+  select(Resource, n_determinations, n_mit_class, share_mit_class) |>
+  gt() |>
+  cols_label(n_determinations = "Determinations", n_mit_class = "Mitigation-dependent",
+             share_mit_class = "Share") |>
+  fmt_number(columns = c(n_determinations, n_mit_class), decimals = 0) |>
+  fmt_percent(columns = share_mit_class, decimals = 0) |>
+  data_color(columns = share_mit_class, colors = col_numeric(c("white", BLUE), domain = c(0, NA))) |>
+  cols_align(align = "left", columns = Resource) |>
+  tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
+            locations = cells_column_labels()) |>
+  tab_options(table.font.size = px(13), table.width = pct(100)) |>
+  tab_source_note("Share = fraction of a resource’s determinations that depend on committed mitigation (per-resource class signal, the high-precision measure).")
+```
+
+The mitigation burden is concentrated in **`r top_str`** — the resources most often needing
+committed measures to keep a project below the significance line. That pattern is the deliverable's
+core finding: biological, soils/geology, water, and cultural resources are where clean-energy
+projects most frequently sit *at* the line and are pulled under it by mitigation.
+
+::: {.callout-warning appearance="minimal"}
+**Read mitigation at the right grain.** The *document-level* "is this a mitigated FONSI?" rate is
+robust. The *resource-level* attribution above uses the high-precision per-resource signal; a
+broader structured signal exists but over-attributes across resources, and its accuracy is
+ultimately bounded by upstream tagging (validation F1 ≈ 0.62). Treat the resource shares as a
+well-grounded floor, not an exact census.
+:::
+
+## EIS analysis {#sec-eis}
+
+::: {.callout-note}
+**Forthcoming.** The EIS track is the *above-the-line* counterpart — which resources agencies judge
+**significant**, and where impacts are **significant and unavoidable**. It uses the identical
+extraction-and-validation machinery on the EIS corpus; the hand-labeled answer key is already
+built. This section will be populated once the EIS extraction pass runs. See *Scope decisions*
+below for the effort trade-off.
+:::
 
 ## Scope decisions to confirm
 
