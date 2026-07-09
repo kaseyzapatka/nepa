@@ -162,13 +162,14 @@ if (nrow(adjudicated) >= 200 && n_distinct(adjudicated$determination_class) > 1)
 fig_ok <- tryCatch({ library(ggplot2); library(patchwork); source("phase2/code/utils/utils.R"); TRUE },
                    error = function(e) { cat("[figures skipped]", conditionMessage(e), "\n"); FALSE })
 if (fig_ok) tryCatch({
+  set.seed(42)   # reproducible figures/tables (any jitter, repel, or tie-breaks are stable)
   res_label <- c(air_quality="Air quality", water="Water", biological="Biological",
     cultural="Cultural / historic", visual="Visual", noise="Noise", soils_geology="Soils / geology",
     socioeconomic="Socioeconomic", transportation="Transportation", land_use="Land use",
     climate_ghg="Climate / GHG", public_health="Public health", unknown="Unplaced")
   class_label <- c(no_significant_impact="No significant impact",
     less_than_significant="Less than significant",
-    less_than_significant_with_mitigation="LTS with mitigation")
+    less_than_significant_with_mitigation="Committed mitigation")
   relab <- function(x, m) ifelse(is.na(m[x]), x, m[x])
   savefig <- function(p, name, w = 8, h = 5)
     suppressMessages(ggsave(file.path(OUT, name), p, width = w, height = h, dpi = 300))
@@ -199,7 +200,7 @@ if (fig_ok) tryCatch({
         scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.12))) +
         scale_fill_manual(values = c("No significant impact" = catf_light_blue,
                                      "Less than significant" = catf_dark_blue,
-                                     "LTS with mitigation" = catf_magenta)) +
+                                     "Committed mitigation" = catf_magenta)) +
         labs(title = "How agencies stay below the line, by resource",
              subtitle = "Share of each resource's FONSI determinations by outcome — sorted by reliance on mitigation (top = most)",
              x = NULL, y = NULL, fill = NULL) + theme_catf() + theme(legend.position = "bottom"),
@@ -255,6 +256,7 @@ if (fig_ok) tryCatch({
         geom_boxplot(width = 0.16, outlier.size = 0.5, color = catf_navy, fill = "white") +
         scale_fill_manual(values = c("Mitigated FONSI" = catf_magenta,
                                      "Non-mitigated FONSI" = catf_dark_blue), guide = "none") +
+        scale_y_continuous(breaks = seq(0, 20, 2)) +
         labs(title = "How broad is a FONSI's significance analysis?",
              subtitle = "Distinct resource areas addressed per FONSI document",
              x = NULL, y = "Resource areas per FONSI") + theme_catf(),
@@ -359,7 +361,7 @@ if (fig_ok) tryCatch({
           scale_fill_manual(values = c("BLM" = "#3182bd", "DOE family" = "#08519c",
                                        "Other (dropped)" = "gray80"), name = NULL) +
           labs(title = "Who leads these FONSIs — and what the analysis keeps",
-               subtitle = "Each square ≈ 1% of the 452 clean-energy FONSIs. BLM + DOE are analyzed; the rest is set aside.") +
+               subtitle = "Each square ≈ 1% of the 452 decarbonization FONSIs. BLM + DOE are analyzed; the rest is set aside.") +
           theme_void(base_family = "Helvetica") +
           theme(plot.title = element_text(face = "bold", color = catf_navy, size = rel(1.15)),
                 plot.subtitle = element_text(color = catf_dark_blue, size = rel(0.85)),
@@ -377,11 +379,11 @@ if (fig_ok) tryCatch({
         coord_flip() + scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
         scale_fill_manual(values = c("Mitigated FONSI" = catf_magenta, "Not mitigated" = catf_light_blue),
                           guide = "none") +
-        labs(title = "Most clean-energy FONSIs are mitigated",
+        labs(title = "Most decarbonization FONSIs are mitigated",
              subtitle = "Share of FONSI documents that reach “no significant impact” only with committed mitigation",
              x = NULL, y = NULL) +
-        theme_catf() + theme(axis.text.y = element_blank(), panel.grid = element_blank(),
-                             axis.ticks.y = element_blank()),
+        theme_catf() + theme(axis.text = element_blank(), axis.ticks = element_blank(),
+                             panel.grid = element_blank()),
     "fig_mitigated_share.png", 8, 2.7)
 
   # department + sub-agency analysis (analytic grain, below-line resource determinations)
@@ -395,7 +397,10 @@ if (fig_ok) tryCatch({
   deptr <- dept %>% group_by(shared_resource_area, agency) %>%
     summarise(n = n(), mit = mean(mit), .groups = "drop") %>% filter(n >= 5) %>%
     mutate(Resource = relab(shared_resource_area, res_label))
-  ord <- deptr %>% group_by(Resource) %>% summarise(m = mean(mit), .groups = "drop") %>% arrange(m)
+  # order by the BLM - DOE gap: DOE-leaning resources at the bottom, BLM-leaning at the top
+  ord <- deptr %>% select(Resource, agency, mit) %>%
+    tidyr::pivot_wider(names_from = agency, values_from = mit) %>%
+    mutate(diff = coalesce(BLM, 0) - coalesce(`DOE-family`, 0)) %>% arrange(diff)
   deptr <- deptr %>% mutate(Resource = factor(Resource, levels = ord$Resource))
   savefig(ggplot(deptr, aes(mit, Resource)) +
         geom_line(aes(group = Resource), color = "gray78", linewidth = 1) +
@@ -442,7 +447,7 @@ if (fig_ok) tryCatch({
            determination_class == "less_than_significant_with_mitigation", !is.na(rationale_text)) %>%
     mutate(example = str_squish(rationale_text), L = nchar(example)) %>%
     filter(L >= 40, L <= 240) %>%
-    arrange(shared_resource_area, L) %>%
+    arrange(shared_resource_area, L, example) %>%   # `example` breaks length ties deterministically
     group_by(shared_resource_area) %>% slice_head(n = 2) %>% ungroup() %>%
     left_join(mitr %>% select(shared_resource_area, share), by = "shared_resource_area") %>%
     mutate(share = coalesce(share, 0), Resource = relab(shared_resource_area, res_label)) %>%

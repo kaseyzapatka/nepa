@@ -48,7 +48,7 @@ mit_ex       <- rc("mitigation_examples.csv")
 # friendly labels for the controlled vocab
 class_label <- c(no_significant_impact = "No significant impact",
                  less_than_significant = "Less than significant",
-                 less_than_significant_with_mitigation = "LTS with mitigation",
+                 less_than_significant_with_mitigation = "Committed mitigation",
                  significant_adverse = "Significant adverse",
                  significant_unavoidable = "Significant & unavoidable")
 res_label <- c(air_quality="Air quality", water="Water", biological="Biological",
@@ -84,7 +84,7 @@ This report delivers:
 
 ## Context
 
-When a clean-energy project — a solar farm, a transmission line — needs federal approval, the
+When a decarbonization project — a solar farm, a transmission line — needs federal approval, the
 lead agency (here, BLM or the Department of Energy) studies its environmental impact and makes a
 judgment call: **is the impact "significant" or not?**
 
@@ -97,7 +97,7 @@ developer commits to specific measures to reduce it."* That is a **mitigated fin
 the most revealing case, because it shows the exact line the agency drew and what it required to
 stay on the safe side of it.
 
-**So this deliverable answers:** across these clean-energy projects, how do agencies decide what
+**So this deliverable answers:** across these decarbonization projects, how do agencies decide what
 counts as "significant" in each environmental area (air, water, wildlife, cultural sites, and so
 on) — and what mitigation do they demand to avoid that label? Answering it means reading and
 coding a judgment call out of **thousands** of dense decision documents — far more than anyone
@@ -113,7 +113,7 @@ the checkpoints, and grade the AI against their own answer key before any result
 <div style="max-width:660px;margin:1.25rem auto;">
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Scope</div>
-    <div style="color:#1A1A2E;">Clean-energy FONSIs led by BLM or the DOE family &mdash; 258 documents across 193 projects, each dated to its regulatory era</div>
+    <div style="color:#1A1A2E;">Decarbonization FONSIs led by BLM or the DOE family &mdash; 258 documents across 193 projects, each dated to its regulatory era</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
@@ -141,10 +141,6 @@ the checkpoints, and grade the AI against their own answer key before any result
 </div>
 ```
 
-**Why the results are trustworthy:** every determination is traceable to the exact document,
-page, and passage; the AI is scored against human labels before it is used; and the project set
-is scoped so comparisons are fair.
-
 ## What the two document types tell us
 
 A significance call can land on either side of the line, and **the two document types record
@@ -158,25 +154,14 @@ opposite outcomes** — so we analyze them separately rather than pooling them:
   (and, at the extreme, significant and *unavoidable*). They tell us **which resources actually
   cross the line.**
 
-This report presents the **FONSI analysis**, which is complete and validated. The EIS analysis
-runs the same machinery on a separate corpus; its answer key is already built and it awaits its
-extraction pass (see *Scope decisions*).
-
-@fig-corpus-overview sets the scale: the clean-energy universe splits into a larger EIS corpus and
-a smaller FONSI corpus, and within the FONSIs the analysis touches every major resource area.
+@fig-corpus-overview sets the scale: the decarbonization universe splits into a larger EIS corpus
+and a smaller FONSI corpus, and within the FONSIs the analysis touches every major resource area.
 
 ```{r}
 #| label: fig-corpus-overview
-#| fig-cap: "Left: clean-energy projects by review type (the EIS corpus is the larger one). Right: the mix of resource areas covered by the FONSI determinations, one square ≈ 1% of determinations."
+#| fig-cap: "Left: decarbonization projects by review type (the EIS corpus is the larger one). Right: the mix of resource areas covered by the FONSI determinations, one square ≈ 1% of determinations."
 include_fig("fig_corpus_overview.png")
 ```
-
-::: {.callout-note appearance="minimal"}
-Because a FONSI is *by definition* a not-significant finding, a "significant" determination inside
-one is an anomaly — a *would-be-significant-absent-mitigation* phrasing, a rejected alternative, or
-a mis-read. Such cases are a fraction of a percent here and are flagged for review, not reported as
-findings. The *significant* side of the story is the EIS analysis.
-:::
 
 ## FONSI analysis {#sec-fonsi}
 
@@ -188,20 +173,28 @@ n_docs <- mit_doc$n_documents[1]
 n_proj <- mit_doc$n_projects[1]
 ```
 
-Across **`r fmt_n(n_proj)` clean-energy projects** (BLM + DOE family), the FONSI corpus yields
-**`r fmt_n(n_prim)` distinct significance determinations** — one per document × resource area ×
-outcome — drawn from `r fmt_n(n_docs)` decision documents. Those projects are the two agencies with
-complete coverage in the dataset; @fig-agency-scope shows how much of the FONSI universe that keeps.
+The decarbonization FONSI corpus contains **452 projects**. This analysis rests on the
+**`r fmt_n(n_proj)` of them** that are (a) led by BLM or the DOE family and (b) carry
+machine-extractable significance findings — spanning **`r fmt_n(n_docs)` decision documents** and
+**`r fmt_n(n_prim)` distinct significance determinations** (one per document × resource area ×
+outcome).
+
+Two filters narrow the 452. First, the **BLM + DOE scope** sets aside 25 FONSIs led by other
+agencies (@fig-agency-scope). Second — the larger reduction — only FONSIs whose finding sections
+were located by the upstream pipeline carry determinations, which brings 427 BLM + DOE projects
+down to `r fmt_n(n_proj)`. That second gap is a **coverage limitation of the source extraction, not
+a different finding**: the `r fmt_n(n_proj)` analyzed projects are representative of the corpus, but
+the rates below describe *those* projects, not all 452 (see *Methods*).
 
 ```{r}
 #| label: fig-agency-scope
-#| fig-cap: "Lead agency for the 452 clean-energy FONSIs. BLM and the DOE family (94.5%) carry the headline analysis; the remaining 5.5% — led by other federal agencies with only partial coverage — are set aside as context."
+#| fig-cap: "Lead agency for the 452 decarbonization FONSIs. BLM and the DOE family (94.5%) carry the headline analysis; the remaining 5.5% — led by other federal agencies with only partial coverage — are set aside as context."
 include_fig("fig_agency_scope.png")
 ```
 
 ::: {.callout-tip}
 ## Key takeaways (FONSI track)
-- **Most clean-energy FONSIs are *mitigated*.** About **`r fmt_pct(mit_doc$share_mitigated_class_signal)`**
+- **Most decarbonization FONSIs are *mitigated*.** About **`r fmt_pct(mit_doc$share_mitigated_class_signal)`**
   of these documents reach "no significant impact" only because the developer commits to specific
   measures — the impact *would* have been significant otherwise.
 - **A handful of resources carry the mitigation.** **Biological resources, soils/geology, water, and
@@ -343,7 +336,7 @@ not-significant conclusion depends explicitly on committed mitigation.
 
 The mitigation burden is concentrated in **`r top_str`** — the resources most often needing
 committed measures to keep a project below the significance line. That pattern is the deliverable's
-core finding: biological, soils/geology, water, and cultural resources are where clean-energy
+core finding: biological, soils/geology, water, and cultural resources are where decarbonization
 projects most frequently sit *at* the line and are pulled under it by mitigation.
 
 ```{r}
@@ -354,7 +347,7 @@ include_fig("fig_mitigation_by_resource.png")
 
 Reading volume and mitigation-intensity together sharpens the picture. Resources in the **upper
 right** are both analyzed often *and* mitigated often — the areas that most shape whether a
-clean-energy project can take the faster FONSI path.
+decarbonization project can take the faster FONSI path.
 
 ```{r}
 #| label: fig-mitigation-landscape
@@ -381,7 +374,7 @@ if (nrow(mit_ex) > 0) {
     tab_style(style = cell_text(color = NAVY, weight = "bold"), locations = cells_column_labels()) |>
     tab_options(table.font.size = px(12.5), table.width = pct(100), table.align = "center",
                 row_group.font.weight = "bold", data_row.padding = px(6)) |>
-    tab_source_note("Verbatim from the model's per-resource rationale on mitigation-dependent (LTS-with-mitigation) determinations. Climate/GHG had no mitigation-dependent conclusions in the FONSI corpus.")
+    tab_source_note("Verbatim from the model's per-resource rationale on determinations that depend on committed mitigation. Climate/GHG had no such conclusions in the FONSI corpus.")
 }
 ```
 
@@ -454,7 +447,7 @@ the goal is to confirm or adjust these before the full analysis runs.
    later phase once the FONSI work is in hand.
 
 2. **Agencies: BLM + DOE, or broader?** These are the only two agencies with complete coverage in
-   the dataset and account for the large majority of clean-energy FONSIs; other agencies (NRC,
+   the dataset and account for the large majority of decarbonization FONSIs; other agencies (NRC,
    Forest Service, BOEM) appear mainly on the EIS side, with partial coverage.
    **Recommendation:** BLM + DOE as the primary comparison; other agencies reported as context
    only, never mixed into the headline rates.
@@ -470,25 +463,35 @@ the goal is to confirm or adjust these before the full analysis runs.
 
 ## Methods & required caveats
 
-- **Agency scope — what the BLM + DOE limit costs.** Of the **452 clean-energy FONSI projects** in
+- **Agency scope — what the BLM + DOE limit costs.** Of the **452 decarbonization FONSI projects** in
   the corpus, **427 (94.5%) are BLM + DOE** and carry the headline; **25 (5.5%) are dropped** from
   the headline rates — 23 led by other federal agencies (which have only partial coverage in the
   dataset) and 2 flagged for manual scope review. They are held as a separate context universe,
   never mixed into the primary rates. So the BLM + DOE limit sets aside about **1 in 20 FONSIs**;
   the far larger gap is the **EIS side entirely** (753 projects — the *above-the-line* story), which
   is a separate track not yet run.
+- **Extraction coverage (the bigger funnel).** Of the 427 BLM + DOE FONSIs, only **193 projects
+  (258 documents)** carry machine-extractable significance findings; the rest lacked the upstream
+  finding-section extraction that feeds this analysis. Every rate in this report describes those
+  193 projects. This is a **coverage limit of the source extraction, not a sampling choice** — the
+  analyzed set is representative of the corpus, but it is not all 452 FONSIs.
 - **D4 date/regime coverage.** Many projects lack a high-confidence decision date; regime cells
   are confidence-gated and thin post-2023. EIS decision dates are frequently proxies.
 - **EPA review letters (Clean Air Act §309) are out of scope.** Under Section 309, the EPA
   independently reviews and *rates* other agencies' environmental impact statements (e.g.
   "environmental concerns" or "objections"). Those comment letters are not in this dataset, so
   the report makes no claim about EPA's own view of a project's significance.
-- **Clean-energy scope only** (`project_energy_type = 'Clean'`).
+- **Decarbonization scope only** (`project_energy_type = 'Clean'`).
 - **FONSI coverage** for the mitigated/straight tiers derives from D6 artifacts.
 - **EIS retrieval limits.** The EIS tier is gated behind FONSI validation and a retrieval-recall
   spike; EIS findings are preliminary.
-- **Validation sample size.** Rare class/resource/threshold cells are reported descriptively,
-  not as pass/fail macro-metrics.
+- **Validation & the held-out test.** Two analysts independently coded a stratified 400-window
+  sample (each window read once; one label per resource conclusion); a third analyst adjudicated
+  every disagreement into a single gold answer key. A deterministic **30% of the windows was held
+  out** — set aside and never used to build or tune the extraction — and the pipeline was scored
+  separately on it. **The held-out scores are the ones reported**, so they can't be inflated by the
+  pipeline having "seen" those windows. Rare class/resource/threshold cells are reported
+  descriptively, not as pass/fail macro-metrics.
 - **Suppressed cells.** Any cell below 5 is suppressed.
 
 ## Appendix: data dictionary
