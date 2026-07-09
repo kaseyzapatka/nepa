@@ -305,17 +305,18 @@ if (fig_ok) tryCatch({
       scale_fill_manual(values = c("FONSI (EA)" = catf_dark_blue, "EIS" = catf_navy), guide = "none") +
       labs(title = "Scale of the analysis", subtitle = "Clean-energy projects by review type",
            x = NULL, y = "Projects") + theme_catf()
-    # manual 10x10 waffle of the FONSI resource mix (top 6 + Other)
-    top6 <- otot %>% arrange(desc(tot)) %>% slice_head(n = 6) %>% pull(Resource)
-    wfd <- otot %>% mutate(grp = ifelse(Resource %in% top6, as.character(Resource), "Other")) %>%
-      group_by(grp) %>% summarise(tot = sum(tot), .groups = "drop") %>%
-      mutate(is_other = grp == "Other") %>% arrange(is_other, desc(tot)) %>%
-      mutate(sq = round(100 * tot / sum(tot)))
+    # manual 10x10 waffle of the FONSI resource mix — ALL resources kept separate,
+    # harmonious blue/green/red shades (ColorBrewer families) rather than clashing categoricals
+    wfd <- otot %>% arrange(desc(tot)) %>%
+      mutate(grp = as.character(Resource), sq = round(100 * tot / sum(tot)))
     wfd$sq[1] <- wfd$sq[1] + (100 - sum(wfd$sq))
+    wfd <- wfd %>% filter(sq > 0)
     wgrid <- expand.grid(y = 1:10, x = 1:10)
     wgrid$grp <- factor(rep(wfd$grp, wfd$sq)[1:100], levels = wfd$grp)
-    waf_cols <- setNames(c(catf_navy, catf_dark_blue, catf_blue, catf_teal, catf_lime,
-                           catf_magenta, "gray75")[seq_len(nrow(wfd))], wfd$grp)
+    waffle_pal <- c("#08519c", "#3182bd", "#6baed6", "#9ecae1",   # blues
+                    "#006d2c", "#31a354", "#74c476", "#a1d99b",   # greens
+                    "#99000d", "#cb181d", "#fb6a4a", "#fcae91", "#bdbdbd")  # reds + grey
+    waf_cols <- setNames(waffle_pal[seq_len(nrow(wfd))], wfd$grp)
     p_waf <- ggplot(wgrid, aes(x, y, fill = grp)) +
       geom_tile(color = "white", linewidth = 1.1) + coord_equal() +
       scale_fill_manual(values = waf_cols, name = NULL) +
@@ -343,6 +344,97 @@ if (fig_ok) tryCatch({
              x = NULL, y = "Citations",
              caption = "Descriptive only: threshold identification is the pipeline's least-accurate field (see validation).\nExcludes conclusions not anchored to a specific threshold.") + theme_catf(),
     "fig_threshold_profile.png", 8, 4.5)
+
+  # Fig — agency scope waffle: BLM + DOE kept, everything else dropped
+  if (!is.null(corpus_fig)) {
+    asc <- corpus_fig %>% filter(process_type == "EA") %>% distinct(project_id, agency) %>% count(agency) %>%
+      mutate(grp = recode(agency, "DOE-family" = "DOE family", "other" = "Other (dropped)"),
+             grp = factor(grp, levels = c("BLM", "DOE family", "Other (dropped)"))) %>% arrange(grp)
+    asc <- asc %>% mutate(sq = round(100 * n / sum(n)))
+    asc$sq[which.max(asc$sq)] <- asc$sq[which.max(asc$sq)] + (100 - sum(asc$sq))
+    agrid <- expand.grid(y = 1:10, x = 1:10)
+    agrid$grp <- factor(rep(as.character(asc$grp), asc$sq)[1:100], levels = levels(asc$grp))
+    savefig(ggplot(agrid, aes(x, y, fill = grp)) +
+          geom_tile(color = "white", linewidth = 1.1) + coord_equal() +
+          scale_fill_manual(values = c("BLM" = "#3182bd", "DOE family" = "#08519c",
+                                       "Other (dropped)" = "gray80"), name = NULL) +
+          labs(title = "Who leads these FONSIs — and what the analysis keeps",
+               subtitle = "Each square ≈ 1% of the 452 clean-energy FONSIs. BLM + DOE are analyzed; the rest is set aside.") +
+          theme_void(base_family = "Helvetica") +
+          theme(plot.title = element_text(face = "bold", color = catf_navy, size = rel(1.15)),
+                plot.subtitle = element_text(color = catf_dark_blue, size = rel(0.85)),
+                legend.text = element_text(size = rel(0.9)), legend.position = "right"),
+      "fig_agency_scope.png", 8, 5)
+  }
+
+  # Fig — mitigated vs not (single 100% stacked bar) for the top of the mitigated section
+  ms <- doc_mit %>% mutate(grp = ifelse(mitigated_class_signal, "Mitigated FONSI", "Not mitigated")) %>%
+    count(grp) %>% mutate(grp = factor(grp, levels = c("Not mitigated", "Mitigated FONSI")),
+                          share = n / sum(n))
+  savefig(ggplot(ms, aes(x = 1, y = share, fill = grp)) + geom_col(width = 0.5) +
+        geom_text(aes(label = sprintf("%s: %d (%d%%)", grp, n, round(100 * share))),
+                  position = position_stack(vjust = 0.5), color = "white", size = 3.6, fontface = "bold") +
+        coord_flip() + scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
+        scale_fill_manual(values = c("Mitigated FONSI" = catf_magenta, "Not mitigated" = catf_light_blue),
+                          guide = "none") +
+        labs(title = "Most clean-energy FONSIs are mitigated",
+             subtitle = "Share of FONSI documents that reach “no significant impact” only with committed mitigation",
+             x = NULL, y = NULL) +
+        theme_catf() + theme(axis.text.y = element_blank(), panel.grid = element_blank(),
+                             axis.ticks.y = element_blank()),
+    "fig_mitigated_share.png", 8, 2.7)
+
+  # department + sub-agency analysis (analytic grain, below-line resource determinations)
+  dept <- primary %>%
+    filter(shared_resource_area %in% names(res_label), !shared_resource_area %in% c("project_wide", "unknown"),
+           determination_class %in% BELOW_LINE) %>%
+    distinct(project_id, document_id, shared_resource_area, determination_class, agency) %>%
+    mutate(mit = determination_class == "less_than_significant_with_mitigation")
+
+  # Fig — BLM vs DOE: mitigation reliance by resource (dumbbell)
+  deptr <- dept %>% group_by(shared_resource_area, agency) %>%
+    summarise(n = n(), mit = mean(mit), .groups = "drop") %>% filter(n >= 5) %>%
+    mutate(Resource = relab(shared_resource_area, res_label))
+  ord <- deptr %>% group_by(Resource) %>% summarise(m = mean(mit), .groups = "drop") %>% arrange(m)
+  deptr <- deptr %>% mutate(Resource = factor(Resource, levels = ord$Resource))
+  savefig(ggplot(deptr, aes(mit, Resource)) +
+        geom_line(aes(group = Resource), color = "gray78", linewidth = 1) +
+        geom_point(aes(color = agency), size = 3.6, alpha = 0.9) +
+        scale_color_manual(values = c("BLM" = "#31a354", "DOE-family" = "#3182bd"), name = NULL) +
+        scale_x_continuous(labels = scales::percent, expand = expansion(mult = c(0.02, 0.08))) +
+        labs(title = "Does a resource trigger mitigation more for BLM or DOE?",
+             subtitle = "Share of a resource's FONSI conclusions that depend on committed mitigation, by department",
+             x = "Mitigation-dependent share", y = NULL) +
+        theme_catf() + theme(legend.position = "bottom"),
+    "fig_dept_by_resource.png", 8, 5.5)
+
+  # Fig — sub-agency x resource mitigation heatmap
+  if (!is.null(corpus_fig)) {
+    suba <- corpus_fig %>% filter(process_type == "EA", agency_scope_status == "primary_blm_doe_family") %>%
+      distinct(project_id, lead_agency_harmonized) %>%
+      mutate(sub = str_squish(str_remove_all(as.character(lead_agency_harmonized), '\\[|\\]|"')),
+             sub = recode(sub, "Department of Energy" = "DOE (dept.)", "Power Marketing Administration" = "Power Marketing",
+                          "Bureau of Land Management" = "BLM", "National Nuclear Security Administration" = "NNSA"))
+    subr <- dept %>% left_join(suba, by = "project_id") %>% filter(!is.na(sub), sub != "") %>%
+      group_by(sub, shared_resource_area) %>% summarise(n = n(), mit = mean(mit), .groups = "drop") %>%
+      mutate(Resource = relab(shared_resource_area, res_label))
+    keep_sub <- subr %>% group_by(sub) %>% summarise(tot = sum(n), .groups = "drop") %>%
+      filter(tot >= 40) %>% pull(sub)
+    subr <- subr %>% filter(sub %in% keep_sub, n >= 3)
+    savefig(ggplot(subr, aes(sub, reorder(Resource, mit), fill = mit)) +
+          geom_tile(color = "white", linewidth = 1) +
+          geom_text(aes(label = scales::percent(mit, accuracy = 1)), size = 2.6, color = "gray15") +
+          scale_fill_gradientn(colors = c("#f7fbff", "#9ecae1", "#3182bd", "#08306b"),
+                               labels = scales::percent, breaks = c(0, 0.2, 0.4), name = "Mitigation\nshare") +
+          labs(title = "Which resources drive mitigation, by sub-agency",
+               subtitle = "Share of a resource's conclusions that depend on mitigation (cells with ≥3 determinations)",
+               x = NULL, y = NULL,
+               caption = "Sub-agencies with ≥40 determinations. Small cells are noisy; read the pattern, not the decimals.") +
+          guides(fill = guide_colorbar(barheight = grid::unit(4, "cm"))) +
+          theme_catf() + theme(axis.text.x = element_text(angle = 18, hjust = 1),
+                               panel.grid = element_blank(), legend.position = "right"),
+      "fig_subagency_by_resource.png", 8.5, 6)
+  }
 
   # example mitigations — up to 2 per resource area, ordered by how mitigation-heavy the resource is
   ex <- primary %>%

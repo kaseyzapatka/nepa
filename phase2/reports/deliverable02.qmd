@@ -190,7 +190,14 @@ n_proj <- mit_doc$n_projects[1]
 
 Across **`r fmt_n(n_proj)` clean-energy projects** (BLM + DOE family), the FONSI corpus yields
 **`r fmt_n(n_prim)` distinct significance determinations** — one per document × resource area ×
-outcome — drawn from `r fmt_n(n_docs)` decision documents.
+outcome — drawn from `r fmt_n(n_docs)` decision documents. Those projects are the two agencies with
+complete coverage in the dataset; @fig-agency-scope shows how much of the FONSI universe that keeps.
+
+```{r}
+#| label: fig-agency-scope
+#| fig-cap: "Lead agency for the 452 clean-energy FONSIs. BLM and the DOE family (94.5%) carry the headline analysis; the remaining 5.5% — led by other federal agencies with only partial coverage — are set aside as context."
+include_fig("fig_agency_scope.png")
+```
 
 ::: {.callout-tip}
 ## Key takeaways (FONSI track)
@@ -314,7 +321,13 @@ this profile as an indicative picture of *which rules recur*, not an exact censu
 
 The most revealing determinations are the **mitigated** ones: impacts the agency says *would* be
 significant, brought below the line only by required measures. These show exactly where the line
-sits and what it costs to stay under it.
+sits and what it costs to stay under it — and they are the *majority* of FONSIs (@fig-mitigated-share).
+
+```{r}
+#| label: fig-mitigated-share
+#| fig-cap: "Share of FONSI documents that reach a not-significant finding only with committed mitigation (per-resource class signal)."
+include_fig("fig_mitigated_share.png")
+```
 
 ```{r}
 #| label: mit-headline
@@ -326,28 +339,7 @@ top_str  <- paste0(top_mit$Resource, " (", percent(top_mit$share_mit_class, accu
 ```
 
 About **`r fmt_pct(mit_rate)` of these FONSIs are mitigated** — at least one resource whose
-not-significant conclusion depends explicitly on committed mitigation. Which resources drive it:
-
-```{r}
-#| label: tbl-mit-resource
-#| tbl-cap: "Resources ranked by how often their FONSI conclusions depend on committed mitigation."
-mit_res |>
-  filter(shared_resource_area != "unknown", n_determinations >= 5) |>
-  mutate(Resource = relabel(shared_resource_area, res_label)) |>
-  arrange(desc(share_mit_class)) |>
-  select(Resource, n_determinations, n_mit_class, share_mit_class) |>
-  gt() |>
-  cols_label(n_determinations = "Determinations", n_mit_class = "Mitigation-dependent",
-             share_mit_class = "Share") |>
-  fmt_number(columns = c(n_determinations, n_mit_class), decimals = 0) |>
-  fmt_percent(columns = share_mit_class, decimals = 0) |>
-  data_color(columns = share_mit_class, colors = col_numeric(c("white", BLUE), domain = c(0, NA))) |>
-  cols_align(align = "left", columns = Resource) |>
-  tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
-            locations = cells_column_labels()) |>
-  tab_options(table.font.size = px(13), table.width = pct(100), table.align = "center") |>
-  tab_source_note("Share = fraction of a resource’s determinations that depend on committed mitigation (per-resource class signal, the high-precision measure).")
-```
+not-significant conclusion depends explicitly on committed mitigation.
 
 The mitigation burden is concentrated in **`r top_str`** — the resources most often needing
 committed measures to keep a project below the significance line. That pattern is the deliverable's
@@ -410,6 +402,32 @@ broader structured signal exists but over-attributes across resources, and its a
 ultimately bounded by upstream tagging (validation F1 ≈ 0.62). Treat the resource shares as a
 well-grounded floor, not an exact census.
 :::
+
+### Does it differ by agency?
+
+The two departments run different kinds of projects — BLM tends toward land-based sites, the DOE
+family toward energy facilities and transmission — so the resources that push them to mitigate
+differ too. @fig-dept-by-resource compares, for each resource, how often a conclusion depends on
+mitigation for BLM versus DOE.
+
+```{r}
+#| label: fig-dept-by-resource
+#| fig-cap: "Share of each resource's FONSI conclusions that depend on committed mitigation, BLM versus the DOE family. A wider gap means the resource is a bigger mitigation driver for one department than the other."
+include_fig("fig_dept_by_resource.png")
+```
+
+The pattern is intuitive: **biological, cultural/historic, air quality, and visual** resources
+drive mitigation harder for **BLM** (land-facing impacts on habitat, historic sites, and
+viewsheds), while **noise and water** lean toward the **DOE family** (facility- and
+construction-driven effects). Within DOE, the picture varies further by sub-agency
+(@fig-subagency-by-resource) — though the smaller sub-agency cells are noisy and should be read for
+pattern, not precision.
+
+```{r}
+#| label: fig-subagency-by-resource
+#| fig-cap: "Mitigation-dependent share by sub-agency and resource area, for sub-agencies with at least 40 determinations. Darker = a larger share of that resource's conclusions depend on mitigation. Small cells are noisy."
+include_fig("fig_subagency_by_resource.png")
+```
 
 ## EIS analysis {#sec-eis}
 
