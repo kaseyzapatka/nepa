@@ -5,7 +5,7 @@ date: today
 format:
   html:
     toc: true
-    toc-depth: 2
+    toc-depth: 3
     toc-location: left
     fig-align: center
 execute:
@@ -118,12 +118,12 @@ the checkpoints, and grade the AI against their own answer key before any result
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Gather documents</div>
-    <div style="color:#1A1A2E;">Pull the FONSI and supporting EA decision documents from the NEPATEC&nbsp;2.0 corpus</div>
+    <div style="color:#1A1A2E;">Pull the FONSI and supporting EA documents from the NEPATEC&nbsp;2.0 corpus, then use text-pattern (regex) rules to locate the specific sections where significance findings live</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Extract the judgment calls</div>
-    <div style="color:#1A1A2E;">Rules flag the finding passages &rarr; Claude (Sonnet&nbsp;5) codes each one &mdash; outcome, resource area, threshold, mitigation &rarr; two analysts plus an adjudicator hand-label 400 as the answer key</div>
+    <div style="color:#1A1A2E;"><b>Automated:</b> the flagged passages go to Claude (Sonnet&nbsp;5), which codes each one &mdash; outcome, resource area, threshold, mitigation.<br><b>In parallel &mdash; the answer key:</b> two analysts independently hand-label a 400-passage sample and an adjudicator settles their disagreements</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
@@ -161,6 +161,15 @@ opposite outcomes** — so we analyze them separately rather than pooling them:
 This report presents the **FONSI analysis**, which is complete and validated. The EIS analysis
 runs the same machinery on a separate corpus; its answer key is already built and it awaits its
 extraction pass (see *Scope decisions*).
+
+@fig-corpus-overview sets the scale: the clean-energy universe splits into a larger EIS corpus and
+a smaller FONSI corpus, and within the FONSIs the analysis touches every major resource area.
+
+```{r}
+#| label: fig-corpus-overview
+#| fig-cap: "Left: clean-energy projects by review type (the EIS corpus is the larger one). Right: the mix of resource areas covered by the FONSI determinations, one square ≈ 1% of determinations."
+include_fig("fig_corpus_overview.png")
+```
 
 ::: {.callout-note appearance="minimal"}
 Because a FONSI is *by definition* a not-significant finding, a "significant" determination inside
@@ -207,6 +216,7 @@ held-out column is the honest score.
 
 ```{r}
 #| label: tbl-validation
+#| tbl-cap: "Extraction accuracy versus the hand-labeled gold set, full sample and held-out test."
 metric_lab <- c(candidate_is_determination        = "Finds a determination (per passage)",
                 resource_determination_detection  = "Assigns the right resource",
                 determination_class_macro_f1       = "Gets the significance class right",
@@ -226,7 +236,7 @@ val |>
   cols_align(align = "left", columns = metric) |>
   tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
             locations = cells_column_labels()) |>
-  tab_options(table.font.size = px(13), table.width = pct(100)) |>
+  tab_options(table.font.size = px(13), table.width = pct(100), table.align = "center") |>
   tab_source_note("Scores are F1 (0–1), except the threshold row, which is accuracy. Held-out = the 30% of the gold set the pipeline never influenced.")
 ```
 
@@ -264,49 +274,41 @@ getting the significance class** — all clear or approach the standard bar.
 
 Within FONSIs, the determinations sit — as they must — below the significance line: the agency
 either finds **no significant impact** outright or an impact that is **less than significant**,
-sometimes only **with committed mitigation**. The map below shows how that breaks down by resource
-area.
-
-```{r}
-#| label: tbl-resource-map
-class_order <- c("no_significant_impact", "less_than_significant",
-                 "less_than_significant_with_mitigation")
-res_by_class |>
-  filter(!n_suppressed, determination_class %in% class_order) |>
-  mutate(determination_class = factor(determination_class, levels = class_order)) |>
-  select(shared_resource_area, determination_class, n) |>
-  pivot_wider(names_from = determination_class, values_from = n, values_fill = 0) |>
-  mutate(Total = no_significant_impact + less_than_significant +
-                 less_than_significant_with_mitigation,
-         Resource = relabel(shared_resource_area, res_label)) |>
-  arrange(desc(less_than_significant_with_mitigation)) |>
-  select(Resource, no_significant_impact, less_than_significant,
-         less_than_significant_with_mitigation, Total) |>
-  gt() |>
-  cols_label(no_significant_impact = "No sig. impact", less_than_significant = "Less than sig.",
-             less_than_significant_with_mitigation = "LTS w/ mitigation") |>
-  fmt_number(columns = where(is.numeric), decimals = 0) |>
-  cols_align(align = "left", columns = Resource) |>
-  tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
-            locations = cells_column_labels()) |>
-  tab_options(table.font.size = px(13), table.width = pct(100)) |>
-  tab_source_note("Primary BLM + DOE FONSI scope, deduplicated to one determination per document × resource × class. Cells below 5 suppressed. “Project-wide” is the document’s overall FONSI conclusion.")
-```
-
-The dominant outcome is **no significant impact**, as expected for FONSIs. The resources agencies
-analyze most — **biological, water, cultural/historic, and public health** — are also where the
-close calls concentrate, which is what makes the mitigated cases below the real story.
-
-The composition within each resource — how often it lands at *no significant impact* versus *less
-than significant* versus *less than significant only with mitigation*, and how many determinations
-sit behind each bar — shows where agencies are comfortable and where they have to work to stay
-under the line.
+sometimes only **with committed mitigation**. @fig-outcomes-by-resource breaks this down by
+resource area — each resource's determinations split across the three outcomes, sorted so the
+resources most reliant on mitigation sit at the top, with the count and share behind each bar.
 
 ```{r}
 #| label: fig-outcomes-by-resource
-#| fig-cap: "Share of each resource's FONSI determinations by outcome. Resources with more magenta lean harder on committed mitigation to reach a not-significant finding."
+#| fig-cap: "Share of each resource's FONSI determinations by outcome, sorted by reliance on mitigation. Each segment shows its count and percentage; n is the resource's total determinations. Resources with more magenta lean harder on committed mitigation to reach a not-significant finding."
 include_fig("fig_outcomes_by_resource.png")
 ```
+
+The dominant outcome is **no significant impact**, as expected for FONSIs. But the resources
+agencies analyze most — **biological, water, cultural/historic, and public health** — are also
+where the close calls concentrate: the magenta band (below-the-line *only with mitigation*) is
+widest for biological, soils/geology, and water. That is what makes the mitigated cases the real
+story.
+
+### Regulatory thresholds behind the calls
+
+When a conclusion is anchored to a *specific* regulatory yardstick, which one? @fig-threshold-profile
+profiles the thresholds the FONSI conclusions cite — dominated by resource-specific numeric limits
+(*other quantitative*), **wetland/floodplain** extent, **NHPA §106** adverse-effect findings for
+cultural resources, **visual (VRM)** classes, and the **Endangered Species Act** (take and
+jeopardy). This mirrors the resource pattern above: the same areas that drive mitigation are the
+ones with the hardest regulatory lines to clear.
+
+```{r}
+#| label: fig-threshold-profile
+#| fig-cap: "Regulatory thresholds cited across primary FONSI determinations. Reported descriptively: identifying the exact threshold is the pipeline's least-accurate field, and many conclusions are not anchored to a specific threshold at all."
+include_fig("fig_threshold_profile.png")
+```
+
+::: {.callout-note appearance="minimal"}
+Threshold identification is the extraction's weakest field (see the validation above), so treat
+this profile as an indicative picture of *which rules recur*, not an exact census.
+:::
 
 ### Mitigated FONSIs — the line itself
 
@@ -328,6 +330,7 @@ not-significant conclusion depends explicitly on committed mitigation. Which res
 
 ```{r}
 #| label: tbl-mit-resource
+#| tbl-cap: "Resources ranked by how often their FONSI conclusions depend on committed mitigation."
 mit_res |>
   filter(shared_resource_area != "unknown", n_determinations >= 5) |>
   mutate(Resource = relabel(shared_resource_area, res_label)) |>
@@ -342,7 +345,7 @@ mit_res |>
   cols_align(align = "left", columns = Resource) |>
   tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
             locations = cells_column_labels()) |>
-  tab_options(table.font.size = px(13), table.width = pct(100)) |>
+  tab_options(table.font.size = px(13), table.width = pct(100), table.align = "center") |>
   tab_source_note("Share = fraction of a resource’s determinations that depend on committed mitigation (per-resource class signal, the high-precision measure).")
 ```
 
@@ -367,22 +370,26 @@ clean-energy project can take the faster FONSI path.
 include_fig("fig_mitigation_landscape.png")
 ```
 
-What do these mitigations actually look like? The two resources at the top of the landscape —
-biological and water — lean on concrete, recognizable measures: seasonal timing restrictions,
-species avoidance, and wetland minimization. A few verbatim examples pulled from the extraction:
+What do these mitigations actually look like across the board? Two verbatim examples per resource,
+ordered from the most mitigation-heavy resources down — seasonal timing and species avoidance for
+biology, wetland minimization for water, cultural-resource protection measures, dust control for
+air, and so on:
 
 ```{r}
 #| label: tbl-mitigation-examples
+#| tbl-cap: "Representative mitigation measures behind less-than-significant-with-mitigation conclusions, by resource area."
 if (nrow(mit_ex) > 0) {
   mit_ex |>
     gt(groupname_col = "Resource") |>
     cols_label(example = "Example mitigation drawn from the FONSI") |>
     cols_align(align = "left") |>
+    cols_width(example ~ pct(100)) |>
     tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
               locations = cells_row_groups()) |>
-    tab_options(table.font.size = px(12), table.width = pct(100),
-                row_group.font.weight = "bold") |>
-    tab_source_note("Verbatim from the model's per-resource rationale on mitigation-dependent (LTS-with-mitigation) determinations.")
+    tab_style(style = cell_text(color = NAVY, weight = "bold"), locations = cells_column_labels()) |>
+    tab_options(table.font.size = px(12.5), table.width = pct(100), table.align = "center",
+                row_group.font.weight = "bold", data_row.padding = px(6)) |>
+    tab_source_note("Verbatim from the model's per-resource rationale on mitigation-dependent (LTS-with-mitigation) determinations. Climate/GHG had no mitigation-dependent conclusions in the FONSI corpus.")
 }
 ```
 
@@ -445,9 +452,13 @@ the goal is to confirm or adjust these before the full analysis runs.
 
 ## Methods & required caveats
 
-- **Agency scope.** BLM + DOE agency family. Headline denominators use only
-  `agency_scope_status = 'primary_blm_doe_family'`; other-agency and manual-review rows are a
-  separate context universe.
+- **Agency scope — what the BLM + DOE limit costs.** Of the **452 clean-energy FONSI projects** in
+  the corpus, **427 (94.5%) are BLM + DOE** and carry the headline; **25 (5.5%) are dropped** from
+  the headline rates — 23 led by other federal agencies (which have only partial coverage in the
+  dataset) and 2 flagged for manual scope review. They are held as a separate context universe,
+  never mixed into the primary rates. So the BLM + DOE limit sets aside about **1 in 20 FONSIs**;
+  the far larger gap is the **EIS side entirely** (753 projects — the *above-the-line* story), which
+  is a separate track not yet run.
 - **D4 date/regime coverage.** Many projects lack a high-confidence decision date; regime cells
   are confidence-gated and thin post-2023. EIS decision dates are frequently proxies.
 - **EPA review letters (Clean Air Act §309) are out of scope.** Under Section 309, the EPA

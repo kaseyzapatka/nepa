@@ -159,7 +159,7 @@ if (nrow(adjudicated) >= 200 && n_distinct(adjudicated$determination_class) > 1)
 }
 
 # ---- FIGURES (CATF-styled PNGs for the report) ----
-fig_ok <- tryCatch({ library(ggplot2); source("phase2/code/utils/utils.R"); TRUE },
+fig_ok <- tryCatch({ library(ggplot2); library(patchwork); source("phase2/code/utils/utils.R"); TRUE },
                    error = function(e) { cat("[figures skipped]", conditionMessage(e), "\n"); FALSE })
 if (fig_ok) tryCatch({
   res_label <- c(air_quality="Air quality", water="Water", biological="Biological",
@@ -178,26 +178,30 @@ if (fig_ok) tryCatch({
   res_lvl <- primary_dr %>%
     filter(shared_resource_area != "project_wide", determination_class %in% BELOW_LINE)
 
-  # Fig — significance outcomes by resource (100% stacked, with Ns)
+  # Fig — significance outcomes by resource (100% stacked; counts + %, sorted by mitigation reliance)
   odata <- res_lvl %>% filter(shared_resource_area != "unknown") %>%
     count(shared_resource_area, determination_class) %>%
     group_by(shared_resource_area) %>% mutate(share = n / sum(n), tot = sum(n)) %>% ungroup() %>%
     mutate(Resource = relab(shared_resource_area, res_label),
            Outcome = factor(relab(determination_class, class_label), levels = rev(unname(class_label))))
-  otot <- odata %>% distinct(Resource, tot)
-  savefig(ggplot(odata, aes(reorder(Resource, tot), share, fill = Outcome)) +
+  mit_order <- odata %>% filter(determination_class == "less_than_significant_with_mitigation") %>%
+    select(shared_resource_area, mit_share = share)
+  odata <- odata %>% left_join(mit_order, by = "shared_resource_area") %>%
+    mutate(mit_share = coalesce(mit_share, 0))
+  otot <- odata %>% distinct(Resource, tot, mit_share)
+  savefig(ggplot(odata, aes(reorder(Resource, mit_share), share, fill = Outcome)) +
         geom_col() +
-        geom_text(aes(label = ifelse(share >= 0.07, n, "")),
-                  position = position_fill(vjust = 0.5), size = 2.6, color = "white") +
-        geom_text(data = otot, aes(x = reorder(Resource, tot), y = 1.0, label = paste0("n=", tot)),
+        geom_text(aes(label = ifelse(share >= 0.08, sprintf("%d (%d%%)", n, round(100 * share)), "")),
+                  position = position_fill(vjust = 0.5), size = 2.4, color = "white") +
+        geom_text(data = otot, aes(x = reorder(Resource, mit_share), y = 1.0, label = paste0("n=", tot)),
                   inherit.aes = FALSE, hjust = -0.1, size = 2.8, color = "gray35") +
         coord_flip() +
-        scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.11))) +
+        scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.12))) +
         scale_fill_manual(values = c("No significant impact" = catf_light_blue,
                                      "Less than significant" = catf_dark_blue,
                                      "LTS with mitigation" = catf_magenta)) +
         labs(title = "How agencies stay below the line, by resource",
-             subtitle = "Share of each resource's FONSI determinations by outcome (n = determinations)",
+             subtitle = "Share of each resource's FONSI determinations by outcome — sorted by reliance on mitigation (top = most)",
              x = NULL, y = NULL, fill = NULL) + theme_catf() + theme(legend.position = "bottom"),
     "fig_outcomes_by_resource.png", 8, 5.5)
 
@@ -230,7 +234,10 @@ if (fig_ok) tryCatch({
     labs(title = "The mitigation landscape",
          subtitle = "Resources both frequently analyzed and frequently mitigated sit upper-right",
          x = "How often analyzed (determinations)", y = "Mitigation-dependent share",
-         caption = "Point size approx. number of mitigation-dependent determinations.") + theme_catf()
+         caption = paste0("Dashed line = the average mitigation share across resources (",
+                          scales::percent(mean(mitr$share), accuracy = 1),
+                          "); points above it rely on mitigation more than average.\n",
+                          "Point size approx. number of mitigation-dependent determinations.")) + theme_catf()
   f4 <- if (requireNamespace("ggrepel", quietly = TRUE))
           f4 + ggrepel::geom_text_repel(aes(label = Resource), size = 3, color = catf_navy, seed = 1)
         else f4 + geom_text(aes(label = Resource), vjust = -0.9, size = 3, color = catf_navy)
@@ -268,33 +275,86 @@ if (fig_ok) tryCatch({
     vwide <- vdat %>% select(Metric, Scope, score) %>%
       tidyr::pivot_wider(names_from = Scope, values_from = score)
     savefig(ggplot(vdat, aes(score, Metric)) +
+          # shade the bottom two rows (secondary attributes that matter less)
+          annotate("rect", xmin = 0, xmax = 1.12, ymin = 0.5, ymax = 2.5, fill = "gray92", alpha = 0.7) +
           geom_vline(xintercept = 0.8, linetype = "dashed", color = "gray60") +
           geom_segment(data = vwide, aes(x = `All 400`, xend = `Held-out test`, y = Metric, yend = Metric),
-                       inherit.aes = FALSE, color = "gray75", linewidth = 1) +
-          geom_point(aes(color = Scope), size = 4.5) +
+                       inherit.aes = FALSE, color = "gray70", linewidth = 1) +
+          geom_point(aes(color = Scope), size = 4.5, alpha = 0.75) +
           geom_text(data = dplyr::filter(vdat, Scope == "All 400"),
                     aes(label = sprintf("%.2f", score)), nudge_y = 0.24, size = 2.7, color = catf_magenta) +
           geom_text(data = dplyr::filter(vdat, Scope == "Held-out test"),
-                    aes(label = sprintf("%.2f", score)), nudge_y = -0.24, size = 2.7, color = catf_lime) +
-          scale_color_manual(values = c("All 400" = catf_magenta, "Held-out test" = catf_lime)) +
+                    aes(label = sprintf("%.2f", score)), nudge_y = -0.24, size = 2.7, color = catf_dark_blue) +
+          scale_color_manual(values = c("All 400" = catf_magenta, "Held-out test" = catf_dark_blue)) +
           scale_x_continuous(limits = c(0, 1.12), breaks = seq(0, 1, 0.2), expand = c(0, 0)) +
           labs(title = "The extraction was graded before anything was reported",
                subtitle = "Agreement with the human answer key: full sample vs the held-out test",
                x = "Score (F1; threshold row = accuracy)", y = NULL, color = NULL,
-               caption = "Dashed line = 0.80, the standard bar. Green = held-out test (the honest score); magenta = all 400.") +
+               caption = "Dashed line = 0.80, the standard bar. Blue = held-out test (the honest score); magenta = all 400.\nShaded rows are secondary attributes that matter less to the findings.") +
           theme_catf() + theme(legend.position = "bottom"),
       "fig_validation_accuracy.png", 8, 4.8)
   }
-  # example mitigations for biological + water (short, concrete rationales from the extraction)
+  # Fig — corpus at a glance: FONSI vs EIS magnitude + FONSI resource waffle (juxtaposed)
+  corpus_fig <- tryCatch(read_parquet(file.path(A, "significance_corpus.parquet")), error = function(e) NULL)
+  if (!is.null(corpus_fig)) {
+    mag <- corpus_fig %>% distinct(project_id, process_type) %>% count(process_type) %>%
+      mutate(Track = recode(process_type, EA = "FONSI (EA)", EIS = "EIS"))
+    p_mag <- ggplot(mag, aes(Track, n, fill = Track)) +
+      geom_col(width = 0.62) + geom_text(aes(label = scales::comma(n)), vjust = -0.4, size = 3.6, color = "gray30") +
+      scale_y_continuous(expand = expansion(mult = c(0, 0.14))) +
+      scale_fill_manual(values = c("FONSI (EA)" = catf_dark_blue, "EIS" = catf_navy), guide = "none") +
+      labs(title = "Scale of the analysis", subtitle = "Clean-energy projects by review type",
+           x = NULL, y = "Projects") + theme_catf()
+    # manual 10x10 waffle of the FONSI resource mix (top 6 + Other)
+    top6 <- otot %>% arrange(desc(tot)) %>% slice_head(n = 6) %>% pull(Resource)
+    wfd <- otot %>% mutate(grp = ifelse(Resource %in% top6, as.character(Resource), "Other")) %>%
+      group_by(grp) %>% summarise(tot = sum(tot), .groups = "drop") %>%
+      mutate(is_other = grp == "Other") %>% arrange(is_other, desc(tot)) %>%
+      mutate(sq = round(100 * tot / sum(tot)))
+    wfd$sq[1] <- wfd$sq[1] + (100 - sum(wfd$sq))
+    wgrid <- expand.grid(y = 1:10, x = 1:10)
+    wgrid$grp <- factor(rep(wfd$grp, wfd$sq)[1:100], levels = wfd$grp)
+    waf_cols <- setNames(c(catf_navy, catf_dark_blue, catf_blue, catf_teal, catf_lime,
+                           catf_magenta, "gray75")[seq_len(nrow(wfd))], wfd$grp)
+    p_waf <- ggplot(wgrid, aes(x, y, fill = grp)) +
+      geom_tile(color = "white", linewidth = 1.1) + coord_equal() +
+      scale_fill_manual(values = waf_cols, name = NULL) +
+      labs(title = "What resources FONSIs cover", subtitle = "Each square ≈ 1% of determinations") +
+      theme_void(base_family = "Helvetica") +
+      theme(plot.title = element_text(face = "bold", color = catf_navy, size = rel(1.15)),
+            plot.subtitle = element_text(color = catf_dark_blue, size = rel(0.85)),
+            legend.text = element_text(size = rel(0.8)))
+    savefig((p_mag | p_waf) + patchwork::plot_layout(widths = c(0.8, 1.15)),
+            "fig_corpus_overview.png", 11, 4.6)
+  }
+
+  # Fig — regulatory-threshold profile (descriptive; threshold ID is the least-accurate field)
+  thr_lab <- c(other_quantitative = "Other quantitative", wetland_floodplain = "Wetland / floodplain",
+    NHPA_adverse_effect = "NHPA §106 adverse effect", visual_vrm = "Visual (VRM)", ESA_take = "ESA take",
+    NAAQS = "NAAQS (air)", ESA_jeopardy = "ESA jeopardy", noise_threshold = "Noise threshold", PSD = "PSD (air)")
+  tprof <- thr %>% semi_join(distinct(primary, determination_instance_id), by = "determination_instance_id") %>%
+    filter(!threshold_type %in% c("none", "unknown", "")) %>% count(threshold_type) %>%
+    mutate(Threshold = ifelse(is.na(thr_lab[threshold_type]), threshold_type, thr_lab[threshold_type]))
+  savefig(tprof %>% ggplot(aes(reorder(Threshold, n), n)) +
+        geom_col(fill = catf_teal) + geom_text(aes(label = n), hjust = -0.2, size = 3, color = "gray30") +
+        coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.09))) +
+        labs(title = "Which regulatory thresholds the conclusions lean on",
+             subtitle = "Threshold citations across primary FONSI determinations",
+             x = NULL, y = "Citations",
+             caption = "Descriptive only: threshold identification is the pipeline's least-accurate field (see validation).\nExcludes conclusions not anchored to a specific threshold.") + theme_catf(),
+    "fig_threshold_profile.png", 8, 4.5)
+
+  # example mitigations — up to 2 per resource area, ordered by how mitigation-heavy the resource is
   ex <- primary %>%
-    filter(shared_resource_area %in% c("biological", "water"),
-           determination_class == "less_than_significant_with_mitigation",
-           !is.na(rationale_text)) %>%
+    filter(shared_resource_area %in% names(res_label), shared_resource_area != "unknown",
+           determination_class == "less_than_significant_with_mitigation", !is.na(rationale_text)) %>%
     mutate(example = str_squish(rationale_text), L = nchar(example)) %>%
-    filter(L >= 60, L <= 190) %>%
-    mutate(Resource = relab(shared_resource_area, res_label)) %>%
+    filter(L >= 40, L <= 240) %>%
     arrange(shared_resource_area, L) %>%
-    group_by(shared_resource_area) %>% slice_head(n = 3) %>% ungroup() %>%
+    group_by(shared_resource_area) %>% slice_head(n = 2) %>% ungroup() %>%
+    left_join(mitr %>% select(shared_resource_area, share), by = "shared_resource_area") %>%
+    mutate(share = coalesce(share, 0), Resource = relab(shared_resource_area, res_label)) %>%
+    arrange(desc(share), Resource, L) %>%
     select(Resource, example)
   w(ex, "mitigation_examples.csv")
 
