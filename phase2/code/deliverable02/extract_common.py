@@ -339,6 +339,19 @@ def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
                      else "resource_unknown" if resource_flagged
                      else "")
 
+    # RESOURCE-MATCHED mitigation: the window-level flag (r.mitigation_flag) attaches to THIS
+    # determination only when THIS resource is among the resources the matched D6 conditions
+    # actually cover (or this is a project-level conclusion). This stops a single-resource
+    # commitment from marking every resource in a multi-resource window as mitigation-dependent.
+    # A bare 'unknown' condition-resource does not broadcast to specific resources.
+    _mit_res = {t.strip().lower() for t in
+                str(r.mitigation_resource_areas or "").replace(";", ",").split(",") if t.strip()}
+    resource_mitigation_match = bool(r.mitigation_flag) and (
+        dscope == "project_overall" or resource in _mit_res)
+    # per-resource reporting field: the precise D6 resource-match OR the LLM's per-resource class
+    mitigation_dependent = (resource_mitigation_match
+                            or dclass == "less_than_significant_with_mitigation")
+
     det_id = C.sha256_join(r.project_id, r.document_id, r.source_substrate, r.source_unit_id,
                            resource, d2_resource, dclass, dscope, primary_t, primary_ts, "",
                            C.sha256_text(rationale))
@@ -360,14 +373,14 @@ def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
         "determination_class": dclass, "determination_polarity": dpol,
         "determination_scope": dscope, "alternative_name": "", "rationale_text": rationale,
         "primary_threshold_type": primary_t, "primary_threshold_status": primary_ts,
-        # mitigation_flag is a STRUCTURED D6 condition match at WINDOW grain (page-window join) —
-        # in a multi-resource window it is shared across the window's determinations (may
-        # over-attribute). determination_class carries the per-resource TEXT signal.
-        # mitigation_dependent = reconciled OR — USE THIS for reporting.
+        # mitigation_flag = raw WINDOW-level D6 match (any enforceable commitment in the window).
+        # It over-attributes across a multi-resource window, so use it ONLY for the DOCUMENT-level
+        # "mitigated FONSI" rate (OR across the document). For RESOURCE-level reporting use
+        # mitigation_dependent (per-resource: D6 resource-match OR the LLM's per-resource class).
         "mitigation_flag": bool(r.mitigation_flag),
-        "mitigation_dependent": bool(r.mitigation_flag)
-            or dclass == "less_than_significant_with_mitigation",
-        "mitigation_enforceability": ("permit_condition" if r.mitigation_flag else "none"),
+        "mitigation_resource_matched": resource_mitigation_match,
+        "mitigation_dependent": mitigation_dependent,
+        "mitigation_enforceability": ("permit_condition" if resource_mitigation_match else "none"),
         "matched_condition_row_count": int(r.matched_condition_row_count),
         "condition_role_set": r.condition_role_set, "obligation_level_set": r.obligation_level_set,
         "mitigation_resource_areas": r.mitigation_resource_areas,
