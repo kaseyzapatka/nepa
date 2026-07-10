@@ -242,11 +242,21 @@ batch / ~$54 Haiku batch** (22,452 windows, 64M in / 8.6M out tokens).
   structurally.
 - **Impact type** (direct / indirect / cumulative) — EIS distinguishes these; not captured today.
 
-### Visualizations to add for EIS (not made for FONSI)
+### Visualizations to add for the EIS report (not made for FONSI)
+Saved here for the EIS report build-out. The last two require the new EIS fields (now captured).
 - **FONSI-vs-EIS resource comparison** (the headline): per resource, share kept *below* the line
   (FONSI) vs *crossing* it (EIS) — a diverging bar. This is the payoff of running both tracks.
-- **Significant & unavoidable by resource** — which resources hit the wall even with mitigation.
-- **Significance escalation ladder** — per resource: NSI → LTS → committed-mitigation → significant
-  → significant-unavoidable.
-- **By alternative** (needs #2) — significance by alternative type (Proposed Action vs action
-  alternatives vs No Action).
+- **Significant & unavoidable by resource** — which resources hit the wall even with mitigation
+  (bar of the `significant_unavoidable` share per resource).
+- **Significance escalation ladder** — per resource, a 100% stacked bar across the full outcome
+  ladder: NSI → LTS → committed-mitigation → significant_adverse → significant_unavoidable.
+- **By alternative** (uses `alternative_name`) — significance mix by alternative type: Proposed
+  Action vs action alternatives vs No Action (grouped/stacked bar; shows how the No-Action
+  alternative flips outcomes).
+- **What drives significant findings** (uses `significance_factor`) — bar/treemap of the CEQ
+  intensity drivers (protected_resource, cumulative, magnitude, controversy, …) behind
+  significant/unavoidable determinations.
+- **Direct vs indirect vs cumulative** (uses `impact_type`) — share of significant findings by
+  impact type; cumulative impacts are a distinct EIS story worth isolating.
+- **Reuse from FONSI:** the validation dumbbell (EIS Gate 3), the corpus waffle (EIS resource mix),
+  and the agency/sub-agency comparisons all port directly with `--track eis` inputs.

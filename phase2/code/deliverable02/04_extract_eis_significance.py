@@ -103,6 +103,9 @@ def eis_gold_sample(n: int) -> pd.DataFrame:
     q["span_char_start"] = None
     q["span_char_end"] = None
     q["source_span_sha256"] = None
+    # drop queue columns that eis_context() also supplies, so the project_id merge doesn't collide
+    q = q.drop(columns=[c for c in ("agency_scope_status", "gold_queue_run_at", "schema_version")
+                        if c in q.columns])
     return q.reset_index(drop=True)
 
 
