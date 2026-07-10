@@ -62,6 +62,9 @@ SCHEMA_VERSION = "d2_v2_11"
 # dropping the resource conclusions past char 4,000). ~16k chars ≈ 4k tokens — trivial for
 # Sonnet 5 / Opus. The LLM returns one determination PER resource area in the window.
 WINDOW_CHAR_CAP = 16000
+# EIS-only: sections run longer (p95 ≈ 21.6k chars), so the EIS track reads to 24k to capture ~95%
+# of sections in full (vs 81% at 16k). FONSI is UNCHANGED at 16k (already run). ~+9% EIS input cost.
+WINDOW_CHAR_CAP_EIS = 24000
 
 # ---- cohort bin constants (plan A4, frozen) ----
 ARRA = "2009-02-17"

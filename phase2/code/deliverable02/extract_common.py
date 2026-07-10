@@ -57,7 +57,18 @@ def anthropic_key() -> str | None:
     return key
 
 
-def _prompt_for(window: str, resource_hint: str) -> str:
+def _prompt_for(window: str, resource_hint: str, track: str = "fonsi") -> str:
+    # EIS-only extra fields (FONSI prompt stays byte-identical when track != "eis")
+    eis_extra = ("" if track != "eis" else
+        "- alternative_name: the action alternative this conclusion applies to, VERBATIM as named in "
+        "the text (e.g. 'Proposed Action', 'Alternative 2', 'No Action Alternative', 'Preferred "
+        "Alternative'); '' if not tied to a specific alternative.\n"
+        "- significance_factor: the PRIMARY driver of the conclusion — one of magnitude | duration | "
+        "geographic_extent | cumulative | controversy | uncertainty | protected_resource | "
+        "regulatory_threshold | mitigable | none. protected_resource = listed species / historic "
+        "property / critical habitat; mitigable = reduced below significance by measures; none when "
+        "not stated.\n"
+        "- impact_type: direct | indirect | cumulative | unspecified.\n")
     return (
         "You are coding NEPA significance determinations from an EA/FONSI or EIS span. A single "
         "span often contains SEVERAL determinations — e.g. an Environmental Consequences chapter "
@@ -89,6 +100,7 @@ def _prompt_for(window: str, resource_hint: str) -> str:
         "threshold-anchored (a mere statute mention is not an anchor).\n"
         "- primary_threshold_status: exceeds | does_not_exceed | may_exceed | mitigated_below | "
         "not_evaluated | unknown.\n"
+        + eis_extra +
         "- rationale_text: 1-2 sentences grounded in the span, specific to THIS resource.\n"
         "Rules: (1) Emit ONE object per resource area the span concludes on — do not merge several "
         "resources into one object, and do NOT invent determinations for resources the span does "
@@ -102,17 +114,17 @@ def _prompt_for(window: str, resource_hint: str) -> str:
         "background description, methodology text, cross-reference, comment list), return "
         '{"determinations": [], "abstain": false}. Set abstain=true only if the span is unreadable.\n'
         f"Resource hint (from a keyword screen; may be wrong): {resource_hint}.\n\n"
-        f"SPAN:\n{window[:C.WINDOW_CHAR_CAP]}"
+        f"SPAN:\n{window}"   # candidate generators already slice to the per-track cap
     )
 
 
-def _message_params(model: str, window: str, resource_hint: str) -> dict:
+def _message_params(model: str, window: str, resource_hint: str, track: str = "fonsi") -> dict:
     """Request params for one adjudication. max_tokens is generous because a window can yield
     ~12 determinations. Sonnet 5 / Opus 4.8 reject non-default sampling params (temperature only
     on Haiku); Sonnet 5 runs adaptive thinking by default — disable it so the token budget goes
     to the JSON, not hidden reasoning (Haiku has no thinking param)."""
     p = {"model": model, "max_tokens": 3000,
-         "messages": [{"role": "user", "content": _prompt_for(window, resource_hint)}]}
+         "messages": [{"role": "user", "content": _prompt_for(window, resource_hint, track)}]}
     if "haiku" in model:
         p["temperature"] = 0
     else:
@@ -158,9 +170,9 @@ def _norm_vocab(val, allowed, default: str) -> str:
     return default
 
 
-def adjudicate_llm(client, model: str, window: str, resource_hint: str) -> dict:
+def adjudicate_llm(client, model: str, window: str, resource_hint: str, track: str = "fonsi") -> dict:
     """One synchronous call; returns the coerced {'determinations':[...],'abstain':bool,'_raw'}."""
-    resp = client.messages.create(**_message_params(model, window, resource_hint))
+    resp = client.messages.create(**_message_params(model, window, resource_hint, track))
     raw = next((b.text for b in resp.content if b.type == "text"), "")
     return _coerce_determinations(raw)
 
@@ -215,7 +227,7 @@ def submit_batch(cand: pd.DataFrame, model: str, track: str) -> list[str]:
         sub = cand.iloc[idxs]
         requests = [
             Request(custom_id=cid,
-                    params=MessageCreateParamsNonStreaming(**_message_params(model, text, hint)))
+                    params=MessageCreateParamsNonStreaming(**_message_params(model, text, hint, track)))
             for cid, text, hint in zip(sub["batch_custom_id"], sub["evidence_text"],
                                        sub["resource_area_guess"])
         ]
@@ -270,14 +282,20 @@ def _scope_guess(cue_group: str, resource: str) -> str:
 
 
 def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
-                  batch_missing, model_abstained, dry_run) -> tuple[dict, list]:
+                  batch_missing, model_abstained, dry_run, track="fonsi") -> tuple[dict, list]:
     """Assemble ONE determination row (+ its threshold child rows) from window `r` and a single
     determination dict `dd`. `dd is None` -> regex-guess row (dry-run / batch-missing); otherwise
     `dd` is one element of the LLM's per-resource-area list. A hash of `rationale_text` enters the
     id so two DISTINCT determinations sharing (resource,class,scope,threshold) in one window
     (differing only by rationale) don't collide — while a genuine byte-identical duplicate (same
-    rationale too) still collapses via the `seen` dedup."""
+    rationale too) still collapses via the `seen` dedup.
+    EIS-only (track='eis'): captures alternative_name / significance_factor / impact_type from `dd`
+    and folds alternative_name into the id (FONSI keeps alternative_name='' -> id unchanged)."""
     is_llm = dd is not None
+    # EIS-only extra fields (empty for FONSI/regex, so FONSI behaviour is byte-identical)
+    alt_name = (str(dd.get("alternative_name", "")).strip() if (is_llm and track == "eis") else "")
+    sig_factor = (str(dd.get("significance_factor", "")).strip() if (is_llm and track == "eis") else "")
+    impact_type = (str(dd.get("impact_type", "")).strip() if (is_llm and track == "eis") else "")
     if not is_llm:
         dclass = r.candidate_class_guess
         dscope = _scope_guess(r.matched_cue_group, r.resource_area_guess)
@@ -353,7 +371,7 @@ def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
                             or dclass == "less_than_significant_with_mitigation")
 
     det_id = C.sha256_join(r.project_id, r.document_id, r.source_substrate, r.source_unit_id,
-                           resource, d2_resource, dclass, dscope, primary_t, primary_ts, "",
+                           resource, d2_resource, dclass, dscope, primary_t, primary_ts, alt_name,
                            C.sha256_text(rationale))
     record = {
         "determination_instance_id": det_id,
@@ -371,7 +389,7 @@ def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
         "shared_resource_area": resource, "d2_resource_area": d2_resource,
         "resource_area_source": ("llm" if is_llm else "keyword"),
         "determination_class": dclass, "determination_polarity": dpol,
-        "determination_scope": dscope, "alternative_name": "", "rationale_text": rationale,
+        "determination_scope": dscope, "alternative_name": alt_name, "rationale_text": rationale,
         "primary_threshold_type": primary_t, "primary_threshold_status": primary_ts,
         # mitigation_flag = raw WINDOW-level D6 match (any enforceable commitment in the window).
         # It over-attributes across a multi-resource window, so use it ONLY for the DOCUMENT-level
@@ -397,6 +415,9 @@ def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
         "schema_version": C.SCHEMA_VERSION,
         "significance_extraction_run_at": run_at, "significance_llm_run_at": llm_at,
     }
+    if track == "eis":   # EIS-only columns — never added to the FONSI schema
+        record["significance_factor"] = sig_factor
+        record["impact_type"] = impact_type
     # child threshold rows — never on non-determinations (regex once fired on acronym lists)
     thr_rows = []
     if dclass not in ("not_a_determination", "ambiguous"):
@@ -416,7 +437,8 @@ def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
 
 def build_determinations(cand: pd.DataFrame, mit: pd.DataFrame, ctx: pd.DataFrame,
                          dry_run: bool, model: str,
-                         llm_results: dict | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+                         llm_results: dict | None = None,
+                         track: str = "fonsi") -> tuple[pd.DataFrame, pd.DataFrame]:
     """Assemble the determination table (grain: document × resource_area × determination) +
     threshold child. Each LLM call returns a LIST of determinations (one per resource area the
     window concludes on), so a window explodes into multiple rows.
@@ -451,7 +473,7 @@ def build_determinations(cand: pd.DataFrame, mit: pd.DataFrame, ctx: pd.DataFram
             input_hash = C.sha256_join(r.project_id, r.evidence_text_sha256,
                                        PROMPT_VERSION, C.SCHEMA_VERSION, model)
             res = (llm_results.get(getattr(r, "batch_custom_id", "")) if llm_results is not None
-                   else adjudicate_llm(client, model, r.evidence_text, r.resource_area_guess))
+                   else adjudicate_llm(client, model, r.evidence_text, r.resource_area_guess, track))
             if res is None:                                       # batch item errored/expired
                 batch_missing, prompt_v, unit_dets = True, PROMPT_VERSION, [None]
             else:
@@ -464,7 +486,7 @@ def build_determinations(cand: pd.DataFrame, mit: pd.DataFrame, ctx: pd.DataFram
             rec, trs = _assemble_row(
                 r, dd, run_at=run_at, model=model, prompt_v=prompt_v, input_hash=input_hash,
                 response_hash=response_hash, batch_missing=batch_missing,
-                model_abstained=model_abstained, dry_run=dry_run)
+                model_abstained=model_abstained, dry_run=dry_run, track=track)
             if rec["determination_instance_id"] in seen:
                 continue     # dedup identical (resource,class,scope,threshold) across the run
             seen.add(rec["determination_instance_id"])
