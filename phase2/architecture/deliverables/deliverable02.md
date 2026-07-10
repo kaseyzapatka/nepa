@@ -260,3 +260,59 @@ Saved here for the EIS report build-out. The last two require the new EIS fields
   impact type; cumulative impacts are a distinct EIS story worth isolating.
 - **Reuse from FONSI:** the validation dumbbell (EIS Gate 3), the corpus waffle (EIS resource mix),
   and the agency/sub-agency comparisons all port directly with `--track eis` inputs.
+
+---
+
+# EIS track — DELIVERED (full run + validation, 2026-07-10)
+
+The full EIS run and the report section are complete; the planning items above are resolved. All
+five EIS-only upgrades (alternative_name, significance_factor, impact_type, 24k window cap,
+within-project dedup) shipped and were proven FONSI-safe (the FONSI det_id/schema are invariant to
+the EIS-only fields; FONSI outputs were not re-run).
+
+### Full run
+`04_extract_eis_significance.py --sample 0 --batch-run --model claude-sonnet-5` (Message Batches,
+2 auto-chunks, 12,000 + 9,854 = 21,854 windows; **21,852 succeeded**). Cost **~$110–115** Sonnet 5
+batch. Outputs: `significance_determinations_eis.parquet` (**59,357 raw determinations**),
+`determination_thresholds_eis.parquet` (27,212), `significance_section_candidates_eis.parquet`
+(21,854). Full-corpus class mix — LTS 20,863 / NSI 11,587 / not-a-det 10,922 /
+committed-mitigation 8,183 / **significant_adverse 3,851 / significant_unavoidable 1,893** /
+ambiguous 2,030 / eis_required 28.
+
+### Primary-scope analytic results (BLM + DOE, document × resource × class)
+`06_analyze_significance.R` EIS block → `phase2/output/deliverable02/analysis/eis_*.csv`.
+**4,520 analytic determinations across 132 projects / 354 documents.** Class mix: LTS 1,544 /
+NSI 1,250 / committed-mitigation 907 / **significant_adverse 501 / significant_unavoidable 316** /
+eis_required 2. **819 above-the-line** determinations. Doc-level: 75.4% carry ≥1 committed-mitigation
+determination, 58.8% carry ≥1 significant determination.
+
+**Which resources cross the line (significant share):** visual **37.6%** (136) ≫ biological 23.4%
+(136) ≈ cultural 23.0% (119) ≈ air_quality 22.4% (83) > land_use 20.7% > noise 20.1% > water 15.7%
+… soils_geology 8.2%, public_health 4.9% lowest. **The wall (significant_unavoidable count):** visual
+57 > biological 47 > air_quality 37 > noise 32 > cultural 31. **Why significant:** magnitude 299,
+cumulative 267, protected_resource 251, regulatory_threshold 138. **Impact pathway:** direct 585 /
+cumulative 333 / unspecified 80 / indirect 41. **Alternative:** ~54% of above-line dets name one;
+Proposed Action dominates (401).
+
+**FONSI-vs-EIS structural finding:** resources split into *cross-over* (visual, land_use,
+air_quality — cross the line more than they're mitigated below it) vs *managed-below* (soils_geology,
+water, public_health — routinely mitigated in FONSIs, rarely cross). Biological/cultural do both.
+
+### EIS Gate 3 (validation vs finalized gold, held-out column)
+`05_validate_significance.py --track eis` (547 gold rows / 400 windows). Held-out F1: window
+detection **0.835** / resource detection **0.679** / class macro-F1 **0.686** / mitigation-dependent
+**0.704** / threshold accuracy **0.616**. Lower than FONSI across the board — the above-the-line
+distinction is genuinely finer (reviewers agreed 58% on class vs 68% FONSI). **Recall is the soft
+spot** (window recall 0.77 → EIS rates are a well-grounded *floor*, disclosed in the report).
+
+### Report figures (06 EIS block → `analysis/`)
+`fig_validation_accuracy_eis.png` (Gate-3 dumbbell), `fig_eis_above_line.png` (significant share by
+resource, adverse+unavoidable stacked), `fig_eis_unavoidable.png` (the wall), `fig_fonsi_vs_eis.png`
+(the two-track payoff dumbbell), `fig_eis_significance_drivers.png` (factors + impact pathway).
+Wired into `phase2/reports/deliverable02.qmd` → *EIS analysis* section, mirroring the FONSI section.
+
+### Residual
+54 gold rows flagged `needs_human_review` (Reviewer-3 best-guessed) still open — affects only the
+class-F1 metric, not the run; user to leave/drop/resolve. EIS mitigation is the LLM class signal
+only (no ROD-commitment linkage). Cached-candidate reuse for re-runs is todo #48 (candidate build
+is ~15 min).

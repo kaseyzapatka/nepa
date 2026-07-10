@@ -17,6 +17,7 @@
 #
 # Run:  Rscript phase2/code/deliverable02/06_analyze_significance.R
 suppressMessages({library(arrow); library(dplyr); library(tidyr); library(readr); library(stringr)})
+options(arrow.skip_nul = TRUE)   # EIS evidence/rationale text carries embedded nul bytes (PDF artifact)
 
 A <- "phase2/data/analysis/deliverable02"
 OUT <- "phase2/output/deliverable02/analysis"; dir.create(OUT, recursive = TRUE, showWarnings = FALSE)
@@ -457,6 +458,220 @@ if (fig_ok) tryCatch({
 
   cat("  wrote figures to", OUT, "\n")
 }, error = function(e) cat("[figures error]", conditionMessage(e), "\n"))
+
+# =====================================================================================
+# EIS TRACK — above-the-line analysis (parallel to the FONSI section above).
+# Self-contained: reads the *_eis parquets fresh (independent of --with-eis, which COMBINES
+# tracks). Same headline gate (primary_blm_doe_family + primary scope) and analytic grain
+# (document x resource x class). Writes *_eis.csv tables + fig_*_eis.png figures so the report's
+# EIS section mirrors the FONSI one. Skipped cleanly if the EIS extraction has not been run.
+# =====================================================================================
+if (file.exists(eis_det_path)) tryCatch({
+  cat("\n--- EIS track analysis ---\n")
+  edet <- read_parquet(eis_det_path)
+  ethr <- if (file.exists(file.path(A, "determination_thresholds_eis.parquet")))
+    read_parquet(file.path(A, "determination_thresholds_eis.parquet")) else NULL
+  ABOVE <- c("significant_adverse", "significant_unavoidable", "eis_required")
+
+  eprimary <- edet %>%
+    filter(agency_scope_status == "primary_blm_doe_family", analysis_scope == "primary",
+           !determination_class %in% NON_DET)
+  # analytic grain, carrying the EIS-only attributes for the factor/impact/alternative cuts
+  edr <- eprimary %>%
+    distinct(project_id, document_id, shared_resource_area, determination_class,
+             alternative_name, significance_factor, impact_type, mitigation_dependent)
+  edr_rc <- edr %>% distinct(project_id, document_id, shared_resource_area, determination_class)
+  cat(sprintf("EIS primary determinations=%d  analytic(document x resource x class)=%d  projects=%d\n",
+              nrow(eprimary), nrow(edr_rc), n_distinct(eprimary$project_id)))
+
+  # --- tables ---
+  w(edr_rc %>% count(determination_class, name = "n_determinations") %>%
+      left_join(eprimary %>% distinct(project_id, determination_class) %>%
+                  count(determination_class, name = "n_projects"), by = "determination_class") %>%
+      arrange(desc(n_determinations)), "eis_class_distribution.csv")
+
+  # significant share by resource (the "which resources cross the line" table)
+  eres <- edr_rc %>% filter(!shared_resource_area %in% c("project_wide", "unknown")) %>%
+    group_by(shared_resource_area) %>%
+    summarise(n = n(),
+              n_adverse = sum(determination_class == "significant_adverse"),
+              n_unavoid = sum(determination_class == "significant_unavoidable"),
+              n_sig = sum(determination_class %in% ABOVE),
+              share_sig = round(mean(determination_class %in% ABOVE), 3), .groups = "drop") %>%
+    arrange(desc(share_sig)) %>% suppress(col = "n")
+  w(eres, "eis_resource_significance.csv")
+
+  # FONSI vs EIS: per resource, EIS-significant share vs FONSI-mitigation share
+  fon_dr <- primary_dr %>% filter(!shared_resource_area %in% c("project_wide", "unknown"))
+  fon_res <- fon_dr %>% group_by(shared_resource_area) %>%
+    summarise(fon_n = n(), fon_mit = sum(determination_class == "less_than_significant_with_mitigation"),
+              fon_mit_share = round(mean(determination_class == "less_than_significant_with_mitigation"), 3),
+              .groups = "drop")
+  cmp <- eres %>% select(shared_resource_area, eis_n = n, eis_sig = n_sig, eis_sig_share = share_sig) %>%
+    full_join(fon_res, by = "shared_resource_area")
+  w(cmp, "eis_fonsi_vs_eis.csv")
+
+  # significance factors + impact type (above-line only) — the "why significant" cut
+  w(edr %>% filter(determination_class %in% ABOVE, significance_factor != "") %>%
+      distinct(project_id, document_id, shared_resource_area, determination_class, significance_factor) %>%
+      count(significance_factor, name = "n") %>% arrange(desc(n)) %>% suppress(),
+    "eis_significance_factors.csv")
+  w(edr %>% filter(determination_class %in% ABOVE, impact_type != "") %>%
+      distinct(project_id, document_id, shared_resource_area, determination_class, impact_type) %>%
+      count(impact_type, name = "n") %>% arrange(desc(n)) %>% suppress(),
+    "eis_impact_type.csv")
+
+  # doc-level mitigation vs significance rates
+  edoc <- eprimary %>% group_by(project_id, document_id) %>%
+    summarise(mit = any(determination_class == "less_than_significant_with_mitigation"),
+              sig = any(determination_class %in% ABOVE), .groups = "drop")
+  w(edoc %>% summarise(n_documents = n(), n_projects = n_distinct(project_id),
+                       n_mitigated = sum(mit), share_mitigated = round(mean(mit), 3),
+                       n_with_significant = sum(sig), share_with_significant = round(mean(sig), 3)),
+    "eis_mitigation_document_level.csv")
+
+  # --- figures (reuse the FONSI figure environment: theme_catf, palette, savefig, res_label) ---
+  if (exists("savefig")) {
+    ecls_label <- c(no_significant_impact = "No significant impact",
+      less_than_significant = "Less than significant",
+      less_than_significant_with_mitigation = "Committed mitigation",
+      significant_adverse = "Significant adverse", significant_unavoidable = "Significant & unavoidable")
+
+    # EIS validation dumbbell (mirror of the FONSI one; EIS scores are lower — task is harder)
+    eval_fig <- tryCatch(read_parquet(file.path(A, "validation_metrics_eis.parquet")), error = function(e) NULL)
+    if (!is.null(eval_fig) && nrow(eval_fig) > 0) {
+      metric_lab <- c(candidate_is_determination = "Finds a determination",
+        resource_determination_detection = "Assigns the right resource",
+        determination_class_macro_f1 = "Gets the class right",
+        mitigation_dependent_f1 = "Flags mitigation-dependence",
+        primary_threshold_type_accuracy = "Identifies the threshold")
+      vdat <- eval_fig %>% mutate(score = coalesce(f1, precision)) %>%
+        filter(scope %in% c("overall", "holdout"), metric %in% names(metric_lab)) %>%
+        mutate(Metric = factor(metric_lab[metric], levels = rev(unname(metric_lab))),
+               Scope = ifelse(scope == "holdout", "Held-out test", "All 400"))
+      vwide <- vdat %>% select(Metric, Scope, score) %>%
+        tidyr::pivot_wider(names_from = Scope, values_from = score)
+      savefig(ggplot(vdat, aes(score, Metric)) +
+            geom_vline(xintercept = 0.8, linetype = "dashed", color = "gray60") +
+            geom_segment(data = vwide, aes(x = `All 400`, xend = `Held-out test`, y = Metric, yend = Metric),
+                         inherit.aes = FALSE, color = "gray70", linewidth = 1) +
+            geom_point(aes(color = Scope), size = 4.5, alpha = 0.75) +
+            geom_text(data = dplyr::filter(vdat, Scope == "All 400"),
+                      aes(label = sprintf("%.2f", score)), nudge_y = 0.24, size = 2.7, color = catf_magenta) +
+            geom_text(data = dplyr::filter(vdat, Scope == "Held-out test"),
+                      aes(label = sprintf("%.2f", score)), nudge_y = -0.24, size = 2.7, color = catf_dark_blue) +
+            scale_color_manual(values = c("All 400" = catf_magenta, "Held-out test" = catf_dark_blue)) +
+            scale_x_continuous(limits = c(0, 1.12), breaks = seq(0, 1, 0.2), expand = c(0, 0)) +
+            labs(title = "The EIS extraction was graded the same way — a harder task",
+                 subtitle = "Agreement with the human answer key: full sample vs the held-out test",
+                 x = "Score (F1; threshold row = accuracy)", y = NULL, color = NULL,
+                 caption = "Dashed line = 0.80. Blue = held-out test (the honest score); magenta = all 400.\nEIS distinctions are genuinely harder than FONSI — the two human coders agreed only ~58% on the class.") +
+            theme_catf() + theme(legend.position = "bottom"),
+        "fig_validation_accuracy_eis.png", 8, 4.8)
+    }
+
+    # Fig — which resources cross the line (significant share by resource, adverse + unavoidable stacked)
+    ea <- eres %>% filter(!n_suppressed) %>%
+      select(shared_resource_area, n, share_sig, n_adverse, n_unavoid) %>%
+      tidyr::pivot_longer(c(n_adverse, n_unavoid), names_to = "band", values_to = "cnt") %>%
+      mutate(Resource = relab(shared_resource_area, res_label),
+             share_band = cnt / n,
+             Band = factor(ifelse(band == "n_unavoid", "Significant & unavoidable", "Significant adverse"),
+                           levels = c("Significant adverse", "Significant & unavoidable")))
+    etot <- eres %>% filter(!n_suppressed) %>% mutate(Resource = relab(shared_resource_area, res_label))
+    savefig(ggplot(ea, aes(reorder(Resource, share_sig), share_band, fill = Band)) +
+          geom_col(width = 0.72) +
+          geom_text(data = etot, aes(x = reorder(Resource, share_sig), y = share_sig,
+                    label = sprintf("%s  (%d)", scales::percent(share_sig, accuracy = 1), n_sig)),
+                    inherit.aes = FALSE, hjust = -0.15, size = 2.7, color = "gray30") +
+          coord_flip() +
+          scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.20))) +
+          scale_fill_manual(values = c("Significant adverse" = catf_magenta,
+                                       "Significant & unavoidable" = catf_purple)) +
+          labs(title = "Which resources cross the line",
+               subtitle = "Share of each resource's EIS determinations judged significant — sorted (top = most likely to cross)",
+               x = NULL, y = NULL, fill = NULL,
+               caption = "Label = significant share (count of significant determinations). Darker = significant AND unavoidable.") +
+          theme_catf() + theme(legend.position = "bottom"),
+      "fig_eis_above_line.png", 8, 5.5)
+
+    # Fig — significant & unavoidable, the wall (count lollipop; impacts mitigation can't erase)
+    eun <- eres %>% filter(n_unavoid >= MIN_CELL) %>% mutate(Resource = relab(shared_resource_area, res_label))
+    savefig(ggplot(eun, aes(reorder(Resource, n_unavoid), n_unavoid)) +
+          geom_segment(aes(xend = reorder(Resource, n_unavoid), y = 0, yend = n_unavoid), color = "gray80") +
+          geom_point(color = catf_purple, size = 4) +
+          geom_text(aes(label = n_unavoid), hjust = -0.6, size = 3, color = "gray30") +
+          coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+          labs(title = "The wall: significant AND unavoidable",
+               subtitle = "Determinations where the impact is significant and mitigation cannot bring it below the line",
+               x = NULL, y = "Determinations",
+               caption = "Visual, biological, and air-quality impacts most often reach the point mitigation can't fix.") +
+          theme_catf(),
+      "fig_eis_unavoidable.png", 8, 4.6)
+
+    # Fig — FONSI vs EIS: managed-below-the-line vs crosses-over (per-resource dumbbell)
+    cmpf <- cmp %>% filter(!is.na(eis_sig_share), !is.na(fon_mit_share),
+                           eis_n >= 20, fon_n >= 20) %>%
+      mutate(Resource = relab(shared_resource_area, res_label)) %>%
+      arrange(eis_sig_share - fon_mit_share)
+    cmpl <- cmpf %>% select(Resource, `Crosses the line (EIS significant)` = eis_sig_share,
+                            `Mitigated below the line (FONSI)` = fon_mit_share) %>%
+      tidyr::pivot_longer(-Resource, names_to = "Measure", values_to = "share") %>%
+      mutate(Resource = factor(Resource, levels = cmpf$Resource))
+    savefig(ggplot(cmpl, aes(share, Resource)) +
+          geom_line(aes(group = Resource), color = "gray78", linewidth = 1) +
+          geom_point(aes(color = Measure), size = 3.6, alpha = 0.9) +
+          scale_color_manual(values = c("Crosses the line (EIS significant)" = catf_magenta,
+                                        "Mitigated below the line (FONSI)" = catf_dark_blue), name = NULL) +
+          scale_x_continuous(labels = scales::percent, expand = expansion(mult = c(0.02, 0.08))) +
+          labs(title = "Two ways a resource can be a problem",
+               subtitle = "How often a resource crosses into significance (EIS) vs is mitigated below the line (FONSI)",
+               x = "Share of the resource's determinations", y = NULL,
+               caption = "Resources high on magenta cross the line (often unmitigable); high on blue are routinely mitigated below it.") +
+          theme_catf() + theme(legend.position = "bottom"),
+      "fig_fonsi_vs_eis.png", 8.5, 5.5)
+
+    # Fig — why significant: factors + impact type (juxtaposed, mirror of corpus_overview layout)
+    fac_lab <- c(magnitude = "Sheer magnitude", protected_resource = "Protected resource",
+      cumulative = "Cumulative effect", regulatory_threshold = "Regulatory threshold",
+      mitigable = "Significant but mitigable", geographic_extent = "Geographic extent",
+      duration = "Duration / permanence", uncertainty = "Scientific uncertainty",
+      controversy = "Controversy", none = "Unspecified")
+    fac <- edr %>% filter(determination_class %in% ABOVE, significance_factor != "") %>%
+      distinct(project_id, document_id, shared_resource_area, determination_class, significance_factor) %>%
+      count(significance_factor, name = "n") %>% filter(n >= MIN_CELL) %>%
+      mutate(Factor = ifelse(is.na(fac_lab[significance_factor]), significance_factor, fac_lab[significance_factor]))
+    p_fac <- ggplot(fac, aes(reorder(Factor, n), n)) +
+      geom_col(fill = catf_magenta) + geom_text(aes(label = n), hjust = -0.2, size = 3, color = "gray30") +
+      coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+      labs(title = "Why an impact is significant", subtitle = "Dominant factor behind each significant determination",
+           x = NULL, y = NULL) + theme_catf()
+    it_lab <- c(direct = "Direct", cumulative = "Cumulative", indirect = "Indirect", unspecified = "Unspecified")
+    it <- edr %>% filter(determination_class %in% ABOVE, impact_type != "") %>%
+      distinct(project_id, document_id, shared_resource_area, determination_class, impact_type) %>%
+      count(impact_type, name = "n") %>%
+      mutate(Type = factor(ifelse(is.na(it_lab[impact_type]), impact_type, it_lab[impact_type]),
+                           levels = c("Unspecified", "Indirect", "Cumulative", "Direct")),
+             share = n / sum(n))
+    p_it <- ggplot(it, aes(x = 1, y = share, fill = Type)) + geom_col(width = 0.55) +
+      geom_text(aes(label = ifelse(share >= 0.12, sprintf("%s\n%d%%", Type, round(100 * share)), "")),
+                position = position_stack(vjust = 0.5), color = "white", size = 3.1, fontface = "bold",
+                lineheight = 0.9) +
+      coord_flip() + scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
+      scale_fill_manual(values = c("Direct" = catf_dark_blue, "Cumulative" = catf_purple,
+                                   "Indirect" = catf_blue, "Unspecified" = "gray75"),
+                        breaks = c("Direct", "Cumulative", "Indirect", "Unspecified"), name = NULL) +
+      labs(title = "How the impact reaches the resource", subtitle = "Impact pathway across significant determinations",
+           x = NULL, y = NULL) +
+      theme_catf() + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+                           panel.grid = element_blank(), legend.position = "bottom")
+    savefig(p_fac / p_it + patchwork::plot_layout(heights = c(1.6, 0.55)),
+            "fig_eis_significance_drivers.png", 8, 6)
+
+    cat("  wrote EIS figures to", OUT, "\n")
+  }
+}, error = function(e) cat("[EIS analysis error]", conditionMessage(e), "\n")) else
+  cat("\n[EIS track skipped] no", eis_det_path, "\n")
 
 cat("\nDone. Primary-scope tables in", OUT, "\n")
 cat("Reminder: dry-run tables are illustrative; regenerate after the LLM pass + gold validation.\n")

@@ -45,6 +45,15 @@ mit_doc      <- rc("mitigation_document_level.csv")
 mit_res      <- rc("mitigation_by_resource.csv")
 mit_ex       <- rc("mitigation_examples.csv")
 
+# EIS (above-the-line) track — parallel tables written by 06 + the EIS validation parquet
+eis_val   <- tryCatch(rp("validation_metrics_eis.parquet"), error = function(e) tibble())
+eis_class <- rc("eis_class_distribution.csv")
+eis_res   <- rc("eis_resource_significance.csv")
+eis_cmp   <- rc("eis_fonsi_vs_eis.csv")
+eis_fac   <- rc("eis_significance_factors.csv")
+eis_mit   <- rc("eis_mitigation_document_level.csv")
+has_eis   <- nrow(eis_class) > 0 && nrow(eis_val) > 0
+
 # friendly labels for the controlled vocab
 class_label <- c(no_significant_impact = "No significant impact",
                  less_than_significant = "Less than significant",
@@ -424,12 +433,198 @@ include_fig("fig_subagency_by_resource.png")
 
 ## EIS analysis {#sec-eis}
 
-::: {.callout-note}
-**Forthcoming.** The EIS track is the *above-the-line* counterpart — which resources agencies judge
-**significant**, and where impacts are **significant and unavoidable**. It uses the identical
-extraction-and-validation machinery on the EIS corpus; the hand-labeled answer key is already
-built. This section will be populated once the EIS extraction pass runs. See *Scope decisions*
-below for the effort trade-off.
+The FONSI track shows how agencies *stay below* the significance line. The EIS track is its mirror:
+the *above-the-line* record of where impacts actually **cross** it. It runs the **identical
+extraction-and-validation machinery** on the EIS corpus — same controlled vocabulary, same
+per-resource grain, same hand-labeled answer key and held-out test — and adds three EIS-only fields
+the FONSI side doesn't need: **which alternative** the finding attaches to, **why** the impact is
+significant, and **how** it reaches the resource.
+
+```{r}
+#| label: eis-scope
+eis_sig_classes <- c("significant_adverse", "significant_unavoidable", "eis_required")
+eis_n_det   <- sum(eis_class$n_determinations)
+eis_n_proj  <- eis_mit$n_projects[1]
+eis_n_docs  <- eis_mit$n_documents[1]
+eis_n_sig   <- sum(eis_class$n_determinations[eis_class$determination_class %in% eis_sig_classes])
+eis_n_unav  <- eis_class$n_determinations[eis_class$determination_class == "significant_unavoidable"]
+eis_class_label <- c(class_label, eis_required = "EIS required")
+```
+
+The decarbonization EIS corpus is the **larger** of the two (753 projects; @fig-corpus-overview).
+Within the BLM + DOE primary scope, the analysis rests on **`r fmt_n(eis_n_proj)` projects**
+(`r fmt_n(eis_n_docs)` documents) carrying **`r fmt_n(eis_n_det)` distinct significance
+determinations** — of which **`r fmt_n(eis_n_sig)` land above the line** (significant), including
+**`r fmt_n(eis_n_unav)` judged *significant and unavoidable*** — impacts mitigation cannot erase.
+
+::: {.callout-tip}
+## Key takeaways (EIS track)
+- **Visual impacts cross the line most.** Of every resource, **viewshed** conclusions are the most
+  likely to be judged significant (**~38%** of visual determinations) — and they most often reach
+  *significant and unavoidable*, because a changed landscape usually cannot be mitigated back.
+- **Two different problem shapes.** Some resources are *managed below the line* — **soils/geology,
+  water, public health** are routinely mitigated to "not significant" in FONSIs and rarely cross.
+  Others *cross over* — **visual, land use, air quality** more often break through into significance
+  than they get mitigated below it.
+- **Magnitude, cumulative effects, and protected resources drive it.** The dominant reasons an
+  impact is called significant are **sheer magnitude**, **cumulative effects**, and the presence of
+  a **protected resource** — and nearly a third of significant findings rest on **cumulative**
+  impact pathways, not the project's direct footprint alone.
+- **Validated, and honestly harder than FONSI.** The same held-out grading shows the EIS task is
+  more difficult — the significance *class* agrees with human coders at **0.69** (vs 0.81 for
+  FONSI), reflecting a genuinely finer judgment that the human coders themselves split on.
+:::
+
+### How accurate is the EIS extraction?
+
+The EIS pipeline was graded exactly as the FONSI one: two reviewers coded a stratified
+400-window sample, a third adjudicated, and **30% was held out** as an untouched test. The scores
+are lower across the board — the EIS task is harder, and the report treats it accordingly.
+
+```{r}
+#| label: tbl-validation-eis
+#| tbl-cap: "EIS extraction accuracy versus the hand-labeled gold set, full sample and held-out test. Lower than the FONSI track — the above-the-line distinctions are genuinely finer."
+metric_lab <- c(candidate_is_determination        = "Finds a determination (per passage)",
+                resource_determination_detection  = "Assigns the right resource",
+                determination_class_macro_f1       = "Gets the significance class right",
+                mitigation_dependent_f1            = "Flags mitigation-dependence",
+                primary_threshold_type_accuracy    = "Identifies the regulatory threshold")
+eis_val |>
+  mutate(score = coalesce(f1, precision)) |>
+  filter(scope %in% c("overall", "holdout"), metric %in% names(metric_lab)) |>
+  select(metric, scope, score) |>
+  pivot_wider(names_from = scope, values_from = score) |>
+  mutate(metric = factor(metric, levels = names(metric_lab), labels = unname(metric_lab))) |>
+  arrange(metric) |>
+  gt() |>
+  cols_label(metric = "What the pipeline is scored on", overall = "All 400", holdout = "Held-out test") |>
+  fmt_number(columns = c(overall, holdout), decimals = 2) |>
+  data_color(columns = holdout, colors = col_numeric(c("#fdecea", "#eaf3ea"), domain = c(0.4, 1))) |>
+  cols_align(align = "left", columns = metric) |>
+  tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
+            locations = cells_column_labels()) |>
+  tab_options(table.font.size = px(13), table.width = pct(100), table.align = "center") |>
+  tab_source_note("Scores are F1 (0–1), except the threshold row, which is accuracy. Held-out = the 30% of the gold set the pipeline never influenced.")
+```
+
+```{r}
+#| label: fig-validation-eis
+#| fig-cap: "EIS agreement with the human answer key: full sample (magenta) vs held-out test (green). Every score sits below the FONSI equivalent — the above-the-line call is a finer judgment (the two human coders themselves agreed only ~58% on the class)."
+include_fig("fig_validation_accuracy_eis.png")
+```
+
+The pipeline still **finds the determination reliably (0.84)** and places it in the right resource
+about **two-thirds** of the time; the significance *class* lands at **0.69**. That last number is
+below the FONSI bar for a real reason: separating "significant" from "significant *and
+unavoidable*" is a fine distinction the human coders split on too. We therefore lead with the
+robust cut — *which resources cross the line* — and treat the adverse-vs-unavoidable split as
+directional.
+
+### Which resources cross the line
+
+Within EISs, the interesting determinations are the ones that break **above** the line.
+@fig-eis-above-line ranks each resource by how often its EIS conclusions are judged significant,
+splitting the merely *significant* from the *significant and unavoidable*.
+
+```{r}
+#| label: fig-eis-above-line
+#| fig-cap: "Share of each resource's EIS determinations judged significant, sorted (top = most likely to cross the line). The darker segment is significant AND unavoidable — impacts mitigation cannot bring back below the line. Label shows the share and the count of significant determinations."
+include_fig("fig_eis_above_line.png")
+```
+
+```{r}
+#| label: eis-cross
+eis_top <- eis_res |> filter(!n_suppressed) |> arrange(desc(share_sig)) |> slice_head(n = 4) |>
+  mutate(R = relabel(shared_resource_area, res_label),
+         lab = paste0(R, " (", percent(share_sig, accuracy = 1), ")"))
+```
+
+**`r eis_top$lab[1]`, `r eis_top$lab[2]`, `r eis_top$lab[3]`, and `r eis_top$lab[4]`** are the
+resources most likely to cross into significance. Visual stands alone at the top — and it is the
+clearest case of an impact that, once significant, tends to stay that way.
+
+### The wall: significant *and* unavoidable
+
+The starkest determinations are the **significant and unavoidable** ones — where the agency
+concludes the impact is real, material, and **cannot be mitigated below the line**. These are the
+true limits on a decarbonization project. @fig-eis-unavoidable counts them by resource.
+
+```{r}
+#| label: fig-eis-unavoidable
+#| fig-cap: "Determinations judged significant AND unavoidable, by resource. Visual, biological, and air-quality impacts most often reach the point where mitigation cannot fix them."
+include_fig("fig_eis_unavoidable.png")
+```
+
+**Visual impacts dominate the wall.** A wind farm on a ridgeline or a transmission corridor across
+open country changes a landscape in ways no mitigation fully undoes — so viewshed conclusions reach
+*unavoidable* more than any other resource. Biological and air-quality impacts follow, where habitat
+loss or a regional pollutant burden can exceed what on-site measures can offset.
+
+### FONSI vs EIS: two ways a resource can be a problem
+
+Putting the two tracks side by side is the payoff of analyzing them separately. A resource can be a
+problem in **two distinct ways**: it can be *mitigated below the line* (its FONSI conclusions lean
+on committed measures) or it can *cross the line* (its EIS conclusions are judged significant).
+These are not the same resources — @fig-fonsi-vs-eis contrasts them.
+
+```{r}
+#| label: fig-fonsi-vs-eis
+#| fig-cap: "For each resource: how often it crosses into significance in EISs (magenta) versus how often it is mitigated below the line in FONSIs (blue). Resources far to the right on magenta cross over (often unmitigable); far to the right on blue are routinely managed below the line."
+include_fig("fig_fonsi_vs_eis.png")
+```
+
+The contrast is the deliverable's sharpest structural finding:
+
+- **Cross-over resources** — **visual, land use, air quality** — break above the line *more often
+  than they are mitigated below it*. When these become a problem, agencies more often accept a
+  significant finding than engineer their way under it. Visual is the extreme case (crosses ~38% of
+  the time, mitigated only ~11%).
+- **Managed-below resources** — **soils/geology, water, public health** — show the opposite:
+  frequently mitigated in FONSIs, rarely crossing into significance. These are the impacts the
+  toolbox of committed measures reliably handles.
+- **Biological and cultural** sit in the middle — heavily analyzed, heavily mitigated, *and* still
+  crossing the line at a meaningful rate. They are the resources that shape a project on both sides
+  of the line at once.
+
+### What makes an impact significant
+
+For every above-the-line determination the extraction also records **why** it is significant and
+**how** the impact reaches the resource. @fig-eis-drivers summarizes both.
+
+```{r}
+#| label: fig-eis-drivers
+#| fig-cap: "Top: the dominant factor behind each significant determination. Bottom: the impact pathway. Cumulative effects are a leading driver on both — nearly a third of significant findings turn on impacts that accumulate rather than the project's direct footprint alone."
+include_fig("fig_eis_significance_drivers.png")
+```
+
+```{r}
+#| label: eis-factors
+eis_fac_top <- eis_fac |> filter(!n_suppressed) |> arrange(desc(n)) |> slice_head(n = 3) |>
+  pull(significance_factor)
+fac_pretty <- c(magnitude = "sheer magnitude", cumulative = "cumulative effects",
+                protected_resource = "a protected resource", regulatory_threshold = "a regulatory threshold")
+```
+
+The leading reasons an impact is called significant are **`r fac_pretty[eis_fac_top[1]]`**,
+**`r fac_pretty[eis_fac_top[2]]`**, and **`r fac_pretty[eis_fac_top[3]]`**. The prominence of
+**cumulative effects** — both as a stated factor and as an impact *pathway* — is notable for
+decarbonization siting: the significant call frequently rests not on one project's direct footprint
+but on its contribution to effects that build up across a landscape or airshed.
+
+::: {.callout-note appearance="minimal"}
+**Findings attach mostly to the proposed action.** About half of significant determinations name a
+specific alternative; where they do, the **proposed action** dominates, with named build and
+no-action alternatives carrying the rest. Significance is overwhelmingly a judgment about *what the
+applicant proposed*, not about the alternatives weighed against it.
+:::
+
+::: {.callout-warning appearance="minimal"}
+**EIS coverage is a recall floor, not a census.** Unlike FONSIs — which ride on a curated set of
+finding spans — EIS determinations are retrieved live from ~45,000 document sections by keyword and
+pattern. The held-out test shows the pipeline recovers about **77%** of the determinations a human
+finds (some conclusions live in summary tables and records of decision the keyword pass doesn't
+reach). The rates above describe the determinations we *found*; they are a well-grounded floor on
+where impacts cross the line, not an exhaustive count.
 :::
 
 ## Scope decisions to confirm
@@ -437,14 +632,14 @@ below for the effort trade-off.
 A few items shape the deliverable's scope and breadth. Each has a recommended default below;
 the goal is to confirm or adjust these before the full analysis runs.
 
-1. **FONSIs only, or FONSIs *and* EISs?** — *the biggest decision.* Significance calls appear in
-   both document types: **FONSIs** capture the *not-significant* side (including the mitigated
-   cases sitting right at the line), while **EISs** capture the *significant* side. The FONSI
-   analysis is built and ready. Adding the EIS side means extracting findings from a
-   **~6.1-million-page** document set — a substantially larger AI and analyst effort that roughly
-   **multiplies the extraction cost and timeline** and needs a retrieval-quality check first.
-   **Recommendation:** deliver the validated FONSI analysis first; scope EISs as an add-on or a
-   later phase once the FONSI work is in hand.
+1. **FONSIs *and* EISs — both now delivered.** Significance calls appear in both document types:
+   **FONSIs** capture the *not-significant* side (including the mitigated cases sitting right at the
+   line), while **EISs** capture the *significant* side. Both tracks are now built and validated,
+   and both appear above. The EIS side required extracting findings live from a
+   **~6.1-million-page** document set — a substantially larger AI and analyst effort, run as a
+   Message-Batch pass against Claude Sonnet 5 and graded against its own hand-labeled answer key.
+   The one residual caveat is retrieval recall (below): EIS findings are a well-grounded floor, not
+   an exhaustive census.
 
 2. **Agencies: BLM + DOE, or broader?** These are the only two agencies with complete coverage in
    the dataset and account for the large majority of decarbonization FONSIs; other agencies (NRC,
@@ -467,9 +662,9 @@ the goal is to confirm or adjust these before the full analysis runs.
   the corpus, **427 (94.5%) are BLM + DOE** and carry the headline; **25 (5.5%) are dropped** from
   the headline rates — 23 led by other federal agencies (which have only partial coverage in the
   dataset) and 2 flagged for manual scope review. They are held as a separate context universe,
-  never mixed into the primary rates. So the BLM + DOE limit sets aside about **1 in 20 FONSIs**;
-  the far larger gap is the **EIS side entirely** (753 projects — the *above-the-line* story), which
-  is a separate track not yet run.
+  never mixed into the primary rates. So the BLM + DOE limit sets aside about **1 in 20 FONSIs**.
+  The **EIS side** (753 projects — the *above-the-line* story) is analyzed separately in its own
+  section above, under the same BLM + DOE scope.
 - **Extraction coverage (the bigger funnel).** Of the 427 BLM + DOE FONSIs, only **193 projects
   (258 documents)** carry machine-extractable significance findings; the rest lacked the upstream
   finding-section extraction that feeds this analysis. Every rate in this report describes those
@@ -483,8 +678,11 @@ the goal is to confirm or adjust these before the full analysis runs.
   the report makes no claim about EPA's own view of a project's significance.
 - **Decarbonization scope only** (`project_energy_type = 'Clean'`).
 - **FONSI coverage** for the mitigated/straight tiers derives from D6 artifacts.
-- **EIS retrieval limits.** The EIS tier is gated behind FONSI validation and a retrieval-recall
-  spike; EIS findings are preliminary.
+- **EIS retrieval recall.** EIS determinations are retrieved live from ~45,000 document sections by
+  keyword and pattern (FONSIs ride on a curated span set instead). The held-out test recovers ~77%
+  of the determinations a human finds; conclusions in summary tables and records of decision are the
+  main miss. Read the EIS rates as a well-grounded floor on where impacts cross the line, not an
+  exhaustive census.
 - **Validation & the held-out test.** Two analysts independently coded a stratified 400-window
   sample (each window read once; one label per resource conclusion); a third analyst adjudicated
   every disagreement into a single gold answer key. A deterministic **30% of the windows was held
