@@ -279,24 +279,36 @@ batch. Outputs: `significance_determinations_eis.parquet` (**59,357 raw determin
 committed-mitigation 8,183 / **significant_adverse 3,851 / significant_unavoidable 1,893** /
 ambiguous 2,030 / eis_required 28.
 
-### Primary-scope analytic results (BLM + DOE, document × resource × class)
+### Analytic results — ALL AGENCIES (2026-07-10 scope change; document × resource × class)
+**Scope change:** the EIS analysis now covers **all agencies**, not just BLM + DOE (user, 2026-07-10:
+BLM+DOE was only 132 of 753 projects — too truncated). The EIS section is purely descriptive and
+never uses the decision date, so undated + pre-ARRA projects are kept. FONSI stays BLM+DOE. The gate
+in `06`'s EIS block dropped `agency_scope_status` + `analysis_scope` filters (`eprimary <- edet %>%
+filter(!class %in% NON_DET)`); a BLM+DOE subset (`eis_bd`) is retained ONLY for the like-for-like
+FONSI-vs-EIS comparison figure.
+
 `06_analyze_significance.R` EIS block → `phase2/output/deliverable02/analysis/eis_*.csv`.
-**4,520 analytic determinations across 132 projects / 354 documents.** Class mix: LTS 1,544 /
-NSI 1,250 / committed-mitigation 907 / **significant_adverse 501 / significant_unavoidable 316** /
-eis_required 2. **819 above-the-line** determinations. Doc-level: 75.4% carry ≥1 committed-mitigation
-determination, 58.8% carry ≥1 significant determination.
+**13,240 analytic determinations across 506 projects / 1,082 documents.** Class mix: LTS 4,887 /
+NSI 3,749 / committed-mitigation 2,406 / **significant_adverse 1,478 / significant_unavoidable 698** /
+eis_required 22. **2,198 above-the-line** determinations. Doc-level: 72.3% carry ≥1 committed-
+mitigation determination, 60.2% carry ≥1 significant determination.
 
-**Which resources cross the line (significant share):** visual **37.6%** (136) ≫ biological 23.4%
-(136) ≈ cultural 23.0% (119) ≈ air_quality 22.4% (83) > land_use 20.7% > noise 20.1% > water 15.7%
-… soils_geology 8.2%, public_health 4.9% lowest. **The wall (significant_unavoidable count):** visual
-57 > biological 47 > air_quality 37 > noise 32 > cultural 31. **Why significant:** magnitude 299,
-cumulative 267, protected_resource 251, regulatory_threshold 138. **Impact pathway:** direct 585 /
-cumulative 333 / unspecified 80 / indirect 41. **Alternative:** ~54% of above-line dets name one;
-Proposed Action dominates (401).
+**Coverage funnel (`eis_coverage_funnel.csv`, `fig_eis_funnel.png`):** 753 corpus EIS projects →
+536 with retrieved significance sections → **506 analyzed** (≥1 determination). Of the 506: 239
+dated in-window, 206 no decision date, 57 pre-ARRA, 4 boundary.
 
-**FONSI-vs-EIS structural finding:** resources split into *cross-over* (visual, land_use,
-air_quality — cross the line more than they're mitigated below it) vs *managed-below* (soils_geology,
-water, public_health — routinely mitigated in FONSIs, rarely cross). Biological/cultural do both.
+**Which resources cross the line (significant share, all agencies):** visual **33.0%** (316) ≫
+cultural 23.9% (352) ≈ biological 20.7% (372) > land_use 17.8% ≈ air_quality 17.5% > noise 16.5% …
+soils_geology 7.0%, public_health 6.0% lowest. **The wall (significant_unavoidable):** visual 126 >
+biological 93 ≈ cultural 91 > air_quality 76 > noise 66. **Why significant:** magnitude 869,
+protected_resource 701, cumulative 573, regulatory_threshold 344. **Impact pathway:** direct 1,587 /
+cumulative 780 / unspecified 230 / indirect 108.
+
+**FONSI-vs-EIS structural finding** (BLM+DOE-matched for both tracks, `fig_fonsi_vs_eis.png`):
+resources split into *cross-over* (visual, land_use, air_quality — cross the line more than they're
+mitigated below it) vs *managed-below* (soils_geology, water, public_health — routinely mitigated in
+FONSIs, rarely cross). Biological/cultural do both. Visual within BLM+DOE crosses ~38% vs ~11%
+mitigated.
 
 ### EIS Gate 3 (validation vs finalized gold, held-out column)
 `05_validate_significance.py --track eis` (547 gold rows / 400 windows). Held-out F1: window

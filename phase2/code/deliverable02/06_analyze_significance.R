@@ -297,40 +297,10 @@ if (fig_ok) tryCatch({
           theme_catf() + theme(legend.position = "bottom"),
       "fig_validation_accuracy.png", 8, 4.8)
   }
-  # Fig — corpus at a glance: FONSI vs EIS magnitude + FONSI resource waffle (juxtaposed)
+  # NOTE: fig_corpus_overview (projects + documents bars, FONSI + EIS resource waffles) is now
+  # built in the EIS block below, where the EIS resource mix is available for the second waffle.
+  # corpus_fig is still needed here by the agency-scope waffle and the sub-agency heatmap.
   corpus_fig <- tryCatch(read_parquet(file.path(A, "significance_corpus.parquet")), error = function(e) NULL)
-  if (!is.null(corpus_fig)) {
-    mag <- corpus_fig %>% distinct(project_id, process_type) %>% count(process_type) %>%
-      mutate(Track = recode(process_type, EA = "FONSI (EA)", EIS = "EIS"))
-    p_mag <- ggplot(mag, aes(Track, n, fill = Track)) +
-      geom_col(width = 0.62) + geom_text(aes(label = scales::comma(n)), vjust = -0.4, size = 3.6, color = "gray30") +
-      scale_y_continuous(expand = expansion(mult = c(0, 0.14))) +
-      scale_fill_manual(values = c("FONSI (EA)" = catf_dark_blue, "EIS" = catf_navy), guide = "none") +
-      labs(title = "Scale of the analysis", subtitle = "Clean-energy projects by review type",
-           x = NULL, y = "Projects") + theme_catf()
-    # manual 10x10 waffle of the FONSI resource mix — ALL resources kept separate,
-    # harmonious blue/green/red shades (ColorBrewer families) rather than clashing categoricals
-    wfd <- otot %>% arrange(desc(tot)) %>%
-      mutate(grp = as.character(Resource), sq = round(100 * tot / sum(tot)))
-    wfd$sq[1] <- wfd$sq[1] + (100 - sum(wfd$sq))
-    wfd <- wfd %>% filter(sq > 0)
-    wgrid <- expand.grid(y = 1:10, x = 1:10)
-    wgrid$grp <- factor(rep(wfd$grp, wfd$sq)[1:100], levels = wfd$grp)
-    waffle_pal <- c("#08519c", "#3182bd", "#6baed6", "#9ecae1",   # blues
-                    "#006d2c", "#31a354", "#74c476", "#a1d99b",   # greens
-                    "#99000d", "#cb181d", "#fb6a4a", "#fcae91", "#bdbdbd")  # reds + grey
-    waf_cols <- setNames(waffle_pal[seq_len(nrow(wfd))], wfd$grp)
-    p_waf <- ggplot(wgrid, aes(x, y, fill = grp)) +
-      geom_tile(color = "white", linewidth = 1.1) + coord_equal() +
-      scale_fill_manual(values = waf_cols, name = NULL) +
-      labs(title = "What resources FONSIs cover", subtitle = "Each square ≈ 1% of determinations") +
-      theme_void(base_family = "Helvetica") +
-      theme(plot.title = element_text(face = "bold", color = catf_navy, size = rel(1.15)),
-            plot.subtitle = element_text(color = catf_dark_blue, size = rel(0.85)),
-            legend.text = element_text(size = rel(0.8)))
-    savefig((p_mag | p_waf) + patchwork::plot_layout(widths = c(0.8, 1.15)),
-            "fig_corpus_overview.png", 11, 4.6)
-  }
 
   # Fig — regulatory-threshold profile (descriptive; threshold ID is the least-accurate field)
   thr_lab <- c(other_quantitative = "Other quantitative", wetland_floodplain = "Wetland / floodplain",
@@ -473,16 +443,21 @@ if (file.exists(eis_det_path)) tryCatch({
     read_parquet(file.path(A, "determination_thresholds_eis.parquet")) else NULL
   ABOVE <- c("significant_adverse", "significant_unavoidable", "eis_required")
 
-  eprimary <- edet %>%
-    filter(agency_scope_status == "primary_blm_doe_family", analysis_scope == "primary",
-           !determination_class %in% NON_DET)
+  # EIS universe = ALL agencies, ALL eras. The descriptive EIS analysis (which resources cross the
+  # line) does NOT use the decision date, so undated + pre-ARRA projects are kept rather than dropped;
+  # BLM + DOE is called out only where a finding is agency-sensitive. (FONSI stays BLM+DOE primary,
+  # because FONSI has only partial coverage outside it — see the report Methods.)
+  eprimary <- edet %>% filter(!determination_class %in% NON_DET)
+  # BLM+DOE, in-window subset — used ONLY for the like-for-like FONSI-vs-EIS comparison figure,
+  # where both tracks must share a scope (FONSI is BLM+DOE-only).
+  eis_bd <- eprimary %>% filter(agency_scope_status == "primary_blm_doe_family", analysis_scope == "primary")
   # analytic grain, carrying the EIS-only attributes for the factor/impact/alternative cuts
   edr <- eprimary %>%
     distinct(project_id, document_id, shared_resource_area, determination_class,
              alternative_name, significance_factor, impact_type, mitigation_dependent)
   edr_rc <- edr %>% distinct(project_id, document_id, shared_resource_area, determination_class)
-  cat(sprintf("EIS primary determinations=%d  analytic(document x resource x class)=%d  projects=%d\n",
-              nrow(eprimary), nrow(edr_rc), n_distinct(eprimary$project_id)))
+  cat(sprintf("EIS determinations (all agencies)=%d  analytic(document x resource x class)=%d  projects=%d  (BLM+DOE subset=%d)\n",
+              nrow(eprimary), nrow(edr_rc), n_distinct(eprimary$project_id), n_distinct(eis_bd$project_id)))
 
   # --- tables ---
   w(edr_rc %>% count(determination_class, name = "n_determinations") %>%
@@ -501,14 +476,20 @@ if (file.exists(eis_det_path)) tryCatch({
     arrange(desc(share_sig)) %>% suppress(col = "n")
   w(eres, "eis_resource_significance.csv")
 
-  # FONSI vs EIS: per resource, EIS-significant share vs FONSI-mitigation share
+  # FONSI vs EIS: per resource, EIS-significant share vs FONSI-mitigation share. BOTH sides are the
+  # BLM+DOE subset so the cross-track comparison is like-for-like (FONSI is BLM+DOE-only).
   fon_dr <- primary_dr %>% filter(!shared_resource_area %in% c("project_wide", "unknown"))
   fon_res <- fon_dr %>% group_by(shared_resource_area) %>%
     summarise(fon_n = n(), fon_mit = sum(determination_class == "less_than_significant_with_mitigation"),
               fon_mit_share = round(mean(determination_class == "less_than_significant_with_mitigation"), 3),
               .groups = "drop")
-  cmp <- eres %>% select(shared_resource_area, eis_n = n, eis_sig = n_sig, eis_sig_share = share_sig) %>%
-    full_join(fon_res, by = "shared_resource_area")
+  eis_bd_res <- eis_bd %>%
+    distinct(project_id, document_id, shared_resource_area, determination_class) %>%
+    filter(!shared_resource_area %in% c("project_wide", "unknown")) %>%
+    group_by(shared_resource_area) %>%
+    summarise(eis_n = n(), eis_sig = sum(determination_class %in% ABOVE),
+              eis_sig_share = round(mean(determination_class %in% ABOVE), 3), .groups = "drop")
+  cmp <- eis_bd_res %>% full_join(fon_res, by = "shared_resource_area")
   w(cmp, "eis_fonsi_vs_eis.csv")
 
   # significance factors + impact type (above-line only) — the "why significant" cut
@@ -667,6 +648,115 @@ if (file.exists(eis_det_path)) tryCatch({
                            panel.grid = element_blank(), legend.position = "bottom")
     savefig(p_fac / p_it + patchwork::plot_layout(heights = c(1.6, 0.55)),
             "fig_eis_significance_drivers.png", 8, 6)
+
+    # Fig — EIS coverage & significance funnel (ALL agencies): how 753 corpus projects narrow to the
+    # analyzed set, the date-status of that set, and how its determinations split above/below the line.
+    n_corpus_eis <- tryCatch(nrow(distinct(filter(read_parquet(file.path(A, "significance_corpus.parquet")),
+                                    process_type == "EIS"), project_id)), error = function(e) NA)
+    n_cand_eis <- tryCatch(n_distinct(read_parquet(file.path(A, "significance_section_candidates_eis.parquet"))$project_id),
+                           error = function(e) NA)
+    n_analyzed <- n_distinct(eprimary$project_id)
+    n_dets  <- nrow(edr_rc)
+    n_above <- sum(edr_rc$determination_class %in% ABOVE)
+    n_unav  <- sum(edr_rc$determination_class == "significant_unavoidable")
+    date_lab <- c(in_scope_dated = "Dated, in-window", missing_decision_date = "No decision date",
+                  pre_ARRA_dated = "Pre-2009 (pre-ARRA)", boundary_review = "Boundary")
+    efun_date <- eprimary %>% distinct(project_id, time_scope_status) %>% count(time_scope_status) %>%
+      mutate(Status = factor(ifelse(is.na(date_lab[time_scope_status]), time_scope_status,
+                                     date_lab[time_scope_status]), levels = rev(unname(date_lab))))
+    w(bind_rows(
+        tibble(metric = c("corpus_projects","projects_with_sections","projects_analyzed",
+                          "analytic_determinations","above_the_line","significant_unavoidable"),
+               n = c(n_corpus_eis, n_cand_eis, n_analyzed, n_dets, n_above, n_unav)),
+        efun_date %>% transmute(metric = paste0("date_", time_scope_status), n)), "eis_coverage_funnel.csv")
+
+    efun_proj <- tibble(stage = factor(c("EIS corpus", "Sections retrieved", "Analyzed"),
+                          levels = rev(c("EIS corpus", "Sections retrieved", "Analyzed"))),
+                        n = c(n_corpus_eis, n_cand_eis, n_analyzed))
+    pA <- ggplot(efun_proj, aes(n, stage)) + geom_col(fill = catf_navy, width = 0.62) +
+      geom_text(aes(label = scales::comma(n)), hjust = -0.15, size = 3.4, color = "gray25") +
+      scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
+      labs(title = "Projects: corpus to analyzed", subtitle = "EIS projects retained at each step (all agencies)",
+           x = NULL, y = NULL) + theme_catf()
+    pC <- ggplot(tibble(stage = factor(c("All determinations", "Above the line", "Significant & unavoidable"),
+                          levels = rev(c("All determinations", "Above the line", "Significant & unavoidable"))),
+                        n = c(n_dets, n_above, n_unav)), aes(n, stage, fill = stage)) +
+      geom_col(width = 0.62) + geom_text(aes(label = scales::comma(n)), hjust = -0.15, size = 3.4, color = "gray25") +
+      scale_fill_manual(values = c("All determinations" = catf_dark_blue, "Above the line" = catf_magenta,
+                                   "Significant & unavoidable" = catf_purple), guide = "none") +
+      scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
+      labs(title = "Determinations: how many cross the line", subtitle = "From the analyzed EIS projects",
+           x = NULL, y = NULL) + theme_catf()
+    pB <- ggplot(efun_date, aes(x = 1, y = n, fill = Status)) + geom_col(width = 0.5) +
+      geom_text(aes(label = ifelse(n >= 120, sprintf("%s: %d", Status, n), "")),
+                position = position_stack(vjust = 0.5), color = "white", size = 3, fontface = "bold") +
+      coord_flip() + scale_y_continuous(expand = c(0, 0)) +
+      scale_fill_manual(values = c("Dated, in-window" = catf_dark_blue, "No decision date" = catf_blue,
+                                   "Pre-2009 (pre-ARRA)" = catf_purple, "Boundary" = "gray70"),
+                        breaks = c("Dated, in-window", "No decision date", "Pre-2009 (pre-ARRA)", "Boundary"),
+                        name = NULL) +
+      labs(title = "Do the analyzed projects have decision dates?",
+           subtitle = "The EIS analysis is descriptive and does not use the date, so undated projects are kept",
+           x = NULL, y = NULL) +
+      theme_catf() + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+                           panel.grid = element_blank(), legend.position = "bottom")
+    savefig((pA | pC) / pB + patchwork::plot_layout(heights = c(1, 0.6)), "fig_eis_funnel.png", 11, 6.6)
+
+    # Fig — corpus overview: projects + documents (bars, top) over FONSI + EIS resource waffles
+    # (bottom), the two waffles sharing one bottom legend. Built here so the EIS resource mix exists.
+    corpus_fig <- tryCatch(read_parquet(file.path(A, "significance_corpus.parquet")), error = function(e) NULL)
+    if (!is.null(corpus_fig)) {
+      trk_lv <- c("FONSI (EA)", "EIS")   # FONSI left, EIS right — matches the waffles + FONSI-first report order
+      proj <- corpus_fig %>% distinct(project_id, process_type) %>% count(process_type) %>%
+        mutate(Track = factor(recode(process_type, EA = "FONSI (EA)", EIS = "EIS"), levels = trk_lv))
+      docs <- bind_rows(
+        det  %>% distinct(project_id, document_id) %>% summarise(n = n()) %>% mutate(Track = "FONSI (EA)"),
+        edet %>% distinct(project_id, document_id) %>% summarise(n = n()) %>% mutate(Track = "EIS")) %>%
+        mutate(Track = factor(Track, levels = trk_lv))
+      bar_cols <- c("FONSI (EA)" = catf_dark_blue, "EIS" = catf_navy)
+      mk_bar <- function(df, title, sub, ylab) ggplot(df, aes(Track, n, fill = Track)) +
+        geom_col(width = 0.62) +
+        geom_text(aes(label = scales::comma(n)), vjust = -0.4, size = 3.6, color = "gray30") +
+        scale_y_continuous(expand = expansion(mult = c(0, 0.16))) +
+        scale_fill_manual(values = bar_cols, guide = "none") +
+        labs(title = title, subtitle = sub, x = NULL, y = ylab) + theme_catf()
+      p_proj <- mk_bar(proj, "Scale of the analysis", "Clean-energy projects by review type", "Projects")
+      p_docs <- mk_bar(docs, "Documents read", "Decision & supporting documents parsed for findings", "Documents")
+
+      # fixed resource -> color map (same palette family as the FONSI waffle), SHARED by both waffles
+      # so the collected legend is a single one; resources ordered by combined FONSI+EIS frequency.
+      fon_res_ct <- primary_dr %>% filter(!shared_resource_area %in% c("project_wide", "unknown")) %>%
+        count(shared_resource_area, name = "tot")
+      eis_res_ct <- edr_rc %>% filter(!shared_resource_area %in% c("project_wide", "unknown")) %>%
+        count(shared_resource_area, name = "tot")
+      res_rank <- bind_rows(fon_res_ct, eis_res_ct) %>% group_by(shared_resource_area) %>%
+        summarise(tot = sum(tot), .groups = "drop") %>% arrange(desc(tot)) %>%
+        mutate(Resource = relab(shared_resource_area, res_label))
+      waffle_pal <- c("#08519c", "#3182bd", "#6baed6", "#9ecae1",   # blues
+                      "#006d2c", "#31a354", "#74c476", "#a1d99b",   # greens
+                      "#99000d", "#cb181d", "#fb6a4a", "#fcae91", "#bdbdbd")  # reds + grey
+      waf_cols <- setNames(waffle_pal[seq_len(nrow(res_rank))], res_rank$Resource)
+      res_levels <- res_rank$Resource
+      mk_waffle <- function(ct, title) {
+        wfd <- ct %>% mutate(Resource = relab(shared_resource_area, res_label)) %>%
+          arrange(match(Resource, res_levels)) %>% mutate(sq = round(100 * tot / sum(tot)))
+        wfd$sq[which.max(wfd$tot)] <- wfd$sq[which.max(wfd$tot)] + (100 - sum(wfd$sq))
+        wfd <- wfd %>% filter(sq > 0)
+        g <- expand.grid(y = 1:10, x = 1:10)
+        g$grp <- factor(rep(wfd$Resource, wfd$sq)[1:100], levels = res_levels)
+        ggplot(g, aes(x, y, fill = grp)) + geom_tile(color = "white", linewidth = 1.1) + coord_equal() +
+          scale_fill_manual(values = waf_cols, limits = res_levels, drop = FALSE, name = NULL) +
+          labs(title = title) + theme_void(base_family = "Helvetica") +
+          theme(plot.title = element_text(face = "bold", color = catf_navy, size = rel(1.15)),
+                legend.text = element_text(size = rel(0.85)))
+      }
+      p_wf_fon <- mk_waffle(fon_res_ct, "What resources FONSIs cover")
+      p_wf_eis <- mk_waffle(eis_res_ct, "What resources EISs cover")
+      savefig(((p_proj | p_docs) / (p_wf_fon | p_wf_eis)) +
+                patchwork::plot_layout(heights = c(0.7, 1.15), guides = "collect") &
+                theme(legend.position = "bottom"),
+              "fig_corpus_overview.png", 11, 8.8)
+    }
 
     cat("  wrote EIS figures to", OUT, "\n")
   }
