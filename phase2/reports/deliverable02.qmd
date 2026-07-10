@@ -53,6 +53,9 @@ eis_cmp   <- rc("eis_fonsi_vs_eis.csv")
 eis_fac   <- rc("eis_significance_factors.csv")
 eis_mit   <- rc("eis_mitigation_document_level.csv")
 eis_funnel <- rc("eis_coverage_funnel.csv")
+eis_unav_ex <- rc("eis_unavoidable_examples.csv")
+eis_fac_ex  <- rc("eis_factor_examples.csv")
+eis_agency  <- rc("eis_agency.csv")
 has_eis   <- nrow(eis_class) > 0 && nrow(eis_val) > 0
 
 # friendly labels for the controlled vocab
@@ -518,7 +521,7 @@ eis_val |>
 
 ```{r}
 #| label: fig-validation-eis
-#| fig-cap: "EIS agreement with the human answer key: full sample (magenta) vs held-out test (green). Every score sits below the FONSI equivalent — the above-the-line call is a finer judgment (the two human coders themselves agreed only ~58% on the class)."
+#| fig-cap: "EIS agreement with the human answer key: full sample (magenta) vs held-out test (green). The shaded bottom two rows are secondary attributes that matter less to the findings (as in the FONSI figure). Every score sits below the FONSI equivalent — the above-the-line call is a finer judgment (the two human coders themselves agreed only ~58% on the class)."
 include_fig("fig_validation_accuracy_eis.png")
 ```
 
@@ -537,7 +540,7 @@ splitting the merely *significant* from the *significant and unavoidable*.
 
 ```{r}
 #| label: fig-eis-above-line
-#| fig-cap: "Share of each resource's EIS determinations judged significant, sorted (top = most likely to cross the line). The darker segment is significant AND unavoidable — impacts mitigation cannot bring back below the line. Label shows the share and the count of significant determinations."
+#| fig-cap: "Share of each resource's EIS determinations judged significant, sorted (top = most likely to cross the line). All percentages are shares of that resource's total EIS determinations: the in-bar labels split significant-adverse (lighter) from significant-and-unavoidable (darker), and the end label gives the combined significant share and its count (e.g. visual = 316 of 959)."
 include_fig("fig_eis_above_line.png")
 ```
 
@@ -556,11 +559,13 @@ impact that, once significant, tends to stay that way.
 
 The starkest determinations are the significant and unavoidable ones — where the agency concludes
 the impact is real, material, and **cannot be mitigated below the line**. These are the true limits
-on a decarbonization project. @fig-eis-unavoidable counts them by resource.
+on a decarbonization project. @fig-eis-unavoidable counts them by resource — each bar is the number
+of distinct *significant-and-unavoidable* determinations (one per document × resource) for that
+resource, across the analyzed EIS projects.
 
 ```{r}
 #| label: fig-eis-unavoidable
-#| fig-cap: "Determinations judged significant AND unavoidable, by resource. Visual, biological, and air-quality impacts most often reach the point where mitigation cannot fix them."
+#| fig-cap: "Count of significant-and-unavoidable determinations by resource (one per document × resource area). Visual leads with 126; biological, cultural, and air-quality follow. These are the impacts that remain significant even after mitigation."
 include_fig("fig_eis_unavoidable.png")
 ```
 
@@ -568,7 +573,25 @@ include_fig("fig_eis_unavoidable.png")
 open country changes a landscape in ways no mitigation fully undoes — so viewshed conclusions reach
 *unavoidable* more than any other resource. Biological, cultural, and air-quality impacts follow,
 where habitat loss, historic-setting change, or a regional pollutant burden can exceed what on-site
-measures can offset.
+measures can offset. @tbl-eis-unavoidable-ex shows what these look like in the agencies' own words.
+
+```{r}
+#| label: tbl-eis-unavoidable-ex
+#| tbl-cap: "Representative significant-and-unavoidable determinations, verbatim from the EIS, ordered from the resources that hit the wall most often."
+if (nrow(eis_unav_ex) > 0) {
+  eis_unav_ex |>
+    gt(groupname_col = "Resource") |>
+    cols_label(example = "Significant-and-unavoidable finding, in the agency's words") |>
+    cols_align(align = "left") |>
+    cols_width(example ~ pct(100)) |>
+    tab_style(style = list(cell_fill(color = "#75246C"), cell_text(color = "white", weight = "bold")),
+              locations = cells_row_groups()) |>
+    tab_style(style = cell_text(color = NAVY, weight = "bold"), locations = cells_column_labels()) |>
+    tab_options(table.font.size = px(12.5), table.width = pct(100), table.align = "center",
+                row_group.font.weight = "bold", data_row.padding = px(6)) |>
+    tab_source_note("Verbatim from the model's per-determination rationale on significant-and-unavoidable conclusions.")
+}
+```
 
 ### FONSI vs EIS: two ways a resource can be a problem
 
@@ -581,7 +604,7 @@ outside those two agencies).
 
 ```{r}
 #| label: fig-fonsi-vs-eis
-#| fig-cap: "For each resource (BLM + DOE only, so both tracks share a scope): how often it crosses into significance in EISs (magenta) versus how often it is mitigated below the line in FONSIs (blue). Resources far to the right on magenta cross over (often unmitigable); far to the right on blue are routinely managed below the line."
+#| fig-cap: "Each resource (BLM + DOE, so both tracks share a scope) plotted by how often it is mitigated below the line in FONSIs (x) versus how often it crosses into significance in EISs (y). The dashed diagonal separates the two shapes: points above it (magenta) cross more than they are mitigated — often unmitigable; points below (blue) are routinely mitigated below the line. Point size ≈ determinations."
 include_fig("fig_fonsi_vs_eis.png")
 ```
 
@@ -599,12 +622,13 @@ The contrast is the deliverable's sharpest structural finding:
 
 ### What makes an impact significant
 
-For every above-the-line determination the extraction also records why it is significant and how the
-impact reaches the resource. @fig-eis-drivers summarizes both.
+For every above-the-line determination the extraction also records why it is significant.
+@fig-eis-drivers shows the dominant factors (top) and — the fuller picture — *where each factor
+bites*: the resources each reason concentrates in (bottom).
 
 ```{r}
 #| label: fig-eis-drivers
-#| fig-cap: "Top: the dominant factor behind each significant determination. Bottom: the impact pathway. Cumulative effects are a leading driver on both — nearly a third of significant findings turn on impacts that accumulate rather than the project's direct footprint alone."
+#| fig-cap: "Top: the dominant factor behind each significant determination. Bottom: where each factor bites — significant determinations by factor and resource. Protected-resource findings concentrate in cultural and biological resources; regulatory-threshold findings in air quality and noise; cumulative effects in biological, visual, and cultural. Darker cells = more determinations."
 include_fig("fig_eis_significance_drivers.png")
 ```
 
@@ -617,11 +641,31 @@ fac_pretty <- c(magnitude = "sheer magnitude", cumulative = "cumulative effects"
 ```
 
 The leading reasons an impact is called significant are `r fac_pretty[eis_fac_top[1]]`,
-`r fac_pretty[eis_fac_top[2]]`, and `r fac_pretty[eis_fac_top[3]]`. **Cumulative effects stand
-out** — both as a stated factor and as an impact *pathway* (nearly a third of significant findings)
-— and that is notable for decarbonization siting: the significant call frequently rests not on one
-project's direct footprint but on its contribution to effects that build up across a landscape or
-airshed.
+`r fac_pretty[eis_fac_top[2]]`, and `r fac_pretty[eis_fac_top[3]]`, and the heatmap shows they are
+not interchangeable: **a protected resource drives significance mainly for cultural and biological
+resources** (endangered species, historic properties), a **regulatory threshold** for air quality
+and noise (numeric standards), and **cumulative effects** for biological, visual, and water. That
+last one is notable for decarbonization siting — nearly three in ten significant findings rest on
+impacts that build up across a landscape or airshed rather than on one project's direct footprint.
+@tbl-eis-factor-ex gives verbatim examples of each.
+
+```{r}
+#| label: tbl-eis-factor-ex
+#| tbl-cap: "What each significance factor looks like in the EIS text — verbatim examples, ordered from the most common factor down."
+if (nrow(eis_fac_ex) > 0) {
+  eis_fac_ex |>
+    gt(groupname_col = "Factor") |>
+    cols_label(example = "Significant finding, in the agency's words") |>
+    cols_align(align = "left") |>
+    cols_width(example ~ pct(100)) |>
+    tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
+              locations = cells_row_groups()) |>
+    tab_style(style = cell_text(color = NAVY, weight = "bold"), locations = cells_column_labels()) |>
+    tab_options(table.font.size = px(12.5), table.width = pct(100), table.align = "center",
+                row_group.font.weight = "bold", data_row.padding = px(6)) |>
+    tab_source_note("Verbatim from the model's per-determination rationale, grouped by the dominant significance factor it recorded.")
+}
+```
 
 ::: {.callout-note appearance="minimal"}
 **Findings attach mostly to the proposed action.** About half of significant determinations name a
@@ -629,6 +673,32 @@ specific alternative; where they do, the **proposed action** dominates, with nam
 no-action alternatives carrying the rest. Significance is overwhelmingly a judgment about *what the
 applicant proposed*, not about the alternatives weighed against it.
 :::
+
+### Does it differ by agency?
+
+Because the EIS track spans every lead agency (not just BLM + DOE), we can ask whether some agencies
+cross the line more than others. They do — and the pattern tracks the kind of project each agency
+runs (@fig-eis-by-agency).
+
+```{r}
+#| label: fig-eis-by-agency
+#| fig-cap: "Share of a lead agency's EIS determinations judged significant, for agencies with at least 150 determinations. Blue = BLM and the DOE family (the two agencies with complete dataset coverage); teal = other agencies, shown for context with partial coverage. Point size ≈ number of determinations."
+include_fig("fig_eis_by_agency.png")
+```
+
+```{r}
+#| label: eis-agency
+ea_ord <- eis_agency |> arrange(desc(share))
+ea_top <- ea_ord |> slice_head(n = 2); ea_bot <- ea_ord |> slice_tail(n = 2)
+```
+
+The spread is real — from **`r ea_top$Agency[1]` (`r percent(ea_top$share[1], accuracy=1)`)** at the
+top down to **`r ea_bot$Agency[2]` (`r percent(ea_bot$share[2], accuracy=1)`)**. Land- and
+water-facing agencies — the **Army Corps** and **BLM** — cross into significance most often, which
+fits their portfolios (dredge-and-fill permits, public-land rights-of-way with visual and habitat
+exposure). The standardized nuclear and utility programs — the **NRC** and **TVA** — cross least,
+consistent with siting on already-industrial land under tightly prescribed review. BLM and the DOE
+family remain the only agencies with complete coverage; the others are shown for context.
 
 ::: {.callout-warning appearance="minimal"}
 **EIS rates are a recall floor, not a census.** Unlike FONSIs — which ride on a curated set of

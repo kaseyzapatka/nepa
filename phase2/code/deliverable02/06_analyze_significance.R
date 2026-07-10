@@ -533,6 +533,8 @@ if (file.exists(eis_det_path)) tryCatch({
       vwide <- vdat %>% select(Metric, Scope, score) %>%
         tidyr::pivot_wider(names_from = Scope, values_from = score)
       savefig(ggplot(vdat, aes(score, Metric)) +
+            # shade the bottom two rows (secondary attributes that matter less) — matches the FONSI figure
+            annotate("rect", xmin = 0, xmax = 1.12, ymin = 0.5, ymax = 2.5, fill = "gray92", alpha = 0.7) +
             geom_vline(xintercept = 0.8, linetype = "dashed", color = "gray60") +
             geom_segment(data = vwide, aes(x = `All 400`, xend = `Held-out test`, y = Metric, yend = Metric),
                          inherit.aes = FALSE, color = "gray70", linewidth = 1) +
@@ -546,7 +548,7 @@ if (file.exists(eis_det_path)) tryCatch({
             labs(title = "The EIS extraction was graded the same way — a harder task",
                  subtitle = "Agreement with the human answer key: full sample vs the held-out test",
                  x = "Score (F1; threshold row = accuracy)", y = NULL, color = NULL,
-                 caption = "Dashed line = 0.80. Blue = held-out test (the honest score); magenta = all 400.\nEIS distinctions are genuinely harder than FONSI — the two human coders agreed only ~58% on the class.") +
+                 caption = "Dashed line = 0.80. Blue = held-out test (the honest score); magenta = all 400.\nShaded rows are secondary attributes that matter less. EIS distinctions are harder than FONSI — the two coders agreed only ~58% on the class.") +
             theme_catf() + theme(legend.position = "bottom"),
         "fig_validation_accuracy_eis.png", 8, 4.8)
     }
@@ -562,17 +564,22 @@ if (file.exists(eis_det_path)) tryCatch({
     etot <- eres %>% filter(!n_suppressed) %>% mutate(Resource = relab(shared_resource_area, res_label))
     savefig(ggplot(ea, aes(reorder(Resource, share_sig), share_band, fill = Band)) +
           geom_col(width = 0.72) +
+          # per-segment share labels (of the resource's total determinations); shown where they fit
+          geom_text(aes(label = ifelse(share_band >= 0.035, scales::percent(share_band, accuracy = 1), "")),
+                    position = position_stack(vjust = 0.5), size = 2.5, color = "white", fontface = "bold") +
+          # end label = total significant share and count of / total determinations for the resource
           geom_text(data = etot, aes(x = reorder(Resource, share_sig), y = share_sig,
-                    label = sprintf("%s  (%d)", scales::percent(share_sig, accuracy = 1), n_sig)),
-                    inherit.aes = FALSE, hjust = -0.15, size = 2.7, color = "gray30") +
+                    label = sprintf("%s significant  (%d of %s)", scales::percent(share_sig, accuracy = 1),
+                                    n_sig, scales::comma(n))),
+                    inherit.aes = FALSE, hjust = -0.1, size = 2.6, color = "gray30") +
           coord_flip() +
-          scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.20))) +
+          scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.28))) +
           scale_fill_manual(values = c("Significant adverse" = catf_magenta,
                                        "Significant & unavoidable" = catf_purple)) +
           labs(title = "Which resources cross the line",
                subtitle = "Share of each resource's EIS determinations judged significant — sorted (top = most likely to cross)",
                x = NULL, y = NULL, fill = NULL,
-               caption = "Label = significant share (count of significant determinations). Darker = significant AND unavoidable.") +
+               caption = "Percentages are shares of the resource's total EIS determinations. In-bar = each type's share; end label = total significant share (count of / all determinations).") +
           theme_catf() + theme(legend.position = "bottom"),
       "fig_eis_above_line.png", 8, 5.5)
 
@@ -590,27 +597,34 @@ if (file.exists(eis_det_path)) tryCatch({
           theme_catf(),
       "fig_eis_unavoidable.png", 8, 4.6)
 
-    # Fig — FONSI vs EIS: managed-below-the-line vs crosses-over (per-resource dumbbell)
-    cmpf <- cmp %>% filter(!is.na(eis_sig_share), !is.na(fon_mit_share),
-                           eis_n >= 20, fon_n >= 20) %>%
-      mutate(Resource = relab(shared_resource_area, res_label)) %>%
-      arrange(eis_sig_share - fon_mit_share)
-    cmpl <- cmpf %>% select(Resource, `Crosses the line (EIS significant)` = eis_sig_share,
-                            `Mitigated below the line (FONSI)` = fon_mit_share) %>%
-      tidyr::pivot_longer(-Resource, names_to = "Measure", values_to = "share") %>%
-      mutate(Resource = factor(Resource, levels = cmpf$Resource))
-    savefig(ggplot(cmpl, aes(share, Resource)) +
-          geom_line(aes(group = Resource), color = "gray78", linewidth = 1) +
-          geom_point(aes(color = Measure), size = 3.6, alpha = 0.9) +
-          scale_color_manual(values = c("Crosses the line (EIS significant)" = catf_magenta,
-                                        "Mitigated below the line (FONSI)" = catf_dark_blue), name = NULL) +
-          scale_x_continuous(labels = scales::percent, expand = expansion(mult = c(0.02, 0.08))) +
-          labs(title = "Two ways a resource can be a problem",
-               subtitle = "How often a resource crosses into significance (EIS) vs is mitigated below the line (FONSI)",
-               x = "Share of the resource's determinations", y = NULL,
-               caption = "Resources high on magenta cross the line (often unmitigable); high on blue are routinely mitigated below it.") +
-          theme_catf() + theme(legend.position = "bottom"),
-      "fig_fonsi_vs_eis.png", 8.5, 5.5)
+    # Fig — FONSI vs EIS: a quadrant scatter. x = mitigated below the line (FONSI), y = crosses the
+    # line (EIS). The y=x diagonal separates "cross-over" resources (above) from "managed-below" (below).
+    cmpf <- cmp %>% filter(!is.na(eis_sig_share), !is.na(fon_mit_share), eis_n >= 20, fon_n >= 20) %>%
+      mutate(Resource = relab(shared_resource_area, res_label),
+             Shape = ifelse(eis_sig_share >= fon_mit_share, "Crosses over", "Managed below"))
+    axmax <- max(cmpf$eis_sig_share, cmpf$fon_mit_share) * 1.15
+    p15 <- ggplot(cmpf, aes(fon_mit_share, eis_sig_share)) +
+      annotate("segment", x = 0, y = 0, xend = axmax, yend = axmax, linetype = "dashed", color = "gray70") +
+      annotate("text", x = axmax * 0.03, y = axmax * 0.97, hjust = 0, vjust = 1, size = 3,
+               color = catf_magenta, fontface = "italic", lineheight = 0.9,
+               label = "Crosses the line more\nthan it is mitigated") +
+      annotate("text", x = axmax * 0.97, y = axmax * 0.03, hjust = 1, vjust = 0, size = 3,
+               color = catf_dark_blue, fontface = "italic", lineheight = 0.9,
+               label = "Mitigated below the line\nmore than it crosses") +
+      geom_point(aes(color = Shape, size = eis_n + fon_n), alpha = 0.85) +
+      scale_color_manual(values = c("Crosses over" = catf_magenta, "Managed below" = catf_dark_blue), guide = "none") +
+      scale_size_area(max_size = 8, guide = "none") +
+      scale_x_continuous(labels = scales::percent, limits = c(0, axmax), expand = c(0, 0)) +
+      scale_y_continuous(labels = scales::percent, limits = c(0, axmax), expand = c(0, 0)) +
+      coord_fixed(ratio = 1) +
+      labs(title = "Two ways a resource can be a problem",
+           subtitle = "Each resource: how often it crosses the line (EIS) vs is mitigated below it (FONSI) — BLM + DOE",
+           x = "Mitigated below the line  (FONSI)", y = "Crosses the line  (EIS significant)",
+           caption = "Above the diagonal = crosses more than it is mitigated (often unmitigable); below = routinely mitigated below the line. Point size ≈ determinations.")
+    p15 <- if (requireNamespace("ggrepel", quietly = TRUE))
+      p15 + ggrepel::geom_text_repel(aes(label = Resource), size = 3, color = catf_navy, seed = 1, max.overlaps = 20)
+    else p15 + geom_text(aes(label = Resource), vjust = -1, size = 3, color = catf_navy)
+    savefig(p15 + theme_catf(), "fig_fonsi_vs_eis.png", 7.5, 7)
 
     # Fig — why significant: factors + impact type (juxtaposed, mirror of corpus_overview layout)
     fac_lab <- c(magnitude = "Sheer magnitude", protected_resource = "Protected resource",
@@ -622,32 +636,100 @@ if (file.exists(eis_det_path)) tryCatch({
       distinct(project_id, document_id, shared_resource_area, determination_class, significance_factor) %>%
       count(significance_factor, name = "n") %>% filter(n >= MIN_CELL) %>%
       mutate(Factor = ifelse(is.na(fac_lab[significance_factor]), significance_factor, fac_lab[significance_factor]))
-    p_fac <- ggplot(fac, aes(reorder(Factor, n), n)) +
+    fac_order <- fac %>% arrange(n) %>% pull(Factor)   # shared factor order for both panels
+    p_fac <- ggplot(fac, aes(factor(Factor, levels = fac_order), n)) +
       geom_col(fill = catf_magenta) + geom_text(aes(label = n), hjust = -0.2, size = 3, color = "gray30") +
-      coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
-      labs(title = "Why an impact is significant", subtitle = "Dominant factor behind each significant determination",
-           x = NULL, y = NULL) + theme_catf()
-    it_lab <- c(direct = "Direct", cumulative = "Cumulative", indirect = "Indirect", unspecified = "Unspecified")
-    it <- edr %>% filter(determination_class %in% ABOVE, impact_type != "") %>%
-      distinct(project_id, document_id, shared_resource_area, determination_class, impact_type) %>%
-      count(impact_type, name = "n") %>%
-      mutate(Type = factor(ifelse(is.na(it_lab[impact_type]), impact_type, it_lab[impact_type]),
-                           levels = c("Unspecified", "Indirect", "Cumulative", "Direct")),
-             share = n / sum(n))
-    p_it <- ggplot(it, aes(x = 1, y = share, fill = Type)) + geom_col(width = 0.55) +
-      geom_text(aes(label = ifelse(share >= 0.12, sprintf("%s\n%d%%", Type, round(100 * share)), "")),
-                position = position_stack(vjust = 0.5), color = "white", size = 3.1, fontface = "bold",
-                lineheight = 0.9) +
-      coord_flip() + scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
-      scale_fill_manual(values = c("Direct" = catf_dark_blue, "Cumulative" = catf_purple,
-                                   "Indirect" = catf_blue, "Unspecified" = "gray75"),
-                        breaks = c("Direct", "Cumulative", "Indirect", "Unspecified"), name = NULL) +
-      labs(title = "How the impact reaches the resource", subtitle = "Impact pathway across significant determinations",
+      coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.14))) +
+      labs(title = "Why an impact is significant",
+           subtitle = "Dominant factor behind each significant determination", x = NULL, y = NULL) + theme_catf()
+    # factor x resource: WHERE each factor bites (e.g. protected_resource -> cultural/biological)
+    fr <- edr %>% filter(determination_class %in% ABOVE, !significance_factor %in% c("", "none"),
+                         !shared_resource_area %in% c("project_wide", "unknown")) %>%
+      distinct(project_id, document_id, shared_resource_area, determination_class, significance_factor) %>%
+      count(significance_factor, shared_resource_area, name = "n") %>%
+      mutate(Factor = factor(ifelse(is.na(fac_lab[significance_factor]), significance_factor,
+                                    fac_lab[significance_factor]), levels = fac_order),
+             Resource = relab(shared_resource_area, res_label)) %>%
+      filter(!is.na(Factor))
+    res_ord <- fr %>% group_by(Resource) %>% summarise(t = sum(n), .groups = "drop") %>% arrange(t) %>% pull(Resource)
+    p_heat <- ggplot(fr, aes(factor(Resource, levels = res_ord), Factor, fill = n)) +
+      geom_tile(color = "white", linewidth = 0.7) +
+      geom_text(aes(label = ifelse(n >= 10, n, ""), color = n > 150), size = 2.4) +
+      scale_color_manual(values = c(`TRUE` = "white", `FALSE` = "gray15"), guide = "none") +
+      scale_fill_gradientn(colors = c("#f7fbff", "#c6dbef", "#6baed6", "#2171b5", "#08306b"),
+                           name = "Determinations") +
+      labs(title = "Where each factor bites",
+           subtitle = "Significant determinations by factor × resource — darker = more",
            x = NULL, y = NULL) +
-      theme_catf() + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
-                           panel.grid = element_blank(), legend.position = "bottom")
-    savefig(p_fac / p_it + patchwork::plot_layout(heights = c(1.6, 0.55)),
-            "fig_eis_significance_drivers.png", 8, 6)
+      guides(fill = guide_colorbar(barheight = grid::unit(3.5, "cm"))) +
+      theme_catf() + theme(axis.text.x = element_text(angle = 25, hjust = 1), panel.grid = element_blank(),
+                           legend.position = "right")
+    savefig(p_fac / p_heat + patchwork::plot_layout(heights = c(0.7, 1)),
+            "fig_eis_significance_drivers.png", 9, 8.5)
+
+    # verbatim EXAMPLE tables — significant & unavoidable (per resource) and significance factors
+    pick_examples <- function(df, grp, n_each = 2) df %>%
+      mutate(example = str_squish(rationale_text), L = nchar(example)) %>%
+      filter(!is.na(rationale_text), L >= 45, L <= 210) %>%
+      distinct(.data[[grp]], example, .keep_all = TRUE) %>%
+      arrange(.data[[grp]], L, example) %>% group_by(.data[[grp]]) %>%
+      slice_head(n = n_each) %>% ungroup()
+    eis_unav_ex <- eprimary %>%
+      filter(determination_class == "significant_unavoidable",
+             shared_resource_area %in% names(res_label), shared_resource_area != "unknown") %>%
+      pick_examples("shared_resource_area") %>%
+      left_join(eres %>% select(shared_resource_area, n_unavoid), by = "shared_resource_area") %>%
+      mutate(Resource = relab(shared_resource_area, res_label)) %>%
+      arrange(desc(n_unavoid), Resource, L) %>% select(Resource, example)
+    w(eis_unav_ex, "eis_unavoidable_examples.csv")
+    eis_fac_ex <- eprimary %>%
+      filter(determination_class %in% ABOVE, !significance_factor %in% c("", "none")) %>%
+      pick_examples("significance_factor") %>%
+      mutate(Factor = ifelse(is.na(fac_lab[significance_factor]), significance_factor, fac_lab[significance_factor])) %>%
+      left_join(fac %>% select(significance_factor, ftot = n), by = "significance_factor") %>%
+      mutate(ftot = coalesce(ftot, 0L)) %>% arrange(desc(ftot), Factor, L) %>% select(Factor, example)
+    w(eis_fac_ex, "eis_factor_examples.csv")
+
+    # Fig — does it differ by agency? Which lead agencies most often cross the line (EIS is all-agency).
+    lah <- tryCatch(read_parquet(file.path(A, "significance_corpus.parquet")) %>%
+                      distinct(project_id, lead_agency_harmonized) %>%
+                      mutate(agency = str_squish(str_remove_all(as.character(lead_agency_harmonized), '\\[|\\]|"'))),
+                    error = function(e) NULL)
+    if (!is.null(lah)) {
+      ag_abbr <- c("Corps of Engineers--Civil Works" = "Army Corps", "Bureau of Land Management" = "BLM",
+        "Bureau of Ocean Energy Management" = "BOEM", "Nuclear Regulatory Commission" = "NRC",
+        "Department of Energy" = "DOE", "Forest Service" = "USFS", "Power Marketing Administration" = "Power Marketing",
+        "United States Fish and Wildlife Service" = "USFWS", "Bureau of Indian Affairs" = "BIA",
+        "Bureau of Reclamation" = "Reclamation", "Tennessee Valley Authority" = "TVA", "Navy, Marine Corps" = "Navy/USMC",
+        "Federal Railroad Administration" = "FRA", "Rural Utilities Service" = "Rural Utilities",
+        "National Aeronautics and Space Administration" = "NASA", "Energy Programs" = "DOE (Energy Programs)")
+      doe_fam <- c("Department of Energy", "Power Marketing Administration", "Energy Programs",
+                   "National Nuclear Security Administration")
+      eag <- edr_rc %>% left_join(lah, by = "project_id") %>% filter(!is.na(agency), agency != "") %>%
+        group_by(agency) %>%
+        summarise(n = n(), n_sig = sum(determination_class %in% ABOVE),
+                  share = mean(determination_class %in% ABOVE), proj = n_distinct(project_id), .groups = "drop") %>%
+        filter(n >= 150) %>%
+        mutate(Agency = ifelse(is.na(ag_abbr[agency]), agency, ag_abbr[agency]),
+               Coverage = ifelse(agency == "Bureau of Land Management" | agency %in% doe_fam,
+                                 "BLM + DOE (complete coverage)", "Other agency (partial coverage)"))
+      w(eag %>% arrange(desc(share)) %>% select(agency, Agency, Coverage, n, n_sig, share, proj), "eis_agency.csv")
+      savefig(ggplot(eag, aes(reorder(Agency, share), share)) +
+            geom_segment(aes(xend = reorder(Agency, share), y = 0, yend = share), color = "gray80") +
+            geom_point(aes(color = Coverage, size = n), alpha = 0.9) +
+            geom_text(aes(label = sprintf("%s  (%d of %s)", scales::percent(share, accuracy = 1), n_sig,
+                          scales::comma(n))), hjust = -0.15, size = 2.6, color = "gray35") +
+            coord_flip() + scale_size_area(max_size = 6, guide = "none") +
+            scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.30))) +
+            scale_color_manual(values = c("BLM + DOE (complete coverage)" = catf_dark_blue,
+                                          "Other agency (partial coverage)" = catf_teal), name = NULL) +
+            labs(title = "Does crossing the line differ by agency?",
+                 subtitle = "Share of a lead agency's EIS determinations judged significant (agencies with ≥150 determinations)",
+                 x = NULL, y = NULL,
+                 caption = "Land- and water-facing agencies (Army Corps, BLM) cross most; the standardized nuclear/utility programs (NRC, TVA) least.\nOnly BLM + DOE have complete dataset coverage; other agencies are partial and shown for context.") +
+            theme_catf() + theme(legend.position = "bottom"),
+        "fig_eis_by_agency.png", 8.5, 6)
+    }
 
     # Fig — EIS coverage & significance funnel (ALL agencies): how 753 corpus projects narrow to the
     # analyzed set, the date-status of that set, and how its determinations split above/below the line.

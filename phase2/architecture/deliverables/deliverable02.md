@@ -317,11 +317,18 @@ detection **0.835** / resource detection **0.679** / class macro-F1 **0.686** / 
 distinction is genuinely finer (reviewers agreed 58% on class vs 68% FONSI). **Recall is the soft
 spot** (window recall 0.77 → EIS rates are a well-grounded *floor*, disclosed in the report).
 
-### Report figures (06 EIS block → `analysis/`)
-`fig_validation_accuracy_eis.png` (Gate-3 dumbbell), `fig_eis_above_line.png` (significant share by
-resource, adverse+unavoidable stacked), `fig_eis_unavoidable.png` (the wall), `fig_fonsi_vs_eis.png`
-(the two-track payoff dumbbell), `fig_eis_significance_drivers.png` (factors + impact pathway).
-Wired into `phase2/reports/deliverable02.qmd` → *EIS analysis* section, mirroring the FONSI section.
+### Report figures + tables (06 EIS block → `analysis/`)
+Figures: `fig_eis_funnel.png` (coverage funnel: 753→536→506 + date status + determination funnel),
+`fig_validation_accuracy_eis.png` (Gate-3 dumbbell, now with the FONSI-style shaded secondary rows),
+`fig_eis_above_line.png` (significant share by resource, adverse/unavoidable split with per-segment
+% labels), `fig_eis_unavoidable.png` (the wall; counts are analytic significant_unavoidable per
+resource — visual 126), `fig_fonsi_vs_eis.png` (**now a quadrant scatter**, x=FONSI-mit y=EIS-sig,
+BLM+DOE-matched — replaced the dumbbell), `fig_eis_significance_drivers.png` (factor bar + **factor×
+resource heatmap** "where each factor bites"), `fig_eis_by_agency.png` (**new** — significant-share
+by lead agency; Army Corps/BLM highest, NRC/TVA lowest; BLM+DOE flagged as complete-coverage).
+Tables (CSV → gt): `eis_unavoidable_examples.csv`, `eis_factor_examples.csv` (verbatim rationale
+snippets), `eis_agency.csv`, `eis_coverage_funnel.csv`. All wired into
+`phase2/reports/deliverable02.qmd` → *EIS analysis* section.
 
 ### Residual
 54 gold rows flagged `needs_human_review` (Reviewer-3 best-guessed) still open — affects only the
