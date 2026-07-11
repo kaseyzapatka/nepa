@@ -678,6 +678,29 @@ if (file.exists(eis_det_path)) tryCatch({
                                legend.position = "right"),
       "fig_eis_factor_heatmap.png", 9.5, 6.5)
 
+    # Fig — breadth of significance per EIS (document/project level): when an EIS crosses the line,
+    # on how many resource areas? (The FONSI breadth figure's project-level analog.)
+    ebr <- edr_rc %>% filter(!shared_resource_area %in% c("project_wide", "unknown")) %>%
+      group_by(project_id, document_id) %>%
+      summarise(n_sig = n_distinct(shared_resource_area[determination_class %in% ABOVE]), .groups = "drop")
+    brk <- ebr %>% filter(n_sig >= 1) %>%
+      mutate(bucket = factor(ifelse(n_sig >= 7, "7+", as.character(n_sig)), levels = c(as.character(1:6), "7+"))) %>%
+      count(bucket, name = "docs")
+    n_cross <- sum(brk$docs); n_narrow <- sum(ebr$n_sig == 1); n_broad <- sum(ebr$n_sig >= 3); n_zero <- sum(ebr$n_sig == 0)
+    w(brk, "eis_breadth.csv")
+    savefig(ggplot(brk, aes(bucket, docs)) +
+          geom_col(fill = catf_magenta, width = 0.78) +
+          geom_text(aes(label = docs), vjust = -0.4, size = 3.2, color = "gray30") +
+          scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+          labs(title = "When an EIS crosses the line, how broadly?",
+               subtitle = sprintf("Distinct resource areas judged significant per EIS document (%s documents with a significant finding)",
+                                  scales::comma(n_cross)),
+               x = "Resource areas found significant", y = "EIS documents",
+               caption = sprintf("Most EISs that cross the line do so narrowly (%s on a single resource); a long tail crosses on three or more (%s documents).",
+                                 scales::comma(n_narrow), scales::comma(n_broad))) +
+          theme_catf(),
+      "fig_eis_breadth.png", 8, 4.6)
+
     # verbatim EXAMPLE tables — significant & unavoidable (per resource) and significance factors
     pick_examples <- function(df, grp, n_each = 2) df %>%
       mutate(example = str_squish(rationale_text), L = nchar(example)) %>%
@@ -770,12 +793,14 @@ if (file.exists(eis_det_path)) tryCatch({
       scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
       labs(title = "Projects: corpus to analyzed", subtitle = "EIS projects retained at each step (all agencies)",
            x = NULL, y = NULL) + theme_catf()
-    pC <- ggplot(tibble(stage = factor(c("All determinations", "Above the line", "Significant unavoidable"),
-                          levels = rev(c("All determinations", "Above the line", "Significant unavoidable"))),
+    # nested funnel: all determinations ⊃ significant ⊃ significant-unavoidable. Light→hot as it
+    # narrows to the intense subset (matches the report's significant=magenta, unavoidable=purple).
+    det_stages <- c("All determinations", "Significant (crosses the line)", "Significant unavoidable")
+    pC <- ggplot(tibble(stage = factor(det_stages, levels = rev(det_stages)),
                         n = c(n_dets, n_above, n_unav)), aes(n, stage, fill = stage)) +
       geom_col(width = 0.62) + geom_text(aes(label = scales::comma(n)), hjust = -0.15, size = 3.4, color = "gray25") +
-      scale_fill_manual(values = c("All determinations" = catf_dark_blue, "Above the line" = catf_magenta,
-                                   "Significant unavoidable" = catf_purple), guide = "none") +
+      scale_fill_manual(values = setNames(c(catf_light_blue, catf_magenta, catf_purple), det_stages),
+                        guide = "none") +
       scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
       labs(title = "Determinations: how many cross the line", subtitle = "From the analyzed EIS projects",
            x = NULL, y = NULL) + theme_catf()
@@ -783,8 +808,9 @@ if (file.exists(eis_det_path)) tryCatch({
       geom_text(aes(label = ifelse(n >= 120, sprintf("%s: %d", Status, n), "")),
                 position = position_stack(vjust = 0.5), color = "white", size = 3, fontface = "bold") +
       coord_flip() + scale_y_continuous(expand = c(0, 0)) +
-      scale_fill_manual(values = c("Dated, in-window" = catf_dark_blue, "No decision date" = catf_blue,
-                                   "Pre-2009 (pre-ARRA)" = catf_purple, "Boundary" = "gray70"),
+      # clean sequential blues (data-completeness, not severity) — no clashing cyan/purple
+      scale_fill_manual(values = c("Dated, in-window" = "#08519c", "No decision date" = "#6baed6",
+                                   "Pre-2009 (pre-ARRA)" = "#c6dbef", "Boundary" = "gray75"),
                         breaks = c("Dated, in-window", "No decision date", "Pre-2009 (pre-ARRA)", "Boundary"),
                         name = NULL) +
       labs(title = "Do the analyzed projects have decision dates?",

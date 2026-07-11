@@ -76,19 +76,6 @@ is_dry  <- all(det$extraction_method == "regex")
 has_val <- nrow(val) > 0 && !is_dry
 ```
 
-::: {.callout-warning}
-## Draft status
-```{r}
-#| results: asis
-cat(if (is_dry)
-  paste("This document outlines the deliverable's purpose and the analysis workflow; the",
-        "findings themselves are still in progress. Results tables will be added once the",
-        "extraction pass and the validation against the hand-labelled gold set are complete.")
-  else paste("This report reflects the validated extraction; see Methods & required caveats",
-             "for the applicable limitations."))
-```
-:::
-
 This report delivers:
 
 > Determinations of significance across resource areas; factors that contribute to a determination of "significant impact," starting with mitigated FONSIs.
@@ -468,7 +455,7 @@ distinct significance determinations — of which `r fmt_n(eis_n_sig)` land abov
 
 ```{r}
 #| label: fig-eis-funnel
-#| fig-cap: "How the 753-project EIS corpus narrows to the analyzed set (top left): 536 had significance sections retrieved, 506 yielded a determination. Those projects produced 13,240 determinations, 2,198 above the line, 698 significant and unavoidable (top right). Of the 506 analyzed projects, only 239 have a firm in-window decision date — the analysis keeps the undated ones because it never uses the date (bottom)."
+#| fig-cap: "How the 753-project EIS corpus narrows to the analyzed set (top left): 536 had significance sections retrieved, 506 yielded a determination. Those projects produced 13,240 determinations, of which 2,198 are significant (cross the line) and 698 significant-unavoidable (top right). Of the 506 analyzed projects, only 239 have a firm in-window decision date — the analysis keeps the undated ones because it never uses the date (bottom)."
 include_fig("fig_eis_funnel.png")
 ```
 
@@ -483,8 +470,6 @@ include_fig("fig_eis_funnel.png")
 - Magnitude, cumulative effects, and protected resources are the dominant reasons a call is
   significant — and roughly a third of significant findings rest on **cumulative** pathways, not the
   project's direct footprint alone.
-- **Validated, and harder than FONSI.** The significance class agrees with human coders at 0.69 (vs
-  0.81 for FONSI) — a genuinely finer judgment the coders themselves split on.
 :::
 
 ### How accurate is the EIS extraction?
@@ -600,6 +585,24 @@ if (nrow(eis_unav_ex) > 0) {
 }
 ```
 
+### How broadly does an EIS cross the line?
+
+The resource views above pool all EISs together. Stepping back to the **document level** asks a
+different question: when an EIS *does* cross the line, does it do so on one resource or many?
+@fig-eis-breadth answers it.
+
+```{r}
+#| label: fig-eis-breadth
+#| fig-cap: "Distinct resource areas judged significant per EIS document, among the 646 documents with at least one significant finding. Most cross narrowly — 234 on a single resource — but a long tail crosses on three or more; a handful span the whole environmental slate."
+include_fig("fig_eis_breadth.png")
+```
+
+Crossing the line is usually a **focused** event: over a third of EISs that cross do so on a single
+resource, and the median is two. But a meaningful minority — **284 documents** — cross on three or
+more resources, and a few span nearly the entire environmental slate. (This counts only resource-area
+determinations; documents whose significant conclusion is stated project-wide, or not captured by the
+retrieval, sit outside it — see *Methods*.)
+
 ### FONSI vs EIS: two ways a resource can be a problem
 
 Analyzing the two tracks separately pays off in one picture (@fig-fonsi-vs-eis), which plots each
@@ -623,8 +626,8 @@ The split is the deliverable's sharpest structural finding:
 - **More likely to be mitigated** (blue) — soils/geology, water, public health — show the opposite:
   frequently mitigated in FONSIs, rarely crossing into significance. These are the impacts the
   toolbox of committed measures reliably handles.
-- Biological and cultural sit near the line — heavily analyzed, heavily mitigated, *and* still
-  crossing at a meaningful rate. They shape a project on both sides of the line at once.
+- **Cultural / historic sits right on the line** — it crosses into significance about as often as it
+  is mitigated below it (~23% vs ~21%), the one resource that genuinely straddles both sides.
 
 ### What makes an impact significant
 
