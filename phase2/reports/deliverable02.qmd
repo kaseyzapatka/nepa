@@ -44,6 +44,8 @@ class_dist   <- rc("class_distribution_dual_denominator.csv")
 mit_doc      <- rc("mitigation_document_level.csv")
 mit_res      <- rc("mitigation_by_resource.csv")
 mit_ex       <- rc("mitigation_examples.csv")
+fonsi_tech   <- rc("fonsi_technology.csv")
+fonsi_enf    <- rc("fonsi_enforceability.csv")
 
 # EIS (above-the-line) track — parallel tables written by 06 + the EIS validation parquet
 eis_val   <- tryCatch(rp("validation_metrics_eis.parquet"), error = function(e) tibble())
@@ -56,6 +58,9 @@ eis_funnel <- rc("eis_coverage_funnel.csv")
 eis_unav_ex <- rc("eis_unavoidable_examples.csv")
 eis_fac_ex  <- rc("eis_factor_examples.csv")
 eis_agency  <- rc("eis_agency.csv")
+eis_tech    <- rc("eis_technology.csv")
+eis_mitigable <- rc("eis_mitigable.csv")
+eis_mit_ex  <- rc("eis_mitigable_examples.csv")
 has_eis   <- nrow(eis_class) > 0 && nrow(eis_val) > 0
 
 # friendly labels for the controlled vocab
@@ -422,6 +427,41 @@ pattern, not precision.
 include_fig("fig_subagency_by_resource.png")
 ```
 
+### Significance by clean-energy technology
+
+The kind of project matters as much as the agency. Classifying each project by the technology named
+in its title lets us ask which technologies most often need mitigation to stay below the line
+(@fig-fonsi-technology).
+
+```{r}
+#| label: fig-fonsi-technology
+#| fig-cap: "Share of a technology's FONSI conclusions that depend on committed mitigation. Technology is derived from the project title; roughly half of projects name no technology in the title and are excluded, so read this for the named technologies."
+include_fig("fig_fonsi_technology.png")
+```
+
+**Transmission and wind lean hardest on mitigation** — linear corridors and turbine sites touch
+habitat, viewsheds, and cultural resources that repeatedly need committed measures to reach a
+not-significant finding. Solar and storage sit lower, closer to the corpus average.
+
+### Is the committed mitigation enforceable?
+
+"Mitigated" only means something if the measures are actually required. The extraction flags whether
+each mitigated conclusion is tied to an **enforceable permit condition** or is committed only in the
+document's text. @fig-fonsi-enforceability shows the split by resource.
+
+```{r}
+#| label: fig-fonsi-enforceability
+#| fig-cap: "Share of a resource's mitigated FONSI conclusions tied to an enforceable permit condition (versus committed only in the document text). Reported descriptively — an unmatched conclusion may still be enforced through channels the extraction doesn't capture."
+include_fig("fig_fonsi_enforceability.png")
+```
+
+The pattern tracks regulatory leverage. **Biological, air-quality, and water** conclusions — backed
+by the Endangered Species Act and the Clean Air and Water Acts — most often carry an **enforceable
+permit condition**. **Visual, cultural, and soils** measures are far less often tied to one; they
+lean on commitments in the document text. So for the softer resources, the mitigation behind a
+not-significant finding is the least demonstrably binding — a caveat worth carrying into how much
+weight the "mitigated FONSI" label should bear for those areas.
+
 ## EIS analysis {#sec-eis}
 
 The FONSI track shows how agencies stay below the significance line. The EIS track is its mirror —
@@ -715,6 +755,77 @@ exposure). The standardized nuclear and utility programs — the **NRC** and **T
 consistent with siting on already-industrial land under tightly prescribed review. BLM and the DOE
 family remain the only agencies with complete coverage; the others are shown for context.
 
+### Significance by clean-energy technology
+
+The most decision-relevant cut for a decarbonization portfolio is the **technology**. Classifying each
+project by the technology named in its title, @fig-eis-technology ranks how often each crosses the
+line, and @fig-eis-technology-resource shows *where* — each technology's distinct "significance
+signature."
+
+```{r}
+#| label: fig-eis-technology
+#| fig-cap: "Share of a technology's EIS determinations judged significant. Technology is derived from the project title; roughly half of projects name no technology and are excluded, so read this for the named technologies."
+include_fig("fig_eis_technology.png")
+```
+
+```{r}
+#| label: eis-tech
+et <- eis_tech |> arrange(desc(share))
+```
+
+**Hydropower crosses the line most (`r percent(et$share[1], accuracy=1)`)** — dams carry
+aquatic and water impacts that are hard to avoid — followed by transmission and solar. **Nuclear
+crosses least (`r percent(tail(et$share,1), accuracy=1)`)**, consistent with siting on already-industrial
+land under highly prescribed review. But the *rate* is only half the story; the resources each
+technology hits are distinct:
+
+```{r}
+#| label: fig-eis-technology-resource
+#| fig-cap: "Where each technology crosses the line, row-normalized so each technology's own pattern stands out (cell = count of significant determinations). Wind's signature is biological (bird and bat collision) and noise; solar's is visual, cultural, and air quality; transmission spreads across biological, visual, and cultural; nuclear and hydro concentrate on biological and water."
+include_fig("fig_eis_technology_resource.png")
+```
+
+The signatures are intuitive and actionable: **wind** is defined by **biological** impacts (avian and
+bat collision) plus **noise**; **solar** by **visual, cultural, and air-quality** (desert dust);
+**transmission** spreads its crossings across **biological, visual, and cultural** along its corridor;
+and **hydro and nuclear** concentrate on **biological and water**. For siting decisions, this says the
+environmental fight is largely predictable from the technology: propose utility-scale solar and expect
+viewshed and cultural-resource conflicts; propose wind and expect the fight to be about wildlife.
+
+### Significant, but reducible
+
+Not every above-the-line finding is a hard stop. One of the significance factors the extraction
+records is **mitigable** — the impact crosses the line, but the agency notes that measures can still
+lessen it. This is the EIS analog of a mitigated FONSI, and @fig-eis-mitigable shows where it occurs.
+
+```{r}
+#| label: fig-eis-mitigable
+#| fig-cap: "Significant EIS determinations the agency flags as still mitigable, by resource — the above-the-line counterpart to a mitigated FONSI."
+include_fig("fig_eis_mitigable.png")
+```
+
+```{r}
+#| label: tbl-eis-mitigable-ex
+#| tbl-cap: "Representative significant-but-mitigable determinations, verbatim from the EIS."
+if (nrow(eis_mit_ex) > 0) {
+  eis_mit_ex |> slice_head(n = 8) |>
+    gt(groupname_col = "Resource") |>
+    cols_label(example = "Significant-but-mitigable finding, in the agency's words") |>
+    cols_align(align = "left") |> cols_width(example ~ pct(100)) |>
+    tab_style(style = list(cell_fill(color = "#75246C"), cell_text(color = "white", weight = "bold")),
+              locations = cells_row_groups()) |>
+    tab_style(style = cell_text(color = "#75246C", weight = "bold"), locations = cells_column_labels()) |>
+    tab_options(table.font.size = px(12.5), table.width = pct(100), table.align = "center",
+                row_group.font.weight = "bold", data_row.padding = px(6)) |>
+    tab_source_note("Verbatim from the model's rationale on determinations tagged with the 'mitigable' significance factor.")
+}
+```
+
+Tellingly, **visual** leads this list too: even the resource most likely to hit the wall sometimes
+admits partial mitigation (screening, siting adjustments), just not enough to drop below the line.
+These cases are the closest the EIS record comes to the mitigated-FONSI story — significant enough to
+require a full statement, but not beyond the reach of committed measures.
+
 ## Methods and Limitations
 
 **Scope**
@@ -791,6 +902,14 @@ family remain the only agencies with complete coverage; the others are shown for
 - **EPA review letters (Clean Air Act §309) are out of scope.** Under Section 309, the EPA
   independently reviews and *rates* other agencies' environmental impact statements. Those comment
   letters are not in this dataset, so the report makes no claim about EPA's own view of significance.
+- **Technology is derived from the project title.** There is no dedicated technology field in the
+  dataset, so each project is classified (solar, wind, transmission, hydro, geothermal, nuclear,
+  storage, biomass) by keyword-matching its title. **Roughly half of titles name no technology** and
+  fall into an "Other / mixed" bucket that is excluded from the technology figures. Read those figures
+  as the pattern among the clearly-named technologies, not a full census.
+- **Mitigation enforceability** is the model's read of whether a committed measure is tied to an
+  enforceable permit condition; an "unmatched" conclusion may still be enforced through channels the
+  extraction doesn't capture, so the enforceable shares are a floor.
 - **Suppressed cells.** Any cell below 5 is suppressed.
 
 ## Reproducibility

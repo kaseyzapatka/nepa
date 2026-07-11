@@ -332,6 +332,21 @@ Tables (CSV → gt): `eis_unavoidable_examples.csv`, `eis_factor_examples.csv` (
 snippets), `eis_agency.csv`, `eis_coverage_funnel.csv`. All wired into
 `phase2/reports/deliverable02.qmd` → *EIS analysis* section.
 
+**Cross-cutting analyses added 2026-07-11** (both tracks):
+- **Technology** — derived from `projects_combined.project_title` by keyword (no dedicated tech field;
+  ~half of titles are "Other / mixed" and excluded). `fig_fonsi_technology.png` (mitigation share by
+  tech; transmission/wind highest), `fig_eis_technology.png` (significant share; **hydro 27% highest,
+  nuclear 8% lowest**), `fig_eis_technology_resource.png` (row-normalized tech×resource "signature":
+  wind→biological/noise, solar→visual/cultural/air, transmission→biological/visual). Tables
+  `fonsi_technology.csv`, `eis_technology.csv`.
+- **Mitigation enforceability (FONSI)** — `mitigation_enforceability` = `permit_condition` vs `none`;
+  `fig_fonsi_enforceability.png` (enforceable share by resource: biological 38% / air 36% / water 24%
+  vs visual/cultural/soils <15%). Table `fonsi_enforceability.csv`.
+- **Significant-but-mitigable (EIS)** — the `mitigable` significance factor as the above-line analog
+  of a mitigated FONSI; `fig_eis_mitigable.png` + `eis_mitigable_examples.csv` (visual leads).
+- **Colors harmonized** report-wide to a CATF blue→purple→magenta family (waffle ramp via
+  colorRampPalette; no off-brand greens/reds/teal).
+
 ### Residual
 54 gold rows flagged `needs_human_review` (Reviewer-3 best-guessed) still open — affects only the
 class-F1 metric, not the run; user to leave/drop/resolve. EIS mitigation is the LLM class signal

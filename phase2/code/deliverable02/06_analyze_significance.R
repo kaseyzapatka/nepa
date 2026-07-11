@@ -175,6 +175,25 @@ if (fig_ok) tryCatch({
   savefig <- function(p, name, w = 8, h = 5)
     suppressMessages(ggsave(file.path(OUT, name), p, width = w, height = h, dpi = 300))
 
+  # clean-energy technology, derived from the project title (no dedicated tech field in the data).
+  # Priority: generation types first, then linear infrastructure; ~half of titles name no technology
+  # ("Other / mixed"). Used by both the FONSI and EIS technology cuts.
+  techmap <- tryCatch({
+    pc <- read_parquet(file.path(dirname(A), "projects_combined.parquet"),
+                       col_select = c("project_id", "project_title"))
+    t <- tolower(ifelse(is.na(pc$project_title), "", pc$project_title))
+    tibble(project_id = pc$project_id, tech = dplyr::case_when(
+      grepl("geothermal", t) ~ "Geothermal",
+      grepl("solar|photovolt", t) ~ "Solar",
+      grepl("wind", t) ~ "Wind",
+      grepl("hydro", t) ~ "Hydro",
+      grepl("transmission| kv|interconnec|power ?line", t) ~ "Transmission",
+      grepl("storage|battery", t) ~ "Storage",
+      grepl("nuclear|reactor", t) ~ "Nuclear",
+      grepl("biomass|biofuel|bioenerg", t) ~ "Biomass",
+      TRUE ~ "Other / mixed"))
+  }, error = function(e) { cat("[techmap skipped]", conditionMessage(e), "\n"); NULL })
+
   # resource-level analytic determinations: below-the-line FONSI classes only (the significant_*
   # anomalies are held out), so figure counts reconcile with the resource map + mitigation tables.
   res_lvl <- primary_dr %>%
@@ -425,6 +444,50 @@ if (fig_ok) tryCatch({
     arrange(desc(share), Resource, L) %>%
     select(Resource, example)
   w(ex, "mitigation_examples.csv")
+
+  # Fig — FONSI mitigation-dependence by clean-energy technology (which techs lean on mitigation)
+  if (!is.null(techmap)) {
+    ftech <- primary_dr %>% filter(determination_class %in% BELOW_LINE,
+             !shared_resource_area %in% c("project_wide", "unknown")) %>%
+      left_join(techmap, by = "project_id") %>% filter(!is.na(tech), tech != "Other / mixed") %>%
+      group_by(tech) %>%
+      summarise(n = n(), n_mit = sum(determination_class == "less_than_significant_with_mitigation"),
+                share = mean(determination_class == "less_than_significant_with_mitigation"),
+                proj = n_distinct(project_id), .groups = "drop") %>% filter(n >= 40)
+    w(ftech %>% arrange(desc(share)), "fonsi_technology.csv")
+    savefig(ggplot(ftech, aes(reorder(tech, share), share)) +
+          geom_col(fill = catf_magenta, width = 0.72) +
+          geom_text(aes(label = sprintf("%s  (%d of %d)", scales::percent(share, accuracy = 1), n_mit, n)),
+                    hjust = -0.1, size = 2.9, color = "gray30") +
+          coord_flip() + scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.30))) +
+          labs(title = "Which technologies lean on mitigation?",
+               subtitle = "Share of a technology's FONSI conclusions that depend on committed mitigation",
+               x = NULL, y = NULL,
+               caption = "Technology derived from the project title (named-technology projects only; ~half of titles name no technology and are excluded).") +
+          theme_catf(),
+      "fig_fonsi_technology.png", 8, 4.4)
+
+    # Fig — FONSI mitigation enforceability by resource (is the committed measure actually binding?)
+    enf <- primary %>% filter(determination_class == "less_than_significant_with_mitigation",
+             shared_resource_area %in% names(res_label), !shared_resource_area %in% c("project_wide", "unknown")) %>%
+      distinct(project_id, document_id, shared_resource_area, mitigation_enforceability) %>%
+      group_by(shared_resource_area) %>%
+      summarise(n = n(), n_enf = sum(mitigation_enforceability == "permit_condition", na.rm = TRUE),
+                share = mean(mitigation_enforceability == "permit_condition", na.rm = TRUE), .groups = "drop") %>%
+      filter(n >= 10) %>% mutate(Resource = relab(shared_resource_area, res_label))
+    w(enf %>% arrange(desc(share)), "fonsi_enforceability.csv")
+    savefig(ggplot(enf, aes(reorder(Resource, share), share)) +
+          geom_col(fill = catf_dark_blue, width = 0.72) +
+          geom_text(aes(label = sprintf("%s  (%d of %d)", scales::percent(share, accuracy = 1), n_enf, n)),
+                    hjust = -0.1, size = 2.9, color = "gray30") +
+          coord_flip() + scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.34))) +
+          labs(title = "Is the committed mitigation actually enforceable?",
+               subtitle = "Share of a resource's mitigated FONSI conclusions tied to an enforceable permit condition",
+               x = NULL, y = NULL,
+               caption = "Resources with strong regulatory hooks (ESA, Clean Air/Water Acts) carry enforceable conditions; softer resources rely on non-binding commitments.") +
+          theme_catf(),
+      "fig_fonsi_enforceability.png", 8, 4.4)
+  }
 
   cat("  wrote figures to", OUT, "\n")
 }, error = function(e) cat("[figures error]", conditionMessage(e), "\n"))
@@ -875,6 +938,73 @@ if (file.exists(eis_det_path)) tryCatch({
                 theme(legend.position = "bottom"),
               "fig_corpus_overview.png", 11, 8.8)
     }
+
+    # Fig — EIS significant-share by clean-energy technology (which techs cross the line)
+    if (exists("techmap") && !is.null(techmap)) {
+      etech_dr <- edr_rc %>% filter(!shared_resource_area %in% c("project_wide", "unknown")) %>%
+        left_join(techmap, by = "project_id") %>% filter(!is.na(tech), tech != "Other / mixed")
+      etech <- etech_dr %>% group_by(tech) %>%
+        summarise(n = n(), n_sig = sum(determination_class %in% ABOVE),
+                  share = mean(determination_class %in% ABOVE), proj = n_distinct(project_id), .groups = "drop") %>%
+        filter(n >= 60)
+      w(etech %>% arrange(desc(share)), "eis_technology.csv")
+      savefig(ggplot(etech, aes(reorder(tech, share), share)) +
+            geom_col(fill = catf_magenta, width = 0.72) +
+            geom_text(aes(label = sprintf("%s  (%d of %s)", scales::percent(share, accuracy = 1), n_sig,
+                          scales::comma(n))), hjust = -0.1, size = 2.9, color = "gray30") +
+            coord_flip() + scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.30))) +
+            labs(title = "Which technologies cross the line?",
+                 subtitle = "Share of a technology's EIS determinations judged significant",
+                 x = NULL, y = NULL,
+                 caption = "Technology derived from the project title (named-technology projects only; ~half of titles name no technology and are excluded).") +
+            theme_catf(),
+        "fig_eis_technology.png", 8, 4.4)
+
+      # Fig — technology × resource "signature": row-normalized so each tech's crossing pattern shows.
+      # Keep only techs with enough significant determinations (>=30) so a row isn't one saturated cell.
+      tr <- etech_dr %>% filter(determination_class %in% ABOVE, tech %in% etech$tech) %>%
+        count(tech, shared_resource_area, name = "n") %>%
+        group_by(tech) %>% filter(sum(n) >= 30) %>% mutate(row_share = n / sum(n)) %>% ungroup() %>%
+        mutate(Resource = relab(shared_resource_area, res_label))
+      tech_ord <- etech %>% filter(tech %in% unique(tr$tech)) %>% arrange(share) %>% pull(tech)
+      res_ord2 <- tr %>% group_by(Resource) %>% summarise(t = sum(n), .groups = "drop") %>% arrange(t) %>% pull(Resource)
+      savefig(ggplot(tr, aes(factor(Resource, levels = res_ord2), factor(tech, levels = tech_ord), fill = row_share)) +
+            geom_tile(color = "white", linewidth = 0.7) +
+            geom_text(aes(label = ifelse(n >= 5, n, ""), color = row_share > 0.30), size = 2.7) +
+            scale_color_manual(values = c(`TRUE` = "white", `FALSE` = "gray15"), guide = "none") +
+            scale_fill_gradientn(colors = c("#eef3fb", catf_light_blue, catf_dark_blue, catf_navy),
+                                 labels = scales::percent, name = "Share of the\ntech's crossings") +
+            labs(title = "Each technology's significance signature",
+                 subtitle = "Where each technology crosses the line — row-normalized (cell = count of significant determinations)",
+                 x = NULL, y = NULL) +
+            theme_catf() + theme(axis.text.x = element_text(angle = 25, hjust = 1), panel.grid = element_blank(),
+                                 legend.position = "right"),
+        "fig_eis_technology_resource.png", 9, 5)
+    }
+
+    # Fig + examples — significant-but-mitigable (the EIS analog of a mitigated FONSI: significant, but reducible)
+    emit <- edr %>% filter(determination_class %in% ABOVE, significance_factor == "mitigable",
+             !shared_resource_area %in% c("project_wide", "unknown")) %>%
+      distinct(project_id, document_id, shared_resource_area) %>%
+      count(shared_resource_area, name = "n") %>% filter(n >= MIN_CELL) %>%
+      mutate(Resource = relab(shared_resource_area, res_label))
+    w(emit %>% arrange(desc(n)), "eis_mitigable.csv")
+    savefig(ggplot(emit, aes(reorder(Resource, n), n)) +
+          geom_col(fill = catf_purple, width = 0.72) +
+          geom_text(aes(label = n), hjust = -0.3, size = 3, color = "gray30") +
+          coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+          labs(title = "Significant, but reducible",
+               subtitle = "Significant EIS determinations the agency flags as still mitigable, by resource",
+               x = NULL, y = "Determinations", caption = "The above-the-line analog of a mitigated FONSI: the impact crosses the line, but the agency notes mitigation can lessen it.") +
+          theme_catf(),
+      "fig_eis_mitigable.png", 8, 4.2)
+    emit_ex <- eprimary %>%
+      filter(determination_class %in% ABOVE, significance_factor == "mitigable") %>%
+      pick_examples("shared_resource_area", n_each = 1) %>%
+      mutate(Resource = relab(shared_resource_area, res_label)) %>%
+      left_join(emit %>% select(shared_resource_area, nres = n), by = "shared_resource_area") %>%
+      mutate(nres = coalesce(nres, 0L)) %>% arrange(desc(nres), Resource, L) %>% select(Resource, example)
+    w(emit_ex, "eis_mitigable_examples.csv")
 
     cat("  wrote EIS figures to", OUT, "\n")
   }
