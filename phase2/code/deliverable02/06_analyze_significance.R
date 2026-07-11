@@ -310,7 +310,7 @@ if (fig_ok) tryCatch({
     filter(!threshold_type %in% c("none", "unknown", "")) %>% count(threshold_type) %>%
     mutate(Threshold = ifelse(is.na(thr_lab[threshold_type]), threshold_type, thr_lab[threshold_type]))
   savefig(tprof %>% ggplot(aes(reorder(Threshold, n), n)) +
-        geom_col(fill = catf_teal) + geom_text(aes(label = n), hjust = -0.2, size = 3, color = "gray30") +
+        geom_col(fill = catf_dark_blue) + geom_text(aes(label = n), hjust = -0.2, size = 3, color = "gray30") +
         coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.09))) +
         labs(title = "Which regulatory thresholds the conclusions lean on",
              subtitle = "Threshold citations across primary FONSI determinations",
@@ -329,7 +329,7 @@ if (fig_ok) tryCatch({
     agrid$grp <- factor(rep(as.character(asc$grp), asc$sq)[1:100], levels = levels(asc$grp))
     savefig(ggplot(agrid, aes(x, y, fill = grp)) +
           geom_tile(color = "white", linewidth = 1.1) + coord_equal() +
-          scale_fill_manual(values = c("BLM" = "#3182bd", "DOE family" = "#08519c",
+          scale_fill_manual(values = c("BLM" = catf_dark_blue, "DOE family" = catf_navy,
                                        "Other (dropped)" = "gray80"), name = NULL) +
           labs(title = "Who leads these FONSIs — and what the analysis keeps",
                subtitle = "Each square ≈ 1% of the 452 decarbonization FONSIs. BLM + DOE are analyzed; the rest is set aside.") +
@@ -376,7 +376,7 @@ if (fig_ok) tryCatch({
   savefig(ggplot(deptr, aes(mit, Resource)) +
         geom_line(aes(group = Resource), color = "gray78", linewidth = 1) +
         geom_point(aes(color = agency), size = 3.6, alpha = 0.9) +
-        scale_color_manual(values = c("BLM" = "#31a354", "DOE-family" = "#3182bd"), name = NULL) +
+        scale_color_manual(values = c("BLM" = catf_purple, "DOE-family" = catf_dark_blue), name = NULL) +
         scale_x_continuous(labels = scales::percent, expand = expansion(mult = c(0.02, 0.08))) +
         labs(title = "Does a resource trigger mitigation more for BLM or DOE?",
              subtitle = "Share of a resource's FONSI conclusions that depend on committed mitigation, by department",
@@ -400,7 +400,7 @@ if (fig_ok) tryCatch({
     savefig(ggplot(subr, aes(sub, reorder(Resource, mit), fill = mit)) +
           geom_tile(color = "white", linewidth = 1) +
           geom_text(aes(label = scales::percent(mit, accuracy = 1)), size = 2.6, color = "gray15") +
-          scale_fill_gradientn(colors = c("#f7fbff", "#9ecae1", "#3182bd", "#08306b"),
+          scale_fill_gradientn(colors = c("#eef3fb", catf_light_blue, catf_dark_blue, catf_navy),
                                labels = scales::percent, breaks = c(0, 0.2, 0.4), name = "Mitigation\nshare") +
           labs(title = "Which resources drive mitigation, by sub-agency",
                subtitle = "Share of a resource's conclusions that depend on mitigation (cells with ≥3 determinations)",
@@ -668,7 +668,7 @@ if (file.exists(eis_det_path)) tryCatch({
           geom_tile(color = "white", linewidth = 0.7) +
           geom_text(aes(label = ifelse(n >= 5, n, ""), color = row_share > 0.30), size = 2.7) +
           scale_color_manual(values = c(`TRUE` = "white", `FALSE` = "gray15"), guide = "none") +
-          scale_fill_gradientn(colors = c("#f7fbff", "#c6dbef", "#6baed6", "#2171b5", "#08306b"),
+          scale_fill_gradientn(colors = c("#eef3fb", catf_light_blue, catf_dark_blue, catf_navy),
                                labels = scales::percent, name = "Share of the\nfactor's findings") +
           labs(title = "Where each factor bites",
                subtitle = "Each row shaded by share within that factor — darker = where that reason concentrates (cell = count)",
@@ -755,7 +755,7 @@ if (file.exists(eis_det_path)) tryCatch({
             coord_flip() +
             scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.28))) +
             scale_fill_manual(values = c("BLM + DOE (complete coverage)" = catf_dark_blue,
-                                         "Other agency (partial coverage)" = catf_teal), name = NULL) +
+                                         "Other agency (partial coverage)" = catf_light_blue), name = NULL) +
             labs(title = "Does crossing the line differ by agency?",
                  subtitle = "Share of a lead agency's EIS determinations judged significant (agencies with ≥150 determinations)",
                  x = NULL, y = NULL,
@@ -808,9 +808,9 @@ if (file.exists(eis_det_path)) tryCatch({
       geom_text(aes(label = ifelse(n >= 120, sprintf("%s: %d", Status, n), "")),
                 position = position_stack(vjust = 0.5), color = "white", size = 3, fontface = "bold") +
       coord_flip() + scale_y_continuous(expand = c(0, 0)) +
-      # clean sequential blues (data-completeness, not severity) — no clashing cyan/purple
-      scale_fill_manual(values = c("Dated, in-window" = "#08519c", "No decision date" = "#6baed6",
-                                   "Pre-2009 (pre-ARRA)" = "#c6dbef", "Boundary" = "gray75"),
+      # brand sequential blues (data-completeness, not severity) — no clashing cyan/purple
+      scale_fill_manual(values = c("Dated, in-window" = catf_navy, "No decision date" = catf_dark_blue,
+                                   "Pre-2009 (pre-ARRA)" = catf_light_blue, "Boundary" = "gray75"),
                         breaks = c("Dated, in-window", "No decision date", "Pre-2009 (pre-ARRA)", "Boundary"),
                         name = NULL) +
       labs(title = "Do the analyzed projects have decision dates?",
@@ -850,10 +850,10 @@ if (file.exists(eis_det_path)) tryCatch({
       res_rank <- bind_rows(fon_res_ct, eis_res_ct) %>% group_by(shared_resource_area) %>%
         summarise(tot = sum(tot), .groups = "drop") %>% arrange(desc(tot)) %>%
         mutate(Resource = relab(shared_resource_area, res_label))
-      waffle_pal <- c("#08519c", "#3182bd", "#6baed6", "#9ecae1",   # blues
-                      "#006d2c", "#31a354", "#74c476", "#a1d99b",   # greens
-                      "#99000d", "#cb181d", "#fb6a4a", "#fcae91", "#bdbdbd")  # reds + grey
-      waf_cols <- setNames(waffle_pal[seq_len(nrow(res_rank))], res_rank$Resource)
+      # harmonized brand ramp: cool→warm through the report's own hues (light blue → blue → purple →
+      # magenta), one shade per resource — no off-palette greens/reds.
+      waffle_pal <- grDevices::colorRampPalette(c(catf_light_blue, catf_dark_blue, catf_purple, catf_magenta))(nrow(res_rank))
+      waf_cols <- setNames(waffle_pal, res_rank$Resource)
       res_levels <- res_rank$Resource
       mk_waffle <- function(ct, title) {
         wfd <- ct %>% mutate(Resource = relab(shared_resource_area, res_label)) %>%
