@@ -33,7 +33,15 @@ DETERMINATION_THRESHOLDS = D2_ANALYSIS_DIR / "determination_thresholds.parquet"
 RUN_MANIFEST = D2_ANALYSIS_DIR / "significance_run_manifest.parquet"
 GOLD = D2_GOLD_DIR / "significance_gold.parquet"
 GOLD_THRESHOLDS = D2_GOLD_DIR / "significance_gold_thresholds.parquet"
+GOLD_QUEUE = D2_GOLD_DIR / "significance_gold_queue.parquet"
 GOLD_QUEUE_CSV = D2_OUTPUT_DIR / "significance_gold_queue.csv"
+
+# EIS gold set — a fully PARALLEL track to the FONSI gold, with DISTINCT files so the two never
+# mix (built by 03_build_gold_set_queue_eis.py + gold_labeling_eis.md; validated via --track eis).
+SIGNIFICANCE_DETERMINATIONS_EIS = D2_ANALYSIS_DIR / "significance_determinations_eis.parquet"
+GOLD_EIS = D2_GOLD_DIR / "significance_gold_eis.parquet"
+GOLD_QUEUE_EIS = D2_GOLD_DIR / "significance_gold_queue_eis.parquet"
+GOLD_QUEUE_EIS_CSV = D2_OUTPUT_DIR / "significance_gold_queue_eis.csv"
 
 # read-only inputs
 PROJECTS_COMBINED = ANALYSIS_DIR / "projects_combined.parquet"
@@ -48,6 +56,15 @@ FONSI_CONDITIONS = D6_DIR / "fonsi_conditions.parquet"
 FONSI_SECTION_MANIFEST = D6_DIR / "fonsi_section_manifest.parquet"
 
 SCHEMA_VERSION = "d2_v2_11"
+
+# max chars of a section window shown to the LLM. Raised from 4,000 so whole multi-page
+# Environmental-Consequences chapters are read in full (was truncating 27% of windows and
+# dropping the resource conclusions past char 4,000). ~16k chars ≈ 4k tokens — trivial for
+# Sonnet 5 / Opus. The LLM returns one determination PER resource area in the window.
+WINDOW_CHAR_CAP = 16000
+# EIS-only: sections run longer (p95 ≈ 21.6k chars), so the EIS track reads to 24k to capture ~95%
+# of sections in full (vs 81% at 16k). FONSI is UNCHANGED at 16k (already run). ~+9% EIS input cost.
+WINDOW_CHAR_CAP_EIS = 24000
 
 # ---- cohort bin constants (plan A4, frozen) ----
 ARRA = "2009-02-17"

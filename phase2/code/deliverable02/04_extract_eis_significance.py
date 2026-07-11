@@ -21,8 +21,13 @@ from candidate_gen import classify_determination, resource_guess, threshold_hits
 
 
 def eis_candidates(sample: int) -> pd.DataFrame:
-    """Impact/consequence sections in clean-EIS corpus projects that mention significance."""
+    """Impact/consequence sections in clean-EIS corpus projects that mention significance.
+    A --sample run hash-orders (md5) so the subset is REPRESENTATIVE across projects (for a spike);
+    the full run (sample=0) keeps deterministic project/document/page order."""
     limit = f"LIMIT {sample}" if sample else ""
+    order = ("ORDER BY md5(concat_ws('|', s.project_id, s.document_id, CAST(s.page_start AS VARCHAR), "
+             "CAST(s.char_start AS VARCHAR), s.heading_title))" if sample
+             else "ORDER BY s.project_id, s.document_id, s.page_start")
     sql = f"""
     WITH corpus_eis AS (
         SELECT project_id FROM read_parquet('{C.SIGNIFICANCE_CORPUS}') WHERE process_type = 'EIS'
@@ -36,7 +41,7 @@ def eis_candidates(sample: int) -> pd.DataFrame:
            OR lower(s.heading_title) LIKE '%environmental consequence%'
            OR lower(s.section_topic_guess) LIKE '%impact%')
       AND s.section_words BETWEEN 20 AND 4000
-    ORDER BY s.project_id, s.document_id, s.page_start
+    {order}
     {limit}
     """
     df = C.q(sql)
@@ -59,13 +64,17 @@ def eis_candidates(sample: int) -> pd.DataFrame:
         (rg[0] if rg[0] != "unknown" else (stg or "unknown"))
         for rg, stg in zip(res, df["section_topic_guess"])]
     df["resource_subarea_guess"] = res.map(lambda x: x[1])
-    df["evidence_text"] = df["section_text"].str.slice(0, 4000)
+    df["evidence_text"] = df["section_text"].str.slice(0, C.WINDOW_CHAR_CAP_EIS)  # EIS reads to 24k
     df["evidence_text_sha256"] = df["section_text"].map(C.sha256_text)
     df = df.drop(columns=["section_text", "char_start", "char_end", "section_topic_guess"])
     # keep only real determination candidates or threshold-bearing sections (bound the set)
     keep = (df["candidate_class_guess"] != "not_a_determination") | \
            df["evidence_text"].map(lambda t: bool(threshold_hits(t)))
-    return df[keep].reset_index(drop=True)
+    df = df[keep]
+    # dedup WITHIN a project only: a Draft + Final EIS repeat identical section text; count it once.
+    # (Cross-project identical text is left intact — it is legitimate per-project attribution.)
+    df = df.drop_duplicates(["project_id", "evidence_text_sha256"], keep="first")
+    return df.reset_index(drop=True)
 
 
 def eis_context() -> pd.DataFrame:
@@ -82,20 +91,59 @@ def eis_context() -> pd.DataFrame:
     """)
 
 
+def eis_gold_sample(n: int) -> pd.DataFrame:
+    """Candidate frame drawn from the EIS GOLD QUEUE windows (so a spike OVERLAPS the gold and can
+    be validated). Uses the queue's evidence_text as the labelers read it (16k) — the deterministic
+    check matches exactly what the humans coded, even though the full run reads to 24k."""
+    q = pd.read_parquet(C.GOLD_QUEUE_EIS).sort_values("evidence_text_sha256")
+    if n:
+        q = q.head(n)
+    q = q.copy()
+    q["source_unit_id"] = q["evidence_span_id"]
+    q["span_char_start"] = None
+    q["span_char_end"] = None
+    q["source_span_sha256"] = None
+    # drop queue columns that eis_context() also supplies, so the project_id merge doesn't collide
+    q = q.drop(columns=[c for c in ("agency_scope_status", "gold_queue_run_at", "schema_version")
+                        if c in q.columns])
+    return q.reset_index(drop=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--model", default=X.DEFAULT_MODEL)
-    ap.add_argument("--sample", type=int, default=500, help="section cap (EIS is gated; spike first)")
+    ap.add_argument("--sample", type=int, default=500, help="section cap (EIS is gated; spike first; 0 = ALL)")
+    ap.add_argument("--gold-sample", type=int, default=0,
+                    help="run on N EIS GOLD-QUEUE windows (overlaps the gold so the spike is validatable)")
     ap.add_argument("--out-suffix", default="_eis", help="write to *<suffix>.parquet to not clobber FONSI")
+    ap.add_argument("--batch-run", action="store_true",
+                    help="ONE-PASSWORD batch: submit + poll + fetch + build, all in this process")
+    ap.add_argument("--batch-submit", action="store_true",
+                    help="submit windows as Message Batch(es) (50%% price) and exit")
+    ap.add_argument("--batch-fetch", action="store_true",
+                    help="retrieve the submitted batch and build determinations")
+    ap.add_argument("--wait", action="store_true", help="with --batch-fetch: poll until ended")
     args = ap.parse_args()
-    print(f"D2 Phase 3b: EIS significance extraction — "
-          f"{'DRY-RUN' if args.dry_run else f'LLM ({args.model})'}  (sample={args.sample or 'ALL'})")
+    mode = ("BATCH-RUN (one password, submit+poll+fetch)" if args.batch_run
+            else "BATCH-SUBMIT" if args.batch_submit else "BATCH-FETCH" if args.batch_fetch
+            else "DRY-RUN" if args.dry_run else f"LLM sync ({args.model})")
+    print(f"D2 Phase 3b: EIS significance extraction — {mode}  (sample={args.sample or 'ALL'})")
 
-    cand = eis_candidates(args.sample)
+    if args.batch_fetch:
+        cand, results, model = X.fetch_batch("eis", args.wait)
+    else:
+        cand = eis_gold_sample(args.gold_sample) if args.gold_sample else eis_candidates(args.sample)
+        results, model = None, args.model
     if cand.empty:
         print("no EIS candidates for this sample."); return
-    dets, thr = X.build_determinations(cand, None, eis_context(), args.dry_run, args.model)
+    if args.batch_submit or args.batch_run:
+        X.submit_batch(cand, args.model, "eis")     # key read once & cached for this process
+        if not args.batch_run:
+            return
+        cand, results, model = X.fetch_batch("eis", wait=True)
+    dets, thr = X.build_determinations(cand, None, eis_context(), args.dry_run, model,
+                                       llm_results=results, track="eis")
 
     sfx = args.out_suffix
     det_path = C.D2_ANALYSIS_DIR / f"significance_determinations{sfx}.parquet"

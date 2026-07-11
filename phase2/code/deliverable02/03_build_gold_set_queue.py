@@ -1,15 +1,18 @@
 """D2 Phase 5 — build the gold-set labeling worksheet (deterministic; NO LLM, NO gold yet).
 
-Emits a stratified queue of candidate determination windows for the analyst to HAND-LABEL
+Emits a stratified queue of candidate determination WINDOWS for the analyst to HAND-LABEL
 (plan §7). ~300 determination candidates + ~100 negatives, stratified by candidate class,
 agency scope, threshold presence, and mitigation link. Sampling is deterministic (ordered by
 evidence hash — reproducible, no seed).
 
-The analyst fills the empty `gold_*` columns; the filled sheet becomes
-`gold/significance_gold.parquet` (+ a per-threshold companion `significance_gold_thresholds`).
+MULTI-DETERMINATION GRAIN (2026-07-08): the extractor emits one row per
+(window × resource_area × determination), so this worksheet is a *reading list* of windows, NOT
+a fill-in-place answer sheet. Each labeler reads every window and writes a SEPARATE long CSV with
+one row per resource-area determination the window concludes on (see gold_labeling.md). The two
+labelers' long CSVs are merged by `gold_agreement.py` into `gold/significance_gold.parquet`.
 
 Run:  conda run -n nepa python phase2/code/deliverable02/03_build_gold_set_queue.py
-Out:  phase2/output/deliverable02/significance_gold_queue.csv
+Out:  phase2/output/deliverable02/significance_gold_queue.csv   (windows to read)
       phase2/data/analysis/deliverable02/gold/significance_gold_queue.parquet
 """
 from __future__ import annotations
@@ -20,13 +23,6 @@ import common as C
 from candidate_gen import generate_fonsi_candidates
 
 N_POS, N_NEG, FLOOR = 300, 100, 15
-
-# empty columns the analyst fills (same controlled vocab as the machine — plan §7)
-GOLD_COLS = [
-    "gold_is_determination", "gold_determination_class", "gold_determination_scope",
-    "gold_resource_area", "gold_primary_threshold_type", "gold_primary_threshold_status",
-    "gold_mitigation_link", "gold_evidence_span_ok", "gold_needs_human_review", "gold_notes",
-]
 
 
 def _stratified(df: pd.DataFrame, by: str, n: int) -> pd.DataFrame:
@@ -67,20 +63,18 @@ def main() -> None:
     neg_sample = _stratified(neg, "agency_scope_status", N_NEG)
     queue = pd.concat([pos_sample, neg_sample], ignore_index=True)
 
-    for c in GOLD_COLS:
-        queue[c] = ""
-    queue["double_coded"] = False        # analyst marks the >=20% double-coded subset
-    queue["holdout"] = False             # analyst/script marks the >=30% eval holdout
     queue["gold_queue_run_at"] = C.utc_now()
     queue["schema_version"] = C.SCHEMA_VERSION
 
+    # reading list only — labelers write a SEPARATE long CSV (one row per resource determination),
+    # so no fill-in-place gold_* columns here (that grain can't express multi-determination windows).
     order = ["project_id", "document_id", "manifest_role", "section_id", "evidence_span_id",
              "source_substrate", "agency_scope_status", "page_start", "page_end", "heading_title",
              "candidate_class_guess", "determination_polarity_guess", "matched_cue_group",
              "resource_area_guess", "resource_subarea_guess", "threshold_types_guess",
              "has_qual_cond_same_section", "has_qual_cond_windowed",
              "evidence_text", "evidence_text_sha256",
-             *GOLD_COLS, "double_coded", "holdout", "gold_queue_run_at", "schema_version"]
+             "gold_queue_run_at", "schema_version"]
     queue = queue[order]
 
     C.write_parquet(queue, C.D2_GOLD_DIR / "significance_gold_queue.parquet", "gold queue")
