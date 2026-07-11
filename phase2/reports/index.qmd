@@ -7,6 +7,7 @@ Phase 2 extends the [Phase 1 analysis](../reports/project_overview.html) with an
 ## Available reports
 
 - [Deliverable 1 — NEPA Triggers](deliverable01.html)
+- [Deliverable 2 — Determinations of Significance (FONSI & EIS)](deliverable02.html)
 - [Deliverable 3 — Review Patterns: Fossil vs. Decarbonization](deliverable03.html)
 - [Deliverable 4 — Review Timelines (CE / EA / EIS)](deliverable04.html)
 - [Deliverable 5 — Categorical-Exclusion Spikes](deliverable05.html)
