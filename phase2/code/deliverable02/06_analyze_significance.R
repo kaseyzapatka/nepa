@@ -175,22 +175,24 @@ if (fig_ok) tryCatch({
   savefig <- function(p, name, w = 8, h = 5)
     suppressMessages(ggsave(file.path(OUT, name), p, width = w, height = h, dpi = 300))
 
-  # clean-energy technology, derived from the project title (no dedicated tech field in the data).
-  # Priority: generation types first, then linear infrastructure; ~half of titles name no technology
-  # ("Other / mixed"). Used by both the FONSI and EIS technology cuts.
+  # clean-energy technology from the dataset's own `project_type` classification (a curated multi-tag
+  # field, 100% populated). Assign one primary technology per project by priority: generation types
+  # first, then nuclear/CCS, then transmission. ~22% resolve to "Other / mixed". Used by both tracks.
   techmap <- tryCatch({
     pc <- read_parquet(file.path(dirname(A), "projects_combined.parquet"),
-                       col_select = c("project_id", "project_title"))
-    t <- tolower(ifelse(is.na(pc$project_title), "", pc$project_title))
+                       col_select = c("project_id", "project_type"))
+    pt <- ifelse(is.na(pc$project_type), "", pc$project_type)
     tibble(project_id = pc$project_id, tech = dplyr::case_when(
-      grepl("geothermal", t) ~ "Geothermal",
-      grepl("solar|photovolt", t) ~ "Solar",
-      grepl("wind", t) ~ "Wind",
-      grepl("hydro", t) ~ "Hydro",
-      grepl("transmission| kv|interconnec|power ?line", t) ~ "Transmission",
-      grepl("storage|battery", t) ~ "Storage",
-      grepl("nuclear|reactor", t) ~ "Nuclear",
-      grepl("biomass|biofuel|bioenerg", t) ~ "Biomass",
+      grepl("Renewable Energy Production - Solar", pt) ~ "Solar",
+      grepl("Wind, Onshore|Wind, Offshore|Renewable Energy Production - Wind", pt) ~ "Wind",
+      grepl("Hydropower", pt) ~ "Hydro",
+      grepl("Geothermal", pt) ~ "Geothermal",
+      grepl("Biomass", pt) ~ "Biomass",
+      grepl("Energy Storage", pt) ~ "Storage",
+      grepl("Nuclear Technology", pt) ~ "Nuclear",
+      grepl("Carbon Capture", pt) ~ "Carbon capture",
+      grepl("Electricity Transmission", pt) ~ "Transmission",
+      grepl("Renewable Energy Production - Other", pt) ~ "Renewable (other)",
       TRUE ~ "Other / mixed"))
   }, error = function(e) { cat("[techmap skipped]", conditionMessage(e), "\n"); NULL })
 
@@ -418,7 +420,8 @@ if (fig_ok) tryCatch({
     subr <- subr %>% filter(sub %in% keep_sub, n >= 3)
     savefig(ggplot(subr, aes(sub, reorder(Resource, mit), fill = mit)) +
           geom_tile(color = "white", linewidth = 1) +
-          geom_text(aes(label = scales::percent(mit, accuracy = 1)), size = 2.6, color = "gray15") +
+          geom_text(aes(label = scales::percent(mit, accuracy = 1), color = mit > 0.25), size = 2.6) +
+          scale_color_manual(values = c(`TRUE` = "white", `FALSE` = "gray15"), guide = "none") +
           scale_fill_gradientn(colors = c("#eef3fb", catf_light_blue, catf_dark_blue, catf_navy),
                                labels = scales::percent, breaks = c(0, 0.2, 0.4), name = "Mitigation\nshare") +
           labs(title = "Which resources drive mitigation, by sub-agency",
@@ -449,7 +452,7 @@ if (fig_ok) tryCatch({
   if (!is.null(techmap)) {
     ftech <- primary_dr %>% filter(determination_class %in% BELOW_LINE,
              !shared_resource_area %in% c("project_wide", "unknown")) %>%
-      left_join(techmap, by = "project_id") %>% filter(!is.na(tech), tech != "Other / mixed") %>%
+      left_join(techmap, by = "project_id") %>% filter(!is.na(tech), !tech %in% c("Other / mixed", "Renewable (other)")) %>%
       group_by(tech) %>%
       summarise(n = n(), n_mit = sum(determination_class == "less_than_significant_with_mitigation"),
                 share = mean(determination_class == "less_than_significant_with_mitigation"),
@@ -463,7 +466,7 @@ if (fig_ok) tryCatch({
           labs(title = "Which technologies lean on mitigation?",
                subtitle = "Share of a technology's FONSI conclusions that depend on committed mitigation",
                x = NULL, y = NULL,
-               caption = "Technology derived from the project title (named-technology projects only; ~half of titles name no technology and are excluded).") +
+               caption = "Technology from the dataset's project_type classification (one primary type per project; ~1 in 5 resolve to Other / mixed and are excluded).") +
           theme_catf(),
       "fig_fonsi_technology.png", 8, 4.4)
 
@@ -727,9 +730,10 @@ if (file.exists(eis_det_path)) tryCatch({
       group_by(Factor) %>% filter(sum(n) >= 30) %>% mutate(row_share = n / sum(n)) %>% ungroup() %>%
       mutate(Factor = droplevels(Factor))
     res_ord <- fr %>% group_by(Resource) %>% summarise(t = sum(n), .groups = "drop") %>% arrange(t) %>% pull(Resource)
+    fr_thr <- 0.55 * max(fr$row_share)   # white text on the darkest cells, relative to this grid's range
     savefig(ggplot(fr, aes(factor(Resource, levels = res_ord), Factor, fill = row_share)) +
           geom_tile(color = "white", linewidth = 0.7) +
-          geom_text(aes(label = ifelse(n >= 5, n, ""), color = row_share > 0.30), size = 2.7) +
+          geom_text(aes(label = ifelse(n >= 5, n, ""), color = row_share > fr_thr), size = 2.7) +
           scale_color_manual(values = c(`TRUE` = "white", `FALSE` = "gray15"), guide = "none") +
           scale_fill_gradientn(colors = c("#eef3fb", catf_light_blue, catf_dark_blue, catf_navy),
                                labels = scales::percent, name = "Share of the\nfactor's findings") +
@@ -942,7 +946,7 @@ if (file.exists(eis_det_path)) tryCatch({
     # Fig — EIS significant-share by clean-energy technology (which techs cross the line)
     if (exists("techmap") && !is.null(techmap)) {
       etech_dr <- edr_rc %>% filter(!shared_resource_area %in% c("project_wide", "unknown")) %>%
-        left_join(techmap, by = "project_id") %>% filter(!is.na(tech), tech != "Other / mixed")
+        left_join(techmap, by = "project_id") %>% filter(!is.na(tech), !tech %in% c("Other / mixed", "Renewable (other)"))
       etech <- etech_dr %>% group_by(tech) %>%
         summarise(n = n(), n_sig = sum(determination_class %in% ABOVE),
                   share = mean(determination_class %in% ABOVE), proj = n_distinct(project_id), .groups = "drop") %>%
@@ -956,7 +960,7 @@ if (file.exists(eis_det_path)) tryCatch({
             labs(title = "Which technologies cross the line?",
                  subtitle = "Share of a technology's EIS determinations judged significant",
                  x = NULL, y = NULL,
-                 caption = "Technology derived from the project title (named-technology projects only; ~half of titles name no technology and are excluded).") +
+                 caption = "Technology from the dataset's project_type classification (one primary type per project; ~1 in 5 resolve to Other / mixed and are excluded).") +
             theme_catf(),
         "fig_eis_technology.png", 8, 4.4)
 
@@ -968,9 +972,10 @@ if (file.exists(eis_det_path)) tryCatch({
         mutate(Resource = relab(shared_resource_area, res_label))
       tech_ord <- etech %>% filter(tech %in% unique(tr$tech)) %>% arrange(share) %>% pull(tech)
       res_ord2 <- tr %>% group_by(Resource) %>% summarise(t = sum(n), .groups = "drop") %>% arrange(t) %>% pull(Resource)
+      tr_thr <- 0.55 * max(tr$row_share)   # white text on the darkest cells, relative to this grid's range
       savefig(ggplot(tr, aes(factor(Resource, levels = res_ord2), factor(tech, levels = tech_ord), fill = row_share)) +
             geom_tile(color = "white", linewidth = 0.7) +
-            geom_text(aes(label = ifelse(n >= 5, n, ""), color = row_share > 0.30), size = 2.7) +
+            geom_text(aes(label = ifelse(n >= 5, n, ""), color = row_share > tr_thr), size = 2.7) +
             scale_color_manual(values = c(`TRUE` = "white", `FALSE` = "gray15"), guide = "none") +
             scale_fill_gradientn(colors = c("#eef3fb", catf_light_blue, catf_dark_blue, catf_navy),
                                  labels = scales::percent, name = "Share of the\ntech's crossings") +

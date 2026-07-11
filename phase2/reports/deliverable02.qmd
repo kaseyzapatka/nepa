@@ -771,13 +771,15 @@ include_fig("fig_eis_technology.png")
 ```{r}
 #| label: eis-tech
 et <- eis_tech |> arrange(desc(share))
+et_top <- et |> slice_head(n = 1)
+nuc <- et |> filter(tech == "Nuclear")
 ```
 
-**Hydropower crosses the line most (`r percent(et$share[1], accuracy=1)`)** — dams carry
-aquatic and water impacts that are hard to avoid — followed by transmission and solar. **Nuclear
-crosses least (`r percent(tail(et$share,1), accuracy=1)`)**, consistent with siting on already-industrial
-land under highly prescribed review. But the *rate* is only half the story; the resources each
-technology hits are distinct:
+**Hydropower crosses the line most (`r percent(et_top$share, accuracy=1)`)** — dams carry
+aquatic and water impacts that are hard to avoid — followed by transmission and solar (~19% and ~18%).
+**Nuclear crosses least among the large technologies (`r percent(nuc$share, accuracy=1)`)**, consistent
+with siting on already-industrial land under highly prescribed review. But the *rate* is only half the
+story; the resources each technology hits are distinct:
 
 ```{r}
 #| label: fig-eis-technology-resource
@@ -902,11 +904,11 @@ require a full statement, but not beyond the reach of committed measures.
 - **EPA review letters (Clean Air Act §309) are out of scope.** Under Section 309, the EPA
   independently reviews and *rates* other agencies' environmental impact statements. Those comment
   letters are not in this dataset, so the report makes no claim about EPA's own view of significance.
-- **Technology is derived from the project title.** There is no dedicated technology field in the
-  dataset, so each project is classified (solar, wind, transmission, hydro, geothermal, nuclear,
-  storage, biomass) by keyword-matching its title. **Roughly half of titles name no technology** and
-  fall into an "Other / mixed" bucket that is excluded from the technology figures. Read those figures
-  as the pattern among the clearly-named technologies, not a full census.
+- **Technology comes from the dataset's `project_type` classification.** Each project carries a curated
+  multi-tag project-type field; we assign one **primary** technology per project by priority
+  (generation types first, then nuclear/CCS, then transmission). About **1 in 5 projects** resolve to
+  an "Other / mixed" bucket, and the "Renewable (other)" catch-all is also set aside; both are excluded
+  from the technology figures, which therefore describe the clearly-typed technologies.
 - **Mitigation enforceability** is the model's read of whether a committed measure is tied to an
   enforceable permit condition; an "unmatched" conclusion may still be enforced through channels the
   extraction doesn't capture, so the enforceable shares are a floor.
