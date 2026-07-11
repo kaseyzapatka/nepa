@@ -323,9 +323,11 @@ Figures: `fig_eis_funnel.png` (coverage funnel: 753→536→506 + date status + 
 `fig_eis_above_line.png` (significant share by resource, adverse/unavoidable split with per-segment
 % labels), `fig_eis_unavoidable.png` (the wall; counts are analytic significant_unavoidable per
 resource — visual 126), `fig_fonsi_vs_eis.png` (**now a quadrant scatter**, x=FONSI-mit y=EIS-sig,
-BLM+DOE-matched — replaced the dumbbell), `fig_eis_significance_drivers.png` (factor bar + **factor×
-resource heatmap** "where each factor bites"), `fig_eis_by_agency.png` (**new** — significant-share
-by lead agency; Army Corps/BLM highest, NRC/TVA lowest; BLM+DOE flagged as complete-coverage).
+BLM+DOE-matched — replaced the dumbbell), `fig_eis_factors.png` (factor totals bar) + `fig_eis_factor_heatmap.png`
+(factor×resource heatmap, **row-normalized** so each factor's concentration pops — e.g. magnitude→
+visual/water/land use; split out of the old combined drivers figure), `fig_eis_by_agency.png`
+(significant-share by lead agency as a **bar chart**; Army Corps/BLM highest, NRC/TVA lowest;
+BLM+DOE flagged as complete-coverage).
 Tables (CSV → gt): `eis_unavoidable_examples.csv`, `eis_factor_examples.csv` (verbatim rationale
 snippets), `eis_agency.csv`, `eis_coverage_funnel.csv`. All wired into
 `phase2/reports/deliverable02.qmd` → *EIS analysis* section.

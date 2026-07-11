@@ -639,13 +639,18 @@ if (file.exists(eis_det_path)) tryCatch({
       distinct(project_id, document_id, shared_resource_area, determination_class, significance_factor) %>%
       count(significance_factor, name = "n") %>% filter(n >= MIN_CELL) %>%
       mutate(Factor = ifelse(is.na(fac_lab[significance_factor]), significance_factor, fac_lab[significance_factor]))
-    fac_order <- fac %>% arrange(n) %>% pull(Factor)   # shared factor order for both panels
-    p_fac <- ggplot(fac, aes(factor(Factor, levels = fac_order), n)) +
-      geom_col(fill = catf_magenta) + geom_text(aes(label = n), hjust = -0.2, size = 3, color = "gray30") +
-      coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.14))) +
-      labs(title = "Why an impact is significant",
-           subtitle = "Dominant factor behind each significant determination", x = NULL, y = NULL) + theme_catf()
-    # factor x resource: WHERE each factor bites (e.g. protected_resource -> cultural/biological)
+    fac_order <- fac %>% arrange(n) %>% pull(Factor)
+    # FIG A — factor totals (its own figure, larger)
+    savefig(ggplot(fac, aes(factor(Factor, levels = fac_order), n)) +
+          geom_col(fill = catf_magenta) + geom_text(aes(label = n), hjust = -0.2, size = 3.4, color = "gray30") +
+          coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.10))) +
+          labs(title = "Why an impact is significant",
+               subtitle = "Dominant factor behind each significant determination",
+               x = NULL, y = "Significant determinations") + theme_catf(),
+      "fig_eis_factors.png", 8, 4.8)
+    # FIG B — WHERE each factor bites. Colour is ROW-NORMALIZED (share within each factor) so the
+    # concentrations pop per row (e.g. sheer magnitude -> visual/water/land use); the cell label keeps
+    # the raw count for magnitude context.
     fr <- edr %>% filter(determination_class %in% ABOVE, !significance_factor %in% c("", "none"),
                          !shared_resource_area %in% c("project_wide", "unknown")) %>%
       distinct(project_id, document_id, shared_resource_area, determination_class, significance_factor) %>%
@@ -653,22 +658,25 @@ if (file.exists(eis_det_path)) tryCatch({
       mutate(Factor = factor(ifelse(is.na(fac_lab[significance_factor]), significance_factor,
                                     fac_lab[significance_factor]), levels = fac_order),
              Resource = relab(shared_resource_area, res_label)) %>%
-      filter(!is.na(Factor))
+      filter(!is.na(Factor)) %>%
+      # drop tiny-total factors (e.g. controversy, n≈11) — row-normalizing them over-saturates a
+      # near-empty row; they add noise, not signal.
+      group_by(Factor) %>% filter(sum(n) >= 30) %>% mutate(row_share = n / sum(n)) %>% ungroup() %>%
+      mutate(Factor = droplevels(Factor))
     res_ord <- fr %>% group_by(Resource) %>% summarise(t = sum(n), .groups = "drop") %>% arrange(t) %>% pull(Resource)
-    p_heat <- ggplot(fr, aes(factor(Resource, levels = res_ord), Factor, fill = n)) +
-      geom_tile(color = "white", linewidth = 0.7) +
-      geom_text(aes(label = ifelse(n >= 10, n, ""), color = n > 150), size = 2.4) +
-      scale_color_manual(values = c(`TRUE` = "white", `FALSE` = "gray15"), guide = "none") +
-      scale_fill_gradientn(colors = c("#f7fbff", "#c6dbef", "#6baed6", "#2171b5", "#08306b"),
-                           name = "Determinations") +
-      labs(title = "Where each factor bites",
-           subtitle = "Significant determinations by factor × resource — darker = more",
-           x = NULL, y = NULL) +
-      guides(fill = guide_colorbar(barheight = grid::unit(3.5, "cm"))) +
-      theme_catf() + theme(axis.text.x = element_text(angle = 25, hjust = 1), panel.grid = element_blank(),
-                           legend.position = "right")
-    savefig(p_fac / p_heat + patchwork::plot_layout(heights = c(0.7, 1)),
-            "fig_eis_significance_drivers.png", 9, 8.5)
+    savefig(ggplot(fr, aes(factor(Resource, levels = res_ord), Factor, fill = row_share)) +
+          geom_tile(color = "white", linewidth = 0.7) +
+          geom_text(aes(label = ifelse(n >= 5, n, ""), color = row_share > 0.30), size = 2.7) +
+          scale_color_manual(values = c(`TRUE` = "white", `FALSE` = "gray15"), guide = "none") +
+          scale_fill_gradientn(colors = c("#f7fbff", "#c6dbef", "#6baed6", "#2171b5", "#08306b"),
+                               labels = scales::percent, name = "Share of the\nfactor's findings") +
+          labs(title = "Where each factor bites",
+               subtitle = "Each row shaded by share within that factor — darker = where that reason concentrates (cell = count)",
+               x = NULL, y = NULL) +
+          guides(fill = guide_colorbar(barheight = grid::unit(4, "cm"))) +
+          theme_catf() + theme(axis.text.x = element_text(angle = 25, hjust = 1), panel.grid = element_blank(),
+                               legend.position = "right"),
+      "fig_eis_factor_heatmap.png", 9.5, 6.5)
 
     # verbatim EXAMPLE tables — significant & unavoidable (per resource) and significance factors
     pick_examples <- function(df, grp, n_each = 2) df %>%
@@ -717,19 +725,18 @@ if (file.exists(eis_det_path)) tryCatch({
                Coverage = ifelse(agency == "Bureau of Land Management" | agency %in% doe_fam,
                                  "BLM + DOE (complete coverage)", "Other agency (partial coverage)"))
       w(eag %>% arrange(desc(share)) %>% select(agency, Agency, Coverage, n, n_sig, share, proj), "eis_agency.csv")
-      savefig(ggplot(eag, aes(reorder(Agency, share), share)) +
-            geom_segment(aes(xend = reorder(Agency, share), y = 0, yend = share), color = "gray80") +
-            geom_point(aes(color = Coverage, size = n), alpha = 0.9) +
+      savefig(ggplot(eag, aes(reorder(Agency, share), share, fill = Coverage)) +
+            geom_col(width = 0.74) +
             geom_text(aes(label = sprintf("%s  (%d of %s)", scales::percent(share, accuracy = 1), n_sig,
-                          scales::comma(n))), hjust = -0.15, size = 2.6, color = "gray35") +
-            coord_flip() + scale_size_area(max_size = 6, guide = "none") +
-            scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.30))) +
-            scale_color_manual(values = c("BLM + DOE (complete coverage)" = catf_dark_blue,
-                                          "Other agency (partial coverage)" = catf_teal), name = NULL) +
+                          scales::comma(n))), hjust = -0.1, size = 2.7, color = "gray30") +
+            coord_flip() +
+            scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.28))) +
+            scale_fill_manual(values = c("BLM + DOE (complete coverage)" = catf_dark_blue,
+                                         "Other agency (partial coverage)" = catf_teal), name = NULL) +
             labs(title = "Does crossing the line differ by agency?",
                  subtitle = "Share of a lead agency's EIS determinations judged significant (agencies with ≥150 determinations)",
                  x = NULL, y = NULL,
-                 caption = "Land- and water-facing agencies (Army Corps, BLM) cross most; the standardized nuclear/utility programs (NRC, TVA) least.\nOnly BLM + DOE have complete dataset coverage; other agencies are partial and shown for context.") +
+                 caption = "Bar label = significant share (significant of the agency's total). Land/water-facing agencies cross most, standardized nuclear/utility programs least. Only BLM + DOE have complete coverage; others partial.") +
             theme_catf() + theme(legend.position = "bottom"),
         "fig_eis_by_agency.png", 8.5, 6)
     }

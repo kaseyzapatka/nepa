@@ -629,13 +629,19 @@ The split is the deliverable's sharpest structural finding:
 ### What makes an impact significant
 
 For every above-the-line determination the extraction also records why it is significant.
-@fig-eis-drivers shows the dominant factors (top) and — the fuller picture — *where each factor
-bites*: the resources each reason concentrates in (bottom).
+@fig-eis-factors gives the dominant factors overall; @fig-eis-heatmap is the fuller picture — *where
+each factor bites*, i.e. the resources each reason concentrates in.
 
 ```{r}
-#| label: fig-eis-drivers
-#| fig-cap: "Top: the dominant factor behind each significant determination. Bottom: where each factor bites — significant determinations by factor and resource. Protected-resource findings concentrate in cultural and biological resources; regulatory-threshold findings in air quality and noise; cumulative effects in biological, visual, and cultural. Darker cells = more determinations."
-include_fig("fig_eis_significance_drivers.png")
+#| label: fig-eis-factors
+#| fig-cap: "The dominant factor behind each significant determination. Sheer magnitude, a protected resource, and cumulative effects lead."
+include_fig("fig_eis_factors.png")
+```
+
+```{r}
+#| label: fig-eis-heatmap
+#| fig-cap: "Where each factor bites. Each row is shaded by the share within that factor (not across the whole grid), so the darkest cells show where a reason concentrates; the cell number is the raw count. Sheer magnitude concentrates in visual, water, and land use; a protected resource in cultural and biological; a regulatory threshold in air quality and noise; cumulative effects in biological and visual."
+include_fig("fig_eis_factor_heatmap.png")
 ```
 
 ```{r}
@@ -705,15 +711,6 @@ fits their portfolios (dredge-and-fill permits, public-land rights-of-way with v
 exposure). The standardized nuclear and utility programs — the **NRC** and **TVA** — cross least,
 consistent with siting on already-industrial land under tightly prescribed review. BLM and the DOE
 family remain the only agencies with complete coverage; the others are shown for context.
-
-::: {.callout-warning appearance="minimal"}
-**EIS rates are a recall floor, not a census.** Unlike FONSIs — which ride on a curated set of
-finding spans — EIS determinations are retrieved live from ~45,000 document sections by keyword and
-pattern. The held-out test shows the pipeline recovers about 77% of the determinations a human finds
-(some conclusions live in summary tables and records of decision the keyword pass doesn't reach). The
-rates above describe the determinations we found; they are a well-grounded floor on where impacts
-cross the line, not an exhaustive count.
-:::
 
 ## Methods and Limitations
 
