@@ -63,7 +63,7 @@ class_label <- c(no_significant_impact = "No significant impact",
                  less_than_significant = "Less than significant",
                  less_than_significant_with_mitigation = "Committed mitigation",
                  significant_adverse = "Significant adverse",
-                 significant_unavoidable = "Significant & unavoidable")
+                 significant_unavoidable = "Significant unavoidable")
 res_label <- c(air_quality="Air quality", water="Water", biological="Biological",
                cultural="Cultural / historic", visual="Visual", noise="Noise",
                soils_geology="Soils / geology", socioeconomic="Socioeconomic",
@@ -534,13 +534,20 @@ directional.
 
 ### Which resources cross the line
 
-Within EISs, the interesting determinations are the ones that break **above** the line.
+Within EISs, the interesting determinations are the ones that break **above** the line. Those come in
+two degrees of severity:
+
+- **Significant adverse** — the impact is significant, but the agency does not declare it beyond
+  repair; committed measures may still reduce it.
+- **Significant unavoidable** — the impact is significant *and* cannot be brought below the line even
+  with mitigation. This is the more severe call, and the one that most constrains a project.
+
 @fig-eis-above-line ranks each resource by how often its EIS conclusions are judged significant,
-splitting the merely *significant* from the *significant and unavoidable*.
+splitting the two degrees (least severe on the left, most severe on the right).
 
 ```{r}
 #| label: fig-eis-above-line
-#| fig-cap: "Share of each resource's EIS determinations judged significant, sorted (top = most likely to cross the line). All percentages are shares of that resource's total EIS determinations: the in-bar labels split significant-adverse (lighter) from significant-and-unavoidable (darker), and the end label gives the combined significant share and its count (e.g. visual = 316 of 959)."
+#| fig-cap: "Share of each resource's EIS determinations judged significant, sorted (top = most likely to cross the line). Each percentage (and count) is of the resource's total EIS determinations: the in-bar labels split significant-adverse (lighter, left) from significant-unavoidable (darker, right); the end label gives the combined significant share and count (e.g. visual = 316 of 959, of which 126 are unavoidable)."
 include_fig("fig_eis_above_line.png")
 ```
 
@@ -565,7 +572,7 @@ resource, across the analyzed EIS projects.
 
 ```{r}
 #| label: fig-eis-unavoidable
-#| fig-cap: "Count of significant-and-unavoidable determinations by resource (one per document × resource area). Visual leads with 126; biological, cultural, and air-quality follow. These are the impacts that remain significant even after mitigation."
+#| fig-cap: "Count of significant-unavoidable determinations by resource — the darker (right-hand) segments of the previous figure, now counted. Visual's 126 means 126 of its 316 significant determinations were judged unavoidable; biological, cultural, and air quality follow. These are the impacts that remain significant even after mitigation."
 include_fig("fig_eis_unavoidable.png")
 ```
 
@@ -581,44 +588,43 @@ measures can offset. @tbl-eis-unavoidable-ex shows what these look like in the a
 if (nrow(eis_unav_ex) > 0) {
   eis_unav_ex |>
     gt(groupname_col = "Resource") |>
-    cols_label(example = "Significant-and-unavoidable finding, in the agency's words") |>
+    cols_label(example = "Significant-unavoidable finding, in the agency's words") |>
     cols_align(align = "left") |>
     cols_width(example ~ pct(100)) |>
     tab_style(style = list(cell_fill(color = "#75246C"), cell_text(color = "white", weight = "bold")),
               locations = cells_row_groups()) |>
-    tab_style(style = cell_text(color = NAVY, weight = "bold"), locations = cells_column_labels()) |>
+    tab_style(style = cell_text(color = "#75246C", weight = "bold"), locations = cells_column_labels()) |>
     tab_options(table.font.size = px(12.5), table.width = pct(100), table.align = "center",
                 row_group.font.weight = "bold", data_row.padding = px(6)) |>
-    tab_source_note("Verbatim from the model's per-determination rationale on significant-and-unavoidable conclusions.")
+    tab_source_note("Verbatim from the model's per-determination rationale on significant-unavoidable conclusions.")
 }
 ```
 
 ### FONSI vs EIS: two ways a resource can be a problem
 
-Putting the two tracks side by side is the payoff of analyzing them separately. A resource can be a
-problem in two distinct ways: it can be *mitigated below the line* (its FONSI conclusions lean on
-committed measures) or it can *cross the line* (its EIS conclusions are judged significant). These
-are not the same resources — @fig-fonsi-vs-eis contrasts them. This one figure restricts *both*
-tracks to BLM + DOE, so the comparison is like-for-like (the FONSI track has only partial coverage
-outside those two agencies).
+Analyzing the two tracks separately pays off in one picture (@fig-fonsi-vs-eis), which plots each
+resource by how often it is mitigated below the line (FONSIs, x-axis) against how often it crosses
+the line (EISs, y-axis). **The magenta resources are more likely to be judged significant than to be
+mitigated; the blue resources are the reverse.** (Both tracks are restricted to BLM + DOE here, so
+the two are measured on the same footing — FONSI coverage is only partial outside those agencies.)
 
 ```{r}
 #| label: fig-fonsi-vs-eis
-#| fig-cap: "Each resource (BLM + DOE, so both tracks share a scope) plotted by how often it is mitigated below the line in FONSIs (x) versus how often it crosses into significance in EISs (y). The dashed diagonal separates the two shapes: points above it (magenta) cross more than they are mitigated — often unmitigable; points below (blue) are routinely mitigated below the line. Point size ≈ determinations."
+#| fig-cap: "Each resource (BLM + DOE, so both tracks share a scope) plotted by how often it is mitigated below the line in FONSIs (x) versus how often it crosses into significance in EISs (y). The dashed diagonal is equal odds; the bottom legend gives the colors — magenta resources (above the line) are judged significant more often than mitigated, blue resources (below) the reverse. Point size ≈ determinations."
 include_fig("fig_fonsi_vs_eis.png")
 ```
 
-The contrast is the deliverable's sharpest structural finding:
+The split is the deliverable's sharpest structural finding:
 
-- **Cross-over resources** — visual, land use, air quality — break above the line more often than
-  they are mitigated below it. When these become a problem, agencies more often accept a significant
-  finding than engineer their way under it; visual is the extreme (within BLM + DOE it crosses ~38%
-  of the time and is mitigated only ~11%).
-- **Managed-below resources** — soils/geology, water, public health — show the opposite: frequently
-  mitigated in FONSIs, rarely crossing into significance. These are the impacts the toolbox of
-  committed measures reliably handles.
-- Biological and cultural sit in the middle — heavily analyzed, heavily mitigated, *and* still
-  crossing the line at a meaningful rate. They shape a project on both sides of the line at once.
+- **More likely to be significant** (magenta) — visual, land use, air quality — break above the line
+  more often than they are mitigated below it. When these become a problem, agencies more often
+  accept a significant finding than engineer their way under it; visual is the extreme (within
+  BLM + DOE it crosses ~38% of the time and is mitigated only ~11%).
+- **More likely to be mitigated** (blue) — soils/geology, water, public health — show the opposite:
+  frequently mitigated in FONSIs, rarely crossing into significance. These are the impacts the
+  toolbox of committed measures reliably handles.
+- Biological and cultural sit near the line — heavily analyzed, heavily mitigated, *and* still
+  crossing at a meaningful rate. They shape a project on both sides of the line at once.
 
 ### What makes an impact significant
 
@@ -658,9 +664,9 @@ if (nrow(eis_fac_ex) > 0) {
     cols_label(example = "Significant finding, in the agency's words") |>
     cols_align(align = "left") |>
     cols_width(example ~ pct(100)) |>
-    tab_style(style = list(cell_fill(color = NAVY), cell_text(color = "white", weight = "bold")),
+    tab_style(style = list(cell_fill(color = "#75246C"), cell_text(color = "white", weight = "bold")),
               locations = cells_row_groups()) |>
-    tab_style(style = cell_text(color = NAVY, weight = "bold"), locations = cells_column_labels()) |>
+    tab_style(style = cell_text(color = "#75246C", weight = "bold"), locations = cells_column_labels()) |>
     tab_options(table.font.size = px(12.5), table.width = pct(100), table.align = "center",
                 row_group.font.weight = "bold", data_row.padding = px(6)) |>
     tab_source_note("Verbatim from the model's per-determination rationale, grouped by the dominant significance factor it recorded.")

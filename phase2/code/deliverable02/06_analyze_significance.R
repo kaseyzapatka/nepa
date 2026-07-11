@@ -516,7 +516,7 @@ if (file.exists(eis_det_path)) tryCatch({
     ecls_label <- c(no_significant_impact = "No significant impact",
       less_than_significant = "Less than significant",
       less_than_significant_with_mitigation = "Committed mitigation",
-      significant_adverse = "Significant adverse", significant_unavoidable = "Significant & unavoidable")
+      significant_adverse = "Significant adverse", significant_unavoidable = "Significant unavoidable")
 
     # EIS validation dumbbell (mirror of the FONSI one; EIS scores are lower — task is harder)
     eval_fig <- tryCatch(read_parquet(file.path(A, "validation_metrics_eis.parquet")), error = function(e) NULL)
@@ -559,41 +559,45 @@ if (file.exists(eis_det_path)) tryCatch({
       tidyr::pivot_longer(c(n_adverse, n_unavoid), names_to = "band", values_to = "cnt") %>%
       mutate(Resource = relab(shared_resource_area, res_label),
              share_band = cnt / n,
-             Band = factor(ifelse(band == "n_unavoid", "Significant & unavoidable", "Significant adverse"),
-                           levels = c("Significant adverse", "Significant & unavoidable")))
+             # order: adverse (less intense) left, unavoidable (more intense) right — see reverse below
+             Band = factor(ifelse(band == "n_unavoid", "Significant unavoidable", "Significant adverse"),
+                           levels = c("Significant adverse", "Significant unavoidable")))
     etot <- eres %>% filter(!n_suppressed) %>% mutate(Resource = relab(shared_resource_area, res_label))
     savefig(ggplot(ea, aes(reorder(Resource, share_sig), share_band, fill = Band)) +
-          geom_col(width = 0.72) +
-          # per-segment share labels (of the resource's total determinations); shown where they fit
-          geom_text(aes(label = ifelse(share_band >= 0.035, scales::percent(share_band, accuracy = 1), "")),
-                    position = position_stack(vjust = 0.5), size = 2.5, color = "white", fontface = "bold") +
+          geom_col(width = 0.72, position = position_stack(reverse = TRUE)) +
+          # per-segment label = each type's share AND count (of the resource's total determinations)
+          geom_text(aes(label = ifelse(share_band >= 0.05, sprintf("%s (%d)",
+                        scales::percent(share_band, accuracy = 1), cnt), "")),
+                    position = position_stack(vjust = 0.5, reverse = TRUE), size = 2.4, color = "white",
+                    fontface = "bold") +
           # end label = total significant share and count of / total determinations for the resource
           geom_text(data = etot, aes(x = reorder(Resource, share_sig), y = share_sig,
                     label = sprintf("%s significant  (%d of %s)", scales::percent(share_sig, accuracy = 1),
                                     n_sig, scales::comma(n))),
                     inherit.aes = FALSE, hjust = -0.1, size = 2.6, color = "gray30") +
           coord_flip() +
-          scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.28))) +
+          scale_y_continuous(labels = scales::percent, expand = expansion(mult = c(0, 0.30))) +
           scale_fill_manual(values = c("Significant adverse" = catf_magenta,
-                                       "Significant & unavoidable" = catf_purple)) +
+                                       "Significant unavoidable" = catf_purple)) +
           labs(title = "Which resources cross the line",
                subtitle = "Share of each resource's EIS determinations judged significant — sorted (top = most likely to cross)",
                x = NULL, y = NULL, fill = NULL,
-               caption = "Percentages are shares of the resource's total EIS determinations. In-bar = each type's share; end label = total significant share (count of / all determinations).") +
+               caption = "Percentages (and counts) are of the resource's total EIS determinations. In-bar = each type's share and count; end label = total significant share. Intensity increases left→right: adverse, then unavoidable.") +
           theme_catf() + theme(legend.position = "bottom"),
       "fig_eis_above_line.png", 8, 5.5)
 
-    # Fig — significant & unavoidable, the wall (count lollipop; impacts mitigation can't erase)
+    # Fig — significant unavoidable, the wall (count lollipop; impacts mitigation can't erase)
     eun <- eres %>% filter(n_unavoid >= MIN_CELL) %>% mutate(Resource = relab(shared_resource_area, res_label))
     savefig(ggplot(eun, aes(reorder(Resource, n_unavoid), n_unavoid)) +
           geom_segment(aes(xend = reorder(Resource, n_unavoid), y = 0, yend = n_unavoid), color = "gray80") +
           geom_point(color = catf_purple, size = 4) +
-          geom_text(aes(label = n_unavoid), hjust = -0.6, size = 3, color = "gray30") +
-          coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
-          labs(title = "The wall: significant AND unavoidable",
-               subtitle = "Determinations where the impact is significant and mitigation cannot bring it below the line",
-               x = NULL, y = "Determinations",
-               caption = "Visual, biological, and air-quality impacts most often reach the point mitigation can't fix.") +
+          # fixed absolute offset so every count clears its dot (small dots near the axis don't overlap)
+          geom_text(aes(label = n_unavoid), nudge_y = max(eun$n_unavoid) * 0.03, hjust = 0, size = 3, color = "gray30") +
+          coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.10))) +
+          labs(title = "The wall: significant unavoidable",
+               subtitle = "Determinations judged significant that mitigation cannot bring below the line",
+               x = NULL, y = "Significant-unavoidable determinations",
+               caption = "Each bar counts a resource's significant-unavoidable determinations — e.g. 126 of visual's 316 significant determinations. Visual, biological, and air quality hit the wall most.") +
           theme_catf(),
       "fig_eis_unavoidable.png", 8, 4.6)
 
@@ -601,30 +605,29 @@ if (file.exists(eis_det_path)) tryCatch({
     # line (EIS). The y=x diagonal separates "cross-over" resources (above) from "managed-below" (below).
     cmpf <- cmp %>% filter(!is.na(eis_sig_share), !is.na(fon_mit_share), eis_n >= 20, fon_n >= 20) %>%
       mutate(Resource = relab(shared_resource_area, res_label),
-             Shape = ifelse(eis_sig_share >= fon_mit_share, "Crosses over", "Managed below"))
+             Shape = factor(ifelse(eis_sig_share >= fon_mit_share,
+                            "More likely to be significant (EIS)", "More likely to be mitigated (FONSI)"),
+                            levels = c("More likely to be significant (EIS)", "More likely to be mitigated (FONSI)")))
     axmax <- max(cmpf$eis_sig_share, cmpf$fon_mit_share) * 1.15
     p15 <- ggplot(cmpf, aes(fon_mit_share, eis_sig_share)) +
       annotate("segment", x = 0, y = 0, xend = axmax, yend = axmax, linetype = "dashed", color = "gray70") +
-      annotate("text", x = axmax * 0.03, y = axmax * 0.97, hjust = 0, vjust = 1, size = 3,
-               color = catf_magenta, fontface = "italic", lineheight = 0.9,
-               label = "Crosses the line more\nthan it is mitigated") +
-      annotate("text", x = axmax * 0.97, y = axmax * 0.03, hjust = 1, vjust = 0, size = 3,
-               color = catf_dark_blue, fontface = "italic", lineheight = 0.9,
-               label = "Mitigated below the line\nmore than it crosses") +
       geom_point(aes(color = Shape, size = eis_n + fon_n), alpha = 0.85) +
-      scale_color_manual(values = c("Crosses over" = catf_magenta, "Managed below" = catf_dark_blue), guide = "none") +
+      scale_color_manual(values = c("More likely to be significant (EIS)" = catf_magenta,
+                                    "More likely to be mitigated (FONSI)" = catf_dark_blue), name = NULL) +
       scale_size_area(max_size = 8, guide = "none") +
       scale_x_continuous(labels = scales::percent, limits = c(0, axmax), expand = c(0, 0)) +
       scale_y_continuous(labels = scales::percent, limits = c(0, axmax), expand = c(0, 0)) +
       coord_fixed(ratio = 1) +
+      guides(color = guide_legend(override.aes = list(size = 4))) +
       labs(title = "Two ways a resource can be a problem",
            subtitle = "Each resource: how often it crosses the line (EIS) vs is mitigated below it (FONSI) — BLM + DOE",
            x = "Mitigated below the line  (FONSI)", y = "Crosses the line  (EIS significant)",
-           caption = "Above the diagonal = crosses more than it is mitigated (often unmitigable); below = routinely mitigated below the line. Point size ≈ determinations.")
+           caption = "Dashed line = equal odds (a resource crosses as often as it is mitigated). Point size ≈ number of determinations.")
     p15 <- if (requireNamespace("ggrepel", quietly = TRUE))
-      p15 + ggrepel::geom_text_repel(aes(label = Resource), size = 3, color = catf_navy, seed = 1, max.overlaps = 20)
+      p15 + ggrepel::geom_text_repel(aes(label = Resource), size = 3, color = catf_navy, seed = 1,
+              max.overlaps = 20, box.padding = 0.5, point.padding = 0.4, min.segment.length = 0, force = 2)
     else p15 + geom_text(aes(label = Resource), vjust = -1, size = 3, color = catf_navy)
-    savefig(p15 + theme_catf(), "fig_fonsi_vs_eis.png", 7.5, 7)
+    savefig(p15 + theme_catf() + theme(legend.position = "bottom"), "fig_fonsi_vs_eis.png", 7.5, 7.6)
 
     # Fig — why significant: factors + impact type (juxtaposed, mirror of corpus_overview layout)
     fac_lab <- c(magnitude = "Sheer magnitude", protected_resource = "Protected resource",
@@ -760,12 +763,12 @@ if (file.exists(eis_det_path)) tryCatch({
       scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
       labs(title = "Projects: corpus to analyzed", subtitle = "EIS projects retained at each step (all agencies)",
            x = NULL, y = NULL) + theme_catf()
-    pC <- ggplot(tibble(stage = factor(c("All determinations", "Above the line", "Significant & unavoidable"),
-                          levels = rev(c("All determinations", "Above the line", "Significant & unavoidable"))),
+    pC <- ggplot(tibble(stage = factor(c("All determinations", "Above the line", "Significant unavoidable"),
+                          levels = rev(c("All determinations", "Above the line", "Significant unavoidable"))),
                         n = c(n_dets, n_above, n_unav)), aes(n, stage, fill = stage)) +
       geom_col(width = 0.62) + geom_text(aes(label = scales::comma(n)), hjust = -0.15, size = 3.4, color = "gray25") +
       scale_fill_manual(values = c("All determinations" = catf_dark_blue, "Above the line" = catf_magenta,
-                                   "Significant & unavoidable" = catf_purple), guide = "none") +
+                                   "Significant unavoidable" = catf_purple), guide = "none") +
       scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
       labs(title = "Determinations: how many cross the line", subtitle = "From the analyzed EIS projects",
            x = NULL, y = NULL) + theme_catf()
