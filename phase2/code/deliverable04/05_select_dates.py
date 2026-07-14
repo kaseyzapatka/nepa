@@ -80,6 +80,13 @@ MONTH_DECISION_PROCESSES = {"CE"}
 # (p_init_cal / p_dec_cal from 04b --apply) are preferred when present, else raw p_*.
 CLASSIFIER_WEIGHT = 5.0            # weight on the role-appropriate classifier probability
 CLASSIFIER_DISAGREE_PENALTY = 3.0  # penalty when the OTHER head is more confident (looks like the other thing)
+# --- CE register-preference for DECISIONS (Variant-B, decision side; 2026-07-13) ----------
+# For CE only: the learned ranker sometimes locks onto a stray historical date printed in a
+# CX-form template instead of the authoritative register determination. When a register
+# (metadata) clear_decision exists and the selected document-text decision disagrees with it by
+# more than this many days, defer to the register. Scoped to CE — for EA/EIS the document ROD is
+# the better source (left to the ranker). ~2 years so only large (typically decade-scale) gaps flip.
+REGISTER_DECISION_DISAGREE_DAYS = 730
 # Granularity confidence: a precise day beats a coarse month/year.
 GRANULARITY_BONUS = {"day": 1.0, "month": 0.0, "year": -1.0}
 # Cross-candidate agreement: corroboration when multiple candidates resolve to the same date.
@@ -860,6 +867,7 @@ def select_dates_for_project(
     has_rod = False
     decision_is_feis_fallback = False
     ea_decision_reason: str | None = None
+    register_decision_preferred = False
     if process_type == "EIS":
         # Tiered: ROD-first (ranker orders ROD-eligible), FEIS-fallback when has_rod is False.
         best_decision, eis_rod_flag, has_rod, decision_is_feis_fallback = _select_eis_decision(
@@ -903,6 +911,31 @@ def select_dates_for_project(
                 if not body_dec.empty:
                     best_decision = _select_best_decision(body_dec)
                     decision_is_proxy = True
+
+        # CE register-preference for DECISIONS: prefer the authoritative register (metadata)
+        # determination over a document-text pick when they disagree by > ~2 years (the ranker
+        # occasionally grabs a stray historical date off a CX-form template). CE-scoped only.
+        if (
+            process_type == "CE"
+            and best_decision is not None
+            and str(best_decision.get("candidate_source_type", "")) != "metadata"
+        ):
+            _reg_dec = decision_cands[
+                decision_cands["candidate_source_type"].astype(str).eq("metadata")
+                & decision_cands["candidate_role"].eq("clear_decision")
+                & decision_cands["_parsed_date"].notna()
+            ]
+            if not _reg_dec.empty:
+                _reg_best = _select_best_decision(_reg_dec)
+                _sel_d = best_decision.get("_parsed_date")
+                _reg_d = _reg_best.get("_parsed_date")
+                if (
+                    pd.notna(_sel_d) and pd.notna(_reg_d)
+                    and abs((_reg_d - _sel_d).days) > REGISTER_DECISION_DISAGREE_DAYS
+                ):
+                    best_decision = _reg_best
+                    decision_is_proxy = False
+                    register_decision_preferred = True
 
     if best_decision is not None:
         try:
@@ -1205,6 +1238,8 @@ def select_dates_for_project(
         flags.append(eis_rod_flag)
     if ea_decision_reason:
         flags.append(ea_decision_reason)
+    if register_decision_preferred:
+        flags.append("ce_register_decision_preferred")
     timeline_status = "missing_both"
 
     if has_init and has_dec:
@@ -1628,6 +1663,37 @@ def apply_month_midpoint_imputation(dates_df: pd.DataFrame) -> pd.DataFrame:
     return dates_df
 
 
+def normalize_invalid_order(dates_df: pd.DataFrame) -> pd.DataFrame:
+    """Post-imputation order guard (source fix for the old 08_analyze.R stopgap).
+
+    Per-project status is assigned on pre-imputation dates, but month->15th midpoint imputation
+    can push a month-granularity initiation a few days PAST a day-level decision in the same month,
+    leaving a `complete_*` row with decision_date < initiation_date. Reclassify any such row to
+    `invalid_order` and null its duration, so BOTH coverage and duration counts drop it at source.
+    """
+    need = {"initiation_date", "decision_date", "timeline_status"}
+    if not need <= set(dates_df.columns):
+        return dates_df
+    init = pd.to_datetime(dates_df["initiation_date"], errors="coerce")
+    dec = pd.to_datetime(dates_df["decision_date"], errors="coerce")
+    mask = (
+        dates_df["timeline_status"].isin(["complete_clear", "complete_with_proxy"])
+        & init.notna() & dec.notna() & (dec < init)
+    )
+    n = int(mask.sum())
+    if n:
+        dates_df.loc[mask, "timeline_status"] = "invalid_order"
+        if "duration_days" in dates_df.columns:
+            dates_df.loc[mask, "duration_days"] = pd.NA
+        if "timeline_flags" in dates_df.columns:
+            fl = dates_df.loc[mask, "timeline_flags"].fillna("")
+            dates_df.loc[mask, "timeline_flags"] = fl.apply(
+                lambda s: s if "invalid_order" in s else (f"{s}|invalid_order" if s else "invalid_order")
+            )
+        print(f"  Order normalizer: reclassified {n:,} post-imputation negative-duration rows -> invalid_order.")
+    return dates_df
+
+
 def build_review_queue(
     dates_df: pd.DataFrame,
     candidates_df: pd.DataFrame,
@@ -1954,6 +2020,10 @@ def main() -> None:
     # Apply month midpoint imputation — only after all corrections so this is truly last-resort
     print("Applying month midpoint imputation...")
     dates_df = apply_month_midpoint_imputation(dates_df)
+
+    # Source-level order guard: catch rows that midpoint imputation just pushed negative
+    # (replaces the 08_analyze.R stopgap).
+    dates_df = normalize_invalid_order(dates_df)
 
     # Flag EIS projects that have DEIS but no FEIS/ROD — structurally unresolvable by regex
     print("Applying deis_only flags...")
