@@ -1133,6 +1133,40 @@ interval_energy <- headline |>
     )
   )
 
+# Second EA "Fossil" row: document-anchored fossil EAs (initiation_source_type != register). Their
+# ~5-month median reflects true review length once the register administrative-start artifact is
+# removed. Added ONLY to the EA facet (register-anchoring is the EA/fossil issue), as a companion to
+# the register-anchored "Fossil" row so the two views sit side by side.
+fossil_ea_doc <- headline |>
+  filter(process_group == "EA", energy_type == "Fossil",
+         initiation_source_type != "metadata") |>
+  mutate(duration_months = duration_days / 30.44) |>
+  filter(!is.na(duration_months), duration_months >= 0) |>
+  summarise(
+    process_group = factor("EA", levels = PROCESS_LEVELS),
+    energy_type   = "Fossil (doc-anchored)",
+    n             = n(),
+    p10           = quantile(duration_months, 0.10, na.rm = TRUE),
+    p25           = quantile(duration_months, 0.25, na.rm = TRUE),
+    median_months = median(duration_months, na.rm = TRUE),
+    p75           = quantile(duration_months, 0.75, na.rm = TRUE),
+    p90           = quantile(duration_months, 0.90, na.rm = TRUE)
+  ) |>
+  mutate(median_label = case_when(
+    median_months < 1  ~ sprintf("~1 mo  (n=%s)", comma(n)),
+    median_months < 12 ~ sprintf("%.0f mo  (n=%s)", median_months, comma(n)),
+    TRUE               ~ sprintf("%.0f mo / %.1f yr  (n=%s)", median_months,
+                                 median_months / 12, comma(n))
+  ))
+
+ENERGY_LEVELS_EXT <- c("Decarb", "Fossil", "Fossil (doc-anchored)", "Other")
+interval_energy <- bind_rows(interval_energy, fossil_ea_doc) |>
+  mutate(energy_type = factor(as.character(energy_type), levels = ENERGY_LEVELS_EXT))
+# Highlight the document-anchored sensitivity row with one bold standout colour (magenta) so it
+# pops against the cool Decarb/Fossil/Other palette — simple, no extra mark clutter.
+ENERGY_PROCESS_COLORS_EXT <- c(ENERGY_PROCESS_COLORS,
+                               "Fossil (doc-anchored)" = catf_magenta)
+
 fig_intervals_energy <- ggplot(interval_energy, aes(y = energy_type, color = energy_type)) +
   geom_segment(aes(x = p10, xend = p90, yend = energy_type), linewidth = 2, alpha = 0.35) +
   geom_segment(aes(x = p25, xend = p75, yend = energy_type), linewidth = 6, alpha = 0.55) +
@@ -1141,8 +1175,8 @@ fig_intervals_energy <- ggplot(interval_energy, aes(y = energy_type, color = ene
     aes(x = median_months, label = median_label),
     nudge_y = 0.3, hjust = 0.5, size = 2.7, fontface = "bold", color = "gray20"
   ) +
-  facet_wrap(~process_group, ncol = 1, scales = "free_x") +
-  scale_color_manual(values = ENERGY_PROCESS_COLORS, drop = FALSE) +
+  facet_wrap(~process_group, ncol = 1, scales = "free") +
+  scale_color_manual(values = ENERGY_PROCESS_COLORS_EXT, drop = FALSE) +
   scale_x_continuous(
     # Per-panel tick spacing for the free-x facets: CE spans only weeks-to-months (5-mo ticks),
     # EA runs to ~3 years (10-mo ticks), EIS to ~10 years (20-mo ticks).
@@ -1165,6 +1199,53 @@ fig_intervals_energy <- ggplot(interval_energy, aes(y = energy_type, color = ene
 ggsave(file.path(FIGS, "fig_d4_duration_summary_intervals_by_energy.png"),
        fig_intervals_energy, width = 11, height = 9, dpi = 300)
 message("Wrote fig_d4_duration_summary_intervals_by_energy.png")
+
+# ---------------------------------------------------------------------------
+# Fig E2b: Fossil-EA review length — register-anchored (current) vs document-anchored
+# (conservative), with Other/Decarb EAs for reference. Exposes the register-anchoring artifact
+# and the coverage-vs-plausibility trade-off (see report §fossil-EA).
+# ---------------------------------------------------------------------------
+
+.ea_head <- headline |> filter(process_type == "EA")
+fossil_box_df <- dplyr::bind_rows(
+  .ea_head |> filter(energy_type == "Fossil") |>
+    mutate(grp = "Fossil — CURRENT\n(register)"),
+  .ea_head |> filter(energy_type == "Fossil", initiation_source_type != "metadata") |>
+    mutate(grp = "Fossil — CONSERVATIVE\n(doc-anchored)"),
+  .ea_head |> filter(energy_type == "Other")  |> mutate(grp = "Other EA"),
+  .ea_head |> filter(energy_type == "Decarb") |> mutate(grp = "Decarb EA")
+)
+.grp_levels <- c("Fossil — CURRENT\n(register)", "Fossil — CONSERVATIVE\n(doc-anchored)",
+                 "Other EA", "Decarb EA")
+fossil_box_df$grp <- factor(fossil_box_df$grp, levels = .grp_levels)
+fossil_box_stats <- fossil_box_df |> group_by(grp) |>
+  summarise(n = n(), med = median(duration_days), .groups = "drop")
+
+fig_fossil_box <- ggplot(fossil_box_df, aes(x = grp, y = duration_days, fill = grp)) +
+  geom_boxplot(outlier.shape = NA, width = 0.6, colour = "white", linewidth = 0.6) +
+  geom_vline(xintercept = 2.5, linetype = "dashed", colour = "grey80") +
+  geom_text(data = fossil_box_stats, aes(x = grp, y = med, label = paste0(round(med), "d")),
+            inherit.aes = FALSE, vjust = -0.7, fontface = "bold", size = 3.3) +
+  geom_text(data = fossil_box_stats, aes(x = grp, y = -28, label = paste0("n=", n)),
+            inherit.aes = FALSE, size = 3, colour = "grey40") +
+  scale_fill_manual(values = c(
+    "Fossil — CURRENT\n(register)"          = catf_navy,
+    "Fossil — CONSERVATIVE\n(doc-anchored)" = catf_lime,
+    "Other EA"                              = catf_light_blue,
+    "Decarb EA"                             = catf_light_blue)) +
+  coord_cartesian(ylim = c(-35, 650)) +
+  labs(
+    title    = "Fossil-fuel EA review length: register-anchored vs document-anchored",
+    subtitle = sprintf(paste0("The document-anchored view lands near Other/Decarb EAs — the ~40-day register median is an\n",
+                              "administrative-entry artifact — but survives for only %d of %d complete fossil EAs."),
+                       fossil_box_stats$n[fossil_box_stats$grp == "Fossil — CONSERVATIVE\n(doc-anchored)"],
+                       fossil_box_stats$n[fossil_box_stats$grp == "Fossil — CURRENT\n(register)"]),
+    x = NULL, y = "Init → decision duration (days)") +
+  theme(legend.position = "none")
+
+ggsave(file.path(FIGS, "fig_d4_fossil_ea_anchor_boxplot.png"),
+       fig_fossil_box, width = 9, height = 5.5, dpi = 300)
+message("Wrote fig_d4_fossil_ea_anchor_boxplot.png")
 
 # ---------------------------------------------------------------------------
 # Fig E3: FRA comparison — 3×3 grid (rows = process, cols = energy type)
