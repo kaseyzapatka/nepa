@@ -122,12 +122,22 @@ A project's timeline is **complete** when both an initiation and a decision date
 ## Data Quality & Caveats
 
 
-### Fixable pipeline or data quality issues
+### Data-quality issues resolved in this pass
 
-- **About 2,000 register date errors.** About 2,000 document text dates are erroneously used in place of API register dates. These can be recovered with a little bit of coding elbow grease.
-- **Negative-duration stopgap.** 233 decision-before-initiation rows are reclassified to `invalid_order` at analysis time; a source-level fix in script 05 is tracked.
-- **Outlier extraction errors.** — extra long "durations" where the initiation is a stray/historical date (a citation, a prior plan, a facility-construction date) rather than the NEPA start. The genuinely-long vs error split is curated in 10_outliers.R.
-- **LLM API call returned no date.** About `2,000` project dates were returned as null -- hoping to dig into these to see if we can recover them with some coding elbow grease. 
+- **Register vs document CE decisions.** Where a document-text CE decision disagreed with the authoritative BLM/DOE register determination by more than ~2 years (typically a stray historical date printed on a CX form), the pipeline now prefers the register — correcting ~650 CE decisions.
+- **Negative-duration ordering.** Decision-before-initiation rows are now reclassified to `invalid_order` **at source** (scripts 05 / 05c), with an assertion guarding the analysis step against regressions — replacing the earlier downstream stopgap filter.
+
+### Known issues, understood and deferred
+
+None of the items below change the headline medians (which are robust to these tails), and each is flagged in the data so it can be filtered or audited:
+
+- **Long-duration outliers (historical-citation initiations).** ~106 CE reviews (0.4%) show 13–45-year "durations" because the extractor selected a decades-old citation (an original grant, a covering PEIS, a prior plan) as the initiation rather than the recent application/renewal date. These are flagged `suspect_error` in the outlier deliverable (`10_outliers.R`) and excluded from case studies; a ranking fix (up-weighting the existing `historical_gap_candidate` flag) is deferred because it has no effect on the median.
+- **EIS decision coverage.** ~58% of EIS still lack a decision date; most have a Final-EIS or ROD document in the corpus whose date was not extracted at retrieval. A targeted FEIS/ROD re-read is the highest-leverage follow-up and would lift EIS complete coverage from ~32% toward ~46%. Deferred to a separate pass.
+- **Smaller register/document disagreements.** Sub-2-year CE decision disagreements are left to the ranker (low impact, deferred).
+- **Classifier calibration.** Candidate-classifier confidence is currently calibrated in-sample; a dedicated out-of-sample calibration split is deferred (it affects internal confidence scores, not the selected dates).
+- **Unrecoverable-PDF projects.** ~959 projects produced no extractable text at retrieval (scanned or corrupt PDFs) and carry no dates; not recoverable without OCR reprocessing.
+- **Post-FRA CE durations.** Post-FRA CE reviews run modestly longer than pre-FRA (median ~37 vs ~19 days), shrinking further once proxy-flagged rows are excluded; the residual is spread across date sources rather than any single extraction bug.
+- **End-to-end accuracy not yet formally validated.** Coverage and internal model metrics are reported; formal precision/recall against a hand-labeled, held-out gold set is a follow-up.
 
 
 ### Known data or timeline quality issues
@@ -143,7 +153,6 @@ A project's timeline is **complete** when both an initiation and a decision date
 ## Next steps
 
 -   **Lift EIS decision coverage** — re-pull Final-EIS cover/publication dates to see if we can add more year-month dates for EIS.
--   **Fix the ordering check at the source** — resolve the 233 decision-before-initiation rows in the selection step (currently handled by a downstream stopgap filter).
 -   **Extend the analysis** — the [BLM field-office experience](#sec-field-office) learning-curve test is now built (no experience effect once calendar time is controlled); geothermal timelines by field office and whether post-FRA adoption of categorical exclusions correlates with faster reviews (see Requested Extensions).
 
 ------------------------------------------------------------------------
