@@ -9,7 +9,7 @@ This is the internal record of what was consciously **deferred** in D4 and why. 
 - **Negative-duration ordering** — reclassified to `invalid_order` at source (05 / 05c normalizer) with an assertion in 08; the old downstream stopgap was removed. Committed `55422f9`.
 
 ## Deferred — active follow-up
-- **#6 EIS-RECOVERY (high).** Recover EIS decisions via a targeted Final-EIS/ROD re-read: the real fix is downstream in scripts 03/05 (a routing-gate co-occurrence hole + FEIS regex window + a URL/CFR mislabel), then re-run EIS through 03→04→05→06. Would lift EIS complete coverage ~32% → ~46% (~556 recoverable of the 2,388 missing-decision EIS; the rest have no ROD/FEIS document at all). **This is the one substantive item still worth doing**, and it is intentionally scheduled to run **last, in its own worktree** (branched from `desktop` after the merge) because it re-extracts, touches the LLM step, and is potentially disruptive.
+- **#6 EIS-RECOVERY (attempted 2026-07-14, abandoned).** A targeted *selection-only* fix — route month-granularity dates on ROD/FEIS documents to the LLM, and widen the FEIS cover-date regex (both in script 05) — was built and tested in an isolated worktree. It recovered only **~57 projects (~+1.5 pts)**, because the real bottleneck is **upstream candidate generation, not selection** (full diagnosis in the methodological note at the bottom of this file). The worktree was discarded — nothing was promoted and `desktop`/main were untouched. Closing the gap toward Phase 1 requires a heavy Phase-2.1 re-extraction, described below.
 
 ## Deferred — low priority / diagnostic (no deliverable-number impact)
 - **#8 VALIDATION-GOLD (medium).** Build a disjoint, held-out project-level gold set (~180 projects, hand-verified from source docs) to produce an honest end-to-end precision/recall. Deferred because it is effortful (labeling) and **adds an accuracy statistic without changing any reported number**. The report carries the honest caveat ("end-to-end accuracy not yet formally validated against a held-out gold set"). Current project-level gold (`timeline_gold_projects.parquet`) is ~76% contaminated (overlaps ranker-train + 05c injection), so it is not a clean accuracy measure — hence the caveat rather than a stated number.
@@ -22,3 +22,21 @@ This is the internal record of what was consciously **deferred** in D4 and why. 
 ## Deleted (not doing)
 - **#9 CALIBRATION-SPLIT.** 04b calibrates the classifier confidence in-sample (on the frozen 938-row test split). A dedicated out-of-sample calibration split was **deleted from scope** — it affects only internal confidence scores (not the selected dates), moves report numbers, breaks comparability, and can trigger LLM re-routing. Revisit only if calibration is specifically challenged.
 - **#13 BUCKET3-INIT.** ~959 projects produced no candidates at retrieval (scanned/corrupt PDFs, no extractable text). **Deleted from scope** — not recoverable without OCR reprocessing; ~1.5% of the universe.
+
+---
+
+## Methodological note: why EIS decision coverage is lower than Phase 1, and why the EIS dates are a best guess
+
+Phase 1 reported ~48% complete timelines for **decarbonization EIS**; Phase 2 reaches **~32%** for **all-energy EIS** on a roughly 5× larger universe. This is a genuine difference, but it is explained by scope plus a structural data limitation — **not** a pipeline regression — and we confirmed the cause empirically (2026-07-14) before accepting it.
+
+**The structural cause.** An EIS "decision" is a **Record of Decision (ROD)**, a *separate document* that in NEPATEC 2.0 is usually absent — only ~18% of EIS have a ROD in the corpus. Where there is no ROD, the pipeline falls back to the **Final-EIS publication date** as a **month-granularity proxy** for the decision (imputed to the 15th of the month). So a large share of the EIS decision dates we *do* report are **best-guess proxies** (FEIS publication ≈ decision), not authoritative ROD signature dates. That is why EIS coverage is both lower and lower-confidence than CE or EA.
+
+**Why the gap can't be cheaply closed (tested and abandoned 2026-07-14).** We investigated the 2,388 EIS that lack a decision — 836 of which have a ROD/FEIS document in the corpus — and found the bottleneck is **candidate generation, not selection**:
+
+- **33% (275 of 836) have no decision-date candidate extracted at all.** The ROD/FEIS cover date was never captured by retrieval/extraction, so there is nothing for the selection step to pick.
+- **~60% were already sent to the LLM, which returned no usable decision.** Typically a month-only cover date ("June 2015") is extracted with the identifying "Final Environmental Impact Statement" title on a *different* page, so the date ranks below the top-3 candidate packets and the model never sees it.
+- A **targeted selection-only fix** (routing month-on-ROD/FEIS-document dates to the LLM; widening the FEIS cover-date regex) recovered only **~57 projects (~+1.5 pts)** — confirming selection is not the wall.
+
+**What a real fix would take (Phase 2.1).** Re-pull the FEIS/ROD cover pages to *generate* candidates for the ~275 with none, and improve how month cover dates are ranked into the LLM packets. That is a heavy re-extraction over the 5.5 GB EIS page corpus plus additional LLM spend — out of scope for this deliverable.
+
+**Bottom line.** Present EIS coverage of ~32% as-is, with the caveat that a large share of EIS decisions are **Final-EIS-publication proxies (month-granularity)**, and that the shortfall versus Phase 1 is a **corpus / ROD-availability limitation, not an extraction error**. The EIS timelines are the best available estimate given what NEPATEC 2.0 contains.
