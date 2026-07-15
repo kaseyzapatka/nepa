@@ -50,14 +50,19 @@ Eight mutually exclusive primary classes, with a strict priority ordering used w
 
 | Priority | Class | Core signal |
 |---|---|---|
-| 1 | `federal_direct_action` | Federal agency is the proposing actor |
-| 2 | `federal_program` | Programmatic EIS/EA, land-use plan, rulemaking |
+| 1 | `federal_program` | Programmatic EIS/EA, land-use plan, rulemaking |
+| 2 | `federal_direct_action` | Federal agency is the proposing actor |
 | 3 | `pma` | Power Marketing Administration (BPA, WAPA, SEPA, SWPA) or TVA is the acting agency |
 | 4 | `federal_property_transaction` | Land exchange, disposal, conveyance |
 | 5 | `federal_land` | Project on federal land; ROW/SUP granted to private developer |
 | 6 | `federal_permit` | Federal permit/license is the primary nexus |
 | 7 | `federal_funding` | Federal grant, loan guarantee, financial assistance |
 | 8 | `unknown` | NEPA confirmed but trigger cannot be reliably identified |
+
+This table mirrors `TRIGGER_HIERARCHY` in `01_extract_nepa_trigger.py`. Note that the position
+of `federal_program` is empirically inert in the May 2026 output: no project carries
+`federal_program` together with another class in `nepa_trigger_multi`, so moving it within the
+hierarchy would not change any project's primary classification.
 
 Secondary triggers are stored in `nepa_trigger_secondary` (list) for multi-label combo analysis.
 

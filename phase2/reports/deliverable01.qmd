@@ -150,8 +150,8 @@ wins as the primary; lower-priority matches are retained as secondary triggers.
 ::: {tbl-colwidths="[15,85]"}
 | Trigger | Federal Nexus |
 |:-|:---|
-| **Direct Action** | The federal agency *is* the proposer — building, operating, or managing the project (e.g., agency construction, national laboratory operations, military facilities) |
 | **Program** | A programmatic EIS, land-use plan, or rulemaking umbrella covers the action — the NEPA review is at the policy or program level |
+| **Direct Action** | The federal agency *is* the proposer — building, operating, or managing the project (e.g., agency construction, national laboratory operations, military facilities) |
 | **PMA/TVA** | A federal power marketing administration (BPA, WAPA, SEPA, SWPA) or the Tennessee Valley Authority is the acting agency — building, upgrading, or maintaining federal power and transmission infrastructure |
 | **Property Transaction** | A land exchange, disposal, or conveyance of federal property is the triggering event |
 | **Land** | A private or state actor seeks a right-of-way, special use permit, or lease on federal land (BLM, National Forest) |
