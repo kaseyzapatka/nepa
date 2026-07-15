@@ -544,6 +544,9 @@ if (file.exists(eis_det_path)) tryCatch({
 
   # FONSI vs EIS: per resource, EIS-significant share vs FONSI-mitigation share. BOTH sides are the
   # BLM+DOE subset so the cross-track comparison is like-for-like (FONSI is BLM+DOE-only).
+  # NOTE: fon_mit_share uses ALL primary_dr rows (including the rare significant_* FONSI anomalies),
+  # so it differs slightly from mitigation_by_resource.csv's share_mit_class, whose denominator is
+  # BELOW_LINE-only (6b above). The two tables are not drop-in interchangeable.
   fon_dr <- primary_dr %>% filter(!shared_resource_area %in% c("project_wide", "unknown"))
   fon_res <- fon_dr %>% group_by(shared_resource_area) %>%
     summarise(fon_n = n(), fon_mit = sum(determination_class == "less_than_significant_with_mitigation"),
