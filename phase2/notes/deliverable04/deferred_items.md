@@ -1,17 +1,24 @@
 # D4 (Timeline) — Deferred Items
 
-**As of 2026-07-14**, ahead of merging `timeline-updating` → `desktop` for the Thursday CATF presentation.
+**As of 2026-07-15**, for the Thursday CATF presentation. Everything under "Fixed in this pass" is committed and merged to `desktop` (four commits, local / unpushed), and the corrected data is propagated to main — so main and `desktop` reproduce the committed report.
 
 This is the internal record of what was consciously **deferred** in D4 and why. The reader-facing subset (the ones that bear on interpreting the numbers) is also summarized in the report's *Data Quality & Caveats → "Known issues, understood and deferred"* section. Nothing below changes the headline medians, which are robust to these tails.
 
-## Fixed in this pass (for context)
-- **CE register-vs-document decisions** — prefer the authoritative BLM/DOE register when a document-text CE decision disagrees by >~2 years (~650 CE decisions corrected). Committed `55422f9`.
-- **Negative-duration ordering** — reclassified to `invalid_order` at source (05 / 05c normalizer) with an assertion in 08; the old downstream stopgap was removed. Committed `55422f9`.
+## Fixed in this pass (committed to `desktop`)
+- **CE register-vs-document decisions** — prefer the authoritative BLM/DOE register when a document-text CE decision disagrees by >~2 years (~650 CE decisions corrected). `55422f9`.
+- **Negative-duration ordering** — reclassified to `invalid_order` at source (05 / 05c normalizer) with an assertion in 08; the old downstream stopgap was removed. `55422f9`.
+- **06 LLM cache-replay** — on a cache hit, script 06 now re-applies the stored adjudication from `timeline_api_adjudications.parquet` (no API call), so a regenerated `project_dates` restores the full LLM layer deterministically for $0. `55422f9`.
+- **Fossil-EA reporting** — corrected the "84% = well-abandonment" error (84% is the *register-anchoring* share; well-abandonment is 53%), and added a second "Fossil (doc-anchored)" row to Figure 6 (~5-month median) as the more defensible review-length view. `eb01523`.
+- **Data-quality caveats + this note** — split the report's caveats into "resolved this pass" vs "deferred" and added this deferred-items note. `8e76622`.
+- **EIS methodological note** — the Phase-1-gap / FEIS-proxy explanation at the bottom of this file. `9b911bf`.
 
-## Deferred — active follow-up
-- **#6 EIS-RECOVERY (attempted 2026-07-14, abandoned).** A targeted *selection-only* fix — route month-granularity dates on ROD/FEIS documents to the LLM, and widen the FEIS cover-date regex (both in script 05) — was built and tested in an isolated worktree. It recovered only **~57 projects (~+1.5 pts)**, because the real bottleneck is **upstream candidate generation, not selection** (full diagnosis in the methodological note at the bottom of this file). The worktree was discarded — nothing was promoted and `desktop`/main were untouched. Closing the gap toward Phase 1 requires a heavy Phase-2.1 re-extraction, described below.
+## Deferred — documented, not in active development
 
-## Deferred — low priority / diagnostic (no deliverable-number impact)
+None of the items below are being actively worked. They are recorded so the underlying issue is understood and can be picked up later if a future pass warrants it — not because any of them is queued or in progress.
+
+- **EIS decision-coverage gap (biggest open issue; investigated and closed 2026-07-14).** EIS complete coverage is ~32%, below Phase 1's ~48% for decarb EIS. This is **not** in active development. We *did* build and test a targeted selection-only fix in an isolated worktree (route month-granularity dates on ROD/FEIS documents to the LLM; widen the FEIS cover-date regex, both in script 05); it recovered only **~57 projects (~+1.5 pts)**, which confirmed the real bottleneck is **upstream candidate generation, not selection**. The worktree was discarded — nothing was promoted and `desktop`/main were untouched. The full explanation of *why* EIS is lower than Phase 1 and why the recovery is hard is in the **methodological note at the bottom of this file**; a real fix would be a heavy Phase-2.1 re-extraction, only if someone decides to invest in it.
+
+### Lower-priority / diagnostic (no deliverable-number impact)
 - **#8 VALIDATION-GOLD (medium).** Build a disjoint, held-out project-level gold set (~180 projects, hand-verified from source docs) to produce an honest end-to-end precision/recall. Deferred because it is effortful (labeling) and **adds an accuracy statistic without changing any reported number**. The report carries the honest caveat ("end-to-end accuracy not yet formally validated against a held-out gold set"). Current project-level gold (`timeline_gold_projects.parquet`) is ~76% contaminated (overlaps ranker-train + 05c injection), so it is not a clean accuracy measure — hence the caveat rather than a stated number.
 - **#10 YEAR-ANCHOR (medium).** Add a `nepa_case_year` sanity-anchor flag to selection/QA (flag/down-rank a selected date that sits >~2 years from the case-number year, e.g. `DOI-BLM-ID-B010-2022-0032` → 2022). Deferred: it is a **diagnostic flag** that does not change the selected dates; requires a case-year-derivation step first; and the main thing it would catch (historical-citation initiations) is already documented below.
 - **#15 GOLD-CLEANUP (low).** Delete the retired candidate-level gold apparatus (`labeling/` gold-builder scripts + `data/analysis/timeline/gold/` + `output/deliverable04/gold/` candidate-level artifacts). **KEEP** the project-level `timeline_gold_projects.parquet` used by `07_validate.py`. Pure housekeeping — deferred, and to be done carefully (confirm the exact file list first) if/when #8 is picked up.
