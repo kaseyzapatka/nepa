@@ -326,17 +326,19 @@ resource — visual 126), `fig_fonsi_vs_eis.png` (**now a quadrant scatter**, x=
 BLM+DOE-matched — replaced the dumbbell), `fig_eis_factors.png` (factor totals bar) + `fig_eis_factor_heatmap.png`
 (factor×resource heatmap, **row-normalized** so each factor's concentration pops — e.g. magnitude→
 visual/water/land use; split out of the old combined drivers figure), `fig_eis_by_agency.png`
-(significant-share by lead agency as a **bar chart**; Army Corps/BLM highest, NRC/TVA lowest;
-BLM+DOE flagged as complete-coverage).
+(significant-share by lead agency as a **bar chart**; Army Corps/BLM highest, Rural Utilities
+Service/TVA lowest; BLM+DOE flagged as complete-coverage).
 Tables (CSV → gt): `eis_unavoidable_examples.csv`, `eis_factor_examples.csv` (verbatim rationale
 snippets), `eis_agency.csv`, `eis_coverage_funnel.csv`. All wired into
 `phase2/reports/deliverable02.qmd` → *EIS analysis* section.
 
 **Cross-cutting analyses added 2026-07-11** (both tracks):
-- **Technology** — derived from `projects_combined.project_title` by keyword (no dedicated tech field;
-  ~half of titles are "Other / mixed" and excluded). `fig_fonsi_technology.png` (mitigation share by
-  tech; transmission/wind highest), `fig_eis_technology.png` (significant share; **hydro 27% highest,
-  nuclear 8% lowest**), `fig_eis_technology_resource.png` (row-normalized tech×resource "signature":
+- **Technology** — derived from `projects_combined.project_type` (one primary technology per project
+  by priority: generation types first, then nuclear/CCS, then transmission; ~1 in 5 projects resolve
+  to "Other / mixed" and are excluded, along with the "Renewable (other)" catch-all).
+  `fig_fonsi_technology.png` (mitigation share by tech; transmission/wind highest),
+  `fig_eis_technology.png` (significant share; **hydro 28% highest, nuclear 6% lowest**),
+  `fig_eis_technology_resource.png` (row-normalized tech×resource "signature":
   wind→biological/noise, solar→visual/cultural/air, transmission→biological/visual). Tables
   `fonsi_technology.csv`, `eis_technology.csv`.
 - **Mitigation enforceability (FONSI)** — `mitigation_enforceability` = `permit_condition` vs `none`;

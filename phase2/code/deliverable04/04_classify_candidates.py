@@ -92,7 +92,7 @@ TRAINING_DIR = PHASE2 / "training" / "deliverable04"   # label INPUTS (classifie
 CANDIDATES_PATH = TIMELINE_DIR / "timeline_candidates.parquet"
 # Single source of truth for labels: the human-labeled sample (03 emits it; humans fill the
 # `label` column: initiation | decision | neither). The `split` column (train|test) is FROZEN —
-# assigned once, stratified by process x label (see labeling_rules.md). New labels added later
+# assigned once, stratified by process x label (see notes/deliverable04/date_sourcing.md). New labels added later
 # default to `train`, so the test set never grows or leaks. The former gold/ candidate-level
 # training+test apparatus is retired (it held regex echoes, not human gold). NOTE: this is
 # distinct from the project-level gold used by 07_validate.py for end-to-end validation.
@@ -350,7 +350,7 @@ def _load_labeled_sample() -> pd.DataFrame:
     if "split" not in df.columns:
         raise SystemExit(
             f"{LABELING_SAMPLE_PATH} has no `split` column. Assign a FROZEN train/test split "
-            "first (stratified by process x label; see labeling_rules.md). New rows added "
+            "first (stratified by process x label; see notes/deliverable04/date_sourcing.md). New rows added "
             "later should default to `train` so the test set never grows or leaks."
         )
     # Rows added after the freeze (blank split) default to train — never to the frozen test set.

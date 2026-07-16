@@ -429,13 +429,13 @@ include_fig("fig_subagency_by_resource.png")
 
 ### Significance by clean-energy technology
 
-The kind of project matters as much as the agency. Classifying each project by the technology named
-in its title lets us ask which technologies most often need mitigation to stay below the line
-(@fig-fonsi-technology).
+The kind of project matters as much as the agency. Classifying each project by its primary
+technology (from the dataset's project-type field) lets us ask which technologies most often need
+mitigation to stay below the line (@fig-fonsi-technology).
 
 ```{r}
 #| label: fig-fonsi-technology
-#| fig-cap: "Share of a technology's FONSI conclusions that depend on committed mitigation. Technology is derived from the project title; roughly half of projects name no technology in the title and are excluded, so read this for the named technologies."
+#| fig-cap: "Share of a technology's FONSI conclusions that depend on committed mitigation. Technology is derived from the dataset's project-type classification; about 1 in 5 projects resolve to an 'Other / mixed' bucket and are excluded, so read this for the named technologies."
 include_fig("fig_fonsi_technology.png")
 ```
 
@@ -700,7 +700,7 @@ The leading reasons an impact is called significant are `r fac_pretty[eis_fac_to
 not interchangeable: **a protected resource drives significance mainly for cultural and biological
 resources** (endangered species, historic properties), a **regulatory threshold** for air quality
 and noise (numeric standards), and **cumulative effects** for biological, visual, and water. That
-last one is notable for decarbonization siting — nearly three in ten significant findings rest on
+last one is notable for decarbonization siting — about one in four significant findings rests on
 impacts that build up across a landscape or airshed rather than on one project's direct footprint.
 @tbl-eis-factor-ex gives verbatim examples of each.
 
@@ -737,7 +737,7 @@ runs (@fig-eis-by-agency).
 
 ```{r}
 #| label: fig-eis-by-agency
-#| fig-cap: "Share of a lead agency's EIS determinations judged significant, for agencies with at least 150 determinations. Blue = BLM and the DOE family (the two agencies with complete dataset coverage); teal = other agencies, shown for context with partial coverage. Point size ≈ number of determinations."
+#| fig-cap: "Share of a lead agency's EIS determinations judged significant, for agencies with at least 150 determinations. Dark blue = BLM and the DOE family (the two agencies with complete dataset coverage); light blue = other agencies, shown for context with partial coverage. Point size ≈ number of determinations."
 include_fig("fig_eis_by_agency.png")
 ```
 
@@ -751,20 +751,20 @@ The spread is real — from **`r ea_top$Agency[1]` (`r percent(ea_top$share[1], 
 top down to **`r ea_bot$Agency[2]` (`r percent(ea_bot$share[2], accuracy=1)`)**. Land- and
 water-facing agencies — the **Army Corps** and **BLM** — cross into significance most often, which
 fits their portfolios (dredge-and-fill permits, public-land rights-of-way with visual and habitat
-exposure). The standardized nuclear and utility programs — the **NRC** and **TVA** — cross least,
-consistent with siting on already-industrial land under tightly prescribed review. BLM and the DOE
+exposure). The utility-service programs — the **Rural Utilities Service** and **TVA** — cross least,
+consistent with routine utility infrastructure on already-developed land and corridors. BLM and the DOE
 family remain the only agencies with complete coverage; the others are shown for context.
 
 ### Significance by clean-energy technology
 
 The most decision-relevant cut for a decarbonization portfolio is the **technology**. Classifying each
-project by the technology named in its title, @fig-eis-technology ranks how often each crosses the
-line, and @fig-eis-technology-resource shows *where* — each technology's distinct "significance
-signature."
+project by its primary technology (from the dataset's project-type field), @fig-eis-technology ranks
+how often each crosses the line, and @fig-eis-technology-resource shows *where* — each technology's
+distinct "significance signature."
 
 ```{r}
 #| label: fig-eis-technology
-#| fig-cap: "Share of a technology's EIS determinations judged significant. Technology is derived from the project title; roughly half of projects name no technology and are excluded, so read this for the named technologies."
+#| fig-cap: "Share of a technology's EIS determinations judged significant. Technology is derived from the dataset's project-type classification; about 1 in 5 projects resolve to an 'Other / mixed' bucket and are excluded, so read this for the named technologies."
 include_fig("fig_eis_technology.png")
 ```
 

@@ -11,7 +11,7 @@ granularity, cross-candidate agreement, mention count, negative cues) — not ju
 score.
 
 It needs PROJECT-LEVEL labels (the true candidate_id per project), produced by the
-`project_gold_labeling.md` pass into `project_gold_sample.csv`. Candidate-level init/dec/neither
+`_project_gold_labeling.md` pass into `project_gold_sample.csv`. Candidate-level init/dec/neither
 labels can't teach within-head selection; this can.
 
 TWO MODELS, SAME FEATURES
@@ -178,7 +178,7 @@ def _load_gold() -> pd.DataFrame:
     if not GOLD_SAMPLE_PATH.exists():
         raise SystemExit(
             f"No project gold at {GOLD_SAMPLE_PATH}.\n"
-            "Run the project_gold_labeling.md pass first (emit -> label -> apply)."
+            "Run the _project_gold_labeling.md pass first (emit -> label -> apply)."
         )
     g = pd.read_csv(GOLD_SAMPLE_PATH, dtype=str, keep_default_na=False)
     filled = g["initiation_candidate_id"].str.strip().ne("") | g["decision_candidate_id"].str.strip().ne("")

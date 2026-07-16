@@ -32,6 +32,7 @@ import argparse
 import csv
 import hashlib
 import re
+import shutil
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -80,6 +81,13 @@ MONTH_DECISION_PROCESSES = {"CE"}
 # (p_init_cal / p_dec_cal from 04b --apply) are preferred when present, else raw p_*.
 CLASSIFIER_WEIGHT = 5.0            # weight on the role-appropriate classifier probability
 CLASSIFIER_DISAGREE_PENALTY = 3.0  # penalty when the OTHER head is more confident (looks like the other thing)
+# --- CE register-preference for DECISIONS (Variant-B, decision side; 2026-07-13) ----------
+# For CE only: the learned ranker sometimes locks onto a stray historical date printed in a
+# CX-form template instead of the authoritative register determination. When a register
+# (metadata) clear_decision exists and the selected document-text decision disagrees with it by
+# more than this many days, defer to the register. Scoped to CE — for EA/EIS the document ROD is
+# the better source (left to the ranker). ~2 years so only large (typically decade-scale) gaps flip.
+REGISTER_DECISION_DISAGREE_DAYS = 730
 # Granularity confidence: a precise day beats a coarse month/year.
 GRANULARITY_BONUS = {"day": 1.0, "month": 0.0, "year": -1.0}
 # Cross-candidate agreement: corroboration when multiple candidates resolve to the same date.
@@ -348,7 +356,7 @@ EIS_FINAL_EIS_ENABLED = False       # deterministic final_eis_date population (s
 # gold-rank check (true ROD top-5 90%, true FEIS top-5 95% after the 3-head rebuild + doc-type gate).
 EIS_TIERED_DECISION = True
 
-# Calibrated initiation eligibility for EA and EIS (recover_eis.md Phase 4, §5.5/§5.6). The LightGBM
+# Calibrated initiation eligibility for EA and EIS (June-2026 EIS-recovery pass, Phase 4). The LightGBM
 # LambdaRank score is group-relative and CANNOT serve as an existence gate, which is why ~1,680 EIS
 # and ~813 EA projects have an initiation candidate that is never selected (ranking_score <= 0).
 # For these processes, eligibility is the UNION of the legacy ranker-score gate and a calibrated /
@@ -357,20 +365,20 @@ EIS_TIERED_DECISION = True
 # candidates the ranker suppressed. CE keeps the original ranking_score gate untouched (CE is already
 # at its target rate and is too large / unvalidatable to perturb before the deadline).
 # Thresholds are provisional (Phase 4 prerequisite: refine on a frozen init label set per process;
-# phase0/cohort_ranker_blocked_init.txt is a labeling target).
+# the ranker-blocked-init cohort is a labeling target).
 T_INIT_CAL = {"EA": 0.5, "EIS": 0.5}
 CALIBRATED_INIT_PROCESSES = set(T_INIT_CAL)  # {"EA", "EIS"} — CE excluded by design
 
 # An initiation can never be OMB/paperwork-reduction form boilerplate (the "Public reporting burden
 # ... OMB control ... Expires <date>" stamp). Leaked a wrong init (18-year duration) in sample
-# testing. Excluded regardless of which gate accepts the candidate. (recover_eis.md Phase 4b.)
+# testing. Excluded regardless of which gate accepts the candidate. (EIS-recovery pass, Phase 4b.)
 _INIT_NEG_RE = re.compile(
     r"public\s+reporting\s+burden|omb\s+control|paperwork\s+reduction\s+act", re.IGNORECASE
 )
 
 # Implausible-duration guard: an initiation implausibly far before the decision is almost certainly a
 # wrong/incidental date. Per-process (EA reviews are short; EIS run longer). Applied in the chronology
-# filter to drop absurd-early init candidates. (recover_eis.md Phase 4b.)
+# filter to drop absurd-early init candidates. (EIS-recovery pass, Phase 4b.)
 MAX_INIT_LOOKBACK_DAYS = {"EA": 3650, "EIS": 5475}  # ~10y EA, ~15y EIS
 
 
@@ -860,6 +868,7 @@ def select_dates_for_project(
     has_rod = False
     decision_is_feis_fallback = False
     ea_decision_reason: str | None = None
+    register_decision_preferred = False
     if process_type == "EIS":
         # Tiered: ROD-first (ranker orders ROD-eligible), FEIS-fallback when has_rod is False.
         best_decision, eis_rod_flag, has_rod, decision_is_feis_fallback = _select_eis_decision(
@@ -903,6 +912,31 @@ def select_dates_for_project(
                 if not body_dec.empty:
                     best_decision = _select_best_decision(body_dec)
                     decision_is_proxy = True
+
+        # CE register-preference for DECISIONS: prefer the authoritative register (metadata)
+        # determination over a document-text pick when they disagree by > ~2 years (the ranker
+        # occasionally grabs a stray historical date off a CX-form template). CE-scoped only.
+        if (
+            process_type == "CE"
+            and best_decision is not None
+            and str(best_decision.get("candidate_source_type", "")) != "metadata"
+        ):
+            _reg_dec = decision_cands[
+                decision_cands["candidate_source_type"].astype(str).eq("metadata")
+                & decision_cands["candidate_role"].eq("clear_decision")
+                & decision_cands["_parsed_date"].notna()
+            ]
+            if not _reg_dec.empty:
+                _reg_best = _select_best_decision(_reg_dec)
+                _sel_d = best_decision.get("_parsed_date")
+                _reg_d = _reg_best.get("_parsed_date")
+                if (
+                    pd.notna(_sel_d) and pd.notna(_reg_d)
+                    and abs((_reg_d - _sel_d).days) > REGISTER_DECISION_DISAGREE_DAYS
+                ):
+                    best_decision = _reg_best
+                    decision_is_proxy = False
+                    register_decision_preferred = True
 
     if best_decision is not None:
         try:
@@ -1135,7 +1169,7 @@ def select_dates_for_project(
     # extracts CE decisions well (~98% of Phase 1) but misses CE initiation (~45%) because it has no
     # equivalent inference. When a CE project has a decision but NO initiation, adopt the earliest
     # candidate date strictly before the decision as an inferred-application proxy. Flagged is_proxy +
-    # ce_inferred_application; never treated as a clear date. (full_recover.md Fix 1; CE is a build
+    # ce_inferred_application; never treated as a clear date. (June-2026 recovery-run Fix 1; CE is a build
     # issue where less-conservative is accepted, 2026-06-15. TODO: audit a sample tomorrow.)
     ce_inferred_init_used = False
     # A7 guardrail (2026-06-16): only bracket an inferred initiation against a genuine SIGNED decision
@@ -1205,6 +1239,8 @@ def select_dates_for_project(
         flags.append(eis_rod_flag)
     if ea_decision_reason:
         flags.append(ea_decision_reason)
+    if register_decision_preferred:
+        flags.append("ce_register_decision_preferred")
     timeline_status = "missing_both"
 
     if has_init and has_dec:
@@ -1554,38 +1590,45 @@ def apply_deis_only_flags(dates_df: pd.DataFrame, index_path: Path) -> pd.DataFr
     return dates_df
 
 
-def reconcile_eis_universe(
+def reconcile_universe(
     dates_df: pd.DataFrame,
     index_path: Path,
     project_ids: set[str] | None,
+    processes: set[str] | list[str],
 ) -> pd.DataFrame:
-    """Phase B — EIS universe completeness.
+    """Phase B/D — universe completeness for every processed review type.
 
-    The selection loop only visits projects that have candidates, so EIS projects with no
-    surviving candidates (Phase A: 664 — 223 with no packets, 441 with packets but no
-    candidates) never get an output row and silently vanish. Append a `missing_both` stub
-    for every EIS project in the index that is absent from `dates_df`.
+    The selection loop only visits projects that have candidates, so projects with no
+    surviving candidates never get an output row and silently vanish. Append a
+    `missing_both` stub for every indexed project of a processed type that is absent
+    from `dates_df`, so the output universe matches the document index / project
+    inventory exactly.
 
-    EIS-only by design: recovering CE/EA dropped rows is deferred (Phase D) because it would
-    change CE/EA output. Runs BEFORE manual corrections / midpoint / deis_only flags so the
-    stubs still receive them. (Phase A confirmed none of the 664 carry a register ROD/NOI
-    date, so the stubs are genuinely `missing_both`; the ordering is kept as a safeguard.)
+    History: EIS-only from Phase B (664 zero-candidate EIS; Phase A confirmed none carry
+    a register ROD/NOI date). Extended to CE/EA 2026-07-15 (the deferred Phase D): 628 CE
+    + 66 EA zero-candidate projects previously vanished, making the published coverage
+    denominators the pipeline universe (61,187) rather than the inventory (61,881).
+    Runs BEFORE manual corrections / midpoint / deis_only flags so the stubs still
+    receive them.
     """
     if not index_path.exists():
         return dates_df
     idx = pd.read_parquet(index_path, columns=["project_id", "process_type"])
-    eis_universe = set(idx.loc[idx["process_type"] == "EIS", "project_id"].unique())
-    if project_ids is not None:
-        eis_universe &= project_ids
-    missing = sorted(eis_universe - set(dates_df["project_id"]))
-    if not missing:
-        return dates_df
+    have = set(dates_df["project_id"])
     stubs = []
-    for pid in missing:
-        row = _empty_project_result("EIS")
-        row["project_id"] = pid
-        stubs.append(row)
-    print(f"  EIS universe reconciliation: added {len(missing):,} missing EIS projects as missing_both.")
+    for proc in sorted(processes):
+        universe = set(idx.loc[idx["process_type"] == proc, "project_id"].unique())
+        if project_ids is not None:
+            universe &= project_ids
+        missing = sorted(universe - have)
+        for pid in missing:
+            row = _empty_project_result(proc)
+            row["project_id"] = pid
+            stubs.append(row)
+        if missing:
+            print(f"  {proc} universe reconciliation: added {len(missing):,} missing {proc} projects as missing_both.")
+    if not stubs:
+        return dates_df
     return pd.concat([dates_df, pd.DataFrame(stubs)], ignore_index=True)
 
 
@@ -1625,6 +1668,37 @@ def apply_month_midpoint_imputation(dates_df: pd.DataFrame) -> pd.DataFrame:
     n = imputed_mask.sum()
     if n > 0:
         print(f"  Midpoint imputation applied to {n:,} projects (month-granularity dates → day 15).")
+    return dates_df
+
+
+def normalize_invalid_order(dates_df: pd.DataFrame) -> pd.DataFrame:
+    """Post-imputation order guard (source fix for the old 08_analyze.R stopgap).
+
+    Per-project status is assigned on pre-imputation dates, but month->15th midpoint imputation
+    can push a month-granularity initiation a few days PAST a day-level decision in the same month,
+    leaving a `complete_*` row with decision_date < initiation_date. Reclassify any such row to
+    `invalid_order` and null its duration, so BOTH coverage and duration counts drop it at source.
+    """
+    need = {"initiation_date", "decision_date", "timeline_status"}
+    if not need <= set(dates_df.columns):
+        return dates_df
+    init = pd.to_datetime(dates_df["initiation_date"], errors="coerce")
+    dec = pd.to_datetime(dates_df["decision_date"], errors="coerce")
+    mask = (
+        dates_df["timeline_status"].isin(["complete_clear", "complete_with_proxy"])
+        & init.notna() & dec.notna() & (dec < init)
+    )
+    n = int(mask.sum())
+    if n:
+        dates_df.loc[mask, "timeline_status"] = "invalid_order"
+        if "duration_days" in dates_df.columns:
+            dates_df.loc[mask, "duration_days"] = pd.NA
+        if "timeline_flags" in dates_df.columns:
+            fl = dates_df.loc[mask, "timeline_flags"].fillna("")
+            dates_df.loc[mask, "timeline_flags"] = fl.apply(
+                lambda s: s if "invalid_order" in s else (f"{s}|invalid_order" if s else "invalid_order")
+            )
+        print(f"  Order normalizer: reclassified {n:,} post-imputation negative-duration rows -> invalid_order.")
     return dates_df
 
 
@@ -1826,10 +1900,43 @@ def main() -> None:
     parser.add_argument("--workers", type=int, default=1,
                         help="Parallelize per-project selection across N processes (default 1=serial; "
                              "output is identical — the per-project function is independent).")
+    parser.add_argument("--reconcile-only", action="store_true",
+                        help="Skip selection entirely: load the existing canonical dates parquet, append "
+                             "missing_both stubs for indexed projects absent from it (all --process types), "
+                             "and write back. Purely additive — existing rows are untouched. Use to bring an "
+                             "already-published parquet to full-universe coverage without re-selecting, since "
+                             "a fresh re-selection cannot re-apply June-era cached LLM adjudications whose "
+                             "candidate packets no longer re-form identically.")
     args = parser.parse_args()
 
     if args.import_corrections:
         import_corrections_from_csv(args.import_corrections)
+        return
+
+    if args.reconcile_only:
+        if not DATES_PATH.exists():
+            raise SystemExit(f"--reconcile-only: no canonical dates parquet at {DATES_PATH}")
+        dates_df = pd.read_parquet(DATES_PATH)
+        before = len(dates_df)
+        backup = DATES_PATH.with_name(
+            f"timeline_project_dates.pre_reconcile_{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.parquet")
+        shutil.copy2(DATES_PATH, backup)
+        print(f"Backed up canonical dates -> {backup.name}")
+        dates_df = reconcile_universe(dates_df, INDEX_PATH, None, args.process)
+        added = len(dates_df) - before
+        if added == 0:
+            print("Universe already complete — nothing to add.")
+            return
+        # Stubs skip the post-selection steps; give them the same defaults those steps
+        # leave on dateless rows so the appended rows are indistinguishable from
+        # pipeline-produced missing_both stubs.
+        stub_mask = dates_df.index >= before
+        for col, default in (("timeline_flags", ""), ("deis_only", False), ("midpoint_imputed", False)):
+            if col in dates_df.columns:
+                dates_df.loc[stub_mask, col] = dates_df.loc[stub_mask, col].fillna(default) \
+                    if dates_df[col].dtype == object else default
+        dates_df.to_parquet(DATES_PATH, index=False)
+        print(f"Wrote {DATES_PATH} ({len(dates_df):,} projects; +{added:,} stubs, {before:,} untouched)")
         return
 
     # Resolve run directory — matches the logic in scripts 02 and 03.
@@ -1941,10 +2048,9 @@ def main() -> None:
 
     dates_df = pd.DataFrame(project_dates_rows)
 
-    # Phase B: EIS universe completeness — add missing_both rows for EIS projects with no
+    # Phase B/D: universe completeness — add missing_both rows for projects with no
     # candidates (else they vanish from the output). Before corrections/midpoint/deis flags.
-    if "EIS" in args.process:
-        dates_df = reconcile_eis_universe(dates_df, INDEX_PATH, project_ids)
+    dates_df = reconcile_universe(dates_df, INDEX_PATH, project_ids, args.process)
 
     # Apply manual corrections
     if not corrections_df.empty:
@@ -1954,6 +2060,10 @@ def main() -> None:
     # Apply month midpoint imputation — only after all corrections so this is truly last-resort
     print("Applying month midpoint imputation...")
     dates_df = apply_month_midpoint_imputation(dates_df)
+
+    # Source-level order guard: catch rows that midpoint imputation just pushed negative
+    # (replaces the 08_analyze.R stopgap).
+    dates_df = normalize_invalid_order(dates_df)
 
     # Flag EIS projects that have DEIS but no FEIS/ROD — structurally unresolvable by regex
     print("Applying deis_only flags...")

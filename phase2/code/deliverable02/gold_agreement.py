@@ -19,11 +19,15 @@ Flow:
 gold_labeling_eis.md — the FONSI default behavior is unchanged.
 
 Run:  conda run -n nepa python phase2/code/deliverable02/gold_agreement.py [--track eis] [--finalize]
+      [--stats-only] recompute agreement without writing; [--force] overwrite an adjudicated
+      worksheet (timestamped backup written first)
 """
 from __future__ import annotations
 
 import argparse
+import shutil
 import sys
+from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -91,7 +95,34 @@ def _load(path, labeler: str) -> pd.DataFrame:
     return df.set_index("_key")
 
 
-def merge(p: dict) -> None:
+def _guard_worksheet(p: dict, force: bool) -> None:
+    """Refuse to overwrite an adjudicated worksheet unless --force (which snapshots it first).
+    The disagreements CSV is the one artifact this script writes that the analyst then hand-fills
+    (the final_* columns); a bare re-run of the merge step would silently erase that hand work
+    — as happened 2026-07-15, recovered from Time Machine."""
+    path = p["disagree"]
+    if not path.exists():
+        return
+    try:
+        old = pd.read_csv(path, dtype=str).fillna("")
+    except pd.errors.EmptyDataError:
+        return
+    fin = [c for c in old.columns if c.startswith("final_")]
+    if not fin or not len(old):
+        return
+    n_filled = int(old[fin].apply(lambda s: s.str.strip().ne("")).any(axis=1).sum())
+    if not n_filled:
+        return
+    if not force:
+        sys.exit(f"[guard] {path.name} holds {n_filled} hand-adjudicated rows (non-empty final_* "
+                 f"cells); re-running the merge would erase them. Use --stats-only to recompute "
+                 f"agreement without writing, or --force to overwrite (timestamped backup kept).")
+    bak = path.with_name(f"{path.stem}.{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.bak.csv")
+    shutil.copy2(path, bak)
+    print(f"[guard] --force: adjudicated worksheet backed up to {bak.name}")
+
+
+def merge(p: dict, stats_only: bool = False) -> None:
     cl, cx = _load(p["labels_claude"], "Claude"), _load(p["labels_codex"], "Codex")
     # window-level context for the disagreement sheet (join by evidence_span_id)
     queue = pd.read_parquet(p["queue"])
@@ -122,6 +153,10 @@ def merge(p: dict) -> None:
     disagree_keys = bi[~agree_all]
     print(f"\nmatched & agree on ALL core fields: {len(agreed_keys)}  |  "
           f"matched but differ: {len(disagree_keys)}")
+
+    if stats_only:
+        print("\n[stats-only] agreement recomputed; nothing written.")
+        return
 
     # ---- auto-accept: matched rows agreeing on core; keep Claude's full record ----
     agreed = cl.loc[agreed_keys, KEY + ALL_GOLD + ["labeler_confidence"]].copy()
@@ -201,7 +236,18 @@ if __name__ == "__main__":
     ap.add_argument("--track", choices=["fonsi", "eis"], default="fonsi",
                     help="which gold set (default fonsi; eis = the parallel EIS gold, distinct files)")
     ap.add_argument("--finalize", action="store_true")
+    ap.add_argument("--stats-only", action="store_true",
+                    help="recompute + print agreement stats without writing any file (safe for "
+                         "verification once the worksheet is adjudicated)")
+    ap.add_argument("--force", action="store_true",
+                    help="overwrite an adjudicated disagreements worksheet (a timestamped .bak "
+                         "copy is written first)")
     args = ap.parse_args()
     p = _paths(args.track)
     print(f"[track={args.track}]  gold -> {p['gold'].name}")
-    finalize(p) if args.finalize else merge(p)
+    if args.finalize:
+        finalize(p)
+    else:
+        if not args.stats_only:
+            _guard_worksheet(p, args.force)
+        merge(p, stats_only=args.stats_only)

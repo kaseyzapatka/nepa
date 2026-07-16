@@ -1,6 +1,6 @@
 # D1: NEPA Triggered — Architecture
 
-**Goal:** Classify why NEPA was triggered for each clean energy project across seven classes: `federal_direct_action`, `federal_program`, `federal_property_transaction`, `federal_land`, `federal_permit`, `federal_funding`, `unknown`.
+**Goal:** Classify why NEPA was triggered for each clean energy project across eight classes: `federal_direct_action`, `federal_program`, `pma`, `federal_property_transaction`, `federal_land`, `federal_permit`, `federal_funding`, `unknown`.
 
 **Self-contained:** Yes — requires only `projects_combined.parquet` and CE/EA/EIS pages files.
 
@@ -10,17 +10,19 @@
 
 ```mermaid
 flowchart TD
-    A[projects_combined.parquet] --> B[Tier 0: Manual labels\n~400 projects]
-    B --> C[Tier 1a: Agency metadata\n~1,500 new]
-    C --> D[Tier 1b: Title + description keywords\n~37 new]
-    D --> E[Tier 2: Document title scan\n~282 new]
-    E --> F[Tier 3: Purpose-and-need section extraction\n~481 new]
-    F --> G[Tier 3b: SetFit DOE CE classifier\nDOE + CE only]
-    G --> H[Tier 4: Retrieval-first NLI adjudication\n~4,700 projects]
+    A[projects_combined.parquet] --> B[Tier 0: Manual labels\n1,473 projects]
+    B --> C[Tier 1a: Agency metadata\n6,731 new]
+    C --> D[Tier 1b: Title + description keywords\n1,346 new]
+    D --> E[Tier 2: Document title scan\n27 new]
+    E --> F[Tier 3: Purpose-and-need section extraction\n372 new]
+    F --> G[Tier 3b: SetFit DOE CE classifier\nDOE + CE only, 10,247 new]
+    G --> H[Tier 4: Retrieval-first NLI adjudication\n529 processed, 29 finalized]
     H --> I{Tier 5: LLM fallback\n--use-llm flag}
     I --> J[projects_nepa_trigger.parquet]
     J --> K[Funding detail sidecar\nprojects_funding_details.parquet]
 ```
+
+Counts reflect the May 2026 full run (see Run Results below).
 
 ---
 
@@ -35,7 +37,7 @@ flowchart TD
 
 ## Sidecar Output
 
-`phase2/data/analysis/nepa_trigger/projects_funding_details.parquet` is generated after the
+`phase2/data/analysis/deliverable01/projects_funding_details.parquet` is generated after the
 primary trigger output, or independently with `--funding-details-only`. It is restricted to
 projects where `nepa_trigger_primary == "federal_funding"` and never mutates
 `projects_nepa_trigger.parquet`.
@@ -44,17 +46,23 @@ projects where `nepa_trigger_primary == "federal_funding"` and never mutates
 
 ## Classification Scheme
 
-Seven mutually exclusive primary classes, with a strict priority ordering used when signals conflict:
+Eight mutually exclusive primary classes, with a strict priority ordering used when signals conflict:
 
 | Priority | Class | Core signal |
 |---|---|---|
-| 1 | `federal_direct_action` | Federal agency is the proposing actor |
-| 2 | `federal_program` | Programmatic EIS/EA, land-use plan, rulemaking |
-| 3 | `federal_property_transaction` | Land exchange, disposal, conveyance |
-| 4 | `federal_land` | Project on federal land; ROW/SUP granted to private developer |
-| 5 | `federal_permit` | Federal permit/license is the primary nexus |
-| 6 | `federal_funding` | Federal grant, loan guarantee, financial assistance |
-| 7 | `unknown` | NEPA confirmed but trigger cannot be reliably identified |
+| 1 | `federal_program` | Programmatic EIS/EA, land-use plan, rulemaking |
+| 2 | `federal_direct_action` | Federal agency is the proposing actor |
+| 3 | `pma` | Power Marketing Administration (BPA, WAPA, SEPA, SWPA) or TVA is the acting agency |
+| 4 | `federal_property_transaction` | Land exchange, disposal, conveyance |
+| 5 | `federal_land` | Project on federal land; ROW/SUP granted to private developer |
+| 6 | `federal_permit` | Federal permit/license is the primary nexus |
+| 7 | `federal_funding` | Federal grant, loan guarantee, financial assistance |
+| 8 | `unknown` | NEPA confirmed but trigger cannot be reliably identified |
+
+This table mirrors `TRIGGER_HIERARCHY` in `01_extract_nepa_trigger.py`. Note that the position
+of `federal_program` is empirically inert in the May 2026 output: no project carries
+`federal_program` together with another class in `nepa_trigger_multi`, so moving it within the
+hierarchy would not change any project's primary classification.
 
 Secondary triggers are stored in `nepa_trigger_secondary` (list) for multi-label combo analysis.
 
@@ -64,7 +72,8 @@ Secondary triggers are stored in `nepa_trigger_secondary` (list) for multi-label
 
 ### Tier 0 — Manual Labels
 Hand-labeled gold-standard examples loaded from `manual_training_corrections.csv`. These are
-ingested first and cannot be overwritten by any subsequent tier. ~400 projects.
+ingested first and cannot be overwritten by any subsequent tier. 1,473 projects in the
+May 2026 run (includes the SetFit and NLI training seeds).
 
 ### Tier 1a — Agency Metadata Heuristics
 Maps `lead_agency_harmonized` to trigger class using known jurisdiction rules. A result from
@@ -73,11 +82,12 @@ be sent to Tier 4 for confirmation.
 
 Key mappings:
 - `FERC`, `FAA`, `FCC` → `federal_permit` (auto-accept)
-- `BPA`, `WAPA`, `CBP`, `PMA` → `federal_direct_action` (auto-accept)
+- `BPA`, `WAPA`, `SEPA`, `SWPA`, `TVA`, `PMA` → `pma` (auto-accept)
+- `CBP` → `federal_direct_action` (auto-accept)
 - `BLM`, `USFS` as authorizing agency → `federal_land` (auto-accept via `T1a_BLM_USFS_land_control`)
 - `DOE`, `USACE` → routed to Tier 4 (ambiguous without verb evidence)
 
-Adds ~1,500 projects. Highest-yield deterministic tier.
+Adds 6,731 projects (May 2026 run). Highest-yield deterministic tier.
 
 ### Tier 1b — Title and Description Keywords
 Applies `TIER1B_PATTERNS` (regex list) against the concatenated project title and description.
@@ -88,7 +98,7 @@ to `provisional`.
 Currently auto-accepted rules: `T1b_ferc_license`, `T1b_special_use`, `T1b_row_grant`,
 `T1b_land_exchange`. All other high-confidence Tier 1b matches go to provisional.
 
-Adds ~37 projects to finalized (many more to provisional).
+Adds 1,346 projects to finalized (May 2026 run; more go to provisional).
 
 ### Tier 2 — Document Title Scan
 Scans the document titles of the first retrieved documents for each project via DuckDB.
@@ -97,7 +107,7 @@ Applies `_is_programmatic_title`, `_is_programmatic_exclusion`, and `DOC_TITLE_P
 Currently auto-accepted rules: `T2_doc_title_peis`, `T2_doc_title_row`,
 `T2_doc_title_permit_app`, `T2_doc_title_license_amendment`, `T2_doc_title_loan_guarantee`.
 
-Adds ~282 projects.
+Adds 27 projects (May 2026 run).
 
 ### Tier 3 — Purpose-and-Need Section Extraction
 Extracts the "Purpose and Need" section (and related candidate sections) from document pages via
@@ -105,22 +115,25 @@ DuckDB, then applies the same `TIER1B_PATTERNS` + additional purpose-specific pa
 
 Currently auto-accepted rules: `T3_npdes`, `T3_agency_grant`, `T3_blm_land`, `T3_nfs_land`.
 
-Adds ~481 projects.
+Adds 372 projects (May 2026 run).
 
 ### Tier 3b — SetFit DOE CE Classifier
 Runs only on projects where `lead_agency_harmonized` contains "Department of Energy" AND
 `process_type == "CE"`. Uses a fine-tuned SetFit model at `phase2/models/trigger_setfit`
-(6-class logistic regression head over a sentence-transformer backbone).
+(logistic regression head over a sentence-transformer backbone; the class set is derived
+from the labeled example bank — 7 classes in the current model).
 
 **How confidence works in SetFit:** `predict_proba` returns a probability vector over all
 classes, e.g. `[0.04, 0.71, 0.03, 0.14, 0.05, 0.03]`. Two gates must both pass:
-- `top_prob >= SETFIT_CONFIDENCE_THRESHOLD` (currently 0.80)
-- `margin = top_prob - second_prob >= SETFIT_MARGIN_THRESHOLD` (currently 0.15)
+- `top_prob >= SETFIT_CONFIDENCE_THRESHOLD` (currently 0.65)
+- `margin = top_prob - second_prob >= SETFIT_MARGIN_THRESHOLD` (currently 0.08)
 
 If both gates pass, the result is auto-accepted as `confidence="high"`. If either gate fails,
-the project falls through to Tier 4 unchanged. With a logistic regression head trained on a
-small example bank, probabilities rarely concentrate above 0.80. In the April 2026 run,
-0 projects cleared the gate despite 436 inference batches.
+the project falls through to Tier 4 unchanged. The gates were originally set at 0.80/0.15,
+but with a logistic regression head trained on a small example bank, probabilities rarely
+concentrate above 0.80 — in the April 2026 run, 0 projects cleared the original gates despite
+436 inference batches. The thresholds were lowered to 0.65/0.08, making Tier 3b the
+highest-yield tier in the pipeline (see Run Results).
 
 ### Tier 4 — Retrieval-First NLI Adjudication
 Receives all projects not yet finalized where `should_send_to_tier4` returns True. This
@@ -145,8 +158,8 @@ project gets `rule_id="T4_local_uncertain"` with `confidence="low"` and is queue
 (or finalized as `unknown` if `--use-llm` is not set).
 
 Diagnostics written to:
-- `phase2/data/analysis/nepa_trigger/tier4_chunk_scores.parquet`
-- `phase2/data/analysis/nepa_trigger/tier4_doc_scores.parquet`
+- `phase2/data/analysis/deliverable01/tier4_chunk_scores.parquet`
+- `phase2/data/analysis/deliverable01/tier4_doc_scores.parquet`
 
 ### Tier 5 — LLM Fallback
 Claude Haiku receives the Tier 4 uncertain queue (target: <250 projects) with retrieved
@@ -183,8 +196,12 @@ For each result: if `should_auto_accept` → add to `finalized`. Otherwise → a
 
 ## Known Issues
 
-### Provisional Fallthrough (13,324 projects in April 2026 run)
-Projects can have a high-confidence provisional result that is silently discarded:
+The issues below were identified in the April 2026 run and are retained as design history;
+both were fixed before the May 2026 run that produced the current output (all 500 remaining
+unknowns are genuine `T4_local_uncertain` cases, not fallthrough).
+
+### Provisional Fallthrough (13,324 projects in April 2026 run — resolved)
+Projects could have a high-confidence provisional result that was silently discarded:
 - Rule fires → confidence="high" → `should_auto_accept` returns False (rule not in
   `AUTO_ACCEPT_RULE_IDS`) → goes to `provisional`
 - `should_send_to_tier4` returns False (confidence=="high") → never sent to Tier 4
@@ -196,12 +213,12 @@ run: 12,528 of the 13,324 had `evidence_source="description"`, indicating a Tier
 match was silently dropped. Fix: either add those rule IDs to `AUTO_ACCEPT_RULE_IDS` or
 change `should_send_to_tier4` to also forward high-confidence provisionals to Tier 4.
 
-### SetFit Threshold Too High
-`SETFIT_CONFIDENCE_THRESHOLD = 0.80` is too strict for a logistic regression head trained on
+### SetFit Threshold Too High (resolved)
+`SETFIT_CONFIDENCE_THRESHOLD = 0.80` was too strict for a logistic regression head trained on
 a small example bank. In the April 2026 run, 0 DOE CE projects cleared the gate despite 436
-inference batches. Lower to 0.60–0.65.
+inference batches. The thresholds were lowered to 0.65/0.08 for the May 2026 run.
 
-### Unknown Pool Composition (April 2026 run)
+### Unknown Pool Composition (April 2026 pre-fix run, for comparison)
 Of 17,943 unknowns:
 - 16,963 (94.5%) are CEs
 - 14,193 (79.1%) are DOE
@@ -210,71 +227,75 @@ Of 17,943 unknowns:
 
 ---
 
-## Run Results (April 2026)
+## Run Results (May 2026)
 
 <!-- d1-run-results: pull this section into the D1 report -->
 
-Full pipeline run on all 20,725 clean energy projects. Tier 5 (LLM fallback) was skipped.
+Full pipeline run on all 20,725 clean energy projects (`nepa_trigger_extraction_run_at =
+2026-05-09T03:01 UTC`). Tier 5 (LLM fallback) was skipped. Tier yields are derived from the
+`nepa_trigger_rule_id` prefix in the output parquet.
 
 ### Tier-by-Tier Yield
 
 | Tier | Description | New Projects | Cumulative | % Resolved |
 |---|---|---:|---:|---:|
-| Tier 0 | Manual labels | 890 | 890 | 4.3% |
-| Tier 1a | Agency metadata heuristics | 5,568 | 6,458 | 31.2% |
-| Tier 1b | Title + description keywords | 1,751 | 8,209 | 39.6% |
-| Tier 2 | Document title scan | 62 | 8,271 | 39.9% |
-| Tier 3 | Purpose-and-need extraction | 435 | 8,706 | 42.0% |
-| Tier 3b | SetFit DOE CE classifier | 10,846 | 19,552 | 94.3% |
-| Tier 4 | NLI adjudication (finalized) | 37 | 19,589 | 94.5% |
-| — | Unknown (Tier 4 gates failed) | 1,136 | — | 5.5% |
+| Tier 0 | Manual labels | 1,473 | 1,473 | 7.1% |
+| Tier 1a | Agency metadata heuristics | 6,731 | 8,204 | 39.6% |
+| Tier 1b | Title + description keywords | 1,346 | 9,550 | 46.1% |
+| Tier 2 | Document title scan | 27 | 9,577 | 46.2% |
+| Tier 3 | Purpose-and-need extraction | 372 | 9,949 | 48.0% |
+| Tier 3b | SetFit DOE CE classifier | 10,247 | 20,196 | 97.4% |
+| Tier 4 | NLI adjudication (finalized) | 29 | 20,225 | 97.6% |
+| — | Unknown (Tier 4 gates failed) | 500 | — | 2.4% |
 
-**Total resolved: 19,589 / 20,725 (94.5%). Unknown: 1,136 (5.5%).**
+**Total resolved: 20,225 / 20,725 (97.6%). Unknown: 500 (2.4%).**
 
 Tier 3b is by far the highest-yield ML tier because DOE CEs dominate the unresolved pool after
 Tier 1 (~14K projects). The SetFit threshold was lowered from 0.80/0.15 to 0.65/0.08 to achieve
 this yield; see Known Issues for the original gate design.
 
-Tier 4 processed 1,173 projects and finalized 37 with sufficient document evidence. The remaining
-1,136 failed all three gates (`doc_score`, `margin`, `affirmative_support`) and are recorded as
-`unknown`. These are available for manual review in
-`phase2/data/analysis/nepa_trigger/unknown_codings.csv`.
+Tier 4 processed 529 projects and finalized 29 with sufficient document evidence. The remaining
+500 failed all three gates (`doc_score`, `margin`, `affirmative_support`) and are recorded as
+`unknown`. Flagged cases (including all unknowns) are grouped by rule for manual review in
+`phase2/data/validation/deliverable01/validation_batches.csv`.
 
 ### Final Class Distribution
 
 | Class | Count | % of Total |
 |---|---:|---:|
-| `federal_funding` | 8,966 | 43.3% |
-| `federal_direct_action` | 6,451 | 31.1% |
-| `federal_land` | 3,672 | 17.7% |
-| `federal_program` | 367 | 1.8% |
-| `federal_permit` | 97 | 0.5% |
-| `federal_property_transaction` | 36 | 0.2% |
-| `unknown` | 1,136 | 5.5% |
+| `federal_funding` | 9,125 | 44.0% |
+| `federal_land` | 3,666 | 17.7% |
+| `pma` | 3,531 | 17.0% |
+| `federal_direct_action` | 3,092 | 14.9% |
+| `federal_program` | 513 | 2.5% |
+| `unknown` | 500 | 2.4% |
+| `federal_permit` | 259 | 1.2% |
+| `federal_property_transaction` | 39 | 0.2% |
 | **Total** | **20,725** | |
 
-### Unknown Pool Composition (April 2026)
+### Unknown Pool Composition (May 2026)
 
-Of 1,136 unknowns (all `T4_local_uncertain`):
-- 758 (66.7%) are CEs
-- 239 (21.0%) are EIS
-- 139 (12.2%) are EAs
-- 897 (79.0%) have DOE as lead agency
+Of 500 unknowns (all `T4_local_uncertain`):
+- 202 (40.4%) are EIS
+- 175 (35.0%) are CEs
+- 123 (24.6%) are EAs
+- 328 (65.6%) have DOE as lead agency
 
-For comparison, the pre-fix run (original thresholds) produced 17,943 unknowns (86.6%).
+For comparison, the April 2026 post-fix run produced 1,136 unknowns (5.5%), and the pre-fix
+run (original thresholds) produced 17,943 unknowns (86.6%).
 
 ---
 
 ## Output Schema
 
-`phase2/data/analysis/nepa_trigger/projects_nepa_trigger.parquet`
+`phase2/data/analysis/deliverable01/projects_nepa_trigger.parquet`
 
 | Column | Type | Description |
 |---|---|---|
 | `project_id` | str | Primary key |
 | `nepa_trigger_primary` | str | Top-priority trigger class |
 | `nepa_trigger_secondary` | list[str] | Additional trigger classes (multi-label) |
-| `nepa_trigger_multi` | bool | True if 2+ triggers detected |
+| `nepa_trigger_multi` | list[str] | All detected trigger classes (primary + secondary; empty for unknown) |
 | `nepa_trigger_count` | int | Number of trigger classes detected |
 | `nepa_trigger_combo` | str | Sorted combo string for grouping |
 | `nepa_trigger_primary_hierarchy` | str | Priority-resolved primary class |
@@ -289,7 +310,7 @@ For comparison, the pre-fix run (original thresholds) produced 17,943 unknowns (
 
 ### Funding Detail Sidecar Schema
 
-`phase2/data/analysis/nepa_trigger/projects_funding_details.parquet`
+`phase2/data/analysis/deliverable01/projects_funding_details.parquet`
 
 This sidecar adds funding mechanism, program/source, and amount fields only for projects already
 classified as `federal_funding`. It can be regenerated with `--funding-details-only` without

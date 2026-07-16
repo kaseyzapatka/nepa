@@ -528,6 +528,14 @@ def run_adjudication(
         succeeded = existing_adj[err.isna() | err.astype(str).str.strip().isin(("", "None", "nan"))]
         existing_keys = set(succeeded["prompt_hash"].tolist())
 
+    # Map cached prompt_hash -> stored selection so a cache HIT is RE-APPLIED (not skipped) to a
+    # regenerated project_dates, with NO new API call. This makes the committed adjudications cache a
+    # full deterministic replay of the LLM step. Keep the last successful row per hash.
+    cached_by_hash: dict = {}
+    if not existing_adj.empty and mode == "candidate_adjudication":
+        for _, _r in succeeded.iterrows():
+            cached_by_hash[_r["prompt_hash"]] = _r
+
     # Load project-level metadata for prompt building
     from phase2.code.utils.config import US_STATES  # type: ignore
     # fallback agency from dates_df or index
@@ -543,6 +551,7 @@ def run_adjudication(
 
     adj_records: list[dict] = []
     dates_updates: list[dict] = []
+    cached_updates: list[dict] = []  # cache-hit re-applications (no API call)
     run_at = datetime.now(timezone.utc).isoformat()
     cost_usd = 0.0
     billing_errs = 0
@@ -585,11 +594,22 @@ def run_adjudication(
             system_prompt = DOCUMENT_RECOVERY_SYSTEM
         ph = _prompt_hash(prompt_text)
         if ph in existing_keys:
+            # Cache hit: re-apply the stored LLM selection (no API call) so a regenerated
+            # project_dates is restored from the committed cache.
+            _c = cached_by_hash.get(ph)
+            if _c is not None:
+                _ii = _c.get("selected_initiation_candidate_id")
+                _di = _c.get("selected_decision_candidate_id")
+                _ii = _ii if (isinstance(_ii, str) and _ii.strip()) else None
+                _di = _di if (isinstance(_di, str) and _di.strip()) else None
+                if _ii or _di:
+                    cached_updates.append({"project_id": pid, "adj_init_id": _ii, "adj_dec_id": _di})
             continue
         work.append({"pid": pid, "process_type": process_type, "prompt": prompt_text,
                      "system_prompt": system_prompt, "used_ids": used_ids,
                      "packet_ids": packet_ids_used, "ph": ph})
-    print(f"  {len(work)} projects to adjudicate ({len(queue) - len(work)} cached/skipped); workers={workers}")
+    print(f"  {len(work)} to adjudicate via API | {len(cached_updates):,} re-applied from cache "
+          f"| {len(queue) - len(work) - len(cached_updates)} cached w/ no selection; workers={workers}")
 
     def _build_record(item, result):
         """Build the adjudication row + dates-update from a completed API result (main thread)."""
@@ -659,26 +679,28 @@ def run_adjudication(
                       f"Progress saved — top up and re-run to resume the rest.")
                 break
 
-    if not adj_records:
-        print("No adjudications generated.")
-        return
-
-    new_adj = pd.DataFrame(adj_records)
-    if not existing_adj.empty:
-        combined_adj = pd.concat([existing_adj, new_adj], ignore_index=True)
-        combined_adj = combined_adj.drop_duplicates("api_call_id")
+    # Persist any NEW adjudications (cache misses) to the cache file.
+    if adj_records:
+        new_adj = pd.DataFrame(adj_records)
+        if not existing_adj.empty:
+            combined_adj = pd.concat([existing_adj, new_adj], ignore_index=True)
+            combined_adj = combined_adj.drop_duplicates("api_call_id")
+        else:
+            combined_adj = new_adj
+        TIMELINE_DIR.mkdir(parents=True, exist_ok=True)
+        combined_adj.to_parquet(ADJUDICATIONS_PATH, index=False)
+        print(f"Wrote: {ADJUDICATIONS_PATH} ({len(combined_adj):,} total adjudications)")
     else:
-        combined_adj = new_adj
-
-    TIMELINE_DIR.mkdir(parents=True, exist_ok=True)
-    combined_adj.to_parquet(ADJUDICATIONS_PATH, index=False)
-    print(f"Wrote: {ADJUDICATIONS_PATH} ({len(combined_adj):,} total adjudications)")
+        print("No new adjudications generated (cache covered all routed projects).")
     print(f"Estimated cost this run: ${cost_usd:.4f}")
 
-    # Update project dates from candidate adjudications (skip with --no-apply, e.g. A/B test runs
-    # that must not mutate the canonical timeline_project_dates.parquet).
-    if dates_updates and not dry_run and not no_apply:
-        _apply_adjudication_results(dates_df, candidates_df, dates_updates, mode, run_at)
+    # Apply BOTH cache re-applications (no API) AND any new adjudications to project dates. Cached
+    # re-applications must run even when there are zero new adjudications, so a regenerated
+    # project_dates is fully restored from the committed cache. Skip with --dry-run / --no-apply.
+    all_updates = cached_updates + dates_updates
+    if all_updates and not dry_run and not no_apply:
+        _apply_adjudication_results(dates_df, candidates_df, all_updates, mode, run_at)
+        print(f"  Applied to project dates: {len(dates_updates):,} new + {len(cached_updates):,} cached (no API).")
     elif no_apply:
         print("  --no-apply: dates NOT written (adjudications saved for inspection/comparison only).")
 

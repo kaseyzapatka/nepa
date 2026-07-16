@@ -117,6 +117,35 @@ def _recompute_row(init_date, init_gran, dec_date, dec_gran,
             "timeline_flags": "|".join(f for f in flags if f)}
 
 
+def _normalize_invalid_order(df: pd.DataFrame) -> pd.DataFrame:
+    """Post-injection order guard (mirrors 05_select_dates.normalize_invalid_order). Ground-truth
+    injection runs AFTER 05's normalizer and midpoint imputation, so an injected month-granularity
+    date can land a complete_* row with decision_date < initiation_date. Reclassify any such row to
+    invalid_order with a null duration, so the dec<init invariant holds at the injection stage too
+    (lets the 08_analyze.R stopgap stay removed)."""
+    need = {"initiation_date", "decision_date", "timeline_status"}
+    if not need <= set(df.columns):
+        return df
+    init = pd.to_datetime(df["initiation_date"], errors="coerce")
+    dec = pd.to_datetime(df["decision_date"], errors="coerce")
+    mask = (
+        df["timeline_status"].isin(["complete_clear", "complete_with_proxy"])
+        & init.notna() & dec.notna() & (dec < init)
+    )
+    n = int(mask.sum())
+    if n:
+        df.loc[mask, "timeline_status"] = "invalid_order"
+        if "duration_days" in df.columns:
+            df.loc[mask, "duration_days"] = pd.NA
+        if "timeline_flags" in df.columns:
+            fl = df.loc[mask, "timeline_flags"].fillna("")
+            df.loc[mask, "timeline_flags"] = fl.apply(
+                lambda s: s if "invalid_order" in s else (f"{s}|invalid_order" if s else "invalid_order")
+            )
+        print(f"  Order normalizer: reclassified {n} post-injection negative-order rows -> invalid_order.")
+    return df
+
+
 def inject(dates_path: Path, scope: str, dry_run: bool) -> None:
     if not dates_path.exists():
         raise SystemExit(f"No dates parquet at {dates_path}. Run 05_select_dates.py first.")
@@ -200,6 +229,7 @@ def inject(dates_path: Path, scope: str, dry_run: bool) -> None:
             dmap.loc[pid, k] = v
 
     out = dmap.reset_index()
+    out = _normalize_invalid_order(out)
     print(f"Ground-truth injection (scope={scope}):")
     print(f"  projects written : {n_proj}  (initiation={n_init}, decision={n_dec})")
     print(f"  one-sided conflicts resolved (stale date dropped): {n_conflict}")

@@ -77,6 +77,27 @@ def eis_candidates(sample: int) -> pd.DataFrame:
     return df.reset_index(drop=True)
 
 
+def cached_candidates(sample: int) -> pd.DataFrame:
+    """Load the frozen submission snapshot (batch_candidates_eis.parquet) instead of re-running
+    the ~15-min corpus rescan in eis_candidates(). Valid only while the snapshot's input is
+    unchanged — refuses if document_sections.parquet is newer than the snapshot. A --sample here
+    hash-orders on source_unit_id (representative, but not the same subset as a fresh-scan
+    --sample, which hashes the pre-dedup section key)."""
+    snap = C.D2_ANALYSIS_DIR / "batch_candidates_eis.parquet"
+    if not snap.exists():
+        raise SystemExit(f"no cached snapshot at {snap} — run once without --use-cached-candidates.")
+    if C.DOCUMENT_SECTIONS.stat().st_mtime > snap.stat().st_mtime:
+        raise SystemExit("document_sections.parquet is newer than the cached snapshot — cache is "
+                         "stale; re-run without --use-cached-candidates to regenerate.")
+    df = pd.read_parquet(snap).drop(columns=["batch_custom_id"], errors="ignore")
+    print(f"[cache] loaded {len(df):,} candidate windows from {snap.name} "
+          f"(skipped the document_sections rescan)")
+    if sample:
+        df = (df.assign(_h=df["source_unit_id"].map(C.sha256_text)).sort_values("_h")
+                .head(sample).drop(columns="_h"))
+    return df.reset_index(drop=True)
+
+
 def eis_context() -> pd.DataFrame:
     return C.q(f"""
     SELECT c.project_id, c.doc_type AS doc_type, c.process_type, c.agency, c.agency_scope_status,
@@ -124,6 +145,9 @@ def main() -> None:
     ap.add_argument("--batch-fetch", action="store_true",
                     help="retrieve the submitted batch and build determinations")
     ap.add_argument("--wait", action="store_true", help="with --batch-fetch: poll until ended")
+    ap.add_argument("--use-cached-candidates", action="store_true",
+                    help="load batch_candidates_eis.parquet instead of the ~15-min corpus rescan "
+                         "(refused if document_sections.parquet is newer than the snapshot)")
     args = ap.parse_args()
     mode = ("BATCH-RUN (one password, submit+poll+fetch)" if args.batch_run
             else "BATCH-SUBMIT" if args.batch_submit else "BATCH-FETCH" if args.batch_fetch
@@ -133,7 +157,9 @@ def main() -> None:
     if args.batch_fetch:
         cand, results, model = X.fetch_batch("eis", args.wait)
     else:
-        cand = eis_gold_sample(args.gold_sample) if args.gold_sample else eis_candidates(args.sample)
+        cand = (eis_gold_sample(args.gold_sample) if args.gold_sample
+                else cached_candidates(args.sample) if args.use_cached_candidates
+                else eis_candidates(args.sample))
         results, model = None, args.model
     if cand.empty:
         print("no EIS candidates for this sample."); return
