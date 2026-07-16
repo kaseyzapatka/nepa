@@ -118,22 +118,22 @@ the checkpoints, and grade the AI against their own answer key before any result
 <div style="max-width:660px;margin:1.25rem auto;">
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Scope</div>
-    <div style="color:#1A1A2E;">Decarbonization FONSIs led by BLM or the DOE family &mdash; 258 documents across 193 projects, each dated to its regulatory era</div>
+    <div style="color:#1A1A2E;">Two document tracks: decarbonization <b>FONSIs</b> led by BLM or the DOE family (258 documents across 193 projects, each dated to its regulatory era) and final <b>EISs</b> from every lead agency (1,082 documents across 506 projects)</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Gather documents</div>
-    <div style="color:#1A1A2E;">Pull the FONSI and supporting EA documents from the NEPATEC&nbsp;2.0 corpus, then use text-pattern (regex) rules to locate the specific sections where significance findings live</div>
+    <div style="color:#1A1A2E;">Pull the FONSI and supporting EA documents &mdash; and, on the EIS track, the final EIS impact chapters &mdash; from the NEPATEC&nbsp;2.0 corpus, then use text-pattern (regex) rules to locate the specific sections where significance findings live</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Extract the judgment calls</div>
-    <div style="color:#1A1A2E;"><b>Automated:</b> the flagged passages go to Claude (Sonnet&nbsp;5), which codes each one &mdash; outcome, resource area, threshold, mitigation.<br><b>In parallel &mdash; the answer key:</b> two analysts independently hand-label a 400-passage sample and an adjudicator settles their disagreements</div>
+    <div style="color:#1A1A2E;"><b>Automated:</b> the flagged passages go to Claude (Sonnet&nbsp;5), which codes each one &mdash; outcome, resource area, threshold, mitigation.<br><b>In parallel &mdash; the answer key:</b> two AI coders independently label a 400-passage sample per track (FONSI and EIS) and a human adjudicator settles every disagreement</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
     <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 · Validate</div>
-    <div style="color:#1A1A2E;">Score the AI against the held-out human labels (class agreement 0.81) before any result counts</div>
+    <div style="color:#1A1A2E;">Score the AI against the held-out human labels on each track (class agreement 0.81 FONSI, 0.69 EIS) before any result counts</div>
   </div>
   <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
   <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
@@ -158,6 +158,57 @@ opposite outcomes** — so we analyze them separately rather than pooling them:
 - **EISs are the *above-the-line* record.** These are impacts the agency judged **significant**
   (and, at the extreme, significant and *unavoidable*). They tell us **which resources actually
   cross the line.**
+
+The diagram below is the vocabulary the rest of this report uses — every determination lands in
+one of these outcomes, and "the line" is the significance threshold that separates them:
+
+```{=html}
+<div style="max-width:720px;margin:1.25rem auto;display:grid;grid-template-columns:1fr 34px 34px;grid-column-gap:8px;grid-row-gap:.6rem;align-items:stretch;">
+  <div style="grid-column:1;grid-row:1;border:2px solid #75246C;border-radius:8px;padding:.65rem 1rem;background:#f3eaf2;">
+    <div style="font-weight:700;color:#75246C;font-size:1.0rem;">Significant and unavoidable</div>
+    <div style="color:#1A1A2E;">The extreme case: the impact is significant and <b>no available measure</b> can
+    bring it below the threshold.</div>
+  </div>
+  <div style="grid-column:1;grid-row:2;border:2px solid #C22A90;border-radius:8px;padding:.65rem 1rem;background:#f9e9f4;">
+    <div style="font-weight:700;color:#C22A90;font-size:1.0rem;">Significant adverse</div>
+    <div style="color:#1A1A2E;">The impact crosses the significance threshold, so the full review applies.</div>
+  </div>
+  <div style="grid-column:1;grid-row:3;display:flex;align-items:center;gap:.75rem;margin:.3rem 0;">
+    <div style="flex:1;border-top:3px solid #012169;"></div>
+    <div style="font-weight:700;color:#012169;font-size:.9rem;letter-spacing:.05em;">THE SIGNIFICANCE LINE</div>
+    <div style="flex:1;border-top:3px solid #012169;"></div>
+  </div>
+  <div style="grid-column:1;grid-row:4;border:2px solid #C22A90;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#C22A90;font-size:1.0rem;">Less than significant <u>with committed mitigation</u></div>
+    <div style="color:#1A1A2E;">The impact <b>would</b> cross the line, but specific required measures pull it
+    under &mdash; the <b>mitigated FONSI</b>. These sit right at the line and are this report's central subject.</div>
+  </div>
+  <div style="grid-column:1;grid-row:5;border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#0047BB;font-size:1.0rem;">Less than significant</div>
+    <div style="color:#1A1A2E;">A real but minor impact that stays under the line on its own, with no committed
+    measures needed.</div>
+  </div>
+  <div style="grid-column:1;grid-row:6;border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#0047BB;font-size:1.0rem;">No significant impact</div>
+    <div style="color:#1A1A2E;">The agency finds no meaningful impact on the resource at all &mdash; the
+    below-the-line default.</div>
+  </div>
+  <div style="grid-column:2;grid-row:1/5;display:flex;align-items:center;">
+    <div style="width:9px;align-self:stretch;border:2.5px solid #75246C;border-left:none;border-radius:0 8px 8px 0;"></div>
+    <div style="writing-mode:vertical-rl;font-weight:700;color:#75246C;font-size:.9rem;padding-left:5px;letter-spacing:.06em;">EIS</div>
+  </div>
+  <div style="grid-column:3;grid-row:4/7;display:flex;align-items:center;">
+    <div style="width:9px;align-self:stretch;border:2.5px solid #0047BB;border-left:none;border-radius:0 8px 8px 0;"></div>
+    <div style="writing-mode:vertical-rl;font-weight:700;color:#0047BB;font-size:.9rem;padding-left:5px;letter-spacing:.06em;">FONSI</div>
+  </div>
+  <div style="grid-column:1/-1;grid-row:7;text-align:center;color:#6b7280;font-size:.85rem;">
+    The brackets show where each outcome is recorded: above-the-line findings in an <b>EIS</b>, below-the-line
+    in a <b>FONSI</b> &mdash; and a less-than-significant-with-committed-mitigation call appears in both
+    (the mitigated FONSI below the line; its EIS analog is a significant impact judged reducible).
+    Boxes closer to the line are closer calls.
+  </div>
+</div>
+```
 
 @fig-corpus-overview sets the scale: the decarbonization universe splits into a larger EIS corpus
 and a smaller FONSI corpus (top), and both tracks touch every major resource area (bottom).
@@ -184,44 +235,72 @@ machine-extractable significance findings — spanning **`r fmt_n(n_docs)` decis
 **`r fmt_n(n_prim)` distinct significance determinations** (one per document × resource area ×
 outcome).
 
-Two filters narrow the 452. First, the **BLM + DOE scope** sets aside 25 FONSIs led by other
-agencies (@fig-agency-scope). Second — the larger reduction — only FONSIs whose finding sections
-were located by the upstream pipeline carry determinations, which brings 427 BLM + DOE projects
-down to `r fmt_n(n_proj)`. That second gap is a **coverage limitation of the source extraction, not
-a different finding**: the `r fmt_n(n_proj)` analyzed projects are representative of the corpus, but
-the rates below describe *those* projects, not all 452 (see *Methods*).
-
 ```{r}
 #| label: fig-agency-scope
 #| fig-cap: "Lead agency for the 452 decarbonization FONSIs. BLM and the DOE family (94.5%) carry the headline analysis; the remaining 5.5% — led by other federal agencies with only partial coverage — are set aside as context."
 include_fig("fig_agency_scope.png")
 ```
 
+Three filters take the 452 down to the `r fmt_n(n_proj)` analyzed here, and @fig-fonsi-funnel
+traces each step:
+
+1. **Agency scope (452 → 427).** The 25 FONSIs led by agencies other than BLM and the DOE family
+   are set aside as context (@fig-agency-scope) — only BLM + DOE have complete coverage in the
+   dataset.
+2. **A dated, 2009-or-later decision (427 → 261) — the largest cut.** NEPA's ground rules changed
+   repeatedly over this period, most recently with the 2023 Fiscal Responsibility Act, and
+   **comparing agency behavior across those regimes is one of this deliverable's core questions**
+   — so every rate is read against the regulatory era the decision was made under. A FONSI with no
+   extractable decision date (105 projects) cannot be assigned an era, pre-2009 decisions (55)
+   predate the consistently documented modern corpus, and 6 sit on a regime boundary.
+3. **Extraction coverage (261 → 193).** The upstream pipeline locates the finding sections in 224
+   of the 261 — the other 37 documents were parsed but phrase their finding in wording the
+   extraction does not recognize — and in 31 more, the flagged text turns out to contain no
+   codable determination.
+
+The first two are scope choices; the third is a **coverage limitation, not a different finding**.
+The `r fmt_n(n_proj)` analyzed projects are representative of the corpus, but the rates below
+describe *those* projects, not all 452 (see *Methods*).
+
+```{r}
+#| label: fig-fonsi-funnel
+#| fig-cap: "How the 452-project FONSI corpus narrows to the 193 analyzed: agency scope, then the dated 2009–present window, then extraction coverage. Darker bars are closer to the analyzed set; every rate in this report describes the darkest bar."
+include_fig("fig_fonsi_funnel.png")
+```
+
 ::: {.callout-tip}
 ## Key takeaways (FONSI track)
-- **Most decarbonization FONSIs are *mitigated*.** About **`r fmt_pct(mit_doc$share_mitigated_class_signal)`**
-  of these documents reach "no significant impact" only because the developer commits to specific
-  measures — the impact *would* have been significant otherwise.
+- **Most analyzed decarbonization FONSIs are *mitigated*.** About **`r fmt_pct(mit_doc$share_mitigated_class_signal)`**
+  of the 258 analyzed FONSI decision documents — the BLM + DOE, dated, machine-extractable set
+  traced in @fig-fonsi-funnel, not all 452 in the corpus — reach "no significant impact" only
+  because the developer commits to specific measures; the impact *would* have been significant
+  otherwise.
 - **A handful of resources carry the mitigation.** **Biological resources, soils/geology, water, and
   cultural/historic sites** are where projects most often sit at the line and are pulled under it —
   biological alone is mitigation-dependent in ~30% of its determinations.
 - **The below-the-line default is "no significant impact."** Across resource areas, outright
   no-significant-impact is the most common outcome; genuinely *significant* findings live in the EIS
   record, not here.
-- **The numbers are validated.** The extraction agrees with a hand-labeled human answer key at
+- **The numbers are validated.** The extraction agrees with an AI-human reviewed answer key at
   **0.81** on the significance class (held-out test) before any figure in this report was produced.
 :::
 
 ### How accurate is the extraction?
 
 Every determination is machine-extracted, so before any number is reported the pipeline is scored
-against a **hand-labeled answer key**: two independent reviewers coded a stratified 400-window
-sample, a third adjudicated their disagreements, and **30% was held out** as an untouched test. The
+against an **AI-human reviewed answer key**^[The answer key was built by two independent AI coding
+agents (Claude and Codex), each labeling every passage in the sample on its own; a human analyst
+then audited the two sets — values the coders agreed on were accepted, and every disagreement
+(over half the rows, on at least one field) was adjudicated by hand. "AI-human reviewed" is
+shorthand for that process: AI-coded, human-audited.]. The sample is **400 windows** — a "window"
+is one flagged passage the extraction reads — drawn **stratified**, meaning it deliberately covers
+every outcome type and the agency mix rather than being a simple random draw, plus negative
+passages to catch false positives. **30% of the windows were held out** as an untouched test; the
 held-out column is the honest score.
 
 ```{r}
 #| label: tbl-validation
-#| tbl-cap: "Extraction accuracy versus the hand-labeled gold set, full sample and held-out test."
+#| tbl-cap: "Extraction accuracy versus the AI-human reviewed gold set, full sample and held-out test."
 metric_lab <- c(candidate_is_determination        = "Finds a determination (per passage)",
                 resource_determination_detection  = "Assigns the right resource",
                 determination_class_macro_f1       = "Gets the significance class right",
@@ -246,13 +325,13 @@ val |>
 ```
 
 In plain terms: the extraction **almost never misses a determination** and places it in the
-**right resource area ~89%** of the time; it agrees with the human coders on the significance
+**right resource area ~89%** of the time; it agrees with the answer key on the significance
 *class* at **0.81** — the standard bar for this kind of task. The one weaker signal is
 *mitigation-dependence*, discussed at the end of this section.
 
 ```{r}
 #| label: fig-validation
-#| fig-cap: "Agreement with the human answer key: the full 400-window sample (magenta) versus the held-out test (green). The dashed line marks 0.80, the standard bar for this kind of task."
+#| fig-cap: "Agreement with the AI-human reviewed answer key on the stratified 400-window sample (one window = one flagged passage; sampled to cover every outcome type and the agency mix): full sample in magenta versus the untouched 30% held-out test in blue. The dashed line marks 0.80, the standard bar for this kind of task."
 include_fig("fig_validation_accuracy.png")
 ```
 
@@ -260,7 +339,7 @@ include_fig("fig_validation_accuracy.png")
 *secondary attributes*, not the core call, and both are genuinely harder:
 
 - *Mitigation-dependence (0.62).* Deciding whether a conclusion **depends on** committed mitigation
-  is one of the hardest judgments in the whole task — our two human coders themselves agreed only
+  is one of the hardest judgments in the whole task — the two independent AI coders themselves agreed only
   ~68% of the time on the fine line between "less than significant" and "less than significant *with
   mitigation*." On top of that, the pipeline's structured mitigation flag is tagged at the document
   level, so it over-attributes across a multi-resource passage, and its precision is ultimately
@@ -291,15 +370,15 @@ include_fig("fig_outcomes_by_resource.png")
 
 The dominant outcome is **no significant impact**, as expected for FONSIs. But the resources
 agencies analyze most — **biological, water, cultural/historic, and public health** — are also
-where the close calls concentrate: the magenta band (below-the-line *only with mitigation*) is
+where the close calls concentrate: the magenta band (*committed mitigation*) is
 widest for biological, soils/geology, and water. That is what makes the mitigated cases the real
 story.
 
 ### Regulatory thresholds behind the calls
 
 When a conclusion is anchored to a *specific* regulatory yardstick, which one? @fig-threshold-profile
-profiles the thresholds the FONSI conclusions cite — dominated by resource-specific numeric limits
-(*other quantitative*), **wetland/floodplain** extent, **NHPA §106** adverse-effect findings for
+profiles the thresholds the FONSI conclusions cite — dominated by **quantitative numeric limits**
+(resource-specific caps and standards), **wetland/floodplain** extent, **NHPA §106** adverse-effect findings for
 cultural resources, **visual (VRM)** classes, and the **Endangered Species Act** (take and
 jeopardy). This mirrors the resource pattern above: the same areas that drive mitigation are the
 ones with the hardest regulatory lines to clear.
@@ -336,8 +415,11 @@ top_str  <- paste0(top_mit$Resource, " (", percent(top_mit$share_mit_class, accu
                    collapse = ", ")
 ```
 
-About **`r fmt_pct(mit_rate)` of these FONSIs are mitigated** — at least one resource whose
-not-significant conclusion depends explicitly on committed mitigation.
+About **`r fmt_pct(mit_rate)` of the analyzed FONSI documents are mitigated** — at least one
+resource whose not-significant conclusion depends explicitly on committed mitigation. The
+denominator is **documents, not projects**: the analyzed set is 258 decision documents across 193
+projects (some projects file more than one FONSI), so the figure's counts (149 mitigated + 109
+not) sum to 258.
 
 The mitigation burden is concentrated in **`r top_str`** — the resources most often needing
 committed measures to keep a project below the significance line. That pattern is the deliverable's
@@ -467,7 +549,7 @@ weight the "mitigated FONSI" label should bear for those areas.
 The FONSI track shows how agencies stay below the significance line. The EIS track is its mirror —
 the above-the-line record of where impacts actually **cross** it. It runs the identical
 extraction-and-validation machinery on the EIS corpus (same controlled vocabulary, per-resource
-grain, and hand-labeled held-out test) and adds three EIS-only fields the FONSI side doesn't need:
+grain, and AI-human reviewed held-out test) and adds three EIS-only fields the FONSI side doesn't need:
 which alternative a finding attaches to, why the impact is significant, and how it reaches the
 resource.
 
@@ -520,7 +602,7 @@ are lower across the board — the EIS task is harder, and the report treats it 
 
 ```{r}
 #| label: tbl-validation-eis
-#| tbl-cap: "EIS extraction accuracy versus the hand-labeled gold set, full sample and held-out test. Lower than the FONSI track — the above-the-line distinctions are genuinely finer."
+#| tbl-cap: "EIS extraction accuracy versus the AI-human reviewed gold set, full sample and held-out test. Lower than the FONSI track — the above-the-line distinctions are genuinely finer."
 metric_lab <- c(candidate_is_determination        = "Finds a determination (per passage)",
                 resource_determination_detection  = "Assigns the right resource",
                 determination_class_macro_f1       = "Gets the significance class right",
@@ -546,14 +628,14 @@ eis_val |>
 
 ```{r}
 #| label: fig-validation-eis
-#| fig-cap: "EIS agreement with the human answer key: full sample (magenta) vs held-out test (green). The shaded bottom two rows are secondary attributes that matter less to the findings (as in the FONSI figure). Every score sits below the FONSI equivalent — the above-the-line call is a finer judgment (the two human coders themselves agreed only ~58% on the class)."
+#| fig-cap: "EIS agreement with the AI-human reviewed answer key: full sample (magenta) vs held-out test (blue). The shaded bottom two rows are secondary attributes that matter less to the findings (as in the FONSI figure). Every score sits below the FONSI equivalent — the above-the-line call is a finer judgment (the two independent AI coders themselves agreed only ~58% on the class)."
 include_fig("fig_validation_accuracy_eis.png")
 ```
 
 The pipeline still **finds the determination reliably (0.84)** and places it in the right resource
 about **two-thirds** of the time; the significance *class* lands at **0.69**. That last number is
 below the FONSI bar for a real reason: separating "significant" from "significant *and
-unavoidable*" is a fine distinction the human coders split on too. We therefore lead with the
+unavoidable*" is a fine distinction the AI coders split on too. We therefore lead with the
 robust cut — *which resources cross the line* — and treat the adverse-vs-unavoidable split as
 directional.
 
@@ -828,91 +910,60 @@ admits partial mitigation (screening, siting adjustments), just not enough to dr
 These cases are the closest the EIS record comes to the mitigated-FONSI story — significant enough to
 require a full statement, but not beyond the reach of committed measures.
 
-## Methods and Limitations
+## Coverage and limitations
+
+::: {.callout-note collapse="true"}
+## Coverage and limitations — the fine print behind the numbers
 
 **Scope**
 
-- **Decarbonization only** (`project_energy_type = 'Clean'`).
-- **Resource areas.** We read *"across resource areas"* as the standard NEPA environmental
-  categories the documents are organized around — air quality; water (including wetlands and
-  floodplains); biological resources; cultural / historic; visual; noise; soils / geology;
-  socioeconomics (including environmental justice); transportation; land use; climate / greenhouse
-  gases; and public health (including hazardous materials). Agencies judge significance separately
-  for each, so this set defines the rows of every resource map above.
-- **Agency scope differs by track.** The **FONSI** track is limited to **BLM + DOE**: of the 452
-  decarbonization FONSI projects, 427 (94.5%) are BLM + DOE and carry the headline, while 25 (5.5%,
-  led by other agencies with only partial coverage or flagged for manual review) are held as context
-  and never mixed into the primary rates. The **EIS** track instead covers **all agencies** — it is
-  descriptive and does not rest on the completeness a rate comparison needs — with BLM + DOE called
-  out only where a finding is agency-sensitive (e.g. the FONSI-vs-EIS figure, which restricts both
-  tracks to BLM + DOE for a like-for-like comparison).
+- **Decarbonization only** (`project_energy_type = 'Clean'`), read across the standard NEPA
+  resource areas the documents are organized around (air, water incl. wetlands, biological,
+  cultural/historic, visual, noise, soils/geology, socioeconomics incl. EJ, transportation, land
+  use, climate/GHG, public health) — agencies judge significance separately for each.
+- **Agency scope differs by track.** The **FONSI** track is BLM + DOE only (427 of 452 projects;
+  the 25 other-agency FONSIs are context and never enter the primary rates). The **EIS** track
+  covers **all agencies** — it is descriptive and does not rest on completeness — with BLM + DOE
+  isolated wherever a comparison is agency-sensitive (e.g. the FONSI-vs-EIS figure).
 
-**Coverage — two extraction funnels**
+**Coverage**
 
-- **FONSI coverage.** Of the 427 BLM + DOE FONSIs, only **193 projects (258 documents)** carry
-  machine-extractable significance findings; the rest lacked the upstream finding-section
-  extraction. Every FONSI rate describes those 193 projects — a **coverage limit of the source
-  extraction, not a sampling choice**. FONSI finding sections derive from D6 artifacts.
-- **EIS coverage and retrieval recall.** EIS determinations are retrieved **live from ~45,000
-  document sections** by keyword and pattern (FONSIs instead ride on a curated span set). Of the 753
-  EIS corpus projects, significance sections were retrieved for 536 and **506 projects (1,082
-  documents, all agencies)** yielded a determination — the analyzed set (@fig-eis-funnel). Of those
-  506, only 239 have a firm in-window decision date; the rest (206 undated, 57 pre-2009, 4 boundary)
-  are kept because the EIS analysis is descriptive and never uses the date. The held-out test
-  recovers **~77%** of the determinations a human finds — conclusions stated in summary-of-impacts
-  tables and records of decision are the main miss. **Read the EIS rates as a well-grounded floor
-  on where impacts cross the line, not an exhaustive census.**
+- **FONSI**: the three-filter funnel (@fig-fonsi-funnel) takes 452 → 427 (agency) → 261 (dated,
+  2009+) → **193 projects / 258 documents** analyzed. The extraction gaps (finding sections
+  unrecognized in 37 parsed documents; no codable determination in 31 more) are a **coverage limit
+  of the source extraction, not a sampling choice**.
+- **EIS**: retrieved live from ~45,000 document sections by keyword and pattern; of 753 corpus
+  projects, **506 (1,082 documents)** yielded a determination (@fig-eis-funnel). Undated and
+  pre-2009 projects are *kept* here because the EIS analysis never uses the date. The held-out test
+  recovers **~77%** of what a human finds (summary tables and RODs are the main miss) — **read EIS
+  rates as a well-grounded floor, not an exhaustive census.**
 
 **Validation**
 
-- **The held-out test (both tracks).** Two analysts independently coded a stratified 400-window
-  sample (each window read once; one label per resource conclusion); a third adjudicated every
-  disagreement into a single gold answer key. A deterministic **30% of the windows was held out** —
-  never used to build or tune the extraction — and the pipeline was scored separately on it. **The
-  held-out scores are the ones reported.** Rare class/resource/threshold cells are reported
-  descriptively, not as pass/fail macro-metrics.
-- **EIS is validated lower than FONSI, for a real reason.** The EIS significance *class* agrees with
-  the human key at **0.69** (vs 0.81 for FONSI). Separating *significant* from *significant and
-  unavoidable* is a genuinely fine judgment — the two human coders themselves agreed only **~58%**
-  on the EIS class (vs 68% for FONSI). We therefore lead with the robust cut (*which resources
-  cross the line*) and treat the adverse-vs-unavoidable split as directional.
-- **EIS exploratory fields are not gold-validated.** The `alternative_name`, `significance_factor`,
-  and `impact_type` fields are captured for the above-the-line analysis but sit **outside** the
-  hand-labeled answer key (which validates class, resource, mitigation, and threshold). Treat the
-  by-factor and by-pathway breakdowns as indicative, not as validated measurements.
+- Both tracks are scored against the AI-human reviewed answer key (see *How accurate is the
+  extraction?*); only the untouched **30% held-out** scores are reported. Rare
+  class/resource/threshold cells are reported descriptively, not as pass/fail macro-metrics.
+- **EIS validates lower than FONSI for a real reason** (class 0.69 vs 0.81): separating
+  *significant* from *significant and unavoidable* is genuinely fine — the two AI coders agreed
+  only ~58% on the EIS class — so we lead with the robust cut (which resources cross the line) and
+  treat the adverse-vs-unavoidable split as directional.
+- **EIS exploratory fields** (`alternative_name`, `significance_factor`, `impact_type`) sit
+  outside the answer key — treat the by-factor and by-pathway breakdowns as indicative.
 
-**EIS extraction specifics**
+**Extraction specifics and known edges**
 
-- **Window size.** EIS sections run longer than FONSI ones, so the EIS pass reads each section to
-  **24,000 characters** (vs 16,000 for FONSI), capturing ~95% of sections in full; the ~5% that run
-  longer can still lose a conclusion past the cap.
-- **De-duplication.** A Draft and Final EIS repeat identical section text; such passages are counted
-  **once per project**. Identical text across *different* projects is kept — it is legitimate
-  per-project attribution.
-- **EIS mitigation is the class signal only.** "Below the line only with committed mitigation" on
-  the EIS side is the model's class judgment; there is **no** record-of-decision commitment linkage
-  (the enforceable-condition artifacts are FONSI-only). ROD-commitment mitigation is out of scope
-  for this pass.
-- **Two dropped windows.** 2 of 21,854 EIS windows (0.009%) returned no result from the batch API
-  (a transient error) and were recorded as missing rather than silently dropped — no material effect
-  on any rate.
-
-**Other**
-
-- **D4 date/regime coverage.** Many projects lack a high-confidence decision date; regime cells are
-  confidence-gated and thin post-2023. EIS decision dates are frequently proxies.
-- **EPA review letters (Clean Air Act §309) are out of scope.** Under Section 309, the EPA
-  independently reviews and *rates* other agencies' environmental impact statements. Those comment
-  letters are not in this dataset, so the report makes no claim about EPA's own view of significance.
-- **Technology comes from the dataset's `project_type` classification.** Each project carries a curated
-  multi-tag project-type field; we assign one **primary** technology per project by priority
-  (generation types first, then nuclear/CCS, then transmission). About **1 in 5 projects** resolve to
-  an "Other / mixed" bucket, and the "Renewable (other)" catch-all is also set aside; both are excluded
-  from the technology figures, which therefore describe the clearly-typed technologies.
-- **Mitigation enforceability** is the model's read of whether a committed measure is tied to an
-  enforceable permit condition; an "unmatched" conclusion may still be enforced through channels the
-  extraction doesn't capture, so the enforceable shares are a floor.
-- **Suppressed cells.** Any cell below 5 is suppressed.
+- EIS sections are read to 24,000 characters (~95% in full); Draft/Final EIS duplicate text counts
+  once per project; 2 of 21,854 EIS windows were lost to a transient batch error (0.009%, no
+  material effect).
+- **EIS mitigation is the class signal only** — no record-of-decision commitment linkage (the
+  enforceable-condition artifacts are FONSI-only). **Mitigation enforceability** shares are a
+  floor: an "unmatched" measure may be enforced through channels the extraction doesn't capture.
+- **Technology** comes from the dataset's `project_type` field (one primary technology per project;
+  ~1 in 5 resolve to "Other / mixed" and are excluded from the technology figures).
+- **D4 dates are imperfect** (regime cells confidence-gated, thin post-2023; EIS decision dates
+  often proxies). **EPA §309 review letters are out of scope** — no claim is made about EPA's own
+  view of significance. **Cells below 5 are suppressed** throughout.
+:::
 
 ## Reproducibility
 
@@ -933,7 +984,7 @@ conda run -n nepa python phase2/code/deliverable02/02_extract_fonsi_significance
 conda run -n nepa python phase2/code/deliverable02/04_extract_eis_significance.py \
   --sample 0 --batch-run --model claude-sonnet-5
 
-# 3. validate both tracks against the hand-labeled gold (held-out test)
+# 3. validate both tracks against the AI-human reviewed gold (held-out test)
 conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py             # FONSI
 conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py --track eis  # EIS
 
@@ -945,12 +996,8 @@ quarto render phase2/reports/deliverable02.qmd
 ```
 
 Outputs land in `phase2/data/analysis/deliverable02/` (determination parquets, validation metrics)
-and `phase2/output/deliverable02/analysis/` (CSV tables + figures); the hand-labeled answer keys
-live under `…/deliverable02/gold/`. Full provenance — input/output paths, row counts, content
-hashes, model, prompt/schema versions — is recorded in `significance_run_manifest.parquet`.
-
-## Appendix: data dictionary
-
-See `phase2/notes/deliverable02/data_dictionary.md` and the run manifest
-`significance_run_manifest.parquet` (input+output paths, row counts, content hashes, model,
-prompt/schema versions).
+and `phase2/output/deliverable02/analysis/` (CSV tables + figures); the answer keys (AI-coded,
+human-adjudicated) live under `…/deliverable02/gold/`. Schemas for every emitted parquet are
+documented in `phase2/notes/deliverable02/data_dictionary.md`, and full provenance — input/output
+paths, row counts, content hashes, model, prompt/schema versions — is recorded in
+`significance_run_manifest.parquet`.

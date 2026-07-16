@@ -38,7 +38,7 @@ flowchart TD
 | `02_extract_fonsi_significance.py` | FONSI candidates + mitigation page-window join + determinations (`--dry-run` / sync / `--batch-run`) | ✅ dry-run / 💰 LLM |
 | `04_extract_eis_significance.py` | EIS track (gated; `_eis` suffix outputs; same modes) | ✅ dry-run / 💰 LLM |
 | `05_validate_significance.py` | tiered gold metrics + threshold child metrics; adopts the labeled queue CSV automatically | needs gold labels |
-| `06_analyze_significance.R` | primary-scope headline tables + association layer; FONSI-only by default, `--with-eis` combines the EIS track | ✅ |
+| `06_analyze_significance.R` | primary-scope headline tables + association layer; takes no flags — EIS block auto-runs off the `_eis` parquet (former `--with-eis` removed: it polluted the FONSI tables) | ✅ |
 
 ## Key schema decisions (from the plan's review rounds)
 
@@ -77,7 +77,11 @@ flowchart TD
 
 The pipeline is staged so the FONSI track is run, validated, and analyzed **before** paying for
 the ~9×-larger EIS track. `04` writes `_eis`-suffixed outputs, so the tracks never clobber each
-other; `06` combines them only when `--with-eis` is passed.
+other. **`06` takes no flags** (it errors on any): its EIS analysis block runs whenever
+`significance_determinations_eis.parquet` exists and reads that parquet directly. A former
+`--with-eis` flag folded EIS rows into the FONSI headline gate, polluting every FONSI-track table
+and figure (193 analyzed projects became 325) — removed 2026-07-15; explore combined tracks in an
+ad-hoc session instead.
 
 **Stage 0 — deterministic foundation (free, key-free; safe to re-run any time):**
 ```bash
@@ -106,7 +110,7 @@ Decide from these outputs whether the EIS pass is worth running.
 ```bash
 conda run -n nepa python phase2/code/deliverable02/04_extract_eis_significance.py --dry-run --sample 800   # retrieval check, free
 conda run -n nepa python phase2/code/deliverable02/04_extract_eis_significance.py --batch-run --sample 0 --model claude-sonnet-5
-Rscript phase2/code/deliverable02/06_analyze_significance.R --with-eis          # combined FONSI + EIS
+Rscript phase2/code/deliverable02/06_analyze_significance.R                     # EIS block auto-runs; NO --with-eis
 quarto render phase2/reports/deliverable02.qmd
 ```
 
@@ -316,6 +320,14 @@ detection **0.835** / resource detection **0.679** / class macro-F1 **0.686** / 
 **0.704** / threshold accuracy **0.616**. Lower than FONSI across the board — the above-the-line
 distinction is genuinely finer (reviewers agreed 58% on class vs 68% FONSI). **Recall is the soft
 spot** (window recall 0.77 → EIS rates are a well-grounded *floor*, disclosed in the report).
+
+### FONSI coverage funnel (06 FONSI block → `analysis/`)
+`fig_fonsi_funnel.png` + `fonsi_coverage_funnel.csv` — how the 452-project corpus narrows to the
+analyzed set, alpha-graded (darker = closer to analyzed): 452 corpus → 427 BLM+DOE (−25
+other-agency) → 261 dated 2009–present (−105 no decision date, −55 pre-ARRA, −6 boundary) →
+224 finding sections located by the D6 span extraction (−37 parsed-but-unrecognized) →
+193 with ≥1 coded determination (−31 flagged-but-no-codable-finding). Sits after the
+three-filters paragraph in the report's FONSI corpus section; `fig_agency_scope` precedes it.
 
 ### Report figures + tables (06 EIS block → `analysis/`)
 Figures: `fig_eis_funnel.png` (coverage funnel: 753→536→506 + date status + determination funnel),
