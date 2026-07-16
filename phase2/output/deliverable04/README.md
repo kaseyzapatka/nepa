@@ -10,9 +10,8 @@ It holds no inputs. Hand-labeled assets (the things you must not lose) live in
 |---|---|---|
 | `diagnostics/` | numbered pipeline diagnostics (`01_…`–`07_…`), `d4_*.csv` analysis tables, `*_eval_errors.csv`, `*_eval_summary.csv`, QA reports | CSVs gitignored (`*.csv`) |
 | `figures/` | `fig_d4_*.png` charts | tracked |
-| `reports/` | text reports / prompts (`selection_eval_report.txt`, etc.) | tracked |
+| `gold/` | gold-split definitions read by `labeling/` + `07_validate.py` | tracked |
 | `review_queues/` | large manual-review / API-validation CSVs (28 MB, 15 MB) | gitignored (big + `*.csv`) |
-| `_archived/` | superseded one-offs, sample-id lists, old parquet | mixed |
 
 ## Rules
 

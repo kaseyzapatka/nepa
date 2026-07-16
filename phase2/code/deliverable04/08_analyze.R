@@ -301,8 +301,8 @@ endpoint_coverage <- dates |>
   summarise(
     n_projects           = n(),
     n_with_endpoint      = sum(!is.na(endpoint_date)),
-    n_feis_proxy         = sum(coalesce(final_eis_is_proxy, FALSE) &
-                                 endpoint_source_type == "final_eis", na.rm = TRUE),
+    # decision_is_feis_fallback is the live flag; final_eis_is_proxy is never set by 05/05c
+    n_feis_proxy         = sum(coalesce(decision_is_feis_fallback, FALSE), na.rm = TRUE),
     n_day_duration       = sum(!is.na(endpoint_duration_days)),
     median_endpoint_days = median(endpoint_duration_days, na.rm = TRUE),
     .groups = "drop"
