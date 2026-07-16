@@ -10,7 +10,7 @@ Usage:
     CONDA_DEFAULT_ENV=nepa python run_pipeline.py --select    # selection-only (05b -> 05 -> 05c -> 08), minutes
     CONDA_DEFAULT_ENV=nepa python run_pipeline.py --workers 1 # force the serial 02/03 path (debug)
 
-This is the source of truth for run order. The sharded runner `_run.py` is retired (_archived/).
+This is the source of truth for run order. The old sharded runner (`_run.py`) is retired (in git history).
 """
 
 import argparse

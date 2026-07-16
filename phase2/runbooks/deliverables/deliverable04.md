@@ -4,16 +4,16 @@
 **Input:** `data/analysis/projects_combined.parquet`, `documents_combined.parquet`, processed pages/sections, and cached Tier A register parquets (BLM/DOE/Federal Register).
 **Output:** `data/analysis/timeline/timeline_project_dates.parquet` (one row per project with dates), plus `timeline_candidates.parquet`, `timeline_context_packets.parquet`, `timeline_document_index.parquet`.
 **Cost:** LLM adjudication (`06`, optional) ~$0.50–$1.00 (Claude Haiku) for EA+EIS. LLM gold-labeling (`labeling/05`) cost scales with split size.
-**Conda env:** `nepa` — all Python via `/opt/anaconda3/envs/nepa/bin/python` (scripts hard-require `CONDA_DEFAULT_ENV=nepa`).
+**Conda env:** `nepa` — run all Python inside the `nepa` conda environment (e.g. `conda run -n nepa python …`; scripts hard-require `CONDA_DEFAULT_ENV=nepa`).
 
 **Scripts** (in `phase2/code/deliverable04/`):
 - `00_sample.py`, `00b_sections.py` — one-time setup (gold sample, document sections)
 - `01_index.py` → `02_retrieve.py` → `03_extract_candidates.py` → `04_classify_candidates.py` → `05_select_dates.py` → `06_adjudicate_llm.py` (optional)
-- `_run.py` — sharded full-corpus orchestrator (runs 02→03→04→05, optional 06)
-- `07_validate.py`, `08_analyze.R`, `export_api_validation.py`, `build_review_packet.py` — validation / analysis / helpers
+- `run_pipeline.py` — single canonical orchestrator (full `02`→`08`, or `--select` for selection-only)
+- `07_validate.py`, `08_analyze.R` — validation / analysis
 - `labeling/` — gold-set construction and labeling (see "Labeling & training" below)
 
-> **Renumber note (2026-06-01):** the pipeline was flat-renumbered to insert the learned classifier at `04`. Selection moved `04`→`05`, adjudication kept `06`, validation moved `05`→`07`, the orchestrator `07_run_full_corpus_timelines.py`→`_run.py`, and `validation/`→`labeling/`. Older docs/commits may reference the old names.
+> **Renumber note (2026-06-01):** the pipeline was flat-renumbered to insert the learned classifier at `04`. Selection moved `04`→`05`, adjudication kept `06`, validation moved `05`→`07`, and `validation/`→`labeling/`. The old sharded orchestrator (`07_run_full_corpus_timelines.py`, later `_run.py`) is retired — `run_pipeline.py` replaced it. Older docs/commits may reference the old names.
 
 ---
 
@@ -40,13 +40,15 @@
 conda activate nepa
 # 1. Build/refresh the document index (needed if registers or corpus changed)
 python phase2/code/deliverable04/01_index.py --process CE EA EIS
-# 2. Run the sharded pipeline (02→03→04→05); resumes from manifest, add --with-api for 06
-python phase2/code/deliverable04/_run.py --process CE EA EIS
+# 2. Run the canonical pipeline (02 → 03 → 04 → 04b → 05b → 05 → 05c → 07 → 08)
+python phase2/code/deliverable04/run_pipeline.py
+# Selection-only sub-pipeline (05b → 05 → 05c → 08), completes in minutes:
+python phase2/code/deliverable04/run_pipeline.py --select
 ```
 
-`_run.py` shards by process type + SHA-1 hash bucket (default 5 shards/process), maintains `timeline_run_manifest.parquet`, and skips completed shards unless `--force`. The `04` classification stage passes through with neutral scores until a model is trained — so the full pipeline runs end-to-end today and gains accuracy once the classifier is trained.
+`run_pipeline.py` is the single canonical orchestrator: it bakes in the `04b` (calibration), `05b` (ranker), and `05c` (ground-truth injection) sibling stages in the correct order — skipping them corrupts CE selection via a stale `ranking_score`. LLM adjudication (`06`) is run separately (see the Reproduction section of the report).
 
-**Stage-only reruns** (faster than `_run.py` when only patterns/logic changed):
+**Stage-only reruns** (faster than a full run when only patterns/logic changed):
 
 ```bash
 # regex/role patterns changed (script 03):
@@ -72,7 +74,7 @@ python phase2/code/deliverable04/05_select_dates.py --process CE --sample-ids id
 
 ## Classifier (`04_classify_candidates.py`)
 
-Two independent binary heads per candidate — `p_initiation` and `p_decision` — over the **ambiguous middle band only**: `role_confidence_score < 5.0` and role in {clear/proxy init/decision, `body_text`, `unknown`}. Exempt: 5.0 (Tier A / strong cue) and `review`/`historical`/`reject`. One shared-encoder model with a `[CE]/[EA]/[EIS]` process token and a multi-label head. Backend-pluggable: **SetFit today, fine-tuned DeBERTa-v3 later** (see the SetFit→BERT criteria in the script docstring).
+Three independent binary heads per candidate — `p_initiation`, `p_decision` (ROD for EIS), and `p_final_eis` (EIS Final-EIS/NOA publication) — over the **ambiguous middle band only**: `role_confidence_score < 5.0` and role in {clear/proxy init/decision, `body_text`, `unknown`}. Exempt: 5.0 (Tier A / strong cue) and `review`/`historical`/`reject`. One shared-encoder model with a `[CE]/[EA]/[EIS]` process token and a multi-label (one-vs-rest) head; scoring guards the optional third column so an older two-head model still loads. Backend-pluggable: **SetFit today, fine-tuned DeBERTa-v3 later** (see the SetFit→BERT criteria in the script docstring).
 
 ```bash
 pip install setfit datasets          # one-time, in the nepa env
@@ -81,13 +83,13 @@ python phase2/code/deliverable04/04_classify_candidates.py --eval      # held-ou
 python phase2/code/deliverable04/04_classify_candidates.py             # score (default mode)
 ```
 
-**Open integration step:** once a model is trained, wire `classifier_signal` in `05_select_dates.py` (`_compute_candidate_score`, currently hard-zero) to consume `p_initiation`/`p_decision`.
+**Integration (done):** `_compute_candidate_score` in `05_select_dates.py` consumes the classifier as `classifier_signal` — it prefers the calibrated probabilities (`p_init_cal`/`p_dec_cal`, written by `04b_calibrate.py --apply`) over raw `p_initiation`/`p_decision`, weights the role-appropriate head by `CLASSIFIER_WEIGHT = 5.0`, and subtracts a `CLASSIFIER_DISAGREE_PENALTY = 3.0`-weighted penalty when the other head is more confident.
 
 ---
 
 ## Labeling & training (`labeling/`)
 
-The classifier trains only on gold labels. **There is no human gold yet** — the `gold/codex_labels/` files are regex echoes; do not train on them.
+The classifier trains on the human-labeled `training/deliverable04/classifier.csv` (frozen `split` column — new active-learning rows default to `train` and never leak into the test set; the June 2026 nightrun worksheets are merged in), and the ranker on human-verified `ranker.csv`. Two standing cautions: the `gold/codex_labels/` files are **regex echoes — never train on them**; and no uncontaminated held-out gold set exists yet for formal end-to-end precision/recall (see the Known Issues & Deferred Items page).
 
 ```bash
 # 1. (already built) splits + review packets: labeling/01_build_gold_samples.py, 02_prepare_gold_review_packets.py
@@ -139,7 +141,7 @@ Rscript phase2/code/deliverable04/08_analyze.R                            # dura
 
 ## Notes
 
-- **FRA cut date: August 16, 2023** (CEQ final rule effective date) — splits pre/post regulatory-period analysis.
+- **FRA cut date: June 3, 2023** (FRA enactment, matching Phase 1 D5) — splits pre/post regulatory-period analysis.
 - **CEs have one date** (determination = initiation). CE coverage leans on registers (DOE CX, BLM) because CE forms put dates in structured fields, not prose.
 - **`body_text`** was the old `doc_type_decision` catch-all (~86k CE candidates). It is intentionally NOT `clear_decision` — it has no role evidence. The classifier is the mechanism that promotes/demotes it.
 - **July-1 guard:** `YYYY-07-01` dates are frequently NEPA case-number-year proxies; `05` applies a −2.0 penalty and discards the proxy when it would invert ordering with a same-year initiation.

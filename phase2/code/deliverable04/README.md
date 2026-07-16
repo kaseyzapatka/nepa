@@ -17,7 +17,7 @@ computes timeline durations and coverage.
 | 05b | `05b_rank.py --apply` | LightGBM within-project ordering | candidates + `ranking_score` |
 | 05  | `05_select_dates.py` | pick one initiation + one decision date per project | `timeline_project_dates.parquet` |
 | 05c | `05c_inject_ground_truth.py --scope all` | overwrite with human-verified dates | project_dates (gt-injected) |
-| 06  | `06_adjudicate_llm.py` | **NEEDS REBUILD** — LLM adjudication of ambiguous picks | project_dates |
+| 06  | `06_adjudicate_llm.py` | LLM adjudication of ambiguous picks (Claude Haiku); replays cached adjudications deterministically | project_dates |
 | 07  | `07_validate.py` | compare selected dates to the gold sample | validation reports |
 | 08  | `08_analyze.R` | coverage tables, durations, figures | `diagnostics/` + `figures/` |
 
@@ -40,16 +40,14 @@ imported normally — follow that pattern for any new sibling stage.
 
 - `run_pipeline.py` — the one-command pipeline orchestrator (full or `--select`)
 - `_diagnostics.py` — classifier label-inventory / confusion / calibration diagnostics
-- `_phase0_baseline.py` — point-in-time baseline + source-ceiling audit for an improvement cycle
 
 ## Sub-tracks
 
 - `labeling/` — gold-label building sub-pipeline (feeds the classifier retrain); its own `01–05`
-- `_archived/` — completed one-off scripts, kept in git history
 
 ## Conventions
 
-- Scripts hard-require `CONDA_DEFAULT_ENV=nepa` (env python: `/opt/anaconda3/envs/nepa/bin/python`).
+- Scripts hard-require `CONDA_DEFAULT_ENV=nepa` (run via `conda run -n nepa python …`).
 - Never `pd.read_parquet()` the pages files — query via DuckDB with `document_id` filters.
 - Isolated runs: `--sample-ids <file>` (02/03/04/05/07) or `--run-dir <dir>` (04b/05b); sample runs
   auto-isolate to `timeline/sample_runs/<stem>/`.
