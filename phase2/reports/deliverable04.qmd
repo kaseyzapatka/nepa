@@ -348,7 +348,7 @@ Compared with the **decarb-only [Phase 1 version](https://www.kaseyzapatka.com/n
 
 ```{r}
 #| label: fig-pages-time
-#| fig-cap: "Regulatory page counts for individual EA/EIS projects (all energy types) by decision date, coloured by FRA period; navy line = 3-month rolling mean. Red dashed line = FRA enactment (June 3, 2023)."
+#| fig-cap: "Regulatory page counts for individual EA/EIS projects (all energy types) by decision date, coloured by FRA period; navy line = 3-month rolling mean, computed separately before and after FRA enactment so the smoothing never crosses the breakpoint. Red dashed line = FRA enactment (June 3, 2023)."
 #| out-width: "100%"
 include_fig("fig_d4_pages_over_time.png")
 ```

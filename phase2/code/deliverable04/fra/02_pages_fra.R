@@ -75,13 +75,16 @@ message(sprintf("FRA regulatory sample (all energy): %d | EA %d / EIS %d | Pre %
 # Fig 1: document length over time (3-month rolling mean, FRA line)
 # ---------------------------------------------------------------------------
 pt <- pages |> filter(decision_year >= 2010, decision_year <= 2025)
-monthly <- pt |> group_by(process_type, decision_month) |>
+# Rolling mean computed separately Pre-/Post-FRA (Phase 1 D5 Fig 2b convention) so the
+# window never smooths across the enactment breakpoint; the line breaks at the FRA date.
+monthly <- pt |> group_by(process_type, fra_period, decision_month) |>
   summarise(mean_pages = mean(regulatory_pages), .groups = "drop") |>
-  arrange(process_type, decision_month) |> group_by(process_type) |>
+  arrange(process_type, fra_period, decision_month) |> group_by(process_type, fra_period) |>
   mutate(roll3 = zoo::rollmean(mean_pages, 3, fill = NA, align = "right")) |> ungroup()
 p_time <- ggplot() +
   geom_point(data = pt, aes(decision_date, regulatory_pages, color = fra_period), alpha = 0.28, size = 1) +
-  geom_line(data = monthly, aes(decision_month, roll3), color = catf_navy, linewidth = 1.2, na.rm = TRUE) +
+  geom_line(data = monthly, aes(decision_month, roll3, group = fra_period),
+            color = catf_navy, linewidth = 1.2, na.rm = TRUE) +
   geom_vline(xintercept = FRA_DATE, linetype = "dashed", color = "red", linewidth = 0.8) +
   annotate("text", x = FRA_DATE + 45, y = Inf, vjust = 1.5, hjust = 0, size = 3, color = "red",
            fontface = "italic", label = "FRA enacted\n(June 3, 2023)") +
@@ -89,7 +92,7 @@ p_time <- ggplot() +
   scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
   scale_color_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
   labs(title = "Document Length Over Time (All EA/EIS, all energy types)",
-       subtitle = "Points = projects; navy line = 3-month rolling mean of monthly mean regulatory pages",
+       subtitle = "Points = projects; navy line = 3-month rolling mean of monthly mean regulatory pages, computed separately pre- and post-FRA",
        x = "Decision Date", y = "Regulatory Pages (body word count / 500)", color = NULL,
        caption = "Decision-date inclusion. Regulatory pages exclude embedded appendices and low-content pages per 40 C.F.R. § 1508.1(bb).") +
   theme_catf()
