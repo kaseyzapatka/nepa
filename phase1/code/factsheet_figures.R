@@ -776,9 +776,16 @@ duration_summary_solar <- duration_complete_solar %>%
     .groups       = "drop"
   ) %>%
   mutate(
+    m_round   = round(median_months),
+    yr        = round(m_round / 12, 2),
+    # Year value in parens for EA/EIS (based on the displayed rounded months);
+    # omitted for CE, whose median is ~1 month.
+    yr_paren  = if_else(process_group == "CE", "",
+                        if_else(yr == 1, " (1 year)", sprintf(" (%g years)", yr))),
     median_label = paste0(
-      process_group, ": ~", round(median_months),
-      ifelse(round(median_months) == 1, " month", " months")
+      process_group, ": ~", m_round,
+      ifelse(m_round == 1, " month", " months"),
+      yr_paren
     ),
     label_hjust = if_else(process_group == "CE", 0, 0.5)
   )
@@ -794,8 +801,12 @@ decarb_medians <- timeline_for_solar %>%
   summarise(decarb_median = median(duration_months, na.rm = TRUE), .groups = "drop") %>%
   filter(process_group != "CE") %>%   # CE solar ≈ CE decarb (~1 mo); no contrast to show
   mutate(
-    y_pos   = match(as.character(process_group), process_levels),
-    label_y = y_pos - 0.52
+    y_pos     = match(as.character(process_group), process_levels),
+    label_y   = y_pos - 0.52,
+    m_round   = round(decarb_median),
+    yr        = round(m_round / 12, 2),
+    ref_label = paste0("All decarb: ~", m_round, " months",
+                       if_else(yr == 1, " (1 year)", sprintf(" (%g years)", yr)))
   )
 
 message("  All-decarb medians:")
@@ -823,8 +834,7 @@ fig3 <- ggplot(duration_summary_solar, aes(y = process_group, color = process_gr
   ) +
   geom_text(
     data = decarb_medians,
-    aes(x = decarb_median, y = label_y,
-        label = paste0("All decarb: ~", round(decarb_median), " months")),
+    aes(x = decarb_median, y = label_y, label = ref_label),
     size = 2.7, color = "gray35", hjust = 0.5,
     inherit.aes = FALSE
   ) +
