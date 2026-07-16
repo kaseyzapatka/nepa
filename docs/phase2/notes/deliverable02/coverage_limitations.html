@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>NEPA - D1: Classification Scheme</title>
+<title>NEPA - D2: Significance Coverage &amp; Limitations</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -4555,7 +4555,7 @@ vertical-align: -.125em;
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">D1: Classification Scheme</h1>
+<h1 class="title">D2: Significance Coverage &amp; Limitations</h1>
 </div>
 
 
@@ -4570,286 +4570,56 @@ vertical-align: -.125em;
 
 </header>
 
-<p>This document covers the schema design, priority logic, confidence framework, keyword dictionary, and example coding scenarios for the NEPA trigger classification pipeline.</p>
-<p>For class definitions and NLI hypothesis statements, see <a href="../../../phase2/notes/deliverable01/trigger_classification.html">Trigger Classification</a>.</p>
-<hr>
-<section id="suggested-data-structure" class="level2">
-<h2 class="anchored" data-anchor-id="suggested-data-structure">Suggested data structure</h2>
-<p>A project-level schema could look like this:</p>
-<table class="table">
-<colgroup>
-<col style="width: 33%">
-<col style="width: 33%">
-<col style="width: 33%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Variable</th>
-<th>Type</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>nepa_trigger_primary</code></td>
-<td>string</td>
-<td>Main federal nexus category</td>
-</tr>
-<tr class="even">
-<td><code>nepa_trigger_secondary</code></td>
-<td>list/string</td>
-<td>Additional trigger categories present</td>
-</tr>
-<tr class="odd">
-<td><code>nepa_trigger_multi</code></td>
-<td>list/string</td>
-<td>All categories detected</td>
-</tr>
-<tr class="even">
-<td><code>nepa_trigger_evidence_text</code></td>
-<td>string</td>
-<td>Short snippet supporting classification</td>
-</tr>
-<tr class="odd">
-<td><code>nepa_trigger_evidence_source</code></td>
-<td>string</td>
-<td>Where evidence came from</td>
-</tr>
-<tr class="even">
-<td><code>nepa_trigger_confidence</code></td>
-<td>integer or string</td>
-<td>Confidence in classification</td>
-</tr>
-<tr class="odd">
-<td><code>nepa_trigger_manual_review</code></td>
-<td>boolean</td>
-<td>Whether human review is recommended</td>
-</tr>
-<tr class="even">
-<td><code>nepa_trigger_notes</code></td>
-<td>string</td>
-<td>Analyst notes</td>
-</tr>
-</tbody>
-</table>
-<section id="recommended-values" class="level3">
-<h3 class="anchored" data-anchor-id="recommended-values">Recommended values</h3>
-<section id="nepa_trigger_primary" class="level4">
-<h4 class="anchored" data-anchor-id="nepa_trigger_primary"><code>nepa_trigger_primary</code></h4>
+<p><em>As of 2026-07-15, describing the published extraction runs (FONSI and EIS batch passes of 2026-07-08/09, schema <code>d2_v2_11</code>). All numbers on this page are recomputed from the committed pipeline outputs in <code>phase2/data/analysis/deliverable02/</code>.</em></p>
+<p>This page collects the methods fine print behind the <a href="../../reports/deliverable02.html">D2 significance report</a>: what is in scope, how far the two extraction funnels reach, how the numbers were validated, and the caveats that should ride along with any reuse of the data.</p>
+<section id="scope" class="level2">
+<h2 class="anchored" data-anchor-id="scope">Scope</h2>
 <ul>
-<li><code>federal_funding</code></li>
-<li><code>federal_land</code></li>
-<li><code>federal_permit</code></li>
-<li><code>federal_direct_action</code></li>
-<li><code>federal_program</code></li>
-<li><code>federal_property_transaction</code></li>
-<li><code>pma</code> <em>(Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA))</em></li>
-<li><code>unknown</code></li>
+<li><strong>Decarbonization only</strong> (<code>project_energy_type = &#39;Clean&#39;</code>).</li>
+<li><strong>Resource areas.</strong> We read <em>“across resource areas”</em> as the standard NEPA environmental categories the documents are organized around — air quality; water (including wetlands and floodplains); biological resources; cultural / historic; visual; noise; soils / geology; socioeconomics (including environmental justice); transportation; land use; climate / greenhouse gases; and public health (including hazardous materials). Agencies judge significance separately for each, so this set defines the rows of every resource map in the report.</li>
+<li><strong>Agency scope differs by track.</strong> The <strong>FONSI</strong> track is limited to <strong>BLM + DOE</strong>: of the 452 decarbonization FONSI projects, 427 (94.5%) are BLM + DOE and carry the headline, while 25 (5.5%, led by other agencies with only partial coverage or flagged for manual review) are held as context and never mixed into the primary rates. The <strong>EIS</strong> track instead covers <strong>all agencies</strong> — it is descriptive and does not rest on the completeness a rate comparison needs — with BLM + DOE isolated wherever a finding is agency-sensitive (e.g. the FONSI-vs-EIS comparison, which restricts both tracks to BLM + DOE).</li>
 </ul>
 </section>
-<section id="nepa_trigger_evidence_source" class="level4">
-<h4 class="anchored" data-anchor-id="nepa_trigger_evidence_source"><code>nepa_trigger_evidence_source</code></h4>
+<section id="coverage-two-extraction-funnels" class="level2">
+<h2 class="anchored" data-anchor-id="coverage-two-extraction-funnels">Coverage — two extraction funnels</h2>
 <ul>
-<li><code>project_title</code></li>
-<li><code>project_description</code></li>
-<li><code>agency_metadata</code></li>
-<li><code>document_title</code></li>
-<li><code>document_text</code></li>
-<li><code>multiple_sources</code></li>
+<li><strong>FONSI.</strong> Three filters take the 452-project corpus to the analyzed set (traced in the <a href="../../reports/deliverable02.html#fig-fonsi-funnel">report’s funnel figure</a>): <strong>452 → 427</strong> (agency scope), <strong>427 → 261</strong> (a dated, 2009-or-later decision: 105 projects have no machine-extractable decision date, 55 predate 2009, 6 sit on a regime boundary — every FONSI rate is read against the decision’s regulatory era, so undated projects cannot be placed), and <strong>261 → 193</strong> (extraction coverage: finding sections are recognized in 224 of the 261 — the other 37 documents were parsed but phrase their finding in unrecognized wording — and in 31 more the flagged text contains no codable determination). The analyzed set is <strong>193 projects / 258 decision documents</strong>; the extraction gaps are a <strong>coverage limit of the source extraction, not a sampling choice</strong>. FONSI finding sections derive from D6 artifacts.</li>
+<li><strong>EIS.</strong> Determinations are retrieved <strong>live from ~45,000 document sections</strong> by keyword and pattern (FONSIs instead ride on a curated span set). Of the 753 EIS corpus projects, significance sections were retrieved for 536 and <strong>506 projects (1,082 documents, all agencies)</strong> yielded a determination. Of those 506, only 239 have a firm in-window decision date; the rest (206 undated, 57 pre-2009, 4 boundary) are <strong>kept</strong>, because the EIS analysis is descriptive and never uses the date. The held-out test recovers <strong>~77%</strong> of the determinations a human finds — conclusions stated in summary-of-impacts tables and records of decision are the main miss. <strong>Read the EIS rates as a well-grounded floor on where impacts cross the line, not an exhaustive census.</strong></li>
 </ul>
 </section>
-<section id="nepa_trigger_confidence" class="level4">
-<h4 class="anchored" data-anchor-id="nepa_trigger_confidence"><code>nepa_trigger_confidence</code></h4>
+<section id="validation" class="level2">
+<h2 class="anchored" data-anchor-id="validation">Validation</h2>
 <ul>
-<li><code>high</code></li>
-<li><code>medium</code></li>
-<li><code>low</code></li>
-</ul>
-<hr>
-</section>
-</section>
-</section>
-<section id="primary-vs.-secondary-trigger-logic" class="level2">
-<h2 class="anchored" data-anchor-id="primary-vs.-secondary-trigger-logic">Primary vs. secondary trigger logic</h2>
-<p>Many projects have multiple forms of federal involvement. For example: - A transmission line may cross federal land <strong>and</strong> require a permit - A transit project may receive federal funding <strong>and</strong> require a USACE permit - A renewable project may be on BLM land and involve a federal right-of-way grant</p>
-<section id="rule-assign-the-primary-trigger-as-the-federal-nexus-most-directly-responsible-for-the-agencys-nepa-decision." class="level3">
-<h3 class="anchored" data-anchor-id="rule-assign-the-primary-trigger-as-the-federal-nexus-most-directly-responsible-for-the-agencys-nepa-decision.">Rule: assign the primary trigger as the federal nexus most directly responsible for the agency’s NEPA decision.</h3>
-</section>
-<section id="priority-order-for-primary-trigger-assignment-as-implemented" class="level3">
-<h3 class="anchored" data-anchor-id="priority-order-for-primary-trigger-assignment-as-implemented">Priority order for primary trigger assignment (as implemented)</h3>
-<p>Use this only when the text is ambiguous. This is the order implemented in <code>TRIGGER_HIERARCHY</code> in <code>01_extract_nepa_trigger.py</code>:</p>
-<ol type="1">
-<li><code>federal_program</code></li>
-<li><code>federal_direct_action</code></li>
-<li><code>pma</code> <em>(Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA))</em></li>
-<li><code>federal_property_transaction</code></li>
-<li><code>federal_land</code></li>
-<li><code>federal_permit</code></li>
-<li><code>federal_funding</code></li>
-<li><code>unknown</code></li>
-</ol>
-<p><strong>Why this order:</strong> A programmatic umbrella outranks everything because it changes the level of the NEPA review itself (see the example below). Below that, priority goes to the federal role when the agency is the principal actor or decision-maker, rather than simply one source of support or one regulatory checkpoint. PMA/TVA projects are elevated above land and permit because the agency identity is the clearest nexus signal for those entities.</p>
-<p><strong>Note (verified May 2026 output):</strong> the ordering is empirically inert for <code>federal_program</code> — no project in the current output carries <code>federal_program</code> together with another class in <code>nepa_trigger_multi</code>, so its position in the hierarchy does not change any project’s primary classification.</p>
-<p>Examples: - If BLM is approving a right-of-way across federal land, <code>federal_land</code> is often more informative than <code>federal_permit</code> - If DOE is building or directly implementing the action, <code>federal_direct_action</code> should outrank <code>federal_funding</code> - If the document is a programmatic plan, <code>federal_program</code> should outrank narrower project features - If BPA, WAPA, SEPA, SWPA, or TVA is the lead agency, assign <code>pma</code> as primary even when the project also crosses federal land or requires a permit</p>
-<hr>
-</section>
-</section>
-<section id="keyword-dictionary" class="level2">
-<h2 class="anchored" data-anchor-id="keyword-dictionary">Keyword dictionary</h2>
-<p>Keywords are a first-pass filter only — see the “Important caution” note below.</p>
-<section id="federal_funding" class="level3">
-<h3 class="anchored" data-anchor-id="federal_funding"><code>federal_funding</code></h3>
-<p>Indicative terms: federal funding, federally funded, federal financial assistance, grant, cooperative agreement, loan guarantee, cost share, reimbursable agreement, funded through</p>
-<p>Agencies often associated: DOE, DOT, HUD, EPA, USDA, FEMA</p>
-</section>
-<section id="federal_land" class="level3">
-<h3 class="anchored" data-anchor-id="federal_land"><code>federal_land</code></h3>
-<p>Indicative terms: federal land, public lands, right-of-way, ROW grant, special use permit, easement, crossing federal land, National Forest System lands, BLM land, Bureau of Land Management land, Forest Service land, military reservation</p>
-<p>Agencies often associated: BLM, USFS, NPS, Bureau of Reclamation, DoD, USACE (when property control is central)</p>
-</section>
-<section id="federal_permit" class="level3">
-<h3 class="anchored" data-anchor-id="federal_permit"><code>federal_permit</code></h3>
-<p>Indicative terms: permit, license, authorization, approval, certification, permit application, jurisdictional waters, Section 404, incidental take permit, license amendment</p>
-<p>Agencies often associated: USACE, FERC, FAA, FCC, NOAA/NMFS, USFWS</p>
-</section>
-<section id="federal_action" class="level3">
-<h3 class="anchored" data-anchor-id="federal_action"><code>federal_action</code></h3>
-<p>Indicative terms: agency proposes to, the Bureau proposes, the Department proposes, federal action consists of, construct, install, upgrade, operate, implement, federal facility, base operations</p>
-<p>Agencies often associated: DoD, VA, USFS, BLM, Bureau of Reclamation, DOE, USACE</p>
-</section>
-<section id="federal_program" class="level3">
-<h3 class="anchored" data-anchor-id="federal_program"><code>federal_program</code></h3>
-<p>Indicative terms: programmatic EIS, PEIS, site-wide EIS (SWEIS), Tier 1 review, policy, rulemaking, integrated resource plan, program-wide, nationwide, regional plan</p>
-<p>Note: land-management programmatic reviews (e.g., vegetation management PEAs, leasing program PEIS on federal lands, BLM wind/solar PEIS, Western Solar Plan, Section 368 corridor PEIS) are classified as <code>federal_land</code>, not <code>federal_program</code>.</p>
-</section>
-<section id="pma-power-marketing-administration-pma-tennessee-valley-authority-tva" class="level3">
-<h3 class="anchored" data-anchor-id="pma-power-marketing-administration-pma-tennessee-valley-authority-tva"><code>pma</code> — Power Marketing Administration (PMA) + Tennessee Valley Authority (TVA)</h3>
-<p>Indicative terms: Bonneville Power Administration, BPA, Western Area Power Administration, WAPA, Southeastern Power Administration, SEPA, Southwestern Power Administration, SWPA, Power Marketing Administration, Tennessee Valley Authority, TVA</p>
-<p>Agencies: BPA, WAPA, SEPA, SWPA, TVA, and any generic PMA. Assign <code>pma</code> as the primary trigger whenever one of these entities is the lead or sponsoring agency, even when the project also involves federal land (e.g., transmission line ROW grants) or permits. Add <code>federal_land</code> or <code>federal_permit</code> as secondary triggers when applicable.</p>
-</section>
-<section id="federal_property_transaction" class="level3">
-<h3 class="anchored" data-anchor-id="federal_property_transaction"><code>federal_property_transaction</code></h3>
-<p>Indicative terms: land exchange, conveyance, disposal, transfer, sale of federal land, acquisition, parcel transfer</p>
-</section>
-<section id="important-caution" class="level3">
-<h3 class="anchored" data-anchor-id="important-caution">Important caution</h3>
-<p>Do not classify solely on keyword presence. For example: - “permit” may appear in a background section even if the true trigger is federal land - “funding” may be mentioned historically without being the current federal nexus - “right-of-way” can be central or merely descriptive</p>
-<p>Recommended rules engine: 1. detect candidate categories 2. extract surrounding evidence text 3. rank likely categories 4. assign confidence 5. send low-confidence cases to review</p>
-<hr>
-</section>
-</section>
-<section id="confidence-framework" class="level2">
-<h2 class="anchored" data-anchor-id="confidence-framework">Confidence framework</h2>
-<section id="high-confidence" class="level3">
-<h3 class="anchored" data-anchor-id="high-confidence">High confidence</h3>
-<p>Assign <code>high</code> when: - the text explicitly states the federal action or approval that triggers review - multiple sources agree - the language is direct and project-specific</p>
-<p>Example: “The Bureau of Land Management must approve a right-of-way grant across federal lands” → high confidence <code>federal_land</code></p>
-</section>
-<section id="medium-confidence" class="level3">
-<h3 class="anchored" data-anchor-id="medium-confidence">Medium confidence</h3>
-<p>Assign <code>medium</code> when: - the project strongly implies a trigger - one source gives clear but indirect evidence - multiple candidate triggers exist but one appears most likely</p>
-<p>Example: transmission project with BLM lead agency and repeated ROW language, but no explicit sentence stating the nexus</p>
-</section>
-<section id="low-confidence" class="level3">
-<h3 class="anchored" data-anchor-id="low-confidence">Low confidence</h3>
-<p>Assign <code>low</code> when: - the project is clearly under NEPA review but the trigger is unclear - only weak keyword matches are found - several categories are plausible with no dominant one</p>
-<p>Flag these for review.</p>
-<hr>
-</section>
-</section>
-<section id="recommended-manual-review-flags" class="level2">
-<h2 class="anchored" data-anchor-id="recommended-manual-review-flags">Recommended manual review flags</h2>
-<p>Set <code>nepa_trigger_manual_review = TRUE</code> when any of the following occur: - more than one category receives similar evidence strength - only low-confidence text was found - the agency role is unclear - the project appears to involve both federal land and federal permit issues - the project is highly programmatic or unusual - the project has sparse metadata</p>
-<hr>
-</section>
-<section id="example-coding-scenarios" class="level2">
-<h2 class="anchored" data-anchor-id="example-coding-scenarios">Example coding scenarios</h2>
-<section id="example-1-transmission-line-across-blm-land" class="level3">
-<h3 class="anchored" data-anchor-id="example-1-transmission-line-across-blm-land">Example 1: Transmission line across BLM land</h3>
-<p>Evidence: Project title mentions new 230-kV transmission line; description says the project crosses BLM-administered land and needs a right-of-way grant.</p>
-<ul>
-<li><code>nepa_trigger_primary = federal_land</code></li>
-<li><code>nepa_trigger_secondary = federal_permit</code> only if a separate federal permit is clearly required</li>
-<li><code>confidence = high</code></li>
+<li><strong>The answer key is AI-coded and human-audited.</strong> Two AI coding agents (Claude and Codex) independently coded a stratified 400-window sample per track (each window read once; one label per resource conclusion); a human analyst audited both sets, accepting values where the coders agreed on the core fields and hand-adjudicating every disagreement (over half the rows required an adjudication decision on at least one field). “AI-human reviewed” in the report is shorthand for that process.</li>
+<li><strong>The held-out test.</strong> A deterministic <strong>30% of the windows was held out</strong> — never used to build or tune the extraction — and the pipeline was scored separately on it. <strong>The held-out scores are the ones reported.</strong> Rare class/resource/threshold cells are reported descriptively, not as pass/fail macro-metrics.</li>
+<li><strong>EIS is validated lower than FONSI, for a real reason.</strong> The EIS significance <em>class</em> agrees with the answer key at <strong>0.69</strong> (vs 0.81 for FONSI). Separating <em>significant</em> from <em>significant and unavoidable</em> is a genuinely fine judgment — the two AI coders themselves agreed only <strong>~58%</strong> on the EIS class (vs 68% for FONSI). The report therefore leads with the robust cut (<em>which resources cross the line</em>) and treats the adverse-vs-unavoidable split as directional.</li>
+<li><strong>EIS exploratory fields are not gold-validated.</strong> The <code>alternative_name</code>, <code>significance_factor</code>, and <code>impact_type</code> fields are captured for the above-the-line analysis but sit <strong>outside</strong> the answer key (which validates class, resource, mitigation, and threshold). Treat the by-factor and by-pathway breakdowns as indicative, not as validated measurements.</li>
 </ul>
 </section>
-<section id="example-2-wetland-fill-permit-for-private-development" class="level3">
-<h3 class="anchored" data-anchor-id="example-2-wetland-fill-permit-for-private-development">Example 2: Wetland fill permit for private development</h3>
-<p>Evidence: Private developer; USACE permit under Section 404 required.</p>
+<section id="eis-extraction-specifics" class="level2">
+<h2 class="anchored" data-anchor-id="eis-extraction-specifics">EIS extraction specifics</h2>
 <ul>
-<li><code>nepa_trigger_primary = federal_permit</code></li>
-<li><code>confidence = high</code></li>
+<li><strong>Window size.</strong> EIS sections run longer than FONSI ones, so the EIS pass reads each section to <strong>24,000 characters</strong> (vs 16,000 for FONSI), capturing ~95% of sections in full; the ~5% that run longer can still lose a conclusion past the cap.</li>
+<li><strong>De-duplication.</strong> A Draft and Final EIS repeat identical section text; such passages are counted <strong>once per project</strong>. Identical text across <em>different</em> projects is kept — it is legitimate per-project attribution.</li>
+<li><strong>EIS mitigation is the class signal only.</strong> “Below the line only with committed mitigation” on the EIS side is the model’s class judgment; there is <strong>no</strong> record-of-decision commitment linkage (the enforceable-condition artifacts are FONSI-only). ROD-commitment mitigation is out of scope for this pass.</li>
+<li><strong>Two dropped windows.</strong> 2 of 21,854 EIS windows (0.009%) returned no result from the batch API (a transient error) and were recorded as missing rather than silently dropped — no material effect on any rate.</li>
 </ul>
 </section>
-<section id="example-3-federally-funded-transit-improvement" class="level3">
-<h3 class="anchored" data-anchor-id="example-3-federally-funded-transit-improvement">Example 3: Federally funded transit improvement</h3>
-<p>Evidence: DOT grant funding is central to the project; no federal land use mentioned; NEPA document tied to funding approval.</p>
+<section id="other-caveats" class="level2">
+<h2 class="anchored" data-anchor-id="other-caveats">Other caveats</h2>
 <ul>
-<li><code>nepa_trigger_primary = federal_funding</code></li>
-<li><code>confidence = high</code></li>
+<li><strong>D4 date/regime coverage.</strong> Many projects lack a high-confidence decision date; regime cells are confidence-gated and thin post-2023. EIS decision dates are frequently proxies.</li>
+<li><strong>EPA review letters (Clean Air Act §309) are out of scope.</strong> Under Section 309, the EPA independently reviews and <em>rates</em> other agencies’ environmental impact statements. Those comment letters are not in this dataset, so the report makes no claim about EPA’s own view of significance.</li>
+<li><strong>Technology comes from the dataset’s <code>project_type</code> classification.</strong> Each project carries a curated multi-tag project-type field; we assign one <strong>primary</strong> technology per project by priority (generation types first, then nuclear/CCS, then transmission). About <strong>1 in 5 projects</strong> resolve to an “Other / mixed” bucket, and the “Renewable (other)” catch-all is also set aside; both are excluded from the technology figures, which therefore describe the clearly-typed technologies.</li>
+<li><strong>Mitigation enforceability</strong> is the model’s read of whether a committed measure is tied to an enforceable permit condition; an “unmatched” conclusion may still be enforced through channels the extraction doesn’t capture, so the enforceable shares are a floor.</li>
+<li><strong>Suppressed cells.</strong> Any cell below 5 is suppressed.</li>
 </ul>
 </section>
-<section id="example-4-forest-service-vegetation-management-project" class="level3">
-<h3 class="anchored" data-anchor-id="example-4-forest-service-vegetation-management-project">Example 4: Forest Service vegetation management project</h3>
-<p>Evidence: Forest Service proposes thinning and fuel reduction on National Forest lands.</p>
-<ul>
-<li><code>nepa_trigger_primary = federal_land</code></li>
-<li><code>nepa_trigger_secondary = federal_direct_action</code> optional if you want to separately record that the agency is the direct actor</li>
-<li><code>confidence = high</code></li>
-</ul>
-</section>
-<section id="example-5-programmatic-leasing-framework" class="level3">
-<h3 class="anchored" data-anchor-id="example-5-programmatic-leasing-framework">Example 5: Programmatic leasing framework</h3>
-<p>Evidence: Document is a Programmatic EIS for a regional leasing strategy.</p>
-<ul>
-<li><code>nepa_trigger_primary = federal_program</code></li>
-<li><code>confidence = high</code></li>
-</ul>
-</section>
-<section id="example-6-bpa-transmission-line-with-row-on-federal-land" class="level3">
-<h3 class="anchored" data-anchor-id="example-6-bpa-transmission-line-with-row-on-federal-land">Example 6: BPA transmission line with ROW on federal land</h3>
-<p>Evidence: Bonneville Power Administration proposes to rebuild a 230-kV transmission line; project requires a right-of-way grant across BLM-administered land.</p>
-<ul>
-<li><code>nepa_trigger_primary = pma</code></li>
-<li><code>nepa_trigger_secondary = federal_land</code> (ROW grant on BLM land recorded as secondary nexus)</li>
-<li><code>confidence = high</code></li>
-</ul>
-<p>Note: <code>pma</code> takes priority over <code>federal_land</code> because BPA is the lead agency and primary actor. The land nexus is real but secondary.</p>
-</section>
-<section id="example-7-ambiguous-energy-project" class="level3">
-<h3 class="anchored" data-anchor-id="example-7-ambiguous-energy-project">Example 7: Ambiguous energy project</h3>
-<p>Evidence: DOE appears in metadata; document mentions funding and approvals but not clearly; no explicit statement of the federal nexus.</p>
-<ul>
-<li><code>nepa_trigger_primary = unknown</code> or best inferred category</li>
-<li><code>confidence = low</code></li>
-<li><code>manual_review = TRUE</code></li>
-</ul>
-<hr>
-</section>
-</section>
-<section id="implementation-options" class="level2">
-<h2 class="anchored" data-anchor-id="implementation-options">Implementation options</h2>
-<section id="minimal-viable" class="level3">
-<h3 class="anchored" data-anchor-id="minimal-viable">Minimal viable</h3>
-<p>Start with just these variables: - <code>nepa_trigger_primary</code> - <code>nepa_trigger_confidence</code> - <code>nepa_trigger_evidence_text</code> - <code>nepa_trigger_manual_review</code></p>
-</section>
-<section id="expanded-for-research-use" class="level3">
-<h3 class="anchored" data-anchor-id="expanded-for-research-use">Expanded (for research use)</h3>
-<ul>
-<li><code>nepa_trigger_primary</code></li>
-<li><code>nepa_trigger_secondary</code></li>
-<li><code>nepa_trigger_multi</code></li>
-<li><code>nepa_trigger_evidence_text</code></li>
-<li><code>nepa_trigger_evidence_source</code></li>
-<li><code>nepa_trigger_confidence</code></li>
-<li><code>nepa_trigger_manual_review</code></li>
-<li><code>nepa_trigger_notes</code></li>
-<li><code>nepa_trigger_rule_id</code> (which rule fired)</li>
-<li><code>nepa_trigger_model_label</code> (if using ML/LLM adjudication)</li>
-</ul>
+<section id="where-the-data-lives" class="level2">
+<h2 class="anchored" data-anchor-id="where-the-data-lives">Where the data lives</h2>
+<p>Determination parquets and validation metrics: <code>phase2/data/analysis/deliverable02/</code>; derived CSV tables and figures: <code>phase2/output/deliverable02/analysis/</code>; the answer keys (AI-coded, human-adjudicated): <code>phase2/data/analysis/deliverable02/gold/</code>. Schemas for every emitted parquet are documented in <code>phase2/notes/deliverable02/data_dictionary.md</code>, and full run provenance is recorded in <code>significance_run_manifest.parquet</code>.</p>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->

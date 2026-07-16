@@ -163,7 +163,7 @@ The diagram below is the vocabulary the rest of this report uses — every deter
 one of these outcomes, and "the line" is the significance threshold that separates them:
 
 ```{=html}
-<div style="max-width:720px;margin:1.25rem auto;display:grid;grid-template-columns:1fr 34px 34px;grid-column-gap:8px;grid-row-gap:.6rem;align-items:stretch;">
+<div style="max-width:760px;margin:1.25rem auto;display:grid;grid-template-columns:1fr 44px 62px;grid-column-gap:8px;grid-row-gap:.6rem;align-items:stretch;">
   <div style="grid-column:1;grid-row:1;border:2px solid #75246C;border-radius:8px;padding:.65rem 1rem;background:#f3eaf2;">
     <div style="font-weight:700;color:#75246C;font-size:1.0rem;">Significant and unavoidable</div>
     <div style="color:#1A1A2E;">The extreme case: the impact is significant and <b>no available measure</b> can
@@ -195,11 +195,11 @@ one of these outcomes, and "the line" is the significance threshold that separat
   </div>
   <div style="grid-column:2;grid-row:1/5;display:flex;align-items:center;">
     <div style="width:9px;align-self:stretch;border:2.5px solid #75246C;border-left:none;border-radius:0 8px 8px 0;"></div>
-    <div style="writing-mode:vertical-rl;font-weight:700;color:#75246C;font-size:.9rem;padding-left:5px;letter-spacing:.06em;">EIS</div>
+    <div style="font-weight:700;color:#75246C;font-size:.9rem;padding-left:5px;letter-spacing:.06em;">EIS</div>
   </div>
   <div style="grid-column:3;grid-row:4/7;display:flex;align-items:center;">
     <div style="width:9px;align-self:stretch;border:2.5px solid #0047BB;border-left:none;border-radius:0 8px 8px 0;"></div>
-    <div style="writing-mode:vertical-rl;font-weight:700;color:#0047BB;font-size:.9rem;padding-left:5px;letter-spacing:.06em;">FONSI</div>
+    <div style="font-weight:700;color:#0047BB;font-size:.9rem;padding-left:5px;letter-spacing:.06em;">FONSI</div>
   </div>
   <div style="grid-column:1/-1;grid-row:7;text-align:center;color:#6b7280;font-size:.85rem;">
     The brackets show where each outcome is recorded: above-the-line findings in an <b>EIS</b>, below-the-line
@@ -909,61 +909,6 @@ Tellingly, **visual** leads this list too: even the resource most likely to hit 
 admits partial mitigation (screening, siting adjustments), just not enough to drop below the line.
 These cases are the closest the EIS record comes to the mitigated-FONSI story — significant enough to
 require a full statement, but not beyond the reach of committed measures.
-
-## Coverage and limitations
-
-::: {.callout-note collapse="true"}
-## Coverage and limitations — the fine print behind the numbers
-
-**Scope**
-
-- **Decarbonization only** (`project_energy_type = 'Clean'`), read across the standard NEPA
-  resource areas the documents are organized around (air, water incl. wetlands, biological,
-  cultural/historic, visual, noise, soils/geology, socioeconomics incl. EJ, transportation, land
-  use, climate/GHG, public health) — agencies judge significance separately for each.
-- **Agency scope differs by track.** The **FONSI** track is BLM + DOE only (427 of 452 projects;
-  the 25 other-agency FONSIs are context and never enter the primary rates). The **EIS** track
-  covers **all agencies** — it is descriptive and does not rest on completeness — with BLM + DOE
-  isolated wherever a comparison is agency-sensitive (e.g. the FONSI-vs-EIS figure).
-
-**Coverage**
-
-- **FONSI**: the three-filter funnel (@fig-fonsi-funnel) takes 452 → 427 (agency) → 261 (dated,
-  2009+) → **193 projects / 258 documents** analyzed. The extraction gaps (finding sections
-  unrecognized in 37 parsed documents; no codable determination in 31 more) are a **coverage limit
-  of the source extraction, not a sampling choice**.
-- **EIS**: retrieved live from ~45,000 document sections by keyword and pattern; of 753 corpus
-  projects, **506 (1,082 documents)** yielded a determination (@fig-eis-funnel). Undated and
-  pre-2009 projects are *kept* here because the EIS analysis never uses the date. The held-out test
-  recovers **~77%** of what a human finds (summary tables and RODs are the main miss) — **read EIS
-  rates as a well-grounded floor, not an exhaustive census.**
-
-**Validation**
-
-- Both tracks are scored against the AI-human reviewed answer key (see *How accurate is the
-  extraction?*); only the untouched **30% held-out** scores are reported. Rare
-  class/resource/threshold cells are reported descriptively, not as pass/fail macro-metrics.
-- **EIS validates lower than FONSI for a real reason** (class 0.69 vs 0.81): separating
-  *significant* from *significant and unavoidable* is genuinely fine — the two AI coders agreed
-  only ~58% on the EIS class — so we lead with the robust cut (which resources cross the line) and
-  treat the adverse-vs-unavoidable split as directional.
-- **EIS exploratory fields** (`alternative_name`, `significance_factor`, `impact_type`) sit
-  outside the answer key — treat the by-factor and by-pathway breakdowns as indicative.
-
-**Extraction specifics and known edges**
-
-- EIS sections are read to 24,000 characters (~95% in full); Draft/Final EIS duplicate text counts
-  once per project; 2 of 21,854 EIS windows were lost to a transient batch error (0.009%, no
-  material effect).
-- **EIS mitigation is the class signal only** — no record-of-decision commitment linkage (the
-  enforceable-condition artifacts are FONSI-only). **Mitigation enforceability** shares are a
-  floor: an "unmatched" measure may be enforced through channels the extraction doesn't capture.
-- **Technology** comes from the dataset's `project_type` field (one primary technology per project;
-  ~1 in 5 resolve to "Other / mixed" and are excluded from the technology figures).
-- **D4 dates are imperfect** (regime cells confidence-gated, thin post-2023; EIS decision dates
-  often proxies). **EPA §309 review letters are out of scope** — no claim is made about EPA's own
-  view of significance. **Cells below 5 are suppressed** throughout.
-:::
 
 ## Reproducibility
 
