@@ -113,7 +113,7 @@ archived to `_archived_v1/` and are not orchestrated.
 | `bounds.py` | Parses numeric bounds (acres/miles/kV/MW/wells) from CE description text. |
 | `embeddings.py` | `all-MiniLM-L6-v2` embedding wrapper (used in 03, 04, 06). |
 | `prompts.py` | Shared LLM prompt for `03 --use-llm`; a standalone module (not a numbered script) so it can be imported without triggering the pipeline. |
-| `extract_ce_catalog.py` | Renders `ce.json` to `notes/deliverable06/ce_catalog_extracted.md`; run once after CE source updates. |
+| `extract_ce_catalog.py` | Renders `ce.json` to `notes/deliverable06/_ce_catalog_extracted.md`; run once after CE source updates. |
 | `benchmark_models.py` | Model-selection tool: runs the production prompt through Haiku/Sonnet/Opus on a sample; calls the paid API; run once before `--use-llm`. |
 
 ---
@@ -191,7 +191,7 @@ flowchart TD
 | `deliverable06/fonsi_evidence_spans.parquet` | Span-level provenance: `section_id`, `evidence_span_id`, `source_span_sha256`, page. |
 | `deliverable06/fonsi_conditions.parquet` | Condition roles/obligations — reused for the mitigation signal in `03` and `05`. |
 | `deliverable06/fonsi_document_sections.parquet` | Fallback text source in `02` for candidate projects missing from the packets. |
-| `notes/deliverable06/ce.json` | **Canonical existing-CE source** — CE Explorer export (v2.0.0, 2025-08-07), loaded via `ce_source.py`. Replaces the v1 parquet snapshot; rendered to `notes/deliverable06/ce_catalog_extracted.md` by `extract_ce_catalog.py`. |
+| `notes/deliverable06/ce.json` | **Canonical existing-CE source** — CE Explorer export (v2.0.0, 2025-08-07), loaded via `ce_source.py`. Replaces the v1 parquet snapshot; rendered to `notes/deliverable06/_ce_catalog_extracted.md` by `extract_ce_catalog.py`. |
 | `deliverable03/ce_citations.parquet` | Project-level CE-use evidence (D3); used in `04` and `06` for citation counts. |
 
 ---

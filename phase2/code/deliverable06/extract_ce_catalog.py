@@ -11,7 +11,8 @@ record per CE, so no heuristic parsing is needed and no `openpyxl` dependency.
 Source: CE Explorer (https://ce.permitting.innovation.gov/data/exclusions.json);
 each CE carries its canonical eCFR `canonical_source_url`.
 
-Output: phase2/notes/deliverable06/ce_catalog_extracted.md
+Output: phase2/notes/deliverable06/_ce_catalog_extracted.md
+(underscore-prefixed so the Quarto site render skips it — internal reference, not a site page)
 """
 
 import os
@@ -25,7 +26,7 @@ import ce_source
 from common import normalize_space
 
 NOTES = Path(__file__).resolve().parents[2] / "notes" / "deliverable06"
-MD_OUT = NOTES / "ce_catalog_extracted.md"
+MD_OUT = NOTES / "_ce_catalog_extracted.md"
 
 
 def _has(value: object) -> bool:
