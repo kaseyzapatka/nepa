@@ -721,21 +721,40 @@ message("\n--- Fig 3: Solar duration ---")
 SOLAR_TAG      <- "Renewable Energy Production - Solar"
 process_levels <- c("CE", "EA", "EIS")
 
-timeline_for_solar <- timeline_harmonized %>%
+# Phase 2 D4 timeline: replaces the Phase 1 BERT timeline for the solar duration
+# figure. Sourced from timeline_project_dates.parquet using the canonical
+# 08_analyze.R headline frame — complete_clear + complete_with_proxy, YEAR-
+# granularity endpoints excluded, month-granularity imputed to the mid-month 15th.
+# Solar tag + decarb scope come from the Phase 2 projects_combined.parquet.
+solar_p2_dates <- read_parquet(
+  here("phase2", "data", "analysis", "timeline", "timeline_project_dates.parquet")
+) %>%
+  select(project_id, process_type, timeline_status,
+         initiation_date, decision_date,
+         initiation_date_granularity, decision_date_granularity) %>%
+  mutate(initiation_date = as.Date(initiation_date),
+         decision_date   = as.Date(decision_date))
+
+solar_p2_tags <- read_parquet(
+  here("phase2", "data", "analysis", "projects_combined.parquet")
+) %>%
+  select(project_id, project_type, project_energy_type)
+
+timeline_for_solar <- solar_p2_dates %>%
+  inner_join(solar_p2_tags, by = "project_id") %>%
+  filter(
+    timeline_status %in% c("complete_clear", "complete_with_proxy"),
+    !is.na(initiation_date), !is.na(decision_date),
+    initiation_date_granularity != "year", decision_date_granularity != "year"
+  ) %>%
   mutate(
-    source_for_plot = toupper(as.character(coalesce(dataset_source, process_type))),
-    process_group   = factor(source_for_plot, levels = process_levels),
-    bert_decision_date             = as.Date(bert_decision_date),
-    bert_application_date          = as.Date(bert_application_date),
-    bert_inferred_application_date = as.Date(bert_inferred_application_date),
-    bert_initiation_date_final     = as.Date(bert_initiation_date_final),
-    bert_decision_date_final       = as.Date(bert_decision_date_final),
-    timeline_complete  = !is.na(bert_initiation_date_final) & !is.na(bert_decision_date_final),
-    bert_year          = as.integer(format(bert_decision_date_final, "%Y")),
-    decision_year      = coalesce(decision_year, bert_year),
-    bert_start_date    = coalesce(bert_application_date, bert_inferred_application_date,
-                                  bert_initiation_date_final),
-    bert_duration_days = as.numeric(bert_decision_date_final - bert_start_date)
+    process_group     = factor(toupper(as.character(process_type)), levels = process_levels),
+    init_mid          = if_else(initiation_date_granularity == "month",
+                                floor_date(initiation_date, "month") + 14, initiation_date),
+    dec_mid           = if_else(decision_date_granularity == "month",
+                                floor_date(decision_date, "month") + 14, decision_date),
+    duration_months   = as.numeric(dec_mid - init_mid) / 30.44,
+    timeline_complete = !is.na(duration_months) & duration_months >= 0
   )
 
 timeline_solar <- timeline_for_solar %>%
@@ -743,7 +762,6 @@ timeline_solar <- timeline_for_solar %>%
 
 duration_complete_solar <- timeline_solar %>%
   filter(!is.na(process_group), timeline_complete) %>%
-  mutate(duration_months = bert_duration_days / 30.44) %>%
   filter(!is.na(duration_months), duration_months >= 0)
 
 duration_summary_solar <- duration_complete_solar %>%
@@ -771,7 +789,6 @@ print(duration_summary_solar)
 # All-decarb median per process type (reference lines)
 decarb_medians <- timeline_for_solar %>%
   filter(project_energy_type == "Clean", !is.na(process_group), timeline_complete) %>%
-  mutate(duration_months = bert_duration_days / 30.44) %>%
   filter(!is.na(duration_months), duration_months >= 0) %>%
   group_by(process_group) %>%
   summarise(decarb_median = median(duration_months, na.rm = TRUE), .groups = "drop") %>%

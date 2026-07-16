@@ -24,24 +24,18 @@ OUT <- "phase2/output/deliverable02/analysis"; dir.create(OUT, recursive = TRUE,
 MIN_CELL <- 5
 NON_DET <- c("not_a_determination", "ambiguous")
 
-# FONSI track is the default; pass --with-eis to also fold in the EIS track
-# (04 writes *_eis.parquet so the two tracks never clobber each other).
-WITH_EIS <- "--with-eis" %in% commandArgs(trailingOnly = TRUE)
-
+# Run with NO flags. `det`/`thr` are the FONSI track only and feed the FONSI headline tables; the
+# EIS-track block below runs whenever significance_determinations_eis.parquet exists and reads the
+# _eis parquets directly, so the two tracks never mix. (A removed --with-eis flag used to fold EIS
+# rows into `det` BEFORE the headline gate, silently corrupting every FONSI table and figure —
+# 193 analyzed projects became 325. Removed 2026-07-15; combined-track exploration should read the
+# parquets in an ad-hoc session instead.)
 det <- read_parquet(file.path(A, "significance_determinations.parquet"))
 thr <- read_parquet(file.path(A, "determination_thresholds.parquet"))
 eis_det_path <- file.path(A, "significance_determinations_eis.parquet")
-if (WITH_EIS && file.exists(eis_det_path)) {
-  det <- bind_rows(det, read_parquet(eis_det_path))
-  eis_thr_path <- file.path(A, "determination_thresholds_eis.parquet")
-  if (file.exists(eis_thr_path)) thr <- bind_rows(thr, read_parquet(eis_thr_path))
-  cat("combined FONSI + EIS tracks. determinations by process_type:\n")
-  print(table(det$process_type))
-} else if (WITH_EIS) {
-  cat("--with-eis passed but no", eis_det_path, "found — FONSI only.\n")
-} else {
-  cat("FONSI track only (pass --with-eis to combine the EIS track).\n")
-}
+if (length(commandArgs(trailingOnly = TRUE)) > 0)
+  stop("06_analyze_significance.R takes no flags (the EIS block auto-runs off the _eis parquet); ",
+       "got: ", paste(commandArgs(trailingOnly = TRUE), collapse = " "))
 
 # ---- headline gate ----
 primary <- det %>%
@@ -223,6 +217,7 @@ if (fig_ok) tryCatch({
         scale_fill_manual(values = c("No significant impact" = catf_light_blue,
                                      "Less than significant" = catf_dark_blue,
                                      "Committed mitigation" = catf_magenta)) +
+        guides(fill = guide_legend(reverse = TRUE)) +  # legend left-to-right = bar segment order
         labs(title = "How agencies stay below the line, by resource",
              subtitle = "Share of each resource's FONSI determinations by outcome — sorted by reliance on mitigation (top = most)",
              x = NULL, y = NULL, fill = NULL) + theme_catf() + theme(legend.position = "bottom"),
@@ -312,7 +307,7 @@ if (fig_ok) tryCatch({
           scale_color_manual(values = c("All 400" = catf_magenta, "Held-out test" = catf_dark_blue)) +
           scale_x_continuous(limits = c(0, 1.12), breaks = seq(0, 1, 0.2), expand = c(0, 0)) +
           labs(title = "The extraction was graded before anything was reported",
-               subtitle = "Agreement with the human answer key: full sample vs the held-out test",
+               subtitle = "Agreement with the AI-human reviewed answer key: full sample vs the held-out test",
                x = "Score (F1; threshold row = accuracy)", y = NULL, color = NULL,
                caption = "Dashed line = 0.80, the standard bar. Blue = held-out test (the honest score); magenta = all 400.\nShaded rows are secondary attributes that matter less to the findings.") +
           theme_catf() + theme(legend.position = "bottom"),
@@ -324,7 +319,7 @@ if (fig_ok) tryCatch({
   corpus_fig <- tryCatch(read_parquet(file.path(A, "significance_corpus.parquet")), error = function(e) NULL)
 
   # Fig — regulatory-threshold profile (descriptive; threshold ID is the least-accurate field)
-  thr_lab <- c(other_quantitative = "Other quantitative", wetland_floodplain = "Wetland / floodplain",
+  thr_lab <- c(other_quantitative = "Quantitative numeric limits", wetland_floodplain = "Wetland / floodplain",
     NHPA_adverse_effect = "NHPA §106 adverse effect", visual_vrm = "Visual (VRM)", ESA_take = "ESA take",
     NAAQS = "NAAQS (air)", ESA_jeopardy = "ESA jeopardy", noise_threshold = "Noise threshold", PSD = "PSD (air)")
   tprof <- thr %>% semi_join(distinct(primary, determination_instance_id), by = "determination_instance_id") %>%
@@ -361,6 +356,50 @@ if (fig_ok) tryCatch({
       "fig_agency_scope.png", 8, 5)
   }
 
+  # Fig — FONSI coverage funnel: how the 452-project corpus narrows to the analyzed set. Mirrors
+  # fig_eis_funnel's project panel; alpha lightens the set-aside stages so the analyzed 193 reads
+  # as the saturated end of the same corpus. Finding-section coverage needs the D6 spans file, so
+  # that stage (and the funnel) degrades gracefully when it is absent.
+  if (!is.null(corpus_fig)) {
+    fcor <- corpus_fig %>% filter(process_type == "EA") %>%
+      distinct(project_id, agency_scope_status, analysis_scope)
+    fprim <- fcor %>% filter(agency_scope_status == "primary_blm_doe_family",
+                             analysis_scope == "primary")
+    n_located <- tryCatch({
+      sp <- read_parquet(file.path(dirname(A), "deliverable06", "fonsi_evidence_spans.parquet"),
+                         col_select = c("project_id", "span_type", "manifest_role"))
+      fprim %>% semi_join(sp %>% filter(span_type == "finding",
+                                        manifest_role %in% c("linked_ea", "canonical_fonsi",
+                                                             "supporting_fonsi")) %>%
+                            distinct(project_id), by = "project_id") %>% nrow()
+    }, error = function(e) NA)
+    ffun_stages <- c("Decarbonization FONSI corpus", "Led by BLM or the DOE family",
+                     "Dated decision, 2009–present", "Finding sections located",
+                     "Analyzed: ≥1 coded determination")
+    # explicit FONSI-only count (defensive: `primary` should already be single-track)
+    n_analyzed_fonsi <- primary %>% filter(process_type == "EA") %>%
+      distinct(project_id) %>% nrow()
+    ffun <- tibble(stage = factor(ffun_stages, levels = rev(ffun_stages)),
+                   n = c(nrow(fcor), sum(fcor$agency_scope_status == "primary_blm_doe_family"),
+                         nrow(fprim), n_located, n_analyzed_fonsi)) %>%
+      filter(!is.na(n))
+    w(ffun %>% transmute(metric = as.character(stage), n), "fonsi_coverage_funnel.csv")
+    savefig(ggplot(ffun, aes(n, stage)) +
+          geom_col(aes(alpha = stage), fill = catf_navy, width = 0.62) +
+          geom_text(aes(label = scales::comma(n)), hjust = -0.15, size = 3.4, color = "gray25") +
+          scale_alpha_manual(values = setNames(c(0.30, 0.45, 0.62, 0.80, 1), ffun_stages),
+                             guide = "none") +
+          scale_x_continuous(expand = expansion(mult = c(0, 0.12))) +
+          labs(title = "From 452 FONSIs to the 193 analyzed",
+               subtitle = "Projects retained at each step; darker = closer to the analyzed set",
+               x = NULL, y = NULL,
+               caption = paste0("Set-asides, top to bottom: other-agency FONSIs (kept as context); no reliable decision\n",
+                                "date, pre-2009, or boundary review; finding statements the extraction did not recognize;\n",
+                                "flagged text with no codable determination. Every rate in this report describes the analyzed set.")) +
+          theme_catf(),
+      "fig_fonsi_funnel.png", 8.5, 4.8)
+  }
+
   # Fig — mitigated vs not (single 100% stacked bar) for the top of the mitigated section
   ms <- doc_mit %>% mutate(grp = ifelse(mitigated_class_signal, "Mitigated FONSI", "Not mitigated")) %>%
     count(grp) %>% mutate(grp = factor(grp, levels = c("Not mitigated", "Mitigated FONSI")),
@@ -371,8 +410,8 @@ if (fig_ok) tryCatch({
         coord_flip() + scale_y_continuous(labels = scales::percent, expand = c(0, 0)) +
         scale_fill_manual(values = c("Mitigated FONSI" = catf_magenta, "Not mitigated" = catf_light_blue),
                           guide = "none") +
-        labs(title = "Most decarbonization FONSIs are mitigated",
-             subtitle = "Share of FONSI documents that reach “no significant impact” only with committed mitigation",
+        labs(title = "Most analyzed decarbonization FONSIs are mitigated",
+             subtitle = "The 258 analyzed FONSI decision documents (193 projects; some projects file more than one), split by whether\nthe not-significant finding depends on committed mitigation",
              x = NULL, y = NULL) +
         theme_catf() + theme(axis.text = element_blank(), axis.ticks = element_blank(),
                              panel.grid = element_blank()),
@@ -394,9 +433,28 @@ if (fig_ok) tryCatch({
     tidyr::pivot_wider(names_from = agency, values_from = mit) %>%
     mutate(diff = coalesce(BLM, 0) - coalesce(`DOE-family`, 0)) %>% arrange(diff)
   deptr <- deptr %>% mutate(Resource = factor(Resource, levels = ord$Resource))
+  # background band per row, tinted by the department with the larger share (alpha-light),
+  # with a horizontal wrapped label in the free corner of each band (top-right of the BLM band,
+  # bottom-right of the DOE band — rows whose points sit far left)
+  lead_bg <- ord %>%
+    mutate(yi = match(Resource, levels(deptr$Resource)),
+           Leads = ifelse(diff >= 0, "BLM", "DOE-family"))
+  lead_lab <- lead_bg %>% group_by(Leads) %>%
+    summarise(y = ifelse(first(Leads) == "BLM", max(yi), min(yi)), .groups = "drop") %>%
+    mutate(label = ifelse(Leads == "BLM", "BLM has a\nlarger share", "DOE-family has\na larger share"),
+           col = ifelse(Leads == "BLM", catf_purple, catf_dark_blue))
+  x_lab <- max(deptr$mit) * 1.06
   savefig(ggplot(deptr, aes(mit, Resource)) +
+        geom_rect(data = lead_bg, aes(xmin = -Inf, xmax = Inf, ymin = yi - 0.5, ymax = yi + 0.5,
+                                      fill = Leads),
+                  inherit.aes = FALSE, alpha = 0.10) +
+        scale_fill_manual(values = c("BLM" = catf_purple, "DOE-family" = catf_dark_blue),
+                          guide = "none") +
         geom_line(aes(group = Resource), color = "gray78", linewidth = 1) +
         geom_point(aes(color = agency), size = 3.6, alpha = 0.9) +
+        geom_text(data = lead_lab, aes(x = x_lab, y = y, label = label),
+                  inherit.aes = FALSE, hjust = 1, size = 3, fontface = "bold",
+                  lineheight = 0.95, color = lead_lab$col) +
         scale_color_manual(values = c("BLM" = catf_purple, "DOE-family" = catf_dark_blue), name = NULL) +
         scale_x_continuous(labels = scales::percent, expand = expansion(mult = c(0.02, 0.08))) +
         labs(title = "Does a resource trigger mitigation more for BLM or DOE?",
@@ -418,18 +476,23 @@ if (fig_ok) tryCatch({
     keep_sub <- subr %>% group_by(sub) %>% summarise(tot = sum(n), .groups = "drop") %>%
       filter(tot >= 40) %>% pull(sub)
     subr <- subr %>% filter(sub %in% keep_sub, n >= 3)
+    # x labels horizontal (wrapped) and colored by department: BLM magenta, DOE-family blue
+    sub_axis <- sort(unique(subr$sub))
+    sub_cols <- ifelse(sub_axis == "BLM", catf_magenta, catf_dark_blue)
     savefig(ggplot(subr, aes(sub, reorder(Resource, mit), fill = mit)) +
           geom_tile(color = "white", linewidth = 1) +
           geom_text(aes(label = scales::percent(mit, accuracy = 1), color = mit > 0.25), size = 2.6) +
           scale_color_manual(values = c(`TRUE` = "white", `FALSE` = "gray15"), guide = "none") +
           scale_fill_gradientn(colors = c("#eef3fb", catf_light_blue, catf_dark_blue, catf_navy),
                                labels = scales::percent, breaks = c(0, 0.2, 0.4), name = "Mitigation\nshare") +
+          scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +
           labs(title = "Which resources drive mitigation, by sub-agency",
                subtitle = "Share of a resource's conclusions that depend on mitigation (cells with ≥3 determinations)",
                x = NULL, y = NULL,
-               caption = "Sub-agencies with ≥40 determinations. Small cells are noisy; read the pattern, not the decimals.") +
+               caption = "Sub-agencies with ≥40 determinations (BLM in magenta, DOE-family in blue). Small cells are noisy; read the pattern, not the decimals.") +
           guides(fill = guide_colorbar(barheight = grid::unit(4, "cm"))) +
-          theme_catf() + theme(axis.text.x = element_text(angle = 18, hjust = 1),
+          theme_catf() + theme(axis.text.x = element_text(angle = 0, hjust = 0.5,
+                                                          color = sub_cols, face = "bold"),
                                panel.grid = element_blank(), legend.position = "right"),
       "fig_subagency_by_resource.png", 8.5, 6)
   }
@@ -497,8 +560,8 @@ if (fig_ok) tryCatch({
 
 # =====================================================================================
 # EIS TRACK — above-the-line analysis (parallel to the FONSI section above).
-# Self-contained: reads the *_eis parquets fresh (independent of --with-eis, which COMBINES
-# tracks). Same headline gate (primary_blm_doe_family + primary scope) and analytic grain
+# Self-contained: reads the *_eis parquets fresh; auto-runs whenever they exist (no flag).
+# Same headline gate (primary_blm_doe_family + primary scope) and analytic grain
 # (document x resource x class). Writes *_eis.csv tables + fig_*_eis.png figures so the report's
 # EIS section mirrors the FONSI one. Skipped cleanly if the EIS extraction has not been run.
 # =====================================================================================
@@ -615,7 +678,7 @@ if (file.exists(eis_det_path)) tryCatch({
             scale_color_manual(values = c("All 400" = catf_magenta, "Held-out test" = catf_dark_blue)) +
             scale_x_continuous(limits = c(0, 1.12), breaks = seq(0, 1, 0.2), expand = c(0, 0)) +
             labs(title = "The EIS extraction was graded the same way — a harder task",
-                 subtitle = "Agreement with the human answer key: full sample vs the held-out test",
+                 subtitle = "Agreement with the AI-human reviewed answer key: full sample vs the held-out test",
                  x = "Score (F1; threshold row = accuracy)", y = NULL, color = NULL,
                  caption = "Dashed line = 0.80. Blue = held-out test (the honest score); magenta = all 400.\nShaded rows are secondary attributes that matter less. EIS distinctions are harder than FONSI — the two coders agreed only ~58% on the class.") +
             theme_catf() + theme(legend.position = "bottom"),
