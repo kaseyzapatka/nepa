@@ -67,6 +67,10 @@ dpct <- function(pt, col) diag[[col]][diag$process_type == pt] / 100
 dur <- read_diag("d4_duration_summary.csv")
 dmed <- function(pt) dur$median_days[dur$process_type == pt]
 
+# --- Solar durations (solar-tagged projects vs all-decarbonization reference) ---
+sol <- read_diag("d4_solar_duration.csv")
+solv <- function(grp, pt, col) sol[[col]][sol$group == grp & sol$process_group == pt]
+
 # --- Pages (regulatory, all EA/EIS, all energy types) ---
 pg <- read_diag("d4_pages_summary.csv")
 pgv <- function(pt, per, col) pg[[col]][pg$process_type == pt & pg$fra_period == per]
@@ -233,6 +237,17 @@ include_fig("fig_d4_duration_summary_intervals_by_energy.png")
 ```
 
 [^ea-doc-anchored]: The EA panel's magenta **Fossil (doc-anchored)** row recomputes the fossil-EA duration using only *document-stated* initiation dates (`initiation_source_type ≠ register`), setting aside the BLM register's administrative "project start" entries that compress the register-anchored median to ~40 days. Its ~5-month median is the more defensible estimate of true review length, but it survives for only **119 of the 754** complete fossil EAs — the register is the sole start-date signal for the other 635. Both rows are shown so the coverage-versus-plausibility trade-off is explicit; CE and EIS are unaffected by this issue and keep their three standard energy rows.
+
+### Solar projects
+
+Phase 1 delivered a solar-only version of the duration analysis; this subsection replicates it on the Phase 2 timeline. For projects tagged *Renewable Energy Production – Solar*, complete timelines show the same complexity ladder — a median of about **`r round(solv("solar","CE","median_months"),1)` months for CE** (n = `r fmt_n(solv("solar","CE","n"))`), **~`r round(solv("solar","EA","median_months"))` months for EA** (n = `r solv("solar","EA","n")`), and **~`r round(solv("solar","EIS","median_months"))` months (`r round(solv("solar","EIS","median_months")/12,1)` years) for EIS** (n = `r solv("solar","EIS","n")`). Against the all-decarbonization reference (@fig-solar-duration, dashed ticks), **solar EIS reviews conclude about a year faster** — ~`r round(solv("solar","EIS","median_months"))` vs ~`r round(solv("decarb_reference","EIS","median_months"))` months — while **solar EAs run on par** with decarbonization EAs generally (~`r round(solv("solar","EA","median_months"))` vs ~`r round(solv("decarb_reference","EA","median_months"))` months) and CE determinations are indistinguishable (~1 month in both). This replicates the Phase 1 finding for EIS — Phase 1's solar figure reported ~22 months (n = 66) against Phase 2's ~`r round(solv("solar","EIS","median_months"))` here (n = `r solv("solar","EIS","n")`) — but softens Phase 1's EA contrast (~13 months solar there) to parity. Two caveats: the solar EA and EIS cells are small (n = `r solv("solar","EA","n")` and `r solv("solar","EIS","n")`), and solar CEs are register-heavy like CEs generally, so the register-anchoring caveats above apply equally here.
+
+```{r}
+#| label: fig-solar-duration
+#| fig-cap: "Timeline duration for solar-tagged projects. Thin bar = 10th–90th percentile; thick bar = interquartile range; point = median; dashed tick = the all-decarbonization median for that process (EA and EIS only — the CE medians coincide at ~1 month). Same headline duration frame as the figures above."
+#| out-width: "100%"
+include_fig("fig_d4_solar_duration.png")
+```
 
 The full duration distributions (@fig-duration-hist) show the same complexity ladder as a *shape*, not just a median: **CE durations pile up near zero** (most are days-to-weeks determinations), **EA spreads out to a year or two**, and **EIS is broad and heavy-tailed** — a meaningful mass of reviews runs 3–10+ years. That long EIS tail is real (large, contested reviews spanning multiple administrations) and is examined directly in the outlier case studies below.
 
