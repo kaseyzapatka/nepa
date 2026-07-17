@@ -19,7 +19,7 @@
 #   phase2/output/deliverable04/figures/fig_d4_solar_duration.png
 #   phase2/output/deliverable04/diagnostics/d4_solar_duration.csv
 #
-# Usage: Rscript phase2/code/deliverable04/fra/03_create_figures_solar.R
+# Usage: Rscript phase2/code/deliverable04/08_create_figures_solar.R
 
 suppressPackageStartupMessages({
   library(here); library(arrow); library(dplyr); library(tidyr)

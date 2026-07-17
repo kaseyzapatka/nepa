@@ -17,7 +17,7 @@
 #   phase2/output/deliverable04/figures/fig_d4_duration_by_fossil_tech.png
 #   phase2/output/deliverable04/diagnostics/d4_duration_by_technology.csv
 #
-# Usage: Rscript phase2/code/deliverable04/fra/04_create_figures_duration.R
+# Usage: Rscript phase2/code/deliverable04/08_create_figures_technology.R
 
 suppressPackageStartupMessages({
   library(here); library(arrow); library(dplyr); library(tidyr)

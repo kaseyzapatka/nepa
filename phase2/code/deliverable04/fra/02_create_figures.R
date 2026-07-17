@@ -10,7 +10,7 @@
 # pages (40 C.F.R. § 1508.1(bb)) — the measure comparable to the FRA limits (EA 75; EIS 150/300).
 # FRA date = enactment (2023-06-03), matching Phase 1 D5.
 #
-# Usage: Rscript phase2/code/deliverable04/fra/02_create_figures_pages.R
+# Usage: Rscript phase2/code/deliverable04/fra/02_create_figures.R
 
 suppressPackageStartupMessages({
   library(here); library(arrow); library(dplyr); library(tidyr)

@@ -518,6 +518,17 @@ ceq_comp <- read_diag("d4_ceq_regime_composition.csv")
 # accessors: collapsed decision-anchored regime, and the 1978 recent-window comparator
 ceqv  <- function(proc, regime, col) ceq[[col]][ceq$process_type == proc & ceq$ceq_regime == regime]
 ceqsv <- function(proc, col)         ceq_sens[[col]][ceq_sens$process_type == proc]
+# fine (five-level) regime accessor — the standalone 2024 Phase 2 / 2025 rescission n's
+ceqfv <- function(proc, regime, col) ceq_fine[[col]][ceq_fine$process_type == proc & ceq_fine$ceq_regime == regime]
+# composition accessor — n_decided (denominator) and completeness per collapsed regime
+ceqcv <- function(proc, regime, col) ceq_comp[[col]][ceq_comp$process_type == proc & ceq_comp$ceq_regime == regime]
+
+# Analysis base: the complete-timeline duration frame shared with the rest of D4
+# (d4_duration_summary.csv `dur`, coverage totals `diag` from d4_coverage_diagnostics.csv,
+# both defined in the setup chunk above). n's match @fig-duration-intervals by construction.
+ceq_n    <- function(proc) dur$n[dur$process_type == proc]           # complete pairs in the frame
+ceq_tot  <- function(proc) diag$n_total[diag$process_type == proc]   # all corpus projects of that process
+ceq_rate <- function(proc) ceq_n(proc) / ceq_tot(proc)
 ```
 
 NEPA's procedural rules were rewritten three times in four years. The natural regulatory regimes — keyed to each rule's effective date — are summarized below. (The FRA, June 3, 2023, is a *statutory* amendment to NEPA, not a CEQ rule; it is already the pre/post-FRA breakpoint used in the duration and page-length analyses.)
@@ -533,7 +544,18 @@ tibble::tribble(
 ) |> navy_gt()
 ```
 
-This segmentation is deliberately independent of the two breakpoint sets used above: it complements the `reg_period` *funding* eras (ARRA / BIL / IRA) and the FRA *statutory* split by cutting on the CEQ *regulatory* rule effective dates instead. Because a review is a span, we assign each one to the rule in effect at its **decision date** — so every figure reads as "reviews **decided under** a regime," not "reviews governed by" it. The 2024 Phase 2 Rule and its 2025 rescission are folded into one provisional `2024+` bucket; each standalone window is too thin to stand alone (see the suppressed rows in @tbl-ceq-regime).
+@fig-ceq-timeline lays out that sequence on a single axis — three regulatory rewrites plus the 2025 rescission inside five years, with the FRA (a statutory change, not a CEQ rule) marked separately.
+
+```{r}
+#| label: fig-ceq-timeline
+#| fig-cap: "Orientation timeline of the CEQ regulatory regimes. Blue bands mark the rule in effect, deepening from light to navy across the successive CEQ rules; grey = post-rescission, when agencies revert to their own NEPA procedures. The dotted grey line is the FRA statutory enactment (Jun 3, 2023), a different kind of change. The 1978 regulations were in effect for roughly four decades before this window."
+#| out-width: "100%"
+include_fig("fig_d4_ceq_regime_timeline.png")
+```
+
+Everything in this section rests on the same complete-timeline frame as the rest of the deliverable — the `r fmt_n(ceq_n("CE"))` CE, `r fmt_n(ceq_n("EA"))` EA, and `r fmt_n(ceq_n("EIS"))` EIS reviews that carry both an initiation and a decision date in day- or month-resolution and valid order (`r fmt_pct(ceq_rate("CE"),1)`, `r fmt_pct(ceq_rate("EA"),1)`, and `r fmt_pct(ceq_rate("EIS"),1)` of all CE / EA / EIS projects; a few points below the headline completeness in @fig-complete-share, which also counts year-only and out-of-order dates that duration work excludes). The 1978 bucket is by far the largest not because coverage is fuller there but because it absorbs *every* decision from the start of the corpus through September 13, 2020 — roughly four decades, with CE activity concentrated in the 2010s. Of the `r fmt_n(ceqcv("CE","1978","n_decided"))` CEs decided before the 2020 rule, `r fmt_n(ceqcv("CE","1978","n"))` (`r fmt_pct(ceqcv("CE","1978","completeness"),1)`) have both dates — CE decision coverage runs `r fmt_pct(dpct("CE","pct_decision"),1)` corpus-wide (registers plus determination-form dates) against `r fmt_pct(dpct("CE","pct_initiation"),1)` initiation coverage, so completeness is roughly half, and half of a very long, activity-dense window is still ~17,000 reviews.
+
+This segmentation is deliberately independent of the two breakpoint sets used above: it complements the `reg_period` *funding* eras (ARRA / BIL / IRA) and the FRA *statutory* split by cutting on the CEQ *regulatory* rule effective dates instead. Because a review is a span, we assign each one to the rule in effect at its **decision date** — so every figure reads as "reviews **decided under** a regime," not "reviews governed by" it. The 2024 Phase 2 Rule and its 2025 rescission are folded into one provisional `2024+` bucket; each standalone window is too thin to stand alone (fewer than 30 reviews per process — counts in the caveats below).
 
 ```{r}
 #| label: fig-ceq-regime
@@ -553,31 +575,9 @@ The regime medians move very little for the two smaller-review processes, and wh
 
 ```{r}
 #| label: fig-ceq-trend
-#| fig-cap: "Median review duration by decision year (years with n ≥ 5), with CEQ rule effective dates (navy dashed) and the FRA statutory enactment (teal dotted) marked. The line ends at 2025 — partial-2026 falls below the n ≥ 5 floor — and the 2025 annual median straddles the April rescission. CEQ = regulatory; FRA = statutory."
+#| fig-cap: "Median review duration by decision year, faceted by process with a free y-axis (CE runs in fractions of a month, EIS in tens), years with n ≥ 5 only. CEQ rule effective dates are navy dashed and the FRA statutory enactment is grey dotted. The view starts at 2005 — sparse pre-2005 annual medians are omitted for clarity (underlying data unchanged); the line ends at 2025 (partial-2026 falls below the n ≥ 5 floor) and the 2025 annual median straddles the April rescission. CEQ = regulatory; FRA = statutory."
 #| out-width: "100%"
 include_fig("fig_d4_duration_trend_ceq_regime.png")
-```
-
-```{r}
-#| label: tbl-ceq-regime
-#| tbl-cap: "Median review duration by fine (five-level) CEQ regime, decision-anchored. The standalone 2024 Phase 2 and 2025 rescission windows are shown but suppressed from the figures where n < 30 (all three processes) — they are folded into the collapsed 2024+ bucket instead."
-ceq_fine |>
-  mutate(
-    Regime = dplyr::recode(ceq_regime,
-      "1978" = "1978 rules", "2020_trump" = "2020 (Trump)", "2022_phase1" = "2022 (Phase 1)",
-      "2024_phase2" = "2024 (Phase 2)", "2025_rescission" = "2025 (rescission)"),
-    Regime = factor(Regime, levels = c("1978 rules", "2020 (Trump)", "2022 (Phase 1)",
-                                       "2024 (Phase 2)", "2025 (rescission)")),
-    Process = factor(process_type, levels = c("CE", "EA", "EIS"))
-  ) |>
-  arrange(Process, Regime) |>
-  transmute(
-    Process, Regime,
-    N = fmt_n(n),
-    `Median (mo)` = sprintf("%.1f", median_months),
-    `In figures?` = ifelse(display, "yes", "suppressed (n<30)")
-  ) |>
-  navy_gt()
 ```
 
 ::: callout-warning
@@ -585,7 +585,7 @@ ceq_fine |>
 
 -   **Decided-under, not governed-by.** A multi-year EIS decided in 2022 was scoped and largely conducted under *earlier* rules; the decision-date assignment is a labeling convenience, not a claim about which regulations shaped the review.
 -   **The post-2024 samples are thin and confounded.** Only `r fmt_n(ceqv("CE","2024_phase2_plus","n"))` CE, `r fmt_n(ceqv("EA","2024_phase2_plus","n"))` EA, and `r fmt_n(ceqv("EIS","2024_phase2_plus","n"))` EIS reviews fall in the `2024+` bucket, and they are entangled with the same coverage ramp that limits the post-FRA split — recently-decided reviews are over-represented by whichever timelines happen to be complete.
--   **The 2025 rescission window is folded into `2024+`.** Standalone, it carries too few reviews to analyze; @tbl-ceq-regime shows the suppressed counts.
+-   **The 2025 rescission window is folded into `2024+`.** The standalone 2024 Phase 2 (`r fmt_n(ceqfv("CE","2024_phase2","n"))` CE, `r fmt_n(ceqfv("EA","2024_phase2","n"))` EA, `r fmt_n(ceqfv("EIS","2024_phase2","n"))` EIS) and 2025 rescission (`r fmt_n(ceqfv("CE","2025_rescission","n"))` CE, `r fmt_n(ceqfv("EA","2025_rescission","n"))` EA, `r fmt_n(ceqfv("EIS","2025_rescission","n"))` EIS) windows each fall below the n = 30 display floor for all three processes, so they are analyzed only as the merged `2024+` bucket in @fig-ceq-regime.
 -   **For a before/after-rule read, use @fig-ceq-trend, not @fig-ceq-regime.** The pooled 1978 regime bar spans four decades of secular decline; the year-by-year trend is the only view that can separate a rule date from the underlying drift.
 -   **Associational, not causal.** Nothing here isolates a regulatory effect from composition, agency mix, or calendar time.
 :::
@@ -735,7 +735,7 @@ Rscript phase2/code/deliverable04/10_outliers.R      # timeline outliers (case-s
 
 # FRA document-length analysis (regulatory pages from the full page text, all EA/EIS)
 conda run -n nepa python phase2/code/deliverable04/fra/01_extract_pages.py --run
-Rscript phase2/code/deliverable04/fra/02_create_figures_pages.R # document length / FRA page limits
+Rscript phase2/code/deliverable04/fra/02_create_figures.R # document length / FRA page limits
 
 # BLM field-office experience / learning-curve extension
 conda run -n nepa python phase2/code/deliverable04/field_office/01_parse_offices.py --run

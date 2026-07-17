@@ -108,3 +108,4 @@ On a like-for-like clean-energy basis, **Phase 2 CE completion is far above Phas
 - **Register-anchored EA durations understate the true process length**; prefer document-anchored views where sample size allows.
 - **A large share of EIS decisions are Final-EIS-publication proxies at month granularity**; EIS durations are best-available estimates given what NEPATEC 2.0 contains.
 - **Clean-energy EA completion (47.6%) lands under Phase 1's 62%** because EA initiation is structurally sparse — this is expected, not a regression.
+- **EA coverage is not governmentwide.** In NEPATEC 2.0, EA (and CE) intake is concentrated in DOE, BLM, and a small USDA/Forest Service contribution, whereas EPA supplies a broad, governmentwide EIS crawl. Every EA figure therefore describes EAs *in this corpus* — heavily BLM/DOE — not the full federal EA population, and the corpus contains fewer EAs (3,083) than EISs (4,130), the inverse of the true national ratio.
