@@ -40,3 +40,6 @@ __pycache__/
 phase2/where_I_left_off. txt
 # personal resume-point notes (any directory)
 where_I_left_off.md
+
+# ggplot .rds sidecars (regenerable by NN_create_figures.R scripts; large)
+*.rds

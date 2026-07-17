@@ -2,14 +2,14 @@
 # one for fossil-fuel technologies — using the cleaned technology tag (tech_group /
 # energy_group from deliverable03/projects_nepa_reviews.parquet, the same variable that
 # defines the Decarb-vs-Fossil split). Not faceted; Decarb rendered in lime, Fossil in
-# dark blue, matching the energy colours used in 08_analyze.R Figure 6.
+# dark blue, matching the energy colours used in 08_create_figures.R Figure 6.
 #
 # Scope: EA + EIS only. CE reviews are uniformly ~1 month across every technology and add no
 # contrast; the CE-heavy technologies (geothermal, nuclear, CCS, storage, biomass) therefore
 # have too few substantive (EA/EIS) reviews to chart and are suppressed by the n >= 15 floor —
 # itself a finding: those technologies' NEPA reviews are almost entirely categorical exclusions.
 #
-# Duration frame: identical to 08_analyze.R's headline frame (complete_clear + complete_with_proxy,
+# Duration frame: identical to 08_create_figures.R's headline frame (complete_clear + complete_with_proxy,
 # year-granularity endpoints excluded, month-granularity imputed to the mid-month 15th, non-negative).
 #
 # Outputs:
@@ -17,7 +17,7 @@
 #   phase2/output/deliverable04/figures/fig_d4_duration_by_fossil_tech.png
 #   phase2/output/deliverable04/diagnostics/d4_duration_by_technology.csv
 #
-# Usage: Rscript phase2/code/deliverable04/fra/04_duration_by_technology.R
+# Usage: Rscript phase2/code/deliverable04/fra/04_create_figures_duration.R
 
 suppressPackageStartupMessages({
   library(here); library(arrow); library(dplyr); library(tidyr)
@@ -42,7 +42,7 @@ theme_catf <- function(base = 11) {
           panel.grid.minor = element_blank())
 }
 
-# --- headline duration frame (mirrors 08_analyze.R), EA + EIS, joined to the technology tag ---
+# --- headline duration frame (mirrors 08_create_figures.R), EA + EIS, joined to the technology tag ---
 dates <- read_parquet(
   file.path(TL, "timeline_project_dates.parquet"),
   col_select = c("project_id", "process_type", "timeline_status",
@@ -115,6 +115,7 @@ make_tech_fig <- function(eg, colour, title, fname) {
     ) +
     theme_catf() + theme(legend.position = "none")
   ggsave(file.path(FIG, fname), g, width = 10, height = 5.5, dpi = 300)
+  saveRDS(g, file.path(FIG, sub("\\.png$", ".rds", fname)))
   message("Wrote ", fname)
 }
 

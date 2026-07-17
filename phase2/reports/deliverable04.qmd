@@ -51,7 +51,7 @@ navy_gt <- function(df, title = NULL) {
 }
 
 # --- Coverage (complete = BOTH dates present, matching @fig-complete-share / @fig-coverage) ---
-# Read the exact per-process complete-timeline shares written by 08_analyze.R so the narrative
+# Read the exact per-process complete-timeline shares written by 08_create_figures.R so the narrative
 # "% complete" numbers match Figure 2 (fig-complete-share) by construction. "Complete" = both an
 # initiation and a decision date are present (date coverage), consistent with the figures and the
 # Executive Summary's stated definition. A small share of projects have both dates but in invalid
@@ -108,13 +108,39 @@ This deliverable extends the [Phase 1 timeline analysis](https://www.kaseyzapatk
 
 This section improves on the Phase 1 timeline method. For every project we identify two milestones — the initiation (when the review begins: an application received, a Notice of Intent, or scoping) and the decision (when it concludes: a signature, a Record of Decision, or a Finding of No Significant Impact). The pipeline finds these in five high-level steps:
 
-1.  **Extract candidate dates** from every NEPA document in NEPATEC 2.0, capturing the sentence around each date as well as document location and metadata so its meaning is clear.
-2.  **Classify each date's role** — a machine-learning *classifier* labels every candidate as an `initiation`, `decision`, or `neither`.
-3.  **Rank the candidates** — a second *ranking model* ranks initiation and decision candidates by their likely to be the final, decisive date for the project.
-4.  **Anchor on authoritative dates** — where the BLM or DOE NEPA register records an official project-start or decision date, that date is used.
-5.  **Resolve the hardest cases with an LLM** — for the projects where the operative date is still ambiguous, a large language model selects the best remaining candidate.
-
-A project's timeline is **complete** when both an initiation and a decision date are found.
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Extract candidate dates</div>
+    <div style="color:#1A1A2E;">Pull every date from every NEPA document in NEPATEC&nbsp;2.0, capturing the surrounding sentence, document location, and metadata so each date's meaning is clear</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Classify each date's role</div>
+    <div style="color:#1A1A2E;">A machine-learning <b>classifier</b> (SetFit) labels every candidate as an <b>initiation</b>, a <b>decision</b>, or <b>neither</b></div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Rank the candidates</div>
+    <div style="color:#1A1A2E;">A second <b>ranking model</b> (LightGBM) orders the initiation and decision candidates by how likely each is the operative date for the project</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 · Anchor on authoritative dates</div>
+    <div style="color:#1A1A2E;">Where the BLM or DOE NEPA register records an official project-start or decision date, that authoritative date is used in place of a parsed one</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">5 · Resolve the hardest cases with an LLM</div>
+    <div style="color:#1A1A2E;">For projects where the operative date is still ambiguous, a large language model (Claude Haiku) selects the best remaining candidate</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">Complete timeline</div>
+    <div style="color:#ffffff;">A project's timeline is <b>complete</b> when both an initiation and a decision date are found</div>
+  </div>
+</div>
+```
 
 ## How Phase 2 analysis improves upon Phase 1
 
@@ -123,45 +149,6 @@ A project's timeline is **complete** when both an initiation and a decision date
 -   **Cleaner retrieval and granularity handling** — section-aware retrieval pulls fewer but better candidate dates based on document location and the pipeline uses year-month decision dates (e.g. a Final-EIS cover month) where no better dates are available.
 -   **Improved classifier *AND* a ranking model** — Phase 1 used a single date classifier (`DeBERTa` model); Phase 2 used an improve classifer (`SetFit`) and adds a dedicated ranking model (`LightGBM`) that decides which candidate is the operative initiation/decision, sharply improving which candidates get sent to the LLM adjudicating model.
 
-## Data quality & caveats
-
-
-### Data-quality issues resolved in this pass
-
-- **Register vs document CE decisions.** Where a document-text CE decision disagreed with the authoritative BLM/DOE register determination by more than ~2 years (typically a stray historical date printed on a CX form), the pipeline now prefers the register — correcting ~650 CE decisions.
-- **Negative-duration ordering.** Decision-before-initiation rows are now reclassified to `invalid_order` at source (scripts 05 / 05c), with an assertion guarding the analysis step against regressions — replacing the earlier downstream stopgap filter.
-
-### Known issues, understood and deferred
-
-None of the items below change the headline medians (which are robust to these tails), and each is flagged in the data so it can be filtered or audited:
-
-- **Long-duration outliers (historical-citation initiations).** ~106 CE reviews (0.4%) show 13–45-year "durations" because the extractor selected a decades-old citation (an original grant, a covering PEIS, a prior plan) as the initiation rather than the recent application/renewal date. These are flagged `suspect_error` in the outlier deliverable (`10_outliers.R`) and excluded from case studies; a ranking fix (up-weighting the existing `historical_gap_candidate` flag) is deferred because it has no effect on the median.
-- **EIS decision coverage.** ~58% of EIS still lack a decision date; most have a Final-EIS or ROD document in the corpus whose date was not extracted at retrieval. A targeted FEIS/ROD re-read is the highest-leverage follow-up and would lift EIS complete coverage from ~32% toward ~46%. Deferred to a separate pass.
-- **Smaller register/document disagreements.** Sub-2-year CE decision disagreements are left to the ranker (low impact, deferred).
-- **Classifier calibration.** Candidate-classifier confidence is currently calibrated in-sample; a dedicated out-of-sample calibration split is deferred (it affects internal confidence scores, not the selected dates).
-- **Unrecoverable-PDF projects.** ~959 projects produced no extractable text at retrieval (scanned or corrupt PDFs) and carry no dates; not recoverable without OCR reprocessing.
-- **Post-FRA CE durations.** Post-FRA CE reviews run modestly longer than pre-FRA (median ~37 vs ~19 days), shrinking further once proxy-flagged rows are excluded; the residual is spread across date sources rather than any single extraction bug.
-- **End-to-end accuracy not yet formally validated.** Coverage and internal model metrics are reported; formal precision/recall against a hand-labeled, held-out gold set is a follow-up.
-
-
-### Known data or timeline quality issues
-
-- **Heavy reliance on proxy dates.** ~55% of CE and ~68% of EIS complete timelines rest on a *proxy* date that stands in for a milestone the documents never recorded directly. The proxy differs by process (below).
-  - **CE — imputed initiations.** Most CEs record no distinct start, so the initiation is imputed: the pipeline takes the earliest qualifying signature/start date on the form (often the initiator's signature, which precedes the approving official's). ~13,450 CE initiations are proxies.
-  - **EIS — Final-EIS-publication decisions.** Only ~18% of EISs have a Record of Decision in the corpus, so for another ~18% the pipeline uses the Final-EIS publication date (often reported as month + year → imputed to the 15th) as a stand-in decision. ~58% of EISs still end up with no decision date at all.
-- **EAs are register-heavy.** EAs have no Notice-of-Intent requirement, so a documented start date is frequently missing — 54% of EA initiations come from the BLM/DOE register rather than the EA document. Because those register "project start" dates are often late administrative entries made near the decision (some only 1–2 days before the FONSI), register-anchored EAs show artificially short durations (~60-day median vs ~12 months for document-based starts).
-- **EA coverage is not governmentwide.** In NEPATEC 2.0, EA (and CE) intake is concentrated in DOE, BLM, and a small USDA/Forest Service contribution, whereas EPA supplies a broad, governmentwide EIS crawl. Every EA figure here therefore describes EAs *in this corpus* — heavily BLM/DOE — not the full federal EA population, and the corpus contains fewer EAs (3,083) than EISs (4,130), the inverse of the true national ratio.
-
-
-::: callout-note
-## Next steps
-
--   **Lift EIS decision coverage** — re-pull Final-EIS cover/publication dates to see if we can add more year-month dates for EIS.
--   **Extend the analysis** — the [BLM field-office experience](#sec-field-office) learning-curve test is now built (no experience effect once calendar time is controlled); geothermal timelines by field office and whether post-FRA adoption of categorical exclusions correlates with faster reviews (see Requested Extensions).
-
-------------------------------------------------------------------------
-
-:::
 
 ## Date provenance
 
@@ -189,7 +176,7 @@ include_fig("fig_d4_register_source_projects.png")
 Comparison with Phase 1. Phase 1 measured completeness for *decarb projects only* and reported [CE ~30% · EA ~62% · EIS ~48%](https://www.kaseyzapatka.com/nepa/phase1/reports/deliverable03.html#fig-complete-share). On the full database, Phase 2 reaches CE `r fmt_pct(cpct("CE"), 1)` · EA `r fmt_pct(cpct("EA"), 1)` · EIS `r fmt_pct(cpct("EIS"), 1)`. CE is *higher* — the much larger universe is dominated by routine, register-dated determinations — but EA and EIS land below their Phase 1 decarb-only rates, for two reasons this analysis surfaced:
 
 -   **The aggregate is diluted by non-decarb projects.** Phase 1's denominator was decarb energy; Phase 2's is everything. Decarbonization EIS alone completes at 42.4% (much closer to Phase 1's 48%) — it is the heterogeneous "Other" bucket that pulls the EIS aggregate down to `r fmt_pct(cpct("EIS"), 1)`.
--   **The remaining gaps are structural, not fixable by better parsing.** EIS completeness is capped by missing Records of Decision (a separate document, often outside the corpus — decision coverage only `r fmt_pct(dpct("EIS","pct_decision"))`); CE and EA completeness is capped by missing initiations, because neither requires a Notice of Intent and a start date is frequently never recorded. A minority of EIS "projects" are also comment letters or document fragments with no milestone date to extract. Lifting EIS coverage toward Phase 1 is the focus of the [Next steps](#methodology) above.
+-   **The remaining gaps are structural, not fixable by better parsing.** EIS completeness is capped by missing Records of Decision (a separate document, often outside the corpus — decision coverage only `r fmt_pct(dpct("EIS","pct_decision"))`); CE and EA completeness is capped by missing initiations, because neither requires a Notice of Intent and a start date is frequently never recorded. A minority of EIS "projects" are also comment letters or document fragments with no milestone date to extract.
 
 ```{r}
 #| label: fig-complete-share
@@ -520,11 +507,18 @@ include_fig("fig_d4_pages_compliance.png")
 
 # Review timelines by CEQ regulatory regime {#sec-ceq-regime}
 
-::: callout-warning
-## Proposed section — awaiting your feedback
+```{r}
+#| label: ceq-setup
+ceq_all  <- read_diag("d4_duration_by_ceq_regime.csv")
+ceq      <- ceq_all |> dplyr::filter(regime_level == "collapsed",   anchor == "decision")
+ceq_fine <- ceq_all |> dplyr::filter(regime_level == "fine",        anchor == "decision")
+ceq_sens <- ceq_all |> dplyr::filter(regime_level == "sensitivity", anchor == "decision")
+ceq_comp <- read_diag("d4_ceq_regime_composition.csv")
 
-This section is a **draft proposal, not yet built.** It would test whether review durations shifted as the CEQ NEPA implementing regulations (40 C.F.R. §§ 1500–1508) were rewritten across administrations — a different breakpoint from the FRA *statutory* split used above. Please review the framing and planned figures and tell me whether to build it.
-:::
+# accessors: collapsed decision-anchored regime, and the 1978 recent-window comparator
+ceqv  <- function(proc, regime, col) ceq[[col]][ceq$process_type == proc & ceq$ceq_regime == regime]
+ceqsv <- function(proc, col)         ceq_sens[[col]][ceq_sens$process_type == proc]
+```
 
 NEPA's procedural rules were rewritten three times in four years. The natural regulatory regimes — keyed to each rule's effective date — are summarized below. (The FRA, June 3, 2023, is a *statutory* amendment to NEPA, not a CEQ rule; it is already the pre/post-FRA breakpoint used in the duration and page-length analyses.)
 
@@ -535,18 +529,66 @@ tibble::tribble(
   "2020 Final Rule (Trump)",    "Sep 14, 2020",  "Major rewrite: presumptive 2-yr EIS / 1-yr EA limits, page limits, narrowed effects/cumulative-impacts definitions.",
   "2022 Phase 1 Rule (Biden)",  "May 20, 2022",  "Restored 1978 purpose-and-need and cumulative/indirect effects.",
   "2024 Phase 2 Rule",          "Jul 1, 2024",   "Implemented the FRA's statutory NEPA amendments (codified page/time limits, CE sharing, lead-agency roles).",
-  "2025 rescission",            "early 2025",    "After EO 14154 and the Marin Audubon ruling, CEQ rescinded its regulations; agencies revert to their own NEPA procedures."
+  "2025 rescission",            "Apr 11, 2025",  "CEQ interim final rule (90 FR 10610) removed 40 C.F.R. §§ 1500–1508; agencies revert to their own NEPA procedures."
 ) |> navy_gt()
 ```
 
-Planned analysis. The pipeline already carries the scaffolding for this — `08_analyze.R` computes a `reg_period` segmentation and writes `d4_duration_by_period.csv`, currently keyed to *funding* events (ARRA / BIL / IRA). We would re-point those cut dates to the CEQ rule effective dates (2020-09-14, 2022-05-20, 2024-07-01) and surface two views:
+This segmentation is deliberately independent of the two breakpoint sets used above: it complements the `reg_period` *funding* eras (ARRA / BIL / IRA) and the FRA *statutory* split by cutting on the CEQ *regulatory* rule effective dates instead. Because a review is a span, we assign each one to the rule in effect at its **decision date** — so every figure reads as "reviews **decided under** a regime," not "reviews governed by" it. The 2024 Phase 2 Rule and its 2025 rescission are folded into one provisional `2024+` bucket; each standalone window is too thin to stand alone (see the suppressed rows in @tbl-ceq-regime).
 
--   **Median duration by regulatory regime** — a per-process interval/bar chart comparing median review length across the 1978 / 2020 / 2022 / 2024 regimes (from the already-computed `d4_duration_by_period.csv`).
--   **Duration trend by decision year with regime markers** — the year-by-year median-duration line (`fig_d4_duration_trend.png`, already rendered) with vertical markers at the three CEQ rule dates, replacing or augmenting the current ARRA/BIL/IRA markers.
+```{r}
+#| label: fig-ceq-regime
+#| fig-cap: "Review duration by CEQ regulatory regime (collapsed to four periods), faceted by process. Thin bar = p10–p90, thick bar = IQR (p25–p75), point = median. The dashed tick on each 1978 row marks the 1978-rule median for 2015–2020 decisions only — a like-for-like recent comparator that strips out four decades of pooled history. Regime = rule in effect at the decision date."
+#| out-width: "100%"
+include_fig("fig_d4_duration_by_ceq_regime.png")
+```
 
-Key caveat to flag up front. Duration is measured at the decision date, but a multi-year review mostly occurs under *earlier* rules — so this reads as "reviews decided under a regime," not "reviews governed by" it. Post-2020 samples are also thin and confounded with the coverage ramp (the same provisional-sample limitation as the post-FRA split).
+The regime medians move very little for the two smaller-review processes, and what movement there is tracks sample composition rather than any rule:
 
-Feedback requested: (1) Is "reviews decided under a regime" the right framing, or should we anchor on the *initiation* date instead? (2) Keep the FRA statutory marker alongside the CEQ rule markers, or present them separately? (3) Which view do you want — the regime comparison, the trend-with-markers, or both?
+-   **CE reviews stay near-instant under every pre-2024 regime** — a median of `r round(ceqv("CE","1978","median_months"),1)`, `r round(ceqv("CE","2020_trump","median_months"),1)`, and `r round(ceqv("CE","2022_phase1","median_months"),1)` months under the 1978, 2020, and 2022 regimes. The `2024+` bucket reads `r round(ceqv("CE","2024_phase2_plus","median_months"),0)` months, but on only `r fmt_n(ceqv("CE","2024_phase2_plus","n"))` reviews — an artifact of *which* CE reviews happen to carry a complete, recently-dated timeline, not a regime effect.
+-   **EA medians sit in a narrow `r round(ceqv("EA","2020_trump","median_months"),1)`–`r round(ceqv("EA","1978","median_months"),1)`-month band** across the three pre-2024 regimes, rising to `r round(ceqv("EA","2024_phase2_plus","median_months"),1)` months in the thin `2024+` bucket (n = `r fmt_n(ceqv("EA","2024_phase2_plus","n"))`).
+-   **EIS medians are the longest and the noisiest** — `r round(ceqv("EIS","1978","median_months"),0)` months (1978), `r round(ceqv("EIS","2020_trump","median_months"),0)` (2020), `r round(ceqv("EIS","2022_phase1","median_months"),0)` (2022), `r round(ceqv("EIS","2024_phase2_plus","median_months"),0)` (`2024+`, n = `r fmt_n(ceqv("EIS","2024_phase2_plus","n"))`). The apparent dip under the 2020 regime is a pooling artifact, not evidence that the Trump rule sped EISs up.
+-   **The 1978 bar pools ~42 years and understates recent durations.** Restricting the 1978 rule to its final stretch (2015–2020 decisions) lifts the EIS median from `r round(ceqv("EIS","1978","median_months"),0)` to `r round(ceqsv("EIS","median_months"),0)` months — so the pooled 1978 comparator in @fig-ceq-regime is the *wrong* reference for a before/after-rule read. Use the year-by-year trend in @fig-ceq-trend for that intuition instead.
+
+@fig-ceq-trend places the CEQ rule dates on the annual median-duration line, alongside the FRA statutory marker. Because durations have drifted secularly (CE especially), the year-by-year view is the honest way to see whether anything changed *around* a rule date — the regime bars above cannot separate a rule effect from the underlying trend.
+
+```{r}
+#| label: fig-ceq-trend
+#| fig-cap: "Median review duration by decision year (years with n ≥ 5), with CEQ rule effective dates (navy dashed) and the FRA statutory enactment (teal dotted) marked. The line ends at 2025 — partial-2026 falls below the n ≥ 5 floor — and the 2025 annual median straddles the April rescission. CEQ = regulatory; FRA = statutory."
+#| out-width: "100%"
+include_fig("fig_d4_duration_trend_ceq_regime.png")
+```
+
+```{r}
+#| label: tbl-ceq-regime
+#| tbl-cap: "Median review duration by fine (five-level) CEQ regime, decision-anchored. The standalone 2024 Phase 2 and 2025 rescission windows are shown but suppressed from the figures where n < 30 (all three processes) — they are folded into the collapsed 2024+ bucket instead."
+ceq_fine |>
+  mutate(
+    Regime = dplyr::recode(ceq_regime,
+      "1978" = "1978 rules", "2020_trump" = "2020 (Trump)", "2022_phase1" = "2022 (Phase 1)",
+      "2024_phase2" = "2024 (Phase 2)", "2025_rescission" = "2025 (rescission)"),
+    Regime = factor(Regime, levels = c("1978 rules", "2020 (Trump)", "2022 (Phase 1)",
+                                       "2024 (Phase 2)", "2025 (rescission)")),
+    Process = factor(process_type, levels = c("CE", "EA", "EIS"))
+  ) |>
+  arrange(Process, Regime) |>
+  transmute(
+    Process, Regime,
+    N = fmt_n(n),
+    `Median (mo)` = sprintf("%.1f", median_months),
+    `In figures?` = ifelse(display, "yes", "suppressed (n<30)")
+  ) |>
+  navy_gt()
+```
+
+::: callout-warning
+## Reading these regime comparisons
+
+-   **Decided-under, not governed-by.** A multi-year EIS decided in 2022 was scoped and largely conducted under *earlier* rules; the decision-date assignment is a labeling convenience, not a claim about which regulations shaped the review.
+-   **The post-2024 samples are thin and confounded.** Only `r fmt_n(ceqv("CE","2024_phase2_plus","n"))` CE, `r fmt_n(ceqv("EA","2024_phase2_plus","n"))` EA, and `r fmt_n(ceqv("EIS","2024_phase2_plus","n"))` EIS reviews fall in the `2024+` bucket, and they are entangled with the same coverage ramp that limits the post-FRA split — recently-decided reviews are over-represented by whichever timelines happen to be complete.
+-   **The 2025 rescission window is folded into `2024+`.** Standalone, it carries too few reviews to analyze; @tbl-ceq-regime shows the suppressed counts.
+-   **For a before/after-rule read, use @fig-ceq-trend, not @fig-ceq-regime.** The pooled 1978 regime bar spans four decades of secular decline; the year-by-year trend is the only view that can separate a rule date from the underlying drift.
+-   **Associational, not causal.** Nothing here isolates a regulatory effect from composition, agency mix, or calendar time.
+:::
 
 ------------------------------------------------------------------------
 
@@ -688,16 +730,16 @@ ANTHROPIC_API_KEY=$(security find-generic-password -s nepa-anthropic -w) \
   --mode candidate_adjudication --process CE EA EIS --model claude-haiku-4-5-20251001 --workers 24
 
 # Analysis + figures
-Rscript phase2/code/deliverable04/08_analyze.R       # coverage, durations, FRA, energy
+Rscript phase2/code/deliverable04/08_create_figures.R       # coverage, durations, FRA, energy
 Rscript phase2/code/deliverable04/10_outliers.R      # timeline outliers (case-study candidates)
 
 # FRA document-length analysis (regulatory pages from the full page text, all EA/EIS)
 conda run -n nepa python phase2/code/deliverable04/fra/01_extract_pages.py --run
-Rscript phase2/code/deliverable04/fra/02_pages_fra.R # document length / FRA page limits
+Rscript phase2/code/deliverable04/fra/02_create_figures_pages.R # document length / FRA page limits
 
 # BLM field-office experience / learning-curve extension
 conda run -n nepa python phase2/code/deliverable04/field_office/01_parse_offices.py --run
-Rscript phase2/code/deliverable04/field_office/02_learning_curve.R
+Rscript phase2/code/deliverable04/field_office/02_create_figures.R
 ```
 
 Outputs are written to `phase2/output/deliverable04/` (`figures/`, `diagnostics/`).
