@@ -177,6 +177,10 @@ FIG_H <- 7
 
 save_fig <- function(name, width = FIG_W, height = FIG_H) {
   ggsave(file.path(OUTPUT_DIR, name), width = width, height = height, dpi = 300)
+  # Also persist the ggplot object as an .rds sidecar (same basename) so downstream
+  # scripts (e.g. factsheet_figures.R) can readRDS + retitle without rebuilding.
+  saveRDS(ggplot2::last_plot(),
+          file.path(OUTPUT_DIR, sub("\\.png$", ".rds", name)))
   invisible(NULL)
 }
 
@@ -1255,6 +1259,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
 
       ggsave(file.path(OUTPUT_DIR, "fig13_wordcloud_grid.png"),
              wc_grid, width = 12, height = 6, dpi = 300)
+      saveRDS(wc_grid, file.path(OUTPUT_DIR, "fig13_wordcloud_grid.rds"))
     }
   }, error = function(e) {
     message(sprintf("fig13 skipped: %s", conditionMessage(e)))
@@ -1757,6 +1762,7 @@ if (!VRM_ELEMENTS_AVAILABLE) {
 
       ggsave(file.path(OUTPUT_DIR, "fig21_vrm_elements.png"),
              p21, width = 12, height = 7, dpi = 300)
+      saveRDS(p21, file.path(OUTPUT_DIR, "fig21_vrm_elements.rds"))
       message("fig21: VRM element-level ratings chart written.")
     }
   }, error = function(e) {

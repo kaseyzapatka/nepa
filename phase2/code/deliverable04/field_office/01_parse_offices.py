@@ -4,7 +4,7 @@
 BLM NEPA case numbers follow ``DOI-BLM-<2-letter-state>-<office-code>-<year>-<seq>``
 (e.g. ``DOI-BLM-CA-C060-2018-0018-EA``). The office code (``CA-C060``) identifies the
 BLM field/district office that processed the review. This script maps every BLM-led
-project to its field office so the learning-curve analysis (02_learning_curve.R) can
+project to its field office so the learning-curve analysis (02_create_figures.R) can
 order an office's reviews by accumulated experience.
 
 Approach (all in DuckDB; never ``pd.read_parquet`` on pages files):

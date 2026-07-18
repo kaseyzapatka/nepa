@@ -19,7 +19,7 @@ computes timeline durations and coverage.
 | 05c | `05c_inject_ground_truth.py --scope all` | overwrite with human-verified dates | project_dates (gt-injected) |
 | 06  | `06_adjudicate_llm.py` | LLM adjudication of ambiguous picks (Claude Haiku); replays cached adjudications deterministically | project_dates |
 | 07  | `07_validate.py` | compare selected dates to the gold sample | validation reports |
-| 08  | `08_analyze.R` | coverage tables, durations, figures | `diagnostics/` + `figures/` |
+| 08  | `08_create_figures.R` | coverage tables, durations, figures | `diagnostics/` + `figures/` |
 
 **Canonical run sequence:** `02 → 03 → 04 → 04b --apply → 05b --apply → 05 → 05c → 07 → 08`.
 
@@ -44,6 +44,22 @@ imported normally — follow that pattern for any new sibling stage.
 ## Sub-tracks
 
 - `labeling/` — gold-label building sub-pipeline (feeds the classifier retrain); its own `01–05`
+
+## Post-pipeline analyses (require the spine to have been run first)
+
+Everything below reads the spine's outputs — `timeline_document_index.parquet` (from `01`) and
+`timeline_project_dates.parquet` (from `05`/`05c`/`06`) — so **the pipeline spine must be complete
+through at least `05c` before any of these will run.** None of them modify spine outputs; each
+follows the Python-builds-data / R-draws-figures split.
+
+- `09_sample_check.R` — stratified eyeball sample of selected dates (manual QA; not used by the report)
+- `10_outliers.R` — duration-outlier deliverable (feeds the report's case-study section)
+- `fra/` — FRA page-length analysis: `01_extract_pages.py` (also needs processed EA/EIS
+  `pages.parquet`) → `02–04_create_figures_*.R`
+- `field_office/` — BLM field-office learning curve: `01_parse_offices.py` → `02_create_figures.R`
+- `ceq_regime/` — CEQ regulatory-regime durations: `01_build_tables.py` →
+  `02_create_figures.R`; additionally requires `08_create_figures.R` to have run (reads its
+  `d4_duration_summary.csv` consistency anchor and `d4_duration_by_year.csv`)
 
 ## Conventions
 

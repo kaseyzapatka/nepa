@@ -10,7 +10,7 @@ FONSI (02) and EIS (04) — and validates both tracks against hand-labeled gold 
 `phase2/data/analysis/deliverable02/` (including `gold/`) is documented below. Row counts are
 as of the current committed run (schema_version `d2_v2_11`, prompt_version `d2_v3`,
 adjudication model `claude-sonnet-5`). Derived analysis tables (the CSVs the report reads) live
-in `phase2/output/deliverable02/analysis/`, built by `06_analyze_significance.R`.
+in `phase2/output/deliverable02/analysis/`, built by `06_create_figures.R`.
 
 Conventions used throughout:
 
@@ -500,7 +500,7 @@ determination rows themselves carry per-row provenance (`input_hash`, `response_
 ## Derived tables
 
 The report and figures read CSV tables derived from these parquets by
-`06_analyze_significance.R`; they live in `phase2/output/deliverable02/analysis/` and are
+`06_create_figures.R`; they live in `phase2/output/deliverable02/analysis/` and are
 regenerable from the parquets documented here. Review/adjudication worksheets
 (`corpus_membership_review.csv`, `significance_gold_queue*.csv`, `gold_disagreements*.csv`,
 `validation_disagreements*.csv`) live in `phase2/output/deliverable02/`.

@@ -23,7 +23,7 @@ technologies, where a CE already exists to *adopt*, where a bound needs to *expa
 > 3. **Streamline.** Add one hero grid and keep the current figures (revisit redundancy after seeing
 >    the grid — no cuts committed up front; see §2).
 > 4. **Label: `new` in code, "develop" in display.** The verdict engine already emits the string
->    **`new`**; keep it as the internal parquet value (so `07` / `08_analyze.R` / `deliverable06.qmd` /
+>    **`new`**; keep it as the internal parquet value (so `07` / `08_create_figures.R` / `deliverable06.qmd` /
 >    `qa_deliverable06.py` are not churned across dozens of `verdict == "new"` references) and render
 >    it as **"develop"** only in figure legends and report prose. Every client-facing surface reads
 >    *develop*; the data stays `new`. This mapping is defined once here and applied in §4.4.
@@ -75,7 +75,7 @@ current figure is **kept and adapted** to the grid's cells; the grid is *added*,
 | 10 | `fig-d6-adoption-gap` | evidence weight per adopt opp. | **Keep, generalize** | bounded FONSIs run as full EAs **per opportunity cell**, across all three verdicts (the "prize" behind each) |
 | 11 | `fig-d6-states` | geographic reach | **Keep, adapt** | states for the top opportunity cells (reach) |
 | 12 | `fig-d6-timeline` | FRA timing | **Keep** (context) | same, over the CE-shaped set |
-| 13 | `fig-d6-ce-split` | Transmission CE #17/#19 split (hardcoded to `transmission_upgrade`, `08_analyze.R:291-315`) | **Keep as a Transmission deep-dive** | re-key from `candidate_category=="transmission_upgrade"` to the **`Transmission__upgrade` cell**; it stays a technology-specific tab, not generalized to all cells |
+| 13 | `fig-d6-ce-split` | Transmission CE #17/#19 split (hardcoded to `transmission_upgrade`, `08_create_figures.R:291-315`) | **Keep as a Transmission deep-dive** | re-key from `candidate_category=="transmission_upgrade"` to the **`Transmission__upgrade` cell**; it stays a technology-specific tab, not generalized to all cells |
 | 14 | `tbl-d6-transmission-example` | worked example (adopt) | **Keep + add one** | keep the transmission *adopt* example; **add a develop example** (e.g. biomass or storage) so both verdicts are shown concretely |
 
 **Net: keep every current figure, adapted to tech × action, and ADD the hero grid** (+ a second,
@@ -98,7 +98,7 @@ with real data** — no cuts committed up front.
   status* at a glance — the coverage map. It does **not** resolve the *specific* sub-action CE
   (digester-gas vs co-firing); those come from the worked examples (table 14). State this in the
   report so the "one look" claim isn't overread.
-- Built in `08_analyze.R` as a `geom_tile` heatmap (≤10 rows × ≤11 cols).
+- Built in `08_create_figures.R` as a `geom_tile` heatmap (≤10 rows × ≤11 cols).
 - Overlaps figures #1, #2, #5, #10, #13 (kept for now, per client direction); revisit redundancy once
   it renders with real data.
 
@@ -178,12 +178,12 @@ Localized, but with real **ordering, label, and QA seams** to get right (round-1
    `is_codifiable==True`** — `is_codifiable==False` cells stay in `candidate_verdicts` for the grid
    coloring but are excluded from the ranked output and worked examples. The new/expand/adopt logic is
    otherwise unchanged; the emitted string stays **`new`**, shown as *develop* only in display
-   (guardrail 4). **Display recode (R side):** in `08_analyze.R`,
+   (guardrail 4). **Display recode (R side):** in `08_create_figures.R`,
    add `verdict_display = recode(verdict, new = "develop")` and use `verdict_display` in every legend,
    label, and prose reference, so no figure ships the raw string `new`.
-5. **Bounds/mitigation + R figures — `05`, `09` summary, `08_analyze.R`.** `05` and the `09` mitigation
+5. **Bounds/mitigation + R figures — `05`, `09` summary, `08_create_figures.R`.** `05` and the `09` mitigation
    summary already `groupby("candidate_category")` → they follow once the key is the cell id. But
-   `08_analyze.R` also has **transmission-hardcoded** figures (`fig_d6_states`, `fig_d6_ce_split`,
+   `08_create_figures.R` also has **transmission-hardcoded** figures (`fig_d6_states`, `fig_d6_ce_split`,
    ~08:265-315) that must be re-keyed to the `Transmission__upgrade` cell (§2 rows 11, 13).
 6. **QA — `qa_deliverable06.py` (update FIRST, before any test run).** It hardcodes the five: `CANDS`
    (5), `EXPECT` (5 CE-shaped counts), and `assert n_shaped == 63` (qa:39-55) — all fail the instant

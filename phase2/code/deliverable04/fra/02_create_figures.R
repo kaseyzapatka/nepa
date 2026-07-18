@@ -10,7 +10,7 @@
 # pages (40 C.F.R. § 1508.1(bb)) — the measure comparable to the FRA limits (EA 75; EIS 150/300).
 # FRA date = enactment (2023-06-03), matching Phase 1 D5.
 #
-# Usage: Rscript phase2/code/deliverable04/fra/02_pages_fra.R
+# Usage: Rscript phase2/code/deliverable04/fra/02_create_figures.R
 
 suppressPackageStartupMessages({
   library(here); library(arrow); library(dplyr); library(tidyr)
@@ -75,13 +75,16 @@ message(sprintf("FRA regulatory sample (all energy): %d | EA %d / EIS %d | Pre %
 # Fig 1: document length over time (3-month rolling mean, FRA line)
 # ---------------------------------------------------------------------------
 pt <- pages |> filter(decision_year >= 2010, decision_year <= 2025)
-monthly <- pt |> group_by(process_type, decision_month) |>
+# Rolling mean computed separately Pre-/Post-FRA (Phase 1 D5 Fig 2b convention) so the
+# window never smooths across the enactment breakpoint; the line breaks at the FRA date.
+monthly <- pt |> group_by(process_type, fra_period, decision_month) |>
   summarise(mean_pages = mean(regulatory_pages), .groups = "drop") |>
-  arrange(process_type, decision_month) |> group_by(process_type) |>
+  arrange(process_type, fra_period, decision_month) |> group_by(process_type, fra_period) |>
   mutate(roll3 = zoo::rollmean(mean_pages, 3, fill = NA, align = "right")) |> ungroup()
 p_time <- ggplot() +
   geom_point(data = pt, aes(decision_date, regulatory_pages, color = fra_period), alpha = 0.28, size = 1) +
-  geom_line(data = monthly, aes(decision_month, roll3), color = catf_navy, linewidth = 1.2, na.rm = TRUE) +
+  geom_line(data = monthly, aes(decision_month, roll3, group = fra_period),
+            color = catf_navy, linewidth = 1.2, na.rm = TRUE) +
   geom_vline(xintercept = FRA_DATE, linetype = "dashed", color = "red", linewidth = 0.8) +
   annotate("text", x = FRA_DATE + 45, y = Inf, vjust = 1.5, hjust = 0, size = 3, color = "red",
            fontface = "italic", label = "FRA enacted\n(June 3, 2023)") +
@@ -89,11 +92,12 @@ p_time <- ggplot() +
   scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
   scale_color_manual(values = c("Pre-FRA" = catf_light_blue, "Post-FRA" = catf_dark_blue)) +
   labs(title = "Document Length Over Time (All EA/EIS, all energy types)",
-       subtitle = "Points = projects; navy line = 3-month rolling mean of monthly mean regulatory pages",
+       subtitle = "Points = projects; navy line = 3-month rolling mean of monthly mean regulatory pages, computed separately pre- and post-FRA",
        x = "Decision Date", y = "Regulatory Pages (body word count / 500)", color = NULL,
        caption = "Decision-date inclusion. Regulatory pages exclude embedded appendices and low-content pages per 40 C.F.R. § 1508.1(bb).") +
   theme_catf()
 ggsave(file.path(FIG, "fig_d4_pages_over_time.png"), p_time, width = 12, height = 8, dpi = 300)
+saveRDS(p_time, file.path(FIG, "fig_d4_pages_over_time.rds"))
 
 # ---------------------------------------------------------------------------
 # Fig 2: pre/post FRA bar (by process)
@@ -114,6 +118,7 @@ p_bar <- ggplot(fra_sum, aes(fra_period, mean_pages, fill = fra_period)) +
        x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
   theme_catf() + theme(legend.position = "none")
 ggsave(file.path(FIG, "fig_d4_pages_pre_post_fra.png"), p_bar, width = 10, height = 6, dpi = 300)
+saveRDS(p_bar, file.path(FIG, "fig_d4_pages_pre_post_fra.rds"))
 
 # ---------------------------------------------------------------------------
 # Fig 3: pre/post FRA by ENERGY category
@@ -140,6 +145,7 @@ p_energy <- ggplot(energy_sum, aes(energy, mean_pages, fill = fra_period)) +
        x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
   theme_catf()
 ggsave(file.path(FIG, "fig_d4_pages_pre_post_fra_by_energy.png"), p_energy, width = 10, height = 9, dpi = 300)
+saveRDS(p_energy, file.path(FIG, "fig_d4_pages_pre_post_fra_by_energy.rds"))
 
 # ---------------------------------------------------------------------------
 # Fig 4: distribution (violin + box, y capped at p99)
@@ -164,6 +170,7 @@ p_dist <- ggplot(pages, aes(fra_period, regulatory_pages, fill = fra_period)) +
        y = "Regulatory Pages (body word count / 500)", fill = NULL) +
   theme_catf() + theme(legend.position = "none")
 ggsave(file.path(FIG, "fig_d4_pages_distribution.png"), p_dist, width = 10, height = 6, dpi = 300)
+saveRDS(p_dist, file.path(FIG, "fig_d4_pages_distribution.rds"))
 
 # Fig 4b: distribution BY ENERGY — one figure PER energy category (each EA|EIS), stacked in the
 # report. Split out (vs a single 2x3 facet_grid) so each panel is large enough to read. Common
@@ -191,6 +198,7 @@ for (eng in levels(pages$energy)) {
          x = NULL, y = "Regulatory Pages (body word count / 500)", fill = NULL) +
     theme_catf() + theme(legend.position = "none")
   ggsave(file.path(FIG, sprintf("fig_d4_pages_distribution_%s.png", tolower(eng))), p_dist_e, width = 10, height = 5, dpi = 300)
+  saveRDS(p_dist_e, file.path(FIG, sprintf("fig_d4_pages_distribution_%s.rds", tolower(eng))))
 }
 
 # ---------------------------------------------------------------------------
@@ -235,6 +243,7 @@ p_comp <- ggplot(comp_sum, aes(process_type, n, fill = compliance)) +
        x = NULL, y = "Number of Projects", fill = NULL) +
   theme_catf() + theme(legend.position = "bottom", plot.margin = margin(5, 45, 5, 5))
 ggsave(file.path(FIG, "fig_d4_pages_compliance.png"), p_comp, width = 10, height = 6, dpi = 300)
+saveRDS(p_comp, file.path(FIG, "fig_d4_pages_compliance.rds"))
 
 # ---------------------------------------------------------------------------
 # Fig 6: regulatory vs raw pages (how much appendices/sparse pages inflate raw counts)
@@ -255,6 +264,7 @@ p_rr <- ggplot(rr, aes(measure, mean_pages, fill = measure)) +
        x = NULL, y = "Mean Pages", fill = NULL) +
   theme_catf() + theme(legend.position = "none")
 ggsave(file.path(FIG, "fig_d4_pages_reg_vs_raw.png"), p_rr, width = 10, height = 6, dpi = 300)
+saveRDS(p_rr, file.path(FIG, "fig_d4_pages_reg_vs_raw.rds"))
 
 # ---------------------------------------------------------------------------
 # Tables
@@ -268,5 +278,5 @@ write_csv(summ_tbl, file.path(DIAG, "d4_pages_summary.csv"))
 write_csv(energy_sum, file.path(DIAG, "d4_pages_summary_by_energy.csv"))
 write_csv(comp_sum, file.path(DIAG, "d4_pages_compliance.csv"))
 
-message("02_pages_fra.R complete. Figures -> output/deliverable04/figures/ ; tables -> diagnostics/")
+message("02_create_figures_pages.R complete. Figures -> output/deliverable04/figures/ ; tables -> diagnostics/")
 print(summ_tbl)

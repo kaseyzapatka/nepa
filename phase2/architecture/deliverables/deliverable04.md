@@ -10,7 +10,7 @@
 
 ### Pipeline scripts — `phase2/code/deliverable04/`
 
-**Canonical run order:** `00_sample` → `00b_sections` → `01_index` → `02_retrieve` → `03_extract_candidates` → `04_classify_candidates` → `04b_calibrate` → `05b_rank` → `05_select_dates` → `05c_inject_ground_truth` → `07_validate` → `08_analyze.R`. `run_pipeline.py`'s automated `FULL`/`SELECT` stage lists cover exactly this sequence (`02` through `07_validate`, then `08_analyze.R` run separately) — `06_adjudicate_llm.py` is **not** one of its stages; it is billable (Anthropic API) and is always run as a separate, explicitly-invoked step, positioned between `05c_inject_ground_truth` and `07_validate` in the data flow. `00_sample`/`00b_sections`/`01_index` also run outside `run_pipeline.py` (rarely re-run; see their own sections below). Post-analysis scripts run separately: `09_sample_check.R`, `10_outliers.R`, `fra/02_pages_fra.R`, `fra/03_solar_duration.R`.
+**Canonical run order:** `00_sample` → `00b_sections` → `01_index` → `02_retrieve` → `03_extract_candidates` → `04_classify_candidates` → `04b_calibrate` → `05b_rank` → `05_select_dates` → `05c_inject_ground_truth` → `07_validate` → `08_create_figures.R`. `run_pipeline.py`'s automated `FULL`/`SELECT` stage lists cover exactly this sequence (`02` through `07_validate`, then `08_create_figures.R` run separately) — `06_adjudicate_llm.py` is **not** one of its stages; it is billable (Anthropic API) and is always run as a separate, explicitly-invoked step, positioned between `05c_inject_ground_truth` and `07_validate` in the data flow. `00_sample`/`00b_sections`/`01_index` also run outside `run_pipeline.py` (rarely re-run; see their own sections below). Post-analysis scripts run separately and **depend on the spine having been run first** (they read `timeline_document_index.parquet` from `01` and `timeline_project_dates.parquet` from `05`/`05c`/`06`; none modify spine outputs): `09_sample_check.R`, `10_outliers.R`, the `fra/` sub-pipeline (`01_extract_pages.py` → `02–04_create_figures_*.R`), and the `field_office/` sub-pipeline (`01_parse_offices.py` → `02_create_figures.R`).
 
 `run_pipeline.py` is the single canonical orchestrator for a full corpus run. The sharded runner `_run.py` is retired (in git history). `run_pipeline.py --select` runs the selection-only sub-pipeline (`05b_rank` → `05_select_dates` → `05c_inject_ground_truth`), completing in minutes.
 
@@ -28,13 +28,16 @@
 | `05c_inject_ground_truth.py` | Terminal step that injects human-verified dates from `ranker.csv` directly into `timeline_project_dates.parquet` without re-running selection. `--scope all` (default) injects all verified rows; `--scope train` injects only training rows, leaving test rows as pipeline output for honest end-to-end evaluation. |
 | `06_adjudicate_llm.py` | **Full-scale LLM adjudication** using Claude Haiku (`claude-haiku-4-5-20251001`). Scope gate: projects missing ≥1 slot where the missing slot has a candidate (11,207 projects on the 2026-06-17 full run: CE 8,625 / EA 901 / EIS 1,681; +9 incremental calls on 2026-07-13, 11,216 cumulative). Two modes: candidate-packet adjudication and document-recovery. ThreadPoolExecutor concurrency (threads only around the API call; main thread handles all writes). Incremental checkpoint every 50. Pre-run safety backup to `timeline_project_dates.pre_adj_<UTC>.parquet`. Credit-safety: fail-fast on ≥3 consecutive billing errors; 429 rate-limit errors classified as transient (never billing). API key via macOS Keychain. Not part of `run_pipeline.py`'s automated stages (billable — run separately). |
 | `07_validate.py` | Prepare annotatable review packets from the 100-project sample or run granularity-aware validation against filled gold labels. |
-| `run_pipeline.py` | **Single canonical orchestrator** for a full corpus run (`02` → `08_analyze.R`). `--select` flag runs selection-only sub-pipeline in minutes. Replaces the retired sharded `_run.py`. |
-| `08_analyze.R` | Produce headline duration tables, FRA-breakpoint comparisons, coverage diagnostics, proxy-sensitivity summaries, and all figures. Negative-duration rows (`decision_date < initiation_date`) are reclassified to `invalid_order` **at source** (in `05_select_dates.py`/`05c_inject_ground_truth.py`, fixed 2026-07-13) — `08_analyze.R` no longer patches them; it only **asserts** the order invariant holds and `stop()`s loudly if it doesn't. |
+| `run_pipeline.py` | **Single canonical orchestrator** for a full corpus run (`02` → `08_create_figures.R`). `--select` flag runs selection-only sub-pipeline in minutes. Replaces the retired sharded `_run.py`. |
+| `08_create_figures.R` | Produce headline duration tables, FRA-breakpoint comparisons, coverage diagnostics, proxy-sensitivity summaries, and all figures. Negative-duration rows (`decision_date < initiation_date`) are reclassified to `invalid_order` **at source** (in `05_select_dates.py`/`05c_inject_ground_truth.py`, fixed 2026-07-13) — `08_create_figures.R` no longer patches them; it only **asserts** the order invariant holds and `stop()`s loudly if it doesn't. |
 | `09_sample_check.R` | Diagnostic spot-check: samples up to 5 projects per (process × coverage state) and writes `sample_check_candidates.csv` / `sample_check_projects.csv` with full candidate details and selected dates for eyeballing. |
 | `10_outliers.R` | **Timeline duration-outlier deliverable.** Surfaces all projects with `duration_days > 5,000` or negative durations. Heuristic `suspect_error` triage flag (pre-1985 initiation, year-granularity initiation, early LLM-picked initiation). Writes `d4_duration_outliers.csv` (all processes, full provenance) and `d4_duration_outliers_client.csv` (EA/EIS only, likely-real, client-facing columns). |
 | `fra/01_extract_pages.py` | Compute FRA regulatory page counts (40 C.F.R. § 1508.1(bb): body word count / 500, excluding embedded appendices + low-content pages) for ALL EA/EIS projects regardless of energy type. Streams pages via DuckDB; never loads pages into Python. Covers 5,032 projects (2,765 EA / 2,267 EIS). Output: `phase2/data/analysis/deliverable04/projects_page_counts.parquet`. |
-| `fra/02_pages_fra.R` | FRA pre/post analysis on the 3,678 projects with a decision date. Produces document-length over time, pre/post-FRA bars, by-energy segmentation, distribution, page-limit compliance, and raw-vs-regulatory comparison. FRA date: 2023-06-03 (enactment). |
-| `fra/03_solar_duration.R` | Solar duration analysis (Phase 2 re-creation of the Phase 1 solar timeline figures, added 2026-07-15). Restricts the 08-identical headline duration frame to `Renewable Energy Production - Solar`-tagged projects (solar tag + decarb scope from Phase 2 `projects_combined.parquet`) and plots intervals with all-decarbonization reference medians (EA/EIS). Deliberately does NOT use the parquet's stale `duration_days` column. Outputs: `fig_d4_solar_duration.png`, `d4_solar_duration.csv` (solar n: CE 812 / EA 60 / EIS 70; medians ~0.7 / ~12 / ~21 months vs decarb ~0.7 / ~10 / ~33). |
+| `fra/02_create_figures.R` | FRA pre/post analysis on the 3,678 projects with a decision date. Produces document-length over time, pre/post-FRA bars, by-energy segmentation, distribution, page-limit compliance, and raw-vs-regulatory comparison. FRA date: 2023-06-03 (enactment). |
+| `08_create_figures_solar.R` | Solar duration analysis (Phase 2 re-creation of the Phase 1 solar timeline figures, added 2026-07-15). Restricts the 08-identical headline duration frame to `Renewable Energy Production - Solar`-tagged projects (solar tag + decarb scope from Phase 2 `projects_combined.parquet`) and plots intervals with all-decarbonization reference medians (EA/EIS). Deliberately does NOT use the parquet's stale `duration_days` column. Outputs: `fig_d4_solar_duration.png`, `d4_solar_duration.csv` (solar n: CE 812 / EA 60 / EIS 70; medians ~0.7 / ~12 / ~21 months vs decarb ~0.7 / ~10 / ~33). |
+| `08_create_figures_technology.R` | Duration-by-technology analysis: two interval figures (decarbonization and fossil technologies on separate horizontal scales) using the cleaned `tech_group`/`energy_group` tags from `deliverable03/projects_nepa_reviews.parquet` — the same variable that defines the Decarb-vs-Fossil split. |
+| `field_office/01_parse_offices.py` | Map every BLM-led project to its field office by parsing the structured `DOI-BLM-<state>-<office>-<year>-<seq>` case number (validated regex, file-name fallback; ~62% coverage). Output: `phase2/data/analysis/deliverable04/blm_field_offices.parquet`. |
+| `field_office/02_create_figures.R` | BLM field-office learning-curve analysis: orders each office's reviews by cumulative count and fits `log(duration) ~ log(cum_count) + factor(decision_year) + energy_type` with office fixed effects (EA/CE separately, document-anchored primary). Finding: the apparent speed-up is a calendar-time confound, not experience. Writes the learning-curve figures + `d4_fieldoffice_*.csv` diagnostics. |
 | `_test_adjudication.py` | (helper) Haiku-vs-Sonnet A/B test harness for adjudication quality comparison. |
 | `_check_rate_limits.py` | (helper) Tier diagnostic — reports current API account tier, rate limits, and estimated throughput for a given worker count. |
 
@@ -114,7 +117,7 @@ flowchart TD
     V --> W[timeline_api_adjudications.parquet]
     V --> R
 
-    R --> X[08_analyze.R]
+    R --> X[08_create_figures.R]
     X --> Y[d4_duration_summary.csv\nd4_coverage_by_process.csv\nd4_duration_by_period.csv\n+ 10 more CSVs + 20 figures]
 
     R --> OL[10_outliers.R]
@@ -122,7 +125,7 @@ flowchart TD
 
     FPAGES[pages.parquet EA/EIS\nPhase 2 processed] --> FRA1[fra/01_extract_pages.py]
     FRA1 --> FRA2[projects_page_counts.parquet\n5032 projects]
-    FRA2 --> FRA3[fra/02_pages_fra.R]
+    FRA2 --> FRA3[fra/02_create_figures.R]
     R --> FRA3
     FRA3 --> FRA4[fra figures + compliance CSVs]
 ```
@@ -363,7 +366,7 @@ Uses Claude Haiku (`claude-haiku-4-5-20251001`, Anthropic API) in two modes.
 
 ### run_pipeline.py — Canonical Orchestrator
 
-Single file that defines the production run order and runs it. `FULL` stages: `02_retrieve.py --force` → `03_extract_candidates.py --force` → `04_classify_candidates.py --force` → `04b_calibrate.py --apply` → `05b_rank.py --apply` → `05_select_dates.py` → `05c_inject_ground_truth.py --scope all` → `07_validate.py --validate` → `08_analyze.R`. `SELECT` stages (for `--select` flag): `05b_rank.py --apply` → `05_select_dates.py` → `05c_inject_ground_truth.py --scope all`. The sharded `_run.py` is retired (preserved in git history).
+Single file that defines the production run order and runs it. `FULL` stages: `02_retrieve.py --force` → `03_extract_candidates.py --force` → `04_classify_candidates.py --force` → `04b_calibrate.py --apply` → `05b_rank.py --apply` → `05_select_dates.py` → `05c_inject_ground_truth.py --scope all` → `07_validate.py --validate` → `08_create_figures.R`. `SELECT` stages (for `--select` flag): `05b_rank.py --apply` → `05_select_dates.py` → `05c_inject_ground_truth.py --scope all`. The sharded `_run.py` is retired (preserved in git history).
 
 ### Gold Set Workflow — `labeling/`
 
@@ -375,15 +378,15 @@ Scripts in `phase2/code/deliverable04/labeling/` form a complete gold-label anno
 - **03_import_gold_labels.py** — validates reviewed CSVs, writes normalized Parquet tables under `timeline/gold/`, computes inter-rater reliability, and produces `reconciliation_queue.csv`
 - **04_codex_prelabel_gold_packets.py** — ⚠️ Mechanical regex echo, NOT an LLM pass. Baseline/scaffold only; never train on its output.
 
-### 08_analyze.R — Duration Analysis
+### 08_create_figures.R — Duration Analysis
 
 Reads from `timeline_project_dates.parquet` and joins energy type from Phase 1 `projects_combined.parquet` and burden from `timeline_document_index.parquet`. Headline analysis uses only `timeline_status == "complete_clear"` with non-null `duration_days`. Sensitivity analysis uses `complete_with_proxy`.
 
-**Negative-duration handling (fixed at source 2026-07-13):** Rows where `timeline_status` is `complete_clear`/`complete_with_proxy` with `decision_date < initiation_date` are reclassified to `invalid_order` **at source** — by `normalize_invalid_order()` in `05_select_dates.py` (after midpoint imputation) and `_normalize_invalid_order()` in `05c_inject_ground_truth.py` (after ground-truth injection). The old runtime stopgap in `08_analyze.R` was removed; 08 now **asserts** the invariant (`stop()` if any complete row still violates ordering) so a regression fails loudly instead of being silently patched. Affects ~235 rows (mostly month-imputation artifacts: a month-granular initiation imputed to the 15th that lands a few days after a same-month day-level decision).
+**Negative-duration handling (fixed at source 2026-07-13):** Rows where `timeline_status` is `complete_clear`/`complete_with_proxy` with `decision_date < initiation_date` are reclassified to `invalid_order` **at source** — by `normalize_invalid_order()` in `05_select_dates.py` (after midpoint imputation) and `_normalize_invalid_order()` in `05c_inject_ground_truth.py` (after ground-truth injection). The old runtime stopgap in `08_create_figures.R` was removed; 08 now **asserts** the invariant (`stop()` if any complete row still violates ordering) so a regression fails loudly instead of being silently patched. Affects ~235 rows (mostly month-imputation artifacts: a month-granular initiation imputed to the 15th that lands a few days after a same-month day-level decision).
 
 **Duration caps / outlier handling — headline medians are un-capped.** The headline duration medians apply NO upper cap, only the `duration_days >= 0` filter. Two things are sometimes mistaken for caps but do NOT affect the medians: (1) the `duration_days < 365*15` (15-year) filter on specific duration-histogram figures is **display-only** (x-axis range), not applied to the summary statistics; (2) `10_outliers.R` **surfaces** projects with `duration_days > 5,000` for review but does not drop them from any aggregate. Verified impact: dropping durations > 3,650 days leaves the CE and EA medians unchanged and moves the EIS median by only ~80 days — so outliers do not affect the main (median-based) findings.
 
-Required regulatory breakpoints: FRA effective date `2023-08-16`, ARRA `2009-02-17`, BIL `2021-11-15`, IRA `2022-08-16`.
+Required regulatory breakpoints: FRA enactment date `2023-06-03` (changed from the CEQ-rule effective date 2023-08-16 on 2026-06-17 for consistency with Phase 1 D5 and the `fra/` pages analysis), ARRA `2009-02-17`, BIL `2021-11-15`, IRA `2022-08-16`.
 
 Output CSVs (under `phase2/output/deliverable04/diagnostics/`): `d4_duration_summary.csv`, `d4_duration_by_period.csv`, `d4_endpoint_coverage.csv`, `d4_coverage_by_process.csv`, `d4_coverage_diagnostics.csv`, `d4_proxy_sensitivity.csv`, `d4_duration_by_year.csv`, `d4_fra_comparison.csv`, `d4_flag_summary.csv`, `d4_register_source_candidates.csv`, `d4_register_source_projects.csv`.
 
@@ -416,7 +419,7 @@ Efficiency: the heavy work is a single multithreaded DuckDB query that streams t
 
 Output: `phase2/data/analysis/deliverable04/projects_page_counts.parquet`. 5,032 rows: EA 2,765 / EIS 2,267. Current run: 2026-06-17. Includes `pages_extraction_run_at` audit timestamp.
 
-### fra/02_pages_fra.R — FRA Pre/Post Analysis
+### fra/02_create_figures.R — FRA Pre/Post Analysis
 
 Joins `projects_page_counts.parquet` with `timeline_project_dates.parquet` (decision date) and energy type from `timeline_document_index.parquet`. Restricts to projects with a non-null decision date (3,678 projects for the current run). FRA date: 2023-06-03 (enactment, matching Phase 1 D5). Energy categories: Decarb (mapped from "Clean"), Fossil, Other.
 
@@ -570,7 +573,7 @@ Most recent full corpus run: 2026-07-14 (`run_pipeline.py --select`: `timeline_r
 
 ### Timeline Status by Process (parquet as-written, fixed at source, post-reconciliation)
 
-`decision_date < initiation_date` rows are now reclassified to `invalid_order` **inside** `05_select_dates.py`/`05c_inject_ground_truth.py` at write time (fixed 2026-07-13) — the numbers below are the parquet as-written, with no further R-side correction needed. (`08_analyze.R` only asserts the invariant holds; see Module Architecture.) The 694 reconciliation stubs (2026-07-15) land entirely in `missing_both` and do not change any other status count.
+`decision_date < initiation_date` rows are now reclassified to `invalid_order` **inside** `05_select_dates.py`/`05c_inject_ground_truth.py` at write time (fixed 2026-07-13) — the numbers below are the parquet as-written, with no further R-side correction needed. (`08_create_figures.R` only asserts the invariant holds; see Module Architecture.) The 694 reconciliation stubs (2026-07-15) land entirely in `missing_both` and do not change any other status count.
 
 | Process | complete_clear | complete_with_proxy | missing_initiation | missing_decision | missing_both | invalid_order | manual_review | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -578,7 +581,7 @@ Most recent full corpus run: 2026-07-14 (`run_pipeline.py --select`: `timeline_r
 | EA | 1,587 | 149 | 661 | 259 | 369 | 58 | — | 3,083 |
 | EIS | 423 | 901 | 265 | 1,093 | 1,294 | 154 | — | 4,130 |
 
-Verified: zero rows with `timeline_status in ('complete_clear','complete_with_proxy')` and `decision_date < initiation_date` remain in the parquet (the invariant `08_analyze.R` now asserts).
+Verified: zero rows with `timeline_status in ('complete_clear','complete_with_proxy')` and `decision_date < initiation_date` remain in the parquet (the invariant `08_create_figures.R` now asserts).
 
 ### Complete-Timeline Coverage
 
@@ -590,7 +593,7 @@ Two different "complete" definitions are both in use downstream — report narra
 | EA | 1,736 | 56.3% | 1,794 | 58.2% |
 | EIS | 1,324 | 32.1% | 1,478 | 35.8% |
 
-The right-hand ("headline") columns additionally count `invalid_order` and `manual_review` rows, since both dates are present there too (just out of order, or pending human review) — this is the `timeline_complete = !is.na(initiation_date) & !is.na(decision_date)` definition computed in `08_analyze.R`'s Fig 5 and persisted to `d4_complete_share.csv` so the report narrative and the figure cite the same numbers. **Note:** the `d4_*` diagnostics were regenerated from the reconciled parquet on 2026-07-15 (denominators 54,668/3,083/4,130). The diagnostics CSVs are untracked, so a checkout whose copies predate 2026-07-15 still carries the old 61,187-universe denominators — rerun `08_analyze.R` (or copy the regenerated CSVs) there before re-rendering the report, or its inline coverage numbers will revert.
+The right-hand ("headline") columns additionally count `invalid_order` and `manual_review` rows, since both dates are present there too (just out of order, or pending human review) — this is the `timeline_complete = !is.na(initiation_date) & !is.na(decision_date)` definition computed in `08_create_figures.R`'s Fig 5 and persisted to `d4_complete_share.csv` so the report narrative and the figure cite the same numbers. **Note:** the `d4_*` diagnostics were regenerated from the reconciled parquet on 2026-07-15 (denominators 54,668/3,083/4,130). The diagnostics CSVs are untracked, so a checkout whose copies predate 2026-07-15 still carries the old 61,187-universe denominators — rerun `08_create_figures.R` (or copy the regenerated CSVs) there before re-rendering the report, or its inline coverage numbers will revert.
 
 ### Decision Date Coverage
 
@@ -789,7 +792,7 @@ The `final_eis` head is markedly weaker (fewer positives: 148 of 5,361 labeled r
 
 - **Underlying EIS ROD coverage is sparse and inconsistently labeled.** A 2026-06-08 audit of the 4,130 EIS projects in `projects_combined.parquet` found only 582 projects (14.1%) with "ROD" or "Record of Decision" in `document_title` or `file_name`, 574 (13.9%) with `document_type_clean = "ROD"`, and 608 (14.7%) meeting either definition. Thus 3,522 EIS projects have no ROD signal in the available document names or standardized type, and some combined FEIS/ROD documents are classified only as FEIS or OTHER. Separately, 872 projects (21.1%) lack all three primary EIS record types (FEIS, DEIS, and ROD), broadly consistent with the NEPATEC 2.0 documentation's "about 25%" limitation. Missing ROD dates therefore reflect corpus retrieval/grouping and document-type classification as well as D4 extraction performance; absence of a local ROD record must not be interpreted as evidence that the underlying project had no ROD.
 
-- **Negative-duration handling is fixed at source (2026-07-13), not patched at analysis time.** Rows where `decision_date < initiation_date` (mostly month-imputation artifacts: a month-granular initiation imputed to the 15th landing a few days after a same-month day-level decision) are reclassified to `invalid_order` by `normalize_invalid_order()` in `05_select_dates.py` and `_normalize_invalid_order()` in `05c_inject_ground_truth.py`, so `timeline_project_dates.parquet` is written already-correct. The former `08_analyze.R` runtime stopgap was removed; `08_analyze.R` now only asserts the invariant and `stop()`s if it is ever violated again. The 2026-07-14 run confirms zero remaining violations. Historical note: the pre-fix parquet (through 2026-06-17) had ~233 `complete_*` rows (CE 223 / EA 1 / EIS 9) violating this ordering, silently patched by the old R-side filter.
+- **Negative-duration handling is fixed at source (2026-07-13), not patched at analysis time.** Rows where `decision_date < initiation_date` (mostly month-imputation artifacts: a month-granular initiation imputed to the 15th landing a few days after a same-month day-level decision) are reclassified to `invalid_order` by `normalize_invalid_order()` in `05_select_dates.py` and `_normalize_invalid_order()` in `05c_inject_ground_truth.py`, so `timeline_project_dates.parquet` is written already-correct. The former `08_create_figures.R` runtime stopgap was removed; `08_create_figures.R` now only asserts the invariant and `stop()`s if it is ever violated again. The 2026-07-14 run confirms zero remaining violations. Historical note: the pre-fix parquet (through 2026-06-17) had ~233 `complete_*` rows (CE 223 / EA 1 / EIS 9) violating this ordering, silently patched by the old R-side filter.
 
 - **EIS decision coverage gap (42.2% raw, well below Phase 1 75.2%).** Root cause: three compounding factors. First, many EIS projects have all documents scored as `scan_priority = "defer"` because no document title or type matches the decision or initiation score dictionaries. Second, `EIS_DETERMINISTIC_DOC_ROD = False` in the current production run — document-text ROD tiers are disabled because the 2026-06-08 precision audit found them unreliable (high false-positive rate from ROD-doc pages that are EO citations / chapter covers). Third, the FEIS-fallback path (`EIS_TIERED_DECISION = True`) partially compensates but only for the ~908 `complete_with_proxy` EIS projects. Enabling document-text ROD tiers (after classifier/ranker validation) is the planned path to improve coverage.
 
@@ -827,7 +830,7 @@ The `final_eis` head is markedly weaker (fewer positives: 148 of 5,361 labeled r
 
 **Why BLM initiation coverage (13,854) is high but BLM decision coverage (1,392) is low.** BLM ePlanning reliably stores a project "Start Date" corresponding to the application or review initiation. Decision dates (FONSI, ROD) are populated less consistently — many BLM EA projects in ePlanning are in-progress or have decision dates in fields the scraper does not reach. This asymmetry is expected and reflects BLM ePlanning data quality, not a pipeline bug.
 
-**FRA breakpoint (2023-08-16).** Duration analysis must report pre/post breakpoints at this CEQ final rule effective date. `08_analyze.R` implements `FRA_CUT_DATE <- as.Date("2023-08-16")` as the primary regulatory breakpoint. Do not use the proposed-rule date or any other proxy date for the FRA cutoff.
+**FRA breakpoint (2023-08-16).** Duration analysis must report pre/post breakpoints at this CEQ final rule effective date. `08_create_figures.R` implements `FRA_CUT_DATE <- as.Date("2023-08-16")` as the primary regulatory breakpoint. Do not use the proposed-rule date or any other proxy date for the FRA cutoff.
 
 **Why run_pipeline.py replaces _run.py.** The sharded orchestrator (`_run.py`) was designed for incremental corpus processing when memory and wall-clock time were constraints. After the pipeline was stabilized and the full corpus fit in a single pass, the sharding complexity introduced ordering bugs (stale `ranking_score` when `05b_rank` was added after the sharding design). `run_pipeline.py` is a flat sequential runner — one command, baked-in order, no state files — which eliminates the shard-resume complexity and makes the run order unambiguous for reproducibility.
 
@@ -890,7 +893,7 @@ CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/06_adjudicate_llm.py --m
 conda run -n nepa python phase2/code/deliverable04/fra/01_extract_pages.py --run
 
 # FRA analysis (reads page counts + decision dates)
-Rscript phase2/code/deliverable04/fra/02_pages_fra.R
+Rscript phase2/code/deliverable04/fra/02_create_figures.R
 
 # Post-analysis diagnostics
 Rscript phase2/code/deliverable04/09_sample_check.R

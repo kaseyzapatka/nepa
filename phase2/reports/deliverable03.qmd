@@ -123,7 +123,7 @@ chi_p_label <- if (chi_res$p.value < 0.001) "< 0.001" else sprintf("%.3f", chi_r
 # Multi-tag technology attribution: count a project under EVERY technology it is
 # tagged with (Phase-1 Deliverable 1 parity), rather than the first-match-wins
 # scalar tech_group from 02_build_nepa_reviews.py. Taxonomy mirrors the CASE in
-# that build script and the explode_tech_tags() helper in 04_analyze_nepa_reviews.R.
+# that build script and the explode_tech_tags() helper in 04_create_figures.R.
 # This is the data twin of fig2; a multi-tagged project appears in multiple groups.
 tech_tag_patterns <- tibble::tribble(
   ~tech_label,            ~pattern,                    ~group,
@@ -367,7 +367,7 @@ analysis_universe_table <- tibble::tibble(
 pipeline_table <- tibble::tibble(
   Script = c(
     "phase2/code/deliverable03/02_build_nepa_reviews.py",
-    "phase2/code/deliverable03/04_analyze_nepa_reviews.R"
+    "phase2/code/deliverable03/04_create_figures.R"
   ),
   Role = c(
     "Builds project-level review data, normalized CE citations, visual-impact extraction outputs, and the all-agency geothermal/oil-and-gas subset",
@@ -894,7 +894,7 @@ if (file.exists(tbl_ex_path)) {
       table.width       = pct(100)
     )
 } else {
-  cat("*[framing_examples.csv not yet generated -- re-run 04_analyze_nepa_reviews.R]*\n")
+  cat("*[framing_examples.csv not yet generated -- re-run 04_create_figures.R]*\n")
 }
 ```
 
@@ -1081,7 +1081,7 @@ Run from the repository root in the `nepa` conda environment:
 
 ``` bash
 conda run -n nepa python phase2/code/deliverable03/02_build_nepa_reviews.py
-Rscript phase2/code/deliverable03/04_analyze_nepa_reviews.R
+Rscript phase2/code/deliverable03/04_create_figures.R
 ```
 
 Outputs are written to:

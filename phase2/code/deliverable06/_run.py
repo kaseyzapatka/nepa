@@ -43,7 +43,7 @@ PY_STEPS = (
     "07_classify_and_rank.py",
 )
 ENRICHMENT = Path(__file__).resolve().parent.parent.parent / "data" / "analysis" / "deliverable06" / "fonsi_enrichment.parquet"
-R_STEP = "08_analyze.R"
+R_STEP = "08_create_figures.R"
 
 
 def run(*cmd: str) -> None:
@@ -84,7 +84,7 @@ def main() -> None:
             run(rscript, CODE_DIR / R_STEP)
         else:
             print("\n[_run] Rscript not found — skipping 08 figures "
-                  "(run `Rscript phase2/code/deliverable06/08_analyze.R` manually).")
+                  "(run `Rscript phase2/code/deliverable06/08_create_figures.R` manually).")
 
     print("\n[_run] D6 v2 pipeline complete (01-08). "
           "Render phase2/reports/deliverable06.qmd for the report.")

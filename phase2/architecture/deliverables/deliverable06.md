@@ -100,7 +100,7 @@ archived to `_archived_v1/` and are not orchestrated.
 | `05_mitigation_and_boundary.py` | B | **mitigated-FONSI + boundary** | Dual-signal mitigated-FONSI flag (D02 cues + enforceable conditions from `fonsi_conditions.parquet`). Extracts boundary/conditional language ("would be significant if…") directly from agency text. |
 | `06_ce_landscape.py` | C | **CE landscape** | Embeds `ce.json`, identifies cross-agency near-duplicate CEs (cosine ≥ 0.85), per-agency counts, numeric-bounds distribution, best-effort usage from D3 `ce_citations`. |
 | `07_classify_and_rank.py` | — | **verdict + rank** | Applies verdict logic (contrast→new→expand→adopt→already_covered); computes multi-factor `rank_score`; writes the slim top-level `d6_comparison_table.csv` plus the three drill-down opportunity lists and per-candidate evidence to `review/`. |
-| `08_analyze.R` | — | **figures** | Report figures with `theme_catf` / `ggsave` to `output/deliverable06/figures/`. Reads `candidate_verdicts`, `candidate_mitigation_summary`, `candidate_base_rates` parquets + `ce_landscape_summary.csv`. |
+| `08_create_figures.R` | — | **figures** | Report figures with `theme_catf` / `ggsave` to `output/deliverable06/figures/`. Reads `candidate_verdicts`, `candidate_mitigation_summary`, `candidate_base_rates` parquets + `ce_landscape_summary.csv`. |
 
 ### Standalone tools (NOT in `_run.py` chain)
 
@@ -369,9 +369,9 @@ Outputs: `candidate_verdicts.parquet` (machine-to-machine), `d6_comparison_table
 (slim, 8 columns), three drill-down lists (`d6_new/expand/adopt.csv`), and one
 `d6_candidate_evidence_<category>.csv` per candidate.
 
-### `08_analyze.R` — report figures
+### `08_create_figures.R` — report figures
 
-Standard house pattern (matches D4 `08_analyze.R`, D5 `03_analyze_spikes.R`).
+Standard house pattern (matches D4 `08_create_figures.R`, D5 `03_create_figures.R`).
 Reads `candidate_verdicts`, `candidate_mitigation_summary`, `candidate_base_rates`
 parquets and `review/ce_landscape_summary.csv`. Produces four PNG figures with
 `theme_catf` (CATF navy/blue palette). `ggsave` at 300 dpi to `figures/`.
@@ -771,7 +771,7 @@ is **deterministic** (`06_ce_landscape.py`: stable sort of the CE load + cached 
 `cluster_km` is stable across runs). The silhouette is **low and flat (~0.035 at every k)**, so
 **k = 8 is a readability choice, not a natural optimum** — several families are genuinely mixed.
 Cluster labels come from distinctive n-gram phrases; the human-facing **Topic** labels are curated
-in `08_analyze.R` (`CE_TOPICS`, keyed on `cluster_km`) and shown on the scatter + the report family
+in `08_create_figures.R` (`CE_TOPICS`, keyed on `cluster_km`) and shown on the scatter + the report family
 table. Revisit `CE_TOPICS` if the clustering ever changes.
 
 | cluster_km | Keywords (what's in it) | Topic | Coherence |

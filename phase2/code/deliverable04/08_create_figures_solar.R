@@ -6,12 +6,12 @@
 # timeline_project_dates.parquet — with the solar tag and decarb scope taken from
 # the Phase 2 projects_combined.parquet. No Phase 1 file is read.
 #
-# Duration frame: identical to 08_analyze.R's headline frame — complete_clear +
+# Duration frame: identical to 08_create_figures.R's headline frame — complete_clear +
 # complete_with_proxy, YEAR-granularity endpoints excluded, month-granularity
 # imputed to the mid-month 15th, non-negative durations. NOTE: the plan file
 # (plans/deliverable04_solar.md) specified the parquet's raw `duration_days`
 # column instead; that column is only populated for the pre-adjudication
-# day-level subset (see the loader comment in 08_analyze.R) and undercounts
+# day-level subset (see the loader comment in 08_create_figures.R) and undercounts
 # complete timelines (solar EIS 35 vs 70), so the report-consistent frame is
 # used here.
 #
@@ -19,7 +19,7 @@
 #   phase2/output/deliverable04/figures/fig_d4_solar_duration.png
 #   phase2/output/deliverable04/diagnostics/d4_solar_duration.csv
 #
-# Usage: Rscript phase2/code/deliverable04/fra/03_solar_duration.R
+# Usage: Rscript phase2/code/deliverable04/08_create_figures_solar.R
 
 suppressPackageStartupMessages({
   library(here); library(arrow); library(dplyr); library(tidyr)
@@ -48,7 +48,7 @@ theme_catf <- function(base = 11) {
 }
 
 # ---------------------------------------------------------------------------
-# Assemble: headline duration frame (mirrors 08_analyze.R) + project tags
+# Assemble: headline duration frame (mirrors 08_create_figures.R) + project tags
 # ---------------------------------------------------------------------------
 dates <- read_parquet(
   file.path(TL, "timeline_project_dates.parquet"),
@@ -111,7 +111,7 @@ message("Wrote d4_solar_duration.csv")
 
 # ---------------------------------------------------------------------------
 # Figure: solar interval chart (p10-p90, IQR, median) with decarb reference
-# ticks on EA/EIS. Mirrors 08_analyze.R Fig 6 geometry (Phase 1 ref:
+# ticks on EA/EIS. Mirrors 08_create_figures.R Fig 6 geometry (Phase 1 ref:
 # 03_duration_summary_intervals_by_process_solar.png + factsheet Fig 3).
 # CE reference omitted: solar CE and decarb CE medians are both ~1 month.
 # ---------------------------------------------------------------------------
@@ -157,4 +157,5 @@ fig_solar <- ggplot(solar_plot, aes(y = process_group, color = process_group)) +
 
 ggsave(file.path(FIG, "fig_d4_solar_duration.png"), fig_solar,
        width = 10, height = 6, dpi = 300)
+saveRDS(fig_solar, file.path(FIG, "fig_d4_solar_duration.rds"))
 message("Wrote fig_d4_solar_duration.png")

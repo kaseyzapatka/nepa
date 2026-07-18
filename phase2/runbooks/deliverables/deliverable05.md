@@ -10,7 +10,7 @@
 **Scripts** (in `phase2/code/deliverable05/`):
 - `01_extract_law_citations.py` — scan CE/EA/EIS pages for ARRA/BIL/IRA citations (+ DOE funding-program signals)
 - `02_build_ce_categories.py` — parse the document-level `ce_category` metadata into normalized CE codes
-- `03_analyze_spikes.R` — join dates + citations + categories; produce all figures and diagnostic tables
+- `03_create_figures.R` — join dates + citations + categories; produce all figures and diagnostic tables
 
 > **Note:** there is no FRA / document-length analysis in D5 — that lives in D4 (`phase2/code/deliverable04/fra/`). D5 is spikes + attribution + CE-type only.
 
@@ -22,7 +22,7 @@
 |---|---|---|
 | Categories | `02_build_ce_categories.py` | `ce/documents.parquet` → `ce_categories.parquet` (project × normalized code) |
 | Citations | `01_extract_law_citations.py` | `{ce,ea,eis}/{pages,documents}` + D4 timeline → `law_citations.parquet` (project × law) |
-| Analysis | `03_analyze_spikes.R` | timeline + projects + 01 + 02 → figures + `d5_*.csv` |
+| Analysis | `03_create_figures.R` | timeline + projects + 01 + 02 → figures + `d5_*.csv` |
 
 Scripts 01 and 02 are independent; 03 depends on both **and** on the D4 timeline. Run order is 02 → 01 → 03 (02 is instant; 01 is the slow page scan).
 
@@ -56,7 +56,7 @@ python phase2/code/deliverable05/01_extract_law_citations.py --source all
 ### Step 4 — Analysis, figures, and tables (~30 sec)
 
 ```bash
-Rscript phase2/code/deliverable05/03_analyze_spikes.R
+Rscript phase2/code/deliverable05/03_create_figures.R
 ```
 
 Outputs to `phase2/output/deliverable05/{figures,diagnostics}/`. Sanity checks: `fig_d5_ce_counts_by_year_doe_blm.png` should show the DOE 2010 spike with BLM flat; `d5_citation_rates.csv` should show ~59% ARRA-window CE citation; `d5_category_shift.csv` B5.1 ~49% window vs ~1% baseline.
@@ -70,7 +70,7 @@ Outputs to `phase2/output/deliverable05/{figures,diagnostics}/`. Sanity checks: 
 | `01_extract_law_citations.py` | `--source {ce,ea,eis,all}` | Which corpus to scan (default `all`) |
 | | `--sample N` | Limit to N random timeline projects per source (smoke test) |
 | `02_build_ce_categories.py` | *(none)* | Reads `ce/documents.parquet`, writes `ce_categories.parquet` |
-| `03_analyze_spikes.R` | *(none)* | Reads all inputs, writes figures + CSVs |
+| `03_create_figures.R` | *(none)* | Reads all inputs, writes figures + CSVs |
 
 ---
 
@@ -127,7 +127,7 @@ python phase2/code/deliverable05/02_build_ce_categories.py
 python phase2/code/deliverable05/01_extract_law_citations.py --source all
 
 # 3. Analysis, figures, diagnostic tables
-Rscript phase2/code/deliverable05/03_analyze_spikes.R
+Rscript phase2/code/deliverable05/03_create_figures.R
 ```
 
 The report (`phase2/reports/deliverable05.qmd`) reads the figures + CSVs and recomputes inline values; render it with `quarto render phase2/reports/deliverable05.qmd`.

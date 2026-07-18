@@ -122,7 +122,7 @@ def _normalize_invalid_order(df: pd.DataFrame) -> pd.DataFrame:
     injection runs AFTER 05's normalizer and midpoint imputation, so an injected month-granularity
     date can land a complete_* row with decision_date < initiation_date. Reclassify any such row to
     invalid_order with a null duration, so the dec<init invariant holds at the injection stage too
-    (lets the 08_analyze.R stopgap stay removed)."""
+    (lets the 08_create_figures.R stopgap stay removed)."""
     need = {"initiation_date", "decision_date", "timeline_status"}
     if not need <= set(df.columns):
         return df

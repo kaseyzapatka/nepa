@@ -10,7 +10,7 @@
 - `00_sample.py`, `00b_sections.py` — one-time setup (gold sample, document sections)
 - `01_index.py` → `02_retrieve.py` → `03_extract_candidates.py` → `04_classify_candidates.py` → `05_select_dates.py` → `06_adjudicate_llm.py` (optional)
 - `run_pipeline.py` — single canonical orchestrator (full `02`→`08`, or `--select` for selection-only)
-- `07_validate.py`, `08_analyze.R` — validation / analysis
+- `07_validate.py`, `08_create_figures.R` — validation / analysis
 - `labeling/` — gold-set construction and labeling (see "Labeling & training" below)
 
 > **Renumber note (2026-06-01):** the pipeline was flat-renumbered to insert the learned classifier at `04`. Selection moved `04`→`05`, adjudication kept `06`, validation moved `05`→`07`, and `validation/`→`labeling/`. The old sharded orchestrator (`07_run_full_corpus_timelines.py`, later `_run.py`) is retired — `run_pipeline.py` replaced it. Older docs/commits may reference the old names.
@@ -120,7 +120,7 @@ Use the `timeline-runner` agent (LAUNCH/REPORT modes) — it sets up logging, a 
 ```bash
 python phase2/code/deliverable04/07_validate.py --prepare-review          # build review packet
 python phase2/code/deliverable04/07_validate.py --validate --reviewed-packet <filled.csv>
-Rscript phase2/code/deliverable04/08_analyze.R                            # duration tables + figures
+Rscript phase2/code/deliverable04/08_create_figures.R                            # duration tables + figures
 ```
 
 ---

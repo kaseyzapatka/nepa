@@ -39,7 +39,7 @@
 #   fig_d4_projects_by_decision_year_by_energy.png  — stacked year bars by energy type
 #
 # Usage:
-#   Rscript phase2/code/deliverable04/08_analyze.R
+#   Rscript phase2/code/deliverable04/08_create_figures.R
 
 suppressPackageStartupMessages({
   library(dplyr)
@@ -654,6 +654,7 @@ p_coverage <- ggplot(coverage_fig, aes(x = process_type, y = pct, fill = coverag
 
 ggsave(file.path(FIGS, "fig_d4_coverage_by_process.png"),
        p_coverage, width = 9, height = 6, dpi = 300)
+saveRDS(p_coverage, file.path(FIGS, "fig_d4_coverage_by_process.rds"))
 message("Wrote fig_d4_coverage_by_process.png")
 
 # ---------------------------------------------------------------------------
@@ -706,6 +707,7 @@ p_coverage_energy <- ggplot(coverage_energy_fig,
 
 ggsave(file.path(FIGS, "fig_d4_coverage_by_process_and_energy.png"),
        p_coverage_energy, width = 11, height = 5, dpi = 300)
+saveRDS(p_coverage_energy, file.path(FIGS, "fig_d4_coverage_by_process_and_energy.rds"))
 message("Wrote fig_d4_coverage_by_process_and_energy.png")
 
 # Also write the underlying table (so the Decarb numbers are exact for the deliverable)
@@ -738,6 +740,7 @@ p_hist <- ggplot(dur_plot, aes(x = duration_years, fill = process_group)) +
 
 ggsave(file.path(FIGS, "fig_d4_duration_histogram.png"),
        p_hist, width = 7, height = 8, dpi = 300)
+saveRDS(p_hist, file.path(FIGS, "fig_d4_duration_histogram.rds"))
 message("Wrote fig_d4_duration_histogram.png")
 
 # ---------------------------------------------------------------------------
@@ -767,6 +770,7 @@ p_fra <- ggplot(fra_fig, aes(x = period, y = median_months, fill = process_type)
 
 ggsave(file.path(FIGS, "fig_d4_fra_comparison.png"),
        p_fra, width = 9, height = 5, dpi = 150)
+saveRDS(p_fra, file.path(FIGS, "fig_d4_fra_comparison.rds"))
 message("Wrote fig_d4_fra_comparison.png")
 
 # ---------------------------------------------------------------------------
@@ -793,6 +797,7 @@ p_trend <- ggplot(dur_year |> filter(n >= 5),
 
 ggsave(file.path(FIGS, "fig_d4_duration_trend.png"),
        p_trend, width = 10, height = 5, dpi = 150)
+saveRDS(p_trend, file.path(FIGS, "fig_d4_duration_trend.rds"))
 message("Wrote fig_d4_duration_trend.png")
 
 # ---------------------------------------------------------------------------
@@ -864,6 +869,7 @@ fig_complete_share <- ggplot(process_summary_complete,
 
 ggsave(file.path(FIGS, "fig_d4_complete_timeline_share_boxplot.png"),
        fig_complete_share, width = 9, height = 6, dpi = 300)
+saveRDS(fig_complete_share, file.path(FIGS, "fig_d4_complete_timeline_share_boxplot.rds"))
 message("Wrote fig_d4_complete_timeline_share_boxplot.png")
 
 # ---------------------------------------------------------------------------
@@ -927,6 +933,7 @@ fig_duration_intervals <- ggplot(interval_summary, aes(y = process_group, color 
 
 ggsave(file.path(FIGS, "fig_d4_duration_summary_intervals.png"),
        fig_duration_intervals, width = 10, height = 6, dpi = 300)
+saveRDS(fig_duration_intervals, file.path(FIGS, "fig_d4_duration_summary_intervals.rds"))
 message("Wrote fig_d4_duration_summary_intervals.png")
 
 # ---------------------------------------------------------------------------
@@ -991,6 +998,7 @@ fig_timeline_spans <- ggplot(spans_df) +
 
 ggsave(file.path(FIGS, "fig_d4_project_timeline_spans.png"),
        fig_timeline_spans, width = 12, height = 10, dpi = 300)
+saveRDS(fig_timeline_spans, file.path(FIGS, "fig_d4_project_timeline_spans.rds"))
 message("Wrote fig_d4_project_timeline_spans.png")
 
 # ---------------------------------------------------------------------------
@@ -1037,6 +1045,7 @@ fig_by_year <- ggplot(year_counts, aes(x = decision_year, y = n_projects)) +
 
 ggsave(file.path(FIGS, "fig_d4_projects_by_decision_year.png"),
        fig_by_year, width = 11, height = 9, dpi = 300)
+saveRDS(fig_by_year, file.path(FIGS, "fig_d4_projects_by_decision_year.rds"))
 message("Wrote fig_d4_projects_by_decision_year.png")
 
 # ---------------------------------------------------------------------------
@@ -1078,6 +1087,7 @@ fig_by_year_doe <- ggplot(year_counts_doe, aes(x = decision_year, y = n_projects
 
 ggsave(file.path(FIGS, "fig_d4_projects_by_decision_year_doe.png"),
        fig_by_year_doe, width = 11, height = 9, dpi = 300)
+saveRDS(fig_by_year_doe, file.path(FIGS, "fig_d4_projects_by_decision_year_doe.rds"))
 message("Wrote fig_d4_projects_by_decision_year_doe.png")
 
 # ===========================================================================
@@ -1105,6 +1115,7 @@ p_hist_energy <- ggplot(dur_energy, aes(x = duration_years, fill = energy_type))
 
 ggsave(file.path(FIGS, "fig_d4_duration_histogram_by_energy.png"),
        p_hist_energy, width = 12, height = 8, dpi = 150)
+saveRDS(p_hist_energy, file.path(FIGS, "fig_d4_duration_histogram_by_energy.rds"))
 message("Wrote fig_d4_duration_histogram_by_energy.png")
 
 # ---------------------------------------------------------------------------
@@ -1198,6 +1209,7 @@ fig_intervals_energy <- ggplot(interval_energy, aes(y = energy_type, color = ene
 
 ggsave(file.path(FIGS, "fig_d4_duration_summary_intervals_by_energy.png"),
        fig_intervals_energy, width = 11, height = 9, dpi = 300)
+saveRDS(fig_intervals_energy, file.path(FIGS, "fig_d4_duration_summary_intervals_by_energy.rds"))
 message("Wrote fig_d4_duration_summary_intervals_by_energy.png")
 
 # ---------------------------------------------------------------------------
@@ -1245,6 +1257,7 @@ fig_fossil_box <- ggplot(fossil_box_df, aes(x = grp, y = duration_days, fill = g
 
 ggsave(file.path(FIGS, "fig_d4_fossil_ea_anchor_boxplot.png"),
        fig_fossil_box, width = 9, height = 5.5, dpi = 300)
+saveRDS(fig_fossil_box, file.path(FIGS, "fig_d4_fossil_ea_anchor_boxplot.rds"))
 message("Wrote fig_d4_fossil_ea_anchor_boxplot.png")
 
 # ---------------------------------------------------------------------------
@@ -1287,6 +1300,7 @@ p_fra_energy <- ggplot(fra_energy, aes(x = period, y = median_months, fill = ene
 
 ggsave(file.path(FIGS, "fig_d4_fra_comparison_by_energy.png"),
        p_fra_energy, width = 11, height = 8, dpi = 150)
+saveRDS(p_fra_energy, file.path(FIGS, "fig_d4_fra_comparison_by_energy.rds"))
 message("Wrote fig_d4_fra_comparison_by_energy.png")
 
 # ---------------------------------------------------------------------------
@@ -1325,6 +1339,7 @@ fig_by_year_energy <- ggplot(year_counts_energy,
 
 ggsave(file.path(FIGS, "fig_d4_projects_by_decision_year_by_energy.png"),
        fig_by_year_energy, width = 11, height = 9, dpi = 300)
+saveRDS(fig_by_year_energy, file.path(FIGS, "fig_d4_projects_by_decision_year_by_energy.rds"))
 message("Wrote fig_d4_projects_by_decision_year_by_energy.png")
 
 message("\nAll figures written to: ", FIGS)
@@ -1368,6 +1383,7 @@ p_cand_source <- ggplot(
 
 ggsave(file.path(FIGS, "fig_d4_register_source_candidates.png"),
        p_cand_source, width = 10, height = 6, dpi = 300)
+saveRDS(p_cand_source, file.path(FIGS, "fig_d4_register_source_candidates.rds"))
 message("Wrote fig_d4_register_source_candidates.png")
 
 # ---------------------------------------------------------------------------
@@ -1408,4 +1424,5 @@ p_proj_source <- ggplot(
 
 ggsave(file.path(FIGS, "fig_d4_register_source_projects.png"),
        p_proj_source, width = 12, height = 5, dpi = 300)
+saveRDS(p_proj_source, file.path(FIGS, "fig_d4_register_source_projects.rds"))
 message("Wrote fig_d4_register_source_projects.png")

@@ -32,7 +32,7 @@ flowchart TD
     N --> S[visual_examples.parquet + visual_qa_sample.parquet]
 
     E --> T[projects_geothermal_og.parquet]
-    E --> U[04_analyze_nepa_reviews.R]
+    E --> U[04_create_figures.R]
     H --> U
     N --> U
     O --> U
@@ -241,7 +241,7 @@ Current NMF topics:
 | 3 | BLM VRM Objectives and Landscape Management | 286 | 103 | 183 | 88 | 198 |
 | 1 | Wind Turbine Shadow Flicker | 69 | 66 | 3 | 40 | 29 |
 
-The auto-labels stored in `visual_topic_summary.parquet` are term-based labels. Report figures remap them to interpretive labels in `04_analyze_nepa_reviews.R`.
+The auto-labels stored in `visual_topic_summary.parquet` are term-based labels. Report figures remap them to interpretive labels in `04_create_figures.R`.
 
 ### Module 7 - VRM Element-Level Contrast Ratings
 
@@ -346,7 +346,7 @@ Current subset:
 
 ## Figure and Table Builder
 
-`phase2/code/deliverable03/04_analyze_nepa_reviews.R` consumes the analysis parquets and writes report-ready figures, CSVs, and HTML tables.
+`phase2/code/deliverable03/04_create_figures.R` consumes the analysis parquets and writes report-ready figures, CSVs, and HTML tables.
 
 Major output groups:
 
@@ -407,7 +407,7 @@ The R plotting code computes per-element denominators and attempts to draw them 
 
 ### Topic Labels Need Interpretive Remapping
 
-The Python topic labels are generated from top terms. `04_analyze_nepa_reviews.R` remaps them to stable interpretive labels. If topic vocabulary changes after a rerun, update `TOPIC_INTERP` in the R script before rendering the report.
+The Python topic labels are generated from top terms. `04_create_figures.R` remaps them to stable interpretive labels. If topic vocabulary changes after a rerun, update `TOPIC_INTERP` in the R script before rendering the report.
 
 ### Timeline Section Is Optional
 
@@ -487,7 +487,7 @@ Preferred current pipeline:
 ```bash
 conda run -n nepa python phase2/code/deliverable03/01_identify_visual_impact_candidates.py
 conda run -n nepa python phase2/code/deliverable03/02_build_nepa_reviews.py --section-layer
-Rscript phase2/code/deliverable03/04_analyze_nepa_reviews.R
+Rscript phase2/code/deliverable03/04_create_figures.R
 quarto render phase2/reports/deliverable03.qmd
 ```
 
@@ -495,7 +495,7 @@ Full legacy-compatible build:
 
 ```bash
 conda run -n nepa python phase2/code/deliverable03/02_build_nepa_reviews.py
-Rscript phase2/code/deliverable03/04_analyze_nepa_reviews.R
+Rscript phase2/code/deliverable03/04_create_figures.R
 quarto render phase2/reports/deliverable03.qmd
 ```
 
