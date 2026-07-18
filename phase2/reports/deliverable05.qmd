@@ -15,7 +15,7 @@ execute:
 ---
 
 <!-- Render phase2/reports/deliverable05.qmd for automatic table and inline-value updates.
-     Figures are produced by phase2/code/deliverable05/03_analyze_spikes.R; the law-citation and
+     Figures are produced by phase2/code/deliverable05/03_create_figures.R; the law-citation and
      CE-category inputs by 01_extract_law_citations.py and 02_build_ce_categories.py. -->
 
 ```{r setup}
@@ -45,7 +45,7 @@ ratio1  <- function(x) number(x, accuracy = 0.01)
 first0  <- function(x) if (length(x) == 0 || all(is.na(x))) 0 else x[[1]]
 include_fig <- function(name) knitr::include_graphics(file.path(FIG_DIR, name))
 
-# --- recompute CE-by-year by agency (live, mirrors 03_analyze_spikes.R) -----
+# --- recompute CE-by-year by agency (live, mirrors 03_create_figures.R) -----
 dates <- read_parquet(TIMELINE)
 meta  <- read_parquet(PROJECTS, col_select = c("project_id", "project_energy_type",
                                                "project_department", "lead_agency_harmonized"))
@@ -166,7 +166,7 @@ tibble::tibble(
   Script = c(
     "phase2/code/deliverable05/01_extract_law_citations.py",
     "phase2/code/deliverable05/02_build_ce_categories.py",
-    "phase2/code/deliverable05/03_analyze_spikes.R"
+    "phase2/code/deliverable05/03_create_figures.R"
   ),
   Role = c(
     "Scans CE/EA/EIS document pages for explicit ARRA / BIL / IRA citations, with context-based disambiguation of the IRA and BIL acronyms",
@@ -382,7 +382,7 @@ All figures and tables in this report regenerate from committed code. Run from t
 ``` bash
 python phase2/code/deliverable05/02_build_ce_categories.py
 python phase2/code/deliverable05/01_extract_law_citations.py --source all
-Rscript phase2/code/deliverable05/03_analyze_spikes.R
+Rscript phase2/code/deliverable05/03_create_figures.R
 ```
 
 Outputs are written to `phase2/output/deliverable05/{figures,diagnostics}/`; the intermediate

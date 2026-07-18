@@ -14,7 +14,7 @@
 # Recommended usage (preferred pipeline):
 #   conda run -n nepa python phase2/code/deliverable03/01_identify_visual_impact_candidates.py
 #   conda run -n nepa python phase2/code/deliverable03/02_build_nepa_reviews.py --section-layer
-#   Rscript phase2/code/deliverable03/04_analyze_nepa_reviews.R
+#   Rscript phase2/code/deliverable03/04_create_figures.R
 #
 # Output: phase2/data/analysis/deliverable03/
 

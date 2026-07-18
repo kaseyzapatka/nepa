@@ -15,7 +15,7 @@
 # NOTE: on a --dry-run determinations table every row is extraction_method='regex' &
 # needs_human_review=TRUE, so these tables are ILLUSTRATIVE until the billable LLM pass + gold.
 #
-# Run:  Rscript phase2/code/deliverable02/06_analyze_significance.R
+# Run:  Rscript phase2/code/deliverable02/06_create_figures.R
 suppressMessages({library(arrow); library(dplyr); library(tidyr); library(readr); library(stringr)})
 options(arrow.skip_nul = TRUE)   # EIS evidence/rationale text carries embedded nul bytes (PDF artifact)
 
@@ -34,7 +34,7 @@ det <- read_parquet(file.path(A, "significance_determinations.parquet"))
 thr <- read_parquet(file.path(A, "determination_thresholds.parquet"))
 eis_det_path <- file.path(A, "significance_determinations_eis.parquet")
 if (length(commandArgs(trailingOnly = TRUE)) > 0)
-  stop("06_analyze_significance.R takes no flags (the EIS block auto-runs off the _eis parquet); ",
+  stop("06_create_figures.R takes no flags (the EIS block auto-runs off the _eis parquet); ",
        "got: ", paste(commandArgs(trailingOnly = TRUE), collapse = " "))
 
 # ---- headline gate ----
@@ -166,8 +166,11 @@ if (fig_ok) tryCatch({
     less_than_significant="Less than significant",
     less_than_significant_with_mitigation="Committed mitigation")
   relab <- function(x, m) ifelse(is.na(m[x]), x, m[x])
-  savefig <- function(p, name, w = 8, h = 5)
+  savefig <- function(p, name, w = 8, h = 5) {
     suppressMessages(ggsave(file.path(OUT, name), p, width = w, height = h, dpi = 300))
+    # .rds sidecar (same basename) so downstream scripts can readRDS + retitle.
+    saveRDS(p, file.path(OUT, sub("\\.png$", ".rds", name)))
+  }
 
   # clean-energy technology from the dataset's own `project_type` classification (a curated multi-tag
   # field, 100% populated). Assign one primary technology per project by priority: generation types

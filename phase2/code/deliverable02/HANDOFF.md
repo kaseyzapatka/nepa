@@ -11,7 +11,7 @@ conda run -n nepa python phase2/code/deliverable02/_run.py            # 00 regim
 conda run -n nepa python phase2/code/deliverable02/03_build_gold_set_queue.py
 conda run -n nepa python phase2/code/deliverable02/02_extract_fonsi_significance.py --dry-run
 conda run -n nepa python phase2/code/deliverable02/04_extract_eis_significance.py --dry-run --sample 800
-Rscript phase2/code/deliverable02/06_analyze_significance.R
+Rscript phase2/code/deliverable02/06_create_figures.R
 quarto render phase2/reports/deliverable02.qmd
 ```
 
@@ -60,7 +60,7 @@ The prompt in `extract_common._prompt_for` is a v1 — expect to tune it after t
 ### 4. After the FONSI pass — validate + look before paying for EIS
 ```bash
 conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py  # Gate 3 vs gold
-Rscript phase2/code/deliverable02/06_analyze_significance.R                     # FONSI-only tables
+Rscript phase2/code/deliverable02/06_create_figures.R                     # FONSI-only tables
 quarto render phase2/reports/deliverable02.qmd
 ```
 Decide from these whether the EIS pass is worth it.
@@ -70,7 +70,7 @@ Decide from these whether the EIS pass is worth it.
 ```bash
 conda run -n nepa python phase2/code/deliverable02/04_extract_eis_significance.py --dry-run --sample 800  # retrieval check, free
 conda run -n nepa python phase2/code/deliverable02/04_extract_eis_significance.py --batch-run --sample 0 --model claude-sonnet-5   # one password
-Rscript phase2/code/deliverable02/06_analyze_significance.R --with-eis          # combined analysis
+Rscript phase2/code/deliverable02/06_create_figures.R --with-eis          # combined analysis
 ```
 
 ## Notes

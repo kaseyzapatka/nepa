@@ -38,7 +38,7 @@
 #   trigger_rule_distribution.csv
 #
 # Usage:
-#   Rscript phase2/code/deliverable01/02_analyze_triggers.R
+#   Rscript phase2/code/deliverable01/02_create_figures.R
 
 
 # --------------------------
@@ -282,6 +282,7 @@ fig1 <- ggplot(fig1_data, aes(x = n, y = trigger_label, fill = trigger_label)) +
 
 ggsave(file.path(OUTPUT_DIR, "fig1_trigger_counts.png"),
        fig1, width = 9, height = 5.5, dpi = 150)
+saveRDS(fig1, file.path(OUTPUT_DIR, "fig1_trigger_counts.rds"))
 cat("Saved fig1_trigger_counts.png\n")
 
 # --------------------------
@@ -322,6 +323,7 @@ fig2 <- ggplot(fig2_data,
 
 ggsave(file.path(OUTPUT_DIR, "fig2_trigger_by_process.png"),
        fig2, width = 8, height = 6.5, dpi = 150)
+saveRDS(fig2, file.path(OUTPUT_DIR, "fig2_trigger_by_process.rds"))
 cat("Saved fig2_trigger_by_process.png\n")
 
 # --------------------------
@@ -391,6 +393,7 @@ fig3 <- ggplot(fig3_data,
 
 ggsave(file.path(OUTPUT_DIR, "fig3_process_by_trigger.png"),
        fig3, width = 10, height = 5.5, dpi = 150)
+saveRDS(fig3, file.path(OUTPUT_DIR, "fig3_process_by_trigger.rds"))
 cat("Saved fig3_process_by_trigger.png\n")
 
 # --------------------------
@@ -461,6 +464,7 @@ fig4 <- ggplot(dept_trigger,
 
 ggsave(file.path(OUTPUT_DIR, "fig4_department_trigger_heatmap.png"),
        fig4, width = 13, height = 7, dpi = 150)
+saveRDS(fig4, file.path(OUTPUT_DIR, "fig4_department_trigger_heatmap.rds"))
 cat("Saved fig4_department_trigger_heatmap.png\n")
 
 # --------------------------
@@ -527,6 +531,7 @@ fig5 <- ggplot(fig5_data,
 
 ggsave(file.path(OUTPUT_DIR, "fig5_trigger_by_technology.png"),
        fig5, width = 11, height = 6.5, dpi = 150)
+saveRDS(fig5, file.path(OUTPUT_DIR, "fig5_trigger_by_technology.rds"))
 cat("Saved fig5_trigger_by_technology.png\n")
 
 # --------------------------
@@ -564,6 +569,7 @@ tryCatch({
 
   ggsave(file.path(OUTPUT_DIR, "fig6_state_choropleth.png"),
          fig6, width = 11, height = 6, dpi = 150)
+  saveRDS(fig6, file.path(OUTPUT_DIR, "fig6_state_choropleth.rds"))
   cat("Saved fig6_state_choropleth.png\n")
 }, error = function(e) {
   cat(sprintf("Skipped fig6_state_choropleth.png: %s\n", conditionMessage(e)))
@@ -609,6 +615,7 @@ tryCatch({
 
   ggsave(file.path(OUTPUT_DIR, "fig7_county_choropleth.png"),
          fig7, width = 11, height = 6, dpi = 150)
+  saveRDS(fig7, file.path(OUTPUT_DIR, "fig7_county_choropleth.rds"))
   cat("Saved fig7_county_choropleth.png\n")
 }, error = function(e) {
   cat(sprintf("Skipped fig7_county_choropleth.png: %s\n", conditionMessage(e)))
@@ -660,6 +667,7 @@ if (funding_ready) {
 
   ggsave(file.path(OUTPUT_DIR, "fig8_funding_mechanism_counts.png"),
          fig8, width = 10, height = 5.8, dpi = 150)
+  saveRDS(fig8, file.path(OUTPUT_DIR, "fig8_funding_mechanism_counts.rds"))
   cat("Saved fig8_funding_mechanism_counts.png\n")
 } else {
   cat("Funding sidecar absent; skipped fig8_funding_mechanism_counts.png\n")
@@ -709,6 +717,7 @@ if (funding_ready && nrow(funding_program_long) > 0) {
 
   ggsave(file.path(OUTPUT_DIR, "fig9_funding_program_counts.png"),
          fig9, width = 10, height = 6.5, dpi = 150)
+  saveRDS(fig9, file.path(OUTPUT_DIR, "fig9_funding_program_counts.rds"))
   cat("Saved fig9_funding_program_counts.png\n")
 } else if (funding_ready) {
   cat("No funding program labels found; skipped fig9_funding_program_counts.png\n")
@@ -749,6 +758,7 @@ if (funding_ready) {
 
   ggsave(file.path(OUTPUT_DIR, "fig10_funding_amount_coverage.png"),
          fig10, width = 9, height = 5.5, dpi = 150)
+  saveRDS(fig10, file.path(OUTPUT_DIR, "fig10_funding_amount_coverage.rds"))
   cat("Saved fig10_funding_amount_coverage.png\n")
 } else {
   cat("Funding sidecar absent; skipped fig10_funding_amount_coverage.png\n")
@@ -923,6 +933,7 @@ if (funding_ready) {
 
     ggsave(file.path(OUTPUT_DIR, "fig11_funding_amount_distribution.png"),
            fig11, width = 10.5, height = 5.8, dpi = 150)
+    saveRDS(fig11, file.path(OUTPUT_DIR, "fig11_funding_amount_distribution.rds"))
     cat("Saved fig11_funding_amount_distribution.png\n")
   } else {
     cat("Fewer than 5 projects with positive amounts per mechanism; skipped fig11.\n")

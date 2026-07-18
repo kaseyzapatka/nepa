@@ -33,9 +33,9 @@
 | `09_sample_check.R` | Diagnostic spot-check: samples up to 5 projects per (process × coverage state) and writes `sample_check_candidates.csv` / `sample_check_projects.csv` with full candidate details and selected dates for eyeballing. |
 | `10_outliers.R` | **Timeline duration-outlier deliverable.** Surfaces all projects with `duration_days > 5,000` or negative durations. Heuristic `suspect_error` triage flag (pre-1985 initiation, year-granularity initiation, early LLM-picked initiation). Writes `d4_duration_outliers.csv` (all processes, full provenance) and `d4_duration_outliers_client.csv` (EA/EIS only, likely-real, client-facing columns). |
 | `fra/01_extract_pages.py` | Compute FRA regulatory page counts (40 C.F.R. § 1508.1(bb): body word count / 500, excluding embedded appendices + low-content pages) for ALL EA/EIS projects regardless of energy type. Streams pages via DuckDB; never loads pages into Python. Covers 5,032 projects (2,765 EA / 2,267 EIS). Output: `phase2/data/analysis/deliverable04/projects_page_counts.parquet`. |
-| `fra/02_create_figures_pages.R` | FRA pre/post analysis on the 3,678 projects with a decision date. Produces document-length over time, pre/post-FRA bars, by-energy segmentation, distribution, page-limit compliance, and raw-vs-regulatory comparison. FRA date: 2023-06-03 (enactment). |
-| `fra/03_create_figures_solar.R` | Solar duration analysis (Phase 2 re-creation of the Phase 1 solar timeline figures, added 2026-07-15). Restricts the 08-identical headline duration frame to `Renewable Energy Production - Solar`-tagged projects (solar tag + decarb scope from Phase 2 `projects_combined.parquet`) and plots intervals with all-decarbonization reference medians (EA/EIS). Deliberately does NOT use the parquet's stale `duration_days` column. Outputs: `fig_d4_solar_duration.png`, `d4_solar_duration.csv` (solar n: CE 812 / EA 60 / EIS 70; medians ~0.7 / ~12 / ~21 months vs decarb ~0.7 / ~10 / ~33). |
-| `fra/04_create_figures_duration.R` | Duration-by-technology analysis: two interval figures (decarbonization and fossil technologies on separate horizontal scales) using the cleaned `tech_group`/`energy_group` tags from `deliverable03/projects_nepa_reviews.parquet` — the same variable that defines the Decarb-vs-Fossil split. |
+| `fra/02_create_figures.R` | FRA pre/post analysis on the 3,678 projects with a decision date. Produces document-length over time, pre/post-FRA bars, by-energy segmentation, distribution, page-limit compliance, and raw-vs-regulatory comparison. FRA date: 2023-06-03 (enactment). |
+| `08_create_figures_solar.R` | Solar duration analysis (Phase 2 re-creation of the Phase 1 solar timeline figures, added 2026-07-15). Restricts the 08-identical headline duration frame to `Renewable Energy Production - Solar`-tagged projects (solar tag + decarb scope from Phase 2 `projects_combined.parquet`) and plots intervals with all-decarbonization reference medians (EA/EIS). Deliberately does NOT use the parquet's stale `duration_days` column. Outputs: `fig_d4_solar_duration.png`, `d4_solar_duration.csv` (solar n: CE 812 / EA 60 / EIS 70; medians ~0.7 / ~12 / ~21 months vs decarb ~0.7 / ~10 / ~33). |
+| `08_create_figures_technology.R` | Duration-by-technology analysis: two interval figures (decarbonization and fossil technologies on separate horizontal scales) using the cleaned `tech_group`/`energy_group` tags from `deliverable03/projects_nepa_reviews.parquet` — the same variable that defines the Decarb-vs-Fossil split. |
 | `field_office/01_parse_offices.py` | Map every BLM-led project to its field office by parsing the structured `DOI-BLM-<state>-<office>-<year>-<seq>` case number (validated regex, file-name fallback; ~62% coverage). Output: `phase2/data/analysis/deliverable04/blm_field_offices.parquet`. |
 | `field_office/02_create_figures.R` | BLM field-office learning-curve analysis: orders each office's reviews by cumulative count and fits `log(duration) ~ log(cum_count) + factor(decision_year) + energy_type` with office fixed effects (EA/CE separately, document-anchored primary). Finding: the apparent speed-up is a calendar-time confound, not experience. Writes the learning-curve figures + `d4_fieldoffice_*.csv` diagnostics. |
 | `_test_adjudication.py` | (helper) Haiku-vs-Sonnet A/B test harness for adjudication quality comparison. |
@@ -125,7 +125,7 @@ flowchart TD
 
     FPAGES[pages.parquet EA/EIS\nPhase 2 processed] --> FRA1[fra/01_extract_pages.py]
     FRA1 --> FRA2[projects_page_counts.parquet\n5032 projects]
-    FRA2 --> FRA3[fra/02_create_figures_pages.R]
+    FRA2 --> FRA3[fra/02_create_figures.R]
     R --> FRA3
     FRA3 --> FRA4[fra figures + compliance CSVs]
 ```
@@ -419,7 +419,7 @@ Efficiency: the heavy work is a single multithreaded DuckDB query that streams t
 
 Output: `phase2/data/analysis/deliverable04/projects_page_counts.parquet`. 5,032 rows: EA 2,765 / EIS 2,267. Current run: 2026-06-17. Includes `pages_extraction_run_at` audit timestamp.
 
-### fra/02_create_figures_pages.R — FRA Pre/Post Analysis
+### fra/02_create_figures.R — FRA Pre/Post Analysis
 
 Joins `projects_page_counts.parquet` with `timeline_project_dates.parquet` (decision date) and energy type from `timeline_document_index.parquet`. Restricts to projects with a non-null decision date (3,678 projects for the current run). FRA date: 2023-06-03 (enactment, matching Phase 1 D5). Energy categories: Decarb (mapped from "Clean"), Fossil, Other.
 
@@ -893,7 +893,7 @@ CONDA_DEFAULT_ENV=nepa python phase2/code/deliverable04/06_adjudicate_llm.py --m
 conda run -n nepa python phase2/code/deliverable04/fra/01_extract_pages.py --run
 
 # FRA analysis (reads page counts + decision dates)
-Rscript phase2/code/deliverable04/fra/02_create_figures_pages.R
+Rscript phase2/code/deliverable04/fra/02_create_figures.R
 
 # Post-analysis diagnostics
 Rscript phase2/code/deliverable04/09_sample_check.R

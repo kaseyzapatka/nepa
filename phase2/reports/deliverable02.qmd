@@ -37,7 +37,7 @@ det    <- rp("significance_determinations.parquet")
 corpus <- rp("significance_corpus.parquet")
 regime <- rp("project_regime.parquet")
 
-# analysis tables written by 06_analyze_significance.R (regenerate before rendering)
+# analysis tables written by 06_create_figures.R (regenerate before rendering)
 val          <- rp("validation_metrics.parquet")
 res_by_class <- rc("resource_by_class.csv")
 class_dist   <- rc("class_distribution_dual_denominator.csv")
@@ -934,7 +934,7 @@ conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py  
 conda run -n nepa python phase2/code/deliverable02/05_validate_significance.py --track eis  # EIS
 
 # 4. analysis tables + figures (writes the CSVs/PNGs this report reads)
-Rscript phase2/code/deliverable02/06_analyze_significance.R
+Rscript phase2/code/deliverable02/06_create_figures.R
 
 # 5. render
 quarto render phase2/reports/deliverable02.qmd

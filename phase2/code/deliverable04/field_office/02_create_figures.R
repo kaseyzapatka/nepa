@@ -9,7 +9,7 @@
 #   - phase2/data/analysis/timeline/timeline_project_dates.parquet  (durations + source type)
 #   - phase2/data/analysis/timeline/timeline_document_index.parquet (project_energy_type)
 #
-# Duration frame mirrors 08_analyze.R's `headline`: complete timelines only, month-granularity
+# Duration frame mirrors 08_create_figures.R's `headline`: complete timelines only, month-granularity
 # imputed to the 15th, year-granularity excluded.
 #
 # Two confound controls are central:
@@ -23,7 +23,7 @@
 # EA vs CE are analyzed SEPARATELY (CE medians ~ weeks, EA ~ months). EIS is too sparse per
 # office and is excluded from the core analysis.
 #
-# Usage: Rscript phase2/code/deliverable04/field_office/02_learning_curve.R
+# Usage: Rscript phase2/code/deliverable04/field_office/02_create_figures.R
 
 suppressPackageStartupMessages({
   library(here); library(arrow); library(dplyr); library(tidyr)
@@ -38,7 +38,7 @@ DIAG   <- file.path(PHASE2, "output", "deliverable04", "diagnostics")
 dir.create(FIG, recursive = TRUE, showWarnings = FALSE)
 dir.create(DIAG, recursive = TRUE, showWarnings = FALSE)
 
-# CATF palette + theme (copied from fra/02_pages_fra.R) ---------------------------------------
+# CATF palette + theme (copied from fra/02_create_figures.R) ---------------------------------------
 catf_navy <- "#002169"; catf_dark_blue <- "#0047BB"; catf_light_blue <- "#8AB7E9"
 catf_teal <- "#00AE8D"; catf_magenta <- "#C22A90"
 theme_catf <- function(base = 11) {
@@ -57,7 +57,7 @@ EA_RELAX     <- 10   # EA falls back to a relaxed threshold (see note below)
 anchor_cols  <- c("Document" = catf_navy, "Register" = catf_light_blue)
 
 # ---------------------------------------------------------------------------
-# Load + assemble the duration frame (mirror 08_analyze.R `headline`)
+# Load + assemble the duration frame (mirror 08_create_figures.R `headline`)
 # ---------------------------------------------------------------------------
 offices <- read_parquet(file.path(D04, "blm_field_offices.parquet"))  # project_id, office_code, state, parse_source
 
@@ -138,6 +138,7 @@ p_curve <- ggplot(curve, aes(decile, med, color = anchor)) +
                         "drift, not experience. Associational, not causal.")) +
   theme_catf()
 ggsave(file.path(FIG, "fig_d4_fieldoffice_learning_curve.png"), p_curve, width = 11, height = 8, dpi = 300, bg = "white")
+saveRDS(p_curve, file.path(FIG, "fig_d4_fieldoffice_learning_curve.rds"))
 
 # ---------------------------------------------------------------------------
 # Per-office first- vs last-tercile (CE, document-anchored, qualifying offices)
@@ -196,6 +197,7 @@ p_db <- ggplot(top15) +
                         "so most of this shift is the secular ~7%/yr CE decline, not office learning (see regression). Associational, not causal.")) +
   theme_catf()
 ggsave(file.path(FIG, "fig_d4_fieldoffice_first_vs_last.png"), p_db, width = 10, height = 7, dpi = 300, bg = "white")
+saveRDS(p_db, file.path(FIG, "fig_d4_fieldoffice_first_vs_last.rds"))
 
 # ---------------------------------------------------------------------------
 # Fig 3 — confound check: experience gradient vs calendar-time trend are distinguishable
@@ -221,6 +223,7 @@ p_conf <- ggplot(conf, aes(x, med)) +
                         "Net of decision-year, the within-office experience coefficient is null/positive — so the decline is secular calendar drift, not learning.")) +
   theme_catf()
 ggsave(file.path(FIG, "fig_d4_fieldoffice_experience_vs_calendar.png"), p_conf, width = 11, height = 5.5, dpi = 300, bg = "white")
+saveRDS(p_conf, file.path(FIG, "fig_d4_fieldoffice_experience_vs_calendar.rds"))
 
 # ---------------------------------------------------------------------------
 # Regression: log(duration) ~ log(cum_count) + factor(decision_year) + energy + office FE
@@ -265,4 +268,4 @@ write_csv(model_tbl, file.path(DIAG, "d4_fieldoffice_model.csv"))
 message("\n=== Learning-curve regression (log(cum_count) coefficient) ===")
 print(as.data.frame(model_tbl))
 
-message("\n02_learning_curve.R complete. Figures -> output/deliverable04/figures/ ; tables -> diagnostics/")
+message("\n02_create_figures.R complete. Figures -> output/deliverable04/figures/ ; tables -> diagnostics/")

@@ -14,7 +14,7 @@ execute:
   message: false
 ---
 
-<!-- Deterministic first pass. Figures: phase2/code/deliverable06/08_analyze.R.
+<!-- Deterministic first pass. Figures: phase2/code/deliverable06/08_create_figures.R.
      Tables read the 05/06/07 analysis parquets + the evidence spans. Action
      definitions and numeric limits are directional pending the LLM-assisted
      extraction/verification pass. -->
@@ -1181,7 +1181,7 @@ conda run -n nepa python phase2/code/deliverable06/_run.py
 quarto render phase2/reports/deliverable06.qmd
 ```
 
-`_run.py` executes the numbered chain `01`→`08` (the `08_analyze.R` figures step needs
+`_run.py` executes the numbered chain `01`→`08` (the `08_create_figures.R` figures step needs
 `Rscript`). **Without step 1 it now aborts at `09_wire_enrichment.py`** — 08 and this report
 read `fonsi_enrichment.parquet` unconditionally, so a deterministic build does not reproduce
 the reported figures and claims. Outputs are written to:

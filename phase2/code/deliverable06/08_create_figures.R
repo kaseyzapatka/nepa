@@ -16,7 +16,7 @@
 #   fig_d6_ce_by_agency        Analysis 3: the existing CE landscape by agency
 #   fig_d6_mitigated_share     Analysis 2: share conditioned on committed mitigation
 #
-# Usage: Rscript phase2/code/deliverable06/08_analyze.R
+# Usage: Rscript phase2/code/deliverable06/08_create_figures.R
 
 suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(readr); library(stringr)
@@ -46,7 +46,10 @@ theme_catf <- function(base_size = 12) {
           plot.background = element_rect(fill = "white", color = NA))
 }
 save_fig <- function(p, name, w = 8, h = 4.5) {
-  ggsave(file.path(FIGS, name), p, width = w, height = h, dpi = 300); message("  wrote ", name)
+  ggsave(file.path(FIGS, name), p, width = w, height = h, dpi = 300)
+  # .rds sidecar (same basename) so downstream scripts can readRDS + retitle.
+  saveRDS(p, file.path(FIGS, sub("\\.png$", ".rds", name)))
+  message("  wrote ", name)
 }
 short_label <- function(x) x %>% str_replace(" \\(.*\\)", "") %>% str_wrap(26)
 # clean, single-line cell label: drop underscores + abbreviate the long verbs (no wrapping)

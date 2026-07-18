@@ -58,8 +58,8 @@ def run(stages: list[tuple[str, list[str]]], workers: int) -> None:
                 print(f"  ({script} exited {rc}; non-fatal, continuing)")
             else:
                 raise SystemExit(f"{script} failed (exit {rc}) — stopping.")
-    print(f"\n=== {datetime.now():%H:%M:%S}  08_analyze.R ===", flush=True)
-    subprocess.run(["Rscript", str(HERE / "08_analyze.R")])
+    print(f"\n=== {datetime.now():%H:%M:%S}  08_create_figures.R ===", flush=True)
+    subprocess.run(["Rscript", str(HERE / "08_create_figures.R")])
 
 
 if __name__ == "__main__":

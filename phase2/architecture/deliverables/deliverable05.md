@@ -10,13 +10,13 @@
 
 ### Pipeline scripts — `phase2/code/deliverable05/`
 
-Run order: `02_build_ce_categories.py` → `01_extract_law_citations.py` → `03_analyze_spikes.R`
+Run order: `02_build_ce_categories.py` → `01_extract_law_citations.py` → `03_create_figures.R`
 
 | Script | What it does |
 |---|---|
 | `01_extract_law_citations.py` | DuckDB keyword pre-filter + Python regex across all CE/EA/EIS page text to detect explicit citations to ARRA, BIL, IRA, and DOE funding programs. Acronym disambiguation via ±200-char context window. Output: `law_citations.parquet` (grain: project × law). |
 | `02_build_ce_categories.py` | Explodes the `ce_category` VARCHAR array in `ce/documents.parquet` to one normalized CE code per row. Tags schedule (DOE 10 CFR 1021, DOI 516 DM 11, EPAct §390) and attaches curated descriptions for the top codes. Output: `ce_categories.parquet` (grain: project × code_norm). |
-| `03_analyze_spikes.R` | Joins dates, citations, categories, and project metadata. Produces the 10 figures and 6 diagnostic CSVs. Recreates the Phase 1 D3 by-year figures from scratch with this deliverable's own code. |
+| `03_create_figures.R` | Joins dates, citations, categories, and project metadata. Produces the 10 figures and 6 diagnostic CSVs. Recreates the Phase 1 D3 by-year figures from scratch with this deliverable's own code. |
 
 ---
 
@@ -36,7 +36,7 @@ flowchart TD
     E --> J[02_build_ce_categories.py]
     J --► K[deliverable05/ce_categories.parquet]
 
-    H --> L[03_analyze_spikes.R]
+    H --> L[03_create_figures.R]
     M[phase1/data/analysis/projects_combined.parquet] --> L
     I --> L
     K --> L
@@ -142,11 +142,11 @@ Reads `ce_category` (VARCHAR array) from `ce/documents.parquet` via DuckDB. The 
 
 **Audit timestamp:** `ce_categories_extraction_run_at` (ISO-8601 UTC) on all rows.
 
-### 03_analyze_spikes.R — Spike Analysis, Figures, and Tables
+### 03_create_figures.R — Spike Analysis, Figures, and Tables
 
 Joins the four input sources and derives the year-placement base: `year_date = coalesce(decision_date, initiation_date)`. A `date_basis` column (`"decision"` or `"initiation_proxy"`) records which was used. The `energy_type` variable is constructed as `recode(coalesce(project_energy_type, "Other"), "Clean" = "Decarb")` — matching D4's encoding. Department is `project_department`; `agency2` is a derived three-level variable (`"DOE"` / `"BLM"` / `"Other"`) built from `lead_agency_harmonized`.
 
-**Theme and colors:** Identical CATF theme block to D4's `08_analyze.R`. `PROCESS_COLORS = c(CE=lime, EA=dark_blue, EIS=navy)`. `ENERGY_COLORS = c(Decarb=teal, Fossil=magenta, Other=light_blue)`. `LAW_COLORS = c(ARRA=dark_blue, BIL=teal, IRA=magenta)`.
+**Theme and colors:** Identical CATF theme block to D4's `08_create_figures.R`. `PROCESS_COLORS = c(CE=lime, EA=dark_blue, EIS=navy)`. `ENERGY_COLORS = c(Decarb=teal, Fossil=magenta, Other=light_blue)`. `LAW_COLORS = c(ARRA=dark_blue, BIL=teal, IRA=magenta)`.
 
 **Legislation windows and baseline:**
 
@@ -185,7 +185,7 @@ Most recent full run: 2026-06-17 (`law_citations_extraction_run_at` 19:28 UTC; `
 | CE with decision_date | 49,392 (91.4%) |
 | CE with initiation_date (no decision) | 2,697 (additional 5.0%) |
 | CE placeable by `coalesce(decision_date, initiation_date)` | 52,089 (96.4%) |
-| Used by `03_analyze_spikes.R` (within 2000–2025 year filter) | 51,853 (100% of in-range projects have a year_date, per T6) |
+| Used by `03_create_figures.R` (within 2000–2025 year filter) | 51,853 (100% of in-range projects have a year_date, per T6) |
 
 Note: the D5 analysis frame is broader than D4's complete-timeline frame. D4 requires both initiation and decision dates for duration analysis (29,745 CE rows with complete timelines); D5 needs only a single year-placement date per project.
 
@@ -344,7 +344,7 @@ ARRA has no computed baseline ratio (no usable pre-2009 period). For BIL/IRA: DO
 
 **Why use 2016–2019 as the ARRA category baseline rather than 2005–2008?** Pre-ARRA (2005–2008) DOE CE activity was minimal (19 CEs in 2008) — too thin to compute stable code-share proportions. The 2016–2019 window is a stable DOE CE period unaffected by ARRA stimulus (which wound down by 2012–2013) and before the BIL/IRA windows begin. It provides a reliable baseline for "what DOE CEs looked like in the absence of major stimulus legislation."
 
-**Why is `03_analyze_spikes.R` tagged `[NEEDS D4 TIMELINE]` rather than self-contained?** The temporal anchor for the spike analysis is the `decision_date` from D4's `timeline_project_dates.parquet`. Without D4's extraction pipeline, there are no reliable CE determination dates at scale. The CE `ce_category` metadata does not include dates; D4 provides the dates and D5 uses them for year placement.
+**Why is `03_create_figures.R` tagged `[NEEDS D4 TIMELINE]` rather than self-contained?** The temporal anchor for the spike analysis is the `decision_date` from D4's `timeline_project_dates.parquet`. Without D4's extraction pipeline, there are no reliable CE determination dates at scale. The CE `ce_category` metadata does not include dates; D4 provides the dates and D5 uses them for year placement.
 
 **ARRA spike is a confirmed, large effect; BIL/IRA are more modest.** DOE mean monthly CEs: ARRA window 203 vs pre-ARRA DOE-only 2008 rate of ~1.6/month — roughly a 125× monthly rate increase. BIL DOE spike ratio is 1.59 (59% above baseline). IRA DOE ratio is 1.06 (6% above baseline, within noise). The spike hierarchy ARRA >> BIL > IRA for DOE CEs is the key finding, and it is consistent with the magnitude of ARRA energy spending relative to IRA/BIL CE-eligible activities at DOE.
 
@@ -363,7 +363,7 @@ conda run -n nepa python phase2/code/deliverable05/01_extract_law_citations.py -
 conda run -n nepa python phase2/code/deliverable05/01_extract_law_citations.py --source ce --sample 200
 
 # Analysis, figures, and diagnostic tables (requires D4 timeline + scripts 01+02 outputs)
-Rscript phase2/code/deliverable05/03_analyze_spikes.R
+Rscript phase2/code/deliverable05/03_create_figures.R
 
 # Report (once findings lock)
 quarto render phase2/reports/deliverable05.qmd

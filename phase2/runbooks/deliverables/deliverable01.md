@@ -7,7 +7,7 @@
 **Scope:** 20,725 clean energy projects (`project_energy_type = 'Clean'`).
 **Scripts:**
 - `phase2/code/deliverable01/01_extract_nepa_trigger.py` — extraction pipeline
-- `phase2/code/deliverable01/02_analyze_triggers.R` — analysis and figures
+- `phase2/code/deliverable01/02_create_figures.R` — analysis and figures
 
 **Reference docs** (in `phase2/code/deliverable01/`):
 - `_notes.md` — tactical notes, model selection rationale, threshold guidance
@@ -274,7 +274,7 @@ print(f"  Mean top class score: {t4['top_class_score'].mean():.3f}")
 After the trigger parquet is produced, run the R analysis script:
 
 ```bash
-Rscript phase2/code/deliverable01/02_analyze_triggers.R
+Rscript phase2/code/deliverable01/02_create_figures.R
 ```
 
 **Prerequisites:** `usmap` package must be installed in R:

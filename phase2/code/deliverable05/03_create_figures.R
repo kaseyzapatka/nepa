@@ -16,7 +16,7 @@
 #
 # Outputs: phase2/output/deliverable05/{figures,diagnostics}/
 #
-# Usage: Rscript phase2/code/deliverable05/03_analyze_spikes.R
+# Usage: Rscript phase2/code/deliverable05/03_create_figures.R
 
 suppressPackageStartupMessages({
   library(dplyr); library(tidyr); library(readr); library(stringr)
@@ -142,6 +142,8 @@ marker_text <- function(panel_df = NULL) {
 
 save_fig <- function(p, name, w = 11, h = 7) {
   ggsave(file.path(FIGS, name), p, width = w, height = h, dpi = 300)
+  # .rds sidecar (same basename) so downstream scripts can readRDS + retitle.
+  saveRDS(p, file.path(FIGS, sub("\\.png$", ".rds", name)))
   message("Wrote ", name)
 }
 

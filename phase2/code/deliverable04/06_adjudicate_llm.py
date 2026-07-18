@@ -780,7 +780,7 @@ def _apply_adjudication_results(
                 updated = True
 
         # Recompute timeline_status from the now-present dates so a date recovered here COUNTS as
-        # complete. 08_analyze.R (and the coverage CSVs) key on timeline_status; leaving it stale at
+        # complete. 08_create_figures.R (and the coverage CSVs) key on timeline_status; leaving it stale at
         # 'missing_*' would silently exclude the recovery from the deliverable. Also tag month picks.
         row = dates_df.loc[mask].iloc[0]
         idate, ddate = row.get("initiation_date"), row.get("decision_date")

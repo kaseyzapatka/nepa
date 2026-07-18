@@ -1672,7 +1672,7 @@ def apply_month_midpoint_imputation(dates_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def normalize_invalid_order(dates_df: pd.DataFrame) -> pd.DataFrame:
-    """Post-imputation order guard (source fix for the old 08_analyze.R stopgap).
+    """Post-imputation order guard (source fix for the old 08_create_figures.R stopgap).
 
     Per-project status is assigned on pre-imputation dates, but month->15th midpoint imputation
     can push a month-granularity initiation a few days PAST a day-level decision in the same month,
@@ -2062,7 +2062,7 @@ def main() -> None:
     dates_df = apply_month_midpoint_imputation(dates_df)
 
     # Source-level order guard: catch rows that midpoint imputation just pushed negative
-    # (replaces the 08_analyze.R stopgap).
+    # (replaces the 08_create_figures.R stopgap).
     dates_df = normalize_invalid_order(dates_df)
 
     # Flag EIS projects that have DEIS but no FEIS/ROD — structurally unresolvable by regex
