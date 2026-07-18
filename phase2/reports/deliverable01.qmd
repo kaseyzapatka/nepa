@@ -269,11 +269,11 @@ source_wide |>
 
 @fig-trigger-counts shows the total number of decarbonization projects in each primary trigger
 class. **Funding** is by far the largest class—DOE's vast grant and loan guarantee portfolio
-generates more NEPA reviews than any other federal nexus. **Land** is second, reflecting
+generates more NEPA reviews than any other federal nexus. Land is second, reflecting
 utility-scale renewables sited on BLM and National Forest lands under right-of-way or special
-use permits. **PMA/TVA** is third—the federal power marketing administrations (BPA, WAPA) and
-TVA building and operating transmission and generation infrastructure directly. **Direct
-Action** is fourth, driven almost entirely by DOE actions at its own facilities—national
+use permits. PMA/TVA is third—the federal power marketing administrations (BPA, WAPA) and
+TVA building and operating transmission and generation infrastructure directly. Direct
+Action is fourth, driven almost entirely by DOE actions at its own facilities—national
 laboratories and site operations.
 
 Permit, Program, and Property Transaction together account for fewer than
@@ -452,7 +452,7 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig10_funding_amount_coverage.png
 ```
 
 @fig-funding-amounts complements the coverage view with the actual dollar distribution per
-mechanism type. **A note on coverage:** dollar amounts are extracted only when the document text
+mechanism type. A note on coverage: dollar amounts are extracted only when the document text
 contains an explicit award figure — most NEPA documents do not. As a result, only a fraction of
 the `r comma(n_funding)` Funding-primary projects have an extracted amount; the caption reports
 the exact count. Despite the limited coverage, the distributions are informative about typical
@@ -537,10 +537,10 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig6_state_choropleth.png"))
 fine-grained geographic patterns in trigger type. Counties are colored by the dominant trigger
 class among all decarbonization projects located in that county.
 
-- The **Funding / Land boundary** maps closely onto federal land ownership: counties spanning
+- The Funding / Land boundary maps closely onto federal land ownership: counties spanning
   BLM or National Forest land (interior West) show Land as dominant; counties without
   substantial federal land show Funding.
-- **PMA/TVA** clusters in counties with federal power authority infrastructure—Pacific
+- PMA/TVA clusters in counties with federal power authority infrastructure—Pacific
   Northwest corridors (BPA transmission), parts of the Midwest, and Southwest transmission hubs.
 - Many rural counties host only one or two projects and are therefore colored by a single
   project's trigger type; interpret sparse interior counties with caution.
