@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-07-15">
+<meta name="dcterms.date" content="2026-07-17">
 
 <title>NEPA - NEPA Decarbonization Technology Analysis: Deliverable 2</title>
 <style>
@@ -4638,7 +4638,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">July 15, 2026</p>
+      <p class="date">July 17, 2026</p>
     </div>
   </div>
   
@@ -4659,10 +4659,10 @@ vertical-align: -.125em;
 <hr>
 <section id="context" class="level2">
 <h2 class="anchored" data-anchor-id="context">Context</h2>
-<p>When a decarbonization project — a solar farm, a transmission line — needs federal approval, the lead agency (here, BLM or the Department of Energy) studies its environmental impact and makes a judgment call: <strong>is the impact “significant” or not?</strong></p>
+<p>When a decarbonization project — a solar farm, a transmission line — needs federal approval, the lead agency (here, BLM or the Department of Energy) studies its environmental impact and makes a judgment call: is the impact “significant” or not?</p>
 <p>That one word decides a lot. If the agency finds the impact <strong>not significant</strong>, the project moves ahead on a faster track (a document called a <em>Finding of No Significant Impact</em>, or FONSI). If it finds the impact <strong>significant</strong>, that triggers a much longer, more demanding review.</p>
-<p>Often the agency lands in between: <em>“this impact <strong>would</strong> be significant — <strong>unless</strong> the developer commits to specific measures to reduce it.”</em> That is a <strong>mitigated finding</strong>, and it is the most revealing case, because it shows the exact line the agency drew and what it required to stay on the safe side of it.</p>
-<p><strong>So this deliverable answers:</strong> across these decarbonization projects, how do agencies decide what counts as “significant” in each environmental area (air, water, wildlife, cultural sites, and so on) — and what mitigation do they demand to avoid that label? Answering it means reading and coding a judgment call out of <strong>thousands</strong> of dense decision documents — far more than anyone could review by hand. The workflow below is how we do that reliably.</p>
+<p>Often the agency lands in between: <em>“this impact would be significant — unless the developer commits to specific measures to reduce it.”</em> That is a <strong>mitigated finding</strong>, and it is the most revealing case, because it shows the exact line the agency drew and what it required to stay on the safe side of it.</p>
+<p>So this deliverable answers: across these decarbonization projects, how do agencies decide what counts as “significant” in each environmental area (air, water, wildlife, cultural sites, and so on) — and what mitigation do they demand to avoid that label? Answering it means reading and coding a judgment call out of thousands of dense decision documents — far more than anyone could review by hand. The workflow below is how we do that reliably.</p>
 </section>
 <section id="workflow" class="level2">
 <h2 class="anchored" data-anchor-id="workflow">Workflow</h2>
@@ -4702,8 +4702,8 @@ vertical-align: -.125em;
 <h2 class="anchored" data-anchor-id="what-the-fonsis-and-eiss-tell-us">What the FONSIs and EISs tell us</h2>
 <p>A significance call can land on either side of the line, and <strong>the two document types record opposite outcomes</strong> — so we analyze them separately rather than pooling them:</p>
 <ul>
-<li><strong>FONSIs are the <em>below-the-line</em> record.</strong> The agency concluded the impact is <strong>not</strong> significant. This is where the <strong>mitigated</strong> cases live — impacts that <em>would</em> have been significant without committed measures. FONSIs tell us <strong>how agencies stay under the line, and what they require to get there.</strong></li>
-<li><strong>EISs are the <em>above-the-line</em> record.</strong> These are impacts the agency judged <strong>significant</strong> (and, at the extreme, significant and <em>unavoidable</em>). They tell us <strong>which resources actually cross the line.</strong></li>
+<li><strong>FONSIs are the <em>below-the-line</em> record.</strong> The agency concluded the impact is not significant. This is where the mitigated cases live — impacts that <em>would</em> have been significant without committed measures. FONSIs tell us how agencies stay under the line, and what they require to get there.</li>
+<li><strong>EISs are the <em>above-the-line</em> record.</strong> These are impacts the agency judged significant (and, at the extreme, significant and <em>unavoidable</em>). They tell us which resources actually cross the line.</li>
 </ul>
 <p>The diagram below is the vocabulary the rest of this report uses — every determination lands in one of these outcomes, and “the line” is the significance threshold that separates them:</p>
 <div style="max-width:760px;margin:1.25rem auto;display:grid;grid-template-columns:1fr 44px 62px;grid-column-gap:8px;grid-row-gap:.6rem;align-items:stretch;">
@@ -4765,7 +4765,7 @@ vertical-align: -.125em;
 </section>
 <section id="sec-fonsi" class="level2">
 <h2 class="anchored" data-anchor-id="sec-fonsi">FONSI analysis</h2>
-<p>The decarbonization FONSI corpus contains <strong>452 projects</strong>. This analysis rests on the <strong>193 of them</strong> that are (a) led by BLM or the DOE family and (b) carry machine-extractable significance findings — spanning <strong>258 decision documents</strong> and <strong>1,990 distinct significance determinations</strong> (one per document × resource area × outcome).</p>
+<p>The decarbonization FONSI corpus contains 452 projects. This analysis rests on the 193 of them that are (a) led by BLM or the DOE family and (b) carry machine-extractable significance findings — spanning 258 decision documents and 1,990 distinct significance determinations (one per document × resource area × outcome).</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-agency-scope" class="quarto-figure quarto-figure-center anchored">
@@ -4779,7 +4779,7 @@ vertical-align: -.125em;
 <p>Three filters take the 452 down to the 193 analyzed here, and <a href="#fig-fonsi-funnel">Figure 3</a> traces each step:</p>
 <ol type="1">
 <li><strong>Agency scope (452 → 427).</strong> The 25 FONSIs led by agencies other than BLM and the DOE family are set aside as context (<a href="#fig-agency-scope">Figure 2</a>) — only BLM + DOE have complete coverage in the dataset.</li>
-<li><strong>A dated, 2009-or-later decision (427 → 261) — the largest cut.</strong> NEPA’s ground rules changed repeatedly over this period, most recently with the 2023 Fiscal Responsibility Act, and <strong>comparing agency behavior across those regimes is one of this deliverable’s core questions</strong> — so every rate is read against the regulatory era the decision was made under. A FONSI with no extractable decision date (105 projects) cannot be assigned an era, pre-2009 decisions (55) predate the consistently documented modern corpus, and 6 sit on a regime boundary.</li>
+<li><strong>A dated, 2009-or-later decision (427 → 261) — the largest cut.</strong> NEPA’s ground rules changed repeatedly over this period, most recently with the 2023 Fiscal Responsibility Act, and comparing agency behavior across those regimes is one of this deliverable’s core questions — so every rate is read against the regulatory era the decision was made under. A FONSI with no extractable decision date (105 projects) cannot be assigned an era, pre-2009 decisions (55) predate the consistently documented modern corpus, and 6 sit on a regime boundary.</li>
 <li><strong>Extraction coverage (261 → 193).</strong> The upstream pipeline locates the finding sections in 224 of the 261 — the other 37 documents were parsed but phrase their finding in wording the extraction does not recognize — and in 31 more, the flagged text turns out to contain no codable determination.</li>
 </ol>
 <p>The first two are scope choices; the third is a <strong>coverage limitation, not a different finding</strong>. The 193 analyzed projects are representative of the corpus, but the rates below describe <em>those</em> projects, not all 452 (see <em>Methods</em>).</p>
@@ -4804,24 +4804,24 @@ Key takeaways (FONSI track)
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><strong>Most analyzed decarbonization FONSIs are <em>mitigated</em>.</strong> About <strong>58%</strong> of the 258 analyzed FONSI decision documents — the BLM + DOE, dated, machine-extractable set traced in <a href="#fig-fonsi-funnel">Figure 3</a>, not all 452 in the corpus — reach “no significant impact” only because the developer commits to specific measures; the impact <em>would</em> have been significant otherwise.</li>
-<li><strong>A handful of resources carry the mitigation.</strong> <strong>Biological resources, soils/geology, water, and cultural/historic sites</strong> are where projects most often sit at the line and are pulled under it — biological alone is mitigation-dependent in ~30% of its determinations.</li>
+<li><strong>Most analyzed decarbonization FONSIs are <em>mitigated</em>.</strong> About 58% of the 258 analyzed FONSI decision documents — the BLM + DOE, dated, machine-extractable set traced in <a href="#fig-fonsi-funnel">Figure 3</a>, not all 452 in the corpus — reach “no significant impact” only because the developer commits to specific measures; the impact <em>would</em> have been significant otherwise.</li>
+<li><strong>A handful of resources carry the mitigation.</strong> Biological resources, soils/geology, water, and cultural/historic sites are where projects most often sit at the line and are pulled under it — biological alone is mitigation-dependent in ~30% of its determinations.</li>
 <li><strong>The below-the-line default is “no significant impact.”</strong> Across resource areas, outright no-significant-impact is the most common outcome; genuinely <em>significant</em> findings live in the EIS record, not here.</li>
-<li><strong>The numbers are validated.</strong> The extraction agrees with an AI-human reviewed answer key at <strong>0.81</strong> on the significance class (held-out test) before any figure in this report was produced.</li>
+<li><strong>The numbers are validated.</strong> The extraction agrees with an AI-human reviewed answer key at 0.81 on the significance class (held-out test) before any figure in this report was produced.</li>
 </ul>
 </div>
 </div>
 <section id="how-accurate-is-the-extraction" class="level3">
 <h3 class="anchored" data-anchor-id="how-accurate-is-the-extraction">How accurate is the extraction?</h3>
-<p>Every determination is machine-extracted, so before any number is reported the pipeline is scored against an <strong>AI-human reviewed answer key</strong><a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>. The sample is <strong>400 windows</strong> — a “window” is one flagged passage the extraction reads — drawn <strong>stratified</strong>, meaning it deliberately covers every outcome type and the agency mix rather than being a simple random draw, plus negative passages to catch false positives. <strong>30% of the windows were held out</strong> as an untouched test; the held-out column is the honest score.</p>
+<p>Every determination is machine-extracted, so before any number is reported the pipeline is scored against an <strong>AI-human reviewed answer key</strong><a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>. The sample is 400 windows — a “window” is one flagged passage the extraction reads — drawn <strong>stratified</strong>, meaning it deliberately covers every outcome type and the agency mix rather than being a simple random draw, plus negative passages to catch false positives. 30% of the windows were held out as an untouched test; the held-out column is the honest score.</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="moksmmwyns" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="mxtcqejobw" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#moksmmwyns .gt_table {
+#mxtcqejobw .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -4845,7 +4845,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#moksmmwyns .gt_heading {
+#mxtcqejobw .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -4856,11 +4856,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#moksmmwyns .gt_caption {
+#mxtcqejobw .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#moksmmwyns .gt_title {
+#mxtcqejobw .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -4871,7 +4871,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#moksmmwyns .gt_subtitle {
+#mxtcqejobw .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -4882,12 +4882,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#moksmmwyns .gt_bottom_border {
+#mxtcqejobw .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#moksmmwyns .gt_col_headings {
+#mxtcqejobw .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -4901,7 +4901,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#moksmmwyns .gt_col_heading {
+#mxtcqejobw .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4920,7 +4920,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#moksmmwyns .gt_column_spanner_outer {
+#mxtcqejobw .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -4931,13 +4931,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#moksmmwyns .gt_column_spanner_outer:first-child {
+#mxtcqejobw .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#moksmmwyns .gt_column_spanner_outer:last-child {
+#mxtcqejobw .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#moksmmwyns .gt_column_spanner {
+#mxtcqejobw .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -4948,7 +4948,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#moksmmwyns .gt_group_heading {
+#mxtcqejobw .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -4973,7 +4973,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#moksmmwyns .gt_empty_group_heading {
+#mxtcqejobw .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -4987,13 +4987,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#moksmmwyns .gt_from_md > :first-child {
+#mxtcqejobw .gt_from_md > :first-child {
 margin-top: 0;
 }
-#moksmmwyns .gt_from_md > :last-child {
+#mxtcqejobw .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#moksmmwyns .gt_row {
+#mxtcqejobw .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5011,7 +5011,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#moksmmwyns .gt_stub {
+#mxtcqejobw .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5023,7 +5023,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#moksmmwyns .gt_stub_row_group {
+#mxtcqejobw .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5036,10 +5036,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#moksmmwyns .gt_row_group_first td {
+#mxtcqejobw .gt_row_group_first td {
 border-top-width: 2px;
 }
-#moksmmwyns .gt_summary_row {
+#mxtcqejobw .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5048,14 +5048,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#moksmmwyns .gt_first_summary_row {
+#mxtcqejobw .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#moksmmwyns .gt_first_summary_row.thick {
+#mxtcqejobw .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#moksmmwyns .gt_last_summary_row {
+#mxtcqejobw .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5064,7 +5064,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#moksmmwyns .gt_grand_summary_row {
+#mxtcqejobw .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5073,7 +5073,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#moksmmwyns .gt_first_grand_summary_row {
+#mxtcqejobw .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5082,10 +5082,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#moksmmwyns .gt_striped {
+#mxtcqejobw .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#moksmmwyns .gt_table_body {
+#mxtcqejobw .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5093,7 +5093,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#moksmmwyns .gt_footnotes {
+#mxtcqejobw .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5106,7 +5106,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#moksmmwyns .gt_footnote {
+#mxtcqejobw .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -5114,7 +5114,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#moksmmwyns .gt_sourcenotes {
+#mxtcqejobw .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5127,58 +5127,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#moksmmwyns .gt_sourcenote {
+#mxtcqejobw .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#moksmmwyns .gt_left {
+#mxtcqejobw .gt_left {
 text-align: left;
 }
-#moksmmwyns .gt_center {
+#mxtcqejobw .gt_center {
 text-align: center;
 }
-#moksmmwyns .gt_right {
+#mxtcqejobw .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#moksmmwyns .gt_font_normal {
+#mxtcqejobw .gt_font_normal {
 font-weight: normal;
 }
-#moksmmwyns .gt_font_bold {
+#mxtcqejobw .gt_font_bold {
 font-weight: bold;
 }
-#moksmmwyns .gt_font_italic {
+#mxtcqejobw .gt_font_italic {
 font-style: italic;
 }
-#moksmmwyns .gt_super {
+#mxtcqejobw .gt_super {
 font-size: 65%;
 }
-#moksmmwyns .gt_footnote_marks {
+#mxtcqejobw .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#moksmmwyns .gt_asterisk {
+#mxtcqejobw .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#moksmmwyns .gt_indent_1 {
+#mxtcqejobw .gt_indent_1 {
 text-indent: 5px;
 }
-#moksmmwyns .gt_indent_2 {
+#mxtcqejobw .gt_indent_2 {
 text-indent: 10px;
 }
-#moksmmwyns .gt_indent_3 {
+#mxtcqejobw .gt_indent_3 {
 text-indent: 15px;
 }
-#moksmmwyns .gt_indent_4 {
+#mxtcqejobw .gt_indent_4 {
 text-indent: 20px;
 }
-#moksmmwyns .gt_indent_5 {
+#mxtcqejobw .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -5231,7 +5231,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>In plain terms: the extraction <strong>almost never misses a determination</strong> and places it in the <strong>right resource area ~89%</strong> of the time; it agrees with the answer key on the significance <em>class</em> at <strong>0.81</strong> — the standard bar for this kind of task. The one weaker signal is <em>mitigation-dependence</em>, discussed at the end of this section.</p>
+<p>In plain terms: the extraction <strong>almost never misses a determination</strong> and places it in the right resource area ~89% of the time; it agrees with the answer key on the significance <em>class</em> at 0.81 — the standard bar for this kind of task. The one weaker signal is <em>mitigation-dependence</em>, discussed at the end of this section.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-validation" class="quarto-figure quarto-figure-center anchored">
@@ -5242,16 +5242,16 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p><strong>Why the last two scores are lower — and why it doesn’t undercut the findings.</strong> Both are <em>secondary attributes</em>, not the core call, and both are genuinely harder:</p>
+<p>Why the last two scores are lower — and why it doesn’t undercut the findings. Both are <em>secondary attributes</em>, not the core call, and both are genuinely harder:</p>
 <ul>
-<li><em>Mitigation-dependence (0.62).</em> Deciding whether a conclusion <strong>depends on</strong> committed mitigation is one of the hardest judgments in the whole task — the two independent AI coders themselves agreed only ~68% of the time on the fine line between “less than significant” and “less than significant <em>with mitigation</em>.” On top of that, the pipeline’s structured mitigation flag is tagged at the document level, so it over-attributes across a multi-resource passage, and its precision is ultimately bounded by upstream tagging. <strong>We handle this by reporting mitigation at the document level (where it is robust) and using the precise per-resource signal for the resource-level breakdown</strong> — so the numbers you see below are the high-precision measure, not the noisy flag.</li>
+<li><em>Mitigation-dependence (0.62).</em> Deciding whether a conclusion depends on committed mitigation is one of the hardest judgments in the whole task — the two independent AI coders themselves agreed only ~68% of the time on the fine line between “less than significant” and “less than significant <em>with mitigation</em>.” On top of that, the pipeline’s structured mitigation flag is tagged at the document level, so it over-attributes across a multi-resource passage, and its precision is ultimately bounded by upstream tagging. We handle this by reporting mitigation at the document level (where it is robust) and using the precise per-resource signal for the resource-level breakdown — so the numbers you see below are the high-precision measure, not the noisy flag.</li>
 <li><em>Regulatory threshold (0.66–0.71).</em> This is the most granular field — pinning a conclusion to a <em>specific</em> rule (a NAAQS limit, an ESA take threshold, a §106 adverse-effect finding). Many conclusions are not anchored to a single numeric threshold at all, and the distinctions are fine. It is reported descriptively as supporting context, never as a headline number.</li>
 </ul>
-<p>The three scores that carry the findings — <strong>finding the determination, placing the resource, and getting the significance class</strong> — all clear or approach the standard bar.</p>
+<p>The three scores that carry the findings — finding the determination, placing the resource, and getting the significance class — all clear or approach the standard bar.</p>
 </section>
 <section id="how-agencies-stay-below-the-line" class="level3">
 <h3 class="anchored" data-anchor-id="how-agencies-stay-below-the-line">How agencies stay below the line</h3>
-<p>Within FONSIs, the determinations sit — as they must — below the significance line: the agency either finds <strong>no significant impact</strong> outright or an impact that is <strong>less than significant</strong>, sometimes only <strong>with committed mitigation</strong>. <a href="#fig-outcomes-by-resource">Figure 5</a> breaks this down by resource area — each resource’s determinations split across the three outcomes, sorted so the resources most reliant on mitigation sit at the top, with the count and share behind each bar.</p>
+<p>Within FONSIs, the determinations sit — as they must — below the significance line: the agency either finds no significant impact outright or an impact that is less than significant, sometimes only with committed mitigation. <a href="#fig-outcomes-by-resource">Figure 5</a> breaks this down by resource area — each resource’s determinations split across the three outcomes, sorted so the resources most reliant on mitigation sit at the top, with the count and share behind each bar.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-outcomes-by-resource" class="quarto-figure quarto-figure-center anchored">
@@ -5262,11 +5262,11 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>The dominant outcome is <strong>no significant impact</strong>, as expected for FONSIs. But the resources agencies analyze most — <strong>biological, water, cultural/historic, and public health</strong> — are also where the close calls concentrate: the magenta band (<em>committed mitigation</em>) is widest for biological, soils/geology, and water. That is what makes the mitigated cases the real story.</p>
+<p>The dominant outcome is no significant impact, as expected for FONSIs. But the resources agencies analyze most — biological, water, cultural/historic, and public health — are also where the close calls concentrate: the magenta band (<em>committed mitigation</em>) is widest for biological, soils/geology, and water. That is what makes the mitigated cases the real story.</p>
 </section>
 <section id="regulatory-thresholds-behind-the-calls" class="level3">
 <h3 class="anchored" data-anchor-id="regulatory-thresholds-behind-the-calls">Regulatory thresholds behind the calls</h3>
-<p>When a conclusion is anchored to a <em>specific</em> regulatory yardstick, which one? <a href="#fig-threshold-profile">Figure 6</a> profiles the thresholds the FONSI conclusions cite — dominated by <strong>quantitative numeric limits</strong> (resource-specific caps and standards), <strong>wetland/floodplain</strong> extent, <strong>NHPA §106</strong> adverse-effect findings for cultural resources, <strong>visual (VRM)</strong> classes, and the <strong>Endangered Species Act</strong> (take and jeopardy). This mirrors the resource pattern above: the same areas that drive mitigation are the ones with the hardest regulatory lines to clear.</p>
+<p>When a conclusion is anchored to a <em>specific</em> regulatory yardstick, which one? <a href="#fig-threshold-profile">Figure 6</a> profiles the thresholds the FONSI conclusions cite — dominated by quantitative numeric limits (resource-specific caps and standards), wetland/floodplain extent, NHPA §106 adverse-effect findings for cultural resources, visual (VRM) classes, and the Endangered Species Act (take and jeopardy). This mirrors the resource pattern above: the same areas that drive mitigation are the ones with the hardest regulatory lines to clear.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-threshold-profile" class="quarto-figure quarto-figure-center anchored">
@@ -5290,7 +5290,7 @@ text-indent: 25px;
 </section>
 <section id="mitigated-fonsis-the-line-itself" class="level3">
 <h3 class="anchored" data-anchor-id="mitigated-fonsis-the-line-itself">Mitigated FONSIs — the line itself</h3>
-<p>The most revealing determinations are the <strong>mitigated</strong> ones: impacts the agency says <em>would</em> be significant, brought below the line only by required measures. These show exactly where the line sits and what it costs to stay under it — and they are the <em>majority</em> of FONSIs (<a href="#fig-mitigated-share">Figure 7</a>).</p>
+<p>The most revealing determinations are the mitigated ones: impacts the agency says <em>would</em> be significant, brought below the line only by required measures. These show exactly where the line sits and what it costs to stay under it — and they are the <em>majority</em> of FONSIs (<a href="#fig-mitigated-share">Figure 7</a>).</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-mitigated-share" class="quarto-figure quarto-figure-center anchored">
@@ -5301,7 +5301,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>About <strong>58% of the analyzed FONSI documents are mitigated</strong> — at least one resource whose not-significant conclusion depends explicitly on committed mitigation. The denominator is <strong>documents, not projects</strong>: the analyzed set is 258 decision documents across 193 projects (some projects file more than one FONSI), so the figure’s counts (149 mitigated + 109 not) sum to 258.</p>
+<p>About 58% of the analyzed FONSI documents are mitigated — at least one resource whose not-significant conclusion depends explicitly on committed mitigation. The denominator is <strong>documents, not projects</strong>: the analyzed set is 258 decision documents across 193 projects (some projects file more than one FONSI), so the figure’s counts (149 mitigated + 109 not) sum to 258.</p>
 <p>The mitigation burden is concentrated in <strong>Biological (30%), Soils / geology (28%), Water (26%), Cultural / historic (22%)</strong> — the resources most often needing committed measures to keep a project below the significance line. That pattern is the deliverable’s core finding: biological, soils/geology, water, and cultural resources are where decarbonization projects most frequently sit <em>at</em> the line and are pulled under it by mitigation.</p>
 <div class="cell">
 <div class="cell-output-display">
@@ -5313,7 +5313,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>Reading volume and mitigation-intensity together sharpens the picture. Resources in the <strong>upper right</strong> are both analyzed often <em>and</em> mitigated often — the areas that most shape whether a decarbonization project can take the faster FONSI path.</p>
+<p>Reading volume and mitigation-intensity together sharpens the picture. Resources in the upper right are both analyzed often <em>and</em> mitigated often — the areas that most shape whether a decarbonization project can take the faster FONSI path.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-mitigation-landscape" class="quarto-figure quarto-figure-center anchored">
@@ -5328,11 +5328,11 @@ text-indent: 25px;
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="iommbryznf" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="scpchiuatu" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#iommbryznf .gt_table {
+#scpchiuatu .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -5356,7 +5356,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#iommbryznf .gt_heading {
+#scpchiuatu .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5367,11 +5367,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#iommbryznf .gt_caption {
+#scpchiuatu .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#iommbryznf .gt_title {
+#scpchiuatu .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5382,7 +5382,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#iommbryznf .gt_subtitle {
+#scpchiuatu .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5393,12 +5393,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#iommbryznf .gt_bottom_border {
+#scpchiuatu .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#iommbryznf .gt_col_headings {
+#scpchiuatu .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5412,7 +5412,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#iommbryznf .gt_col_heading {
+#scpchiuatu .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5431,7 +5431,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#iommbryznf .gt_column_spanner_outer {
+#scpchiuatu .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5442,13 +5442,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#iommbryznf .gt_column_spanner_outer:first-child {
+#scpchiuatu .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#iommbryznf .gt_column_spanner_outer:last-child {
+#scpchiuatu .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#iommbryznf .gt_column_spanner {
+#scpchiuatu .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5459,7 +5459,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#iommbryznf .gt_group_heading {
+#scpchiuatu .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5484,7 +5484,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#iommbryznf .gt_empty_group_heading {
+#scpchiuatu .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5498,13 +5498,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#iommbryznf .gt_from_md > :first-child {
+#scpchiuatu .gt_from_md > :first-child {
 margin-top: 0;
 }
-#iommbryznf .gt_from_md > :last-child {
+#scpchiuatu .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#iommbryznf .gt_row {
+#scpchiuatu .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -5522,7 +5522,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#iommbryznf .gt_stub {
+#scpchiuatu .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5534,7 +5534,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#iommbryznf .gt_stub_row_group {
+#scpchiuatu .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5547,10 +5547,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#iommbryznf .gt_row_group_first td {
+#scpchiuatu .gt_row_group_first td {
 border-top-width: 2px;
 }
-#iommbryznf .gt_summary_row {
+#scpchiuatu .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5559,14 +5559,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#iommbryznf .gt_first_summary_row {
+#scpchiuatu .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#iommbryznf .gt_first_summary_row.thick {
+#scpchiuatu .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#iommbryznf .gt_last_summary_row {
+#scpchiuatu .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5575,7 +5575,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#iommbryznf .gt_grand_summary_row {
+#scpchiuatu .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5584,7 +5584,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#iommbryznf .gt_first_grand_summary_row {
+#scpchiuatu .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5593,10 +5593,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#iommbryznf .gt_striped {
+#scpchiuatu .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#iommbryznf .gt_table_body {
+#scpchiuatu .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5604,7 +5604,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#iommbryznf .gt_footnotes {
+#scpchiuatu .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5617,7 +5617,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#iommbryznf .gt_footnote {
+#scpchiuatu .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -5625,7 +5625,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#iommbryznf .gt_sourcenotes {
+#scpchiuatu .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5638,58 +5638,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#iommbryznf .gt_sourcenote {
+#scpchiuatu .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#iommbryznf .gt_left {
+#scpchiuatu .gt_left {
 text-align: left;
 }
-#iommbryznf .gt_center {
+#scpchiuatu .gt_center {
 text-align: center;
 }
-#iommbryznf .gt_right {
+#scpchiuatu .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#iommbryznf .gt_font_normal {
+#scpchiuatu .gt_font_normal {
 font-weight: normal;
 }
-#iommbryznf .gt_font_bold {
+#scpchiuatu .gt_font_bold {
 font-weight: bold;
 }
-#iommbryznf .gt_font_italic {
+#scpchiuatu .gt_font_italic {
 font-style: italic;
 }
-#iommbryznf .gt_super {
+#scpchiuatu .gt_super {
 font-size: 65%;
 }
-#iommbryznf .gt_footnote_marks {
+#scpchiuatu .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#iommbryznf .gt_asterisk {
+#scpchiuatu .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#iommbryznf .gt_indent_1 {
+#scpchiuatu .gt_indent_1 {
 text-indent: 5px;
 }
-#iommbryznf .gt_indent_2 {
+#scpchiuatu .gt_indent_2 {
 text-indent: 10px;
 }
-#iommbryznf .gt_indent_3 {
+#scpchiuatu .gt_indent_3 {
 text-indent: 15px;
 }
-#iommbryznf .gt_indent_4 {
+#scpchiuatu .gt_indent_4 {
 text-indent: 20px;
 }
-#iommbryznf .gt_indent_5 {
+#scpchiuatu .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -5814,7 +5814,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>Mitigated FONSIs are also <strong>broader</strong> analyses: a project that needs committed mitigation for any resource tends to address more resource areas overall — a median of roughly six versus four for non-mitigated FONSIs.</p>
+<p>Mitigated FONSIs are also broader analyses: a project that needs committed mitigation for any resource tends to address more resource areas overall — a median of roughly six versus four for non-mitigated FONSIs.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-breadth" class="quarto-figure quarto-figure-center anchored">
@@ -5849,7 +5849,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>The pattern is intuitive: <strong>biological, cultural/historic, air quality, and visual</strong> resources drive mitigation harder for <strong>BLM</strong> (land-facing impacts on habitat, historic sites, and viewsheds), while <strong>noise and water</strong> lean toward the <strong>DOE family</strong> (facility- and construction-driven effects). Within DOE, the picture varies further by sub-agency (<a href="#fig-subagency-by-resource">Figure 12</a>) — though the smaller sub-agency cells are noisy and should be read for pattern, not precision.</p>
+<p>The pattern is intuitive: biological, cultural/historic, air quality, and visual resources drive mitigation harder for <strong>BLM</strong> (land-facing impacts on habitat, historic sites, and viewsheds), while noise and water lean toward the <strong>DOE family</strong> (facility- and construction-driven effects). Within DOE, the picture varies further by sub-agency (<a href="#fig-subagency-by-resource">Figure 12</a>) — though the smaller sub-agency cells are noisy and should be read for pattern, not precision.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-subagency-by-resource" class="quarto-figure quarto-figure-center anchored">
@@ -5889,13 +5889,13 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>The pattern tracks regulatory leverage. <strong>Biological, air-quality, and water</strong> conclusions — backed by the Endangered Species Act and the Clean Air and Water Acts — most often carry an <strong>enforceable permit condition</strong>. <strong>Visual, cultural, and soils</strong> measures are far less often tied to one; they lean on commitments in the document text. So for the softer resources, the mitigation behind a not-significant finding is the least demonstrably binding — a caveat worth carrying into how much weight the “mitigated FONSI” label should bear for those areas.</p>
+<p>The pattern tracks regulatory leverage. Biological, air-quality, and water conclusions — backed by the Endangered Species Act and the Clean Air and Water Acts — most often carry an enforceable permit condition. Visual, cultural, and soils measures are far less often tied to one; they lean on commitments in the document text. So for the softer resources, the mitigation behind a not-significant finding is the least demonstrably binding — a caveat worth carrying into how much weight the “mitigated FONSI” label should bear for those areas.</p>
 </section>
 </section>
 <section id="sec-eis" class="level2">
 <h2 class="anchored" data-anchor-id="sec-eis">EIS analysis</h2>
-<p>The FONSI track shows how agencies stay below the significance line. The EIS track is its mirror — the above-the-line record of where impacts actually <strong>cross</strong> it. It runs the identical extraction-and-validation machinery on the EIS corpus (same controlled vocabulary, per-resource grain, and AI-human reviewed held-out test) and adds three EIS-only fields the FONSI side doesn’t need: which alternative a finding attaches to, why the impact is significant, and how it reaches the resource.</p>
-<p>The decarbonization EIS corpus is the larger of the two — 753 projects. Not all carry usable findings: significance sections were retrieved for <strong>536</strong>, of which <strong>506</strong> yielded at least one determination (<a href="#fig-eis-funnel">Figure 15</a>). Unlike the FONSI track, the EIS analysis covers <strong>all agencies</strong>, not just BLM + DOE: it is purely descriptive — which resources cross the line — and never uses a project’s decision date, so projects without a firm date are kept rather than dropped. On that basis it rests on 506 projects (1,082 documents) carrying 13,240 distinct significance determinations — of which 2,198 land above the line, including 698 judged <strong>significant and unavoidable</strong>, impacts mitigation cannot erase.</p>
+<p>The FONSI track shows how agencies stay below the significance line. The EIS track is its mirror — the above-the-line record of where impacts actually cross it. It runs the identical extraction-and-validation machinery on the EIS corpus (same controlled vocabulary, per-resource grain, and AI-human reviewed held-out test) and adds three EIS-only fields the FONSI side doesn’t need: which alternative a finding attaches to, why the impact is significant, and how it reaches the resource.</p>
+<p>The decarbonization EIS corpus is the larger of the two — 753 projects. Not all carry usable findings: significance sections were retrieved for <strong>536</strong>, of which <strong>506</strong> yielded at least one determination (<a href="#fig-eis-funnel">Figure 15</a>). Unlike the FONSI track, the EIS analysis covers <strong>all agencies</strong>, not just BLM + DOE: it is purely descriptive — which resources cross the line — and never uses a project’s decision date, so projects without a firm date are kept rather than dropped. On that basis it rests on 506 projects (1,082 documents) carrying 13,240 distinct significance determinations — of which 2,198 land above the line, including 698 judged significant and unavoidable, impacts mitigation cannot erase.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-eis-funnel" class="quarto-figure quarto-figure-center anchored">
@@ -5919,21 +5919,21 @@ Key takeaways (EIS track)
 <ul>
 <li><strong>Visual impacts cross the line most.</strong> Viewshed conclusions are judged significant more often than any other resource (~33% of visual determinations), and they most often reach <em>significant and unavoidable</em> — a changed landscape usually cannot be mitigated back.</li>
 <li><strong>Resources split into two shapes.</strong> Some are managed below the line (soils/geology, water, and public health are routinely mitigated to “not significant” and rarely cross); others cross over (visual, land use, and air quality break through more often than they are mitigated below it).</li>
-<li>Magnitude, cumulative effects, and protected resources are the dominant reasons a call is significant — and roughly a third of significant findings rest on <strong>cumulative</strong> pathways, not the project’s direct footprint alone.</li>
+<li>Magnitude, cumulative effects, and protected resources are the dominant reasons a call is significant — and roughly a third of significant findings rest on cumulative pathways, not the project’s direct footprint alone.</li>
 </ul>
 </div>
 </div>
 <section id="how-accurate-is-the-eis-extraction" class="level3">
 <h3 class="anchored" data-anchor-id="how-accurate-is-the-eis-extraction">How accurate is the EIS extraction?</h3>
-<p>The EIS pipeline was graded exactly as the FONSI one: two reviewers coded a stratified 400-window sample, a third adjudicated, and <strong>30% was held out</strong> as an untouched test. The scores are lower across the board — the EIS task is harder, and the report treats it accordingly.</p>
+<p>The EIS pipeline was graded exactly as the FONSI one: two reviewers coded a stratified 400-window sample, a third adjudicated, and 30% was held out as an untouched test. The scores are lower across the board — the EIS task is harder, and the report treats it accordingly.</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="flyukyngqi" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="hltwprfnht" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#flyukyngqi .gt_table {
+#hltwprfnht .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -5957,7 +5957,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#flyukyngqi .gt_heading {
+#hltwprfnht .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5968,11 +5968,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#flyukyngqi .gt_caption {
+#hltwprfnht .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#flyukyngqi .gt_title {
+#hltwprfnht .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5983,7 +5983,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#flyukyngqi .gt_subtitle {
+#hltwprfnht .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5994,12 +5994,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#flyukyngqi .gt_bottom_border {
+#hltwprfnht .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#flyukyngqi .gt_col_headings {
+#hltwprfnht .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6013,7 +6013,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#flyukyngqi .gt_col_heading {
+#hltwprfnht .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6032,7 +6032,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#flyukyngqi .gt_column_spanner_outer {
+#hltwprfnht .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6043,13 +6043,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#flyukyngqi .gt_column_spanner_outer:first-child {
+#hltwprfnht .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#flyukyngqi .gt_column_spanner_outer:last-child {
+#hltwprfnht .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#flyukyngqi .gt_column_spanner {
+#hltwprfnht .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -6060,7 +6060,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#flyukyngqi .gt_group_heading {
+#hltwprfnht .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6085,7 +6085,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#flyukyngqi .gt_empty_group_heading {
+#hltwprfnht .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -6099,13 +6099,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#flyukyngqi .gt_from_md > :first-child {
+#hltwprfnht .gt_from_md > :first-child {
 margin-top: 0;
 }
-#flyukyngqi .gt_from_md > :last-child {
+#hltwprfnht .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#flyukyngqi .gt_row {
+#hltwprfnht .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6123,7 +6123,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#flyukyngqi .gt_stub {
+#hltwprfnht .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6135,7 +6135,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#flyukyngqi .gt_stub_row_group {
+#hltwprfnht .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6148,10 +6148,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#flyukyngqi .gt_row_group_first td {
+#hltwprfnht .gt_row_group_first td {
 border-top-width: 2px;
 }
-#flyukyngqi .gt_summary_row {
+#hltwprfnht .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6160,14 +6160,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#flyukyngqi .gt_first_summary_row {
+#hltwprfnht .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#flyukyngqi .gt_first_summary_row.thick {
+#hltwprfnht .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#flyukyngqi .gt_last_summary_row {
+#hltwprfnht .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6176,7 +6176,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#flyukyngqi .gt_grand_summary_row {
+#hltwprfnht .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6185,7 +6185,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#flyukyngqi .gt_first_grand_summary_row {
+#hltwprfnht .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6194,10 +6194,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#flyukyngqi .gt_striped {
+#hltwprfnht .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#flyukyngqi .gt_table_body {
+#hltwprfnht .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6205,7 +6205,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#flyukyngqi .gt_footnotes {
+#hltwprfnht .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6218,7 +6218,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#flyukyngqi .gt_footnote {
+#hltwprfnht .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -6226,7 +6226,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#flyukyngqi .gt_sourcenotes {
+#hltwprfnht .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6239,58 +6239,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#flyukyngqi .gt_sourcenote {
+#hltwprfnht .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#flyukyngqi .gt_left {
+#hltwprfnht .gt_left {
 text-align: left;
 }
-#flyukyngqi .gt_center {
+#hltwprfnht .gt_center {
 text-align: center;
 }
-#flyukyngqi .gt_right {
+#hltwprfnht .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#flyukyngqi .gt_font_normal {
+#hltwprfnht .gt_font_normal {
 font-weight: normal;
 }
-#flyukyngqi .gt_font_bold {
+#hltwprfnht .gt_font_bold {
 font-weight: bold;
 }
-#flyukyngqi .gt_font_italic {
+#hltwprfnht .gt_font_italic {
 font-style: italic;
 }
-#flyukyngqi .gt_super {
+#hltwprfnht .gt_super {
 font-size: 65%;
 }
-#flyukyngqi .gt_footnote_marks {
+#hltwprfnht .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#flyukyngqi .gt_asterisk {
+#hltwprfnht .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#flyukyngqi .gt_indent_1 {
+#hltwprfnht .gt_indent_1 {
 text-indent: 5px;
 }
-#flyukyngqi .gt_indent_2 {
+#hltwprfnht .gt_indent_2 {
 text-indent: 10px;
 }
-#flyukyngqi .gt_indent_3 {
+#hltwprfnht .gt_indent_3 {
 text-indent: 15px;
 }
-#flyukyngqi .gt_indent_4 {
+#hltwprfnht .gt_indent_4 {
 text-indent: 20px;
 }
-#flyukyngqi .gt_indent_5 {
+#hltwprfnht .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6353,7 +6353,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>The pipeline still <strong>finds the determination reliably (0.84)</strong> and places it in the right resource about <strong>two-thirds</strong> of the time; the significance <em>class</em> lands at <strong>0.69</strong>. That last number is below the FONSI bar for a real reason: separating “significant” from “significant <em>and unavoidable</em>” is a fine distinction the AI coders split on too. We therefore lead with the robust cut — <em>which resources cross the line</em> — and treat the adverse-vs-unavoidable split as directional.</p>
+<p>The pipeline still <strong>finds the determination reliably</strong> (0.84) and places it in the right resource about two-thirds of the time; the significance <em>class</em> lands at 0.69. That last number is below the FONSI bar for a real reason: separating “significant” from “significant <em>and unavoidable</em>” is a fine distinction the AI coders split on too. We therefore lead with the robust cut — <em>which resources cross the line</em> — and treat the adverse-vs-unavoidable split as directional.</p>
 </section>
 <section id="which-resources-cross-the-line" class="level3">
 <h3 class="anchored" data-anchor-id="which-resources-cross-the-line">Which resources cross the line</h3>
@@ -6377,7 +6377,7 @@ text-indent: 25px;
 </section>
 <section id="the-wall-significant-and-unavoidable" class="level3">
 <h3 class="anchored" data-anchor-id="the-wall-significant-and-unavoidable">The wall: significant <em>and</em> unavoidable</h3>
-<p>The starkest determinations are the significant and unavoidable ones — where the agency concludes the impact is real, material, and <strong>cannot be mitigated below the line</strong>. These are the true limits on a decarbonization project. <a href="#fig-eis-unavoidable">Figure 18</a> counts them by resource — each bar is the number of distinct <em>significant-and-unavoidable</em> determinations (one per document × resource) for that resource, across the analyzed EIS projects.</p>
+<p>The starkest determinations are the significant and unavoidable ones — where the agency concludes the impact is real, material, and cannot be mitigated below the line. These are the true limits on a decarbonization project. <a href="#fig-eis-unavoidable">Figure 18</a> counts them by resource — each bar is the number of distinct <em>significant-and-unavoidable</em> determinations (one per document × resource) for that resource, across the analyzed EIS projects.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-eis-unavoidable" class="quarto-figure quarto-figure-center anchored">
@@ -6392,11 +6392,11 @@ text-indent: 25px;
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="vwdggweuzb" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="wjrmoztxjt" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#vwdggweuzb .gt_table {
+#wjrmoztxjt .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -6420,7 +6420,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#vwdggweuzb .gt_heading {
+#wjrmoztxjt .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -6431,11 +6431,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#vwdggweuzb .gt_caption {
+#wjrmoztxjt .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#vwdggweuzb .gt_title {
+#wjrmoztxjt .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -6446,7 +6446,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#vwdggweuzb .gt_subtitle {
+#wjrmoztxjt .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -6457,12 +6457,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#vwdggweuzb .gt_bottom_border {
+#wjrmoztxjt .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#vwdggweuzb .gt_col_headings {
+#wjrmoztxjt .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6476,7 +6476,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#vwdggweuzb .gt_col_heading {
+#wjrmoztxjt .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6495,7 +6495,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#vwdggweuzb .gt_column_spanner_outer {
+#wjrmoztxjt .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6506,13 +6506,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#vwdggweuzb .gt_column_spanner_outer:first-child {
+#wjrmoztxjt .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#vwdggweuzb .gt_column_spanner_outer:last-child {
+#wjrmoztxjt .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#vwdggweuzb .gt_column_spanner {
+#wjrmoztxjt .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -6523,7 +6523,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#vwdggweuzb .gt_group_heading {
+#wjrmoztxjt .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6548,7 +6548,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#vwdggweuzb .gt_empty_group_heading {
+#wjrmoztxjt .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -6562,13 +6562,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#vwdggweuzb .gt_from_md > :first-child {
+#wjrmoztxjt .gt_from_md > :first-child {
 margin-top: 0;
 }
-#vwdggweuzb .gt_from_md > :last-child {
+#wjrmoztxjt .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#vwdggweuzb .gt_row {
+#wjrmoztxjt .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -6586,7 +6586,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#vwdggweuzb .gt_stub {
+#wjrmoztxjt .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6598,7 +6598,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwdggweuzb .gt_stub_row_group {
+#wjrmoztxjt .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6611,10 +6611,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#vwdggweuzb .gt_row_group_first td {
+#wjrmoztxjt .gt_row_group_first td {
 border-top-width: 2px;
 }
-#vwdggweuzb .gt_summary_row {
+#wjrmoztxjt .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6623,14 +6623,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwdggweuzb .gt_first_summary_row {
+#wjrmoztxjt .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#vwdggweuzb .gt_first_summary_row.thick {
+#wjrmoztxjt .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#vwdggweuzb .gt_last_summary_row {
+#wjrmoztxjt .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6639,7 +6639,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#vwdggweuzb .gt_grand_summary_row {
+#wjrmoztxjt .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6648,7 +6648,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwdggweuzb .gt_first_grand_summary_row {
+#wjrmoztxjt .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6657,10 +6657,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#vwdggweuzb .gt_striped {
+#wjrmoztxjt .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#vwdggweuzb .gt_table_body {
+#wjrmoztxjt .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6668,7 +6668,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#vwdggweuzb .gt_footnotes {
+#wjrmoztxjt .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6681,7 +6681,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#vwdggweuzb .gt_footnote {
+#wjrmoztxjt .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -6689,7 +6689,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwdggweuzb .gt_sourcenotes {
+#wjrmoztxjt .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6702,58 +6702,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#vwdggweuzb .gt_sourcenote {
+#wjrmoztxjt .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwdggweuzb .gt_left {
+#wjrmoztxjt .gt_left {
 text-align: left;
 }
-#vwdggweuzb .gt_center {
+#wjrmoztxjt .gt_center {
 text-align: center;
 }
-#vwdggweuzb .gt_right {
+#wjrmoztxjt .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#vwdggweuzb .gt_font_normal {
+#wjrmoztxjt .gt_font_normal {
 font-weight: normal;
 }
-#vwdggweuzb .gt_font_bold {
+#wjrmoztxjt .gt_font_bold {
 font-weight: bold;
 }
-#vwdggweuzb .gt_font_italic {
+#wjrmoztxjt .gt_font_italic {
 font-style: italic;
 }
-#vwdggweuzb .gt_super {
+#wjrmoztxjt .gt_super {
 font-size: 65%;
 }
-#vwdggweuzb .gt_footnote_marks {
+#wjrmoztxjt .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#vwdggweuzb .gt_asterisk {
+#wjrmoztxjt .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#vwdggweuzb .gt_indent_1 {
+#wjrmoztxjt .gt_indent_1 {
 text-indent: 5px;
 }
-#vwdggweuzb .gt_indent_2 {
+#wjrmoztxjt .gt_indent_2 {
 text-indent: 10px;
 }
-#vwdggweuzb .gt_indent_3 {
+#wjrmoztxjt .gt_indent_3 {
 text-indent: 15px;
 }
-#vwdggweuzb .gt_indent_4 {
+#wjrmoztxjt .gt_indent_4 {
 text-indent: 20px;
 }
-#vwdggweuzb .gt_indent_5 {
+#wjrmoztxjt .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6893,7 +6893,7 @@ text-indent: 25px;
 </section>
 <section id="how-broadly-does-an-eis-cross-the-line" class="level3">
 <h3 class="anchored" data-anchor-id="how-broadly-does-an-eis-cross-the-line">How broadly does an EIS cross the line?</h3>
-<p>The resource views above pool all EISs together. Stepping back to the <strong>document level</strong> asks a different question: when an EIS <em>does</em> cross the line, does it do so on one resource or many? <a href="#fig-eis-breadth">Figure 19</a> answers it.</p>
+<p>The resource views above pool all EISs together. Stepping back to the document level asks a different question: when an EIS <em>does</em> cross the line, does it do so on one resource or many? <a href="#fig-eis-breadth">Figure 19</a> answers it.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-eis-breadth" class="quarto-figure quarto-figure-center anchored">
@@ -6904,7 +6904,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>Crossing the line is usually a <strong>focused</strong> event: over a third of EISs that cross do so on a single resource, and the median is two. But a meaningful minority — <strong>284 documents</strong> — cross on three or more resources, and a few span nearly the entire environmental slate. (This counts only resource-area determinations; documents whose significant conclusion is stated project-wide, or not captured by the retrieval, sit outside it — see <em>Methods</em>.)</p>
+<p>Crossing the line is usually a focused event: over a third of EISs that cross do so on a single resource, and the median is two. But a meaningful minority — 284 documents — cross on three or more resources, and a few span nearly the entire environmental slate. (This counts only resource-area determinations; documents whose significant conclusion is stated project-wide, or not captured by the retrieval, sit outside it — see <em>Methods</em>.)</p>
 </section>
 <section id="fonsi-vs-eis-two-ways-a-resource-can-be-a-problem" class="level3">
 <h3 class="anchored" data-anchor-id="fonsi-vs-eis-two-ways-a-resource-can-be-a-problem">FONSI vs EIS: two ways a resource can be a problem</h3>
@@ -6949,15 +6949,15 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>The leading reasons an impact is called significant are sheer magnitude, a protected resource, and cumulative effects, and the heatmap shows they are not interchangeable: <strong>a protected resource drives significance mainly for cultural and biological resources</strong> (endangered species, historic properties), a <strong>regulatory threshold</strong> for air quality and noise (numeric standards), and <strong>cumulative effects</strong> for biological, visual, and water. That last one is notable for decarbonization siting — about one in four significant findings rests on impacts that build up across a landscape or airshed rather than on one project’s direct footprint. <a href="#tbl-eis-factor-ex">Table 5</a> gives verbatim examples of each.</p>
+<p>The leading reasons an impact is called significant are sheer magnitude, a protected resource, and cumulative effects, and the heatmap shows they are not interchangeable: a protected resource drives significance mainly for cultural and biological resources (endangered species, historic properties), a regulatory threshold for air quality and noise (numeric standards), and cumulative effects for biological, visual, and water. That last one is notable for decarbonization siting — about one in four significant findings rests on impacts that build up across a landscape or airshed rather than on one project’s direct footprint. <a href="#tbl-eis-factor-ex">Table 5</a> gives verbatim examples of each.</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="cmzargrggn" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="qcrnnbotgw" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#cmzargrggn .gt_table {
+#qcrnnbotgw .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -6981,7 +6981,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#cmzargrggn .gt_heading {
+#qcrnnbotgw .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -6992,11 +6992,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#cmzargrggn .gt_caption {
+#qcrnnbotgw .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#cmzargrggn .gt_title {
+#qcrnnbotgw .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -7007,7 +7007,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#cmzargrggn .gt_subtitle {
+#qcrnnbotgw .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -7018,12 +7018,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#cmzargrggn .gt_bottom_border {
+#qcrnnbotgw .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#cmzargrggn .gt_col_headings {
+#qcrnnbotgw .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -7037,7 +7037,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#cmzargrggn .gt_col_heading {
+#qcrnnbotgw .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7056,7 +7056,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#cmzargrggn .gt_column_spanner_outer {
+#qcrnnbotgw .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7067,13 +7067,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#cmzargrggn .gt_column_spanner_outer:first-child {
+#qcrnnbotgw .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#cmzargrggn .gt_column_spanner_outer:last-child {
+#qcrnnbotgw .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#cmzargrggn .gt_column_spanner {
+#qcrnnbotgw .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -7084,7 +7084,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#cmzargrggn .gt_group_heading {
+#qcrnnbotgw .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7109,7 +7109,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#cmzargrggn .gt_empty_group_heading {
+#qcrnnbotgw .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -7123,13 +7123,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#cmzargrggn .gt_from_md > :first-child {
+#qcrnnbotgw .gt_from_md > :first-child {
 margin-top: 0;
 }
-#cmzargrggn .gt_from_md > :last-child {
+#qcrnnbotgw .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#cmzargrggn .gt_row {
+#qcrnnbotgw .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -7147,7 +7147,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#cmzargrggn .gt_stub {
+#qcrnnbotgw .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7159,7 +7159,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cmzargrggn .gt_stub_row_group {
+#qcrnnbotgw .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7172,10 +7172,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#cmzargrggn .gt_row_group_first td {
+#qcrnnbotgw .gt_row_group_first td {
 border-top-width: 2px;
 }
-#cmzargrggn .gt_summary_row {
+#qcrnnbotgw .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -7184,14 +7184,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cmzargrggn .gt_first_summary_row {
+#qcrnnbotgw .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#cmzargrggn .gt_first_summary_row.thick {
+#qcrnnbotgw .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#cmzargrggn .gt_last_summary_row {
+#qcrnnbotgw .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7200,7 +7200,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#cmzargrggn .gt_grand_summary_row {
+#qcrnnbotgw .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -7209,7 +7209,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cmzargrggn .gt_first_grand_summary_row {
+#qcrnnbotgw .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7218,10 +7218,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#cmzargrggn .gt_striped {
+#qcrnnbotgw .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#cmzargrggn .gt_table_body {
+#qcrnnbotgw .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -7229,7 +7229,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#cmzargrggn .gt_footnotes {
+#qcrnnbotgw .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -7242,7 +7242,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#cmzargrggn .gt_footnote {
+#qcrnnbotgw .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -7250,7 +7250,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cmzargrggn .gt_sourcenotes {
+#qcrnnbotgw .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -7263,58 +7263,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#cmzargrggn .gt_sourcenote {
+#qcrnnbotgw .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#cmzargrggn .gt_left {
+#qcrnnbotgw .gt_left {
 text-align: left;
 }
-#cmzargrggn .gt_center {
+#qcrnnbotgw .gt_center {
 text-align: center;
 }
-#cmzargrggn .gt_right {
+#qcrnnbotgw .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#cmzargrggn .gt_font_normal {
+#qcrnnbotgw .gt_font_normal {
 font-weight: normal;
 }
-#cmzargrggn .gt_font_bold {
+#qcrnnbotgw .gt_font_bold {
 font-weight: bold;
 }
-#cmzargrggn .gt_font_italic {
+#qcrnnbotgw .gt_font_italic {
 font-style: italic;
 }
-#cmzargrggn .gt_super {
+#qcrnnbotgw .gt_super {
 font-size: 65%;
 }
-#cmzargrggn .gt_footnote_marks {
+#qcrnnbotgw .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#cmzargrggn .gt_asterisk {
+#qcrnnbotgw .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#cmzargrggn .gt_indent_1 {
+#qcrnnbotgw .gt_indent_1 {
 text-indent: 5px;
 }
-#cmzargrggn .gt_indent_2 {
+#qcrnnbotgw .gt_indent_2 {
 text-indent: 10px;
 }
-#cmzargrggn .gt_indent_3 {
+#qcrnnbotgw .gt_indent_3 {
 text-indent: 15px;
 }
-#cmzargrggn .gt_indent_4 {
+#qcrnnbotgw .gt_indent_4 {
 text-indent: 20px;
 }
-#cmzargrggn .gt_indent_5 {
+#qcrnnbotgw .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -7430,7 +7430,7 @@ text-indent: 25px;
 <i class="callout-icon no-icon"></i>
 </div>
 <div class="callout-body-container">
-<p><strong>Findings attach mostly to the proposed action.</strong> About half of significant determinations name a specific alternative; where they do, the <strong>proposed action</strong> dominates, with named build and no-action alternatives carrying the rest. Significance is overwhelmingly a judgment about <em>what the applicant proposed</em>, not about the alternatives weighed against it.</p>
+<p><strong>Findings attach mostly to the proposed action.</strong> About half of significant determinations name a specific alternative; where they do, the proposed action dominates, with named build and no-action alternatives carrying the rest. Significance is overwhelmingly a judgment about <em>what the applicant proposed</em>, not about the alternatives weighed against it.</p>
 </div>
 </div>
 </div>
@@ -7448,11 +7448,11 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>The spread is real — from <strong>Army Corps (27%)</strong> at the top down to <strong>TVA (3%)</strong>. Land- and water-facing agencies — the <strong>Army Corps</strong> and <strong>BLM</strong> — cross into significance most often, which fits their portfolios (dredge-and-fill permits, public-land rights-of-way with visual and habitat exposure). The utility-service programs — the <strong>Rural Utilities Service</strong> and <strong>TVA</strong> — cross least, consistent with routine utility infrastructure on already-developed land and corridors. BLM and the DOE family remain the only agencies with complete coverage; the others are shown for context.</p>
+<p>The spread is real — from Army Corps (27%) at the top down to TVA (3%). Land- and water-facing agencies — the Army Corps and BLM — cross into significance most often, which fits their portfolios (dredge-and-fill permits, public-land rights-of-way with visual and habitat exposure). The utility-service programs — the Rural Utilities Service and TVA — cross least, consistent with routine utility infrastructure on already-developed land and corridors. BLM and the DOE family remain the only agencies with complete coverage; the others are shown for context.</p>
 </section>
 <section id="significance-by-clean-energy-technology-1" class="level3">
 <h3 class="anchored" data-anchor-id="significance-by-clean-energy-technology-1">Significance by clean-energy technology</h3>
-<p>The most decision-relevant cut for a decarbonization portfolio is the <strong>technology</strong>. Classifying each project by its primary technology (from the dataset’s project-type field), <a href="#fig-eis-technology">Figure 24</a> ranks how often each crosses the line, and <a href="#fig-eis-technology-resource">Figure 25</a> shows <em>where</em> — each technology’s distinct “significance signature.”</p>
+<p>The most decision-relevant cut for a decarbonization portfolio is the technology. Classifying each project by its primary technology (from the dataset’s project-type field), <a href="#fig-eis-technology">Figure 24</a> ranks how often each crosses the line, and <a href="#fig-eis-technology-resource">Figure 25</a> shows <em>where</em> — each technology’s distinct “significance signature.”</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-eis-technology" class="quarto-figure quarto-figure-center anchored">
@@ -7463,7 +7463,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p><strong>Hydropower crosses the line most (28%)</strong> — dams carry aquatic and water impacts that are hard to avoid — followed by transmission and solar (~19% and ~18%). <strong>Nuclear crosses least among the large technologies (6%)</strong>, consistent with siting on already-industrial land under highly prescribed review. But the <em>rate</em> is only half the story; the resources each technology hits are distinct:</p>
+<p><strong>Hydropower crosses the line most</strong> (28%) — dams carry aquatic and water impacts that are hard to avoid — followed by transmission and solar (~19% and ~18%). <strong>Nuclear crosses least among the large technologies</strong> (6%), consistent with siting on already-industrial land under highly prescribed review. But the <em>rate</em> is only half the story; the resources each technology hits are distinct:</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-eis-technology-resource" class="quarto-figure quarto-figure-center anchored">
@@ -7474,7 +7474,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>The signatures are intuitive and actionable: <strong>wind</strong> is defined by <strong>biological</strong> impacts (avian and bat collision) plus <strong>noise</strong>; <strong>solar</strong> by <strong>visual, cultural, and air-quality</strong> (desert dust); <strong>transmission</strong> spreads its crossings across <strong>biological, visual, and cultural</strong> along its corridor; and <strong>hydro and nuclear</strong> concentrate on <strong>biological and water</strong>. For siting decisions, this says the environmental fight is largely predictable from the technology: propose utility-scale solar and expect viewshed and cultural-resource conflicts; propose wind and expect the fight to be about wildlife.</p>
+<p>The signatures are intuitive and actionable: <strong>wind</strong> is defined by biological impacts (avian and bat collision) plus noise; <strong>solar</strong> by visual, cultural, and air-quality (desert dust); <strong>transmission</strong> spreads its crossings across biological, visual, and cultural along its corridor; and <strong>hydro and nuclear</strong> concentrate on biological and water. For siting decisions, this says the environmental fight is largely predictable from the technology: propose utility-scale solar and expect viewshed and cultural-resource conflicts; propose wind and expect the fight to be about wildlife.</p>
 </section>
 <section id="significant-but-reducible" class="level3">
 <h3 class="anchored" data-anchor-id="significant-but-reducible">Significant, but reducible</h3>
@@ -7492,11 +7492,11 @@ text-indent: 25px;
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="lzwaufmpxb" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="mazlfpaqwh" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#lzwaufmpxb .gt_table {
+#mazlfpaqwh .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -7520,7 +7520,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_heading {
+#mazlfpaqwh .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -7531,11 +7531,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_caption {
+#mazlfpaqwh .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#lzwaufmpxb .gt_title {
+#mazlfpaqwh .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -7546,7 +7546,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#lzwaufmpxb .gt_subtitle {
+#mazlfpaqwh .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -7557,12 +7557,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#lzwaufmpxb .gt_bottom_border {
+#mazlfpaqwh .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_col_headings {
+#mazlfpaqwh .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -7576,7 +7576,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_col_heading {
+#mazlfpaqwh .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7595,7 +7595,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#lzwaufmpxb .gt_column_spanner_outer {
+#mazlfpaqwh .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7606,13 +7606,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#lzwaufmpxb .gt_column_spanner_outer:first-child {
+#mazlfpaqwh .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#lzwaufmpxb .gt_column_spanner_outer:last-child {
+#mazlfpaqwh .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#lzwaufmpxb .gt_column_spanner {
+#mazlfpaqwh .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -7623,7 +7623,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#lzwaufmpxb .gt_group_heading {
+#mazlfpaqwh .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7648,7 +7648,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#lzwaufmpxb .gt_empty_group_heading {
+#mazlfpaqwh .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -7662,13 +7662,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#lzwaufmpxb .gt_from_md > :first-child {
+#mazlfpaqwh .gt_from_md > :first-child {
 margin-top: 0;
 }
-#lzwaufmpxb .gt_from_md > :last-child {
+#mazlfpaqwh .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#lzwaufmpxb .gt_row {
+#mazlfpaqwh .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -7686,7 +7686,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#lzwaufmpxb .gt_stub {
+#mazlfpaqwh .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7698,7 +7698,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lzwaufmpxb .gt_stub_row_group {
+#mazlfpaqwh .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7711,10 +7711,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#lzwaufmpxb .gt_row_group_first td {
+#mazlfpaqwh .gt_row_group_first td {
 border-top-width: 2px;
 }
-#lzwaufmpxb .gt_summary_row {
+#mazlfpaqwh .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -7723,14 +7723,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lzwaufmpxb .gt_first_summary_row {
+#mazlfpaqwh .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_first_summary_row.thick {
+#mazlfpaqwh .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#lzwaufmpxb .gt_last_summary_row {
+#mazlfpaqwh .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7739,7 +7739,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_grand_summary_row {
+#mazlfpaqwh .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -7748,7 +7748,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lzwaufmpxb .gt_first_grand_summary_row {
+#mazlfpaqwh .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7757,10 +7757,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_striped {
+#mazlfpaqwh .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#lzwaufmpxb .gt_table_body {
+#mazlfpaqwh .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -7768,7 +7768,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_footnotes {
+#mazlfpaqwh .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -7781,7 +7781,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_footnote {
+#mazlfpaqwh .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -7789,7 +7789,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lzwaufmpxb .gt_sourcenotes {
+#mazlfpaqwh .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -7802,58 +7802,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#lzwaufmpxb .gt_sourcenote {
+#mazlfpaqwh .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lzwaufmpxb .gt_left {
+#mazlfpaqwh .gt_left {
 text-align: left;
 }
-#lzwaufmpxb .gt_center {
+#mazlfpaqwh .gt_center {
 text-align: center;
 }
-#lzwaufmpxb .gt_right {
+#mazlfpaqwh .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#lzwaufmpxb .gt_font_normal {
+#mazlfpaqwh .gt_font_normal {
 font-weight: normal;
 }
-#lzwaufmpxb .gt_font_bold {
+#mazlfpaqwh .gt_font_bold {
 font-weight: bold;
 }
-#lzwaufmpxb .gt_font_italic {
+#mazlfpaqwh .gt_font_italic {
 font-style: italic;
 }
-#lzwaufmpxb .gt_super {
+#mazlfpaqwh .gt_super {
 font-size: 65%;
 }
-#lzwaufmpxb .gt_footnote_marks {
+#mazlfpaqwh .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#lzwaufmpxb .gt_asterisk {
+#mazlfpaqwh .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#lzwaufmpxb .gt_indent_1 {
+#mazlfpaqwh .gt_indent_1 {
 text-indent: 5px;
 }
-#lzwaufmpxb .gt_indent_2 {
+#mazlfpaqwh .gt_indent_2 {
 text-indent: 10px;
 }
-#lzwaufmpxb .gt_indent_3 {
+#mazlfpaqwh .gt_indent_3 {
 text-indent: 15px;
 }
-#lzwaufmpxb .gt_indent_4 {
+#mazlfpaqwh .gt_indent_4 {
 text-indent: 20px;
 }
-#lzwaufmpxb .gt_indent_5 {
+#mazlfpaqwh .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -7930,7 +7930,7 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>Tellingly, <strong>visual</strong> leads this list too: even the resource most likely to hit the wall sometimes admits partial mitigation (screening, siting adjustments), just not enough to drop below the line. These cases are the closest the EIS record comes to the mitigated-FONSI story — significant enough to require a full statement, but not beyond the reach of committed measures.</p>
+<p>Tellingly, visual leads this list too: even the resource most likely to hit the wall sometimes admits partial mitigation (screening, siting adjustments), just not enough to drop below the line. These cases are the closest the EIS record comes to the mitigated-FONSI story — significant enough to require a full statement, but not beyond the reach of committed measures.</p>
 </section>
 </section>
 <section id="reproducibility" class="level2">
@@ -7953,7 +7953,7 @@ text-indent: 25px;
 <span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> run <span class="at">-n</span> nepa python phase2/code/deliverable02/05_validate_significance.py <span class="at">--track</span> eis  <span class="co"># EIS</span></span>
 <span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="co"># 4. analysis tables + figures (writes the CSVs/PNGs this report reads)</span></span>
-<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> phase2/code/deliverable02/06_analyze_significance.R</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> phase2/code/deliverable02/06_create_figures.R</span>
 <span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="co"># 5. render</span></span>
 <span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render phase2/reports/deliverable02.qmd</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
