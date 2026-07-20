@@ -124,8 +124,8 @@ the **Inflation Reduction Act (IRA**, Aug 2022).
    temporal coincidence.
 
 3. **The *type* of CE used shifted decisively toward the law's purpose.** Among DOE categorical
-   exclusions in the ARRA window, category **B5.1, "Actions to conserve energy or water," rose to
-   `r pct1(b51_spike)`** of all DOE CEs (from `r pct1(b51_base)` at baseline) — the energy-efficiency
+   exclusions in the ARRA window, category B5.1, "Actions to conserve energy or water," rose to
+   `r pct1(b51_spike)` of all DOE CEs (from `r pct1(b51_base)` at baseline) — the energy-efficiency
    stimulus showing up directly in the categorical-exclusion mix.
 
 4. **BIL and IRA show a real but far more muted pattern.** DOE CE activity rose after BIL
@@ -155,7 +155,7 @@ The deliverable asks three distinct questions, each answered by a distinct analy
 Every CE is placed in time by its **determination (decision) date**. Where that is absent we fall back
 to the **initiation date** as a same-year proxy — safe for CEs, whose median duration is roughly three
 weeks, so the two dates almost always fall in the same calendar year. This yields a base of
-**`r fmt_n(n_ce_placeable)` of `r fmt_n(n_ce_total)` CE projects (`r pct1(pct_ce_placeable)`)** that
+`r fmt_n(n_ce_placeable)` of `r fmt_n(n_ce_total)` CE projects (`r pct1(pct_ce_placeable)`) that
 can be located on the timeline — far broader than the complete-timeline base used for the duration
 analysis in Deliverable 4, because placing a CE in a year requires only one date, not two.
 
@@ -180,7 +180,7 @@ tibble::tibble(
 
 A raw count of CEs per year mixes three things: genuine policy-driven surges, the growth of NEPATEC's
 document coverage over time (the dataset is sparse before 2009), and a drop-off in 2024–2025 caused by
-recent documents not yet being ingested. We therefore do **not** lean on aggregate counts to make the
+recent documents not yet being ingested. We therefore do not lean on aggregate counts to make the
 causal claim. Two devices isolate the real signal: **conditioning on agency** (the ARRA surge is
 DOE-only while BLM — subject to the same dataset — is flat), and **citation evidence** (a Recovery Act
 citation cannot appear before the Recovery Act existed).
@@ -211,7 +211,7 @@ include_fig("fig_d5_counts_by_year_byprocess.png")
 The single most important result is that the post-ARRA CE surge belongs almost entirely to the
 **Department of Energy** — the agency that administered ARRA's energy grants, loan guarantees, and
 weatherization funds. DOE CEs went from `r fmt_n(yr(doe_year, 2008))` (2008) to
-`r fmt_n(yr(doe_year, 2009))` (2009) to a peak of **`r fmt_n(doe_peak_n)` in `r doe_peak_year`**. Over
+`r fmt_n(yr(doe_year, 2009))` (2009) to a peak of `r fmt_n(doe_peak_n)` in `r doe_peak_year`. Over
 the same years the Bureau of Land Management — the only other agency that issues CEs at scale, and one
 drawing on the same dataset — barely moved (`r fmt_n(yr(blm_year, 2009))`, `r fmt_n(yr(blm_year, 2010))`,
 `r fmt_n(yr(blm_year, 2011))` in 2009–2011). BLM's own growth comes later (2016 onward) and is unrelated
