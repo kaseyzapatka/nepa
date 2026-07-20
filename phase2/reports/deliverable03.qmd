@@ -425,7 +425,7 @@ availability_table <- availability_table_raw |>
     -   **Wordcloud.** Results for *decarb* focus on transmission lines, cooling towers, and shadow flickers connected to turbines, whereas *fossil* focuses on compression stations, power plants, contrast rating and light pollution that "attract attention" (see @fig-wordcloud). 
     -   **Section Length.** Visual impact sections are roughly equal in median length across portfolios, though most fossil project types — rural energy and offshore oil & gas — have longer average sections (see @fig-section-length-energy).
     -   **Framing analysis.** Results suggest *decarb* scores higher on negative visual adversity scores (sentences framing impact as negative) but *fossil* scores higher on (sentences with specific commitments to correct), likely reflecting decarb projects acknowledging visual effects more explicitly but addressing them through design standards and programmatic commitments rather than project-level enumerated actions (see @fig-framing).
-    - **Topic modeling.** The dominant finding is that visual impact prose **clusters by project type and regulatory context rather than by energy category** — the two largest topics each span both portfolios, and the most coherent topic (shadow flicker) is entirely technology-specific. Wind and solar EISs concentrate in the contrast-rating topic; O&G and pipeline EISs split between the infrastructure-corridor topic and the formal VRM-objectives topic depending on whether they operate under a BLM plan of development (see @fig-topic-prevalence).
+    - **Topic modeling.** The dominant finding is that visual impact prose clusters by project type and regulatory context rather than by energy category — the two largest topics each span both portfolios, and the most coherent topic (shadow flicker) is entirely technology-specific. Wind and solar EISs concentrate in the contrast-rating topic; O&G and pipeline EISs split between the infrastructure-corridor topic and the formal VRM-objectives topic depending on whether they operate under a BLM plan of development (see @fig-topic-prevalence).
 
 :::
 
@@ -439,7 +439,7 @@ This report delivers:
 
 ## Analysis Universe
 
-The Deliverable 3 build script scopes the analysis to **`r fmt_n(n_total)` energy projects**:
+The Deliverable 3 build script scopes the analysis to `r fmt_n(n_total)` energy projects:
 
 ```{r}
 kable_tbl(analysis_universe_table)
@@ -625,7 +625,7 @@ include_fig("fig10_county_fossil.png")
 
 ## Process Type by State
 
-The state-by-process maps show each state's share of all national projects of a given review type **within its energy category** — for example, Texas Decarbonization CE projects as a share of all Decarbonization CE projects nationally. Colors use a square-root scale to surface variation when one or two states dominate. This helps identify where review activity concentrates by type, and supports targeted questions — for example, whether EIS-heavy states reflect project size, federal land exposure, agency practice, technology mix, or state-specific project portfolios.
+The state-by-process maps show each state's share of all national projects of a given review type within its energy category — for example, Texas Decarbonization CE projects as a share of all Decarbonization CE projects nationally. Colors use a square-root scale to surface variation when one or two states dominate. This helps identify where review activity concentrates by type, and supports targeted questions — for example, whether EIS-heavy states reflect project size, federal land exposure, agency practice, technology mix, or state-specific project portfolios.
 
 ```{r}
 #| label: fig-state-process-decarb
@@ -660,7 +660,7 @@ geo_og_wide |>
   kable_tbl()
 ```
 
-This figure answers a broad technology-comparison question: how geothermal projects compare with oil-and-gas projects across all lead agencies. It does **not** isolate public-land or BLM permitting pathways.
+This figure answers a broad technology-comparison question: how geothermal projects compare with oil-and-gas projects across all lead agencies. It does not isolate public-land or BLM permitting pathways.
 
 ```{r}
 geo_comp_table |>
@@ -683,7 +683,7 @@ geo_comp_table |>
   tab_options(table.font.size = px(12), table.width = pct(100))
 ```
 
-This is potentially one of the most important findings in the deliverable, but it should be framed carefully. If the policy question is whether geothermal generally moves through NEPA more like decarbonization or oil and gas, the all-agency comparison suggests geothermal is closer to the decarbonization average. If the policy question is whether **BLM geothermal development** faces a pathway more similar to oil and gas, that should be tested with a separate BLM-controlled geothermal sensitivity analysis.
+This is potentially one of the most important findings in the deliverable, but it should be framed carefully. If the policy question is whether geothermal generally moves through NEPA more like decarbonization or oil and gas, the all-agency comparison suggests geothermal is closer to the decarbonization average. If the policy question is whether BLM geothermal development faces a pathway more similar to oil and gas, that should be tested with a separate BLM-controlled geothermal sensitivity analysis.
 
 ```{r}
 #| label: fig-geo-og-rates
