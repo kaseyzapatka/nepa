@@ -6,7 +6,7 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-07-15">
+<meta name="dcterms.date" content="2026-07-20">
 
 <title>NEPA - Patterns in FONSIs: Deliverable 6</title>
 <style>
@@ -4950,7 +4950,7 @@ z-index: 1000;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">July 15, 2026</p>
+      <p class="date">July 20, 2026</p>
     </div>
   </div>
   
@@ -4961,7 +4961,7 @@ z-index: 1000;
 </header>
 
 
-<!-- Deterministic first pass. Figures: phase2/code/deliverable06/08_analyze.R.
+<!-- Deterministic first pass. Figures: phase2/code/deliverable06/08_create_figures.R.
      Tables read the 05/06/07 analysis parquets + the evidence spans. Action
      definitions and numeric limits are directional pending the LLM-assisted
      extraction/verification pass. -->
@@ -4978,11 +4978,11 @@ Key Findings
 </div>
 <div class="callout-body-container callout-body">
 <ul>
-<li><strong>A data-driven grid of 52 technology × action cells</strong> — every clean-energy FONSI placed by its technology (from D3) and its LLM-labeled action verb — resolves to <strong>22 adopt · 2 expand · 16 develop</strong> candidate cells (plus 12 already covered; all pending CE-coverage verification). No category is hand-picked: the verdicts fall out of the grid.</li>
-<li><strong>Expand is the single strongest lever — transmission upgrades within existing right-of-way:</strong> 26 bounded, low-impact FONSIs across 12 states (BLM, DOE, and the power-marketing administrations) match a transmission CE (TVA’s #17 / #19), but a subset of long rebuilds exceeds its ~25-mile cap — so the move is to <strong>expand</strong> that CE, not adopt it as-is.</li>
-<li><strong>Most decarbonization FONSIs lean on committed mitigation</strong> — 310 of 451 (69%) are <em>mitigated</em> FONSIs, so a CE built from them must <strong>encode the recurring mitigations as design criteria</strong>, not rely on case-by-case commitments.</li>
+<li><strong>A data-driven grid of 52 technology × action cells</strong> — every clean-energy FONSI placed by its technology (from D3) and its LLM-labeled action verb — resolves to 22 adopt · 2 expand · 16 develop candidate cells (plus 12 already covered; all pending CE-coverage verification). No category is hand-picked: the verdicts fall out of the grid.</li>
+<li><strong>Expand is the single strongest lever — transmission upgrades within existing right-of-way:</strong> 26 bounded, low-impact FONSIs across 12 states (BLM, DOE, and the power-marketing administrations) match a transmission CE (TVA’s #17 / #19), but a subset of long rebuilds exceeds its ~25-mile cap — so the move is to expand that CE, not adopt it as-is.</li>
+<li><strong>Most decarbonization FONSIs lean on committed mitigation</strong> — 310 of 451 (69%) are <em>mitigated</em> FONSIs, so a CE built from them must encode the recurring mitigations as design criteria, not rely on case-by-case commitments.</li>
 <li><strong>Adopting a peer agency’s CE is well-precedented:</strong> of 2,105 existing federal CEs, 130 action-families are already shared across two or more agencies.</li>
-<li><strong>Net-new CEs are visible in the grid itself</strong> — 14 codifiable <em>develop</em> cells recur with <strong>no</strong> close existing CE (demonstration / pilot facilities are the cross-cutting standout). A further frontier is the 92 FONSIs whose action the model could only label <em>“other”</em> — a recommended clustering next step.</li>
+<li><strong>Net-new CEs are visible in the grid itself</strong> — 14 codifiable <em>develop</em> cells recur with no close existing CE (demonstration / pilot facilities are the cross-cutting standout). A further frontier is the 92 FONSIs whose action the model could only label <em>“other”</em> — a recommended clustering next step.</li>
 </ul>
 </div>
 </div>
@@ -5026,7 +5026,7 @@ Key Findings
 </tr>
 </tbody>
 </table>
-<p>Each analysis’s scope is summarized above; its step-by-step <strong>Methodology</strong> (the callout at the top of each analysis) and its own caveats appear with that analysis, below.</p>
+<p>Each analysis’s scope is summarized above; its step-by-step Methodology (the callout at the top of each analysis) and its own caveats appear with that analysis, below.</p>
 <hr>
 </section>
 <section id="analysis-1-scaling-categorical-exclusions-ces" class="level1">
@@ -5045,17 +5045,17 @@ Methodology
 <div class="callout-body-container callout-body">
 <ol type="1">
 <li><strong>Data —</strong> the 451 decarbonization EA→FONSI projects. A FONSI concludes a full Environmental Assessment, so each is a documented federal “no significant impact” determination — the evidence base for a CE.</li>
-<li><strong>Label</strong> each FONSI’s action verb (new-build, upgrade, exploration, demonstration…) with an LLM, and pair it with the FONSI’s Deliverable-3 technology — together these place it on the <strong>technology × action</strong> grid.</li>
-<li><strong>Keep the bounded, low-impact subset</strong> within each type — the small, routine projects that could plausibly be a CE (in-corridor upgrades, not major rebuilds). This is a <strong>yes/no judgment about scale</strong>, not a numeric threshold: a FONSI is kept whether or not it states an acreage or length.</li>
+<li><strong>Label</strong> each FONSI’s action verb (new-build, upgrade, exploration, demonstration…) with an LLM, and pair it with the FONSI’s Deliverable-3 technology — together these place it on the technology × action grid.</li>
+<li><strong>Keep the bounded, low-impact subset</strong> within each type — the small, routine projects that could plausibly be a CE (in-corridor upgrades, not major rebuilds). This is a yes/no judgment about scale, not a numeric threshold: a FONSI is kept whether or not it states an acreage or length.</li>
 <li><strong>Match</strong> each candidate against the existing federal CE catalog by text similarity.</li>
 <li><strong>Compare sizes</strong> — read the matched CE’s stated size limit (acres, miles, kV, MW, wells), where it has one, against the bounded FONSIs’ own sizes, to test whether ours <em>exceed</em> it. This is the only step where stated numbers matter.</li>
-<li><strong>Classify</strong> as <strong>develop</strong> (no existing CE covers it), <strong>expand</strong> (our FONSIs exceed the CE’s stated limit), or <strong>adopt</strong> (a CE exists, but at a different agency than the ones doing these FONSIs).</li>
+<li><strong>Classify</strong> as develop (no existing CE covers it), expand (our FONSIs exceed the CE’s stated limit), or adopt (a CE exists, but at a different agency than the ones doing these FONSIs).</li>
 </ol>
 </div>
 </div>
 </div>
 <blockquote class="blockquote">
-<p>This analysis asks how to <strong>scale Categorical Exclusions (CEs)</strong>: where an agency could <strong>adopt</strong> a CE another agency already holds, <strong>expand</strong> an existing CE whose bound is too tight, or <strong>develop</strong> a new CE for a recurring action that no CE yet covers. It answers this <strong>exhaustively</strong> — every clean-energy FONSI is placed on a <strong>technology × action</strong> grid, and each cell is read as one of those three verdicts.</p>
+<p>This analysis asks how to scale Categorical Exclusions (CEs): where an agency could <strong>adopt</strong> a CE another agency already holds, <strong>expand</strong> an existing CE whose bound is too tight, or <strong>develop</strong> a new CE for a recurring action that no CE yet covers. It answers this exhaustively — every clean-energy FONSI is placed on a technology × action grid, and each cell is read as one of those three verdicts.</p>
 </blockquote>
 <div class="callout callout-style-simple callout-note">
 <div class="callout-body d-flex">
@@ -5065,16 +5065,16 @@ Methodology
 <div class="callout-body-container">
 <p><strong>The bottom line — three levers, read across every clean-energy technology:</strong></p>
 <ul>
-<li><strong>Expand — the strongest single opportunity.</strong> <em>Transmission upgrades</em>: <strong>26</strong> in-corridor rebuild / reconductor FONSIs across 12 states still run as full EAs though a CE exists — its size bound is simply too tight. Widen it.</li>
-<li><strong>Adopt — broad but thin.</strong> <strong>22</strong> technology × action cells already have a matching CE at another agency to adopt, but most rest on only 2–4 FONSIs — there is no single dominant case.</li>
-<li><strong>Develop — the genuinely new gap.</strong> <strong>16</strong> recurring actions have no close existing CE (<strong>14 codifiable</strong>; 2 set aside as non-codifiable). The clearest is cross-cutting: <strong>demonstration / pilot facilities</strong> recur as a gap for wind, nuclear, and other clean-energy projects — the strongest candidate for a brand-new CE. <em>(Develop verdicts are candidates pending eCFR review; non-codifiable actions such as battery manufacturing are set aside.)</em></li>
+<li><strong>Expand — the strongest single opportunity.</strong> <em>Transmission upgrades</em>: 26 in-corridor rebuild / reconductor FONSIs across 12 states still run as full EAs though a CE exists — its size bound is simply too tight. Widen it.</li>
+<li><strong>Adopt — broad but thin.</strong> 22 technology × action cells already have a matching CE at another agency to adopt, but most rest on only 2–4 FONSIs — there is no single dominant case.</li>
+<li><strong>Develop — the genuinely new gap.</strong> 16 recurring actions have no close existing CE (14 codifiable; 2 set aside as non-codifiable). The clearest is cross-cutting: demonstration / pilot facilities recur as a gap for wind, nuclear, and other clean-energy projects — the strongest candidate for a brand-new CE. <em>(Develop verdicts are candidates pending eCFR review; non-codifiable actions such as battery manufacturing are set aside.)</em></li>
 </ul>
 </div>
 </div>
 </div>
 <section id="the-coverage-map" class="level2">
 <h2 class="anchored" data-anchor-id="the-coverage-map">The coverage map</h2>
-<p>Every decarbonization FONSI is categorized by its <strong>technology</strong> (an independent Deliverable-3 classification) and its <strong>action</strong> (an LLM-assigned verb), filling a grid of <strong>52</strong> technology × action cells. Each cell is matched against the existing federal CE catalog and read as <strong>adopt</strong>, <strong>expand</strong>, or <strong>develop</strong>. The coverage map below is the <strong>answer, up front</strong>; the three stages that follow show how every cell earned its color — <strong>build the grid</strong>, <strong>resolve each cell</strong>, then <strong>rank the opportunities</strong>:</p>
+<p>Every decarbonization FONSI is categorized by its technology (an independent Deliverable-3 classification) and its action (an LLM-assigned verb), filling a grid of 52 technology × action cells. Each cell is matched against the existing federal CE catalog and read as adopt, expand, or develop. The coverage map below is the answer, up front; the three stages that follow show how every cell earned its color — <strong>build the grid</strong>, <strong>resolve each cell</strong>, then <strong>rank the opportunities</strong>:</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-coverage-grid" class="quarto-figure quarto-figure-center anchored">
@@ -5085,11 +5085,11 @@ Methodology
 </div>
 </div>
 </div>
-<p>The <strong>215 CE-shaped</strong> FONSIs — the small, routine cases within these cells — are the actionable evidence carried through the rest of this analysis.</p>
+<p>The 215 CE-shaped FONSIs — the small, routine cases within these cells — are the actionable evidence carried through the rest of this analysis.</p>
 </section>
 <section id="build-the-grid-label-the-action-keep-the-ce-shaped-subset" class="level2">
 <h2 class="anchored" data-anchor-id="build-the-grid-label-the-action-keep-the-ce-shaped-subset">Build the grid: label the action, keep the CE-shaped subset</h2>
-<p>A dedicated LLM pass <strong>labels</strong> each FONSI’s <strong>action verb</strong> — new-build, upgrade, maintenance, exploration, demonstration, and so on — which, paired with its technology, is what places it in a grid cell. Within each technology we then <strong>keep</strong> the CE-shaped subset:</p>
+<p>A dedicated LLM pass labels each FONSI’s action verb — new-build, upgrade, maintenance, exploration, demonstration, and so on — which, paired with its technology, is what places it in a grid cell. Within each technology we then keep the CE-shaped subset:</p>
 <ul>
 <li><strong>Bounded, low-impact</strong> (teal) — the small, routine version that could plausibly be a CE: in-corridor work, short segments, previously disturbed land, no major new construction. <em>These are what we carry forward.</em></li>
 <li><strong>Broader</strong> (grey) — the larger or greenfield projects (major rebuilds, new corridors, utility-scale greenfield). Set aside; not CE-shaped.</li>
@@ -5100,7 +5100,7 @@ Methodology
 <i class="callout-icon"></i>
 </div>
 <div class="callout-body-container">
-<p><strong>How we define a “CE-shaped” candidate.</strong> A dedicated LLM pass reads each FONSI and assigns its action type (<code>action_category</code>) and whether the action is inherently small/routine/low-impact — classifying by what the action physically <em>is</em>, not by keywords in the title. A candidate is <strong>CE-shaped</strong> when the model judges it low-impact <strong>and</strong>, for transmission, the work modifies an <em>existing</em> line within an existing right-of-way (not a new greenfield build). That narrows the <strong>451</strong> candidate FONSIs to the <strong>215 CE-shaped projects used throughout this report</strong>. The rest are <strong>not dropped</strong>: the larger rebuilds (20 transmission, many far longer than a CE would allow), utility-scale builds, and new-corridor lines move to the <em>expand / develop</em> bucket (the worked example), where a broadened or new CE — not adoption — would be the fit.</p>
+<p><strong>How we define a “CE-shaped” candidate.</strong> A dedicated LLM pass reads each FONSI and assigns its action type (<code>action_category</code>) and whether the action is inherently small/routine/low-impact — classifying by what the action physically <em>is</em>, not by keywords in the title. A candidate is CE-shaped when the model judges it low-impact and, for transmission, the work modifies an <em>existing</em> line within an existing right-of-way (not a new greenfield build). That narrows the 451 candidate FONSIs to the 215 CE-shaped projects used throughout this report. The rest are not dropped: the larger rebuilds (20 transmission, many far longer than a CE would allow), utility-scale builds, and new-corridor lines move to the <em>expand / develop</em> bucket (the worked example), where a broadened or new CE — not adoption — would be the fit.</p>
 </div>
 </div>
 </div>
@@ -5125,11 +5125,11 @@ Methodology
 </div>
 </div>
 </div>
-<p>One honest caveat on reading this chart: the <strong>“no new permanent access road”</strong> bar is a <em>conservative</em> flag — it fires only when a FONSI explicitly states no new road, so its low share reflects under-reporting (most FONSIs simply do not address roads), <strong>not</strong> that the rest build major new access. The two dominant, well-evidenced traits are <em>previously disturbed land</em> and <em>within an existing right-of-way</em>. (Beyond what the chart shows, the enrichment also records whether each action <em>tiers</em> from a programmatic review and its overall <em>bounded, low-impact</em> judgment — further signals behind the same conclusion.)</p>
+<p>One honest caveat on reading this chart: the “no new permanent access road” bar is a <em>conservative</em> flag — it fires only when a FONSI explicitly states no new road, so its low share reflects under-reporting (most FONSIs simply do not address roads), not that the rest build major new access. The two dominant, well-evidenced traits are <em>previously disturbed land</em> and <em>within an existing right-of-way</em>. (Beyond what the chart shows, the enrichment also records whether each action <em>tiers</em> from a programmatic review and its overall <em>bounded, low-impact</em> judgment — further signals behind the same conclusion.)</p>
 </section>
 <section id="resolve-each-cell-match-to-the-ce-catalog-then-apply-the-rule" class="level2">
 <h2 class="anchored" data-anchor-id="resolve-each-cell-match-to-the-ce-catalog-then-apply-the-rule">Resolve each cell: match to the CE catalog, then apply the rule</h2>
-<p>Each cell is compared against all 2,105 existing federal CEs to find its <strong>closest match</strong> (a 0–1 text-similarity score blending semantic meaning and word overlap — a <em>ranking aid</em>, not a percent of matching text). That match then <strong>resolves the cell to a verdict</strong> by a three-question rule:</p>
+<p>Each cell is compared against all 2,105 existing federal CEs to find its <strong>closest match</strong> (a 0–1 text-similarity score blending semantic meaning and word overlap — a <em>ranking aid</em>, not a percent of matching text). That match then resolves the cell to a verdict by a three-question rule:</p>
 <div class="cell" data-layout-align="center">
 <div class="cell-output-display">
 <div>
@@ -5146,15 +5146,15 @@ Methodology
 </div>
 </div>
 </div>
-<p>The <strong>coverage map above is this rule applied to every cell.</strong> The match score is a <em>ranking aid, not the verdict</em>: scores are uncalibrated, so read them comparatively. A cell scored against a random, unrelated CE sits near the grey baseline (≤ ~0.20); the cells that resolve to <strong>adopt / expand</strong> sit well above it, while the <strong>develop</strong> cells fall closest to it — no existing CE covers them. Every verdict is a <strong>candidate pending eCFR confirmation</strong>, not a legal finding.</p>
+<p>The coverage map above is this rule applied to every cell. The match score is a <em>ranking aid, not the verdict</em>: scores are uncalibrated, so read them comparatively. A cell scored against a random, unrelated CE sits near the grey baseline (≤ ~0.20); the cells that resolve to adopt / expand sit well above it, while the develop cells fall closest to it — no existing CE covers them. Every verdict is a <strong>candidate pending eCFR confirmation</strong>, not a legal finding.</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="colgowdbmc" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="wlrmrpunoo" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#colgowdbmc .gt_table {
+#wlrmrpunoo .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -5178,7 +5178,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#colgowdbmc .gt_heading {
+#wlrmrpunoo .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5189,11 +5189,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#colgowdbmc .gt_caption {
+#wlrmrpunoo .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#colgowdbmc .gt_title {
+#wlrmrpunoo .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5204,7 +5204,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#colgowdbmc .gt_subtitle {
+#wlrmrpunoo .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5215,12 +5215,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#colgowdbmc .gt_bottom_border {
+#wlrmrpunoo .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#colgowdbmc .gt_col_headings {
+#wlrmrpunoo .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5234,7 +5234,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#colgowdbmc .gt_col_heading {
+#wlrmrpunoo .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5253,7 +5253,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#colgowdbmc .gt_column_spanner_outer {
+#wlrmrpunoo .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5264,13 +5264,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#colgowdbmc .gt_column_spanner_outer:first-child {
+#wlrmrpunoo .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#colgowdbmc .gt_column_spanner_outer:last-child {
+#wlrmrpunoo .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#colgowdbmc .gt_column_spanner {
+#wlrmrpunoo .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5281,7 +5281,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#colgowdbmc .gt_group_heading {
+#wlrmrpunoo .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5306,7 +5306,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#colgowdbmc .gt_empty_group_heading {
+#wlrmrpunoo .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5320,13 +5320,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#colgowdbmc .gt_from_md > :first-child {
+#wlrmrpunoo .gt_from_md > :first-child {
 margin-top: 0;
 }
-#colgowdbmc .gt_from_md > :last-child {
+#wlrmrpunoo .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#colgowdbmc .gt_row {
+#wlrmrpunoo .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5344,7 +5344,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#colgowdbmc .gt_stub {
+#wlrmrpunoo .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5356,7 +5356,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#colgowdbmc .gt_stub_row_group {
+#wlrmrpunoo .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5369,10 +5369,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#colgowdbmc .gt_row_group_first td {
+#wlrmrpunoo .gt_row_group_first td {
 border-top-width: 2px;
 }
-#colgowdbmc .gt_summary_row {
+#wlrmrpunoo .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5381,14 +5381,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#colgowdbmc .gt_first_summary_row {
+#wlrmrpunoo .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#colgowdbmc .gt_first_summary_row.thick {
+#wlrmrpunoo .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#colgowdbmc .gt_last_summary_row {
+#wlrmrpunoo .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5397,7 +5397,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#colgowdbmc .gt_grand_summary_row {
+#wlrmrpunoo .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5406,7 +5406,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#colgowdbmc .gt_first_grand_summary_row {
+#wlrmrpunoo .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5415,10 +5415,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#colgowdbmc .gt_striped {
+#wlrmrpunoo .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#colgowdbmc .gt_table_body {
+#wlrmrpunoo .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5426,7 +5426,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#colgowdbmc .gt_footnotes {
+#wlrmrpunoo .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5439,7 +5439,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#colgowdbmc .gt_footnote {
+#wlrmrpunoo .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -5447,7 +5447,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#colgowdbmc .gt_sourcenotes {
+#wlrmrpunoo .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5460,58 +5460,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#colgowdbmc .gt_sourcenote {
+#wlrmrpunoo .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#colgowdbmc .gt_left {
+#wlrmrpunoo .gt_left {
 text-align: left;
 }
-#colgowdbmc .gt_center {
+#wlrmrpunoo .gt_center {
 text-align: center;
 }
-#colgowdbmc .gt_right {
+#wlrmrpunoo .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#colgowdbmc .gt_font_normal {
+#wlrmrpunoo .gt_font_normal {
 font-weight: normal;
 }
-#colgowdbmc .gt_font_bold {
+#wlrmrpunoo .gt_font_bold {
 font-weight: bold;
 }
-#colgowdbmc .gt_font_italic {
+#wlrmrpunoo .gt_font_italic {
 font-style: italic;
 }
-#colgowdbmc .gt_super {
+#wlrmrpunoo .gt_super {
 font-size: 65%;
 }
-#colgowdbmc .gt_footnote_marks {
+#wlrmrpunoo .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#colgowdbmc .gt_asterisk {
+#wlrmrpunoo .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#colgowdbmc .gt_indent_1 {
+#wlrmrpunoo .gt_indent_1 {
 text-indent: 5px;
 }
-#colgowdbmc .gt_indent_2 {
+#wlrmrpunoo .gt_indent_2 {
 text-indent: 10px;
 }
-#colgowdbmc .gt_indent_3 {
+#wlrmrpunoo .gt_indent_3 {
 text-indent: 15px;
 }
-#colgowdbmc .gt_indent_4 {
+#wlrmrpunoo .gt_indent_4 {
 text-indent: 20px;
 }
-#colgowdbmc .gt_indent_5 {
+#wlrmrpunoo .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -5632,7 +5632,7 @@ text-indent: 25px;
 </section>
 <section id="rank-the-opportunities" class="level2">
 <h2 class="anchored" data-anchor-id="rank-the-opportunities">Rank the opportunities</h2>
-<p>With every cell resolved, the <strong>opportunities</strong> — the adopt, expand, and develop cells — are <strong>ranked</strong> so you know which to pursue first. Each gets a transparent score (0–1) summing six factors; the bar length is the priority and the colors show why:</p>
+<p>With every cell resolved, the opportunities — the adopt, expand, and develop cells — are ranked so you know which to pursue first. Each gets a transparent score (0–1) summing six factors; the bar length is the priority and the colors show why:</p>
 <ul>
 <li><strong>Novelty</strong> — a brand-new CE (develop) outranks expanding or adopting one.</li>
 <li><strong>Volume</strong> — how many bounded FONSIs back it (more evidence ranks higher).</li>
@@ -5641,7 +5641,7 @@ text-indent: 25px;
 <li><strong>Low mitigation dependence</strong> — less reliance on case-by-case mitigation (a cleaner CE).</li>
 <li><strong>Recurring action type</strong> — a flat baseline every grid cell shares (it lifts all scores equally, so it does not change the order).</li>
 </ul>
-<p>Because the default score weights <strong>novelty</strong> most, the <strong>net-new (develop) candidates rank highest</strong> — <em>Solar — other</em>, <em>Other Clean — upgrade</em>, and <em>Wind — demonstration / pilot</em> (nuclear’s demonstration cell ranks lower down). <em>Transmission upgrade</em> — the highest-volume single cell (the <em>expand</em> lever in the Findings below) — sits a few places behind them; it leads only when you weight raw volume most (the next table).</p>
+<p>Because the default score weights novelty most, the <strong>net-new (develop) candidates rank highest</strong> — <em>Solar — other</em>, <em>Other Clean — upgrade</em>, and <em>Wind — demonstration / pilot</em> (nuclear’s demonstration cell ranks lower down). <em>Transmission upgrade</em> — the highest-volume single cell (the <em>expand</em> lever in the Findings below) — sits a few places behind them; it leads only when you weight raw volume most (the next table).</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-classification" class="quarto-figure quarto-figure-center anchored">
@@ -5652,15 +5652,15 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>The weights are a judgment call, so here is the rank order under three plausible weightings. <strong>The leader changes with the weighting</strong> — transmission upgrade tops the <em>volume-heavy</em> view, while the novelty-driven develop cells lead the others — so read the ranking as a <strong>band of strong candidates</strong>, not a precise order:</p>
+<p>The weights are a judgment call, so here is the rank order under three plausible weightings. The leader changes with the weighting — transmission upgrade tops the <em>volume-heavy</em> view, while the novelty-driven develop cells lead the others — so read the ranking as a <strong>band of strong candidates</strong>, not a precise order:</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="bsnelczgbx" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="tjxfxizutj" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#bsnelczgbx .gt_table {
+#tjxfxizutj .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -5684,7 +5684,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#bsnelczgbx .gt_heading {
+#tjxfxizutj .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5695,11 +5695,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#bsnelczgbx .gt_caption {
+#tjxfxizutj .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#bsnelczgbx .gt_title {
+#tjxfxizutj .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5710,7 +5710,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#bsnelczgbx .gt_subtitle {
+#tjxfxizutj .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5721,12 +5721,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#bsnelczgbx .gt_bottom_border {
+#tjxfxizutj .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#bsnelczgbx .gt_col_headings {
+#tjxfxizutj .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5740,7 +5740,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#bsnelczgbx .gt_col_heading {
+#tjxfxizutj .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5759,7 +5759,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#bsnelczgbx .gt_column_spanner_outer {
+#tjxfxizutj .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5770,13 +5770,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#bsnelczgbx .gt_column_spanner_outer:first-child {
+#tjxfxizutj .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#bsnelczgbx .gt_column_spanner_outer:last-child {
+#tjxfxizutj .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#bsnelczgbx .gt_column_spanner {
+#tjxfxizutj .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5787,7 +5787,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#bsnelczgbx .gt_group_heading {
+#tjxfxizutj .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5812,7 +5812,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#bsnelczgbx .gt_empty_group_heading {
+#tjxfxizutj .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5826,13 +5826,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#bsnelczgbx .gt_from_md > :first-child {
+#tjxfxizutj .gt_from_md > :first-child {
 margin-top: 0;
 }
-#bsnelczgbx .gt_from_md > :last-child {
+#tjxfxizutj .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#bsnelczgbx .gt_row {
+#tjxfxizutj .gt_row {
 padding-top: 5px;
 padding-bottom: 5px;
 padding-left: 5px;
@@ -5850,7 +5850,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#bsnelczgbx .gt_stub {
+#tjxfxizutj .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5862,7 +5862,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bsnelczgbx .gt_stub_row_group {
+#tjxfxizutj .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5875,10 +5875,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#bsnelczgbx .gt_row_group_first td {
+#tjxfxizutj .gt_row_group_first td {
 border-top-width: 2px;
 }
-#bsnelczgbx .gt_summary_row {
+#tjxfxizutj .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5887,14 +5887,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bsnelczgbx .gt_first_summary_row {
+#tjxfxizutj .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#bsnelczgbx .gt_first_summary_row.thick {
+#tjxfxizutj .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#bsnelczgbx .gt_last_summary_row {
+#tjxfxizutj .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5903,7 +5903,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#bsnelczgbx .gt_grand_summary_row {
+#tjxfxizutj .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5912,7 +5912,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bsnelczgbx .gt_first_grand_summary_row {
+#tjxfxizutj .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5921,10 +5921,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#bsnelczgbx .gt_striped {
+#tjxfxizutj .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#bsnelczgbx .gt_table_body {
+#tjxfxizutj .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5932,7 +5932,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#bsnelczgbx .gt_footnotes {
+#tjxfxizutj .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5945,7 +5945,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#bsnelczgbx .gt_footnote {
+#tjxfxizutj .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -5953,7 +5953,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bsnelczgbx .gt_sourcenotes {
+#tjxfxizutj .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5966,58 +5966,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#bsnelczgbx .gt_sourcenote {
+#tjxfxizutj .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bsnelczgbx .gt_left {
+#tjxfxizutj .gt_left {
 text-align: left;
 }
-#bsnelczgbx .gt_center {
+#tjxfxizutj .gt_center {
 text-align: center;
 }
-#bsnelczgbx .gt_right {
+#tjxfxizutj .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#bsnelczgbx .gt_font_normal {
+#tjxfxizutj .gt_font_normal {
 font-weight: normal;
 }
-#bsnelczgbx .gt_font_bold {
+#tjxfxizutj .gt_font_bold {
 font-weight: bold;
 }
-#bsnelczgbx .gt_font_italic {
+#tjxfxizutj .gt_font_italic {
 font-style: italic;
 }
-#bsnelczgbx .gt_super {
+#tjxfxizutj .gt_super {
 font-size: 65%;
 }
-#bsnelczgbx .gt_footnote_marks {
+#tjxfxizutj .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#bsnelczgbx .gt_asterisk {
+#tjxfxizutj .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#bsnelczgbx .gt_indent_1 {
+#tjxfxizutj .gt_indent_1 {
 text-indent: 5px;
 }
-#bsnelczgbx .gt_indent_2 {
+#tjxfxizutj .gt_indent_2 {
 text-indent: 10px;
 }
-#bsnelczgbx .gt_indent_3 {
+#tjxfxizutj .gt_indent_3 {
 text-indent: 15px;
 }
-#bsnelczgbx .gt_indent_4 {
+#tjxfxizutj .gt_indent_4 {
 text-indent: 20px;
 }
-#bsnelczgbx .gt_indent_5 {
+#tjxfxizutj .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6122,15 +6122,15 @@ text-indent: 25px;
 <i class="callout-icon"></i>
 </div>
 <div class="callout-body-container">
-<p><strong>These are candidate matches, not coverage determinations.</strong> Each pairing below is a <em>text-similarity</em> match between a recurring FONSI action and an existing CE at another agency — it flags where adoption is <strong>worth reviewing</strong>, not that the CE legally covers the action. Every match is <strong>pending verification against the current eCFR / agency CE text</strong>; treat the verdicts as a prioritized review list, not a legal conclusion.</p>
+<p><strong>These are candidate matches, not coverage determinations.</strong> Each pairing below is a <em>text-similarity</em> match between a recurring FONSI action and an existing CE at another agency — it flags where adoption is worth reviewing, not that the CE legally covers the action. Every match is pending verification against the current eCFR / agency CE text; treat the verdicts as a prioritized review list, not a legal conclusion.</p>
 </div>
 </div>
 </div>
-<p>The grid’s 52 cells resolve to <strong>22 adopt · 2 expand · 16 develop</strong>, plus 12 already covered. (Both expand cells are transmission; the second — transmission new-build — has no CE-shaped FONSIs in this corpus, so the Expand finding below covers upgrades.) The three opportunity types follow in priority order — each self-contained below: <strong>what it is</strong>, <strong>how much evidence backs it</strong>, and <strong>what to do</strong>.</p>
+<p>The grid’s 52 cells resolve to 22 adopt · 2 expand · 16 develop, plus 12 already covered. (Both expand cells are transmission; the second — transmission new-build — has no CE-shaped FONSIs in this corpus, so the Expand finding below covers upgrades.) The three opportunity types follow in priority order — each self-contained below: <strong>what it is</strong>, <strong>how much evidence backs it</strong>, and <strong>what to do</strong>.</p>
 <section id="expand-transmission-upgrades-the-strongest-opportunity" class="level3">
 <h3 class="anchored" data-anchor-id="expand-transmission-upgrades-the-strongest-opportunity">Expand — transmission upgrades (the strongest opportunity)</h3>
-<p><strong>The single highest-volume opportunity:</strong> 26 in-corridor transmission FONSIs across 12 Western states match an existing CE, but a subset of long rebuilds runs past its ~25-mile cap — so the move is to <strong>widen that cap</strong>, not adopt the CE as-is.</p>
-<p><strong>Why <em>expand</em>, not <em>adopt</em> — the size test.</strong> The <em>expand</em> test asks whether a cell’s bounded FONSIs exceed the matched CE’s stated size limit. Transmission upgrades are the 2 cells that fire it: the in-corridor rebuilds run a <strong>~28-mile median</strong> — some far longer — against a ~2-mile typical CE limit (max 25 mi). Most <em>other</em> cells can’t fire a <strong>numeric</strong> expand — their closest CE bounds scope with <em>words</em> (“routine,” “minor,” “existing infrastructure”), not a number — but that absence is not “no expand opportunity exists”; it just has to be <strong>verified against the CE text</strong>. The size panels below make the split concrete: only <strong>line length</strong> (green) runs past the limits CEs typically state; <strong>voltage and acreage</strong> (blue) sit within them, so a conventional CE limit would fit.</p>
+<p><strong>The single highest-volume opportunity:</strong> 26 in-corridor transmission FONSIs across 12 Western states match an existing CE, but a subset of long rebuilds runs past its ~25-mile cap — so the move is to widen that cap, not adopt the CE as-is.</p>
+<p><strong>Why <em>expand</em>, not <em>adopt</em> — the size test.</strong> The <em>expand</em> test asks whether a cell’s bounded FONSIs exceed the matched CE’s stated size limit. Transmission upgrades are the 2 cells that fire it: the in-corridor rebuilds run a ~28-mile median — some far longer — against a ~2-mile typical CE limit (max 25 mi). Most <em>other</em> cells can’t fire a numeric expand — their closest CE bounds scope with <em>words</em> (“routine,” “minor,” “existing infrastructure”), not a number — but that absence is not “no expand opportunity exists”; it just has to be verified against the CE text. The size panels below make the split concrete: only line length (green) runs past the limits CEs typically state; voltage and acreage (blue) sit within them, so a conventional CE limit would fit.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-sizes" class="quarto-figure quarto-figure-center anchored">
@@ -6142,12 +6142,12 @@ text-indent: 25px;
 </div>
 </div>
 <p><strong>In detail — how the transmission case splits into two candidate CEs.</strong></p>
-<p>The strongest-evidenced case: <strong>59 transmission-upgrade FONSIs</strong> for in-corridor work, across <strong>BLM, the power-marketing administrations, NNSA, and others</strong> in <strong>12 Western states</strong>. TVA <strong>already categorically excludes this work under two exclusions</strong>, by work type:</p>
+<p>The strongest-evidenced case: 59 transmission-upgrade FONSIs for in-corridor work, across BLM, the power-marketing administrations, NNSA, and others in 12 Western states. TVA <strong>already categorically excludes this work under two exclusions</strong>, by work type:</p>
 <ul>
-<li><strong>CE #17 — modify in place:</strong> reconductoring, uprating, equipment swaps, limited pole replacement. <strong>No length limit.</strong></li>
-<li><strong>CE #19 — rebuild:</strong> replacing the line’s structures within the existing right-of-way. <strong>Capped at 25 miles.</strong></li>
+<li><strong>CE #17 — modify in place:</strong> reconductoring, uprating, equipment swaps, limited pole replacement. No length limit.</li>
+<li><strong>CE #19 — rebuild:</strong> replacing the line’s structures within the existing right-of-way. Capped at 25 miles.</li>
 </ul>
-<p>Of the 59, the model judged <strong>26 adopt-ready</strong> (small / in-corridor): <strong>6 map to CE #17</strong> (modify) and <strong>20 to CE #19</strong> (rebuild ≤ 25 mi). The other <strong>33 are large rebuilds</strong> (full structure replacement, well beyond CE #19’s 25-mile cap) it flagged as <em>not</em> inherently low-impact — so they are the <strong><em>expand / develop</em></strong> case (an expanded or new CE), not a clean adopt.</p>
+<p>Of the 59, the model judged 26 adopt-ready (small / in-corridor): 6 map to CE #17 (modify) and 20 to CE #19 (rebuild ≤ 25 mi). The other 33 are large rebuilds (full structure replacement, well beyond CE #19’s 25-mile cap) it flagged as <em>not</em> inherently low-impact — so they are the <em>expand / develop</em> case (an expanded or new CE), not a clean adopt.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-ce-split" class="quarto-figure quarto-figure-center anchored">
@@ -6165,15 +6165,15 @@ text-indent: 25px;
 <blockquote class="blockquote">
 <p><em>CE #19 — rebuild.</em> The <strong>rebuilding</strong> of transmission lines within or contiguous to <strong>existing rights-of-way</strong> involving generally <strong>no more than 25 miles</strong> in length and no more than 125 acres of expansion of the existing right-of-way.</p>
 </blockquote>
-<p>The table below lists sample FONSIs from different agencies, each with a <strong>verbatim excerpt from the cited record</strong> showing the in-corridor reconductoring/rebuild work these CEs cover. Each row names the source document (EA or FONSI) and page, and the <strong>project title links to the full record</strong> in the document explorer.</p>
+<p>The table below lists sample FONSIs from different agencies, each with a verbatim excerpt from the cited record showing the in-corridor reconductoring/rebuild work these CEs cover. Each row names the source document (EA or FONSI) and page, and the project title links to the full record in the document explorer.</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="frapfdgdko" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="uhfoonvqrd" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#frapfdgdko .gt_table {
+#uhfoonvqrd .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -6197,7 +6197,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#frapfdgdko .gt_heading {
+#uhfoonvqrd .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -6208,11 +6208,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#frapfdgdko .gt_caption {
+#uhfoonvqrd .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#frapfdgdko .gt_title {
+#uhfoonvqrd .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -6223,7 +6223,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#frapfdgdko .gt_subtitle {
+#uhfoonvqrd .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -6234,12 +6234,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#frapfdgdko .gt_bottom_border {
+#uhfoonvqrd .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#frapfdgdko .gt_col_headings {
+#uhfoonvqrd .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6253,7 +6253,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#frapfdgdko .gt_col_heading {
+#uhfoonvqrd .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6272,7 +6272,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#frapfdgdko .gt_column_spanner_outer {
+#uhfoonvqrd .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6283,13 +6283,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#frapfdgdko .gt_column_spanner_outer:first-child {
+#uhfoonvqrd .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#frapfdgdko .gt_column_spanner_outer:last-child {
+#uhfoonvqrd .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#frapfdgdko .gt_column_spanner {
+#uhfoonvqrd .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -6300,7 +6300,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#frapfdgdko .gt_group_heading {
+#uhfoonvqrd .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6325,7 +6325,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#frapfdgdko .gt_empty_group_heading {
+#uhfoonvqrd .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -6339,13 +6339,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#frapfdgdko .gt_from_md > :first-child {
+#uhfoonvqrd .gt_from_md > :first-child {
 margin-top: 0;
 }
-#frapfdgdko .gt_from_md > :last-child {
+#uhfoonvqrd .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#frapfdgdko .gt_row {
+#uhfoonvqrd .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -6363,7 +6363,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#frapfdgdko .gt_stub {
+#uhfoonvqrd .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6375,7 +6375,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#frapfdgdko .gt_stub_row_group {
+#uhfoonvqrd .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6388,10 +6388,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#frapfdgdko .gt_row_group_first td {
+#uhfoonvqrd .gt_row_group_first td {
 border-top-width: 2px;
 }
-#frapfdgdko .gt_summary_row {
+#uhfoonvqrd .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6400,14 +6400,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#frapfdgdko .gt_first_summary_row {
+#uhfoonvqrd .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#frapfdgdko .gt_first_summary_row.thick {
+#uhfoonvqrd .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#frapfdgdko .gt_last_summary_row {
+#uhfoonvqrd .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6416,7 +6416,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#frapfdgdko .gt_grand_summary_row {
+#uhfoonvqrd .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6425,7 +6425,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#frapfdgdko .gt_first_grand_summary_row {
+#uhfoonvqrd .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6434,10 +6434,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#frapfdgdko .gt_striped {
+#uhfoonvqrd .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#frapfdgdko .gt_table_body {
+#uhfoonvqrd .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6445,7 +6445,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#frapfdgdko .gt_footnotes {
+#uhfoonvqrd .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6458,7 +6458,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#frapfdgdko .gt_footnote {
+#uhfoonvqrd .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -6466,7 +6466,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#frapfdgdko .gt_sourcenotes {
+#uhfoonvqrd .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6479,58 +6479,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#frapfdgdko .gt_sourcenote {
+#uhfoonvqrd .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#frapfdgdko .gt_left {
+#uhfoonvqrd .gt_left {
 text-align: left;
 }
-#frapfdgdko .gt_center {
+#uhfoonvqrd .gt_center {
 text-align: center;
 }
-#frapfdgdko .gt_right {
+#uhfoonvqrd .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#frapfdgdko .gt_font_normal {
+#uhfoonvqrd .gt_font_normal {
 font-weight: normal;
 }
-#frapfdgdko .gt_font_bold {
+#uhfoonvqrd .gt_font_bold {
 font-weight: bold;
 }
-#frapfdgdko .gt_font_italic {
+#uhfoonvqrd .gt_font_italic {
 font-style: italic;
 }
-#frapfdgdko .gt_super {
+#uhfoonvqrd .gt_super {
 font-size: 65%;
 }
-#frapfdgdko .gt_footnote_marks {
+#uhfoonvqrd .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#frapfdgdko .gt_asterisk {
+#uhfoonvqrd .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#frapfdgdko .gt_indent_1 {
+#uhfoonvqrd .gt_indent_1 {
 text-indent: 5px;
 }
-#frapfdgdko .gt_indent_2 {
+#uhfoonvqrd .gt_indent_2 {
 text-indent: 10px;
 }
-#frapfdgdko .gt_indent_3 {
+#uhfoonvqrd .gt_indent_3 {
 text-indent: 15px;
 }
-#frapfdgdko .gt_indent_4 {
+#uhfoonvqrd .gt_indent_4 {
 text-indent: 20px;
 }
-#frapfdgdko .gt_indent_5 {
+#uhfoonvqrd .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6629,15 +6629,15 @@ text-indent: 25px;
 </section>
 <section id="adopt-cross-agency-matches-broad-but-thin" class="level3">
 <h3 class="anchored" data-anchor-id="adopt-cross-agency-matches-broad-but-thin">Adopt — cross-agency matches (broad but thin)</h3>
-<p><strong>The broadest but thinnest opportunity:</strong> 22 cells resolve to <em>adopt</em> — a close CE exists at <em>another</em> agency the doing-agency could adopt, and the 2023 FRA now permits exactly that. But most are thin: only <strong>9</strong> have ≥ 2 CE-shaped FONSIs (the table below), and the rest rest on a single FONSI or none. So treat adopt as a <strong>menu of matches to verify</strong>, not one dominant case — the gap figure shows the evidence weight behind each (how many bounded FONSIs are run as full EAs when a candidate-matched CE may already cover them, pending verification).</p>
+<p><strong>The broadest but thinnest opportunity:</strong> 22 cells resolve to <em>adopt</em> — a close CE exists at <em>another</em> agency the doing-agency could adopt, and the 2023 FRA now permits exactly that. But most are thin: only 9 have ≥ 2 CE-shaped FONSIs (the table below), and the rest rest on a single FONSI or none. So treat adopt as a menu of matches to verify, not one dominant case — the gap figure shows the evidence weight behind each (how many bounded FONSIs are run as full EAs when a candidate-matched CE may already cover them, pending verification).</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="vysuhocwoj" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="miqqsjddia" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#vysuhocwoj .gt_table {
+#miqqsjddia .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -6661,7 +6661,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#vysuhocwoj .gt_heading {
+#miqqsjddia .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -6672,11 +6672,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#vysuhocwoj .gt_caption {
+#miqqsjddia .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#vysuhocwoj .gt_title {
+#miqqsjddia .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -6687,7 +6687,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#vysuhocwoj .gt_subtitle {
+#miqqsjddia .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -6698,12 +6698,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#vysuhocwoj .gt_bottom_border {
+#miqqsjddia .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#vysuhocwoj .gt_col_headings {
+#miqqsjddia .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6717,7 +6717,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#vysuhocwoj .gt_col_heading {
+#miqqsjddia .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6736,7 +6736,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#vysuhocwoj .gt_column_spanner_outer {
+#miqqsjddia .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6747,13 +6747,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#vysuhocwoj .gt_column_spanner_outer:first-child {
+#miqqsjddia .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#vysuhocwoj .gt_column_spanner_outer:last-child {
+#miqqsjddia .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#vysuhocwoj .gt_column_spanner {
+#miqqsjddia .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -6764,7 +6764,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#vysuhocwoj .gt_group_heading {
+#miqqsjddia .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6789,7 +6789,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#vysuhocwoj .gt_empty_group_heading {
+#miqqsjddia .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -6803,13 +6803,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#vysuhocwoj .gt_from_md > :first-child {
+#miqqsjddia .gt_from_md > :first-child {
 margin-top: 0;
 }
-#vysuhocwoj .gt_from_md > :last-child {
+#miqqsjddia .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#vysuhocwoj .gt_row {
+#miqqsjddia .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6827,7 +6827,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#vysuhocwoj .gt_stub {
+#miqqsjddia .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6839,7 +6839,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vysuhocwoj .gt_stub_row_group {
+#miqqsjddia .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6852,10 +6852,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#vysuhocwoj .gt_row_group_first td {
+#miqqsjddia .gt_row_group_first td {
 border-top-width: 2px;
 }
-#vysuhocwoj .gt_summary_row {
+#miqqsjddia .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6864,14 +6864,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vysuhocwoj .gt_first_summary_row {
+#miqqsjddia .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#vysuhocwoj .gt_first_summary_row.thick {
+#miqqsjddia .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#vysuhocwoj .gt_last_summary_row {
+#miqqsjddia .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6880,7 +6880,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#vysuhocwoj .gt_grand_summary_row {
+#miqqsjddia .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6889,7 +6889,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vysuhocwoj .gt_first_grand_summary_row {
+#miqqsjddia .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6898,10 +6898,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#vysuhocwoj .gt_striped {
+#miqqsjddia .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#vysuhocwoj .gt_table_body {
+#miqqsjddia .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6909,7 +6909,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#vysuhocwoj .gt_footnotes {
+#miqqsjddia .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6922,7 +6922,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#vysuhocwoj .gt_footnote {
+#miqqsjddia .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -6930,7 +6930,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vysuhocwoj .gt_sourcenotes {
+#miqqsjddia .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6943,58 +6943,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#vysuhocwoj .gt_sourcenote {
+#miqqsjddia .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vysuhocwoj .gt_left {
+#miqqsjddia .gt_left {
 text-align: left;
 }
-#vysuhocwoj .gt_center {
+#miqqsjddia .gt_center {
 text-align: center;
 }
-#vysuhocwoj .gt_right {
+#miqqsjddia .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#vysuhocwoj .gt_font_normal {
+#miqqsjddia .gt_font_normal {
 font-weight: normal;
 }
-#vysuhocwoj .gt_font_bold {
+#miqqsjddia .gt_font_bold {
 font-weight: bold;
 }
-#vysuhocwoj .gt_font_italic {
+#miqqsjddia .gt_font_italic {
 font-style: italic;
 }
-#vysuhocwoj .gt_super {
+#miqqsjddia .gt_super {
 font-size: 65%;
 }
-#vysuhocwoj .gt_footnote_marks {
+#miqqsjddia .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#vysuhocwoj .gt_asterisk {
+#miqqsjddia .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#vysuhocwoj .gt_indent_1 {
+#miqqsjddia .gt_indent_1 {
 text-indent: 5px;
 }
-#vysuhocwoj .gt_indent_2 {
+#miqqsjddia .gt_indent_2 {
 text-indent: 10px;
 }
-#vysuhocwoj .gt_indent_3 {
+#miqqsjddia .gt_indent_3 {
 text-indent: 15px;
 }
-#vysuhocwoj .gt_indent_4 {
+#miqqsjddia .gt_indent_4 {
 text-indent: 20px;
 }
-#vysuhocwoj .gt_indent_5 {
+#miqqsjddia .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -7125,16 +7125,16 @@ text-indent: 25px;
 </section>
 <section id="develop-net-new-gaps" class="level3">
 <h3 class="anchored" data-anchor-id="develop-net-new-gaps">Develop — net-new gaps</h3>
-<p><strong>The genuinely new opportunity:</strong> 16 cells recur with <strong>no</strong> close existing CE — invisible under the old hand-picked categories — and 14 of them are codifiable, so the move is to <strong>draft a new CE</strong>. Every develop cell sits <strong>below the 0.40 match line</strong>: the closest existing CE isn’t close enough to adopt.</p>
-<p>The cross-cutting standout is <strong>demonstration / pilot facilities</strong>, a develop gap for <strong>wind (9), nuclear (7), and other clean-energy (4)</strong> projects — one new CE could cover research / demonstration across technologies. (For geothermal and biomass the same action already has a matchable CE, so it resolves to <em>adopt</em> — the method discriminates.) The rest are more technology-specific: solar interconnection, small new-builds. Non-codifiable actions — battery manufacturing, land permits — are set aside; a CE codifies a <em>physical</em> action.</p>
+<p><strong>The genuinely new opportunity:</strong> 16 cells recur with no close existing CE — invisible under the old hand-picked categories — and 14 of them are codifiable, so the move is to draft a new CE. Every develop cell sits below the 0.40 match line: the closest existing CE isn’t close enough to adopt.</p>
+<p>The cross-cutting standout is <strong>demonstration / pilot facilities</strong>, a develop gap for wind (9), nuclear (7), and other clean-energy (4) projects — one new CE could cover research / demonstration across technologies. (For geothermal and biomass the same action already has a matchable CE, so it resolves to <em>adopt</em> — the method discriminates.) The rest are more technology-specific: solar interconnection, small new-builds. Non-codifiable actions — battery manufacturing, land permits — are set aside; a CE codifies a <em>physical</em> action.</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="rwhgpheqdf" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="wfgglqmpyx" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#rwhgpheqdf .gt_table {
+#wfgglqmpyx .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -7158,7 +7158,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_heading {
+#wfgglqmpyx .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -7169,11 +7169,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_caption {
+#wfgglqmpyx .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#rwhgpheqdf .gt_title {
+#wfgglqmpyx .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -7184,7 +7184,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#rwhgpheqdf .gt_subtitle {
+#wfgglqmpyx .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -7195,12 +7195,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#rwhgpheqdf .gt_bottom_border {
+#wfgglqmpyx .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_col_headings {
+#wfgglqmpyx .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -7214,7 +7214,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_col_heading {
+#wfgglqmpyx .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7233,7 +7233,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#rwhgpheqdf .gt_column_spanner_outer {
+#wfgglqmpyx .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7244,13 +7244,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#rwhgpheqdf .gt_column_spanner_outer:first-child {
+#wfgglqmpyx .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#rwhgpheqdf .gt_column_spanner_outer:last-child {
+#wfgglqmpyx .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#rwhgpheqdf .gt_column_spanner {
+#wfgglqmpyx .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -7261,7 +7261,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#rwhgpheqdf .gt_group_heading {
+#wfgglqmpyx .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7286,7 +7286,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#rwhgpheqdf .gt_empty_group_heading {
+#wfgglqmpyx .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -7300,13 +7300,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#rwhgpheqdf .gt_from_md > :first-child {
+#wfgglqmpyx .gt_from_md > :first-child {
 margin-top: 0;
 }
-#rwhgpheqdf .gt_from_md > :last-child {
+#wfgglqmpyx .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#rwhgpheqdf .gt_row {
+#wfgglqmpyx .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7324,7 +7324,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#rwhgpheqdf .gt_stub {
+#wfgglqmpyx .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7336,7 +7336,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#rwhgpheqdf .gt_stub_row_group {
+#wfgglqmpyx .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7349,10 +7349,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#rwhgpheqdf .gt_row_group_first td {
+#wfgglqmpyx .gt_row_group_first td {
 border-top-width: 2px;
 }
-#rwhgpheqdf .gt_summary_row {
+#wfgglqmpyx .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -7361,14 +7361,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#rwhgpheqdf .gt_first_summary_row {
+#wfgglqmpyx .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_first_summary_row.thick {
+#wfgglqmpyx .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#rwhgpheqdf .gt_last_summary_row {
+#wfgglqmpyx .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7377,7 +7377,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_grand_summary_row {
+#wfgglqmpyx .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -7386,7 +7386,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#rwhgpheqdf .gt_first_grand_summary_row {
+#wfgglqmpyx .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7395,10 +7395,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_striped {
+#wfgglqmpyx .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#rwhgpheqdf .gt_table_body {
+#wfgglqmpyx .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -7406,7 +7406,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_footnotes {
+#wfgglqmpyx .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -7419,7 +7419,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_footnote {
+#wfgglqmpyx .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -7427,7 +7427,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#rwhgpheqdf .gt_sourcenotes {
+#wfgglqmpyx .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -7440,58 +7440,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#rwhgpheqdf .gt_sourcenote {
+#wfgglqmpyx .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#rwhgpheqdf .gt_left {
+#wfgglqmpyx .gt_left {
 text-align: left;
 }
-#rwhgpheqdf .gt_center {
+#wfgglqmpyx .gt_center {
 text-align: center;
 }
-#rwhgpheqdf .gt_right {
+#wfgglqmpyx .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#rwhgpheqdf .gt_font_normal {
+#wfgglqmpyx .gt_font_normal {
 font-weight: normal;
 }
-#rwhgpheqdf .gt_font_bold {
+#wfgglqmpyx .gt_font_bold {
 font-weight: bold;
 }
-#rwhgpheqdf .gt_font_italic {
+#wfgglqmpyx .gt_font_italic {
 font-style: italic;
 }
-#rwhgpheqdf .gt_super {
+#wfgglqmpyx .gt_super {
 font-size: 65%;
 }
-#rwhgpheqdf .gt_footnote_marks {
+#wfgglqmpyx .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#rwhgpheqdf .gt_asterisk {
+#wfgglqmpyx .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#rwhgpheqdf .gt_indent_1 {
+#wfgglqmpyx .gt_indent_1 {
 text-indent: 5px;
 }
-#rwhgpheqdf .gt_indent_2 {
+#wfgglqmpyx .gt_indent_2 {
 text-indent: 10px;
 }
-#rwhgpheqdf .gt_indent_3 {
+#wfgglqmpyx .gt_indent_3 {
 text-indent: 15px;
 }
-#rwhgpheqdf .gt_indent_4 {
+#wfgglqmpyx .gt_indent_4 {
 text-indent: 20px;
 }
-#rwhgpheqdf .gt_indent_5 {
+#wfgglqmpyx .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -7596,8 +7596,8 @@ text-indent: 25px;
 </section>
 <section id="timing-the-fra-caveat" class="level2">
 <h2 class="anchored" data-anchor-id="timing-the-fra-caveat">Timing &amp; the FRA caveat</h2>
-<p>The 2023 Fiscal Responsibility Act (FRA, June 2023) gave agencies explicit authority to <strong>adopt another agency’s categorical exclusion</strong> — the exact move this analysis recommends. So the age of these EAs matters. Using decision dates <strong>merged from the D4 timeline</strong>, <strong>all but one</strong> of the dated bounded FONSIs were decided <em>before</em> the FRA — these agencies ran full EAs without the adoption shortcut now available. (Dates are known for ~⅔ of the bounded set; the rest are undated in the D4 output.)</p>
-<p><strong>This makes the finding a historical one.</strong> The corpus is almost entirely pre-FRA, so it shows <strong>where full EAs were run before the adoption shortcut existed</strong> — it identifies where adoption review is <strong>likely worthwhile</strong>, not that agencies are still running these EAs today. So the recommendation is: <em>pre-FRA EAs indicate likely adoption opportunities, pending a post-FRA refresh.</em> <strong>Before any client action, that refresh is required</strong> — check current CE-adoption use, recent (post-June-3-2023) EA/FONSI recurrence, and any agency implementation guidance since the FRA. Until then these are candidates to review, not a claim about current agency behavior.</p>
+<p>The 2023 Fiscal Responsibility Act (FRA, June 2023) gave agencies explicit authority to adopt another agency’s categorical exclusion — the exact move this analysis recommends. So the age of these EAs matters. Using decision dates merged from the D4 timeline, <strong>all but one</strong> of the dated bounded FONSIs were decided <em>before</em> the FRA — these agencies ran full EAs without the adoption shortcut now available. (Dates are known for ~⅔ of the bounded set; the rest are undated in the D4 output.)</p>
+<p><strong>This makes the finding a historical one.</strong> The corpus is almost entirely pre-FRA, so it shows where full EAs were run before the adoption shortcut existed — it identifies where adoption review is likely worthwhile, not that agencies are still running these EAs today. So the recommendation is: <em>pre-FRA EAs indicate likely adoption opportunities, pending a post-FRA refresh.</em> Before any client action, that refresh is required — check current CE-adoption use, recent (post-June-3-2023) EA/FONSI recurrence, and any agency implementation guidance since the FRA. Until then these are candidates to review, not a claim about current agency behavior.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-timeline" class="quarto-figure quarto-figure-center anchored">
@@ -7636,10 +7636,10 @@ Methodology
 <blockquote class="blockquote">
 <p><strong>Mitigated FONSIs</strong> imply that the project will have “no significant impact” if the applicant commits to some form of mitigation. This analysis systematically examines the language surrounding mitigated FONSIs to determine if there are patterns of actions that are routinely mitigated and if we can capture those recurring mitigations as a new CE.</p>
 </blockquote>
-<p><strong>Mitigation dependence is a <em>risk screen</em>, not a disqualifier.</strong> A mitigated FONSI does not mean the action class is unsuitable for a CE. It means a defensible CE for that class would need to <strong>encode the <em>recurring</em> avoidance/minimization measures as design criteria</strong> and <strong>exclude</strong> cases that hinge on <em>project-specific</em> commitments. So a high mitigated share is a flag to read the measures, not a veto.</p>
+<p><strong>Mitigation dependence is a <em>risk screen</em>, not a disqualifier.</strong> A mitigated FONSI does not mean the action class is unsuitable for a CE. It means a defensible CE for that class would need to encode the <em>recurring</em> avoidance/minimization measures as design criteria and exclude cases that hinge on <em>project-specific</em> commitments. So a high mitigated share is a flag to read the measures, not a veto.</p>
 <section id="how-mitigated-was-determined" class="level2">
 <h2 class="anchored" data-anchor-id="how-mitigated-was-determined">How “mitigated” was determined</h2>
-<p><strong>How this analysis works.</strong> The model reads each FONSI once and pulls four things (whether the finding depends on mitigation, what role that mitigation plays, the committed measures themselves, and the agency’s “significant if X” thresholds); we then test each for <strong>recurrence</strong> — a measure or threshold that recurs across a class can become a CE design criterion, an idiosyncratic one cannot:</p>
+<p><strong>How this analysis works.</strong> The model reads each FONSI once and pulls four things (whether the finding depends on mitigation, what role that mitigation plays, the committed measures themselves, and the agency’s “significant if X” thresholds); we then test each for recurrence — a measure or threshold that recurs across a class can become a CE design criterion, an idiosyncratic one cannot:</p>
 <div class="cell" data-fig-width="9">
 <div class="cell-output-display">
 <div>
@@ -7672,14 +7672,14 @@ Methodology
 <p>For every one of the 451 FONSIs the model read the finding and the committed conditions and set three fields:</p>
 <ul>
 <li><strong>Is it mitigated?</strong> — does the “no significant impact” finding <em>depend</em> on committed mitigation, or is the action inherently low-impact?</li>
-<li><strong>What role does the mitigation play?</strong> — one of: <strong>none</strong> (inherently low-impact), <strong>design-feature-only</strong> (impacts avoided by the project’s own bounded design), <strong>case-specific-dependent</strong> (the finding rests on committed, project-specific mitigation), <strong>permit/consultation condition</strong> (required by another regime, not the FONSI’s basis), <strong>monitoring-only</strong>, or <strong>unclear</strong>.</li>
-<li><strong>What’s the significance threshold?</strong> — the agency’s explicit <em>“would be significant if it exceeded X”</em> statements, captured verbatim. These are a CE’s natural numeric bounds — and, unlike the project-specific mitigation measures, they <strong>recur</strong> across projects.</li>
+<li><strong>What role does the mitigation play?</strong> — one of: none (inherently low-impact), design-feature-only (impacts avoided by the project’s own bounded design), case-specific-dependent (the finding rests on committed, project-specific mitigation), permit/consultation condition (required by another regime, not the FONSI’s basis), monitoring-only, or unclear.</li>
+<li><strong>What’s the significance threshold?</strong> — the agency’s explicit <em>“would be significant if it exceeded X”</em> statements, captured verbatim. These are a CE’s natural numeric bounds — and, unlike the project-specific mitigation measures, they recur across projects.</li>
 </ul>
-<p>The supporting mitigation text is captured <strong>verbatim and 97%-quote-verified</strong>, and each FONSI is tagged with the <strong>resource areas</strong> its mitigation addresses (biological, water, cultural…) from a fixed vocabulary, so we can measure which recur.</p>
+<p>The supporting mitigation text is captured verbatim and 97%-quote-verified, and each FONSI is tagged with the resource areas its mitigation addresses (biological, water, cultural…) from a fixed vocabulary, so we can measure which recur.</p>
 </section>
 <section id="is-it-mitigated" class="level2">
 <h2 class="anchored" data-anchor-id="is-it-mitigated">Is it mitigated?</h2>
-<p>The mitigated pattern is <strong>corpus-wide</strong>: <strong>310 of 451 (69%)</strong> decarbonization FONSIs are mitigated, and <strong>95</strong> of those fall <em>outside</em> the five Analysis-1 candidate types — so this is not a candidate-only artifact. By action type (including the large <em>Other</em> pool, which is 61% mitigated):</p>
+<p>The mitigated pattern is <strong>corpus-wide</strong>: 310 of 451 (69%) decarbonization FONSIs are mitigated, and 95 of those fall <em>outside</em> the five Analysis-1 candidate types — so this is not a candidate-only artifact. By action type (including the large <em>Other</em> pool, which is 61% mitigated):</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-mitigated-share" class="quarto-figure quarto-figure-center anchored">
@@ -7690,7 +7690,7 @@ Methodology
 </div>
 </div>
 </div>
-<p>Across the whole corpus, then, the share reaching “no significant impact” <strong>only with committed mitigation</strong>:</p>
+<p>Across the whole corpus, then, the share reaching “no significant impact” only with committed mitigation:</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-mitigated-overall" class="quarto-figure quarto-figure-center anchored">
@@ -7703,15 +7703,15 @@ Methodology
 </div>
 <section id="examples-the-committed-mitigation" class="level3">
 <h3 class="anchored" data-anchor-id="examples-the-committed-mitigation">Examples: the committed mitigation</h3>
-<p>So you can verify the read, here are the model’s <strong>mitigation summaries</strong> for FONSIs tagged case-specific-dependent. These are <strong>LLM-extracted summaries, not verbatim quotes</strong> — the verbatim, quote-verified text lives in the boundary table below and in <code>evidence_cited</code>:</p>
+<p>So you can verify the read, here are the model’s mitigation summaries for FONSIs tagged case-specific-dependent. These are <strong>LLM-extracted summaries, not verbatim quotes</strong> — the verbatim, quote-verified text lives in the boundary table below and in <code>evidence_cited</code>:</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="vwqastgwcx" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="rdgbvgqepz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#vwqastgwcx .gt_table {
+#rdgbvgqepz .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -7735,7 +7735,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#vwqastgwcx .gt_heading {
+#rdgbvgqepz .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -7746,11 +7746,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#vwqastgwcx .gt_caption {
+#rdgbvgqepz .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#vwqastgwcx .gt_title {
+#rdgbvgqepz .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -7761,7 +7761,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#vwqastgwcx .gt_subtitle {
+#rdgbvgqepz .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -7772,12 +7772,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#vwqastgwcx .gt_bottom_border {
+#rdgbvgqepz .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#vwqastgwcx .gt_col_headings {
+#rdgbvgqepz .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -7791,7 +7791,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#vwqastgwcx .gt_col_heading {
+#rdgbvgqepz .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7810,7 +7810,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#vwqastgwcx .gt_column_spanner_outer {
+#rdgbvgqepz .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7821,13 +7821,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#vwqastgwcx .gt_column_spanner_outer:first-child {
+#rdgbvgqepz .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#vwqastgwcx .gt_column_spanner_outer:last-child {
+#rdgbvgqepz .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#vwqastgwcx .gt_column_spanner {
+#rdgbvgqepz .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -7838,7 +7838,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#vwqastgwcx .gt_group_heading {
+#rdgbvgqepz .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7863,7 +7863,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#vwqastgwcx .gt_empty_group_heading {
+#rdgbvgqepz .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -7877,13 +7877,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#vwqastgwcx .gt_from_md > :first-child {
+#rdgbvgqepz .gt_from_md > :first-child {
 margin-top: 0;
 }
-#vwqastgwcx .gt_from_md > :last-child {
+#rdgbvgqepz .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#vwqastgwcx .gt_row {
+#rdgbvgqepz .gt_row {
 padding-top: 10px;
 padding-bottom: 10px;
 padding-left: 5px;
@@ -7901,7 +7901,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#vwqastgwcx .gt_stub {
+#rdgbvgqepz .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7913,7 +7913,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwqastgwcx .gt_stub_row_group {
+#rdgbvgqepz .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -7926,10 +7926,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#vwqastgwcx .gt_row_group_first td {
+#rdgbvgqepz .gt_row_group_first td {
 border-top-width: 2px;
 }
-#vwqastgwcx .gt_summary_row {
+#rdgbvgqepz .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -7938,14 +7938,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwqastgwcx .gt_first_summary_row {
+#rdgbvgqepz .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#vwqastgwcx .gt_first_summary_row.thick {
+#rdgbvgqepz .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#vwqastgwcx .gt_last_summary_row {
+#rdgbvgqepz .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7954,7 +7954,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#vwqastgwcx .gt_grand_summary_row {
+#rdgbvgqepz .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -7963,7 +7963,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwqastgwcx .gt_first_grand_summary_row {
+#rdgbvgqepz .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -7972,10 +7972,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#vwqastgwcx .gt_striped {
+#rdgbvgqepz .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#vwqastgwcx .gt_table_body {
+#rdgbvgqepz .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -7983,7 +7983,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#vwqastgwcx .gt_footnotes {
+#rdgbvgqepz .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -7996,7 +7996,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#vwqastgwcx .gt_footnote {
+#rdgbvgqepz .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -8004,7 +8004,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwqastgwcx .gt_sourcenotes {
+#rdgbvgqepz .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -8017,58 +8017,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#vwqastgwcx .gt_sourcenote {
+#rdgbvgqepz .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#vwqastgwcx .gt_left {
+#rdgbvgqepz .gt_left {
 text-align: left;
 }
-#vwqastgwcx .gt_center {
+#rdgbvgqepz .gt_center {
 text-align: center;
 }
-#vwqastgwcx .gt_right {
+#rdgbvgqepz .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#vwqastgwcx .gt_font_normal {
+#rdgbvgqepz .gt_font_normal {
 font-weight: normal;
 }
-#vwqastgwcx .gt_font_bold {
+#rdgbvgqepz .gt_font_bold {
 font-weight: bold;
 }
-#vwqastgwcx .gt_font_italic {
+#rdgbvgqepz .gt_font_italic {
 font-style: italic;
 }
-#vwqastgwcx .gt_super {
+#rdgbvgqepz .gt_super {
 font-size: 65%;
 }
-#vwqastgwcx .gt_footnote_marks {
+#rdgbvgqepz .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#vwqastgwcx .gt_asterisk {
+#rdgbvgqepz .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#vwqastgwcx .gt_indent_1 {
+#rdgbvgqepz .gt_indent_1 {
 text-indent: 5px;
 }
-#vwqastgwcx .gt_indent_2 {
+#rdgbvgqepz .gt_indent_2 {
 text-indent: 10px;
 }
-#vwqastgwcx .gt_indent_3 {
+#rdgbvgqepz .gt_indent_3 {
 text-indent: 15px;
 }
-#vwqastgwcx .gt_indent_4 {
+#rdgbvgqepz .gt_indent_4 {
 text-indent: 20px;
 }
-#vwqastgwcx .gt_indent_5 {
+#rdgbvgqepz .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -8134,7 +8134,7 @@ text-indent: 25px;
 </section>
 <section id="what-role-does-the-mitigation-play" class="level2">
 <h2 class="anchored" data-anchor-id="what-role-does-the-mitigation-play">What role does the mitigation play?</h2>
-<p>Across the 310 mitigated FONSIs the model’s <code>mitigation_dependence</code> label is almost entirely <strong>case-specific-dependent</strong>, so to see <em>what kind</em> of commitment recurs we read each FONSI’s committed-mitigation text and tag the <strong>mechanisms</strong> it relies on (a FONSI can use several). The mix is dominated by case-by-case mechanisms — consultation / permit conditions, monitoring, and site-specific avoidance — not standard, transferable design features:</p>
+<p>Across the 310 mitigated FONSIs the model’s <code>mitigation_dependence</code> label is almost entirely case-specific-dependent, so to see <em>what kind</em> of commitment recurs we read each FONSI’s committed-mitigation text and tag the mechanisms it relies on (a FONSI can use several). The mix is dominated by case-by-case mechanisms — consultation / permit conditions, monitoring, and site-specific avoidance — not standard, transferable design features:</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-mitigation-roles" class="quarto-figure quarto-figure-center anchored">
@@ -8147,22 +8147,22 @@ text-indent: 25px;
 </div>
 <section id="the-dependence-is-overwhelmingly-case-specific" class="level3">
 <h3 class="anchored" data-anchor-id="the-dependence-is-overwhelmingly-case-specific">The dependence is overwhelmingly case-specific</h3>
-<p>Of the <strong>310 mitigated FONSIs, 309 are case-specific-dependent</strong> — the finding rests on project-specific mitigation, not on the action being inherently low-impact. “Overwhelmingly case-specific” is simply the tally: <strong>309 of 310</strong> land in <code>case_specific_dependent</code>. The contrast with the next section is the point — the significance <em>thresholds</em> <strong>do</strong> recur across projects, which is what makes <em>them</em>, not the measures, the codifiable part.</p>
+<p>Of the 310 mitigated FONSIs, 309 are case-specific-dependent — the finding rests on project-specific mitigation, not on the action being inherently low-impact. “Overwhelmingly case-specific” is simply the tally: 309 of 310 land in <code>case_specific_dependent</code>. The contrast with the next section is the point — the significance <em>thresholds</em> do recur across projects, which is what makes <em>them</em>, not the measures, the codifiable part.</p>
 <blockquote class="blockquote">
-<p><strong>One honest caveat.</strong> <code>is_mitigated_fonsi</code> and <code>mitigation_dependence</code> are <em>near-equivalent judgments</em>: the model almost always pairs “the finding depends on mitigation” with “that mitigation is project-specific.” So this is <strong>one consistent signal, not two independent confirmations.</strong> The FONSIs it reads as inherently low-impact (design-feature-only or none) are exactly the ones it flags as <em>not</em> mitigated. The substantive finding stands: <strong>when a FONSI leans on mitigation, that mitigation is tailored to the project — not a standard, transferable design feature.</strong></p>
+<p><strong>One honest caveat.</strong> <code>is_mitigated_fonsi</code> and <code>mitigation_dependence</code> are <em>near-equivalent judgments</em>: the model almost always pairs “the finding depends on mitigation” with “that mitigation is project-specific.” So this is <strong>one consistent signal, not two independent confirmations.</strong> The FONSIs it reads as inherently low-impact (design-feature-only or none) are exactly the ones it flags as <em>not</em> mitigated. The substantive finding stands: when a FONSI leans on mitigation, that mitigation is tailored to the project — not a standard, transferable design feature.</p>
 </blockquote>
 </section>
 <section id="the-mitigation-language-is-project-specific" class="level3">
 <h3 class="anchored" data-anchor-id="the-mitigation-language-is-project-specific">The mitigation language is project-specific</h3>
-<p>The measures themselves are written <strong>per project</strong> — SHPO consultation here, raptor-nest buffers there, site-specific erosion plans elsewhere. Breaking every mitigation summary into 2–3 word phrases and counting them, <strong>no phrase recurs</strong> across projects. A CE therefore <strong>cannot copy any one project’s measures.</strong> What <em>does</em> recur is the <strong>resource area</strong> the mitigation protects — consistently <strong>biological, soils, water, and cultural</strong> — and those are what a defensible CE would distill into standing design criteria.</p>
+<p>The measures themselves are written per project — SHPO consultation here, raptor-nest buffers there, site-specific erosion plans elsewhere. Breaking every mitigation summary into 2–3 word phrases and counting them, <strong>no phrase recurs</strong> across projects. A CE therefore cannot copy any one project’s measures. What <em>does</em> recur is the resource area the mitigation protects — consistently biological, soils, water, and cultural — and those are what a defensible CE would distill into standing design criteria.</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="oassgzqugb" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="uoaksuvzlw" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#oassgzqugb .gt_table {
+#uoaksuvzlw .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -8186,7 +8186,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#oassgzqugb .gt_heading {
+#uoaksuvzlw .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -8197,11 +8197,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#oassgzqugb .gt_caption {
+#uoaksuvzlw .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#oassgzqugb .gt_title {
+#uoaksuvzlw .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -8212,7 +8212,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#oassgzqugb .gt_subtitle {
+#uoaksuvzlw .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -8223,12 +8223,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#oassgzqugb .gt_bottom_border {
+#uoaksuvzlw .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#oassgzqugb .gt_col_headings {
+#uoaksuvzlw .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -8242,7 +8242,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#oassgzqugb .gt_col_heading {
+#uoaksuvzlw .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -8261,7 +8261,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#oassgzqugb .gt_column_spanner_outer {
+#uoaksuvzlw .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -8272,13 +8272,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#oassgzqugb .gt_column_spanner_outer:first-child {
+#uoaksuvzlw .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#oassgzqugb .gt_column_spanner_outer:last-child {
+#uoaksuvzlw .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#oassgzqugb .gt_column_spanner {
+#uoaksuvzlw .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -8289,7 +8289,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#oassgzqugb .gt_group_heading {
+#uoaksuvzlw .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -8314,7 +8314,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#oassgzqugb .gt_empty_group_heading {
+#uoaksuvzlw .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -8328,13 +8328,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#oassgzqugb .gt_from_md > :first-child {
+#uoaksuvzlw .gt_from_md > :first-child {
 margin-top: 0;
 }
-#oassgzqugb .gt_from_md > :last-child {
+#uoaksuvzlw .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#oassgzqugb .gt_row {
+#uoaksuvzlw .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -8352,7 +8352,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#oassgzqugb .gt_stub {
+#uoaksuvzlw .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -8364,7 +8364,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#oassgzqugb .gt_stub_row_group {
+#uoaksuvzlw .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -8377,10 +8377,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#oassgzqugb .gt_row_group_first td {
+#uoaksuvzlw .gt_row_group_first td {
 border-top-width: 2px;
 }
-#oassgzqugb .gt_summary_row {
+#uoaksuvzlw .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -8389,14 +8389,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#oassgzqugb .gt_first_summary_row {
+#uoaksuvzlw .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#oassgzqugb .gt_first_summary_row.thick {
+#uoaksuvzlw .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#oassgzqugb .gt_last_summary_row {
+#uoaksuvzlw .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -8405,7 +8405,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#oassgzqugb .gt_grand_summary_row {
+#uoaksuvzlw .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -8414,7 +8414,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#oassgzqugb .gt_first_grand_summary_row {
+#uoaksuvzlw .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -8423,10 +8423,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#oassgzqugb .gt_striped {
+#uoaksuvzlw .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#oassgzqugb .gt_table_body {
+#uoaksuvzlw .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -8434,7 +8434,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#oassgzqugb .gt_footnotes {
+#uoaksuvzlw .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -8447,7 +8447,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#oassgzqugb .gt_footnote {
+#uoaksuvzlw .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -8455,7 +8455,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#oassgzqugb .gt_sourcenotes {
+#uoaksuvzlw .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -8468,58 +8468,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#oassgzqugb .gt_sourcenote {
+#uoaksuvzlw .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#oassgzqugb .gt_left {
+#uoaksuvzlw .gt_left {
 text-align: left;
 }
-#oassgzqugb .gt_center {
+#uoaksuvzlw .gt_center {
 text-align: center;
 }
-#oassgzqugb .gt_right {
+#uoaksuvzlw .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#oassgzqugb .gt_font_normal {
+#uoaksuvzlw .gt_font_normal {
 font-weight: normal;
 }
-#oassgzqugb .gt_font_bold {
+#uoaksuvzlw .gt_font_bold {
 font-weight: bold;
 }
-#oassgzqugb .gt_font_italic {
+#uoaksuvzlw .gt_font_italic {
 font-style: italic;
 }
-#oassgzqugb .gt_super {
+#uoaksuvzlw .gt_super {
 font-size: 65%;
 }
-#oassgzqugb .gt_footnote_marks {
+#uoaksuvzlw .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#oassgzqugb .gt_asterisk {
+#uoaksuvzlw .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#oassgzqugb .gt_indent_1 {
+#uoaksuvzlw .gt_indent_1 {
 text-indent: 5px;
 }
-#oassgzqugb .gt_indent_2 {
+#uoaksuvzlw .gt_indent_2 {
 text-indent: 10px;
 }
-#oassgzqugb .gt_indent_3 {
+#uoaksuvzlw .gt_indent_3 {
 text-indent: 15px;
 }
-#oassgzqugb .gt_indent_4 {
+#uoaksuvzlw .gt_indent_4 {
 text-indent: 20px;
 }
-#oassgzqugb .gt_indent_5 {
+#uoaksuvzlw .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -8866,11 +8866,11 @@ text-indent: 25px;
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="ltzcshxfft" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="fuwosxjels" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#ltzcshxfft .gt_table {
+#fuwosxjels .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -8894,7 +8894,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#ltzcshxfft .gt_heading {
+#fuwosxjels .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -8905,11 +8905,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#ltzcshxfft .gt_caption {
+#fuwosxjels .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#ltzcshxfft .gt_title {
+#fuwosxjels .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -8920,7 +8920,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#ltzcshxfft .gt_subtitle {
+#fuwosxjels .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -8931,12 +8931,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#ltzcshxfft .gt_bottom_border {
+#fuwosxjels .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ltzcshxfft .gt_col_headings {
+#fuwosxjels .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -8950,7 +8950,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#ltzcshxfft .gt_col_heading {
+#fuwosxjels .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -8969,7 +8969,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#ltzcshxfft .gt_column_spanner_outer {
+#fuwosxjels .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -8980,13 +8980,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#ltzcshxfft .gt_column_spanner_outer:first-child {
+#fuwosxjels .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#ltzcshxfft .gt_column_spanner_outer:last-child {
+#fuwosxjels .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#ltzcshxfft .gt_column_spanner {
+#fuwosxjels .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -8997,7 +8997,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#ltzcshxfft .gt_group_heading {
+#fuwosxjels .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -9022,7 +9022,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#ltzcshxfft .gt_empty_group_heading {
+#fuwosxjels .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -9036,13 +9036,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#ltzcshxfft .gt_from_md > :first-child {
+#fuwosxjels .gt_from_md > :first-child {
 margin-top: 0;
 }
-#ltzcshxfft .gt_from_md > :last-child {
+#fuwosxjels .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#ltzcshxfft .gt_row {
+#fuwosxjels .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -9060,7 +9060,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#ltzcshxfft .gt_stub {
+#fuwosxjels .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -9072,7 +9072,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ltzcshxfft .gt_stub_row_group {
+#fuwosxjels .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -9085,10 +9085,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#ltzcshxfft .gt_row_group_first td {
+#fuwosxjels .gt_row_group_first td {
 border-top-width: 2px;
 }
-#ltzcshxfft .gt_summary_row {
+#fuwosxjels .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -9097,14 +9097,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ltzcshxfft .gt_first_summary_row {
+#fuwosxjels .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#ltzcshxfft .gt_first_summary_row.thick {
+#fuwosxjels .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#ltzcshxfft .gt_last_summary_row {
+#fuwosxjels .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -9113,7 +9113,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ltzcshxfft .gt_grand_summary_row {
+#fuwosxjels .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -9122,7 +9122,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ltzcshxfft .gt_first_grand_summary_row {
+#fuwosxjels .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -9131,10 +9131,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#ltzcshxfft .gt_striped {
+#fuwosxjels .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#ltzcshxfft .gt_table_body {
+#fuwosxjels .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -9142,7 +9142,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ltzcshxfft .gt_footnotes {
+#fuwosxjels .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -9155,7 +9155,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#ltzcshxfft .gt_footnote {
+#fuwosxjels .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -9163,7 +9163,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ltzcshxfft .gt_sourcenotes {
+#fuwosxjels .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -9176,58 +9176,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#ltzcshxfft .gt_sourcenote {
+#fuwosxjels .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ltzcshxfft .gt_left {
+#fuwosxjels .gt_left {
 text-align: left;
 }
-#ltzcshxfft .gt_center {
+#fuwosxjels .gt_center {
 text-align: center;
 }
-#ltzcshxfft .gt_right {
+#fuwosxjels .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#ltzcshxfft .gt_font_normal {
+#fuwosxjels .gt_font_normal {
 font-weight: normal;
 }
-#ltzcshxfft .gt_font_bold {
+#fuwosxjels .gt_font_bold {
 font-weight: bold;
 }
-#ltzcshxfft .gt_font_italic {
+#fuwosxjels .gt_font_italic {
 font-style: italic;
 }
-#ltzcshxfft .gt_super {
+#fuwosxjels .gt_super {
 font-size: 65%;
 }
-#ltzcshxfft .gt_footnote_marks {
+#fuwosxjels .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#ltzcshxfft .gt_asterisk {
+#fuwosxjels .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#ltzcshxfft .gt_indent_1 {
+#fuwosxjels .gt_indent_1 {
 text-indent: 5px;
 }
-#ltzcshxfft .gt_indent_2 {
+#fuwosxjels .gt_indent_2 {
 text-indent: 10px;
 }
-#ltzcshxfft .gt_indent_3 {
+#fuwosxjels .gt_indent_3 {
 text-indent: 15px;
 }
-#ltzcshxfft .gt_indent_4 {
+#fuwosxjels .gt_indent_4 {
 text-indent: 20px;
 }
-#ltzcshxfft .gt_indent_5 {
+#fuwosxjels .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -9369,7 +9369,7 @@ Methodology
 </div>
 </div>
 </div>
-<p>And the few that <em>do</em> carry a number are themselves scattered — acres and miles dominate, but <strong>every CE picks a different value.</strong> The single most common acreage limit (10 acres) is used by only <strong>14 of the 71</strong>, and the stated limits run all the way from <strong>1 to 10,000 acres</strong>. There is no common threshold to <em>expand</em> against:</p>
+<p>And the few that <em>do</em> carry a number are themselves scattered — acres and miles dominate, but <strong>every CE picks a different value.</strong> The single most common acreage limit (10 acres) is used by only 14 of the 71, and the stated limits run all the way from 1 to 10,000 acres. There is no common threshold to <em>expand</em> against:</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-ce-bounds-lolli" class="quarto-figure quarto-figure-center anchored">
@@ -9387,11 +9387,11 @@ Methodology
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="bjryqreslh" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="xeghltpvpz" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#bjryqreslh .gt_table {
+#xeghltpvpz .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -9415,7 +9415,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#bjryqreslh .gt_heading {
+#xeghltpvpz .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -9426,11 +9426,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#bjryqreslh .gt_caption {
+#xeghltpvpz .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#bjryqreslh .gt_title {
+#xeghltpvpz .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -9441,7 +9441,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#bjryqreslh .gt_subtitle {
+#xeghltpvpz .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -9452,12 +9452,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#bjryqreslh .gt_bottom_border {
+#xeghltpvpz .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#bjryqreslh .gt_col_headings {
+#xeghltpvpz .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -9471,7 +9471,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#bjryqreslh .gt_col_heading {
+#xeghltpvpz .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -9490,7 +9490,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#bjryqreslh .gt_column_spanner_outer {
+#xeghltpvpz .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -9501,13 +9501,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#bjryqreslh .gt_column_spanner_outer:first-child {
+#xeghltpvpz .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#bjryqreslh .gt_column_spanner_outer:last-child {
+#xeghltpvpz .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#bjryqreslh .gt_column_spanner {
+#xeghltpvpz .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -9518,7 +9518,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#bjryqreslh .gt_group_heading {
+#xeghltpvpz .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -9543,7 +9543,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#bjryqreslh .gt_empty_group_heading {
+#xeghltpvpz .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -9557,13 +9557,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#bjryqreslh .gt_from_md > :first-child {
+#xeghltpvpz .gt_from_md > :first-child {
 margin-top: 0;
 }
-#bjryqreslh .gt_from_md > :last-child {
+#xeghltpvpz .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#bjryqreslh .gt_row {
+#xeghltpvpz .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -9581,7 +9581,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#bjryqreslh .gt_stub {
+#xeghltpvpz .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -9593,7 +9593,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bjryqreslh .gt_stub_row_group {
+#xeghltpvpz .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -9606,10 +9606,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#bjryqreslh .gt_row_group_first td {
+#xeghltpvpz .gt_row_group_first td {
 border-top-width: 2px;
 }
-#bjryqreslh .gt_summary_row {
+#xeghltpvpz .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -9618,14 +9618,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bjryqreslh .gt_first_summary_row {
+#xeghltpvpz .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#bjryqreslh .gt_first_summary_row.thick {
+#xeghltpvpz .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#bjryqreslh .gt_last_summary_row {
+#xeghltpvpz .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -9634,7 +9634,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#bjryqreslh .gt_grand_summary_row {
+#xeghltpvpz .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -9643,7 +9643,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bjryqreslh .gt_first_grand_summary_row {
+#xeghltpvpz .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -9652,10 +9652,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#bjryqreslh .gt_striped {
+#xeghltpvpz .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#bjryqreslh .gt_table_body {
+#xeghltpvpz .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -9663,7 +9663,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#bjryqreslh .gt_footnotes {
+#xeghltpvpz .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -9676,7 +9676,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#bjryqreslh .gt_footnote {
+#xeghltpvpz .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -9684,7 +9684,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bjryqreslh .gt_sourcenotes {
+#xeghltpvpz .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -9697,58 +9697,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#bjryqreslh .gt_sourcenote {
+#xeghltpvpz .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#bjryqreslh .gt_left {
+#xeghltpvpz .gt_left {
 text-align: left;
 }
-#bjryqreslh .gt_center {
+#xeghltpvpz .gt_center {
 text-align: center;
 }
-#bjryqreslh .gt_right {
+#xeghltpvpz .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#bjryqreslh .gt_font_normal {
+#xeghltpvpz .gt_font_normal {
 font-weight: normal;
 }
-#bjryqreslh .gt_font_bold {
+#xeghltpvpz .gt_font_bold {
 font-weight: bold;
 }
-#bjryqreslh .gt_font_italic {
+#xeghltpvpz .gt_font_italic {
 font-style: italic;
 }
-#bjryqreslh .gt_super {
+#xeghltpvpz .gt_super {
 font-size: 65%;
 }
-#bjryqreslh .gt_footnote_marks {
+#xeghltpvpz .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#bjryqreslh .gt_asterisk {
+#xeghltpvpz .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#bjryqreslh .gt_indent_1 {
+#xeghltpvpz .gt_indent_1 {
 text-indent: 5px;
 }
-#bjryqreslh .gt_indent_2 {
+#xeghltpvpz .gt_indent_2 {
 text-indent: 10px;
 }
-#bjryqreslh .gt_indent_3 {
+#xeghltpvpz .gt_indent_3 {
 text-indent: 15px;
 }
-#bjryqreslh .gt_indent_4 {
+#xeghltpvpz .gt_indent_4 {
 text-indent: 20px;
 }
-#bjryqreslh .gt_indent_5 {
+#xeghltpvpz .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -9790,7 +9790,7 @@ text-indent: 25px;
 </section>
 <section id="how-related-are-the-ces" class="level2">
 <h2 class="anchored" data-anchor-id="how-related-are-the-ces">How related are the CEs?</h2>
-<p>Each point below is one CE laid out by text similarity (t-SNE of the embeddings), colored by its <strong>k-means family</strong> and labeled by the family’s distinctive phrases. The CE text <strong>does not split into cleanly separated clusters</strong> — the silhouette is low and flat across every <em>k</em> (see the <a href="#fig-d6-ce-elbow">k-selection figure</a> below), so the <strong>k = 8</strong> families are a <em>readability</em> grouping of the layout, not a natural optimum. Even so, recognizable families emerge — real property &amp; rights-of-way, data collection / geophysical survey, hazardous-materials storage &amp; disposal, airport layout plans, goods &amp; services, and regulatory/guidance actions — and many recur across <em>different</em> departments, which is the precedent for adopt.</p>
+<p>Each point below is one CE laid out by text similarity (t-SNE of the embeddings), colored by its k-means family and labeled by the family’s distinctive phrases. The CE text <strong>does not split into cleanly separated clusters</strong> — the silhouette is low and flat across every <em>k</em> (see the <a href="#fig-d6-ce-elbow">k-selection figure</a> below), so the k = 8 families are a <em>readability</em> grouping of the layout, not a natural optimum. Even so, recognizable families emerge — real property &amp; rights-of-way, data collection / geophysical survey, hazardous-materials storage &amp; disposal, airport layout plans, goods &amp; services, and regulatory/guidance actions — and many recur across <em>different</em> departments, which is the precedent for adopt.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-ce-scatter" class="quarto-figure quarto-figure-center anchored">
@@ -9865,8 +9865,8 @@ text-indent: 25px;
 </section>
 <section id="cross-agency-duplication-the-precedent-for-adopt" class="level2">
 <h2 class="anchored" data-anchor-id="cross-agency-duplication-the-precedent-for-adopt">Cross-agency duplication — the precedent for <em>adopt</em></h2>
-<p><strong>The point:</strong> the same low-impact action is frequently excluded by <em>several</em> agencies under near-identical language. <strong>317 CEs have a near-twin at a different agency</strong>, forming <strong>130 shared “action families.”</strong> Adopting a peer’s CE — the exact move Analysis 1 recommends — is not unusual; it is how the landscape already works. <em>This shows adoption is <strong>common</strong> in the CE corpus; it does <strong>not</strong> verify that the shortlisted adopt matches actually cover the D6 actions — that remains the pending eCFR check.</em></p>
-<p>The chart below shows <strong>how the twin families distribute across departments</strong> — each bar is the number of families shared by <em>exactly</em> that set of departments:</p>
+<p><strong>The point:</strong> the same low-impact action is frequently excluded by <em>several</em> agencies under near-identical language. 317 CEs have a near-twin at a different agency, forming 130 shared “action families.” Adopting a peer’s CE — the exact move Analysis 1 recommends — is not unusual; it is how the landscape already works. <em>This shows adoption is common in the CE corpus; it does not verify that the shortlisted adopt matches actually cover the D6 actions — that remains the pending eCFR check.</em></p>
+<p>The chart below shows how the twin families distribute across departments — each bar is the number of families shared by <em>exactly</em> that set of departments:</p>
 <div class="cell">
 <div class="cell-output-display">
 <div id="fig-d6-ce-upset" class="quarto-figure quarto-figure-center anchored">
@@ -9877,15 +9877,15 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>Each row in the table below is <strong>one shared family</strong> (not a single example): the action, how many agencies use a near-identical CE for it, and a few of those agencies.</p>
+<p>Each row in the table below is one shared family (not a single example): the action, how many agencies use a near-identical CE for it, and a few of those agencies.</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="kzuvpcuezx" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="jfncnwoppr" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#kzuvpcuezx .gt_table {
+#jfncnwoppr .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -9909,7 +9909,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_heading {
+#jfncnwoppr .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -9920,11 +9920,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_caption {
+#jfncnwoppr .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#kzuvpcuezx .gt_title {
+#jfncnwoppr .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -9935,7 +9935,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#kzuvpcuezx .gt_subtitle {
+#jfncnwoppr .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -9946,12 +9946,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#kzuvpcuezx .gt_bottom_border {
+#jfncnwoppr .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_col_headings {
+#jfncnwoppr .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -9965,7 +9965,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_col_heading {
+#jfncnwoppr .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -9984,7 +9984,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#kzuvpcuezx .gt_column_spanner_outer {
+#jfncnwoppr .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -9995,13 +9995,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#kzuvpcuezx .gt_column_spanner_outer:first-child {
+#jfncnwoppr .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#kzuvpcuezx .gt_column_spanner_outer:last-child {
+#jfncnwoppr .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#kzuvpcuezx .gt_column_spanner {
+#jfncnwoppr .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -10012,7 +10012,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#kzuvpcuezx .gt_group_heading {
+#jfncnwoppr .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -10037,7 +10037,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#kzuvpcuezx .gt_empty_group_heading {
+#jfncnwoppr .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -10051,13 +10051,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#kzuvpcuezx .gt_from_md > :first-child {
+#jfncnwoppr .gt_from_md > :first-child {
 margin-top: 0;
 }
-#kzuvpcuezx .gt_from_md > :last-child {
+#jfncnwoppr .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#kzuvpcuezx .gt_row {
+#jfncnwoppr .gt_row {
 padding-top: 7px;
 padding-bottom: 7px;
 padding-left: 5px;
@@ -10075,7 +10075,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#kzuvpcuezx .gt_stub {
+#jfncnwoppr .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -10087,7 +10087,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kzuvpcuezx .gt_stub_row_group {
+#jfncnwoppr .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -10100,10 +10100,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#kzuvpcuezx .gt_row_group_first td {
+#jfncnwoppr .gt_row_group_first td {
 border-top-width: 2px;
 }
-#kzuvpcuezx .gt_summary_row {
+#jfncnwoppr .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -10112,14 +10112,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kzuvpcuezx .gt_first_summary_row {
+#jfncnwoppr .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_first_summary_row.thick {
+#jfncnwoppr .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#kzuvpcuezx .gt_last_summary_row {
+#jfncnwoppr .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -10128,7 +10128,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_grand_summary_row {
+#jfncnwoppr .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -10137,7 +10137,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kzuvpcuezx .gt_first_grand_summary_row {
+#jfncnwoppr .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -10146,10 +10146,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_striped {
+#jfncnwoppr .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#kzuvpcuezx .gt_table_body {
+#jfncnwoppr .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -10157,7 +10157,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_footnotes {
+#jfncnwoppr .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -10170,7 +10170,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_footnote {
+#jfncnwoppr .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -10178,7 +10178,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kzuvpcuezx .gt_sourcenotes {
+#jfncnwoppr .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -10191,58 +10191,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#kzuvpcuezx .gt_sourcenote {
+#jfncnwoppr .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#kzuvpcuezx .gt_left {
+#jfncnwoppr .gt_left {
 text-align: left;
 }
-#kzuvpcuezx .gt_center {
+#jfncnwoppr .gt_center {
 text-align: center;
 }
-#kzuvpcuezx .gt_right {
+#jfncnwoppr .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#kzuvpcuezx .gt_font_normal {
+#jfncnwoppr .gt_font_normal {
 font-weight: normal;
 }
-#kzuvpcuezx .gt_font_bold {
+#jfncnwoppr .gt_font_bold {
 font-weight: bold;
 }
-#kzuvpcuezx .gt_font_italic {
+#jfncnwoppr .gt_font_italic {
 font-style: italic;
 }
-#kzuvpcuezx .gt_super {
+#jfncnwoppr .gt_super {
 font-size: 65%;
 }
-#kzuvpcuezx .gt_footnote_marks {
+#jfncnwoppr .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#kzuvpcuezx .gt_asterisk {
+#jfncnwoppr .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#kzuvpcuezx .gt_indent_1 {
+#jfncnwoppr .gt_indent_1 {
 text-indent: 5px;
 }
-#kzuvpcuezx .gt_indent_2 {
+#jfncnwoppr .gt_indent_2 {
 text-indent: 10px;
 }
-#kzuvpcuezx .gt_indent_3 {
+#jfncnwoppr .gt_indent_3 {
 text-indent: 15px;
 }
-#kzuvpcuezx .gt_indent_4 {
+#jfncnwoppr .gt_indent_4 {
 text-indent: 20px;
 }
-#kzuvpcuezx .gt_indent_5 {
+#jfncnwoppr .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -10299,15 +10299,15 @@ text-indent: 25px;
 </section>
 <section id="where-net-new-ces-come-from" class="level2">
 <h2 class="anchored" data-anchor-id="where-net-new-ces-come-from">Where net-new CEs come from</h2>
-<p>Net-new CEs are <strong>not</strong> empty here — the grid surfaces <strong>14 codifiable <em>develop</em> cells</strong>: recurring technology × action combinations with <strong>no</strong> close existing CE. The cross-cutting standout is <strong>demonstration / pilot facilities</strong>, which recur as a develop gap for wind (9), nuclear (7), and other clean-energy (4) projects — the single strongest candidate for a brand-new CE. (For geothermal and biomass, that same action already has a matchable CE, so it resolves to <em>adopt</em> — the method discriminates.) These gaps were invisible under the old hand-picked five categories, which by construction only held well-trodden actions that already had a CE somewhere.</p>
-<p>A further frontier sits <em>outside</em> the named action verbs: of the 451 gridded FONSIs, the model could only label <strong>92</strong> with the catch-all action <strong>“other”</strong> (funding, studies, efficiency work, and the like). <strong>This deliverable did not decompose that bucket</strong> — it is a residual of un-named actions, not an examined pool. More net-new CEs plausibly live there, but confirming that requires the recommended next step: cluster those “other” FONSI action descriptions to surface recurring categories no one has named yet.</p>
+<p>Net-new CEs are not empty here — the grid surfaces 14 codifiable <em>develop</em> cells: recurring technology × action combinations with no close existing CE. The cross-cutting standout is <strong>demonstration / pilot facilities</strong>, which recur as a develop gap for wind (9), nuclear (7), and other clean-energy (4) projects — the single strongest candidate for a brand-new CE. (For geothermal and biomass, that same action already has a matchable CE, so it resolves to <em>adopt</em> — the method discriminates.) These gaps were invisible under the old hand-picked five categories, which by construction only held well-trodden actions that already had a CE somewhere.</p>
+<p>A further frontier sits <em>outside</em> the named action verbs: of the 451 gridded FONSIs, the model could only label 92 with the catch-all action “other” (funding, studies, efficiency work, and the like). <strong>This deliverable did not decompose that bucket</strong> — it is a residual of un-named actions, not an examined pool. More net-new CEs plausibly live there, but confirming that requires the recommended next step: cluster those “other” FONSI action descriptions to surface recurring categories no one has named yet.</p>
 </section>
 </section>
 <section id="caveats-next-steps" class="level1">
 <h1>Caveats &amp; next steps</h1>
 <ul>
 <li><strong>LLM-extracted, verified facts.</strong> Action definitions, numeric limits, mitigation dependence, and significance thresholds come from a one-pass enrichment of all 451 decarbonization FONSIs (Claude Sonnet); every quoted value was checked verbatim against its cited source page (97% verified). Values that did not verify are flagged, not shown.</li>
-<li><strong>CE matches are a ranking aid, not verified coverage.</strong> Confirm each candidate CE against its eCFR text before acting on it — this is the one remaining verification step. The <strong><a href="../notes/deliverable06/ce_verification.html">CE coverage verification worksheet</a></strong> pairs each candidate with its best-match CE, a first-pass coverage read, and the exact bound to confirm.</li>
+<li><strong>CE matches are a ranking aid, not verified coverage.</strong> Confirm each candidate CE against its eCFR text before acting on it — this is the one remaining verification step. The <a href="../notes/deliverable06/ce_verification.html">CE coverage verification worksheet</a> pairs each candidate with its best-match CE, a first-pass coverage read, and the exact bound to confirm.</li>
 <li><strong>Recommended next steps:</strong> (1) verify the 22 adopt matches against the eCFR CE text (start from the <a href="../notes/deliverable06/ce_verification.html">verification worksheet</a>);
 <ol start="2" type="1">
 <li>cluster the 92 <em>“other”</em>-action FONSIs to search for additional net-new CEs.</li>
@@ -10321,7 +10321,7 @@ text-indent: 25px;
 <li><strong>“CE-shaped” adds a transmission shape gate</strong> on top of the LLM’s <code>is_bounded_low_impact</code> judgment (transmission must be modify-existing within an existing ROW). Dropping that gate — the looser, LLM-bounded-only definition — would <em>raise</em> the set from 215 to 293, mostly by admitting large within-ROW reconductors that exceed a CE’s typical mileage cap.</li>
 <li><strong>A retrieval score ≥ 0.40 is treated as a close CE.</strong> This threshold is what separates <em>adopt/expand</em> cells (a close CE exists) from <em>develop</em> cells (none does); the adopt/expand matches clear it comfortably, so they are insensitive to moving the cut to 0.50.</li>
 <li><strong>The expand test keys on numeric bounds.</strong> Most matched CEs are qualitative, so no <em>numeric</em> expand fires for them — but transmission upgrades exceed CE #19’s ~25-mile cap, so 2 cells resolve to expand. Qualitative coverage elsewhere remains unverified.</li>
-<li><strong>Ranks use fixed component weights.</strong> They separate transmission (n = 26 bounded) from the thin-n candidates clearly; for <strong>n &lt; 10 read priority bands, not exact ranks</strong> (a formal weight-sensitivity table is a recommended follow-up).</li>
+<li><strong>Ranks use fixed component weights.</strong> They separate transmission (n = 26 bounded) from the thin-n candidates clearly; for n &lt; 10 read priority bands, not exact ranks (a formal weight-sensitivity table is a recommended follow-up).</li>
 <li><strong>CE coverage is unverified.</strong> Requiring verified eCFR coverage before “adopt” reclassifies all 22 to <em>candidate-pending</em> until that review is done.</li>
 </ul>
 </section>
@@ -10334,11 +10334,11 @@ text-indent: 25px;
 <div class="quarto-layout-row quarto-layout-valign-top">
 <div class="cell-output-display quarto-layout-cell" style="flex-basis: 100.0%;justify-content: center;">
 
-<div id="oqevixihiu" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="psupbylpda" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-:where(#oqevixihiu) .gt_table {
+:where(#psupbylpda) .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -10362,7 +10362,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_heading {
+:where(#psupbylpda) .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -10373,11 +10373,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_caption {
+:where(#psupbylpda) .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-:where(#oqevixihiu) .gt_title {
+:where(#psupbylpda) .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -10388,7 +10388,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-:where(#oqevixihiu) .gt_subtitle {
+:where(#psupbylpda) .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -10399,12 +10399,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-:where(#oqevixihiu) .gt_bottom_border {
+:where(#psupbylpda) .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_col_headings {
+:where(#psupbylpda) .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -10418,7 +10418,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_col_heading {
+:where(#psupbylpda) .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -10437,7 +10437,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-:where(#oqevixihiu) .gt_column_spanner_outer {
+:where(#psupbylpda) .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -10448,13 +10448,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-:where(#oqevixihiu) .gt_column_spanner_outer:first-child {
+:where(#psupbylpda) .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-:where(#oqevixihiu) .gt_column_spanner_outer:last-child {
+:where(#psupbylpda) .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-:where(#oqevixihiu) .gt_column_spanner {
+:where(#psupbylpda) .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -10465,7 +10465,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-:where(#oqevixihiu) .gt_group_heading {
+:where(#psupbylpda) .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -10490,7 +10490,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-:where(#oqevixihiu) .gt_empty_group_heading {
+:where(#psupbylpda) .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -10504,13 +10504,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-:where(#oqevixihiu) .gt_from_md > :first-child {
+:where(#psupbylpda) .gt_from_md > :first-child {
 margin-top: 0;
 }
-:where(#oqevixihiu) .gt_from_md > :last-child {
+:where(#psupbylpda) .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-:where(#oqevixihiu) .gt_row {
+:where(#psupbylpda) .gt_row {
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
@@ -10528,7 +10528,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-:where(#oqevixihiu) .gt_stub {
+:where(#psupbylpda) .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -10540,7 +10540,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-:where(#oqevixihiu) .gt_stub_row_group {
+:where(#psupbylpda) .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -10553,10 +10553,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-:where(#oqevixihiu) .gt_row_group_first td {
+:where(#psupbylpda) .gt_row_group_first td {
 border-top-width: 2px;
 }
-:where(#oqevixihiu) .gt_summary_row {
+:where(#psupbylpda) .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -10565,14 +10565,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-:where(#oqevixihiu) .gt_first_summary_row {
+:where(#psupbylpda) .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_first_summary_row.thick {
+:where(#psupbylpda) .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-:where(#oqevixihiu) .gt_last_summary_row {
+:where(#psupbylpda) .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -10581,7 +10581,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_grand_summary_row {
+:where(#psupbylpda) .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -10590,7 +10590,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-:where(#oqevixihiu) .gt_first_grand_summary_row {
+:where(#psupbylpda) .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -10599,10 +10599,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_striped {
+:where(#psupbylpda) .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-:where(#oqevixihiu) .gt_table_body {
+:where(#psupbylpda) .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -10610,7 +10610,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_footnotes {
+:where(#psupbylpda) .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -10623,7 +10623,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_footnote {
+:where(#psupbylpda) .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -10631,7 +10631,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-:where(#oqevixihiu) .gt_sourcenotes {
+:where(#psupbylpda) .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -10644,58 +10644,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-:where(#oqevixihiu) .gt_sourcenote {
+:where(#psupbylpda) .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-:where(#oqevixihiu) .gt_left {
+:where(#psupbylpda) .gt_left {
 text-align: left;
 }
-:where(#oqevixihiu) .gt_center {
+:where(#psupbylpda) .gt_center {
 text-align: center;
 }
-:where(#oqevixihiu) .gt_right {
+:where(#psupbylpda) .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-:where(#oqevixihiu) .gt_font_normal {
+:where(#psupbylpda) .gt_font_normal {
 font-weight: normal;
 }
-:where(#oqevixihiu) .gt_font_bold {
+:where(#psupbylpda) .gt_font_bold {
 font-weight: bold;
 }
-:where(#oqevixihiu) .gt_font_italic {
+:where(#psupbylpda) .gt_font_italic {
 font-style: italic;
 }
-:where(#oqevixihiu) .gt_super {
+:where(#psupbylpda) .gt_super {
 font-size: 65%;
 }
-:where(#oqevixihiu) .gt_footnote_marks {
+:where(#psupbylpda) .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-:where(#oqevixihiu) .gt_asterisk {
+:where(#psupbylpda) .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-:where(#oqevixihiu) .gt_indent_1 {
+:where(#psupbylpda) .gt_indent_1 {
 text-indent: 5px;
 }
-:where(#oqevixihiu) .gt_indent_2 {
+:where(#psupbylpda) .gt_indent_2 {
 text-indent: 10px;
 }
-:where(#oqevixihiu) .gt_indent_3 {
+:where(#psupbylpda) .gt_indent_3 {
 text-indent: 15px;
 }
-:where(#oqevixihiu) .gt_indent_4 {
+:where(#psupbylpda) .gt_indent_4 {
 text-indent: 20px;
 }
-:where(#oqevixihiu) .gt_indent_5 {
+:where(#psupbylpda) .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -10746,13 +10746,13 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<p>Null booleans are read as <strong>unknown</strong>, never as <code>FALSE</code>; the no-evidence row is carried with a status flag, not silently dropped.</p>
+<p>Null booleans are read as unknown, never as <code>FALSE</code>; the no-evidence row is carried with a status flag, not silently dropped.</p>
 <hr>
 </section>
 </section>
 <section id="reproduction" class="level1">
 <h1>Reproduction</h1>
-<p>The report is <strong>LLM-backed</strong>: action facts, numeric limits, mitigation, and significance thresholds all come from a one-pass enrichment of the FONSIs. That enrichment is a <strong>prerequisite</strong> and is <strong>not</strong> regenerated by <code>_run.py</code>. From the repository root in the <code>nepa</code> conda environment:</p>
+<p>The report is <strong>LLM-backed</strong>: action facts, numeric limits, mitigation, and significance thresholds all come from a one-pass enrichment of the FONSIs. That enrichment is a prerequisite and is not regenerated by <code>_run.py</code>. From the repository root in the <code>nepa</code> conda environment:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># 1. LLM enrichment (REQUIRED first; billable Anthropic pass, --dry-run for cost only)</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co">#    model claude-sonnet-4-6, schema d6_enrich_schema_v5, ~451/452 FONSIs -&gt;</span></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">#    data/analysis/deliverable06/fonsi_enrichment.parquet</span></span>
@@ -10763,13 +10763,13 @@ text-indent: 25px;
 <span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="co"># 3. render</span></span>
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="ex">quarto</span> render phase2/reports/deliverable06.qmd</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<p><code>_run.py</code> executes the numbered chain <code>01</code>→<code>08</code> (the <code>08_analyze.R</code> figures step needs <code>Rscript</code>). <strong>Without step 1 it now aborts at <code>09_wire_enrichment.py</code></strong> — 08 and this report read <code>fonsi_enrichment.parquet</code> unconditionally, so a deterministic build does not reproduce the reported figures and claims. Outputs are written to:</p>
+<p><code>_run.py</code> executes the numbered chain <code>01</code>→<code>08</code> (the <code>08_create_figures.R</code> figures step needs <code>Rscript</code>). <strong>Without step 1 it now aborts at <code>09_wire_enrichment.py</code></strong> — 08 and this report read <code>fonsi_enrichment.parquet</code> unconditionally, so a deterministic build does not reproduce the reported figures and claims. Outputs are written to:</p>
 <ul>
 <li><code>phase2/data/analysis/deliverable06/</code> — analysis parquets (verdicts, mitigation, CE landscape/clusters)</li>
 <li><code>phase2/output/deliverable06/</code> — <code>figures/</code>, the slim comparison table, and <code>review/</code> drill-down tables</li>
 </ul>
 <hr>
-<p><em>Draft generated 2026-07-15 | NEPA Analysis — Phase 2, Deliverable 6</em></p>
+<p><em>Draft generated 2026-07-20 | NEPA Analysis — Phase 2, Deliverable 6</em></p>
 
 
 </section>
