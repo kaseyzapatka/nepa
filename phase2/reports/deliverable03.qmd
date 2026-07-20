@@ -8,8 +8,6 @@ format:
     toc-depth: 2
     toc-location: left
     fig-align: center
-    resources:
-      - ../output/deliverable03/visual_scattertext_decarb_vs_fossil.html
 execute:
   echo: false
   warning: false
@@ -245,7 +243,7 @@ top_states <- function(group) {
 }
 
 make_state_gt <- function(group) {
-  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#7B241CB3"
+  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#C22A90B3"
   raw <- state_counts |>
     filter(energy_group == group) |>
     arrange(desc(n_projects), project_state) |>
@@ -270,7 +268,7 @@ make_state_gt <- function(group) {
 }
 
 make_ce_gt <- function(tbl, group) {
-  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#7B241CB3"
+  hdr_color <- if (group == "Decarbonization") "#002169B3" else "#C22A90B3"
   raw <- tbl |>
     transmute(`CE Citation` = ce_code, Documents = n)
   color_fn <- scales::col_numeric(palette = c("white", hdr_color), domain = c(0, NA))
@@ -379,25 +377,23 @@ availability_table_raw <- tibble::tibble(
   Component = c(
     "Review process type", "Technology group", "CE citations", "Geography",
     "Visual impacts", "Geothermal vs. oil and gas", "NEPA trigger",
-    "Linear vs. non-linear geometry", "Timelines"
+    "Linear vs. non-linear geometry"
   ),
   Status = c(
     "Complete", "Complete", "Complete", "Complete",
     "Complete",
     "Complete", "Partial",
-    if_else(any(!is.na(reviews$is_linear)), "Complete", "**Not yet available**"),
-    if_else(file.exists(TIMELINE_PATH), "Complete", "**Not yet available**")
+    if_else(any(!is.na(reviews$is_linear)), "Complete", "**Not yet available**")
   ),
   Notes = c(
     "CE, EA, and EIS populated for clean and fossil projects",
     "Derived from NEPATEC project-type labels",
     "Parsed and normalized from document-level CE categories",
     "State and county fields are exploded from project metadata; multi-state projects can count in multiple states",
-    "Full visual-section text extracted from EA/EIS pages via heading-anchored extraction with keyword-run fallback; supports topic modeling, framing scoring, illustrative excerpts, and an interactive distinguishing-terms explorer",
+    "Full visual-section text extracted from EA/EIS pages via heading-anchored extraction with keyword-run fallback; supports topic modeling, framing scoring, and illustrative excerpts",
     "Dedicated comparison output includes review-rate bars, all-state stacked shares, and a state geothermal-share map",
     "Deliverable 1 trigger classifications cover clean-energy projects; fossil projects currently have NULL trigger values",
-    "is_linear is still empty, so geometry analysis is omitted",
-    "Duration analysis is omitted unless phase2/data/analysis/timeline.parquet exists"
+    "Derived from the NEPATEC project-type taxonomy (transmission, pipelines, and corridors classified as linear); advisory"
   )
 )
 
@@ -437,27 +433,38 @@ This report delivers:
 
 # Methodology
 
-## Analysis Universe
+Deliverable 3 scopes the analysis to `r fmt_n(n_total)` energy projects — `r fmt_n(n_decarb)` decarbonization and `r fmt_n(n_fossil)` fossil fuel — drawn from NEPATEC 2.0 by excluding projects classified as `Other`. Review-process, citation, and geographic patterns are built from project metadata; visual-impact patterns are extracted from EA/EIS document text. The pipeline runs in four stages:
 
-The Deliverable 3 build script scopes the analysis to `r fmt_n(n_total)` energy projects:
-
-```{r}
-kable_tbl(analysis_universe_table)
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Scope the energy universe</div>
+    <div style="color:#1A1A2E;">Filter NEPATEC&nbsp;2.0's <code>projects_combined.parquet</code> to the 31,508 <b>Clean</b> and <b>Fossil</b> energy projects; projects classified as <b>Other</b> are excluded so the clean/fossil comparison is not diluted by unrelated federal actions</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Build the review dataset</div>
+    <div style="color:#1A1A2E;"><code>02_build_nepa_reviews.py</code> assigns each project an energy group and technology tag, its review process (CE / EA / EIS), lead agency and geography, normalized CE citations, a linear-vs-non-linear geometry flag, and Deliverable&nbsp;1 NEPA-trigger classifications (clean-energy projects)</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Extract visual-impact text</div>
+    <div style="color:#1A1A2E;">For EA / EIS projects, heading-anchored retrieval pulls visual-resource sections; sentence-transformer embeddings (all-MiniLM-L6-v2) support NMF topic modeling and CEQ-anchored framing scores</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 · Generate figures and tables</div>
+    <div style="color:#1A1A2E;"><code>04_create_figures.R</code> produces the review-rate, CE-citation, geography, geometry, visual-impact, and geothermal outputs read by this report</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">Deliverable 3 report</div>
+    <div style="color:#ffffff;">A comparison of how <b>decarbonization</b> and <b>fossil fuel</b> projects move through NEPA</div>
+  </div>
+</div>
 ```
 
-Projects classified as `Other` are excluded before analysis. This keeps the denominator focused on energy projects and avoids diluting clean/fossil comparisons with unrelated federal actions.
-
-## Data Pipeline
-
-The analysis is built in two scripts:
-
-```{r}
-kable_tbl(pipeline_table)
-```
-
-The main project-level output is `phase2/data/analysis/deliverable03/projects_nepa_reviews.parquet`. It contains one row per project with energy category, technology group, review process, lead agency, geography, and clean-energy trigger information where available.
-
-## Current Data Availability
+The main project-level output is `phase2/data/analysis/deliverable03/projects_nepa_reviews.parquet` — one row per project with energy category, technology group, review process, lead agency, geography, geometry, and clean-energy trigger information. The components currently available are:
 
 ```{r}
 kable_tbl(availability_table)
@@ -493,7 +500,13 @@ include_fig("fig2_review_rates_by_tech.png")
 
 ## Linear vs. Non-linear Geometry
 
-A planned breakdown by project geometry (linear infrastructure such as transmission lines and pipelines vs. non-linear point or area projects) is omitted from this version. The `is_linear` field is not yet populated. See the Known Gaps table.
+Projects are split by geometry into linear infrastructure — transmission lines, pipelines, and corridors — versus non-linear point or area projects (solar arrays, wind farms, geothermal fields, well pads, plants, and storage). The `is_linear` flag is derived from the NEPATEC project-type taxonomy and is advisory: a project carrying any linear label is treated as linear, since geometry is a property of the built infrastructure. The figure below shows CE, EA, and EIS shares within each geometry class, faceted by energy category.
+
+```{r}
+#| label: fig-linear-geometry
+#| fig-cap: "NEPA review type shares by project geometry (linear vs. non-linear) and energy category. Linear = transmission, pipelines, and corridors; non-linear = point or area projects."
+include_fig("fig3_review_rates_linear.png")
+```
 
 ## Within-Agency Comparisons
 
@@ -683,7 +696,13 @@ geo_comp_table |>
   tab_options(table.font.size = px(12), table.width = pct(100))
 ```
 
-This is potentially one of the most important findings in the deliverable, but it should be framed carefully. If the policy question is whether geothermal generally moves through NEPA more like decarbonization or oil and gas, the all-agency comparison suggests geothermal is closer to the decarbonization average. If the policy question is whether BLM geothermal development faces a pathway more similar to oil and gas, that should be tested with a separate BLM-controlled geothermal sensitivity analysis.
+This is potentially one of the most important findings in the deliverable, but it should be framed carefully. If the policy question is whether geothermal generally moves through NEPA more like decarbonization or oil and gas, the all-agency comparison suggests geothermal is closer to the decarbonization average. If the policy question is whether BLM geothermal development faces a pathway more similar to oil and gas, that is a different question that this comparison does not answer.
+
+Three control caveats bound how far this comparison should be read:
+
+-   **The comparison is an all-agency blend.** It pools BLM, USFS, DOE, and other lead agencies, so it mixes different permitting pathways and does not isolate any single agency's practice.
+-   **A BLM-only control was considered and deliberately not included.** A public-land (BLM-lead) geothermal-versus-oil-and-gas comparison would be the right way to test the public-land question above, but it is out of scope for this version and is noted as a candidate follow-up rather than an available result.
+-   **The federal-land trigger share is not classified for oil and gas.** The comparison table's Federal-Land Trigger Share column reads "Not yet classified" for the oil-and-gas rows because NEPA-trigger classification was not extended to the fossil portfolio; only the clean-energy (including geothermal) side carries trigger values.
 
 ```{r}
 #| label: fig-geo-og-rates
@@ -1013,64 +1032,6 @@ The elbow analysis formalises why four topics is the right choice. Reconstructio
 #| label: fig-nmf-elbow
 #| fig-cap: "NMF topic-count validation — normalised reconstruction error by k. Dotted line marks chosen k=4."
 include_fig("fig14d_nmf_elbow.png")
-```
-
-## Interactive: Distinguishing Terms
-
-The interactive scattertext explorer plots every term in the corpus by its association with decarbonization (Y axis) versus fossil fuel (X axis). Dot size reflects term frequency, color reflects which side the term leans toward, and hovering over a term reveals representative excerpts from the underlying visual sections. This is the most direct view of vocabulary that distinguishes decarbonization visual-impact prose from fossil prose.
-
-```{r}
-scattertext_path <- file.path(OUTPUT_DIR, "visual_scattertext_decarb_vs_fossil.html")
-if (file.exists(scattertext_path)) {
-  cat(sprintf(
-    '<iframe src="visual_scattertext_decarb_vs_fossil.html" width="100%%" height="800px" style="border:1px solid #ccc;"></iframe>'
-  ))
-} else {
-  cat("> **Note:** The interactive scattertext explorer requires the Python `scattertext` package (not currently installed). Run `pip install scattertext` and re-run `02_build_nepa_reviews.py` to generate the file.")
-}
-```
-
-------------------------------------------------------------------------
-
-# Timelines
-
-Timeline data — initiation date, decision date, and computed review duration — are not yet available in the analysis database. When `phase2/data/analysis/timeline.parquet` is built and audited for coverage, this section will include:
-
--   **Coverage table:** how many projects have both initiation and decision dates, broken out by energy category and process type
--   **Duration by regulatory period and process type:** median review length before and after the 2020 CEQ rule revision and the 2023 Fiscal Responsibility Act
--   **Clean vs. fossil duration comparison:** controlled within process type to isolate the energy-category effect
-
-See the Known Gaps table for current status.
-
-------------------------------------------------------------------------
-
-# Known Gaps and Cautions
-
-```{r}
-tibble::tibble(
-  Gap = c(
-    "Fossil trigger classifications are missing",
-    "Timeline data are missing",
-    "Linear geometry is missing",
-    "All-agency geothermal blends different pathways",
-    "State and county counts can duplicate multi-state projects"
-  ),
-  `Why It Matters` = c(
-    "Trigger comparisons are currently clean-energy only",
-    "Cannot yet compare review duration or pre/post reform periods",
-    "Cannot yet compare transmission/pipelines against point or area projects",
-    "The current geothermal comparison is not a BLM/public-land control",
-    "Geography maps show footprint, not unique project counts"
-  ),
-  `Recommended Treatment` = c(
-    "Extend Deliverable 1 trigger logic to fossil projects before making trigger-based clean/fossil claims",
-    "Omit duration claims until timeline.parquet exists and coverage is audited",
-    "Add geometry derivation before interpreting infrastructure corridor effects",
-    "Add a BLM-only geothermal sensitivity analysis for a controlled public-land development comparison",
-    "Label outputs as project-state or project-county records when relevant"
-  )
-) |>
-  kable_tbl()
 ```
 
 ------------------------------------------------------------------------

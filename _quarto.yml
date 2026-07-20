@@ -6,6 +6,7 @@ project:
     - "phase2/reports/*.qmd"
     - "phase2/notes/deliverable01/*.md"
     - "phase2/notes/deliverable02/coverage_limitations.md"
+    - "phase2/notes/deliverable03/coverage_limitations.md"
     - "phase2/notes/deliverable04/*.md"
     - "phase2/notes/deliverable06/*.md"
     - "presentations/*.qmd"

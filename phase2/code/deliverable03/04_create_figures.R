@@ -71,11 +71,11 @@ source(here::here("phase2", "code", "utils", "utils.R"))
 theme_update(plot.caption = element_text(hjust = 0))
 
 # Fossil red palette (red hues used for all fossil tech categories throughout)
-FOSSIL_RED       <- "#C0392B"   # dark red  — Land-based Oil & Gas, Coal
-FOSSIL_RED_MED   <- "#E74C3C"   # medium red — Offshore Oil & Gas
+FOSSIL_RED       <- "#D671B0"   # dark red  — Land-based Oil & Gas, Coal
+FOSSIL_RED_MED   <- "#DD7FBB"   # medium red — Offshore Oil & Gas
 FOSSIL_ORANGE    <- "#CA6F1E"   # terracotta — Pipeline
 FOSSIL_TAN       <- "#BA4A00"   # burnt orange — Rural Energy
-FOSSIL_PALE      <- "#F5B7B1"   # pale red   — Other Fossil
+FOSSIL_PALE      <- "#F0C4E3"   # pale red   — Other Fossil
 
 CE_CODE_FOOTNOTE <- paste0(
   "CE code key:\n",
@@ -145,9 +145,9 @@ process_labels <- c(
 
 energy_colors <- c(
   "Clean"           = catf_navy,
-  "Fossil"          = "#7B241C",
+  "Fossil"          = "#C22A90",
   "Decarbonization" = catf_navy,
-  "Fossil Fuel"     = "#7B241C"
+  "Fossil Fuel"     = "#C22A90"
 )
 
 tech_colors <- c(
@@ -165,7 +165,7 @@ tech_colors <- c(
   # Fossil (red palette — distinct from the blue/process-type colors)
   "Land-based Oil & Gas" = FOSSIL_RED,
   "Offshore Oil & Gas"   = FOSSIL_RED_MED,
-  "Coal"                 = "#7B241C",
+  "Coal"                 = "#C22A90",
   "Pipeline"             = FOSSIL_ORANGE,
   "Rural Energy"         = FOSSIL_TAN,
   "Other Fossil"         = FOSSIL_PALE
@@ -190,9 +190,9 @@ dual_process_colors <- c(
   "Decarb EIS"  = catf_navy,        # #012169 — matches Decarbonization fill in fig5
   "Decarb EA"   = catf_dark_blue,   # #0047BB
   "Decarb CE"   = catf_light_blue,  # #8AB7E9
-  "Fossil EIS"  = "#7B241C",        # dark maroon — matches Fossil Fuel fill in fig5
-  "Fossil EA"   = "#A93226",        # medium maroon (consistent hue family)
-  "Fossil CE"   = "#D98880"         # light mauve   (consistent hue family)
+  "Fossil EIS"  = "#C22A90",        # dark maroon — matches Fossil Fuel fill in fig5
+  "Fossil EA"   = "#D671B0",        # medium maroon (consistent hue family)
+  "Fossil CE"   = "#E9A9D2"         # light mauve   (consistent hue family)
 )
 dual_process_labels <- c(
   "Decarb EIS" = "EIS",   "Decarb EA"  = "EA",    "Decarb CE"  = "CE",
@@ -348,7 +348,7 @@ ggplot(rate_by_energy, aes(x = energy_group, y = pct, fill = fill_key)) +
       nrow   = 2,
       byrow  = TRUE,
       override.aes = list(
-        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#A93226", "#D98880")
+        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#C22A90", "#D671B0", "#E9A9D2")
       )
     )
   ) +
@@ -488,7 +488,7 @@ ggplot(rate_by_tech, aes(x = tech_group, y = pct, fill = fill_key)) +
       nrow   = 2,
       byrow  = TRUE,
       override.aes = list(
-        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#A93226", "#D98880")
+        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#C22A90", "#D671B0", "#E9A9D2")
       )
     )
   ) +
@@ -529,6 +529,10 @@ if (nrow(rate_linear) == 0) {
 } else {
   ggplot(rate_linear, aes(x = project_class, y = pct, fill = process_type)) +
     geom_col(position = position_stack(reverse = TRUE)) +
+    geom_text(aes(label = if_else(pct >= 0.05,
+                                  scales::percent(pct, accuracy = 1), "")),
+              position = position_stack(reverse = TRUE, vjust = 0.5),
+              color = "white", size = 3.5, fontface = "bold") +
     scale_fill_manual(values = process_colors, labels = process_labels) +
     scale_y_continuous(labels = percent_format()) +
     facet_wrap(~ project_energy_type) +
@@ -617,7 +621,7 @@ ggplot(agency_bar_data, aes(x = energy_label, y = pct, fill = fill_key)) +
       nrow   = 2,
       byrow  = TRUE,
       override.aes = list(
-        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#A93226", "#D98880")
+        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#C22A90", "#D671B0", "#E9A9D2")
       )
     )
   ) +
@@ -705,7 +709,7 @@ ce_by_energy <- ce_by_energy_all |>
     energy_group = factor(energy_group, levels = c("Fossil Fuel", "Decarbonization"))
   )
 
-fig5_fill <- c("Decarbonization" = catf_navy, "Fossil Fuel" = "#7B241C")
+fig5_fill <- c("Decarbonization" = catf_navy, "Fossil Fuel" = "#C22A90")
 
 ggplot(ce_by_energy, aes(x = n, y = ce_code, fill = energy_group)) +
   geom_col(position = "dodge", alpha = 0.7) +
@@ -919,7 +923,7 @@ make_state_map("Decarbonization", "Decarbonization Technologies")
 save_fig("fig7_state_decarb.png", width = 12, height = 7)
 
 make_state_map("Fossil Fuel", "Fossil Fuel Technologies",
-               fill_low = "#FADBD8", fill_high = "#7B241C")
+               fill_low = "#FAE3F2", fill_high = "#C22A90")
 save_fig("fig8_state_fossil.png", width = 12, height = 7)
 
 # Fig 9 & 10 — County choropleths (Jenks breaks) ----
@@ -981,7 +985,7 @@ make_county_map("Decarbonization", "Decarbonization Technologies",
 save_fig("fig9_county_decarb.png", width = 14, height = 8)
 
 make_county_map("Fossil Fuel", "Fossil Fuel Technologies",
-                fill_low = "#FADBD8", fill_high = "#7B241C")
+                fill_low = "#FAE3F2", fill_high = "#C22A90")
 save_fig("fig10_county_fossil.png", width = 14, height = 8)
 
 # Fig 11 — State facet: energy × process type (two patchwork rows, separate color scales) ----
@@ -1045,7 +1049,7 @@ make_state_process_row <- function(eg, fill_low, fill_high, title_suffix = "") {
 }
 
 p11_decarb <- make_state_process_row("Decarbonization", "#deebf7", catf_navy)
-p11_fossil <- make_state_process_row("Fossil Fuel",     "#FADBD8", "#7B241C")
+p11_fossil <- make_state_process_row("Fossil Fuel",     "#FAE3F2", "#C22A90")
 
 p11_decarb
 save_fig("fig11a_state_process_decarb.png", width = 14, height = 5.5)
@@ -1079,7 +1083,8 @@ if (!VISUAL_TEXT_AVAILABLE) {
 
     universe <- vtext |>
       filter(!is.na(tech_group),
-             !tech_group %in% c("Other", "Other Clean", "Other Fossil"),
+             !tech_group %in% c("Other", "Other Clean", "Other Fossil",
+                                "Other Renewable", "Other Conventional"),
              energy_group %in% ENERGY_LEVELS,
              process_type %in% c("EA", "EIS")) |>
       count(tech_group, energy_group, name = "n_projects") |>
@@ -1096,7 +1101,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
         geom_text(aes(label = scales::comma(n_projects)),
                   hjust = -0.15, size = 3, color = catf_navy) +
         scale_fill_manual(values = c("Decarbonization" = catf_navy,
-                                     "Fossil Fuel"     = "#7B241C"),
+                                     "Fossil Fuel"     = "#C22A90"),
                           name = NULL) +
         scale_y_continuous(labels = scales::comma,
                            expand = expansion(mult = c(0, 0.18))) +
@@ -1247,7 +1252,7 @@ if (!VISUAL_TEXT_AVAILABLE) {
       }
 
       p_d <- make_wc_panel("Decarbonization", catf_navy)
-      p_f <- make_wc_panel("Fossil Fuel",     "#7B241C")
+      p_f <- make_wc_panel("Fossil Fuel",     "#C22A90")
 
       wc_grid <- (p_d | p_f) +
         patchwork::plot_annotation(
@@ -1315,7 +1320,7 @@ if (!file.exists(VISUAL_TOPIC_SUMMARY_PATH)) {
         )
 
       topic_fill <- c("Decarbonization" = catf_navy,
-                      "Fossil Fuel"     = "#7B241C")
+                      "Fossil Fuel"     = "#C22A90")
 
       ggplot(topic_long, aes(x = label, y = n, fill = energy_group)) +
         geom_col(position = position_dodge(width = 0.8), width = 0.75, alpha = 0.7) +
@@ -1411,7 +1416,7 @@ if (!VISUAL_FRAMING_AVAILABLE) {
     } else {
       fram_fill <- c(
         "Decarbonization" = catf_navy,
-        "Fossil Fuel"     = "#7B241C"
+        "Fossil Fuel"     = "#C22A90"
       )
 
       ggplot(framing_axes,
@@ -1561,7 +1566,7 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
                   aes(x = energy_group, y = Inf, label = scales::comma(n_obs)),
                   inherit.aes = FALSE, hjust = -0.15, size = 2.8, color = "grey30") +
         scale_fill_manual(values = c("Decarbonization" = catf_navy,
-                                     "Fossil Fuel"     = "#7B241C"),
+                                     "Fossil Fuel"     = "#C22A90"),
                           name = NULL) +
         scale_y_log10(labels = scales::comma,
                       breaks = c(100, 500, 1000, 5000, 10000),
@@ -1592,7 +1597,8 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
       filter(extraction_method == "heading_anchored",
              energy_group %in% ENERGY_LEVELS,
              !is.na(tech_group),
-             !tech_group %in% c("Other", "Other Clean", "Other Fossil"),
+             !tech_group %in% c("Other", "Other Clean", "Other Fossil",
+                                "Other Renewable", "Other Conventional"),
              process_type %in% c("EA", "EIS"),
              !is.na(n_words),
              n_words > 0) |>
@@ -1614,7 +1620,7 @@ if (!VISUAL_SECTIONS_AVAILABLE) {
                   aes(x = tech_group, y = Inf, label = scales::comma(n_obs)),
                   inherit.aes = FALSE, hjust = -0.15, size = 2.8, color = "grey30") +
         scale_fill_manual(values = c("Decarbonization" = catf_navy,
-                                     "Fossil Fuel"     = "#7B241C"),
+                                     "Fossil Fuel"     = "#C22A90"),
                           name = NULL) +
         scale_y_log10(labels = scales::comma,
                       breaks = c(100, 500, 1000, 5000, 10000),
@@ -1675,9 +1681,9 @@ if (!VRM_ELEMENTS_AVAILABLE) {
         "Strong"   = "#012169"   # catf_navy
       )
       fossil_colors <- c(
-        "Weak"     = "#F5CEC9",  # light pink
-        "Moderate" = "#C0392B",  # mid-red
-        "Strong"   = "#7B241C"   # dark maroon
+        "Weak"     = "#F2D3EA",  # light pink
+        "Moderate" = "#D671B0",  # mid-red
+        "Strong"   = "#C22A90"   # dark maroon
       )
 
       rating_levels <- c("Weak", "Moderate", "Strong")
@@ -1746,7 +1752,7 @@ if (!VRM_ELEMENTS_AVAILABLE) {
       )
       p21b <- make_vrm_panel(
         vrm_pct |> dplyr::filter(energy_group == "Fossil Fuel"),
-        fossil_colors, "Fossil Fuel", "#7B241C", show_legend = TRUE
+        fossil_colors, "Fossil Fuel", "#C22A90", show_legend = TRUE
       )
 
       p21 <- (p21a | p21b) +
@@ -2101,9 +2107,9 @@ fig15_colors <- c(
   "Geothermal EIS" = catf_navy,
   "Geothermal EA"  = catf_dark_blue,
   "Geothermal CE"  = catf_light_blue,
-  "Oil & Gas EIS"  = "#7B241C",
-  "Oil & Gas EA"   = "#A93226",
-  "Oil & Gas CE"   = "#D98880"
+  "Oil & Gas EIS"  = "#C22A90",
+  "Oil & Gas EA"   = "#D671B0",
+  "Oil & Gas CE"   = "#E9A9D2"
 )
 
 fig15_labels <- c(
@@ -2124,7 +2130,7 @@ ggplot(rate_compare, aes(x = tech_group, y = pct, fill = fill_key)) +
       nrow  = 2,
       byrow = TRUE,
       override.aes = list(
-        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#7B241C", "#A93226", "#D98880")
+        fill = c(catf_navy, catf_dark_blue, catf_light_blue, "#C22A90", "#D671B0", "#E9A9D2")
       )
     )
   ) +
