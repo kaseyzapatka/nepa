@@ -56,10 +56,28 @@ follows the Python-builds-data / R-draws-figures split.
 - `10_outliers.R` — duration-outlier deliverable (feeds the report's case-study section)
 - `fra/` — FRA page-length analysis: `01_extract_pages.py` (also needs processed EA/EIS
   `pages.parquet`) → `02–04_create_figures_*.R`
-- `field_office/` — BLM field-office learning curve: `01_parse_offices.py` → `02_create_figures.R`
+- `field_office/` — office experience vs. process change, two arms: `01_parse_offices.py` (BLM field
+  offices from the DOI-BLM case number) → `01b_build_doe_offices.py` (DOE administering offices from
+  the CX register's `office` field, joined on `cx_number`; writes `doe_offices.parquet` + DOE coverage/
+  count diagnostics) → `02_create_figures.R`. The reframe carries two figures — a combined BLM/DOE
+  inventory and a busier- vs quieter-office **convergence** lead figure (`d4_fieldoffice_convergence.csv`
+  + `d4_fieldoffice_convergence_split.csv` for the half definitions) — plus a per-year within-office
+  Spearman table (`d4_fieldoffice_withinyear_cor.csv`) and the pooled office fixed-effects regression
+  (`d4_fieldoffice_model.csv`, with `agency` and `frame` columns). Symmetric no-filter design: BOTH
+  arms use each office's full review history (no calendar cut); known pre-2012 BLM artifact rows are
+  retained and flagged in the report caveats (they inflate the raw estimate only). The convergence
+  figure is BLM-only unless the DOE quieter half is both stable and actually converges (it does not:
+  busier DOE offices are structurally faster). **Run order: `01` → `01b` → `02`.** The takeaway: process change, not office
+  experience, likely drove the CE speed-up — the DOE arm reproduces the null independently.
 - `ceq_regime/` — CEQ regulatory-regime durations: `01_build_tables.py` →
   `02_create_figures.R`; additionally requires `08_create_figures.R` to have run (reads its
   `d4_duration_summary.csv` consistency anchor and `d4_duration_by_year.csv`)
+- `geothermal/` — geothermal review timelines by cohort: `01_build_tables.py` →
+  `02_create_figures.R`; a three-tier reframe (office-matched BLM / unmatched BLM / DOE & other)
+  with an office inventory (now including a DOE CX-register-office panel — ~456 of the 764 DOE-tier
+  projects link to a named grant/administering office, Golden Field Office dominant), a state bubble
+  map, and a decision-year timeline whose CE line is split into BLM vs DOE cohort series (the `maps`
+  package supplies lower-48 polygons only)
 
 ## Conventions
 

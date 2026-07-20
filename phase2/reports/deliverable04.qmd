@@ -91,7 +91,8 @@ figcaption, .figure-caption, .quarto-figure figcaption { text-align: left !impor
 -   **Timeline completeness varies sharply by process, and the gaps are structural.** Complete timelines (both an initiation and a decision date) reach `r fmt_pct(cpct("CE"), 1)` for CE, `r fmt_pct(cpct("EA"), 1)` for EA, and `r fmt_pct(cpct("EIS"), 1)` for EIS (@fig-coverage). CE and EA are *initiation*-limited (no Notice-of-Intent requirement, often no recorded start); EIS is *decision*-limited — Records of Decision are usually separate documents outside the corpus, so EIS decision coverage is just `r fmt_pct(dpct("EIS","pct_decision"))`. LLM adjudication of the ambiguous cases lifted complete coverage roughly +7 points per process.
 -   **Post-FRA, EIS documents got shorter while EAs held steady.** Across all `r fmt_n(sum(pg$n_projects))` EA/EIS projects (all energy types, regulatory pages from the full text), mean EIS length fell from `r pgv("EIS","Pre-FRA","mean_pages")` to `r pgv("EIS","Post-FRA","mean_pages")` pages after the Fiscal Responsibility Act, while EA length stayed near `r pgv("EA","Pre-FRA","mean_pages")`–`r pgv("EA","Post-FRA","mean_pages")` pages — though the post-FRA window is still small (@sec-pages).
 -   **The longest reviews are prime case-study candidates.** Genuinely protracted reviews — SunZia Southwest Transmission (14.6 yr), Energia Sierra Juarez, Grain Belt Express, Cushman Hydroelectric — are surfaced for CATF investigation and separated from extraction errors (an "initiation" anchored to a historical citation), which are excluded (@sec-outliers).
--   **BLM field offices do not measurably speed up with experience.** The apparent office "learning curve" disappears once calendar time is controlled: the speed-up is a corpus-wide secular decline in CE durations, not individual offices getting faster as their caseload grows (@sec-field-office).
+-   **Offices didn't speed up — the process did.** CE reviews got dramatically faster across the 2010s, but the decline hit every field office at once regardless of caseload: within any year an office's accumulated experience is uncorrelated with its speed, and low-volume offices converged to high-volume speed without doing comparable reps. A process change reaching all offices at once — batch processing, procedural streamlining — not office-by-office learning, is the likely driver; a wholly separate DOE register-office corpus reproduces the null independently (@sec-field-office).
+-   **Geothermal NEPA is two different worlds, and office-level comparison is off the table.** The `Geothermal` tag pools BLM western resource reviews (NV/CA/UT) with a much larger body of DOE grant-era research and heat-pump CEs filed nationwide; only a handful of reviews sit in any one BLM field office, so the geothermal analysis is a descriptive inventory plus state and timeline views, not an office ranking (@sec-geothermal).
 :::
 
 This report delivers:
@@ -592,129 +593,192 @@ include_fig("fig_d4_duration_trend_ceq_regime.png")
 
 ------------------------------------------------------------------------
 
-# BLM field-office experience {#sec-field-office}
-
-This extension answers a request from the deliverable scope: **do BLM field offices process NEPA reviews faster as they accumulate experience** — a "learning-curve" effect? We map each BLM-led project to the field office that handled it (from the structured `DOI-BLM-<state>-<office>-<year>-<seq>` case number), order each office's reviews by the office's own cumulative count, and test whether duration falls as that count rises — after separating the experience signal from two confounds that would otherwise manufacture a false result: the register-anchoring artifact and secular calendar-time trends. All conclusions here are associational, not causal.
+# Field-office experience: BLM and DOE {#sec-field-office}
 
 ```{r}
 #| label: fo-setup
 fo_cov  <- read_diag("d4_fieldoffice_parse_coverage.csv")
 fo_covv <- function(scope, col) fo_cov[[col]][fo_cov$scope == scope]
-fo_off  <- arrow::read_parquet(here("phase2", "data", "analysis", "deliverable04", "blm_field_offices.parquet"))
-n_offices  <- dplyr::n_distinct(fo_off$office_code)
-n_case     <- sum(fo_off$parse_source == "case_number")
-n_file     <- sum(fo_off$parse_source == "file_name")
 
-fo_mod <- read_diag("d4_fieldoffice_model.csv")
-mrow   <- function(proc, anch) fo_mod[fo_mod$process == proc & fo_mod$anchor == anch, ]
-ce_d   <- mrow("CE", "Document")   # PRIMARY: document-anchored
-ce_r   <- mrow("CE", "Register")   # sensitivity
-ea_r   <- mrow("EA", "Register")   # exploratory
+fo_mod   <- read_diag("d4_fieldoffice_model.csv")
+mrow     <- function(proc, anch, ag = "BLM") fo_mod[fo_mod$agency == ag & fo_mod$process == proc & fo_mod$anchor == anch, ]
+ce_d     <- mrow("CE", "Document")          # BLM primary: document-anchored, full window
+ce_d_doe <- mrow("CE", "Document", "DOE")   # DOE primary: document-anchored, full window
 
-fo_sum      <- read_diag("d4_fieldoffice_summary.csv")
-n_q_offices <- nrow(fo_sum)
-med_first   <- median(fo_sum$first_med, na.rm = TRUE)
-med_last    <- median(fo_sum$last_med,  na.rm = TRUE)
-share_sped  <- mean(fo_sum$pct_change < 0, na.rm = TRUE)
+wy     <- read_diag("d4_fieldoffice_withinyear_cor.csv")  # per-year Spearman(cum_count, duration)
+wy_blm <- wy[wy$arm == "BLM", ]
+wy_lo  <- min(wy_blm$spearman); wy_hi <- max(wy_blm$spearman)
 
-sgn  <- function(x) sprintf("%+.1f%%", x)                                  # signed percent
-ci   <- function(r) sprintf("%+.1f%% to %+.1f%%", r$pct_lo, r$pct_hi)      # signed 95% CI
+split  <- read_diag("d4_fieldoffice_convergence_split.csv")  # busier/quieter split (full-history caseload)
+splt   <- function(arm, col) split[[col]][split$arm == arm]
+
+doe_cov <- read_diag("d4_fieldoffice_doe_coverage.csv")
+dcov    <- function(m) doe_cov$value[doe_cov$metric == m]
+
+sgn    <- function(x) sprintf("%+.1f%%", x)                                    # signed percent
+ci     <- function(r) sprintf("%+.1f%% to %+.1f%%", r$pct_lo, r$pct_hi)        # signed 95% CI (controlled)
+ci_raw <- function(r) sprintf("%+.1f%% to %+.1f%%", r$pct_lo_raw, r$pct_hi_raw) # signed 95% CI (raw)
+spr    <- function(x) sprintf("%+.2f", x)                                      # signed correlation
 ```
 
-::: callout-note
-## Method & scope
+A question from the deliverable scope: **do lead-agency offices process NEPA reviews faster as they accumulate experience** — a "learning-curve" effect? We test it on two structurally independent corpora: BLM projects map to the field office that handled them (from case metadata), while DOE projects map to the administering or grant office that processed them (through the CX register). Both arms measure the same thing — whether an office's review duration falls as its own cumulative caseload grows — on document-anchored, complete CE timelines over each agency's full window. All conclusions here are associational, not causal.
 
--   **Field-office parse.** The validated regex `BLM-([A-Z]{2}-?[A-Z]?[0-9]{2,4})` on the case number (file name as fallback) maps `r fmt_pct(fo_covv("ALL","pct_parsed")/100)` of BLM-led projects (`r fmt_n(fo_covv("ALL","parsed"))` of `r fmt_n(fo_covv("ALL","blm_projects"))`) to one of `r n_offices` field offices (`r fmt_n(n_case)` from the structured case number, `r fmt_n(n_file)` from the file name).
--   **Document-anchored durations are primary.** BLM register "project start" dates are frequently late administrative entries (the ~40-day artifact documented in the duration analysis above), so the learning curve is computed on document-anchored initiation dates (`initiation_source_type ≠ metadata`); the register-anchored version is a clearly-flagged secondary view.
--   **EA and CE are analyzed separately** (CE medians run in weeks, EA in months); EIS is excluded (too sparse per office). Offices qualify with ≥ 30 valid durations on the analysis measure.
--   **Model.** A pooled regression with office fixed effects, `log(duration) ~ log(cum_count) + factor(decision_year) + project_energy_type`, fit separately for EA and CE. The `log(cum_count)` coefficient is the experience effect *net of* secular calendar trends; `factor(decision_year)` is the calendar control, `project_energy_type` the project-mix control.
-:::
-
-::: callout-important
-## Finding: the apparent learning curve is a calendar-time confound, not experience
-
-Descriptively, CE reviews look like they speed up as an office gains experience: across the `r n_q_offices` offices with ≥ 30 document-anchored CE reviews, the median duration of an office's *earliest* third of reviews is `r med_first` days versus `r med_last` days for its *most-experienced* third, and `r fmt_pct(share_sped)` of offices sped up (@fig-fo-dumbbell). But that gradient is an artifact of calendar time. CE durations have fallen sharply over the 2010s corpus-wide, and because an office's higher-experience reviews are also its later-calendar reviews (within-sample correlation ≈ 0.67), the raw pattern conflates the two (@fig-fo-confound). The office fixed-effects regression that adds a decision-year control dissolves the effect: the coefficient on `log(cumulative reviews)` is `r sgn(ce_d$pct_per_doubling)` per doubling (95% CI `r ci(ce_d)`) for the primary document-anchored CE measure (n = `r fmt_n(ce_d$n_reviews)` reviews, `r ce_d$n_offices` offices) — statistically indistinguishable from zero and, if anything, the *opposite* sign — even though the same model without the calendar control reproduces the apparent `r sgn(ce_d$pct_per_doubling_raw)` speed-up. The register-anchored CE sensitivity points the same way (`r sgn(ce_r$pct_per_doubling)`, CI `r ci(ce_r)`). EA cannot support the office-level design: no office clears the ≥ 30 document-anchored-review bar (only 144 such EA durations exist corpus-wide), and the exploratory register-anchored EA estimate (`r sgn(ea_r$pct_per_doubling)`, CI `r ci(ea_r)`) is not distinguishable from zero and rests on artifact-prone start dates. **Net of calendar time, there is no evidence that BLM field offices grow faster with experience.**
-:::
-
-@fig-fo-curve shows the raw, *uncontrolled* gradient that motivates the question — and that the regression then explains away. Document-anchored CE durations decline across the cumulative-review deciles; the register-anchored lines sit far lower (especially for EA), a direct picture of the late-administrative-entry artifact.
+The two arms rest on very different sample sizes (@fig-fo-inventory). Of `r fmt_n(fo_covv("ALL","blm_projects"))` BLM-led projects, `r fmt_n(fo_covv("ALL","parsed"))` parse to a field office and only `r ce_d$n_offices` clear the ≥ 30 document-anchored-CE bar the regression requires; of `r fmt_n(dcov("doe_led"))` DOE-led projects, `r fmt_n(dcov("with_office"))` link to a register office and only `r ce_d_doe$n_offices` clear it. A handful of high-volume offices carries each regression, so the design leans on the calendar control rather than any single office's trajectory.
 
 ```{r}
-#| label: fig-fo-curve
-#| fig-cap: "Apparent field-office learning curve (uncontrolled): median review duration by the office's cumulative-review decile, EA and CE panels, document- vs register-anchored. Descriptive only — not net of calendar time; the regression below shows the decline is secular calendar drift, not experience."
+#| label: fig-fo-inventory
+#| fig-cap: "Field-office inventory, both arms. Each dot is one office's count of document-anchored complete CE reviews (log scale); the dashed line marks the ≥ 30 threshold for entering the regression. Top: BLM field offices (parsed from the DOI-BLM case number). Bottom: DOE administering offices (linked through the CX register). The panel subtitles trace each arm's parse/link funnel. An inventory, not a duration comparison."
 #| out-width: "100%"
-include_fig("fig_d4_fieldoffice_learning_curve.png")
+include_fig("fig_d4_fieldoffice_inventory.png")
 ```
 
-The confound is direct in @fig-fo-confound: median CE duration falls with both calendar year and cumulative experience, because the two move together (later reviews are later in time). Only the regression, which holds decision-year fixed, can separate them — and once it does, the within-office experience coefficient is null/positive.
+**Process change, not office experience, drove the CE speed-up.** CE reviews got dramatically faster across the window, but the decline hit every office at once rather than the busiest offices pulling ahead. Within any given decision year, an office's accumulated caseload is essentially uncorrelated with its speed — the per-year Spearman correlation between cumulative reviews and duration ranges `r spr(wy_lo)` to `r spr(wy_hi)`, centered on zero — and the quieter half of offices converges to the same speed as the busier half without ever accumulating a comparable caseload (@fig-fo-convergence). That is the signature of a system-wide change, not office-by-office learning.
+
+The office fixed-effects regression confirms it formally. The raw gradient looks like a real speed-up — `r sgn(ce_d$pct_per_doubling_raw)` per doubling of an office's caseload (95% CI `r ci_raw(ce_d)`) — but that is the corpus-wide decline in disguise: once each decision year is given its own baseline the effect disappears (`r sgn(ce_d$pct_per_doubling)`, 95% CI `r ci(ce_d)`, straddling zero). The DOE arm behaves the same way on its own full window — an apparent `r sgn(ce_d_doe$pct_per_doubling_raw)` raw gradient that the calendar control erases to `r sgn(ce_d_doe$pct_per_doubling)` (95% CI `r ci(ce_d_doe)`) across `r ce_d_doe$n_offices` administering offices in a wholly separate corpus.
+
+What cannot be separated is *which* systemic change did it: register-anchored batch processing, procedural streamlining, or agency-wide practice all reach every office simultaneously and are observationally equivalent. The claim is associational, not causal.
+
+The convergence in @fig-fo-convergence is the clearest picture. Offices are ranked by their total document-anchored CE caseload; the busier half is the `r splt("BLM field offices","n_busier")` BLM offices at or above the median, each handling at least `r splt("BLM field offices","busier_min")` reviews, and the quieter half the `r splt("BLM field offices","n_quieter")` below. Each line is the median review duration among that half's decisions in each two-year bin (only bins where the half has at least 10 decisions are shown). The quieter half — which never builds a comparable caseload — still converges to the busier half's review duration; if reps were what made offices fast, that gap would persist, but instead it closes.
 
 ```{r}
-#| label: fig-fo-confound
-#| fig-cap: "Why the curve is a calendar confound: CE durations fall with both calendar year (left) and cumulative office experience (right). The two gradients look alike because they are collinear (r ≈ 0.67); the office + decision-year fixed-effects regression attributes the decline to calendar time, leaving no experience effect."
+#| label: fig-fo-convergence
+#| fig-cap: "Median document-anchored CE review duration by two-year bin for the busier vs quieter half of BLM field offices (split at the median full-history office caseload; only bins with ≥ 10 reviews per half shown). The quieter half reaches the busier half's speed without accumulating a comparable caseload — the signature of a process change reaching every office at once, not office-by-office learning. The DOE arm is omitted: its quieter half does not converge to the busier half (busier DOE offices are structurally faster, a between-office gap the office fixed-effects regression nets out), so the DOE null rests on that regression and the within-year correlation instead."
 #| out-width: "100%"
-include_fig("fig_d4_fieldoffice_experience_vs_calendar.png")
+include_fig("fig_d4_fieldoffice_convergence.png")
 ```
 
-Per-office heterogeneity (@fig-fo-dumbbell) reinforces the null: some high-volume offices show shorter durations for their most-experienced third, others longer — there is no consistent within-office speed-up once each office is its own baseline. Because a later tercile is also a later calendar period, most of the leftward movement that does appear is the same secular decline, not learning.
-
-```{r}
-#| label: fig-fo-dumbbell
-#| fig-cap: "First- vs last-tercile median CE duration (document-anchored) for the top 15 BLM field offices by review volume. Light dot = least-experienced third; navy dot = most-experienced third. Descriptive only; the direction is inconsistent across offices and largely tracks calendar time."
-#| out-width: "100%"
-include_fig("fig_d4_fieldoffice_first_vs_last.png")
-```
+How to read @tbl-fo-model: each row is a test of the learning-curve idea for one agency. We line up every office's reviews in the order it completed them and ask whether reviews later in an office's own sequence — when the office had more accumulated experience — ran shorter. The effect is expressed per doubling of experience: an estimate of −5% would mean that each time an office's completed caseload doubles (its 30th review → 60th → 120th), its reviews run about 5% shorter. The first estimate asks the question directly, and shows the apparent learning gradient (negative — later reviews look faster). The second asks it again after allowing each calendar year its own baseline speed, so that system-wide changes that made all offices faster in the same years — new procedures, batch processing — are not mistaken for office experience. That control eliminates the effect in both agencies: offices with more accumulated experience were not systematically faster than offices with less.
 
 ```{r}
 #| label: tbl-fo-model
-#| tbl-cap: "Learning-curve regression: effect of doubling an office's cumulative review count on review duration, with and without the decision-year (calendar) control. Negative = faster with experience. The sign flip between the two columns is the calendar confound. CE document-anchored is the primary measure."
+#| tbl-cap: "Effect of office experience on CE review duration, with and without a calendar-year control. CE, document-anchored, full window. Negative = faster with more experience; near zero = no learning effect."
 fo_mod |>
-  filter(!is.na(n_reviews), n_reviews > 0) |>
+  filter(process == "CE", anchor == "Document", agency %in% c("BLM", "DOE")) |>
+  arrange(agency) |>
   transmute(
-    Process = process,
-    Measure = dplyr::recode(anchor, Document = "Document-anchored", Register = "Register-anchored"),
-    `Min reviews/office` = threshold,
-    `N reviews` = n_reviews,
-    `N offices` = n_offices,
-    `%/doubling (no calendar control)` = sprintf("%+.1f%%", pct_per_doubling_raw),
-    `%/doubling (calendar-controlled)` = sprintf("%+.1f%%", pct_per_doubling),
-    `95% CI` = sprintf("%+.1f to %+.1f%%", pct_lo, pct_hi),
-    Role = dplyr::case_when(
-      process == "CE" & anchor == "Document" ~ "Primary",
-      process == "CE" & anchor == "Register" ~ "Sensitivity",
-      TRUE ~ "Exploratory (artifact-prone)")
+    Agency = if_else(agency == "BLM", "BLM field offices", "DOE administering offices"),
+    `Reviews / Offices` = paste0(fmt_n(n_reviews), " / ", n_offices),
+    `Experience effect — no year control` =
+      sprintf("%+.1f%% (CI %+.1f to %+.1f)", pct_per_doubling_raw, pct_lo_raw, pct_hi_raw),
+    `Experience effect — with year control` =
+      sprintf("%+.1f%% (CI %+.1f to %+.1f)", pct_per_doubling, pct_lo, pct_hi)
   ) |>
   navy_gt() |>
-  tab_footnote(footnote = "EA has no office with ≥30 document-anchored durations (144 corpus-wide), so the EA row uses the register-anchored measure at a relaxed ≥10 threshold and is exploratory only.")
+  tab_footnote(footnote = paste0(
+    "CE, document-anchored, over each agency's full window (no calendar filter). Register-anchored ",
+    "sensitivity fits and the EA infeasibility note (no BLM office clears ≥ 30 document-anchored EA ",
+    "durations) are retained in d4_fieldoffice_model.csv.")) |>
+  tab_options(table.font.size = px(12))
+```
+
+## Analysis caveats
+
+-   **Register-anchoring artifact.** Durations rest partly on register/proxy start dates that are late administrative entries; the analysis uses document-anchored initiation dates to limit this, and reports the register-anchored fits only as a flagged sensitivity view.
+-   **Retained pre-2012 artifact rows.** A few early BLM rows are known extraction artifacts — a 9-row batched cluster (office AZ-A010) all sharing one initiation → decision span, and historical-citation "initiations" (e.g. a 7,227-day span anchored to a 1985 citation). Under the symmetric no-filter design both arms keep their full windows, so these rows are retained rather than one-sidedly dropped; they inflate the raw (uncontrolled) BLM estimate only and do not affect the year-controlled result (they show up as the tall early point of the quieter half in @fig-fo-convergence).
+-   **~38% of BLM projects are unparsed** (`r fmt_pct(1 - fo_covv("ALL","pct_parsed")/100)`). EISs account for most of the gap — only `r fmt_pct(fo_covv("EIS","pct_parsed")/100)` parse (large/programmatic EISs are filed under titles, not DOI-BLM case numbers) — versus `r fmt_pct(fo_covv("CE","pct_parsed")/100)` of CE and `r fmt_pct(fo_covv("EA","pct_parsed")/100)` of EA.
+-   **Project mix within an office.** Short well-abandonment CEs dominate some offices; `project_energy_type` is a covariate, but a "faster" office could reflect a shift toward simpler actions rather than any change in processing.
+-   **DOE administering offices are not BLM field offices.** They come from the CX register's `office` field (grant/program offices such as NETL and Golden), not site-specific case handlers; the DOE arm is a structural replication, not a like-for-like comparison.
+
+------------------------------------------------------------------------
+
+# Geothermal review timelines by BLM field office {#sec-geothermal}
+
+```{r}
+#| label: geo-setup
+geo_uni   <- read_diag("d4_geothermal_universe.csv")
+geo_oc    <- read_diag("d4_geothermal_office_counts.csv")
+geo_floor <- read_diag("d4_geothermal_office_floor.csv")
+
+gv  <- function(stage, col) geo_uni[[col]][geo_uni$stage == stage]        # funnel/tier counts
+gfv <- function(col) geo_floor[[col]][1]                                   # office-floor summary
+BASE_ROWS <- c("(no office match)", "(DOE & other)")
+
+# office-matched complete timelines = the real offices' ALL-process rows, summed
+geo_office_complete <- sum(geo_oc$n_complete[geo_oc$process_type == "ALL" &
+                             !geo_oc$office_code %in% BASE_ROWS])
+# two-worlds pooled CE medians, in days and months
+blm_ce_d     <- gfv("blm_ce_median_days");    blm_ce_mo    <- round(blm_ce_d / 30.44, 1)
+nonblm_ce_d  <- gfv("nonblm_ce_median_days"); nonblm_ce_mo <- round(nonblm_ce_d / 30.44, 1)
+
+# DOE-tier register-office linkage: how many of the non-BLM projects carry a named office, + top office
+geo_doe    <- read_diag("d4_geothermal_doe_office_counts.csv")
+geo_doe_n  <- geo_doe$n_parsed[geo_doe$office == "ALL"]                     # 456 with a register office
+geo_doe_top <- geo_doe |> dplyr::filter(office != "ALL") |> dplyr::slice_max(n_parsed, n = 1)
+```
+
+::: callout-important
+## Two geothermal worlds, and why office-level comparison is off the table
+
+The deliverable asked for geothermal review timelines **by BLM field office**. The honest answer is that the office-level slice is too thin to compare, and the reason is structural: of `r fmt_n(gv("total_geothermal","n"))` geothermal projects, only `r fmt_n(gv("blm_led","n"))` are BLM-led, only `r fmt_n(gv("office_matched","n"))` of those carry a parseable field-office code, and only `r fmt_n(geo_office_complete)` of *those* have a complete timeline — spread across `r fmt_n(gv("distinct_offices","n"))` offices, with the single busiest office holding just `r fmt_n(gfv("max_office_complete"))` complete reviews. No office clears any sensible floor for a duration comparison.
+
+The deeper finding is that the `Geothermal` tag spans **two different worlds that should never be pooled**. The BLM slice is western resource geothermal — leases, exploration, and power plants concentrated in NV, CA, and UT — with a median CE of `r round(blm_ce_d)` days. Everything else is dominated by the `r fmt_n(gv("lead_agency:Department of Energy","n"))` Department of Energy projects: grant-era geothermal (ARRA-funded heat-pump and research categorical exclusions) filed nationwide, including states with no geothermal resource base (CT, OK, PA, TX), with a median CE of just `r round(nonblm_ce_d)` days and a decision-count surge in 2010–2012. Pooling a resource-development review with a research-grant CE would be meaningless, so this section reports the office inventory descriptively and moves the duration analysis to the wider tiers where the two worlds can be seen side by side.
+
+Office-code recovery is a dead end: a regex sweep of every unmatched project's file names and case numbers finds an office-like code in only `r fmt_n(gfv("recovery_candidates"))` of the `r fmt_n(gv("unmatched_blm","n"))` unmatched BLM projects, so no recovery is attempted.
+:::
+
+## The office inventory
+
+@fig-geo-offices sizes the problem in three panels. The left panel is the funnel — of the `r fmt_n(gv("total_geothermal","n"))` geothermal projects, `r fmt_n(gv("doe_other","n"))` are the DOE & other tier, `r fmt_n(gv("unmatched_blm","n"))` are BLM-led with no parseable office code, and only `r fmt_n(gv("office_matched","n"))` reach the field-office inventory. The middle panel is the literal by-office answer for those `r fmt_n(gv("office_matched","n"))`: every BLM field office is a short bar — the busiest, NV-C010, holds `r geo_oc$n_parsed[geo_oc$office_code=="NV-C010" & geo_oc$process_type=="ALL"]` projects — and most are categorical exclusions. The right panel is newly feasible: the DOE-tier projects carry no field-office code but do link to the CX register's office field, and `r fmt_n(geo_doe_n)` of the `r fmt_n(gv("doe_other","n"))` do so — dominated by the `r geo_doe_top$office` (`r fmt_n(geo_doe_top$n_parsed)` projects), then the National Energy Technology Laboratory and EERE headquarters. These are administering and grant-program offices, not BLM-style field offices, so the two panels are inventories of two different kinds of unit — reinforcing, not bridging, the two-worlds split.
+
+```{r}
+#| label: fig-geo-offices
+#| fig-cap: "Three-panel inventory. Left: where the geothermal projects sit, as one stacked column split into the three tiers (DOE & other / BLM no office match / BLM office-matched). Middle: the office-matched projects by BLM field office, stacked by review process (house colors; CE lime, EA blue). Right: the DOE-tier projects by DOE CX-register office (light blue), Golden Field Office dominant. Counts are all timeline states — an inventory, not a duration comparison. DOE 'offices' are administering / grant-program offices, not BLM-style field offices."
+#| out-width: "100%"
+include_fig("fig_d4_geothermal_offices_by_process.png")
+```
+
+```{r}
+#| label: tbl-geo-offices
+#| tbl-cap: "Geothermal inventory for the BLM field offices with at least three projects, plus the two context-baseline rows. Projects = all timeline states; Complete timelines = both an initiation and a decision date in valid order; Document-anchored = complete timelines whose initiation date comes from a document rather than a register (the register-artifact-free subset); Median duration and Decision years are computed over the complete timelines. No office clears a sample sufficient for a duration comparison; the table is descriptive."
+geo_tbl <- geo_oc |>
+  dplyr::filter(process_type == "ALL",
+                (office_code %in% BASE_ROWS) | n_parsed >= 3) |>
+  dplyr::arrange(office_code %in% BASE_ROWS, dplyr::desc(n_parsed)) |>
+  dplyr::transmute(
+    Office = office_code,
+    Projects = n_parsed,
+    `Complete timelines` = n_complete,
+    `Document-anchored` = n_doc,
+    `Median duration (days)` = ifelse(is.na(median_days_all), "—",
+                                      as.character(round(median_days_all))),
+    `Decision years` = ifelse(is.na(dec_year_min), "—",
+                              paste0(as.integer(dec_year_min), "–", as.integer(dec_year_max)))
+  )
+navy_gt(geo_tbl, title = "Geothermal inventory: field offices with ≥ 3 projects, plus baselines")
+```
+
+## The two worlds on a map
+
+@fig-geo-map plots the complete CE reviews by state and cohort. The reading is immediate: the BLM bubbles (navy) sit only in the western resource states, while the DOE & other bubbles (light blue) blanket the country — because they are grant CEs tied to funding, not geothermal geology. Bubble size is the median duration in months, not project count, so the map also shows that duration is not a regional constant: even within the DOE tier, states range from near-instant heat-pump CEs to long research reviews.
+
+```{r}
+#| label: fig-geo-map
+#| fig-cap: "Median geothermal CE review duration by state and cohort (BLM navy, DOE & other light blue). One bubble per state × cohort with at least three complete CE timelines; bubble size encodes median duration in months, not project volume. Shared western states are offset so both cohorts show. Alaska (six DOE CEs) is not drawn. Single-state projects only."
+#| out-width: "100%"
+include_fig("fig_d4_geothermal_map.png")
+```
+
+## Timelines by decision year
+
+@fig-geo-timeline places every review on a decision-year timeline, in one linear panel per review process. The CE panel now runs the annual median as **two cohort series** — BLM western-resource (navy, overall median `r round(blm_ce_d)` days) versus DOE & other grant CEs (light blue, overall median `r round(nonblm_ce_d)` days) — each with its own n ≥ 5/year filter. The split makes the ARRA story unambiguous: the grant-era surge is entirely the DOE series (concentrated 2010–2012), and the two cohorts never track each other. Because the substantive reviews are so few, every EA (`r fmt_n(gv("complete_timeline_total","n_ea"))`) and EIS (`r fmt_n(gv("complete_timeline_total","n_eis"))`) is drawn as its own point rather than aggregated — the longest is a BLM geothermal EIS at the top of the EIS panel. There is no office-level duration trend to read here; the value of the chart is showing how thin, how bimodal, and how cohort-specific the record is.
+
+```{r}
+#| label: fig-geo-timeline
+#| fig-cap: "Geothermal review duration by decision year, one linear panel per process with a free y-axis (CE runs in single months, EIS in tens). The CE panel shows per-cohort annual medians for years with n ≥ 5 — BLM (navy) vs DOE & other (light blue) — broken across gap years, with the ARRA (2009) marker and each cohort's overall median annotated; the EA and EIS panels show every project as one point, shape marking cohort (circle = BLM, triangle = DOE & other). Small samples; associational."
+#| out-width: "100%"
+include_fig("fig_d4_geothermal_timeline.png")
 ```
 
 ::: callout-warning
 ## Caveats
 
--   **Calendar-time confound (the headline).** The raw "offices speed up with experience" pattern is secular calendar drift; net of decision-year there is no experience effect. This is the central caveat — the descriptive figures must not be read on their own.
--   **Register-anchoring artifact.** Durations rest partly on register/proxy start dates that are late administrative entries; the primary analysis uses document-anchored dates to limit this, but the secondary register views inherit the artifact (visible as the much shorter register lines in @fig-fo-curve).
--   **~38% of BLM projects are unparsed** (`r fmt_pct(1 - fo_covv("ALL","pct_parsed")/100)`). EISs account for most of the gap — only `r fmt_pct(fo_covv("EIS","pct_parsed")/100)` parse (programmatic/large EISs are filed under titles, not DOI-BLM case numbers), versus `r fmt_pct(fo_covv("CE","pct_parsed")/100)` of CE and `r fmt_pct(fo_covv("EA","pct_parsed")/100)` of EA. Many unparsed EAs carry an office-like code in a non-standard form (bare `C069-2023-…`, `AZ-A010-…`) lacking the `BLM-` prefix the regex anchors on, and are left out rather than guessed.
--   **Project mix.** Short well-abandonment EAs dominate some offices; `project_energy_type` is included as a covariate, but a "faster" office could reflect a shift toward simpler actions rather than learning.
--   **Office identity** may shift over time (renames, mergers, district reorganizations); a stable `office_code` is assumed.
+-   **Two worlds, one tag.** "Geothermal" pools BLM western resource development with DOE grant-era heat-pump and research CEs; the pooled median (`r round(blm_ce_d)` days for BLM vs `r round(nonblm_ce_d)` days for everything else) is a composition artifact, not a process finding. Every number here should be read within a cohort, never across.
+-   **Office-level is descriptive only.** With a busiest office of `r fmt_n(gfv("max_office_complete"))` complete reviews (`r fmt_n(gfv("max_office_doc"))` of them document-anchored) and no office clearing the ≥ `r fmt_n(gfv("office_floor"))`-review floor, the office inventory cannot support a duration comparison, a learning-curve test, or any office-vs-office ranking.
+-   **~`r fmt_pct(1 - gv("office_matched","n")/gv("blm_led","n"))` of BLM geothermal projects are unparsed** (`r fmt_n(gv("unmatched_blm","n"))` of `r fmt_n(gv("blm_led","n"))`), with EIS the worst-covered process; office recovery is a dead end (`r fmt_n(gfv("recovery_candidates"))` of `r fmt_n(gv("unmatched_blm","n"))`).
+-   **Register-anchoring artifact inherited.** Durations rest partly on register/proxy start dates; the document-anchored counts isolate the reviews free of that artifact, and they are even thinner.
+-   **DOE register offices are not field offices.** The `r fmt_n(geo_doe_n)` DOE-tier projects with a named office link to administering / grant-program offices in the CX register (the `r geo_doe_top$office`, NETL, EERE-HQ), not to BLM-style field offices that process a site-specific review. The DOE-office panel is an inventory of a different kind of unit; it deepens the two-worlds split rather than enabling a BLM-vs-DOE office comparison.
+-   **Small-n everywhere, associational.** The map's per-state medians and the individual EA/EIS points are small samples; nothing here isolates a causal effect of office, agency, or geography.
 :::
-
-------------------------------------------------------------------------
-
-# Requested extensions
-
-The following items from the deliverable request require additional analysis beyond the current timeline build. They are scoped here for the next phase:
-
-```{r}
-tibble::tibble(
-  `Requested analysis` = c(
-    "Geothermal timelines by BLM field office",
-    "CE adoption post-FRA vs. review speed"
-  ),
-  `What it needs` = c(
-    "Geothermal project flags (Deliverable 1/3 tech tags) × field office × duration; limited by geothermal sample size per office.",
-    "CE-adoption events (which agencies adopted other agencies' CEs post-FRA, BLM/DOE/USFS) × subsequent review duration; needs the CE-adoption register."
-  )
-) |>
-  navy_gt()
-```
 
 ------------------------------------------------------------------------
 
@@ -740,6 +804,10 @@ Rscript phase2/code/deliverable04/fra/02_create_figures.R # document length / FR
 # BLM field-office experience / learning-curve extension
 conda run -n nepa python phase2/code/deliverable04/field_office/01_parse_offices.py --run
 Rscript phase2/code/deliverable04/field_office/02_create_figures.R
+
+# Geothermal timelines by BLM field office (tiered inventory + state map + timeline)
+conda run -n nepa python phase2/code/deliverable04/geothermal/01_build_tables.py
+Rscript phase2/code/deliverable04/geothermal/02_create_figures.R
 ```
 
 Outputs are written to `phase2/output/deliverable04/` (`figures/`, `diagnostics/`).
