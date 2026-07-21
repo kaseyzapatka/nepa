@@ -74,10 +74,10 @@ follows the Python-builds-data / R-draws-figures split.
   `d4_duration_summary.csv` consistency anchor and `d4_duration_by_year.csv`)
 - `geothermal/` — geothermal review timelines by cohort: `01_build_tables.py` →
   `02_create_figures.R`; a three-tier reframe (office-matched BLM / unmatched BLM / DOE & other)
-  with an office inventory (now including a DOE CX-register-office panel — ~456 of the 764 DOE-tier
-  projects link to a named grant/administering office, Golden Field Office dominant), a state bubble
-  map, and a decision-year timeline whose CE line is split into BLM vs DOE cohort series (the `maps`
-  package supplies lower-48 polygons only)
+  with an office inventory (including a DOE CX-register-office panel — ~456 of the 764 DOE-tier
+  projects link to a named grant/administering office, Golden Field Office dominant) and a state
+  bubble map (the `maps` package supplies lower-48 polygons only). The decision-year split is
+  retained only as a diagnostic CSV (`d4_geothermal_timeline_points.csv`), not a report figure.
 
 ## Conventions
 
