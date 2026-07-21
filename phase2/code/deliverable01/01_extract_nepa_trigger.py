@@ -121,7 +121,7 @@ TIER4_SUPPORT_THRESHOLD = 0.25
 TIER5_TARGET_QUEUE = 250
 TIER5_SOFT_WARNING = 150
 TIER5_HARD_STOP_BUDGET = 10.0
-ESTIMATED_TIER5_COST_PER_PROJECT = 0.04  # conservative placeholder for queue guardrails
+ESTIMATED_TIER5_COST_PER_PROJECT = 0.004  # measured 2026-07: ~$1.80 / 501 projects ≈ $0.0036/project at claude-haiku-4-5 pricing ($1/$5 per MTok), rounded up
 
 LOCAL_NLI_MODEL = "cross-encoder/nli-deberta-v3-base"
 
@@ -3125,11 +3125,17 @@ def extract_nepa_triggers(
             tier4_low_conf[result["project_id"]] = result
     log.info("  → %s finalized after Tier 4 (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
+    # Always persist the Tier 5 queue (prompt-ready context for every uncertain project),
+    # even when --use-llm is not set — this is what makes a later standalone Tier 5 replay
+    # possible without re-running tiers 0-4.
+    low_conf_ids = sorted(tier4_low_conf)
+    queue_df = build_tier5_queue(low_conf_ids, doc_scores, projects, provisional, tier4_result_lookup)
+    if not queue_df.empty:
+        queue_df.to_parquet(TIER5_QUEUE_PATH, index=False)
+        log.info("Tier 5 queue persisted: %s projects → %s", f"{len(queue_df):,}", TIER5_QUEUE_PATH)
+
     if use_llm:
-        low_conf_ids = sorted(tier4_low_conf)
-        queue_df = build_tier5_queue(low_conf_ids, doc_scores, projects, provisional, tier4_result_lookup)
         if not queue_df.empty:
-            queue_df.to_parquet(TIER5_QUEUE_PATH, index=False)
             estimated_spend = estimate_tier5_spend(queue_df)
             log.info(
                 "Tier 5 queue preflight: %s projects, estimated spend about $%.2f",

@@ -36,7 +36,7 @@ PROJECTS_PATH <- here("phase2", "data", "analysis", "projects_combined.parquet")
 # lead_agency_harmonized, etc.) so collect() returns a plain R tibble with no
 # arrow_list vctrs columns that would break sum() / mean().
 trigger_cols <- c(
-  "project_id", "nepa_trigger_primary", "nepa_trigger_count",
+  "project_id", "nepa_trigger_primary", "nepa_trigger_count", "nepa_trigger_combo",
   "nepa_trigger_confidence", "nepa_trigger_rule_id",
   "nepa_trigger_evidence_source", "nepa_trigger_manual_review", "is_dual_nexus"
 )
@@ -72,6 +72,12 @@ n_dual_nexus   <- sum(df$is_dual_nexus,          na.rm = TRUE)
 n_multi_label  <- sum(df$nepa_trigger_count > 1, na.rm = TRUE)
 flag_rate      <- mean(df$nepa_trigger_manual_review, na.rm = TRUE)
 
+# Multi-label overlap structure (recomputed from nepa_trigger_combo each render)
+multi_combo   <- df$nepa_trigger_combo[df$nepa_trigger_count > 1]
+n_pma_land    <- sum(str_detect(multi_combo, "pma") &
+                     str_detect(multi_combo, "federal_land"), na.rm = TRUE)
+n_multi_other <- n_multi_label - sum(str_detect(multi_combo, "pma"), na.rm = TRUE)
+
 pct <- function(x) sprintf("%.1f%%", x / n_total * 100)
 
 # Tier-by-tier yield, derived from the rule_id prefix so the pipeline table always
@@ -81,10 +87,10 @@ tier_n   <- function(key) sum(tier_key == key & df$nepa_trigger_primary != "unkn
                               na.rm = TRUE)
 n_t0  <- tier_n("T0");  n_t1a <- tier_n("T1a"); n_t1b <- tier_n("T1b")
 n_t2  <- tier_n("T2");  n_t3  <- tier_n("T3");  n_t3b <- tier_n("T3b")
-n_t4  <- tier_n("T4")
+n_t4  <- tier_n("T4");  n_t5  <- tier_n("T5")
 cum_t0  <- n_t0;            cum_t1a <- cum_t0  + n_t1a; cum_t1b <- cum_t1a + n_t1b
 cum_t2  <- cum_t1b + n_t2;  cum_t3  <- cum_t2  + n_t3;  cum_t3b <- cum_t3  + n_t3b
-cum_t4  <- cum_t3b + n_t4
+cum_t4  <- cum_t3b + n_t4;  cum_t5  <- cum_t4  + n_t5
 
 # Pre-computed analysis outputs
 source_dist <- read_csv(file.path(OUTPUT_DIR, "trigger_source_distribution.csv"),
@@ -160,7 +166,7 @@ wins as the primary; lower-priority matches are retained as secondary triggers.
 | **Unknown** | NEPA is confirmed but the trigger cannot be reliably identified from available text or metadata |
 :::
 
-Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects have more than one trigger class detected.
+Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects (`r pct(n_multi_label)`) have more than one trigger class detected. The overlap is dominated by a single structural pattern: `r comma(n_pma_land)` of these pair **PMA/TVA with federal land**—BPA and WAPA transmission and power infrastructure that also crosses BLM or National Forest land, so both the power-authority-proponent nexus and the federal-land nexus apply. The remaining `r comma(n_multi_other)` multi-class projects form a longer tail—most often federal land paired with a federal permit, or direct action paired with federal land—surfaced largely by the Tier 5 pass, which records a secondary trigger whenever its adjudication of a previously-uncertain project identifies a second nexus.
 
 ## Classification Pipeline
 
@@ -179,7 +185,8 @@ intensive methods for the genuinely ambiguous cases.
 | Tier 3 — Purpose-and-need | Regex extraction from Purpose-and-Need section; auto-accepts BLM/NFS land, NPDES permit, and agency grant patterns | `r comma(n_t3)` | `r comma(cum_t3)` | `r pct(cum_t3)` |
 | Tier 3b — SetFit (DOE CE) | Sentence-transformer + logistic regression head fine-tuned on labeled DOE CE examples; runs only on DOE Categorical Exclusions | `r comma(n_t3b)` | `r comma(cum_t3b)` | `r pct(cum_t3b)` |
 | Tier 4 — NLI adjudication | Cross-encoder NLI: retrieved passage vs. natural-language class hypothesis; must pass doc score, margin, and affirmative-support gates | `r comma(n_t4)` | `r comma(cum_t4)` | `r pct(cum_t4)` |
-| — Unknown | Failed all three Tier 4 gates; queued for Tier 5 LLM review or manual inspection | `r comma(n_unknown)` | — | `r pct(n_unknown)` |
+| Tier 5 — LLM fallback | Claude Haiku (`claude-haiku-4-5`) adjudicates the Tier-4 uncertain queue from retrieved context; high/medium-confidence structured answers are accepted, low-confidence answers flagged for manual review | `r comma(n_t5)` | `r comma(cum_t5)` | `r pct(cum_t5)` |
+| — Unknown | Failed all three Tier 4 gates and Tier 5 could not confidently resolve (LLM abstention or malformed response); flagged for manual inspection | `r comma(n_unknown)` | — | `r pct(n_unknown)` |
 :::
 
 **Total resolved: `r comma(n_resolved)` / `r comma(n_total)` (`r sprintf("%.1f%%", pct_resolved)`).**
@@ -259,9 +266,9 @@ source_wide |>
 
 | Item | Status | Notes |
 |:---|:---|:---|
-| **Tier 5 — LLM fallback** | Not run | `r comma(n_unknown)` unknowns queued; run with `--use-llm` flag when budget is approved |
-| **Secondary trigger analysis** | Pending | Secondary triggers are populated in output; multi-label cross-tabulations deferred to next iteration |
-| **Multi-process / tiered review integration** | Future — D2 dependency | Combining trigger class with programmatic and tiered review status requires joining D1 + D2 outputs |
+| **Tier 5 — LLM fallback** | Done (2026-07) | `claude-haiku-4-5` adjudicated the Tier-4 uncertain queue at ~\$1.80 real spend, resolving `r comma(n_t5)` projects. The residual `r comma(n_unknown)` unknowns (model abstentions plus a handful of malformed responses) are flagged for manual review. |
+| **Secondary trigger analysis** | Done | Multi-class overlap is characterized above (`r comma(n_multi_label)` projects; PMA/TVA + federal land dominant, with a Tier-5-surfaced tail); the full `nepa_trigger_secondary`/`nepa_trigger_combo` fields support any further cross-tabulation. |
+| **Programmatic / tiered review classification** | Deferred (post-publication) | Flagging programmatic (umbrella PEIS) versus tiered (site-specific) reviews requires a dedicated Phase 2 classifier — not a join to D2, which produces significance/regime outputs rather than programmatic/tiered flags. |
 
 ---
 
@@ -276,7 +283,7 @@ TVA building and operating transmission and generation infrastructure directly. 
 Action is fourth, driven almost entirely by DOE actions at its own facilities—national
 laboratories and site operations.
 
-Permit, Program, and Property Transaction together account for fewer than
+Permit, Program, and Property Transaction together account for
 `r comma(n_permit + n_program + n_property)` projects (`r pct(n_permit + n_program + n_property)`)—
 these are real but narrow categories of federal nexus.
 
@@ -305,9 +312,10 @@ The three processes reveal strikingly different trigger profiles:
 - **Environmental Impact Statements** skew heavily toward Land, PMA/TVA, and Permit—larger,
   more complex projects requiring full EIS review tend to be sited on public lands, be
   federally constructed transmission, or carry FERC licensing.
-- The elevated Unknown share among EAs and EISs (versus CEs) reflects Tier 4's conservative
-  acceptance gates on long-document evidence; unknowns are concentrated in these processes
-  even though they are only `r pct(n_unknown)` of the portfolio overall.
+- Unknowns are now a small residual across all three processes (`r pct(n_unknown)` of the
+  portfolio overall). The Tier 5 LLM pass resolved most of the previously-large EA and EIS
+  uncertain pools; the unknowns that remain—still modestly more common in EAs and EISs than in
+  CEs—are the long-document cases where neither Tier 4 nor the LLM found decisive trigger evidence.
 
 ```{r}
 #| label: fig-trigger-by-process
