@@ -36,7 +36,7 @@ PROJECTS_PATH <- here("phase2", "data", "analysis", "projects_combined.parquet")
 # lead_agency_harmonized, etc.) so collect() returns a plain R tibble with no
 # arrow_list vctrs columns that would break sum() / mean().
 trigger_cols <- c(
-  "project_id", "nepa_trigger_primary", "nepa_trigger_count",
+  "project_id", "nepa_trigger_primary", "nepa_trigger_count", "nepa_trigger_combo",
   "nepa_trigger_confidence", "nepa_trigger_rule_id",
   "nepa_trigger_evidence_source", "nepa_trigger_manual_review", "is_dual_nexus"
 )
@@ -72,6 +72,12 @@ n_dual_nexus   <- sum(df$is_dual_nexus,          na.rm = TRUE)
 n_multi_label  <- sum(df$nepa_trigger_count > 1, na.rm = TRUE)
 flag_rate      <- mean(df$nepa_trigger_manual_review, na.rm = TRUE)
 
+# Multi-label overlap structure (recomputed from nepa_trigger_combo each render)
+multi_combo   <- df$nepa_trigger_combo[df$nepa_trigger_count > 1]
+n_pma_land    <- sum(str_detect(multi_combo, "pma") &
+                     str_detect(multi_combo, "federal_land"), na.rm = TRUE)
+n_multi_other <- n_multi_label - sum(str_detect(multi_combo, "pma"), na.rm = TRUE)
+
 pct <- function(x) sprintf("%.1f%%", x / n_total * 100)
 
 # Tier-by-tier yield, derived from the rule_id prefix so the pipeline table always
@@ -81,10 +87,10 @@ tier_n   <- function(key) sum(tier_key == key & df$nepa_trigger_primary != "unkn
                               na.rm = TRUE)
 n_t0  <- tier_n("T0");  n_t1a <- tier_n("T1a"); n_t1b <- tier_n("T1b")
 n_t2  <- tier_n("T2");  n_t3  <- tier_n("T3");  n_t3b <- tier_n("T3b")
-n_t4  <- tier_n("T4")
+n_t4  <- tier_n("T4");  n_t5  <- tier_n("T5")
 cum_t0  <- n_t0;            cum_t1a <- cum_t0  + n_t1a; cum_t1b <- cum_t1a + n_t1b
 cum_t2  <- cum_t1b + n_t2;  cum_t3  <- cum_t2  + n_t3;  cum_t3b <- cum_t3  + n_t3b
-cum_t4  <- cum_t3b + n_t4
+cum_t4  <- cum_t3b + n_t4;  cum_t5  <- cum_t4  + n_t5
 
 # Pre-computed analysis outputs
 source_dist <- read_csv(file.path(OUTPUT_DIR, "trigger_source_distribution.csv"),
@@ -160,7 +166,55 @@ wins as the primary; lower-priority matches are retained as secondary triggers.
 | **Unknown** | NEPA is confirmed but the trigger cannot be reliably identified from available text or metadata |
 :::
 
-Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects have more than one trigger class detected.
+All five classification tiers obey this priority ordering. Tiers 0–4 enforce it mechanically
+(each rule detects a single class, and the ladder settles conflicts). Tier 5—the LLM
+fallback—proposes both the classes and its own ranking; the pipeline reconciles that ranking
+to the fixed hierarchy at ingest, so every published primary follows the ordering above. The
+LLM's raw verdicts are preserved verbatim in a committed adjudication record
+([`tier5_adjudication_record.csv`](../code/deliverable01/tier5_adjudication_record.csv)), and
+the published Tier 5 classifications can be reproduced exactly—without any LLM call—by
+running `03_rerun_tier5.py --from-record` against that record.
+
+Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects (`r pct(n_multi_label)`) have more than one trigger class detected. The overlap is dominated by a single structural pattern: `r comma(n_pma_land)` of these pair **PMA/TVA with federal land**—BPA and WAPA transmission and power infrastructure that also crosses BLM or National Forest land, so both the power-authority-proponent nexus and the federal-land nexus apply. The remaining `r comma(n_multi_other)` multi-class projects form a longer tail—most often federal land paired with a federal permit, or direct action paired with federal land—surfaced largely by the Tier 5 pass, which records a secondary trigger whenever its adjudication of a previously-uncertain project identifies a second nexus.
+
+## Workflow
+
+The approach spends effort where it is needed: cheap deterministic rules classify everything
+they can, machine-learning models take the bulk that rules cannot reach, and a
+carefully-audited LLM pass handles only the hardest residue — with every automated judgment
+gated, logged, and reproducible.
+
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 &middot; Scope</div>
+    <div style="color:#1A1A2E;">All 20,725 decarbonization projects in NEPATEC&nbsp;2.0 &mdash; every CE, EA, and EIS &mdash; each to be assigned one of eight federal-nexus classes answering <b>why NEPA applied</b></div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 &middot; Deterministic rules first</div>
+    <div style="color:#1A1A2E;">Hand-labeled seed cases, agency-jurisdiction lookups (FERC &rarr; Permit; BLM &rarr; Land; BPA/WAPA &rarr; PMA/TVA), and text-pattern rules on titles, descriptions, and purpose-and-need sections resolve nearly half the universe (48%) with no model at all</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 &middot; Local models for the bulk</div>
+    <div style="color:#1A1A2E;">A SetFit classifier fine-tuned on the labeled example bank reads the ~10K ambiguous DOE Categorical Exclusions; an NLI cross-encoder adjudicates the rest against retrieved document evidence, accepting only projects that clear three evidence gates &mdash; together lifting resolution to 97.6%</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 &middot; LLM fallback for the residue</div>
+    <div style="color:#1A1A2E;">Claude (Haiku) reads the retrieved evidence for the 501 projects nothing else could settle, abstaining when the evidence is genuinely uninformative. Every verdict is reconciled to the fixed priority hierarchy and frozen in a committed adjudication record &mdash; the published classifications replay exactly, with no API call</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">5 &middot; Validate, analyze, report</div>
+    <div style="color:#ffffff;">Row-count and coverage gates, a human spot-check of the LLM's answers, and figures computed live from the published data &mdash; 99.6% of projects classified, the 0.4% residue flagged for manual review</div>
+  </div>
+  <div style="text-align:center;color:#6b7280;font-size:.85rem;margin-top:.5rem;">
+    The five steps of the classification &mdash; the pipeline chart below shows each tier's yield.
+  </div>
+</div>
+```
 
 ## Classification Pipeline
 
@@ -169,20 +223,31 @@ next; a project is finalized the moment it clears a tier's acceptance gate and i
 re-processed by later tiers. This preserves precision at each level while reserving compute-
 intensive methods for the genuinely ambiguous cases.
 
-::: {tbl-colwidths="[16,54,10,10,10]"}
-| Tier | Method | Projects | Cumulative | % Resolved |
-|:---|:---|--:|--:|--:|
-| Tier 0 — Manual labels | Hand-labeled seed set loaded first and locked — no downstream tier can override a manual label | `r comma(n_t0)` | `r comma(cum_t0)` | `r pct(cum_t0)` |
-| Tier 1a — Agency metadata | Known agency-to-class lookup: FERC → Permit; BLM/USFS → Land; BPA/WAPA/TVA → PMA/TVA; DOE/USACE routed to Tier 4 for document confirmation | `r comma(n_t1a)` | `r comma(cum_t1a)` | `r pct(cum_t1a)` |
-| Tier 1b — Title + description | Regex patterns on concatenated title and description; specificity-ranked; high-confidence matches auto-accepted | `r comma(n_t1b)` | `r comma(cum_t1b)` | `r pct(cum_t1b)` |
-| Tier 2 — Document title scan | Regex on document-level titles in the CE/EA/EIS page corpus; catches programmatic EIS, ROW grants, and FERC license amendments | `r comma(n_t2)` | `r comma(cum_t2)` | `r pct(cum_t2)` |
-| Tier 3 — Purpose-and-need | Regex extraction from Purpose-and-Need section; auto-accepts BLM/NFS land, NPDES permit, and agency grant patterns | `r comma(n_t3)` | `r comma(cum_t3)` | `r pct(cum_t3)` |
-| Tier 3b — SetFit (DOE CE) | Sentence-transformer + logistic regression head fine-tuned on labeled DOE CE examples; runs only on DOE Categorical Exclusions | `r comma(n_t3b)` | `r comma(cum_t3b)` | `r pct(cum_t3b)` |
-| Tier 4 — NLI adjudication | Cross-encoder NLI: retrieved passage vs. natural-language class hypothesis; must pass doc score, margin, and affirmative-support gates | `r comma(n_t4)` | `r comma(cum_t4)` | `r pct(cum_t4)` |
-| — Unknown | Failed all three Tier 4 gates; queued for Tier 5 LLM review or manual inspection | `r comma(n_unknown)` | — | `r pct(n_unknown)` |
+```{r}
+#| label: fig-pipeline-flow
+#| fig-cap: !expr sprintf("Cumulative trigger resolution across the classification pipeline. Each project is finalized by the first tier whose acceptance gate it clears; the %s residual unknowns are flagged for manual review.", comma(n_unknown))
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig12_pipeline_flow.png"))
+```
+
+::: {tbl-colwidths="[40,20,20,20]"}
+| Tier | Projects | Resolved (cum.) | % of Universe |
+|:---|--:|--:|--:|
+| Tier 0 — Manual labels | `r comma(n_t0)` | `r comma(cum_t0)` | `r pct(cum_t0)` |
+| Tier 1a — Agency metadata | `r comma(n_t1a)` | `r comma(cum_t1a)` | `r pct(cum_t1a)` |
+| Tier 1b — Title + description | `r comma(n_t1b)` | `r comma(cum_t1b)` | `r pct(cum_t1b)` |
+| Tier 2 — Document title scan | `r comma(n_t2)` | `r comma(cum_t2)` | `r pct(cum_t2)` |
+| Tier 3 — Purpose-and-need | `r comma(n_t3)` | `r comma(cum_t3)` | `r pct(cum_t3)` |
+| Tier 3b — SetFit (DOE CE) | `r comma(n_t3b)` | `r comma(cum_t3b)` | `r pct(cum_t3b)` |
+| Tier 4 — NLI adjudication | `r comma(n_t4)` | `r comma(cum_t4)` | `r pct(cum_t4)` |
+| Tier 5 — LLM fallback | `r comma(n_t5)` | `r comma(cum_t5)` | `r pct(cum_t5)` |
+| — Unknown | `r comma(n_unknown)` | — | `r pct(n_unknown)` |
 :::
 
 **Total resolved: `r comma(n_resolved)` / `r comma(n_total)` (`r sprintf("%.1f%%", pct_resolved)`).**
+Per-tier methods (rule sets, model configurations, acceptance gates) are documented in the
+[architecture doc](../architecture/deliverables/deliverable01.md).
 
 The pipeline is implemented in
 [`phase2/code/deliverable01/01_extract_nepa_trigger.py`](../code/deliverable01/01_extract_nepa_trigger.py).
@@ -255,13 +320,9 @@ source_wide |>
               table.width = "100%", table.layout = "fixed")
 ```
 
-## Next Steps and Known Gaps
-
-| Item | Status | Notes |
-|:---|:---|:---|
-| **Tier 5 — LLM fallback** | Not run | `r comma(n_unknown)` unknowns queued; run with `--use-llm` flag when budget is approved |
-| **Secondary trigger analysis** | Pending | Secondary triggers are populated in output; multi-label cross-tabulations deferred to next iteration |
-| **Multi-process / tiered review integration** | Future — D2 dependency | Combining trigger class with programmatic and tiered review status requires joining D1 + D2 outputs |
+Coverage rates, residual-unknown composition, confidence tiers, and the caveats that should
+accompany any reuse of this data are collected on the
+[Coverage & Limitations](../notes/deliverable01/coverage_limitations.html) page.
 
 ---
 
@@ -269,14 +330,14 @@ source_wide |>
 
 @fig-trigger-counts shows the total number of decarbonization projects in each primary trigger
 class. **Funding** is by far the largest class—DOE's vast grant and loan guarantee portfolio
-generates more NEPA reviews than any other federal nexus. **Land** is second, reflecting
+generates more NEPA reviews than any other federal nexus. Land is second, reflecting
 utility-scale renewables sited on BLM and National Forest lands under right-of-way or special
-use permits. **PMA/TVA** is third—the federal power marketing administrations (BPA, WAPA) and
-TVA building and operating transmission and generation infrastructure directly. **Direct
-Action** is fourth, driven almost entirely by DOE actions at its own facilities—national
+use permits. PMA/TVA is third—the federal power marketing administrations (BPA, WAPA) and
+TVA building and operating transmission and generation infrastructure directly. Direct
+Action is fourth, driven almost entirely by DOE actions at its own facilities—national
 laboratories and site operations.
 
-Permit, Program, and Property Transaction together account for fewer than
+Permit, Program, and Property Transaction together account for
 `r comma(n_permit + n_program + n_property)` projects (`r pct(n_permit + n_program + n_property)`)—
 these are real but narrow categories of federal nexus.
 
@@ -305,9 +366,10 @@ The three processes reveal strikingly different trigger profiles:
 - **Environmental Impact Statements** skew heavily toward Land, PMA/TVA, and Permit—larger,
   more complex projects requiring full EIS review tend to be sited on public lands, be
   federally constructed transmission, or carry FERC licensing.
-- The elevated Unknown share among EAs and EISs (versus CEs) reflects Tier 4's conservative
-  acceptance gates on long-document evidence; unknowns are concentrated in these processes
-  even though they are only `r pct(n_unknown)` of the portfolio overall.
+- Unknowns are now a small residual across all three processes (`r pct(n_unknown)` of the
+  portfolio overall). The Tier 5 LLM pass resolved most of the previously-large EA and EIS
+  uncertain pools; the unknowns that remain—still modestly more common in EAs and EISs than in
+  CEs—are the long-document cases where neither Tier 4 nor the LLM found decisive trigger evidence.
 
 ```{r}
 #| label: fig-trigger-by-process
@@ -452,7 +514,7 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig10_funding_amount_coverage.png
 ```
 
 @fig-funding-amounts complements the coverage view with the actual dollar distribution per
-mechanism type. **A note on coverage:** dollar amounts are extracted only when the document text
+mechanism type. A note on coverage: dollar amounts are extracted only when the document text
 contains an explicit award figure — most NEPA documents do not. As a result, only a fraction of
 the `r comma(n_funding)` Funding-primary projects have an extracted amount; the caption reports
 the exact count. Despite the limited coverage, the distributions are informative about typical
@@ -537,10 +599,10 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig6_state_choropleth.png"))
 fine-grained geographic patterns in trigger type. Counties are colored by the dominant trigger
 class among all decarbonization projects located in that county.
 
-- The **Funding / Land boundary** maps closely onto federal land ownership: counties spanning
+- The Funding / Land boundary maps closely onto federal land ownership: counties spanning
   BLM or National Forest land (interior West) show Land as dominant; counties without
   substantial federal land show Funding.
-- **PMA/TVA** clusters in counties with federal power authority infrastructure—Pacific
+- PMA/TVA clusters in counties with federal power authority infrastructure—Pacific
   Northwest corridors (BPA transmission), parts of the Midwest, and Southwest transmission hubs.
 - Many rural counties host only one or two projects and are therefore colored by a single
   project's trigger type; interpret sparse interior counties with caution.
@@ -612,6 +674,49 @@ excerpts |>
               row_group.padding = px(6), table.width = "100%",
               container.width = "100%")
 ```
+
+---
+
+# Reproducibility
+
+Every number and figure in this report is regenerated by committed code, run from the
+repository root. The one **billable step** — the Tier 5 LLM fallback — never needs to be
+repeated: its raw verdicts are frozen in a committed adjudication record, and the record
+replay reproduces the published classifications exactly, with no API call.
+
+``` bash
+# 1. Full trigger classification, tiers 0–4 (deterministic*, no API key)
+conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py
+
+# 2. Tier 5 — EXACT replication of the published classifications from the
+#    committed record (deterministic, no API key, no cost)
+conda run -n nepa python phase2/code/deliverable01/03_rerun_tier5.py \
+  --from-record phase2/code/deliverable01/tier5_adjudication_record.csv
+
+#    (alternative: statistical replication by re-running the LLM live —
+#     ~$2 at claude-haiku-4-5 pricing; results equivalent in aggregate
+#     but not guaranteed row-for-row)
+# conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py \
+#   --use-llm --tier5-budget 25
+
+# 3. Funding sidecar (deterministic; reads the trigger output)
+conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py \
+  --funding-details-only
+
+# 4. Figures + report CSVs (base R, not the nepa env)
+Rscript phase2/code/deliverable01/02_create_figures.R
+
+# 5. This report
+quarto render phase2/reports/deliverable01.qmd
+```
+
+^\*^ Tiers 0–3 are exactly deterministic. Tiers 3b/4 run neural inference on Apple MPS
+without a pinned seed and can drift by a few borderline projects between machines or runs
+(measured: 1 project between the May and July 2026 runs); any such project enters the Tier 5
+queue, where the committed record pins its published classification. See the
+[Coverage & Limitations](../notes/deliverable01/coverage_limitations.html) page and the
+[architecture doc](../architecture/deliverables/deliverable01.md) for the full
+reproducibility discussion.
 
 ---
 

@@ -98,7 +98,8 @@ trigger_labels <- c(
 
 # Named color vector for trigger labels — defined once, used in all trigger fill scales.
 # Unknown uses neutral grey (matching map NA fill); light_blue moved from Unknown → Permit.
-# PMA/TVA uses amber (#F2A900) — distinct from the existing seven-color palette.
+# All eight colors are official CATF palette; PMA/TVA uses catf_navy, following D2's
+# precedent of pairing navy with dark_blue as distinguishable adjacent categories.
 trigger_colors <- c(
   "Funding"              = "#0047BB",  # catf_dark_blue
   "Direct Action"        = "#00AE8D",  # catf_teal
@@ -106,7 +107,7 @@ trigger_colors <- c(
   "Permit"               = "#8AB7E9",  # catf_light_blue
   "Program"              = "#00B5E2",  # catf_blue
   "Property Transaction" = "#75246C",  # catf_purple
-  "PMA/TVA"              = "#F2A900",  # amber
+  "PMA/TVA"              = "#012169",  # catf_navy
   "Unknown"              = "grey70"    # neutral grey — matches map NA aesthetic
 )
 
@@ -555,7 +556,8 @@ tryCatch({
 
   fig6 <- ggplot(states_sf) +
     geom_sf(aes(fill = dominant_trigger), color = "white", linewidth = 0.3) +
-    scale_fill_catf(name = "Dominant\nTrigger", na.value = "grey85", drop = FALSE) +
+    scale_fill_manual(values = trigger_colors, name = "Dominant\nTrigger",
+                      na.value = "grey85", drop = FALSE) +
     labs(
       title    = "Dominant NEPA Trigger Type by State",
       subtitle = "Most common primary trigger among decarbonization projects in each state"
@@ -601,7 +603,8 @@ tryCatch({
 
   fig7 <- ggplot(counties_sf) +
     geom_sf(aes(fill = dominant_trigger), color = "white", linewidth = 0.05) +
-    scale_fill_catf(name = "Dominant\nTrigger", na.value = "grey90", drop = FALSE) +
+    scale_fill_manual(values = trigger_colors, name = "Dominant\nTrigger",
+                      na.value = "grey90", drop = FALSE) +
     labs(
       title    = "Dominant NEPA Trigger Type by County",
       subtitle = "Most common primary trigger among decarbonization projects in each county"
@@ -1151,6 +1154,62 @@ cat(sprintf("Saved trigger_evidence_excerpts.csv (%d rows)\n", nrow(excerpts)))
 # --------------------------
 # DIAGNOSTICS
 # --------------------------
+
+# ---------------------------------------------------------------------------
+# Figure 12 — classification pipeline flow: cumulative resolution across tiers
+# (house funnel style: horizontal bars, alpha ramp toward the fully-resolved end)
+# ---------------------------------------------------------------------------
+tier_key12 <- sub("^(T[0-9]+[ab]?).*", "\\1", df$nepa_trigger_rule_id)
+resolved12 <- df$nepa_trigger_primary != "unknown"
+tier_levels12 <- c("T0", "T1a", "T1b", "T2", "T3", "T3b", "T4", "T5")
+tier_names12 <- c(
+  T0  = "Tier 0 — Manual labels",
+  T1a = "Tier 1a — Agency metadata",
+  T1b = "Tier 1b — Title + description regex",
+  T2  = "Tier 2 — Document title scan",
+  T3  = "Tier 3 — Purpose-and-need regex",
+  T3b = "Tier 3b — SetFit (DOE CE)",
+  T4  = "Tier 4 — NLI adjudication",
+  T5  = "Tier 5 — LLM fallback"
+)
+flow12 <- tibble::tibble(tier = tier_levels12) |>
+  mutate(
+    new   = vapply(tier, function(t) sum(tier_key12 == t & resolved12), integer(1)),
+    cum   = cumsum(new),
+    pct   = 100 * cum / nrow(df),
+    label = sprintf("+%s  →  %s (%.1f%%)", comma(new), comma(cum), pct),
+    stage = factor(tier_names12[tier], levels = rev(unname(tier_names12)))
+  )
+n_unknown12 <- sum(!resolved12)
+
+fig12 <- ggplot(flow12, aes(cum, stage)) +
+  geom_col(aes(alpha = stage), fill = catf_navy, width = 0.62) +
+  geom_text(aes(label = label), hjust = -0.04, size = 3.2, color = "gray25") +
+  scale_alpha_manual(
+    values = setNames(seq(0.32, 1, length.out = length(tier_names12)),
+                      unname(tier_names12)),
+    guide = "none"
+  ) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.34)),
+                     labels = comma) +
+  labs(
+    title    = sprintf("Five tiers and an LLM fallback resolve %s of %s projects",
+                       comma(max(flow12$cum)), comma(nrow(df))),
+    subtitle = paste0("Bar = cumulative projects classified after each tier;\n",
+                      "label = tier's new resolutions → cumulative (% of universe)"),
+    x = NULL, y = NULL,
+    caption  = sprintf(paste0(
+      "Each project is finalized by the first tier whose acceptance gate it clears and is never re-processed.\n",
+      "Residual unknowns: %s (%.1f%%) — Tier 5 abstentions and malformed responses,\n",
+      "all flagged for manual review."),
+      comma(n_unknown12), 100 * n_unknown12 / nrow(df))
+  ) +
+  theme_catf(base_size = 13)
+
+ggsave(file.path(OUTPUT_DIR, "fig12_pipeline_flow.png"),
+       fig12, width = 9.5, height = 5, dpi = 150)
+saveRDS(fig12, file.path(OUTPUT_DIR, "fig12_pipeline_flow.rds"))
+cat("Saved fig12_pipeline_flow.png\n")
 
 source_dist <- df |>
   count(nepa_trigger_evidence_source, nepa_trigger_confidence) |>

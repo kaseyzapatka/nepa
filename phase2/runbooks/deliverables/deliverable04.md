@@ -139,6 +139,16 @@ Rscript phase2/code/deliverable04/08_create_figures.R                           
 
 ---
 
+## Post-pipeline analyses
+
+The spine above ends at `08_create_figures.R`, but the published report also draws on
+post-pipeline analyses that run separately once the spine is complete: `08_create_figures_solar.R`,
+`08_create_figures_technology.R`, `10_outliers.R`, `fra/` (page limits), `ceq_regime/`
+(regulatory-regime durations), `field_office/` (`01 → 01b → 02`; BLM + DOE experience analysis),
+and `geothermal/`. The authoritative run order and commands are in
+`phase2/code/deliverable04/README.md` ("Post-pipeline analyses") and the report's Reproduction
+section (`phase2/reports/deliverable04.qmd`).
+
 ## Notes
 
 - **FRA cut date: June 3, 2023** (FRA enactment, matching Phase 1 D5) — splits pre/post regulatory-period analysis.

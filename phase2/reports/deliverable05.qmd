@@ -124,8 +124,8 @@ the **Inflation Reduction Act (IRA**, Aug 2022).
    temporal coincidence.
 
 3. **The *type* of CE used shifted decisively toward the law's purpose.** Among DOE categorical
-   exclusions in the ARRA window, category **B5.1, "Actions to conserve energy or water," rose to
-   `r pct1(b51_spike)`** of all DOE CEs (from `r pct1(b51_base)` at baseline) — the energy-efficiency
+   exclusions in the ARRA window, category B5.1, "Actions to conserve energy or water," rose to
+   `r pct1(b51_spike)` of all DOE CEs (from `r pct1(b51_base)` at baseline) — the energy-efficiency
    stimulus showing up directly in the categorical-exclusion mix.
 
 4. **BIL and IRA show a real but far more muted pattern.** DOE CE activity rose after BIL
@@ -150,40 +150,43 @@ The deliverable asks three distinct questions, each answered by a distinct analy
 | **Are the actions associated** with the law? | Detection of explicit law citations in the CE document text. A citation can only post-date the law, so it is coverage-robust attribution evidence. |
 | **What *types* of CEs** were used? | The specific categorical-exclusion category invoked (e.g. DOE's B5.1), plus the technology mix of the projects, in the spike window vs a baseline. |
 
-## Base population
+The pipeline runs in four stages:
 
-Every CE is placed in time by its **determination (decision) date**. Where that is absent we fall back
-to the **initiation date** as a same-year proxy — safe for CEs, whose median duration is roughly three
-weeks, so the two dates almost always fall in the same calendar year. This yields a base of
-**`r fmt_n(n_ce_placeable)` of `r fmt_n(n_ce_total)` CE projects (`r pct1(pct_ce_placeable)`)** that
-can be located on the timeline — far broader than the complete-timeline base used for the duration
-analysis in Deliverable 4, because placing a CE in a year requires only one date, not two.
-
-## Data pipeline
-
-```{r pipeline-table}
-tibble::tibble(
-  Script = c(
-    "phase2/code/deliverable05/01_extract_law_citations.py",
-    "phase2/code/deliverable05/02_build_ce_categories.py",
-    "phase2/code/deliverable05/03_create_figures.R"
-  ),
-  Role = c(
-    "Scans CE/EA/EIS document pages for explicit ARRA / BIL / IRA citations, with context-based disambiguation of the IRA and BIL acronyms",
-    "Parses the document-level ce_category metadata into normalized categorical-exclusion codes (DOE 10 CFR 1021, DOI 516 DM 11, EPAct 2005 Section 390)",
-    "Joins dates, citations, and categories; produces all figures and diagnostic tables"
-  )
-) |> kable(format = "pipe", align = "l")
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 · Anchor CEs in time</div>
+    <div style="color:#1A1A2E;">Place each CE by its <b>determination (decision) date</b> from the Deliverable&nbsp;4 timeline, falling back to the <b>initiation date</b> as a same-year proxy where the decision is absent (safe for CEs, whose median duration is ≈3 weeks). This locates <b>52,089 of 54,668</b> CEs (95.3%) in time — far broader than the complete-timeline base used for duration in Deliverable&nbsp;4</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 · Detect law citations</div>
+    <div style="color:#1A1A2E;"><code>01_extract_law_citations.py</code> scans CE / EA / EIS document pages for explicit <b>ARRA</b>, <b>BIL</b>, and <b>IRA</b> citations, with context-based disambiguation of the ambiguous IRA and BIL acronyms. A citation can only post-date the law, so it is coverage-robust attribution evidence</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 · Read CE categories</div>
+    <div style="color:#1A1A2E;"><code>02_build_ce_categories.py</code> parses the document-level <code>ce_category</code> metadata into normalized CFR codes (DOE 10 CFR 1021, DOI 516 DM 11, EPAct 2005 §390), so the categorical-exclusion mix can be compared across periods</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 · Compare spike windows vs baselines</div>
+    <div style="color:#1A1A2E;"><code>03_create_figures.R</code> joins dates, citations, and categories, then produces the counts, citation rates, and category- and technology-mix comparisons — spike window versus baseline — read by this report</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">Deliverable 5 report</div>
+    <div style="color:#ffffff;">Whether CE use spikes after major legislation, whether the spike is tied to the law, and which categorical exclusions were used</div>
+  </div>
+</div>
 ```
 
-## A note on the coverage ramp
-
-A raw count of CEs per year mixes three things: genuine policy-driven surges, the growth of NEPATEC's
-document coverage over time (the dataset is sparse before 2009), and a drop-off in 2024–2025 caused by
-recent documents not yet being ingested. We therefore do **not** lean on aggregate counts to make the
-causal claim. Two devices isolate the real signal: **conditioning on agency** (the ARRA surge is
-DOE-only while BLM — subject to the same dataset — is flat), and **citation evidence** (a Recovery Act
-citation cannot appear before the Recovery Act existed).
+The base population is every CE placeable in time. Anchoring on the determination date with an
+initiation-date fallback yields a base of `r fmt_n(n_ce_placeable)` of `r fmt_n(n_ce_total)` CE
+projects (`r pct1(pct_ce_placeable)`) — far broader than the complete-timeline base used for the
+duration analysis in Deliverable 4, because placing a CE in a year requires only one date, not two. How
+the analysis separates a genuine policy signal from the growth of the dataset's coverage over time is
+detailed on the [Coverage & Limitations page](../notes/deliverable05/coverage_limitations.html).
 
 # The Spike
 
@@ -211,7 +214,7 @@ include_fig("fig_d5_counts_by_year_byprocess.png")
 The single most important result is that the post-ARRA CE surge belongs almost entirely to the
 **Department of Energy** — the agency that administered ARRA's energy grants, loan guarantees, and
 weatherization funds. DOE CEs went from `r fmt_n(yr(doe_year, 2008))` (2008) to
-`r fmt_n(yr(doe_year, 2009))` (2009) to a peak of **`r fmt_n(doe_peak_n)` in `r doe_peak_year`**. Over
+`r fmt_n(yr(doe_year, 2009))` (2009) to a peak of `r fmt_n(doe_peak_n)` in `r doe_peak_year`. Over
 the same years the Bureau of Land Management — the only other agency that issues CEs at scale, and one
 drawing on the same dataset — barely moved (`r fmt_n(yr(blm_year, 2009))`, `r fmt_n(yr(blm_year, 2010))`,
 `r fmt_n(yr(blm_year, 2011))` in 2009–2011). BLM's own growth comes later (2016 onward) and is unrelated
@@ -359,21 +362,6 @@ techshift |>
   transmute(`Technology tag` = pt, `Share of ARRA-window CEs` = pct1(pct), N = fmt_n(n)) |>
   kable(format = "pipe", align = "l")
 ```
-
-# Caveats and Limitations
-
-- **Correlation vs. attribution.** The volume spike is correlational; the citation analysis is the
-  stronger attribution layer. We present both and lean on citations for the causal claim.
-- **Pre-2009 coverage is thin.** NEPATEC contains few CE documents before 2009, so ARRA's apparent
-  *level* shift is partly a coverage ramp. The ARRA claim rests on the DOE-vs-BLM contrast and the
-  `r pct1(arra_cite_ce)` citation rate, not on raw counts, and we report no ARRA window/baseline ratio.
-- **BIL and IRA windows overlap.** Passed nine months apart, their post-law windows cannot be cleanly
-  separated by date alone; citations are used to attribute where possible.
-- **2024–2025 are incomplete.** The decline in the most recent years reflects ingestion lag, not a real
-  fall in CE use.
-- **Dates are extracted, not authoritative.** The determination date comes from the Deliverable 4
-  extraction (≈`r pct1(pct_ce_placeable)` of CEs placeable); roughly the remaining few percent carry no
-  usable date and are absent from the time series.
 
 # Reproducibility
 

@@ -1,0 +1,104 @@
+---
+title: "D1: Trigger Coverage & Limitations"
+---
+
+*As of 2026-07-20, describing the published classification run (full pipeline of 2026-07-20
+with the Tier 5 LLM fallback and same-day hierarchy reconciliation). All numbers on this page
+are recomputed from the committed pipeline outputs in `phase2/data/analysis/deliverable01/`.*
+
+This page collects the methods fine print behind the
+[D1 trigger report](../../reports/deliverable01.html): what is in scope, how complete the
+classification is, how confident each tier's answers are, and the caveats that should ride
+along with any reuse of the data.
+
+## Scope
+
+- **Decarbonization only** (`project_energy_type = 'Clean'`): 20,725 projects, the broad
+  clean-energy universe used across Phase 2. Advisory flags (e.g. nuclear-technology-only)
+  are carried in the data but never silently excluded; the stricter 19,628-project cut is a
+  sensitivity view, not the headline universe.
+- **One primary trigger per project.** Eight mutually exclusive classes resolved by a fixed
+  priority hierarchy (Program > Direct Action > PMA/TVA > Property Transaction > Land >
+  Permit > Funding > Unknown). Every published primary obeys this ordering — including the
+  Tier 5 LLM rows, whose raw ranking is reconciled to the hierarchy at ingest.
+- **Secondary triggers are retained, not analyzed exhaustively.** 1,559 projects (7.5%)
+  carry more than one detected class; 1,317 of these are the single structural pattern
+  PMA/TVA + federal land. The full `nepa_trigger_secondary` / `nepa_trigger_combo` fields
+  support further cross-tabulation.
+
+## Coverage
+
+- **20,642 of 20,725 projects classified (99.6%).** The five-tier pipeline resolved 97.6%;
+  the Tier 5 LLM fallback (2026-07-20, `claude-haiku-4-5`, ~$1.80) classified 418 of the 501
+  remaining uncertain projects.
+- **83 residual unknowns (0.4%),** all flagged `nepa_trigger_manual_review = TRUE`. They are
+  77 deliberate Tier 5 abstentions (the model found no reliable nexus signal in the retrieved
+  evidence) plus 6 malformed LLM responses. Composition: 30 EIS, 29 CE, 24 EA; 55 of 83 are
+  DOE-led. These are the genuinely hard residue — every earlier tier and the LLM declined
+  them — and any follow-up should treat them as a manual-review queue, not recoverable by
+  re-running the pipeline.
+- **Confidence tiers:** 20,521 projects high (99.0%), 116 medium, 88 low. Low-confidence
+  rows (the 83 unknowns plus 5 low-confidence Tier 5 classifications) carry the
+  manual-review flag; the overall flag rate is 0.4%, well under the 5% design target.
+
+## Classification quality
+
+- **Deterministic tiers (0–3, ~9,949 projects):** rule-based on agency metadata, titles, and
+  purpose-and-need text; exactly reproducible.
+- **Model tiers (3b/4, ~10,275 projects):** SetFit and NLI cross-encoder inference on Apple
+  MPS without a pinned seed — independent runs can differ by a few borderline projects near
+  the acceptance gates (measured drift between the May and July 2026 full runs: exactly 1
+  project, which entered the Tier 5 queue and received the same class). Validation of the
+  SetFit tier rests on its held-out example-bank evaluation; Tier 4 acceptance requires
+  passing three evidence gates.
+- **LLM tier (5, 501 projects):** a 20-row random spot-check of Tier 5 assignments found no
+  clear errors (high-confidence rows uniformly correct; abstentions on genuinely
+  uninformative evidence). Tier 5 accepts all returned verdicts, including low-confidence
+  ones, but low-confidence rows are flagged for manual review rather than treated as settled.
+
+## Reproducibility caveats
+
+- **Exact replication does not require the LLM.** The raw Tier 5 verdicts are frozen in the
+  committed record (`phase2/code/deliverable01/tier5_adjudication_record.csv`);
+  `03_rerun_tier5.py --from-record` re-materializes the published classifications
+  deterministically. A live `--use-llm` re-run reproduces results in aggregate but not
+  row-for-row (LLM sampling, plus the judge model's deprecation horizon), even at the pinned
+  `temperature=0`.
+- **The hierarchy reconciliation is part of the published method.** The LLM's own
+  primary/secondary ranking disagreed with the fixed hierarchy for 88 of 501 rows; published
+  primaries follow the hierarchy, and the LLM's raw ranking remains auditable in the record.
+
+## Funding sidecar limitations
+
+The funding-detail sidecar covers exactly the 9,210 Funding-primary projects. Qualitative
+fields (mechanism type, program labels, evidence, confidence) are 100% populated, but
+**dollar-amount coverage is thin** — most NEPA documents simply never state an award figure:
+
+| Field | Coverage |
+|:---|--:|
+| Federal award amount | 529 (5.7%) |
+| Total project cost | 178 (1.9%) |
+| Recipient cost share | 101 (1.1%) |
+| Federal share (%) | 130 (1.4%) |
+
+Use the extracted amounts for *distributional* statements (typical award sizes by mechanism,
+as the report does), not for portfolio totals or quantitative funding analysis. Conflicting
+candidate amounts are preserved in `federal_funding_amount_candidates_json` and flagged.
+
+## Known gaps and deferred work
+
+- **Programmatic vs. tiered review classification** (umbrella PEIS vs. site-specific tiered
+  reviews) is deferred post-publication: it requires a dedicated Phase 2 classifier, and is
+  not obtainable by joining D2, whose outputs are significance determinations and regulatory
+  regimes, not programmatic/tiered flags.
+- **The 83 unknowns** are a standing manual-review queue
+  (`phase2/data/validation/deliverable01/validation_batches.csv` groups flagged cases by
+  rule).
+- **`is_dual_nexus`** flags the land-and-permit overlap only when Land is the primary
+  (113 projects); 11 further land+permit projects have a higher-priority primary and are
+  intentionally not flagged.
+
+Full tier-by-tier methods, acceptance gates, run history, and the reproducibility discussion
+live in the architecture doc (`phase2/architecture/deliverables/deliverable01.md` in the
+repository) and the report's
+[Reproducibility](../../reports/deliverable01.html#reproducibility) section.

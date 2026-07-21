@@ -16,13 +16,13 @@ flowchart TD
     D --> E[Tier 2: Document title scan\n27 new]
     E --> F[Tier 3: Purpose-and-need section extraction\n372 new]
     F --> G[Tier 3b: SetFit DOE CE classifier\nDOE + CE only, 10,247 new]
-    G --> H[Tier 4: Retrieval-first NLI adjudication\n529 processed, 29 finalized]
-    H --> I{Tier 5: LLM fallback\n--use-llm flag}
+    G --> H[Tier 4: Retrieval-first NLI adjudication\n529 processed, 28 finalized]
+    H --> I[Tier 5: LLM fallback\n501 queued, 418 resolved]
     I --> J[projects_nepa_trigger.parquet]
     J --> K[Funding detail sidecar\nprojects_funding_details.parquet]
 ```
 
-Counts reflect the May 2026 full run (see Run Results below).
+Counts reflect the July 2026 full run (see Run Results below).
 
 ---
 
@@ -59,10 +59,14 @@ Eight mutually exclusive primary classes, with a strict priority ordering used w
 | 7 | `federal_funding` | Federal grant, loan guarantee, financial assistance |
 | 8 | `unknown` | NEPA confirmed but trigger cannot be reliably identified |
 
-This table mirrors `TRIGGER_HIERARCHY` in `01_extract_nepa_trigger.py`. Note that the position
-of `federal_program` is empirically inert in the May 2026 output: no project carries
-`federal_program` together with another class in `nepa_trigger_multi`, so moving it within the
-hierarchy would not change any project's primary classification.
+This table mirrors `TRIGGER_HIERARCHY` in `01_extract_nepa_trigger.py`, and every row in the
+published output obeys it: `nepa_trigger_primary == nepa_trigger_primary_hierarchy` for all
+20,725 projects. Tier 5's raw LLM ranking is reconciled to this hierarchy at ingest (see
+Known Issues → resolved, and Methodological Notes → reproducibility). The position of
+`federal_program` remains nearly inert: only 17 projects carry `federal_program` together
+with another class in `nepa_trigger_multi` (all surfaced by the Tier 5 pass; the May 2026
+pre-Tier-5 output had no such co-occurrences), and as the top-priority class it wins the
+primary in all 17.
 
 Secondary triggers are stored in `nepa_trigger_secondary` (list) for multi-label combo analysis.
 
@@ -162,8 +166,29 @@ Diagnostics written to:
 - `phase2/data/analysis/deliverable01/tier4_doc_scores.parquet`
 
 ### Tier 5 — LLM Fallback
-Claude Haiku receives the Tier 4 uncertain queue (target: <250 projects) with retrieved
-context chunks and returns structured JSON classification. Only runs with `--use-llm` flag.
+Claude Haiku (`claude-haiku-4-5-20251001`, `temperature=0.0`) receives the Tier 4 uncertain
+queue with retrieved context chunks and returns a structured JSON classification (class,
+confidence, evidence). Only runs with the `--use-llm` flag. The LLM's proposed
+primary/secondary ranking is reconciled to `TRIGGER_HIERARCHY` at ingest
+(`_reconcile_to_hierarchy`), so Tier 5 rows obey the same priority ordering as every other
+tier; the raw ranking is logged and preserved in the committed adjudication record. The
+uncertain queue is persisted to `tier5_queue.parquet` on every run (with or without
+`--use-llm`) before any preflight or API call, so the queue can be replayed standalone via
+`03_rerun_tier5.py`.
+
+**Acceptance rule:** unlike Tiers 1–4, the Tier 5 merge path writes *every* returned result
+into the output (it bypasses `should_auto_accept`). High- and medium-confidence answers are
+treated as resolved; low-confidence answers are written but marked
+`nepa_trigger_manual_review = True`. Results that return a well-formed class but no usable
+evidence, and calls whose JSON cannot be parsed (`rule_id = "T5_llm_error"`), fall back to
+`unknown` and are likewise flagged for manual review.
+
+**July 2026 run:** 501 projects queued (the Tier-4-uncertain pool), 501 successful API calls
+(all HTTP 200), 6 JSON-parse failures (1.2%). 418 projects were resolved to a concrete trigger
+class; the remaining 83 (77 LLM abstentions + 6 parse errors) stayed `unknown`. Measured spend
+≈ \$1.80 at `claude-haiku-4-5` pricing (\$1/\$5 per MTok). Note that the preflight cost
+display uses `ESTIMATED_TIER5_COST_PER_PROJECT` (corrected from a \$0.04 placeholder to \$0.004
+to match measured per-project cost); the `--tier5-budget` flag raises the guardrail ceiling.
 
 ---
 
@@ -196,9 +221,24 @@ For each result: if `should_auto_accept` → add to `finalized`. Otherwise → a
 
 ## Known Issues
 
+### Tier 5 primary/secondary not hierarchy-reconciled (RESOLVED 2026-07-20)
+Tiers 0–4 each map a rule to exactly one class, so the priority hierarchy fully determines
+the primary. Tier 5 originally wrote the LLM's own primary/secondary ranking directly into
+the output; in the initial July 2026 run, `nepa_trigger_primary !=
+nepa_trigger_primary_hierarchy` for 88 rows (all `T5_llm`; zero mismatches in tiers 0–4),
+and `is_dual_nexus` missed 33 of 124 land+permit projects because the LLM ranked permit
+first. **Fix (same day):** `tier5_llm()` now reconciles the LLM's ranking to
+`TRIGGER_HIERARCHY` at ingest, and the correction was back-applied to the published output
+via the committed record replay (`03_rerun_tier5.py --from-record`), reordering exactly
+those 88 rows. Net class deltas: direct_action +16, land +21, program +10, property +5,
+funding −25, permit −27; `is_dual_nexus` 79 → 113; unknowns unchanged (83). The LLM's raw
+pre-reconciliation verdicts are preserved in the committed
+`tier5_adjudication_record.csv`, so the original ranking remains auditable.
+
 The issues below were identified in the April 2026 run and are retained as design history;
-both were fixed before the May 2026 run that produced the current output (all 500 remaining
-unknowns are genuine `T4_local_uncertain` cases, not fallthrough).
+both were fixed before the May 2026 run and remain in force for the July 2026 run that
+produced the current output (the residual 83 unknowns are genuine Tier-4-uncertain cases that
+even the Tier 5 LLM pass could not resolve, not fallthrough).
 
 ### Provisional Fallthrough (13,324 projects in April 2026 run — resolved)
 Projects could have a high-confidence provisional result that was silently discarded:
@@ -227,13 +267,16 @@ Of 17,943 unknowns:
 
 ---
 
-## Run Results (May 2026)
+## Run Results (July 2026)
 
 <!-- d1-run-results: pull this section into the D1 report -->
 
 Full pipeline run on all 20,725 clean energy projects (`nepa_trigger_extraction_run_at =
-2026-05-09T03:01 UTC`). Tier 5 (LLM fallback) was skipped. Tier yields are derived from the
-`nepa_trigger_rule_id` prefix in the output parquet.
+2026-07-21T01:36 UTC`), this time **with Tier 5 (`--use-llm`)**. Tier yields are derived from
+the `nepa_trigger_rule_id` prefix in the output parquet.
+
+> **Historical note:** the prior May 2026 run skipped Tier 5 and ended at 20,225 resolved /
+> 500 unknown (97.6%). This July run added the LLM fallback, lifting resolution to 99.6%.
 
 ### Tier-by-Tier Yield
 
@@ -245,43 +288,52 @@ Full pipeline run on all 20,725 clean energy projects (`nepa_trigger_extraction_
 | Tier 2 | Document title scan | 27 | 9,577 | 46.2% |
 | Tier 3 | Purpose-and-need extraction | 372 | 9,949 | 48.0% |
 | Tier 3b | SetFit DOE CE classifier | 10,247 | 20,196 | 97.4% |
-| Tier 4 | NLI adjudication (finalized) | 29 | 20,225 | 97.6% |
-| — | Unknown (Tier 4 gates failed) | 500 | — | 2.4% |
+| Tier 4 | NLI adjudication (finalized) | 28 | 20,224 | 97.6% |
+| Tier 5 | LLM fallback (`claude-haiku-4-5`) | 418 | 20,642 | 99.6% |
+| — | Unknown (Tier 4 + Tier 5 unresolved) | 83 | — | 0.4% |
 
-**Total resolved: 20,225 / 20,725 (97.6%). Unknown: 500 (2.4%).**
+**Total resolved: 20,642 / 20,725 (99.6%). Unknown: 83 (0.4%).**
 
 Tier 3b is by far the highest-yield ML tier because DOE CEs dominate the unresolved pool after
 Tier 1 (~14K projects). The SetFit threshold was lowered from 0.80/0.15 to 0.65/0.08 to achieve
 this yield; see Known Issues for the original gate design.
 
-Tier 4 processed 529 projects and finalized 29 with sufficient document evidence. The remaining
-500 failed all three gates (`doc_score`, `margin`, `affirmative_support`) and are recorded as
-`unknown`. Flagged cases (including all unknowns) are grouped by rule for manual review in
+Tier 4 processed 529 projects and finalized 28 with sufficient document evidence. The remaining
+501 failed all three gates (`doc_score`, `margin`, `affirmative_support`) and were sent to
+Tier 5. The LLM resolved 418 of them; 83 stayed `unknown` (77 LLM abstentions + 6 JSON-parse
+errors). Flagged cases (including all unknowns and every low-confidence Tier 5 answer) are
+grouped by rule for manual review in
 `phase2/data/validation/deliverable01/validation_batches.csv`.
 
 ### Final Class Distribution
 
 | Class | Count | % of Total |
 |---|---:|---:|
-| `federal_funding` | 9,125 | 44.0% |
-| `federal_land` | 3,666 | 17.7% |
-| `pma` | 3,531 | 17.0% |
-| `federal_direct_action` | 3,092 | 14.9% |
-| `federal_program` | 513 | 2.5% |
-| `unknown` | 500 | 2.4% |
-| `federal_permit` | 259 | 1.2% |
-| `federal_property_transaction` | 39 | 0.2% |
+| `federal_funding` | 9,210 | 44.4% |
+| `federal_land` | 3,801 | 18.3% |
+| `pma` | 3,535 | 17.1% |
+| `federal_direct_action` | 3,181 | 15.3% |
+| `federal_program` | 543 | 2.6% |
+| `federal_permit` | 319 | 1.5% |
+| `unknown` | 83 | 0.4% |
+| `federal_property_transaction` | 53 | 0.3% |
 | **Total** | **20,725** | |
 
-### Unknown Pool Composition (May 2026)
+These totals reflect the 2026-07-20 hierarchy reconciliation (88 Tier 5 rows reordered; see
+Known Issues) and supersede the same-day pre-reconciliation figures.
 
-Of 500 unknowns (all `T4_local_uncertain`):
-- 202 (40.4%) are EIS
-- 175 (35.0%) are CEs
-- 123 (24.6%) are EAs
-- 328 (65.6%) have DOE as lead agency
+### Unknown Pool Composition (July 2026)
 
-For comparison, the April 2026 post-fix run produced 1,136 unknowns (5.5%), and the pre-fix
+Of 83 unknowns (all from the Tier 5 queue — 77 `T5_llm` abstentions + 6 `T5_llm_error`):
+- 30 (36.1%) are EIS
+- 29 (34.9%) are CEs
+- 24 (28.9%) are EAs
+- 51 (61.4%) have DOE as lead agency
+
+The residual unknowns are far more evenly split across processes than the May 2026 pool
+(then 40.4% EIS / 24.6% EA), because Tier 5 cleared the bulk of the long-document EA/EIS
+uncertain cases. For deeper historical comparison, the May 2026 pre-Tier-5 run left 500
+unknowns (2.4%), the April 2026 post-fix run produced 1,136 unknowns (5.5%), and the pre-fix
 run (original thresholds) produced 17,943 unknowns (86.6%).
 
 ---
@@ -304,7 +356,7 @@ run (original thresholds) produced 17,943 unknowns (86.6%).
 | `nepa_trigger_confidence` | str | `high`, `medium`, `low` |
 | `nepa_trigger_rule_id` | str | Rule that produced the classification |
 | `nepa_trigger_manual_review` | bool | Flagged for manual review |
-| `is_dual_nexus` | bool | True if both `federal_land` and `federal_permit` present |
+| `is_dual_nexus` | bool | True when primary is `federal_land` and `federal_permit` is secondary (consistent for all tiers since the 2026-07-20 hierarchy reconciliation) |
 | `nepa_trigger_extraction_run_at` | str | ISO-8601 UTC timestamp for the run |
 | `nepa_trigger_llm_run_at` | str | ISO-8601 UTC timestamp for LLM call (empty if Tier 5 skipped) |
 
@@ -338,9 +390,30 @@ rerunning the trigger classifier.
 ## Methodological Notes
 
 **Why a tiered pipeline instead of just LLM?** Agency metadata alone resolves ~60% of
-projects deterministically and cheaply. Running LLM on all 20K projects would cost ~$20–40
-at Haiku pricing and introduce hallucination risk for cases trivially answered by agency type.
-The tiered approach reserves LLM for genuine ambiguity (target: <250 projects).
+projects deterministically and cheaply. Running the LLM on all 20,725 projects would cost on
+the order of \$75 at `claude-haiku-4-5` pricing (measured per-project cost ≈ \$0.0036) and
+introduce hallucination risk for cases trivially answered by agency type. The tiered approach
+reserves the LLM for genuine ambiguity — the July 2026 run sent 501 projects (2.4%) to Tier 5.
+
+**Run-to-run reproducibility.** Tiers 0–3 are exactly deterministic (regex and metadata
+lookups). Tiers 3b (SetFit) and 4 (NLI) run neural inference on Apple MPS without a pinned
+torch seed, so independent runs can differ by a few borderline projects near the decision
+gates (<0.05% of the universe; measured near-threshold exposure was 4 of 280 Tier-4 projects
+within ±0.001 of a gate). In the July 2026 re-run, deterministic-tier assignments (T0–T3)
+matched the May run exactly, and exactly **1** project drifted — a Tier-4 `federal_funding`
+acceptance that re-entered the Tier 5 queue and was re-classified to the same class — so the
+drift created no new unknown.
+
+Tier 5 (the LLM fallback) is a different reproducibility class: LLM sampling is
+nondeterministic even at `temperature=0.0` (now pinned), and the judge model
+(`claude-haiku-4-5-20251001`) has a deprecation horizon, so re-running `--use-llm`
+reproduces the published results statistically but not row-for-row. **Exact replication is
+guaranteed instead by the committed adjudication record**: the raw verdicts of the
+2026-07-20 run live in `phase2/code/deliverable01/tier5_adjudication_record.csv`, and
+`03_rerun_tier5.py --from-record` re-materializes the published Tier 5 classifications
+(including the hierarchy reconciliation) deterministically, with no API call. A reviewer
+replicating this deliverable should run the pipeline without `--use-llm`, then apply the
+record.
 
 **Why SetFit for DOE CE classification?** DOE CEs are the largest ambiguous class (~14K
 projects). A fine-tuned SetFit model provides fast batched inference on MPS and requires only
@@ -356,8 +429,11 @@ problem where expressing classes as natural language hypotheses avoids the need 
 training data.
 
 **Multi-label consideration:** Many projects are triggered by multiple nexus factors
-simultaneously (e.g., federal land AND DOE funding). Primary trigger is priority-resolved for
-all figures; secondary triggers are stored separately.
+simultaneously (e.g., federal land AND DOE funding). For tiers 0–4 the primary trigger is
+strictly priority-resolved; Tier 5 rows carry the LLM's own primary/secondary ranking, which
+diverges from the hierarchy for 88 of 501 rows (see Known Issues). The
+`nepa_trigger_primary_hierarchy` column always holds the strict hierarchy resolution.
+Secondary triggers are stored separately.
 
 **Funding detail layer:** Funding mechanism and amount extraction is deliberately downstream of
 trigger classification. Grant/loan/amount parsing is restricted to `federal_funding` primary

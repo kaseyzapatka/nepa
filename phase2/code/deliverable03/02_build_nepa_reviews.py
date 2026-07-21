@@ -62,7 +62,7 @@ PROCESSED = DATA_DIR / "processed"
 # Input parquets
 PROJECTS_PATH = ANALYSIS / "projects_combined.parquet"
 REVIEWS_PATH  = ANALYSIS / "projects_reviews.parquet"
-TRIGGERS_PATH = ANALYSIS / "nepa_trigger" / "projects_nepa_trigger.parquet"
+TRIGGERS_PATH = ANALYSIS / "deliverable01" / "projects_nepa_trigger.parquet"
 DOCS_PATH     = ANALYSIS / "documents_combined.parquet"
 EA_PAGES      = PROCESSED / "ea"  / "pages.parquet"
 EA_DOCS       = PROCESSED / "ea"  / "documents.parquet"
@@ -96,7 +96,6 @@ VISUAL_VRM_ELEMENTS_OUT = OUT_DIR / "vrm_elements.parquet"
 # HTML / CSV outputs land in phase2/output/deliverable03/
 OUTPUT_DIR = BASE_DIR / "output" / "deliverable03"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-VISUAL_SCATTERTEXT_HTML   = OUTPUT_DIR / "visual_scattertext_decarb_vs_fossil.html"
 VISUAL_QA_SAMPLE_CSV      = OUTPUT_DIR / "visual_qa_sample.csv"
 VISUAL_TOPIC_TERMS_CSV    = OUTPUT_DIR / "visual_topic_terms_detail.csv"
 VISUAL_TOPIC_EXCERPTS_CSV = OUTPUT_DIR / "visual_topic_excerpts.csv"
@@ -172,12 +171,23 @@ def build_reviews(conn: duckdb.DuckDBPyConnection,
     )
 
     # process_type is in projects_combined.parquet directly (p.process_type).
-    # projects_reviews.parquet would add is_linear — use it if present, else NULL.
+    # projects_reviews.parquet would add is_linear — use it if present. Otherwise derive
+    # is_linear from the NEPATEC project_type taxonomy: linear infrastructure = transmission
+    # lines, pipelines, and corridors (the two unambiguous linear classes, plus corridor);
+    # everything else (solar arrays, wind farms, geothermal fields, well pads, plants,
+    # storage) is a point/area project. ILIKE so a multi-label project counts as linear if
+    # ANY label is linear (geometry is a property of the built infrastructure). Advisory field.
+    IS_LINEAR_DERIVED = (
+        "CASE WHEN p.project_type::VARCHAR ILIKE '%transmission%' "
+        "OR p.project_type::VARCHAR ILIKE '%pipeline%' "
+        "OR p.project_type::VARCHAR ILIKE '%corridor%' "
+        "THEN TRUE ELSE FALSE END AS is_linear,"
+    )
     reviews_join = (
         f"LEFT JOIN read_parquet('{REVIEWS_PATH}') r ON p.project_id = r.project_id"
         if REVIEWS_PATH.exists() else ""
     )
-    is_linear_col = "r.is_linear," if REVIEWS_PATH.exists() else "NULL AS is_linear,"
+    is_linear_col = "r.is_linear," if REVIEWS_PATH.exists() else IS_LINEAR_DERIVED
 
     triggers_join = (
         f"LEFT JOIN read_parquet('{TRIGGERS_PATH}') t ON p.project_id = t.project_id"
@@ -186,7 +196,7 @@ def build_reviews(conn: duckdb.DuckDBPyConnection,
     triggers_cols = "t.nepa_trigger_primary" if TRIGGERS_PATH.exists() else "NULL AS nepa_trigger_primary"
 
     if not REVIEWS_PATH.exists():
-        log("build_reviews: projects_reviews.parquet not found; is_linear will be NULL (process_type read from projects_combined)")
+        log("build_reviews: projects_reviews.parquet not found; is_linear derived from project_type taxonomy (transmission/pipeline/corridor = linear)")
     if not TRIGGERS_PATH.exists():
         log("build_reviews: WARNING -- projects_nepa_trigger.parquet not found; nepa_trigger_primary will be NULL")
     else:
@@ -2190,67 +2200,6 @@ def build_examples(conn: duckdb.DuckDBPyConnection) -> None:
 
 
 # ==========================================================================
-# STAGE 5 — Scattertext interactive HTML (optional)
-# ==========================================================================
-
-def build_scattertext(conn: duckdb.DuckDBPyConnection) -> None:
-    """Optional Decarb-vs-Fossil scattertext explorer. Gated by import."""
-    log("build_scattertext: starting Stage 5", pct=89)
-    try:
-        import scattertext as st  # noqa: F401
-    except ImportError:
-        log("build_scattertext: scattertext not installed; skipped")
-        return
-
-    if not PROJECTS_VISUAL_TEXT.exists():
-        log("build_scattertext: ERROR -- projects_visual_text.parquet missing; aborting")
-        return
-
-    proj = pd.read_parquet(PROJECTS_VISUAL_TEXT)
-    if proj.empty:
-        log("build_scattertext: empty input; skipping")
-        return
-
-    # Need project_title for hover metadata
-    titles = conn.execute(f"""
-        SELECT project_id, project_title
-        FROM read_parquet('{PROJECTS_PATH}')
-    """).fetchdf()
-    df = proj.merge(titles, on="project_id", how="left")
-    df = df[df["visual_text_clean"].fillna("").str.len() > 0]
-    df = df[df["energy_group"].isin(["Decarbonization", "Fossil Fuel"])]
-    if df.empty:
-        log("build_scattertext: no rows after filtering; skipping")
-        return
-
-    nepa_stop = list(_make_nepa_stopwords())
-    try:
-        corpus = (
-            st.CorpusFromPandas(
-                df,
-                category_col="energy_group",
-                text_col="visual_text_clean",
-                nlp=st.whitespace_nlp_with_sentences,
-            )
-            .build()
-            .remove_terms(nepa_stop, ignore_absences=True)
-            .get_unigram_corpus()
-        )
-        html = st.produce_scattertext_explorer(
-            corpus,
-            category="Decarbonization",
-            not_category_name="Fossil Fuel",
-            width_in_pixels=1000,
-            minimum_term_frequency=10,
-            metadata=df["project_title"].fillna(df["project_id"]),
-        )
-        VISUAL_SCATTERTEXT_HTML.write_text(html, encoding="utf-8")
-        log(f"build_scattertext: wrote {VISUAL_SCATTERTEXT_HTML.name}", pct=92)
-    except Exception as e:
-        log(f"build_scattertext: scattertext run failed ({e}); skipping")
-
-
-# ==========================================================================
 # STAGE 8 — Manual QA sample
 # ==========================================================================
 
@@ -2344,7 +2293,6 @@ def run_all(conn: duckdb.DuckDBPyConnection, sample: Optional[int]) -> None:
     build_framing(conn)
     build_topics(conn)
     build_examples(conn)
-    build_scattertext(conn)   # internally guards optional import
     build_qa_sample(conn)
     build_geothermal_og(conn)
     log("Done.", pct=100)
@@ -2555,7 +2503,6 @@ if __name__ == "__main__":
             build_framing(conn)
             build_topics(conn)
             build_examples(conn)
-            build_scattertext(conn)   # internally guards optional import
             build_qa_sample(conn)
         if args.section_layer:
             # Preferred pipeline: bridges 01_identify_visual_impact_candidates.py outputs
@@ -2565,7 +2512,6 @@ if __name__ == "__main__":
             build_topics(conn)
             build_vrm_elements(conn)
             build_examples(conn)
-            build_scattertext(conn)
             build_qa_sample(conn)
         if args.geothermal: build_geothermal_og(conn)
         log("Done.", pct=100)

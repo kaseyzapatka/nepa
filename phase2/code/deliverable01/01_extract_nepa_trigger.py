@@ -121,7 +121,7 @@ TIER4_SUPPORT_THRESHOLD = 0.25
 TIER5_TARGET_QUEUE = 250
 TIER5_SOFT_WARNING = 150
 TIER5_HARD_STOP_BUDGET = 10.0
-ESTIMATED_TIER5_COST_PER_PROJECT = 0.04  # conservative placeholder for queue guardrails
+ESTIMATED_TIER5_COST_PER_PROJECT = 0.004  # measured 2026-07: ~$1.80 / 501 projects ≈ $0.0036/project at claude-haiku-4-5 pricing ($1/$5 per MTok), rounded up
 
 LOCAL_NLI_MODEL = "cross-encoder/nli-deberta-v3-base"
 
@@ -1259,6 +1259,27 @@ def _unique_preserve_order(values: list[str]) -> list[str]:
             seen.add(value)
             out.append(value)
     return out
+
+
+def _reconcile_to_hierarchy(primary: str, secondary: list[str] | None) -> tuple[str, list[str]]:
+    """Reorder an LLM (primary, secondary) verdict to obey TRIGGER_HIERARCHY.
+
+    Tier 5's LLM proposes a set of classes AND its own ranking of them. We keep the
+    class set the model chose but re-rank it by the fixed documented priority ladder so
+    every published row's primary is the highest-priority class among {primary} ∪ secondary
+    and the remaining classes are demoted to secondary in hierarchy order. An `unknown`
+    verdict is preserved as-is (its multi-label set is empty by construction, so there is
+    no class to promote). This is applied at ingest in tier5_llm() and re-applied verbatim
+    by 03_rerun_tier5.py --from-record, so live runs and the committed record agree.
+    """
+    secondary = _unique_preserve_order(list(secondary or []))
+    if primary == "unknown":
+        return primary, secondary
+    classes = _unique_preserve_order([primary] + secondary)
+    new_primary = _hierarchy_primary(classes)
+    rank = lambda c: TRIGGER_HIERARCHY.index(c) if c in TRIGGER_HIERARCHY else 99
+    new_secondary = [c for c in sorted(classes, key=rank) if c != new_primary]
+    return new_primary, new_secondary
 
 
 def make_result(
@@ -2913,6 +2934,7 @@ def tier5_llm(
             response = client.messages.create(
                 model=HAIKU_MODEL,
                 max_tokens=256,
+                temperature=0.0,  # variance reduction for reproducible live runs
                 messages=[{
                     "role": "user",
                     "content": LLM_PROMPT.format(
@@ -2938,6 +2960,16 @@ def tier5_llm(
             confidence = parsed.get("confidence", "medium")
             if confidence not in ("high", "medium", "low"):
                 confidence = "medium"
+            # Reconcile the LLM's raw ranking to the fixed TRIGGER_HIERARCHY at ingest so
+            # every published row obeys the documented priority ladder. Keep the raw verdict
+            # for audit (log line + route_reason).
+            raw_primary, raw_secondary = primary, list(secondary)
+            primary, secondary = _reconcile_to_hierarchy(primary, secondary)
+            if primary != raw_primary:
+                log.info(
+                    "Tier 5 hierarchy reconciliation for %s: llm_primary=%s -> primary=%s",
+                    pid, raw_primary, primary,
+                )
             result = make_result(
                 project_id=pid,
                 primary=primary,
@@ -2948,7 +2980,10 @@ def tier5_llm(
                 secondary=secondary,
                 manual_review=(confidence == "low"),
                 route_policy="llm",
-                route_reason=row.get("tier4_reason", ""),
+                route_reason=(
+                    f"{row.get('tier4_reason', '')} | llm_raw_primary={raw_primary} "
+                    f"llm_raw_secondary={'|'.join(raw_secondary)}"
+                ),
             )
             result["nepa_trigger_llm_run_at"] = datetime.now(timezone.utc).isoformat()
             results.append(result)
@@ -3125,11 +3160,17 @@ def extract_nepa_triggers(
             tier4_low_conf[result["project_id"]] = result
     log.info("  → %s finalized after Tier 4 (%s) [%s elapsed]", f"{len(finalized):,}", _pct(), _elapsed())
 
+    # Always persist the Tier 5 queue (prompt-ready context for every uncertain project),
+    # even when --use-llm is not set — this is what makes a later standalone Tier 5 replay
+    # possible without re-running tiers 0-4.
+    low_conf_ids = sorted(tier4_low_conf)
+    queue_df = build_tier5_queue(low_conf_ids, doc_scores, projects, provisional, tier4_result_lookup)
+    if not queue_df.empty:
+        queue_df.to_parquet(TIER5_QUEUE_PATH, index=False)
+        log.info("Tier 5 queue persisted: %s projects → %s", f"{len(queue_df):,}", TIER5_QUEUE_PATH)
+
     if use_llm:
-        low_conf_ids = sorted(tier4_low_conf)
-        queue_df = build_tier5_queue(low_conf_ids, doc_scores, projects, provisional, tier4_result_lookup)
         if not queue_df.empty:
-            queue_df.to_parquet(TIER5_QUEUE_PATH, index=False)
             estimated_spend = estimate_tier5_spend(queue_df)
             log.info(
                 "Tier 5 queue preflight: %s projects, estimated spend about $%.2f",
