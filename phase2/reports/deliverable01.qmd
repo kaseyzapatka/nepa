@@ -166,6 +166,15 @@ wins as the primary; lower-priority matches are retained as secondary triggers.
 | **Unknown** | NEPA is confirmed but the trigger cannot be reliably identified from available text or metadata |
 :::
 
+All five classification tiers obey this priority ordering. Tiers 0–4 enforce it mechanically
+(each rule detects a single class, and the ladder settles conflicts). Tier 5—the LLM
+fallback—proposes both the classes and its own ranking; the pipeline reconciles that ranking
+to the fixed hierarchy at ingest, so every published primary follows the ordering above. The
+LLM's raw verdicts are preserved verbatim in a committed adjudication record
+([`tier5_adjudication_record.csv`](../code/deliverable01/tier5_adjudication_record.csv)), and
+the published Tier 5 classifications can be reproduced exactly—without any LLM call—by
+running `03_rerun_tier5.py --from-record` against that record.
+
 Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects (`r pct(n_multi_label)`) have more than one trigger class detected. The overlap is dominated by a single structural pattern: `r comma(n_pma_land)` of these pair **PMA/TVA with federal land**—BPA and WAPA transmission and power infrastructure that also crosses BLM or National Forest land, so both the power-authority-proponent nexus and the federal-land nexus apply. The remaining `r comma(n_multi_other)` multi-class projects form a longer tail—most often federal land paired with a federal permit, or direct action paired with federal land—surfaced largely by the Tier 5 pass, which records a secondary trigger whenever its adjudication of a previously-uncertain project identifies a second nexus.
 
 ## Classification Pipeline

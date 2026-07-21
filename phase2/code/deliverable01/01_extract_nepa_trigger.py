@@ -1261,6 +1261,27 @@ def _unique_preserve_order(values: list[str]) -> list[str]:
     return out
 
 
+def _reconcile_to_hierarchy(primary: str, secondary: list[str] | None) -> tuple[str, list[str]]:
+    """Reorder an LLM (primary, secondary) verdict to obey TRIGGER_HIERARCHY.
+
+    Tier 5's LLM proposes a set of classes AND its own ranking of them. We keep the
+    class set the model chose but re-rank it by the fixed documented priority ladder so
+    every published row's primary is the highest-priority class among {primary} ∪ secondary
+    and the remaining classes are demoted to secondary in hierarchy order. An `unknown`
+    verdict is preserved as-is (its multi-label set is empty by construction, so there is
+    no class to promote). This is applied at ingest in tier5_llm() and re-applied verbatim
+    by 03_rerun_tier5.py --from-record, so live runs and the committed record agree.
+    """
+    secondary = _unique_preserve_order(list(secondary or []))
+    if primary == "unknown":
+        return primary, secondary
+    classes = _unique_preserve_order([primary] + secondary)
+    new_primary = _hierarchy_primary(classes)
+    rank = lambda c: TRIGGER_HIERARCHY.index(c) if c in TRIGGER_HIERARCHY else 99
+    new_secondary = [c for c in sorted(classes, key=rank) if c != new_primary]
+    return new_primary, new_secondary
+
+
 def make_result(
     project_id: str,
     primary: str,
@@ -2913,6 +2934,7 @@ def tier5_llm(
             response = client.messages.create(
                 model=HAIKU_MODEL,
                 max_tokens=256,
+                temperature=0.0,  # variance reduction for reproducible live runs
                 messages=[{
                     "role": "user",
                     "content": LLM_PROMPT.format(
@@ -2938,6 +2960,16 @@ def tier5_llm(
             confidence = parsed.get("confidence", "medium")
             if confidence not in ("high", "medium", "low"):
                 confidence = "medium"
+            # Reconcile the LLM's raw ranking to the fixed TRIGGER_HIERARCHY at ingest so
+            # every published row obeys the documented priority ladder. Keep the raw verdict
+            # for audit (log line + route_reason).
+            raw_primary, raw_secondary = primary, list(secondary)
+            primary, secondary = _reconcile_to_hierarchy(primary, secondary)
+            if primary != raw_primary:
+                log.info(
+                    "Tier 5 hierarchy reconciliation for %s: llm_primary=%s -> primary=%s",
+                    pid, raw_primary, primary,
+                )
             result = make_result(
                 project_id=pid,
                 primary=primary,
@@ -2948,7 +2980,10 @@ def tier5_llm(
                 secondary=secondary,
                 manual_review=(confidence == "low"),
                 route_policy="llm",
-                route_reason=row.get("tier4_reason", ""),
+                route_reason=(
+                    f"{row.get('tier4_reason', '')} | llm_raw_primary={raw_primary} "
+                    f"llm_raw_secondary={'|'.join(raw_secondary)}"
+                ),
             )
             result["nepa_trigger_llm_run_at"] = datetime.now(timezone.utc).isoformat()
             results.append(result)

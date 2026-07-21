@@ -59,14 +59,14 @@ Eight mutually exclusive primary classes, with a strict priority ordering used w
 | 7 | `federal_funding` | Federal grant, loan guarantee, financial assistance |
 | 8 | `unknown` | NEPA confirmed but trigger cannot be reliably identified |
 
-This table mirrors `TRIGGER_HIERARCHY` in `01_extract_nepa_trigger.py`. The position of
-`federal_program` is nearly inert: in the July 2026 output only 17 projects carry
-`federal_program` together with another class in `nepa_trigger_multi` (all surfaced by the
-Tier 5 pass; the May 2026 pre-Tier-5 output had no such co-occurrences at all). Of those 17,
-`federal_program` won the primary in 7; in the other 10 Tier 5's own LLM judgment ranked a
-different class first, because Tier 5's primary/secondary split is not reconciled against
-this hierarchy (see Known Issues → Tier 5 hierarchy reconciliation). The strict
-hierarchy-resolved value is always available in `nepa_trigger_primary_hierarchy`.
+This table mirrors `TRIGGER_HIERARCHY` in `01_extract_nepa_trigger.py`, and every row in the
+published output obeys it: `nepa_trigger_primary == nepa_trigger_primary_hierarchy` for all
+20,725 projects. Tier 5's raw LLM ranking is reconciled to this hierarchy at ingest (see
+Known Issues → resolved, and Methodological Notes → reproducibility). The position of
+`federal_program` remains nearly inert: only 17 projects carry `federal_program` together
+with another class in `nepa_trigger_multi` (all surfaced by the Tier 5 pass; the May 2026
+pre-Tier-5 output had no such co-occurrences), and as the top-priority class it wins the
+primary in all 17.
 
 Secondary triggers are stored in `nepa_trigger_secondary` (list) for multi-label combo analysis.
 
@@ -166,11 +166,15 @@ Diagnostics written to:
 - `phase2/data/analysis/deliverable01/tier4_doc_scores.parquet`
 
 ### Tier 5 — LLM Fallback
-Claude Haiku (`claude-haiku-4-5-20251001`) receives the Tier 4 uncertain queue with retrieved
-context chunks and returns a structured JSON classification (class, confidence, evidence).
-Only runs with the `--use-llm` flag. The uncertain queue is persisted to
-`tier5_queue.parquet` on every run (with or without `--use-llm`) before any preflight or API
-call, so the queue can be replayed standalone via `03_rerun_tier5.py`.
+Claude Haiku (`claude-haiku-4-5-20251001`, `temperature=0.0`) receives the Tier 4 uncertain
+queue with retrieved context chunks and returns a structured JSON classification (class,
+confidence, evidence). Only runs with the `--use-llm` flag. The LLM's proposed
+primary/secondary ranking is reconciled to `TRIGGER_HIERARCHY` at ingest
+(`_reconcile_to_hierarchy`), so Tier 5 rows obey the same priority ordering as every other
+tier; the raw ranking is logged and preserved in the committed adjudication record. The
+uncertain queue is persisted to `tier5_queue.parquet` on every run (with or without
+`--use-llm`) before any preflight or API call, so the queue can be replayed standalone via
+`03_rerun_tier5.py`.
 
 **Acceptance rule:** unlike Tiers 1–4, the Tier 5 merge path writes *every* returned result
 into the output (it bypasses `should_auto_accept`). High- and medium-confidence answers are
@@ -217,17 +221,19 @@ For each result: if `should_auto_accept` → add to `finalized`. Otherwise → a
 
 ## Known Issues
 
-### Tier 5 primary/secondary not hierarchy-reconciled (OPEN)
+### Tier 5 primary/secondary not hierarchy-reconciled (RESOLVED 2026-07-20)
 Tiers 0–4 each map a rule to exactly one class, so the priority hierarchy fully determines
-the primary. Tier 5 instead writes the LLM's own primary/secondary ranking directly into the
-output without reconciling it against `TRIGGER_HIERARCHY`. In the July 2026 output,
-`nepa_trigger_primary != nepa_trigger_primary_hierarchy` for **88 rows — all `T5_llm`**
-(zero mismatches in tiers 0–4). `nepa_trigger_primary_hierarchy` carries the strict
-hierarchy resolution for every row. One measured downstream effect: `is_dual_nexus`
-(defined as primary = `federal_land` with `federal_permit` secondary) is False for 33 of
-the 124 projects whose multi-set contains both land and permit, because the LLM ranked
-permit first. A pipeline fix (reorder Tier 5 output to hierarchy order at ingest) would
-change the published primary for those 88 rows and is deferred pending a user decision.
+the primary. Tier 5 originally wrote the LLM's own primary/secondary ranking directly into
+the output; in the initial July 2026 run, `nepa_trigger_primary !=
+nepa_trigger_primary_hierarchy` for 88 rows (all `T5_llm`; zero mismatches in tiers 0–4),
+and `is_dual_nexus` missed 33 of 124 land+permit projects because the LLM ranked permit
+first. **Fix (same day):** `tier5_llm()` now reconciles the LLM's ranking to
+`TRIGGER_HIERARCHY` at ingest, and the correction was back-applied to the published output
+via the committed record replay (`03_rerun_tier5.py --from-record`), reordering exactly
+those 88 rows. Net class deltas: direct_action +16, land +21, program +10, property +5,
+funding −25, permit −27; `is_dual_nexus` 79 → 113; unknowns unchanged (83). The LLM's raw
+pre-reconciliation verdicts are preserved in the committed
+`tier5_adjudication_record.csv`, so the original ranking remains auditable.
 
 The issues below were identified in the April 2026 run and are retained as design history;
 both were fixed before the May 2026 run and remain in force for the July 2026 run that
@@ -303,15 +309,18 @@ grouped by rule for manual review in
 
 | Class | Count | % of Total |
 |---|---:|---:|
-| `federal_funding` | 9,235 | 44.6% |
-| `federal_land` | 3,780 | 18.2% |
+| `federal_funding` | 9,210 | 44.4% |
+| `federal_land` | 3,801 | 18.3% |
 | `pma` | 3,535 | 17.1% |
-| `federal_direct_action` | 3,165 | 15.3% |
-| `federal_program` | 533 | 2.6% |
-| `federal_permit` | 346 | 1.7% |
+| `federal_direct_action` | 3,181 | 15.3% |
+| `federal_program` | 543 | 2.6% |
+| `federal_permit` | 319 | 1.5% |
 | `unknown` | 83 | 0.4% |
-| `federal_property_transaction` | 48 | 0.2% |
+| `federal_property_transaction` | 53 | 0.3% |
 | **Total** | **20,725** | |
+
+These totals reflect the 2026-07-20 hierarchy reconciliation (88 Tier 5 rows reordered; see
+Known Issues) and supersede the same-day pre-reconciliation figures.
 
 ### Unknown Pool Composition (July 2026)
 
@@ -347,7 +356,7 @@ run (original thresholds) produced 17,943 unknowns (86.6%).
 | `nepa_trigger_confidence` | str | `high`, `medium`, `low` |
 | `nepa_trigger_rule_id` | str | Rule that produced the classification |
 | `nepa_trigger_manual_review` | bool | Flagged for manual review |
-| `is_dual_nexus` | bool | True when primary is `federal_land` and `federal_permit` is secondary (does not fire for the 33 Tier-5 rows where the LLM ranked permit first — see Known Issues) |
+| `is_dual_nexus` | bool | True when primary is `federal_land` and `federal_permit` is secondary (consistent for all tiers since the 2026-07-20 hierarchy reconciliation) |
 | `nepa_trigger_extraction_run_at` | str | ISO-8601 UTC timestamp for the run |
 | `nepa_trigger_llm_run_at` | str | ISO-8601 UTC timestamp for LLM call (empty if Tier 5 skipped) |
 
@@ -394,6 +403,17 @@ within ±0.001 of a gate). In the July 2026 re-run, deterministic-tier assignmen
 matched the May run exactly, and exactly **1** project drifted — a Tier-4 `federal_funding`
 acceptance that re-entered the Tier 5 queue and was re-classified to the same class — so the
 drift created no new unknown.
+
+Tier 5 (the LLM fallback) is a different reproducibility class: LLM sampling is
+nondeterministic even at `temperature=0.0` (now pinned), and the judge model
+(`claude-haiku-4-5-20251001`) has a deprecation horizon, so re-running `--use-llm`
+reproduces the published results statistically but not row-for-row. **Exact replication is
+guaranteed instead by the committed adjudication record**: the raw verdicts of the
+2026-07-20 run live in `phase2/code/deliverable01/tier5_adjudication_record.csv`, and
+`03_rerun_tier5.py --from-record` re-materializes the published Tier 5 classifications
+(including the hierarchy reconciliation) deterministically, with no API call. A reviewer
+replicating this deliverable should run the pipeline without `--use-llm`, then apply the
+record.
 
 **Why SetFit for DOE CE classification?** DOE CEs are the largest ambiguous class (~14K
 projects). A fine-tuned SetFit model provides fast batched inference on MPS and requires only
