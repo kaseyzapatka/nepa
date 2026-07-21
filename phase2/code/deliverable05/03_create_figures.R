@@ -48,7 +48,7 @@ catf_light_blue <- "#8AB7E9"; catf_navy <- "#012169"
 PROCESS_LEVELS <- c("CE", "EA", "EIS")
 PROCESS_COLORS <- c("CE" = catf_lime, "EA" = catf_dark_blue, "EIS" = catf_navy)
 ENERGY_LEVELS  <- c("Decarb", "Fossil", "Other")
-ENERGY_COLORS  <- c("Decarb" = catf_teal, "Fossil" = catf_magenta, "Other" = catf_light_blue)
+ENERGY_COLORS  <- c("Decarb" = catf_lime, "Fossil" = catf_dark_blue, "Other" = catf_navy)
 
 theme_catf <- function(base_size = 11, base_family = "Helvetica") {
   theme_minimal(base_size = base_size, base_family = base_family) +
@@ -223,7 +223,7 @@ a_dept <- a_dept |> mutate(dept = factor(dept, levels = dept_levels))
 p <- add_markers(ggplot(a_dept, aes(year, n, fill = dept))) +
   geom_col(alpha = 0.9) +
   marker_text() +
-  scale_fill_manual(values = c(catf_lime, catf_dark_blue, catf_teal, catf_magenta, catf_light_blue)[seq_along(dept_levels)]) +
+  scale_fill_manual(values = c(catf_lime, catf_dark_blue, catf_purple, catf_magenta, catf_light_blue)[seq_along(dept_levels)]) +
   scale_x_continuous(breaks = seq(YEAR_MIN, YEAR_MAX, 2)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.12)), labels = comma) +
   labs(title = "Categorical Exclusions by Year and Department",
@@ -242,7 +242,7 @@ p <- add_markers(ggplot(a_db, aes(year, n))) +
   geom_text(data = mk_db, aes(x = year, y = Inf, label = label, hjust = hjust),
             vjust = 1.3, size = 2.2, color = catf_teal, lineheight = 0.85, inherit.aes = FALSE) +
   facet_wrap(~agency2, scales = "free_y", ncol = 1) +
-  scale_fill_manual(values = c("DOE" = catf_dark_blue, "BLM" = catf_teal), guide = "none") +
+  scale_fill_manual(values = c("DOE" = catf_dark_blue, "BLM" = catf_purple), guide = "none") +
   scale_x_continuous(breaks = seq(YEAR_MIN, YEAR_MAX, 2)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.22)), labels = comma) +
   labs(title = "Categorical Exclusions by Year: DOE vs BLM",
