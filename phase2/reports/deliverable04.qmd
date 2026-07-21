@@ -755,6 +755,8 @@ ANTHROPIC_API_KEY=$(security find-generic-password -s nepa-anthropic -w) \
 
 # Analysis + figures
 Rscript phase2/code/deliverable04/08_create_figures.R       # coverage, durations, FRA, energy
+Rscript phase2/code/deliverable04/08_create_figures_solar.R      # solar duration analysis
+Rscript phase2/code/deliverable04/08_create_figures_technology.R # duration by technology
 Rscript phase2/code/deliverable04/10_outliers.R      # timeline outliers (case-study candidates)
 
 # FRA document-length analysis (regulatory pages from the full page text, all EA/EIS)

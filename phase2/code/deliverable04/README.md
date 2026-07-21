@@ -34,7 +34,7 @@ imported normally — follow that pattern for any new sibling stage.
 
 - **Data** (gitignored): `phase2/data/analysis/timeline/` — packets, candidates, project_dates, `models/`
 - **Labels (inputs):** `phase2/training/deliverable04/` — `classifier.csv`, `ranker.csv`, `frozen_eval_ids.txt`
-- **Outputs:** `phase2/output/deliverable04/` — `diagnostics/`, `figures/`, `review_queues/`
+- **Outputs:** `phase2/output/deliverable04/` — `diagnostics/`, `figures/`
 
 ## Tools (not pipeline stages)
 
@@ -55,7 +55,9 @@ follows the Python-builds-data / R-draws-figures split.
 - `09_sample_check.R` — stratified eyeball sample of selected dates (manual QA; not used by the report)
 - `10_outliers.R` — duration-outlier deliverable (feeds the report's case-study section)
 - `fra/` — FRA page-length analysis: `01_extract_pages.py` (also needs processed EA/EIS
-  `pages.parquet`) → `02–04_create_figures_*.R`
+  `pages.parquet`) → `02_create_figures.R`. (The solar and duration-by-technology analyses
+  formerly in `fra/` now live at top level: `08_create_figures_solar.R`,
+  `08_create_figures_technology.R` — run after `08_create_figures.R`.)
 - `field_office/` — office experience vs. process change, two arms: `01_parse_offices.py` (BLM field
   offices from the DOI-BLM case number) → `01b_build_doe_offices.py` (DOE administering offices from
   the CX register's `office` field, joined on `cx_number`; writes `doe_offices.parquet` + DOE coverage/

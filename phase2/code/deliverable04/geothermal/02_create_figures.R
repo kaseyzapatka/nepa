@@ -1,4 +1,4 @@
-# D4 geothermal timelines by BLM field office: three figures from the diagnostics CSVs built
+# D4 geothermal timelines by BLM field office: two figures from the diagnostics CSVs built
 # by 01_build_tables.py. Figures ONLY — no parquet reads, no data construction beyond trivial
 # plot prep. The `maps` package is used solely for lower-48 state polygons (geometry, not data).
 #
