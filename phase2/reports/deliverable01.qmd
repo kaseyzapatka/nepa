@@ -177,6 +177,45 @@ running `03_rerun_tier5.py --from-record` against that record.
 
 Secondary triggers are stored separately in the `nepa_trigger_secondary` field; `r comma(n_multi_label)` projects (`r pct(n_multi_label)`) have more than one trigger class detected. The overlap is dominated by a single structural pattern: `r comma(n_pma_land)` of these pair **PMA/TVA with federal land**—BPA and WAPA transmission and power infrastructure that also crosses BLM or National Forest land, so both the power-authority-proponent nexus and the federal-land nexus apply. The remaining `r comma(n_multi_other)` multi-class projects form a longer tail—most often federal land paired with a federal permit, or direct action paired with federal land—surfaced largely by the Tier 5 pass, which records a secondary trigger whenever its adjudication of a previously-uncertain project identifies a second nexus.
 
+## Workflow
+
+The approach spends effort where it is needed: cheap deterministic rules classify everything
+they can, machine-learning models take the bulk that rules cannot reach, and a
+carefully-audited LLM pass handles only the hardest residue — with every automated judgment
+gated, logged, and reproducible.
+
+```{=html}
+<div style="max-width:660px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">1 &middot; Scope</div>
+    <div style="color:#1A1A2E;">All 20,725 decarbonization projects in NEPATEC&nbsp;2.0 &mdash; every CE, EA, and EIS &mdash; each to be assigned one of eight federal-nexus classes answering <b>why NEPA applied</b></div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">2 &middot; Deterministic rules first</div>
+    <div style="color:#1A1A2E;">Hand-labeled seed cases, agency-jurisdiction lookups (FERC &rarr; Permit; BLM &rarr; Land; BPA/WAPA &rarr; PMA/TVA), and text-pattern rules on titles, descriptions, and purpose-and-need sections resolve nearly half the universe (48%) with no model at all</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">3 &middot; Local models for the bulk</div>
+    <div style="color:#1A1A2E;">A SetFit classifier fine-tuned on the labeled example bank reads the ~10K ambiguous DOE Categorical Exclusions; an NLI cross-encoder adjudicates the rest against retrieved document evidence, accepting only projects that clear three evidence gates &mdash; together lifting resolution to 97.6%</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.65rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.05rem;">4 &middot; LLM fallback for the residue</div>
+    <div style="color:#1A1A2E;">Claude (Haiku) reads the retrieved evidence for the 501 projects nothing else could settle, abstaining when the evidence is genuinely uninformative. Every verdict is reconciled to the fixed priority hierarchy and frozen in a committed adjudication record &mdash; the published classifications replay exactly, with no API call</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.65rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.05rem;">5 &middot; Validate, analyze, report</div>
+    <div style="color:#ffffff;">Row-count and coverage gates, a human spot-check of the LLM's answers, and figures computed live from the published data &mdash; 99.6% of projects classified, the 0.4% residue flagged for manual review</div>
+  </div>
+  <div style="text-align:center;color:#6b7280;font-size:.85rem;margin-top:.5rem;">
+    The five steps of the classification &mdash; the pipeline chart below shows each tier's yield.
+  </div>
+</div>
+```
+
 ## Classification Pipeline
 
 Trigger classification runs in five tiers plus a manual-label seed. Each tier feeds into the
@@ -184,21 +223,31 @@ next; a project is finalized the moment it clears a tier's acceptance gate and i
 re-processed by later tiers. This preserves precision at each level while reserving compute-
 intensive methods for the genuinely ambiguous cases.
 
-::: {tbl-colwidths="[16,54,10,10,10]"}
-| Tier | Method | Projects | Cumulative | % Resolved |
-|:---|:---|--:|--:|--:|
-| Tier 0 — Manual labels | Hand-labeled seed set loaded first and locked — no downstream tier can override a manual label | `r comma(n_t0)` | `r comma(cum_t0)` | `r pct(cum_t0)` |
-| Tier 1a — Agency metadata | Known agency-to-class lookup: FERC → Permit; BLM/USFS → Land; BPA/WAPA/TVA → PMA/TVA; DOE/USACE routed to Tier 4 for document confirmation | `r comma(n_t1a)` | `r comma(cum_t1a)` | `r pct(cum_t1a)` |
-| Tier 1b — Title + description | Regex patterns on concatenated title and description; specificity-ranked; high-confidence matches auto-accepted | `r comma(n_t1b)` | `r comma(cum_t1b)` | `r pct(cum_t1b)` |
-| Tier 2 — Document title scan | Regex on document-level titles in the CE/EA/EIS page corpus; catches programmatic EIS, ROW grants, and FERC license amendments | `r comma(n_t2)` | `r comma(cum_t2)` | `r pct(cum_t2)` |
-| Tier 3 — Purpose-and-need | Regex extraction from Purpose-and-Need section; auto-accepts BLM/NFS land, NPDES permit, and agency grant patterns | `r comma(n_t3)` | `r comma(cum_t3)` | `r pct(cum_t3)` |
-| Tier 3b — SetFit (DOE CE) | Sentence-transformer + logistic regression head fine-tuned on labeled DOE CE examples; runs only on DOE Categorical Exclusions | `r comma(n_t3b)` | `r comma(cum_t3b)` | `r pct(cum_t3b)` |
-| Tier 4 — NLI adjudication | Cross-encoder NLI: retrieved passage vs. natural-language class hypothesis; must pass doc score, margin, and affirmative-support gates | `r comma(n_t4)` | `r comma(cum_t4)` | `r pct(cum_t4)` |
-| Tier 5 — LLM fallback | Claude Haiku (`claude-haiku-4-5`) adjudicates the Tier-4 uncertain queue from retrieved context; high/medium-confidence structured answers are accepted, low-confidence answers flagged for manual review | `r comma(n_t5)` | `r comma(cum_t5)` | `r pct(cum_t5)` |
-| — Unknown | Failed all three Tier 4 gates and Tier 5 could not confidently resolve (LLM abstention or malformed response); flagged for manual inspection | `r comma(n_unknown)` | — | `r pct(n_unknown)` |
+```{r}
+#| label: fig-pipeline-flow
+#| fig-cap: !expr sprintf("Cumulative trigger resolution across the classification pipeline. Each project is finalized by the first tier whose acceptance gate it clears; the %s residual unknowns are flagged for manual review.", comma(n_unknown))
+#| out-width: "95%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig12_pipeline_flow.png"))
+```
+
+::: {tbl-colwidths="[40,20,20,20]"}
+| Tier | Projects | Resolved (cum.) | % of Universe |
+|:---|--:|--:|--:|
+| Tier 0 — Manual labels | `r comma(n_t0)` | `r comma(cum_t0)` | `r pct(cum_t0)` |
+| Tier 1a — Agency metadata | `r comma(n_t1a)` | `r comma(cum_t1a)` | `r pct(cum_t1a)` |
+| Tier 1b — Title + description | `r comma(n_t1b)` | `r comma(cum_t1b)` | `r pct(cum_t1b)` |
+| Tier 2 — Document title scan | `r comma(n_t2)` | `r comma(cum_t2)` | `r pct(cum_t2)` |
+| Tier 3 — Purpose-and-need | `r comma(n_t3)` | `r comma(cum_t3)` | `r pct(cum_t3)` |
+| Tier 3b — SetFit (DOE CE) | `r comma(n_t3b)` | `r comma(cum_t3b)` | `r pct(cum_t3b)` |
+| Tier 4 — NLI adjudication | `r comma(n_t4)` | `r comma(cum_t4)` | `r pct(cum_t4)` |
+| Tier 5 — LLM fallback | `r comma(n_t5)` | `r comma(cum_t5)` | `r pct(cum_t5)` |
+| — Unknown | `r comma(n_unknown)` | — | `r pct(n_unknown)` |
 :::
 
 **Total resolved: `r comma(n_resolved)` / `r comma(n_total)` (`r sprintf("%.1f%%", pct_resolved)`).**
+Per-tier methods (rule sets, model configurations, acceptance gates) are documented in the
+[architecture doc](../architecture/deliverables/deliverable01.md).
 
 The pipeline is implemented in
 [`phase2/code/deliverable01/01_extract_nepa_trigger.py`](../code/deliverable01/01_extract_nepa_trigger.py).
@@ -271,13 +320,9 @@ source_wide |>
               table.width = "100%", table.layout = "fixed")
 ```
 
-## Next Steps and Known Gaps
-
-| Item | Status | Notes |
-|:---|:---|:---|
-| **Tier 5 — LLM fallback** | Done (2026-07) | `claude-haiku-4-5` adjudicated the Tier-4 uncertain queue at ~\$1.80 real spend, resolving `r comma(n_t5)` projects. The residual `r comma(n_unknown)` unknowns (model abstentions plus a handful of malformed responses) are flagged for manual review. |
-| **Secondary trigger analysis** | Done | Multi-class overlap is characterized above (`r comma(n_multi_label)` projects; PMA/TVA + federal land dominant, with a Tier-5-surfaced tail); the full `nepa_trigger_secondary`/`nepa_trigger_combo` fields support any further cross-tabulation. |
-| **Programmatic / tiered review classification** | Deferred (post-publication) | Flagging programmatic (umbrella PEIS) versus tiered (site-specific) reviews requires a dedicated Phase 2 classifier — not a join to D2, which produces significance/regime outputs rather than programmatic/tiered flags. |
+Coverage rates, residual-unknown composition, confidence tiers, and the caveats that should
+accompany any reuse of this data are collected on the
+[Coverage & Limitations](../notes/deliverable01/coverage_limitations.html) page.
 
 ---
 
@@ -629,6 +674,49 @@ excerpts |>
               row_group.padding = px(6), table.width = "100%",
               container.width = "100%")
 ```
+
+---
+
+# Reproducibility
+
+Every number and figure in this report is regenerated by committed code, run from the
+repository root. The one **billable step** — the Tier 5 LLM fallback — never needs to be
+repeated: its raw verdicts are frozen in a committed adjudication record, and the record
+replay reproduces the published classifications exactly, with no API call.
+
+``` bash
+# 1. Full trigger classification, tiers 0–4 (deterministic*, no API key)
+conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py
+
+# 2. Tier 5 — EXACT replication of the published classifications from the
+#    committed record (deterministic, no API key, no cost)
+conda run -n nepa python phase2/code/deliverable01/03_rerun_tier5.py \
+  --from-record phase2/code/deliverable01/tier5_adjudication_record.csv
+
+#    (alternative: statistical replication by re-running the LLM live —
+#     ~$2 at claude-haiku-4-5 pricing; results equivalent in aggregate
+#     but not guaranteed row-for-row)
+# conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py \
+#   --use-llm --tier5-budget 25
+
+# 3. Funding sidecar (deterministic; reads the trigger output)
+conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py \
+  --funding-details-only
+
+# 4. Figures + report CSVs (base R, not the nepa env)
+Rscript phase2/code/deliverable01/02_create_figures.R
+
+# 5. This report
+quarto render phase2/reports/deliverable01.qmd
+```
+
+^\*^ Tiers 0–3 are exactly deterministic. Tiers 3b/4 run neural inference on Apple MPS
+without a pinned seed and can drift by a few borderline projects between machines or runs
+(measured: 1 project between the May and July 2026 runs); any such project enters the Tier 5
+queue, where the committed record pins its published classification. See the
+[Coverage & Limitations](../notes/deliverable01/coverage_limitations.html) page and the
+[architecture doc](../architecture/deliverables/deliverable01.md) for the full
+reproducibility discussion.
 
 ---
 
