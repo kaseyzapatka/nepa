@@ -6,12 +6,12 @@
 #   d4_geothermal_universe.csv        — funnel/tier/lead-agency rows (subtitle context)
 #   d4_geothermal_office_counts.csv   — per office x process (+ ALL) + two baseline rows (Fig A)
 #   d4_geothermal_state_map.csv       — per state x cohort, CE only (Fig B)
-#   d4_geothermal_timeline_points.csv — CE annual medians + every EA/EIS project (Fig C)
+#   d4_geothermal_timeline_points.csv — CE annual medians + every EA/EIS project (retained
+#     as a diagnostic; the decision-year figure was removed from the report — N too small)
 #
 # Outputs (phase2/output/deliverable04/figures/):
 #   fig_d4_geothermal_offices_by_process.png — office/tier inventory bars + two baseline bars
 #   fig_d4_geothermal_map.png                — CE state bubble map (size = median months)
-#   fig_d4_geothermal_timeline.png           — CE annual-median line + every EA/EIS as a point
 #
 # House PROCESS_COLORS (CE = lime, EA = dark blue, EIS = navy) for all process-coded elements;
 # cohorts use catf_navy (BLM) vs catf_light_blue (DOE/Other). NO teal/cyan anywhere.
@@ -74,52 +74,59 @@ theme_catf <- function(base_size = 11, base_family = "Helvetica") {
 
 theme_set(theme_catf())
 
+# Wrap long caption/subtitle strings so patchwork/ggplot text does not clip at the right edge.
+wrap <- function(s, w) paste(strwrap(s, width = w), collapse = "\n")
+
 universe <- read_csv(file.path(DIAG, "d4_geothermal_universe.csv"), show_col_types = FALSE)
 uni <- function(stage, col) universe[[col]][universe$stage == stage]
 
 # ===========================================================================
-# Figure A: two side-by-side panels (patchwork).
-#   LEFT  — where the 873 geothermal projects sit: one stacked column, three tiers.
-#   RIGHT — the 61 office-matched projects by field office, stacked by process.
+# Figure A: three STACKED full-width panels (patchwork, ncol = 1).
+#   TOP    — where the 873 geothermal projects sit: a single horizontal stacked bar, three tiers.
+#   MIDDLE — BLM field offices (the office-matched projects), horizontal bars by process.
+#   BOTTOM — DOE register offices (the DOE-tier projects), horizontal bars.
 # ===========================================================================
 
 oc <- read_csv(file.path(DIAG, "d4_geothermal_office_counts.csv"), show_col_types = FALSE)
 BASELINE_CODES <- c("(no office match)", "(DOE & other)")
 
-# --- LEFT: tier funnel (stacked column of the 873, three tiers) --------------
+# --- TOP: tier funnel as a single horizontal stacked bar ---------------------
 # Tier colours stay in the blue family and match the map (BLM darker, DOE lighter).
 TIER_LEVELS <- c("BLM, office-matched", "BLM, no office match", "DOE & other")
 TIER_COLORS <- c("BLM, office-matched" = catf_navy,
                  "BLM, no office match" = catf_dark_blue,
                  "DOE & other"          = catf_light_blue)
-tiers <- tibble(
+tiers_h <- tibble(
   tier = factor(TIER_LEVELS, levels = TIER_LEVELS),
   n    = c(uni("office_matched", "n"), uni("unmatched_blm", "n"), uni("doe_other", "n"))
 ) |>
-  arrange(match(tier, rev(TIER_LEVELS))) |>          # stack DOE at bottom, office-matched on top
-  mutate(ymax = cumsum(n), ymid = ymax - n / 2)
+  mutate(xmax = cumsum(n), xmin = xmax - n, xmid = (xmin + xmax) / 2)
 
-# The DOE segment is tall enough for an inside label; the two thin BLM segments
-# (61 and 48 of 873, ~5% of the bar each) are not — their labels sit outside to
-# the right in the tier colour, level with each segment's midpoint.
-tiers_in  <- tiers |> filter(tier == "DOE & other")
-tiers_out <- tiers |> filter(tier != "DOE & other")
-fig_a_left <- ggplot(tiers, aes(x = 1, y = n, fill = tier)) +
-  geom_col(width = 0.9, color = "white", linewidth = 0.4) +
-  geom_text(data = tiers_in, aes(x = 1, y = ymid, label = paste0(tier, "\n", comma(n))),
-            color = catf_navy, fontface = "bold", size = 3.0, lineheight = 0.9) +
-  geom_text(data = tiers_out,
-            aes(x = 1.5, y = ymid, label = paste0(tier, " — ", comma(n)), color = tier),
-            hjust = 0, fontface = "bold", size = 2.9) +
-  scale_color_manual(values = TIER_COLORS, guide = "none") +
+# DOE fills most of the bar -> inside label; the two thin BLM segments (~7% and ~5% of the bar)
+# are labelled off the bar, one above and one below, so their labels never collide.
+t_doe <- tiers_h |> filter(tier == "DOE & other")
+t_om  <- tiers_h |> filter(tier == "BLM, office-matched")
+t_nm  <- tiers_h |> filter(tier == "BLM, no office match")
+fig_a_top <- ggplot(tiers_h) +
+  geom_rect(aes(xmin = xmin, xmax = xmax, ymin = 0, ymax = 1, fill = tier),
+            color = "white", linewidth = 0.6) +
+  geom_text(data = t_doe, aes(x = xmid, y = 0.5, label = paste0(tier, " — ", comma(n))),
+            color = "white", fontface = "bold", size = 3.6) +
+  geom_segment(data = t_om, aes(x = xmid, xend = xmid, y = 1, yend = 1.32), color = catf_navy, linewidth = 0.3) +
+  geom_text(data = t_om, aes(x = xmid, y = 1.4, label = paste0(tier, " — ", comma(n))),
+            color = catf_navy, fontface = "bold", size = 3.0, hjust = 0) +
+  geom_segment(data = t_nm, aes(x = xmid, xend = xmid, y = 0, yend = -0.32), color = catf_dark_blue, linewidth = 0.3) +
+  geom_text(data = t_nm, aes(x = xmid, y = -0.4, label = paste0(tier, " — ", comma(n))),
+            color = catf_dark_blue, fontface = "bold", size = 3.0, hjust = 0) +
   scale_fill_manual(values = TIER_COLORS, guide = "none") +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.02))) +
-  coord_cartesian(xlim = c(0.5, 3.6), clip = "off") +
-  labs(title = "Where the 873 projects sit", x = NULL, y = "Projects") +
-  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-        panel.grid.major.x = element_blank())
+  scale_x_continuous(expand = expansion(mult = c(0.01, 0.12)), labels = comma) +
+  scale_y_continuous(limits = c(-0.7, 1.8), expand = c(0, 0)) +
+  coord_cartesian(clip = "off") +
+  labs(title = "Where the 873 projects sit", x = "Projects", y = NULL) +
+  theme(axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+        panel.grid.major.y = element_blank())
 
-# --- RIGHT: the 61 office-matched projects by field office -------------------
+# --- MIDDLE: BLM field offices (the office-matched projects) by field office --
 off_proc <- oc |>
   filter(!office_code %in% BASELINE_CODES, process_type %in% PROCESS_LEVELS) |>
   mutate(process_type = factor(process_type, levels = PROCESS_LEVELS))
@@ -131,7 +138,7 @@ off_proc <- off_proc |> mutate(office_f = factor(office_code, levels = off_tot$o
 off_lab  <- off_tot |> mutate(office_f = factor(office_code, levels = off_tot$office_code),
                               lab = comma(tot))
 
-fig_a_right <- ggplot(off_proc, aes(x = n_parsed, y = office_f, fill = process_type)) +
+fig_a_mid <- ggplot(off_proc, aes(x = n_parsed, y = office_f, fill = process_type)) +
   geom_col(width = 0.7) +
   geom_text(data = off_lab, inherit.aes = FALSE,
             aes(x = tot + 0.3, y = office_f, label = lab),
@@ -140,13 +147,12 @@ fig_a_right <- ggplot(off_proc, aes(x = n_parsed, y = office_f, fill = process_t
   # an EIS, and an unused navy key reads as a blank swatch at report scale
   scale_fill_manual(values = PROCESS_COLORS, name = "Process", breaks = c("CE", "EA")) +
   scale_x_continuous(expand = expansion(mult = c(0, 0.10))) +
-  labs(title = paste0("The ", uni("office_matched", "n"), " office-matched projects by field office"),
-       x = "Projects", y = NULL) +
+  labs(title = "BLM field offices", x = "Projects", y = NULL) +
   theme(legend.position = "bottom")
 
-# --- FAR RIGHT: the DOE tier's register offices (light blue) --------------------------------
-# Newly feasible: the DOE grant tier links to the CX register's `office` field, so the ~60% of
-# non-BLM geothermal projects with a canonical office get a proper inventory — Golden dominant.
+# --- BOTTOM: DOE register offices (the DOE-tier projects) --------------------
+# The DOE grant tier links to the CX register's `office` field, so the ~60% of non-BLM geothermal
+# projects with a canonical office get a proper inventory — Golden dominant.
 doe_oc <- read_csv(file.path(DIAG, "d4_geothermal_doe_office_counts.csv"), show_col_types = FALSE)
 doe_total  <- doe_oc |> filter(office == "ALL") |> pull(n_parsed)          # 456 with a register office
 DOE_SHORT  <- c("Golden Field Office" = "Golden FO",
@@ -163,27 +169,26 @@ fig_a_doe <- ggplot(doe_bars, aes(n_parsed, office)) +
   geom_col(fill = catf_light_blue, width = 0.7) +
   geom_text(aes(label = comma(n_parsed)), hjust = -0.2, size = 2.8, color = "gray35") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.14))) +
-  labs(title = paste0("The ", comma(doe_total), " DOE-tier projects by register office"),
-       x = "Projects", y = NULL) +
+  labs(title = "DOE register offices", x = "Projects", y = NULL) +
   theme(panel.grid.major.y = element_blank())
 
-fig_a <- fig_a_left + fig_a_right + fig_a_doe +
-  plot_layout(widths = c(0.85, 1.7, 1.7)) +
+fig_a <- fig_a_top / fig_a_mid / fig_a_doe +
+  plot_layout(ncol = 1, heights = c(0.55, 1.15, 1.0)) +
   plot_annotation(
     title = "Geothermal review inventory: BLM field offices vs DOE register offices, in a DOE-dominated universe",
-    subtitle = paste0("Of ", comma(uni("total_geothermal", "n")), " geothermal projects, only ",
+    subtitle = wrap(paste0("Of ", comma(uni("total_geothermal", "n")), " geothermal projects, only ",
                       comma(uni("blm_led", "n")), " are BLM-led (just ", comma(uni("office_matched", "n")),
                       " with a parseable field-office code); the ", comma(uni("doe_other", "n")),
-                      " DOE-tier projects instead link to the CX register, ", comma(doe_total), " to a named office."),
-    caption = paste0("Counts are all timeline states (an inventory, not a duration comparison). Middle panel stacked by review process. ",
-                     "DOE 'offices' are administering / grant-program offices (Golden, NETL, EERE-HQ), not BLM-style field offices."),
+                      " DOE-tier projects instead link to the CX register, ", comma(doe_total), " to a named office."), 120),
+    caption = wrap(paste0("Counts are all timeline states — an inventory, not a duration comparison. ",
+                          "Middle panel stacked by review process (CE lime, EA blue)."), 130),
     theme = theme(plot.title    = element_text(face = "bold", size = rel(1.15), color = catf_navy),
                   plot.subtitle = element_text(size = rel(0.85), color = catf_dark_blue),
                   plot.caption  = element_text(size = rel(0.8), color = "gray50", hjust = 0))
   )
 
 ggsave(file.path(FIGS, "fig_d4_geothermal_offices_by_process.png"),
-       fig_a, width = 13, height = 6, dpi = 300)
+       fig_a, width = 10, height = 11.5, dpi = 300)
 saveRDS(fig_a, file.path(FIGS, "fig_d4_geothermal_offices_by_process.rds"))
 message("Wrote fig_d4_geothermal_offices_by_process.png")
 
@@ -260,84 +265,3 @@ ggsave(file.path(FIGS, "fig_d4_geothermal_map.png"),
 saveRDS(fig_b, file.path(FIGS, "fig_d4_geothermal_map.rds"))
 message("Wrote fig_d4_geothermal_map.png")
 
-# ===========================================================================
-# Figure C: faceted linear panels, one per review process (ncol = 1, free y).
-#   CE  — annual-median line (n >= 5 years, gaps honest) + ARRA guide.
-#   EA  — its 8 projects as individual points.
-#   EIS — its 14 projects as individual points (the 138-mo 2020 BLM EIS sets the scale).
-# Linear axes (zeros plot fine); cohort shape in the EA/EIS panels. Chosen over a
-# Gantt/span view because the timeline CSV carries no initiation dates (a Gantt would
-# require a builder/CSV change, which this revision keeps frozen).
-# ===========================================================================
-
-tp <- read_csv(file.path(DIAG, "d4_geothermal_timeline_points.csv"), show_col_types = FALSE)
-
-CE_MIN_N <- 5
-# CE annual median SPLIT BY COHORT: each cohort keeps its own n>=5/yr filter and gap-broken runs.
-ce_yr <- tp |>
-  filter(row_type == "ce_year", n >= CE_MIN_N) |>
-  mutate(cohort = factor(cohort, levels = c("BLM", "DOE/Other"))) |>
-  arrange(cohort, yr) |>
-  group_by(cohort) |>
-  mutate(process_f = factor("CE", levels = PROCESS_LEVELS), val = median_months,
-         # break the line across gap years, within each cohort
-         run = cumsum(c(1, diff(yr) != 1))) |>
-  ungroup()
-
-ee <- tp |>
-  filter(row_type == "ea_eis_project") |>
-  mutate(process_f = factor(process_type, levels = PROCESS_LEVELS),
-         cohort = factor(cohort, levels = c("BLM", "DOE/Other")), val = months)
-
-arra_df <- tibble(process_f = factor("CE", levels = PROCESS_LEVELS), x = 2009)
-
-# Per-cohort overall-median annotations, placed in the empty left half of the CE panel.
-ce_med_lab <- tibble(
-  process_f = factor("CE", levels = PROCESS_LEVELS),
-  cohort = factor(c("BLM", "DOE/Other"), levels = c("BLM", "DOE/Other")),
-  x = c(1996, 1996),
-  y = c(19.5, 16),
-  lab = c(paste0("BLM CEs: median ", blm_ce_med, " d"),
-          paste0("DOE & other CEs: median ", nonblm_ce_med, " d")))
-
-# One color scale keyed by string: cohort colors for the CE line, process colors for EA/EIS points.
-CE_COHORT_COLORS <- c("BLM" = catf_navy, "DOE/Other" = catf_light_blue)
-
-fig_c <- ggplot() +
-  geom_vline(data = arra_df, aes(xintercept = x), linetype = "dashed",
-             color = "gray55", linewidth = 0.5) +
-  geom_text(data = arra_df, aes(x = x + 0.3, label = "ARRA (2009)"), y = Inf,
-            hjust = 0, vjust = 1.5, size = 2.7, color = "gray40") +
-  # CE annual median: one gap-broken line per cohort (BLM navy / DOE light blue)
-  geom_line(data = ce_yr, aes(x = yr, y = val, group = interaction(cohort, run), color = cohort), linewidth = 0.9) +
-  geom_point(data = ce_yr, aes(x = yr, y = val, color = cohort), size = 2.2) +
-  geom_text(data = ce_med_lab, aes(x = x, y = y, label = lab, color = cohort),
-            hjust = 0, vjust = 0.5, size = 3, fontface = "bold", show.legend = FALSE) +
-  # every EA/EIS project as one point: color = process (facet), shape = cohort (unchanged)
-  geom_point(data = ee, aes(x = yr, y = val, color = process_f, shape = cohort),
-             size = 2.9, stroke = 1.0, fill = "white") +
-  facet_wrap(~process_f, ncol = 1, scales = "free_y") +
-  scale_color_manual(values = c(PROCESS_COLORS, CE_COHORT_COLORS),
-                     breaks = c("BLM", "DOE/Other"), name = "CE cohort") +
-  scale_shape_manual(values = c("BLM" = 16, "DOE/Other" = 17), name = "Cohort (EA / EIS)") +
-  scale_x_continuous(breaks = seq(1996, 2024, 4), limits = c(1995, 2026)) +
-  scale_y_continuous(expand = expansion(mult = c(0.06, 0.18))) +
-  guides(shape = guide_legend(override.aes = list(size = 3, color = "gray30")),
-         color = guide_legend(override.aes = list(shape = 15, size = 4, linetype = 0))) +
-  coord_cartesian(clip = "off") +
-  labs(
-    title    = "Geothermal CE timelines split by cohort, EA/EIS by decision year",
-    subtitle = paste0("CE annual medians now run as two series — BLM western-resource (navy) vs DOE & other grant CEs (light blue), ",
-                      "years with n ≥ ", CE_MIN_N, ".\nThe ARRA grant surge (2010–12) is the DOE series. Every EA (",
-                      uni("complete_timeline_total", "n_ea"), ") and EIS (", uni("complete_timeline_total", "n_eis"),
-                      ") project is one point; shape marks the cohort. Free y-axis per panel."),
-    x = "Decision year", y = "Duration (months)",
-    caption = paste0("Linear y-axis per panel (CE runs in single months, EIS in tens). CE lines = per-cohort annual medians (n ≥ ",
-                     CE_MIN_N, "), broken across gap years;\neach EA/EIS marker is one project (circle = BLM, triangle = DOE & other). ",
-                     "Small samples; associational.")
-  )
-
-ggsave(file.path(FIGS, "fig_d4_geothermal_timeline.png"),
-       fig_c, width = 10, height = 7, dpi = 300)
-saveRDS(fig_c, file.path(FIGS, "fig_d4_geothermal_timeline.rds"))
-message("Wrote fig_d4_geothermal_timeline.png")

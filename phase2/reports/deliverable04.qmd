@@ -706,45 +706,19 @@ geo_doe_n  <- geo_doe$n_parsed[geo_doe$office == "ALL"]                     # 45
 geo_doe_top <- geo_doe |> dplyr::filter(office != "ALL") |> dplyr::slice_max(n_parsed, n = 1)
 ```
 
-::: callout-important
-## Two geothermal worlds, and why office-level comparison is off the table
+**The `Geothermal` tag spans two worlds that should never be pooled, and the by-office slice the deliverable asked for is too thin to compare.** Of `r fmt_n(gv("total_geothermal","n"))` geothermal projects only `r fmt_n(gv("blm_led","n"))` are BLM-led, only `r fmt_n(gv("office_matched","n"))` carry a parseable field-office code, and only `r fmt_n(geo_office_complete)` of those have a complete timeline — spread across `r fmt_n(gv("distinct_offices","n"))` offices whose busiest holds just `r fmt_n(gfv("max_office_complete"))` complete reviews, well below any floor for a duration comparison. The analysis is therefore a descriptive office inventory plus cohort-level state and timeline views, and it focuses on CE reviews (the substantive EA/EIS record is a handful of projects, below).
 
-The deliverable asked for geothermal review timelines **by BLM field office**. The honest answer is that the office-level slice is too thin to compare, and the reason is structural: of `r fmt_n(gv("total_geothermal","n"))` geothermal projects, only `r fmt_n(gv("blm_led","n"))` are BLM-led, only `r fmt_n(gv("office_matched","n"))` of those carry a parseable field-office code, and only `r fmt_n(geo_office_complete)` of *those* have a complete timeline — spread across `r fmt_n(gv("distinct_offices","n"))` offices, with the single busiest office holding just `r fmt_n(gfv("max_office_complete"))` complete reviews. No office clears any sensible floor for a duration comparison.
-
-The deeper finding is that the `Geothermal` tag spans **two different worlds that should never be pooled**. The BLM slice is western resource geothermal — leases, exploration, and power plants concentrated in NV, CA, and UT — with a median CE of `r round(blm_ce_d)` days. Everything else is dominated by the `r fmt_n(gv("lead_agency:Department of Energy","n"))` Department of Energy projects: grant-era geothermal (ARRA-funded heat-pump and research categorical exclusions) filed nationwide, including states with no geothermal resource base (CT, OK, PA, TX), with a median CE of just `r round(nonblm_ce_d)` days and a decision-count surge in 2010–2012. Pooling a resource-development review with a research-grant CE would be meaningless, so this section reports the office inventory descriptively and moves the duration analysis to the wider tiers where the two worlds can be seen side by side.
-
-Office-code recovery is a dead end: a regex sweep of every unmatched project's file names and case numbers finds an office-like code in only `r fmt_n(gfv("recovery_candidates"))` of the `r fmt_n(gv("unmatched_blm","n"))` unmatched BLM projects, so no recovery is attempted.
-:::
+The two worlds are BLM western-resource geothermal — leases, exploration, and power plants concentrated in NV, CA, and UT, median CE `r round(blm_ce_d)` days — versus the much larger body of `r fmt_n(gv("lead_agency:Department of Energy","n"))` Department of Energy projects: ARRA-era heat-pump and research categorical exclusions filed nationwide, including states with no geothermal resource base, median CE just `r round(nonblm_ce_d)` days with a 2010–2012 decision surge. Pooling a resource-development review with a research-grant CE would be meaningless, so every number here is read within a cohort, never across. (Office-code recovery is a dead end: only `r fmt_n(gfv("recovery_candidates"))` of the `r fmt_n(gv("unmatched_blm","n"))` unmatched BLM projects carry any office-like code.)
 
 ## The office inventory
 
-@fig-geo-offices sizes the problem in three panels. The left panel is the funnel — of the `r fmt_n(gv("total_geothermal","n"))` geothermal projects, `r fmt_n(gv("doe_other","n"))` are the DOE & other tier, `r fmt_n(gv("unmatched_blm","n"))` are BLM-led with no parseable office code, and only `r fmt_n(gv("office_matched","n"))` reach the field-office inventory. The middle panel is the literal by-office answer for those `r fmt_n(gv("office_matched","n"))`: every BLM field office is a short bar — the busiest, NV-C010, holds `r geo_oc$n_parsed[geo_oc$office_code=="NV-C010" & geo_oc$process_type=="ALL"]` projects — and most are categorical exclusions. The right panel is newly feasible: the DOE-tier projects carry no field-office code but do link to the CX register's office field, and `r fmt_n(geo_doe_n)` of the `r fmt_n(gv("doe_other","n"))` do so — dominated by the `r geo_doe_top$office` (`r fmt_n(geo_doe_top$n_parsed)` projects), then the National Energy Technology Laboratory and EERE headquarters. These are administering and grant-program offices, not BLM-style field offices, so the two panels are inventories of two different kinds of unit — reinforcing, not bridging, the two-worlds split.
+@fig-geo-offices sizes the problem in three stacked panels. The top panel is the funnel — of the `r fmt_n(gv("total_geothermal","n"))` geothermal projects, `r fmt_n(gv("doe_other","n"))` are the DOE & other tier, `r fmt_n(gv("unmatched_blm","n"))` are BLM-led with no parseable office code, and only `r fmt_n(gv("office_matched","n"))` reach the field-office inventory. The middle panel is the literal by-office answer for those `r fmt_n(gv("office_matched","n"))`: every BLM field office is a short bar — the busiest, NV-C010, holds `r geo_oc$n_parsed[geo_oc$office_code=="NV-C010" & geo_oc$process_type=="ALL"]` projects — and most are categorical exclusions. The bottom panel is newly feasible: the DOE-tier projects carry no field-office code but link to the CX register's office field, and `r fmt_n(geo_doe_n)` of the `r fmt_n(gv("doe_other","n"))` do so — dominated by the `r geo_doe_top$office` (`r fmt_n(geo_doe_top$n_parsed)` projects), then the National Energy Technology Laboratory and EERE headquarters. These are administering and grant-program offices, not BLM-style field offices — two inventories of two different kinds of unit.
 
 ```{r}
 #| label: fig-geo-offices
-#| fig-cap: "Three-panel inventory. Left: where the geothermal projects sit, as one stacked column split into the three tiers (DOE & other / BLM no office match / BLM office-matched). Middle: the office-matched projects by BLM field office, stacked by review process (house colors; CE lime, EA blue). Right: the DOE-tier projects by DOE CX-register office (light blue), Golden Field Office dominant. Counts are all timeline states — an inventory, not a duration comparison. DOE 'offices' are administering / grant-program offices, not BLM-style field offices."
+#| fig-cap: "Three stacked panels. Top: where the geothermal projects sit, as one horizontal stacked bar split into the three tiers (BLM office-matched / BLM no office match / DOE & other). Middle: the office-matched projects by BLM field office, stacked by review process (CE lime, EA blue). Bottom: the DOE-tier projects by DOE CX-register office (light blue), Golden Field Office dominant. Counts are all timeline states — an inventory, not a duration comparison."
 #| out-width: "100%"
 include_fig("fig_d4_geothermal_offices_by_process.png")
-```
-
-```{r}
-#| label: tbl-geo-offices
-#| tbl-cap: "Geothermal inventory for the BLM field offices with at least three projects, plus the two context-baseline rows. Projects = all timeline states; Complete timelines = both an initiation and a decision date in valid order; Document-anchored = complete timelines whose initiation date comes from a document rather than a register (the register-artifact-free subset); Median duration and Decision years are computed over the complete timelines. No office clears a sample sufficient for a duration comparison; the table is descriptive."
-geo_tbl <- geo_oc |>
-  dplyr::filter(process_type == "ALL",
-                (office_code %in% BASE_ROWS) | n_parsed >= 3) |>
-  dplyr::arrange(office_code %in% BASE_ROWS, dplyr::desc(n_parsed)) |>
-  dplyr::transmute(
-    Office = office_code,
-    Projects = n_parsed,
-    `Complete timelines` = n_complete,
-    `Document-anchored` = n_doc,
-    `Median duration (days)` = ifelse(is.na(median_days_all), "—",
-                                      as.character(round(median_days_all))),
-    `Decision years` = ifelse(is.na(dec_year_min), "—",
-                              paste0(as.integer(dec_year_min), "–", as.integer(dec_year_max)))
-  )
-navy_gt(geo_tbl, title = "Geothermal inventory: field offices with ≥ 3 projects, plus baselines")
 ```
 
 ## The two worlds on a map
@@ -758,27 +732,12 @@ navy_gt(geo_tbl, title = "Geothermal inventory: field offices with ≥ 3 project
 include_fig("fig_d4_geothermal_map.png")
 ```
 
-## Timelines by decision year
+## Analysis caveats
 
-@fig-geo-timeline places every review on a decision-year timeline, in one linear panel per review process. The CE panel now runs the annual median as **two cohort series** — BLM western-resource (navy, overall median `r round(blm_ce_d)` days) versus DOE & other grant CEs (light blue, overall median `r round(nonblm_ce_d)` days) — each with its own n ≥ 5/year filter. The split makes the ARRA story unambiguous: the grant-era surge is entirely the DOE series (concentrated 2010–2012), and the two cohorts never track each other. Because the substantive reviews are so few, every EA (`r fmt_n(gv("complete_timeline_total","n_ea"))`) and EIS (`r fmt_n(gv("complete_timeline_total","n_eis"))`) is drawn as its own point rather than aggregated — the longest is a BLM geothermal EIS at the top of the EIS panel. There is no office-level duration trend to read here; the value of the chart is showing how thin, how bimodal, and how cohort-specific the record is.
-
-```{r}
-#| label: fig-geo-timeline
-#| fig-cap: "Geothermal review duration by decision year, one linear panel per process with a free y-axis (CE runs in single months, EIS in tens). The CE panel shows per-cohort annual medians for years with n ≥ 5 — BLM (navy) vs DOE & other (light blue) — broken across gap years, with the ARRA (2009) marker and each cohort's overall median annotated; the EA and EIS panels show every project as one point, shape marking cohort (circle = BLM, triangle = DOE & other). Small samples; associational."
-#| out-width: "100%"
-include_fig("fig_d4_geothermal_timeline.png")
-```
-
-::: callout-warning
-## Caveats
-
--   **Two worlds, one tag.** "Geothermal" pools BLM western resource development with DOE grant-era heat-pump and research CEs; the pooled median (`r round(blm_ce_d)` days for BLM vs `r round(nonblm_ce_d)` days for everything else) is a composition artifact, not a process finding. Every number here should be read within a cohort, never across.
--   **Office-level is descriptive only.** With a busiest office of `r fmt_n(gfv("max_office_complete"))` complete reviews (`r fmt_n(gfv("max_office_doc"))` of them document-anchored) and no office clearing the ≥ `r fmt_n(gfv("office_floor"))`-review floor, the office inventory cannot support a duration comparison, a learning-curve test, or any office-vs-office ranking.
--   **~`r fmt_pct(1 - gv("office_matched","n")/gv("blm_led","n"))` of BLM geothermal projects are unparsed** (`r fmt_n(gv("unmatched_blm","n"))` of `r fmt_n(gv("blm_led","n"))`), with EIS the worst-covered process; office recovery is a dead end (`r fmt_n(gfv("recovery_candidates"))` of `r fmt_n(gv("unmatched_blm","n"))`).
--   **Register-anchoring artifact inherited.** Durations rest partly on register/proxy start dates; the document-anchored counts isolate the reviews free of that artifact, and they are even thinner.
--   **DOE register offices are not field offices.** The `r fmt_n(geo_doe_n)` DOE-tier projects with a named office link to administering / grant-program offices in the CX register (the `r geo_doe_top$office`, NETL, EERE-HQ), not to BLM-style field offices that process a site-specific review. The DOE-office panel is an inventory of a different kind of unit; it deepens the two-worlds split rather than enabling a BLM-vs-DOE office comparison.
--   **Small-n everywhere, associational.** The map's per-state medians and the individual EA/EIS points are small samples; nothing here isolates a causal effect of office, agency, or geography.
-:::
+-   **Two worlds, one tag.** "Geothermal" pools BLM western resource development with DOE grant-era heat-pump and research CEs; the split median (`r round(blm_ce_d)` days for BLM vs `r round(nonblm_ce_d)` days for everything else) is a composition artifact, not a process finding. Every number here should be read within a cohort, never across.
+-   **Office-level is descriptive only.** With a busiest office of `r fmt_n(gfv("max_office_complete"))` complete reviews (`r fmt_n(gfv("max_office_doc"))` of them document-anchored), no office clearing the ≥ `r fmt_n(gfv("office_floor"))`-review floor, and ~`r fmt_pct(1 - gv("office_matched","n")/gv("blm_led","n"))` of BLM geothermal projects unparsed (`r fmt_n(gv("unmatched_blm","n"))` of `r fmt_n(gv("blm_led","n"))`, office recovery a dead end), the inventory cannot support a duration comparison, a learning-curve test, or any office ranking.
+-   **Register artifact, and DOE offices are not field offices.** Durations rest partly on register/proxy start dates (the document-anchored counts isolate the artifact-free reviews, and they are even thinner); separately, the `r fmt_n(geo_doe_n)` DOE-tier projects with a named office link to administering / grant-program offices in the CX register (the `r geo_doe_top$office`, NETL, EERE-HQ), not to BLM-style field offices — the DOE-office panel is an inventory of a different kind of unit, not a BLM-vs-DOE office comparison.
+-   **Small-n everywhere, associational.** The map's per-state medians rest on small samples, and only `r fmt_n(gv("complete_timeline_total","n_ea") + gv("complete_timeline_total","n_eis"))` complete geothermal EA/EIS timelines exist corpus-wide (their individual durations remain in `d4_geothermal_timeline_points.csv`); nothing here isolates a causal effect of office, agency, or geography.
 
 ------------------------------------------------------------------------
 
