@@ -4601,6 +4601,7 @@ vertical-align: -.125em;
   <li><a href="#duration-analysis" id="toc-duration-analysis" class="nav-link" data-scroll-target="#duration-analysis">Duration analysis</a></li>
   <li><a href="#projects-by-decision-year" id="toc-projects-by-decision-year" class="nav-link" data-scroll-target="#projects-by-decision-year">Projects by decision year</a></li>
   <li><a href="#sec-outliers" id="toc-sec-outliers" class="nav-link" data-scroll-target="#sec-outliers">Timeline outliers: case-study candidates</a></li>
+  <li><a href="#analysis-caveats" id="toc-analysis-caveats" class="nav-link" data-scroll-target="#analysis-caveats">Analysis caveats</a></li>
   </ul></li>
   <li><a href="#sec-pages" id="toc-sec-pages" class="nav-link" data-scroll-target="#sec-pages">Document length &amp; FRA page limits</a>
   <ul class="collapse">
@@ -4609,16 +4610,19 @@ vertical-align: -.125em;
   <li><a href="#descriptive-statistics" id="toc-descriptive-statistics" class="nav-link" data-scroll-target="#descriptive-statistics">Descriptive statistics</a></li>
   <li><a href="#fra-page-limit-compliance" id="toc-fra-page-limit-compliance" class="nav-link" data-scroll-target="#fra-page-limit-compliance">FRA page-limit compliance</a></li>
   </ul></li>
-  <li><a href="#sec-ceq-regime" id="toc-sec-ceq-regime" class="nav-link" data-scroll-target="#sec-ceq-regime">Review timelines by CEQ regulatory regime</a></li>
+  <li><a href="#sec-ceq-regime" id="toc-sec-ceq-regime" class="nav-link" data-scroll-target="#sec-ceq-regime">Review timelines by CEQ regulatory regime</a>
+  <ul class="collapse">
+  <li><a href="#analysis-caveats-1" id="toc-analysis-caveats-1" class="nav-link" data-scroll-target="#analysis-caveats-1">Analysis caveats</a></li>
+  </ul></li>
   <li><a href="#sec-field-office" id="toc-sec-field-office" class="nav-link" data-scroll-target="#sec-field-office">Field-office experience: BLM and DOE</a>
   <ul class="collapse">
-  <li><a href="#analysis-caveats" id="toc-analysis-caveats" class="nav-link" data-scroll-target="#analysis-caveats">Analysis caveats</a></li>
+  <li><a href="#analysis-caveats-2" id="toc-analysis-caveats-2" class="nav-link" data-scroll-target="#analysis-caveats-2">Analysis caveats</a></li>
   </ul></li>
   <li><a href="#sec-geothermal" id="toc-sec-geothermal" class="nav-link" data-scroll-target="#sec-geothermal">Geothermal review timelines by BLM field office</a>
   <ul class="collapse">
   <li><a href="#the-office-inventory" id="toc-the-office-inventory" class="nav-link" data-scroll-target="#the-office-inventory">The office inventory</a></li>
   <li><a href="#the-two-worlds-on-a-map" id="toc-the-two-worlds-on-a-map" class="nav-link" data-scroll-target="#the-two-worlds-on-a-map">The two worlds on a map</a></li>
-  <li><a href="#analysis-caveats-1" id="toc-analysis-caveats-1" class="nav-link" data-scroll-target="#analysis-caveats-1">Analysis caveats</a></li>
+  <li><a href="#analysis-caveats-3" id="toc-analysis-caveats-3" class="nav-link" data-scroll-target="#analysis-caveats-3">Analysis caveats</a></li>
   </ul></li>
   <li><a href="#reproduction" id="toc-reproduction" class="nav-link" data-scroll-target="#reproduction">Reproduction</a></li>
   </ul>
@@ -4915,32 +4919,23 @@ Key findings
 <h2 class="anchored" data-anchor-id="sec-outliers">Timeline outliers: case-study candidates</h2>
 <p>Per the deliverable request, timeline outliers are surfaced for CATF staff to investigate via case studies (including whether NEPA itself was a cause of delay). Outliers are init→decision spans <strong>longer than 5,000 days (~13.7 years)</strong>, produced reproducibly by <code>code/deliverable04/10_outliers.R</code>.</p>
 <p><strong>The critical distinction is real vs. extraction error.</strong> A multi-year span can be a genuinely protracted review <em>or</em> an artifact where the “initiation” was anchored to a historical citation (a facility’s construction date, a reserve’s founding, a prior plan, a regulatory-compliance milestone) rather than the NEPA start. The two are separable only by reading the evidence text, which the outlier table preserves.</p>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-How to read these (process matters)
-</div>
-</div>
-<div class="callout-body-container callout-body">
+</section>
+<section id="analysis-caveats" class="level2">
+<h2 class="anchored" data-anchor-id="analysis-caveats">Analysis caveats</h2>
 <ul>
 <li><strong>EIS outliers are mostly real.</strong> EIS median duration is already ~3 years; a 14–17-year EIS sits in the legitimate tail (transmission, restoration, resource-management plans genuinely run that long).</li>
 <li><strong>CE outliers are mostly errors</strong> — CEs are fast determinations (median 20 days), so a multi-year CE almost always reflects a mis-extracted initiation. CE outliers are therefore excluded from the client list.</li>
 <li><strong>Initiation dates before ~1990 are a strong error signal.</strong> Of the four EIS outliers with 1980s-or-earlier initiations, three are confirmed errors (the “initiation” is a park founding, a prior lock’s construction-completion date, or a RCRA compliance milestone).</li>
 </ul>
-</div>
-</div>
 <p>The decarb EA/EIS candidates below are the highest-value case studies. <strong>SunZia</strong> (ROW application Sep 2008 → Record of Decision Apr 2023) is the textbook long-permitting saga; Energia Sierra Juarez, Grain Belt Express, and Cushman Hydroelectric are similar. <em>Confirmed errors are excluded</em> — e.g. the Palisades Nuclear Restart “19-year” span glues a 2005 license-renewal application to a 2024 restart Record of Decision (two different NEPA actions).</p>
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="ifdiyxonsy" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="gidckszjnw" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#ifdiyxonsy .gt_table {
+#gidckszjnw .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -4964,7 +4959,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_heading {
+#gidckszjnw .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -4975,11 +4970,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_caption {
+#gidckszjnw .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#ifdiyxonsy .gt_title {
+#gidckszjnw .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -4990,7 +4985,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#ifdiyxonsy .gt_subtitle {
+#gidckszjnw .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5001,12 +4996,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#ifdiyxonsy .gt_bottom_border {
+#gidckszjnw .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_col_headings {
+#gidckszjnw .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5020,7 +5015,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_col_heading {
+#gidckszjnw .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5039,7 +5034,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#ifdiyxonsy .gt_column_spanner_outer {
+#gidckszjnw .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5050,13 +5045,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#ifdiyxonsy .gt_column_spanner_outer:first-child {
+#gidckszjnw .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#ifdiyxonsy .gt_column_spanner_outer:last-child {
+#gidckszjnw .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#ifdiyxonsy .gt_column_spanner {
+#gidckszjnw .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5067,7 +5062,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#ifdiyxonsy .gt_group_heading {
+#gidckszjnw .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5092,7 +5087,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#ifdiyxonsy .gt_empty_group_heading {
+#gidckszjnw .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5106,13 +5101,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#ifdiyxonsy .gt_from_md > :first-child {
+#gidckszjnw .gt_from_md > :first-child {
 margin-top: 0;
 }
-#ifdiyxonsy .gt_from_md > :last-child {
+#gidckszjnw .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#ifdiyxonsy .gt_row {
+#gidckszjnw .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5130,7 +5125,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#ifdiyxonsy .gt_stub {
+#gidckszjnw .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5142,7 +5137,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ifdiyxonsy .gt_stub_row_group {
+#gidckszjnw .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5155,10 +5150,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#ifdiyxonsy .gt_row_group_first td {
+#gidckszjnw .gt_row_group_first td {
 border-top-width: 2px;
 }
-#ifdiyxonsy .gt_summary_row {
+#gidckszjnw .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5167,14 +5162,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ifdiyxonsy .gt_first_summary_row {
+#gidckszjnw .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_first_summary_row.thick {
+#gidckszjnw .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#ifdiyxonsy .gt_last_summary_row {
+#gidckszjnw .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5183,7 +5178,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_grand_summary_row {
+#gidckszjnw .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5192,7 +5187,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ifdiyxonsy .gt_first_grand_summary_row {
+#gidckszjnw .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5201,10 +5196,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_striped {
+#gidckszjnw .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#ifdiyxonsy .gt_table_body {
+#gidckszjnw .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5212,7 +5207,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_footnotes {
+#gidckszjnw .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5225,7 +5220,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_footnote {
+#gidckszjnw .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -5233,7 +5228,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ifdiyxonsy .gt_sourcenotes {
+#gidckszjnw .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5246,58 +5241,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#ifdiyxonsy .gt_sourcenote {
+#gidckszjnw .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#ifdiyxonsy .gt_left {
+#gidckszjnw .gt_left {
 text-align: left;
 }
-#ifdiyxonsy .gt_center {
+#gidckszjnw .gt_center {
 text-align: center;
 }
-#ifdiyxonsy .gt_right {
+#gidckszjnw .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#ifdiyxonsy .gt_font_normal {
+#gidckszjnw .gt_font_normal {
 font-weight: normal;
 }
-#ifdiyxonsy .gt_font_bold {
+#gidckszjnw .gt_font_bold {
 font-weight: bold;
 }
-#ifdiyxonsy .gt_font_italic {
+#gidckszjnw .gt_font_italic {
 font-style: italic;
 }
-#ifdiyxonsy .gt_super {
+#gidckszjnw .gt_super {
 font-size: 65%;
 }
-#ifdiyxonsy .gt_footnote_marks {
+#gidckszjnw .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#ifdiyxonsy .gt_asterisk {
+#gidckszjnw .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#ifdiyxonsy .gt_indent_1 {
+#gidckszjnw .gt_indent_1 {
 text-indent: 5px;
 }
-#ifdiyxonsy .gt_indent_2 {
+#gidckszjnw .gt_indent_2 {
 text-indent: 10px;
 }
-#ifdiyxonsy .gt_indent_3 {
+#gidckszjnw .gt_indent_3 {
 text-indent: 15px;
 }
-#ifdiyxonsy .gt_indent_4 {
+#gidckszjnw .gt_indent_4 {
 text-indent: 20px;
 }
-#ifdiyxonsy .gt_indent_5 {
+#gidckszjnw .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -5431,7 +5426,7 @@ text-indent: 25px;
 <tr class="even">
 <td class="gt_row gt_left" headers="Project">Placer County Conservation Program</td>
 <td class="gt_row gt_left" headers="Process">EIS</td>
-<td class="gt_row gt_left" headers="Energy">Clean</td>
+<td class="gt_row gt_left" headers="Energy">Decarb</td>
 <td class="gt_row gt_left" headers="Lead agency">United States Fish and Wildlife Service</td>
 <td class="gt_row gt_left" headers="Years">15.2</td>
 <td class="gt_row gt_left" headers="Initiation">2005-03-15</td>
@@ -5481,7 +5476,7 @@ text-indent: 25px;
 <tr class="odd">
 <td class="gt_row gt_left" headers="Project">Energia Sierra Juarez U.S. Transmission Line Project</td>
 <td class="gt_row gt_left" headers="Process">EIS</td>
-<td class="gt_row gt_left" headers="Energy">Clean</td>
+<td class="gt_row gt_left" headers="Energy">Decarb</td>
 <td class="gt_row gt_left" headers="Lead agency">Department of Energy</td>
 <td class="gt_row gt_left" headers="Years">14.6</td>
 <td class="gt_row gt_left" headers="Initiation">2009-02-25</td>
@@ -5491,7 +5486,7 @@ text-indent: 25px;
 <tr class="even">
 <td class="gt_row gt_left" headers="Project">SunZia Southwest Transmission Project</td>
 <td class="gt_row gt_left" headers="Process">EIS</td>
-<td class="gt_row gt_left" headers="Energy">Clean</td>
+<td class="gt_row gt_left" headers="Energy">Decarb</td>
 <td class="gt_row gt_left" headers="Lead agency">Bureau of Land Management</td>
 <td class="gt_row gt_left" headers="Years">14.6</td>
 <td class="gt_row gt_left" headers="Initiation">2008-09-15</td>
@@ -5616,11 +5611,11 @@ Method &amp; scope
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="lvzptbujgp" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="qkeslsxtfy" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#lvzptbujgp .gt_table {
+#qkeslsxtfy .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -5644,7 +5639,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#lvzptbujgp .gt_heading {
+#qkeslsxtfy .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -5655,11 +5650,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#lvzptbujgp .gt_caption {
+#qkeslsxtfy .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#lvzptbujgp .gt_title {
+#qkeslsxtfy .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -5670,7 +5665,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#lvzptbujgp .gt_subtitle {
+#qkeslsxtfy .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -5681,12 +5676,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#lvzptbujgp .gt_bottom_border {
+#qkeslsxtfy .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lvzptbujgp .gt_col_headings {
+#qkeslsxtfy .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5700,7 +5695,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#lvzptbujgp .gt_col_heading {
+#qkeslsxtfy .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5719,7 +5714,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#lvzptbujgp .gt_column_spanner_outer {
+#qkeslsxtfy .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5730,13 +5725,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#lvzptbujgp .gt_column_spanner_outer:first-child {
+#qkeslsxtfy .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#lvzptbujgp .gt_column_spanner_outer:last-child {
+#qkeslsxtfy .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#lvzptbujgp .gt_column_spanner {
+#qkeslsxtfy .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -5747,7 +5742,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#lvzptbujgp .gt_group_heading {
+#qkeslsxtfy .gt_group_heading {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -5772,7 +5767,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#lvzptbujgp .gt_empty_group_heading {
+#qkeslsxtfy .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -5786,13 +5781,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#lvzptbujgp .gt_from_md > :first-child {
+#qkeslsxtfy .gt_from_md > :first-child {
 margin-top: 0;
 }
-#lvzptbujgp .gt_from_md > :last-child {
+#qkeslsxtfy .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#lvzptbujgp .gt_row {
+#qkeslsxtfy .gt_row {
 padding-top: 6px;
 padding-bottom: 6px;
 padding-left: 5px;
@@ -5810,7 +5805,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#lvzptbujgp .gt_stub {
+#qkeslsxtfy .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5822,7 +5817,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lvzptbujgp .gt_stub_row_group {
+#qkeslsxtfy .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -5835,10 +5830,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#lvzptbujgp .gt_row_group_first td {
+#qkeslsxtfy .gt_row_group_first td {
 border-top-width: 2px;
 }
-#lvzptbujgp .gt_summary_row {
+#qkeslsxtfy .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5847,14 +5842,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lvzptbujgp .gt_first_summary_row {
+#qkeslsxtfy .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#lvzptbujgp .gt_first_summary_row.thick {
+#qkeslsxtfy .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#lvzptbujgp .gt_last_summary_row {
+#qkeslsxtfy .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5863,7 +5858,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lvzptbujgp .gt_grand_summary_row {
+#qkeslsxtfy .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -5872,7 +5867,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lvzptbujgp .gt_first_grand_summary_row {
+#qkeslsxtfy .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -5881,10 +5876,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#lvzptbujgp .gt_striped {
+#qkeslsxtfy .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#lvzptbujgp .gt_table_body {
+#qkeslsxtfy .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -5892,7 +5887,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lvzptbujgp .gt_footnotes {
+#qkeslsxtfy .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5905,7 +5900,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#lvzptbujgp .gt_footnote {
+#qkeslsxtfy .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -5913,7 +5908,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lvzptbujgp .gt_sourcenotes {
+#qkeslsxtfy .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -5926,58 +5921,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#lvzptbujgp .gt_sourcenote {
+#qkeslsxtfy .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lvzptbujgp .gt_left {
+#qkeslsxtfy .gt_left {
 text-align: left;
 }
-#lvzptbujgp .gt_center {
+#qkeslsxtfy .gt_center {
 text-align: center;
 }
-#lvzptbujgp .gt_right {
+#qkeslsxtfy .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#lvzptbujgp .gt_font_normal {
+#qkeslsxtfy .gt_font_normal {
 font-weight: normal;
 }
-#lvzptbujgp .gt_font_bold {
+#qkeslsxtfy .gt_font_bold {
 font-weight: bold;
 }
-#lvzptbujgp .gt_font_italic {
+#qkeslsxtfy .gt_font_italic {
 font-style: italic;
 }
-#lvzptbujgp .gt_super {
+#qkeslsxtfy .gt_super {
 font-size: 65%;
 }
-#lvzptbujgp .gt_footnote_marks {
+#qkeslsxtfy .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#lvzptbujgp .gt_asterisk {
+#qkeslsxtfy .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#lvzptbujgp .gt_indent_1 {
+#qkeslsxtfy .gt_indent_1 {
 text-indent: 5px;
 }
-#lvzptbujgp .gt_indent_2 {
+#qkeslsxtfy .gt_indent_2 {
 text-indent: 10px;
 }
-#lvzptbujgp .gt_indent_3 {
+#qkeslsxtfy .gt_indent_3 {
 text-indent: 15px;
 }
-#lvzptbujgp .gt_indent_4 {
+#qkeslsxtfy .gt_indent_4 {
 text-indent: 20px;
 }
-#lvzptbujgp .gt_indent_5 {
+#qkeslsxtfy .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6082,11 +6077,11 @@ text-indent: 25px;
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="zjjhanwaws" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="qdwxsfngsu" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#zjjhanwaws .gt_table {
+#qdwxsfngsu .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -6110,7 +6105,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#zjjhanwaws .gt_heading {
+#qdwxsfngsu .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -6121,11 +6116,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#zjjhanwaws .gt_caption {
+#qdwxsfngsu .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#zjjhanwaws .gt_title {
+#qdwxsfngsu .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -6136,7 +6131,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#zjjhanwaws .gt_subtitle {
+#qdwxsfngsu .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -6147,12 +6142,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#zjjhanwaws .gt_bottom_border {
+#qdwxsfngsu .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#zjjhanwaws .gt_col_headings {
+#qdwxsfngsu .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6166,7 +6161,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#zjjhanwaws .gt_col_heading {
+#qdwxsfngsu .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6185,7 +6180,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#zjjhanwaws .gt_column_spanner_outer {
+#qdwxsfngsu .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6196,13 +6191,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#zjjhanwaws .gt_column_spanner_outer:first-child {
+#qdwxsfngsu .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#zjjhanwaws .gt_column_spanner_outer:last-child {
+#qdwxsfngsu .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#zjjhanwaws .gt_column_spanner {
+#qdwxsfngsu .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -6213,7 +6208,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#zjjhanwaws .gt_group_heading {
+#qdwxsfngsu .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6238,7 +6233,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#zjjhanwaws .gt_empty_group_heading {
+#qdwxsfngsu .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -6252,13 +6247,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#zjjhanwaws .gt_from_md > :first-child {
+#qdwxsfngsu .gt_from_md > :first-child {
 margin-top: 0;
 }
-#zjjhanwaws .gt_from_md > :last-child {
+#qdwxsfngsu .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#zjjhanwaws .gt_row {
+#qdwxsfngsu .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6276,7 +6271,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#zjjhanwaws .gt_stub {
+#qdwxsfngsu .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6288,7 +6283,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zjjhanwaws .gt_stub_row_group {
+#qdwxsfngsu .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6301,10 +6296,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#zjjhanwaws .gt_row_group_first td {
+#qdwxsfngsu .gt_row_group_first td {
 border-top-width: 2px;
 }
-#zjjhanwaws .gt_summary_row {
+#qdwxsfngsu .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6313,14 +6308,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zjjhanwaws .gt_first_summary_row {
+#qdwxsfngsu .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#zjjhanwaws .gt_first_summary_row.thick {
+#qdwxsfngsu .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#zjjhanwaws .gt_last_summary_row {
+#qdwxsfngsu .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6329,7 +6324,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#zjjhanwaws .gt_grand_summary_row {
+#qdwxsfngsu .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6338,7 +6333,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zjjhanwaws .gt_first_grand_summary_row {
+#qdwxsfngsu .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6347,10 +6342,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#zjjhanwaws .gt_striped {
+#qdwxsfngsu .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#zjjhanwaws .gt_table_body {
+#qdwxsfngsu .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6358,7 +6353,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#zjjhanwaws .gt_footnotes {
+#qdwxsfngsu .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6371,7 +6366,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#zjjhanwaws .gt_footnote {
+#qdwxsfngsu .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -6379,7 +6374,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zjjhanwaws .gt_sourcenotes {
+#qdwxsfngsu .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6392,58 +6387,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#zjjhanwaws .gt_sourcenote {
+#qdwxsfngsu .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#zjjhanwaws .gt_left {
+#qdwxsfngsu .gt_left {
 text-align: left;
 }
-#zjjhanwaws .gt_center {
+#qdwxsfngsu .gt_center {
 text-align: center;
 }
-#zjjhanwaws .gt_right {
+#qdwxsfngsu .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#zjjhanwaws .gt_font_normal {
+#qdwxsfngsu .gt_font_normal {
 font-weight: normal;
 }
-#zjjhanwaws .gt_font_bold {
+#qdwxsfngsu .gt_font_bold {
 font-weight: bold;
 }
-#zjjhanwaws .gt_font_italic {
+#qdwxsfngsu .gt_font_italic {
 font-style: italic;
 }
-#zjjhanwaws .gt_super {
+#qdwxsfngsu .gt_super {
 font-size: 65%;
 }
-#zjjhanwaws .gt_footnote_marks {
+#qdwxsfngsu .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#zjjhanwaws .gt_asterisk {
+#qdwxsfngsu .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#zjjhanwaws .gt_indent_1 {
+#qdwxsfngsu .gt_indent_1 {
 text-indent: 5px;
 }
-#zjjhanwaws .gt_indent_2 {
+#qdwxsfngsu .gt_indent_2 {
 text-indent: 10px;
 }
-#zjjhanwaws .gt_indent_3 {
+#qdwxsfngsu .gt_indent_3 {
 text-indent: 15px;
 }
-#zjjhanwaws .gt_indent_4 {
+#qdwxsfngsu .gt_indent_4 {
 text-indent: 20px;
 }
-#zjjhanwaws .gt_indent_5 {
+#qdwxsfngsu .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6529,16 +6524,8 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<div class="callout callout-style-default callout-warning callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-Reading these regime comparisons
-</div>
-</div>
-<div class="callout-body-container callout-body">
+<section id="analysis-caveats-1" class="level2">
+<h2 class="anchored" data-anchor-id="analysis-caveats-1">Analysis caveats</h2>
 <ul>
 <li><strong>Decided-under, not governed-by.</strong> A multi-year EIS decided in 2022 was scoped and largely conducted under <em>earlier</em> rules; the decision-date assignment is a labeling convenience, not a claim about which regulations shaped the review.</li>
 <li><strong>The post-2024 samples are thin and confounded.</strong> Only 46 CE, 55 EA, and 50 EIS reviews fall in the <code>2024+</code> bucket, and they are entangled with the same coverage ramp that limits the post-FRA split — recently-decided reviews are over-represented by whichever timelines happen to be complete.</li>
@@ -6546,9 +6533,8 @@ Reading these regime comparisons
 <li><strong>For a before/after-rule read, use <a href="#fig-ceq-trend">Figure 24</a>, not <a href="#fig-ceq-regime">Figure 23</a>.</strong> The pooled 1978 regime bar spans four decades of secular decline; the year-by-year trend is the only view that can separate a rule date from the underlying drift.</li>
 <li><strong>Associational, not causal.</strong> Nothing here isolates a regulatory effect from composition, agency mix, or calendar time.</li>
 </ul>
-</div>
-</div>
 <hr>
+</section>
 </section>
 <section id="sec-field-office" class="level1">
 <h1>Field-office experience: BLM and DOE</h1>
@@ -6582,11 +6568,11 @@ Reading these regime comparisons
 <div class="cell">
 <div class="cell-output-display">
 
-<div id="lqjkacmvqr" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
+<div id="iozgwzvupf" style="padding-left:0px;padding-right:0px;padding-top:10px;padding-bottom:10px;overflow-x:auto;overflow-y:auto;width:auto;height:auto;">
 <style>html {
 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif;
 }
-#lqjkacmvqr .gt_table {
+#iozgwzvupf .gt_table {
 display: table;
 border-collapse: collapse;
 margin-left: auto;
@@ -6610,7 +6596,7 @@ border-left-style: none;
 border-left-width: 2px;
 border-left-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_heading {
+#iozgwzvupf .gt_heading {
 background-color: #FFFFFF;
 text-align: center;
 border-bottom-color: #FFFFFF;
@@ -6621,11 +6607,11 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_caption {
+#iozgwzvupf .gt_caption {
 padding-top: 4px;
 padding-bottom: 4px;
 }
-#lqjkacmvqr .gt_title {
+#iozgwzvupf .gt_title {
 color: #333333;
 font-size: 125%;
 font-weight: initial;
@@ -6636,7 +6622,7 @@ padding-right: 5px;
 border-bottom-color: #FFFFFF;
 border-bottom-width: 0;
 }
-#lqjkacmvqr .gt_subtitle {
+#iozgwzvupf .gt_subtitle {
 color: #333333;
 font-size: 85%;
 font-weight: initial;
@@ -6647,12 +6633,12 @@ padding-right: 5px;
 border-top-color: #FFFFFF;
 border-top-width: 0;
 }
-#lqjkacmvqr .gt_bottom_border {
+#iozgwzvupf .gt_bottom_border {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_col_headings {
+#iozgwzvupf .gt_col_headings {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6666,7 +6652,7 @@ border-right-style: none;
 border-right-width: 1px;
 border-right-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_col_heading {
+#iozgwzvupf .gt_col_heading {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6685,7 +6671,7 @@ padding-left: 5px;
 padding-right: 5px;
 overflow-x: hidden;
 }
-#lqjkacmvqr .gt_column_spanner_outer {
+#iozgwzvupf .gt_column_spanner_outer {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6696,13 +6682,13 @@ padding-bottom: 0;
 padding-left: 4px;
 padding-right: 4px;
 }
-#lqjkacmvqr .gt_column_spanner_outer:first-child {
+#iozgwzvupf .gt_column_spanner_outer:first-child {
 padding-left: 0;
 }
-#lqjkacmvqr .gt_column_spanner_outer:last-child {
+#iozgwzvupf .gt_column_spanner_outer:last-child {
 padding-right: 0;
 }
-#lqjkacmvqr .gt_column_spanner {
+#iozgwzvupf .gt_column_spanner {
 border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
@@ -6713,7 +6699,7 @@ overflow-x: hidden;
 display: inline-block;
 width: 100%;
 }
-#lqjkacmvqr .gt_group_heading {
+#iozgwzvupf .gt_group_heading {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6738,7 +6724,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 text-align: left;
 }
-#lqjkacmvqr .gt_empty_group_heading {
+#iozgwzvupf .gt_empty_group_heading {
 padding: 0.5px;
 color: #333333;
 background-color: #FFFFFF;
@@ -6752,13 +6738,13 @@ border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 vertical-align: middle;
 }
-#lqjkacmvqr .gt_from_md > :first-child {
+#iozgwzvupf .gt_from_md > :first-child {
 margin-top: 0;
 }
-#lqjkacmvqr .gt_from_md > :last-child {
+#iozgwzvupf .gt_from_md > :last-child {
 margin-bottom: 0;
 }
-#lqjkacmvqr .gt_row {
+#iozgwzvupf .gt_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6776,7 +6762,7 @@ border-right-color: #D3D3D3;
 vertical-align: middle;
 overflow-x: hidden;
 }
-#lqjkacmvqr .gt_stub {
+#iozgwzvupf .gt_stub {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6788,7 +6774,7 @@ border-right-color: #D3D3D3;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lqjkacmvqr .gt_stub_row_group {
+#iozgwzvupf .gt_stub_row_group {
 color: #333333;
 background-color: #FFFFFF;
 font-size: 100%;
@@ -6801,10 +6787,10 @@ padding-left: 5px;
 padding-right: 5px;
 vertical-align: top;
 }
-#lqjkacmvqr .gt_row_group_first td {
+#iozgwzvupf .gt_row_group_first td {
 border-top-width: 2px;
 }
-#lqjkacmvqr .gt_summary_row {
+#iozgwzvupf .gt_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6813,14 +6799,14 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lqjkacmvqr .gt_first_summary_row {
+#iozgwzvupf .gt_first_summary_row {
 border-top-style: solid;
 border-top-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_first_summary_row.thick {
+#iozgwzvupf .gt_first_summary_row.thick {
 border-top-width: 2px;
 }
-#lqjkacmvqr .gt_last_summary_row {
+#iozgwzvupf .gt_last_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6829,7 +6815,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_grand_summary_row {
+#iozgwzvupf .gt_grand_summary_row {
 color: #333333;
 background-color: #FFFFFF;
 text-transform: inherit;
@@ -6838,7 +6824,7 @@ padding-bottom: 8px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lqjkacmvqr .gt_first_grand_summary_row {
+#iozgwzvupf .gt_first_grand_summary_row {
 padding-top: 8px;
 padding-bottom: 8px;
 padding-left: 5px;
@@ -6847,10 +6833,10 @@ border-top-style: double;
 border-top-width: 6px;
 border-top-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_striped {
+#iozgwzvupf .gt_striped {
 background-color: rgba(128, 128, 128, 0.05);
 }
-#lqjkacmvqr .gt_table_body {
+#iozgwzvupf .gt_table_body {
 border-top-style: solid;
 border-top-width: 2px;
 border-top-color: #D3D3D3;
@@ -6858,7 +6844,7 @@ border-bottom-style: solid;
 border-bottom-width: 2px;
 border-bottom-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_footnotes {
+#iozgwzvupf .gt_footnotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6871,7 +6857,7 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_footnote {
+#iozgwzvupf .gt_footnote {
 margin: 0px;
 font-size: 90%;
 padding-left: 4px;
@@ -6879,7 +6865,7 @@ padding-right: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lqjkacmvqr .gt_sourcenotes {
+#iozgwzvupf .gt_sourcenotes {
 color: #333333;
 background-color: #FFFFFF;
 border-bottom-style: none;
@@ -6892,58 +6878,58 @@ border-right-style: none;
 border-right-width: 2px;
 border-right-color: #D3D3D3;
 }
-#lqjkacmvqr .gt_sourcenote {
+#iozgwzvupf .gt_sourcenote {
 font-size: 90%;
 padding-top: 4px;
 padding-bottom: 4px;
 padding-left: 5px;
 padding-right: 5px;
 }
-#lqjkacmvqr .gt_left {
+#iozgwzvupf .gt_left {
 text-align: left;
 }
-#lqjkacmvqr .gt_center {
+#iozgwzvupf .gt_center {
 text-align: center;
 }
-#lqjkacmvqr .gt_right {
+#iozgwzvupf .gt_right {
 text-align: right;
 font-variant-numeric: tabular-nums;
 }
-#lqjkacmvqr .gt_font_normal {
+#iozgwzvupf .gt_font_normal {
 font-weight: normal;
 }
-#lqjkacmvqr .gt_font_bold {
+#iozgwzvupf .gt_font_bold {
 font-weight: bold;
 }
-#lqjkacmvqr .gt_font_italic {
+#iozgwzvupf .gt_font_italic {
 font-style: italic;
 }
-#lqjkacmvqr .gt_super {
+#iozgwzvupf .gt_super {
 font-size: 65%;
 }
-#lqjkacmvqr .gt_footnote_marks {
+#iozgwzvupf .gt_footnote_marks {
 font-style: italic;
 font-weight: normal;
 font-size: 75%;
 vertical-align: 0.4em;
 }
-#lqjkacmvqr .gt_asterisk {
+#iozgwzvupf .gt_asterisk {
 font-size: 100%;
 vertical-align: 0;
 }
-#lqjkacmvqr .gt_indent_1 {
+#iozgwzvupf .gt_indent_1 {
 text-indent: 5px;
 }
-#lqjkacmvqr .gt_indent_2 {
+#iozgwzvupf .gt_indent_2 {
 text-indent: 10px;
 }
-#lqjkacmvqr .gt_indent_3 {
+#iozgwzvupf .gt_indent_3 {
 text-indent: 15px;
 }
-#lqjkacmvqr .gt_indent_4 {
+#iozgwzvupf .gt_indent_4 {
 text-indent: 20px;
 }
-#lqjkacmvqr .gt_indent_5 {
+#iozgwzvupf .gt_indent_5 {
 text-indent: 25px;
 }
 </style>
@@ -6984,8 +6970,8 @@ text-indent: 25px;
 </div>
 </div>
 </div>
-<section id="analysis-caveats" class="level2">
-<h2 class="anchored" data-anchor-id="analysis-caveats">Analysis caveats</h2>
+<section id="analysis-caveats-2" class="level2">
+<h2 class="anchored" data-anchor-id="analysis-caveats-2">Analysis caveats</h2>
 <ul>
 <li><strong>Register-anchoring artifact.</strong> Durations rest partly on register/proxy start dates that are late administrative entries; the analysis uses document-anchored initiation dates to limit this, and reports the register-anchored fits only as a flagged sensitivity view.</li>
 <li><strong>Retained pre-2012 artifact rows.</strong> A few early BLM rows are known extraction artifacts — a 9-row batched cluster (office AZ-A010) all sharing one initiation → decision span, and historical-citation “initiations” (e.g. a 7,227-day span anchored to a 1985 citation). Under the symmetric no-filter design both arms keep their full windows, so these rows are retained rather than one-sidedly dropped; they inflate the raw (uncontrolled) BLM estimate only and do not affect the year-controlled result (they show up as the tall early point of the quieter half in <a href="#fig-fo-convergence">Figure 26</a>).</li>
@@ -7028,8 +7014,8 @@ text-indent: 25px;
 </div>
 </div>
 </section>
-<section id="analysis-caveats-1" class="level2">
-<h2 class="anchored" data-anchor-id="analysis-caveats-1">Analysis caveats</h2>
+<section id="analysis-caveats-3" class="level2">
+<h2 class="anchored" data-anchor-id="analysis-caveats-3">Analysis caveats</h2>
 <ul>
 <li><strong>Two worlds, one tag.</strong> “Geothermal” pools BLM western resource development with DOE grant-era heat-pump and research CEs; the split median (34 days for BLM vs 8 days for everything else) is a composition artifact, not a process finding. Every number here should be read within a cohort, never across.</li>
 <li><strong>Office-level is descriptive only.</strong> With a busiest office of 9 complete reviews (2 of them document-anchored), no office clearing the ≥ 10-review floor, and ~44.0% of BLM geothermal projects unparsed (48 of 109, office recovery a dead end), the inventory cannot support a duration comparison, a learning-curve test, or any office ranking.</li>
