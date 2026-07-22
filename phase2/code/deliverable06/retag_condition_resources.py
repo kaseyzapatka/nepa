@@ -45,7 +45,10 @@ from common import D6_ANALYSIS_DIR, D6_RAW_DIR, ensure_d6_dirs, sha256_text, utc
 import enrich_lib
 
 sys.path.insert(0, str((D6_ANALYSIS_DIR.parents[2] / "code" / "extract")))
-from mitigation_conditions import classify_resource_area_with_heading  # noqa: E402
+from mitigation_conditions import (  # noqa: E402
+    classify_resource_area,
+    classify_resource_area_with_heading,
+)
 
 CONDITIONS = D6_ANALYSIS_DIR / "fonsi_conditions.parquet"
 SPANS = D6_ANALYSIS_DIR / "fonsi_evidence_spans.parquet"
@@ -123,6 +126,9 @@ def main() -> None:
     ap.add_argument("--dry-run", action="store_true", help="Tier-1 preview + exact Haiku cost, NO key, NO write")
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--use-tier1", action="store_true",
+                    help="re-enable Tier-1 heading inheritance (DEFAULT OFF: gold validation measured its "
+                         "precision at 0.20 — it stamps labels onto procedural text under generic headings)")
     args = ap.parse_args()
     if not args.run:
         args.dry_run = True  # default is safe: never call the API unless --run is explicit
@@ -133,18 +139,25 @@ def main() -> None:
     base_unknown = int((cond["resource_area"] == "unknown").sum())
     print(f"[retag] fonsi_conditions rows={n}  baseline unknown={base_unknown} ({100*base_unknown/n:.1f}%)")
 
-    # --- Tier-1: heading inheritance for unknown rows (free, deterministic) ---
-    hmap = _heading_map()
-    def tier1(row):
-        if row["resource_area"] != "unknown":
-            return row["resource_area"]
-        return classify_resource_area_with_heading(str(row["condition_text"]), hmap.get(row["section_id"], ""))
-    cond["resource_area_t1"] = cond.apply(tier1, axis=1)
-    t1_unknown = int((cond["resource_area_t1"] == "unknown").sum())
-    resolved_t1 = base_unknown - t1_unknown
-    print(f"[retag] Tier-1 heading inheritance resolved {resolved_t1} unknowns "
-          f"({100*resolved_t1/max(base_unknown,1):.1f}% of unknowns) -> unknown now "
-          f"{t1_unknown} ({100*t1_unknown/n:.1f}%)")
+    # --- baseline tag, recomputed from text (idempotent: NOT read off the possibly-already-retagged
+    #     resource_area column, so re-runs are stable) ---
+    cond["_base_kw"] = [classify_resource_area(str(t)) for t in cond["condition_text"]]
+    # Tier-1 heading inheritance is DISABLED by default. The 80-row gold validation
+    # (retag_validation_score.md) measured its precision at 0.20 (8/10 wrong) — it stamps resource labels
+    # onto procedural text sitting under generic headings; the pilot's 0.72 estimate did NOT hold up.
+    # Non-Haiku rows therefore use the pure keyword baseline. Re-enable only with --use-tier1.
+    if args.use_tier1:
+        hmap = _heading_map()
+        cond["_base"] = [
+            classify_resource_area_with_heading(str(t), hmap.get(sid, ""))
+            for t, sid in zip(cond["condition_text"], cond["section_id"])
+        ]
+        n_relabel = int((cond["_base"] != cond["_base_kw"]).sum())
+        print(f"[retag] Tier-1 heading inheritance ENABLED (--use-tier1): {n_relabel} rows relabeled from heading")
+    else:
+        cond["_base"] = cond["_base_kw"]
+        print("[retag] Tier-1 heading inheritance DISABLED (default; gold precision 0.20). "
+              "Non-Haiku rows fall back to the keyword baseline.")
 
     # --- Tier-2 scope: the mitigation_commitment rows, deduped by condition_text ---
     scope = cond[cond["condition_role"].isin(LLM_ROLES)].copy()
@@ -195,29 +208,26 @@ def main() -> None:
         CACHE.write_text(json.dumps(cache))
         print(f"[retag] cache updated -> {CACHE} ({len(cache)} entries)")
 
-    # --- apply: primary scalar (D2-compatible) + multi-label column ---
+    # --- apply: Haiku (verbatim) for commitment cache-hits; baseline tag otherwise ---
     run_at = utc_now()
-    key_of = cond["condition_text"].map(sha256_text)
-    def multi(row_key, role, t1area):
-        if role in LLM_ROLES and row_key in cache:
-            areas = cache[row_key].get("resource_areas", [])
-            if areas:
-                return areas
-        return [t1area] if t1area != "unknown" else []
-    cond["_key"] = key_of
+    cond["_key"] = cond["condition_text"].map(sha256_text)
+    def resolve(key, role, base):
+        # commitment rows Haiku actually looked at: trust Haiku verbatim — an EMPTY list means Haiku
+        # judged there is no resource area, which we now respect (was previously overridden by Tier-1).
+        if role in LLM_ROLES and key in cache:
+            return cache[key].get("resource_areas", [])
+        # everything else: the baseline tag (keyword; keyword+heading only under --use-tier1)
+        return [base] if base != "unknown" else []
     cond["resource_areas_multi"] = [
-        ",".join(multi(k, r, a)) for k, r, a in zip(cond["_key"], cond["condition_role"], cond["resource_area_t1"])
+        ",".join(resolve(k, r, b)) for k, r, b in zip(cond["_key"], cond["condition_role"], cond["_base"])
     ]
-    # primary scalar: first multi-label if present, else Tier-1 value (keeps D2's scalar join working)
-    def primary(multi_str, t1area):
-        return multi_str.split(",")[0] if multi_str else t1area
-    cond["resource_area"] = [primary(m, a) for m, a in zip(cond["resource_areas_multi"], cond["resource_area_t1"])]
+    cond["resource_area"] = [m.split(",")[0] if m else "unknown" for m in cond["resource_areas_multi"]]
     cond["resource_retag_extraction_run_at"] = run_at
     cond["resource_retag_llm_run_at"] = [
         (run_at if (r in LLM_ROLES and k in cache) else "")
         for r, k in zip(cond["condition_role"], cond["_key"])
     ]
-    cond = cond.drop(columns=["resource_area_t1", "_key"])
+    cond = cond.drop(columns=["_base_kw", "_base", "_key"])
     final_unknown = int((cond["resource_area"] == "unknown").sum())
     write_parquet(cond, CONDITIONS)
     print(f"[retag] rewrote {CONDITIONS} — unknown {base_unknown} -> {final_unknown} "

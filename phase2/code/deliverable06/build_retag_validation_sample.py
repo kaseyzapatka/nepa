@@ -630,10 +630,41 @@ def self_test() -> None:
     print(f"[self-test] the synthetic sheet is left at {tmp} for inspection; delete it freely.")
 
 
+def refresh_tags(path: Path = SHEET_CSV) -> None:
+    """Refresh ONLY the `new_tags` prediction column of an already-labeled sheet from the CURRENT
+    fonsi_conditions.parquet (joined by text_sha), preserving every human column (gold_resource_areas
+    / is_correct / notes) and the stratum. Run after a re-tag rebuild, then --score. This keeps the
+    scorer honest: it scores the live pipeline, not a stale snapshot."""
+    if not path.exists():
+        raise SystemExit(f"[refresh] no sheet at {path}")
+    sheet = pd.read_csv(path, dtype=str).fillna("")
+    cond = pd.read_parquet(CONDITIONS)
+    cond["text_sha"] = cond["condition_text"].map(sha256_text)
+    # per text: the current multi-label prediction ('' => unknown). Deterministic per text for the
+    # mitigation_commitment rows the sheet is drawn from, so first() is unambiguous.
+    live = (cond.groupby("text_sha")["resource_areas_multi"].first()
+                .fillna("").astype(str).to_dict())
+    new_vals, missing, changed = [], 0, 0
+    for _, r in sheet.iterrows():
+        sha = r["text_sha"]
+        if sha in live:
+            v = live[sha] if live[sha] else "unknown"
+        else:
+            v = r["new_tags"]; missing += 1
+        changed += int(v != r["new_tags"])
+        new_vals.append(v)
+    sheet["new_tags"] = new_vals
+    sheet.to_csv(path, index=False)
+    print(f"[refresh] updated new_tags from live fonsi_conditions: {changed} rows changed, "
+          f"{missing} not found (kept old). Human columns untouched. -> {path}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="D6 #47 re-tag validation gate (build / score).")
     ap.add_argument("--build", action="store_true", help="draw the stratified sample + write the sheet")
     ap.add_argument("--score", action="store_true", help="score a human-filled sheet")
+    ap.add_argument("--refresh-tags", action="store_true",
+                    help="refresh new_tags from current fonsi_conditions (after a re-tag rebuild); preserves gold")
     ap.add_argument("--self-test", action="store_true", help="fabricate labels and exercise the scorer")
     ap.add_argument("--sheet", default=str(SHEET_CSV), help="path to the sheet (score mode)")
     args = ap.parse_args()
@@ -641,6 +672,8 @@ def main() -> None:
         build()
     elif args.self_test:
         self_test()
+    elif args.refresh_tags:
+        refresh_tags(Path(args.sheet))
     elif args.score:
         score(Path(args.sheet))
     else:
