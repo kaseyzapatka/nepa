@@ -448,10 +448,13 @@ def build_determinations(cand: pd.DataFrame, mit: pd.DataFrame, ctx: pd.DataFram
     if mit is None or mit.empty:
         mit = pd.DataFrame(columns=["source_unit_id", "matched_condition_row_count",
                                     "condition_role_set", "obligation_level_set",
-                                    "mitigation_resource_areas", "mitigation_same_section"])
+                                    "mitigation_resource_areas",
+                                    "mitigation_resource_areas_primary",
+                                    "mitigation_same_section"])
     df = cand.merge(mit, on="source_unit_id", how="left").merge(ctx, on="project_id", how="left")
     df["matched_condition_row_count"] = df["matched_condition_row_count"].fillna(0).astype(int)
-    for col in ("condition_role_set", "obligation_level_set", "mitigation_resource_areas"):
+    for col in ("condition_role_set", "obligation_level_set", "mitigation_resource_areas",
+                "mitigation_resource_areas_primary"):
         df[col] = df[col].fillna("")
     df["mitigation_flag"] = df["matched_condition_row_count"] > 0
 

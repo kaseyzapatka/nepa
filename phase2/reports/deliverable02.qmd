@@ -338,7 +338,7 @@ include_fig("fig_validation_accuracy.png")
 Why the last two scores are lower — and why it doesn't undercut the findings. Both are
 *secondary attributes*, not the core call, and both are genuinely harder:
 
-- *Mitigation-dependence (0.62).* Deciding whether a conclusion depends on committed mitigation
+- *Mitigation-dependence (0.57).* Deciding whether a conclusion depends on committed mitigation
   is one of the hardest judgments in the whole task — the two independent AI coders themselves agreed only
   ~68% of the time on the fine line between "less than significant" and "less than significant *with
   mitigation*." On top of that, the pipeline's structured mitigation flag is tagged at the document
@@ -479,8 +479,16 @@ include_fig("fig_breadth_per_fonsi.png")
 **Read mitigation at the right grain.** The *document-level* "is this a mitigated FONSI?" rate is
 robust. The *resource-level* attribution above uses the high-precision per-resource signal; a
 broader structured signal exists but over-attributes across resources, and its accuracy is
-ultimately bounded by upstream tagging (validation F1 ≈ 0.62). Treat the resource shares as a
+ultimately bounded by upstream tagging (validation F1 ≈ 0.57). Treat the resource shares as a
 well-grounded floor, not an exact census.
+
+The upstream condition tags were regenerated in July 2026 (a section-heading rule plus a scoped
+model pass replaced the original keyword dictionary, and conditions can now carry more than one
+resource area). That change moves only the broader structured signal: it widened recall and cost
+precision, taking its validation F1 from 0.62 to 0.57. Every resource share reported above is
+computed from the high-precision signal and is **unchanged**. Whether the new tags are more
+accurate than the old ones is being checked against a hand-labeled sample; until that validation
+lands, this caveat stands as written.
 :::
 
 ### Does it differ by agency?
