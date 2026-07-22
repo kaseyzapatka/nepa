@@ -98,6 +98,32 @@ source_dist <- read_csv(file.path(OUTPUT_DIR, "trigger_source_distribution.csv")
 excerpts    <- read_csv(file.path(OUTPUT_DIR, "trigger_evidence_excerpts.csv"),
                         show_col_types = FALSE)
 
+# Secondary-trigger + review-status cross-tabs (04_secondary_review_crosstabs.R)
+secondary_combos    <- read_csv(file.path(OUTPUT_DIR, "secondary_top_combos.csv"),
+                                show_col_types = FALSE)
+ml_by_process       <- read_csv(file.path(OUTPUT_DIR, "secondary_multilabel_by_process.csv"),
+                                show_col_types = FALSE)
+ml_by_technology    <- read_csv(file.path(OUTPUT_DIR, "secondary_multilabel_by_technology.csv"),
+                                show_col_types = FALSE)
+trigger_tiering     <- read_csv(file.path(OUTPUT_DIR, "trigger_tiering_crosstab.csv"),
+                                show_col_types = FALSE)
+trigger_regime      <- read_csv(file.path(OUTPUT_DIR, "trigger_regime_crosstab.csv"),
+                                show_col_types = FALSE)
+
+# Derived scalars for prose (recomputed from the CSVs each render)
+top_combo_label  <- secondary_combos$combo_label[1]
+top_combo_n      <- secondary_combos$n[1]
+top_combo_share  <- secondary_combos$pct_of_multi[1]
+second_combo_label <- secondary_combos$combo_label[2]
+second_combo_n     <- secondary_combos$n[2]
+ml_eis_rate      <- ml_by_process$pct_multi[ml_by_process$process_type == "EIS"]
+ml_ce_rate       <- ml_by_process$pct_multi[ml_by_process$process_type == "CE"]
+ml_transmission_rate <- ml_by_technology$pct_multi[ml_by_technology$project_technology == "Transmission"]
+tier_n_enriched  <- trigger_tiering$total |> sum()
+tier_n_determined <- (trigger_tiering$Tiered + trigger_tiering$Standalone) |> sum()
+tier_n_tiered    <- trigger_tiering$Tiered |> sum()
+regime_n_universe <- trigger_regime$n_regime |> sum()
+
 # Funding deep-dive figures are optional (require the funding sidecar to exist)
 has_funding_figs <- file.exists(file.path(OUTPUT_DIR, "fig8_funding_mechanism_counts.png"))
 large_finance_path <- file.path(OUTPUT_DIR, "large_finance_mechanisms.csv")
@@ -405,6 +431,198 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig3_process_by_trigger.png"))
 
 ---
 
+# Multi-Label Structure: Secondary Triggers
+
+Every project receives one **primary** trigger — the highest-priority federal nexus the
+hierarchy resolves — but `r comma(n_multi_label)` projects (`r pct(n_multi_label)`) carry at
+least one **secondary** trigger, a second nexus the pipeline detected but ranked below the
+primary. These secondary labels are stored in `nepa_trigger_secondary`; this section
+cross-tabulates them to show which nexuses co-occur and where multi-label projects concentrate.
+
+## Which trigger classes co-occur?
+
+@fig-secondary-cooccurrence pairs each multi-label project's primary trigger (rows) against its
+secondary trigger(s) (columns). The structure is overwhelmingly dominated by a single pattern.
+
+```{r}
+#| label: fig-secondary-cooccurrence
+#| fig-cap: "Primary × secondary trigger co-occurrence among multi-label projects. Cell values count projects with that primary/secondary pairing; a project with two secondaries contributes to two cells."
+#| out-width: "85%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig13_secondary_cooccurrence.png"))
+```
+
+`r sprintf("%s of the %s multi-label projects (%s)", comma(top_combo_n), comma(n_multi_label), scales::percent(top_combo_share, accuracy = 0.1))`
+share the same combination — **`r top_combo_label`**: BPA and WAPA transmission and power
+infrastructure that also crosses BLM or National Forest land, so the power-authority-proponent
+nexus and the federal-land nexus both apply. Every other combination is a long tail; the
+next-largest, `r second_combo_label` (`r comma(second_combo_n)` projects), is barely a twentieth
+the size.
+
+```{r}
+#| label: tbl-secondary-combos
+#| tbl-cap: "Dominant trigger combinations among multi-label projects. Share of multi-label denominates by the 1,559 projects with 2+ trigger classes; share of portfolio by all 20,725 decarbonization projects."
+
+secondary_combos |>
+  slice_head(n = 8) |>
+  gt() |>
+  cols_label(
+    combo_label  = "Trigger Combination",
+    n            = "Projects",
+    pct_of_multi = "Share of Multi-Label",
+    pct_of_all   = "Share of Portfolio"
+  ) |>
+  fmt_number(columns = n, decimals = 0, use_seps = TRUE) |>
+  fmt_percent(columns = c(pct_of_multi, pct_of_all), decimals = 1) |>
+  cols_align(align = "left",  columns = combo_label) |>
+  cols_align(align = "right", columns = c(n, pct_of_multi, pct_of_all)) |>
+  tab_style(style = cell_text(weight = "bold", color = "white"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_fill(color = "#012169"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(columns = combo_label)) |>
+  tab_options(table.font.size = px(15), data_row.padding = px(8),
+              container.width = "100%", table.width = "100%")
+```
+
+## Where do multi-label projects concentrate?
+
+Multi-label projects are not spread evenly. @fig-secondary-rates shows the share carrying a
+secondary trigger by review process and by energy technology.
+
+```{r}
+#| label: fig-secondary-rates
+#| fig-cap: "Share of projects with 2+ trigger classes, by review process and by energy technology (technologies with n ≥ 50)."
+#| out-width: "80%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig14_secondary_multilabel_rates.png"))
+```
+
+- **Multi-label rates rise with review depth.** EISs carry a secondary trigger
+  `r sprintf("%s of the time (%s), against %s for CEs", scales::percent(ml_eis_rate, accuracy = 0.1), "EIS", scales::percent(ml_ce_rate, accuracy = 0.1))` —
+  the larger, more complex projects that warrant a full EIS are precisely the ones likely to
+  implicate more than one federal nexus.
+- **Transmission dominates.** `r scales::percent(ml_transmission_rate, accuracy = 0.1)` of
+  transmission projects are multi-label — more than double any other technology — reflecting
+  the PMA/TVA-plus-federal-land pattern that drives the entire overlap. Offshore wind and
+  hydropower follow at roughly 10%, both siting-heavy technologies that routinely touch a
+  second nexus.
+
+---
+
+# Trigger Class × Review Status
+
+The natural next question is how trigger class interacts with the *kind* of NEPA review a
+project received. The **review-type** axis — CE vs. EA vs. EIS — is covered in
+[Trigger Type by Review Process](#trigger-type-by-review-process) above. This section addresses
+the **programmatic vs. tiered** dimension: whether a review stands alone or tiers from an
+umbrella programmatic document.
+
+::: {.callout-note title="Data source"}
+A portfolio-wide programmatic/tiered classifier does **not** exist in Phase 2. D2's outputs
+(significance determinations, regulatory regimes) do not carry a programmatic/tiered flag. The
+only committed programmatic/tiered signal is D6's FONSI-enrichment `is_tiered` / `tiers_from`
+field, which is populated for the FONSI-enriched subset. The cross-tab below uses that
+(correct) source and is scoped accordingly; a full-portfolio tiering classifier remains
+deferred (see [Coverage & Limitations](../notes/deliverable01/coverage_limitations.html)).
+:::
+
+## Programmatic tiering by trigger class
+
+Among the `r comma(tier_n_enriched)` FONSI-enriched decarbonization projects, D6 makes an
+explicit tiering determination for `r comma(tier_n_determined)`; `r comma(tier_n_tiered)` of
+those tier from a programmatic document. @fig-trigger-tiering shows how those determinations
+split across trigger classes.
+
+```{r}
+#| label: fig-trigger-tiering
+#| fig-cap: "Trigger class × programmatic tiering status, D6 FONSI-enrichment subset. Only classes with ≥ 3 determined FONSIs shown; 'Tiered' = review tiers from an umbrella programmatic EIS/EA."
+#| out-width: "80%"
+
+knitr::include_graphics(file.path(OUTPUT_DIR, "fig15_trigger_tiering.png"))
+```
+
+```{r}
+#| label: tbl-trigger-tiering
+#| tbl-cap: "Trigger class × programmatic tiering (D6 FONSI-enrichment subset). 'Determined' = Tiered + Standalone; the tiered share denominates by the determined count only."
+
+trigger_tiering |>
+  select(trigger_label, Tiered, Standalone, Undetermined, pct_tiered_of_determined) |>
+  gt() |>
+  cols_label(
+    trigger_label            = "Trigger Class",
+    Tiered                   = "Tiered",
+    Standalone               = "Standalone",
+    Undetermined             = "Undetermined",
+    pct_tiered_of_determined = "Tiered Share (of determined)"
+  ) |>
+  fmt_number(columns = c(Tiered, Standalone, Undetermined), decimals = 0) |>
+  fmt_percent(columns = pct_tiered_of_determined, decimals = 0) |>
+  sub_missing(columns = pct_tiered_of_determined, missing_text = "—") |>
+  cols_align(align = "left",  columns = trigger_label) |>
+  cols_align(align = "right", columns = where(is.numeric)) |>
+  tab_style(style = cell_text(weight = "bold", color = "white"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_fill(color = "#012169"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(columns = trigger_label)) |>
+  tab_options(table.font.size = px(15), data_row.padding = px(8),
+              container.width = "100%", table.width = "100%")
+```
+
+**Land-nexus reviews are the ones that tier.** Land is both the most common determined class
+(36 FONSIs) and the most frequently tiered — 23 of its 36 determined reviews tier from a
+programmatic document, overwhelmingly BLM's vegetation-treatment and herbicide PEISs. PMA/TVA
+and Funding follow. The pattern is intuitive: tiering is a public-lands management device, so
+it concentrates in exactly the trigger classes tied to BLM and Forest Service land. This is a
+FONSI-subset signal, not a portfolio rate, and should be read as directional.
+
+## Regulatory review regime by trigger class
+
+For portfolio-scale context, D2's `project_regime` output assigns each EA/EIS project a
+regulatory regime keyed to the CEQ rule in force at its decision date. The table below
+cross-tabulates trigger class against that regime for the `r comma(regime_n_universe)` EA/EIS
+projects with a regime assignment. This is a *regulatory-vintage* axis, distinct from the
+programmatic/tiered question above.
+
+```{r}
+#| label: tbl-trigger-regime
+#| tbl-cap: "Trigger class × regulatory review regime (D2 project_regime; EA/EIS decision universe). 'Pre-2020 CEQ' and '2020–2025 CEQ rules' bin the decision-date regime; 'FRA overlay' counts projects whose review window overlaps the June 2023 Fiscal Responsibility Act amendments."
+
+trigger_regime |>
+  select(trigger_label, n_regime, n_pre_2020ceq, n_ceq_2020_25,
+         n_period_unknown, n_fra_overlay) |>
+  gt() |>
+  cols_label(
+    trigger_label    = "Trigger Class",
+    n_regime         = "EA/EIS Projects",
+    n_pre_2020ceq    = "Pre-2020 CEQ",
+    n_ceq_2020_25    = "2020–2025 CEQ Rules",
+    n_period_unknown = "Undated",
+    n_fra_overlay    = "FRA Overlay"
+  ) |>
+  fmt_number(columns = where(is.numeric), decimals = 0, use_seps = TRUE) |>
+  cols_align(align = "left",  columns = trigger_label) |>
+  cols_align(align = "right", columns = where(is.numeric)) |>
+  tab_style(style = cell_text(weight = "bold", color = "white"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_fill(color = "#012169"),
+            locations = cells_column_labels()) |>
+  tab_style(style = cell_text(weight = "bold"),
+            locations = cells_body(columns = trigger_label)) |>
+  tab_options(table.font.size = px(14), data_row.padding = px(7),
+              container.width = "100%", table.width = "100%")
+```
+
+Land and PMA/TVA supply the largest EA/EIS caseloads, and both skew toward the pre-2020 CEQ
+regime — the bulk of these public-lands and transmission reviews predate the 2020–2025 rule
+churn. Roughly a third of the regime universe is undated (no reliable decision date recovered),
+so these counts are lower bounds on each vintage.
+
+---
+
 # Trigger Distribution by Federal Department
 
 @fig-dept-heatmap shows trigger class distribution across federal departments—the parent cabinet
@@ -705,6 +923,9 @@ conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py \
 
 # 4. Figures + report CSVs (base R, not the nepa env)
 Rscript phase2/code/deliverable01/02_create_figures.R
+
+# 4b. Secondary-trigger + review-status cross-tabs (base R; reads D2/D6 outputs)
+Rscript phase2/code/deliverable01/04_secondary_review_crosstabs.R
 
 # 5. This report
 quarto render phase2/reports/deliverable01.qmd
