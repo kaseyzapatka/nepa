@@ -120,6 +120,76 @@ def main() -> None:
         check("n_case_specific_dependent" in cstats.columns and "n_design_or_none" in cstats.columns,
               "corpus_mitigation_stats uses renamed LLM columns")
 
+    # 12. G1 — client develop shortlist obeys the recurrence gate (main >= 5, exploratory 3-4, no < 3)
+    if new_csv is not None and "shortlist_tier" in new_csv.columns and "n_profile_fonsi" in new_csv.columns:
+        below = new_csv[new_csv["n_profile_fonsi"] < 3]
+        check(len(below) == 0, f"G1: no sub-floor (< 3 CE-shaped) cell in d6_new.csv (got {len(below)})")
+        tiers = set(new_csv["shortlist_tier"].unique())
+        check(tiers <= {"main", "exploratory"}, f"G1: d6_new.csv tiers subset of main/exploratory (got {tiers})")
+        main_bad = new_csv[(new_csv["shortlist_tier"] == "main") & (new_csv["n_profile_fonsi"] < 5)]
+        check(len(main_bad) == 0, f"G1: every main-tier cell has >= 5 CE-shaped (violations: {len(main_bad)})")
+
+    # 13. #38 — annotate-only crosswalk: net/gross columns exist, net ⊆ gross, and it moves NO verdict.
+    # (Intent is "the crosswalk changes no verdicts" — expressed as net⊆gross consistency, NOT a hard
+    # adopt count, so it doesn't fight the A1 coverage gate which legitimately flips one adopt cell.)
+    if verd is not None and {"adopt_targets_net", "adopt_targets_gross"} <= set(verd.columns):
+        def _toks(s):
+            return {t.strip() for t in str(s).split(",") if t.strip()}
+        subset_ok = all(_toks(n) <= _toks(g) for n, g in
+                        zip(verd["adopt_targets_net"], verd["adopt_targets_gross"]))
+        check(subset_ok, "#38: adopt_targets_net ⊆ adopt_targets_gross for every cell (crosswalk annotate-only)")
+        # gross is the deterministic adopt-gap snapshot: it equals adopt_targets on every row (the crosswalk
+        # only narrows to net, never widens gross) — this is the "crosswalk moves no verdict" invariant.
+        gross_matches_baseline = all(
+            _toks(g) == _toks(a) for g, a in zip(verd["adopt_targets_gross"], verd["adopt_targets"]))
+        check(gross_matches_baseline, "#38: adopt_targets_gross == deterministic adopt_targets (no verdict move)")
+
+    # 16. A1/#37 — eCFR coverage gate invariants (replaces the old hard adopt==22 assertion)
+    cov = _load(D / "candidate_ce_coverage.parquet")
+    if verd is not None and cov is not None and "cell_best_coverage" in verd.columns \
+            and cov["coverage_verdict"].fillna("").ne("").any():
+        orig = cov.groupby("candidate_category")["verdict"].first()   # pre-gate verdict snapshot
+        flips = verd[verd["cell_best_coverage"] == "does_not_cover"]
+        adopt_flips = sum(1 for cat in flips["candidate_category"] if orig.get(cat) == "adopt")
+        n_adopt_now = int((verd["verdict"] == "adopt").sum())
+        # baseline reconciliation: deterministic adopt (22) == post-gate adopt + adopt-flips
+        check(n_adopt_now + adopt_flips == 22,
+              f"A1: post-gate adopt ({n_adopt_now}) + adopt-flips ({adopt_flips}) == 22 baseline")
+        # every flip traces to a does_not_cover cell-best (and only those flipped)
+        check((flips["verdict"] == "new").all(),
+              "A1: every does_not_cover cell was flipped to new")
+        kept = verd[verd["cell_best_coverage"].isin(["covers", "partially_covers"])]
+        check((kept["verdict"].isin(["adopt", "expand"])).all(),
+              "A1: covers/partial cells kept their adopt/expand verdict (no spurious flip)")
+        # every "verified" confidence cell has ≥1 covers row from verified eCFR-current text
+        cov_covers = cov[(cov["coverage_verdict"] == "covers") & (cov["source_type"] == "ecfr_current")]
+        verified_cats = set(verd.loc[verd["verdict_confidence"] == "verified", "candidate_category"])
+        check(verified_cats <= set(cov_covers["candidate_category"]),
+              "A1: every 'verified' cell has ≥1 verified eCFR-current 'covers' row")
+        # no needs_review adopt cell in the client adopt list without its flag carried
+        adopt_csv = _load(REVIEW / "d6_adopt.csv")
+        if adopt_csv is not None and "needs_review" in adopt_csv.columns:
+            nr = verd[(verd["needs_review"]) & (verd["verdict"] == "adopt")]
+            in_csv = set(adopt_csv.loc[adopt_csv["needs_review"] == True, "candidate_category"])
+            check(set(nr["candidate_category"]) <= in_csv,
+                  "A1: every needs_review adopt cell is flagged in the client adopt list")
+
+    # 14. #40 — the other-action theme table is terminal (does not alter cell membership)
+    other_themes = _load(D / "other_action_themes.parquet")
+    if other_themes is not None and facts is not None:
+        n_other = facts.loc[facts["action"] == "other", "project_id"].nunique() if "action" in facts.columns else -1
+        check(other_themes["project_id"].nunique() == n_other,
+              f"#40: theme table covers exactly the action=='other' projects ({other_themes['project_id'].nunique()} vs {n_other})")
+
+    # 15. #47 — condition resource_area enum stays within the shared 12 + unknown (no 'vegetation' leak).
+    # (fonsi_conditions is rebuilt out-of-band by retag_condition_resources.py; this guards D2 alignment.)
+    cond = _load(D / "fonsi_conditions.parquet")
+    if cond is not None and "resource_area" in cond.columns:
+        shared12 = {"air_quality", "water", "biological", "cultural", "visual", "noise", "soils_geology",
+                    "socioeconomic", "transportation", "land_use", "climate_ghg", "public_health", "unknown"}
+        vals = set(cond["resource_area"].dropna().unique())
+        check(vals <= shared12, f"#47: condition resource_area within shared 12 + unknown (stray: {vals - shared12})")
+
     print(f"\n[qa] {'PASS' if not fails else 'FAIL (' + str(len(fails)) + ')'}")
     if fails:
         raise SystemExit(1)

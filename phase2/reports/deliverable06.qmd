@@ -14,10 +14,10 @@ execute:
   message: false
 ---
 
-<!-- Deterministic first pass. Figures: phase2/code/deliverable06/08_create_figures.R.
-     Tables read the 05/06/07 analysis parquets + the evidence spans. Action
-     definitions and numeric limits are directional pending the LLM-assisted
-     extraction/verification pass. -->
+<!-- Figures: phase2/code/deliverable06/08_create_figures.R. Tables read the 05/06/07/09
+     analysis parquets + the evidence spans. Action definitions, numeric limits, mitigation,
+     and significance thresholds are LLM-extracted and 97% quote-verified against source pages
+     (09_wire_enrichment.py wires fonsi_enrichment.parquet into facts/verdicts). -->
 
 ```{r setup}
 library(arrow); library(dplyr); library(tidyr); library(readr)
@@ -83,6 +83,11 @@ n_action_other <- facts |> mutate(.act = sub("^.*__", "", candidate_category)) |
   filter(.act == "other") |> distinct(project_id) |> nrow()
 # adopt cells with substantive evidence (>= 2 CE-shaped FONSIs) — the rows shown in the adopt table
 n_adopt_sub <- sum(verdicts$verdict == "adopt" & verdicts$n_profile_fonsi >= 2)
+# A1/#37 eCFR coverage gate outcomes (candidate_ce_coverage adjudication wired into 07)
+n_cov_verified <- if ("verdict_confidence" %in% names(verdicts)) sum(verdicts$verdict_confidence == "verified") else 0L
+n_cov_partial  <- if ("verdict_confidence" %in% names(verdicts)) sum(verdicts$verdict_confidence == "partial") else 0L
+n_cov_flip     <- if ("cell_best_coverage" %in% names(verdicts)) sum(verdicts$cell_best_coverage == "does_not_cover") else 0L
+n_cov_review   <- if ("needs_review" %in% names(verdicts)) sum(verdicts$needs_review %in% TRUE) else 0L
 
 cstats        <- read_parquet(file.path(ANALYSIS, "corpus_mitigation_stats.parquet"))
 n_mit_corpus  <- cstats$n_mitigated_fonsi[1]
@@ -332,25 +337,26 @@ raw volume most (the next table).
 knitr::include_graphics(file.path(FIGS, "fig_d6_classification.png"))
 ```
 
-The weights are a judgment call, so here is the rank order under three plausible weightings.
-The leader changes with the weighting — transmission upgrade tops the *volume-heavy* view,
-while the novelty-driven develop cells lead the others — so read the ranking as a **band of
-strong candidates**, not a precise order:
+The weights are a judgment call, so rather than a few hand-picked weightings we run a
+**systematic** sensitivity analysis: 2,000 weight vectors drawn uniformly from the 6-weight
+simplex (Dirichlet), recomputing each cell's rank every draw (`07_classify_and_rank.py`
+`rank_sensitivity()` → `rank_sensitivity.csv`). The table below shows each cell's point rank
+(the reported weights) beside the **median rank and inter-quartile band** across all draws, and
+how often it lands in the top 3. A wide band means the cell's position is weight-sensitive — so
+read the leaders as a **band of strong candidates**, not a precise order:
 
 ```{r}
 #| label: tbl-d6-rank-sensitivity
-#| tbl-cap: "Rank of the top opportunity cells (≥ 2 CE-shaped FONSIs) under three weightings (volume-heavy / mitigation-risk-heavy / verification-confidence-heavy). The leader changes with the weighting, so treat the top group as a band, not a precise ranking."
-rc <- verdicts |> filter(verdict != "contrast", n_profile_fonsi >= 2) |>
-  transmute(Cell = str_replace_all(candidate_label, "_", " "),
-            rank_novelty, rank_volume, rank_diversity, rank_limits, rank_mitigation, rank_role)
-.score <- function(w) with(rc, w[1]*rank_novelty + w[2]*rank_volume + w[3]*rank_diversity +
-                             w[4]*rank_limits + w[5]*rank_mitigation + w[6]*rank_role)
-tibble(Cell = rc$Cell,
-       `Volume-heavy`        = rank(-.score(c(.10, .50, .15, .05, .05, .15)), ties.method = "min"),
-       `Mitigation-risk`     = rank(-.score(c(.10, .15, .10, .05, .45, .15)), ties.method = "min"),
-       `Verification-conf.`  = rank(-.score(c(.15, .15, .10, .25, .10, .25)), ties.method = "min")) |>
-  arrange(`Volume-heavy`) |>
+#| tbl-cap: "Weight-sensitivity of the opportunity ranking over 2,000 Dirichlet-sampled weight vectors (cells with ≥ 2 CE-shaped FONSIs). Point rank uses the reported weights; median [p25–p75] and % top-3 summarize the full sweep. Cells with a wide IQR are weight-sensitive — treat the top group as a band."
+read_csv(file.path(OUTPUT, "rank_sensitivity.csv"), show_col_types = FALSE) |>
   slice_head(n = 12) |>
+  transmute(
+    Cell = str_replace_all(candidate_label, "_", " "),
+    `Point rank` = point_rank,
+    `Median rank` = rank_median,
+    `IQR band` = paste0(rank_p25, "–", rank_p75),
+    `% top-3` = percent(pct_top3, accuracy = 1)
+  ) |>
   gt() |>
   cols_align(align = "center", columns = -Cell) |> cols_align(align = "left", columns = Cell) |>
   tab_options(table.font.size = px(12), data_row.padding = px(5))
@@ -530,11 +536,14 @@ ex |>
 ### Adopt — cross-agency matches (broad but thin)
 
 **The broadest but thinnest opportunity:** `r n_adopt` cells resolve to *adopt* — a close CE exists
-at *another* agency the doing-agency could adopt, and the 2023 FRA now permits exactly that. But most
-are thin: only `r n_adopt_sub` have ≥ 2 CE-shaped FONSIs (the table below), and the rest rest on a
-single FONSI or none. So treat adopt as a menu of matches to verify, not one dominant case — the
-gap figure shows the evidence weight behind each (how many bounded FONSIs are run as full EAs when a
-candidate-matched CE may already cover them, pending verification).
+at *another* agency the doing-agency could adopt, and the 2023 FRA now permits exactly that. Each
+adopt/expand cell's top-5 CE matches have now been **adjudicated against the current eCFR text**
+(`ce_ecfr_verify.py`): `r n_cov_verified` cells are *verified* (a matching CE confirmed in the eCFR),
+`r n_cov_partial` *partially cover* (the CE is close but bounded or text-unverifiable — agency-procedure
+CEs not in the eCFR are capped here), and one match — Hydropower new-build — **did not cover** (its
+nearest CEs were off-scope offshore oil/gas exclusions), so it was **reclassified as develop**. But most
+adopt cells are thin: only `r n_adopt_sub` have ≥ 2 CE-shaped FONSIs (the table below); the rest rest on
+a single FONSI. Treat adopt as a verified but often thin menu of matches, not one dominant case.
 
 ```{r}
 #| label: tbl-d6-adopt
@@ -544,6 +553,11 @@ url_for <- function(id) {
   ifelse(is.na(u) | u == "", id, glue("[{id}]({u})"))
 }
 
+cov_label <- function(conf, review) dplyr::case_when(
+  conf == "verified" ~ "verified (eCFR)",
+  conf == "partial"  ~ "partial",
+  review %in% TRUE   ~ "unclear — review",
+  TRUE               ~ "unverified")
 verdicts |>
   filter(verdict == "adopt", n_profile_fonsi >= 2) |>
   arrange(desc(rank_score)) |>
@@ -551,17 +565,18 @@ verdicts |>
     `Tech × action` = str_replace_all(candidate_label, "_", " "),
     `Low-impact FONSIs` = n_profile_fonsi,
     `Existing CE (held by)` = paste0(vapply(best_ce_structured_id, url_for, character(1)), " — ", best_ce_agency),
+    `eCFR coverage` = cov_label(verdict_confidence, needs_review),
     `Agencies that could adopt it` = adopt_targets,
     States = n_states
   ) |>
   gt() |>
   fmt_markdown(columns = `Existing CE (held by)`) |>
   tab_source_note(md(paste0(
-    "**Thin-evidence flag:** most adopt cells rest on only 2–4 low-impact FONSIs — ",
-    "treat them as illustrative opportunities to verify, not robust findings. Some high-count rows ",
-    "are non-physical actions (e.g. land / right-of-way authorization); a peer CE exists to adopt, ",
-    "but confirm it fits the action."))) |>
-  tab_options(table.font.size = px(13), column_labels.font.weight = "bold")
+    "**eCFR coverage** is the adjudicated cell-best over the top-5 CEs: *verified* = a matching CE ",
+    "confirmed in the current eCFR; *partial* = close but bounded or held only in an agency-procedure ",
+    "document (not the eCFR). **Thin-evidence flag:** most adopt cells rest on only 2–4 low-impact ",
+    "FONSIs — verified coverage does not make a thin cell a robust finding."))) |>
+  tab_options(table.font.size = px(12), column_labels.font.weight = "bold")
 ```
 
 ```{r}
@@ -587,21 +602,26 @@ are set aside; a CE codifies a *physical* action.
 
 ```{r}
 #| label: tbl-d6-develop
-#| tbl-cap: "Candidate develop opportunities: recurring tech × action cells with no close existing CE (closest match below the 0.40 line). Non-codifiable cells (battery manufacturing, land authorization) excluded."
+#| tbl-cap: "Candidate develop opportunities after the recurrence gate: recurring tech × action cells with no close existing CE (closest match below the 0.40 line). Cells with ≥ 5 CE-shaped FONSIs are **main**; 3–4 are **exploratory**; cells below 3 are dropped from the client shortlist. Non-codifiable cells (battery manufacturing, land authorization) excluded."
+n_dev_dropped <- sum(verdicts$shortlist_tier == "dropped")
+n_dev_main    <- sum(verdicts$shortlist_tier == "main")
+n_dev_expl    <- sum(verdicts$shortlist_tier == "exploratory")
 verdicts |>
-  filter(verdict == "new", is_codifiable, n_profile_fonsi >= 2) |>
-  arrange(desc(n_profile_fonsi)) |>
+  filter(shortlist_tier %in% c("main", "exploratory")) |>
+  arrange(factor(shortlist_tier, c("main", "exploratory")), desc(n_profile_fonsi)) |>
   transmute(
     `Tech × action` = str_replace_all(candidate_label, "_", " "),
+    Tier = shortlist_tier,
     `CE-shaped FONSIs` = n_profile_fonsi,
     States = n_states,
     `Closest CE (similarity)` = sprintf("%.2f", best_ce_match_score)
   ) |>
   gt() |>
-  tab_source_note(md(paste0(
-    "All develop cells fall **below the 0.40 match line** — the closest existing CE isn't ",
-    "close enough to adopt. Demonstration / pilot cells recur across wind, nuclear, and other ",
-    "clean-energy projects."))) |>
+  tab_source_note(md(glue(
+    "Recurrence gate (`07_classify_and_rank.py`): **{n_dev_main} main** + **{n_dev_expl} exploratory** ",
+    "cells shown; **{n_dev_dropped} cells dropped** for having fewer than 3 CE-shaped FONSIs (they remain ",
+    "in the grid for coloring but are not a client develop recommendation). All develop cells fall below ",
+    "the 0.40 match line."))) |>
   tab_options(table.font.size = px(13), column_labels.font.weight = "bold")
 ```
 
@@ -1094,14 +1114,18 @@ action descriptions to surface recurring categories no one has named yet.
   451 decarbonization FONSIs (Claude Sonnet); every quoted value was checked verbatim
   against its cited source page (97% verified). Values that did not verify are
   flagged, not shown.
-- **CE matches are a ranking aid, not verified coverage.** Confirm each candidate
-  CE against its eCFR text before acting on it — this is the one remaining
-  verification step. The [CE coverage verification worksheet](../notes/deliverable06/ce_verification.html)
-  pairs each candidate with its best-match CE, a first-pass coverage read, and the
-  exact bound to confirm.
-- **Recommended next steps:** (1) verify the `r n_adopt` adopt matches against the
-  eCFR CE text (start from the [verification worksheet](../notes/deliverable06/ce_verification.html));
-  (2) cluster the `r n_action_other` *"other"*-action FONSIs to search for additional net-new CEs.
+- **CE matches are now adjudicated against the eCFR.** Each adopt/expand cell's top-5 CEs were
+  checked against the current eCFR text (`ce_ecfr_verify.py` fetch → manual adjudication in the
+  [eCFR verification worksheet](../notes/deliverable06/ce_ecfr_verification.html), wired into the
+  verdicts by `07_classify_and_rank.py`): `r n_cov_verified` cells *verified*, `r n_cov_partial`
+  *partial*, one flipped to *develop*, `r n_cov_review` *unclear*. A structural limit surfaced by the
+  fetch: of the 120 top-5 CE matches only 29 are codified in the eCFR — 72 live in agency
+  NEPA-procedure documents and 19 use legacy eCFR URLs, so those are capped at *partial* (text-
+  unverifiable), not *verified*.
+- **Recommended next steps:** (1) for the `r n_cov_partial` *partial* cells, confirm coverage against
+  the agency procedure documents (outside the eCFR); (2) resolve the one *unclear* cell (Solar
+  assessment); (3) the `r n_action_other` *"other"*-action FONSIs are already clustered for within-cell
+  sub-themes (`12_other_action_themes.py` — see the supplementary themes table).
 
 ## Assumptions & sensitivity
 
@@ -1123,11 +1147,16 @@ The conclusions rest on a few explicit assumptions — here is how each would mo
 - **The expand test keys on numeric bounds.** Most matched CEs are qualitative, so no
   *numeric* expand fires for them — but transmission upgrades exceed CE #19's ~25-mile cap,
   so `r n_expand` cells resolve to expand. Qualitative coverage elsewhere remains unverified.
-- **Ranks use fixed component weights.** They separate transmission (n = 26 bounded) from the
-  thin-n candidates clearly; for n < 10 read priority bands, not exact ranks (a formal
-  weight-sensitivity table is a recommended follow-up).
-- **CE coverage is unverified.** Requiring verified eCFR coverage before "adopt" reclassifies
-  all `r n_adopt` to *candidate-pending* until that review is done.
+- **Ranks use fixed component weights.** A systematic sweep (2,000 Dirichlet-sampled weightings,
+  @tbl-d6-rank-sensitivity) confirms the leaders are a *band*: for cells with a wide IQR, read
+  priority bands, not exact ranks. The top develop cell (Solar — other) holds a top-3 rank in
+  ~90% of draws; thinner-n cells swing widely.
+- **CE coverage is now adjudicated, not assumed.** Each adopt/expand cell's top-5 CEs were checked
+  against the current eCFR text: `r n_cov_verified` cells are *verified*, `r n_cov_partial` *partial*,
+  one flipped to *develop* (Hydropower new-build — no covering CE), and `r n_cov_review` is *unclear*
+  and flagged for review (Solar assessment). A hard limit remains: only CEs codified in the eCFR earn a
+  clean *verified*; matches held in agency-procedure documents (not the eCFR) are capped at *partial*,
+  so "partial" here means text-unverifiable, not necessarily narrow.
 
 ## Run manifest & data completeness
 
@@ -1158,6 +1187,122 @@ miss |> gt() |> fmt_markdown(columns = Field) |> cols_align("left", columns = ev
 
 Null booleans are read as unknown, never as `FALSE`; the no-evidence row is carried with a
 status flag, not silently dropped.
+
+------------------------------------------------------------------------
+
+# Supplementary analyses
+
+These extend the three findings with the full LLM-extracted evidence. They are exhibits — none
+changes the grid, the verdicts, or the headline numbers above.
+
+## A develop opportunity, worked end to end
+
+The transmission *adopt* case (above) shows what an adopt recommendation looks like on the
+evidence. Here is the parallel for a *develop* cell — a recurring low-impact action with **no**
+close existing CE — so both verdict types land concretely.
+
+```{r}
+#| label: tbl-d6-develop-example
+#| tbl-cap: "Worked develop example: the wind research/demonstration cell — a recurring action with no close CE (best match below 0.40). Representative FONSIs with their LLM-extracted action and siting facts."
+dev_cell <- "Wind__research_or_demonstration"
+dev_row  <- verdicts |> filter(candidate_category == dev_cell)
+facts |>
+  filter(candidate_category == dev_cell, is_bounded) |>
+  distinct(project_id, .keep_all = TRUE) |>
+  transmute(
+    Project = str_sub(project_title, 1, 46),
+    Agency = str_replace_all(lead_agency_harmonized, "\\[|\\]|'", ""),
+    State = str_replace_all(project_state, "\\[|\\]|'", ""),
+    Action = str_sub(action_definition, 1, 60)
+  ) |>
+  slice_head(n = 6) |>
+  gt() |>
+  tab_source_note(md(glue(
+    "Cell **{str_replace_all(dev_row$candidate_label, '_', ' ')}** — verdict **develop** "
+    , "({dev_row$n_profile_fonsi} CE-shaped FONSIs, tier *{dev_row$shortlist_tier}*), closest existing "
+    , "CE similarity **{sprintf('%.2f', dev_row$best_ce_match_score)}** (below the 0.40 adopt line). "
+    , "A new CE here would codify small research/demonstration wind installations — no existing agency "
+    , "CE covers them, so this is *develop*, not adopt."))) |>
+  tab_options(table.font.size = px(12), column_labels.font.weight = "bold")
+```
+
+## Full size distribution vs. every bounded CE cap
+
+The transmission expand case is the one *numeric* expand; extending the same size-vs-cap test
+across all bounded CEs shows where else FONSIs run past a stated cap (a raise-the-cap signal).
+
+```{r}
+#| label: tbl-d6-expand-all
+#| tbl-cap: "Every (cell, metric) where the matched CE states a numeric cap, with the FONSI size distribution and the share exceeding it. `suggested_cap` is the 90th percentile of the in-corpus distribution."
+read_csv(file.path(OUTPUT, "expand_analysis.csv"), show_col_types = FALSE) |>
+  filter(n_exceeding > 0) |>
+  arrange(desc(pct_exceeding)) |>
+  transmute(
+    `Tech × action` = str_replace_all(candidate_category, "__|_", " "),
+    Metric = metric, `CE cap` = ce_bound, `FONSIs` = n_fonsi,
+    `Median` = round(v_median, 1), `P90` = round(v_p90, 1),
+    `# over cap` = n_exceeding, `% over` = percent(pct_exceeding, accuracy = 1),
+    `Suggested cap` = suggested_cap
+  ) |>
+  gt() |> tab_options(table.font.size = px(11), column_labels.font.weight = "bold")
+```
+
+## Post-FRA recurrence (corpus-answerable)
+
+The corpus is almost entirely pre-FRA. Restricting to CE-shaped FONSIs with a known decision date,
+the count decided **after** the FRA cut (2023-06-03) is small — but this is confounded by ingestion
+lag, not evidence of low current activity.
+
+```{r}
+#| label: tbl-d6-postfra
+#| tbl-cap: "CE-shaped FONSIs by decision date relative to the FRA cut (2023-06-03), top candidate cells. Low post-FRA counts reflect incomplete 2024–2025 ingestion, not necessarily low current activity; current CE-adoption usage and agency guidance need external sources."
+read_csv(file.path(OUTPUT, "postfra_recurrence.csv"), show_col_types = FALSE) |>
+  filter(candidate_category != "TOTAL", n_dated > 0) |>
+  arrange(desc(n_post_fra), desc(n_dated)) |>
+  transmute(
+    `Tech × action` = str_replace_all(candidate_category, "__|_", " "),
+    `CE-shaped` = n_ce_shaped, Dated = n_dated,
+    `Post-FRA` = n_post_fra, `Pre-FRA` = n_pre_fra, Undated = n_undated
+  ) |>
+  slice_head(n = 10) |>
+  gt() |> tab_options(table.font.size = px(12), column_labels.font.weight = "bold")
+```
+
+## Within-cell themes for the "other"-action FONSIs
+
+The `r n_action_other` FONSIs the action model could only label *"other"* are clustered on local
+embeddings to name their sub-action structure. This is descriptive only — it changes no verdict.
+
+```{r}
+#| label: tbl-d6-other-themes
+#| tbl-cap: "Local-embedding clusters over the 92 action=='other' FONSIs (within-cell refinement, no verdict change). Labels are the top c-TF-IDF terms per cluster."
+read_parquet(file.path(ANALYSIS, "other_action_themes.parquet")) |>
+  group_by(cluster_id, cluster_label) |>
+  summarise(FONSIs = n(), Techs = paste(sort(unique(tech_group)), collapse = ", "), .groups = "drop") |>
+  arrange(desc(FONSIs)) |>
+  transmute(Theme = cluster_label, FONSIs, `Tech groups` = Techs) |>
+  gt() |> tab_options(table.font.size = px(11), column_labels.font.weight = "bold")
+```
+
+## Significance-threshold language (retrieval coverage)
+
+A deterministic pass over finding/condition/resource spans retrieves explicit significance-threshold
+phrasing (the `span_type=='boundary'` layer is nearly empty, so this searches the richer spans).
+
+```{r}
+#| label: tbl-d6-thresholds
+#| tbl-cap: "Significance-threshold phrases retrieved across finding/condition/resource evidence spans, by phrase."
+thr <- read_csv(file.path(OUTPUT, "threshold_candidates.csv"), show_col_types = FALSE)
+thr |>
+  count(matched_phrase, name = "matches") |>
+  arrange(desc(matches)) |>
+  rename(`Threshold phrase` = matched_phrase, Matches = matches) |>
+  gt() |>
+  tab_source_note(md(glue(
+    "**{n_distinct(thr$project_id)} distinct projects** carry at least one threshold phrase "
+    , "across **{nrow(thr)}** retrieved spans."))) |>
+  tab_options(table.font.size = px(12), column_labels.font.weight = "bold")
+```
 
 ------------------------------------------------------------------------
 

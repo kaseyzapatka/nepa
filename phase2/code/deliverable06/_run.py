@@ -41,7 +41,17 @@ PY_STEPS = (
     "06_ce_landscape.py",
     "09_wire_enrichment.py",   # overwrites 03/05 facts+mitigation with LLM enrichment (if present)
     "07_classify_and_rank.py",
+    "11_expand_analysis.py",   # #39 — size-vs-CE-cap distributions (reads facts + ce bounds)
+    "12_other_action_themes.py",  # #40 — within-cell clustering of the 92 action='other' (terminal, no verdict change)
+    "13_postfra_refresh.py",   # A2 — post-FRA recurrence tabulation
+    "14_threshold_retrieval.py",  # #44 — significance-threshold retrieval
 )
+# Standalone-BILLABLE prerequisites (NOT in the chain; run once, cached => re-runs $0; user-launched):
+#   03_enrich_llm.py             -> fonsi_enrichment.parquet (the 37-field pass; guarded by 09 below)
+#   10_action_label.py           -> fonsi_action_labels.parquet (the action verb)
+#   retag_condition_resources.py -> rebuilds fonsi_conditions with Tier-1 + Haiku multi-label (D6 #47; ~$4.23)
+# Network-dependent, cached, $0, run before 07 to (re)build the eCFR verification scaffold:
+#   ce_ecfr_verify.py            -> candidate_ce_coverage.parquet + worksheet
 ENRICHMENT = Path(__file__).resolve().parent.parent.parent / "data" / "analysis" / "deliverable06" / "fonsi_enrichment.parquet"
 R_STEP = "08_create_figures.R"
 

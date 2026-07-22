@@ -26,7 +26,7 @@ from common import (
     D03_REVIEWS,
     D6_ANALYSIS_DIR,
     D6_REVIEW_DIR,
-    PROJECTS_COMBINED,  # noqa: F401  (kept for provenance / future use)
+    PROJECTS_COMBINED,
     ensure_d6_dirs,
     input_hashes,
     utc_now,
@@ -177,7 +177,7 @@ def main() -> None:
         })
 
     corpus = pd.DataFrame(rows)
-    corpus["input_hashes"] = input_hashes([D03_REVIEWS, FONSI_INVENTORY])
+    corpus["input_hashes"] = input_hashes([D03_REVIEWS, FONSI_INVENTORY, PROJECTS_COMBINED])
     write_parquet(corpus, CORPUS_OUT)
 
     # --- membership review (observed FONSI only) ---
