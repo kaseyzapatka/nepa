@@ -9,6 +9,7 @@ project:
     - "phase2/notes/deliverable03/coverage_limitations.md"
     - "phase2/notes/deliverable04/*.md"
     - "phase2/notes/deliverable05/coverage_limitations.md"
+    - "phase2/notes/deliverable06/coverage_limitations.md"
     - "phase2/notes/deliverable06/ce_ecfr_verification.md"
     - "phase2/notes/deliverable06/ce_verification.md"
     - "presentations/*.qmd"

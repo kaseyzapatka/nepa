@@ -146,6 +146,45 @@ federal CE catalog (not FONSIs at all).
 Each analysis's scope is summarized above; its step-by-step Methodology (the callout at the
 top of each analysis) and its own caveats appear with that analysis, below.
 
+**How the pipeline fits together.** The table organizes the deliverable by *data source*; the
+stages below trace the *code pipeline* end to end. It is one deterministic chain with a single
+exception — the LLM enrichment, the one billable step, runs standalone and is cached, so the
+rest of the chain re-runs without it.
+
+```{=html}
+<div style="max-width:680px;margin:1.25rem auto;">
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.6rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.02rem;">1 · Assemble the FONSI corpus</div>
+    <div style="color:#1A1A2E;">Build the decarbonization <b>EA&nbsp;&rarr;&nbsp;FONSI</b> corpus (the 451 clean-energy FONSIs) with each FONSI's evidence spans <span style="color:#5A6172;">(<code>01</code>)</span></div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px dashed #0047BB;border-radius:8px;padding:.6rem 1rem;background:#eef2fb;">
+    <div style="font-weight:700;color:#012169;font-size:1.02rem;">2 · Enrich each FONSI &nbsp;<span style="font-size:.78rem;font-weight:600;color:#0047BB;">· billable LLM pass · standalone</span></div>
+    <div style="color:#1A1A2E;"><code>03_enrich_llm.py</code> (Claude Sonnet) extracts each FONSI's action, numeric limits, mitigation dependence, and significance thresholds — quote-verified. Run once, outside the deterministic re-run; its output is cached and reused</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.6rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.02rem;">3 · Build the technology × action grid</div>
+    <div style="color:#1A1A2E;"><code>10_action_label.py</code> labels each FONSI's action verb and pairs it with its Deliverable&nbsp;3 technology, placing every FONSI in a grid cell</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.6rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.02rem;">4 · Match each cell to the CE catalog</div>
+    <div style="color:#1A1A2E;">Embed the existing federal CEs and score each cell's closest match by blended semantic&nbsp;+&nbsp;word-overlap similarity <span style="color:#5A6172;">(<code>04</code>, <code>06</code>)</span></div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #0047BB;border-radius:8px;padding:.6rem 1rem;background:#f4f7fc;">
+    <div style="font-weight:700;color:#012169;font-size:1.02rem;">5 · Resolve verdicts &amp; apply the gates</div>
+    <div style="color:#1A1A2E;"><code>07_classify_and_rank.py</code> reads each cell as <b>develop / expand / adopt</b>, applies the eCFR <b>coverage gate</b> (verified / partial / flip-to-develop), and sorts develop cells into <b>main / exploratory / dropped</b> recurrence tiers</div>
+  </div>
+  <div style="text-align:center;color:#0047BB;font-size:1.5rem;line-height:1.1;">&#8595;</div>
+  <div style="border:2px solid #012169;border-radius:8px;padding:.6rem 1rem;background:#012169;">
+    <div style="font-weight:700;color:#ffffff;font-size:1.02rem;">Figures &amp; report</div>
+    <div style="color:#ffffff;"><code>08_create_figures.R</code> builds the coverage map, sizing, ranking, mitigation, and CE-landscape figures this report embeds</div>
+  </div>
+</div>
+```
+
 ------------------------------------------------------------------------
 
 # Analysis 1 — Scaling Categorical Exclusions (CEs)
@@ -274,12 +313,13 @@ percent of matching text). That match then resolves the cell to a verdict by a t
 ```{mermaid}
 %%| fig-align: center
 flowchart TD
-  A["For each tech × action cell:<br/>is there a close matching CE?"] -->|no close match| D["DEVELOP<br/>no CE exists — write a new one"]
-  A -->|close match| B{"Do our FONSIs exceed<br/>the CE's stated size bound?"}
-  B -->|yes| E["EXPAND<br/>widen the existing CE"]
-  B -->|no| C{"Held at a different agency<br/>than the ones doing these EAs?"}
-  C -->|yes| AD["ADOPT<br/>that agency adopts the CE"]
-  C -->|no| CV["already covered (drop)"]
+  A["For each tech × action cell:<br/>is there a close matching CE?"]
+  A -->|no| D["<b>Develop</b><br/>no CE exists — write a new one"]
+  A -->|yes| B{"Do our FONSIs exceed the<br/>CE's stated size bound?"}
+  B -->|yes| E["<b>Expand</b><br/>widen the existing CE"]
+  B -->|no| C{"Is it held at a different agency<br/>than the ones running these EAs?"}
+  C -->|yes| AD["<b>Adopt</b><br/>that agency adopts the CE"]
+  C -->|no| CV["already covered<br/>(drop)"]
 ```
 
 The coverage map above is this rule applied to every cell. The match score is a *ranking aid,
@@ -1107,56 +1147,11 @@ it is a residual of un-named actions, not an examined pool. More net-new CEs pla
 there, but confirming that requires the recommended next step: cluster those "other" FONSI
 action descriptions to surface recurring categories no one has named yet.
 
-# Caveats & next steps
+# Caveats, limitations & run manifest
 
-- **LLM-extracted, verified facts.** Action definitions, numeric limits, mitigation
-  dependence, and significance thresholds come from a one-pass enrichment of all
-  451 decarbonization FONSIs (Claude Sonnet); every quoted value was checked verbatim
-  against its cited source page (97% verified). Values that did not verify are
-  flagged, not shown.
-- **CE matches are now adjudicated against the eCFR.** Each adopt/expand cell's top-5 CEs were
-  checked against the current eCFR text (`ce_ecfr_verify.py` fetch → manual adjudication in the
-  [eCFR verification worksheet](../notes/deliverable06/ce_ecfr_verification.html), wired into the
-  verdicts by `07_classify_and_rank.py`): `r n_cov_verified` cells *verified*, `r n_cov_partial`
-  *partial*, one flipped to *develop*, `r n_cov_review` *unclear*. A structural limit surfaced by the
-  fetch: of the 120 top-5 CE matches only 29 are codified in the eCFR — 72 live in agency
-  NEPA-procedure documents and 19 use legacy eCFR URLs, so those are capped at *partial* (text-
-  unverifiable), not *verified*.
-- **Recommended next steps:** (1) for the `r n_cov_partial` *partial* cells, confirm coverage against
-  the agency procedure documents (outside the eCFR); (2) resolve the one *unclear* cell (Solar
-  assessment); (3) the `r n_action_other` *"other"*-action FONSIs are already clustered for within-cell
-  sub-themes (`12_other_action_themes.py` — see the supplementary themes table).
-
-## Assumptions & sensitivity
-
-The conclusions rest on a few explicit assumptions — here is how each would move the result:
-
-- **Every FONSI is placed in the grid** by its technology (from D3) and its LLM-labeled
-  action verb — no candidate category is hand-picked, so the scan is exhaustive over the
-  451 FONSIs. The one residual is the `r n_action_other` FONSIs whose action the model could
-  only label "other"; those cells exist in the grid but their internal structure is not
-  decomposed here.
-- **"CE-shaped" adds a transmission shape gate** on top of the LLM's `is_bounded_low_impact`
-  judgment (transmission must be modify-existing within an existing ROW). Dropping that gate —
-  the looser, LLM-bounded-only definition — would *raise* the set from `r n_ce_shaped` to
-  `r n_llm_bounded`, mostly by admitting large within-ROW reconductors that exceed a CE's
-  typical mileage cap.
-- **A retrieval score ≥ 0.40 is treated as a close CE.** This threshold is what separates
-  *adopt/expand* cells (a close CE exists) from *develop* cells (none does); the adopt/expand
-  matches clear it comfortably, so they are insensitive to moving the cut to 0.50.
-- **The expand test keys on numeric bounds.** Most matched CEs are qualitative, so no
-  *numeric* expand fires for them — but transmission upgrades exceed CE #19's ~25-mile cap,
-  so `r n_expand` cells resolve to expand. Qualitative coverage elsewhere remains unverified.
-- **Ranks use fixed component weights.** A systematic sweep (2,000 Dirichlet-sampled weightings,
-  @tbl-d6-rank-sensitivity) confirms the leaders are a *band*: for cells with a wide IQR, read
-  priority bands, not exact ranks. The top develop cell (Solar — other) holds a top-3 rank in
-  ~90% of draws; thinner-n cells swing widely.
-- **CE coverage is now adjudicated, not assumed.** Each adopt/expand cell's top-5 CEs were checked
-  against the current eCFR text: `r n_cov_verified` cells are *verified*, `r n_cov_partial` *partial*,
-  one flipped to *develop* (Hydropower new-build — no covering CE), and `r n_cov_review` is *unclear*
-  and flagged for review (Solar assessment). A hard limit remains: only CEs codified in the eCFR earn a
-  clean *verified*; matches held in agency-procedure documents (not the eCFR) are capped at *partial*,
-  so "partial" here means text-unverifiable, not necessarily narrow.
+The full **caveats, next steps, assumptions, and sensitivity** notes for this deliverable now live
+on the dedicated
+[Coverage & Limitations page](../notes/deliverable06/coverage_limitations.html).
 
 ## Run manifest & data completeness
 
