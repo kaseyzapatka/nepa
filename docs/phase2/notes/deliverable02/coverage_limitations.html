@@ -4594,6 +4594,7 @@ vertical-align: -.125em;
 <li><strong>The held-out test.</strong> A deterministic <strong>30% of the windows was held out</strong> — never used to build or tune the extraction — and the pipeline was scored separately on it. <strong>The held-out scores are the ones reported.</strong> Rare class/resource/threshold cells are reported descriptively, not as pass/fail macro-metrics.</li>
 <li><strong>EIS is validated lower than FONSI, for a real reason.</strong> The EIS significance <em>class</em> agrees with the answer key at <strong>0.69</strong> (vs 0.81 for FONSI). Separating <em>significant</em> from <em>significant and unavoidable</em> is a genuinely fine judgment — the two AI coders themselves agreed only <strong>~58%</strong> on the EIS class (vs 68% for FONSI). The report therefore leads with the robust cut (<em>which resources cross the line</em>) and treats the adverse-vs-unavoidable split as directional.</li>
 <li><strong>EIS exploratory fields are not gold-validated.</strong> The <code>alternative_name</code>, <code>significance_factor</code>, and <code>impact_type</code> fields are captured for the above-the-line analysis but sit <strong>outside</strong> the answer key (which validates class, resource, mitigation, and threshold). Treat the by-factor and by-pathway breakdowns as indicative, not as validated measurements.</li>
+<li><strong>Resource-level mitigation pairing: validated tags, aggregate-only claim.</strong> The report’s finding that ~23% of flagged significant / less-than-significant FONSI determinations are paired with a same-resource committed mitigation condition rests on condition→resource tags validated on an 80-project gold set (independent model labeler, second-labeler spot check at <strong>1.00</strong> any-overlap agreement): tag-level <strong>F1 0.83</strong>, <strong>any-overlap accuracy 0.89</strong> (vs 0.46 for the prior keyword tags). The finding is reported <strong>aggregate-only</strong> and under <strong>any-overlap</strong> matching (a determination counts as paired if <em>any</em> same-resource commitment sits in its window). Two limits ride with it: (a) the gold’s one known bias — inclusive multi-labeling — slightly <em>inflates</em> measured match rates, so the aggregate share is a mild over-count, <strong>not a floor</strong>; (b) the any-overlap rule is deliberately inclusive, so exact per-determination attribution is weaker (condition-tag precision ≈<strong>0.76</strong>) and the <strong>per-resource splits are directional, not a census</strong>. The separate <code>mitigation_dependent</code> flag (whether an <em>individual</em> conclusion legally depends on mitigation) is a labeled <strong>screening</strong> metric only — tightened this pass to require a real same-resource overlap plus ≥2 committed conditions, scoring <strong>F1 0.62 / precision 0.53</strong> (ceiling ≈0.53) — and is never a reported share. One taxonomy boundary is documented: <strong>“sociocultural systems” commitments map to <code>socioeconomic</code>, not <code>cultural</code></strong>, under the taxonomy’s narrow (historic / §106) cultural definition — a ratified reading that affects only the per-resource splits, never the aggregate.</li>
 </ul>
 </section>
 <section id="eis-extraction-specifics" class="level2">
@@ -4676,6 +4677,7 @@ transform: none;
     const submenuConfigs = [
       ["Deliverable 1", [
         ["Report", "phase2/reports/deliverable01.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable01/coverage_limitations.html"],
         ["Trigger Classification", "phase2/notes/deliverable01/trigger_classification.html"],
         ["Classification Scheme", "phase2/notes/deliverable01/classification_scheme.html"],
         ["Funding Mechanism Schema", "phase2/notes/deliverable01/funding_mechanism.html"]
@@ -4684,11 +4686,23 @@ transform: none;
         ["Report", "phase2/reports/deliverable02.html"],
         ["Coverage & Limitations", "phase2/notes/deliverable02/coverage_limitations.html"]
       ]],
+      ["Deliverable 3", [
+        ["Report", "phase2/reports/deliverable03.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable03/coverage_limitations.html"]
+      ]],
       ["Deliverable 4", [
         ["Report", "phase2/reports/deliverable04.html"],
         ["Coverage & Limitations", "phase2/notes/deliverable04/coverage_limitations.html"],
         ["Date Sourcing & Provenance", "phase2/notes/deliverable04/date_sourcing.html"],
         ["Known Issues & Deferred Items", "phase2/notes/deliverable04/known_issues.html"]
+      ]],
+      ["Deliverable 5", [
+        ["Report", "phase2/reports/deliverable05.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable05/coverage_limitations.html"]
+      ]],
+      ["Deliverable 6", [
+        ["Report", "phase2/reports/deliverable06.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable06/coverage_limitations.html"]
       ]]
     ];
 

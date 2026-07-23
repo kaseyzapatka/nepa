@@ -536,6 +536,32 @@ def run_adjudication(
         for _, _r in succeeded.iterrows():
             cached_by_hash[_r["prompt_hash"]] = _r
 
+    # --- Project+slot+model FALLBACK re-key (todo #49) --------------------------------------
+    # The exact prompt-hash cache key (above) embeds the full candidate-packet COMPOSITION — each
+    # packet's context text, ranking/classifier scores, and ordering — so a from-scratch re-selection
+    # that re-forms different packets MISSES the cache and drops the (large, CE-heavy) LLM layer, even
+    # though the LLM's ANSWER (the selected candidate_id) is still valid on the current candidates.
+    # This fallback keys the stored selection on (project_id, slot, model) instead: on a prompt-hash
+    # MISS we re-apply the most-recent successful selection for that project+slot+model, resolved
+    # against the CURRENT candidates by candidate_id (a stable content hash). It is strictly a superset
+    # safety net — exact-hash stays the PRIMARY path and the fallback only fires when it misses — so a
+    # re-selection can never drop a cached adjudication whose selected candidate still exists. No API
+    # call. Validated (todo #49): reproduces 14,778/14,778 published api_adjudication slots, 0 changes.
+    fb_init: dict = {}
+    fb_dec: dict = {}
+    if not existing_adj.empty and mode == "candidate_adjudication":
+        _fb = succeeded[succeeded["model"] == model] if "model" in succeeded.columns else succeeded
+        if "called_at" in _fb.columns:
+            _fb = _fb.sort_values("called_at")  # ascending -> last write wins = most recent selection
+        for _, _r in _fb.iterrows():
+            _pid = _r["project_id"]
+            _ii = _r.get("selected_initiation_candidate_id")
+            _di = _r.get("selected_decision_candidate_id")
+            if isinstance(_ii, str) and _ii.strip():
+                fb_init[_pid] = _ii
+            if isinstance(_di, str) and _di.strip():
+                fb_dec[_pid] = _di
+
     # Load project-level metadata for prompt building
     from phase2.code.utils.config import US_STATES  # type: ignore
     # fallback agency from dates_df or index
@@ -573,6 +599,7 @@ def run_adjudication(
 
     # --- Phase 1 (serial, cheap): build the work list — prompt + cache check per project. ---
     work = []
+    n_fallback = 0  # cache-hits recovered via the project+slot+model fallback (prompt-hash missed)
     for _, proj_row in queue.iterrows():
         pid = proj_row["project_id"]
         process_type = proj_row["process_type"]
@@ -605,10 +632,24 @@ def run_adjudication(
                 if _ii or _di:
                     cached_updates.append({"project_id": pid, "adj_init_id": _ii, "adj_dec_id": _di})
             continue
+        # PRIMARY (exact prompt-hash) missed. Try the project+slot+model FALLBACK: re-apply the
+        # most-recent successful selection for this project (no API call) so a re-selection that
+        # re-formed a different packet still restores the LLM layer. candidate_id is resolved against
+        # the CURRENT candidates in _apply_adjudication_results (missing ids are silently skipped).
+        if mode == "candidate_adjudication":
+            _fi = fb_init.get(pid)
+            _fd = fb_dec.get(pid)
+            _fi = _fi if (isinstance(_fi, str) and _fi.strip()) else None
+            _fd = _fd if (isinstance(_fd, str) and _fd.strip()) else None
+            if _fi or _fd:
+                cached_updates.append({"project_id": pid, "adj_init_id": _fi, "adj_dec_id": _fd})
+                n_fallback += 1
+                continue
         work.append({"pid": pid, "process_type": process_type, "prompt": prompt_text,
                      "system_prompt": system_prompt, "used_ids": used_ids,
                      "packet_ids": packet_ids_used, "ph": ph})
     print(f"  {len(work)} to adjudicate via API | {len(cached_updates):,} re-applied from cache "
+          f"({n_fallback:,} via project+slot fallback) "
           f"| {len(queue) - len(work) - len(cached_updates)} cached w/ no selection; workers={workers}")
 
     def _build_record(item, result):

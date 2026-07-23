@@ -69,6 +69,33 @@ def main() -> None:
 
     en = pd.read_parquet(ENRICH)
     en["project_id"] = en["project_id"].astype(str)
+
+    # [refactor §5.1] corpus diagnostic (no output, $0): most FONSIs carry >1 project_type tag,
+    # but tech_group is D3's single resolved primary — log the multi-tag rate and how often that
+    # resolved primary is NOT literally one of the raw project_type tags (a primary-tech override).
+    def _tags(v):
+        try:
+            x = json.loads(v) if isinstance(v, str) and v.strip().startswith("[") else v
+            return [str(t).strip() for t in x if str(t).strip()] if isinstance(x, list) \
+                else ([str(v).strip()] if str(v).strip() else [])
+        except Exception:
+            return []
+    if "project_type" in en.columns:
+        _n = len(en)
+        _pt = en["project_type"].map(_tags)
+        _multi = int((_pt.map(len) > 1).sum())
+        _tg = en["tech_group"].astype(str).str.strip() if "tech_group" in en.columns \
+            else pd.Series([""] * _n, index=en.index)
+        def _override(tags, tg):
+            tg = (tg or "").strip().lower()
+            if tg in ("", "nan", "none"):
+                return False
+            return not any(tg in t.lower() or t.lower() in tg for t in tags)
+        _ovr = int(sum(_override(t, g) for t, g in zip(_pt, _tg)))
+        print(f"[10] multi-tag project_type: {_multi}/{_n} ({_multi / _n:.0%}) carry >1 tag; "
+              f"primary-tech override (tech_group absent from raw project_type tags): "
+              f"{_ovr}/{_n} ({_ovr / _n:.0%})")
+
     if args.sample:
         en = en.head(args.sample)
     recs = en.to_dict("records")

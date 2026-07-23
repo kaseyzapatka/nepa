@@ -222,6 +222,17 @@ def _json_type(jtype: str):
     return {"type": types[0] if len(types) == 1 else types}
 
 
+_ENUM_FIELDS = {
+    "action_category": ["transmission_upgrade", "solar", "geothermal_exploration",
+                        "temporary_resource_assessment", "wind_onshore", "other"],
+    "land_ownership": ["BLM", "federal_other", "private", "mixed", "other", None],
+    "mitigation_dependence": ["none", "design_feature_only", "case_specific_dependent",
+                              "permit_or_consultation_condition", "monitoring_only", "unclear"],
+    "decision_basis": ["inherently_low_impact", "mitigated_to_below_significant", "small_scale", "other"],
+    "extraction_confidence": ["high", "medium", "low"],
+}
+
+
 def enrichment_tool_schema() -> dict:
     """Anthropic tool input_schema forcing schema-valid JSON for all fields."""
     props = {}
@@ -230,6 +241,8 @@ def enrichment_tool_schema() -> dict:
             props[name] = {"type": "array", "items": _NESTED_ITEM_SCHEMAS[name]}
         else:
             props[name] = _json_type(jtype)
+        if name in _ENUM_FIELDS:
+            props[name]["enum"] = _ENUM_FIELDS[name]
     return {"type": "object", "properties": props,
             "required": [n for n, _t, _d in ENRICHMENT_FIELDS]}
 

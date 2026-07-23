@@ -180,7 +180,7 @@ keep_attr <- tibble(
             mean(prof_keep$is_temporary, na.rm = TRUE),
             mean(prof_keep$no_new_access_road, na.rm = TRUE)))
 p_keep <- ggplot(keep_attr, aes(share, reorder(attribute, share))) +
-  geom_col(width = 0.6, fill = catf_dark_blue) +
+  geom_col(width = 0.6, fill = catf_navy) +   # accent unified to fig-2 navy
   geom_text(aes(label = percent(share, 1)), hjust = -0.2, size = 3.8, fontface = "bold", color = catf_navy) +
   scale_x_continuous(labels = percent, limits = c(0, 1), expand = expansion(mult = c(0, 0.12))) +
   labs(title = glue::glue("What makes the {n_ce_shaped} kept FONSIs 'bounded, low-impact'"),
@@ -198,7 +198,7 @@ p_match <- ggplot(mfit, aes(reorder(lab, best_ce_match_score), best_ce_match_sco
   annotate("rect", xmin = -Inf, xmax = Inf, ymin = 0, ymax = 0.20, fill = catf_grey, alpha = 0.5) +
   annotate("text", x = Inf, y = 0.10, label = "baseline similarity", hjust = 0.5, vjust = -0.7,
            size = 2.9, color = "gray30", fontface = "italic") +
-  geom_col(width = 0.6, fill = catf_dark_blue) +
+  geom_col(width = 0.6, fill = catf_navy) +   # accent unified to fig-2 navy
   geom_text(aes(label = sprintf("%.2f", best_ce_match_score)), hjust = -0.3, size = 3.5,
             fontface = "bold", color = catf_navy) +
   coord_flip(clip = "off") +
@@ -367,7 +367,7 @@ adopt <- verdicts %>% filter(verdict == "adopt", n_profile_fonsi >= 2) %>%
          n_lacking = str_count(adopt_targets, ",") + 1L,
          tag = paste0(n_profile_fonsi, " FONSIs → ", best_ce_structured_id))
 p_gap <- ggplot(adopt, aes(reorder(lab, n_profile_fonsi), n_profile_fonsi)) +
-  geom_col(width = 0.62, fill = catf_dark_blue) +
+  geom_col(width = 0.62, fill = catf_navy) +   # accent unified to fig-2 navy
   geom_text(aes(label = tag), hjust = -0.03, size = 3.2, color = catf_navy) +
   coord_flip() + scale_y_continuous(expand = expansion(mult = c(0, 0.45))) +
   labs(title = "The adoption gap, by evidence weight",
@@ -586,7 +586,9 @@ cntm <- c(Unknown = n_unk, `Not mitigated` = n_notmit, Mitigated = n_mit)[ordm]
 wvm  <- .lr100(cntm)
 wafm <- tibble(cat = factor(rep(ordm, wvm), levels = ordm)) %>%
   mutate(i = row_number() - 1, x = i %% 10, y = i %/% 10)
-palm <- c(Mitigated = catf_dark_blue, `Not mitigated` = catf_grey, Unknown = "#D9DCE1")
+# fig-14 scheme: navy (primary) -> light-blue -> grey residual, so 'Not mitigated' (light blue)
+# and 'Unknown' (grey) read as clearly distinct rather than two near-identical greys
+palm <- c(Mitigated = catf_navy, `Not mitigated` = catf_light_blue, Unknown = catf_grey)
 labm <- wafm %>% group_by(cat) %>% summarise(y = mean(y), .groups = "drop") %>%
   mutate(lab = paste0(cntm[as.character(cat)], " (", round(cntm[as.character(cat)] / n_enr * 100), "%)"))
 p_ov <- ggplot(wafm, aes(x, y, fill = cat)) +
@@ -615,7 +617,7 @@ p_share <- ggplot(share, aes(x = n, y = reorder(lab, n), fill = share)) +
   geom_col(width = 0.7) +
   geom_text(aes(label = paste0(n, "  (", percent(pct, 1), " of total) · ", percent(share, 1), " mitigated")),
             hjust = -0.04, size = 3.1, color = catf_navy) +
-  scale_fill_gradient(low = catf_light_blue, high = catf_navy, limits = c(0, 1), guide = "none") +
+  scale_fill_gradient(low = "#B9C2D8", high = catf_navy, limits = c(0, 1), guide = "none") +   # navy-family ramp (fig-2 blue); darker = higher mitigated share
   scale_x_continuous(expand = expansion(mult = c(0, 0.5))) +
   labs(title = "How the 451 decarbonization FONSIs break down by action type",
        subtitle = "Bar length = number of FONSIs; darker = higher mitigated-FONSI share (incl. the large 'Other' pool)",
@@ -682,7 +684,7 @@ sig_phr <- bind_rows(
   filter(!w1 %in% ng_stop, !wl %in% ng_stop, nchar(w1) >= 4, nchar(wl) >= 4) %>%
   count(ngram, sort = TRUE) %>% slice_head(n = 14)
 p_sig <- ggplot(sig_phr, aes(n, reorder(ngram, n))) +
-  geom_col(fill = catf_dark_blue, width = 0.7) +
+  geom_col(fill = catf_navy, width = 0.7) +   # accent unified to fig-2 navy
   geom_text(aes(label = n), hjust = -0.3, size = 3.2, color = catf_navy, fontface = "bold") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(title = "But the significance thresholds recur — that is the codifiable part",

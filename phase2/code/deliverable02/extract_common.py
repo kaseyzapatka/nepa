@@ -26,6 +26,45 @@ from significance_taxonomy import (
 PROMPT_VERSION = "d2_v3"   # v3: MULTI-output — one determination per resource area in the window
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
+# --- D2 #53: per-determination `mitigation_dependent` rule (labeled SCREENING metric) ------------
+# `mitigation_dependent` is a validation/screening signal (not a resource-share reporting field).
+# Scored against D2's gold, the historical any-overlap rule is precision-bound (~0.41), so #53
+# adopts the tightened T5 rule as the DEFAULT and keeps the legacy any-overlap rule behind a flag
+# for before/after comparison. Both rules keep the authoritative class==LTS_with_mitigation term as
+# a floor; they differ only on the join-based resource_matched branch.
+#   t5-specific-2cond (DEFAULT) — drop the `project_overall` free pass (require a REAL same-resource
+#       overlap) AND require >=2 matched conditions. Scored on D2 gold: F1 0.622, precision 0.532,
+#       recall 0.748 (n_pred 1,517) — the ~0.53 precision ceiling for this metric.
+#   baseline-any-overlap — legacy: resource_matched (any-overlap, incl. project_overall) OR LTS.
+#       F1 0.566, precision 0.413. Kept ONLY for comparison, never the shipped default.
+# This is the single source of truth, imported by 02's --rejoin-mitigation derivation path so the
+# scorer (analyze_mitigation_tightenings.py) and the shipped column can never diverge.
+LTS_WITH_MITIGATION = "less_than_significant_with_mitigation"
+MITIGATION_DEP_RULES = ("t5-specific-2cond", "baseline-any-overlap")
+DEFAULT_MITIGATION_DEP_RULE = "t5-specific-2cond"
+
+
+def derive_mitigation_dependent(*, dclass: str, resource_mitigation_match: bool,
+                                mitigation_flag: bool, shared_resource_area: str,
+                                mitigation_resource_areas_set: set,
+                                matched_condition_row_count: int,
+                                rule: str = DEFAULT_MITIGATION_DEP_RULE) -> bool:
+    """Per-determination mitigation_dependent flag under `rule` (see MITIGATION_DEP_RULES).
+
+    baseline-any-overlap: resource_mitigation_match OR class==LTS  (legacy, precision ~0.41).
+    t5-specific-2cond   : (real same-resource overlap AND >=2 matched conditions) OR class==LTS
+                          (#53 default; F1 0.622 / precision 0.53 vs the D2 gold).
+    """
+    if rule not in MITIGATION_DEP_RULES:
+        raise ValueError(f"mitigation_dependent rule must be one of {MITIGATION_DEP_RULES}, got {rule!r}")
+    is_lts = (dclass == LTS_WITH_MITIGATION)
+    if rule == "baseline-any-overlap":
+        return bool(resource_mitigation_match) or is_lts
+    # t5: no project_overall free pass -> literal same-resource overlap, AND >=2 matched conditions
+    specific = bool(mitigation_flag) and (
+        str(shared_resource_area).strip().lower() in mitigation_resource_areas_set)
+    return (specific and int(matched_condition_row_count or 0) >= 2) or is_lts
+
 # normalized candidate columns every substrate's generator must emit
 CAND_COLS = [
     "project_id", "document_id", "section_id", "source_substrate", "source_unit_id",
@@ -366,9 +405,13 @@ def _assemble_row(r, dd, *, run_at, model, prompt_v, input_hash, response_hash,
                 str(r.mitigation_resource_areas or "").replace(";", ",").split(",") if t.strip()}
     resource_mitigation_match = bool(r.mitigation_flag) and (
         dscope == "project_overall" or resource in _mit_res)
-    # per-resource reporting field: the precise D6 resource-match OR the LLM's per-resource class
-    mitigation_dependent = (resource_mitigation_match
-                            or dclass == "less_than_significant_with_mitigation")
+    # labeled SCREENING metric: tightened T5 rule by default (#53) — single source of truth in
+    # derive_mitigation_dependent(); the shipped $0 path is 02's --rejoin-mitigation.
+    mitigation_dependent = derive_mitigation_dependent(
+        dclass=dclass, resource_mitigation_match=resource_mitigation_match,
+        mitigation_flag=bool(r.mitigation_flag), shared_resource_area=resource,
+        mitigation_resource_areas_set=_mit_res,
+        matched_condition_row_count=int(r.matched_condition_row_count))
 
     det_id = C.sha256_join(r.project_id, r.document_id, r.source_substrate, r.source_unit_id,
                            resource, d2_resource, dclass, dscope, primary_t, primary_ts, alt_name,
@@ -448,10 +491,13 @@ def build_determinations(cand: pd.DataFrame, mit: pd.DataFrame, ctx: pd.DataFram
     if mit is None or mit.empty:
         mit = pd.DataFrame(columns=["source_unit_id", "matched_condition_row_count",
                                     "condition_role_set", "obligation_level_set",
-                                    "mitigation_resource_areas", "mitigation_same_section"])
+                                    "mitigation_resource_areas",
+                                    "mitigation_resource_areas_primary",
+                                    "mitigation_same_section"])
     df = cand.merge(mit, on="source_unit_id", how="left").merge(ctx, on="project_id", how="left")
     df["matched_condition_row_count"] = df["matched_condition_row_count"].fillna(0).astype(int)
-    for col in ("condition_role_set", "obligation_level_set", "mitigation_resource_areas"):
+    for col in ("condition_role_set", "obligation_level_set", "mitigation_resource_areas",
+                "mitigation_resource_areas_primary"):
         df[col] = df[col].fillna("")
     df["mitigation_flag"] = df["matched_condition_row_count"] > 0
 
