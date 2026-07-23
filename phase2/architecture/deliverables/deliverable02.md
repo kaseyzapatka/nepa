@@ -119,7 +119,7 @@ Batch modes: `--batch-run` (one password: submit → poll → fetch → build), 
 stay far under the API's 100,000-request / 256 MB caps. `temperature=0` is only sent on Haiku —
 Sonnet 5 / Opus 4.8 reject sampling parameters. `05` requires the hand-labeled gold set (it
 adopts labeled rows straight from `output/deliverable02/significance_gold_queue.csv`). Full
-detail: `phase2/code/deliverable02/HANDOFF.md`.
+detail: `phase2/code/_archived/deliverable02/HANDOFF.md` (archived build handoff).
 
 ## API read volume & cost estimates (multi-determination redesign, 2026-07-08)
 
@@ -182,12 +182,17 @@ Gold: 932 rows / 400 windows (390 both-agree + 542 adjudicated), 30% held out by
 | Candidate is_determination (window) | 0.968 | **0.978** |
 | Resource-determination detection | 0.879 | **0.886** |
 | Determination-class macro-F1 | 0.784 | **0.808** |
-| Mitigation-dependent | 0.612 | 0.623 |
+| Mitigation-dependent | 0.622 | 0.584 |
 | Threshold-type accuracy | 0.711 | 0.664 |
 
 Mitigation-dependent and threshold are the weak fields (secondary attributes; see D6 mitigation
 todo #47). Resource-level mitigation is reported from the per-resource class (precision ~0.67), not
 the window flag.
+
+**2026-07-22 update (commit 41bfbdb):** `mitigation_dependent` tightened to the T5 rule (real
+same-resource overlap plus ≥2 committed conditions), lifting overall F1 0.57 → 0.622
+(precision 0.532); held-out F1 0.584 / precision 0.481. In the same pass, low-precision Tier-1
+heading inheritance was disabled and the mitigation caveat was upgraded to a report finding.
 
 ### Headline FONSI findings
 - **~58% of FONSIs are mitigated** (149/258 documents reach "no significant impact" only with

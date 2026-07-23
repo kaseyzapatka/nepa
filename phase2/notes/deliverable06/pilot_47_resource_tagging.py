@@ -27,7 +27,7 @@ import numpy as np
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
-REPO = Path("/Users/Dora/git/consulting/nepa")
+REPO = Path(__file__).resolve().parents[3]
 COND = REPO / "phase2/data/analysis/deliverable06/fonsi_conditions.parquet"
 SPANS = REPO / "phase2/data/analysis/deliverable06/fonsi_evidence_spans.parquet"
 ENRICH = REPO / "phase2/data/analysis/deliverable06/fonsi_enrichment.parquet"

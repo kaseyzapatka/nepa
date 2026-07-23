@@ -148,7 +148,7 @@ archived to `_archived_v1/` and are not orchestrated.
 |---|---|
 | `03_enrich_llm.py` | **The** enrichment pass: one structured (tool-use) call per project extracts all 39 `ENRICHMENT_FIELDS` (schema `d6_enrich_schema_v5`) → `fonsi_enrichment.parquet`. Two cached stages (`--stage extract\|classify\|both`): EXTRACT (expensive, ~5,000 in / 1,700 out tok/call) then CLASSIFY (cheap re-ask of only `action_category`, ~1,340 in / 140 out tok/call, overwrites `action_category` and preserves the extraction value as `action_category_pass1`). `_run.py` **aborts** the chain if this output is missing. |
 | `10_action_label.py` | Reuses the cached enrichment summary (no document re-read) to assign one controlled action VERB per FONSI from an 11-value vocabulary; `is_codifiable` is derived deterministically from the verb (not the LLM) → `fonsi_action_labels.parquet`. |
-| `retag_condition_resources.py` | D6 `#47`: rebuilds `fonsi_conditions.parquet`'s `resource_area` tagging in place — Tier-1 free heading-inheritance for keyword-dict `unknown` rows, then Tier-2 scoped Haiku multi-label pass (deduped by condition-text hash) on `mitigation_commitment` rows only. Fixes a D2-facing quality gap (D6 verdicts/mitigation-share never read this field); `~$4.23` full run. |
+| `retag_condition_resources.py` | D6 `#47`: rebuilds `fonsi_conditions.parquet`'s `resource_area` tagging in place — Tier-1 heading-inheritance (**disabled by default since 2026-07-22**, commit 82d47e9: gold-validated precision 0.20; opt back in via `--use-tier1`), then Tier-2 scoped Haiku multi-label pass (deduped by condition-text hash) on `mitigation_commitment` rows only. Fixes a D2-facing quality gap (D6 verdicts/mitigation-share never read this field); `~$4.23` full run. |
 
 ### $0, network-cached scaffold (run once before `07`, safe to re-run)
 
@@ -640,10 +640,14 @@ is currently a text-similarity match, not confirmed eCFR coverage.
 Rebuilds `fonsi_conditions.parquet`'s `resource_area` column in place — this
 is a D2-facing fix (D2's mitigation join reads this field for resource-level
 F1; D6's own verdicts/mitigation-share never read it). Two tiers:
-**Tier-1** (free): rows the keyword-dict tagger left `unknown` inherit their
-resource area from the section HEADING via
+**Tier-1** (free; **disabled by default since 2026-07-22**, commit 82d47e9): rows the
+keyword-dict tagger left `unknown` inherit their resource area from the section HEADING via
 `mitigation_conditions.classify_resource_area_with_heading` (reused from
-`code/extract/`). **Tier-2** (billable Haiku, deduped): only
+`code/extract/`). Gold validation measured Tier-1 precision at 0.20, so the current shipped
+`fonsi_conditions.parquet` (rebuilt 2026-07-22) carries no Tier-1 labels; re-enable
+explicitly with `--use-tier1`. The combined new-tag pipeline scores F1 0.831 vs the
+keyword-baseline 0.397 (see `notes/deliverable06/retag_validation_score.md`).
+**Tier-2** (billable Haiku, deduped): only
 `mitigation_commitment` rows (the ones feeding D2's join) get a scoped
 multi-label pass over the shared-12 resource vocabulary, deduped by
 condition-text SHA-256 (~11,246 unique calls covering ~14,072 rows; cached, so
@@ -678,8 +682,9 @@ separately) after the chain (`10_action_label` → `04` → `05` → `06` → `0
   subset of `{main, exploratory}`; every `main`-tier cell has ≥5 CE-shaped
   FONSIs.
 - **`#38`**: `adopt_targets_net` is a subset of `adopt_targets_gross` for
-  every cell; the adopt verdict *count* is unchanged (`== 22`) — confirms the
-  crosswalk is annotate-only, not verdict-altering.
+  every cell; the adopt verdict *count* is unchanged (`== 22`, the pre-eCFR-gate
+  baseline at which this check runs; the later `A1`/`#37` gate moves it to 21) —
+  confirms the crosswalk is annotate-only, not verdict-altering.
 - **`#40`**: `other_action_themes.parquet` covers exactly the 92
   `action=='other'` projects — no more, no fewer.
 - **`#47`**: `fonsi_conditions.resource_area` stays within the shared-12 +
@@ -717,17 +722,24 @@ are `case_specific_dependent` and 1 is `design_feature_only`/`none`.
 
 | Verdict | Count |
 |---|---:|
-| adopt | 22 |
-| new | 16 |
+| adopt | 21 |
+| new | 17 |
 | already_covered | 12 |
 | expand | 2 |
 
-**G1 shortlist tiers** (among the 16 `new` cells): 6 `main` (≥5 CE-shaped), 3
-`exploratory` (3-4 CE-shaped), 5 `dropped` (<3, excluded from `d6_new.csv`); 38
-cells have no tier (not verdict `new`, or not codifiable). `d6_new.csv` (the
-client-facing shortlist) has 9 data rows (6 main + 3 exploratory).
+*(Final post-eCFR-gate tally. The deterministic pre-gate baseline is adopt 22 / new 16; the
+`A1`/`#37` coverage gate flips one cell, `Hydropower__new_build`, from `adopt` to `new` —
+see the gate description above.)*
 
-**`#38` crosswalk**: adopt verdict count unchanged at 22 after computing
+**G1 shortlist tiers** (among the 17 final `new` cells — G1 tiering runs once, on the
+post-`A1`/`#37`-gate verdict set): 6 `main` (≥5 CE-shaped), 3 `exploratory` (3-4 CE-shaped),
+6 `dropped` (<3, excluded from `d6_new.csv`; includes the flipped `Hydropower__new_build`
+cell at n=1); 37 cells have no tier (not verdict `new`, or not codifiable). `d6_new.csv`
+(the client-facing shortlist) has 9 data rows (6 main + 3 exploratory) — unaffected by the
+gate flip, which landed in `dropped`.
+
+**`#38` crosswalk**: adopt verdict count unchanged at 22 (the pre-eCFR-gate baseline at
+which `#38` runs; final adopt = 21 after the gate) after computing
 `adopt_targets_net`/`adopt_targets_gross` — confirms annotate-only behavior.
 
 **`#39` expand analysis** (`expand_analysis.csv`): 37 (grid cell, metric) rows.
@@ -896,7 +908,8 @@ parsed numeric bounds, agency unit).
   extraction are read-only inputs from v1/v2. The existing-CE source is the
   committed `ce.json` (CE Explorer) — no live fetch, no parquet snapshot.
   `retag_condition_resources.py` (`#47`) reuses `code/extract/
-  mitigation_conditions.py`'s heading classifier for its free Tier-1.
+  mitigation_conditions.py`'s heading classifier for its free Tier-1 (now
+  disabled by default — see Known Issues).
 - **Provenance throughout.** Every enriched fact carries a verified quote +
   span/document/page reference; CE matches are ranking aids left pending
   eCFR verification; audit timestamps (`*_extraction_run_at` always,
@@ -935,6 +948,12 @@ how `claude-sonnet-4-6` was selected as the enrichment default.
 
 ## Known Issues and Cautions
 
+- **`#47` Tier-1 heading inheritance is disabled by default (2026-07-22, commit 82d47e9).**
+  Gold validation against the retag answer key measured Tier-1 precision at 0.20 — heading
+  inheritance was mis-assigning resource areas at scale — so `retag_condition_resources.py`
+  now skips it unless `--use-tier1` is passed, and the shipped `fonsi_conditions.parquet`
+  contains no Tier-1 labels. Combined new-tag F1 is 0.831 vs the keyword-baseline 0.397
+  (`notes/deliverable06/retag_validation_score.md`).
 - **Two categorization schemes coexist on disk.** `candidate_corpus.parquet`,
   `candidate_base_rates.parquet`, `candidate_descriptive.parquet`, and
   `candidate_mitigation_boundary.parquet` are still legacy-5-keyed;
@@ -983,9 +1002,9 @@ how `claude-sonnet-4-6` was selected as the enrichment default.
 analyst's initial guesses. The refactor keeps the deep-extraction discipline
 (one careful enrichment call per FONSI, verified quotes) but replaces the
 hand-picked category list with an exhaustive `tech_group x action` grid, so
-nothing is silently excluded before the verdict stage — the 16 `new`-verdict
-cells the current run surfaces (vs. 0 under the legacy 5-category run) is
-direct evidence this mattered.
+nothing is silently excluded before the verdict stage — the 16 pre-eCFR-gate `new`-verdict
+cells the current run surfaces (17 final after the gate; vs. 0 under the legacy 5-category
+run) is direct evidence this mattered.
 
 **Why a two-stage (extract-then-classify) enrichment instead of one call?**
 The extraction call is expensive (large evidence packet in, many fields out)
@@ -1024,7 +1043,9 @@ under the same department often share NEPA implementing procedures) but it is
 not dispositive — only the eCFR text of the specific CE determines whether it
 legally extends to a sibling agency. Changing verdicts on an org-chart
 heuristic would risk false "already_covered" reclassifications; the QA gate
-(`#38` check, `n_adopt == 22`) enforces that this script never moves a verdict.
+(`#38` check, `n_adopt == 22` at the pre-eCFR-gate stage where it runs; the
+`A1`/`#37` gate is the only step that later moves a verdict, 22→21) enforces
+that this script never moves a verdict.
 
 **Why `all-MiniLM-L6-v2` throughout (CE ranking, `12`'s theme clustering)?**
 Fast, local, no API key, and its cosine geometry is well-suited to

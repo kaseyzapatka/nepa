@@ -1,0 +1,13 @@
+shared_resource_area,eis_n,eis_sig,eis_sig_share,fon_n,fon_mit,fon_mit_share
+air_quality,370,83,0.224,132,14,0.106
+biological,581,136,0.234,313,92,0.294
+climate_ghg,153,8,0.052,64,0,0
+cultural,518,119,0.23,198,42,0.212
+land_use,386,80,0.207,144,5,0.035
+noise,288,58,0.201,83,8,0.096
+public_health,328,16,0.049,190,26,0.137
+socioeconomic,274,31,0.113,114,3,0.026
+soils_geology,269,22,0.082,122,34,0.279
+transportation,238,24,0.101,66,4,0.061
+visual,362,136,0.376,128,14,0.109
+water,516,81,0.157,204,53,0.26

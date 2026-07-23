@@ -456,7 +456,7 @@ knitr::include_graphics(file.path(OUTPUT_DIR, "fig13_secondary_cooccurrence.png"
 share the same combination — **`r top_combo_label`**: BPA and WAPA transmission and power
 infrastructure that also crosses BLM or National Forest land, so the power-authority-proponent
 nexus and the federal-land nexus both apply. Every other combination is a long tail; the
-next-largest, `r second_combo_label` (`r comma(second_combo_n)` projects), is barely a twentieth
+next-largest, `r second_combo_label` (`r comma(second_combo_n)` projects), is roughly a twelfth
 the size.
 
 ```{r}
@@ -618,7 +618,7 @@ trigger_regime |>
 
 Land and PMA/TVA supply the largest EA/EIS caseloads, and both skew toward the pre-2020 CEQ
 regime — the bulk of these public-lands and transmission reviews predate the 2020–2025 rule
-churn. Roughly a third of the regime universe is undated (no reliable decision date recovered),
+churn. Roughly two in five of the regime universe is undated (no reliable decision date recovered),
 so these counts are lower bounds on each vintage.
 
 ---

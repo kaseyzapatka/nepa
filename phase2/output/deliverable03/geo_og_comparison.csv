@@ -1,0 +1,103 @@
+"tech_group","project_state","n","total","pct"
+"Geothermal","Alabama",1,38,0.0263157894736842
+"Geothermal","Alaska",16,224,0.0714285714285714
+"Geothermal","Arizona",2,42,0.0476190476190476
+"Geothermal","Arkansas",3,22,0.136363636363636
+"Geothermal","California",66,865,0.0763005780346821
+"Geothermal","Colorado",44,674,0.0652818991097923
+"Geothermal","Connecticut",46,62,0.741935483870968
+"Geothermal","Delaware",12,17,0.705882352941177
+"Geothermal","District Of Columbia",3,13,0.230769230769231
+"Geothermal","Florida",7,46,0.152173913043478
+"Geothermal","Georgia",5,30,0.166666666666667
+"Geothermal","Hawaii",3,7,0.428571428571429
+"Geothermal","Idaho",22,65,0.338461538461538
+"Geothermal","Illinois",29,74,0.391891891891892
+"Geothermal","Indiana",9,41,0.219512195121951
+"Geothermal","Iowa",11,13,0.846153846153846
+"Geothermal","Kansas",12,49,0.244897959183673
+"Geothermal","Kentucky",5,22,0.227272727272727
+"Geothermal","Louisiana",6,226,0.0265486725663717
+"Geothermal","Maine",0,2,0
+"Geothermal","Maryland",6,25,0.24
+"Geothermal","Massachusetts",14,44,0.318181818181818
+"Geothermal","Michigan",12,57,0.210526315789474
+"Geothermal","Minnesota",24,33,0.727272727272727
+"Geothermal","Mississippi",4,51,0.0784313725490196
+"Geothermal","Missouri",17,29,0.586206896551724
+"Geothermal","Montana",9,140,0.0642857142857143
+"Geothermal","Nebraska",8,63,0.126984126984127
+"Geothermal","Nevada",121,173,0.699421965317919
+"Geothermal","New Hampshire",2,9,0.222222222222222
+"Geothermal","New Jersey",5,24,0.208333333333333
+"Geothermal","New Mexico",19,2287,0.00830782684739834
+"Geothermal","New York",20,58,0.344827586206897
+"Geothermal","North Carolina",7,33,0.212121212121212
+"Geothermal","North Dakota",2,307,0.00651465798045603
+"Geothermal","Ohio",13,86,0.151162790697674
+"Geothermal","Oklahoma",60,202,0.297029702970297
+"Geothermal","Oregon",36,130,0.276923076923077
+"Geothermal","Pennsylvania",37,109,0.339449541284404
+"Geothermal","Rhode Island",5,7,0.714285714285714
+"Geothermal","South Carolina",1,80,0.0125
+"Geothermal","South Dakota",8,30,0.266666666666667
+"Geothermal","Tennessee",13,30,0.433333333333333
+"Geothermal","Texas",24,399,0.0601503759398496
+"Geothermal","Utah",34,305,0.111475409836066
+"Geothermal","Vermont",7,7,1
+"Geothermal","Virginia",9,36,0.25
+"Geothermal","Washington",15,101,0.148514851485149
+"Geothermal","West Virginia",6,49,0.122448979591837
+"Geothermal","Wisconsin",12,32,0.375
+"Geothermal","Wyoming",12,2375,0.00505263157894737
+"Oil & Gas","Alabama",37,38,0.973684210526316
+"Oil & Gas","Alaska",208,224,0.928571428571429
+"Oil & Gas","Arizona",40,42,0.952380952380952
+"Oil & Gas","Arkansas",19,22,0.863636363636364
+"Oil & Gas","California",799,865,0.923699421965318
+"Oil & Gas","Colorado",630,674,0.934718100890208
+"Oil & Gas","Connecticut",16,62,0.258064516129032
+"Oil & Gas","Delaware",5,17,0.294117647058824
+"Oil & Gas","District Of Columbia",10,13,0.769230769230769
+"Oil & Gas","Florida",39,46,0.847826086956522
+"Oil & Gas","Georgia",25,30,0.833333333333333
+"Oil & Gas","Hawaii",4,7,0.571428571428571
+"Oil & Gas","Idaho",43,65,0.661538461538462
+"Oil & Gas","Illinois",45,74,0.608108108108108
+"Oil & Gas","Indiana",32,41,0.780487804878049
+"Oil & Gas","Iowa",2,13,0.153846153846154
+"Oil & Gas","Kansas",37,49,0.755102040816326
+"Oil & Gas","Kentucky",17,22,0.772727272727273
+"Oil & Gas","Louisiana",220,226,0.973451327433628
+"Oil & Gas","Maine",2,2,1
+"Oil & Gas","Maryland",19,25,0.76
+"Oil & Gas","Massachusetts",30,44,0.681818181818182
+"Oil & Gas","Michigan",45,57,0.789473684210526
+"Oil & Gas","Minnesota",9,33,0.272727272727273
+"Oil & Gas","Mississippi",47,51,0.92156862745098
+"Oil & Gas","Missouri",12,29,0.413793103448276
+"Oil & Gas","Montana",131,140,0.935714285714286
+"Oil & Gas","Nebraska",55,63,0.873015873015873
+"Oil & Gas","Nevada",52,173,0.300578034682081
+"Oil & Gas","New Hampshire",7,9,0.777777777777778
+"Oil & Gas","New Jersey",19,24,0.791666666666667
+"Oil & Gas","New Mexico",2268,2287,0.991692173152602
+"Oil & Gas","New York",38,58,0.655172413793103
+"Oil & Gas","North Carolina",26,33,0.787878787878788
+"Oil & Gas","North Dakota",305,307,0.993485342019544
+"Oil & Gas","Ohio",73,86,0.848837209302326
+"Oil & Gas","Oklahoma",142,202,0.702970297029703
+"Oil & Gas","Oregon",94,130,0.723076923076923
+"Oil & Gas","Pennsylvania",72,109,0.660550458715596
+"Oil & Gas","Rhode Island",2,7,0.285714285714286
+"Oil & Gas","South Carolina",79,80,0.9875
+"Oil & Gas","South Dakota",22,30,0.733333333333333
+"Oil & Gas","Tennessee",17,30,0.566666666666667
+"Oil & Gas","Texas",375,399,0.93984962406015
+"Oil & Gas","Utah",271,305,0.888524590163934
+"Oil & Gas","Vermont",0,7,0
+"Oil & Gas","Virginia",27,36,0.75
+"Oil & Gas","Washington",86,101,0.851485148514851
+"Oil & Gas","West Virginia",43,49,0.877551020408163
+"Oil & Gas","Wisconsin",20,32,0.625
+"Oil & Gas","Wyoming",2363,2375,0.994947368421053

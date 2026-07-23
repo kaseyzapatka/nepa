@@ -4587,6 +4587,7 @@ vertical-align: -.125em;
 <p><strong>Correlation is not attribution.</strong> The volume spike is a correlational observation; the citation analysis is the stronger attribution layer. The report presents both and rests the causal claim on the citations rather than on the counts.</p>
 <p><strong>Pre-2009 coverage is thin.</strong> NEPATEC contains few CE documents before 2009, so ARRA’s apparent <em>level</em> shift is partly a coverage ramp. The ARRA claim rests on the DOE-vs-BLM contrast and the 59.7% citation rate, not on raw counts, and the report reports no ARRA window-versus-baseline ratio for exactly this reason.</p>
 <p><strong>The BIL and IRA windows overlap.</strong> The two laws passed nine months apart, so their post-law windows cannot be cleanly separated by date alone. Where an action needs to be attributed to one law rather than the other, the citation evidence does the work that the calendar cannot. Both laws show a real but far more muted pattern than ARRA: DOE CE activity rose to 1.60× its pre-law monthly baseline after BIL, but explicit CE citations to BIL and IRA are rare because these laws are seldom named in a one-page categorical exclusion. They surface far more often in larger reviews — IRA is cited in 18.9% of post-IRA EISs (versus 8.7% before) and BIL in 17.5% of post-BIL EISs — so the citation evidence for BIL and IRA lives in the EIS record even though the volume signal lives in the DOE CEs.</p>
+<p>Two data-scope notes on the underlying tables. <code>law_citations.parquet</code> also carries a fourth <code>law_name</code> class, <code>DOE_funding</code> (167 projects), captured by the scan but outside this report’s three-law scope — it is not used in any figure or statistic here. And <code>ce_categories.parquet</code> covers 49,604 of 54,668 CE projects (90.7%; 95.8% within clean-energy CEs) — category-share analyses are restricted to projects with at least one normalized code.</p>
 <p><strong>The most recent years are incomplete.</strong> The decline visible in 2024–2025 reflects ingestion lag, not a real fall in CE use, and those years should not be read as a downward trend.</p>
 <p><strong>Dates are extracted, not authoritative.</strong> The determination date comes from the Deliverable 4 extraction, which places 95.3% of CEs; the remaining few percent carry no usable date and are absent from the time series. Coverage is not the same as accuracy — end-to-end date accuracy is reported in tiers in Deliverable 4, and proxy and fallback dates are flagged there.</p>
 </section>
@@ -4682,6 +4683,10 @@ transform: none;
       ["Deliverable 5", [
         ["Report", "phase2/reports/deliverable05.html"],
         ["Coverage & Limitations", "phase2/notes/deliverable05/coverage_limitations.html"]
+      ]],
+      ["Deliverable 6", [
+        ["Report", "phase2/reports/deliverable06.html"],
+        ["Coverage & Limitations", "phase2/notes/deliverable06/coverage_limitations.html"]
       ]]
     ];
 

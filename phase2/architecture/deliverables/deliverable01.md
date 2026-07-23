@@ -109,7 +109,7 @@ Scans the document titles of the first retrieved documents for each project via 
 Applies `_is_programmatic_title`, `_is_programmatic_exclusion`, and `DOC_TITLE_PATTERNS`.
 
 Currently auto-accepted rules: `T2_doc_title_peis`, `T2_doc_title_row`,
-`T2_doc_title_permit_app`, `T2_doc_title_license_amendment`, `T2_doc_title_loan_guarantee`.
+`T2_doc_title_permit_app`, `T2_doc_title_loan_guarantee`.
 
 Adds 27 projects (May 2026 run).
 

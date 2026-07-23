@@ -56,7 +56,6 @@ ARRA_FORBID = re.compile(r"conservation|resource\s+conservation", re.IGNORECASE)
 CITATION_PATTERNS = {
     "ARRA": [
         (r"American Recovery and Reinvestment Act", "full_name", None, None),
-        (r"Recovery and Reinvestment Act", "full_name", None, None),
         (r"\bARRA\b", "acronym", None, None),
         (r"Section 1603", "program", None, None),
         (r"Section 1705", "program", None, None),
@@ -132,6 +131,7 @@ def process_source(con, src_lc, sample_ids):
         WHERE length(p.page_text) > 40
           AND (regexp_matches(lower(p.page_text), '{PREFILTER_LOWER}')
                OR regexp_matches(p.page_text, '{PREFILTER_ACRONYM}'))
+        ORDER BY p.document_id, p.page_number
     """).fetchdf()
     print(f"  [{src_uc}] {len(cand):,} candidate pages to scan")
 

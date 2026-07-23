@@ -132,7 +132,7 @@ Reads `ce_category` (VARCHAR array) from `ce/documents.parquet` via DuckDB. The 
 
 **Normalization rules (applied in order):**
 1. `DOE_RE = r"^\s*([AB]\d+(?:\.\d+)?)"` — matches DOE 10 CFR 1021 Appendix A/B codes (e.g. `B5.1`, `A9`, `B1.31`). Schedule: `DOE (10 CFR 1021)`.
-2. `DOI_RE = r"^\s*(516\s*DM\s*\d+(?:\.\d+)?)"` — matches DOI/BLM 516 DM 11 codes (e.g. `516 DM 11.9`). Schedule: `DOI (516 DM 11)`.
+2. `DOI_RE = r"(516\s*DM\s*\d+(?:\.\d+)?)"` — searched anywhere within the token for DOI/BLM 516 DM 11 codes (e.g. `516 DM 11.9`), so codes trailing prose like "pursuant to" are recovered. Schedule: `DOI (516 DM 11)`.
 3. `EPACT_RE` — matches `section 390` or `energy policy act of 2005`. Normalizes to code `EPAct §390`. Schedule: `EPAct 2005 §390`.
 4. No match → `code_norm = None`, row dropped.
 
@@ -175,17 +175,18 @@ The CE-category windows (`CAT_WINDOWS`) use a separate baseline: ARRA uses `2016
 
 <!-- d5-run-results: pull this section into the D5 report -->
 
-Most recent full run: 2026-06-17 (`law_citations_extraction_run_at` 19:28 UTC; `ce_categories_extraction_run_at` 19:12 UTC).
+Most recent full run: 2026-07-23 (`law_citations_extraction_run_at` 17:07 UTC; `ce_categories_extraction_run_at` 17:08 UTC).
+Numbers in this section last verified 2026-07-22, against the 2026-07-15 timeline rebuild and the 2026-07-20 diagnostics regeneration.
 
 ### CE Project Base
 
 | Metric | Count |
 |---|---|
-| CE projects in timeline | 54,040 |
-| CE with decision_date | 49,392 (91.4%) |
-| CE with initiation_date (no decision) | 2,697 (additional 5.0%) |
-| CE placeable by `coalesce(decision_date, initiation_date)` | 52,089 (96.4%) |
-| Used by `03_create_figures.R` (within 2000–2025 year filter) | 51,853 (100% of in-range projects have a year_date, per T6) |
+| CE projects in timeline | 54,668 |
+| CE with decision_date | 49,392 (90.3%) |
+| CE with initiation_date (no decision) | 2,697 (additional 4.9%) |
+| CE placeable by `coalesce(decision_date, initiation_date)` | 52,089 (95.3%) |
+| Used by `03_create_figures.R` (within 2000–2025 year filter) | 51,867 (100% of in-range projects have a year_date, per T6) |
 
 Note: the D5 analysis frame is broader than D4's complete-timeline frame. D4 requires both initiation and decision dates for duration analysis (29,745 CE rows with complete timelines); D5 needs only a single year-placement date per project.
 
@@ -193,11 +194,11 @@ Note: the D5 analysis frame is broader than D4's complete-timeline frame. D4 req
 
 | Year | DOE CEs | DOI/BLM CEs |
 |---:|---:|---:|
-| 2008 | 19 | 52 |
-| 2009 | 698 | 40 |
-| 2010 | 3,868 | 77 |
-| 2011 | 2,147 | 104 |
-| 2012 | 1,769 | 242 |
+| 2008 | 7 | 52 |
+| 2009 | 669 | 40 |
+| 2010 | 3,942 | 79 |
+| 2011 | 2,199 | 104 |
+| 2012 | 1,801 | 242 |
 
 DOE jumps ~200× from 2008 to 2010; DOI (BLM) is flat across the same window.
 
@@ -205,11 +206,11 @@ DOE jumps ~200× from 2008 to 2010; DOI (BLM) is flat across the same window.
 
 | Year | DOE CEs | DOI/BLM CEs |
 |---:|---:|---:|
-| 2020 | 1,946 | 2,097 |
-| 2021 | 2,457 | 2,122 |
-| 2022 | 3,209 | 2,146 |
-| 2023 | 3,120 | 1,776 |
-| 2024 | 971 | 616 |
+| 2020 | 1,940 | 2,097 |
+| 2021 | 2,466 | 2,122 |
+| 2022 | 3,239 | 2,146 |
+| 2023 | 3,152 | 1,776 |
+| 2024 | 983 | 616 |
 
 DOE shows a sustained rise through 2022–2023; BLM declines from 2022 onward.
 
@@ -217,37 +218,37 @@ DOE shows a sustained rise through 2022–2023; BLM declines from 2022 onward.
 
 | Law | CE projects citing | EA projects citing | EIS projects citing | Total (project × law) rows |
 |---|---:|---:|---:|---:|
-| ARRA | 7,675 | 109 | 362 | 8,146 unique projects |
+| ARRA | 7,676 | 109 | 349 | 8,134 unique projects |
 | BIL | 55 | 36 | 101 | 192 unique projects |
-| DOE_funding | 50 | 42 | 74 | 166 unique projects |
+| DOE_funding | 51 | 42 | 74 | 167 unique projects |
 | IRA | 11 | 33 | 204 | 248 unique projects |
 
-Total rows in `law_citations.parquet`: 8,752.
+Total rows in `law_citations.parquet`: 8,741.
 
-ARRA citations are overwhelmingly CE (7,675 vs 362 EIS). IRA citations skew toward EIS (204) — longer EIS documents in the IRA window provide more citable context, while CE forms are brief. This by-process contrast is a secondary finding showing the citation signal is not uniform.
+ARRA citations are overwhelmingly CE (7,676 vs 349 EIS). IRA citations skew toward EIS (204) — longer EIS documents in the IRA window provide more citable context, while CE forms are brief. This by-process contrast is a secondary finding showing the citation signal is not uniform.
 
 ### ARRA-Window Citation Rate (from d5_citation_rates.csv)
 
 | Scope | % of CEs citing ARRA in spike window |
 |---|---|
-| All CE | 59.4% (n = 6,913) |
-| Decarb CE | 61.8% (n = 4,556) |
-| Fossil CE | 75.6% (n = 598) |
+| All CE | 59.7% (n = 7,014) |
+| Decarb CE | 61.7% (n = 4,613) |
+| Fossil CE | 76.6% (n = 632) |
 
 ARRA has no usable pre-law baseline. BIL and IRA CE citation rates are low (< 1%) — law citations in CE documents are far less common for BIL/IRA than for ARRA, consistent with ARRA having funded CEs at a level that generated explicit funding acknowledgments in the CE forms themselves.
 
 ### CE Category Shift: ARRA Window (2009–2011) vs 2016–2019 Baseline
 
-n_win = 6,565 DOE CE projects; n_bse = 6,589 DOE CE projects.
+n_win = 6,664 DOE CE projects; n_bse = 6,529 DOE CE projects.
 
 | Code | Description | Window % | Baseline % |
 |---|---|---:|---:|
-| B5.1 | Actions to conserve energy or water | 49.6% | 1.3% (baseline B5.1 is negligible) |
-| A9 | Information gathering, data analysis & document preparation | 36.4% | 15.2% |
-| B3.6 | Small-scale R&D / demonstration projects | 23.4% | 28.7% |
-| A11 | Technical advice and planning assistance | 17.9% | 7.7% |
-| A1 | Technical/financial assistance, training & education | 11.2% | 3.7% |
-| B1.3 | Routine maintenance | 6.0% | 28.6% |
+| B5.1 | Actions to conserve energy or water | 49.7% | 1.2% (baseline B5.1 is negligible) |
+| A9 | Information gathering, data analysis & document preparation | 36.6% | 14.4% |
+| B3.6 | Small-scale R&D / demonstration projects | 23.8% | 28.2% |
+| A11 | Technical advice and planning assistance | 18.0% | 7.6% |
+| A1 | Technical/financial assistance, training & education | 11.4% | 3.7% |
+| B1.3 | Routine maintenance | 6.0% | 29.1% |
 
 B5.1 ("Actions to conserve energy or water") dominates the ARRA window and is negligible in the baseline. Routine maintenance (B1.3) is the dominant baseline code but is depressed in the ARRA window. The shift directly reflects ARRA's energy-efficiency and retrofit stimulus purpose.
 
@@ -255,24 +256,25 @@ B5.1 ("Actions to conserve energy or water") dominates the ARRA window and is ne
 
 | Schedule | Distinct projects |
 |---|---:|
-| DOE (10 CFR 1021) | 31,021 |
-| DOI (516 DM 11) | 14,160 |
+| DOE (10 CFR 1021) | 31,052 |
+| DOI (516 DM 11) | 15,523 |
 | EPAct 2005 §390 | 3,060 |
 
-Total rows (project × code): 71,970. Distinct projects with at least one normalized code: 48,228.
+Total rows (project × code): 74,035. Distinct projects with at least one normalized code: 49,604.
 
-Top codes by project count: 516 DM 11.9 (DOI/BLM, 11,142 projects), B3.6 (9,102), A9 (8,270), B1.3 (6,313), B5.1 (4,344).
+Top codes by project count: 516 DM 11.9 (DOI/BLM, 12,901 projects), B3.6 (9,102), A9 (8,271), B1.3 (6,315), B5.1 (4,344).
 
 ### Spike Summary (from d5_spike_summary.csv)
 
 | Agency | Law | Window mean monthly CEs | Baseline mean monthly CEs | Spike ratio |
 |---|---|---:|---:|---:|
-| All CE | ARRA | 203 | — | — |
-| All CE | BIL | 426 | 348 | 1.22 |
-| All CE | IRA | 328 | 379 | 0.86 |
-| DOE | ARRA | 203 | — | — |
-| DOE | BIL | 261 | 165 | 1.59 |
-| DOE | IRA | 208 | 196 | 1.06 |
+| All CE | ARRA | 206 | — | — |
+| All CE | BIL | 428 | 348 | 1.23 |
+| All CE | IRA | 330 | 380 | 0.87 |
+| DOE | ARRA | 206 | — | — |
+| DOE | BIL | 263 | 164 | 1.60 |
+| DOE | IRA | 210 | 196 | 1.07 |
+| BLM | ARRA | 6 | — | — |
 | BLM | BIL | 163 | 182 | 0.90 |
 | BLM | IRA | 119 | 182 | 0.66 |
 
@@ -312,15 +314,15 @@ ARRA has no computed baseline ratio (no usable pre-2009 period). For BIL/IRA: DO
 
 ## Known Issues and Cautions
 
-- **ARRA has no usable pre-law baseline.** The NEPATEC corpus is sparse before 2009 (DOE had 19 CEs in 2008). The citation evidence and DOE-vs-BLM contrast serve as the attribution layer for ARRA; do not compute a pre/post ratio from the thin pre-period.
+- **ARRA has no usable pre-law baseline.** The NEPATEC corpus is sparse before 2009 (DOE had 7 CEs in 2008). The citation evidence and DOE-vs-BLM contrast serve as the attribution layer for ARRA; do not compute a pre/post ratio from the thin pre-period.
 
-- **BIL and IRA spike windows overlap.** The BIL window (Dec 2021 – Dec 2023) and IRA window (Sep 2022 – Dec 2024) share 15 months. Date alone cannot separate BIL-attributable from IRA-attributable CEs during the overlap. Attribution within that overlap requires the citation evidence — and BIL/IRA CE citation rates are both low (< 1%), so citation-based attribution is weak for these two laws compared to ARRA.
+- **BIL and IRA spike windows overlap.** The BIL window (Dec 2021 – Dec 2023) and IRA window (Sep 2022 – Dec 2024) share 16 months. Date alone cannot separate BIL-attributable from IRA-attributable CEs during the overlap. Attribution within that overlap requires the citation evidence — and BIL/IRA CE citation rates are both low (< 1%), so citation-based attribution is weak for these two laws compared to ARRA.
 
-- **2024–25 counts are incomplete.** The NEPATEC 2.0 ingestion lag means 2024 and 2025 CE counts underrepresent true activity. The decline visible in DOE 2024 data (971 CEs vs 3,120 in 2023) is a data artifact, not a real policy change.
+- **2024–25 counts are incomplete.** The NEPATEC 2.0 ingestion lag means 2024 and 2025 CE counts underrepresent true activity. The decline visible in DOE 2024 data (983 CEs vs 3,152 in 2023) is a data artifact, not a real policy change.
 
 - **IRA/BIL CE citation rates are low.** Unlike ARRA, where 59% of spike-window CEs explicitly cite the law, BIL and IRA citation rates in CEs are below 1%. This reflects the structure of CE forms (brief, no detailed funding acknowledgment section) rather than absence of law association. The temporal spike + DOE-conditioning is the primary attribution evidence for BIL/IRA; citations are a secondary confirmation.
 
-- **`ce_categories.parquet` covers 48,228 of 54,040 CE projects.** Not all CE documents carry a populated `ce_category` array. The 5,812-project gap (10.7%) reflects CE documents with blank or unparseable category fields and is not an extraction artifact of script 02. The category analysis is therefore restricted to projects with at least one normalized code.
+- **`ce_categories.parquet` covers 49,604 of 54,668 CE projects (90.7%; 95.8% within clean-energy CEs).** Not all CE documents carry a populated `ce_category` array. Most of the 5,064-project gap (9.3%) reflects CE documents with blank or unparseable category fields. The DOI/`516 DM` regex was previously anchored to the start of each comma-split token, missing codes trailing phrases like "pursuant to"; it was relaxed on 2026-07-23 to `re.search` (unanchored), which recovered 1,363 DOI projects whose `516 DM` code trailed such prose. The DOI project count is now 15,523. The category analysis is restricted to projects with at least one normalized code.
 
 - **DOE description lookup is incomplete for long-tail codes.** Codes absent from `DOE_DESC` (e.g., B2.5, B2.2, B4.6, B1.15) fall back to the code string as the description. These codes appear in the data but lack human-readable labels in the current lookup. Extend `DOE_DESC` in `02_build_ce_categories.py` before publication if these codes appear prominently in the report figures.
 
@@ -334,7 +336,7 @@ ARRA has no computed baseline ratio (no usable pre-2009 period). For BIL/IRA: DO
 
 ## Methodological Notes
 
-**Why `coalesce(decision_date, initiation_date)` for year placement?** The spike analysis needs only a single determination date per CE project — not a complete timeline. Using the initiation date as a fallback when decision is absent recovers 2,679 projects (5.0%) and raises coverage from 91.4% to 96.4%. It is safe for CEs specifically: the median CE duration is 20 days (p75 = 79 days; 90% complete within one year), so initiation and decision almost always fall in the same calendar year. A `date_basis` column distinguishes the two cases; the spike shape is robust to dropping initiation-proxy rows (the CEs recovered are a small fraction of any spike window).
+**Why `coalesce(decision_date, initiation_date)` for year placement?** The spike analysis needs only a single determination date per CE project — not a complete timeline. Using the initiation date as a fallback when decision is absent recovers 2,697 projects (4.9%) and raises coverage from 90.3% to 95.3%. It is safe for CEs specifically: the median CE duration is 20 days (p75 = 79 days; 90% complete within one year), so initiation and decision almost always fall in the same calendar year. A `date_basis` column distinguishes the two cases; the spike shape is robust to dropping initiation-proxy rows (the CEs recovered are a small fraction of any spike window).
 
 **Why DOE-vs-BLM conditioning rather than overall CE counts?** The aggregate CE count is confounded by the NEPATEC coverage ramp (sparse pre-2009, incomplete 2024–25). Conditioning on DOE vs BLM isolates the policy signal: BLM is the natural within-data control. ARRA channeled energy-related stimulus spending through DOE, not BLM; a DOE spike with BLM flat is direct evidence of agency-specific response to the legislation.
 
@@ -342,11 +344,11 @@ ARRA has no computed baseline ratio (no usable pre-2009 period). For BIL/IRA: DO
 
 **Why use ARRA acronym without disambiguation but guard `Recovery Act`?** `\bARRA\b` is sufficiently distinctive — no common competing acronym uses ARRA — so it needs no context gate. `Recovery Act` alone is not distinctive: the Resource Conservation and Recovery Act (RCRA) is cited frequently in NEPA documents. The guard (require affirming terms like `reinvestment`, `stimulus`, `2009` OR `\bARRA\b`; forbid `conservation|resource conservation` nearby) is calibrated specifically to RCRA false-positive risk.
 
-**Why use 2016–2019 as the ARRA category baseline rather than 2005–2008?** Pre-ARRA (2005–2008) DOE CE activity was minimal (19 CEs in 2008) — too thin to compute stable code-share proportions. The 2016–2019 window is a stable DOE CE period unaffected by ARRA stimulus (which wound down by 2012–2013) and before the BIL/IRA windows begin. It provides a reliable baseline for "what DOE CEs looked like in the absence of major stimulus legislation."
+**Why use 2016–2019 as the ARRA category baseline rather than 2005–2008?** Pre-ARRA (2005–2008) DOE CE activity was minimal (7 CEs in 2008) — too thin to compute stable code-share proportions. The 2016–2019 window is a stable DOE CE period unaffected by ARRA stimulus (which wound down by 2012–2013) and before the BIL/IRA windows begin. It provides a reliable baseline for "what DOE CEs looked like in the absence of major stimulus legislation."
 
 **Why is `03_create_figures.R` tagged `[NEEDS D4 TIMELINE]` rather than self-contained?** The temporal anchor for the spike analysis is the `decision_date` from D4's `timeline_project_dates.parquet`. Without D4's extraction pipeline, there are no reliable CE determination dates at scale. The CE `ce_category` metadata does not include dates; D4 provides the dates and D5 uses them for year placement.
 
-**ARRA spike is a confirmed, large effect; BIL/IRA are more modest.** DOE mean monthly CEs: ARRA window 203 vs pre-ARRA DOE-only 2008 rate of ~1.6/month — roughly a 125× monthly rate increase. BIL DOE spike ratio is 1.59 (59% above baseline). IRA DOE ratio is 1.06 (6% above baseline, within noise). The spike hierarchy ARRA >> BIL > IRA for DOE CEs is the key finding, and it is consistent with the magnitude of ARRA energy spending relative to IRA/BIL CE-eligible activities at DOE.
+**ARRA spike is a confirmed, large effect; BIL/IRA are more modest.** DOE mean monthly CEs: ARRA window 206 vs pre-ARRA DOE-only 2008 rate of ~1.6/month — roughly a 125× monthly rate increase. BIL DOE spike ratio is 1.60 (59% above baseline). IRA DOE ratio is 1.07 (6% above baseline, within noise). The spike hierarchy ARRA >> BIL > IRA for DOE CEs is the key finding, and it is consistent with the magnitude of ARRA energy spending relative to IRA/BIL CE-eligible activities at DOE.
 
 ---
 

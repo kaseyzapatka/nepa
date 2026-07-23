@@ -92,7 +92,7 @@ comparison so you can see whether the re-tag actually helped. It writes the same
 ---
 
 
-**Sheet:** `/Users/Dora/git/consulting/nepa/phase2/notes/deliverable06/retag_validation_sheet.csv` — 80 rows to label.
+**Sheet:** `phase2/notes/deliverable06/retag_validation_sheet.csv` — 80 rows to label.
 
 
 ## Stratum: `new_haiku` (24 rows)

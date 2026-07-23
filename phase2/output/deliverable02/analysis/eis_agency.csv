@@ -1,0 +1,16 @@
+agency,Agency,Coverage,n,n_sig,share,proj
+Corps of Engineers--Civil Works,Army Corps,Other agency (partial coverage),381,102,0.2677165354330709,15
+Bureau of Land Management,BLM,BLM + DOE (complete coverage),3803,816,0.21456744675256376,123
+Bureau of Ocean Energy Management,BOEM,Other agency (partial coverage),218,42,0.1926605504587156,15
+"Navy, Marine Corps",Navy/USMC,Other agency (partial coverage),157,30,0.1910828025477707,4
+Forest Service,USFS,Other agency (partial coverage),405,76,0.18765432098765433,20
+Bureau of Reclamation,Reclamation,Other agency (partial coverage),178,29,0.16292134831460675,11
+Department of Energy,DOE,BLM + DOE (complete coverage),1842,284,0.15418023887079263,85
+Army,Army,Other agency (partial coverage),233,35,0.15021459227467812,4
+United States Fish and Wildlife Service,USFWS,Other agency (partial coverage),354,49,0.1384180790960452,16
+Energy Programs,DOE (Energy Programs),BLM + DOE (complete coverage),160,20,0.125,7
+Power Marketing Administration,Power Marketing,BLM + DOE (complete coverage),939,114,0.12140575079872204,48
+Bureau of Indian Affairs,BIA,Other agency (partial coverage),269,31,0.11524163568773234,12
+Nuclear Regulatory Commission,NRC,Other agency (partial coverage),1192,130,0.10906040268456375,54
+Rural Utilities Service,Rural Utilities,Other agency (partial coverage),222,11,0.04954954954954955,8
+Tennessee Valley Authority,TVA,Other agency (partial coverage),277,8,0.02888086642599278,10

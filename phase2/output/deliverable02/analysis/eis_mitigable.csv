@@ -1,0 +1,12 @@
+shared_resource_area,n,Resource
+visual,31,Visual
+biological,17,Biological
+land_use,16,Land use
+transportation,11,Transportation
+water,11,Water
+air_quality,10,Air quality
+noise,10,Noise
+soils_geology,10,Soils / geology
+cultural,8,Cultural / historic
+public_health,5,Public health
+socioeconomic,5,Socioeconomic

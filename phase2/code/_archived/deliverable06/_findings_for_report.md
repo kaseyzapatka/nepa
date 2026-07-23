@@ -1,3 +1,5 @@
+SUPERSEDED 2026-06 — do not source numbers from this file; see deliverable06.qmd
+
 # Deliverable 06 — Findings for the Report (running list)
 
 Points that must make it into `phase2/reports/deliverable06.qmd`. Mirrors the D4

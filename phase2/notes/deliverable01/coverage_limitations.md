@@ -78,10 +78,13 @@ fields (mechanism type, program labels, evidence, confidence) are 100% populated
 
 | Field | Coverage |
 |:---|--:|
-| Federal award amount | 529 (5.7%) |
+| Federal award amount | 528 (5.7%) |
 | Total project cost | 178 (1.9%) |
 | Recipient cost share | 101 (1.1%) |
 | Federal share (%) | 130 (1.4%) |
+
+Counts exclude one verified false-positive extracted amount (the exclusion applied by
+`02_create_figures.R`), matching the coverage figures published in the report.
 
 Use the extracted amounts for *distributional* statements (typical award sizes by mechanism,
 as the report does), not for portfolio totals or quantitative funding analysis. Conflicting

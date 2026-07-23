@@ -206,3 +206,32 @@ The faceted lollipop chart (`fig14b_topic_terms.png`) shows NMF component weight
 - Identifying whether a topic has a sharp "elbow" (one term dominates) or a flatter profile (several terms equally contribute)
 
 It is NOT useful for comparing term weights *across* topics (scales differ between facets), and should not be presented to a non-technical audience without explanation.
+
+---
+
+## Noise-line calibration corpus (`visual_impact_to_remove.txt`)
+
+`phase2/notes/deliverable03/visual_impact_to_remove.txt` is a hand-collected corpus of **example lines to exclude** from extracted visual-impact section text — table spillage (VRM/VRI class-acreage rows, emissions-comparison tables), OCR garbage from scanned PDFs, URL-only lines, and lines dominated by numbers. It is a human-curated reference, **not read by any code at runtime**: `02_build_nepa_reviews.py`'s `_is_noisy_line()` filter (regexes `_VRM_CLASS_RE`, `_DASH_CELL_RE`, `_URL_RE`, `_OCR_JUNK_RE`, `_NUMERIC_TOKEN_RE`, etc.) was **generalized from** these examples and the file is cited in two comments there (near lines ~789 and ~807) as the calibration source. The text is verbatim from public federal NEPA documents.
+
+Do not add a header or reformat the file: although nothing parses it today, its value is as a faithful sample of the raw noise the filters must catch. If the noise filters are ever retuned, extend this corpus with new failing examples first, then adjust the regexes to cover them.
+
+---
+
+## Dormant timeline section (`04_create_figures.R` Section 6)
+
+`04_create_figures.R` carries a **Section 6** that is gated off at runtime: it activates only when
+`phase2/data/analysis/timeline.parquet` exists, and that file is intentionally absent — timeline
+analysis is delivered by **Deliverable 4**, not D3. The section is kept only as a stub. This note
+transplants the two latent-bug records that were previously held only in the (now-deleted)
+`plans/deliverable03_update.md`, so they are not lost if the section is ever revived:
+
+1. **Wrong FRA cut date.** Section 6 hardcodes `as.Date("2023-08-16")` (the CEQ-rule effective
+   date). If revived, change it to **`2023-06-03`** (FRA enactment) to match D4's `FRA_CUT_DATE` and
+   the Phase 1 D5 convention. Using 2023-08-16 would misclassify pre/post-FRA reviews in the ~2.5
+   month gap.
+2. **Register-anchored duration artifact.** Section 6 re-derives `duration_days` from raw
+   start/decision dates **without `initiation_source_type` awareness**. It would therefore reproduce
+   the fossil-EA ~40-day artifact: land-based oil & gas EAs whose initiation is a Federal Register
+   notice show a register-anchored median of ~40 days, versus a document-anchored ~154 days — a known
+   D4 finding. Any revived D3 duration analysis must branch on `initiation_source_type` (as D4 does)
+   before reporting durations, or it will understate fossil-EA timelines by roughly 4×.

@@ -1,0 +1,61 @@
+model,topic_id,topic_label,rank,term,weight
+nmf,0,contrast / visual contrast,1,contrast,0.8018711112665883
+nmf,0,contrast / visual contrast,2,visual contrast,0.49403673730239284
+nmf,0,contrast / visual contrast,3,rating,0.4608820787014875
+nmf,0,contrast / visual contrast,4,objectives,0.4181051958916406
+nmf,0,contrast / visual contrast,5,glare,0.38411187201897035
+nmf,0,contrast / visual contrast,6,solar,0.34398839034785655
+nmf,0,contrast / visual contrast,7,sensitivity,0.32603871643744775
+nmf,0,contrast / visual contrast,8,moderate,0.3027183833290524
+nmf,0,contrast / visual contrast,9,contrast rating,0.2862241077396529
+nmf,0,contrast / visual contrast,10,line,0.2797917186622029
+nmf,0,contrast / visual contrast,11,viewer,0.2682119509563807
+nmf,0,contrast / visual contrast,12,light,0.2448506323780348
+nmf,0,contrast / visual contrast,13,vri,0.2392684740132939
+nmf,0,contrast / visual contrast,14,change,0.23497979757955442
+nmf,0,contrast / visual contrast,15,transmission,0.23241342247643376
+nmf,1,shadow / flicker,1,shadow,1.214456529164013
+nmf,1,shadow / flicker,2,flicker,1.1993269956329595
+nmf,1,shadow / flicker,3,shadow flicker,1.16464514169058
+nmf,1,shadow / flicker,4,turbine,0.39901062693203876
+nmf,1,shadow / flicker,5,wind,0.3774145538048634
+nmf,1,shadow / flicker,6,turbines,0.3167201465648351
+nmf,1,shadow / flicker,7,hours,0.2465616454392496
+nmf,1,shadow / flicker,8,receptor,0.1673577005133366
+nmf,1,shadow / flicker,9,year,0.15401999656058027
+nmf,1,shadow / flicker,10,wind turbine,0.15387488308677286
+nmf,1,shadow / flicker,11,wind turbines,0.14178735500330758
+nmf,1,shadow / flicker,12,shadows,0.13845655797237402
+nmf,1,shadow / flicker,13,receptors,0.12924626700568223
+nmf,1,shadow / flicker,14,hours year,0.12637330359781482
+nmf,1,shadow / flicker,15,30 hours,0.12586026509405288
+nmf,2,glare / transmission / light,1,transmission,0.23770035231157197
+nmf,2,glare / transmission / light,2,light,0.23636409718587084
+nmf,2,glare / transmission / light,3,visual character,0.2359990314582649
+nmf,2,glare / transmission / light,4,river,0.22663082814167407
+nmf,2,glare / transmission / light,5,line,0.22291075444391878
+nmf,2,glare / transmission / light,6,lighting,0.21606833246636095
+nmf,2,glare / transmission / light,7,industrial,0.20598909773641116
+nmf,2,glare / transmission / light,8,structures,0.2025427155355258
+nmf,2,glare / transmission / light,9,plant,0.2008634838009609
+nmf,2,glare / transmission / light,10,glare,0.19774894725198355
+nmf,2,glare / transmission / light,11,terminal,0.18957393329091735
+nmf,2,glare / transmission / light,12,station,0.1872828711533485
+nmf,2,glare / transmission / light,13,byway,0.17746008155503146
+nmf,2,glare / transmission / light,14,natural,0.1737432440427614
+nmf,2,glare / transmission / light,15,integrity,0.17194892676201204
+nmf,3,contrast / visual contrast / objectives,1,objectives,0.38443371349900357
+nmf,3,contrast / visual contrast / objectives,2,contrast,0.3662532483542116
+nmf,3,contrast / visual contrast / objectives,3,managed,0.25585103782710306
+nmf,3,contrast / visual contrast / objectives,4,rating,0.24117309061922163
+nmf,3,contrast / visual contrast / objectives,5,visual contrast,0.23218769393796418
+nmf,3,contrast / visual contrast / objectives,6,integrity,0.22779407719681327
+nmf,3,contrast / visual contrast / objectives,7,river,0.2229648662372436
+nmf,3,contrast / visual contrast / objectives,8,vri,0.21682441306571942
+nmf,3,contrast / visual contrast / objectives,9,landscape character,0.21630194932611893
+nmf,3,contrast / visual contrast / objectives,10,line,0.20408970554056902
+nmf,3,contrast / visual contrast / objectives,11,sensitivity,0.1938918945715177
+nmf,3,contrast / visual contrast / objectives,12,moderate,0.18572755137739533
+nmf,3,contrast / visual contrast / objectives,13,classes,0.18509864830493672
+nmf,3,contrast / visual contrast / objectives,14,dominate,0.1751937156855207
+nmf,3,contrast / visual contrast / objectives,15,objective,0.17420908725852588

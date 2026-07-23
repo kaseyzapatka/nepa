@@ -120,12 +120,17 @@ d <- dates |>
 
 ce <- d |> filter(process_group == "CE")
 n_ce_placeable <- sum(!is.na(ce$year))
+# Caption N is computed from the year-filtered subset so it matches what the figures actually plot
+# (every CE figure applies between(year, YEAR_MIN, YEAR_MAX)); the unfiltered placeable count is
+# larger and would overstate the figure base.
+n_ce_plotted <- sum(!is.na(ce$year) & ce$year >= YEAR_MIN & ce$year <= YEAR_MAX)
 message("  CE projects: ", nrow(ce), " | placeable by a date: ", n_ce_placeable,
-        " (", round(100 * n_ce_placeable / nrow(ce), 1), "%)")
+        " (", round(100 * n_ce_placeable / nrow(ce), 1), "%) | plotted ", YEAR_MIN, "-", YEAR_MAX,
+        ": ", n_ce_plotted)
 
 CE_BASE_CAPTION <- sprintf(
-  "Base: CE projects placeable by a determination date (n = %s, %.1f%%); year = decision date, or initiation date as a same-year proxy where decision is absent.",
-  comma(n_ce_placeable), 100 * n_ce_placeable / nrow(ce))
+  "Base: CE projects placeable by a determination date, %d-%d (n = %s, %.1f%% of all CEs); year = decision date, or initiation date as a same-year proxy where decision is absent.",
+  YEAR_MIN, YEAR_MAX, comma(n_ce_plotted), 100 * n_ce_plotted / nrow(ce))
 
 # Helper: dashed legislative markers
 add_markers <- function(p) {
@@ -254,6 +259,28 @@ save_fig(p, "fig_d5_ce_counts_by_year_doe_blm.png", w = 11, h = 8)
 # ANALYSIS B — Citation attribution
 # ===========================================================================
 cites <- read_parquet(CITES)
+
+# Freshness guard: the citation scan must be at least as new as the timeline it was scanned against.
+# 01_extract_law_citations.py restricts its scan to projects present in the timeline at run time, so a
+# scan older than the current timeline silently omits projects added by a later timeline rebuild (they
+# read as "did not cite", understating rates). Fail loudly rather than publish stale citation numbers.
+.scan_vals <- as.POSIXct(cites$law_citations_extraction_run_at,
+                         format = "%Y-%m-%dT%H:%M:%OS", tz = "UTC")
+.scan_ts   <- if (all(is.na(.scan_vals))) as.POSIXct(NA) else max(.scan_vals, na.rm = TRUE)
+.tl_mtime  <- file.mtime(TIMELINE)
+if (is.na(.scan_ts)) {
+  warning("Could not parse law_citations_extraction_run_at; skipping D5 freshness guard.")
+} else if (!is.na(.tl_mtime) && .scan_ts < .tl_mtime) {
+  stop(sprintf(paste0("Stale citation scan: law_citations.parquet run_at (%s) predates ",
+                      "timeline_project_dates.parquet mtime (%s). Re-run\n",
+                      "  python phase2/code/deliverable05/01_extract_law_citations.py --source all\n",
+                      "then 02_build_ce_categories.py before rebuilding D5 figures."),
+               format(.scan_ts, tz = "UTC"), format(.tl_mtime, tz = "UTC")))
+} else {
+  message("  Freshness guard OK: citation scan ", format(.scan_ts, tz = "UTC"),
+          " >= timeline mtime ", format(.tl_mtime, tz = "UTC"))
+}
+
 LAW_LEVELS  <- c("ARRA", "BIL", "IRA")
 LAW_COLORS  <- c("ARRA" = catf_dark_blue, "BIL" = catf_teal, "IRA" = catf_magenta)
 
@@ -317,7 +344,10 @@ save_fig(p, "fig_d5_citation_rate_window_vs_baseline.png", w = 10, h = 6)
 # ANALYSIS C — CE category mix (CE-only)  [marquee Q3]
 # ===========================================================================
 cats <- read_parquet(CATS)
-# category baselines: ARRA uses a stable 2016-2019 window (no usable pre-period); IRA uses its baseline
+# category baselines: ARRA uses a stable 2016-2019 window (no usable pre-period); IRA uses its baseline.
+# NB: ARRA win_start below is 2009-01-01 (calendar-year-aligned for the category-composition series),
+# intentionally earlier than LAWS$win_start = 2009-03-01 (the post-enactment law-citation window). The
+# two analyses answer different questions, so their ARRA windows differ by design — not a typo.
 CAT_WINDOWS <- tribble(
   ~law,   ~win_start,   ~win_end,     ~base_start,  ~base_end,
   "ARRA", "2009-01-01", "2011-12-31", "2016-01-01", "2019-12-31",

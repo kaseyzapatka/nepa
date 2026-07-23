@@ -1,0 +1,11 @@
+determination_class,n_determinations
+less_than_significant,646
+less_than_significant_with_mitigation,305
+no_significant_impact,1016
+significant_adverse,22
+significant_unavoidable,1
+less_than_significant [project-level],136
+less_than_significant_with_mitigation [project-level],123
+no_significant_impact [project-level],184
+significant_adverse [project-level],13
+significant_unavoidable [project-level],1

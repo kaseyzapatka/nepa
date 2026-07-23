@@ -145,7 +145,6 @@ AUTO_ACCEPT_RULE_IDS = frozenset({
     "T2_doc_title_peis",
     "T2_doc_title_row",
     "T2_doc_title_permit_app",
-    "T2_doc_title_license_amendment",
     "T2_doc_title_loan_guarantee",
     "T1b_ferc_license",
     "T1b_special_use",
@@ -175,9 +174,7 @@ SEND_TO_TIER4_RULE_IDS = frozenset({
     "T3_sec404",
 })
 
-AUDIT_FIRST_RULE_IDS = frozenset({
-    "T3_rmp",
-})
+AUDIT_FIRST_RULE_IDS = frozenset()
 
 AMBIGUOUS_METADATA_AGENCIES = frozenset({
     "DOE", "Department of Energy",
@@ -578,7 +575,7 @@ DOC_TITLE_PATTERNS = [
 TIER3_PATTERNS_EA_EIS = TIER1B_PATTERNS
 TIER3_PATTERNS_CE = [
     pattern for pattern in TIER1B_PATTERNS
-    if pattern[2] not in {"sec404", "rmp"}
+    if pattern[2] != "sec404"
 ]
 
 TIER4_CUE_PATTERNS = {

@@ -1,6 +1,6 @@
 # D6 #47 re-tag validation — score report
 
-Sheet: `/Users/Dora/git/consulting/nepa/phase2/notes/deliverable06/retag_validation_sheet.csv` — 80/80 rows labeled.
+Sheet: `phase2/notes/deliverable06/retag_validation_sheet.csv` — 80/80 rows labeled.
 
 _1 row(s) flagged in `notes` as truncated/garbled — still scored, but treat them as a floor on achievable precision._
 
