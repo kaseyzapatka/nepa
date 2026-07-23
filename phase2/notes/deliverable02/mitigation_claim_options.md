@@ -1,7 +1,17 @@
 # D2 #52 — resource-level mitigation claim: two prose options (user chooses)
 
-**Status:** the D2 report currently keeps the caveat. These are drafts for the resource-level
-mitigation section. Pick one; neither is shipped yet. Numbers below are all measured, not estimated.
+**Status: Option (a) SHIPPED 2026-07-23.** The user chose Option (a) — upgrade the resource-level
+mitigation claim to a finding, framed as any-overlap resource matching — paired with the #53 rule
+tightening (T5) and a re-validation of `mitigation_dependent_f1` (now F1 0.622 / precision 0.53).
+The shipped headline, computed live from the re-tightened join output, is **22.8%** (222 of 974
+flagged significant / less-than-significant FONSI determinations paired with a same-resource
+committed condition; ~50% of analyzed FONSIs carry at least one such pairing) — an "about a
+quarter" finding, **not** the "most / each" phrasing the draft topline below sketched. It lives in
+`phase2/reports/deliverable02.qmd` (section "Pairing each effect with a same-resource commitment")
+with all four guardrails: (i) validation-provenance methods note, (ii) aggregate-only any-overlap
+finding via inline R, (iii) descriptive per-resource splits + the sociocultural→socioeconomic
+taxonomy note, (iv) `mitigation_dependent` shown only as a labeled screening metric. Both drafts are
+kept below for the record. Numbers below are all measured, not estimated.
 
 ## The evidence, in one place
 
@@ -22,7 +32,13 @@ mitigation section. Pick one; neither is shipped yet. Numbers below are all meas
 
 ---
 
-## Option (a) — UPGRADE to a finding, framed as any-overlap resource matching
+## Option (a) — UPGRADE to a finding, framed as any-overlap resource matching  ✅ SHIPPED 2026-07-23
+
+> **Note (shipped):** the draft below opens "Most … pair each flagged effect," a placeholder written
+> before the number was computed. The measured share is **22.8%** (any-overlap, analyzed set), so the
+> shipped prose leads with "about a quarter," not "most/each." The `[X%]` placeholder resolved to
+> 22.8%. Everything else in the draft — the any-overlap framing, the validated-tag provenance, the
+> inclusive-rule caveat, the ~0.53 tightened precision — shipped as written.
 
 > **Most decarbonization FONSIs pair each flagged effect with a same-resource mitigation commitment.**
 > Of the flagged significant/less-than-significant determinations, **[X%]** are matched to at least one

@@ -72,6 +72,24 @@ with any reuse of the data.
   but sit **outside** the answer key (which validates class, resource, mitigation, and
   threshold). Treat the by-factor and by-pathway breakdowns as indicative, not as validated
   measurements.
+- **Resource-level mitigation pairing: validated tags, aggregate-only claim.** The report's
+  finding that ~23% of flagged significant / less-than-significant FONSI determinations are paired
+  with a same-resource committed mitigation condition rests on condition→resource tags validated on
+  an 80-project gold set (independent model labeler, second-labeler spot check at **1.00** any-overlap
+  agreement): tag-level **F1 0.83**, **any-overlap accuracy 0.89** (vs 0.46 for the prior keyword
+  tags). The finding is reported **aggregate-only** and under **any-overlap** matching (a
+  determination counts as paired if *any* same-resource commitment sits in its window). Two limits
+  ride with it: (a) the gold's one known bias — inclusive multi-labeling — slightly *inflates*
+  measured match rates, so the aggregate share is a mild over-count, **not a floor**; (b) the
+  any-overlap rule is deliberately inclusive, so exact per-determination attribution is weaker
+  (condition-tag precision ≈**0.76**) and the **per-resource splits are directional, not a census**.
+  The separate `mitigation_dependent` flag (whether an *individual* conclusion legally depends on
+  mitigation) is a labeled **screening** metric only — tightened this pass to require a real
+  same-resource overlap plus ≥2 committed conditions, scoring **F1 0.62 / precision 0.53** (ceiling
+  ≈0.53) — and is never a reported share. One taxonomy boundary is documented: **"sociocultural
+  systems" commitments map to `socioeconomic`, not `cultural`**, under the taxonomy's narrow
+  (historic / §106) cultural definition — a ratified reading that affects only the per-resource
+  splits, never the aggregate.
 
 ## EIS extraction specifics
 

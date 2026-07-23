@@ -44,6 +44,8 @@ class_dist   <- rc("class_distribution_dual_denominator.csv")
 mit_doc      <- rc("mitigation_document_level.csv")
 mit_res      <- rc("mitigation_by_resource.csv")
 mit_ex       <- rc("mitigation_examples.csv")
+mit_rmatch     <- rc("mitigation_resource_match_overall.csv")      # #52(a) any-overlap aggregate
+mit_rmatch_res <- rc("mitigation_resource_match_by_resource.csv")  # per-resource (descriptive)
 fonsi_tech   <- rc("fonsi_technology.csv")
 fonsi_enf    <- rc("fonsi_enforceability.csv")
 
@@ -304,7 +306,7 @@ held-out column is the honest score.
 metric_lab <- c(candidate_is_determination        = "Finds a determination (per passage)",
                 resource_determination_detection  = "Assigns the right resource",
                 determination_class_macro_f1       = "Gets the significance class right",
-                mitigation_dependent_f1            = "Flags mitigation-dependence",
+                mitigation_dependent_f1            = "Flags mitigation-dependence (screen)",
                 primary_threshold_type_accuracy    = "Identifies the regulatory threshold")
 val |>
   mutate(score = coalesce(f1, precision)) |>
@@ -338,14 +340,15 @@ include_fig("fig_validation_accuracy.png")
 Why the last two scores are lower — and why it doesn't undercut the findings. Both are
 *secondary attributes*, not the core call, and both are genuinely harder:
 
-- *Mitigation-dependence (0.57).* Deciding whether a conclusion depends on committed mitigation
-  is one of the hardest judgments in the whole task — the two independent AI coders themselves agreed only
-  ~68% of the time on the fine line between "less than significant" and "less than significant *with
-  mitigation*." On top of that, the pipeline's structured mitigation flag is tagged at the document
-  level, so it over-attributes across a multi-resource passage, and its precision is ultimately
-  bounded by upstream tagging. We handle this by reporting mitigation at the document level (where
-  it is robust) and using the precise per-resource signal for the resource-level breakdown — so
-  the numbers you see below are the high-precision measure, not the noisy flag.
+- *Mitigation-dependence (0.62) — a screening metric, not a reported number.* Deciding whether a
+  conclusion *depends* on committed mitigation is one of the hardest judgments in the whole task —
+  the two independent AI coders themselves agreed only ~68% of the time on the fine line between
+  "less than significant" and "less than significant *with mitigation*." This flag is used to
+  *screen* candidates; in this pass it was tightened (requiring a real same-resource overlap plus at
+  least two committed conditions), which lifted it to **F1 0.62 / precision 0.53** against the gold,
+  with the precision ceiling around 0.53. The resource-level mitigation numbers below do not rest on
+  this screen — they come from the high-precision per-resource class signal and a separately
+  validated condition→resource join (discussed at the end of this section).
 - *Regulatory threshold (0.66–0.71).* This is the most granular field — pinning a conclusion to a
   *specific* rule (a NAAQS limit, an ESA take threshold, a §106 adverse-effect finding). Many
   conclusions are not anchored to a single numeric threshold at all, and the distinctions are fine.
@@ -475,21 +478,56 @@ non-mitigated FONSIs.
 include_fig("fig_breadth_per_fonsi.png")
 ```
 
-::: {.callout-warning appearance="minimal"}
-**Read mitigation at the right grain.** The *document-level* "is this a mitigated FONSI?" rate is
-robust. The *resource-level* attribution above uses the high-precision per-resource signal; a
-broader structured signal exists but over-attributes across resources, and its accuracy is
-ultimately bounded by upstream tagging (validation F1 ≈ 0.57). Treat the resource shares as a
-well-grounded floor, not an exact census.
+### Pairing each effect with a same-resource commitment
 
-The upstream condition tags were regenerated in July 2026 (a section-heading rule plus a scoped
-model pass replaced the original keyword dictionary, and conditions can now carry more than one
-resource area). That change moves only the broader structured signal: it widened recall and cost
-precision, taking its validation F1 from 0.62 to 0.57. Every resource share reported above is
-computed from the high-precision signal and is **unchanged**. Whether the new tags are more
-accurate than the old ones is being checked against a hand-labeled sample; until that validation
-lands, this caveat stands as written.
+The mitigated-FONSI shares above read the model's per-resource *class* judgment — did this
+conclusion land in the *committed-mitigation* class? A second, independent line of evidence comes
+from the documents' own permit conditions: for each flagged effect we can look at the committed
+mitigation measures nearby — in the same section, or within a two-page window — and ask whether any
+of them addresses the **same resource area**. That is a direct join between an impact and a
+commitment, built on condition→resource tags that were rebuilt in July 2026 and are now
+independently validated (see the note below).
+
+```{r}
+#| label: rmatch-headline
+rmatch_top <- mit_rmatch_res |>
+  filter(n_determinations >= 20, !shared_resource_area %in% c("project_wide", "unknown")) |>
+  arrange(desc(share_matched)) |> slice_head(n = 4) |>
+  mutate(Resource = relabel(shared_resource_area, res_label))
+rmatch_top_str <- paste0(rmatch_top$Resource, " (", percent(rmatch_top$share_matched, accuracy = 1),
+                         ")", collapse = ", ")
+```
+
+On that basis, **`r fmt_pct(mit_rmatch$share_matched)` of the flagged significant / less-than-significant
+FONSI determinations are matched to at least one committed mitigation condition that addresses the
+same resource area** — `r fmt_n(mit_rmatch$n_matched)` of `r fmt_n(mit_rmatch$n_determinations)`
+determinations, under any-overlap matching. Read this as an aggregate map of *which resources
+recurringly attract same-resource mitigation*, not as a per-project ruling that each finding is
+legally mitigation-dependent: the match rule is deliberately inclusive (any-overlap), so it
+over-attributes at the individual-determination grain.
+
+::: {.callout-note appearance="minimal"}
+**How the pairing is validated.** The condition→resource tags this rests on were checked against an
+80-project gold set hand-labeled by an independent model agent and blind-spot-checked by a second
+(1.00 any-overlap agreement on the spot check). Tag-level agreement is **F1 0.83**, and **any-overlap
+accuracy 0.89** — a large gain over the prior keyword tags (0.46). The one known bias in the gold
+runs in a single direction — inclusive multi-labeling — which slightly *inflates* measured match
+rates, so read the aggregate share as a mild over-count rather than a floor. One taxonomy boundary
+matters for the per-resource splits only: "sociocultural systems" commitments map to **socioeconomic**,
+not *cultural*, under the taxonomy's narrow (historic / §106) definition of cultural resources — a
+documented, ratified reading that shifts the resource breakdown below but never the aggregate share.
 :::
+
+Broken out by resource, the pairing concentrates in the same areas as the class signal —
+**`r rmatch_top_str`** lead. Treat these per-resource splits as **directional only**: exact
+per-resource attribution is weaker than the aggregate (condition-tag precision ≈0.76), so trust the
+ranking while reading any single resource's percentage as approximate, not a census.
+
+The stricter question — whether an *individual* conclusion legally *depends* on committed mitigation
+— is answered by a separate labeled **screening** metric, not by a reported share. It was tightened
+in this pass (a real same-resource overlap **and** at least two committed conditions) and now scores
+**F1 0.62 / precision 0.53** against the gold, up from 0.57, with the precision ceiling around 0.53.
+It screens candidates; it is never a headline number.
 
 ### Does it differ by agency?
 

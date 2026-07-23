@@ -124,6 +124,41 @@ w(primary_dr %>%
 # 6c. class x mitigation cross-tab (analytic grain), kept for continuity
 w(primary_dr %>% count(determination_class, mitigation_dependent) %>% suppress(), "mitigation_by_class.csv")
 
+# 6d. #52(a) AGGREGATE any-overlap resource-match FINDING.
+#     Distinct from the class-signal shares above (6a/6b): this is the join-based pairing of a
+#     flagged effect to a same-resource committed condition, under the any-overlap (D6 multi-label)
+#     rule = the shipped `mitigation_resource_matched` column. Denominator = the flagged
+#     significant / less-than-significant determinations (impact-acknowledged classes; a
+#     no-significant-impact conclusion is not a flagged effect). Analytic grain, reconciled with
+#     any() like the rest of section 6. Per-resource split is DESCRIPTIVE ONLY (exact attribution is
+#     weaker, ~0.76 precision on the condition tags) — never a per-project claim.
+IMPACT_CLASSES <- c("significant_adverse", "significant_unavoidable",
+                    "less_than_significant", "less_than_significant_with_mitigation")
+rmatch_dr <- primary %>%
+  filter(determination_class %in% IMPACT_CLASSES) %>%
+  group_by(project_id, document_id, shared_resource_area, determination_class) %>%
+  summarise(rmatched = any(as.logical(mitigation_resource_matched)), .groups = "drop")
+rmatch_doc <- primary %>%
+  filter(determination_class %in% IMPACT_CLASSES) %>%
+  group_by(document_id) %>%
+  summarise(rmatched = any(as.logical(mitigation_resource_matched)), .groups = "drop")
+rmatch_overall <- tibble(
+  n_determinations = nrow(rmatch_dr),
+  n_matched        = sum(rmatch_dr$rmatched),
+  share_matched    = round(mean(rmatch_dr$rmatched), 3),
+  n_documents      = nrow(rmatch_doc),
+  n_docs_matched   = sum(rmatch_doc$rmatched),
+  share_docs_matched = round(mean(rmatch_doc$rmatched), 3))
+w(rmatch_overall, "mitigation_resource_match_overall.csv")
+cat(sprintf("resource-match FINDING (#52a any-overlap): %d/%d determinations = %.1f%% | docs %d/%d = %.1f%%\n",
+            rmatch_overall$n_matched, rmatch_overall$n_determinations, 100 * rmatch_overall$share_matched,
+            rmatch_overall$n_docs_matched, rmatch_overall$n_documents, 100 * rmatch_overall$share_docs_matched))
+w(rmatch_dr %>% group_by(shared_resource_area) %>%
+    summarise(n_determinations = n(), n_matched = sum(rmatched),
+              share_matched = round(mean(rmatched), 3), .groups = "drop") %>%
+    arrange(desc(share_matched)) %>% suppress(col = "n_determinations"),
+  "mitigation_resource_match_by_resource.csv")
+
 # 7. context universe reported SEPARATELY (never in primary rates)
 w(det %>% filter(!determination_class %in% NON_DET) %>%
     count(agency_scope_status, determination_class) %>% suppress(),

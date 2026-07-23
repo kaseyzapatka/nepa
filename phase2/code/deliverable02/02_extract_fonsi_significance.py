@@ -148,8 +148,14 @@ def project_context() -> pd.DataFrame:
     """)
 
 
-def rejoin_mitigation(rule: str = DEFAULT_MATCHING_RULE) -> None:
+def rejoin_mitigation(rule: str = DEFAULT_MATCHING_RULE,
+                      dep_rule: str = X.DEFAULT_MITIGATION_DEP_RULE) -> None:
     """Recompute ONLY the mitigation columns on the existing determinations. $0, key-free.
+
+    `dep_rule` selects how `mitigation_dependent` (the labeled SCREENING metric) is derived —
+    the tightened T5 rule by default (#53), or the legacy any-overlap rule for comparison. It does
+    NOT touch `mitigation_resource_matched` (the any-overlap resource-match reporting column that
+    the report's aggregate finding reads) — only the screening flag changes.
 
     WHY THIS MODE EXISTS
     --------------------
@@ -202,9 +208,16 @@ def rejoin_mitigation(rule: str = DEFAULT_MATCHING_RULE) -> None:
         bool(f) and (sc == "project_overall" or res in a)
         for f, sc, res, a in zip(out["mitigation_flag"], out["determination_scope"],
                                  out["shared_resource_area"], areas)]
+    # labeled SCREENING metric: T5 tightening by default (#53), legacy rule behind dep_rule flag.
+    # Shared source of truth with extract_common so the scorer and the shipped column can't diverge.
     out["mitigation_dependent"] = [
-        m or c == "less_than_significant_with_mitigation"
-        for m, c in zip(out["mitigation_resource_matched"], out["determination_class"])]
+        X.derive_mitigation_dependent(
+            dclass=c, resource_mitigation_match=m, mitigation_flag=f,
+            shared_resource_area=res, mitigation_resource_areas_set=a,
+            matched_condition_row_count=cnt, rule=dep_rule)
+        for c, m, f, res, a, cnt in zip(
+            out["determination_class"], out["mitigation_resource_matched"], out["mitigation_flag"],
+            out["shared_resource_area"], areas, out["matched_condition_row_count"])]
     out["mitigation_enforceability"] = ["permit_condition" if m else "none"
                                         for m in out["mitigation_resource_matched"]]
 
@@ -218,7 +231,8 @@ def rejoin_mitigation(rule: str = DEFAULT_MATCHING_RULE) -> None:
     if "mitigation_resource_areas_primary" not in cols:
         cols.append("mitigation_resource_areas_primary")
     C.write_parquet(out[cols], C.SIGNIFICANCE_DETERMINATIONS, "determinations (mitigation re-join)")
-    print(f"\n[02 rejoin] rule={rule}  rows={len(out):,}  extraction_method preserved: {method}")
+    print(f"\n[02 rejoin] matching-rule={rule}  mitigation-dep-rule={dep_rule}  rows={len(out):,}  "
+          f"extraction_method preserved: {method}")
     for k, v0 in before.items():
         v1 = int(out[k].sum())
         print(f"[02 rejoin]   {k}: {v0:,} -> {v1:,} ({v1 - v0:+,})")
@@ -236,6 +250,12 @@ def main() -> None:
                     help="how a condition's resource area matches an impact's (D2-2). "
                          "'any-overlap' (default) unions the D6 multi-label tags; "
                          "'primary' is the legacy single-label behaviour, kept for comparison.")
+    ap.add_argument("--mitigation-dep-rule", choices=X.MITIGATION_DEP_RULES,
+                    default=X.DEFAULT_MITIGATION_DEP_RULE,
+                    help="how the labeled SCREENING metric `mitigation_dependent` is derived (#53). "
+                         "'t5-specific-2cond' (default) is the tightened rule (F1 0.622/prec 0.53); "
+                         "'baseline-any-overlap' is the legacy rule (F1 0.566/prec 0.41), kept for "
+                         "comparison. Does not affect the any-overlap resource-match reporting column.")
     ap.add_argument("--batch-run", action="store_true",
                     help="ONE-PASSWORD batch: submit + poll + fetch + build, all in this process")
     ap.add_argument("--batch-submit", action="store_true",
@@ -251,7 +271,7 @@ def main() -> None:
     print(f"D2 Phase 3: FONSI significance extraction — {mode}")
 
     if args.rejoin_mitigation:
-        rejoin_mitigation(args.matching_rule)
+        rejoin_mitigation(args.matching_rule, args.mitigation_dep_rule)
         return
 
     if args.batch_fetch:
