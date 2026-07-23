@@ -35,7 +35,6 @@ OUTPUT_DIR <- here("phase2", "output", "deliverable03")
 
 REVIEWS_PATH  <- file.path(D03_DIR, "projects_nepa_reviews.parquet")
 CE_PATH       <- file.path(D03_DIR, "ce_citations.parquet")
-VISUAL_PATH   <- file.path(D03_DIR, "projects_visual_impacts.parquet")
 GEO_OG_PATH   <- file.path(D03_DIR, "projects_geothermal_og.parquet")
 TIMELINE_PATH <- here("phase2", "data", "analysis", "timeline.parquet")
 
@@ -49,9 +48,6 @@ ce_cits <- read_parquet(CE_PATH) |>
     )
   )
 geo_og <- read_parquet(GEO_OG_PATH)
-
-visual_available <- file.exists(VISUAL_PATH)
-visual <- if (visual_available) read_parquet(VISUAL_PATH) else NULL
 
 geo_comp <- read_csv(file.path(OUTPUT_DIR, "geothermal_comparison_table.csv"),
                      show_col_types = FALSE)
@@ -180,9 +176,6 @@ top_eis_tech <- tech_wide |>
 top_ce_tech <- tech_wide |>
   arrange(desc(CE), desc(total)) |>
   slice_head(n = 8)
-
-top_eis_names <- join_words(top_eis_tech$tech_group[seq_len(min(5, nrow(top_eis_tech)))])
-top_ce_names <- join_words(top_ce_tech$tech_group[seq_len(min(5, nrow(top_ce_tech)))])
 
 agency_rates <- bind_rows(
   within_blm |> mutate(`Agency Subset` = "BLM"),
@@ -413,14 +406,14 @@ availability_table <- availability_table_raw |>
 ## Key Findings
 
 -   **Decarbonization projects are more often resolved through Categorical Exclusions than fossil fuel projects.** Across `r fmt_n(n_decarb)` decarbonization projects, `r fmt_pct(energy_pct("Decarbonization", "CE"))` are CEs, compared to `r fmt_pct(energy_pct("Fossil Fuel", "CE"))` across `r fmt_n(n_fossil)` fossil fuel projects (see @fig-review-rates-energy).
--   **Agency controls narrow the headline decarb/fossil difference.** The overall decarb/fossil gap for CEs is 9%. Within DOE, that gap persists at 8%; within BLM it narrows to just 4%. Agency practice and project mix are important explanations alongside energy category (see @fig-within-agency).
+-   **Agency controls narrow the headline decarb/fossil difference.** The overall decarb/fossil gap for CEs is 8%. Within DOE, that gap persists at 8%; within BLM it narrows to just 4%. Agency practice and project mix are important explanations alongside energy category (see @fig-within-agency).
 -   **Categorical Exclusions are more concentrated in fossil fuel than decarbonization projects.** Fossil fuel CEs are heavily concentrated in oil-and-gas-specific pathways — particularly `r join_words(top_fossil_ce$ce_code[seq_len(min(2, nrow(top_fossil_ce)))])`, whereas decarbonization CEs are more diffuse `r decarb_ce_code_list` (see @fig-ce-by-energy).
 -   **Fossil fuel projects are more geographically concentrated.** Fossil fuel projects are more geographically concentrated in Interior West states (WY, NM, CA, CO, and TX), whereas decarbonization projects are more spread out across the West (WA, CA, OR, ID, AZ, NV, WY) (see @fig-state-decarb–@fig-state-process-fossil).
--   **Geothermal is CE-heavy and geographically distinct from oil and gas.** Geothermal and Oil & Gas CE projects track the overall averages fairly closely at 94% and 85%, respectively. Fossil fuel dominates most states, with geothermal concentrated in a smaller set of states (see @fig-geo-og-states and @fig-geo-og-map).
+-   **Geothermal is CE-heavy and geographically distinct from oil and gas.** Geothermal and Oil & Gas CE projects track the overall averages fairly closely at 94% and 86%, respectively. Fossil fuel dominates most states, with geothermal concentrated in a smaller set of states (see @fig-geo-og-states and @fig-geo-og-map).
 -   **The visual impact analysis treats Fossil and Decarb similarly.**
     -   **Wordcloud.** Results for *decarb* focus on transmission lines, cooling towers, and shadow flickers connected to turbines, whereas *fossil* focuses on compression stations, power plants, contrast rating and light pollution that "attract attention" (see @fig-wordcloud). 
-    -   **Section Length.** Visual impact sections are roughly equal in median length across portfolios, though most fossil project types — rural energy and offshore oil & gas — have longer average sections (see @fig-section-length-energy).
-    -   **Framing analysis.** Results suggest *decarb* scores higher on negative visual adversity scores (sentences framing impact as negative) but *fossil* scores higher on (sentences with specific commitments to correct), likely reflecting decarb projects acknowledging visual effects more explicitly but addressing them through design standards and programmatic commitments rather than project-level enumerated actions (see @fig-framing).
+    -   **Section Length.** Visual impact sections are roughly equal in median length across portfolios, though several fossil project types — offshore and land-based oil and gas, and coal — have longer average sections (see @fig-section-length-energy).
+    -   **Framing analysis.** Results suggest *decarb* scores higher on negative visual adversity scores (sentences framing impact as negative) but *fossil* scores higher on mitigation specificity (sentences with specific commitments to correct), likely reflecting decarb projects acknowledging visual effects more explicitly but addressing them through design standards and programmatic commitments rather than project-level enumerated actions (see @fig-framing).
     - **Topic modeling.** The dominant finding is that visual impact prose clusters by project type and regulatory context rather than by energy category — the two largest topics each span both portfolios, and the most coherent topic (shadow flicker) is entirely technology-specific. Wind and solar EISs concentrate in the contrast-rating topic; O&G and pipeline EISs split between the infrastructure-corridor topic and the formal VRM-objectives topic depending on whether they operate under a BLM plan of development (see @fig-topic-prevalence).
 
 :::
@@ -478,7 +471,7 @@ kable_tbl(availability_table)
 
 Decarbonization projects are more CE-heavy than fossil fuel projects. Fossil fuel projects are `r number((1 - energy_pct("Fossil Fuel", "CE")) / (1 - energy_pct("Decarbonization", "CE")), accuracy = 0.1)` times as likely to require either an EA or EIS (`r fmt_pct(1 - energy_pct("Fossil Fuel", "CE"))`) as decarbonization projects (`r fmt_pct(1 - energy_pct("Decarbonization", "CE"))`).
 
-The distinction is especially pronounced for EAs. Fossil fuel projects have a `r fmt_pct(energy_pct("Fossil Fuel", "EA"))` EA share, compared with `r fmt_pct(energy_pct("Decarbonization", "EA"))` for decarbonization projects. EIS rates are closer but still higher for fossil fuel projects: `r fmt_pct(energy_pct("Fossil Fuel", "EIS"))` vs. `r fmt_pct(energy_pct("Decarbonization", "EIS"))`.
+The distinction is especially pronounced for EAs. Fossil fuel projects have a `r fmt_pct(energy_pct("Fossil Fuel", "EA"))` EA share, compared with `r fmt_pct(energy_pct("Decarbonization", "EA"))` for decarbonization projects. EIS rates are closer but still higher for fossil fuel projects: `r fmt_pct(energy_pct("Fossil Fuel", "EIS"))` vs. `r fmt_pct(energy_pct("Decarbonization", "EIS"))`. The association between energy category and review type is statistically significant (χ² = `r sprintf("%.0f", chi_res$statistic)`, df = `r chi_res$parameter`, p `r chi_p_label`), but at this sample size significance is guaranteed — the informative quantity is the effect size, Cramér's V = `r sprintf("%.2f", cramers_v)`.
 
 ```{r}
 #| label: fig-review-rates-energy
@@ -490,7 +483,7 @@ include_fig("fig1_review_rates_by_energy.png")
 
 The technology view shows why the clean/fossil headline should not be overinterpreted. Some clean technologies have materially higher EIS shares than the decarbonization average. Some fossil categories remain highly CE-heavy because many oil and gas actions are processed through repeatable BLM or statutory CE pathways.
 
-The figure below plots CE, EA, and EIS shares for all technology groups, sorted by categorical exclusion share from highest to lowest. The spread — from near-universal CE use (CCS, nuclear) to double-digit EIS rates (hydropower, wind) — illustrates that a project's technology type predicts its review pathway as reliably as its clean/fossil designation.
+The figure below plots CE, EA, and EIS shares for all technology groups, sorted by categorical exclusion share from highest to lowest. The spread — from near-universal CE use (CCS, rural energy) to double-digit EIS rates (coal, offshore oil and gas, hydropower, wind) — illustrates that a project's technology type predicts its review pathway as reliably as its clean/fossil designation.
 
 ```{r}
 #| label: fig-review-rates-tech
@@ -730,7 +723,7 @@ include_fig("fig17_geo_og_state_map.png")
 
 # Visual Impact Analysis
 
-The visual-impact module is no longer purely exploratory. It now extracts full visual-section text for roughly 2,918 EA/EIS projects, then runs topic modeling, CEQ-anchored framing scoring, illustrative-excerpt sampling, and an interactive distinguishing-terms explorer. Section text is recovered via **heading-anchored extraction** (visual-resource heading detection plus same-or-shallower-depth termination so subsections such as *Affected Environment* and *Environmental Consequences* are retained) with a **contiguous-keyword-run fallback** for projects whose documents lack clean heading hierarchies — most commonly land-based oil and gas EAs that rely on form-style templates. CE forms remain out of scope.
+The visual-impact module is no longer purely exploratory. It now extracts full visual-section text for 1,591 of the roughly 2,918 EA/EIS projects (~55% — see the Coverage & Limitations page for what the remainder lack), then runs topic modeling, CEQ-anchored framing scoring, illustrative-excerpt sampling, and an interactive distinguishing-terms explorer. Section text is recovered via **heading-anchored extraction** (visual-resource heading detection plus same-or-shallower-depth termination so subsections such as *Affected Environment* and *Environmental Consequences* are retained) with a **contiguous-keyword-run fallback** for projects whose documents lack clean heading hierarchies — most commonly land-based oil and gas EAs that rely on form-style templates. CE forms remain out of scope.
 
 ## Visual Analysis Universe
 

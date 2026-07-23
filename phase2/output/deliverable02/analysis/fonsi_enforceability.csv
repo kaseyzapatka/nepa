@@ -1,0 +1,8 @@
+shared_resource_area,n,n_enf,share,Resource
+biological,97,48,0.4948453608247423,Biological
+air_quality,14,6,0.42857142857142855,Air quality
+visual,14,5,0.35714285714285715,Visual
+water,60,21,0.35,Water
+cultural,42,11,0.2619047619047619,Cultural / historic
+soils_geology,34,3,0.08823529411764706,Soils / geology
+public_health,26,2,0.07692307692307693,Public health

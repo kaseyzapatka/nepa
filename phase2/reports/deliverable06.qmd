@@ -212,10 +212,10 @@ rest of the chain re-runs without it.
 - **Expand — the strongest single opportunity.** *Transmission upgrades*: 26 in-corridor
   rebuild / reconductor FONSIs across 12 states still run as full EAs though a CE exists — its size
   bound is simply too tight. Widen it.
-- **Adopt — broad but thin.** 22 technology × action cells already have a matching CE at another
+- **Adopt — broad but thin.** `r n_adopt` technology × action cells already have a matching CE at another
   agency to adopt, but most rest on only 2–4 FONSIs — there is no single dominant case.
-- **Develop — the genuinely new gap.** 16 recurring actions have no close existing CE
-  (14 codifiable; 2 set aside as non-codifiable). The clearest is cross-cutting:
+- **Develop — the genuinely new gap.** `r n_new` recurring actions have no close existing CE
+  (`r n_dev_codif` codifiable; `r n_new - n_dev_codif` set aside as non-codifiable). The clearest is cross-cutting:
   demonstration / pilot facilities recur as a gap for wind, nuclear, and other
   clean-energy projects — the strongest candidate for a brand-new CE. *(Develop verdicts are
   candidates pending eCFR review; non-codifiable actions such as battery manufacturing are set aside.)*
@@ -670,9 +670,9 @@ verdicts |>
 The 2023 Fiscal Responsibility Act (FRA, June 2023) gave agencies explicit authority
 to adopt another agency's categorical exclusion — the exact move this analysis
 recommends. So the age of these EAs matters. Using decision dates merged from the
-D4 timeline, **all but one** of the dated bounded FONSIs were decided *before* the
+D4 timeline, **all but 11** of the dated bounded FONSIs (149 of 160) were decided *before* the
 FRA — these agencies ran full EAs without the adoption shortcut now available. (Dates
-are known for ~⅔ of the bounded set; the rest are undated in the D4 output.)
+are known for ~¾ of the bounded set; the rest are undated in the D4 output.)
 
 **This makes the finding a historical one.** The corpus is almost entirely pre-FRA, so it
 shows where full EAs were run before the adoption shortcut existed — it identifies
@@ -768,7 +768,7 @@ The mitigated pattern is **corpus-wide**: `r n_mit_corpus` of `r n_clean`
 (`r percent(mit_share_cor, 1)`) decarbonization FONSIs are mitigated, and
 `r n_mit_noncand` of those fall *outside* the five Analysis-1 candidate
 types — so this is not a candidate-only artifact. By action type (including the large
-*Other* pool, which is 61% mitigated):
+*Other* pool, which is 55% mitigated):
 
 ```{r}
 #| label: fig-d6-mitigated-share
@@ -1270,7 +1270,7 @@ embeddings to name their sub-action structure. This is descriptive only — it c
 
 ```{r}
 #| label: tbl-d6-other-themes
-#| tbl-cap: "Local-embedding clusters over the 92 action=='other' FONSIs (within-cell refinement, no verdict change). Labels are the top c-TF-IDF terms per cluster."
+#| tbl-cap: "Local-embedding clusters over the 92 action=='other' FONSIs (within-cell refinement, no verdict change). Labels are the top TF-IDF terms per cluster (c-TF-IDF-style: per-cluster mean of document TF-IDF vectors)."
 read_parquet(file.path(ANALYSIS, "other_action_themes.parquet")) |>
   group_by(cluster_id, cluster_label) |>
   summarise(FONSIs = n(), Techs = paste(sort(unique(tech_group)), collapse = ", "), .groups = "drop") |>

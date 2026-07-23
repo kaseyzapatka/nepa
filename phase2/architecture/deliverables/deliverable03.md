@@ -357,7 +357,7 @@ Major output groups:
 | Geography | `fig7_state_decarb.png`, `fig8_state_fossil.png`, `fig9_county_decarb.png`, `fig10_county_fossil.png`, `fig11a_state_process_decarb.png`, `fig11b_state_process_fossil.png` |
 | Geothermal/O&G | `fig15_geo_og_rates.png`, `fig16_geo_og_states.png`, `fig17_geo_og_state_map.png` |
 | Visual impacts | `fig12_visual_project_counts.png`, `fig13_wordcloud_grid.png`, `fig18_visual_framing.png`, `fig19a_section_length_energy.png`, `fig19_visual_section_length.png`, `fig21_vrm_elements.png` |
-| Topic diagnostics | `fig14_topic_prevalence.png`, `fig14b_topic_terms.png`, `fig14d_nmf_elbow.png`, `visual_topic_excerpts_table.html` |
+| Topic diagnostics | `fig14_topic_prevalence.png`, `fig14b_topic_terms.png`, `fig14d_nmf_elbow.png`, `visual_topic_excerpts_table.csv` |
 | Optional timelines | `fig20_duration_by_energy_process.png`, `timeline_coverage.csv`, `duration_summary.csv` |
 
 `phase2/reports/deliverable03.qmd` reads the same output directory and embeds these static figures and generated tables.

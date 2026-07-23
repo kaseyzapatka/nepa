@@ -174,7 +174,12 @@ def rejoin_mitigation(rule: str = DEFAULT_MATCHING_RULE,
     each determination row, so they can be recomputed in place without touching the LLM at all:
 
         resource_mitigation_match = mitigation_flag AND (scope=='project_overall' OR resource in areas)
-        mitigation_dependent      = resource_mitigation_match OR class=='less_than_significant_with_mitigation'
+        mitigation_dependent      = derive_mitigation_dependent(...)   # single source of truth in
+            extract_common.py, imported here so the scorer and the shipped column cannot diverge.
+            Default rule 't5-specific-2cond' (#53): (literal same-resource overlap AND >=2 matched
+            conditions) OR class=='less_than_significant_with_mitigation'. The legacy
+            'baseline-any-overlap' formula (resource_mitigation_match OR class==LTS, precision ~0.41)
+            survives only as a scoring variant, not as this path's default.
 
     Everything the LLM produced (determination_class, shared_resource_area, rationale, thresholds)
     is read, never written. `determination_instance_id` does not hash any mitigation field, so ids
@@ -236,6 +241,27 @@ def rejoin_mitigation(rule: str = DEFAULT_MATCHING_RULE,
     for k, v0 in before.items():
         v1 = int(out[k].sum())
         print(f"[02 rejoin]   {k}: {v0:,} -> {v1:,} ({v1 - v0:+,})")
+
+    # Keep the run manifest's content hashes in sync with the files this rejoin just rewrote.
+    # Rejoin never calls the LLM, so the LLM provenance (mode='llm', the extraction model) is
+    # preserved from the prior manifest — only the integrity hashes/n_bytes and run_at are refreshed.
+    # Fixes the stale-hash gap where a rejoin updated determinations/mitigation_matches but left the
+    # manifest pinned at the original LLM-run timestamp.
+    prior_model = X.DEFAULT_MODEL
+    if C.RUN_MANIFEST.exists():
+        try:
+            _prior = pd.read_parquet(C.RUN_MANIFEST)
+            if len(_prior) and str(_prior["model"].iloc[0]):
+                prior_model = str(_prior["model"].iloc[0])
+        except Exception:
+            pass
+    X.write_manifest({
+        "significance_section_candidates": "data/analysis/deliverable02/significance_section_candidates.parquet",
+        "mitigation_signal_matches": "data/analysis/deliverable02/mitigation_signal_matches.parquet",
+        "significance_determinations": "data/analysis/deliverable02/significance_determinations.parquet",
+        "determination_thresholds": "data/analysis/deliverable02/determination_thresholds.parquet",
+    }, dry_run=False, model=prior_model)
+    print(f"[02 rejoin] manifest refreshed ({C.RUN_MANIFEST.name}); model={prior_model} preserved")
 
 
 def main() -> None:

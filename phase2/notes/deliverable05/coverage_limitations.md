@@ -65,6 +65,12 @@ categorical exclusion. They surface far more often in larger reviews — IRA is 
 EISs (versus 8.7% before) and BIL in 17.5% of post-BIL EISs — so the citation evidence for BIL and IRA
 lives in the EIS record even though the volume signal lives in the DOE CEs.
 
+Two data-scope notes on the underlying tables. `law_citations.parquet` also carries a fourth
+`law_name` class, `DOE_funding` (167 projects), captured by the scan but outside this report's
+three-law scope — it is not used in any figure or statistic here. And `ce_categories.parquet`
+covers 49,604 of 54,668 CE projects (90.7%; 95.8% within clean-energy CEs) — category-share
+analyses are restricted to projects with at least one normalized code.
+
 **The most recent years are incomplete.** The decline visible in 2024–2025 reflects ingestion lag, not a
 real fall in CE use, and those years should not be read as a downward trend.
 

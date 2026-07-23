@@ -2,7 +2,7 @@
 title: "D2: Significance Coverage & Limitations"
 ---
 
-*As of 2026-07-15, describing the published extraction runs (FONSI and EIS batch passes of
+*As of 2026-07-22, describing the published extraction runs (FONSI and EIS batch passes of
 2026-07-08/09, schema `d2_v2_11`). All numbers on this page are recomputed from the committed
 pipeline outputs in `phase2/data/analysis/deliverable02/`.*
 
@@ -75,8 +75,9 @@ with any reuse of the data.
 - **Resource-level mitigation pairing: validated tags, aggregate-only claim.** The report's
   finding that ~23% of flagged significant / less-than-significant FONSI determinations are paired
   with a same-resource committed mitigation condition rests on condition→resource tags validated on
-  an 80-project gold set (independent model labeler, second-labeler spot check at **1.00** any-overlap
-  agreement): tag-level **F1 0.83**, **any-overlap accuracy 0.89** (vs 0.46 for the prior keyword
+  an 80-project gold set (independent model labeler, plus an informal second-reviewer blind
+  spot check that found no disagreements — not a persisted comparison artifact): tag-level
+  **F1 0.83**, **any-overlap accuracy 0.89** (vs 0.46 for the prior keyword
   tags). The finding is reported **aggregate-only** and under **any-overlap** matching (a
   determination counts as paired if *any* same-resource commitment sits in its window). Two limits
   ride with it: (a) the gold's one known bias — inclusive multi-labeling — slightly *inflates*
@@ -118,7 +119,8 @@ with any reuse of the data.
 - **Technology comes from the dataset's `project_type` classification.** Each project carries a
   curated multi-tag project-type field; we assign one **primary** technology per project by
   priority (generation types first, then nuclear/CCS, then transmission). About **1 in 5
-  projects** resolve to an "Other / mixed" bucket, and the "Renewable (other)" catch-all is also
+  EIS projects and 1 in 4 FONSI projects** resolve to an "Other / mixed" bucket, and the
+  "Renewable (other)" catch-all is also
   set aside; both are excluded from the technology figures, which therefore describe the
   clearly-typed technologies.
 - **Mitigation enforceability** is the model's read of whether a committed measure is tied to an

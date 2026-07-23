@@ -340,13 +340,13 @@ include_fig("fig_validation_accuracy.png")
 Why the last two scores are lower — and why it doesn't undercut the findings. Both are
 *secondary attributes*, not the core call, and both are genuinely harder:
 
-- *Mitigation-dependence (0.62) — a screening metric, not a reported number.* Deciding whether a
+- *Mitigation-dependence (0.58–0.62) — a screening metric, not a reported number.* Deciding whether a
   conclusion *depends* on committed mitigation is one of the hardest judgments in the whole task —
   the two independent AI coders themselves agreed only ~68% of the time on the fine line between
   "less than significant" and "less than significant *with mitigation*." This flag is used to
   *screen* candidates; in this pass it was tightened (requiring a real same-resource overlap plus at
-  least two committed conditions), which lifted it to **F1 0.62 / precision 0.53** against the gold,
-  with the precision ceiling around 0.53. The resource-level mitigation numbers below do not rest on
+  least two committed conditions), which lifted it to **F1 0.62 overall / 0.58 held-out**
+  (precision 0.53 / 0.48) against the gold. The resource-level mitigation numbers below do not rest on
   this screen — they come from the high-precision per-resource class signal and a separately
   validated condition→resource join (discussed at the end of this section).
 - *Regulatory threshold (0.66–0.71).* This is the most granular field — pinning a conclusion to a
@@ -359,9 +359,12 @@ getting the significance class — all clear or approach the standard bar.
 
 ### How agencies stay below the line
 
-Within FONSIs, the determinations sit — as they must — below the significance line: the agency
-either finds no significant impact outright or an impact that is less than significant,
-sometimes only with committed mitigation. @fig-outcomes-by-resource breaks this down by
+Within FONSIs, the determinations sit — almost without exception — below the significance line:
+the agency either finds no significant impact outright or an impact that is less than significant,
+sometimes only with committed mitigation.^[A small number of resource-level determinations (23 of
+the 1,990) are classified significant on their face — typically language about a rejected
+alternative or a resource-specific finding inside the supporting EA. They are held out of the
+three-outcome breakdown that follows so its counts reconcile with the resource map and figures.] @fig-outcomes-by-resource breaks this down by
 resource area — each resource's determinations split across the three outcomes, sorted so the
 resources most reliant on mitigation sit at the top, with the count and share behind each bar.
 
@@ -508,8 +511,9 @@ over-attributes at the individual-determination grain.
 
 ::: {.callout-note appearance="minimal"}
 **How the pairing is validated.** The condition→resource tags this rests on were checked against an
-80-project gold set hand-labeled by an independent model agent and blind-spot-checked by a second
-(1.00 any-overlap agreement on the spot check). Tag-level agreement is **F1 0.83**, and **any-overlap
+80-project gold set hand-labeled by an independent model agent, with an informal blind spot-check
+by a second reviewer that found no disagreements (not a persisted comparison artifact). Tag-level
+agreement is **F1 0.83**, and **any-overlap
 accuracy 0.89** — a large gain over the prior keyword tags (0.46). The one known bias in the gold
 runs in a single direction — inclusive multi-labeling — which slightly *inflates* measured match
 rates, so read the aggregate share as a mild over-count rather than a floor. One taxonomy boundary
@@ -526,7 +530,7 @@ ranking while reading any single resource's percentage as approximate, not a cen
 The stricter question — whether an *individual* conclusion legally *depends* on committed mitigation
 — is answered by a separate labeled **screening** metric, not by a reported share. It was tightened
 in this pass (a real same-resource overlap **and** at least two committed conditions) and now scores
-**F1 0.62 / precision 0.53** against the gold, up from 0.57, with the precision ceiling around 0.53.
+**F1 0.62 overall / 0.58 held-out** (precision 0.53 / 0.48) against the gold, up from 0.57 overall.
 It screens candidates; it is never a headline number.
 
 ### Does it differ by agency?
@@ -563,7 +567,7 @@ mitigation to stay below the line (@fig-fonsi-technology).
 
 ```{r}
 #| label: fig-fonsi-technology
-#| fig-cap: "Share of a technology's FONSI conclusions that depend on committed mitigation. Technology is derived from the dataset's project-type classification; about 1 in 5 projects resolve to an 'Other / mixed' bucket and are excluded, so read this for the named technologies."
+#| fig-cap: "Share of a technology's FONSI conclusions that depend on committed mitigation. Technology is derived from the dataset's project-type classification; about 1 in 4 projects resolve to an 'Other / mixed' bucket and are excluded, so read this for the named technologies."
 include_fig("fig_fonsi_technology.png")
 ```
 
@@ -635,9 +639,10 @@ include_fig("fig_eis_funnel.png")
 - **Resources split into two shapes.** Some are managed below the line (soils/geology, water, and
   public health are routinely mitigated to "not significant" and rarely cross); others cross over
   (visual, land use, and air quality break through more often than they are mitigated below it).
-- Magnitude, cumulative effects, and protected resources are the dominant reasons a call is
+- Magnitude, protected resources, and cumulative effects are the dominant reasons a call is
   significant — and roughly a third of significant findings rest on cumulative pathways, not the
-  project's direct footprint alone.
+  project's direct footprint alone (impact-pathway rows are tallied per sub-finding and are not
+  mutually exclusive, so they sum to more than the 2,198 class-level determinations).
 :::
 
 ### How accurate is the EIS extraction?

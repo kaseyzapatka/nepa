@@ -33,10 +33,13 @@ OUTPUT_PATH = Path("phase2/data/analysis/deliverable05/ce_categories.parquet")
 OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # --- Code normalization patterns ------------------------------------------------------------
-# DOE: 10 CFR 1021 Subpart D, Appendices A & B  -> leading token like A9, B5.1, B1.31
-DOE_RE = re.compile(r"^\s*([AB]\d+(?:\.\d+)?)")
-# DOI / BLM: 516 DM 11 (and 516 DM 6) -> token like "516 DM 11.9"
-DOI_RE = re.compile(r"^\s*(516\s*DM\s*\d+(?:\.\d+)?)", re.IGNORECASE)
+# DOE: 10 CFR 1021 Subpart D, Appendices A & B -> token like A9, B5.1, B1.31.
+# Searched (not anchored) within each comma/semicolon-split element so codes that trail prose
+# (e.g. "categorical exclusion B5.1") are still recovered; \b guards against mid-word matches.
+DOE_RE = re.compile(r"\b([AB]\d+(?:\.\d+)?)")
+# DOI / BLM: 516 DM 11 (and 516 DM 6) -> token like "516 DM 11.9". Searched (not anchored) within
+# each split element so codes trailing prose (e.g. "pursuant to 516 DM 11.9") are recovered.
+DOI_RE = re.compile(r"(516\s*DM\s*\d+(?:\.\d+)?)", re.IGNORECASE)
 # Energy Policy Act of 2005, Section 390 (oil/gas; fossil contrast)
 EPACT_RE = re.compile(r"(section\s*390|energy\s*policy\s*act\s*of\s*2005)", re.IGNORECASE)
 
@@ -64,12 +67,12 @@ def normalize(raw: str):
     if s == "" or s.lower() == "nan":
         return None, None, None
 
-    m = DOE_RE.match(s)
+    m = DOE_RE.search(s)
     if m:
         code = m.group(1).upper()
         return code, "DOE (10 CFR 1021)", DOE_DESC.get(code, code)
 
-    m = DOI_RE.match(s)
+    m = DOI_RE.search(s)
     if m:
         code = re.sub(r"\s+", " ", m.group(1)).upper().replace("DM", "DM")
         return code, "DOI (516 DM 11)", "DOI/BLM departmental categorical exclusion"
