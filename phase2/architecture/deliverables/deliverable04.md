@@ -617,7 +617,7 @@ The five-tier retrieval architecture separates the decision of what text to read
 
 Signature-block cues (`SIGNATURE_CUES` regex) double the decision page score, pulling bottom-of-document CE approval blocks to the top of the selection.
 
-**Tier C** skips CE documents with <= 20 pages entirely (short CE forms have unreliable headings). For longer documents it only retrieves sections with `heading_title` matching `INITIATION_SECTION_CUES` or `DECISION_SECTION_CUES`. Sections matching `NEGATIVE_SECTION_CUES` (references, bibliography, appendix, table of contents) are skipped before scoring. (Inactive in the published 2026-07-15 build — see the Tier C note in the retrieval section.)
+**Tier C** skips CE documents with <= 20 pages entirely (short CE forms have unreliable headings). For longer documents it only retrieves sections with `heading_title` matching `INITIATION_SECTION_CUES` or `DECISION_SECTION_CUES`. Sections matching `NEGATIVE_SECTION_CUES` (references, bibliography, appendix, table of contents) are skipped before scoring. (Restored in the 2026-07-23 build — see the Tier C note in the retrieval section.)
 
 **Tier D** scores all pages in `priority_1`, `priority_2`, and `priority_3` documents, then takes the top 10 by composite score. This is a sweep pass that catches high-signal pages missed by Tier B position heuristics.
 
@@ -838,7 +838,7 @@ The `final_eis` head is markedly weaker (fewer positives: 148 of 5,361 labeled r
 | `document_id` | object | Source document, nullable |
 | `page_number` | object | Source page, nullable |
 | `retrieval_tier` | object | `tier_a` through `tier_e` |
-| `source_tier` | object | `metadata`, `page_slice`, `section`, `page_keyword`, `recovery` (`section` absent from the published 2026-07-15 build — Tier C inactive) |
+| `source_tier` | object | `metadata`, `page_slice`, `section`, `page_keyword`, `recovery` (`section` restored in the 2026-07-23 build — 21,289 rows) |
 | `candidate_source_type` | object | Semantic source: `ce_determination`, `fonsi`, `application_received`, etc. |
 | `raw_date_text` | object | Matched date string from regex |
 | `parsed_date` | object (date) | Normalized date value |
