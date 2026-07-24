@@ -16,7 +16,7 @@ python app/build_text_store.py --energy-types Clean Fossil
 Output: `data/rag/nepa_reader.duckdb`
 
 The DB now covers **clean + fossil** projects (31,508 projects, ~2.5M pages) and is
-**~14 GB** (up from ~7 GB clean-only). Omit `--energy-types` (or pass `--energy-types Clean`)
+**~12.3 GB** (up from ~7 GB clean-only). Omit `--energy-types` (or pass `--energy-types Clean`)
 to rebuild the clean-only DB; pass `--energy-types all` for no energy filter.
 
 ---
@@ -112,4 +112,4 @@ The Quarto navbar link is configured in `_quarto.yml`:
 
 - HF Space repos have strict storage limits on the free tier (~1 GB). Do **not** commit `.duckdb` into the Space repo.
 - Keeping the DB in a dataset repo avoids Git LFS in the Space deployment flow.
-- **Cold start:** the Space downloads the DB from the dataset repo on first boot after a rebuild. With the ~14 GB clean+fossil DB this download takes noticeably longer than the old ~7 GB clean-only DB, so the first load after a data refresh may take several minutes before the app is responsive.
+- **Cold start:** the Space downloads the DB from the dataset repo on first boot after a rebuild. With the ~12.3 GB clean+fossil DB this download takes noticeably longer than the old ~7 GB clean-only DB, so the first load after a data refresh may take several minutes before the app is responsive.

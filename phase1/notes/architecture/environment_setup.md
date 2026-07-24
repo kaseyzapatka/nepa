@@ -9,7 +9,7 @@ The repository uses:
 - Python extraction pipelines (`code/extract/*.py`)
 - Python model workflows (Hugging Face `datasets`, `transformers`, `torch`)
 - Claude API integration (`anthropic` SDK + direct API calls)
-- DuckDB-backed app/data tooling (`app/app.py`, `code/rag/01_build_text_store.py`)
+- DuckDB-backed app/data tooling (`app/app.py`, `app/build_text_store.py`)
 - R analysis scripts (`code/**/*.R`)
 - Quarto reports and presentation rendering (`reports/*.qmd`, `presentations/*.qmd`)
 
