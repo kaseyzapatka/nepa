@@ -51,7 +51,7 @@ PHASE2 = Path(__file__).resolve().parents[3]
 TL = PHASE2 / "data" / "analysis" / "timeline"
 DATES = (TL / "timeline_project_dates.parquet").as_posix()
 IDX = (TL / "timeline_document_index.parquet").as_posix()
-COMBINED = (PHASE2.parent / "phase1" / "data" / "analysis" / "projects_combined.parquet").as_posix()
+COMBINED = (PHASE2 / "data" / "analysis" / "projects_combined.parquet").as_posix()
 
 DIAG = PHASE2 / "output" / "deliverable04" / "diagnostics"
 DIAG.mkdir(parents=True, exist_ok=True)

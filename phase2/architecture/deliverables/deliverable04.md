@@ -249,7 +249,7 @@ Produces `timeline_context_packets.parquet`. Pages are loaded via DuckDB (`read_
 
 **Tier B — Page slices.** For `priority_1` and `priority_2` documents only. CE documents with <= 20 pages: scan all pages (`ce_small_doc_all_pages`). CE documents with 21–50 pages: scan all pages (`ce_expanded_all_pages`). All other documents: first 3 + last 3 pages plus top-3 pages by initiation score and top-3 by decision score. Decision score includes a 2x multiplier for signature-cue matches (`SIGNATURE_CUES`).
 
-**Tier C — Section retrieval.** Sections with `heading_title` matching `DECISION_SECTION_CUES` or `INITIATION_SECTION_CUES` are retrieved; sections matching `NEGATIVE_SECTION_CUES` are skipped. CE documents with <= 20 pages bypass section retrieval entirely (Tier B is sufficient for short CE forms).
+**Tier C — Section retrieval.** Sections with `heading_title` matching `DECISION_SECTION_CUES` or `INITIATION_SECTION_CUES` are retrieved; sections matching `NEGATIVE_SECTION_CUES` are skipped. CE documents with <= 20 pages bypass section retrieval entirely (Tier B is sufficient for short CE forms). **Restored 2026-07-23:** the published 2026-07-15 candidates build had run without a current `document_sections.parquet` (zero `source_tier = "section"` rows); a desktop re-run of `00b_sections.py` + the retrieval/extraction chain rebuilt the section index, so `timeline_candidates.parquet` now contains 21,289 `source_tier = "section"` rows. Net effect on final coverage is small (+14 complete timelines vs the published build), as most section candidates lose selection to higher-tier candidates.
 
 **Tier D — Page keyword scoring.** Scores all pages in `priority_1`, `priority_2`, and `priority_3` documents by `INITIATION_CUES` + `DECISION_CUES` matches; takes the top 10 by `retrieval_score`. Deduplicates against Tier B/C by `context_hash`, keeping the higher-tier packet.
 
@@ -617,7 +617,7 @@ The five-tier retrieval architecture separates the decision of what text to read
 
 Signature-block cues (`SIGNATURE_CUES` regex) double the decision page score, pulling bottom-of-document CE approval blocks to the top of the selection.
 
-**Tier C** skips CE documents with <= 20 pages entirely (short CE forms have unreliable headings). For longer documents it only retrieves sections with `heading_title` matching `INITIATION_SECTION_CUES` or `DECISION_SECTION_CUES`. Sections matching `NEGATIVE_SECTION_CUES` (references, bibliography, appendix, table of contents) are skipped before scoring.
+**Tier C** skips CE documents with <= 20 pages entirely (short CE forms have unreliable headings). For longer documents it only retrieves sections with `heading_title` matching `INITIATION_SECTION_CUES` or `DECISION_SECTION_CUES`. Sections matching `NEGATIVE_SECTION_CUES` (references, bibliography, appendix, table of contents) are skipped before scoring. (Inactive in the published 2026-07-15 build — see the Tier C note in the retrieval section.)
 
 **Tier D** scores all pages in `priority_1`, `priority_2`, and `priority_3` documents, then takes the top 10 by composite score. This is a sweep pass that catches high-signal pages missed by Tier B position heuristics.
 
@@ -838,7 +838,7 @@ The `final_eis` head is markedly weaker (fewer positives: 148 of 5,361 labeled r
 | `document_id` | object | Source document, nullable |
 | `page_number` | object | Source page, nullable |
 | `retrieval_tier` | object | `tier_a` through `tier_e` |
-| `source_tier` | object | `metadata`, `page_slice`, `section`, `page_keyword`, `recovery` |
+| `source_tier` | object | `metadata`, `page_slice`, `section`, `page_keyword`, `recovery` (`section` absent from the published 2026-07-15 build — Tier C inactive) |
 | `candidate_source_type` | object | Semantic source: `ce_determination`, `fonsi`, `application_received`, etc. |
 | `raw_date_text` | object | Matched date string from regex |
 | `parsed_date` | object (date) | Normalized date value |

@@ -1,0 +1,328 @@
+arm,office,n_parsed,n_ce_doc_complete
+BLM,AK-0000,7,0
+BLM,AK-010,1,0
+BLM,AK-9410,10,0
+BLM,AK-9412,1,0
+BLM,AK-9413,2,0
+BLM,AK-943,1,0
+BLM,AK-9430,5,0
+BLM,AK-A000,1,0
+BLM,AK-A010,94,0
+BLM,AK-A020,149,0
+BLM,AK-F000,2,0
+BLM,AK-F010,15,0
+BLM,AK-F020,114,0
+BLM,AK-F030,146,0
+BLM,AK-R000,126,0
+BLM,AZ-0000,3,0
+BLM,AZ-030,1,0
+BLM,AZ-A000,10,0
+BLM,AZ-A010,169,38
+BLM,AZ-A020,24,0
+BLM,AZ-A030,77,0
+BLM,AZ-C000,1,0
+BLM,AZ-C010,223,0
+BLM,AZ-C020,65,0
+BLM,AZ-C030,234,46
+BLM,AZ-G000,2,0
+BLM,AZ-G010,236,44
+BLM,AZ-G0110,1,0
+BLM,AZ-G020,198,30
+BLM,AZ-G021,2,0
+BLM,AZ-G022,2,0
+BLM,AZ-G030,1,0
+BLM,AZ-P000,2,0
+BLM,AZ-P010,219,34
+BLM,AZ-P020,152,39
+BLM,AZ-P030,8,0
+BLM,AZ-P040,7,0
+BLM,CA-060,2,0
+BLM,CA-2022,1,0
+BLM,CA-650,1,0
+BLM,CA-9000,3,0
+BLM,CA-C050,34,0
+BLM,CA-C0500,1,0
+BLM,CA-C060,684,0
+BLM,CA-C068,1,0
+BLM,CA-C069,11,0
+BLM,CA-C070,49,0
+BLM,CA-C080,91,0
+BLM,CA-C090,145,0
+BLM,CA-D010,3,0
+BLM,CA-D050,78,0
+BLM,CA-D060,59,0
+BLM,CA-D070,157,0
+BLM,CA-D080,82,0
+BLM,CA-D090,12,0
+BLM,CA-N020,40,0
+BLM,CA-N030,47,0
+BLM,CA-N038,3,0
+BLM,CA-N050,39,0
+BLM,CA-N060,49,0
+BLM,CA-N070,1,0
+BLM,CO-0000,4,0
+BLM,CO-040,9,0
+BLM,CO-130,7,0
+BLM,CO-200,4,0
+BLM,CO-2019,1,0
+BLM,CO-2020,2,0
+BLM,CO-F02,13,0
+BLM,CO-F020,150,0
+BLM,CO-F024,1,0
+BLM,CO-F03,12,0
+BLM,CO-F030,20,0
+BLM,CO-F070,46,0
+BLM,CO-G010,38,0
+BLM,CO-G012,2,0
+BLM,CO-G020,108,0
+BLM,CO-G030,3,0
+BLM,CO-N01,1,0
+BLM,CO-N010,268,68
+BLM,CO-N02,6,0
+BLM,CO-N020,33,0
+BLM,CO-N030,24,0
+BLM,CO-N034,2,0
+BLM,CO-N040,292,78
+BLM,CO-N05,44,0
+BLM,CO-N050,148,0
+BLM,CO-N060,1,0
+BLM,CO-S010,78,0
+BLM,CO-S012,7,0
+BLM,CO-S050,135,0
+BLM,CO-S054,8,0
+BLM,CO-S060,36,0
+BLM,CO-S070,3,0
+BLM,CO-S080,89,0
+BLM,CO-S081,4,0
+BLM,CO-S090,6,0
+BLM,ES-0030,2,0
+BLM,ES-J000,2,0
+BLM,HQ-2000,1,0
+BLM,ID-0000,1,0
+BLM,ID-130,1,0
+BLM,ID-B000,9,0
+BLM,ID-B010,303,31
+BLM,ID-B011,101,0
+BLM,ID-B012,1,0
+BLM,ID-B020,81,0
+BLM,ID-B030,89,0
+BLM,ID-B20,1,0
+BLM,ID-C000,1,0
+BLM,ID-C010,129,0
+BLM,ID-C020,109,0
+BLM,ID-I000,5,0
+BLM,ID-I010,115,0
+BLM,ID-I020,111,0
+BLM,ID-I030,84,0
+BLM,ID-I040,51,0
+BLM,ID-T010,78,0
+BLM,ID-T020,158,0
+BLM,ID-T030,182,35
+BLM,ID-T031,1,0
+BLM,MT-0000,12,0
+BLM,MT-0010,1,0
+BLM,MT-020,1,0
+BLM,MT-060,6,0
+BLM,MT-A010,86,0
+BLM,MT-B010,78,0
+BLM,MT-B050,42,0
+BLM,MT-B070,111,0
+BLM,MT-C010,90,0
+BLM,MT-C020,383,72
+BLM,MT-C030,194,0
+BLM,MT-C040,65,0
+BLM,MT-L010,42,0
+BLM,MT-L020,32,0
+BLM,MT-L030,52,0
+BLM,MT-L0300,3,0
+BLM,MT-L060,188,46
+BLM,MT-L070,34,0
+BLM,MT-M010,3,0
+BLM,MT-M030,1,0
+BLM,NM-0000,1,0
+BLM,NM-0040,86,0
+BLM,NM-0060,17,0
+BLM,NM-A010,94,0
+BLM,NM-A014,1,0
+BLM,NM-A020,78,0
+BLM,NM-F010,152,0
+BLM,NM-F020,20,0
+BLM,NM-L000,141,83
+BLM,NM-P010,247,31
+BLM,NM-P020,1038,81
+BLM,NV-0000,8,0
+BLM,NV-B000,13,0
+BLM,NV-B010,56,0
+BLM,NV-B020,154,0
+BLM,NV-C000,6,0
+BLM,NV-C010,119,0
+BLM,NV-C020,174,60
+BLM,NV-E000,19,0
+BLM,NV-E020,75,0
+BLM,NV-E030,62,0
+BLM,NV-L000,1,0
+BLM,NV-L020,4,0
+BLM,NV-L030,10,0
+BLM,NV-L050,4,0
+BLM,NV-L060,33,0
+BLM,NV-S010,389,51
+BLM,NV-S020,21,0
+BLM,NV-S030,42,0
+BLM,NV-W000,4,0
+BLM,NV-W010,155,31
+BLM,NV-W0100,1,0
+BLM,NV-W030,37,0
+BLM,OR-V040,2,0
+BLM,OR-V050,3,0
+BLM,UT-0000,4,0
+BLM,UT-0300,15,0
+BLM,UT-C000,2,0
+BLM,UT-C010,329,86
+BLM,UT-C020,98,32
+BLM,UT-C021,4,0
+BLM,UT-C030,221,30
+BLM,UT-C040,47,0
+BLM,UT-G010,140,0
+BLM,UT-G020,113,0
+BLM,UT-P010,2,0
+BLM,UT-P020,27,0
+BLM,UT-W000,1,0
+BLM,UT-W010,40,0
+BLM,UT-W020,20,0
+BLM,UT-Y000,2,0
+BLM,UT-Y010,483,158
+BLM,UT-Y020,186,38
+BLM,WO-2600,1,0
+BLM,WY-0000,7,0
+BLM,WY-D00,5,0
+BLM,WY-D010,262,46
+BLM,WY-D030,302,41
+BLM,WY-D040,614,52
+BLM,WY-D090,304,43
+BLM,WY-P000,1,0
+BLM,WY-P060,365,131
+BLM,WY-P070,213,0
+BLM,WY-P080,10,0
+BLM,WY-R010,166,49
+BLM,WY-R020,280,112
+BLM,WY-R050,169,41
+DOE,...,9,0
+DOE,Ad,3,0
+DOE,Advan,1,0
+DOE,Advanced Research Projects Agency-Energy,445,34
+DOE,Advanced Technology Vehicles Manufacturing Loan Program,2,0
+DOE,Ames Site Office,5,0
+DOE,Argonne Site Office,44,41
+DOE,B,1,0
+DOE,Berkeley Site Office,52,0
+DOE,Bettis Site,1,0
+DOE,Bo,2,0
+DOE,Bonneville Power Administration,895,449
+DOE,Brookhaven Site Office,17,0
+DOE,Carlsbad Field Office,5,0
+DOE,Chicago Office,20,0
+DOE,Electricity Delivery and En,1,0
+DOE,Electricity Delivery and Energy Reli,1,0
+DOE,Electricity Delivery and Energy Reliab,1,0
+DOE,Electricity Delivery and Energy Reliabili,1,0
+DOE,Electricity Delivery and Energy Reliabilit,1,0
+DOE,Electricity Delivery and Energy Reliability,10,0
+DOE,En,2,0
+DOE,Ener,1,0
+DOE,Energy Efficiency & Renewable Energy,3,0
+DOE,Energy Efficiency & Renewable Energy (EER,1,0
+DOE,Energy Efficiency & Renewable Energy (EERE) / Oak Ridge Office (ORO),2,0
+DOE,Energy Efficiency and Renewable Energy,970,163
+DOE,Envir,1,0
+DOE,Environmental Manage,1,0
+DOE,Environmental Management,3,0
+DOE,F,1,0
+DOE,Fermi Site Office,36,32
+DOE,Fossil,2,0
+DOE,Fossil E,1,0
+DOE,Fossil En,1,0
+DOE,Fossil Energy,2,0
+DOE,G,3,0
+DOE,Go,6,0
+DOE,Gol,2,0
+DOE,Gold,4,0
+DOE,Golde,7,0
+DOE,Golden Field Office,1771,705
+DOE,Ida,1,0
+DOE,Idaho Operations Office,179,0
+DOE,Kansas City Site Office,23,0
+DOE,Knolls Site,1,0
+DOE,Lawrence Livermore Site Office,15,0
+DOE,Legacy M,1,0
+DOE,Legacy Man,1,0
+DOE,Legacy Manag,1,0
+DOE,Legacy Manage,1,0
+DOE,Legacy Management,82,0
+DOE,Legacy Management-Grand Junction,2,0
+DOE,Loan Guar,1,0
+DOE,Loan Guarantee Program Office,20,0
+DOE,Los Alamos Site Office,22,0
+DOE,N,3,0
+DOE,NNSA,1,0
+DOE,NNSA-Headquarters,33,0
+DOE,NNSA-I,1,0
+DOE,NNSA-Proliferation Detection,1,0
+DOE,NNSA-Service Center,1,0
+DOE,NRF,1,0
+DOE,Na,4,0
+DOE,Nat,6,0
+DOE,Nati,4,0
+DOE,Natio,4,0
+DOE,National Energy Technology Laboratory,3451,2710
+DOE,Natural Gas Regulation,1,0
+DOE,Naval Nuclear Propuls,1,0
+DOE,Naval Nuclear Propulsion Program,29,0
+DOE,Naval Reactors,1,0
+DOE,Nevada Sit,1,0
+DOE,Nevada Site Office,1,0
+DOE,New Br,1,0
+DOE,New Brunswick Laboratory,1,0
+DOE,Nu,1,0
+DOE,Nucle,1,0
+DOE,Nuclear Energy,388,48
+DOE,Oak R,1,0
+DOE,Oak Ridge Office,40,0
+DOE,Off of Oil & Natura,1,0
+DOE,Off of Oil & Natural Gas,1,0
+DOE,Off. Oil & Natural Gas,1,0
+DOE,Office Oil and Natural Gas,1,0
+DOE,Office of Oil & Natural Gas,1,0
+DOE,Office of Oil and Natural Gas,18,0
+DOE,Office of River Protection-,1,0
+DOE,Office of River Protection-Richlan,1,0
+DOE,Office of River Protection-Richland,1,0
+DOE,Office of River Protection-Richland Office,39,0
+DOE,Office of Science,1,0
+DOE,Pacific Northwest Site Office,20,0
+DOE,Pantex Site Office,44,0
+DOE,Portsmouth Paducah Project Office,13,0
+DOE,Princeton,1,0
+DOE,Princeton Site Office,3,0
+DOE,RMOTC,59,0
+DOE,Ri,2,0
+DOE,River,1,0
+DOE,River Protection-Richland Operations Office,153,106
+DOE,S,1,0
+DOE,Sandia Site Office,71,0
+DOE,Savan,2,0
+DOE,Savannah River Operations Office,1714,443
+DOE,Science,11,0
+DOE,South CarolinaOffice(s): Savannah R,1,0
+DOE,Southwestern Power Administration,36,0
+DOE,Stanford Linear Accelerator Site Off,1,0
+DOE,Stanford Linear Accelerator Site Office,9,0
+DOE,Strategic Petroleum Reserve Field Office,187,0
+DOE,Thomas Jefferson Site Office,3,0
+DOE,Waste Isolation Pilot Plant,2,0
+DOE,West Valley Demonstration Project,13,0
+DOE,Western Area Power Administration-Colorado River Storage Project Management Center,2,0
+DOE,Western Area Power Administration-Desert Southwest Region,181,54
+DOE,Western Area Power Administration-Rocky Mountain Region,328,36
+DOE,Western Area Power Administration-Sierra Nevada Region,25,0
+DOE,Western Area Power Administration-Upper Great Plains Region,27,0
+DOE,Y-12 Site Office,67,0

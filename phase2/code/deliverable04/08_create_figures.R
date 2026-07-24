@@ -128,9 +128,9 @@ message("Loading timeline_project_dates.parquet...")
 dates_raw <- read_parquet(file.path(DATA, "timeline_project_dates.parquet"))
 message("  ", nrow(dates_raw), " rows")
 
-# Join energy type from Phase 1 combined project file
+# Join energy type from the Phase 2 combined project file (no Phase 1 backfill)
 energy_meta <- read_parquet(
-  here::here("phase1", "data", "analysis", "projects_combined.parquet"),
+  here::here("phase2", "data", "analysis", "projects_combined.parquet"),
   col_select = c("project_id", "project_energy_type")
 )
 dates_raw <- dates_raw |>

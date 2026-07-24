@@ -1,0 +1,7 @@
+process_type,period,n,median_days,p25_days,p75_days,median_months
+CE,post_FRA,2002,36,12,126,1.2
+CE,pre_FRA,25273,19,6,81,0.6
+EA,post_FRA,208,177.5,45.75,451.25,5.8
+EA,pre_FRA,1528,109,33.75,328,3.6
+EIS,post_FRA,106,1094,519.5,2371.25,35.9
+EIS,pre_FRA,1223,1019,479,1936.5,33.5
