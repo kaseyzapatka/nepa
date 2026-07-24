@@ -7,10 +7,10 @@ import pytest
 import requests
 
 os.environ["CONDA_DEFAULT_ENV"] = "nepa"
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "code"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "code" / "api" / "federal_regisiter"))
 
-from extract import federal_register  # noqa: E402
-from extract.federal_register import (  # noqa: E402
+import federal_register  # noqa: E402
+from federal_register import (  # noqa: E402
     ANALYSIS_DIR,
     BASE_DIR,
     FEDERAL_REGISTER_DIR,
