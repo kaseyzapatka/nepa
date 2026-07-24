@@ -1,0 +1,855 @@
+evidence_span_id,gold_resource_area,gold_is_determination,gold_determination_class,gold_determination_scope,gold_primary_threshold_type,gold_primary_threshold_status,gold_mitigation_link,gold_evidence_span_ok,gold_needs_human_review,gold_notes,labeler,labeler_confidence
+3878223aa0f5e4fd6fd995c8,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Health/safety impacts concluded not significant via OSHA/EH&S compliance,claude,medium
+3878223aa0f5e4fd6fd995c8,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Construction/operation noise attenuates below concern by distance; no numeric regulatory limit cited,claude,medium
+8eeda7a4e4bb570515e6592f,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,"Category C jurisdictional waters/wetlands LTS conditioned on PCMs/SOPs, 401/404 permits, compensation",claude,medium
+8982381aebb924de53c67901,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Geology/soils minor; erosion via BMPs, stable loess soils",claude,medium
+8982381aebb924de53c67901,land_use,TRUE,less_than_significant,resource_specific,other_quantitative,exceeds,FALSE,TRUE,FALSE,Prime farmland AD-1006 score 174 exceeds 160 trigger but loss (0.02% of county) concluded not significant,claude,medium
+f8cd8f1c295769a41a39244c,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,FONSI expressly conditioned on applicant-committed EPMs plus BLM mitigation measures,claude,high
+f8cd8f1c295769a41a39244c,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,NRHP-eligible sites adversely impacted; minimized to less than significant via HPTPs/MOAs,claude,high
+f8cd8f1c295769a41a39244c,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Public health not significant via MSHA regulatory compliance,claude,medium
+f8cd8f1c295769a41a39244c,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Fugitive dust at Kellis Ranch concluded not significant,claude,medium
+f8cd8f1c295769a41a39244c,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No change in production/staffing; no significant social or economic effects,claude,medium
+f9664b6110211854df695390,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Low impacts; covers recreation,claude,medium
+f9664b6110211854df695390,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Low to moderate, BMPs/SWPP",claude,medium
+f9664b6110211854df695390,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Covers vegetation (low-moderate) and wildlife; listed-species no-significant conclusion relies on MAP/ESA Sec.7 mitigation,claude,medium
+f9664b6110211854df695390,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Water quality low-moderate and wetland impacts minimized; covers water quality + wetlands,claude,medium
+3f17faba37329d5c8ce3a095,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Impacts not significant given coordinated area roadway/traffic improvements,claude,medium
+ff5a3b6d254a28ccfee09e7a,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,'The Proposed Action would have no significant impacts',claude,high
+ff5a3b6d254a28ccfee09e7a,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Geology/soils impacts low,claude,medium
+ff5a3b6d254a28ccfee09e7a,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Land use/recreation low; covers recreation,claude,medium
+ff5a3b6d254a28ccfee09e7a,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Low; minor temporary traffic delays,claude,medium
+ef9d9d9e4ec138d9f67aadd0,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Low except low-moderate residential; covers recreation,claude,medium
+ef9d9d9e4ec138d9f67aadd0,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Visual quality low,claude,medium
+ef9d9d9e4ec138d9f67aadd0,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Traffic delays not expected to substantially degrade operations,claude,medium
+b5e3876f8b6a61094b667629,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Low except low-moderate residential; covers recreation,claude,medium
+b5e3876f8b6a61094b667629,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Visual quality low,claude,medium
+b5e3876f8b6a61094b667629,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Traffic delays not expected to substantially degrade operations,claude,medium
+0d047a165acc02bca6735171,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No historic properties adversely affected; SHPO concurred; includes Native American/tribal consultation,claude,medium
+f3db8ff227a5bd20342c1c3c,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Proposed project geology/soils not significant; No-Action would have no impacts (collapsed to operative proposed-action row),claude,high
+7a7d7f1af767867635bd5189,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Migratory birds LTS via preconstruction burrowing-owl relocation/USFWS permit; also no effect on T&E species,claude,medium
+7076a1f70968a980bf2087c7,public_health,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,Dioxin below 990 ppt direct-contact criterion; industrial injury/fatality risk minimal,claude,medium
+97595e8b2aa18a28d795f4db,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Marine organisms: minor short-term stress, no substantial adverse effects",claude,medium
+97595e8b2aa18a28d795f4db,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No impacts on historic/archaeological sites; SHPO consultation confirmed no adverse effect,claude,medium
+97595e8b2aa18a28d795f4db,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Vessel emissions and accidental CO2 release no significant air impact,claude,medium
+8e7e94721ad73efe2fe6e4c4,air_quality,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Category A air impacts avoided/minimized to LTS through air-quality SOPs,claude,medium
+049b2b32a0856c3c72540ae8,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,"Attainment area, small emissions; No-Action no impacts; beneficial GHG reduction noted",claude,medium
+7e9f7d58d2838e332fdb324e,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Existing industrial transportation infrastructure not overloaded,claude,high
+9a608349b7220b05d79bbd6b,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_jeopardy,does_not_exceed,TRUE,TRUE,FALSE,USFWS no-jeopardy for slickspot peppergrass via conservation measures; raptors/shrubland birds minor and grassland birds/curlew moderate w/ EPMs,claude,medium
+74717769258182d691975213,water,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Potentially significant water-quality degradation reduced to LTS by committed SWPPP conservation measure,claude,high
+c108359f7d3d352aa397cc36,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No NRHP-eligible resources in APE; SHPO concurred no historic properties affected,claude,medium
+aabfc957b2d115c6b55f142b,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Fisheries section; impact via surface-water quality; LTS with committed SWPPP conservation measure,claude,medium
+ee798a0d59aaa1740031e20c,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Tiered to Chippewa NF Forest Plan Final EIS; factor 1 states no significant impact,claude,medium
+ee798a0d59aaa1740031e20c,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No NRHP-eligible properties within area of effect,claude,medium
+ee798a0d59aaa1740031e20c,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,"May affect, not likely to adversely affect Canada lynx; FWS concurrence",claude,medium
+ee798a0d59aaa1740031e20c,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,No unique/serious public-health hazards; passage phrases 'with mitigation' would not significantly affect - borderline class,claude,low
+7899c603a88d5cc7e9eb76de,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Special-status wildlife reduced to LTS via SOPs/PCMs; USFWS concurrence not likely to adversely affect listed species,claude,medium
+edf3e99f0a650c3cd77b9269,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Aesthetics across Categories A/B/C not significant; small impacted areas, existing viewshed, AES-SOPs supplementary",claude,medium
+e25b3b0eba8fb1e8676f72fc,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,Construction/operation below SJVAPCD and General Conformity de minimis thresholds; No-Action no emissions,claude,medium
+e25b3b0eba8fb1e8676f72fc,climate_ghg,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,"GHG below CEQ 25,000 MT CO2e/yr threshold",claude,medium
+e25b3b0eba8fb1e8676f72fc,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,"FWS concurrence: may affect, not likely to adversely affect listed species",claude,medium
+4df4e938acc324b02824a08a,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,'The Proposed Action would have no significant impacts',claude,high
+2de5368d4094eb8f8dc18874,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No cultural resources in APE; no effect to historic properties (factor 8),claude,medium
+2de5368d4094eb8f8dc18874,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,Would not adversely affect ESA-protected species (factor 9),claude,medium
+fcdd1fd00a737bdde8208e95,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No Adverse Effect on historic properties; one site not NRHP-eligible (factor 8),claude,medium
+4e8575d87bab2d4b54f4f6eb,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No Adverse Effect on historic properties (factor 8); duplicate of paired FONSI text,claude,medium
+50e3f91ed36b6e18a2096709,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,'Proposed Action will not have a significant effect...EIS therefore not required',claude,high
+50e3f91ed36b6e18a2096709,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,"BO 'may affect, likely to adversely affect' hookless cactus/DeBeque phacelia but NEPA-not-significant via stipulated conservation/mitigation measures",claude,medium
+50e3f91ed36b6e18a2096709,cultural,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,40 sites/11 isolated finds; impacts avoided; 4 sites flagged/monitored (protective measures),claude,medium
+da8cbeb14ea61b096a965ecd,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Category A no significant health/safety effects; no increase over baseline; H&S SOPs,claude,medium
+1b9caef6fa5ced1b83700b96,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Vegetation/special-status plants reduced to LTS via SOPs/PCMs/IVM program,claude,medium
+1b9caef6fa5ced1b83700b96,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,"Jurisdictional waters/wetlands LTS via PCMs W001/W002, 401/404 permits, compensation",claude,medium
+8729119c4f0d3bf600cbb58b,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,'no high impacts associated with the Proposed Action' (high=significant); FONSI summary,claude,medium
+8729119c4f0d3bf600cbb58b,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Land use/recreation low to moderate; covers agriculture/recreation,claude,medium
+8729119c4f0d3bf600cbb58b,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Transportation impacts low,claude,medium
+d8148c2ed6d8da6da8cdbde2,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,'will not have a significant effect...EIS...not necessary',claude,high
+d8148c2ed6d8da6da8cdbde2,cultural,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,No significant adverse impacts to cultural resources; stipulations protective (no new construction),claude,medium
+d8148c2ed6d8da6da8cdbde2,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,No impacts expected to T&E species/critical habitat (factor 9),claude,medium
+8c66db86aa6a6b535266a9c4,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Fisheries; impact via surface-water quality LTS with committed SWPPP; No-Action would have no fisheries impacts,claude,medium
+91c4a80ebd386f219a075cef,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,Jurisdictional waters avoided by siting (no acreage affected); 'no mitigation required',claude,medium
+91c4a80ebd386f219a075cef,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Rose-mallow special-status plant loss 'potentially significant' reduced to LTS by conservation measures,claude,medium
+7cc57eca0a3feaadb97b17a2,water,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,APS water use/discharge no significant effect on surface water; within NPDES permit limits (temp rise <=2.8C); sludge increase minimal,claude,medium
+e1ecd0297cb1797baf605341,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Florida site construction/operation noise not significantly discernable (distance attenuation),claude,high
+7aa1b980d1ac0e948382ab97,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Surface water & groundwater not significant; no wetlands/floodplains on site; No-Action no impacts,claude,medium
+8758ff1c4151031e5106c144,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Aesthetics/visual not significant; landscaping/screening design; No-Action no changes,claude,high
+7d68079162be68f7fff61807,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Methodology/section-format boilerplate; no significance conclusion,claude,high
+33b2eaf0a4da354cd6eb9b15,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Boilerplate describing Environmental Consequences section; no determination,claude,high
+7270696aca3cc22998c68820,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Incremental impacts to coastal habitats negligible vs existing vessel traffic,claude,medium
+7270696aca3cc22998c68820,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Economy/onshore impacts negligible,claude,medium
+7270696aca3cc22998c68820,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,SHPO: no effect / no adverse effect on historic properties,claude,high
+7270696aca3cc22998c68820,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Cumulative impacts would not be significant (project-level),claude,medium
+e4541b28a9f7e8b1e9b91e9f,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"EJ: effects to public not significant, no EJ effects anticipated; heading says No Action but text is ROW maintenance",claude,medium
+e627af629fa1e7c0d6330219,transportation,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Traffic congestion mitigated by TRANS-SOP-1; aviation no sig by design,claude,medium
+32644a3ec7a7d00c364afe74,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+32644a3ec7a7d00c364afe74,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No effects to public health and safety,claude,high
+32644a3ec7a7d00c364afe74,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,Impacts to cultural sites avoided by project design + monitoring/discovery plan,claude,medium
+32644a3ec7a7d00c364afe74,water,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Minor runoff; BLM-required stormwater mitigation measures implemented,claude,medium
+32644a3ec7a7d00c364afe74,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Low erosion potential; SWPPP/BMPs,claude,medium
+32644a3ec7a7d00c364afe74,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Special-status species impacts reduced via surveys/buffers/relocation; no critical habitat present,claude,medium
+32644a3ec7a7d00c364afe74,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Temporary short-term visibility; painting to blend into setting,claude,medium
+0f627f3620c9c5ffc65601a3,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,T&E not affected; migratory bird impacts not significant given limited/disturbed habitat + committed mitigation measures,claude,medium
+0d2093b6b3d7486d994254c7,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Fish/aquatic impacts reduced to less than significant via SOPs/PCMs,claude,high
+539bc373cef7e39241114b71,air_quality,TRUE,less_than_significant_with_mitigation,resource_specific,other_quantitative,mitigated_below,TRUE,TRUE,FALSE,Air quality not significant via BACT measures + Class II Minor Air Quality Permit,claude,medium
+43f40dd4171b812cb573472c,transportation,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Traffic effects eliminated/mitigated by TRANS-SOP-1; aviation no sig by design,claude,medium
+1996021cf88452e18d6fac14,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Habitat/special-status impacts to less-than-significant via SOPs/PCMs,claude,medium
+1996021cf88452e18d6fac14,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,Jurisdictional wetlands/waters less-than-significant via PCMs/SOPs + CWA 401/404 compliance,claude,medium
+6f170d4c3557c269c723db57,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Special-status plant impacts reduced to less-than-significant via SOPs/PCMs,claude,medium
+6f170d4c3557c269c723db57,water,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Vernal pools/wetlands/streams impacts minimized via PCMs (esp. W001/W002),claude,medium
+6530454fee56392605dd4fea,air_quality,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Fugitive dust/emissions maintained at less-than-significant via air-quality SOPs,claude,medium
+6530454fee56392605dd4fea,climate_ghg,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,GHG emissions very minor; no substantial climate impact,claude,medium
+0e432ba5a4d1085414e04389,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Sec 7 likely to adversely affect CVFTL/CVMV; avoidance/minimization/mitigation reduce to less than significant,claude,medium
+3805a369a6fc26a9632c2bde,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Wildlife impacts not significant given industrial zoning/existing disturbance; T&E not affected,claude,medium
+644206047734ded5ec47497b,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+644206047734ded5ec47497b,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No effects to public health and safety,claude,high
+644206047734ded5ec47497b,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,Impacts to cultural sites avoided by project design + monitoring/discovery plan,claude,medium
+644206047734ded5ec47497b,water,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Minor runoff; BLM-required stormwater mitigation measures implemented,claude,medium
+644206047734ded5ec47497b,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Low erosion potential; SWPPP/BMPs,claude,medium
+644206047734ded5ec47497b,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Special-status species impacts reduced via surveys/buffers/relocation; no critical habitat present,claude,medium
+644206047734ded5ec47497b,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Temporary short-term visibility; painting to blend into setting,claude,medium
+632420a625970fd18b62a297,visual,TRUE,less_than_significant,resource_specific,visual_vrm,does_not_exceed,FALSE,TRUE,FALSE,"Visual/aesthetic not significant; VRM Class 2, low level of change, industrial setting",claude,medium
+2a00373a82299b395f0efda2,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Special-status plants potentially significant reduced to LTS via conservation measures (agency terms it 'no mitigation required'); No-Action would have no impacts,claude,medium
+2a00373a82299b395f0efda2,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,Jurisdictional waters avoided by siting + conservation measures -> LTS; No-Action no water impacts,claude,medium
+3647bd8489c68eecde28dbce,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Noxious-weed/vegetation impacts to less than significant via IVM Program/SOPs/PCMs,claude,medium
+4e9387cfd22408177343e70b,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+4e9387cfd22408177343e70b,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Minor short-term soils/vegetation impacts, not significant",claude,medium
+4e9387cfd22408177343e70b,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Colorado hookless cactus (threatened) impacts avoided/minimized via conservation measures/EPMs,claude,medium
+4e9387cfd22408177343e70b,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Project benefits public welfare/health/safety (relocates unstable line),claude,medium
+4e9387cfd22408177343e70b,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,No adverse impacts; project modified to avoid cultural/historic resources,claude,medium
+b926b9ee0b762431588afe44,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,No sensitive noise receptors; cumulative noise not significant,claude,high
+4a5752dbe4bc223dded7d26c,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Visual quality LTS due to small impacted area/limited visibility; no sig adverse aesthetics,claude,medium
+bcb1bb36708c10121ffef5d1,cultural,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Native American interests: no adverse effect; impacts not significant (absence of cultural resources),claude,medium
+052a4f8390d8756a98e1a8c5,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,No Adverse Effect on historic properties; design features/BMPs ensure protection,claude,medium
+052a4f8390d8756a98e1a8c5,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,"Golden eagle/migratory birds: buffers/APLIC standards/MBTA compliance, no take; design features incorporated",claude,medium
+052a4f8390d8756a98e1a8c5,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,"Factor 7: no significant cumulative effects (project-level); window is factor list, not overall finding statement",claude,low
+fc6c7943e103146b6b516416,noise,TRUE,less_than_significant_with_mitigation,resource_specific,noise_threshold,mitigated_below,TRUE,TRUE,FALSE,Category C noise less-than-significant via NOISE-SOP-1 ensuring compliance with noise guidelines,claude,medium
+14af3c544d48375bd9bd41fc,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Category A: no transportation impacts; no sig aviation impacts (no tower modifications),claude,medium
+f6f61026d74794a12680c6a4,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Blade transport: congestion/accident risks less than significant due to low frequency/timing/short duration,claude,medium
+172eec0e05a129257acd08ff,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Category A wildlife impacts reduced to less-than-significant via SOPs/PCMs,claude,medium
+d8437d66fc5fb5eeabbc3fea,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,FONSI: no significant impacts WITH implementation of selected mitigation measures,claude,medium
+d8437d66fc5fb5eeabbc3fea,soils_geology,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,"Soils/geologic-hazard impacts not significant via erosion control, revegetation, pole wraps, geotechnical BMPs",claude,medium
+ceff3e7f11f031fe41b4b710,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Vegetation/wildlife not significant (sparse trees, alternative forage, no T&E); No-Action no biological impacts",claude,medium
+ceff3e7f11f031fe41b4b710,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,Wetlands affected but limited functions; compensatory mitigation (wetland replication),claude,low
+ce7c80cac50722b386ebdb06,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Geology/soils not significant; little excavation; City permit minimizes erosion,claude,medium
+8f295eaadabf907bca5545a1,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Special-status plants not affected; desert tortoise critical habitat temporary impact minimized via ITP/protection measures; nesting bird surveys/buffers,claude,medium
+10af64a847ef56653b4790e5,air_quality,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Construction air quality not significant via short duration + construction BMPs; operation permit described (no conclusion),claude,medium
+a5404a450941c91c7508143f,water,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Surface water quality potentially significant reduced to LTS via SWPPP; groundwater not affected; No-Action no degradation,claude,medium
+8bbfc52e4740bf6925dec63d,noise,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Cat A/B/C noise less-than-significant; B/C depend on NOISE-SOP-1,claude,medium
+8d2e12cc227e8870c0b4f04d,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Land use/recreation/agriculture impacts low (low-moderate residential); not significant,claude,medium
+8d2e12cc227e8870c0b4f04d,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Traffic delays not expected to substantially degrade (short duration),claude,medium
+bef5ace557ff1c8257d1dcf9,none,FALSE,not_a_determination,,,,,FALSE,TRUE,Background/terminology; describes CEQA Class I findings but NEPA determinations deferred to Sections 3.1-3.4,claude,medium
+9c870a76455086091f9a189f,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,"FONSI determination: no significant impact, conditioned on MAP commitment to mitigate traffic impacts",claude,medium
+9c870a76455086091f9a189f,transportation,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Traffic impacts mitigated to less than significant via MAP commitment,claude,medium
+f0de9703dfffaa7db9072b74,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,"Decision/rationale: FONSI reached, no significant negative impacts; decision contingent on mitigation measures",claude,medium
+c37076b00c01b8f2c441522d,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+c37076b00c01b8f2c441522d,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,No special-status/T&E species present; no adverse effects,claude,medium
+c37076b00c01b8f2c441522d,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No cultural/historic resources present; no loss/destruction,claude,medium
+c37076b00c01b8f2c441522d,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,No appreciable effect on public health/safety; negligible impact,claude,medium
+5a8048ae3984c70713dae68a,air_quality,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,Emissions do not exceed de minimis conformity levels/SMOP permit limits,claude,high
+5a8048ae3984c70713dae68a,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Minor impacts to vegetation/wildlife; no direct effects to CRLF/WPT by distance/barriers,claude,medium
+5a8048ae3984c70713dae68a,cultural,TRUE,less_than_significant,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,Minor impact to lithic scatter; SHPO Section 106 concurrence,claude,medium
+5a8048ae3984c70713dae68a,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Soil erosion impacts minor/short-term with standard BMPs/SWPPP,claude,medium
+5a8048ae3984c70713dae68a,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Worker/public health & safety minor via existing programs,claude,medium
+5a8048ae3984c70713dae68a,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,No impacts or minor/short-term across 11 resource areas,claude,high
+863d11fde043fd518caf4387,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,"Decision Record adopting attached FONSI; no significant environmental effects, EIS not required",claude,high
+9de4675004652348f4f2fd46,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,EMF levels decrease slightly; reduced spark-discharge risk,claude,high
+9de4675004652348f4f2fd46,climate_ghg,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,GHG far below EPA mandatory reporting threshold,claude,high
+9de4675004652348f4f2fd46,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Not a major federal action significantly affecting environment; FONSI issued,claude,high
+8a5d114eb071aeae9037506c,soils_geology,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,"Paleontological resources mapped to soils_geology; not affected above 4ft, monitor required if deeper",claude,medium
+8a5d114eb071aeae9037506c,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,No Historic Properties Adversely Affected (SHPO concurred); archaeological testing/monitoring mitigates,claude,medium
+df46cad752a0db3f79aa01d0,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI introduction/conformance section; no significance conclusion in window,claude,medium
+2a2e94c30f2ab4a1bdc73c94,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,Floodplain Statement of Findings; floodplain/wetland impacts avoided/minimized by mitigation,claude,medium
+2a2e94c30f2ab4a1bdc73c94,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Not a major federal action significantly affecting environment; FONSI issued,claude,high
+59858d132fd465053664e545,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,No significant impacts beyond those in 2015 ROD/RMP; not a major federal action; EIS not required,claude,high
+f5fcb11d820db06691e56ae1,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,Floodplain Statement of Findings; floodplain/wetland impacts avoided/minimized,claude,medium
+f5fcb11d820db06691e56ae1,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Not a major federal action significantly affecting environment; FONSI issued,claude,high
+7ea85c4728454f4dc6f0b220,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,TRUE,"DOE supplement-not-required determination (10 CFR 1021.314); impacts within range of original EA/FONSI, no new significant impacts",claude,medium
+33b09e376c7792f1fe009a60,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,FONSI; will not significantly affect environment; applicant-committed protection measures enforceable but finding not expressly conditioned,claude,high
+ce358ae9d0a4497f5faddeaa,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,Negligible; emissions do not exceed Federal/state criteria,claude,medium
+ce358ae9d0a4497f5faddeaa,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Negligible/temporary minor noise increases,claude,medium
+ce358ae9d0a4497f5faddeaa,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Minor/negligible surface water, groundwater, floodplain impacts",claude,medium
+ce358ae9d0a4497f5faddeaa,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,May affect not likely to adversely affect (USFWS concurrence); biological monitors/avoidance committed,claude,medium
+ce358ae9d0a4497f5faddeaa,cultural,TRUE,less_than_significant,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No effects to NRHP resources in APE; adjacent site protected,claude,medium
+ce358ae9d0a4497f5faddeaa,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Temporary minor impact on roadways/traffic,claude,medium
+54e9849e01bea4a7c1aaa567,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"FONSI introduction only; EA incorporated by reference, no significance conclusion in window",claude,medium
+c7563851880c00fd6d42e759,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"Decision-to-be-made section; lists options/criteria, no conclusion reached",claude,high
+0f1cea59450c0cf645ce8c03,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,climate_ghg,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,cultural,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+0f1cea59450c0cf645ce8c03,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Cumulative-impacts conclusion: negligible/very minor,claude,medium
+90e6b76a0450f1b66690e380,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"Supplemental-analysis background; recounts 2008 EA/FONSI history, no new significance conclusion",claude,high
+3bf58c26017141cec8ec5a29,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Acronym list + EA-process boilerplate; no conclusion,claude,high
+7c1e695b36b2aa9e3d31f183,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"Decision-to-be-made boilerplate; conditional process, no conclusion",claude,high
+39451bf8d5d7e1732be96016,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,Finding: effects not significant or less than significant with proposed mitigation; EIS not required,claude,medium
+39451bf8d5d7e1732be96016,cultural,TRUE,less_than_significant,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No historic properties affected; SHPO no adverse effect concurrence (criterion 8),claude,high
+39451bf8d5d7e1732be96016,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Desert tortoise; mitigating measures incorporated into design (criterion 9),claude,medium
+39451bf8d5d7e1732be96016,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Effects disclosed, not significant (criteria 3/5)",claude,medium
+39451bf8d5d7e1732be96016,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Visual resources not significant (criteria 3/5),claude,medium
+39451bf8d5d7e1732be96016,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Geology/minerals/soils minor, not significant (criterion 3)",claude,medium
+39451bf8d5d7e1732be96016,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Noise minor, not significant (criterion 3)",claude,medium
+39451bf8d5d7e1732be96016,climate_ghg,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Climate change minor, not significant (criterion 3)",claude,medium
+39451bf8d5d7e1732be96016,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Socioeconomics/EJ/realty minor, not significant (criterion 3)",claude,medium
+39451bf8d5d7e1732be96016,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Public health/safety, hazmat minor, not significant (criteria 2/3)",claude,medium
+39451bf8d5d7e1732be96016,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Agricultural land/grazing minor, not significant (criterion 3)",claude,medium
+5eaf8a3790323b2dd6aa87b0,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Supplemental EA FONSI; no significant effects due to small scale/short duration,claude,medium
+5eaf8a3790323b2dd6aa87b0,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Few birds/bats harmed; small turbine, four months",claude,medium
+5eaf8a3790323b2dd6aa87b0,cultural,TRUE,less_than_significant,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,MHPO concurrence; no adverse effect to historic properties/viewshed,claude,medium
+5eaf8a3790323b2dd6aa87b0,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Navigation safety plan minimizes public-safety impacts,claude,medium
+5eaf8a3790323b2dd6aa87b0,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Ocean/land use effects minimized by applicant-committed measures; scale-based conclusion,claude,low
+42d3b448dd4dabf8d9411137,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Table of contents/appendix list + CEQA process boilerplate + acronyms; no conclusion,claude,high
+d70a34a167f6e285e93ccbcf,none,FALSE,not_a_determination,,,,,FALSE,TRUE,DN/FONSI decision rationale + project design features; no explicit significance conclusion in window (finding likely outside),claude,low
+5dfdea00d0113e2d9caf9425,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"Acronyms + reader information + intro/background; only process-conditional language, no conclusion",claude,high
+2fa5ce51577e7d79afe92611,none,FALSE,not_a_determination,,,,,FALSE,FALSE,References + scoping comment responses + harvest stipulations; no conclusion,claude,high
+1ef8aaf5855ce9e520a191bf,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DETERMINATION: no significant adverse effect; EIS not required,claude,high
+25a5ab1553aeded13ded2837,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Not a major federal action significantly affecting environment; FONSI issued,claude,high
+79a50a77bdb846c781703671,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Conclusion: not a major action with significant effect; EIS not required,claude,high
+b607cb4e5aef0b07283b33c3,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Adopted HUD EA FONSI; found no significant impacts,claude,medium
+b607cb4e5aef0b07283b33c3,water,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Floodplains/wetlands/water quality found not significant,claude,medium
+b607cb4e5aef0b07283b33c3,biological,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,T&E species/critical habitat found not significant,claude,medium
+b607cb4e5aef0b07283b33c3,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Prime/unique farmlands + land use found not significant,claude,medium
+b607cb4e5aef0b07283b33c3,soils_geology,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Geology and soils found not significant,claude,medium
+b607cb4e5aef0b07283b33c3,visual,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Visual/recreational/aesthetic resources found not significant,claude,medium
+b607cb4e5aef0b07283b33c3,cultural,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Historic/archaeological property + Native American concerns found not significant,claude,medium
+b607cb4e5aef0b07283b33c3,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Environmental justice + socioeconomic conditions found not significant,claude,medium
+b607cb4e5aef0b07283b33c3,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Public health and safety + waste management found not significant,claude,medium
+b607cb4e5aef0b07283b33c3,transportation,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Transportation found not significant,claude,medium
+b607cb4e5aef0b07283b33c3,noise,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Noise found not significant,claude,medium
+9d929e3e0398ebb82870064b,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI intro/context + project description; significance conclusion cut off outside window,claude,medium
+53aed6550cb472c099e5f951,project_wide,TRUE,no_significant_impact,programmatic_or_tiered,none,,FALSE,TRUE,TRUE,"Determination of NEPA Adequacy tiering to 2011 Sonoran Solar FEIS; adequacy finding, not a fresh significance conclusion",claude,low
+52abeeb25df1488a44c715b8,noise,TRUE,less_than_significant,resource_specific,noise_threshold,does_not_exceed,FALSE,TRUE,FALSE,"Corona noise +2 dBA, compliant with regs and below perceptibility (3 dBA)",claude,high
+52abeeb25df1488a44c715b8,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,EMF small/below perceptibility; safety via standard construction procedures,claude,medium
+52abeeb25df1488a44c715b8,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Not a major federal action significantly affecting environment; FONSI issued,claude,high
+615cdaf0d96cbfec2ba783c1,project_wide,TRUE,no_significant_impact,programmatic_or_tiered,none,,FALSE,TRUE,FALSE,FONSI issuance announced (ACTION); EA tiers from Upper Great Plains Wind PEIS; finding rationale largely outside window,claude,medium
+cd132cda3f75d78343959b3d,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,No offsite land use impact; minor on-site (previously developed),claude,medium
+cd132cda3f75d78343959b3d,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Emissions decrease/constant; slight net benefit; construction dust controlled,claude,medium
+cd132cda3f75d78343959b3d,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,"Negligible water quality impacts; outside 500-yr floodplain, no wetlands",claude,medium
+cd132cda3f75d78343959b3d,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,No effect on rock/mineral/soil resources or groundwater,claude,medium
+cd132cda3f75d78343959b3d,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,USFWS: not likely to result in adverse effects to listed species; slightly beneficial,claude,medium
+cd132cda3f75d78343959b3d,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Waste management handled per procedures; negligible effects,claude,medium
+cd132cda3f75d78343959b3d,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,No substantive adverse impacts identified on human/natural environment,claude,medium
+da6a8a3b2499568ae04366d7,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,FONSI; no significant impact; MAP mitigation to further address public concerns (not basis of finding),claude,high
+6872644e19ff8543d9631df7,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI summary/purpose/description + consultation; finding statement and BiOp conclusion outside window,claude,medium
+4c0d2e965df8b77084a8471d,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Linked-EA copy of same FONSI front-matter; no conclusion in window,claude,medium
+93c7333c4d31c17ec6e2e4dd,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Finding: no significant effect on human environment; EIS not required,claude,high
+93c7333c4d31c17ec6e2e4dd,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Desert tortoise/vegetation/migratory birds; MM-BIO measures; Section 7 consultation,claude,medium
+93c7333c4d31c17ec6e2e4dd,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,No adverse effect to historic properties; MM-CUL measures for undocumented subsurface resources,claude,medium
+93c7333c4d31c17ec6e2e4dd,soils_geology,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Paleontological resources (mapped to soils_geology); MM-PALEO measures,claude,medium
+93c7333c4d31c17ec6e2e4dd,air_quality,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,Air impacts not in excess of de minimus levels,claude,high
+93c7333c4d31c17ec6e2e4dd,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,No adverse effects from hazardous/solid waste; public safety improved,claude,medium
+93c7333c4d31c17ec6e2e4dd,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,No jurisdictional wetlands; effects to jurisdictional waters minimized by MM-BIO-1/BMPs/SWPPP + permits,claude,medium
+71423fdc2b85678b896ab673,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DETERMINATION: not a major federal action significantly affecting environment; applicant-committed measures incorporated,claude,high
+2f0034821748b770195e96ce,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Finding: no significant effect; effects do not exceed Cascade RMP ROD (tiered); EIS not needed,claude,high
+2f0034821748b770195e96ce,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Public health/safety not significantly affected; safety improved (criterion 2),claude,medium
+800d7ebc624e092352cb4831,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Supporting-FONSI copy of same finding; no significant effect (tiered to Cascade RMP ROD),claude,high
+800d7ebc624e092352cb4831,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Public health/safety not significantly affected (criterion 2),claude,medium
+fa31b4af27e063fcb3cb0c19,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Purpose and Need + statutory/regulatory framework; no significance conclusion,claude,high
+977bd568a95768704cbdfec9,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI-titled window but content is intro/project description/selected alternative; no significance conclusion in passage,claude,medium
+58d37ec84a60c3a3b163f106,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+58d37ec84a60c3a3b163f106,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,no T&E/special-status species present; no adverse effects,claude,high
+58d37ec84a60c3a3b163f106,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no loss/destruction of cultural/historic resources (NRHP factor),claude,high
+58d37ec84a60c3a3b163f106,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no appreciable effect on public health/safety,claude,high
+f14bcb0d9af9ef1d370f5999,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+f14bcb0d9af9ef1d370f5999,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,wetlands/floodplains impacts avoided/minimized by Mitigation Action Plan measures,claude,medium
+4c158d3a3e6d73e6b0f097de,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC + background + project description of Supplement Analysis; no significance conclusion,claude,medium
+9a15e5ebcec1f1b970b09a65,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,visual impacts minor due to industrial-zone siting/distance; BMPs only in passing,claude,high
+b3f7188cd146c5d332d0f4b3,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI summary describing SEA process; resource list truncated; no significance conclusion,claude,medium
+090ca94e2d49a9de19669d74,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+02bdf60fd765405651fe6738,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+ecb20d7ec8da6b8d5a7bc962,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,decision record; FONSI expressly conditioned on terms/conditions/stipulations,claude,high
+cb5e304083281ee6248fbd4e,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,decision record echoing FONSI; extensive EPMs but FONSI statement not expressly conditioned,claude,medium
+cb8d67fc29f417df5407ef80,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,no significant adverse impacts individually/cumulatively; negligible-to-minor; No-Action=no change/beneficial noted,claude,high
+fcee2495c82229c8aa48830a,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,FONSI conditioned on environmental protection measures ('if implemented with EPMs'),claude,high
+fcee2495c82229c8aa48830a,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,factor 2: no significant effects to public health/safety,claude,medium
+fcee2495c82229c8aa48830a,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,factor 8: no adverse effect on NRHP/cultural resources,claude,medium
+fcee2495c82229c8aa48830a,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,factor 9: no adverse effect to sensitive/T&E species,claude,medium
+a2c7ccfc22704fd1c1c2a740,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,floodplain impacts low with BMP implementation; floodplain statement of findings,claude,medium
+a2c7ccfc22704fd1c1c2a740,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+8f2d718c486759d9c2f81b0b,none,FALSE,not_a_determination,,,,,FALSE,FALSE,land-use-plan conformance + start of FONSI rationale (context=project description); operative significance conclusion outside window,claude,medium
+be09875b4b0fac78254eeac0,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+e0d660ceec7fd8f1d7722930,noise,TRUE,less_than_significant,alternative_specific,none,,FALSE,TRUE,FALSE,No-Action alternative: low noise impacts,claude,medium
+e0d660ceec7fd8f1d7722930,public_health,TRUE,less_than_significant,alternative_specific,none,,FALSE,TRUE,FALSE,No-Action alternative: low public health/safety impacts,claude,medium
+12cc263703281be49d2f6938,none,FALSE,not_a_determination,,,,,FALSE,FALSE,cover page + table of contents of Invasive Plant Management Plan; no conclusion,claude,high
+c1bd43d3130a2c6ccba7d270,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+c1bd43d3130a2c6ccba7d270,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,wetlands/floodplains impacts avoided via Mitigation Action Plan,claude,medium
+1a656caf7cf8048f651f6d98,none,FALSE,not_a_determination,,,,,FALSE,TRUE,cumulative project list table + cumulative-effects narrative; soft 'would not change land use' but no crisp significance determination; borderline,claude,low
+ddac74925c8fde33a9a1b142,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+ddac74925c8fde33a9a1b142,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,wetlands/floodplains impacts avoided/minimized by Mitigation Action Plan,claude,medium
+7ac4374fac0af91e8e3d0b0e,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI introduction/project description; EA incorporated by reference; no significance conclusion in window,claude,medium
+293df034cb1423a8982df575,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronym/abbreviation list; junk,claude,high
+b564477e9202530130733fe8,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Alternative 2 FONSI: no effects meet significance definition; EIS not required,claude,high
+1d4408a519b6dfb3125518d5,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,will not result in significant impacts; EIS not required,claude,high
+1d4408a519b6dfb3125518d5,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,no adverse effect/no impact to cultural resources with mitigation and CMAs,claude,medium
+1d4408a519b6dfb3125518d5,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,no impact to special-status species with mitigation/CMAs; ESA sec 7 compliance,claude,medium
+0d68b1c108d376e81955e430,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+0d68b1c108d376e81955e430,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,wetlands/floodplains impacts avoided/minimized by Mitigation Action Plan,claude,medium
+4245b7f07539cc07e8fe75cf,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,generic 'environmental/human resources avoided/minimized by mitigation'; folded into project_wide,claude,medium
+a8f2dfa3845c5f483b7b284d,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,FONSI conditioned on mitigation measures in EA sections 3.1-3.5,claude,high
+a8f2dfa3845c5f483b7b284d,biological,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impact to salmon/EFH; 'No effect' EFH determination,claude,medium
+a8f2dfa3845c5f483b7b284d,cultural,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no anticipated impacts to cultural resources,claude,high
+a8f2dfa3845c5f483b7b284d,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,will not significantly restrict subsistence uses,claude,medium
+b837abaf1a086c527a017e2e,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,intensity-factor fragment; indoor air quality impacts minimal,claude,medium
+ea88095d4dbb9a5b86a87611,none,FALSE,not_a_determination,,,,,FALSE,FALSE,BIL funding/DOE policy background; no significance conclusion,claude,high
+b84d77fa61f87ff3210844aa,none,FALSE,not_a_determination,,,,,FALSE,FALSE,decision to implement realty action + land conformance/suitability rationale; FONSI heading but no significance text in window,claude,medium
+b01df92db5ce016368bd4d19,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronym list + EA-purpose methodology intro (conditional 'if significant impacts'); no conclusion,claude,high
+7598f56d92ab77ff20ae6415,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,FONSI: 'with the mitigation measures described below will not have any significant impacts',claude,high
+7598f56d92ab77ff20ae6415,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,factor 2: will not result in impacts to public health/safety,claude,medium
+7598f56d92ab77ff20ae6415,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,factor 8: no historic resources; design features limit impacts,claude,medium
+7598f56d92ab77ff20ae6415,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,factor 9: no listed species present; would not be impacted,claude,medium
+0444e8045303653224cd9c63,none,FALSE,not_a_determination,,,,,FALSE,FALSE,cover page + table of contents; no conclusion,claude,high
+1d950b2fb9c343af5d67b56c,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI introduction/project location description; EA incorporated by reference; no significance conclusion,claude,medium
+2688d8bd9c15c43db3a12ada,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"acronym list + EA intro/methodology; No-Action described as same as baseline (methodological, not a significance finding)",claude,medium
+2451df80a78d953672faa998,none,FALSE,not_a_determination,,,,,FALSE,FALSE,cover page + table of contents; no conclusion,claude,high
+21d7b81af7b278d0492a6457,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,conclusion: no effects meet significance definition; not a major federal action,claude,high
+21d7b81af7b278d0492a6457,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,factors 3&8: no cultural resources present; no direct/indirect effects,claude,high
+21d7b81af7b278d0492a6457,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,factor 9: would not affect any federally T&E species,claude,high
+21d7b81af7b278d0492a6457,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,factor 2: no potential to directly affect public health/safety,claude,medium
+e42b780f0da3f564458ec4d5,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE determined funding project would not have significant impact; remainder is project description/public involvement,claude,high
+2e5b428cbd22d839c46214a5,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,EMF slight decrease in magnetic field; radio/TV interference not changed/reduced,claude,medium
+2e5b428cbd22d839c46214a5,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+6bb879741767a48991024053,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,floodplain: erosion controls/revegetation avoid sedimentation; flood storage unchanged,claude,medium
+6bb879741767a48991024053,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,socioeconomics low/positive; no EJ disproportionate impact,claude,medium
+52c0889eec2499670a736d2d,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,USFWS concurred; will not significantly adversely affect ESA species/critical habitat,claude,high
+52c0889eec2499670a736d2d,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+1caf8281afe20eb890a7747f,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+1caf8281afe20eb890a7747f,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"soil/water impacts short-term, long-term negligible",claude,high
+1caf8281afe20eb890a7747f,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,,claude,high
+1caf8281afe20eb890a7747f,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"wildlife/tortoise short-term minor, long-term negligible",claude,high
+1caf8281afe20eb890a7747f,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,SHPO concurred no adverse impact to historic properties,claude,high
+1caf8281afe20eb890a7747f,visual,TRUE,less_than_significant,resource_specific,visual_vrm,does_not_exceed,FALSE,TRUE,FALSE,"weak visual contrast, conforms to VRM class",claude,high
+1caf8281afe20eb890a7747f,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,not anticipated to affect public health/safety,claude,high
+aff4e930b016c4b480581f9a,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+aff4e930b016c4b480581f9a,climate_ghg,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,minor short-term GHG from vehicle travel,claude,medium
+aff4e930b016c4b480581f9a,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,not noticeable except lightly-used CR212,claude,medium
+aff4e930b016c4b480581f9a,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"minor wildlife displacement, vegetation change",claude,medium
+aff4e930b016c4b480581f9a,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,one NRHP-eligible site; lessee required to avoid via lease stipulation,claude,medium
+aff4e930b016c4b480581f9a,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,recreation/Lake Nighthorse not affected,claude,medium
+aff4e930b016c4b480581f9a,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,temporary construction/removal traffic,claude,medium
+aff4e930b016c4b480581f9a,noise,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impacts associated with noise,claude,medium
+aff4e930b016c4b480581f9a,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no environmental justice impacts,claude,medium
+aff4e930b016c4b480581f9a,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no occupational worker health/safety impacts,claude,medium
+91c6c526286133960db84a11,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+7065ceef3cc942f0820301d7,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,FONSI statement embedded in Scope section amid acronym/purpose-need boilerplate,claude,medium
+7a73dbd4a52627e90de09fa9,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI introduction/project description; no significance conclusion in window,claude,high
+144f96b7a31ec3356741a7d6,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI introduction/project description (duplicate doc); no conclusion in window,claude,high
+acc7c9dcec233605daa204e2,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+acc7c9dcec233605daa204e2,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,"no ESA species affected, no suitable habitat",claude,high
+acc7c9dcec233605daa204e2,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,SHPO concurred no historic properties affected,claude,high
+ea9b673e7ccb21864bcbe459,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no significant effects on public health/safety,claude,high
+ea9b673e7ccb21864bcbe459,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,prime farmland already converted; no new conversion,claude,medium
+ea9b673e7ccb21864bcbe459,water,TRUE,no_significant_impact,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,not in floodplain; no wetland manipulation/discharge,claude,medium
+7c5faaa8d2f4edcb37df864b,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,FONSI for selected Alternative 3C,claude,high
+217c3f5fb30be5c4915f1b49,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"soil/water short-term, long-term negligible",claude,high
+217c3f5fb30be5c4915f1b49,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,,claude,high
+217c3f5fb30be5c4915f1b49,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"wildlife short-term minor, long-term negligible",claude,high
+217c3f5fb30be5c4915f1b49,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,SHPO concurred no adverse impact,claude,high
+217c3f5fb30be5c4915f1b49,visual,TRUE,less_than_significant,resource_specific,visual_vrm,does_not_exceed,FALSE,TRUE,FALSE,"weak visual contrast, conforms VRM",claude,high
+217c3f5fb30be5c4915f1b49,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,not anticipated to affect public health/safety,claude,high
+51588bc96dd2d85db3af3b50,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,programmatic action (Federal building efficiency standard); no significant adverse effects nationally/regionally,claude,high
+9c01a07ba84f0e0dcfc37694,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+9c01a07ba84f0e0dcfc37694,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no direct/indirect land use impacts,claude,high
+9c01a07ba84f0e0dcfc37694,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,visual impacts minimal; shadow flicker <22 hr,claude,high
+9c01a07ba84f0e0dcfc37694,noise,TRUE,less_than_significant,resource_specific,noise_threshold,may_exceed,FALSE,TRUE,TRUE,within IPCB nighttime std but exceeds 1000 Hz octave band ~2.2 dB; net increase ~1 dB below perception,claude,medium
+9c01a07ba84f0e0dcfc37694,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,IHPA determined no adverse effect on historic properties,claude,high
+9c01a07ba84f0e0dcfc37694,soils_geology,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no adverse impacts to geology/soils,claude,high
+9c01a07ba84f0e0dcfc37694,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,Indiana bat take ~6 over life (0.01%); raised cut-in speed + monitoring conservation measures,claude,medium
+9c01a07ba84f0e0dcfc37694,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,public safety risk minimal; no EMF/lightning/fire effects,claude,high
+9c01a07ba84f0e0dcfc37694,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,traffic disruption minor and temporary,claude,high
+9c01a07ba84f0e0dcfc37694,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,jobs created; no property value impacts,claude,high
+9c01a07ba84f0e0dcfc37694,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,construction air effects minor and temporary,claude,high
+01726b48fc52787fd2988d59,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,minimal and insignificant consequences,claude,high
+d964f34c724353235d08f968,none,FALSE,not_a_determination,,,,,FALSE,FALSE,appeal-rights boilerplate + public comment/response appendix; no significance conclusion,claude,high
+eb8d7949d07ab0b926d96765,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+eb8d7949d07ab0b926d96765,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,will not affect listed species or critical habitat,claude,high
+eb8d7949d07ab0b926d96765,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,SHPO concurred no historic properties affected,claude,high
+2a3aa4d9562ad15bf51a14db,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,FONSI based on analysis + mitigation to reduce adverse impacts,claude,high
+2a3aa4d9562ad15bf51a14db,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"low/moderate land use impacts (timber, recreation, traffic)",claude,medium
+2a3aa4d9562ad15bf51a14db,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,low-moderate erosion/soil impacts w/ erosion controls,claude,medium
+2a3aa4d9562ad15bf51a14db,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,listed species (eagle/owl/murrelet) low-moderate; MAP mitigation ensures no significant impacts,claude,medium
+2a3aa4d9562ad15bf51a14db,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,water-quality section cut off mid-window; impacts minimized via BMPs,claude,low
+033dcf004e35fd07b966c739,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,floodplain impacts low with BMP implementation; conforms floodplain standards,claude,medium
+033dcf004e35fd07b966c739,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+f7a7040c436c730fb5c4b97b,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,no effects meet significance in context or intensity,claude,high
+9ac5d15ac72b448e9d9105dc,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+9ac5d15ac72b448e9d9105dc,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"hazmat/EMF; EMF would not exceed safety guidelines, no sensitive receptors",claude,medium
+9ac5d15ac72b448e9d9105dc,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"short-term erosion minimized; groundwater <250 af, less than FEIS",claude,medium
+9ac5d15ac72b448e9d9105dc,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,no new impacts beyond FEIS; nesting bird surveys; minor habitat removal,claude,medium
+0b6a400d8fe03dbfc3e0eb6d,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,finding expressly conditioned on proposed mitigation in EA and MAP,claude,high
+eec6c266dfdabefbbefc68fa,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,intensity-factor page; cumulative impacts concluded not significant (net positive),claude,medium
+cd54d009c0e530eda4aa30ee,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+d133ddbf26f481782ffcf0c6,none,FALSE,not_a_determination,,,,,FALSE,FALSE,public comment/response list on mitigation; no significance conclusion,claude,high
+ceae6ad42856985c5e08927a,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,"intensity-factor page; no significant adverse impacts, negligible-minor beneficial",claude,medium
+a337379ee8fc426b40939499,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronym list + background/NEPA-process methodology; no conclusion,claude,high
+e44383443a9a2176fb7392c0,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,signed FONSI conclusion; no significant effects,claude,high
+abb5047fb1a9b76674642d7f,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,negligible air impact; emissions do not exceed Federal/state criteria,claude,high
+abb5047fb1a9b76674642d7f,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,temporary/negligible noise,claude,high
+abb5047fb1a9b76674642d7f,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,surface water temporary minor; groundwater minor; floodplains negligible,claude,high
+abb5047fb1a9b76674642d7f,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,7.5 ac permanent land impact; erosion control BMPs,claude,medium
+abb5047fb1a9b76674642d7f,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,no adverse wildlife/habitat impact; NLAA for listed species; USFWS concurrence,claude,medium
+abb5047fb1a9b76674642d7f,cultural,TRUE,less_than_significant,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no effects on NRHP resources in APE; adjacent site avoided,claude,medium
+abb5047fb1a9b76674642d7f,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,temporary minor roadway/traffic impact,claude,high
+91bd2a7db582bb401ae65a48,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI introduction/project description; no significance conclusion in window,claude,high
+83aad7b600701f582b8fcbee,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,FONSI; EA tiers to Vegetation Treatment PEIS,claude,high
+83aad7b600701f582b8fcbee,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,no significant public health/safety impacts; herbicide SOPs/targeted application,claude,medium
+83aad7b600701f582b8fcbee,cultural,TRUE,less_than_significant,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no ground disturbance beyond cleared areas; no NRHP impact,claude,medium
+83aad7b600701f582b8fcbee,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,special-status species not cumulatively considerable only with IWMP/adopted mitigation; BO CM10 requires IWMP,claude,medium
+094fc429cbdd65b4bda2d34f,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronym list + SEA summary/intro/tiering; no conclusion,claude,high
+5c99c764b618c8075d9a641e,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"Decision-to-be-Made procedural text; states significance criteria only, no conclusion",claude,high
+1a73678ae6f94454b591c2a5,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,wetland impacts minimized via 404 compliance + committed measures,claude,medium
+1a73678ae6f94454b591c2a5,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+8e16f77f1441108a5470f9bd,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Decision Record states FONSI made; action approved with BMPs/mitigation,claude,high
+3c4bd932382a12a296767678,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronym list + purpose/need; no significance conclusion,claude,high
+725d9b7c8d3fb126c30e7346,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,no effects meet significance in context/intensity,claude,high
+725d9b7c8d3fb126c30e7346,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,conditions ensure no adverse impact to NRHP-listed lighthouse,claude,medium
+725d9b7c8d3fb126c30e7346,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,conditioned to avoid ESA species when/where present,claude,medium
+abefd21f3ffa3ee271ab8c14,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,finding expressly conditioned on mitigation measures,claude,high
+761dff6eca101d716a2730d7,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+761dff6eca101d716a2730d7,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no significant direct effect on land use,claude,medium
+761dff6eca101d716a2730d7,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,"groundwater no impacts; 1.8 ac wetlands filled, not significant with 404 mitigation (operative)",claude,medium
+761dff6eca101d716a2730d7,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,dust/emissions temporary/local; no significant problems,claude,medium
+761dff6eca101d716a2730d7,noise,TRUE,less_than_significant,resource_specific,noise_threshold,does_not_exceed,FALSE,TRUE,FALSE,well within Illinois noise standard/DOE criteria,claude,high
+761dff6eca101d716a2730d7,biological,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no T&E species present; aquatic biota no long-term impact,claude,medium
+761dff6eca101d716a2730d7,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,NRHP-eligible sites affected; Programmatic Agreement + data recovery plan,claude,high
+761dff6eca101d716a2730d7,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no significant socioeconomic impacts from workforce,claude,medium
+761dff6eca101d716a2730d7,public_health,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,radiation dose well below DOE/NESHAP standards,claude,medium
+eb2a7fafcce5871c759bf87f,none,FALSE,not_a_determination,,,,,FALSE,FALSE,mitigation-measures list (MAP table); no significance conclusion,claude,high
+e43e9431aef2af8aa9a720cf,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+e43e9431aef2af8aa9a720cf,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,TRUE,floodplain/wetland SOF: impacts avoided/minimized by mitigation; no explicit LTS phrasing (inferred),claude,low
+3eb1f87b19e32afa95b868e1,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,BPA FONSI; attached Mitigation Action Plan integral to finding (mitigated FONSI),claude,high
+2c2c8338230368acb2bec095,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Decision Notice action description/decision rationale; no significance-finding sentence in window (FONSI only in running header),claude,medium
+818345df255b158ea7363a42,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,WAPA FONSI; overall no significant impact,claude,high
+818345df255b158ea7363a42,air_quality,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,air quality mitigated to minor/less than significant,claude,medium
+818345df255b158ea7363a42,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,minor wetland impacts; no floodplain impact (outside flood zone),claude,medium
+818345df255b158ea7363a42,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,moderate wildlife impacts; ESA BiOp; 4:1 vernal pool crustacean compensation,claude,medium
+818345df255b158ea7363a42,cultural,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impacts to cultural/tribal/paleo resources,claude,medium
+818345df255b158ea7363a42,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,negligible to minor aesthetic impacts,claude,medium
+818345df255b158ea7363a42,climate_ghg,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,negligible to minor GHG/climate impacts,claude,medium
+818345df255b158ea7363a42,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,negligible to minor transportation/traffic impacts,claude,medium
+818345df255b158ea7363a42,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,negligible to minor geology/soils impacts,claude,medium
+818345df255b158ea7363a42,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,moderate impacts to agricultural use; not significant,claude,medium
+818345df255b158ea7363a42,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no major demographic/social impacts; no EJ disproportionate impacts,claude,medium
+818345df255b158ea7363a42,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,negligible-minor EMF/solid waste/wildfire; hazmat no impact,claude,medium
+d6d290422f62a81257cf7250,none,FALSE,not_a_determination,,,,,FALSE,TRUE,mostly glossary/references bibliography; appendix cumulative-impacts intro ('low to moderate cumulative impacts to all assessed resources') is not a formal significance finding,claude,low
+bf8faba1451e8caa79dd4825,climate_ghg,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,"GHG far below EPA 25,000 metric ton reporting threshold",claude,high
+bf8faba1451e8caa79dd4825,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,BPA FONSI; attached Mitigation Action Plan integral to finding (mitigated FONSI),claude,high
+61ffcf3159b4bf47084d7b67,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Reclamation FONSI; will not result in significant impacts to any resources,claude,high
+61ffcf3159b4bf47084d7b67,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,"no adverse impacts to agricultural land/grazing, land use, realty",claude,medium
+61ffcf3159b4bf47084d7b67,soils_geology,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no adverse impacts to geology/minerals/soils,claude,medium
+61ffcf3159b4bf47084d7b67,water,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no adverse impacts to water,claude,medium
+61ffcf3159b4bf47084d7b67,noise,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no adverse impacts to noise,claude,medium
+61ffcf3159b4bf47084d7b67,climate_ghg,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no adverse impacts to climate change,claude,medium
+61ffcf3159b4bf47084d7b67,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,"no adverse impacts to hazardous materials, public health & safety",claude,medium
+61ffcf3159b4bf47084d7b67,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,"no adverse impacts to socioeconomics, environmental justice",claude,medium
+61ffcf3159b4bf47084d7b67,biological,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,"no adverse impacts to wildland fire ecology, wild horses & burros (key Biology issue analyzed below/out of window)",claude,medium
+5819908455222818a483ead9,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"small adverse effect on Gunnison sage-grouse habitat; limited context, low intensity",claude,high
+5819908455222818a483ead9,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,would not have significant environmental impacts,claude,high
+72cdb251cc5d545cb25e263b,none,FALSE,not_a_determination,,,,,FALSE,FALSE,FONSI front matter (summary/purpose/action/no-action/consultation); significance-finding sentence not in window,claude,medium
+3b411cb605e3f42732f56e97,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE FONSI; funding project would not significantly affect environment,claude,high
+151ec56f5afa6745f8d1f0bf,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,BLM FONSI; tiers from 2015 ROD/RMP; no significant impacts,claude,high
+ae0cd526793b344be3ae6b29,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,mitigated FONSI; no significant unmitigated impacts; relies on Mitigation Measures,claude,medium
+ae0cd526793b344be3ae6b29,land_use,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Prime Farmland conversion; Mitigation Measure Agriculture-1,claude,medium
+ae0cd526793b344be3ae6b29,air_quality,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,construction criteria pollutants; mitigation measures minimize,claude,medium
+ae0cd526793b344be3ae6b29,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,"creosote scrub, special-status species, golden eagle; Biology MMs 1-9",claude,medium
+ae0cd526793b344be3ae6b29,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,"archaeological/WWII Army Air Base remnants; Cultural MMs 1-5, survey avoidance",claude,medium
+ae0cd526793b344be3ae6b29,water,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,water quality/residual pesticides; Hydrology MMs 1-6; ephemeral drainage avoided by design,claude,medium
+ae0cd526793b344be3ae6b29,transportation,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,worker commute traffic on I-10; Traffic MMs 1-3,claude,medium
+ae0cd526793b344be3ae6b29,soils_geology,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,"geology & paleontological; Geology MMs 1-4, Paleontology MMs 1-3",claude,medium
+ae0cd526793b344be3ae6b29,noise,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Noise MMs 1-3,claude,medium
+ae0cd526793b344be3ae6b29,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no adverse impacts re health/safety/hazmat under Alternative 3,claude,medium
+ae0cd526793b344be3ae6b29,climate_ghg,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,beneficial; negligible GHG vs fossil-fuel replacement,claude,medium
+b1db150caa6fee1a6704622b,soils_geology,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,would not impact geology and soils,claude,medium
+b1db150caa6fee1a6704622b,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,groundwater no impact; surface water minimal; not in floodplain/wetland,claude,medium
+b1db150caa6fee1a6704622b,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,compatible industrial land use; minimal impacts,claude,medium
+b1db150caa6fee1a6704622b,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,in compliance with air quality standards; minimal; permitted,claude,medium
+b1db150caa6fee1a6704622b,climate_ghg,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,minor but positive GHG impact,claude,medium
+b1db150caa6fee1a6704622b,noise,TRUE,less_than_significant,resource_specific,noise_threshold,does_not_exceed,FALSE,TRUE,FALSE,below required 52 dBA at nearest residence; minimal/negligible,claude,medium
+b1db150caa6fee1a6704622b,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,minor impact to traffic,claude,medium
+b1db150caa6fee1a6704622b,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,waste/hazmat minimal; health & safety negligible incidents,claude,medium
+b1db150caa6fee1a6704622b,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,ESA No Effect determination; USFWS concurrence,claude,high
+b1db150caa6fee1a6704622b,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,SHPO concurred; no effect to NRHP-eligible properties,claude,high
+b1db150caa6fee1a6704622b,visual,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,new but not adverse visual resource in industrial park,claude,medium
+b1db150caa6fee1a6704622b,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,minor beneficial socio; no EJ impacts to minority; negligible low-income,claude,medium
+c96aa935df3463c7d0d3aaf8,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,DN concurs with EA FONSI; no significant adverse impacts; accepted mitigation (water/soils/veg/wildlife) part of decision,claude,high
+e8b6bc2e9a0d563049701ec1,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE determined no significant adverse impacts (Project Apex battery plant),claude,high
+e8b6bc2e9a0d563049701ec1,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,minimal socio impact; beneficial environmental justice,claude,medium
+e8b6bc2e9a0d563049701ec1,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,negligible aesthetics/visual impact,claude,medium
+e8b6bc2e9a0d563049701ec1,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,no wetlands/waters/floodplains on site; negligible impacts,claude,medium
+e8b6bc2e9a0d563049701ec1,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,TRUE,no historic properties affected; KY SHPO non-concurrence resolved via ACHP advisory opinion,claude,medium
+e8b6bc2e9a0d563049701ec1,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,minor land use/zoning impact (height variance for 98-ft stack),claude,medium
+e8b6bc2e9a0d563049701ec1,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Title V operating permit; minor emissions increase,claude,medium
+8c40a0101a1412364518ca44,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,explicitly conditioned: 'Proposed Action with the mitigation measures proposed in the EA will not have any significant impacts',claude,high
+8c40a0101a1412364518ca44,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,does_not_exceed,TRUE,TRUE,FALSE,USFWS NLAA/no-effect concurrence; mitigation avoids/minimizes wildlife habitat impacts,claude,medium
+8c40a0101a1412364518ca44,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,SHPO concurrence; avoid Register-eligible sites through project design,claude,medium
+fe1b8e3536f1004b23a09322,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE FORGE FONSI; not significantly affecting environment (impact summary table cut off),claude,high
+e5437aa0575711160636ea4b,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,FONSI including Design Features/Mitigation Measures/Standard Stipulations; tiered to Uncompahgre Basin RMP EIS,claude,high
+e5437aa0575711160636ea4b,soils_geology,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,new adverse soils impacts minimized by design features; not significant,claude,medium
+e5437aa0575711160636ea4b,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,BLM sensitive plants (bladderpod/milkvetch) & overwintering deer/elk; mitigation restricts wet-soil work; no ESA species affected,claude,medium
+e5437aa0575711160636ea4b,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no new effects to public health/safety,claude,medium
+e5437aa0575711160636ea4b,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no new adverse effects to NRHP-listed/eligible resources,claude,medium
+4c529f99b11530f8ee9ad007,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE determination; not significantly affecting environment (Pettisville wind),claude,high
+4c529f99b11530f8ee9ad007,water,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,would not impact water resources,claude,medium
+4c529f99b11530f8ee9ad007,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no direct/indirect land use impacts,claude,medium
+4c529f99b11530f8ee9ad007,noise,TRUE,less_than_significant,resource_specific,noise_threshold,does_not_exceed,FALSE,TRUE,FALSE,turbine 42-47 dBA below EPA 55-65 dBA; <3 dBA increase; no adverse noise,claude,high
+4c529f99b11530f8ee9ad007,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,minimal viewshed impact overall; dominant to adjacent owners; contingent shadow-flicker measures,claude,medium
+4c529f99b11530f8ee9ad007,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,safety risk minimal (no residences in fall zone); waste no impact,claude,medium
+4c529f99b11530f8ee9ad007,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no historic properties; Ohio SHPO concurred no adverse effect,claude,high
+4c529f99b11530f8ee9ad007,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,NLAA Indiana bat; no adverse to other listed species; impacts minimal,claude,medium
+bcce24bd477275c4ddb7b574,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"mitigation/BMP measures list (erosion, fish passage, SWPPP, in-water work); no significance conclusion",claude,high
+1d22cff548b268f65c128d99,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE finds no significant impact for Nome wind turbines (window also contains TOC/acronyms/background),claude,high
+c8f11a6150ff91b596dc98a1,none,FALSE,not_a_determination,,,,,FALSE,FALSE,EA introduction/purpose/background/consultation/prior-action history (Cirba); no significance finding for current proposed action in window,claude,medium
+a48d975c8e6c648576fc5a78,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,BPA FONSI; attached Mitigation Action Plan of committed measures (mitigated FONSI),claude,high
+a48d975c8e6c648576fc5a78,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,"Wetland/Floodplain Statement of Findings: impacts avoided where possible, minimized",claude,medium
+1e44649e22f7a53785cc6efb,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,FS DN/FONSI; will not have significant effects; design feature H-1 supports,claude,high
+1e44649e22f7a53785cc6efb,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no significant effect on public health/safety,claude,medium
+1e44649e22f7a53785cc6efb,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,spring/aquifer/riparian impacts not extensive or significant; uncertainty acknowledged but below significance,claude,medium
+1e44649e22f7a53785cc6efb,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no cultural/historic resources impacted; SHPO concurrence,claude,high
+1e44649e22f7a53785cc6efb,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,No Effect on listed species; No Impact on sensitive species,claude,high
+3106664cdfbd275d41880c91,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,BLM FONSI; no significant impact; effects small & localized (2.85 acres),claude,high
+3106664cdfbd275d41880c91,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,very small effects to vegetation/wildlife; Lepidium papilliferum avoided via design features/slickspot avoidance,claude,medium
+3106664cdfbd275d41880c91,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,soils effects very small/localized,claude,medium
+21561a7f2c6836d4c62087d0,none,FALSE,not_a_determination,,,,,FALSE,FALSE,PORTS EA acronyms/intro/purpose/background/proposed action & alternatives; no significance conclusion,claude,high
+305b889d5c66eda8166572ed,water,TRUE,no_significant_impact,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,Floodplain/Wetland Statement of Findings: no impacts; no wetlands/floodplains present,claude,high
+305b889d5c66eda8166572ed,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,BPA determines not significantly affecting; issuing FONSI,claude,high
+456c599c70a31724eed5aaa6,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,FONSI/Decision Record; decision conditioned on implementation of all mitigation measures/CMAs,claude,high
+456c599c70a31724eed5aaa6,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,no adverse effect/no impact to cultural resources with implementation of mitigation and CMAs,claude,medium
+456c599c70a31724eed5aaa6,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,no impact to special-status plant/wildlife with mitigation/CMAs; desert tortoise BiOp & ITP; ESA Sec 7 compliance,claude,medium
+a73332c854f25e5386af2749,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronyms + Chapter 7 references bibliography,claude,high
+dd4f5784dda6b73d55cff4b6,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,would not have significant effect; project design features prevent significant effects,claude,high
+dd4f5784dda6b73d55cff4b6,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,small adverse effect to threatened Gunnison sage-grouse/tier 2 habitat (<0.001%); determined not significant,claude,medium
+dd4f5784dda6b73d55cff4b6,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,would not affect public health/safety; beneficial for weather prediction,claude,medium
+dd4f5784dda6b73d55cff4b6,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no significant adverse effect to NRHP/cultural resources,claude,high
+4baa408f5cff5fd3ca162a97,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE FONSI SRS biomass; not significantly affecting environment (rest is project description),claude,high
+b12c0d07e2d389b3f8ff3fb9,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,"DOE FONSI SRS biomass (same finding, different page range); rest is project description",claude,high
+1c87ffd044da6c62046a2cf2,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,BLM preliminary FONSI; no significant effect (Palo Verde Regional Park),claude,high
+1c87ffd044da6c62046a2cf2,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,loss of ~55 acres desertscrub/wildlife habitat incl Sonoran desert tortoise Cat II; minor & adverse; AZ G&F recommendations,claude,medium
+1c87ffd044da6c62046a2cf2,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,fugitive dust/equipment emissions negligible & adverse,claude,medium
+1c87ffd044da6c62046a2cf2,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,construction noise negligible & adverse,claude,medium
+1c87ffd044da6c62046a2cf2,visual,TRUE,less_than_significant,resource_specific,visual_vrm,does_not_exceed,FALSE,TRUE,FALSE,visual change weak-moderate; conforms to VRM Class IV; negligible-minor adverse,claude,medium
+1c87ffd044da6c62046a2cf2,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impact to public health/safety during operation,claude,medium
+1c87ffd044da6c62046a2cf2,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,recreation displacement negligible adverse; recreation provision minor beneficial,claude,medium
+c7cc666a8d96dd7976e730e1,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,BPA FONSI; MAP with committed minimization/mitigation/BMPs (mitigated FONSI),claude,high
+9593975da654f6b208c7784f,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE FONSI; not significantly affecting environment (Westinghouse SOFC),claude,high
+9593975da654f6b208c7784f,noise,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impact on noise levels,claude,medium
+9593975da654f6b208c7784f,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,no impact to floodplains/wetlands; water quality minimal (effluent below federal categorical limits),claude,medium
+9593975da654f6b208c7784f,biological,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impact on ecological resources,claude,medium
+9593975da654f6b208c7784f,cultural,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impact on historic areas,claude,medium
+9593975da654f6b208c7784f,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impact on socioeconomic resources,claude,medium
+9593975da654f6b208c7784f,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,air quality impacts minimal; within permits; county found no permit needed,claude,medium
+9593975da654f6b208c7784f,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,solid/hazardous waste minimal; RCRA small-quantity generator,claude,medium
+80084e8f6dd8eef14aeea334,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE loan-guarantee FONSI; will not have significant effect (CVSR solar),claude,high
+80084e8f6dd8eef14aeea334,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,land use & agriculture found not significant,claude,medium
+80084e8f6dd8eef14aeea334,visual,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,visual resources found not significant,claude,medium
+80084e8f6dd8eef14aeea334,transportation,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,transportation found not significant,claude,medium
+80084e8f6dd8eef14aeea334,noise,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,noise found not significant,claude,medium
+80084e8f6dd8eef14aeea334,air_quality,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,air quality found not significant,claude,medium
+80084e8f6dd8eef14aeea334,climate_ghg,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,greenhouse gases found not significant,claude,medium
+80084e8f6dd8eef14aeea334,soils_geology,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,geology/soil & paleontological found not significant,claude,medium
+80084e8f6dd8eef14aeea334,water,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,water resources found not significant,claude,medium
+80084e8f6dd8eef14aeea334,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,FWS Biological Opinion concluded ESA Sec 7; found not significant,claude,medium
+80084e8f6dd8eef14aeea334,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,SHPO concurred no adverse effect with several additional conditions DOE agreed to implement,claude,medium
+80084e8f6dd8eef14aeea334,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,socioeconomics & environmental justice found not significant,claude,medium
+80084e8f6dd8eef14aeea334,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,public & occupational health/safety found not significant,claude,medium
+719c352ffa07769302ffcab0,none,FALSE,not_a_determination,,,,,FALSE,FALSE,fragment on hazardous-waste generator status (very small/small quantity generator); no significance conclusion,claude,high
+ce9f1b19e57c3adf423f6265,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronyms/glossary/appendix figures & sensitive plant species list,claude,high
+abf4bedfef5f39d1a433b86d,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DOE FONSI SRS HEU blend-down; not significantly affecting environment,claude,high
+abf4bedfef5f39d1a433b86d,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,land use impacts negligible,claude,medium
+abf4bedfef5f39d1a433b86d,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no measurable local economy impact; no EJ concerns,claude,medium
+abf4bedfef5f39d1a433b86d,water,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impacts to surface or groundwater resources,claude,medium
+abf4bedfef5f39d1a433b86d,air_quality,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no air quality impacts (discharged through 291-H sand filters),claude,medium
+abf4bedfef5f39d1a433b86d,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,traffic/transportation impacts negligible,claude,medium
+abf4bedfef5f39d1a433b86d,biological,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impacts to ecological resources,claude,medium
+abf4bedfef5f39d1a433b86d,cultural,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impacts to cultural resources,claude,medium
+abf4bedfef5f39d1a433b86d,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,waste minimal; little/no health & worker safety impact; low LCF from bounding accident,claude,medium
+8127800f422394967aa8f6a0,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,FONSI including implementation of ROPs; tiered to 2020 NPR-A IAP EIS/2022 ROD,claude,medium
+8127800f422394967aa8f6a0,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,polar bear/critical habitat NLAA; eiders no jeopardy; EFH minimal; extensive mitigation/ESA terms & conditions; no population-level impacts,claude,medium
+8127800f422394967aa8f6a0,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no anticipated impacts to cultural/paleo; no adverse effects to historic properties,claude,medium
+8127800f422394967aa8f6a0,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,ANILCA Sec 810: would not significantly reduce subsistence uses,claude,medium
+9aa102c24405859fb8cd14ab,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,BLM FONSI; will not significantly affect environment (Lincoln County waste transfer station),claude,high
+9aa102c24405859fb8cd14ab,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,will not significantly affect public health/safety; permitted/regulated (IDEQ),claude,medium
+9aa102c24405859fb8cd14ab,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,will not adversely affect NRHP; inventory found no eligible properties,claude,high
+9aa102c24405859fb8cd14ab,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,no ESA-listed species or critical habitat within/near disposal area,claude,high
+755bb4f6de898fb95ccf1826,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+755bb4f6de898fb95ccf1826,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,,claude,medium
+755bb4f6de898fb95ccf1826,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no eligible NRHP sites; avoidance,claude,medium
+755bb4f6de898fb95ccf1826,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,TRUE,TRUE,FALSE,Long-billed Curlew no-effect via required design features/stipulations,claude,medium
+33a831e10ec0528cb78c2007,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+0dcb3b9fa87f686045a0c998,water,TRUE,no_significant_impact,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,floodplains/wetlands/water resources,claude,high
+0dcb3b9fa87f686045a0c998,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,T&E species/critical habitat,claude,high
+0dcb3b9fa87f686045a0c998,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,prime/unique farmlands,claude,medium
+0dcb3b9fa87f686045a0c998,soils_geology,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,geology and soils,claude,high
+0dcb3b9fa87f686045a0c998,visual,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,visual/recreational/aesthetic,claude,high
+0dcb3b9fa87f686045a0c998,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,historic/archaeological; Native American concerns,claude,high
+0dcb3b9fa87f686045a0c998,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,EJ + socioeconomic conditions,claude,high
+0dcb3b9fa87f686045a0c998,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,public health/safety; waste mgmt; terrorism,claude,high
+0dcb3b9fa87f686045a0c998,air_quality,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,air quality,claude,high
+0dcb3b9fa87f686045a0c998,climate_ghg,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,global climate change,claude,high
+0dcb3b9fa87f686045a0c998,transportation,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,transportation,claude,high
+0dcb3b9fa87f686045a0c998,noise,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,noise,claude,high
+0dcb3b9fa87f686045a0c998,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DETERMINATION: FONSI,claude,high
+ba94463eb712f4a6d429c815,water,TRUE,no_significant_impact,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,floodplains/wetlands/water resources,claude,high
+ba94463eb712f4a6d429c815,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,T&E species/critical habitat,claude,high
+ba94463eb712f4a6d429c815,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,prime/unique farmlands,claude,medium
+ba94463eb712f4a6d429c815,soils_geology,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,geology and soils,claude,high
+ba94463eb712f4a6d429c815,visual,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,visual/recreational/aesthetic,claude,high
+ba94463eb712f4a6d429c815,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,historic/archaeological; Native American concerns,claude,high
+ba94463eb712f4a6d429c815,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,EJ + socioeconomic conditions,claude,high
+ba94463eb712f4a6d429c815,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,public health/safety; waste mgmt; terrorism,claude,high
+ba94463eb712f4a6d429c815,air_quality,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,air quality,claude,high
+ba94463eb712f4a6d429c815,climate_ghg,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,global climate change,claude,high
+ba94463eb712f4a6d429c815,transportation,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,transportation,claude,high
+ba94463eb712f4a6d429c815,noise,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,noise,claude,high
+ba94463eb712f4a6d429c815,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,DETERMINATION: FONSI,claude,high
+f56b539d14cc6c0ba00f8b62,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+f56b539d14cc6c0ba00f8b62,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No Historic Properties Affected; SHPO concur,claude,medium
+f56b539d14cc6c0ba00f8b62,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,farmland impact negligible,claude,medium
+1c0bd5cbd48f7618f72910a2,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,FONSI intro states no significant effects,claude,medium
+132f76e597bb2d46da096725,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,site-wide EA FONSI determination; rest of window is TOC,claude,high
+e5de14ff50dff9fd53023dbf,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronym list + project description; no determination,claude,high
+19fed7424570105bec28498a,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+2dca70650de48d005a6e7472,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,finding expressly conditioned on implementation of MAP,claude,medium
+2dca70650de48d005a6e7472,water,TRUE,no_significant_impact,resource_specific,wetland_floodplain,does_not_exceed,TRUE,TRUE,FALSE,wetlands/floodplains statement of findings; 404 coordination,claude,medium
+2dca70650de48d005a6e7472,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,"no effect memo, ESA sec7",claude,medium
+2dca70650de48d005a6e7472,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,"finding of no adverse effect, sec106",claude,medium
+d84e807c5b085325f001f18d,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronym list + legal framework/background; no determination,claude,high
+a00c3020a1f6428939fd341a,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,"slight impacts, would not exceed air quality standards",claude,medium
+a00c3020a1f6428939fd341a,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,no adverse effect on health/safety; no EMF,claude,medium
+a00c3020a1f6428939fd341a,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,wetlands not expected to be affected,claude,medium
+9f011fc66f7eae9392ec8f02,none,FALSE,not_a_determination,,,,,FALSE,FALSE,references/bibliography,claude,high
+fe5a31f71c517cc43a25d136,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,criterion 8: no adverse effect to NRHP,claude,medium
+fe5a31f71c517cc43a25d136,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,criterion 9: no effect on listed species,claude,medium
+fe5a31f71c517cc43a25d136,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,cumulative criterion: no cumulatively significant effects on human environment,claude,medium
+ba94ffd3f48fdcf791e3c61b,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+ba94ffd3f48fdcf791e3c61b,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,NHPA adverse effect to historic properties/TCPs resolved via MOA,claude,medium
+ba94ffd3f48fdcf791e3c61b,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,primary impact new visual element; minimized by siting near existing ROW,claude,medium
+ba94ffd3f48fdcf791e3c61b,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,criterion 2: no adverse effect on public/worker health/safety,claude,medium
+ba94ffd3f48fdcf791e3c61b,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,short-term veg/wildlife impacts less than significant (cumulative),claude,low
+ba94ffd3f48fdcf791e3c61b,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,short-term soil impacts less than significant,claude,low
+ba94ffd3f48fdcf791e3c61b,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,criterion 5: not expected to affect population/employment/property values,claude,low
+000a0bf487c9d886090cfd07,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+000a0bf487c9d886090cfd07,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,wetland/floodplain impacts avoided/minimized by mitigation measures,claude,medium
+4a9ac7c82412cb5ae0909879,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+487bc2590eecaa2d46f5758a,none,FALSE,not_a_determination,,,,,FALSE,FALSE,references/bibliography,claude,high
+5c96bd1aca28700b254e6099,none,FALSE,not_a_determination,,,,,FALSE,TRUE,FONSI window but only BACKGROUND/project description; operative finding outside window,claude,medium
+f6e5fc0b28de4b4d2e3fbdc5,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,mitigation requirements: none beyond permits,claude,high
+60bfb9e214999060bc37f7a0,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,determined not significant 'with mitigation',claude,medium
+60bfb9e214999060bc37f7a0,visual,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,residential/road views mitigated below significance; I-90 scenic byway not significant,claude,medium
+60bfb9e214999060bc37f7a0,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,EMF: no significant increase in exposure/health risk,claude,medium
+60bfb9e214999060bc37f7a0,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,no net loss of wetlands; floodplain not significant,claude,medium
+60bfb9e214999060bc37f7a0,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,railroad not adversely affected; SHPO concurs,claude,medium
+60bfb9e214999060bc37f7a0,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,no ESA-listed species present,claude,medium
+8ce926d0a0f587fc90cb526a,none,FALSE,not_a_determination,,,,,FALSE,TRUE,FONSI summary/alternatives description; operative finding not in window (footnote only covers preliminary activities),claude,low
+adc612584645cc4b742f0540,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+adc612584645cc4b742f0540,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,floodplain impacts low; functions not altered,claude,medium
+adc612584645cc4b742f0540,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,corona noise remains same as existing,claude,medium
+9dae0881adf8927d19814e14,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+16fa8ce28e0401f5bb1c6eb0,none,FALSE,not_a_determination,,,,,FALSE,FALSE,decision-to-be-made/criteria description; no conclusion,claude,high
+40bb5e4de7ce3fc952150856,none,FALSE,not_a_determination,,,,,FALSE,FALSE,methodology: significance thresholds table intro; no conclusion,claude,high
+f81843f8ae7a2f1af2c07736,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+f81843f8ae7a2f1af2c07736,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,no significant impacts to public health/safety; herbicide handling,claude,medium
+f81843f8ae7a2f1af2c07736,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,Section 106 No Effect finding,claude,medium
+f81843f8ae7a2f1af2c07736,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,USFWS: not likely to adversely affect desert tortoise; No Effect,claude,medium
+8f055ce808febc89da9b9343,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+8f055ce808febc89da9b9343,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,low to no impacts on floodplain storage/water quality/habitat,claude,medium
+7cf428ac8f751e7e2360e561,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronyms + background/project description (Supplement Analysis intro); no determination,claude,high
+814c1052666d7c064a31a818,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+814c1052666d7c064a31a818,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,no appreciable effect on public health/safety,claude,medium
+814c1052666d7c064a31a818,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,emissions well below EPA reporting thresholds,claude,medium
+814c1052666d7c064a31a818,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,removal of Bennett Mtn historic lookout mitigated via MOA documentation,claude,medium
+814c1052666d7c064a31a818,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,no adverse effects to listed species; note sage-grouse compensatory mitigation,claude,low
+58884b79d4520dd7de200594,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment,claude,high
+751c4acc867324c457909131,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,minimal impacts to earth resources; stormwater design prevents erosion; No-Action no effect,claude,medium
+751c4acc867324c457909131,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,unavoidable adverse: fugitive dust minor,claude,low
+751c4acc867324c457909131,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,unavoidable adverse: intermittent noise minor,claude,low
+751c4acc867324c457909131,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,unavoidable adverse: minor traffic alterations,claude,low
+dd28c124c3cec4496fa02832,project_wide,TRUE,no_significant_impact,project_overall,none,,TRUE,TRUE,FALSE,no significant adverse impacts; rests on enforceable project design features/lease stipulations,claude,medium
+1e8c597ed9881bdd2c6e674e,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,temporary construction emissions; below ozone conformity threshold,claude,low
+1e8c597ed9881bdd2c6e674e,climate_ghg,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,minor GHG reduction (beneficial),claude,low
+1e8c597ed9881bdd2c6e674e,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,severe earthquake unlikely; no induced seismicity,claude,low
+1e8c597ed9881bdd2c6e674e,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,Indiana bat unlikely to be impacted,claude,low
+1e8c597ed9881bdd2c6e674e,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,temporary minor groundwater lowering; not near floodplain/wetland,claude,low
+1e8c597ed9881bdd2c6e674e,cultural,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,historic buildings not anticipated to be adversely affected,claude,low
+1e8c597ed9881bdd2c6e674e,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,traffic impacts minimal,claude,low
+1e8c597ed9881bdd2c6e674e,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,temporary construction noise; none at operation,claude,low
+1e8c597ed9881bdd2c6e674e,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,aesthetics positive/beneficial,claude,low
+1e8c597ed9881bdd2c6e674e,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"beneficial: jobs, cost savings",claude,low
+ef160363acdd19e83ab89e6a,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"beneficial: construction jobs, cost savings; No-Action no impact",claude,low
+ef160363acdd19e83ab89e6a,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,minor unavoidable construction air impacts; standard controls,claude,low
+ef160363acdd19e83ab89e6a,climate_ghg,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,lower GHG emissions (beneficial),claude,low
+1c565d3a4f0675c0a733f3dd,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment,claude,high
+e29aab998b18ee6198c8b454,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,stormwater: no significant adverse effects; runoff not exceeding pre-construction,claude,low
+e29aab998b18ee6198c8b454,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,resource=utilities/infrastructure mapped to socioeconomic(public services); no significant adverse effects,claude,low
+360b8ba88925c88c552955c8,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,"not significantly affecting; additional mitigation precautionary, finding not conditioned on it",claude,medium
+b1807172753ff88c41835e37,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment,claude,high
+3f23405643006192a85ff179,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronyms + appendix consultation correspondence; no lead-agency determination,claude,high
+d9af9bda2cea503bb2f47cfb,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment (dotted section listing),claude,high
+13588adfcd37d0b5507cc981,cultural,TRUE,less_than_significant,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,Finding of No Historic Properties Affected; SHPO concurrence; no adverse residual impacts,claude,medium
+6c710d76c5de24446e26cfc5,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,TRUE,"No Adverse Effect finding but buried-resource potential relies on archaeological monitoring; Yakama Nation non-concurrence, consultation ongoing",claude,low
+4bf353ef2b31fd8f984de9eb,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,Potential adverse effects to significant sites avoided via PCMs/SOPs,claude,medium
+18da18ec61c86c48933bfc7e,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Category A soil impacts inherently minor; SOPs ensure avoidance,claude,medium
+36238d2c0f7dd98b8ee9a5f5,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,NMFS: not likely to adversely affect marine mammals/T&E; deployment limit incorporated as mitigation; insignificant benthic effect,claude,medium
+eb56295d697f7a6b1e45561f,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Residual visual impacts considered minimal; public in favor,claude,medium
+eb56295d697f7a6b1e45561f,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Bird-collision/wildlife impacts nominal; cumulative effect nominal,claude,medium
+eb56295d697f7a6b1e45561f,project_wide,TRUE,less_than_significant,project_overall,none,,FALSE,TRUE,FALSE,Overall impacts of Proposed Action considered negligible,claude,medium
+a5c6af30ec379c894806e19d,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"TOC, list of figures/tables, acronyms, and summary boilerplate",claude,high
+4344a49a4adf800d9666455c,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment (dotted section listing),claude,high
+292b229010c7fa0908f4b25d,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment (dotted section listing),claude,high
+a1f2743a6b58b8655f8fdac9,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,Cumulative socioeconomic impacts imperceptible and temporary; No-Action job-loss counterpoint; sprawling multi-scenario window,claude,low
+a1f2743a6b58b8655f8fdac9,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,"Project reduces SO2/NOx emissions, decreasing cumulative air impacts (beneficial)",claude,low
+73431f73bdd9efc1a2919fc0,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,DOE: filling non-jurisdictional wetlands would not cause significant adverse impacts; additional mitigation not required; No-Action leaves wetlands undisturbed,claude,medium
+73431f73bdd9efc1a2919fc0,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Filling wetlands would not result in significant adverse impact to biological resources,claude,medium
+28f7824d001e6906ff05c397,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Maintenance activities would not significantly affect land use/agriculture; SOPs reduce nuisance to acceptable levels,claude,medium
+8dccec7da9a10a0155bca8b5,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Already-minor vegetation/wildlife impacts reduced to negligible; no unavoidable adverse impacts expected,claude,medium
+1af736efd98610060e42a267,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Seismic/subsidence/soil-erosion impacts minor, no adverse effects; erosion controls standard",claude,medium
+b231aec65839dacfa5c42fde,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,TRUE,"Expected ESA finding 'may affect, not likely to adversely affect'; NMFS initially disagreed, screen evaluation ongoing",claude,low
+b3be403bb70b512b40505236,air_quality,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,EA: no impacts on air quality from fabrication/assembly or operation,claude,medium
+b3be403bb70b512b40505236,water,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,"No impacts on wetlands, floodplains, water quality/quantity",claude,medium
+b3be403bb70b512b40505236,noise,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No impacts on noise,claude,medium
+b3be403bb70b512b40505236,biological,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No impacts on aquatic/terrestrial ecology incl. T&E species,claude,medium
+b3be403bb70b512b40505236,visual,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No impacts on visual environment,claude,medium
+b3be403bb70b512b40505236,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No impacts on land use,claude,medium
+b3be403bb70b512b40505236,cultural,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No impacts on historical/cultural/archaeological resources,claude,medium
+b3be403bb70b512b40505236,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No impacts on socioeconomic environment; no environmental justice issues,claude,medium
+b3be403bb70b512b40505236,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Small worker/public radiation doses and low occupational injury expectation, controlled below limits",claude,medium
+f5654b2a8e026f0dec84b9e2,water,TRUE,less_than_significant,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,DOE: filling non-jurisdictional wetlands would not cause significant adverse impacts; additional mitigation not required,claude,medium
+f5654b2a8e026f0dec84b9e2,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Filling wetlands would not result in significant adverse impact to biological resources,claude,medium
+4d632bd6211fd4d7c921187a,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Erosion/soil impacts minimal; SOPs/PCMs ensure significant adverse impacts avoided,claude,medium
+3b93056cae244738d000d590,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Maintenance activities consistent with land-use plans; no significant land use/agriculture impacts; SOPs reduce nuisance,claude,medium
+f6a488cf56adf43021a89179,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,Construction/operation air impacts negligible; attainment area; meets Clean Air Act conformity,claude,medium
+f6a488cf56adf43021a89179,climate_ghg,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,GHG emissions short-term and negligible; project slightly reduces regional GHG,claude,medium
+5ad64aa0684808804d27c8bf,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,No effects to public safety (Alt A); worker/public risk from natural gas and hazardous materials minimal via contingency plan; Alt B/C same,claude,medium
+d691760204e3f2aa9caae109,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Buried distribution line would not conflict with existing transmission corridor/ROW,claude,medium
+d691760204e3f2aa9caae109,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"No anticipated conflict with natural resources or public health and safety (brief, vague)",claude,low
+5804facc2e6b42fde168aac5,air_quality,TRUE,less_than_significant_with_mitigation,resource_specific,NAAQS,mitigated_below,TRUE,TRUE,FALSE,"With mitigation measures/Dust Control Plan, construction would not violate air quality standards",claude,medium
+da6c2ffafbcc9e3a688e0926,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Low worker injury/fatality rates; no unusual/unacceptable hazards; safety program. No-Action: no injuries,claude,medium
+37af5a0b645de6169c19b0b1,biological,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No significant cumulative effects on biological resources; no T&E species in project area,claude,medium
+37af5a0b645de6169c19b0b1,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,No loss/destruction of significant scientific or cultural (NRHP) resources,claude,medium
+37af5a0b645de6169c19b0b1,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,No significant cumulative effects on social resources,claude,medium
+37af5a0b645de6169c19b0b1,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,Signed FONSI (Field Manager); action would not violate environmental laws,claude,medium
+22b9e124d23d2682127a55ca,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,FALSE,No adverse effects to historic/archaeological resources; sites avoided via spanning/rerouting/PCMs; SHPO: no historic properties affected,claude,medium
+6d7d05593c419815f7a7972a,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"FONSI: surface water, groundwater, wetlands, and floodplain impacts all low",claude,medium
+4ecfac145e394d855ae834e9,socioeconomic,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-Action: IFTs not constructed; no effect on utility availability or need for additional facilities,claude,medium
+e4fffb4ce831a49722c5b106,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,Resource dismissed at screening: air quality/climate impacts minimal/negligible,claude,low
+e4fffb4ce831a49722c5b106,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,Resource dismissed at screening: noise would not substantially affect sensitive receptors,claude,low
+e4fffb4ce831a49722c5b106,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,Resource dismissed at screening: no discernible impact on traffic flow,claude,low
+e4fffb4ce831a49722c5b106,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,Resource dismissed at screening: compatible with grazing allotment use,claude,low
+e4fffb4ce831a49722c5b106,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,"Resource dismissed at screening: hazmat BMPs, negligible fire/vandalism/intentional-act risk",claude,low
+e4fffb4ce831a49722c5b106,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,Resource dismissed at screening: no unique geologic/mineral resources present,claude,low
+e4fffb4ce831a49722c5b106,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,"Resource dismissed at screening: groundwater dewatering in CWA 401 compliance, no discharge",claude,low
+5d9c9d1aa372fc08d640856e,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,Short-term construction emissions not expected to exceed NAAQS/state standards; NDDoH: unlikely exceedance,claude,medium
+d3164a824a2b52c891aba0e4,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Cumulative-baseline cross-reference fragment (cut off); no conclusion,claude,high
+d2c08507f9d797e0b5119932,water,TRUE,no_significant_impact,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,No impacts to municipal wastewater capacity or water quality; MEDEP: no permit violation; remains within permit limits,claude,medium
+1d8c92d9192f7062fea45f0d,water,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,"No-Action: no groundwater withdrawals/spills, no impacts to groundwater",claude,high
+5888cbb6572d26ce3a19dd88,socioeconomic,TRUE,less_than_significant,alternative_specific,none,,FALSE,FALSE,TRUE,Alternative 1 socioeconomic impacts similar to (slightly greater than) Proposed Action; significance defined by reference outside window,claude,low
+038469fe53837ca09a159670,visual,TRUE,less_than_significant,alternative_specific,none,,FALSE,TRUE,TRUE,"No-Action: viewers continue to experience existing transmission-line visual impacts (status quo, no new significant impact)",claude,low
+ab7095901403ab1362153d8a,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Acronym/abbreviation list,claude,high
+01eddfaf756a6b519cacf0d3,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,FONSI: socioeconomic/EJ impacts low; no impact on public services; small positive economic effect; no disproportionate impacts on minority/low-income,claude,medium
+04ed4a5a6390720ab0a76207,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Water Resources affected-environment/background; Environmental Consequences section begins only at end (determination outside window),claude,medium
+2c13233c639837715bc52bb1,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,No impacts to floodplains/drainages; surface water and groundwater impacts negligible with Western practices,claude,medium
+4bb7262b4aa177fc37457d9f,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Proposed action: soil disturbance minor, confined to developed industrial site; No-Action = no impacts (noted); wetland compaction reduced by BMP mats in passing",claude,medium
+4bb7262b4aa177fc37457d9f,land_use,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,"Farmland: construction constrained to road ROW, no impact to agricultural lands (FPPA)",claude,medium
+ff3e1ee4f532f2d23924a969,transportation,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,"Traffic congestion mitigated by TRANS-SOP-1 lane-closure measure; also concludes no general/commercial aviation impacts (noted, same resource)",claude,medium
+b17a29482f637774c4b9af3e,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Hazardous/solid waste managed per RCRA; no adverse effect on landfill operations; No-Action no impacts (noted),claude,medium
+748c4d7b4da299e5d598df23,cultural,TRUE,less_than_significant_with_mitigation,resource_specific,NHPA_adverse_effect,mitigated_below,TRUE,TRUE,TRUE,Resources-not-carried-forward table: no adverse effect on cultural resources with site avoidance; large mixed scoping chapter,claude,medium
+748c4d7b4da299e5d598df23,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,TRUE,"Resources-not-carried-forward table: added traffic negligible, no adverse effect on local traffic patterns; large mixed scoping chapter",claude,medium
+ba526180035d610fa038500b,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Aesthetics: temporary/minor construction and operation impacts in industrial park; No-Action no impacts,claude,high
+ba526180035d610fa038500b,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,Air quality impacts minor; area in attainment; minor NSR permit; No-Action no impacts,claude,high
+ba526180035d610fa038500b,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Parks and recreation dismissed: negligible impacts anticipated,claude,medium
+2c4f8a66f35b16adb89e809e,biological,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-Action: no impacts to wildlife resources,claude,high
+e4efb0ca3848fcaf8b92b82f,soils_geology,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-Action: no project-related impacts to soils/geology (future landfill conversion noted but not the project),claude,high
+a0db130549650f27553b7fc7,none,FALSE,not_a_determination,,,,,TRUE,FALSE,Decision Record rationale for selecting Alternative 2 over No-Action; no significance conclusion,claude,medium
+44912aebb6ec70425e33958f,soils_geology,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-Action: no impacts to soils and geologic resources,claude,high
+c6a143f4b46f09264d786339,biological,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,TRUE,No-Action baseline: habitat remains in current condition (implicit no impact); vague reference to unoccupied territory,claude,low
+9f853578e333c59d01acc30d,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Health and safety: construction risks low; EMF/electrical-field impacts low; no hazmat impacts; meets NESC/BPA guidelines,claude,high
+d0f9e8975b0b3e47985f1f73,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Acronym list under FONSI heading,claude,high
+0a7e8c1129c202a8f396ce42,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Socioeconomics: no substantial growth inducement; negligible long-term employment/housing effects; No-Action no impacts,claude,high
+c5f7b709a601a1c594390299,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Socioeconomics: minor-to-moderate temporary beneficial job impact; negligible economy impact; No-Action no beneficial increase,claude,high
+bc54eaa181a25081f1f49416,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Conceptual future industrial reuse: construction noise intermittent/temporary; truck noise minimal,claude,medium
+378d3b7cfe965be26750d60d,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Acronym list under Record of Decision heading,claude,high
+aa0ccd4f1d7581a017fd43ce,air_quality,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,"No-Action: no additional air emissions from project (FL site may develop regardless, noted); remainder is affected-environment/geology",claude,medium
+ff76c9a9624bef3fbebbb31b,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,TRUE,Water/wetlands: surface-water impacts minor; BMPs per NWP-12 would prevent significant erosion; PFO wetland converted not lost; LTS vs LTS-with-mitigation genuinely borderline,claude,medium
+eb715f1e0af8d249a84ac35b,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"FONSI title/agency-name header only, no determination content",claude,high
+429558eadd03c2bae5ba47ef,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment,claude,high
+9c320e58cad039343896e9e6,public_health,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Intentional destructive acts/terrorism: impact of any successful act negligible; extremely low probability of attack,claude,medium
+d0b3f39a02f01827c71998fd,noise,TRUE,less_than_significant,resource_specific,noise_threshold,does_not_exceed,FALSE,TRUE,FALSE,Noise standards (NSC/OSHA dBA) would not be exceeded; turbine/transmission noise minimal; transportation section is affected-environment only,claude,high
+af84046c9f0c620868a2206d,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,"Solar farm: ~21 ac low-quality habitat removed, individual displacement; no direct/indirect effects on threatened/endangered species",claude,medium
+cde878641e85dac8e0173a9d,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Swift fox: project not expected to compromise recovery; indirect effects relatively low,claude,medium
+e47ca04cba358cb7648d2a3e,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment,claude,high
+f81d04d4b40905de0422f1b9,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,FONSI: Presidential permit would not significantly affect quality of human environment; no EIS required,claude,high
+f81d04d4b40905de0422f1b9,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,No new generation so no incremental emissions; construction impacts minor/short-term/local,claude,high
+f81d04d4b40905de0422f1b9,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,Texas Historical Commission: no effects on National Register-listed/eligible properties,claude,high
+f81d04d4b40905de0422f1b9,water,TRUE,no_significant_impact,resource_specific,wetland_floodplain,does_not_exceed,FALSE,TRUE,FALSE,No streams crossed; surface water not changed; wetlands avoided; no floodplain impact expected,claude,high
+f81d04d4b40905de0422f1b9,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,No federally listed endangered/threatened species or critical habitat in study area,claude,high
+f81d04d4b40905de0422f1b9,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,EMF: no residents in affected area; no significant impacts on human health and safety,claude,high
+f81d04d4b40905de0422f1b9,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Environmental justice: no disproportionately high/adverse impacts on minority or low-income residents,claude,high
+eda39131fcbd7b8e4c4821b0,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Migratory birds: 0.95 ac breeding habitat, small number of pairs, short-term (one breeding season), individuals return; maintenance timing restrictions",claude,medium
+8f3cf4b0c1353d00ec0ad175,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"Traffic noticeably heavier but adverse impacts expected minor (shift operations, county road improvements)",claude,medium
+8ab9c41746bf481eeb978a6f,visual,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,Conceptual recreation/wildlife future use: no adverse visual impacts given industrial surroundings; short-duration construction,claude,medium
+7d4511c49417f70c29268db5,land_use,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,TRUE,"No-Action for ACEC/NNL: existing line remains, no new subtransmission line; describes continued existing encumbrance (no new impact from the action)",claude,low
+414f6e87c5afc663f3a7d774,water,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,TRUE,No-Action: surface/groundwater impacts remain unchanged from FEIS/ROD (tiers from FEIS); wildlife subsection is affected-environment only,claude,medium
+bf9e7374b00baf2842b49bfb,soils_geology,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,Paleontology: MMs PR-1/PR-2 would reduce/avoid adverse effects; no adverse cumulative impacts with mitigation,claude,high
+3af10888566a84b8e2173908,soils_geology,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,"Paleontology (duplicate text, different document_id): MMs PR-1/PR-2 reduce/avoid adverse effects; no adverse cumulative impacts",claude,high
+7b91f73b317913f34bbd736f,none,FALSE,not_a_determination,,,,,TRUE,FALSE,"Decision Record: decision to implement Proposed Action at Jupiter Inlet ONA; enumerates authorized actions, no significance conclusion",claude,medium
+518a2fef0022437457b6679d,none,FALSE,not_a_determination,,,,,FALSE,FALSE,Affected-environment description (Copper River Basin wetland complex),claude,high
+7405e7e7a9236c56b524680d,biological,TRUE,less_than_significant,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,"FONSI biological bullets: no effect to ESA-listed species; minor sage-grouse habitat loss, no mortality/breeding disturbance, conforms to ARMPA; USFWS BMPs for migratory birds",claude,medium
+4f0839787ef151add9e861ee,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Groundwater: minor impact (seawater process water at TX site; aquifer separation/UIC permitting at FL site),claude,high
+742e4c16922bd3c12d33d65e,none,FALSE,not_a_determination,,,,,FALSE,FALSE,"EA revision sheet: project-description edit (transmission line removal), no significance conclusion",claude,high
+a4275c5e1bb3653f73a291dd,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment,claude,high
+20c8563abdb2e52ccafd1e7e,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,Marine seismic survey FONSI: unlikely to cause significant hearing impairment; behavioral disturbance localized/short-term/limited animals; other resources screened out,claude,medium
+c689538821de7a0209d36e46,socioeconomic,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,EJ/EO 12898: no disproportionate impacts anticipated,claude,high
+9bf057224545d2db588032ef,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,fish/coho ESA impacts low-moderate contingent on Sec 7 mitigation,claude,medium
+e6919d4ccfceb36d90656007,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,,claude,high
+e6919d4ccfceb36d90656007,biological,TRUE,no_significant_impact,resource_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,,claude,high
+e6919d4ccfceb36d90656007,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+78451a5e2698bc17dc3d662a,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+78451a5e2698bc17dc3d662a,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no effect on public health and safety,claude,medium
+78451a5e2698bc17dc3d662a,cultural,TRUE,no_significant_impact,resource_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,no adverse impact to cultural/historic resources,claude,medium
+78451a5e2698bc17dc3d662a,biological,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,SSP/pronghorn: will not change ESA listing likelihood,claude,medium
+dcbeea9a812856e347cec2a5,land_use,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,agriculture (land_use): not significant impacts to ag land use,claude,medium
+e49102a99513d00e138241ce,air_quality,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-action: no air quality impacts,claude,high
+e49102a99513d00e138241ce,climate_ghg,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-action: no climate change impacts from Project,claude,high
+3fa0a3351b7075a5f3558f68,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,fiber optic cable long-term visual impacts low/non-significant,claude,high
+35ce901e7a5a96c063c81ef4,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,veg/wildlife impacts 'small' due to low-quality habitat,claude,medium
+d33ed2e5e71c0741ab094849,transportation,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,access-road closure minor; roads/access -> transportation,claude,medium
+f8766eb979877137e7328e43,none,FALSE,not_a_determination,,,,,FALSE,TRUE,geology hazards + mitigation described; no significance conclusion in window,claude,medium
+d94bf5256c348bb98a2b599f,project_wide,TRUE,no_significant_impact,project_overall,none,,FALSE,TRUE,FALSE,,claude,high
+d94bf5256c348bb98a2b599f,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,veg/wildlife loss adverse and negligible,claude,medium
+d94bf5256c348bb98a2b599f,visual,TRUE,less_than_significant,resource_specific,visual_vrm,does_not_exceed,FALSE,TRUE,FALSE,"long-term visual effect, conformance with VRM Class III",claude,medium
+d94bf5256c348bb98a2b599f,public_health,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no impact on public health or safety,claude,high
+825084659f4d340178d097f3,none,FALSE,not_a_determination,,,,,FALSE,FALSE,water EC section intro/methodology; no significance conclusion,claude,high
+e0e056a959a5ded8718c1617,none,FALSE,not_a_determination,,,,,FALSE,FALSE,TOC fragment,claude,high
+5ae5912bf4dd5cb720ae508f,transportation,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,traffic well below roadway capacity; no operations issues,claude,high
+111c5072c2467537e0ef6ff9,water,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,wastewater/stormwater no substantial effect,claude,medium
+111c5072c2467537e0ef6ff9,unknown,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,TRUE,No-action: no energy/utilities/materials impacts; energy/utilities not in resource vocab,claude,low
+2dead9a08c425d4400d61d2d,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,proposed action minor impact to native veg; no SSP present,claude,medium
+2dead9a08c425d4400d61d2d,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"minimal ground disturbance, reseeded",claude,medium
+cd5001e868a490a2058d8661,public_health,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-action: no waste-management impacts (waste/hazmat -> public_health),claude,medium
+8b9a0654514fbb2108f3d9a0,noise,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,noise impacts not expected to be significant (distance-based),claude,high
+8c9bdea720129fe1f85c92e2,soils_geology,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-action: no geology/soil impacts,claude,high
+af90b09321b194c62b6f597e,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,geology no substantial effect; soils minor-moderate; covers geology/minerals/soils,claude,medium
+602d4796da19862dfa0484d8,none,FALSE,not_a_determination,,,,,FALSE,FALSE,cross-reference: RF impacts similar to Proposed Action; no conclusion,claude,medium
+9adf90a1473b5d1584ea572e,cultural,TRUE,no_significant_impact,alternative_specific,NHPA_adverse_effect,does_not_exceed,FALSE,TRUE,FALSE,underground alt: no effect on historical/cultural resources,claude,high
+4c419cfd1fd979841cac170f,none,FALSE,not_a_determination,,,,,FALSE,FALSE,acronym list / TOC / executive-summary project description,claude,high
+bec728877cb2391c248870a4,biological,TRUE,less_than_significant,alternative_specific,ESA_take,does_not_exceed,FALSE,TRUE,FALSE,Alt 1: agave loss negligible; not likely to adversely affect lesser long-nosed bat,claude,medium
+899f97775bb1025b3872e8da,biological,TRUE,less_than_significant_with_mitigation,programmatic_or_tiered,none,,TRUE,TRUE,TRUE,"programmatic Category C PCM statement; minimization implied, no explicit significance conclusion",claude,low
+c13a8c33ee037f05b506465d,water,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-action: no impacts to water resources,claude,high
+87af7b77d5984d01aaadf90f,biological,TRUE,less_than_significant_with_mitigation,resource_specific,none,,TRUE,TRUE,FALSE,elk/mule deer impacts low-moderate contingent on Design Feature 5 (EPM variance),claude,medium
+d6ac3dc65f145a6d46cea86d,biological,TRUE,no_significant_impact,alternative_specific,none,,FALSE,TRUE,FALSE,No-action: no additional bird impacts,claude,high
+2f807db6146b88644b3f5b51,air_quality,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"construction air impacts low, temporary/localized",claude,high
+4a868f8f23cf7581acd79364,visual,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"long-term moderate aesthetic impact, negligible beyond 15 mi",claude,medium
+bbf450d09ac60f1ae133acf5,water,TRUE,less_than_significant_with_mitigation,resource_specific,wetland_floodplain,mitigated_below,TRUE,TRUE,FALSE,"water/floodplain/wetlands low, contingent on BMPs/mitigation",claude,medium
+bbf450d09ac60f1ae133acf5,biological,TRUE,less_than_significant_with_mitigation,resource_specific,ESA_take,mitigated_below,TRUE,TRUE,FALSE,"fish incl ESA salmon low, contingent on in-water work windows/mitigation",claude,medium
+a058541e514f56b333cfedd3,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,"wildlife impacts low-moderate, largely inherent (existing ROW)",claude,medium
+195ef526feb202dbb4ea5fc3,air_quality,TRUE,less_than_significant,resource_specific,NAAQS,does_not_exceed,FALSE,TRUE,FALSE,construction short-term adverse/long-term negligible; ozone below conformity threshold,claude,medium
+195ef526feb202dbb4ea5fc3,climate_ghg,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,net decrease in regional GHG; no cumulative carbon impact,claude,medium
+57fe53dba18aa045bbc400d8,transportation,TRUE,less_than_significant,resource_specific,other_quantitative,does_not_exceed,FALSE,TRUE,FALSE,"traffic disruption minimal/short-term, below 2-week significance criterion",claude,high
+803827e6638029fd5727182e,none,FALSE,not_a_determination,,,,,FALSE,FALSE,'Decision to be made' framing; not a significance conclusion,claude,high
+3f821c21fef00feb284ea7a0,soils_geology,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,soil/erosion impacts low-moderate from access-road work,claude,medium
+cf76740b525fb81dc9e1f4f2,none,FALSE,not_a_determination,,,,,FALSE,FALSE,list of preparers / references (Ch 6-7),claude,high
+97fe4c5bc2ad5082010c1598,biological,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,MIS wildlife: individual/habitat effects but little-to-no effect on forest-wide population trends,claude,medium
+5e3c8704e045206e7cdcfa19,climate_ghg,TRUE,no_significant_impact,resource_specific,none,,FALSE,TRUE,FALSE,no effect on meteorology (meteorology -> climate_ghg),claude,medium
+f4bc1febc26291e2f3c83066,socioeconomic,TRUE,less_than_significant,resource_specific,none,,FALSE,TRUE,FALSE,no substantive socioeconomic impacts; net beneficial,claude,high
