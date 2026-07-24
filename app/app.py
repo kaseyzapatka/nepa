@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Streamlit browser for NEPA clean-energy projects and document text."""
+"""Streamlit browser for NEPA decarbonization and fossil fuel projects and document text."""
 
 from __future__ import annotations
 
@@ -29,10 +29,15 @@ HF_DB_REVISION_ENV = "NEPA_DB_HF_REVISION"
 
 QP_TITLE = "q"
 QP_PROJECT_ID = "pid"
+QP_CATEGORY = "cat"
 QP_PROCESS = "proc"
 QP_AGENCY = "agency"
 QP_STATE = "state"
 QP_ENERGY = "energy"
+
+# Display labels for the raw project_energy_type values. The user-facing framing
+# is "Decarb" (not "Clean Energy").
+ENERGY_CATEGORY_LABELS = {"Clean": "Decarb", "Fossil": "Fossil Fuel", "Other": "Other"}
 
 BULLET_RE = re.compile(r"^(?:[-*•]\s+|[0-9]+[.)]\s+|[a-z][.)]\s+)")
 SECTION_HEADING_RE = re.compile(
@@ -120,6 +125,7 @@ def init_state() -> None:
         "search_term": "",
         "search_project_id": "",
         "doc_search_term": "",
+        "filter_category": [],
         "filter_process": [],
         "filter_energy": [],
         "filter_agency": [],
@@ -200,6 +206,16 @@ def display_value(value: object, default: str = "-") -> str:
     return text if text else default
 
 
+def category_display_value(raw_value: object, default: str = "-") -> str:
+    """Map a raw project_energy_type value to its user-facing category label."""
+    text = clean_scalar(raw_value)
+    if not text:
+        return default
+    return ENERGY_CATEGORY_LABELS.get(text) or ENERGY_CATEGORY_LABELS.get(
+        text.title(), default
+    )
+
+
 def apply_query_params_to_state_once() -> None:
     if st.session_state.get("_query_params_loaded"):
         return
@@ -208,6 +224,7 @@ def apply_query_params_to_state_once() -> None:
 
     title = get_query_value(QP_TITLE)
     project_id = get_query_value(QP_PROJECT_ID)
+    category = decode_query_list(get_query_value(QP_CATEGORY))
     process = decode_query_list(get_query_value(QP_PROCESS))
     agency = decode_query_list(get_query_value(QP_AGENCY))
     state = decode_query_list(get_query_value(QP_STATE))
@@ -217,6 +234,8 @@ def apply_query_params_to_state_once() -> None:
         st.session_state["search_term"] = title
     if project_id:
         st.session_state["search_project_id"] = project_id
+    if category:
+        st.session_state["filter_category"] = category
     if process:
         st.session_state["filter_process"] = process
     if agency:
@@ -239,6 +258,7 @@ def sync_query_params_from_state() -> None:
         desired[QP_PROJECT_ID] = project_id
 
     for key, state_key in (
+        (QP_CATEGORY, "filter_category"),
         (QP_PROCESS, "filter_process"),
         (QP_AGENCY, "filter_agency"),
         (QP_STATE, "filter_state"),
@@ -263,6 +283,7 @@ def sync_query_params_from_state() -> None:
 def reset_search_filters() -> None:
     st.session_state["search_term"] = ""
     st.session_state["search_project_id"] = ""
+    st.session_state["filter_category"] = []
     st.session_state["filter_process"] = []
     st.session_state["filter_agency"] = []
     st.session_state["filter_state"] = []
@@ -693,6 +714,11 @@ def get_project_index(db_path: str) -> pd.DataFrame:
     else:
         harmonized_expr = "NULL AS lead_agency_harmonized"
 
+    if "project_energy_type" in project_columns:
+        energy_type_expr = "p.project_energy_type"
+    else:
+        energy_type_expr = "NULL AS project_energy_type"
+
     base = run_df(
         f"""
         SELECT
@@ -703,10 +729,11 @@ def get_project_index(db_path: str) -> pd.DataFrame:
             p.project_state,
             p.process_type,
             p.project_type,
+            {energy_type_expr},
             COUNT(d.document_id) AS n_documents
         FROM projects p
         LEFT JOIN documents d USING (project_id)
-        GROUP BY 1,2,3,4,5,6,7
+        GROUP BY 1,2,3,4,5,6,7,8
         """
     )
 
@@ -727,15 +754,19 @@ def get_project_index(db_path: str) -> pd.DataFrame:
     base["energy_values"] = base["project_type"].apply(parse_energy_values)
     base["energy_display"] = base["project_type"].apply(format_energy_value)
 
+    base["category_display"] = base["project_energy_type"].apply(category_display_value)
+
     return base
 
 
 @st.cache_data
-def get_filter_options(db_path: str) -> tuple[list[str], list[str], list[str], list[str]]:
+def get_filter_options(
+    db_path: str,
+) -> tuple[list[str], list[str], list[str], list[str], list[str]]:
     index_df = get_project_index(db_path)
 
     if index_df.empty:
-        return [], [], ["CE", "EA", "EIS"], []
+        return [], [], ["CE", "EA", "EIS"], [], []
 
     agencies = sorted(
         value for value in index_df["agency_display"].dropna().unique().tolist() if value and value != "-"
@@ -748,7 +779,11 @@ def get_filter_options(db_path: str) -> tuple[list[str], list[str], list[str], l
 
     energy_types = sorted({energy for vals in index_df["energy_values"] for energy in vals})
 
-    return agencies, states, process_types, energy_types
+    categories = sorted(
+        value for value in index_df["category_display"].dropna().unique().tolist() if value and value != "-"
+    )
+
+    return agencies, states, process_types, energy_types, categories
 
 
 @st.cache_data
@@ -756,6 +791,7 @@ def search_projects(
     db_path: str,
     project_id_query: str,
     title_query: str,
+    categories: tuple[str, ...],
     process_types: tuple[str, ...],
     energy_types: tuple[str, ...],
     agencies: tuple[str, ...],
@@ -779,6 +815,10 @@ def search_projects(
         mask &= index_df["project_title"].astype(str).str.contains(
             title_query, case=False, regex=False, na=False
         )
+
+    if categories:
+        category_set = set(categories)
+        mask &= index_df["category_display"].isin(category_set)
 
     if process_types:
         process_set = set(process_types)
@@ -1129,15 +1169,16 @@ def render_data_citation() -> None:
         st.caption("License: CC0 1.0 (public domain).")
 
 
-def render_sidebar() -> tuple[str, str, tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+def render_sidebar() -> tuple[str, str, tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
     st.sidebar.header("Filter Projects")
 
     if st.sidebar.button("Reset All Filters", use_container_width=True):
         reset_search_filters()
         st.rerun()
 
-    agencies, states, process_types, energy_types = get_filter_options(str(DB_PATH))
+    agencies, states, process_types, energy_types, categories = get_filter_options(str(DB_PATH))
 
+    sync_multiselect_values("filter_category", categories)
     sync_multiselect_values("filter_process", process_types)
     sync_multiselect_values("filter_energy", energy_types)
     sync_multiselect_values("filter_agency", agencies)
@@ -1152,6 +1193,12 @@ def render_sidebar() -> tuple[str, str, tuple[str, ...], tuple[str, ...], tuple[
     title_query = st.sidebar.text_input(
         "Project title contains",
         key="search_term",
+    )
+
+    selected_category = st.sidebar.multiselect(
+        "Category",
+        options=categories,
+        key="filter_category",
     )
 
     selected_process = st.sidebar.multiselect(
@@ -1183,6 +1230,7 @@ def render_sidebar() -> tuple[str, str, tuple[str, ...], tuple[str, ...], tuple[
     return (
         project_id_query,
         title_query,
+        tuple(selected_category),
         tuple(selected_process),
         tuple(selected_energy),
         tuple(selected_agency),
@@ -1193,18 +1241,20 @@ def render_sidebar() -> tuple[str, str, tuple[str, ...], tuple[str, ...], tuple[
 def render_search(
     project_id_query: str,
     title_query: str,
+    categories: tuple[str, ...],
     process_types: tuple[str, ...],
     energy_types: tuple[str, ...],
     agencies: tuple[str, ...],
     states: tuple[str, ...],
 ) -> None:
     st.title("NEPA Document Explorer")
-    st.caption("Browse clean-energy environmental review projects and document text.")
+    st.caption("Browse decarbonization and fossil fuel environmental review projects and document text.")
 
     results, results_all, total_matches = search_projects(
         str(DB_PATH),
         project_id_query,
         title_query,
+        categories,
         process_types,
         energy_types,
         agencies,
@@ -1225,6 +1275,7 @@ def render_search(
     export_cols = [
         "project_id",
         "project_title",
+        "category_display",
         "agency_display",
         "state_display",
         "process_type",
@@ -1235,6 +1286,7 @@ def render_search(
         columns={
             "project_id": "Project ID",
             "project_title": "Project Title",
+            "category_display": "Category",
             "agency_display": "Agency",
             "state_display": "State",
             "process_type": "Type",
@@ -1253,6 +1305,7 @@ def render_search(
     display_cols = {
         "project_id": "Project ID",
         "project_title": "Project Title",
+        "category_display": "Category",
         "agency_display": "Agency",
         "state_display": "State",
         "process_type": "Type",
@@ -1304,18 +1357,20 @@ def render_project() -> None:
     agency_display = agency_display_value(proj.get("lead_agency_harmonized"), proj.get("lead_agency"))
     state_display = format_multi_value(proj.get("project_state"))
     energy_display = format_energy_value(proj.get("project_type"))
+    category_display = category_display_value(proj.get("project_energy_type"))
 
     st.title(display_value(proj.get("project_title"), default="(untitled project)"))
     st.caption(f"Project ID: {display_value(proj.get('project_id'))}")
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Agency", agency_display)
-    col2.metric("State", state_display)
-    col3.metric("Process Type", display_value(proj.get("process_type")))
+    col1.metric("Category", category_display)
+    col2.metric("Agency", agency_display)
+    col3.metric("State", state_display)
 
-    col4, col5 = st.columns(2)
-    col4.metric("Energy Type", energy_display)
-    col5.metric("Department", display_value(proj.get("project_department")))
+    col4, col5, col6 = st.columns(3)
+    col4.metric("Process Type", display_value(proj.get("process_type")))
+    col5.metric("Energy Type", energy_display)
+    col6.metric("Department", display_value(proj.get("project_department")))
 
     description = display_value(proj.get("project_description"), default="")
     if description:
@@ -1511,7 +1566,7 @@ def main() -> None:
         st.error(f"Database not found: {DB_PATH}")
         st.markdown("Run the build script locally or configure dataset download:")
         st.code(
-            "python code/rag/01_build_text_store.py\n\n"
+            "python app/build_text_store.py\n\n"
             "# Optional remote DB fallback\n"
             "export NEPA_DB_HF_REPO='kaseyzapatka/nepa-document-explorer-db'\n"
             "export NEPA_DB_HF_FILENAME='nepa_reader.duckdb'\n"

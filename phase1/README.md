@@ -62,7 +62,7 @@ Run runbooks in order. Each runbook documents prerequisites, full commands, and 
 | 5 | [05_page_counts.md](runbooks/05_page_counts.md) | Estimate FRA-compliant regulatory page counts | `projects_page_counts.parquet` |
 | 6 | [06_technology.md](runbooks/06_technology.md) | Classify transmission, geothermal phase, pipelines | `projects_transmission.parquet`, etc. |
 | 7 | [07_geography.md](runbooks/07_geography.md) | Identify multi-agency reviews + geography outputs | `coagency_projects.parquet` |
-| 8 | [08_document_explorer.md](runbooks/08_document_explorer.md) | Build DuckDB text store + deploy to HF Spaces | `data/rag/nepa_reader.duckdb` |
+| 8 | [app/runbook.md](../app/runbook.md) (moved to `app/`) | Build DuckDB text store + deploy to HF Spaces | `data/rag/nepa_reader.duckdb` |
 
 ## Rendering reports
 

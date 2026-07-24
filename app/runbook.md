@@ -1,6 +1,7 @@
-# Document Explorer Deployment (HF Spaces)
+# NEPA Document Explorer — App & Deployment Runbook
 
-**Purpose:** Deploy the Streamlit NEPA document explorer to Hugging Face Spaces without storing the 7+ GB DuckDB file inside the Space repo.
+**App code** is self-contained in `app/`: `app.py` (Streamlit UI), `build_text_store.py` (DuckDB builder), `requirements.txt`, and this runbook.
+**Purpose:** Deploy the Streamlit NEPA document explorer to Hugging Face Spaces without storing the multi-GB DuckDB file inside the Space repo.
 **Strategy:** Build DuckDB locally → upload to an HF Dataset repo → deploy a Docker Space that downloads the DB at runtime.
 **Prerequisites:** `huggingface_hub` CLI installed and authenticated (`huggingface-cli login`).
 
@@ -9,10 +10,14 @@
 ## Step 1 — Build the DuckDB locally (one-time per data refresh)
 
 ```bash
-python code/rag/01_build_text_store.py
+python app/build_text_store.py --energy-types Clean Fossil
 ```
 
 Output: `data/rag/nepa_reader.duckdb`
+
+The DB now covers **clean + fossil** projects (31,508 projects, ~2.5M pages) and is
+**~14 GB** (up from ~7 GB clean-only). Omit `--energy-types` (or pass `--energy-types Clean`)
+to rebuild the clean-only DB; pass `--energy-types all` for no energy filter.
 
 ---
 
@@ -107,3 +112,4 @@ The Quarto navbar link is configured in `_quarto.yml`:
 
 - HF Space repos have strict storage limits on the free tier (~1 GB). Do **not** commit `.duckdb` into the Space repo.
 - Keeping the DB in a dataset repo avoids Git LFS in the Space deployment flow.
+- **Cold start:** the Space downloads the DB from the dataset repo on first boot after a rebuild. With the ~14 GB clean+fossil DB this download takes noticeably longer than the old ~7 GB clean-only DB, so the first load after a data refresh may take several minutes before the app is responsive.

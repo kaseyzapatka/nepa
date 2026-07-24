@@ -5,8 +5,20 @@ Build the NEPA document browser DuckDB database from existing parquet files.
 Run once locally; upload the resulting data/rag/nepa_reader.duckdb to HF Spaces.
 
 Usage:
-    python code/rag/01_build_text_store.py
-    python code/rag/01_build_text_store.py --threads 6 --memory-limit 24GB
+    # Clean energy only (default, unchanged behavior)
+    python app/build_text_store.py
+
+    # Clean + Fossil projects
+    python app/build_text_store.py --energy-types Clean Fossil
+
+    # No energy filter (all projects)
+    python app/build_text_store.py --energy-types all
+
+    python app/build_text_store.py --threads 6 --memory-limit 24GB
+
+Inputs are read from phase1/data/ (analysis + processed parquets); the output DB
+is written to the repository-root data/rag/ directory that the Streamlit app and
+the HF upload step expect.
 """
 
 from __future__ import annotations
@@ -23,17 +35,21 @@ from pathlib import Path
 import duckdb
 
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = BASE_DIR / "data"
-OUTPUT_DIR = DATA_DIR / "rag"
+# This script lives at <repo>/app/build_text_store.py, so the repo root is one
+# level up. Source parquets live under <repo>/phase1/data/; the output DB is
+# written to <repo>/data/rag/ where the Streamlit app (app/app.py) reads it and
+# where the Hugging Face upload step picks it up.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+INPUT_DIR = REPO_ROOT / "phase1" / "data"
+OUTPUT_DIR = REPO_ROOT / "data" / "rag"
 DB_PATH = OUTPUT_DIR / "nepa_reader.duckdb"
 
 INPUT_FILES = {
-    "projects": DATA_DIR / "analysis" / "projects_combined.parquet",
-    "documents": DATA_DIR / "analysis" / "documents_combined.parquet",
-    "ce_pages": DATA_DIR / "processed" / "ce" / "pages.parquet",
-    "ea_pages": DATA_DIR / "processed" / "ea" / "pages.parquet",
-    "eis_pages": DATA_DIR / "processed" / "eis" / "pages.parquet",
+    "projects": INPUT_DIR / "analysis" / "projects_combined.parquet",
+    "documents": INPUT_DIR / "analysis" / "documents_combined.parquet",
+    "ce_pages": INPUT_DIR / "processed" / "ce" / "pages.parquet",
+    "ea_pages": INPUT_DIR / "processed" / "ea" / "pages.parquet",
+    "eis_pages": INPUT_DIR / "processed" / "eis" / "pages.parquet",
 }
 
 PROJECTS_COLS = [
@@ -82,6 +98,17 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip full-text index creation on pages.page_text.",
     )
+    parser.add_argument(
+        "--energy-types",
+        nargs="+",
+        default=["Clean"],
+        metavar="TYPE",
+        help=(
+            "project_energy_type values to include (e.g. Clean Fossil). "
+            "Pass the sentinel 'all' (case-insensitive) for no energy filter. "
+            "Default: Clean."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -107,18 +134,35 @@ def configure_connection(con: duckdb.DuckDBPyConnection, args: argparse.Namespac
         con.execute(f"PRAGMA memory_limit='{args.memory_limit}'")
 
 
-def build_projects_table(con: duckdb.DuckDBPyConnection) -> None:
+def build_projects_table(
+    con: duckdb.DuckDBPyConnection, energy_types: list[str]
+) -> None:
     projects_path = sql_path(INPUT_FILES["projects"])
 
-    con.execute(f"""
+    # Sentinel "all" (case-insensitive) means no energy filter.
+    if any(str(value).strip().lower() == "all" for value in energy_types):
+        where_clause = ""
+        params: list[str] = []
+        filter_label = "all energy types (no filter)"
+    else:
+        selected = [str(value).strip() for value in energy_types if str(value).strip()]
+        placeholders = ", ".join(["?"] * len(selected))
+        where_clause = f"WHERE project_energy_type IN ({placeholders})"
+        params = selected
+        filter_label = ", ".join(selected)
+
+    con.execute(
+        f"""
         CREATE TABLE projects AS
         SELECT {', '.join(PROJECTS_COLS)}
         FROM read_parquet('{projects_path}')
-        WHERE project_energy_type = 'Clean'
-    """)
+        {where_clause}
+        """,
+        params,
+    )
 
     n = con.execute("SELECT COUNT(*) FROM projects").fetchone()[0]
-    print(f"projects table: {n:,} rows")
+    print(f"projects table: {n:,} rows [energy filter: {filter_label}]")
 
 
 def build_documents_table(con: duckdb.DuckDBPyConnection) -> None:
@@ -235,7 +279,7 @@ def main() -> None:
         configure_connection(con, args)
 
         print("Building nepa_reader.duckdb ...")
-        build_projects_table(con)
+        build_projects_table(con, args.energy_types)
         build_documents_table(con)
         build_pages_table(con)
         create_indexes(con, skip_fts=args.skip_fts)

@@ -82,15 +82,15 @@ Both phases share this environment. See [environment.yml](environment.yml) for t
 
 ## Build the Document Explorer (HF Spaces)
 
-Use this workflow to deploy the Streamlit NEPA document explorer. The 7+ GB DuckDB file is stored in a Hugging Face Dataset repo (not committed to the Space).
+Use this workflow to deploy the Streamlit NEPA document explorer. The multi-GB DuckDB file is stored in a Hugging Face Dataset repo (not committed to the Space). Full instructions: [app/runbook.md](app/runbook.md).
 
 ### 1) Build the DuckDB locally (one-time per data refresh)
 
 ```bash
-python phase1/code/rag/01_build_text_store.py
+python app/build_text_store.py --energy-types Clean Fossil
 ```
 
-Output: `phase1/data/rag/nepa_reader.duckdb`
+Output: `data/rag/nepa_reader.duckdb`
 
 ### 2) Upload the DB to a Hugging Face Dataset repo
 
