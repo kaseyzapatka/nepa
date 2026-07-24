@@ -26,7 +26,7 @@
 | `05b_rank.py` | **Learned selection ranker.** LightGBM LambdaRank — one ranker per head (init, decision). Consumes the full feature set (classifier probabilities + structural signals) and writes `learned_init_score`/`learned_decision_score` back to `timeline_candidates.parquet`. `--apply` flag writes scores; `--train`/`--eval` train and evaluate. |
 | `05_select_dates.py` | Two-pass scoring and selection of best decision and initiation dates per project. **Variant B** logic: authoritative BLM/DOE register initiations are admitted regardless of ranking score and preferred over document text. Month-decision sliver routing (EA/EIS month-granularity decisions with explicit ROD/FEIS cues route to LLM adjudication). EIS tiered-decision: ROD-first, FEIS-fallback. Guard 2: calibrated initiation eligibility for EA/EIS (`T_INIT_CAL = 0.5`). Non-destructive write-back. Writes `timeline_project_dates.parquet` and the manual review queue. Appends `missing_both` universe-completeness stubs via `reconcile_universe()` (generalized 2026-07-15 from EIS-only `reconcile_eis_universe` to all processes); `--reconcile-only` applies just that step to an already-published parquet without re-selecting. |
 | `05c_inject_ground_truth.py` | Terminal step that injects human-verified dates from `ranker.csv` directly into `timeline_project_dates.parquet` without re-running selection. `--scope all` (default) injects all verified rows; `--scope train` injects only training rows, leaving test rows as pipeline output for honest end-to-end evaluation. |
-| `06_adjudicate_llm.py` | **Full-scale LLM adjudication** using Claude Haiku (`claude-haiku-4-5-20251001`). Scope gate: projects missing ≥1 slot where the missing slot has a candidate (11,207 projects on the 2026-06-17 full run: CE 8,625 / EA 901 / EIS 1,681; +9 incremental calls on 2026-07-13, 11,216 cumulative). Two modes: candidate-packet adjudication and document-recovery. ThreadPoolExecutor concurrency (threads only around the API call; main thread handles all writes). Incremental checkpoint every 50. Pre-run safety backup to `timeline_project_dates.pre_adj_<UTC>.parquet`. Credit-safety: fail-fast on ≥3 consecutive billing errors; 429 rate-limit errors classified as transient (never billing). API key via macOS Keychain. Not part of `run_pipeline.py`'s automated stages (billable — run separately). |
+| `06_adjudicate_llm.py` | **Full-scale LLM adjudication** using Claude Haiku (`claude-haiku-4-5-20251001`). Scope gate: projects missing ≥1 slot where the missing slot has a candidate (11,207 projects on the 2026-06-17 full run: CE 8,625 / EA 901 / EIS 1,681; +9 incremental calls on 2026-07-13; +48 on the 2026-07-23 Tier-C restore; 11,264 cumulative). Two modes: candidate-packet adjudication and document-recovery. ThreadPoolExecutor concurrency (threads only around the API call; main thread handles all writes). Incremental checkpoint every 50. Pre-run safety backup to `timeline_project_dates.pre_adj_<UTC>.parquet`. Credit-safety: fail-fast on ≥3 consecutive billing errors; 429 rate-limit errors classified as transient (never billing). API key via macOS Keychain. Not part of `run_pipeline.py`'s automated stages (billable — run separately). |
 | `07_validate.py` | Prepare annotatable review packets from the 100-project sample or run granularity-aware validation against filled gold labels. |
 | `run_pipeline.py` | **Single canonical orchestrator** for a full corpus run (`02` → `08_create_figures.R`). `--select` flag runs selection-only sub-pipeline in minutes. Replaces the retired sharded `_run.py`. |
 | `08_create_figures.R` | Produce headline duration tables, FRA-breakpoint comparisons, coverage diagnostics, proxy-sensitivity summaries, and all figures. Negative-duration rows (`decision_date < initiation_date`) are reclassified to `invalid_order` **at source** (in `05_select_dates.py`/`05c_inject_ground_truth.py`, fixed 2026-07-13) — `08_create_figures.R` no longer patches them; it only **asserts** the order invariant holds and `stop()`s loudly if it doesn't. |
@@ -194,7 +194,7 @@ Analysis parquets are written under `phase2/data/analysis/timeline/` (pipeline o
 | File | Description |
 |---|---|
 | `timeline/timeline_project_dates.parquet` | One row per project: selected initiation and decision dates, granularity, confidence, proxy flags, duration, `timeline_status`, `has_rod`, `decision_is_feis_fallback`, `final_eis_*` fields, `route_to_llm`, `timeline_llm_run_at` |
-| `timeline/timeline_api_adjudications.parquet` | One row per LLM adjudication call: model, tokens, cost, response JSON, guardrail flags, selected candidate IDs. 11,216 rows cumulative (11,207 from the 2026-06-17 full run + 9 incremental calls on 2026-07-13). |
+| `timeline/timeline_api_adjudications.parquet` | One row per LLM adjudication call: model, tokens, cost, response JSON, guardrail flags, selected candidate IDs. 11,264 rows cumulative (11,207 from the 2026-06-17 full run + 9 on 2026-07-13 + 48 on the 2026-07-23 Tier-C restore). |
 | `timeline/timeline_candidates.parquet` | One row per date-context candidate: all extracted date evidence with scoring components, role pre-labels, classifier scores, calibrated classifier scores, `learned_init_score`/`learned_decision_score` from 05b |
 | `timeline/timeline_context_packets.parquet` | One row per retrieved context span: retrieval audit trail with tier, reason, scores |
 | `timeline/timeline_document_index.parquet` | One row per project-document: document role scores, scan priority, Tier A eligibility flags |
@@ -399,7 +399,7 @@ Uses Claude Haiku (`claude-haiku-4-5-20251001`, Anthropic API) in two modes.
 
 **Audit columns:** `timeline_llm_run_at` is set per-row (ISO-8601 UTC) only when the LLM changed a date for that project.
 
-**Full run results (2026-06-17, + 9 incremental calls 2026-07-13):** 11,216 API calls cumulative, \$18.20 total cost, 0 errors. CE 8,633 (\$13.79) / EA 901 (\$1.44) / EIS 1,682 (\$2.97). Projects with `timeline_llm_run_at` set after the 2026-07-14 selection rebuild + reapply: CE 8,396 / EA 845 / EIS 1,508 (see Run Results for the full explanation of the count shift vs. the original 06-17 figures).
+**Full run results (2026-06-17, + 9 incremental calls 2026-07-13, + 48 on the 2026-07-23 Tier-C restore):** 11,264 API calls cumulative, \$18.28 total cost, 1 JSON-parse error (0 billing/HTTP errors). CE 8,645 (\$13.81) / EA 915 (\$1.46) / EIS 1,704 (\$3.01). Projects with `timeline_llm_run_at` set after the 2026-07-23 selection rebuild + reapply: CE 8,395 / EA 848 / EIS 1,514 (see Run Results for the full explanation of the count shift vs. the original 06-17 figures).
 
 **API key:** via macOS Keychain prompt-on-access (standard `anthropic.Anthropic()` constructor; key not stored in code or environment files).
 
@@ -690,7 +690,7 @@ The hierarchy ensures CE description dates with initiation/decision language (su
 
 <!-- d4-run-results: pull this section into the D4 report -->
 
-Most recent full corpus run: 2026-07-14 (`run_pipeline.py --select`: `timeline_run_at` 05:08–05:23 UTC, covering `05b_rank` → `05_select_dates` → `05c_inject_ground_truth`; `06_adjudicate_llm.py` was then re-applied at 05:27 UTC to restore LLM-sourced completions on top of the freshly-rebuilt selection — see LLM Adjudication table below), **followed by a 2026-07-15 universe-reconciliation pass** (`05_select_dates.py --reconcile-only`, using the newly-generalized `reconcile_universe()` — see Module Architecture) that additively appended 628 CE + 66 EA zero-candidate `missing_both` stub rows (all pre-existing rows are byte-identical; nothing was re-derived or overwritten). This run picked up the 2026-07-13 source-level fix to negative-duration handling (`normalize_invalid_order()`; see Known Issues). Total rows in `timeline_project_dates.parquet`: **61,881** (CE 54,668 / EA 3,083 / EIS 4,130) — up from 61,187 solely due to the 694 reconciliation stubs; EIS was already fully reconciled and is unchanged.
+Most recent full corpus run: **2026-07-23 (Tier-C section-retrieval restore)** — a desktop re-run of `00b_sections.py` + the retrieval/extraction chain rebuilt the section index (zero `source_tier = "section"` rows in the published 2026-07-15 build → **21,289** section candidates now), then `05b_rank` → `05_select_dates` → `05c_inject_ground_truth` re-selected and `06_adjudicate_llm.py` was re-applied, adding **48 new adjudication calls** (~\$0.08) for the newly-surfaced section candidates. Net effect on coverage is small (moved <0.3pp per process; ~254 date refinements; +14 complete timelines), because most section candidates lose selection to higher-tier candidates. This built on the **2026-07-14** selection rerun (`run_pipeline.py --select`, `05b_rank` → `05_select_dates` → `05c_inject_ground_truth`) and the **2026-07-15** universe-reconciliation pass (`05_select_dates.py --reconcile-only`, using the generalized `reconcile_universe()` — see Module Architecture) that additively appended 628 CE + 66 EA zero-candidate `missing_both` stub rows, and picks up the 2026-07-13 source-level fix to negative-duration handling (`normalize_invalid_order()`; see Known Issues). Total rows in `timeline_project_dates.parquet`: **61,881** (CE 54,668 / EA 3,083 / EIS 4,130) — unchanged by the Tier-C restore (which refines dates within existing rows but adds no rows); the row count reached 61,881 via the 2026-07-15 reconciliation stubs (up from 61,187).
 
 ### Timeline Status by Process (parquet as-written, fixed at source, post-reconciliation)
 
@@ -698,9 +698,9 @@ Most recent full corpus run: 2026-07-14 (`run_pipeline.py --select`: `timeline_r
 
 | Process | complete_clear | complete_with_proxy | missing_initiation | missing_decision | missing_both | invalid_order | manual_review | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| CE | 12,713 | 15,692 | 19,477 | 2,697 | 2,579 | 1,412 | 98 | 54,668 |
-| EA | 1,587 | 149 | 661 | 259 | 369 | 58 | — | 3,083 |
-| EIS | 423 | 901 | 265 | 1,093 | 1,294 | 154 | — | 4,130 |
+| CE | 12,712 | 15,692 | 19,476 | 2,697 | 2,579 | 1,414 | 98 | 54,668 |
+| EA | 1,594 | 148 | 660 | 262 | 363 | 56 | — | 3,083 |
+| EIS | 428 | 904 | 262 | 1,098 | 1,283 | 155 | — | 4,130 |
 
 Verified: zero rows with `timeline_status in ('complete_clear','complete_with_proxy')` and `decision_date < initiation_date` remain in the parquet (the invariant `08_create_figures.R` now asserts).
 
@@ -710,9 +710,9 @@ Two different "complete" definitions are both in use downstream — report narra
 
 | Process | complete_clear + complete_with_proxy (status-based, used for duration analysis) | pct | both dates present regardless of order (`d4_complete_share.csv`, headline "% complete") | pct |
 |---|---:|---:|---:|---:|
-| CE | 28,405 | 52.0% | 29,915 | 54.7% |
-| EA | 1,736 | 56.3% | 1,794 | 58.2% |
-| EIS | 1,324 | 32.1% | 1,478 | 35.8% |
+| CE | 28,404 | 52.0% | 29,916 | 54.7% |
+| EA | 1,742 | 56.5% | 1,798 | 58.3% |
+| EIS | 1,332 | 32.3% | 1,487 | 36.0% |
 
 The right-hand ("headline") columns additionally count `invalid_order` and `manual_review` rows, since both dates are present there too (just out of order, or pending human review) — this is the `timeline_complete = !is.na(initiation_date) & !is.na(decision_date)` definition computed in `08_create_figures.R`'s Fig 5 and persisted to `d4_complete_share.csv` so the report narrative and the figure cite the same numbers. **Note:** the `d4_*` diagnostics were regenerated from the reconciled parquet on 2026-07-15 (denominators 54,668/3,083/4,130). The diagnostics CSVs are untracked, so a checkout whose copies predate 2026-07-15 still carries the old 61,187-universe denominators — rerun `08_create_figures.R` (or copy the regenerated CSVs) there before re-rendering the report, or its inline coverage numbers will revert.
 
@@ -723,8 +723,8 @@ Denominators grew (CE/EA) from the reconciliation stubs; the numerator (projects
 | Process | Total | With decision date | Pct with decision date |
 |---|---:|---:|---:|
 | CE | 54,668 | 49,392 | 90.3% |
-| EA | 3,083 | 2,455 | 79.6% |
-| EIS | 4,130 | 1,743 | 42.2% |
+| EA | 3,083 | 2,458 | 79.7% |
+| EIS | 4,130 | 1,749 | 42.3% |
 
 ### Duration Medians (unaffected by reconciliation)
 
@@ -732,23 +732,23 @@ The reconciliation stubs carry no dates, so `duration_days` distributions are un
 
 | Process | n | Median days |
 |---|---:|---:|
-| CE | 27,278 | 20 |
-| EA | 1,730 | 116 |
-| EIS | 1,321 | 1,008 |
+| CE | 27,275 | 20 |
+| EA | 1,736 | 117 |
+| EIS | 1,329 | 1,021 |
 
-### LLM Adjudication (06_adjudicate_llm.py — cumulative through 2026-07-13)
+### LLM Adjudication (06_adjudicate_llm.py — cumulative through 2026-07-23)
 
 | Metric | Value |
 |---|---|
-| Total API calls (cumulative) | 11,216 (11,207 from the 2026-06-17 full run + 9 new calls on 2026-07-13) |
-| Cost (cumulative) | \$18.20 (the 9 new calls added ~\$0.003; effectively free — mostly cache hits) |
-| CE / EA / EIS calls | 8,633 / 901 / 1,682 |
-| API errors | 0 |
+| Total API calls (cumulative) | 11,264 (11,207 from the 2026-06-17 full run + 9 on 2026-07-13 + 48 on the 2026-07-23 Tier-C restore) |
+| Cost (cumulative) | \$18.28 (the 48 Tier-C calls added ~\$0.08) |
+| CE / EA / EIS calls | 8,645 / 915 / 1,704 |
+| API errors | 1 JSON-parse error (`Extra data…`, 2026-07-24 batch); 0 billing/HTTP errors |
 | Model | `claude-haiku-4-5-20251001` |
 | Workers | 24 (Tier-2 account) |
-| Projects with `timeline_llm_run_at` set (post 2026-07-14 rebuild) | CE 8,396 / EA 845 / EIS 1,508 |
+| Projects with `timeline_llm_run_at` set (post 2026-07-23 rebuild) | CE 8,395 / EA 848 / EIS 1,514 |
 
-The 2026-07-14 selection rerun (`05`/`05c`) does not itself know about prior LLM adjudications — it rebuilds `timeline_project_dates.parquet` from candidates. `06_adjudicate_llm.py` was re-applied immediately afterward (05:27 UTC) to restore the LLM-sourced completions on top of the rebuilt file; because the candidate pool and prompts were unchanged, nearly all of this was a same-day cache replay (SHA-1 cache key on `project_id | candidate_ids | model`), plus the 9 genuinely new calls dated 2026-07-13. The small count changes vs. the 2026-06-17 run (e.g. CE 8,518 → 8,396) reflect a handful of projects that the improved 05/05c selection now resolves without LLM help, so 06's completable-gate no longer routes them.
+The 2026-07-14 and 2026-07-23 selection reruns (`05`/`05c`) do not themselves know about prior LLM adjudications — they rebuild `timeline_project_dates.parquet` from candidates. `06_adjudicate_llm.py` was re-applied immediately afterward each time to restore LLM-sourced completions on top of the rebuilt file; because the candidate pool and prompts were largely unchanged, nearly all of this was a cache replay (SHA-1 cache key on `project_id | candidate_ids | model`), plus the genuinely new calls (9 on 2026-07-13, 48 on the 2026-07-23 Tier-C restore where new section candidates changed some packet compositions). The small count changes vs. the 2026-06-17 run reflect a handful of projects that the improved 05/05c selection now resolves without LLM help, so 06's completable-gate no longer routes them.
 
 ### Tier A Metadata Source Contributions (register runs 2026-05-29)
 
@@ -771,7 +771,7 @@ Total output: 5,032 rows (EA 2,765 / EIS 2,267). `regulatory_pages` is null for 
 
 ### Classifier Model and Calibration Status
 
-The candidate classifier currently in production is `salvage_20260609T042302Z` (trained 2026-06-09, three heads, SetFit head-only fit salvaged from a checkpoint), scored across `timeline_candidates.parquet` on 2026-06-16 (451,928 of the 689,424 candidate rows scored; the rest — `role_confidence_score == 5.0` register/strong-cue rows, plus `review`/`reject` roles — are exempt). Per `classifier_meta.json`, the frozen test split (938 rows of 5,361 labeled candidates in `classifier.csv`; 4,423 train / 938 test) gives:
+The candidate classifier currently in production is `salvage_20260609T042302Z` (trained 2026-06-09, three heads, SetFit head-only fit salvaged from a checkpoint; model files and `classifier_meta.json` last written 2026-06-16 — the model itself was not retrained by the Tier-C restore). It was re-scored across the rebuilt `timeline_candidates.parquet` during the 2026-07-23 Tier-C restore; all **710,328** candidate rows now carry `p_initiation`/`p_decision`/`p_feis` scores (up from 689,424 rows pre-restore, +21,289 of them being the newly-retrieved `source_tier = "section"` candidates). Per `classifier_meta.json`, the frozen test split (938 rows of 5,361 labeled candidates in `classifier.csv`; 4,423 train / 938 test) gives:
 
 | Head | Precision | Recall | F1 | TP | FP | FN |
 |---|---:|---:|---:|---:|---:|---:|

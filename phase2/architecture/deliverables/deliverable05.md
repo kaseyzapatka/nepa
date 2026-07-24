@@ -176,7 +176,7 @@ The CE-category windows (`CAT_WINDOWS`) use a separate baseline: ARRA uses `2016
 <!-- d5-run-results: pull this section into the D5 report -->
 
 Most recent full run: 2026-07-23 (`law_citations_extraction_run_at` 17:07 UTC; `ce_categories_extraction_run_at` 17:08 UTC).
-Numbers in this section last verified 2026-07-22, against the 2026-07-15 timeline rebuild and the 2026-07-20 diagnostics regeneration.
+Numbers in this section re-verified 2026-07-24 directly against the current output parquets (`law_citations.parquet` = 8,741 rows; `ce_categories.parquet` = 74,035 rows / 49,604 distinct projects). Note: this D5 run (17:08 UTC) predates the D4 Tier-C section-retrieval restore (`timeline_project_dates.parquet` re-selected later that day, ~00:53 UTC on 2026-07-24), so D5's decision-date anchor comes from the pre-Tier-C D4 timeline — but CE decision-date coverage is unchanged by the restore (90.3% before and after), so every CE-anchored number in this section still holds. A re-run of `01`/`03` against the post-restore D4 timeline is not required for these figures.
 
 ### CE Project Base
 

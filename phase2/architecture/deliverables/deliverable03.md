@@ -12,7 +12,7 @@
 flowchart TD
     A[projects_combined.parquet] --> B[02_build_nepa_reviews.py --reviews]
     C[projects_reviews.parquet] --> B
-    D[nepa_trigger/projects_nepa_trigger.parquet optional] --> B
+    D[deliverable01/projects_nepa_trigger.parquet optional] --> B
     B --> E[projects_nepa_reviews.parquet]
 
     F[documents_combined.parquet] --> G[02_build_nepa_reviews.py --ce]
@@ -53,7 +53,7 @@ flowchart TD
 |---|---|
 | `phase2/data/analysis/projects_combined.parquet` | Main project universe with energy type, process type, agency, geography, and project type metadata |
 | `phase2/data/analysis/projects_reviews.parquet` | Supplemental review metadata, especially `is_linear` when available |
-| `phase2/data/analysis/nepa_trigger/projects_nepa_trigger.parquet` | D1 trigger classifications; clean-energy only, used for trigger-stratified CE summaries |
+| `phase2/data/analysis/deliverable01/projects_nepa_trigger.parquet` | D1 trigger classifications; clean-energy only, used for trigger-stratified CE summaries (path set by `TRIGGERS_PATH` in `02_build_nepa_reviews.py`) |
 | `phase2/data/analysis/documents_combined.parquet` | Document-level metadata, including raw `ce_category` fields |
 | `phase2/data/analysis/document_sections.parquet` | Reusable section layer consumed by the preferred visual-impact pipeline |
 | `phase2/data/processed/ea/pages.parquet` | EA page text, used by legacy visual extraction and section inventory logic |
@@ -409,9 +409,9 @@ The R plotting code computes per-element denominators and attempts to draw them 
 
 The Python topic labels are generated from top terms. `04_create_figures.R` remaps them to stable interpretive labels. If topic vocabulary changes after a rerun, update `TOPIC_INTERP` in the R script before rendering the report.
 
-### Timeline Section Is Optional
+### Timeline Section Is Optional (and Its Path Is Currently Stale)
 
-Timeline figures are guarded by `file.exists(TIMELINE_PATH)`. The rest of D3 can render without timeline data.
+Timeline figures are guarded by `file.exists(TIMELINE_PATH)`. The rest of D3 can render without timeline data. **Caveat:** `TIMELINE_PATH` in `04_create_figures.R` is hard-coded to `phase2/data/analysis/timeline.parquet`, which does not exist — the D4 timeline output now lives at `phase2/data/analysis/timeline/timeline_project_dates.parquet`. As a result the timeline section (fig20, `timeline_coverage.csv`, `duration_summary.csv`) is silently skipped on every current run. Point `TIMELINE_PATH` at the D4 output before relying on the optional timeline figures.
 
 ---
 
