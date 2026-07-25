@@ -44,17 +44,17 @@ retitle convention (factsheet pipeline) — not orphans, keep.
 
 ## Action items
 
-- [ ] **Factsheets stale (real numbers impact)** — `phase2/code/factsheet_figures.R`
+- [x] **Factsheets stale (real numbers impact)** *(DONE 2026-07-24, commit 0deeb3d)* — `phase2/code/factsheet_figures.R`
   (stopgap block, lines 162–166) reads the parquet's **raw** `duration_days`, the exact
   column fixed on Jul 24 (non-null universe 23,922 → 27,046 → prior factsheet undercounted).
   `fs1_duration_by_technology.png`, `fs1_duration_by_technology.csv`,
   `fs1_duration_by_energy.csv`, `factsheet1_timelines.docx` (Jul 17) must be rebuilt.
   *(Being handled 2026-07-24.)*
-- [ ] **D3 runbook stale** — `phase2/runbooks/deliverables/deliverable03.md` (lines ~18,
+- [x] **D3 runbook stale** *(DONE 2026-07-24, commit 0deeb3d)* — `phase2/runbooks/deliverables/deliverable03.md` (lines ~18,
   101, 184) still describes deleted Section 6 / fig20 / `timeline_coverage.csv` /
   `duration_summary.csv`. Architecture doc already updated in the same uncommitted batch.
   *(Being handled 2026-07-24.)*
-- [ ] **Commit the D4 finalize fix** — `05_select_dates.py`, `06_adjudicate_llm.py`,
+- [x] **Commit the D4 finalize fix** *(DONE 2026-07-24)* — `05_select_dates.py`, `06_adjudicate_llm.py`,
   untracked `_finalize_duration.py`, comment-only `08_*.R` updates: functional pipeline
   code currently only on disk. Repair mode was already run (parquet Jul 24 15:06; backup
   `timeline_project_dates.pre_finalize_20260724T220619Z.parquet` kept).

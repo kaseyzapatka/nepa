@@ -32,7 +32,7 @@ These document the cached external-register lookups that feed D4's Tier-A date m
 |---|---|---|
 | [deliverables/deliverable01.md](deliverables/deliverable01.md) | D1: NEPA Triggered | Yes — needs only `projects_combined.parquet` + CE/EA/EIS pages |
 | [deliverables/deliverable02.md](deliverables/deliverable02.md) | D2: Determinations of Significance | Partially — significance extraction reads D6 FONSI finding-section spans; validation needs a hand-labeled gold set |
-| [deliverables/deliverable03.md](deliverables/deliverable03.md) | D3: NEPA Review Process Application | Partially — core review/CE/geography/visual outputs self-contained; trigger-stratified CE summaries use D1; optional timeline figures use D4 |
+| [deliverables/deliverable03.md](deliverables/deliverable03.md) | D3: NEPA Review Process Application | Partially — core review/CE/geography/visual outputs self-contained; trigger-stratified CE summaries use D1 |
 | [deliverables/deliverable04.md](deliverables/deliverable04.md) | D4: Project Timelines | Partially — core extraction self-contained; Tier-A registers need network (cached); geothermal/technology sub-analyses need D3 |
 | [deliverables/deliverable05.md](deliverables/deliverable05.md) | D5: CE Spikes After Major Legislation | Partially — scripts 01/02 self-contained; `03_create_figures.R` needs D4 `decision_date` for year placement |
 | [deliverables/deliverable06.md](deliverables/deliverable06.md) | D6: Patterns in FONSIs | Partially — needs D3 (reviews, CE citations) + D4 (decision dates); also writes `fonsi_conditions.parquet` consumed by D2 |
@@ -53,15 +53,10 @@ Federal Register NOI/NOA data is a refreshable Phase 2 artifact. Default `extrac
 
 ## Timeline Data Integration
 
-Timeline-dependent deliverables (D3 script 05, D4) join via `project_id` against `timeline_*.parquet`.
+The timeline pipeline is **D4** (`code/deliverable04/`). It writes one row per project to `data/analysis/timeline/timeline_project_dates.parquet` with `initiation_date`, `decision_date`, their granularities and `*_source_type` provenance, `timeline_status`, and `duration_days`. Timeline-consuming deliverables join it via `project_id`: **D5** anchors CE-spike year placement on `decision_date`; **D6** merges `decision_date` for its post-FRA tabulation. D3 produces no timeline/duration figures — its dead timeline section was removed 2026-07-24 (duration analysis is entirely D4's domain).
 
-**Initiation date hierarchy:**
-1. `noi_publication_date` from Federal Register — authoritative where present
-2. `bert_initiation_date` from `extract_timeline.py`
+D4 selects each date through a cascade (see `deliverables/deliverable04.md` for the full logic):
 
-**End-of-process date:**
-- `noa_availability_date` from Federal Register — FEIS notice for EIS projects; FONSI/Final EA for EA projects
+**Initiation date** — Tier-A metadata first (`fr_noi` from the Federal Register `noi_publication_date` is authoritative where present; then BLM/DOE register start dates), then document-text extraction (`03_extract_candidates.py` regex + `04_classify_candidates.py` learned scorer), then LLM adjudication (`06_adjudicate_llm.py`) for gaps.
 
-**Decision date hierarchy:**
-1. `bert_decision_date`
-2. `llm_decision_date` (EA/EIS adjudication cases only)
+**Decision date** — Tier-A register ROD/FONSI/CX dates first, then document-text extraction, then LLM adjudication. For EIS, ROD is preferred with FEIS as a documented fallback (`decision_is_feis_fallback`).

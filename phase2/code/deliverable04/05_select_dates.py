@@ -40,6 +40,8 @@ from typing import Optional
 import duckdb
 import pandas as pd
 
+from _finalize_duration import finalize_duration_days
+
 ROOT = Path(__file__).resolve().parents[3]
 PHASE2 = ROOT / "phase2"
 ANALYSIS_DIR = PHASE2 / "data" / "analysis"
@@ -1907,10 +1909,32 @@ def main() -> None:
                              "already-published parquet to full-universe coverage without re-selecting, since "
                              "a fresh re-selection cannot re-apply June-era cached LLM adjudications whose "
                              "candidate packets no longer re-form identically.")
+    parser.add_argument("--finalize-durations-only", action="store_true",
+                        help="Skip selection and the LLM chain entirely: load the existing canonical dates "
+                             "parquet, recompute duration_days for all rows from the final date columns "
+                             "(finalize_duration_days), and write back. Keyless — never constructs an API "
+                             "client. Use to repair a parquet whose duration_days went stale after an "
+                             "adjudication run that recovered dates but did not recompute the duration.")
     args = parser.parse_args()
 
     if args.import_corrections:
         import_corrections_from_csv(args.import_corrections)
+        return
+
+    if args.finalize_durations_only:
+        if not DATES_PATH.exists():
+            raise SystemExit(f"--finalize-durations-only: no canonical dates parquet at {DATES_PATH}")
+        dates_df = pd.read_parquet(DATES_PATH)
+        backup = DATES_PATH.with_name(
+            f"timeline_project_dates.pre_finalize_{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}.parquet")
+        shutil.copy2(DATES_PATH, backup)
+        print(f"Backed up canonical dates -> {backup.name}")
+        before_nonnull = int(dates_df["duration_days"].notna().sum()) if "duration_days" in dates_df.columns else 0
+        dates_df = finalize_duration_days(dates_df)
+        after_nonnull = int(dates_df["duration_days"].notna().sum())
+        dates_df.to_parquet(DATES_PATH, index=False)
+        print(f"Wrote {DATES_PATH} ({len(dates_df):,} projects; "
+              f"duration_days non-null {before_nonnull:,} -> {after_nonnull:,}).")
         return
 
     if args.reconcile_only:
@@ -2068,6 +2092,11 @@ def main() -> None:
     # Flag EIS projects that have DEIS but no FEIS/ROD — structurally unresolvable by regex
     print("Applying deis_only flags...")
     dates_df = apply_deis_only_flags(dates_df, INDEX_PATH)
+
+    # Finalize duration_days from the fully-resolved date columns. Runs last so it reflects
+    # midpoint imputation + invalid-order normalization. Idempotent; single source of truth
+    # shared with 06's apply step (see _finalize_duration.py).
+    dates_df = finalize_duration_days(dates_df)
 
     # Save project dates
     if args.append and dates_path.exists():

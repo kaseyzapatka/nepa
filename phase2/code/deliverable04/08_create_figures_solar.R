@@ -10,10 +10,10 @@
 # complete_with_proxy, YEAR-granularity endpoints excluded, month-granularity
 # imputed to the mid-month 15th, non-negative durations. NOTE: the plan file
 # (plans/deliverable04_solar.md) specified the parquet's raw `duration_days`
-# column instead; that column is only populated for the pre-adjudication
-# day-level subset (see the loader comment in 08_create_figures.R) and undercounts
-# complete timelines (solar EIS 35 vs 70), so the report-consistent frame is
-# used here.
+# column instead. As of the 2026-07-24 finalize fix that column is current for
+# day/day pairs (05/06 run finalize_duration_days), but this recomputed frame is
+# still used because it additionally applies the month->15th midpoints the raw
+# column intentionally leaves null — matching 08_create_figures.R's headline frame.
 #
 # Outputs:
 #   phase2/output/deliverable04/figures/fig_d4_solar_duration.png
