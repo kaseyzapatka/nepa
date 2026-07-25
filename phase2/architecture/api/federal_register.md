@@ -1,6 +1,6 @@
 # federal_register.py — Architecture
 
-**Script:** `phase2/code/extract/federal_register.py`
+**Script:** `phase2/code/api/federal_regisiter/federal_register.py` (note the misspelled folder name)
 
 **Purpose:** Enrich NEPA projects with Federal Register dates:
 - `noi_publication_date` — NOI (Notice of Intent) publication date at project initiation

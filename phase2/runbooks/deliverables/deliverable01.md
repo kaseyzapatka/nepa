@@ -2,12 +2,15 @@
 
 **Purpose:** Classify the federal nexus that triggers NEPA review for each clean energy project.
 **Input:** `data/analysis/projects_combined.parquet` + source-level docs/pages parquets (CE, EA, EIS).
-**Output:** `data/analysis/nepa_trigger/projects_nepa_trigger.parquet`, `data/analysis/nepa_trigger/projects_funding_details.parquet`, and validation batch CSV.
-**Cost:** LLM tier (optional) ~$1–4 (Claude Haiku) depending on share of unresolved cases; Tier 5 has a hard budget guardrail (default $10).
+**Output:** `data/analysis/deliverable01/projects_nepa_trigger.parquet`, `data/analysis/deliverable01/projects_funding_details.parquet`, and `data/validation/deliverable01/validation_batches.csv`.
+**Cost:** Tier 5 LLM (optional, `--use-llm`) ~$1.80 measured (Claude Haiku, ~500 queued cases); hard budget guardrail (default $10).
 **Scope:** 20,725 clean energy projects (`project_energy_type = 'Clean'`).
-**Scripts:**
-- `phase2/code/deliverable01/01_extract_nepa_trigger.py` — extraction pipeline
-- `phase2/code/deliverable01/02_create_figures.R` — analysis and figures
+**Scripts** (in `phase2/code/deliverable01/`):
+- `01_extract_nepa_trigger.py` — the 5-tier extraction pipeline (writes the trigger + funding parquets)
+- `02_train_setfit_trigger.py` — trains the Tier 3b SetFit DOE-CE classifier (needs the example bank; one-time)
+- `03_rerun_tier5.py` — replays the committed Tier 5 adjudication record deterministically ($0, no API) — `--from-record`
+- `02_create_figures.R` — trigger analysis and figures
+- `04_secondary_review_crosstabs.R` — secondary-review cross-tabs
 
 **Reference docs** (in `phase2/code/deliverable01/`):
 - `_notes.md` — tactical notes, model selection rationale, threshold guidance
@@ -20,17 +23,18 @@
 
 ## Classification scheme
 
-Seven primary trigger classes, in priority order (used to break ties when multiple signals are present):
+Eight primary trigger classes, in priority order (`TRIGGER_HIERARCHY`, used to break ties when multiple signals are present):
 
 | Priority | Class | Typical federal nexus |
 |---|---|---|
-| 1 | `federal_action` | Agency itself proposes or implements the action |
-| 2 | `federal_program` | Programmatic EIS, resource management plan, rulemaking |
-| 3 | `federal_property_transaction` | Land exchange, conveyance, disposal |
-| 4 | `federal_land` | Project on or crossing federal land; ROW grant |
-| 5 | `federal_permit` | Agency permit, license, or authorization required |
-| 6 | `federal_funding` | Federal grant, loan guarantee, cost share |
-| 7 | `unknown` | Clear NEPA review but nexus not identifiable |
+| 1 | `federal_program` | Programmatic EIS/EA, resource management plan, rulemaking |
+| 2 | `federal_direct_action` | Agency itself proposes or implements the action |
+| 3 | `pma` | Power Marketing Administration (BPA/WAPA/SEPA/SWPA) or TVA is the acting agency |
+| 4 | `federal_property_transaction` | Land exchange, conveyance, disposal |
+| 5 | `federal_land` | Project on or crossing federal land; ROW grant |
+| 6 | `federal_permit` | Agency permit, license, or authorization required |
+| 7 | `federal_funding` | Federal grant, loan guarantee, cost share |
+| 8 | `unknown` | Clear NEPA review but nexus not identifiable |
 
 **Primary trigger:** the federal nexus most directly responsible for the agency's NEPA decision.
 **Secondary triggers:** additional nexuses clearly present (`nepa_trigger_secondary`, stored as Arrow list<string>).
@@ -48,7 +52,8 @@ Each tier runs on projects not yet finalized by a prior tier. Tiers 1–3 produc
 | 1b | Keyword patterns on title + description | `projects_combined.parquet` | ~30 patterns per class; returns first match; negation guard suppresses checklist false positives |
 | 2 | Document title keyword scan | `*_documents.parquet` | Scans all documents for a project; programmatic title patterns fire here |
 | 3 | Purpose and Need section | `*_pages.parquet` | CE: full doc scan with conservative pattern set (no sec404/arra/rmp); EA/EIS: P&N header detection, first 10 pages |
-| 4 | Retrieval-first local NLI | `*_pages.parquet` | Chunk retrieval + `cross-encoder/nli-MiniLM2-L6-H768` zero-shot NLI; embedding fallback if NLI unavailable; DOE and CE-heavy rows route here |
+| 3b | SetFit DOE-CE classifier | `deliverable01/` model | Runs only on DOE + `process_type == CE` projects (~14K, the largest ambiguous pool). Fine-tuned SetFit at `phase2/models/trigger_setfit`; two gates (`top_prob >= 0.65`, `margin >= 0.08`); auto-accept on pass, else falls to Tier 4. **Highest-yield ML tier** (see Run Results) |
+| 4 | Retrieval-first local NLI | `*_pages.parquet` | Chunk retrieval + `cross-encoder/nli-deberta-v3-base` (or `nli-MiniLM2-L6-H768`) zero-shot NLI; embedding fallback if NLI unavailable; DOE and CE-heavy rows route here |
 | 5 | Claude Haiku LLM | Tier 4 evidence bundles | Only with `--use-llm`; receives top chunks + local NLI scores + provisional class; subject to budget guardrail |
 
 **Routing policy:**
@@ -77,7 +82,7 @@ If any check fails, adjust `HYPOTHESIS_TEMPLATES` in the script and re-run calib
 
 ### Step 2 — Quick run (no LLM)
 
-Runs tiers 1a–4. Appropriate for an initial build or after pattern changes.
+Runs tiers 1a–3b, then 4 (Tier 3b resolves the bulk of DOE CEs). Appropriate for an initial build or after pattern changes.
 
 ```bash
 conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py
@@ -142,7 +147,7 @@ conda run -n nepa python phase2/code/deliverable01/01_extract_nepa_trigger.py --
 
 ## Outputs
 
-### Primary output: `data/analysis/nepa_trigger/projects_nepa_trigger.parquet`
+### Primary output: `data/analysis/deliverable01/projects_nepa_trigger.parquet`
 
 One row per project. Key columns:
 
@@ -163,7 +168,7 @@ One row per project. Key columns:
 
 **`nepa_trigger_evidence_source` values:** `agency_metadata`, `title`, `description`, `doc_title`, `purpose_and_need`, `document_text`, `embedding`, `llm`.
 
-### Funding details sidecar: `data/analysis/nepa_trigger/projects_funding_details.parquet`
+### Funding details sidecar: `data/analysis/deliverable01/projects_funding_details.parquet`
 
 One row per project where `nepa_trigger_primary == "federal_funding"`. This sidecar is intentionally
 separate from the trigger output so funding mechanism and amount parsing can be refreshed without
@@ -192,7 +197,7 @@ Amount coverage is partial by design. Dollar amounts are only populated when the
 project-specific federal funding language. Generic dollar amounts elsewhere in a NEPA document are
 not treated as federal funding amounts.
 
-### Validation batches: `data/analysis/nepa_trigger/validation_batches.csv`
+### Validation batches: `data/validation/deliverable01/validation_batches.csv`
 
 Stratified sample of output rows for manual QA. Sampled by:
 - rule_id (up to 20 rows per rule family)
@@ -206,10 +211,10 @@ Key columns: all output columns + `validation_batch` (batch label), `batch_kind`
 
 | File | Description |
 |---|---|
-| `data/analysis/nepa_trigger/context_candidates.parquet` | All chunks retrieved and scored per project |
-| `data/analysis/nepa_trigger/tier4_chunk_scores.parquet` | Per-chunk NLI scores for each candidate class |
-| `data/analysis/nepa_trigger/tier4_doc_scores.parquet` | Aggregated doc-level scores and auto-resolve decisions |
-| `data/analysis/nepa_trigger/tier5_queue.parquet` | Projects queued for Tier 5 (written before any LLM calls) |
+| `data/analysis/deliverable01/context_candidates.parquet` | All chunks retrieved and scored per project |
+| `data/analysis/deliverable01/tier4_chunk_scores.parquet` | Per-chunk NLI scores for each candidate class |
+| `data/analysis/deliverable01/tier4_doc_scores.parquet` | Aggregated doc-level scores and auto-resolve decisions |
+| `data/analysis/deliverable01/tier5_queue.parquet` | Projects queued for Tier 5 (written before any LLM calls) |
 
 ---
 
@@ -238,7 +243,7 @@ After a successful run, review the highest-volume rule batches:
 ```bash
 python -c "
 import pandas as pd
-df = pd.read_csv('data/analysis/nepa_trigger/validation_batches.csv')
+df = pd.read_csv('data/validation/deliverable01/validation_batches.csv')
 rule_batches = df[df['batch_kind'] == 'rule'].drop_duplicates('validation_batch')
 print(rule_batches[['validation_batch','batch_size']].sort_values('batch_size', ascending=False).head(15).to_string(index=False))
 "
@@ -251,13 +256,13 @@ Accept a rule batch if manual precision ≥ 0.85. For rules below that threshold
 ```python
 import pyarrow.parquet as pq, pandas as pd
 
-df = pq.read_table("data/analysis/nepa_trigger/projects_nepa_trigger.parquet").to_pandas()
+df = pq.read_table("data/analysis/deliverable01/projects_nepa_trigger.parquet").to_pandas()
 print(df["nepa_trigger_primary"].value_counts())
 print(f"\nManual review rate: {df['nepa_trigger_manual_review'].mean():.1%}  (target: < 5%)")
 print(f"Unknown rate: {(df['nepa_trigger_primary']=='unknown').mean():.1%}  (target: < 10%)")
 print(f"Dual-nexus projects: {df['is_dual_nexus'].sum()} ({df['is_dual_nexus'].mean():.1%})")
 print(f"\nTier 4 diagnostic check:")
-t4 = pq.read_table("data/analysis/nepa_trigger/tier4_doc_scores.parquet").to_pandas()
+t4 = pq.read_table("data/analysis/deliverable01/tier4_doc_scores.parquet").to_pandas()
 print(f"  Tier 4 auto-resolved: {t4['auto_resolve'].sum()} / {len(t4)}")
 print(f"  Mean top class score: {t4['top_class_score'].mean():.3f}")
 ```
@@ -287,20 +292,25 @@ install.packages("usmap")
 
 | File | Description |
 |---|---|
-| `fig1_trigger_by_process.png` | 100% stacked bar — primary trigger × CE/EA/EIS |
-| `fig2_agency_trigger_heatmap.png` | Viridis heatmap — top 18 agencies × trigger class |
-| `fig3_trigger_combinations.png` | Top 10 primary + secondary combinations |
-| `fig4_trigger_by_technology.png` | 100% stacked bar — trigger × energy technology |
-| `fig5_state_choropleth.png` | State map — dominant trigger per state |
+| `fig1_trigger_counts.png` | Primary trigger class counts (all projects) |
+| `fig2_trigger_by_process.png` | 100% stacked bar — primary trigger × CE/EA/EIS |
+| `fig3_process_by_trigger.png` | Process-type mix within each trigger class |
+| `fig4_department_trigger_heatmap.png` | Heatmap — department × trigger class |
+| `fig5_trigger_by_technology.png` | 100% stacked bar — trigger × energy technology |
+| `fig6_state_choropleth.png` | State map — dominant trigger per state |
+| `fig7_county_choropleth.png` | County map — dominant trigger per county |
 | `fig8_funding_mechanism_counts.png` | Federal funding mechanism counts from `projects_funding_details.parquet` |
 | `fig9_funding_program_counts.png` | Federal funding program/source label counts |
 | `fig10_funding_amount_coverage.png` | Coverage of extracted funding amount fields |
+| `fig11_funding_amount_distribution.png` | Distribution of extracted federal funding amounts |
+| `fig12_pipeline_flow.png` | Tier-by-tier resolution flow |
 | `federal_funding_detail_summary.csv` | Mechanism, program/source, and amount coverage summary |
-| `trigger_evidence_excerpts.csv` | 2 high-confidence quotable examples per class |
+| `large_finance_mechanisms.csv` | Largest funding mechanisms by amount |
+| `trigger_evidence_excerpts.csv` | High-confidence quotable examples per class |
 | `trigger_source_distribution.csv` | Evidence source × confidence breakdown |
-| `trigger_rule_distribution.csv` | Top 25 rules by volume |
+| `trigger_rule_distribution.csv` | Rules by volume |
 
-Fig 6 (trigger × review duration) is a placeholder — uncomment in the R script after `D4` timeline data (`data/analysis/projects_timeline_bert.parquet`) is available.
+There is no trigger × review-duration figure in D1 — duration analysis is entirely D4's domain.
 
 ---
 

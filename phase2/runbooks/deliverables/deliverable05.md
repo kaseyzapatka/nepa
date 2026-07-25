@@ -1,7 +1,7 @@
 # D5 — CE Spikes After Major Infrastructure Legislation
 
 **Purpose:** Test whether the use of categorical exclusions (CEs) spikes after major infrastructure legislation (ARRA 2009, BIL/IIJA 2021, IRA 2022), whether the spiking actions are *associated with* the law (explicit citations in the documents), and *what types* of CEs were used (the categorical-exclusion category invoked).
-**Scope:** All CEs (54,040 in the D4 timeline; ~96.4% placeable by a date), all energy types, all departments. EA/EIS are scanned for citations too, for the by-review-type contrast.
+**Scope:** All CEs (54,668 in the D4 timeline; 95.3% placeable by a date), all energy types, all departments. EA/EIS are scanned for citations too, for the by-review-type contrast.
 **Input:** `phase2/data/analysis/timeline/timeline_project_dates.parquet` (D4 dates), `phase1/data/analysis/projects_combined.parquet` (energy/department/agency/type), `phase2/data/processed/{ce,ea,eis}/{pages,documents}.parquet`.
 **Output:** `phase2/data/analysis/deliverable05/{law_citations,ce_categories}.parquet`; figures + diagnostic CSVs in `phase2/output/deliverable05/{figures,diagnostics}/`.
 **Cost:** $0 — no LLM/API. Pure regex over page text (~3–4 min full scan), metadata parse, and R analysis.
@@ -136,7 +136,7 @@ The report (`phase2/reports/deliverable05.qmd`) reads the figures + CSVs and rec
 
 ## Notes
 
-- **Temporal anchor = D4 `decision_date`, with `initiation_date` fallback** for year placement → ~96.4% of CEs placeable (vs the 55% complete-timeline base D4 needs for *duration*). Safe for CEs because the median CE duration is ~20 days, so initiation and decision fall in the same year. A `date_basis` flag records which was used.
+- **Temporal anchor = D4 `decision_date`, with `initiation_date` fallback** for year placement → 95.3% of CEs placeable (52,089 of 54,668; vs the ~52% complete-timeline base D4 needs for *duration*). Safe for CEs because the median CE duration is ~20 days, so initiation and decision fall in the same year. A `date_basis` flag records which was used.
 - **`project_id` is a STRUCT in the processed `documents.parquet` files** (`STRUCT("value" VARCHAR)`) — extract `project_id.value` in DuckDB. `document_id` is plain VARCHAR; the D4 timeline and `projects_combined` project_ids are plain VARCHAR.
 - **ARRA short-name guard:** bare "Recovery Act" collides with the *Resource Conservation and Recovery Act* (RCRA, 1976) and other "…Recovery Act"s, so it is kept only with an affirming ARRA context (`reinvestment|stimulus|2009|111-5|ARRA`) and rejected near `conservation`. The `IRA`/`BIL` acronyms require energy/infrastructure context within ±200 chars.
 - **Coverage-ramp confound:** raw CE counts mix real surges with NEPATEC's ingestion ramp (sparse pre-2009) and 2024–25 recency lag. The causal claim rests on **DOE-vs-BLM conditioning** (the ARRA spike is DOE-only; BLM, on the same dataset, is flat) and **citation evidence** (a Recovery Act citation cannot predate the law) — not on aggregate counts. ARRA has no usable pre-law baseline, so report no ARRA window/baseline ratio.
