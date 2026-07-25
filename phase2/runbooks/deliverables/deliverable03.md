@@ -15,7 +15,6 @@
 | Gap | Impact |
 |-----|--------|
 | `projects_nepa_trigger.parquet` (D1) covers clean energy only | `nepa_trigger_primary` is NULL for fossil projects; CE-by-trigger cross-tab is clean-energy only |
-| `data/analysis/timeline.parquet` not yet built | Section 6 (timelines, fig20) silently skipped |
 | "Other" projects excluded | Intentional — universe is Clean + Fossil only (31,508 projects) |
 
 `is_linear` is no longer a gap: it is derived from the NEPATEC project-type taxonomy (transmission/pipeline/corridor labels = linear) when `projects_reviews.parquet` isn't present, or taken directly from that file when it is.
@@ -98,7 +97,7 @@ Requires `projects_nepa_reviews.parquet`; uses `projects_visual_impacts.parquet`
 Rscript phase2/code/deliverable03/04_create_figures.R
 ```
 
-Outputs written to `phase2/output/deliverable03/`. Section 4 (Visual Impacts) figures are each independently guarded — a missing parquet only skips that figure. Section 6 (timelines) is skipped entirely if `data/analysis/timeline.parquet` doesn't exist.
+Outputs written to `phase2/output/deliverable03/`. Section 4 (Visual Impacts) figures are each independently guarded — a missing parquet only skips that figure. D3 produces no timeline/duration figures — duration analysis is entirely D4's domain.
 
 ---
 
@@ -181,7 +180,6 @@ Subset of `projects_nepa_reviews.parquet`: Clean geothermal projects (any agency
 | `fig15_geo_og_rates.png` | Geothermal/OG | CE/EA/EIS rates: Geothermal vs. Oil & Gas |
 | `fig16_geo_og_states.png` | Geothermal/OG | Geothermal vs. Oil & Gas share by state (100% stacked bar) |
 | `fig17_geo_og_state_map.png` | Geothermal/OG | State choropleth — geothermal share (diverging) |
-| `fig20_duration_by_energy_process.png` | Timelines | Duration by period × process × energy *(conditional on `timeline.parquet`)* |
 
 ---
 
