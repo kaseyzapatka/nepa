@@ -11,7 +11,7 @@ Client-facing factsheets built from the Phase 2 deliverable reports, per
 | `factsheet2_triggers.qmd` | Fact Sheet 2: What Triggers NEPA? | D1 report |
 | `factsheet3_categorical_exclusions.qmd` | Fact Sheet 3: Categorical Exclusions | D6 report + D3 CE-authorities figure |
 | `factsheet4_visual_impacts.qmd` | Fact Sheet 4: Visual Impacts | D3 report (visual module) |
-| — | Fact Sheet 5: Determinations of Significance | TK (plan pending) |
+| `factsheet5_significance.qmd` | Fact Sheet 5: Determinations of Significance Across Resource Areas | D2 report (FONSI + EIS tracks) |
 
 ## Build
 

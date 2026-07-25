@@ -321,4 +321,98 @@ ggsave(file.path(fig_dir, "fs2_process_by_trigger.png"), fs2_proc,
        width = 10, height = 5.5, dpi = 300)
 message("  Saved: fs2_process_by_trigger.png")
 
+# ===========================================================================
+# FS5: Determinations of Significance Across Resource Areas (D2)
+# Sources: phase2/output/deliverable02/analysis/ (figures + summary CSVs) and
+#          phase2/data/analysis/deliverable02/ (validation parquets).
+# Figure numbers below refer to the D2 report's rendered figure order.
+# ===========================================================================
+message("\n--- FS5: significance figures (D2) ---")
+
+D02_ANALYSIS <- here("phase2", "output", "deliverable02", "analysis")
+D02_DATA     <- here("phase2", "data", "analysis", "deliverable02")
+
+# --- COPIED passthrough figures (kept at their D2 basenames) ---
+fs5_passthrough <- file.path(D02_ANALYSIS, paste0(c(
+  "fig_corpus_overview",         # Fig 1  — scale of analysis (methodology)
+  "fig_outcomes_by_resource",    # Fig 5  — how agencies stay below the line
+  "fig_mitigation_by_resource",  # Fig 8  — mitigation share by resource
+  "fig_mitigation_landscape",    # Fig 9  — volume x mitigation-intensity
+  "fig_dept_by_resource",        # Fig 11 — mitigation by agency (BLM vs DOE)
+  "fig_fonsi_technology",        # Fig 13 — mitigation by technology
+  "fig_fonsi_enforceability",    # Fig 14 — enforceability of mitigation
+  "fig_eis_unavoidable",         # Fig 18 — significant & unavoidable counts
+  "fig_eis_breadth",             # Fig 19 — how broadly an EIS crosses the line
+  "fig_eis_factors",             # Fig 21 — why an impact is significant
+  "fig_eis_by_agency",           # Fig 23 — significance by agency
+  "fig_eis_technology",          # Fig 24 — significance by technology
+  "fig_eis_mitigable"            # Fig 26 — significant but reducible
+), ".png"))
+missing5 <- fs5_passthrough[!file.exists(fs5_passthrough)]
+if (length(missing5)) {
+  warning("FS5 missing source figures (skipped):\n  ", paste(missing5, collapse = "\n  "))
+}
+invisible(file.copy(fs5_passthrough[file.exists(fs5_passthrough)], fig_dir, overwrite = TRUE))
+message("  Copied ", sum(file.exists(fs5_passthrough)), " FS5 passthrough figures")
+
+# --- RETITLED headline figures (readRDS the D2 .rds sidecar + labs()) ---
+# Fig 7 — mitigated share
+fs5_mit <- readRDS(file.path(D02_ANALYSIS, "fig_mitigated_share.rds")) +
+  labs(title = "Most Decarbonization FONSIs Reach \"No Significant Impact\"\nOnly With Committed Mitigation")
+ggsave(file.path(fig_dir, "fs5_mitigated_share.png"), fs5_mit, width = 8, height = 4.8, dpi = 300)
+message("  Saved: fs5_mitigated_share.png")
+
+# Fig 17 — which resources cross the line
+fs5_above <- readRDS(file.path(D02_ANALYSIS, "fig_eis_above_line.rds")) +
+  labs(title = "Visual Impacts Cross the Significance Line\nMore Than Any Other Resource")
+ggsave(file.path(fig_dir, "fs5_eis_above_line.png"), fs5_above, width = 9.5, height = 6.5, dpi = 300)
+message("  Saved: fs5_eis_above_line.png")
+
+# Fig 20 — two ways a resource can be a problem
+fs5_vs <- readRDS(file.path(D02_ANALYSIS, "fig_fonsi_vs_eis.rds")) +
+  labs(title = "Some Resources Get Mitigated Below the Line;\nOthers Cross It")
+ggsave(file.path(fig_dir, "fs5_fonsi_vs_eis.png"), fs5_vs, width = 9, height = 6.5, dpi = 300)
+message("  Saved: fs5_fonsi_vs_eis.png")
+
+# --- Staged summary CSVs for inline numbers + example tables ---
+fs5_tables <- c(
+  "mitigation_document_level.csv",        # FONSI docs/projects + mitigated share
+  "mitigation_by_resource.csv",           # top mitigation-driving resources
+  "mitigation_resource_match_overall.csv",# same-resource match share
+  "mitigation_examples.csv",              # Table 2 (subset in QMD)
+  "eis_coverage_funnel.csv",              # EIS funnel counts
+  "eis_class_distribution.csv",           # EIS significant / unavoidable counts
+  "eis_mitigation_document_level.csv",    # EIS projects/documents
+  "eis_resource_significance.csv",        # resources most likely to cross
+  "eis_significance_factors.csv",         # leading significance factors
+  "eis_agency.csv",                       # significance spread by agency
+  "eis_technology.csv",                   # significance by technology
+  "eis_unavoidable_examples.csv",         # Table 4 (subset in QMD)
+  "eis_factor_examples.csv"               # Table 5 (subset in QMD)
+)
+missing5t <- fs5_tables[!file.exists(file.path(D02_ANALYSIS, fs5_tables))]
+if (length(missing5t)) {
+  warning("FS5 missing source tables (skipped):\n  ", paste(missing5t, collapse = "\n  "))
+}
+invisible(file.copy(file.path(D02_ANALYSIS, fs5_tables), tbl_dir, overwrite = TRUE))
+message("  Staged ", sum(file.exists(file.path(D02_ANALYSIS, fs5_tables))), " FS5 summary tables")
+
+# --- Derived validation summary (held-out F1 from the two D2 validation parquets;
+#     the held-out test is the honest score the D2 report headlines) ---
+val_metric_keep <- c(candidate_is_determination       = "finds",
+                     resource_determination_detection  = "resource",
+                     determination_class_macro_f1       = "class")
+read_val <- function(path, track) {
+  read_parquet(path) |>
+    mutate(score = coalesce(f1, precision)) |>
+    filter(scope == "holdout", metric %in% names(val_metric_keep)) |>
+    transmute(track = track, metric = recode(metric, !!!val_metric_keep), score)
+}
+fs5_val <- bind_rows(
+  read_val(file.path(D02_DATA, "validation_metrics.parquet"),     "fonsi"),
+  read_val(file.path(D02_DATA, "validation_metrics_eis.parquet"), "eis")
+)
+write_csv(fs5_val, file.path(tbl_dir, "fs5_validation.csv"))
+message("  Saved table: fs5_validation.csv")
+
 message("\nDone. Figures: ", fig_dir, "\nTables:  ", tbl_dir)
