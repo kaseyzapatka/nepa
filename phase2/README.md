@@ -32,10 +32,9 @@ phase2/
 ├── data/               # Phase 2 processed outputs (never write to ../data/analysis/)
 ├── models/             # Phase 2 BERT model checkpoints (CE, EA, EIS, combined)
 ├── output/             # Phase 2 deliverable outputs + timeline validation
-├── plans/              # Implementation specs (deleted after each deliverable is built)
 ├── reports/            # Quarto reports (index.qmd landing page; deliverables added as completed)
 ├── runbooks/           # Step-by-step execution guides
-└── tests/              # Unit tests
+└── training/           # Model training labels and locked sample IDs (see its README)
 ```
 
 ## Running Phase 2 pipelines
