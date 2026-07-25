@@ -20,7 +20,6 @@ nepa/
 ├── includes/                  # Site-wide HTML includes (navbar submenu)
 ├── scripts/                   # Quarto post-render hook (PDF generation)
 ├── environment.yml            # Conda environment spec (shared by phase1 + phase2)
-├── environment.lock.yml       # Locked conda dependencies
 ├── app/                       # Streamlit document explorer (deployed to HF Spaces)
 ├── docs/                      # Built Quarto website output (published site)
 ├── literature/                # Reference materials
@@ -77,9 +76,9 @@ conda env create -f environment.yml
 conda activate nepa
 ```
 
-Both phases share this environment for the Python pipelines. See [environment.yml](environment.yml) for the full dependency spec, or `phase1/notes/architecture/environment_setup.md` for design rationale.
+Both phases share this environment — Python pipelines and the rendering stack (Quarto 1.3.433 + R 4.2, pinned to the versions that produced the published site). See [environment.yml](environment.yml) for the full dependency spec with the exact versions annotated, or `phase1/notes/architecture/environment_setup.md` for design rationale.
 
-**Rendering the website** additionally requires a system-level Quarto (≥1.3) and R (4.2+) with the packages the reports load — render with `quarto render` from the repo root using the system Quarto, not the conda-bundled one. Report-input CSVs are tracked, so the reports render from a fresh clone; re-running the extraction pipelines themselves requires the NEPATEC data drop.
+**Rendering the website**: `quarto render` from the repo root inside the activated env. Report-input CSVs are tracked, so the reports render from a fresh clone; re-running the extraction pipelines themselves requires the NEPATEC data drop.
 
 - **Phase 1 pipeline:** [phase1/README.md](phase1/README.md)
 - **Phase 2 pipeline:** [phase2/README.md](phase2/README.md)
