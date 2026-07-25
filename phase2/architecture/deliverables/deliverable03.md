@@ -2,7 +2,7 @@
 
 **Goal:** Compare how NEPA review process types, categorical exclusion citations, geography, geothermal/oil-and-gas patterns, and visual-impact treatment differ between decarbonization and fossil fuel energy projects.
 
-**Self-contained:** Partially. The core D3 review, CE, geography, and visual-impact outputs are generated from Phase 2 analysis and processed document parquets. Trigger-based CE summaries use the D1 trigger output when available. Timeline figures are optional and require `phase2/data/analysis/timeline.parquet`.
+**Self-contained:** Partially. The core D3 review, CE, geography, and visual-impact outputs are generated from Phase 2 analysis and processed document parquets. Trigger-based CE summaries use the D1 trigger output when available. D3 has no timeline analysis; duration questions are handled entirely by D4.
 
 ---
 
@@ -40,7 +40,6 @@ flowchart TD
     Q --> U
     R --> U
     T --> U
-    V[timeline.parquet optional] --> U
     U --> W[figures, CSV tables, report-ready HTML tables]
     W --> X[reports/deliverable03.qmd]
 ```
@@ -58,7 +57,6 @@ flowchart TD
 | `phase2/data/analysis/document_sections.parquet` | Reusable section layer consumed by the preferred visual-impact pipeline |
 | `phase2/data/processed/ea/pages.parquet` | EA page text, used by legacy visual extraction and section inventory logic |
 | `phase2/data/processed/eis/pages.parquet` | EIS page text, used by legacy visual extraction and section inventory logic |
-| `phase2/data/analysis/timeline.parquet` | Optional timeline input for duration figures |
 
 ---
 
@@ -358,7 +356,6 @@ Major output groups:
 | Geothermal/O&G | `fig15_geo_og_rates.png`, `fig16_geo_og_states.png`, `fig17_geo_og_state_map.png` |
 | Visual impacts | `fig12_visual_project_counts.png`, `fig13_wordcloud_grid.png`, `fig18_visual_framing.png`, `fig19a_section_length_energy.png`, `fig19_visual_section_length.png`, `fig21_vrm_elements.png` |
 | Topic diagnostics | `fig14_topic_prevalence.png`, `fig14b_topic_terms.png`, `fig14d_nmf_elbow.png`, `visual_topic_excerpts_table.csv` |
-| Optional timelines | `fig20_duration_by_energy_process.png`, `timeline_coverage.csv`, `duration_summary.csv` |
 
 `phase2/reports/deliverable03.qmd` reads the same output directory and embeds these static figures and generated tables.
 
@@ -409,9 +406,9 @@ The R plotting code computes per-element denominators and attempts to draw them 
 
 The Python topic labels are generated from top terms. `04_create_figures.R` remaps them to stable interpretive labels. If topic vocabulary changes after a rerun, update `TOPIC_INTERP` in the R script before rendering the report.
 
-### Timeline Section Is Optional (and Its Path Is Currently Stale)
+### No Timeline Analysis in D3
 
-Timeline figures are guarded by `file.exists(TIMELINE_PATH)`. The rest of D3 can render without timeline data. **Caveat:** `TIMELINE_PATH` in `04_create_figures.R` is hard-coded to `phase2/data/analysis/timeline.parquet`, which does not exist — the D4 timeline output now lives at `phase2/data/analysis/timeline/timeline_project_dates.parquet`. As a result the timeline section (fig20, `timeline_coverage.csv`, `duration_summary.csv`) is silently skipped on every current run. Point `TIMELINE_PATH` at the D4 output before relying on the optional timeline figures.
+D3 deliberately contains no timeline/duration analysis — that is D4's domain. An early conditional timeline section (fig20, `timeline_coverage.csv`, `duration_summary.csv`) existed in `04_create_figures.R` but pointed at a pre-D4 path that never existed, so it never rendered anything; the dead code was removed on 2026-07-24.
 
 ---
 
