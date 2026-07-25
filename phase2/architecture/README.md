@@ -37,7 +37,7 @@ These document the cached external-register lookups that feed D4's Tier-A date m
 | [deliverables/deliverable05.md](deliverables/deliverable05.md) | D5: CE Spikes After Major Legislation | Partially — scripts 01/02 self-contained; `03_create_figures.R` needs D4 `decision_date` for year placement |
 | [deliverables/deliverable06.md](deliverables/deliverable06.md) | D6: Patterns in FONSIs | Partially — needs D3 (reviews, CE citations) + D4 (decision dates); also writes `fonsi_conditions.parquet` consumed by D2 |
 
-All six deliverable architecture docs now exist under `deliverables/`. See `plans/deliverable0N.md` for the corresponding implementation spec (deleted after build).
+All six deliverable architecture docs now exist under `deliverables/`. (The pre-build implementation specs were working documents, retired after each deliverable shipped; these architecture docs are the surviving technical record.)
 
 ---
 

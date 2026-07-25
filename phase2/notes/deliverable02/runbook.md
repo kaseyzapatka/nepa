@@ -5,7 +5,7 @@
 > validation, analysis, and report — has since been built and run. Current documentation:
 >
 > - **Pipeline architecture + results:** `phase2/architecture/deliverables/deliverable02.md`
-> - **Design decisions (single source of truth):** `phase2/plans/_archived/deliverable02.md`
+> - **Design decisions (single source of truth):** `phase2/architecture/deliverables/deliverable02.md`
 > - **Dataset schemas:** `phase2/notes/deliverable02/data_dictionary.md`
 > - **Reproduction commands:** the *Reproducibility* section of `phase2/reports/deliverable02.qmd`
 

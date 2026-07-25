@@ -223,7 +223,7 @@ Do not add a header or reformat the file: although nothing parses it today, its 
 `phase2/data/analysis/timeline.parquet` exists, and that file is intentionally absent — timeline
 analysis is delivered by **Deliverable 4**, not D3. The section is kept only as a stub. This note
 transplants the two latent-bug records that were previously held only in the (now-deleted)
-`plans/deliverable03_update.md`, so they are not lost if the section is ever revived:
+`plans/deliverable03_update.md` (a working document since deleted), so they are not lost if the section is ever revived:
 
 1. **Wrong FRA cut date.** Section 6 hardcodes `as.Date("2023-08-16")` (the CEQ-rule effective
    date). If revived, change it to **`2023-06-03`** (FRA enactment) to match D4's `FRA_CUT_DATE` and

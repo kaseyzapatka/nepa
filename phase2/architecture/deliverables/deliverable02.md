@@ -1,6 +1,6 @@
 # Deliverable 2 — Determinations of Significance Across Resource Areas
 
-**Plan:** `phase2/plans/deliverable02.md` (v2.11, six review rounds).
+**Plan:** implementation spec v2.11 (six review rounds; working document retired after build — this architecture doc is the surviving record).
 **Code:** `phase2/code/deliverable02/`. **Report:** `phase2/reports/deliverable02.qmd`.
 
 Characterizes, per resource area, how BLM + the DOE agency family make the NEPA significance
@@ -119,7 +119,7 @@ Batch modes: `--batch-run` (one password: submit → poll → fetch → build), 
 stay far under the API's 100,000-request / 256 MB caps. `temperature=0` is only sent on Haiku —
 Sonnet 5 / Opus 4.8 reject sampling parameters. `05` requires the hand-labeled gold set (it
 adopts labeled rows straight from `output/deliverable02/significance_gold_queue.csv`). Full
-detail: `phase2/code/_archived/deliverable02/HANDOFF.md` (archived build handoff).
+detail: recorded in the build-era handoff notes (retired; superseded by this document).
 
 ## API read volume & cost estimates (multi-determination redesign, 2026-07-08)
 
