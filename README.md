@@ -87,3 +87,9 @@ Both phases share this environment — Python pipelines and the rendering stack 
 ## Document Explorer (HF Spaces)
 
 A Streamlit app for browsing NEPA document text, deployed to Hugging Face Spaces with its multi-GB DuckDB stored in an HF Dataset repo. Build and deployment instructions live in **[app/runbook.md](app/runbook.md)**.
+
+---
+
+## License
+
+Code in this repository is released under the [MIT License](LICENSE). The underlying NEPATEC 2.0 data is published by PNNL ([Hugging Face](https://huggingface.co/datasets/PNNL/NEPATEC2.0)); the analysis reports were produced in collaboration with the Clean Air Task Force.
